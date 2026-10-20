@@ -15,6 +15,8 @@ Marinara can save a chat in four formats.
 
 The chat import feature accepts a `.jsonl` file only. If you want to re-import a chat later, export it as **JSONL**, not **Text**, **Markdown**, or **Story**.
 
+A **JSONL** file leaves out a few addresses saved with the chat: the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Importing a chat never brings them in either. If you use them, enter them again in the imported chat's **Chat Settings**.
+
 ## Export a single chat
 
 To export one chat to a file, use the **Chat Branches** section of **Chat Settings**. This is the quickest way to export chat history for a single conversation.

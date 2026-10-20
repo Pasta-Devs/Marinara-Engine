@@ -2,7 +2,8 @@
  * Avatar lip sync from text-to-speech (epic #7537, lane TTS):
  *   - a clip's loudness track opens the mouth on speech, keeps it shut on silence and low noise, opens fast,
  *     closes smoothly, and guesses a coarse mouth shape from how bright the sound is;
- *   - the real TTS service publishes a level source for the character whose voice reads each line, swaps it
+ *   - the real TTS service publishes a level source for the character whose voice reads each line (with the
+ *     line's text and how far through the clip the voice is, for the avatar's moods), swaps it
  *     between speakers, withdraws it on narration, pause, stop and chat switch, and attributes a reading to
  *     the chat it was requested in, even when the user switches chats while it loads or a stage mounts later;
  *   - the voice never passes through Web Audio: no AudioContext is created and playback is untouched, so the
@@ -36,6 +37,7 @@ let decodes = 0;
 const fetchedTexts: string[] = [];
 /** While set, voice requests wait for it, like a slow provider. */
 let fetchGate: Promise<void> | null = null;
+let decodeGate: Promise<void> | null = null;
 class ForbiddenAudioContext {
   constructor() {
     realtimeContexts += 1;
@@ -50,25 +52,29 @@ class FakeOfflineAudioContext {
   ) {}
   async decodeAudioData(bytes: ArrayBuffer): Promise<VoiceSamples> {
     decodes += 1;
+    if (decodeGate) await decodeGate;
     return toneSamples(JSON.parse(new TextDecoder().decode(bytes)) as ToneSpec, this.sampleRate);
   }
 }
-class FakeAudio {
+class FakeAudio extends EventTarget {
   src = "";
   volume = 1;
   muted = false;
   paused = true;
   ended = false;
   currentTime = 0;
+  duration = 0.5;
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
   play() {
     this.paused = false;
     this.ended = false;
+    this.dispatchEvent(new Event("playing"));
     return Promise.resolve();
   }
   pause() {
     this.paused = true;
+    this.dispatchEvent(new Event("pause"));
   }
   removeAttribute(name: string) {
     if (name === "src") this.src = "";
@@ -102,7 +108,8 @@ globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
 
 const { computeVoiceEnvelope, voiceLevelAt, voiceVisemeAt } =
   await import("../../packages/client/src/features/avatars/audio/voice-envelope.js");
-const { subscribeAvatarAudio } = await import("../../packages/client/src/features/avatars/audio/avatar-audio.js");
+const { subscribeAvatarAudio, prepareAvatarAudioBlob, setGameVoicePlayback } =
+  await import("../../packages/client/src/features/avatars/audio/avatar-audio.js");
 const { ttsService } = await import("../../packages/client/src/lib/tts-service.js");
 const { useChatStore } = await import("../../packages/client/src/stores/chat.store.js");
 const { buildTTSVoiceRequests, withTTSVoiceRequestCacheKeys } =
@@ -234,12 +241,20 @@ try {
     const [dottoreOwner, dottore] = events[0]!;
     assert.equal(dottoreOwner, "dottore-id");
     assert.ok(dottore, "the speaking character gets a level source");
-    await until(() => dottore.isPlaying(), "Dottore's clip decodes");
+    element.currentTime = 0.3;
+    await until(() => dottore.viseme?.() === "ou", "Dottore's clip decodes");
     element.currentTime = 0.05;
     assert.equal(dottore.level(), 0, "the silent lead-in keeps the mouth shut");
     element.currentTime = 0.3;
     assert.ok(dottore.level() > 0.9, "the level follows the playback position");
     assert.equal(dottore.viseme?.(), "ou");
+    // The 0.5 s clip at 0.3 s: its text, and how far through it the voice is, for the avatar's moods.
+    const line = dottore.line?.();
+    assert.equal(line?.text, "dottore", "the line is the text the clip reads");
+    assert.ok(Math.abs(line!.progress - 0.6) < 0.01, `progress follows the playback position (${line?.progress})`);
+    element.currentTime = 9;
+    assert.equal(dottore.line?.()?.progress, 1, "progress stops at the end of the clip");
+    element.currentTime = 0.3;
 
     element.ended = true;
     element.onended?.();
@@ -247,6 +262,7 @@ try {
     await until(() => events.length === 2, "the narrator's line starts");
     assert.deepEqual(events[1], ["dottore-id", null], "narration moves no mouth");
     assert.equal(dottore.level(), 0);
+    assert.equal(dottore.line?.(), null, "nor gives a line to a withdrawn source");
 
     element.ended = true;
     element.onended?.();
@@ -351,7 +367,89 @@ try {
     assert.ok(decodes >= 3, "each clip is decoded on the side");
     assert.ok(fetchedTexts.length >= 5);
   }
+
+  {
+    useChatStore.setState({ activeChatId: "game-a" });
+    const events: Array<[string, AvatarAudioLevelSource | null]> = [];
+    const stop = subscribeAvatarAudio((id, source) => events.push([id, source]));
+    const before = decodes;
+    const prepared = await ttsService.generateAudio("mari");
+    await until(() => decodes > before, "a newly generated Blob pre-decodes before playback");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const warmedDecodes = decodes;
+    const audio = new FakeAudio();
+    const playback = {
+      element: audio as unknown as HTMLAudioElement,
+      blob: prepared,
+      chatId: "game-a",
+      characterId: "mari-id",
+      text: "Ah, hello.",
+    };
+    setGameVoicePlayback(playback);
+    assert.equal(events.length, 0, "a Game source is not published before audio plays");
+    await audio.play();
+    const warm = events.at(-1)![1]!;
+    audio.currentTime = 0.08;
+    assert.ok(warm.level() > 0.9, "a warmed clip has an envelope from its first spoken frames");
+    assert.equal(decodes, warmedDecodes, "playback reuses pre-decoding");
+    const { createAvatarDirector } =
+      await import("../../packages/client/src/features/avatars/director/avatar-director.js");
+    const mounted = createAvatarDirector({ chatId: "game-a", mode: "game", reducedMotion: false });
+    mounted.setParticipants([{ owner: { ownerType: "character", ownerId: "mari-id" }, name: "Mari" }]);
+    mounted.frame("mari-id", 120_000);
+    assert.ok(
+      mounted.frame("mari-id", 120_080).mouthOpen > 0.7,
+      "a stage mounted mid-voice hydrates audio after participants register",
+    );
+    mounted.dispose();
+    audio.pause();
+    assert.equal(events.at(-1)![1], null, "pausing Game withdraws its source");
+    await audio.play();
+    assert.ok(events.at(-1)![1], "resuming Game publishes again");
+    useChatStore.setState({ activeChatId: "other-game" });
+    assert.equal(events.at(-1)![1], null, "a different Game chat cannot take the voice");
+    useChatStore.setState({ activeChatId: "game-a" });
+    assert.ok(events.at(-1)![1]);
+
+    let releaseDecode = () => {};
+    decodeGate = new Promise<void>((resolve) => (releaseDecode = resolve));
+    const pendingBlob = new Blob([CLIPS.mari!]);
+    const next = new FakeAudio();
+    setGameVoicePlayback({ ...playback, element: next as unknown as HTMLAudioElement, blob: pendingBlob });
+    await next.play();
+    const pending = events.at(-1)![1]!;
+    next.currentTime = 0.08;
+    assert.ok(pending.isPlaying() && pending.level() > 0.1, "pending decoding uses the spoken text immediately");
+    assert.equal(pending.line?.()?.text, "Ah, hello.");
+    setGameVoicePlayback(null, audio as unknown as HTMLAudioElement);
+    assert.ok(pending.isPlaying(), "a stale clip cannot clear its replacement");
+    decodeGate = null;
+    releaseDecode();
+    await until(() => pending.viseme?.() === "aa", "the decoded envelope takes over");
+    next.ended = true;
+    next.dispatchEvent(new Event("ended"));
+    assert.equal(events.at(-1)![1], null, "Game end withdraws the source");
+    setGameVoicePlayback(null, next as unknown as HTMLAudioElement);
+    stop();
+    const withoutAvatars = decodes;
+    await ttsService.generateAudio("mari");
+    prepareAvatarAudioBlob(new Blob([CLIPS.mari!]));
+    const unattended = new FakeAudio();
+    setGameVoicePlayback({
+      ...playback,
+      element: unattended as unknown as HTMLAudioElement,
+      blob: new Blob([CLIPS.mari!]),
+    });
+    await unattended.play();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(decodes, withoutAvatars, "no avatar listeners means no pre-decoding");
+    setGameVoicePlayback(null, unattended as unknown as HTMLAudioElement);
+    console.info(
+      "Clip start proof: text mouth open at 80 ms while decode is held; warmed clip audio envelope ready at 80 ms",
+    );
+  }
 } finally {
+  setGameVoicePlayback(null);
   ttsService.stop();
   globalThis.fetch = previous.fetch;
   for (const name of ["Audio", "AudioContext", "OfflineAudioContext"] as const) {

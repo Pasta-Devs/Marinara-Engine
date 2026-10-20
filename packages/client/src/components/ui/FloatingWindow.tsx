@@ -194,6 +194,7 @@ const KEEPS_ESCAPE_SELECTOR =
   "textarea, [contenteditable='true'], input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit'], [type='reset'], [type='color'], [type='file'])";
 
 const CENTER_CONTENT_SELECTOR = '[data-component="CenterContent"]';
+const CHAT_WINDOW_TOP_OBSTACLE_SELECTOR = "[data-chat-mode] [data-chat-window-top-obstacle]";
 
 /** A closed host may no longer have an opener; keep keyboard users in the active chat. */
 export function focusWindowOpener(id: FloatingWindowId) {
@@ -219,6 +220,18 @@ export function readFloatingWindowBounds(): WindowBounds {
   if (typeof window === "undefined") return { left: 0, top: 0, right: 1024, bottom: 768 };
   const topbar = document.querySelector<HTMLElement>('[data-component="TopBar"]');
   const area = document.querySelector<HTMLElement>(CENTER_CONTENT_SELECTOR)?.getBoundingClientRect();
+  const topObstacles = Array.from(document.querySelectorAll<HTMLElement>(CHAT_WINDOW_TOP_OBSTACLE_SELECTOR))
+    .filter((element) => getComputedStyle(element).visibility === "visible")
+    .map((element) => element.getBoundingClientRect())
+    .filter(
+      (rect) =>
+        rect.width > 1 &&
+        rect.height > 1 &&
+        rect.right > 0 &&
+        rect.left < window.innerWidth &&
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight,
+    );
   const composer = Array.from(document.querySelectorAll("[data-chat-mode] [data-chat-composer]"))
     .map((element) =>
       (
@@ -231,7 +244,13 @@ export function readFloatingWindowBounds(): WindowBounds {
   const bottom = Math.min(window.innerHeight, area?.bottom ?? window.innerHeight) - WINDOW_MARGIN_PX;
   return {
     left: Math.max(0, area?.left ?? 0) + WINDOW_MARGIN_PX,
-    top: Math.max(0, topbar?.getBoundingClientRect().bottom ?? 0, area?.top ?? 0) + WINDOW_MARGIN_PX,
+    top:
+      Math.max(
+        0,
+        topbar?.getBoundingClientRect().bottom ?? 0,
+        area?.top ?? 0,
+        ...topObstacles.map((rect) => rect.bottom),
+      ) + WINDOW_MARGIN_PX,
     right: Math.min(window.innerWidth, area?.right ?? window.innerWidth) - WINDOW_MARGIN_PX,
     bottom: Math.min(bottom, (composer?.top ?? Infinity) - WINDOW_MARGIN_PX),
     ...(composer && {
@@ -312,7 +331,7 @@ export function useWindowBubbleBounds(active: boolean): WindowBounds {
   return useLiveBounds(readFloatingWindowBounds, active);
 }
 
-// Input can appear after Game controls or be replaced when the active chat changes.
+// Input and top chrome can appear after Game controls or be replaced when the active chat changes.
 // Observe those mounts only; streaming text and animated style attributes do not matter here.
 function observeWindowBounds(update: () => void) {
   const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
@@ -325,7 +344,7 @@ function observeWindowBounds(update: () => void) {
       }
     }
     for (const element of document.querySelectorAll(
-      `${CENTER_CONTENT_SELECTOR}, [data-component="TopBar"], [data-chat-mode] .chat-input-container, [data-chat-input-container]`,
+      `${CENTER_CONTENT_SELECTOR}, [data-component="TopBar"], [data-chat-mode] .chat-input-container, [data-chat-input-container], ${CHAT_WINDOW_TOP_OBSTACLE_SELECTOR}`,
     )) {
       if (observed.has(element)) continue;
       observed.add(element);
@@ -333,11 +352,12 @@ function observeWindowBounds(update: () => void) {
     }
     update();
   };
-  const containsComposer = (node: Node) =>
+  const containsBoundsElement = (node: Node) =>
     node instanceof Element &&
-    (node.matches("[data-chat-composer]") || node.querySelector("[data-chat-composer]") !== null);
+    (node.matches("[data-chat-composer], [data-chat-window-top-obstacle]") ||
+      node.querySelector("[data-chat-composer], [data-chat-window-top-obstacle]") !== null);
   const mounts = new MutationObserver((records) => {
-    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some(containsComposer))) refresh();
+    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some(containsBoundsElement))) refresh();
   });
   const area = document.querySelector(CENTER_CONTENT_SELECTOR);
   if (area) mounts.observe(area, { childList: true, subtree: true });

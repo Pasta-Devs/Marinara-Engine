@@ -20,7 +20,7 @@ Caves, mines, crypts and ruins a few steps out of a settlement are drawn on the 
 
 A place in ruins is drawn in ruins. After dark the map dims and the settlements' windows light up. Each setting family has its own tiles: fantasy, wuxia, modern day, the 1920s, science fiction and the wasteland each have their own colours and buildings. A setting kit with no family draws plain tiles.
 
-The overworld is a view, and the scene view (the game's backgrounds and character art) is a switch away: **Show the scene** in the game's toolbar, or in the game's actions menu on a phone, and **Show the overworld** to come back. The game remembers which one you chose. A fight and a session replay use their own screens.
+The overworld is a view, and the scene view (the game's backgrounds and character art) is a switch away: **Show the scene** in **Game controls** (on a phone, in the three-dot **Chat tools** menu), and **Show the overworld** to come back. The game remembers which one you chose. A fight and a session replay use their own screens.
 
 ### Tile packs
 
@@ -46,7 +46,7 @@ In an Overworld RPG game (see [Classic or Overworld RPG](getting-started.md#clas
 
 A place in town the party can go down into (a cave, a mine, a crypt, a sewer or a ruin, by its name; in a science fiction setting a derelict or a bunker) has **Go down** when the party is there. It opens that place's map the same way, the same map each time, and leaving it puts the party back in town where it went down. While the party is on another map, leave that one first. A place can also have a map **made for it by hand** with a maker such as Pixelforge: Go down then opens that map, whatever the place is called, drawn with the pack it names. On such a map the way out is where the party came in, its props never stand in the way, and people stand on its named spots at the hours the map gives them; the Game Master is told who is there.
 
-Click a place on the map, or use the arrow keys, to walk there by the shortest way. The minutes pass on the clock (about a minute for every thirty steps), and **your next turn tells the Game Master** which area the party walked from and to. The label at the top says which area the party is in. **Show the scene** and **Show the map** switch between the map and the scene; the game remembers which you were in.
+Click a place on the map, or use the arrow keys, to walk there by the shortest way. The minutes pass on the clock (about a minute for every thirty steps), and **your next turn tells the Game Master** which area the party walked from and to. The label at the top says which area the party is in. **Show the scene** and **Show the map** in **Game controls** switch between the map and the scene; the game remembers which you were in.
 
 To leave, walk back to the way out (stairs, a ladder or a hatch, by the look of the place) and choose **Leave**. The Game Master can also end the map when the story leaves the place. Regenerating a turn that opened, walked or left a map puts the map back as it was before that turn. Games without a map play as before.
 

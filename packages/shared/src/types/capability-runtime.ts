@@ -11,6 +11,36 @@ export interface CapabilityRuntimeLogger {
   warn(message: string, ...args: CapabilityRuntimeLogArgument[]): void;
   error(error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]): void;
   debugOverride(overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+  /** Capability API 1.341: whether the Engine logger writes this level now. */
+  isLevelEnabled?(level: "trace" | "debug" | "info" | "warn" | "error" | "fatal"): boolean;
+}
+
+/** Capability API 1.341: services other packages registered with `api.registerService`. */
+export interface CapabilityServiceLookupHost {
+  /**
+   * Another package's service registered with api.registerService. null while absent, during a shared-room
+   * generation, or for an `agent-runtime:` or `mari-actions:` key (only the Engine reads those).
+   */
+  get<T = unknown>(key: string): T | null;
+}
+
+/** Capability API 1.341: the conversation commands every package registered, read with the Engine's grammar. */
+export interface CapabilityConversationCommandHost {
+  /** Commands registered by every package, parsed with the host grammar. */
+  parse(content: string): Array<{ type: "capability"; commandType: string; payload: string | null }>;
+  /** Content with every registered command tag removed. */
+  strip(content: string): string;
+  /** Prompt lines for registered commands that have handlers. */
+  instructions(): string[];
+}
+
+/** One message for `persistence.appendMessages` (capability API 1.341). */
+export interface CapabilityAppendMessageInput {
+  role: MessageRole;
+  characterId: string | null;
+  content: string;
+  extra?: Record<string, unknown>;
+  createdAt?: string | null;
 }
 
 export interface CapabilityChatRecord {
@@ -367,6 +397,29 @@ export interface CapabilityPersistenceSession {
 export interface CapabilityPersistenceHost extends CapabilityPersistenceSession {
   withChatLock<T>(chatId: string, operation: () => Promise<T>): Promise<T>;
   transaction<T>(operation: (session: CapabilityPersistenceSession) => Promise<T>): Promise<T>;
+  /**
+   * Capability API 1.341. The Engine's queued metadata patch: one queue per chat, the multiplayer room guard and
+   * write ordinals. Keys in the patch replace those keys; every other key stays. Inside `withChatLock` for the same
+   * chat it runs within that lock. Requires `chat-write`.
+   */
+  patchChatMetadata?(
+    chatId: string,
+    patch:
+      | Record<string, unknown>
+      | ((current: Record<string, unknown>) => Record<string, unknown> | Promise<Record<string, unknown>>),
+    options?: { touchUpdatedAt?: boolean },
+  ): Promise<void>;
+  /** Capability API 1.341. Adds messages, each with its first swipe, as the Engine's batch write does. Requires `chat-write`. */
+  appendMessages?(chatId: string, messages: CapabilityAppendMessageInput[]): Promise<CapabilityMessageRecord[]>;
+  /** Capability API 1.341. A durable note from a conversation to its connected roleplay. Requires `chat-write`. */
+  createChatNote?(sourceChatId: string, targetChatId: string, content: string, anchorMessageId?: string): Promise<void>;
+  /** Capability API 1.341. A one-time influence from a conversation to its connected roleplay. Requires `chat-write`. */
+  createChatInfluence?(
+    sourceChatId: string,
+    targetChatId: string,
+    content: string,
+    anchorMessageId?: string,
+  ): Promise<void>;
 }
 
 export interface CapabilityEmbeddingHost {
@@ -435,4 +488,8 @@ export interface CapabilityRuntimeHost {
   logger: CapabilityRuntimeLogger;
   persistence: CapabilityPersistenceHost;
   resources: CapabilityResourceHost;
+  /** Capability API 1.341. */
+  services?: CapabilityServiceLookupHost;
+  /** Capability API 1.341. */
+  commands?: CapabilityConversationCommandHost;
 }

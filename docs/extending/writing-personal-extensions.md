@@ -98,7 +98,7 @@ Use this `extension.css` to style the constrained iframe window opened by the bu
 Then import and run it:
 
 1. Open **Settings** > **Addons** > **External Extensions**.
-2. Choose **Import Folder** and select `Hello Panel`, or zip the folder and import the ZIP.
+2. Choose **Import Extension Folder** and select `Hello Panel`, or zip the folder and import the ZIP with **Import Extension File**.
 3. Open the disabled draft and inspect its manifest and JavaScript.
 4. Choose **Review and Run** and approve the exact displayed hash.
 5. Open the Extensions menu and select **Hello Panel**.

@@ -41,6 +41,24 @@ export interface StageAvatar {
   saved: boolean;
 }
 
+/** An avatar the stage shows, as Chat Settings' Avatars drawer lists it. */
+export interface StageAvatarSummary {
+  ownerId: string;
+  name: string;
+  kind: AvatarKind;
+}
+
+/** Whether two lists name the same avatars in the same order, so an unchanged list keeps its identity. */
+export function sameStageAvatars(a: readonly StageAvatarSummary[], b: readonly StageAvatarSummary[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((avatar, index) => {
+      const other = b[index]!;
+      return avatar.ownerId === other.ownerId && avatar.name === other.name && avatar.kind === other.kind;
+    })
+  );
+}
+
 /** Participants with an enabled avatar their chat can show, in participant order, at most `maxVisible`.
  *  Owners in `spriteAvatarOwners` (ownerKey) have a PNGTuber avatar from their expression sprites even
  *  without an avatar.json, as the 2D section of docs/agents/avatars.md says; turning the avatar off still

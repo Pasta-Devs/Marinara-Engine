@@ -560,11 +560,11 @@
   --mari-chat-control-existing-bg: color-mix(in oklab, var(--color-black) 80%, transparent);
 }
 .mari-game-scene-control--amber {
-  --mari-chat-control-existing-bg: color-mix(in oklab, var(--color-amber-500) 20%, transparent);
-  --mari-chat-control-existing-border: color-mix(in oklab, var(--color-amber-300) 25%, transparent);
+  --mari-chat-control-existing-bg: color-mix(in oklab, var(--marinara-app-accent-static) 20%, transparent);
+  --mari-chat-control-existing-border: color-mix(in oklab, var(--marinara-app-accent-static) 25%, transparent);
 }
 .mari-game-scene-control--amber:hover {
-  --mari-chat-control-existing-bg: color-mix(in oklab, var(--color-amber-500) 30%, transparent);
+  --mari-chat-control-existing-bg: color-mix(in oklab, var(--marinara-app-accent-static) 30%, transparent);
 }
 
 /* Preserve the owners' normal, active and hover fills when only Shape is on. */

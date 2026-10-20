@@ -50,12 +50,14 @@ export function AppDialogRenderer() {
     // chatFloatingPanel: app dialogs are topmost confirmations — clicking them
     // must never register as an outside click that closes a chat drawer (and
     // unmounts the very modal whose dirty-draft guard opened the dialog).
+    // topLayer: they also open above every overlay, including package screens.
     <Modal
       open
       onClose={dismissActiveDialog}
       title={getDialogTitle(dialog.kind, dialog.title)}
       width="max-w-sm"
       chatFloatingPanel
+      topLayer
       panelClassName={dialog.chatStyle ? "mari-chat-style-surface mari-chat-action-panel" : undefined}
     >
       <div className="space-y-4">

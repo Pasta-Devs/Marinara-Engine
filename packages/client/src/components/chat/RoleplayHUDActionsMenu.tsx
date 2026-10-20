@@ -443,7 +443,7 @@ export function RoleplayHUDActionsMenu({
               }}
               disabled={isGenerationBusy}
               className={cn(
-                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-amber-300 transition-colors hover:bg-amber-500/10 disabled:opacity-50",
+                "flex w-full items-center gap-2 px-3 py-2 text-[0.625rem] font-medium text-[var(--marinara-app-accent-static)] transition-colors hover:bg-[var(--marinara-app-accent-static)]/10 disabled:opacity-50",
                 trackerPanel && TRACKER_ACTIVITY_ACTION_CLASS,
               )}
             >

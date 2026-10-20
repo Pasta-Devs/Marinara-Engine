@@ -243,8 +243,9 @@ test("Personas are chosen per chat and Conversation names match that choice", as
       return picker;
     };
     const picker = await openPersonas("Alice Persona");
-    await picker.getByRole("button", { name: /Ungrouped/u }).click();
-    await page.getByRole("button", { name: /Bob Persona/u }).click();
+    // Personas in no folder list flat since #7312 removed the "Ungrouped" folder.
+    await expect(picker.getByRole("button", { name: /Ungrouped/u })).toHaveCount(0);
+    await picker.getByRole("button", { name: /Bob Persona/u }).click();
     await expect
       .poll(async () => (await (await request.get(`/api/chats/${chat.id}`)).json()).personaId)
       .toBe(bobPersona.id);

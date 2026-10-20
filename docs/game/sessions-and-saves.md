@@ -1,6 +1,6 @@
 # Game Mode: Sessions and Saves
 
-This guide explains how Marinara Engine tracks your Game Mode progress across play sessions. It covers ending and starting a session and reading past sessions in **Session History**. It also covers the **Show Spoilers** view and how the game saves your data.
+This guide explains how Marinara Engine tracks your Game Mode progress across play sessions. It covers ending and starting a session and reading past sessions in **Session History**. It also covers the **Show Spoilers** view, fixing the game's data by hand, and how the game saves your data.
 
 ## What a session is
 
@@ -120,11 +120,37 @@ To hide the notes again, click the same button. It now reads **Hide Spoilers**.
 
 You can also edit these secrets, which acts like a game-master cheat panel. Click **Edit Spoilers**, change the text, then click **Save Spoilers**. Some fields are shown as JSON, a structured text format. Only edit JSON fields if you understand the format, since bad JSON will not save.
 
+## Editing game data by hand
+
+When the Game Master gets something wrong, such as an NPC's reputation or a quest that stays open, you can fix the game's saved data yourself.
+
+1. Open **Game controls** and choose **Edit game data**. On a phone, **Game controls** is in the three-dot **Chat tools** menu.
+2. The **Game Data** window opens. A warning at the top reads: "Hand edits can break a game. Every change is checked before it saves, and names can't change here."
+3. Pick a section from the list, or from the row of chips on a phone. You can also type in the search box to find a value in every section at once.
+4. Change values in **Fields**, or switch to **JSON** to edit the raw data.
+5. Click **Review changes** to see exactly what changes, then click **Save changes**.
+
+You can change **Party Cards**, **Party Sheet**, **NPCs**, **Journal**, **Player Notes**, **Inventory**, **Story**, **Session Summaries**, **World Edits**, **Story Script** and **HUD Widgets**. A section shows only when the game has that data, so a game without a world has no **World Edits**. The other sections, such as **World**, **Maps & Position**, **Time, Weather & Morale**, **Combat** and **Settings**, are marked **Read-only**. You can read and search them, but the game keeps them itself. Prompt, image, music and dice preferences are changed in **Chat Settings**.
+
+Every change is checked before it saves:
+
+- Names can't change, because cards, NPCs, the party and bags find each other by name. Party members can't be added or removed here.
+- An NPC's reputation runs from -100 to 100.
+- In **Inventory**, you can change an item's quantity, nickname and carrier, and whether it is worn, attuned or switched on. Leave a stack out to remove it, or add one without an id to add an item.
+- In **Session Summaries**, only the text of a session can change.
+- **World Edits** holds your hand edits over the world, such as renamed places or added people. The world itself is never changed.
+
+When a change can't be saved, the editor says why, and that section keeps your draft so you can fix it. If the game changed the same data while you were editing, the save is refused so it does not undo the game's change. **Reload** shows the game's version and discards your drafts.
+
+Before each save, the game tries to take a checkpoint, marked **Before a State Editor save** in **Checkpoints**. If an edit goes wrong, load that checkpoint to undo it (see below).
+
+The window works like the Roleplay State Editor. See [The State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
 ## How your game saves
 
 Game Mode saves your progress automatically. You do not need to press a save button. Your world, party, map, inventory, in-game time, and session summaries are all kept for you as you play.
 
-The app also records automatic checkpoints behind the scenes. It captures a checkpoint at session start, at session end, when combat begins or ends, when you reach a new place, and at automatic intervals. The Game data editor also tries to take one before every save, though a game too new to have its first turn saved has nothing to checkpoint yet. Open **Game controls → Checkpoints** to see them, newest first. **Load** takes the game back to that moment: the tracker, the map, the **World Edits** from the Game data editor and the story after it are restored, and a system message marks where the game was set back. **Delete** removes one for good.
+The app also records automatic checkpoints behind the scenes. It captures a checkpoint at session start, at session end, when combat begins or ends, when you reach a new place, and at automatic intervals. The [Game data editor](#editing-game-data-by-hand) also tries to take one before every save, though a game too new to have its first turn saved has nothing to checkpoint yet. Open **Game controls → Checkpoints** to see them, newest first. **Load** takes the game back to that moment: the tracker, the map, the **World Edits** from the Game data editor and the story after it are restored, and a system message marks where the game was set back. The party's cards and sheets, the NPCs, the journal, your notes, the inventory, the session summaries, the GM's story plans, the HUD widgets and the time, weather and morale go back to that moment too. Your settings stay as they are. **Delete** removes one for good.
 
 Automatic checkpoints are kept to the five newest of each kind, so older ones are cleaned up as you play.
 

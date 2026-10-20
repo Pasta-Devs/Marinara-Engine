@@ -693,7 +693,7 @@ export function RegexScriptEditor() {
                 await handleSave();
                 closeRegexDetail();
               }}
-              className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
+              className="rounded-lg bg-[var(--marinara-app-accent-static)]/20 px-3 py-1 text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/30"
             >
               {localizeUi("ui.agents.agenteditor.saveClose")}
             </button>
@@ -706,7 +706,11 @@ export function RegexScriptEditor() {
         <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
           <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
+          <button
+            onClick={() => setSaveError(null)}
+            aria-label={localizeUi("editor.save.dismissError")}
+            className="rounded-lg px-2 py-0.5 text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/20"
+          >
             <X size="0.75rem" />
           </button>
         </div>

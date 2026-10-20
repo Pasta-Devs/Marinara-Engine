@@ -37,7 +37,12 @@ import {
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import { api } from "../../../../lib/api-client";
-import { AVATAR_RENDER_BUDGET, type AvatarRenderer, type AvatarRendererMountOptions } from "../../contract";
+import {
+  AVATAR_RENDER_BUDGET,
+  type AvatarFraming,
+  type AvatarRenderer,
+  type AvatarRendererMountOptions,
+} from "../../contract";
 import {
   POSE_BONES,
   canvasPixels,
@@ -178,6 +183,7 @@ class VrmAvatarRenderer implements AvatarRenderer {
   private pixelHeight = 0;
   private aspect = 1;
   private body: BodyHeights | null = null;
+  private framing: AvatarFraming = "portrait";
   private distance = 1;
   private time = 0;
   private mirror: 1 | -1 = 1;
@@ -312,10 +318,18 @@ class VrmAvatarRenderer implements AvatarRenderer {
     this.pixelHeight = pixels.height;
     this.aspect = width > 0 && height > 0 ? width / height : 1;
     this.updateCamera();
+    this.redraw();
   }
 
   setPaused(paused: boolean): void {
     this.paused = paused;
+  }
+
+  setFraming(framing: AvatarFraming): void {
+    if (this.disposed || framing === this.framing) return;
+    this.framing = framing;
+    this.updateCamera();
+    this.redraw();
   }
 
   dispose(): void {
@@ -364,7 +378,7 @@ class VrmAvatarRenderer implements AvatarRenderer {
 
   private updateCamera(): void {
     if (!this.body) return;
-    const framing = frameCamera(this.body, this.aspect, FIELD_OF_VIEW);
+    const framing = frameCamera(this.body, this.aspect, FIELD_OF_VIEW, this.framing);
     this.distance = framing.distance;
     this.camera.aspect = this.aspect;
     this.camera.near = Math.max(0.01, framing.distance * 0.05);
@@ -372,6 +386,12 @@ class VrmAvatarRenderer implements AvatarRenderer {
     this.camera.position.set(0, framing.targetY, framing.distance);
     this.camera.lookAt(0, framing.targetY, 0);
     this.camera.updateProjectionMatrix();
+  }
+
+  /** Draws the current pose at the new size or framing right away, as the 2D renderers do: the stage's next
+   *  frame may be a while off (or paused), and until then the canvas would show a stretched picture. */
+  private redraw(): void {
+    if (this.vrm && this.pixelWidth && this.pixelHeight) this.draw();
   }
 
   private draw(): void {
@@ -402,16 +422,19 @@ class VrmAvatarRenderer implements AvatarRenderer {
 
 const boneWorld = new Vector3();
 
-/** Bone heights and the top of the posed model (skinned meshes measure where their bones put them). */
+/** Bone heights and the top and bottom of the posed model (skinned meshes measure where their bones put them). */
 function measureBody(vrm: VRM): BodyHeights {
   const height = (bone: "head" | "hips" | "leftFoot" | "rightFoot") =>
     vrm.humanoid.getRawBoneNode(bone)?.getWorldPosition(boneWorld).y ?? 0;
-  const topY = new Box3().setFromObject(vrm.scene).max.y;
+  const bounds = new Box3().setFromObject(vrm.scene);
+  const topY = bounds.max.y;
+  const bottomY = bounds.min.y;
   return {
     headY: height("head"),
     hipsY: height("hips"),
     footY: Math.min(height("leftFoot"), height("rightFoot")),
     ...(Number.isFinite(topY) ? { topY } : {}),
+    ...(Number.isFinite(bottomY) ? { bottomY } : {}),
   };
 }
 

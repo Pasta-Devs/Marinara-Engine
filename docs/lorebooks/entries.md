@@ -43,6 +43,8 @@ Expand an entry to edit its main fields.
 - **Secondary Keys**: extra keywords used only when the entry type is **Selective**. See the entry-types section below.
 - **Description**: a short summary of the entry. Only the **Knowledge Router** agent reads it, to decide whether to inject the entry. It is never sent to the main AI as content. See [Knowledge Sources](../agents/knowledge-sources.md).
 
+A key list with more than 10 keys shows only the first 10. Click **Show N more**, for example **Show 5 more**, to see the rest, and **Collapse** to hide them again. Adding a key opens the whole list. The hidden keys still match as usual.
+
 Here is a simple example.
 
 - Name: `Silverhaven`

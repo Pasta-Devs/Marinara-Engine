@@ -17,7 +17,7 @@ export interface ConnectionOption {
 }
 
 /** The sprite picked for the user until they choose one: the full-body neutral sprite, else the neutral portrait. */
-export function preferredMeshSource(sprites: readonly SpriteInfo[]): string | null {
+function preferredMeshSource(sprites: readonly SpriteInfo[]): string | null {
   const neutral = sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.expression) === "neutral");
   return (neutral.find((sprite) => isFullBodySprite(sprite.expression)) ?? neutral[0])?.expression ?? null;
 }

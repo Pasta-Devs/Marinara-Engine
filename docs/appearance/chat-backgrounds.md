@@ -51,7 +51,7 @@ Folders organize the library without moving or hiding the underlying image files
 
 1. Click **New Folder**. Marinara creates a uniquely named folder.
 2. Double-click or double-tap the folder name to rename it. You can also focus it and press F2.
-3. On desktop, drag a background row into a folder. On a phone or tablet, drag it by the visible grip handle.
+3. On desktop, drag a background row into a folder. On a phone or tablet, press and hold the row, then drag it.
 4. Drag a background back into the unfiled area to remove it from its folder.
 
 Folders and assignments are saved on the server and included in backups. Deleting a folder returns its backgrounds to the unfiled list; it does not delete the images. Search and tag filters automatically reveal matching items inside their folders.

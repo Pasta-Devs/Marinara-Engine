@@ -64,14 +64,14 @@ export function useDialogFocusScope(
           (element) =>
             !element.hidden && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0,
         );
-      if (focusable.length === 0) {
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) {
         event.preventDefault();
         container.focus();
         return;
       }
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
       const active = document.activeElement;
       if (!roots.some((root) => root.contains(active))) {
         event.preventDefault();

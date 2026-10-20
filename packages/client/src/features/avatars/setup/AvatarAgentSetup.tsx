@@ -8,8 +8,10 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   AVATAR_2D_AGENT_ID,
+  AVATAR_3D_AGENT_ID,
   AVATAR_AGENT_IDS,
   AVATAR_KINDS,
   type AvatarAgentId,
@@ -97,7 +99,24 @@ export function AvatarAgentSetup({ agentId }: AvatarAgentSetupProps) {
   }, [owners, selectedOwner]);
 
   return (
-    <div className="space-y-4" data-avatar-setup={agentId}>
+    <div
+      className="space-y-4"
+      data-avatar-setup={agentId}
+      onDragOver={(event) => {
+        // File names may be hidden until drop; allow a file to reach the project hint below.
+        if (agentId === AVATAR_3D_AGENT_ID && event.dataTransfer.types.includes("Files")) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (
+          agentId !== AVATAR_3D_AGENT_ID ||
+          !Array.from(event.dataTransfer.files).some((file) => /\.vroid$/iu.test(file.name))
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        toast.error(t("avatars.vrm.vroidProject"));
+      }}
+    >
       <AvatarModelStatus />
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-[var(--foreground)]">{t("avatars.setup.owner.label")}</span>

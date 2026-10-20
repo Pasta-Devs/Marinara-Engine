@@ -65,13 +65,13 @@ Streaming shows the reply appearing word by word as it generates, instead of wai
 |---|---|---|
 | **Enable streaming** | On | Shows the reply word by word as it generates |
 | **Streaming speed** | 50 | Sets how fast streamed text renders on screen |
-| **Trim incomplete model endings** | Off | Trims a trailing unfinished sentence before saving |
+| **Trim incomplete sentences from the response** | Off | Trims a trailing unfinished sentence before saving |
 
 **Streaming speed** is a slider from 1 to 100. A lower value gives a slower typewriter effect so you can read along. A higher value shows text almost instantly. Marinara smooths bursty token delivery while the model is writing, then uses your selected speed to finish the reply. This setting does not change how fast the model itself writes.
 
 When **Enable streaming** is off, the full reply appears all at once after the model finishes.
 
-**Trim incomplete model endings** only affects the saved message. When on, Marinara removes a trailing unfinished sentence from the reply. It leaves complete replies and command style endings alone.
+**Trim incomplete sentences from the response** only affects the saved message. When on, Marinara removes a trailing unfinished sentence from the reply. It leaves complete replies and command style endings alone.
 
 ## Typing and progress indicators
 
@@ -95,7 +95,7 @@ If a character's presence is set to a busy or away status, a waiting indicator a
 
 Some models expose a hidden reasoning trace, often called "thinking". Marinara keeps this separate from the visible reply.
 
-When a reply has thinking attached, a **View thoughts** action (a brain icon) appears on that message. Click it to open a panel that shows the captured reasoning text.
+When a reply has thinking attached, a **View model thoughts** action (a brain icon) appears on that message. Click it to open a panel that shows the captured reasoning text.
 
 For the reasoning to show, the model must actually return it. Some models wrap their reasoning in plain text tags. For those, set custom **Thinking Tags** on the connection so Marinara can split the hidden reasoning from the visible reply. Several common tag pairs are already recognized. See the generation parameters guide below for how to set **Thinking Tags**.
 

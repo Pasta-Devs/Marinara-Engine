@@ -787,7 +787,7 @@ function NpcsView({
                   onClick={() => onNpcRemove(entry.originalName)}
                   disabled={isRemoving}
                   title={localizeUi("ui.game.npcsview.removeThisNpcFromTheJournal")}
-                  className="rounded p-1 text-white/35 transition-colors hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
+                  className="rounded p-1 text-white/35 transition-colors hover:bg-[var(--marinara-app-accent-static)]/15 hover:text-[var(--marinara-app-accent-static)] disabled:opacity-40"
                 >
                   <Trash2 size={11} />
                 </button>

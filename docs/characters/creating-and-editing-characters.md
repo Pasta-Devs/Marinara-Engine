@@ -55,7 +55,7 @@ The **Metadata** tab holds identity and organization details. These help you sor
 - **Creator**. The person who made the card, for credit when you share it.
 - **Version**. A version number you set, such as `1.0`.
 - **Talkativeness**. A slider from 0 to 100 percent. It sets how often this character speaks in group chats. The default is 50 percent.
-- **Tags**. Type one or more tags in the add-tag field and press Enter or click **Add**. You can add several at once separated by commas. Remove one tag with its X, or clear them all with **Remove All**.
+- **Tags**. Type one or more tags in the add-tag field and press Enter or click **Add**. You can add several at once separated by commas. The field also suggests tags your library already uses, most used first, with how many characters have each. Typing narrows the list. Click a suggestion, or pick it with the arrow keys and Enter. Remove one tag with its X, or clear them all with **Remove All**.
 - **Creator Notes**. Private notes that are never sent to the AI. They still show as a summary in your library.
 
 The **Version history** panel also lives on this tab. It is covered in the Saving and version history section below.
@@ -68,7 +68,7 @@ The **Card** tab is the main writing workspace. It holds the fields the AI reads
 - **Personality**. A short summary of temperament, speech habits, and behavior patterns.
 - **Backstory**. History, origin, and important relationships.
 - **Appearance**. Physical description, clothing, and visual details. Marinara also uses this text to seed an AI avatar prompt.
-- **Image Appearance Override**. An optional switch under **Appearance**, off by default. Turn it on to reveal a second box for an image-prompt-ready description of the character. While it is on and the box is filled, image prompts use that text instead of **Appearance**, and an AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text. Leave it off to keep the usual behavior.
+- **Image Appearance Override**. An optional switch under **Appearance**, off by default. Turn it on to reveal a second box for short image tags that describe the character, such as a LoRA trigger word. While it is on and the box is filled, image prompts use those tags exactly as written, with **Appearance** kept as background, and an AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text. Leave it off to keep the usual behavior.
 - **Scenario**. The default setting for new chats with this character.
 
 The **Dialogue & Greetings** section sets how a chat opens and how the character sounds:

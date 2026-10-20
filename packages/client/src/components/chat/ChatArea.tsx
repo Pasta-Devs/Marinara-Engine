@@ -110,10 +110,13 @@ import {
   findLatestTTSAutoplayMessage,
   findSplitReplyEarlierParts,
   getTTSAutoplayRevision,
+  nextTTSAutoplayReadingId,
   shouldAutoplayGeneratedTTS,
   TTS_AUTOPLAY_MESSAGE_READY_EVENT,
+  TTS_AUTOPLAY_VOICE_EVENT,
   type TTSAutoplayMessage,
   type TTSAutoplayMessageReadyDetail,
+  type TTSAutoplayVoiceDetail,
 } from "../../lib/tts-autoplay";
 import { CHAT_SCROLL_TO_BOTTOM_EVENT, type ChatScrollToBottomDetail } from "../../lib/chat-scroll-events";
 import { CHAT_RESOURCE_AGENT_SETUP_EVENT } from "../../lib/chat-resource-drag";
@@ -142,6 +145,9 @@ import {
   saveLocalSpriteVisualSettings,
   type LocalSpriteVisualSettings,
 } from "./local-sprite-visual-settings";
+import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
+import type { AvatarFraming } from "../../features/avatars/contract";
+import { sameStageAvatars, type StageAvatarSummary } from "../../features/avatars/stage/avatar-stage-logic";
 import {
   SPRITE_DISPLAY_OPACITY_MAX,
   SPRITE_DISPLAY_OPACITY_MIN,
@@ -1307,14 +1313,33 @@ const LocalChatArea = memo(function LocalChatArea({
     return parseChatMetadata(raw);
   }, [chat]);
 
+  // The latest saved layout, so edits queued before React commits each build on the one before.
+  const localSpriteVisualSettingsRef = useRef({ chatId: chat?.id, settings: localSpriteVisualSettings });
   useEffect(() => {
-    setLocalSpriteVisualSettings(loadLocalSpriteVisualSettings(chat?.id));
+    const settings = loadLocalSpriteVisualSettings(chat?.id);
+    localSpriteVisualSettingsRef.current = { chatId: chat?.id, settings };
+    setLocalSpriteVisualSettings(settings);
   }, [chat?.id]);
 
+  /** Saves a change to this chat's layout on this device, at the time of the edit (never in a state updater).
+   *  A function patch reads the latest layout. An edit from a chat that is no longer open is dropped. */
   const patchLocalSpriteVisualSettings = useCallback(
-    (patch: Partial<LocalSpriteVisualSettings>) => {
-      if (!chat?.id) return;
-      setLocalSpriteVisualSettings((previous) => saveLocalSpriteVisualSettings(chat.id, patch, previous));
+    (
+      patch:
+        | Partial<LocalSpriteVisualSettings>
+        | ((previous: LocalSpriteVisualSettings) => Partial<LocalSpriteVisualSettings>),
+    ) => {
+      const chatId = chat?.id;
+      if (!chatId || useChatStore.getState().activeChatId !== chatId) return;
+      const latest = localSpriteVisualSettingsRef.current;
+      const previous = latest.chatId === chatId ? latest.settings : loadLocalSpriteVisualSettings(chatId);
+      const next = saveLocalSpriteVisualSettings(
+        chatId,
+        typeof patch === "function" ? patch(previous) : patch,
+        previous,
+      );
+      localSpriteVisualSettingsRef.current = { chatId, settings: next };
+      setLocalSpriteVisualSettings(next);
     },
     [chat?.id],
   );
@@ -2030,6 +2055,100 @@ const LocalChatArea = memo(function LocalChatArea({
     [chat?.id, patchLocalSpriteVisualSettings, spriteCharacterVisualSettings, spritePlacements, spritePosition],
   );
 
+  // ── Avatars: arranged, sized and framed from Chat Settings → Agents → Avatars ──
+  const handleAvatarScaleChange = useCallback(
+    (ownerId: string, scale: number) =>
+      patchLocalSpriteVisualSettings((previous) => {
+        const overrides = normalizeSpriteCharacterVisualSettingsMap(
+          Object.prototype.hasOwnProperty.call(previous, "characterOverrides")
+            ? previous.characterOverrides
+            : chatMeta.spriteCharacterVisualSettings,
+        );
+        return {
+          characterOverrides: { ...overrides, [ownerId]: { ...overrides[ownerId], fullBodySpriteScale: scale } },
+        };
+      }),
+    [chatMeta.spriteCharacterVisualSettings, patchLocalSpriteVisualSettings],
+  );
+  const handleAvatarFramingChange = useCallback(
+    (ownerId: string, framing: AvatarFraming) =>
+      patchLocalSpriteVisualSettings((previous) => ({
+        avatarFramings: { ...previous.avatarFramings, [ownerId]: framing },
+      })),
+    [patchLocalSpriteVisualSettings],
+  );
+  const handleResetAvatarPlacements = useCallback(() => {
+    if (!chat?.id) return;
+    pendingSpritePlacements.current = Object.fromEntries(
+      Object.entries(pendingSpritePlacements.current).filter(([key]) => !key.endsWith(":avatar")),
+    );
+    patchLocalSpriteVisualSettings({ spritePlacements: pendingSpritePlacements.current });
+  }, [chat?.id, patchLocalSpriteVisualSettings]);
+  const toggleSpriteArrange = useCallback(() => setSpriteArrangeMode((previous) => !previous), []);
+  const [stageAvatars, setStageAvatars] = useState<StageAvatarSummary[]>([]);
+  const handleStageAvatarsChange = useCallback(
+    (avatars: StageAvatarSummary[]) =>
+      setStageAvatars((previous) => (sameStageAvatars(previous, avatars) ? previous : avatars)),
+    [],
+  );
+  const gameFullBodySpriteScale = useUIStore((s) => s.gameFullBodySpriteScale);
+  // Game avatars default to Game's full-body sprite size; Roleplay and Visual Novel ones to the chat's.
+  const avatarScale =
+    chatMode === "game"
+      ? (localSpriteVisualSettings.fullBodySpriteScale ?? gameFullBodySpriteScale)
+      : fullBodySpriteScale;
+  const avatarFramings = localSpriteVisualSettings.avatarFramings;
+  const avatarLayout = useMemo<AvatarLayoutControls>(
+    () => ({
+      avatars: stageAvatars,
+      scales: Object.fromEntries(
+        stageAvatars.map(({ ownerId }) => [
+          ownerId,
+          spriteCharacterVisualSettings[ownerId]?.fullBodySpriteScale ?? avatarScale,
+        ]),
+      ),
+      framings: avatarFramings ?? {},
+      hasPlacements: Object.keys(spritePlacements).some((key) => key.endsWith(":avatar")),
+      arranging: spriteArrangeMode,
+      onToggleArrange: toggleSpriteArrange,
+      onScaleChange: handleAvatarScaleChange,
+      onFramingChange: handleAvatarFramingChange,
+      onResetPlacements: handleResetAvatarPlacements,
+    }),
+    [
+      avatarFramings,
+      avatarScale,
+      handleAvatarFramingChange,
+      handleAvatarScaleChange,
+      handleResetAvatarPlacements,
+      spriteArrangeMode,
+      spriteCharacterVisualSettings,
+      spritePlacements,
+      stageAvatars,
+      toggleSpriteArrange,
+    ],
+  );
+  const gameAvatarStage = useMemo(
+    () => ({
+      placements: spritePlacements,
+      characterVisualSettings: spriteCharacterVisualSettings,
+      scale: avatarScale,
+      framings: avatarFramings,
+      editing: spriteArrangeMode,
+      onPlacementChange: handleSpritePlacementChange,
+      onShownChange: handleStageAvatarsChange,
+    }),
+    [
+      avatarFramings,
+      avatarScale,
+      handleSpritePlacementChange,
+      handleStageAvatarsChange,
+      spriteArrangeMode,
+      spriteCharacterVisualSettings,
+      spritePlacements,
+    ],
+  );
+
   // Set of active agent type IDs for this chat.
   const enabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
@@ -2072,8 +2191,10 @@ const LocalChatArea = memo(function LocalChatArea({
       fullBodySpriteOpacity,
       expressionAvatarsEnabled: expressionAvatarsPreferenceEnabled,
       characterOverrides: spriteCharacterVisualSettings,
+      avatarFramings,
     }),
     [
+      avatarFramings,
       expressionAvatarsPreferenceEnabled,
       expressionSpriteOpacity,
       expressionSpriteScale,
@@ -3128,36 +3249,55 @@ const LocalChatArea = memo(function LocalChatArea({
         startedTTSAutoplayRevisionsRef.current.delete(oldest);
       }
 
-      const visualNovel =
-        mode === "roleplay" &&
-        (chatMeta.roleplayDisplayStyle ?? useUIStore.getState().roleplayDisplayStyle) === "visual-novel";
-      const requestsFor = async (message: TTSAutoplayMessage) => {
-        const fallbackSpeaker =
-          message.role === "narrator"
-            ? "Narrator"
-            : message.characterId
-              ? characterMap.get(message.characterId)?.name
-              : undefined;
-        let requests;
-        if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled) {
-          try {
-            const extracted = await extractRoleplayTTSSpeakers({
-              message: filterTTSText(message.content, cfg),
-              group: getChatDisplayName(chat) || characterNames.join(", "),
-              user: personaInfo?.name || "User",
-              characters: characterNames,
-              messageAuthor: message.characterId ? characterMap.get(message.characterId)?.name : undefined,
-              debugMode: useUIStore.getState().debugMode,
-            });
-            requests = buildExtractedRoleplayTTSVoiceRequests(
-              extracted.segments,
-              cfg,
-              fallbackSpeaker,
-              message.characterId,
-              resolveTTSCharacterId,
-            );
-          } catch (error) {
-            console.warn("[TTS] Roleplay speaker extractor failed; using standard autoplay.", error);
+      // Avatars hold their talking and moods for the voice until this reading ends, however it ends.
+      const readingId = nextTTSAutoplayReadingId();
+      const announceVoice = (pending: boolean) =>
+        window.dispatchEvent(
+          new CustomEvent<TTSAutoplayVoiceDetail>(TTS_AUTOPLAY_VOICE_EVENT, {
+            detail: { chatId: targetChatId, messageId: lastMsg.id, readingId, pending },
+          }),
+        );
+      announceVoice(true);
+      try {
+        const visualNovel =
+          mode === "roleplay" &&
+          (chatMeta.roleplayDisplayStyle ?? useUIStore.getState().roleplayDisplayStyle) === "visual-novel";
+        const requestsFor = async (message: TTSAutoplayMessage) => {
+          const fallbackSpeaker =
+            message.role === "narrator"
+              ? "Narrator"
+              : message.characterId
+                ? characterMap.get(message.characterId)?.name
+                : undefined;
+          let requests;
+          if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled) {
+            try {
+              const extracted = await extractRoleplayTTSSpeakers({
+                message: filterTTSText(message.content, cfg),
+                group: getChatDisplayName(chat) || characterNames.join(", "),
+                user: personaInfo?.name || "User",
+                characters: characterNames,
+                messageAuthor: message.characterId ? characterMap.get(message.characterId)?.name : undefined,
+                debugMode: useUIStore.getState().debugMode,
+              });
+              requests = buildExtractedRoleplayTTSVoiceRequests(
+                extracted.segments,
+                cfg,
+                fallbackSpeaker,
+                message.characterId,
+                resolveTTSCharacterId,
+              );
+            } catch (error) {
+              console.warn("[TTS] Roleplay speaker extractor failed; using standard autoplay.", error);
+              requests = buildTTSVoiceRequests(
+                message.content,
+                cfg,
+                fallbackSpeaker,
+                message.characterId,
+                resolveTTSCharacterId,
+              );
+            }
+          } else {
             requests = buildTTSVoiceRequests(
               message.content,
               cfg,
@@ -3166,49 +3306,43 @@ const LocalChatArea = memo(function LocalChatArea({
               resolveTTSCharacterId,
             );
           }
-        } else {
-          requests = buildTTSVoiceRequests(
-            message.content,
-            cfg,
-            fallbackSpeaker,
-            message.characterId,
-            resolveTTSCharacterId,
-          );
-        }
-        return visualNovel ? withRoleplayTTSParagraphs(requests, message.content, cfg) : requests;
-      };
-      // A reply split at scene breaks (#7481) is read part by part, in order, as one sequence. Its parts are
-      // prepared at once so playback doesn't wait one round trip per part.
-      const parts = await Promise.all(
-        [...earlierMessages, lastMsg].map(async (message) => ({ message, requests: await requestsFor(message) })),
-      );
+          return visualNovel ? withRoleplayTTSParagraphs(requests, message.content, cfg) : requests;
+        };
+        // A reply split at scene breaks (#7481) is read part by part, in order, as one sequence. Its parts are
+        // prepared at once so playback doesn't wait one round trip per part.
+        const parts = await Promise.all(
+          [...earlierMessages, lastMsg].map(async (message) => ({ message, requests: await requestsFor(message) })),
+        );
 
-      const currentGeneration = ttsGenerationRef.current;
-      const currentMessage = findLatestTTSAutoplayMessage(messagesRef.current ?? []);
-      if (
-        useChatStore.getState().activeChatId !== targetChatId ||
-        (currentGeneration !== null && currentGeneration !== generationAtStart) ||
-        (currentMessage?.id === lastMsg.id && getTTSAutoplayRevision(currentMessage) !== targetRevision)
-      )
-        return;
-      const chunks = parts.flatMap(({ message, requests }) =>
-        requests.map((_request, index) => ({ messageId: message.id, requests, index })),
-      );
-      if (chunks.length === 0) return;
+        const currentGeneration = ttsGenerationRef.current;
+        const currentMessage = findLatestTTSAutoplayMessage(messagesRef.current ?? []);
+        if (
+          useChatStore.getState().activeChatId !== targetChatId ||
+          (currentGeneration !== null && currentGeneration !== generationAtStart) ||
+          (currentMessage?.id === lastMsg.id && getTTSAutoplayRevision(currentMessage) !== targetRevision)
+        )
+          return;
+        const chunks = parts.flatMap(({ message, requests }) =>
+          requests.map((_request, index) => ({ messageId: message.id, requests, index })),
+        );
+        if (chunks.length === 0) return;
 
-      await ttsService.speakSequence(
-        parts.flatMap(({ message, requests }) => withTTSVoiceRequestCacheKeys(requests, cfg, message.id)),
-        lastMsg.id,
-        {
-          chatId: targetChatId,
-          progressive: cfg.progressivePlayback,
-          volume: ttsLineVolume / 100,
-          onChunkStart: (_request, index) => {
-            const chunk = chunks[index];
-            if (chunk) notifyRoleplayTTSParagraph(targetChatId, chunk.messageId, chunk.requests, chunk.index);
+        await ttsService.speakSequence(
+          parts.flatMap(({ message, requests }) => withTTSVoiceRequestCacheKeys(requests, cfg, message.id)),
+          lastMsg.id,
+          {
+            chatId: targetChatId,
+            progressive: cfg.progressivePlayback,
+            volume: ttsLineVolume / 100,
+            onChunkStart: (_request, index) => {
+              const chunk = chunks[index];
+              if (chunk) notifyRoleplayTTSParagraph(targetChatId, chunk.messageId, chunk.requests, chunk.index);
+            },
           },
-        },
-      );
+        );
+      } finally {
+        announceVoice(false);
+      }
     },
     [
       characterMap,
@@ -3600,6 +3734,7 @@ const LocalChatArea = memo(function LocalChatArea({
             onPeekPrompt={handlePeekPrompt}
             multiSelectMode={multiSelectMode}
             selectedMessageIds={selectedMessageIds}
+            avatarStage={gameAvatarStage}
           />
 
           <ChatCommonOverlays
@@ -3622,6 +3757,7 @@ const LocalChatArea = memo(function LocalChatArea({
               onSpriteSideChange: handleSetSpritePosition,
               spriteVisualSettings: effectiveSpriteVisualSettings,
               onSpriteVisualSettingsChange: patchLocalSpriteVisualSettings,
+              avatarLayout,
             }}
             onCloseSettings={handleCloseSettingsPanel}
             onOpenScheduleEditor={handleOpenScheduleEditor}
@@ -3881,6 +4017,8 @@ const LocalChatArea = memo(function LocalChatArea({
           onExpressionChange={handleExpressionChange}
           onSpritePlacementChange={handleSpritePlacementChange}
           onFinishSpritePlacement={() => setSpriteArrangeMode(false)}
+          avatarLayout={avatarLayout}
+          onAvatarsShown={handleStageAvatarsChange}
           onDeleteConfirm={handleDeleteConfirm}
           onDeleteSwipe={handleDeleteSwipe}
           onDeleteOtherSwipes={handleDeleteOtherSwipes}

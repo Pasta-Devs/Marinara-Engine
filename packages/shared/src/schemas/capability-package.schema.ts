@@ -1248,7 +1248,8 @@ const capabilityPackageManifestBaseSchema = z
 // 1.339: the Game Master's intro message, part of the GM setup and a story's `intro`: defined is the game's
 //        first message exactly, guided only shapes it; an Experience may lock its own.
 // 1.340: a ruleset of up to 512 KB and catalog files of up to 2 MB (256 KB and 1 MB before).
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 340 } as const);
+// 1.341: the client host namespace (__MARINARA_HOST__), api.runtime services, commands, admission, haptics, Spotify, local speech, chat-gallery and chat-write members, and shared server libraries.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 341 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

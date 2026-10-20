@@ -1,9 +1,10 @@
 // ──────────────────────────────────────────────
-// Avatar generation: the user's Tripo API key (lane: 3D generation)
+// Avatar generation: a stored Tripo API key (lane: 3D generation)
 // ──────────────────────────────────────────────
-// Saved on the 3D Avatars page, in one app setting encrypted at rest, the way the Music DJ's YouTube key is
-// (youtube.routes.ts). The key is read only on the server, to call Tripo: no route returns it or any part of it,
-// it is never logged, and profile exports leave it out (backup.routes.ts), as they blank connection keys.
+// One-click 3D models with Tripo were withdrawn (maintainer decision, 2026-10-19): Tripo models have no face
+// rig, so their mouth can't move. A key saved for that generator stays where it is, in one app setting
+// encrypted at rest: nothing shows it, uses it or sends it anywhere, it is never logged, profile exports leave
+// it out (backup.routes.ts), and only Clear data's Connections scope removes it (admin.routes.ts).
 import type { DB } from "../../../db/connection.js";
 import { logger } from "../../../lib/logger.js";
 import { decryptApiKey, encryptApiKey } from "../../../utils/crypto.js";
@@ -22,13 +23,10 @@ export async function saveTripoApiKey(db: DB, apiKey: string): Promise<void> {
   await createAppSettingsStorage(db).set(TRIPO_API_KEY_SETTING, encryptApiKey(apiKey));
 }
 
-export async function removeTripoApiKey(db: DB): Promise<void> {
-  await createAppSettingsStorage(db).remove(TRIPO_API_KEY_SETTING);
-}
-
 /**
  * Boot migration (app.ts chain): before the key moved to the 3D Avatars page, Tripo was a provider in
- * Connections (staging only, never released). When no key is saved yet, the first Tripo connection whose key
+ * Connections (staging only, never released). Kept after the generator was withdrawn, so such a connection
+ * still goes away without losing its key. When no key is saved yet, the first Tripo connection whose key
  * can be read gives its key; then every Tripo connection is deleted, which also clears the defaults and the
  * agent and chat settings that pointed to it. With no Tripo connection left it does nothing, so it is safe on
  * every boot (and the next boot cleans up one an old profile import brings back).
@@ -56,6 +54,6 @@ export async function migrateTripoConnectionsToApiKey(db: DB): Promise<void> {
   logger.info(
     "[migration] Removed %d Tripo connection(s); %s",
     tripoIds.length,
-    movedKey ? "the Tripo API key now lives on the 3D Avatars page" : "no Tripo API key was moved",
+    movedKey ? "their Tripo API key was kept in app settings" : "no Tripo API key was moved",
   );
 }

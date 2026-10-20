@@ -6,7 +6,8 @@ This guide covers the **Characters panel**, the sidebar where all your character
 
 The **Characters panel** is the character list in the side panel. It holds every character you have created or imported. From the top of the panel you can:
 
-- Click **Open Full Library** to open a larger full-page grid view of the same characters.
+- Click **Download** to open the [Card Browser](bot-browser.md) and find characters on public sites.
+- Click **Open Library** to open a larger full-page grid view of the same characters.
 - Click the **New** button (the plus icon) to open the **Create Character** window.
 - Click the **Import** button (the download icon) to import a character file.
 - Click the **Select** button (the check icon) to turn on multi-select mode for bulk actions.
@@ -43,11 +44,14 @@ Next to the search box is the sort dropdown. Pick one of these orders:
 
 | Option        | What it does                    |
 | ------------- | ------------------------------- |
+| **Manual order** | The order you set yourself.  |
 | **A-Z**       | Names from A to Z.              |
 | **Z-A**       | Names from Z to A.              |
 | **Newest**    | Most recently created first.    |
 | **Oldest**    | Oldest created first.           |
 | **Favorites** | Favorites first, then the rest. |
+
+To set a manual order, drag a character row up or down. You can also press Alt+Up or Alt+Down on a focused row. Either one switches the sort to **Manual order**.
 
 ## Folders
 
@@ -62,6 +66,8 @@ To create a folder:
 To rename a folder, double-click it, double-tap it, or select it and press the F2 key. Type the new name and press Enter.
 
 To put a character in a folder, drag the character row and drop it onto the folder. A helper line reads **Drag and drop characters to folders, double-click or double-tap to rename** once you have at least one folder. To take a character back out, hover its row inside the folder and click the remove-from-folder button, or drag it out.
+
+On a touch screen, press and hold a row to pick it up, then drag it. A normal swipe still scrolls the list. While you hold one row, tap other rows with a second finger to carry them along as a stack, then drop the stack on a folder.
 
 Click a folder to expand or collapse it. The number next to a folder name is how many characters are inside it.
 

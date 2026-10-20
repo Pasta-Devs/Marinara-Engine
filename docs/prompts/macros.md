@@ -269,6 +269,8 @@ Every macro-enabled field has two small buttons in its corner:
 - **Expand editor** opens a larger editor window for that field.
 - **Macro reference** opens a window titled **Macro reference** that lists every built-in macro by category, each with its exact syntax. This list is generated from the same source the engine uses, so it is always accurate.
 
+These fields also finish macro names for you. Type `{{ch` at the end of a line and the rest, `ar}}`, appears in faint text. Press Tab, or tap the faint text, to accept it. Keep typing to ignore it. For a macro that takes a value, such as `{{getvar::`, it stops where you type the value.
+
 You can also type `/macros` in the chat box (the short form `/macro` works too). It prints the full macro list right in the chat as a quick reminder.
 
 Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and parentheses. Equality lists may use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples, and the full operator list.

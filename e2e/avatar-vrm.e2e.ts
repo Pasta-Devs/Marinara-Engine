@@ -1,14 +1,15 @@
 // The VRM renderer in a real browser, under the server's Content-Security-Policy: a generated (Tripo) model
 // keeps the colours of its embedded pictures instead of drawing plain white, and its body moves on its own
-// with no idle animation. The model is built in code (scripts/regressions/fixtures/avatar-3d-fixtures.ts).
+// with no idle animation. The model is the file the withdrawn one-click Tripo generator made from a model built
+// in code (scripts/regressions/fixtures/avatar-3d-fixtures.ts), as users who made one still have it.
 import { expect, test } from "@playwright/test";
-import { generatedVrm, type Rgb } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
+import { TRIPO_MADE_VRM_COLOUR, tripoMadeVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const RENDERER = "/src/features/avatars/renderers/vrm/vrm-renderer.ts";
 const OWNER_ID = "e2e-vrm-generated";
-const COLOUR: Rgb = [200, 60, 40];
+const COLOUR = TRIPO_MADE_VRM_COLOUR;
 
 interface PageVrm {
   renderer: { update(frame: unknown, dtMs: number): void; dispose(): void };
@@ -25,7 +26,7 @@ declare global {
 test("a generated VRM model keeps its colours under the server's CSP and moves with no idle animation", async ({
   page,
 }) => {
-  const model = await generatedVrm(COLOUR);
+  const model = tripoMadeVrm();
   await page.route(`**/api/avatar-models/character/${OWNER_ID}/files/vrm/model.vrm`, (route) =>
     route.fulfill({ contentType: "model/gltf-binary", body: model }),
   );

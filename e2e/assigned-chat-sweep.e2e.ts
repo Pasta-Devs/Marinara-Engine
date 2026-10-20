@@ -418,6 +418,8 @@ test("Character-sheet resolution migrates once and remains independent after a s
       delete old.state.imageCharacterSheetWidth;
       delete old.state.imageCharacterSheetHeight;
       localStorage.setItem("marinara-engine-ui", JSON.stringify(old));
+      // A v99 Engine never saved the host-only copy, which would otherwise win over an older blob.
+      localStorage.removeItem("marinara-engine-ui:host");
       sessionStorage.setItem("sheet-migration-seeded", "true");
     });
     await page.reload();

@@ -20,30 +20,44 @@ interface ShownSegment {
   partyType?: string | null;
   /** "user" for the player's own input shown before the Game Master's lines. */
   sourceRole?: string | null;
+  sourceMessageId?: string | null;
 }
 
 const listeners = new Set<GameLineListener>();
 let lastShown: { key: string; chatId: string; line: AvatarGameLine } | null = null;
 
 /** Called whenever the active narration segment changes; repeats of the same line are ignored. */
-export function publishAvatarGameLine(chatId: string | null, segment: ShownSegment | null): void {
+export function publishAvatarGameLine(
+  chatId: string | null,
+  segment: ShownSegment | null,
+  voice: { expected: boolean; pending: boolean } = { expected: false, pending: false },
+): void {
   if (!chatId || !segment) return;
+  const lineId = `${segment.sourceMessageId ?? chatId}:${segment.id}`;
   if (segment.type !== "dialogue" || !segment.speaker?.trim()) {
     // Narration is on screen now: a stage that mounts later keeps the last face but does not speak the old line.
     if (lastShown?.chatId === chatId && lastShown.line.text) {
-      lastShown = { key: `${lastShown.key}\nmuted`, chatId, line: { ...lastShown.line, text: "" } };
+      lastShown = {
+        key: `${lastShown.key}\nmuted`,
+        chatId,
+        line: { ...lastShown.line, id: lineId, text: "", voiceExpected: false, voicePending: false },
+      };
+      for (const listener of listeners) listener(chatId, lastShown.line);
     }
     return;
   }
-  const key = `${chatId}\n${segment.id}\n${segment.content}`;
+  const key = `${chatId}\n${lineId}\n${segment.content}\n${voice.expected}\n${voice.pending}`;
   if (key === lastShown?.key) return;
   // The same lines GameNarration's voice skips (shouldSkipGameVoiceSegment).
   const unspoken = segment.partyType === "thought" || segment.sourceRole === "user" || segment.sourceRole === "system";
   const line: AvatarGameLine = {
+    id: lineId,
     speakerName: segment.speaker.trim(),
     ownerId: null,
     expression: segment.sprite?.trim() || null,
     text: unspoken ? "" : segment.content,
+    voiceExpected: !unspoken && voice.expected,
+    voicePending: !unspoken && voice.pending,
   };
   lastShown = { key, chatId, line };
   for (const listener of listeners) listener(chatId, line);

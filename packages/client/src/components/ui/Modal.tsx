@@ -46,6 +46,8 @@ interface ModalProps {
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
   dragThrough?: boolean;
+  /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
+  topLayer?: boolean;
 }
 
 export function Modal({
@@ -67,6 +69,7 @@ export function Modal({
   closeButtonClassName,
   opaque = false,
   dragThrough = false,
+  topLayer = false,
 }: ModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -191,7 +194,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${dragThrough ? "pointer-events-none" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4"

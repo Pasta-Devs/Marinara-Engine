@@ -35,6 +35,11 @@ export const AVATAR_RENDER_BUDGET = Object.freeze({
 
 // ── Renderers (lanes 2D and 3D) ──
 
+/** How much of a 3D avatar its box shows: head and shoulders (the default), down to the hips, or head to feet.
+ *  The box keeps its size; a taller framing shows more of the model in it. 2D avatars have no framing. */
+export const AVATAR_FRAMINGS = ["portrait", "half-body", "full-body"] as const;
+export type AvatarFraming = (typeof AVATAR_FRAMINGS)[number];
+
 export interface AvatarRendererMountOptions {
   owner: AvatarOwnerRef;
   config: AvatarConfig;
@@ -58,6 +63,8 @@ export interface AvatarRenderer {
   resize(width: number, height: number, devicePixelRatio: number): void;
   /** Paused renderers draw nothing and hold no timers. */
   setPaused(paused: boolean): void;
+  /** 3D only: how much of the model the camera shows. Changing it never reloads the model. */
+  setFraming?(framing: AvatarFraming): void;
   /** Release GPU resources, listeners and object URLs. The renderer is unusable afterwards. */
   dispose(): void;
 }
@@ -106,10 +113,14 @@ export interface AvatarExpressionPick {
 
 /** Game mode: the Game Master line now on screen, with its per-line expression. */
 export interface AvatarGameLine {
+  id?: string;
   speakerName: string;
   ownerId: string | null;
   expression: string | null;
   text: string;
+  /** Whether Game actually has a voice request for this displayed line, and is still generating it. */
+  voiceExpected?: boolean;
+  voicePending?: boolean;
 }
 
 /** Live loudness of a voice that is playing for one owner (text-to-speech). */
@@ -119,6 +130,8 @@ export interface AvatarAudioLevelSource {
   level(): number;
   /** Mouth shape guessed from the audio, when the source can tell. */
   viseme?(): AvatarViseme | null;
+  /** The text the voice is reading and how far through the clip it is (0..1), when the source knows. */
+  line?(): { text: string; progress: number } | null;
   isPlaying(): boolean;
 }
 
@@ -136,13 +149,17 @@ export interface AvatarDirectorOptions {
  *  that feed surface, also used by tests. The stage only creates it, sets participants, reads frames and
  *  disposes it. Roleplay faces come from the streaming classifier, Game faces from the Game Master's
  *  per-line expressions, and an Expression Engine pick, when present, is the final face after the reply.
- *  Lip sync follows the visible text while streaming (speech clock) and the audio level when TTS plays. */
+ *  Lip sync follows the visible text while streaming (speech clock) and the audio level when TTS plays. When
+ *  text-to-speech auto-play will read a Roleplay reply, the avatar waits for the voice instead: moods follow
+ *  the voice sentence by sentence, and the Expression Engine's pick shows after it. */
 export interface AvatarDirector {
   setParticipants(participants: readonly AvatarParticipant[]): void;
   pushStreamText(update: AvatarStreamUpdate): void;
   pushExpressionPicks(picks: readonly AvatarExpressionPick[]): void;
   pushGameLine(line: AvatarGameLine): void;
   setAudioSource(ownerId: string, source: AvatarAudioLevelSource | null): void;
+  /** Whether text-to-speech auto-play reads Roleplay replies in this chat (read when a reply starts). */
+  setVoiceAutoplay(on: boolean): void;
   setUserTyping(typing: boolean): void;
   /** The frame for one owner at `nowMs` (performance.now()). Cheap: called every frame per avatar. */
   frame(ownerId: string, nowMs: number): AvatarFrameInput;

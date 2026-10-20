@@ -1630,8 +1630,8 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 33);
-      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 33);
+      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 39);
+      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 39);
       assert.deepEqual(
         OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.find((entry) => entry.id === "noodle"),
         {
@@ -1652,7 +1652,7 @@ const cases: RegressionCase[] = [
             OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).length,
           ]),
         ),
-        { writer: 6, tracker: 9, misc: 18 },
+        { writer: 6, tracker: 13, misc: 20 },
       );
       assert.ok(frontendAgentCatalog, "Frontend architecture is missing the first-party agent catalog");
       assert.deepEqual(

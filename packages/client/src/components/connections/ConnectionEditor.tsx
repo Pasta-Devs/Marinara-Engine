@@ -1779,7 +1779,7 @@ export function ConnectionEditor({
           <button
             onClick={handleDiagnoseClaudeSubscription}
             disabled={diagnoseClaudeSubscription.isPending || !localModel}
-            className="flex items-center gap-1.5 rounded-xl bg-amber-400/10 px-4 py-2.5 text-xs font-medium text-amber-400 ring-1 ring-amber-400/20 transition-all hover:bg-amber-400/20 active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)]/10 px-4 py-2.5 text-xs font-medium text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/20 transition-all hover:bg-[var(--marinara-app-accent-static)]/20 active:scale-[0.98] disabled:opacity-50"
             title={localizeUi("ui.connections.connectioneditor.verifyWhichModelTheSdkActuallyBillsAgainstCatches")}
           >
             {diagnoseClaudeSubscription.isPending ? (
@@ -2171,7 +2171,11 @@ export function ConnectionEditor({
         <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
           <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="rounded-lg px-2 py-0.5 hover:bg-red-500/20">
+          <button
+            onClick={() => setSaveError(null)}
+            aria-label={localizeUi("editor.save.dismissError")}
+            className="rounded-lg px-2 py-0.5 text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/20"
+          >
             <X size="0.75rem" />
           </button>
         </div>
@@ -3362,7 +3366,7 @@ export function ConnectionEditor({
                     {comfyWorkflowValidation.charPos !== null ? (
                       <button
                         onClick={handleJumpToJsonError}
-                        className="underline decoration-dotted cursor-pointer text-left hover:text-red-300"
+                        className="underline decoration-dotted cursor-pointer text-left text-[var(--marinara-app-accent-static)] hover:text-[var(--marinara-app-accent-static)]/80"
                       >
                         {comfyWorkflowValidation.label}
                       </button>

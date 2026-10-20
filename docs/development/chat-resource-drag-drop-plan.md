@@ -2,7 +2,7 @@
 
 ## Status
 
-Phases 1 through 4 are implemented on `drag-me-baby-one-more-time`.
+Phases 1 through 4 were implemented on `drag-me-baby-one-more-time` and are merged into `staging`. Later work (#7362) lets library rows be dragged without a handle, lets a touch user gather a stack of compatible resources with second-finger taps, and shows insertion gaps for reordering.
 
 Automated resolver coverage is active. Desktop Playwright coverage has been added for character assignment and persona replacement, but local execution in the current development container is blocked because Chromium cannot load `libnspr4.so`; CI or an environment with Playwright system dependencies must run those browser cases.
 

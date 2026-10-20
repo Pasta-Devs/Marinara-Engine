@@ -112,11 +112,13 @@ A **Download Backup** archive is different. Marinara does not remove secrets fro
 
 After you import a profile, do this:
 
-1. Open **Settings**.
-2. Go to the **Connections** tab.
-3. Re-enter the API key for each provider you use.
+1. Open the **Connections** panel from the top bar.
+2. Open each connection you use.
+3. Re-enter its API key and save it.
 
 If you use custom tools that call a webhook link, re-enter that link on each tool too.
+
+A few addresses saved with a chat are also left out of the profile file: the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. This also applies to settings profiles and to the translation defaults for new chats. When you import a profile on another install, enter them again in each chat's **Chat Settings**.
 
 Importing does not erase keys you have already set. If you re-import an old profile, Marinara keeps the live keys and webhook links on items that still exist. A re-import will not blank them.
 

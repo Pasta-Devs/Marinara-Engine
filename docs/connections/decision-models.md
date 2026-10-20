@@ -32,7 +32,7 @@ For activation questions and prompt/lorebook statements, the model receives the 
 - Macros in the statement are filled in first, so `{{char}}` arrives as the character's name.
 - When the messages do not fit the model's budget, older messages are dropped first. See [Set up a Decision connection](#set-up-a-decision-connection) for the hosted budget.
 
-**Advanced Memory uses its own per-chat Decision model.** Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks; it does not use the fixed last-5-message rule above. Hosted providers receive these texts, potentially in multiple bounded batches. Each recall pass falls back to ordinary recall after 10 seconds. See [Optional Decision model](../agents/memory.md#optional-decision-model).
+**Advanced Memory uses its own per-chat Decision model.** Scene checks read the relevant transcript window. Recall sends recent conversation text and up to 24 shortlisted archived recaps (more if **Maximum recalled scenes** is higher), then original messages from the scenes the model chose, after character access checks; it does not use the fixed last-5-message rule above. Hosted providers receive these texts, potentially in multiple bounded batches. Each recall pass normally gets 10 to 25 seconds, sized to the model's speed. Both passes share a limit of 40 seconds for each reply, so a pass can get less than 10 seconds when little time remains. Memories without an answer in time fall back to ordinary recall. See [Optional Decision model](../agents/memory.md#optional-decision-model).
 
 ## Choosing a Decision model
 

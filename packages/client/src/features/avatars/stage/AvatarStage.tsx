@@ -6,11 +6,11 @@
 // PNGTuber avatar until one is saved), loads renderers with loadAvatarRenderer(), creates one director
 // once an avatar shows, and runs the single frame loop within AVATAR_RENDER_BUDGET (visible count, DPR
 // cap, fps, pause when hidden, offscreen, covered or effects-paused, reduced motion). It never hides the
-// full-body sprite: the user turns that off by hand. Avatars sit where the sprites would and move with
-// the sprites' Arrange mode (placement key `<ownerId>:avatar`).
+// full-body sprite: the user turns that off by hand. Avatars share the saved sprite layout (placement key
+// `<ownerId>:avatar`); Chat Settings' Avatars drawer turns Arrange on, sizes and frames them, with or without the
+// Expression Engine. The stage itself has no controls.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { useQueries, type QueryObserverResult } from "@tanstack/react-query";
-import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   AVATAR_2D_AGENT_ID,
@@ -30,11 +30,13 @@ import { fetchAvatarModel, useAvatarModelList } from "../../../hooks/use-avatar-
 import { spriteKeys, type SpriteInfo } from "../../../hooks/use-characters";
 import { useMatchMedia } from "../../../hooks/use-match-media";
 import { useReducedAmbientEffects } from "../../../hooks/use-reduced-ambient-effects";
+import { useTTSConfig } from "../../../hooks/use-tts";
 import { api } from "../../../lib/api-client";
 import {
   AVATAR_RENDER_BUDGET,
   avatarModelKeys,
   type AvatarDirector,
+  type AvatarFraming,
   type AvatarRenderer,
   type AvatarStageProps,
 } from "../contract";
@@ -52,11 +54,12 @@ import {
   withSpriteAvatar,
   type AvatarDrawClock,
   type StageAvatar,
+  type StageAvatarSummary,
 } from "./avatar-stage-logic";
 import { useAvatarEffectsPaused, useChatCovered, useOnScreen } from "./use-avatar-pause";
 import { useAvatarRenderer } from "./use-avatar-renderer";
 
-/** Where avatars stand, matching the chat's sprite layout. All optional: Game passes only side and scale. */
+/** Where avatars stand, matching the chat's saved sprite layout. */
 export interface AvatarStageLayout {
   side?: SpriteSide | "center";
   placements?: Record<string, SpritePlacement>;
@@ -65,10 +68,13 @@ export interface AvatarStageLayout {
   scale?: number;
   /** Scene-wide multiplier (Visual Novel sprite size). */
   scaleMultiplier?: number;
-  /** The sprites' Arrange mode. */
+  /** Each 3D avatar's framing, by owner id (portrait when unset). */
+  framings?: Record<string, AvatarFraming>;
+  /** Arrange mode, turned on in Chat Settings: avatars can be dragged and moved with the arrow keys. */
   editing?: boolean;
   onPlacementChange?: (placementKey: string, placement: SpritePlacement) => void;
-  onFinishPlacement?: () => void;
+  /** The avatars the stage shows, for Chat Settings' Avatars drawer; empty once the stage is gone. */
+  onShownChange?: (avatars: StageAvatarSummary[]) => void;
 }
 
 interface StageSlot {
@@ -104,9 +110,10 @@ export function AvatarStage({
   characterVisualSettings,
   scale = 1,
   scaleMultiplier = 1,
+  framings,
   editing = false,
   onPlacementChange,
-  onFinishPlacement,
+  onShownChange,
 }: AvatarStageProps & AvatarStageLayout) {
   const { t } = useTranslation();
   const phone = useMatchMedia(AVATAR_PHONE_QUERY);
@@ -138,6 +145,15 @@ export function AvatarStage({
     () => selectStageAvatars(participants, summaries, enabledAgentIds, maxVisible, spriteAvatarOwners),
     [enabledAgentIds, maxVisible, participants, spriteAvatarOwners, summaries],
   );
+  useEffect(() => {
+    onShownChange?.(
+      shown.map(({ participant, kind }) => ({ ownerId: participant.owner.ownerId, name: participant.name, kind })),
+    );
+  }, [onShownChange, shown]);
+  useEffect(() => {
+    if (!onShownChange) return;
+    return () => onShownChange([]);
+  }, [onShownChange]);
   const configQueries = useQueries({
     queries: shown.map(({ participant, saved }) => ({
       queryKey: avatarModelKeys.detail(participant.owner),
@@ -163,6 +179,13 @@ export function AvatarStage({
   useEffect(() => {
     director?.setParticipants(participants);
   }, [director, participants]);
+  // Read the way ChatArea decides to auto-play a Roleplay reply: the avatar then waits for the voice.
+  const { data: ttsConfig } = useTTSConfig();
+  const voiceAutoplay =
+    !!ttsConfig?.enabled && (mode === "roleplay" ? !!ttsConfig.autoplayRP : !!ttsConfig.autoplayGame);
+  useEffect(() => {
+    director?.setVoiceAutoplay(voiceAutoplay);
+  }, [director, voiceAutoplay]);
 
   const onScreen = useOnScreen(stageRef, shown.length > 0);
   const covered = useChatCovered(stageRef, shown.length > 0);
@@ -240,17 +263,17 @@ export function AvatarStage({
             placement={placement}
             count={shown.length}
             scale={(ownerSettings?.fullBodySpriteScale ?? scale) * scaleMultiplier}
+            framing={framings?.[ownerId] ?? "portrait"}
             editing={editing}
             phone={phone}
             reducedMotion={reducedMotion}
             stageRef={stageRef}
             label={t("avatars.stage.avatarLabel", { name: avatar.participant.name })}
-            finishLabel={t("avatars.stage.finishPlacing")}
             dragLabel={t("ui.chat.charactersprite.dragToMove")}
             releaseLabel={t("ui.chat.charactersprite.releaseToSave")}
+            moveHelp={t("avatars.stage.moveHelp")}
             onSlot={setSlot}
             onPlacementChange={onPlacementChange}
-            onFinishPlacement={onFinishPlacement}
           />
         );
       })}
@@ -278,17 +301,17 @@ function AvatarSlot({
   placement,
   count,
   scale,
+  framing,
   editing,
   phone,
   reducedMotion,
   stageRef,
   label,
-  finishLabel,
   dragLabel,
   releaseLabel,
+  moveHelp,
   onSlot,
   onPlacementChange,
-  onFinishPlacement,
 }: {
   avatar: StageAvatar;
   /** The owner's avatar.json: undefined while loading, null when it has none. */
@@ -301,17 +324,17 @@ function AvatarSlot({
   placement: SpritePlacement;
   count: number;
   scale: number;
+  framing: AvatarFraming;
   editing: boolean;
   phone: boolean;
   reducedMotion: boolean;
   stageRef: RefObject<HTMLDivElement | null>;
   label: string;
-  finishLabel: string;
   dragLabel: string;
   releaseLabel: string;
+  moveHelp: string;
   onSlot: (ownerId: string, slot: StageSlot | null) => void;
   onPlacementChange?: (placementKey: string, placement: SpritePlacement) => void;
-  onFinishPlacement?: () => void;
 }) {
   const { owner } = avatar.participant;
   const { ownerType, ownerId } = owner;
@@ -338,6 +361,10 @@ function AvatarSlot({
     phone,
   });
   const features = config?.features;
+  // Before the slot joins the stage's loop, so the first frame is already framed.
+  useEffect(() => {
+    renderer?.setFraming?.(framing);
+  }, [framing, renderer]);
   useEffect(() => {
     if (!renderer || !features) return;
     onSlot(owner.ownerId, { renderer, features });
@@ -348,6 +375,7 @@ function AvatarSlot({
     placement: current,
     dragging,
     onPointerDown,
+    nudgePlacement,
   } = useSpritePlacementDrag({
     placement,
     placementKey,
@@ -372,36 +400,38 @@ function AvatarSlot({
     <div
       data-avatar-owner={owner.ownerId}
       data-avatar-kind={avatar.kind}
+      data-game-skip-bg-nav={editing ? "true" : undefined}
       className={`absolute -translate-x-1/2 -translate-y-full select-none ${editing ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none"}`}
       style={style}
       onPointerDown={onPointerDown}
     >
       {editing && (
-        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-[calc(100%+0.35rem)] items-center gap-1">
-          <button
-            type="button"
-            title={finishLabel}
-            aria-label={finishLabel}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onPlacementChange?.(placementKey, current);
-              onFinishPlacement?.();
-            }}
-            className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-lg backdrop-blur-md transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-          >
-            <Check size="0.75rem" strokeWidth={2.4} />
-          </button>
-          <div className="pointer-events-none whitespace-nowrap rounded-full border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-wide text-[var(--marinara-chat-chrome-button-text-hover)] shadow-md">
-            {dragging ? releaseLabel : dragLabel}
-          </div>
+        <div className="pointer-events-none absolute left-1/2 top-0 z-[2] -translate-x-1/2 -translate-y-[calc(100%+0.35rem)] whitespace-nowrap rounded-full border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-wide text-[var(--marinara-chat-chrome-button-text-hover)] shadow-md">
+          {dragging ? releaseLabel : dragLabel}
         </div>
       )}
       <canvas
         ref={setCanvas}
         role="img"
         aria-label={label}
+        tabIndex={editing ? 0 : undefined}
+        title={editing ? moveHelp : undefined}
+        aria-keyshortcuts={editing ? "ArrowUp ArrowDown ArrowLeft ArrowRight" : undefined}
+        onKeyDown={(event) => {
+          if (!editing) return;
+          const step = event.shiftKey ? 5 : 1;
+          const directions: Record<string, SpritePlacement> = {
+            ArrowLeft: { x: -step, y: 0 },
+            ArrowRight: { x: step, y: 0 },
+            ArrowUp: { x: 0, y: -step },
+            ArrowDown: { x: 0, y: step },
+          };
+          const delta = directions[event.key];
+          if (!delta) return;
+          event.preventDefault();
+          event.stopPropagation();
+          nudgePlacement(delta);
+        }}
         className={`${avatarSizeClass(count)} block aspect-[3/4] ${editing ? "outline-dashed outline-1 outline-[var(--marinara-chat-chrome-button-border)]" : ""}`}
       />
     </div>

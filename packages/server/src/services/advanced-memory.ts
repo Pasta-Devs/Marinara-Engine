@@ -1230,6 +1230,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }
     const manual = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
       legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
+      now: "1970-01-01T00:00:00.000Z", // Match the stable fallback used by compaction dependencies.
     });
     if (
       record.dependencies.some(
@@ -2536,6 +2537,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const ids = new Set(eligible.map((message) => message.id));
     const entries = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
       legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
+      now: "1970-01-01T00:00:00.000Z", // Missing timestamps must not change source revisions between reads.
     });
     return entries.filter((entry) => {
       if (!entry.enabled) return false;
@@ -4611,8 +4613,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           abortIfNeeded(options.signal);
           const current = entriesFor(fresh);
           const selectedIds = new Set(entries.map((entry) => entry.id));
+          const currentById = new Map(current.map((entry) => [entry.id, entry]));
           if (
-            hash(current.filter((entry) => selectedIds.has(entry.id))) !== hash(entries) ||
+            hash(entries.map((entry) => currentById.get(entry.id))) !== hash(entries) ||
             preparationPolicyRevision({
               ...ctx,
               metadata: fresh,
@@ -6245,6 +6248,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const current = await records(chatId);
     const entries = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
       legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
+      now: "1970-01-01T00:00:00.000Z", // Preserve the same summary dependency revisions after transfer.
     });
     for (const record of current) {
       if (recordIds && !recordIds.includes(record.id)) continue;

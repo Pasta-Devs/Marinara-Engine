@@ -6,10 +6,12 @@ A change applies straight away. You do not need to restart the server or reload 
 
 ## Overview
 
-| Switch                          | Setting key                | Default | Environment variable              |
-| ------------------------------- | -------------------------- | ------- | --------------------------------- |
-| **Stable lorebook picks**       | `stableLorebookGroupPicks` | Off     | `LOREBOOK_STABLE_GROUP_WINNERS`   |
-| **Retry failed provider calls** | `providerRetry`            | Off     | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| Switch                            | Setting key                | Default | Environment variable              |
+| --------------------------------- | -------------------------- | ------- | --------------------------------- |
+| **Stable lorebook picks**         | `stableLorebookGroupPicks` | Off     | `LOREBOOK_STABLE_GROUP_WINNERS`   |
+| **Retry failed provider calls**   | `providerRetry`            | Off     | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats**     | `usageAndActivationStats`  | Off     | none                              |
+| **Recover deleted chat messages** | `messageTrash`             | Off     | none                              |
 
 Searching settings for `features` takes you to the section.
 
@@ -38,6 +40,22 @@ Setting key: `providerRetry`. Environment variable: `PROVIDER_RETRY_TRANSIENT_ER
 On: a refused or unreachable connection, or a gateway 502 or 503, is retried up to twice with a short jittered wait, and only before any text reached you. A 504 or a dropped connection is never retried. Not used when the connection has a fallback: the fallback is tried at once instead.
 
 Off: only rate limits are retried, as before.
+
+### Lorebook activation stats
+
+Setting key: `usageAndActivationStats`. No environment variable.
+
+On: after a reply is successfully saved, Marinara records which lorebook entries were activated, so you can sort and filter entries by use in the lorebook editor. Continue chunks do not add activation records.
+
+Off: nothing is recorded, and the lorebook editor hides its activation stats.
+
+### Recover deleted chat messages
+
+Setting key: `messageTrash`. No environment variable.
+
+On: deleted chat messages go to the **Trash** tab in chat search. Use **Restore** there within 30 days; after that they are removed for good. Game messages and rollback deletes are still permanent.
+
+Off: deleted messages are removed right away.
 
 ## Precedence
 

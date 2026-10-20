@@ -15,8 +15,11 @@ import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
 
 const KEYS = {
   config: ["tts", "config"] as const,
-  voices: (source: TTSSource, baseUrl: string) => ["tts", "voices", source, baseUrl] as const,
-  models: (source: TTSSource, baseUrl: string) => ["tts", "models", source, baseUrl] as const,
+  // The Audio connection ID keeps two connections on the same adapter and address apart.
+  voices: (source: TTSSource, baseUrl: string, connectionId: string) =>
+    ["tts", "voices", source, baseUrl, connectionId] as const,
+  models: (source: TTSSource, baseUrl: string, connectionId: string) =>
+    ["tts", "models", source, baseUrl, connectionId] as const,
 };
 
 // ── Config ───────────────────────────────────────
@@ -63,9 +66,10 @@ export function useUpdateTTSVoiceMode() {
 
 // ── Voices ───────────────────────────────────────
 
-export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolean) {
+/** The voices of the card's saved choice: its source settings, or its Audio connection when `connectionId` is set. */
+export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolean, connectionId = "") {
   return useQuery({
-    queryKey: KEYS.voices(source, baseUrl),
+    queryKey: KEYS.voices(source, baseUrl, connectionId),
     queryFn: () => api.get<TTSVoicesResponse>("/tts/voices"),
     enabled: enabled && Boolean(baseUrl),
     staleTime: 5 * 60_000,
@@ -73,9 +77,9 @@ export function useTTSVoices(source: TTSSource, baseUrl: string, enabled: boolea
   });
 }
 
-export function useTTSModels(source: TTSSource, baseUrl: string, enabled: boolean) {
+export function useTTSModels(source: TTSSource, baseUrl: string, enabled: boolean, connectionId = "") {
   return useQuery({
-    queryKey: KEYS.models(source, baseUrl),
+    queryKey: KEYS.models(source, baseUrl, connectionId),
     queryFn: () => api.get<TTSModelsResponse>("/tts/models"),
     enabled: enabled && source === "elevenlabs" && Boolean(baseUrl),
     staleTime: 5 * 60_000,

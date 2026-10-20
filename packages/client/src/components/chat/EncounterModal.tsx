@@ -934,7 +934,7 @@ function EncounterModalInner() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => initEncounter(settings)}
-                      className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-foreground"
+                      className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)]"
                     >
                       <RefreshCw size="0.75rem" />
                       {localizeUi("ui.game.gamesurfacecomponent.retry")}
@@ -1045,7 +1045,7 @@ class EncounterErrorBoundary extends Component<{ children: ReactNode; onReset: (
                     this.setState({ hasError: false });
                     this.props.onReset();
                   }}
-                  className="rounded-xl bg-red-600 px-6 py-2.5 text-xs font-medium text-foreground transition-all hover:bg-red-500"
+                  className="rounded-xl bg-[var(--marinara-app-accent-static)] px-6 py-2.5 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:bg-[var(--marinara-app-accent-static)]"
                 >
                   {t("ui.chat.encountererrorboundary.close")}
                 </button>

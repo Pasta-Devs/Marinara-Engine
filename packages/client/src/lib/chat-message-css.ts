@@ -1,7 +1,8 @@
 // Shared-message HTML may include author-supplied inline styles and <style>
 // blocks. Keep that CSS useful, but prevent it from escaping the message box.
 
-import postcss, { type AtRule, type Node, type Rule } from "postcss";
+import postcss, { CssSyntaxError, type AtRule, type Node, type Root, type Rule } from "postcss";
+import { remoteImageHref } from "./remote-images";
 
 const STRING_OR_ESCAPE = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\\(?:[0-9a-fA-F]{1,6}\s?|[\s\S])/g;
 const SAFE_POSITION_VALUES = new Set([
@@ -273,11 +274,16 @@ function namespaceMessageCssGlobals(css: string, scopeSelector: string): string 
 }
 
 const CONDITIONAL_AT_RULES = new Set(["container", "layer", "media", "scope", "starting-style", "supports"]);
-const PRESERVED_GLOBAL_AT_RULES = new Set(["font-face", "keyframes", "property", "-webkit-keyframes"]);
+const PRESERVED_GLOBAL_AT_RULES: ReadonlySet<string> = new Set([
+  "font-face",
+  "keyframes",
+  "property",
+  "-webkit-keyframes",
+]);
 
-function isInsideGlobalRule(node: Rule): boolean {
+function isInsideGlobalRule(node: Rule, globalAtRules: ReadonlySet<string>): boolean {
   for (let parent: Node | undefined = node.parent; parent; parent = parent.parent) {
-    if (parent.type === "atrule" && PRESERVED_GLOBAL_AT_RULES.has((parent as AtRule).name.toLowerCase())) return true;
+    if (parent.type === "atrule" && globalAtRules.has((parent as AtRule).name.toLowerCase())) return true;
   }
   return false;
 }
@@ -289,23 +295,79 @@ function isNestedRule(node: Rule): boolean {
   return false;
 }
 
-/** Parse complete rules so browser error recovery can never expose an unscoped selector. */
-function scopeCssRuleList(css: string, scopeSelector: string): string {
+/**
+ * True when the scoped selector's first compound (the scope element itself) is followed by a
+ * sibling combinator, so it would match elements next to the scope instead of inside it.
+ */
+function selectsScopeSibling(selector: string, scopeSelector: string): boolean {
+  if (!selector.startsWith(scopeSelector)) return false;
+  let depth = 0;
+  let quote: string | null = null;
+  let index = scopeSelector.length;
+  for (; index < selector.length; index += 1) {
+    const char = selector[index]!;
+    if (quote) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "\\") index += 1;
+    else if (char === '"' || char === "'") quote = char;
+    else if (char === "(" || char === "[") depth += 1;
+    else if ((char === ")" || char === "]") && depth > 0) depth -= 1;
+    else if (depth === 0 && /[\s>~+|]/u.test(char)) break;
+  }
+  return /^\s*(?:[~+]|\|\|)/u.test(selector.slice(index));
+}
+
+function scopeMessageSelector(selector: string, scopeSelector: string): string {
+  if (selector === ":root" || selector === "html" || selector === "body") return scopeSelector;
+  return `${scopeSelector} ${selector}`;
+}
+
+/** Browsers close blocks left open at the end of a stylesheet; mirror that instead of dropping it all. */
+function parseCss(css: string, closeUnclosedBlocks: boolean): Root {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return postcss.parse(css, { from: undefined });
+    } catch (error) {
+      if (!closeUnclosedBlocks || attempt >= 32) throw error;
+      if (!(error instanceof CssSyntaxError) || error.reason !== "Unclosed block") throw error;
+      css += "}";
+    }
+  }
+}
+
+export type ScopeCssRulesOptions = {
+  /** Rewrites one trimmed selector to sit inside the scope. Defaults to message scoping. */
+  mapSelector?: (selector: string, scopeSelector: string) => string;
+  /** At-rules kept outside the scope because they hold no selectors (fonts, animations). */
+  globalAtRules?: ReadonlySet<string>;
+  closeUnclosedBlocks?: boolean;
+};
+
+/**
+ * Parse complete rules so browser error recovery can never expose an unscoped selector.
+ * Selectors that would reach a sibling of the scope element are dropped.
+ */
+export function scopeCssRules(css: string, scopeSelector: string, options: ScopeCssRulesOptions = {}): string {
+  const mapSelector = options.mapSelector ?? scopeMessageSelector;
+  const globalAtRules = options.globalAtRules ?? PRESERVED_GLOBAL_AT_RULES;
   try {
-    const root = postcss.parse(css, { from: undefined });
+    const root = parseCss(css, options.closeUnclosedBlocks === true);
     root.walkAtRules((atRule) => {
       const name = atRule.name.toLowerCase();
       if (!atRule.nodes && CONDITIONAL_AT_RULES.has(name)) {
         atRule.remove();
         return;
       }
-      if (!PRESERVED_GLOBAL_AT_RULES.has(name) && !CONDITIONAL_AT_RULES.has(name)) atRule.remove();
+      if (!globalAtRules.has(name) && !CONDITIONAL_AT_RULES.has(name)) atRule.remove();
     });
     root.walkDecls((declaration) => {
       if (declaration.parent?.type === "root") declaration.remove();
     });
     root.walkRules((rule) => {
-      if (isInsideGlobalRule(rule)) return;
+      if (isInsideGlobalRule(rule, globalAtRules)) return;
       if (isNestedRule(rule)) {
         // Native nesting can select outside its parent through `&`, root
         // selectors, or relative combinators. Authors can express the same
@@ -313,11 +375,11 @@ function scopeCssRuleList(css: string, scopeSelector: string): string {
         rule.remove();
         return;
       }
-      rule.selectors = rule.selectors.map((selector) => {
-        const trimmed = selector.trim();
-        if (trimmed === ":root" || trimmed === "html" || trimmed === "body") return scopeSelector;
-        return `${scopeSelector} ${trimmed}`;
-      });
+      const selectors = rule.selectors
+        .map((selector) => mapSelector(selector.trim(), scopeSelector))
+        .filter((selector) => !selectsScopeSibling(selector, scopeSelector));
+      if (selectors.length === 0) rule.remove();
+      else rule.selectors = selectors;
     });
     return root.toString();
   } catch {
@@ -410,7 +472,73 @@ function sanitizePositionDeclarations(css: string): string {
   );
 }
 
-export function sanitizeChatMessageCss(css: string): string {
+/**
+ * CSS Images also accepts a bare quoted URL inside image-set(). Keep an image-set only when every
+ * source is an embedded data:image; anything else becomes an inert url().
+ */
+export function neutralizeUnsafeImageSets(css: string): string {
+  const startPattern = /(?:-webkit-)?image-set\s*\(/giu;
+  let result = "";
+  let cursor = 0;
+  for (let match = startPattern.exec(css); match; match = startPattern.exec(css)) {
+    let quote: '"' | "'" | null = null;
+    let escaped = false;
+    let depth = 1;
+    let index = startPattern.lastIndex;
+    for (; index < css.length && depth > 0; index++) {
+      const ch = css[index]!;
+      if (quote) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === "(") depth++;
+      else if (ch === ")") depth--;
+    }
+    if (depth !== 0) break;
+    const expression = css.slice(match.index, index);
+    const sources = expression.match(/(?:url\s*\(\s*)?["']?data:image\/[^")'\s]+["']?\s*\)?/giu) ?? [];
+    const remainder = expression
+      .replace(/^(?:-webkit-)?image-set\s*\(/iu, "")
+      .replace(/\)$/u, "")
+      .replace(/(?:url\s*\(\s*)?["']?data:image\/[^")'\s]+["']?\s*\)?/giu, "")
+      .replace(/\btype\s*\([^)]*\)/giu, "")
+      .replace(/(?:\d+(?:\.\d+)?x|\d+dpi|\d+dpcm|\d+dppx)/giu, "")
+      .replace(/[\s,]/gu, "");
+    result += css.slice(cursor, match.index);
+    result += sources.length > 0 && remainder.length === 0 ? expression : "url(about:invalid)";
+    cursor = index;
+    startPattern.lastIndex = index;
+  }
+  return result + css.slice(cursor);
+}
+
+/** Keep a url() only for embedded images and the app's own files (absolute, same origin). */
+function isLocalCssUrl(body: string): boolean {
+  let value = body.trim();
+  const quote = value[0];
+  if (quote === '"' || quote === "'") value = value.slice(1, value.endsWith(quote) ? -1 : undefined).trim();
+  if (/^data:image\//iu.test(value)) return true;
+  // Escapes are decoded by the browser, so a URL that needs them is not checked here.
+  return /^https?:\/\//iu.test(value) && !value.includes("\\") && remoteImageHref(value) === null;
+}
+
+/** Drop every CSS source that would make the browser contact another site. */
+function dropRemoteCssUrls(css: string): string {
+  return neutralizeUnsafeImageSets(css.replace(/(?<![-\w])src\s*\(/giu, "url(")).replace(
+    /url\s*\(([^)]*)\)/giu,
+    (match: string, body: string) => (isLocalCssUrl(body) ? match : "none"),
+  );
+}
+
+export type ChatMessageCssOptions = {
+  /** False drops url() and image-set() sources on other sites. Defaults to true. */
+  remoteUrls?: boolean;
+};
+
+export function sanitizeChatMessageCss(css: string, options: ChatMessageCssOptions = {}): string {
   let sanitized = canonicalizeKeywordEscapes(stripCssComments(css));
   sanitized = stripGlobalAtRules(stripForbiddenStatementAtRules(sanitized))
     .replace(/expression\s*\([^)]*\)/gi, " ")
@@ -419,14 +547,15 @@ export function sanitizeChatMessageCss(css: string): string {
     .replace(/behavior\s*:/gi, "x-behavior:")
     .replace(/-moz-binding\s*:/gi, "x-moz-binding:")
     .replace(/url\s*\(\s*(?!['"]?(?:data:image\/|https?:\/\/))(['"]?)[^)]+\)/gi, "none")
-    .replace(/!important/gi, " ")
+    .replace(/!\s*important/gi, " ")
     .replace(/(?<![-\w])content\s*:[^;}]*/gi, " ")
     .replace(/</g, "\\3c ");
+  if (options.remoteUrls === false) sanitized = dropRemoteCssUrls(sanitized);
   return sanitizePositionDeclarations(sanitized).trim();
 }
 
-export function scopeChatMessageCss(css: string, scopeSelector: string): string {
-  const sanitized = namespaceMessageCssGlobals(sanitizeChatMessageCss(css), scopeSelector);
+export function scopeChatMessageCss(css: string, scopeSelector: string, options: ChatMessageCssOptions = {}): string {
+  const sanitized = namespaceMessageCssGlobals(sanitizeChatMessageCss(css, options), scopeSelector);
   if (!sanitized) return "";
-  return scopeCssRuleList(sanitized, scopeSelector).trim();
+  return scopeCssRules(sanitized, scopeSelector).trim();
 }

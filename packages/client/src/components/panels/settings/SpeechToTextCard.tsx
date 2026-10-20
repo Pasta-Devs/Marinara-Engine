@@ -138,9 +138,15 @@ export function SpeechToTextCard({ defaultExpanded = false }: { defaultExpanded?
   const testing = testServer.isPending;
 
   return (
-    <div data-component="SpeechToTextCard" className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+    <div
+      data-component="SpeechToTextCard"
+      className={cn(
+        "rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
+        expanded && "border-sky-400/30",
+      )}
+    >
       <div className="flex items-center gap-2.5">
-        <div className="mari-chrome-accent-tile mari-accent-animated flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
           <Mic size="1rem" />
         </div>
         <div className="min-w-0 flex-1">
@@ -176,7 +182,7 @@ export function SpeechToTextCard({ defaultExpanded = false }: { defaultExpanded?
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-4 border-t border-[var(--border)] pt-3">
+        <div className="mt-3 space-y-4 border-t border-sky-400/10 pt-3">
           <p className="text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
             {t("connections.speechToText.intro")}
           </p>

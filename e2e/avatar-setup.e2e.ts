@@ -99,6 +99,17 @@ async function preparePage(page: Page, characterId: string, ui: Record<string, u
   );
 }
 
+/** Requests for an avatar that the browser logged as failed. Picking an owner without an avatar must log none. */
+function collectFailedAvatarLoads(page: Page) {
+  const failed: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.location().url.includes("/api/avatar-models/")) {
+      failed.push(`${message.text()} ${message.location().url}`);
+    }
+  });
+  return failed;
+}
+
 test("2D Avatars shows a character's sprites as its avatar and saves them as a PNGTuber", async ({
   page,
   request,
@@ -128,11 +139,14 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
     await expect(avatar).toHaveAttribute("data-avatar-kind", "pngtuber", { timeout: FIRST_LOAD_TIMEOUT_MS });
     await expect(avatar.getByRole("img", { name: "Avatar fixture's avatar" })).toBeVisible();
     await expect(chatPage.locator("[data-avatar-stage]")).not.toHaveAttribute("data-avatar-paused", "true");
-    expect((await request.get(`/api/avatar-models/character/${character.id}`)).status()).toBe(404);
+    const nothingSaved = await request.get(`/api/avatar-models/character/${character.id}`);
+    expect(nothingSaved.status()).toBe(200);
+    expect(await nothingSaved.json()).toBeNull();
     await chatPage.close();
 
     // ── The setup on the agent's page (on phones it covers the chat, which stays mounted under it) ──
     await preparePage(page, character.id, { agentDetailId: "2d-avatars" }, chat.id);
+    const failedAvatarLoads = collectFailedAvatarLoads(page);
     await page.goto("/");
     const setup = page.locator('[data-avatar-setup="2d-avatars"]');
     // The first load also compiles the lazy setup chunk on the dev server.
@@ -151,6 +165,7 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
     await expect(setup.getByText("An example avatar. Set one up to see yours.")).toHaveCount(0);
     await expect(setup.getByRole("img", { name: "Preview" })).toBeVisible();
     await expect(setup.getByRole("checkbox", { name: /Show this avatar in chats/u })).toBeChecked();
+    expect(failedAvatarLoads, "an owner without an avatar loads without an error").toEqual([]);
     // Making an avatar from a sprite offers faces only, never their talk pictures: blink and talk pictures are
     // made for the talking head's faces, and a face's own talk sprite shows as its open mouth.
     await expect
@@ -279,7 +294,10 @@ test("Arrange mode drags full-body sprites and avatars with the same gesture", a
     const agentsHeader = agents.getByRole("button", { name: "Agents", exact: true });
     await expect(agentsHeader).toBeVisible();
     if ((await agentsHeader.getAttribute("aria-expanded")) !== "true") await agentsHeader.click();
-    const arrange = agents.getByRole("button", { name: "Arrange", exact: true });
+    // The Avatars drawer has its own Arrange (maintainer decision, 2026-10-19); this is the Expression Engine's.
+    const arrange = agents
+      .locator(`#chat-settings-agent-menu-${chat.id}-expression`)
+      .getByRole("button", { name: "Arrange", exact: true });
     await arrange.evaluate((element) => element.scrollIntoView({ block: "center" }));
     await arrange.click();
     await drawer.getByRole("button", { name: "Close Chat Settings" }).click();
@@ -407,6 +425,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
       });
     });
     const copied = () => page.evaluate(() => (window as { __copiedPrompt?: string }).__copiedPrompt ?? "");
+    const failedAvatarLoads = collectFailedAvatarLoads(page);
     await page.goto("/");
     const setup = page.locator('[data-avatar-setup="3d-avatars"]');
     await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
@@ -449,6 +468,7 @@ test("3D Avatars links the 3D model guide and copies a prompt with the owner's n
     const overridePrompt = await copied();
     expect(overridePrompt).toContain(OVERRIDE_LOOK);
     expect(overridePrompt).not.toContain(OVERRIDDEN);
+    expect(failedAvatarLoads, "owners without an avatar load without an error").toEqual([]);
 
     // ── Read the guide opens the docs at the section ──
     const docRequest = page.waitForRequest((req) => {

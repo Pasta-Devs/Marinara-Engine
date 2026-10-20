@@ -70,6 +70,8 @@ type Session = {
   lastSeen: number;
   polling: boolean;
   actions: number[];
+  /** Hash of the rejoin key this request holds: the one it presented, or its own new session token. */
+  seatKey: Buffer;
 };
 type Host = {
   chatId: string;
@@ -82,6 +84,8 @@ type Host = {
   invite: MultiplayerInvite | null;
   inviteHash: Buffer | null;
   sessions: Map<string, Session>;
+  /** Participant id to the hash of that seat's private rejoin key. Memory only: a room never outlives this process. */
+  seatKeys: Map<string, Buffer>;
   proposals: MultiplayerHostState["proposals"];
   abort: AbortController;
   listener: Awaited<ReturnType<typeof startMultiplayerPeerServer>> | null;
@@ -164,6 +168,12 @@ export class MultiplayerService {
   private game: MultiplayerGameRuntime | null = null;
   private jobs = new Set<Promise<void>>();
   private outbound = new Set<AbortController>();
+  /**
+   * The private rejoin key for each room this Engine joined, by host fingerprint and room. It outlives Leave
+   * and a deleted joined chat, so the player can return to their seat, but not a restart: like every other
+   * multiplayer credential it is never saved, exported or logged.
+   */
+  private seatKeys = new Map<string, string>();
 
   constructor(
     private options: {
@@ -397,6 +407,7 @@ export class MultiplayerService {
         invite: null,
         inviteHash: null,
         sessions: new Map(),
+        seatKeys: new Map(),
         proposals: [],
         abort: new AbortController(),
         listener: null,
@@ -575,6 +586,9 @@ export class MultiplayerService {
             lastSeen: Date.now(),
             polling: false,
             actions: [],
+            // A returning guest presents its seat's rejoin key as the bearer. A first join has none, so the
+            // token in this admission reply becomes the key. Both fit the existing protocol unchanged.
+            seatKey: hash(context.session ?? token),
           });
           this.wake(host);
           return { version: 1, type: "admission", session: token };
@@ -729,11 +743,15 @@ export class MultiplayerService {
             for (const other of host.sessions.values())
               if (other.participant.id === returning.id) other.status = "revoked";
             session.participant = returning;
-          } else await host.store.admit(session.participant);
+          } else {
+            await host.store.admit(session.participant);
+            host.seatKeys.set(session.participant.id, session.seatKey);
+          }
           session.status = "approved";
         } else session.status = "declined";
       } else if (action.type === "kick") {
         const claim = await host.store.kick(action.participantId);
+        host.seatKeys.delete(action.participantId);
         for (const session of host.sessions.values())
           if (session.participant.id === action.participantId) session.status = "revoked";
         if (claim) this.launch(host, claim);
@@ -797,9 +815,10 @@ export class MultiplayerService {
     });
   }
   /**
-   * A seated guest with this display name and persona name whose own session is gone (left, restarted or
-   * silent for 45 s). A different person asking for that persona still gets identity-conflict, so Approve
-   * never hands one player's seat and name to someone else.
+   * A seated guest with this display name and persona name whose own session is gone (left or silent for
+   * 45 s), asked for by the Engine that holds that seat's rejoin key. Names are public, so they only pick the
+   * seat; without the key, even an exact copy of both names gets identity-conflict, so Approve never hands one
+   * player's seat, name or whispers to someone else.
    */
   private async returningParticipant(host: Host, request: Session) {
     const { room } = await host.store.read();
@@ -808,6 +827,9 @@ export class MultiplayerService {
       (p) => !p.isHost && [p.persona.name, p.pendingPersona?.name].some((name) => name && roomNameKey(name) === key),
     );
     if (!seated || roomNameKey(seated.displayName) !== roomNameKey(request.participant.displayName)) return null;
+    // Every guest seat gets a key when it is first approved; a seat without one is never handed over by name.
+    const seatKey = host.seatKeys.get(seated.id);
+    if (!seatKey || !timingSafeEqual(seatKey, request.seatKey)) return null;
     const live = [...host.sessions.values()].some(
       (s) =>
         s !== request &&
@@ -941,6 +963,7 @@ export class MultiplayerService {
     host.inviteHash = null;
     this.options.abortGeneration(host.chatId);
     host.sessions.clear();
+    host.seatKeys.clear();
     host.proposals = [];
     this.wake(host);
     await host.listener?.close();
@@ -973,18 +996,31 @@ export class MultiplayerService {
       if (this.host || this.guest) throw new MultiplayerError("busy");
       const invitation = decodeMultiplayerInvite(input.inviteCode);
       const preview = await this.preview(input.inviteCode);
-      const response = await this.connect(invitation, {
-        version: 1,
-        roomId: invitation.roomId,
-        type: "join",
-        invite: invitation.invite,
-        password: input.password,
-        displayName: input.displayName,
-        persona: input.persona,
-      });
+      const seatRoom = `${invitation.fingerprint}:${invitation.roomId}`;
+      const seatKey = this.seatKeys.get(seatRoom);
+      const response = await this.connect(
+        invitation,
+        {
+          version: 1,
+          roomId: invitation.roomId,
+          type: "join",
+          invite: invitation.invite,
+          password: input.password,
+          displayName: input.displayName,
+          persona: input.persona,
+        },
+        seatKey,
+      );
       this.gate();
       if (response.type === "error") throw new MultiplayerError(peerError(response.code));
       if (response.type !== "admission") throw new MultiplayerError("invalid-message");
+      // The first admission's token is this Engine's rejoin key for the room; later joins keep presenting it.
+      if (!seatKey) {
+        this.seatKeys.set(seatRoom, response.session);
+        // ponytail: memory only, last 32 rooms. After a guest restart the host removes the old seat first;
+        // an unexported local key store is the upgrade if seats must survive that restart.
+        if (this.seatKeys.size > 32) this.seatKeys.delete(this.seatKeys.keys().next().value!);
+      }
       const chats = createChatsStorage(this.options.db);
       const chat = await chats.create(createChatSchema.parse({ name: preview.name, mode: preview.mode }));
       await chats.patchMetadata(chat!.id, {
@@ -1046,13 +1082,13 @@ export class MultiplayerService {
         .catch((error: unknown) => logger.debug({ err: error }, "[multiplayer] Could not save connection status"));
     }
   }
-  private async connect(invitation: MultiplayerInvite, message: MultiplayerPeerRequest) {
+  private async connect(invitation: MultiplayerInvite, message: MultiplayerPeerRequest, session?: string) {
     this.gate();
     if (this.outbound.size >= 2) throw new MultiplayerError("busy");
     const abort = new AbortController();
     this.outbound.add(abort);
     try {
-      return await requestMultiplayerPeer(invitation, message, { signal: abort.signal });
+      return await requestMultiplayerPeer(invitation, message, { session, signal: abort.signal });
     } catch (error) {
       if (record(error).code === "MULTIPLAYER_IDENTITY_CHANGED") throw new MultiplayerError("identity-changed");
       throw error;

@@ -116,6 +116,8 @@ for (const turnOrder of ["initiative", "side"] as const) {
         data: { role: "assistant", content: "The raider waits at the gate. [state: combat]" },
       });
       expect(message.ok(), await message.text()).toBeTruthy();
+      const savedPoint = { x: page.viewportSize()!.width - 60, y: 64 };
+      const savedVolume = { x: 100, y: 64, width: 280, height: 220, pinned: true, locked: true, minimized: false };
       const patched = await request.patch(`/api/chats/${chatId}/metadata`, {
         data: {
           gameSessionStatus: "active",
@@ -133,6 +135,12 @@ for (const turnOrder of ["initiative", "side"] as const) {
             formation: "line",
           },
           gameTacticalCombatSnapshot: state,
+          windowLayout: {
+            version: 1,
+            windows: { "control:volume": savedVolume },
+            bubbles: { "chat-settings-button": savedPoint },
+            phoneBubbles: { "chat-settings-button": savedPoint },
+          },
         },
       });
       expect(patched.ok(), await patched.text()).toBeTruthy();
@@ -140,40 +148,85 @@ for (const turnOrder of ["initiative", "side"] as const) {
       await openGame(page, chatId, testInfo);
       const battle = page.locator('[data-component="TacticalCombatUI"]');
       const order = battle.getByRole("list", { name: "Turn order" });
+      const chrome = battle.locator('[data-game-section="tactical-status"]');
+      await expect(chrome).toBeVisible({ timeout: 40_000 });
+      // The actual floating buttons (including portals) clear the full wrapped bar and initiative strip.
+      // The old data-game-float wrapper is empty for most controls and misses the phone Map/Profiles.
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const strip = document.querySelector('[data-game-section="tactical-status"]')!.getBoundingClientRect();
+            return Array.from(document.querySelectorAll<HTMLElement>(".mari-window-bubble"))
+              .filter((element) => element.getClientRects().length > 0 && !element.closest("[data-chat-tools-menu]"))
+              .filter((element) => {
+                const rect = element.getBoundingClientRect();
+                return rect.top < strip.bottom && rect.bottom > strip.top;
+              })
+              .map((element) => element.dataset.window);
+          }),
+        )
+        .toEqual([]);
+      const settings = page.locator("[data-chat-settings-button]");
+      await settings.click();
+      const settingsWindow = page.locator('.mari-window[data-window="chat-settings"]');
+      await expect(settingsWindow).toBeVisible();
+      await settingsWindow.locator('[data-window-control="close"]').click();
+      await battle.getByTitle("Toggle enemy threat range", { exact: true }).click({ trial: true });
+      await battle.getByTitle("Combat log", { exact: true }).click();
+      const log = battle.locator('[data-game-section="tactical-log"]');
+      await expect(log).toBeVisible();
+      await log.getByRole("button").click();
+      await page.locator('.mari-window-bubble[data-window="control:character-profiles"]').click({ trial: true });
+      if (!testInfo.project.name.includes("desktop")) {
+        await page.locator('.mari-window-bubble[data-window="control:map"]').click({ trial: true });
+      }
+      const volume = page.locator('.mari-window[data-window="control:volume"]');
+      if (testInfo.project.name.includes("desktop")) {
+        await expect(volume).toHaveAttribute("data-pinned", "true");
+        await expect(volume).toHaveAttribute("data-locked", "true");
+        expect((await volume.boundingBox())!.y).toBeGreaterThanOrEqual(
+          (await chrome.boundingBox())!.y + (await chrome.boundingBox())!.height,
+        );
+      }
+      await page.screenshot({ path: testInfo.outputPath("tactical-toolbar-clear.png"), animations: "disabled" });
       if (turnOrder === "side") {
         await expect(battle.getByText("Player Phase")).toBeVisible({ timeout: 40_000 });
         await expect(order).toHaveCount(0);
-        return;
+      } else {
+        await expect(order).toBeVisible({ timeout: 40_000 });
+        await expect(order.getByRole("listitem")).toHaveText(["Turn Guard", "Turn Scout", "Turn Raider"]);
+        await expect(order.locator('[aria-current="step"]')).toHaveText("Turn Guard");
+        await expect(battle.getByText("Turn Guard's turn")).toBeVisible();
+        // The scout's turn has not come: choosing it opens nothing; choosing the guard opens its menu.
+        await battle
+          .getByRole("button", { name: /^Turn Scout/ })
+          .first()
+          .click();
+        await expect(battle.getByRole("button", { name: "Wait", exact: true })).toHaveCount(0);
+        await battle
+          .getByRole("button", { name: /^Turn Guard/ })
+          .first()
+          .click();
+        await expect(battle.getByRole("button", { name: "Wait", exact: true })).toBeVisible();
       }
-      await expect(order).toBeVisible({ timeout: 40_000 });
-      await expect(order.getByRole("listitem")).toHaveText(["Turn Guard", "Turn Scout", "Turn Raider"]);
-      await expect(order.locator('[aria-current="step"]')).toHaveText("Turn Guard");
-      await expect(battle.getByText("Turn Guard's turn")).toBeVisible();
-      // Nothing of the game's own floats over the order: the map, the party and the menu sit below it.
-      const strip = (await order.boundingBox())!;
-      for (const float of await page.locator("[data-game-float]").all()) {
-        for (const child of await float.locator(":scope > *").all()) {
-          const box = await child.boundingBox();
-          if (!box || box.width === 0 || box.height === 0) continue;
-          const overlaps =
-            box.x < strip.x + strip.width &&
-            strip.x < box.x + box.width &&
-            box.y < strip.y + strip.height &&
-            strip.y < box.y + box.height;
-          expect(overlaps, `${await float.getAttribute("data-game-float")} covers the turn order`).toBe(false);
-        }
+      // A real retreat removes the measured obstacle in place, without resetting the user's layout.
+      await battle.getByTitle("Flee the battle", { exact: true }).click();
+      await battle
+        .locator('[data-game-section="tactical-confirm"]')
+        .getByRole("button", { name: "Flee", exact: true })
+        .click();
+      await expect(battle).toHaveCount(0);
+      await expect.poll(async () => (await settings.boundingBox())?.y).toBe(savedPoint.y);
+      if (testInfo.project.name.includes("desktop")) {
+        await expect(volume).toHaveAttribute("data-pinned", "true");
+        await expect(volume).toHaveAttribute("data-locked", "true");
+        expect((await volume.boundingBox())!.y).toBe(savedVolume.y);
       }
-      // The scout's turn has not come: choosing it opens nothing; choosing the guard opens its menu.
-      await battle
-        .getByRole("button", { name: /^Turn Scout/ })
-        .first()
-        .click();
-      await expect(battle.getByRole("button", { name: "Wait", exact: true })).toHaveCount(0);
-      await battle
-        .getByRole("button", { name: /^Turn Guard/ })
-        .first()
-        .click();
-      await expect(battle.getByRole("button", { name: "Wait", exact: true })).toBeVisible();
+      const savedChat = await (await request.get(`/api/chats/${chatId}`)).json();
+      const metadata = typeof savedChat.metadata === "string" ? JSON.parse(savedChat.metadata) : savedChat.metadata;
+      expect(metadata.windowLayout.windows["control:volume"]).toEqual(savedVolume);
+      expect(metadata.windowLayout.bubbles["chat-settings-button"]).toEqual(savedPoint);
+      expect(metadata.windowLayout.phoneBubbles["chat-settings-button"]).toEqual(savedPoint);
     } finally {
       if (chatId) await request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
     }

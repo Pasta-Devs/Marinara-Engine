@@ -162,11 +162,27 @@ test("the party enters the town it is in, walks across it, and the next turn tel
     );
     await expect.poll(async () => (await metadataOf(request, chatId)).gameTownVisit ?? null).toBeNull();
 
-    // The scene view and back returns to the town, not the overworld.
+    // The scene view and back returns to the town, not the overworld. On a phone the Game controls sheet
+    // covers the view (and Leave town), so a switch closes it back to the Chat tools button; a computer's
+    // window stays open.
+    const controls = page.locator('.mari-window[data-window="control:game"]');
+    const phone = await page.evaluate(() => matchMedia("(max-width: 767px)").matches);
+    const expectControlsAfterSwitch = async () => {
+      if (!phone) return expect(controls).toBeVisible();
+      await expect(controls).toHaveCount(0);
+      await expect(page.locator("[data-chat-tools-menu-button]")).toBeFocused();
+    };
     await (await toolbarButton(page, "Show the scene")).click();
     await expect(page.getByRole("region", { name: "Town", exact: true })).toBeHidden();
+    await expectControlsAfterSwitch();
+    if (!phone) {
+      await controls.getByRole("button", { name: "Pin window", exact: true }).click();
+      await expect(controls).toHaveAttribute("data-pinned", "true");
+    }
     await (await toolbarButton(page, "Show the overworld")).click();
     await expect(page.getByRole("region", { name: "Town", exact: true })).toBeVisible();
+    await expectControlsAfterSwitch();
+    if (!phone) await expect(controls).toHaveAttribute("data-pinned", "true");
 
     // Leave back to the overworld.
     await page.getByRole("button", { name: "Leave town", exact: true }).click();

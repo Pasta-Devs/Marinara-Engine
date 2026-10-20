@@ -32,7 +32,8 @@ import {
 } from "../services/image/sprite-background.service.js";
 import { pixelizeImage, PixelizeInputError } from "../services/image/pixelize.service.js";
 import { getSharp } from "../services/image/sharp-runtime.js";
-import { logger } from "../lib/logger.js";
+import type { DB } from "../db/connection.js";
+import { logDebugOverride, logger } from "../lib/logger.js";
 import { SPRITE_RENAME_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const spriteRenameQueues = new Map<string, Promise<void>>();
@@ -76,6 +77,7 @@ import { generateImage } from "../services/image/image-generation.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
+  type ImageDefaultsConnection,
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
@@ -675,6 +677,184 @@ export function withTalkingHeadFaceContract(
   };
 }
 
+/** The cells of a talking head's set, left to right: the face, then its blink and talk pictures. */
+const TALKING_HEAD_SET_CELLS = ["face", "eyes-closed", "mouth-open"] as const;
+
+/** A talking head's set: the same face three times in one picture, so the blink and talk pictures match it.
+ *  Added after the prompt is compiled, like the other contracts, so the tag compiler can't drop it. */
+export function withTalkingHeadSetContract(prompt: SpriteCompiledPrompt, face: string): SpriteCompiledPrompt {
+  const key = normalizeSpriteExpressionKey(face) as keyof typeof TALKING_HEAD_FACE_LOOKS;
+  const look = Object.hasOwn(TALKING_HEAD_FACE_LOOKS, key) ? `, ${TALKING_HEAD_FACE_LOOKS[key]}` : "";
+  return {
+    prompt: [
+      prompt.prompt,
+      `MANDATORY TALKING-HEAD SET: the three cells show the same character as the same picture: identical pose, head angle, framing, size, position in the cell, hair, outfit, lighting and colours. Only the eyes and the mouth differ.`,
+      `Cell 1: the ${formatSpriteLabelForPrompt(face)} face${look}, both eyes fully open, lips closed.`,
+      `Cell 2: exactly cell 1 with both eyes closed, relaxed eyelids as in a blink; the mouth and everything else unchanged.`,
+      `Cell 3: exactly cell 1 with the mouth open as if saying a clear "ah"; the eyes and everything else unchanged.`,
+    ].join("\n\n"),
+    negativePrompt: [
+      prompt.negativePrompt,
+      "different pose in each cell, different framing in each cell, different hair in each cell, different outfit in each cell, head turned, zoomed cell",
+    ]
+      .filter(Boolean)
+      .join(", "),
+  };
+}
+
+/** Removes a sheet's background when asked (native transparency is preferred; a flat matte is removed when a
+ *  provider cannot return alpha) and cuts it into its cells, each cleaned again on its own. Cleanup that fails
+ *  keeps the picture as it is rather than failing the sheet. */
+async function cutSpriteSheet(
+  sheet: Buffer,
+  plan: Pick<SpritePromptPlan, "cols" | "rows" | "expressions">,
+  options: { clean: boolean; cleanupStrength: number },
+): Promise<{ sheetBase64: string; cells: Array<{ expression: string; base64: string }> }> {
+  let sheetBuffer = sheet;
+  const sharp = await getSharp();
+  let metadata = await sharp(sheetBuffer).metadata();
+  if (options.clean) {
+    try {
+      sheetBuffer = (await removeSpriteBackgroundPng(sheetBuffer, options.cleanupStrength)).buffer;
+      metadata = await sharp(sheetBuffer).metadata();
+    } catch (bgErr) {
+      logger.warn(bgErr, "Sprite background cleanup failed; continuing with original image");
+      sheetBuffer = sheet;
+      metadata = await sharp(sheetBuffer).metadata();
+    }
+  }
+
+  const imgWidth = metadata.width ?? (plan.cols <= 2 ? 1024 : 1536);
+  const imgHeight = metadata.height ?? (plan.rows <= 2 ? 1024 : 1536);
+  const cellWidth = Math.floor(imgWidth / plan.cols);
+  const cellHeight = Math.floor(imgHeight / plan.rows);
+  const cellPromises: Promise<{ expression: string; base64: string }>[] = [];
+  for (let row = 0; row < plan.rows; row++) {
+    for (let col = 0; col < plan.cols; col++) {
+      const idx = row * plan.cols + col;
+      if (idx >= plan.expressions.length) break;
+      const expression = plan.expressions[idx]!;
+      const left = col * cellWidth;
+      const top = row * cellHeight;
+      cellPromises.push(
+        (async () => {
+          let cellBuffer = await sharp(sheetBuffer)
+            .extract({ left, top, width: cellWidth, height: cellHeight })
+            .png()
+            .toBuffer();
+          if (options.clean) {
+            try {
+              cellBuffer = (await removeSpriteBackgroundPng(cellBuffer, options.cleanupStrength)).buffer;
+            } catch (bgErr) {
+              logger.warn(bgErr, 'Sprite background cleanup failed for "%s"; using the sheet crop', expression);
+            }
+          }
+          return { expression, base64: cellBuffer.toString("base64") };
+        })(),
+      );
+    }
+  }
+  return { sheetBase64: sheetBuffer.toString("base64"), cells: await Promise.all(cellPromises) };
+}
+
+/** The image connection a talking head's set is drawn with, as the avatar generator resolves it. */
+export interface TalkingHeadSetConnection {
+  conn: ImageDefaultsConnection & {
+    apiKey?: string | null;
+    imageEndpointId?: string | null;
+    comfyuiWorkflow?: string | null;
+  };
+  fallback?: Awaited<ReturnType<typeof resolveImageConnectionFallback>>;
+}
+
+/** The prompt and sheet size of a talking head's set for one face, drawn from the appearance for an image
+ *  connection that can't edit pictures. Built like the face maker's sheet (the expression sheet template, the
+ *  style profile and the chroma matte it removes), with the set contract after it. */
+export async function talkingHeadSetPrompt(
+  db: DB,
+  image: TalkingHeadSetConnection,
+  request: { face: string; appearance: string },
+): Promise<SpriteCompiledPrompt & { width: number; height: number }> {
+  const model = image.conn.model || "";
+  const face = formatSpriteLabelForPrompt(request.face);
+  const body: SpriteGenerateSheetBody = {
+    appearance: request.appearance,
+    expressions: [face, `${face}, eyes closed`, `${face}, mouth open`],
+    cols: TALKING_HEAD_SET_CELLS.length,
+    rows: 1,
+    spriteType: "expressions",
+    noBackground: true,
+    nativeTransparentPng: false,
+  };
+  const plan = await buildSpritePromptPlan(db, body, model);
+  const imageSettings = await loadImageGenerationUserSettings(db);
+  const compiled = compileSpritePrompt(plan.prompt, {
+    appearance: plan.appearance,
+    styleProfiles: imageSettings.styleProfiles,
+    imageDefaults: resolveConnectionImageDefaults(image.conn),
+  });
+  const prompt = withTalkingHeadSetContract(
+    withSpriteBackgroundContract(withSpriteSheetLayoutContract(compiled, plan), plan),
+    request.face,
+  );
+  return { ...prompt, width: plan.sheetWidth, height: plan.sheetHeight };
+}
+
+/** Draws a talking head's set in one picture with `prompt` (talkingHeadSetPrompt, or the reviewed one) and
+ *  cuts it into the face and its eyes-closed and mouth-open cells, each without its background (PNG). The
+ *  cells are drawn separately, so they still have to be lined up with the face. */
+export async function drawTalkingHeadSet(
+  image: TalkingHeadSetConnection,
+  request: {
+    prompt: SpriteCompiledPrompt & { width: number; height: number };
+    signal?: AbortSignal;
+    debug: boolean;
+    logLabel: string;
+  },
+): Promise<Record<(typeof TALKING_HEAD_SET_CELLS)[number], Buffer>> {
+  const { conn } = image;
+  const model = conn.model || "";
+  const source = conn.imageGenerationSource || model;
+  logDebugOverride(
+    request.debug,
+    "[debug/avatar-generation] %s set prompt (%dx%d):\n%s\nnegative: %s",
+    request.logLabel,
+    request.prompt.width,
+    request.prompt.height,
+    request.prompt.prompt,
+    request.prompt.negativePrompt,
+  );
+  const result = await generateImage(
+    source,
+    conn.baseUrl || "https://image.pollinations.ai",
+    conn.apiKey || "",
+    conn.imageService || source,
+    {
+      prompt: request.prompt.prompt,
+      negativePrompt: request.prompt.negativePrompt || undefined,
+      model,
+      width: request.prompt.width,
+      height: request.prompt.height,
+      transparentBackground: false,
+      imageEndpointId: conn.imageEndpointId || undefined,
+      comfyWorkflow: conn.comfyuiWorkflow || undefined,
+      imageDefaults: resolveConnectionImageDefaults(conn),
+      quality: resolveConnectionImageQuality(conn),
+      fallback: image.fallback ?? undefined,
+      signal: request.signal,
+      debugMode: request.debug,
+    },
+  );
+  const { cells } = await cutSpriteSheet(
+    Buffer.from(result.base64, "base64"),
+    { cols: TALKING_HEAD_SET_CELLS.length, rows: 1, expressions: [...TALKING_HEAD_SET_CELLS] },
+    { clean: true, cleanupStrength: 35 },
+  );
+  const cell = (name: (typeof TALKING_HEAD_SET_CELLS)[number]) =>
+    Buffer.from(cells.find((entry) => entry.expression === name)!.base64, "base64");
+  return { face: cell("face"), "eyes-closed": cell("eyes-closed"), "mouth-open": cell("mouth-open") };
+}
+
 function withFullBodyCompositionContract(
   prompt: SpriteCompiledPrompt,
   spriteType: SpriteType | undefined,
@@ -1070,7 +1250,7 @@ async function buildAnimatedExpressionPrompt(input: {
 }
 
 async function buildSpritePromptPlan(
-  app: FastifyInstance,
+  db: DB,
   body: SpriteGenerateSheetBody,
   imgModel: string,
 ): Promise<SpritePromptPlan> {
@@ -1090,7 +1270,7 @@ async function buildSpritePromptPlan(
     expressions = expressions.slice(0, MAX_INDIVIDUAL_SPRITE_EXPRESSIONS);
   }
   const expressionList = expressions.join(", ");
-  const promptOverridesStorage = createPromptOverridesStorage(app.db);
+  const promptOverridesStorage = createPromptOverridesStorage(db);
   const trimmedAppearance = body.appearance?.trim() || "";
   const nativeTransparentPng = resolveSpriteNativeTransparency(imgModel, body.nativeTransparentPng === true);
   const matte = selectSpriteChromaMatte(trimmedAppearance);
@@ -1754,7 +1934,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const imgModel = conn.model || "";
     const imageDefaults = resolveConnectionImageDefaults(conn);
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const plan = await buildSpritePromptPlan(app, body, imgModel);
+    const plan = await buildSpritePromptPlan(app.db, body, imgModel);
     if (plan.expressions.length === 0) {
       return reply.status(400).send({ error: "No expressions remain after applying the requested grid size" });
     }
@@ -2130,7 +2310,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const nativeTransparentPng = resolveSpriteNativeTransparency(imgModel, body.nativeTransparentPng === true);
     const shouldCleanBackground = body.noBackground === true || body.nativeTransparentPng === true;
-    const plan = await buildSpritePromptPlan(app, body, imgModel);
+    const plan = await buildSpritePromptPlan(app.db, body, imgModel);
     if (plan.expressions.length === 0) {
       return reply.status(400).send({ error: "No expressions remain after applying the requested grid size" });
     }
@@ -2378,70 +2558,10 @@ export async function spritesRoutes(app: FastifyInstance) {
             fallback: imageFallback,
           });
 
-          // Decode the generated image
-          let sheetBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
-          const sharp = await getSharp();
-          let metadata = await sharp(sheetBuffer).metadata();
-
-          // Native transparency is preferred; a flat matte is removed automatically when a provider cannot return alpha.
-          // Keep this resilient: if cleanup fails, continue with the original image rather than throwing.
-          if (shouldCleanBackground) {
-            const originalSheetBuffer = sheetBuffer;
-            try {
-              sheetBuffer = (await removeSpriteBackgroundPng(sheetBuffer, cleanupStrength)).buffer;
-              metadata = await sharp(sheetBuffer).metadata();
-            } catch (bgErr) {
-              logger.warn(bgErr, "Sprite background cleanup failed; continuing with original image");
-              sheetBuffer = originalSheetBuffer;
-              metadata = await sharp(sheetBuffer).metadata();
-            }
-          }
-
-          const imgWidth = metadata.width ?? (plan.cols <= 2 ? 1024 : 1536);
-          const imgHeight = metadata.height ?? (plan.rows <= 2 ? 1024 : 1536);
-
-          const cellWidth = Math.floor(imgWidth / plan.cols);
-          const cellHeight = Math.floor(imgHeight / plan.rows);
-
-          const cellPromises: Promise<{ expression: string; base64: string }>[] = [];
-
-          for (let row = 0; row < plan.rows; row++) {
-            for (let col = 0; col < plan.cols; col++) {
-              const idx = row * plan.cols + col;
-              if (idx >= plan.expressions.length) break;
-
-              const expression = plan.expressions[idx]!;
-              const left = col * cellWidth;
-              const top = row * cellHeight;
-
-              cellPromises.push(
-                (async () => {
-                  let cellBuffer = await sharp(sheetBuffer)
-                    .extract({ left, top, width: cellWidth, height: cellHeight })
-                    .png()
-                    .toBuffer();
-                  if (shouldCleanBackground) {
-                    try {
-                      cellBuffer = (await removeSpriteBackgroundPng(cellBuffer, cleanupStrength)).buffer;
-                    } catch (bgErr) {
-                      logger.warn(bgErr, 'Sprite background cleanup failed for "%s"; using the sheet crop', expression);
-                    }
-                  }
-                  return {
-                    expression,
-                    base64: cellBuffer.toString("base64"),
-                  };
-                })(),
-              );
-            }
-          }
-
-          const cells = await Promise.all(cellPromises);
-
-          return {
-            sheetBase64: sheetBuffer.toString("base64"),
-            cells,
-          };
+          return cutSpriteSheet(Buffer.from(imageResult.base64, "base64"), plan, {
+            clean: shouldCleanBackground,
+            cleanupStrength,
+          });
         })(),
       );
     } catch (err: any) {

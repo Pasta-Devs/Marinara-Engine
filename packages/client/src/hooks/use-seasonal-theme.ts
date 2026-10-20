@@ -1,60 +1,42 @@
 // ──────────────────────────────────────────────
-// Hook: the seasonal theme worn today, and its greeting
+// Hook: the seasonal theme worn now, and its greeting
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react";
-import {
-  readSeasonalPreview,
-  resolveSeasonalTheme,
-  withSeasonalYear,
-  type SeasonalYears,
-} from "../lib/seasonal-themes";
+import { useShallow } from "zustand/react/shallow";
+import { seasonalThemeFor } from "../lib/seasonal-themes";
 import { useUIStore } from "../stores/ui.store";
 
-const DAY_CHECK_INTERVAL_MS = 60_000;
+const MINUTE_MS = 60_000;
 
-/** Local midnight as a number, so an unchanged day re-renders nothing. */
-function startOfLocalDay() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+/** The current minute as a number, so an unchanged minute re-renders nothing. */
+function startOfMinute() {
+  return Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
+}
+
+/** Ticks once a minute, so dated windows open and close on time even while the app stays open. */
+export function useMinuteClock(): Date {
+  const [minute, setMinute] = useState(startOfMinute);
+  useEffect(() => {
+    const timer = window.setInterval(() => setMinute(startOfMinute()), MINUTE_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+  return new Date(minute);
 }
 
 export function useSeasonalTheme() {
-  const disabled = useUIStore((state) => state.seasonalThemesDisabled);
-  const storedGreeted = useUIStore((state) => state.seasonalGreetingYears);
-  const storedOff = useUIStore((state) => state.seasonalThemeOffYears);
-  // The preview keeps its greeting and "Turn it off" in memory, so trying it never saves anything.
-  const [preview] = useState(() => readSeasonalPreview(window.location.search));
-  const [previewGreeted, setPreviewGreeted] = useState<SeasonalYears>({});
-  const [previewOff, setPreviewOff] = useState<SeasonalYears>({});
-  // Checked every minute, so the costume goes on and comes off at local midnight even while the app stays open.
-  const [today, setToday] = useState(startOfLocalDay);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setToday(startOfLocalDay()), DAY_CHECK_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const date = new Date(today);
+  const date = useMinuteClock();
   const year = date.getFullYear();
-  const { themeId, showGreeting } = resolveSeasonalTheme({
-    date,
-    disabled,
-    preview,
-    greeted: preview ? previewGreeted : storedGreeted,
-    turnedOff: preview ? previewOff : storedOff,
-  });
+  // The `?seasonalPreview=` page keeps its greeting and "Turn it off" in the store, unsaved, so trying it never
+  // saves anything and Professor Mari's dated pack sees them too.
+  const { themeId, showGreeting } = useUIStore(useShallow((state) => seasonalThemeFor(state, date)));
 
   const markGreeted = useCallback(() => {
-    if (!themeId) return;
-    if (preview) setPreviewGreeted((years) => withSeasonalYear(years, themeId, year));
-    else useUIStore.getState().markSeasonalGreetingShown(themeId, year);
-  }, [preview, themeId, year]);
+    if (themeId) useUIStore.getState().markSeasonalGreetingShown(themeId, year);
+  }, [themeId, year]);
 
   const turnOff = useCallback(() => {
-    if (!themeId) return;
-    if (preview) setPreviewOff((years) => withSeasonalYear(years, themeId, year));
-    else useUIStore.getState().turnOffSeasonalTheme(themeId, year);
-  }, [preview, themeId, year]);
+    if (themeId) useUIStore.getState().turnOffSeasonalTheme(themeId, year);
+  }, [themeId, year]);
 
   return { themeId, showGreeting, markGreeted, turnOff };
 }

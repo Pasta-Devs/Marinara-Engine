@@ -66,6 +66,14 @@ test("on October 31 Halloween greets once and the Settings toggle takes it off",
   await expect(root).toHaveAttribute("data-seasonal-theme", "halloween");
   expect(await seasonalRecords(page)).toMatchObject({ greeted: { halloween: 2026 }, off: {} });
 
+  // The fixed clock gives every edit the same timestamp, so let the server save the greeting before reloading.
+  await expect
+    .poll(async () => {
+      const { value } = await (await page.request.get("/api/app-settings/ui")).json();
+      return JSON.parse(value || "{}").seasonalGreetingYears;
+    })
+    .toEqual({ halloween: 2026 });
+
   // Once a year: after a reload the theme stays and the greeting does not come back.
   await page.reload();
   await expect(root).toHaveAttribute("data-seasonal-theme", "halloween");

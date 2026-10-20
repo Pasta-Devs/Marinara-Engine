@@ -161,6 +161,16 @@ Some systems do not add a bonus to a roll. Instead, the number on the sheet is h
 - **The Game Master never supplies the numbers.** A pool result written into the narration is always replaced by the Engine's own roll. Advantage does not apply, and neither does a die you rolled yourself before the check.
 - **Letting the Game Master see one die of each size does not apply to these checks.** The dice it is shown are twenty-sided; a pool check is rolled blind by the Engine and narrated the way every other blind roll is.
 
+### Other ways a ruleset can roll
+
+A ruleset can roll its checks in other ways too. The Engine still throws the dice, and the dice card follows the ruleset:
+
+- **Keep the highest dice.** Throw a handful of dice and read the highest one, two, or three, as the ruleset specifies.
+- **Roll against your sheet.** Roll at or under a number on your sheet, such as a skill percentage, instead of adding a bonus to the dice.
+- **Dice with their own faces.** Faces can be worth something other than their number, such as minus, blank and plus. Some dice carry symbols, such as success, advantage and their opposites, instead of numbers.
+- **Results in bands.** A check can land in one of several results, such as a critical success or a success at a cost, rather than a plain pass or fail. The dice card names the band, and the Game Master narrates it.
+- **A few checks rolled another way.** A ruleset can roll most checks one way and name a few that roll differently.
+
 ## Finishing a rolled turn in one request
 
 By default, a turn that rolls dice costs two model requests: one for the draft, one to rewrite the outcome with the real numbers. **Finish rolled turns in one request** in **Chat Settings → Function Calling** removes the second one. It is off by default and applies only to the chat you turn it on in.

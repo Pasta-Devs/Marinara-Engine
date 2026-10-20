@@ -4,16 +4,13 @@
 // Generating returns drafts the browser holds; nothing is stored until the user keeps a result, so the
 // owner's avatar stays as it was. Draft shapes mirror packages/server/src/services/avatars/generation/.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AVATAR_API_PREFIXES,
   type AvatarGenerationResponse,
   type AvatarOwnerRef,
   type AvatarPngtuberVariant,
-  type AvatarVrmModelDraft,
-  type AvatarVrmModelProgress,
-  type AvatarVrmModelStep,
 } from "@marinara-engine/shared";
 import { useAvatarModelChanged } from "../../../hooks/use-avatar-models";
 import { api } from "../../../lib/api-client";
@@ -26,12 +23,15 @@ const PREFIX = AVATAR_API_PREFIXES.generation;
 export interface PngtuberVariantDraft {
   label: string;
   variant: AvatarPngtuberVariant;
-  /** PNG data URL at the sprite's size. */
+  /** PNG data URL at the sprite's size (the new face's, with `face`). */
   image: string;
   width: number;
   height: number;
   /** Which version of the sprite it was drawn from; saving refuses a sprite replaced since. */
   sourceHash: string;
+  /** From an image connection that can't edit pictures: the new face (PNG data URL) drawn with this picture
+   *  and the other variant, as one set. Keeping the set replaces the face. */
+  face?: string;
 }
 
 interface PngtuberDraftsResponse {
@@ -87,7 +87,7 @@ let pendingCancel: Promise<unknown> = Promise.resolve();
 
 /** Stops a running job: closes its request and asks the server to stop it too, since a proxy between the
  *  browser and the server can keep the server's side of a closed request going. */
-function stopJob(job: RunningJob | null, kind: "pngtuber" | "mesh-avatar" | "vrm") {
+function stopJob(job: RunningJob | null, kind: "pngtuber" | "mesh-avatar") {
   if (!job || job.controller.signal.aborted) return;
   job.controller.abort();
   pendingCancel = api.post(`${PREFIX}/cancel`, { owner: job.owner, kind }).catch((error: unknown) => {
@@ -158,6 +158,32 @@ export function usePngtuberVariantJob(owner: AvatarOwnerRef) {
   const update = useCallback((id: string, patch: Partial<VariantJobItem>) => {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
+  /** Shows a new picture of `item`'s face. A set (a new face with both of its pictures) fills the other slot
+   *  too; a picture for the face as it is drops the pictures of a new face the user didn't keep. */
+  const showDrafts = useCallback((item: VariantJobItem, drafts: readonly PngtuberVariantDraft[]) => {
+    setItems((current) => {
+      const own = drafts.find((draft) => draft.label === item.label && draft.variant === item.variant);
+      const setDrafts = own?.face
+        ? drafts.filter((draft) => draft.label === item.label && draft.face === own.face)
+        : [];
+      const next = current.flatMap((entry): VariantJobItem[] => {
+        if (entry.label !== item.label) return [entry];
+        const draft = setDrafts.find((candidate) => variantJobId(candidate.label, candidate.variant) === entry.id);
+        if (entry.id === item.id || draft) {
+          return [{ ...entry, status: "done", draft: draft ?? own, kept: false, error: undefined }];
+        }
+        // A picture drawn for a new face that is no longer offered.
+        return entry.draft?.face && !own?.face ? [] : [entry];
+      });
+      for (const draft of setDrafts) {
+        const id = variantJobId(draft.label, draft.variant);
+        if (!next.some((entry) => entry.id === id)) {
+          next.push({ id, label: draft.label, variant: draft.variant, status: "done", draft, kept: false });
+        }
+      }
+      return next;
+    });
+  }, []);
   /** A failed redo or single picture is a toast too (the slot may keep showing its old picture); a run of
    *  many shows each failure in its slot only, so one provider outage doesn't stack a toast per picture. */
   const failed = useCallback(
@@ -177,10 +203,30 @@ export function usePngtuberVariantJob(owner: AvatarOwnerRef) {
       jobRef.current = { controller, owner };
       try {
         await pendingCancel;
+        /** Pictures a set already brought in this run. */
+        const made = new Set<string>();
         for (const [index, item] of queue.entries()) {
           if (controller.signal.aborted) break;
+          if (made.has(item.id)) continue;
           setProgress({ current: index + 1, total: queue.length });
-          update(item.id, { status: "running", error: undefined });
+          // Redoing a picture of a new face redoes the whole set, so its other picture is being redone too.
+          setItems((current) =>
+            current.map((entry) =>
+              entry.id === item.id
+                ? { ...entry, status: "running", error: undefined }
+                : item.draft?.face && entry.label === item.label && entry.draft?.face
+                  ? { ...entry, status: "running" }
+                  : entry,
+            ),
+          );
+          const settleSet = () =>
+            setItems((current) =>
+              current.map((entry) =>
+                entry.id !== item.id && entry.label === item.label && entry.status === "running"
+                  ? { ...entry, status: entry.draft ? "done" : "waiting" }
+                  : entry,
+              ),
+            );
           try {
             const response = await api.post<PngtuberDraftsResponse>(
               `${PREFIX}/pngtuber-variants`,
@@ -195,10 +241,21 @@ export function usePngtuberVariantJob(owner: AvatarOwnerRef) {
               },
               { signal: controller.signal },
             );
-            const draft = response.drafts[0];
-            if (draft) update(item.id, { status: "done", draft, kept: false, error: undefined });
-            else failed(item, response.failed[0]?.error ?? "", queue.length === 1);
+            const own = response.drafts.find((draft) => draft.label === item.label && draft.variant === item.variant);
+            if (own) {
+              showDrafts(item, response.drafts);
+              if (own.face) {
+                for (const draft of response.drafts) {
+                  if (draft.label === item.label && draft.face === own.face)
+                    made.add(variantJobId(draft.label, draft.variant));
+                }
+              }
+            } else {
+              settleSet();
+              failed(item, response.failed[0]?.error ?? "", queue.length === 1);
+            }
           } catch (error) {
+            settleSet();
             if (controller.signal.aborted || isAbort(error)) {
               update(item.id, { status: item.draft ? "done" : "waiting" });
               break;
@@ -213,7 +270,7 @@ export function usePngtuberVariantJob(owner: AvatarOwnerRef) {
         setProgress(null);
       }
     },
-    [failed, owner, update],
+    [failed, owner, showDrafts, update],
   );
 
   const start = useCallback(
@@ -254,7 +311,17 @@ export function usePngtuberVariantJob(owner: AvatarOwnerRef) {
       ),
     );
   }, []);
-  const setKept = useCallback((id: string, kept: boolean) => update(id, { kept }), [update]);
+  /** Keeps a picture, or lets it go. The pictures of a new face are kept or let go together. */
+  const setKept = useCallback(
+    (id: string, kept: boolean) =>
+      setItems((current) => {
+        const face = current.find((item) => item.id === id)?.draft?.face;
+        return current.map((item) =>
+          item.id === id || (face && item.draft?.face === face) ? { ...item, kept } : item,
+        );
+      }),
+    [],
+  );
   /** Keeps every new picture among `ids` (the ones shown). */
   const keepAll = useCallback(
     (ids: ReadonlySet<string>) =>
@@ -320,8 +387,15 @@ export function useMeshRigJob(owner: AvatarOwnerRef) {
 export function useSavePngtuberVariants(owner: AvatarOwnerRef) {
   const changed = useAvatarModelChanged(owner);
   return useMutation({
-    mutationFn: (images: Array<{ label: string; variant: AvatarPngtuberVariant; image: string; sourceHash: string }>) =>
-      api.post<AvatarGenerationResponse>(`${PREFIX}/pngtuber-variants/save`, { owner, images }),
+    mutationFn: (
+      images: Array<{
+        label: string;
+        variant: AvatarPngtuberVariant;
+        image: string;
+        sourceHash: string;
+        face?: string;
+      }>,
+    ) => api.post<AvatarGenerationResponse>(`${PREFIX}/pngtuber-variants/save`, { owner, images }),
     onSuccess: (response) => changed(response.config),
   });
 }
@@ -331,151 +405,5 @@ export function useSaveMeshRig(owner: AvatarOwnerRef) {
   return useMutation({
     mutationFn: (archive: string) => api.post<AvatarGenerationResponse>(`${PREFIX}/mesh-rig/save`, { owner, archive }),
     onSuccess: (response) => changed(response.config),
-  });
-}
-
-/** One step of a VRM model run as the setup shows it. */
-export interface VrmModelStepState {
-  status: "waiting" | "running" | "done";
-  progress: number | null;
-}
-
-/** Makes a VRM model through Tripo with progress per step. Cancel closes the stream and asks the server to stop
- *  (stopJob), which stops it waiting for Tripo; a Tripo task already started may still finish and use its
- *  credits. A second start while one runs does nothing. The draft stays in the browser until it is imported. */
-export function useVrmModelJob(owner: AvatarOwnerRef) {
-  const [steps, setSteps] = useState<Partial<Record<AvatarVrmModelStep, VrmModelStepState>>>({});
-  const [creditsUsed, setCreditsUsed] = useState(0);
-  const [draft, setDraft] = useState<(AvatarVrmModelDraft & { label: string }) | null>(null);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cancelled, setCancelled] = useState(false);
-  /** The stream closed before the server said the model was done or failed (a restart, a dropped link). */
-  const [interrupted, setInterrupted] = useState(false);
-  const runningRef = useRef(false);
-  const jobRef = useRef<RunningJob | null>(null);
-
-  useEffect(() => () => stopJob(jobRef.current, "vrm"), []);
-  useEffect(() => {
-    stopJob(jobRef.current, "vrm");
-    setSteps({});
-    setCreditsUsed(0);
-    setDraft(null);
-    setError(null);
-    setCancelled(false);
-    setInterrupted(false);
-  }, [owner.ownerType, owner.ownerId]);
-
-  const start = useCallback(
-    async (body: { sourceLabel: string }) => {
-      if (runningRef.current) return;
-      runningRef.current = true;
-      setRunning(true);
-      setSteps({});
-      setCreditsUsed(0);
-      setDraft(null);
-      setError(null);
-      setCancelled(false);
-      setInterrupted(false);
-      const controller = new AbortController();
-      jobRef.current = { controller, owner };
-      let ended = false;
-      try {
-        await pendingCancel;
-        controller.signal.throwIfAborted();
-        const events = api.streamEvents(
-          `${PREFIX}/vrm-model`,
-          { owner, ...body, debugMode: useUIStore.getState().debugMode },
-          controller.signal,
-        );
-        for await (const event of events) {
-          if (controller.signal.aborted) break;
-          if (event.type === "progress") {
-            const progress = event.data as AvatarVrmModelProgress;
-            setSteps((current) => ({
-              ...current,
-              [progress.step]: { status: progress.status, progress: progress.progress },
-            }));
-            setCreditsUsed(progress.creditsUsed);
-          } else if (event.type === "done") {
-            ended = true;
-            setDraft({ ...(event.data as AvatarVrmModelDraft), label: body.sourceLabel });
-          } else if (event.type === "error") {
-            ended = true;
-            const message = (event.data as { message?: unknown } | null)?.message;
-            setError(typeof message === "string" && message ? message : "");
-          }
-        }
-        if (!ended && !controller.signal.aborted) setInterrupted(true);
-      } catch (caught) {
-        if (!controller.signal.aborted && !isAbort(caught)) setError(errorMessage(caught));
-      } finally {
-        if (jobRef.current?.controller === controller) jobRef.current = null;
-        runningRef.current = false;
-        setRunning(false);
-      }
-    },
-    [owner],
-  );
-
-  const cancel = useCallback(() => {
-    if (!jobRef.current) return;
-    stopJob(jobRef.current, "vrm");
-    setCancelled(true);
-  }, []);
-  /** Drops the draft and the finished run's steps (after Discard, or once the model is kept). */
-  const discard = useCallback(() => {
-    setDraft(null);
-    setSteps({});
-    setCreditsUsed(0);
-  }, []);
-  return { steps, creditsUsed, draft, running, error, cancelled, interrupted, start, cancel, discard };
-}
-
-/** A draft's model as a file, for the same import a picked .vrm file goes through. */
-export function vrmDraftFile(draft: AvatarVrmModelDraft): File {
-  const binary = atob(draft.vrm);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return new File([bytes], draft.fileName, { type: "model/gltf-binary" });
-}
-
-const TRIPO_KEY_QUERY = ["avatar-generation", "tripo-key"] as const;
-const TRIPO_BALANCE_QUERY = ["avatar-generation", "tripo-balance"] as const;
-
-/** Whether a Tripo API key is saved. The server never sends the key back, not even part of it. */
-export function useTripoKeyStatus() {
-  return useQuery({
-    queryKey: TRIPO_KEY_QUERY,
-    queryFn: () => api.get<{ saved: boolean }>(`${PREFIX}/tripo-key`),
-  });
-}
-
-/** Saves or removes the Tripo API key; the balance is then read again with the new key. */
-export function useTripoKeyActions() {
-  const queryClient = useQueryClient();
-  const onSuccess = (status: { saved: boolean }) => {
-    queryClient.setQueryData(TRIPO_KEY_QUERY, status);
-    void queryClient.resetQueries({ queryKey: TRIPO_BALANCE_QUERY });
-  };
-  const save = useMutation({
-    mutationFn: (apiKey: string) => api.put<{ saved: boolean }>(`${PREFIX}/tripo-key`, { apiKey }),
-    onSuccess,
-  });
-  const remove = useMutation({
-    mutationFn: () => api.delete<{ saved: boolean }>(`${PREFIX}/tripo-key`),
-    onSuccess,
-  });
-  return { save, remove };
-}
-
-/** The saved key's Tripo credits and what a model costs, before starting. */
-export function useTripoBalance(keySaved: boolean) {
-  return useQuery({
-    queryKey: TRIPO_BALANCE_QUERY,
-    queryFn: () => api.get<{ balance: number; frozen: number; cost: number }>(`${PREFIX}/vrm-model/balance`),
-    enabled: keySaved,
-    staleTime: 30_000,
-    retry: false,
   });
 }

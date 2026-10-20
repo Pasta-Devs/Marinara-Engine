@@ -1075,6 +1075,9 @@ export function CharacterEditor() {
     saveDisabled && "cursor-not-allowed opacity-50",
   );
 
+  const favoriteLabel = formData.extensions.fav
+    ? localizeUi("ui.characters.charactereditor.removeFromFavorites")
+    : localizeUi("ui.characters.charactereditor.addToFavorites");
   const headerActions = (
     <>
       <button
@@ -1104,11 +1107,8 @@ export function CharacterEditor() {
         data-character-favorite-toggle
         data-favorite={formData.extensions.fav ? "true" : "false"}
         className="mari-editor-action mari-editor-action--favorite inline-flex"
-        title={
-          formData.extensions.fav
-            ? localizeUi("ui.characters.charactereditor.removeFromFavorites")
-            : localizeUi("ui.characters.charactereditor.addToFavorites")
-        }
+        title={favoriteLabel}
+        aria-label={favoriteLabel}
       >
         {formData.extensions.fav ? <Star size="1rem" fill="currentColor" /> : <StarOff size="1rem" />}
       </button>
@@ -1118,6 +1118,7 @@ export function CharacterEditor() {
         onClick={() => setExportDialogOpen(true)}
         className={headerActionButtonClass}
         title={localizeUi("ui.characters.charactereditor.exportCharacter")}
+        aria-label={localizeUi("ui.characters.charactereditor.exportCharacter")}
       >
         <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
@@ -1137,6 +1138,7 @@ export function CharacterEditor() {
         disabled={createPersona.isPending || uploadPersonaAvatar.isPending}
         className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
         title={localizeUi("ui.characters.charactereditor.importCharacterAsPersona")}
+        aria-label={localizeUi("ui.characters.charactereditor.importCharacterAsPersona")}
       >
         {createPersona.isPending || uploadPersonaAvatar.isPending ? (
           <Loader2 size="1rem" className="animate-spin" />
@@ -1157,6 +1159,7 @@ export function CharacterEditor() {
         }}
         className="mari-editor-action inline-flex"
         title={localizeUi("ui.characters.charactereditor.duplicateCharacter")}
+        aria-label={localizeUi("ui.characters.charactereditor.duplicateCharacter")}
       >
         <Copy size="1rem" />
       </button>
@@ -1166,6 +1169,7 @@ export function CharacterEditor() {
         onClick={handleDelete}
         className="mari-editor-action inline-flex"
         title={localizeUi("ui.characters.charactereditor.deleteCharacter")}
+        aria-label={localizeUi("ui.characters.charactereditor.deleteCharacter")}
       >
         <Trash2 size="1rem" />
       </button>
@@ -1221,13 +1225,15 @@ export function CharacterEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="mari-editor-header mari-editor-header--with-nav">
+      {/* --dense: eleven sections and seven actions make this the most crowded editor header. */}
+      <div className="mari-editor-header mari-editor-header--with-nav mari-editor-header--dense">
         <div className="mari-editor-header-main mari-editor-header-main--identity">
           <button
             type="button"
             onClick={handleClose}
             className="mari-editor-action inline-flex"
             title={localizeUi("ui.noodle.noodlerframe.back")}
+            aria-label={localizeUi("ui.noodle.noodlerframe.back")}
           >
             <ArrowLeft size="1.125rem" />
           </button>
@@ -1282,6 +1288,7 @@ export function CharacterEditor() {
                   if (trimmedName !== formData.name) updateField("name", trimmedName);
                 }}
                 className="mari-editor-title-input"
+                title={formData.name || undefined}
                 placeholder={localizeUi("ui.characters.charactereditor.characterName")}
                 size={Math.max(1, Math.min(formData.name.length || 14, 80))}
               />
@@ -3880,7 +3887,7 @@ function CharacterSheetSection({
             <button
               type="button"
               onClick={clearSelection}
-              className="mari-editor-action inline-flex w-full justify-center text-red-500"
+              className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)]"
             >
               <X size="0.875rem" />
               {localizeUi("ui.characters.charactersheet.remove")}

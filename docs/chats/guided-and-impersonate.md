@@ -91,7 +91,7 @@ The section has these controls:
 - **Preset**: use a specific prompt preset for impersonate replies only. A preset is a saved bundle of prompt settings. See [Presets](../prompts/presets.md). The default is **Use chat default**. Presets apply in Roleplay only.
 - **Connection**: route impersonate replies to a specific connection, such as a cheaper or faster model. A connection is a saved link to an AI provider. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md). The default is **Use chat default**. You can also choose **Random**.
 - **Skip agents**: when on, Marinara skips the agent pipeline (trackers, lorebook routers, and similar helpers) during impersonate. This keeps impersonate fast and stops it from changing world state. It is off by default. See [Agents](../agents/agents-overview.md).
-- **Use CYOA as direction**: when on, clicking a CYOA option uses it as the impersonate direction instead of posting it as a normal message. CYOA means choose your own adventure, a set of clickable choices some chats show after a reply. This setting is off by default.
+- **Use CYOA as direction**: when on, clicking a CYOA option uses it as the impersonate direction instead of posting it as a normal message. CYOA means choose your own adventure, a set of clickable choices some chats show after a reply. This setting is off by default. If **Add CYOA choices to the message box instead of sending them** is on in **Settings** > **General** > **Input & Editing**, clicking a choice only adds its text to your message box, and this setting has no effect.
 
 ### Setting a custom impersonate prompt
 

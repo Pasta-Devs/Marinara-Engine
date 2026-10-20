@@ -50,6 +50,14 @@ Writes mark affected tables dirty. A short debounce coalesces nearby changes, wh
 
 Each snapshot is written to a temporary file, flushed, and atomically renamed. Before replacement, the previous healthy snapshot is refreshed as a `.bak` file. On startup, an unreadable primary is recovered from its backup when possible. If neither copy is usable, Marinara quarantines the corrupt files with a timestamped suffix and starts only that table empty so the UI remains reachable for recovery.
 
+## Writer lease
+
+Only one server process writes a storage directory at a time. At startup the store creates the `.writer-lease` directory in it, with an `owner.json` that records the writer's PID, machine id, boot id, PID namespace, hostname and a random token, and removes it on shutdown. A second process that finds a lease refuses to start with a `StorageWriterLeaseError` unless it can prove the previous writer is gone.
+
+The proof first needs the same machine: a matching machine id, Termux's app-private home, or, when one side has no machine id, storage only this machine can reach. On Linux and Android that is a local filesystem. On Windows it is a `Fixed` drive (not a network, removable or UNC path), and the lease must come from a native Windows writer with this computer's name. A lease on the same machine is reclaimed when it belongs to an earlier boot (on Windows, boot times up to 5 minutes apart count as the same boot), when its liveness socket no longer answers (Docker and Termux), or when its PID has exited or (except on the Windows drive proof) now belongs to a newer process. Shared or network storage stays locked, and the error names the lease to remove by hand once every process is stopped.
+
+`scripts/regressions/storage-writer-lock.regression.ts` covers the proofs.
+
 ## Transactions
 
 Transactions use copy-on-write snapshots scoped with `AsyncLocalStorage`. A table is cloned only when that transaction first mutates it. If the callback throws, only tables changed by that transaction are restored; unrelated concurrent writes survive.

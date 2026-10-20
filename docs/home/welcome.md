@@ -8,15 +8,42 @@ Marinara Engine is a local app for chatting and roleplaying with AI characters. 
 
 ## The Home screen at a glance
 
-The Home screen is what you see when no chat is open. From top to bottom, it shows these parts:
+The Home screen is what you see when no chat is open. It looks a bit like a web browser: tabs and bookmarks at the top, and a desk of widgets below.
 
-- The app logo, the words **Marinara Engine**, and the version number below them.
-- A row of your most recent chats: up to three, shown as chips you can click to reopen. If you have none yet, this row shows "No chats yet".
-- The **Ask Professor Mari** card: a chat box for the built-in assistant who can explain the app and help you set things up. A short **FAQ** sits next to it with common questions and answers.
-- An **Achievements** button, shown only when the Achievements setting is on.
-- A footer with these buttons: **Discord**, **Support**, **Credits**, **Documentation**, and **Replay Tutorial**.
+At the top you find these parts:
+
+- **Tabs.** **Home** is the main page. **Professor** opens Professor Mari, the built-in assistant who can explain the app and help you set things up. Some installed agents add a tab of their own.
+- **Search bar.** On a computer, click the bar under the tabs, or press Ctrl+K (Cmd+K on a Mac), to find chats, characters, settings and more.
+- **Bookmarks.** Quick links to **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** and **Widgets**. **Achievements** shows only when the Achievements setting is on. On a phone, tap the bookmark button at the left of the tabs to see them as a list.
+
+In the middle you see the app logo, the words **Marinara Engine** and the version number. Below them, the **Conversation**, **Roleplay** and **Game** buttons each start a new chat in that mode.
 
 The first time you open Marinara, a short guided tour points out the main buttons and chat modes. For the full walkthrough, see [The First-Time Tutorial](tutorial.md).
+
+## Home widgets
+
+The rest of the Home screen is made of widgets: small cards you can show, hide and move around. These widgets come with the app:
+
+| Widget | What it does | Shown at first |
+| --- | --- | --- |
+| **Professor Mari** | Click **Ask Professor Mari** to open her chat. | Yes |
+| **Recent chats** | Shows your latest chats with their last message. Click one to reopen it. If you have none yet, it says **Your chats will show here**. | Yes |
+| **Learn the engine** | Links to **Documentation**, **Replay tutorial** and **Read FAQ**. | Yes |
+| **What's New** | **See what's new** opens the What's New window for this version again, even if you closed it before. **Read release notes** opens the full release notes on the web. | Yes |
+| **Community** | Links to **Discord**, **Support** and **Credits**. | Yes |
+| **Character Library** | A fresh selection of your characters each day. | No |
+| **Discovery desk** | Suggests agents you have not installed yet. Use the arrows to see more, or **Browse agents** to open the catalog. | No |
+| **Character of the Day** | One character from your library, with **Start a chat** and **View character**. | No |
+| **Clock & calendar** | Today's date and time. | No |
+| **Achievements** | Your latest and closest achievements. Only available when the Achievements setting is on. | No |
+
+Some installed agents add widgets too. Professor Mari can also make a personal widget for you if you ask her.
+
+To choose your widgets, click **Widgets** in the bookmarks. The **Home Widgets** window lists them under **Built-in**, **Agents** and **Personal**. Click the eye button beside a widget to show or hide it. A widget you show again goes to the first free place on Home. Personal widgets also have buttons to edit or delete them.
+
+To move a widget, drag the handle in its top-right corner. On a computer, the handle appears when you point at the widget. With a keyboard, focus the handle and use the arrow keys. Your widget layout is saved in this browser.
+
+At the bottom of the **Home Widgets** window, **Browser chrome** has three switches: **Show URL bar** shows or hides the search bar, and **Other-tab bookmarks (desktop)** and **Other-tab bookmarks (mobile)** keep the bookmarks visible on tabs other than **Home**.
 
 ## Your first steps
 
@@ -43,8 +70,8 @@ You have several ways to get help without leaving the app:
 
 - Ask **Professor Mari** on the Home screen for setup help and how-to answers.
 - Read the **FAQ** on the Home screen for quick answers to common questions.
-- Open the in-app guides with the **Documentation** button in the Home screen footer.
-- Click **Discord** in the footer to reach the community, or **Support** to back the project.
+- Open the in-app guides with the **Documentation** bookmark on the Home screen.
+- Click the **Discord** bookmark to reach the community, or **Support** to back the project.
 
 If something is broken or does not work, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 

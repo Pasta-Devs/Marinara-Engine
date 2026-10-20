@@ -254,12 +254,45 @@ export const ttsSourceProfilesSchema = z
   .default({});
 export type TTSSourceProfiles = z.infer<typeof ttsSourceProfilesSchema>;
 
+/**
+ * The card's voices and speech settings for one Audio connection (#7848). The connection keeps
+ * its own address, key and model, so a profile never holds them.
+ */
+export const ttsConnectionProfileSchema = ttsSourceProfileSchema.omit({
+  baseUrl: true,
+  apiKey: true,
+  model: true,
+  elevenLabsGameSoundEffects: true,
+  elevenLabsGameMusic: true,
+});
+export type TTSConnectionProfile = z.infer<typeof ttsConnectionProfileSchema>;
+
 export const ttsConfigSchema = ttsConfigBaseSchema.extend({
   /** Encrypted-at-rest provider fields retained independently for each TTS source. */
   sourceProfiles: ttsSourceProfilesSchema,
+  /**
+   * The Audio connection chosen as the card's Source (#7848). Empty uses the source settings above.
+   * While one is chosen, the top-level voice and speech fields belong to it, and the top-level
+   * address, key and model keep the last source's values untouched.
+   */
+  connectionId: z.string().default(""),
+  /** Voices and speech settings kept separately for each Audio connection, by connection ID. */
+  connectionProfiles: z.record(z.string(), ttsConnectionProfileSchema).default({}),
 });
 
 export type TTSConfig = z.infer<typeof ttsConfigSchema>;
+
+export function ttsConnectionProfileFromConfig(config: TTSConfig): TTSConnectionProfile {
+  const {
+    baseUrl: _baseUrl,
+    apiKey: _apiKey,
+    model: _model,
+    elevenLabsGameSoundEffects: _soundEffects,
+    elevenLabsGameMusic: _music,
+    ...profile
+  } = ttsSourceProfileFromConfig(config);
+  return profile;
+}
 
 export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile {
   return {

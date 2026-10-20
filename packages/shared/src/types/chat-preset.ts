@@ -236,6 +236,8 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "selfieResolution", // Selfie size
   "selfieUseAvatarReferences", // Send avatars as selfie references
   "selfieIncludeCharacterAppearance", // Add card appearance to selfie prompts
+  "selfieVideoUseAvatarReferences", // Video messages: send the avatar when there is no first frame
+  "selfieVideoIncludeCharacterAppearance", // Video messages: add card appearance to video prompts
   "sceneVideoFirstFrame", // Video messages: the picture a clip starts from
   "conversationCallsEnabled", // Calls: the call button
   "conversationCallVoiceCues", // Calls: voice cues in replies
@@ -261,6 +263,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorPromptConnectionId", // Illustrator: prompt connection
   "illustratorIncludeCharacterAppearance", // Illustrator: add card appearance
   "illustratorUseAvatarReferences", // Illustrator: send avatars as references
+  "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval

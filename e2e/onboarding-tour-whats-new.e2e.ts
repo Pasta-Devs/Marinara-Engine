@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
-import { seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -15,6 +15,7 @@ const SHOT_DIR = new URL("../.tmp/omnibar-ux/round10/shots/", import.meta.url);
 test("UX-34: finishing the tour does not open What's New straight after", async ({ page }, testInfo) => {
   const width = testInfo.project.name.includes("mobile") ? 390 : 1440;
   await page.setViewportSize(width === 390 ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+  await isolateSyncedUISettings(page);
   await seedUIState(page, { hasCompletedOnboarding: false, rightPanelOpen: false, sidebarOpen: false });
   await page.goto("/");
 

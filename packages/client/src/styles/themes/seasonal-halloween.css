@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════
    SEASONAL THEME: HALLOWEEN
-   Worn on October 31, local time, while <html> carries
+   Worn from October 30 until noon on November 1, local
+   time, while <html> carries
    data-seasonal-theme="halloween" (App.tsx, lib/seasonal-themes.ts).
 
    The palette is defined once below and mapped onto the
-   app's tokens with !important, so for that one day it wins
+   app's tokens with !important, so for that window it wins
    over a custom accent, the accent pulse, a visual theme or
    a custom theme. Removing the attribute hands every token
    back to the user's own theme untouched.

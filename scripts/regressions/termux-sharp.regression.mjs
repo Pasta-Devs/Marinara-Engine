@@ -49,7 +49,16 @@ const pnpm = (args, cwd) => {
   assert.equal(result.status, 0, result.stdout + result.stderr + (result.error?.message ?? ""));
   return result.stdout.trim();
 };
-const store = pnpm(["store", "path", "--silent"], repositoryRoot);
+// The store the checkout's install actually filled: an install with --store-dir elsewhere leaves
+// `pnpm store path` pointing at the configured, empty in-checkout store.
+const installedStore = () => {
+  try {
+    return JSON.parse(readFileSync(join(repositoryRoot, "node_modules/.modules.yaml"), "utf8")).storeDir || undefined;
+  } catch {
+    return undefined;
+  }
+};
+const store = installedStore() ?? pnpm(["store", "path", "--silent"], repositoryRoot);
 const fixture = mkdtempSync(join(tmpdir(), "marinara-sharp-frozen-"));
 try {
   writeFileSync(

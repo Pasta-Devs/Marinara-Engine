@@ -14,6 +14,7 @@ import {
   FloatingWindow,
   PHONE_FULL_SHEET_CLASS,
   PHONE_SHEET_CLASS,
+  focusWindowOpener,
   readFloatingWindowBounds,
 } from "../ui/FloatingWindow";
 import { Drawer } from "../ui/Drawer";
@@ -31,7 +32,11 @@ import {
 import { cn } from "../../lib/utils";
 import { BUBBLE_SNAP_GAP_PX } from "../../lib/window-bubble-snap";
 import { useUIStore } from "../../stores/ui.store";
-import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import {
+  CHAT_SETTINGS_WINDOW_ID,
+  isPhoneWindowLayout,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
 import { readChatWindowArea, readCssPixels } from "./chat-settings-window";
 
 const TRACKER_CLEARANCE_VARIABLE = "--tracker-panel-overlay-clearance";
@@ -69,6 +74,17 @@ export function getChatControlDefaultLayout(
   const bubble = { x: row.x, y: row.y + rowOffset };
   const geometry = placeWindowBesideBubble(size, bubble, bounds, { minWidth: 200, minHeight: 96 }, bubbleSize);
   return { ...geometry, pinned: false, locked: false, minimized: true, bubble };
+}
+
+/**
+ * On a phone a control's sheet (or Chat Settings, when the control is put back there) covers the chat, so an
+ * action that changes what the chat shows closes it, as its close button does. A computer's window stays open.
+ */
+export function closeChatControlSheet(id: string) {
+  if (!isPhoneWindowLayout()) return;
+  const windows = useFloatingWindowStore.getState();
+  const sheet = windows.layouts[id]?.docked ? CHAT_SETTINGS_WINDOW_ID : id;
+  if (windows.dismissWindow(sheet)) focusWindowOpener(sheet);
 }
 
 /** Presses on popovers and dialogs the window's content opens (they render in portals) stay inside. */

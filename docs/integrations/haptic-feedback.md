@@ -65,7 +65,9 @@ The **Intiface URL** field holds the network address of your **Intiface Central*
 ws://127.0.0.1:12345
 ```
 
-The address `127.0.0.1` means "this same computer". If you leave the field blank, Marinara uses the server default. Marinara also remembers your address in the browser, so it is reused across chats and devices.
+The address `127.0.0.1` means "this same computer". If you leave the field blank, Marinara uses the server default. Marinara saves your address with the chat and also remembers it in this browser, so other chats you open here start with it.
+
+The address stays on this Marinara install. Chat exports, exported settings profiles and **Export Profile** files leave it out, and importing any of them never sets it. Enter it again after you move a chat to another install.
 
 If you run Marinara in Docker, or you open Marinara in a browser on a different device, `127.0.0.1` will not reach your **Intiface Central**. In that case, enter the address of the computer running **Intiface Central**. It looks like the example below, where you replace the numbers with that computer's real address.
 

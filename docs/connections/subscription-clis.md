@@ -45,7 +45,7 @@ claude auth login
 3. In Marinara, open the **Connections** panel and click **Add connection**.
 4. In step 1, choose the **Claude (Subscription)** service.
 5. In step 2, notice there is no key field. The step says **No key needed. Marinara uses the login on this computer.** Click **Save and test**. **The connection works.** means the login works.
-6. In step 3, pick a Claude model, such as an Opus or Sonnet model, then click **Done**.
+6. In step 3, pick a Claude model, such as an Opus or Sonnet model, then click **Done**. The list shows the models your Claude Code login offers when Claude Code has a list for it, otherwise a built-in list.
 
 Claude subscription connections support text chat only. This connection has two extra controls, **Fast Mode** and **Diagnose Model Routing**, described below.
 
@@ -72,7 +72,7 @@ codex login
 
 Marinara reads your local Codex login file and refreshes the session when it can.
 
-To set how long Codex thinks before answering, open the connection, turn on **Use custom defaults for this connection** under **Default Chat Parameters**, and pick a **Reasoning Effort**; it starts at **Default**. A chat can pick its own level in **Advanced Parameters**. **Default** keeps the level Codex uses for the model. Codex uses that default until the connection or the chat picks a level; the level in your preset does not change it, and a Codex connection used as a fallback follows only its own level. Agents on the connection use the connection's level. The levels match the ones Codex offers for each model: GPT-5.5 goes up to **xhigh**, and GPT-5.6 and GPT-6 models go up to **max**.
+To set how long Codex thinks before answering, open the connection, turn on **Use custom defaults for this connection** under **Default Chat Parameters**, and pick a **Reasoning Effort**; it starts at **Default**. A chat can pick its own level in **Advanced Parameters**. **Default** keeps the level Codex uses for the model. Codex uses that default until the connection or the chat picks a level; the level in your preset does not change it, and a Codex connection used as a fallback follows only its own level. Agents on the connection use the connection's level. The levels match the ones Codex offers for each model: GPT-5.5 goes up to **Extra high**, and GPT-5.6 and GPT-6 models go up to **Max**.
 
 ## Grok CLI (Subscription)
 
@@ -102,6 +102,8 @@ To load Grok models, use the **Fetch Models from Grok CLI** button in the **Mode
 ## Claude prompt-cache duration
 
 In the Claude connection editor, **Prompt Caching → Extended token caching (1 hour)** requests a one-hour cache for longer pauses between messages. It requires Claude Code **2.1.242 or later**. Marinara passes the setting for that request without changing your saved Claude settings.
+
+The setting also changes how much of a chat Claude can reuse. With it on, Claude reuses the earlier chat history and only processes the newest part again. With it off, Claude reuses only the instructions at the start and processes the whole chat history again for each message. On long chats, the off setting uses more of your plan.
 
 Off leaves Claude's default for main conversations and Agent SDK requests in place: currently one hour for subscription usage within plan limits and five minutes for extra usage, credits, or API billing. Claude Code's own subagents use five minutes unless configured separately; selected server-controlled helper requests may use one hour. Existing CLI environment overrides still take precedence. See [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching).
 

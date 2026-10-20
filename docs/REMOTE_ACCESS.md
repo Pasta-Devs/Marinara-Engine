@@ -71,6 +71,8 @@ Save `.env`. The change applies within a couple of seconds, with no restart. The
 2. Enter the username and password you set when the browser prompts you.
 3. You should see the app load. The browser remembers the login for the rest of the session.
 
+After 10 different wrong passwords within 15 minutes, Marinara refuses sign-ins from that address with **429 Too Many Requests** until the 15 minutes are up. A correct password before then clears the count. Visitors that a reverse proxy or tunnel on the host passes along share one count, and one of them signing in does not clear it. Restarting the server also clears it. A browser that has signed in before still gets in with the correct password, so other people's wrong passwords cannot lock you out of a device you already use.
+
 By default, the browser prompt says **Marinara Engine**. You can change that text with `BASIC_AUTH_REALM`.
 
 Some clients skip the password even when Basic Auth is on:

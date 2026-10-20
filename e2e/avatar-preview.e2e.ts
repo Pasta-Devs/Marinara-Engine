@@ -173,16 +173,24 @@ test("avatar crop handles stay whole and draggable on a square image", async ({ 
     }
 
     // The handles' touch targets reach past the image; on a phone they must not make the editor scroll sideways.
-    const sidewaysScroller = await frame.evaluate((element) => {
-      for (let node = element.parentElement; node; node = node.parentElement) {
-        const scrolls = /auto|scroll/.test(getComputedStyle(node).overflowX);
-        if (scrolls && node.scrollWidth > node.clientWidth) {
-          return `${node.className} ${node.scrollWidth}>${node.clientWidth}`;
+    const sidewaysScroller = () =>
+      frame.evaluate((element) => {
+        for (let node = element.parentElement; node; node = node.parentElement) {
+          const scrolls = /auto|scroll/.test(getComputedStyle(node).overflowX);
+          if (scrolls && node.scrollWidth > node.clientWidth) {
+            return `${node.className} ${node.scrollWidth}>${node.clientWidth}`;
+          }
         }
-      }
-      return null;
-    });
-    expect(sidewaysScroller, "the crop widget must not make the editor scroll sideways").toBeNull();
+        return null;
+      });
+    expect(await sidewaysScroller(), "the crop widget must not make the editor scroll sideways").toBeNull();
+
+    // Linux WebKit's wider font metrics made the Convo Insertion select exceed the content width.
+    // Keep that source of overflow covered on local browsers too, without clipping the crop handles.
+    await page.addStyleTag({ content: ".mari-editor-content select { font-family: Verdana, sans-serif; }" });
+    expect(await sidewaysScroller(), "wide dropdown options must not make the editor scroll sideways").toBeNull();
+    // The changed font can reflow content and move the grip below the phone viewport.
+    await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
 
     // Grab the outer edge of the bottom-right handle, the part that used to be clipped, and shrink the crop.
     const before = await frame.boundingBox();

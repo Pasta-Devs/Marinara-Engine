@@ -206,13 +206,18 @@ for (const theme of ["light", "dark"] as const) {
           if (testInfo.project.name === "desktop-chromium") {
             await sort.selectOption("name-asc");
             await expect.poll(order).toEqual([ids[1], ids[2], ids[0]]);
-            const handle = rows.last().locator(".cursor-grab");
-            await handle.scrollIntoViewIfNeeded();
-            const start = (await handle.boundingBox())!;
-            const target = (await rows.first().boundingBox())!;
+            // Folder rows drag from their body since handleless dragging (#7362), as in drag-list-scroll.e2e.ts.
+            const source = rows.last();
+            await source.scrollIntoViewIfNeeded();
+            const start = (await source.boundingBox())!;
             await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
             await page.mouse.down();
-            await page.mouse.move(start.x + start.width / 2, target.y - 6, { steps: 20 });
+            await page.mouse.move(start.x + start.width / 2 + 15, start.y + start.height / 2);
+            // Measure the target once the drag has started: picking a row up can shift the list. One move,
+            // as in drag-list-scroll.e2e.ts: stepping over the rows opens insertion gaps that move the target.
+            const target = (await rows.first().boundingBox())!;
+            await page.mouse.move(start.x + start.width / 2, target.y + 2);
+            await expect(rows.first()).toHaveAttribute("data-drag-insert", "before");
             await page.mouse.up();
             await expect(sort).toHaveValue("custom");
             await expect.poll(order).toEqual(ids);

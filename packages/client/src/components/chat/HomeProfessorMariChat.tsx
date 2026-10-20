@@ -1447,8 +1447,18 @@ export function HomeProfessorMariChat({
   useEffect(() => {
     if (!arrivalThread || arrivalAppendRequest <= handledArrivalRouteRef.current) return;
     // R13: an arrival during a run waits until the finished run (its done marks, "Worked for") has been on
-    // screen for the halo's settle time; rerouting the moment isBusy cleared wiped it unseen.
-    if (loadingHistory || isBusy || composerHaloEnding || !chatId || loadedMessagesChatId !== chatId) return;
+    // screen for the halo's settle time; rerouting the moment isBusy cleared wiped it unseen. The timeline
+    // can stay live after isBusy clears (the server status still says running until it refreshes), and
+    // the halo only starts when the timeline ends, so wait for that too.
+    if (
+      loadingHistory ||
+      isBusy ||
+      workspaceTimelineActive ||
+      composerHaloEnding ||
+      !chatId ||
+      loadedMessagesChatId !== chatId
+    )
+      return;
     void routeArrivalThread(chatId).then((targetId) => {
       if (targetId === chatId) return;
       setWorkspaceTimeline([]);
@@ -1465,6 +1475,7 @@ export function HomeProfessorMariChat({
     loadedMessagesChatId,
     loadingHistory,
     routeArrivalThread,
+    workspaceTimelineActive,
   ]);
   useEffect(() => {
     if (arrivalAppendRequest <= handledArrivalAppendRequestRef.current) return;

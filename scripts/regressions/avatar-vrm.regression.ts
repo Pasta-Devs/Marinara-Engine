@@ -15,7 +15,8 @@
  *     framing, VRM 0.x mirroring) behaves;
  *   - a generated (body-only) model keeps its colour map when the page's connect-src refuses blob: URLs, sways
  *     and nods visibly with no idle animation, and a model with a face moves exactly as before.
- * Models are synthetic: no VRM file is committed.
+ * Models are synthetic: built here, except the generated one, which is the file the withdrawn one-click Tripo
+ * generator made from a synthetic model (fixtures/tripo-made-avatar.vrm).
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -868,6 +869,61 @@ const motion = await import("../../packages/client/src/features/avatars/renderer
   }
   assert.deepEqual(motion.frameCamera({ ...body, topY: Number.NaN }, 1, 25), motion.frameCamera(body, 1, 25));
 }
+{
+  // Framing, chosen per avatar in Chat Settings (maintainer request, 2026-10-19): Portrait is the head-and-shoulders
+  // bust above and stays the default, Half body reaches the hips, and Full body fits the whole model, from its
+  // measured top (hair, a hat) to its soles with a little floor. Each changes smoothly as the canvas resizes.
+  const body = { headY: 1.45, hipsY: 0.95, footY: 0.05 };
+  const headTop = body.headY + 0.42 * (body.headY - body.hipsY);
+  const tanHalf = Math.tan((25 * Math.PI) / 360);
+  type Heights = typeof body & { topY?: number; bottomY?: number };
+  const view = (heights: Heights, aspect: number, framing?: "portrait" | "half-body" | "full-body") => {
+    const framed = motion.frameCamera(heights, aspect, 25, framing);
+    const half = framed.distance * tanHalf;
+    return { top: framed.targetY + half, bottom: framed.targetY - half };
+  };
+  const hatted = { ...body, topY: body.headY + 1.5 * (body.headY - body.hipsY), bottomY: body.footY - 0.08 };
+  for (const aspect of [0.3, 0.5, 0.75, 1, 1.5, 4]) {
+    for (const heights of [body, { ...body, topY: 1.84 }, hatted]) {
+      assert.deepEqual(
+        motion.frameCamera(heights, aspect, 25, "portrait"),
+        motion.frameCamera(heights, aspect, 25),
+        `portrait is today's framing at aspect ${aspect}`,
+      );
+    }
+    const half = view(body, aspect, "half-body");
+    assert.ok(half.top >= headTop, `half body keeps the head in view at aspect ${aspect}`);
+    assert.ok(half.bottom <= body.hipsY, `half body reaches the hips at aspect ${aspect}`);
+    const full = view(hatted, aspect, "full-body");
+    assert.ok(full.top >= hatted.topY, `full body keeps a tall hat in view at aspect ${aspect}`);
+    assert.ok(full.bottom < hatted.bottomY, `full body keeps the soles and some floor in view at aspect ${aspect}`);
+    assert.ok(view(body, aspect, "full-body").bottom < body.footY - 0.03, `feet from the bones alone at ${aspect}`);
+  }
+  const portrait34 = view(body, 0.75);
+  const half34 = view(body, 0.75, "half-body");
+  const full34 = view({ ...body, topY: 1.72, bottomY: 0 }, 0.75, "full-body");
+  assert.ok(
+    half34.bottom < portrait34.bottom - 0.1 && half34.bottom < body.hipsY,
+    "in a 3:4 spot half body shows clearly more than portrait, past the hips",
+  );
+  assert.ok(half34.bottom > body.footY + 0.3, "half body leaves out the legs");
+  assert.ok(
+    (1.72 - 0) / (full34.top - full34.bottom) > 0.8,
+    "full body fills the spot instead of shrinking to a speck",
+  );
+  for (const framing of ["half-body", "full-body"] as const) {
+    let previous = view(hatted, 1.2, framing);
+    for (let aspect = 1.19; aspect >= 0.3; aspect -= 0.01) {
+      const current = view(hatted, aspect, framing);
+      assert.ok(
+        Math.abs(current.bottom - previous.bottom) < 0.1 && Math.abs(current.top - previous.top) < 0.1,
+        `${framing} has no jump at aspect ${aspect.toFixed(2)}`,
+      );
+      assert.ok(current.bottom <= previous.bottom + 1e-9, `${framing}: a narrower canvas never shows less`);
+      previous = current;
+    }
+  }
+}
 assert.deepEqual(motion.canvasPixels(300, 300, 3, 2), { width: 600, height: 600 }, "the pixel ratio is capped");
 assert.deepEqual(
   motion.canvasPixels(400, 1200, 2, 2),
@@ -887,6 +943,13 @@ const rendererSource = readFileSync(
   "utf8",
 );
 assert.equal(/requestAnimationFrame|setInterval/u.test(rendererSource), false, "the stage drives every frame");
+for (const method of ["resize", "setFraming"]) {
+  assert.match(
+    rendererSource,
+    new RegExp(`\\n  ${method}\\([^)]*\\): void \\{[^}]*this\\.updateCamera\\(\\);\\n    this\\.redraw\\(\\);`, "u"),
+    `${method} redraws at once at the new size or framing, as the 2D renderers do, instead of a stretched picture`,
+  );
+}
 assert.ok(/api\.raw\(avatarModelFilePath\(/u.test(rendererSource), "model bytes load through api.raw");
 assert.equal(/\bfetch\(/u.test(rendererSource), false);
 assert.ok(/VRMUtils\.deepDispose/u.test(rendererSource), "dispose releases the model's GPU resources");
@@ -1071,8 +1134,8 @@ assert.ok(
 // blob: URLs, as the Engine's does: fetch() refuses them, and pictures load as images (img-src allows blob:).
 {
   const { loadStoredVrm } = await import("../../packages/client/src/features/avatars/renderers/vrm/vrm-renderer.js");
-  const { generatedVrm } = await import("./fixtures/avatar-3d-fixtures.js");
-  const served = await generatedVrm([200, 60, 40]);
+  const { tripoMadeVrm } = await import("./fixtures/avatar-3d-fixtures.js");
+  const served = tripoMadeVrm();
   const pictures: string[] = [];
   class PageImage extends EventTarget {
     crossOrigin: string | null = null;

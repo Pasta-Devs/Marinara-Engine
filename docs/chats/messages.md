@@ -20,7 +20,7 @@ The buttons below appear on messages. Some only show up in certain situations, w
 | **Peek prompt** | Shows the exact prompt the AI received for this reply. | Only on the latest AI message |
 | **Stored guidance** | Shows the direction that steered this reply. | Only if the reply used a guided direction or was made by Impersonate |
 | **Branch from here** | Copies the chat up to this message into a new branch. | Always |
-| **View thoughts** | Opens the model's hidden reasoning text. | Only if the model returned reasoning |
+| **View model thoughts** | Opens the model's hidden reasoning text. | Only if the model returned reasoning |
 | **Delete** | Deletes the message. See below. | Always |
 | **Pause speaking** / **Resume speaking** / **Restart speaking** | Controls the spoken audio of a message. | Only when Text to Speech is on and speaking |
 
@@ -99,6 +99,8 @@ Two toggles change what extra detail shows on messages. Both live in **Settings*
 - **Show token usage on messages**: adds a per-message token count to AI replies. A token is a small piece of text the AI reads and writes. The count shows the prompt tokens and completion tokens for that reply. When available, it also shows cache hits and how long the reply took.
 
 A related toggle in the same **Message Tools** section, **Show model name on messages**, adds the name of the AI model that wrote each reply. It is also off by default.
+
+When older messages had to be left out of the prompt to make it fit, a short note under the reply says how many, for example "1109 older messages not sent". To hide this note under the reply, turn off **Show "older messages not sent" note** in the same section. Opening Checkup can still show it. It is on by default. Notes about a reply that was cut off or came back empty still show.
 
 ## Related guides
 

@@ -66,6 +66,7 @@ export function EditorTabNavigation<T extends string>({
             <button
               type="button"
               aria-label={localize(tab.label)}
+              title={localize(tab.label)}
               aria-current={active ? "page" : undefined}
               data-active={active ? "true" : undefined}
               key={tab.id}
@@ -73,7 +74,7 @@ export function EditorTabNavigation<T extends string>({
               className="mari-editor-action mari-editor-tab flex min-w-0 shrink items-center justify-center whitespace-nowrap px-2.5 text-center"
             >
               <Icon size="1rem" className="shrink-0" />
-              <span className="min-w-0 truncate">{localize(tab.label)}</span>
+              <span className="mari-editor-tab-label min-w-0 truncate">{localize(tab.label)}</span>
               {badge != null && <span className="mari-editor-tab-badge ml-0.5">{badge}</span>}
             </button>
           );

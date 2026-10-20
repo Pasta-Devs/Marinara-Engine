@@ -12,6 +12,8 @@ Conversation Mode adds features that only make sense for an ongoing messenger re
 
 None of these Conversation-only features apply in Roleplay or Game Mode, even when you reuse the same character card there.
 
+Some card fields work the other way round. A Conversation chat does not start with the card's **First Message** or another greeting; only Roleplay chats do. It also does not use the card's **Dialogue Highlight Color** or **Message Box Color**. The **Name Display Color** still colors the character's name above each message. See [Where your colors show](../characters/colors-and-stats.md#where-your-colors-show).
+
 ### When to pick Conversation Mode
 
 Pick Conversation Mode when you want any of these:
@@ -167,7 +169,7 @@ Long chats fill the model's memory. Try a model with a larger context window, or
 
 ### A selfie does not look like the character
 
-Open the **Selfies** settings and turn on **Attach Card Appearance**. If your image provider supports reference images, also turn on **Send Avatar References**. See [Selfies](selfies.md) for details.
+Open the **Selfies** settings and set **Attach Card Appearance** to **Images only** or **Images and videos**. If your image provider supports reference images, also set **Send Avatar References**. See [Selfies](selfies.md) for details.
 
 ## Related guides
 

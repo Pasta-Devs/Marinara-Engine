@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
+    "jsx": "react-jsx",
     "declaration": false,
     "declarationMap": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -28,6 +29,7 @@
     "nanogpt-usage-meter-gate.regression.ts",
     "game-inventory-refusal-client.regression.ts",
     "onboarding-preview-highlight.regression.ts",
-    "state-editor.regression.ts"
+    "state-editor.regression.ts",
+    "marinara-host-namespace.regression.ts"
   ]
 }

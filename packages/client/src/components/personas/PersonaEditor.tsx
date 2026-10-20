@@ -3944,7 +3944,7 @@ function PersonaCharacterSheetSection({
             <button
               type="button"
               onClick={clearSelection}
-              className="mari-editor-action inline-flex w-full justify-center text-red-500"
+              className="mari-editor-action inline-flex w-full justify-center text-[var(--marinara-app-accent-static)]"
             >
               <X size="0.875rem" />
               {localizeUi("ui.characters.charactersheet.remove")}

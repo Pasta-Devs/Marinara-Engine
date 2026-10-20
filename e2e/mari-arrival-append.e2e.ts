@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
-import { seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -40,6 +40,7 @@ async function startFixtureProvider(reply: string): Promise<{ server: Server; ba
 async function prepareClient(page: Page, width: number) {
   await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+  await isolateSyncedUISettings(page);
   await seedUIState(page, {
     hasCompletedOnboarding: true,
     rightPanelOpen: false,
@@ -272,6 +273,7 @@ for (const theme of ["dark", "light"] as const) {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+      await isolateSyncedUISettings(page);
       await seedUIState(page, {
         hasCompletedOnboarding: true,
         rightPanelOpen: false,
@@ -454,6 +456,7 @@ test("an arrival during a run waits until the finished run has been shown", asyn
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), APP_VERSION);
+    await isolateSyncedUISettings(page);
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       rightPanelOpen: false,

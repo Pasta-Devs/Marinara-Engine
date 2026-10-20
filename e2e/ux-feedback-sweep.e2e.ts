@@ -124,7 +124,8 @@ test("UX sweep: achievement highlights stay inside the widget with padding", asy
 });
 
 for (const spec of [
-  { kind: "Character", path: "/api/characters", sections: 10, last: "Advanced", lastId: "advanced" },
+  // 11 since the Onboarding section (#7308).
+  { kind: "Character", path: "/api/characters", sections: 11, last: "Advanced", lastId: "advanced" },
   { kind: "Persona", path: "/api/characters/personas", sections: 8, last: "Stats", lastId: "stats" },
   { kind: "Lorebook", path: "/api/lorebooks", sections: 2, last: "Entries", lastId: "entries" },
   { kind: "Preset", path: "/api/prompts", sections: 5, last: "Regex", lastId: "regex" },
@@ -150,6 +151,7 @@ for (const spec of [
           : editor.locator(".mari-editor-title-input");
       await expect(title).toHaveValue(name);
       await expect(editor.locator("[data-editor-section]")).toHaveCount(spec.sections);
+      if (spec.kind === "Character") await expect(editor.locator('[data-editor-section="onboarding"]')).toHaveCount(1);
       await openSection(editor, spec.last);
       await expect.poll(() => editor.locator(".mari-editor-content").evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
       const last = editor.locator(`[data-editor-section="${spec.lastId}"]`);

@@ -59,9 +59,9 @@ Major editors and heavy components are lazy-loaded in `AppShell.tsx` using `Reac
 
 ### Zustand stores (client state)
 
-The client uses a set of Zustand stores in `packages/client/src/stores/` for UI and runtime state. `ui.store.ts` is the only persisted store. The others hold runtime state for chats, agents, games, the local model runtime, translation, dialogs, backfill, and table games.
+The client uses a set of Zustand stores in `packages/client/src/stores/` for UI and runtime state. `ui.store.ts` is the only persisted store. The others hold runtime state for chats, agents, games, the local model runtime, translation, dialogs, and backfill.
 
-The current store files are: `agent.store.ts`, `backfill.store.ts`, `chat.store.ts`, `chess-game.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `poker-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`, and `uno-game.store.ts`.
+The current store files are: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts`, and `ui.store.ts`. The table-game stores moved into their downloadable packages; `conversation-games.store.ts` only tracks the Conversation game picker and setup.
 
 #### `ui.store.ts`: settings and UI chrome
 
@@ -489,6 +489,9 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/translate`          | POST                             | Text translation             |
 | `/api/game`               | CRUD and actions                 | Game Mode sessions and state |
 | `/api/game-assets`        | CRUD and upload                  | Game assets                  |
+| `/api/game-rulesets`      | import, schema, source, remove   | Imported Game Mode rulesets  |
+| `/api/game-worlds`        | library CRUD and world editing   | World library for new games and map packs |
+| `/api/game-tile-packs`    | tile packs, plus `/creatures` and `/boards` | Map, creature and fight-board art packs |
 | `/api/turn-games`         | Chess, UNO, Poker routes         | Conversation table games     |
 | `/api/conversation-calls` | call and session routes          | Conversation audio calls     |
 
@@ -503,6 +506,10 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/gallery/:chatId`        | Per-chat gallery images      |
 | `/api/global-gallery`         | Global gallery images        |
 | `/api/tts`                    | Text-to-speech routes        |
+| `/api/speech-to-text`         | Speech to Text server settings and test |
+| `/api/avatar-models`          | 2D and 3D avatar models for the avatar agents |
+| `/api/avatar-generation`      | Avatar drafts from sprites and the Tripo key |
+| `/api/avatar-classify`        | Avatar emotion classifier and its local model |
 | `/api/youtube`                | YouTube DJ routes            |
 | `/api/custom-emojis`          | Custom emoji assets          |
 | `/api/custom-stickers`        | Custom sticker assets        |
@@ -539,8 +546,10 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/connection-folders`       | Connection folders                      |
 | `/api/prompt-overrides`         | Built-in prompt overrides               |
 | `/api/achievements`             | Achievement unlocks                     |
-| `/api/noodle`                   | Noodle social timeline                  |
+| `/api/capability-packages`      | Agent catalog, installs, updates, release notes and package assets |
+| `/api/noodle`                   | Noodle social timeline (registered by the Noodle package) |
 | `/api/professor-mari/workspace` | Professor Mari workspace operations     |
+| `/api/professor-mari/quick`     | Professor Mari quick answers and applying their edit proposals |
 
 ## PWA support
 
@@ -586,6 +595,10 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 | `persona-stats`          | post_processing | Tracks player persona stat changes                                |
 | `custom-tracker`         | post_processing | Tracks user-defined structured state                              |
 | `inventory-tracker`      | post_processing | Tracks currencies, equipped gear, and carried inventory           |
+| `quartermaster`          | post_processing | Keeps a Roleplay character sheet, equipped gear, and outfits      |
+| `beholder`               | post_processing | Tracks what each character wears and holds, and their injuries    |
+| `relationship-tracker`   | post_processing | Tracks how the characters and the persona feel about each other   |
+| `memory-nag`             | post_processing | Remembers loose ends such as promises and reminds the model       |
 | `illustrator`            | post_processing | Generates scene image prompts and media requests                  |
 | `lorebook-keeper`        | post_processing | Auto-creates and updates lorebook entries                         |
 | `card-evolution-auditor` | post_processing | Audits character cards for suggested evolution                    |
@@ -600,7 +613,9 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 | `storyboard`             | post_processing | Plans still or animated Game and Roleplay storyboards             |
 | `conversation-calls`     | feature         | Adds Conversation audio/video calls and related settings          |
 | `hierarchical-maps`      | feature         | Adds Roleplay/Game maps, spatial context, and movement             |
-| `noodle`                 | feature         | Adds the local Noodle and Slurp social feeds to Home               |
+| `noodle`                 | feature         | Adds the local Noodle social feed to Home                         |
+| `slurp2`                 | feature         | Adds Slurp, a private creator app for characters, to Home         |
+| `gacha-forge`            | feature         | Adds a gacha game mode to Home                                    |
 | `uno`                    | feature         | Adds the Conversation UNO table                                   |
 | `chess`                  | feature         | Adds the Conversation Chess board                                 |
 | `poker`                  | feature         | Adds the Conversation Texas Hold'em table                         |
@@ -612,7 +627,7 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 
 Agents produce typed results that the frontend handles. The `AgentResultType` union in `packages/shared/src/types/agent.ts` includes:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, and `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `character_card_create`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `character_activity_update`, `frontend_theme_update`, `about_me_update`, and `memory_nag`.
 
 ## Chat modes
 

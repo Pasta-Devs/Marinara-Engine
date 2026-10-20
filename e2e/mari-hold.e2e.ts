@@ -112,7 +112,13 @@ async function figureAngle(figure: ReturnType<Page["locator"]>) {
   });
 }
 
-test("circling the pointer while holding her turns her upside down, and she settles when still", async ({ page }) => {
+test("circling the pointer while holding her turns her upside down, and she settles when still", async ({
+  page,
+  browserName,
+}) => {
+  // Her swing runs on animation frames, which Linux WebKit's headless runs deliver too slowly for her to settle
+  // in time; the Chromium projects cover the spin at both widths.
+  test.skip(browserName === "webkit", "Too few animation frames on WebKit for her swing to settle.");
   await page.goto("/");
   const { figure, startX, startY } = await holdWidgetAndDrag(page);
   // Circle in the middle of the screen: a 390 px phone has no room for a circle around her corner, and a
@@ -206,8 +212,15 @@ async function phoneFlick(page: Page, toX: number, durMs: number) {
   );
 }
 
-test("a fast phone flick into either edge bonks her, and she stays on screen", async ({ page, isMobile }) => {
+test("a fast phone flick into either edge bonks her, and she stays on screen", async ({
+  page,
+  isMobile,
+  browserName,
+}) => {
   test.skip(!isMobile, "phone flick: touch pointers");
+  // The flick's speed comes from timers and animation frames, which Linux WebKit's headless runs do not keep
+  // to; mobile-chromium covers the phone flick.
+  test.skip(browserName === "webkit", "WebKit does not keep the flick's timing.");
   const width = (page.viewportSize() ?? { width: 390 }).width;
   for (const toX of [2, width - 2]) {
     await page.goto("/");
@@ -218,8 +231,10 @@ test("a fast phone flick into either edge bonks her, and she stays on screen", a
   }
 });
 
-test("a slow phone push into an edge does not bonk her", async ({ page, isMobile }) => {
+test("a slow phone push into an edge does not bonk her", async ({ page, isMobile, browserName }) => {
   test.skip(!isMobile, "phone flick: touch pointers");
+  // As above: mobile-chromium covers the slow push.
+  test.skip(browserName === "webkit", "WebKit does not keep the push's timing.");
   const width = (page.viewportSize() ?? { width: 390 }).width;
   for (const toX of [2, width - 2]) {
     await page.goto("/");
@@ -241,22 +256,62 @@ test("two fast hits on opposite edges make her dizzy", async ({ page }) => {
   await page.mouse.up();
 });
 
-// Slice 85 hover: a mouse resting on Mari swaps to her hover pose with nothing moving. Touch has no hover.
-test("hovering the Home Mari card swaps to her hover pose without moving her", async ({ page, isMobile }) => {
+// The pose swap (69e6e5231) keeps both image boxes identical. Home's parent-card hover lift (#4780)
+// deliberately transforms the viewport box, so compare local layout and both layers in the same frame.
+test("hovering the Home Mari card swaps her pose without changing its layout or image box", async ({
+  page,
+  isMobile,
+}) => {
   await page.goto("/");
   const art = page.locator("[data-home-professor-art]");
   await expect(art).toBeVisible({ timeout: 30_000 });
   const hoverPose = art.locator('img[src*="portrait-hover"]');
+  const localLayout = () =>
+    art.evaluate((element) => {
+      const box = element as HTMLElement;
+      const style = getComputedStyle(box);
+      return {
+        left: box.offsetLeft,
+        top: box.offsetTop,
+        width: box.offsetWidth,
+        height: box.offsetHeight,
+        transform: style.transform,
+        translate: style.translate,
+        rotate: style.rotate,
+        scale: style.scale,
+      };
+    });
+  const finishCardMotion = () =>
+    art.evaluate(async (element) => {
+      element.getBoundingClientRect();
+      await Promise.all(
+        (element.closest(".mari-home-widget")?.getAnimations({ subtree: true }) ?? [])
+          .filter(
+            (animation) =>
+              animation instanceof CSSTransition && Number.isFinite(animation.effect?.getComputedTiming().endTime),
+          )
+          .map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
   const before = await art.boundingBox();
+  const beforeLayout = await localLayout();
   await art.hover();
   if (isMobile) {
     await expect(hoverPose).toHaveCSS("opacity", "0");
     return;
   }
   await expect(hoverPose).toHaveCSS("opacity", "1");
-  expect(await art.boundingBox()).toEqual(before);
+  await finishCardMotion();
+  expect(await localLayout()).toEqual(beforeLayout);
+  const layers = await art.evaluate((element) => ({
+    idle: element.querySelector('[data-part="sprite"]')!.getBoundingClientRect().toJSON(),
+    hover: element.querySelector('img[src*="portrait-hover"]')!.getBoundingClientRect().toJSON(),
+  }));
+  expect(layers.hover).toEqual(layers.idle);
   await page.mouse.move(0, 0);
   await expect(hoverPose).toHaveCSS("opacity", "0");
+  await finishCardMotion();
+  expect(await art.boundingBox()).toEqual(before);
 });
 
 test("hovering the omnibar door swaps to her hover pose", async ({ page, isMobile }) => {

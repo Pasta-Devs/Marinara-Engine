@@ -12,7 +12,7 @@ Change these settings only when you want to fix a specific problem. This guide l
 
 ## Where to find them
 
-Edit base values under **Presets > Parameters**, connection values under **Connections > Default Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
+Edit base values under **Presets > Parameters**, connection values under **Connections > Default Chat Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
 
 1. Open the chat you want to change.
 2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
@@ -40,9 +40,9 @@ Each numeric parameter has an input box and its own on and off switch. That swit
 
 Together, **Frequency** and **Presence** are the repetition penalties.
 
-**Reasoning Effort** tells a thinking-capable model how much to reason before it answers. A thinking-capable model is one that works through a problem in hidden steps first. The choices are **None**, **Low**, **Medium**, **High**, **Xhigh**, and **Maximum**. If the model does not support the tier you pick, Marinara lowers it to the strongest tier that model allows.
+**Reasoning Effort** tells a thinking-capable model how much to reason before it answers. A thinking-capable model is one that works through a problem in hidden steps first. The choices are **Off**, **Low**, **Medium**, **High**, **Extra high**, and **Maximum**. If the model does not support the tier you pick, Marinara lowers it to the strongest tier that model allows. Once a connection is chosen, the buttons are named after the level that model gets, so **Maximum** can show as **Max**, **Extra high**, or **High**, and levels that send the same thing show as one button.
 
-When the parameter switch is on, **None** asks the provider to disable thinking explicitly instead of merely leaving out the effort setting. Marinara sends the provider-specific off control only to models known to support it. Some reasoning-mandatory models cannot turn thinking off and may still return reasoning; choose a non-reasoning model when thinking must be absent. Turning the parameter switch itself off is different: it sends no reasoning preference and leaves the provider's default behavior unchanged.
+When the parameter switch is on, **Off** asks the provider to disable thinking explicitly instead of merely leaving out the effort setting. Marinara sends the provider-specific off control only to models known to support it. Some reasoning-mandatory models cannot turn thinking off and may still return reasoning; choose a non-reasoning model when thinking must be absent. Turning the parameter switch itself off is different: it sends no reasoning preference and leaves the provider's default behavior unchanged.
 
 **Verbosity** controls how long and detailed replies should be. The choices are **None**, **Low**, **Medium**, and **High**. **Low** keeps replies short. **High** encourages longer, more descriptive replies. Only some models use this setting.
 
@@ -89,7 +89,7 @@ Use it only for models that support a separate reasoning prefill, such as Kimi K
 
 ## Thinking Tags
 
-**Thinking Tags** tell Marinara how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Marinara knows those tags, it can hide that reasoning behind the **View thoughts** action instead of showing it in the reply.
+**Thinking Tags** tell Marinara how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Marinara knows those tags, it can hide that reasoning behind the **View model thoughts** action instead of showing it in the reply.
 
 You write one wrapper per line, with a slot in the middle for the hidden text. Common wrappers such as think, thinking, thought, pipe, channel, and bracket pairs are already recognized. You only need this field for models that use an unusual wrapper.
 
@@ -101,9 +101,9 @@ Custom Parameters saved as connection defaults are sent for every API-backed tex
 
 This is an advanced field. A wrong key can make the provider reject the request. The object must use lowercase `true`, `false`, and `null`. Leave this empty unless a provider's guide tells you to add a specific key.
 
-## OpenRouter Service Tier
+## Service Tier
 
-**OpenRouter Service Tier** only appears when the chat's connection uses the OpenRouter provider. It picks how OpenRouter routes your request. The choices are **Default**, **Flex**, and **Priority**. **Flex** can be cheaper and slower. **Priority** can be faster and cost more. **Default** sends no tier at all.
+**Service Tier** only appears when the chat's connection uses the OpenRouter or NanoGPT provider. It picks how the provider routes your request. The choices are **Default**, **Flex**, and **Priority**. **Flex** can be cheaper and slower. **Priority** can be faster and cost more. **Default** sends no tier at all.
 
 ## Context message limit
 
@@ -144,7 +144,7 @@ The **Reset to Defaults** button below it clears every per-chat parameter change
 Parameters are resolved one field at a time, in this order:
 
 1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
-2. The connection's **Default Parameters**.
+2. The connection's **Default Chat Parameters**.
 3. This chat's **Advanced Parameters**.
 4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game uses the saved connection and chat parameters without forcing sampling, reasoning, or a minimum output size. Its helper calls also honor saved parameters; task defaults apply only when a value is not configured.
 5. Output limits: Game applies the model's known output limit, and the connection's **Max Output Tokens override** caps requests in every mode. Available context can reduce the output budget further.
@@ -155,9 +155,9 @@ For example, a preset at `8192` and this chat at `16384` show **Effective: 16384
 
 ## Parameters for agents
 
-Agent calls use the **Default Parameters** saved on the connection they run on: the agent's own connection, or the chat's connection when the agent has none. Marinara applies them with the same rules as a chat reply, including the Send switches and the model limits below. Presets and a chat's **Advanced Parameters** do not change agent calls, apart from the temperature rule below.
+Agent calls use the **Default Chat Parameters** saved on the connection they run on: the agent's own connection, or the chat's connection when the agent has none. Marinara applies them with the same rules as a chat reply, including the Send switches and the model limits below. Presets and a chat's **Advanced Parameters** do not change agent calls, apart from the temperature rule below.
 
-- **Sent to agents**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, OpenRouter Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
+- **Sent to agents**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
 - **Not sent to agents**: Max Output Tokens, stop sequences, prefills, Thinking Tags, and other prompt-format settings. Each agent keeps its own **Max Output Tokens**.
 - **Temperature**: an agent uses the connection's temperature, or `0.7` when none is saved. Beholder always uses `0`, and the Illustrator's prompt writer uses its own value. During a chat reply, agents on the chat's connection take the temperature and Send switches the chat resolved, as before, but a parameter switched off on the connection is still not sent. Retries use the connection's saved values and Send switches, not the chat's.
 - **Reasoning Effort**: a level you pick, or **Off**, applies to every agent on that connection whose model takes Reasoning Effort. Turning on **Use custom defaults for this connection** starts Reasoning Effort at **Maximum** on most connections (**Default** on Codex), so agents on it think at the model's highest level, which is slower and costs more. Pick a lower level, or turn its Send switch off, if agents should think less. With no level saved (custom defaults off, or **Default** on a Codex connection), agents that answer in JSON ask for thinking off and other agents leave the model's default.

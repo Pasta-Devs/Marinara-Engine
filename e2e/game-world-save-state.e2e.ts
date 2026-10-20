@@ -11,6 +11,7 @@ import {
   worldKitFile,
   worldSnapshot,
 } from "@marinara-engine/shared";
+import { downloadExport } from "./export-save.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
@@ -100,8 +101,9 @@ async function mountWizard(page: Page, testInfo: TestInfo): Promise<Locator> {
   return wizard;
 }
 
+// On iPhone an export offers a Save file toast instead of a download (#7115); downloadExport taps it.
 const download = async (page: Page, click: () => Promise<void>) => {
-  const [saved] = await Promise.all([page.waitForEvent("download"), click()]);
+  const saved = await downloadExport(page, click);
   return { name: saved.suggestedFilename(), file: JSON.parse(await readFile((await saved.path())!, "utf8")) };
 };
 

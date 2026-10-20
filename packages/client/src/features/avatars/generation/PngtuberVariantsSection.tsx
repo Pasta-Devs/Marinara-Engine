@@ -174,6 +174,7 @@ export function PngtuberVariantsSection({
             variant: item.variant,
             image: item.draft!.image,
             sourceHash: item.draft!.sourceHash,
+            ...(item.draft!.face ? { face: item.draft!.face } : {}),
           })),
         );
         toast.success(t("avatars.generation.pngtuberSaved", { count: kept.length }));
@@ -231,6 +232,13 @@ export function PngtuberVariantsSection({
         {faces.map((face) => {
           const faceName = (face.label ?? face.key).replace(/_/gu, " ");
           const base = savedPicture(face.set.base);
+          // An image connection that can't edit pictures draws a new face with both of its pictures.
+          const newFace = face.label
+            ? AVATAR_PNGTUBER_VARIANTS.map((variant) => itemsById.get(variantJobId(face.label!, variant))).find(
+                (item) => item?.draft?.face,
+              )
+            : undefined;
+          const faceTitle = t(newFace ? "avatars.generation.newFace" : "avatars.generation.face");
           return (
             <li
               key={face.key}
@@ -249,13 +257,29 @@ export function PngtuberVariantsSection({
                     {t("avatars.generation.noSourceSprite")}
                   </p>
                 )}
+                {newFace && (
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {t("avatars.generation.newFaceHint")}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <PictureSlot
-                  title={t("avatars.generation.face")}
-                  name={`${faceName}: ${t("avatars.generation.face")}`}
+                  title={faceTitle}
+                  name={`${faceName}: ${faceTitle}`}
+                  busy={newFace?.status === "running"}
+                  kept={newFace?.kept}
                   picture={
-                    base ? (
+                    newFace?.draft?.face ? (
+                      <img
+                        src={newFace.draft.face}
+                        alt={t("avatars.generation.pictureAlt", { name: `${faceName}: ${faceTitle}` })}
+                        className={cn(
+                          "h-full w-full object-contain transition-opacity",
+                          newFace.status === "running" && "opacity-40",
+                        )}
+                      />
+                    ) : base ? (
                       <img src={base} alt={faceName} loading="lazy" className="h-full w-full object-contain" />
                     ) : (
                       <span className="p-1 text-center text-[0.625rem] text-[var(--muted-foreground)]">

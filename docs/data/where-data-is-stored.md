@@ -26,6 +26,7 @@ Your images, audio, and other media files live in their own folders, each named 
 | --- | --- |
 | `avatars` | Character and persona avatars |
 | `sprites` | Character sprite art |
+| `avatar-models` | Files for the **2D Avatars** and **3D Avatars** agents, such as PNGTuber pictures and 3D models |
 | `backgrounds` | Chat backgrounds you uploaded |
 | `gallery` | Gallery images |
 | `fonts` | Custom fonts you added |

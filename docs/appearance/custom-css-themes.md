@@ -22,7 +22,9 @@ To carry the look into the rest of the chat, use the three switches below the co
 
 - **Apply preset font** uses the selected widget font for messages, input boxes and chat controls.
 - **Apply preset shape** uses the selected frame shape for Roleplay messages in classic and visual-novel layouts, the Game dialogue box, input boxes and controls. Conversation messages keep their own shape.
-- **Apply preset colors** uses the widget's border, background and text colors for those areas, including Conversation messages. Your custom colors and gradients apply too. Quoted dialogue keeps each Character's or Persona's own Dialogue Highlight Color.
+- **Apply preset colors** uses the widget's border, background and text colors for those areas, including Conversation messages. Your custom colors and gradients apply too. Quoted dialogue keeps each Character's or Persona's own Dialogue Highlight Color. A message made of HTML, such as an agent's styled card, keeps the text colors it sets itself.
+
+The buttons that load older or newer messages, such as **Load More** and **Show older**, follow these switches like the other chat controls.
 
 In Game Mode, the switches also cover side remarks, HUD widgets, the map panel, character sheets, logs, the Inventory, combat panels and dialogs.
 
@@ -227,6 +229,8 @@ The three **Apply preset** switches also let a custom theme use the widget desig
 | Conversation messages (font and colors only) | `.mari-chat-style-conversation` |
 | Unboxed Conversation message text | `.mari-chat-style-text` |
 | Chat controls, including Calls and Conversation group controls | `.mari-chat-style-control` |
+| History buttons: **Load More**, **Show older**, **Show newer**, **Latest**, and the Game logs' **Older**, **All** and **Show more older logs**. They also have `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| A message made of HTML, such as an agent's styled card. Text colors set inside it are kept when **Apply preset colors** is on | `.mari-html-content` |
 
 | Variable | What it controls |
 | --- | --- |

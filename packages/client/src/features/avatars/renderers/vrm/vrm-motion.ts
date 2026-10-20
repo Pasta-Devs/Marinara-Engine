@@ -5,6 +5,7 @@
 // loaded model every frame the stage asks for.
 import type { AvatarExpressionMap, AvatarFrameInput, AvatarViseme } from "@marinara-engine/shared";
 import { AVATAR_EMOTIONS, AVATAR_VISEMES, PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
+import type { AvatarFraming } from "../../contract";
 import { pngtuberBlinkWaitMs } from "../pngtuber/pngtuber-layers";
 
 /** Seconds for an eased value to cover about 63% of the way to its target. */
@@ -277,6 +278,8 @@ export interface BodyHeights {
   footY: number;
   /** The top of the model (hair, ears, a hat), when measured. */
   topY?: number;
+  /** The bottom of the model (the soles), when measured. */
+  bottomY?: number;
 }
 
 export interface CameraFraming {
@@ -284,29 +287,43 @@ export interface CameraFraming {
   distance: number;
 }
 
-/** Fits the head and shoulders into a camera with this aspect and vertical field of view, from bone
- *  heights (the head's size scales with the hips-to-head distance) and the top of the model. The head stays
- *  near the top: a narrower canvas, which needs the camera further back to fit the shoulders, shows more of
- *  the body below, down to the whole figure. The framing changes smoothly with the canvas shape, so a resize
- *  never flips it. */
-export function frameCamera(body: BodyHeights, aspect: number, fovDegrees: number): CameraFraming {
+/** Fits the framed part of the model into a camera with this aspect and vertical field of view, from bone
+ *  heights (the head's size scales with the hips-to-head distance) and the measured top and bottom of the
+ *  model. Portrait fits the head and shoulders, half body reaches the hips, and full body fits the whole
+ *  model from the top of its hair or hat to its soles, with a little floor below. The head stays near the
+ *  top: a narrower canvas, which needs the camera further back to fit the width, shows more of the body
+ *  below, down to the whole figure. The framing changes smoothly with the canvas shape, so a resize never
+ *  flips it. */
+export function frameCamera(
+  body: BodyHeights,
+  aspect: number,
+  fovDegrees: number,
+  framing: AvatarFraming = "portrait",
+): CameraFraming {
   const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
   const unit = Math.max(0.1, body.headY - body.hipsY);
+  const measuredTop = Number.isFinite(body.topY) ? body.topY! : -Infinity;
   // A head and a bit above the head bone reaches the top of most heads. Hair, ears or a hat that rise higher
   // (a Tripo model's reach 0.3 m and more above its head bone) raise the top, never lower it, so other models
-  // frame as before. At most one unit above the head: a stray part far above must not shrink the face.
+  // frame as before. Closer framings count at most one unit above the head, so a stray part far above can't
+  // shrink the face; full body shows all of the model.
   const top = Math.max(
     body.headY + 0.42 * unit,
-    Number.isFinite(body.topY) ? Math.min(body.topY!, body.headY + unit) : -Infinity,
+    framing === "full-body" ? measuredTop : Math.min(measuredTop, body.headY + unit),
   );
-  const bustBottom = body.headY - 0.6 * unit;
-  const feet = Math.min(body.footY - 0.03, bustBottom);
+  const soles = Math.min(body.footY - 0.03, Number.isFinite(body.bottomY) ? body.bottomY! : Infinity);
+  const bottom =
+    framing === "full-body"
+      ? soles - 0.05 * unit
+      : framing === "half-body"
+        ? body.hipsY - 0.25 * unit
+        : body.headY - 0.6 * unit;
+  const feet = framing === "full-body" ? bottom : Math.min(body.footY - 0.03, bottom);
+  // Shoulders for a bust; with the hips in view the hanging arms widen it.
+  const width = (framing === "portrait" ? 1.1 : 1.4) * unit;
   const margin = 1.08;
   const tanHalf = Math.tan((fovDegrees * Math.PI) / 360);
-  const distance = Math.max(
-    ((top - bustBottom) * margin) / 2 / tanHalf,
-    (1.1 * unit * margin) / 2 / (tanHalf * safeAspect),
-  );
+  const distance = Math.max(((top - bottom) * margin) / 2 / tanHalf, (width * margin) / 2 / (tanHalf * safeAspect));
   const halfView = distance * tanHalf;
   return { targetY: Math.max(top - halfView / margin, (top + feet) / 2), distance };
 }

@@ -36,7 +36,12 @@ export function CharacterVoicePicker({
   const updateVoiceMode = useUpdateTTSVoiceMode();
   const updateVoiceAssignment = useUpdateTTSVoiceAssignment();
   const perCharacter = config?.enabled === true && config.voiceMode === "per-character";
-  const voicesQuery = useTTSVoices(config?.source ?? "openai", config?.baseUrl ?? "", perCharacter);
+  const voicesQuery = useTTSVoices(
+    config?.source ?? "openai",
+    config?.baseUrl ?? "",
+    perCharacter,
+    config?.connectionId ?? "",
+  );
 
   const savedVoice = getCharacterVoiceAssignment(config?.voiceAssignments, characterId);
   const [draftVoice, setDraftVoice] = useState<string | null>(null);

@@ -3,12 +3,13 @@ import { readFileSync } from "node:fs";
 import {
   readSeasonalPreview,
   resolveSeasonalTheme,
+  seasonalThemeFor,
   withSeasonalYear,
   type SeasonalYears,
 } from "../../packages/client/src/lib/seasonal-themes.ts";
 import { UI_PERSISTENCE } from "../../packages/client/src/lib/ui-persistence.ts";
 
-// Seasonal themes switch on by themselves for one local calendar day, say hello once a year, and always yield to
+// Seasonal themes switch on by themselves from October 30 until noon on November 1 (local time), say hello once a year, and always yield to
 // the Settings toggle; only the maintainer preview can force them.
 
 const decide = (
@@ -27,21 +28,22 @@ const local = (month: number, day: number, hours: number, minutes: number, year 
 const ON = { themeId: "halloween", showGreeting: true };
 const OFF = { themeId: null, showGreeting: false };
 
-// Halloween is the whole of October 31 on the device's own clock, and nothing either side of it.
-assert.deepEqual(decide(local(10, 31, 0, 0)), ON, "Oct 31 00:00 local is Halloween");
+// Halloween runs from Oct 30 00:00 until Nov 1 12:00 on the device's own clock, and nothing either side of it.
+assert.deepEqual(decide(local(10, 29, 23, 59)), OFF, "Oct 29 23:59 is not Halloween yet");
+assert.deepEqual(decide(local(10, 30, 0, 0)), ON, "Oct 30 00:00 local is Halloween");
 assert.deepEqual(decide(local(10, 31, 23, 59)), ON, "Oct 31 23:59 local is still Halloween");
-assert.deepEqual(decide(local(10, 30, 23, 59)), OFF, "Oct 30 23:59 is not Halloween yet");
-assert.deepEqual(decide(local(11, 1, 0, 0)), OFF, "Nov 1 00:00 the costume has come off");
+assert.deepEqual(decide(local(11, 1, 11, 59)), ON, "Nov 1 11:59 local is still Halloween");
+assert.deepEqual(decide(local(11, 1, 12, 0)), OFF, "Nov 1 12:00 the costume has come off");
 assert.deepEqual(decide(local(10, 31, 12, 0, 2031)), ON, "it comes back every year");
 
-// "Local" means the device's time zone: one instant is Halloween in Honolulu and already November in UTC.
+// "Local" means the device's time zone: one instant is before noon in Honolulu and already past it in UTC.
 const originalTimeZone = process.env.TZ;
 try {
-  const instant = new Date("2026-11-01T05:00:00Z");
+  const instant = new Date("2026-11-01T13:00:00Z");
   process.env.TZ = "Pacific/Honolulu";
-  assert.deepEqual(decide(instant), ON, "Oct 31 19:00 in Honolulu is Halloween");
+  assert.deepEqual(decide(instant), ON, "Nov 1 03:00 in Honolulu is Halloween");
   process.env.TZ = "UTC";
-  assert.deepEqual(decide(instant), OFF, "Nov 1 05:00 in UTC is not");
+  assert.deepEqual(decide(instant), OFF, "Nov 1 13:00 in UTC is not");
 } finally {
   if (originalTimeZone === undefined) delete process.env.TZ;
   else process.env.TZ = originalTimeZone;
@@ -65,7 +67,7 @@ assert.deepEqual(
 assert.deepEqual(decide(local(10, 31, 9, 0, 2027), greetedThisYear), ON, "greeted again in 2027");
 
 // The preview forces the theme and its greeting on any date, even with the toggle on; its own "Turn it off" still
-// removes it (the hook keeps those preview years in memory only).
+// removes it (the store keeps those preview years for that page load only; see below).
 assert.deepEqual(decide(local(3, 5, 10, 0), { preview: "halloween" }), ON, "preview on a March day");
 assert.deepEqual(decide(local(3, 5, 10, 0), { preview: "halloween", disabled: true }), ON, "preview beats toggle");
 assert.deepEqual(decide(local(3, 5, 10, 0), { preview: "halloween", turnedOff: { halloween: 2026 } }), OFF);
@@ -92,7 +94,7 @@ Object.defineProperty(globalThis, "localStorage", {
   },
 });
 try {
-  const { useUIStore, pickPersistedUIState, pickSyncedSettings } =
+  const { useUIStore, pickPersistedUIState, pickSyncedSettings, shownMariAppearancePack } =
     await import("../../packages/client/src/stores/ui.store.ts");
   const initial = useUIStore.getInitialState();
   assert.equal(initial.seasonalThemesDisabled, false, "seasonal themes are on by default");
@@ -121,6 +123,44 @@ try {
   const saved = JSON.parse(stored.get(UI_PERSISTENCE.name) ?? "{}").state;
   assert.equal(saved?.seasonalThemesDisabled, false);
   assert.deepEqual(saved?.seasonalGreetingYears, { halloween: 2026 });
+
+  // A `?seasonalPreview=` page keeps its greeting, its "Turn it off" and Professor Mari's outfit opt-out in the store
+  // for that page load only: none of it is saved or synced, so trying the preview never changes the real Halloween.
+  assert.equal(initial.seasonalPreview, null, "no preview without ?seasonalPreview=");
+  useUIStore.setState({
+    seasonalGreetingYears: {},
+    seasonalPreview: { themeId: "halloween", greeted: {}, turnedOff: {} },
+  });
+  // A March day of this year: the outfit opt-out is keyed by the current year.
+  const thisYear = new Date().getFullYear();
+  const previewDay = local(3, 5, 10, 0, thisYear);
+  assert.deepEqual(seasonalThemeFor(useUIStore.getState(), previewDay), ON, "the preview wears Halloween in March");
+  assert.equal(shownMariAppearancePack(useUIStore.getState(), null, previewDay).id, "raccoon", "and so does Mari");
+  useUIStore.getState().markSeasonalGreetingShown("halloween", thisYear);
+  assert.deepEqual(seasonalThemeFor(useUIStore.getState(), previewDay), { themeId: "halloween", showGreeting: false });
+  useUIStore.getState().setMariAppearancePack("safari");
+  assert.equal(shownMariAppearancePack(useUIStore.getState(), null, previewDay).id, "safari", "a pick wins in it");
+  useUIStore.getState().setMariAppearancePack("raccoon");
+  assert.equal(shownMariAppearancePack(useUIStore.getState(), null, previewDay).id, "raccoon");
+  useUIStore.getState().setMariAppearancePack("safari");
+  useUIStore.getState().turnOffSeasonalTheme("halloween", thisYear);
+  assert.deepEqual(seasonalThemeFor(useUIStore.getState(), previewDay), OFF, "the preview's Turn it off");
+  assert.equal(shownMariAppearancePack(useUIStore.getState(), null, previewDay).id, "safari", "takes Mari's off too");
+  const previewed = useUIStore.getState();
+  assert.deepEqual(previewed.seasonalGreetingYears, {}, "the real greeting record is untouched");
+  assert.deepEqual(previewed.seasonalThemeOffYears, {}, "the real Turn it off record is untouched");
+  assert.equal(previewed.mariSeasonOptOut, "", "the real outfit opt-out is untouched");
+  assert.equal(previewed.mariAppearancePackId, "safari", "the user's own pick is still theirs");
+  for (const pick of [pickPersistedUIState, pickSyncedSettings]) {
+    const picked = pick(previewed);
+    assert.ok(!("seasonalPreview" in picked), "the preview is never saved or synced");
+    assert.ok(!("mariSeasonPreviewOptOut" in picked), "the preview's outfit opt-out is never saved or synced");
+  }
+  useUIStore.setState({ seasonalPreview: null });
+  await new Promise((resolve) => setTimeout(resolve, 1_200));
+  const savedAfterPreview = JSON.parse(stored.get(UI_PERSISTENCE.name) ?? "{}").state;
+  assert.deepEqual(savedAfterPreview?.seasonalThemeOffYears, {}, "the browser copy holds no preview record");
+  assert.equal(savedAfterPreview?.mariSeasonOptOut, "", "the browser copy holds no preview outfit opt-out");
 } finally {
   if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
   else Reflect.deleteProperty(globalThis, "localStorage");

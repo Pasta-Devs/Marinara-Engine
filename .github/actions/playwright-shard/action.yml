@@ -25,9 +25,19 @@ inputs:
     description: Run the small desktop smoke suite instead of a full regression shard
     required: false
     default: "false"
+  global-timeout-minutes:
+    description: >-
+      Total setup and shard budget (0 = no limit). Callers may start the clock before checkout with
+      PLAYWRIGHT_SHARD_STARTED_AT. Keep it below the job timeout to leave time for reports and evidence.
+    required: false
+    default: "0"
 runs:
   using: composite
   steps:
+    - name: Start shard budget
+      shell: bash
+      run: echo "PLAYWRIGHT_SHARD_STARTED_AT=${PLAYWRIGHT_SHARD_STARTED_AT:-$(date +%s)}" >> "$GITHUB_ENV"
+
     - name: Set up pnpm
       uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       with:
@@ -78,8 +88,20 @@ runs:
       shell: bash
       env:
         PLAYWRIGHT_ONLY_PROJECT: ${{ inputs.server-project }}
-      run: >-
-        pnpm exec playwright test -c playwright.config.ts
-        --project=${{ inputs.project }}
-        --fully-parallel --workers=1
-        --shard=${{ inputs.shard }}/${{ inputs.total-shards }}
+        GLOBAL_TIMEOUT_MINUTES: ${{ inputs.global-timeout-minutes }}
+      run: |
+        timeout_ms=0
+        if (( GLOBAL_TIMEOUT_MINUTES > 0 )); then
+          elapsed_seconds=$(( $(date +%s) - PLAYWRIGHT_SHARD_STARTED_AT ))
+          if (( elapsed_seconds < 0 )); then elapsed_seconds=0; fi
+          timeout_ms=$(( GLOBAL_TIMEOUT_MINUTES * 60000 - elapsed_seconds * 1000 ))
+          if (( timeout_ms <= 0 )); then
+            echo "::error::The shard budget was exhausted during setup." >&2
+            exit 1
+          fi
+        fi
+        pnpm exec playwright test -c playwright.config.ts \
+          --project=${{ inputs.project }} \
+          --fully-parallel --workers=1 \
+          --global-timeout="$timeout_ms" \
+          --shard=${{ inputs.shard }}/${{ inputs.total-shards }}

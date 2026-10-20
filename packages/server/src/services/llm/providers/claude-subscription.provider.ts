@@ -290,10 +290,10 @@ interface PromptSelection {
  * everything the SDK call needs. Resolved per-call so env-var changes take
  * effect on the next request without a restart.
  */
-function selectPromptPath(messages: ChatMessage[], model: string): PromptSelection {
+function selectPromptPath(messages: ChatMessage[], model: string, extendedCacheTtl: boolean): PromptSelection {
   if (isClaudeSubscriptionResumeEnabled()) {
     try {
-      return buildResumeSelection(messages, model);
+      return buildResumeSelection(messages, model, extendedCacheTtl);
     } catch (err) {
       // The only realistic failure is creating the scratch working directory
       // on a read-only / permission-locked data dir. Degrade to the fold path
@@ -304,7 +304,7 @@ function selectPromptPath(messages: ChatMessage[], model: string): PromptSelecti
   return buildFoldSelection(messages);
 }
 
-function buildResumeSelection(messages: ChatMessage[], model: string): PromptSelection {
+function buildResumeSelection(messages: ChatMessage[], model: string, extendedCacheTtl: boolean): PromptSelection {
   const split = splitHistoryForResume(messages);
   const systemPrompt = extractSystemPrompt(messages);
   if (split.shape === "trailing-assistant-continue") {
@@ -341,12 +341,20 @@ function buildResumeSelection(messages: ChatMessage[], model: string): PromptSel
     split.history,
     { sessionId, cwd, version: SDK_VERSION, gitBranch: "main", permissionMode: "bypassPermissions" },
     model,
+    // ponytail: only with the 1-hour cache on, where Claude Code's own markers are known to be
+    // 1h too. Without it Claude Code picks an account-dependent TTL and an extra plain marker
+    // fails ("maximum of 4 blocks with cache_control"). Upgrade path: mirror Claude Code's TTL.
+    extendedCacheTtl ? { type: "ephemeral", ttl: "1h" } : undefined,
+  );
+  const markedEntry = entries.findIndex(
+    (entry) => entry.type === "assistant" && entry.message.content.some((block) => "cache_control" in block),
   );
   logger.debug(
-    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d",
+    "[claude-subscription] resume path: shape=%s sessionId=%s historyLen=%d historyCacheMarker=%s",
     split.shape,
     sessionId,
     split.history.length,
+    markedEntry >= 0 ? `entry ${markedEntry + 1} of ${entries.length}` : "none",
   );
   return {
     promptArg: singleMessageIterable(currentToSdkUserMessage(split.current)),
@@ -411,6 +419,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     const { promptArg, systemPrompt, resumeSessionId, resumeCwd, sessionStore } = selectPromptPath(
       contextFit.messages,
       options.model,
+      options.anthropicExtendedCacheTtl === true,
     );
 
     const { query } = await loadSdk();

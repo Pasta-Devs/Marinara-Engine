@@ -301,7 +301,7 @@ export function ConvoProfileFields({
                   insertionStrategy: e.target.value as ConvoBehaviorInsertionStrategy,
                 })
               }
-              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
+              className="max-w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
             >
               {STRATEGY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

@@ -49,15 +49,24 @@
 //   • Use a strong, random password — Basic Auth sends credentials on
 //     every request, only base64-encoded. Always pair with HTTPS in
 //     production (see SSL_CERT / SSL_KEY).
+//   • Wrong passwords are counted per client address (an IPv6 /64 counts as
+//     one) on every path, health included. After BASIC_AUTH_FAILURE_LIMIT
+//     different wrong passwords within the window, that address gets 429
+//     until the window ends. A correct password clears the count, except from
+//     visitors a local proxy relays, who share one count. A browser that signed
+//     in before keeps a cookie and gets BASIC_AUTH_FAILURE_LIMIT more tries on
+//     top, so it still gets in with the correct password.
 
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   getBasicAuthConfig,
   isUnauthenticatedPrivateNetworkAllowed,
   isUnauthenticatedRemoteAllowed,
 } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
+import { deriveServerKey } from "../utils/crypto.js";
+import { cookieValue } from "./android-local-auth.js";
 import {
   isForwardedLoopbackRequest,
   isInIpAllowlist,
@@ -65,12 +74,16 @@ import {
   isPrivateNetworkIp,
   isTrustedInterfaceRequest,
 } from "./ip-allowlist.js";
+// Same grouping as the multiplayer peer server: an IPv4 address, or an IPv6 /64.
+import { multiplayerPeerSocketKey as clientAddressKey } from "../services/multiplayer/peer-server.js";
 
 interface CachedConfig {
   user: string;
   pass: string;
   realm: string;
   expectedHeader: Buffer;
+  /** Built on first use; null when the server key cannot be read. */
+  signedInToken?: Buffer | null;
   announced: boolean;
 }
 
@@ -113,6 +126,143 @@ function loadConfig(): CachedConfig | null {
 function safeEqual(a: Buffer, b: Buffer): boolean {
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+// ── Wrong-password throttle ──
+// Kept apart from the /api rate limits, which skip the page and static files.
+
+/** Different wrong passwords one client address may try in a window before it gets 429. */
+export const BASIC_AUTH_FAILURE_LIMIT = 10;
+/** A browser that signed in before may keep trying until the address reaches this many. */
+const SIGNED_IN_FAILURE_LIMIT = 2 * BASIC_AUTH_FAILURE_LIMIT;
+export const BASIC_AUTH_FAILURE_WINDOW_MS = 15 * 60_000;
+const MAX_TRACKED_CLIENTS = 4096;
+
+type FailureRecord = { guesses: Set<string>; resetAt: number };
+const failures = new Map<string, FailureRecord>();
+
+// ponytail: a reverse proxy or tunnel on this computer relays every visitor from
+// loopback, so they share one count; the signed-in cookie keeps their owner from
+// being locked out. Key on the forwarded client once the server has a
+// trusted-proxy setting.
+function clientKey(request: FastifyRequest): string {
+  return clientAddressKey(request.ip);
+}
+
+// A browser that signed in once keeps this cookie. While its address is locked, it
+// gets BASIC_AUTH_FAILURE_LIMIT more tries, so other people's wrong passwords
+// cannot lock its owner out. The cookie does nothing without the password, and a
+// copied cookie gets only those few tries.
+const SIGNED_IN_COOKIE = "marinara_signed_in";
+const SIGNED_IN_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+
+/** Keyed by a server-only secret and the credentials, so it stops working when the password changes. */
+function signedInToken(config: CachedConfig): Buffer | null {
+  if (config.signedInToken === undefined) {
+    try {
+      const key = deriveServerKey("basic-auth signed-in browser");
+      config.signedInToken = Buffer.from(
+        createHmac("sha256", key).update(config.expectedHeader).digest("base64url"),
+        "utf8",
+      );
+    } catch (err) {
+      config.signedInToken = null;
+      logger.warn(err, "[basic-auth] Could not read the server key; signed-in browsers are not remembered");
+    }
+  }
+  return config.signedInToken;
+}
+
+function hasSignedInCookie(request: FastifyRequest, config: CachedConfig): boolean {
+  const token = signedInToken(config);
+  const value = cookieValue(request, SIGNED_IN_COOKIE);
+  return token !== null && value !== null && safeEqual(Buffer.from(value, "utf8"), token);
+}
+
+/** Direct HTTPS, or HTTPS as reported by a local proxy. Only ever adds Secure, so a wrong report cannot widen access. */
+function isHttpsRequest(request: FastifyRequest): boolean {
+  if (request.protocol === "https") return true;
+  if (!isForwardedLoopbackRequest(request)) return false;
+  const proto = request.headers["x-forwarded-proto"];
+  const value = Array.isArray(proto) ? proto[0] : proto;
+  return value?.split(",")[0]?.trim().toLowerCase() === "https";
+}
+
+function rememberSignedInBrowser(request: FastifyRequest, reply: FastifyReply, config: CachedConfig) {
+  const token = signedInToken(config);
+  if (!token || hasSignedInCookie(request, config)) return;
+  const secure = isHttpsRequest(request) ? "; Secure" : "";
+  reply.header(
+    "Set-Cookie",
+    `${SIGNED_IN_COOKIE}=${token.toString("utf8")}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SIGNED_IN_COOKIE_MAX_AGE_SECONDS}${secure}`,
+  );
+}
+
+function hasCorrectPassword(request: FastifyRequest, config: CachedConfig): boolean {
+  const header = request.headers.authorization;
+  return typeof header === "string" && safeEqual(Buffer.from(header, "utf8"), config.expectedHeader);
+}
+
+function activeRecord(key: string, now: number): FailureRecord | undefined {
+  const record = failures.get(key);
+  if (record && record.resetAt <= now) {
+    failures.delete(key);
+    return undefined;
+  }
+  return record;
+}
+
+/** Seconds this client must wait before trying a password again; 0 when it may try now. */
+function lockoutSeconds(request: FastifyRequest, signedIn = false): number {
+  const now = Date.now();
+  const record = activeRecord(clientKey(request), now);
+  const limit = signedIn ? SIGNED_IN_FAILURE_LIMIT : BASIC_AUTH_FAILURE_LIMIT;
+  if (!record || record.guesses.size < limit) return 0;
+  return Math.max(1, Math.ceil((record.resetAt - now) / 1000));
+}
+
+function rememberFailure(request: FastifyRequest, header: string) {
+  const now = Date.now();
+  const key = clientKey(request);
+  let record = activeRecord(key, now);
+  if (!record) {
+    if (failures.size >= MAX_TRACKED_CLIENTS) {
+      for (const [entryKey, entry] of failures) if (entry.resetAt <= now) failures.delete(entryKey);
+      if (failures.size >= MAX_TRACKED_CLIENTS) failures.delete(failures.keys().next().value!);
+    }
+    record = { guesses: new Set(), resetAt: now + BASIC_AUTH_FAILURE_WINDOW_MS };
+    failures.set(key, record);
+    logger.warn("[basic-auth] Wrong password from %s", request.ip);
+  }
+  // A browser that keeps resending one saved wrong password counts once; only new guesses add up.
+  record.guesses.add(createHash("sha256").update(header).digest("base64url").slice(0, 16));
+  if (record.guesses.size === BASIC_AUTH_FAILURE_LIMIT || record.guesses.size === SIGNED_IN_FAILURE_LIMIT) {
+    logger.warn(
+      "[basic-auth] %d wrong passwords from %s; refusing its sign-ins for %d minutes",
+      record.guesses.size,
+      request.ip,
+      Math.ceil(BASIC_AUTH_FAILURE_WINDOW_MS / 60_000),
+    );
+  }
+}
+
+/** Compares the Authorization header and updates this client's wrong-password count. */
+function checkCredentials(request: FastifyRequest, config: CachedConfig): boolean {
+  const header = request.headers.authorization;
+  if (!header || typeof header !== "string") return false;
+  if (hasCorrectPassword(request, config)) {
+    // Proxied visitors share one count, so one of them signing in must not clear the others' guesses,
+    // and a signed-in browser getting past a lock leaves the lock in place.
+    if (!isForwardedLoopbackRequest(request) && lockoutSeconds(request) === 0) failures.delete(clientKey(request));
+    return true;
+  }
+  rememberFailure(request, header);
+  return false;
+}
+
+function sendTooManyFailures(reply: FastifyReply, retryAfterSeconds: number) {
+  reply.header("Retry-After", String(retryAfterSeconds));
+  reply.status(429).send({ error: "Too many wrong passwords. Try again later." });
 }
 
 function sendChallenge(reply: FastifyReply, realm: string) {
@@ -372,16 +522,22 @@ export function isBasicAuthSatisfied(request: FastifyRequest): boolean {
     return isUnauthenticatedRemoteAllowed();
   }
 
-  const header = request.headers.authorization;
-  if (!header || typeof header !== "string") return false;
-  return safeEqual(Buffer.from(header, "utf8"), config.expectedHeader);
+  if (lockoutSeconds(request, hasSignedInCookie(request, config)) > 0) return false;
+  return hasCorrectPassword(request, config);
 }
 
 // ── Fastify onRequest hook ──
 
 export function basicAuthHook(request: FastifyRequest, reply: FastifyReply, done: () => void) {
-  // Exempt the health endpoint so external probes still work
+  // Exempt the health endpoint so external probes still work. Its reply adds
+  // details for signed-in callers, so a password sent here counts like anywhere else.
   if (request.url === "/api/health" || request.url.startsWith("/api/health?")) {
+    if (request.headers.authorization && !isTrustedPeer(request)) {
+      const config = loadConfig();
+      if (config && lockoutSeconds(request, hasSignedInCookie(request, config)) === 0) {
+        checkCredentials(request, config);
+      }
+    }
     return done();
   }
 
@@ -411,17 +567,17 @@ export function basicAuthHook(request: FastifyRequest, reply: FastifyReply, done
     return;
   }
 
-  const header = request.headers.authorization;
-  if (!header || typeof header !== "string") {
+  const retryAfter = lockoutSeconds(request, hasSignedInCookie(request, config));
+  if (retryAfter > 0) {
+    sendTooManyFailures(reply, retryAfter);
+    return;
+  }
+
+  if (!checkCredentials(request, config)) {
     sendChallenge(reply, config.realm);
     return;
   }
 
-  const provided = Buffer.from(header, "utf8");
-  if (!safeEqual(provided, config.expectedHeader)) {
-    sendChallenge(reply, config.realm);
-    return;
-  }
-
+  rememberSignedInBrowser(request, reply, config);
   return done();
 }

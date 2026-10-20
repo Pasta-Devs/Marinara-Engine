@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   type CapabilityChatActivityUpdate,
   type CapabilityChatMetadataUpdate,
@@ -31,7 +32,7 @@ import {
   messageSwipes,
   spatialContextSnapshots,
 } from "../../db/schema/index.js";
-import { withChatMetadataPatchQueue } from "../storage/chats.storage.js";
+import { createChatsStorage, withChatMetadataPatchQueue } from "../storage/chats.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { withNewGlobalGalleryCapabilityReferences } from "../image/global-gallery-capability-references.js";
 import { resolveChatUserIdentity } from "../chat-user-identity.js";
@@ -618,6 +619,13 @@ function createPersistenceSession(db: DB, assertPermission: PersistencePermissio
   };
 }
 
+/**
+ * The chat locks a package holds in the current async context. The metadata queue behind `withChatLock` is not
+ * reentrant, so a patch made while holding the same chat's lock runs inside it instead of waiting for it forever.
+ * `held` turns false when the lock's operation ends, so work the operation left running queues normally.
+ */
+const heldChatLocks = new AsyncLocalStorage<ReadonlyArray<{ chatId: string; held: boolean }>>();
+
 /** Omitted permissions are reserved for trusted Engine callers; package activation always passes its manifest. */
 export function createCapabilityPersistenceHost(db: DB, permissions?: readonly string[]): CapabilityPersistenceHost {
   const granted = permissions ? new Set(permissions) : null;
@@ -625,14 +633,73 @@ export function createCapabilityPersistenceHost(db: DB, permissions?: readonly s
     if (granted && !granted.has(permission)) throw new Error(`Package persistence requires ${permission} permission.`);
   };
   const session = createPersistenceSession(db, assertPermission);
+  // Built on first use: hosts made without a database (tests, early activation) never touch chat storage.
+  let chatsStorage: ReturnType<typeof createChatsStorage> | undefined;
+  const hostChats = () => (chatsStorage ??= createChatsStorage(db));
   return {
     ...session,
     withChatLock: (chatId, operation) => {
       if (granted && !granted.has("chat-read") && !granted.has("chat-write")) {
         return Promise.reject(new Error("Package chat locks require chat-read or chat-write permission."));
       }
-      return withChatMetadataPatchQueue(chatId, operation);
+      return withChatMetadataPatchQueue(chatId, async () => {
+        const lock = { chatId, held: true };
+        try {
+          return await heldChatLocks.run([...(heldChatLocks.getStore() ?? []), lock], operation);
+        } finally {
+          lock.held = false;
+        }
+      });
     },
     transaction: (operation) => db.transaction((tx) => operation(createPersistenceSession(tx, assertPermission))),
+    async patchChatMetadata(chatId, patch, options) {
+      assertPermission("chat-write");
+      const apply = async () => {
+        const chat = await hostChats().getById(chatId);
+        if (!chat) return;
+        const next = typeof patch === "function" ? await patch(parseMetadata(chat.metadata) ?? {}) : patch;
+        // Like updateChatMetadata, a package patch cannot add a reference to a Global Gallery image that is gone.
+        await withNewGlobalGalleryCapabilityReferences(db, chat.metadata, next, () =>
+          hostChats().patchMetadata(chatId, next, {
+            metadataQueueHeld: true,
+            ...(options?.touchUpdatedAt === false ? { touchUpdatedAt: false } : {}),
+          }),
+        );
+      };
+      const lockHeld = heldChatLocks.getStore()?.some((lock) => lock.held && lock.chatId === chatId) ?? false;
+      await (lockHeld ? apply() : withChatMetadataPatchQueue(chatId, apply));
+    },
+    async appendMessages(chatId, inputs) {
+      assertPermission("chat-write");
+      if (!(await hostChats().getById(chatId))) throw new Error(`Chat ${chatId} was not found.`);
+      const ids = await hostChats().createMessagesBatch(
+        chatId,
+        inputs.map((input) => ({
+          role: input.role,
+          characterId: input.characterId,
+          content: input.content,
+          extra: input.extra,
+          createdAt: input.createdAt,
+        })),
+      );
+      if (ids.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(messages)
+        .where(and(eq(messages.chatId, chatId), inArray(messages.id, ids)));
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return ids.flatMap((id) => {
+        const row = byId.get(id);
+        return row ? [mapMessage(row)] : [];
+      });
+    },
+    async createChatNote(sourceChatId, targetChatId, content, anchorMessageId) {
+      assertPermission("chat-write");
+      await hostChats().createNote(sourceChatId, targetChatId, content, anchorMessageId);
+    },
+    async createChatInfluence(sourceChatId, targetChatId, content, anchorMessageId) {
+      assertPermission("chat-write");
+      await hostChats().createInfluence(sourceChatId, targetChatId, content, anchorMessageId);
+    },
   };
 }

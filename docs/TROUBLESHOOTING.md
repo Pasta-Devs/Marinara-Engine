@@ -16,7 +16,7 @@ If you are asking the team for help, turn on **Debug mode** first so the server 
 - **Controls unavailable:** confirm `MULTIPLAYER_ENABLED=true` is in the correct Engine's `.env`, restart that Engine, then enable Settings separately. A saved toggle cannot override a missing/invalid environment flag. The Android native wrapper deliberately cannot join.
 - **Host unavailable:** use a separate reachable HTTPS room port, a valid certificate chain/hostname and the matching invitation fingerprint. Do not disable TLS validation, add `null` to trusted origins, expose the normal Engine API or open a host-supplied client to work around an error.
 - **Awaiting approval:** the host must approve the request in Players. No transcript is available before approval. Ask for a fresh invitation if it expired or was revoked.
-- **Disconnected:** keep the guest's own Engine running. The client reconnects to the same pinned host while the explicit session is alive; unsent drafts stay in the current view. Restart ends credentials and needs a fresh join. Stop/Leave remain available when the network fails.
+- **Disconnected:** keep the guest's own Engine running. The client reconnects to the same pinned host while the explicit session is alive; unsent drafts stay in the current view. Restart ends credentials and needs a fresh join; to keep the same persona name afterwards, ask the host to remove your old seat first. Stop/Leave remain available when the network fails.
 - **Game waiting:** inspect Players. Disconnected participants are not automatically passed. The host can explicitly Pass/Kick or Pause. Submitting one of two required actions must not run the GM.
 - **Interrupted generation:** do not repeatedly resubmit the round. The host should inspect committed narration/state and explicitly resume forward, or stop the room. Multiplayer does not silently replay an ambiguous model request or apply its world effects twice.
 - **Restricted command or missing media:** the initial room protocol intentionally carries only text. Use the [compatibility matrix](development/multiplayer.md#command-and-feature-compatibility); do not install a peer-provided file or extension as a workaround.
@@ -30,6 +30,10 @@ When reporting a connection error, include mode, platform, the visible error and
 If Vite stops with `Reached heap limit` or `JavaScript heap out of memory`, the client build ran out of Node.js heap. This is different from a missing native Rollup binary. Update and rerun `start-termux.sh`: client builds, including in-app updates, now run with their own 1536 MiB heap, capped at half of known device RAM but never below the 1280 MiB the build needs. The RAM cap is rounded down in 128 MiB steps. The running server keeps its smaller profile-based limit. An explicit heap limit in `NODE_OPTIONS` takes precedence for both processes, so check for a previously configured 1024 MiB override: the client no longer builds in 1024 MiB.
 
 Close other apps before retrying. Phones with less than about 3 GB of RAM can still run out of memory or be stopped by Android; keep the complete launcher output when reporting that case. Do not delete your chats or profile to repair a build failure.
+
+### Desktop: JavaScript heap out of memory while type-checking the client
+
+If the client build stops with `JavaScript heap out of memory` and then says `The client type-check needs about 2.5 GiB of Node.js heap`, the heap limit set in your `NODE_OPTIONS` is too small. The build keeps a limit you set instead of raising it. If `NODE_OPTIONS` contains `--max-old-space-size-percentage`, raise that percentage; it overrides `--max-old-space-size`. If using `--max-old-space-size` alone, raise it to 2560 or more. Or remove those options so the build picks its own limit. Then run the launcher again. Your chats and settings are not touched.
 
 ### Termux: missing multiplayer guest asset
 
@@ -109,6 +113,10 @@ rm -rf node_modules .pnpm .pnpm-store
 
 Then start Marinara again with `./start.sh`. If you install by hand, run `pnpm install` after removing those folders.
 
+### Install says "Ignored build scripts: @google/genai"
+
+This notice is harmless: that package's install script does nothing, and Marinara does not need it. Do not run `pnpm approve-builds`, because it changes a file Marinara tracks, and every later update then has to set that change aside. Current versions no longer show the notice. If an install that already showed it keeps showing it after you update, delete the file `node_modules/.modules.yaml` in your Marinara folder, then run the launcher again. Your chats and settings are not touched.
+
 ### ERR_PNPM_TRUST_DOWNGRADE during install
 
 This is almost always a half-finished install. First rerun the launcher so it can repair the workspace. If you install by hand, run this single command from the Marinara folder:
@@ -134,6 +142,8 @@ If an installed map or call does not appear, close Marinara Engine completely an
 
 If an older installation cannot complete its first package migration, do not delete the `data/capability-packages` folder or your chat data. Marinara leaves the migration incomplete and retries on the next startup. Existing chat selections and settings remain stored while the catalog is unreachable.
 
+If `data/capability-runtime-snapshots` or `data/capability-packages/versions` has grown large, you do not need to clean it by hand. Marinara deletes the old copies when it starts and keeps only the current and previous version of each agent.
+
 Package downloads are rejected when their checksum, declared file list, Engine version range, or archive paths do not match the official catalog. Update Marinara Engine first, refresh the catalog, and retry. Do not manually extract an artifact into the data directory.
 
 Agent updates are never applied at startup. When a newer compatible version is available, Marinara asks whether to apply it. Choose **No** to keep the installed version; the **Update** button remains available in **Agents → Download Agents**. A failed update also leaves the installed version registered, and a newly updated server runtime that fails its startup self-check rolls back to the previous version.
@@ -146,6 +156,7 @@ If you cannot access Marinara from a phone, tablet, or another computer on your 
 - Confirm both devices are on the same Wi-Fi network.
 - Confirm no firewall blocks the port. The default port is `7860`, or whatever you set as `PORT`.
 - Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless, but visitors forwarded by a reverse proxy or tunnel on the same machine need the login. Direct Tailscale traffic is trusted by default. Same-host Docker bridge or gateway traffic is trusted only until you set Basic Auth or `IP_ALLOWLIST`; proxy-forwarded Docker traffic requires normal authorization unless you explicitly set `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`.
+- If the device shows **Too many wrong passwords**, wait 15 minutes, then sign in with the correct Basic Auth password. Restarting the server also lets it try again.
 - For privileged actions from that device (backups, data clearing, updates), set `ADMIN_SECRET` in the server `.env`. Then paste the same value into **Settings** > **Advanced** > **Admin Access** on that device and click **Save**.
 - If you use a public or reverse-proxy domain and see **Untrusted request host**, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses used by phones, LAN computers, and Tailscale peers remain accepted automatically.
 
@@ -179,6 +190,7 @@ Generation errors appear as a toast at the bottom of the screen. If a connection
 - **The AI returned an empty response. Try sending your message again.**: send your message again. If it keeps happening, try a different model or connection.
 - **A generation is already in progress for this chat**: one reply is still streaming. Wait for it to finish or click the Stop button, then try again.
 - **No connections are marked for the random pool**: you turned on random connection routing but marked no connections for the pool. Add at least one connection to the pool, or turn random routing off.
+- Every message fails with a network error, and your computer reaches the internet only through a proxy (for example v2rayN without TUN mode): tell Marinara about the proxy. See [Outbound HTTP proxy](CONFIGURATION.md#outbound-http-proxy).
 
 ## Local Model problems
 
@@ -209,7 +221,7 @@ For full setup, see [Local Model Setup](connections/local-model.md).
 1. Open **Chat Settings** > **Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In the **Memories for This Chat** window, look at each chunk's status.
 3. A status of **Waiting for vector** means the memory is still being processed. Wait, then chat again.
-4. A status of **Embedding unavailable** means no embedding source is working. Configure an embedding connection, or let the built-in local model load. See [Local Model Setup](connections/local-model.md).
+4. A status of **Embedding unavailable** means no embedding source is working. Configure an embedding connection, or let the built-in local model load. See [Local Model Setup](connections/local-model.md). To use one embedding source for every chat, pick it under **Embeddings** in the **Defaults** section of the **Connections** panel.
 
 A memory needs at least 5 new messages before it is created. Recall also only shows memories that closely match your new message, so it can return nothing even when memories exist.
 
@@ -234,7 +246,7 @@ Chat summaries need a working text connection to write them.
 
 ## Card Browser problems
 
-The **Card Browser** lets you search public character sites and import characters. Open it from the **Card Browser** icon in the top bar, then click **Download Cards**.
+The **Card Browser** lets you search public character sites and import characters. Open it with the **Download** button at the top of the **Characters** or **Personas** panel.
 
 - If JannyAI search or a character page fails with a Cloudflare block, Marinara shows a message. It asks you to visit the JannyAI site once in the same browser to clear the challenge, then retry.
 - If your Pygmalion login stops working after you restart the server, that is expected. That login lives only in server memory and clears on restart. Open the login window and paste your token again.
@@ -283,7 +295,7 @@ If starting a game fails because the model returned broken JSON, Marinara opens 
 
 - If characters do not speak during a call, Text to Speech is not set up. Open **Connections** > **Text to Speech**, enable it, choose a source, enter your key, pick a voice, and save. A character with no voice appears as text only.
 - If speech stops with **No audio after 60 s**, your voice server is slower than Marinara waits. A local server on a laptop often is. Raise **Request timeout (seconds)** in **Connections** > **Text to Speech**, or in the audio connection the message names. See [Request timeout](media/tts-setup.md#request-timeout).
-- If the microphone is not working, you may need the local speech model. Install **Calls** from **Agents > Download Agents**, then open **Connections** > **Local Model**, expand the card, find **Local Speech Model**, choose a Whisper model, and click **Download Whisper**. Firefox in particular needs this because it lacks browser speech recognition. Uninstalling Calls deletes its Whisper models to reclaim disk space.
+- If the microphone is not working, you may need the local speech model. Install **Calls** from **Agents > Download Agents**, then open **Connections** > **Local Model**, expand the card, find **Local Speech Model**, choose a Whisper model, and click **Download Whisper**. Firefox in particular needs this because it lacks browser speech recognition. Uninstalling Calls deletes its Whisper models to reclaim disk space. You can also use your own speech-to-text server from the **Speech to Text** card in **Connections**; see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - On a Lite build, the message **Local Whisper is disabled in Lite mode** means that small build cannot run the local speech model. Use a full Marinara install instead.
 
 ### Music DJ Spotify login fails on a remote or network install
@@ -309,7 +321,7 @@ Do not launch another server against the same data directory while the old one i
 
 Marinara allows only one running server to write to a local data directory. If startup reports **Another Marinara Engine process ... may be using** the directory, close the other Marinara process and start again.
 
-After a crash or a moved Docker data volume, startup can instead report **The storage writer lease ... is incomplete or invalid** or identify a process that no longer exists on this host. First verify that every Marinara process and container using that data directory is stopped. Then remove only the `.writer-lease` directory named in the error and restart Marinara. Do not remove the surrounding `storage` directory or any table files. On Linux, Android, and container hosts whose data directory lives on a local disk, Marinara reclaims a lease left by a crashed or force-killed process on its own, including after a reboot; the manual step remains the fallback for network or shared storage.
+After a crash or a moved Docker data volume, startup can instead report **The storage writer lease ... is incomplete or invalid** or identify a process that no longer exists on this host. First verify that every Marinara process and container using that data directory is stopped. Then remove only the `.writer-lease` directory named in the error and restart Marinara. Do not remove the surrounding `storage` directory or any table files. On Linux, Android, and container hosts whose data directory lives on a local disk, Marinara reclaims a lease left by a crashed or force-killed process on its own, including after a reboot; the manual step remains the fallback for network or shared storage. Windows does the same when the data directory is on one of the computer's own drives. On Windows, the manual step remains the fallback for a network drive, a shared folder, a removable drive such as a USB stick, or a computer renamed after the crash.
 
 ### Data seems missing after an update
 
@@ -345,7 +357,7 @@ Docker and Podman keep data in the `marinara-data` volume, so run the command in
 
 ### Backup or Export returns 403
 
-Loopback sessions can make backups without an admin secret. From another device, a network address, or Docker, backups and profile exports need more. Set `ADMIN_SECRET` on the server and save the same value in **Settings** > **Advanced** > **Admin Access**. If you want loopback to require the secret too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`.
+Loopback sessions can make backups without an admin secret. By default, requests from another device, a network address, Docker, or a reverse proxy or tunnel on the same computer need more for backups and profile exports. Set `ADMIN_SECRET` on the server and save the same value in **Settings** > **Advanced** > **Admin Access**. If you want loopback to require the secret too, set `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`. If `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, forwarded visitors use the local bypass too; keep that safeguard on for a public proxy or tunnel.
 
 ### Import says the file is not a readable ZIP archive
 
@@ -406,7 +418,7 @@ To reduce it: exempt Termux from battery optimization and allow background activ
 
 The built Marinara app is not several gigabytes, and Noodle does not download its own AI models. A large temporary footprint during an update usually comes from pnpm's dependency store and virtual store, especially after several releases or an interrupted forced reinstall.
 
-The current launcher prunes packages left over from older releases and avoids rebuilding the dependency store more than once for the same update. If an older launcher already filled the device, update the launcher and reclaim its unreferenced cache before trying again:
+The current launcher prunes packages left over from older releases and avoids rebuilding the dependency store more than once for the same update. In-app updates from **Settings** > **Advanced** > **Updates** now install only the Android packages too, instead of copies for every other platform. If an older launcher already filled the device, update the launcher and reclaim its unreferenced cache before trying again:
 
 ```bash
 cd Marinara-Engine

@@ -1223,9 +1223,10 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 
 /* The omnibar and Professor Mari sit above every app overlay (the game setup wizard, lightboxes,
    dialogs, capability screens, help overlays). Their own portalled popovers use this layer + 1; a
-   `Modal` opened while the omnibar is open uses this layer and wins by DOM order. Only the sonner
-   toaster (999999999, so Undo stays visible) and user extension windows/menus (~2^31) sit higher.
-   Pinned by scripts/regressions/command-center.regression.ts. */
+   `Modal` opened while the omnibar is open, and every app dialog (alert, confirm, prompt, choice,
+   so one a package opens shows above the package's own screen), uses this layer and wins by DOM
+   order. Only the sonner toaster (999999999, so Undo stays visible) and user extension
+   windows/menus (~2^31) sit higher. Pinned by scripts/regressions/command-center.regression.ts. */
 :root {
   --mari-layer-omnibar: 100000;
 }
@@ -1308,8 +1309,8 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 
 .mari-btn--danger {
   border-color: transparent;
-  background: oklch(0.58 0.21 27);
-  color: #fff;
+  background: var(--marinara-app-accent-static);
+  color: var(--primary-foreground);
 }
 
 .mari-link {
@@ -1371,8 +1372,8 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 .mari-card[data-variant="danger"] .mari-card__media {
-  background: color-mix(in srgb, oklch(0.58 0.21 27) 16%, var(--background));
-  color: oklch(0.72 0.15 27);
+  background: color-mix(in srgb, var(--marinara-app-accent-static) 16%, var(--background));
+  color: var(--marinara-app-accent-static);
 }
 
 .mari-card__title {
@@ -1405,7 +1406,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 /* Slice 71 (N1-N2, N5, N8): a card where nothing happens until you choose. One accent edge and a
-   "Needs you" kicker, the same for every kind (danger stays on the slot tint and the red button), then
+   "Needs you" kicker, the same for every kind (danger stays on the slot tint and the delete button), then
    one line that says what each button does beside them. Theme tokens only, so user themes recolour it. */
 .mari-card[data-needs-you="true"] {
   gap: 0.55rem;

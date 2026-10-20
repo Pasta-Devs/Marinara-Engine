@@ -3,7 +3,9 @@
  * (Pollinations sends only the prompt and size) draws a new picture, as a blink or talk picture redrawn
  * as a full-body shot.
  *   - every backend generateImage calls has an entry in the reference-picture table, matching its adapter;
- *   - an avatar edit on such a connection is refused with a plain message before anything is paid for;
+ *   - the 2D Avatars generator knows before anything is paid for which connections can edit its sprite: one
+ *     that can't is never asked for an edit, and draws a new face with its blink and talk pictures instead
+ *     (maintainer request, 2026-10-19; avatar-variant-composite.regression.ts covers the set);
  *   - a fallback connection that would drop the picture is skipped for an edit, one that takes it is used;
  *   - SpicyAPI, whose model's input schema decides, refuses an edit before a task is created.
  */
@@ -26,7 +28,7 @@ const {
   generateImage,
   imageConnectionTakesReferencePicture,
 } = await import("../../packages/server/src/services/image/image-generation.js");
-const { AvatarGenerationError, drawAvatarImageEdit, resolveAvatarImageConnection } =
+const { drawAvatarImageEdit, resolveAvatarImageConnection } =
   await import("../../packages/server/src/services/avatars/generation/generation-context.js");
 const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
@@ -175,7 +177,7 @@ assert.equal(
   );
 }
 
-// ── An avatar edit on a connection that drops the picture is refused before anything is paid for ──
+// ── The avatar generator knows which connections drop the picture ──
 const db = await createFileNativeDB();
 {
   const connections = createConnectionsStorage(db);
@@ -185,12 +187,8 @@ const db = await createFileNativeDB();
     imageService: "pollinations",
     model: "",
   } as never);
-  await assert.rejects(resolveAvatarImageConnection(db, pollinations.id), (error: unknown) => {
-    assert.ok(error instanceof AvatarGenerationError);
-    assert.equal(error.statusCode, 400);
-    assert.equal(error.message, IMAGE_EDIT_UNSUPPORTED_MESSAGE);
-    return true;
-  });
+  const drops = await resolveAvatarImageConnection(db, pollinations.id);
+  assert.equal(drops.canEdit, false, "Pollinations can't edit a sprite, so it draws a set instead");
   const gptImage = await connections.create({
     name: "GPT Image",
     provider: "image_generation",
@@ -200,6 +198,7 @@ const db = await createFileNativeDB();
   } as never);
   const resolved = await resolveAvatarImageConnection(db, gptImage.id);
   assert.equal(resolved.conn.id, gptImage.id, "a connection that edits pictures is used");
+  assert.equal(resolved.canEdit, true, "and edits the sprite");
 }
 
 // ── Fallbacks for an edit, and SpicyAPI's per-model check ──

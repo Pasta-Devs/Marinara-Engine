@@ -17,6 +17,7 @@ import {
   normalizeVideoGenerationUserSettings,
 } from "@marinara-engine/shared";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
+import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
@@ -830,6 +831,42 @@ export async function galleryRoutes(app: FastifyInstance) {
           "The Roleplay animation Prompt Model returned an empty direction.",
         );
       }
+      if (meta.illustratorVideoIncludeCharacterAppearance === true) {
+        // The characters the direction names get their appearance lines, as Illustrator images do.
+        const chatCharacters = [];
+        for (const id of (await collectChatAssetParticipants(chat)).characterIds) {
+          const row = await characters.getById(id);
+          if (!row) continue;
+          const data = parseJsonRecord(row.data);
+          chatCharacters.push({
+            id,
+            name: readTrimmedString(data.name) ?? "",
+            avatarPath: row.avatarPath ?? null,
+            appearance: getCharacterAppearance(data).appearance,
+          });
+        }
+        // The persona joins when the direction names them; a character played as the user is already listed.
+        const identity = await resolveChatUserIdentity(characters, chat);
+        const references = await resolveIllustratorCharacterReferences({
+          charactersStore: characters,
+          chatCharacters,
+          persona:
+            identity?.source === "persona"
+              ? {
+                  id: identity.id,
+                  name: identity.name,
+                  avatarPath: identity.avatarPath,
+                  appearance: identity.appearance,
+                  appearanceOverride: identity.imageAppearanceOverride || null,
+                }
+              : null,
+          requestedNames: [],
+          promptText: promptDraft,
+          fallbackToChatCharacters: false,
+          includeReferenceImages: false,
+        });
+        if (references.appearanceBlock) promptDraft = `${promptDraft}\n\n${references.appearanceBlock}`;
+      }
       logDebugOverride(debugOverrideEnabled, "[debug/gallery/roleplay-video-director] final prompt:\n%s", promptDraft);
     } else if (!promptDraft) {
       promptDraft = await loadGameVideoPrompt({
@@ -1227,9 +1264,19 @@ export async function galleryRoutes(app: FastifyInstance) {
         chatMeta: parseChatMetadata(chat.metadata),
         characterId: input.characterId,
         charInfo,
+        // Who the user is (a persona, or a character played as the user), with their Appearance, for a clip that
+        // names them. A played character already in the chat is matched as a chat character instead.
         persona: await (async () => {
-          const persona = chat.personaId ? await characters.getPersona(chat.personaId) : null;
-          return persona ? { id: persona.id, name: persona.name, avatarPath: persona.avatarPath ?? null } : null;
+          const identity = await resolveChatUserIdentity(characters, chat);
+          return identity && !chatCharacterIds.includes(identity.id)
+            ? {
+                id: identity.id,
+                name: identity.name,
+                avatarPath: identity.avatarPath,
+                appearance: identity.appearance,
+                appearanceOverride: identity.imageAppearanceOverride || null,
+              }
+            : null;
         })(),
         promptConnection: storedPromptConnectionId
           ? await createConnectionsStorage(app.db).getWithKey(storedPromptConnectionId)

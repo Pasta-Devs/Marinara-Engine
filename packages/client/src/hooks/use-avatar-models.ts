@@ -25,14 +25,16 @@ export function useAvatarModelList(enabled = true) {
   });
 }
 
+/** One owner's avatar.json, or null when the owner has none. The server answers null for an owner without an
+ *  avatar and 404 only for an owner that no longer exists, which has no avatar either. */
 export function fetchAvatarModel(owner: AvatarOwnerRef): Promise<AvatarConfig | null> {
-  return api.get<AvatarConfig>(avatarModelPath(owner)).catch((error: unknown) => {
+  return api.get<AvatarConfig | null>(avatarModelPath(owner)).catch((error: unknown) => {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;
   });
 }
 
-/** One owner's avatar.json, or null when the owner has none. */
+/** One owner's avatar.json, or null when the owner has none (see fetchAvatarModel). */
 export function useAvatarModel(owner: AvatarOwnerRef | null) {
   return useQuery({
     queryKey: owner ? avatarModelKeys.detail(owner) : [...avatarModelKeys.all, "none"],

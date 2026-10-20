@@ -814,7 +814,7 @@ assert.deepEqual(
 // handed a variable or a helper's return value, in either write shape. Its keys cannot be read from
 // here at all, so the COUNT is pinned — another opaque call fails until someone reads it by hand
 // and either widens a walk above or adds the namespace to ENGINE_OWNED_METADATA_KEY_PREFIXES.
-// Nineteen are `patchMetadata`/`updateMetadata` calls; the other
+// Twenty are `patchMetadata`/`updateMetadata` calls; the other
 // two are route PATCHes, and neither is a live gap today — one is the mutation hook's own
 // implementation, whose keys the client-mutation arm reads at its call sites instead, and the other
 // is a debounced scene patch assembled into a variable whose four keys the literal beside it repeats
@@ -829,12 +829,15 @@ assert.deepEqual(
 // multiplayer* turn effects, while chats.storage.ts routes an existing full metadata update
 // through the guarded patch queue. The wrapper introduces no new keys. Both namespaces
 // are reserved; room generation also preserves the coordinator's multiplayer object.
+// Capability API 1.341 adds one audited variable write: capability-persistence.service.ts's
+// patchChatMetadata hands a package's own patch to the queued patchMetadata. It is the package's
+// write path, the same as updateChatMetadata beside it, so it introduces no Engine key.
 // The other half of the boundary — a read off a parameter inside a helper — has no count
 // to pin, which is why sub-source 7 exists rather than a seventh sweep. The docs state both limits.
 assert.equal(
   unreadableWriteCalls,
-  21,
-  `chat-metadata writes this sweep cannot read statically changed: expected 21, found ${unreadableWriteCalls}. ` +
+  22,
+  `chat-metadata writes this sweep cannot read statically changed: expected 22, found ${unreadableWriteCalls}. ` +
     "This count is a boundary marker, not a budget, so do not simply edit the number to match. Read the " +
     "call this added by hand — the sites are listed below — and decide what it writes: if it commits a key " +
     "under a namespace that is not already in ENGINE_OWNED_METADATA_KEY_PREFIXES, add that namespace (or " +

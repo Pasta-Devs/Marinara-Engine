@@ -20,12 +20,13 @@ The **Personas** panel is your persona library. Open it from the person icon in 
 
 The panel gives you these controls:
 
-- **Open Full Library** opens the responsive full-page Persona Library. It uses the same grid-and-preview layout as the Character Library, with persona descriptions, card sections, tags, and token estimates.
+- **Download** opens the [Card Browser](bot-browser.md), where you can also find personas on PlotLight.
+- **Open Library** opens the responsive full-page Persona Library. It uses the same grid-and-preview layout as the Character Library, with persona descriptions, card sections, tags, and token estimates.
 - **New** creates a persona.
 - **Import** opens the **Import Persona** window.
 - **Select** turns on bulk-selection mode so you can act on many personas at once.
 - The search box, with placeholder **Search personas**, matches name, description, comment, and tags.
-- The sort dropdown offers **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Tokens** (estimated prompt size).
+- The sort dropdown offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Tokens** (estimated prompt size). **Manual order** keeps the order you set: drag a row up or down, or press Alt+Up or Alt+Down on a focused row. On a touch screen, press and hold a row to pick it up.
 - **New Folder** creates a folder to organize personas.
 - A **Tags** chip expands the tag list for filtering.
 
@@ -82,7 +83,7 @@ The **Card** tab is where you write the core persona fields. Each field is a lar
 - **Personality**: your temperament, behavior, speech habits, and emotional patterns.
 - **Backstory**: your history, origin, relationships, and formative events.
 - **Appearance**: physical description, clothing, and visual details the model should remember.
-- **Image Appearance Override**: an optional switch under **Appearance**, off by default. Turn it on to reveal a second box for an image-prompt-ready description of your persona. While it is on and the box is filled, image prompts use that text instead of **Appearance**. The narrator always sees the full **Appearance** text.
+- **Image Appearance Override**: an optional switch under **Appearance**, off by default. Turn it on to reveal a second box for short image tags that describe your persona, such as a LoRA trigger word. While it is on and the box is filled, image prompts use those tags exactly as written, with **Appearance** kept as background. The narrator always sees the full **Appearance** text.
 - **Scenario**: your default situation or context for roleplays. Use it to establish where your persona starts.
 
 These text boxes support macros. Quote characters you type are auto-formatted to match your app quote style.
@@ -165,8 +166,8 @@ Each file shows a success or failure icon and a message. A summary line shows ho
 
 You can export from the **Export persona** icon in the **Persona Editor**, or with the bulk **Export** action in the panel's selection mode. The **Export Persona** window offers two formats:
 
-- **Native**: keeps all Marinara persona details, sprites, and attached lorebooks. Use this to move a persona between Marinara installs.
-- **Compatible**: exports plain persona fields only. Use this for other tools that do not understand Marinara's format.
+- **Marinara Native**: keeps all Marinara persona details, sprites, and attached lorebooks. Use this to move a persona between Marinara installs.
+- **Compatible JSON**: exports plain persona fields only. Use this for other tools that do not understand Marinara's format.
 
 A bulk export downloads a single zip file with one file per selected persona.
 

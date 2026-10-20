@@ -116,7 +116,7 @@ The same meter appears under the context indicator in a chat's connection picker
 - Where to get a key: `https://console.x.ai`
 - Default base URL: `https://api.x.ai/v1`
 
-**xAI / Grok** runs the Grok models. When you pick this service in the **Add connection** window, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Maximum** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
+**xAI / Grok** runs the Grok models. When you pick this service in the **Add connection** window, Marinara prefills the model with Grok 4.5. You can change the model afterward. Grok 4.6 and 4.7 are available with a 500,000-token context window and reasoning up to **Extra high** (`xhigh`). They support the existing chat tools, including **Web Search**, so search results can feed the completed reply.
 
 ## Arli AI
 
@@ -139,7 +139,7 @@ The same meter appears under the context indicator in a chat's connection picker
 
 **DeepSeek** serves its own chat models, `deepseek-flash` and `deepseek-v4-pro`. After you paste your key, the **Model** dropdown lists them, and **Fetch Models from API** refreshes the list from your account.
 
-DeepSeek thinks by default. Its **Reasoning Effort** uses DeepSeek's own levels — **Low**, **High** and **Maximum** — and **Off** turns thinking off for that request. There is no **Medium**: DeepSeek serves a medium request as High, so Marinara offers High instead of a second button that would do the same thing. Its thinking appears in the reply with the usual thought display.
+DeepSeek thinks by default. Its **Reasoning Effort** uses DeepSeek's own levels — **Low**, **High** and **Max** — and **Off** turns thinking off for that request. There is no **Medium**: DeepSeek serves a medium request as High, so Marinara offers High instead of a second button that would do the same thing. Its thinking appears in the reply with the usual thought display.
 
 Some settings in the parameter panel do not apply to DeepSeek, so the panel leaves them out rather than pretending they work. **Verbosity**, **Top K** and the penalties are among them: DeepSeek has retired these and ignores them. **Temperature** and **Top P** are a pair — DeepSeek only uses one at a time, depending on whether it is thinking — so you see **Temperature** when thinking is off and **Top P** when it is on.
 
@@ -235,7 +235,7 @@ What a decision model does, how to choose one, and the full setup live in [Decis
 - **PocketTTS**: a free voice server you run on your own computer.
 - **xAI Voice**: xAI's voice service.
 
-Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 seconds by default; raise it for a slow voice server. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**.
+Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 seconds by default; raise it for a slow voice server. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**. To read messages aloud with one, choose it as the **Source** in the **Text to Speech** card. See [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
 
 With the **ElevenLabs** source, two more switches appear: **Game sound effects** and **Game music**. They let Game Mode make sound effects and music with this connection. See [Generated sound effects and music](../game/game-assets.md#generated-sound-effects-and-music). For voices and reading messages aloud, see [Text to Speech (TTS) Setup](../media/tts-setup.md).
 
@@ -244,6 +244,8 @@ With the **ElevenLabs** source, two more switches appear: **Game sound effects**
 Embeddings power lorebook semantic search and Memory Recall. They turn text into number lists so Marinara can find related entries. Most chat providers let you set an **Embedding Model** and an optional **Embedding Endpoint URL** in the connection editor.
 
 Some providers cannot make embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** do not offer them. For those, use the **Embedding Connection** dropdown to borrow another connection, such as an OpenAI-compatible one, **Google Gemini**, or the built-in **Local Model**.
+
+To use one embedding source for every connection that has no embedding settings of its own, open the **Connections** panel, expand **Defaults**, and choose it under **Embeddings**. **None (built-in local model)** keeps the built-in local embedding model. A connection's own embedding model or **Embedding Connection** still wins. Re-vectorize your lorebooks and memories after you change it. See [Semantic Search for Lorebooks](../lorebooks/semantic-search.md).
 
 ## Related guides
 

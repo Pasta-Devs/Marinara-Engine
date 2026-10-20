@@ -3034,7 +3034,7 @@ assert.ok(!("mariDetailId" in mariSession));
 // `--mari-layer-omnibar`. No other numeric z-index in the client may reach it, except a few
 // deliberate, known exceptions above it: user extension windows/menus (they sit near 2^31 and
 // above the sonner toaster too, so outranking them would need the toaster moved as well) and the
-// touch folder-drag ghost. Sonner's toaster (999999999) stays above
+// touch folder-drag ghost. Sonner's toaster and its clipped phone host (999999999) stay above
 // the layer so Undo toasts remain visible over the omnibar.
 {
   const clientSource = (relativePath: string) =>
@@ -3058,7 +3058,14 @@ assert.ok(!("mariDetailId" in mariSession));
     const normalizedFile = file.replaceAll("\\", "/");
     if (aboveLayerAllowed.has(normalizedFile)) return [];
     const source = clientSource(file);
-    return [...source.matchAll(/z-\[(\d+)\]|zIndex:\s*"?(\d+)|z-index:\s*(\d+)|Z_INDEX\s*=\s*"?(\d+)/gu)]
+    const layerSource =
+      normalizedFile === "App.tsx"
+        ? source.replace(
+            '"pointer-events-none fixed inset-0 z-[999999999] [&_[data-sonner-toast]]:pointer-events-auto"',
+            '"pointer-events-none fixed inset-0 [&_[data-sonner-toast]]:pointer-events-auto"',
+          )
+        : source;
+    return [...layerSource.matchAll(/z-\[(\d+)\]|zIndex:\s*"?(\d+)|z-index:\s*(\d+)|Z_INDEX\s*=\s*"?(\d+)/gu)]
       .map((match) => Number(match[1] ?? match[2] ?? match[3] ?? match[4]))
       .filter((value) => value >= layer)
       .map((value) => `${file}: ${value}`);

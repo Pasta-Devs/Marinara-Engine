@@ -1,9 +1,11 @@
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const sharp = createRequire(new URL("../packages/server/package.json", import.meta.url))("sharp");
 // Run only the saved-avatar case against the old client to capture the actual missing-avatar baseline.
 const baseline = process.env.NARRATOR_AVATAR_BASELINE === "true";
 const record = (value: unknown): Record<string, any> =>
@@ -18,11 +20,16 @@ function fixture(request: APIRequestContext) {
     resources.unshift(`${path}/${value.id}`);
     return value;
   };
-  const character = async (name: string, image?: string) => {
+  // Test-owned portraits: one solid colour per character, so every avatar differs by file and by look.
+  const character = async (name: string, color?: string) => {
     const row = await create("/api/characters", { data: { name, description: `${name} character card.` } });
     let avatarUrl: string | null = null;
-    if (image) {
-      const avatar = readFileSync(new URL(`../packages/client/public/sprites/mari/${image}`, import.meta.url));
+    if (color) {
+      const avatar: Buffer = await sharp({
+        create: { width: 64, height: 64, channels: 3, background: color },
+      })
+        .png()
+        .toBuffer();
       const response = await request.post(`/api/characters/${row.id}/avatar`, {
         data: { avatar: `data:image/png;base64,${avatar.toString("base64")}`, filename: `${name}.png` },
       });
@@ -80,10 +87,10 @@ test("saved narrator references add only valid outside avatars without reviving 
 }, info) => {
   const data = fixture(request);
   try {
-    const alice = await data.character("Alice", "Mari_wave.png");
-    const bob = await data.character("Bob", "Mari_thinking.png");
-    const inactive = await data.character("Inactive member", "Mari_greet.png");
-    const guest = await data.character("Referenced visitor", "Mari_profile.png");
+    const alice = await data.character("Alice", "#c0392b");
+    const bob = await data.character("Bob", "#2a6fdb");
+    const inactive = await data.character("Inactive member", "#1e8449");
+    const guest = await data.character("Referenced visitor", "#d4a017");
     const noAvatar = await data.character("Visitor without portrait");
     const memberIds = [alice.id, bob.id, inactive.id];
     const chat = await data.create("/api/chats", {
@@ -159,9 +166,9 @@ test("lorebook narrator avatar references clear on regeneration and follow the s
       maxContext: 32768,
       treatAsLocalEndpoint: true,
     });
-    const alice = await data.character("Alice", "Mari_wave.png");
-    const bob = await data.character("Bob", "Mari_thinking.png");
-    const guest = await data.character("Referenced visitor", "Mari_profile.png");
+    const alice = await data.character("Alice", "#c0392b");
+    const bob = await data.character("Bob", "#2a6fdb");
+    const guest = await data.character("Referenced visitor", "#d4a017");
     const memberIds = [alice.id, bob.id];
     const preset = await data.create("/api/prompts", { name: "Narrator reference cards", wrapFormat: "none" });
     for (const [order, type] of ["lorebook", "id_macro_cards", "chat_history"].entries()) {
@@ -267,9 +274,9 @@ for (const variant of ["single-roleplay", "individual-roleplay", "conversation",
     test.skip(baseline || !info.project.name.includes("desktop"), "Mode gates are shared across viewports.");
     const data = fixture(request);
     try {
-      const alice = await data.character("Alice", "Mari_wave.png");
-      const bob = await data.character("Bob", "Mari_thinking.png");
-      const guest = await data.character("Outside visitor", "Mari_profile.png");
+      const alice = await data.character("Alice", "#c0392b");
+      const bob = await data.character("Bob", "#2a6fdb");
+      const guest = await data.character("Outside visitor", "#d4a017");
       const mode = variant.endsWith("roleplay") ? "roleplay" : variant;
       const chat = await data.create("/api/chats", {
         name: `No narrator reference in ${variant}`,

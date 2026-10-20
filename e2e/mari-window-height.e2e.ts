@@ -26,11 +26,18 @@ test("Professor Mari height slider keeps the old minimum and persists its choice
       .locator("main")
       .first()
       .click({ position: { x: 5, y: 5 } });
-    await page.keyboard.press("Control+j");
+    // The app's own rule: Cmd+J on Apple platforms (WebKit on a Mac reports one for the iPhone too), Ctrl+J elsewhere.
+    const apple: boolean = await page.evaluate(async () => {
+      const modulePath = "/src/lib/command-center.ts";
+      return (await import(modulePath)).isApplePlatform();
+    });
+    await page.keyboard.press(apple ? "Meta+j" : "Control+j");
     await expect(page.locator('[data-component="GlobalOmnibar.Mari"]')).toHaveAttribute("aria-hidden", "false");
   };
   await openMari();
   const panel = page.locator('[data-component="GlobalOmnibar.Panel"]');
+  // #7501 raised the maximum height to 120rem. Kept as a literal so an unintended change to the limit fails here.
+  const maxRem = 120;
   const expectedHeight = (rem: number) =>
     page.evaluate(
       (value) =>
@@ -56,25 +63,43 @@ test("Professor Mari height slider keeps the old minimum and persists its choice
   }
   await panel.getByRole("button", { name: "Search and Professor Mari settings", exact: true }).click();
   const slider = panel.getByRole("slider", { name: "Professor Mari window height" });
+  // Phones always show Professor Mari full screen, so #7501 hides the window size section below 640px.
+  const sizeSection = panel.getByRole("region", { name: "Professor Mari window", exact: true, includeHidden: true });
+  const expectSizeSectionHidden = async () => {
+    await expect(panel.getByText("Ask Professor Mari from Search", { exact: true })).toBeVisible();
+    await expect(sizeSection).toHaveCount(1);
+    await expect(sizeSection).toBeHidden();
+  };
+  if (mobile) {
+    await expectSizeSectionHidden();
+    await page.keyboard.press("Escape");
+    await assertHeight(48);
+    await testInfo.attach("browser-diagnostics", {
+      body: diagnostics.join("\n") || "No console errors or failed requests.",
+      contentType: "text/plain",
+    });
+    return;
+  }
   await expect(slider).toHaveAttribute("min", "44");
+  await expect(slider).toHaveAttribute("max", String(maxRem));
   await expect(slider).toHaveValue("48");
   await slider.focus();
   await page.keyboard.press("Home");
   await expect(slider).toHaveValue("44");
   await assertHeight(44);
   await page.keyboard.press("End");
-  await expect(slider).toHaveValue("64");
-  await assertHeight(64);
+  await expect(slider).toHaveValue(String(maxRem));
+  await assertHeight(maxRem);
   await expect
     .poll(() =>
       page.evaluate(() => JSON.parse(localStorage.getItem("marinara-engine-ui") || "{}").state?.mariWindowHeightRem),
     )
-    .toBe(64);
+    .toBe(maxRem);
   await page.reload();
   await openMari();
-  await assertHeight(64);
+  await assertHeight(maxRem);
   await panel.getByRole("button", { name: "Search and Professor Mari settings", exact: true }).click();
-  await expect(slider).toHaveValue("64");
+  await expect(slider).toHaveValue(String(maxRem));
   mkdirSync(shots, { recursive: true });
   await slider.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${shots}/${testInfo.project.name}-settings.png` });
@@ -95,10 +120,11 @@ test("Professor Mari height slider keeps the old minimum and persists its choice
             },
             { visualTheme, theme },
           );
-          await assertHeight(64);
+          await assertHeight(maxRem);
           await page.screenshot({ path: `${shots}/${width}-${visualTheme}-${theme}-window.png` });
           await panel.getByRole("button", { name: "Search and Professor Mari settings", exact: true }).click();
-          await slider.scrollIntoViewIfNeeded();
+          if (width < 640) await expectSizeSectionHidden();
+          else await slider.scrollIntoViewIfNeeded();
           await page.screenshot({ path: `${shots}/${width}-${visualTheme}-${theme}-settings.png` });
           await page.keyboard.press("Escape");
           await expect(slider).not.toBeVisible();

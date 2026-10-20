@@ -12,9 +12,15 @@
 // expression for the line on screen.
 // Either way an Expression Engine pick for this reply's message is the final face for that reply.
 // A reply ends when its generation does (after the typewriter has shown it all). With streaming off it arrives whole
-// (assistant_message_ready), is classified once and spoken within 8 s.
+// (assistant_message_ready), is classified sentence by sentence and spoken within 8 s.
 // Mouths: the speech clock speaks the visible dialogue (only dialogue, never narration); while text-to-speech
-// plays for an owner, its audio level drives the mouth instead (subscribeAvatarAudio).
+// plays for an owner, its audio level drives the mouth instead (subscribeAvatarAudio), and its moods follow the
+// voice: each sentence of the clip's text shows as the voice reaches its share of the clip.
+// Text-to-speech auto-play (Roleplay): the voice usually starts after the reply has streamed. While the reply will
+// be read aloud, the text moves no mouth and its moods are held; the voice brings both, the face relaxes 4 s after
+// the voice ends, and an Expression Engine pick shows once the reading is over. ChatArea says when a reading starts
+// and ends (TTS_AUTOPLAY_VOICE_EVENT). A reading that never plays (an error, no lines to read, stopped) replays the
+// text animation once if the reply ended moments ago, and otherwise shows the reply's last mood and relaxes.
 // A Roleplay director asks the server to get the local emotion model ready (POST /api/avatar-classify/model): that,
 // for a chat with an avatar agent on, is the only thing that downloads it.
 // Everything runs on the stage's frame calls: no timers, and no work at all while the stage is paused.
@@ -37,7 +43,12 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { parseChatMetadata } from "../../../lib/chat-display";
-import { TTS_AUTOPLAY_MESSAGE_READY_EVENT, type TTSAutoplayMessageReadyDetail } from "../../../lib/tts-autoplay";
+import {
+  TTS_AUTOPLAY_MESSAGE_READY_EVENT,
+  TTS_AUTOPLAY_VOICE_EVENT,
+  type TTSAutoplayMessageReadyDetail,
+  type TTSAutoplayVoiceDetail,
+} from "../../../lib/tts-autoplay";
 import { cleanTTSInputText, findTTSCharacterIdBySpeakerName } from "../../../lib/tts-dialogue";
 import { useAgentStore } from "../../../stores/agent.store";
 import { useChatStore } from "../../../stores/chat.store";
@@ -58,9 +69,10 @@ import {
   collectReplyDialogue,
   readReplySegments,
   type ReplyParagraph,
+  type ReplySegment,
   type ReplySpeaker,
 } from "./reply-text";
-import { createSpeechClock, followMouthEnvelope, type SpeechClock } from "./speech-clock";
+import { createSpeechClock, followMouthEnvelope, SPEECH_CLOCK, type SpeechClock } from "./speech-clock";
 
 export const AVATAR_DIRECTOR_TIMING = Object.freeze({
   /** Gap between classifier requests. */
@@ -82,6 +94,13 @@ export const AVATAR_DIRECTOR_TIMING = Object.freeze({
   cacheSize: 256,
   /** While the server answers with keywords, how often to ask it again to get its local model ready. */
   prepareModelIntervalMs: 60_000,
+  /** Text-to-speech auto-play: how long after the reply ends a reading may take to begin before the avatar stops
+   *  waiting for it, and how long the voice may stay away (still loading, paused, or blocked until a tap) before
+   *  the avatar stops waiting anyway. */
+  voiceStartGraceMs: 2_000,
+  voiceWaitMaxMs: 30_000,
+  /** A reading that never played and ended this soon after the reply replays the text animation once. */
+  voiceReplayWithinMs: 5_000,
 });
 
 /** The part of the server's model status the director reads. */
@@ -118,13 +137,30 @@ interface OwnerState {
   audio: AvatarAudioLevelSource | null;
   audioOpen: number;
   lastFrameMs: number | null;
+  /** The last classifier result held while waiting for the voice. */
+  held: AvatarClassification | null;
+  /** The last frame time this owner's voice played, and whether it played during this reply's reading. */
+  voiceAt: number;
+  voicePlayed: boolean;
+  /** An earlier reading's voice was still playing when this reading began; it is not this reading's voice. */
+  voiceStale: boolean;
+  /** The clip the voice is reading: its sentences, the next one to show, and how far the voice was. */
+  line: { text: string; parts: ReplySegment[]; next: number; progress: number } | null;
+  textTimeline: { text: string; from: number; ms: number } | null;
+  gameSpeech: { id: string | undefined; text: string; from: number | null; pending: boolean } | null;
+  gameVoiceLineId: string | null | undefined;
 }
 
 interface QueuedText {
   ownerId: string;
   text: string;
   turn: number;
+  /** Fills the cache only: a voice line applies it when the voice reaches it. */
+  cacheOnly?: boolean;
 }
+
+/** Sentences of a voice clip sent to the classifier ahead of the voice. */
+const VOICE_LOOKAHEAD = 3;
 
 const clamp01 = (value: number) => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0);
 
@@ -166,6 +202,14 @@ function newOwner(participant: AvatarParticipant): OwnerState {
     audio: null,
     audioOpen: 0,
     lastFrameMs: null,
+    held: null,
+    voiceAt: -Infinity,
+    voicePlayed: false,
+    voiceStale: false,
+    line: null,
+    textTimeline: null,
+    gameSpeech: null,
+    gameVoiceLineId: null,
   };
 }
 
@@ -175,6 +219,8 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
   const prepareModel = hooks.prepareModel ?? defaultPrepareModel;
   const T = AVATAR_DIRECTOR_TIMING;
   const owners = new Map<string, OwnerState>();
+  // Audio can already be playing when the stage mounts, before its participants are registered.
+  const audioSources = new Map<string, AvatarAudioLevelSource>();
   /** Sentence text → classification (a Map hashes the text). */
   const cache = new Map<string, AvatarClassification>();
   const unsubscribers: Array<() => void> = [];
@@ -190,6 +236,7 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
   let streamStarted = false;
   let streamEndedAt: number | null = null;
   let lineShownThisTurn = false;
+  let shownGameLineId: string | undefined;
   let userTyping = false;
   /** This turn's reply rows: an Expression Engine pick for another message belongs to an earlier reply. */
   let replyMessageIds = new Set<string>();
@@ -204,6 +251,20 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
   let read: { text: string; speakerId: string | null } = { text: "", speakerId: null };
   let readOffset = 0;
   let spoken = new Map<string, string>();
+
+  // Text-to-speech auto-play: whether it reads Roleplay replies, and this reply's reading. "waiting" holds the
+  // text's mouth, moods and Expression Engine picks for the voice.
+  let voiceAutoplay = false;
+  let voice: "off" | "waiting" | "done" = "off";
+  /** The reading ChatArea started for this reply, and whether that reading is still going. */
+  let voiceReadingId: string | null = null;
+  let voicePending = false;
+  /** When the wait last had news: the generation ended, or a voice played. */
+  let voiceNewsAt = -Infinity;
+  let turnEndedAt = -Infinity;
+  let heldPicks = new Map<string, string>();
+  /** The text animation played once more, revealing the finished reply over `ms`. */
+  let replay: { text: string; speakerId: string | null; from: number; ms: number } | null = null;
 
   // Classifier traffic.
   let queue: QueuedText[] = [];
@@ -326,11 +387,23 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
     arrived = [];
     inFlight?.abort();
     inFlight = null;
+    voice = voiceAutoplay && mode === "roleplay" ? "waiting" : "off";
+    voiceReadingId = null;
+    voicePending = false;
+    voiceNewsAt = -Infinity;
+    turnEndedAt = -Infinity;
+    heldPicks = new Map();
+    replay = null;
     for (const owner of owners.values()) {
       owner.settled = false;
       owner.pending = null;
       owner.pendingFeeling = null;
       owner.neutralStreak = 0;
+      owner.held = null;
+      owner.voicePlayed = false;
+      owner.textTimeline = null;
+      owner.gameSpeech = null;
+      owner.gameVoiceLineId = null;
       if (!owner.audio) owner.clock.clear();
     }
   };
@@ -345,7 +418,10 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
     if (value === generating) return;
     generating = value;
     if (value) startTurn();
-    else finishReply();
+    else {
+      turnEndedAt = voiceNewsAt = now;
+      finishReply();
+    }
   };
 
   const enqueue = (ownerId: string | null, text: string) => {
@@ -384,6 +460,8 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       spoken.set(ownerId, said);
       const owner = owners.get(ownerId);
       if (!owner || owner.audio?.isPlaying() || !said.startsWith(before) || said.length === before.length) continue;
+      // The voice will move the mouth.
+      if (voice === "waiting") continue;
       if (wholeReply) owner.clock.speakAll(said, T.wholeSpeechMaxMs);
       else owner.clock.push(said.slice(before.length));
     }
@@ -392,7 +470,8 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       for (const segment of next.segments) enqueue(ownerAt(paragraphs, segment.start), segment.text);
       readOffset = next.next;
     } else if (replyDone && readOffset < text.length) {
-      // A reply that arrived whole is classified whole, once per owner, when it is complete.
+      // Prepare each owner's sentences, then show their moods along the text speech timeline. Applying
+      // all sentence results in one classifier batch would show only the final mood in the same frame.
       const byOwner = new Map<string, string[]>();
       for (const paragraph of paragraphs) {
         if (!paragraph.ownerId) continue;
@@ -401,8 +480,18 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
         byOwner.set(paragraph.ownerId, parts);
       }
       for (const [ownerId, parts] of byOwner) {
-        const plain = cleanTTSInputText(parts.join("\n")).slice(-AVATAR_CLASSIFY_LIMITS.maxTextLength);
-        if (/\p{L}/u.test(plain)) enqueue(ownerId, plain);
+        const owner = owners.get(ownerId);
+        const plain = cleanTTSInputText(parts.join("\n"));
+        if (!owner || !/\p{L}/u.test(plain)) continue;
+        owner.line = null;
+        owner.textTimeline = {
+          text: plain,
+          from: now,
+          ms: Math.min(
+            T.wholeSpeechMaxMs,
+            ((spoken.get(ownerId)?.length || plain.length) / SPEECH_CLOCK.charsPerSecond) * 1000,
+          ),
+        };
       }
       readOffset = text.length;
     }
@@ -422,6 +511,7 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
     queue = [];
     const deliver = () => {
       for (const item of batch) {
+        if (item.cacheOnly) continue;
         const result = cache.get(item.text) ?? classifyExpressionKeywords(item.text);
         arrived.push({ ownerId: item.ownerId, turn: item.turn, result });
       }
@@ -454,6 +544,111 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       });
   };
 
+  const applyHeldPicks = () => {
+    for (const [ownerId, expression] of heldPicks) {
+      const owner = owners.get(ownerId);
+      if (!owner) continue;
+      switchToLabel(owner, expression);
+      owner.settled = true;
+    }
+    heldPicks = new Map();
+  };
+
+  /** Plays the text animation once more: the finished reply is shown again over a few seconds, as it streamed. */
+  const replayReply = () => {
+    if (!latest) return;
+    const { text, speakerId } = latest;
+    const ms = wholeReply ? 0 : Math.min(T.wholeSpeechMaxMs, (text.length / SPEECH_CLOCK.charsPerSecond) * 1000);
+    replay = { text, speakerId, from: now, ms };
+    latest = { text: "", speakerId };
+    read = { text: "", speakerId };
+    readOffset = 0;
+    spoken = new Map();
+    replyDone = false;
+  };
+
+  const finishReplay = () => {
+    replay = null;
+    replyDone = true;
+    dirty = true;
+    // A whole reply still has its sentence timeline to play after it is revealed in this frame.
+    if (!wholeReply) applyHeldPicks();
+  };
+
+  const revealReplay = (shown: { text: string; speakerId: string | null; from: number; ms: number }) => {
+    const length = shown.ms > 0 ? Math.ceil((shown.text.length * (now - shown.from)) / shown.ms) : Infinity;
+    if (length >= shown.text.length) {
+      latest = { text: shown.text, speakerId: shown.speakerId };
+      finishReplay();
+    } else if (length > (latest?.text.length ?? 0)) {
+      latest = { text: shown.text.slice(0, length), speakerId: shown.speakerId };
+      dirty = true;
+    }
+  };
+
+  /** The wait for the voice is over: it was read, never played, or stayed away too long. */
+  const endVoice = () => {
+    voice = "done";
+    voicePending = false;
+    const played = [...owners.values()].some((owner) => owner.voicePlayed);
+    if (!played && !generating && streamEndedAt !== null && now - streamEndedAt <= T.voiceReplayWithinMs) {
+      replayReply();
+      return;
+    }
+    // The text is long gone: each avatar whose voice did not play shows the reply's last mood, then relaxes.
+    for (const owner of owners.values()) {
+      if (owner.voicePlayed) continue;
+      if (owner.textTimeline) {
+        if (played) {
+          // Another group member got a voice; this owner's text moods still need their own paced fallback.
+          owner.textTimeline.from = now;
+          owner.line = null;
+        } else {
+          const last = readReplySegments(owner.textTimeline.text, 0, true).segments.at(-1);
+          if (last) enqueue(owner.ownerId, last.text);
+          owner.textTimeline = null;
+        }
+      }
+      if (owner.held) applyClassification(owner, owner.held);
+    }
+    if (![...owners.values()].some((owner) => owner.textTimeline)) applyHeldPicks();
+  };
+
+  const checkVoice = () => {
+    const over = voiceReadingId !== null && !voicePending && !generating;
+    const neverBegan =
+      voiceReadingId === null && (!voiceAutoplay || (!generating && now - turnEndedAt >= T.voiceStartGraceMs));
+    const tooLong = !generating && now - voiceNewsAt >= T.voiceWaitMaxMs;
+    if (over || neverBegan || tooLong) endVoice();
+  };
+
+  /** Shows each sentence of the clip the voice reads as the voice reaches its share of the clip. */
+  const followVoice = (owner: OwnerState, heard: { text: string; progress: number }) => {
+    let line = owner.line;
+    if (!line || line.text !== heard.text || heard.progress < line.progress) {
+      line = owner.line = {
+        text: heard.text,
+        parts: readReplySegments(heard.text, 0, true).segments,
+        next: 0,
+        progress: 0,
+      };
+    }
+    line.progress = heard.progress;
+    // The next sentences go to the classifier ahead of the voice; the cache answers the ones the reply had.
+    for (const part of line.parts.slice(line.next, line.next + VOICE_LOOKAHEAD)) {
+      if (!cache.has(part.text) && !queue.some((item) => item.text === part.text)) {
+        queue.push({ ownerId: owner.ownerId, text: part.text, turn, cacheOnly: true });
+      }
+    }
+    const reached = heard.progress * heard.text.length;
+    while (line.next < line.parts.length && line.parts[line.next]!.start <= reached) {
+      const result = cache.get(line.parts[line.next]!.text);
+      if (!result) break;
+      applyClassification(owner, result);
+      line.next += 1;
+    }
+  };
+
   /** Runs once per frame time, however many avatars ask for a frame. */
   const tick = (nowMs: number) => {
     if (nowMs === lastTickMs) return;
@@ -464,14 +659,55 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       arrived = [];
       for (const { ownerId, turn: resultTurn, result } of results) {
         const owner = owners.get(ownerId);
-        if (owner && resultTurn === turn) applyClassification(owner, result);
+        if (!owner || resultTurn !== turn) continue;
+        // The voice brings the moods; the last one is kept for a voice that never plays.
+        if (voice === "waiting") owner.held = result;
+        else applyClassification(owner, result);
       }
     }
+    if (replay) revealReplay(replay);
     if (dirty && (replyDone || now - lastReadAt >= T.readIntervalMs)) {
       dirty = false;
       lastReadAt = now;
       readReply();
     }
+    for (const owner of owners.values()) {
+      if (owner.gameSpeech) {
+        const pending = owner.gameSpeech;
+        // The first Game line can arrive through the feed before the first absolute RAF timestamp.
+        pending.from ??= now;
+        if (owner.audio?.isPlaying()) owner.gameSpeech = null;
+        else if (now - pending.from >= (pending.pending ? T.voiceWaitMaxMs : T.voiceStartGraceMs)) {
+          owner.clock.speakAll(pending.text, T.wholeSpeechMaxMs);
+          owner.gameSpeech = null;
+        }
+      }
+      if (owner.textTimeline && voice !== "waiting" && !owner.audio?.isPlaying()) {
+        const timeline = owner.textTimeline;
+        const progress = Math.min(1, (now - timeline.from) / Math.max(1, timeline.ms));
+        followVoice(owner, { text: timeline.text, progress });
+        if (progress >= 1 && owner.line?.next === owner.line?.parts.length) owner.textTimeline = null;
+      }
+      if (!owner.audio?.isPlaying()) continue;
+      owner.textTimeline = null;
+      owner.voiceAt = now;
+      // Only this reading's voice ends the wait, not an earlier one still playing while this reply streams or loads.
+      if (voice === "waiting" && voiceReadingId !== null && !owner.voiceStale) {
+        owner.voicePlayed = true;
+        voiceNewsAt = now;
+      }
+      // Game faces come from the Game Master's lines only.
+      const heard = mode === "roleplay" ? owner.audio.line?.() : null;
+      if (heard) followVoice(owner, heard);
+    }
+    if (voice === "waiting") checkVoice();
+    if (
+      heldPicks.size > 0 &&
+      voice !== "waiting" &&
+      !replay &&
+      ![...owners.values()].some((owner) => owner.textTimeline)
+    )
+      applyHeldPicks();
     sendQueued();
     for (const owner of owners.values()) {
       if (owner.pending && now - owner.switchedAt >= T.minDwellMs) {
@@ -482,9 +718,13 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
         owner.label = null;
         setFeeling(owner, owner.pendingFeeling);
       }
-      if (mode !== "roleplay" || generating || streamEndedAt === null || owner.settled || owner.speaking) continue;
+      if (mode !== "roleplay" || generating || replay || owner.settled || owner.speaking) continue;
+      // While a reading is coming, a face holds until its voice has played, then relaxes after the voice.
+      if (voice === "waiting" && !owner.voicePlayed) continue;
       if (owner.emotion === "neutral" && !owner.feeling) continue;
-      const since = now - Math.max(streamEndedAt, owner.switchedAt) - T.settleAfterMs;
+      const ended = Math.max(streamEndedAt ?? -Infinity, owner.voiceAt);
+      if (ended === -Infinity) continue;
+      const since = now - Math.max(ended, owner.switchedAt) - T.settleAfterMs;
       if (since < 0) continue;
       if (owner.emotion === "neutral") {
         // A calm face with a feeling (curiosity) relaxes to the plain one; the emotion and its weight stay as they are.
@@ -520,6 +760,10 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
         }
         owners.set(participant.owner.ownerId, existing ?? newOwner(participant));
       }
+      for (const owner of owners.values()) {
+        const source = audioSources.get(owner.ownerId);
+        if (source && owner.audio !== source) director.setAudioSource(owner.ownerId, source);
+      }
       // Game lines once there is someone to give them to: the line already on screen arrives right away.
       if (mode === "game" && !gameLinesSubscribed && !disposed) {
         gameLinesSubscribed = true;
@@ -536,6 +780,8 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
         // New text while the generation runs means the reply goes on (the next group speaker, or the typewriter still
         // showing it). After the generation ends it is a late rewrite of the finished reply, read as finished.
         if (replyDone && generating && latest && update.text !== latest.text) replyDone = false;
+        // A late rewrite while the text animation replays: read the new text as finished.
+        if (replay) finishReplay();
         latest = { text: update.text, speakerId: update.speakerOwnerId };
         streamStarted = true;
         dirty = true;
@@ -549,23 +795,70 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       for (const pick of picks) {
         const owner = owners.get(pick.ownerId) ?? ownerByName(pick.ownerId);
         if (!owner) continue;
-        switchToLabel(owner, pick.expression);
-        owner.settled = true;
+        // The voice (or the replayed text) still has moods to show: the pick is the face after them.
+        if (voice === "waiting" || replay || owner.textTimeline) heldPicks.set(owner.ownerId, pick.expression);
+        else {
+          switchToLabel(owner, pick.expression);
+          owner.settled = true;
+        }
       }
     },
     pushGameLine(line: AvatarGameLine) {
       if (mode !== "game") return;
       lineShownThisTurn = true;
+      const previousLineId = shownGameLineId;
+      if (line.id === undefined || line.id !== shownGameLineId) {
+        for (const participant of owners.values()) {
+          participant.gameSpeech = null;
+          participant.gameVoiceLineId = null;
+          participant.clock.clear();
+        }
+      }
+      shownGameLineId = line.id;
       const owner = (line.ownerId ? owners.get(line.ownerId) : null) ?? ownerByName(line.speakerName);
       if (!owner) return;
       if (line.expression) switchToLabel(owner, line.expression);
-      if (!owner.audio?.isPlaying()) owner.clock.speakAll(cleanTTSInputText(line.text), T.wholeSpeechMaxMs);
+      const text = cleanTTSInputText(line.text);
+      if (owner.audio?.isPlaying()) {
+        if (previousLineId === undefined || previousLineId === line.id) owner.gameVoiceLineId = line.id;
+        owner.gameSpeech = null;
+        return;
+      }
+      if (!text || owner.gameVoiceLineId === line.id) {
+        owner.gameSpeech = null;
+        return;
+      }
+      if ((line.voiceExpected ?? voiceAutoplay) && !owner.isPersona) {
+        const previous = owner.gameSpeech;
+        const pending = line.voicePending === true;
+        owner.clock.clear();
+        owner.gameSpeech = {
+          id: line.id,
+          text,
+          from: previous && previous.id === line.id && previous.pending === pending ? previous.from : null,
+          pending,
+        };
+      } else {
+        owner.gameSpeech = null;
+        owner.clock.speakAll(text, T.wholeSpeechMaxMs);
+      }
     },
     setAudioSource(ownerId: string, source: AvatarAudioLevelSource | null) {
+      if (source) audioSources.set(ownerId, source);
+      else audioSources.delete(ownerId);
       const owner = owners.get(ownerId);
       if (!owner) return;
       owner.audio = source;
+      if (source && mode === "game") {
+        owner.gameVoiceLineId = owner.gameSpeech?.id ?? shownGameLineId;
+        owner.gameSpeech = null;
+      }
+      // The voice that was playing stopped or moved on; the next one belongs to the reading now announced.
+      owner.voiceStale = false;
       if (source) owner.clock.clear();
+    },
+    setVoiceAutoplay(on: boolean) {
+      voiceAutoplay = on;
     },
     setUserTyping(typing: boolean) {
       userTyping = typing;
@@ -605,6 +898,7 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
       queue = [];
       arrived = [];
       for (const unsubscribe of unsubscribers.splice(0)) unsubscribe();
+      audioSources.clear();
     },
   };
 
@@ -682,6 +976,27 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
     };
     window.addEventListener(TTS_AUTOPLAY_MESSAGE_READY_EVENT, onMessageReady);
     unsubscribers.push(() => window.removeEventListener(TTS_AUTOPLAY_MESSAGE_READY_EVENT, onMessageReady));
+
+    // Auto-play reads a reply: wait for its voice (also when the reply began before auto-play was known, or in a
+    // group, for the next member's reply), until that reading ends.
+    const onVoice = (event: Event) => {
+      const detail = (event as CustomEvent<TTSAutoplayVoiceDetail>).detail;
+      if (detail?.chatId !== chatId || mode !== "roleplay") return;
+      if (detail.pending) {
+        if (replay) return;
+        voice = "waiting";
+        voiceReadingId = detail.readingId;
+        // A voice playing now is an earlier reading's: this reading stops it before its own voice plays.
+        for (const owner of owners.values()) owner.voiceStale = owner.audio !== null;
+        voicePending = true;
+        voiceNewsAt = now;
+        replyMessageIds.add(detail.messageId);
+      } else if (detail.readingId === voiceReadingId) {
+        voicePending = false;
+      }
+    };
+    window.addEventListener(TTS_AUTOPLAY_VOICE_EVENT, onVoice);
+    unsubscribers.push(() => window.removeEventListener(TTS_AUTOPLAY_VOICE_EVENT, onVoice));
   }
 
   unsubscribers.push(subscribeAvatarAudio((ownerId, source) => director.setAudioSource(ownerId, source)));

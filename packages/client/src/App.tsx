@@ -9,7 +9,9 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ErrorInfo,
@@ -43,6 +45,7 @@ import { api, requestTimeoutSignal } from "./lib/api-client";
 import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
 import { recordClientError } from "./lib/client-runtime-diagnostics";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
+import { UI_PERSISTENCE_HOST_COPY } from "./lib/ui-persistence";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
   getCssColorFallback,
@@ -67,6 +70,7 @@ import { installLongTaskWarner } from "./lib/perf-diagnostics";
 import { getStoreBackLayers } from "./lib/back-layers";
 import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
+import { PHONE_TOAST_TOP_VARIABLE, watchPhoneToastTop } from "./lib/phone-toast-top";
 
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
 // Against a frozen host the connection opens but is never answered; without a
@@ -169,6 +173,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   private resetLocalUiState = () => {
     try {
       window.localStorage.removeItem("marinara-engine-ui");
+      window.localStorage.removeItem(UI_PERSISTENCE_HOST_COPY);
       window.localStorage.removeItem("marinara-active-chat-id");
       window.localStorage.removeItem("marinara-input-drafts");
       window.sessionStorage.removeItem("marinara-input-drafts");
@@ -394,7 +399,7 @@ function getThemeAccentPulseConfig(css: string | null | undefined) {
 
   return {
     enabled,
-    source: enabled ? getFirstThemeAccentSource(normalizedCss) : "",
+    source: getFirstThemeAccentSource(normalizedCss),
   };
 }
 
@@ -560,6 +565,17 @@ export function App() {
       window.removeEventListener("resize", handler);
     };
   }, []);
+
+  // A phone toast sits below the header rows at the top, never over their controls (lib/phone-toast-top).
+  const toasterHostRef = useRef<HTMLDivElement>(null);
+  const phoneToastsAtTop = isMobileShell && (omnibarOpen || notificationPosition !== "bottom");
+  const phoneToastOffsetTop = omnibarOpen
+    ? "calc(env(safe-area-inset-top) + 5rem)"
+    : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px))`;
+  useLayoutEffect(() => {
+    if (!phoneToastsAtTop || !toasterHostRef.current) return;
+    return watchPhoneToastTop(toasterHostRef.current);
+  }, [phoneToastsAtTop]);
 
   // Hardware / gesture back dismisses the topmost overlay instead of exiting.
   useEffect(() => {
@@ -744,7 +760,7 @@ export function App() {
     const accent = appAccentColor.trim();
     const defaultAccent = getDefaultAppAccentColor();
     const defaultSolidAccent = getCssColorFallback(defaultAccent, "currentColor");
-    const accentSource = themeAccentPulseConfig.source || accent || defaultAccent;
+    const accentSource = accent || themeAccentPulseConfig.source || defaultAccent;
     const solidAccent = getCssColorFallback(accentSource, defaultSolidAccent);
     const accentIsGradient = isCssGradient(accentSource);
     const animatedAccentSource = appAccentRgbMode ? RAINBOW_GRADIENT_PRESET : accentSource;
@@ -1268,6 +1284,15 @@ export function App() {
       <AppDialogRenderer />
       <CsrfOriginWarningBanner />
       <div
+        ref={toasterHostRef}
+        // Sonner slides top toasts upward and extends their hover area above the visible box.
+        // Clip both at the header edge so they cannot intercept its controls, even during motion.
+        className={
+          phoneToastsAtTop
+            ? "pointer-events-none fixed inset-0 z-[999999999] [&_[data-sonner-toast]]:pointer-events-auto"
+            : undefined
+        }
+        style={phoneToastsAtTop ? { clipPath: `inset(max(0px, calc(${phoneToastOffsetTop} - 8px)) 0 0 0)` } : undefined}
         // Interacting with a toast (including its close button) must not count
         // as an outside click for chat floating panels — otherwise dismissing
         // a toast closes the settings/gallery drawer (and any modal inside it).
@@ -1294,12 +1319,21 @@ export function App() {
             "right",
             omnibarOpen ? (isMobileShell ? "top" : "bottom") : notificationPosition === "bottom" ? "bottom" : "top",
           ]}
-          offset="4rem"
+          // Sonner's mobileOffset applies only up to 600px; wider touch shells and phone landscape
+          // need the same clearance without changing desktop placement or bottom notifications.
+          offset={{
+            top: phoneToastsAtTop ? phoneToastOffsetTop : "4rem",
+            bottom: "4rem",
+            left: "4rem",
+            right: "4rem",
+          }}
           mobileOffset={{
             // On the mobile omnibar the toast sits under the omnibar's own header
             // (search field + status row) instead of the app's top bar, so it
-            // needs more clearance than the app-shell top offset below.
-            top: omnibarOpen ? "calc(env(safe-area-inset-top) + 5rem)" : "calc(env(safe-area-inset-top) + 3.5rem)",
+            // needs more clearance than the app-shell top offset below. Elsewhere
+            // it sits below the window, editor, panel or chat header rows, and
+            // never higher than under the top bar.
+            top: phoneToastOffsetTop,
             bottom: "1rem",
           }}
           theme={theme}

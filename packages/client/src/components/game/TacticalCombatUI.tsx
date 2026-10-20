@@ -1212,7 +1212,7 @@ export function TacticalCombatUI({
             onClick={() => {
               launchBattle({ omitBattlefield: true });
             }}
-            className="rounded-lg border border-amber-300/40 bg-amber-300/15 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-300/25"
+            className="rounded-lg border border-[var(--marinara-app-accent-static)]/40 bg-[var(--marinara-app-accent-static)]/15 px-4 py-2 text-sm font-semibold text-[var(--marinara-app-accent-static)] hover:bg-[var(--marinara-app-accent-static)]/25"
           >
             {localizeUi("ui.game.tacticalcombatui.useGeneratedTerrain")}
           </button>
@@ -1269,6 +1269,7 @@ export function TacticalCombatUI({
       <div
         ref={chromeRef}
         data-game-section="tactical-status"
+        data-chat-window-top-obstacle
         className={cn(GAME_SECTION_CLASS, "z-20 flex shrink-0 flex-col")}
       >
         {/* Top bar: round/phase + controls */}

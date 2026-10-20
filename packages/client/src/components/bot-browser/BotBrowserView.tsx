@@ -40,6 +40,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { scopeChatMessageCss } from "../../lib/chat-message-css";
+import { handleRemoteImageClick, useRemoteImagePolicy } from "../../lib/remote-image-policy";
 import {
   containsChatHtml,
   decodeEncodedChatHtmlTags,
@@ -3921,14 +3922,15 @@ crc32.table = null as Uint32Array | null;
 function DefSection({ title, content, allowHtml = false }: { title: string; content: string; allowHtml?: boolean }) {
   const sectionId = useId();
   const htmlScopeClass = `mari-bot-notes-${sectionId.replace(/[^a-zA-Z0-9_-]/g, "") || "content"}`;
+  const remoteImages = useRemoteImagePolicy();
   const renderedHtml = useMemo(() => {
     if (!allowHtml || !containsChatHtml(content)) return null;
     const decoded = decodeEncodedChatHtmlTags(content);
     const { html, css } = extractChatStyleBlocks(decoded);
-    const clean = sanitizeChatHtml(html, { allowStyle: true, allowLinks: false });
-    const scopedCss = scopeChatMessageCss(css, `.${htmlScopeClass}`);
+    const clean = sanitizeChatHtml(html, { allowStyle: true, allowLinks: false, remoteImages });
+    const scopedCss = scopeChatMessageCss(css, `.${htmlScopeClass}`, { remoteUrls: remoteImages.loadAll });
     return scopedCss ? `<style>${scopedCss}</style>${clean}` : clean;
-  }, [allowHtml, content, htmlScopeClass]);
+  }, [allowHtml, content, htmlScopeClass, remoteImages]);
 
   return (
     <div>
@@ -3940,6 +3942,7 @@ function DefSection({ title, content, allowHtml = false }: { title: string; cont
             "relative max-h-40 !overflow-x-hidden overflow-y-auto whitespace-pre-wrap !contain-paint rounded-lg bg-[var(--secondary)] p-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]",
             htmlScopeClass,
           )}
+          onClick={handleRemoteImageClick}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />
       ) : (

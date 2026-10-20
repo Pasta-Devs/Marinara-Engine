@@ -4,7 +4,12 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
-import { activeSeasonalMariPack, getMariAppearancePack, mariSeasonKey } from "../lib/mari-work-animations";
+import {
+  activeSeasonalMariPack,
+  getMariAppearancePack,
+  mariSeasonKey,
+  resolveMariAppearancePack,
+} from "../lib/mari-work-animations";
 import {
   IMAGE_STYLE_PROFILES_STORAGE_KEY,
   normalizeImageStyleProfileSettings,
@@ -26,10 +31,18 @@ import { deferEditorLeave } from "../lib/editor-leave";
 import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
 import { stageLegacyFeatureModels } from "../lib/legacy-feature-models";
 import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
-import { UI_PERSISTENCE } from "../lib/ui-persistence";
+import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
+import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
-import { withSeasonalYear, type SeasonalThemeId, type SeasonalYears } from "../lib/seasonal-themes";
+import {
+  readSeasonalPreview,
+  seasonalThemeFor,
+  withSeasonalYear,
+  type SeasonalPreview,
+  type SeasonalThemeId,
+  type SeasonalYears,
+} from "../lib/seasonal-themes";
 
 export type Panel =
   | "chat"
@@ -722,6 +735,8 @@ interface UIState {
   mariUnlockedPackIds: string[];
   /** `mariSeasonKey` of the dated pack window the user picked another pack in; "" follows the dated pack. */
   mariSeasonOptOut: string;
+  /** The same for a `?seasonalPreview=` page: this page load only, never saved or synced. */
+  mariSeasonPreviewOptOut: string;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -961,6 +976,10 @@ interface UIState {
   quoteFormat: QuoteFormat;
   /** When true, common LaTeX symbol commands render as plain Unicode symbols in chat text. */
   convertLatexSymbols: boolean;
+  /** When true, images from other websites in messages load right away instead of waiting for a click. */
+  loadRemoteMessageImages: boolean;
+  /** Images from other websites the user chose to load (absolute URLs, newest first). */
+  approvedRemoteImageUrls: string[];
   /** When true, model responses are trimmed back to the last complete sentence before saving. */
   trimIncompleteModelOutput: boolean;
   /** When true, /continue separates appended text with a blank line. */
@@ -985,6 +1004,8 @@ interface UIState {
   seasonalGreetingYears: SeasonalYears;
   /** Per seasonal theme, the year it was turned off from its greeting. */
   seasonalThemeOffYears: SeasonalYears;
+  /** `?seasonalPreview=` on this page load, with its own greeting and "Turn it off" records; never saved or synced. */
+  seasonalPreview: SeasonalPreview | null;
   /** When true, show the global Music Player surface. */
   musicPlayerEnabled: boolean;
   /** Which Music Player surface to show. */
@@ -1374,6 +1395,8 @@ interface UIState {
   setDisableInlineNameGradients: (v: boolean) => void;
   setQuoteFormat: (v: QuoteFormat) => void;
   setConvertLatexSymbols: (v: boolean) => void;
+  setLoadRemoteMessageImages: (v: boolean) => void;
+  approveRemoteImageUrl: (href: string) => void;
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setContinueAddsNewline: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
@@ -1539,6 +1562,21 @@ function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
 }
 
 /**
+ * The pack Professor Mari wears for this state (`resolveMariAppearancePack`). Its dated pack follows the seasonal
+ * theme worn for the user (`seasonalThemeFor`), and a preview page reads its own unsaved opt-out.
+ */
+export function shownMariAppearancePack(state: UIState, playHours: number | null = null, now: Date = new Date()) {
+  return resolveMariAppearancePack(
+    state.mariAppearancePackId,
+    state.mariUnlockedPackIds,
+    playHours,
+    state.seasonalPreview ? state.mariSeasonPreviewOptOut : state.mariSeasonOptOut,
+    seasonalThemeFor(state, now).themeId,
+    now,
+  );
+}
+
+/**
  * Returns the subset of UI state that is synced to the server so it persists
  * across devices and browsers. Excludes device-local sizing preferences,
  * legacy migration flags, auto-computed fields (userStatus), and items tracked
@@ -1640,6 +1678,8 @@ export function pickSyncedSettings(state: UIState) {
     disableInlineNameGradients: state.disableInlineNameGradients,
     quoteFormat: state.quoteFormat,
     convertLatexSymbols: state.convertLatexSymbols,
+    loadRemoteMessageImages: state.loadRemoteMessageImages,
+    approvedRemoteImageUrls: state.approvedRemoteImageUrls,
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     continueAddsNewline: state.continueAddsNewline,
     speechToTextEnabled: state.speechToTextEnabled,
@@ -1894,6 +1934,8 @@ export function pickPersistedUIState(state: UIState) {
     disableInlineNameGradients: state.disableInlineNameGradients,
     quoteFormat: state.quoteFormat,
     convertLatexSymbols: state.convertLatexSymbols,
+    loadRemoteMessageImages: state.loadRemoteMessageImages,
+    approvedRemoteImageUrls: state.approvedRemoteImageUrls,
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     continueAddsNewline: state.continueAddsNewline,
     speechToTextEnabled: state.speechToTextEnabled,
@@ -1995,6 +2037,9 @@ export function pickPersistedUIState(state: UIState) {
   };
 }
 
+/** `?seasonalPreview=` on this page load, read once when the store is made. */
+const pageSeasonalPreviewId = readSeasonalPreview(globalThis.location?.search ?? "");
+
 export const useUIStore = create<UIState>()(
   persist(
     (setState, get) => {
@@ -2057,6 +2102,7 @@ export const useUIStore = create<UIState>()(
         mariAppearancePackId: "basic",
         mariUnlockedPackIds: [],
         mariSeasonOptOut: "",
+        mariSeasonPreviewOptOut: "",
         chatBackground: null,
         defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
         chatBackgroundBlur: 0,
@@ -2186,6 +2232,8 @@ export const useUIStore = create<UIState>()(
         disableInlineNameGradients: false,
         quoteFormat: "straight" as QuoteFormat,
         convertLatexSymbols: true,
+        loadRemoteMessageImages: false,
+        approvedRemoteImageUrls: [],
         trimIncompleteModelOutput: false,
         continueAddsNewline: true,
         speechToTextEnabled: false,
@@ -2198,6 +2246,7 @@ export const useUIStore = create<UIState>()(
         seasonalThemesDisabled: false,
         seasonalGreetingYears: {},
         seasonalThemeOffYears: {},
+        seasonalPreview: pageSeasonalPreviewId ? { themeId: pageSeasonalPreviewId, greeted: {}, turnedOff: {} } : null,
         musicPlayerEnabled: true,
         musicPlayerSource: "youtube" as MusicPlayerSource,
         youtubePlayerVolume: 70,
@@ -2432,11 +2481,15 @@ export const useUIStore = create<UIState>()(
         setOmnibarWindowWidthRem: (width) => set({ omnibarWindowWidthRem: normalizeOmnibarWindowWidthRem(width) }),
         setOmnibarWindowHeightRem: (height) => set({ omnibarWindowHeightRem: normalizeOmnibarWindowHeightRem(height) }),
         // A dated pack is never stored: picking it clears the opt-out, so the user's own pick returns after its window.
+        // A preview page keeps its opt-out unsaved, so trying the preview never opts out of the real holiday.
         setMariAppearancePack: (packId) => {
           const pack = getMariAppearancePack(packId);
-          const seasonal = activeSeasonalMariPack(get().seasonalThemesDisabled);
-          if (pack.season) set({ mariSeasonOptOut: "" });
-          else set({ mariAppearancePackId: pack.id, ...(seasonal && { mariSeasonOptOut: mariSeasonKey(seasonal) }) });
+          const state = get();
+          const seasonal = activeSeasonalMariPack(seasonalThemeFor(state).themeId);
+          const optOut = (key: string) =>
+            state.seasonalPreview ? { mariSeasonPreviewOptOut: key } : { mariSeasonOptOut: key };
+          if (pack.season) set(optOut(""));
+          else set({ mariAppearancePackId: pack.id, ...(seasonal && optOut(mariSeasonKey(seasonal))) });
         },
         markMariPackUnlocked: (packId) =>
           set((state) =>
@@ -3083,6 +3136,9 @@ export const useUIStore = create<UIState>()(
         setDisableInlineNameGradients: (v) => set({ disableInlineNameGradients: v }),
         setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
         setConvertLatexSymbols: (v) => set({ convertLatexSymbols: v }),
+        setLoadRemoteMessageImages: (v) => set({ loadRemoteMessageImages: v }),
+        approveRemoteImageUrl: (href) =>
+          set((state) => ({ approvedRemoteImageUrls: addApprovedRemoteImageUrl(state.approvedRemoteImageUrls, href) })),
         setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
         setShowHomeBrowserAddressBar: (visible) => set({ showHomeBrowserAddressBar: visible }),
         setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible) =>
@@ -3100,10 +3156,19 @@ export const useUIStore = create<UIState>()(
         // Switching seasonal themes back on also undoes a "Turn it off" from this year's greeting.
         setSeasonalThemesDisabled: (v) =>
           set(v ? { seasonalThemesDisabled: true } : { seasonalThemesDisabled: false, seasonalThemeOffYears: {} }),
+        // A preview page records its greeting and "Turn it off" in its own unsaved preview only.
         markSeasonalGreetingShown: (id, year) =>
-          set((state) => ({ seasonalGreetingYears: withSeasonalYear(state.seasonalGreetingYears, id, year) })),
+          set(({ seasonalPreview: preview, seasonalGreetingYears }) =>
+            preview
+              ? { seasonalPreview: { ...preview, greeted: withSeasonalYear(preview.greeted, id, year) } }
+              : { seasonalGreetingYears: withSeasonalYear(seasonalGreetingYears, id, year) },
+          ),
         turnOffSeasonalTheme: (id, year) =>
-          set((state) => ({ seasonalThemeOffYears: withSeasonalYear(state.seasonalThemeOffYears, id, year) })),
+          set(({ seasonalPreview: preview, seasonalThemeOffYears }) =>
+            preview
+              ? { seasonalPreview: { ...preview, turnedOff: withSeasonalYear(preview.turnedOff, id, year) } }
+              : { seasonalThemeOffYears: withSeasonalYear(seasonalThemeOffYears, id, year) },
+          ),
         setMusicPlayerEnabled: (v) => set({ musicPlayerEnabled: v }),
         setMusicPlayerSource: (v) =>
           set({
@@ -3417,6 +3482,12 @@ export const useUIStore = create<UIState>()(
         const flush = () => {
           if (pendingName !== null && pendingValue !== null) {
             localStorage.setItem(pendingName, pendingValue);
+            try {
+              localStorage.setItem(UI_PERSISTENCE_HOST_COPY, pendingValue);
+            } catch {
+              // A full quota must not undo the real save, and a stale copy must never be loaded over it.
+              localStorage.removeItem(UI_PERSISTENCE_HOST_COPY);
+            }
             pendingName = null;
             pendingValue = null;
           }
@@ -3436,7 +3507,19 @@ export const useUIStore = create<UIState>()(
         }
 
         return {
-          getItem: (name: string) => localStorage.getItem(name),
+          getItem: (name: string) => {
+            const stored = localStorage.getItem(name);
+            const value = readUIPersistence(stored, localStorage.getItem(UI_PERSISTENCE_HOST_COPY));
+            if (value !== stored && value !== null) {
+              try {
+                // Put the Engine's own save back, so the older blob's leftovers leave the key as well.
+                localStorage.setItem(name, value);
+              } catch {
+                // Loading the copy is what matters; a failed write here must not fail hydration.
+              }
+            }
+            return value;
+          },
           setItem: (name: string, value: string) => {
             const previousValue = pendingValue ?? localStorage.getItem(name);
             pendingName = name;
@@ -3448,7 +3531,10 @@ export const useUIStore = create<UIState>()(
             if (timer) clearTimeout(timer);
             timer = setTimeout(flush, 1000);
           },
-          removeItem: (name: string) => localStorage.removeItem(name),
+          removeItem: (name: string) => {
+            localStorage.removeItem(name);
+            localStorage.removeItem(UI_PERSISTENCE_HOST_COPY);
+          },
         };
       }),
       migrate: (persisted: any, version: number) => {
@@ -4059,6 +4145,8 @@ export const useUIStore = create<UIState>()(
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
             : [],
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
+          loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
+          approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

@@ -39,8 +39,44 @@ test("character editor shows the whole name when it fits beside the byline", asy
 
     if (testInfo.project.name.includes("mobile")) {
       await expectFullName();
+      // The Onboarding section (#7308) and Ask Professor Mari (#7312) pushed the actions onto a row of their own.
+      const header = page.locator(".mari-editor-shell .mari-editor-header");
+      await expect(header.getByRole("button", { name: "Editor sections", exact: true })).toBeVisible();
+      const row = await header.evaluate((element) => {
+        const controls = [
+          element.querySelector(".mari-editor-navigation-compact button"),
+          ...element.querySelectorAll(".mari-editor-actions > *"),
+        ]
+          .filter((item): item is HTMLElement => item instanceof HTMLElement && item.getBoundingClientRect().width > 0)
+          .map((item) => {
+            const bounds = item.getBoundingClientRect();
+            return { left: bounds.left, right: bounds.right, center: bounds.top + bounds.height / 2 };
+          });
+        const bounds = element.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, controls };
+      });
+      const rowCenters = row.controls.map((control) => control.center);
+      expect(row.controls).toHaveLength(8);
+      expect(
+        Math.max(...rowCenters) - Math.min(...rowCenters),
+        "the section menu and every action share one row",
+      ).toBeLessThanOrEqual(1);
+      for (const [index, control] of row.controls.entries()) {
+        expect(control.left, "each control stays inside the header").toBeGreaterThanOrEqual(row.left);
+        expect(control.right, "each control stays inside the header").toBeLessThanOrEqual(row.right);
+        if (index > 0) {
+          expect(row.controls[index - 1]!.right, "neighboring controls must not overlap").toBeLessThanOrEqual(
+            control.left,
+          );
+        }
+      }
       return;
     }
+    // At 1600px beside the panel the byline steps aside, but the name keeps its full width.
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect
+      .poll(() => nameInput.evaluate((input) => input.scrollWidth - input.clientWidth))
+      .toBeLessThanOrEqual(2);
     // Just past the 80rem breakpoint (beside the 320px panel) the header is crowded; wider screens have room to spare.
     const rootFontSize = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
     for (const width of [80 * rootFontSize + 321, 1920, 2560]) {

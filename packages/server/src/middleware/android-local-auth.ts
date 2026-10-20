@@ -116,7 +116,7 @@ function safeEqualHex(left: string, right: string): boolean {
   return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
-function cookieValue(request: FastifyRequest, name: string): string | null {
+export function cookieValue(request: FastifyRequest, name: string): string | null {
   const raw = request.headers.cookie;
   if (!raw) return null;
   for (const entry of raw.split(";")) {

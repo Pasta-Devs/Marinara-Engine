@@ -296,7 +296,7 @@ export function MariChatsPanel({
             type="button"
             onClick={() => void handleBulkDeleteProfessorChats()}
             disabled={selectedChatHistoryIds.size === 0}
-            className="mari-btn mari-btn--danger"
+            className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--small"
           >
             <Trash2 size="0.75rem" aria-hidden="true" />
             {localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats")}

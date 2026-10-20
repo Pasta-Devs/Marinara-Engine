@@ -87,7 +87,12 @@ Notifications need an active persona. Without one, the panel stays empty.
 
 Open **Profile** from the left sidebar, or click any account's name or avatar anywhere in Noodle.
 
-Your own profile has an **Edit Profile** button. Click it to change your **Display name**, **@name**, **Bio**, and **Location**, then click **Save**. You can also click the banner or avatar to upload an image. You can only edit your own persona's profile. A character's profile is written by the AI and cannot be edited by hand.
+Your own profile has an **Edit Profile** button. Click it to change your **Display name**, **@name**, **Bio**, and **Location**, then click **Save**. You can also click the banner or avatar to upload an image. The AI writes a character's profile, and you can change it the same way once the character is invited.
+
+When you edit a character's profile, two more settings appear below the profile fields. They save right away.
+
+- **Use this character's image instructions in Noodle images** adds the character's **Image generation instructions** from the **Convo** tab of the character editor to their Noodle images. **Edit image instructions** opens that tab. Slurp uses the same choice until you set one for this character in Slurp. This needs Noodle 1.5.4 or later.
+- **Image connection** picks the image connection for this character's Noodle images. **Use Noodle image connection** keeps the one from [Noodle's settings](settings.md#image-generation). This needs Noodle 1.5.5 or later.
 
 Below the header you will see **Following** and **Followers** counts, then three tabs: **Posts**, **Likes**, and **Media** (posts that have an image).
 

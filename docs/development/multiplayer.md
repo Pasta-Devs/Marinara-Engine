@@ -122,6 +122,14 @@ stale after its receipt leaves the 128-entry cache. Persona snapshots on message
 never change when a player later changes persona. Human and AI persona names must
 be unambiguous for targeted whispers/checks.
 
+Display and persona names are public, so they never prove who owns a seat. A
+player who leaves or goes quiet gets their old seat back only when their Engine
+presents that seat's private rejoin key: the session token from the admission that
+first seated them, sent again as the bearer of the new join request. Without it,
+a request using the same names gets a name conflict and the seat's sessions stay
+untouched. Both Engines keep the key in memory only. After a guest Engine restart,
+the host removes the old seat before that player can use the same persona again.
+
 Game persona changes apply at the next round boundary. Existing sheets, live
 stats, inventory ownership and tracker privacy keys follow the stable participant
 identity; historical messages keep their original attribution. If an NPC takes a
@@ -157,6 +165,7 @@ It does not alter a user's certificates, data or configured AI connections.
 
 - `multiplayer-peer-security.regression.ts`: TLS chain/hostname/fingerprint checks before HTTP disclosure, malformed/oversized/redirect responses and cancellation.
 - `multiplayer-peer-server-security.regression.ts`: room-only routes, body/header/output/rate/concurrency limits and immediate listener shutdown.
+- `multiplayer-seat-key-security.regression.ts`: copied names or a wrong rejoin key never take a seat or its whispers; the key holder returns to the same seat, and the key never reaches other participants or stored chat data.
 - `multiplayer-room.regression.ts`: two Engines, admission, ownership, filtered history, revocation/replay, generation serialization and two-player Game rounds/recovery.
 - `multiplayer-session-flows.regression.ts`: two Engines over HTTPS with the actual generation and Game runtimes, a mock provider, and complete Conversation, Roleplay and Game rounds.
 - `multiplayer-generation-policy.regression.ts` and `generation-output.regression.ts`: executor restrictions, private library exclusion, prompt-local identities, shared generation lock and completion semantics.

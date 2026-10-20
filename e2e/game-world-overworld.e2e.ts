@@ -8,7 +8,7 @@ import {
   worldRoute,
 } from "@marinara-engine/shared";
 import { openGame } from "./game-ruleset-fight-fixture.js";
-import { openChatTool } from "./chat-settings-tools.js";
+import { chatSettingsWindow, openChatTool } from "./chat-settings-tools.js";
 
 /**
  * The overworld (worldgen W8), on screen: a game with a world opens on it; the party walks along the
@@ -195,6 +195,19 @@ test("a world game opens on the overworld, and a walk moves the party and the cl
     await expect.poll(async () => (await metadataOf(request, chatId)).gameWorldView).toBe("scene");
     await (await toolbarButton(page, "Show the overworld")).click();
     await expect(page.getByRole("region", { name: "Overworld", exact: true })).toBeVisible();
+
+    // On a phone, with Game controls put back in Chat Settings, a switch closes the Chat Settings sheet.
+    if (await page.evaluate(() => matchMedia("(max-width: 767px)").matches)) {
+      const controls = await openChatTool(page, "control:game");
+      await controls.locator('[data-window-control="put-back"]').click();
+      const settings = chatSettingsWindow(page);
+      await settings
+        .locator('[data-docked-chat-control="control:game"]')
+        .getByRole("button", { name: "Show the scene", exact: true })
+        .click();
+      await expect(overworld).toBeHidden();
+      await expect(settings).toHaveCount(0);
+    }
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`).catch(() => undefined);
     if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);

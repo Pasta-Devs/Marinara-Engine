@@ -144,6 +144,7 @@ The lite image removes the features that need large local files:
 | Local embedding model | No on-device text embeddings. |
 | Memory Recall (semantic search) | Depends on the local embedding model. |
 | Local Whisper voice input | Speech-to-text for Conversation calls is gone. |
+| Avatar mood reader | 2D and 3D Avatars pick faces from a word list instead of the small local emotion model. |
 
 Everything else works the same: chat, roleplay, Game Mode, agents, lorebooks, characters, and connections to remote AI providers. To use any AI features with the lite image, you must connect an external provider (for example OpenRouter, OpenAI, or a self-hosted model). See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
@@ -157,7 +158,7 @@ Some older lite images can crash on Raspberry Pi 4 and similar ARM computers. Th
 
 ## Updating
 
-Container images do not update themselves. You pull a newer image and restart the container by hand.
+Container images do not update themselves. You pull a newer image and restart the container by hand. Make a backup first, so you can return to exactly where you were. See [Backing Up and Restoring Marinara](../data/backup-and-restore.md).
 
 For Docker Compose, run this one command:
 
@@ -172,6 +173,8 @@ podman compose pull && podman compose up -d
 ```
 
 You can also check your version inside the app. Open **Settings**, go to the **Advanced** tab, and find the **Updates** section. Click **Check for Updates**. For container installs, Marinara detects that it is running in Docker and shows you the release image tag plus the host command to run. It cannot apply the update from inside the browser, so you still run the command above on the host.
+
+To go back to an older release, set its version tag on the `image:` line of `docker-compose.yml`, for example `ghcr.io/pasta-devs/marinara-engine:2.5.0`, then run `docker compose up -d`. Going back to 2.5.0 works and your chats open normally, but 2.5.0 does not know the settings and game data that newer features added. Any chat or connection that 2.5.0 saves loses that data, and updating again does not bring it back. See [Going back to 2.5.0](../UPGRADING.md#going-back-to-250).
 
 ## Podman
 

@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import {
   FLOATING_WINDOW_LAYOUT_VERSION,
   clampWindowGeometry,
@@ -962,6 +964,144 @@ assert.equal(isEmptyWindowLayoutSnapshot(selectWindowLayoutSnapshot(store.getSta
 // The bubble draws with its theming hooks; the window keeps the header controls in order.
 const floatingWindowSource = read("packages/client/src/components/ui/FloatingWindow.tsx");
 const windowBubbleSource = read("packages/client/src/components/ui/WindowBubble.tsx");
+
+// Run the actual DOM bounds reader/watcher without mounting React. Tactical chrome can mount after
+// its bubbles, wrap on a phone, and disappear without changing the saved positions.
+const boundsSource = ts.createSourceFile("FloatingWindow.tsx", floatingWindowSource, ts.ScriptTarget.Latest, true);
+const boundsCode = boundsSource.statements
+  .filter((statement) =>
+    ts.isFunctionDeclaration(statement)
+      ? ["readFloatingWindowBounds", "observeWindowBounds"].includes(statement.name?.text ?? "")
+      : ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.some((declaration) =>
+          ["CENTER_CONTENT_SELECTOR", "CHAT_WINDOW_TOP_OBSTACLE_SELECTOR"].includes(
+            declaration.name.getText(boundsSource),
+          ),
+        ),
+  )
+  .map((statement) => statement.getText(boundsSource).replace(/^export /u, ""))
+  .join("\n");
+class BoundsElement {
+  isConnected = true;
+  visibility = "visible";
+  children: BoundsElement[] = [];
+  constructor(
+    public attribute: string,
+    public rect: { left: number; top: number; right: number; bottom: number; width: number; height: number },
+  ) {}
+  getBoundingClientRect() {
+    return this.rect;
+  }
+  matches(selector: string) {
+    return selector.includes(`[${this.attribute}]`);
+  }
+  querySelector(selector: string): BoundsElement | null {
+    return this.children.find((child) => child.matches(selector) || child.querySelector(selector)) ?? null;
+  }
+}
+const center = new BoundsElement("center", { left: 0, top: 48, right: 1440, bottom: 900, width: 1440, height: 852 });
+const topbar = new BoundsElement("topbar", { left: 0, top: 0, right: 1440, bottom: 48, width: 1440, height: 48 });
+const chrome = new BoundsElement("data-chat-window-top-obstacle", {
+  left: 0,
+  top: 48,
+  right: 1440,
+  bottom: 144,
+  width: 1440,
+  height: 96,
+});
+let obstacles: BoundsElement[] = [];
+let resizeCallback = () => {};
+const observed = new Set<BoundsElement>();
+let mutationCallback = (_records: unknown[]) => {};
+let mutationTarget: unknown;
+const domBounds = runInNewContext(
+  `${ts.transpileModule(boundsCode, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText}\n({ readFloatingWindowBounds, observeWindowBounds });`,
+  {
+    WINDOW_MARGIN_PX: 8,
+    Element: BoundsElement,
+    window: { innerWidth: 1440, innerHeight: 900 },
+    getComputedStyle: (element: BoundsElement) => ({ visibility: element.visibility }),
+    document: {
+      querySelector: (selector: string) => (selector.includes("CenterContent") ? center : topbar),
+      querySelectorAll: (selector: string) =>
+        selector.includes("CenterContent")
+          ? [center, topbar, ...obstacles]
+          : selector.includes("data-chat-window-top-obstacle")
+            ? obstacles
+            : [],
+    },
+    ResizeObserver: class {
+      constructor(callback: () => void) {
+        resizeCallback = callback;
+      }
+      observe(element: BoundsElement) {
+        observed.add(element);
+      }
+      unobserve(element: BoundsElement) {
+        observed.delete(element);
+      }
+      disconnect() {
+        observed.clear();
+      }
+    },
+    MutationObserver: class {
+      constructor(callback: typeof mutationCallback) {
+        mutationCallback = callback;
+      }
+      observe(target: unknown) {
+        mutationTarget = target;
+      }
+      disconnect() {
+        mutationTarget = undefined;
+      }
+    },
+  },
+) as { readFloatingWindowBounds: () => typeof bounds; observeWindowBounds: (update: () => void) => () => void };
+assert.equal(domBounds.readFloatingWindowBounds().top, 56, "non-Game bounds remain unchanged");
+let measuredTop = 0;
+let boundsUpdates = 0;
+const stopBounds = domBounds.observeWindowBounds(() => {
+  boundsUpdates += 1;
+  measuredTop = domBounds.readFloatingWindowBounds().top;
+});
+obstacles = [chrome];
+center.children = [chrome];
+mutationCallback([{ addedNodes: [chrome], removedNodes: [] }]);
+assert.equal(measuredTop, 152, "late-mounted wrapped chrome reserves its measured bottom plus the existing gap");
+assert.ok(observed.has(chrome), "the late-mounted chrome is observed for initiative and wrapping changes");
+chrome.rect.bottom = 184;
+chrome.rect.height = 136;
+resizeCallback();
+assert.equal(measuredTop, 192);
+chrome.visibility = "hidden";
+assert.equal(domBounds.readFloatingWindowBounds().top, 56, "a hidden obstacle does not reserve the chat");
+chrome.visibility = "visible";
+chrome.rect.left = 1500;
+assert.equal(domBounds.readFloatingWindowBounds().top, 56, "an offscreen obstacle does not reserve the chat");
+chrome.rect.left = 0;
+const savedBubble = { x: 1300, y: 64 };
+const bubbleEntry = { point: savedBubble, bounds: domBounds.readFloatingWindowBounds(), size: 32 };
+assert.equal(placeWindowBubbles(new Map([["saved", bubbleEntry]])).get("saved")?.y, 192);
+assert.deepEqual(savedBubble, { x: 1300, y: 64 }, "temporary clamping never changes a saved point");
+const updatesBeforeText = boundsUpdates;
+mutationCallback([{ addedNodes: [new BoundsElement("text", chrome.rect)], removedNodes: [] }]);
+assert.equal(boundsUpdates, updatesBeforeText, "streamed text does not schedule bounds work");
+chrome.isConnected = false;
+obstacles = [];
+mutationCallback([{ addedNodes: [], removedNodes: [chrome] }]);
+assert.equal(measuredTop, 56, "removing combat restores the original bounds");
+assert.equal(observed.has(chrome), false, "removed chrome releases its resize observation");
+assert.deepEqual(
+  placeWindowBubbles(new Map([["saved", { ...bubbleEntry, bounds: domBounds.readFloatingWindowBounds() }]])).get(
+    "saved",
+  ),
+  savedBubble,
+  "saved points return after combat",
+);
+stopBounds();
+assert.equal(observed.size, 0);
+assert.equal(mutationTarget, undefined, "unmount disconnects both layout observers");
+
 assert.match(windowBubbleSource, /className="mari-window-bubble fixed"/u);
 assert.match(windowBubbleSource, /data-minimized="true"/u);
 // A banner registers as movable, so placement moves it rather than a neighbour it grew into.

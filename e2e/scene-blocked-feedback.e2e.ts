@@ -73,7 +73,10 @@ for (const width of [390, 768, 1440]) {
         await composer.fill("Can we discuss the scene?");
         await page.getByRole("button", { name: "Send", exact: true }).click();
         const notice = page.locator("[data-sonner-toast]").filter({ hasText: "In an active Scene" });
-        await expect(notice).toContainText("end or abandon it to resume replies");
+        // #7425 let Scene characters reply here when the Scene allows it, so the notice names both ways out.
+        await expect(notice).toContainText(
+          'Alice: In an active Scene. End the Scene, or turn on "Allow replies here" on the Scene card.',
+        );
         await expect(page.locator("[data-sonner-toast]").filter({ hasText: /offline/i })).toHaveCount(0);
         await notice.evaluate(async (element) => {
           await Promise.all(element.getAnimations().map((animation) => animation.finished.catch(() => {})));

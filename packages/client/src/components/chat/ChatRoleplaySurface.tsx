@@ -813,6 +813,8 @@ type RoleplaySurfaceProps = {
   onExpressionChange: (characterId: string, expression: string, options?: { immediate?: boolean }) => void;
   onSpritePlacementChange: (placementKey: string, placement: SpritePlacement) => void;
   onFinishSpritePlacement: () => void;
+  avatarLayout?: ComponentProps<typeof ChatCommonOverlays>["sceneSettings"]["avatarLayout"];
+  onAvatarsShown?: ComponentProps<typeof AvatarStage>["onShownChange"];
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
   onDeleteOtherSwipes: () => void;
@@ -929,6 +931,8 @@ export function ChatRoleplaySurface({
   onExpressionChange,
   onSpritePlacementChange,
   onFinishSpritePlacement,
+  avatarLayout,
+  onAvatarsShown,
   onDeleteConfirm,
   onDeleteSwipe,
   onDeleteOtherSwipes,
@@ -1769,9 +1773,10 @@ export function ChatRoleplaySurface({
               characterVisualSettings={spriteVisualSettings?.characterOverrides}
               scale={fullBodySpriteScale}
               scaleMultiplier={visualNovel ? vnSpriteScale : 1}
+              framings={spriteVisualSettings?.avatarFramings}
               editing={spriteArrangeMode}
               onPlacementChange={onSpritePlacementChange}
-              onFinishPlacement={onFinishSpritePlacement}
+              onShownChange={onAvatarsShown}
             />
           </Suspense>
         )}
@@ -2322,6 +2327,7 @@ export function ChatRoleplaySurface({
           onSpriteSideChange,
           spriteVisualSettings,
           onSpriteVisualSettingsChange,
+          avatarLayout,
         }}
         onCloseSettings={onCloseSettings}
         onOpenScheduleEditor={onOpenScheduleEditor}

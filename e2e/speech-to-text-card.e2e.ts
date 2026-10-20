@@ -21,9 +21,12 @@ const callsManifest = {
 // #7344: an edit made just before leaving Connections is saved once, and Connections shows it when opened again.
 // Variant D: Speech to text is not set up here, so its Defaults tile opens the card in the Add window; closing the
 // window unmounts the card at once, so it must not come back with older settings.
-test("Speech to Text keeps an edit made just before leaving Connections", async ({ page }) => {
+test("Speech to Text keeps an edit made just before leaving Connections", async ({ page }, testInfo) => {
   const saved = { enabled: false, baseUrl: "", apiKey: "", model: "", language: "" };
   const saves: Array<Record<string, unknown>> = [];
+  await page.route("**/api/app-settings/ui", (route) =>
+    route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+  );
   await page.route("**/api/capability-packages/installed", (route) =>
     route.fulfill({
       json: [
@@ -72,6 +75,49 @@ test("Speech to Text keeps an edit made just before leaving Connections", async 
   };
 
   await openCard();
+  await expect(card.locator("div.bg-gradient-to-br").first()).toHaveClass(/from-sky-400 to-blue-500/);
+  const ttsCard = page.locator('[data-component="TTSConfigCard"]');
+  const expandTts = ttsCard.getByTitle("Expand", { exact: true });
+  if (await expandTts.count()) await expandTts.click();
+  const surfaceStyle = (locator: typeof card) =>
+    locator.evaluate((element) => {
+      const icon = element.querySelector("svg.lucide-mic, svg.lucide-volume-2")!;
+      const surface = getComputedStyle(element);
+      const tile = getComputedStyle(icon.parentElement!);
+      return {
+        background: surface.backgroundImage,
+        border: surface.borderColor,
+        tile: tile.backgroundImage,
+        icon: tile.color,
+      };
+    });
+  const expectMatchingSurfaces = () =>
+    expect
+      .poll(
+        async () => {
+          const speechToText = await surfaceStyle(card);
+          const textToSpeech = await surfaceStyle(ttsCard);
+          return JSON.stringify(speechToText) === JSON.stringify(textToSpeech) ? null : { speechToText, textToSpeech };
+        },
+        { message: "Speech to Text uses the original Connections blue, matching Text to Speech" },
+      )
+      .toBeNull();
+  for (const theme of ["light", "dark"] as const) {
+    await page.evaluate(async (theme) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      const settings = useUIStore.getState();
+      settings.setAppAccentColor("#22c55e");
+      settings.setAppAccentRgbMode(false);
+      settings.setAppAccentPulseMode(false);
+      settings.setTheme(theme);
+    }, theme);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await expectMatchingSurfaces();
+    await card.screenshot({
+      path: testInfo.outputPath(`speech-to-text-connections-${theme}.png`),
+      animations: "disabled",
+    });
+  }
   await serverUrl.fill("http://localhost:9000/v1");
   // Leave before the autosave delay runs out.
   await leaveConnections();

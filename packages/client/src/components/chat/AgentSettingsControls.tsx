@@ -345,6 +345,60 @@ export function AgentSettingsToggle({
   );
 }
 
+type MediaScope = "off" | "images" | "videos" | "both";
+
+/** Whether a reference setting applies to image prompts, video prompts, both, or neither. */
+export function MediaScopeSelect({
+  label,
+  description,
+  images,
+  videos,
+  onChange,
+  overridden = false,
+  onReset,
+}: {
+  label: string;
+  description: string;
+  images: boolean;
+  videos: boolean;
+  onChange: (next: { images: boolean; videos: boolean }) => void;
+  overridden?: boolean;
+  onReset?: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const value: MediaScope = images ? (videos ? "both" : "images") : videos ? "videos" : "off";
+  return (
+    <div className="flex h-full flex-col gap-1">
+      <label
+        className={cn(
+          "flex flex-1 flex-col gap-1.5 rounded-md px-3 py-2.5",
+          value === "off"
+            ? "bg-[var(--background)]/75 ring-1 ring-[var(--border)]"
+            : "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+        )}
+      >
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
+        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{description}</span>
+        <select
+          value={value}
+          onChange={(event) => {
+            const next = event.target.value as MediaScope;
+            onChange({ images: next === "images" || next === "both", videos: next === "videos" || next === "both" });
+          }}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+        >
+          {(["off", "images", "videos", "both"] as const).map((option) => (
+            <option key={option} value={option}>
+              {localizeUi(`ui.chat.mediascopeselect.${option}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
+    </div>
+  );
+}
+
 export function GamePromptTemplateSelect({
   label,
   description,

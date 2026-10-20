@@ -24,7 +24,12 @@ async function openOmnibar(page: Page) {
     .locator("main")
     .first()
     .click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("Control+k");
+  // Cmd+K on Apple platforms (macOS WebKit runs report one), Ctrl+K elsewhere.
+  const shortcut = await page.evaluate(async () => {
+    const { isApplePlatform } = await import("/src/lib/command-center.ts" as string);
+    return isApplePlatform() ? "Meta+k" : "Control+k";
+  });
+  await page.keyboard.press(shortcut);
 }
 
 /** Result rows without the promoted "Ask Mari: …" row, which also contains the query. */
@@ -143,7 +148,7 @@ test("mobile keeps the command palette button and panel inside the top-bar layou
   expect(panelBox).not.toBeNull();
   expect(panelBox!.x).toBeCloseTo(0, 0);
   expect(panelBox!.y).toBeCloseTo(0, 0);
-  expect(panelBox!.width).toBeCloseTo(390, 0);
+  expect(panelBox!.width).toBeCloseTo(page.viewportSize()!.width, 0);
   expect(panelBox!.height).toBeCloseTo(page.viewportSize()!.height, 0);
   await expect(omnibar.getByRole("toolbar", { name: "Result categories" })).toBeHidden();
 });

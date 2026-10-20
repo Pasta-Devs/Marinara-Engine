@@ -832,7 +832,7 @@ export function GameCharacterSheet({
                           />
                           <button
                             onClick={() => removePool(index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400 max-sm:h-9"
+                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)] max-sm:h-9"
                             title={localizeUi("ui.game.gamecharactersheet.removePool")}
                           >
                             <Trash2 size={13} />
@@ -858,7 +858,7 @@ export function GameCharacterSheet({
                           />
                           <button
                             onClick={() => removeAttribute(index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400"
+                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
                             title={localizeUi("ui.game.gamecharactersheet.removeAttribute")}
                           >
                             <Trash2 size={13} />
@@ -908,7 +908,7 @@ export function GameCharacterSheet({
                       />
                       <button
                         onClick={() => removeListItem("abilities", index)}
-                        className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400"
+                        className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
                         title={localizeUi("ui.game.gamecharactersheet.removeAbility")}
                       >
                         <Trash2 size={13} />
@@ -947,7 +947,7 @@ export function GameCharacterSheet({
                           />
                           <button
                             onClick={() => removeListItem("strengths", index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400"
+                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
                             title={localizeUi("ui.game.gamecharactersheet.removeStrength")}
                           >
                             <Trash2 size={13} />
@@ -983,7 +983,7 @@ export function GameCharacterSheet({
                           />
                           <button
                             onClick={() => removeListItem("weaknesses", index)}
-                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400"
+                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)]"
                             title={localizeUi("ui.game.gamecharactersheet.removeWeakness")}
                           >
                             <Trash2 size={13} />
@@ -1035,7 +1035,7 @@ export function GameCharacterSheet({
                       />
                       <button
                         onClick={() => removeExtraEntry(index)}
-                        className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400 max-sm:h-10"
+                        className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-app-accent-static)] max-sm:h-10"
                         title={localizeUi("ui.game.gamecharactersheet.removeDetail")}
                       >
                         <Trash2 size={13} />

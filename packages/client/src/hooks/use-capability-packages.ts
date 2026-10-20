@@ -443,7 +443,11 @@ export function useCapabilityClientModules() {
       });
       const source = `/api/capability-packages/${encodeURIComponent(item.id)}/client?v=${encodeURIComponent(item.version)}${attempt > 0 ? `&retry=${attempt}` : ""}`;
       if (!beginCapabilityClientImport(item.id, { version: item.version, attempt })) continue;
-      void import(/* @vite-ignore */ source)
+      // Packages take the Engine's stores and libraries from globalThis.__MARINARA_HOST__, so it is complete before any
+      // package client is evaluated (lib/marinara-host.ts).
+      void import("../lib/marinara-host")
+        .then(({ ensureMarinaraHost }) => ensureMarinaraHost())
+        .then(() => import(/* @vite-ignore */ source))
         .then(() => {
           if (!customElements.get(tag)) {
             throw new Error(`Client module did not register ${tag}`);

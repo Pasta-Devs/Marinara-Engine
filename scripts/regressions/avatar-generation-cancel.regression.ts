@@ -171,9 +171,11 @@ async function cancel(request: { close: () => void }, kind: string) {
 }
 
 const pngtuberBody = { owner, labels: ["neutral"], variants: ["eyes-closed"], connectionId: image.id };
-const opaquePicture = await sharp({
-  create: { width: 1024, height: 1536, channels: 3, background: { r: 250, g: 250, b: 250 } },
-})
+// The edit the provider answers with: the sprite where it was put on GPT Image 1's 1024x1536 canvas, with a
+// closed eye drawn on it (a picture with no change is refused).
+const opaquePicture = await sharp(await sharp(sprite).resize(1024, 1365).png().toBuffer())
+  .extend({ top: 85, bottom: 86, background: "#fff" })
+  .composite([{ input: { create: { width: 160, height: 56, channels: 3, background: "#222" } }, left: 432, top: 650 }])
   .png()
   .toBuffer();
 
@@ -214,9 +216,9 @@ try {
   // ── The cancel route itself ──
   const idle = await start("/cancel", { owner, kind: "pngtuber" }).answer;
   assert.deepEqual(JSON.parse(idle.body), { cancelled: false }, "nothing is running");
-  // VRM models are made too (Tripo), so "vrm" is a job kind; a kind no generator has is still refused.
-  const vrmIdle = await start("/cancel", { owner, kind: "vrm" }).answer;
-  assert.deepEqual(JSON.parse(vrmIdle.body), { cancelled: false }, "no VRM model is being made");
+  // A kind no generator has is refused. "vrm" is one again: one-click Tripo models were withdrawn by the
+  // maintainer on 2026-10-19.
+  assert.equal((await start("/cancel", { owner, kind: "vrm" }).answer).status, 400, "no VRM models are made");
   assert.equal((await start("/cancel", { owner, kind: "live2d" }).answer).status, 400);
   assert.equal((await start("/cancel", { owner: { ...owner, ownerId: "../x" }, kind: "pngtuber" }).answer).status, 400);
 } finally {
