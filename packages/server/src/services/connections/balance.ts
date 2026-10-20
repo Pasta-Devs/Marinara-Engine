@@ -6,14 +6,20 @@
 //   OpenRouter  API key        GET https://openrouter.ai/api/v1/key
 //   DeepSeek    API key        GET https://api.deepseek.com/user/balance
 //   Moonshot    API key        GET https://api.moonshot.{ai,cn}/v1/users/me/balance
+//   NanoGPT     API key        POST https://nano-gpt.com/api/check-balance   (`x-api-key`)
+//   Bifrost     virtual key    GET <proxy origin>/api/governance/virtual-keys/quota   (the key's own budget)
+// A "via X" upstream behind a proxy is read with its own key from the upstream's fixed address
+// (`UPSTREAM_BALANCE_TARGETS`), never from the proxy's. Every read waits for the user's yes (`OUTSIDE_READS_SETTINGS_KEY`).
 // Reads are kept 5 minutes per Connection; Refresh asks again. Nothing here is ever sent to the client except the
 // numbers.
 import {
   connectionBalanceSource,
+  UPSTREAM_BALANCE_TARGETS,
   type ConnectionBalance,
   type ConnectionBalanceResponse,
 } from "@marinara-engine/shared";
-import { safeFetch } from "../../utils/security.js";
+import { safeFetch, type SafeFetchOptions } from "../../utils/security.js";
+import { isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { LINKAPI_API_ORIGIN, readLinkApiStatus, type LinkApiStatus } from "./price-catalog.js";
 
 const BALANCE_TTL_MS = 5 * 60_000;
@@ -151,6 +157,31 @@ export function parseMoonshotBalance(json: unknown, unit: string): ConnectionBal
   };
 }
 
+/** NanoGPT `/api/check-balance`: `usd_balance` as a decimal string. */
+export function parseNanoGptBalance(json: unknown): ConnectionBalance {
+  const left = isRecord(json) ? amount(json.usd_balance) : undefined;
+  if (left === undefined) throw new BalanceError("NanoGPT did not report a balance");
+  return { source: "nanogpt", scope: "account", unit: "USD", left: round(left), checkedAt: checkedAt() };
+}
+
+/** Bifrost `/api/governance/virtual-keys/quota`: the key's first budget (`max_limit`, `current_usage`); null without one. */
+export function parseBifrostQuota(json: unknown): ConnectionBalance | null {
+  if (!isRecord(json)) throw new BalanceError("Bifrost did not report this key's budget");
+  const budget = Array.isArray(json.budgets) ? json.budgets.find(isRecord) : undefined;
+  const limit = amount(budget?.max_limit);
+  const used = amount(budget?.current_usage);
+  if (!budget || limit === undefined || used === undefined) return null;
+  return {
+    source: "bifrost",
+    scope: "key",
+    unit: "USD",
+    left: round(Math.max(0, limit - used)),
+    used: round(used),
+    granted: round(limit),
+    checkedAt: checkedAt(),
+  };
+}
+
 // ── Reads ───────────────────────────────────────
 
 export interface BalanceCredentials {
@@ -164,15 +195,22 @@ export interface BalanceCredentials {
 
 type Fetch = (
   url: string,
-  init: { method: string; headers: Record<string, string>; signal: AbortSignal },
+  init: { method: string; headers: Record<string, string>; signal: AbortSignal; policy?: SafeFetchOptions["policy"] },
 ) => Promise<Response>;
 const defaultFetch: Fetch = (url, init) => safeFetch(url, init);
 
-async function getJson(fetchImpl: Fetch, url: string, headers: Record<string, string>, name: string) {
+async function getJson(
+  fetchImpl: Fetch,
+  url: string,
+  headers: Record<string, string>,
+  name: string,
+  extra: { method?: string; policy?: SafeFetchOptions["policy"] } = {},
+) {
   const response = await fetchImpl(url, {
-    method: "GET",
+    method: extra.method ?? "GET",
     headers: { Accept: "application/json", ...headers },
     signal: AbortSignal.timeout(10_000),
+    ...(extra.policy ? { policy: extra.policy } : {}),
   });
   const text = await response.text();
   let json: unknown = null;
@@ -249,26 +287,86 @@ export async function fetchConnectionBalance(
       const json = await getJson(fetchImpl, `${origin}/v1/users/me/balance`, bearer(creds.apiKey), "Moonshot");
       return { balance: parseMoonshotBalance(json, origin.endsWith(".cn") ? "CNY" : "USD") };
     }
+    case "nanogpt": {
+      const json = await getJson(
+        fetchImpl,
+        "https://nano-gpt.com/api/check-balance",
+        { "x-api-key": creds.apiKey },
+        "NanoGPT",
+        {
+          method: "POST",
+        },
+      );
+      return { balance: parseNanoGptBalance(json) };
+    }
+    case "bifrost": {
+      // The proxy's own address: the virtual key already goes there with every chat. It may be on the local network.
+      const origin = originOf(creds.baseUrl, "");
+      if (!origin) throw new BalanceError("Bifrost needs an address");
+      const json = await getJson(
+        fetchImpl,
+        `${origin}/api/governance/virtual-keys/quota`,
+        bearer(creds.apiKey),
+        "Bifrost",
+        {
+          policy: {
+            allowLocal: isProviderLocalUrlsEnabled(),
+            allowLoopback: true,
+            allowMdns: true,
+            allowedProtocols: ["https:", "http:"],
+            flagName: "PROVIDER_LOCAL_URLS_ENABLED",
+          },
+        },
+      );
+      return { balance: parseBifrostQuota(json) };
+    }
   }
+}
+
+/**
+ * A "via X" upstream's balance with a usage-only key. The key goes only to the upstream's fixed address
+ * (`UPSTREAM_BALANCE_TARGETS`); a proxy's address is never used. LinkAPI takes a dashboard token (`profile:read`).
+ */
+export function fetchUpstreamBalance(
+  upstream: string,
+  key: string,
+  fetchImpl: Fetch = defaultFetch,
+  linkApiStatus?: LinkApiStatus,
+): Promise<ConnectionBalanceResponse> {
+  const target = Object.hasOwn(UPSTREAM_BALANCE_TARGETS, upstream) ? UPSTREAM_BALANCE_TARGETS[upstream] : undefined;
+  if (!target) return Promise.resolve({ balance: null });
+  const linkApi = upstream === "linkapi";
+  return fetchConnectionBalance(
+    {
+      provider: target.provider,
+      baseUrl: target.baseUrl,
+      apiKey: linkApi ? "" : key,
+      ...(linkApi ? { balanceToken: key } : {}),
+    },
+    fetchImpl,
+    linkApiStatus,
+  );
 }
 
 const cache = new Map<string, { until: number; value: ConnectionBalanceResponse }>();
 
-/** The balance of one Connection, kept 5 minutes; `refresh` asks again. */
+/** A balance kept 5 minutes under `key` (a Connection id, or `<id>:<upstream>`); `refresh` asks again. */
 export async function readConnectionBalance(
   key: string,
-  creds: BalanceCredentials,
-  refresh = false,
+  refresh: boolean,
+  read: () => Promise<ConnectionBalanceResponse>,
 ): Promise<ConnectionBalanceResponse> {
   const hit = cache.get(key);
   if (!refresh && hit && Date.now() < hit.until) return hit.value;
-  const value = await fetchConnectionBalance(creds);
+  const value = await read();
   cache.set(key, { until: Date.now() + BALANCE_TTL_MS, value });
   return value;
 }
 
-/** Drop a Connection's kept balance (its key or token changed). */
-export const forgetConnectionBalance = (key: string) => cache.delete(key);
+/** Drop a Connection's kept balances, its upstreams' too (its key or token changed). */
+export function forgetConnectionBalance(key: string) {
+  for (const kept of [...cache.keys()]) if (kept === key || kept.startsWith(`${key}:`)) cache.delete(kept);
+}
 
 /** LinkAPI's price group of a Connection, from its last account balance read, without asking again. */
 export function cachedLinkApiGroup(key: string | null | undefined): string | undefined {

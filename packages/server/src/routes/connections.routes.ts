@@ -44,8 +44,7 @@ import {
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   modelCost,
-  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
-  PRICE_CATALOG_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
   rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
   updateConnectionAccountSchema,
@@ -1577,23 +1576,24 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
   /**
    * Each model gets its cost badge (left out when unknown), and the list the Connection's billing word. A proxy's
-   * `nanogpt/<id>` models take NanoGPT's plan facts once the user allowed reading NanoGPT's public list.
-   * Models without a price take one from the price catalog once the user allowed it.
+   * `nanogpt/<id>` models take NanoGPT's plan facts, and models without a price one from the price catalog, once
+   * the user allowed outside reads.
    */
   const withCosts = async <T extends { models: Array<Record<string, unknown>> }>(
     conn: Parameters<typeof connectionBilling>[0] & { accountId?: string | null },
     list: T,
   ) => {
     const billing = connectionBilling(conn);
+    const allowed = (await appSettings.get(OUTSIDE_READS_SETTINGS_KEY)) === "on";
     const planned =
       conn.provider !== "nanogpt" &&
       list.models.some((model) => typeof model.id === "string" && model.id.startsWith("nanogpt/")) &&
-      (await appSettings.get(NANOGPT_PLAN_BADGES_SETTINGS_KEY)) === "on"
+      allowed
         ? withNanoGptPlan(list.models, await readNanoGptPlan())
         : list.models;
     // Prices from public price lists for models the provider's own list leaves without one, once allowed.
     const priced =
-      billing === null && (await appSettings.get(PRICE_CATALOG_SETTINGS_KEY)) === "on"
+      billing === null && allowed
         ? await withCatalogPrices(conn, planned, cachedLinkApiGroup(conn.accountId))
         : planned;
     const models = priced.map((model) => {

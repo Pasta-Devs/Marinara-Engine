@@ -24,6 +24,7 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
+  connectionBalanceSource,
   connectionBilling,
   inferImageSource,
   inferVideoSource,
@@ -306,6 +307,35 @@ export async function mirrorToAccountPeers(
     );
 }
 
+// ── Usage keys ("via X" upstreams) ──────────────
+
+export type UsageKeyEntry = { accountId?: string; tokenEncrypted?: string };
+
+/** The account's usage keys; a broken value reads as none. */
+export function readUsageKeys(account: Pick<ConnectionAccountRow, "usageKeys">): Record<string, UsageKeyEntry> {
+  try {
+    const parsed: unknown = JSON.parse(account.usageKeys ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const keys: Record<string, UsageKeyEntry> = {};
+    for (const [upstream, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== "object") continue;
+      const { accountId, tokenEncrypted } = value as Record<string, unknown>;
+      if (typeof accountId === "string" && accountId) keys[upstream] = { accountId };
+      else if (typeof tokenEncrypted === "string" && tokenEncrypted) keys[upstream] = { tokenEncrypted };
+    }
+    return keys;
+  } catch {
+    return {};
+  }
+}
+
+/** For backups and profile exports: links stay, pasted keys stay on this install. */
+export function withoutUsageKeyTokens(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const links = Object.entries(readUsageKeys({ usageKeys: value })).filter(([, entry]) => entry.accountId);
+  return links.length ? JSON.stringify(Object.fromEntries(links)) : null;
+}
+
 // ── Listing ─────────────────────────────────────
 
 export function toAccountListItem(account: ConnectionAccountRow, modelCount: number): ConnectionAccountListItem {
@@ -332,6 +362,13 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
     icon: account.icon ?? null,
     imagePath: account.imagePath ?? null,
     billing: connectionBilling(account),
+    balanceSource: connectionBalanceSource({ ...account, apiKey: key }),
+    usageKeys: Object.fromEntries(
+      Object.entries(readUsageKeys(account)).map(([upstream, entry]) => [
+        upstream,
+        entry.accountId ? { accountId: entry.accountId, hasKey: false } : { hasKey: true },
+      ]),
+    ),
     profileImportReviewRequired: review,
     modelCount,
     state: !enabled ? "off" : review || accountNeedsKey(account) ? "needs_key" : "ok",
@@ -401,6 +438,7 @@ function accountFromGroup(rows: ConnectionRow[], plainKey: string, hasSibling = 
     icon: null,
     imagePath: null,
     modelCatalogs: null,
+    usageKeys: null,
     profileImportReviewRequired: rows.some((row) => row.profileImportReviewRequired === "true") ? "true" : "false",
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -576,6 +614,7 @@ export function createConnectionAccountsStorage(db: DB) {
         icon: input.icon ?? null,
         imagePath: null as string | null,
         modelCatalogs: null as string | null,
+        usageKeys: null as string | null,
         profileImportReviewRequired: "false",
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -702,6 +741,26 @@ export function createConnectionAccountsStorage(db: DB) {
           }
         }
         return updated;
+      });
+    },
+
+    /** Link a Connection or save a usage-only key for one upstream; null removes it. */
+    async setUsageKey(
+      id: string,
+      upstream: string,
+      value: { accountId: string } | { key: string } | null,
+    ): Promise<ConnectionAccountRow | null> {
+      return db.transaction(async (tx) => {
+        const [account] = await tx.select().from(connectionAccounts).where(eq(connectionAccounts.id, id));
+        if (!account) return null;
+        const keys = readUsageKeys(account);
+        if (!value) delete keys[upstream];
+        else
+          keys[upstream] =
+            "key" in value ? { tokenEncrypted: encryptApiKey(value.key) } : { accountId: value.accountId };
+        const set = { usageKeys: Object.keys(keys).length ? JSON.stringify(keys) : null, updatedAt: now() };
+        await tx.update(connectionAccounts).set(set).where(eq(connectionAccounts.id, id));
+        return { ...account, ...set };
       });
     },
 

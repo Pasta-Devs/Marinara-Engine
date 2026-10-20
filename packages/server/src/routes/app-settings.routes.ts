@@ -15,6 +15,7 @@ import {
   STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
   VIDEO_GENERATION_SETTINGS_KEY,
   NANOGPT_PLAN_BADGES_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
   PRICE_CATALOG_SETTINGS_KEY,
   appSettingsUpdateSchema,
   FEATURE_SETTINGS_KEY,
@@ -55,18 +56,32 @@ const ALLOWED_KEYS = new Set([
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
   VIDEO_GENERATION_SETTINGS_KEY,
-  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
-  PRICE_CATALOG_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
   getChatWindowDefaultSettingsKey("conversation"),
   getChatWindowDefaultSettingsKey("roleplay"),
   getChatWindowDefaultSettingsKey("game"),
 ]);
+
+/**
+ * Once: the NanoGPT plan badge and price list choices become the one outside-reads switch. Either old "on" turns
+ * it on (balance reads join it); either old "off" keeps it off without asking again; unset stays unset.
+ */
+export async function migrateOutsideReadsSetting(storage: {
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string) => Promise<void>;
+}): Promise<void> {
+  if ((await storage.get(OUTSIDE_READS_SETTINGS_KEY)) !== null) return;
+  const old = [await storage.get(NANOGPT_PLAN_BADGES_SETTINGS_KEY), await storage.get(PRICE_CATALOG_SETTINGS_KEY)];
+  if (old.includes("on")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "on");
+  else if (old.includes("off")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "off");
+}
 
 const isAllowedSettingsKey = (key: string) => ALLOWED_KEYS.has(key) || isProfessorMariSeenRunSettingsKey(key);
 
 export async function appSettingsRoutes(app: FastifyInstance) {
   await initializeChatWindowDefaults(app.db);
   const storage = createAppSettingsStorage(app.db);
+  await migrateOutsideReadsSetting(storage);
   // Prime the in-memory feature switches; storage writes keep them current from here on.
   await loadFeatureSettings(storage);
   await loadMediaQueueUiSettings(storage);

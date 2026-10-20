@@ -1545,17 +1545,17 @@ export function modelReadsImages(
   return modalities?.length ? modalities.includes("image") : null;
 }
 
-/**
- * Plan badges for proxy models named `nanogpt/<id>`: "on" reads NanoGPT's public model list (no key is sent),
- * "off" keeps them without; unset, the Connections panel asks once.
- */
+/** Old choice for NanoGPT plan badges; read once to set `OUTSIDE_READS_SETTINGS_KEY`. */
 export const NANOGPT_PLAN_BADGES_SETTINGS_KEY = "nanogpt-plan-badges";
 
-/**
- * Price badges from outside price lists (LinkAPI's and OpenRouter's public lists, models.dev): "on" reads them
- * (no key is sent), "off" keeps the badges without prices; unset, the Connections panel asks once.
- */
+/** Old choice for public price lists; read once to set `OUTSIDE_READS_SETTINGS_KEY`. */
 export const PRICE_CATALOG_SETTINGS_KEY = "price-catalog";
+
+/**
+ * One switch for every outside read on Connections: NanoGPT plan badges, public price lists and balance reads.
+ * "on" allows them, "off" or unset does not. It replaces the two keys above; an old "on" carries over.
+ */
+export const OUTSIDE_READS_SETTINGS_KEY = "outside-reads";
 
 /** Image sources run by volunteers or free for everyone: the whole Connection is free. */
 const FREE_IMAGE_SOURCES = new Set(["horde", "pollinations"]);

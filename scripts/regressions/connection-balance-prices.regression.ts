@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
-import { connectionBalanceSource, modelCost } from "../../packages/shared/src/index.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { connectionBalanceSource, modelCost, upstreamBalanceSource } from "../../packages/shared/src/index.js";
 import {
   fetchConnectionBalance,
+  fetchUpstreamBalance,
+  parseBifrostQuota,
+  parseNanoGptBalance,
   parseDeepSeekBalance,
   parseLinkApiAccount,
   parseLinkApiKeyUsage,
@@ -30,6 +36,17 @@ assert.equal(connectionBalanceSource({ provider: "openrouter" }), "openrouter");
 assert.equal(connectionBalanceSource({ provider: "deepseek" }), "deepseek");
 assert.equal(connectionBalanceSource({ provider: "custom", baseUrl: "https://api.moonshot.cn/v1" }), "moonshot");
 assert.equal(connectionBalanceSource({ provider: "openai" }), null);
+assert.equal(connectionBalanceSource({ provider: "nanogpt" }), "nanogpt");
+// A Bifrost proxy is known by its virtual key, whatever the provider.
+assert.equal(
+  connectionBalanceSource({ provider: "custom", baseUrl: "http://llm.home.lan/v1", apiKey: "sk-bf-x" }),
+  "bifrost",
+);
+assert.equal(connectionBalanceSource({ provider: "custom", baseUrl: "http://llm.home.lan/v1", apiKey: "sk-x" }), null);
+assert.deepEqual(
+  ["nanogpt", "openrouter", "linkapi", "moonshot", "deepseek", "arliai", "toString"].map(upstreamBalanceSource),
+  ["nanogpt", "openrouter", "linkapi", "moonshot", "deepseek", null, null],
+);
 
 // ── LinkAPI prices ──
 const pricing = parseLinkApiPricing({
@@ -236,5 +253,158 @@ assert.equal(rejected.notice, "linkapi_token_rejected");
 
 const noBalance = await fetchConnectionBalance({ provider: "openai", apiKey: "test-key" }, fake({}), status);
 assert.deepEqual(noBalance, { balance: null });
+
+// ── NanoGPT and Bifrost parsers ──
+const nano = parseNanoGptBalance({ usd_balance: "129.46956147", nano_balance: "26.7", nanoDepositAddress: "nano_x" });
+assert.deepEqual([nano.source, nano.scope, nano.unit, nano.left], ["nanogpt", "account", "USD", 129.469561]);
+assert.throws(() => parseNanoGptBalance({ error: 1 }));
+const quota = parseBifrostQuota({ virtual_key_name: "vk", budgets: [{ max_limit: 20, current_usage: 4.12 }] });
+assert.deepEqual([quota?.left, quota?.used, quota?.granted, quota?.scope], [15.88, 4.12, 20, "key"]);
+assert.equal(parseBifrostQuota({ virtual_key_name: "vk", budgets: null }), null);
+
+// ── A usage-only key goes only to its upstream's own host, never to a proxy ──
+const nanoCall = await fetchUpstreamBalance(
+  "nanogpt",
+  "fixture-usage-key",
+  fake({ "https://nano-gpt.com/api/check-balance": [200, { usd_balance: "3.2" }] }),
+);
+assert.equal(nanoCall.balance?.left, 3.2);
+assert.deepEqual(
+  [calls.at(-1)?.url, calls.at(-1)?.headers["x-api-key"]],
+  ["https://nano-gpt.com/api/check-balance", "fixture-usage-key"],
+);
+const before = calls.length;
+await fetchUpstreamBalance(
+  "linkapi",
+  "fixture-dashboard-token",
+  fake({ [SELF]: [200, { success: true, data: { quota: 500000 } }] }),
+  status,
+);
+assert.deepEqual(
+  calls.slice(before).map((call) => new URL(call.url).host),
+  ["api.linkapi.ai"],
+);
+assert.deepEqual(await fetchUpstreamBalance("arliai", "fixture-usage-key", fake({})), { balance: null });
+
+// ── Routes: the consent gate, a linked Connection, a pasted key, masking ──
+const directory = mkdtempSync(join(tmpdir(), "marinara-connection-balance-"));
+process.env.DATA_DIR = directory;
+process.env.FILE_STORAGE_DIR = join(directory, "storage");
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+const { connectionAccountsRoutes } = await import("../../packages/server/src/routes/connection-accounts.routes.js");
+const { migrateOutsideReadsSetting } = await import("../../packages/server/src/routes/app-settings.routes.js");
+const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
+const { withoutUsageKeyTokens } =
+  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
+const db = await getDB();
+const app = Fastify();
+app.decorate("db", db);
+await app.register(connectionAccountsRoutes, { prefix: "/accounts" });
+const settings = createAppSettingsStorage(db);
+const request = async (method: "GET" | "PUT" | "POST" | "DELETE", url: string, payload?: unknown) => {
+  const response = await app.inject({ method, url, ...(payload === undefined ? {} : { payload }) });
+  return { status: response.statusCode, body: response.body, data: response.body ? JSON.parse(response.body) : null };
+};
+const realFetch = globalThis.fetch;
+const sent: Array<{ url: string; headers: Headers }> = [];
+globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+  sent.push({ url: String(url), headers: new Headers(init?.headers) });
+  const answer = String(url).endsWith("/check-balance")
+    ? { usd_balance: "7.5" }
+    : { virtual_key_name: "vk", budgets: [{ max_limit: 20, current_usage: 5 }] };
+  return new Response(JSON.stringify(answer), { headers: { "content-type": "application/json" } });
+}) as typeof fetch;
+try {
+  const proxy = (
+    await request("POST", "/accounts", {
+      provider: "custom",
+      baseUrl: "http://127.0.0.1:4000/v1",
+      apiKey: "sk-bf-fixture-proxy-key",
+      model: "nanogpt/glm",
+    })
+  ).data.account;
+  assert.equal(proxy.balanceSource, "bifrost");
+  const nanoAccount = (
+    await request("POST", "/accounts", { provider: "nanogpt", apiKey: "fixture-nano-key", model: "glm" })
+  ).data.account;
+
+  // Unset consent: no read at all.
+  assert.deepEqual((await request("GET", `/accounts/${proxy.id}/balance`)).data, { balance: null });
+  assert.equal(sent.length, 0);
+
+  await settings.set("outside-reads", "on");
+  const own = await request("GET", `/accounts/${proxy.id}/balance`);
+  assert.equal(own.data.balance.left, 15);
+  assert.equal(sent.at(-1)?.url, "http://127.0.0.1:4000/api/governance/virtual-keys/quota");
+
+  // Linked Connection: its own key, to NanoGPT.
+  assert.equal((await request("PUT", `/accounts/${proxy.id}/usage-keys/nanogpt`, { accountId: proxy.id })).status, 400);
+  assert.equal((await request("PUT", `/accounts/${proxy.id}/usage-keys/arliai`, { key: "fixture-x" })).status, 400);
+  const linked = await request("PUT", `/accounts/${proxy.id}/usage-keys/nanogpt`, { accountId: nanoAccount.id });
+  assert.deepEqual(linked.data.usageKeys, { nanogpt: { accountId: nanoAccount.id, hasKey: false } });
+  const viaLinked = await request("GET", `/accounts/${proxy.id}/usage-keys/nanogpt/balance?refresh=true`);
+  assert.equal(viaLinked.data.balance.left, 7.5);
+  assert.deepEqual(
+    [sent.at(-1)?.url, sent.at(-1)?.headers.get("x-api-key")],
+    ["https://nano-gpt.com/api/check-balance", "fixture-nano-key"],
+  );
+
+  // Pasted key: masked in answers, sent only to nano-gpt.com.
+  const pasted = await request("PUT", `/accounts/${proxy.id}/usage-keys/nanogpt`, { key: "fixture-usage-only-key" });
+  assert(!pasted.body.includes("fixture-usage-only-key"));
+  assert.deepEqual(pasted.data.usageKeys, { nanogpt: { hasKey: true } });
+  const list = await request("GET", "/accounts");
+  assert(!list.body.includes("fixture-usage-only-key"));
+  await request("GET", `/accounts/${proxy.id}/usage-keys/nanogpt/balance`);
+  const withKey = sent.filter((call) =>
+    [...call.headers.values()].some((value) => value.includes("fixture-usage-only")),
+  );
+  assert.deepEqual(
+    withKey.map((call) => new URL(call.url).host),
+    ["nano-gpt.com"],
+  );
+
+  // Consent off again: no reads.
+  await settings.set("outside-reads", "off");
+  const count = sent.length;
+  assert.deepEqual((await request("GET", `/accounts/${proxy.id}/usage-keys/nanogpt/balance?refresh=true`)).data, {
+    balance: null,
+  });
+  assert.equal(sent.length, count);
+
+  // Backups keep links, not pasted keys.
+  assert.equal(withoutUsageKeyTokens(JSON.stringify({ nanogpt: { tokenEncrypted: "x" } })), null);
+  assert.equal(
+    withoutUsageKeyTokens(JSON.stringify({ nanogpt: { tokenEncrypted: "x" }, openrouter: { accountId: "a" } })),
+    JSON.stringify({ openrouter: { accountId: "a" } }),
+  );
+
+  const removed = await request("DELETE", `/accounts/${proxy.id}/usage-keys/nanogpt`);
+  assert.deepEqual(removed.data.usageKeys, {});
+} finally {
+  globalThis.fetch = realFetch;
+  await app.close();
+  await closeDB();
+  rmSync(directory, { recursive: true, force: true });
+}
+
+// ── One switch: either old "on" turns it on; an old "off" stays off; unset stays unset ──
+const memory = (values: Record<string, string>) => ({
+  values,
+  get: async (key: string) => values[key] ?? null,
+  set: async (key: string, value: string) => void (values[key] = value),
+});
+for (const [old, expected] of [
+  [{ "nanogpt-plan-badges": "on" }, "on"],
+  [{ "price-catalog": "on", "nanogpt-plan-badges": "off" }, "on"],
+  [{ "price-catalog": "off" }, "off"],
+  [{}, undefined],
+  [{ "outside-reads": "off", "price-catalog": "on" }, "off"],
+] as const) {
+  const store = memory({ ...old });
+  await migrateOutsideReadsSetting(store);
+  assert.equal(store.values["outside-reads"], expected, JSON.stringify(old));
+}
 
 console.log("connection balance and prices: ok");

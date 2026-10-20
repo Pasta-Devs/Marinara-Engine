@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { apiProviderSchema, connectionIconSchema, connectionModelIdSchema } from "./connection.schema.js";
 import type { ConnectionBilling } from "../constants/model-lists.js";
+import type { ConnectionBalanceSource } from "../constants/connection-balance.js";
 
 // One account may hold BOTH chat and image/media Models sharing one key (concept decision 20),
 // so `provider` is the credential vendor/service and nothing here assumes a single Model type.
@@ -38,6 +39,12 @@ export const createConnectionAccountSchema = z.object({
 /** `provider` is immutable after create, so it is not part of the update shape. */
 export const updateConnectionAccountSchema = z.object({ name: z.string().min(1).max(200), ...accountFields }).partial();
 
+/** `PUT /connection-accounts/:id/usage-keys/:upstream`: link a Connection of the upstream, or a usage-only key. */
+export const connectionUsageKeySchema = z.union([
+  z.object({ accountId: z.string().trim().min(1).max(200) }).strict(),
+  z.object({ key: z.string().trim().min(1).max(1000) }).strict(),
+]);
+
 export type CreateConnectionAccountInput = z.infer<typeof createConnectionAccountSchema>;
 export type UpdateConnectionAccountInput = z.infer<typeof updateConnectionAccountSchema>;
 
@@ -66,6 +73,10 @@ export interface ConnectionAccountListItem {
   imagePath: string | null;
   /** "plan" for plan services (Arli, subscriptions), "free" for Horde/Pollinations, else null. */
   billing: ConnectionBilling;
+  /** Where this Connection's own balance comes from, or null. */
+  balanceSource: ConnectionBalanceSource | null;
+  /** Per "via X" upstream: a linked Connection, or whether a usage-only key is saved. Keys never leave the server. */
+  usageKeys: Record<string, { accountId?: string; hasKey: boolean }>;
   profileImportReviewRequired: boolean;
   modelCount: number;
   state: ConnectionAccountState;

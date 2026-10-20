@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 // The provider's own list wins: OpenRouter and Together send prices with their model list, which the catalog parse
 // already keeps. LinkAPI publishes its prices at `/api/pricing`; models.dev covers the rest. Both are public (no
-// key is sent), read at most once a day, and only after the user allowed it (`PRICE_CATALOG_SETTINGS_KEY`).
+// key is sent), read at most once a day, and only after the user allowed it (`OUTSIDE_READS_SETTINGS_KEY`).
 import { connectionBalanceSource, type ModelCatalogPricing } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";

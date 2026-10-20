@@ -31,6 +31,11 @@ export const connectionAccounts = fileTable("connection_accounts", {
    * `{ [provider]: { fetchedAt, models } }`. A re-fetchable cache shared by every linked Model of that provider.
    */
   modelCatalogs: text("model_catalogs"),
+  /**
+   * Usage keys for "via X" upstreams behind this proxy, as JSON `{ [upstream]: { accountId?, tokenEncrypted? } }`:
+   * a linked Connection of that upstream, or a usage-only key (encrypted like the API key). Null on older rows.
+   */
+  usageKeys: text("usage_keys"),
   /** Imported accounts stay unavailable until the user reviews and saves them locally. */
   profileImportReviewRequired: text("profile_import_review_required").notNull().default("false"),
   createdAt: text("created_at").notNull(),

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Connection accounts (shared credentials for several Models)
 // ──────────────────────────────────────────────
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   connectionModelIdSchema,
@@ -12,6 +12,9 @@ import {
   updateConnectionAccountSchema,
   type CreateConnectionAccountInput,
   connectionBalanceSource,
+  connectionUsageKeySchema,
+  OUTSIDE_READS_SETTINGS_KEY,
+  upstreamBalanceSource,
   withKeyTail,
 } from "@marinara-engine/shared";
 import {
@@ -20,6 +23,7 @@ import {
   accountSiblingKey,
   createConnectionAccountsStorage,
   pickLimits,
+  readUsageKeys,
   toAccountListItem,
   type ConnectionAccountRow,
 } from "../services/storage/connection-accounts.storage.js";
@@ -31,7 +35,14 @@ import { modelKeepReason } from "../services/connections/model-stars.js";
 import { apiConnections, connectionAccounts } from "../db/schema/index.js";
 import { eq } from "../db/file-query.js";
 import { logger } from "../lib/logger.js";
-import { BalanceError, forgetConnectionBalance, readConnectionBalance } from "../services/connections/balance.js";
+import {
+  BalanceError,
+  fetchConnectionBalance,
+  fetchUpstreamBalance,
+  forgetConnectionBalance,
+  readConnectionBalance,
+} from "../services/connections/balance.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
   /** First Model under the new account. Empty keeps the picker open for the client. */
@@ -72,6 +83,7 @@ function oneAtATime<T>(key: string, run: () => Promise<T>): Promise<T> {
 export async function connectionAccountsRoutes(app: FastifyInstance) {
   const accounts = createConnectionAccountsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+  const appSettings = createAppSettingsStorage(app.db);
 
   async function modelCounts(): Promise<Map<string, number>> {
     const counts = new Map<string, number>();
@@ -174,31 +186,92 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     return { ...(await listItem(updated)), ...(sameKey.length ? { sameKeyAccounts: sameKey } : {}) };
   });
 
+  /** A Connection's own balance read: its key and address, kept 5 minutes. Null when it has no balance source. */
+  function ownBalance(account: ConnectionAccountRow, refresh: boolean) {
+    const apiKey = decryptApiKey(account.apiKeyEncrypted);
+    const creds = {
+      provider: account.provider,
+      baseUrl: account.baseUrl,
+      apiKey,
+      balanceToken: decryptApiKey(account.managementTokenEncrypted),
+      balanceUserId: account.balanceUserId,
+    };
+    if (accountBlocksRows(account) || !connectionBalanceSource({ ...account, apiKey })) return null;
+    return readConnectionBalance(account.id, refresh, () => fetchConnectionBalance(creds));
+  }
+
+  /** Balance reads go out only after the user said yes to outside reads. */
+  const readsAllowed = async () => (await appSettings.get(OUTSIDE_READS_SETTINGS_KEY)) === "on";
+
+  async function sendBalance(reply: FastifyReply, id: string, read: () => Promise<unknown> | null) {
+    try {
+      return (await read()) ?? { balance: null };
+    } catch (err) {
+      logger.warn("[connections] Balance check failed for %s: %s", id, err instanceof Error ? err.message : err);
+      return reply.status(502).send({ error: err instanceof BalanceError ? err.message : "The balance check failed" });
+    }
+  }
+
   // What is left on the account, for services with a balance endpoint; `{ balance: null }` for the rest.
   app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/balance", async (req, reply) => {
     const account = await accounts.getById(req.params.id);
     if (!account) return reply.status(404).send({ error: "Connection not found" });
-    if (accountBlocksRows(account) || !connectionBalanceSource(account)) return { balance: null };
-    try {
-      return await readConnectionBalance(
-        account.id,
-        {
-          provider: account.provider,
-          baseUrl: account.baseUrl,
-          apiKey: decryptApiKey(account.apiKeyEncrypted),
-          balanceToken: decryptApiKey(account.managementTokenEncrypted),
-          balanceUserId: account.balanceUserId,
-        },
-        req.query.refresh === "true",
+    if (!(await readsAllowed())) return { balance: null };
+    return sendBalance(reply, account.id, () => ownBalance(account, req.query.refresh === "true"));
+  });
+
+  // A "via X" upstream's balance: through the linked Connection of that upstream, or the usage-only key, which
+  // goes only to the upstream's own fixed address.
+  app.get<{ Params: { id: string; upstream: string }; Querystring: { refresh?: string } }>(
+    "/:id/usage-keys/:upstream/balance",
+    async (req, reply) => {
+      const account = await accounts.getById(req.params.id);
+      if (!account) return reply.status(404).send({ error: "Connection not found" });
+      const { upstream } = req.params;
+      const entry = readUsageKeys(account)[upstream];
+      if (!entry || !upstreamBalanceSource(upstream) || !(await readsAllowed())) return { balance: null };
+      const refresh = req.query.refresh === "true";
+      if (entry.accountId) {
+        const linked = await accounts.getById(entry.accountId);
+        // A deleted Connection, or one of another service, reads as no balance.
+        const sameService =
+          !!linked &&
+          connectionBalanceSource({ ...linked, apiKey: decryptApiKey(linked.apiKeyEncrypted) }) ===
+            upstreamBalanceSource(upstream);
+        return sendBalance(reply, account.id, () => (sameService ? ownBalance(linked!, refresh) : null));
+      }
+      const key = decryptApiKey(entry.tokenEncrypted ?? "");
+      return sendBalance(reply, account.id, () =>
+        key
+          ? readConnectionBalance(`${account.id}:${upstream}`, refresh, () => fetchUpstreamBalance(upstream, key))
+          : null,
       );
-    } catch (err) {
-      logger.warn(
-        "[connections] Balance check failed for %s: %s",
-        account.id,
-        err instanceof Error ? err.message : err,
-      );
-      return reply.status(502).send({ error: err instanceof BalanceError ? err.message : "The balance check failed" });
+    },
+  );
+
+  // Link a Connection of the upstream, or save a usage-only key (encrypted, never sent back).
+  app.put<{ Params: { id: string; upstream: string } }>("/:id/usage-keys/:upstream", async (req, reply) => {
+    const { upstream } = req.params;
+    const source = upstreamBalanceSource(upstream);
+    if (!source) return reply.status(400).send({ error: "This service has no balance Marinara can read" });
+    const input = connectionUsageKeySchema.parse(req.body);
+    if ("accountId" in input) {
+      const linked = input.accountId !== req.params.id ? await accounts.getById(input.accountId) : null;
+      if (!linked || connectionBalanceSource({ ...linked, apiKey: decryptApiKey(linked.apiKeyEncrypted) }) !== source) {
+        return reply.status(400).send({ error: "Pick a Connection of the same service" });
+      }
     }
+    const updated = await accounts.setUsageKey(req.params.id, upstream, input);
+    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    forgetConnectionBalance(updated.id);
+    return listItem(updated);
+  });
+
+  app.delete<{ Params: { id: string; upstream: string } }>("/:id/usage-keys/:upstream", async (req, reply) => {
+    const updated = await accounts.setUsageKey(req.params.id, req.params.upstream, null);
+    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    forgetConnectionBalance(updated.id);
+    return listItem(updated);
   });
 
   // Upload the Connection's picture (same checks and folder as a Model's). PATCH `icon` changes or resets it.
@@ -232,7 +305,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     // The copy serves the same model list, so the saved catalogs come along.
     await app.db
       .update(connectionAccounts)
-      .set({ modelCatalogs: source.modelCatalogs })
+      .set({ modelCatalogs: source.modelCatalogs, usageKeys: source.usageKeys })
       .where(eq(connectionAccounts.id, copy.id));
     return copy;
   }
