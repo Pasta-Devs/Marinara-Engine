@@ -2,15 +2,7 @@
 // PictureMenu — the picture tile's menu of a Connection or Model:
 // Upload image · Choose provider logo · Use letters · Reset to default
 // ──────────────────────────────────────────────
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ImageUp, LayoutGrid, RotateCcw, Type } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +10,7 @@ import { toast } from "sonner";
 import { parseConnectionIcon } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
-import { BRAND_MARKS } from "./ProviderIcon";
+import { BRAND_MARKS, brandMarkProps } from "./ProviderIcon";
 import {
   useUpdateConnection,
   useUploadConnectionAccountImage,
@@ -34,8 +26,6 @@ export function defaultLetters(name: string): string {
     .map((word) => [...word][0]!.toLocaleUpperCase())
     .join("");
 }
-
-const brandMarkStyle = (url: string) => ({ "--brand-mark": `url("${url}")` }) as CSSProperties;
 
 /** The menu and its panels, portalled outside a dialog: a dialog lists them as its own for the focus trap. */
 export const PICTURE_MENU_SELECTOR = '[role="menu"], [data-picture-menu-panel]';
@@ -259,7 +249,7 @@ function BrandGrid({ selected, onPick }: { selected: string | null; onPick: (key
                 key === selected && "bg-[var(--accent)] ring-1 ring-[var(--primary)]",
               )}
             >
-              <span aria-hidden className="brand-mark h-5 w-5" style={brandMarkStyle(BRAND_MARKS[key]!)} />
+              <span aria-hidden className="brand-mark h-5 w-5" {...brandMarkProps(key, BRAND_MARKS[key]!)} />
             </button>
           ))}
         </div>

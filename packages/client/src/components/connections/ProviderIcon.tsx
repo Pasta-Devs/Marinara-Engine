@@ -175,12 +175,19 @@ function brandName(id?: string | null, ...texts: Array<string | null | undefined
 }
 
 /** A brand's icon: `mono` is its single-colour mark, `color` its own colour logo where one is bundled. */
-function brandIcon(name: string | undefined): { mono: string; color?: string } | null {
+function brandIcon(name: string | undefined): { key: string; mono: string; color?: string } | null {
   const mono = name ? (fileUrl(`${name}.svg`) ?? fileUrl(`${name}.png`)) : undefined;
-  return mono ? { mono, color: fileUrl(`${name}-color.png`) } : null;
+  return name && mono ? { key: name, mono, color: fileUrl(`${name}-color.png`) } : null;
 }
 
-const maskStyle = (url: string) => ({ "--brand-mark": `url("${url}")` }) as CSSProperties;
+/** Marks drawn in shades of grey: shown as they are, not as a mask in the text colour. */
+const SHADED_MARKS = new Set(["linkapi"]);
+
+/** The props for a `.brand-mark` span showing a bundled mark. */
+export const brandMarkProps = (key: string, url: string) => ({
+  "data-shaded": SHADED_MARKS.has(key) || undefined,
+  style: { "--brand-mark": `url("${url}")` } as CSSProperties,
+});
 
 /**
  * A brand mark in the current text colour, for a service id or a name ("linkapi", "LM Studio"); nothing when
@@ -201,7 +208,7 @@ export function BrandMark({
   return color && icon.color ? (
     <img src={icon.color} alt="" aria-hidden className={cn(classes, "object-contain")} draggable={false} />
   ) : (
-    <span aria-hidden className={cn("brand-mark", classes)} style={maskStyle(icon.mono)} />
+    <span aria-hidden className={cn("brand-mark", classes)} {...brandMarkProps(icon.key, icon.mono)} />
   );
 }
 
@@ -301,7 +308,9 @@ export function ProviderIcon({
       ) : chosen.kind === "brand" || brand ? (
         <span
           className="brand-mark h-[70%] w-[70%]"
-          style={maskStyle(chosen.kind === "brand" ? chosen.url : brand!.mono)}
+          {...(chosen.kind === "brand"
+            ? brandMarkProps(chosen.key, chosen.url)
+            : brandMarkProps(brand!.key, brand!.mono))}
         />
       ) : Icon ? (
         <Icon size={icon} />

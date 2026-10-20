@@ -19,7 +19,8 @@ Lobe Icons has no icon for these brands, so the mark comes from the owner's own 
 - `swarmui.png` — white silhouette of SwarmUI's `favicon.ico` (mcmonkeyprojects/SwarmUI)
 - `horde.png` — white silhouette of AI Horde's `icon.png` (Haidra-Org/AI-Horde)
 - `arliai.png` — white silhouette of arliai.com's favicon
-- `linkapi-color.png` — LinkAPI's own logo, from linkapi.ai (shown in colour on the sponsor banner)
+- `linkapi-color.png` — LinkAPI's blossom-and-ribbon logo from its owner, redrawn flat (shown in colour on the sponsor banner)
+- `linkapi.png` — the same logo in shades of grey; shown as it is, not as a mask (`SHADED_MARKS` in `ProviderIcon.tsx`)
 
 ## Marinara-made marks
 
@@ -27,7 +28,6 @@ Simple single-colour marks Marinara drew after each owner's logo. They are not t
 Lobe Icons:
 
 - `nanogpt.svg` — NanoGPT (traced from the crystal logo)
-- `linkapi.svg` — LinkAPI (two crescents and a star)
 - `bifrost.svg` — Bifrost (the pixel B)
 - `litellm.svg` — LiteLLM (the bullet train)
 - `spicyapi.svg` — SpicyAPI (the flame in a circle)
