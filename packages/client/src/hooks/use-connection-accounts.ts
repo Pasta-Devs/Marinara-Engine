@@ -16,14 +16,14 @@ import {
 import { api } from "../lib/api-client";
 import { translate } from "../localization/i18n";
 import { clearStagedFeatureModels, readStagedFeatureModels } from "../lib/legacy-feature-models";
-import { connectionKeys } from "./use-connections";
+import { connectionKeys, useOutsideReads } from "./use-connections";
 
 export const connectionAccountKeys = {
   all: ["connection-accounts"] as const,
   list: () => [...connectionAccountKeys.all, "list"] as const,
   catalog: (query: string, limit: number) => [...connectionAccountKeys.all, "catalog", query, limit] as const,
   featureModels: () => [...connectionKeys.all, "feature-models"] as const,
-  balance: (id: string) => [...connectionAccountKeys.all, "balance", id] as const,
+  balance: (id: string, upstream = "") => [...connectionAccountKeys.all, "balance", id, upstream] as const,
 };
 
 const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
@@ -39,24 +39,53 @@ export function useConnectionAccounts() {
 }
 
 /**
- * What is left on a Connection's account, for services with a balance endpoint (`balance: null` for the rest).
- * The server keeps a read 5 minutes; `refresh` asks the service again.
+ * What is left on a Connection's account (`upstream` empty), or on one of its "via X" upstreams through a linked
+ * Connection or a usage-only key. `balance: null` where there is none. Nothing is read until the user allowed
+ * outside reads. The server keeps a read 5 minutes; `refresh` asks the service again.
  */
-export function useConnectionBalance(id: string | null | undefined, enabled = true) {
+export function useConnectionBalance(id: string | null | undefined, enabled = true, upstream = "") {
   const qc = useQueryClient();
+  const allowed = useOutsideReads().value === "on";
+  const path = `/connection-accounts/${encodeURIComponent(id ?? "")}${
+    upstream ? `/usage-keys/${encodeURIComponent(upstream)}` : ""
+  }/balance`;
+  const queryKey = connectionAccountKeys.balance(id ?? "", upstream);
   const query = useQuery({
-    queryKey: connectionAccountKeys.balance(id ?? ""),
-    queryFn: () => api.get<ConnectionBalanceResponse>(`/connection-accounts/${encodeURIComponent(id ?? "")}/balance`),
-    enabled: enabled && !!id,
+    queryKey,
+    queryFn: () => api.get<ConnectionBalanceResponse>(path),
+    enabled: enabled && allowed && !!id,
     staleTime: 5 * 60_000,
     retry: false,
   });
   const refresh = useMutation({
-    mutationFn: () =>
-      api.get<ConnectionBalanceResponse>(`/connection-accounts/${encodeURIComponent(id ?? "")}/balance?refresh=true`),
-    onSuccess: (data) => qc.setQueryData(connectionAccountKeys.balance(id ?? ""), data),
+    mutationFn: () => api.get<ConnectionBalanceResponse>(`${path}?refresh=true`),
+    onSuccess: (data) => qc.setQueryData(queryKey, data),
   });
   return { ...query, refresh };
+}
+
+/** Link a Connection of the upstream, or save a usage-only key (`null` removes it). The key never comes back. */
+export function useSetUsageKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      upstream,
+      value,
+    }: {
+      id: string;
+      upstream: string;
+      value: { accountId: string } | { key: string } | null;
+    }) => {
+      const path = `/connection-accounts/${encodeURIComponent(id)}/usage-keys/${encodeURIComponent(upstream)}`;
+      return value ? api.put<ConnectionAccountListItem>(path, value) : api.delete<ConnectionAccountListItem>(path);
+    },
+    onSuccess: (_data, { id, upstream }) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.list() }),
+        qc.invalidateQueries({ queryKey: connectionAccountKeys.balance(id, upstream) }),
+      ]),
+  });
 }
 
 /** Account edits write through to Model rows, so both key families reload. */

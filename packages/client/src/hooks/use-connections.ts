@@ -5,8 +5,7 @@ import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
-  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
-  PRICE_CATALOG_SETTINGS_KEY,
+  OUTSIDE_READS_SETTINGS_KEY,
   connectionSavesModelList,
   MAX_PINNED_MODELS,
   parsePinnedModels,
@@ -460,14 +459,15 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
 }
 
 /**
- * A one-time yes for an outside public read: "on", "off", or null while the user has not chosen. Asking explains
- * what the server reads (`connections.<copy>.*`); a choice reloads the model lists.
+ * The one yes for outside reads on Connections: NanoGPT plan badges, public price lists and balance reads.
+ * "on", "off", or null while the user has not chosen (null reads as off). Asking names every site the server
+ * reads; a choice reloads the model lists and the balances.
  */
-function useOutsideReadSetting(key: string, copy: "nanogptPlan" | "priceCatalog") {
+export function useOutsideReads() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const path = `/app-settings/${key}`;
-  const queryKey = [...connectionKeys.all, "setting", key];
+  const path = `/app-settings/${OUTSIDE_READS_SETTINGS_KEY}`;
+  const queryKey = [...connectionKeys.all, "setting", OUTSIDE_READS_SETTINGS_KEY];
   const query = useQuery({
     queryKey,
     queryFn: async () => (await api.get<{ value: string | null }>(path)).value,
@@ -478,25 +478,20 @@ function useOutsideReadSetting(key: string, copy: "nanogptPlan" | "priceCatalog"
     onSuccess: (_data, value) => {
       qc.setQueryData(queryKey, value);
       void qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models"] });
+      void qc.invalidateQueries({ queryKey: connectionAccountKeys.all });
     },
   });
   const ask = async () => {
     const allowed = await showConfirmDialog({
-      title: t(`connections.${copy}.title`),
-      message: t(`connections.${copy}.message`),
-      confirmLabel: t(`connections.${copy}.allow`),
-      cancelLabel: t(`connections.${copy}.notNow`),
+      title: t("connections.outsideReads.title"),
+      message: t("connections.outsideReads.message"),
+      confirmLabel: t("connections.outsideReads.allow"),
+      cancelLabel: t("connections.outsideReads.notNow"),
     });
     save.mutate(allowed ? "on" : "off");
   };
   return { value: query.isSuccess ? (query.data ?? null) : undefined, ask, turnOff: () => save.mutate("off") };
 }
-
-/** Plan badges for a proxy's `nanogpt/…` models; the server reads NanoGPT's public model list and sends no key. */
-export const useNanoGptPlanBadges = () => useOutsideReadSetting(NANOGPT_PLAN_BADGES_SETTINGS_KEY, "nanogptPlan");
-
-/** Price badges from public price lists (LinkAPI, models.dev); no key is sent. */
-export const usePriceCatalog = () => useOutsideReadSetting(PRICE_CATALOG_SETTINGS_KEY, "priceCatalog");
 
 /** A model list stays fresh for six hours; Refresh asks sooner. */
 const MODEL_LIST_TTL = 6 * 60 * 60_000;

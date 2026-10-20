@@ -5,7 +5,7 @@ import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { upstreamOf } from "../../lib/connection-groups";
 import { MODEL_KINDS, modelKindOf } from "../../lib/connection-identity";
 import { cn } from "../../lib/utils";
-import { useNanoGptPlanBadges } from "../../hooks/use-connections";
+import { useOutsideReads } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { BrandMark } from "./ProviderIcon";
 
@@ -56,7 +56,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
   addLabel?: string;
 }) {
   const { t } = useTranslation();
-  const nanoGptPlan = useNanoGptPlanBadges();
+  const outsideReads = useOutsideReads();
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const folding = autoFold && rows.length > FOLD_AT;
   // Upstreams the user flipped from their starting state (open, or folded in a long list).
@@ -167,9 +167,9 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
               </button>
             )}
             {/* NanoGPT plan badges need the user's yes once: the server then reads NanoGPT's public list. */}
-            {upstream === "nanogpt" && nanoGptPlan.value === null && showCostBadges && (
+            {upstream === "nanogpt" && outsideReads.value === null && showCostBadges && (
               <div className="mari-connection-model-slot flex min-h-9 min-w-0 items-center ps-[3.25rem] pe-2">
-                <button type="button" onClick={() => void nanoGptPlan.ask()} className="mari-connection-btn">
+                <button type="button" onClick={() => void outsideReads.ask()} className="mari-connection-btn">
                   {t("connections.nanogptPlan.show")}
                 </button>
               </div>

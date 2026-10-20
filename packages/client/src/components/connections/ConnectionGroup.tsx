@@ -26,7 +26,6 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   type APIProvider,
-  connectionBalanceSource,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import {
@@ -104,10 +103,7 @@ export function ConnectionGroup({
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
   // Services with a balance endpoint show what is left on line 2; a failed check shows nothing there.
-  const { data: balanceData } = useConnectionBalance(
-    account.id,
-    account.state === "ok" && !!connectionBalanceSource(account),
-  );
+  const { data: balanceData } = useConnectionBalance(account.id, account.state === "ok" && !!account.balanceSource);
   const balance = balanceWord(balanceData?.balance, t, i18n.resolvedLanguage);
   const removeAccount = useDeleteConnectionAccount();
   const duplicateAccount = useDuplicateConnectionAccount();
