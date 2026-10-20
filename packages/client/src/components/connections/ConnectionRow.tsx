@@ -29,6 +29,7 @@ import {
   Shuffle,
   Star,
   Trash2,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -290,14 +291,11 @@ export function ModelRow({
                   {id}
                 </span>
               )}
-              {/* Custom settings: a quiet "Edited" word right after the model id it adjusts, readable on touch. */}
+              {/* Custom settings: a quiet person-and-gear mark right after the model id it adjusts; hover names it. */}
               {customized && (
-                <span
-                  data-model-customized
-                  title={t("connections.row.customSettings")}
-                  className="mari-connection-pill shrink-0"
-                >
-                  {t("connections.row.edited")}
+                <span data-model-customized title={t("connections.row.customSettings")} className="flex shrink-0">
+                  <UserCog size="0.6875rem" aria-hidden />
+                  <span className="sr-only">{t("connections.row.customSettings")}</span>
                 </span>
               )}
               {details}

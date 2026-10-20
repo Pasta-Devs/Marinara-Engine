@@ -2238,7 +2238,6 @@
   "connections.row.current": "This chat uses this model",
   "connections.row.customSettings": "Custom settings",
   "connections.row.edit": "Edit {{name}}",
-  "connections.row.edited": "Edited",
   "connections.row.editModel": "Edit model",
   "connections.row.editUnavailable": "Edit {{name}} ({{state}})",
   "connections.row.makeDefaultFor": "Make default for…",
