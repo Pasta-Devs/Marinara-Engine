@@ -1,6 +1,7 @@
 // A mesh avatar built from one of the owner's sprites (lane: generation).
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useMayReadImages } from "../../../hooks/use-connections";
 import { toast } from "sonner";
 import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { normalizeSpriteExpressionKey, type AvatarOwnerRef } from "@marinara-engine/shared";
@@ -32,6 +33,7 @@ export function MeshAvatarSection({
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
+  const mayReadImages = useMayReadImages();
   // Undefined until the user picks or clears a sprite. Without a pick, or once the picked sprite is gone, the
   // preferred one follows the sprite list.
   const [picked, setPicked] = useState<string | null>();
@@ -87,6 +89,8 @@ export function MeshAvatarSection({
             <ConnectionSelect
               value={visionConnectionId}
               onChange={setVisionConnectionId}
+              rowFilter={mayReadImages}
+              addJob="vision"
               defaultLabel={t("avatars.generation.visionConnectionAgent")}
             />
           </fieldset>

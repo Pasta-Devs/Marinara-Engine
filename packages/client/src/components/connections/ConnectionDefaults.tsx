@@ -33,12 +33,12 @@ import {
   isAgentConfigDeleted,
   isChatProvider,
   isRetiredBuiltInAgentId,
-  modelReadsImages,
   type ConnectionAccountListItem,
   type FeatureModelConnections,
 } from "@marinara-engine/shared";
 import {
   useCachedCatalogFacts,
+  useMayReadImages,
   useDefaultEmbeddingConnection,
   useUpdateConnection,
   type CachedCatalogFacts,
@@ -685,17 +685,7 @@ export function ConnectionDefaultsBox({
   };
 
   // Image reading offers the Models that read images or may (their catalog does not say).
-  const chatRows = connectionsList.filter((row) => isChatProvider(row.provider));
-  const chatRowCatalogs = useCachedCatalogFacts(
-    chatRows.map((row) =>
-      row.accountId ? chatRows.filter((peer) => peer.accountId === row.accountId).map((peer) => peer.id) : [row.id],
-    ),
-  );
-  const mayReadImages = (row: { id: string; model?: string | null }) => {
-    const index = chatRows.findIndex((entry) => entry.id === row.id);
-    const chatRow = chatRows[index];
-    return !chatRow || modelReadsImages(chatRow, chatRowCatalogs[index]?.of(row.model)) !== false;
-  };
+  const mayReadImages = useMayReadImages();
 
   const features = featureModels.data;
   const jobs: Job[] = [

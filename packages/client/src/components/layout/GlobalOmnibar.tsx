@@ -2268,7 +2268,6 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           <OmnibarSettingsSheet
             focusControlId={settingsTarget.controlId}
             onClose={closeSettings}
-            connections={languageConnections}
             marisConnectionName={asideConnectionOffer?.name ?? null}
             onClearSearchHistory={() => {
               clearOmnibarFrecencyHistory();

@@ -86,20 +86,20 @@ export function PictureMenu({ target, name, icon, imagePath, at, onClose }: Pict
     const file = event.target.files?.[0];
     if (!file) return setMode("closed");
     if (!file.type.startsWith("image/")) {
-      toast.error(t("ui.panels.connectionspanel.chooseAnImageFileForTheConnectionPicture"));
+      toast.error(t("connections.picture.notAnImage"));
       return setMode("closed");
     }
     const reader = new FileReader();
     reader.onload = () => {
       const image = typeof reader.result === "string" ? reader.result : "";
       if (!image) {
-        toast.error(t("ui.panels.agentspanel.couldNotReadThatImage"));
+        toast.error(t("connections.picture.readFailed"));
         return setMode("closed");
       }
       void save(() => (target.kind === "model" ? uploadModel : uploadAccount).mutateAsync({ id: target.id, image }));
     };
     reader.onerror = () => {
-      toast.error(t("ui.panels.agentspanel.couldNotReadThatImage"));
+      toast.error(t("connections.picture.readFailed"));
       setMode("closed");
     };
     reader.readAsDataURL(file);
@@ -232,7 +232,7 @@ function BrandGrid({ selected, onPick }: { selected: string | null; onPick: (key
         onChange={(event) => setQuery(event.target.value)}
         placeholder={t("connections.picture.searchLogos")}
         aria-label={t("connections.picture.searchLogos")}
-        className="mb-2 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        className="mari-chrome-field mb-2 h-9 w-full px-2.5 text-xs"
       />
       {keys.length ? (
         <div className="grid max-h-48 grid-cols-6 gap-1 overflow-y-auto">
@@ -283,16 +283,12 @@ function LettersForm({ initial, onSave }: { initial: string; onSave: (text: stri
         maxLength={16}
         aria-describedby="picture-menu-letters-hint"
         aria-invalid={!valid}
-        className="w-14 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-center text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        className="mari-chrome-field h-9 w-14 px-2 text-center text-sm font-semibold"
       />
       <span id="picture-menu-letters-hint" className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
         {t("connections.picture.lettersHint")}
       </span>
-      <button
-        type="submit"
-        disabled={!valid}
-        className="rounded-md bg-[var(--primary)] px-2 py-1 text-xs font-medium text-[var(--primary-foreground)] disabled:opacity-50"
-      >
+      <button type="submit" disabled={!valid} className="mari-connection-btn mari-connection-btn--primary">
         {t("connections.picture.saveLetters")}
       </button>
     </form>

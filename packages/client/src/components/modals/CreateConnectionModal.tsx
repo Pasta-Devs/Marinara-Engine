@@ -57,7 +57,9 @@ import {
   useCreateConnection,
   useConnectionModels,
   useConnections,
+  useDefaultEmbeddingConnection,
   useDeleteConnection,
+  useSetDefaultEmbeddingConnection,
   useTestConnection,
   useUpdateConnection,
 } from "../../hooks/use-connections";
@@ -568,6 +570,8 @@ export function CreateConnectionModal({
   const setChatModel = useSetChatModel();
   const featureModels = useFeatureModels();
   const setFeatureModels = useSetFeatureModels();
+  const embeddingDefault = useDefaultEmbeddingConnection();
+  const setEmbeddingDefault = useSetDefaultEmbeddingConnection();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const deviceSetup = useDeviceSetup();
 
@@ -797,6 +801,11 @@ export function CreateConnectionModal({
       const { assign, previous = null } = jobFor;
       assign(id);
       return () => assign(previous);
+    }
+    if (job === "embeddings") {
+      const previous = embeddingDefault.data?.connectionId ?? null;
+      await setEmbeddingDefault.mutateAsync(id);
+      return () => void setEmbeddingDefault.mutateAsync(previous).catch(() => {});
     }
     const flag = job ? JOB_FLAG[job] : undefined;
     if (flag) {

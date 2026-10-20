@@ -24,6 +24,7 @@ import {
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { useConnections } from "../../hooks/use-connections";
 import { useChat } from "../../hooks/use-chats";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import {
   filterLanguageGenerationConnections,
   isConnectionFlagTrue,
@@ -894,27 +895,17 @@ export function CharacterScheduleEditorModal({
             <span className="mb-1.5 block font-medium">
               {localizeUi("ui.chat.characterscheduleeditormodal.generationConnection")}
             </span>
-            <select
-              value={selectedConnection || (connectionId === "random" && hasRandomPool) ? connectionId : ""}
-              onChange={(event) => setGenerationConnectionId(event.target.value)}
-              disabled={generationBusy || connectionsLoading}
-              className="w-full min-w-0 rounded-md bg-[var(--secondary)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
-            >
-              <option value="" disabled>
-                {localizeUi("ui.chat.characterscheduleeditormodal.chooseConnection")}
-              </option>
-              {hasRandomPool && (
-                <option value="random">{localizeUi("ui.chat.characterscheduleeditormodal.randomConnection")}</option>
-              )}
-              {availableConnections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {localizeUi("ui.chat.characterscheduleeditormodal.connectionOption", {
-                    name: connection.name,
-                    model: connection.model || localizeUi("ui.chat.characterscheduleeditormodal.providerDefaultModel"),
-                  })}
-                </option>
-              ))}
-            </select>
+            <ConnectionSelect
+              value={selectedConnection || (connectionId === "random" && hasRandomPool) ? connectionId : null}
+              onChange={setGenerationConnectionId}
+              defaultLabel={localizeUi("ui.chat.characterscheduleeditormodal.chooseConnection")}
+              extraOptions={
+                hasRandomPool
+                  ? [{ value: "random", label: localizeUi("ui.chat.characterscheduleeditormodal.randomConnection") }]
+                  : []
+              }
+              rowFilter={(row) => availableConnections.some((connection) => connection.id === row.id)}
+            />
           </label>
           <p className="break-words text-xs text-[var(--muted-foreground)]">
             {selectedConnection

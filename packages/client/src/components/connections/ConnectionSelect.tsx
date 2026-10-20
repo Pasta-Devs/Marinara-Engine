@@ -173,6 +173,7 @@ export function ConnectionSelect({
   title,
   className,
   addJob,
+  disabled,
   ...aria
 }: {
   /** A Model id, or `null` for "Default". */
@@ -199,6 +200,7 @@ export function ConnectionSelect({
   className?: string;
   /** The job this slot is, for "Add a model for this…" (the Add window names it and sets Defaults by it). */
   addJob?: AddJob;
+  disabled?: boolean;
   id?: string;
   "aria-label"?: string;
 }) {
@@ -227,6 +229,7 @@ export function ConnectionSelect({
       <select
         {...aria}
         value={value ?? ""}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value || null)}
         className={cn(
           "mari-chrome-field h-9 w-full max-md:min-h-11 [@media(pointer:coarse)]:min-h-11 min-w-0 truncate px-2 py-0 text-[0.6875rem]",
@@ -261,6 +264,7 @@ export function ConnectionSelect({
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
+    disabled,
     id: aria.id,
     // A <label for> names the button; the value then reaches assistive tech as its description.
     "aria-label": aria["aria-label"]
