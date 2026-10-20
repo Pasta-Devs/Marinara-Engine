@@ -29,9 +29,6 @@ type MovePlan = {
 
 const ROW =
   "mari-chrome-control mari-chrome-control--card flex min-h-14 w-full !flex-row !items-center gap-3 px-3 py-2 text-left text-xs disabled:opacity-50";
-const INPUT =
-  "flex min-h-9 min-w-0 items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-[var(--marinara-chat-chrome-input-border-focus)] [@media(pointer:coarse)]:min-h-11";
-
 /** `:thinking` and `:free` are the variants the server flags most; any other tail gets the plain word. */
 function variantKey(id: string) {
   if (/thinking/i.test(id)) return "connections.move.variant.thinking";
@@ -256,7 +253,7 @@ function ModelStep({
                 disabled={plan.isFetching}
                 className="mari-connection-btn mari-connection-btn--ghost shrink-0"
               >
-                {t("connections.device.retry")}
+                {t("connections.picker.retry")}
               </button>
             </div>
           ) : (
@@ -267,8 +264,12 @@ function ModelStep({
               </p>
             )
           )}
-          <label className={INPUT}>
-            <Search size="0.875rem" className="shrink-0" aria-hidden />
+          <label className="relative block">
+            <Search
+              size="0.875rem"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+              aria-hidden
+            />
             <span className="sr-only">{t("connections.move.searchLabel", { connection: target.name })}</span>
             <input
               data-move-search
@@ -278,7 +279,7 @@ function ModelStep({
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
-              className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-foreground outline-none placeholder:text-foreground/40"
+              className="mari-chrome-field h-11 w-full pl-8 pr-3 text-xs md:h-9"
             />
           </label>
           {options.length > 0 && (
@@ -325,18 +326,16 @@ function ModelStep({
           {plan.data?.manualModelAllowed && (
             <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--muted-foreground)]">
               {t("connections.move.manualLabel")}
-              <span className={INPUT}>
-                <input
-                  data-move-manual
-                  value={manual}
-                  onChange={(event) => setManual(event.target.value)}
-                  placeholder={row.model}
-                  spellCheck={false}
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  className="min-w-0 flex-1 bg-transparent py-1.5 text-xs font-normal text-foreground outline-none placeholder:text-foreground/40"
-                />
-              </span>
+              <input
+                data-move-manual
+                value={manual}
+                onChange={(event) => setManual(event.target.value)}
+                placeholder={row.model}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                className="mari-chrome-field h-11 w-full px-3 text-xs font-normal md:h-9"
+              />
             </label>
           )}
         </>

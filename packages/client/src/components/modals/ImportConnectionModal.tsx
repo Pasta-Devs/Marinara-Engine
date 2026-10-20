@@ -4,8 +4,10 @@
 import { useRef, useState } from "react";
 import { CheckCircle, Download, FileJson, Loader2, XCircle } from "lucide-react";
 import { Modal } from "../ui/Modal";
-import { useCreateConnection, useSaveConnectionDefaults } from "../../hooks/use-connections";
-import { getConnectionImportEntries, normalizeImportedConnectionEntry } from "../../lib/connection-transfer";
+import { useQueryClient } from "@tanstack/react-query";
+import { connectionKeys, useCreateConnection, useSaveConnectionDefaults } from "../../hooks/use-connections";
+import { connectionAccountKeys, useCreateConnectionAccount } from "../../hooks/use-connection-accounts";
+import { getConnectionImportPlan, type ConnectionImportPayload } from "../../lib/connection-transfer";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -19,6 +21,8 @@ export function ImportConnectionModal({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const createConnection = useCreateConnection();
   const saveConnectionDefaults = useSaveConnectionDefaults();
+  const createAccount = useCreateConnectionAccount();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -27,6 +31,23 @@ export function ImportConnectionModal({ open, onClose }: Props) {
     setStatus("idle");
     setResults([]);
     setDragOver(false);
+  };
+
+  /** Creates one Model and returns its id; a Model whose defaults fail is removed again. */
+  const importModel = async (normalized: ConnectionImportPayload, accountId?: string) => {
+    const result = await createConnection.mutateAsync(
+      accountId ? { ...normalized.connection, accountId } : normalized.connection,
+    );
+    const connectionId = (result as { id?: string } | null)?.id ?? null;
+    if (connectionId && normalized.hasDefaultParameters) {
+      try {
+        await saveConnectionDefaults.mutateAsync({ id: connectionId, params: normalized.defaultParameters });
+      } catch (error) {
+        await api.delete(`/connections/${connectionId}`).catch(() => undefined);
+        throw error;
+      }
+    }
+    return connectionId;
   };
 
   const handleFiles = async (files: File[]) => {
@@ -39,55 +60,87 @@ export function ImportConnectionModal({ open, onClose }: Props) {
     for (const file of files) {
       try {
         const parsed = JSON.parse(await file.text()) as unknown;
-        const entries = getConnectionImportEntries(parsed);
-        if (entries.length === 0) throw new Error("No connection data found");
+        const plan = getConnectionImportPlan(parsed);
+        if (plan.accounts.length === 0 && plan.models.length === 0) {
+          throw new Error(localizeUi("connections.transfer.noData"));
+        }
 
-        let imported = 0;
+        let importedConnections = 0;
+        let importedModels = 0;
         let failed = 0;
-        for (const entry of entries) {
-          let createdConnectionId: string | null = null;
+        // A Connection is one entry: if one of its Models fails, the Connection and its new Models are removed.
+        for (const entry of plan.accounts) {
+          if (!entry.account) {
+            failed += 1;
+            continue;
+          }
+          let accountId: string | null = null;
+          const createdIds: string[] = [];
           try {
-            const normalized = normalizeImportedConnectionEntry(entry);
-            if (!normalized) {
-              failed += 1;
-              continue;
+            const result = await createAccount.mutateAsync({ ...entry.account, model: "" });
+            accountId = result.account.id;
+            if (result.connectionId) createdIds.push(result.connectionId);
+            let added = 0;
+            for (const model of entry.models) {
+              if (!model) {
+                failed += 1;
+                continue;
+              }
+              const connectionId = await importModel(model, accountId);
+              if (connectionId) createdIds.push(connectionId);
+              added += 1;
             }
-
-            const result = await createConnection.mutateAsync(normalized.connection);
-            const connectionId = (result as { id?: string } | null)?.id;
-            createdConnectionId = connectionId ?? null;
-            if (connectionId && normalized.hasDefaultParameters) {
-              await saveConnectionDefaults.mutateAsync({
-                id: connectionId,
-                params: normalized.defaultParameters,
-              });
-            }
-            imported += 1;
+            // The create route always adds a first Model; the file brings its own.
+            if (result.connectionId) await api.delete(`/connections/${result.connectionId}`);
+            importedConnections += 1;
+            importedModels += added;
           } catch {
-            if (createdConnectionId) {
-              await api.delete(`/connections/${createdConnectionId}`).catch(() => undefined);
-            }
+            for (const id of createdIds) await api.delete(`/connections/${id}`).catch(() => undefined);
+            if (accountId) await api.delete(`/connection-accounts/${accountId}`).catch(() => undefined);
             failed += 1;
           }
         }
 
-        if (imported === 0) throw new Error("No supported connection entries found");
+        for (const model of plan.models) {
+          if (!model) {
+            failed += 1;
+            continue;
+          }
+          try {
+            await importModel(model);
+            importedModels += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+
+        if (importedConnections === 0 && importedModels === 0) {
+          throw new Error(localizeUi("connections.transfer.noEntries"));
+        }
         nextResults.push({
           filename: file.name,
           success: true,
-          message: `Imported ${imported} connection${imported === 1 ? "" : "s"} without API keys${
-            failed > 0 ? ` (${failed} skipped)` : ""
-          }`,
+          message: [
+            localizeUi("connections.transfer.importedModels", { count: importedModels }),
+            importedConnections > 0 &&
+              localizeUi("connections.transfer.importedConnections", { count: importedConnections }),
+            failed > 0 && localizeUi("connections.transfer.skipped", { count: failed }),
+          ]
+            .filter(Boolean)
+            .join(" "),
         });
       } catch (error) {
         nextResults.push({
           filename: file.name,
           success: false,
-          message: error instanceof Error ? error.message : "Failed to import connections",
+          message: error instanceof Error ? error.message : localizeUi("connections.transfer.failed"),
         });
       }
     }
 
+    // Deleted placeholders and rolled-back entries change no cache on their own.
+    void queryClient.invalidateQueries({ queryKey: connectionKeys.all });
+    void queryClient.invalidateQueries({ queryKey: connectionAccountKeys.all });
     setResults(nextResults);
     setStatus("done");
   };
@@ -105,7 +158,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
         reset();
         onClose();
       }}
-      title={localizeUi("ui.modals.importconnectionmodal.importConnections")}
+      title={localizeUi("connections.transfer.title")}
       opaque
     >
       <div className="flex flex-col gap-4">

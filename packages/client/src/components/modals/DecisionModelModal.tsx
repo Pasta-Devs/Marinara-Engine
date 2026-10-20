@@ -275,7 +275,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
           )}
         </div>
         {model.id === installedId && (
-          <span className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
+          <span className="mari-chrome-accent-surface flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium">
             <Check size="0.625rem" />
             {localizeUi("ui.modals.decisionmodelmodal.installedBadge")}
           </span>
@@ -294,7 +294,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
     >
       <div className="flex flex-col gap-5">
         <div className="flex items-start gap-3">
-          <div className="mari-chrome-accent-soft-tile mari-accent-animated flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+          <div className="mari-chrome-accent-soft-tile flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
             <Zap size="1.25rem" />
           </div>
           <div className="text-sm text-[var(--muted-foreground)]">
@@ -333,7 +333,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                   value={String(data.cudaDevice)}
                   disabled={busy}
                   onChange={(event) => device.mutate(Number(event.target.value), { onError: report })}
-                  className="mari-chrome-control px-3 py-2 text-xs"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 >
                   {data.devices.map((entry) => (
                     <option key={entry.index} value={String(entry.index)}>
@@ -354,7 +354,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
               type="button"
               disabled={busy}
               onClick={() => void handleEnable(!enabled)}
-              className="mari-chrome-control flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left disabled:opacity-50"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
             >
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium">{localizeUi("ui.modals.decisionmodelmodal.enableToggle")}</div>
@@ -371,14 +371,14 @@ export function DecisionModelModal({ open, onClose }: Props) {
                 so nothing can download from a single click. */}
             {enabled && (
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]/60">
+                <span className="text-xs font-medium text-[var(--muted-foreground)]/60">
                   {localizeUi("ui.modals.decisionmodelmodal.curated")}
                 </span>
                 {models.map(row)}
                 <button
                   onClick={() => void handleInstall()}
                   disabled={!selected || busy || !selected.preflight.installable || selected.id === installedId}
-                  className="mari-chrome-accent-surface mari-accent-animated mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                  className="mari-chrome-accent-surface mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {install.isPending ? (
                     <Loader2 size="0.875rem" className="animate-spin" />
@@ -419,7 +419,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         setInspectedRepo(repo);
                         inspect.mutate({ repoId: repo }, { onError: report });
                       }}
-                      className="mari-chrome-control mari-chrome-control--compact px-3 text-xs disabled:opacity-50"
+                      className="mari-connection-btn"
                     >
                       {localizeUi(
                         inspect.isPending
@@ -467,7 +467,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         type="button"
                         disabled={!inspect.data.preflight.installable || busy}
                         onClick={() => void handleInstallRepo()}
-                        className="mari-chrome-control mari-chrome-control--compact mt-2 w-full text-xs disabled:opacity-50"
+                        className="mari-connection-btn mt-2 w-full"
                       >
                         {localizeUi("ui.modals.decisionmodelmodal.installPasted")}
                       </button>
@@ -513,7 +513,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     }
                   }
                 }}
-                className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"
+                className="mari-connection-btn"
               >
                 <Trash2 size="0.75rem" />
                 {localizeUi("ui.modals.decisionmodelmodal.remove")}
@@ -523,11 +523,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
         )}
 
         {nothingRuns && (
-          <button
-            type="button"
-            onClick={openDecisionConnection}
-            className="mari-chrome-control mari-chrome-control--compact flex items-center justify-center gap-2 text-xs"
-          >
+          <button type="button" onClick={openDecisionConnection} className="mari-connection-btn">
             <Link2 size="0.75rem" />
             {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
           </button>

@@ -11,6 +11,8 @@ import {
   PROVIDERS,
   type APIProvider,
   type ImageGenerationQuality,
+  createConnectionAccountSchema,
+  type CreateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import type { CreateConnectionPayload } from "../hooks/use-connections";
 
@@ -58,6 +60,7 @@ export type ConnectionTransferRow = {
   comfyuiWorkflow?: unknown;
   treatAsLocalEndpoint?: unknown;
   claudeFastMode?: unknown;
+  accountId?: unknown;
 };
 
 export type SafeConnectionExport = {
@@ -116,13 +119,72 @@ export const CONNECTION_EXPORT_WARNING =
   "This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others!";
 const MAX_PARALLEL_JOBS = 16;
 
-export function createConnectionExportEnvelope(connections: ConnectionTransferRow[]) {
+/** Version 2 adds `accounts` (Connections with their Models); Models without a Connection stay in `connections`. */
+export function createConnectionExportEnvelope(
+  connections: ConnectionTransferRow[],
+  accounts: readonly ConnectionTransferAccount[] = [],
+) {
+  const accountIds = new Set(accounts.map((account) => account.id));
   return {
     kind: "marinara.connections",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     notice: "API keys are intentionally not included.",
-    connections: connections.map(serializeConnectionForExport),
+    ...(accounts.length > 0 && {
+      accounts: accounts.map((account) => ({
+        ...serializeAccountForExport(account),
+        models: connections
+          .filter((row) => typeof row.accountId === "string" && row.accountId === account.id)
+          .map(serializeConnectionForExport),
+      })),
+    }),
+    connections: connections
+      .filter((row) => typeof row.accountId !== "string" || !accountIds.has(row.accountId))
+      .map(serializeConnectionForExport),
+  };
+}
+
+/** Only these Connection fields travel. The API key, management token, balance user id and usage keys never do. */
+const ACCOUNT_EXPORT_FIELDS = [
+  "name",
+  "provider",
+  "baseUrl",
+  "icon",
+  "enabled",
+  "treatAsLocalEndpoint",
+  "showUsageWidget",
+  "showUsageFiveHour",
+  "showUsageWeekly",
+  "maxRequestsPerMinute",
+  "maxParallelJobs",
+] as const;
+
+export type ConnectionTransferAccount = Partial<Record<(typeof ACCOUNT_EXPORT_FIELDS)[number] | "id", unknown>>;
+
+function serializeAccountForExport(account: ConnectionTransferAccount) {
+  return Object.fromEntries(ACCOUNT_EXPORT_FIELDS.map((key) => [key, account[key]]));
+}
+
+export type ConnectionImportPlan = {
+  /** `account` or a Model is null when the entry is not valid; the import skips it. */
+  accounts: Array<{ account: CreateConnectionAccountInput | null; models: Array<ConnectionImportPayload | null> }>;
+  /** Models without a Connection, as every file version had them. */
+  models: Array<ConnectionImportPayload | null>;
+};
+
+export function getConnectionImportPlan(value: unknown): ConnectionImportPlan {
+  const accounts = isRecord(value) && Array.isArray(value.accounts) ? value.accounts : [];
+  return {
+    accounts: accounts.map((entry) => {
+      const parsed = isRecord(entry) ? createConnectionAccountSchema.safeParse(serializeAccountForExport(entry)) : null;
+      return {
+        account: parsed?.success ? parsed.data : null,
+        models: (isRecord(entry) && Array.isArray(entry.models) ? entry.models : []).map(
+          normalizeImportedConnectionEntry,
+        ),
+      };
+    }),
+    models: getConnectionImportEntries(value).map(normalizeImportedConnectionEntry),
   };
 }
 
@@ -132,6 +194,7 @@ export function getConnectionImportEntries(value: unknown): unknown[] {
 
   if (Array.isArray(value.connections)) return value.connections;
   if (Array.isArray(value.items)) return value.items;
+  if (Array.isArray(value.accounts)) return [];
   if (isRecord(value.connection)) return [value.connection];
   return [value];
 }
