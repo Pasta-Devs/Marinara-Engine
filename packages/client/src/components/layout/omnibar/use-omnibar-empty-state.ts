@@ -178,7 +178,8 @@ export function useOmnibarEmptyState({
             title: t("commandCenter.now.setupTitle", "No model connected yet"),
             description: t("commandCenter.now.setupDescription", "Replies need a model connection. Add one to start."),
             category: "navigation",
-            target: { kind: "panel", panel: "connections" },
+            // The Add window for Main: the first model added answers replies, with an Undo.
+            action: { kind: "add-connection", job: "main" },
             score: 0,
             kind: "navigation",
             icon: "connection",

@@ -377,6 +377,8 @@ export type CachedCatalogFacts = {
   showPaid: boolean;
   /** Models in the cached catalogs; undefined while none is cached. */
   count?: number;
+  /** The cached catalogs' model ids, one set per catalog (the Add window's model search reads them). */
+  idSets: ReadonlyArray<ReadonlySet<string>>;
 };
 
 type CatalogIndex = { byId: Map<string, CachedModelFacts>; ids: Set<string>; showPaid: boolean };
@@ -454,6 +456,7 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
       },
       showPaid: indexes.some((index) => index.showPaid),
       count: indexes.length ? new Set(indexes.flatMap((index) => [...index.ids])).size : undefined,
+      idSets: indexes.map((index) => index.ids),
     };
   });
 }

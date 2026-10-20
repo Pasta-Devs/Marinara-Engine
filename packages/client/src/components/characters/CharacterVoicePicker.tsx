@@ -12,7 +12,7 @@ import { useTTSConfig, useTTSVoices, useUpdateTTSVoiceAssignment, useUpdateTTSVo
 import { getCharacterNameVoice, getCharacterVoiceAssignment, resolveTTSVoiceForSpeaker } from "../../lib/tts-dialogue";
 import { ttsService } from "../../lib/tts-service";
 import { cn } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
+import { openAddConnection } from "../../lib/add-connection";
 import { buildTTSVoiceOptions, CustomizableVoiceInput, VoiceSelect } from "../panels/settings/TTSConfigCard";
 
 const SAVE_DELAY_MS = 600;
@@ -180,7 +180,7 @@ export function CharacterVoicePicker({
           )}
           <button
             type="button"
-            onClick={() => useUIStore.getState().openRightPanel("connections")}
+            onClick={() => openAddConnection({ category: "device", item: "tts" })}
             className={ACTION_CLS}
           >
             <Settings2 size="0.8rem" />

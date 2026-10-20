@@ -3,7 +3,7 @@
 // It only reports the pick: it saves nothing, stars nothing and changes no chat or default.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { AlertTriangle, Check, Cpu, House, Loader2, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Check, Cpu, House, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
@@ -41,6 +41,7 @@ export function ConnectionPicker({
   rowFilter,
   title,
   restoreFocusRef,
+  onAdd,
 }: {
   open: boolean;
   onClose: () => void;
@@ -60,6 +61,8 @@ export function ConnectionPicker({
   title?: string;
   /** Where focus goes back on close; the opener by default. */
   restoreFocusRef?: RefObject<HTMLElement | null>;
+  /** "Add a model for this…" at the end: the picker closes and the host opens Add for this slot. */
+  onAdd?: () => void;
 }) {
   const { t } = useTranslation();
   const choices = useConnectionChoices({
@@ -353,6 +356,23 @@ export function ConnectionPicker({
           </div>
         )}
 
+        {onAdd && (
+          <div className="mt-1 border-t border-foreground/10 pt-1">
+            {option("add", {
+              selected: false,
+              onPick: () => {
+                onClose();
+                onAdd();
+              },
+              icon: (
+                <span className={ICON_BOX}>
+                  <Plus size="0.875rem" aria-hidden />
+                </span>
+              ),
+              label: t("connections.select.addForThis"),
+            })}
+          </div>
+        )}
         {choices.loading ? (
           <p className="flex items-center justify-center gap-2 px-3 py-4 text-[0.6875rem] text-foreground/50">
             <Loader2 size="0.875rem" className="animate-spin" aria-hidden />

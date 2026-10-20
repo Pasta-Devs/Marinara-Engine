@@ -6,6 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { showConnectionsList } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -472,6 +473,128 @@ test("unstarring the first model after starring a second keeps the model screen 
     expect(await addedModels()).toEqual([]);
   } finally {
     await removeAdded(request, before);
+    await provider.close();
+  }
+});
+
+/** Opens the app with the Add window closed and the panels shut. */
+async function openApp(page: Page) {
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.addInitScript((appVersion) => {
+    localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+  }, APP_VERSION);
+  await page.goto("/");
+}
+
+test("one search finds jobs, models and services; a model lists every service and the user's own Connection", async ({
+  page,
+  request,
+}) => {
+  const created = await request.post("/api/connections", {
+    data: {
+      name: "E2E Bifrost",
+      provider: "custom",
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "",
+      model: "anthropic/claude-opus-5-5",
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id, accountId } = (await created.json()) as { id: string; accountId: string };
+  try {
+    await openApp(page);
+    await page.evaluate(async () => {
+      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
+      openAddConnection();
+    });
+    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    // Before typing: jobs, a few models and the services, in that order.
+    await expect(dialog.locator('[data-add-connection-section="job"]')).toBeVisible();
+    await expect(dialog.locator('[data-add-connection-section="model"]')).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "OpenRouter", exact: true })).toBeVisible();
+
+    const search = dialog.getByRole("searchbox");
+    await search.fill("opus 5-5");
+    const opus = dialog.locator('[data-add-model="claude-opus-5-5"]');
+    await expect(opus).toBeVisible();
+    for (const service of ["anthropic", "openrouter", "nanogpt"])
+      await expect(opus.locator(`[data-add-model-service="${service}"]`)).toBeVisible();
+    // The user's own Connection that holds the model comes first, marked as theirs.
+    const mine = opus.locator(`[data-add-model-account="${accountId}"]`);
+    await expect(mine).toContainText(/^your /);
+    await expect(opus.locator("button").first()).toHaveAttribute("data-add-model-account", accountId);
+
+    // A job by name, and a service by name.
+    await search.fill("image reading");
+    await expect(dialog.locator('[data-add-connection-job-choice="vision"]')).toBeVisible();
+    await search.fill("anthropic");
+    await expect(dialog.getByRole("button", { name: "Anthropic", exact: true })).toBeVisible();
+
+    // Picking the user's Connection opens its model screen.
+    await search.fill("opus 5-5");
+    await mine.click();
+    await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    await request.delete(`/api/connection-accounts/${accountId}`).catch(() => undefined);
+  }
+});
+
+test("Defaults' Add a model for this… adds a model, makes it Main, and Undo gives Main back", async ({
+  page,
+  request,
+}) => {
+  const provider = await startProvider();
+  const dropMain = await ensureMain(request);
+  const before = await getRows(request);
+  const previousMain = before.find((row) => isTrue(row.isDefault))!;
+  const hasCustom = (
+    (await (await request.get("/api/connection-accounts")).json()) as Array<{ provider: string }>
+  ).some((account) => account.provider === "custom");
+  try {
+    await openApp(page);
+    await showConnectionsList(page);
+    const mainTile = page.locator('[data-defaults-tile="main"]').filter({ visible: true });
+    if (!(await mainTile.count()))
+      await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
+    await mainTile.click();
+    await page
+      .getByRole("button", { name: /^Default model for Main:/ })
+      .filter({ visible: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Choose a model" })
+      .getByRole("button", { name: "Add a model for this…", exact: true })
+      .click();
+
+    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    await expect(dialog.locator('[data-add-connection-job="main"]')).toBeVisible();
+    await dialog.getByRole("button", { name: "OpenAI-compatible address", exact: true }).click();
+    if (hasCustom) await dialog.getByRole("button", { name: "Make a new connection", exact: true }).click();
+    await dialog.getByLabel("Server address", { exact: true }).fill(provider.baseUrl);
+    await dialog.locator("[data-add-connection-connect]").click();
+    await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
+    await expect(dialog.locator('[data-model-id="local/alpha"] [data-model-star]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    const toast = page.locator("[data-sonner-toast]").filter({ hasText: /^Now using .+ for Main/ });
+    await expect(toast).toBeVisible();
+    const mainId = async () => (await getRows(request)).find((row) => isTrue(row.isDefault))?.id;
+    const added = async () => (await getRows(request)).find((row) => row.model === "local/alpha")?.id;
+    await expect.poll(async () => (await mainId()) === (await added())).toBe(true);
+
+    await toast.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(mainId).toBe(previousMain.id);
+  } finally {
+    await removeAdded(request, before);
+    await dropMain();
     await provider.close();
   }
 });

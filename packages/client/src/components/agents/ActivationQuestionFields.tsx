@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH } from "@marinara-engine/shared";
-import { useUIStore } from "../../stores/ui.store";
+import { openAddConnection } from "../../lib/add-connection";
 
 export function ActivationQuestionFields({
   question,
@@ -52,9 +52,9 @@ export function ActivationQuestionFields({
             <button
               type="button"
               className="text-[var(--primary)] underline"
-              onClick={() => useUIStore.getState().openRightPanel("connections")}
+              onClick={() => openAddConnection({ job: "decision" })}
             >
-              {t("agents.activation.openConnections")}
+              {t("agents.activation.addDecisionModel")}
             </button>
           </p>
         )}

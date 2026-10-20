@@ -26,7 +26,7 @@ import { MariWorkspaceContextItem } from "../../../hooks/use-mari-workspace-cont
 import { ProfessorMariContextFacet } from "../../../lib/professor-mari-presentation";
 import { cn } from "../../../lib/utils";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
-import { useUIStore } from "../../../stores/ui.store";
+import { openAddConnection } from "../../../lib/add-connection";
 import { InlineGhostText } from "../../ui/InlineGhostText";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
 import { usePickModel, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
@@ -485,7 +485,7 @@ export function MariComposer({
                       title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
                       onClick={() => {
                         setConnectionMenuOpen(false);
-                        useUIStore.getState().openModal("create-connection");
+                        openAddConnection({ job: "mari" });
                       }}
                     />
                   }
