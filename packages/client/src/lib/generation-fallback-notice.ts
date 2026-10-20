@@ -131,7 +131,7 @@ export function showGenerationFallbackToast(raw: unknown): void {
       })
     : parts
       ? translate("generation.fallback.failed", parts)
-      : translate("generation.fallback.description");
+      : translate("generation.fallback.reason.failed");
   toast.info(
     translate("generation.fallback.switched", {
       category: categoryLabel(notice.category),

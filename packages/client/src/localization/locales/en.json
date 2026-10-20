@@ -3887,7 +3887,6 @@
   "generation.fallback.category.illustrator": "Illustrator",
   "generation.fallback.category.main": "Main",
   "generation.fallback.category.video": "Videos",
-  "generation.fallback.description": "The primary generation failed, so Marinara retried with your configured fallback.",
   "generation.fallback.failed": "{{failed}} failed ({{reason}}).",
   "generation.fallback.failedOver": "{{failed}} failed ({{reason}}); answered with {{fallback}}.",
   "generation.fallback.fallback": "your fallback",
