@@ -29,6 +29,11 @@ export function isChatProvider(provider: unknown): boolean {
   return !(NON_CHAT_PROVIDERS as readonly unknown[]).includes(provider);
 }
 
+/** Whether a connection keeps its fetched model list. Claude (Subscription) answers from a built-in list. */
+export function connectionSavesModelList(provider: string): boolean {
+  return isChatProvider(provider) && provider !== "claude_subscription";
+}
+
 export const LOCAL_AUTH_PROVIDERS = ["openai_chatgpt", "claude_subscription", "grok_subscription"] as const;
 
 /** These subscription transports send text only; they ignore native tool schemas. */

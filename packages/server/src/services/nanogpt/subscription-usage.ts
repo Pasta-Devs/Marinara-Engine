@@ -212,6 +212,56 @@ export async function fetchNanoGptSubscriptionUsage(
   return normalizeSubscriptionUsage(parsed, credential, NANOGPT_PROVIDER_ID);
 }
 
+const NANOGPT_PUBLIC_MODELS_URL = "https://nano-gpt.com/api/v1/models?detailed=true";
+const NANOGPT_PLAN_TTL_MS = 6 * 60 * 60_000;
+/** After a failed read, wait this long before asking NanoGPT again. */
+const NANOGPT_PLAN_RETRY_MS = 10 * 60_000;
+type NanoGptPlan = Map<string, NanoGptModelSubscriptionMetadata>;
+let planCache: { until: number; plan: NanoGptPlan } | null = null;
+let planLoading: Promise<NanoGptPlan> | null = null;
+
+/**
+ * Which models NanoGPT's plan covers, from its public model list (no key is sent). Kept six hours; a failed read
+ * keeps the last list (or none) and asks again ten minutes later, so a NanoGPT outage only hides the badges.
+ */
+export async function readNanoGptPlan(): Promise<NanoGptPlan> {
+  if (planCache && Date.now() < planCache.until) return planCache.plan;
+  planLoading ??= (async () => {
+    try {
+      const response = await safeFetch(NANOGPT_PUBLIC_MODELS_URL, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(NANOGPT_USAGE_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`NanoGPT model list answered ${response.status}`);
+      const parsed = JSON.parse(await response.text()) as unknown;
+      const plan: NanoGptPlan = new Map();
+      for (const model of isRecord(parsed) && Array.isArray(parsed.data) ? parsed.data : []) {
+        if (isRecord(model) && typeof model.id === "string") {
+          plan.set(model.id, readNanoGptModelSubscriptionMetadata(model));
+        }
+      }
+      planCache = { until: Date.now() + NANOGPT_PLAN_TTL_MS, plan };
+    } catch (err) {
+      logger.warn(err, "[nanogpt/plan] Could not read NanoGPT's public model list; plan badges wait");
+      planCache = { until: Date.now() + NANOGPT_PLAN_RETRY_MS, plan: planCache?.plan ?? new Map() };
+    } finally {
+      planLoading = null;
+    }
+    return planCache.plan;
+  })();
+  return planLoading;
+}
+
+/** Proxy models named `nanogpt/<id>` take the plan facts NanoGPT gives `<id>`; the rest stay as they are. */
+export function withNanoGptPlan<T extends { id?: unknown }>(models: T[], plan: NanoGptPlan): T[] {
+  return models.map((model) => {
+    const id = typeof model.id === "string" && model.id.startsWith("nanogpt/") ? model.id.slice("nanogpt/".length) : "";
+    const facts = id ? plan.get(id) : undefined;
+    return facts ? { ...model, ...facts } : model;
+  });
+}
+
 /** Turn a status code into an actionable, non-secret-bearing message. */
 export function describeUsageError(status: number, body: string, usedManagementToken: boolean): string {
   if (status === 401) {

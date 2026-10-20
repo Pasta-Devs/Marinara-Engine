@@ -43,7 +43,7 @@ import {
   parsePinnedModels,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { useConnections, type CachedCatalogFacts } from "../../hooks/use-connections";
+import { useConnections, useNanoGptPlanBadges, type CachedCatalogFacts } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -210,6 +210,7 @@ export function ConnectionsPanel() {
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
+  const nanoGptPlan = useNanoGptPlanBadges();
 
   const [search, setSearch] = useState("");
   /** Connections folded while a search runs; a new query unfolds every match again. */
@@ -963,6 +964,19 @@ export function ConnectionsPanel() {
               checked: showCostBadges,
               onSelect: () => setShowCostBadges(!showCostBadges),
             },
+            // Once chosen, or while a proxy lists NanoGPT models, the plan badges can be turned on or off here.
+            ...(nanoGptPlan.value !== undefined &&
+            (nanoGptPlan.value !== null || connectionsList.some((row) => row.model?.startsWith("nanogpt/")))
+              ? [
+                  {
+                    label: t("connections.nanogptPlan.toggle"),
+                    icon: <BadgeDollarSign size="0.75rem" />,
+                    toggle: true,
+                    checked: nanoGptPlan.value === "on",
+                    onSelect: () => (nanoGptPlan.value === "on" ? nanoGptPlan.turnOff() : void nanoGptPlan.ask()),
+                  },
+                ]
+              : []),
           ]}
         />
       )}

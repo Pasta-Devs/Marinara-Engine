@@ -44,6 +44,7 @@ import {
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   modelCost,
+  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
   rankModelMoveCandidates,
   normalizeVideoGenerationProfile,
   updateConnectionAccountSchema,
@@ -100,7 +101,10 @@ import { decryptApiKey } from "../utils/crypto.js";
 import {
   fetchNanoGptSubscriptionUsage,
   readNanoGptModelSubscriptionMetadata,
+  readNanoGptPlan,
+  withNanoGptPlan,
 } from "../services/nanogpt/subscription-usage.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { fetchClaudePlanUsage } from "../services/llm/providers/claude-subscription/plan-usage.js";
 import { fetchOpenAIChatGPTPlanUsage } from "../services/llm/openai-chatgpt-usage.js";
 import { modelUsage } from "../services/connections/model-stars.js";
@@ -514,6 +518,7 @@ function knownStabilityImageModels() {
 
 export async function connectionsRoutes(app: FastifyInstance) {
   const storage = createConnectionsStorage(app.db);
+  const appSettings = createAppSettingsStorage(app.db);
   // `getWithKey` is null for a missing Model and for a blocked one; only the first is "not found".
   const unusableConnection = async (id: string, reply: FastifyReply) =>
     (await storage.getById(id))
@@ -1567,13 +1572,22 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
   };
 
-  /** Each model gets its cost badge (left out when unknown), and the list the Connection's billing word. */
-  const withCosts = <T extends { models: Array<Record<string, unknown>> }>(
+  /**
+   * Each model gets its cost badge (left out when unknown), and the list the Connection's billing word. A proxy's
+   * `nanogpt/<id>` models take NanoGPT's plan facts once the user allowed reading NanoGPT's public list.
+   */
+  const withCosts = async <T extends { models: Array<Record<string, unknown>> }>(
     conn: Parameters<typeof connectionBilling>[0],
     list: T,
   ) => {
     const billing = connectionBilling(conn);
-    const models = list.models.map((model) => {
+    const planned =
+      conn.provider !== "nanogpt" &&
+      list.models.some((model) => typeof model.id === "string" && model.id.startsWith("nanogpt/")) &&
+      (await appSettings.get(NANOGPT_PLAN_BADGES_SETTINGS_KEY)) === "on"
+        ? withNanoGptPlan(list.models, await readNanoGptPlan())
+        : list.models;
+    const models = planned.map((model) => {
       const cost = modelCost(model, billing);
       return cost ? { ...model, cost } : model;
     });

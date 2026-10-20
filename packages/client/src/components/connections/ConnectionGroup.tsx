@@ -109,7 +109,7 @@ export function ConnectionGroup({
   const [bulkBusy, setBulkBusy] = useState(false);
   const test = useTestConnection();
   const [menu, setMenu] = useState<MenuAt | null>(null);
-  // Cost badges read the catalogs already cached for this Connection's Models; nothing is fetched for them.
+  // Cost badges read this Connection's saved model list (one request per card, answered from the server's copy).
   const [catalog] = useCachedCatalogFacts([rows.map((row) => row.id)]);
   const usage = resolveUsageConnection([account], account.id);
 

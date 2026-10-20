@@ -5,6 +5,8 @@ import { showConfirmDialog } from "../lib/app-dialogs";
 // ──────────────────────────────────────────────
 import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
+  NANOGPT_PLAN_BADGES_SETTINGS_KEY,
+  connectionSavesModelList,
   MAX_PINNED_MODELS,
   parsePinnedModels,
   type ConnectionBilling,
@@ -390,14 +392,35 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
 }
 
 /**
- * Cost and retirement facts from the model catalogs already in the cache, one result per group of Connection
- * ids (a card's Models). It shares the pickers' query keys but never fetches: opening the panel does not load
- * a catalog for every card.
+ * Cost and retirement facts from the model catalogs, one result per group of Connection ids (a card's Models).
+ * It shares the pickers' query keys. Each group loads one saved list (its first Model whose provider keeps one;
+ * a Connection's Models share it), which the server answers without asking the provider; the rest read the cache.
  */
 export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>): CachedCatalogFacts[] {
   const ids = [...new Set(groups.flat())];
+  const { data: connections } = useConnections();
+  const providerOf = new Map(
+    ((connections ?? []) as Array<{ id: string; provider: string }>).map((row) => [row.id, row.provider]),
+  );
+  const loaded = new Set(
+    groups.flatMap((group) => {
+      const id = group.find((entry) => connectionSavesModelList(providerOf.get(entry) ?? "image_generation"));
+      return id ? [id] : [];
+    }),
+  );
   const results = useQueries({
-    queries: ids.map((id) => ({ queryKey: connectionKeys.models(id), queryFn: skipToken })),
+    queries: ids.map((id) =>
+      loaded.has(id)
+        ? {
+            queryKey: connectionKeys.models(id),
+            queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+            staleTime: MODEL_LIST_TTL,
+            gcTime: MODEL_LIST_TTL,
+            retry: false,
+            retryOnMount: false,
+          }
+        : { queryKey: connectionKeys.models(id), queryFn: skipToken },
+    ),
   });
   const indexById = new Map(
     ids.flatMap((id, i) => {
@@ -422,6 +445,43 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
   });
 }
 
+const NANOGPT_PLAN_PATH = `/app-settings/${NANOGPT_PLAN_BADGES_SETTINGS_KEY}`;
+const nanoGptPlanKey = [...connectionKeys.all, "nanogpt-plan"] as const;
+
+/**
+ * Plan badges for a proxy's `nanogpt/…` models: "on", "off", or null while the user has not chosen. Asking
+ * explains that the server reads NanoGPT's public model list and sends no key; a choice reloads the model lists.
+ */
+export function useNanoGptPlanBadges() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: nanoGptPlanKey,
+    queryFn: async () => (await api.get<{ value: string | null }>(NANOGPT_PLAN_PATH)).value,
+    staleTime: Infinity,
+  });
+  const save = useMutation({
+    mutationFn: (value: "on" | "off") => api.put(NANOGPT_PLAN_PATH, { value }),
+    onSuccess: (_data, value) => {
+      qc.setQueryData(nanoGptPlanKey, value);
+      void qc.invalidateQueries({ queryKey: [...connectionKeys.all, "models"] });
+    },
+  });
+  const ask = async () => {
+    const allowed = await showConfirmDialog({
+      title: t("connections.nanogptPlan.title"),
+      message: t("connections.nanogptPlan.message"),
+      confirmLabel: t("connections.nanogptPlan.allow"),
+      cancelLabel: t("connections.nanogptPlan.notNow"),
+    });
+    save.mutate(allowed ? "on" : "off");
+  };
+  return { value: query.isSuccess ? (query.data ?? null) : undefined, ask, turnOff: () => save.mutate("off") };
+}
+
+/** A model list stays fresh for six hours; Refresh asks sooner. */
+const MODEL_LIST_TTL = 6 * 60 * 60_000;
+
 const connectionModelsPath = (id: string, refresh = false) =>
   `/connections/${encodeURIComponent(id)}/models${refresh ? "?refresh=true" : ""}`;
 
@@ -438,8 +498,8 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
     queryKey: connectionKeys.models(id ?? ""),
     queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id ?? "")),
     enabled: enabled && !!id && id !== "random",
-    staleTime: 6 * 60 * 60_000,
-    gcTime: 6 * 60 * 60_000,
+    staleTime: MODEL_LIST_TTL,
+    gcTime: MODEL_LIST_TTL,
     // A list that went stale while loading is asked for again once; other failures wait for Refresh.
     retry: (failureCount, error) => isStaleModelList(error) && failureCount < 1,
     retryOnMount: false,

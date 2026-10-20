@@ -96,10 +96,7 @@ const SAVED_MODEL_EXTRA_FIELDS = [
 /** The fields that decide which list a provider returns; when one changes, the saved list is stale. */
 const MODEL_LIST_SOURCE_FIELDS = ["provider", "baseUrl", "apiKeyEncrypted"] as const;
 
-/** Whether a connection keeps its fetched model list. Claude (Subscription) answers from a built-in list. */
-export function connectionSavesModelList(provider: string): boolean {
-  return defaultCategoryForProvider(provider) === "language" && provider !== "claude_subscription";
-}
+export { connectionSavesModelList } from "@marinara-engine/shared";
 
 /** Keep the known model fields, drop entries without an ID, and keep the first of any duplicate IDs. */
 function toSavedModels(models: readonly unknown[]): SavedConnectionModel[] {

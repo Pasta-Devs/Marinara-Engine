@@ -715,7 +715,7 @@ export function ConnectionDefaultsBox({
       };
     }),
   ];
-  // Cost badges from the catalogs already cached for each chosen Model's Connection; nothing is fetched.
+  // Cost badges from each chosen Model's Connection catalog: one saved list per Connection.
   const catalogs = useCachedCatalogFacts(
     jobs.map(({ tile }) =>
       !tile.source

@@ -1514,6 +1514,12 @@ export interface ConnectionCatalogModel {
   cost?: Exclude<ConnectionModelCost, null>;
 }
 
+/**
+ * Plan badges for proxy models named `nanogpt/<id>`: "on" reads NanoGPT's public model list (no key is sent),
+ * "off" keeps them without; unset, the Connections panel asks once.
+ */
+export const NANOGPT_PLAN_BADGES_SETTINGS_KEY = "nanogpt-plan-badges";
+
 /** Image sources run by volunteers or free for everyone: the whole Connection is free. */
 const FREE_IMAGE_SOURCES = new Set(["horde", "pollinations"]);
 
