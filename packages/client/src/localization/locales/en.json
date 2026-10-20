@@ -10163,6 +10163,7 @@
   "ui.connections.connectioneditor.useClaudeCodeFastModeRouting": "Use Claude Code fast-mode routing",
   "ui.connections.connectioneditor.useCustomDefaultsForThisConnection": "Use custom defaults for this model",
   "ui.connections.connectioneditor.usedForLorebookSemanticSearchEntriesMatchingByMeaning": "Lets lorebook entries be found by meaning, not just keywords.",
+  "ui.connections.connectioneditor.useGrokCliDefault": "Use the Grok CLI default",
   "ui.connections.connectioneditor.userpromptsubmit": "UserPromptSubmit",
   "ui.connections.connectioneditor.usesTemporaryPublicLinksWhenSeedanceNeedsFirstLast": "Uses temporary public links when Seedance needs first/last-frame references and cannot fetch local Marinara URLs.",
   "ui.connections.connectioneditor.usesTheBuiltInLocalModelFromTheConnections": "Uses the built-in model from Connections. It starts when needed and uses the selected model for embeddings.",

@@ -2916,6 +2916,18 @@ export function ConnectionEditor({
               label={localizeUi("ui.connections.connectioneditor.model")}
               help={t("connections.editor.modelIdHelp", { service: providerDef?.name ?? localProvider })}
             >
+              {isGrokSubscriptionProvider && (
+                // An empty model id lets the Grok CLI pick its own default.
+                <button
+                  type="button"
+                  aria-pressed={!localModel}
+                  onClick={() => selectModel({ model: "" })}
+                  className="mari-connection-btn mb-2"
+                >
+                  {!localModel && <Check aria-hidden="true" />}
+                  {localizeUi("ui.connections.connectioneditor.useGrokCliDefault")}
+                </button>
+              )}
               <ConnectionModelPicker
                 className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
                 connection={{
