@@ -1713,14 +1713,21 @@ export function ConnectionEditor({
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
       <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
       <div className="flex gap-2">
-        <button
-          onClick={handleTestConnection}
-          disabled={testConnection.isPending}
-          className="flex items-center gap-1.5 rounded-xl bg-sky-400/10 px-4 py-2.5 text-xs font-medium text-sky-400 ring-1 ring-sky-400/20 transition-all hover:bg-sky-400/20 active:scale-[0.98] disabled:opacity-50"
-        >
-          {testConnection.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Wifi size="0.8125rem" />}
-          {localizeUi("ui.connections.connectioneditor.testConnection")}
-        </button>
+        {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. */}
+        {(!accountLinked || hasOwnEndpoint) && (
+          <button
+            onClick={handleTestConnection}
+            disabled={testConnection.isPending}
+            className="flex items-center gap-1.5 rounded-xl bg-sky-400/10 px-4 py-2.5 text-xs font-medium text-sky-400 ring-1 ring-sky-400/20 transition-all hover:bg-sky-400/20 active:scale-[0.98] disabled:opacity-50"
+          >
+            {testConnection.isPending ? (
+              <Loader2 size="0.8125rem" className="animate-spin" />
+            ) : (
+              <Wifi size="0.8125rem" />
+            )}
+            {localizeUi("ui.connections.connectioneditor.testConnection")}
+          </button>
+        )}
         {!isMediaGenerationProvider && (
           <button
             onClick={handleTestMessage}
@@ -3032,7 +3039,7 @@ export function ConnectionEditor({
             <FieldGroup
               label={localizeUi("ui.connections.connectioneditor.model")}
               icon={<Server size="0.875rem" className="text-sky-400" />}
-              help={localizeUi("ui.connections.connectioneditor.theSpecificAiModelToUseYouCanPick")}
+              help={t("connections.editor.modelIdHelp", { service: providerDef?.name ?? localProvider })}
             >
               {/* Standard model dropdown + manual input (used for all providers including image_generation) */}
               <div ref={modelDropdownRef} className={cn("relative min-w-0", showModelDropdown && "z-50")}>

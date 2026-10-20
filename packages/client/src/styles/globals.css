@@ -1765,6 +1765,16 @@
   --primary: var(--mari-connection-ink);
   --ring: var(--mari-connection-ring);
 }
+/* The editor's main action (Save) wears the connection blue, as the Add window's primary does. */
+.mari-connection-scope .mari-editor-action--primary,
+[data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  color: #f0f9ff;
+}
+.mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
 /* Selection is a light blue tint, never a ring. */
 .mari-connection-scope .mari-chrome-control[aria-pressed="true"],
 .mari-connection-scope .mari-chrome-control--card[aria-pressed="true"] {

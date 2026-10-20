@@ -101,7 +101,7 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       })
       .toEqual({ source: "openai_compatible", baseUrl, model: "gemma4:e2b" });
 
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     const result = editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 4 s\)/u);
     await expect(result).toBeVisible();
     await result.scrollIntoViewIfNeeded();

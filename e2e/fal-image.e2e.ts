@@ -47,10 +47,10 @@ test("fal.ai selection saves its endpoint and exposes a free configuration check
       "href",
       "https://fal.ai/dashboard/keys",
     );
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(editor.getByText("Connection failed: fal.ai requires an API key", { exact: true })).toBeVisible();
     await editor.getByPlaceholder(/leave empty to keep existing key/).fill("synthetic-fal-key");
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(
       editor.getByText(
         "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
@@ -116,17 +116,17 @@ test("connection test results survive hydration and ignore a previous selection"
       await route.fulfill({ json: { success: false, message: "STALE_CONNECTION_CHECK", latencyMs: 1 } });
     });
     const requested = page.waitForRequest((r) => r.url().endsWith(`/connections/${ids[0]}/test`));
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await requested;
     await open(ids[1]!, "Result scope second");
     release();
-    await expect(editor.getByRole("button", { name: "Test Connection", exact: true })).toBeEnabled();
+    await expect(editor.getByRole("button", { name: "Test connection", exact: true })).toBeEnabled();
     await expect(editor.getByText("STALE_CONNECTION_CHECK")).toHaveCount(0);
 
     await page.route(`**/api/connections/${ids[1]}/test-image`, (route) =>
       route.fulfill({ json: { success: false, error: "SAVED_IMAGE_TEST_RESULT", latencyMs: 1 } }),
     );
-    await editor.getByRole("button", { name: "Test Image", exact: true }).click();
+    await editor.getByRole("button", { name: "Test image", exact: true }).click();
     await expect(editor.getByText("SAVED_IMAGE_TEST_RESULT", { exact: true })).toBeVisible();
     await page.route(`**/api/connections/${ids[1]}`, async (route) => {
       if (route.request().method() !== "GET") return route.fallback();
@@ -143,11 +143,11 @@ test("connection test results survive hydration and ignore a previous selection"
       await route.fulfill({ json: { success: false, error: "STALE_EDITED_CONFIG", latencyMs: 1 } });
     });
     const imageRequested = page.waitForRequest((r) => r.url().endsWith(`/connections/${ids[1]}/test-image`));
-    await editor.getByRole("button", { name: "Test Image", exact: true }).click();
+    await editor.getByRole("button", { name: "Test image", exact: true }).click();
     await imageRequested;
     await editor.getByPlaceholder("Model name", { exact: true }).fill("Configuration changed during test");
     release();
-    await expect(editor.getByRole("button", { name: "Test Image", exact: true })).toBeEnabled();
+    await expect(editor.getByRole("button", { name: "Test image", exact: true })).toBeEnabled();
     await expect(editor.getByText("STALE_EDITED_CONFIG")).toHaveCount(0);
     await open(ids[0]!, "Result scope first");
     await expect(editor.getByText("SAVED_IMAGE_TEST_RESULT")).toHaveCount(0);

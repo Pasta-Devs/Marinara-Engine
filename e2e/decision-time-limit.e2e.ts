@@ -57,7 +57,7 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
     await limit.fill("0.5");
     await limit.blur();
     delayMs = 1000;
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(editor.getByText(/over this connection's 0\.5 s time limit/u)).toBeVisible();
     await expect
       .poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).decisionTimeoutMs)
@@ -75,7 +75,7 @@ test("a Decision connection's time limit saves, and Test reports an answer slowe
     delayMs = 0;
     await limit.fill("2.5");
     await limit.blur();
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(editor.getByText(/Probability of yes: 0\.800 · answered in .* \(time limit 2\.5 s\)/u)).toBeVisible();
     await page.reload();
     await open();

@@ -3213,7 +3213,7 @@ test("connection test-message errors use the Connections editor accent", async (
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
-    await editor.getByRole("button", { name: "Send Test Message" }).click();
+    await editor.getByRole("button", { name: "Send test message" }).click();
 
     const errorText = editor.getByText(internalServerError, { exact: true });
     await expect(errorText).toBeVisible();
@@ -3351,7 +3351,7 @@ test("NovelAI generation defaults survive save and editor navigation", async ({ 
 
     const downloadPromise = page.waitForEvent("download");
     await editor.getByRole("button", { name: "Export model" }).click();
-    const exportDialog = page.getByRole("dialog", { name: "Export Connection Data" });
+    const exportDialog = page.getByRole("dialog", { name: "Export connection data" });
     await expect(exportDialog).toBeVisible();
     await exportDialog.getByRole("button", { name: "Export", exact: true }).click();
     const download = await downloadPromise;
@@ -3517,10 +3517,10 @@ test("Connection image captioning defaults persist with a dedicated captioning c
       .getByText("Use custom defaults for this model", { exact: true })
       .evaluate((element) => (element as HTMLElement).click());
     await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await editor.getByText("Image Captioning", { exact: true }).click();
-    await expect(editor.getByRole("checkbox", { name: "Image Captioning" })).toBeChecked();
+    await editor.getByText("Image captioning", { exact: true }).click();
+    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
     const captioningSelect = editor
-      .getByText("Captioning Connection", { exact: true })
+      .getByText("Captioning connection", { exact: true })
       .locator("..")
       .getByRole("combobox");
     await captioningSelect.selectOption(captionConnection.id);
@@ -3545,7 +3545,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     await editor.locator(".mari-editor-header .mari-editor-action").first().click();
     await openConnectionsPanelModel(rightPanel, chatConnectionName);
     await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
-    await expect(editor.getByRole("checkbox", { name: "Image Captioning" })).toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: "Image captioning" })).toBeChecked();
     await expect(captioningSelect).toHaveValue(captionConnection.id);
   } finally {
     await Promise.all([
@@ -18693,7 +18693,7 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
       (element as HTMLInputElement).click();
     });
 
-    const vectorPanel = page.locator(".mari-editor-panel").filter({ hasText: "Semantic Search (Embeddings)" });
+    const vectorPanel = page.locator(".mari-editor-panel").filter({ hasText: "Semantic search (embeddings)" });
     await vectorPanel.locator("select").selectOption(connection.id);
     const vectorizeButton = vectorPanel.getByRole("button", { name: "Vectorize 1 missing", exact: true });
     const firstVectorizeAttempt = vectorizeButton.click();

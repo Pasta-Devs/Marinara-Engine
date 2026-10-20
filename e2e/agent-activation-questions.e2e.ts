@@ -396,7 +396,7 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await expect(page.getByLabel("API key source", { exact: true }).locator("option:checked")).toContainText(
       "missing or incompatible",
     );
-    await page.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await page.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(
       page.getByText(
         "Decision test failed: Linked connection is missing or incompatible. Choose another or enter a key.",

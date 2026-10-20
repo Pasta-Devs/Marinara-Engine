@@ -50,7 +50,7 @@ test("image captioning prompt shows under the toggle, saves, and resets", async 
     await page.goto("/");
     await openSettings();
     await expect(prompt).toHaveCount(0);
-    await section.getByText("Image Captioning", { exact: true }).click();
+    await section.getByText("Image captioning", { exact: true }).click();
     await expect.poll(async () => (await readMeta()).imageCaptioningEnabled).toBe(true);
     await expect(prompt).toHaveValue(DEFAULT_IMAGE_CAPTIONING_PROMPT);
     await expect(reset).toHaveCount(0);

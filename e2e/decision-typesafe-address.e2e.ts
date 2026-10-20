@@ -60,7 +60,7 @@ test("a TypeSafe Decision connection can be given another address, and Test uses
     const path = testInfo.outputPath("decision-typesafe-address.png");
     await page.screenshot({ path, animations: "disabled" });
     await testInfo.attach("decision-typesafe-address", { path, contentType: "image/png" });
-    await editor.getByRole("button", { name: "Test Connection", exact: true }).click();
+    await editor.getByRole("button", { name: "Test connection", exact: true }).click();
     await expect(editor.getByText(/Probability of yes: 0\.800/u)).toBeVisible();
     expect(received).toEqual([{ path: "/v1/systemone", authorization: "Bearer ts-e2e" }]);
     await expect.poll(async () => (await (await request.get(`/api/connections/${id}`)).json()).baseUrl).toBe(origin);
