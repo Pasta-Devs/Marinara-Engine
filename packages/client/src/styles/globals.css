@@ -1547,11 +1547,12 @@
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
 /* The blue rail: a straight strip on the well's left edge, so every list of models reads as Connections. The
-   Defaults box is blue already and keeps none. */
-.mari-connection-group:not(.mari-connection-defaults-box) .mari-connection-model-well {
+   Defaults box is blue already and the upgrade note lists no models; both keep none. */
+.mari-connection-group:not(.mari-connection-defaults-box, [data-connections-upgrade-note]) .mari-connection-model-well {
   position: relative;
 }
-.mari-connection-group:not(.mari-connection-defaults-box) .mari-connection-model-well::before {
+.mari-connection-group:not(.mari-connection-defaults-box, [data-connections-upgrade-note])
+  .mari-connection-model-well::before {
   content: "";
   position: absolute;
   inset-block: 0;
