@@ -12,6 +12,7 @@ import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
 import { useRegenerateChatImage } from "../../hooks/use-regenerate-chat-image";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;
@@ -173,32 +174,13 @@ function ImageRegenerateForm({
 
       <label className="flex flex-col gap-1">
         <span className={LABEL_CLASS}>{localizeUi("ui.chat.imageregeneratepanel.connection")}</span>
-        <select
-          value={connectionId}
-          onChange={(event) => setConnectionId(event.target.value)}
-          disabled={busy}
-          className="w-full rounded-md border border-white/10 bg-black/40 px-2.5 py-2 text-[0.75rem] text-white/85 outline-none transition-colors focus:border-white/30 disabled:opacity-60"
-        >
-          <option value="">{localizeUi("ui.chat.imageregeneratepanel.chatConnection")}</option>
-          {selectedConnectionMissing ? (
-            <option value={connectionId}>{localizeUi("ui.chat.chatsettingsdrawer.missingConnection")}</option>
-          ) : null}
-          {imageConnections.map((connection) => {
-            const id = readString(connection.id);
-            if (!id) return null;
-            const name = readString(connection.name) || id;
-            const model = readString(connection.model);
-            // One string: a JSX line break between name and model would render without a space.
-            const label = model
-              ? name + " " + localizeUi("ui.connections.connectioneditor.value1", { value1: model })
-              : name;
-            return (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            );
-          })}
-        </select>
+        <ConnectionSelect
+          kind="image"
+          addJob="images"
+          value={connectionId || null}
+          onChange={(nextId) => setConnectionId(nextId ?? "")}
+          defaultLabel={localizeUi("ui.chat.imageregeneratepanel.chatConnection")}
+        />
       </label>
 
       {(!record || hasReferences) && (

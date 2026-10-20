@@ -14,7 +14,12 @@ import {
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
 import { DraftTextarea } from "../../../components/ui/DraftTextarea";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
-import { useModelParameterCapabilities, useSaveConnectionDefaults } from "../../../hooks/use-connections";
+import {
+  useMayReadImages,
+  useModelParameterCapabilities,
+  useSaveConnectionDefaults,
+} from "../../../hooks/use-connections";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { isLanguageGenerationConnection, type ConnectionProviderLike } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -121,6 +126,7 @@ export function AdvancedParametersSection({
     typeof metadata.imageCaptioningPrompt === "string" && metadata.imageCaptioningPrompt.trim()
       ? metadata.imageCaptioningPrompt
       : "";
+  const mayReadImages = useMayReadImages();
   const chatConnectionCanCaption = !!conn && canCaption(conn);
   const connectionOptions = useMemo(
     () =>
@@ -340,31 +346,17 @@ export function AdvancedParametersSection({
             <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.chatSettings.advancedparameterssection.captioningConnection")}
             </span>
-            <select
-              value={selectedCaptioningConnectionId ?? ""}
-              onChange={(event) =>
-                onImageCaptioningChange({
-                  imageCaptioningConnectionId: event.target.value || null,
-                })
+            <ConnectionSelect
+              value={selectedCaptioningConnectionId || null}
+              onChange={(connectionId) => onImageCaptioningChange({ imageCaptioningConnectionId: connectionId })}
+              defaultLabel={
+                chatConnectionCanCaption
+                  ? localizeUi("ui.agents.agenteditor.useChatConnection")
+                  : localizeUi("ui.chatSettings.advancedparameterssection.selectACaptioningConnection")
               }
-              className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-            >
-              {chatConnectionCanCaption ? (
-                <option value="">{localizeUi("ui.agents.agenteditor.useChatConnection")}</option>
-              ) : (
-                <option value="" disabled>
-                  {localizeUi("ui.chatSettings.advancedparameterssection.selectACaptioningConnection")}
-                </option>
-              )}
-              {connectionOptions.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                  {connection.model
-                    ? localizeUi("ui.chatSettings.advancedparameterssection.value1", { value1: connection.model })
-                    : ""}
-                </option>
-              ))}
-            </select>
+              rowFilter={mayReadImages}
+              addJob="vision"
+            />
           </label>
         )}
         {captioningEnabled && (

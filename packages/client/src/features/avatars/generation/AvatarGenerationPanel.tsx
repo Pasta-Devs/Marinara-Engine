@@ -22,6 +22,7 @@ import {
 } from "@marinara-engine/shared";
 import { useAvatarModelActions } from "../../../hooks/use-avatar-models";
 import { useConnections } from "../../../hooks/use-connections";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import {
   spriteKeys,
   useCharacter,
@@ -194,19 +195,13 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
           {imageConnections.length > 0 ? (
             <label className="flex flex-col gap-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] md:max-w-sm">
               {t("avatars.generation.imageConnection")}
-              <select
-                value={imageConnectionId ?? ""}
-                onChange={(event) => setChosenImageConnectionId(event.target.value)}
+              <ConnectionSelect
+                kind="image"
+                addJob="images"
+                value={imageConnectionId}
+                onChange={setChosenImageConnectionId}
                 className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                {imageConnections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {connection.id === defaultImageConnection?.id
-                      ? t("avatars.generation.imageConnectionDefault", { name: connection.name })
-                      : connection.name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           ) : (
             <p className="text-xs text-[var(--muted-foreground)]">

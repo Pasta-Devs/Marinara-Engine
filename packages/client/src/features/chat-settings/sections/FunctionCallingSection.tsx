@@ -2,6 +2,7 @@ import { Check, FilePlus2, Plus, Trash2, Wrench } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { PickerDropdown } from "../PickerDropdown";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -120,30 +121,12 @@ export function FunctionCallingSection({
           <>
             <label className="flex flex-col gap-1 px-1 text-xs">
               {localizeUi("chat.settings.tools.connection")}
-              <select
-                value={toolConnectionId}
-                onChange={(event) => onToolConnectionChange(event.target.value || null)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/50"
-              >
-                <option value="">{localizeUi("chat.settings.tools.sameConnection")}</option>
-                {toolConnectionId && !connections.some((connection) => connection.id === toolConnectionId) && (
-                  <option value={toolConnectionId} disabled>
-                    {localizeUi("chat.settings.tools.missingConnection")}
-                  </option>
-                )}
-                {connections.map((connection) => (
-                  <option
-                    key={connection.id}
-                    value={connection.id}
-                    disabled={!supportsNativeToolCalls(connection.provider)}
-                  >
-                    {connection.name}
-                    {connection.model
-                      ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: connection.model })
-                      : ""}
-                  </option>
-                ))}
-              </select>
+              <ConnectionSelect
+                value={toolConnectionId || null}
+                onChange={onToolConnectionChange}
+                defaultLabel={localizeUi("chat.settings.tools.sameConnection")}
+                rowFilter={(row) => supportsNativeToolCalls(row.provider)}
+              />
             </label>
             <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]">
               {localizeUi("chat.settings.tools.connectionHelp")}

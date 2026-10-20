@@ -38,6 +38,7 @@ import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } 
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddConnection } from "../../lib/add-connection";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
@@ -1559,15 +1560,12 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
 
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.conversationquicksetup.connection")}</label>
-        <WizardSelect
-          value={selectedConnectionId}
-          ariaLabel={localizeUi("ui.chat.conversationquicksetup.connection")}
-          options={[
-            { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-            { value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") },
-            ...connectionOptions.map((connection) => ({ value: connection.id, label: connection.name })),
-          ]}
-          onChange={(nextValue) => setConnection(nextValue || null)}
+        <ConnectionSelect
+          value={selectedConnectionId || null}
+          aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
+          onChange={setConnection}
+          defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+          extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
         />
         {connectionOptions.length === 0 && (
           <button
@@ -2984,16 +2982,13 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
           <label htmlFor={roleplayConnectionSelectId} className={WIZARD_FIELD_LABEL}>
             {localizeUi("ui.chat.conversationquicksetup.connection")}
           </label>
-          <WizardSelect
+          <ConnectionSelect
             id={roleplayConnectionSelectId}
-            value={chat.connectionId ?? ""}
-            ariaLabel={localizeUi("ui.chat.conversationquicksetup.connection")}
-            options={[
-              { value: "", label: localizeUi("ui.game.gamesurfacecomponent.none") },
-              { value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") },
-              ...connectionOptions.map((connection) => ({ value: connection.id, label: connection.name })),
-            ]}
-            onChange={(nextValue) => setConnection(nextValue || null)}
+            value={chat.connectionId || null}
+            aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
+            onChange={setConnection}
+            defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+            extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
           />
         </div>
         {connectionOptions.length === 0 && (

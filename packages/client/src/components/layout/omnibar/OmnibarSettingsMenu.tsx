@@ -53,6 +53,7 @@ import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connec
 import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
+import { ConnectionSelect } from "../../connections/ConnectionSelect";
 
 /** The anchor a search row, the Settings panel or one of Mari's links scrolls to. */
 function anchorId(controlId: string) {
@@ -456,7 +457,6 @@ export function OmnibarSettingsButton({ open, onOpen }: { open: boolean; onOpen:
 export function OmnibarSettingsSheet({
   onClose,
   focusControlId,
-  connections,
   marisConnectionName,
   onClearSearchHistory,
   onSetUpLocalModel,
@@ -464,8 +464,6 @@ export function OmnibarSettingsSheet({
   onClose: () => void;
   /** Scrolls to and focuses this setting on open (a search row, the Settings panel, Mari's link). */
   focusControlId: string | null;
-  /** Language connections that can answer a quick question. */
-  connections: readonly { id: string; name: string }[];
   /** The connection Mari uses, which "Same as Mari" follows. Absent when she has none. */
   marisConnectionName?: string | null;
   /** O2: forgets the local frecency history (which results you run most, per surface). */
@@ -519,9 +517,6 @@ export function OmnibarSettingsSheet({
   const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const usesLocalModel = asideConnectionId === LOCAL_SIDECAR_CONNECTION_ID;
-  const followsMari = asideConnectionId === MARI_QUICK_CONNECTION && Boolean(marisConnectionName);
-  const knownConnection =
-    usesLocalModel || followsMari || connections.some((connection) => connection.id === asideConnectionId);
 
   // Focus moves in on open and back to whatever opened the sheet on close; Escape and Tab stay here.
   const onKeyDown = useInDialogFocusScope(cardRef, onClose);
@@ -619,36 +614,24 @@ export function OmnibarSettingsSheet({
                 )}
               </span>
             </label>
-            <select
+            <ConnectionSelect
               id={connectionSelectId}
-              className="mari-chrome-field omnibar-settings-sheet__select"
               value={asideConnectionId}
-              disabled={!asideEnabled}
-              onChange={(event) => setAsideConnectionId(event.target.value)}
-            >
-              {marisConnectionName ? (
-                <option value={MARI_QUICK_CONNECTION}>
-                  {t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
-                    name: marisConnectionName,
-                  })}
-                </option>
-              ) : null}
-              <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                {localModelDownloaded
-                  ? t("omnibar.settings.aside.connection.local", "Local model (free)")
-                  : t("omnibar.settings.aside.connection.localMissing", "Local model (not set up)")}
-              </option>
-              {connections.map((connection) => (
-                <option key={connection.id} value={connection.id}>
-                  {connection.name}
-                </option>
-              ))}
-              {knownConnection ? null : (
-                <option value={asideConnectionId} disabled>
-                  {t("omnibar.settings.aside.connection.missing", "Deleted connection")}
-                </option>
-              )}
-            </select>
+              onChange={(id) => setAsideConnectionId(id ?? LOCAL_SIDECAR_CONNECTION_ID)}
+              includeLocalSidecar
+              extraOptions={
+                marisConnectionName
+                  ? [
+                      {
+                        value: MARI_QUICK_CONNECTION,
+                        label: t("omnibar.settings.aside.connection.mari", "Same as Prof. Mari ({{name}})", {
+                          name: marisConnectionName,
+                        }),
+                      },
+                    ]
+                  : []
+              }
+            />
             {asideEnabled && usesLocalModel && !localModelDownloaded ? (
               <p className="omnibar-settings-sheet__note">
                 {t(

@@ -7,6 +7,8 @@ import {
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   OUTSIDE_READS_SETTINGS_KEY,
   connectionSavesModelList,
+  isChatProvider,
+  modelReadsImages,
   MAX_PINNED_MODELS,
   parsePinnedModels,
   type ConnectionBilling,
@@ -459,6 +461,27 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
       idSets: indexes.map((index) => index.ids),
     };
   });
+}
+
+/** The rule for a Model that reads images or may (its catalog does not say it cannot). */
+export function useMayReadImages() {
+  const rows = (useConnections().data ?? []) as Array<{
+    id: string;
+    provider?: string | null;
+    accountId?: string | null;
+    imageInput?: string | null;
+  }>;
+  const chatRows = rows.filter((row) => isChatProvider(row.provider ?? ""));
+  const catalogs = useCachedCatalogFacts(
+    chatRows.map((row) =>
+      row.accountId ? chatRows.filter((peer) => peer.accountId === row.accountId).map((peer) => peer.id) : [row.id],
+    ),
+  );
+  return (row: { id: string; model?: string | null }) => {
+    const index = chatRows.findIndex((entry) => entry.id === row.id);
+    const chatRow = chatRows[index];
+    return !chatRow || modelReadsImages(chatRow, catalogs[index]?.of(row.model)) !== false;
+  };
 }
 
 /**

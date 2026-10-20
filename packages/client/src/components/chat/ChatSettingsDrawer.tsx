@@ -7433,23 +7433,15 @@ export function ChatSettingsDrawer({
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                             </span>
-                            <select
-                              value={(metadata.sceneVideoConnectionId as string) ?? ""}
-                              onChange={(e) =>
-                                updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: e.target.value || null })
+                            <ConnectionSelect
+                              value={(metadata.sceneVideoConnectionId as string) || null}
+                              onChange={(connectionId) =>
+                                updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
                               }
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                            >
-                              <option value="">
-                                {localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
-                              </option>
-                              {videoConnectionsList.map((c: { id: string; name: string; model?: string }) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                  {c.model ? localizeUi("ui.chat.chatsettingsdrawer.value1", { value1: c.model }) : ""}
-                                </option>
-                              ))}
-                            </select>
+                              kind="video"
+                              addJob="video"
+                              defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
+                            />
                           </label>
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -8341,6 +8333,7 @@ export function ChatSettingsDrawer({
                             ? t("connections.select.default")
                             : localizeUi("ui.chat.chatsettingsdrawer.localSidecarGemma")
                         }
+                        includeLocalSidecar
                       />
                     </div>
                   )}
@@ -10326,10 +10319,7 @@ export function ChatSettingsDrawer({
 
           {!isConversation && !isGame && (
             <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
-              <ImpersonateSection
-                presets={(presets ?? []) as Array<{ id: string; name: string }>}
-                connections={chatGenerationConnectionsList}
-              />
+              <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
             </div>
           )}
         </div>

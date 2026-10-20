@@ -11,6 +11,7 @@ import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { CreateConnectionModal } from "../modals/CreateConnectionModal";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 type Mode = "conversation" | "roleplay" | "game";
 
@@ -141,19 +142,11 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                 <label className="text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.conversationquicksetup.connection")}
                 </label>
-                <select
-                  value={connectionId}
-                  onChange={(e) => setConnectionId(e.target.value)}
-                  disabled={createChat.isPending}
-                  className="mari-chrome-field w-full px-3 py-2.5 text-xs"
-                >
-                  <option value="">{localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}</option>
-                  {connectionRows.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name}
-                    </option>
-                  ))}
-                </select>
+                <ConnectionSelect
+                  value={connectionId || null}
+                  onChange={(id) => setConnectionId(id ?? "")}
+                  defaultLabel={localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}
+                />
               </div>
             )}
           </div>

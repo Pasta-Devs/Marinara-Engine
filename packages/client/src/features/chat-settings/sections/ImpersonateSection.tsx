@@ -1,6 +1,7 @@
 import { ArrowRight, Drama } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { QUICK_REPLIES_SETTINGS_CONTROL_ID, useUIStore } from "../../../stores/ui.store";
@@ -9,10 +10,9 @@ import { ImpersonatePromptTemplateField } from "./ImpersonatePromptTemplateField
 
 interface ImpersonateSectionProps {
   presets: Array<{ id: string; name: string }>;
-  connections: Array<{ id: string; name: string }>;
 }
 
-export function ImpersonateSection({ presets, connections }: ImpersonateSectionProps) {
+export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const cyoaChoices = useUIStore((state) => state.impersonateCyoaChoices);
   const setCyoaChoices = useUIStore((state) => state.setImpersonateCyoaChoices);
@@ -81,19 +81,12 @@ export function ImpersonateSection({ presets, connections }: ImpersonateSectionP
                   )}
                 />
               </div>
-              <select
-                value={connectionId ?? ""}
-                onChange={(event) => setConnectionId(event.target.value || null)}
-                className="w-full rounded-lg bg-[var(--secondary)]/70 px-2.5 py-1.5 text-xs outline-none ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)] focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                <option value="">{localizeUi("ui.chatSettings.impersonatesection.useChatDefault")}</option>
-                <option value="random">{localizeUi("ui.game.gamesurfacecomponent.random")}</option>
-                {connections.map((connection) => (
-                  <option key={connection.id} value={connection.id}>
-                    {connection.name}
-                  </option>
-                ))}
-              </select>
+              <ConnectionSelect
+                value={connectionId || null}
+                onChange={setConnectionId}
+                defaultLabel={localizeUi("ui.chatSettings.impersonatesection.useChatDefault")}
+                extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
+              />
             </label>
           </div>
 
