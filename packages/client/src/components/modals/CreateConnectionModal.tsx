@@ -10,10 +10,14 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  AudioLines,
   ExternalLink,
   Eye,
   EyeOff,
+  Film,
+  Image as ImageIcon,
   Loader2,
+  MessageSquare,
   Search,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -104,6 +108,8 @@ type MediaBackend = {
   video: boolean;
 };
 
+/** Image sources that share a chat service's key or login; Codex images come with the ChatGPT plan. */
+const IMAGE_VENDOR: Record<string, string> = { ...IMAGE_SOURCE_VENDOR, codex_chatgpt: "openai_chatgpt" };
 const VIDEO_SOURCE_VENDOR: Record<string, APIProvider> = {
   google_ai_studio: "google",
   xai: "xai",
@@ -115,7 +121,7 @@ const VIDEO_SOURCE_VENDOR: Record<string, APIProvider> = {
 const MEDIA_BACKENDS: MediaBackend[] = (() => {
   const bySource = new Map<string, MediaBackend>();
   for (const source of [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES]) {
-    if (IMAGE_SOURCE_VENDOR[source.id] || VIDEO_SOURCE_VENDOR[source.id]) continue;
+    if (IMAGE_VENDOR[source.id] || VIDEO_SOURCE_VENDOR[source.id]) continue;
     const current = bySource.get(source.id);
     bySource.set(source.id, {
       id: `media:${source.id}`,
@@ -137,7 +143,7 @@ const mediaBackendOf = (service: ServiceId | null) =>
 
 const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   custom: ["chat", "local"],
-  linkapi: ["chat"],
+  linkapi: ["chat", "image"],
   local_model: ["local"],
   tts: ["voice", "local"],
   stt: ["voice", "local"],
@@ -155,25 +161,40 @@ const kindsOf = (service: ServiceId): Kind[] => {
   const provider = service as APIProvider;
   return [
     ...(isChatProvider(provider) ? (["chat"] as const) : []),
-    ...(Object.values(IMAGE_SOURCE_VENDOR).includes(provider) ? (["image"] as const) : []),
+    ...(Object.values(IMAGE_VENDOR).includes(provider) ? (["image"] as const) : []),
     ...(Object.values(VIDEO_SOURCE_VENDOR).includes(provider) ? (["video"] as const) : []),
   ];
 };
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** Open groups are the paths most people take; the long vendor list folds behind a chevron. */
-const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boolean }> = [
-  { id: "start", services: ["openrouter", "nanogpt", LINKAPI_SERVICE] },
+/** Image and video tools that run on a server the user runs (or rents), not a hosted service. */
+const SELF_HOSTED = new Set(["comfyui", "automatic1111", "swarmui", "drawthings", "runpod_comfyui"]);
+/** One tile per provider. Services sort A–Z and show 4 until "Show all"; "Other" folds. */
+const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; sorted?: boolean; folded?: boolean }> = [
+  { id: "start", services: [LINKAPI_SERVICE, "openrouter", "nanogpt"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
-  { id: "device", services: ["local_model", "tts", "stt"] },
-  { id: "address", services: ["custom"] },
   {
     id: "vendors",
-    collapsed: true,
-    services: ["openai", "anthropic", "google", "google_vertex", "mistral", "cohere", "xai", "zai", "deepseek", "arli"],
+    sorted: true,
+    services: [
+      ...(["anthropic", "google", "openai", "xai", "mistral", "cohere", "deepseek", "zai", "arli"] as const),
+      "google_vertex",
+      ...MEDIA_BACKENDS.filter((backend) => !SELF_HOSTED.has(backend.source)).map((backend) => backend.id),
+    ],
   },
-  { id: "media", services: [...MEDIA_BACKENDS.map((backend) => backend.id), "audio", "decision"] },
+  {
+    id: "address",
+    services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
+  },
+  { id: "device", services: ["local_model", "tts", "stt"] },
+  { id: "other", folded: true, services: ["decision", "audio"] },
 ];
+const VENDORS_SHOWN = 4;
+/** Old names people still search for. */
+const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = { openai_chatgpt: "codex" };
+const KIND_ICONS = { chat: MessageSquare, image: ImageIcon, video: Film, voice: AudioLines } as const;
+type ChipKind = keyof typeof KIND_ICONS;
+const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice"];
 
 /** Common ports of local servers; one tap fills the address. Brand names are not translated. */
 const LOCAL_PRESETS = [
@@ -237,7 +258,6 @@ const hostOf = (url: string) => {
   }
 };
 
-/** A plain reason for a failed test; the raw message stays visible below it. */
 /** A network failure, from the server ("fetch failed") or the browser ("Failed to fetch"). */
 const NETWORK_ERROR =
   /connection failed|fetch failed|failed to fetch|networkerror|load failed|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|timed? ?out/iu;
@@ -256,6 +276,7 @@ const MEDIA_KEY_URLS: Record<string, string> = {
   seedance: "https://seedance2.ai/",
 };
 
+/** A plain reason for a failed test; the raw message stays visible below it. */
 function failureReason(provider: APIProvider, message: string): "plan" | "key" | "busy" | "unreachable" | "other" {
   if (isLocalAuthProvider(provider)) return "plan";
   const status = /API returned (\d{3})/u.exec(message)?.[1];
@@ -287,15 +308,18 @@ function ServiceCard({
   hint,
   kinds,
   badges,
+  rail,
   selected,
   onClick,
 }: {
   service: ServiceId;
   name: string;
   hint: string;
-  /** What it gives, like "Chat · Images". */
-  kinds: string;
+  /** What it gives, each with its icon. */
+  kinds: Array<{ kind: ChipKind; label: string }>;
   badges: Array<{ label: string; highlight?: boolean }>;
+  /** Recommended tiles wear the connections' blue start rail. */
+  rail?: boolean;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -306,8 +330,10 @@ function ServiceCard({
       onClick={onClick}
       aria-pressed={selected}
       aria-label={name}
-      aria-description={[hint, kinds, ...badges.map((badge) => badge.label)].filter(Boolean).join(". ")}
-      className="mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs"
+      aria-description={[hint, ...kinds.map((item) => item.label), ...badges.map((badge) => badge.label)]
+        .filter(Boolean)
+        .join(". ")}
+      className={cn("mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs", rail && "mari-add-tile-rail")}
     >
       <span className="flex min-w-0 items-start gap-3">
         <ServiceTile service={service} />
@@ -325,8 +351,21 @@ function ServiceCard({
           <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
             {hint}
           </span>
-          {kinds && (
-            <span className="mt-0.5 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">{kinds}</span>
+          {kinds.length > 0 && (
+            <span
+              aria-hidden
+              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]"
+            >
+              {kinds.map(({ kind, label }) => {
+                const Icon = KIND_ICONS[kind];
+                return (
+                  <span key={kind} className="inline-flex items-center gap-1">
+                    <Icon size="0.6875rem" />
+                    {label}
+                  </span>
+                );
+              })}
+            </span>
           )}
         </span>
       </span>
@@ -341,6 +380,7 @@ function ServiceGroup({
   collapsible,
   open,
   onToggle,
+  more,
   children,
 }: {
   title: string;
@@ -348,6 +388,8 @@ function ServiceGroup({
   collapsible: boolean;
   open: boolean;
   onToggle: () => void;
+  /** A "Show all N" link under a capped list. */
+  more?: ReactNode;
   children: ReactNode;
 }) {
   const list = <div className="grid grid-cols-1 gap-2 md:grid-cols-2">{children}</div>;
@@ -356,6 +398,7 @@ function ServiceGroup({
       <section className="flex flex-col gap-1.5">
         <h4 className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">{title}</h4>
         {list}
+        {more}
       </section>
     );
   }
@@ -451,7 +494,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const [editorCloseRequest, setEditorCloseRequest] = useState(0);
   const [editorExit, setEditorExit] = useState<"close" | "back">("close");
   const [query, setQuery] = useState("");
-  const [vendorsOpen, setVendorsOpen] = useState(false);
+  const [showAllVendors, setShowAllVendors] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+  // The kind chip in step 1; step 3 starts on the same kind.
+  const [kindFilter, setKindFilter] = useState<ChipKind | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   // A service that is already connected: the user chose to connect a second account of it.
   const [second, setSecond] = useState(false);
@@ -534,10 +580,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       ? t("connections.add.error.unreachable", { host: serviceName(service ?? provider ?? "custom") })
       : errorText(error);
   const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
-  const kindsLabel = (key: ServiceId) =>
-    kindsOf(key)
-      .map((value) => t(`connections.add.kind.${value}`))
-      .join(" · ");
+  const kindItems = (key: ServiceId) =>
+    kindsOf(key).flatMap((kind) =>
+      kind in KIND_ICONS ? [{ kind: kind as ChipKind, label: t(`connections.add.kind.${kind}`) }] : [],
+    );
 
   // Throw away the empty Model of a Connection that was created but never got a Model picked.
   const discard = async () => {
@@ -892,8 +938,10 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           existing?.videoService ||
           (existing ? inferVideoSource(existing.model ?? "", existing.baseUrl ?? "") : "");
     if (existingSource) return existingSource;
+    // LinkAPI serves OpenAI-style image models (gpt-image-1.5) at its own address.
+    if (service === LINKAPI_SERVICE) return kind === "image" ? "openai" : undefined;
     if (provider && isChatProvider(provider)) {
-      if (kind === "image") return Object.entries(IMAGE_SOURCE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
+      if (kind === "image") return Object.entries(IMAGE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
       return Object.entries(VIDEO_SOURCE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
     }
     return undefined;
@@ -914,7 +962,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     const sourceDef = (kind === "image" ? IMAGE_GENERATION_SOURCES : VIDEO_GENERATION_SOURCES).find(
       (candidate) => candidate.id === source,
     );
-    const preserveAccountEndpoint = source === "comfyui" || source === "swarmui";
+    const preserveAccountEndpoint = source === "comfyui" || source === "swarmui" || service === LINKAPI_SERVICE;
     const siblingEndpoint = linked.find((row) => rowUsesMediaSource(row, source))?.baseUrl;
     const endpoint = preserveAccountEndpoint
       ? siblingEndpoint || target.accountBaseUrl || sourceDef?.defaultBaseUrl || ""
@@ -1024,7 +1072,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     if (key === LINKAPI_SERVICE)
       return ownAccounts.filter((account) => account.provider === "custom" && isLinkApiUrl(account.baseUrl));
     const providerKey = key as APIProvider;
-    const imageSources = Object.entries(IMAGE_SOURCE_VENDOR)
+    const imageSources = Object.entries(IMAGE_VENDOR)
       .filter(([, vendor]) => vendor === providerKey)
       .map(([source]) => source);
     const videoSources = Object.entries(VIDEO_SOURCE_VENDOR)
@@ -1070,16 +1118,25 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   };
   const needle = query.trim().toLowerCase();
   const searching = needle.length > 0;
-  const groups = SERVICE_GROUPS.map((group) => ({
-    ...group,
-    services: group.services.filter(
+  // A chip hides tiles without that kind; every group keeps its place, and an empty group hides.
+  const groups = SERVICE_GROUPS.map((group) => {
+    const services = group.services.filter(
       (key) =>
         (!isDevice(key) || deviceSetup[DEVICE_ITEMS[key]].available) &&
+        (!kindFilter || kindsOf(key).includes(kindFilter)) &&
         (!searching ||
-          // The kinds are searchable too ("images", "voice"), so no separate filter row is needed.
-          [serviceName(key), serviceHint(key), kindsLabel(key)].some((text) => text.toLowerCase().includes(needle))),
-    ),
-  })).filter((group) => group.services.length > 0);
+          [
+            serviceName(key),
+            serviceHint(key),
+            SEARCH_ALIASES[key] ?? "",
+            ...kindItems(key).map((item) => item.label),
+          ].some((text) => text.toLowerCase().includes(needle))),
+    );
+    return {
+      ...group,
+      services: group.sorted ? services.sort((a, b) => serviceName(a).localeCompare(serviceName(b))) : services,
+    };
+  }).filter((group) => group.services.length > 0);
 
   const serviceList = (
     <div className="flex flex-col gap-3 p-4">
@@ -1098,30 +1155,66 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
-      {groups.map((group) => (
-        <ServiceGroup
-          key={group.id}
-          title={t(`connections.add.group.${group.id}`)}
-          count={group.services.length}
-          collapsible={!!group.collapsed && !searching}
-          open={searching || vendorsOpen}
-          onToggle={() => setVendorsOpen((value) => !value)}
-        >
-          {group.services.map((key) => (
-            <ServiceCard
-              key={key}
-              service={key}
-              name={serviceName(key)}
-              hint={serviceHint(key)}
-              kinds={kindsLabel(key)}
-              badges={badgesFor(key)}
-              selected={service === key}
-              onClick={() => void chooseService(key)}
-            />
-          ))}
-        </ServiceGroup>
-      ))}
-      {groups.length === 0 && (
+      <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
+        {[null, ...CHIP_KINDS].map((kind) => (
+          <button
+            key={kind ?? "all"}
+            type="button"
+            data-add-connection-kind={kind ?? "all"}
+            aria-pressed={kindFilter === kind}
+            onClick={() => setKindFilter(kind)}
+            className="mari-connection-chip gap-1"
+          >
+            {kind &&
+              (() => {
+                const Icon = KIND_ICONS[kind];
+                return <Icon size="0.75rem" aria-hidden />;
+              })()}
+            {t(`connections.add.kind.${kind ?? "all"}`)}
+          </button>
+        ))}
+      </div>
+      {groups.map((group) => {
+        const capped = group.id === "vendors" && !searching && !showAllVendors && group.services.length > VENDORS_SHOWN;
+        const shown = capped ? group.services.slice(0, VENDORS_SHOWN) : group.services;
+        return (
+          <ServiceGroup
+            key={group.id}
+            title={t(`connections.add.group.${group.id}`)}
+            count={group.services.length}
+            collapsible={!!group.folded && !searching}
+            open={searching || otherOpen}
+            onToggle={() => setOtherOpen((value) => !value)}
+            more={
+              capped && (
+                <button
+                  type="button"
+                  data-add-connection-show-all
+                  onClick={() => setShowAllVendors(true)}
+                  className="mari-connection-btn mari-connection-btn--ghost mari-add-show-all self-start"
+                >
+                  {t("connections.add.showAll", { count: group.services.length })}
+                </button>
+              )
+            }
+          >
+            {shown.map((key) => (
+              <ServiceCard
+                key={key}
+                service={key}
+                name={serviceName(key)}
+                hint={serviceHint(key)}
+                kinds={kindItems(key)}
+                badges={badgesFor(key)}
+                rail={group.id === "start"}
+                selected={service === key}
+                onClick={() => void chooseService(key)}
+              />
+            ))}
+          </ServiceGroup>
+        );
+      })}
+      {searching && groups.length === 0 && (
         <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
           <p className="text-xs text-[var(--muted-foreground)]">
             {t("connections.add.noMatch", { query: query.trim() })}

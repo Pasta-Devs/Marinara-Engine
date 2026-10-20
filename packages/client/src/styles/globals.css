@@ -1885,11 +1885,30 @@
 .mari-connection-chip[aria-pressed="true"] {
   background: var(--mari-connection-tint);
   color: var(--mari-connection-ink);
+  box-shadow: inset 0 0 0 1px var(--mari-connection-ring);
 }
 @media (max-width: 47.9375rem), (pointer: coarse) {
   .mari-connection-chip {
-    height: 2.25rem;
+    height: 2.75rem;
   }
+}
+/* Add window: Recommended tiles wear the wells' straight blue start rail; "Show all N" reads in connection ink. */
+.mari-add-tile-rail {
+  position: relative;
+  overflow: hidden;
+}
+.mari-add-tile-rail::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--mari-connection-ink);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.mari-connection-btn--ghost.mari-add-show-all {
+  color: var(--mari-connection-ink);
 }
 
 .mari-panel-gradient--agents {
