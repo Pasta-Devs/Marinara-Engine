@@ -33,6 +33,7 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store.js";
+import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
 
@@ -52,11 +53,15 @@ function formatSpeed(bytesPerSec: number): string {
   return `${formatBytes(bytesPerSec)}/s`;
 }
 
-function formatQuantizationLabel(quantization: SidecarQuantization | null, backend: SidecarBackend): string {
+function formatQuantizationLabel(
+  quantization: SidecarQuantization | null,
+  backend: SidecarBackend,
+  t: TFunction,
+): string {
   if (backend === "mlx") {
     return quantization === "q4_k_m" ? "4-bit" : "8-bit";
   }
-  return quantization?.toUpperCase() ?? "Curated";
+  return quantization?.toUpperCase() ?? t("connections.device.runtime.curated");
 }
 
 function formatRuntimeVariantLabel(variant: string | null): string | null {
@@ -64,45 +69,47 @@ function formatRuntimeVariantLabel(variant: string | null): string | null {
   return variant.replace(/-/g, " ");
 }
 
-function formatRuntimePreferenceLabel(preference: SidecarRuntimePreference, platform?: string): string {
+function formatRuntimePreferenceLabel(preference: SidecarRuntimePreference, t: TFunction, platform?: string): string {
   switch (preference) {
     case "auto":
-      return "Auto detect";
+      return t("connections.device.runtime.auto");
     case "nvidia":
-      return platform === "linux" ? "NVIDIA GPU (Vulkan fallback)" : "NVIDIA GPU (CUDA)";
+      return platform === "linux"
+        ? t("connections.device.runtime.nvidiaVulkan")
+        : t("connections.device.runtime.nvidiaCuda");
     case "amd":
-      return "AMD GPU";
+      return t("connections.device.runtime.amd");
     case "intel":
-      return "Intel GPU";
+      return t("connections.device.runtime.intel");
     case "vulkan":
-      return "Vulkan GPU";
+      return t("connections.device.runtime.vulkan");
     case "cpu":
-      return "CPU only";
+      return t("connections.device.runtime.cpu");
     case "system":
-      return "System llama-server";
+      return t("connections.device.runtime.system");
     default:
       return preference;
   }
 }
 
-function describeGpuLayers(gpuLayers: number): string {
-  if (gpuLayers === -1) return "Auto offload";
-  if (gpuLayers === 0) return "CPU only";
-  return `${gpuLayers} GPU layers`;
+function describeGpuLayers(gpuLayers: number, t: TFunction): string {
+  if (gpuLayers === -1) return t("connections.device.runtime.autoOffload");
+  if (gpuLayers === 0) return t("connections.device.runtime.cpu");
+  return t("connections.device.runtime.gpuLayers", { count: gpuLayers });
 }
 
-function formatEmbeddingPoolingLabel(pooling: SidecarEmbeddingPooling): string {
+function formatEmbeddingPoolingLabel(pooling: SidecarEmbeddingPooling, t: TFunction): string {
   switch (pooling) {
     case "none":
-      return "None";
+      return t("connections.device.pooling.none");
     case "mean":
-      return "Mean";
+      return t("connections.device.pooling.mean");
     case "cls":
-      return "CLS";
+      return t("connections.device.pooling.cls");
     case "last":
-      return "Last token";
+      return t("connections.device.pooling.last");
     case "rank":
-      return "Rank";
+      return t("connections.device.pooling.rank");
     default:
       return pooling;
   }
@@ -236,14 +243,21 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const gpuLayersMode = gpuLayersModeDraft;
   const quickRuntimeSummary =
     activeBackend === "mlx"
-      ? `MLX runtime • ${formatCompactTokens(config.contextSize)} ctx • ${formatCompactTokens(config.maxTokens)} max`
+      ? localizeUi("connections.device.runtime.mlxSummary", {
+          context: formatCompactTokens(config.contextSize),
+          max: formatCompactTokens(config.maxTokens),
+        })
       : [
-          formatRuntimePreferenceLabel(config.runtimePreference, platform),
-          describeGpuLayers(config.gpuLayers),
-          config.enableNativeToolCalls ? "native tools on" : "native tools off",
-          `${formatEmbeddingPoolingLabel(config.embeddingPooling)} pooling`,
-          `${formatCompactTokens(config.contextSize)} ctx`,
-          `${formatCompactTokens(config.maxTokens)} max`,
+          formatRuntimePreferenceLabel(config.runtimePreference, localizeUi, platform),
+          describeGpuLayers(config.gpuLayers, localizeUi),
+          config.enableNativeToolCalls
+            ? localizeUi("connections.device.runtime.nativeToolsOn")
+            : localizeUi("connections.device.runtime.nativeToolsOff"),
+          localizeUi("connections.device.pooling.summary", {
+            pooling: formatEmbeddingPoolingLabel(config.embeddingPooling, localizeUi),
+          }),
+          localizeUi("connections.device.runtime.context", { value: formatCompactTokens(config.contextSize) }),
+          localizeUi("connections.device.runtime.maxTokens", { value: formatCompactTokens(config.maxTokens) }),
         ].join(" • ");
 
   useEffect(() => {
@@ -548,8 +562,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]">
+        <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--warning)]">
             <AlertTriangle size="0.95rem" className="shrink-0" />
             {localizeUi("ui.modals.modeldownloadmodal.localModelIsForHelpersNotMainRoleplay")}
           </div>
@@ -580,7 +594,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                             value1: config.customModelRepo,
                           })
                       : localizeUi("ui.modals.modeldownloadmodal.value1Gemma4Value2Preset", {
-                          value1: formatQuantizationLabel(config.quantization, config.backend),
+                          value1: formatQuantizationLabel(config.quantization, config.backend, localizeUi),
                           value2:
                             config.backend === "mlx"
                               ? localizeUi("ui.modals.modeldownloadmodal.mlx")
@@ -777,7 +791,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                         >
                           {runtimePreferenceOptions.map((option) => (
                             <option key={option} value={option}>
-                              {formatRuntimePreferenceLabel(option, platform)}
+                              {formatRuntimePreferenceLabel(option, localizeUi, platform)}
                             </option>
                           ))}
                         </select>
@@ -921,7 +935,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                         >
                           {SIDECAR_EMBEDDING_POOLING_TYPES.map((pooling) => (
                             <option key={pooling} value={pooling}>
-                              {formatEmbeddingPoolingLabel(pooling)}
+                              {formatEmbeddingPoolingLabel(pooling, localizeUi)}
                             </option>
                           ))}
                         </select>

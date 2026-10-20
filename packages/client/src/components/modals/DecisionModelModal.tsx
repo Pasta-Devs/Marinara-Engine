@@ -271,9 +271,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
           {/* An entry that cannot be installed says why, in the one sentence the
               preflight produced, rather than being hidden or left unexplained. */}
           {model.preflight.reason && (
-            <div className="mt-1 text-[0.6875rem] text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]">
-              {model.preflight.reason}
-            </div>
+            <div className="mt-1 text-[0.6875rem] text-[var(--warning)]">{model.preflight.reason}</div>
           )}
         </div>
         {model.id === installedId && (
@@ -309,8 +307,8 @@ export function DecisionModelModal({ open, onClose }: Props) {
 
         {/* Always visible above the toggle, in the same shape the chat installer uses
             for its own "this is for helpers" warning. */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]">
+        <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--warning)]">
             <AlertTriangle size="0.95rem" className="shrink-0" />
             {localizeUi("ui.modals.decisionmodelmodal.warningTitle")}
           </div>
@@ -431,7 +429,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     </button>
                   </div>
                   {inspect.data?.refusal && (
-                    <p className="mt-2 text-[0.6875rem] text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]">
+                    <p className="mt-2 text-[0.6875rem] text-[var(--warning)]">
                       {localizeUi(`ui.modals.decisionmodelmodal.refusal.${inspect.data.refusal}`, {
                         defaultValue: localizeUi("ui.modals.decisionmodelmodal.refusal.unreadable_manifest"),
                       })}
@@ -461,7 +459,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         </span>
                       </div>
                       {inspect.data.preflight.reason && (
-                        <div className="mt-1 text-[0.6875rem] text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]">
+                        <div className="mt-1 text-[0.6875rem] text-[var(--warning)]">
                           {inspect.data.preflight.reason}
                         </div>
                       )}

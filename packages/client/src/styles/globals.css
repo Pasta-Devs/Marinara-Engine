@@ -200,6 +200,7 @@
   --accent: #2a1a3e;
   --accent-foreground: #f0e8ff;
   --destructive: #ff6b9d;
+  --warning: #eeaa37;
   --destructive-foreground: #0a0a0a;
   --border: color-mix(in srgb, var(--primary) 20%, transparent);
   --input: var(--border);
@@ -463,6 +464,7 @@
   --accent: #ede4f7;
   --accent-foreground: #1a1025;
   --destructive: #c44040;
+  --warning: #b45309;
   --destructive-foreground: #ffffff;
   --border: color-mix(in srgb, var(--primary) 27%, transparent);
   --input: var(--border);
