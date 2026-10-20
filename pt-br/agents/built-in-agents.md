@@ -334,7 +334,7 @@ Mostra os seus personagens e as suas personas como avatares 2D animados, que pis
 
 - **Integração**: pacote de agente; o Engine roda o agente e desenha os avatares. Ele não envia nenhuma solicitação extra às suas conexões de IA durante o chat.
 - **Onde funciona**: Roleplay e Game, para personagens e personas.
-- **Disponibilidade**: **Somente em staging** enquanto é testado. **Download Agents** só lista o agente quando Marinara Engine roda na branch `staging`.
+- **Disponibilidade**: em **Download Agents** para todas as instalações. Exige Marinara Engine 2.5.1 ou mais recente.
 - **Configurações principais**: configure cada avatar na página do agente em **Agents**. O agente também traz os prompts usados para criar as imagens de piscada e de fala e um avatar de malha a partir de um dos seus sprites.
 - **Compatibilidade**: Engine `2.5.0` até antes da versão `4.0.0`, com Capability API 1.73. O pacote usa as permissões `agent-runtime`, `chat-read`, `storage` e `ui`, e não exige reiniciar Marinara.
 - **Guia completo**: [Avatares 2D e 3D](avatars.md).
@@ -345,7 +345,7 @@ Mostra os seus personagens e as suas personas como modelos 3D animados, que pisc
 
 - **Integração**: pacote de agente; o Engine roda o agente e desenha os avatares. Ele não envia nenhuma solicitação extra às suas conexões de IA durante o chat.
 - **Onde funciona**: Roleplay e Game, para personagens e personas.
-- **Disponibilidade**: **Somente em staging** enquanto é testado. **Download Agents** só lista o agente quando Marinara Engine roda na branch `staging`.
+- **Disponibilidade**: em **Download Agents** para todas as instalações. Exige Marinara Engine 2.5.1 ou mais recente.
 - **Configurações principais**: configure cada avatar na página do agente em **Agents**.
 - **Compatibilidade**: Engine `2.5.0` até antes da versão `4.0.0`, com Capability API 1.73. O pacote usa as permissões `agent-runtime`, `chat-read`, `storage` e `ui`, e não exige reiniciar Marinara.
 - **Guia completo**: [Avatares 2D e 3D](avatars.md).

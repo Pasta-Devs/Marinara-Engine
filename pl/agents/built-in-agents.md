@@ -336,7 +336,7 @@ Pokazuje twoje postacie i persony jako animowane awatary 2D, które mrugają, m�
 
 - **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
 - **Gdzie działa**: Roleplay i Game, dla postaci i person.
-- **Dostępność**: **Staging only** (tylko staging) na czas testów. **Download Agents** pokazuje go tylko wtedy, gdy aplikacja Marinara Engine działa na gałęzi `staging`.
+- **Dostępność**: na ekranie **Download Agents** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
 - **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**. Agent zawiera też prompty, za pomocą których z jednego z twoich sprite'ów powstają obrazki mrugania i mówienia oraz awatar mesh.
 - **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
 - **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).
@@ -347,7 +347,7 @@ Pokazuje twoje postacie i persony jako animowane modele 3D, które mrugają, mó
 
 - **Integracja**: pakiet agenta – silnik go uruchamia i rysuje awatary. Podczas czatu nie wysyła żadnych dodatkowych zapytań do twoich połączeń AI.
 - **Gdzie działa**: Roleplay i Game, dla postaci i person.
-- **Dostępność**: **Staging only** na czas testów. **Download Agents** pokazuje go tylko wtedy, gdy aplikacja Marinara Engine działa na gałęzi `staging`.
+- **Dostępność**: na ekranie **Download Agents** w każdej instalacji. Wymaga aplikacji Marinara Engine w wersji 2.5.1 lub nowszej.
 - **Najważniejsze ustawienia**: każdy awatar konfigurujesz na stronie agenta w panelu **Agents**.
 - **Zgodność**: silnik od wersji `2.5.0` do wersji sprzed `4.0.0`, z Capability API 1.73. Pakiet korzysta z uprawnień `agent-runtime`, `chat-read`, `storage` i `ui`, a jego instalacja nie wymaga ponownego uruchomienia.
 - **Pełny przewodnik**: [Awatary 2D i 3D](avatars.md).

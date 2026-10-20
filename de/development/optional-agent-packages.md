@@ -997,6 +997,16 @@ Paketserver einige Bibliotheken aus der Engine verwenden, statt sie selbst zu b�
 - `runtime.persistence.appendMessages(chatId, messages)` fügt Nachrichten mit jeweils ihrem ersten Swipe in einem Schritt hinzu und
   liefert sie zurück. `createChatNote` und `createChatInfluence` fügen aus einer Conversation eine Notiz oder einen einmaligen Einfluss
   zum damit verbundenen Roleplay hinzu. Diese vier Mitglieder für die Datenspeicherung brauchen `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` wendet ein
+  `[schedule_update]` so an wie die Engine nach einer Conversation-Antwort: als vorübergehenden Status auf der Charakterkarte,
+  den der Charakter bis zu seinem Ablauf in jedem Chat zeigt. `status` ist `online`, `idle`, `dnd` oder `offline`, `activity`
+  umfasst höchstens 500 Zeichen, und mindestens eines der beiden Felder ist erforderlich. `duration` wird wie im Befehl angegeben (`2h`,
+  `30m`). Fehlt die Dauer oder ist sie nicht lesbar, gilt der Status 60 Minuten, und nie länger als eine Woche. Die Methode liefert
+  `{ status, activity, expiresAt }` oder `null`, wenn sich nichts geändert hat: Ein vom Nutzer von Hand gesetzter Status behält Vorrang,
+  und ein gemeinsamer Raum behält seine eigenen Routinen. Die Methode lehnt ungültige Änderungen, Chats außerhalb des Conversation-Modus
+  und Charaktere ab, die nicht im Chat sind, und braucht `chat-write`. Sie kam erst nach den ersten Engines, die 1.341 melden, zur
+  Capability API 1.341 hinzu. Prüfe deshalb `typeof api.runtime.persistence.updateCharacterStatus === "function"` und
+  überspringe die Statusänderung, wenn sie fehlt.
 - `runtime.integrations.admission` ist die Zugangsprüfung für Verbindungen der Engine. Hintergrundarbeit eines Pakets wartet dadurch auf die
   eigenen Anfragen des Nutzers über dieselbe Verbindung. `withProvider(provider, connectionId, mode)` umschließt einen Anbieter, den
   die Integrationen desselben Pakets erstellt haben. `run(connectionId, mode, operation)` führt einen Versuch aus, `tryBackground(connectionId)`

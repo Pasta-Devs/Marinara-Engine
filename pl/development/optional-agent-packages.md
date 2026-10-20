@@ -984,6 +984,16 @@ serwerom pakietów korzystać z kilku bibliotek silnika zamiast dołączać ich 
 - `runtime.persistence.appendMessages(chatId, messages)` dodaje wiadomości, każdą z pierwszym swipe'em, w jednej
   partii i je zwraca. `createChatNote` i `createChatInfluence` dodają notatkę lub jednorazowy wpływ z rozmowy do
   powiązanego z nią czatu w trybie Roleplay. Te cztery elementy zapisu wymagają `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` stosuje
+  `[schedule_update]` tak jak silnik po odpowiedzi w trybie Conversation: tymczasowy status na karcie postaci,
+  który postać pokazuje w każdym czacie do czasu jego wygaśnięcia. `status` to `online`, `idle`, `dnd` lub `offline`, `activity`
+  ma najwyżej 500 znaków i wymagane jest przynajmniej jedno z tych dwóch pól. `duration` zapisuje się tak jak w komendzie (`2h`,
+  `30m`); bez czasu trwania lub gdy nie da się go odczytać, status trwa 60 minut i nigdy dłużej niż tydzień. Metoda zwraca
+  `{ status, activity, expiresAt }` lub `null`, gdy nic się nie zmieniło: status ustawiony ręcznie przez użytkownika zachowuje pierwszeństwo,
+  a współdzielony pokój zachowuje własne rutyny. Odrzuca nieprawidłową aktualizację, czat inny niż w trybie Conversation
+  i postać, której nie ma w czacie, i wymaga `chat-write`. Dodano ją do API możliwości 1.341 po
+  pierwszych silnikach zgłaszających 1.341, więc sprawdź `typeof api.runtime.persistence.updateCharacterStatus === "function"` i
+  pomiń zmianę statusu, gdy metody brakuje.
 - `runtime.integrations.admission` to dopuszczanie żądań do połączeń przez silnik, więc zadania pakietu w tle czekają
   na własne żądania użytkownika w tym samym połączeniu. `withProvider(provider, connectionId, mode)` opakowuje dostawcę
   utworzonego przez integracje tego samego pakietu, `run(connectionId, mode, operation)` wykonuje jedną próbę,
