@@ -53,11 +53,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
-import {
-  CONNECTION_EXPORT_WARNING,
-  createConnectionExportEnvelope,
-  type ConnectionTransferRow,
-} from "../../lib/connection-transfer";
+import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
 import { groupModelsByAccount, knownPrefixName, sortByModelId, upstreamOf } from "../../lib/connection-groups";
 import { modelSubtitle } from "../../lib/connection-identity";
 import { useConnectionFolders } from "../../hooks/use-connection-folders";
@@ -395,13 +391,13 @@ export function ConnectionsPanel() {
 
     const confirmed = await showConfirmDialog({
       title: t("ui.panels.connectionspanel.exportConnectionData"),
-      message: CONNECTION_EXPORT_WARNING,
+      message: t("connections.transfer.exportWarning"),
       confirmLabel: t("ui.characters.spritestab.export"),
       cancelLabel: t("common.close"),
     });
     if (!confirmed) return;
 
-    const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[]);
+    const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[], accounts ?? []);
     const saveStatus =
       connectionsToExport.length > 1
         ? await downloadZipFile(
@@ -413,12 +409,7 @@ export function ConnectionsPanel() {
             `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`,
           );
     if (saveStatus === "saved")
-      toast.success(
-        t("ui.panels.connectionspanel.exportedValue1ConnectionValue2", {
-          value1: connectionsToExport.length,
-          value2: connectionsToExport.length === 1 ? "" : t("ui.noodle.stageprofileview.s"),
-        }),
-      );
+      toast.success(t("connections.transfer.exported", { count: connectionsToExport.length }));
   };
 
   const renderRow = (

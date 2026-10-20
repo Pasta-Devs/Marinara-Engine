@@ -42,7 +42,7 @@ import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.sto
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { ToggleSetting } from "../panels/settings/SettingControls";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { ProviderIcon } from "./ProviderIcon";
@@ -199,9 +199,7 @@ export function useDeviceEngines(): DeviceEngine[] {
             void sidecar
               .loadModel()
               .catch((error: unknown) =>
-                toast.error(
-                  error instanceof Error ? error.message : t("ui.panels.sidecarcard.failedToChangeLocalModelLoadState"),
-                ),
+                toast.error(error instanceof Error ? error.message : t("connections.device.loadFailed")),
               ),
         },
       });
@@ -331,13 +329,9 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
         }),
       );
 
-      toast.success(localizeUi("ui.panels.sidecarcard.allBuiltInTrackerAgentsNowPointToThe"));
+      toast.success(localizeUi("connections.device.trackersAssigned"));
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : localizeUi("ui.panels.sidecarcard.failedToUpdateTrackerAgentConnections"),
-      );
+      toast.error(error instanceof Error ? error.message : localizeUi("connections.device.trackersFailed"));
     } finally {
       setAssigningTrackers(false);
     }
@@ -349,15 +343,13 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
     try {
       if (inferenceReady) {
         await unloadModel();
-        toast.success(localizeUi("ui.panels.sidecarcard.localModelUnloaded"));
+        toast.success(localizeUi("connections.device.modelUnloaded"));
       } else {
         await loadModel();
-        toast.success(localizeUi("ui.panels.sidecarcard.localModelLoaded"));
+        toast.success(localizeUi("connections.device.modelLoaded"));
       }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.panels.sidecarcard.failedToChangeLocalModelLoadState"),
-      );
+      toast.error(error instanceof Error ? error.message : localizeUi("connections.device.loadFailed"));
     } finally {
       setChangingModelLoadState(false);
     }
@@ -396,7 +388,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
     const confirmed = await showConfirmDialog({
       title: localizeUi("connections.device.switchVariant", { variant: QUANT_LABEL[quantization] }),
       message: localizeUi("connections.device.switchVariantConfirm", { size: formatBytes(sizeBytes) }),
-      confirmLabel: localizeUi("ui.panels.sidecarcard.download"),
+      confirmLabel: localizeUi("connections.device.download"),
     });
     if (confirmed && (await startDownload(quantization))) toast.success(GEMMA_RESTART_MESSAGE);
   };
@@ -418,7 +410,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
     <div className="flex flex-col gap-3">
       <DetailHero
         icon={<ProviderIcon provider="local-model" size="lg" />}
-        title={localizeUi("ui.panels.sidecarcard.localModel")}
+        title={localizeUi("connections.add.device.local_model")}
       >
         <StateWord tone={state.tone} label={state.label} />
         <span>· {localizeUi("connections.accounts.section.device")}</span>
@@ -434,10 +426,10 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
               <Power size="0.75rem" />
             )}
             {busy
-              ? localizeUi("ui.panels.sidecarcard.changingLocalModelState")
+              ? localizeUi("connections.device.pleaseWait")
               : inferenceReady
-                ? localizeUi("ui.panels.sidecarcard.unloadLocalModel")
-                : localizeUi("ui.panels.sidecarcard.loadLocalModel")}
+                ? localizeUi("connections.device.unloadModel")
+                : localizeUi("connections.device.loadModel")}
           </button>
         )}
         <button type="button" onClick={() => void retry()} disabled={retrying} className={SMALL_ACTION}>
@@ -456,14 +448,16 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           role="alert"
         >
           <div className="text-[0.6875rem] font-medium text-[var(--marinara-app-accent-static)]">
-            {localizeUi("ui.panels.sidecarcard.localRuntimeUnavailable")}
+            {localizeUi("connections.device.runtimeUnavailable")}
           </div>
           <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
             {startupError ?? localizeUi("connections.device.keepsRunning")}
           </div>
           {failedRuntimeVariant && (
             <div className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]/80">
-              {localizeUi("ui.panels.sidecarcard.runtime")} {formatRuntimeVariantLabel(failedRuntimeVariant)}
+              {localizeUi("connections.device.runtimeVariant", {
+                variant: formatRuntimeVariantLabel(failedRuntimeVariant),
+              })}
             </div>
           )}
         </div>
@@ -517,10 +511,10 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
       <div className="rounded-lg border border-[var(--marinara-app-accent-static)]/30 bg-[var(--marinara-app-accent-static)]/10 p-2.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--marinara-app-accent-static)]">
           <AlertTriangle size="0.875rem" className="shrink-0" />
-          {localizeUi("ui.panels.sidecarcard.localModelIsNotForRoleplay")}
+          {localizeUi("connections.device.notForRoleplay")}
         </div>
         <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.sidecarcard.theBundledLocalModelIsIntentionallySmallUseIt")}
+          {localizeUi("connections.device.notForRoleplayHelp")}
         </p>
       </div>
 
@@ -530,39 +524,35 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
             type="button"
             onClick={() => void handleAssignTrackersToLocal()}
             disabled={assigningTrackers}
-            className="mari-chrome-control w-full justify-between gap-3 px-3 py-2 text-left"
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--sidebar-accent)] disabled:opacity-50"
           >
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium">
-                {localizeUi("ui.panels.sidecarcard.useLocalModelForAllTrackerAgents")}
-              </div>
+              <div className="text-xs font-medium">{localizeUi("connections.device.useForAllTrackers")}</div>
               <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.sidecarcard.assignsTheBuiltInLocalModelAsTheConnection")}
+                {localizeUi("connections.device.useForAllTrackersHelp")}
               </div>
             </div>
             {assigningTrackers ? (
-              <BrainCircuit size="0.875rem" className="animate-pulse text-sky-300" />
+              <BrainCircuit size="0.875rem" className="animate-pulse text-[var(--muted-foreground)]" />
             ) : (
-              <Link size="0.875rem" className="text-sky-300" />
+              <Link size="0.875rem" className="text-[var(--muted-foreground)]" />
             )}
           </button>
           <p className="px-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-            {trackerLocalCount}/{trackerAgents.length}{" "}
-            {localizeUi("ui.panels.sidecarcard.builtInTrackerAgentsCurrentlyPointAtTheLocal")}
+            {localizeUi("connections.device.trackersUsingLocal", {
+              count: trackerLocalCount,
+              total: trackerAgents.length,
+            })}
           </p>
-          <SettingsSwitch
-            label={localizeUi("ui.panels.sidecarcard.useForTrackerAgentsRoleplay")}
+          <ToggleSetting
+            label={localizeUi("connections.device.useForTrackers")}
             checked={config.useForTrackers}
             onChange={(checked) => updateConfig({ useForTrackers: checked })}
-            className="p-0 hover:bg-transparent"
-            labelClassName="text-xs text-[var(--muted-foreground)]"
           />
-          <SettingsSwitch
-            label={localizeUi("ui.panels.sidecarcard.useForGameSceneAnalysis")}
+          <ToggleSetting
+            label={localizeUi("connections.device.useForGameScene")}
             checked={config.useForGameScene}
             onChange={(checked) => updateConfig({ useForGameScene: checked })}
-            className="p-0 hover:bg-transparent"
-            labelClassName="text-xs text-[var(--muted-foreground)]"
           />
         </div>
       ) : (
@@ -570,19 +560,13 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           type="button"
           onClick={handleDownloadNow}
           disabled={isDownloading}
-          className="mari-chrome-control w-full px-3 py-2 text-xs"
+          className="mari-connection-btn mari-connection-btn--primary w-full"
         >
-          {isDownloading
-            ? localizeUi("ui.panels.sidecarcard.downloading")
-            : localizeUi("ui.panels.sidecarcard.downloadNow")}
+          {isDownloading ? localizeUi("connections.device.downloading") : localizeUi("connections.device.downloadNow")}
         </button>
       )}
       {/* The decision sidecar is its own model and its own process, so it does not wait for a chat model. */}
-      <button
-        type="button"
-        onClick={() => setDecisionModalOpen(true)}
-        className="mari-chrome-control mari-chrome-control--compact w-full text-center"
-      >
+      <button type="button" onClick={() => setDecisionModalOpen(true)} className={cn(SMALL_ACTION, "w-full")}>
         {localizeUi("ui.panels.sidecarcard.decisionSidecar")}
       </button>
       <DecisionModelModal open={decisionModalOpen} onClose={() => setDecisionModalOpen(false)} />
@@ -626,11 +610,9 @@ export function LocalWhisper() {
     setDeletingSpeechModel(true);
     try {
       await deleteSpeechModel();
-      toast.success(localizeUi("ui.panels.sidecarcard.localWhisperModelDeleted"));
+      toast.success(localizeUi("connections.device.whisper.deleted"));
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.panels.sidecarcard.failedToDeleteTheLocalWhisperModel"),
-      );
+      toast.error(error instanceof Error ? error.message : localizeUi("connections.device.whisper.deleteFailed"));
     } finally {
       setDeletingSpeechModel(false);
     }
@@ -653,9 +635,7 @@ export function LocalWhisper() {
   const handleDownloadWhisper = async () => {
     if (!activeSpeechModel || speechDownloading) return;
     if (await startSpeechDownload(activeSpeechModel.id)) {
-      toast.success(
-        localizeUi("ui.panels.sidecarcard.whisperDownloadedCompletelyRestartMarinaraEngineBeforeUsingCalls"),
-      );
+      toast.success(localizeUi("connections.device.whisper.downloadedRestart"));
     }
   };
 
@@ -663,7 +643,7 @@ export function LocalWhisper() {
     <section className={DETAIL_CARD_CLASS}>
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-semibold text-[var(--foreground)]">
-          {localizeUi("ui.panels.sidecarcard.localSpeechModel")}
+          {localizeUi("connections.device.whisper.title")}
         </div>
         {speechModelDownloaded && (
           <button
@@ -671,8 +651,8 @@ export function LocalWhisper() {
             onClick={() => void handleDeleteSpeechModel()}
             disabled={deletingSpeechModel}
             className="mari-chrome-control mari-chrome-control--small p-1 max-md:min-h-11 max-md:min-w-11"
-            title={localizeUi("ui.panels.sidecarcard.deleteLocalWhisper")}
-            aria-label={localizeUi("ui.panels.sidecarcard.deleteLocalWhisper")}
+            title={localizeUi("connections.device.whisper.delete")}
+            aria-label={localizeUi("connections.device.whisper.delete")}
           >
             {deletingSpeechModel ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
           </button>
@@ -686,8 +666,10 @@ export function LocalWhisper() {
           </p>
           {speechRuntime && (
             <p className="text-[0.59375rem] leading-relaxed text-[var(--muted-foreground)]/80">
-              {localizeUi("ui.panels.sidecarcard.node")} {speechRuntime.nodeVersion}{" "}
-              {localizeUi("ui.panels.sidecarcard.at")} {speechRuntime.nodeExecPath}
+              {localizeUi("connections.device.whisper.nodeAt", {
+                version: speechRuntime.nodeVersion,
+                path: speechRuntime.nodeExecPath,
+              })}
             </p>
           )}
         </div>
@@ -699,7 +681,7 @@ export function LocalWhisper() {
               value={speechModelChoice}
               onChange={(event) => setSpeechModelChoice(event.target.value as SidecarSpeechModelId)}
               className="mari-chrome-field h-8 w-full min-w-0 appearance-none pl-2.5 pr-8 text-xs max-md:h-11"
-              aria-label={localizeUi("ui.panels.sidecarcard.localSpeechModel")}
+              aria-label={localizeUi("connections.device.whisper.title")}
               disabled={speechDownloading || speechModels.length === 0}
             >
               {speechModels.map((model) => (
@@ -716,29 +698,31 @@ export function LocalWhisper() {
           </div>
           {activeSpeechModel && (
             <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {activeSpeechModel.description} {localizeUi("ui.noodle.stageprofileview.about")}{" "}
-              {formatBytes(activeSpeechModel.sizeBytes)} {localizeUi("ui.panels.sidecarcard.download")}{" "}
-              {formatBytes(activeSpeechModel.ramBytes)} {localizeUi("ui.panels.sidecarcard.ramWhileRunning")}
+              {localizeUi("connections.device.whisper.modelInfo", {
+                description: activeSpeechModel.description,
+                size: formatBytes(activeSpeechModel.sizeBytes),
+                ram: formatBytes(activeSpeechModel.ramBytes),
+              })}
             </p>
           )}
           <button
             type="button"
             onClick={handleDownloadWhisper}
             disabled={speechDownloading || !activeSpeechModel}
-            className="mari-chrome-control w-full justify-center px-3 py-2 text-xs"
+            className={cn(SMALL_ACTION, "w-full")}
           >
             <HardDriveDownload size="0.8125rem" className={cn(speechDownloading && "animate-pulse")} />
             {speechDownloading
-              ? localizeUi("ui.panels.sidecarcard.downloadingWhisper")
-              : localizeUi("ui.panels.sidecarcard.downloadWhisper")}
+              ? localizeUi("connections.device.whisper.downloadingShort")
+              : localizeUi("connections.device.whisper.download")}
           </button>
         </div>
       )}
       {speechDownloading && speechDownloadProgress && (
         <div className="mt-2">
-          <div className="h-1.5 overflow-hidden rounded-full bg-sky-400/10">
+          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--secondary)]">
             <div
-              className="h-full rounded-full bg-sky-300 transition-[width]"
+              className="h-full rounded-full bg-[var(--primary)] transition-[width]"
               style={{
                 width: `${
                   speechDownloadProgress.total > 0
