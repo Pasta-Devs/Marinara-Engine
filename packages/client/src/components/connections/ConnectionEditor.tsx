@@ -1790,15 +1790,18 @@ export function ConnectionEditor({
       </div>
 
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        <strong>{localizeUi("ui.connections.connectioneditor.testConnection")}</strong>{" "}
-        {selectedImageService === "fal"
-          ? t("connections.mediaSources.fal.testHelp")
-          : isCodexImageService
-            ? t("connections.mediaSources.codexChatgpt.testHelp")
-            : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}
+        {(!accountLinked || hasOwnEndpoint) && (
+          <>
+            <strong>{localizeUi("ui.connections.connectioneditor.testConnection")}</strong>{" "}
+            {selectedImageService === "fal"
+              ? t("connections.mediaSources.fal.testHelp")
+              : isCodexImageService
+                ? t("connections.mediaSources.codexChatgpt.testHelp")
+                : localizeUi("ui.connections.connectioneditor.verifiesYourApiKeyAgainstTheProviderCatalogOr")}{" "}
+          </>
+        )}
         {!isMediaGenerationProvider && (
           <>
-            {" "}
             <strong>{localizeUi("ui.connections.connectioneditor.sendTestMessage")}</strong>{" "}
             {localizeUi("ui.connections.connectioneditor.sendsHiToTheSelectedModelEndpointAndShows")}
           </>

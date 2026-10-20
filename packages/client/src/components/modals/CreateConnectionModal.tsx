@@ -1827,7 +1827,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
                       setMediaRowId(null);
                       setSetupKind(kind);
                     }}
-                    className="mari-connection-chip"
+                    className="mari-connection-chip gap-1"
                   >
                     <Icon size="0.75rem" aria-hidden />
                     {t(`connections.add.kind.${kind}`)}
