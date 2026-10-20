@@ -1546,6 +1546,21 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
+/* The blue rail: a straight strip on the well's left edge, so every list of models reads as Connections. The
+   Defaults box is blue already and keeps none. */
+.mari-connection-group:not(.mari-connection-defaults-box) .mari-connection-model-well {
+  position: relative;
+}
+.mari-connection-group:not(.mari-connection-defaults-box) .mari-connection-model-well::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--mari-connection-ink);
+  opacity: 0.7;
+  pointer-events: none;
+}
 .mari-connection-model-section-head {
   background: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
