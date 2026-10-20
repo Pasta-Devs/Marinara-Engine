@@ -57,9 +57,9 @@ export function ConnectionIdentity({
         />
       )}
       <span className="min-w-0 flex-1">
-        {/* Line 1 is the Connection's own name alone; the service shows in the tile and the tooltip. */}
+        {/* Line 1 is the Connection's own name alone (up to two lines before it cuts); the service shows in the tile and the tooltip. */}
         <strong
-          className="block min-w-0 truncate text-base font-semibold leading-5 text-[var(--foreground)]"
+          className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]"
           title={[identity.name, identity.accountLabel].filter(Boolean).join(" · ")}
         >
           {identity.title}
