@@ -3,7 +3,7 @@ import {
   openConnectionsPanelModel,
   openDefaultsTile,
   openDevicePage,
-  showConnectionsList,
+  revealDefaultsTile,
   ttsConfigCard,
 } from "./connections-panel.js";
 import {
@@ -3080,7 +3080,7 @@ test("modal backdrops ignore drag releases but still close on a fresh outside cl
   await expect(dialog).toHaveCount(0);
 });
 
-test("connection model fetch errors inherit the configured editor accent", async ({ page }, testInfo) => {
+test("connection model fetch errors use the Connections editor accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3093,7 +3093,8 @@ test("connection model fetch errors inherit the configured editor accent", async
   const connection = (await connectionResponse.json()) as { id: string };
   const networkError = "NetworkError when attempting to fetch resource.";
   const internalServerError = "Internal Server Error";
-  const accentColor = "rgb(20, 184, 166)";
+  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
+  const accentColor = "rgb(56, 189, 248)";
   let fetchCount = 0;
 
   try {
@@ -3154,7 +3155,7 @@ test("connection model fetch errors inherit the configured editor accent", async
   }
 });
 
-test("connection test-message errors inherit the configured editor accent", async ({ page }, testInfo) => {
+test("connection test-message errors use the Connections editor accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3168,7 +3169,8 @@ test("connection test-message errors inherit the configured editor accent", asyn
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
   const internalServerError = "Internal Server Error";
-  const accentColor = "rgb(20, 184, 166)";
+  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
+  const accentColor = "rgb(56, 189, 248)";
 
   try {
     await page.route(`**/api/connections/${connection.id}/test-message`, async (route) => {
@@ -3398,7 +3400,9 @@ test("NovelAI generation defaults survive connection import", async ({ page, req
     await page.goto("/");
     await clickTopbarPanel(page, "connections");
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
-    await rightPanel.getByRole("button", { name: "Import connection" }).click();
+    // Import lives in the panel's More menu.
+    await rightPanel.getByRole("button", { name: "More actions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Import connection" }).click();
     const importDialog = page.getByRole("dialog", { name: "Import Connections" });
     await importDialog.locator('input[type="file"]').setInputFiles({
       name: "novelai-defaults.connection.json",
@@ -3510,9 +3514,9 @@ test("Connection image captioning defaults persist with a dedicated captioning c
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
     await editor
-      .getByText("Use custom defaults for this connection", { exact: true })
+      .getByText("Use custom defaults for this model", { exact: true })
       .evaluate((element) => (element as HTMLElement).click());
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this connection" })).toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
     await editor.getByText("Image Captioning", { exact: true }).click();
     await expect(editor.getByRole("checkbox", { name: "Image Captioning" })).toBeChecked();
     const captioningSelect = editor
@@ -3540,7 +3544,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
 
     await editor.locator(".mari-editor-header .mari-editor-action").first().click();
     await openConnectionsPanelModel(rightPanel, chatConnectionName);
-    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this connection" })).toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: "Use custom defaults for this model" })).toBeChecked();
     await expect(editor.getByRole("checkbox", { name: "Image Captioning" })).toBeChecked();
     await expect(captioningSelect).toHaveValue(captionConnection.id);
   } finally {
@@ -3551,7 +3555,7 @@ test("Connection image captioning defaults persist with a dedicated captioning c
   }
 });
 
-test("Connection Discard uses the configured editor accent", async ({ page }, testInfo) => {
+test("Connection Discard uses the Connections editor accent", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor guard chrome is covered here.");
 
   const connectionResponse = await page.request.post("/api/connections", {
@@ -3562,7 +3566,8 @@ test("Connection Discard uses the configured editor accent", async ({ page }, te
   });
   expect(connectionResponse.ok()).toBeTruthy();
   const connection = (await connectionResponse.json()) as { id: string };
-  const accentColor = "rgb(20, 184, 166)";
+  // The Connections scope paints its editor in the Connections type colour (#38bdf8), even over a teal app accent.
+  const accentColor = "rgb(56, 189, 248)";
 
   try {
     await page.goto("/");
@@ -13376,7 +13381,7 @@ test("Storyboard Agent settings stay organized and contained at phone widths", a
     await expect(roleplay).toHaveCount(0);
     await roleplayTab.click();
     await expect(roleplay.getByLabel("Default Roleplay episode interval", { exact: true })).toHaveValue("7");
-    await expect(imageConnection).toHaveValue(connection.id);
+    await expect(imageConnection).toHaveAttribute("data-connection-value", connection.id);
 
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "18px";
@@ -15104,6 +15109,12 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
 
 test("Connections exposes Local Whisper only while Conversation Calls is installed", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
+  // The Defaults box shows once there is a model, so the test brings its own instead of relying on other tests.
+  const modelResponse = await page.request.post("/api/connections", {
+    data: { name: `Whisper defaults ${testInfo.project.name}`, provider: "custom", baseUrl: "http://127.0.0.1:1/v1" },
+  });
+  expect(modelResponse.ok()).toBeTruthy();
+  const model = (await modelResponse.json()) as { id: string };
   let callsInstalled = true;
   const callsPackage = {
     id: "conversation-calls",
@@ -15188,38 +15199,40 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     });
   });
 
-  // Variant D: Local Whisper sits with Speech to text, which exists only while Calls is installed.
-  await page.goto("/");
-  await openDefaultsTile(page, "stt");
-  const speechModel = page.getByText("Local Speech Model", { exact: true }).filter({ visible: true });
-  await expect(speechModel).toBeVisible();
-  await expect(page.getByRole("button", { name: "Download Whisper" }).filter({ visible: true })).toBeVisible();
-  if (testInfo.project.name.includes("mobile")) {
-    const speechSelect = page
-      .locator("select")
-      .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
-    await expect(speechSelect).toBeVisible();
-    const spacing = await speechSelect.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight) };
-    });
-    expect(spacing.left).toBeGreaterThanOrEqual(8);
-    expect(spacing.right).toBeGreaterThanOrEqual(24);
-    await speechSelect.scrollIntoViewIfNeeded();
-    await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
-  }
+  try {
+    // Variant D: Local Whisper sits with Speech to text, which exists only while Calls is installed.
+    await page.goto("/");
+    await openDefaultsTile(page, "stt");
+    const speechModel = page.getByText("Local Speech Model", { exact: true }).filter({ visible: true });
+    await expect(speechModel).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download Whisper" }).filter({ visible: true })).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) {
+      const speechSelect = page
+        .locator("select")
+        .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
+      await expect(speechSelect).toBeVisible();
+      const spacing = await speechSelect.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight) };
+      });
+      expect(spacing.left).toBeGreaterThanOrEqual(8);
+      expect(spacing.right).toBeGreaterThanOrEqual(24);
+      await speechSelect.scrollIntoViewIfNeeded();
+      await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+    }
 
-  callsInstalled = false;
-  await page.reload();
-  await showConnectionsList(page);
-  await page.locator('[data-connections-row="defaults"]').filter({ visible: true }).click();
-  await expect(page.locator('[data-defaults-tile="voice"]').filter({ visible: true })).toBeVisible();
-  await expect(page.locator('[data-defaults-tile="stt"]')).toHaveCount(0);
-  await expect(page.getByText("Local Speech Model", { exact: true })).toHaveCount(0);
-  expect(errors).toEqual([]);
+    callsInstalled = false;
+    await page.reload();
+    await revealDefaultsTile(page, "voice");
+    await expect(page.locator('[data-defaults-tile="stt"]')).toHaveCount(0);
+    await expect(page.getByText("Local Speech Model", { exact: true })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await page.request.delete(`/api/connections/${model.id}`).catch(() => undefined);
+  }
 });
 
 test("agent catalog can install and uninstall every package", async ({ page }, testInfo) => {
@@ -20817,8 +20830,8 @@ test("with no connection, new-chat opens Add connection directly for every mode"
     await expect(page.locator(`[data-new-chat-connection-gate="${mode.mode}"]`)).toHaveCount(0);
     await expect(dialog.getByText(`Connect an AI service, then we start your ${mode.name}.`)).toBeVisible();
 
-    // Cancel leaves the new chat too.
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Closing the window leaves the new chat too.
+    await dialog.getByRole("button", { name: "Close Add connection", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect
       .poll(() =>

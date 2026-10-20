@@ -31,6 +31,11 @@ export async function showConnectionsList(page: Page) {
  * the Add window when it is not. Either way the engine's settings card is then on the page.
  */
 export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
+  await (await revealDefaultsTile(page, tile)).click();
+}
+
+/** Shows a Defaults tile without opening it: unfolds the box and its "more roles" list when needed. */
+export async function revealDefaultsTile(page: Page, tile: "voice" | "stt") {
   await openConnectionsPanel(page);
   const tileButton = page.locator(`[data-defaults-tile="${tile}"]`).filter({ visible: true });
   const mainTile = page.locator('[data-defaults-tile="main"]').filter({ visible: true });
@@ -45,7 +50,7 @@ export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
     await page.locator("[data-defaults-unused]").filter({ visible: true }).click();
   }
   await expect(tileButton).toBeVisible();
-  await tileButton.click();
+  return tileButton;
 }
 
 export function ttsConfigCard(page: Page) {

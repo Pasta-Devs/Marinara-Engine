@@ -107,7 +107,7 @@ test("connection test results survive hydration and ignore a previous selection"
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
         useUIStore.getState().openConnectionDetail(id);
       }, id);
-      await expect(editor.getByPlaceholder("Connection name")).toHaveValue(name);
+      await expect(editor.getByPlaceholder("Model name", { exact: true })).toHaveValue(name);
     };
     await open(ids[0]!, "Result scope first");
     const gate = new Promise<void>((resolve) => (release = resolve));
@@ -133,9 +133,9 @@ test("connection test results survive hydration and ignore a previous selection"
       const response = await route.fetch();
       await route.fulfill({ json: { ...(await response.json()), name: "Hydrated result fixture" } });
     });
-    await editor.getByPlaceholder("Connection name").fill("Renamed result fixture");
+    await editor.getByPlaceholder("Model name", { exact: true }).fill("Renamed result fixture");
     await editor.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(editor.getByPlaceholder("Connection name")).toHaveValue("Hydrated result fixture");
+    await expect(editor.getByPlaceholder("Model name", { exact: true })).toHaveValue("Hydrated result fixture");
     await expect(editor.getByText("SAVED_IMAGE_TEST_RESULT", { exact: true })).toBeVisible();
     const editedGate = new Promise<void>((resolve) => (release = resolve));
     await page.route(`**/api/connections/${ids[1]}/test-image`, async (route) => {
@@ -145,7 +145,7 @@ test("connection test results survive hydration and ignore a previous selection"
     const imageRequested = page.waitForRequest((r) => r.url().endsWith(`/connections/${ids[1]}/test-image`));
     await editor.getByRole("button", { name: "Test Image", exact: true }).click();
     await imageRequested;
-    await editor.getByPlaceholder("Connection name").fill("Configuration changed during test");
+    await editor.getByPlaceholder("Model name", { exact: true }).fill("Configuration changed during test");
     release();
     await expect(editor.getByRole("button", { name: "Test Image", exact: true })).toBeEnabled();
     await expect(editor.getByText("STALE_EDITED_CONFIG")).toHaveCount(0);

@@ -32,7 +32,7 @@ test("Claude subscription cache duration saves and restores without enabling API
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openConnectionDetail(id);
     }, id);
-    await expect(page.getByPlaceholder("Connection name")).toHaveValue("Claude cache fixture");
+    await expect(page.getByPlaceholder("Model name", { exact: true })).toHaveValue("Claude cache fixture");
   };
   const toggle = page.getByRole("checkbox", { name: /^Extended token caching \(1 hour\)/u });
   try {

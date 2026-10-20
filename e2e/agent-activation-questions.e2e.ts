@@ -73,11 +73,13 @@ test("Decision settings, test errors and custom-agent questions survive reload",
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
-    const expand = page.getByRole("button", { name: "Expand defaults" });
-    await expect(expand.or(page.getByRole("button", { name: "Collapse defaults" }))).toBeVisible();
-    if (await expand.isVisible()) await expand.click();
-    // Each default is one line that opens in place; the Decision line holds the model select.
-    const decisionLine = page.locator('[aria-controls="connection-default-decision"]');
+    const defaults = page.locator('[data-connections-row="defaults"]');
+    await expect(defaults).toBeVisible();
+    if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
+    // Each default is one line that opens in place; the Decision line holds the model select. An unused job sits
+    // in the folded "more roles" list.
+    const decisionLine = page.locator('[data-defaults-tile="decision"]');
+    if (!(await decisionLine.isVisible())) await page.locator("[data-defaults-unused]").click();
     if ((await decisionLine.getAttribute("aria-expanded")) !== "true") await decisionLine.click();
     await expect(decisionLine).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Decision model", { exact: true })).toBeVisible();
