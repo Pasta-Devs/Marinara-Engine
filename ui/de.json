@@ -4487,7 +4487,7 @@
   "settings.controls.professorMariSuggestions.help": "Zeigt Antwortvorschläge unter ihren Antworten.",
   "settings.controls.professorMariSuggestions.label": "Antwort-Chips",
   "settings.controls.queueMedia.help": "Sendet Bild- und Videogenerierungsaufträge aus allen Funktionen nacheinander an jedes Anbieterkonto. Lass dies für Anbieter aktiviert, die gleichzeitige Anfragen ablehnen.",
-  "settings.controls.queueMedia.label": "Medienformatierungsanfragen in Warteschlange einreihen",
+  "settings.controls.queueMedia.label": "Mediengenerierungsanfragen in Warteschlange einreihen",
   "settings.controls.quoteStyle.help": "Wähle, wie gerade und intelligente Anführungszeichen in Chat-Eingaben vereinheit und in KI-Ausgabe angezeigt werden.",
   "settings.controls.quoteStyle.label": "Anführungszeichen-Stil",
   "settings.controls.rainbowAccent.help": "Durchläuft die App-Akzentfarbe durch Marinaras Regenbogenfarbpalette, während sie aktiviert ist. Deine gespeicherte Akzentfarbe bleibt unverändert. Einstellungen für reduzierte Bewegung werden respektiert.",
