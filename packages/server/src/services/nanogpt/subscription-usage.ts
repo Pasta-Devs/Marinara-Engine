@@ -253,11 +253,31 @@ export async function readNanoGptPlan(): Promise<NanoGptPlan> {
   return planLoading;
 }
 
-/** Proxy models named `nanogpt/<id>` take the plan facts NanoGPT gives `<id>`; the rest stay as they are. */
+const lastSegment = (id: string) => id.slice(id.lastIndexOf("/") + 1);
+const planByName = new WeakMap<NanoGptPlan, Map<string, NanoGptModelSubscriptionMetadata | null>>();
+
+/** The plan facts by a model's last id part (`glm-5.2`, `glm-5.3:thinking`); null when several models share it. */
+function planNames(plan: NanoGptPlan) {
+  let names = planByName.get(plan);
+  if (names) return names;
+  names = new Map();
+  for (const [id, facts] of plan) {
+    const name = lastSegment(id);
+    names.set(name, names.has(name) ? null : facts);
+  }
+  planByName.set(plan, names);
+  return names;
+}
+
+/**
+ * Proxy models named `nanogpt/<id>` take the plan facts NanoGPT gives `<id>`; the rest stay as they are. An id
+ * NanoGPT does not list (`zai-org/glm-5.2` where it lists `z-ai/glm-5.2`) matches by its last part, but only when
+ * exactly one plan model has that name, so a guess never gives a wrong badge.
+ */
 export function withNanoGptPlan<T extends { id?: unknown }>(models: T[], plan: NanoGptPlan): T[] {
   return models.map((model) => {
     const id = typeof model.id === "string" && model.id.startsWith("nanogpt/") ? model.id.slice("nanogpt/".length) : "";
-    const facts = id ? plan.get(id) : undefined;
+    const facts = id ? (plan.get(id) ?? planNames(plan).get(lastSegment(id))) : undefined;
     return facts ? { ...model, ...facts } : model;
   });
 }

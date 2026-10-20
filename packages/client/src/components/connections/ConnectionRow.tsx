@@ -165,7 +165,7 @@ type DataAttributes = { [key: `data-${string}`]: string | boolean | undefined };
 
 /**
  * The one model row: line 1 tile, name, one role badge and "+N"; line 2 the kind pill (not for chat), the model id
- * and the custom-settings glyph. `trailing` sits inside the row button (› or ✓); `end` holds sibling controls
+ * and the custom-settings glyph, with the cost badge under the role badge. `trailing` sits inside the row button (› or ✓); `end` holds sibling controls
  * (⋯, star, fix), so no button nests in another. `onPictureClick` turns the tile into its own button.
  */
 export function ModelRow({
@@ -232,6 +232,32 @@ export function ModelRow({
   // Two role names fit; only a third or more folds into "+N" (a tooltip alone would hide them on touch).
   const rest = roles.slice(roleSlots);
   const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
+  const line2 = !!(pill || id || details || retiring || customized);
+  // Role or status, as before: a status (Needs key, Off) replaces the role badge.
+  const badge = status ? (
+    <span
+      data-connection-role
+      className={cn("mari-connection-pill shrink-0", status.state === "needs_key" && "mari-connection-pill--warn")}
+    >
+      {status.state === "needs_key" ? (
+        <KeyRound size="0.5625rem" />
+      ) : status.state === "off" ? (
+        <Power size="0.5625rem" />
+      ) : null}
+      {status.label}
+    </span>
+  ) : roles.length > 0 ? (
+    <span data-connection-role className="flex shrink-0 items-center gap-1" title={roles.join(", ")}>
+      <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
+      {roleSlots > 1 && roles[1] && <span className="mari-connection-pill">{roles[1]}</span>}
+      {rest.length > 0 && (
+        <span className="mari-connection-pill">
+          <span aria-hidden>+{rest.length}</span>
+          <span className="sr-only">{t("connections.row.moreRoles", { roles: rest.join(", ") })}</span>
+        </span>
+      )}
+    </span>
+  ) : null;
   return (
     <div
       {...rowProps}
@@ -282,7 +308,7 @@ export function ModelRow({
           >
             {title}
           </span>
-          {(pill || id || details || cost || retiring || customized) && (
+          {line2 && (
             <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
               {pill && (
                 <span data-connection-type className="mari-connection-pill">
@@ -303,42 +329,25 @@ export function ModelRow({
                 </span>
               )}
               {details}
-              <span className="ms-auto flex shrink-0 items-center gap-1.5">
-                {retiring && <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />}
-                <CostBadge cost={cost} showPaid={showPaid} />
-              </span>
-            </span>
-          )}
-        </span>
-        {/* Role or status: its own column at the row end, centred on both lines. */}
-        {status ? (
-          <span
-            data-connection-role
-            className={cn(
-              "mari-connection-pill shrink-0",
-              status.state === "needs_key" && "mari-connection-pill--warn",
-            )}
-          >
-            {status.state === "needs_key" ? (
-              <KeyRound size="0.5625rem" />
-            ) : status.state === "off" ? (
-              <Power size="0.5625rem" />
-            ) : null}
-            {status.label}
-          </span>
-        ) : (
-          roles.length > 0 && (
-            <span data-connection-role className="flex shrink-0 items-center gap-1" title={roles.join(", ")}>
-              <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
-              {roleSlots > 1 && roles[1] && <span className="mari-connection-pill">{roles[1]}</span>}
-              {rest.length > 0 && (
-                <span className="mari-connection-pill">
-                  <span aria-hidden>+{rest.length}</span>
-                  <span className="sr-only">{t("connections.row.moreRoles", { roles: rest.join(", ") })}</span>
+              {retiring && (
+                <span className="ms-auto flex shrink-0">
+                  <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />
                 </span>
               )}
             </span>
-          )
+          )}
+        </span>
+        {/* Badges: one column at the row end. Line 1 says what the model does (role or status), line 2 what it
+            costs, each on its text line; a row with one text line and no cost keeps the role centred. */}
+        {(badge || cost) && (
+          <span data-connection-badges className="flex shrink-0 flex-col items-end">
+            <span className={cn("flex items-center", (line2 || cost) && "min-h-5")}>{badge}</span>
+            {(line2 || cost) && (
+              <span className="mt-0.5 flex min-h-[1.125rem] items-center">
+                <CostBadge cost={cost} showPaid={showPaid} />
+              </span>
+            )}
+          </span>
         )}
         {trailing}
       </button>

@@ -83,7 +83,11 @@ interface Props {
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
 type DeviceService = "local_model" | "tts" | "stt";
 type MediaServiceId = `media:${string}`;
-export type ServiceId = APIProvider | DeviceService | MediaServiceId;
+export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE;
+/** LinkAPI (Marinara's sponsor): an OpenAI-compatible gateway, set up as a custom address with its own key. */
+const LINKAPI_SERVICE = "linkapi";
+const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "https://linkapi.ai/" };
+const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
 type Kind = "chat" | "image" | "video" | "voice" | "local";
@@ -133,6 +137,7 @@ const mediaBackendOf = (service: ServiceId | null) =>
 
 const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   custom: ["chat", "local"],
+  linkapi: ["chat"],
   local_model: ["local"],
   tts: ["voice", "local"],
   stt: ["voice", "local"],
@@ -158,7 +163,7 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 /** Open groups are the paths most people take; the long vendor list folds behind a chevron. */
 const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; collapsed?: boolean }> = [
-  { id: "start", services: ["openrouter", "nanogpt"] },
+  { id: "start", services: ["openrouter", "nanogpt", LINKAPI_SERVICE] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   { id: "device", services: ["local_model", "tts", "stt"] },
   { id: "address", services: ["custom"] },
@@ -246,6 +251,9 @@ function failureReason(provider: APIProvider, message: string): "plan" | "key" |
 /** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
 function ServiceTile({ service }: { service: ServiceId }) {
   const media = mediaBackendOf(service);
+  // A custom address: its brand comes from the URL.
+  if (service === LINKAPI_SERVICE)
+    return <ProviderIcon provider="custom" baseUrl={LINKAPI.baseUrl} name={LINKAPI.name} size="add" />;
   return (
     <ProviderIcon
       provider={media ? (media.image ? "image_generation" : "video_generation") : service}
@@ -451,7 +459,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const selectedMedia = mediaBackendOf(service);
   const def = provider ? PROVIDERS[provider] : null;
   const keyless = !!provider && (isLocalAuthProvider(provider) || (!!selectedMedia && !selectedMedia.requiresApiKey));
-  const isLocal = provider === "custom";
+  // LinkAPI rides the custom provider, but it is a hosted service with a key, not a local server.
+  const isLocal = provider === "custom" && service !== LINKAPI_SERVICE;
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
   const closeBlocked =
@@ -496,9 +505,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       ? media.name
       : isDevice(key)
         ? t(`connections.add.device.${key}`)
-        : key === "decision" || key === "custom"
-          ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
-          : (PROVIDERS[key as APIProvider]?.name ?? key);
+        : key === LINKAPI_SERVICE
+          ? LINKAPI.name
+          : key === "decision" || key === "custom"
+            ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
+            : (PROVIDERS[key as APIProvider]?.name ?? key);
   };
   const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
   const kindsLabel = (key: ServiceId) =>
@@ -614,8 +625,20 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     const media = mediaBackendOf(key);
     setService(key);
     setProvider(
-      isDevice(key) ? null : media ? (media.image ? "image_generation" : "video_generation") : (key as APIProvider),
+      isDevice(key)
+        ? null
+        : media
+          ? media.image
+            ? "image_generation"
+            : "video_generation"
+          : key === LINKAPI_SERVICE
+            ? "custom"
+            : (key as APIProvider),
     );
+    if (key === LINKAPI_SERVICE) {
+      setBaseUrl(LINKAPI.baseUrl);
+      setName(LINKAPI.name);
+    }
     setDevice(isDevice(key) ? key : null);
     setStep(2);
   };
@@ -976,6 +999,8 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             account.baseUrl.replace(/\/+$/u, "") === media.defaultBaseUrl.replace(/\/+$/u, "")),
       );
     if (isDevice(key)) return [];
+    if (key === LINKAPI_SERVICE)
+      return ownAccounts.filter((account) => account.provider === "custom" && isLinkApiUrl(account.baseUrl));
     const providerKey = key as APIProvider;
     const imageSources = Object.entries(IMAGE_SOURCE_VENDOR)
       .filter(([, vendor]) => vendor === providerKey)
@@ -1007,8 +1032,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     if (isDevice(service) && deviceSetup[DEVICE_ITEMS[service]].setUp)
       badges.push({ label: t("connections.add.badge.setUp"), highlight: true });
     else if (connectedAccount(service)) badges.push({ label: t("connections.add.badge.connected"), highlight: true });
-    else if (firstRun && service === "openrouter")
+    else if ((firstRun && service === "openrouter") || service === LINKAPI_SERVICE)
       badges.push({ label: t("connections.add.badge.recommended"), highlight: true });
+    if (service === LINKAPI_SERVICE) badges.push({ label: t("connections.add.badge.sponsor") });
     if (isDevice(service)) badges.push({ label: t("connections.add.badge.builtIn") });
     const billing =
       isDevice(service) || mediaBackendOf(service) ? undefined : PROVIDERS[service as APIProvider]?.billing;
@@ -1078,7 +1104,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const existing = connectedAccounts[0];
   // Already connected: the user picks one of those connections or makes a new one before any field shows.
   const choosing = connectedAccounts.length > 0 && !target && !second;
-  const keyUrl = selectedMedia ? undefined : def?.keyUrl;
+  const keyUrl = selectedMedia ? undefined : service === LINKAPI_SERVICE ? LINKAPI.keyUrl : def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
   const connectDisabled = busy || choosing || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
