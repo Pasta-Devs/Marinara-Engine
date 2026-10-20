@@ -11,6 +11,7 @@ import {
   rankModelMatch,
   updateConnectionAccountSchema,
   type CreateConnectionAccountInput,
+  connectionBalanceSource,
   withKeyTail,
 } from "@marinara-engine/shared";
 import {
@@ -30,6 +31,7 @@ import { modelKeepReason } from "../services/connections/model-stars.js";
 import { apiConnections, connectionAccounts } from "../db/schema/index.js";
 import { eq } from "../db/file-query.js";
 import { logger } from "../lib/logger.js";
+import { BalanceError, forgetConnectionBalance, readConnectionBalance } from "../services/connections/balance.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
   /** First Model under the new account. Empty keeps the picker open for the client. */
@@ -160,6 +162,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const oldKey = before ? decryptApiKey(before.apiKeyEncrypted) : "";
     const updated = await accounts.update(req.params.id, input);
     if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    forgetConnectionBalance(updated.id);
     if (input.apiKey !== undefined || input.baseUrl !== undefined) resetMemoryRecallVectorizerCache();
     // A new key: name the other Connections that still hold the old one, so the client can offer to update them.
     const sameKey =
@@ -169,6 +172,29 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
             .map((other) => ({ id: other.id, name: other.name }))
         : [];
     return { ...(await listItem(updated)), ...(sameKey.length ? { sameKeyAccounts: sameKey } : {}) };
+  });
+
+  // What is left on the account, for services with a balance endpoint; `{ balance: null }` for the rest.
+  app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/balance", async (req, reply) => {
+    const account = await accounts.getById(req.params.id);
+    if (!account) return reply.status(404).send({ error: "Connection not found" });
+    if (accountBlocksRows(account) || !connectionBalanceSource(account)) return { balance: null };
+    try {
+      return await readConnectionBalance(
+        account.id,
+        {
+          provider: account.provider,
+          baseUrl: account.baseUrl,
+          apiKey: decryptApiKey(account.apiKeyEncrypted),
+          balanceToken: decryptApiKey(account.managementTokenEncrypted),
+          balanceUserId: account.balanceUserId,
+        },
+        req.query.refresh === "true",
+      );
+    } catch (err) {
+      logger.warn("[connections] Balance check failed for %s: %s", account.id, err instanceof Error ? err.message : err);
+      return reply.status(502).send({ error: err instanceof BalanceError ? err.message : "The balance check failed" });
+    }
   });
 
   // Upload the Connection's picture (same checks and folder as a Model's). PATCH `icon` changes or resets it.
@@ -189,6 +215,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       baseUrl: source.baseUrl,
       apiKey: decryptApiKey(source.apiKeyEncrypted),
       managementToken: decryptApiKey(source.managementTokenEncrypted),
+      balanceUserId: source.balanceUserId ?? "",
       showUsageWidget: source.showUsageWidget === "true",
       showUsageFiveHour: source.showUsageFiveHour === "true",
       showUsageWeekly: source.showUsageWeekly === "true",

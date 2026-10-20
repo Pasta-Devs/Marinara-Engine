@@ -31,6 +31,7 @@ import {
   isLocalAuthProvider,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
+  takesBalanceToken,
   withKeyTail,
   type ConnectionAccountListItem,
   type CreateConnectionAccountInput,
@@ -70,6 +71,10 @@ export const ACCOUNT_MIRRORED_INPUT_KEYS = [
   "showUsageWeekly",
   "treatAsLocalEndpoint",
 ] as const;
+
+/** NanoGPT keeps a usage-only management token; LinkAPI a dashboard access token for the account balance. */
+const takesManagementToken = (row: { provider: string; baseUrl?: string | null }) =>
+  row.provider === "nanogpt" || takesBalanceToken(row);
 
 // ── Credential identity ─────────────────────────
 
@@ -316,6 +321,7 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
     // Short keys would be mostly revealed by their last characters.
     apiKeyLast4: key.length >= 8 ? key.slice(-4) : "",
     hasManagementToken: !!decryptApiKey(account.managementTokenEncrypted),
+    balanceUserId: account.balanceUserId ?? "",
     showUsageWidget: account.showUsageWidget === "true",
     showUsageFiveHour: account.showUsageFiveHour !== "false",
     showUsageWeekly: account.showUsageWeekly !== "false",
@@ -384,6 +390,7 @@ function accountFromGroup(rows: ConnectionRow[], plainKey: string, hasSibling = 
     baseUrl: anchor.baseUrl || (isLocalAuthProvider(anchor.provider) ? "" : credentialEndpoint(anchor)),
     apiKeyEncrypted: sameType.find((row) => row.apiKeyEncrypted)?.apiKeyEncrypted ?? anchor.apiKeyEncrypted,
     managementTokenEncrypted: sameType.find((row) => row.managementTokenEncrypted)?.managementTokenEncrypted ?? "",
+    balanceUserId: null,
     showUsageWidget: flags.showUsageWidget,
     showUsageFiveHour: flags.showUsageFiveHour,
     showUsageWeekly: flags.showUsageWeekly,
@@ -557,7 +564,8 @@ export function createConnectionAccountsStorage(db: DB) {
         provider: input.provider,
         baseUrl: input.baseUrl ?? "",
         apiKeyEncrypted: encryptApiKey(input.apiKey ?? ""),
-        managementTokenEncrypted: encryptApiKey(input.provider === "nanogpt" ? (input.managementToken ?? "") : ""),
+        managementTokenEncrypted: encryptApiKey(takesManagementToken(input) ? (input.managementToken ?? "") : ""),
+        balanceUserId: takesBalanceToken(input) ? input.balanceUserId || null : null,
         showUsageWidget: String(supportsSubscriptionUsageWidget(input.provider) && (input.showUsageWidget ?? false)),
         showUsageFiveHour: String(input.showUsageFiveHour ?? true),
         showUsageWeekly: String(input.showUsageWeekly ?? true),
@@ -588,8 +596,17 @@ export function createConnectionAccountsStorage(db: DB) {
         if (input.name !== undefined) set.name = input.name;
         if (input.baseUrl !== undefined) set.baseUrl = input.baseUrl;
         if (input.apiKey !== undefined) set.apiKeyEncrypted = encryptApiKey(input.apiKey);
-        if (input.managementToken !== undefined && account.provider === "nanogpt") {
+        const target = { provider: account.provider, baseUrl: input.baseUrl ?? account.baseUrl };
+        if (input.managementToken !== undefined && takesManagementToken(target)) {
           set.managementTokenEncrypted = encryptApiKey(input.managementToken);
+        }
+        if (input.balanceUserId !== undefined && takesBalanceToken(target)) {
+          set.balanceUserId = input.balanceUserId || null;
+        }
+        // A LinkAPI Connection moved to another address keeps no LinkAPI token.
+        if (input.baseUrl !== undefined && account.provider !== "nanogpt" && !takesBalanceToken(target)) {
+          set.managementTokenEncrypted = encryptApiKey("");
+          set.balanceUserId = null;
         }
         if (input.showUsageWidget !== undefined) {
           set.showUsageWidget = String(supportsSubscriptionUsageWidget(account.provider) && input.showUsageWidget);

@@ -125,6 +125,7 @@ export * from "./constants/providers.js";
 export * from "./constants/defaults.js";
 export * from "./constants/chat-mode-agent-policy.js";
 export * from "./constants/model-lists.js"; // also exports IMAGE_GENERATION_SOURCES
+export * from "./constants/connection-balance.js";
 export * from "./constants/generation-parameter-relevance.js";
 export * from "./constants/agent-prompts.js";
 export * from "./constants/agent-activation.js";
