@@ -518,13 +518,14 @@ export function ConnectionsPanel() {
   };
 
   // ── List rows ──
-  // In a folder a row names where it runs: its Connection, and the gateway route for a proxy Model.
+  // In a folder a row names where it runs: the gateway route for a proxy Model first (it survives a cut line),
+  // then its Connection.
   const folderRow = (row: ConnectionRowData) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
     const upstream = account?.provider === "custom" ? upstreamOf(row.model) : null;
     const where = [
-      account?.name,
       upstream && t("connections.accounts.section.via", { service: knownPrefixName(upstream) ?? upstream }),
+      account?.name,
     ]
       .filter(Boolean)
       .join(" · ");
