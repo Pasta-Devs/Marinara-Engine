@@ -520,7 +520,7 @@ export function ConnectionsPanel() {
   // ── List rows ──
   // In a folder a row names where it runs: the gateway route for a proxy Model first (it survives a cut line),
   // then its Connection.
-  const folderRow = (row: ConnectionRowData) => {
+  const folderRow = (row: ConnectionRowData, catalog?: CachedCatalogFacts) => {
     const account = row.accountId ? accountById.get(row.accountId) : undefined;
     const upstream = account?.provider === "custom" ? upstreamOf(row.model) : null;
     const where = [
@@ -529,7 +529,7 @@ export function ConnectionsPanel() {
     ]
       .filter(Boolean)
       .join(" · ");
-    return renderRow(row, modelSubtitle(row, upstream), where || undefined);
+    return renderRow(row, modelSubtitle(row, upstream), where || undefined, catalog);
   };
   const accountRow = ({ account, rows, visibleRows }: (typeof visible.groups)[number], providerName: string) => (
     <ConnectionGroup

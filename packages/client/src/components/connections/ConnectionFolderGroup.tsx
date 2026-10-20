@@ -1,10 +1,30 @@
 // ──────────────────────────────────────────────
 // ConnectionFolderGroup — "Group by: Folder" in the Connections list: one card per folder in the same box and well
-// as a Connection's card (colour dot, name, count, ⋯, fold), and "Not in a folder" last. Also the one folder
+// as a Connection's card (icon in the folder's colour, name, count, ⋯, fold), and "Not in a folder" last. Also the one folder
 // chooser the row ⋯ menu and multi-select share.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode } from "react";
-import { ChevronDown, MoreHorizontal, Palette, Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  BookOpen,
+  Briefcase,
+  ChevronDown,
+  Code,
+  Folder,
+  Gamepad2,
+  Heart,
+  Image as ImageIcon,
+  Moon,
+  MoreHorizontal,
+  Palette,
+  Pencil,
+  Shapes,
+  Sparkles,
+  Star,
+  Trash2,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { ConnectionFolder } from "@marinara-engine/shared";
@@ -15,6 +35,7 @@ import {
   useMoveConnectionToFolder,
   useUpdateConnectionFolder,
 } from "../../hooks/use-connection-folders";
+import { useCachedCatalogFacts, type CachedCatalogFacts } from "../../hooks/use-connections";
 import { showChoiceDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
@@ -29,6 +50,22 @@ const FOLDER_COLOURS = {
   blue: "#3b82f6",
   purple: "#a855f7",
 } as const;
+
+/** Icons a folder can wear, by the name it stores; an unknown or missing name shows Folder. */
+const FOLDER_ICONS: Record<string, LucideIcon> = {
+  folder: Folder,
+  star: Star,
+  heart: Heart,
+  briefcase: Briefcase,
+  sparkles: Sparkles,
+  image: ImageIcon,
+  code: Code,
+  wallet: Wallet,
+  zap: Zap,
+  moon: Moon,
+  book: BookOpen,
+  game: Gamepad2,
+};
 
 const NEW_FOLDER = "\u0000new";
 const NO_FOLDER = "\u0000none";
@@ -98,12 +135,26 @@ export function ConnectionFolderGroup({
   visibleRows: ConnectionRowData[];
   open: boolean;
   onToggle: () => void;
-  renderRow: (row: ConnectionRowData) => ReactNode;
+  renderRow: (row: ConnectionRowData, catalog?: CachedCatalogFacts) => ReactNode;
 }) {
   const { t } = useTranslation();
   const updateFolder = useUpdateConnectionFolder();
   const deleteFolder = useDeleteConnectionFolder();
   const [menu, setMenu] = useState<MenuAt | null>(null);
+  // Cost badges read each Connection's saved model list, one request per Connection, as on its own card.
+  const groups = useMemo(() => {
+    const byAccount = new Map<string, string[]>();
+    for (const row of rows) {
+      const key = row.accountId ?? row.id;
+      byAccount.set(key, [...(byAccount.get(key) ?? []), row.id]);
+    }
+    return [...byAccount.values()];
+  }, [rows]);
+  const catalogs = useCachedCatalogFacts(groups);
+  const catalogOf = (row: ConnectionRowData) => catalogs[groups.findIndex((group) => group.includes(row.id))];
+  /** "Icon" opens a second menu at the first one's place. */
+  const [iconMenu, setIconMenu] = useState<MenuAt | null>(null);
+  const FolderIcon = (folder?.icon && FOLDER_ICONS[folder.icon]) || Folder;
   const name = folder?.name ?? t("connections.folders.none");
   const listId = `connection-folder-${folder?.id ?? "none"}`;
 
@@ -160,14 +211,17 @@ export function ConnectionFolderGroup({
           aria-controls={listId}
           className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg py-1 ps-2 pe-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
         >
-          <span
-            aria-hidden
-            className={cn(
-              "h-2.5 w-2.5 shrink-0 rounded-full",
-              !folder?.color && "border border-[var(--muted-foreground)]/60",
-            )}
-            style={folder?.color ? { backgroundColor: folder.color } : undefined}
-          />
+          {/* The folder's icon in its colour; muted without one. "Not in a folder" shows a quiet shapes mark. */}
+          {folder ? (
+            <FolderIcon
+              aria-hidden
+              size="1.125rem"
+              className={cn("shrink-0", !folder.color && "text-[var(--muted-foreground)]")}
+              style={folder.color ? { color: folder.color } : undefined}
+            />
+          ) : (
+            <Shapes aria-hidden size="1.125rem" className="shrink-0 text-[var(--muted-foreground)]/70" />
+          )}
           <span className="min-w-0 flex-1">
             <strong className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
               {name}
@@ -212,6 +266,11 @@ export function ConnectionFolderGroup({
                 onSelect: () => void rename(),
               },
               {
+                label: t("connections.folders.icon"),
+                icon: <FolderIcon size="0.75rem" />,
+                onSelect: () => setIconMenu(menu),
+              },
+              {
                 label: t("connections.folders.colour"),
                 icon: <Palette size="0.75rem" />,
                 onSelect: () => void recolour(),
@@ -225,12 +284,25 @@ export function ConnectionFolderGroup({
             ]}
           />
         )}
+        {iconMenu && folder && (
+          <ContextMenu
+            x={iconMenu.x}
+            y={iconMenu.y}
+            autoFocus={iconMenu.keyboard}
+            onClose={() => setIconMenu(null)}
+            items={Object.entries(FOLDER_ICONS).map(([key, Icon]) => ({
+              label: t(`connections.folders.icons.${key}`),
+              icon: <Icon size="0.75rem" />,
+              onSelect: () => updateFolder.mutate({ id: folder.id, icon: key === "folder" ? null : key }),
+            }))}
+          />
+        )}
       </div>
       {open && visibleRows.length > 0 && (
         <div id={listId} className="mari-connection-model-well min-w-0">
           {visibleRows.map((row) => (
             <div key={row.id} className="mari-connection-model-slot min-w-0">
-              {renderRow(row)}
+              {renderRow(row, catalogOf(row))}
             </div>
           ))}
         </div>

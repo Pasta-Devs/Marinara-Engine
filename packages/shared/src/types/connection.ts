@@ -207,6 +207,8 @@ export interface ConnectionFolder {
   id: string;
   name: string;
   color: string;
+  /** A lucide icon name; null shows the plain folder icon. */
+  icon?: string | null;
   sortOrder: number;
   collapsed: boolean;
   createdAt: string;

@@ -176,6 +176,7 @@ export function ModelRow({
   kind,
   roles = [],
   roleSlots = 2,
+  badgesBelow = false,
   status,
   customized = false,
   cost,
@@ -205,6 +206,8 @@ export function ModelRow({
     roles?: readonly string[];
     /** How many role names show before the rest fold into "+N". */
     roleSlots?: 1 | 2;
+    /** The role and cost badges on a third line under the text instead of a column at the row end (folder view). */
+    badgesBelow?: boolean;
     /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
     status?: { label: string; state?: string } | null;
     customized?: boolean;
@@ -233,6 +236,8 @@ export function ModelRow({
   const rest = roles.slice(roleSlots);
   const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
   const line2 = !!(pill || id || details || retiring || customized);
+  // CostBadge's own rule, so the third line never shows empty.
+  const costShown = useUIStore((s) => s.showCostBadges) && !!cost && (cost !== "paid" || showPaid);
   // Role or status, as before: a status (Needs key, Off) replaces the role badge.
   const badge = status ? (
     <span
@@ -336,10 +341,16 @@ export function ModelRow({
               )}
             </span>
           )}
+          {badgesBelow && (badge || costShown) && (
+            <span data-connection-badges className="mt-1 flex flex-wrap items-center gap-1">
+              {badge}
+              <CostBadge cost={cost} showPaid={showPaid} />
+            </span>
+          )}
         </span>
         {/* Badges: one column at the row end. Line 1 says what the model does (role or status), line 2 what it
             costs, each on its text line; a row with one text line and no cost keeps the role centred. */}
-        {(badge || cost) && (
+        {!badgesBelow && (badge || cost) && (
           <span data-connection-badges className="flex shrink-0 flex-col items-end">
             <span className={cn("flex items-center", (line2 || cost) && "min-h-5")}>{badge}</span>
             {(line2 || cost) && (
@@ -606,6 +617,8 @@ export function ConnectionRow({
       subtitle={sub}
       kind={modelKindOf(row.provider)}
       roles={badges}
+      // A folder row names its Connection on line 2, so its badges move to a third line.
+      badgesBelow={!!connectionName}
       status={unavailable ? { label: unavailableLabel, state: unavailable } : null}
       customized={customSettings}
       cost={facts?.cost}
