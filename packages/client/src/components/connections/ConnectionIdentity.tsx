@@ -29,12 +29,12 @@ export function ConnectionIdentity({
   className?: string;
   size?: "sm" | "md";
   billing?: ConnectionBilling;
-  /** What is left on the account ("556.44 left"), right after the count. */
+  /** What is left on the account ("556.44 left"), first on line 2. */
   balance?: string | null;
 }) {
   const { t } = useTranslation();
   const identity = getConnectionIdentity(account, rows);
-  // Line 2 is facts, never a second name: count, balance, plan word, host.
+  // Line 2 is facts, never a second name: balance first (it survives the cut), count, plan word, host.
   const details = [identity.endpoint].filter(Boolean);
   const hasCount = count !== undefined && count !== null;
   // One card-level cost word: a plan, or a free service.
@@ -73,10 +73,12 @@ export function ConnectionIdentity({
             className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]"
           >
             <span className="min-w-0 truncate">
+              {balance && <span data-connection-balance-word>{balance}</span>}
+              {balance && hasCount && " · "}
               {hasCount && <span data-connection-group-count>{count}</span>}
-              {[balance, billingWord, ...details]
+              {[billingWord, ...details]
                 .filter(Boolean)
-                .map((part, index) => (hasCount || index > 0 ? ` · ${part}` : part))
+                .map((part, index) => (balance || hasCount || index > 0 ? ` · ${part}` : part))
                 .join("")}
             </span>
             {problem && <StateWord tone={STATE_TONE[problem.state]} label={problem.label} />}
