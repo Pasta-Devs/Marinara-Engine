@@ -969,3 +969,24 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections → Speech to Text**(연결 → 음성 인식)에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
 
 공유 요청·결과 타입은 `@marinara-engine/shared`에서 내보냅니다. 패키지별 프롬프트 구성과 작업 조정은 패키지에 두고, 제공자 입출력은 Engine 서비스 구현을 복사하지 말고 이 호스트 진입점을 호출하세요. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.
+
+### Capability API 1.341: 호스트 런타임 서비스와 공유 서버 라이브러리
+
+패키지 서버가 Engine 서비스의 사본을 번들에 넣으면, 그 서비스의 두 번째 인스턴스가 실행되며 자체 상태를 갖습니다. Intiface 연결, 연결 요청 수용, 채팅 메타데이터 큐, 서비스 레지스트리가 각각 별개가 됩니다. Capability API 1.341은 대신 Engine에서 실행 중인 인스턴스에 접근하는 `api.runtime` 멤버를 추가하고, 패키지 서버가 일부 라이브러리를 번들에 넣지 않고 Engine에서 가져다 쓸 수 있게 합니다. 새 멤버는 모두 `CapabilityRuntimeHost`에서 선택적이므로 사용하기 전에 존재하는지 확인하세요.
+
+- `runtime.services.get(key)`는 패키지가 `api.registerService`로 등록한 서비스를 반환하고, 서비스가 없거나 공유방에서 생성하는 동안에는 `null`을 반환합니다. Engine 자체 레지스트리를 읽으므로 모든 패키지에서 같은 서비스를 봅니다. `agent-runtime:`과 `mari-actions:` 키는 항상 `null`을 반환합니다. 이 키는 Engine만 읽습니다.
+- `runtime.commands.parse(content)`, `strip(content)`, `instructions()`는 Engine의 문법과 모든 패키지가 등록한 태그로 Conversation 명령을 읽습니다.
+- `runtime.logger.isLevelEnabled(level)`은 Engine 로거가 현재 그 수준의 로그를 기록하는지 알려 줍니다.
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })`는 Engine의 큐를 거치는 메타데이터 패치입니다. 채팅마다 큐가 하나씩 있으며 Engine 자체 쓰기 작업과 공유하고, 공유방 가드와 쓰기 순번을 사용합니다. 패치에 포함된 키는 해당 키를 바꾸고 다른 키는 모두 유지합니다. `patch`는 현재 메타데이터를 인자로 받는 함수일 수도 있습니다. 같은 채팅의 `withChatLock` 안에서는 그 잠금 안에서 실행됩니다. `updateChatMetadata`처럼, 더는 존재하지 않는 Global Gallery 이미지에 대한 새 참조를 거부합니다.
+- `runtime.persistence.appendMessages(chatId, messages)`는 각 메시지를 첫 스와이프와 함께 한 번에 추가하고 반환합니다. `createChatNote`와 `createChatInfluence`는 Conversation에서 연결된 Roleplay에 노트나 일회성 영향을 추가합니다. 이 네 영속화 멤버에는 `chat-write`가 필요합니다.
+- `runtime.integrations.admission`은 Engine의 연결 요청 수용을 사용하므로, 패키지의 백그라운드 작업은 같은 연결에서 사용자가 직접 보낸 요청이 끝나기를 기다립니다. `withProvider(provider, connectionId, mode)`는 같은 패키지의 통합 기능이 만든 제공자를 감쌉니다. `run(connectionId, mode, operation)`은 한 번의 시도를 실행하고, `tryBackground(connectionId)`는 연결이 유휴 상태일 때 백그라운드 슬롯을 차지하며, `isFailure(error)`는 Engine의 사용 중 오류와 거부 오류를 식별합니다. 슬롯을 예약하기만 하므로 권한은 필요 없습니다.
+- `runtime.integrations.haptics`(`status`, `connect`, `executeCommand`)는 Engine의 단일 Intiface Central 연결을 사용합니다. `network`가 필요합니다.
+- `runtime.integrations.spotify`(`commandsAvailable`, `playSong`)는 Music DJ 에이전트의 Spotify 계정을 사용합니다. `playSong`은 `ConversationSpotifyCommandError`로 거부합니다. 코드 `spotify_unavailable`과 `missing_playback_scope`는 Spotify가 설정되지 않았다는 뜻이므로, 알림 없이 명령을 버리세요. `network`가 필요합니다.
+- `runtime.integrations.speech.transcribeLocal(wav)`는 **Connections**(연결)에서 다운로드한 Local Whisper 모델로 PCM WAV 녹음을 텍스트로 변환하고, 모델을 다운로드하지 않았으면 Engine의 메시지로 거부합니다. `network`가 필요합니다.
+- `runtime.integrations.images.addToChatGallery(input)`은 `images.save`로 저장한 이미지를 채팅의 갤러리 목록에 추가합니다. `images.persistToEntityGalleries(input)`은 Engine이 생성한 이미지처럼 이미지에 등장하는 캐릭터와 페르소나의 갤러리 목록에 추가합니다. 둘 다 `storage`가 필요합니다.
+
+**번들 사본은 사용하지 않습니다.** 이 멤버 중 하나가 없으면 패키지는 그 기능에 더 새로운 Marinara Engine이 필요하다고 알립니다. 제공자 레지스트리, 로컬 사이드카, 연결 요청 수용, 햅틱, Spotify, 로거, 레지스트리, 저장 큐처럼 상태를 가진 Engine 서비스의 번들 사본으로 대체하지 않습니다. 두 번째 사본은 Engine이 한곳에서 관리하는 상태를 나누기 때문입니다. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.
+
+**공유 서버 라이브러리.** 패키지 서버는 `zod`, `adm-zip`, `dotenv`, `nanoid`, `jsonrepair`를 번들에서 빼고 이름으로 가져올 수 있습니다. 기존에 가능한 `@huggingface/transformers`, `onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty`, `undici`와 같습니다. Node는 패키지의 런타임 사본에서 `<runtime copy>/node_modules`, `DATA_DIR/capability-packages/node_modules`, Engine의 `packages/server/node_modules`로 이어지는 두 링크를 통해 모듈을 찾으므로, 패키지는 Engine과 정확히 같은 모듈 인스턴스를 사용합니다. pnpm은 서버의 직접 의존성만 그곳에 두므로 그 이름만 찾을 수 있습니다. `ws` 같은 의존성의 의존성은 찾지 못합니다. Engine은 위 이름들을 `packages/server`의 직접 프로덕션 의존성으로 유지하며, 모든 설치가 이 구조를 유지합니다. 소스 및 런처 설치, Windows(데이터 링크는 정션), Android와 Termux, 두 Docker 이미지가 모두 해당합니다. 시작하거나 패키지를 활성화할 때 Engine은 다른 위치를 가리키는 데이터 링크를 다시 만듭니다. 다른 설치 경로에서 데이터 폴더를 옮겨 대상이 사라진 링크도 포함됩니다. 링크가 아닌 항목은 그대로 둡니다.
+
+**선언.** 이 기능 중 하나라도 사용하는 패키지는 `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`, `builtAgainst`를 선언하고 `engine` 범위를 유지합니다. `schemaVersion: 1` 매니페스트는 Capability API를 기준으로 검사하지 않으므로 버전 2로 옮깁니다. 기준은 Engine 버전이 아니라 Capability API입니다. 이 멤버가 없는 Engine은 설치나 업데이트를 거부하고("Package requires capability API 1.341; this Engine supports ..."), 그 패키지를 업데이트 목록에서 빼며 설치된 버전을 계속 실행합니다.

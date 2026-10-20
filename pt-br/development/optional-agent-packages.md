@@ -970,3 +970,64 @@ Pacotes do servidor podem usar `api.runtime.integrations` para acessar os servi�
 - `speech.transcribe(audio, { filename, mimeType, signal })` envia o áudio gravado para o servidor de conversão de fala em texto que o usuário definiu em **Connections → Speech to Text** (Conexões → Speech to Text) e resolve com a transcrição, ou com `null` enquanto esse servidor estiver desligado, para que o pacote mantenha a própria transcrição. Aplica a política de URLs do host (`STT_LOCAL_URLS_ENABLED`) e os limites de tamanho e de tempo, e nunca expõe a chave salva. `speech` é opcional e não exige uma API de capacidades mais nova: verifique `typeof api.runtime.integrations?.speech?.transcribe === "function"` e, em motores antigos, recorra à transcrição do próprio pacote.
 
 `@marinara-engine/shared` exporta os tipos compartilhados de solicitação e resultado. Mantenha a construção de prompts e a orquestração específicas no pacote; use esses pontos do host para E/S de provedores em vez de copiar os serviços do motor. Tipos e auxiliares puros ainda podem ser incluídos no pacote.
+
+### Capability API 1.341: serviços de execução do host e bibliotecas compartilhadas do servidor
+
+O servidor de um pacote que inclui a própria cópia de um serviço do Engine executa uma segunda instância dele, com estado próprio:
+sua própria conexão com o Intiface, sua própria admissão de conexões, sua própria fila de metadados de chat e seu próprio registro de serviços.
+A Capability API 1.341 adiciona membros de `api.runtime` que acessam as instâncias ativas do Engine e permite que servidores de
+pacotes usem algumas bibliotecas do Engine em vez de incluí-las no bundle. Cada novo membro é opcional em
+`CapabilityRuntimeHost`, então verifique se ele existe antes de usá-lo.
+
+- `runtime.services.get(key)` retorna um serviço que um pacote registrou com `api.registerService`, ou `null` enquanto ele estiver
+  ausente ou durante uma geração em uma sala compartilhada. Lê o registro do próprio Engine, então todos os pacotes o veem.
+  As chaves `agent-runtime:` e `mari-actions:` sempre retornam `null`; só o Engine as lê.
+- `runtime.commands.parse(content)`, `strip(content)` e `instructions()` leem comandos de Conversation com a
+  gramática do Engine e as marcações registradas de todos os pacotes.
+- `runtime.logger.isLevelEnabled(level)` informa se o sistema de logs do Engine está gravando esse nível no momento.
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` é a alteração de metadados em fila do Engine,
+  com uma fila por chat compartilhada com os próprios gravadores do Engine, a proteção de salas compartilhadas e os ordinais de gravação. As chaves na
+  alteração substituem essas chaves, e todas as outras permanecem. `patch` pode ser uma função dos metadados atuais. Dentro de
+  `withChatLock` para o mesmo chat, a alteração é executada sob esse bloqueio. Como `updateChatMetadata`, recusa uma nova referência a
+  uma imagem da Global Gallery que já não existe.
+- `runtime.persistence.appendMessages(chatId, messages)` adiciona mensagens, cada uma com seu primeiro swipe, em um único lote e
+  as retorna. `createChatNote` e `createChatInfluence` adicionam uma nota ou uma influência de uso único de uma Conversation
+  ao Roleplay conectado. Esses quatro membros de persistência exigem `chat-write`.
+- `runtime.integrations.admission` é a admissão de conexões do Engine, então o trabalho de um pacote em segundo plano espera pelas
+  solicitações do próprio usuário na mesma conexão. `withProvider(provider, connectionId, mode)` envolve um provedor criado pelas
+  integrações do mesmo pacote, `run(connectionId, mode, operation)` executa uma tentativa, `tryBackground(connectionId)`
+  ocupa a vaga de segundo plano quando a conexão está livre, e `isFailure(error)` reconhece os erros do Engine que indicam conexão ocupada ou
+  rejeição. Não exige permissão, pois só reserva vagas.
+- `runtime.integrations.haptics` (`status`, `connect`, `executeCommand`) usa a única conexão com o Intiface Central
+  do Engine. Exige `network`.
+- `runtime.integrations.spotify` (`commandsAvailable`, `playSong`) usa a conta do Spotify do agente Music DJ.
+  `playSong` falha com `ConversationSpotifyCommandError`; os códigos `spotify_unavailable` e
+  `missing_playback_scope` significam que o Spotify não está configurado, então descarte o comando sem exibir um aviso. Exige `network`.
+- `runtime.integrations.speech.transcribeLocal(wav)` transcreve uma gravação PCM WAV com o modelo Local Whisper
+  baixado em **Connections**, e falha com a mensagem do Engine quando ele não está baixado. Exige `network`.
+- `runtime.integrations.images.addToChatGallery(input)` inclui uma imagem salva com `images.save` na galeria
+  do chat, e `images.persistToEntityGalleries(input)` a inclui nas galerias dos personagens e das personas que ela
+  mostra, como acontece com as imagens geradas pelo Engine. Ambos exigem `storage`.
+
+**Nunca uma cópia incluída no bundle.** Quando um desses membros está ausente, o pacote informa que o recurso exige um
+Marinara Engine mais novo. Nunca recorre a uma cópia incluída no bundle de um serviço do Engine que mantém estado, como o registro de provedores,
+o sidecar local, a admissão de conexões, o serviço háptico, o Spotify, o sistema de logs, um registro ou uma fila de armazenamento, porque uma segunda
+cópia divide o estado que o Engine mantém em um só lugar. Tipos e auxiliares puros ainda podem ser incluídos no bundle.
+
+**Bibliotecas compartilhadas do servidor.** O servidor de um pacote pode deixar `zod`, `adm-zip`, `dotenv`, `nanoid` e `jsonrepair` fora do
+bundle e importá-los pelo nome, como já pode fazer com `@huggingface/transformers`, `onnxruntime-node`,
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` e `undici`. O Node os resolve a partir da cópia de execução do pacote
+por dois links, de `<runtime copy>/node_modules` para `DATA_DIR/capability-packages/node_modules` e daí para
+`packages/server/node_modules` do Engine, então o pacote recebe a mesma instância do módulo que o Engine usa. O pnpm mantém ali só as
+dependências diretas do servidor, então só esses nomes são resolvidos; uma dependência de uma dependência, como `ws`, não é resolvida.
+O Engine mantém os nomes acima como dependências diretas de produção de `packages/server`, e toda instalação mantém essa
+estrutura: instalações pelo código-fonte e pelo inicializador, Windows (onde o link de dados é uma junção), Android e Termux, e as duas
+imagens Docker. Quando inicia ou ativa um pacote, o Engine recria um link de dados que aponte para qualquer outro lugar,
+incluindo um que tenha ficado sem destino após uma pasta de dados ser movida de outro caminho de instalação. Qualquer coisa ali que não seja um link
+permanece intacta.
+
+**Como declarar.** Um pacote que use qualquer um desses recursos declara `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
+e `builtAgainst`, e mantém seu intervalo `engine`. Um manifesto `schemaVersion: 1` nunca é verificado em relação à
+API de capacidades, então passa para a versão 2. A API de capacidades é o critério, não a versão do Engine: um Engine sem
+esses membros recusa a instalação ou a atualização ("Package requires capability API 1.341; this Engine supports ..."),
+deixa o pacote fora da lista de atualizações e mantém a versão instalada em execução.

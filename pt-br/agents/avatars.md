@@ -140,6 +140,8 @@ Os avatares reagem sozinhos; não há nada para configurar nesta parte.
 
 Quando a conversão de texto em voz lê a resposta em voz alta, os rostos acompanham a voz; veja **Quando a resposta é lida em voz alta** abaixo.
 
+Com o streaming desligado, cada frase continua tendo seu próprio humor. Os rostos mudam em ordem durante o tempo de fala da resposta, em vez de reduzir toda a resposta a um único humor médio.
+
 Um avatar PNGTuber com rostos para [mais sentimentos](#pngtuber-sprites) também pode mostrar o sentimento mais específico que uma frase transmite, como Amusement quando a frase é alegre. Esse rosto segue as mesmas regras: precisa de uma leitura clara e fica pelo menos dois segundos, e um sentimento sem rosto próprio mostra o rosto do seu sentimento principal. As escolhas do Expression Engine e do Game Master funcionam do mesmo jeito: quando o avatar não tem um rosto com o nome escolhido, como `scared`, ele mostra o rosto desse sentimento, aqui Fear. Os avatares 3D e de malha mostram só os seis sentimentos.
 
 **Como o humor é lido.** A sua conexão de chat não é consultada. O texto do seu chat fica no seu próprio Marinara Engine e nunca é enviado a um serviço externo.
@@ -147,7 +149,7 @@ Um avatar PNGTuber com rostos para [mais sentimentos](#pngtuber-sprites) também
 - Uma lista de palavras integrada responde na hora, em qualquer lugar, e conhece palavras comuns de humor em vários idiomas.
 - Nos computadores que conseguem rodá-lo, Marinara Engine lê as frases com um pequeno modelo de emoções no lugar da lista, o leitor de humor. Ele entende 36 idiomas. Ele é baixado uma única vez, com cerca de 300 MB, na primeira vez que você abre um chat de Roleplay com o 2D Avatars ou o 3D Avatars ativado. Ele não é baixado enquanto os dois agentes estão desligados. A página de cada agente de avatar em **Agents** mostra o progresso do download, e um download que falha tenta de novo sozinho cerca de 10 minutos depois. A lista de palavras responde até o leitor de humor ficar pronto, e depois do download o leitor funciona offline. Ele usa cerca de 1 GB de memória enquanto está em uso e é descartado da memória depois de 10 minutos sem uso. As instalações Lite, o Android e os computadores com menos de 3 GB de memória continuam com a lista de palavras.
 
-**Rostos no Game Mode.** Cada fala que o Game Master mostra vem com uma expressão, e o avatar do personagem que fala assume essa expressão. Os pensamentos internos de um personagem mudam o rosto, mas não a boca.
+**Rostos no Game Mode.** Cada fala que o Game Master mostra vem com uma expressão, e o avatar do personagem que fala assume essa expressão. O Game Master escolhe o rosto mesmo quando uma voz lê a fala. Os pensamentos internos de um personagem mudam o rosto, mas não a boca.
 
 **O Expression Engine.** Quando ele está ativado no chat, a escolha dele depois da resposta é o rosto final dessa resposta. Uma escolha que chega depois que você mandou a próxima mensagem fica com a resposta a que se referia. Quando a conversão de texto em voz lê a resposta em voz alta, a escolha aparece quando a voz termina. Os avatares também funcionam sem ele.
 
@@ -176,9 +178,9 @@ Quando a conversão de texto em voz lê uma resposta de Roleplay, o avatar do pe
 - **Rostos:** o rosto muda à medida que a voz chega a cada frase, com **Auto-play** e com o botão **Speak**, a menos que o Expression Engine já tenha escolhido o rosto dessa resposta.
 - **Volume:** o controle deslizante **Line volume** (volume da fala) muda o volume da voz, não o quanto a boca abre.
 - **Personas:** a boca de uma persona não se mexe nas suas próprias mensagens, com ou sem conversão de texto em voz.
-- **Game Mode:** a narração do Game toca pelo áudio próprio do Game Mode, então, por enquanto, no Game Mode as bocas dos avatares acompanham o texto.
+- **Game Mode:** com a conversão de texto em voz e o **Auto-play** ligados, as bocas dos avatares esperam a voz do próprio personagem e a acompanham. Pausar, parar ou trocar de chat para a boca. Falas sem voz mantêm a animação pelo texto, e, se uma voz falha ou nunca começa, a boca acompanha o texto uma vez. As vozes do narrador e do jogador não mexem a boca de nenhum personagem; os pensamentos internos não são lidos em voz alta.
 
-A sincronia labial não muda a forma como a voz toca. Marinara Engine lê uma cópia separada de cada clipe de voz para cronometrar a boca, então a reprodução funciona como antes, inclusive no Safari e no iPhone e no iPad. Se o seu navegador não conseguir ler um clipe, a voz continua tocando e só a boca deixa de acompanhá-la.
+A sincronia labial não muda a forma como a voz toca. Marinara Engine lê uma cópia separada de cada clipe de voz para cronometrar a boca, então a reprodução funciona como antes, inclusive no Safari e no iPhone e no iPad. Ele prepara a sincronia da boca à medida que os clipes chegam, enquanto há um avatar presente. Se o primeiro clipe começar antes de essa sincronia estar pronta, o texto dele mexe a boca até a sincronia com a voz assumir. Se o seu navegador não conseguir ler um clipe, a voz continua tocando e só a boca deixa de acompanhá-la.
 
 <a id="making-an-avatar-from-a-sprite"></a>
 
@@ -219,7 +221,7 @@ Algumas conexões não conseguem editar imagens, como Pollinations, Together AI,
 3. Selecione **Make mesh avatar** (criar avatar de malha). O modelo de chat encontra o rosto, e Marinara Engine monta o avatar a partir do seu sprite como ele é. **Cancel** interrompe a criação.
 4. Confira a pré-visualização: os contornos devem ficar sobre os olhos, as sobrancelhas e a boca. Selecione **Save as mesh avatar** (salvar como avatar de malha) ou **Discard** e tente outro sprite ou outro modelo.
 
-Um avatar de malha gerado mexe a cabeça, os olhos, as sobrancelhas e a boca, e pisca e fala com as próprias pálpebras e a própria boca. O cabelo se mexe junto com a cabeça; as mãos, as mechas soltas de cabelo e os acessórios pendurados não são articulados. Quando o rosto ocupa a maior parte de um sprite grande, o avatar é montado a partir de uma cópia menor, para a criação continuar rápida.
+Um avatar de malha gerado mexe a cabeça, os olhos, as sobrancelhas e a boca, e pisca e fala com as próprias pálpebras e a própria boca. O cabelo se mexe junto com a cabeça; as mãos, as mechas soltas de cabelo e os acessórios pendurados não são articulados. Para sprites pequenos, o avatar é montado a partir de uma cópia maior, para que a boca se encaixe no rosto. Quando o rosto ocupa a maior parte de um sprite grande, o avatar é montado a partir de uma cópia menor, para a criação continuar rápida.
 
 O seu sprite é enviado à conexão de imagem para as imagens de piscada e de fala (e à conexão de imagem de reserva dessa conexão, se ela falhar, se houver uma definida e se ela aceitar uma imagem de referência), e à conexão de chat para um avatar de malha. Uma conexão que não consegue editar imagens recebe só o prompt, que inclui a aparência. Os prompts vêm com o agente 2D Avatars. Com **Expose media prompts before sending** ligado, você pode ler e mudar o prompt de cada imagem antes do envio. Com o modo de depuração ligado, todo prompt é gravado no log do servidor.
 

@@ -999,3 +999,64 @@ Les paquets serveur peuvent utiliser `api.runtime.integrations` pour accéder au
 - `speech.transcribe(audio, { filename, mimeType, signal })` envoie l'audio enregistré au serveur de reconnaissance vocale que l'utilisateur a défini dans **Connections → Speech to Text** (Connexions → Reconnaissance vocale) et se résout avec la transcription, ou avec `null` tant que ce serveur est désactivé, pour que le package continue d'utiliser sa propre transcription. Il applique la politique d'URL de l'hôte (`STT_LOCAL_URLS_ENABLED`) ainsi que les limites de taille et de durée, et n'expose jamais la clé enregistrée. `speech` est facultatif et ne demande aucune API de capacités plus récente : vérifie `typeof api.runtime.integrations?.speech?.transcribe === "function"` et prévois un repli pour les anciens moteurs.
 
 `@marinara-engine/shared` exporte les types partagés de requête et de résultat. Garde la construction des prompts et l'orchestration propres au paquet dans celui-ci ; utilise ces points d'entrée de l'hôte pour les E/S de fournisseur plutôt que copier les services du moteur. Les types et auxiliaires purs peuvent toujours être inclus dans le paquet.
+
+### Capability API 1.341 : services d'exécution de l'hôte et bibliothèques serveur partagées
+
+Le serveur d'un package qui embarque sa propre copie d'un service du moteur en exécute une seconde instance, avec son propre état :
+sa propre connexion Intiface, sa propre admission des connexions, sa propre file de métadonnées de chat et son propre registre de services.
+Capability API 1.341 ajoute des membres à `api.runtime` qui accèdent plutôt aux instances actives du moteur, et permet aux serveurs de
+packages d'utiliser certaines bibliothèques du moteur au lieu de les embarquer. Chaque nouveau membre est facultatif dans
+`CapabilityRuntimeHost` : vérifie donc sa présence avant de l'utiliser.
+
+- `runtime.services.get(key)` renvoie un service qu'un package a enregistré avec `api.registerService`, ou `null` tant qu'il est
+  absent ou pendant une génération dans un salon partagé. Il lit le registre propre au moteur, que tous les packages peuvent donc consulter.
+  Les clés `agent-runtime:` et `mari-actions:` renvoient toujours `null` ; seul le moteur les lit.
+- `runtime.commands.parse(content)`, `strip(content)` et `instructions()` lisent les commandes de Conversation avec la
+  grammaire du moteur et les balises enregistrées de chaque package.
+- `runtime.logger.isLevelEnabled(level)` indique si le système de logs du moteur écrit actuellement ce niveau.
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` est la modification de métadonnées mise en file par le moteur,
+  avec une file par chat partagée avec les écritures propres au moteur, la protection des salons partagés et les numéros d'ordre d'écriture. Les clés de la
+  modification remplacent ces clés, et toutes les autres restent en place. `patch` peut être une fonction des métadonnées actuelles. Dans
+  `withChatLock` pour le même chat, la modification s'exécute sous ce verrou. Comme `updateChatMetadata`, elle refuse une nouvelle référence à
+  une image de Global Gallery qui n'existe plus.
+- `runtime.persistence.appendMessages(chatId, messages)` ajoute des messages, chacun avec son premier swipe, en un seul lot et
+  les renvoie. `createChatNote` et `createChatInfluence` ajoutent une note ou une influence ponctuelle depuis une Conversation
+  vers le Roleplay qui lui est connecté. Ces quatre membres de persistance nécessitent `chat-write`.
+- `runtime.integrations.admission` est l'admission des connexions du moteur : le travail d'arrière-plan d'un package attend donc les
+  requêtes de l'utilisateur sur la même connexion. `withProvider(provider, connectionId, mode)` enveloppe un fournisseur créé par
+  les intégrations du même package, `run(connectionId, mode, operation)` exécute une tentative, `tryBackground(connectionId)`
+  prend le créneau d'arrière-plan lorsque la connexion est libre, et `isFailure(error)` reconnaît les erreurs du moteur signalant une connexion occupée ou
+  un refus. Aucune permission n'est nécessaire, car il réserve seulement des créneaux.
+- `runtime.integrations.haptics` (`status`, `connect`, `executeCommand`) utilise l'unique connexion Intiface Central
+  du moteur. Il nécessite `network`.
+- `runtime.integrations.spotify` (`commandsAvailable`, `playSong`) utilise le compte Spotify de l'agent Music DJ.
+  `playSong` échoue avec `ConversationSpotifyCommandError` ; les codes `spotify_unavailable` et
+  `missing_playback_scope` signifient que Spotify n'est pas configuré : abandonne alors la commande sans afficher de message. Il nécessite `network`.
+- `runtime.integrations.speech.transcribeLocal(wav)` transcrit un enregistrement PCM WAV avec le modèle Local Whisper
+  téléchargé dans **Connections**, et échoue avec le message du moteur si ce modèle n'est pas téléchargé. Il nécessite `network`.
+- `runtime.integrations.images.addToChatGallery(input)` fait figurer une image enregistrée avec `images.save` dans la galerie
+  du chat, et `images.persistToEntityGalleries(input)` la fait figurer dans les galeries des personnages et des personas qu'elle
+  représente, comme pour les images générées par le moteur. Les deux nécessitent `storage`.
+
+**Jamais de copie embarquée.** Lorsqu'un de ces membres manque, le package indique que la fonction nécessite une version plus récente de
+Marinara Engine. Il ne se rabat jamais sur une copie embarquée d'un service du moteur qui conserve un état, comme le registre des fournisseurs,
+le sidecar local, l'admission des connexions, le service haptique, Spotify, le système de logs, un registre ou une file de stockage, car une seconde
+copie sépare un état que le moteur conserve en un seul endroit. Les types et auxiliaires purs peuvent toujours être embarqués.
+
+**Bibliothèques serveur partagées.** Le serveur d'un package peut laisser `zod`, `adm-zip`, `dotenv`, `nanoid` et `jsonrepair` hors de
+son bundle et les importer par leur nom, comme il peut déjà le faire pour `@huggingface/transformers`, `onnxruntime-node`,
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` et `undici`. Node les résout depuis la copie d'exécution du package
+par deux liens, de `<runtime copy>/node_modules` vers `DATA_DIR/capability-packages/node_modules`, puis vers
+`packages/server/node_modules` du moteur : le package reçoit donc l'instance même du module qu'utilise le moteur. pnpm n'y garde que les
+dépendances directes du serveur : seuls ces noms peuvent donc être résolus, et non une dépendance d'une dépendance, telle que `ws`.
+Le moteur conserve les noms ci-dessus comme dépendances directes de production de `packages/server`, et chaque installation garde cette
+structure : les installations depuis les sources ou par le lanceur, Windows (où le lien de données est une jonction), Android et Termux, ainsi que les deux
+images Docker. Lorsqu'il démarre ou active un package, le moteur recrée un lien de données qui pointe ailleurs,
+y compris un lien devenu sans cible après le déplacement d'un dossier de données depuis un autre chemin d'installation. Tout ce qui se trouve à cet emplacement sans être un lien
+reste intact.
+
+**Déclaration.** Un package qui utilise l'un de ces éléments déclare `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
+et `builtAgainst`, et conserve sa plage `engine`. Un manifeste `schemaVersion: 1` n'est jamais vérifié par rapport à
+l'API de capacités : il passe donc à la version 2. C'est l'API de capacités qui conditionne l'accès, et non la version du moteur : un moteur sans
+ces membres refuse l'installation ou la mise à jour ("Package requires capability API 1.341; this Engine supports ..."),
+laisse le package hors de sa liste de mises à jour et garde la version installée en cours d'exécution.

@@ -140,6 +140,8 @@ Awatary reagują samodzielnie; w tej części nie trzeba niczego konfigurować.
 
 Gdy synteza mowy czyta odpowiedź na głos, miny podążają zamiast tego za głosem; zobacz **Gdy odpowiedź jest czytana na głos** poniżej.
 
+Przy wyłączonym streamingu każde zdanie nadal ma własny nastrój. Miny zmieniają się po kolei w czasie wypowiadania odpowiedzi, zamiast przyjmować jeden uśredniony nastrój całej odpowiedzi.
+
 Awatar PNGTuber z minami dla [dodatkowych emocji](#pngtuber-sprites) może też pokazać bardziej szczegółową emocję, którą wyraża zdanie, na przykład Amusement, gdy zdanie jest radosne. Ta mina podlega tym samym zasadom: wymaga wyraźnego odczytu i utrzymuje się co najmniej dwie sekundy, a emocja bez własnej miny pokazuje minę swojej głównej emocji. Tak samo działają wybory agenta Expression Engine i postaci Game Master: gdy awatar nie ma miny o wybranej nazwie, na przykład `scared`, pokazuje minę tej emocji, tutaj Fear. Awatary 3D i mesh pokazują tylko sześć emocji.
 
 **Jak odczytywany jest nastrój.** Połączenie czatu nie jest o to pytane. Tekst czatu zostaje w twojej własnej aplikacji Marinara Engine i nigdy nie trafia do zewnętrznej usługi.
@@ -147,7 +149,7 @@ Awatar PNGTuber z minami dla [dodatkowych emocji](#pngtuber-sprites) może też 
 - Wbudowana lista słów odpowiada od razu, wszędzie, i zna popularne słowa opisujące nastrój w kilku językach.
 - Na komputerach, które to udźwigną, Marinara Engine czyta zdania zamiast tego małym modelem emocji, czyli czytnikiem nastroju. Rozumie on 36 języków. Pobiera się raz, około 300 MB, przy pierwszym otwarciu czatu w trybie Roleplay z włączonym agentem 2D Avatars lub 3D Avatars. Nie pobiera się, gdy obaj agenci są wyłączeni. Strona każdego agenta awatarów w panelu **Agents** pokazuje postęp pobierania, a nieudane pobieranie samo ponawia się po około 10 minutach. Dopóki czytnik nastroju nie jest gotowy, odpowiada lista słów, a po pobraniu czytnik działa bez połączenia z internetem. W trakcie pracy zajmuje około 1 GB pamięci i jest usuwany z pamięci po 10 minutach bezczynności. Instalacje Lite, system Android i komputery z mniej niż 3 GB pamięci zostają przy liście słów.
 
-**Miny w trybie Game Mode.** Każda kwestia pokazywana przez postać Game Master ma przypisany wyraz twarzy, który przejmuje awatar mówiącej postaci. Wewnętrzne myśli postaci zmieniają minę, ale nie poruszają ustami.
+**Miny w trybie Game Mode.** Każda kwestia pokazywana przez postać Game Master ma przypisany wyraz twarzy, który przejmuje awatar mówiącej postaci. Game Master wybiera minę również wtedy, gdy kwestię czyta głos. Wewnętrzne myśli postaci zmieniają minę, ale nie poruszają ustami.
 
 **Agent Expression Engine.** Gdy jest włączony w czacie, jego wybór po odpowiedzi jest ostateczną miną dla tej odpowiedzi. Wybór, który nadejdzie już po wysłaniu przez ciebie kolejnej wiadomości, zostaje przy odpowiedzi, której dotyczył. Gdy synteza mowy czyta odpowiedź na głos, wybrana mina pojawia się, kiedy głos skończy czytać. Awatary działają również bez tego agenta.
 
@@ -176,9 +178,9 @@ Gdy synteza mowy czyta odpowiedź w trybie Roleplay, awatar mówiącej postaci p
 - **Miny:** mina zmienia się, gdy głos dochodzi do kolejnych zdań, zarówno przy **Auto-play**, jak i przy przycisku **Speak**, chyba że agent Expression Engine już wybrał minę dla tej odpowiedzi.
 - **Głośność:** suwak **Line volume** (głośność kwestii) zmienia głośność głosu, a nie to, jak szeroko otwierają się usta.
 - **Persony:** usta persony nie poruszają się przy twoich własnych wiadomościach, z syntezą mowy ani bez niej.
-- **Game Mode:** narracja w trybie Game jest odtwarzana przez własny dźwięk trybu Game Mode, więc w trybie Game Mode usta awatarów na razie podążają za tekstem.
+- **Game Mode:** przy włączonej syntezie mowy i **Auto-play** usta awatara czekają na głos jego postaci i podążają za nim. Wstrzymanie lub zatrzymanie głosu albo przełączenie czatów zatrzymuje usta. Kwestie bez głosu zachowują animację z tekstu, a gdy głos zawiedzie lub nigdy się nie rozpocznie, animacja odtwarza się z tekstu jeden raz. Głosy narratora i gracza nie poruszają ustami żadnej postaci; myśli pozostają niewypowiedziane.
 
-Synchronizacja ust nie zmienia sposobu odtwarzania głosu. Marinara Engine odczytuje osobną kopię każdego klipu głosowego, żeby zgrać ruch ust w czasie, więc odtwarzanie działa tak jak wcześniej, także w przeglądarce Safari oraz na urządzeniach iPhone i iPad. Jeśli przeglądarka nie może odczytać klipu, głos nadal gra, a tylko usta przestają za nim podążać.
+Synchronizacja ust nie zmienia sposobu odtwarzania głosu. Marinara Engine odczytuje osobną kopię każdego klipu głosowego, żeby zgrać ruch ust w czasie, więc odtwarzanie działa tak jak wcześniej, także w przeglądarce Safari oraz na urządzeniach iPhone i iPad. Gdy awatar jest obecny, przygotowuje synchronizację ust już podczas napływania klipów. Jeśli pierwszy klip zacznie się, zanim synchronizacja będzie gotowa, jego tekst porusza ustami do chwili, gdy zaczną podążać za głosem. Jeśli przeglądarka nie może odczytać klipu, głos nadal gra, a tylko usta przestają za nim podążać.
 
 <a id="making-an-avatar-from-a-sprite"></a>
 
@@ -219,7 +221,7 @@ Niektóre połączenia nie potrafią edytować obrazów, na przykład Pollinatio
 3. Wybierz **Make mesh avatar** (utworzenie awatara mesh). Model czatu znajduje twarz, a Marinara Engine buduje awatar z twojego sprite'a w niezmienionej postaci. **Cancel** przerywa tworzenie.
 4. Sprawdź podgląd: obrysy powinny leżeć na oczach, brwiach i ustach. Wybierz **Save as mesh avatar** (zapisanie jako awatar mesh) albo **Discard** i spróbuj innego sprite'a lub modelu.
 
-Wygenerowany awatar mesh porusza głową, oczami, brwiami i ustami, a mruga i mówi własnymi powiekami i ustami. Włosy poruszają się razem z głową; dłonie, pojedyncze kosmyki i zwisające akcesoria nie poruszają się osobno. Gdy twarz wypełnia większość dużego sprite'a, awatar powstaje z mniejszej kopii, żeby tworzenie trwało krótko.
+Wygenerowany awatar mesh porusza głową, oczami, brwiami i ustami, a mruga i mówi własnymi powiekami i ustami. Włosy poruszają się razem z głową; dłonie, pojedyncze kosmyki i zwisające akcesoria nie poruszają się osobno. Awatary z małych sprite'ów powstają z większej kopii, żeby usta pasowały do twarzy. Gdy twarz wypełnia większość dużego sprite'a, awatar powstaje z mniejszej kopii, żeby tworzenie trwało krótko.
 
 Twój sprite jest wysyłany do połączenia obrazowego przy obrazkach mrugania i mówienia (a jeśli to połączenie zawiedzie, ma ustawione zapasowe połączenie obrazowe, a to przyjmuje obraz referencyjny, także do tamtego) oraz do połączenia czatu przy awatarze mesh. Połączenie, które nie potrafi edytować obrazów, dostaje tylko prompt, który zawiera wygląd. Prompty są częścią agenta 2D Avatars. Przy włączonej opcji **Expose media prompts before sending** możesz przeczytać i zmienić prompt każdego obrazka przed jego wysłaniem. Przy włączonym trybie diagnostycznym każdy prompt trafia do logu serwera.
 

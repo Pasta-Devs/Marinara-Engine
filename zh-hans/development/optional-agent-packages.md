@@ -945,3 +945,24 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 - `speech.transcribe(audio, { filename, mimeType, signal })` 把录制的音频发送到用户在 **Connections → Speech to Text**(连接 → 语音识别) 中设置的语音识别服务器，并返回转写文本；该服务器关闭时返回 `null`，包据此继续使用自己的转写。它应用宿主的 URL 策略（`STT_LOCAL_URLS_ENABLED`）以及大小和时间限制，且从不暴露已保存的密钥。`speech` 是可选的，不需要更高版本的能力 API：检查 `typeof api.runtime.integrations?.speech?.transcribe === "function"`，在旧 Engine 上回退。
 
 共享请求和结果类型由 `@marinara-engine/shared` 导出。包专属的提示词构建和流程编排应保留在包内；服务商 I/O 请调用这些宿主入口，而不要复制 Engine 服务实现。纯辅助函数和类型仍可打包。
+
+### Capability API 1.341：宿主运行时服务和共享服务端库
+
+如果服务端包把 Engine 服务的副本打进自己的包里，就会运行第二个实例，并维护独立的状态：独立的 Intiface 连接、连接准入、聊天元数据队列和服务注册表。Capability API 1.341 新增了能直接使用 Engine 当前运行实例的 `api.runtime` 成员，还允许服务端包直接使用 Engine 的一些库，不必自行打包。所有新成员在 `CapabilityRuntimeHost` 中都是可选的，使用前要检查是否存在。
+
+- `runtime.services.get(key)` 返回某个包通过 `api.registerService` 注册的服务；服务不存在或共享房间正在生成时，返回 `null`。它读取 Engine 自己的注册表，因此每个包都能看到同一个服务。`agent-runtime:` 和 `mari-actions:` 键始终返回 `null`；这些键只有 Engine 自己读取。
+- `runtime.commands.parse(content)`、`strip(content)` 和 `instructions()` 使用 Engine 的语法和所有包注册的标签读取 Conversation 命令。
+- `runtime.logger.isLevelEnabled(level)` 表示 Engine 的日志器当前是否会记录该级别。
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` 使用 Engine 的队列修补元数据，每个聊天只有一个队列，与 Engine 自己的写入方共享，并保留共享房间保护和写入序号。补丁中的键会替换对应的键，其他键全部保留。`patch` 也可以是接收当前元数据的函数。在同一聊天的 `withChatLock` 内调用时，会在该锁内执行。与 `updateChatMetadata` 一样，它会拒绝新增对 Global Gallery 中已不存在图片的引用。
+- `runtime.persistence.appendMessages(chatId, messages)` 批量添加消息，每条都带上第一条备选回复，并返回这些消息。`createChatNote` 和 `createChatInfluence` 会从 Conversation 向其连接的 Roleplay 添加笔记或一次性影响。这四个持久化成员需要 `chat-write`。
+- `runtime.integrations.admission` 就是 Engine 的连接准入，因此包的后台任务会等待用户在同一连接上直接发出的请求。`withProvider(provider, connectionId, mode)` 包装同一个包的集成功能创建的服务商，`run(connectionId, mode, operation)` 执行一次尝试，`tryBackground(connectionId)` 在连接空闲时取得后台槽位，`isFailure(error)` 识别 Engine 的忙碌和拒绝错误。它只预约槽位，不需要权限。
+- `runtime.integrations.haptics`（`status`、`connect`、`executeCommand`）使用 Engine 唯一的 Intiface Central 连接，需要 `network`。
+- `runtime.integrations.spotify`（`commandsAvailable`、`playSong`）使用 Music DJ 智能体的 Spotify 账号。`playSong` 会以 `ConversationSpotifyCommandError` 拒绝；错误码 `spotify_unavailable` 和 `missing_playback_scope` 表示 Spotify 尚未设置，此时直接丢弃命令，不必提示。它需要 `network`。
+- `runtime.integrations.speech.transcribeLocal(wav)` 使用在 **Connections**(连接) 中下载的 Local Whisper 模型转写 PCM WAV 录音；模型未下载时，以 Engine 的消息拒绝。它需要 `network`。
+- `runtime.integrations.images.addToChatGallery(input)` 将通过 `images.save` 保存的图片列入聊天图库，`images.persistToEntityGalleries(input)` 则像 Engine 生成的图片一样，将它列入图中角色和用户角色的图库。两者都需要 `storage`。
+
+**绝不使用打包的副本。** 缺少这些成员时，包会提示该功能需要更新的 Marinara Engine。它绝不会回退到自行打包的有状态 Engine 服务副本，例如服务商注册表、本地侧车、连接准入、触觉、Spotify、日志器、注册表或存储队列，因为第二个副本会拆散 Engine 集中维护的状态。纯辅助函数和类型仍可打包。
+
+**共享服务端库。** 服务端包可以不把 `zod`、`adm-zip`、`dotenv`、`nanoid` 和 `jsonrepair` 打进包里，而是按名称导入，就像已有的 `@huggingface/transformers`、`onnxruntime-node`、`onnxruntime-web`、`sharp`、`pino`、`pino-pretty` 和 `undici` 一样。Node 从包的运行时副本出发，通过 `<runtime copy>/node_modules` 到 `DATA_DIR/capability-packages/node_modules` 再到 Engine 的 `packages/server/node_modules` 这两层链接解析模块，因此包得到的就是 Engine 使用的同一个模块实例。pnpm 只把服务端的直接依赖放在那里，所以只有这些名称能解析；像 `ws` 这样的间接依赖无法解析。Engine 把上述名称保留为 `packages/server` 的直接生产依赖，所有安装方式都维持这套布局：源码和启动器安装、Windows（数据链接为目录联接）、Android 和 Termux，以及两种 Docker 镜像。Engine 启动或激活包时，会重建任何指向别处的数据链接，也包括从另一安装路径移动数据文件夹后留下的悬空链接。不是链接的内容会原样保留。
+
+**声明方式。** 使用这些功能的包需要声明 `schemaVersion: 2`、`capabilityApi: { major: 1, minor: 341 }` 和 `builtAgainst`，并保留 `engine` 版本范围。`schemaVersion: 1` 清单从不按能力 API 检查，因此需要改为版本 2。门槛是能力 API，而不是 Engine 版本：缺少这些成员的 Engine 会拒绝安装或更新（“Package requires capability API 1.341; this Engine supports ...”），将包排除在更新列表之外，并继续运行已安装的版本。

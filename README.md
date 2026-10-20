@@ -43,6 +43,8 @@ in-progress #7054 update across all ten packs, including widget color controls.
 release inventory, the late English changes, the integration fixes, the UI pack
 coverage and the validation for all ten documentation packs and eleven UI packs.
 
+[2026-10-20 release follow-up](audits/2026-10-20-release-catchup.md) tracks the next English guide and UI changes after `dcae41337`, their source snapshots, validation, and later release-branch top-ups.
+
 ## UI language packs
 
 `ui/<BCP-47>.json` contains community interface translations, separate from documentation folders.

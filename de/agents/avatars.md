@@ -138,6 +138,8 @@ Avatare reagieren von selbst; für diesen Teil musst du nichts einrichten.
 
 Liest die Sprachausgabe die Antwort vor, folgen die Gesichter stattdessen der Stimme; siehe **Wenn die Antwort vorgelesen wird** weiter unten.
 
+Auch bei ausgeschaltetem Streaming bekommt jeder Satz seine eigene Stimmung. Die Gesichter wechseln während der Sprechzeit der Antwort der Reihe nach, statt die ganze Antwort zu einer einzigen Stimmung zusammenzufassen.
+
 Ein PNGTuber-Avatar mit Gesichtern für [weitere Gefühle](#pngtuber-sprites) kann auch das spezifischere Gefühl zeigen, als das ein Satz gelesen wird, etwa Amusement bei fröhlicher Stimmung. Dieses Gesicht folgt denselben Regeln: Es braucht eine eindeutige Einschätzung und bleibt mindestens zwei Sekunden, und ein Gefühl ohne eigenes Gesicht zeigt das Gesicht seines Hauptgefühls. Bei der Wahl der Expression Engine und des Game Masters ist es genauso: Hat der Avatar kein Gesicht mit dem gewählten Namen, etwa `scared`, zeigt er das Gesicht dieses Gefühls, hier Fear. 3D- und Mesh-Avatare zeigen nur die sechs Gefühle.
 
 **So wird die Stimmung gelesen.** Deine Chat-Verbindung wird nicht gefragt. Dein Chat-Text bleibt in deiner eigenen Installation von Marinara Engine und wird nie an einen externen Dienst geschickt.
@@ -145,7 +147,7 @@ Ein PNGTuber-Avatar mit Gesichtern für [weitere Gefühle](#pngtuber-sprites) ka
 - Eine eingebaute Wortliste antwortet sofort, überall, und kennt gängige Stimmungswörter in mehreren Sprachen.
 - Auf Rechnern, die es ausführen können, liest Marinara Engine die Sätze stattdessen mit einem kleinen Emotionsmodell, der Stimmungserkennung (in der App „Mood reader“). Sie versteht 36 Sprachen. Sie wird einmalig heruntergeladen, etwa 300 MB, wenn du zum ersten Mal einen Roleplay-Chat öffnest, in dem 2D Avatars oder 3D Avatars eingeschaltet ist. Solange beide Agenten aus sind, wird sie nicht heruntergeladen. Die Seite jedes Avatar-Agenten unter **Agents** zeigt den Fortschritt des Downloads, und ein gescheiterter Download startet etwa 10 Minuten später von selbst neu. Bis die Stimmungserkennung bereit ist, antwortet die Wortliste. Nach dem Download funktioniert die Stimmungserkennung offline. Im Einsatz belegt sie etwa 1 GB Arbeitsspeicher, und nach 10 Minuten ohne Nutzung wird sie entladen. Lite-Installationen, Android und Rechner mit weniger als 3 GB Arbeitsspeicher behalten die Wortliste.
 
-**Gesichter im Game Mode.** Jede Zeile, die der Game Master zeigt, bringt einen Ausdruck mit, und der Avatar des sprechenden Charakters übernimmt ihn. Die inneren Gedanken eines Charakters ändern das Gesicht, aber nicht den Mund.
+**Gesichter im Game Mode.** Jede Zeile, die der Game Master zeigt, bringt einen Ausdruck mit, und der Avatar des sprechenden Charakters übernimmt ihn. Der Game Master wählt das Gesicht auch dann, wenn eine Stimme die Zeile vorliest. Die inneren Gedanken eines Charakters ändern das Gesicht, aber nicht den Mund.
 
 **Die Expression Engine.** Ist sie im Chat eingeschaltet, ist ihre Wahl nach der Antwort das endgültige Gesicht für diese Antwort. Eine Wahl, die erst ankommt, nachdem du deine nächste Nachricht geschickt hast, bleibt bei der Antwort, für die sie gedacht war. Liest die Sprachausgabe die Antwort vor, erscheint die Wahl, sobald die Stimme fertig ist. Avatare funktionieren auch ohne sie.
 
@@ -174,9 +176,9 @@ Liest die Sprachausgabe eine Roleplay-Antwort vor, bewegt der Avatar des spreche
 - **Gesichter**: Das Gesicht ändert sich, sobald die Stimme den jeweiligen Satz erreicht, mit **Auto-play** und mit der Schaltfläche **Speak**, es sei denn, die Expression Engine hat das Gesicht für diese Antwort bereits gewählt.
 - **Lautstärke**: Der Regler **Line volume** (Zeilenlautstärke) ändert, wie laut die Stimme ist, nicht wie weit sich der Mund öffnet.
 - **Personas**: Der Mund einer Persona bewegt sich bei deinen eigenen Nachrichten nicht, ob mit oder ohne Sprachausgabe.
-- **Game Mode**: Die Erzählung im Game Mode läuft über das eigene Audio des Game Mode. Im Game Mode folgen die Münder der Avatare deshalb vorerst dem Text.
+- **Game Mode**: Sind Sprachausgabe und **Auto-play** eingeschaltet, warten die Münder der Avatare auf die Stimme ihres Charakters und folgen ihr. Pausierst oder stoppst du sie oder wechselst den Chat, stoppt der Mund. Zeilen ohne Stimme behalten ihre Textanimation. Scheitert eine Stimme oder setzt sie nie ein, folgt der Mund einmal dem Text. Erzähler- und Spielerstimmen bewegen keinen Charaktermund; innere Gedanken werden nicht vorgelesen.
 
-Die Lippensynchronisation ändert nichts daran, wie die Stimme abgespielt wird. Marinara Engine liest eine separate Kopie jedes Sprachclips, um den Mund zu takten. Die Wiedergabe funktioniert also wie bisher, auch in Safari und auf iPhone und iPad. Kann dein Browser einen Clip nicht lesen, läuft die Stimme trotzdem, und nur der Mund folgt ihr nicht mehr.
+Die Lippensynchronisation ändert nichts daran, wie die Stimme abgespielt wird. Marinara Engine liest eine separate Kopie jedes Sprachclips, um den Mund zu takten. Die Wiedergabe funktioniert also wie bisher, auch in Safari und auf iPhone und iPad. Solange ein Avatar angezeigt wird, bereitet die Engine die Mundbewegungen vor, sobald die Clips eintreffen. Beginnt der erste Clip, bevor diese Vorbereitung fertig ist, bewegt sein Text den Mund, bis die Synchronisierung mit der Stimme einsetzt. Kann dein Browser einen Clip nicht lesen, läuft die Stimme trotzdem, und nur der Mund folgt ihr nicht mehr.
 
 <a id="making-an-avatar-from-a-sprite"></a>
 
@@ -215,7 +217,7 @@ Manche Verbindungen können keine Bilder bearbeiten, etwa Pollinations, Together
 3. Wähle **Make mesh avatar** (Mesh-Avatar erstellen). Das Chat-Modell findet das Gesicht, und Marinara Engine baut den Avatar aus deinem Sprite, so wie es ist. **Cancel** stoppt den Vorgang.
 4. Prüf die Vorschau: Die Umrisse sollten auf Augen, Brauen und Mund liegen. Wähle **Save as mesh avatar** (als Mesh-Avatar speichern) oder **Discard** (Verwerfen) und versuch es mit einem anderen Sprite oder Modell.
 
-Ein erstellter Mesh-Avatar bewegt Kopf, Augen, Brauen und Mund und blinzelt und spricht mit seinen eigenen Lidern und seinem eigenen Mund. Seine Haare bewegen sich mit dem Kopf; Hände, einzelne Haarsträhnen und herabhängende Accessoires werden nicht animiert. Füllt das Gesicht den größten Teil eines großen Sprites aus, wird der Avatar aus einer kleineren Kopie gebaut, damit die Erstellung schnell bleibt.
+Ein erstellter Mesh-Avatar bewegt Kopf, Augen, Brauen und Mund und blinzelt und spricht mit seinen eigenen Lidern und seinem eigenen Mund. Seine Haare bewegen sich mit dem Kopf; Hände, einzelne Haarsträhnen und herabhängende Accessoires werden nicht animiert. Kleine Sprites werden für die Erstellung vergrößert, damit der Mund zum Gesicht passt. Füllt das Gesicht den größten Teil eines großen Sprites aus, wird der Avatar aus einer kleineren Kopie gebaut, damit die Erstellung schnell bleibt.
 
 Dein Sprite wird für Bilder zum Blinzeln und Sprechen an die Bildverbindung geschickt (und an deren Fallback-Bildverbindung, falls sie scheitert, eine eingestellt ist und diese ein Referenzbild annimmt), für einen Mesh-Avatar an die Chat-Verbindung. Eine Verbindung, die keine Bilder bearbeiten kann, bekommt nur den Prompt, der das Aussehen enthält. Die Prompts bringt der Agent 2D Avatars mit. Ist **Expose media prompts before sending** eingeschaltet, kannst du den Prompt jedes Bildes lesen und ändern, bevor er gesendet wird. Im Debug-Modus wird jeder Prompt ins Server-Log geschrieben.
 

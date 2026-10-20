@@ -972,3 +972,64 @@ Los paquetes del servidor pueden usar `api.runtime.integrations` para acceder a 
 - `speech.transcribe(audio, { filename, mimeType, signal })` envía el audio grabado al servidor de voz a texto que el usuario configuró en **Connections → Speech to Text** (Conexiones → Voz a texto) y se resuelve con la transcripción, o con `null` mientras ese servidor está desactivado, para que el paquete conserve su propia transcripción. Aplica la política de URL del host (`STT_LOCAL_URLS_ENABLED`) y sus límites de tamaño y tiempo, y nunca expone la clave guardada. `speech` es opcional y no requiere una API de capacidades más reciente: comprueba `typeof api.runtime.integrations?.speech?.transcribe === "function"` y recurre a tu alternativa en los motores anteriores.
 
 `@marinara-engine/shared` exporta los tipos compartidos de solicitud y resultado. Conserva en el paquete la construcción de prompts y la orquestación propias; usa estos puntos del host para E/S de proveedores en vez de copiar servicios del motor. Los tipos y auxiliares puros pueden seguir empaquetándose.
+
+### Capability API 1.341: servicios de ejecución del host y bibliotecas compartidas del servidor
+
+El servidor de un paquete que incluye su propia copia de un servicio del motor ejecuta una segunda instancia con su propio estado:
+su propia conexión con Intiface, su propia admisión de conexiones, su propia cola de metadatos de chat y su propio registro de servicios.
+Capability API 1.341 añade miembros de `api.runtime` que acceden a las instancias activas del motor y permite que los servidores de
+paquetes usen algunas bibliotecas del motor en vez de incluirlas en su paquete. Cada miembro nuevo es opcional en
+`CapabilityRuntimeHost`, así que comprueba que existe antes de usarlo.
+
+- `runtime.services.get(key)` devuelve un servicio que un paquete registró con `api.registerService`, o `null` mientras
+  no esté disponible o durante una generación en una sala compartida. Lee el registro del propio motor, así que todos los paquetes lo ven.
+  Las claves `agent-runtime:` y `mari-actions:` siempre devuelven `null`; solo el motor las lee.
+- `runtime.commands.parse(content)`, `strip(content)` e `instructions()` leen los comandos de Conversation con la
+  gramática del motor y las etiquetas registradas de todos los paquetes.
+- `runtime.logger.isLevelEnabled(level)` indica si el sistema de registro del motor escribe ese nivel en ese momento.
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` es la modificación de metadatos en cola del motor,
+  con una cola por chat compartida con los escritores del propio motor, la protección de salas compartidas y los ordinales de escritura. Las claves de la
+  modificación reemplazan esas claves y todas las demás se conservan. `patch` puede ser una función de los metadatos actuales. Dentro de
+  `withChatLock` para el mismo chat, se ejecuta bajo ese bloqueo. Como `updateChatMetadata`, rechaza una referencia nueva a
+  una imagen de Global Gallery que ya no existe.
+- `runtime.persistence.appendMessages(chatId, messages)` añade mensajes, cada uno con su primer swipe, en un solo lote y
+  los devuelve. `createChatNote` y `createChatInfluence` añaden una nota o una influencia de una sola vez desde una Conversation
+  al Roleplay conectado. Estos cuatro miembros de persistencia necesitan `chat-write`.
+- `runtime.integrations.admission` es la admisión de conexiones del motor, de modo que el trabajo en segundo plano de un paquete espera a las
+  solicitudes del usuario en la misma conexión. `withProvider(provider, connectionId, mode)` envuelve un proveedor creado por
+  las integraciones del mismo paquete, `run(connectionId, mode, operation)` ejecuta un intento, `tryBackground(connectionId)`
+  toma el turno de segundo plano cuando la conexión está libre, e `isFailure(error)` reconoce los errores del motor por conexión ocupada y
+  por rechazo. No necesita ningún permiso porque solo reserva turnos.
+- `runtime.integrations.haptics` (`status`, `connect`, `executeCommand`) usa la única conexión con Intiface Central
+  del motor. Necesita `network`.
+- `runtime.integrations.spotify` (`commandsAvailable`, `playSong`) usa la cuenta de Spotify del agente Music DJ.
+  `playSong` se rechaza con `ConversationSpotifyCommandError`; los códigos `spotify_unavailable` y
+  `missing_playback_scope` significan que Spotify no está configurado, así que descarta el comando sin mostrar un aviso. Necesita `network`.
+- `runtime.integrations.speech.transcribeLocal(wav)` transcribe una grabación PCM WAV con el modelo Local Whisper
+  descargado en **Connections**, y se rechaza con el mensaje del motor cuando no está descargado. Necesita `network`.
+- `runtime.integrations.images.addToChatGallery(input)` incluye una imagen guardada con `images.save` en la galería
+  del chat, e `images.persistToEntityGalleries(input)` la incluye en las galerías de los personajes y las personas que
+  aparecen en ella, igual que las imágenes generadas por el motor. Ambos necesitan `storage`.
+
+**Nunca una copia incluida en el paquete.** Cuando falta uno de estos miembros, el paquete informa de que la función requiere un
+Marinara Engine más reciente. Nunca recurre a una copia incluida de un servicio del motor con estado, como el registro de proveedores,
+el sidecar local, la admisión de conexiones, el servicio háptico, Spotify, el sistema de registro, un registro de servicios o una cola de almacenamiento, porque una segunda
+copia divide el estado que el motor mantiene en un solo lugar. Los tipos y auxiliares puros pueden seguir empaquetándose.
+
+**Bibliotecas compartidas del servidor.** El servidor de un paquete puede dejar `zod`, `adm-zip`, `dotenv`, `nanoid` y `jsonrepair` fuera de
+su bundle e importarlos por nombre, como ya puede hacer con `@huggingface/transformers`, `onnxruntime-node`,
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` y `undici`. Node los resuelve desde la copia de ejecución del paquete
+mediante dos enlaces, de `<runtime copy>/node_modules` a `DATA_DIR/capability-packages/node_modules` y de ahí a
+`packages/server/node_modules` del motor, así que el paquete obtiene la misma instancia del módulo que usa el motor. pnpm mantiene allí solo las
+dependencias directas del servidor, así que solo esos nombres se resuelven; una dependencia de una dependencia, como `ws`, no se resuelve.
+El motor conserva los nombres anteriores como dependencias directas de producción de `packages/server`, y todas las instalaciones mantienen esa
+estructura: las de código fuente y del lanzador, Windows (donde el enlace de datos es una unión de directorios), Android y Termux, y las dos
+imágenes de Docker. Cuando inicia o activa un paquete, el motor vuelve a crear un enlace de datos que apunte a cualquier otro lugar,
+incluido uno que haya quedado sin destino al mover una carpeta de datos desde otra ruta de instalación. Todo lo que haya allí que no sea un enlace
+se deja intacto.
+
+**Cómo declararlo.** Un paquete que use cualquiera de estas funciones declara `schemaVersion: 2`, `capabilityApi: { major: 1, minor: 341 }`
+y `builtAgainst`, y conserva su rango `engine`. Un manifiesto `schemaVersion: 1` nunca se comprueba frente a la
+API de capacidades, así que pasa a la versión 2. La API de capacidades es la condición, no la versión del motor: un motor sin
+estos miembros rechaza la instalación o la actualización ("Package requires capability API 1.341; this Engine supports ..."),
+excluye el paquete de su lista de actualizaciones y mantiene en ejecución la versión instalada.
