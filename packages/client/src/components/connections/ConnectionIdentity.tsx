@@ -18,6 +18,7 @@ export function ConnectionIdentity({
   className,
   size = "md",
   billing,
+  balance,
 }: {
   account: { name: string; provider: string; baseUrl?: string | null; icon?: string | null; imagePath?: string | null };
   rows: readonly ConnectionIdentityRow[];
@@ -28,10 +29,12 @@ export function ConnectionIdentity({
   className?: string;
   size?: "sm" | "md";
   billing?: ConnectionBilling;
+  /** What is left on the account ("556.44 left"), right after the count. */
+  balance?: string | null;
 }) {
   const { t } = useTranslation();
   const identity = getConnectionIdentity(account, rows);
-  // Line 2 is facts, never a second name: count, plan word, host.
+  // Line 2 is facts, never a second name: count, balance, plan word, host.
   const details = [identity.endpoint].filter(Boolean);
   const hasCount = count !== undefined && count !== null;
   // One card-level cost word: a plan, or a free service.
@@ -64,14 +67,14 @@ export function ConnectionIdentity({
         >
           {identity.title}
         </strong>
-        {(hasCount || billingWord || details.length > 0 || problem) && (
+        {(hasCount || balance || billingWord || details.length > 0 || problem) && (
           <span
             data-connection-identity-meta
             className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-[var(--muted-foreground)]"
           >
             <span className="min-w-0 truncate">
               {hasCount && <span data-connection-group-count>{count}</span>}
-              {[billingWord, ...details]
+              {[balance, billingWord, ...details]
                 .filter(Boolean)
                 .map((part, index) => (hasCount || index > 0 ? ` · ${part}` : part))
                 .join("")}

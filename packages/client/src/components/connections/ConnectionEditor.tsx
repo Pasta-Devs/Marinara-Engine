@@ -97,7 +97,7 @@ import { ConnectionIdentity } from "./ConnectionIdentity";
 import { confirmModelDelete } from "./ConnectionRow";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { CostBadge } from "./CostBadge";
+import { CostBadge, priceBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -358,7 +358,7 @@ export function ConnectionEditor({
   closeRequestToken = 0,
 }: ConnectionEditorProps = {}) {
   const { t: localizeUi } = useUiTranslation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const storedConnectionDetailId = useUIStore((s) => s.connectionDetailId);
   const connectionDetailId = connectionId ?? storedConnectionDetailId;
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
@@ -839,6 +839,9 @@ export function ConnectionEditor({
   const selectedModelInfo = useMemo(() => {
     return allModels.find((m) => m.id === localModel) ?? null;
   }, [allModels, localModel]);
+  // A pay-per-use model's full prices (cache prices, source and age) under its context facts.
+  const selectedPrice =
+    selectedModelInfo?.cost === "paid" ? priceBadge(selectedModelInfo.pricing, t, i18n.resolvedLanguage) : null;
   const catalogModelCapabilities = useModelParameterCapabilities(
     connectionDetailId ? { id: connectionDetailId, provider: localProvider, model: localModel } : null,
   );
@@ -3186,7 +3189,7 @@ export function ConnectionEditor({
                                   {modelFetchSourceLabel}
                                 </span>
                               )}
-                              <CostBadge cost={m.cost} showPaid={catalogShowsPaid} />
+                              <CostBadge cost={m.cost} showPaid={catalogShowsPaid} pricing={m.pricing} />
                               {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
                             </div>
                             <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
@@ -3238,6 +3241,14 @@ export function ConnectionEditor({
                     <strong className="text-sky-400">{formatContext(selectedModelInfo.maxOutput)}</strong>
                   </span>
                 </div>
+              )}
+              {selectedPrice && (
+                <p
+                  data-model-price
+                  className="mt-2 whitespace-pre-line px-3 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]"
+                >
+                  {selectedPrice.full}
+                </p>
               )}
             </FieldGroup>
 

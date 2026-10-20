@@ -192,7 +192,11 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
         req.query.refresh === "true",
       );
     } catch (err) {
-      logger.warn("[connections] Balance check failed for %s: %s", account.id, err instanceof Error ? err.message : err);
+      logger.warn(
+        "[connections] Balance check failed for %s: %s",
+        account.id,
+        err instanceof Error ? err.message : err,
+      );
       return reply.status(502).send({ error: err instanceof BalanceError ? err.message : "The balance check failed" });
     }
   });

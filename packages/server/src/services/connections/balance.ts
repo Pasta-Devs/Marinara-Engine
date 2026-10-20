@@ -162,7 +162,10 @@ export interface BalanceCredentials {
   balanceUserId?: string | null;
 }
 
-type Fetch = (url: string, init: { method: string; headers: Record<string, string>; signal: AbortSignal }) => Promise<Response>;
+type Fetch = (
+  url: string,
+  init: { method: string; headers: Record<string, string>; signal: AbortSignal },
+) => Promise<Response>;
 const defaultFetch: Fetch = (url, init) => safeFetch(url, init);
 
 async function getJson(fetchImpl: Fetch, url: string, headers: Record<string, string>, name: string) {

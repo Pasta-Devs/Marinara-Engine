@@ -59,8 +59,7 @@ function readPricing(provider: string, model: Record<string, unknown>): ModelCat
   if (typeof pricing.currency === "string" && pricing.currency.trim().toUpperCase() !== "USD") return undefined;
   const unit = typeof pricing.unit === "string" ? pricing.unit : "";
   const together = pricing.prompt === undefined && pricing.input !== undefined;
-  const perMillion =
-    together || /million|mtok|\b1m\b/i.test(unit) || (!/token/i.test(unit) && provider === "nanogpt");
+  const perMillion = together || /million|mtok|\b1m\b/i.test(unit) || (!/token/i.test(unit) && provider === "nanogpt");
   const scale = (value: number | undefined) =>
     value === undefined ? undefined : perMillion ? value : Math.round(value * 1e6 * 1e6) / 1e6;
   const prompt = scale(price(together ? pricing.input : pricing.prompt));

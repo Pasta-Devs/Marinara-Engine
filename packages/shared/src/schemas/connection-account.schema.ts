@@ -13,7 +13,11 @@ const accountFields = {
   /** NanoGPT: the usage-only management token. LinkAPI: the dashboard access token for the account balance. */
   managementToken: z.string().default(""),
   /** LinkAPI: the dashboard user id, sent as `New-Api-User` with the access token. Digits only; "" clears it. */
-  balanceUserId: z.string().trim().regex(/^\d{0,20}$/).default(""),
+  balanceUserId: z
+    .string()
+    .trim()
+    .regex(/^\d{0,20}$/)
+    .default(""),
   showUsageWidget: z.boolean().default(false),
   showUsageFiveHour: z.boolean().default(true),
   showUsageWeekly: z.boolean().default(true),

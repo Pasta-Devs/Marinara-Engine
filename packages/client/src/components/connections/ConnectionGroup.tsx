@@ -26,6 +26,7 @@ import {
   IMAGE_SOURCE_VENDOR,
   PROVIDERS,
   type APIProvider,
+  connectionBalanceSource,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import {
@@ -37,6 +38,7 @@ import {
 } from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
+  useConnectionBalance,
   useDeleteConnectionAccount,
   useDuplicateConnectionAccount,
   useUpdateConnectionAccount,
@@ -51,6 +53,7 @@ import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { CompactUsageMeter } from "./SubscriptionUsageWidget";
 import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
+import { balanceWord } from "./ConnectionBalance";
 import { useFolderChooser } from "./ConnectionFolderGroup";
 import {
   confirmAccountDelete,
@@ -97,9 +100,15 @@ export function ConnectionGroup({
   /** Provider identity is part of each account heading, without an enclosing family header. */
   providerName?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
+  // Services with a balance endpoint show what is left on line 2; a failed check shows nothing there.
+  const { data: balanceData } = useConnectionBalance(
+    account.id,
+    account.state === "ok" && !!connectionBalanceSource(account),
+  );
+  const balance = balanceWord(balanceData?.balance, t, i18n.resolvedLanguage);
   const removeAccount = useDeleteConnectionAccount();
   const duplicateAccount = useDuplicateConnectionAccount();
   const { data: accounts } = useConnectionAccounts();
@@ -242,9 +251,9 @@ export function ConnectionGroup({
           aria-controls={modelsId}
           aria-label={
             account.state === "ok"
-              ? [heading, accountLabel, endpoint, count].filter(Boolean).join(", ")
+              ? [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", ")
               : t("connections.list.rowLabel", {
-                  name: [heading, accountLabel, endpoint, count].filter(Boolean).join(", "),
+                  name: [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", "),
                   state,
                 })
           }
@@ -261,6 +270,7 @@ export function ConnectionGroup({
             state={fix ? undefined : account.state}
             stateLabel={state}
             billing={account.billing}
+            balance={balance}
             icon={onPictureClick ? false : tile}
             className="flex-1"
           />

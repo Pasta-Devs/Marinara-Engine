@@ -157,7 +157,8 @@ export function parseLinkApiPricing(json: unknown): LinkApiPricing {
   }
   const groupRatio: Record<string, number> = {};
   if (isRecord(root.group_ratio)) {
-    for (const [name, value] of Object.entries(root.group_ratio)) if (num(value) !== undefined) groupRatio[name] = value as number;
+    for (const [name, value] of Object.entries(root.group_ratio))
+      if (num(value) !== undefined) groupRatio[name] = value as number;
   }
   return { models, groupRatio };
 }
@@ -247,7 +248,8 @@ export async function withCatalogPrices<T extends Record<string, unknown>>(
   linkApiGroup?: string,
 ): Promise<T[]> {
   const open = models.filter(
-    (model) => typeof model.id === "string" && !hasOwnPrice(model) && model.subscriptionIncluded !== true && model.free !== true,
+    (model) =>
+      typeof model.id === "string" && !hasOwnPrice(model) && model.subscriptionIncluded !== true && model.free !== true,
   );
   if (!open.length) return models;
   let priceOf: (id: string) => ModelCatalogPricing | undefined;
