@@ -60,7 +60,7 @@ import { useSetChatModel } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
-import type { ModelsFor } from "../../lib/add-connection";
+import { flashConnectionCard, type ModelsFor } from "../../lib/add-connection";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { LocalWhisper } from "../connections/DeviceDetail";
@@ -475,7 +475,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   );
   const [device, setDevice] = useState<DeviceService | null>(startDevice);
   const [decisionOpen, setDecisionOpen] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | "ready">(modelsFor ? 3 : startingService ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -501,7 +501,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const [moreOpen, setMoreOpen] = useState(false);
   // A service that is already connected: the user chose to connect a second account of it.
   const [second, setSecond] = useState(false);
-  // Ready screen; null = "Make Main" is on when there is no Main model yet.
+  // Step 3's footer; null = "Make Main" is on when there is no Main model yet.
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
   const [useInChat, setUseInChat] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -542,7 +542,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const pickerRow = pickerBase && { ...pickerBase, pinnedModels: (starAnchor ?? pickerBase).pinnedModels };
   const modelList = useConnectionModels(
     pickerBase?.id ?? target?.connectionId,
-    !isMedia && (!!tested?.success || step === 3 || step === "ready"),
+    !isMedia && (!!tested?.success || step === 3),
   );
   const modelCount = modelList.data?.models?.length;
   const addedIds = picks.map((pick) => pick.modelId);
@@ -602,14 +602,16 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     }
   };
 
-  // The ready screen's choices. Main changes only here, and only with its box on.
+  // Done applies the footer's choices. With no Main model yet the first model added becomes Main (its box starts
+  // on); next to a Main model "Set as Main" acts at once instead.
   const firstPick = picks[0];
   const firstPickRow = firstPick && allRows.find((row) => row.id === firstPick.connectionId);
   const alreadyMain = isConnectionFlagTrue((firstPickRow as Record<string, unknown> | undefined)?.isDefault);
   const makeMainOn = makeMain ?? !hasMain;
-  const applyReadyChoices = async () => {
+  const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat;
+  const applyChoices = async () => {
     if (!firstPick) return true;
-    if (makeMainOn && !alreadyMain) {
+    if (offerMain && makeMainOn) {
       try {
         // A first Main also becomes the Agents default when there is none, when the user chooses to make it Main.
         await updateRow.mutateAsync({
@@ -633,28 +635,26 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     return true;
   };
 
-  // Add model has no ready screen: with no Main model yet, the first model starred there becomes Main when the
-  // screen closes. The guided setup asks on its ready screen instead, where the box starts on.
-  const autoMain = async () => {
-    const row = !hasMain && firstPick ? allRows.find((candidate) => candidate.id === firstPick.connectionId) : null;
-    if (!row || !isChatProvider(row.provider ?? "")) return;
+  const setAsMain = async () => {
+    if (!firstPick) return;
     try {
-      await updateRow.mutateAsync({ id: row.id, isDefault: true, ...(hasAgents ? {} : { defaultForAgents: true }) });
+      await updateRow.mutateAsync({ id: firstPick.connectionId, isDefault: true });
     } catch (error) {
       toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
     }
   };
 
+  // After adding, the window closes and the panel shows the new card with one flash of its rail.
   const close = async (saveChoices = false) => {
     setFinishing(true);
     try {
-      if (saveChoices && step === "ready" && !(await applyReadyChoices())) return;
-      if (modelsFor && !modelsFor.chat) await autoMain();
+      if (saveChoices && !(await applyChoices())) return;
       await discard();
     } finally {
       setFinishing(false);
     }
     onClose();
+    if (target && (picks.length > 0 || mediaSaved)) flashConnectionCard(target.accountId);
   };
 
   const requestClose = () => {
@@ -717,24 +717,6 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     setProvider(null);
     setService(null);
     setDevice(null);
-    setStep(1);
-  };
-
-  const addAnother = async () => {
-    setFinishing(true);
-    try {
-      if (!(await applyReadyChoices())) return;
-    } finally {
-      setFinishing(false);
-    }
-    resetFields();
-    setProvider(null);
-    setService(null);
-    setDevice(null);
-    setPicks([]);
-    setMakeMain(null);
-    setUseInChat(false);
-    setQuery("");
     setStep(1);
   };
 
@@ -1040,7 +1022,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     if (!onStartChat || !firstPick) return;
     setFinishing(true);
     try {
-      if (!(await applyReadyChoices())) return;
+      if (!(await applyChoices())) return;
       await onStartChat(firstPick.connectionId);
     } catch {
       // useCreateChat already shows the error toast; the window stays open so the user can try again.
@@ -1617,6 +1599,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     }
     setMediaSaved(true);
     onClose();
+    flashConnectionCard(target.accountId);
   };
   const cancelMediaSetup = async () => {
     if (editorExit === "close") {
@@ -1705,7 +1688,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             : !setupKind
               ? t("connections.add.heading.chooseCapability")
               : t("connections.add.heading.addModels", { name: targetName })
-          : t("connections.add.heading.ready", { name: targetName });
+          : "";
   const subtitle =
     step === 1
       ? newChatMode
@@ -1732,10 +1715,9 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               ? t("connections.add.sub.capability")
               : t(modelsFor?.chat ? "connections.add.sub.modelsChat" : "connections.add.sub.models")
           : "";
-  const stepNumber = step === "ready" ? 4 : step;
-  // Devices and media services end after their set-up screen.
-  const pureMediaPath = setupKind === "image" || setupKind === "video" || (!!mediaEditorId && setupKind !== "chat");
-  const totalSteps = device ? 2 : isMedia || pureMediaPath ? 3 : 4;
+  const stepNumber = step;
+  // Every path has the same three steps, so the bar never jumps; a device ends on its set-up screen.
+  const totalSteps = 3;
   const goBack =
     step === 2
       ? backToList
@@ -1745,9 +1727,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
           : target?.fresh
             ? () => setStep(2)
             : backToList
-        : step === "ready"
-          ? () => setStep(3)
-          : null;
+        : null;
 
   // ── Footer: one primary per step ──
   let footerLeft: ReactNode = null;
@@ -1812,42 +1792,32 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         {t("connections.add.picked", { count: picks.length })}
       </p>
     );
-    footerRight = (
-      <button
-        type="button"
-        data-add-connection-done
-        // Add model ends here: what has a star is added.
-        onClick={() => (picks.length > 0 && !modelsFor ? setStep("ready") : void close())}
-        // A new Connection needs one model; without it the window throws the Connection away.
-        disabled={target?.fresh && picks.length === 0}
-        className={PRIMARY_CLASS}
-      >
-        {t(picks.length > 0 && !modelsFor ? "connections.add.continue" : "connections.add.done")}
-      </button>
-    );
-  } else if (step === "ready") {
-    footerLeft = (
-      <button type="button" onClick={() => void addAnother()} disabled={finishing} className={SECONDARY_CLASS}>
-        {t("connections.add.addAnother")}
-      </button>
-    );
-    footerRight = onStartChat ? (
-      <button
-        type="button"
-        onClick={() => void startChatting()}
-        disabled={finishing}
-        className={PRIMARY_CLASS}
-        data-add-connection-start
-      >
-        {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-        {t("connections.add.startChatting")}
-      </button>
-    ) : (
-      <button type="button" onClick={() => void close(true)} disabled={finishing} className={PRIMARY_CLASS}>
-        {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-        {t("connections.add.done")}
-      </button>
-    );
+    footerRight =
+      onStartChat && firstPick ? (
+        <button
+          type="button"
+          onClick={() => void startChatting()}
+          disabled={finishing}
+          className={PRIMARY_CLASS}
+          data-add-connection-start
+        >
+          {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {t("connections.add.startChatting")}
+        </button>
+      ) : (
+        <button
+          type="button"
+          data-add-connection-done
+          // Done applies the choices above the footer and closes; the panel then shows the new card.
+          onClick={() => void close(true)}
+          // A new Connection needs one model; without it the window throws the Connection away.
+          disabled={finishing || (target?.fresh && picks.length === 0)}
+          className={PRIMARY_CLASS}
+        >
+          {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {t("connections.add.done")}
+        </button>
+      );
   }
 
   const firstName = firstPick ? modelName(firstPick.modelId) : "";
@@ -1983,78 +1953,58 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               autoFocusSearch
             />
           )}
-
-          {step === "ready" && (
-            <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
-              <div className="mx-auto flex max-w-xl flex-col gap-3 p-4 md:p-5">
-                <div className="flex items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] p-3">
-                  {provider && <ServiceTile service={service ?? provider} />}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{targetName}</p>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      {t("connections.add.picked", { count: picks.length })}
-                    </p>
-                  </div>
-                </div>
-                <ul className="flex flex-col" aria-label={t("connections.add.readyModels")}>
-                  {picks.map((pick) => (
-                    <li key={pick.modelId} className="flex min-h-11 items-center gap-3 px-2 text-sm">
-                      <ProviderIcon provider={provider ?? "custom"} model={pick.modelId} size="sm" />
-                      <span className="min-w-0 truncate">{modelName(pick.modelId)}</span>
-                    </li>
-                  ))}
-                </ul>
-                {firstPick && (
-                  <div
-                    className="flex flex-col border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2"
-                    role="group"
-                    aria-label={t("connections.add.readyChoices")}
-                  >
-                    {chatTarget && (
-                      <label className={optionClass}>
-                        <input
-                          type="checkbox"
-                          checked={useInChat}
-                          onChange={(event) => setUseInChat(event.target.checked)}
-                          className={checkClass}
-                          data-add-connection-use-in-chat
-                        />
-                        <span className="min-w-0">{t("connections.add.useInChat", { model: firstName })}</span>
-                      </label>
-                    )}
-                    {alreadyMain ? (
-                      <p className="flex min-h-11 items-center px-2 text-xs text-[var(--muted-foreground)]">
-                        {t("connections.add.isMain", { model: firstName })}
-                      </p>
-                    ) : (
-                      <label className={optionClass}>
-                        <input
-                          type="checkbox"
-                          checked={makeMainOn}
-                          onChange={(event) => setMakeMain(event.target.checked)}
-                          className={checkClass}
-                          data-add-connection-make-main
-                        />
-                        <span className="min-w-0">
-                          {t("connections.add.makeMain", { model: firstName })}
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {" "}
-                            · {t("connections.add.makeMainHint")}
-                          </span>
-                        </span>
-                      </label>
-                    )}
-                  </div>
-                )}
-                {onStartChat && newChatMode && (
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {t("connections.add.readyGate", { mode: t(`connections.add.mode.${newChatMode}`) })}
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
         </div>
+
+        {step === 3 && firstPick && !chat && (
+          <div
+            data-add-connection-choices
+            role="group"
+            aria-label={t("connections.add.readyChoices")}
+            className="flex shrink-0 flex-wrap items-center gap-x-4 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 max-md:px-3"
+          >
+            {chatTarget && (
+              <label className={optionClass}>
+                <input
+                  type="checkbox"
+                  checked={useInChat}
+                  onChange={(event) => setUseInChat(event.target.checked)}
+                  className={checkClass}
+                  data-add-connection-use-in-chat
+                />
+                <span className="min-w-0">{t("connections.add.useInChat", { model: firstName })}</span>
+              </label>
+            )}
+            {alreadyMain ? (
+              <p className="flex min-h-11 items-center px-2 text-xs text-[var(--muted-foreground)]">
+                {t("connections.add.isMain", { model: firstName })}
+              </p>
+            ) : offerMain ? (
+              <label className={optionClass}>
+                <input
+                  type="checkbox"
+                  checked={makeMainOn}
+                  onChange={(event) => setMakeMain(event.target.checked)}
+                  className={checkClass}
+                  data-add-connection-make-main
+                />
+                <span className="min-w-0">
+                  {t("connections.add.makeMain", { model: firstName })}
+                  <span className="text-xs text-[var(--muted-foreground)]"> · {t("connections.add.makeMainHint")}</span>
+                </span>
+              </label>
+            ) : (
+              <button
+                type="button"
+                data-add-connection-set-main
+                onClick={() => void setAsMain()}
+                disabled={updateRow.isPending}
+                className="min-h-11 px-2 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] disabled:opacity-50"
+              >
+                {t("connections.add.setAsMain", { model: firstName })}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-md:px-4">
           <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>

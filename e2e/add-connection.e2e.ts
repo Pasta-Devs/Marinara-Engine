@@ -142,9 +142,7 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
       "true",
     );
     await expect(dialog.getByText("1 model added")).toBeVisible();
-    await dialog.getByRole("button", { name: "Continue", exact: true }).click();
-
-    await expect(dialog.locator('[data-add-connection-step="ready"]')).toBeVisible();
+    // No Main model yet: the first model added is offered as Main, with its box on, under the list.
     await expect(dialog.locator("[data-add-connection-make-main]")).toBeChecked();
     const created = page.waitForResponse(
       (response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/chats",
@@ -339,7 +337,7 @@ const getRows = async (request: APIRequestContext) =>
   (await (await request.get("/api/connections")).json()) as Array<Row & { model?: string }>;
 
 for (const dismiss of ["Escape", "the close button"] as const) {
-  test(`closing the ready screen with ${dismiss} saves neither Main nor the chat's model`, async ({
+  test(`closing the model screen with ${dismiss} saves neither Main nor the chat's model`, async ({
     page,
     request,
   }) => {
@@ -353,16 +351,15 @@ for (const dismiss of ["Escape", "the close button"] as const) {
     try {
       const dialog = await openCustomSetup(page, provider.baseUrl, chat.id);
       await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
-      await dialog.getByRole("button", { name: "Continue", exact: true }).click();
-      await expect(dialog.locator('[data-add-connection-step="ready"]')).toBeVisible();
       await dialog.locator("[data-add-connection-use-in-chat]").check();
-      await dialog.locator("[data-add-connection-make-main]").check();
+      // The shared server has a Main model, so Main is a quiet link that acts only when pressed.
+      await expect(dialog.locator("[data-add-connection-set-main]")).toBeVisible();
 
       if (dismiss === "Escape") await page.keyboard.press("Escape");
       else await dialog.getByRole("button", { name: "Close Add connection", exact: true }).click();
       await expect(dialog).toHaveCount(0);
 
-      // The starred model stays, but only Done applies the two boxes.
+      // The added model stays, but only Done applies "Use in this chat".
       const after = await getRows(request);
       const added = after.filter((row) => !before.some((old) => old.id === row.id));
       expect(added.map((row) => row.model)).toEqual(["local/alpha"]);
@@ -378,28 +375,28 @@ for (const dismiss of ["Escape", "the close button"] as const) {
   });
 }
 
-test("a failed Main update keeps the ready screen open, and Done works on the next try", async ({ page, request }) => {
+test("a failed Set as Main keeps the model screen open, and the next try works", async ({ page, request }) => {
   const provider = await startProvider();
   const before = await getRows(request);
   try {
     const dialog = await openCustomSetup(page, provider.baseUrl);
     await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
-    await dialog.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(dialog.locator('[data-add-connection-step="ready"]')).toBeVisible();
-    await dialog.locator("[data-add-connection-make-main]").check();
+    const setMain = dialog.locator("[data-add-connection-set-main]");
+    await expect(setMain).toBeVisible();
 
     await page.route("**/api/connections/*", (route) =>
       route.request().method() === "PATCH"
         ? route.fulfill({ status: 500, json: { error: "E2E refused" } })
         : route.fallback(),
     );
-    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    await setMain.click();
     await expect(page.getByText(/Couldn't make it the default/)).toBeVisible();
-    await expect(dialog.locator('[data-add-connection-step="ready"]')).toBeVisible();
-    await expect(dialog.locator("[data-add-connection-make-main]")).toBeChecked();
-    await expect(dialog.getByRole("button", { name: "Done", exact: true })).toBeEnabled();
+    await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
+    await expect(setMain).toBeEnabled();
 
     await page.unroute("**/api/connections/*");
+    await setMain.click();
+    await expect(dialog.getByText("Alpha is already your Main model.")).toBeVisible();
     await dialog.getByRole("button", { name: "Done", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     const added = (await getRows(request)).filter((row) => !before.some((old) => old.id === row.id));
@@ -444,15 +441,9 @@ test("unstarring the first model after starring a second keeps the model screen 
     await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
     await expect(betaStar).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.getByText("1 model added")).toBeVisible();
-    await dialog.getByRole("button", { name: "Continue", exact: true }).click();
-    const ready = dialog.locator('[data-add-connection-step="ready"]');
-    await expect(ready.getByRole("list", { name: "Added models" })).toContainText("Beta");
-    await expect(ready.getByRole("list", { name: "Added models" })).not.toContainText("Alpha");
 
-    // Back on the models, Beta's star goes too: nothing is starred, so closing throws the new Connection away,
-    // even though the Model the screen was opened on is already gone.
-    await dialog.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
+    // Beta goes too: nothing is added, so closing throws the new Connection away, even though the Model the
+    // screen was opened on is already gone.
     await betaStar.click();
     await expect(betaStar).toHaveAttribute("aria-pressed", "false");
     await expect.poll(addedModels, { timeout: 15_000 }).toEqual(["local/beta"]);

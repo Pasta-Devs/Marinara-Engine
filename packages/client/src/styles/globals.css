@@ -1561,6 +1561,23 @@
   opacity: 0.7;
   pointer-events: none;
 }
+/* After adding, the new card's rail flashes once. */
+.mari-connection-flash .mari-connection-model-well::before {
+  animation: mari-connection-rail-flash 1s ease-out 1;
+}
+@keyframes mari-connection-rail-flash {
+  30% {
+    opacity: 1;
+    width: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes mari-connection-rail-flash {
+    30% {
+      opacity: 1;
+    }
+  }
+}
 .mari-connection-model-section-head {
   background: color-mix(in srgb, var(--foreground) 4%, transparent);
 }

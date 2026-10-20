@@ -31,3 +31,24 @@ export function openAddConnection(target?: AddConnectionTarget) {
 export function openAddModels(modelsFor: ModelsFor) {
   useUIStore.getState().openModal("create-connection", { modelsFor });
 }
+
+/**
+ * After adding: scrolls the panel to the Connection's card and flashes its blue rail once. The card can render a
+ * moment after the window closes (the list refetches), so it looks again for a short while; with no panel open
+ * nothing happens.
+ */
+export function flashConnectionCard(accountId: string, tries = 20) {
+  const card = [
+    ...document.querySelectorAll<HTMLElement>(`[data-connection-account-id="${CSS.escape(accountId)}"]`),
+  ].find((element) => element.getClientRects().length > 0);
+  if (!card) {
+    if (tries > 0) window.setTimeout(() => flashConnectionCard(accountId, tries - 1), 100);
+    return;
+  }
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  card.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  card.classList.remove("mari-connection-flash");
+  void card.offsetWidth;
+  card.classList.add("mari-connection-flash");
+  window.setTimeout(() => card.classList.remove("mari-connection-flash"), 1200);
+}
