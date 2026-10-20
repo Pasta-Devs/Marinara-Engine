@@ -109,7 +109,7 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     await expect(dialog.getByRole("button", { name: "OpenAI-compatible address", exact: true })).toBeVisible();
     await expect(dialog.getByLabel("API key", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "OpenRouter", exact: true }).click();
-    await expect(dialog.getByRole("link", { name: /Get your OpenRouter API key/ })).toHaveAttribute(
+    await expect(dialog.getByRole("link", { name: /Where do I find my key\?/ })).toHaveAttribute(
       "href",
       "https://openrouter.ai/keys",
     );
@@ -132,7 +132,7 @@ test("a first run adds a connection from the empty new-chat gate and starts the 
     await dialog.getByLabel("Server address", { exact: true }).fill(provider.baseUrl);
     await dialog.locator("[data-add-connection-connect]").click();
     await expect(dialog.locator('[data-add-connection-step="3"]')).toBeVisible();
-    await expect(dialog.getByText("Choose your favorite models", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: /^Add models to / })).toBeVisible();
     await dialog.locator('[data-model-id="local/alpha"] [data-model-option]').click();
     // Merely starring a model does not change Main before the explicit Ready choice.
     await expect(dialog.locator('[data-model-id="local/alpha"] [data-connection-role]')).toHaveCount(0);

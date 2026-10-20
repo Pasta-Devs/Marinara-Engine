@@ -238,13 +238,30 @@ const hostOf = (url: string) => {
 };
 
 /** A plain reason for a failed test; the raw message stays visible below it. */
+/** A network failure, from the server ("fetch failed") or the browser ("Failed to fetch"). */
+const NETWORK_ERROR =
+  /connection failed|fetch failed|failed to fetch|networkerror|load failed|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|timed? ?out/iu;
+
+/** Where a media service's key is made; chat services carry theirs in PROVIDERS. */
+const MEDIA_KEY_URLS: Record<string, string> = {
+  stability: "https://platform.stability.ai/account/keys",
+  togetherai: "https://api.together.ai/settings/api-keys",
+  novelai: "https://novelai.net/",
+  venice: "https://venice.ai/settings/api",
+  atlas: "https://www.atlascloud.ai/",
+  fal: "https://fal.ai/dashboard/keys",
+  spicyapi: "https://spicyapi.ai/",
+  runpod_comfyui: "https://www.runpod.io/console/user/settings",
+  blockentropy: "https://blockentropy.ai/",
+  seedance: "https://seedance2.ai/",
+};
+
 function failureReason(provider: APIProvider, message: string): "plan" | "key" | "busy" | "unreachable" | "other" {
   if (isLocalAuthProvider(provider)) return "plan";
   const status = /API returned (\d{3})/u.exec(message)?.[1];
   if (status === "401" || status === "403") return "key";
   if (status === "429") return "busy";
-  if (!status && /connection failed|fetch failed|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|timed? ?out/iu.test(message))
-    return "unreachable";
+  if (!status && NETWORK_ERROR.test(message)) return "unreachable";
   return "other";
 }
 
@@ -511,6 +528,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             ? t(key === "custom" ? "connections.add.customName" : "connections.decision.label")
             : (PROVIDERS[key as APIProvider]?.name ?? key);
   };
+  // A network failure reads as one plain sentence, never a raw "Failed to fetch".
+  const friendlyError = (error: unknown) =>
+    NETWORK_ERROR.test(errorText(error))
+      ? t("connections.add.error.unreachable", { host: serviceName(service ?? provider ?? "custom") })
+      : errorText(error);
   const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
   const kindsLabel = (key: ServiceId) =>
     kindsOf(key)
@@ -805,7 +827,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
               : {}),
         };
       } catch (error) {
-        toast.error(errorText(error));
+        toast.error(friendlyError(error));
         return;
       } finally {
         setMediaCreating(false);
@@ -940,7 +962,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
       setSetupKind(kind);
       setMediaEditorId(id);
     } catch (error) {
-      toast.error(errorText(error));
+      toast.error(friendlyError(error));
       setSetupKind(null);
     } finally {
       mediaSetupStarted.current = "";
@@ -1032,13 +1054,18 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
     if (isDevice(service) && deviceSetup[DEVICE_ITEMS[service]].setUp)
       badges.push({ label: t("connections.add.badge.setUp"), highlight: true });
     else if (connectedAccount(service)) badges.push({ label: t("connections.add.badge.connected"), highlight: true });
-    else if ((firstRun && service === "openrouter") || service === LINKAPI_SERVICE)
-      badges.push({ label: t("connections.add.badge.recommended"), highlight: true });
-    if (service === LINKAPI_SERVICE) badges.push({ label: t("connections.add.badge.sponsor") });
+    // The group already says "Recommended"; LinkAPI says why it is first.
+    if (service === LINKAPI_SERVICE) badges.push({ label: t("connections.add.badge.sponsor"), highlight: true });
     if (isDevice(service)) badges.push({ label: t("connections.add.badge.builtIn") });
     const billing =
-      isDevice(service) || mediaBackendOf(service) ? undefined : PROVIDERS[service as APIProvider]?.billing;
-    if (billing) badges.push({ label: t(`connections.add.badge.${billing}`) });
+      service === LINKAPI_SERVICE
+        ? "pay_per_use"
+        : isDevice(service) || mediaBackendOf(service)
+          ? undefined
+          : PROVIDERS[service as APIProvider]?.billing;
+    // NanoGPT has a monthly plan too, so "Pay per use" alone would be wrong.
+    if (service === "nanogpt") badges.push({ label: t("connections.add.badge.planOrPay") });
+    else if (billing) badges.push({ label: t(`connections.add.badge.${billing}`) });
     return badges.slice(0, 2);
   };
   const needle = query.trim().toLowerCase();
@@ -1095,7 +1122,14 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
         </ServiceGroup>
       ))}
       {groups.length === 0 && (
-        <p className="py-4 text-center text-xs text-[var(--muted-foreground)]">{t("connections.add.noMatch")}</p>
+        <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {t("connections.add.noMatch", { query: query.trim() })}
+          </p>
+          <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>
+            {t("connections.add.useCustom")}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1104,7 +1138,11 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
   const existing = connectedAccounts[0];
   // Already connected: the user picks one of those connections or makes a new one before any field shows.
   const choosing = connectedAccounts.length > 0 && !target && !second;
-  const keyUrl = selectedMedia ? undefined : service === LINKAPI_SERVICE ? LINKAPI.keyUrl : def?.keyUrl;
+  const keyUrl = selectedMedia
+    ? MEDIA_KEY_URLS[selectedMedia.source]
+    : service === LINKAPI_SERVICE
+      ? LINKAPI.keyUrl
+      : def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
   const connectDisabled = busy || choosing || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
@@ -1157,7 +1195,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             rel="noopener noreferrer"
             className="inline-flex min-h-11 items-center gap-1 font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)] md:min-h-0"
           >
-            {t("connections.add.getKey", { service: serviceName(service ?? provider!) })}
+            {t("connections.add.getKey")}
             <ExternalLink size="0.6875rem" aria-hidden />
             <span className="sr-only">{t("connections.add.newTab")}</span>
           </a>
@@ -1573,9 +1611,7 @@ export function CreateConnectionModal({ open, onClose, initialService, modelsFor
             ? t("connections.add.heading.mediaSetup", { name: targetName })
             : !setupKind
               ? t("connections.add.heading.chooseCapability")
-              : t(modelsFor ? "connections.add.heading.addModels" : "connections.add.heading.star", {
-                  name: targetName,
-                })
+              : t("connections.add.heading.addModels", { name: targetName })
           : t("connections.add.heading.ready", { name: targetName });
   const subtitle =
     step === 1
