@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "48725a8e524864ffdc960dd5df3238761e832d7d",
+  "sourceCommit": "6659b80efc7422cb77b0cf73aa524a387222e5b6",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,13 +44,13 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "6d7709df7a2a17633ab4eda2d1a74d36ce45d14b85005f77d7347ba51077fcbb",
-      "bytes": 45633
+      "sha256": "d742da1fa2e192df95023a4cf57cce9d4482ede426ea26029d6ae3678a34f487",
+      "bytes": 45532
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "a547d56214bcef7f61fadc42ba3aa3b22b91f7e522de7d55fdf81dd94eb70917",
-      "bytes": 40979
+      "sha256": "82a29d955a818d17467e7a8bfc8f6943bcc2802908c2257a7c67703ca987781b",
+      "bytes": 40879
     },
     {
       "path": "agents/custom-agents.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "945d011c2ec7ac20833e44f5355df5806353e4c0d0c94d958da757d2490e6967",
-      "bytes": 138449
+      "sha256": "18455e5d7f38aa3151543d0e02ffebbc9ea6c13bdaa39c4f4c24d9c4340b0c73",
+      "bytes": 139609
     },
     {
       "path": "development/personal-extensions.md",

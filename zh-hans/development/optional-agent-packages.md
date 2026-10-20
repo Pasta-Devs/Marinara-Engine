@@ -955,6 +955,15 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 - `runtime.logger.isLevelEnabled(level)` 表示 Engine 的日志器当前是否会记录该级别。
 - `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` 使用 Engine 的队列修补元数据，每个聊天只有一个队列，与 Engine 自己的写入方共享，并保留共享房间保护和写入序号。补丁中的键会替换对应的键，其他键全部保留。`patch` 也可以是接收当前元数据的函数。在同一聊天的 `withChatLock` 内调用时，会在该锁内执行。与 `updateChatMetadata` 一样，它会拒绝新增对 Global Gallery 中已不存在图片的引用。
 - `runtime.persistence.appendMessages(chatId, messages)` 批量添加消息，每条都带上第一条备选回复，并返回这些消息。`createChatNote` 和 `createChatInfluence` 会从 Conversation 向其连接的 Roleplay 添加笔记或一次性影响。这四个持久化成员需要 `chat-write`。
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` 会按 Engine 在
+  Conversation 回复后采用的方式应用 `[schedule_update]`：在角色卡上设置临时状态，让这个角色在所有聊天里
+  都显示该状态，直到状态到期。`status` 可以是 `online`、`idle`、`dnd` 或 `offline`，`activity` 最多
+  500 个字符，两者至少要提供一个。`duration` 按命令使用的格式填写（`2h`、`30m`）；不填写或无法解析时，
+  状态持续 60 分钟，而且最长不会超过一周。它返回 `{ status, activity, expiresAt }`，没有变化时返回 `null`：
+  用户手动设置的状态仍然优先，共享房间也保留自己的日程。它会拒绝无效更新、不是 Conversation 的聊天，
+  以及不在聊天中的角色，并且需要 `chat-write`。这个成员是在首批报告支持 1.341 的 Engine 之后加入
+  Capability API 1.341 的，因此要检查 `typeof api.runtime.persistence.updateCharacterStatus === "function"`，
+  如果没有这个方法，就跳过状态变更。
 - `runtime.integrations.admission` 就是 Engine 的连接准入，因此包的后台任务会等待用户在同一连接上直接发出的请求。`withProvider(provider, connectionId, mode)` 包装同一个包的集成功能创建的服务商，`run(connectionId, mode, operation)` 执行一次尝试，`tryBackground(connectionId)` 在连接空闲时取得后台槽位，`isFailure(error)` 识别 Engine 的忙碌和拒绝错误。它只预约槽位，不需要权限。
 - `runtime.integrations.haptics`（`status`、`connect`、`executeCommand`）使用 Engine 唯一的 Intiface Central 连接，需要 `network`。
 - `runtime.integrations.spotify`（`commandsAvailable`、`playSong`）使用 Music DJ 智能体的 Spotify 账号。`playSong` 会以 `ConversationSpotifyCommandError` 拒绝；错误码 `spotify_unavailable` 和 `missing_playback_scope` 表示 Spotify 尚未设置，此时直接丢弃命令，不必提示。它需要 `network`。

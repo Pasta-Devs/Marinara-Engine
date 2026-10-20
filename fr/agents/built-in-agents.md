@@ -334,7 +334,7 @@ Affiche tes personnages et tes personas sous forme d'avatars 2D animés qui clig
 
 - **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : **Staging only** pendant sa phase de test. **Download Agents** ne le propose que si Marinara Engine tourne sur la branche `staging`.
+- **Disponibilité** : dans **Download Agents** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
 - **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**. L'agent fournit aussi les prompts qui servent à créer les images de clignement et de parole, ainsi qu'un avatar mesh, à partir d'un de tes sprites.
 - **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).
@@ -345,7 +345,7 @@ Affiche tes personnages et tes personas sous forme de modèles 3D animés qui cl
 
 - **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : **Staging only** pendant sa phase de test. **Download Agents** ne le propose que si Marinara Engine tourne sur la branche `staging`.
+- **Disponibilité** : dans **Download Agents** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
 - **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**.
 - **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).

@@ -1022,6 +1022,16 @@ packages d'utiliser certaines bibliothèques du moteur au lieu de les embarquer.
 - `runtime.persistence.appendMessages(chatId, messages)` ajoute des messages, chacun avec son premier swipe, en un seul lot et
   les renvoie. `createChatNote` et `createChatInfluence` ajoutent une note ou une influence ponctuelle depuis une Conversation
   vers le Roleplay qui lui est connecté. Ces quatre membres de persistance nécessitent `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` applique une
+  `[schedule_update]` comme le fait le moteur après une réponse de Conversation : un statut temporaire sur la fiche de personnage,
+  que le personnage affiche dans tous les chats jusqu'à son expiration. `status` vaut `online`, `idle`, `dnd` ou `offline`, `activity`
+  contient au plus 500 caractères, et au moins l'un des deux est requis. `duration` s'écrit comme dans la commande (`2h`,
+  `30m`) ; sans durée, ou si elle ne peut pas être lue, le statut dure 60 minutes, et jamais plus d'une semaine. Le résultat est
+  `{ status, activity, expiresAt }`, ou `null` si rien n'a changé : un statut défini à la main par l'utilisateur garde la priorité,
+  et un salon partagé conserve ses propres routines. La méthode refuse une modification non valide, un chat qui n'est pas de Conversation
+  et un personnage qui n'est pas dans le chat, et nécessite `chat-write`. Elle a rejoint l'API de capacités 1.341 après les
+  premiers moteurs qui annoncent 1.341 : vérifie donc `typeof api.runtime.persistence.updateCharacterStatus === "function"` et
+  ignore le changement de statut si elle manque.
 - `runtime.integrations.admission` est l'admission des connexions du moteur : le travail d'arrière-plan d'un package attend donc les
   requêtes de l'utilisateur sur la même connexion. `withProvider(provider, connectionId, mode)` enveloppe un fournisseur créé par
   les intégrations du même package, `run(connectionId, mode, operation)` exécute une tentative, `tryBackground(connectionId)`

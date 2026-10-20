@@ -995,6 +995,16 @@ Capability API 1.341 добавляет элементы `api.runtime`, кото
 - `runtime.persistence.appendMessages(chatId, messages)` добавляет сообщения, каждое с первым свайпом, одной
   партией и возвращает их. `createChatNote` и `createChatInfluence` добавляют заметку или одноразовое влияние из
   разговора в связанный с ним чат Roleplay. Для этих четырех элементов сохранения требуется `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` применяет
+  `[schedule_update]` так же, как Engine после ответа в Conversation: временный статус на карточке персонажа,
+  который отображается у этого персонажа во всех чатах до истечения срока. `status` – это `online`, `idle`, `dnd`
+  или `offline`, длина `activity` – не больше 500 символов, и хотя бы один из этих двух параметров обязателен.
+  `duration` записывается как в команде (`2h`, `30m`); если его нет или его нельзя прочитать, статус действует
+  60 минут, но никогда не дольше недели. Метод возвращает `{ status, activity, expiresAt }` или `null`, если ничего
+  не изменилось: заданный пользователем вручную статус имеет приоритет, а общая комната сохраняет свои распорядки.
+  Метод отклоняет недопустимое обновление, чат не в режиме Conversation и персонажа, которого нет в чате;
+  требуется `chat-write`. Он появился в capability API 1.341 позже первых Engine, сообщающих о поддержке 1.341,
+  поэтому проверьте `typeof api.runtime.persistence.updateCharacterStatus === "function"` и пропустите смену статуса, если метода нет.
 - `runtime.integrations.admission` – допуск к подключениям Engine, поэтому фоновая работа пакета ждет собственных
   запросов пользователя на том же подключении. `withProvider(provider, connectionId, mode)` оборачивает провайдера,
   созданного интеграциями того же пакета, `run(connectionId, mode, operation)` выполняет одну попытку,

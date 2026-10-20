@@ -990,6 +990,16 @@ Capability API 1.341 में `api.runtime` के नए सदस्य ह�
 - `runtime.persistence.appendMessages(chatId, messages)` एक बैच में संदेश जोड़ता है, हर संदेश का पहला स्वाइप
   भी जोड़ता है, और उन्हें लौटाता है। `createChatNote` और `createChatInfluence` बातचीत से जुड़ी Roleplay चैट में
   एक नोट या एक बार का असर जोड़ते हैं। सेव करने वाले इन चार सदस्यों के लिए `chat-write` चाहिए।
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })`, Conversation
+  जवाब के बाद Engine की तरह `[schedule_update]` लागू करता है: कैरेक्टर कार्ड पर एक अस्थायी स्टेटस,
+  जो खत्म होने तक उस कैरेक्टर के लिए हर चैट में दिखता है। `status`, `online`, `idle`, `dnd` या `offline`
+  होता है। `activity` ज़्यादा से ज़्यादा 500 अक्षर की होती है, और इन दोनों में से कम से कम एक ज़रूरी है।
+  `duration` कमांड की तरह लिखा जाता है (`2h`, `30m`)। यह न दिया जाए या पढ़ा न जा सके, तो स्टेटस 60 मिनट
+  रहता है; कभी एक हफ़्ते से ज़्यादा नहीं। यह `{ status, activity, expiresAt }` लौटाता है, या कुछ न बदले तो
+  `null`: यूज़र का हाथ से सेट किया स्टेटस प्राथमिक रहता है, और साझा कमरा अपने रूटीन बनाए रखता है। यह ऐसा
+  अपडेट अस्वीकार करता है जो सही न हो, ऐसी चैट जो Conversation चैट न हो, और ऐसा कैरेक्टर जो उस चैट में न हो।
+  इसके लिए `chat-write` चाहिए। यह capability API 1.341 में उन पहले Engine के बाद आया जो 1.341 बताते हैं,
+  इसलिए `typeof api.runtime.persistence.updateCharacterStatus === "function"` जाँचें और यह मौजूद न हो तो स्टेटस न बदलें।
 - `runtime.integrations.admission` Engine का कनेक्शन प्रवेश नियंत्रण है, इसलिए पैकेज का बैकग्राउंड काम उसी
   कनेक्शन पर यूज़र के अपने अनुरोधों का इंतज़ार करता है। `withProvider(provider, connectionId, mode)` उसी पैकेज
   की इंटीग्रेशन से बने प्रोवाइडर को लपेटता है, `run(connectionId, mode, operation)` एक कोशिश चलाता है,

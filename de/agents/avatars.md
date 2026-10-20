@@ -2,13 +2,11 @@
 
 Zwei herunterladbare Agenten geben deinen Charakteren und Personas einen animierten Avatar, der reagiert, während eine Antwort eintrifft. **2D Avatars** (2D-Avatare) zeigt Sprites im PNGTuber-Stil oder Mesh-Avatare, **3D Avatars** (3D-Avatare) zeigt VRM-Modelle. Die Gesichter folgen der Antwort, und die Münder bewegen sich mit dem Text oder mit der Sprachausgabe (Text to Speech).
 
-Diese Funktion ist noch im Aufbau. Die folgenden Abschnitte füllen sich, sobald der jeweilige Teil auf `staging` landet.
-
 Live2D-Modelle werden nicht unterstützt. Die Lizenz von Live2D verlangt selbst für kostenlose Open-Source-Apps eine eigene Vereinbarung mit Live2D, und die Live2D-Laufzeitumgebung kann nicht mit Marinara Engine ausgeliefert werden.
 
 ## Die Agenten herunterladen
 
-Beide Agenten werden noch getestet. Vorerst bietet **Download Agents** (Agenten herunterladen) sie nur an, wenn Marinara Engine auf dem `staging`-Branch läuft.
+Beide Agenten stehen bei jeder Installation unter **Download Agents** (Agenten herunterladen) in den Filtern **Roleplay** und **Game** bereit. Sie brauchen Marinara Engine 2.5.1 oder neuer.
 
 **2D Avatars** und **3D Avatars** sind getrennte Downloads. Du kannst also nur den installieren, den du willst. Beide funktionieren für Charaktere und Personas in Roleplay- und Game-Chats.
 

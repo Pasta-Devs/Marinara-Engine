@@ -995,6 +995,16 @@ paquetes usen algunas bibliotecas del motor en vez de incluirlas en su paquete. 
 - `runtime.persistence.appendMessages(chatId, messages)` añade mensajes, cada uno con su primer swipe, en un solo lote y
   los devuelve. `createChatNote` y `createChatInfluence` añaden una nota o una influencia de una sola vez desde una Conversation
   al Roleplay conectado. Estos cuatro miembros de persistencia necesitan `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` aplica un
+  `[schedule_update]` como lo hace el motor después de una respuesta de Conversation: un estado temporal en la tarjeta de personaje,
+  que el personaje muestra en todos los chats hasta que termina. `status` es `online`, `idle`, `dnd` u `offline`, `activity`
+  tiene como máximo 500 caracteres y se requiere al menos uno de los dos. `duration` se escribe como en el comando (`2h`,
+  `30m`); si falta o no se puede interpretar, el estado dura 60 minutos, y nunca más de una semana. Devuelve
+  `{ status, activity, expiresAt }`, o `null` cuando nada cambió: un estado que el usuario estableció a mano mantiene la prioridad,
+  y una sala compartida conserva sus propias rutinas. Rechaza una actualización no válida, un chat que no sea de Conversation
+  y un personaje que no esté en el chat, y necesita `chat-write`. Se añadió a la API de capacidades 1.341 después de los
+  primeros motores que anuncian 1.341, así que comprueba `typeof api.runtime.persistence.updateCharacterStatus === "function"` y
+  omite el cambio de estado cuando falte.
 - `runtime.integrations.admission` es la admisión de conexiones del motor, de modo que el trabajo en segundo plano de un paquete espera a las
   solicitudes del usuario en la misma conexión. `withProvider(provider, connectionId, mode)` envuelve un proveedor creado por
   las integraciones del mismo paquete, `run(connectionId, mode, operation)` ejecuta un intento, `tryBackground(connectionId)`

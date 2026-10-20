@@ -2,13 +2,11 @@
 
 有两个可下载的智能体能给你的角色和用户角色配上会动的虚拟形象，回复流式输出时它会跟着做出反应。**2D Avatars**(2D 虚拟形象) 显示 PNGTuber 风格的立绘或网格虚拟形象，**3D Avatars**(3D 虚拟形象) 显示 VRM 模型。表情跟着回复变化，嘴巴跟着文字或语音合成动。
 
-这项功能还在开发中。下面各节会随着各部分合入 `staging` 逐步补全。
-
 不支持 Live2D 模型。即使是免费的开源应用，Live2D 的许可也要求和 Live2D 另外签订协议，而且它的运行时不能随 Marinara Engine 一起分发。
 
 ## 下载智能体
 
-两个智能体都还在测试。目前只有 Marinara Engine 运行在 `staging` 分支上时，**Download Agents**(下载智能体) 里才会提供它们。
+所有安装都能在 **Download Agents**(下载智能体) 的 **Roleplay** 和 **Game** 筛选项下找到这两个智能体。需要 Marinara Engine 2.5.1 或更新版本。
 
 **2D Avatars** 和 **3D Avatars** 是分开下载的，可以只装你想要的那个。两者都适用于 Roleplay(角色扮演) 和 Game(游戏模式) 聊天里的角色和用户角色。
 

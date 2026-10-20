@@ -979,6 +979,16 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `runtime.logger.isLevelEnabled(level)`은 Engine 로거가 현재 그 수준의 로그를 기록하는지 알려 줍니다.
 - `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })`는 Engine의 큐를 거치는 메타데이터 패치입니다. 채팅마다 큐가 하나씩 있으며 Engine 자체 쓰기 작업과 공유하고, 공유방 가드와 쓰기 순번을 사용합니다. 패치에 포함된 키는 해당 키를 바꾸고 다른 키는 모두 유지합니다. `patch`는 현재 메타데이터를 인자로 받는 함수일 수도 있습니다. 같은 채팅의 `withChatLock` 안에서는 그 잠금 안에서 실행됩니다. `updateChatMetadata`처럼, 더는 존재하지 않는 Global Gallery 이미지에 대한 새 참조를 거부합니다.
 - `runtime.persistence.appendMessages(chatId, messages)`는 각 메시지를 첫 스와이프와 함께 한 번에 추가하고 반환합니다. `createChatNote`와 `createChatInfluence`는 Conversation에서 연결된 Roleplay에 노트나 일회성 영향을 추가합니다. 이 네 영속화 멤버에는 `chat-write`가 필요합니다.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })`는 Conversation
+  답변 뒤에 Engine이 처리하는 방식으로 `[schedule_update]`를 적용합니다. 캐릭터 카드에 임시 상태를 설정해
+  만료될 때까지 모든 채팅에서 그 캐릭터에 표시합니다. `status`는 `online`, `idle`, `dnd`, `offline` 중
+  하나이고, `activity`는 최대 500자이며, 둘 중 하나 이상이 필요합니다. `duration`은 명령에서 쓰는 형식
+  (`2h`, `30m`)으로 지정합니다. 생략하거나 읽을 수 없으면 상태가 60분 동안 유지되며, 최대 일주일을 넘지 않습니다.
+  `{ status, activity, expiresAt }`를 반환하고, 아무것도 바뀌지 않으면 `null`을 반환합니다. 사용자가 직접
+  설정한 상태가 우선하며, 공유 방은 자체 루틴을 유지합니다. 유효하지 않은 업데이트, Conversation이 아닌 채팅,
+  채팅에 없는 캐릭터의 업데이트를 거부하며 `chat-write`가 필요합니다. 이 멤버는 1.341을 지원한다고 보고하는
+  초기 Engine이 나온 뒤 Capability API 1.341에 추가되었으므로,
+  `typeof api.runtime.persistence.updateCharacterStatus === "function"`인지 확인하고 없으면 상태 변경을 건너뛰세요.
 - `runtime.integrations.admission`은 Engine의 연결 요청 수용을 사용하므로, 패키지의 백그라운드 작업은 같은 연결에서 사용자가 직접 보낸 요청이 끝나기를 기다립니다. `withProvider(provider, connectionId, mode)`는 같은 패키지의 통합 기능이 만든 제공자를 감쌉니다. `run(connectionId, mode, operation)`은 한 번의 시도를 실행하고, `tryBackground(connectionId)`는 연결이 유휴 상태일 때 백그라운드 슬롯을 차지하며, `isFailure(error)`는 Engine의 사용 중 오류와 거부 오류를 식별합니다. 슬롯을 예약하기만 하므로 권한은 필요 없습니다.
 - `runtime.integrations.haptics`(`status`, `connect`, `executeCommand`)는 Engine의 단일 Intiface Central 연결을 사용합니다. `network`가 필요합니다.
 - `runtime.integrations.spotify`(`commandsAvailable`, `playSong`)는 Music DJ 에이전트의 Spotify 계정을 사용합니다. `playSong`은 `ConversationSpotifyCommandError`로 거부합니다. 코드 `spotify_unavailable`과 `missing_playback_scope`는 Spotify가 설정되지 않았다는 뜻이므로, 알림 없이 명령을 버리세요. `network`가 필요합니다.
