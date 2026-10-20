@@ -561,9 +561,10 @@ export function ConnectionsPanel() {
               {deviceTitle}
             </strong>
             <span className="mt-0.5 block min-w-0 truncate text-xs text-[var(--muted-foreground)]">
-              {visible.engines.length === 1
-                ? `${onlyEngine.name} · ${onlyEngine.state}`
-                : visible.engines.map((engine) => engine.name).join(" · ")}
+              {(visible.engines.length === 1
+                ? [onlyEngine.name, onlyEngine.state]
+                : visible.engines.map((engine) => engine.name)
+              ).join(" · ")}
             </span>
           </span>
         </button>
