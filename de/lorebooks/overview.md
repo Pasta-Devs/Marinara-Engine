@@ -30,11 +30,11 @@ Oben im Panel sitzen drei Symbol-Schaltflächen. Sie zeigen nur ein Symbol, ganz
 - **Import** (Importieren, ein Pfeil nach unten) öffnet das Fenster **Import Lorebook** (Lorebook importieren), um eine Lorebook-Datei zu laden.
 - **Select** (Auswählen, ein Häkchen) schaltet die Mehrfachauswahl ein, damit du mehrere Lorebooks auf einmal exportieren oder löschen kannst.
 
-Unter den Schaltflächen liegt ein Suchfeld mit dem Platzhaltertext **Search lorebooks** (Lorebooks durchsuchen). Es filtert die Liste nach Name, Beschreibung, verknüpften Charakter- oder Persona-Namen und Tags (Schlagwörtern). Daneben steht das Dropdown-Menü **Sort order** (Sortierreihenfolge) mit diesen Optionen: **A-Z**, **Z-A**, **Newest**, **Oldest** und **Token Budget**.
+Unter den Schaltflächen liegt ein Suchfeld mit dem Platzhaltertext **Search lorebooks** (Lorebooks durchsuchen). Es filtert die Liste nach Name, Beschreibung, verknüpften Charakter- oder Persona-Namen und Tags (Schlagwörtern). Daneben steht das Dropdown-Menü **Sort order** (Sortierreihenfolge) mit diesen Optionen: **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** und **Token Budget**. Mit **Manual order** ziehst du die Lorebooks in die gewünschte Reihenfolge oder verschiebst eines mit Alt+Pfeil nach oben und Alt+Pfeil nach unten auf der Tastatur. Deine Reihenfolge bleibt erhalten.
 
 Jede Lorebook-Zeile zeigt eine Schaltfläche **Copy** (Kopieren) und eine Schaltfläche **Delete** (Löschen). Sie erscheinen, sobald du mit der Maus über die Zeile fährst. Auf dem Handy sind sie immer sichtbar. **Copy** dupliziert das Lorebook. Ein ausgeschaltetes Lorebook trägt ein kleines **OFF**-Badge. Klick auf das Bild, um es hochzuladen oder zu ersetzen.
 
-Mit der Schaltfläche **New Folder** (Neuer Ordner) legst du außerdem Bibliotheks-Ordner an. Zieh ein Lorebook auf einen Ordner, um es einzusortieren. So bleibt auch eine große Bibliothek übersichtlich. Diese Bibliotheks-Ordner haben nichts mit den Eintrags-Ordnern zu tun, die du innerhalb eines einzelnen Lorebooks anlegen kannst.
+Mit der Schaltfläche **New Folder** (Neuer Ordner) legst du außerdem Bibliotheks-Ordner an. Zieh ein Lorebook auf einen Ordner, um es einzusortieren. So bleibt auch eine große Bibliothek übersichtlich. Auf dem Handy hältst du ein Lorebook kurz gedrückt und ziehst es dann. Diese Bibliotheks-Ordner haben nichts mit den Eintrags-Ordnern zu tun, die du innerhalb eines einzelnen Lorebooks anlegen kannst.
 
 ## Kategorien
 

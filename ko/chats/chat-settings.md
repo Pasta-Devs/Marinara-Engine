@@ -42,7 +42,7 @@ Roleplay에서 슬라이더 버튼 옆의 짧은 안내는 한 번만 닫으면 
 - **Lock**(잠금)은 창 이동과 크기 변경을 막고 버튼 위치도 잠급니다. 버튼으로 창을 여는 것은 가능합니다. 창이나 버튼을 다시 옮기려면 창의 잠금을 해제하세요.
 - **Close**(닫기, **X**)는 창을 숨깁니다.
 
-브라우저 크기를 바꾸거나 사이드바를 열어도 창은 채팅 영역 안에 머뭅니다.
+브라우저 크기를 바꾸거나 사이드바를 열어도 창은 채팅 영역 안에 머뭅니다. 컴퓨터에서는 창이나 버튼을 메시지 입력란 옆 공간에 채팅 맨 아래까지 둘 수 있습니다. 메시지 입력란 자체를 가리지는 않습니다.
 
 휴대폰에서는 Chat Settings가 화면 너비의 패널로 열립니다. 입력할 때는 키보드 위 공간에 맞춰집니다.
 
@@ -188,7 +188,7 @@ Marinara는 **preset**이라는 말을 프롬프트 프리셋에만 씁니다. �
 - **Lorebooks** 아래의 **Chat Summary**(채팅 요약)에서 Roleplay 채팅의 요약을 읽고 만듭니다. [Memory Recall과 채팅 요약](../agents/memory.md#chat-summary-roleplay)을 참고하세요.
 - **Chat Summary** 아래의 **Active Context**(활성 컨텍스트)는 이 채팅에서 사용 중인 로어북과 컨텍스트를 보여 줍니다. [토큰 예산과 재귀](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context)를 참고하세요.
 - 에이전트나 Advanced Memory를 쓰는 Roleplay 채팅에서는 **Agents** 바로 아래의 **Agent activity**(에이전트 활동)가 에이전트의 작업 결과를 보여 줍니다. 트래커 재실행, 에이전트 재시도와 중지, 트래커 비우기도 할 수 있습니다. [에이전트 활동](../roleplay/getting-started.md#agent-activity)을 참고하세요.
-- **Agents** 아래의 **Author's Notes**(작가 노트)에는 Roleplay 채팅의 매 턴마다 AI가 읽는 노트를 넣습니다. [Author's Notes](../roleplay/getting-started.md#authors-notes)를 참고하세요.
+- **Agents** 아래의 **Author's Notes**(작가 노트)에는 Roleplay 채팅의 매 턴마다 AI가 읽는 노트를 넣습니다. 따로 떼어 내면 입력란이 창 크기에 맞춰 커지고, 휴대폰에서는 화면을 가득 채웁니다. [Author's Notes](../roleplay/getting-started.md#authors-notes)를 참고하세요.
 - **Gallery**(갤러리)에는 채팅의 이미지와 동영상이 있습니다. [장면 배경과 Gallery](../media/scene-backgrounds.md)를 참고하세요.
 
 ## 패널의 다른 섹션

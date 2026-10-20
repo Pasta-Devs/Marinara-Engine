@@ -18,7 +18,7 @@
 - **컨트롤 사용 불가:** 올바른 Engine의 `.env`에 `MULTIPLAYER_ENABLED=true`가 있는지 확인하고 재시작한 다음 Settings를 별도로 켜세요. 저장된 스위치는 누락되거나 잘못된 환경 값을 대체할 수 없습니다. Android 네이티브 래퍼는 의도적으로 참여할 수 없습니다.
 - **호스트 연결 불가:** 별도로 접근 가능한 HTTPS 방 포트, 유효한 인증서 체인/호스트명, 일치하는 초대 지문을 사용하세요. 오류를 우회하려고 TLS 검증을 끄거나, 신뢰하는 출처에 `null`을 추가하거나, 일반 Engine API를 공개하거나, 호스트 제공 클라이언트를 열지 마세요.
 - **승인 대기:** 호스트가 Players에서 승인해야 합니다. 승인 전에는 기록을 볼 수 없습니다. 초대가 만료되거나 취소되었다면 새 초대를 요청하세요.
-- **연결 끊김:** 게스트 자신의 Engine을 계속 실행하세요. 명시적 세션이 살아 있는 동안 클라이언트는 같은 고정 호스트에 재연결하며, 미전송 초안은 현재 화면에 남습니다. 재시작하면 자격 증명이 끝나므로 새로 참여해야 합니다. 네트워크 장애에도 Stop/Leave는 사용할 수 있습니다.
+- **연결 끊김:** 게스트 자신의 Engine을 계속 실행하세요. 명시적 세션이 살아 있는 동안 클라이언트는 같은 고정 호스트에 재연결하며, 미전송 초안은 현재 화면에 남습니다. 재시작하면 자격 증명이 끝나므로 새로 참여해야 합니다. 이후에도 같은 페르소나 이름을 쓰려면 먼저 호스트에게 이전 자리를 제거해 달라고 요청하세요. 네트워크 장애에도 Stop/Leave는 사용할 수 있습니다.
 - **Game 대기:** Players를 확인하세요. 연결이 끊긴 참여자는 자동으로 패스하지 않습니다. 호스트가 명시적으로 Pass/Kick 또는 Pause를 선택할 수 있습니다. 필요한 두 행동 중 하나만 제출해도 GM이 실행되어서는 안 됩니다.
 - **생성 중단:** 라운드를 반복 제출하지 마세요. 호스트는 저장된 서술/상태를 확인하고 명시적으로 앞으로 진행하거나 방을 중지해야 합니다. 멀티플레이어는 결과가 불명확한 모델 요청을 조용히 반복하거나 세계 효과를 두 번 적용하지 않습니다.
 - **제한된 명령 또는 미디어 누락:** 초기 방 프로토콜은 의도적으로 텍스트만 전달합니다. [호환성 표](development/multiplayer.md#command-and-feature-compatibility)를 참고하고 우회하려고 다른 참여자의 파일이나 확장 기능을 설치하지 마세요.
@@ -32,6 +32,10 @@
 Vite가 `Reached heap limit` 또는 `JavaScript heap out of memory`로 종료되면 클라이언트 빌드에 필요한 Node.js 힙이 부족한 것입니다. Rollup 네이티브 바이너리 누락과는 다릅니다. 업데이트하고 `start-termux.sh`를 다시 실행하세요. 이제 앱 내 업데이트를 포함한 클라이언트 빌드는 별도의 1536 MiB 힙으로 실행됩니다. 알려진 기기 RAM의 절반을 넘지 않지만, 빌드에 필요한 1280 MiB 아래로는 내려가지 않습니다. RAM에 따른 상한은 128 MiB 단위로 내림합니다. 서버는 프로필 크기에 따른 더 작은 제한을 유지합니다. `NODE_OPTIONS`의 명시적 제한은 두 프로세스 모두에서 우선하므로 예전 1024 MiB 설정이 남았는지 확인하세요. 클라이언트는 이제 1024 MiB로는 빌드되지 않습니다.
 
 다시 시도하기 전에 다른 앱을 닫으세요. RAM이 약 3 GB 미만인 휴대폰은 여전히 메모리가 부족하거나 Android가 프로세스를 종료할 수 있습니다. 이 경우 시작 출력 전체를 보관해 보고하세요. 빌드 실패를 고치려고 채팅이나 프로필을 삭제하지 마세요.
+
+### 데스크톱: 클라이언트 타입 검사 중 메모리 부족
+
+클라이언트 빌드가 `JavaScript heap out of memory`로 멈춘 뒤 `The client type-check needs about 2.5 GiB of Node.js heap`이라고 표시되면 `NODE_OPTIONS`에 설정한 힙 제한이 너무 작은 것입니다. 빌드는 직접 설정한 제한을 올리지 않고 그대로 따릅니다. `NODE_OPTIONS`에 `--max-old-space-size-percentage`가 있다면 그 비율을 올리세요. 이 옵션은 `--max-old-space-size`보다 우선합니다. `--max-old-space-size`만 쓴다면 2560 이상으로 올리세요. 또는 이 옵션들을 지워 빌드가 제한을 직접 정하게 하세요. 그런 다음 런처를 다시 실행하세요. 채팅과 설정은 건드리지 않습니다.
 
 ### Termux: 멀티플레이어 게스트 파일 누락
 
@@ -111,6 +115,10 @@ rm -rf node_modules .pnpm .pnpm-store
 
 그런 다음 `./start.sh`로 Marinara를 다시 시작하세요. 직접 설치하는 경우에는 폴더를 지운 뒤 `pnpm install`을 실행하세요.
 
+### 설치 중 "Ignored build scripts: @google/genai" 알림이 나올 때
+
+이 알림은 무해합니다. 해당 패키지의 설치 스크립트는 아무 일도 하지 않으며 Marinara에는 필요하지 않습니다. `pnpm approve-builds`는 실행하지 마세요. Marinara가 추적하는 파일이 바뀌어서, 이후 업데이트 때마다 그 변경을 따로 치워 두어야 합니다. 현재 버전에서는 이 알림이 더 이상 표시되지 않습니다. 이미 알림이 표시되던 설치에서 업데이트한 뒤에도 계속 표시된다면 Marinara 폴더의 `node_modules/.modules.yaml` 파일을 삭제한 다음 런처를 다시 실행하세요. 채팅과 설정은 건드리지 않습니다.
+
 ### 설치 중 ERR_PNPM_TRUST_DOWNGRADE
 
 거의 대부분 설치가 중간에 끝난 상태입니다. 먼저 런처를 다시 실행해 작업 공간을 복구하게 하세요. 직접 설치하는 경우에는 Marinara 폴더에서 다음 명령 하나를 실행하세요.
@@ -136,6 +144,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 오래된 설치본에서 첫 패키지 마이그레이션이 끝나지 않더라도 `data/capability-packages` 폴더나 채팅 데이터를 지우지 마세요. Marinara는 마이그레이션을 미완 상태로 두고 다음 시작 때 다시 시도합니다. 카탈로그에 접근할 수 없는 동안에도 기존의 채팅 선택과 설정은 그대로 저장되어 있습니다.
 
+`data/capability-runtime-snapshots`나 `data/capability-packages/versions`가 커졌더라도 직접 정리할 필요는 없습니다. Marinara는 시작할 때 오래된 사본을 삭제하고 각 에이전트의 현재 버전과 이전 버전만 남깁니다.
+
 패키지의 체크섬, 선언된 파일 목록, Engine 버전 범위, 아카이브 경로가 공식 카탈로그와 다르면 다운로드를 거부합니다. 먼저 Marinara Engine을 업데이트하고 카탈로그를 새로고침한 뒤 다시 시도하세요. 데이터 폴더에 아티팩트를 직접 풀어 넣지 마세요.
 
 에이전트 업데이트는 시작할 때 자동으로 적용되지 않습니다. 호환되는 최신 버전이 있으면 Marinara가 적용할지 묻습니다. **No**를 선택하면 설치된 버전이 그대로 유지되고, **Update** 버튼은 **Agents → Download Agents**에 계속 남아 있습니다. 업데이트가 실패해도 설치된 버전은 등록된 상태로 남고, 새로 업데이트한 서버 런타임이 시작 시 자체 점검에 실패하면 이전 버전으로 되돌아갑니다.
@@ -147,7 +157,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 접근할 수 있는 주소로 서버를 바인딩하세요. 서버는 기본적으로 `127.0.0.1`(루프백, 즉 자기 컴퓨터에서만 접근 가능)에서 요청을 기다립니다. 셸 런처는 `HOST=0.0.0.0`을 알아서 설정해 줍니다. `pnpm start`로 직접 실행했다면 `.env` 파일에 `HOST=0.0.0.0`을 먼저 설정하세요.
 - 두 기기가 같은 Wi-Fi 네트워크에 있는지 확인하세요.
 - 방화벽이 포트를 막고 있지 않은지 확인하세요. 기본 포트는 `7860`이며, `PORT`로 지정한 값이 있으면 그 포트입니다.
-- 접근 제어를 설정하세요. 일반 네트워크나 공개 클라이언트에서 접근할 때는 `.env`에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 루프백은 비밀번호 없이 그대로 쓸 수 있습니다. Tailscale을 통한 직접 통신과 같은 호스트의 Docker 브리지 또는 감지된 컨테이너 게이트웨이는 기본적으로 신뢰합니다. 프록시를 거친 Docker 트래픽은 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`를 직접 설정하지 않는 한 일반적인 인증이 필요합니다.
+- 접근 제어를 설정하세요. 일반 네트워크나 공개 클라이언트에서 접근할 때는 `.env`에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 루프백은 비밀번호 없이 그대로 쓸 수 있지만, 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 로그인해야 합니다. Tailscale을 통한 직접 통신은 기본적으로 신뢰합니다. 같은 호스트의 Docker 브리지나 게이트웨이 트래픽은 Basic Auth나 `IP_ALLOWLIST`를 설정하기 전까지만 신뢰합니다. 프록시를 거친 Docker 트래픽은 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`를 직접 설정하지 않는 한 일반적인 인증이 필요합니다.
+- 기기에 **Too many wrong passwords**가 표시되면 15분 기다린 다음 올바른 Basic Auth 비밀번호로 로그인하세요. 서버를 재시작해도 다시 시도할 수 있습니다.
 - 그 기기에서 백업, 데이터 삭제, 업데이트처럼 권한이 필요한 작업을 하려면 서버 `.env`에 `ADMIN_SECRET`을 설정하세요. 그런 다음 같은 값을 그 기기의 **Settings** > **Advanced** > **Admin Access**(관리자 접근)에 붙여넣고 **Save**(저장)를 클릭하세요.
 - 공개 도메인이나 리버스 프록시 도메인을 쓰는데 **Untrusted request host**가 나타나면 `.env`의 `TRUSTED_HOSTS`에 정확한 호스트 이름을 추가하세요. 휴대폰, LAN 컴퓨터, Tailscale 피어가 쓰는 직접 IP 주소는 자동으로 계속 허용됩니다.
 
@@ -181,6 +192,7 @@ CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
 - **The AI returned an empty response. Try sending your message again.**: 메시지를 다시 보내세요. 같은 문제가 계속되면 다른 모델이나 다른 연결로 바꿔 보세요.
 - **A generation is already in progress for this chat**: 답변 하나가 아직 스트리밍 중입니다. 끝날 때까지 기다리거나 Stop 버튼을 클릭한 뒤 다시 시도하세요.
 - **No connections are marked for the random pool**: 무작위 연결 라우팅을 켰지만 후보로 지정한 연결이 하나도 없습니다. 후보에 연결을 하나 이상 추가하거나 무작위 라우팅을 끄세요.
+- 모든 메시지가 네트워크 오류로 실패하고, 컴퓨터가 프록시를 거쳐야만 인터넷에 접속할 수 있다면(예: TUN 모드 없이 쓰는 v2rayN) Marinara에 프록시를 알려 주세요. [아웃바운드 HTTP 프록시](CONFIGURATION.md#outbound-http-proxy)를 참고하세요.
 
 ## Local Model 문제
 
@@ -211,7 +223,7 @@ GitHub가 생성하는 소스 아카이브는 커밋 내용이 그대로여도 �
 1. **Chat Settings** > **Memory Recall**을 열고 **Enable Memory Recall**(이전 기억 불러오기)이 켜져 있는지 확인하세요.
 2. **Access memories for this chat**(이 채팅의 기억에 접근)을 여세요. **Memories for This Chat**(이 채팅의 기억) 창에서 각 조각의 상태를 확인하세요.
 3. 상태가 **Waiting for vector**이면 기억을 아직 처리하는 중입니다. 잠시 기다렸다가 다시 채팅하세요.
-4. 상태가 **Embedding unavailable**이면 동작하는 임베딩 소스가 하나도 없다는 뜻입니다. 임베딩용 연결을 설정하거나, 내장 로컬 모델이 로드되도록 두세요. [Local Model 설정](connections/local-model.md)을 참고하세요.
+4. 상태가 **Embedding unavailable**이면 동작하는 임베딩 소스가 하나도 없다는 뜻입니다. 임베딩용 연결을 설정하거나, 내장 로컬 모델이 로드되도록 두세요. [Local Model 설정](connections/local-model.md)을 참고하세요. 모든 채팅에 임베딩 소스 하나를 쓰려면 **Connections** 패널의 **Defaults**(기본값) 섹션에 있는 **Embeddings**(임베딩)에서 고르세요.
 
 기억은 새 메시지가 5개 이상 쌓여야 만들어집니다. 또한 회상은 새로 보낸 메시지와 많이 비슷한 기억만 보여 주므로, 기억이 있어도 아무것도 나오지 않을 수 있습니다.
 
@@ -238,7 +250,7 @@ Fix가 오류로 멈추면 Helper model의 연결을 확인한 다음 **Resume p
 
 ## Card Browser 문제
 
-**Card Browser**(카드 브라우저)에서는 공개 캐릭터 사이트를 검색해 캐릭터를 가져올 수 있습니다. 상단 바의 **Card Browser** 아이콘으로 연 다음 **Download Cards**(카드 다운로드)를 클릭하세요.
+**Card Browser**(카드 브라우저)에서는 공개 캐릭터 사이트를 검색해 캐릭터를 가져올 수 있습니다. **Characters**(캐릭터) 패널이나 **Personas**(페르소나) 패널 위쪽의 **Download**(다운로드) 버튼으로 여세요.
 
 - JannyAI 검색이나 캐릭터 페이지가 Cloudflare 차단으로 실패하면 Marinara가 안내 메시지를 보여 줍니다. 같은 브라우저에서 JannyAI 사이트에 한 번 접속해 차단을 푼 뒤 다시 시도하라는 내용입니다.
 - 서버를 다시 시작한 뒤 Pygmalion 로그인이 풀리는 것은 정상입니다. 이 로그인 정보는 서버 메모리에만 있어서 다시 시작하면 사라집니다. 로그인 창을 열고 토큰을 다시 붙여넣으세요.
@@ -286,7 +298,8 @@ Game Mode Storyboards는 완성된 GM 서술을 키프레임 이미지와 선택
 ## 음성, 통화, TTS
 
 - 통화 중에 캐릭터가 말하지 않으면 Text to Speech가 설정되지 않은 것입니다. **Connections** > **Text to Speech**(음성 합성)를 열어 켜고, 소스를 고르고, 키를 입력하고, 목소리를 고른 다음 저장하세요. 목소리가 없는 캐릭터는 텍스트로만 나옵니다.
-- 마이크가 동작하지 않으면 로컬 음성 모델이 필요할 수 있습니다. **Agents > Download Agents**에서 **Calls**를 설치한 다음 **Connections** > **Local Model**을 열고 카드를 펼쳐 **Local Speech Model**(로컬 음성 모델)을 찾아 Whisper 모델을 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. 특히 Firefox는 브라우저 음성 인식 기능이 없어서 이 과정이 필요합니다. Calls를 제거하면 디스크 공간 확보를 위해 Whisper 모델도 함께 삭제됩니다.
+- 음성이 **No audio after 60 s**와 함께 멈춘다면 음성 서버가 Marinara가 기다리는 시간보다 느린 것입니다. 노트북에서 돌리는 로컬 서버는 흔히 그렇습니다. **Connections** > **Text to Speech**에서, 또는 메시지에 나온 오디오 연결에서 **Request timeout (seconds)**(요청 타임아웃, 초 단위)를 늘리세요. [요청 타임아웃](media/tts-setup.md#request-timeout)을 참고하세요.
+- 마이크가 동작하지 않으면 로컬 음성 모델이 필요할 수 있습니다. **Agents > Download Agents**에서 **Calls**를 설치한 다음 **Connections** > **Local Model**을 열고 카드를 펼쳐 **Local Speech Model**(로컬 음성 모델)을 찾아 Whisper 모델을 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. 특히 Firefox는 브라우저 음성 인식 기능이 없어서 이 과정이 필요합니다. Calls를 제거하면 디스크 공간 확보를 위해 Whisper 모델도 함께 삭제됩니다. **Connections**의 **Speech to Text**(음성 인식) 카드에서 직접 운영하는 음성 인식 서버를 쓸 수도 있습니다. [원하는 음성 인식 서버 사용하기](conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
 - Lite 빌드에서 **Local Whisper is disabled in Lite mode** 메시지가 나오면, 그 경량 빌드로는 로컬 음성 모델을 돌릴 수 없다는 뜻입니다. 대신 일반 Marinara 설치본을 쓰세요.
 
 ### 원격이나 네트워크 설치 환경에서 Music DJ의 Spotify 로그인이 실패할 때
@@ -312,7 +325,7 @@ Music DJ 에이전트의 Spotify 모드는 OAuth를 씁니다. OAuth는 Spotify�
 
 Marinara는 실행 중인 서버 하나만 로컬 데이터 디렉터리에 쓰도록 허용합니다. 시작 시 디렉터리에 대해 **Another Marinara Engine process ... may be using**이 표시되면 다른 Marinara 프로세스를 종료하고 다시 시작하세요.
 
-크래시가 났거나 Docker 데이터 볼륨을 옮긴 뒤에는 **The storage writer lease ... is incomplete or invalid**가 표시되거나 이 호스트에 더는 없는 프로세스를 가리킬 수 있습니다. 먼저 해당 데이터 디렉터리를 쓰는 모든 Marinara 프로세스와 컨테이너가 중지되었는지 확인하세요. 그런 다음 오류에 나온 `.writer-lease` 디렉터리만 제거하고 Marinara를 다시 시작하세요. 바깥의 `storage` 디렉터리나 테이블 파일은 제거하지 마세요. 데이터 디렉터리가 로컬 디스크에 있는 Linux, Android, 컨테이너 호스트에서는 크래시가 났거나 강제로 종료된 프로세스가 남긴 리스를 재부팅한 뒤에도 Marinara가 저절로 회수합니다. 네트워크 저장소나 공유 저장소에서는 수동 단계가 여전히 대체 수단입니다.
+크래시가 났거나 Docker 데이터 볼륨을 옮긴 뒤에는 **The storage writer lease ... is incomplete or invalid**가 표시되거나 이 호스트에 더는 없는 프로세스를 가리킬 수 있습니다. 먼저 해당 데이터 디렉터리를 쓰는 모든 Marinara 프로세스와 컨테이너가 중지되었는지 확인하세요. 그런 다음 오류에 나온 `.writer-lease` 디렉터리만 제거하고 Marinara를 다시 시작하세요. 바깥의 `storage` 디렉터리나 테이블 파일은 제거하지 마세요. 데이터 디렉터리가 로컬 디스크에 있는 Linux, Android, 컨테이너 호스트에서는 크래시가 났거나 강제로 종료된 프로세스가 남긴 리스를 재부팅한 뒤에도 Marinara가 저절로 회수합니다. 네트워크 저장소나 공유 저장소에서는 수동 단계가 여전히 대체 수단입니다. 데이터 디렉터리가 컴퓨터 자체 드라이브에 있으면 Windows도 같은 방식으로 동작합니다. Windows에서 네트워크 드라이브, 공유 폴더, USB 메모리 같은 이동식 드라이브를 쓰거나 크래시 후 컴퓨터 이름을 바꿨다면 수동 단계가 여전히 대체 수단입니다.
 
 ### 업데이트 후에 데이터가 사라진 것처럼 보일 때
 
@@ -325,9 +338,11 @@ Marinara는 실행 중인 서버 하나만 로컬 데이터 디렉터리에 쓰�
 
 서버는 시작할 때 자신이 찾아낸 데이터 폴더와 storage 폴더 경로를 출력합니다.
 
+<a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
+
 ### 이전 버전으로 전환한 뒤 채팅에 메시지가 보이지 않을 때
 
-새 Marinara 버전은 채팅별 데이터(메시지, swipe, 기억, 이미지와 그 밖의 채팅별 레코드)를 테이블당 하나의 큰 파일이 아니라 채팅별 파일에 저장합니다. 따라서 긴 채팅을 훨씬 빠르게 저장할 수 있습니다. 이전 버전은 이 구조를 이해하지 못합니다. 이전 버전으로 전환하면 채팅이 빈 것처럼 보이지만, 데이터는 디스크에 그대로 있고 이전 버전에서만 볼 수 없는 상태입니다.
+새 Marinara 버전은 채팅별 데이터(메시지, 스와이프, 기억, 이미지와 그 밖의 채팅별 레코드)를 테이블당 하나의 큰 파일이 아니라 채팅별 파일에 저장합니다. 따라서 긴 채팅을 훨씬 빠르게 저장할 수 있습니다. 이전 버전은 이 구조를 이해하지 못합니다. 이전 버전으로 전환하면 채팅이 빈 것처럼 보이지만, 데이터는 디스크에 그대로 있고 이전 버전에서만 볼 수 없는 상태입니다.
 
 Marinara는 명백한 다운그레이드를 스스로 거부합니다. 런처는 호환되지 않는 버전으로 가는 자동 업데이트를 건너뛰고, 앱 내 업데이터는 이 문서를 안내하는 오류와 함께 적용을 차단합니다.
 
@@ -348,7 +363,7 @@ Docker와 Podman은 `marinara-data` 볼륨에 데이터를 보관하므로 일�
 
 ### 백업이나 내보내기에서 403이 반환될 때
 
-루프백 세션에서는 관리자 시크릿 없이도 백업을 만들 수 있습니다. 다른 기기, 네트워크 주소, Docker에서 접근할 때는 백업과 프로필 내보내기에 추가 절차가 필요합니다. 서버에 `ADMIN_SECRET`을 설정하고 같은 값을 **Settings** > **Advanced** > **Admin Access**에 저장하세요. 루프백에서도 시크릿을 요구하려면 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`를 설정하세요.
+루프백 세션에서는 관리자 시크릿 없이도 백업을 만들 수 있습니다. 기본적으로 다른 기기, 네트워크 주소, Docker, 같은 컴퓨터의 리버스 프록시나 터널을 거쳐 접근할 때는 백업과 프로필 내보내기에 추가 절차가 필요합니다. 서버에 `ADMIN_SECRET`을 설정하고 같은 값을 **Settings** > **Advanced** > **Admin Access**에 저장하세요. 루프백에서도 시크릿을 요구하려면 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`를 설정하세요. `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`이면 전달된 방문자도 로컬 면제를 받습니다. 공개 프록시나 터널을 쓴다면 이 보호 장치를 켜 두세요.
 
 ### 가져오기에서 파일이 읽을 수 있는 ZIP 아카이브가 아니라고 나올 때
 
@@ -409,7 +424,7 @@ Android 설정에서 Termux의 백그라운드 실행을 허용하고 배터리 
 
 빌드된 Marinara 앱은 몇 기가바이트나 되지 않고, Noodle도 자체 AI 모델을 다운로드하지 않습니다. 업데이트 도중 임시로 용량을 많이 차지하는 원인은 대개 pnpm의 의존성 저장소와 가상 저장소이며, 여러 릴리스를 거쳤거나 강제 재설치가 중간에 끊긴 뒤에 특히 심합니다.
 
-현재 런처는 예전 릴리스에서 남은 패키지를 정리하고, 같은 업데이트에서 의존성 저장소를 두 번 이상 새로 만들지 않습니다. 예전 런처가 이미 기기를 가득 채웠다면 런처를 업데이트하고 참조되지 않는 캐시를 비운 다음 다시 시도하세요.
+현재 런처는 예전 릴리스에서 남은 패키지를 정리하고, 같은 업데이트에서 의존성 저장소를 두 번 이상 새로 만들지 않습니다. 이제 **Settings** > **Advanced** > **Updates**(업데이트)에서 하는 앱 내 업데이트도 다른 모든 플랫폼용 사본 대신 Android용 패키지만 설치합니다. 예전 런처가 이미 기기를 가득 채웠다면 런처를 업데이트하고 참조되지 않는 캐시를 비운 다음 다시 시도하세요.
 
 ```bash
 cd Marinara-Engine
@@ -471,9 +486,11 @@ Danger Zone의 스위치가 비활성화되어 있다면 호스트 쪽 플래그
 
 전체 페이지 확장을 비활성화한 뒤에도 툴바 항목, 오버레이, 리스너, 화면 변화가 남아 있다면 Marinara를 새로고침하세요. 페이지 코드는 Marinara가 관리하는 호환성 API 밖에서도 부작용을 만들 수 있어서 정리는 최선을 다하는 수준입니다.
 
+<a id="a-server-extension-says-no-supported-sandbox-is-available"></a>
+
 ### Server Extension이 지원되는 샌드박스가 없다고 할 때
 
-Server Extension과 Professor Mari의 원시 셸 명령은 macOS Seatbelt나 Linux Bubblewrap이 있을 때만 실행됩니다. 공식 Docker 이미지에는 Bubblewrap이 있지만 기본 최소 권한 컨테이너는 중첩 네임스페이스와 마운트를 만들 수 없습니다. Marinara는 이 상태를 감지해 실패할 명령을 시도하지 않고 OS 샌드박스 기능을 비활성화합니다.
+Server Extension과 Professor Mari의 원시 셸 명령은 macOS Seatbelt나 Linux Bubblewrap이 있을 때만 실행됩니다. 네이티브 Linux 호스트에는 `bwrap`을 설치한 다음 Marinara를 다시 시작하세요. 공식 Docker 이미지에는 Bubblewrap이 이미 들어 있지만, 기본 컨테이너는 최소 권한으로 유지되어 Bubblewrap의 중첩 네임스페이스와 마운트를 만들 수 없습니다. Marinara는 이 상태를 감지해 실패할 명령을 시도하지 않고 OS 샌드박스 기능을 비활성화합니다.
 
 더 넓은 컨테이너 권한을 받아들이고 Docker에서 이 기능이 필요하다면 다음 내용을 `docker-compose.yml` 옆의 `docker-compose.override.yml`로 저장하세요.
 
@@ -488,9 +505,9 @@ services:
       - apparmor=unconfined
 ```
 
-그 뒤 컨테이너를 다시 만드세요. Marinara 진입점이 보통 `node` 사용자로 전환할 때 추가 기능이 사라지지 않도록 서버를 root로 유지해야 합니다. root와 `SYS_ADMIN`은 광범위한 권한 상승이며 AppArmor 비활성화는 외부 보안 경계를 더 약하게 만듭니다. 경고를 없애기 위한 목적으로만 켜지 마세요. 현재 Docker에서는 포괄적인 `seccomp=unconfined` 설정이 필요하지 않아야 합니다.
+오버라이드를 추가한 뒤 컨테이너를 다시 만드세요. Marinara 진입점은 보통 `node` 사용자로 권한을 낮추는데, 이때 추가한 기능이 버려지지 않도록 여기서는 서버 프로세스를 root로 유지해야 합니다. `SYS_ADMIN`과 함께 root로 서버를 실행하는 것은 광범위한 권한 상승이며, 컨테이너의 AppArmor 프로필을 끄면 바깥쪽 보안 경계가 더 약해집니다. 샌드박스를 쓸 수 없다는 메시지를 없애려는 목적만으로 이 설정을 켜지 마세요. Docker의 기본 seccomp 프로필은 추가한 기능에 맞춰 조정되므로, 현재 Docker 릴리스에서는 포괄적인 `seccomp=unconfined` 설정이 필요하지 않을 것입니다.
 
-Server Extension은 macOS Seatbelt나 Linux Bubblewrap이 있어야만 실행됩니다. Linux 호스트에 `bwrap`을 설치한 다음 Marinara를 다시 시작하세요. Windows, Android를 비롯해 지원되지 않는 호스트에서는 메인 서버 프로세스로 대신 실행하지 않고 일부러 Server Extension 실행을 거부합니다. Browser Extension은 그대로 불투명 출처 Worker 샌드박스를 쓸 수 있습니다.
+Windows, Android를 비롯해 지원되지 않는 호스트에서는 메인 서버 프로세스로 대신 실행하지 않고 일부러 Server Extension 실행을 거부합니다. Browser Extension은 그대로 불투명 출처 Worker 샌드박스를 쓸 수 있습니다.
 
 ## 도움 더 받기
 

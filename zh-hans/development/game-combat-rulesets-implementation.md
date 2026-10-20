@@ -28,7 +28,7 @@ Cautious Mage 在任何呈现方式中都应谨慎。换规则改变其可做的
 
 - `packages/shared/src/types/game.ts`：`Combatant`、`CombatSkill`、Classic 结果与快照。当前属性为通用数字，`speed` 不是桌游敏捷值或英尺移动距离。
 - `packages/server/src/services/game/combat.service.ts`：Classic 每轮掷先攻、每参与者结算一条命令，采用通用伤害公式。旧游戏经客户端往返传状态，新向导游戏使用服务器战斗调度账本。
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`：队伍/敌人交替阶段、职业射程、速度派生移动、反击，尚无速度追击。
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`：队伍/敌人阶段，或在游戏设定时按带种子的先攻顺序一次一个单位行动（combat C6c）、职业射程、速度派生移动、反击，尚无速度追击。
 - `packages/shared/src/features/combat-ai.ts` 与模式适配器：合法动作的优先级。普通 AI 保留知识边界；GM 首领获得人物卡/资源作预判，但两者都看不到未来骰子或未声明的玩家选择。
 - `packages/server/src/routes/combat-director.routes.ts` 与 `services/game/combat-director.service.ts`：版本化权威遭遇状态、行动游标、待处理反应、传奇预算、重复/过期答复保护。规则适配器应扩展此接受动作路径，不新建第二本账。当前 Counterspell 概率、法术位扣费和取消成本是通用引擎策略，不是 5e。
 - `packages/server/src/routes/game.routes.ts`：旧轮次/开始/动作验证。`GameCombatUI`、`TacticalCombatUI`、`use-game.ts`：输入、预览、接受结果与持久化。
@@ -76,7 +76,7 @@ type RulesetRef = {
 | 规则 | v1 提案 |
 | --- | --- |
 | 先攻 | 有效 Speed 降序，同速按稳定遭遇顺序；高速度或同速不增加行动 |
-| Tactical 调度 | 队伍阶段后敌方阶段；玩家可选未行动队员，自动单位按速度 |
+| Tactical 调度 | 按阵营：队伍阶段后敌方阶段，玩家在未行动队员中选择。按先攻（combat C6c）：一次一个单位，顺序每场战斗只掷一次 |
 | Classic 调度 | 统一有效 Speed 降序；UI 排入手动命令，每个先攻位重新确认当前合法目标 |
 | 移动 | 明确预算，独立于 Speed；建议默认 4 格，职业/能力可作有界调整 |
 | 攻击速度 | 有效 Speed，加减已明确建模的修正，不虚构武器重量 |

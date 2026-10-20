@@ -10,6 +10,13 @@ Noodle é a linha do tempo de rede social simulada dentro do Marinara Engine. Se
 2. Na barra lateral esquerda, clique no botão **Settings** (Configurações), o ícone de engrenagem.
 3. O cabeçalho do painel mostra **Noodle settings**.
 
+As configurações ficam divididas em quatro páginas. Escolha uma pelos botões abaixo do cabeçalho:
+
+- **General** (geral): [Refresh](#refresh) e [Translation](#translation).
+- **Timeline** (linha do tempo): [Activity](#activity) e [Image Generation](#image-generation).
+- **Participants** (participantes): [Invites](#invites), **Ambient Profiles** (perfis de ambiente; veja [Usuários aleatórios](#random-users)) e [Active Accounts](#active-accounts).
+- **Advanced** (avançado): **Noodle Prompt**, [Image Understanding](#image-understanding), [Timeline Writing](#timeline-writing), [World / Lore](#world--lore), [Carryover](#carryover) e [Reset Noodle](#reset-noodle).
+
 Todas as configurações do Noodle são globais. Elas valem para todas as personas e todos os chats, não para um chat de cada vez. As mudanças são salvas assim que você as faz.
 
 ## Invites
@@ -77,19 +84,30 @@ Use 0 em um campo para impedir que a IA crie aquele tipo de atividade.
 
 A seção **Image Generation** deixa Noodle anexar imagens feitas por IA a alguns posts. Isso exige uma conexão de geração de imagens, ou seja, uma conexão configurada para criar imagens. Veja [Provedores de IA compatíveis](../connections/providers-reference.md).
 
-- **Image generation**: um botão liga/desliga, padrão **off**. Ative para a IA gerar imagens dos posts.
+- **Noodle image generation** (geração de imagens do Noodle): um botão liga/desliga, padrão **off**. Ative para a IA gerar imagens dos posts.
 - Com ele ativado, aparecem mais controles:
-  - **Image generation connection**: um menu suspenso, padrão **Default image generation connection**. Deixando em Default, Noodle usa a conexão marcada como padrão para geração de imagens no painel **Connections** (Conexões).
-  - **Prompt instructions**: uma caixa de texto com um conteúdo padrão embutido, de até 4000 caracteres. Essas observações extras entram no prompt de imagem, o texto que Marinara envia para a IA.
+  - **Image width** (largura da imagem) e **Image height** (altura da imagem): o tamanho das imagens geradas para os posts, de 64 a 4096 pixels. Os padrões são **1024** por **1536**.
+  - **Noodle image generation connection** (conexão de geração de imagens do Noodle): um menu suspenso, padrão **Default image generation connection**. Deixando em Default, Noodle usa a conexão marcada como padrão para geração de imagens no painel **Connections** (Conexões). Um personagem pode usar a própria conexão; veja [Perfis e seguidas](overview.md#profiles-and-following).
+  - **Image instructions (sent to your LLM)** (instruções de imagem, enviadas ao seu LLM): uma caixa de texto com um conteúdo padrão embutido, de até 4000 caracteres. O modelo da linha do tempo segue essas instruções ao escrever a descrição de imagem de cada post, então escreva-as como orientações, não como tags de imagem. Para tags de estilo enviadas direto ao modelo de imagem, use um perfil de estilo de imagem.
   - **Use avatar references**: um botão liga/desliga, padrão **on**. Envia o avatar ou as imagens de referência do personagem para o modelo de imagem.
   - **Interpret image prompts** (interpretar prompts de imagem): um botão liga/desliga, padrão **on**. Um modelo de texto reescreve cada prompt de imagem, seguindo as **Image Prompting Instructions** (instruções de prompt de imagem) da sua conexão de imagem e o Style text do seu perfil de estilo. Com ele desligado, as Image Prompting Instructions não são usadas e o Style text é acrescentado tal como foi escrito.
   - **Include descriptions**: um botão liga/desliga, padrão **on**. Acrescenta ao prompt de imagem as anotações escritas sobre a aparência do personagem. Com **Interpret image prompts** ligado, o modelo de texto incorpora essas anotações em vez de colá-las.
   - **Images/refresh**: um número de 0 a 50, padrão **3**. Ele limita as imagens de post geradas em cada atualização, manual ou automática.
-- **Attach gallery images**: um botão liga/desliga separado, padrão **off**. Ele continua visível mesmo com **Image generation** desativado. Em vez de criar uma imagem nova, ele permite que um post reaproveite uma imagem da galeria daquele personagem ou de um chat em que ele aparece.
+- **Attach gallery images**: um botão liga/desliga separado, padrão **off**. Ele continua visível mesmo com **Noodle image generation** desativado. Em vez de criar uma imagem nova, ele permite que um post reaproveite uma imagem da galeria daquele personagem ou de um chat em que ele aparece.
 
-Se você ativar **Image generation** sem ter uma conexão de imagem utilizável, a atualização é bloqueada. Aparece a mensagem "Choose an image generation connection for Noodle first." Uma imagem que falha é tentada mais uma vez. Se a segunda tentativa também falhar, a atualização segue e publica um post limpo, só com texto, em vez de expor o prompt de imagem não usado.
+Se você ativar **Noodle image generation** sem ter uma conexão de imagem utilizável, a atualização é bloqueada. Aparece a mensagem "Choose an image generation connection for Noodle first." Uma imagem que falha é tentada mais uma vez. Se a segunda tentativa também falhar, a atualização segue e publica um post limpo, só com texto, em vez de expor o prompt de imagem não usado.
 
-O modelo que Noodle usa para escrever esses prompts de imagem se chama **Noodle Post Image**. Você o edita em **Settings** > **Generations** > **Image Generation Prompt Overrides**. O texto de **Prompt instructions** entra nesse modelo, e o resultado passa depois pelo perfil de estilo de imagem que você usa normalmente. Veja [Prompt Overrides para imagem e vídeo](../prompts/prompt-overrides.md) e [Perfis de estilo de imagem](../media/style-profiles.md). Professor Mari não tem card de personagem, então as imagens dos posts dela usam o avatar e a arte de referência embutidos.
+O modelo que Noodle usa para escrever esses prompts de imagem se chama **Noodle Post Image**. Você o edita em **Settings** > **Generations** > **Image Generation Prompt Overrides**. O texto de **Image instructions (sent to your LLM)** entra nesse modelo, e o resultado passa depois pelo perfil de estilo de imagem que você usa normalmente. Veja [Prompt Overrides para imagem e vídeo](../prompts/prompt-overrides.md) e [Perfis de estilo de imagem](../media/style-profiles.md). Professor Mari não tem card de personagem, então as imagens dos posts dela usam o avatar e a arte de referência embutidos.
+
+## Image Understanding
+
+A seção **Image Understanding** (compreensão de imagens) decide como quem escreve a linha do tempo vê as imagens que já estão nela.
+
+- **Show images to the writer** (mostrar as imagens a quem escreve): um botão liga/desliga, padrão **on**. O modelo que escreve recebe até oito imagens recentes da linha do tempo, quando aceita imagens. Desligado, ele não recebe nenhuma imagem da linha do tempo.
+- **Image captioning** (legendas de imagens): um botão liga/desliga. Uma conexão capaz de ver imagens descreve as imagens da linha do tempo para quem escreve, para que um modelo só de texto também consiga acompanhá-las. Até você mudá-lo, ele segue a configuração de legendas da **Generation connection** (conexão de geração) do Noodle, e **Use connection default** (usar o padrão da conexão) volta para ela.
+- **Captioning connection** (conexão de legendas): aparece quando as legendas estão ligadas. **Use Noodle generation connection** (usar a conexão de geração do Noodle) usa a **Generation connection**; escolha outra conexão quando esse modelo não conseguir ver imagens.
+
+As legendas de imagens continuam enviando as imagens da linha do tempo para a conexão de legendas quando **Show images to the writer** está desligado.
 
 ## Timeline Writing
 
@@ -131,11 +149,15 @@ A seção **Reset Noodle** limpa a linha do tempo e mantém as contas e as confi
 
 Isso exclui apenas o conteúdo da linha do tempo. As contas, os @, as biografias, quem cada conta segue, os convites e todas as configurações do Noodle continuam como estavam.
 
+<a id="random-users"></a>
+
 ## Usuários aleatórios
 
 Os usuários aleatórios são seis contas de ambiente embutidas, que não vêm da sua biblioteca: Thread Countess, Packet Soup, Orbit Notice, Glass Bulletin, Moth Hour e Brine Index. Cada uma tem uma bio curta e de fantasia.
 
 Você as ativa na linha **Random users**, no topo da lista **Characters**, dentro da seção **Invites**. Ela vem **off** por padrão. O subtítulo mostra **Enabled** quando está ativada, ou **Ambient fake profiles** quando está desativada. Ativadas, essas contas podem postar, curtir, repostar, responder e seguir durante uma atualização. Elas nunca podem ser seguidas a partir de um perfil.
+
+A seção **Ambient Profiles**, na página **Participants**, permite editar essas identidades ou gerar um conjunto diferente. Sortear de novo mantém os posts e as relações, mas remove as imagens de perfil.
 
 ## Ligar Noodle aos seus chats
 
@@ -153,7 +175,7 @@ Para a atividade do Noodle aparecer em um chat, ative o modo correspondente em *
 - **As atualizações automáticas não acontecem**: coloque **Refreshes/day** acima de 0, mantenha o servidor Marinara em execução e confira os horários previstos e o fuso em **Automatic schedule**. Se a programação mostrar um erro, resolva o problema de conexão ou de limite de requisições e deixe a nova tentativa rodar.
 - **Os posts não citam um chat recente**: ative **Allow Noodle references** nas configurações daquele chat e verifique se o personagem está convidado. O contexto do chat é uma orientação para a IA, não uma garantia.
 - **A atividade do Noodle não aparece nos chats**: ative o modo correspondente em **Carryover to chats** e aumente **Carry hours** se a atividade for antiga demais.
-- **Os posts não têm imagens**: ative **Image generation**, escolha uma conexão de imagem que funcione e confira o limite de **Images/refresh**.
+- **Os posts não têm imagens**: ative **Noodle image generation**, escolha uma conexão de imagem que funcione e confira o limite de **Images/refresh**.
 
 ## Configurações e valores padrão
 
@@ -173,14 +195,20 @@ Esta tabela lista todas as configurações do Noodle com o valor padrão e a fai
 | **Replies** | 12 | 0 a 200 |
 | **Reposts** | 4 | 0 a 100 |
 | **Likes** | 18 | 0 a 500 |
-| **Image generation** | off | on ou off |
-| **Image generation connection** | Default | qualquer conexão de geração de imagens |
-| **Prompt instructions** | texto embutido | até 4000 caracteres |
+| **Noodle image generation** | off | on ou off |
+| **Image width** | 1024 | 64 a 4096 |
+| **Image height** | 1536 | 64 a 4096 |
+| **Noodle image generation connection** | Default | qualquer conexão de geração de imagens |
+| **Image instructions (sent to your LLM)** | texto embutido | até 4000 caracteres |
 | **Use avatar references** | on | on ou off |
 | **Interpret image prompts** | on | on ou off |
 | **Include descriptions** | on | on ou off |
 | **Images/refresh** | 3 | 0 a 50 |
 | **Attach gallery images** | off | on ou off |
+| **Show images to the writer** | on | on ou off |
+| **Image captioning** | segue a Generation connection | on ou off |
+| **Captioning connection** | Use Noodle generation connection | qualquer conexão capaz de ver imagens |
+| **Use connection default** | on | on ou off; restaura a configuração de legendas da Generation connection |
 | **Lorebook context** | off | on ou off |
 | **Enhanced tone & continuity** | off | on ou off |
 | **Carryover: Conversations** | off | on ou off |

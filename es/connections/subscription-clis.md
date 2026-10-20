@@ -45,7 +45,7 @@ claude auth login
 3. En Marinara, abre el panel **Connections** (Conexiones) y haz clic en **New** (Nuevo).
 4. En la ventana **Create Connection** (Crear conexión), escribe un nombre y elige el proveedor **Claude (Subscription)**, luego haz clic en **Create** (Crear).
 5. En el editor, fíjate en que no hay campo **API Key** ni **Base URL**. Un panel informativo confirma que no son necesarios.
-6. Elige un modelo de Claude, como un modelo Opus o Sonnet, en el menú desplegable **Model** (Modelo).
+6. Elige un modelo de Claude, como un modelo Opus o Sonnet, en el menú desplegable **Model** (Modelo). La lista muestra los modelos que ofrece tu inicio de sesión de Claude Code cuando Claude Code tiene una lista para él; si no, una lista integrada.
 7. Haz clic en **Save** (Guardar), luego haz clic en **Send Test Message** (Enviar mensaje de prueba). Una respuesta corta significa que el inicio de sesión funciona.
 
 Las conexiones de suscripción de Claude admiten solo chat de texto. Esta conexión tiene dos controles adicionales, **Fast Mode** y **Diagnose Model Routing**, que se describen más abajo.
@@ -73,7 +73,7 @@ codex login
 
 Marinara lee tu archivo local de inicio de sesión de Codex y actualiza la sesión cuando puede.
 
-Para ajustar cuánto tiempo piensa Codex antes de responder, abre la conexión, activa **Use custom defaults for this connection** (Usar valores predeterminados personalizados para esta conexión) en la sección **Default Chat Parameters** (Parámetros de chat predeterminados) y elige un **Reasoning Effort** (Esfuerzo de razonamiento); empieza en **Default** (Predeterminado). Un chat puede elegir su propio nivel en **Advanced Parameters** (Parámetros avanzados). **Default** conserva el nivel que Codex usa para el modelo. Codex usa ese valor predeterminado hasta que la conexión o el chat elija un nivel; el nivel de tu preset no lo cambia, y una conexión de Codex usada como respaldo solo sigue su propio nivel. Los agentes que usan la conexión usan el nivel de esa conexión. Los niveles coinciden con los que Codex ofrece para cada modelo: GPT-5.5 llega hasta **xhigh**, y los modelos GPT-5.6 y GPT-6 llegan hasta **max**.
+Para ajustar cuánto tiempo piensa Codex antes de responder, abre la conexión, activa **Use custom defaults for this connection** (Usar valores predeterminados personalizados para esta conexión) en la sección **Default Chat Parameters** (Parámetros de chat predeterminados) y elige un **Reasoning Effort** (Esfuerzo de razonamiento); empieza en **Default** (Predeterminado). Un chat puede elegir su propio nivel en **Advanced Parameters** (Parámetros avanzados). **Default** conserva el nivel que Codex usa para el modelo. Codex usa ese valor predeterminado hasta que la conexión o el chat elija un nivel; el nivel de tu preset no lo cambia, y una conexión de Codex usada como respaldo solo sigue su propio nivel. Los agentes que usan la conexión usan el nivel de esa conexión. Los niveles coinciden con los que Codex ofrece para cada modelo: GPT-5.5 llega hasta **Extra high** (Muy alto), y los modelos GPT-5.6 y GPT-6 llegan hasta **Max** (Máximo).
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Para cargar los modelos de Grok, usa el botón **Fetch Models from Grok CLI** en
 ## Duración de la caché de prompts de Claude
 
 En el editor de conexiones de Claude, **Prompt Caching → Extended token caching (1 hour)** solicita una caché de una hora para permitir pausas más largas entre mensajes. Requiere Claude Code **2.1.242 o posterior**. Marinara pasa el ajuste para esa solicitud sin cambiar tu configuración guardada de Claude.
+
+El ajuste también cambia cuánto de un chat puede reutilizar Claude. Si está activado, Claude reutiliza el historial anterior del chat y solo vuelve a procesar la parte más reciente. Si está desactivado, Claude solo reutiliza las instrucciones del principio y vuelve a procesar todo el historial del chat con cada mensaje. En los chats largos, tenerlo desactivado consume más de tu plan.
 
 Si lo desactivas, las conversaciones principales y las solicitudes del Agent SDK conservan el valor predeterminado de Claude: actualmente una hora para el uso por suscripción dentro de los límites del plan y cinco minutos para uso adicional, créditos o facturación por API. Los subagentes propios de Claude Code usan cinco minutos salvo que se configuren por separado; algunas solicitudes auxiliares controladas por el servidor pueden usar una hora. Las variables de entorno de la CLI que sobrescriben este valor siguen teniendo prioridad. Consulta [la caché de prompts de Claude Code](https://code.claude.com/docs/en/prompt-caching).
 

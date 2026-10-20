@@ -54,7 +54,7 @@ Le tableau ci-dessous présente chaque service d'un coup d'œil. Les détails et
 
 ## OpenAI (DALL-E)
 
-Service cloud dont la Base URL par défaut est `https://api.openai.com/v1`. Il demande une clé API rattachée à ton compte OpenAI. Il propose les modèles DALL-E et GPT Image. Il accepte jusqu'à 16 images de référence.
+Service cloud dont la Base URL par défaut est `https://api.openai.com/v1`. Il demande une clé API rattachée à ton compte OpenAI. Il propose les modèles DALL-E et GPT Image. Les modèles GPT Image acceptent jusqu'à 16 images de référence ; les modèles DALL-E n'en acceptent aucune.
 
 ## ChatGPT (Codex login)
 
@@ -100,7 +100,7 @@ Service cloud dont la Base URL par défaut est `https://api.z.ai/api/paas/v4`. I
 
 ## Atlas Cloud
 
-Service cloud dont la Base URL par défaut est `https://api.atlascloud.ai/api/v1`. Il faut une clé API Atlas Cloud. **Fetch Models** (Récupérer les modèles) charge le catalogue actuel des modèles texte-vers-image et image-vers-image d’Atlas Cloud. Si ce catalogue est inaccessible, Marinara affiche une petite liste de départ avec Nano Banana, Gemini Flash Image et FLUX 1.1 Pro. Tu peux toujours saisir l’identifiant exact d’un modèle d’image Atlas Cloud. Les tâches sont asynchrones : Marinara lance la génération, puis interroge Atlas Cloud jusqu’à ce que l’image soit prête. Les réglages courants de texte-vers-image sont associés automatiquement ; les images de référence sont envoyées aux modèles dont l’identifiant indique une fonction image-vers-image, d’édition ou Kontext. Les schémas pouvant varier, consulte la documentation Atlas Cloud du modèle choisi si tu saisis un autre identifiant.
+Service cloud dont la Base URL par défaut est `https://api.atlascloud.ai/api/v1`. Il faut une clé API Atlas Cloud. **Fetch Models** (Récupérer les modèles) charge le catalogue actuel des modèles texte-vers-image et image-vers-image d'Atlas Cloud. Si ce catalogue est inaccessible, Marinara affiche une petite liste de départ avec Nano Banana, Gemini Flash Image et FLUX 1.1 Pro. Tu peux toujours saisir l'identifiant exact d'un modèle d'image Atlas Cloud. Les tâches sont asynchrones : Marinara lance la génération, puis interroge Atlas Cloud jusqu'à ce que l'image soit prête. Les réglages courants de texte-vers-image sont associés automatiquement ; les images de référence sont envoyées aux modèles dont l'identifiant indique une fonction image-vers-image, d'édition ou Kontext. Les schémas pouvant varier, consulte la documentation Atlas Cloud du modèle choisi si tu saisis un autre identifiant.
 
 ## fal.ai
 
@@ -212,7 +212,7 @@ Une **image de référence** est une image existante que tu envoies avec le prom
 
 | Fournisseur | Images de référence |
 | --- | --- |
-| OpenAI (DALL-E) | Jusqu'à 16 |
+| OpenAI (DALL-E) | Jusqu'à 16, modèles GPT Image uniquement |
 | ChatGPT (Codex login) | Jusqu'à 16 |
 | NovelAI | Jusqu'à 16, modèle V4.5 uniquement |
 | xAI / Grok Imagine | Jusqu'à 3 |
@@ -223,18 +223,21 @@ Une **image de référence** est une image existante que tu envoies avec le prom
 | NanoGPT | Jusqu'à 3 |
 | Stability AI | Première image uniquement, utilisée en image vers image |
 | Arli AI | Première image uniquement, utilisée en image vers image |
+| SD Web UI (AUTOMATIC1111 / Forge) et Draw Things | Première image uniquement, utilisée en image vers image |
 | OpenRouter Images | Pris en charge, sans limite fixe |
 | ComfyUI et RunPod Serverless (ComfyUI) | Jusqu'à 4, via les marqueurs du workflow |
 | SwarmUI | Jusqu'à 4 |
-| Together AI, Pollinations, Stable Horde | Non pris en charge |
+| Together AI, Pollinations, Stable Horde, fal.ai | Non pris en charge |
 
 Les images de référence précises de NovelAI ne fonctionnent que sur un modèle V4.5, comme `nai-diffusion-4-5-full`. NovelAI n'a pas encore publié Precise Reference pour V5. Si tu demandes des références sur un autre modèle, Marinara génère l'image sans elles et inscrit un avertissement dans le journal du serveur.
 
-## Mettre les requêtes de génération d'images en file d'attente
+## Mettre les requêtes de génération de médias en file d'attente
 
-L'interrupteur **Queue image generation requests** (mettre les requêtes de génération d'images en file d'attente) se trouve dans **Settings** (Paramètres), puis **Generations**, puis **Image Generation**. Il est activé par défaut.
+L'interrupteur **Queue media generation requests** (mettre les requêtes de génération de médias en file d'attente) se trouve dans **Settings** (Paramètres), puis **Generations**, puis **Overall Generations**. Il est activé par défaut.
 
-Quand il est activé, Marinara envoie les tâches d'image une par une. Garde-le activé pour les services qui refusent deux requêtes simultanées. Désactive-le seulement si le service encaisse beaucoup de requêtes en même temps et que tu veux aller plus vite.
+Quand il est activé, Marinara envoie les tâches d'image à chaque compte de fournisseur d'images une par une, et les tâches de vidéo à chaque compte de fournisseur de vidéos une par une, dans des files séparées. Une image et une vidéo pour le même compte peuvent s'exécuter en même temps. Cela vaut quelle que soit la fonctionnalité qui les demande : l'Illustrator, les trackers, les commandes, la galerie, les ressources de Game Mode et les agents téléchargés comme Slurp. Deux connexions qui ont la même adresse et la même clé API partagent la file correspondante. Des comptes et des fournisseurs différents travaillent toujours en même temps. NovelAI bénéficie aussi d'une courte pause entre deux tâches. Quand NovelAI répond qu'il est occupé, Marinara attend et réessaie deux fois au lieu de faire échouer l'image.
+
+Garde-le activé pour les services qui refusent deux requêtes simultanées. Désactive-le seulement si le service encaisse beaucoup de requêtes en même temps et que tu veux aller plus vite.
 
 ## Guides associés
 

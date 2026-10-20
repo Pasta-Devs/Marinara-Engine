@@ -50,6 +50,14 @@ Las escrituras marcan como sucias las tablas afectadas. Un breve retardo agrupa 
 
 Cada instantánea se escribe en un archivo temporal, se vuelca y se renombra de forma atómica. Antes del reemplazo, la instantánea sana anterior se actualiza como un archivo `.bak`. Al iniciar, un archivo primario ilegible se recupera desde su copia de seguridad cuando es posible. Si ninguna de las dos copias es utilizable, Marinara pone en cuarentena los archivos corruptos con un sufijo de marca de tiempo e inicia solo esa tabla vacía, de modo que la interfaz siga accesible para la recuperación.
 
+## Concesión de escritura
+
+Solo un proceso de servidor escribe en un directorio de almacenamiento a la vez. Al iniciar, el almacén crea en él el directorio `.writer-lease`, con un `owner.json` que registra el PID del escritor, el id de la máquina, el id de arranque, el espacio de nombres de PID, el nombre de host y un token aleatorio, y lo elimina al apagarse. Un segundo proceso que encuentra una concesión se niega a iniciar con un `StorageWriterLeaseError`, salvo que pueda demostrar que el escritor anterior ya no existe.
+
+La prueba exige primero la misma máquina: un id de máquina coincidente, el directorio personal privado de la app de Termux o, cuando un lado no tiene id de máquina, un almacenamiento al que solo esta máquina puede acceder. En Linux y Android, eso es un sistema de archivos local. En Windows es una unidad `Fixed` (no una ruta de red, extraíble ni UNC), y la concesión debe venir de un escritor nativo de Windows con el nombre de esta computadora. Una concesión en la misma máquina se recupera cuando pertenece a un arranque anterior (en Windows, horas de arranque con hasta 5 minutos de diferencia cuentan como el mismo arranque), cuando su socket de actividad ya no responde (Docker y Termux), o cuando su PID ha terminado o (salvo en la prueba de unidad de Windows) ahora pertenece a un proceso más reciente. El almacenamiento compartido o de red sigue bloqueado, y el error nombra la concesión que hay que eliminar a mano una vez detenidos todos los procesos.
+
+`scripts/regressions/storage-writer-lock.regression.ts` cubre las pruebas.
+
 ## Transacciones
 
 Las transacciones usan instantáneas de copia sobre escritura (copy-on-write) delimitadas con `AsyncLocalStorage`. Una tabla se clona solo cuando esa transacción la muta por primera vez. Si la función de retorno lanza un error, solo se restauran las tablas cambiadas por esa transacción; las escrituras concurrentes no relacionadas sobreviven.

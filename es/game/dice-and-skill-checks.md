@@ -65,7 +65,7 @@ Algunos ejemplos más que puedes escribir:
 - `4d8-1` tira cuatro dados de 8 caras y resta 1.
 - `2d6+3` tira dos dados de 6 caras y suma 3.
 
-Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez y cada dado puede tener hasta 1000 caras. Si pides más, la aplicación reduce tu solicitud a esos límites en lugar de rechazarla, y la tarjeta de resultado muestra la notación reducida: escribir `500d6` genera una tarjeta `100d6` para los cien dados que realmente tiró. Si el texto no es una notación de dados válida – `NdM` o un simple `dM` como `d20` –, la tirada falla y aparece un error que indica el formato esperado.
+Hay dos límites estrictos. Puedes tirar como máximo 100 dados a la vez y cada dado puede tener hasta 1000 caras. Si pides más, la aplicación reduce tu solicitud a esos límites en lugar de rechazarla, y la tarjeta de resultado muestra la notación reducida: escribir `500d6` genera una tarjeta `100d6` para los cien dados que realmente tiró. Si el texto no es una notación de dados válida, es decir, `NdM` o un simple `dM` como `d20`, la tirada falla y aparece un error que indica el formato esperado.
 
 ## Pruebas de habilidad
 
@@ -128,28 +128,50 @@ Puedes poner en cola tu propio `d20` desde el menú de dados antes de que ocurra
 
 ## Partidas con un conjunto de reglas
 
-Elige el conjunto una sola vez en **Rules** al crear la partida; consulta [Elegir las reglas](getting-started.md#choosing-rules). Sin conjunto se mantienen las reglas anteriores, incluidas las reservas simples de éxitos sin dados explosivos ni otras reglas especiales.
+Una partida puede llevar un conjunto de reglas, como 5e (SRD 5.1), en lugar de las reglas propias de Marinara. El conjunto pertenece a esa partida y se queda con ella. Lo eliges en **Rules** (Reglas) del asistente de configuración al crear la partida (consulta [Elegir las reglas](getting-started.md#choosing-rules)). Una partida sin conjunto de reglas se comporta exactamente como se describe arriba.
 
-- El GM indica la habilidad o salvación y una dificultad de la escala del conjunto. Esta puede superar 1–40; la resolución de emergencia de una prueba pendiente en un turno guardado sigue limitada a 1–40.
-- El motor tira los dados del conjunto. El modificador sale de su ficha: atributo, entrenamiento (múltiplo de competencia, valor fijo o ambos) y bonificación adicional. No usa los atributos ni las bonificaciones de habilidad integrados.
-- `who="Name"` selecciona un compañero; sin `who` se usa al jugador. Un compañero sin ficha recibe valores predeterminados. Un nombre desconocido o ambiguo produce una tirada sin modificador. El nombre de la persona siempre identifica al jugador, aunque coincida con un compañero. Nunca se toma prestada otra ficha.
-- Los resultados naturales dependen del conjunto. En 5e (SRD 5.1), un 20 o un 1 natural no tiene efecto especial en pruebas ni salvaciones; un 20 puede fallar.
-- Los números escritos por el GM se validan. Un modificador, cantidad o tipo de dados, dado elegido o resultado natural no válido provoca una nueva tirada que sustituye el resultado.
+Cuando una partida tiene un conjunto de reglas:
+
+- El Game Master sigue limitándose a nombrar la habilidad o la salvación y a fijar una dificultad. Recibe la escala de dificultad propia del conjunto en lugar de la integrada. Una dificultad puede llegar tan lejos como esa escala, incluso más allá del 1–40 que permiten las reglas propias de Marinara. Hay una vía que sigue limitada a 1–40 incluso en una partida con conjunto: la resolución de emergencia de una prueba pendiente en un turno guardado.
+- El motor tira los dados del conjunto y suma el modificador de la **ficha del conjunto de reglas** del personaje, formado por las partes que declare el conjunto: el modificador de atributo cuando la habilidad o la salvación nombra un atributo, la bonificación de su nivel de entrenamiento (un múltiplo de la bonificación de competencia, un valor fijo o ambos) y cualquier bonificación adicional anotada en la ficha. No usa los atributos ni las bonificaciones de habilidad integrados.
+- Una prueba puede ser para un miembro del grupo. El Game Master añade `who="Name"` a la etiqueta y el motor usa la ficha de ese personaje. Sin `who`, la prueba es del jugador. Un miembro del grupo que aún no tiene ficha tira con una en blanco, con todos los valores en el predeterminado del conjunto. Un nombre que no coincide con nadie del grupo, o que comparten dos miembros, tira los dados sin ningún modificador. La única excepción es el nombre de tu propio personaje: si un miembro del grupo lo comparte, ese nombre sigue refiriéndose a ti y usa tu ficha. Nunca se toma prestada otra ficha.
+- Los resultados naturales dependen del conjunto. En 5e (SRD 5.1), un 20 o un 1 natural no tiene efecto especial en pruebas ni salvaciones, así que un 20 natural que no alcanza la dificultad falla. Esto difiere a propósito de las reglas propias de Marinara.
+- Los números que escribe el propio Game Master no se dan por buenos. Una etiqueta que parece terminada se vuelve a tirar y se sustituye cuando su modificador no es el de la ficha, cuando tiró una cantidad o un tamaño de dados distintos de los del conjunto, cuando el dado que contó no es el que conserva su modo de tirada o cuando afirma un resultado natural que el conjunto no tiene.
 - Una tirada manual previa solo se reutiliza para una d20 individual. Otros dados, como 2d6 o una reserva, se vuelven a tirar.
-- `with="Ability"` permite usar otro atributo declarado por el conjunto; los desconocidos se ignoran. Los marcadores de tirada pueden nombrar atributos, habilidades, salvaciones y `PROF` si existe bonificación de competencia.
-- Si falta el paquete o es demasiado antiguo, la prueba queda pendiente y sin números. El motor no la resuelve con otro sistema. Consulta los recursos, estados y descansos en [La ficha del conjunto](party-and-npcs.md#the-ruleset-sheet).
-
+- El Game Master puede tirar una habilidad o una salvación con un atributo distinto del que usa normalmente, añadiendo `with="Ability"` a la etiqueta. Solo cuenta un atributo que declare tu conjunto; cualquier otro se ignora y la habilidad conserva el suyo.
+- El Game Master puede nombrar una dificultad de la escala en lugar de escribir su número, como `difficulty="Hard"`. El motor tira contra el número de ese escalón, y la prueba guardada muestra el número. Un nombre que la escala no tiene se ignora.
+- Los marcadores de tirada pueden nombrar los atributos, habilidades y salvaciones del conjunto, y `PROF` para la bonificación de competencia cuando el conjunto la tiene.
+- Si falta el paquete del conjunto o es más antiguo que aquel con el que se creó la partida, las pruebas se guardan sin números y quedan pendientes. Nunca se resuelven con las reglas de otro sistema.
 - Si algo elegido en tu ficha modifica una tirada, como un amuleto que vuelve a tirar los dados fallidos, el GM lo nombra en la prueba y el motor cobra su coste, aplica su efecto y tira. Si no lo has elegido o no puedes pagarlo, no hace ni cuesta nada.
-- Si el conjunto permite gastar un recurso para mejorar una tirada, el GM lo indica en la prueba y el motor cobra los puntos, añade lo comprado y tira como una sola operación. Si la reserva no alcanza, no se gasta nada y se hace la tirada original. El registro muestra lo realmente pagado, no lo solicitado.
+- Si el conjunto permite gastar un recurso para mejorar una tirada, el GM lo indica en la prueba y el motor cobra los puntos, añade lo comprado y tira como una sola operación. Si la reserva no alcanza, no se gasta nada y se hace la tirada original. El registro muestra lo realmente pagado, no lo solicitado. Cuánto puede comprar una prueba lo fija el conjunto: un número fijo, un número de tu ficha o tantos como dados tenga la prueba.
+- Si el conjunto indica que un número de tu ficha acompaña a ciertas tiradas, como una mochila pesada en cada tirada de Brawn, el motor lo suma a cada prueba a la que se aplica, y la tarjeta de dados indica lo que añadió la ficha.
+- Un conjunto puede indicar qué hace una prueba cuando no tienes entrenamiento en la habilidad: puede costarte dados o puntos, ser un escalón más difícil o no ser posible en absoluto. Una prueba que no puedes intentar sin entrenamiento no se tira, y la narración lo dice en lugar de mostrar un resultado. Tu ficha no muestra ningún número para esa habilidad hasta que la entrenas.
 - Si el conjunto tiene un contador de heridas cuya penalización afecta a las tiradas, cada prueba se dificulta al recibir daño. En reservas, resta dados sin bajar del mínimo permitido, que algunos sistemas fijan en cero. En tiradas sumadas, aplica una penalización fija. La prueba indica cuánto se aplicó, para explicar por qué tiraste menos dados. Consulta [La ficha del conjunto](party-and-npcs.md#the-ruleset-sheet).
+- El Game Master también mantiene al día en la ficha los recursos, estados y descansos de cada personaje, y el motor rechaza un cambio que la ficha no permite. Consulta [La ficha del conjunto](party-and-npcs.md#the-ruleset-sheet).
 
 ### Conjuntos con reservas de dados
 
-La puntuación de la ficha determina cuántos dados se tiran: atributo 3 y habilidad 2 dan cinco dados. El editor y el contexto del GM muestran "5 dice" en lugar de "+5". La dificultad es el número de éxitos necesario, por ejemplo tres, no una suma de 15.
+Algunos sistemas no suman una bonificación a la tirada. En su lugar, el número de la ficha es cuántos dados tiras, y cuentas los que salen lo bastante altos. Un conjunto puede escribirse así, y una partida con uno se comporta de forma un poco distinta:
 
-El conjunto define el umbral, éxitos dobles, explosiones, cancelaciones por resultados bajos, pifias y éxitos excepcionales. La tarjeta muestra todos los dados, destaca los éxitos y compara su cantidad con el objetivo. Las reservas grandes ocupan más filas sin encoger los dados ni mostrar una suma ficticia.
+- **El número de la ficha son dados.** Un atributo de 3 y un oficio que vale 2 tiran cinco dados. Tu ficha lo muestra como "5 dice" en lugar de "+5", en el editor y en lo que lee el Game Master.
+- **La dificultad es un número de éxitos.** Un trabajo difícil pide tres éxitos, no un total de 15. La escala de dificultad del conjunto indica cuántos necesita cada escalón.
+- **El motor tira los dados y los cuenta.** Qué caras cuentan, si una cara alta tira otro dado o cuenta doble, si las caras bajas cancelan éxitos y qué cuenta como pifia o como éxito excepcional: todo procede del conjunto. La tarjeta de dados muestra todos los dados tirados, con los que alcanzaron el objetivo separados de los que no, e indica cuántos éxitos salieron frente a cuántos necesitaba la prueba. Una reserva grande ocupa más filas en lugar de encogerse, y la tarjeta nunca muestra una suma que los dados no hayan dado.
+- **El Game Master puede ajustar una prueba**, si el conjunto lo permite: un objetivo por dado más difícil o más fácil, dados añadidos o quitados por las circunstancias, y una cara más baja a partir de la cual los dados se vuelven a tirar o cuentan doble. Cada ajuste se mantiene dentro del rango que declara el conjunto. Un escalón de la escala de dificultad puede llevar su propio objetivo por dado, que se aplica cuando el Game Master elige ese escalón. La tarjeta de dados indica cuándo una prueba volvió a tirar o contó doble en una cara distinta de la habitual del conjunto.
+- **Los dados se pueden volver a tirar**, si el conjunto tiene una regla para ello: el Game Master la nombra en la prueba cuando la situación lo pide, y los dados que salieron bajos se vuelven a tirar, una vez o hasta que salgan más altos. Un recurso que gastas puede comprar lo mismo. Una tirada solo se repite de una forma; cuando se aplicarían dos, se usa la que alcanza más dados.
+- **Se pueden tirar dos atributos juntos**, si el conjunto lo indica: una prueba de atributo puede añadir los dados de un segundo atributo, de modo que dos puntuaciones se tiran como una sola reserva.
+- **Algunos conjuntos pueden torcerse además del resultado.** En un conjunto que cuenta como pifia que la mitad de los dados o más saquen caras bajas, una prueba que aun así consiguió sus éxitos conserva su resultado, y la tarjeta de dados añade que, además, algo salió mal. Sin ningún éxito, es un fallo crítico.
+- **El Game Master nunca aporta los números.** Un resultado de reserva escrito en la narración siempre se sustituye por la tirada propia del motor. No se aplican la ventaja ni una tirada manual previa.
+- **Dejar que el Game Master vea un dado de cada tamaño no se aplica a estas pruebas.** Los dados que se le muestran son de veinte caras; el motor tira la prueba de reserva a ciegas y se narra como cualquier otra tirada a ciegas.
 
-El GM solo puede modificar el umbral de cada dado o el tamaño de la reserva dentro de los límites del conjunto. Los resultados inventados por el modelo siempre se sustituyen por tiradas reales. No se aplican ventaja, tiradas manuales previas ni la vista previa de d20 del GM; el motor tira la reserva sin mostrarla de antemano.
+### Otras formas de tirar de un conjunto
+
+Un conjunto también puede tirar sus pruebas de otras formas. El motor sigue tirando los dados, y la tarjeta de dados sigue al conjunto:
+
+- **Quedarse con los dados más altos.** Tira un puñado de dados y lee el más alto, los dos más altos o los tres más altos, según indique el conjunto.
+- **Tirar contra tu ficha.** Saca un resultado igual o inferior a un número de tu ficha, como un porcentaje de habilidad, en lugar de sumar una bonificación a los dados.
+- **Dados con sus propias caras.** Las caras pueden valer algo distinto de su número, como menos, blanco y más. Algunos dados llevan símbolos en lugar de números, como éxito, ventaja y sus opuestos.
+- **Resultados por franjas.** Una prueba puede caer en uno de varios resultados, como un éxito crítico o un éxito con un coste, en lugar de un simple acierto o fallo. La tarjeta de dados nombra la franja, y el Game Master la narra.
+- **Unas pocas pruebas tiradas de otra forma.** Un conjunto puede tirar la mayoría de las pruebas de una forma y nombrar unas pocas que se tiran de forma distinta.
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 

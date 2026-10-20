@@ -99,10 +99,22 @@ La música tiene una estructura de carpetas estricta. Cada pista de música debe
 Los valores permitidos son:
 
 - State: `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Genre: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`, o la familia de una ambientación (ver abajo), como `wuxia`.
 - Intensity: `calm`, `tense`, `intense`.
 
 Esta estructura es como Game Mode sabe cuándo reproducir cada pista. Las carpetas de sonido ambiental, efectos de sonido, sprites y fondos no tienen esta regla. Puedes nombrar sus subcarpetas libremente.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### Arte y música propios de una ambientación
+
+Un juego que empezó con un kit de ambientación tiene una familia artística, que aparece en **Art and music** (Arte y música) cuando cambias las palabras del kit: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` o una propia del kit. El juego usa las carpetas con el nombre de su familia y todas las carpetas que no llevan el nombre de ninguna familia, y deja fuera las carpetas de las demás familias, así que un juego cyberpunk nunca reproduce música de batalla de fantasía ni muestra el bosque encantado. Cuando nada de su propia familia ni de las carpetas compartidas encaja, no suena nada en lugar de una pista de otra familia.
+
+- **Music**: pon las pistas de la ambientación en `music/<state>/<family>/<intensity>`, como `combat/wuxia/intense`. Se reproducen antes que las pistas compartidas.
+- **Backgrounds**: `backgrounds/<family>`. Los fondos generados durante un juego con kit de ambientación también se guardan ahí.
+- **Sonidos de combate**: un sonido en `sfx/combat/<family>` con el mismo nombre que uno incluido, como `sword-swing`, lo reemplaza en los juegos de esa familia. Los sonidos de combate incluidos son de fantasía, así que los combates de otra familia quedan en silencio hasta que añadas los suyos.
+
+Los fondos iniciales incluidos cuentan como compartidos, excepto los de fantasía (`ancient_library`, `castle_cliff`, `enchanted_forest`) y el moderno `city_night`. Un juego sin kit de ambientación usa todas las carpetas, como antes. Un kit de ambientación guardado antes de que existieran las familias artísticas sigue funcionando: uno creado a partir de un kit inicial usa la familia de ese kit inicial, y cualquier otro usa todas las carpetas hasta que elijas una familia en **Art and music**. La barra de selección descrita en [Elegir qué recursos puede usar un juego](#choosing-which-assets-a-game-can-use) muestra la familia del juego abierto.
 
 ## Organizar tus recursos
 
@@ -134,6 +146,8 @@ Recuerda que los archivos iniciales incluidos están protegidos. Puedes renombra
 Marinara mantiene una lista interna de tus recursos para que Game Mode pueda encontrarlos rápido. Cuando subes a través de la app, esta lista se actualiza por su cuenta.
 
 Si copias archivos a la carpeta de recursos del juego directamente en tu computadora, fuera de la app, la app no se da cuenta enseguida. Haz clic en el botón **Rescan** para que vuelva a leer la carpeta y detecte los archivos nuevos. **Rescan** está tanto en la barra de herramientas del **Asset Browser** como en la sección **Game Assets** dentro de **Settings**.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## Elegir qué recursos puede usar un juego
 

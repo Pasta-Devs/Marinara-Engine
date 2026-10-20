@@ -1,6 +1,6 @@
 # オプションのマルチプレイヤー
 
-実装の追跡：[#6790](https://github.com/Pasta-Devs/Marinara-Engine/issues/6790)。この文書は実装の境界と必要な検証を記録します。マルチプレイヤーが利用可能であることや、特定のプラットフォームがテストに合格したことを表明するものではありません。
+実装の追跡: [#6790](https://github.com/Pasta-Devs/Marinara-Engine/issues/6790)。この文書は実装の境界と必要な検証を記録します。マルチプレイヤーが利用可能であることや、特定のプラットフォームがテストに合格したことを表明するものではありません。
 
 <a id="smallest-architecture"></a>
 
@@ -79,6 +79,8 @@
 
 各認証済み参加者には永続化した単調増加のアクション番号と、上限付き操作受領記録があります。再試行は前の結果を返し、記録が128件のキャッシュから外れても再送は古いものとして扱います。プレイヤーが後でペルソナを変えてもメッセージ内のスナップショットは変わりません。宛先指定のささやきや判定のため、人間とAIのペルソナ名は一意に判別できる必要があります。
 
+表示名とペルソナ名は公開情報なので、席の所有者を証明するものにはなりません。退出したプレイヤーや応答しなくなったプレイヤーが元の席に戻れるのは、そのプレイヤーのEngineがその席の非公開の再参加キーを提示した場合だけです。再参加キーとは、最初にそのプレイヤーを席に着かせた承認で発行されたセッショントークンで、新しい参加リクエストにbearerとして付けて再送されます。キーがなければ、同じ名前を使ったリクエストは名前の競合となり、その席のセッションには手が加えられません。どちらのEngineも、キーをメモリー上にだけ保持します。ゲストのEngineが再起動した場合は、そのプレイヤーが同じペルソナを再び使えるようになる前に、ホストが古い席を削除します。
+
 Gameのペルソナ変更は次のラウンド境界で適用します。既存のシート、現在値、インベントリー所有権、トラッカーのプライバシーキーは安定した参加者IDに従い、過去のメッセージは元の発言者を保ちます。その境界までにNPCが希望名を使った場合、元のペルソナを維持して名前の競合を表示します。ホストのパス、削除、一時停止、再開は同じ履歴に翻訳済みイベントを残します。
 
 Gameは必要な参加者、提出の各リビジョン、一意の処理実行権を既存のチャットメタデータに保存します。提出の収集と発言者付きメッセージの確定は既存のメタデータキューを経てストレージトランザクションで行います。プロバイダー処理はその外です。Stopは信頼できる操作のシグナルをキャンセルし、遅れて到着する書き込みも有効な実行権との一致を必要とします。中断ターンを自動再試行しません。明示的な再開は確定済み効果を繰り返さず次の収集境界へ進みます。設定失敗時はロビーに留まり、明示的な確認・再開始を待ちます。
@@ -93,19 +95,20 @@ Gameは必要な参加者、提出の各リビジョン、一意の処理実行�
 
 自動検証は使い捨てストレージ、ローカルのテストCA、模擬モデルプロバイダーを使います。ユーザーの証明書、データ、設定済みAI接続は変更しません。
 
-- `multiplayer-peer-security.regression.ts`：HTTPデータ開示前のTLSチェーン・ホスト名・フィンガープリント確認、不正・過大・リダイレクト応答、キャンセル。
-- `multiplayer-peer-server-security.regression.ts`：ルーム専用ルート、本文・ヘッダー・出力・頻度・同時処理数の制限、リスナーの即時停止。
-- `multiplayer-room.regression.ts`：2つのEngine、承認、所有権、履歴フィルター、権限取り消し・再送、生成の直列化、2人のGameラウンド・復旧。
-- `multiplayer-session-flows.regression.ts`：HTTPS上の2つのEngine、実際の生成・Gameランタイム、模擬プロバイダー、完全なConversation・Roleplay・Gameラウンド。
-- `multiplayer-generation-policy.regression.ts`と`generation-output.regression.ts`：実行部の制限、非公開ライブラリー除外、プロンプト内の身元、共有生成ロック、完了の意味。
-- `multiplayer-autonomy-security.regression.ts`：既存スケジューラー再利用、ルーム活動の時計、単一の制御権、Stopの競合。
-- `multiplayer-game-runtime.regression.ts`：Game設定・開始・導入、決定的なターン効果、古い書き込み、設定中断。
-- `multiplayer-game-persona.regression.ts`と`multiplayer-game-projection.regression.ts`：ペルソナ所有権移行、競合復旧、閲覧者フィルター、上限付き公開トラッカー。
-- `e2e/multiplayer-guest-isolation.e2e.ts`：デスクトップChromium、モバイルChromium、モバイルWebKitで、本番ゲストバンドルに敵対的テキストとローカル・ネットワーク・ネイティブアクセスの試行を与える検証。
+- `multiplayer-peer-security.regression.ts`: HTTPデータ開示前のTLSチェーン・ホスト名・フィンガープリント確認、不正・過大・リダイレクト応答、キャンセル。
+- `multiplayer-peer-server-security.regression.ts`: ルーム専用ルート、本文・ヘッダー・出力・頻度・同時処理数の制限、リスナーの即時停止。
+- `multiplayer-seat-key-security.regression.ts`: 名前のコピーや誤った再参加キーでは席もそのささやきも取得できないこと、キーの所持者が同じ席に戻ること、キーがほかの参加者や保存済みチャットデータに渡らないこと。
+- `multiplayer-room.regression.ts`: 2つのEngine、承認、所有権、履歴フィルター、権限取り消し・再送、生成の直列化、2人のGameラウンド・復旧。
+- `multiplayer-session-flows.regression.ts`: HTTPS上の2つのEngine、実際の生成・Gameランタイム、模擬プロバイダー、完全なConversation・Roleplay・Gameラウンド。
+- `multiplayer-generation-policy.regression.ts`と`generation-output.regression.ts`: 実行部の制限、非公開ライブラリー除外、プロンプト内の身元、共有生成ロック、完了の意味。
+- `multiplayer-autonomy-security.regression.ts`: 既存スケジューラー再利用、ルーム活動の時計、単一の制御権、Stopの競合。
+- `multiplayer-game-runtime.regression.ts`: Game設定・開始・導入、決定的なターン効果、古い書き込み、設定中断。
+- `multiplayer-game-persona.regression.ts`と`multiplayer-game-projection.regression.ts`: ペルソナ所有権移行、競合復旧、閲覧者フィルター、上限付き公開トラッカー。
+- `e2e/multiplayer-guest-isolation.e2e.ts`: デスクトップChromium、モバイルChromium、モバイルWebKitで、本番ゲストバンドルに敵対的テキストとローカル・ネットワーク・ネイティブアクセスの試行を与える検証。
 - 設定と操作の重点ブラウザーテストは、承認警告、Players、Gameロビー、タッチ配置、ライト・ダーク、下書き・再試行を扱います。
 
 マージ前に最終候補で`pnpm check`、関連Node回帰テスト、`pnpm regression:prompt`、`pnpm smoke:ui`、重点ブラウザーマトリックスを再実行してください。実際の結果とリビジョンをPRに記録し、CodeRabbitと重点的なセキュリティレビューを終え、対応する実機を検証します。ブラウザーエミュレーションは実際のiPhone・iPadのホーム画面やAndroidの証明ではありません。Androidネイティブラッパーのゲスト機能は無効のままです。実機の結果は記録されるまで未確認です。ビューポートのプリセットから対応を推測しないでください。
 
 ゲストは従来型IIFEとしてビルドします。不透明なオリジンからESモジュールを読み込むと、CORSを緩和する必要があるためです。本番・開発の起動時に固定されたローカルのゲストアセットをビルドします。開発サーバーの稼働中にゲストソースを編集したら、`node packages/client/scripts/build-multiplayer-guest.mjs`を実行し、ゲスト画面を再読み込みしてください。ランチャーの完全性確認には両方の隔離アセットが含まれます。
 
-翻訳の追跡：[#6854](https://github.com/Pasta-Devs/Marinara-Engine/issues/6854)。
+翻訳の追跡: [#6854](https://github.com/Pasta-Devs/Marinara-Engine/issues/6854)。

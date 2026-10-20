@@ -10,7 +10,16 @@ Noodle 是 Marinara Engine 内置的社交媒体时间线。第一次接触的�
 2. 在左侧边栏点击 **Settings**(设置) 按钮（齿轮图标）。
 3. 面板标题显示为 **Noodle settings**。
 
+设置分成四个页面，用标题下方的按钮选择：
+
+- **General**(常规)：[Refresh](#refresh) 和 [Translation](#translation)。
+- **Timeline**(时间线)：[Activity](#activity) 和 [Image Generation](#image-generation)。
+- **Participants**(参与者)：[Invites](#invites)、**Ambient Profiles**(背景账号)（见 [Random users](#random-users)）和 [Active Accounts](#active-accounts)。
+- **Advanced**(高级)：**Noodle Prompt**(Noodle 提示词)、[Image Understanding](#image-understanding)、[Timeline Writing](#timeline-writing)、[World / Lore](#world--lore)、[Carryover](#carryover) 和 [Reset Noodle](#reset-noodle)。
+
 Noodle 的所有设置都是全局的，对每一个用户角色、每一个聊天都生效，不是只管当前这一个聊天。改动即时保存。
+
+<a id="invites"></a>
 
 ## Invites(邀请)
 
@@ -26,6 +35,8 @@ Noodle 的所有设置都是全局的，对每一个用户角色、每一个聊�
 
 按文件夹邀请是一次性的批量操作，不是实时同步。之后再往这个文件夹里添加的角色不会自动受邀。
 
+<a id="refresh"></a>
+
 ## Refresh(刷新)
 
 **Refresh** 这一节决定 Noodle 用哪个 AI 连接来写内容，以及它自己多久刷新一次。
@@ -39,6 +50,8 @@ Noodle 的所有设置都是全局的，对每一个用户角色、每一个聊�
 
 自动刷新在 Marinara 服务器里执行。Noodle 页面不必一直开着，但 Marinara 本身必须在运行。刷新失败时，日程表里会显示错误并在稍后重试，连续失败会让等待时间越来越长。如果连着错过好几个日程时刻，Marinara 只用一次成功的补跑刷新把它们一起补上，不会把时间线刷屏。
 
+<a id="translation"></a>
+
 ## Translation(翻译)
 
 **Translation** 这一节只有一个开关，需要 Noodle 1.5.0 或更高版本。
@@ -46,6 +59,8 @@ Noodle 的所有设置都是全局的，对每一个用户角色、每一个聊�
 - **Translate posts automatically**(自动翻译帖子)：开关，默认 **off**。开启后，凡是不由你的用户角色发出的帖子和评论，下方都会显示译文，不用再逐条点击 **Translate**(翻译)。Noodle 沿用你在某个聊天的 **Translation** 设置里，用 **Save translator defaults**(保存翻译默认设置) 保存下来的翻译默认设置。没有保存过默认设置时，它用 Google Translate 翻译成英语。本来就是目标语言的文字不会再多出一份译文；你隐藏的译文会一直保持隐藏；关闭这个开关后，还在排队等待的翻译会停止。
 
 不管是自动翻译的，还是点 **Translate** 翻译的，译文都保存在当前这个浏览器里。刷新时间线、离开 Noodle 或者重新加载页面之后，译文会直接重新显示，不会再翻译一遍。换一台设备，或者清除了浏览器数据，就会重新翻译。**Reset Noodle Timeline**(重置 Noodle 时间线) 也会清掉这些译文。
+
+<a id="active-accounts"></a>
 
 ## Active Accounts(活跃账号)
 
@@ -60,6 +75,8 @@ Noodle 的所有设置都是全局的，对每一个用户角色、每一个聊�
 
 Noodle 先选定活跃账号，然后才去准备首次的资料。只有还没有生成过 Noodle 资料的活跃角色才会触发一次资料生成请求，没被选中的受邀角色不在其中。写时间线的请求同样只拿到这次刷新选中的那些账号的角色卡。
 
+<a id="activity"></a>
+
 ## Activity(动态)
 
 **Activity** 这一节限制单次刷新最多能产出多少内容。每一项都是按次刷新的上限。
@@ -73,23 +90,40 @@ Noodle 先选定活跃账号，然后才去准备首次的资料。只有还没�
 
 某一项设为 0，AI 就不会再产出这一类动态。
 
+<a id="image-generation"></a>
+
 ## Image Generation(图像生成)
 
 **Image Generation** 这一节让 Noodle 给一部分帖子配上 AI 生成的图像。这需要一个图像生成连接，也就是专门为出图配置好的连接。见[支持的 AI 服务商](../connections/providers-reference.md)。
 
-- **Image generation**：开关，默认 **off**。开启后 AI 才能给帖子生成配图。
+- **Noodle image generation**(Noodle 图像生成)：开关，默认 **off**。开启后 AI 才能给帖子生成配图。
 - 开启之后会多出几个控件：
-  - **Image generation connection**(图像生成连接)：下拉菜单，默认 **Default image generation connection**。保持默认时，用的是 Connections(连接) 面板里标记为图像生成默认项的那个连接。
-  - **Prompt instructions**(提示词补充说明)：文本框，自带一段默认文字，最多 4000 个字符。这些额外说明会并进图像提示词里。
+  - **Image width**(图像宽度) 和 **Image height**(图像高度)：生成的帖子配图的尺寸，64 到 4096 像素。默认宽 **1024**、高 **1536**。
+  - **Noodle image generation connection**(Noodle 图像生成连接)：下拉菜单，默认 **Default image generation connection**。保持默认时，用的是 Connections(连接) 面板里标记为图像生成默认项的那个连接。角色也可以改用自己的连接，见[个人资料和关注](overview.md#profiles-and-following)。
+  - **Image instructions (sent to your LLM)**(图像指令，会发给你的 LLM)：文本框，自带一段默认文字，最多 4000 个字符。时间线模型给每条帖子写配图描述时会遵循这些指令，所以要写成指示，而不是图像标签。想把风格标签直接发给图像模型，请改用图像风格方案。
   - **Use avatar references**(使用头像参考图)：开关，默认 **on**。会把角色的头像或参考图发给图像模型。
   - **Interpret image prompts**(解读图像提示词)：开关，默认 **on**。由一个文本模型改写每段图像提示词，改写时遵循图像连接的 **Image Prompting Instructions**(图像提示词指令) 和风格方案的 Style text(风格描述)。关闭时不使用 Image Prompting Instructions，Style text 按原样加入。
   - **Include descriptions**(附带外观描述)：开关，默认 **on**。会把角色写好的外观描述加进图像提示词。开启 **Interpret image prompts** 时，文本模型会把这些描述融进提示词，而不是直接粘贴。
   - **Images/refresh**(每次刷新的图像数)：数值，0 到 50，默认 **3**。这个上限只管生成的帖子配图，对每一次手动刷新和自动刷新分别计算。
-- **Attach gallery images**(附带图库图像)：一个独立的开关，默认 **off**。即使 **Image generation** 关着，它也一直显示。它不生成新图，而是让帖子复用该角色图库里的图，或者复用该角色出现过的聊天里的图。
+- **Attach gallery images**(附带图库图像)：一个独立的开关，默认 **off**。即使 **Noodle image generation** 关着，它也一直显示。它不生成新图，而是让帖子复用该角色图库里的图，或者复用该角色出现过的聊天里的图。
 
-开启了 **Image generation** 却没有可用的图像连接，刷新会被拦下，屏幕上出现提示“Choose an image generation connection for Noodle first.”生成失败的图像会重试一次。第二次仍然失败的话，刷新照常进行，发布一条干净的纯文字帖子，而不会把没用上的图像提示词暴露出来。
+开启了 **Noodle image generation** 却没有可用的图像连接，刷新会被拦下，屏幕上出现提示“Choose an image generation connection for Noodle first.”生成失败的图像会重试一次。第二次仍然失败的话，刷新照常进行，发布一条干净的纯文字帖子，而不会把没用上的图像提示词暴露出来。
 
-Noodle 写这些图像提示词用的模板叫 **Noodle Post Image**，可以在 **Settings** > **Generations** > **Image Generation Prompt Overrides** 里修改。**Prompt instructions** 里的文字会传进这个模板，结果再经过平时用的图像风格方案处理一遍。见[图像与视频的提示词覆盖](../prompts/prompt-overrides.md) 和[图像风格方案](../media/style-profiles.md)。Professor Mari 没有角色卡，所以她的图像帖子用的是她内置的头像和参考图。
+Noodle 写这些图像提示词用的模板叫 **Noodle Post Image**，可以在 **Settings** > **Generations** > **Image Generation Prompt Overrides** 里修改。**Image instructions (sent to your LLM)** 里的文字会传进这个模板，结果再经过平时用的图像风格方案处理一遍。见[图像与视频的提示词覆盖](../prompts/prompt-overrides.md) 和[图像风格方案](../media/style-profiles.md)。Professor Mari 没有角色卡，所以她的图像帖子用的是她内置的头像和参考图。
+
+<a id="image-understanding"></a>
+
+## Image Understanding(图片理解)
+
+**Image Understanding** 这一节决定时间线写手怎样看到时间线上已有的图片。
+
+- **Show images to the writer**(把图片给写手看)：开关，默认 **on**。写手模型支持图片输入时，最多会收到 8 张近期的时间线图片。关闭后，写手收不到任何时间线图片。
+- **Image captioning**(图像描述)：开关。由一个支持视觉的连接为写手描述时间线图片，这样纯文本的写手模型也能跟上。在你改动之前，它跟随 Noodle 的 **Generation connection** 的图像描述设置；**Use connection default**(使用连接默认值) 会恢复成跟随。
+- **Captioning connection**(描述用连接)：开启图像描述时出现。**Use Noodle generation connection**(使用 Noodle 生成连接) 会使用 **Generation connection**；那个模型看不了图片时，请另选一个连接。
+
+即使关闭了 **Show images to the writer**，图像描述仍会把时间线图片发给描述用连接。
+
+<a id="timeline-writing"></a>
 
 ## Timeline Writing(时间线写作)
 
@@ -104,11 +138,15 @@ Noodle 的刷新写手遵循一套内置的语气和创作自由度指令：每�
 
 这个覆盖项只管语气和风格。保证刷新结果有效的那些规则（允许哪些结构化动作、互动必须怎样指定目标等等）不在这段文字里，任何时候都生效，所以重写语气不会把刷新搞坏。
 
+<a id="world--lore"></a>
+
 ## World / Lore(世界与设定)
 
 **World / Lore** 这一节让刷新能调用世界书条目，用的就是聊天生成时的同一套世界书系统。
 
 - **Lorebook context**(世界书上下文)：开关，默认 **off**。开启后，每一次刷新都会在近期的 Noodle 帖子和回复文本以及活跃角色的资料里查找世界书关键词，把命中的条目作为世界设定上下文，提供给这次参与的账号。只有关联到活跃角色的世界书（或者标记为全局的世界书）才会触发。触发的世界设定内容每次刷新有 8,192 个 Token(模型切分文本的最小单位) 的硬上限。这项默认关闭，不主动开启就不会影响已有的时间线。
+
+<a id="carryover"></a>
 
 ## Carryover(延续)
 
@@ -121,6 +159,8 @@ Noodle 的刷新写手遵循一套内置的语气和创作自由度指令：每�
 延续只取那些在 Noodle 上受邀的角色的动态，外加这个聊天当前的用户角色。仅仅因为文件夹而被纳入，在这里是不够的。
 包装好的整段延续内容，在每次聊天生成时另有 8,192 个 Token 的硬上限。如果按条数上限会超出预算，Marinara 会保留放得下的最新几条摘要，并按时间先后顺序排列。
 
+<a id="reset-noodle"></a>
+
 ## Reset Noodle(重置 Noodle)
 
 **Reset Noodle** 这一节清空时间线，同时保留账号和设置。
@@ -131,11 +171,15 @@ Noodle 的刷新写手遵循一套内置的语气和创作自由度指令：每�
 
 这个操作只删除时间线内容。账号、账号名、简介、关注关系、邀请状态和每一项 Noodle 设置都原样保留。
 
+<a id="random-users"></a>
+
 ## Random users(随机用户)
 
 随机用户是 6 个内置的背景账号，不来自角色库：Thread Countess、Packet Soup、Orbit Notice、Glass Bulletin、Moth Hour 和 Brine Index。每个都有一小段风味简介。
 
 开启它们的开关是 **Invites** 一节中 **Characters** 列表顶部的 **Random users** 那一行，默认 **off**。开启时它的副标题显示 **Enabled**，关闭时显示 **Ambient fake profiles**。开启后，这些账号可以在刷新中发帖、点赞、转发、回复和关注别人。它们的资料页上永远没法关注它们。
+
+**Participants** 页面上的 **Ambient Profiles** 一节可以编辑这些身份，或者重新生成一组不同的身份。重新生成会保留帖子和关系，但会移除资料图片。
 
 ## 把 Noodle 和聊天连起来
 
@@ -153,7 +197,7 @@ Noodle 和聊天可以双向共享上下文。这是两个各自独立的功能�
 - **自动刷新一直不发生**：把 **Refreshes/day** 设成大于 0，保持 Marinara 服务器运行，并核对 **Automatic schedule** 下面的日程时刻和时区。如果日程表里显示错误，先解决连接或速率限制的问题，然后等重试自己跑。
 - **帖子里没有提到最近的聊天**：在那个聊天的设置里开启 **Allow Noodle references**，并确认角色已经受邀。聊天上下文只是给 AI 的参考，不是保证。
 - **Noodle 动态没有出现在聊天里**：开启对应模式的 **Carryover to chats**，如果动态太旧，就把 **Carry hours** 调大。
-- **帖子没有配图**：开启 **Image generation**，选一个能用的图像连接，再检查 **Images/refresh** 的上限。
+- **帖子没有配图**：开启 **Noodle image generation**，选一个能用的图像连接，再检查 **Images/refresh** 的上限。
 
 ## 设置项与默认值
 
@@ -173,14 +217,20 @@ Noodle 和聊天可以双向共享上下文。这是两个各自独立的功能�
 | **Replies** | 12 | 0 到 200 |
 | **Reposts** | 4 | 0 到 100 |
 | **Likes** | 18 | 0 到 500 |
-| **Image generation** | off | on 或 off |
-| **Image generation connection** | Default | 任意图像生成连接 |
-| **Prompt instructions** | 内置文字 | 最多 4000 个字符 |
+| **Noodle image generation** | off | on 或 off |
+| **Image width** | 1024 | 64 到 4096 |
+| **Image height** | 1536 | 64 到 4096 |
+| **Noodle image generation connection** | Default | 任意图像生成连接 |
+| **Image instructions (sent to your LLM)** | 内置文字 | 最多 4000 个字符 |
 | **Use avatar references** | on | on 或 off |
 | **Interpret image prompts** | on | on 或 off |
 | **Include descriptions** | on | on 或 off |
 | **Images/refresh** | 3 | 0 到 50 |
 | **Attach gallery images** | off | on 或 off |
+| **Show images to the writer** | on | on 或 off |
+| **Image captioning** | 跟随 Generation connection | on 或 off |
+| **Captioning connection** | Use Noodle generation connection | 任意支持视觉的连接 |
+| **Use connection default** | on | on 或 off；恢复 Generation connection 的图像描述设置 |
 | **Lorebook context** | off | on 或 off |
 | **Enhanced tone & continuity** | off | on 或 off |
 | **Carryover: Conversations** | off | on 或 off |

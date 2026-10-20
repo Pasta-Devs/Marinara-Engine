@@ -276,6 +276,7 @@ El saneador elimina lo siguiente por seguridad.
 | `@font-face` con URLs externas | Solo se conservan las fuentes `data:`. El nombre de la familia se renombra automáticamente para que no pueda anular las fuentes de la app. |
 | `@import` | Sin cargar hojas de estilo externas. |
 | Selectores `:has()` | No pueden sondear elementos fuera del chat. |
+| Reglas anidadas y selectores que empiezan por `~` o `+` | Se eliminan, para que el Card CSS no pueda salir de su ámbito. Escríbelos como selectores normales. |
 | HTML en `content:` | Se permite texto decorativo, pero `<` y `>` se eliminan y el texto se limita a 200 caracteres. Se permiten `attr()` y `counter()`. |
 | `position: fixed` | Se reescribe a `position: absolute`, así que no hay superposiciones a pantalla completa. |
 | `!important` | Se elimina, para que el Card CSS no pueda forzar la anulación de los estilos de la app. |

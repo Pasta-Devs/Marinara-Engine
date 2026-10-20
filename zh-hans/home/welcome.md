@@ -8,15 +8,44 @@ Marinara Engine 是一个本地应用，用来和 AI 角色聊天、玩角色扮
 
 ## 主页一览
 
-没有打开任何聊天时，看到的就是主页。从上到下依次是这些部分：
+没有打开任何聊天时，看到的就是主页。它看起来有点像网页浏览器：顶部是标签页和书签，下面是一张摆着小组件的桌面。
 
-- 应用图标、**Marinara Engine** 字样，下面是版本号。
-- 一排最近聊天：最多 3 条，显示成小方块，点一下就能重新打开。一条都没有时，这一排会显示“No chats yet”。
-- **Ask Professor Mari**(问问 Professor Mari) 卡片：一个聊天框，内置助手会在这里讲解应用、帮忙完成配置。旁边的 **FAQ**(常见问题) 收录了常见问题和解答。
-- **Achievements**(成就) 按钮，只有开启了成就设置才会出现。
-- 底栏，包含这几个按钮：**Discord**、**Support**(支持)、**Credits**(致谢)、**Documentation**(文档) 和 **Replay Tutorial**(重看教程)。
+顶部有这几个部分：
+
+- **标签页。**主页是 **Home**(主页)。**Professor**(教授) 会打开 Professor Mari，也就是能讲解应用、帮你完成配置的内置助手。有些已安装的智能体会添加自己的标签页。
+- **搜索栏。**在电脑上，点击标签页下方的搜索栏，或者按 Ctrl+K(Mac 上是 Cmd+K)，就能查找聊天、角色、设置等内容。
+- **书签。**通往 **Discord**、**Support**(支持)、**Credits**(致谢)、**Documentation**(文档)、**Tutorial**(教程)、**FAQ**(常见问题)、**Achievements**(成就) 和 **Widgets**(小组件) 的快捷链接。**Achievements** 只有开启了成就设置才会显示。在手机上，点击标签页左侧的书签按钮，就能以列表形式查看它们。
+
+中间是应用图标、**Marinara Engine** 字样和版本号。下面的 **Conversation**、**Roleplay** 和 **Game** 按钮分别以对应模式新建一个聊天。
 
 第一次打开 Marinara 时会有一段简短的引导，指出主要按钮和几种聊天模式。完整流程见[首次使用的引导教程](tutorial.md)。
+
+<a id="home-widgets"></a>
+
+## 主页小组件
+
+主页的其余部分由小组件组成：可以显示、隐藏和四处移动的小卡片。应用自带这些小组件：
+
+| 小组件 | 作用 | 初始是否显示 |
+| --- | --- | --- |
+| **Professor Mari** | 点击 **Ask Professor Mari**(问问 Professor Mari) 打开她的聊天。 | 是 |
+| **Recent chats**(最近聊天) | 显示你最近的聊天及其最后一条消息。点击某个聊天即可重新打开。一个聊天都还没有时，显示 **Your chats will show here**(你的故事从这里开始)。 | 是 |
+| **Learn the engine**(了解引擎) | 链接到 **Documentation**、**Replay tutorial**(重看教程) 和 **Read FAQ**(查看常见问题)。 | 是 |
+| **What's New**(新功能) | **See what's new**(查看新功能) 会再次打开这个版本的 What's New 窗口，即使你之前关掉了它。**Read release notes**(查看发行说明) 会在网页上打开完整的发行说明。 | 是 |
+| **Community**(社区) | 链接到 **Discord**、**Support** 和 **Credits**。 | 是 |
+| **Character Library**(角色库) | 每天从你的角色里挑选一批新的展示。 | 否 |
+| **Discovery desk**(发现台) | 推荐你还没安装的智能体。用箭头查看更多，或者用 **Browse agents**(浏览智能体) 打开目录。 | 否 |
+| **Character of the Day**(今日角色) | 从你的角色库里选出的一个角色，带有 **Start a chat**(开始聊天) 和 **View character**(认识这个角色)。 | 否 |
+| **Clock & calendar**(时钟与日历) | 今天的日期和时间。 | 否 |
+| **Achievements** | 你最近获得的成就和最接近完成的成就。只有开启了成就设置才可用。 | 否 |
+
+有些已安装的智能体也会添加小组件。你也可以请 Professor Mari 为你做一个个人小组件。
+
+要选择显示哪些小组件，点击书签里的 **Widgets**。**Home Widgets**(主页小组件) 窗口会把它们分别列在 **Built-in**(内置)、**Agents**(智能体) 和 **Personal**(个人) 下。点击小组件旁边的眼睛按钮即可显示或隐藏它。重新显示的小组件会放到主页上第一个空位。个人小组件还有编辑和删除按钮。
+
+要移动小组件，拖动它右上角的手柄。在电脑上，指针移到小组件上时手柄才会出现。使用键盘时，聚焦手柄后按方向键。你的小组件布局保存在这个浏览器里。
+
+**Home Widgets** 窗口底部的 **Browser chrome**(浏览器外框) 有三个开关：**Show URL bar**(显示地址栏) 用来显示或隐藏搜索栏，**Other-tab bookmarks (desktop)**(其他标签页的书签，桌面端) 和 **Other-tab bookmarks (mobile)**(其他标签页的书签，移动端) 让书签在 **Home** 以外的标签页上也保持显示。
 
 ## 上手第一步
 
@@ -43,8 +72,8 @@ Marinara 有三种聊天模式，新建聊天时选择其中一种。
 
 - 在主页问 **Professor Mari**，配置问题和操作方法都能答。
 - 看主页上的 **FAQ**，常见问题在那里有速查答案。
-- 用主页底栏的 **Documentation** 按钮打开应用内指南。
-- 点击底栏的 **Discord** 进入社区，或者点击 **Support** 支持这个项目。
+- 用主页上的 **Documentation** 书签打开应用内指南。
+- 点击 **Discord** 书签进入社区，或者点击 **Support** 支持这个项目。
 
 如果哪里坏了、用不了，参见 [Marinara Engine 故障排查](../TROUBLESHOOTING.md)。
 

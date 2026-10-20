@@ -42,7 +42,7 @@ No computador, Chat Settings flutua sobre o chat. O conteúdo se reorganiza conf
 - **Lock** impede mover ou redimensionar a janela e trava a posição do botão dela. O botão continua abrindo a janela. Destrave a janela para voltar a mover qualquer um dos dois.
 - **Close** (o **X**) oculta a janela.
 
-As janelas ficam dentro da área do chat quando você redimensiona o navegador ou abre uma barra lateral.
+As janelas ficam dentro da área do chat quando você redimensiona o navegador ou abre uma barra lateral. No computador, uma janela ou um botão pode ficar no espaço ao lado da caixa de mensagem, até a parte de baixo do chat. Ela nunca cobre a própria caixa de mensagem.
 
 No celular, Chat Settings abre como um painel de largura total. O painel se ajusta acima do teclado enquanto você digita.
 
@@ -188,7 +188,7 @@ As ferramentas do chat também são seções de Chat Settings. As seções dispo
 - **Chat Summary**, abaixo de **Lorebooks**, permite revisar e criar resumos de um chat de Roleplay. Veja [Memória e resumos de chat](../agents/memory.md#chat-summary-roleplay).
 - **Active Context**, abaixo de **Chat Summary**, mostra os lorebooks e o contexto ativos. Veja [Orçamento de tokens e recursão](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
 - **Agent activity**, logo abaixo de **Agents** em um chat de Roleplay com agentes ou Advanced Memory, mostra o que os agentes fizeram. A seção também permite executar trackers novamente, repetir ou parar agentes e limpar trackers. Veja [Agent activity](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes**, abaixo de **Agents**, guarda uma nota que a IA lê a cada turno de Roleplay. Veja [Author's Notes](../roleplay/getting-started.md#authors-notes).
+- **Author's Notes**, abaixo de **Agents**, guarda uma nota que a IA lê a cada turno de um chat de Roleplay. Quando você a destaca em uma janela, a caixa de texto cresce junto com a janela; no celular, ela ocupa a tela inteira. Veja [Author's Notes](../roleplay/getting-started.md#authors-notes).
 - **Gallery** guarda imagens e vídeos do chat. Veja [Planos de fundo de cena e galeria](../media/scene-backgrounds.md).
 
 ## Outras seções do painel

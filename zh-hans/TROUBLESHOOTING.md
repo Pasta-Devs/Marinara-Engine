@@ -18,7 +18,7 @@
 - **控件不可用：**确认正确 Engine 的 `.env` 中有 `MULTIPLAYER_ENABLED=true`，重启该 Engine，再单独启用 Settings。保存的开关不能覆盖缺失或无效的环境标志。Android 原生封装被刻意禁止加入。
 - **房主不可用：**使用独立且可达的 HTTPS 房间端口、有效的证书链/主机名，以及匹配的邀请指纹。不要通过关闭 TLS 验证、将 `null` 加入可信来源、公开普通 Engine API 或打开房主提供的客户端来绕过错误。
 - **等待批准：**房主必须在 Players 中批准申请。批准前没有聊天记录。邀请过期或被撤销时，请索取新邀请。
-- **已断线：**让访客自己的 Engine 保持运行。明确开启的会话仍有效时，客户端会重连到同一个已固定的房主；未发送草稿保留在当前视图。重启会使凭据失效，需要重新加入。网络故障时仍可使用 Stop/Leave。
+- **已断线：**让访客自己的 Engine 保持运行。明确开启的会话仍有效时，客户端会重连到同一个已固定的房主；未发送草稿保留在当前视图。重启会使凭据失效，需要重新加入；如果之后想继续用同一个用户角色名称，先请房主移除你原来的席位。网络故障时仍可使用 Stop/Leave。
 - **Game 等待中：**检查 Players。断线参与者不会自动跳过。房主可以明确选择 Pass/Kick 或 Pause。只提交两个必需行动中的一个，不应运行 GM。
 - **生成中断：**不要反复提交该轮。房主应检查已提交的叙述/状态，明确向前继续或停止房间。多人模式不会默默重放结果不明确的模型请求，也不会重复应用世界效果。
 - **命令受限或缺少媒体：**初始房间协议有意只传输文本。参阅[兼容性表](development/multiplayer.md#command-and-feature-compatibility)，不要安装对端提供的文件或扩展来绕过限制。
@@ -32,6 +32,10 @@
 如果 Vite 报 `Reached heap limit` 或 `JavaScript heap out of memory` 后退出，说明客户端构建耗尽了 Node.js 堆内存，与缺少原生 Rollup 二进制文件不同。更新后重新运行 `start-termux.sh`：客户端构建（包括应用内更新）现在使用独立的 1536 MiB 堆上限，不超过已知设备 RAM 的一半，但不会低于构建所需的 1280 MiB。RAM 上限按 128 MiB 向下取整。服务器继续使用按配置文件大小确定的较小上限。`NODE_OPTIONS` 中明确设置的上限对两个进程都优先，因此请检查是否残留旧的 1024 MiB 设置：客户端已经无法在 1024 MiB 内完成构建。
 
 重试前关闭其他应用。RAM 低于约 3 GB 的手机仍可能耗尽内存，或被 Android 终止进程；报告时保留完整启动输出。不要为了修复构建而删除聊天或配置文件。
+
+### 桌面端：客户端类型检查时 JavaScript 堆内存不足
+
+如果客户端构建报 `JavaScript heap out of memory` 后停止，接着提示 `The client type-check needs about 2.5 GiB of Node.js heap`，说明你在 `NODE_OPTIONS` 里设置的堆上限太小。构建会沿用你设置的上限，而不会自动调高。如果 `NODE_OPTIONS` 里有 `--max-old-space-size-percentage`，就调高这个百分比，它会覆盖 `--max-old-space-size`。如果只用了 `--max-old-space-size`，把它调到 2560 或更高。也可以删掉这些选项，让构建自己决定上限。然后重新运行启动脚本。你的聊天和设置不受影响。
 
 ### Termux：缺少多人模式访客文件
 
@@ -111,6 +115,10 @@ rm -rf node_modules .pnpm .pnpm-store
 
 然后用 `./start.sh` 重新启动 Marinara。如果是手动安装，删完这些文件夹后运行 `pnpm install`。
 
+### 安装时提示“Ignored build scripts: @google/genai”
+
+这条提示无害：那个包的安装脚本什么也不做，Marinara 也用不到它。不要运行 `pnpm approve-builds`，因为它会改动一个由 Marinara 跟踪的文件，之后每次更新都得先把这处改动挪开。当前版本已经不会再显示这条提示。如果之前显示过它的安装在更新后还继续显示，删掉 Marinara 文件夹里的 `node_modules/.modules.yaml` 文件，再重新运行启动脚本。你的聊天和设置不受影响。
+
 ### 安装过程中出现 ERR_PNPM_TRUST_DOWNGRADE
 
 这几乎都是安装装到一半没完成。先重新运行启动脚本，让它修复工作区。如果是手动安装，在 Marinara 文件夹里运行这一条命令：
@@ -136,6 +144,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 如果旧版安装完成不了首次包迁移，先别删 `data/capability-packages` 文件夹和聊天数据。Marinara 会保留未完成的迁移状态，下次启动时重试。目录访问不通的期间，已有的聊天选择和设置都会保留。
 
+如果 `data/capability-runtime-snapshots` 或 `data/capability-packages/versions` 变得很大，不需要手动清理。Marinara 启动时会删掉旧副本，每个智能体只保留当前版本和上一个版本。
+
 只要包的校验和、声明的文件列表、Engine 版本范围或压缩包内路径与官方目录对不上，下载就会被拒绝。先更新 Marinara Engine，刷新目录，再重试。不要手动把产物解压进数据目录。
 
 智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **No** 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Download Agents** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
@@ -147,7 +157,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 让服务器监听一个能被访问到的地址。默认情况下服务器只监听 `127.0.0.1`(环回地址，仅限本机)。shell 启动脚本会自动设置 `HOST=0.0.0.0`。如果是手动用 `pnpm start` 启动的，先在 `.env` 文件里设置 `HOST=0.0.0.0`。
 - 确认两台设备连的是同一个 Wi-Fi 网络。
 - 确认没有防火墙拦端口。默认端口是 `7860`，或者你在 `PORT` 里设置的值。
-- 配好访问控制。面向普通网络或公网的客户端，在 `.env` 里设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。环回访问仍然免密码。经 Tailscale 的直连流量、同主机的 Docker 网桥或识别到的容器网关默认受信任；经代理转发的 Docker 流量则需要正常授权，除非显式设置 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`。
+- 配好访问控制。面向普通网络或公网的客户端，在 `.env` 里设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。环回访问仍然免密码，但同一台机器上的反向代理或隧道转发过来的访客需要登录。直连的 Tailscale 流量默认受信任。同主机的 Docker 网桥或网关流量只在你设置 Basic Auth 或 `IP_ALLOWLIST` 之前受信任；经代理转发的 Docker 流量则需要正常授权，除非显式设置 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`。
+- 如果设备上显示 **Too many wrong passwords**，等 15 分钟，再用正确的 Basic Auth 密码登录。重启服务器也能让它重新尝试。
 - 要在那台设备上执行特权操作（备份、清除数据、更新），在服务器的 `.env` 里设置 `ADMIN_SECRET`。然后把同一个值粘贴到那台设备的 **Settings** > **Advanced** > **Admin Access**(管理员访问) 里，点击 **Save**(保存)。
 - 如果用的是公网域名或反向代理域名，并且看到 **Untrusted request host**，把它准确的主机名加进 `.env` 的 `TRUSTED_HOSTS`。手机、局域网电脑和 Tailscale 节点使用的直连 IP 地址仍然会自动放行。
 
@@ -181,6 +192,7 @@ CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
 - **The AI returned an empty response. Try sending your message again.**：把消息重新发一次。如果一直这样，换个模型或换个连接试试。
 - **A generation is already in progress for this chat**：还有一条回复正在流式输出。等它结束，或者点 Stop 按钮，然后再试。
 - **No connections are marked for the random pool**：开启了随机连接路由，却没有把任何连接标进随机池。至少往池里加一个连接，或者把随机路由关掉。
+- 每条消息都以网络错误失败，而你的电脑只能通过代理上网（例如未开启 TUN 模式的 v2rayN）：把这个代理告诉 Marinara。见[出站 HTTP 代理](CONFIGURATION.md#outbound-http-proxy)。
 
 ## Local Model 相关问题
 
@@ -211,7 +223,7 @@ GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交�
 1. 打开 **Chat Settings** > **Memory Recall**，确认 **Enable Memory Recall** 是开着的。
 2. 打开 **Access memories for this chat**。在 **Memories for This Chat** 窗口里逐块查看状态。
 3. 状态是 **Waiting for vector** 表示这条记忆还在处理。等一会儿再继续聊。
-4. 状态是 **Embedding unavailable** 表示没有可用的嵌入来源。配置一个嵌入连接，或者等内置的本地模型加载完成。见[本地模型设置](connections/local-model.md)。
+4. 状态是 **Embedding unavailable** 表示没有可用的嵌入来源。配置一个嵌入连接，或者等内置的本地模型加载完成。见[本地模型设置](connections/local-model.md)。想让所有聊天都用同一个嵌入来源，在 **Connections**(连接) 面板的 **Defaults**(默认值) 区域里，从 **Embeddings**(嵌入) 中选择它。
 
 一条记忆需要积累至少 5 条新消息才会生成。而且召回只会给出和新消息高度相关的记忆，所以即使记忆存在，也可能什么都不返回。
 
@@ -238,7 +250,7 @@ GitHub 自动生成的源码压缩包并不保证逐字节稳定，哪怕提交�
 
 ## Card Browser 相关问题
 
-**Card Browser**(角色卡浏览器) 可以搜索公开的角色卡站点并导入角色。从顶栏的 **Card Browser** 图标打开，然后点击 **Download Cards**。
+**Card Browser**(角色卡浏览器) 可以搜索公开的角色卡站点并导入角色。用 **Characters**(角色) 或 **Personas**(用户角色) 面板顶部的 **Download**(下载) 按钮打开它。
 
 - 如果 JannyAI 搜索或某个角色页面被 Cloudflare 拦截，Marinara 会给出提示，让你用同一个浏览器访问一次 JannyAI 站点以通过验证，然后重试。
 - 如果重启服务器后 Pygmalion 的登录失效了，这是正常现象。这个登录信息只存在服务器内存里，重启就清空。打开登录窗口，重新粘贴 Token。
@@ -286,7 +298,8 @@ Game Mode 分镜会把一段完整的 GM 叙述变成关键帧图像和可选的
 ## 语音、通话和 TTS
 
 - 如果通话中角色不出声，说明语音合成还没配好。打开 **Connections** > **Text to Speech**，启用它，选择来源，填入密钥，挑一个音色并保存。没有配音色的角色只会以文字形式出现。
-- 如果麦克风不工作，可能需要本地语音模型。从 **Agents > Download Agents** 安装 **Calls**，然后打开 **Connections** > **Local Model**，展开卡片，找到 **Local Speech Model**，选一个 Whisper 模型，点击 **Download Whisper**。Firefox 尤其需要这一步，因为它没有浏览器语音识别。卸载 Calls 会一并删掉它的 Whisper 模型以腾出磁盘空间。
+- 如果语音播放停下并提示 **No audio after 60 s**，说明你的语音服务器比 Marinara 愿意等待的时间更慢，笔记本上的本地服务器经常如此。在 **Connections** > **Text to Speech** 里，或者在提示中点名的音频连接里，调高 **Request timeout (seconds)**(请求超时，单位为秒)。见[请求超时](media/tts-setup.md#request-timeout)。
+- 如果麦克风不工作，可能需要本地语音模型。从 **Agents > Download Agents** 安装 **Calls**，然后打开 **Connections** > **Local Model**，展开卡片，找到 **Local Speech Model**，选一个 Whisper 模型，点击 **Download Whisper**。Firefox 尤其需要这一步，因为它没有浏览器语音识别。卸载 Calls 会一并删掉它的 Whisper 模型以腾出磁盘空间。你也可以在 **Connections** 的 **Speech to Text**(语音识别) 卡片里使用自己的语音转文字服务器，见[使用自己的语音转文字服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
 - 在 Lite 版本上，提示 **Local Whisper is disabled in Lite mode** 表示这个精简版跑不了本地语音模型。改用完整版的 Marinara。
 
 ### 远程或局域网安装时 Music DJ 的 Spotify 登录失败
@@ -304,7 +317,7 @@ Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交�
 
 ### 执行 Restart Server 后服务器没有恢复
 
-请使用 `start.bat`、`start-local.bat`、`start.sh`、`start-termux.sh` 或 `pnpm start` 启动 Marinara。这些方式会让服务器保持受启动器管理，并等旧进程退出后再启动替代进程。从应用内重启时，会在 4 秒后关闭仍未结束的连接；如果关闭过程仍卡住，则在 8 秒后强制退出。强制关闭可能中断待完成的写入，并会在诊断中标记为强制关闭。直接使用 `node` 启动的进程和开发模式下监视文件的进程不会自动替换：请在终端中停止后重新启动。Docker 继续使用容器的重启策略。 在Windows上，在启动器控制台中按Ctrl+C，等待**Shutdown complete**(关闭完成)后再关闭窗口。直接关闭或强制终止终端可能打断尚未完成的保存操作。
+请使用 `start.bat`、`start-local.bat`、`start.sh`、`start-termux.sh` 或 `pnpm start` 启动 Marinara。这些方式会让服务器保持受启动器管理，并等旧进程退出后再启动替代进程。从应用内重启时，会在 4 秒后关闭仍未结束的连接；如果关闭过程仍卡住，则在 8 秒后强制退出。强制关闭可能中断待完成的写入，并会在诊断中标记为强制关闭。直接使用 `node` 启动的进程和开发模式下监视文件的进程不会自动替换：请在终端中停止后重新启动。Docker 继续使用容器的重启策略。在 Windows 上，在启动器控制台中按 Ctrl+C，等待 **Shutdown complete**(关闭完成) 后再关闭窗口。直接关闭或强制终止终端可能打断尚未完成的保存操作。
 
 旧服务器仍在运行时，不要使用同一个数据目录启动另一台服务器。如果旧版本遗留了运行中的进程，请先停止该进程；不要删除运行中服务器的写入租约。
 
@@ -312,7 +325,7 @@ Music DJ 智能体的 Spotify 模式走的是 OAuth。OAuth 是一种登录交�
 
 Marinara 只允许一个正在运行的服务器写入本地数据目录。如果启动时针对该目录显示 **Another Marinara Engine process ... may be using**，请关闭另一个 Marinara 进程后重新启动。
 
-发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。在数据目录位于本地磁盘的 Linux、Android 和容器主机上，Marinara 会自行回收因进程崩溃或被强制终止而遗留的租约，即使重启后也不例外；网络存储或共享存储上，手动步骤仍是后备方案。
+发生崩溃或移动 Docker 数据卷后，启动时可能改为显示 **The storage writer lease ... is incomplete or invalid**，或者指向此主机上已不存在的进程。请先确认使用该数据目录的所有 Marinara 进程和容器均已停止。然后只删除错误中指定的 `.writer-lease` 目录，再重启 Marinara。不要删除其外层的 `storage` 目录或任何表文件。在数据目录位于本地磁盘的 Linux、Android 和容器主机上，Marinara 会自行回收因进程崩溃或被强制终止而遗留的租约，即使重启后也不例外；网络存储或共享存储上，手动步骤仍是后备方案。数据目录位于电脑自己的某个磁盘上时，Windows 也会这样做。在 Windows 上，如果数据目录在网络驱动器、共享文件夹或 U 盘这类可移动驱动器上，或者电脑在崩溃后改过名，手动步骤仍是后备方案。
 
 ### 更新之后数据像是丢了
 
@@ -324,6 +337,8 @@ Marinara 只允许一个正在运行的服务器写入本地数据目录。如�
 2. `data/`
 
 服务器启动时会打印它解析出的数据目录和存储目录。
+
+<a id="chats-show-no-messages-after-switching-to-an-older-version"></a>
 
 ### 切换到旧版本后聊天不显示消息
 
@@ -348,7 +363,7 @@ Docker 和 Podman 将数据保存在 `marinara-data` 卷中，因此请在一次
 
 ### 备份或导出返回 403
 
-环回会话不用管理员密钥就能做备份。但从其他设备、网络地址或 Docker 访问时，备份和档案导出需要额外授权。在服务器上设置 `ADMIN_SECRET`，并把同一个值保存到 **Settings** > **Advanced** > **Admin Access**。如果希望环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。
+环回会话不用管理员密钥就能做备份。默认情况下，来自其他设备、网络地址、Docker，或同一台电脑上的反向代理或隧道的请求，做备份和档案导出时需要额外授权。在服务器上设置 `ADMIN_SECRET`，并把同一个值保存到 **Settings** > **Advanced** > **Admin Access**。如果希望环回访问也必须提供密钥，设置 `MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK=true`。如果设置了 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`，转发过来的访客也会走本地放行；公开的代理或隧道请保留这道防护。
 
 ### 导入时提示文件不是可读的 ZIP 压缩包
 
@@ -409,7 +424,7 @@ exit status 134 通常表示构建过程中 Android 内存不够了。用最新�
 
 构建好的 Marinara 应用并没有好几个 GB，Noodle 也不会自己下载 AI 模型。更新期间临时占用大，通常来自 pnpm 的依赖存储和虚拟存储，尤其是连着更新了好几个版本，或者曾经中断过一次强制重装之后。
 
-当前的启动脚本会清理旧版本遗留的包，并且同一次更新不会重复重建依赖存储。如果旧的启动脚本已经把设备塞满了，先更新启动脚本并回收无引用的缓存，再重试：
+当前的启动脚本会清理旧版本遗留的包，并且同一次更新不会重复重建依赖存储。从 **Settings** > **Advanced** > **Updates**(更新) 进行的应用内更新现在也只安装 Android 用的包，不再为其他所有平台各装一份。如果旧的启动脚本已经把设备塞满了，先更新启动脚本并回收无引用的缓存，再重试：
 
 ```bash
 cd Marinara-Engine
@@ -471,9 +486,11 @@ Conversation 的日程要在 Conversation 的 Chat Settings 或角色日程编�
 
 禁用整页访问扩展之后，如果工具栏项、浮层、监听器或某处视觉改动还留着，重新加载 Marinara。清理只能尽力而为，因为页面代码可能在 Marinara 可追踪的兼容 API 之外留下副作用。
 
+<a id="a-server-extension-says-no-supported-sandbox-is-available"></a>
+
 ### 服务器扩展提示没有可用的沙箱
 
-服务器扩展和 Professor Mari 的原始 shell 命令只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。官方 Docker 镜像已经包含 Bubblewrap，但默认的最小权限容器无法创建它所需的嵌套命名空间和挂载。Marinara 会检测这种状态并禁用操作系统沙箱功能，而不是尝试必然失败的命令。
+服务器扩展和 Professor Mari 的原始 shell 命令只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。在原生 Linux 主机上安装 `bwrap`，然后重启 Marinara。官方 Docker 镜像已经包含 Bubblewrap，但默认的容器保持最小权限，无法创建 Bubblewrap 所需的嵌套命名空间和挂载。Marinara 会检测这种状态并禁用操作系统沙箱功能，而不是尝试必然失败的命令。
 
 如果你接受更宽泛的容器权限并确实需要在 Docker 中使用这些功能，请将以下内容保存为 `docker-compose.yml` 旁边的 `docker-compose.override.yml`：
 
@@ -488,9 +505,9 @@ services:
       - apparmor=unconfined
 ```
 
-添加后重新创建容器。服务器进程必须保持为 root，以免 Marinara 入口点通常切换到 `node` 用户时丢弃新增能力。以 root 配合 `SYS_ADMIN` 运行属于大范围提权，禁用 AppArmor 还会进一步削弱外层安全边界。不要只为了消除提示而启用它。当前 Docker 版本通常不需要笼统设置 `seccomp=unconfined`。
+添加后重新创建容器。服务器进程必须保持为 root，以免 Marinara 入口点通常切换到 `node` 用户时丢弃新增能力。以 root 配合 `SYS_ADMIN` 运行服务器属于大范围提权，禁用容器的 AppArmor 配置还会进一步削弱外层安全边界；不要只为了消除“沙箱不可用”的提示而启用它。Docker 默认的 seccomp 配置会随新增能力自动调整，所以在当前的 Docker 版本上，通常不需要笼统设置 `seccomp=unconfined`。
 
-服务器扩展只能在 macOS Seatbelt 或 Linux Bubblewrap 下运行。在 Linux 宿主机上安装 `bwrap`，然后重启 Marinara。Windows、Android 和其他不受支持的宿主环境会直接拒绝执行服务器扩展，而不是退回到主服务器进程里跑。浏览器扩展仍然可以使用它们的不透明来源 Worker 沙箱。
+Windows、Android 和其他不受支持的宿主环境会直接拒绝执行服务器扩展，而不是退回到主服务器进程里跑。浏览器扩展仍然可以使用它们的不透明来源 Worker 沙箱。
 
 ## 获取更多帮助
 

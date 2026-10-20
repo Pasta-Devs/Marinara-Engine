@@ -8,7 +8,7 @@
 
 Illustrator가 모든 메시지를 그리지는 않습니다. 기본값으로는 그림을 한 장 만든 뒤 사용자 메시지와 어시스턴트 메시지가 5개 쌓일 때까지 기다렸다가 다음 그림을 만듭니다. Roleplay 채팅마다 이 수를 바꿀 수 있습니다. 같은 답변을 스와이프하거나 재생성하는 것은 이 간격에 포함되지 않습니다. 그림으로 남길 장면이 아니라고 판단하면 그냥 건너뛰고 아무것도 만들지 않습니다. 만들어진 그림은 모두 채팅 **Gallery**(갤러리)에 저장됩니다.
 
-Illustrator는 **Roleplay**(롤플레이)와 **Game Mode**(게임 모드) 채팅에서 쓸 수 있고, 설치해 두면 Conversation(대화)의 셀카 기능도 함께 열립니다. 앱에 표시되는 짧은 설명은 다음과 같습니다: "Responsible for image and video generations." 이 가이드의 설정 절차와 옵션은 Roleplay 채팅 기준입니다. Game Mode는 대신 스위치 하나만 쓰며, 아래 Game Mode 절에서 설명합니다.
+Illustrator는 **Roleplay**(롤플레이)와 **Game Mode**(게임 모드) 채팅에서 쓸 수 있고, 설치해 두면 Conversation(대화)의 셀카 기능과 [동영상 메시지](../conversation/selfies.md#video-messages)도 함께 열립니다. 앱에 표시되는 짧은 설명은 다음과 같습니다: "Responsible for image and video generations." 이 가이드의 설정 절차와 옵션은 Roleplay 채팅 기준입니다. Game Mode는 대신 스위치 하나만 쓰며, 아래 Game Mode 절에서 설명합니다.
 
 ## 시작하기 전에
 
@@ -61,17 +61,24 @@ Illustrator는 서로 다른 연결 두 개를 씁니다. 이 둘을 구분해 �
 
 ## Attach Card Appearance와 Send Avatar References
 
-Illustrator 카드의 토글 두 개는 캐릭터 외형을 일관되게 유지하는 데 도움이 됩니다. 둘 다 기본값은 꺼짐입니다.
+Illustrator 카드의 설정 두 개는 캐릭터 외형을 일관되게 유지하는 데 도움이 됩니다. 둘 다 기본값은 꺼짐입니다.
 
-**Attach Card Appearance**(카드 외형 첨부)는 장면에 등장하는 캐릭터마다 저장된 외형 설명을 이미지 프롬프트에 덧붙입니다. 도움말 문구는 다음과 같습니다: "Append matched character appearance lines to image prompts, using only visible/generated names." 캐릭터 설정 그대로 그림이 나오길 원할 때 켜세요.
+그림에서는 **Attach Card Appearance**(카드 외형 첨부)가 장면에 등장하는 캐릭터마다 저장된 외형 설명을 이미지 프롬프트에 덧붙입니다. 동영상 프롬프트에는 아래에서 설명하는 대로 동영상을 포함했을 때만 덧붙입니다. 도움말 문구는 다음과 같습니다: "Append matched character appearance lines to image prompts, using only visible/generated names." 캐릭터 설정 그대로 그림이 나오길 원할 때 켜세요.
+
+Roleplay 채팅의 **Chat Settings**에서 **Attach Card Appearance**는 선택지가 네 가지인 드롭다운입니다.
+
+- **Off**(꺼짐)
+- **Images only**(이미지만): 평소 동작입니다.
+- **Videos only**(동영상만): Gallery에서 만든 클립은 동작 지시에 이름이 나오는 캐릭터의 외형 설명을 받습니다.
+- **Images and videos**(이미지와 동영상): 둘 다 적용합니다.
 
 **Attach Card Appearance**가 켜져 있을 때 카드나 페르소나에서 **Image Appearance Override**(이미지용 외형 지정)도 켜고 내용을 입력했다면, **Appearance** 대신 그 글을 보냅니다. **Appearance**가 이야기용으로 쓰여 있어 이미지 모델이 이해하기 어려울 때 사용하세요. 자세한 설명은 **Appearance**에 남겨 두고, 이미지용 입력란에는 짧은 태그 형태로 작성하면 됩니다. 이 옵션을 끄거나 입력란을 비워 두면 이미지 프롬프트는 계속 **Appearance**를 사용합니다. 어느 쪽이든 이야기를 서술하는 모델에는 **Appearance**의 전체 내용이 전달됩니다. 이 옵션은 캐릭터와 페르소나 편집기의 **Appearance** 아래에 있습니다.
 
-**Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타 또는 스프라이트를 참조 이미지로 이미지 제공자에 보냅니다. 도움말 문구는 다음과 같습니다: "Send matching character and persona avatars or sprites as reference images when the provider supports them." 이미지 모델이 얼굴이나 복장을 따라 그리는 데 도움이 됩니다. 참조 이미지를 받지 않는 제공자도 있어서 효과는 고른 제공자에 따라 달라집니다.
+**Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타 또는 스프라이트를 참조 이미지로 이미지 제공자에 보냅니다. 도움말 문구는 다음과 같습니다: "Send matching character and persona avatars or sprites as reference images when the provider supports them." 이미지 모델이 얼굴이나 복장을 따라 그리는 데 도움이 됩니다. 참조 이미지를 받지 않는 제공자도 있어서 효과는 고른 제공자에 따라 달라집니다. Roleplay 클립은 이미 그림에서 시작하므로, Roleplay에서는 이 설정이 계속 토글로 남고 그림에만 영향을 줍니다.
 
 ## NovelAI의 여러 캐릭터 장면
 
-Illustrator의 이미지 연결이 NovelAI의 V4, V4.5 또는 V5 모델을 사용하면 프롬프트를 작성하는 모델에 보이는 캐릭터마다 설명을 하나씩 추가하도록 요청합니다. 각 설명에는 해당 캐릭터의 외모, 표정, 자세, 화면 내 대략적인 위치가 담깁니다. Marinara는 설명을 장면의 캐릭터 목록과 대조하고, 일치하는 캐릭터를 찾지 못한 설명은 제외한 뒤 나머지를 장면의 메인 프롬프트와 함께 NovelAI가 자체 지원하는 캐릭터 프롬프트 형식으로 보냅니다. 이렇게 하면 여러 캐릭터가 있는 장면에서 머리카락, 옷 등 각자의 특징이 서로 섞이지 않습니다.
+Illustrator의 이미지 연결이 NovelAI의 V4, V4.5 또는 V5 모델을 사용하면 프롬프트를 작성하는 모델에 보이는 캐릭터마다 설명을 하나씩 추가하도록 요청합니다. 각 설명에는 해당 캐릭터의 외모, 표정, 자세, 화면 내 대략적인 위치가 담깁니다. Marinara는 설명을 장면의 캐릭터 목록과 대조하고, 일치하는 캐릭터를 찾지 못한 설명은 제외한 뒤 나머지를 장면의 메인 프롬프트와 함께 NovelAI가 자체 지원하는 캐릭터 프롬프트 형식으로 보냅니다. 이렇게 하면 여러 캐릭터가 있는 장면에서 머리카락, 옷 등 각자의 특징이 서로 섞이지 않습니다. **Illustrate** 버튼과 캐릭터의 `[illustrate]` 명령으로 만든 이미지에도 같은 설명이 붙습니다.
 
 설명 수는 모델에 따라 달라집니다. V5는 최대 22명, V4와 V4.5는 최대 6명을 지원합니다. 보이는 캐릭터가 더 많으면 가장 중요한 캐릭터를 남기고 나머지는 이름 없는 배경 인물로 취급합니다.
 
@@ -79,7 +86,7 @@ Illustrator의 이미지 연결이 NovelAI의 V4, V4.5 또는 V5 모델을 사�
 
 **Attach Card Appearance**(카드 외형 첨부)를 켜면 채팅에 있는 모든 카드와 페르소나의 Appearance 전문도 참고 자료로 전달하므로 긴 카드나 여러 캐릭터가 담긴 카드가 잘리지 않습니다. 하나의 Appearance 필드에 `[NAME] tags | [NAME] tags` 형식으로 여러 캐릭터를 설명한 카드는 캐릭터별로 나누어 전달합니다. 무엇을 사용할지는 모델이 판단합니다. 고정된 특징은 해당 캐릭터의 설명에 복사하고, 카드의 의상 태그는 트래커나 장면에 따라 바꿀 수 있는 기본값으로 취급하며, 장면에 없는 캐릭터는 무시합니다. 모델이 캐릭터별 설명을 반환하면 Marinara는 프롬프트에 아무것도 덧붙이지 않습니다. 캐릭터가 한 명인 경우처럼 설명을 반환하지 않으면 기존 방식대로 외모 설명 줄을 메인 프롬프트에 추가합니다.
 
-별도로 설정할 필요는 없습니다. 이 설명은 NovelAI 자체 호스트에 연결할 때만 사용하므로 프록시나 다른 제공자에는 영향을 주지 않습니다. **Review image prompts before sending**(전송 전 이미지 프롬프트 검토)를 켜면 검토 창이 메인 프롬프트 아래에 캐릭터별 설명을 표시해 전송할 내용을 확인할 수 있습니다. 설명은 읽기 전용이며, 메인 프롬프트는 평소처럼 편집할 수 있습니다.
+별도로 설정할 필요는 없습니다. 이 설명은 NovelAI 자체 호스트에 연결할 때만 사용하므로 프록시나 다른 제공자에는 영향을 주지 않습니다. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)을 켜면 검토 창이 메인 프롬프트 아래에 캐릭터별 설명을 표시해 전송할 내용을 확인할 수 있습니다. 설명은 읽기 전용이며, 메인 프롬프트는 평소처럼 편집할 수 있습니다.
 
 ## 추가 설정과 직접 실행하기
 
@@ -96,6 +103,8 @@ Roleplay 채팅마다 **Chat Settings**의 Illustrator 카드에 자체 **Run In
 **Settings → Generations → Image Generation**(설정 → 생성 → 이미지 생성)의 **Automatically save generated images to character galleries**(생성한 이미지를 캐릭터 갤러리에 자동 저장)는 기본적으로 켜져 있습니다. 끄면 채팅 일러스트와 셀카를 이미지에 등장하는 캐릭터 및 페르소나의 갤러리에 자동으로 추가하지 않습니다. 이미지는 대화와 채팅 갤러리에 계속 표시되며, 갤러리에 직접 저장하는 기능도 사용할 수 있습니다. 기존 항목은 바뀌지 않습니다. 갤러리는 이미지 파일을 공유하므로 이 설정은 갤러리 포함 여부만 바꾸며 채팅의 이미지 파일을 삭제하지 않습니다.
 
 Illustrator가 NovelAI로 새로 생성한 일러스트의 검사기에는 장면 또는 스타일 프롬프트 뒤에 각 캐릭터의 긍정 캡션이 ` | `로 구분되어 표시됩니다. 갤러리에 저장되는 프롬프트에도 동일하게 적용됩니다.
+
+답변을 재생성하지 않고 프롬프트를 바꿔 일러스트를 다시 그리려면 일러스트를 열고 **Regenerate image**를 사용하세요. [이미지 다시 만들기](scene-backgrounds.md#regenerating-an-image)를 참고하세요.
 
 Roleplay의 이전 메시지나 범위를 그림으로 만들려면 `/illustrate range=12` 또는 `/illustrate range=12-18`을 사용하세요. 번호 지정과 제한은 [슬래시 명령어](../chats/slash-commands.md)를 참고하세요.
 

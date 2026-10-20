@@ -65,13 +65,13 @@ Beim Streaming erscheint die Antwort Wort für Wort, statt erst am Stück nach d
 |---|---|---|
 | **Enable streaming** | On | Zeigt die Antwort Wort für Wort, während sie entsteht |
 | **Streaming speed** | 50 | Legt fest, wie schnell gestreamter Text auf dem Bildschirm erscheint |
-| **Trim incomplete model endings** | Off | Schneidet einen angefangenen Schlusssatz vor dem Speichern ab |
+| **Trim incomplete sentences from the response** | Off | Schneidet einen angefangenen Schlusssatz vor dem Speichern ab |
 
 **Streaming speed** ist ein Regler von 1 bis 100. Ein niedriger Wert erzeugt einen langsamen Schreibmaschinen-Effekt, sodass du mitlesen kannst. Ein hoher Wert zeigt den Text fast sofort. Marinara glättet ungleichmäßig eintreffende Tokens (kleine Textstücke), solange das Modell schreibt, und beendet die Antwort dann mit der eingestellten Geschwindigkeit. Wie schnell das Modell selbst schreibt, ändert diese Einstellung nicht.
 
 Ist **Enable streaming** aus, erscheint die vollständige Antwort auf einen Schlag, sobald das Modell fertig ist.
 
-**Trim incomplete model endings** betrifft nur die gespeicherte Nachricht. Ist die Einstellung an, entfernt Marinara einen angefangenen Schlusssatz aus der Antwort. Vollständige Antworten und befehlsartige Schlusszeilen bleiben unangetastet.
+**Trim incomplete sentences from the response** betrifft nur die gespeicherte Nachricht. Ist die Einstellung an, entfernt Marinara einen angefangenen Schlusssatz aus der Antwort. Vollständige Antworten und befehlsartige Schlusszeilen bleiben unangetastet.
 
 ## Tipp- und Fortschrittsanzeigen
 
@@ -95,7 +95,7 @@ Steht der Anwesenheitsstatus eines Charakters auf beschäftigt oder abwesend, er
 
 Manche Modelle geben eine verborgene Gedankenspur aus, oft „Thinking“ genannt. Marinara hält sie von der sichtbaren Antwort getrennt.
 
-Hängt an einer Antwort ein Thinking, erscheint bei dieser Nachricht die Aktion **View thoughts** (Gedanken ansehen, ein Gehirn-Symbol). Ein Klick darauf öffnet ein Panel mit dem erfassten Text.
+Hängt an einer Antwort ein Thinking, erscheint bei dieser Nachricht die Aktion **View model thoughts** (Gedanken des Modells ansehen, ein Gehirn-Symbol). Ein Klick darauf öffnet ein Panel mit dem erfassten Text.
 
 Angezeigt wird nur, was das Modell auch tatsächlich zurückgibt. Manche Modelle verpacken ihre Gedanken in einfache Text-Tags. Setz dafür eigene **Thinking Tags** (Thinking-Tags) an der Verbindung, damit Marinara die verborgenen Gedanken von der sichtbaren Antwort trennen kann. Mehrere gängige Tag-Paare erkennt Marinara bereits. Wie du **Thinking Tags** einträgst, steht in der Anleitung zu den Generierungsparametern unten.
 

@@ -51,7 +51,7 @@ Las carpetas organizan la biblioteca sin mover ni ocultar los archivos de imagen
 
 1. Haz clic en **New Folder** (Carpeta nueva). Marinara crea una carpeta con un nombre único.
 2. Haz doble clic o doble toque en el nombre de la carpeta para renombrarla. También puedes enfocarla y pulsar F2.
-3. En computadora, arrastra una fila de fondo a una carpeta. En un teléfono o una tableta, arrástrala por el asa visible.
+3. En computadora, arrastra una fila de fondo a una carpeta. En un teléfono o una tableta, mantén pulsada la fila y luego arrástrala.
 4. Arrastra un fondo de vuelta al área sin clasificar para quitarlo de su carpeta.
 
 Las carpetas y sus asignaciones se guardan en el servidor y se incluyen en las copias de seguridad. Eliminar una carpeta devuelve sus fondos a la lista sin clasificar; no elimina las imágenes. Los filtros de búsqueda y de etiquetas revelan automáticamente los elementos coincidentes dentro de sus carpetas.

@@ -31,7 +31,7 @@ Die aktuellen gegnerischen Schadensmultiplikatoren der Engine (Casual 0,6, Norma
 
 - `packages/shared/src/types/game.ts`: `Combatant`, `CombatSkill`, Classic-Ergebnisse und Snapshots. Aktuelle Werte sind allgemeine Zahlen; `speed` ist weder ein Tabletop-Geschicklichkeitswert noch Bewegung in Fuß.
 - `packages/server/src/services/game/combat.service.ts`: Classic würfelt die Initiative jede Runde, löst einen Befehl je Teilnehmer auf und nutzt allgemeine Schadensformeln. Ältere Spiele reichen den Zustand über den Client hin und zurück; neue Assistenten-Spiele nutzen das serverseitig verwaltete Aktionsprotokoll der Kampfsteuerung.
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: abwechselnde Gruppen-/Gegnerphasen, klassenabhängige Reichweite und aus Geschwindigkeit abgeleitete Bewegung, Konter, noch keine geschwindigkeitsbedingten Folgeangriffe.
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: Gruppen-/Gegnerphasen oder, wenn das Spiel es vorsieht, eine Einheit nach der anderen in einer per Seed bestimmten Initiativereihenfolge (combat C6c), klassenabhängige Reichweite und aus Geschwindigkeit abgeleitete Bewegung, Konter, noch keine geschwindigkeitsbedingten Folgeangriffe.
 - `packages/shared/src/features/combat-ai.ts` und Modusadapter: Prioritäten über verfügbare Aktionen. Gewöhnliche KI behält ihre Informationsgrenze; GM-Bosse erhalten Gruppenbögen/Ressourcen zur Vorhersage, aber keiner sieht künftige Würfe oder Spielerentscheidungen vor deren Erklärung.
 - `packages/server/src/routes/combat-director.routes.ts` und `services/game/combat-director.service.ts`: versionierter maßgeblicher Begegnungszustand, Aktivierungszeiger, ausstehende Reaktionen, legendäre Budgets und Schutz vor doppelten/veralteten Antworten. Erweitere diesen Pfad angenommener Aktionen für Regelsatzadapter, statt ein zweites Protokoll zu erstellen. Aktuelle Counterspell-Chance, Zauberplatzkosten und Abbruchkosten sind allgemeine Engine-Regeln, keine 5e-Regeln.
 - `packages/server/src/routes/game.routes.ts`: ältere Runden-/Start-/Aktionsvalidierung. `GameCombatUI`, `TacticalCombatUI` und `use-game.ts`: Eingaben, Vorschauen, angenommene Ergebnisse und Speicherung.
@@ -79,7 +79,7 @@ Vorgeschlagene anfängliche Abstimmung:
 | Regel | Vorgeschlagenes v1-Verhalten |
 | --- | --- |
 | Initiative | Absteigende effektive Geschwindigkeit, stabile Begegnungsreihenfolge bei Gleichstand; keine zusätzliche Aktivierung bei Gleichstand oder hoher Geschwindigkeit |
-| Tactical-Ablauf | Gruppenphase vor Gegnerphase; der Spieler darf noch nicht aktivierte Gruppenmitglieder wählen, automatische Einheiten nutzen die Geschwindigkeitsreihenfolge |
+| Tactical-Ablauf | Nach Seite: Gruppenphase, dann Gegnerphase; der Spieler wählt unter den noch nicht aktivierten Gruppenmitgliedern. Nach Initiative (combat C6c): eine Einheit nach der anderen in einer Reihenfolge, die einmal pro Kampf ausgewürfelt wird |
 | Classic-Ablauf | Gemeinsame absteigende Reihenfolge nach effektiver Geschwindigkeit; die UI sammelt manuelle Befehle, dann werden aktuelle zulässige Ziele an jedem Zugplatz aufgelöst |
 | Bewegung | Explizites, von Geschwindigkeit unabhängiges Bewegungsbudget. Vorgeschlagener Standard: 4 Felder mit begrenzten Klassen-/Fähigkeitsanpassungen |
 | Angriffsgeschwindigkeit | Effektive Geschwindigkeit nur mit ausdrücklich modellierten Abzügen/Boni; kein erfundenes Waffengewicht |

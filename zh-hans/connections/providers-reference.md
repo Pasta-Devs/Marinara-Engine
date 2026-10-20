@@ -115,7 +115,7 @@ NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。�
 - 密钥获取地址：`https://console.x.ai`
 - 默认基础 URL：`https://api.x.ai/v1`
 
-**xAI / Grok** 提供 Grok 系列模型。在 **Create Connection** 窗口里选中这家服务商时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。 Grok 4.6 和 4.7 提供 500,000 Token 的上下文窗口，推理最高支持 **Maximum** (`xhigh`)。它们支持现有聊天工具，包括 **Web Search**(网络搜索)，让搜索结果能够用于最终回复。
+**xAI / Grok** 提供 Grok 系列模型。在 **Create Connection** 窗口里选中这家服务商时，Marinara 会把模型预填为 Grok 4.5，之后可以随时改。 Grok 4.6 和 4.7 提供 500,000 Token 的上下文窗口，推理最高支持 **Extra high**(超高，即 `xhigh`)。它们支持现有聊天工具，包括 **Web Search**(网络搜索)，让搜索结果能够用于最终回复。
 
 ## Arli AI
 
@@ -129,7 +129,7 @@ NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。�
 - 密钥获取地址：`https://z.ai/manage-apikey/apikey-list`
 - 默认基础 URL：`https://api.z.ai/api/paas/v4`
 
-**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。**Model** 下拉列表显示当前的 GLM 模型，**Fetch Models from API** 会从你的账户刷新列表。GLM 5.3 模型始终会进行推理：预设中的 **Reasoning Effort**(推理强度) 会映射到 Z.AI 支持的三个级别：**Low**(低)、**High**(高) 和 **Maximum**(最大)。不设置时会使用 Z.AI 的默认值 **Maximum**。默认基础 URL 是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，其使用政策仅允许列表中的指定工具使用，因此不应期待 Coding Plan 的密钥能在这里使用。
+**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。**Model** 下拉列表显示当前的 GLM 模型，**Fetch Models from API** 会从你的账户刷新列表。GLM 5.3 模型始终会进行推理：预设中的 **Reasoning Effort**(推理强度) 会映射到 Z.AI 支持的三个级别（Low、High、Maximum），不设置时会使用 Z.AI 的默认值（Maximum）。默认基础 URL 是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，其使用政策仅允许列表中的指定工具使用，因此不应期待 Coding Plan 的密钥能在这里使用。
 
 ## DeepSeek
 
@@ -138,7 +138,7 @@ NanoGPT 暂时无法提供的额度会显示为**未知**，而非未使用。�
 
 **DeepSeek** 提供自家的聊天模型 `deepseek-flash` 和 `deepseek-v4-pro`。粘贴密钥之后，**Model** 下拉列表会列出它们，**Fetch Models from API** 会从你的账户刷新列表。
 
-DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的级别，即 **Low**、**High** 和 **Maximum**；**Off**(关闭) 则为该次请求关闭思考。这里没有 **Medium**：DeepSeek 会把中等强度的请求按 High 处理，所以 Marinara 提供的是 High，而不是再放一个效果完全相同的按钮。它的思考内容会出现在回复里，显示方式与平时相同。
+DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的级别，即 **Low**、**High** 和 **Max**；**Off**(关闭) 则为该次请求关闭思考。这里没有 **Medium**：DeepSeek 会把中等强度的请求按 High 处理，所以 Marinara 提供的是 High，而不是再放一个效果完全相同的按钮。它的思考内容会出现在回复里，显示方式与平时相同。
 
 参数面板里有些设置对 DeepSeek 不适用，所以面板直接不显示它们，而不是假装它们有效。**Verbosity**(详细度)、**Top K** 和重复惩罚都在此列：DeepSeek 已经弃用这些参数，发送了也会被忽略。**Temperature**(温度) 和 **Top P** 是一对：DeepSeek 一次只用其中一个，取决于它是否在思考。因此关闭思考时你看到的是 **Temperature**，开启思考时看到的是 **Top P**。
 
@@ -234,7 +234,7 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 - **PocketTTS**：一个在自己电脑上运行的免费语音服务器。
 - **xAI Voice**：xAI 的语音服务。
 
-每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。要选择 Marinara 默认使用哪个音频连接，打开 **Connections** 面板，展开 **Defaults**(默认值)，在 **Audio** 下选择。
+每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长，默认 60 秒；语音服务器较慢时可以调高。要选择 Marinara 默认使用哪个音频连接，打开 **Connections** 面板，展开 **Defaults**(默认值)，在 **Audio** 下选择。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
 
 使用 **ElevenLabs** 来源时，还会多出两个开关：**Game sound effects**(游戏音效) 和 **Game music**(游戏音乐)。它们让 Game Mode(游戏模式) 用这个连接生成音效和音乐。参见[生成音效与音乐](../game/game-assets.md#generated-sound-effects-and-music)。语音和朗读消息，见 [Text to Speech (TTS) 设置](../media/tts-setup.md)。
 
@@ -243,6 +243,8 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 世界书的语义搜索和 Memory Recall(记忆功能) 都靠嵌入驱动。嵌入把文本转成一串数字，Marinara 借此找出相关条目。大多数聊天服务商都允许在连接编辑器里设置 **Embedding Model**(嵌入模型)，以及可选的 **Embedding Endpoint URL**(嵌入端点 URL)。
 
 有些服务商做不了嵌入。**Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 都不提供。遇到这几家，就用 **Embedding Connection**(嵌入连接) 下拉菜单借用另一个连接，比如某个 OpenAI 兼容连接、**Google Gemini**，或者内置的 **Local Model**(本地模型)。
+
+想让所有没有自己嵌入设置的连接都使用同一个嵌入来源，打开 **Connections** 面板，展开 **Defaults**，在 **Embeddings**(嵌入) 下选择它。**None (built-in local model)**(无，使用内置本地模型) 会保留内置的本地嵌入模型。连接自己的嵌入模型或 **Embedding Connection** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
 
 ## 相关指南
 

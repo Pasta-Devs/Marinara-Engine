@@ -29,7 +29,7 @@ Ces commandes servent à gérer le chat et ses messages. Elles fonctionnent dans
 | Commande | Autres formes | Ce qu'elle fait |
 |---|---|---|
 | `/help` | | Liste toutes les commandes slash. |
-| `/send [message]` | | Publie un message au nom de ton persona sans lancer de génération. |
+| `/send [message]` | | Publie un message au nom de ton persona sans lancer de génération. Il est enregistré de la même façon qu'avec **Send**, macros remplacées. |
 | `/continue` | `/cont` | Ajoute du texte à la dernière réponse de l'IA, sans envoyer de nouveau message. L'option **Add a new line before /continue text** dans **Settings → General → Responses** détermine si ce texte commence après une ligne vide ou juste après la coupure. |
 | `/goto [number]` | `/jump`, `/scroll` | Fait défiler le chat jusqu'à un message donné par son numéro. |
 | `/hide [range] [name (optional)]` | | Masque un ou plusieurs messages à l'IA pour les tours suivants. |

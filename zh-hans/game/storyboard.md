@@ -85,6 +85,8 @@ Roleplay 会把选中的四段提示词拼成一个规划请求。
 
 每个编号阶段都有自己的折叠式 **Prompt library**：Stage 2 管理图像格式化器，Stage 3 管理参考图像的运动规划器，Stage 4 管理视频直传格式化器。内置图像选项还包括 **Storyboard Illustration** 和 **Storyboard First Frame**。视频选项包括 **Anime Game Video**、**Comic Page Video** 和 **Narration Passthrough**。Game 和 Roleplay 聊天可以选择不同格式化器，无须改动底层共享提示词集合。
 
+Stage 3 的 **Image-aware shot planning**(图像感知镜头规划) 还会遵循视频连接的 **Video Prompting Instructions**(视频提示词指令)。在连接编辑器的这个字段里写明你的视频模型需要什么，比如镜头用语、提示词长度或声音提示。
+
 ### 全局默认值与聊天覆盖设置
 
 每个聊天都可以覆盖智能体的默认值。继承来的值，Chat Settings 会标上 **Using agent default**；一旦建立了自己的覆盖设置，旁边就会出现一个重置控件。

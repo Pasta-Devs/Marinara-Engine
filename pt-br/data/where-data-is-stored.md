@@ -26,6 +26,7 @@ As imagens, os áudios e os outros arquivos de mídia ficam em pastas próprias,
 | --- | --- |
 | `avatars` | Avatares de personagens e personas |
 | `sprites` | Arte dos sprites dos personagens (a imagem do personagem no palco) |
+| `avatar-models` | Arquivos dos agentes **2D Avatars** e **3D Avatars**, como as imagens PNGTuber e os modelos 3D |
 | `backgrounds` | Planos de fundo de chat que você enviou |
 | `gallery` | Imagens da galeria |
 | `fonts` | Fontes personalizadas que você adicionou |

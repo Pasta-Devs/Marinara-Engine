@@ -1,6 +1,6 @@
 # Game Mode: sesje i zapisy gry
 
-Z tego przewodnika dowiesz się, jak aplikacja Marinara Engine śledzi postępy w trybie Game Mode między kolejnymi sesjami gry. Opisuje kończenie i rozpoczynanie sesji oraz czytanie dawnych sesji w **Session History** (historia sesji). Wyjaśnia też widok **Show Spoilers** (pokazanie spoilerów) i sposób, w jaki gra zapisuje dane.
+Z tego przewodnika dowiesz się, jak aplikacja Marinara Engine śledzi postępy w trybie Game Mode między kolejnymi sesjami gry. Opisuje kończenie i rozpoczynanie sesji oraz czytanie dawnych sesji w **Session History** (historia sesji). Wyjaśnia też widok **Show Spoilers** (pokazanie spoilerów), ręczne poprawianie danych gry i sposób, w jaki gra zapisuje dane.
 
 ## Czym jest sesja
 
@@ -122,11 +122,41 @@ Widok spoilerów może pokazywać takie sekcje:
 
 Te sekrety da się też edytować, co działa jak panel oszustw mistrza gry. Kliknij przycisk **Edit Spoilers**, zmień tekst, a potem kliknij przycisk **Save Spoilers**. Część pól ma postać JSON, czyli ustrukturyzowanego formatu tekstowego. Edytuj pola JSON tylko wtedy, gdy ten format jest ci znany, bo błędny JSON się nie zapisze.
 
+<a id="editing-game-data-by-hand"></a>
+
+## Ręczna edycja danych gry
+
+Gdy Game Master coś pomyli, na przykład reputację postaci NPC albo zadanie, które wciąż pozostaje otwarte, możesz samodzielnie poprawić zapisane dane gry.
+
+1. Otwórz **Game controls** (Kontrolki gry) i wybierz **Edit game data** (edycja danych gry). Na telefonie **Game controls** jest w menu **Chat tools** (narzędzia czatu) z trzema kropkami.
+2. Otwiera się okno **Game Data** (dane gry). Na górze widnieje ostrzeżenie: "Hand edits can break a game. Every change is checked before it saves, and names can't change here."
+3. Wybierz sekcję z listy albo, na telefonie, z rzędu kafelków. Możesz też wpisać tekst w pole wyszukiwania, żeby znaleźć wartość we wszystkich sekcjach naraz.
+4. Zmień wartości w widoku **Fields** (pola) albo przełącz się na **JSON**, żeby edytować surowe dane.
+5. Kliknij **Review changes** (przegląd zmian), żeby zobaczyć, co dokładnie się zmieni, a potem kliknij **Save changes** (zapisanie zmian).
+
+Zmienić możesz sekcje **Party Cards** (karty drużyny), **Party Sheet** (arkusz drużyny), **NPCs** (postacie NPC), **Journal** (dziennik), **Player Notes** (notatki gracza), **Inventory** (ekwipunek), **Story** (opowieść), **Session Summaries** (podsumowania sesji), **World Edits** (ręczne zmiany świata), **Story Script** (skrypt fabuły) i **HUD Widgets** (widgety paska HUD). Sekcja pojawia się tylko wtedy, gdy gra ma takie dane, więc w grze bez świata nie ma sekcji **World Edits**. Pozostałe sekcje, takie jak **World** (świat), **Maps & Position** (mapy i pozycja), **Time, Weather & Morale** (czas, pogoda i morale), **Combat** (walka) i **Settings** (ustawienia), mają oznaczenie **Read-only** (tylko do odczytu). Możesz je czytać i przeszukiwać, ale gra prowadzi je sama. Preferencje promptów, obrazów, muzyki i kości zmienia się w panelu **Chat Settings** (ustawienia czatu).
+
+Każda zmiana jest sprawdzana przed zapisem:
+
+- Nazw nie da się zmienić, bo karty, postacie NPC, drużyna i torby odnajdują się nawzajem po nazwie. Nie można tu też dodawać ani usuwać członków drużyny.
+- Reputacja postaci NPC mieści się w zakresie od -100 do 100.
+- W sekcji **Inventory** możesz zmienić liczbę sztuk przedmiotu, jego przydomek i to, kto go niesie, a także to, czy jest noszony, zestrojony albo włączony. Stos, który pominiesz, zostanie usunięty, a stos dodany bez id staje się nowym przedmiotem.
+- W sekcji **Session Summaries** zmienić można tylko tekst sesji.
+- **World Edits** przechowuje twoje ręczne zmiany nałożone na świat, na przykład nowe nazwy miejsc albo dodane osoby. Sam świat nigdy się nie zmienia.
+
+Gdy zmiany nie da się zapisać, edytor podaje powód, a ta sekcja zachowuje twoją kopię roboczą, żeby można było ją poprawić. Jeśli gra zmieniła te same dane w trakcie twojej edycji, zapis zostaje odrzucony, żeby nie cofnąć zmiany wprowadzonej przez grę. **Reload** (ponowne wczytanie) pokazuje wersję gry i odrzuca twoje kopie robocze.
+
+Przed każdym zapisem gra próbuje utworzyć punkt kontrolny, oznaczony w **Checkpoints** (punkty kontrolne) jako **Before a State Editor save** (przed zapisem w State Editor). Jeśli edycja coś zepsuje, wczytaj ten punkt kontrolny, żeby ją cofnąć (zobacz niżej).
+
+Okno działa jak State Editor w trybie Roleplay. Zobacz [State Editor](../roleplay/hud-and-trackers.md#the-state-editor).
+
+<a id="how-your-game-saves"></a>
+
 ## Jak gra zapisuje postępy
 
 Game Mode zapisuje postępy automatycznie. Nie trzeba naciskać żadnego przycisku zapisu. Świat, drużyna, mapa, ekwipunek, czas w grze i podsumowania sesji są przechowywane na bieżąco, w trakcie gry.
 
-Aplikacja odnotowuje też w tle automatyczne punkty kontrolne. Zapisuje punkt kontrolny na początku sesji, na jej końcu, w chwili rozpoczęcia i zakończenia walki, po dotarciu do nowego miejsca oraz w automatycznych odstępach. Edytor Game data też próbuje utworzyć punkt kontrolny przed każdym zapisem, choć w grze tak nowej, że jej pierwsza tura nie została jeszcze zapisana, nie ma czego w nim zachować. Otwórz **Game controls → Checkpoints** (sterowanie grą, punkty kontrolne), żeby je zobaczyć, od najnowszego. **Load** (wczytanie) cofa grę do tamtej chwili: tracker, mapa, **World Edits** (ręczne zmiany świata) z edytora Game data i opowieść po tej chwili wracają do ówczesnego stanu, a komunikat systemowy oznacza miejsce, w którym grę cofnięto. **Delete** (usunięcie) usuwa punkt kontrolny na dobre.
+Aplikacja odnotowuje też w tle automatyczne punkty kontrolne. Zapisuje punkt kontrolny na początku sesji, na jej końcu, w chwili rozpoczęcia i zakończenia walki, po dotarciu do nowego miejsca oraz w automatycznych odstępach. [Edytor Game data](#editing-game-data-by-hand) też próbuje utworzyć punkt kontrolny przed każdym zapisem, choć w grze tak nowej, że jej pierwsza tura nie została jeszcze zapisana, nie ma czego w nim zachować. Otwórz **Game controls → Checkpoints** (sterowanie grą, punkty kontrolne), żeby je zobaczyć, od najnowszego. **Load** (wczytanie) cofa grę do tamtej chwili: tracker, mapa, **World Edits** (ręczne zmiany świata) z edytora Game data i opowieść po tej chwili wracają do ówczesnego stanu, a komunikat systemowy oznacza miejsce, w którym grę cofnięto. Do tamtej chwili wracają też karty i arkusze drużyny, postacie NPC, dziennik, twoje notatki, ekwipunek, podsumowania sesji, plany fabularne GM, widgety paska HUD oraz czas, pogoda i morale. Twoje ustawienia zostają bez zmian. **Delete** (usunięcie) usuwa punkt kontrolny na dobre.
 
 Z automatycznych punktów kontrolnych każdego rodzaju zostaje pięć najnowszych, więc starsze są w trakcie gry usuwane.
 

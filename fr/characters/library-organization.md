@@ -6,7 +6,8 @@ Ce guide explique le panneau **Characters** (Personnages), la barre latérale qu
 
 Le panneau **Characters** est la liste des personnages affichée dans le panneau latéral. Il contient tous les personnages que tu as créés ou importés. Depuis le haut du panneau :
 
-- Clique sur **Open Full Library** (ouvrir la bibliothèque complète) pour afficher les mêmes personnages dans une grande grille pleine page.
+- Clique sur **Download** (télécharger) pour ouvrir le [Card Browser](bot-browser.md) et trouver des personnages sur des sites publics.
+- Clique sur **Open Library** (ouvrir la bibliothèque) pour afficher les mêmes personnages dans une grande grille pleine page.
 - Clique sur le bouton **New** (l'icône plus) pour ouvrir la fenêtre **Create Character**.
 - Clique sur le bouton **Import** (l'icône de téléchargement) pour importer un fichier de personnage.
 - Clique sur le bouton **Select** (l'icône de coche) pour activer le mode multi-sélection et agir sur plusieurs personnages à la fois.
@@ -43,11 +44,14 @@ Tu peux combiner texte simple et exclusion dans le même champ. Par exemple, `ma
 
 | Option        | Effet                             |
 | ------------- | --------------------------------- |
+| **Manual order** (ordre manuel) | L'ordre que tu as défini toi-même. |
 | **A-Z**       | Noms de A à Z.                    |
 | **Z-A**       | Noms de Z à A.                    |
 | **Newest**    | Les créations les plus récentes d'abord. |
 | **Oldest**    | Les créations les plus anciennes d'abord. |
 | **Favorites** | Les favoris d'abord, puis le reste. |
+
+Pour définir un ordre manuel, fais glisser une ligne de personnage vers le haut ou vers le bas. Tu peux aussi appuyer sur Alt+Up ou Alt+Down sur une ligne sélectionnée. Dans les deux cas, le tri passe sur **Manual order**.
 
 ## Dossiers
 
@@ -62,6 +66,8 @@ Pour créer un dossier :
 Pour renommer un dossier, double-clique dessus, double-tape dessus, ou sélectionne-le et appuie sur la touche F2. Saisis le nouveau nom, puis appuie sur Enter.
 
 Pour ranger un personnage dans un dossier, fais glisser la ligne du personnage et dépose-la sur le dossier. Dès que tu as au moins un dossier, une ligne d'aide indique **Drag and drop characters to folders, double-click or double-tap to rename**. Pour ressortir un personnage, survole sa ligne dans le dossier et clique sur le bouton de retrait du dossier, ou fais-le glisser en dehors.
+
+Sur écran tactile, appuie longuement sur une ligne pour la saisir, puis fais-la glisser. Un balayage normal fait toujours défiler la liste. Pendant que tu maintiens une ligne, touche d'autres lignes avec un deuxième doigt pour les emporter en pile, puis dépose la pile sur un dossier.
 
 Clique sur un dossier pour le déplier ou le replier. Le nombre affiché à côté du nom indique combien de personnages s'y trouvent.
 

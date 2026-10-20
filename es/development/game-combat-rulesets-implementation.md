@@ -31,7 +31,7 @@ Los multiplicadores actuales de daño enemigo (Casual 0,6, Normal 1, Hard 1,3, B
 
 - `packages/shared/src/types/game.ts`: `Combatant`, `CombatSkill`, resultados e instantáneas Classic. Las estadísticas actuales son números genéricos; `speed` no es Destreza de un juego de mesa ni pies de movimiento.
 - `packages/server/src/services/game/combat.service.ts`: Classic tira iniciativa cada ronda, resuelve una orden por participante y usa fórmulas genéricas de daño. Las partidas heredadas intercambian estado mediante el cliente; las nuevas del asistente usan el registro del director de combate propiedad del servidor.
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: fases alternadas de grupo/enemigos, alcance por clase y movimiento derivado de velocidad, contraataques, todavía sin ataque adicional por velocidad.
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: fases de grupo/enemigos, o una unidad cada vez en un orden de iniciativa con semilla cuando el juego lo indica (combat C6c), alcance por clase y movimiento derivado de velocidad, contraataques, todavía sin ataque adicional por velocidad.
 - `packages/shared/src/features/combat-ai.ts` y adaptadores de modo: prioridades entre acciones disponibles. La IA ordinaria conserva sus límites de información; los jefes GM reciben hojas/recursos del grupo para anticiparse, pero ninguno ve tiradas futuras ni elecciones del jugador antes de declararlas.
 - `packages/server/src/routes/combat-director.routes.ts` y `services/game/combat-director.service.ts`: estado autorizado versionado del encuentro, cursor de activación, reacciones pendientes, presupuestos legendarios y protección contra respuestas duplicadas/obsoletas. Amplía esta ruta de acciones aceptadas para los adaptadores; no crees otro registro. La probabilidad actual de Counterspell, el pago de slots y el costo de cancelación son políticas genéricas de Engine, no reglas 5e.
 - `packages/server/src/routes/game.routes.ts`: validación heredada de ronda/inicio/acción. `GameCombatUI`, `TacticalCombatUI` y `use-game.ts`: entradas, previsiones, resultados aceptados y persistencia.
@@ -79,7 +79,7 @@ Equilibrio inicial propuesto:
 | Regla | Comportamiento v1 propuesto |
 | --- | --- |
 | Iniciativa | Speed efectiva descendente, desempate estable del encuentro; sin activación extra por empate o alta velocidad |
-| Programación Tactical | Fase del grupo y luego enemigos; el jugador elige unidades aún sin actuar, las automáticas siguen velocidad |
+| Programación Tactical | Por bandos: fase del grupo y luego fase enemiga, y el jugador elige entre las unidades del grupo aún sin actuar. Por iniciativa (combat C6c): una unidad cada vez en un orden tirado una vez por combate |
 | Programación Classic | Orden único descendente de Speed efectiva; se encolan órdenes manuales y se resuelven objetivos legales actuales en cada posición |
 | Movimiento | Presupuesto explícito independiente de Speed. Sugerencia: 4 casillas, con ajustes acotados de clase/habilidad |
 | Velocidad de ataque | Speed efectiva, solo con penalizaciones/bonificaciones modeladas; sin peso ficticio de armas |

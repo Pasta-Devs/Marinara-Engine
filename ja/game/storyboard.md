@@ -85,6 +85,8 @@ Roleplayでは、選んだ4つのプロンプトを組み合わせて1回分の�
 
 番号付きの各ステージには独立した折りたたみ式**Prompt library**があります。Stage 2は画像整形、Stage 3は画像を考慮した動作計画、Stage 4は動画の受け渡し用整形を管理します。組み込み画像候補には**Storyboard Illustration**と**Storyboard First Frame**もあります。動画候補は**Anime Game Video**、**Comic Page Video**、**Narration Passthrough**です。GameとRoleplayのチャットは、共通のプロンプトコレクションを変更せずに異なる整形を選べます。
 
+Stage 3の**Image-aware shot planning**(画像を考慮したショット計画)は、動画の接続の**Video Prompting Instructions**(動画プロンプトの作成指示)にも従います。接続エディターのこの欄に、カメラの言い回し、プロンプトの長さ、音の指示など、使う動画モデルが求めるものを書いてください。
+
 ### 全体のデフォルトとチャットごとの上書き
 
 チャットごとにエージェントのデフォルトを上書きできます。Chat Settingsでは、継承している値に**Using agent default**と表示され、上書きを作ると元に戻すためのボタンが現れます。

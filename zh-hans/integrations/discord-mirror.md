@@ -28,7 +28,7 @@ https://discord.com/api/webhooks/123456789012345678/AbCdEf-example-token
 
 ## 开启镜像
 
-webhook 设置在每个聊天各自的设置里，位于 **Connected Chats**(关联聊天) 一节中。这个输入框本身没有标签，靠占位文字认出来，上面写的是 `https://discord.com/api/webhooks/...`。
+webhook 设置在每个聊天各自的设置里，位于 **Connected Chats**(关联聊天) 一节中。输入框的标签是 **Discord Mirror**(Discord 镜像)，占位文字是 `https://discord.com/api/webhooks/...`。
 
 1. 打开想要镜像的聊天。
 2. 打开 **Chat Settings**(聊天设置)。
@@ -38,6 +38,8 @@ webhook 设置在每个聊天各自的设置里，位于 **Connected Chats**(关
 这个聊天的镜像就开好了。想关闭的话，清空输入框即可。
 
 如果填的不是合法的 Discord webhook，输入框下方会出现红字“Invalid webhook URL format”。把 URL 改对，镜像设置就能保存。保存时 Marinara 还会在服务器端再校验一次。
+
+webhook URL 只保存在这个 Marinara 安装实例里。聊天导出、导出的设置方案和 **Export Profile**(导出档案) 文件都不包含它，导入其中任何一种也绝不会开启镜像。把聊天挪到另一个安装实例后，要在那边重新粘贴 URL 才能镜像。在这个安装实例里保存的设置方案，套用时仍会设置你的镜像。
 
 ## 会发送哪些内容
 

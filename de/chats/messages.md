@@ -20,7 +20,7 @@ Die folgenden Schaltflächen tauchen auf Nachrichten auf. Manche nur in bestimmt
 | **Peek prompt** (Prompt einsehen) | Zeigt genau den Prompt, den die KI für diese Antwort erhalten hat. | Nur bei der neuesten KI-Nachricht |
 | **Stored guidance** (gespeicherte Vorgabe) | Zeigt die Vorgabe, die diese Antwort gelenkt hat. | Nur wenn die Antwort einer gelenkten Vorgabe folgte oder per Impersonate entstand |
 | **Branch from here** (ab hier verzweigen) | Kopiert den Chat bis zu dieser Nachricht in eine neue Verzweigung. | Immer |
-| **View thoughts** (Gedanken anzeigen) | Öffnet den verborgenen Denktext des Modells. | Nur wenn das Modell einen Denktext geliefert hat |
+| **View model thoughts** (Gedanken des Modells anzeigen) | Öffnet den verborgenen Denktext des Modells. | Nur wenn das Modell einen Denktext geliefert hat |
 | **Delete** (löschen) | Löscht die Nachricht. Mehr dazu weiter unten. | Immer |
 | **Pause speaking** / **Resume speaking** / **Restart speaking** (Sprachausgabe anhalten / fortsetzen / neu starten) | Steuert die gesprochene Audioausgabe einer Nachricht. | Nur wenn Text to Speech aktiv ist und gerade spricht |
 
@@ -99,6 +99,8 @@ Zwei Schalter steuern, welche Zusatzinfos an Nachrichten erscheinen. Beide finde
 - **Show token usage on messages** (Token-Verbrauch an Nachrichten anzeigen): Ergänzt KI-Antworten um eine Token-Zahl pro Nachricht. Ein Token ist ein kleines Textstück, das die KI liest und schreibt. Angezeigt werden die Tokens des Prompts und die der Antwort. Wenn verfügbar, kommen noch Cache-Treffer und die Dauer der Antwort dazu.
 
 Ein verwandter Schalter im selben Abschnitt **Message Tools** ist **Show model name on messages** (Modellnamen an Nachrichten anzeigen). Er ergänzt den Namen des KI-Modells, das die jeweilige Antwort geschrieben hat, und ist ebenfalls standardmäßig aus.
+
+Mussten ältere Nachrichten aus dem Prompt herausbleiben, damit er passt, nennt ein kurzer Hinweis unter der Antwort ihre Zahl, zum Beispiel „1109 older messages not sent“. Um diesen Hinweis unter der Antwort auszublenden, schalte im selben Abschnitt **Show "older messages not sent" note** (Hinweis „ältere Nachrichten nicht gesendet“ anzeigen) aus. Öffnest du den Checkup, kann er dort weiterhin erscheinen. Standardmäßig ist der Hinweis an. Hinweise auf eine abgeschnittene oder leer zurückgekommene Antwort erscheinen weiterhin.
 
 ## Verwandte Anleitungen
 

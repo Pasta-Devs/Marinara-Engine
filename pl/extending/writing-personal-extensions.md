@@ -98,7 +98,7 @@ Użyj następującego pliku `extension.css`, aby nadać styl ograniczonemu oknu 
 Następnie zaimportuj i uruchom rozszerzenie:
 
 1. Otwórz **Settings** > **Addons** > **External Extensions**.
-2. Wybierz **Import Folder** i wskaż folder `Hello Panel` albo spakuj folder do archiwum ZIP i zaimportuj je.
+2. Wybierz **Import Extension Folder** (import folderu rozszerzenia) i wskaż folder `Hello Panel` albo spakuj folder do archiwum ZIP i zaimportuj je przyciskiem **Import Extension File** (import pliku rozszerzenia).
 3. Otwórz wyłączoną wersję roboczą i sprawdź jej manifest oraz kod JavaScript.
 4. Wybierz **Review and Run** i zatwierdź dokładnie wyświetlony skrót.
 5. Otwórz menu Extensions i wybierz **Hello Panel**.

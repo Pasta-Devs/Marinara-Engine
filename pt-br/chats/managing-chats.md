@@ -1,6 +1,6 @@
 # Como gerenciar a lista de chats
 
-Este guia explica a lista de chats no Marinara Engine. Aqui você vê para que servem as três abas de modo e como criar, importar, renomear, excluir, organizar, buscar e gerenciar chats em lote. O guia também cobre a linha de chats recentes da tela inicial.
+Este guia explica a lista de chats no Marinara Engine. Aqui você vê para que servem as três abas de modo e como criar, importar, renomear, excluir, organizar, buscar e gerenciar chats em lote. O guia também cobre o widget de chats recentes da tela inicial.
 
 ## A lista de chats e as abas de modo
 
@@ -81,7 +81,7 @@ Para renomear uma pasta, dê um clique duplo nela, um toque duplo, ou coloque o 
 
 Para excluir uma pasta, clique no botão de lixeira na linha dela. Uma caixa de diálogo chamada **Delete Folder** pede a confirmação. Excluir uma pasta nunca exclui os chats que estão dentro dela. Esses chats voltam para o nível principal.
 
-Para reordenar as pastas, arraste elas para cima ou para baixo pela alça de arrastar.
+Para reordenar as pastas, arraste a linha de uma pasta para cima ou para baixo. Um espaço se abre onde ela vai ficar. O menu de ordenação passa então para **Custom** (personalizada), que mantém a ordem das suas pastas.
 
 Para mover um chat para dentro de uma pasta, arraste a linha dele até a pasta. Para tirar um chat de todas as pastas, arraste ele até a área vazia abaixo das pastas. Em tela sensível ao toque, pressione e segure um chat por cerca de meio segundo para começar a arrastar. Se você tiver vários chats selecionados, arrastar um deles move a seleção inteira.
 
@@ -91,10 +91,13 @@ Os chats que não estão em nenhuma pasta aparecem em uma lista simples, abaixo 
 
 Cada aba de modo tem a própria caixa de busca no topo da lista. O texto de exemplo muda conforme a aba: **Search conversations...**, **Search roleplays...** ou **Search games...**. A busca considera o nome do chat, as tags e os nomes dos personagens. Ela não procura dentro do texto das mensagens.
 
-Ao lado da caixa de busca fica um menu de ordenação, com a dica **Sort chats**. Ele tem quatro opções:
+Ao lado da caixa de busca fica um menu de ordenação, com a dica **Sort chats**. Ele tem estas opções:
 
-- **Newest**, o padrão, mostra primeiro os chats com atividade mais recente.
-- **Oldest** mostra primeiro os de atividade mais antiga.
+- **Custom** (personalizada) mantém as pastas na ordem em que você as arrastou.
+- **Manual order** (ordem manual) permite arrastar os chats para a ordem que você quiser. Pelo teclado, dê foco a um chat e aperte Alt+Up ou Alt+Down.
+- **Recent** (recentes), o padrão, mostra primeiro os chats com atividade mais recente.
+- **Newest** (mais novos) mostra primeiro os chats criados mais recentemente.
+- **Oldest** (mais antigos) mostra primeiro os chats mais antigos.
 - **A-Z** ordena por nome, de A a Z.
 - **Z-A** ordena por nome, de Z a A.
 
@@ -118,7 +121,7 @@ Para sair do modo de seleção sem fazer nada, clique de novo no botão de sele�
 
 ## Recent Chats na tela inicial
 
-A tela inicial mostra uma linha compacta **Recent Chats** (chats recentes) com os três chats de atividade mais recente. Cada chat aparece como um pequeno chip, com avatar, selo do modo e nome do chat. Clique em um chip para abrir aquele chat. Se você ainda não tiver nenhum chat, a linha mostra **No chats yet**.
+A tela inicial tem um widget **Recent chats** (chats recentes) com os seus chats de atividade mais recente. Cada chat mostra o nome, um selo do modo e a última mensagem. Clique em um chat para abri-lo, ou clique em uma parte vazia do widget para abrir a lista de chats. Se você ainda não tiver nenhum chat, o widget mostra **Your chats will show here** (os seus chats vão aparecer aqui). Veja [Widgets da tela inicial](../home/welcome.md#home-widgets).
 
 ## Guias relacionados
 

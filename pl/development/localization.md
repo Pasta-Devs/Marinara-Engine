@@ -80,12 +80,12 @@ władająca tym językiem.
 Przy drobnej poprawce sformułowania wystarczy edytor internetowy serwisu GitHub:
 
 1. Otwórz plik języka w folderze
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
+   [`ui/` w gałęzi `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Kliknij ikonę ołówka, żeby edytować plik. GitHub sam zaproponuje utworzenie forka, jeśli będzie potrzebny.
 3. Zmień tylko przetłumaczoną wartość. Zachowaj jej klucz, wrażliwe na interpunkcję znaczniki, takie jak `{{name}}`,
    oraz składnię JSON.
 4. Zapisz zmianę w osobnej, wąsko zakrojonej gałęzi w swoim forku.
-5. Odśwież manifest pakietów i sprawdź je poniższym poleceniem, a następnie otwórz pull request wobec gałęzi **`docs-i18n`**, nie `staging` ani `main`. ([`validate-packs.mjs`](#zg%C5%82oszenie-nowego-t%C5%82umaczenia))
+5. Odśwież manifest pakietów i sprawdź je poniższym poleceniem, a następnie otwórz pull request wobec gałęzi **`docs-i18n`**, nie `staging` ani `main`.
 6. W opisie PR podaj język, wyjaśnij poprawione znaczenie i napisz, czy tłumaczenie pochodzi od osoby biegle
    władającej tym językiem, czy powstało z pomocą maszyny.
 
@@ -95,8 +95,6 @@ jednego PR. Niezwiązane zmiany w kodzie zostaw osobno.
 ## Zgłoszenie nowego tłumaczenia
 
 Przy dodawaniu języka zachowaj kopię roboczą gałęzi `staging` silnika jako źródło angielskie, a pracuj w gałęzi `docs-i18n`:
-
-`/path/to/Engine` oznacza osobną, istniejącą kopię roboczą gałęzi `staging`, zawierającą `packages/client/src/localization/locales/en.json`. Poniższe polecenia tworzą dodatkową kopię do pracy nad tłumaczeniami.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -164,6 +162,13 @@ zastępcze, ekrany ładowania i puste stany, powiadomienia toast oraz potwierdze
 `code`, `pre`, `script` i `style` jest celowo pomijana, żeby polecenia, konfiguracja, adresy URL, makra i inne
 przykłady przeznaczone dla maszyn pozostały dokładnie takie, jakie są. Poza tłumaczem interfejsu muszą zostać także
 wartości dynamiczne: tworzone przez użytkownika, generowane, zapisywane, prompty i wartości protokołów.
+
+Wyszukiwarka ustawień, omnibar i Professor Mari odczytują nazwy ustawień z `SETTINGS_SEARCHABLE_CONTROLS` w
+`packages/client/src/lib/settings-registry.ts`. Każda kontrolka ma tam `labelKey` i `descriptionKey` obok angielskich
+`label` i `description`. Użyj ponownie istniejącego klucza kontrolki, gdy jej angielski tekst jest taki sam; w przeciwnym
+razie dodaj do `en.json` klucz `settings.search.<id>.label` lub `.description`, z identyfikatorem kontrolki w camelCase
+(na przykład `settings.search.hideChatHelpButton.description`). `pnpm localization:check` zgłasza błąd, gdy kontrolka
+nie ma klucza, gdy klucza brakuje w `en.json` albo gdy angielski tekst w rejestrze nie zgadza się już z tekstem w `en.json`.
 
 ## Interfejsy pobieranych agentów
 

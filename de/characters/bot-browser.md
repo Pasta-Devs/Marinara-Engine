@@ -12,8 +12,8 @@ Der **Card Browser** durchsucht mehrere öffentliche Charakterkarten-Seiten dire
 
 Es gibt zwei Wege, den **Card Browser** zu öffnen.
 
-1. Klick auf das **Card Browser**-Symbol in der oberen Leiste. Es sitzt rechts in der Reihe der Panel-Schaltflächen.
-2. Oder öffne das **Card Browser**-Panel in der rechten Seitenleiste und klick dort oben auf die Schaltfläche **Download Cards** (Karten herunterladen).
+1. Öffne das Panel **Characters** (Charaktere) und klick oben auf die Schaltfläche **Download** (Herunterladen). Ihr Tooltip lautet **Download character cards**.
+2. Oder klick auf dieselbe Schaltfläche **Download** oben im Panel **Personas**.
 
 So oder so wechselt der gesamte Inhaltsbereich in die vollständige **Card Browser**-Ansicht. Sie ersetzt den Chatbereich und ist kein kleines Pop-up-Fenster.
 
@@ -160,7 +160,7 @@ So importierst du Charakterkarten in die eigene Bibliothek:
 2. Wähle eine Option unter **Imported tags** (siehe Tabelle unten).
 3. Klick auf **Import**. Während des Vorgangs zeigt die Schaltfläche **Importing...**.
 4. Warte auf die Erfolgsmeldung. Es sollte eine Meldung erscheinen, dass der Charakter importiert wurde.
-5. Öffne das Panel **Characters** (Charaktere), um den importierten Charakter zu finden, bevor du einen Chat startest.
+5. Öffne das Panel **Characters**, um den importierten Charakter zu finden, bevor du einen Chat startest.
 
 Der importierte Charakter verhält sich wie jeder andere. Zum Chatten brauchst du zusätzlich eine funktionierende Verbindung zu einem Anbieter. Siehe [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
 
@@ -183,15 +183,6 @@ Trägt der Charakter ein eingebettetes Lorebook, erscheint beim Import ein klein
 Klick auf **Download as PNG**, um den Charakter als normale PNG-Charakterkarte zu speichern. Während des Vorgangs zeigt die Schaltfläche **Building PNG...**. Das funktioniert bei jeder Quelle. Die gespeicherte Datei trägt den Namen des Charakters, zum Beispiel `Some_Character.png`. Du kannst sie weitergeben oder später in eine andere App importieren.
 
 JSON und PNG sind zwei gängige Formate für dieselben Charakterdaten. JSON ist ein reines Textformat. Eine PNG-Karte ist eine Bilddatei, in der die Charakterdaten stecken. Beide enthalten den vollständigen Charakter.
-
-## Deine importierten Charaktere
-
-Das **Card Browser**-Panel in der rechten Seitenleiste führt eine eigene Liste der Charaktere, die du über den **Card Browser** importiert hast. Selbst angelegte oder auf anderem Weg importierte Charaktere tauchen hier nicht auf. In der Hauptbibliothek **Characters** stehen sie trotzdem alle.
-
-- Die Schaltfläche **Download Cards** öffnet die vollständige **Card Browser**-Ansicht.
-- Das Feld **Search imported...** (Importierte suchen) filtert diese Liste.
-- Das Sortier-Dropdown bietet **A-Z**, **Z-A**, **Newest** und **Oldest**.
-- Per Rechtsklick auf eine Zeile oder über deren Schaltflächen erreichst du **Quick Start Roleplay** und **Quick Start Conversation**. Beide starten einen neuen Chat mit diesem Charakter. Hier lässt sich der Charakter außerdem aus der Liste löschen.
 
 ## Fehlerbehebung
 

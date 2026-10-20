@@ -24,7 +24,9 @@ CSS 없이 모양을 빠르게 바꾸려면 **Settings > Appearance > App**(설�
 
 - **Apply preset font**(프리셋 글꼴 적용)는 선택한 위젯 글꼴을 메시지, 입력란과 채팅 컨트롤에 적용합니다.
 - **Apply preset shape**(프리셋 모양 적용)는 선택한 프레임 모양을 클래식 및 비주얼 노벨 레이아웃의 Roleplay 메시지, Game 대화 상자, 입력란과 컨트롤에 적용합니다. Conversation 메시지는 원래 모양을 유지합니다.
-- **Apply preset colors**(프리셋 색상 적용)는 위젯의 테두리, 배경과 글자 색상을 해당 영역에 적용합니다. Conversation 메시지도 포함하며, 사용자 지정 색상과 그라데이션도 적용됩니다. 따옴표 안의 대사는 각 캐릭터나 페르소나에 지정된 Dialogue Highlight Color를 그대로 유지합니다.
+- **Apply preset colors**(프리셋 색상 적용)는 위젯의 테두리, 배경과 글자 색상을 해당 영역에 적용합니다. Conversation 메시지도 포함하며, 사용자 지정 색상과 그라데이션도 적용됩니다. 따옴표 안의 대사는 각 캐릭터나 페르소나에 지정된 Dialogue Highlight Color를 그대로 유지합니다. 에이전트의 스타일 카드처럼 HTML로 된 메시지는 자체적으로 지정한 글자 색상을 유지합니다.
+
+**Load More**(더 불러오기)와 **Show older**처럼 이전 메시지나 더 새 메시지를 불러오는 버튼도 다른 채팅 컨트롤처럼 이 스위치를 따릅니다.
 
 Game Mode에서는 이 스위치가 부가 발언, HUD 위젯, 지도 패널, 캐릭터 시트, 로그, 인벤토리, 전투 패널과 팝업 창에도 적용됩니다.
 
@@ -231,6 +233,8 @@ Game controls, Session, Volume, Game Assets, 연결된 채팅과 패키지 컨�
 | Conversation 메시지(글꼴과 색상만 적용) | `.mari-chat-style-conversation` |
 | 상자 없는 Conversation 메시지 텍스트 | `.mari-chat-style-text` |
 | Calls와 Conversation 그룹 컨트롤을 포함한 채팅 컨트롤 | `.mari-chat-style-control` |
+| 기록 버튼: **Load More**, **Show older**, **Show newer**, **Latest**(최신), Game 로그의 **Older**, **All**(전체), **Show more older logs**. `.mari-chat-style-control`도 함께 붙습니다 | `.mari-chat-history-pager` |
+| 에이전트의 스타일 카드처럼 HTML로 된 메시지. **Apply preset colors**를 켜도 그 안에서 지정한 글자 색상은 유지됩니다 | `.mari-html-content` |
 
 | 변수 | 제어 대상 |
 | --- | --- |

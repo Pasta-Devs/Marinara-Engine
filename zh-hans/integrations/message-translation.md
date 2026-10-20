@@ -2,7 +2,7 @@
 
 Marinara Engine 可以把聊天消息在不同语言之间互译。本指南介绍四种翻译服务商、自动翻译开关、每条消息上的 Translate(翻译) 按钮，以及各家服务商的限制。
 
-翻译是按聊天分别设置的。每个聊天都有自己的服务商、目标语言和密钥。在一个聊天里填的设置不会带到另一个聊天。
+翻译是按聊天分别设置的。每个聊天都有自己的服务商、语言和密钥。想让新聊天沿用同样的设置，就把它们保存为[翻译默认设置](#translator-defaults-for-new-chats)。
 
 ## 翻译设置在哪里
 
@@ -25,9 +25,12 @@ Marinara Engine 可以把聊天消息在不同语言之间互译。本指南介�
 
 默认选中的是 **Google Translate**，不需要任何设置。只有需要下面这些能力时，才去换别的服务商。
 
-### Target Language
+### Model Language 与 My Language
 
-**Target Language**(目标语言) 输入框决定译文的语言。默认是 `en`(英语)。
+两个输入框决定语言，默认都是 `en`(英语)。
+
+- **Model Language**(模型语言)：你自己的消息会在 AI 读到之前翻译成这种语言。**Translate My Messages**(翻译我的消息) 和 **Translate draft**(翻译草稿) 用的就是它。
+- **My Language**(我的语言)：AI 的回复会翻译成这种语言。**Auto-Translate Responses**(自动翻译回复) 和每条消息上的 **Translate** 按钮用的就是它。
 
 填写格式取决于服务商：
 
@@ -64,40 +67,50 @@ DEEPLX_LOCAL_URLS_ENABLED=true
 
 ### AI 翻译的设置
 
-选择 **AI (via connection)** 之后，Marinara 会调用已配置好的 AI 服务商来翻译，此时会多出两个输入框。
+选择 **AI (via connection)** 之后，Marinara 会调用已配置好的 AI 服务商来翻译，此时会多出三个输入框。
 
 **Connection**(连接) 下拉菜单用来指定由哪个 AI 连接负责翻译，必须选。留空的话翻译会失败，并提示“Connection ID is required for AI translation”。连接就是保存下来的一套 AI 服务接入信息，创建方法见下面的连接指南。
 
-**AI Prompt**(AI 提示词) 输入框里是发给 AI 的翻译指令，内置了一段默认提示词（Marinara Engine 发给 AI 的那段文字）。这段内容可以只针对当前聊天修改。改动之后旁边会出现 **Restore**(恢复) 按钮，点它就能恢复成内置默认值。默认提示词是：
+**Outgoing Message Prompt**(传出消息提示词) 和 **Incoming Response Prompt**(传入回复提示词) 输入框里，分别是 AI 翻译你的消息和翻译 AI 回复时收到的指令。两者都内置了一段默认提示词（Marinara Engine 发给 AI 的那段文字），也都可以只针对当前聊天修改。提示词里的 `{{targetLanguage}}` 会替换成 **Model Language** 或 **My Language**。改动某段提示词之后，旁边会出现 **Restore**(恢复) 按钮，点它就能恢复成内置默认值。默认提示词是：
 
 ```
-You are a translator. Translate the given text accurately, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
-## 三个自动翻译开关
+## 自动翻译开关
 
-服务商设置下面有三个开关，默认全部关闭。
+服务商设置下面有四个开关，默认全部关闭。
 
-**Auto-Translate Responses**(自动翻译回复) 会在 AI 回复生成完成后立刻自动翻译。在 Game Mode 下，Marinara 会先把叙述里只给游戏主持人（GM）看的标记去掉，再翻译。
+**Auto-Translate Responses** 会在 AI 回复生成完成后立刻自动翻译。在 Game Mode 下，Marinara 会先把叙述里只给游戏主持人（GM）看的标记去掉，再翻译。
 
-**Translate My Messages**(翻译我的消息) 会在你的消息发给 AI 之前，先把它翻译成目标语言，译文直接替换你输入的原文。万一翻译失败，Marinara 会改为发送原文，并显示一条错误提示。
+**Translate My Messages** 会在你的消息发给 AI 之前，先把它翻译成 **Model Language**，译文直接替换你输入的原文。万一翻译失败，Marinara 会改为发送原文，并显示一条错误提示。
 
-**Show Draft Translate Button**(显示草稿翻译按钮) 会在 **Send**(发送) 按钮旁边加一个 **Translate draft**(翻译草稿) 按钮，让你先翻译再检查或修改，然后才发出去。它相当于 **Translate My Messages** 的手动版，后者是发送时直接翻译，没有检查的机会。
+**Show Draft Translate Button**(显示草稿翻译按钮) 会在 **Send**(发送) 按钮旁边加一个 **Translate draft** 按钮，让你先翻译再检查或修改，然后才发出去。它相当于 **Translate My Messages** 的手动版，后者是发送时直接翻译，没有检查的机会。
 
-在 **Conversation** 模式中，无论使用桌面端还是移动端，都可以通过消息输入框的笑脸按钮 → **Tools → Translate draft**（工具 → 翻译草稿）翻译尚未发送的草稿。无需开启 **Show Draft Translate Button** 或自动翻译。该操作使用当前聊天的输入翻译设置，将草稿替换为译文供你检查，不会发送消息。如果翻译失败，草稿会保持原样。
+**Show Only Translation**(仅显示译文) 会让翻译过的消息只显示译文，代替原文，而不是把原文和译文一起显示。
+
+在 **Conversation** 模式中，无论使用桌面端还是移动端，都可以通过消息输入框的笑脸按钮 → **Tools → Translate draft**(工具 → 翻译草稿) 翻译尚未发送的草稿。无需开启 **Show Draft Translate Button** 或自动翻译。该操作使用当前聊天的输入翻译设置，将草稿替换为译文供你检查，不会发送消息。如果翻译失败，草稿会保持原样。
+
+<a id="translator-defaults-for-new-chats"></a>
+
+## 新聊天的翻译默认设置
+
+开关下面的 **Save translator defaults**(保存翻译默认设置) 会把这个聊天的翻译设置保存下来，供所有模式的新聊天使用。设置向导和设置方案里的设置优先。已有的聊天保留各自的设置。**Forget saved defaults**(清除已保存的默认设置) 会清除它们。[Noodle](../noodle/settings.md#translation) 也使用同一套默认设置。
+
+DeepL API 密钥和 DeepLX 地址只保存在这个 Marinara 安装实例里。聊天导出、导出的设置方案和 **Export Profile**(导出档案) 文件都不包含它们，导入其中任何一种也绝不会设置它们。把聊天挪到另一个安装实例后，请重新填写。
 
 ## 每条消息上的 Translate 按钮
 
-不管是你的消息还是 AI 的消息，鼠标悬停时出现的操作栏里都有一个 **Translate** 按钮，图标是一个语言符号。这个按钮单独就能用，和上面三个开关没有关系。
+不管是你的消息还是 AI 的消息，鼠标悬停时出现的操作栏里都有一个 **Translate** 按钮，图标是一个语言符号。这个按钮单独就能用，不需要上面任何一个开关。
 
 1. 把鼠标移到消息上，让操作栏显示出来。
 2. 点击 **Translate** 按钮。
-3. 译文出现在这条消息下方。
+3. 译文出现在这条消息下方；开启 **Show Only Translation** 时则代替原文显示。
 4. 再点一次同一个按钮就能收起译文，此时它的悬停提示变成 **Hide translation**(隐藏译文)。
 
 这样得到的译文会跟消息一起保存下来。刷新页面不会丢，切换到别的聊天再切回来也还在。
 
-每条消息上的按钮，用的就是 **Translation** 这一节里设置的服务商和目标语言。
+每条消息上的按钮，用的就是 **Translation** 这一节里设置的服务商和 **My Language**。
 
 ## 各服务商的限制
 

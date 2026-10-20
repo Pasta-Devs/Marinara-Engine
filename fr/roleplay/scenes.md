@@ -10,6 +10,8 @@ Chaque scène est un chat de roleplay à part entière. Elle a son propre arriè
 
 Une scène est temporaire par nature. Tant qu'elle est ouverte, le chat **Conversation** d'origine affiche une petite carte qui annonce **A scene is in progress**. Cette carte contient un bouton **Go to Scene** (aller à la scène) qui t'emmène directement dans la scène active.
 
+Pendant que la scène se déroule, ses personnages ne répondent pas dans le chat Conversation d'origine, et un avis indique qu'ils sont dans une scène active. Pour qu'ils te répondent quand même à cet endroit, active **Allow replies here** (autoriser les réponses ici) sur la carte. Ce réglage est désactivé au départ. Une fois activé, les personnages de la scène répondent quand tu leur écris, mais n'y envoient toujours pas de messages d'eux-mêmes.
+
 À la fin, c'est toi qui décides du sort de la scène. Tu peux enregistrer un résumé dans la conversation, jeter la scène, ou la garder comme roleplay permanent à part entière. Ces choix sont détaillés plus bas.
 
 ## Lancer une scène

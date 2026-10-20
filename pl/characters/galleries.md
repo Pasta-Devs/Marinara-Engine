@@ -36,7 +36,7 @@ Galeria przyjmuje popularne formaty obrazów: JPG, PNG, GIF, WebP i AVIF. Klikni
 3. Przeciągnij pliki wideo na pole **Upload Character Videos** albo kliknij je, żeby wybrać pliki. W personie to pole nosi nazwę **Upload Persona Videos**.
 4. Poczekaj na koniec wgrywania.
 
-Obsługiwane formaty wideo to MP4, WebM i MOV. Podzakładka **Videos** pokazuje też wideo ze scen wygenerowane w czatach z tą postacią oraz nagrania z rozmów wideo. Najnowsze pliki są na początku listy.
+Obsługiwane formaty wideo to MP4, WebM i MOV. Podzakładka **Videos** pokazuje też wideo ze scen wygenerowane w czatach z tą postacią oraz nagrania z rozmów wideo. Najnowsze pliki są na początku listy. Wiadomość wideo z trybu Conversation jest wymieniana tylko u postaci, które pokazuje. To postać, która ją wysłała, oraz każdy, kogo tekst wymienia z imienia. Wystarczy samo imię, jeśli nikt inny na czacie go nie nosi, o ile zapisano je wielką literą. Gdy tekst prosi o zdjęcie grupowe albo grupowe selfie, uwzględniany jest każdy uczestnik czatu. Imiona wypowiedziane w cudzysłowie się nie liczą. Galeria twojej persony wymienia klip tylko wtedy, gdy tekst wymienia twoją personę. Starsze wideo oraz wideo z czatów w trybach Roleplay i Game Mode są wymieniane u każdej postaci i u persony z ich czatu.
 
 ## Oznaczanie obrazu z galerii jako własne emoji lub naklejka
 
@@ -68,6 +68,8 @@ Emoji lub naklejka oznaczona w galerii należy tylko do tej jednej postaci lub p
 
 Jeśli nazwa z galerii pokrywa się z nazwą ze zbioru globalnego, dla tego czatu wygrywa wersja z galerii. Marinara nie sprawdza, czy nazwy się nie powtarzają. Nadawaj każdemu obrazowi inną nazwę, żeby uniknąć niespodzianek.
 
+<a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
+
 ## Ponowne używanie obrazu z galerii w wiadomościach i powitaniach
 
 Każdy obraz z galerii postaci można wyświetlić w treści czatu: powitaniu, przykładowej wiadomości lub wiadomości wysyłanej przez postać. Najedź na obraz i kliknij **Copy image reference** (ikonę łącza). Skopiuje to krótki fragment Markdown, który można wkleić wszędzie tam, gdzie mówi postać:
@@ -78,17 +80,25 @@ Każdy obraz z galerii postaci można wyświetlić w treści czatu: powitaniu, p
 
 Obowiązuje jedna zasada: **`self` oznacza postać wypowiadającą daną wiadomość.** Podczas wyświetlania Marinara Engine zastępuje `self` tą postacią i pokazuje obraz z jej galerii.
 
-Działa to w polach **First Message**, **Alternate Greetings** i **Example Dialogue** na karcie postaci, w każdej wiadomości wysyłanej przez postać w trybie Roleplay i Conversation oraz na czatach grupowych. W odpowiedzi wielu rozmówców `self` jest rozwiązywane osobno dla każdego z nich. Jeśli galeria rozmówcy nie ma pliku, Marinara Engine przeszukuje galerie pozostałych postaci z czatu.
+Gdzie to działa:
 
-Z założenia nie działa to we własnych wiadomościach, które nie mają mówiącej postaci, ani w wiadomościach systemowych, które nie wyświetlają obrazów Markdown. Aby samodzielnie wysłać obraz postaci, użyj przeglądarki zasobów czatu zapisującej pełną postać `card://characters/<id>/...`. Galerie persony używają formatu `card://personas/<id>/gallery/<file>`.
+- Pola **First Message**, **Alternate Greetings** i **Example Dialogue** na karcie postaci. Podgląd Markdown pola pokazuje obraz już podczas edycji.
+- Każda wiadomość wysyłana przez postać, zarówno w trybie **Roleplay**, jak i **Conversation**.
+- **Czaty grupowe**: w odpowiedzi wielu rozmówców `self` jest rozwiązywane osobno dla każdego z nich, więc wypowiedź każdej postaci pokazuje obraz z jej własnej galerii. Jeśli galeria rozmówcy nie ma pliku, Marinara Engine przeszukuje galerie pozostałych postaci z czatu, więc właściwy obraz pojawia się nawet wtedy, gdy odpowiedź zostanie połączona pod jednym rozmówcą.
 
-Jeśli dwie postacie mają obrazy o tej samej nazwie pliku, zawsze wygrywa obraz mówiącej postaci. Jeśli go nie ma, używane jest pierwsze dopasowanie według kolejności postaci na czacie. Gdy potrzebujesz konkretnej wersji, nadawaj plikom różne nazwy.
+Gdzie to z założenia nie działa:
+
+- **Twoje własne wiadomości**. Nie mają mówiącej postaci, więc odwołanie `self` wyświetla się jako uszkodzony obraz. Aby samodzielnie wysłać obraz z galerii postaci, użyj wstawiania z przeglądarki zasobów czatu (zapisuje ono pełną postać `card://characters/<id>/...`).
+- **Wiadomości systemowe**. W ogóle nie wyświetlają składni obrazów Markdown, więc odwołanie pojawia się jako zwykły tekst.
+- **Galerie person**. Obrazy persony pojawiają się w twoich wiadomościach, które nie mają rozmówcy. Zamiast tego użyj formatu persony `card://personas/<id>/gallery/<file>`.
+
+Jedna uwaga dotycząca czatów grupowych: jeśli dwie postacie na czacie mają w galeriach obrazy o **tej samej nazwie pliku**, zawsze wygrywa obraz mówiącej postaci. Gdy rozmówca nie ma tego pliku, **wygrywa pierwsze dopasowanie**: pozostałe postacie są sprawdzane w kolejności postaci na czacie. Jeśli w wypowiedzi innej postaci ma się pokazać wersja konkretnej postaci, nadaj obrazom o wspólnej nazwie różne nazwy plików.
 
 ### Dlaczego `self`, a nie pełne łącze
 
-Pełne łącze zawiera wewnętrzny identyfikator postaci (`card://characters/<id>/gallery/<file>`), który powstaje od nowa przy każdym imporcie, dlatego takie łącza psują się po udostępnieniu postaci. Format `self` nie zawiera identyfikatora ani adresu serwera. Przetrwa **natywny eksport i import JSON**: obrazy galerii podróżują w eksporcie i zachowują nazwy plików.
+Pełne łącze zawiera wewnętrzny identyfikator postaci (`card://characters/<id>/gallery/<file>`), który powstaje od nowa przy każdym imporcie, dlatego takie łącza psują się po udostępnieniu postaci. Format `self` nie zawiera identyfikatora ani adresu serwera. Przetrwa **natywny eksport i import JSON**: obrazy galerii podróżują w eksporcie i zachowują nazwy plików, więc każde odwołanie działa dalej po drugiej stronie.
 
-Jest jedno ograniczenie: **eksport karty PNG nie zawiera galerii**. Jeśli postać używa odwołań do galerii, udostępniaj natywny plik `.json`.
+Jest jedno ograniczenie: **eksport karty PNG nie zawiera galerii**, więc po udostępnieniu samego pliku PNG żadne odwołanie do galerii nie zadziała. Jeśli postać używa obrazów z galerii, udostępniaj natywny eksport `.json`.
 
 <a id="save-web-images-from-greetings"></a>
 

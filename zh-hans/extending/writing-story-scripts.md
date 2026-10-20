@@ -136,6 +136,8 @@ ID 由 1 到 40 个小写字母、数字、`_` 或 `-` 组成，在各自的列�
 
 `beats` 过场由 Game Master 在当回合用自己的话逐个情节点叙述。`gm` 事件的情节点会随事件一起告知 Game Master，它会在标记该时刻的那条回复中叙述这些情节点。因此，`gm` 事件所用的 beats 场景，Game Master 从一开始就知道，即使某个 Engine 事件也会播放它。由于每回合都会告诉 Game Master 这些情节点，所有 `gm` 事件的情节点加起来不得超过 16,000 个字符。
 
+<a id="the-intro-message"></a>
+
 ### 开场消息
 
 `intro`(Capability API 1.339) 设置游戏如何开场，与 GM 设置为任何游戏提供的选项相同：

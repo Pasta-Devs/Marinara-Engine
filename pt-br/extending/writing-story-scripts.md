@@ -136,6 +136,8 @@ Uma cutscene `pages` é reproduzida antes da resposta do Game Master, na narraç
 
 Uma cutscene `beats` é narrada pelo Game Master com as próprias palavras, beat a beat (cada beat é um passo da cena), naquele turno. Os beats de um evento `gm` são passados ao Game Master junto com o evento, e ele os narra na resposta que marca o momento. Assim, o Game Master conhece desde o início uma cena de beats usada por um evento `gm`, mesmo quando um evento do Engine também a reproduz. Como ele recebe esses beats a cada turno, os beats de todos os eventos `gm` juntos ficam limitados a 16.000 caracteres.
 
+<a id="the-intro-message"></a>
+
 ### A mensagem de introdução
 
 `intro` (Capability API 1.339) define como a partida começa, a mesma escolha que a configuração do GM oferece a qualquer partida:

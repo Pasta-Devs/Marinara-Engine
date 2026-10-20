@@ -271,6 +271,8 @@ Todo campo compatível com macros tem dois botõezinhos no canto:
 - O botão **Expand editor** (expandir o editor) abre uma janela de edição maior para aquele campo.
 - O botão **Macro reference** (referência de macros) abre uma janela chamada **Macro reference**, que lista todas as macros embutidas por categoria, cada uma com a sintaxe exata. Essa lista é gerada a partir da mesma fonte que o motor usa, então está sempre correta.
 
+Esses campos também completam os nomes das macros para você. Digite `{{ch` no fim de uma linha, e o resto, `ar}}`, aparece em texto apagado. Pressione Tab, ou toque no texto apagado, para aceitar. Continue digitando para ignorar. Em uma macro que recebe um valor, como `{{getvar::`, a sugestão para onde você digita o valor.
+
 Você também pode digitar `/macros` na caixa do chat (a forma curta `/macro` também funciona). O comando imprime a lista completa de macros no próprio chat, como lembrete rápido.
 
 Os blocos condicionais combinam comparações com `||` (OU), `&&` (E) e parênteses. As listas de igualdade aceitam a forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Veja em [Prompts condicionais](conditional-prompts.md) a precedência, exemplos de chat em grupo e a lista completa de operadores.
@@ -280,7 +282,7 @@ Uma condição também pode consultar o Decision model sobre a cena: `{{#if deci
 ## Erros comuns
 
 - Não escreva variáveis dentro de um bloco `{{random::...}}`. Um `{{setvar}}` dentro de uma opção do sorteio roda para todas as opções antes da escolha, e não só para a opção sorteada.
-- Não use uma variável local como se fosse global. Os valores definidos com `{{setvar}}` só persistem no chat atual; cada outro chat tem o próprio valor.
+- Não use uma variável local como se fosse global. Ela só persiste dentro do chat em que foi definida.
 - Uma seção do prompt ou entrada de lorebook que execute `{{setvar}}` sobrescreve uma variável do chat com o mesmo nome, porque as duas usam um único armazenamento por chat. Use nomes diferentes se quiser manter as duas.
 - `{{prompt}}` não é uma macro. Se a mensagem inteira for `{{prompt}}`, Marinara abre o visualizador **Peek Prompt** em vez de enviá-la. Veja [Peek Prompt](../chats/peek-prompt.md).
 - As Custom Tools não usam texto de `{{macro}}`. Não cole `{{roll:1d20}}` em um campo de ferramenta esperando que a macro seja resolvida.

@@ -2,7 +2,7 @@
 
 ## Statut
 
-Les phases 1 à 4 sont implémentées sur la branche `drag-me-baby-one-more-time`.
+Les phases 1 à 4 ont été implémentées sur la branche `drag-me-baby-one-more-time` et sont fusionnées dans `staging`. Des travaux ultérieurs (#7362) permettent de faire glisser les lignes de bibliothèque sans poignée, laissent un utilisateur tactile rassembler une pile de ressources compatibles en touchant d'autres lignes avec un deuxième doigt, et affichent des espaces d'insertion pour réordonner.
 
 La couverture automatisée du résolveur est en place. Une couverture Playwright a été ajoutée sur poste de travail, pour l'affectation de personnages et le remplacement de persona. En local, elle ne passe pas dans le conteneur de développement actuel : Chromium n'arrive pas à charger la bibliothèque `libnspr4.so`. Ces cas navigateur doivent donc tourner en CI, ou dans un environnement doté des dépendances système de Playwright.
 

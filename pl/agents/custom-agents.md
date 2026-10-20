@@ -266,8 +266,8 @@ Dla bezpieczeństwa Marinara pomija dołączone funkcje, czyści zaznaczenia nar
 
 ## Powiązane przewodniki
 
-- [Modele decyzyjne](../connections/decision-models.md)
 - [Agenci: pomocnicy AI w czatach](agents-overview.md)
+- [Modele decyzyjne](../connections/decision-models.md)
 - [Agenci do pobrania: przegląd pakietów](built-in-agents.md)
 - [Własne narzędzia](../extending/custom-tools.md)
 - [Makra](../prompts/macros.md)

@@ -2,7 +2,7 @@
 
 ## Status
 
-As fases 1 a 4 estão implementadas no branch `drag-me-baby-one-more-time`.
+As fases 1 a 4 foram implementadas no branch `drag-me-baby-one-more-time` e estão mescladas em `staging`. Um trabalho posterior (#7362) permite arrastar as linhas da biblioteca sem alça, permite que quem usa toque junte uma pilha de recursos compatíveis com toques de um segundo dedo e mostra espaços de inserção para reordenar.
 
 A cobertura automatizada do resolvedor está ativa. A cobertura do Playwright no desktop já inclui a atribuição de personagem e a troca de persona, mas a execução local no contêiner de desenvolvimento atual está bloqueada: o Chromium não consegue carregar a biblioteca `libnspr4.so`. Esses casos de navegador precisam rodar na CI ou em um ambiente com as dependências de sistema do Playwright.
 

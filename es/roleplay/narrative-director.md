@@ -79,6 +79,22 @@ Para descartar el arco actual y hacer que la IA escriba uno nuevo, haz clic en *
 
 El arco oculto se almacena con el agente **Narrative Director**. Borrar las ejecuciones del agente y la memoria de tu chat no lo elimina. El arco se elimina solo cuando quitas el agente **Narrative Director** del chat. Si quitas el agente, un aviso te dice que el arco oculto se borrará y no se puede deshacer.
 
+### Prompt de Secret Plot
+
+El **Secret Plot Prompt** (Prompt de Secret Plot) contiene las instrucciones que sigue el Narrative Director cuando escribe y actualiza el arco oculto. El prompt integrado plantea cada arco como un misterio por descubrir. Eso encaja con la aventura y la intriga, pero puede no encajar con una historia impulsada por los personajes.
+
+Para usar tus propias instrucciones, sigue estos pasos.
+
+1. Abre **Agents** y edita el **Narrative Director**.
+2. En la sección **Secret Plot**, haz clic en **Copy default to edit** (Copiar el predeterminado para editarlo).
+3. Cambia el texto y luego guarda el agente.
+
+Haz clic en **Reset to default** (Restablecer el predeterminado) para volver al prompt integrado y luego guarda el agente.
+
+Conserva el formato de respuesta JSON al final del prompt: un objeto `overarchingArc` con `description`, `protagonistArc`, un `characterArc` opcional y `completed`. Sin él, el arco no se puede leer.
+
+Este prompt se guarda en el agente, así que se aplica a todos los chats que usan ese Narrative Director.
+
 ## Guías relacionadas
 
 - [Referencia de agentes descargables](../agents/built-in-agents.md)

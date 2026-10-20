@@ -336,7 +336,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **集成方式**：智能体包；由 Engine 运行它并绘制虚拟形象。聊天时它不会向你的 AI 连接发送额外请求。
 - **适用范围**：Roleplay 和 Game，适用于角色和用户角色。
-- **可用渠道**：**开发中**。目前还不在 **Download Agents** 里。
+- **可用渠道**：**Staging only**，仍在测试中。只有 Marinara Engine 运行在 `staging` 分支上时，**Download Agents** 才会列出它。
 - **主要设置**：在 **Agents** 里该智能体的页面上设置每个虚拟形象。这个智能体还带有提示词，用来根据你的某张立绘生成眨眼和说话图片以及网格虚拟形象。
 - **兼容性**：Engine `2.5.0` 起，`4.0.0` 之前，需要 Capability API 1.73。这个包使用 `agent-runtime`、`chat-read`、`storage` 和 `ui` 权限，不需要重启。
 - **完整指南**：[2D 和 3D 虚拟形象](avatars.md)。
@@ -347,7 +347,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **集成方式**：智能体包；由 Engine 运行它并绘制虚拟形象。聊天时它不会向你的 AI 连接发送额外请求。
 - **适用范围**：Roleplay 和 Game，适用于角色和用户角色。
-- **可用渠道**：**开发中**。目前还不在 **Download Agents** 里。
+- **可用渠道**：**Staging only**，仍在测试中。只有 Marinara Engine 运行在 `staging` 分支上时，**Download Agents** 才会列出它。
 - **主要设置**：在 **Agents** 里该智能体的页面上设置每个虚拟形象。
 - **兼容性**：Engine `2.5.0` 起，`4.0.0` 之前，需要 Capability API 1.73。这个包使用 `agent-runtime`、`chat-read`、`storage` 和 `ui` 权限，不需要重启。
 - **完整指南**：[2D 和 3D 虚拟形象](avatars.md)。

@@ -26,6 +26,7 @@ Tus imágenes, audio y otros archivos multimedia viven en sus propias carpetas, 
 | --- | --- |
 | `avatars` | Avatares de personaje y de persona |
 | `sprites` | Arte de sprite del personaje |
+| `avatar-models` | Archivos de los agentes **2D Avatars** (Avatares 2D) y **3D Avatars** (Avatares 3D), como imágenes PNGTuber y modelos 3D |
 | `backgrounds` | Fondos de chat que subiste |
 | `gallery` | Imágenes de la galería |
 | `fonts` | Fuentes personalizadas que añadiste |

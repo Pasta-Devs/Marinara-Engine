@@ -31,11 +31,14 @@ World Maps 1.3.1 ofrece:
 - plantillas de mapa para toda la cuenta creadas a mano, con IA o por importación;
 - borradores y ampliaciones de mapa asistidos por IA, basados en la configuración o en el trasfondo que elijas;
 - descripciones públicas de las ubicaciones, memoria privada del modelo y trasfondo de la ubicación exacta;
+- exportaciones portátiles con entradas vinculadas opcionales o lorebooks completos;
+- importación revisable de trasfondo con coincidencia exacta, elecciones explícitas para los casos ambiguos y copias separadas sin conflictos de nombre;
 - una imagen de referencia opcional del chat o de la Global Gallery para cada ubicación;
 - un fondo aparte del chat o de la Global Gallery para cada mapa de hijos posicionado;
 - generación por lotes revisable para las ilustraciones de ubicación que falten;
 - una anulación global del prompt (las instrucciones enviadas a la IA) de ilustraciones de Maps, basada en variables;
 - soporte de referencia de ubicación para las ilustraciones de Roleplay y los Storyboards (secuencias de viñetas) de Game;
+- una reparación de formato controlada para el JSON de mapa mal formado de la IA, con indicaciones aparte para la salida truncada por tokens;
 - importación, exportación, archivado, edición que respeta el historial y vínculos con el mapa de Game; y
 - bibliotecas globales de prompts para la construcción de mapas con IA y para el inserto de ubicación en tiempo de ejecución.
 
@@ -91,6 +94,7 @@ Durante la configuración de Game, elige World Maps y luego selecciona una de su
 - **Create with AI** prepara una jerarquía generada para que la revises.
 - **Use template** abre la biblioteca de mundos antes de que se cree la partida de Game.
 - **Build manually** empieza con una jerarquía en blanco editable.
+- **From the world** (Desde el mundo) aparece cuando la partida de Game crea un mundo (consulta [Crear un mundo](../game/getting-started.md#making-a-world)). Dispone ese mundo como el mapa: sus regiones, asentamientos y lugares, y los caminos entre ellos con sus tiempos de viaje. Lo revisas antes de que se guarde. No necesita generación por IA, y los lugares del mapa son los lugares del mundo. Durante el juego, los dos se mantienen sincronizados. El Game Master y los mercados usan el lugar donde el mapa tiene al grupo. Cuando el Game Master nombra un lugar del mundo, el mapa mueve al grupo allí. Con World Maps 1.6.0 o posterior, toma la ruta más corta. Las versiones anteriores solo se mueven un paso: a un lugar contenido en el actual, al lugar que lo rodea o a un lugar al que lleva un camino.
 
 Después de elegir **Use template**, el selector muestra primero **Shared worlds** y después **Independent templates**:
 
@@ -129,6 +133,8 @@ Elige **Link to chat** para conectar el chat que indica el estado de chat de des
 Los chats vinculados comparten solo la definición del mapa y las ilustraciones de la Global Gallery. No comparten mensajes, ubicaciones actuales, instantáneas de viaje, estado del juego, vínculos con el mapa de Game, conexiones de proveedor ni credenciales.
 
 Las ediciones y los descubrimientos hechos dentro de un chat vinculado se guardan como un borrador sin publicar de ese chat. No cambian el mundo canónico ni los demás chats hasta que elijas **Publish**. También puedes usar **Discard** para descartar el borrador, o **Detach and keep copy** para dejar de compartir y conservar la versión actual del chat. Si el mundo canónico cambia mientras hay un borrador pendiente, Maps informa de un conflicto y exige separar o descartar, en lugar de sobrescribir en silencio cualquiera de las dos versiones.
+
+Al publicar, los editores limpios de chats vinculados almacenados en caché en esta pestaña del navegador se actualizan a la nueva revisión canónica. Los editores con trabajo sin guardar conservan su borrador y muestran un conflicto en lugar de sobrescribirse. Vuelve a abrir los chats vinculados en otras pestañas o ventanas del navegador para cargar allí la nueva revisión.
 
 Editar un mundo compartido desde la biblioteca actualiza la definición canónica directamente. El editor de mundos compartidos no ofrece la eliminación permanente de ubicaciones: archívalas para que sus ID estables sigan disponibles. Un chat vinculado tampoco puede eliminar ninguna ubicación de forma permanente hasta que elijas **Detach and keep copy**. Y un mundo compartido no se puede eliminar hasta que todos los chats vinculados se separen o se vuelvan a vincular a otro.
 
@@ -200,6 +206,8 @@ Elige un tamaño:
 
 La generación crea un borrador, no un mapa guardado. Busca o despliega la vista previa completa, selecciona ubicaciones y revisa sus rutas, sus descripciones, su memoria privada del modelo y la procedencia de su trasfondo. Usa **Edit prompt**, **Regenerate** o **Discard draft** antes de continuar.
 
+Si el modelo devuelve un JSON completo pero mal formado, World Maps hace un único intento de reparación que solo corrige el formato. La solicitud de reparación indica al modelo que conserve todas las ubicaciones y todos los valores generados y que corrija solo la sintaxis JSON. Una respuesta incompleta no se envía a reparar. En su lugar, Maps te pide que aumentes **Max Output Tokens** en la conexión o que elijas un tamaño de mapa más pequeño antes de volver a intentarlo.
+
 Haz clic en **Continue to editor** para un mapa nuevo, o en **Add to working map** para una ampliación. Cuando el historial de la campaña ya hace referencia a ID de ubicación, Maps protege esas referencias permitiendo la ampliación en lugar de un reemplazo total sin relación.
 
 ## Construir o editar un mapa a mano
@@ -245,6 +253,8 @@ Los destinos de un solo movimiento son:
 
 Con un turno solo se puede confirmar un paso de la jerarquía. Usa la X del destino pendiente para cancelarlo. Si la revisión del mapa o la ubicación actual cambian antes de enviar, el movimiento pendiente pasa a **Needs review** (necesita revisión).
 
+La generación guiada, la regeneración y la continuación no crean un turno de usuario nuevo, así que no consumen un destino ni un paso de ruta en cola. **Impersonate** sí crea un mensaje de usuario. Por eso, un turno suplantado correcto confirma su movimiento en cola una sola vez; un fallo del proveedor no confirma nada, y un movimiento obsoleto vuelve a revisión en lugar de cambiar la ubicación.
+
 ### Planificar una ruta de varios turnos
 
 Selecciona una ubicación activa lejana en el mapa del mundo. Si el grafo de padres, hijos y enlaces disponibles contiene un camino, Maps muestra la ruta más corta y ofrece **Plan route**.
@@ -263,6 +273,8 @@ El último mensaje del usuario es la autoridad para los cambios automáticos del
 - Las intenciones futuras, los viajes fallidos o sin terminar, las simples menciones, el movimiento de un NPC (personaje no jugador) solo, los lugares imaginados, los campamentos temporales, los pasillos, los vehículos y otros detalles pasajeros no crean ni mueven ubicaciones.
 
 El modelo todavía tiene que interpretar cómo se expresa el usuario y emitir una directiva oculta de Maps, que la aplicación valida. Los distintos modelos de lenguaje pueden variar ante una prosa ambigua. Usa **Set destination** para un movimiento determinista en el siguiente turno, o **Set current story location** para corregir un estado ya guardado.
+
+Con Marinara Engine **2.4.1** o posterior, las directivas completas de movimiento y descubrimiento de Maps se quitan del texto en streaming y de los mensajes guardados. La prosa normal entre corchetes y sus espacios no cambian. Si aparece una directiva de Maps sin procesar en un mensaje, actualiza Marinara Engine y World Maps, reinicia cuando se te pida y regenera o elimina el mensaje afectado para que no se vuelva a usar en el contexto posterior.
 
 Una llegada validada dirigida por el usuario puede saltarse la regla del alcance en un solo paso: Maps registra un enlace directo disponible desde la ubicación actual cuando hace falta. Si ya había un destino en cola, ese movimiento en cola se guarda primero con el mensaje del usuario y después la llegada dirigida por el usuario pasa a ser la ubicación final en la respuesta del asistente; la cola de un solo uso se limpia. En una ruta planificada, llegar al siguiente paso previsto avanza con normalidad. Llegar a otro sitio, incluido un salto a un paso posterior de la ruta, deja la ruta en **Needs review** para que Maps no reescriba el plan en silencio. Cancela esa ruta o vuelve a planificarla desde la ubicación actual resultante.
 
@@ -326,6 +338,8 @@ Selecciona una ubicación en el editor y abre **Location reference image**.
 
 Para un padre que usa la presentación Map, abre **Child map background** por separado. Elige una imagen de la Gallery y luego colócala detrás de los marcadores de los hijos. Esta imagen nunca se envía a un proveedor solo porque se muestre en el mapa. Usa imágenes cuadradas, por ejemplo de 1024 × 1024 px, para ajustarlas a la cuadrícula de coordenadas de 100 × 100. El editor y la vista durante el chat usan el mismo lienzo cuadrado.
 
+Cuando una misma imagen de la Gallery cumple ambos papeles, **Remove reference only** la conserva como fondo del mapa de hijos. Usa **Reject both and create replacement** cuando la imagen no sirve para ninguno de los dos papeles. Después de la generación, **Use for both** asigna la imagen nueva como referencia de ubicación y como fondo del mapa de hijos en un solo paso.
+
 ### Generar por lotes las ilustraciones de ubicación que faltan
 
 La sección **Location artwork** del editor encuentra las ubicaciones a las que les faltan referencias o fondos de mapa de hijos.
@@ -338,6 +352,8 @@ La sección **Location artwork** del editor encuentra las ubicaciones a las que 
 6. Revisa las ilustraciones generadas en el mapa de trabajo y haz clic en **Save**.
 
 Cada imagen distinta que falte es una solicitud aparte al proveedor. Los mundos grandes pueden ser lentos o caros, así que la revisión se puede desplazar y mantiene visible el número de solicitudes. Las ilustraciones existentes se reutilizan sin otra solicitud siempre que se puede. Una imagen nueva pasa a ser la referencia de ubicación y también el fondo del mapa de hijos cuando ese mapa necesita uno.
+
+También cuenta como ausente un enlace de Gallery guardado cuya imagen ya no existe. Si editas la ubicación mientras la generación está en curso, Maps aplica el resultado solo a los papeles de ilustración que sigan faltando. La solicitud completada no sobrescribe una sustitución recién elegida, el interruptor de referencia, la posición del fondo, el estado de archivo ni las ediciones del borrador sin relación.
 
 Al proveedor se envían exactamente los prompts positivo y negativo editados que ves en la revisión. El material del prompt positivo no se copia al prompt negativo.
 
@@ -378,7 +394,7 @@ World Maps usa el trasfondo de dos maneras:
 
 Para adjuntar trasfondo en tiempo de ejecución, selecciona la ubicación, abre **Linked lore**, busca entre las entradas disponibles, adjunta las que quieras y guarda.
 
-Abrir una entrada de lorebook vinculada te saca del editor de mapas. Guarda primero el mapa si quieres conservar otras ediciones pendientes, o confirma a propósito que se pueden descartar. World Maps 1.3.1 avisa antes de que esa acción descarte cambios del mapa sin guardar.
+Elige **Open** (Abrir) en una entrada vinculada para salir del espacio de trabajo del mapa y abrir su lorebook. Un espacio de trabajo sin cambios se cierra directamente. Si el mapa tiene cambios sin guardar, guarda primero o confirma de forma explícita que se puede descartar el borrador; World Maps nunca abre el lorebook detrás del editor de mapas mientras este sigue visible.
 
 Las entradas vinculadas no pasan de padre a hijo. El trasfondo adjunto a Brinewatch no se activa en el Tideglass Inn a menos que también esté adjunto allí.
 
@@ -399,30 +415,34 @@ Estos controles están pensados para personalización avanzada. Conserva las var
 
 ### Exportar un mapa portátil
 
-Usa **Export** desde un chat, una plantilla o el editor de un mundo compartido para descargar la jerarquía como `.world-map.json`. Antes elige cuánto trasfondo vinculado debe viajar:
+Usa **Export** desde el editor de un chat, de una plantilla o de un mundo compartido para descargar la jerarquía de trabajo como un archivo `.world-map.json`. Antes de descargarlo, elige cuánto trasfondo vinculado debe viajar con él:
 
 | Opción de trasfondo | Contenido del archivo |
 | --- | --- |
-| **Map only** | La jerarquía y la procedencia legible entre ubicaciones y trasfondo, pero sin contenido de lorebooks. No puede recrear entradas ausentes. |
-| **Map + linked entries** | Solo las entradas vinculadas por el mapa y las rutas de carpetas necesarias. Es la opción portátil recomendada. |
+| **Map only** | La jerarquía y la procedencia legible entre ubicaciones y trasfondo, pero sin contenido de lorebooks. No se pueden recrear las entradas que falten. |
+| **Map + linked entries** | Solo las entradas vinculadas por el mapa y las rutas de carpetas necesarias para organizarlas. Es la opción portátil recomendada. |
 | **Map + complete lorebooks** | Todas las entradas y carpetas de cada lorebook vinculado, incluido material ajeno al mapa. |
 
-Antes de compartir, revisa los lorebooks, el número de entradas, el tamaño estimado y el mapa desplegable entre ubicaciones y trasfondo. Los lorebooks completos pueden contener notas privadas o no relacionadas. Deja **Include map artwork** activado para incluir las imágenes y los fondos de mapas hijos; desactívalo para una copia más pequeña. Los archivos `.hierarchical-map.json` antiguos siguen siendo importables.
+Antes de compartir el archivo, revisa los lorebooks de la lista, el número de entradas, el tamaño estimado y la correspondencia desplegable entre ubicaciones y trasfondo. Los lorebooks completos pueden contener notas privadas o sin relación con el mapa.
+
+Deja **Include map artwork** activado para incluir en el mismo archivo las imágenes de ubicación referenciadas y los fondos de los mapas de hijos. Desactívalo cuando quieras una copia de seguridad más pequeña. Los archivos `.hierarchical-map.json` antiguos siguen siendo importables.
 
 ### Importar un mapa y restaurar trasfondo portátil
 
-Usa **Import** para cargar una jerarquía en una copia de chat, plantilla independiente o mundo compartido. Si el archivo contiene lorebooks, **Restore portable map lore** muestra cuatro grupos: **Exact IDs**, **Unique content**, **Need a choice** y **New entries**.
+Usa **Import** para cargar una jerarquía en la copia de trabajo de un chat, en una plantilla independiente o en un mundo compartido. Cuando el archivo contiene contenido de lorebooks, **Restore portable map lore** muestra una vista previa de cuatro grupos: **Exact IDs**, **Unique content**, **Need a choice** y **New entries**.
 
-Un id exacto solo es definitivo si pertenece al lorebook de destino. Un id de otra fuente es ambiguo: elige la fila exacta `Lorebook → Entry (ID)` o **Import a new copy**. Sin id, World Maps solo reutiliza una entrada cuando su contenido portátil completo y sus ajustes tienen una única coincidencia; el nombre nunca basta.
+Un ID de entrada exacto solo es definitivo cuando pertenece al lorebook de destino. Un ID de otra fuente es ambiguo, no una coincidencia automática; elige la fila exacta de destino `Lorebook → Entry (ID)` o **Import a new copy**. En los demás casos, World Maps solo reutiliza una entrada cuando su contenido portátil completo y sus ajustes tienen una única coincidencia. Un nombre por sí solo nunca basta.
 
-Después de revisar el resultado previsto, elige una estrategia:
+Después de revisar el resultado previsto, elige la estrategia general de importación:
 
-- **Import separate copies** no reutiliza entradas y crea lorebooks independientes como `Original Lorebook - Map Name (World Map)`, añadiendo **(copy)** o **(copy N)** para evitar colisiones.
-- **Reuse matches & import the rest** conserva coincidencias exactas y únicas, aplica tus elecciones ambiguas y crea lorebooks solo para lo que aún falta.
+- **Import separate copies** no reutiliza ninguna entrada. Crea lorebooks independientes etiquetados con su procedencia, como `Original Lorebook - Map Name (World Map)`, y añade **(copy)** o **(copy N)** para evitar una colisión de nombres en la biblioteca.
+- **Reuse matches & import the rest** conserva las coincidencias exactas y únicas, aplica tus elecciones para las filas ambiguas y crea lorebooks nuevos solo para las entradas que aún haya que importar.
 
-Maps enumera después los lorebooks reutilizados y creados. Las copias creadas permanecen en la biblioteca aunque se elimine el mapa. Engine **2.4.1** o posterior actualiza Lorebooks al instante; con **2.3.5 a 2.4.0**, recarga Marinara una vez después de restaurar el trasfondo.
+Después de importar, Maps enumera los lorebooks concretos que reutilizó y los que creó. Las copias creadas permanecen en la biblioteca de Lorebooks aunque más adelante se elimine el mapa. Con Engine **2.4.1** o posterior, la vista principal de Lorebooks se actualiza de inmediato. Con Engine **2.3.5 a 2.4.0**, actualiza Marinara una vez después de restaurar el trasfondo portátil.
 
-Las ilustraciones también se restauran y reasignan. Las del chat vuelven a la Gallery de destino; las compartidas se reutilizan desde Global Gallery o se agregan una vez. Revisa el resultado y pulsa **Save** para hacerlo definitivo. Importar no guarda de inmediato. Una exportación **Map only** conserva la procedencia y los vínculos de id exactos existentes, pero no puede recrear lorebooks ni entradas borrados sin su contenido.
+Las ilustraciones incluidas también se restauran y sus enlaces de imagen se reasignan. Las ilustraciones propias del chat vuelven a la Gallery del chat de destino. Las ilustraciones compartidas se reutilizan desde la Global Gallery cuando la misma imagen ya existe, o se agregan allí una sola vez cuando una plantilla o una referencia compartida la necesita.
+
+Revisa el mapa importado y haz clic en **Save** para que pase a tener autoridad. Importar no guarda de inmediato. Una exportación **Map only** puede conservar la procedencia legible del trasfondo y los vínculos de ID exactos existentes, pero no puede recrear lorebooks ni entradas eliminados, porque su contenido no está en el archivo.
 
 Una vez que el historial de la campaña hace referencia a un mapa, los cambios importados deben conservar los ID de ubicación existentes. Agrega o actualiza ubicaciones en lugar de reemplazar la jerarquía con ID sin relación.
 
@@ -468,9 +488,9 @@ Comprueba que el chat o el **Connection Override** de Maps tengan una conexión 
 
 ### La generación de mapas con IA informa JSON incompleto o mal formado
 
-Si la respuesta terminó antes de completar el JSON, aumenta **Max Output Tokens** en la conexión o elige un mapa más pequeño y vuelve a generar. World Maps no gasta otra solicitud intentando reparar una respuesta incompleta.
+Si Maps indica que la respuesta terminó antes de que el JSON estuviera completo, aumenta **Max Output Tokens** en la conexión o elige un tamaño de mapa más pequeño, y luego vuelve a generar. World Maps no gasta otra solicitud intentando reparar una respuesta incompleta.
 
-Si el JSON está mal formado, ya se intentó una reparación exclusiva de sintaxis. Vuelve a generar; si el modelo falla repetidamente, usa otra conexión o modelo. Cambiar **Max Output Tokens** está pensado para el caso incompleto.
+Si Maps informa de un JSON mal formado, ya hizo un intento de reparación solo de sintaxis. Vuelve a intentar la generación. Si el mismo modelo devuelve repetidamente una salida mal formada, usa otra conexión u otro modelo; cambiar **Max Output Tokens** está pensado para el caso de la salida incompleta.
 
 ### La ubicación actual no siguió a un mensaje
 
@@ -522,15 +542,9 @@ Comprueba que World Maps esté activo para el chat, que la jerarquía esté **En
 
 ### El trasfondo vinculado no se activa
 
-Comprueba que la entrada esté adjunta a la ubicación actual exacta. Revisa que la entrada y el lorebook estén activados y que el lorebook no esté excluido del chat.
+Comprueba que la entrada esté adjunta a la ubicación actual exacta. Revisa que la entrada y el lorebook estén activados y que el lorebook no esté excluido del chat. El trasfondo vinculado a un padre no se hereda en las ubicaciones hijas.
 
-**Otras reglas de World Maps 1.3.1:** la generación guiada, la regeneración y la continuación no crean un turno de usuario, por lo que no consumen un destino ni un paso de ruta en cola. **Impersonate** sí crea un mensaje de usuario: un turno correcto confirma el movimiento una vez, un fallo del proveedor no confirma nada y un movimiento obsoleto pasa a **Needs review**.
-
-Con Marinara Engine **2.4.1** o posterior, las directivas completas de movimiento y descubrimiento de Maps se quitan del texto transmitido y de los mensajes guardados sin alterar el texto ordinario entre corchetes ni sus espacios. Si aparece una directiva sin procesar, actualiza Engine y World Maps, reinicia cuando se indique y regenera o elimina el mensaje afectado.
-
-Si una imagen de Gallery ocupa ambos papeles, **Remove reference only** la conserva como fondo del mapa hijo; **Reject both and create replacement** sustituye ambos y **Use for both** asigna una nueva imagen a los dos. También se considera ausente un enlace de Gallery guardado cuyo archivo ya no existe. Un resultado que termina mientras editas solo llena los papeles que aún faltan y no sobrescribe una sustitución, un interruptor de referencia, la posición del fondo, el estado de archivo ni otros cambios del borrador.
-
-**Open** en una entrada vinculada sale del mapa y abre su lorebook. Un borrador limpio se cierra directamente; con cambios sin guardar, primero guarda o confirma que se pueden descartar. Si el trasfondo importado no se activa, revisa el resumen: **Map only** no contiene contenido restaurable. Usa **Map + linked entries** o **Map + complete lorebooks** y elige la coincidencia exacta, el destino ambiguo o una copia aparte. El trasfondo vinculado a un padre no se hereda en sus hijos.
+En un mapa importado, revisa el resumen de la importación. **Map only** lleva la procedencia legible, pero no el contenido de los lorebooks, así que no puede restaurar un libro que falte. Importa un archivo exportado con **Map + linked entries** o **Map + complete lorebooks** y luego elige la coincidencia exacta, el destino ambiguo o la copia aparte que corresponda. Con Engine **2.3.5 a 2.4.0**, actualiza Marinara una vez después de restaurar el trasfondo portátil para que el lorebook creado aparezca en la vista principal de Lorebooks. Engine **2.4.1** o posterior lo actualiza de inmediato.
 
 ## Guías relacionadas
 

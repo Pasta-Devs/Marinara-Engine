@@ -74,7 +74,7 @@ Si ningún personaje ha guardado aún una nota, la sección explica que las nota
 
 ## Cambiar entre chats conectados
 
-Cuando un chat tiene otro enlazado, aparece un botón móvil **Connected chat** con un icono de doble flecha, inicialmente arriba a la derecha. Puedes arrastrarlo en la computadora o el teléfono. Haz clic o tócalo para abrir una ventana pequeña y elige **Switch to** seguido del nombre del otro chat.
+Cuando un chat tiene otro enlazado, aparece un pequeño botón **Connected chat** con un icono de doble flecha, inicialmente arriba a la derecha en una computadora. Puedes arrastrarlo a otro lugar. En un teléfono, busca **Connected chat** en el menú de tres puntos **Chat tools** (Herramientas del chat). Abre el control y luego elige **Switch to** seguido del nombre del otro chat.
 
 La acción te lleva directamente al chat conectado, sin tener que buscarlo en la lista. El botón aparece tanto en el lado de Conversation como en el de Roleplay de un enlace.
 

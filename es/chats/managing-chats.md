@@ -1,6 +1,6 @@
 # Cómo gestionar tu lista de chats
 
-Esta guía trata sobre la lista de chats en Marinara Engine. Explica las tres pestañas de modo y cómo crear, importar, renombrar, eliminar, organizar, buscar y gestionar en lote tus chats. También trata sobre la fila de chats recientes en la pantalla de inicio.
+Esta guía trata sobre la lista de chats en Marinara Engine. Explica las tres pestañas de modo y cómo crear, importar, renombrar, eliminar, organizar, buscar y gestionar en lote tus chats. También trata sobre el widget de chats recientes en la pantalla de inicio.
 
 ## La lista de chats y las pestañas de modo
 
@@ -81,7 +81,7 @@ Para renombrar una carpeta, haz doble clic en ella, doble toque sobre ella, o se
 
 Para eliminar una carpeta, haz clic en el botón de papelera de la fila de la carpeta. Una ventana titulada **Delete Folder** (Eliminar carpeta) lo confirma. Eliminar una carpeta nunca elimina los chats que hay dentro. Esos chats vuelven al nivel superior.
 
-Para reordenar las carpetas, arrástralas hacia arriba o hacia abajo por el asa de agarre.
+Para reordenar las carpetas, arrastra la fila de una carpeta hacia arriba o hacia abajo. Se abre un hueco donde va a quedar. Entonces el menú de orden cambia a **Custom** (Personalizado), que conserva el orden de tus carpetas.
 
 Para mover un chat a una carpeta, arrastra su fila sobre la carpeta. Para sacar un chat de todas las carpetas, arrástralo al área vacía debajo de las carpetas. En una pantalla táctil, mantén pulsado un chat durante medio segundo aproximadamente para empezar a arrastrarlo. Si tienes varios chats seleccionados, arrastrar uno de ellos mueve toda la selección.
 
@@ -91,10 +91,13 @@ Los chats que no están en ninguna carpeta aparecen en una lista sencilla debajo
 
 Cada pestaña de modo tiene su propio cuadro de búsqueda en la parte superior de la lista. El texto de marcador de posición cambia según la pestaña: **Search conversations...**, **Search roleplays...** o **Search games...**. La búsqueda coincide con el nombre del chat, sus etiquetas y los nombres de sus personajes. No busca dentro del texto de los mensajes.
 
-Junto al cuadro de búsqueda hay un menú de orden con el tooltip **Sort chats**. Tiene cuatro opciones:
+Junto al cuadro de búsqueda hay un menú de orden con el tooltip **Sort chats**. Tiene estas opciones:
 
-- **Newest** (Más nuevos), la opción predeterminada, muestra primero los chats con actividad más reciente.
-- **Oldest** (Más antiguos) muestra primero los de actividad menos reciente.
+- **Custom** mantiene tus carpetas en el orden en que las arrastraste.
+- **Manual order** (Orden manual) te permite arrastrar los chats a tu propio orden. Con el teclado, pon el foco en un chat y pulsa Alt+Arriba o Alt+Abajo.
+- **Recent** (Recientes), la opción predeterminada, muestra primero los chats con actividad más reciente.
+- **Newest** (Más nuevos) muestra primero los chats creados más recientemente.
+- **Oldest** (Más antiguos) muestra primero los chats más antiguos.
 - **A-Z** ordena por nombre de la A a la Z.
 - **Z-A** ordena por nombre de la Z a la A.
 
@@ -118,7 +121,7 @@ Para salir del modo de selección sin actuar, haz clic de nuevo en el botón de 
 
 ## Chats recientes en la pantalla de inicio
 
-La pantalla de inicio muestra una fila compacta **Recent Chats** (Chats recientes) con tus tres chats de actividad más reciente. Cada chat aparece como un pequeño chip con un avatar, una insignia de modo y el nombre del chat. Haz clic en un chip para abrir ese chat. Si aún no tienes chats, la fila dice **No chats yet** (Aún no hay chats).
+La pantalla de inicio tiene un widget **Recent chats** (Chats recientes) con tus chats de actividad más reciente. Cada chat muestra su nombre, una insignia de modo y su último mensaje. Haz clic en un chat para abrirlo, o haz clic en una parte vacía del widget para abrir la lista de chats. Si aún no tienes chats, el widget dice **Your chats will show here** (Tus chats aparecerán aquí). Consulta [Widgets de inicio](../home/welcome.md#home-widgets).
 
 ## Guías relacionadas
 

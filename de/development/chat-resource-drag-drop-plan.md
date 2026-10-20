@@ -2,7 +2,7 @@
 
 ## Status
 
-Die Phasen 1 bis 4 sind auf `drag-me-baby-one-more-time` umgesetzt.
+Die Phasen 1 bis 4 wurden auf `drag-me-baby-one-more-time` umgesetzt und sind in `staging` gemergt. Spätere Arbeit (#7362) erlaubt es, Bibliothekszeilen ohne Griff zu ziehen, lässt Touch-Nutzer mit Tipps eines zweiten Fingers einen Stapel kompatibler Ressourcen sammeln und zeigt beim Umsortieren Einfügelücken.
 
 Die automatische Abdeckung des Resolvers läuft. Für die Zuweisung von Charakteren und den Austausch der Persona gibt es inzwischen Playwright-Tests auf dem Desktop. Lokal laufen sie im aktuellen Entwicklungscontainer allerdings nicht, weil Chromium `libnspr4.so` nicht laden kann. Diese Browser-Fälle müssen deshalb in der CI oder in einer Umgebung mit den Playwright-Systemabhängigkeiten laufen.
 

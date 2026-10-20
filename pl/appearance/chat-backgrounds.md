@@ -51,7 +51,7 @@ Foldery porządkują bibliotekę, ale nie przenoszą ani nie ukrywają samych pl
 
 1. Kliknij przycisk **New Folder** (nowy folder). Marinara tworzy folder o unikalnej nazwie.
 2. Kliknij dwukrotnie nazwę folderu (na ekranie dotykowym stuknij dwukrotnie), żeby ją zmienić. Inna opcja: ustaw na niej fokus i naciśnij F2.
-3. Na komputerze przeciągnij wiersz tła do folderu. Na telefonie i tablecie przeciągnij go za widoczny uchwyt.
+3. Na komputerze przeciągnij wiersz tła do folderu. Na telefonie i tablecie naciśnij i przytrzymaj wiersz, a potem go przeciągnij.
 4. Przeciągnij tło z powrotem do obszaru poza folderami, żeby wyjąć je z folderu.
 
 Foldery i przypisania zapisują się na serwerze i trafiają do kopii zapasowej. Usunięcie folderu przenosi jego tła z powrotem na listę poza folderami; same obrazy zostają. Filtry wyszukiwania i tagów same odsłaniają pasujące elementy ukryte w folderach.

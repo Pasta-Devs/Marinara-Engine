@@ -181,6 +181,8 @@ Para remover só o modelo selecionado, clique no botão de lixeira chamado **Del
 
 O áudio gravado nunca sai da sua máquina. Só o texto transcrito vai para a conexão de chat escolhida. Para usar isso em uma chamada, defina o modo de entrada de áudio da chamada como a opção Local Whisper. Veja [Chamadas de áudio e vídeo no Conversation Mode](../conversation/calls.md).
 
+Se você ligar o card **Speech to Text** (conversão de fala em texto) em Connections, esse modo de chamada envia a sua fala para o servidor que você informou ali, em vez do Local Whisper. Veja [Use seu próprio servidor de conversão de fala em texto](../conversation/calls.md#use-your-own-speech-to-text-server).
+
 ## Solução de problemas
 
 **"Sidecar runtime install is disabled."** Instalar ou reinstalar o runtime é uma ação protegida. As instalações de um clique do Windows já liberam isso. No macOS, no Linux e no Docker, há duas saídas. Defina `SIDECAR_RUNTIME_INSTALL_ENABLED=true` no arquivo `.env` do servidor, assim:

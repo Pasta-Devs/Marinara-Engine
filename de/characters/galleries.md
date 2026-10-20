@@ -36,7 +36,7 @@ Gängige Bildformate wie JPG, PNG, GIF, WebP und AVIF werden unterstützt. Ein K
 3. Zieh die Videodateien auf das Feld **Upload Character Videos** (Charaktervideos hochladen) oder klick darauf, um Dateien auszuwählen. Bei einer Persona heißt das Feld **Upload Persona Videos**.
 4. Warte, bis der Upload abgeschlossen ist.
 
-Unterstützt werden MP4, WebM und MOV. Der Unter-Tab **Videos** listet zusätzlich alle Szenenvideos auf, die in Chats mit diesem Charakter entstanden sind, sowie Mitschnitte von Videoanrufen. Das Neueste steht jeweils oben.
+Unterstützt werden MP4, WebM und MOV. Der Unter-Tab **Videos** listet zusätzlich alle Szenenvideos auf, die in Chats mit diesem Charakter entstanden sind, sowie Mitschnitte von Videoanrufen. Das Neueste steht jeweils oben. Eine Videonachricht aus Conversation erscheint nur bei den Charakteren, die sie zeigt: beim Charakter, der sie geschickt hat, und bei allen, die sie namentlich nennt. Ein Vorname genügt, wenn ihn niemand sonst im Chat trägt und er großgeschrieben ist. Bittet der Text um ein Gruppenfoto oder Gruppen-Selfie, gehören alle im Chat dazu. Namen in Anführungszeichen, also in wörtlicher Rede, zählen nicht. Die Galerie deiner Persona listet den Clip nur, wenn er deine Persona nennt. Ältere Videos und Videos aus Roleplay- und Game-Chats erscheinen bei jedem Charakter und bei der Persona ihres Chats.
 
 ## Ein Galerie-Bild als eigenes Emoji oder Sticker markieren
 
@@ -68,6 +68,8 @@ Ein in der Galerie markiertes Emoji oder Sticker gilt nur für genau diesen Char
 
 Trägt ein Galerie-Bild denselben Namen wie ein Eintrag aus der globalen Sammlung, gewinnt in diesem Chat die Galerie-Version. Namen werden nicht auf Eindeutigkeit geprüft. Vergib deshalb pro Bild einen eigenen Namen, dann gibt es keine Überraschungen.
 
+<a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
+
 ## Ein Galerie-Bild in Nachrichten und Begrüßungen wiederverwenden
 
 Jedes Bild in der Galerie einer Figur lässt sich direkt im Chattext anzeigen: in einer Begrüßung, einer Beispielnachricht oder einer Nachricht der Figur. Fahre über das Galerie-Bild und klicke auf **Copy image reference** (das Link-Symbol). Dadurch wird ein kurzes Markdown-Stück kopiert, das du überall einfügen kannst, wo die Figur spricht:
@@ -78,11 +80,19 @@ Jedes Bild in der Galerie einer Figur lässt sich direkt im Chattext anzeigen: i
 
 Die eine Regel lautet: **`self` bezeichnet die Figur, die diese Nachricht spricht.** Beim Rendern ersetzt Marinara `self` durch diese Figur und zeigt das Bild aus ihrer Galerie.
 
-Es funktioniert in **First Message**, **Alternate Greetings** und **Example Dialogue** auf der Figurenkarte, in jeder von einer Figur gesendeten Nachricht in Roleplay und Conversation sowie in Gruppenchats. Bei Antworten mit mehreren Sprechern wird `self` für jeden Sprecher einzeln aufgelöst. Fehlt die Datei in dessen Galerie, durchsucht Marinara die Galerien der anderen Chatfiguren.
+Wo es funktioniert:
 
-Bewusst nicht unterstützt werden eigene Nachrichten, da sie keine sprechende Figur haben, sowie Systemnachrichten, die keine Markdown-Bilder rendern. Verwende für eigene Nachrichten den Asset-Browser des Chats mit der vollständigen Form `card://characters/<id>/...`. Bilder aus Persona-Galerien benötigen stattdessen `card://personas/<id>/gallery/<file>`.
+- In **First Message**, **Alternate Greetings** und **Example Dialogue** auf der Charakterkarte. Die Markdown-Vorschau des Felds zeigt das Bild schon beim Bearbeiten.
+- In jeder Nachricht, die ein Charakter sendet, in **Roleplay** genauso wie in **Conversation**.
+- In **Gruppenchats**: Bei einer Antwort mit mehreren Sprechern wird `self` für jeden Sprecher einzeln aufgelöst, sodass die Zeile jedes Charakters das Bild aus dessen eigener Galerie zeigt. Fehlt die Datei in der Galerie des Sprechers, sucht Marinara sie in den Galerien der anderen Charaktere im Chat. So erscheint das richtige Bild auch dann, wenn eine Antwort unter einem einzigen Sprecher zusammengeführt wurde.
 
-Haben zwei Figuren dieselben Dateinamen, gewinnt immer das Bild der sprechenden Figur. Fehlt es dort, wird der erste Treffer in der Figurenreihenfolge des Chats verwendet. Vergib eindeutige Namen, wenn eine bestimmte Version erscheinen soll.
+Wo es bewusst nicht funktioniert:
+
+- **In deinen eigenen Nachrichten.** Sie haben keinen sprechenden Charakter, deshalb erscheint ein Verweis mit `self` als defektes Bild. Willst du selbst ein Galerie-Bild eines Charakters posten, nutze die Einfügefunktion des Asset-Browsers im Chat (sie schreibt die vollständige Form `card://characters/<id>/...`).
+- **In Systemnachrichten.** Sie rendern überhaupt keine Markdown-Bildsyntax, ein Verweis erscheint dort also als wörtlicher Text.
+- **Bei Persona-Galerien.** Persona-Bilder erscheinen in deinen Nachrichten, und die haben keinen Sprecher. Verwende stattdessen die Persona-Form `card://personas/<id>/gallery/<file>`.
+
+Eine Feinheit bei Gruppenchats: Haben zwei Charaktere im Chat Galerie-Bilder mit **demselben Dateinamen**, gewinnt immer das Bild des sprechenden Charakters. Hat der Sprecher die Datei nicht, gewinnt der **erste Treffer**: Die anderen Charaktere werden in der Charakterreihenfolge des Chats geprüft. Gib gleichnamigen Bildern eindeutige Dateinamen, wenn in der Zeile eines anderen Charakters die Version eines bestimmten Charakters erscheinen soll.
 
 ### Warum `self` statt des vollständigen Links
 

@@ -1,6 +1,6 @@
 # Noodle: a linha do tempo social dentro do aplicativo
 
-Noodle é um feed de rede social de mentirinha embutido no Marinara Engine. A cara dele é a de uma linha do tempo estilo Twitter ou X. Só que cada conta e cada publicação pertencem ao seu próprio mundo: a persona, os personagens e Professor Mari. Neste guia você aprende o que é Noodle, como abrir e como publicar, seguir contas e atualizar a linha do tempo.
+Noodle é um feed de rede social de mentirinha embutido no Marinara Engine. A cara dele é a de uma linha do tempo estilo Twitter ou X. Só que cada conta e cada publicação pertencem ao seu próprio mundo: a persona, os personagens e Professor Mari. Neste guia você aprende como instalar e abrir Noodle e como publicar, seguir contas e atualizar a linha do tempo.
 
 ## O que é Noodle
 
@@ -21,15 +21,15 @@ Aviso sobre o conteúdo: as instruções que Noodle envia para a IA tratam toda 
 
 ## Como abrir Noodle
 
-Noodle fica na barra superior, e não em um painel de configurações.
+Noodle é um pacote de agente para download. Instale-o uma vez antes de procurar a aba dele na tela inicial:
 
-1. Procure na barra superior o botão **Noodle** (o ícone com o símbolo @).
-2. Clique em **Noodle**.
-3. A área principal do chat dá lugar à linha do tempo de Noodle.
+1. Abra **Agents** (agentes), escolha **Download Agents** (baixar agentes) e instale o **Noodle**.
+2. Reinicie Marinara Engine quando o aplicativo pedir, para que o servidor e as contribuições do Noodle à tela inicial possam carregar.
+3. Abra **Home** e clique na aba **Noodle**, ao lado de **Home** e **Professor**.
 
-Você vê uma barra de endereço de navegador falsa com `marinara/noodle` e um pequeno selo **Noodle**. É só enfeite. Ao abrir Noodle, qualquer outro painel aberto se fecha, como a biblioteca de personagens ou o Card Browser.
+Você vê a já conhecida interface de navegador falsa e a linha do tempo de Noodle dentro do navegador da tela inicial do Marinara. A linha de endereço da tela inicial mostra `marinara/noodle`; o estilo de navegador próprio do Noodle continua fazendo parte da página.
 
-Para sair de Noodle, clique de novo no botão **Noodle** ou abra qualquer outro painel.
+Para sair de Noodle, escolha outra aba do navegador da tela inicial ou abra um chat.
 
 No celular ou em uma janela estreita, Noodle muda para um layout de celular, com navegação própria. Veja a seção "Noodle no celular", mais abaixo.
 
@@ -83,11 +83,18 @@ São três abas:
 
 As notificações exigem uma persona ativa. Sem uma, o painel fica vazio.
 
+<a id="profiles-and-following"></a>
+
 ## Perfis e seguidas
 
 Abra **Profile** (perfil) na barra lateral esquerda ou clique no nome ou no avatar de qualquer conta, em qualquer lugar de Noodle.
 
-O seu próprio perfil tem o botão **Edit Profile** (editar perfil). Clique nele para mudar os campos **Display name**, **@name**, **Bio** e **Location**, e depois clique em **Save**. Também é possível clicar no banner ou no avatar para fazer upload de uma imagem. Você só edita o perfil da sua própria persona. O perfil de um personagem é escrito pela IA e não pode ser editado à mão.
+O seu próprio perfil tem o botão **Edit Profile** (editar perfil). Clique nele para mudar os campos **Display name**, **@name**, **Bio** e **Location**, e depois clique em **Save**. Também é possível clicar no banner ou no avatar para fazer upload de uma imagem. A IA escreve o perfil de um personagem, e você pode mudá-lo do mesmo jeito depois que o personagem for convidado.
+
+Quando você edita o perfil de um personagem, mais duas configurações aparecem abaixo dos campos do perfil. Elas são salvas na hora.
+
+- **Use this character's image instructions in Noodle images** (usar as instruções de imagem deste personagem nas imagens do Noodle) acrescenta as **Image generation instructions** (instruções de geração de imagens) do personagem, da aba **Convo** do editor de personagens, às imagens dele no Noodle. **Edit image instructions** (editar as instruções de imagem) abre essa aba. O Slurp usa a mesma escolha até você definir uma para esse personagem no Slurp. Isso exige o Noodle 1.5.4 ou posterior.
+- **Image connection** (conexão de imagem) escolhe a conexão de imagem das imagens desse personagem no Noodle. **Use Noodle image connection** (usar a conexão de imagem do Noodle) mantém a das [configurações do Noodle](settings.md#image-generation). Isso exige o Noodle 1.5.5 ou posterior.
 
 Abaixo do cabeçalho aparecem os números de **Following** e **Followers**, e então três abas: **Posts**, **Likes** e **Media** (as publicações que têm imagem).
 

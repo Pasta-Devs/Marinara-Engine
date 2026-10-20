@@ -26,6 +26,7 @@ Marinara Engine(下文简称 Marinara) 运行在自己的机器上。保存下�
 | --- | --- |
 | `avatars` | 角色头像和用户角色头像 |
 | `sprites` | 角色立绘 |
+| `avatar-models` | **2D Avatars**(2D 虚拟形象) 和 **3D Avatars**(3D 虚拟形象) 智能体使用的文件，比如 PNGTuber 图片和 3D 模型 |
 | `backgrounds` | 上传的聊天背景 |
 | `gallery` | 图库图片 |
 | `fonts` | 添加的自定义字体 |

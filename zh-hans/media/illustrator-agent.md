@@ -8,7 +8,7 @@
 
 Illustrator 不会每条消息都画。默认情况下，画完一张图之后，要再经过 5 条被采纳的用户消息和 AI 回复，它才会画下一张。每个 Roleplay 聊天都可以改这个数字。对同一条回复滑动切换备选回复或者重新生成，都不会推进这个间隔。如果它判断某一刻不值得配图，就直接跳过，不出图。它画出来的每张图都会保存到聊天的 **Gallery**(图库) 里。
 
-Illustrator 可以用在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里，装上它之后，Conversation(对话模式) 的自拍功能也会一并解锁。应用里给它的简介是“Responsible for image and video generations.”本指南的设置步骤和选项针对的是 Roleplay 聊天。Game Mode 换成了一个简单开关，见下面的 Game Mode 一节。
+Illustrator 可以用在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里，装上它之后，Conversation(对话模式) 的自拍和[视频消息](../conversation/selfies.md#video-messages)功能也会一并解锁。应用里给它的简介是“Responsible for image and video generations.”本指南的设置步骤和选项针对的是 Roleplay 聊天。Game Mode 换成了一个简单开关，见下面的 Game Mode 一节。
 
 ## 开始之前
 
@@ -61,17 +61,24 @@ Illustrator 会用到两个不同的连接，分清这两者很有必要。
 
 ## Attach Card Appearance 与 Send Avatar References
 
-Illustrator 卡片上有两个开关，能让角色形象保持一致。两个默认都是关闭的。
+Illustrator 卡片上有两项设置，能让角色形象保持一致。两项默认都是关闭的。
 
-**Attach Card Appearance**(附带角色卡外貌) 会把每个出场角色保存好的外貌描述加进图像提示词。它的帮助文字是：“Append matched character appearance lines to image prompts, using only visible/generated names.”想让画面贴合角色卡上写的样子，就打开它。
+对于图片，**Attach Card Appearance**(附带角色卡外貌) 会把每个出场角色保存好的外貌描述加进图像提示词。视频提示词只有在你选择包含视频时才会加上它，详见下文。它的帮助文字是：“Append matched character appearance lines to image prompts, using only visible/generated names.”想让画面贴合角色卡上写的样子，就打开它。
+
+在 Roleplay 聊天的 **Chat Settings**(聊天设置) 里，**Attach Card Appearance** 是一个下拉菜单，有四个选项：
+
+- **Off**(关闭)
+- **Images only**(仅图片)，即通常的行为。
+- **Videos only**(仅视频)。用 Gallery 制作的短片会加上其动作描述中点名的角色的外貌描述。
+- **Images and videos**(图片和视频) 两者都做。
 
 打开 **Attach Card Appearance** 后，如果角色卡或用户角色还打开了 **Image Appearance Override**(图像专用外貌)，并填写了内容，发送的就是这段文字，而不是 **Appearance** 的内容。当 **Appearance** 是为旁白写的，图像模型却不容易理解时，可以把完整描述留在 **Appearance**，再在图像专用输入框里填写简短的标签式描述。这个开关关闭或输入框留空时，图像提示词仍会使用 **Appearance**。无论哪种情况，负责写旁白的模型始终会收到 **Appearance** 的完整内容。这个开关就在角色和用户角色编辑器的 **Appearance** 下方。
 
-**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像，或者他们的立绘，作为参考图发给图像服务商。它的帮助文字是：“Send matching character and persona avatars or sprites as reference images when the provider supports them.”这样图像模型更容易照着画出同一张脸或同一身衣服。并不是所有服务商都接受参考图，实际效果取决于选的那家服务商。
+**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像，或者他们的立绘，作为参考图发给图像服务商。它的帮助文字是：“Send matching character and persona avatars or sprites as reference images when the provider supports them.”这样图像模型更容易照着画出同一张脸或同一身衣服。并不是所有服务商都接受参考图，实际效果取决于选的那家服务商。在 Roleplay 里它仍然是一个开关，而且只影响图片，因为 Roleplay 的短片本来就是从一张图片开始的。
 
 ## NovelAI 中的多角色场景
 
-当 Illustrator 的图像连接使用 NovelAI 的 V4、V4.5 或 V5 模型时，负责编写提示词的模型会收到要求，为每个可见角色额外编写一段描述。每段描述包含该角色自己的外观、表情、姿势，以及在画面中的大致位置。Marinara 会将描述与场景中的角色列表核对，丢弃无法匹配的描述，再将其余描述作为 NovelAI 原生角色提示词，与场景的主提示词一起发送。这样可以避免群像场景中不同角色的发型、服装和其他特征相互混淆。
+当 Illustrator 的图像连接使用 NovelAI 的 V4、V4.5 或 V5 模型时，负责编写提示词的模型会收到要求，为每个可见角色额外编写一段描述。每段描述包含该角色自己的外观、表情、姿势，以及在画面中的大致位置。Marinara 会将描述与场景中的角色列表核对，丢弃无法匹配的描述，再将其余描述作为 NovelAI 原生角色提示词，与场景的主提示词一起发送。这样可以避免群像场景中不同角色的发型、服装和其他特征相互混淆。通过 **Illustrate**(插图) 按钮生成的图片，以及角色用 `[illustrate]` 命令生成的图片，也会得到同样的描述。
 
 描述数量取决于模型。V5 最多接受 22 个角色，V4 和 V4.5 最多接受 6 个。场景中的可见角色更多时，会保留最重要的角色，其余角色作为没有名字的背景人物处理。
 
@@ -79,7 +86,7 @@ Illustrator 卡片上有两个开关，能让角色形象保持一致。两个�
 
 开启 **Attach Card Appearance**(附加卡片外观) 后，模型还会收到聊天中每张角色卡和每个用户角色的完整 Appearance 文本作为参考，因此较长的角色卡或多人角色卡不会被截断。在同一个 Appearance 字段中以 `[NAME] tags | [NAME] tags` 格式描述多个角色的卡片，会按角色分别列出。模型会决定使用哪些内容：把固定特征复制到对应角色的描述中，将卡片中的服装标签视为可由追踪器或场景覆盖的默认值，并忽略不在场景中的角色。模型返回角色描述后，Marinara 不会再向提示词追加内容。如果没有返回角色描述，例如只有一个角色的场景，仍会像以前一样把常规外观描述行追加到主提示词中。
 
-不需要额外设置。角色描述只会用于连接 NovelAI 自有服务器的情况，代理或其他服务商不受影响。开启 **Review image prompts before sending**(发送前检查图像提示词) 后，检查窗口会在主提示词下方列出角色描述，让你看到即将发送的内容。这里的角色描述只读；主提示词仍可照常编辑。
+不需要额外设置。角色描述只会用于连接 NovelAI 自有服务器的情况，代理或其他服务商不受影响。开启 **Expose media prompts before sending**(发送前显示媒体提示词) 后，检查窗口会在主提示词下方列出角色描述，让你看到即将发送的内容。这里的角色描述只读；主提示词仍可照常编辑。
 
 ## 更多设置和手动运行
 
@@ -93,9 +100,11 @@ Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是这个智能�
 
 ## 图库保存与提示词查看
 
-**Settings → Generations → Image Generation**（设置 → 生成 → 图像生成）中的 **Automatically save generated images to character galleries**（自动将生成的图片保存到角色图库）默认开启。关闭后，聊天插图和自拍将不再自动加入图片中角色和用户人设的图库。图片仍会显示在对话和聊天图库中，也仍可手动保存到图库。已有条目不会改变。各图库共享图片文件，因此该选项只控制图片所属的图库，不会删除聊天中的图片文件。
+**Settings → Generations → Image Generation**(设置 → 生成 → 图像生成) 中的 **Automatically save generated images to character galleries**(自动将生成的图片保存到角色图库) 默认开启。关闭后，聊天插图和自拍将不再自动加入图片中角色和用户角色的图库。图片仍会显示在对话和聊天图库中，也仍可手动保存到图库。已有条目不会改变。各图库共享图片文件，因此该选项只控制图片所属的图库，不会删除聊天中的图片文件。
 
 对于 Illustrator 使用 NovelAI 新生成的插图，检查器会先显示场景或风格提示词，再显示以 ` | ` 分隔的各角色正向描述。图库保存的提示词也包含这些内容。
+
+要用修改过的提示词重新画一张插图，而不重新生成回复，打开这张插图并使用 **Regenerate image**(重新生成图片)。参见[重新生成图片](scene-backgrounds.md#regenerating-an-image)。
 
 要为 Roleplay 中较早的消息或消息范围生成插图，请使用 `/illustrate range=12` 或 `/illustrate range=12-18`。编号方式与限制请参阅[斜杠命令](../chats/slash-commands.md)。
 

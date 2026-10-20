@@ -13,7 +13,7 @@ Marinara Engine 的基础发行版不编译、也不附带任何可选的智能�
 一个智能体包可以提供一个或多个声明式智能体，以及可选的受信任可执行能力：
 
 - 服务器端入口点：路由、生命周期钩子、提示词提供方、结果处理器、存储迁移；
-- 客户端入口点：面板、聊天界面、设置区块、设置向导中的选项、运行时显示内容；
+- 客户端入口点：面板、聊天界面、设置区块、设置向导中的选项、运行时显示内容，以及完整的 Game Mode 界面；
 - 共享的 JSON 结构定义和稳定的通信契约；
 - 包自带的资源文件、文档和 Professor Mari 知识片段。
 
@@ -28,6 +28,70 @@ Marinara Engine 的基础发行版不编译、也不附带任何可选的智能�
 Capability API 1.1 在服务器端的激活上下文里加了一层通用的运行时门面。包可以读取当前生效的智能体调试状态，也可以通过 Engine 的 Pino 日志器写日志，包括显式覆盖调试模式，全程不需要导入私有的日志模块或运行时配置模块。这层门面只暴露操作，不暴露 Engine 内部对象。
 
 Capability API 1.2 加入了事务范围内的聊天/消息操作、范围收窄的聊天元数据写入和世界书条目存在性读取，以及空间快照兼容存储。包可以在一个 Engine 事务内校验领域数据的变更，并把元数据与所属消息、备选回复或空间快照一起原子提交，全程拿不到数据库句柄或数据表对象。回滚和历史存储兼容由 Engine 负责，校验和领域规则由包负责。同一套 API 还提供归一化后的聊天记录和角色记录、可用世界书条目的筛选、类 JSON 响应的解析，以及解析完成的语言模型调用。连接凭据、服务商实现、数据库句柄和存储对象始终只属于 Engine 内部。
+
+### 宿主客户端命名空间
+
+客户端状态和这些库都归 Engine 所有，智能体包的客户端直接使用它们，而不是把副本打包进去。副本会有一份自己的状态：曾经把 UI 设置 store 打包进去的包客户端，每次加载都会用旧版本的设置覆盖 Engine 的设置（Pasta-Devs/Marinara-Agents#1478），而每个打包进去的聊天 store 都停留在页面加载时打开的那个聊天上。
+
+Engine 在导入第一个包客户端之前，会定义一个全局变量：
+
+```ts
+globalThis.__MARINARA_HOST__ = {
+  version: 1,
+  capabilityApi,
+  stores,
+  services,
+  modules,
+  queryClient,
+  components,
+  data,
+  api,
+};
+```
+
+这个属性不可写、不可配置，命名空间本身及其 `stores`、`services`、`modules`、`components` 和 `data` 对象都已冻结。包加载器（`useCapabilityClientModules`）在导入任何包客户端之前，会用 `import()` 加载 `lib/marinara-host.ts` 并等待 `ensureMarinaraHost()` 完成，所以包模块求值时命名空间已经完整。没有包客户端的 Engine 永远不会加载它。如果它加载失败（比如更新后残留了过期的 chunk），每个包会显示它原有的加载错误，Engine 的其余部分照常工作。TypeScript 类型是 `packages/client/src/lib/marinara-host-contract.ts` 里的 `MarinaraHostV1`，本页的各个列表也定义在那里。包构建会声明与之匹配的结构类型，而不是导入 Engine 源码。
+
+| 成员 | 值 |
+| --- | --- |
+| `version` | `1`。只有结构发生破坏性变化时才会改变。 |
+| `capabilityApi` | Engine 的 `supportedCapabilityApi`，例如 `{ major: 1, minor: 341 }`。 |
+| `stores` | 实时的 zustand store：`ui`、`chat`、`agent`、`sidecar`、`dialog`、`gallery`、`encounter`、`gameState` 和 `backfill`。`chat` 包含待处理空间过渡的状态切片。 |
+| `services.tts` | `lib/tts-service.ts` 模块（`ttsService`、`playWhenAvailable` 等）。 |
+| `services.dialogs` | `lib/app-dialogs.ts` 模块（`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`）。 |
+| `modules` | 库模块，以裸模块说明符为键（见下文）。 |
+| `queryClient` | Engine 渲染时使用的那一个 React Query `QueryClient`。 |
+| `components.Modal` | Engine 的 `Modal`，带有它的覆盖层顺序、Escape 键和返回键处理。 |
+| `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 模块。 |
+| `api` | `lib/api-client.ts` 模块（`api`、`ApiError`、`getApiErrorMessage` 等）。 |
+
+包只有先检查过某个成员，才会读取它，例如 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`。命名空间只增不减：新成员会随一个 Capability API 次版本号一起加入，需要它的包就要求这个次版本号。为命名空间构建的包要求引入它的那个 Capability API 版本，所以旧版 Engine 永远不会安装它们，而是保留已有的版本。如果某个成员仍然缺失，包也绝不会回退到自己打包的有状态 Engine 服务副本：`ui` 和 `chat` store 会变成从不写入的只读副本，其他所有成员则提示该功能需要更新版本的 Marinara Engine。
+
+**宿主模块。** `modules[specifier]` 与 Engine 自身构建中 `import * as m from "<specifier>"` 返回的内容完全相同，库有 `default` 时也包括它。这些说明符是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`tailwind-merge` 和 `clsx`。包构建会把这些说明符解析为读取命名空间的垫片（shim），所以包用 Engine 唯一的那份 React 渲染，并共享它的 React Query 缓存和 toast 提示。
+
+- 包绝不渲染 `<Toaster>`，也绝不创建 `QueryClient`。来自 `sonner` 的 `toast` 会显示在用户设定的提示位置。除非查询设置了自己的选项，否则沿用 Engine 的查询默认值（30 秒的 `staleTime`、重试一次、窗口获得焦点时不重新拉取）；包新建的查询键以包 ID 开头。
+- 包在 `<I18nextProvider>` 内使用自己通过 `i18next.createInstance()` 创建的 i18next 实例。它绝不使用 `initReactI18next`、`setI18n` 或 `setDefaults`，因为这些会替换掉 Engine 的实例。
+- `lucide-react`、`chess.js`、`scheduler` 和 `@marinara-engine/shared` 不是宿主模块；包自行打包其中用到的部分。
+- 包针对这些主版本构建：`react` 19、`react-dom` 19、`@tanstack/react-query` 5、`zustand` 5、`sonner` 2、`zod` 3、`i18next` 26、`react-i18next` 17、`framer-motion` 13、`tailwind-merge` 3 和 `clsx` 2。Engine 里其中任何一个升级主版本（首先是 React），都会让所有针对旧主版本构建的包失效，所以需要升级 Capability API 的**主版本**。如果 `packages/client/package.json` 里的某个主版本变了而契约没变，`scripts/regressions/marinara-host-namespace.regression.ts` 就会失败。
+
+**包读取的 store 字段。** 已发布的包目前会读取下面这些字段。Engine 会保留每一个字段，删除或重命名其中任何一个都需要升级 Capability API 主版本（`MARINARA_HOST_STORE_FIELDS` 用 `Pick<>` 固定了它们）：
+
+| Store | 字段 |
+| --- | --- |
+| `ui` | `achievementsEnabled`、`debugMode`、`includeReasoningInExports`、`enableStreaming`、`userStatus`、`enterToSendConvo`、`conversationCallVoiceVolume`、`conversationCallVoiceMuted`、`setConversationCallVoiceVolume`、`setConversationCallVoiceMuted`、`conversationTimeZone`、`noodleNavigation`、`setNoodleNavigation`、`noodleSelectedPersonaId`、`setNoodleSelectedPersonaId`、`reviewImagePromptsBeforeSend`、`musicPlayerEnabled`、`musicPlayerSource`、`sidebarOpen`、`setSidebarOpen`、`chatBackground`、`setChatBackground`、`characterDetailId`、`lorebookDetailId`、`presetDetailId`、`connectionDetailId`、`agentDetailId`、`toolDetailId`、`personaDetailId`、`regexDetailId`、`characterLibraryOpen`、`botBrowserOpen`、`gameAssetsBrowserOpen`、`modal`、`rightPanelOpen`、`closeModal`、`closeRightPanel`、`closeBotBrowser`、`closeAllDetails` |
+| `chat` | `activeChatId`、`activeChat`、`isStreaming`、`streamingChatId`、`abortControllers`、`reset`、`pendingSpatialTransitions`、`setPendingSpatialTransition`、`clearPendingSpatialTransition`、`setPendingSpatialTransitionStatus` |
+| `agent` | `setYoutubePlay`、`reset` |
+| `sidecar` | `modelDownloaded`、`modelDisplayName`、`fetchStatus` |
+| `dialog` | `dialog`、`openDialog`、`closeDialog` |
+| `gallery` | `pinImage`、`pinVideo` |
+| `encounter` | `reset` |
+| `gameState` | `current`、`setGameState`、`reset` |
+| `backfill` | `resetBackfill` |
+
+**Engine 所有的浏览器存储。** 包可以读取下面这些键，但绝不写入或删除它们：`marinara-engine-ui`、`marinara-engine-ui:host`、`marinara-active-chat-id`、`marinara-input-drafts`(local storage 和 session storage)、`marinara-pending-spatial-transitions`、`marinara-pinned-gallery-images` 和 `marinara_sidecar_prompted`。包也绝不打开 IndexedDB 数据库 `marinara-tts-audio-cache`。要修改某项设置，包应调用 store 的 action，例如 `host.stores.ui.getState().setConversationCallVoiceMuted(true)`，由 Engine 负责保存。
+
+**应用对话框。** Engine 把它的提醒、确认、输入和选择对话框渲染在最顶层，也就是命令栏所在的那一层，所以包打开的对话框会显示在包自己的覆盖层之上，并获得焦点。
+
+**命名空间出现之前的包构建。** 它们打包了自己的一份版本为 74 的 UI store 副本，并只用这份副本认识的设置覆盖 `marinara-engine-ui`。Engine 还会把每次写入同时保存到仅供宿主使用的 `marinara-engine-ui:host` 副本；加载时，只要这份副本处于当前版本，Engine 就会忽略比自身版本旧的已存储数据。对于使用经典 JSX 运行时的已安装包，Engine 仍会设置 `globalThis.React` 和 `globalThis.ReactDOM`。
 
 ### Capability API 1.7 的聊天分支
 
@@ -151,7 +215,7 @@ Capability API 1.16 允许 Experience 包声明一份简短且封闭的具名 Ga
 }
 ```
 
-动词名必须符合 `[a-z][a-z0-9_]*`，最多 32 字符，不能使用 Engine 自身的 GM 方括号标签。检查会统一大小写，因为提醒中 `[Note:` 和 `[Book:` 首字母大写，而解析正则不区分大小写，小写 `note` 也会遮蔽日志标签。保留集取自 GM 和队伍提醒的所有分支能渲染的标签，以及从完成回合读取标签的五个叙述解析器：客户端标签解析器、客户端叙述格式器、服务端片段编辑器、侧车场景分析器，以及生成路由的对话改写器。它们的词汇比任何提醒都广，包括对话标记 `main`、`side`、`extra`、`action`、`thought`、`whisper`，以及仅叙述格式器匹配的 QTE 对 `qte_bonus` / `qte_result`。最后一组说明固定检查为何必要：名为 `whisper` 的动词会在保存前删去对话行中的 `[whisper:Tam]`，使该行永久失去对话身份。回归检查连同提取器一起固定这些内容。提供独有名称的解析器——标签解析器的 `party-chat` / `party-turn` 和格式器的 QTE 对——必须持续提供它们；某个来源悄然退出扫描会导致构建失败，而非缩小保留集。其余三个即使没有独有名称也继续扫描，以捕获最先出现在其中的新标签。但固定检查不保证完备：扫描范围之外的文件新增标签，或提取器无法读取的写法，仍会漏掉，因此新解析器出现时必须扩展集合，不能假定它永远封闭。`action`、`state`、`status`、`note` 这些普通词也是内置标签，所以普通动词名被拒绝通常是该规则，而不是拼写错误。`description` 为 1–200 字符的单行，不含方括号或换行，因为它会原样渲染进提醒的 `COMMANDS:` 块。这里的换行不止 CR 和 LF，还包括读取该块时会结束一行的 `U+0085`、`U+2028`、`U+2029`；C0 控制字符和 DEL 也被拒绝，尤其是制表符，因为它们不结束行也能改变块的形状。但“原样”并不绕过宏处理：整个提醒发送前会展开宏，说明中的 `{{…}}` 会展开而不是打印，也包括 `{{setvar::…}}` 等写入聊天变量的宏。这未超出 `chat-write` 已授予的范围，但容易误触，因此除非确有意图，请避免宏花括号。每个动词最多六个 `{ name, type, enum?, maxLength?, optional? }` 参数，名称符合 `[a-z][a-zA-Z0-9_]*`，最多 32 字符。它是 JSON 键而非方括号标签，因此有意比禁止大写的动词名更宽松。只有字符串参数可带 `enum`，包含 1–16 个不同值；重复值不增加集合信息，会像表内其他重复项一样被拒绝。无 enum 的字符串必须声明 `maxLength`(1–500)，因为执行器的限定解析没有自己的上限，无限制自由文本可能把整段叙述带入包。`enum` 已限定值，因此同时声明 `enum` 与 `maxLength` 会被拒绝。载荷是扁平的单行 JSON；嵌套的 `}` 会提前结束标签匹配。每条消息每个动词名只解析一次，重复动词只应用一次。
+动词名必须符合 `[a-z][a-z0-9_]*`，最多 32 字符，不能使用 Engine 自身的 GM 方括号标签。检查会统一大小写，因为提醒中 `[Note:` 和 `[Book:` 首字母大写，而解析正则不区分大小写，小写 `note` 也会遮蔽日志标签。保留集取自 GM 和队伍提醒的所有分支能渲染的标签，以及从完成回合读取标签的五个叙述解析器：客户端标签解析器、客户端叙述格式器、服务端片段编辑器、侧车场景分析器，以及生成路由的对话改写器。它们的词汇比任何提醒都广，包括对话标记 `main`、`side`、`extra`、`action`、`thought`、`whisper`，以及仅叙述格式器匹配的 QTE 对 `qte_bonus` / `qte_result`。最后一组说明固定检查为何必要：名为 `whisper` 的动词会在保存前删去对话行中的 `[whisper:Tam]`，使该行永久失去对话身份。回归检查连同提取器一起固定这些内容。提供独有名称的解析器——标签解析器的 `party-chat` / `party-turn` 和格式器的 QTE 对——必须持续提供它们；某个来源悄然退出扫描会导致构建失败，而非缩小保留集。其余三个即使没有独有名称也继续扫描，以捕获最先出现在其中的新标签。但固定检查不保证完备：扫描范围之外的文件新增标签，或提取器无法读取的写法，仍会漏掉，因此新解析器出现时必须扩展集合，不能假定它永远封闭。`action`、`state`、`status`、`note` 这些普通词也是内置标签，所以普通动词名被拒绝通常是该规则，而不是拼写错误。`description` 为 1–200 字符的单行，不含方括号或换行，因为它会原样渲染进提醒的 `COMMANDS:` 块。这里的换行不止 CR 和 LF，还包括读取该块时会结束一行的 `U+0085`、`U+2028`、`U+2029`；C0 控制字符和 DEL 也被拒绝，尤其是制表符，因为它们不结束行也能改变块的形状。但“原样”并不绕过宏处理：整个提醒发送前会展开宏，说明中的 `{{…}}` 会展开而不是打印，也包括 `{{setvar::…}}` 等写入聊天变量的宏。这未超出 `chat-write` 已授予的范围，但容易误触，因此除非确有意图，请避免宏花括号。每个动词最多六个 `{ name, type, enum?, maxLength?, optional? }` 参数，名称符合 `[a-z][a-zA-Z0-9_]*`，最多 32 字符。它是 JSON 键而非方括号标签，因此有意比禁止大写的动词名更宽松。只有字符串参数可带 `enum`，包含 1–16 个不同值；重复值不增加集合信息，会像表内其他重复项一样被拒绝。无 enum 的字符串必须声明 `maxLength`(1–500)，因为执行器的限定解析没有自己的上限，无限制自由文本可能把整段叙述带入包。enum 已经限定了取值，因此同时声明 `enum` 与 `maxLength` 会被拒绝。载荷是扁平的单行 JSON；嵌套的 `}` 会提前结束标签匹配。每条消息每个动词名只解析一次，重复动词只应用一次。
 
 这些不必全部写进说明。提醒行依据解析后的表生成，依次包含示意载荷、说明以及一个可复制例子：
 
@@ -179,20 +243,20 @@ Capability API 1.16 允许 Experience 包声明一份简短且封闭的具名 Ga
 
 包声明的模型命令只会在包已声明 `chat-write`、完成安装且准备就绪时运行。该权限也控制通过包持久化 API 执行的写入，包括消息、聊天元数据、roleplay 事件和空间快照。`chat-read` 控制聊天、消息、游戏状态和空间快照的读取。持久化事务和聊天锁内部也会执行相同检查；写入权限不会隐式授予读取权限。引擎自身的持久化调用仍受信任。
 
-安装后，**Download Agents**(下载智能体) 详情页会显示已安装版本声明的权限。如果目录中的版本请求了不同权限，页面会将它们分开显示。安装或更新代码仍需获得现有的批准，且批准与确切的版本和校验和绑定；模型命令不会在每个回合另行请求批准。
+安装后，Download Agents(下载智能体) 详情页会显示已安装版本声明的权限。如果目录中的版本请求了不同权限，页面会将它们分开显示。安装或更新代码仍需获得现有的批准，且批准与确切的版本和校验和绑定；模型命令不会在每个回合另行请求批准。
 
 这些是 API 检查，并不是 JavaScript 沙箱。网络、存储和 UI 权限只是访问声明。包的浏览器端和服务器端代码仍是受信任代码，可以访问宿主环境；请只安装你信任的包。系统检查的是就绪状态，而不是能否提供文件，因此更新后若包处于 `restart-required` 状态，其命令会停止解析，直到引擎重启。
 
 ### Capability API 1.17：在首个回合前准备 Experience
 
-`game-surface` 包可以使用架构版本 2 和 Capability API 1.17 声明 `contributions.gameSurface.prepareBeforeStart: true`。当游戏处于就绪状态时，Engine 会先挂载该界面，再启用 **Start Game**(开始游戏)。经典游戏和未设置此标志的包保留原有启动流程。
+`game-surface` 包可以使用架构版本 2 和 Capability API 1.17 声明 `contributions.gameSurface.prepareBeforeStart: true`。当游戏处于就绪状态时，Engine 会先挂载该界面，再启用 Start Game(开始游戏)。经典游戏和未设置此标志的包保留原有启动流程。
 
 选择启用此功能的主界面会收到两个额外属性：
 
-- `startup: boolean` 会保持 true，直到玩家通过 **Continue**(继续) 完成 Engine 的开场介绍。在此期间暂停世界模拟和玩家操作。
+- `startup: boolean` 会保持 true，直到玩家通过 Continue(继续) 完成 Engine 的开场介绍。在此期间暂停世界模拟和玩家操作。
 - `setStartupReady(context: string | null): void` 用于报告准备状态。加载、保存或从故障中恢复时发送 `null`。只有实际世界已经持久保存并且可用时，才发送字符串；空字符串允许不带额外上下文直接启动。
 
-在收到就绪字符串前，宿主会阻止 **Start Game**、小组件准备确认和首回合重试。在等待期间，包自己的加载界面以及错误和重试界面仍然可见。准备完成后，包会隐藏在 Engine 的正常开场介绍后面。**Continue** 会打开常规界面，此时可能重新挂载：请让世界准备保持幂等，恢复已保存的状态，而不是再次生成。返回已经完成开场介绍的游戏时，不会重复启动准备。
+在收到就绪字符串前，宿主会阻止 Start Game、小组件准备确认和首回合重试。在等待期间，包自己的加载界面以及错误和重试界面仍然可见。准备完成后，包会隐藏在 Engine 的正常开场介绍后面。Continue 会打开常规界面，此时可能重新挂载：请让世界准备保持幂等，恢复已保存的状态，而不是再次生成。返回已经完成开场介绍的游戏时，不会重复启动准备。
 
 开场上下文上限为 **8,000 个字符**。无效或过长的上下文会继续阻止启动并显示错误；宿主不会截断世界事实。请简洁描述准备好的起始地点及其实际角色阵容。Engine 会以 `game_start` 为来源，将这段文本追加到现有首回合 `generationGuide`，让开场使用已经存在的世界。这不会为后续回合注册上下文；后续仍应使用包正常提供的提示词内容或回合生成上下文。
 
@@ -226,11 +290,11 @@ export async function activate({ api }) {
 
 这里有意使用工具调用，而不是响应格式。响应格式会占用整个回复：叙述必须放进 JSON 对象的字段，也无法流式输出。工具调用可以与正文同时到达，模型仍然照常写完这一轮。包接收的是已经受提供商约束的参数，无需从完成的叙述里重新解析。这就是架构约束与仅仅要求模型遵守约定的区别。
 
-枚举值能体现这个差别。如果包知道世界中的十二个地点，就可以把这十二个名称写进架构。第十三个名称会在到达处理函数之前被拒绝。Engine 现有的工具参数验证器会指出可用值，让模型能够修正调用。处理函数的返回值会作为工具结果展示给模型。
+这一点之所以重要，是因为枚举值。如果包知道它的世界里有十二个地点，就可以把这十二个字符串写进架构，点名第十三个地点的调用会在处理函数看到之前就被拒绝。拒绝复用 Engine 自己的工具参数验证器，它会列出本来可用的值，所以模型拿到的是可以据此修正的信息，而不是“must be equal to one of the allowed values”。处理函数返回的任何内容都会作为工具结果展示给模型。
 
 编写工具前，请了解这些规则：
 
-- 名称采用 `<packageId>_<name>`，其中 `-` 转为 `_`。因此 `world-clock` 的 `set_time` 会以 `world_clock_set_time` 提供给模型。其他包已占用的名称会被拒绝。内置工具和已启用的自定义工具保留冲突名称；包的定义会被省略。完整名称最多 **64 个字符**。定义和执行都遵循相同优先级：内置、自定义、包。
+- 名称以 `<packageId>_<name>` 加上命名空间，其中 `-` 转为 `_`，因此 `world-clock` 的 `set_time` 会以 `world_clock_set_time` 提供给模型。已被其他包占用的限定名称会被拒绝。名称冲突时，内置工具和已启用的自定义工具保留所有权：包的定义会被省略，运行的是内置或自定义的处理器。限定名称必须符合服务商 **64 个字符**的上限。无论是展示给模型的定义还是执行器，解析顺序都是先内置、再自定义、最后是包，所以名称的所有者始终就是执行调用的那一方。
 - 只要包处于激活状态，它的工具就会被附加。这里没有像内置工具那样的额外聊天开关：声明权限并注册工具就是启用决定。所选提供商必须支持原生工具调用。
 - 参数架构会在注册时复制并编译。如果 Engine 无法编译，包会在激活时失败，让开发者及时看到问题，而不是到一轮对话中途才失败。
 - 处理函数抛出异常时，模型会收到调用失败的结果，异常会写入日志，但异常消息不会转发给模型。如果 **10 秒**内尚未完成，这一轮也会停止等待。处理函数仍会继续运行，但不会一直阻塞当前轮次。
@@ -247,7 +311,7 @@ export async function activate({ api }) {
 
 用户的 **Decision model**(Decision 模型) 回答有关最近聊天的是非语句和选项语句。概念和设置方法见 [Decision 模型](../connections/decision-models.md)。
 
-包附带的智能体提示词模板可以像用户的自定义智能体一样使用 `{{#if decision:"..."}}` 和 `{{#if decision_choice:"..." == "..."}}`。Engine 在模板中找到语句，在智能体运行前询问(后处理智能体则在回复之后)，再用答案解析模板。这不涉及 Capability API 版本。语法和措辞建议见[条件提示词](../prompts/conditional-prompts.md#asking-the-decision-model)，各智能体阶段如何读取它们见[创建自定义智能体](../agents/custom-agents.md#decision-statements-in-the-agents-prompt)。
+包附带的智能体提示词模板可以像用户的自定义智能体一样使用 `{{#if decision:"..."}}` 和 `{{#if decision_choice:"..." == "..."}}`。Engine 在模板中找到语句，在智能体运行前询问（后处理智能体则在回复之后），再用答案解析模板。这不涉及 Capability API 版本。语法和措辞建议见[条件提示词](../prompts/conditional-prompts.md#asking-the-decision-model)，各智能体阶段如何读取它们见[创建自定义智能体](../agents/custom-agents.md#decision-statements-in-the-agents-prompt)。
 
 包的服务器代码还可以通过 `api.runtime.decisions.evaluate(...)`，向用户配置的 Decision 模型询问有边界的是非问题和选项问题，问题基于包自己提供的上下文。它与智能体激活问题和提示词条件使用同一个 Decision 模型（托管的本地模型或 Decision 连接），并且绝不暴露密钥或 Engine 内部实现。`decisions` 是可选的，不需要更新的 Capability API 或权限：检查 `typeof api.runtime.decisions?.evaluate === "function"`，在旧 Engine 上回退。
 
@@ -275,9 +339,9 @@ if (result && (result.answers.danger ?? 0) >= result.threshold) {
 
 ### 给 Game Mode Experience 开发者的说明
 
-Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人都会根据技能与职业获得角色定位(bruiser、bulwark、skirmisher、marksman、spellcaster、supporter 或 controller)，未自行指定时按等级获得熟练程度(novice、trained、veteran 或 master)，以及 reckless、cautious、opportunistic、protective 等性情。beasts 和 monstrosities 总是 mindless。Engine 代码不调用模型，直接从种子选择这些值，游戏难度决定敌人按类型行事的一致程度。只有专门编写的首领由 GM 通过模型调用指挥。参见 [Game Mode 战斗 AI](game-combat-ai-design.md)。
+Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人都会根据技能与职业获得角色定位（bruiser、bulwark、skirmisher、marksman、spellcaster、supporter 或 controller），未自行指定时按等级获得熟练程度（novice、trained、veteran 或 master），以及 reckless、cautious、opportunistic、protective 等性格。beasts 和 monstrosities 总是 mindless。Engine 代码不调用模型，直接从种子选择这些值，游戏难度决定敌人按类型行事的一致程度。只有专门编写的首领由 GM 通过模型调用指挥。参见 [Game Mode 战斗 AI](game-combat-ai-design.md)。
 
-后续还会继续改进战斗。在战斗流程中引入 Decision 模型前，请确认原生 Engine 战斗是否已满足需求。如果敌人需要特定性格，先赋予匹配的熟练程度和性情。每个敌人回合做一次 Decision 会增加模型工作和时限；托管后端还会增加网络请求与费用。战斗也将依赖用户可能尚未配置的模型答案，因此需要无答案时的合理回退。
+后续还会继续改进战斗。在战斗流程中引入 Decision 模型前，请确认原生 Engine 战斗是否已满足需求。如果敌人需要特定性格，先赋予匹配的熟练程度和性格。每个敌人回合做一次 Decision 会增加模型工作和时限；托管后端还会增加网络请求与费用。战斗也将依赖用户可能尚未配置的模型答案，因此需要无答案时的合理回退。
 
 ## 首批包
 
@@ -297,7 +361,9 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 官方目录是一份带版本号、经过结构校验的 JSON 文档，通过 HTTPS 获取。每个发布条目都包含不可变的产物 URL、SHA-256 摘要、字节大小、引擎兼容性、权限，以及该包的运行时是否需要重启。
 
-服务器启动时，只要装有至少一个官方包，宿主就会拉取一次目录，只挑出与当前 Engine 和能力 API 兼容的更新版本，走常规安装流程完成校验，并在各个包的运行时激活之前装好。失败按包隔离，互不影响。目录离线或校验失败时，已有的文件和注册表状态照常可用；服务器运行时就绪失败则走回退到上一版本的路径。
+更新需要用户同意：除了为升级上来的安装保留原有内置功能的一次性迁移（见[兼容性迁移](#compatibility-migration)）之外，启动时绝不会下载或安装任何包。`GET /api/capability-packages/updates/pending` 会列出每个已安装、目录版本更新且与当前 Engine 和能力 API 兼容的官方包，用户已经拒绝过的版本不在其中。客户端会在一个 **Agent updates available**(有智能体更新可用) 提示里一并显示它们。**Update all**(全部更新) 会走常规安装流程逐个安装，并固定为所提供的版本和产物 SHA-256。**Not now**(暂不更新) 会把被拒绝的版本记录到 `DATA_DIR/capability-packages/update-decisions-v1.json`(`POST /api/capability-packages/updates/decline`)，这样该版本不会再被提供，更新的版本则仍会提供。无论哪种情况，**Download Agents** 里的 **Update**(更新) 都一直可用。失败按包隔离，互不影响。目录离线或校验失败时，已有的文件和注册表状态照常可用；服务器运行时就绪失败则走回退到上一版本的路径。
+
+发行说明以 `notes.json` 的形式发布在它所描述的 `catalog.json` 旁边，绝不放进目录条目或清单：旧版 Engine 会丢弃带有未知键的目录条目。每个待处理的更新都带有 `releaseNotes`，内容是已安装版本之后、直到所提供版本为止每个版本的说明，最新的在前；只要其中任何一条被标记为用户会注意到的变化，`releaseHighlight` 就为 true。说明是纯文本，绝不会按 Markdown 或 HTML 渲染。
 
 安装器必须做到：
 
@@ -322,6 +388,17 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 回合制游戏包支持热重载：安装时会立刻注册它的服务器引擎和手动斜杠命令启动方式，卸载时无需重启 Engine 就能卸下运行时。每个聊天里的 Conversation Commands 设置只决定角色能不能发出该包的隐藏命令，不会限制你自己用斜杠命令启动。目前官方的回合制游戏清单出于保守考虑仍保留旧版的重启标记，以兼容 Engine 2.x；Engine 3.x 能识别 `turn-game` 这个类型，会执行安全的热激活，并把包直接标记为已激活、可使用。
 
+### 磁盘占用：运行时副本与保留的版本
+
+包的服务器端并不直接从 `DATA_DIR/capability-packages/versions/<id>/<version>` 运行。每次激活都会校验已安装的文件，把它们复制到 `DATA_DIR/capability-runtime-snapshots` 下的一个新文件夹，然后导入这份副本。该运行时停止时，副本就会被删除。
+
+- **运行时副本。** 副本包含除客户端入口点之外的所有已校验清单文件。服务器从不加载客户端入口点，浏览器则从 `versions/` 获取它。资源文件会保留，所以服务器可以读取 `server.mjs` 旁边的文件，就像 Quartermaster 读取 `icons/` 那样。复制出的文件是只读的。
+- **启动清扫。** 崩溃或强制停止会跳过副本的清理。每次启动时，在任何包激活之前，Engine 都会删除 `capability-runtime-snapshots` 里除共享 `node_modules` 链接之外的全部内容，因为新进程不可能正在使用它们。删除前它会先把只读文件改为可写（Windows 需要这一步），并且从不跟随链接。只有持有存储写入租约的进程才会走到这一步，所以在同一个数据文件夹上启动的第二个 Engine 会在打开存储时停下，绝不会删除正在运行的 Engine 的副本。
+- **保留的版本。** `versions/<id>` 保留当前版本和 `previousVersion`；新的服务器运行时启动失败时，回滚会恢复后者。更旧的版本，以及更新失败后被回滚掉的那个版本，会在激活或更新成功后以及启动时删除。如果某个包的更新正在等待重启（`restart-required`），或者它的运行时还没启动（`readiness: "pending"`），它会保留所有版本，直到启动为止。
+- **永不删除：** 包数据（例如 `DATA_DIR/long-term-memory` 这类文件夹，以及包在 `storage` 中的数据表）、聊天、设置、`installed.json`、更新决定、`.install-*` 文件夹，以及注册表中不存在的 ID 对应的 `versions/` 文件夹。卸载仍会移除包的代码，并保留它的数据。
+
+<a id="compatibility-migration"></a>
+
 ## 兼容性迁移
 
 升级后首次启动时：
@@ -342,7 +419,7 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 ## 目录界面
 
-Agents(智能体) 面板里有一个 `Download Agents` 控件，与 Card Browser 里的 `Download Cards` 一一对应。点开是一个全屏的自适应库页面，提供搜索、包类型、兼容性信息、安装/更新状态、权限、占用空间、文档和卸载控件。
+Agents(智能体) 面板里有一个 `Download Agents` 控件，与 Characters 和 Personas 面板里打开 Card Browser 的 `Download` 按钮相对应。点开是一个全屏的自适应库页面，提供搜索、包类型、兼容性信息、安装/更新状态、权限、占用空间、文档和卸载控件。
 
 桌面端用一份浏览列表加旁边的详情区。移动端只用一栏，配明确的返回导航和适合触摸的按钮。空列表、离线、不兼容、下载损坏、安装中断、有更新、已回滚、需重启这些状态都是一等公民，各有对应界面。
 
@@ -356,7 +433,7 @@ Agents(智能体) 面板里有一个 `Download Agents` 控件，与 Card Browser
 
 本阶段其余新增项也属于 1.30，包只要提供任意一项就声明 1.30：
 
-- `combat.health` 可指向伤势轨道而非资源池，此时 `combat.damageKinds` 规定各伤害类型标记什么：`default`、可选的 `byType` 映射，以及 `marks`。`marks` 为 `per-blow` 时，命中一击标一格；为 `per-point` 时，伤害掷骰数值计作生命等级。伤势轨道必须有 `damageKinds`，资源池则禁止它。
+- `combat.health` 可指向伤势轨道而非资源池，此时 `combat.damageKinds` 规定各伤害类型标记什么：`default`、可选的 `byType` 映射，以及 `marks`：它为 `per-blow` 时，命中的一击标一格；为 `per-point` 时，伤害掷骰按生命等级计数。伤势轨道必须有 `damageKinds`，资源池则禁止它。
 - `resolution.spend`(仅限 `dice-pool`) 规定玩家能为检定消费哪个池、每次支付多少、购买 `successes` 还是 `dice`，以及单次掷骰上限 `perCheck`。
 - 目录条目的 `mechanics.check` 规定角色实际选取的内容如何影响检定：`reroll`(`upTo` 加 `once` 或 `until`)、`dice`、`successes` 或 `threshold`。同样仅限骰池。
 
@@ -427,7 +504,7 @@ difficulty?, onSuccess: "none" | "half" } }`：独立掷骰、拥有自身类型
 
 ### Capability API 1.26：规则集战斗
 
-API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击与能力列表、状态、专注、零生命规则、伤害类型和敌人强度等级。目录 `mechanics` 可描述目标、必定命中、状态、临时点数、随角色表变化的数值及预算消耗。
+规则集可以带一个可选的顶层 `combat` 块，说明战斗如何按它自己的数值结算：掷什么、对抗什么，行动经济，人物卡上哪些列表是攻击、哪些是能力，它的状态有什么效果，专注，角色降到零时会怎样，它有哪些伤害类型，以及挑选对手所依据的强度等级。同一版本还让目录条目的 `mechanics` 可以说明它作用于多少个目标、是否必定命中、施加哪些状态、给予多少临时点数、如何随人物卡成长，以及消耗哪种额度。
 
 ```json
 {
@@ -457,9 +534,9 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 
 与 1.20 到 1.24 同理，这不是软接口：不认识 `layers` 或 `gm.worldGuidance` 的 Engine 会拒绝整个规则集文件，因此安装读取 `ruleset.json` 验证后的字节，并在旧版本声明下拒绝任一个。无需权限，两者都没有的规则集不变。
 
-### Capability API 1.24：骰池
+### Capability API 1.24：dice-pool 结算类型
 
-`resolution` 可用 `"kind": "dice-pool"` 代替 `"dice-sum"`。角色表数值决定骰子数，引擎统计达到阈值的结果。规则集可定义双倍成功、爆骰、成功抵消、大失败、卓越成功及 GM 情境修正的范围。
+规则集的 `resolution` 可以声明 `"kind": "dice-pool"`，而不是 `"dice-sum"`。这时检定会按人物卡上的数值掷出相应数量的骰子，并统计达到目标值的骰子数，还可以选用双倍计数的点数、爆骰点数、抵消成功的点数、大失败、卓越成功，以及 Game Master 在单次检定中可以增减的情境骰子范围。
 
 ```json
 {
@@ -469,11 +546,13 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 }
 ```
 
-角色表不变：原本用于求和的修正值在此表示骰子数。不新增表元素、编辑器槽位或包代码。经验证的 `ruleset.json` 中，`dice-pool` 要求 API 1.24；仅支持 `dice-sum` 的旧 Engine 会拒绝整个文件。不需要权限，不影响求和规则集。
+人物卡还是同一张人物卡：在 `dice-sum` 里加到掷骰上的数值，在这里就是骰子的数量。因此这种类型不带来新的人物卡词汇、编辑器槽位或包代码。
+
+与 1.20 到 1.23 同理，这不是软接口：只认识 `dice-sum` 的 Engine 会拒绝整个规则集文件，因此安装会读取经过验证的 `ruleset.json` 字节，并在旧版本声明下拒绝 `dice-pool` 结算方式。无需权限，求和掷骰的规则集不变。
 
 ### Capability API 1.23：随角色变化的目录数值
 
-目录行可用 `scaled` 指定最多四个由规则集维护的自有数字列。每列使用现有数值引用及可选阶梯表，例如按等级计算资源或按属性计算次数，不新增算术机制。
+目录条目的行可以带一个可选的 `scaled` 映射：该行自己最多四个数字列，它们的值由规则集维护，而不是由玩家填写。每一列都是一个普通的数值引用，可附带阶梯表，因此职业资源可以随等级变化、能力的使用次数可以随属性值变化，而格式无需学会任何新的算术。
 
 ```json
 {
@@ -485,13 +564,13 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 
 数值在编辑人物卡时计算，读取时不计算，因此实时状态、Game Master 提示词块和战斗桥接都继续读取已保存的数字。
 
-缩放行可内嵌于 `ruleset.json` 或位于 `catalogs/<id>.json` 资源。清单声明两个资源文件，却不能展示内部键，因此安装会读取两者验证后的字节，在低于 1.23 的声明下拒绝 `scaled` 键，方式与 1.21 的 `catalogs` 和 1.22 的 `battle` 相同。旧 Engine 的严格模式本来也会拒绝整个文件。无需权限，目录未提供缩放行的规则集不变。
+缩放行可以内嵌在 `ruleset.json` 里，也可以放在 `catalogs/<id>.json` 资源中。清单把两个文件都声明为资源，但看不到其中的键，因此安装会读取两者经过验证的字节，在低于 1.23 的声明下拒绝 `scaled` 键，方式与 1.21 的 `catalogs` 和 1.22 的 `battle` 完全相同。旧 Engine 的严格模式本来也会拒绝包含它的文件。无需权限，目录中没有缩放行的规则集不变。
 
-`[sheet: op="use" name="..."]` 支付条目的 `mechanics.cost`，并扣除该条目创建的每个行资源池的一次使用。它只读取已支持的目录，无需新的声明。
+同一版本还新增了 `[sheet: op="use" name="..."]` 命令，它会支付目录条目的 `mechanics.cost`，并从该条目写入的每个行资源池中扣除一次使用。它不需要声明：它读取的是 Engine 已经提供的目录。
 
 ### Capability API 1.22：battle 块
 
-可选 `battle` 指定生命池、可选 MP 池、法术位池，以及哪些列表的目录行变成 `CombatSkill`。战后通过与玩家按钮相同的角色表操作写回数值。
+规则集可以带一个可选的 `battle` 块，把人物卡上的数值借给战斗使用：作为生命值的实时资源池、一个可选的会变成 MP 的资源池、变成法术位的资源池，以及哪些人物卡列表中带目录标记的行会变成 Engine 自己的 `CombatSkill`。战斗结束时，战斗中消耗的生命值、能量和法术位会通过玩家自己的按钮所用的同一套人物卡操作写回。
 
 ```json
 {
@@ -501,11 +580,13 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 }
 ```
 
-这是角色表与 Engine 战斗的数据连接，不是完整桌面规则适配器。伤害仍由内置机制计算，不读取 `attackRoll`、`save`、`concentration` 或 `perCostStep`。精确的系统规则属于另一项适配器接入工作。`coverage.combat` 保持独立含义，此连接不读取它。安装时检查经验证的 `ruleset.json`；`battle` 要求 API 1.22，正如 `catalogs` 要求 1.21。不需要权限，不影响没有该块的规则集。
+这不是战斗适配器。伤害计算仍由 Engine 负责，目录条目上的 `attackRoll`、`save`、`concentration` 和 `perCostStep` 没有任何地方读取：符合规则的精确结算属于战斗交接文档中按规则集划分的适配器。`coverage.combat` 保持自己的含义，桥接从不读取它。
+
+这个块位于 `ruleset.json` 里，清单看不到它，因此安装会读取经过验证的字节，在低于 1.22 的声明下拒绝 `battle` 键，方式与 1.21 的 `catalogs` 完全相同。旧 Engine 的严格模式本来也会拒绝整个规则集文件。无需权限，没有 `battle` 块的规则集不变。
 
 ### Capability API 1.21：规则集目录
 
-目录为角色表编辑器提供现成法术、职业能力和装备。头信息位于 `ruleset.json` 的 `catalogs` 中；条目可内联，也可使用保留资源：
+规则集可以附带**目录**：成组的现成条目（法术、职业能力、装备），人物卡编辑器会在选择器中提供它们，这样玩家就不必逐行输入列表。目录头位于 `ruleset.json` 的 `catalogs` 下；条目要么内联在这个目录头里，要么放在自己的保留资源中，每个目录一个文件：
 
 ```json
 {
@@ -519,13 +600,15 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 }
 ```
 
-`catalogs/<id>.json` 必须对应自己的目录 ID，不能指向其他目录。文件需要 `files[]` 中的哈希，以及声明它的 `ruleset.json`。声明大小超过 1 MB 会在读取前被拒绝。内联和外部条目使用相同角色表验证。每个规则集最多 12 个目录，每个目录最多 2000 条。
+`catalogs/<id>.json` 是一个保留的资源系列：文件名就是目录自己的 ID，因此 Engine 只凭规则集就能找到文件，任何目录都不能指向另一个目录的文件。目录资源和其他声明的资源一样在 `files[]` 中固定哈希，只会和声明它的 `ruleset.json` 一起发布，并且在读取前就会因声明大小超过 2 MB 而被拒绝（Capability API 1.340 之前为 1 MB；目录文件超过 1 MB 的包要声明 1.340）。它的内容与内联条目经过同样的检查，针对的也是同一张人物卡，所以目录绝不会写入人物卡容纳不了的行。每个规则集最多 12 个目录，每个目录最多 2000 个条目。
 
-客户端在打开选择器时才通过 `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=` 加载内容。安装列表只包含条目数量。目录文本不会自动进入提示词；GM 只看到 `gm.sheetSummary` 选择的内容。目录资源及经哈希验证的 `ruleset.json` 内的 `catalogs` 均要求 API 1.21。旧的严格模式会拒绝整个文件。不需要权限。
+客户端只在打开选择器时才获取目录，途径是 `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`。已安装规则集列表从不携带内联条目，只带数量，因为每次打开人物卡编辑器都会读取它。目录文本绝不会进入提示词：Game Master 仍然只看到 `gm.sheetSummary` 指定的内容，所以目录不消耗任何 Token。
+
+与 1.20 一样，这不是软接口；而且因为目录位于规则集文件内部而不在清单中，门槛分为两半。声明 `catalogs/<id>.json` 资源需要 1.21；清单声明的版本更低时，带有 `catalogs` 键的 `ruleset.json` 会在安装时被拒绝，因为旧 Engine 的严格模式本来也会拒绝整个规则集文件。和之前一样，无需权限。
 
 ### Capability API 1.20：Game Mode 规则集
 
-规则集提供经验证的数据：Engine 已支持的检定方式、由固定元素组成的角色表、休息和 GM 指引。保留资源 `ruleset.json` 与 `gm-verbs.json` 一样，通过 `contributions.assets.paths` 发现，并在 `files[]` 中记录哈希。
+规则集就是以经过验证的数据表达的游戏规则：一种 Engine 已经实现的结算类型、一张由封闭的基本元素集合声明出来的人物卡、休息规则，以及给 Game Master 提示词的指引。包以保留文件名的资源 `ruleset.json` 发布它，并像 `gm-verbs.json` 一样按约定发现：列在 `contributions.assets.paths` 中，并在 `files[]` 中固定哈希。
 
 ```json
 {
@@ -540,21 +623,54 @@ API 1.26 添加可选 `combat`，定义掷骰、目标、行动预算、攻击�
 }
 ```
 
-示例只列出规则集相关字段；`name`、`version`、`description`、`engine`、`builtAgainst` 仍为必填。不需要权限、智能体或客户端、服务器入口。`ruleset` 类型与 `ruleset.json` 必须同时存在。文件不执行代码或字符串表达式；新的检定机制需要修改 Engine。格式及 5e 示例见 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)。
+示例只列出与规则集相关的键；常规的清单字段（`name`、`version`、`description`、`engine`、`builtAgainst`）仍然必填。
 
-清单必须声明 API 1.20，旧 Engine 会拒绝安装。Engine 在读取前拒绝声明大小超过 256 KB 的文件，再检查安装哈希，并按严格模式 `packages/shared/src/schemas/ruleset.schema.ts` 验证。无效文件会跳过，并用一条日志指出包及最先出现的几项 `path: message` 错误。ID 重复时，按包 ID 顺序保留第一个包，跳过另一个并记录日志。`engine-legacy` 与 `traditional` 为保留 ID。
+规则集包不需要权限、服务器或客户端入口，也不需要智能体。类型和资源必须同时存在：类型为 `ruleset` 的包必须列出 `ruleset.json`，列出 `ruleset.json` 的包也必须声明这个类型，所以规则集无法借其他类型混进来。文件中的任何内容都不会被执行：没有表达式字符串；任何结算类型都表达不了的机制，需要修改 Engine 来增加一种结算类型，不是规则集能做到的事。格式、第一方 5e 文件以及它采用这种结构的原因，见 [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md)。
 
-游戏在 `chat.metadata.gameRuleset` 中保存一次选择。没有绑定时继续使用旧规则。包缺失或定义版本过旧时，规则集不可用，不会换成其他规则。绑定同时检查规则集 ID 和提供包，防止另一个包用相同 ID 接管游戏。
+这不是软接口。规则集包在读不了它的 Engine 上什么也做不了，所以列出 `ruleset.json` 的清单必须声明 Capability API 1.20，旧 Engine 会明确拒绝安装。
+
+Engine 在读取前就会拒绝声明大小超过 512 KB 的资源（Capability API 1.340 之前为 256 KB；规则集超过 256 KB 的包要声明 1.340），然后按安装时的哈希重新验证，并用严格的共享模式（`packages/shared/src/schemas/ruleset.schema.ts`）校验。无法使用的文件会被丢弃，并记一行日志，写明包名和最先出现的几项 `path: message` 问题。两个包声明同一个规则集 ID 时，按包 ID 顺序取第一个，另一个被丢弃并记一行日志。`engine-legacy` 和 `traditional` 是 Engine 自有的 ID，文件不得占用。
+
+游戏在创建时把规则集固定一次，记为 `chat.metadata.gameRuleset`。没有固定引用就使用 Engine 自身的规则，与以前完全一样。安装状态无法兑现的固定引用（包已不存在，或已安装的定义比固定的版本更旧）会报告为不可用，绝不会被重新解释成另一个规则集。固定引用按规则集 ID 和提供它的包一起匹配，所以另一个声明相同 ID 的包不会接管已有的游戏。
 
 ### Capability API 1.73：虚拟形象智能体
 
 Engine 托管两个虚拟形象智能体：`2d-avatars`(PNGTuber 立绘和网格虚拟形象) 和 `3d-avatars`(VRM 模型)。它们的包保持精简，各自只有一份智能体定义、默认提示词、本地化文本和目录条目。其余部分都归 Engine 所有：`DATA_DIR/avatar-models/` 下按所有者划分的存储、导入、懒加载的渲染器、各智能体在智能体编辑器页面上的设置、流式指挥器（stream director）、表情分类器和生成路由。共享契约是 `packages/shared/src/types/avatars.ts`(其结构定义在 `schemas/avatars.schema.ts` 中)，客户端那一半是 `packages/client/src/features/avatars/contract.ts`。用户指南是 [`docs/agents/avatars.md`](../agents/avatars.md)。
 
-没有新增清单字段。虚拟形象包声明架构版本 2 和 Capability API 1.73，因此缺少这些宿主接口的 Engine 会拒绝安装，而不会列出一个什么都不显示的智能体。引入 1.73 的那次改动只把这些接口作为不起作用的占位实现发布，所以要等 Engine 的设置界面、舞台和至少一个渲染器都进入 `staging` 之后，这些包才会发布，即使是发布到预览目录也一样。2D 智能体的生成提示词作为 `defaultSettings` 中的 `avatarGenerationTemplates` 提示词模板集合发布，其 ID 列在 `AVATAR_PROMPT_TEMPLATE_IDS` 中；智能体编辑器会像处理其他内置模板集合一样合并和重置它们。
+没有新增清单字段。虚拟形象包声明架构版本 2 和 Capability API 1.73，因此缺少这些宿主接口的 Engine 会拒绝安装，而不会列出一个什么都不显示的智能体。引入 1.73 的那次改动只把这些接口作为不起作用的占位实现发布；现在 Engine 的设置界面、舞台和渲染器都已进入 `staging`，这两个包也已列在预览目录中。它们引用的产物 URL 必须先发布，安装才能成功；仅有目录条目并不能证明对应的可下载产物可用。2D 智能体的生成提示词作为 `defaultSettings` 中的 `avatarGenerationTemplates` 提示词模板集合发布，其 ID 列在 `AVATAR_PROMPT_TEMPLATE_IDS` 中；智能体编辑器会像处理其他内置模板集合一样合并和重置它们。
+
+### Capability API 1.72：Experience 的地图包
+
+通过 Game 向导进行设置的 `game-surface` 包（`gameSurface.setup`，1.18）可以用架构版本 2 和 Capability API 1.72 附带一个地图包：它自己的设定包、用这个设定包构建的现成世界，以及它自己的图块包。每一项都是 Game Mode 和 Pixelforge 已经在读写的共享文件（一个 `.worldkit.json`、若干 `.world.json` 文件和一个 `.tilepack.json`），同时也都是已声明、固定哈希的资源。
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds`(最多 32 个) 和 `tiles` 是可选的。世界文件可以带上它的世界故事脚本（worldgen W10），这个脚本作为地图的一部分随地图一起发布。版本 2 的世界文件还带有世界的 `snapshot`，也就是世界生成时的原样（W11）：世界生成器此后有所变化的 Engine 会从中读取世界，并完全按生成时的样子还原，因此地图包在 Engine 更新后依然可用。请通过游戏或资料库世界的 **Download**(下载)（或 `GET /api/game/:chatId/world/file`）写出这些文件，它们包含快照。地图包里的单个文件最大 8 MB，这是 Engine 读取的共享文件的最大尺寸（图块包保留自己更小的上限），所以文件更大的世界（非常大的世界快照）无法放进地图包。故事设置了 `intro` 的世界需要 Capability API 1.339(见[开场消息](../extending/writing-story-scripts.md#the-intro-message))。`tiles` 可以是图像图块包（图块包版本 2：网格单元上的 PNG 图集，精灵可以占据多个单元），这需要 Capability API 1.80；Engine 对每个包版本只解码并检查一次图集。开启这个 Experience 后，新游戏会锁定为地图包的设定包；如果地图包附带世界，玩家只能从中选择一个（含故事），不能另做世界。关闭这个 Experience，玩家自己的选择就会回来。`POST /api/game/create` 对游戏施加同样的锁定。游戏像任何游戏一样保留它的设定包和世界，所以即使移除了包也能继续玩；只要包仍然安装，就会用地图包的图块绘制它的大地图和城镇。
+
+Engine 通过经过验证的资源路径读取这些文件（每个文件声明的大小最多 8 MB，并重新检查哈希），并像检查共享文件一样检查它们。只要有一个文件读不了、某个世界是用另一个设定包生成的或与设定包不符，或者文件字节不是已安装的那些，整个地图包就会被拒绝，并说明原因；这时这个 Experience 就无法开始游戏。规则集绝不会是地图包的一部分：需要自己规则的 Experience 要单独发布一个规则集包。
 
 ### Capability API 1.18：在 Game 向导中保留 Experience 设置
 
-`game-surface` 包可以使用架构版本 2 和 Capability API 1.18 声明 `contributions.gameSurface.setup`。Engine 保留通常的七个设置步骤，包括 **Party**(队伍)、目标、模型和世界书。只有新游戏提供 Experiences；重新打开已有游戏的设置会保留其 Experience 和包配置。没有此声明的包继续使用原有设置对话框。
+`game-surface` 包可以使用架构版本 2 和 Capability API 1.18 声明 `contributions.gameSurface.setup`。Engine 保留通常的七个设置步骤，包括 Party、目标、模型和世界书。只有新游戏提供 Experiences；重新打开已有游戏的设置会保留其 Experience 和包配置。没有此声明的包继续使用原有的设置对话框。
 
 ```json
 {
@@ -566,13 +682,13 @@ Engine 托管两个虚拟形象智能体：`2d-avatars`(PNGTuber 立绘和网格
 }
 ```
 
-三个字段均为可选。声明的种子会显示在所选 Experience 下方，并带有 **Randomize**(随机生成) 按钮。空输入或不是有限数值的输入会阻止 **Start**(开始)。宿主将数值种子和声明的常量写入 `experienceConfig`；`config` 不能包含种子键。常量序列化后不得超过 8,000 个字符。种子标签是包作者提供的显示文本；省略它即可使用 Engine 的本地化标签。
+三个字段均为可选。声明的种子会显示在所选 Experience 下方，并带有 Randomize 按钮。种子是 0 到 4294967295 之间的无符号整数；空白、小数、负数、指数或十六进制输入都会阻止 Start。宿主将数值种子和声明的常量写入 `experienceConfig`；`config` 不能包含种子键。常量序列化后不得超过 8,000 个字符。种子标签是包作者提供的显示文本；省略它即可使用 Engine 的本地化标签。
 
-声明的小组件要求只在玩家首次修改该控件前提供默认值。关闭 Experience 会恢复常规默认值，而玩家明确选择的值保持不变。控件会说明 Experience 的预期设置，并始终可以编辑。这些 Experiences 会隐藏空间地图设置控件，因此不会启动单独的地图草稿、模板或构建器。
+声明的小组件要求在 Experience 处于启用状态时强制生效。宿主把控件设为声明的值并锁定，同时说明是哪个 Experience 设置的。导入设置文件无法覆盖声明的值。玩家自己之前的选择原样保留，一旦关闭这个 Experience 就会恢复。这些 Experiences 会隐藏空间地图设置控件，因此不会启动单独的地图草稿、模板或构建器。
 
-**Lorebooks**(世界书) 步骤最多可选择 100 条已启用的独立条目，也可选择尚未附加的世界书中的条目。已禁用的世界书、条目和聊天排除设置都会得到遵守。这些 ID 通过 `GameSetupConfig.activeLorebookEntryIds` 传递。在 `/game/setup` 中，它们作为额外的强制条目加入：跳过概率判定，但仍受常规 Token 上限约束。全局、绑定角色和已附加的世界设定仍参与常规扫描。包也可以从设置配置中读取同一组已选 ID，用于自身的世界生成请求。
+Lorebooks 步骤最多可选择 100 条已启用的单独条目，也包括尚未附加的世界书中的条目。已禁用的世界书、条目和聊天排除设置都会得到遵守。这些 ID 通过 `GameSetupConfig.activeLorebookEntryIds` 传递。在 `/game/setup` 中，它们作为额外的强制条目加入：跳过概率判定，但仍受常规 Token 上限约束。全局、绑定角色和已附加的世界设定仍参与常规扫描。包也可以从设置配置中读取同一组已选 ID，用于自己的世界生成请求。导入的条目 ID 如果在这台机器上不存在，会报告并跳过。
 
-导入设置文件时，会恢复已安装且兼容的 Experience 及其有效数值种子，但会丢弃任意包配置。常量由当前清单重新提供。已有游戏会跳过 Experience 导入并说明原因。创建快照会保留 Experience 名称和种子，用于设置摘要。
+导入设置文件时，会恢复已安装且兼容的 Experience 及其有效数值种子，但会丢弃任意包配置。常量由当前清单重新提供。文件里没有可用的 Experience 种子时，预先填好的随机种子保持不变。已有游戏会跳过 Experience 导入并说明原因。创建快照会保留 Experience 名称和种子，用于设置摘要。
 
 如果世界必须在首个回合前准备完毕，请独立使用现有的启动就绪声明。将 API 1.18 声明为包的最低要求；旧宿主无法理解此设置声明。
 
@@ -608,6 +724,51 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 ```ts
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
 ```
+
+### Capability API 1.66：来自包对话线程的场景
+
+角色扮演场景通常从 Conversation 分支出来（`/scene`）。持有新权限 `scenes` 的包可以让它自己的对话线程（比如私信线程）作为场景的起点。这个场景就是普通的场景聊天：同样的规划器、提示词偏好对话框、场景指令、End Scene、Discard 和 Convert 控件，结束时也同样写入角色记忆。线程那一侧归包负责：规划器读取什么、场景进行期间的锁定，以及回顾摘要如何处理。
+
+```ts
+export async function activate({ api }) {
+  api.registerSceneOrigin({
+    // Planning context, or null when the thread no longer exists.
+    getContext: async (threadId) => ({
+      characterIds: [creatorCharacterId],
+      personaId,
+      connectionId: null, // the Engine's default connection
+      transcript: [{ speaker: "Mina", content: "Come to my shoot tonight?" }],
+      notes: "Stage persona, limits and anything else the scene writer must respect.",
+    }),
+    // Lock the thread. Return false when it already has an active scene.
+    claim: async (threadId, { sceneChatId, characterIds }) => lockThread(threadId, sceneChatId),
+    // Unlock and receive the outcome.
+    release: async (threadId, end) => {
+      if (!(await holdsLock(threadId, end.sceneChatId))) return;
+      if (end.kind === "concluded") await saveRecap(threadId, end.summary);
+      await unlockThread(threadId);
+    },
+  });
+}
+```
+
+浏览器视图（`home-browser-tab`）会收到这些属性：
+
+- `startScene({ originId, prompt?, planHint?, plan?, data?, initiatorCharacterId?, initiatorName? })` 会打开场景提示词偏好对话框，规划并创建场景，然后打开它的聊天。传入 `plan`(一个 `SceneFullPlan`：名称、描述、隐藏情境、第一条消息、场景系统提示词、分级、关系历史、参与指南、背景、角色阵容) 就可以自己编写场景；这时会跳过对话框和 Engine 规划器，场景完全按计划创建。它解析为 `{ chatId }`；用户取消或创建失败时解析为 `null`(用户会看到原因)。这个辅助函数始终使用包自己的 ID。它只是便利工具，不是安全边界：场景路由接受任何包 ID，所以 `getContext` 只能返回玩家在那个线程里本来就能看到的内容。
+- `openChat(chatId)` 会跳转到某个聊天，用于锁定线程上的“Go to scene”按钮。
+- `focusSceneOriginId` 是用户从场景返回时（Back、End Scene、Discard）要显示的线程。显示之后调用一次 `onFocusSceneOriginHandled()`。
+
+重要规则：
+
+- `data` 是这个场景自己的设置，是一个最多 4,000 字符的普通 JSON 对象。Engine 会把它随场景保存，并传给 `claim(originId, { sceneChatId, characterIds, data })`，以及以 `end.data` 的形式传给 `release`，这样每个场景都可以自行决定：`claim` 可以不加锁就接纳场景（返回 `true`，什么都不保存），`release` 可以解锁但不接收回顾摘要，或者按场景要求的范围接收它。
+- 只有 `getContext` 是必需的。只想启动场景的包可以省略 `claim` 和 `release`：这样什么都不会锁定，同一个起点可以同时运行任意数量的场景，场景结束时也不会传回任何内容（**Back**(返回) 仍会回到包）。只省略 `release` 可以加锁而不接收结果，只省略 `claim` 可以接收结果而不加锁。
+- 每个包只有一个提供者；再次注册会替换它，停用会移除它。
+- `characterIds` 必须是 Engine 中的角色；未知 ID 会被丢弃，没有任何已知角色的上下文会被拒绝。未知的 `personaId` 视为没有。`notes` 会截断到 8,000 字符，提供给规划器，并与对话记录一起作为隐藏上下文提供给场景编写者。
+- `claim` 在场景聊天创建之后运行。返回 `false` 会以 409 丢弃场景聊天；抛出错误会以 503 丢弃它。`getContext`、`claim` 和 `release` 各有 8 秒时限：超时的 `getContext` 或 `claim` 算作失败（503，场景聊天会被移除），超时的 `release` 会记录日志后丢弃。
+- `release` 会收到 `concluded`(带 `summary`、`description`、`scenario`、`rating` 和角色阵容)、`abandoned`、`deleted` 或 `converted`。它必须是幂等的，并且必须忽略没有持有锁的场景。抛出错误的 release，或者在包未激活时到达的 release，会记录日志后丢弃：无论哪种情况，场景聊天都保持结束状态，所以要通过 `chat-read` 读取场景聊天来清理过期的锁。它的元数据中有 `sceneStatus`，已结束的场景还有 `sceneSummary`。
+- 对于来自包的起点，Engine 不会向任何 Conversation 写入内容。结束时的角色记忆与 Conversation 场景完全一样地保存。
+
+声明的 `capabilityApi` 早于 1.66 时，清单中的 `scenes` 会被拒绝。
 
 <a id="capability-api-150-professor-mari-actions"></a>
 

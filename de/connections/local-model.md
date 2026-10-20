@@ -181,6 +181,8 @@ Um nur das ausgewählte Modell zu entfernen, klick auf die Papierkorb-Schaltflä
 
 Die Audioaufnahme verlässt den eigenen Rechner nie. An die gewählte Chat-Verbindung geht nur der transkribierte Text. Für den Einsatz im Anruf stellst du die Audioeingabe des Anrufs auf die Option „Local Whisper“ um. Siehe [Audio- und Videoanrufe in Conversation](../conversation/calls.md).
 
+Schaltest du in Connections die Karte **Speech to Text** (Spracherkennung) ein, schickt dieser Anrufmodus deine Sprache statt an Local Whisper an den Server, den du dort eingetragen hast. Siehe [Eigenen Speech-to-Text-Server verwenden](../conversation/calls.md#use-your-own-speech-to-text-server).
+
 ## Fehlerbehebung
 
 **„Sidecar runtime install is disabled.“** Das Installieren oder Neuinstallieren der Runtime ist eine geschützte Aktion. Bei Ein-Klick-Installationen unter Windows ist sie bereits freigeschaltet. Unter macOS, Linux und Docker hast du zwei Möglichkeiten. Setze `SIDECAR_RUNTIME_INSTALL_ENABLED=true` in der Datei `.env` des Servers, zum Beispiel so:
@@ -203,9 +205,8 @@ Weitere Hilfe findest du unter [Fehlerbehebung für Marinara Engine](../TROUBLES
 
 ## Verwandte Anleitungen
 
-- [Decision-Modelle](decision-models.md)
-
 - [Verbindung zu einem KI-Anbieter herstellen](connecting-to-a-provider.md)
+- [Decision-Modelle](decision-models.md)
 - [Ein lokales oder selbst gehostetes Modell verbinden](local-self-hosted.md)
 - [Gedächtnis-Abruf und Chat-Zusammenfassungen](../agents/memory.md)
 - [Audio- und Videoanrufe in Conversation](../conversation/calls.md)

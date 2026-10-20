@@ -35,11 +35,11 @@ Nas perguntas de ativação e declarações de prompts/lorebooks, o modelo receb
 - As macros da declaração são preenchidas primeiro; assim, `{{char}}` chega como o nome do personagem.
 - Se as mensagens não couberem no orçamento do modelo, as mais antigas são descartadas primeiro. Veja [Configurar uma conexão Decision](#set-up-a-decision-connection) para o orçamento hospedado.
 
-**Advanced Memory usa um modelo de decisão próprio por chat.** As verificações de cena leem a janela relevante do histórico. A recuperação envia a conversa recente e até 24 resumos arquivados pré-selecionados, ou mais, se **Maximum recalled scenes** (máximo de cenas recuperadas) for maior, e depois mensagens originais das cenas que o modelo escolheu, sempre após verificar o acesso dos personagens; a regra fixa das últimas 5 mensagens não se aplica. Provedores hospedados recebem esses textos, possivelmente em vários lotes limitados. Cada etapa da recuperação recorre à recuperação normal após 10 segundos. Consulte [Modelo de decisão opcional](../agents/memory.md#optional-decision-model).
+**Advanced Memory usa um modelo de decisão próprio por chat.** As verificações de cena leem a janela relevante do histórico. A recuperação envia a conversa recente e até 24 resumos arquivados pré-selecionados, ou mais, se **Maximum recalled scenes** (máximo de cenas recuperadas) for maior, e depois mensagens originais das cenas que o modelo escolheu, sempre após verificar o acesso dos personagens; a regra fixa das últimas 5 mensagens não se aplica. Provedores hospedados recebem esses textos, possivelmente em vários lotes limitados. Cada etapa da recuperação normalmente recebe de 10 a 25 segundos, de acordo com a velocidade do modelo. As duas etapas dividem um limite de 40 segundos por resposta, então uma etapa pode receber menos de 10 segundos quando resta pouco tempo. As memórias sem resposta a tempo recorrem à recuperação normal. Consulte [Modelo de decisão opcional](../agents/memory.md#optional-decision-model).
 
 ## Escolher um modelo de decisão
 
-Abra **Connections** (conexões), depois **Connection defaults** (conexões padrão), e escolha em **Decision model**. A lista tem três grupos:
+Abra **Connections** (conexões), depois **Defaults** (padrões), e escolha em **Decision model**. A lista tem três grupos:
 
 - **None** (nenhum), o padrão. Nada é perguntado e os campos de perguntas de ativação ficam desativados no editor de agentes.
 - **Local models** (modelos locais): o **Primary local model** (modelo local principal) ou **Utility local model** (modelo local auxiliar) que você já roda. Nada é baixado e nada sai da máquina. O **Decision sidecar** (processo auxiliar de decisão), se instalado, também aparece aqui.
@@ -72,7 +72,7 @@ Quando alguém importa conteúdo que usa decisões, Marinara mostra um aviso com
 
 Se você tem um modelo local em **Local Model**, pode usá-lo para decisões sem criar uma conexão nem pagar por uma solicitação.
 
-1. Em **Connections**, abra **Connection defaults** e defina **Decision model** como **Primary local model**, ou **Utility local model** se houver um configurado.
+1. Em **Connections**, abra **Defaults** e defina **Decision model** como **Primary local model**, ou **Utility local model** se houver um configurado.
 2. Clique em **Test**. Um resultado bem-sucedido mostra a probabilidade e a duração da solicitação, além de duas informações específicas de modelos locais: se havia log-probabilidades disponíveis e se o modelo responde diretamente.
 
 Marinara faz uma única pergunta de sim/não ao modelo, permite a produção de um token e lê a resposta nas probabilidades desse token. Nenhuma resposta de chat é escrita, então a solicitação é curta. Uma escolha entre várias respostas vira uma pergunta de sim/não por resposta. Quantas mensagens recentes cabem é calculado a partir do tamanho de contexto do próprio slot.

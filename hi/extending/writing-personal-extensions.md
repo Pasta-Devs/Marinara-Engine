@@ -98,7 +98,7 @@ marinara.onCleanup(() => panel.remove());
 फिर एक्सटेंशन इंपोर्ट करके चलाएँ:
 
 1. **Settings** > **Addons** > **External Extensions** खोलें।
-2. **Import Folder** चुनकर `Hello Panel` चुनें, या फ़ोल्डर की ZIP बनाकर उसे इंपोर्ट करें।
+2. **Import Extension Folder** (एक्सटेंशन फ़ोल्डर इंपोर्ट करें) चुनकर `Hello Panel` चुनें, या फ़ोल्डर की ZIP बनाकर उसे **Import Extension File** (एक्सटेंशन फ़ाइल इंपोर्ट करें) से इंपोर्ट करें।
 3. बंद ड्राफ़्ट खोलकर उसके मैनिफ़ेस्ट और JavaScript की जाँच करें।
 4. **Review and Run** चुनें और दिखाए गए ठीक हैश को मंज़ूरी दें।
 5. Extensions मेन्यू खोलकर **Hello Panel** चुनें।

@@ -2,7 +2,7 @@
 
 ## Status
 
-Etapy od 1 do 4 są zaimplementowane w gałęzi `drag-me-baby-one-more-time`.
+Etapy od 1 do 4 zostały zaimplementowane w gałęzi `drag-me-baby-one-more-time` i scalone ze `staging`. Późniejsze prace (#7362) pozwalają przeciągać wiersze biblioteki bez uchwytu, pozwalają na ekranie dotykowym zebrać stos zgodnych zasobów stuknięciami drugiego palca i pokazują luki wstawiania przy zmianie kolejności.
 
 Automatyczne testy resolvera działają. Powstały też testy Playwright dla komputera, obejmujące przypisanie postaci i podmianę persony, ale w obecnym kontenerze deweloperskim nie da się ich uruchomić lokalnie, bo Chromium nie ładuje `libnspr4.so`. Te przypadki przeglądarkowe musi wykonać CI albo środowisko z zależnościami systemowymi Playwright.
 

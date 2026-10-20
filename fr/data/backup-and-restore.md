@@ -110,11 +110,13 @@ Une archive **Download Backup**, c'est autre chose. Marinara n'en retire pas les
 
 Après l'import d'un profil, procède ainsi :
 
-1. Ouvre **Settings**.
-2. Va dans l'onglet **Connections**.
-3. Ressaisis la clé API de chaque fournisseur que tu utilises.
+1. Ouvre le panneau **Connections** (connexions) depuis la barre du haut.
+2. Ouvre chaque connexion que tu utilises.
+3. Ressaisis sa clé API et enregistre-la.
 
 Si tu utilises des outils personnalisés qui appellent un lien de webhook, ressaisis aussi ce lien sur chacun d'eux.
+
+Quelques adresses enregistrées avec un chat sont aussi exclues du fichier de profil : le webhook du miroir Discord, l'adresse DeepLX, la clé DeepL et l'adresse Intiface. C'est aussi le cas pour les profils de réglages et pour les réglages de traduction par défaut des nouveaux chats. Quand tu importes un profil sur une autre installation, saisis-les de nouveau dans **Chat Settings** (réglages du chat) de chaque chat.
 
 L'import n'efface pas les clés déjà en place. Si tu réimportes un ancien profil, Marinara conserve les clés et les liens de webhook actifs sur les éléments qui existent toujours. Un réimport ne les vide pas.
 

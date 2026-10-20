@@ -243,7 +243,7 @@ Poprawka zawsze aktywna, nie ustawienie.
 - `isHostLifecycleActivationError()` w `capability-module-runtime.service.ts` rozpoznaje `AVV_ERR_ROOT_PLG_BOOTED` ("Root plugin has already booted") i `FST_ERR_INSTANCE_ALREADY_LISTENING` ("Fastify instance is already listening"). Bez wycofania i trwałego statusu/gotowości `"error"`: wersja i status zostają, następny start aktywuje normalnie. Jeden warn i zapis diagnostyczny. Inne błędy nadal mają error, wycofanie i `"error"`.
 - Regresja: `startup-inject-gate`.
 
-**Bez zmian.** Po `buildApp()` wywołanie `app.inject()` to oryginalny Fastify bez wrappera. Forma łańcuchowa bez argumentów nigdy nie czeka. Kolejność, trasy, `runCapabilityInternalRoute()`, harmonogram i późniejsze aktywacje/aktualizacje nie zmieniają się. Jeden przypadek na działającym serwerze: pakiet aktywowany z interfejsu dodający nową trasę nadal dostaje `FST_ERR_INSTANCE_ALREADY_LISTENING`, lecz wersja pozostaje zainstalowana do kolejnego startu, bez wycofania. Wywołujący nadal otrzymuje błąd.
+**Bez zmian.** Po `buildApp()` wywołanie `app.inject()` to oryginalny Fastify bez wrappera. Forma łańcuchowa (`app.inject()` bez argumentów) nigdy nie czeka. Kolejność, trasy, `runCapabilityInternalRoute()`, harmonogram i późniejsze aktywacje/aktualizacje nie zmieniają się. Jeden przypadek na działającym serwerze: pakiet aktywowany z interfejsu dodający nową trasę nadal dostaje `FST_ERR_INSTANCE_ALREADY_LISTENING`, lecz wersja pozostaje zainstalowana do kolejnego startu, bez wycofania. Wywołujący nadal otrzymuje błąd.
 
 **Jak sprawdzić.**
 
@@ -302,6 +302,8 @@ Dodatek bez przełącznika i samodzielnej zmiany zachowania.
 # Kolejne pull requesty
 
 Sekcje są celowo krótkie. Każdy PR uzupełni swoją o te same pięć części przy otwarciu.
+
+Status: PR A został scalony jako #6647, a PR B jako #6648. PR C (#6649) zamknięto bez scalenia, a PR od D do H nie zostały otwarte jako osobne pull requesty. Poniższe sekcje od C do H opisują plan w takiej postaci, w jakiej go zapisano; nie traktuj ich jako funkcji wydanych w tej formie.
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 

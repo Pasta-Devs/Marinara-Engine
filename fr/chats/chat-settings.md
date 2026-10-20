@@ -42,7 +42,7 @@ Sur ordinateur, Chat Settings flotte au-dessus du chat. Son contenu se réorgani
 - **Lock** empêche de déplacer ou redimensionner la fenêtre et immobilise son bouton. Le bouton permet toujours de l'ouvrir. Déverrouille la fenêtre pour pouvoir déplacer l'un ou l'autre à nouveau.
 - **Close** (le **X**) masque la fenêtre.
 
-Les fenêtres restent dans la zone de chat quand tu redimensionnes le navigateur ou ouvres une barre latérale.
+Les fenêtres restent dans la zone de chat quand tu redimensionnes le navigateur ou ouvres une barre latérale. Sur ordinateur, une fenêtre ou un bouton peut se placer dans l'espace à côté du champ de message, jusqu'en bas du chat. Il ne couvre jamais le champ de message lui-même.
 
 Sur téléphone, Chat Settings s'ouvre dans un panneau sur toute la largeur. Il s'ajuste au-dessus du clavier pendant la saisie.
 
@@ -188,7 +188,7 @@ Les outils du chat sont aussi des sections de Chat Settings. Leur présence dép
 - **Chat Summary**, sous **Lorebooks**, permet de consulter et créer des résumés d'un chat Roleplay. Consulte [Mémoire et résumés de chat](../agents/memory.md#chat-summary-roleplay).
 - **Active Context**, sous **Chat Summary**, montre les lorebooks et le contexte actifs. Consulte [Budgets de tokens et récursion](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
 - **Agent activity**, juste sous **Agents** dans un chat Roleplay avec agents ou Advanced Memory, montre ce que les agents ont fait. Cette section permet aussi de relancer les trackers, de réessayer ou arrêter les agents et d'effacer les trackers. Consulte [Agent activity](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes**, sous **Agents**, contient une note que l'IA lit à chaque tour de Roleplay. Consulte [Author's Notes](../roleplay/getting-started.md#authors-notes).
+- **Author's Notes**, sous **Agents**, contient une note que l'IA lit à chaque tour de Roleplay. Quand tu la détaches dans sa propre fenêtre, son champ de texte s'agrandit avec la fenêtre ; sur téléphone, il occupe tout l'écran. Consulte [Author's Notes](../roleplay/getting-started.md#authors-notes).
 - **Gallery** contient les images et vidéos du chat. Consulte [Arrière-plans de scène et galerie](../media/scene-backgrounds.md).
 
 ## Les autres sections du panneau

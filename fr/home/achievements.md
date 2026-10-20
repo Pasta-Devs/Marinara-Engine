@@ -12,35 +12,36 @@ Marinara enregistre la progression en local, dans le profil que tu utilises. Un 
 
 ## Ouvrir le panneau Achievements
 
-Le bouton **Achievements** se trouve sur l'écran d'accueil. L'écran d'accueil, c'est ce que tu vois quand aucun chat n'est ouvert. Le bouton est placé juste sous la zone de chat de Professor Mari, et il porte une icône de trophée.
+Le marque-page **Achievements** se trouve sur l'écran d'accueil. L'écran d'accueil, c'est ce que tu vois quand aucun chat n'est ouvert. Le marque-page est placé dans la rangée de marque-pages en haut, et il porte une icône de trophée. Sur téléphone, touche le bouton des marque-pages à gauche des onglets pour le trouver.
 
-Sous l'intitulé, le bouton affiche un compteur en direct, du type **12 of 23 unlocked**. Pendant le chargement, il indique plutôt **Checking the collection...**.
+Tu peux aussi ajouter le widget **Achievements** à l'accueil. Clique sur **Widgets** dans les marque-pages et active-le. Le widget affiche un compteur en direct, du type **12 of 24 unlocked**, ainsi que tes succès **Last obtained** (dernier obtenu) et **Closest next** (prochain le plus proche). Pendant le chargement, le compteur indique plutôt **Checking the collection...**. Clique sur le widget pour ouvrir le panneau. Consulte [Les widgets de l'accueil](welcome.md#home-widgets).
 
 Voici la marche à suivre pour ouvrir le panneau :
 
 1. Va sur l'écran d'accueil.
-2. Repère le bouton **Achievements** sous la zone de chat de Professor Mari.
+2. Repère le marque-page **Achievements** en haut.
 3. Clique dessus.
 
-Normalement, la fenêtre **Achievements** s'ouvre. En haut figure une ligne de résumé, par exemple **12 of 23 achievements unlocked in this profile.** En dessous s'affiche une grille de cartes de succès.
+Normalement, la fenêtre **Achievements** s'ouvre. En haut figure une ligne de résumé, par exemple **12 of 24 achievements unlocked in this profile.** En dessous s'affiche une grille de cartes de succès.
 
 Chaque carte montre une icône de badge, un titre, une étiquette de catégorie et une courte description. Sur une carte verrouillée, le titre affiche **?????** et l'icône est un cadenas. Impossible de savoir de quoi il s'agit avant de l'avoir débloquée. Une fois le succès obtenu, la carte porte la mention **unlocked**. Les cartes avec un objectif chiffré affichent aussi une ligne **Progress** et une barre de progression.
 
-Le bouton et le panneau n'apparaissent que si le réglage **Achievements** est activé. Voir la section consacrée à ce réglage, plus bas. Aucun autre menu ni aucune autre page n'affiche les succès.
+Le marque-page, le widget et le panneau n'apparaissent que si le réglage **Achievements** est activé. Voir la section consacrée à ce réglage, plus bas. Aucun autre menu ni aucune autre page n'affiche les succès.
 
-## Les 23 succès
+## Les 24 succès
 
-Il existe 23 succès, répartis en quatre catégories : **Milestone**, **Community**, **Creation** et **Collection**.
+Il existe 24 succès, répartis en quatre catégories : **Milestone**, **Community**, **Creation** et **Collection**.
 
 Certains succès se débloquent en une seule fois. Ceux des catégories **Creation** et **Collection** fonctionnent par paliers, avec trois niveaux notés **I**, **II** et **III**. Les paliers tombent à 5, puis 25, puis 100. Le titre du badge peut donc devenir **Hoarder II** une fois le deuxième palier atteint.
 
 | Succès | Catégorie | Comment le débloquer |
 |---|---|---|
 | **Diligent Student** | Milestone | Terminer ou passer le tutoriel de première utilisation. |
-| **Hello World** | Milestone | Envoyer un premier message à Professor Mari depuis l'écran d'accueil. |
-| **One Of Us** | Community | Cliquer sur le lien **Discord** dans le pied de page de l'écran d'accueil. |
-| **Based Backer** | Community | Cliquer sur le lien **Support** (il ouvre Ko-fi) dans le pied de page de l'écran d'accueil. |
-| **Backseat Appreciator** | Community | Cliquer sur le bouton **Credits** dans le pied de page de l'écran d'accueil. |
+| **Hello World** | Milestone | Envoyer un premier message à Professor Mari. |
+| **Please Handle With Care** | Milestone | Faire glisser l'image de Professor Mari sur l'écran. |
+| **One Of Us** | Community | Cliquer sur le marque-page **Discord** ou sur le lien **Discord** du widget **Community** (communauté) de l'accueil. |
+| **Based Backer** | Community | Cliquer sur **Support** (il ouvre Ko-fi) dans les marque-pages de l'accueil ou dans le widget **Community**. |
+| **Backseat Appreciator** | Community | Cliquer sur **Credits** dans les marque-pages de l'accueil ou dans le widget **Community**. |
 | **Who Needs IRL Friends** | Creation | Créer des chats en mode Conversation (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Créer des chats Roleplay (5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Créer des chats en Game Mode (5, 25, 100). |
@@ -68,18 +69,16 @@ Le compteur en haut de la fenêtre inclut les succès des agents que tu as insta
 
 Un seul interrupteur active ou désactive toute la fonctionnalité. Ouvre **Settings** (Paramètres), va dans l'onglet **General**, puis repère la section **App Behavior**. L'interrupteur s'appelle **Achievements**, et il est activé par défaut.
 
-Le texte d'aide indique : "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off."
-
 Voici ce que fait cet interrupteur :
 
-- Activé : le bouton **Achievements** et sa fenêtre apparaissent sur l'écran d'accueil, et une notification s'affiche à chaque déblocage.
-- Désactivé : le bouton disparaît et les notifications s'arrêtent. L'application continue d'enregistrer discrètement tes déblocages en arrière-plan.
+- Activé : le marque-page **Achievements** de l'écran d'accueil et la fenêtre sont disponibles, et une notification s'affiche à chaque déblocage. Le widget facultatif **Achievements** n'apparaît que si tu l'as ajouté à la disposition de ton accueil.
+- Désactivé : le marque-page et le widget disparaissent, et les notifications s'arrêtent. L'application continue d'enregistrer discrètement tes déblocages en arrière-plan.
 
 Comme le suivi continue même quand le réglage est désactivé, la progression n'est jamais perdue. Si tu réactives le réglage plus tard, tout ce que tu as gagné entre-temps est déjà là.
 
 ## Le fonctionnement du déblocage
 
-Marinara compare les succès à paliers avec tes compteurs réels du moment. Cette vérification a lieu quand une action suivie se produit, par exemple créer un chat ou cliquer sur un lien du pied de page. Elle a lieu aussi quand tu ouvres le panneau **Achievements**.
+Marinara compare les succès à paliers avec tes compteurs réels du moment. Cette vérification a lieu quand une action suivie se produit, par exemple créer un chat ou cliquer sur un marque-page de l'accueil. Elle a lieu aussi quand tu ouvres le panneau **Achievements**.
 
 Quand une action déclenche un déblocage et que le réglage est activé, une petite notification apparaît. Son titre est **Achievement unlocked**, et elle nomme le badge, par exemple **Hoarder II** ou **One Of Us**.
 

@@ -115,7 +115,7 @@ NanoGPT가 현재 보고할 수 없는 할당량은 미사용이 아닌 **알 �
 - 키를 받는 곳: `https://console.x.ai`
 - 기본 Base URL: `https://api.x.ai/v1`
 
-**xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다. Grok 4.6과 4.7은 500,000토큰 컨텍스트 창과 **Maximum** (`xhigh`)까지의 추론을 제공합니다. **Web Search**(웹 검색)를 비롯한 기존 채팅 도구를 지원하므로 검색 결과를 최종 답변에 반영할 수 있습니다.
+**xAI / Grok**은 Grok 모델을 운영합니다. **Create Connection** 창에서 이 제공자를 고르면 Marinara가 모델을 Grok 4.5로 미리 채웁니다. 모델은 나중에 바꿀 수 있습니다. Grok 4.6과 4.7은 500,000토큰 컨텍스트 창과 **Extra high** (`xhigh`)까지의 추론을 제공합니다. **Web Search**(웹 검색)를 비롯한 기존 채팅 도구를 지원하므로 검색 결과를 최종 답변에 반영할 수 있습니다.
 
 ## Arli AI
 
@@ -138,7 +138,7 @@ NanoGPT가 현재 보고할 수 없는 할당량은 미사용이 아닌 **알 �
 
 **DeepSeek**는 자체 채팅 모델인 `deepseek-flash`와 `deepseek-v4-pro`를 제공합니다. 키를 붙여넣으면 **Model** 드롭다운에 이 모델이 표시되며, **Fetch Models from API**로 계정에서 목록을 새로 불러올 수 있습니다.
 
-DeepSeek는 기본적으로 사고 기능을 사용합니다. **Reasoning Effort**는 DeepSeek 자체 단계인 **Low**, **High**, **Maximum**을 사용하며, **Off**(꺼짐)를 고르면 해당 요청에서 사고 기능을 끕니다. **Medium**은 없습니다. DeepSeek는 중간 단계 요청을 High로 처리하므로, Marinara는 같은 동작을 하는 버튼을 하나 더 두는 대신 High를 제공합니다. 사고 내용은 평소와 같은 생각 과정 표시로 답변에 나타납니다.
+DeepSeek는 기본적으로 사고 기능을 사용합니다. **Reasoning Effort**는 DeepSeek 자체 단계인 **Low**, **High**, **Max**를 사용하며, **Off**(꺼짐)를 고르면 해당 요청에서 사고 기능을 끕니다. **Medium**은 없습니다. DeepSeek는 중간 단계 요청을 High로 처리하므로, Marinara는 같은 동작을 하는 버튼을 하나 더 두는 대신 High를 제공합니다. 사고 내용은 평소와 같은 생각 과정 표시로 답변에 나타납니다.
 
 파라미터 패널의 일부 설정은 DeepSeek에 적용되지 않으므로, 패널은 작동하는 것처럼 보이게 두지 않고 해당 설정을 아예 표시하지 않습니다. 여기에는 **Verbosity**(상세도), **Top K**, 페널티 설정이 포함됩니다. DeepSeek는 이 설정들의 지원을 종료했으며 무시합니다. **Temperature**(온도)와 **Top P**는 한 쌍입니다. DeepSeek는 사고 여부에 따라 둘 중 하나만 사용하므로, 사고 기능이 꺼져 있으면 **Temperature**가, 켜져 있으면 **Top P**가 표시됩니다.
 
@@ -234,7 +234,7 @@ Decision 모델의 역할과 고르는 방법, 전체 설정은 [Decision 모델
 - **PocketTTS**: 직접 컴퓨터에서 돌리는 무료 음성 서버입니다.
 - **xAI Voice**: xAI의 음성 서비스입니다.
 
-소스마다 기본 Base URL과 모델이 채워집니다. **Default Voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. Marinara가 기본으로 쓸 오디오 연결을 고르려면 **Connections** 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Audio** 아래에서 고르세요.
+소스마다 기본 Base URL과 모델이 채워집니다. **Default Voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 타임아웃, 초 단위)는 Marinara가 음성 대사 한 줄을 기다리는 시간으로, 기본값은 60초입니다. 음성 서버가 느리다면 값을 올리세요. Marinara가 기본으로 쓸 오디오 연결을 고르려면 **Connections** 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Audio** 아래에서 고르세요. 오디오 연결로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 연결을 **Source**(연결 소스)로 고르세요. [오디오 연결 사용하기](../media/tts-setup.md#use-an-audio-connection)를 참고하세요.
 
 **ElevenLabs** 소스에서는 **Game sound effects**(게임 효과음)와 **Game music**(게임 음악) 스위치 2개가 더 나타납니다. 이 스위치를 켜면 Game Mode(게임 모드)가 이 연결로 효과음과 음악을 만듭니다. [효과음과 음악 생성](../game/game-assets.md#generated-sound-effects-and-music)을 참고하세요. 음성과 메시지 소리 내어 읽기는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요.
 
@@ -243,6 +243,8 @@ Decision 모델의 역할과 고르는 방법, 전체 설정은 [Decision 모델
 임베딩은 로어북 시맨틱 검색과 **Memory Recall**(기억 회상) 기능을 뒷받침합니다. 글을 숫자 목록으로 바꿔서 Marinara가 관련 항목을 찾을 수 있게 해 줍니다. 채팅 제공자는 대부분 연결 편집기에서 **Embedding Model**(임베딩 모델)을 지정할 수 있고, **Embedding Endpoint URL**(임베딩 엔드포인트 URL)도 선택적으로 설정할 수 있습니다.
 
 일부 제공자는 임베딩을 만들지 못합니다. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, **Grok CLI (Subscription)**은 임베딩을 제공하지 않습니다. 이럴 때는 **Embedding Connection**(임베딩 연결) 드롭다운으로 다른 연결을 빌려 쓰세요. OpenAI 호환 연결이나 **Google Gemini**, 내장 **Local Model**을 쓰면 됩니다.
+
+자체 임베딩 설정이 없는 모든 연결에 임베딩 소스 하나를 쓰려면 **Connections** 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Embeddings**(임베딩)에서 고르세요. **None (built-in local model)**은 내장 로컬 임베딩 모델을 계속 사용합니다. 연결에 직접 설정한 임베딩 모델이나 **Embedding Connection**이 여전히 우선합니다. 이 값을 바꾼 뒤에는 로어북과 기억을 다시 벡터화하세요. [로어북 시맨틱 검색](../lorebooks/semantic-search.md)을 참고하세요.
 
 ## 관련 가이드
 

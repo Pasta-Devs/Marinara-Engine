@@ -28,7 +28,7 @@ Guarde essa URL em segredo. Qualquer pessoa que tenha a URL consegue publicar me
 
 ## Ligue o espelho
 
-A configuração do webhook fica nas configurações de cada chat, dentro da seção **Connected Chats** (chats conectados). A caixa de digitação não tem um nome próprio. Localize-a pelo texto de exemplo `https://discord.com/api/webhooks/...`.
+A configuração do webhook fica nas configurações de cada chat, dentro da seção **Connected Chats** (chats conectados). A caixa de digitação se chama **Discord Mirror**, e o texto de exemplo dela é `https://discord.com/api/webhooks/...`.
 
 1. Abra o chat que você quer espelhar.
 2. Abra **Chat Settings** (configurações do chat).
@@ -38,6 +38,8 @@ A configuração do webhook fica nas configurações de cada chat, dentro da se�
 Pronto, o espelho está ligado para esse chat. Para desligar, apague o conteúdo da caixa e deixe-a vazia.
 
 Se a URL não for um webhook válido do Discord, aparece o texto em vermelho "Invalid webhook URL format" embaixo da caixa. Corrija a URL e Marinara salva o espelho. Marinara também confere a URL de novo no servidor no momento de salvar.
+
+A URL do webhook fica nesta instalação do Marinara. As exportações de chat, os perfis de configurações exportados e os arquivos do **Export Profile** (exportar perfil) a deixam de fora, e importar qualquer um deles nunca liga um espelho. Para espelhar um chat que você levou para outra instalação, cole a URL de novo lá. Um perfil de configurações que você salvou nesta instalação continua definindo o seu espelho quando você o aplica.
 
 ## O que é enviado
 

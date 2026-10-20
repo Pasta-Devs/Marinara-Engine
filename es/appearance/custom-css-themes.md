@@ -24,7 +24,9 @@ Para llevar este aspecto al resto del chat, usa los tres interruptores debajo de
 
 - **Apply preset font** (Aplicar fuente del preset) usa la fuente elegida para los widgets en los mensajes, los campos de entrada y los controles del chat.
 - **Apply preset shape** (Aplicar forma del preset) usa la forma de marco elegida en los mensajes de Roleplay con diseño clásico o de novela visual, el cuadro de diálogo de Game, los campos de entrada y los controles. Los mensajes de Conversation conservan su propia forma.
-- **Apply preset colors** (Aplicar colores del preset) usa los colores del borde, el fondo y el texto del widget en esas áreas, incluidos los mensajes de Conversation. También se aplican tus colores y degradados personalizados. El diálogo entrecomillado conserva el Dialogue Highlight Color propio de cada personaje o persona.
+- **Apply preset colors** (Aplicar colores del preset) usa los colores del borde, el fondo y el texto del widget en esas áreas, incluidos los mensajes de Conversation. También se aplican tus colores y degradados personalizados. El diálogo entrecomillado conserva el Dialogue Highlight Color propio de cada personaje o persona. Un mensaje hecho de HTML, como la tarjeta con estilo de un agente, conserva los colores de texto que fija por sí mismo.
+
+Los botones que cargan mensajes más antiguos o más recientes, como **Load More** (Cargar más) y **Show older** (Mostrar anteriores), siguen estos interruptores igual que los demás controles del chat.
 
 En Game Mode, los interruptores también se aplican a los comentarios al margen, los widgets del HUD, el panel del mapa, las fichas de personaje, los registros, el inventario, los paneles de combate y los cuadros de diálogo.
 
@@ -230,6 +232,8 @@ Los tres interruptores **Apply preset** también permiten que un tema personaliz
 | Mensajes de Conversation (solo fuente y colores) | `.mari-chat-style-conversation` |
 | Texto de mensajes de Conversation sin recuadro | `.mari-chat-style-text` |
 | Controles del chat, incluidos Calls y los controles de grupo de Conversation | `.mari-chat-style-control` |
+| Botones del historial: **Load More**, **Show older**, **Show newer**, **Latest** y, en los registros de Game, **Older**, **All** y **Show more older logs**. También tienen `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| Un mensaje hecho de HTML, como la tarjeta con estilo de un agente. Los colores de texto fijados dentro de él se conservan cuando **Apply preset colors** está activado | `.mari-html-content` |
 
 | Variable | Qué controla |
 | --- | --- |

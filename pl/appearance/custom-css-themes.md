@@ -24,7 +24,9 @@ Aby przenieść ten wygląd na resztę czatu, użyj trzech przełączników pod 
 
 - **Apply preset font** (zastosowanie czcionki presetu) stosuje wybraną czcionkę widgetów w wiadomościach, polach wpisywania i kontrolkach czatu.
 - **Apply preset shape** (zastosowanie kształtu presetu) stosuje wybrany kształt ramki w wiadomościach Roleplay w układzie klasycznym i visual novel, polu dialogowym Game, polach wpisywania oraz kontrolkach. Wiadomości Conversation zachowują swój kształt.
-- **Apply preset colors** (zastosowanie kolorów presetu) stosuje kolory obramowań, tła i tekstu widgetów w tych obszarach, także w wiadomościach Conversation. Uwzględnia też własne kolory i gradienty. Wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony.
+- **Apply preset colors** (zastosowanie kolorów presetu) stosuje kolory obramowań, tła i tekstu widgetów w tych obszarach, także w wiadomościach Conversation. Uwzględnia też własne kolory i gradienty. Wypowiedzi w cudzysłowie zachowują kolor Dialogue Highlight Color ustawiony dla danej postaci lub persony. Wiadomość złożona z HTML, na przykład ostylowany blok od agenta, zachowuje kolory tekstu, które sama ustawia.
+
+Przyciski wczytujące starsze lub nowsze wiadomości, takie jak **Load More** (wczytaj więcej) i **Show older** (pokaż starsze), stosują się do tych przełączników tak jak pozostałe kontrolki czatu.
 
 W trybie Game Mode przełączniki obejmują też uwagi poboczne, widgety paska HUD, panel mapy, karty postaci, dzienniki, ekwipunek, panele walki i okna dialogowe.
 
@@ -229,6 +231,8 @@ Trzy przełączniki **Apply preset** pozwalają też własnemu motywowi stosowa�
 | Wiadomości Conversation (tylko czcionka i kolory) | `.mari-chat-style-conversation` |
 | Tekst wiadomości Conversation bez obramowania | `.mari-chat-style-text` |
 | Kontrolki czatu, w tym Calls i kontrolki grup Conversation | `.mari-chat-style-control` |
+| Przyciski historii: **Load More**, **Show older**, **Show newer** (pokaż nowsze), **Latest** (najnowsze) oraz **Older** (starsze), **All** (wszystkie) i **Show more older logs** (pokaż więcej starszych dzienników) w dziennikach Game. Mają też `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| Wiadomość złożona z HTML, na przykład ostylowany blok od agenta. Ustawione w niej kolory tekstu zostają zachowane przy włączonym **Apply preset colors** | `.mari-html-content` |
 
 | Zmienna | Co zmienia |
 | --- | --- |

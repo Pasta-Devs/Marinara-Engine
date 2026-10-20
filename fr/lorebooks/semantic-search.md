@@ -18,7 +18,7 @@ Les correspondances par mot-clé et les correspondances sémantiques ont la mêm
 
 La recherche sémantique a besoin d'un modèle capable de créer des embeddings. Tu as deux options.
 
-Quel que soit ton choix, tu peux en faire la source par défaut de toute l'application : ouvre **Connections** (connexions), puis **Connection defaults** (connexions par défaut) et choisis-la sous **Embeddings**. Toute connexion sans modèle d'embedding ni **Embedding Connection** propre l'utilise alors. Le réglage propre à une connexion garde la priorité, et la ligne indique combien de connexions utilisent leurs propres réglages. **None** conserve le modèle local intégré comme solution de repli.
+Quel que soit ton choix, tu peux en faire la source par défaut de toute l'application : ouvre **Connections** (connexions), puis **Defaults** (valeurs par défaut) et choisis-la sous **Embeddings**. Toute connexion sans modèle d'embedding ni **Embedding Connection** (connexion d'embeddings) propre l'utilise alors. Le réglage propre à une connexion garde la priorité, et la ligne indique combien de connexions utilisent leurs propres réglages. **None** conserve le modèle local intégré comme solution de repli.
 
 Option 1 : une connexion dotée d'un modèle d'embedding.
 
@@ -27,6 +27,8 @@ Option 1 : une connexion dotée d'un modèle d'embedding.
 3. Repère la section **Semantic Search (Embeddings)** (recherche sémantique).
 4. Saisis un nom de modèle d'embedding dans le champ du modèle. Une valeur courante est `text-embedding-3-small`.
 5. Enregistre la connexion.
+
+Une connexion peut aussi envoyer ses requêtes d'embedding via la clé API et l'adresse d'une autre connexion. Dans la même section, choisis cette connexion sous **Embedding Connection**. La valeur par défaut est **Same as this connection** (comme cette connexion). Si la connexion choisie a son propre modèle d'embedding, Marinara l'utilise ; sinon, elle utilise le nom de modèle saisi ici. Cela vaut aussi bien pendant la vectorisation que pendant le chat.
 
 Tous les fournisseurs ne proposent pas d'embeddings. Si le fournisseur n'en est pas capable, l'éditeur t'invite à choisir plutôt une connexion dédiée aux embeddings.
 
@@ -77,7 +79,7 @@ Vectoriser, c'est calculer puis enregistrer l'embedding de chaque entrée. Cette
 3. Clique sur le bouton de vectorisation. Quand certaines entrées n'ont pas encore de vecteur, le bouton affiche **Vectorize N missing**, par exemple "Vectorize 5 missing".
 4. Attends la fin du traitement. La pastille d'état se met à jour et montre toutes les entrées vectorisées.
 
-Si aucune connexion ne dispose d'un modèle d'embedding, le panneau affiche cette note à la place du menu déroulant : "No connections with an embedding model configured. Set an Embedding Model on a connection first." Configure d'abord une source d'embeddings, en suivant les étapes ci-dessus.
+Si aucune connexion ne dispose d'un modèle d'embedding ou d'une **Embedding Connection**, le panneau affiche cette note à la place du menu déroulant : "No connections with an embedding model configured. Set an Embedding Model on a connection first." Configure d'abord une source d'embeddings, en suivant les étapes ci-dessus.
 
 Quand chaque entrée possède déjà un vecteur, le bouton principal devient **Re-vectorize N entries**. Il reconstruit tous les vecteurs enregistrés, après une demande de confirmation avant l'écrasement.
 
@@ -97,7 +99,7 @@ Reconstruis tous les vecteurs après un changement de modèle d'embedding. Utili
 
 Ne lance pas une vectorisation partielle après un changement de modèle. Si un traitement limité aux entrées manquantes renvoie une taille de vecteur différente de celle des vecteurs enregistrés, le serveur le refuse avec ce message : "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Il existe un cas d'échec silencieux à connaître. Au moment du chat, Marinara calcule l'embedding des messages récents avec un modèle de requête. Ce modèle de requête est le modèle d'embedding propre à la connexion active, ou celui de son menu **Embedding Connection** s'il est renseigné. Si la connexion n'a ni l'un ni l'autre, Marinara utilise la valeur par défaut **Embeddings** de **Connection defaults**, ou le modèle local intégré quand elle vaut **None**. Ce modèle de requête peut produire une taille de vecteur différente de celle du modèle qui a vectorisé les entrées. Marinara écarte alors ces entrées de la correspondance sémantique. Aucune erreur ne s'affiche. Pour éviter cela, vectorise les entrées avec la source d'embeddings que tu utilises pendant le chat. Définir une valeur par défaut **Embeddings** aide : le sélecteur de vectorisation démarre dessus, sauf si tu as choisi autre chose avant, et les connexions sans réglages d'embedding propres s'en servent pour interroger. Et revectorise après chaque changement de modèle.
+Il existe un cas d'échec silencieux à connaître. Au moment du chat, Marinara calcule l'embedding des messages récents avec un modèle de requête. Ce modèle de requête est le modèle d'embedding propre à la connexion active, ou celui de son menu **Embedding Connection** s'il est renseigné. Si la connexion n'a ni l'un ni l'autre, Marinara utilise la valeur par défaut **Embeddings** sous **Defaults** dans **Connections**, ou le modèle local intégré quand elle vaut **None**. Ce modèle de requête peut produire une taille de vecteur différente de celle du modèle qui a vectorisé les entrées. Marinara écarte alors ces entrées de la correspondance sémantique. Aucune erreur ne s'affiche. Pour éviter cela, vectorise les entrées avec la source d'embeddings que tu utilises pendant le chat. Définir une valeur par défaut **Embeddings** aide : le sélecteur de vectorisation démarre dessus, sauf si tu as choisi autre chose avant, et les connexions sans réglages d'embedding propres s'en servent pour interroger. Et revectorise après chaque changement de modèle.
 
 ## Ce que cela apporte à l'agent Knowledge Router
 

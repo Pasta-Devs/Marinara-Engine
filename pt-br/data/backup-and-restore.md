@@ -110,11 +110,13 @@ O **Import Profile** restaura a partir do arquivo de perfil, mesmo quando você 
 
 Depois de importar um perfil, faça o seguinte:
 
-1. Abra **Settings**.
-2. Vá para a aba **Connections**.
-3. Informe de novo a chave de API de cada provedor que você usa.
+1. Abra o painel **Connections** (conexões) pela barra superior.
+2. Abra cada conexão que você usa.
+3. Informe de novo a chave de API dela e salve.
 
 Se você usa ferramentas personalizadas que chamam um link de webhook, informe esse link de novo em cada ferramenta.
+
+Alguns endereços salvos com um chat também ficam fora do arquivo de perfil: o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Isso também vale para os perfis de configurações e para os padrões de tradução dos chats novos. Quando você importar um perfil em outra instalação, digite esses dados de novo em **Chat Settings** (configurações do chat) de cada chat.
 
 A importação não apaga as chaves já configuradas. Ao reimportar um perfil antigo, Marinara preserva as chaves e os links de webhook ativos nos itens que ainda existem. A reimportação não deixa esses campos em branco.
 

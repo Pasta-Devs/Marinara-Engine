@@ -1,6 +1,6 @@
 # Game Mode：会话与存档
 
-本指南介绍 Marinara Engine 如何在多次游玩之间记录 Game Mode(游戏模式) 的进度，包括结束会话、开始新会话，以及在 **Session History**(会话历史) 里回看过往会话，还会讲到 **Show Spoilers**(显示剧透) 视图和游戏保存数据的方式。
+本指南介绍 Marinara Engine 如何在多次游玩之间记录 Game Mode(游戏模式) 的进度，包括结束会话、开始新会话，以及在 **Session History**(会话历史) 里回看过往会话，还会讲到 **Show Spoilers**(显示剧透) 视图、手动修正游戏数据，以及游戏保存数据的方式。
 
 ## 什么是会话
 
@@ -122,11 +122,41 @@ Game Mode 把一场冒险切分成带编号的会话。一个会话就是一段�
 
 这些秘密还可以直接编辑，相当于一块 GM 作弊面板。点击 **Edit Spoilers**(编辑剧透)，改好文字后点击 **Save Spoilers**(保存剧透)。有些字段以 JSON 这种结构化文本格式呈现。只有在看得懂格式的前提下才去改 JSON 字段，因为格式有误就保存不了。
 
+<a id="editing-game-data-by-hand"></a>
+
+## 手动编辑游戏数据
+
+当 Game Master 搞错了什么，例如某个 NPC 的好感度，或者一个一直没结束的任务，你可以自己修正游戏保存的数据。
+
+1. 打开 **Game controls**(游戏控制)，选择 **Edit game data**(编辑游戏数据)。手机上的 **Game controls** 在三点 **Chat tools**(聊天工具) 菜单里。
+2. **Game Data**(游戏数据) 窗口会打开。顶部有一条警告：“Hand edits can break a game. Every change is checked before it saves, and names can't change here.”
+3. 从列表里选一个分区，手机上则从那一排小标里选。也可以在搜索框里输入，一次在所有分区中查找某个值。
+4. 在 **Fields**(字段) 里修改值，或者切换到 **JSON** 编辑原始数据。
+5. 点击 **Review changes**(查看改动)，看清楚具体改了什么，再点击 **Save changes**(保存改动)。
+
+可以修改的分区有 **Party Cards**(队伍卡片)、**Party Sheet**(队伍人物卡)、**NPCs**、**Journal**(日志)、**Player Notes**(玩家笔记)、**Inventory**(物品栏)、**Story**(故事)、**Session Summaries**(会话摘要)、**World Edits**(世界编辑)、**Story Script**(故事脚本) 和 **HUD Widgets**(HUD 小组件)。只有游戏里有对应数据时才会显示这个分区，所以没有世界的游戏没有 **World Edits**。其他分区，例如 **World**(世界)、**Maps & Position**(地图与位置)、**Time, Weather & Morale**(时间、天气与士气)、**Combat**(战斗) 和 **Settings**(设置)，会标为 **Read-only**(只读)。你可以阅读和搜索它们，但它们由游戏自己维护。提示词、图像、音乐和骰子偏好在 **Chat Settings**(聊天设置) 里修改。
+
+每项改动在保存前都会经过检查：
+
+- 名称不能改，因为卡片、NPC、队伍和背包是靠名称互相找到的。这里不能添加或移除队伍成员。
+- NPC 的好感度范围是 -100 到 100。
+- 在 **Inventory** 里，可以修改物品的数量、昵称和携带者，以及它是否穿戴着、是否已同调、是否已开启。去掉一叠就会移除它，添加一叠不带 id 的就会添加一件物品。
+- 在 **Session Summaries** 里，只能修改会话的文字。
+- **World Edits** 保存你对世界做的手动编辑，例如改名的地点或添加的人物。世界本身永远不会被改动。
+
+改动无法保存时，编辑器会说明原因，该分区会保留你的草稿，方便你修正。如果你编辑期间游戏改动了同一份数据，保存会被拒绝，以免撤销游戏的改动。**Reload**(重新加载) 会显示游戏的版本，并丢弃你的草稿。
+
+每次保存之前，游戏都会尝试记录一个检查点，在 **Checkpoints**(检查点) 里标为 **Before a State Editor save**。如果编辑出了问题，读取这个检查点即可撤销（见下文）。
+
+这个窗口的用法与 Roleplay 的 State Editor 相同。见 [State Editor](../roleplay/hud-and-trackers.md#the-state-editor)。
+
+<a id="how-your-game-saves"></a>
+
 ## 游戏怎么保存
 
 Game Mode 会自动保存进度，不需要按什么保存按钮。玩的过程中，世界、队伍、地图、物品栏、游戏内时间和会话摘要都会替你留着。
 
-应用还会在后台自动记录检查点：会话开始、会话结束、战斗开始或结束、抵达新地点时各记录一次，另外还会按自动间隔记录。Game data 编辑器每次保存之前也会尝试记录一个检查点，不过游戏如果太新，连第一回合都还没保存，就还没有可以记录的内容。打开 **Game controls → Checkpoints**(游戏控制 → 检查点) 即可查看，最新的排在最前。**Load**(读取) 会让游戏回到那一刻：追踪器、地图、Game data 编辑器里的 **World Edits**(世界编辑)，以及那之后的故事都会恢复，并有一条系统消息标出游戏回退的位置。**Delete**(删除) 会永久删除这个检查点。
+应用还会在后台自动记录检查点：会话开始、会话结束、战斗开始或结束、抵达新地点时各记录一次，另外还会按自动间隔记录。[Game data 编辑器](#editing-game-data-by-hand)每次保存之前也会尝试记录一个检查点，不过游戏如果太新，连第一回合都还没保存，就还没有可以记录的内容。打开 **Game controls → Checkpoints**(游戏控制 → 检查点) 即可查看，最新的排在最前。**Load**(读取) 会让游戏回到那一刻：追踪器、地图、Game data 编辑器里的 **World Edits**(世界编辑)，以及那之后的故事都会恢复，并有一条系统消息标出游戏回退的位置。队伍的卡片和人物卡、NPC、日志、你的笔记、物品栏、会话摘要、GM 的故事计划、HUD 小组件，以及时间、天气和士气，也都会回到那一刻。你的设置保持不变。**Delete**(删除) 会永久删除这个检查点。
 
 每种自动检查点只保留最新的五个，所以较旧的会在游玩过程中被清理掉。
 

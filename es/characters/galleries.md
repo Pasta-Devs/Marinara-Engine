@@ -36,7 +36,7 @@ Puedes subir tipos de imagen comunes, como JPG, PNG, GIF, WebP y AVIF. Haz clic 
 3. Arrastra archivos de video a la casilla **Upload Character Videos** (Subir videos del personaje), o haz clic en ella para elegir archivos. En una persona, esta casilla se llama **Upload Persona Videos**.
 4. Espera a que termine la subida.
 
-Los tipos de video admitidos son MP4, WebM y MOV. La subpestaña **Videos** también lista los videos de escena generados en chats con este personaje, más cualquier clip de videollamada. Se ordenan con el más reciente primero.
+Los tipos de video admitidos son MP4, WebM y MOV. La subpestaña **Videos** también lista los videos de escena generados en chats con este personaje, más cualquier clip de videollamada. Se ordenan con el más reciente primero. Un mensaje de video de Conversation solo aparece en la lista de los personajes que muestra. Es decir, el personaje que lo envió y cualquiera que nombre. Basta con un nombre de pila cuando nadie más en el chat lo comparte, siempre que esté escrito con mayúscula inicial. Se incluye a todos los del chat cuando el texto pide una foto o un selfie de grupo. Los nombres dichos entre comillas no cuentan. La galería de tu persona muestra el clip solo cuando nombra a tu persona. Los videos más antiguos, y los videos de chats de Roleplay y Game Mode, aparecen para todos los personajes y la persona de su chat.
 
 ## Etiquetar una imagen de la galería como emoji o sticker personalizado
 
@@ -68,6 +68,8 @@ Un emoji o sticker etiquetado en la galería tiene alcance limitado a ese único
 
 Si un nombre de la galería coincide con un nombre del conjunto global, la versión de la galería gana para ese chat. Los nombres no se comprueban para verificar que sean únicos. Elige un nombre distinto para cada imagen para evitar sorpresas.
 
+<a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
+
 ## Reutilizar una imagen de la galería en mensajes y saludos
 
 Cualquier imagen de la galería de un personaje se puede mostrar dentro del texto del chat: en un saludo, un mensaje de ejemplo o un mensaje que envíe el personaje. Pasa el puntero por la imagen y haz clic en **Copy image reference** (el icono de enlace). Esto copia un pequeño fragmento de Markdown que puedes pegar donde hable el personaje:
@@ -78,9 +80,17 @@ Cualquier imagen de la galería de un personaje se puede mostrar dentro del text
 
 La única regla es que **`self` significa el personaje que está pronunciando ese mensaje.** Cuando se renderiza, Marinara sustituye `self` por ese personaje y muestra la imagen de su galería.
 
-Funciona en **First Message**, **Alternate Greetings** y **Example Dialogue** de la tarjeta; en cualquier mensaje de personaje tanto en Roleplay como en Conversation; y en chats grupales. En una respuesta con varios hablantes, `self` se resuelve por hablante. Si su galería no contiene el archivo, Marinara lo busca en las galerías de los demás personajes del chat.
+Dónde funciona:
 
-Por diseño, no funciona en tus propios mensajes, porque no tienen personaje hablante, ni en mensajes del sistema, que no renderizan imágenes Markdown. Para publicar tú una imagen, usa el navegador de recursos del chat, que escribe la forma completa `card://characters/<id>/...`. Las galerías de persona usan `card://personas/<id>/gallery/<file>`.
+- **First Message**, **Alternate Greetings** y **Example Dialogue** de la tarjeta del personaje. La vista previa de Markdown del campo muestra la imagen mientras editas.
+- Cualquier mensaje que envíe un personaje, tanto en el modo **Roleplay** como en **Conversation**.
+- **Chats grupales**: en una respuesta con varios hablantes, `self` se resuelve por hablante, así que la línea de cada personaje muestra la imagen de la galería de ese personaje. Si la galería del hablante no contiene el archivo, Marinara lo busca en las galerías de los demás personajes del chat, así que la imagen correcta aparece incluso cuando una respuesta se fusiona bajo un solo hablante.
+
+Dónde no funciona, por diseño:
+
+- **Tus propios mensajes**. No tienen personaje hablante, así que una referencia `self` se muestra como una imagen rota. Si quieres publicar tú una imagen de la galería de un personaje, usa la opción de insertar del navegador de recursos del chat (que escribe la forma completa `card://characters/<id>/...`).
+- **Mensajes del sistema**. No renderizan la sintaxis de imágenes de Markdown, así que una referencia se muestra como texto literal.
+- **Galerías de persona**. Las imágenes de persona aparecen en tus mensajes, que no tienen hablante. Usa en su lugar la forma de persona `card://personas/<id>/gallery/<file>`.
 
 Si dos personajes tienen imágenes con el mismo nombre de archivo, siempre gana la del hablante. Si el hablante no la tiene, se usa la primera coincidencia según el orden de personajes del chat. Usa nombres distintos si necesitas una versión concreta.
 

@@ -4,7 +4,7 @@
 
 ## Settingsパネルと6つのタブ
 
-上部バーの歯車アイコンから**Settings**を開きます。パネルの上部には**Search settings**(設定の検索)ボックスがあります。`delete`、`streaming`、`quotes`のような語句を入力すると、Marinaraが該当するセクションまで移動します。
+上部バーの歯車アイコンから**Settings**を開きます。パネルの上部には**Search settings**(設定の検索)ボックスがあります。`delete`、`streaming`、`quotes`のような語句を入力すると、Marinaraが該当するセクションまで移動します。設定は、画面の言語での名前でも英語の名前でも見つけられます。
 
 パネルには6つのタブがあります。それぞれのタブが受け持つ内容は次のとおりです。
 
@@ -24,7 +24,7 @@
 - **Generations**: [スタイルプロファイル](../media/style-profiles.md)と[シーン動画](../media/scene-video.md)を参照してください。
 - **Addons**: [個人用拡張機能](../extending/personal-extensions.md)と[カスタムCSSテーマ](../appearance/custom-css-themes.md)を参照してください。
 - **Imports**: [SillyTavernからのインポート](../data/importing-from-sillytavern.md)と[バックアップと復元](../data/backup-and-restore.md)を参照してください。
-- **Advanced**: 以下の**Message Tools**のセクションに加えて、[Marinara Engineのアップデート](../UPGRADING.md)、[リモートアクセス](../REMOTE_ACCESS.md)、[データの消去](../data/clearing-data.md)を参照してください。 [機能スイッチ](../configuration/features.md)。
+- **Advanced**: 以下の**Message Tools**のセクションと[機能スイッチ](../configuration/features.md)に加えて、[Marinara Engineのアップデート](../UPGRADING.md)、[リモートアクセス](../REMOTE_ACCESS.md)、[データの消去](../data/clearing-data.md)を参照してください。
 
 ## Settings、Generalタブ
 
@@ -48,9 +48,20 @@
   言語を追加したい場合は、[UIのローカライズ](../development/localization.md)を参照してください。
 - **Documentation Language**: Marinaraに組み込まれたガイドの言語を、上の表示言語とは別に選べます。英語は最初から入っていて、ダウンロードは不要です。英語以外を選ぶと**Download & Replace**が表示され、その言語パックを一度だけダウンロードして、前のパックを削除します。つまり、ダウンロード済みの言語は常に1つだけです。まだ翻訳されていないガイドは小さな`EN`バッジ付きで英語のまま開き、ガイド検索は選択中の言語で動作します。選んだ言語はアップデート後も引き継がれ、翻訳に変更があったパックはアップデート後に自動で再取得されます。ダウンロードしたガイドが失われたり壊れたりした場合は、**Fix documentation**ボタンが現れます。このボタンはパックを再ダウンロードし、ダウンロード元に接続できないときはガイドを英語に戻します。
 - **Confirm before deleting**: デフォルトでオンです。オンのあいだは、チャットやキャラクターなどを完全に削除する前にMarinaraが確認します。うっかり削除を防ぐため、オンのままにしておくことをおすすめします。
-- **Achievements**: デフォルトでオンです。オンにすると、ホーム画面に実績のボタンと解除の通知が表示されます。オフにすると、記録は裏で静かに続きます。[実績](../home/achievements.md)を参照してください。
-- **Music Player**: デフォルトでオンです。オンにすると、小さなMusic Playerが表示されます。[Music DJ](../media/music.md)を参照してください。
-- **Search and Professor Mari settings**: **Open**を選ぶと、その設定ページに移動します。SearchとProfessor Mariの設定はすべてここにあり、5つのグループに分かれています。**Search**には欄の改善の提案と検索履歴があります。**Quick answers**には**Quick answers in Search**、**Answer with**、**Wait after typing**があります。**Professor Mari**にはAsk Professor Mari from Search、権限モード、返信の候補チップ、変更カードの開き方、Enter sends to Professor Mariがあります。**Around the app**にはMini Professor Mari visitsがあります。**Appearance**はProfessor Mariの見た目の設定で、各パックに肖像が表示され、使用中のパックには**In use**と表示され、ロックされたパックにはロック解除までのプレイ時間が表示されます。Searchの歯車アイコンからも同じページが開きます。これらの設定を新しい名前か古い名前で検索すると、その設定へ直接移動します。
+- **Hide chat Help button**(チャットのヘルプボタンを非表示): デフォルトでオフです。オンにすると、Conversation、Roleplay、Gameのチャットから**Help**ボタンが消えます。
+- **Show Android status bar**(Androidステータスバーを表示): デフォルトでオフで、Marinara EngineのAndroidアプリでだけ働きます。オンにすると、時刻、バッテリー残量、通知アイコンがMarinaraの上に表示されたままになります。
+- **Achievements**: デフォルトでオンです。オンにすると、ホーム画面に**Achievements**のブックマークと解除の通知が表示されます。任意の**Achievements**ウィジェットは、ホームのレイアウトに追加していれば表示されます。オフにすると、記録は裏で静かに続きます。[実績](../home/achievements.md)を参照してください。
+- **Music Player**: デフォルトでオンです。オンにすると、小さなMusic Playerが表示されます。**Agents** > **Download Agents**の**Music DJ**エージェントが必要で、インストールするまでスイッチはグレー表示のままです。[Music DJ](../media/music.md)を参照してください。
+- **Search and Professor Mari settings**: **Open**を選ぶと、その設定ページに移動します。SearchとProfessor Mariの設定はすべてここにあり、次のグループに分かれています。
+
+  - **Search**: 欄の改善の提案と検索履歴
+  - **Quick answers**: **Quick answers in Search**、**Answer with**、**Wait after typing**
+  - **Search window**と**Professor Mari window**: それぞれのウィンドウに**Height**(高さ)と**Width**(幅)の設定があります。これらのグループはスマートフォンでは表示されません。
+  - **Professor Mari**: Ask Professor Mari from Search、権限モード、**Runtime**、返信の候補チップ、変更カードの開き方、Enter sends to Professor Mari
+  - **Around the app**: Mini Professor Mari visits
+  - **Appearance**: Professor Mariの見た目。各パックに肖像が表示されます。使用中のパックには**In use**と表示されます。ロックされたパックには、ロック解除までのプレイ時間が表示されます。
+
+  Searchの歯車アイコンからも同じページが開きます。これらの設定を新しい名前か古い名前で検索すると、その設定へ直接移動します。
 
 ## Text Rules
 
@@ -77,6 +88,10 @@
 - **Straight**: `"Hello," it's me.`のような、まっすぐなタイプライター式の記号のままにします。こちらがデフォルトです。
 - **Typographic**: まっすぐな記号を、曲がった引用符とアポストロフィーに置き換えます。
 
+### Load images from other websites in messages
+
+デフォルトでオフです。オフのあいだは、メッセージ、挨拶メッセージ、カードのプレビューにあるほかのWebサイトの画像の代わりに、そのWebサイトの名前と**Load image**(画像を読み込む)ボタンが表示されます。そのため、メッセージが勝手にほかのサイトへ接続することはありません。**Load image**を選ぶとその画像が表示され、Marinaraはそれをすべてのデバイスで記憶します。すべての画像をすぐに表示したい場合は、この設定をオンにします。ギャラリーの画像、アバター、スプライトなど、Marinaraに保存されている画像は常に表示されます。
+
 ## ResponsesとInput & Editing
 
 **General**タブのこの2つのセクションでは、返信の届き方と、入力や編集の使い勝手を調整します。以下に各項目と、詳しいガイドへのリンクをまとめます。
@@ -85,7 +100,8 @@
 
 - **Enable streaming**: AIの文章を、生成しながら少しずつ表示します。
 - **Streaming speed**: ストリーミング表示の速さを決めます。
-- **Trim incomplete model endings**: 末尾の言いかけの文を、保存前に切り落とします。
+- **Trim incomplete sentences from the response**: 末尾の言いかけの文を、保存前に切り落とします。
+- **Add a new line before /continue text**(/continueのテキストの前に改行を入れる): `/continue`で追加するテキストを、空行の後から始めます。デフォルトでオンです。
 - **Messages per page**: 一度に読み込むメッセージの件数を決めます。
 
 詳しくは[メッセージの送信とストリーミング](../chats/sending-and-streaming.md)を参照してください。
@@ -94,6 +110,8 @@
 
 - **Send on Enter**: Enterキーで送信するモードを選びます。
 - **Keep guidance after regenerating**: ガイド付きの再生成の後も、指示をメッセージ入力欄に残します。デフォルトでオンです。
+- **Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずにメッセージ欄に追加する): クリックしたCYOAの選択肢がメッセージ欄に入るので、送信する前に編集できます。
+- **Quick replies**(クイック返信): 送信ボタンの横に、下書きを作る別の操作を追加します。[ガイド付き生成とImpersonate](../chats/guided-and-impersonate.md)を参照してください。
 - **Speech-to-text microphone**: チャットの入力欄にマイクのボタンを表示します。
 - **Intuitive swipe navigation**: 矢印キーや画面のスワイプで、別案の返信を切り替えられるようにします。
 - **Reroll past the newest swipe**: いちばん新しいスワイプの先へ進んだときに、新しい返信を生成します。
@@ -104,18 +122,20 @@
 
 ## Message Tools
 
-**Message Tools**セクションは**Settings** > **Advanced** > **Message Tools**にあります。表示に関するトグルと、困ったときに役立つトグルが集まった場所です。以下のトグルはすべてデフォルトでオフですが、**Show "older messages not sent" note**(「送信されなかった古いメッセージ」の注記を表示)だけはオンです。それぞれの働きと、詳しいガイドは次の表のとおりです。
+**Message Tools**セクションは**Settings** > **Advanced** > **Message Tools**にあります。表示に関するトグルと、困ったときに役立つトグルが集まった場所です。以下のトグルはすべてデフォルトでオフですが、**Show context usage**(コンテキストの使用量を表示)と**Show "older messages not sent" note**(「送信されなかった古いメッセージ」の注記を表示)はオンです。それぞれの働きと、詳しいガイドは次の表のとおりです。
 
 | トグル | 働き | 詳しいガイド |
 | --- | --- | --- |
 | **Show message timestamps** | メッセージごとに日付と時刻を表示します。 | [メッセージの操作](../chats/messages.md) |
+| **Show characters in Persona pickers** | ペルソナの選択画面に自分のキャラクターも並べるので、キャラクターになりきってプレイできます。 | [ペルソナ](../characters/personas.md) |
 | **Show model name on messages** | 返信を書いたAIモデルの名前を表示します。 | [メッセージの操作](../chats/messages.md) |
 | **Show token usage on messages** | メッセージごとに、プロンプトと返信のトークン数を表示します。 | [メッセージの操作](../chats/messages.md) |
+| **Show context usage** | 最後に計測したリクエストで、モデルのコンテキストがどれだけ埋まっていたかを、接続の切り替えメニューとGameのチャット設定に表示します。 | [接続の整理](../connections/organizing-connections.md#the-random-pool-and-quick-connection-switcher) |
 | **Show message numbers** | チャット内のメッセージに通し番号を表示します。 | [メッセージの操作](../chats/messages.md) |
 | **Show "older messages not sent" note** | 古いメッセージがプロンプトに収まらなかったときに、最新の返信の下に注記を表示します。長いチャットでこの注記を隠したいときはオフにします。途中で切れた返信や空の返信には、それぞれの注記が引き続き表示されます。 | [Peek Prompt](../chats/peek-prompt.md) |
 | **Guide swipes/regens with chat input** | 再生成のときに、入力欄の下書きを指示として使います。 | [ガイド付き生成とImpersonate](../chats/guided-and-impersonate.md) |
-| **Quick replies** | 送信ボタンの横に、下書きを作る別の操作を追加します。 | [ガイド付き生成とImpersonate](../chats/guided-and-impersonate.md) |
 | **Include reasoning in exports** | 表に出ない思考の部分を、チャットのエクスポートに含めます。 | [チャットのエクスポートとインポート](../chats/export-import.md) |
+| **Include private notes in exports** | メッセージに付けた非公開のメモを、JSONLとテキストのチャットのエクスポートに含めます。記録を人と共有するときはオフのままにしてください。 | [チャットのエクスポートとインポート](../chats/export-import.md) |
 | **Debug mode** | 問い合わせ用に、モデルへ送ったデータをサーバーのコンソールに記録します。 | [トラブルシューティング](../TROUBLESHOOTING.md) |
 
 **Advanced**タブの残りの部分は、別のガイドで説明しています。**Updates**は[Marinara Engineのアップデート](../UPGRADING.md)、**Admin Access**は[リモートアクセス](../REMOTE_ACCESS.md)、**Backup & Export**は[バックアップと復元](../data/backup-and-restore.md)、**Danger Zone**は[データの消去](../data/clearing-data.md)を参照してください。

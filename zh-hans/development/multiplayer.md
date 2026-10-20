@@ -79,6 +79,8 @@
 
 每个已认证参与者都有持久化的单调递增行动序号和有上限的操作回执。重试返回先前结果；即使回执离开 128 条缓存，重放仍被判为过时。玩家后来更换 persona 不会改变消息中的 persona 快照。人类与 AI 的 persona 名称必须无歧义，才能定向发送悄悄话或进行检定。
 
+显示名称和 persona 名称是公开的，所以它们永远无法证明席位归谁所有。离开或沉默的玩家，只有当其 Engine 出示该席位的私有重新加入密钥时，才能拿回原来的席位：这个密钥就是首次入座时那次入场的会话 Token，作为新加入请求的 bearer 再次发送。没有它，使用相同名称的请求会收到名称冲突，该席位的会话保持不变。两个 Engine 都只在内存中保存这个密钥。访客 Engine 重启后，房主要先移除旧席位，那位玩家才能再次使用同一个 persona。
+
 Game 的 persona 变更在下一轮边界生效。已有角色表、实时数值、物品栏所有权和追踪器隐私键跟随稳定的参与者身份；历史消息保留原作者。若 NPC 在边界前占用了请求的名称，旧 persona 继续生效，并向玩家显示名称冲突。房主的跳过、移除、暂停和恢复都会在同一记录中留下本地化事件。
 
 Game 在现有聊天元数据中保存必需参与者、每次提交修订和唯一的结算执行权。收集提交和保存标明作者的消息先通过元数据队列，再进入存储事务。服务商工作在事务之外运行。Stop 取消可信操作信号；迟到的房间写入仍必须匹配其活动执行权。中断回合不自动重试。明确恢复会进入下一次收集边界，不重放已提交效果。设置失败则停在大厅，等待明确检查/重启。
@@ -95,6 +97,7 @@ Game 在现有聊天元数据中保存必需参与者、每次提交修订和唯
 
 - `multiplayer-peer-security.regression.ts`：HTTP 信息披露前的 TLS 链/主机名/指纹检查，畸形、超大、重定向响应和取消。
 - `multiplayer-peer-server-security.regression.ts`：仅房间路由、正文/头部/输出/速率/并发限制，以及立即关闭监听器。
+- `multiplayer-seat-key-security.regression.ts`：复制的名称或错误的重新加入密钥永远无法占用席位或获取其悄悄话；密钥持有者回到同一个席位，密钥也永远不会到达其他参与者或已保存的聊天数据。
 - `multiplayer-room.regression.ts`：两个 Engine、入场、所有权、过滤历史、撤销/重放、串行生成和双人 Game 轮次/恢复。
 - `multiplayer-session-flows.regression.ts`：HTTPS 上的两个 Engine，真实生成与 Game 运行时，模拟服务商，以及完整 Conversation、Roleplay、Game 轮次。
 - `multiplayer-generation-policy.regression.ts` 与 `generation-output.regression.ts`：执行器限制、排除私有库、提示词内身份、共享生成锁和完成语义。

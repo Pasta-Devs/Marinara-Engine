@@ -43,6 +43,8 @@ Klapp einen Eintrag auf, um seine Hauptfelder zu bearbeiten.
 - **Secondary Keys** (Zweitschlüsselwörter): weitere Schlüsselwörter, die nur beim Eintragstyp **Selective** greifen. Siehe den Abschnitt zu den Eintragstypen weiter unten.
 - **Description** (Beschreibung): eine kurze Zusammenfassung des Eintrags. Nur der Agent **Knowledge Router** liest sie und entscheidet damit, ob er den Eintrag einfügt. An die eigentliche KI geht sie nie als Inhalt. Siehe [Wissensquellen](../agents/knowledge-sources.md).
 
+Eine Schlüsselliste mit mehr als 10 Schlüsseln zeigt nur die ersten 10. Klick auf **Show N more**, zum Beispiel **Show 5 more** (5 weitere anzeigen), um den Rest zu sehen, und auf **Collapse** (einklappen), um ihn wieder auszublenden. Fügst du einen Schlüssel hinzu, öffnet sich die ganze Liste. Die ausgeblendeten Schlüssel greifen weiterhin wie gewohnt.
+
 Ein einfaches Beispiel:
 
 - Name: `Silverhaven`
@@ -160,6 +162,8 @@ Im aufgeklappten Panel warten noch ein paar Felder.
 
 Das Panel enthält außerdem den Abschnitt **Context filters & matching sources** (Kontextfilter und Trefferquellen). Dort schränkst du einen Eintrag auf bestimmte Charaktere, Charakter-Tags oder Generierungsarten ein. Möglich ist außerdem, weitere Felder der Charakterkarte – etwa die Charakterbeschreibung – nach den Schlüsselwörtern des Eintrags zu durchsuchen.
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## Schreibstrategie: den richtigen Eintrag wählen
 
 Die Abschnitte oben erklären, was jedes Bedienelement tut. Hier geht es um die Entscheidungen beim Schreiben eines Lorebooks: welcher Typ passt, wann ein Schlüsselwort enger gefasst werden muss und wie der Prompt schlank bleibt. Alles beginnt mit einer Frage – *wann soll die KI diese Tatsache sehen?*
@@ -193,6 +197,8 @@ Wo ein Lorebook liegt, entscheidet darüber, welche Chats es sehen. Wähl den Ab
 - **Weltwissen für eine einzelne Geschichte** – heft das Lorebook über die Chat-Einstellungen an genau diesen Chat.
 
 Wie die Aktivierung funktioniert, steht in [Lorebooks im Überblick](overview.md); die Bedienelemente zum Zuweisen, Eingrenzen und Einbetten erklärt [Lorebooks mit Charakteren und Personas verknüpfen](linking-to-characters.md).
+
+<a id="worked-example-a-small-setting"></a>
 
 ## Praxisbeispiel: eine kleine Welt
 
@@ -434,9 +440,8 @@ Als Gruppen erscheinen Ordner nur, wenn du nach **Order** sortierst und keine Su
 
 ## Verwandte Anleitungen
 
-- [Decision-Modelle](../connections/decision-models.md)
-
 - [Lorebooks im Überblick](overview.md)
+- [Decision-Modelle](../connections/decision-models.md)
 - [Lorebook-Token-Budgets und Rekursion](token-budgets.md)
 - [Semantische Suche für Lorebooks](semantic-search.md)
 - [Wissensquellen: Retrieval- und Router-Agenten](../agents/knowledge-sources.md)

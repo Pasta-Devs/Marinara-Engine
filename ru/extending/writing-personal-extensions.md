@@ -98,7 +98,7 @@ marinara.onCleanup(() => panel.remove());
 Затем импортируйте и запустите расширение:
 
 1. Откройте **Settings** > **Addons** > **External Extensions**.
-2. Выберите **Import Folder** и папку `Hello Panel` либо упакуйте папку и импортируйте ZIP.
+2. Выберите **Import Extension Folder** (импортировать папку расширения) и папку `Hello Panel` либо упакуйте папку в ZIP и импортируйте его через **Import Extension File** (импортировать файл расширения).
 3. Откройте отключенный черновик и проверьте его манифест и JavaScript.
 4. Выберите **Review and Run** и одобрите точно показанный хеш.
 5. Откройте меню Extensions и выберите **Hello Panel**.

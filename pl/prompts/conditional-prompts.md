@@ -263,6 +263,16 @@ Kaelen is his usual self.
 
 Tutaj model wybiera między "angry", "sad" i "none of these". Działa też krótka forma: `decision_choice:"The weather in the latest message" == "rain" || "snow"` udostępnia obie opcje. Napisz stwierdzenie jako temat, na przykład "Kaelen's mood in the latest message", a opcje jako krótkie odpowiedzi.
 
+Żeby powiedzieć modelowi, co dana opcja oznacza w twojej historii, dopisz po niej kryteria, oddzielone dwukropkiem:
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+Model czyta kryteria jako opis opcji. Nadal odpowiada "angry" i porównanie nadal dotyczy "angry". Obie części ujmij w cudzysłowy tego samego rodzaju. Jeśli cudzysłowy się różnią, Marinara nie odczytuje "angry" jako opcji, a porównanie nigdy jej nie dopasuje. W kryteriach działają makra, takie jak `{{char}}`. Opcje bez kryteriów są oferowane tak jak dotąd, a jeśli jedna opcja dostanie w kilku miejscach różne kryteria, używane są te pierwsze.
+
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky i cooldown

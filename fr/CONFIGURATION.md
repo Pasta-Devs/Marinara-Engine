@@ -24,6 +24,7 @@ Cycle de vie et stockage des packages :
 - **Mises à jour :** Marinara vérifie si les packages officiels déjà installés ont une mise à jour compatible, et demande confirmation avant chaque téléchargement. Si tu réponds **No**, la version actuelle reste en place et l'action manuelle **Update** (mettre à jour) reste disponible dans Download Agents. Une installation neuve reste vide tant que tu n'as pas choisi de packages.
 - **Plateformes :** Le comportement est identique sur ordinateur, sous Docker et sur les installations Android hébergées par Termux. Sur iOS et les autres clients navigateur, ce sont les packages installés sur le serveur hôte Marinara qui s'appliquent.
 - **Persistance :** Les packages se trouvent dans `DATA_DIR/capability-packages`. Les volumes Docker, les dossiers de données personnalisés, les sauvegardes et les mises à jour normales les conservent.
+- **Espace disque :** Marinara garde la version actuelle de chaque package et celle d'avant, pour qu'une mise à jour échouée puisse revenir en arrière. Il supprime de lui-même les versions plus anciennes et les copies temporaires de `DATA_DIR/capability-runtime-snapshots`. Les données des packages ne sont jamais supprimées.
 - **Résistance hors ligne :** Les packages déjà installés continuent de fonctionner dans leur version installée si l'accès HTTPS sortant vers GitHub est indisponible, si une mise à jour est refusée ou si une mise à jour échoue à la vérification.
 
 ### Import d'agents personnalisés
@@ -38,7 +39,9 @@ Avant l'enregistrement, chaque import affiche les capacités demandées par l'ag
 
 Les dépôts personnalisés sont désactivés par défaut, car leurs prompts et leurs sélections d'outils sont du contenu tiers non vérifié. Un prompt, c'est le texte que Marinara envoie à l'IA. Définis `ENABLE_CUSTOM_AGENT_REPOS=true`, active **Allow custom Agent imports** dans la Danger Zone, puis ouvre **Agents → Download Agents → Custom Sources** pour prévisualiser un dépôt GitHub public. L'ajout d'une source et l'application de toute modification ultérieure du contenu demandent tous deux une confirmation explicite. La synchronisation est manuelle : Marinara ne clone pas les dépôts et ne les interroge pas en arrière-plan.
 
-Un dépôt peut publier des agents, des ensembles de règles de Game Mode ou les deux ; au moins un type est requis. Le fichier facultatif `agents.json` à la racine contient un tableau au format des définitions d'agents téléchargeables. Exemple minimal :
+Un dépôt peut publier des agents, des ensembles de règles de Game Mode ou les deux. Il doit en contenir au moins un.
+
+La racine du dépôt peut contenir un tableau `agents.json` au même format de définition d'agent que les packages d'agents téléchargeables. Voici un fichier minimal :
 
 ```json
 [
@@ -54,11 +57,11 @@ Un dépôt peut publier des agents, des ensembles de règles de Game Mode ou les
 ]
 ```
 
-Le dossier racine `rulesets` accepte jusqu'à 32 fichiers `.json`, chacun contenant un ensemble de 256 KB maximum. Les sous-dossiers sont ignorés. L'aperçu montre nom, version et couverture. Les consignes GM sont envoyées au modèle dans chaque partie utilisant l'ensemble ; n'installe que des sources de confiance.
+La racine du dépôt peut aussi contenir un dossier `rulesets` qui réunit un ensemble de règles de Game Mode par fichier `.json`, jusqu'à 32 fichiers de 512 KB chacun. Seuls les fichiers placés directement dans `rulesets` sont lus : tout ce qui se trouve dans un sous-dossier est ignoré. Chaque ensemble de règles apparaît dans l'aperçu avec son nom, sa version et ce qu'il couvre. Le texte destiné au Game Master (GM, le maître du jeu) d'un ensemble de règles est envoyé au modèle dans chaque partie qui l'utilise : n'installe donc que des ensembles de règles venant de personnes de confiance.
 
-Les identifiants incluent le propriétaire, comme `alice/my-5e`, et ne remplacent ni les ensembles officiels ni le `v20` d'un autre auteur. Chaque version importée reste conservée ; chaque partie utilise exactement sa version fixée. Un contenu différent avec le même numéro ne remplace pas l'installation : l'app demande une nouvelle version. Un fichier invalide est ignoré avec une explication ; le reste peut s'installer.
+Un ensemble de règles importé porte le nom du propriétaire du dépôt, comme `alice/my-5e` : il ne peut donc jamais prendre le nom d'un ensemble officiel, et deux auteurs peuvent chacun publier un ensemble appelé `v20`. Chaque version importée est conservée, et une partie se joue toujours sur la version exacte avec laquelle elle a été créée. Si la même version revient avec un contenu différent, Marinara garde celle qui est installée et te dit de demander à l'auteur d'augmenter le numéro de version. Un fichier que Marinara ne sait pas lire est listé avec la raison, puis ignoré ; le reste du dépôt s'installe quand même.
 
-Seules les URL de racine de dépôt GitHub sont acceptées. L'app vérifie tailles d'archive et définitions avant l'aperçu. La synchronisation remplace prompts, réglages et outils gérés par le dépôt par les valeurs de l'aperçu ; connexions et images restent locales. Un agent supprimé à la source devient un agent local ordinaire, sans lien au dépôt. Retirer la source supprime aussi ce lien, mais conserve les ensembles installés pour les parties existantes.
+Marinara n'accepte que les URL de racine de dépôt GitHub, et valide l'archive, de taille limitée, ainsi que chaque définition d'agent avant d'afficher l'aperçu. Pendant la synchronisation, les valeurs distantes de prompt, de réglages et d'outils remplacent les valeurs gérées par le dépôt affichées dans cet aperçu. Les choix de connexion et d'illustrations restent locaux. Si un agent disparaît à la source, Marinara le garde comme agent personnalisé local ordinaire et retire seulement son lien vers le dépôt. Retirer une source suit la même règle de conservation locale, et les ensembles de règles qu'elle a fournis restent installés pour que les parties qui y sont attachées continuent de fonctionner.
 
 ### Extensions externes
 
@@ -117,9 +120,13 @@ BASIC_AUTH_PASS=correct-horse-battery-staple
 
 Le serveur lit le fichier `.env` de lui-même, quelle que soit la façon dont tu le démarres, y compris avec la commande `pnpm start` lancée directement. Les lanceurs shell (`start.bat`, `start.sh`, `start-termux.sh`) ajoutent deux extras : ils définissent `HOST=0.0.0.0` pour que les autres appareils puissent joindre le serveur, et ils ouvrent le navigateur à ta place. Avec la commande `pnpm start` seule, le serveur n'écoute que sur cet ordinateur, sauf si tu définis `HOST` toi-même.
 
+<a id="restart-or-hot-reload"></a>
+
 ## Redémarrage ou rechargement à chaud
 
-Marinara surveille le fichier `.env` pendant son exécution. Quand tu enregistres une modification, la plupart des réglages s'appliquent en 2 secondes environ, sans redémarrage. Le serveur écrit une ligne de log commençant par `[env-watcher]` à chaque changement appliqué.
+Marinara surveille le fichier `.env` pendant son exécution. Quand tu enregistres une modification, la plupart des réglages s'appliquent presque aussitôt, sans redémarrage. Le serveur écrit une ligne de log commençant par `[env-watcher]` à chaque changement appliqué. Si la surveillance du fichier ne peut pas être mise en place sur ton système de fichiers, le serveur se rabat sur une vérification du fichier toutes les 30 secondes et l'indique dans le log.
+
+Une réserve : sur certaines configurations, la surveillance démarre correctement mais les événements de modification n'arrivent jamais. C'est le cas typique quand le fichier est modifié depuis _une autre machine ou un autre contexte_, par exemple via un partage réseau ou depuis l'hôte vers un montage lié (bind mount) d'un conteneur. Si tes modifications de `.env` ne sont pas prises en compte, définis `MARINARA_ENV_WATCH=poll` pour que le serveur vérifie plutôt le fichier toutes les 30 secondes ; cette méthode voit chaque écriture. Pour désactiver complètement la surveillance, définis `MARINARA_ENV_WATCH=0` (dans l'environnement du shell, ou dans `.env` lui-même avant le démarrage) : les modifications demandent alors un redémarrage. Ce sont deux options avancées ; le rechargement à chaud est ce qui permet aux changements de contrôle d'accès de s'appliquer sans interruption, donc garde la valeur par défaut sauf raison précise.
 
 Un petit groupe de réglages bas niveau est figé au démarrage du serveur. Les modifier demande un redémarrage complet. Ces réglages sont les suivants :
 
@@ -127,7 +134,7 @@ Un petit groupe de réglages bas niveau est figé au démarrage du serveur. Les 
 - `SSL_CERT`, `SSL_KEY`
 - `DATA_DIR`, `FILE_STORAGE_DIR`
 - `ENCRYPTION_KEY`
-- `MARINARA_ENV_FILE`
+- `MARINARA_ENV_FILE`, `MARINARA_ENV_WATCH`
 - `TZ`
 - `AUTO_OPEN_BROWSER`, `AUTO_UPDATE_ENABLED`, `AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
@@ -155,14 +162,15 @@ Voici les principaux réglages de contrôle d'accès :
 | `BASIC_AUTH_USER`                       | vide              | Nom d'utilisateur pour la demande de mot de passe. À définir avec `BASIC_AUTH_PASS` pour exiger une connexion.                                             |
 | `BASIC_AUTH_PASS`                       | vide              | Mot de passe de la demande de connexion. Laisse l'un des deux champs vide pour désactiver la connexion.                                                    |
 | `BASIC_AUTH_REALM`                      | `Marinara Engine` | Texte affiché dans la fenêtre de mot de passe du navigateur.                                                                                               |
-| `IP_ALLOWLIST`                          | vide              | Adresses IP ou plages CIDR séparées par des virgules, toujours autorisées. Le loopback est toujours autorisé.                                              |
+| `IP_ALLOWLIST`                          | vide              | Adresses IP ou plages CIDR séparées par des virgules, toujours autorisées. Le loopback direct est toujours autorisé ; un reverse proxy sur la même machine ne l'est pas.                                              |
 | `IP_ALLOWLIST_ENABLED`                  | `true`            | Mets `false` pour garder la liste tout en suspendant son application.                                                                                      |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false`           | Rétablit l'accès sans mot de passe depuis les réseaux privés quand aucune connexion n'est configurée.                                                      |
 | `ALLOW_UNAUTHENTICATED_REMOTE`          | `false`           | Autorise l'accès sans mot de passe depuis n'importe quelle adresse, y compris l'internet public. Déconseillé.                                              |
 | `TRUSTED_PRIVATE_NETWORKS`              | valeurs internes  | Remplace les plages de réseau privé par défaut. Pense à inclure celles que tu veux conserver.                                                              |
 | `BYPASS_AUTH_TAILSCALE`                 | automatique       | Une valeur vide ne fait confiance aux connexions Tailscale directes que si leurs deux extrémités utilisent des adresses du tailnet. Mets `true` pour l'ancien contournement de toute la plage `100.64.0.0/10`, ou `false` pour imposer le contrôle d'accès normal. |
-| `BYPASS_AUTH_DOCKER`                    | automatique       | Une valeur vide ne fait confiance qu'à une interface de conteneur détectée et à sa passerelle exacte. Mets `true` pour conserver la compatibilité avec les réseaux anciens ou personnalisés, ou `false` pour imposer le contrôle d'accès normal. |
+| `BYPASS_AUTH_DOCKER`                    | automatique       | Une valeur vide ne fait confiance qu'à une interface de conteneur détectée et à sa passerelle exacte, et seulement tant que ni Basic Auth ni `IP_ALLOWLIST` ne sont définis. Mets `true` pour conserver la compatibilité avec les réseaux anciens ou personnalisés, ou `false` pour imposer le contrôle d'accès normal. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY`         | `true`            | Impose les vérifications normales de connexion et de liste d'autorisation au trafic Docker transmis par un proxy. Ne mets `false` que si tous les clients en amont sont de confiance. |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY`       | `true`            | Traite les requêtes transmises par un reverse proxy ou un tunnel sur la même machine comme des visiteurs distants. Ne mets `false` que si le proxy lui-même exige une identification de chaque visiteur. |
 | `TRUSTED_HOSTS`                         | vide              | Noms d'hôte publics ou de proxy inverse supplémentaires auxquels Marinara peut répondre. L'IP directe, localhost, `.local`, `.home.arpa` et les noms LAN à étiquette unique fonctionnent automatiquement. |
 | `SSL_CERT`                              | vide              | Chemin vers un fichier de certificat TLS. À définir avec `SSL_KEY` pour servir directement en HTTPS.                                                       |
 | `SSL_KEY`                               | vide              | Chemin vers le fichier de clé privée TLS.                                                                                                                 |
@@ -183,7 +191,7 @@ Les réglages de stockage déterminent où vivent les données locales : les cha
 | `DATA_DIR`         | `packages/server/data`                     | Dossier racine de toutes les données utilisateur. Les images Docker utilisent `/app/data`. |
 | `FILE_STORAGE_DIR` | le dossier `storage` situé dans `DATA_DIR` | Remplace le dossier de stockage des fichiers.                             |
 | `ENCRYPTION_KEY`   | vide                                       | Clé servant à chiffrer les clés API enregistrées. Génère-la avec la commande ci-dessous. |
-| `MARINARA_MAX_RESIDENT_CHATS` | `0` (illimité)                             | Limite le nombre de chats que le serveur garde en mémoire en même temps. Un chat est chargé à sa première ouverture ; au-delà de la limite, le chat le moins récemment utilisé qui n'a aucune modification non enregistrée est retiré de la mémoire (jamais du disque) après chaque enregistrement. Le lanceur Termux fixe cette valeur à `8` par défaut, pour protéger la mémoire du téléphone. Les valeurs positives inférieures à `2` sont relevées à `2` ; `0` (ou non défini) désactive ce retrait. |
+| `MARINARA_MAX_RESIDENT_CHATS` | `0` (illimité) ; `8` sur SteamOS/Termux    | Limite le nombre de chats que le serveur garde en mémoire en même temps. Un chat est chargé à sa première ouverture ; au-delà de la limite, le chat le moins récemment utilisé qui n'a aucune modification non enregistrée est retiré de la mémoire (jamais du disque) après chaque enregistrement. Sur Termux (Android) et SteamOS (Steam Deck), le serveur utilise `8` par défaut : la mémoire des téléphones est limitée, et sur un Deck, les jeux occupent l'essentiel de la mémoire partagée. Définis un entier positif ou nul valide pour remplacer la valeur par défaut d'une plateforme : un texte invalide déclenche un avertissement et revient à cette valeur par défaut ; les valeurs positives inférieures à `2` sont relevées à `2` ; un `0` explicite désactive ce retrait (le laisser non défini ne le désactive que sur les plateformes sans contrainte). |
 | `MARINARA_EAGER_STORAGE`      | désactivé                                  | Définis-le sur `1` pour charger tous les chats en mémoire au démarrage, ce qui rétablit le comportement antérieur à la version 2.4.5. Consomme beaucoup plus de mémoire sur les gros profils ; changer ce réglage demande un redémarrage. |
 
 Marinara conserve les données sous forme de simples fichiers JSON. Les sauvegardes sont ainsi faciles à copier et à inspecter.
@@ -195,6 +203,8 @@ openssl rand -hex 32
 ```
 
 Pour savoir ce que contient chaque dossier de données, consulte [Où sont stockées tes données](data/where-data-is-stored.md).
+
+<a id="logging-levels"></a>
 
 ## Niveaux de log
 
@@ -229,11 +239,11 @@ Le log du navigateur est séparé et ne dépend pas de `LOG_LEVEL`.
 
 ## Délais d'expiration
 
-Un délai d'expiration est la durée maximale pendant laquelle le serveur attend une tâche lente avant d'abandonner. Les tâches multimédias, comme la génération d'images et de vidéos, peuvent être lentes : leurs délais sont donc généreux par défaut. Toutes les valeurs de délai sont en millisecondes, sauf mention contraire dans le nom.
-
 Ouvre **Settings → Advanced → Request timeouts** pour régler en secondes les limites du texte, des agents, des prompts d'images Game, des images, des vidéos, de ComfyUI et des embeddings. Des limites plus élevées laissent davantage de temps aux backends locaux lents ; elles ne peuvent pas contourner une limite imposée par le fournisseur. L'accès d'administration du serveur est nécessaire pour enregistrer.
 
 Ces réglages s'appliquent à tous les profils et sont enregistrés à côté du fichier `.env` actif dans `.env.timeouts.json` (ou `<custom-env-path>.timeouts.json`). Ils remplacent les variables d'environnement correspondantes sans réécrire ton `.env`. Les changements pour le texte, les agents, les prompts d'images Game et les embeddings s'appliquent aux nouvelles requêtes. Redémarre le serveur pour les changements multimédias et les paquets d'agents installés. Pour revenir à la configuration de l'environnement, supprime le fichier des délais puis redémarre le serveur.
+
+Un délai d'expiration est la durée maximale pendant laquelle le serveur attend une tâche lente avant d'abandonner. Les tâches multimédias, comme la génération d'images et de vidéos, peuvent être lentes : leurs délais sont donc généreux par défaut. Toutes les valeurs de délai sont en millisecondes, sauf mention contraire dans le nom.
 
 | Variable                               | Par défaut                                  | Ce que ça fait                                                                                                                                                                                                                                                                                                                |
 | -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -262,7 +272,7 @@ Définis une valeur longue et aléatoire pour `ADMIN_SECRET` sur le serveur :
 ADMIN_SECRET=replace-this-with-a-long-random-secret
 ```
 
-Sur la machine qui exécute le serveur (loopback), ces actions fonctionnent en général sans le secret. Depuis un autre appareil, l'application doit envoyer le secret. Colle la même valeur dans l'application sous **Settings**, puis **Advanced**, puis **Admin Access** (accès administrateur). Ensuite, l'application s'en charge pour toi.
+Sur la machine qui exécute le serveur (loopback), ces actions fonctionnent en général sans le secret. Par défaut, les requêtes transmises par un reverse proxy ou un tunnel sur cette machine comptent comme distantes. Si tu définis délibérément `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`, ces requêtes transmises sont traitées comme locales et le contournement du secret en loopback s'applique aussi à elles. Garde cette protection activée pour un proxy ou un tunnel public. Les requêtes directes depuis un autre appareil ont toujours besoin du secret. Colle la même valeur dans l'application sous **Settings**, puis **Advanced**, puis **Admin Access** (accès administrateur). Ensuite, l'application s'en charge pour toi.
 
 Réglages privilégiés associés :
 
@@ -275,7 +285,9 @@ Réglages privilégiés associés :
 | `UPDATES_ALLOW_REMOTE_APPLY`                | `false`               | Autorise un appareil distant à appliquer les mises à jour, avec un secret valide.                                                                                                     |
 | `HAPTICS_ALLOW_REMOTE`                      | `false`               | Autorise les actions sur un appareil haptique depuis un appareil distant, avec un secret valide.                                                                                      |
 | `CUSTOM_TOOL_SCRIPT_ENABLED`                | `false`               | Active les outils de script personnalisés. Laisse-le désactivé pour les outils non fiables ou importés.                                                                               |
+| `MARI_DB_ALLOW_UNSAFE_TRANSFORMS`           | `false`               | Autorise les scripts de transformation de base de données de Professor Mari à s'exécuter sur les hôtes sans bac à sable du système (Seatbelt de macOS ou Bubblewrap de Linux, utilisés automatiquement quand ils sont présents). Laisse-le désactivé, sauf si tu as relu le script toi-même. |
 | `ENABLE_CUSTOM_AGENT_REPOS`                 | `false`               | Active l'aperçu et la synchronisation manuels d'un dépôt d'agents GitHub dans le gestionnaire d'agents. Les agents tiers ne sont pas vérifiés et demandent une confirmation explicite avant import ou mise à jour. |
+| `MARINARA_OVERWORLD_GAMES`                  | `false`               | Permet aux joueurs de créer des parties Overworld (un kit d'univers et un monde généré) et de convertir une ancienne partie en partie Overworld. Désactivé, l'assistant ne propose que des parties Classic. |
 | `ENABLE_EXTERNAL_EXTENSIONS`                | `false`               | Première des deux barrières pour l'import d'extensions tierces. L'utilisateur doit aussi donner son accord sous Settings → Advanced → Danger Zone.                                     |
 | `IMPORT_ALLOWED_ROOTS`                      | vide                  | Dossiers du système de fichiers que l'import en masse peut lire sans jeton de sélection.                                                                                              |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES`           | `268435456` (256 Mio) | Export JSON de profil le plus volumineux que le serveur peut construire en une fois.                                                                                                  |
@@ -320,6 +332,9 @@ Cette section liste les réglages restants, regroupés par usage. Les tableaux c
 | `AUTO_OPEN_BROWSER`              | `true`                                           | Indique si les lanceurs shell ouvrent l'URL de l'application pour toi. Mets `false` pour désactiver cette ouverture. L'installation gérée par l'APK désactive l'ouverture automatique du navigateur par le shell. L'APK gère séparément le choix mémorisé entre application et navigateur, ainsi que l'authentification. |
 | `AUTO_UPDATE_ENABLED`            | `true`                                           | Détermine si les lanceurs Windows, macOS/Linux et Termux basés sur Git récupèrent et appliquent les mises à jour du moteur avant le démarrage. Mets `false` pour un refus durable ; le changement prend effet au lancement suivant. Le lanceur continue de vérifier, en lecture seule, l'existence de versions publiées plus récentes et affiche un rappel de téléchargement le cas échéant, tandis que les vérifications manuelles, la mise à jour depuis l'application, les mises à jour de packages et de modèles restent disponibles. Utilise `--skip-update` pour ignorer les deux vérifications du lanceur pour un seul démarrage. |
 | `MARINARA_ENV_FILE`              | fichier `.env` à la racine du projet             | Chemin de remplacement facultatif pour le fichier `.env`. À définir avant le démarrage.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4`                                     | Plafond global, pour tout le processus, du nombre de requêtes simultanées aux fournisseurs d'images et de vidéos, toutes surfaces confondues (galeries, storyboards, ressources de jeu, sprites, avatars). Augmente-le pour un GPU local puissant ou un fournisseur aux limites généreuses ; baisse-le à 1-2 si un ComfyUI ou un SwarmUI local manque de VRAM pendant les lots ; `0` supprime complètement le plafond. Les valeurs invalides sont ignorées avec un avertissement dans le log. Le travail par lots ou automatique n'occupe jamais le dernier emplacement : une place reste donc toujours disponible pour les requêtes interactives. S'ajoute à **Queue media generation requests** (mettre les requêtes de génération de médias en file d'attente ; **Settings → Generations → Overall Generations**, activé par défaut), qui place les tâches d'images et les tâches de vidéos dans des files d'attente séparées pour chaque compte de fournisseur. |
+| `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000`                            | Durée pendant laquelle une requête de génération peut attendre qu'un emplacement se libère avant d'échouer avec une erreur claire au lieu de rester bloquée (10 minutes par défaut ; `0` attend indéfiniment). |
+| `MARINARA_ENV_WATCH`             | `1`                                              | La façon dont le serveur surveille `.env` pour appliquer les changements en direct. Par défaut : des événements de modification (appliqués après un délai d'environ 250 ms), avec un repli automatique sur une vérification du fichier toutes les 30 secondes si la surveillance ne peut pas être mise en place. `poll` utilise toujours la vérification toutes les 30 secondes (pour les montages réseau ou les montages liés modifiés depuis l'extérieur). `0` désactive la surveillance ; les modifications demandent alors un redémarrage. Voir [Redémarrage ou rechargement à chaud](#restart-or-hot-reload). |
 | `TZ`                             | valeur système par défaut                        | Fuseau horaire de repli de l'hôte pour les tâches côté serveur. Les emplois du temps de Conversation utilisent le fuseau horaire global choisi dans leurs commandes d'emploi du temps, dès qu'un fuseau a été enregistré. Laisse `TZ` non défini pour hériter du fuseau horaire de l'hôte ; un `TZ=` vide équivaut aussi à non défini.                                                                                                                                            |
 | `CORS_ORIGINS`                   | `http://localhost:5173,http://127.0.0.1:5173`    | Origines de navigateur autorisées à faire des requêtes multi-origines.                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `AUTO_CREATE_DEFAULT_CONNECTION` | `true`                                           | Indicateur hérité. Les versions actuelles n'embarquent aucune clé de démarrage : ce réglage ne crée donc rien. Ajoute ta propre connexion dans l'application.                                                                                                                                                                                                                                                                                                                    |
@@ -399,6 +414,19 @@ Tous ces réglages sont désactivés par défaut, conservant le comportement ant
 | `SSL_KEY`                         | vide                                         | Chemin vers une clé privée TLS. Voir la section Contrôle d'accès ci-dessus.        |
 
 Côté clé Giphy, retiens que la recherche de GIF reste indisponible tant que tu n'as pas défini `GIPHY_API_KEY` et redémarré. Pour le modèle local intégré, consulte [Configurer un modèle local](connections/local-model.md).
+
+<a id="outbound-http-proxy"></a>
+
+### Proxy HTTP sortant
+
+Certains réseaux n'accèdent à Internet que par un proxy HTTP, par exemple v2rayN sans le mode TUN. Marinara peut envoyer ses requêtes vers les fournisseurs d'IA, les services d'images, les serveurs d'embeddings et le catalogue d'agents via ce proxy. Définis ces variables dans l'environnement qui lance Marinara ou dans `.env`, puis redémarre Marinara.
+
+| Variable             | Par défaut | Ce que ça fait |
+| -------------------- | ---------- | -------------- |
+| `NODE_USE_ENV_PROXY` | non défini | Mets `1` pour utiliser le proxy ci-dessous. Sans cela, Marinara ignore les réglages de proxy, comme le fait Node.js : un proxy que tu as défini seulement pour d'autres outils ne change donc rien. |
+| `HTTP_PROXY`         | vide       | Adresse du proxy, comme `http://127.0.0.1:10809`. Utilisée pour chaque requête quand `HTTPS_PROXY` n'est pas défini. |
+| `HTTPS_PROXY`        | vide       | Proxy pour les adresses `https://`, quand il diffère de `HTTP_PROXY`. |
+| `NO_PROXY`           | vide       | Hôtes séparés par des virgules qui contournent le proxy. Ajoute ici les serveurs de modèles de ton réseau local. `localhost`, `127.0.0.1` et `::1` le contournent toujours, pour que les modèles locaux continuent de fonctionner. |
 
 ## Guides associés
 

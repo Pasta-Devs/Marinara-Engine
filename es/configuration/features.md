@@ -12,6 +12,8 @@ Los cambios se aplican de inmediato. No hace falta reiniciar el servidor ni reca
 | --- | --- | --- | --- |
 | **Stable lorebook picks** (selecciones estables del lorebook) | `stableLorebookGroupPicks` | Desactivado | `LOREBOOK_STABLE_GROUP_WINNERS` |
 | **Retry failed provider calls** (reintentar llamadas fallidas al proveedor) | `providerRetry` | Desactivado | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
+| **Lorebook activation stats** (estadísticas de activación del lorebook) | `usageAndActivationStats` | Desactivado | ninguna |
+| **Recover deleted chat messages** (recuperar mensajes de chat eliminados) | `messageTrash` | Desactivado | ninguna |
 
 Buscar `features` en los ajustes lleva a esta sección.
 
@@ -48,6 +50,26 @@ Clave: `providerRetry`. Variable de entorno: `PROVIDER_RETRY_TRANSIENT_ERRORS`.
 Activado: se reintenta una conexión rechazada o inaccesible, o un error de puerta de enlace 502/503, como máximo dos veces con una espera breve de variación aleatoria, y solo antes de recibir texto. Nunca se reintenta un 504 ni una conexión interrumpida. Si la conexión tiene fallback, se prueba inmediatamente ese fallback en su lugar.
 
 Desactivado: como antes, solo se reintentan los límites de frecuencia.
+
+<a id="lorebook-activation-stats"></a>
+
+### Estadísticas de activación del lorebook
+
+Clave: `usageAndActivationStats`. Sin variable de entorno.
+
+Activado: después de que una respuesta se guarda correctamente, Marinara registra qué entradas del lorebook se activaron, para que puedas ordenar y filtrar las entradas por uso en el editor del lorebook. Las continuaciones de una respuesta no añaden registros de activación.
+
+Desactivado: no se registra nada, y el editor del lorebook oculta sus estadísticas de activación.
+
+<a id="recover-deleted-chat-messages"></a>
+
+### Recuperar mensajes de chat eliminados
+
+Clave: `messageTrash`. Sin variable de entorno.
+
+Activado: los mensajes de chat eliminados van a la pestaña **Trash** (Papelera) de la búsqueda del chat. Usa **Restore** (Restaurar) allí dentro de un plazo de 30 días; después se eliminan para siempre. Los mensajes de Game y las eliminaciones por reversión siguen siendo permanentes.
+
+Desactivado: los mensajes eliminados se borran de inmediato.
 
 <a id="precedence"></a>
 

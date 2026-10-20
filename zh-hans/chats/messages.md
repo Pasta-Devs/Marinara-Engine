@@ -20,7 +20,7 @@ Marinara Engine 里的每条消息都带一个小工具栏，你写的和 AI 写
 | **Peek prompt**(查看提示词) | 显示 AI 为这条回复实际收到的提示词。 | 只在最新一条 AI 消息上 |
 | **Stored guidance**(已保存的引导) | 显示引导这条回复的方向说明。 | 只有这条回复用了引导方向，或者由 Impersonate 代写时 |
 | **Branch from here**(从这里分支) | 把这条消息之前的聊天复制成一个新分支。 | 始终显示 |
-| **View thoughts**(查看思考) | 打开模型隐藏的推理文字。 | 只有模型返回了推理内容时 |
+| **View model thoughts**(查看模型思考过程) | 打开模型隐藏的推理文字。 | 只有模型返回了推理内容时 |
 | **Delete**(删除) | 删除这条消息。见下文。 | 始终显示 |
 | **Pause speaking**(暂停朗读) / **Resume speaking**(继续朗读) / **Restart speaking**(重新朗读) | 控制这条消息的语音朗读。 | 只有 Text to Speech 开启并且正在朗读时 |
 
@@ -99,6 +99,8 @@ AI 上下文就是应用每一轮发给 AI 的那批消息。点击 **Hide from 
 - **Show token usage on messages**：给 AI 回复加上单条消息的 Token 数。Token 是 AI 读写文本时切分出的最小单位。这里会显示这条回复的提示词 Token 数和补全 Token 数，条件允许时还会显示缓存命中情况和这条回复用了多长时间。
 
 同一个 **Message Tools** 分组里还有一个相关开关 **Show model name on messages**，它会显示写出每条回复的 AI 模型名，默认同样是关闭的。
+
+如果为了让提示词放得下，不得不把较早的消息排除在外，回复下方会有一条简短提示说明排除了多少条，例如“1109 older messages not sent”。要隐藏回复下方的这条提示，在同一个分组里关掉 **Show "older messages not sent" note**(显示“较早消息未发送”提示)。打开 Checkup 时仍然可以看到它。它默认开启。关于回复被截断或返回为空的提示仍会显示。
 
 ## 相关指南
 

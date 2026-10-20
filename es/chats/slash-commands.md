@@ -29,7 +29,7 @@ Estos comandos te ayudan a gestionar el chat y sus mensajes. Funcionan en los ch
 | Comando | También funciona como | Qué hace |
 |---|---|---|
 | `/help` | | Enumera todos los comandos slash. |
-| `/send [message]` | | Publica un mensaje como tu persona sin activar la generación. |
+| `/send [message]` | | Publica un mensaje como tu persona sin activar la generación. Se guarda igual que con **Send** (Enviar), con las macros ya sustituidas. |
 | `/continue` | `/cont` | Añade más texto a la última respuesta de la IA, sin enviar un mensaje nuevo. La opción **Add a new line before /continue text** de **Settings → General → Responses** controla si ese texto empieza después de una línea en blanco o directamente en el punto de corte. |
 | `/goto [number]` | `/jump`, `/scroll` | Desplaza el chat hasta un mensaje según su número. |
 | `/hide [range] [name (optional)]` | | Oculta uno o más mensajes a la IA en los turnos siguientes. |

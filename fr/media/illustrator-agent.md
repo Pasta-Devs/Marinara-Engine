@@ -8,7 +8,7 @@ Un agent est un petit programme d'IA qui tourne automatiquement dans un chat. L'
 
 L'agent Illustrator ne dessine pas à chaque message. Par défaut, après avoir produit une image, il attend 5 messages acceptés, de toi comme de l'assistant, avant d'en produire une autre. Chaque chat Roleplay peut modifier ce nombre. Faire un swipe (réponse alternative) ou régénérer la même réponse ne fait pas avancer ce compteur. Si un moment ne lui semble pas digne d'une illustration, il le laisse passer sans rien créer. Toutes les images produites arrivent dans la section **Gallery** (galerie) du chat.
 
-L'agent Illustrator s'utilise dans les chats **Roleplay** et **Game Mode**, et son installation débloque aussi les selfies en mode **Conversation**. Sa description courte dans l'application indique : "Responsible for image and video generations." Les étapes de configuration et les réglages décrits ici valent pour les chats Roleplay. Game Mode se contente d'un seul interrupteur, présenté plus bas dans la section consacrée à ce mode.
+L'agent Illustrator s'utilise dans les chats **Roleplay** et **Game Mode**, et son installation débloque aussi les selfies et les [messages vidéo](../conversation/selfies.md#video-messages) en mode **Conversation**. Sa description courte dans l'application indique : "Responsible for image and video generations." Les étapes de configuration et les réglages décrits ici valent pour les chats Roleplay. Game Mode se contente d'un seul interrupteur, présenté plus bas dans la section consacrée à ce mode.
 
 ## Avant de commencer
 
@@ -61,17 +61,24 @@ La connexion d'images, elle, correspond au fournisseur d'images qui dessine l'im
 
 ## Attach Card Appearance et Send Avatar References
 
-Deux interrupteurs de la carte Illustrator aident les personnages à rester cohérents d'une image à l'autre. Les deux sont désactivés par défaut.
+Deux réglages de la carte Illustrator aident les personnages à rester cohérents d'une image à l'autre. Les deux sont désactivés par défaut.
 
-**Attach Card Appearance** (joindre l'apparence de la fiche) ajoute au prompt d'image le texte d'apparence enregistré de chaque personnage visible. Son texte d'aide indique : "Append matched character appearance lines to image prompts, using only visible/generated names." Active-le quand tu veux que l'image colle à la description écrite du personnage.
+Pour les images, **Attach Card Appearance** (joindre l'apparence de la fiche) ajoute au prompt d'image le texte d'apparence enregistré de chaque personnage visible. Les prompts vidéo ne le reçoivent que si tu inclus les vidéos, comme décrit ci-dessous. Son texte d'aide indique : "Append matched character appearance lines to image prompts, using only visible/generated names." Active-le quand tu veux que l'image colle à la description écrite du personnage.
 
-Quand **Attach Card Appearance** est activé, toute fiche ou tout persona qui a aussi **Image Appearance Override** (apparence propre aux images) activé et dont le champ contient du texte envoie ce texte à la place d'**Appearance**. Utilise cette option si **Appearance** est écrit pour le narrateur mais convient mal à un modèle d'images : garde la description complète dans **Appearance** et écris une version plus courte, sous forme de tags, dans le second champ. Si l'option est désactivée ou le champ vide, les prompts d'image continuent d'utiliser **Appearance**. Le narrateur reçoit toujours le texte complet d'**Appearance** dans les deux cas. L'interrupteur se trouve sous **Appearance** dans les éditeurs de personnage et de persona.
+Dans le panneau **Chat Settings** d'un chat Roleplay, **Attach Card Appearance** est un menu déroulant à quatre choix :
 
-**Send Avatar References** (envoyer les avatars en référence) transmet au fournisseur d'images les avatars des personnages et des personas, ou leurs sprites, comme images de référence. Son texte d'aide indique : "Send matching character and persona avatars or sprites as reference images when the provider supports them." Le modèle d'images peut ainsi reprendre un visage ou une tenue. Tous les fournisseurs n'acceptent pas les images de référence : le résultat dépend donc de celui que tu as choisi.
+- **Off** (désactivé)
+- **Images only** (images seulement), le comportement habituel.
+- **Videos only** (vidéos seulement). Un clip créé depuis la galerie reçoit le texte d'apparence des personnages que nomme sa direction de mouvement.
+- **Images and videos** (images et vidéos) fait les deux.
+
+Quand **Attach Card Appearance** est activé, toute fiche ou tout persona qui a aussi **Image Appearance Override** (apparence propre aux images) activé envoie ce remplacement à la place de son texte d'**Appearance**. Utilise cette option si **Appearance** est écrit pour le narrateur mais convient mal à un modèle d'images : garde la description complète dans **Appearance** et écris une version plus courte, sous forme de tags, dans le remplacement. Si le remplacement est désactivé ou son champ vide, les prompts d'image continuent d'utiliser **Appearance**. Le narrateur reçoit toujours le texte complet d'**Appearance** dans les deux cas. L'interrupteur se trouve sous **Appearance** dans les éditeurs de personnage et de persona.
+
+**Send Avatar References** (envoyer les avatars en référence) transmet au fournisseur d'images les avatars des personnages et des personas, ou leurs sprites, comme images de référence. Son texte d'aide indique : "Send matching character and persona avatars or sprites as reference images when the provider supports them." Le modèle d'images peut ainsi reprendre un visage ou une tenue. Tous les fournisseurs n'acceptent pas les images de référence : le résultat dépend donc de celui que tu as choisi. En Roleplay, ce réglage reste un interrupteur et ne concerne que les images, car un clip Roleplay part déjà d'une image.
 
 ## Plusieurs personnages avec NovelAI
 
-Quand la connexion d'images de l'Illustrator utilise NovelAI avec un modèle V4, V4.5 ou V5, le modèle qui rédige le prompt reçoit la consigne d'ajouter une description pour chaque personnage visible. Chaque description contient l'apparence, l'expression, la pose et la position approximative du personnage dans l'image. Marinara compare les descriptions à la liste des personnages de la scène, écarte celles qu'il ne peut pas associer et envoie les autres à NovelAI comme prompts de personnage natifs, en plus du prompt principal de la scène. Cela évite que les cheveux, les vêtements et les autres traits se mélangent entre les personnages d'une scène de groupe.
+Quand la connexion d'images de l'Illustrator utilise NovelAI avec un modèle V4, V4.5 ou V5, le modèle qui rédige le prompt reçoit la consigne d'ajouter une description pour chaque personnage visible. Chaque description contient l'apparence, l'expression, la pose et la position approximative du personnage dans l'image. Marinara compare les descriptions à la liste des personnages de la scène, écarte celles qu'il ne peut pas associer et envoie les autres à NovelAI comme prompts de personnage natifs, en plus du prompt principal de la scène. Cela évite que les cheveux, les vêtements et les autres traits se mélangent entre les personnages d'une scène de groupe. Les images issues du bouton **Illustrate** (illustrer) et de la commande `[illustrate]` d'un personnage reçoivent les mêmes descriptions.
 
 Le nombre de descriptions dépend du modèle. V5 accepte jusqu'à 22 personnages, et V4 ou V4.5 jusqu'à 6. Si la scène contient davantage de personnages visibles, les plus importants sont conservés et les autres sont traités comme des figurants anonymes à l'arrière-plan.
 
@@ -79,7 +86,7 @@ Le modèle qui rédige le prompt reçoit aussi des consignes sur la provenance d
 
 Avec **Attach Card Appearance** (joindre l'apparence de la fiche) activé, le modèle reçoit également comme référence le texte complet du champ Appearance de chaque fiche et de chaque persona du chat, afin de ne pas tronquer les fiches longues ou regroupant plusieurs personnages. Les fiches qui décrivent plusieurs personnages dans un même champ Appearance sous la forme `[NAME] tags | [NAME] tags` sont séparées par personnage. Le modèle décide quoi utiliser : il copie les traits fixes dans la description correspondante, considère les tags de vêtements de la fiche comme une valeur par défaut que le tracker ou la scène peut remplacer, et ignore les personnages absents de la scène. Quand le modèle renvoie des descriptions de personnages, Marinara n'ajoute plus rien au prompt. Quand il n'en renvoie aucune, comme dans le cas d'un seul personnage, la ligne d'apparence habituelle est ajoutée au prompt principal comme auparavant.
 
-Aucun réglage n'est nécessaire. Les descriptions ne sont utilisées qu'avec une connexion au propre serveur de NovelAI ; un proxy ou un autre fournisseur n'est donc pas concerné. Quand **Review image prompts before sending** (vérifier les prompts d'image avant l'envoi) est activé, la fenêtre de vérification affiche les descriptions sous le prompt principal pour que tu voies ce qui sera envoyé. Elles y sont en lecture seule ; tu peux modifier le prompt principal comme d'habitude.
+Aucun réglage n'est nécessaire. Les descriptions ne sont utilisées qu'avec une connexion au propre serveur de NovelAI ; un proxy ou un autre fournisseur n'est donc pas concerné. Quand **Expose media prompts before sending** (afficher les prompts médias avant l'envoi) est activé, la fenêtre de vérification affiche les descriptions sous le prompt principal pour que tu voies ce qui sera envoyé. Elles y sont en lecture seule ; tu peux modifier le prompt principal comme d'habitude.
 
 ## Autres réglages et déclenchement manuel
 
@@ -89,13 +96,15 @@ Chaque chat Roleplay a son propre champ **Run Interval** (intervalle d'exécutio
 
 Règle **Run Interval** sur **0** pour générer uniquement à la demande. Cela arrête les exécutions automatiques d'Illustrator, y compris ses arrière-plans de scène automatiques, tout en gardant l'agent installé et disponible pour les actions de Gallery. Choisis un intervalle positif pour reprendre les exécutions automatiques.
 
-Il est aussi possible de créer une image à la demande, sans attendre. Ouvre **Chat Settings** et déplie **Gallery** et utilise le bouton **Illustrate** (illustrer). L'agent Illustrator se lance immédiatement pour une passe, et le bouton affiche **Generating...** pendant le travail. Pratique quand tu veux une image du moment présent et que l'agent n'en a pas encore dessiné.
+Il est aussi possible de créer une image à la demande, sans attendre. Ouvre **Chat Settings**, déplie **Gallery** et utilise le bouton **Illustrate**. L'agent Illustrator se lance immédiatement pour une passe, et le bouton affiche **Generating...** pendant le travail. Pratique quand tu veux une image du moment présent et que l'agent n'en a pas encore dessiné.
 
 ## Enregistrement dans les galeries et inspection du prompt
 
 Dans **Settings → Generations → Image Generation** (réglages → générations → génération d'images), **Automatically save generated images to character galleries** (enregistrer automatiquement les images générées dans les galeries des personnages) est activé par défaut. Désactive-le pour ne plus ajouter les illustrations et selfies du chat aux galeries des personnages et personas représentés. Les images restent visibles dans la conversation et la galerie du chat ; l'enregistrement manuel dans une galerie reste possible. Les entrées existantes ne changent pas. Les galeries partagent les fichiers d'images : ce réglage contrôle leur présence dans les galeries sans supprimer le fichier du chat.
 
 Pour les nouvelles illustrations créées par Illustrator avec NovelAI, l'inspecteur affiche le prompt de scène ou de style, suivi des descriptions positives des personnages, séparées par ` | `. Cela s'applique aussi au prompt enregistré dans la galerie.
+
+Pour redessiner une illustration avec un prompt modifié, sans régénérer la réponse, ouvre-la et utilise **Regenerate image** (régénérer l'image). Voir [Régénérer une image](scene-backgrounds.md#regenerating-an-image).
 
 Pour illustrer un ancien message Roleplay ou une plage, utilise `/illustrate range=12` ou `/illustrate range=12-18`. La numérotation et les limites sont décrites dans [Commandes slash](../chats/slash-commands.md).
 

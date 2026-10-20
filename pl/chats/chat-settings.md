@@ -42,7 +42,7 @@ Na komputerze **Chat Settings** jest oknem nad czatem. Jego zawartość dopasowu
 - **Lock** (blokada) uniemożliwia przesuwanie i zmianę rozmiaru okna oraz unieruchamia jego przycisk. Przycisk nadal otwiera okno. Odblokuj okno, aby znów przesuwać je lub jego przycisk.
 - **Close** (zamknięcie, **X**) ukrywa okno.
 
-Okna pozostają w obszarze czatu, gdy zmieniasz rozmiar przeglądarki lub otwierasz panel boczny.
+Okna pozostają w obszarze czatu, gdy zmieniasz rozmiar przeglądarki lub otwierasz panel boczny. Na komputerze okno lub przycisk może stać w miejscu obok pola wiadomości, aż do samego dołu czatu. Nigdy nie zasłania jednak samego pola wiadomości.
 
 Na telefonie **Chat Settings** otwiera się jako panel na całą szerokość. Podczas pisania mieści się nad klawiaturą.
 
@@ -188,7 +188,7 @@ Narzędzia czatu też są sekcjami **Chat Settings**. Ich dostępność zależy 
 - **Chat Summary** (podsumowanie czatu), pod **Lorebooks**, służy do przeglądania i tworzenia podsumowań czatu Roleplay. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md#chat-summary-roleplay).
 - **Active Context** (aktywny kontekst), pod **Chat Summary**, pokazuje lorebooki i kontekst używane w tym czacie. Zobacz [Limity tokenów i rekurencja w lorebookach](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
 - **Agent activity** (aktywność agentów), tuż pod **Agents**, pokazuje pracę agentów w czacie Roleplay korzystającym z agentów lub funkcji **Advanced Memory**. Pozwala też ponownie uruchamiać trackery, ponawiać lub zatrzymywać agentów i czyścić trackery. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes** (notatki autora), pod **Agents**, zawiera notatkę, którą AI czyta w każdej turze czatu Roleplay. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#authors-notes).
+- **Author's Notes** (notatki autora), pod **Agents**, zawiera notatkę, którą AI czyta w każdej turze czatu Roleplay. Gdy wysuniesz ją do osobnego okna, jej pole tekstowe rośnie razem z oknem; na telefonie wypełnia cały ekran. Zobacz [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md#authors-notes).
 - **Gallery** (galeria) przechowuje obrazy i filmy czatu. Zobacz [Tła scen i galeria](../media/scene-backgrounds.md).
 
 ## Pozostałe sekcje panelu

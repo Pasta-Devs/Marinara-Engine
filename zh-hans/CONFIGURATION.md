@@ -24,11 +24,12 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 - **更新：** Marinara 会检查已安装的官方包有没有兼容的新版本，每次下载前都会先确认。选择 **No** 就保留当前版本，之后仍可在 Download Agents 里手动执行 **Update**。全新安装在挑选包之前一直是空的。
 - **平台：** 桌面端、Docker 和 Termux 托管的 Android 安装行为完全一致。iOS 和其他浏览器客户端使用各自 Marinara 宿主服务器上已安装的包。
 - **持久化：** 包存放在 `DATA_DIR/capability-packages` 下。Docker 卷、自定义数据文件夹、备份和常规更新都会保留它们。
+- **磁盘占用：** Marinara 会为每个包保留当前版本和上一个版本，这样更新失败时还能回滚。更旧的版本和 `DATA_DIR/capability-runtime-snapshots` 里的临时副本会自动删除。包数据永远不会被删除。
 - **离线容错：** 连不上 GitHub 的 HTTPS 出站连接、拒绝了某次更新，或者更新没通过校验时，已有的包都会继续以已安装的版本工作。
 
 ### 导入自定义智能体
 
-自定义智能体可以在 **Context Sources**(上下文来源)中启用 **Previous output**(上次输出)，读取可见消息历史中自己最近一次成功的输出。使用 **JSON context output**(JSON 上下文输出)时，返回 `{"text":"main prompt content","agent-context":"private continuation context"}`。只有 `text` 会加入主提示词；可选的 `agent-context` 字段留给同一个智能体下次运行使用。**Hide output as spoilers**(将输出折叠为剧透)会把已保存的输出折叠起来，直到你展开查看。重新生成会排除正在替换的轮次，已删除的消息和未选中的备选回复都不能提供后续运行的上下文。
+自定义智能体可以在 Context Sources(上下文来源) 中启用 **Previous output**(上次输出)，读取可见消息历史中自己最近一次成功的输出。使用 **JSON context output**(JSON 上下文输出) 时，返回 `{"text":"main prompt content","agent-context":"private continuation context"}`。只有 `text` 会加入主提示词；可选的 `agent-context` 字段留给同一个智能体下次运行使用。**Hide output as spoilers**(将输出折叠为剧透) 会把已保存的输出折叠起来，直到你展开查看。重新生成会排除正在替换的轮次，已删除的消息和未选中的备选回复都不能提供后续运行的上下文。
 
 外部智能体文件、文件夹和自定义仓库默认是锁住的。要放开，打开 **Settings → Advanced → Danger Zone**(设置 → 高级 → 危险区域) 并启用 **Allow custom Agent imports**(允许导入自定义智能体)。和 External Extensions 不同，这道由你自己控制的开关不需要配环境变量。开关打开之前，导入控件一直是灰的。
 
@@ -38,7 +39,9 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 
 自定义仓库默认禁用，因为里面的提示词和工具选择属于未经审核的第三方内容。设置 `ENABLE_CUSTOM_AGENT_REPOS=true`，在 Danger Zone 里启用 **Allow custom Agent imports**，然后打开 **Agents → Download Agents → Custom Sources**(自定义来源) 预览一个公开的 GitHub 仓库。添加来源，以及之后应用任何内容变更，都需要明确确认。同步是手动的，Marinara 不会克隆仓库，也不会在后台轮询。
 
-仓库可以发布智能体、Game Mode 规则集或两者，但至少要有一种。根目录中可选的 `agents.json` 是采用可下载智能体定义格式的数组。最小示例：
+仓库可以发布智能体、Game Mode 规则集，或两者都发布，但至少要有其中一种。
+
+仓库根目录可以放一个 `agents.json` 数组，格式与可下载智能体包的智能体定义相同。最小的文件长这样：
 
 ```json
 [
@@ -54,11 +57,11 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 ]
 ```
 
-根目录的 `rulesets` 文件夹最多可放 32 个 `.json` 文件，每个文件包含一个规则集，上限为 256 KB。子文件夹会被忽略。预览显示名称、版本和覆盖范围。GM 指引会在使用该规则集的游戏中发送给模型，因此只安装可信作者的内容。
+仓库根目录还可以有一个 `rulesets` 文件夹，每个 `.json` 文件放一个 Game Mode 规则集，最多 32 个文件，每个不超过 512 KB。只读取直接放在 `rulesets` 里的文件，子文件夹里的内容一律忽略。预览中会列出每个规则集的名称、版本和覆盖范围。规则集的 Game Master 文本会在每个使用它的游戏中发送给模型，所以只安装你信任的人发布的规则集。
 
-ID 包含仓库所有者，如 `alice/my-5e`，不会替换官方规则集或其他作者的 `v20`。所有导入版本都会保留，游戏使用固定的准确版本。同版本号但内容不同的文件不会覆盖安装；应用会要求提高版本号。无效文件会跳过并说明原因，其余内容仍可安装。
+导入的规则集以仓库所有者命名，例如 `alice/my-5e`，因此它永远不会占用官方规则集的名称，两位作者也都可以发布名为 `v20` 的规则集。每个导入的版本都会保留，游戏始终使用创建时的那个确切版本。如果同一版本再次传来但内容不同，Marinara 会保留已安装的那份，并提示你请作者提高版本号。Marinara 读不了的文件会列出原因并跳过，仓库里的其余内容照常安装。
 
-仅支持 GitHub 仓库根地址。应用在预览前验证压缩包大小和定义。同步会用预览值替换仓库管理的提示词、设置和工具；连接与图片保留在本地。上游删除的智能体会作为普通本地智能体保留，只解除仓库关联。删除来源同样解除关联，但规则集仍会保留安装，以供已有游戏使用。
+Marinara 只接受 GitHub 仓库根地址，并会在显示预览之前校验有大小上限的压缩包以及每一条智能体定义。同步时，远程的提示词、设置和工具值会替换预览中显示的那些由仓库管理的值。连接和图片的选择保留在本地。如果某个智能体在上游消失，Marinara 会把它保留为普通的本地自定义智能体，只移除它的仓库关联。删除来源也遵循同样的保留在本地策略，它提供的规则集仍保持安装，固定使用这些规则集的游戏可以继续运行。
 
 ### 外部扩展
 
@@ -117,9 +120,13 @@ BASIC_AUTH_PASS=correct-horse-battery-staple
 
 无论用什么方式启动，服务器都会自己读取 `.env`，直接跑 `pnpm start` 也一样。shell 启动脚本（`start.bat`、`start.sh`、`start-termux.sh`）额外做两件事：设置 `HOST=0.0.0.0` 让其他设备能访问服务器，以及自动打开浏览器。如果只用 `pnpm start`，除非自己设置 `HOST`，服务器只监听本机。
 
+<a id="restart-or-hot-reload"></a>
+
 ## 重启还是热重载
 
-Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设置约 2 秒内生效，无需重启。每次应用变更，服务器都会写一行以 `[env-watcher]` 开头的日志。
+Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设置几乎立即生效，无需重启。每次应用变更，服务器都会写一行以 `[env-watcher]` 开头的日志。如果你的文件系统无法设置文件监视，服务器会退回到每 30 秒检查一次文件，并在日志里说明。
+
+有一点要注意：在某些环境下，监视能正常启动，但变更事件始终收不到。典型情况是文件从*另一台机器或另一个环境*里编辑，比如通过网络共享，或从宿主机编辑容器的绑定挂载。如果你对 `.env` 的修改没有被读到，设置 `MARINARA_ENV_WATCH=poll`，让服务器改为每 30 秒检查一次文件，这样每次写入都能看到。要完全关闭监视，设置 `MARINARA_ENV_WATCH=0`(写在 shell 环境里，或在启动前写进 `.env` 本身)，之后的修改就需要重启才能生效。这两项都是高级选项；访问控制的修改正是靠热重载才能不停机生效，所以除非有明确理由，请保持默认值。
 
 有一小部分底层设置在服务器启动时就固定下来了，改动它们必须完整重启。这些设置是：
 
@@ -127,7 +134,7 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 - `SSL_CERT`、`SSL_KEY`
 - `DATA_DIR`、`FILE_STORAGE_DIR`
 - `ENCRYPTION_KEY`
-- `MARINARA_ENV_FILE`
+- `MARINARA_ENV_FILE`、`MARINARA_ENV_WATCH`
 - `TZ`
 - `AUTO_OPEN_BROWSER`、`AUTO_UPDATE_ENABLED`、`AUTO_CREATE_DEFAULT_CONNECTION`
 - `LOG_DISABLE_REQUEST_LOGGING`
@@ -155,14 +162,15 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `BASIC_AUTH_USER` | 空 | 密码提示框里的用户名。与 `BASIC_AUTH_PASS` 一起设置即可要求登录。 |
 | `BASIC_AUTH_PASS` | 空 | 登录提示框里的密码。任一项留空即关闭登录。 |
 | `BASIC_AUTH_REALM` | `Marinara Engine` | 浏览器密码框里显示的文字。 |
-| `IP_ALLOWLIST` | 空 | 始终放行的 IP 或 CIDR 段，用逗号分隔。环回地址始终放行。 |
+| `IP_ALLOWLIST` | 空 | 始终放行的 IP 或 CIDR 段，用逗号分隔。直连的环回地址始终放行；同一台机器上的反向代理则不会。 |
 | `IP_ALLOWLIST_ENABLED` | `true` | 设为 `false` 可保留列表但暂停生效。 |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。 |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 允许任意地址免密访问，包括公网。不推荐。 |
 | `TRUSTED_PRIVATE_NETWORKS` | 内置默认值 | 替换默认的私有网络段。仍需保留的默认段要自己写进去。 |
 | `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，仅当直连 Tailscale 套接字的两端都是 tailnet 地址才予以信任。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |
-| `BYPASS_AUTH_DOCKER` | 自动 | 留空时，仅信任检测到的容器接口及其确切网关。设为 `true` 可兼容旧版或自定义网络，设为 `false` 则要求执行正常访问控制。 |
+| `BYPASS_AUTH_DOCKER` | 自动 | 留空时，仅信任检测到的容器接口及其确切网关，而且只在没有设置 Basic Auth 或 `IP_ALLOWLIST` 时才信任。设为 `true` 可兼容旧版或自定义网络，设为 `false` 则要求执行正常访问控制。 |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 对经代理转发的 Docker 流量照常执行登录和允许列表检查。只有在确认每一个上游客户端都可信时才设为 `false`。 |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 把同一台机器上的反向代理或隧道转发过来的请求当作远程访客处理。只有在代理本身要求每位访客登录时才设为 `false`。 |
 | `TRUSTED_HOSTS` | 空 | Marinara 额外允许响应的公网或反向代理主机名。直连 IP、localhost、`.local`、`.home.arpa` 和单段局域网名称自动生效。 |
 | `SSL_CERT` | 空 | TLS 证书文件的路径。与 `SSL_KEY` 一起设置即可直接提供 HTTPS 服务。 |
 | `SSL_KEY` | 空 | TLS 私钥文件的路径。 |
@@ -183,7 +191,7 @@ Basic Auth 是 HTTP Basic Authentication 的简称，就是一个简单的用户
 | `DATA_DIR` | `packages/server/data` | 所有用户数据的根文件夹。Docker 镜像设为 `/app/data`。 |
 | `FILE_STORAGE_DIR` | `DATA_DIR` 里的 `storage` 文件夹 | 覆盖文件存储文件夹。 |
 | `ENCRYPTION_KEY` | 空 | 用来加密已保存 API 密钥的密钥。用下面的命令生成一个。 |
-| `MARINARA_MAX_RESIDENT_CHATS` | `0`(无限制) | 限制服务器同时保留在内存里的聊天数量。聊天在第一次打开时载入内存；超过上限后，每次保存之后会把最久未使用、且没有未保存改动的那个聊天从内存中移出（不会从磁盘删除）。Termux 启动脚本默认把它设为 `8`，以保护手机内存。小于 `2` 的正数会被抬高到 `2`；设为 `0`(或不设置) 则关闭这项清理。 |
+| `MARINARA_MAX_RESIDENT_CHATS` | `0`(无限制)；SteamOS/Termux 上为 `8` | 限制服务器同时保留在内存里的聊天数量。聊天在第一次打开时载入内存；超过上限后，每次保存之后会把最久未使用、且没有未保存改动的那个聊天从内存中移出（不会从磁盘删除）。在 Termux(Android) 和 SteamOS(Steam Deck) 上，服务器默认设为 `8`：手机内存有限，而在 Deck 上，游戏会占用大部分共享内存。设置一个有效的非负整数即可覆盖平台默认值；无效文本会记录警告并退回该默认值；小于 `2` 的正数会被抬高到 `2`；显式设为 `0` 会关闭这项清理（不设置则只在没有内存限制的平台上关闭）。 |
 | `MARINARA_EAGER_STORAGE` | 关闭 | 设为 `1` 可在启动时把每一个聊天都载入内存，恢复 2.4.5 之前的行为。在体量大的档案上会占用多得多的内存；改动需要重启才生效。 |
 
 Marinara 把数据保存为普通的 JSON 文件，备份时便于直接复制和查看。
@@ -195,6 +203,8 @@ openssl rand -hex 32
 ```
 
 想知道每个数据文件夹装了什么，见[数据保存在哪里](data/where-data-is-stored.md)。
+
+<a id="logging-levels"></a>
 
 ## 日志级别
 
@@ -229,11 +239,11 @@ LOG_DISABLE_REQUEST_LOGGING=true
 
 ## 超时
 
+打开 **Settings → Advanced → Request timeouts**(设置 → 高级 → 请求超时)，即可按秒调整文本、智能体、Game 图像提示词、图像、视频、ComfyUI 和嵌入的时限。提高时限能让较慢的本地后端有足够时间完成任务，但不能突破服务商自身强制执行的限制。保存需要服务器管理权限。
+
+这些设置对所有档案生效，保存在当前 `.env` 旁边的 `.env.timeouts.json` 里（或 `<custom-env-path>.timeouts.json`）。它们会覆盖对应的环境变量，而不会改写你的 `.env`。文本、智能体、Game 图像提示词和嵌入的修改对新请求生效。媒体相关的修改和已安装的智能体包需要重启服务器。要改回用环境变量配置，删除这个超时设置文件并重启服务器。
+
 超时是服务器放弃之前等待一个慢任务的最长时间。图像和视频生成这类媒体任务本来就慢，所以默认超时给得比较宽松。除非变量名另有说明，所有超时值的单位都是毫秒。
-
-打开 **Settings → Advanced → Request timeouts**，即可按秒调整文本、代理、Game 图像提示词、图像、视频、ComfyUI 和嵌入的时限。提高时限能让较慢的本地后端有更多时间完成任务，但不能覆盖提供商自身强制执行的限制。保存需要服务器管理权限。
-
-这些设置适用于所有配置档，保存在当前 `.env` 旁边的 `.env.timeouts.json` 中；使用自定义路径时，文件名为 `<custom-env-path>.timeouts.json`。它们优先于对应的环境变量，不会改写你的 `.env`。文本、代理、Game 图像提示词和嵌入的更改会应用于新请求。媒体更改和已安装代理包需要重启服务器才能生效。要恢复使用环境变量配置，请删除超时设置文件并重启服务器。
 
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
@@ -262,7 +272,7 @@ LOG_DISABLE_REQUEST_LOGGING=true
 ADMIN_SECRET=replace-this-with-a-long-random-secret
 ```
 
-在运行服务器的那台机器上（环回访问），这些操作通常不用密钥也能完成。从其他设备执行时，应用必须把密钥发过去。把同一个值粘贴到应用的 **Settings**(设置) → **Advanced**(高级) → **Admin Access**(管理员访问) 里，之后应用会自动带上它。
+在运行服务器的那台机器上（环回访问），这些操作通常不用密钥也能完成。默认情况下，这台机器上的反向代理或隧道转发过来的请求算作远程请求。如果你有意设置了 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`，这些转发请求会被当作本地请求，环回免密钥的规则也同样适用于它们。公开的代理或隧道请保留这道防护。从其他设备直接发出的请求仍然需要密钥。把同一个值粘贴到应用的 **Settings**(设置) → **Advanced**(高级) → **Admin Access**(管理员访问) 里，之后应用会自动带上它。
 
 相关的授权设置：
 
@@ -275,7 +285,9 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `UPDATES_ALLOW_REMOTE_APPLY` | `false` | 允许远程设备在提供有效密钥的前提下应用更新。 |
 | `HAPTICS_ALLOW_REMOTE` | `false` | 允许远程设备在提供有效密钥的前提下执行触感设备操作。 |
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | 启用自定义脚本工具。工具来源不可信或是导入来的，就保持关闭。 |
+| `MARI_DB_ALLOW_UNSAFE_TRANSFORMS` | `false` | 允许 Professor Mari 的数据库转换脚本在没有操作系统沙箱的主机上运行（沙箱指 macOS Seatbelt 或 Linux Bubblewrap，存在时会自动使用）。除非你亲自审查过脚本，否则保持关闭。 |
 | `ENABLE_CUSTOM_AGENT_REPOS` | `false` | 在智能体管理器里启用手动的 GitHub 智能体仓库预览与同步。第三方智能体未经审核，导入或更新前都需要明确确认。 |
+| `MARINARA_OVERWORLD_GAMES` | `false` | 允许玩家创建 Overworld 游戏（一套设定包加一个生成的世界），并把旧版游戏转换成 Overworld 游戏。关闭时，向导只提供 Classic 游戏。 |
 | `ENABLE_EXTERNAL_EXTENSIONS` | `false` | 第三方扩展导入的第一道关。你还必须在 Settings → Advanced → Danger Zone 里主动同意。 |
 | `IMPORT_ALLOWED_ROOTS` | 空 | 批量导入无需经过文件选择器授权即可读取的文件系统文件夹。 |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456`(256 MiB) | 服务器构建单个 JSON 档案导出文件的大小上限。 |
@@ -320,6 +332,9 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `AUTO_OPEN_BROWSER` | `true` | 控制 shell 启动脚本是否自动打开应用 URL。设为 `false` 即可关闭。APK 管理的安装会关闭 shell 的浏览器自动打开功能。APK 会单独处理记住的应用或浏览器选择以及认证。 |
 | `AUTO_UPDATE_ENABLED` | `true` | 基于 Git 的 Windows、macOS/Linux 和 Termux 启动脚本是否在启动前拉取并应用 Engine 更新。设为 `false` 可长期关闭，下次启动生效。启动脚本仍会只读地检查有没有更新的正式发布版，有的话打印一条下载提醒；手动检查、应用内应用更新、包更新和模型更新都照常可用。加 `--skip-update` 可让本次启动跳过这两项检查。 |
 | `MARINARA_ENV_FILE` | 项目根目录的 `.env` | 可选，覆盖 `.env` 文件的路径。要在启动前设置。 |
+| `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | 整个进程范围内同时进行的图像/视频服务商请求上限，覆盖所有入口（图库、故事板、游戏素材、立绘、头像）。本地 GPU 性能强劲或服务商限额宽松时可以调高；本地 ComfyUI/SwarmUI 在批量任务中显存不足时，降到 1-2；`0` 完全取消这个上限。无效值会被忽略，并记录一条警告。批量或自动任务永远不会占用最后一个名额，所以始终会给交互式请求留出一个。这个上限叠加在 **Queue media generation requests**(媒体生成请求排队) 之上（位于 **Settings → Generations → Overall Generations**(设置 → 生成 → 总体生成)，默认开启），后者会为每个服务商账户分别排队图像任务和视频任务。 |
+| `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | 生成请求等待空闲并发名额的最长时间，超时后以明确的错误失败，而不是一直挂起（默认 10 分钟；`0` 表示一直等待）。 |
+| `MARINARA_ENV_WATCH` | `1` | 服务器监视 `.env` 实时变更的方式。默认：使用变更事件（约 250 ms 防抖后应用），无法设置监视时自动退回到每 30 秒检查一次文件。`poll` 始终使用 30 秒检查（适用于网络挂载，或从外部编辑的绑定挂载）。`0` 关闭监视，之后的修改需要重启。见[重启还是热重载](#restart-or-hot-reload)。 |
 | `TZ` | 系统默认 | 服务端任务使用的宿主机后备时区。Conversation 日程如果已经在日程控件里保存过全局时区，就用那个时区。不设 `TZ` 即沿用宿主机时区；写成空的 `TZ=` 也等同于未设置。 |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 允许发起跨源请求的浏览器源。 |
 | `AUTO_CREATE_DEFAULT_CONNECTION` | `true` | 遗留开关。当前版本不再内置任何入门密钥，所以它什么也不会创建。请在应用里自行添加连接。 |
@@ -399,6 +414,19 @@ Conversation 的日程控件默认使用浏览器或应用所在设备报告的�
 | `SSL_KEY` | 空 | TLS 私钥的路径。见上面的访问控制一节。 |
 
 关于 Giphy 密钥，注意在设置 `GIPHY_API_KEY` 并重启之前，GIF 搜索一直不可用。关于内置的本地模型，见[本地模型设置](connections/local-model.md)。
+
+<a id="outbound-http-proxy"></a>
+
+### 出站 HTTP 代理
+
+有些网络只能通过 HTTP 代理访问互联网，例如未开启 TUN 模式的 v2rayN。Marinara 可以通过这个代理发送它对 AI 服务商、图像服务、嵌入服务器和智能体目录的请求。在启动 Marinara 的环境里或 `.env` 中设置下面这些变量，然后重启 Marinara。
+
+| 变量 | 默认值 | 作用 |
+| --- | --- | --- |
+| `NODE_USE_ENV_PROXY` | 未设置 | 设为 `1` 才会使用下面的代理。不设置时，Marinara 会像 Node.js 一样忽略代理设置，所以只为其他工具设置的代理不会产生任何影响。 |
+| `HTTP_PROXY` | 空 | 代理地址，例如 `http://127.0.0.1:10809`。没有设置 `HTTPS_PROXY` 时，所有请求都走这个代理。 |
+| `HTTPS_PROXY` | 空 | 用于 `https://` 地址的代理，在它与 `HTTP_PROXY` 不同时设置。 |
+| `NO_PROXY` | 空 | 不走代理的主机，用逗号分隔。局域网里的模型服务器加在这里。`localhost`、`127.0.0.1` 和 `::1` 始终不走代理，所以本地模型照常可用。 |
 
 ## 相关指南
 

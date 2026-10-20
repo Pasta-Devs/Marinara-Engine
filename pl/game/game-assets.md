@@ -99,10 +99,22 @@ Muzyka ma ścisły układ folderów. Każda ścieżka muzyczna musi leżeć w tr
 Dozwolone wartości to:
 
 - Stan: `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Gatunek: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Gatunek: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom` albo rodzina stylistyczna settingu (zobacz niżej), na przykład `wuxia`.
 - Intensywność: `calm`, `tense`, `intense`.
 
 Dzięki temu układowi Game Mode wie, kiedy odtworzyć każdą ścieżkę. Foldery dźwięków otoczenia, efektów dźwiękowych, sprite'ów i teł nie mają tej zasady. Ich podfoldery można nazywać dowolnie.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### Własna grafika i muzyka settingu
+
+Gra rozpoczęta z zestawem settingu ma rodzinę stylistyczną, widoczną w sekcji **Art and music** (grafika i muzyka), gdy zmieniasz słownictwo zestawu: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` albo jedną z własnych rodzin zestawu. Gra korzysta z folderów nazwanych tak jak jej rodzina i z każdego folderu, którego nazwa nie jest nazwą żadnej rodziny, a foldery innych rodzin pomija. Dzięki temu gra cyberpunkowa nigdy nie zagra muzyki do bitew fantasy ani nie pokaże zaczarowanego lasu. Gdy nic z jej rodziny ani ze wspólnych folderów nie pasuje, nic nie gra – gra nie sięga po ścieżkę innej rodziny.
+
+- **Music**: ścieżki settingu umieść w `music/<state>/<family>/<intensity>`, na przykład `combat/wuxia/intense`. Mają pierwszeństwo przed wspólnymi ścieżkami.
+- **Backgrounds**: `backgrounds/<family>`. Tła wygenerowane w trakcie gry z zestawem settingu też trafiają do tego folderu.
+- **Dźwięki walki**: dźwięk w `sfx/combat/<family>` o tej samej nazwie co wbudowany, na przykład `sword-swing`, zastępuje go w grach tej rodziny. Wbudowane dźwięki walki są w stylu fantasy, więc walki innych rodzin są ciche, dopóki nie dodasz dla nich własnych dźwięków.
+
+Wbudowane tła startowe liczą się jako wspólne, z wyjątkiem teł fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) i nowoczesnego `city_night`. Gra bez zestawu settingu korzysta, tak jak dotąd, ze wszystkich folderów. Zestaw settingu zapisany, zanim pojawiły się rodziny stylistyczne, nadal działa: zestaw utworzony na podstawie jednego ze startowych zestawów settingu korzysta z rodziny tamtego zestawu, a każdy inny korzysta ze wszystkich folderów, dopóki nie wybierzesz rodziny w sekcji **Art and music**. Pasek wyboru opisany w części [Wybór zasobów dostępnych dla gry](#choosing-which-assets-a-game-can-use) podaje rodzinę otwartej gry.
 
 ## Porządkowanie zasobów
 
@@ -134,6 +146,8 @@ Pamiętaj, że wbudowane pliki startowe są chronione. Można zmieniać ich nazw
 Marinara trzyma wewnętrzną listę zasobów, żeby Game Mode szybko je odnajdywał. Przy wgrywaniu przez aplikację lista aktualizuje się sama.
 
 Jeśli skopiujesz pliki do folderu zasobów gry bezpośrednio na komputerze, poza aplikacją, aplikacja od razu tego nie zauważy. Kliknij przycisk **Rescan**, żeby ponownie odczytała folder i wykryła nowe pliki. Przycisk **Rescan** jest zarówno na pasku narzędzi panelu **Asset Browser**, jak i w sekcji **Game Assets** w panelu **Settings**.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## Wybór zasobów dostępnych dla gry
 

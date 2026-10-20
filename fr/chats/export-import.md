@@ -2,6 +2,8 @@
 
 Ce guide explique comment enregistrer un chat (une conversation enregistrée) dans un fichier, puis le recharger dans Marinara Engine. Tu peux exporter un seul chat ou plusieurs d'un coup, et enregistrer un chat sous forme d'histoire lisible à partager. Autre possibilité : importer un fichier de chat venant de Marinara ou de SillyTavern (une autre application de chat pour le roleplay).
 
+<a id="file-formats-you-will-see"></a>
+
 ## Les formats de fichier que tu vas croiser
 
 Marinara peut enregistrer un chat dans quatre formats.
@@ -14,6 +16,8 @@ Marinara peut enregistrer un chat dans quatre formats.
 Les fichiers **Markdown** et **Story** laissent de côté les messages système et les messages qui te sont masqués.
 
 L'import de chat accepte uniquement un fichier `.jsonl`. Si tu comptes réimporter un chat plus tard, exporte-le en **JSONL**, pas en **Text**, **Markdown** ou **Story**.
+
+Un fichier **JSONL** laisse de côté quelques adresses enregistrées avec le chat : le webhook du miroir Discord, l'adresse DeepLX, la clé DeepL et l'adresse Intiface. L'import d'un chat ne les ramène jamais non plus. Si tu t'en sers, saisis-les de nouveau dans **Chat Settings** (réglages du chat) du chat importé.
 
 ## Exporter un seul chat
 

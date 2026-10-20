@@ -98,7 +98,7 @@ marinara.onCleanup(() => panel.remove());
 続いて、拡張機能をインポートして実行します。
 
 1. **Settings** > **Addons** > **External Extensions**を開きます。
-2. **Import Folder**を選んで`Hello Panel`を指定するか、フォルダーをZIPにしてインポートします。
+2. **Import Extension Folder**を選んで`Hello Panel`を指定するか、フォルダーをZIPにして**Import Extension File**でインポートします。
 3. 無効な下書きを開き、マニフェストとJavaScriptを確認します。
 4. **Review and Run**を選び、表示された正確なハッシュを承認します。
 5. Extensionsメニューを開き、**Hello Panel**を選びます。
@@ -256,4 +256,4 @@ CSS、専用ストレージ、インポートアーカイブ、ランタイム�
 - [Personal Extensions](personal-extensions.md)
 - [サーバー設定](../CONFIGURATION.md)
 - [トラブルシューティング](../TROUBLESHOOTING.md)
-- [Personal Extensionアーキテクチャ](../development/personal-extensions.md)
+- [Personal Extensionのアーキテクチャ](../development/personal-extensions.md)

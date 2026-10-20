@@ -24,7 +24,9 @@ CSSを書かずに外観を変えるには、**Settings > Appearance > App**(設
 
 - **Apply preset font**(プリセットのフォントを適用)は、選んだウィジェットのフォントをメッセージ、入力欄、チャットの操作部品に使います。
 - **Apply preset shape**(プリセットの形を適用)は、選んだ枠の形を、クラシックとビジュアルノベルの両レイアウトのRoleplayメッセージ、Gameの会話ボックス、入力欄、操作部品に使います。Conversationメッセージは元の形を保ちます。
-- **Apply preset colors**(プリセットの色を適用)は、ウィジェットの枠線、背景、文字の色をこれらの領域に使います。Conversationメッセージも対象です。独自の色やグラデーションも適用されます。引用符で囲まれたセリフは、キャラクターやペルソナごとのDialogue Highlight Colorを保ちます。
+- **Apply preset colors**(プリセットの色を適用)は、ウィジェットの枠線、背景、文字の色をこれらの領域に使います。Conversationメッセージも対象です。独自の色やグラデーションも適用されます。引用符で囲まれたセリフは、キャラクターやペルソナごとのDialogue Highlight Colorを保ちます。エージェントの装飾付きカードのようにHTMLでできたメッセージは、それ自体が指定した文字の色を保ちます。
+
+**Load More**(さらに読み込む)や**Show older**(古いものを表示)のように、古いメッセージや新しいメッセージを読み込むボタンも、ほかのチャットの操作部品と同じくこれらのスイッチに従います。
 
 Game Modeでは、補足の発言、HUDウィジェット、マップパネル、キャラクターシート、ログ、インベントリー、戦闘画面のパネル、ダイアログにもこれらのスイッチが適用されます。
 
@@ -231,6 +233,8 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 | Conversationメッセージ(フォントと色のみ) | `.mari-chat-style-conversation` |
 | 枠のないConversationメッセージの文字 | `.mari-chat-style-text` |
 | CallsとConversationのグループ操作を含むチャットの操作部品 | `.mari-chat-style-control` |
+| 履歴のボタン: **Load More**、**Show older**、**Show newer**、**Latest**と、Gameのログの**Older**、**All**、**Show more older logs**。これらには`.mari-chat-style-control`も付いています | `.mari-chat-history-pager` |
+| エージェントの装飾付きカードのようにHTMLでできたメッセージ。**Apply preset colors**がオンのときも、その中で指定した文字の色が保たれます | `.mari-html-content` |
 
 | 変数 | 制御するもの |
 | --- | --- |

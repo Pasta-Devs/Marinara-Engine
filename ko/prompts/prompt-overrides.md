@@ -27,7 +27,7 @@
 
 편집기 제목을 클릭하면 펼쳐집니다.
 
-**Video Generation Prompt Overrides**(동영상 생성 프롬프트 재정의)에서는 Game과 Gallery(갤러리)의 장면 동영상, Conversation의 Call(통화) 캐릭터 클립, 움직이는 Expression(표정) 초상화에 쓰이는 재사용 템플릿을 고칩니다. 동영상 프롬프트 템플릿 하나가 클립 한 종류를 동영상 모델에 어떻게 설명할지 정합니다.
+**Video Generation Prompt Overrides**(동영상 생성 프롬프트 재정의)에서는 Game과 Gallery(갤러리)의 장면 동영상, Conversation 동영상 메시지, Conversation의 Call(통화) 캐릭터 클립, 움직이는 Expression(표정) 초상화에 쓰이는 재사용 템플릿을 고칩니다. 동영상 프롬프트 템플릿 하나가 클립 한 종류를 동영상 모델에 어떻게 설명할지 정합니다.
 
 **Image Generation Prompt Overrides**(이미지 생성 프롬프트 재정의)에서는 이미지, 스프라이트, Game, 프롬프트 빌더 계열이 사용하는 템플릿을 고칩니다. Conversation의 셀카, Game의 NPC 초상화, 장면 그림, 스토리보드 프롬프트, Noodle 게시물에 쓰이는 **Noodle Post Image** 템플릿, 그 밖에 등록된 이미지 빌더가 여기에 해당합니다. 이미지 프롬프트 템플릿 하나가 그림 한 종류를 이미지 모델에 어떻게 설명할지 정합니다.
 

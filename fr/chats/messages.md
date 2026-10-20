@@ -20,7 +20,7 @@ Les boutons ci-dessous apparaissent sur les messages. Certains ne se montrent qu
 | **Peek prompt** (voir le prompt) | Affiche le prompt exact que l'IA a reçu pour cette réponse. Le prompt, c'est le texte que Marinara envoie à l'IA. | Seulement sur le dernier message de l'IA |
 | **Stored guidance** (consigne enregistrée) | Affiche la direction qui a orienté cette réponse. | Seulement si la réponse a suivi une direction guidée ou vient d'Impersonate |
 | **Branch from here** (créer une branche ici) | Copie le chat jusqu'à ce message dans une nouvelle branche. | Toujours |
-| **View thoughts** (voir les pensées) | Ouvre le texte de raisonnement caché du modèle. | Seulement si le modèle a renvoyé un raisonnement |
+| **View model thoughts** (voir les pensées du modèle) | Ouvre le texte de raisonnement caché du modèle. | Seulement si le modèle a renvoyé un raisonnement |
 | **Delete** (supprimer) | Supprime le message. Voir plus bas. | Toujours |
 | **Pause speaking** / **Resume speaking** / **Restart speaking** (mettre en pause / reprendre / relancer la lecture) | Pilote l'audio parlé d'un message. | Seulement quand Text to Speech est actif et en train de parler |
 
@@ -55,7 +55,7 @@ Les messages système, par exemple une ligne "joined the chat", ont un simple bo
 
 Un swipe est une version d'une réponse de l'IA. Un même message peut en contenir plusieurs : tu compares alors différentes réponses au même tour et tu gardes celle qui te plaît.
 
-Un contrôle de swipe apparaît sur le message dès qu'il en compte deux ou plus. Elle affiche le swipe actif et le total, par exemple "2/4", avec ces contrôles :
+Un contrôle de swipe apparaît sur le message dès qu'il en compte deux ou plus. Il affiche le swipe actif et le total, par exemple "2/4", avec ces contrôles :
 
 - **Previous swipe** et **Next swipe** (swipe précédent et swipe suivant) : recule ou avance d'un swipe.
 - Une zone numérique : saisis un numéro de swipe et appuie sur Enter pour y sauter directement. Son infobulle indique **Jump to swipe 1-N**, où N est le total.
@@ -99,6 +99,8 @@ Deux interrupteurs modifient le niveau de détail affiché sur les messages. Les
 - **Show token usage on messages** (afficher l'usage des tokens sur les messages) : ajoute aux réponses de l'IA un décompte de tokens message par message. Un token est un petit morceau de texte que l'IA lit et écrit. Le décompte indique les tokens du prompt et ceux de la réponse. Quand l'information existe, il montre aussi les accès au cache et le temps qu'a pris la réponse.
 
 Un réglage voisin, dans la même section **Message Tools**, **Show model name on messages** (afficher le nom du modèle sur les messages), ajoute le nom du modèle d'IA qui a écrit chaque réponse. Lui aussi est désactivé par défaut.
+
+Quand des messages plus anciens ont dû être laissés hors du prompt pour qu'il tienne, une courte note sous la réponse indique combien, par exemple "1109 older messages not sent". Pour masquer cette note sous la réponse, désactive **Show "older messages not sent" note** (afficher la note "anciens messages non envoyés") dans la même section. Elle peut encore apparaître quand tu ouvres Checkup. Ce réglage est activé par défaut. Les notes sur une réponse coupée ou revenue vide s'affichent toujours.
 
 ## Guides associés
 

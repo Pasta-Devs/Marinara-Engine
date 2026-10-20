@@ -20,12 +20,13 @@ Le panneau **Personas** est ta bibliothèque de personas. Ouvre-le depuis l'icô
 
 Le panneau propose les contrôles suivants :
 
-- Le bouton **Open Full Library** (ouvrir la bibliothèque complète) ouvre la Persona Library en pleine page, qui s'adapte à la taille de l'écran. Elle reprend la disposition en grille avec aperçu de la Character Library : descriptions des personas, sections de la fiche, tags et estimations de tokens (un token est un petit morceau de texte).
+- Le bouton **Download** (télécharger) ouvre le [Card Browser](bot-browser.md), où tu trouves aussi des personas sur PlotLight.
+- Le bouton **Open Library** (ouvrir la bibliothèque) ouvre la Persona Library en pleine page, qui s'adapte à la taille de l'écran. Elle reprend la disposition en grille avec aperçu de la Character Library : descriptions des personas, sections de la fiche, tags et estimations de tokens (un token est un petit morceau de texte).
 - Le bouton **New** (nouveau) crée un persona.
 - Le bouton **Import** (importer) ouvre la fenêtre **Import Persona**.
 - Le bouton **Select** (sélectionner) active le mode sélection multiple, pour agir sur plusieurs personas à la fois.
 - Le champ de recherche, dont le texte indicatif est **Search personas**, cherche dans le nom, la description, le commentaire et les tags.
-- Le menu déroulant de tri propose **A-Z**, **Z-A**, **Newest**, **Oldest** et **Tokens** (taille estimée du prompt).
+- Le menu déroulant de tri propose **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** et **Tokens** (taille estimée du prompt). **Manual order** garde l'ordre que tu as défini : fais glisser une ligne vers le haut ou vers le bas, ou appuie sur Alt+Up ou Alt+Down sur une ligne sélectionnée. Sur écran tactile, appuie longuement sur une ligne pour la saisir.
 - Le bouton **New Folder** (nouveau dossier) crée un dossier pour organiser les personas.
 - La pastille **Tags** déploie la liste des tags pour filtrer.
 
@@ -82,7 +83,7 @@ L'onglet **Card** (fiche) accueille les champs principaux du persona. Chaque cha
 - **Personality** (personnalité) : ton tempérament, ton comportement, tes façons de parler et tes réactions émotionnelles.
 - **Backstory** (passé) : ton histoire, tes origines, tes relations et les événements qui t'ont façonné.
 - **Appearance** (apparence) : description physique, vêtements et détails visuels que le modèle doit retenir.
-- **Image Appearance Override** (apparence propre aux images) : un interrupteur facultatif sous **Appearance**, désactivé par défaut. Active-le pour afficher un second champ où tu peux décrire ton persona avec un texte adapté à la génération d'images. S'il est activé et que le champ contient du texte, les prompts d'image utilisent ce texte à la place d'**Appearance**. Si l'interrupteur est désactivé ou le champ vide, ils continuent d'utiliser **Appearance**. Le narrateur reçoit toujours le texte complet d'**Appearance**.
+- **Image Appearance Override** (apparence propre aux images) : un interrupteur facultatif sous **Appearance**, désactivé par défaut. Active-le pour afficher un second champ où tu peux décrire ton persona avec de courts tags d'image, comme le mot déclencheur d'un LoRA. S'il est activé et que le champ contient du texte, les prompts d'image utilisent ces tags tels quels, **Appearance** servant de contexte. Le narrateur reçoit toujours le texte complet d'**Appearance**.
 - **Scenario** (scénario) : ta situation ou ton contexte par défaut pour les roleplays. Sers-t'en pour poser le point de départ du persona.
 
 Ces zones de texte acceptent les macros. Les guillemets que tu saisis sont reformatés automatiquement selon le style de guillemets réglé dans l'application.
@@ -119,11 +120,11 @@ Laisse l'un de ces champs vide pour garder les couleurs par défaut du thème de
 L'onglet **Stats** comporte deux blocs distincts. Tous deux alimentent l'affichage des caractéristiques à l'écran, le HUD, ce bandeau d'infos en haut du chat.
 
 - L'interrupteur **Enable Persona Stats** (activer les caractéristiques du persona) affiche des barres d'état pour des besoins comme la faim, l'énergie et l'humeur. À la première activation, tu obtiens des barres de départ : Satiety, Energy, Hygiene et Mood, chacune à 100 sur 100. L'agent **Persona Stats** ajuste ces valeurs au fil de l'histoire.
-- L'interrupteur **Enable RPG Attributes** (activer les attributs RPG) active des caractéristiques de type jeu de rôle et des points de vie. À la première activation, tu obtiens les attributs de départ STR, DEX, CON, INT, WIS et CHA, chacun à 10. L'agent **Character Tracker** peut les ajuster d'après les combats et les événements du récit.
+- L'interrupteur **Enable RPG Attributes** (activer les attributs RPG) active des Pools et des Attributes de type jeu de rôle. À la première activation, tu obtiens des Pools de départ HP et MP à 100 sur 100 et les Attributes de départ STR, DEX, CON, INT, WIS et CHA, chacun à 10. Ces valeurs sont envoyées avec la fiche du persona pour le combat et le Game Mode, ainsi que pour les jets facultatifs en Roleplay ou en Game Mode. Les agents trackers ne les mettent pas à jour.
 
-Les valeurs définies ici servent de point de départ par défaut aux nouveaux chats. Elles ne se mettent pas à jour toutes seules. La mise à jour automatique exige que l'agent correspondant soit activé pour le chat. Pour l'explication complète, consulte [Couleurs de personnage et caractéristiques RPG](colors-and-stats.md).
+Quand un ensemble de règles de Game Mode est installé, ou que le persona conserve encore une fiche pour un ensemble de règles que tu n'as plus, un bloc **Ruleset sheets** (fiches d'ensembles de règles) apparaît sous ces deux sections. Il contient la configuration de départ de ton persona pour chaque ensemble de règles, qu'une nouvelle partie sur cet ensemble copie. Voir [Fiches d'ensembles de règles](colors-and-stats.md#ruleset-sheets).
 
-Si un ensemble de règles de Game Mode est installé, ou si la persona conserve sa fiche, **Ruleset sheets** apparaît sous les deux sections. Il s'agit de sa configuration initiale par ensemble, copiée dans chaque nouvelle partie. Voir [Fiches d'ensembles de règles](colors-and-stats.md#ruleset-sheets).
+Les valeurs définies ici servent de point de départ par défaut aux nouveaux chats. Les Persona Status Bars peuvent se mettre à jour automatiquement quand l'agent Persona Stats est activé ; les Pools et Attributes RPG du persona ne sont pas gérés par les agents. Pour l'explication complète, consulte [Couleurs de personnage et caractéristiques RPG](colors-and-stats.md).
 
 ## Historique des versions
 
@@ -165,8 +166,8 @@ Chaque fichier affiche une icône de réussite ou d'échec, accompagnée d'un me
 
 L'export part de l'icône **Export persona** du **Persona Editor**, ou de l'action groupée **Export** (exporter) en mode sélection dans le panneau. La fenêtre **Export Persona** propose deux formats :
 
-- **Native** : conserve tous les détails du persona propres à Marinara, les sprites et les lorebooks attachés. Ce format sert à déplacer un persona d'une installation de Marinara à une autre.
-- **Compatible** : n'exporte que les champs de persona simples. Ce format sert pour les autres outils, qui ne comprennent pas le format de Marinara.
+- **Marinara Native** : conserve tous les détails du persona propres à Marinara, les sprites et les lorebooks attachés. Ce format sert à déplacer un persona d'une installation de Marinara à une autre.
+- **Compatible JSON** : n'exporte que les champs de persona simples. Ce format sert pour les autres outils, qui ne comprennent pas le format de Marinara.
 
 Un export groupé télécharge un seul fichier zip, contenant un fichier par persona sélectionné.
 

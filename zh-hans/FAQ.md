@@ -68,6 +68,16 @@ Marinara 有三种聊天模式，打开聊天列表时显示为三个选项卡�
 
 打开一个 Conversation，在 Chat Settings(聊天设置) 里选 **Schedule timezone**(日程时区)，也可以在 Conversation 的创建流程里安排日程时顺手选。Marinara 一开始用的是设备上报的时区，但可以换成任何受支持的 IANA 时区，也可以选 **Use device**(使用设备时区) 恢复默认。这是一个全局设置，对所有 Conversation 聊天生效，包括服务器端发出的自主消息，并且会同步到连着同一个 Marinara 服务器的其他设备。
 
+## 每个 Conversation 聊天都有自己的日程吗？
+
+没有。日程属于角色，和这个角色的所有 Conversation 聊天共用同一份。在 **Character Editor -> Convo -> Weekly schedule**(角色编辑器 -> Convo -> 每周日程) 里编辑，或者用 Chat Settings 里的日程控件编辑；无论用哪种方式，修改都会在所有地方生效。
+
+想在某个聊天里立刻得到回复，打开它的 Chat Settings，关掉 **Conversation schedules**(Conversation 日程)。这个开关是按聊天设置的。角色在那个聊天里会一直有空，自己的日程保持不变，你的其他聊天也不受影响。如果手动状态覆盖正在生效，它仍然优先，并且在那个聊天里同样适用，包括 **dnd**(请勿打扰) 这样的覆盖。
+
+从没用过日程的现有聊天会保持关闭，直到你把它打开。和有日程的角色新开的聊天，从一开始就会使用日程。
+
+手动状态覆盖同样属于角色。如果你在一个聊天里把角色设为 **online**(在线)，这个角色在所有聊天里都是在线的。用 **clear**(清除) 移除覆盖。
+
 ## 用 Marinara 一定要有 API 密钥吗？
 
 绝大多数情况下都要。**connection**(连接) 就是保存下来的一套 AI 服务接入信息，告诉 Marinara 该怎么连上某个 AI 服务：哪家服务商、哪个模型、用什么身份登录。**API key**(API 密钥) 则是一串秘密字符，作用类似密码，从 AI 服务商那里申请，Marinara 拿它替你跟那家服务商通信。
@@ -80,11 +90,11 @@ Marinara 有三种聊天模式，打开聊天列表时显示为三个选项卡�
 
 Marinara 支持的服务商很多，每个连接选一家。
 
-聊天和角色扮演的文本生成可以选 **OpenAI**、**OpenAI (ChatGPT)**、**Anthropic**、**Claude (Subscription)**、**Grok CLI (Subscription)**、**Google Gemini**、**Google Vertex AI**、**Mistral**、**Cohere**、**OpenRouter**、**NanoGPT**、**xAI / Grok**，以及给 Ollama、LM Studio、KoboldCpp 这类本地或自建模型用的 **Custom (OAI-Compatible)**。
+聊天和角色扮演的文本生成可以选 **OpenAI**、**OpenAI (ChatGPT)**、**Anthropic**、**Claude (Subscription)**、**Grok CLI (Subscription)**、**Google Gemini**、**Google Vertex AI**、**Mistral**、**Cohere**、**OpenRouter**、**NanoGPT**、**xAI / Grok**、**Arli AI**、**Z.AI**、**DeepSeek**，以及给 Ollama、LM Studio、KoboldCpp 这类本地或自建模型用的 **Custom (OAI-Compatible)**。
 
 图像生成可以选 **OpenAI (DALL-E)**、**Stability AI**、**Together AI**、**NovelAI**、**OpenRouter Images**、**xAI / Grok Imagine**、**Venice.ai**、**Atlas Cloud**、**Pollinations**、**Stable Horde**、**SD Web UI (AUTOMATIC1111 / Forge)**、**ComfyUI**、**RunPod Serverless (ComfyUI)**、**Draw Things**、**NanoGPT** 和 **Block Entropy** 等等。
 
-视频生成可以选 **Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**Atlas Cloud**、**Seedance 2.0**，以及本地 **ComfyUI** 的 API 格式工作流。
+视频生成可以选 **Google AI Studio**、**xAI Imagine**、**OpenRouter Video**、**NanoGPT**、**Atlas Cloud**、**Seedance 2.0**，以及本地 **ComfyUI** 的 API 格式工作流。
 
 多个连接可以同时保存下来，每个聊天分配不同的连接。见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
 
@@ -97,7 +107,7 @@ Marinara 本身免费，而且跑在自己的电脑上。花的钱是所选 AI �
 ## API 密钥安全吗？
 
 安全。每个 API 密钥在写入磁盘前都会用 AES-256 加密。导出连接和档案时，
-秘密字段会被剔除。完整备份不一样：里面既有加密后的记录，也可能含有解锁它们所需的加密密钥文件，
+秘密字段会被剔除。导出聊天和设置方案时，也不会带上聊天的 **DeepL API Key**(DeepL API 密钥) 和 **Discord Mirror**(Discord 镜像) webhook。完整备份不一样：里面既有加密后的记录，也可能含有解锁它们所需的加密密钥文件，
 所以完整备份的 ZIP 文件一定要自己保管好，别外传。
 
 档案的导入过程是故意不带秘密字段的，所以导入之后每个 API 密钥都得重新填一遍，
@@ -120,11 +130,11 @@ Marinara 本身免费，而且跑在自己的电脑上。花的钱是所选 AI �
 
 ## 智能体是什么？
 
-**agent**(智能体) 是聊天过程中运行的可选 AI 帮手，各自负责一件具体的事。比如追踪当前场景、盯着文笔质量、加地图或通话、跑 Conversation 里的桌游。全新安装的 Marinara 不带任何可选智能体。打开 **Agents**(智能体) 面板，点 **Download Agents**(下载智能体)，看清楚某一项的说明再安装。装好后在 **Chat Settings** 里给每个聊天分别启用兼容的智能体。已装的官方包有兼容的新版本时，Marinara 会先问一句再下载。选 **No** 就保留当前版本，Download Agents 里的 **Update** 按钮仍然留着，随时可以再更新。主机离线或者校验没通过时，已安装的版本照常能用。这个目录也支持把整个包彻底卸载。见[智能体](agents/agents-overview.md)和公开的 [Marinara-Agents 仓库](https://github.com/Pasta-Devs/Marinara-Agents)。
+**agent**(智能体) 是聊天过程中运行的可选 AI 帮手，各自负责一件具体的事。比如追踪当前场景、盯着文笔质量、加地图或通话、跑 Conversation 里的桌游。全新安装的 Marinara 不带任何可选智能体。打开 **Agents**(智能体) 面板，点 **Download Agents**(下载智能体)，看清楚某一项的说明再安装。装好后在 **Chat Settings** 里给每个聊天分别启用兼容的智能体。已装的官方包有兼容的新版本时，Marinara 会先问一句再下载；如果包发布了更新说明，还会列出每次更新改了什么。圆点标记的是发布者标明“你会注意到变化”的版本。选 **No** 就保留当前版本，Download Agents 里的 **Update** 按钮仍然留着，随时可以再更新。主机离线或者校验没通过时，已安装的版本照常能用。这个目录也支持把整个包彻底卸载。见[智能体](agents/agents-overview.md)和公开的 [Marinara-Agents 仓库](https://github.com/Pasta-Devs/Marinara-Agents)。
 
 ## Noodle 怎么配置？
 
-Noodle 是 Marinara 内置的本地虚构社交网络，专给自己的角色用。打开 **Noodle** 选项卡，进它的 **Settings**(设置)。邀请角色或者角色文件夹，在 **Refresh**(刷新) 下面选一个用来生成内容的连接，然后点 **Refresh now**(立即刷新) 生成第一批动态。还可以设置自动刷新时间、图像生成、随机用户，以及把内容延续到自己的聊天里。
+Noodle 是 Marinara 内置的本地虚构社交网络，专给自己的角色用。先打开 **Agents** → **Download Agents** 安装 **Noodle**，按提示重启 Marinara。然后打开 **Home**(主页) → **Noodle**，进它的 **Settings**(设置)。邀请角色或者角色文件夹，在 **Refresh**(刷新) 下面选一个用来生成内容的连接，然后点 **Refresh now**(立即刷新) 生成第一批动态。还可以设置自动刷新时间、图像生成、随机用户，以及把内容延续到自己的聊天里。
 
 完整说明见 [Noodle：应用内的社交时间线](noodle/overview.md)和 [Noodle 设置与聊天延续](noodle/settings.md)。
 
@@ -164,7 +174,7 @@ External Extension(外部扩展) 在确实需要用到 Marinara 的 DOM 才能�
 
 ## 更新会不会把数据弄丢？
 
-不会。更新 Marinara 不影响已有的角色、聊天和设置。不过重大更新之前先备份一次总归稳妥。各平台的更新步骤见[升级 Marinara Engine](UPGRADING.md)。
+不会。更新 Marinara 不影响已有的角色、聊天和设置。不过重大更新之前先备份一次总归稳妥。各平台的更新步骤见[升级 Marinara Engine](UPGRADING.md)。之后再退回旧版本，可能会丢失只有新版本才会保存的数据，见[降级到旧版本](UPGRADING.md#downgrading-to-an-older-version)。
 
 ## Professor Mari 能做什么？
 
@@ -200,14 +210,14 @@ Professor Mari 也能修改 Marinara 的普通源码文件。依赖文件、启�
 
 每一份安装包都带着全套指南，不用离开应用就能读：
 
-- 在主页底部点 **Documentation**(文档) 按钮，就在 **Replay Tutorial**(重看教程) 旁边。
+- 在主页的书签栏里点 **Documentation**(文档)，就在 **Tutorial**(教程) 旁边。手机上要先打开书签菜单。
 - 在主页的常见问题里，展开关于文档的那一条，点 **Open Documentation**(打开文档)。
 
 两个按钮打开的是同一个应用内阅读器。它会列出全部指南，并直接在 Marinara 里渲染出来。
 
 ## 去哪里求助或者报 Bug？
 
-先看 [Marinara Engine 故障排查](TROUBLESHOOTING.md)，那篇是按症状分类整理的。主页底部的 **Discord** 按钮通向社区聊天，**Support**(支持) 按钮通向项目的支持页面。报 Bug 和提功能需求请到项目的 GitHub 页面。
+先看 [Marinara Engine 故障排查](TROUBLESHOOTING.md)，那篇是按症状分类整理的。在主页的书签栏里，**Discord** 通向社区聊天，**Support**(支持) 通向项目的支持页面。报 Bug 和提功能需求请到项目的 GitHub 页面。
 
 ## 相关指南
 

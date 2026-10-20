@@ -33,6 +33,8 @@ Marinara Engine 可以把图像生成和视频生成的请求发给本地的 Com
 
 API 格式的工作流和可视化编辑器里的普通工作流不是一回事。它的顶层键是节点 ID，每个节点通常包含 `class_type` 和 `inputs`。要导出的是 API 版本，不要粘贴那个带编辑器可视化布局的普通工作流文件。
 
+<a id="comfyui-video-workflows"></a>
+
 ## ComfyUI 视频工作流
 
 新建一个 **Video Generation**(视频生成) 连接，选 **ComfyUI**，把 API 格式的工作流粘进必填的 **ComfyUI Workflow** 输入框。只要同一个工作流能在 ComfyUI 里跑通，并且通过核心的 **SaveVideo** 这类输出节点保存出 MP4，WAN 2.2 和其他本地视频图都可以用。
@@ -164,6 +166,7 @@ RunPod 工作流支持原始 base64 占位符。文件名上传类的占位符�
 | 任务跑完了，Marinara 却没收到图 | 加一个接好线的 **SaveImage** 输出节点，然后直接在 ComfyUI 里再测一遍工作流。 |
 | 参考图节点报错 | 普通的本地 **LoadImage** 节点要用 `%reference_image_name...%` 这类占位符。原始 base64 只能配合专门为它设计的节点使用，另外确认 Marinara 那边的功能确实提供了参考图。 |
 | 远程或局域网的 ComfyUI 地址被拦截 | 图像连接要启用 `IMAGE_LOCAL_URLS_ENABLED`。让 ComfyUI 监听网络接口，并检查主机的防火墙。不要把没有认证的 ComfyUI 服务器暴露到公网上。 |
+| 报错 `Outbound response exceeded N bytes` | 响应超过了配置的上限，默认是 30 MiB。嵌入的工作流或参考图元数据可能导致这种情况。在 ComfyUI 里关闭元数据，或者调高 Marinara `.env` 里的 `IMAGE_GEN_MAX_RESPONSE_BYTES` 并重启 Marinara。 |
 | 耗时较长的图像生成超时 | 调高 Marinara `.env` 里的 `COMFYUI_GEN_TIMEOUT`。这个值以秒为单位，默认是 `2400`。 |
 | 耗时较长的视频生成超时 | 调高 Marinara `.env` 里的 `VIDEO_GEN_TIMEOUT_MS`。这个值以毫秒为单位，默认是 `1800000`(30 分钟)。 |
 | 生成时显存不足 | 缩小图像尺寸或模型规模，卸载本地语言模型，改用远程语言模型，或者把 ComfyUI 挪到另一台设备上。 |

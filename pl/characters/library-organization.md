@@ -6,7 +6,8 @@ Ten przewodnik opisuje panel **Characters** (Postacie) – pasek boczny, w któr
 
 Panel **Characters** to lista postaci w panelu bocznym. Trzyma każdą postać utworzoną lub zaimportowaną w aplikacji Marinara Engine. Z górnej części panelu da się:
 
-- Kliknąć przycisk **Open Full Library** (otwarcie pełnej biblioteki), żeby zobaczyć te same postacie w większym widoku siatki na całą stronę.
+- Kliknąć przycisk **Download** (pobranie), żeby otworzyć [Card Browser](bot-browser.md) i znaleźć postacie w publicznych serwisach.
+- Kliknąć przycisk **Open Library** (otwarcie biblioteki), żeby zobaczyć te same postacie w większym widoku siatki na całą stronę.
 - Kliknąć przycisk **New** (ikona plusa), żeby otworzyć okno **Create Character** (tworzenie postaci).
 - Kliknąć przycisk **Import** (ikona pobierania), żeby zaimportować plik postaci.
 - Kliknąć przycisk **Select** (zaznaczanie), czyli ikonę ptaszka, żeby włączyć tryb wielokrotnego zaznaczania i działać na wielu postaciach naraz.
@@ -43,11 +44,14 @@ Obok pola wyszukiwania jest lista rozwijana sortowania. Wybierz jedną z kolejno
 
 | Opcja         | Działanie                              |
 | ------------- | -------------------------------------- |
+| **Manual order** | Kolejność ustawiona przez ciebie.   |
 | **A-Z**       | Nazwy od A do Z.                       |
 | **Z-A**       | Nazwy od Z do A.                       |
 | **Newest**    | Najpierw ostatnio utworzone.           |
 | **Oldest**    | Najpierw najstarsze.                   |
 | **Favorites** | Najpierw ulubione, potem cała reszta.  |
+
+Żeby ustawić własną kolejność, przeciągnij wiersz postaci w górę lub w dół. Możesz też nacisnąć Alt+strzałka w górę albo Alt+strzałka w dół na wierszu, który ma fokus. Każdy z tych sposobów przełącza sortowanie na **Manual order** (kolejność ręczna).
 
 ## Foldery
 
@@ -62,6 +66,8 @@ Tworzenie folderu:
 Żeby zmienić nazwę folderu, kliknij go dwukrotnie, dotknij go dwukrotnie albo zaznacz go i naciśnij klawisz F2. Wpisz nową nazwę i naciśnij Enter.
 
 Żeby umieścić postać w folderze, przeciągnij wiersz postaci i upuść go na folderze. Gdy istnieje przynajmniej jeden folder, wyświetla się podpowiedź **Drag and drop characters to folders, double-click or double-tap to rename**. Żeby wyjąć postać z folderu, najedź na jej wiersz wewnątrz folderu i kliknij przycisk usuwania z folderu albo po prostu przeciągnij ją na zewnątrz.
+
+Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść, a potem go przeciągnij. Zwykłe przesunięcie palcem nadal przewija listę. Trzymając jeden wiersz, stuknij drugim palcem inne wiersze, żeby zabrać je razem jako stos, a potem upuść stos na folder.
 
 Kliknięcie folderu rozwija go lub zwija. Liczba obok nazwy folderu mówi, ile postaci jest w środku.
 

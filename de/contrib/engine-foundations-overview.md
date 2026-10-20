@@ -233,7 +233,7 @@ Entsprechend CONTRIBUTING protokollieren zwei bisher geschluckte Fehler nun auf 
 
 Immer aktive Fehlerkorrektur, keine Einstellung.
 
-**Bisheriger Stand.** `buildApp()` in `packages/server/src/app.ts` registriert Kernrouten, wartet auf `capabilityModuleRuntime.start(app)` mit sequenzieller Paketaktivierung über `activateOne()` in `services/capability-packages/capability-module-runtime.service.ts` und startet später `startServerAutonomousScheduler(app)`. Prozessinterne Routenaufrufe über `app.inject()` kommen aus Paketen via `runCapabilityInternalRoute()` in `capability-route-registration.service.ts`, dem autonomen Scheduler in `server-autonomous-scheduler.service.ts` und `routes/generate/prompt-preview.ts`. Das erste `inject()` startet die gesamte Fastify-Instanz; danach sind keine Routen, Hooks oder Plugins mehr hinzufügbar. Ein früher Hintergrundtimer oder Worker während `buildApp()` verursachte bei späteren Paketen "Root plugin has already booted"; das nächste `addHook` warf einen Fehler und stoppte den Server. `catch` in `activateOne()` protokolliert Aktivierungsfehler und führt `capabilityPackageManager.rollbackRuntime()` aus oder speichert Status und Bereitschaft `"error"`. Hier konnte so ein gesundes Paket auch bei späteren Starts zurückgesetzt oder als `"error"` markiert bleiben.
+**Bisheriger Stand.** `buildApp()` in `packages/server/src/app.ts` registriert Kernrouten, wartet auf `capabilityModuleRuntime.start(app)` mit sequenzieller Paketaktivierung über `activateOne()` in `services/capability-packages/capability-module-runtime.service.ts` und startet später `startServerAutonomousScheduler(app)`. Prozessinterne Routenaufrufe über `app.inject()` kommen aus Paketen via `runCapabilityInternalRoute()` in `capability-route-registration.service.ts`, dem autonomen Scheduler in `server-autonomous-scheduler.service.ts` und `routes/generate/prompt-preview.ts`. Das erste `inject()` startet die gesamte Fastify-Instanz; danach sind keine Routen, Hooks oder Plugins mehr hinzufügbar. Rief eine Hintergrundaufgabe (ein Paket-Timer oder ein früh gestarteter Worker) `inject()` auf, während `buildApp()` noch registrierte, scheiterte jedes spätere Paket mit "Root plugin has already booted"; das nächste `addHook` warf einen Fehler und stoppte den Server. `catch` in `activateOne()` protokolliert Aktivierungsfehler und führt `capabilityPackageManager.rollbackRuntime()` aus oder speichert Status und Bereitschaft `"error"`. Hier konnte so ein gesundes Paket auch bei späteren Starts zurückgesetzt oder als `"error"` markiert bleiben.
 
 **Ergänzungen.**
 
@@ -302,6 +302,8 @@ Zusätzlicher Helfer ohne Schalter und ohne eigene Verhaltensänderung.
 # Spätere Pull Requests
 
 Diese Abschnitte sind bewusst kurz. Jeder PR ergänzt beim Öffnen seinen Abschnitt mit denselben fünf Teilen.
+
+Stand: PR A wurde als #6647 gemergt und PR B als #6648. PR C (#6649) wurde ohne Merge geschlossen, und die PRs D bis H wurden nicht als eigene Pull Requests geöffnet. Die Abschnitte zu C bis H unten beschreiben den Plan so, wie er geschrieben wurde; lies sie nicht als Funktionen, die in dieser Form ausgeliefert wurden.
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 

@@ -12,8 +12,8 @@
 
 打开 **Card Browser** 有两种方式。
 
-1. 点击顶栏的 **Card Browser** 图标，它在右侧那排面板按钮里。
-2. 或者打开右侧边栏的 **Card Browser** 面板，再点击面板顶部的 **Download Cards**(下载角色卡) 按钮。
+1. 打开 **Characters**(角色) 面板，点击顶部的 **Download**(下载) 按钮。它的悬停提示写着 **Download character cards**(下载角色卡)。
+2. 或者点击 **Personas**(用户角色) 面板顶部的同一个 **Download** 按钮。
 
 无论用哪种方式，整个内容区都会切换成完整的 **Card Browser** 视图。这个视图会取代聊天区域，不是一个小的弹出窗口。
 
@@ -160,7 +160,7 @@ Marinara 会先向 Pygmalion 核实这个 Token，确认有效才会保留。如
 2. 选择一个 **Imported tags**(导入的标签) 选项，见下面的表格。
 3. 点击 **Import**。处理过程中按钮显示 **Importing...**。
 4. 等待成功提示。应该会看到一条消息，说明角色已导入。
-5. 开始聊天之前，打开 **Characters**(角色) 面板找到刚导入的角色。
+5. 开始聊天之前，打开 **Characters** 面板找到刚导入的角色。
 
 导入后的角色和其他角色没有区别。想真正和它聊天，还需要一个可用的服务商连接，见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
@@ -183,15 +183,6 @@ Marinara 会先向 Pygmalion 核实这个 Token，确认有效才会保留。如
 点击 **Download as PNG** 把角色存成标准的 PNG 角色卡文件。处理过程中按钮显示 **Building PNG...**。所有来源都支持这个操作。保存下来的文件以角色名命名，例如 `Some_Character.png`。这个文件可以分享给别人，也可以以后导入到别的应用里。
 
 JSON 和 PNG 是同一份角色数据的两种常见格式。JSON 是纯文本格式，PNG 角色卡则是一张图片文件，角色数据存在图片内部。两者都包含完整的角色。
-
-## 已导入的角色
-
-右侧边栏的 **Card Browser** 面板会单独列出通过 **Card Browser** 导入的角色。手动创建的角色，或者用别的方式导入的角色，都不会出现在这里，但它们全都能在主 **Characters** 角色库里找到。
-
-- **Download Cards** 按钮会打开完整的 **Card Browser** 视图。
-- **Search imported...** 输入框用来过滤这份列表。
-- 排序下拉菜单提供 **A-Z**、**Z-A**、**Newest** 和 **Oldest**。
-- 右键点击某一行，或者用行内的按钮，可以找到 **Quick Start Roleplay** 和 **Quick Start Conversation**，它们会用这个角色开一段新聊天。也可以在这里把角色从列表中删除。
 
 ## 故障排查
 

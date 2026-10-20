@@ -20,7 +20,7 @@ O painel tem três botões no topo:
 - **Import** (ícone de download): carrega um preset a partir de um arquivo `.json`.
 - **Select** (ícone de marca de seleção): escolhe vários presets para exportar ou excluir de uma vez.
 
-Abaixo dos botões ficam a caixa **Search presets** e um menu de ordenação com **A-Z**, **Z-A**, **Newest** e **Oldest**. O botão **New Folder** agrupa os presets em pastas. Arraste um preset até uma pasta para movê-lo. Dê um duplo clique ou um toque duplo na pasta para renomeá-la.
+Abaixo dos botões ficam a caixa **Search presets** e um menu de ordenação com **Manual order** (ordem manual), **A-Z**, **Z-A**, **Newest** e **Oldest**. **Manual order** mantém a ordem que você definiu: arraste a linha de um preset para cima ou para baixo, ou aperte Alt+Up ou Alt+Down em uma linha selecionada. O botão **New Folder** agrupa os presets em pastas. Arraste um preset até uma pasta para movê-lo. Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la. Dê um duplo clique ou um toque duplo na pasta para renomeá-la.
 
 Cada linha de preset mostra o nome, o formato de envelopamento, a quantidade de seções e o autor. O selo **DEFAULT** aparece quando o preset é o padrão marcado com estrela. Clique na linha do preset para abri-lo no **Preset Editor**.
 
@@ -40,13 +40,15 @@ O editor não salva sozinho. As alterações só ficam salvas depois que você c
 
 Para exportar um preset, abra-o e clique no botão de exportar (ícone de seta para cima) na barra superior. Marinara pede para salvar antes, caso existam edições não salvas. Para excluir um preset, use o ícone de lixeira na barra superior.
 
-## As abas Overview, Sections e Prompts
+## As cinco abas do Preset Editor
 
-O **Preset Editor** tem três abas.
+O **Preset Editor** tem cinco abas.
 
 - **Overview**: o nome do preset, a descrição, o formato de envelopamento e o autor.
 - **Sections**: a estrutura do prompt em si, montada com blocos e marcadores.
 - **Prompts**: os prompts de modo usados pelos chats Conversation e Game.
+- **Parameters**: as configurações de geração iniciais dos chats que usam este preset. Veja [Parâmetros de geração](generation-parameters.md).
+- **Regex**: os scripts de regex vinculados a este preset e o **Scoped regex default** (padrão de regex com escopo). Veja [Scripts de regex](../extending/regex-scripts.md).
 
 ### Aba Overview
 

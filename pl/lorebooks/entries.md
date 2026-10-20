@@ -43,6 +43,8 @@ Rozwiń wpis, żeby edytować jego główne pola.
 - **Secondary Keys** (dodatkowe słowa kluczowe): dodatkowe słowa kluczowe, używane tylko przy typie wpisu **Selective**. Zajrzyj do sekcji o typach wpisów poniżej.
 - **Description** (opis): krótkie streszczenie wpisu. Czyta je wyłącznie agent **Knowledge Router**, żeby zdecydować, czy wstawić wpis. Ten tekst nigdy nie trafia do głównego AI jako treść. Zobacz [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md).
 
+Lista zawierająca więcej niż 10 słów kluczowych pokazuje tylko pierwsze 10. Kliknij **Show N more** (pokaż więcej), na przykład **Show 5 more**, żeby zobaczyć resztę, a **Collapse** (zwiń), żeby znów ją ukryć. Dodanie słowa kluczowego rozwija całą listę. Ukryte słowa kluczowe nadal są dopasowywane jak zwykle.
+
 Oto prosty przykład.
 
 - Nazwa: `Silverhaven`
@@ -161,6 +163,8 @@ W rozwiniętym panelu bocznym czeka jeszcze kilka pól.
 
 Panel boczny ma też sekcję **Context filters & matching sources** (filtry kontekstu i źródła dopasowania). Można w niej ograniczyć wpis do wybranych postaci, tagów postaci lub typów generowania. Da się też przeszukiwać pod kątem słów kluczowych wpisu dodatkowe pola karty postaci, na przykład opis postaci.
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## Strategia pisania: wybór właściwego wpisu
 
 Sekcje powyżej opisują, co robi każda kontrolka. Ta sekcja przekłada je na decyzje podejmowane przy pisaniu lorebooka: jaki typ wybrać, kiedy zawęzić słowo kluczowe i jak nie rozdmuchać promptu. Zacznij od jednego pytania: *kiedy AI ma zobaczyć ten fakt?*
@@ -194,6 +198,8 @@ Miejsce, w którym siedzi lorebook, decyduje o tym, które czaty go widzą. Dopa
 - **Wiedza na jedną historię** – przypnij lorebook do tego jednego czatu w jego ustawieniach.
 
 Działanie aktywacji opisuje przewodnik [Lorebooki – przegląd](overview.md), a kontrolki przypisania, zasięgu i osadzania – przewodnik [Podpinanie lorebooków do postaci i person](linking-to-characters.md).
+
+<a id="worked-example-a-small-setting"></a>
 
 ## Przykład w praktyce: mały świat
 
@@ -435,8 +441,8 @@ Foldery wyświetlają się jako grupy tylko przy sortowaniu **Order** i pustym w
 
 ## Powiązane przewodniki
 
-- [Modele decyzyjne](../connections/decision-models.md)
 - [Lorebooki – przegląd](overview.md)
+- [Modele decyzyjne](../connections/decision-models.md)
 - [Limity tokenów i rekurencja w lorebookach](token-budgets.md)
 - [Wyszukiwanie semantyczne w lorebookach](semantic-search.md)
 - [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md)

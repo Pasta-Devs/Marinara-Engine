@@ -182,6 +182,8 @@ Game Modeでは、シーンの処理をLocal Modelに任せることもできま
 
 録音した音声がコンピューターの外に出ることはありません。送信されるのは、文字起こしされたテキストだけで、宛先は選んだチャットの接続です。通話で使うには、通話の音声入力モードをLocal Whisperの選択肢に設定します。[Conversationの音声通話とビデオ通話](../conversation/calls.md)を参照してください。
 
+Connectionsで**Speech to Text**(音声認識)カードをオンにすると、この通話モードでは、Local Whisperの代わりにそこで入力したサーバーに音声が送られます。[自分の音声認識サーバーを使う](../conversation/calls.md#use-your-own-speech-to-text-server)を参照してください。
+
 ## トラブルシューティング
 
 **「Sidecar runtime install is disabled.」** ランタイムのインストールと再インストールは保護された操作です。Windowsのワンクリックインストール版では自動的に許可されます。macOS、Linux、Dockerでは方法が2つあります。1つは、サーバーの`.env`ファイルに`SIDECAR_RUNTIME_INSTALL_ENABLED=true`を設定する方法です。次のように書きます。

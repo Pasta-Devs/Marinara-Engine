@@ -43,6 +43,8 @@ Expande una entrada para editar sus campos principales.
 - **Secondary Keys** (Palabras clave secundarias): palabras clave adicionales que solo se usan cuando el tipo de entrada es **Selective**. Ver la sección de tipos de entrada más abajo.
 - **Description** (Descripción): un resumen corto de la entrada. Solo el agente **Knowledge Router** la lee, para decidir si inyecta la entrada. Nunca se envía a la IA principal como contenido. Ver [Fuentes de conocimiento](../agents/knowledge-sources.md).
 
+Una lista de claves con más de 10 claves muestra solo las 10 primeras. Haz clic en **Show N more** (Mostrar N más), por ejemplo **Show 5 more**, para ver el resto, y en **Collapse** (Contraer) para volver a ocultarlas. Añadir una clave abre la lista completa. Las claves ocultas siguen coincidiendo como de costumbre.
+
 Aquí tienes un ejemplo simple.
 
 - Nombre: `Silverhaven`
@@ -160,6 +162,8 @@ El panel lateral expandido contiene algunos campos más.
 
 El panel lateral también tiene una sección **Context filters & matching sources** (Filtros de contexto y fuentes de coincidencia). Allí puedes limitar una entrada a ciertos personajes, etiquetas de personaje o tipos de generación. También puedes escanear campos adicionales de la tarjeta (como la descripción del personaje) en busca de las palabras clave de la entrada.
 
+<a id="authoring-strategy-choosing-the-right-entry"></a>
+
 ## Estrategia de redacción: elegir la entrada adecuada
 
 Las secciones de arriba describen qué hace cada control. Esta sección los conecta con las decisiones que tomas al escribir un lorebook: qué tipo elegir, cuándo afinar una palabra clave y cómo mantener el prompt ligero. Parte de una sola pregunta: *¿cuándo debería ver la IA este dato?*
@@ -193,6 +197,8 @@ Dónde vive un lorebook decide qué chats pueden verlo, así que ajusta el conte
 - **Trasfondo para una sola historia** — fija un lorebook solo a ese chat desde sus ajustes.
 
 Ver [Visión general de los lorebooks](overview.md) para saber cómo funciona la activación, y [Vincular lorebooks a personajes y personas](linking-to-characters.md) para los controles de asignación, alcance e incrustación.
+
+<a id="worked-example-a-small-setting"></a>
 
 ## Ejemplo práctico: una ambientación pequeña
 

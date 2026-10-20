@@ -88,7 +88,7 @@ Argon peut mettre plusieurs minutes à répondre, sur l'une ou l'autre des conne
 
 **NanoGPT** est lui aussi un agrégateur. Il n'a pas de liste de modèles intégrée, le menu déroulant **Model** est donc vide au départ. Une fois la clé collée, clique sur **Fetch Models from API** pour charger les modèles auxquels ton compte a droit.
 
-Marinara lit le catalogue détaillé de NanoGPT. La liste déroulante indique donc quels modèles ton abonnement couvre et lesquels en consomment davantage :
+Marinara lit le catalogue détaillé de NanoGPT. Le menu déroulant indique donc quels modèles ton abonnement couvre et lesquels en consomment davantage :
 
 - Un modèle inclus affiche une pastille de **multiplicateur de tokens d'entrée** : `1x` en vert pour la consommation normale, ou une valeur supérieure comme `2x` si chaque token envoyé décompte autant de tokens d'entrée de ton quota. Un modèle *non inclus* affiche **Paid** (payant), car son utilisation est facturée sur ton solde payant. Sans pastille, le modèle n'avait aucune donnée d'abonnement à communiquer.
 
@@ -106,7 +106,7 @@ Le widget interroge le point d'accès de consommation de NanoGPT et affiche tes 
 
 Sous chaque barre, le widget indique ce qu'il reste et quand la fenêtre se réinitialise, par exemple `42M remaining · resets in 4d`.
 
-Un quota que NanoGPT ne peut pas communiquer apparaît comme **inconnu**, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté avec tout son quota disponible. Le bouton d'actualisation du widget permet de le rafraîchir à la demande.
+Un quota que NanoGPT ne peut pas communiquer apparaît comme **unknown**, et non comme inutilisé. Un abonnement inactif est signalé au lieu d'être représenté avec tout son quota disponible. Le bouton d'actualisation du widget permet de le rafraîchir à la demande.
 
 Le même indicateur apparaît sous celui du contexte dans le sélecteur de connexion du chat et dans ses réglages **Connection** (connexion). Tu peux ainsi suivre ton quota sans quitter le chat. Il suit la connexion active : il apparaît uniquement pour une connexion NanoGPT avec **Show subscription usage** activé, jamais pour **Random**, qui ne désigne pas une seule connexion à interroger. Dans le sélecteur, il reprend le style de la barre de contexte au-dessus et se lit de la même manière : consommation par rapport au quota hebdomadaire, par exemple `8.9M / 60M tokens`, avec l'heure de réinitialisation à côté du pourcentage.
 
@@ -115,7 +115,7 @@ Le même indicateur apparaît sous celui du contexte dans le sélecteur de conne
 - Où obtenir une clé : `https://console.x.ai`
 - URL de base par défaut : `https://api.x.ai/v1`
 
-**xAI / Grok** propose les modèles Grok. Quand tu choisis ce fournisseur dans la fenêtre **Create Connection**, Marinara préremplit le modèle avec Grok 4.5. Rien ne t'empêche de le changer ensuite. Grok 4.6 et 4.7 disposent d'une fenêtre de contexte de 500 000 tokens et d'un raisonnement allant jusqu'à **Maximum** (`xhigh`). Ils prennent en charge les outils existants du chat, dont **Web Search** (recherche web), pour intégrer les résultats de recherche à la réponse finale.
+**xAI / Grok** propose les modèles Grok. Quand tu choisis ce fournisseur dans la fenêtre **Create Connection**, Marinara préremplit le modèle avec Grok 4.5. Rien ne t'empêche de le changer ensuite. Grok 4.6 et 4.7 disposent d'une fenêtre de contexte de 500 000 tokens et d'un raisonnement allant jusqu'à **Extra high** (`xhigh`). Ils prennent en charge les outils existants du chat, dont **Web Search** (recherche web), pour intégrer les résultats de recherche à la réponse finale.
 
 ## Arli AI
 
@@ -138,7 +138,7 @@ Le même indicateur apparaît sous celui du contexte dans le sélecteur de conne
 
 **DeepSeek** propose ses propres modèles de chat, `deepseek-flash` et `deepseek-v4-pro`. Une fois la clé collée, le menu déroulant **Model** les affiche, et **Fetch Models from API** actualise la liste depuis ton compte.
 
-DeepSeek réfléchit par défaut. Son réglage **Reasoning Effort** utilise les niveaux propres à DeepSeek – **Low**, **High** et **Maximum** – et **Off** (désactivé) coupe la réflexion pour cette requête. Il n'y a pas de **Medium** : DeepSeek traite une requête de niveau moyen comme High, Marinara propose donc High plutôt qu'un second bouton qui ferait la même chose. Sa réflexion apparaît dans la réponse, avec l'affichage habituel des pensées.
+DeepSeek réfléchit par défaut. Son réglage **Reasoning Effort** utilise les niveaux propres à DeepSeek – **Low**, **High** et **Max** – et **Off** (désactivé) coupe la réflexion pour cette requête. Il n'y a pas de **Medium** : DeepSeek traite une requête de niveau moyen comme High, Marinara propose donc High plutôt qu'un second bouton qui ferait la même chose. Sa réflexion apparaît dans la réponse, avec l'affichage habituel des pensées.
 
 Certains réglages du panneau des paramètres ne s'appliquent pas à DeepSeek : le panneau les omet donc, au lieu de faire comme s'ils fonctionnaient. **Verbosity**, **Top K** et les pénalités en font partie : DeepSeek les a abandonnés et les ignore. **Temperature** (température) et **Top P** forment une paire – DeepSeek n'en utilise qu'un à la fois, selon qu'il réfléchit ou non –, si bien que tu vois **Temperature** quand la réflexion est désactivée et **Top P** quand elle est active.
 
@@ -234,7 +234,7 @@ Le rôle d'un modèle de décision, la façon d'en choisir un et la configuratio
 - **PocketTTS** : un serveur de voix gratuit que tu fais tourner sur ton propre ordinateur.
 - **xAI Voice** : le service de voix de xAI.
 
-Chaque source remplit une URL de base et un modèle par défaut. **Default Voice** (voix par défaut) est la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. Pour choisir la connexion audio que Marinara utilise par défaut, ouvre le panneau **Connections**, déplie **Defaults** (valeurs par défaut) et choisis-la sous **Audio**.
+Chaque source remplit une URL de base et un modèle par défaut. **Default Voice** (voix par défaut) est la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. **Request timeout (seconds)** (délai d'attente de la requête, en secondes) est le temps pendant lequel Marinara attend une réplique parlée, 60 secondes par défaut ; augmente-le pour un serveur vocal lent. Pour choisir la connexion audio que Marinara utilise par défaut, ouvre le panneau **Connections**, déplie **Defaults** (valeurs par défaut) et choisis-la sous **Audio**. Pour lire les messages à voix haute avec une connexion audio, choisis-la comme **Source** dans la carte **Text to Speech** (synthèse vocale). Voir [Utiliser une connexion Audio](../media/tts-setup.md#use-an-audio-connection).
 
 Avec la source **ElevenLabs**, deux interrupteurs supplémentaires apparaissent : **Game sound effects** (effets sonores du jeu) et **Game music** (musique du jeu). Ils permettent à Game Mode de produire des effets sonores et de la musique avec cette connexion. Voir [Effets sonores et musique générés](../game/game-assets.md#generated-sound-effects-and-music). Pour les voix et la lecture des messages à voix haute, voir [Configuration du Text to Speech (TTS)](../media/tts-setup.md).
 
@@ -243,6 +243,8 @@ Avec la source **ElevenLabs**, deux interrupteurs supplémentaires apparaissent 
 Les embeddings font tourner la recherche sémantique des lorebooks et Memory Recall. Ils transforment le texte en listes de nombres, ce qui permet à Marinara de retrouver les entrées apparentées. Chez la plupart des fournisseurs de chat, tu peux définir un **Embedding Model** (modèle d'embeddings) et, en option, une **Embedding Endpoint URL** (URL du point de terminaison d'embeddings) dans l'éditeur de connexion.
 
 Certains fournisseurs ne savent pas produire d'embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)** n'en proposent pas. Dans ce cas, utilise le menu déroulant **Embedding Connection** (connexion d'embeddings) pour emprunter une autre connexion : une connexion compatible OpenAI, **Google Gemini** ou le **Local Model** intégré.
+
+Pour utiliser une même source d'embeddings pour toutes les connexions qui n'ont pas leurs propres réglages d'embedding, ouvre le panneau **Connections**, déplie **Defaults** et choisis-la sous **Embeddings**. **None (built-in local model)** garde le modèle d'embedding local intégré. Le modèle d'embedding propre à une connexion, ou son **Embedding Connection**, reste prioritaire. Revectorise tes lorebooks et tes souvenirs après ce changement. Consulte [Recherche sémantique pour les lorebooks](../lorebooks/semantic-search.md).
 
 ## Guides associés
 

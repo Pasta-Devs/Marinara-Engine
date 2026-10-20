@@ -35,11 +35,11 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 - 陈述里的宏先展开，因此 `{{char}}` 会以角色姓名传入。
 - 消息超出模型预算时，先丢弃旧消息。托管服务的预算见[设置 Decision 连接](#set-up-a-decision-connection)。
 
-**Advanced Memory按聊天使用独立的 Decision 模型。**场景检查读取相关的历史窗口。回忆功能检查角色访问权限后，先发送最近对话和候选名单中最多 24 个历史摘要（如果 **Maximum recalled scenes**(最多召回场景数) 更高则更多），再发送模型选中场景里的原始消息，不使用上述固定的最近 5 条消息规则。托管服务可能分多个有限批次收到这些文本。每一轮回忆决策超过 10 秒就回退到普通回忆。参见[可选的 Decision 模型](../agents/memory.md#optional-decision-model)。
+**Advanced Memory 按聊天使用独立的 Decision 模型。**场景检查读取相关的历史窗口。回忆功能检查角色访问权限后，先发送最近对话和候选名单中最多 24 个历史摘要（如果 **Maximum recalled scenes**(最多召回场景数) 更高则更多），再发送模型选中场景里的原始消息，不使用上述固定的最近 5 条消息规则。托管服务可能分多个有限批次收到这些文本。每一轮回忆决策通常有 10 到 25 秒，按模型的速度确定。两轮共用每条回复 40 秒的上限，所以剩余时间不多时，一轮可能不到 10 秒。没能及时得到答案的记忆会回退到普通回忆。参见[可选的 Decision 模型](../agents/memory.md#optional-decision-model)。
 
 ## 选择 Decision 模型
 
-打开 **Connections**(连接)，再打开 **Connection defaults**(默认连接)，从 **Decision model** 中选择。列表分三组：
+打开 **Connections**(连接)，再打开 **Defaults**(默认值)，从 **Decision model** 中选择。列表分三组：
 
 - **None**(无)，默认选项。不发出询问，智能体编辑器里的激活问题字段保持禁用。
 - **Local models**(本地模型)：已经运行的 **Primary local model**(主本地模型) 或 **Utility local model**(辅助本地模型)。不会额外下载，信息也不会离开电脑。安装了 **Decision sidecar**(判定辅助进程) 后，它也会列在这里。
@@ -72,7 +72,7 @@ Decision 模型回答一种特定问题。它接收聊天的最近消息及一�
 
 如果 **Local Model** 里有本地模型，就能用它判定，无须创建连接或支付请求费用。
 
-1. 在 **Connections** 中打开 **Connection defaults**，将 **Decision model** 设为 **Primary local model**，或在已配置辅助模型时设为 **Utility local model**。
+1. 在 **Connections** 中打开 **Defaults**，将 **Decision model** 设为 **Primary local model**，或在已配置辅助模型时设为 **Utility local model**。
 2. 点击 **Test**。成功后会显示概率和请求耗时，以及本地模型特有的两个信息：是否提供对数概率，以及模型是否直接回答。
 
 Marinara 向模型提出一个是/否问题，让它生成一个 Token，再从该 Token 的概率读取答案。不会撰写回复，所以请求很短。多选一会拆成每个选项一个是/否问题。能容纳多少最近消息，按该槽位自身的上下文大小计算。

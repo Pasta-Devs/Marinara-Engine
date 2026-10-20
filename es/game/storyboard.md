@@ -85,6 +85,8 @@ Después de que cualquiera de los dos modos planea sus fotogramas, unos formatea
 
 Cada etapa numerada tiene su propia **Prompt library** contraída: Stage 2 contiene los formateadores de imagen, Stage 3 los planificadores de movimiento que tienen en cuenta la imagen y Stage 4 los formateadores que transmiten el prompt de video sin cambios. Las opciones de imagen integradas también incluyen **Storyboard Illustration** y **Storyboard First Frame**. Las opciones de video incluyen **Anime Game Video**, **Comic Page Video** y **Narration Passthrough**. Los chats de Game y de Roleplay pueden seleccionar formateadores distintos sin cambiar la colección de prompts compartida subyacente.
 
+La **Image-aware shot planning** (Planificación de planos según la imagen) de Stage 3 también sigue las **Video Prompting Instructions** (Instrucciones para prompts de video) de la conexión de video. Usa ese campo en el editor de conexiones para indicar lo que espera tu modelo de video, como el vocabulario de cámara, la longitud del prompt o las indicaciones de sonido.
+
 ### Valores predeterminados globales y anulaciones por chat
 
 Cada chat puede anular los valores predeterminados del agente. **Chat Settings** marca los valores heredados como **Using agent default** (Se usa el predeterminado del agente) y ofrece un control para restablecerlos en cuanto creas una anulación.

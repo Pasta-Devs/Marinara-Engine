@@ -45,7 +45,7 @@ claude auth login
 3. W aplikacji Marinara Engine otwórz panel **Connections** (Połączenia) i kliknij przycisk **New** (Nowe).
 4. W oknie **Create Connection** wpisz nazwę i wybierz dostawcę **Claude (Subscription)**, a potem kliknij przycisk **Create**.
 5. Zwróć uwagę, że w edytorze nie ma pola **API Key** ani **Base URL**. Panel informacyjny potwierdza, że nie są potrzebne.
-6. Z listy rozwijanej **Model** wybierz model Claude, na przykład jeden z modeli Opus lub Sonnet.
+6. Z listy rozwijanej **Model** wybierz model Claude, na przykład jeden z modeli Opus lub Sonnet. Lista pokazuje modele dostępne dla twojego logowania Claude Code, jeśli Claude Code ma dla niego taką listę; w przeciwnym razie pokazuje wbudowaną listę.
 7. Kliknij przycisk **Save** (Zapisz), a potem przycisk **Send Test Message** (Wyślij wiadomość testową). Krótka odpowiedź oznacza, że logowanie działa.
 
 Połączenia abonamentowe Claude obsługują wyłącznie czat tekstowy. To połączenie ma dwie dodatkowe kontrolki, **Fast Mode** i **Diagnose Model Routing**, opisane niżej.
@@ -73,7 +73,7 @@ codex login
 
 Marinara odczytuje lokalny plik logowania Codex i odświeża sesję, kiedy tylko może.
 
-Aby ustawić, jak długo Codex myśli przed odpowiedzią, otwórz połączenie, w sekcji **Default Chat Parameters** (domyślne parametry czatu) włącz przełącznik **Use custom defaults for this connection** (własne wartości domyślne dla tego połączenia) i wybierz poziom w **Reasoning Effort** (poziom rozumowania); na start ustawiony jest poziom **Default** (domyślny). Czat może wybrać własny poziom w sekcji **Advanced Parameters** (parametry zaawansowane). **Default** zachowuje poziom, którego Codex używa dla danego modelu. Codex korzysta z tego ustawienia domyślnego, dopóki połączenie albo czat nie wybierze poziomu; poziom z twojego presetu go nie zmienia, a połączenie Codex użyte jako zapasowe kieruje się wyłącznie własnym poziomem. Agenci korzystający z tego połączenia używają poziomu ustawionego w połączeniu. Dostępne poziomy odpowiadają tym, które Codex oferuje dla każdego modelu: GPT-5.5 sięga do **xhigh**, a modele GPT-5.6 i GPT-6 do **max**.
+Aby ustawić, jak długo Codex myśli przed odpowiedzią, otwórz połączenie, w sekcji **Default Chat Parameters** (domyślne parametry czatu) włącz przełącznik **Use custom defaults for this connection** (własne wartości domyślne dla tego połączenia) i wybierz poziom w **Reasoning Effort** (poziom rozumowania); na start ustawiony jest poziom **Default** (domyślny). Czat może wybrać własny poziom w sekcji **Advanced Parameters** (parametry zaawansowane). **Default** zachowuje poziom, którego Codex używa dla danego modelu. Codex korzysta z tego ustawienia domyślnego, dopóki połączenie albo czat nie wybierze poziomu; poziom z twojego presetu go nie zmienia, a połączenie Codex użyte jako zapasowe kieruje się wyłącznie własnym poziomem. Agenci korzystający z tego połączenia używają poziomu ustawionego w połączeniu. Dostępne poziomy odpowiadają tym, które Codex oferuje dla każdego modelu: GPT-5.5 sięga do **Extra high** (bardzo wysoki), a modele GPT-5.6 i GPT-6 do **Max**.
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Modele Grok wczytasz przyciskiem **Fetch Models from Grok CLI** w sekcji **Model
 ## Czas przechowywania promptów w pamięci podręcznej Claude
 
 W edytorze połączenia Claude opcja **Prompt Caching → Extended token caching (1 hour)** żąda przechowywania cache przez godzinę, co pozwala na dłuższe przerwy między wiadomościami. Wymaga Claude Code w wersji **2.1.242 lub nowszej**. Aplikacja Marinara przekazuje to ustawienie dla danego żądania, bez zmieniania zapisanych ustawień Claude.
+
+To ustawienie zmienia też, jak dużą część czatu Claude może wykorzystać ponownie. Gdy jest włączone, Claude ponownie wykorzystuje wcześniejszą historię czatu i od nowa przetwarza tylko najnowszą część. Gdy jest wyłączone, Claude ponownie wykorzystuje tylko instrukcje z początku i przy każdej wiadomości od nowa przetwarza całą historię czatu. W długich czatach wyłączone ustawienie zużywa więcej limitu twojego planu.
 
 Gdy opcja jest wyłączona, główne rozmowy i żądania Agent SDK korzystają z domyślnych ustawień Claude: obecnie godziny dla użycia w ramach limitów subskrypcji oraz pięciu minut dla dodatkowego użycia, kredytów lub rozliczeń API. Własne podagenty Claude Code korzystają z pięciu minut, jeśli nie skonfigurowano ich osobno; wybrane żądania pomocnicze sterowane przez serwer mogą korzystać z godziny. Istniejące zmienne środowiskowe CLI nadpisujące tę wartość nadal mają pierwszeństwo. Zobacz [pamięć podręczną promptów w Claude Code](https://code.claude.com/docs/en/prompt-caching).
 

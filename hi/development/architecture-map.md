@@ -41,7 +41,7 @@
 - `schemas`: सेव होने वाली और साझा एंटिटी के Zod स्कीमा।
 - `constants`: प्रोवाइडर, डिफ़ॉल्ट, चैट मोड, मॉडल लिस्ट, एजेंट प्रॉम्प्ट।
 - `utils`: प्योर हेल्पर, जैसे मैक्रो एक्सपैंशन, XML रैपिंग और म्यूज़िक स्कोरिंग।
-- `features`: एजेंट मैनिफ़ेस्ट और रजिस्ट्री, फ़ंक्शन-कॉल की परिभाषाएँ, फ़ोल्डर पैकेज, और UNO, Chess तथा Poker के टर्न-गेम इंजन।
+- `features`: एजेंट मैनिफ़ेस्ट और रजिस्ट्री, फ़ंक्शन-कॉल की परिभाषाएँ, फ़ोल्डर पैकेज, UNO, Chess तथा Poker के टर्न-गेम इंजन, Game Mode के रूलसेट और उनकी लड़ाई (`rulesets`, `ruleset-combat`, `tactical-combat` और `combat-*` फ़ाइलें), और `world` में दुनिया बनाने वाला जेनरेटर अपनी शेयर फ़ाइलों के साथ (सेटिंग किट, दुनिया, टाइल, बोर्ड और क्रीचर पैक)।
 
 नियम:
 
@@ -61,7 +61,7 @@ React 19 और Vite PWA। अभी इसमें कई सौ सोर्
 - `components/chat`: आम चैट, Conversation, Roleplay, सीन, स्प्राइट और एनकाउंटर का मिला-जुला UI।
 - `components/game`: Game Mode की सतह और पैनल।
 - `components/panels`, `components/modals`, एंटिटी एडिटर: सेटिंग्स और रिसोर्स मैनेजमेंट।
-- `features`: अलग निकाले गए फ़ीचर मॉड्यूल, जिनमें फ़िलहाल चैट-सेटिंग्स के सेक्शन और ट्रैकर-पैनल के हिस्से शामिल हैं।
+- `features`: अलग निकाले गए फ़ीचर मॉड्यूल, जिनमें फ़िलहाल चैट-सेटिंग्स के सेक्शन, ट्रैकर-पैनल के हिस्से, मल्टीप्लेयर, और अवतार एजेंट का कॉन्ट्रैक्ट, सेटअप, स्टेज और रेंडरर (`features/avatars`) शामिल हैं।
 - `hooks`: ज़्यादातर API फ़ीचर के लिए React Query हुक और रनटाइम हुक।
 - `lib`: ब्राउज़र और क्लाइंट हेल्पर। अभी यहाँ आम हेल्पर और सिर्फ़ Game Mode वाले हेल्पर एक साथ पड़े हैं।
 - `stores`: UI, चैट रनटाइम, एजेंट, वर्ल्ड स्टेट, Game Mode, असेट, sidecar, ट्रांसलेशन, गैलरी, एनकाउंटर और टर्न गेम के Zustand स्टोर।
@@ -81,7 +81,7 @@ Fastify API, फ़ाइल-नेटिव स्टोरेज और प्
 अभी का ऊपरी ढाँचा:
 
 - `app.ts`, `index.ts`: ऐप फ़ैक्टरी, बूटस्ट्रैप, स्टैटिक फ़ाइलें परोसना, फ़ाइल-स्टोरेज हाइड्रेशन और सीडर।
-- `routes`: बहुत सारी रूट फ़ाइलें। ज़्यादातर पतली CRUD API हैं, पर `generate.routes.ts` और `game.routes.ts` बड़ी ऑर्केस्ट्रेशन फ़ाइलें हैं। जेनरेशन पथ के सबसे पहले निकाले गए हिस्से `routes/generate/` फ़ोल्डर में हैं।
+- `routes`: बहुत सारी रूट फ़ाइलें। ज़्यादातर पतली CRUD API हैं, पर `generate.routes.ts` और `game.routes.ts` बड़ी ऑर्केस्ट्रेशन फ़ाइलें हैं। जेनरेशन पथ से अब तक निकाले गए हिस्से `routes/generate/` फ़ोल्डर में हैं, जिनमें टोकन आउटपुट चेन (`generation-stream-output.ts`), टूल-कॉल राउंड (`tool-rounds.ts`), जवाब के कमांड की पार्सिंग और टेक्स्ट की सफ़ाई, और जवाब सेव करना (`save-generated-reply.ts`) शामिल हैं।
 - `services/storage`: चैट, कैरेक्टर, प्रॉम्प्ट, लोरबुक, सेटिंग्स, असेट, थीम और वर्ल्ड स्टेट के लिए स्टोरेज की फ़साड लेयर।
 - `services/llm`: प्रोवाइडर रजिस्ट्री, बेस प्रोवाइडर कॉन्ट्रैक्ट, OpenAI-कंपैटिबल प्रोवाइडर, लोकल sidecar ब्रिज।
 - `services/prompt`: Game Mode के बाहर की जेनरेशन के लिए साझा प्रॉम्प्ट असेंबली।
@@ -89,7 +89,7 @@ Fastify API, फ़ाइल-नेटिव स्टोरेज और प्
 - `services/game`: GM प्रॉम्प्ट, डाइस, कॉम्बैट, स्टेट मशीन, पार्टी प्रॉम्प्ट, मैप, मौसम, समय, सेशन, चेकपॉइंट, रेप्युटेशन, असेट।
 - `services/sidecar`: लोकल रनटाइम, मॉडल मैनेजमेंट, सीन एनालिसिस, सीन पोस्टप्रोसेसिंग।
 - `services/agents`: एजेंट एक्ज़ीक्यूशन और नॉलेज रूटिंग।
-- फ़ीचर की नींव: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall` और `discord-webhook.ts`।
+- फ़ीचर की नींव: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (अवतार एजेंट के लिए अवतार मॉडल का स्टोरेज, जेनरेशन और भाव पहचानने वाला क्लासिफ़ायर), `speech-to-text.service.ts` और `discord-webhook.ts`।
 - `db/schema`: `DATA_DIR/storage` के नीचे सेव होने वाले डेटा की फ़ाइल-टेबल परिभाषाएँ।
 - `db/file-schema.ts`, `db/file-query.ts`: नेटिव टेबल मेटाडेटा और क्वेरी एक्सप्रेशन।
 - `db/file-backed-store.ts`: इन-मेमोरी टेबल स्टोर, ट्रांज़ैक्शन की सीमा, क्रैश रिकवरी और JSON स्नैपशॉट सेव करना। देखें [फ़ाइल-नेटिव स्टोरेज](file-storage.md)।
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-पुराना सपाट `types`, `schemas` और `constants` ढाँचा अब पूरी कहानी नहीं रह गया है। `packages/shared/src/features/` में अब एजेंट, फ़ंक्शन कॉल, फ़ोल्डर पैकेज और टर्न गेम रहते हैं। `shared` की पहली सफ़ाई भी टाइप के स्तर पर और थोड़ी-थोड़ी करके होनी चाहिए, एक साथ ढेर सारी फ़ाइलें हटाकर नहीं।
+पुराना सपाट `types`, `schemas` और `constants` ढाँचा अब पूरी कहानी नहीं रह गया है। `packages/shared/src/features/` में अब एजेंट, फ़ंक्शन कॉल, फ़ोल्डर पैकेज, टर्न गेम, रूलसेट और लड़ाई, और दुनिया बनाने वाला जेनरेटर रहते हैं। shared की पहली सफ़ाई भी टाइप के स्तर पर और थोड़ी-थोड़ी करके होनी चाहिए, एक साथ ढेर सारी फ़ाइलें हटाकर नहीं।
 
 ## माइग्रेशन के नियम
 
@@ -287,7 +287,7 @@ packages/shared/src/
 4. `GameNarration.tsx` को कमांड पार्सिंग तथा फ़ॉर्मैटिंग और डिस्प्ले कंपोनेंट में बाँटें।
 5. `game.routes.ts` को हैंडलर के समूह के हिसाब से बाँटें।
    - संभावित समूह: सेटअप और सेशन, टर्न जेनरेशन, डाइस तथा स्किल और क्विक-टाइम इवेंट, जर्नल और इन्वेंटरी, मैप तथा यात्रा और मौसम, कॉम्बैट, असेट और सीन एनालिसिस।
-6. `generate.routes.ts` को जेनरेशन ट्रांसपोर्ट, एजेंट पाइपलाइन, रीट्राई रूट, और कमांड तथा पोस्टप्रोसेस हेल्पर में बाँटें।
+6. `generate.routes.ts` को जेनरेशन ट्रांसपोर्ट, एजेंट पाइपलाइन, रीट्राई रूट, और कमांड तथा पोस्टप्रोसेस हेल्पर में बाँटें। Issue #7573 से यह काम शुरू हो चुका है: टोकन आउटपुट चेन, टूल राउंड, जवाब के कमांड, जवाब के टेक्स्ट की सफ़ाई, सेव हुए संदेश की जेनरेशन जानकारी, छिपा कमांड एंकर और जवाब सेव करना अब `routes/generate/` में हैं, हर एक का अपना रिग्रेशन है।
 7. `ChatMetadata` को मोड-विशेष मेटाडेटा कॉन्ट्रैक्ट में बाँटें।
 8. Roleplay और गेम के साझा विज़ुअल को `components/chat` से बाहर ले जाएँ, इससे पहले कि गेम और ज़्यादा चैट इंटरनल इंपोर्ट करने लगे।
 

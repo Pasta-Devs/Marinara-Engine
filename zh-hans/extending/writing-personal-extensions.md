@@ -98,7 +98,7 @@ marinara.onCleanup(() => panel.remove());
 然后导入并运行扩展：
 
 1. 打开 **Settings** > **Addons** > **External Extensions**。
-2. 选择 **Import Folder** 并指定 `Hello Panel`，或者把文件夹压缩成 ZIP 后导入。
+2. 选择 **Import Extension Folder**(导入扩展文件夹) 并指定 `Hello Panel`，或者把文件夹压缩成 ZIP，再用 **Import Extension File**(导入扩展文件) 导入这个 ZIP。
 3. 打开已禁用的草稿，检查其清单和 JavaScript。
 4. 选择 **Review and Run**，批准界面显示的精确哈希。
 5. 打开 Extensions 菜单，选择 **Hello Panel**。

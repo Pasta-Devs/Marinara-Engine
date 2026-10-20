@@ -794,3 +794,24 @@ Precedent from the #7763 sync (`media/tts-setup.md`):
 
 - **Roleplay speaker extractor** is glossed *(Sprechererkennung in Roleplay)*.
 - **Enable emotion indicators** is glossed *(Emotionshinweise aktivieren)*.
+
+## Release catch-up (2026-10-19)
+
+Precedents from the release catch-up against Engine `staging` `dcae41337`:
+
+- An *audio connection* is **die Audioverbindung**, pl. **Audioverbindungen**: a
+  closed compound, as in `ui/de.json` and most of the pack. The UI group label
+  **Audio connections** is glossed once *(Audioverbindungen)*.
+- *Reverse proxy* is **der Reverse-Proxy**, pl. **Reverse-Proxys** (Duden-style
+  hyphen, §6), also in headings and the link text that points to them.
+- *Ruleset clocks* are „Uhren aus Regelsätzen“; *game checkpoints* are
+  **Game-Checkpoints** (carrier pattern, §2).
+- Avatar framing glosses: **Framing** *(Bildausschnitt)*, **Portrait** *(Porträt)*,
+  **Half body** *(Halbkörper)*, **Full body** *(Ganzkörper)*, **New face**
+  *(neues Gesicht)*. **Arrange**, **Done** and **Reset** take the `ui/de.json`
+  strings *(Anordnen)*, *(Fertig)*, *(Zurücksetzen)*.
+- **Queue media generation requests** keeps its pack gloss *(Anfragen zur
+  Mediengenerierung in die Warteschlange stellen)*. The `ui/de.json` string
+  „Medienformatierungsanfragen in Warteschlange einreihen“ mistranslates
+  *generation*; do not copy it into the docs. The UI string is left for a separate
+  correction.

@@ -29,7 +29,7 @@
 | 命令 | 别名 | 作用 |
 |---|---|---|
 | `/help` | | 列出全部斜杠命令。 |
-| `/send [message]` | | 以用户角色的身份发送消息，不触发生成。 |
+| `/send [message]` | | 以用户角色的身份发送消息，不触发生成。它的保存方式和 **Send**(发送) 一样，宏会被填入。 |
 | `/continue` | `/cont` | 在最后一条 AI 回复后面接着写，不新发一条消息。**Settings → General → Responses** 里的 **Add a new line before /continue text**(在 /continue 文本前另起一行) 选项决定续写内容是空一行再开始，还是紧接着断点继续。 |
 | `/goto [number]` | `/jump`、`/scroll` | 按编号把聊天滚动到某条消息。 |
 | `/hide [range] [name (optional)]` | | 让 AI 在之后的回合里看不到一条或多条消息。 |

@@ -23,9 +23,9 @@ Ein Profil hält fest, wie der Chat mit der KI spricht:
 - Übersetzung
 - Memory Recall
 - Advanced Parameters
-- Weitere wiederverwendbare Chat-Optionen
 - Fenster- und Schaltflächenanordnung: Positionen und Größen, Anheftungen und Sperren, eingebettete oder herausgelöste Tools, offene Steuerungsfenster und Schaltflächenpositionen am Computer und Telefon. Profile ohne gespeicherte Anordnung, etwa **Default**, lassen die Anordnung des Chats unverändert.
 - Ob die Hinweise zur Anordnung in Chat Settings verborgen sind. **Default** und ältere Profile ohne diese Auswahl zeigen die Hinweise wieder an.
+- Weitere wiederverwendbare Chat-Optionen
 
 Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Persona, Lorebooks, Sprites, Zusammenfassung, Tags oder Szenen-Prompt bleiben unberührt. Auch der Chatverlauf steckt nicht darin, ebenso wenig der laufende Zustand eines Chats, etwa seine Makrovariablen, die Charaktere, die du darin deaktiviert hast, oder sein Raum im Mehrspielermodus.
 
@@ -38,7 +38,7 @@ Das Profil-Dropdown sitzt ganz oben in den **Chat Settings**. Sein Tooltip (Kurz
 3. Öffne das **Profile**-Dropdown.
 4. Wähle ein Profil über seinen Namen aus.
 
-Der Chat übernimmt die Werte sofort. Passen die aktuellen Werte zu keinem gespeicherten Profil, zeigt das Dropdown **Custom settings profile**. Existiert ein zuvor angewendetes Profil nicht mehr, steht dort **Missing profile - choose a profile**.
+Der Chat übernimmt die Werte sofort. Schaltet das Profil **Hide summarised messages** (zusammengefasste Nachrichten ausblenden) ein oder aus, werden die zusammengefassten Nachrichten des Chats im selben Moment vor der KI verborgen oder ihr wieder gezeigt. Passen die aktuellen Werte zu keinem gespeicherten Profil, zeigt das Dropdown **Custom settings profile**. Existiert ein zuvor angewendetes Profil nicht mehr, steht dort **Missing profile - choose a profile**.
 
 ## Ein Profil speichern
 
@@ -111,7 +111,7 @@ Die Schritte stehen unter [Eine Anordnung für neue Chats wählen](chat-settings
 
 **Export settings profile (.json)** lädt eine Datei `.marinara-settings-profile.json` herunter, die du als Backup aufheben oder weitergeben kannst. **Import settings profile (.json)** legt aus einer passenden Datei ein neues Profil an, ohne ein vorhandenes zu überschreiben. Auch ältere Profil-Exporte lassen sich weiterhin importieren.
 
-Profile speichern Einstellungen, keine Zugangsdaten von Anbietern.
+Profile speichern Einstellungen, keine Zugangsdaten von Anbietern. Ein exportiertes oder importiertes Profil lässt außerdem den Webhook des Discord-Mirrors, die DeepLX-Adresse, den DeepL-Key und die Intiface-Adresse weg. Profile, die du in dieser Installation speicherst, behalten sie.
 
 ## Das Profil „Default“
 

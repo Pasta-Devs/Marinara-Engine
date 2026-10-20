@@ -2,17 +2,21 @@
 
 Professor Mari é a assistente que já vem no Marinara Engine, na tela inicial. Neste guia você vê onde encontrar a Professor Mari, o que ela faz, como as mudanças dela podem ser desfeitas e como resolver os problemas mais comuns.
 
+<a id="where-to-find-her"></a>
+
 ## Onde encontrar a Professor Mari
 
 Professor Mari fica na tela inicial. A tela inicial é o que aparece quando nenhum chat está aberto.
 
-Procure o card com o desenho em pixel art dela e o título **Professor Mari**. Uma linha de status mostra **Ready to help** quando ela está parada, ou **Working on it...** enquanto ela trabalha. Clique no botão **Ask Prof. Mari** (falar com a Professor Mari) para abrir a janela de chat completa.
+Procure o widget **Professor Mari**, com o desenho em pixel art dela, e clique em **Ask Professor Mari** (falar com a Professor Mari) para abrir a janela de chat completa. A aba **Professor**, no topo da tela inicial, também abre essa janela. A janela dela abre dentro da busca, então você também chega até ela de qualquer tela: digite no campo de busca e escolha **Ask Prof. Mari**, pressione Ctrl+J (Cmd+J no Mac) ou, no celular, puxe a barra superior para baixo. Uma linha de status no cabeçalho da janela dela mostra **Ready to help** quando ela está parada, ou **Working on it...** enquanto ela trabalha.
 
-A conversa é em linguagem comum. Digite uma mensagem na caixa e pressione Enter para enviar. Pressione Shift e Enter juntos para quebrar a linha em vez de enviar.
+A conversa é em linguagem comum. Digite uma mensagem na caixa e pressione Enter para enviar. Pressione Shift e Enter juntos para quebrar a linha em vez de enviar. Se você desligar **Enter sends to Professor Mari** nas configurações dela, Enter quebra a linha e Ctrl+Enter (Cmd+Enter no Mac) envia.
 
 A primeira mensagem enviada para ela desbloqueia a conquista **Hello World**.
 
-Uma linha fina na borda inferior da barra superior do aplicativo também mostra o estado dela, em qualquer tela: a linha oscila enquanto ela trabalha, fica verde quando ela termina, dourada enquanto uma aprovação espera e vermelha se a última execução falhou. A linha some quando você abre o chat dela. (A linha fica desligada enquanto a opção **Ask Professor Mari from Search** (falar com a Professor Mari pela busca) estiver desativada.) Todas as opções dela ficam nas configurações da busca e da Professor Mari: a engrenagem da busca, ou **Settings** (Configurações) > **General** > **Search and Professor Mari settings** > **Open** (abrir).
+Uma linha fina na borda inferior da barra superior do aplicativo também mostra o estado dela, em qualquer tela: a linha oscila enquanto ela trabalha, fica verde quando ela termina, dourada enquanto uma aprovação espera e vermelha se a última execução falhou. A linha some quando você abre o chat dela. (A linha fica desligada enquanto a opção **Ask Professor Mari from Search** (falar com a Professor Mari pela busca) estiver desativada.) Enquanto a janela dela está fechada, uma pequena pílula na barra superior mostra o mesmo estado como **Working** (trabalhando), **Needs you** (precisa de você), **Done** (pronto) ou **Failed** (falhou). Clique na pílula para voltar ao chat dela. Todas as opções dela ficam nas configurações da busca e da Professor Mari: a engrenagem da busca, ou **Settings** (Configurações) > **General** > **Search and Professor Mari settings** > **Open** (abrir).
+
+No computador, você também pode mudar ali o tamanho da janela dela. Use os controles deslizantes **Height** (altura) e **Width** (largura) em **Professor Mari window** (janela da Professor Mari). Os controles deslizantes em **Search window** (janela da busca) fazem o mesmo com a busca; a altura dela começa em **Automatic** (automática). No celular, as duas janelas sempre ocupam a tela inteira.
 
 ## Falar com a Professor Mari a partir do que você está fazendo
 
@@ -21,12 +25,12 @@ Professor Mari é bem mais que uma caixa de perguntas. Ela explica o aplicativo,
 Você pode abrir a Professor Mari no lugar onde precisa de ajuda. Esses pontos de entrada criam um rascunho editável e anexam um pequeno resumo de contexto, identificado pelo tipo. O contexto anexado pode ser removido antes de você enviar a mensagem.
 
 - Editores de **Character**, **Persona**, **Lorebook** e **Preset**: pergunte sobre o recurso aberto ou sobre um campo selecionado.
-- Respostas do **FAQ**: use **Ask Prof. Mari** para incluir a pergunta encontrada e a resposta escrita como ponto de partida.
+- Respostas do **FAQ**: use **Ask Prof. Mari about this** (perguntar à Professor Mari sobre isto) para incluir a pergunta encontrada e a resposta escrita como ponto de partida.
 - **Search** (busca): pressione `Cmd/Ctrl+K`, selecione um resultado e use **Ask Prof. Mari** para incluir o resultado selecionado no rascunho. A busca não envia sozinha nenhuma requisição ao modelo, a menos que uma resposta rápida esteja ativada (veja **Quick answers in Search** abaixo).
-- **Recent Chats** (chats recentes) e outros estados de erro: use **Ask Prof. Mari** ao lado de **Retry** (tentar novamente) para enviar a descrição do erro e a ação de reparo pedida.
+- **Recent Chats** (chats recentes) e outros estados de erro: use **Ask Professor Mari** ao lado de **Try again** (tentar de novo) para enviar a descrição do erro e a ação de reparo pedida.
 - O chat normal com a personagem Professor Mari e o chat do espaço de trabalho da tela inicial usam o mesmo formato de encaminhamento.
 
-Os itens anexados aparecem como chips **Aware of** (ciente de) acima da caixa de mensagem dela. Remova um item de contexto quando ele não for relevante. Depois que você envia a mensagem, a Professor Mari obtém no servidor o conteúdo mais extenso do recurso, dentro do orçamento de contexto. Ela não recebe um recurso inteiro só porque você abriu um editor.
+Os itens anexados aparecem como chips **Context** (contexto) acima da caixa de mensagem dela. Remova um item de contexto quando ele não for relevante. Depois que você envia a mensagem, a Professor Mari obtém no servidor o conteúdo mais extenso do recurso, dentro do orçamento de contexto. Ela não recebe um recurso inteiro só porque você abriu um editor.
 
 Peça ajuda a ela em qualquer um destes casos:
 
@@ -87,11 +91,11 @@ Quase ninguém precisa disso. O recurso existe para ela inspecionar ou consertar
 
 Professor Mari precisa de uma conexão para pensar. A conexão liga Marinara a um provedor de IA por meio de uma chave de API. A chave de API é um código secreto desse provedor.
 
-Clique no ícone de link ao lado do clipe de papel para abrir o menu suspenso **Connections** (Conexões). Escolha qualquer conexão de geração de texto já configurada. Se você baixou o modelo local que vem no aplicativo, ele também aparece aqui como **Local Model (sidecar)**. Quando o aplicativo conhece o nome do modelo, esse nome aparece entre parênteses. A escolha fica guardada no navegador.
+Clique no botão de conexão ao lado do clipe de papel. Ele mostra um ícone de link e o nome da conexão que ela usa, ou **Select connection** (selecionar conexão) quando nenhuma foi escolhida. O botão abre a lista **Connections** (Conexões). Escolha qualquer conexão de geração de texto já configurada. Se você baixou o modelo local que vem no aplicativo, ele também aparece aqui como **Local Model (sidecar)**. Quando o aplicativo conhece o nome do modelo, esse nome aparece entre parênteses. A escolha fica salva com as suas preferências do aplicativo.
 
-Se ainda não houver nenhuma conexão, o menu suspenso mostra **Add a connection**. Se você tentar enviar uma mensagem sem conexão, o painel **Connections** abre sozinho. Aparece também esta mensagem na tela (chamada de toast):
+O mesmo menu também lista os modelos da conexão escolhida. Clique em um modelo para usá-lo. O modelo fica salvo na conexão, como em um chat normal, então os outros chats que usam essa conexão também passam a usá-lo. No celular ou em uma janela estreita, toque em uma conexão para passar para ela, ou toque na seta no fim da linha dela para ver primeiro os modelos. O modelo local embutido não tem lista de modelos.
 
-> You haven't set up a connection yet! Click the link icon beside the paperclip to select one.
+Se ainda não houver nenhuma conexão, a lista mostra **Add a connection** (adicionar uma conexão). Clique nessa opção para criar uma. Se você tentar enviar uma mensagem sem conexão, a lista **Connections** abre sozinha para você escolher uma.
 
 O passo a passo completo está no guia de conexão indicado no fim da página.
 
@@ -103,6 +107,10 @@ Para trocar, abra **Search and Professor Mari settings** e mude **Runtime** (amb
 
 O Pi funciona com todas as conexões, inclusive o modelo local. Se a Professor Mari se comportar de forma estranha no Pi, volte para o Classic.
 
+## Mudar a aparência dela
+
+Abra **Search and Professor Mari settings** e role até **Appearance** (aparência). Escolha um visual para ela, como **Basic**, **Prof. Mari loves Dottore** ou **Safari Prof. Mari**. O visual novo aparece no chat dela, na busca, na tela inicial e na barra superior. Alguns visuais são desbloqueados depois de tempo suficiente de jogo. Um visual bloqueado mostra quantas horas você já jogou até agora.
+
 ## Anexar arquivos
 
 Clique no botão do clipe de papel, chamado **Attach files** (anexar arquivos), para adicionar um arquivo à mensagem.
@@ -113,7 +121,7 @@ Para ela conseguir ler uma imagem, o modelo da conexão escolhida precisa aceita
 
 ## Revisar as mudanças dela
 
-Quando a Professor Mari muda alguma coisa, ela salva a mudança na hora e mostra um card de mudança abaixo da resposta. O card lista cada campo que mudou. Uma edição de texto mostra as palavras antigas e as novas, e um lorebook mostra as entradas dele. Abra **Show all** (mostrar tudo) para ver todos os campos. **Technical details** (detalhes técnicos) mostra o comando bruto.
+Quando a Professor Mari muda alguma coisa, ela salva a mudança na hora e mostra um card de mudança abaixo da resposta. O card lista cada campo que mudou. Uma edição de texto mostra as palavras antigas e as novas, e um lorebook mostra as entradas dele. Uma mudança mais funda dentro de um item, como no onboarding de um card, ganha o próprio campo, que diz o que mudou. Abra **Show all** (mostrar tudo) para ver todos os campos. **Technical details** (detalhes técnicos) mostra o comando bruto.
 
 O card tem uma ação:
 
@@ -189,29 +197,27 @@ Para gerenciar as lembranças, use o painel **Memories** ou peça direto a ela: 
 
 Professor Mari guarda os chats dela em separado. Eles não aparecem na sua lista normal de chats.
 
-Clique no botão **Chats** no cabeçalho dela para abrir os chats salvos da Professor Mari. O painel avisa: "Restart saves the current chat here." Clique em um chat salvo para abri-lo, renomeá-lo ou excluí-lo.
+Clique no botão **Chats** no cabeçalho dela para abrir os chats salvos da Professor Mari. Quando a lista está vazia, o painel avisa: "New chat keeps this one here." Use **Search Prof. Mari chats** (buscar nos chats da Professor Mari) para encontrar um. Clique em um chat salvo para abri-lo, renomeá-lo ou excluí-lo.
 
-Clique no botão **Restart** (recomeçar) para iniciar uma conversa nova com ela. Antes disso, o Restart salva o chat atual na lista **Chats**. Você também pode digitar `/restart` na caixa de mensagem para fazer o mesmo. Aparece a mensagem "Professor Mari's previous chat was saved."
+Clique no botão **New chat** (chat novo) para iniciar uma conversa nova com ela. Antes disso, ele salva o chat atual na lista **Chats**. Você também pode digitar `/restart` na caixa de mensagem para fazer o mesmo. Aparece a mensagem "Professor Mari's previous chat was saved."
 
-Enquanto ela trabalha, um botão **Stop** aparece no cabeçalho. Clique nele para cancelar a tarefa atual.
+Enquanto ela trabalha, o botão de enviar vira um botão **Stop** (parar). Clique nele para cancelar a tarefa atual.
 
-## A bolha flutuante do chat
+## Sair da janela dela
 
-Se você deixar a janela de chat dela aberta e for para outra página, Professor Mari acompanha você como uma pequena bolha flutuante.
-
-No celular ou em telas estreitas, ela vira um avatar redondo pequeno que você arrasta pela tela. Toque nele para abrir o chat completo de novo. Em telas largas, aparece uma janelinha **Ask Prof. Mari** que também pode ser arrastada. As duas versões têm um controle para dispensar a bolha pelo resto da sessão.
+Você pode fechar a janela dela e continuar usando o aplicativo enquanto ela trabalha. A linha e a pílula na barra superior mostram como ela está indo, como descrito em [Onde encontrar a Professor Mari](#where-to-find-her). Clique na pílula para voltar ao chat dela.
 
 ## Status de confiança e de recuperação
 
-Abra **Aware of** no cabeçalho da Professor Mari para ver o que vai junto com a sua próxima mensagem, o que fica neste chat da Professor Mari e como ela trabalha: o modelo com que ela responde, o orçamento de contexto e se os comandos de terminal dela rodam em ambiente isolado. O cabeçalho também mostra as aprovações pendentes, as Skills e as Memories. Confira esses itens antes de um pedido quando precisar saber o que a Professor Mari pode ler.
+Abra **Context** (contexto) no cabeçalho da Professor Mari para ver o que vai junto com a sua próxima mensagem, o que fica neste chat da Professor Mari e como ela trabalha: o modelo com que ela responde, o orçamento de contexto e se os comandos de terminal dela rodam em ambiente isolado. O cabeçalho também mostra as aprovações pendentes, as Skills e as Memories. Confira esses itens antes de um pedido quando precisar saber o que a Professor Mari pode ler.
 
-A Professor Mari mantém as mudanças importantes no espaço de trabalho sujeitas às regras de aprovação e de revisão que o servidor já aplica. **Aware of** não concede acesso extra. As mudanças em arquivos sensíveis, as mudanças de dependências, os limites do terminal e a validação dos dados do aplicativo continuam sendo aplicados pelo servidor.
+A Professor Mari mantém as mudanças importantes no espaço de trabalho sujeitas às regras de aprovação e de revisão que o servidor já aplica. **Context** não concede acesso extra. As mudanças em arquivos sensíveis, as mudanças de dependências, os limites do terminal e a validação dos dados do aplicativo continuam sendo aplicados pelo servidor.
 
-Quando um pedido falha, o histórico do chat guarda o motivo da falha e mostra **Retry** quando o pedido pode ser enviado de novo. Corrija antes o problema indicado de conexão, de ambiente isolado, de capacidade ou de acesso remoto e depois tente novamente. Uma nova tentativa nunca começa sozinha a partir de uma busca, do FAQ ou de um estado de erro. Ela continua sendo uma ação sua.
+Quando um pedido falha, o histórico do chat guarda o motivo da falha e mostra **Retry** quando o pedido pode ser enviado de novo. Corrija antes o problema indicado de conexão, de ambiente isolado, de capacidade ou de acesso remoto e depois tente novamente. Se a sua pergunta não foi salva, ela volta para a caixa de mensagem com os arquivos dela, para você poder mudá-la antes. **Retry** e **Retry with another model** (tentar novamente com outro modelo) então enviam o que está na caixa. Uma nova tentativa nunca começa sozinha a partir de uma busca, do FAQ ou de um estado de erro. Ela continua sendo uma ação sua.
 
 ## O FAQ dela é separado do chat
 
-Ao lado do card de chat, a tela inicial mostra um painel **FAQ**. É uma lista fixa de perguntas e respostas já escritas. Não é o chat com a IA.
+Clique no favorito **FAQ** da tela inicial, ou em **Read FAQ** (ler o FAQ) no widget **Learn the engine** (conhecer o Engine), para abrir o **Professor Mari's FAQ** (FAQ da Professor Mari). É uma lista fixa de perguntas e respostas já escritas. Não é o chat com a IA.
 
 Digite na caixa **Search FAQ** para filtrar as perguntas. Cada pergunta tem uma tag de categoria colorida, como **Setup**, **Connections** ou **Game Mode**. Toque em uma pergunta para ler a resposta.
 
@@ -231,11 +237,11 @@ Professor Mari é uma ajudante, não a documentação completa. Tenha estes limi
 
 ## Solução de problemas
 
-- Nenhuma resposta: confira a conexão mostrada em **Aware of** ou selecione uma no ícone de link. Se não houver nenhuma configurada, abra o painel **Connections** e adicione uma.
+- Nenhuma resposta: confira a conexão mostrada em **Context** ou selecione uma com o botão de conexão. Se não houver nenhuma configurada, abra o painel **Connections** e adicione uma.
 - Um encaminhamento trouxe o item errado: remova o item de contexto, recomece ou troque para o chat certo da Professor Mari e abra o encaminhamento de novo a partir do lugar de origem. O contexto vale só para o encaminhamento e para o chat atual da Professor Mari.
 - Um resultado não aparece em um editor: use **Open** no card do resultado. A Professor Mari pode ter concluído o comando enquanto a lista de recursos estava desatualizada.
 - Um pedido falha: leia o status da falha, corrija o problema de configuração indicado e use **Retry**. Peça de novo à Professor Mari a partir da origem só quando o próprio contexto não estiver mais correto.
-- Mensagem "You haven't set up a connection yet": escolha uma conexão no menu suspenso do ícone de link ou adicione uma antes.
+- A lista **Connections** abre quando você pressiona enviar: nenhuma conexão foi escolhida ainda. Escolha uma na lista, ou use antes **Add a connection**.
 - Ela não consegue ler a imagem anexada: o modelo precisa aceitar imagens na entrada. Troque para uma conexão cujo modelo enxergue imagens.
 - As consultas ao Fandom falham: elas precisam de internet, porque o Fandom é um site externo.
 - As ações dela são bloqueadas com erro de permissão: você está acessando Marinara pela rede, e não do mesmo computador. Configure o acesso remoto antes.

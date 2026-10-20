@@ -65,7 +65,7 @@ A etapa de revisão confirma a mesma coisa, com este aviso: "Animated portrait s
 
 As expressões animadas demoram mais do que os sprites parados. Marinara gera uma expressão por vez, nunca em lote. Escolher muitas expressões de uma vez pode levar bastante tempo, então comece com poucas.
 
-Se você ativou a opção **Expose media prompts before sending** (em **Settings**, na seção **Image Generation**), Marinara faz uma pausa em uma etapa de revisão do prompt. Assim você lê e edita cada prompt antes que o Marinara o envie ao provedor. Deixe essa configuração desativada para pular a revisão.
+Se você ativou a opção **Expose media prompts before sending** (em **Settings**, na seção **Overall Generations**), Marinara faz uma pausa em uma etapa de revisão do prompt. Assim você lê e edita cada prompt antes que o Marinara o envie ao provedor. Deixe essa configuração desativada para pular a revisão.
 
 ## Solução de problemas
 

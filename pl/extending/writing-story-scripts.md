@@ -136,6 +136,8 @@ Przerywnik `pages` odtwarza się przed odpowiedzią Mistrza Gry, w narracji, str
 
 Przerywnik `beats` Mistrz Gry opowiada własnymi słowami, punkt po punkcie, w tej samej turze. Punkty zdarzenia `gm` Mistrz Gry dostaje razem z tym zdarzeniem i opowiada je w odpowiedzi, która oznacza dany moment. Dlatego scenę z punktami, której używa zdarzenie `gm`, Mistrz Gry zna od początku, nawet jeśli odtwarza ją też zdarzenie uruchamiane przez Engine. Ponieważ Mistrz Gry dostaje je w każdej turze, punkty wszystkich zdarzeń `gm` łącznie mogą mieć najwyżej 16 000 znaków.
 
+<a id="the-intro-message"></a>
+
 ### Wiadomość otwierająca
 
 `intro` (Capability API 1.339) określa, jak zaczyna się gra. To ten sam wybór, który konfiguracja GM oferuje w każdej grze:

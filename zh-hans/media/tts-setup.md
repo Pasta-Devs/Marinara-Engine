@@ -25,7 +25,26 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 
 默认的 Source 是 **OpenAI-compatible**。Marinara 会为每个 Source 单独保存一套配置，包括加密的 API 密钥、接口地址、模型、声音和服务商参数。切换 Source 时会恢复该 Source 上次的配置；还没配置过的 Source 则使用它自己的默认值。
 
+<a id="use-an-audio-connection"></a>
+
+### 使用音频连接
+
+如果你已经设置了 **Audio**(音频) 连接（见[支持的 AI 服务商](../connections/providers-reference.md#audio)），就不用在这里再填一遍它的信息。你的音频连接会列在 **Source** 下拉菜单的 **Audio connections**(音频连接) 分组下，每个连接后面的括号里注明了它的来源类型。
+
+1. 打开 **Source** 下拉菜单，选择这个连接。
+2. 照常选择它的声音和下面的其他设置。
+
+之后 Marinara 会用该连接的基础 URL、API 密钥、模型和 **Request timeout (seconds)** 来朗读，所以卡片会隐藏这些字段。密钥保留在连接里：不会复制到卡片的设置中，也不会发送到你的浏览器。你对连接所做的改动，比如换了新密钥，会立即生效。
+
+声音、语速和其他语音设置会按连接分别保存。两个同类型的连接，比如两个 OpenAI 兼容服务器，绝不会共用这些设置。四个常规 Source 的设置保持原样，所以随时可以切换回去。卡片标题栏里的开关仍然用来开启和关闭 TTS，游戏自己的音频连接也仍然负责生成该游戏的音效和音乐。
+
+如果所选连接被删除或无法使用，卡片会显示 **Missing Audio connection**(缺少音频连接)，在你另选一个 Source 之前不会朗读任何内容。Marinara 绝不会自行切换到别的连接。
+
+连接能列出自己的声音时，如果某个已保存的声音不在列表里，卡片会指出它，方便你改选连接提供的声音。
+
 ## 第 2 步：填写 Base URL、API Key 和 Model
+
+如果你选了音频连接作为 Source，跳过这一步：Marinara 会使用该连接自己的设置。
 
 每个 Source 都需要一个网址，大多数还需要 API 密钥。API 密钥是服务商发给你的一串秘密字符，用来证明这个请求是你发出的。
 
@@ -49,6 +68,16 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 PocketTTS 并非 Marinara Engine 内置。单独安装[官方 PocketTTS 服务器](https://github.com/kyutai-labs/pocket-tts)，再用 `uvx pocket-tts serve` 启动。Marinara 不会代为下载或管理。
 
 官方服务器默认使用 `http://localhost:8000`。没有修改主机或端口时，**Base URL** 保持该值。Marinara 会自动检测官方 multipart `/tts` API。原有 [OpenAI 兼容 PocketTTS 包装服务器](https://github.com/teddybear082/pocket-tts-openai_streaming_server)的自定义 URL 仍受支持。
+
+<a id="request-timeout"></a>
+
+### 请求超时
+
+默认情况下，Marinara 为每一句语音最多等待 60 秒。你自己电脑上的语音服务器，尤其是笔记本上的，读一句长句可能需要更久。想等得更久，就调高卡片里 **Model** 下方的 **Request timeout (seconds)**(请求超时，单位为秒)。可以设为 10 到 3,600 秒。
+
+音频连接有自己的 **Request timeout (seconds)** 字段，在连接编辑器里 **Default Voice** 的下方。聊天通过音频连接朗读时（包括被选作卡片 **Source** 的连接），使用的是该连接的时限。卡片的时限则适用于卡片自身设置所产生的语音，包括它的 **Preview** 按钮。
+
+如果某一句耗时太久，错误信息会写明 Marinara 等了多少秒，以及应该调高哪项设置。
 
 ## 第 3 步：选择声音（Voice Option）
 
@@ -168,15 +197,18 @@ TTS 开启之后，每条角色消息或旁白消息下方的工具栏里会出�
 
 ## 故障排查
 
+- 卡片显示 **Missing Audio connection**：被选作 Source 的音频连接已被删除或无法使用。请另选一个 Source。见[使用音频连接](#use-an-audio-connection)。
 - 完全没有声音：先确认 **Enable TTS** 开关已打开，再检查对应模式的 **Auto-play** 开关，或者直接用消息上的 **Speak** 按钮。**Speak** 按钮和自动朗读选项只有在 TTS 开启后才会出现。
 - 下拉菜单里没有声音：在 TTS 已开启、且已按提供商要求填写有效 API 密钥（如需）的状态下保存卡片，然后点击 **Refresh voices**。官方 PocketTTS 服务器没有声音列表端点，因此使用 Marinara 的内置列表。如果使用兼容 PocketTTS 包装服务器，请确认 `<Base URL>/v1/voices` 有响应。
 - ElevenLabs 不出声：确认选中的是一个真正的声音，而不是“Select an ElevenLabs voice”占位文字。同时检查 **Model** 是语音合成模型，而不是 ID 里带 `ttv` 的声音设计模型。
+- 某一句语音中断并提示 **No audio after 60 s**：语音服务器需要更多时间。按提示里说的位置调高 **Request timeout (seconds)**。见[请求超时](#request-timeout)。
 - 本地地址上的自建 TTS 服务器被拦截：打开服务器设置 `TTS_LOCAL_URLS_ENABLED`。它允许应用访问 OpenAI 兼容或 ElevenLabs 风格服务器的本地地址和内网地址。PocketTTS 不需要这个设置。参见[服务器配置参考](../CONFIGURATION.md)。
 - 想快速验证配置：点击卡片里的 **Preview**(预览) 按钮，用当前设置播放一小段示例语音。
 
 ## 相关指南
 
 - [Conversation 音频和视频通话](../conversation/calls.md)
+- 适用于 2D 和 3D 虚拟形象的[配合语音合成的口型同步](../agents/avatars.md#lip-sync-with-text-to-speech)
 - [Roleplay 模式：入门](../roleplay/getting-started.md)
 - [Game Mode：入门](../game/getting-started.md)
 - [支持的 AI 服务商](../connections/providers-reference.md)

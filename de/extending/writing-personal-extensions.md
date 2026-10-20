@@ -98,7 +98,7 @@ Verwende diese `extension.css`, um das von der Schaltfläche geöffnete eingesch
 Importiere die Erweiterung anschließend und führe sie aus:
 
 1. Öffne **Settings** > **Addons** > **External Extensions**.
-2. Wähle **Import Folder** und den Ordner `Hello Panel` aus oder packe den Ordner als ZIP-Datei und importiere sie.
+2. Wähle **Import Extension Folder** und den Ordner `Hello Panel` aus oder packe den Ordner als ZIP-Datei und importiere sie mit **Import Extension File**.
 3. Öffne den deaktivierten Entwurf und prüfe sein Manifest sowie das JavaScript.
 4. Wähle **Review and Run** und genehmige den exakt angezeigten Hash.
 5. Öffne das Extensions-Menü und wähle **Hello Panel**.

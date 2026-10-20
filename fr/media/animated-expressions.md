@@ -65,7 +65,7 @@ L'étape de relecture confirme la même chose. Elle affiche cette note : "Animat
 
 Les expressions animées prennent plus de temps que les sprites fixes. Marinara les génère une par une, jamais par lot. Choisir beaucoup d'expressions d'un coup peut être long : commence par quelques-unes.
 
-Si tu as activé **Expose media prompts before sending** (dans **Settings**, section **Image Generation**), Marinara marque une pause à une étape de relecture des prompts. Tu peux lire et modifier chaque prompt avant son envoi au fournisseur. Laisse ce réglage désactivé pour sauter la relecture.
+Si tu as activé **Expose media prompts before sending** (dans **Settings**, section **Overall Generations**), Marinara marque une pause à une étape de relecture des prompts. Tu peux lire et modifier chaque prompt avant son envoi au fournisseur. Laisse ce réglage désactivé pour sauter la relecture.
 
 ## Dépannage
 

@@ -10,6 +10,8 @@ Każda scena jest osobnym czatem roleplay. Ma własne tło, własne postacie na 
 
 Scena z założenia jest tymczasowa. Dopóki jest otwarta, w pierwotnym czacie Conversation widnieje mała karta z napisem **A scene is in progress** (trwa scena). Na tej karcie znajduje się przycisk **Go to Scene** (przejście do sceny), który przenosi do aktywnej sceny.
 
+W czasie trwania sceny jej postacie nie odpowiadają w pierwotnym czacie Conversation, a komunikat informuje, że są w aktywnej scenie. Żeby mimo to mogły ci tam odpowiadać, włącz na tej karcie przełącznik **Allow replies here** (zezwolenie na odpowiedzi tutaj). Domyślnie jest wyłączony. Po jego włączeniu postacie ze sceny odpowiadają, gdy do nich piszesz, ale nadal nie wysyłają tam wiadomości z własnej inicjatywy.
+
 Na koniec wybierasz, co stanie się ze sceną. Można zapisać podsumowanie z powrotem w czacie Conversation, wyrzucić scenę albo zachować ją jako trwały, samodzielny roleplay. Każdą z tych możliwości opisujemy niżej.
 
 ## Rozpoczęcie sceny

@@ -10,6 +10,8 @@ Cada cena é um chat de roleplay próprio. Ela tem plano de fundo próprio, pers
 
 Uma cena é temporária por natureza. Enquanto ela está aberta, o chat Conversation original mostra um pequeno card com o texto **A scene is in progress**. Nesse card fica o botão **Go to Scene** (ir para a cena), que leva você direto para a cena ativa.
 
+Enquanto a cena roda, os personagens dela não respondem no chat Conversation original, e um aviso diz que eles estão em uma cena ativa. Para deixar que eles respondam ali mesmo assim, ative **Allow replies here** (permitir respostas aqui) no card. A opção começa desligada. Com ela ligada, os personagens da cena respondem quando você manda mensagem para eles, mas continuam sem enviar mensagens ali por conta própria.
+
 Ao terminar, você escolhe o destino da cena. É possível salvar um resumo de volta na conversa, jogar a cena fora ou guardá-la como um roleplay permanente. As três opções estão explicadas abaixo.
 
 ## Como começar uma cena

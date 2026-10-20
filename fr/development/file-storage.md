@@ -50,6 +50,14 @@ Les écritures marquent les tables concernées comme modifiées. Un court anti-r
 
 Chaque instantané est écrit dans un fichier temporaire, vidé sur le disque, puis renommé de façon atomique. Avant le remplacement, l'instantané sain précédent est rafraîchi sous forme de fichier `.bak`. Au démarrage, un fichier principal illisible est restauré depuis sa sauvegarde quand c'est possible. Si aucune des deux copies n'est exploitable, Marinara met les fichiers corrompus en quarantaine avec un suffixe horodaté et ne démarre que cette table à vide, pour que l'interface reste accessible et permette la récupération.
 
+## Bail d'écriture
+
+Un seul processus serveur écrit dans un dossier de stockage à la fois. Au démarrage, le store y crée le dossier `.writer-lease`, avec un `owner.json` qui enregistre le PID de l'écrivain, l'identifiant de la machine, l'identifiant de démarrage, l'espace de noms PID, le nom d'hôte et un jeton aléatoire, et le supprime à l'arrêt. Un second processus qui trouve un bail refuse de démarrer avec une `StorageWriterLeaseError`, sauf s'il peut prouver que l'écrivain précédent a disparu.
+
+Cette preuve exige d'abord la même machine : un identifiant de machine identique, le dossier personnel privé de l'application Termux ou, quand un des deux côtés n'a pas d'identifiant de machine, un stockage que seule cette machine peut atteindre. Sous Linux et Android, il s'agit d'un système de fichiers local. Sous Windows, il s'agit d'un lecteur `Fixed` (pas d'un chemin réseau, amovible ou UNC), et le bail doit provenir d'un écrivain Windows natif portant le nom de cet ordinateur. Un bail sur la même machine est récupéré quand il appartient à un démarrage antérieur (sous Windows, des heures de démarrage distantes de 5 minutes au plus comptent comme le même démarrage), quand son socket de vivacité ne répond plus (Docker et Termux), ou quand son PID s'est terminé ou appartient désormais à un processus plus récent (sauf avec la preuve par lecteur Windows). Un stockage partagé ou réseau reste verrouillé, et l'erreur nomme le bail à supprimer à la main une fois tous les processus arrêtés.
+
+`scripts/regressions/storage-writer-lock.regression.ts` couvre ces preuves.
+
 ## Transactions
 
 Les transactions reposent sur des instantanés en copie sur écriture, délimités par `AsyncLocalStorage`. Une table n'est clonée qu'au moment où la transaction la modifie pour la première fois. Si le callback lève une erreur, seules les tables modifiées par cette transaction sont restaurées ; les écritures concurrentes sans rapport sont préservées.

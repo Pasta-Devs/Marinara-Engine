@@ -59,9 +59,9 @@ UI का डिज़ाइन Discord जैसा तीन-कॉलम व�
 
 ### Zustand स्टोर (क्लाइंट स्टेट)
 
-UI और रनटाइम स्टेट के लिए क्लाइंट `packages/client/src/stores/` में Zustand स्टोर का एक सेट इस्तेमाल करता है। सिर्फ़ `ui.store.ts` ही परसिस्ट होता है। बाकी स्टोर चैट, एजेंट, गेम, लोकल मॉडल रनटाइम, ट्रांसलेशन, डायलॉग, बैकफ़िल और टेबल गेम की रनटाइम स्टेट रखते हैं।
+UI और रनटाइम स्टेट के लिए क्लाइंट `packages/client/src/stores/` में Zustand स्टोर का एक सेट इस्तेमाल करता है। सिर्फ़ `ui.store.ts` ही परसिस्ट होता है। बाकी स्टोर चैट, एजेंट, गेम, लोकल मॉडल रनटाइम, ट्रांसलेशन, डायलॉग और बैकफ़िल की रनटाइम स्टेट रखते हैं।
 
-अभी के स्टोर फ़ाइलें ये हैं: `agent.store.ts`, `backfill.store.ts`, `chat.store.ts`, `chess-game.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `poker-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`, और `uno-game.store.ts`।
+अभी की स्टोर फ़ाइलें ये हैं: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts`, और `ui.store.ts`। टेबल-गेम के स्टोर उनके डाउनलोड होने वाले पैकेज में चले गए हैं; `conversation-games.store.ts` सिर्फ़ Conversation के गेम पिकर और सेटअप पर नज़र रखता है।
 
 #### `ui.store.ts`: सेटिंग्स और UI क्रोम
 
@@ -489,6 +489,9 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `/api/translate`          | POST                             | टेक्स्ट ट्रांसलेशन            |
 | `/api/game`               | CRUD और एक्शन                     | Game Mode के सेशन और स्टेट    |
 | `/api/game-assets`        | CRUD और अपलोड                     | गेम ऐसेट                      |
+| `/api/game-rulesets`      | इंपोर्ट, स्कीमा, सोर्स, हटाना       | इंपोर्ट किए गए Game Mode रूलसेट |
+| `/api/game-worlds`        | लाइब्रेरी CRUD और दुनिया की एडिटिंग | नए गेम और मैप पैक के लिए दुनिया की लाइब्रेरी |
+| `/api/game-tile-packs`    | टाइल पैक, साथ में `/creatures` और `/boards` | मैप, क्रीचर और लड़ाई के बोर्ड के आर्ट पैक |
 | `/api/turn-games`         | Chess, UNO, Poker रूट             | Conversation के टेबल गेम      |
 | `/api/conversation-calls` | कॉल और सेशन रूट                   | Conversation की ऑडियो कॉल     |
 
@@ -503,6 +506,10 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `/api/gallery/:chatId`        | हर चैट की गैलरी इमेज          |
 | `/api/global-gallery`         | ग्लोबल गैलरी इमेज             |
 | `/api/tts`                    | टेक्स्ट टू स्पीच रूट          |
+| `/api/speech-to-text`         | Speech to Text सर्वर की सेटिंग्स और टेस्ट |
+| `/api/avatar-models`          | अवतार एजेंट के लिए 2D और 3D अवतार मॉडल |
+| `/api/avatar-generation`      | स्प्राइट से अवतार ड्राफ़्ट और Tripo कुंजी |
+| `/api/avatar-classify`        | अवतार का भाव पहचानने वाला क्लासिफ़ायर और उसका लोकल मॉडल |
 | `/api/youtube`                | YouTube DJ रूट                |
 | `/api/custom-emojis`          | कस्टम इमोजी ऐसेट              |
 | `/api/custom-stickers`        | कस्टम स्टिकर ऐसेट             |
@@ -539,8 +546,10 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `/api/connection-folders`       | कनेक्शन फ़ोल्डर                           |
 | `/api/prompt-overrides`         | बिल्ट-इन प्रॉम्प्ट ओवरराइड                |
 | `/api/achievements`             | अचीवमेंट अनलॉक                           |
-| `/api/noodle`                   | Noodle सोशल टाइमलाइन                     |
+| `/api/capability-packages`      | एजेंट कैटलॉग, इंस्टॉल, अपडेट, रिलीज़ नोट्स और पैकेज के ऐसेट |
+| `/api/noodle`                   | Noodle सोशल टाइमलाइन (Noodle पैकेज इसे रजिस्टर करता है) |
 | `/api/professor-mari/workspace` | Professor Mari वर्कस्पेस के ऑपरेशन        |
+| `/api/professor-mari/quick`     | Professor Mari के तुरंत जवाब और उनके एडिट प्रस्ताव लागू करना |
 
 ## PWA सपोर्ट
 
@@ -586,6 +595,10 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `persona-stats`          | post_processing | प्लेयर पर्सोना के स्टैट बदलाव पर नज़र रखता है                        |
 | `custom-tracker`         | post_processing | आपकी बनाई संरचित स्टेट पर नज़र रखता है                              |
 | `inventory-tracker`      | post_processing | मुद्राओं, पहने हुए गियर और साथ रखे सामान पर नज़र रखता है              |
+| `quartermaster`          | post_processing | Roleplay की कैरेक्टर शीट, पहना हुआ गियर और पोशाकें संभालता है      |
+| `beholder`               | post_processing | हर कैरेक्टर क्या पहने और क्या पकड़े है, और उसकी चोटों पर नज़र रखता है |
+| `relationship-tracker`   | post_processing | कैरेक्टर और पर्सोना एक-दूसरे के बारे में कैसा महसूस करते हैं, इस पर नज़र रखता है |
+| `memory-nag`             | post_processing | वादों जैसी अधूरी बातें याद रखता है और मॉडल को याद दिलाता है       |
 | `illustrator`            | post_processing | सीन के इमेज प्रॉम्प्ट और मीडिया रिक्वेस्ट बनाता है                  |
 | `lorebook-keeper`        | post_processing | लोरबुक एंट्री अपने आप बनाता और अपडेट करता है                        |
 | `card-evolution-auditor` | post_processing | कैरेक्टर कार्ड जाँचकर उनमें बदलाव सुझाता है                          |
@@ -600,7 +613,9 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 | `storyboard` | post_processing | Game और Roleplay के स्थिर या एनिमेटेड स्टोरीबोर्ड की योजना बनाता है |
 | `conversation-calls`     | feature         | Conversation में ऑडियो/वीडियो कॉल और उनकी सेटिंग्स जोड़ता है         |
 | `hierarchical-maps`      | feature         | Roleplay/Game के मैप, जगह का कॉन्टेक्स्ट और आवाजाही जोड़ता है         |
-| `noodle` | feature | Home में स्थानीय Noodle और Slurp सोशल फ़ीड जोड़ता है |
+| `noodle` | feature | Home में स्थानीय Noodle सोशल फ़ीड जोड़ता है |
+| `slurp2` | feature | Home में Slurp जोड़ता है, जो कैरेक्टर के लिए एक निजी क्रिएटर ऐप है |
+| `gacha-forge` | feature | Home में एक गाचा गेम मोड जोड़ता है |
 | `uno`                    | feature         | Conversation में UNO की टेबल जोड़ता है                              |
 | `chess`                  | feature         | Conversation में शतरंज का बोर्ड जोड़ता है                            |
 | `poker`                  | feature         | Conversation में Texas Hold'em की टेबल जोड़ता है                     |
@@ -612,7 +627,7 @@ Personal Extensions सर्वर पर सेव, हैश से हूब
 
 एजेंट टाइप किए हुए रिज़ल्ट बनाते हैं, जिन्हें फ़्रंटएंड संभालता है। `packages/shared/src/types/agent.ts` के `AgentResultType` यूनियन में ये शामिल हैं:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, और `about_me_update`।
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `character_card_create`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `character_activity_update`, `frontend_theme_update`, `about_me_update`, और `memory_nag`।
 
 ## चैट मोड
 

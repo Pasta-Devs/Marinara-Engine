@@ -20,7 +20,7 @@ Los botones de abajo aparecen en los mensajes. Algunos solo se muestran en ciert
 | **Peek prompt** (Ver el prompt) | Muestra el prompt exacto que la IA recibió para esta respuesta. | Solo en el mensaje más reciente de la IA |
 | **Stored guidance** (Guía guardada) | Muestra la dirección que orientó esta respuesta. | Solo si la respuesta usó una dirección guiada o se hizo con Impersonate |
 | **Branch from here** (Ramificar desde aquí) | Copia el chat hasta este mensaje en una nueva rama. | Siempre |
-| **View thoughts** (Ver pensamientos) | Abre el texto de razonamiento oculto del modelo. | Solo si el modelo devolvió razonamiento |
+| **View model thoughts** (Ver los pensamientos del modelo) | Abre el texto de razonamiento oculto del modelo. | Solo si el modelo devolvió razonamiento |
 | **Delete** (Borrar) | Borra el mensaje. Ver más abajo. | Siempre |
 | **Pause speaking** (Pausar la voz) / **Resume speaking** (Reanudar la voz) / **Restart speaking** (Reiniciar la voz) | Controla el audio hablado de un mensaje. | Solo cuando Text to Speech (texto a voz) está activado y hablando |
 
@@ -99,6 +99,8 @@ Dos interruptores cambian qué detalle extra se muestra en los mensajes. Ambos e
 - **Show token usage on messages**: añade un recuento de tokens por mensaje a las respuestas de la IA. Un token es un pequeño fragmento de texto que la IA lee y escribe. El recuento muestra los tokens del prompt y los tokens de la respuesta para esa réplica. Cuando está disponible, también muestra los aciertos de caché y cuánto tardó la respuesta.
 
 Un interruptor relacionado en la misma sección **Message Tools**, **Show model name on messages**, añade el nombre del modelo de IA que escribió cada respuesta. También está desactivado de forma predeterminada.
+
+Cuando hubo que dejar fuera del prompt mensajes antiguos para que cupiera, una nota breve debajo de la respuesta indica cuántos, por ejemplo "1109 older messages not sent". Para ocultar esta nota debajo de la respuesta, desactiva **Show "older messages not sent" note** (Mostrar la nota "mensajes antiguos no enviados") en la misma sección. Al abrir Checkup se puede seguir viendo. Está activado de forma predeterminada. Las notas sobre una respuesta que se cortó o que llegó vacía se siguen mostrando.
 
 ## Guías relacionadas
 

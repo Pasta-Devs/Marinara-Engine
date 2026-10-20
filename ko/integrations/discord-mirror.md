@@ -28,7 +28,7 @@ https://discord.com/api/webhooks/123456789012345678/AbCdEf-example-token
 
 ## 미러 켜기
 
-웹훅 설정은 채팅별 설정 안에 있습니다. 위치는 **Connected Chats**(연결된 채팅) 섹션 안입니다. 이 입력란에는 별도의 라벨이 없습니다. `https://discord.com/api/webhooks/...`라는 플레이스홀더 텍스트를 보고 찾으면 됩니다.
+웹훅 설정은 채팅별 설정 안에 있습니다. 위치는 **Connected Chats**(연결된 채팅) 섹션 안입니다. 이 입력란의 라벨은 **Discord Mirror**(Discord 미러)이고, 플레이스홀더 텍스트는 `https://discord.com/api/webhooks/...`입니다.
 
 1. 미러를 켤 채팅을 여세요.
 2. **Chat Settings**(채팅 설정)를 여세요.
@@ -38,6 +38,8 @@ https://discord.com/api/webhooks/123456789012345678/AbCdEf-example-token
 이제 그 채팅에서 미러가 켜졌습니다. 끄려면 입력란을 비우면 됩니다.
 
 URL이 올바른 Discord 웹훅 형식이 아니면 입력란 아래에 "Invalid webhook URL format"이라는 빨간 글씨가 표시됩니다. URL을 고치면 미러 설정이 저장됩니다. 저장할 때 서버에서도 URL을 한 번 더 검사합니다.
+
+웹훅 URL은 이 Marinara 설치에만 남습니다. 채팅 내보내기, 내보낸 설정 프로필, **Export Profile**(프로필 내보내기) 파일에는 들어가지 않으며, 이런 파일을 가져와도 미러가 켜지지 않습니다. 다른 설치로 옮긴 채팅을 미러링하려면 그곳에서 URL을 다시 붙여넣으세요. 이 설치에서 저장한 설정 프로필은 적용할 때 여전히 미러를 설정합니다.
 
 ## 전송되는 내용
 

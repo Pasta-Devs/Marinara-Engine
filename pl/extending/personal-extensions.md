@@ -12,13 +12,13 @@ Jeśli chcesz napisać i zaimportować własny pakiet, skorzystaj z [przewodnika
 
 ## Szacowanie liczby tokenów w tekście
 
-Rozszerzenia osobiste typu Browser, Full page access i Server mogą korzystać ze wbudowanej w Marinara funkcji szacowania liczby tokenów w tekście:
+Rozszerzenia osobiste typu Browser, Full page access i Server mogą korzystać z wbudowanej w aplikację Marinara Engine funkcji szacowania liczby tokenów w tekście:
 
 ```js
 const tokens = marinara.estimateTextTokens(text);
 ```
 
-Sygnatura funkcji to `estimateTextTokens(text: string): number`. Opisuje ją również typ `PersonalExtensionTokenApi` eksportowany z `@marinara-engine/shared`. Wywołanie jest synchroniczne, nie wymaga dodatkowych uprawnień i zwraca niezależny od modelu szacunek liczby tokenów używany przez Marinara, a nie dokładny wynik tokenizera. W starszych wersjach Engine przed wywołaniem sprawdź `typeof marinara.estimateTextTokens === "function"`.
+Sygnatura funkcji to `estimateTextTokens(text: string): number`. Opisuje ją również typ `PersonalExtensionTokenApi` eksportowany z `@marinara-engine/shared`. Wywołanie jest synchroniczne, nie wymaga dodatkowych uprawnień i zwraca niezależny od modelu szacunek liczby tokenów używany przez aplikację Marinara Engine, a nie dokładny wynik tokenizera. W starszych wersjach Engine przed wywołaniem sprawdź `typeof marinara.estimateTextTokens === "function"`.
 
 ## Przegląd kodu i włączenie
 
@@ -34,7 +34,9 @@ Rozszerzenia mogą dodawać akcje na górnym pasku, pozycje w menu Extensions i 
 
 Te możliwości interfejsu i te zasady są takie same dla każdego rozszerzenia przeglądarkowego w piaskownicy, niezależnie od jego pochodzenia. Zaimportowane rozszerzenie zewnętrzne (External) korzysta z tego bezpiecznego środowiska, chyba że jego paczka wprost prosi o **Full page access** (pełny dostęp do strony) albo używa formatu `marinara.extension` sprzed piaskownicy, opisanego niżej.
 
-### Dodanie panelu rysowanego przez Marinara Engine
+<a id="add-a-marinara-rendered-panel"></a>
+
+### Dodanie panelu rysowanego przez aplikację Marinara Engine
 
 ```js
 const panel = marinara.ui.registerContribution({
@@ -106,6 +108,8 @@ marinara.ui.registerContribution({
 
 Rozbudowane narzędzia mogą budować interfejsy wieloetapowe, aktualizując elementy panelu po zdarzeniu. Stan aplikacji trzymaj w `marinara.storage`, nigdy nie zapisuj go w samych znacznikach.
 
+<a id="use-active-chat-context"></a>
+
 ### Korzystanie z kontekstu aktywnego czatu
 
 Interfejs rozszerzeń przeglądarkowych w wersji 5 udostępnia nieprzezroczyste identyfikatory czatu wyświetlanego w danej chwili w aplikacji Marinara Engine:
@@ -158,7 +162,7 @@ Marinara nigdy nie przekazuje wiadomości, notatek twórcy, promptów systemowyc
 
 Sterowniki pogody, edytory promptów i inne rozbudowane procesy to dobre zastosowania dla wkładu w interfejs. Ich bezpieczne wersje mogą korzystać z uruchamiania z menu lub górnego paska oraz z paneli aktualizowanych krok po kroku. Istniejące paczki, które wstawiają nakładki do drzewa DOM, odpytują selektory CSS aplikacji Marinara Engine, przeszukują wnętrze biblioteki React albo wywołują trasy `/api` z tego samego pochodzenia, nie zaimportują się do bezpiecznego środowiska bez zmian.
 
-Wkład w interfejs daje sam interfejs, a nie dodatkowe uprawnienia. Interfejs kontekstu zawsze udostępnia identyfikatory aktywnego czatu i postaci, a poza tym wyłącznie wymienione wyżej zadeklarowane pola aktywnych wpisów. Funkcje, które potrzebują wiadomości, presetów, lorebooków, niezadeklarowanych danych postaci lub persony albo efektów wizualnych sceny, nadal wymagają osobnego, wąsko zakrojonego pośrednika udostępnionego przez Marinara Engine. Rozszerzenie nie może go udawać przez dostęp do drzewa DOM aplikacji ani przez nieograniczone zapytania sieciowe.
+Wkład w interfejs daje sam interfejs, a nie dodatkowe uprawnienia. Interfejs kontekstu zawsze udostępnia identyfikatory aktywnego czatu i postaci, a poza tym wyłącznie wymienione wyżej zadeklarowane pola aktywnych wpisów. Funkcje, które potrzebują wiadomości, presetów, lorebooków, niezadeklarowanych danych postaci lub persony albo efektów wizualnych sceny, nadal wymagają osobnego, wąsko zakrojonego pośrednika udostępnionego przez aplikację Marinara Engine. Rozszerzenie nie może go udawać przez dostęp do drzewa DOM aplikacji ani przez nieograniczone zapytania sieciowe.
 
 Jeśli rozszerzenie zewnętrzne naprawdę potrzebuje dostępu do drzewa DOM aplikacji, może o niego poprosić:
 
@@ -175,11 +179,13 @@ Rozszerzenia z pełnym dostępem do strony powinny używać `marinara.fetch(...)
 
 Starszą kopertę `kind: "marinara.extension"` w wersji 1, bez wyraźnego pola `capabilities`, Marinara rozpoznaje jako paczkę sprzed piaskownicy i przy imporcie przypisuje jej **Full page access**. Dzięki temu starsze paczki, na przykład WeatherTweaker, trafiają do właściwej ścieżki przeglądu, zamiast po cichu zawodzić w wątku Worker. Nowoczesna paczka, która używa tej koperty, ale chce bezpiecznego środowiska, musi zawierać `"capabilities": []`.
 
-Obie blokady rozszerzeń zewnętrznych oraz zatwierdzenie dokładnego odcisku obowiązują tak samo. Zmiana kodu, arkusza CSS lub uprawnień wyłącza rozszerzenie i wymaga ponownego zatwierdzenia. Wyłączenie usuwa węzły skryptu i arkusza stylów dodane przez Marinara Engine, anuluje liczniki czasu utworzone przez interfejs zgodności i uruchamia funkcje zarejestrowane przez `marinara.onCleanup(...)`. Kod działający na stronie może jednak tworzyć niezarejestrowane nasłuchy, liczniki czasu, zmienne globalne i zmiany w drzewie DOM, więc sprzątanie bywa niepełne. Jeśli coś zostanie, odśwież stronę po wyłączeniu rozszerzenia.
+Obie blokady rozszerzeń zewnętrznych oraz zatwierdzenie dokładnego odcisku obowiązują tak samo. Zmiana kodu, arkusza CSS lub uprawnień wyłącza rozszerzenie i wymaga ponownego zatwierdzenia. Wyłączenie usuwa węzły skryptu i arkusza stylów dodane przez aplikację Marinara Engine, anuluje liczniki czasu utworzone przez interfejs zgodności i uruchamia funkcje zarejestrowane przez `marinara.onCleanup(...)`. Kod działający na stronie może jednak tworzyć niezarejestrowane nasłuchy, liczniki czasu, zmienne globalne i zmiany w drzewie DOM, więc sprzątanie bywa niepełne. Jeśli coś zostanie, odśwież stronę po wyłączeniu rozszerzenia.
 
 Starszy interfejs `marinara.ui.showWindow(...)` nadal działa i otwiera tymczasowe okno wewnątrz ramki iframe o nieprzezroczystym pochodzeniu. Korzysta z tego samego stałego zestawu kontrolek i zwraca uchwyty `update(...)` oraz `close()`. Kiedy narzędzie ma być osiągalne przez zwykłą nawigację aplikacji Marinara Engine, lepiej wybrać wkład w interfejs.
 
 Rozszerzenie serwerowe działa w osobnym procesie Node z ograniczonymi uprawnieniami, wewnątrz mechanizmu Seatbelt na macOS albo Bubblewrap na Linux. Nie ma dostępu do plików aplikacji Marinara Engine, plików użytkownika, odziedziczonych sekretów serwera, sieci, procesów potomnych, wątków roboczych ani dodatków natywnych. Jeśli Marinara nie zestawi obsługiwanej piaskownicy systemowej, rozszerzenia serwerowe pozostają wyłączone.
+
+<a id="platform-support"></a>
 
 ### Obsługiwane platformy
 

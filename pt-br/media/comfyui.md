@@ -33,6 +33,8 @@ Um modelo de linguagem local e um modelo de imagem podem não caber juntos na me
 
 Um workflow em formato de API é diferente do workflow normal do editor visual. As chaves de nível mais alto dele são IDs de nó, e cada nó em geral tem `class_type` e `inputs`. Exporte a versão de API; não cole o arquivo de workflow comum, que traz o layout visual do editor.
 
+<a id="comfyui-video-workflows"></a>
+
 ## Workflows de vídeo do ComfyUI
 
 Crie uma conexão de **Video Generation** (geração de vídeos), escolha **ComfyUI** e cole um workflow em formato de API no campo obrigatório **ComfyUI Workflow**. WAN 2.2 e outros grafos de vídeo locais têm suporte, desde que o mesmo workflow rode no ComfyUI e salve um MP4 por uma saída como o nó **SaveVideo** do núcleo.
@@ -164,6 +166,7 @@ O resultado costuma ser mais consistente do que com um workflow genérico único
 | O trabalho termina, mas Marinara não recebe imagem | Adicione uma saída **SaveImage** conectada e teste o workflow direto no ComfyUI de novo.                                                                                                                                      |
 | Um nó de imagem de referência falha               | Em um nó **LoadImage** local comum, use um marcador `%reference_image_name...%`. Só use base64 puro com um nó feito para isso e confirme que o recurso do Marinara realmente enviou uma referência.                            |
 | Uma URL de ComfyUI remota ou na rede local é bloqueada | Nas conexões de imagem, ative `IMAGE_LOCAL_URLS_ENABLED`. Faça o ComfyUI escutar na interface de rede e confira o firewall do computador. Nunca exponha um servidor ComfyUI sem autenticação à internet pública.          |
+| Erro: `Outbound response exceeded N bytes` | A resposta passou do limite configurado, que por padrão é de 30 MiB. Metadados de workflow ou de imagem de referência embutidos podem causar isso. Desligue os metadados no ComfyUI ou aumente `IMAGE_GEN_MAX_RESPONSE_BYTES` no arquivo `.env` do Marinara e reinicie Marinara. |
 | Uma geração de imagem longa estoura o tempo limite | Aumente `COMFYUI_GEN_TIMEOUT` no arquivo `.env` do Marinara. O valor é medido em segundos e o padrão é `2400`.                                                                                                                |
 | Uma geração de vídeo longa estoura o tempo limite  | Aumente `VIDEO_GEN_TIMEOUT_MS` no arquivo `.env` do Marinara. O valor é medido em milissegundos e o padrão é `1800000` (30 minutos).                                                                                          |
 | A geração fica sem memória de GPU                 | Reduza as dimensões da imagem ou o tamanho do modelo, tire o modelo de linguagem local da memória, use um modelo de linguagem remoto ou passe o ComfyUI para outro dispositivo.                                                    |

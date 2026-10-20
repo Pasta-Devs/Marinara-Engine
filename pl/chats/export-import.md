@@ -2,6 +2,8 @@
 
 Z tego przewodnika dowiesz się, jak zapisać czat do pliku i jak wczytać czat z powrotem do aplikacji Marinara Engine. Wyeksportować można jeden czat albo wiele czatów naraz, a pojedynczy czat da się też zapisać jako czytelną opowieść do udostępnienia. Da się też zaimportować plik czatu pochodzący z aplikacji Marinara Engine lub z aplikacji SillyTavern (innego programu do czatów roleplay).
 
+<a id="file-formats-you-will-see"></a>
+
 ## Formaty plików, które zobaczysz
 
 Marinara potrafi zapisać czat w czterech formatach.
@@ -14,6 +16,8 @@ Marinara potrafi zapisać czat w czterech formatach.
 Pliki **Markdown** i **Story** pomijają wiadomości systemowe oraz wiadomości ukryte przed tobą.
 
 Import czatu przyjmuje wyłącznie plik `.jsonl`. Jeśli czat ma się dać później zaimportować, wyeksportuj go jako **JSONL**, a nie jako **Text**, **Markdown** ani **Story**.
+
+Plik **JSONL** pomija kilka adresów zapisanych razem z czatem: webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Import czatu również nigdy ich nie przenosi. Jeśli z nich korzystasz, wpisz je ponownie w **Chat Settings** (ustawienia czatu) zaimportowanego czatu.
 
 ## Eksport pojedynczego czatu
 

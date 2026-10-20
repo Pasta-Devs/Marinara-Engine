@@ -51,7 +51,7 @@ Les dossiers organisent la bibliothèque sans déplacer ni masquer les fichiers 
 
 1. Clique sur **New Folder** (nouveau dossier). Marinara crée un dossier au nom unique.
 2. Double-clique ou touche deux fois le nom du dossier pour le renommer. Tu peux aussi le sélectionner et appuyer sur F2.
-3. Sur ordinateur, fais glisser une ligne d'arrière-plan dans un dossier. Sur téléphone ou tablette, fais-la glisser par la poignée visible.
+3. Sur ordinateur, fais glisser une ligne d'arrière-plan dans un dossier. Sur téléphone ou tablette, appuie longuement sur la ligne, puis fais-la glisser.
 4. Ramène un arrière-plan dans la zone hors dossier pour le sortir de son dossier.
 
 Les dossiers et leurs affectations sont enregistrés sur le serveur et inclus dans les sauvegardes. Supprimer un dossier renvoie ses arrière-plans dans la liste hors dossier ; les images, elles, restent en place. Les filtres de recherche et de tags font apparaître automatiquement les éléments correspondants à l'intérieur de leurs dossiers.

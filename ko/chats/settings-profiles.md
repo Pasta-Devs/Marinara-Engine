@@ -38,7 +38,7 @@ Marinara는 프롬프트 틀에만 **preset**이라는 말을 씁니다.
 3. **Profile**(프로필) 드롭다운을 여세요.
 4. 이름을 보고 프로필을 고르세요.
 
-채팅에는 곧바로 반영됩니다. 현재 값이 저장된 어느 프로필과도 맞지 않으면 드롭다운에 **Custom settings profile**이 표시됩니다. 전에 적용한 프로필이 사라진 상태라면 **Missing profile - choose a profile**이 표시됩니다.
+채팅에는 곧바로 반영됩니다. 프로필이 **Hide summarised messages**(요약된 메시지 숨기기)를 켜거나 끄면, 채팅의 요약된 메시지도 그 순간 AI에게서 숨겨지거나 다시 보이게 됩니다. 현재 값이 저장된 어느 프로필과도 맞지 않으면 드롭다운에 **Custom settings profile**이 표시됩니다. 전에 적용한 프로필이 사라진 상태라면 **Missing profile - choose a profile**이 표시됩니다.
 
 ## 프로필 저장하기
 
@@ -111,7 +111,7 @@ Chat Settings 제목 표시줄의 **Reset View**(화면 배치 초기화) 옆 �
 
 **Export settings profile (.json)**은 `.marinara-settings-profile.json` 파일을 다운로드합니다. 백업으로 보관하거나 다른 사람에게 공유할 수 있습니다. **Import settings profile (.json)**은 호환되는 파일에서 프로필을 새로 만들며, 기존 프로필을 덮어쓰지 않습니다. 예전에 내보낸 프로필도 그대로 가져올 수 있습니다.
 
-프로필에 저장되는 것은 설정뿐이며, 제공자의 비밀 정보는 들어가지 않습니다.
+프로필에 저장되는 것은 설정뿐이며, 제공자의 비밀 정보는 들어가지 않습니다. 내보내거나 가져온 프로필에는 Discord 미러 웹훅, DeepLX 주소, DeepL 키, Intiface 주소도 빠집니다. 이 설치에서 저장한 프로필에는 그대로 남습니다.
 
 ## Default 프로필
 

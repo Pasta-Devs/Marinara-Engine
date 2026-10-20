@@ -24,6 +24,7 @@ Marinara copia o chat até aquela mensagem, incluindo ela, para uma nova ramific
 - Mantém o mesmo modo, personagens, persona, preset de prompt e conexão do chat de origem.
 - Copia todas as mensagens, inclusive todos os swipes (respostas alternativas) e qual swipe estava ativo. Veja o guia [Ações de mensagem](messages.md) para entender como os swipes funcionam.
 - Copia os instantâneos de tracker e de estado do jogo ligados às mensagens copiadas, então os chats de Roleplay e de Game Mode preservam o estado.
+- Mantém o trabalho do Advanced Memory em um chat de Roleplay, para você não precisar preparar de novo o histórico copiado. As memórias de cenas anteriores já concluídas continuam prontas para serem lembradas. A cena a partir da qual você ramifica volta a ser a cena em andamento, e as memórias antigas dela são descartadas. Veja [Memory Recall e resumos do chat](../agents/memory.md).
 - Começa com o nome de exibição **New Branch**. Você pode renomeá-la (veja abaixo).
 - Fica na mesma pasta de chats do chat de origem.
 
@@ -73,6 +74,7 @@ A seção **Chat Branches** tem botões de exportação na parte de cima. Eles e
 
 - **JSONL**: baixa a ramificação como um arquivo JSONL. JSONL significa uma mensagem por linha de texto, e esse formato é compatível com SillyTavern.
 - **Text**: baixa a ramificação como uma transcrição em texto simples.
+- **Markdown** e **Story**: baixam a ramificação como um arquivo Markdown legível ou como uma página web estilizada. Veja [Formatos de arquivo que você vai encontrar](export-import.md#file-formats-you-will-see).
 
 Para exportar vários chats de uma vez, veja [Exportar e importar chats](export-import.md). Esse guia também explica a opção de incluir o raciocínio do modelo nas exportações.
 

@@ -27,7 +27,7 @@
 
 エディターのタイトルをクリックすると展開します。
 
-**Video Generation Prompt Overrides**は、動画向けのテンプレートを編集します。対象はGameとGalleryのシーン動画、Conversationの通話中に流れるキャラクターのクリップ、動く表情のポートレートです。動画プロンプトのテンプレートは、それぞれの種類のクリップを動画モデルにどう説明するかを決めます。
+**Video Generation Prompt Overrides**は、動画向けのテンプレートを編集します。対象はGameとGalleryのシーン動画、Conversationの動画メッセージ、Conversationの通話中に流れるキャラクターのクリップ、動く表情のポートレートです。動画プロンプトのテンプレートは、それぞれの種類のクリップを動画モデルにどう説明するかを決めます。
 
 **Image Generation Prompt Overrides**は、画像、スプライト、Game、プロンプト組み立ての各機能が使うテンプレートを編集します。対象はConversationの自撮り写真、GameのNPCポートレート、シーンのイラスト、絵コンテのプロンプト、Noodleの投稿に使う**Noodle Post Image**テンプレート、そのほか登録済みの画像ビルダーです。画像プロンプトのテンプレートは、それぞれの種類の絵を画像モデルにどう説明するかを決めます。
 

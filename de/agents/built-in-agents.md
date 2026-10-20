@@ -334,7 +334,7 @@ Zeigt deine Charaktere und Personas als animierte 2D-Avatare, die blinzeln, spre
 
 - **Integration**: Agent-Paket; die Engine führt es aus und zeichnet die Avatare. Während du chattest, schickt es keine zusätzlichen Anfragen an deine KI-Verbindungen.
 - **Wo es funktioniert**: Roleplay und Game, für Charaktere und Personas.
-- **Verfügbarkeit**: **In development**. In **Download Agents** ist es noch nicht enthalten.
+- **Verfügbarkeit**: **Staging only**, solange es getestet wird. **Download Agents** listet es nur auf, wenn Marinara Engine auf dem Branch `staging` läuft.
 - **Wichtige Einstellungen**: Richte jeden Avatar auf der Seite des Agenten unter **Agents** ein. Der Agent bringt außerdem die Prompts mit, mit denen aus einem deiner Sprites Bilder zum Blinzeln und Sprechen sowie ein Mesh-Avatar entstehen.
 - **Kompatibilität**: Engine `2.5.0` bis ausschließlich `4.0.0`, mit Capability API 1.73. Das Paket verwendet die Berechtigungen `agent-runtime`, `chat-read`, `storage` und `ui` und braucht keinen Neustart.
 - **Vollständige Anleitung**: [2D- und 3D-Avatare](avatars.md).
@@ -345,7 +345,7 @@ Zeigt deine Charaktere und Personas als animierte 3D-Modelle, die blinzeln, spre
 
 - **Integration**: Agent-Paket; die Engine führt es aus und zeichnet die Avatare. Während du chattest, schickt es keine zusätzlichen Anfragen an deine KI-Verbindungen.
 - **Wo es funktioniert**: Roleplay und Game, für Charaktere und Personas.
-- **Verfügbarkeit**: **In development**. In **Download Agents** ist es noch nicht enthalten.
+- **Verfügbarkeit**: **Staging only**, solange es getestet wird. **Download Agents** listet es nur auf, wenn Marinara Engine auf dem Branch `staging` läuft.
 - **Wichtige Einstellungen**: Richte jeden Avatar auf der Seite des Agenten unter **Agents** ein.
 - **Kompatibilität**: Engine `2.5.0` bis ausschließlich `4.0.0`, mit Capability API 1.73. Das Paket verwendet die Berechtigungen `agent-runtime`, `chat-read`, `storage` und `ui` und braucht keinen Neustart.
 - **Vollständige Anleitung**: [2D- und 3D-Avatare](avatars.md).

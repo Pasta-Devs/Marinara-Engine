@@ -65,13 +65,13 @@ No streaming, a resposta aparece palavra por palavra conforme é escrita, em vez
 |---|---|---|
 | **Enable streaming** | On | Mostra a resposta palavra por palavra conforme é gerada |
 | **Streaming speed** | 50 | Define a velocidade com que o texto aparece na tela |
-| **Trim incomplete model endings** | Off | Corta uma frase final inacabada antes de salvar |
+| **Trim incomplete sentences from the response** | Off | Corta uma frase final inacabada antes de salvar |
 
 A opção **Streaming speed** é um controle deslizante de 1 a 100. Um valor baixo dá um efeito de máquina de escrever mais lento, bom para acompanhar a leitura. Um valor alto mostra o texto quase na hora. Marinara suaviza a chegada irregular dos tokens enquanto o modelo escreve e depois usa a velocidade escolhida para terminar a resposta. Essa configuração não muda a velocidade com que o próprio modelo escreve.
 
 Com **Enable streaming** desativado, a resposta completa aparece de uma vez só, depois que o modelo termina.
 
-A opção **Trim incomplete model endings** mexe apenas na mensagem salva. Quando está ativada, Marinara remove da resposta uma frase final que ficou pela metade. Respostas completas e finais em formato de comando ficam intactas.
+A opção **Trim incomplete sentences from the response** (cortar frases incompletas da resposta) mexe apenas na mensagem salva. Quando está ativada, Marinara remove da resposta uma frase final que ficou pela metade. Respostas completas e finais em formato de comando ficam intactas.
 
 ## Indicadores de digitação e de progresso
 
@@ -95,7 +95,7 @@ Se a presença de um personagem estiver marcada como ocupado ou ausente, no luga
 
 Alguns modelos expõem um rastro de raciocínio escondido, muitas vezes chamado de "thinking". Marinara guarda esse conteúdo separado da resposta visível.
 
-Quando uma resposta tem raciocínio junto, aparece nela a ação **View thoughts** (ver o raciocínio), com um ícone de cérebro. Clique nela para abrir um painel com o texto capturado.
+Quando uma resposta tem raciocínio junto, aparece nela a ação **View model thoughts** (ver o raciocínio do modelo), com um ícone de cérebro. Clique nela para abrir um painel com o texto capturado.
 
 Para o raciocínio aparecer, o modelo precisa mesmo devolvê-lo. Alguns modelos envolvem o raciocínio em marcações de texto simples. Nesses casos, configure marcações personalizadas em **Thinking Tags** na conexão, para que Marinara consiga separar o raciocínio escondido da resposta visível. Vários pares de marcação comuns já são reconhecidos. O guia de parâmetros de geração, no fim da página, mostra como configurar **Thinking Tags**.
 

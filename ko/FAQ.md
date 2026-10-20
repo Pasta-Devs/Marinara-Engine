@@ -68,6 +68,16 @@ Marinara에는 채팅 모드가 3가지 있고, 채팅 목록을 열면 탭으�
 
 Conversation을 열고 **Chat Settings**(채팅 설정)에서 **Schedule timezone**(스케줄 시간대)을 고르거나, Conversation 설정 과정에서 스케줄을 만들 때 함께 고르세요. Marinara는 처음에 기기가 알려 주는 시간대를 씁니다. 여기서 지원하는 IANA 시간대를 골라도 되고, **Use device**(기기 설정 사용)를 선택해 되돌려도 됩니다. 이 설정은 모든 Conversation 채팅에 한꺼번에 적용되는 전역 설정 하나이며, 서버에서 보내는 자율 메시지에도 적용되고, 같은 Marinara 서버에 연결된 다른 기기에도 동기화됩니다.
 
+## 각 Conversation 채팅마다 스케줄이 따로 있나요?
+
+아니요. 스케줄은 캐릭터에 속하며, 그 캐릭터와 나누는 모든 Conversation 채팅이 같은 스케줄을 씁니다. **Character Editor -> Convo -> Weekly schedule**(캐릭터 편집기 -> 콘보 -> 주간 일정)에서 편집하거나 Chat Settings의 스케줄 컨트롤에서 편집하세요. 어느 쪽에서 바꾸든 모든 곳에 적용됩니다.
+
+한 채팅에서만 즉시 답장을 받으려면 그 채팅의 Chat Settings를 열고 **Conversation schedules**(Conversation 스케줄)를 끄세요. 이 스위치는 채팅마다 따로 있습니다. 그 채팅에서 캐릭터는 계속 응답할 수 있는 상태가 되고, 스케줄은 그대로 유지되며, 다른 채팅도 바뀌지 않습니다. 다만 활성화된 수동 상태 지정은 여전히 우선하며 그 채팅에도 적용됩니다. **dnd** 같은 지정도 마찬가지입니다.
+
+스케줄을 한 번도 쓰지 않은 기존 채팅은 직접 켜기 전까지 꺼진 상태로 남습니다. 스케줄이 있는 캐릭터와 새로 시작하는 채팅은 처음부터 스케줄을 사용합니다.
+
+수동 상태 지정도 캐릭터에 속합니다. 한 채팅에서 캐릭터를 **online**으로 설정하면 모든 채팅에서 그 캐릭터가 온라인 상태가 됩니다. 지정을 해제하려면 **clear**를 사용하세요.
+
 ## Marinara를 쓰려면 API 키가 필요한가요?
 
 거의 항상 필요합니다. **연결**은 Marinara가 AI 서비스 한 곳에 접속하는 방법을 저장해 둔 것입니다. 어떤 제공자인지, 어떤 모델인지, 그리고 그곳에 접속할 로그인 정보가 함께 들어갑니다. **API 키**는 비밀번호와 비슷한 비밀 문자열입니다. AI 제공자에게서 받아 두면 Marinara가 대신 그 제공자와 통신할 수 있습니다.
@@ -80,11 +90,11 @@ API 키를 아예 쓰지 않는 제공자도 몇 곳 있습니다. 구독형 옵
 
 Marinara는 여러 제공자를 지원합니다. 연결마다 하나씩 고르면 됩니다.
 
-채팅과 롤플레이 텍스트에는 **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, 그리고 Ollama, LM Studio, KoboldCpp처럼 로컬이나 직접 띄운 모델을 위한 **Custom (OAI-Compatible)**을 고를 수 있습니다.
+채팅과 롤플레이 텍스트에는 **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, **Arli AI**, **Z.AI**, **DeepSeek**, 그리고 Ollama, LM Studio, KoboldCpp처럼 로컬이나 직접 띄운 모델을 위한 **Custom (OAI-Compatible)**을 고를 수 있습니다.
 
 이미지 생성에는 **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Atlas Cloud**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT**, **Block Entropy** 등이 있습니다.
 
-동영상 생성에는 **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Atlas Cloud**, **Seedance 2.0**, 그리고 로컬 **ComfyUI**의 API 형식 워크플로가 있습니다.
+동영상 생성에는 **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **NanoGPT**, **Atlas Cloud**, **Seedance 2.0**, 그리고 로컬 **ComfyUI**의 API 형식 워크플로가 있습니다.
 
 연결은 한 번에 여러 개 저장해 두고 채팅마다 다른 연결을 지정할 수 있습니다. [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)를 참고하세요.
 
@@ -97,7 +107,7 @@ Marinara 자체는 무료이고 사용 중인 컴퓨터에서 실행됩니다. �
 ## API 키는 안전한가요?
 
 네, 안전합니다. Marinara Engine이 모든 API 키를 AES-256으로 암호화한 뒤 디스크에 저장합니다. 연결과 프로필을 내보낼 때는
-비밀 값이 빠집니다. 전체 백업은 다릅니다. 암호화된 기록이 들어 있고, 암호화 키 파일이 있다면 그 기록을 푸는 데 필요한 키 파일까지
+비밀 값이 빠집니다. 채팅 내보내기와 설정 프로필 내보내기에서도 채팅의 **DeepL API Key**(DeepL API 키)와 **Discord Mirror**(Discord 미러) 웹훅은 빠집니다. 전체 백업은 다릅니다. 암호화된 기록이 들어 있고, 암호화 키 파일이 있다면 그 기록을 푸는 데 필요한 키 파일까지
 함께 담기므로 전체 백업 ZIP 파일은 외부에 공개하지 마세요.
 
 프로필 가져오기는 비밀 값을 의도적으로 빼고 처리합니다. 그래서 프로필을 가져온 뒤에는 API 키를 하나씩 다시 입력해야 하며,
@@ -120,11 +130,11 @@ Marinara 자체는 무료이고 사용 중인 컴퓨터에서 실행됩니다. �
 
 ## 에이전트란 무엇인가요?
 
-**에이전트**는 채팅이 진행되는 동안 한 가지 일을 맡아 처리하는 선택형 AI 기능입니다. 현재 장면 추적, 글의 품질 감시, 지도나 통화 추가, Conversation 테이블 게임 진행 등이 그 예입니다. 새로 설치한 상태에는 선택형 에이전트가 하나도 없습니다. **Agents**(에이전트) 패널을 열고 **Download Agents**(에이전트 다운로드)를 클릭한 뒤 항목 설명을 읽고 설치하세요. 그런 다음 **Chat Settings**에서 채팅마다 호환되는 에이전트를 활성화하세요. 설치한 공식 패키지에 호환되는 업데이트가 나오면 Marinara가 다운로드하기 전에 확인합니다. **No**를 고르면 현재 버전이 유지되고, Download Agents에 **Update**가 남아 나중에 쓸 수 있습니다. 호스트가 오프라인이거나 검증에 실패하면 설치된 버전이 그대로 동작합니다. 카탈로그에서 패키지를 통째로 제거할 수도 있습니다. [에이전트](agents/agents-overview.md)와 공개 [Marinara-Agents 저장소](https://github.com/Pasta-Devs/Marinara-Agents)를 참고하세요.
+**에이전트**는 채팅이 진행되는 동안 한 가지 일을 맡아 처리하는 선택형 AI 기능입니다. 현재 장면 추적, 글의 품질 감시, 지도나 통화 추가, Conversation 테이블 게임 진행 등이 그 예입니다. 새로 설치한 상태에는 선택형 에이전트가 하나도 없습니다. **Agents**(에이전트) 패널을 열고 **Download Agents**(에이전트 다운로드)를 클릭한 뒤 항목 설명을 읽고 설치하세요. 그런 다음 **Chat Settings**에서 채팅마다 호환되는 에이전트를 활성화하세요. 설치한 공식 패키지에 호환되는 업데이트가 나오면 Marinara가 다운로드하기 전에 확인하며, 패키지가 릴리스 노트를 게시했다면 업데이트마다 바뀐 내용도 보여 줍니다. 점이 찍힌 버전은 게시자가 눈에 띄는 변경이라고 표시한 버전입니다. **No**를 고르면 현재 버전이 유지되고, Download Agents에 **Update**가 남아 나중에 쓸 수 있습니다. 호스트가 오프라인이거나 검증에 실패하면 설치된 버전이 그대로 동작합니다. 카탈로그에서 패키지를 통째로 제거할 수도 있습니다. [에이전트](agents/agents-overview.md)와 공개 [Marinara-Agents 저장소](https://github.com/Pasta-Devs/Marinara-Agents)를 참고하세요.
 
 ## Noodle은 어떻게 설정하나요?
 
-Noodle은 Marinara에 들어 있는, 캐릭터들이 쓰는 가상의 로컬 소셜 네트워크입니다. **Noodle** 탭을 열고 그 안의 **Settings**(설정)를 여세요. 캐릭터나 캐릭터 폴더를 초대하고, **Refresh**(새로고침) 아래에서 생성에 쓸 연결을 고른 다음, **Refresh now**(지금 새로고침)를 선택해 첫 게시물을 만드세요. 자동 새로고침 시각, 이미지 생성, 무작위 사용자, 채팅으로 이어 가기도 설정할 수 있습니다.
+Noodle은 Marinara에 들어 있는, 캐릭터들이 쓰는 가상의 로컬 소셜 네트워크입니다. 먼저 **Agents** → **Download Agents**를 열어 **Noodle**을 설치하고, 안내가 나오면 Marinara를 다시 시작하세요. **Home**(홈) → **Noodle**을 열고 그 안의 **Settings**(설정)로 들어가세요. 캐릭터나 캐릭터 폴더를 초대하고, **Refresh**(새로고침) 아래에서 생성에 쓸 연결을 고른 다음, **Refresh now**(지금 새로고침)를 선택해 첫 활동을 생성하세요. 자동 새로고침 시각, 이미지 생성, 무작위 사용자, 채팅으로 이어 가기도 설정할 수 있습니다.
 
 전체 안내는 [Noodle: 앱 안의 소셜 타임라인](noodle/overview.md)과 [Noodle 설정과 채팅 반영](noodle/settings.md)을 참고하세요.
 
@@ -135,7 +145,7 @@ AI 모델이 한 번에 담을 수 있는 글의 양은 정해져 있습니다. 
 - **Memory Recall**(기억 회상)은 이전 메시지를 검색해 가장 관련 있는 부분만 조용히 프롬프트에 다시 넣습니다. **Chat Settings**의 **Memory Recall**에서 켜세요.
 - 요약은 오래된 메시지를 짧게 압축합니다. Roleplay 채팅은 **Chat Summary**(채팅 요약)를, Conversation 채팅은 **Automatic Summarization**(자동 요약)을 씁니다. 둘 다 **Chat Settings**(채팅 설정)에 있습니다.
 
-Roleplay 컨텍스트를 자동으로 관리하려면 **Chat Settings → Memory Recall**에서 **Advanced Memory Recall**(고급 기억 회상)를 켜세요. 최근 기록을 유지하고, 제한된 분량으로 이야기의 연속성을 보존하며, 선택한 예상 컨텍스트 한도 안에서 과거 장면을 선별해 불러옵니다. 설정, 진행 상황, 편집은 설정 서랍 안에서 처리합니다. 기존 Individual(개별) 그룹 채팅은 각 캐릭터의 지식 범위를 한 번 확인해야 할 수 있습니다. 선택 사항인 **Use Decision model**을 켜면 저장된 판단 연결이 장면을 감지하고 기억을 선택하며, 요약은 보조 모델이 계속 작성합니다.
+Roleplay 컨텍스트를 자동으로 관리하려면 **Chat Settings → Memory Recall**에서 **Advanced Memory Recall**(고급 기억 회상)을 켜세요. 최근 기록을 유지하고, 제한된 분량으로 이야기의 연속성을 보존하며, 선택한 예상 컨텍스트 한도 안에서 과거 장면을 선별해 불러옵니다. 설정, 진행 상황, 편집은 설정 서랍 안에서 처리합니다. 기존 Individual(개별) 그룹 채팅은 각 캐릭터의 지식 범위를 한 번 확인해야 할 수 있습니다. 선택 사항인 **Use Decision model**을 켜면 저장된 판단 연결이 장면을 감지하고 기억을 선택하며, 요약은 보조 모델이 계속 작성합니다.
 
 설정 방법과 자세한 내용은 [Memory Recall과 채팅 요약](agents/memory.md)에서 설명합니다.
 
@@ -164,7 +174,7 @@ External Extension은 예전 방식과의 호환 때문에 Marinara의 DOM이 �
 
 ## 업데이트하면 데이터가 사라지나요?
 
-아니요. Marinara를 업데이트해도 캐릭터, 채팅, 설정은 그대로 남습니다. 그래도 큰 업데이트 전에는 만일을 대비해 백업해 두는 편이 좋습니다. 플랫폼별 업데이트 방법은 [Marinara Engine 업데이트](UPGRADING.md)를 참고하세요.
+아니요. Marinara를 업데이트해도 캐릭터, 채팅, 설정은 그대로 남습니다. 그래도 큰 업데이트 전에는 만일을 대비해 백업해 두는 편이 좋습니다. 플랫폼별 업데이트 방법은 [Marinara Engine 업데이트](UPGRADING.md)를 참고하세요. 업데이트한 뒤 이전 버전으로 되돌아가면 새 버전에만 저장되는 데이터를 잃을 수 있습니다. [이전 버전으로 다운그레이드하기](UPGRADING.md#downgrading-to-an-older-version)를 참고하세요.
 
 ## Professor Mari는 무엇을 할 수 있나요?
 
@@ -200,14 +210,14 @@ Game 스토리보드를 자동으로 만들려면 **Automatic Storyboard Illustr
 
 설치본에는 가이드 전체가 함께 들어 있습니다. 앱을 벗어나지 않고 읽을 수 있습니다:
 
-- 홈 화면 아래쪽 **Replay Tutorial**(튜토리얼 다시 보기) 옆에 있는 **Documentation**(문서) 버튼을 클릭하세요.
+- 홈 화면의 북마크 바에서 **Tutorial**(튜토리얼) 옆에 있는 **Documentation**(문서)을 클릭하세요. 휴대폰에서는 먼저 북마크 메뉴를 여세요.
 - 홈 화면의 FAQ에서 문서에 관한 질문을 열고 **Open Documentation**(문서 열기)을 클릭하세요.
 
 두 버튼 모두 같은 앱 내 뷰어를 엽니다. 뷰어는 모든 가이드를 목록으로 보여 주고 Marinara 안에서 바로 표시합니다.
 
 ## 도움을 받거나 버그를 신고하려면 어디로 가야 하나요?
 
-증상별로 정리된 [문제 해결](TROUBLESHOOTING.md)부터 확인하세요. 홈 화면 아래쪽의 **Discord** 버튼을 누르면 커뮤니티 채팅이, **Support**(지원) 버튼을 누르면 프로젝트 지원 페이지가 열립니다. 버그 신고와 기능 요청은 프로젝트의 GitHub 페이지를 이용하세요.
+증상별로 정리된 [문제 해결](TROUBLESHOOTING.md)부터 확인하세요. 홈 화면의 북마크 바에서 **Discord**를 누르면 커뮤니티 채팅이, **Support**(지원)를 누르면 프로젝트 지원 페이지가 열립니다. 버그 신고와 기능 요청은 프로젝트의 GitHub 페이지를 이용하세요.
 
 ## 관련 가이드
 

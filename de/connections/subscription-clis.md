@@ -45,7 +45,7 @@ claude auth login
 3. Öffne in Marinara das Panel **Connections** (Verbindungen) und klick auf **New** (Neu).
 4. Gib im Fenster **Create Connection** (Verbindung erstellen) einen Namen ein, wähle den Anbieter **Claude (Subscription)** und klick auf **Create** (Erstellen).
 5. Im Editor gibt es weder ein Feld **API Key** noch ein Feld **Base URL**. Ein Info-Panel bestätigt, dass beides nicht nötig ist.
-6. Wähle im Dropdown-Menü **Model** (Modell) ein Claude-Modell, etwa ein Opus- oder Sonnet-Modell.
+6. Wähle im Dropdown-Menü **Model** (Modell) ein Claude-Modell, etwa ein Opus- oder Sonnet-Modell. Die Liste zeigt die Modelle, die dein Claude-Code-Login anbietet, sofern Claude Code dafür eine Liste hat, sonst eine eingebaute Liste.
 7. Klick auf **Save** (Speichern) und danach auf **Send Test Message** (Testnachricht senden). Kommt eine kurze Antwort zurück, funktioniert die Anmeldung.
 
 Claude-Abo-Verbindungen unterstützen ausschließlich Text-Chat. Diese Verbindung hat zwei zusätzliche Bedienelemente, **Fast Mode** und **Diagnose Model Routing**, die weiter unten beschrieben sind.
@@ -73,7 +73,7 @@ codex login
 
 Marinara liest die lokale Codex-Anmeldedatei und frischt die Sitzung auf, sobald das möglich ist.
 
-Wie lange Codex vor der Antwort nachdenkt, stellst du so ein: Öffne die Verbindung, schalte unter **Default Chat Parameters** (Standard-Chat-Parameter) **Use custom defaults for this connection** (eigene Standardwerte für diese Verbindung verwenden) ein und wähle bei **Reasoning Effort** (Denkaufwand) eine Stufe; anfangs steht dort **Default** (Standard). Für einen einzelnen Chat wählst du unter **Advanced Parameters** (Erweiterte Parameter) eine eigene Stufe. **Default** behält die Stufe bei, die Codex für das Modell nutzt. Diesen Standard verwendet Codex, bis die Verbindung oder der Chat eine Stufe festlegt; die Stufe aus deinem Preset ändert daran nichts, und eine als Fallback genutzte Codex-Verbindung richtet sich nur nach ihrer eigenen Stufe. Agenten auf dieser Verbindung verwenden deren Stufe. Die Stufen entsprechen denen, die Codex für das jeweilige Modell anbietet: GPT-5.5 reicht bis **xhigh**, die Modelle GPT-5.6 und GPT-6 reichen bis **max**.
+Wie lange Codex vor der Antwort nachdenkt, stellst du so ein: Öffne die Verbindung, schalte unter **Default Chat Parameters** (Standard-Chat-Parameter) **Use custom defaults for this connection** (eigene Standardwerte für diese Verbindung verwenden) ein und wähle bei **Reasoning Effort** (Denkaufwand) eine Stufe; anfangs steht dort **Default** (Standard). Für einen einzelnen Chat wählst du unter **Advanced Parameters** (Erweiterte Parameter) eine eigene Stufe. **Default** behält die Stufe bei, die Codex für das Modell nutzt. Diesen Standard verwendet Codex, bis die Verbindung oder der Chat eine Stufe festlegt; die Stufe aus deinem Preset ändert daran nichts, und eine als Fallback genutzte Codex-Verbindung richtet sich nur nach ihrer eigenen Stufe. Agenten auf dieser Verbindung verwenden deren Stufe. Die Stufen entsprechen denen, die Codex für das jeweilige Modell anbietet: GPT-5.5 reicht bis **Extra high**, die Modelle GPT-5.6 und GPT-6 reichen bis **Max**.
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Grok-Modelle lädst du über die Schaltfläche **Fetch Models from Grok CLI** (M
 ## Dauer des Claude-Prompt-Caches
 
 Im Claude-Verbindungseditor fordert **Prompt Caching → Extended token caching (1 hour)** einen Cache für eine Stunde an, damit längere Pausen zwischen Nachrichten möglich sind. Dafür brauchst du Claude Code **2.1.242 oder neuer**. Marinara übergibt die Einstellung nur für diese Anfrage und ändert deine gespeicherten Claude-Einstellungen nicht.
+
+Die Einstellung bestimmt auch, wie viel von einem Chat Claude wiederverwenden kann. Ist sie an, verwendet Claude den bisherigen Chatverlauf wieder und verarbeitet nur den neuesten Teil erneut. Ist sie aus, verwendet Claude nur die Anweisungen am Anfang wieder und verarbeitet bei jeder Nachricht den gesamten Chatverlauf erneut. Bei langen Chats verbraucht die ausgeschaltete Einstellung mehr vom Kontingent deines Tarifs.
 
 Ist der Schalter aus, gilt Claudes Standard für Hauptkonversationen und Agent-SDK-Anfragen: derzeit eine Stunde bei Abo-Nutzung innerhalb der Tarifgrenzen und fünf Minuten bei zusätzlicher Nutzung, Guthaben oder API-Abrechnung. Claude Codes eigene Subagents verwenden ohne separate Konfiguration fünf Minuten; ausgewählte serverseitig gesteuerte Hilfsanfragen können eine Stunde verwenden. Vorhandene CLI-Umgebungsvariablen, die diesen Wert überschreiben, haben weiterhin Vorrang. Siehe [Prompt-Caching in Claude Code](https://code.claude.com/docs/en/prompt-caching).
 

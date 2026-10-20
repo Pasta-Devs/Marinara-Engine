@@ -41,7 +41,7 @@
 - `schemas`: 永続化するエンティティーと共有エンティティーのZodスキーマ。
 - `constants`: プロバイダー、デフォルト、チャットモード、モデル一覧、エージェントのプロンプト。
 - `utils`: マクロ展開、XMLラップ、音楽のスコアリングなどの純粋なヘルパー。
-- `features`: エージェントのマニフェストとレジストリー、function callの定義、フォルダーパッケージ、UNO、Chess、Pokerのターン制ゲームエンジン。
+- `features`: エージェントのマニフェストとレジストリー、function callの定義、フォルダーパッケージ、UNO、Chess、Pokerのターン制ゲームエンジン、Game Modeのルールセットとその戦闘(`rulesets`、`ruleset-combat`、`tactical-combat`と`combat-*`のファイル群)、共有ファイル(舞台設定キット、世界、タイル・盤面・クリーチャーのパック)を含む`world`の世界ジェネレーター。
 
 ルール:
 
@@ -61,7 +61,7 @@ React 19とVite PWAです。現時点でソースファイルは数百ありま�
 - `components/chat`: 共通のチャット、conversation、roleplay、シーン、スプライト、エンカウントのUIが混在しています。
 - `components/game`: Game Modeの画面とパネル。
 - `components/panels`、`components/modals`、各エンティティーのエディター: 設定とリソース管理。
-- `features`: 切り出した機能モジュール。現時点ではChat Settingsの各セクションとトラッカーパネルの部品が入っています。
+- `features`: 切り出した機能モジュール。現時点ではChat Settingsの各セクション、トラッカーパネルの部品、マルチプレイヤー、アバターエージェントの契約・セットアップ・ステージ・レンダラー(`features/avatars`)が入っています。
 - `hooks`: ほとんどのAPI機能に対応するReact Queryのフックとランタイム用フック。
 - `lib`: ブラウザー用とクライアント用のヘルパー。現時点では共通ヘルパーとGame Mode専用のヘルパーが混在しています。
 - `stores`: UI、チャットのランタイム、エージェント、ゲームの状態、Game Mode、アセット、sidecar、翻訳、ギャラリー、エンカウント、ターン制ゲームのZustandストア。
@@ -81,7 +81,7 @@ Fastify製のAPI、ファイルネイティブのストレージ、プロバイ�
 現在のトップレベルの構成:
 
 - `app.ts`、`index.ts`: アプリのファクトリー、ブートストラップ、静的配信、ファイルストレージのハイドレーション、シーダー。
-- `routes`: 多数のルートファイル。大半は薄いCRUD APIですが、`generate.routes.ts`と`game.routes.ts`は大きなオーケストレーションのファイルです。`routes/generate/`フォルダーには、生成パスから最初に切り出した部品が入っています。
+- `routes`: 多数のルートファイル。大半は薄いCRUD APIですが、`generate.routes.ts`と`game.routes.ts`は大きなオーケストレーションのファイルです。`routes/generate/`フォルダーには、これまでに生成パスから切り出した部品が入っています。トークン出力のチェーン(`generation-stream-output.ts`)、ツール呼び出しのラウンド(`tool-rounds.ts`)、返信のコマンド解析とテキストの整理、返信の保存(`save-generated-reply.ts`)などです。
 - `services/storage`: チャット、キャラクター、プロンプト、ロアブック、設定、アセット、テーマ、ゲームの状態に対するストレージのファサード層。
 - `services/llm`: プロバイダーのレジストリー、プロバイダーの基底契約、OpenAI互換プロバイダー、ローカルのsidecarブリッジ。
 - `services/prompt`: Game Mode以外の生成で共通に使うプロンプト組み立て。
@@ -89,7 +89,7 @@ Fastify製のAPI、ファイルネイティブのストレージ、プロバイ�
 - `services/game`: GMプロンプト、ダイス、戦闘、ステートマシン、パーティーのプロンプト、マップ、天候、時間、セッション、チェックポイント、評判、アセット。
 - `services/sidecar`: ローカルランタイム、モデル管理、シーン解析、シーンの後処理。
 - `services/agents`: エージェントの実行と知識のルーティング。
-- 機能の土台: `services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`、`discord-webhook.ts`。
+- 機能の土台: `services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`、`services/avatars`(アバターエージェント向けのアバターモデルの保存、生成、感情分類)、`speech-to-text.service.ts`、`discord-webhook.ts`。
 - `db/schema`: `DATA_DIR/storage`の下に保存するデータのファイルテーブル定義。
 - `db/file-schema.ts`、`db/file-query.ts`: ネイティブテーブルのメタデータとクエリー式。
 - `db/file-backed-store.ts`: インメモリーのテーブルストア、トランザクションの境界、クラッシュからの復旧、JSONスナップショットの永続化。[ファイルネイティブストレージ](file-storage.md)を参照してください。
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-かつての平坦な`types`、`schemas`、`constants`の構成だけでは、もう全体を説明できません。現在は`packages/shared/src/features/`がエージェント、function call、フォルダーパッケージ、ターン制ゲームを抱えています。sharedの最初の整理は、あくまで型のレベルで少しずつ進めるべきで、ファイルの一括移動にはしません。
+かつての平坦な`types`、`schemas`、`constants`の構成だけでは、もう全体を説明できません。現在は`packages/shared/src/features/`がエージェント、function call、フォルダーパッケージ、ターン制ゲーム、ルールセットと戦闘、世界ジェネレーターを抱えています。sharedの最初の整理は、あくまで型のレベルで少しずつ進めるべきで、ファイルの一括移動にはしません。
 
 ## 移行のルール
 
@@ -287,7 +287,7 @@ packages/shared/src/
 4. `GameNarration.tsx`を、コマンドの解析と整形、および表示コンポーネントに分割する。
 5. `game.routes.ts`をハンドラーのグループごとに分割する。
    - グループの候補: セットアップとセッション、ターンの生成、ダイスとスキルとクイックタイムイベント、ジャーナルとインベントリー、マップと移動と天候、戦闘、アセットとシーン解析。
-6. `generate.routes.ts`を、生成のトランスポート、エージェントのパイプライン処理、リトライのルート、コマンドと後処理のヘルパーに分割する。
+6. `generate.routes.ts`を、生成のトランスポート、エージェントのパイプライン処理、リトライのルート、コマンドと後処理のヘルパーに分割する。Issue #7573で着手済みです。トークン出力のチェーン、ツールのラウンド、返信のコマンド、返信テキストの整理、保存メッセージの生成情報、隠しコマンドのアンカー、返信の保存は、それぞれ専用の回帰テスト付きで`routes/generate/`に移りました。
 7. `ChatMetadata`をモードごとのメタデータの契約に分割する。
 8. gameがチャットの内部をこれ以上読み込む前に、共通のRoleplayとGame Modeの視覚要素を`components/chat`の外へ移す。
 

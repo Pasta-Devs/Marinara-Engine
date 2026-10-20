@@ -99,10 +99,22 @@ A música tem uma organização de pastas rígida. Cada trilha precisa ficar em 
 Os valores permitidos são:
 
 - Estado: `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Gênero: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Gênero: `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom` ou a família de um cenário (veja abaixo), como `wuxia`.
 - Intensidade: `calm`, `tense`, `intense`.
 
 É por essa organização que Game Mode sabe a hora de tocar cada trilha. As pastas de ambiente, efeito sonoro, sprite e plano de fundo não seguem essa regra. Nelas, você nomeia as subpastas como quiser.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### A própria arte e música de um cenário
+
+Um jogo iniciado com um kit de cenário tem uma família de arte, mostrada em **Art and music** (arte e música) quando você muda as palavras do kit: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` ou uma família própria do kit. O jogo usa as pastas com o nome da sua família e todas as pastas que não têm nome de família, e deixa de fora as pastas das outras famílias, para que um jogo cyberpunk nunca toque música de batalha de fantasia nem mostre a floresta encantada. Quando nada da própria família nem das pastas compartilhadas combina, nada toca, em vez de uma trilha de outra família.
+
+- **Music**: coloque as trilhas do cenário em `music/<state>/<family>/<intensity>`, como `combat/wuxia/intense`. Elas tocam antes das trilhas compartilhadas.
+- **Backgrounds**: `backgrounds/<family>`. Os planos de fundo gerados durante um jogo com kit de cenário também são salvos ali.
+- **Sons de combate**: um som em `sfx/combat/<family>` com o mesmo nome de um som incluído, como `sword-swing`, o substitui nos jogos daquela família. Os sons de combate incluídos são de fantasia, então as lutas de outra família ficam silenciosas até você adicionar os sons dela.
+
+Os planos de fundo iniciais incluídos contam como compartilhados, exceto os de fantasia (`ancient_library`, `castle_cliff`, `enchanted_forest`) e o moderno `city_night`. Um jogo sem kit de cenário usa todas as pastas, como antes. Um kit de cenário salvo antes de existirem as famílias de arte continua funcionando: um kit feito a partir de um kit inicial usa a família desse kit inicial, e qualquer outro usa todas as pastas até você escolher uma família em **Art and music**. A barra de seleção descrita em [Como escolher os recursos que um jogo pode usar](#choosing-which-assets-a-game-can-use) mostra o nome da família do jogo aberto.
 
 ## Como organizar os recursos
 
@@ -134,6 +146,8 @@ Lembre-se de que os arquivos iniciais instalados são protegidos. Você pode ren
 Marinara mantém uma lista interna dos recursos para que Game Mode os encontre rápido. Quando o envio é feito pelo aplicativo, essa lista se atualiza sozinha.
 
 Se você copiar arquivos para a pasta de recursos do jogo direto no computador, por fora do aplicativo, ele não percebe na hora. Clique no botão **Rescan** para que a pasta seja lida de novo e os arquivos novos entrem na lista. O botão **Rescan** fica tanto na barra de ferramentas do **Asset Browser** quanto na seção **Game Assets**, dentro do painel **Settings**.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## Como escolher os recursos que um jogo pode usar
 

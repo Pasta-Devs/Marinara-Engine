@@ -2,6 +2,8 @@
 
 本指南介绍怎么把聊天保存成文件，以及怎么把聊天重新加载回 Marinara Engine。既可以导出单个聊天，也可以一次导出多个，还可以把单个聊天保存成便于分享的可读故事。Marinara 导出的聊天文件可以导入，SillyTavern(另一款角色扮演聊天应用) 导出的文件同样可以。
 
+<a id="file-formats-you-will-see"></a>
+
 ## 会遇到的文件格式
 
 Marinara 可以把聊天保存成四种格式。
@@ -14,6 +16,8 @@ Marinara 可以把聊天保存成四种格式。
 **Markdown** 和 **Story** 文件不包含系统消息，也不包含对你隐藏的消息。
 
 聊天导入功能只接受 `.jsonl` 文件。以后还打算重新导入的话，请导出成 **JSONL**，不要用 **Text**、**Markdown** 或 **Story**。
+
+**JSONL** 文件不会带上聊天里保存的几个地址：Discord 镜像的 webhook、DeepLX 地址、DeepL 密钥和 Intiface 地址。导入聊天时也绝不会把它们带进来。如果你用到了这些，请在导入后的聊天的 **Chat Settings**(聊天设置) 里重新填写。
 
 ## 导出单个聊天
 

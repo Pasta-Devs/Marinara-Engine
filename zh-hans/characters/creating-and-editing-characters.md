@@ -55,7 +55,7 @@ Character Editor 会把聊天区域换成一整页的工作区，顶部横贯的
 - **Creator**(作者)。角色卡的作者，分享时用来署名。
 - **Version**(版本)。自己设定的版本号，比如 `1.0`。
 - **Talkativeness**(发言频率)。0 到 100 的百分比滑块，决定这个角色在群聊里发言的频繁程度，默认 50%。
-- **Tags**(标签)。在添加标签的输入框里输入一个或多个标签，按 Enter 或点击 **Add**(添加)。用逗号分隔可以一次添加多个。点标签上的 X 删除单个标签，点 **Remove All**(全部清空) 一次清掉所有标签。
+- **Tags**(标签)。在添加标签的输入框里输入一个或多个标签，按 Enter 或点击 **Add**(添加)。用逗号分隔可以一次添加多个。输入框还会推荐你的角色库里已经在用的标签，按使用次数从多到少排列，并显示每个标签有多少个角色在用。继续输入会缩小列表。点击某条推荐，或者用方向键选中后按 Enter 即可。点标签上的 X 删除单个标签，点 **Remove All**(全部清空) 一次清掉所有标签。
 - **Creator Notes**(创作者备注)。私人备注，永远不会发给 AI，但会作为摘要显示在角色库里。
 
 **Version history**(版本历史) 面板也在这个选项卡上，具体说明见下面的“保存与版本历史”一节。
@@ -68,7 +68,7 @@ Character Editor 会把聊天区域换成一整页的工作区，顶部横贯的
 - **Personality**(性格)。性情、说话习惯和行为模式的简短摘要。
 - **Backstory**(背景故事)。经历、出身和重要的人际关系。
 - **Appearance**(外观)。外貌、衣着和视觉细节。Marinara 也会用这段文字来生成 AI 头像的提示词。
-- **Image Appearance Override**(图像专用外貌)。位于 **Appearance** 下方，是一个可选开关，默认关闭。打开后会显示第二个输入框，用来填写适合图像提示词的角色外貌描述。开关打开且输入框有内容时，图像提示词会用这段文字代替 **Appearance**，AI 头像的提示词也会以它为基础。负责写旁白的模型始终会收到 **Appearance** 的完整内容。关闭开关或留空输入框，就会照常使用 **Appearance**。
+- **Image Appearance Override**(图像专用外貌)。位于 **Appearance** 下方，是一个可选开关，默认关闭。打开后会显示第二个输入框，用来填写描述这个角色的简短图像标签，例如 LoRA 触发词。开关打开且输入框有内容时，图像提示词会原样使用这些标签，**Appearance** 则作为背景信息保留，AI 头像的提示词也会以它为基础。负责写旁白的模型始终会收到 **Appearance** 的完整内容。保持关闭即可维持通常的行为。
 - **Scenario**(场景设定)。和这个角色开新聊天时的默认设定。
 
 **Dialogue & Greetings**(对白与开场白) 一节决定聊天怎么开场、角色说话是什么调子：
@@ -107,7 +107,7 @@ Character Editor 会把聊天区域换成一整页的工作区，顶部横贯的
 1. 把鼠标移到头像方块上，点击那个小小的 **Generate avatar**(生成头像) 魔杖按钮。
 2. **Generate Character Avatar** 窗口打开。
 3. 选择一个 **Image Generation Connection**(图像生成连接)。
-4. 检查或修改 **Avatar Prompt**(头像提示词)。如果 **Image Appearance Override** 已打开且填有内容，就会用这段文字预先填好。否则使用 **Appearance**；**Appearance** 为空时改用 **Description**，再空则用 **Personality**。
+4. 检查或修改 **Avatar Prompt**(头像提示词)。如果 **Image Appearance Override** 已打开且填有内容，就会用这段文字预先填好。否则依次使用 **Appearance**、**Description**、**Personality**，取第一个有内容的字段。
 5. 如果角色卡已经有头像，可以勾选 **Use current avatar as a reference**。
 6. 点击 **Generate**。想再试一次就点 **Regenerate**(重新生成)。
 7. 对结果满意后，点击 **Use Avatar**。

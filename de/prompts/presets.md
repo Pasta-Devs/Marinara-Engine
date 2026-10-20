@@ -20,7 +20,7 @@ Oben im Panel sitzen drei Schaltflächen:
 - **Import** (Download-Symbol): lädt ein Preset aus einer `.json`-Datei.
 - **Select** (Häkchen-Symbol): mehrere Presets auf einmal auswählen, um sie zu exportieren oder zu löschen.
 
-Darunter liegen das Feld **Search presets** (Presets durchsuchen) und ein Sortiermenü mit **A-Z**, **Z-A**, **Newest** und **Oldest**. Über **New Folder** (Neuer Ordner) lassen sich Presets in Ordnern gruppieren. Zieh ein Preset auf einen Ordner, um es dorthin zu verschieben. Ein Doppelklick oder Doppeltipp auf einen Ordner benennt ihn um.
+Darunter liegen das Feld **Search presets** (Presets durchsuchen) und ein Sortiermenü mit **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest** und **Oldest**. **Manual order** behält die Reihenfolge bei, die du festlegst: Zieh eine Preset-Zeile nach oben oder unten oder drück auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten. Über **New Folder** (Neuer Ordner) lassen sich Presets in Ordnern gruppieren. Zieh ein Preset auf einen Ordner, um es dorthin zu verschieben. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen. Ein Doppelklick oder Doppeltipp auf einen Ordner benennt ihn um.
 
 Jede Preset-Zeile zeigt Name, Wrap-Format, Anzahl der Abschnitte und Autor. Ist ein Preset als Standard markiert, trägt es das Abzeichen **DEFAULT**. Ein Klick auf die Zeile öffnet das Preset im **Preset Editor**.
 
@@ -40,13 +40,15 @@ Der Editor speichert nicht von selbst. Änderungen bleiben erst nach einem Klick
 
 Zum Exportieren öffnest du das Preset und klickst oben in der Leiste auf die Export-Schaltfläche (Pfeil nach oben). Bei ungespeicherten Änderungen fragt Marinara vorher nach dem Speichern. Zum Löschen dient das Papierkorb-Symbol in derselben Leiste.
 
-## Die Tabs Overview, Sections und Prompts
+## Die fünf Tabs im Preset Editor
 
-Der **Preset Editor** hat drei Tabs.
+Der **Preset Editor** hat fünf Tabs.
 
 - **Overview**: Name, Beschreibung, Wrap-Format und Autor des Presets.
 - **Sections**: der eigentliche Prompt-Aufbau aus Blöcken und Markern.
 - **Prompts**: die Modus-Prompts für Conversation- und Game-Chats.
+- **Parameters** (Parameter): die anfänglichen Generierungseinstellungen für Chats, die dieses Preset nutzen. Siehe [Generierungsparameter](generation-parameters.md).
+- **Regex**: die mit diesem Preset verknüpften Regex-Skripte und der **Scoped regex default** (Standard für bereichsbezogene Regex-Skripte). Siehe [Regex-Skripte](../extending/regex-scripts.md).
 
 ### Tab Overview
 
@@ -170,7 +172,7 @@ Game-Chats haben zusätzlich das Feld **Extra instructions** (zusätzliche Anwei
 
 Ein Abschnitt kann einen Decision-Block `{{#if decision:"..."}}` enthalten. Dieser Teil des Presets wird dann nur in Zügen gesendet, in denen eine Aussage über den Chat wahr ist. Siehe [Das Decision-Modell fragen](conditional-prompts.md#asking-the-decision-model).
 
-**Setze wechselnde Decision-Blöcke spät im Prompt ein**, etwa in Anweisungen nach dem Verlauf. Ein veränderter Zweig kann verhindern, dass der Anbieter den Prompt ab dieser Stelle wiederverwendet; frühe Änderungen können daher den Großteil der Cache-Ersparnis kosten. Ein früheres unverändertes Präfix kann weiter passen; nicht zwangsläufig wird der gesamte Prompt neu berechnet. Lass eine Decision nur dann weit oben, wenn ihre Antwort selten wechselt und ihre Anweisungen dorthin gehören. Einzelheiten je Anbieter stehen unter [Prompt-Caching](conditional-prompts.md#prompt-caching).
+**Setze wechselnde Decision-Blöcke spät im Prompt ein**, etwa in Anweisungen nach dem Verlauf. Ein veränderter Zweig kann verhindern, dass der Anbieter den Prompt ab dieser Stelle wiederverwendet; frühe Änderungen können daher den Großteil der Cache-Ersparnis kosten. Ein früheres unverändertes Präfix kann weiter passen; nicht zwangsläufig wird der gesamte Prompt neu abgerechnet. Lass eine Decision nur dann weit oben, wenn ihre Antwort selten wechselt und ihre Anweisungen dorthin gehören. Einzelheiten je Anbieter stehen unter [Prompt-Caching](conditional-prompts.md#prompt-caching).
 
 Aussagen in deaktivierten Abschnitten und Gruppen werden nie geprüft und zählen nicht zu **Decision statements per turn** (Decision-Aussagen pro Zug).
 

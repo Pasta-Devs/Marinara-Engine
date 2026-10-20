@@ -6,14 +6,18 @@
 
 ## 最初に読むこと: ルールセットでできることとできないこと
 
-ルールセットが埋められるのは、Engineがすでに理解している仕組みの設定値だけです。現在Engineは2種類の判定方式を持ち、ファイルの`resolution.kind`で選びます。
+ルールセットが埋められるのは、Engineがすでに理解している仕組みの設定値だけです。現在Engineは5種類の判定方式を持ち、ファイルの`resolution.kind`で選びます。
 
 - **`dice-sum`**: ダイスを振り、シートの数値を加えて、難易度以上を目指します。d20方式、2d6に能力値を加える方式など、多くのシステムを扱えます。
 - **`dice-pool`**: キャラクターの数値に応じた個数のダイスを振り、目標に届いたものを数えます。評価値がボーナスではなくダイスの個数を表す方式に対応します。
 
-どちらも[判定方式](#resolution-kinds)で詳しく説明します。
+- **`dice-highest`**: プールを振って最大の出目を読むか、上位いくつかの出目を合計します。Blades in the DarkやTrophy Darkに対応します。
+- **`roll-against`**: シートの数値以下(または以上)を出すように振ります。パーセンテージ制のスキルやGURPSの判定に対応します。
+- **`symbol-pool`**: ナラティブダイスを組み立てて格上げし、対立するシンボルを相殺します。Genesysの判定に対応します。
 
-どちらの形にも収まらない仕組みは、ルールセットファイルでは表現できません。プール内の最大出目の採用、目標以下を成功とするパーセンタイル判定、記号ダイス、対抗プールなどが例です。これらにはEngine内の新しい判定方式が必要で、JSONファイルではなくテストを伴うコードの貢献になります。必要な場合はEngineリポジトリに機能要望を開き、計算過程を示したロール例をいくつか添えて仕組みを説明してください。その例がテストになります。
+5つすべてを[判定方式](#resolution-kinds)で詳しく説明します。
+
+これらの形に収まらない仕組みは、ルールセットファイルでは表現できません。対抗プールがその一例です。このような仕組みにはEngine内の新しい判定方式が必要で、JSONファイルではなくテストを伴うコードの貢献になります。必要な場合はEngineリポジトリに機能要望を開き、計算過程を示したロール例をいくつか添えて仕組みを説明してください。その例がテストになります。
 
 Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を解決できます。任意の`battle`ブロックはキャラクターシートの数値をMarinaraの戦闘へ貸し出します。[戦闘への橋渡し](#battles-lending-the-sheet-to-marinaras-combat)を参照してください。任意の`combat`ブロックは、ルールセットが戦闘を解決する方法そのものを定義します。[独自ルールの戦闘](#combat-a-fight-your-own-rules-resolve)を参照してください。Engineは現在これらの規則で戦えます。ゲームのCombat PreferenceでClassic表示を選び、ルールセットが距離を定義する場合はTacticalの戦場も選べます。
 
@@ -55,7 +59,7 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 | `combat` | 任意です。独自の戦闘解決規則と、戦闘画面が実行する内容です。 |
 | `layers` | 任意です。ゲーム作成時にプレイヤーが有効にするバリエーションです。 |
 
-ファイルは最大256 KBです。プロンプトへ入る文章(名前、ラベル、Game Master向け文章)に改行、角括弧、二重波括弧は使えません。
+ファイルは最大512 KBです(Capability API 1.340より前は256 KB)。プロンプトへ入る文章(名前、ラベル、Game Master向け文章)に改行、角括弧、二重波括弧は使えません。
 
 シート内のID(能力値、スキル、フィールド、プールなど)は、`grit_max`のように英字で始まり、小文字、数字、アンダースコアで構成します。
 
@@ -63,13 +67,13 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 
 ### 判定方式
 
-`resolution.kind`は判定の振り方を選びます。両方式は同じキャラクターシートと3つのキーを共有するので、切り替えても`resolution`より後のファイル構成は変わりません。
+`resolution.kind`は判定の振り方を選びます。どの方式も同じキャラクターシートを読み、3つのキーを共有するので、切り替えても`resolution`より後のファイル構成は変わりません。
 
 - `abilityModifier`: シートの能力値を数値へ変える方法です。`identity`はそのまま使い、`floorHalfMinusTen`は5eの規則、`stepTable`は`[[score, number], ...]`で独自のしきい値を列挙します。
 - `proficiencyTiers`: スキルやセーヴの習熟段階です。未掲載のスキルは先頭の段階になります。`flat`、習熟ボーナスの`multiplier`倍、または両方を加えます。習熟ボーナスがあるシステムでは、`"proficiency": { "bonus": { "derived": "proficiency_bonus" } }`で出所を指定します。
 - `proficiency`: 任意で、乗算する段階があるときだけ必要です。
 
-得られた数値の意味は方式が決めます。`dice-sum`はロールへ加算し、`dice-pool`はその個数のダイスを振ります。
+得られた数値の意味は方式が決めます。`dice-sum`はロールへ加算し、`dice-pool`と`dice-highest`はその個数のダイスを振ります。`symbol-pool`は能力値と習熟を分けたまま使い、ナラティブダイスを組み立てて格上げします。
 
 #### `dice-sum`: ダイスを合計する
 
@@ -93,6 +97,9 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 - `dice`: 個数と面数です。合計を難易度と比較します。
 - `advantage`: Game Masterが2回振って片方を採用するよう要求できるかです。
 - `naturals`: 単一ダイスの最大・最小出目が判定とセーヴに及ぼす効果です。`none`、`both`、`max-only`、`min-only`から選びます。単なる計算だけなら省略します。ダイス1個が条件なので、2d6方式では`none`が必要です。
+- `dice.faces`: 各面の値が出目そのものでない場合に、各面の値を最小の面から順に示します(Capability API 1.136)。Fateの4個のファッジダイスは`{ "count": 4, "sides": 3, "faces": [-1, 0, 1] }`です。カードには−、空白、+が表示されて合計され、確率はFateとまったく同じです。面ごとに1つの値を指定してください。
+- `openEnded`: 振り足しが続く単一のダイスです(1.136)。`high`以上の面が出たらもう一度振って加え、新しいダイスが`high`以上を示す間は繰り返します。`low`以下の面が出たらもう一度振って差し引き、その振り直しも同じく`high`で連鎖します。Rolemasterのオープンエンドのパーセンタイルロールは、1個のd100で`{ "high": 96, "low": 5 }`です。1回のロールで振るダイスは最大20個です。ナチュラルの出目と、それによる結果帯の移動は、最初のダイスで読みます。
+- `unmodified`: 最初のダイスがその面を示したときに記録が印を付ける、単一ダイスの面です(1.136)。これにより、「修正なしの66」を別扱いする表を適用できます。例は`[66, 100]`です。記録には`unmodified="66"`と記され、カードにも表示され、GMにはそれについて規則が定めることを適用するよう伝えます。
 - `difficultyLadder`: Game Masterへ提示する難易度の候補です。`dc`は合計が到達すべき数値です。GMは数値を書く代わりに`difficulty="Hard"`のように段階名を指定でき、Engineはその段階から数値を読み取ります。
 
 #### `dice-pool`: ダイスを振って成功を数える
@@ -136,9 +143,13 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 - `reroll`: 任意です。誰も支払わずにシステムが認める振り直しで、最大6個です。それぞれ`id`を持ち、GMは判定で`reroll=`によって指定します。`upTo`以下の目を振り直します。`"once"`なら新しい目が何であれ確定し、`"until"`ならそれより大きい目が出るまで振ります。すべての目を振り直すと終わらないため、`upTo`は1から、ダイスの面数より1小さい値までです。`until`も1判定で100回振り直すと止まります。判定で指定しない限り何も振り直しません。1判定で行う振り直しは1つです。消費やキャラクターが使った項目でも振り直しを購入した場合は、より多くの目に届く方を振り、届く範囲が同じなら`once`より`until`を優先します。
 - `difficultyLadder`: `successes`は必要成功数です。段階ごとに`target`も指定できますが、目標が調整可能で、その範囲内の場合だけです。その目標値は、その段階での判定が数える基準です。GMが`difficulty=`で段階を指定した場合か、ちょうど1つの段階が必要とする`dc=`を書いた場合です。複数の段階が同じ成功数を必要とする場合、`dc=`だけではどれを意図したか分からないため、目標値はデフォルトのままです。段階名を指定してください。
 
+- `target.from`: 任意です。各キャラクターの目標値をシートから読みます。Lasers & FeelingsのNumberのように、キャラクターが一度だけ選ぶ値です(能力値、フィールド、派生値など、どの値参照でも指定できます)。`min`..`max`の範囲に収められ、数値はキャラクター自身のものなので`threshold=`では動きません。ただし、キャラクターが使った項目で購入した目標値の変更は引き続き効きます。記録の`threshold=`は実際に使った値を示します。
+- `stances`: 任意です。最大6個で、それぞれ`id`、`label`、`count`(`"below"`または`"above"`)、対象とする`skills`を持ちます。そのスキルの判定では、目標値以上ではなく、目標値**未満**、または目標値を**超える**ダイスを数えます。Lasers & Feelingsは、未満を数えるLasersの構えと、超えるものを数えるFeelingsの構えで、各スキルはどちらか一方に属します。1つのスキルが属せる構えは1つだけです。`explode`、`double`、`cancel`、`botch`は「目標値以上」を前提に読むため、構えの判定では使われません。
+- `exact`: 任意です。ちょうど目標値を示すダイスです。`label`で名前を付け(`"LASER FEELINGS"`)、`text`で卓上での効果を説明でき、`counts`が`false`でない限り1成功と数えます。記録には該当するダイスの数を示す`exact="N"`が入り、ダイスカードは結果の横にそれを表示するため、GMはそれで得られる洞察をプレイヤーに与えられます。
+
 `cancel`と`botch`の出目は最低目標より低くなければならず、すべての規則の出目はそのダイスに実在する必要があります。絶対に発動しない規則はプレイ中に発覚させず、インポート時に拒否します。
 
-パッケージ形式のプールルールセットはCapability API 1.24です。`explode`や`double`の`min`、`pool.abilityPlusAbility`、`botch.rule`は1.37、`reroll`は1.38です。コミュニティのインポートは読み取るEngine自身が検証するため、別の指定は不要です。
+パッケージ形式のプールルールセットはCapability API 1.24です。`explode`や`double`の`min`、`pool.abilityPlusAbility`、`botch.rule`は1.37、`reroll`は1.38、`target.from`、`stances`、`exact`は1.137です。コミュニティのインポートは読み取るEngine自身が検証するため、別の指定は不要です。
 
 #### プール判定でGame Masterが書けるもの
 
@@ -159,18 +170,188 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 
 すべてファイルの宣言範囲に制限されます。範囲外の値は最寄りの端へ丸め、ルールセットにない能力値は判定自体を拒否せず無視します。保存記録には実際に使った値が表示されます。難易度と目標値は数値で、追加ダイスは制限後の値で記録します。`with=`は実際に能力値を入れ替えたか加えた場合だけ、目は判定が動かした場合だけ、`reroll=`は指定した振り直しが実際に使われて何かを振り直した場合だけ記録し、`complication="true"`は`halfOrMore`の大失敗で結果に伴う問題が生じた場合に記録します。Engineは必ず自分でダイスを振ります。モデルが書いたプール結果は置き換え、この方式に有利はないため`mode="advantage"`を無視し、プレイヤーがターン前に振ったダイスも使いません。
 
+#### `dice-highest`: ダイスを振って最大の出目を読む
+
+Blades in the DarkとTrophy Darkは、数個のd6を振って最大の1個だけを読みます。Capability API 1.138です。
+
+```json
+"resolution": {
+  "kind": "dice-highest",
+  "die": { "sides": 6 },
+  "abilityModifier": { "op": "identity" },
+  "proficiencyTiers": [{ "id": "rating_0", "label": "0" }, { "id": "rating_1", "label": "1", "flat": 1 }],
+  "pool": { "min": 0, "max": 6 },
+  "zeroDice": "lowest-of-two",
+  "critical": { "count": 2 },
+  "situationalDice": { "min": -1, "max": 2 },
+  "difficultyLadder": [{ "label": "Partial", "dc": 4 }, { "label": "Full", "dc": 6 }],
+  "outcomes": {
+    "by": "total",
+    "tiers": [
+      { "id": "critical", "label": "Critical", "on": "critical-success", "success": true },
+      { "id": "full", "label": "Full success", "atLeast": 6, "success": true },
+      { "id": "partial", "label": "Partial success", "atLeast": 4, "success": true, "text": "You do it, with a consequence." },
+      { "id": "bad", "label": "Bad outcome" }
+    ]
+  }
+}
+```
+
+- シートの数値は、プールと同じくダイスの個数で、`pool`の範囲(最大20)に収めます。負傷、`adjust`、状態、アイテムがダイスを増減します。
+- `keep`: 任意で、1～3、デフォルトは1です。上位いくつのダイスを合計するかを示します。1がBlades、2がTrophy Darkの戦闘です。
+- `zeroDice`: ダイスを持たないキャラクターの扱いです。`"lowest-of-two"`(デフォルト)は2個振って低い方を採用し、クリティカルには決してなりません。`"fail"`はロールせずに失敗します。
+- `critical`: 任意です。最大の面(または`face`以上)を示すダイスが`count`個あればクリティカル成功です。Bladesの2個の6がこれにあたります。
+- `dark`: 任意で、Trophy Darkのダークダイスです。`label`、`max`(1～10)、`text`を持ちます。GMは`dark="N"`で1つの判定に加えます。`outcome`はデフォルトで`"all"`で、ほかのダイスと一緒に読みます。`"outcome": "light"`(Capability API **1.149**)では、採用するダイス、合計、結果帯、クリティカルを決めるのはライトダイスだけです。ライトダイスがなければ、ライト側に`zeroDice`を適用します。ライトダイスを2個振って低い方を採用するか、ダークダイスは振ったうえで失敗します。ダークダイスは常に振られ、最後に記録されます。`darkHighest="true"`は、ダークダイスがすべてのライトダイスを厳密に上回ったことを示します(代替のライトダイスも含みます。ライトダイスを1個も振らなかった場合は、どのダークダイスでも上回ります)。その代償(Ruin)を適用するのはGMです。`dark.outcome`を宣言するには、`"all"`であってもcapabilityApi 1.149が必要です。
+- `situationalDice`: 任意で、GMが`bonus=`で増減できるダイスです(援護、無理押しなど)。
+- `spend`で購入できるのはダイスだけです。
+- `difficultyLadder`: `dc`を持つ段階で、その数値は採用したダイスが到達すべきものです。判定の`dc=`はその数値で、1から、ダイスの面数の`keep`倍までです。
+- `outcomes`は採用したダイスから`by: "total"`で読み、`on: "critical-success"`の結果帯がクリティカルを受け止めます。
+
+記録は合計方式の形を保ち(`resolution="sum"`、`modifier="0"`、採用したダイスが合計です)、`highest="1"`を加えます。該当する場合は`zeroDice="true"`と`dark="N"`も加え、ダークダイスは`rolls`の最後に並びます。ライトのみの結果では`darkOutcome="light"`も記録するため、再読み込みの後もカードは採用したライトダイスだけを強調します。この方式のルールセットには独自の戦闘がないため、併せて`combat`を指定すると拒否されます。
+
+#### `roll-against`: シートの数値以下(または以上)を振る
+
+Call of Cthulhu、GURPS、オールドスクールの盗賊の技能率は、ダイスに加算する代わりにシート上の数値に対して振ります。Capability API 1.139です。
+
+```json
+"resolution": {
+  "kind": "roll-against",
+  "dice": { "count": 1, "sides": 100 },
+  "abilityModifier": { "op": "identity" },
+  "proficiencyTiers": [{ "id": "base", "label": "Base" }],
+  "against": "at-most",
+  "criticalSuccess": [{ "from": 1, "to": 1 }],
+  "criticalFailure": [{ "from": 100, "to": 100 }, { "from": 96, "whenTarget": { "below": 50 } }],
+  "tens": { "max": 2 },
+  "difficultyLadder": [
+    { "label": "Regular", "dc": 0 },
+    { "label": "Hard", "dc": 0, "divide": 2 },
+    { "label": "Extreme", "dc": 0, "divide": 5 }
+  ],
+  "outcomes": {
+    "by": "fraction",
+    "tiers": [
+      { "id": "critical", "label": "Critical", "on": "critical-success", "success": true },
+      { "id": "extreme", "label": "Extreme success", "atLeast": 5, "success": true },
+      { "id": "hard", "label": "Hard success", "atLeast": 2, "success": true },
+      { "id": "regular", "label": "Regular success", "atLeast": 1, "success": true },
+      { "id": "fail", "label": "Failure" },
+      { "id": "fumble", "label": "Fumble", "on": "critical-failure" }
+    ]
+  }
+}
+```
+
+- 判定でのシートの数値が目標値です。スキルのパーセンテージはシートのスキルごとのボーナスで(`bonusRange`は100まで)、能力値も段階のボーナスも加えません。GURPSのスキルは、その能力値にそのボーナスを加えた値です。
+- `dice`: 振って合計するダイスで、デフォルトは1d100です(GURPSは3d6、セーヴィングスローは1d20)。
+- `against`: `"at-most"`(デフォルト)は目標値以下で成功し、`"at-least"`は目標値以上で成功します。
+- `difficultyLadder`: 各段階の`dc`は目標値を動かし、`divide`(2～10)は先にシートの数値を割ります。GMは`difficulty=`で段階を指定します。タグの`dc=`は数値を-100～100の範囲で動かします。記録の`dc`はロールを比べた数値で、記録には`against="at-most"`と記されます。
+- `criticalSuccess`と`criticalFailure`: それぞれ最大6個の規則です。規則は面(`from`、`to`で、どちらも省略できます)を指定するか、失敗については`pastTarget`、つまり失敗側にその分以上離れたロールを指定します。`whenTarget`(`atLeast`、`below`)は規則を一部の目標値に限ります。GURPSの5は、目標値が15以上のときだけクリティカル成功です。クリティカル成功は常に成功し、クリティカル失敗は常に失敗します。
+- `tens`: 任意で、単一のd100でのみ使えます。`bonus="+N"`は10の位のダイスをN個多く振って最良のロールを採用し、`bonus="-N"`は最悪のロールを採用します。追加できるのは最大`max`個です。
+- `outcomes`は`at-most`のロールで`by: "fraction"`を読めます。各結果帯の`atLeast`は目標値を割る数で、その割合以下のロールがその結果帯に入ります。`margin`(目標値をどれだけ下回ったか)と`total`の尺度も使えます。
+
+#### `symbol-pool`: ナラティブダイスを振ってシンボルを読む
+
+Genesysは特徴値とスキルランクからプールを組み、対立するダイスを加えます。面には数値の代わりに成功、アドバンテージ、トライアンフ、失敗、脅威、絶望が描かれています。Capability API 1.141です。
+
+```json
+"resolution": {
+  "kind": "symbol-pool",
+  "abilityModifier": { "op": "identity" },
+  "proficiencyTiers": [
+    { "id": "untrained", "label": "Untrained", "flat": 0 },
+    { "id": "rank_one", "label": "Rank 1", "flat": 1 }
+  ],
+  "symbols": [
+    { "id": "s", "label": "Success" },
+    { "id": "f", "label": "Failure", "cancels": "s" },
+    { "id": "a", "label": "Advantage" },
+    { "id": "h", "label": "Threat", "cancels": "a" },
+    { "id": "t", "label": "Triumph", "counts": "s" },
+    { "id": "d", "label": "Despair", "counts": "f" }
+  ],
+  "dice": [
+    { "id": "ability", "label": "Ability", "faces": [[], ["s"], ["s"], ["s", "s"], ["a"], ["a"], ["s", "a"], ["a", "a"]] },
+    { "id": "proficiency", "label": "Proficiency", "faces": [[], ["s"], ["s"], ["s", "s"], ["s", "s"], ["a"], ["s", "a"], ["s", "a"], ["s", "a"], ["a", "a"], ["a", "a"], ["t"]] },
+    { "id": "difficulty", "label": "Difficulty", "faces": [[], ["f"], ["f", "f"], ["h"], ["h"], ["h"], ["h", "h"], ["f", "h"]] },
+    { "id": "challenge", "label": "Challenge", "faces": [[], ["f"], ["f"], ["f", "f"], ["f", "f"], ["h"], ["h"], ["f", "h"], ["f", "h"], ["h", "h"], ["h", "h"], ["d"]] },
+    { "id": "boost", "label": "Boost", "faces": [[], [], ["s"], ["s", "a"], ["a", "a"], ["a"]] },
+    { "id": "setback", "label": "Setback", "faces": [[], [], ["f"], ["f"], ["h"], ["h"]] }
+  ],
+  "success": { "symbol": "s", "needed": 1 },
+  "pool": { "die": "ability", "upgrade": "proficiency", "max": 6 },
+  "difficulty": { "die": "difficulty", "upgrade": "challenge", "max": 5 },
+  "boost": { "die": "boost", "max": 3 },
+  "setback": { "die": "setback", "max": 3 },
+  "criticalSuccess": "t",
+  "criticalFailure": "d",
+  "difficultyLadder": [{ "label": "Easy", "dc": 1 }, { "label": "Average", "dc": 2 }, { "label": "Hard", "dc": 3 }]
+}
+```
+
+- `symbols`: 2～10個の名前付きシンボルです。`counts`は相殺の前に別のシンボルを1つ加えます。トライアンフは成功を1つ加え、トライアンフとしても残ります。これが指定するのは、自身の`counts`を持たないシンボルです。連鎖や自己参照は拒否されます。`cancels`は2つのシンボルを1対1で相殺する組にし、各シンボルの相手は最大1つです。逆方向の宣言は任意です。`text`はシンボルをGMに説明します。
+- `dice`: 2～8個の名前付きダイスで、それぞれ2～20面です。面は最大3つのシンボルIDの配列です。`[]`は空白で、同じIDを繰り返すと2つと数えます。参照はすべて実在する必要があります。
+- `pool`: `larger-upgraded`(デフォルト)は能力値とランクの大きい方の個数を振り、`upgrade`を宣言していれば小さい方の数だけ格上げします。`sum`は2つを合計し、何も格上げしません。`max`はデフォルトが6で、12を超えられません。能力値には`abilityModifier`を使うため、Genesysの特徴値には`identity`を使ってください。ランクはスキルやセーヴの習熟段階から得ます。素の能力値判定のランクは0です。`with=`はほかの判定と同じく特徴値を入れ替えます。シートのボーナス、負傷、調整、効果は、後述の符号付きボーナスを通じてブーストダイスやセットバックダイスを加えます。
+- `difficulty`: `dc=`は対立するダイスの個数で、0から`max`(デフォルト5、上限12)までです。`difficulty=`は代わりに難易度表の段階を指定します。`upgrade="N"`はその個数の対立ダイスを格上げダイスに置き換え、実際に振る個数までに制限されます。難易度を超えてダイスを加えることはありません。
+- `boost`と`setback`: 任意で、それぞれ`bonus="+N"`と`bonus="-N"`で加えるダイスです。上限は各`max`(デフォルト3、上限6)です。符号付きの調整は、この上限を適用する前に合算します。Capability API **1.150**では`setback="N"`も独立して受け付けます。`bonus="2" setback="1"`は両方のダイスを振ります。負のボーナスは`setback`に加算され、合計したセットバックの個数は`setback.max`の範囲に収まります。ブーストダイスは引き続き`boost.max`の範囲です。
+- `allowOwnUpgrade`: 任意で、指定しなければfalseです。`true`にすると、`upgradeOwn="N"`は、シートによる格上げと購入したダイスの後で、キャラクターのダイスをさらにN個`pool.upgrade`(宣言が必要です)に格上げします。既存のダイスがすべて格上げ済みなら、追加の格上げごとに格上げしたダイスを1個加え、これも`pool.max`の範囲です。`pool.build: "sum"`でも機能します。このキーを宣言するには、`false`であってもcapabilityApi **1.150**が必要です。属性名は`zeroDice`と同じくキャメルケースです。`upgradeOwn`は振る側に影響し、`upgrade`は引き続き難易度ダイスだけに影響します。`setback`と`upgradeOwn`はどちらも0以上の整数を取り、シンボルプール以外では無視されます。`upgradeOwn`は有効にしない限り無視されます。
+- `success`: 相殺後に、そのシンボルがこの個数だけ必要です。デフォルトは1です。クリティカル成功とクリティカル失敗は、指定したシンボルが1つでも出れば、それが加えた成功や失敗が相殺されても印を付けます。両方の印が同時に付くこともあり、どちらも正味の成功数が判定に通ったかどうかは変えません。
+- `outcomes`は正味の成功数(`total`)か、`net successes - needed + 1`(`margin`)を読めます。結果帯は通常どおり成功を決め、元のクリティカルのシンボルは印が付いたまま残ります。`spend`で購入できるのは、`pool.max`の範囲内で追加するキャラクターの基本ダイスだけです。`dice-highest`と同じく、戦闘は対象外です。
+- 記録は`resolution="sum"`を保ち、`symbols="2s 1a 1t"`、各ダイスを識別する`thrown=`、1から数えた面の番号を持つ`rolls=`を加えます。エンコードした`symbolDetails`は、ラベル、面のシンボル、両方のクリティカルの印を保持します。`setback`は共通のセットバック上限を適用した後に実際に加えた独立のセットバックダイスを、`upgradeOwn`は実際に適用した追加の格上げを記録します。無視された追加や0の追加は省きます。カードと要約は、面の数値を合計するのではなく、正味のシンボルを示します(空の結果も含みます)。オーバーライドでこの方式の規則を変えられますが、`symbols`や`dice`は置き換えられません。
+
 #### 対象外の仕組みとその理由
 
-以下は目標に対してダイスを数える形で表せないため、それぞれ独自の判定方式が必要です。
+次の仕組みには、今も独自の判定方式が必要です。
 
-- **最大出目の採用**(Blades in the Darkなど)には、現在の判定結果にない部分成功の段階が必要です。
-- **能力値と比較するスタンスプール**(Lasers and Feelingsなど)は、判定ごとに上か下かを決める別の比較です。
-- **記号ダイス**(Genesysなど)はそもそも数値を出しません。
 - **対抗プール**は2人を同時に解決しますが、判定のロール者は1人です。
-- **目標以下の判定や上限のないパーセンタイル**は比較の向きが異なります。
 - **ワイルドダイスを含む合計プール**(OpenD6など)はダイスを加算し、1個を特別扱いします。
 
 この方式が以前扱えなかった残り2つは、現在実装されています。下の「消費でロールを変える」で説明します。「1ポイントで1成功を得る」や「1ポイントで失敗したダイスを振り直す」といったシステム自体の規則は`resolution.spend`です。状況に応じてシステムが無料で認める振り直しは、上記の`resolution.reroll`です。キャラクターが取得したものに属する振り直しはカタログ項目の`mechanics.check`で、その項目自身のコストを支払います。
+
+### 結果帯: 成功か失敗か以上のもの
+
+多くのシステムは、判定を単なる成否ではなく、いくつかの結果の1つとして読みます。Pathfinderの4段階の成功度、代償を伴って成功する「ぎりぎり」、Call of Cthulhuのハード成功とイクストリーム成功、Fateの「スタイリッシュな成功」などです。`resolution.outcomes`はそれらの結果帯に名前を付け、Engineは判定ごとにどの結果帯に入ったかを示します(Capability API 1.135)。どの判定方式でも使えます。
+
+```json
+"outcomes": {
+  "by": "margin",
+  "naturals": "shift",
+  "tiers": [
+    { "id": "critical_success", "label": "Critical success", "atLeast": 10, "success": true, "critical": true },
+    { "id": "success", "label": "Success", "atLeast": 0, "success": true },
+    { "id": "failure", "label": "Failure", "atLeast": -9 },
+    { "id": "critical_failure", "label": "Critical failure", "critical": true }
+  ]
+}
+```
+
+- `by`: 結果帯を何から読むかです。`"margin"`(デフォルト)は、結果が判定に必要な値をどれだけ超えたかです。合計方式なら合計から難易度を引いた値、プールなら正味の成功数から必要成功数を引いた値です。`"total"`は結果そのもので、難易度にかかわらず、合計方式なら合計、プールなら正味の成功数です。
+- `tiers`: 2～8個の結果帯を、**良い順に**並べます。`atLeast`はその結果帯に入る最小の数値で、各結果帯の値は前の結果帯より小さくします。最後の結果帯はそれより下をすべて受け止めるため、この値を持ちません。`success`は結果帯が成功かどうかを示し、`critical`はその種類のクリティカルとして印を付けます(`success`がtrueならクリティカル成功、そうでなければクリティカル失敗です)。少なくとも1つの結果帯が成功し、少なくとも1つが失敗する必要があります。`text`は任意の1行で、最大200文字です。その結果帯が卓上で何を意味するかをGMに伝えます(「You do it, but the Game Master adds a complication」など)。
+- `on`: `"critical-success"`または`"critical-failure"`を指定すると、数値にかかわらずクリティカルが入る結果帯になり、ほかには何も入りません。`atLeast`は持たず、クリティカル成功の結果帯は成功、クリティカル失敗の結果帯は失敗で、それぞれ最大1つです。Blades in the Darkの「6が2個」は、6が1個の結果帯より上にある、クリティカル成功の結果帯です。数値から読むそれ以外の結果帯は、互いの間で上記の規則に従います。
+- `naturals: "shift"`: 単一ダイスの最大の面は結果を1段階良い結果帯へ、最小の面は1段階悪い結果帯へ動かします。両端を越えることはありません。ダイスは1個である必要があり、`resolution.naturals`の代わりになるため、併用時はそちらを`none`にしてください。
+
+結果を決めるのは結果帯です。成功と2種類のクリティカルは結果帯から決まり、単純な比較からは決まりません。合計方式のルールセットの`naturals`がある面を自動成功や自動失敗にする場合、その面はそのクリティカルの結果帯に入り、なければ最良または最悪の結果帯に入って、クリティカルのままです。プールのクリティカル失敗も下端で同じように働きます。結果帯を持つプールは`exceptional`を使いません。クリティカル成功が何かは結果帯がすでに示しているためです。
+
+難易度が固定のシステムは、`by: "total"`で読むプールで結果を表せます。Lasers & Feelingsの「1成功: かろうじて成功、2: うまくいく、3: クリティカル成功」は、3、2、1成功の3つの結果帯と、その下の失敗です。
+
+記録は`outcome="Critical success"`で結果帯を示し、ダイスカードは単なる成否の語の代わりにそれを表示します。GMは結果帯とその`text`を教わり、結果帯に沿って描写するよう指示されます。結果帯を宣言するパッケージ形式のルールセットにはCapability API 1.135が必要です。
+
+### 独自の方法で振る判定
+
+ほとんどの判定はある方法で、いくつかは別の方法で振るゲームがあります。オールドスクールのゲームでは能力値以下をd20で振りますが、盗賊の技能はd100、Open Doorsはd6で振ります。`resolution.overrides`はそれらの判定と、代わりに使う判定のキーを指定します。Capability API 1.140です。
+
+```json
+"overrides": [
+  { "id": "thief", "label": "Thief skills", "skills": ["open_locks", "pick_pockets"], "set": { "dice": { "count": 1, "sides": 100 } } },
+  { "id": "x_in_6", "label": "X-in-6", "skills": ["open_doors", "listen"], "set": { "dice": { "count": 1, "sides": 6 } } },
+  { "id": "favored", "label": "Favored", "skills": ["athletics"], "when": { "field": "favored_athletics" }, "set": { "cancel": null } }
+]
+```
+
+- 各オーバーライドは`skills`、`saves`、`abilities`(3つのうち1つ以上)、`label`、GM向けの任意の`text`を指定します。
+- `set`はルールセット自身の方式の判定キーを持ち、それらの判定ではルールセットのキーを置き換えます。`null`はキーを取り除きます。exwodで、得意とする能力値では1が成功を相殺しない規則は`"cancel": null`です。方式、シートの計算(`abilityModifier`、`proficiency`、`proficiencyTiers`、`penaltyFrom`、`spend`、`adjust`)、`difficultyLadder`は変えられません。シンボルプールは`symbols`と`dice`も固定します。オーバーライドが作る判定方式はルールセット自身のものと同じく検査されるため、指定する面はそのダイスに実在する必要があります。
+- `when`: 任意です。振る者のシート上の値で、0でない場合だけオーバーライドを適用します。得意な能力値を示す0か1の数値フィールドなどです。なければ常に適用します。
+- 判定を指定し、`when`が成り立つ最初のオーバーライドを使います。1つの判定を含められる、`when`のないオーバーライドは最大1つです。
 
 ### 消費でロールを変える
 
@@ -183,7 +364,7 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 - `pool`は`live.pools`の1つです。開始時に空のプールは、プレイ開始時に消費できないため使えません。
 - `amount`は1回の購入コストです。得られるものは`successes`、`dice`、`reroll`で、少なくともどれか1つを購入する必要があります。購入した成功は振って得たものではないため、ダイスの集計と相殺のあとに加えます。ダイスはプール自身の範囲内で、プールと一緒に振ります。`reroll`は`{ "upTo": 6, "mode": "once" }`の形で、`resolution.reroll`と同じように読みます。判定で何回購入しても、振り直しを購入するのは1回です。同じダイスを2回振り直しても、振り直しは1つです。
 - `perCheck`は1判定の購入回数です。最大で`amount * perCheck`ポイント相当を買えます。この上限により、満タンのプールで必ず成功するロールを買うことを防ぎます。1から10の数値、派生値が読むのと同じ形式のシート上の値(`{ "abilityScore": "nerve" }`、`{ "derived": "focus" }`)、または`"pool"`(判定のダイス数と同じ回数。負傷、追加ダイス、修正値を適用する前の、その判定のシート上の数値です)を指定できます。シート上の値は振る人について読み、切り捨てて0から100に収めます。上限が0になったキャラクターは何も買わず、何も支払いません。
-- `dice-pool`だけが使えます。合計ロールには追加する成功もダイスを足すプールもないため、`spend`を宣言した`dice-sum`はインポート時に拒否されます。
+- `dice-pool`ルールセットは成功、ダイス、振り直しを購入できます。`dice-highest`と`symbol-pool`はダイスだけを購入します。ほかの方式は`spend`を宣言できません。
 - 項目は最大4つで、2つの項目が同じプールを指定することはできません。判定からどちらを指すのか区別できないためです。
 - `reroll`を購入する消費、数値でない`perCheck`、3つ以上の項目は、パッケージ形式のルールセットではCapability API 1.38です。
 
@@ -219,8 +400,8 @@ Game ModeはMarinara独自の戦闘か、ルールセットの規則で戦闘を
 - `sections`は編集画面の項目をグループ化します。フィールド、派生値、リストは`section`で所属するセクションを指定し、能力値、スキル、セーヴも指定できます。指定すると、編集画面、ゲーム内のシート、GMのシートブロックがその見出しの下に表示します(セクションを指定しないシートは従来どおりに表示します)。セクションは`untrained`規則(後述)も持てます。
 - `abilities`は基本能力値です。`skills`と`saves`はそれぞれ判定に使う能力値、`cap`、`untrained`規則(後述)を指定できます。
 - `fields`は単一の値です。型は`number`、`text`、`longtext`、`boolean`、`enum`(固定の選択肢)、`dice`(`1d8`などの文字列)です。
-- `derived`は他の値から計算し、手入力で上書きできません。演算は`sum`、`min`、`max`、`scale`(乗算して丸める)、`stepTable`(レベルから習熟ボーナスを求めるように、しきい値表から値を引く)、`enumTable`(列挙型フィールドやライブステートの各値に対応する数値。後述の「ライブステート」を参照)です。
-- `lists`は装備、呪文、特性など、独自の列を持つ表です。`pools`を持つリストは各行を最大値付きリソースにし、回数制限のあるクラス特性などに使います。
+- `derived`は他の値から計算し、手入力で上書きできません。シートには最大400個を持てます(Capability API 1.111。1.88からは240、1.84からは120、それより前は60)。240を超えるパッケージは1.111を宣言します。演算は`sum`、`min`、`max`、`scale`(固定の数値を乗算して丸める)、`multiply`(Constitution修正値とレベルの積のように、2～6個の値を掛け合わせる。Capability API 1.82)、`stepTable`(レベルから習熟ボーナスを求めるように、しきい値表から値を引く)、`enumTable`(列挙型フィールドやライブステートの各値に対応する数値。後述の「ライブステート」を参照)です。
+- `lists`は装備、呪文、特徴など、独自の列を持つ表です。リストの列は最大24個で、13個以上の列を持つリストがあるパッケージはCapability API 1.165を宣言します。`pools`を持つリストは、各行を独自の最大値を持つリソースにします。使用回数に制限のあるクラス特性向けです。数値列はロールで埋められます。`"roll": { "count": 1, "sides": 8 }`のように書き、`sides`は数値、同じ行の別の列(`{ "column": "die" }`。数値列か、`d8`のようにダイスとして読める値を持つ列挙型)、またはシート上の値です。シートエディターにはRollボタンが表示され、Engine自身のダイスを振って、列の`min`と`max`の範囲に収めた合計を書き込みます(Capability API 1.85)。
 - `live`はプレイ中に変わるものです。`pools`(HP、呪文スロット、Grit)、`tracks`(消耗などの範囲上の数値、またはマスに印を付ける負傷トラック)、`text`(集中している対象などの短いメモ)、`conditions`、`states`(形態や構えなど、決まった集合から選ぶ1つの値)です。
 
 数値を読むものは値参照で指定します。これは`const`、`field`、`derived`、`abilityScore`、`abilityMod`、`abilityModFromField`、`skillMod`、`saveMod`、`listSum`、`livePool`、`liveTrack`、`itemStat`のうちキーを厳密に1つだけ持つオブジェクトです。たとえば最大値に派生値を使うプールは`"max": { "derived": "grit_max" }`です。
@@ -417,7 +598,7 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 
 ### 休息
 
-休息は回復処理と解除対象の一覧です。各処理は1つの対象(`pool`、`poolGroup`、`listPools`、`track`、`state`)を指定し、設定する(`"to": "max"`、`"to": "min"`、または数値)か、増減する(`"by": { "const": 1 }`または`"by": { "fractionOfMax": 0.5 }`)かを定めます。負傷トラックを指定する処理は回復だけなので、`by`は負の値です。上記を参照してください。ライブステートを指定する処理は、`"default"`かその値の1つに設定するだけです。
+休息は回復処理と解除対象の一覧です。各処理は1つの対象(`pool`、`poolGroup`、`listPools`、`track`、`state`)を指定し、設定する(`"to": "max"`、`"to": "min"`、または数値)か、増減する(`"by": { "const": 1 }`または`"by": { "fractionOfMax": 0.5 }`)かを定めます。負傷トラックを指定する処理は回復だけなので、`by`は負の値です。上記を参照してください。ライブステートを指定する処理は、`"default"`かその値の1つに設定するだけです。`fractionOfMax`を持つ`poolGroup`の処理は、グループの各プールをそれぞれの割合で増減します。`"shared": true`(Capability API 1.77)を加えると、代わりにグループ全体の最大値で割合を計算し、シートが列挙する順にグループのプールへ、それぞれ不足分を上限として配ります。5eの大休憩で、ダイスの種類ごとに1つのプールに分けたヒット・ダイスを「キャラクターの総数の半分」回復する処理は、`{ "poolGroup": "hit_dice", "by": { "fractionOfMax": 0.5, "round": "down", "min": 1 }, "shared": true }`です。
 
 ### Game Master向けの文章
 
@@ -426,6 +607,90 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 - `worldGuidance`は任意で、世界生成時に1回だけ読みます。火薬なし、魔法が希少、死者が歩くなど、GMが作る舞台を規則に合わせます。各ターンには入りません。
 - `sheetSummary`は各キャラクターについてGMに見せるフィールド、派生値、リスト行を選びます。Engineは能力修正値、習熟済みのスキルとセーヴ、ライブ値を常に見せます。毎ターン送るため、それ以外は短くしてください。要約リストの`nameColumn`はテキスト列か列挙列にでき(列挙列は値のラベルを表示します)、`columns`は名前の後に表示する行自身の列を最大3つ追加で指定します。そのためブロックは名前だけでなく`Gear: Crowbar 1d6`のようになります。真偽値列はオンのときにラベルを表示します。どちらも、パッケージ形式のルールセットではCapability API 1.37です。
 - `sheetGuidance`でシートコマンドを教える必要はありません。Engineはファイルが宣言する名前を使ってすべてのコマンドを自ら教えます。ルールセットに負傷トラックがあれば、印を付ける`op="damage"`コマンドを加え、段階と負傷の種類を列挙します。ライブステートがあれば、`op="state"`コマンドを加え、各ステートが取り得る値を列挙します。
+
+### GM向けの完全なルールリファレンス(Capability API 1.145)
+
+任意の**トップレベル**の`gmReference`は、GM向けのルールセットの完全なルールリファレンスを最大16,000文字まで保持します。詳しい裁定ルールはここに書き、判定とリソースに関する短い指示は`gm.checkGuidance`と`gm.sheetGuidance`に残してください。それらのフィールドと`gm.worldGuidance`の上限は引き続き1,500文字で、レイヤーのガイダンスも既存の上限のままです。
+
+```json
+"gmReference": "When a journey crosses hostile country, judge supplies, shelter and exposure before the next leg. A failed navigation check costs time rather than silently moving the party to its destination."
+```
+
+リファレンスは、システムプロンプトの安定した部分にある**Game Master rules reference**の下に、リクエストごとに1回表示されます。ターンごとのリマインダーには決してコピーされません。ほかのプロンプトに安全な文章と同じく、1行で、制御文字、角括弧、マクロの波括弧(`{{`と`}}`)を含めてはいけません。通常の履歴と返信の予算を調整した後もリクエストがコンテキストの上限を超える場合は、中核の指示を削る前に、切り詰めた箇所に印を付けてリファレンスを短くします。既存のプロンプトのままにするには未設定にしてください。これを使うパッケージは、マニフェストで`schemaVersion: 2`と、`capabilityApi: { "major": 1, "minor": 145 }`以降を宣言する必要があります。
+
+## パーティーとシーンの進行クロック(`clocks`)
+
+Capability API **1.143**は、任意のトップレベルの`clocks`オブジェクトを追加します。クロックのコマンドを無効のままにするには省略してください。このオブジェクトは厳密で、次の3つのキーだけを受け付けます。
+
+```json
+"clocks": {
+  "sizes": [4, 6, 8],
+  "max": 8,
+  "text": "Create clocks for looming threats and long projects. Tick them when the fiction advances."
+}
+```
+
+`sizes`は、それぞれ2～12の、重複しない区切り数の整数を1～6個指定します。デフォルトは`[4, 6, 8]`です。`max`は同時に保持するクロックの最大数で、1～12、デフォルトは8です。任意の`text`は、GMがクロックを作って進めるべきタイミングを説明する、最大400文字のプロンプトに安全な1行です。空のオブジェクトにするとデフォルト値で有効になります。
+
+クロックはキャラクターではなく、パーティーとシーンのものです。GMへのリマインダーは毎ターン、クロックの名前と進み具合を列挙し、次のコマンドを教えます。
+
+- `[clock: name="Alarm raised" size="6"]`は空のクロックを作ります。許可されていないサイズ、既存の名前(大文字と小文字を区別しません)、`max`への到達では作成を拒否します。
+- `[clock: name="Alarm raised" tick="2"]`は区切りを進めます。負の値は戻し、進み具合は`0..size`に制限されます。満杯のクロックは完了で、表示されたまま残り、消去するまで`max`に数えます。負の値で再び開けます。
+- `[clock: name="Alarm raised" clear]`は指定したクロックを取り除きます。
+
+名前は1～100文字の1行で、二重引用符、角括弧、制御文字、マクロの波括弧は使えません。各タグが要求する操作はちょうど1つです。コマンドは返信内の順に適用するため、同じ返信でクロックを作って進められます。Engineは各タグを`result="ok" now="4/6"`(または`now="cleared"`)か、`result="refused" reason="..."`で書き換えます。モデルが書いた結果の属性は破棄します。不明なクロックや不正な要求は拒否され、1つの返信で適用するコマンドは最大40個です。
+
+Game Modeでは、パーティーの状態の横に、区切られた円、名前、進み具合を表示します。タグは処理結果の記録として保存された返信に残り、語りからは隠されます。クロックは各ゲーム状態のスナップショットに`rulesetClocks`として保存され、データがなければクロックはありません。再生成は直前のスナップショットから始まり、続きの生成は現在のスナップショットから始まります。スワイプやメッセージを選択または削除すると、そのスナップショットのほかの内容と一緒にクロックが戻ります。
+
+## パーティーシート: クルー、船、共有のStory Points
+
+Capability API **1.144**は、`sheet`と並ぶ任意のトップレベルの`party`を追加します。Bladesのクルー、Lasers & Feelingsの船、GenesysのStory Pointsのように、ゲームごとに1つの共有シートを持ちます。
+
+```json
+"party": {
+  "label": "Crew",
+  "fields": [
+    { "id": "heat", "label": "Heat", "type": "number", "min": 0, "max": 9, "default": 0 },
+    { "id": "vault", "label": "Vault capacity", "type": "number", "min": 0, "max": 16, "default": 8 },
+    { "id": "upgrades", "label": "Upgrades", "type": "text", "maxLength": 400 }
+  ],
+  "pools": [{ "id": "coin", "label": "Coin", "max": { "field": "vault" }, "start": "empty" }],
+  "advancement": { "fields": ["heat", "vault", "upgrades"], "text": "Record heat after a score." },
+  "text": "Coin belongs to the crew."
+}
+```
+
+`fields`は`sheet.fields`と同じフィールドのスキーマを、`pools`は`start`、`group`、`hideWhen`、`allowTemp`を含めて`sheet.live.pools`と同じものを使います。少なくとも1つのフィールドかプールが必要で、IDはパーティーシート内で重複できません。キャラクターとパーティーのIDは同じでも構いません。このマイナーバージョンのパーティーシートには、セクション、リスト、能力値、派生値、キャラクターシートの移行はありません。プールの`max`は定数か、パーティーの数値フィールドを読みます。キャラクターの式はパーティーの値を読めず、パーティーの式はキャラクターの値を読めません。`hideWhen`もパーティーのフィールドだけを指定します。
+
+`advancement.fields`は、GMが永続的に変更できる数値、テキスト、長文テキストのフィールドを指定します。`advancement.text`と`text`は、それぞれ最大400文字のプロンプトに安全な1行です。任意の`summary`は`gm.sheetSummary`の形を再利用します。その`fields`はパーティーのフィールドを選び、`derived`と`lists`は空にする必要があります。要約がなければ、表示されているパーティーのフィールドをすべて表示します。プールは常に表示されます。
+
+```text
+[sheet: sheet="party" op="restore" pool="coin" amount="3"]
+[sheet: sheet="party" op="spend" pool="coin" amount="2"]
+[sheet: sheet="party" op="advance" field="heat" by="2"]
+[sheet: sheet="party" op="advance" field="upgrades" to="Hidden vault"]
+```
+
+`sheet="party"`は共有シートを選びます。`who`は省略してください。既存の`who="party"`は引き続きすべての**キャラクター**に適用され、共有シートは変えません。このマイナーバージョンでパーティーシートに使えるのは、`spend`、`restore`、フィールドの`advance`です。不明なシート、未対応の操作、不足するプール、宣言されていない成長、無効な値は拒否され、Engineの結果で書き換えられます。パーティーのプールは、キャラクターのプールと同じ現在値と最大値の計算とデフォルトに従います。
+
+GMは毎ターン、キャラクターシートのブロックの横に、パーティーのラベル、フィールド、プールを受け取ります。Game Modeは、キャラクターの肖像の横に、折りたためる読み取り専用のパーティーシートを、同じシートの表示形式で表示します。永続的な値は、チャットのメタデータ(`gamePartySheet`)に`gameCharacterCards`と並んで1回だけ保存され、成長の記録を共有します。ライブのプールは`rulesetLive`の予約済みの`$party`項目を使い、正規化したキャラクター名がそれと衝突することはありません。再生成は返信の前から始まり、スワイプの選択や削除は既存の履歴を通じて永続的な値とライブの値の両方を戻します。`party`のないルールセットは既存の動作のままです。
+
+**パーティーの共同作成(Capability API 1.163)。** パーティーシートは、`lists`(キャラクターシートのリストと同じ書き方で最大12個)、独自のガイド付きの`builder`、`fromMembers`を持てます。これはパーティーのキャラクターから読む最大8個のパーティーの数値フィールドで、それぞれ`{ "field", "count": true }`(キャラクターの人数)か、`{ "field", "sum": "<character number field>" }`(Totemのドットのように、キャラクターの値の合計)です。メンバー由来のフィールドは共有シートを読むたびに現在のキャラクターから計算されるため、キャラクターの加入や離脱で即座に変わります。リストがある場合は、パーティーの`summary.lists`でそれを指定できます。
+
+ビルダーはキャラクターのものとまったく同じ書き方で(プール、ステップ、価格付きの行、消費の提示、プロファイル)、パーティー自身のフィールドとリストに対して同じ規則で検査されます。そのカタログと行コピーのステップは、パーティーのリストに供給するルールセットのカタログを読めます。Game Modeでは、どのプレイヤーも共有シートのEditを開いてガイド付きの設定を使い、パーティー全体のために保存できます。各保存は開いたときのリビジョンを示します(チャットのメタデータの`gamePartySheetRevision`で、保存のたびと物語自体の変更で上がります)。ほかの人の保存が反映される前に開いた保存は拒否され、新しいシートが表示されます。プレイヤーの下書きは開いたまま残るため、もう一度保存すれば、置き換えることを自分で選んだことになります。
+
+```json
+"party": {
+  "label": "The Crew",
+  "fields": [
+    { "id": "tier", "label": "Tier", "type": "number", "min": 0, "max": 4, "default": 0 },
+    { "id": "size", "label": "Crew size", "type": "number", "min": 0, "max": 12, "default": 0 }
+  ],
+  "lists": [{ "id": "upgrades", "label": "Upgrades", "columns": [{ "id": "name", "label": "Name", "type": "text" }] }],
+  "builder": { "steps": [{ "id": "upgrades", "label": "Upgrades", "kind": "rows", "list": "upgrades" }] },
+  "fromMembers": [{ "field": "size", "count": true }]
+}
+```
 
 ## カタログ: シートのリスト用の既製項目
 
@@ -519,7 +784,7 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 - `from`は他の場所と同じ限定された語彙を使う、通常の値参照です。複雑なものはシートで`derived`値として宣言し、`from`から指します(`"from": { "derived": "lay_on_hands_max" }`)。新しい計算は追加しません。
 - `table`は任意です。参照値を段階表で引くことで、レベルから数値を得られます。`"scaled": { "max": { "from": { "field": "level" }, "table": [[1, 2], [3, 3], [6, 4]] } }`です。
 - `values`にはその列の通常の数値も必要で、省略した行は拒否します。シートが不明なときの値であり、その参照を持たないシートが維持する値です。
-- `scaled`を持つ行は、その項目が同じリストへ書く唯一の行でなければなりません。シート上の印付き行が常に1つの仕様に対応するためです。
+- `scaled`を持つ行は、そのリストに対する項目の唯一の行である必要があります。そうすれば、シート上の印付きの行は常に1つの仕様に一致します。または(Capability API 1.92)、項目がそのリストへ書くすべての行が、リストの名前列(プールの`nameColumn`、なければ最初のテキスト列)に独自の名前を持つ必要があります。その場合、シートの行はその名前で仕様に対応付けられるため、1つの特性が、それぞれ独立して増える2つの使用回数を与えられます。プレイヤーが名前を変えた行はそのままにします。
 
 値は編集時に計算し、読取時には計算しません。保存行は常に記述どおりの数値です。格納先列の`min`と`max`に制限し、整数列では切り捨てます。上の例ではHeart 3なら3回、Heartが0以下なら0回です。行は使用回数0のまま残り、最大0のカウンターはプールではないため、プレイ中に消費できるものはありません。
 
@@ -547,7 +812,326 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 
 ### `mechanics`: 項目の数値による効果
 
-任意の`mechanics`ブロックで効果を数値化できます。`kind`(`attack`、`heal`、`buff`、`debuff`、`utility`、`rider`)、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、`amount`(`2d6`などのダイスか固定値)、`damageType`、`attackRoll`、`autoHit`、`save`(シートのセーヴと成功時の効果)、`applies`(対象への状態付与)、`temporary`(体力プールの一時ポイント)、`scales`(シートに応じて増える量)、`cost`(消費プール)、`perCostStep`、`budget`(消費する行動枠)、`concentration`、`reaction`、`plus`、`free`、`gives`、`standard`、`rider`、`check`があります。
+任意の`mechanics`ブロックで効果を数値化できます。`kind`(`attack`、`heal`、`buff`、`debuff`、`utility`、`rider`)、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、`amount`(`2d6`などのダイスか固定値)、`amountAdd`(使用者のシートから読んで量に加える値です。たとえば`{ "field": "level_fighter" }`なら、1d10にファイターのレベルを加えるSecond Windになります。`amount`が必要で、ルールセット独自の戦闘でだけ読まれ(EngineのClassicとTacticalの戦闘は書かれた量をそのまま使います)、Capability API 1.83です)、`damageType`、`attackRoll`、`autoHit`、`save`(シートのセーヴと成功時の効果)、`applies`(対象への状態付与)、`temporary`(体力プールの一時ポイント)、`scales`(シートに応じて増える量)、`cost`(消費プール)、`perCostStep`、`targetsPerCostStep`、`budget`(消費する行動枠)、`concentration`、`reaction`、`plus`、`free`、`gives`、`standard`、`rider`、`check`があります。
+
+敵を対象とする攻撃は、`summons`(Capability API 1.122)で、後のターンに攻撃するものを残せます。Spiritual Weaponなら、その攻撃の項目に`"summons": { "budget": "bonus", "rounds": 10, "move": 20, "reach": 5 }`を加えます。発動時に最初の攻撃を行い、リアクションが終わると最初の標的の隣に武器を残します。発動を取り消した場合は何も残りません。後の攻撃は宣言した行動枠だけを消費し、ダメージのスケーリングには発動時の支払い段階を保ち、同じリアクションのウィンドウを開きます。距離はカタログの単位を使います。移動を省略すると0、リーチを省略すると1マスです。盤面では、武器は移動量とリーチの範囲内の敵を壁を無視して攻撃でき、その隣へ移動します。盤面がなければ、立っているどの敵にも届きます。ラウンドは持ち主のターンの終わりに減り、発動したターンは数えません。召喚物は0になるか、持ち主が倒されるか、項目の集中が終わると消えます。同じ項目を再び発動すると、その召喚物を置き換えます。
+
+`area`を持つ項目は、`zone`(Capability API 1.172)で場に残せます。形は`{ "rounds", "anchor", "triggers", "atCast" }`です。術者のターンで`rounds`(1～1000)の間、召喚物と同じ数え方で存在し、それを保つ集中が終わるか術者が倒されると早く終わります。`anchor: "point"`(デフォルト)は発動したマスに留まります。`anchor: "caster"`は術者の周囲のバーストで、術者とともに移動するため、射程は0です。`triggers`は、項目自身の効果(amount、plus、save、applies)を1体のクリーチャーに再び与えるタイミングを指定します。`enter`(クリーチャーが中に入るか、術者が運ぶゾーンがクリーチャーに届く)、`turn-start`または`turn-end`(中でターンを開始または終了する)です。トリガーにかかわらず、クリーチャーが巻き込まれるのは1ターンに1回で、発動自体が巻き込んだ者はそのターンに巻き込まれたものと数えます。誰を巻き込むかは項目に従います。`friendlyFire: false`は術者の側を除き、回復や味方向けの項目は術者の側だけを対象にします。術者が運ぶゾーンが術者を巻き込むことはありません。`atCast: false`は出現時に何もしません。項目を再び発動すると、そのゾーンを置き換えます。盤面はそのマスに色を付け、戦闘は残りターン数とともに一覧に表示し、ログは巻き込むたびにそれを示します。盤面がなければ、発動時の対象を保持し、`turn-start`と`turn-end`がそれらを巻き込みます。
+
+```json
+"mechanics": { "kind": "attack", "area": { "shape": "burst", "size": 20 }, "range": 120,
+  "amount": { "dice": "5d8" }, "damageType": "poison", "save": { "save": "con_save", "onSuccess": "half" },
+  "concentration": true, "zone": { "rounds": 100, "triggers": ["enter", "turn-start"] } }
+```
+
+これがCloudkillです。Spirit Guardiansは`"area": { "shape": "burst", "size": 15 }, "range": 0, "friendlyFire": false`に`"zone": { "rounds": 100, "anchor": "caster", "triggers": ["enter", "turn-start"], "atCast": false }`を加えたものです。Moonbeamは`"triggers": ["enter", "turn-start"]`を持つ5フィートのバーストです。
+
+一点に保たれたゾーンは移動し、地形を変えられます(Capability API 1.173)。`move: { "budget", "distance" }`で、術者は自分のターンにゾーンを動かせます。戦闘はその行動枠で「Move <zone>」を提示し、歩行と同じく盤面上で、中心から`distance`以内の任意のマスを選びます。`drift: { "distance" }`は、術者の各ターンの開始時に、術者から真っすぐ離れる方向へその距離だけゾーンを動かし、盤面の端で止まります。どちらの場合も、新たに覆われた者は`enter`のとおりに巻き込まれます。移動や漂流ができるのは一点に保たれたバーストだけです。`terrain: { "difficult": true }`は、巻き込む者にとって、ゾーンのすべてのマスへの移動コストを2倍にします(すでに移動困難な地形がさらに2倍になることはありません)。`terrain: { "perDistance": { "every", "amount", "damageType" } }`は、巻き込む者がゾーン内を`every`移動するごとに`amount`(項目自身と同じくダイスと固定値)を与えます。セーヴはなく、複数回の歩行にわたって数えます。ログは移動、漂流、被害をそれぞれ示します。
+
+```json
+{
+  "id": "moonbeam",
+  "name": "Moonbeam",
+  "mechanics": {
+    "kind": "attack",
+    "range": 120,
+    "area": { "shape": "burst", "size": 5 },
+    "amount": { "dice": "2d10" },
+    "damageType": "radiant",
+    "save": { "save": "con_save", "onSuccess": "half" },
+    "concentration": true,
+    "zone": { "rounds": 10, "triggers": ["enter", "turn-start"], "move": { "budget": "action", "distance": 60 } }
+  }
+}
+```
+
+Cloudkillには`"drift": { "distance": 10 }`を加えます。Spike Growthは独自の量を持たない20フィートのバーストで、`"triggers": []`(地形だけが効果です)、`"atCast": false`、`"terrain": { "difficult": true, "perDistance": { "every": 5, "amount": { "dice": "2d4" }, "damageType": "piercing" } }`を持ちます。
+
+ゾーンは巻き込んだ者にさらに効果を与えられます(Capability API 1.174)。`breaksConcentration: true`にすると、集中しているクリーチャーが巻き込まれたとき、項目の効果の前に、項目自身のセーヴ難易度に対してルールセットの集中セーヴを振らせ、失敗すると集中が切れます。項目には`save`が必要です。`damageCap`は、出現後に与えたダメージの合計がその量に達するとゾーンを終わらせます。巻き込みと地形の両方を数えます。Sleet Stormは`"save": { "save": "dex" }`、`"applies": [{ "condition": "prone", "duration": "instant" }]`、`"zone": { "rounds": 10, "triggers": ["enter", "turn-start"], "breaksConcentration": true, "terrain": { "difficult": true } }`を持つ40フィートのバーストです。Guardian of Faithは`"friendlyFire": false`、`"amount": { "flat": 20 }`、`"zone": { "rounds": 1000, "triggers": ["enter", "turn-start"], "atCast": false, "damageCap": 60 }`を持つバーストです。
+
+項目が付与した状態から脱出する際の難易度に、項目自身のセーヴ難易度を使えます(1.174)。`from.holding`がその状態である対抗判定と併せて、`applies`の項目に`"escapeDc": "save"`を加えます。WebとBlack Tentaclesは`{ "condition": "restrained", "duration": "until-save", "escapeDc": "save" }`で拘束し、拘束されたクリーチャーの脱出の対抗判定は、術者の呪文セーヴ難易度に対して振ります。セーヴ難易度を持たないものが付与した状態は、対抗判定のとおり、それを保持する者に対して脱出を判定します。
+
+アイテムの`use`も、カタログの項目と同じく`concentration`と`zone`を持てます(1.174)。そのため、CloudkillやMoonbeamの呪文スクロールは持続する範囲を保ち、読み手の集中で維持されます。
+
+動かしたゾーンは体当たりでき、その地形はより大きなコストを課せます(Capability API 1.175)。`move: { ..., "ram": true }`は、ゾーンを移動先へ向けて真っすぐ1マスずつ進めます。それまで覆っていなかった者に届いた最初のマスで止まり、トリガーにかかわらず体当たりされたものとしてその者を巻き込み、そのターンはもう動かせません。ゾーンに歩いて入ったクリーチャーは、トリガーのとおりにだけ巻き込まれます。Flaming Sphereは`"triggers": ["turn-end"]`と`"move": { "budget": "bonus", "distance": 30, "ram": true }`を持つ5フィートのバーストです。`terrain.costTimes`(2～10)は、ゾーンへの各歩を通常の歩のその倍数のコストにし、すでに移動困難な地形でもそれ以上はかかりません。Plant Growthは`"terrain": { "costTimes": 4 }`です。これは`difficult`の代わりになり、その指定は`costTimes: 2`にあたります。`terrain.halvesSpeed: true`は、移動困難な地形に加えて、ゾーン内の各歩のコストをさらに2倍にします。Spirit Guardiansは`"terrain": { "halvesSpeed": true }`です。
+
+呪文がかける拘束は、呪文が定める方法でしか破れません(これも1.175)。`"from": { "holding": "restrained", "escapable": true }`を持つ振りほどく対抗判定は、`escapeDc`を指定する拘束に対してだけ提示されるため、同じ対抗判定でWebは破れても、石化は決して破れません。`applies[].escapeChecks`は、対抗判定自身の攻撃側の判定の代わりに、その拘束を破れる対抗判定の判定を指定します。Black Tentaclesは`"escapeDc": "save", "escapeChecks": ["might", "agility"]`で、Webは`"escapeChecks": ["might"]`で拘束します。`zone.whileHeld: { "condition", "amount", "damageType" }`は、術者によるその状態ですでに拘束されたままゾーン内でターンを開始した者に、セーヴなしで、ゾーン自身の効果の代わりにその量を与えます。Black Tentaclesの`"whileHeld": { "condition": "restrained", "amount": { "dice": "3d6" }, "damageType": "bludgeoning" }`がこれにあたります。
+
+項目やアイテムの使用は治療できます(Capability API 1.176)。`ends: { "conditions": [...], "count"? }`は、指定した順に、最大`count`個まで、対象からそれらの状態を取り除きます。Lesser Restorationは`"ends": { "conditions": ["blinded", "deafened", "paralyzed", "poisoned"], "count": 1 }`です。`stabilizes: true`は瀕死の対象を安定させ、対象はそれ以上瀕死セーヴを振りません。`dying`の規則を持つcombatブロックが必要です。Spare the Dyingがこれにあたります。`revives: { "withinRounds", "health" }`は、その数のラウンド以内に死亡した者だけを対象にし、その量で復活させます。Revivifyは`"revives": { "withinRounds": 10, "health": { "flat": 1 } }`です。状態を取り除くか安定させるだけの項目は、それが助けになる相手に対してだけ提示されます。ほかに何もしない`utility`の種類の項目は、治療できる限り提示されます。
+
+範囲はボックスにでき、持続する範囲は壁にもできます(Capability API 1.177)。`area.shape: "box"`は一辺`size`の正方形で、手前の角が狙ったマスにあり、作り手から離れる方向へ広がります。作り手と同じ列や行に並ぶ軸の方向では、代わりにそのマスを中心にします。`range`がなければ作り手に接して置かれます。Webは射程60の`"area": { "shape": "box", "size": 20 }`です。`area.shape: "wall"`は必ず場に残るため、`zone`が必要です。長さ`size`、厚さ`width`(なければ1マス)で、狙ったマスを通り、作り手からの線を横切る向きか、そこから選択の`toward`のマスへ向かう向きに伸びます。`"ring": <diameter>`を指定すると、選択が`"ring": true`のとき、術者は代わりに狙ったマスを囲むその直径の環として置けます。壁にトリガーは不要です。Wind Wallは出現時にだけ効果を与えます。壁は動かされず、漂流せず、作り手について行くこともありません。`zone.blocks: ["move", "sight"]`は、壁がある間、そのマスを歩行、視線、またはその両方に対して閉じます。壁が立ち上がる場所にいる者は、最も近い空いたマスに移されます(同じ近さなら選んだ側に移します)。Wall of Stoneは両方を、Wall of Forceは移動を、Wall of Fireは視線を遮ります。`zone.side: { "distance", "triggers" }`は、壁自身のマスに加えて、片側の`distance`以内のマスが独自の`triggers`のとおりに巻き込むようにします。どちらの側かは選択の`side`で示し、作り手に近い`near`(環なら内側)か、遠い`far`(外側)で、省略すると遠い側です。Wall of Fireは`"area": { "shape": "wall", "size": 60, "ring": 20 }`、`"zone": { "rounds": 10, "triggers": ["enter", "turn-end"], "blocks": ["sight"], "side": { "distance": 10, "triggers": ["turn-end"] } }`です。
+
+見えるかどうかが重要になります(Capability API 1.178)。`combat.senses`は目で見えない場所を見る感覚を列挙し、それぞれ`{ "id", "label", "sheet"?, "blind"? }`です。キャラクターの範囲は`sheet`でシートから読み(0なら持ちません)、クリーチャーはルールセットの距離で`"senses": { "darkvision": 60 }`のように独自の範囲を持ちます。`blind`の感覚(盲視、振動感知)は目がなくても働きます。このブロックには`combat.distance`が必要です。`obscures`を持つゾーンは、その中にあるものと、それを通して見るものすべてを、その`pierced`が列挙する感覚を範囲内に1つも持たない者から隠します。Fog Cloudは`"obscures": {}`、Darknessは`"obscures": { "pierced": ["blindsight", "truesight"] }`です。このようなゾーンにはトリガーが不要で、範囲を残すだけの`utility`の項目(Fog Cloud、Darkness、壁)もメニューに出て、術者が選んだ場所に置かれます。`unseen`を持つ`combat.conditions`の項目も、同じように持ち主を隠します。不可視は`"unseen": { "pierced": ["blindsight", "truesight"] }`です。これが何をするかは`combat.sight`で示します。`unseenAttacks: true`は、標的が攻撃者を見られないときに攻撃を有利にし、攻撃者が標的を見られないときに不利にします。`eyes`は視覚にあたる感覚を指定し(状態の`lacks`が指定するのと同じものです)、盲目状態のクリーチャーは`blind`の感覚でしか見られません。`seen: true`を持つ項目やクリーチャーのアクションは、「範囲内の見えるクリーチャー1体」という記述のとおり、作り手が見える標的しか選べません。バーストやボックスは`area.copies`(2～10)で一度に複数置けます。各コピーは別のコピーに接し、プレイヤーがそれぞれを配置します。Fire Stormは`"area": { "shape": "box", "size": 10, "copies": 10 }`です。複数置いたゾーンは発動した場所に留まります。
+
+ゾーンは中にいる者に作用できます(Capability API 1.179)。`combat.components`は、何かを使うために必要なもの(5eの音声、動作、物質)を`{ "id", "label" }`で指定し、項目やクリーチャーのアクションは独自のものを`components`に列挙します。ゾーンの`inside`は、中にいる者に`conditions`を与え、留まる間は`immune`のダメージの種類を受けないようにします。ゾーンの`forbids: { "components": [...] }`は、状態の`forbids`が持ち主に対して行うのと同じく(猿ぐつわなど)、それらを必要とするものを中で使えなくします。Silenceは`"inside": { "conditions": ["deafened"], "immune": ["thunder"] }, "forbids": { "components": ["verbal"] }`です。ゾーンの`wards: { "catalogs": [...], "maxLevel": N }`は、外からレベルN以下で使われた、それらのカタログに属するものを中の者に届かなくします。レベルは支払った段階で判断します。Globe of Invulnerabilityは`"wards": { "catalogs": ["spells"], "maxLevel": 5 }`です。行動枠を奪う状態(負の`flat`を持つ`budgets`)を持ち主自身のターン中に付与すると、そのターンの行動枠も奪います。そのため、ターン開始時にStinking Cloudのセーヴに失敗すると、そのターンのアクションを失います。
+
+感覚と視認はさらに広がります(Capability API 1.180)。項目が付与する状態は、持ち主が行動したときに終わるようにできます。`"endsWhenHolder": { "attacks": true, "casts": ["spells"] }`は、持ち主が攻撃を行うか、指定したカタログの項目を使うと状態を取り除きます。`"casts": "spells"`を持つアイテムの使用(スクロール、ワンド)は、そのカタログからの発動と数えます。状態を終わらせた攻撃や呪文の時点ではまだ状態があるため、Invisibilityはその1回の攻撃に有利を与え、その後に消えます。場に残ったゾーンが自ら行うことは、術者の行動ではありません。`combat.conditions`の状態や、アイテムの`worn`または`carried`の効果は、ルールセットの距離で範囲を持つ感覚を与えられます(`"senses": { "darkvision": 60 }`)。効果がある間は、それと持ち主自身の範囲の長い方を使うため、Darkvisionの呪文、True Seeing(`{ "truesight": 120 }`)、goggles of nightが機能します。`"cancelsUnseen": true`を持つ状態は、Faerie Fireが不可視の者の輪郭を浮かび上がらせるように、どの状態が隠していても全員が持ち主を見られるようにします。視界を遮るゾーンや壁は引き続き隠します。
+
+防護、セーヴ、モンスターの呪文発動、スクロールはさらに広がります(Capability API 1.181)。ゾーンの`wards`は、`"by": "base"`と書かない限り、呪文を支払った段階を比較します。それを書くと、Globe of Invulnerabilityのように、支払い方にかかわらず呪文自身のレベルを比較します。`"maxLevelPerCostStep": 1`は、防護自身の発動が基本より上の段階で支払われた1段階ごとに、防ぐレベルを1つ上げます。項目やクリーチャーのアクションの`save`は、ほかに何に対するセーヴと数えるかを`"against": { "damage": ["poison"] }`で示せます。そのため、毒に対する`against`を持つセーヴ修正値もそのセーヴに適用されます。振らずに成功する者も`"succeeds": { "immune": ["poison"], "conditionImmune": ["poisoned"], "is": { "tags": ["nonbreathing"] } }`(いずれか1つで十分です)で示せます。Stinking Cloudにはこれが必要です。クリーチャーの`spellcasting`は、各項目自身の`components`の代わりに、その呪文に必要なものを特性全体または呪文ごとに示せます。構成要素を必要としない生来の呪文発動には`[]`を指定するため、Silenceでも止まりません。アイテムの使用は、範囲を残すだけのとき(Fog Cloud、Darkness、Silence、Globe of Invulnerabilityのスクロール)、`"kind": "utility"`にできます。`area`と`zone`が必要です。
+
+押し出し、風、ゴーグルについてです(Capability API 1.182)。項目の`"push": 15`は、命中しセーヴに成功しなかった者を、作り手から真っすぐ離れる方向へカタログの距離で15押し出し、固体や立っている者で止まります。ゾーンも巻き込んだ者を同じように押し出します。術者が保持するゾーン(`"anchor": "caster"`)は、バーストに加えてラインやコーンにもできるようになりました。発動した向きを指し、術者とともに移動します。`"turn": { "budget": "bonus" }`を指定すると、術者は自分のターンにその行動枠を消費して向きを変えられ、新たに覆った者を中に移動したものとして巻き込みます(5eのGust of Wind)。ゾーンの`terrain`に`"towardCaster": true`を指定すると、その移動困難な地形は、移動する者を術者に近づける歩にだけ適用されます。状態やアイテムが与える感覚は、範囲の代わりに`{ "add": 60 }`にでき、持ち主自身のその感覚の範囲に加えるか、その感覚がない者には60を与えます(5eのgoggles of night)。
+
+後で起動するゾーンや燃え尽きるゾーンです(Capability API 1.183)。`"detonates"`を持つゾーンは、存在する間も発動時にも何もしません。集中が終わる、ラウンドが尽きる、再び発動されるといった理由で終わったときに、中にいる全員に項目自身の効果を1回与えます。`"grows": { "dice": "1d6" }`は、発動したターンも含めて術者の各ターンの終わりに、その分を量に加えるため、項目自身の量と同じダイスを振ります。`"touched": true`は、中心に移動した者に項目のセーヴを振らせ、失敗すると起動します(5eのDelayed Blast Fireball)。発動した場所に留まります。`"burns": { "by": ["fire"], "amount": { "dice": "2d4" }, "damageType": "fire" }`を持つゾーンは、指定した種類のダメージがそのマスのどれか、または中の誰かに与えられると燃え上がります。術者のターンが再び来ると燃え尽きて呪文が終わり、それまでの間に中でターンを開始したほかの者に、セーヴなしでその量を与えます(5eのWeb)。
+
+クリーチャーも押し出します(Capability API 1.184)。クリーチャーのアクションは、カタログの項目と同じく、ルールセット独自の距離で`"push": 60`を取ります。命中した者はクリーチャーから真っすぐ離れる方向へその距離だけ押し出されます。`save`がある場合は失敗したときだけです。そのため`"onSuccess": "none"`ではダメージは残り、成功で免れるのは押し出しと`applies`が付与するものだけです(ドラゴンタートルのTail)。アイテムの使用はラインに`width`を与えられます。Gust of Windのスクロールの60×10フィートがこれにあたります。
+
+クリーチャーの種類がより重要になります(Capability API 1.185)。セーヴは`"modes": [{ "is": { "types": ["undead"] }, "mode": "disadvantage" }]`を指定でき、その種類の標的は2回振って悪い方を採用します(Sunbeam)。項目の`"maxAgainst": { "types": ["plant"] }`は、その種類の標的に最大のダメージを与えます(Blight)。`targetTypes`は、能力値がその値以下の標的を表す`"abilityAtMost": { "int": 3 }`(能力値を書いていないクリーチャーは除外されません)と、`"notImmuneTo": ["charmed"]`(Sleep)も指定できます。状態の修正値は攻撃を2回振らせられます。`{ "to": "attacks", "mode": "disadvantage", "atSource": true }`は、状態を付与した者に対する持ち主自身の攻撃です(Chill Touch)。`{ "to": "attacks-taken", "mode": "disadvantage", "from": { "types": ["fiend", "undead"] } }`は、その種類の攻撃者が持ち主に対して行う攻撃です(Protection from Evil and Good)。セーヴへの変更は`"against": { "from": { "types": ["dragon"] } }`にでき、その種類のクリーチャーが行ったことに対するあらゆるセーヴに一致します(Dragon Scale Mail)。
+
+クリーチャーのアクションは一緒に再チャージできます(Capability API 1.186)。それぞれの`"recharge"`に同じ`"group"`と同じダイスを与えると、どちらかを使えば両方を消費し、クリーチャーのターン開始時の1回のロールで両方が戻ります(メタリック・ドラゴンの2種類のブレス)。打撃は`"charge"`を持てます。`{ "atLeast": 10, "plus": [{ "dice": "2d8", "type": "piercing" }], "save": { "save": "str_save", "difficulty": 14 }, "push": 10, "applies": [{ "condition": "prone", "duration": "instant" }] }`は、このターンのクリーチャーの歩行が、命中させる相手へ向かって真っすぐ`atLeast`以上走って終わった場合に、その条項を加えます。各歩は相手に1マスずつ近づく必要があります。その後、標的はセーヴを行い、失敗すると(セーヴがなければ常に)押し出されて状態を受けます(ミノタウロスのCharge)。突撃は1体の標的への打撃に付随し、盤面上でだけ測ります。
+
+アイテムの`attack`は、命中させる相手についてさらに指定できます(Capability API 1.187)。`"against": [{ "is": { "types": ["construct"] }, "toHit": 2 }]`は、その種類の標的に対して命中に加えます(mace of smiting)。`plus`の条項は、その種類の標的を除く`"not": { "types": ["construct", "undead"] }`、投げるか撃つ打撃でだけ数える`"blow": "ranged"`(dwarven thrower)、間合いの打撃でだけ数える`"melee"`、与えたダメージに等しい一時ヒットポイントを使い手に与える`"tempHp": true`(sword of life stealing)を指定できます。`onHit`の状態は`"targetIs"`(巨人を伏せ状態にするgiant slayer)と`"oncePerTurn": true`(sword of wounding)を指定できます。`"slay": [{ "when": "critical", "not": { "types": ["construct", "undead"] }, "healthAtMost": 99, "save": { "save": "con_save", "difficulty": 15 }, "charges": 1 }]`は、命中によって`healthAtMost`以下になった標的を、セーヴがある場合は失敗したときに即死させ、その際にアイテムのチャージを消費します(nine lives stealer)。`"immuneTo": ["slashing"]`は、それに完全耐性を持つ標的を除きます(vorpal sword)。体力は打撃のダメージの後に読みます。
+
+シートの`live.conditions`、休息の`clear.conditions`、`combat.conditions`は最大320項目を持てます(Capability API 1.269。1.188からは160、それより前は80)。`to: "attacks"`の修正値は`"ability": "str"`を指定でき、その能力値で行う攻撃だけを変えます(ゴールド・ドラゴンのWeakening Breath)。`to: "checks"`の修正値は`"abilities": ["str"]`を指定でき、そのいずれかの能力値で行う能力値判定だけを変えます。その能力値の対抗判定とスキル判定も含みます(バーバリアンのRage)。クリーチャーのステータスブロックのアクションは能力値を指定しないため、能力値で絞った攻撃の修正値は届きません。
+
+`combat.conditions`の状態は持ち主を傷つけられます(Capability API 1.189)。`"harms": { "at": "turn-start", "dice": "1d4", "type": "necrotic" }`は、持ち主の各ターンの開始時(または`"turn-end"`)に、状態を付与した者からの被害として、状態を終わらせるセーヴより前にそれを与えます。`"stacks": 10`は、状態が続く間に最大その回数まで重ねて付与でき、その被害は重ねた数だけ与えます(sword of wounding)。状態を終わらせると、すべてが終わります。`"onePerSource": true`は、出所ごとに持ち主を1人に限ります。別の者に付与すると、同じ出所から状態を受けていた者からは外れます(oathbowのsworn enemy)。アイテムの攻撃の`against`項目は、`is`の代わりに、または並べて`"marked": "sworn"`を指定でき、使い手から付与されたその状態を持つ標的に一致します。`toHit`のほかに、`"mode": "advantage"`、`"ignoresCover": true`(完全遮蔽未満の遮蔽を無視します)、`"ignoresLongRange": true`も指定できます。`plus`の条項も`"marked": "sworn"`を指定できます(oathbowの3d6の刺突)。クリーチャーのステータスブロックのアクションは、攻撃に使う能力値として`"ability": "str"`を指定できるため、能力値で絞った攻撃やダメージへの変更が届きます。
+
+アイテムの攻撃の`modes`項目は、武器のまったく別の使い方にもできます(Capability API 1.190)。`"range": { "normal": 120 }`はそのモードで届く距離で、ルールセット独自の距離で書きます。`"plus"`は、攻撃自身の条項と同じく、命中に条項を加えます。`"line": { "dice": "4d6", "type": "lightning", "save": { "save": "dex_save", "difficulty": 13, "onSuccess": "half" } }`は、使い手と標的の間に立つ全員(両者は除きます)が、攻撃のロールの前にセーヴを行う稲妻です。`"charges": 1`はアイテム自身のチャージをその数だけ消費するため、チャージがある間だけモードが提示されます(javelin of lightning。アイテムには`charges.max`を1、`stack`を1にします)。ラインには、それが通る盤面が必要です。
+
+`"cannot-heal"`の効果を持つ戦闘の状態は、続く間、持ち主へのあらゆる回復を防ぎ、ログがそれを示します(Capability API 1.191)。5eのChill Touchです。戦闘の状態の`"conditionImmunitiesFrom": [{ "conditions": ["charmed", "frightened"], "from": { "types": ["fiend", "undead"] } }]`は、`from`に該当するクリーチャーが付与する場合だけ、それらの状態を受けないようにします。すでに付与されたものは残ります(Protection from Evil and Good)。呪文の`targetTypes.abilityAtLeast`は、`abilityAtMost`の上限に対する下限です。`{ "int": 5 }`はIntelligenceが4以下のクリーチャーを対象外にし(Hideous Laughter)、その能力値を書いていないクリーチャーは除外されません。セーヴ修正値の`against.actions`は、アクションをID、名前、共有の再チャージのグループで、大文字と小文字を区別せずに指定し、`against`が示すほかのすべてを絞り込みます。`{ "from": { "types": ["dragon"] }, "actions": ["frightful_presence", "breath_weapons"] }`はドラゴンのブレスかFrightful Presenceで、Wing Attackは決して含みません。それらのどれかが付与した状態を終わらせるための繰り返しのセーヴも数えます。
+
+アイテムの攻撃はさらに多くの付加効果を持てます(Capability API 1.192)。`"ignoresResistance": true`は、攻撃自身のダメージの種類への標的の抵抗(すべてへの抵抗を含みます)を無視してダメージを通します。一方、別の種類の`plus`の条項は引き続き半減します(vorpal swordの斬撃)。完全耐性は引き続き有効です。`slay`項目の`"saved"`は、`applies`と同じ形で、slayのセーヴに成功した標的が代わりに受ける状態を列挙します。`[{ "condition": "frightened", "duration": { "rounds": 1, "of": "source" } }]`は、mace of disruptionで、フィーンドが使い手の次のターンの終わりまで使い手を恐れる効果です。`"othersWhileMarked": { "condition": "sworn", "mode": "disadvantage" }`は、使い手が`sworn`を付与したクリーチャーがまだ立っている間、使い手が行うほかのすべての武器攻撃をそのモードで振らせます。`"ranged": true`なら遠隔攻撃だけです(oathbow)。また盤面のない戦闘では、範囲のアクション(クリーチャーのものでも呪文でも)は、範囲内の各クリーチャーを巻き込むため、作り手以外のどちらの側の者にも向けられます。盤面と同じく、`friendlyFire: false`は相手側だけに限ります。
+
+対抗判定は、互いに振り合う代わりに、固定の数値に対する判定にもできます(Capability API 1.193)。`defender`を省略して`"difficulty": 15`を指定すると、行動者は`attacker`の判定のうち最良のものを振り、その数値に達すれば勝ちます。`"targets"`は誰に対して行えるかを示し、`"enemy"`(デフォルト)、`"ally"`、行動者自身を含む`"any"`のいずれかです。`"targetHolds": "wounded"`はその状態を持つ標的にだけ提示し、`"targetDying": true`は瀕死でまだ安定していない者にだけ提示します。`onWin.stabilizes`は瀕死の標的を安定させます。そのため、sword of woundingの傷を終わらせるDC 15のWisdom (Medicine)判定は`{ "difficulty": 15, "targets": "any", "targetHolds": "wounded", "onWin": { "ends": [{ "condition": "wounded", "on": "target" }] } }`で、瀕死の者を救うDC 10の判定は`{ "difficulty": 10, "targets": "ally", "targetDying": true, "onWin": { "stabilizes": true } }`です。プールの戦闘は成功を数えるため、`difficulty`を拒否します。アイテムの攻撃の`"healedOnlyByRest": true`は、奪ったヒットポイントを封じます。どの回復も、持ち主を最大値から封じた分を引いた値より上には戻せず、どの休息でもそれを回復して封印を解きます。戦闘の状態の`harms`も同じ`"healedOnlyByRest": true`を取れるため、剣が残す傷も奪った分を封じます。
+
+サイズは複数のマスを占められます(Capability API 1.194)。`combat.sizes.order`の項目に`"cells"`の数を与えます(`{ "id": "large", "label": "Large", "cells": 2 }`)。そのサイズのクリーチャーは盤面上で一辺その数のマスを占め、自身のマスは左上のマスです。5eのLargeは2、Hugeは3、Gargantuanは4です。全体が収まる場所のうち、立つよう求められた位置に最も近い場所に置かれます。間合いと射程は占めるマスのうち最も近いマスとの間で測るため、剣はオーガの4マスのどれの隣からでも届きます。全体が収まる場所にしか歩けず、誰もその一部を通り抜けられません。範囲はそのマスのどれかが中にあれば巻き込みます。押し出しは全体を動かします。見え方と遮蔽は、占めるマスのうち最も開けたマスから判断します。`cells`のないサイズは、以前とまったく同じく1マスを占めます。
+
+状態は持ち主を大きくも小さくもできます(Capability API 1.195)。`combat.conditions`の項目に`"size": { "steps": 1 }`を与えると、その間、持ち主は`combat.sizes.order`でその数だけ先のサイズになります。負の数なら後ろへ戻り、最初と最後を越えることはありません。5eのEnlargeは`1`、Reduceは`-1`です。間合い、範囲が巻き込むかどうか、サイズを問うあらゆるものは新しいサイズを読み、状態が終わると元のサイズに戻ります。盤面上で大きくなる者は、立っていたすべてのマスを覆い、ほかの誰もいない空いた場所に収まる範囲で新しいサイズを占めます。収まらなければ、収まる範囲で最大のサイズになります。そのため、廊下で大きくなったオーガは廊下が許す大きさまでしか大きくなりません。小さくなる者は左上のマスを保ちます。ログは誰が何に変わったかを示します。`combat.sizes`が必要です。武器のダイスには`damage`の修正値を、呪文の残りの効果にはStrengthの`checks`と`saves`のモードを組み合わせてください。
+
+項目は、残りの体力で標的を選べます(Capability API 1.196)。`mechanics`の`"healthPool": { "dice": "5d8" }`は使用時に1回振り、残りの体力が最も少ない標的から順に分け与えます。各標的は、残りの体力がプールの残量以下である場合だけ影響を受け、その分を使い切ります。それ以外の標的はまったく影響を受けません。5eのSleepとColor Sprayがこのように働きます。`perCostStep`は上位の段階で発動したときにこれを増やします。`"healthAtMost": 150`は、体力がその値以下の標的にだけ影響します(Power Word Stun)。`"kills": true`は影響を与えた者を即死させるため、Power Word Killは`"healthAtMost": 100, "kills": true`です。どちらも、`targetTypes`が対象にできる者を決めた後で、標的の残りの体力を読みます。ログはプールのロール結果と、それが足りた相手を示します。
+
+ダメージの修正値は、打撃自身のダイスを何倍もの回数振らせられます(Capability API 1.197)。状態に`{ "to": "damage", "attacks": "weapon", "ability": "str", "diceTimes": 2 }`を付けると、状態がある間、war pickの1d8 + 2は2d8 + 2のダメージになります。巨大化したデュエルガーの武器と同じです。固定値の部分はそのままで、クリティカルはほかのダイスと同じく追加のダイスも倍にし、メニューの平均値もそれを数えます。変わるのは打撃が与えるダメージだけです。`"self": true`を持つクリーチャーのアクションを自身のターンに行うと、リアクションですでにそうだったように、クリーチャー自身に効果が及ぶようになったため、その`applies`が付与されます。
+
+ゾーンは、出現時とは別のダメージの種類をトリガー時に与えられます(Capability API 1.198)。自身の`damageType`が`"piercing"`である項目に`"zone": { "rounds": 100, "triggers": ["enter"], "atCast": true, "damageType": "slashing" }`を付けると、5eのWall of Thornsのように、壁が周囲に出現した者には刺突を、後から中に入った者には斬撃を与えます。項目自身の`amount`と、それを与えるトリガー、側、体当たりのいずれかが必要で、ルールセットが`combat.damageTypes`を宣言している場合はその1つを指定します。
+
+体力のプールは一部の標的を飛ばせます(Capability API 1.199)。`healthPool`と並べて`"healthPoolSkips": { "conditions": ["unconscious"] }`を指定すると、5eのSleepが気絶した者を無視するように、それらの状態のどれかを持つ者を除外し、その者にプールを消費しません。`"unseeing": true`は、Color Sprayが見えないクリーチャーを無視するように、項目の作り手を見られない者(盲目状態か、作り手への視線がない者)に同じことをします。`conditions`、`unseeing`、またはその両方を指定し、`healthPool`が必要です。
+
+壁は、1つずつ攻撃されて壊れる区画に分けて立てられます(Capability API 1.200)。`"zone": { "rounds": 100, "triggers": [], "blocks": ["move", "sight"], "sections": { "every": 10, "health": 30, "defense": 12, "vulnerable": ["fire"], "broken": { "triggers": ["enter"], "amount": { "dice": "5d6" }, "damageType": "cold", "save": "con_save", "onSave": "half" } } }`は5eのWall of Iceです。10フィートの各パネルはAC 12、30ヒットポイントで、火から2倍のダメージを受けます(`resist`と`immune`も同じように働きます)。1体の敵か誰か1人を狙ってダメージを与える攻撃は、代わりに区画に向けられます。その選択肢は攻撃できるマスを`walls`として列挙し、選択はその1つを`wall`として指定します。攻撃はクリーチャーに対するのと同じく振られてダメージを与え、ログは区画が受けたダメージと残りを示します。0になった区画は壊れます。遮るのをやめ、そこに入った者(または`triggers`のとおり、そこでターンを開始または終了した者)は、1ターンに1回、その`amount`を受けます。項目自身の難易度に対して`save`でセーヴし、成功すれば半分です(`onSave: "none"`なら何も受けません)。区画には`blocks`を持つ壁が必要で、壊れた区画の`save`には項目自身の`save`が必要です。
+
+項目はシートのライブのトラックを動かし、封じられた体力を戻せます(Capability API 1.201)。`"tracks": [{ "track": "exhaustion", "by": -1 }]`は、5eのGreater Restorationのように、命中した者の消耗を1段階取り除きます。セーヴを持つ項目(Sickening Radiance)の`"by": 1`は、失敗した者に1段階加えます。各トラックは独自の範囲に収まり、体力の最大値を半分にする段階は即座に効果を持ち、`defeats`の段階に達すると死亡します。`"unseals": true`は、休息でしか戻らない体力(`seals`の打撃が奪った分)を戻します。Greater Restorationがヒットポイント最大値の減少を終わらせるのと同じです。このように治療するだけの項目は、それが助けになる者にだけ提示されます。壁の区画の`broken`は独自の`perCostStep`を持て、発動が基本より上の段階で支払われた1段階ごとに1回加えます。Wall of Iceの極寒の空気は`{ "dice": "1d6" }`です。トラックは負傷トラックではなく普通のトラックで、`unseals`にはポイントで保持する体力が必要です。
+
+項目が付与する状態は、同じ項目が付与する別の状態とともに終わるようにできます(Capability API 1.202)。5eのHypnotic Patternである`"applies": [{ "condition": "charmed", "duration": { "rounds": 10 }, "saveEnds": { "save": "wis_save", "at": "damaged" } }, { "condition": "incapacitated", "duration": "instant", "endsWith": "charmed" }]`では、魅了が終わるときは常に、無力状態も終わります。セーヴ、治療、術者の集中が切れること、味方に揺り起こされること、戦闘の終了のいずれでもです。一緒に終わるのは同じ使用で付与されたものだけで、ログは理由を示します。`endsWith`は同じ`applies`リスト(または`onEnd`、`charge`、`saved`のリスト)の別の状態を指定し、自身は指定できません。
+
+クリーチャーのアクションは標的の体力の最大値を下げられます(Capability API 1.203)。レイスのLife Drainの`"reducesMax": { "save": "con_save", "difficulty": 14 }`は、打撃が命中したときに標的にそのセーヴを振らせます。失敗すると、受けたダメージは体力だけでなく最大値からも引かれ、休息までどの回復でも戻りません。`"lasting": true`(クレイ・ゴーレムのSlam)なら休息でも戻らず、`unseals`する項目(Greater Restoration)でしか戻りません。このように最大値が0まで下がった標的は死亡します。シートは、どの休息でも戻らない分を`sealed`の中のプールの`lasting`として保持します。ポイントで保持する体力が必要です。
+
+治療は、すべての治療の代わりに、そのうち1つを行えます(Capability API 1.204)。`"cureOneOf": true`を指定すると、いくつかの状態を`ends`し、`tracks`を動かし、`unseals`する項目(5eのGreater Restoration: 魅了、石化、消耗1段階、ヒットポイント最大値)は、ちょうど1つを行います。武器のモードと同じく、それぞれを選択肢のモードとして提示します(状態、トラック、体力のプールを、そのラベルで示します)。何も選ばずに使うと、その順で、標的に該当するものがある最初のものを行います。選べる治療が少なくとも2つ必要です。
+
+下げる最大値は、独自のセーヴを必要としないようにできます(Capability API 1.235)。`save`と`difficulty`を持たない`reducesMax`は、命中するすべての打撃のダメージ分だけ最大値を下げます(5eのヴァンパイアのBite)。`"onFailedSave": true`なら、標的が項目自身のセーヴに失敗したときだけです(5eのHarmは、セーヴを持つカタログの項目です。この場合、`reducesMax`は独自のセーヴを持ちません)。`damageType`はその種類のダメージだけを数え(Biteの死霊)、`"heals": true`は下げた分だけのヒットポイントを作り手に戻します。カタログのmechanicsも`reducesMax`を取れ、`leavesAtLeast`は項目のダメージで標的のヒットポイントがその値を下回らないようにします(Harmは1を残します)。クリーチャーのアクションやカタログのmechanicsの`targetHolds`は、向けられる相手を限ります。その`conditions`のどれかを持つ者か、アクションの作り手が付与した`fromSelf`のどれかを持つ者です(Biteでは、ヴァンパイアに掴まれているか、無力状態または拘束状態の者)。
+
+状態は、持ち主に独自の使用を与えられます(Capability API 1.236)。戦闘の状態の`actions`は、持ち主がその状態にある間に使えるカタログの項目(`spells/break-enchantment`)を列挙します。メニューに出るのはその間だけで、シートからは各項目が消費する行動枠のほかに何も払わず、呪文と同じく持ち主自身の数値で振ります(呪文を発動するクリーチャーはその発動の数値を使います)。`"endsCondition": "<condition>"`を持つ項目は、使用すると使用者のその状態を終わらせ、それが使用者自身の集中で保たれている場合はその集中も終わらせます。5eのDispel Evil and Goodでは、Break EnchantmentとDismissalのどちらも呪文を終わらせます。`ends.from`(種類とタグの条件)は、それを満たすクリーチャーが付与したものだけを治します。Break Enchantmentは、セレスチャル、エレメンタル、フェイ、フィーンド、アンデッドによる魅了や恐怖を終わらせ、それ以外の者によるものは残します。`dismisses`は、命中してセーヴに成功しなかった者を、生きたまま戦闘から、盤面とターン順の外へ送ります。`true`なら永久に(Dismissal)、`{ "while": "<condition>" }`ならその状態にある間です。その状態は同じ項目が付与する必要があります(5eのBanishment)。その時間は術者のターンで進み、時間切れ、セーヴ、術者の集中のいずれかで終わると、元の場所か、収まる最も近い空いた場所に戻ります。`gone`(種類とタグの条件)を指定すると、それを満たし、状態の時間を最後まで受けた者は戻りません。
+
+戦闘は、一部の者が不意を突かれた状態で始められます(Capability API 1.237)。誰が不意を突かれたかはシーンが示します。元になる遭遇が、パーティーか敵かを問わず、`"surprised": true`で印を付けます。その者は最初のターンに移動も行動もできず、メニューにはそのターンを終える選択肢しかありません。そのターンか最初のラウンドのどちらか早い方が終わるまで、リアクションも伝説的な使用も行いません。`"cannotBeSurprised": true`を持つ戦闘の状態は、持ち主が不意を突かれないようにします。5eのForesightです。`"ignoresSurpriseWith": "<catalog>/<entry>"`を持つカタログの項目は、持ち主が不意を突かれている間も使える使用を指定し、それを使うとその時点で不意打ちが終わるため、ターンの残りは持ち主のものになります。5eのFeral Instinctは、不意を突かれたバーバリアンが先に激怒することで通常どおり行動できるようにします。
+
+カタログの項目は、戦闘の最初のラウンドに持ち主へ2回目のターンを与えられます(Capability API 1.238)。シートのリストで保持する項目の`"extraFirstTurn": { "initiative": -10 }`は、持ち主自身のイニシアチブにその数を加えた位置に2回目のターンを置き、その数以上の全員の後になります。2回とも完全なターンで、2ラウンド目からは通常どおり1ラウンドに1ターンです。2回目のターンの前に倒された持ち主は、単にそれを逃します。`"unlessSurprised": true`なら、不意を突かれて戦闘を始めた者には2回目のターンがありません。5eのThief's Reflexesです。
+
+戦闘の状態は、与える行動枠で買えるものを間合いの攻撃に絞り、終了時に持ち主のトラックに印を残せます(Capability API 1.239)。`"grants": { "budget": "bonus", "attacks": true, "melee": true }`では、その行動枠で支払う1回の打撃は、間合いで打つ武器でしか行えません。投擲武器は投げずに振るうため、間合い内の相手にしか使えません。射程があって間合いのない武器は提示されません。`"onEnd": { "tracks": [{ "track": "exhaustion", "by": 1 }] }`は、カタログの項目の`tracks`と同じく、状態がどのように終わっても、終了時に持ち主のライブのトラックを段階単位で動かします。`applies`と`tracks`は併用も単独使用もできます。カタログの項目の`"usesOf": "<row name>"`は、自身の使用回数の代わりに、その行の項目の使用回数(そのカウンター行)を消費します。これにより5eのFrenzyは、BerserkerのFrenzied Rageという項目になります。`"usesOf": "Rage"`を持ち、激怒と、それに`endsWith`する`frenzied`の状態を付与し、後者の状態がこの2つを両方持ちます。
+
+イニシアチブは2回振って、良い方か悪い方を採用できます(Capability API 1.240)。`combat.initiative.checkAbility`はイニシアチブがその能力値で行う判定であることを示すため、その判定を2回振らせるものは、イニシアチブも2回振らせます。`own-checks-advantage`を持つ状態(5eのForesight)や、その能力値に絞った、または何も絞っていない`mode`付きの`checks`修正値(DexterityへのEnhance AbilityのCat's Grace)です。シートのリストで保持する`"initiativeMode": "advantage"`(または`"disadvantage"`)を持つカタログの項目は、何を保持していても、持ち主のイニシアチブを2回振らせます。5eのFeral Instinctです。有利と不利は、どのロールとも同じく打ち消し合います。ログのイニシアチブの項目は`mode`と、採用しなかった`dropped`のロールを持ちます。毎ラウンドイニシアチブを振る戦闘では、毎ラウンド2回振ります。対象は振るダイスだけで、プールのイニシアチブは2回振りません。
+
+リアクションは、持ち主自身の攻撃の命中に応じられます(Capability API 1.241)。`"by": "self"`を持つ`"hit"`のリアクションは、攻撃者のロールが命中し、打撃を受けた全員が応じた後に攻撃者へ提示され、命中した相手に向けられます(`"at": "target"`と書きます)。`"weapon": true`は、あらゆる命中の瞬間を武器の打撃に絞ります。カタログに属さない攻撃か、クリーチャーの単一標的のアクションです。自分の命中へのリアクションは、それを選ぶことが攻撃の一部であるため、リアクションを止めるものでは止まりません。本当に行動枠を消費するのでない限り、`"free"`と印を付けてください。5eのStunning Strikeがその例で、`"reaction": { "on": "hit", "by": "self", "weapon": true, "blow": "melee", "at": "target" }`、無料、気のコスト、Constitutionのセーヴ、モンクの次のターンの終わりまでの`stunned`です。`"addsToBlow": true`を持つ攻撃の項目の量は、単独で与えられる代わりにその打撃に加わります。打撃の命中時に振り、クリティカルで倍になり、その条項は届く標的にだけ適用されます。5eのDivine Smiteは2d8の光輝、`perCostStep`は1d8、フィーンドかアンデッドを`targetIs`とする1d8の光輝の条項、`"perCostStepsMax": 3`です。最後のものは、`perCostStep`や`targetsPerCostStep`を持つあらゆる項目で数える、上位コストの段階の最大数です。別のウィンドウの中で行う攻撃(機会攻撃)は命中で保留されないため、何も加わりません。
+
+シートが保持するものは、攻撃の行を変え、打撃を与え、攻撃アクションを待てます(Capability API 1.242)。`attackRows`を持つ、シートのリストで保持するカタログの項目は、`when`の範囲が成り立つ間(着用している鎧が最大0など、シート上の値)、名前を列挙した行(大文字と小文字を区別せず照合します)を変えます。`abilities`は、行自身の能力値とこれらのうち最良のものを命中に使い、行のダメージが同じ能力値を加える場合はダメージにも使います。`die`(シートの値`from`から、段階の`table`を通して面数を得ます)は、その方が平均が高い場合に、行のダイスの代わりにその面数のダイスを1個振ります。`qualities`は、打撃が抵抗を越えて持つ性質に加えます。5eのMartial Artsは`{ "names": ["Unarmed Strike", "Shortsword", ...], "abilities": ["str", "dex"], "die": { "from": { "field": "level_monk" }, "table": [[1, 4], [5, 6], [11, 8], [17, 10]] }, "when": { "value": { "derived": "armor_worn" }, "atMost": 0 } }`で、Ki-Empowered Strikesは`{ "names": ["Unarmed Strike"], "qualities": ["magical"] }`です。保持する項目の`grantsStrike`は、状態の`grants.attacks`とまったく同じく、攻撃自身の行動枠を使い切った後に、持ち主が別の行動枠で1回の打撃を購入できるようにします。`names`はそれらの攻撃に、`melee`は間合いに、`afterAttack`は攻撃アクションを行ったターンに絞ります(`true`か、それらのいずれかで攻撃アクションを行った場合を表す`{ "names": [...] }`)。Martial Artsのボーナスの素手打撃は`{ "budget": "bonus", "names": ["Unarmed Strike"], "afterAttack": { "names": [...the monk weapons] } }`です。状態の`grants`も同じ`names`と`afterAttack`を取ります。`afterAttack`を持つ項目は攻撃アクションの後にだけ提示されます。Flurry of Blowsは、ボーナスの行動枠で気を1消費する`utility`の項目で、`afterAttack`を持ち、数0で宣言した行動枠を2つ`gives`し、その行動枠でUnarmed Strikeの`grantsStrike`を持ちます。攻撃アクションとは、攻撃リストやアイテムから、それ自身の行動枠かすでに購入した打撃で支払って行う攻撃で、付与で支払った攻撃は決して含みません。
+
+機会攻撃は、ターン中の攻撃とまったく同じく、命中した時点で保留されます(Capability API 1.243)。その命中に応じる手段を持つ全員に尋ね、作り手には最後に、それに加えるもの(Divine Smite、Stunning Strike)を尋ねます。打撃が命中した後、すでに攻撃者が応じた歩行自身のウィンドウを再び尋ねます。途中で動けなくなった歩行者(朦朧状態や掴まれた状態のように`speed-zero`を持つ状態)は、打たれたマスより先へは進みません。リアクションである項目や、別の打撃に加わる項目が、機会攻撃そのものとして選ばれることはありません。
+
+攻撃の規則は手に持つ武器にも届き、攻撃リストはすべてのシートに行を与えられます(Capability API 1.244)。`combat.attacks[].always`は、そのリストの列で書いた最大4行を列挙し、すべてのシートの戦闘が自身の行に加えてそれを持ちます。同じ名前のシートの行があれば、それが代わりに使われます。5eの素手打撃は`{ "name": "Unarmed Strike", "ability": "str", "proficient": true, "bonus": 0, "damage": "1", "damage_type": "bludgeoning", "reach": 5 }`です。`attackRows`の規則の`names`は、手に持つ武器の攻撃の名前にも一致するようになり、その`items`は手に持つ武器をタグで照合します。`tags`のすべてを持ち、`notTags`のどれも持たないものです(`{ "tags": ["simple", "melee"], "notTags": ["two_handed", "heavy"] }`。そのためdagger +1も該当します)。規則は`names`、`items`、またはその両方を指定します。同じ`names`、`tags`、`notTags`を持つ`wielding: { "only": {...} }`は、手に持つすべての武器がそのどれかであるか、何も持っていない間だけ規則を保ちます。「素手か、モンク武器だけを使っている」場合です。`grantsStrike`も同じ`wielding`と、`attackRows`の規則と同じような`when`を取るため、Martial Artsのボーナスの打撃は鎧を着ていると提示されません。
+
+一度に複数回の使用、0に落とすセーヴ、指定した攻撃による命中、状態の終了時の被害についてです(Capability API 1.245)。項目の`usesSpent`は、1回の使用でその行(または`usesOf`の行)の使用回数をその数だけ消費し、それだけ残っている間だけ提示されます。Quivering Palmの気3がこれにあたります。`"hit"`のリアクションの`names`は、それらの攻撃による命中にだけ応じ、名前を大文字と小文字を区別せずに照合します。Quivering Palmは`{ "on": "hit", "by": "self", "names": ["Unarmed Strike"], "at": "target" }`で、長く続く`quivering`の状態を付与します。セーヴを持つ項目の`dropsOnFailedSave`は、量を与える代わりに、失敗した標的の体力を0に落とします(クリーチャーは脱落し、ルールセットに瀕死の規則があればキャラクターは瀕死になります)。成功した標的は、セーヴの`onSuccess`のとおりに量を受けます。振動を終わらせるのは、`targetHolds: { "fromSelf": ["quivering"] }`、10d10の死霊、`onSuccess: "none"`のConstitutionのセーヴ、`dropsOnFailedSave`を持つアクションです。状態の`onEnd.harm`(`dice`、`flat`、`type`、`unless`)は、状態の終了時に、付与した者からのダメージを持ち主に与えます。ただし、持ち主が`unless`の指定に該当する場合は与えません。Hurl Through Hellは`dismisses: { "while": "hurled" }`を持つ命中へのリアクションで、`hurled`は`{ "rounds": 1, "of": "source" }`の間続き、`hurled`の状態の`onEnd`は`{ "harm": { "dice": "10d10", "type": "psychic", "unless": { "types": ["fiend"] } } }`です。
+
+`afterAttack`は、攻撃アクションで使った武器をタグでも照合します(Capability API 1.246)。`{ "names": [...], "items": { "tags": ["simple", "melee"], "notTags": ["two_handed", "heavy"] } }`は、それらの名前の攻撃の後、または名前にかかわらず`tags`のすべてを持ち`notTags`のどれも持たない手持ちの武器での攻撃の後を表すため、dagger +1も該当します。項目でも、`grantsStrike`や状態の付与でも同じく、`names`、`items`、またはその両方を指定します。
+
+無謀な打撃と残忍な打撃です(Capability API 1.247)。`beforeAttack`を持つ項目は、持ち主自身のターンで、まだそのターンに攻撃していない間だけ提示されます。Reckless Attackは、バーバリアン自身にかける無料の`buff`で、`beforeAttack`を持ち、`reckless`を`{ "rounds": 1 }`、`exposed`を`{ "rounds": 1, "at": "turn-start" }`の間付与します。攻撃への変更は、ダメージへの変更と同じく、`ability`とともに`attacks`(`weapon`、`spell`、`any`)と`blow`(`melee`、`ranged`)を取ります。`reckless`は`{ "to": "attacks", "mode": "advantage", "ability": "str", "attacks": "weapon", "blow": "melee" }`で、`exposed`は`attacks-against-advantage`の効果を持ちます。ダメージへの変更の`criticalDice`は、クリティカルヒットのときだけ、打撃自身のダメージダイスをその数だけ、倍にせずに加えます。Brutal Criticalは、バーバリアンの派生値に対する段階で、`{ "to": "damage", "criticalDice": 1, "attacks": "weapon", "blow": "melee" }`を持ち、ダイス1個ごとに1段階です。
+
+連打の命中への応答です(Capability API 1.248)。`hit`の瞬間の`budget`は、その行動枠から支払った打撃による命中に絞ります。Open Hand Techniqueは`{ "on": "hit", "by": "self", "budget": "flurry" }`に応じます。これはFlurry of Blowsが`gives`し、その`grantsStrike`が消費する行動枠です。リアクションの`oneOf`は、持ち主自身の命中への応答のグループに名前を付け、1回の命中でそのうち1つだけを行います。Open Hand Techniqueは`"oneOf": "open-hand"`を共有する3つの無料の項目です。1つはDexterityの`save`で`prone`を付与し、1つはStrengthの`save`と15の`push`を持ち、1つは`cannot-react`の効果を持つ状態を`{ "rounds": 1, "at": "turn-start" }`の間付与します。1つを行うと、その命中に対するほかの2つは消費されます。次の命中では再び3つすべてが提示されます。`oneOf`は、`by`が`self`で`also`のない`hit`の瞬間に付けます。
+
+ロール後の救済です(Capability API 1.249)。`"rescue": true`を持つ`attacks`、`saves`、`checks`への変更は、ロールから外して保留されます。持ち主自身のロールが足りず、その最大値(固定部分と、すべてのダイスの最大の目)で差を埋められる場合だけ振って加え、それをもたらした状態を消費します。結果を変えられなかったロールでは保留されたままです。Bardic Inspirationは味方に付与する状態で、`{ "to": "saves", "dice": "1d6", "rescue": true }`と、`attacks`と`checks`への同じ変更を持ちます(ダイスの大きさごとに1つの状態で、ほかの段階と同じくバードのレベルで選びます)。Guidanceは`1d4`の`checks`、Resistanceは`1d4`の`saves`です。ナチュラルの失敗は救済されず、ダイスプールの戦闘では何も保留しません。項目の`rescue`は、その項目をメニューから外します。持ち主自身のその種類のロールが失敗したときに、使用回数とコストとともに消費されます。`{ "roll": "saves", "by": "reroll" }`はセーヴを振り直し、新しいロールが確定します(独自の使用回数を持つIndomitable、`usesOf`がKiのDiamond Soul)。`{ "roll": "attacks", "by": "success" }`は外れを命中に、`{ "roll": "checks", "by": "success" }`は失敗した判定を成功に変えます(Stroke of Luck)。保留した変更を先に試します。
+
+Cutting Wordsと回避です(Capability API 1.250)。項目の`lowersRoll`は、`by`のない`hit`のリアクション(味方のために応じるには`for`と`within`を使います)で、ほかの者の攻撃が命中したときに使われます。その`dice`、またはMartial Artsと同じく値で大きさが決まる1個の`die`(`{ "from": { "field": "level" }, "table": [[1, 6], [5, 8], [10, 10], [15, 12]] }`)をロールから引き、改めて防御と比べます。ナチュラルの命中は引き続き命中します。Cutting Wordsは`{ "on": "hit", "for": "ally", "within": 60 }`を持ち、バードのインスピレーションのカウンターを`usesOf`とする無料の`debuff`です。戦闘の状態や段階の`evasion`はセーヴを指定します。成功で半分を与えるものに対して、セーヴに成功すれば何も受けず、失敗すれば半分を受けます。Evasionは、ローグやモンクのレベルに対する段階で、`"evasion": ["dex_save"]`を持ちます。
+
+Lay on Handsです(Capability API 1.251)。項目の`usesChosen`は、1回の使用で消費する使用回数を、1から残りの回数まで使用者が選べるようにし、その回数倍の量を回復します。選択肢は`amount: { max }`を持ち、選択は`amount`を送ります。省略すると、最初の標的を平均で完全に回復する分を消費します。`usesSpent`を持たない`heal`向けです。Lay on Handsは`"amount": { "flat": 1 }`の`heal`で、パラディンのレベルごとに5回のカウンターを`usesOf`とし、`usesChosen`と`"targetTypes": { "not": { "types": ["undead", "construct"] } }`を持ちます。
+
+Font of Magicです(Capability API 1.252)。項目の`restore`は、`heal`か`buff`で、命中した者のプールを回復します。ライブのプールはIDで、リストの行のプールはその名前(`"Sorcery Points"`)で指定します。プールの系統に属する`cost`があれば、`perCostStep`は最も安い段階より上の1段階ごとにそれを増やすため、ソーサラーのスロットは、そのレベルに等しいSorcery Pointsになります。`slots_1`を消費し、`"restore": { "pool": "Sorcery Points", "amount": { "flat": 1 } }`と`"perCostStep": { "flat": 1 }`を持つ、自分への`buff`です。`overMax`はプールの最大値を超えられるようにします。超えた分は別に保持され、休息でプールを最大値に戻すと消えます。ポイントから作るスロットはレベルごとに1つの項目で、ポイントを`usesOf`とし、`usesSpent`をその価格とし、`"restore": { "pool": "slots_2", "amount": { "flat": 1 }, "overMax": true }`を持ちます。使用者自身に、その者が持たないプールを回復する項目は、メニューに出ません。
+
+Metamagicです(Capability API 1.253)。項目の`alters`は、その`catalogs`の項目の使い方を変えます。単独でメニューに出ることはなく、適合する各項目とともに提示され、その項目を使うときに選び、独自の使用回数で支払います(Sorcery Pointsを`usesOf`とし`usesSpent`を指定するか、呪文を支払う段階に応じた`usesSpentByLevel`で、最低1です)。リアクションのない`utility`です。別のものを`joins`しない限り、1回の使用につき1つだけです。変えるものは次のとおりで、それぞれ変える対象がある呪文にだけ適合します。`spares`(シート上の値で、巻き込んだ使用者とその味方のうちその数の者は、セーヴに自動的に成功します。Careful)、`range`(`{ "times": 2, "touch": 30 }`。Distant)、`rerolls`(平均未満のダメージダイスをその数だけ、低いものから振り直します。`joins`を持つEmpowered)、`lasts`(1分以上付与するものを、その倍数の時間続かせます。1日を超えることはありません。Extended)、`heightens`(最初の標的は最初のセーヴを不利で振ります。Heightened)、`budget`(`{ "from": "action", "to": "bonus" }`。Quickened)、`drops`(以後不要になる構成要素で、発動に誰も応じられません。Subtle)、`twins`(使用者だけを対象とするのでなく、上位スロットで何も得ない、単一標的の呪文に標的を1つ加えます。Twinned)です。今それらのいずれかがないと発動できない呪文(アクションを使った後のQuickened、Silenceの中のSubtle)は`alterNeeded`付きで提示され、選択はそれを含む必要があります。選択は、選択肢の`alters`のIDを`alters`として送り、ログは`altered`を示します。
+
+選んだ時点のMetamagicです(Capability API 1.254)。`rerolls`は、呪文のすべてのダメージダイスの中で最も低いものを、合計でその数を超えないように振り直します。呪文自身のダイス、`plus`の各条項のダイス、クリティカルヒットなら追加のダイスも、残っている数だけ対象です。攻撃呪文は、命中した標的ごとにそれらを振ります。`spares`の変更が、使用者の側を免除する数より多く巻き込む場合は、使用者が誰を免除するか選びます。選択肢の`alters`の提示は`spares`(人数)を持ち、選択は`spares`として免除する使用者の側の者のIDを送ります(何も送らなければ誰も免除しません)。省略すると、最初に巻き込んだ者から免除します。この選択は、発動に応じるウィンドウの間も保たれます。誰も免除しない変更での`spares`、免除する数より多いID、重複したID、別の側の者のIDは`bad-alter`として拒否されます。
+
+Heightenedの標的とAcid Arrowです(Capability API 1.255)。`heightens`の変更が複数の者を巻き込む場合は、使用者が最初のセーヴを不利で振る者を選びます。選択肢の`alters`の提示は`heightens: true`を持ち、選択は`heightens`として戦闘員1人のIDを送ります(呪文が誰かに向けられている場合は向けられた者の1人で、使用者自身は決して選べません)。省略すると、最初に巻き込んだ者です。`halfOnMiss: true`を持つ項目(`attackRoll`と`amount`が必要です)は、外れてもダメージ(条項のダメージも含みます)の半分を与えますが、命中時のほかの効果は与えません。`applies`の項目の`harmsPerCostStep`(`{ "dice": "1d4" }`)は、付与時の上位コストの1段階ごとに、状態の`harms`にその分を加えます。Acid Arrowの後続の酸は、2レベルを超えるスロット1レベルごとに1d4増えます。
+
+持ち主自身の救済、使用者自身には使えない項目、1つずつの状態です(Capability API 1.256)。項目の`rescue`は`by: "twenty"`にもできます(`roll: "checks"`でのみ)。失敗した判定のd20を20として数え、それで成功する場合だけ消費します。Stroke of Luckが能力値判定に対して行うのと同じです。`by: "die"`は、与えられたものでは差を埋められず、持ち主自身のダイスなら埋められる場合に、そのダイスを加えます。`dice`(`"1d10"`、Dark One's Own Luck)か、シート上の値で大きさが決まる1個の`die`、`{ "from": { "field": "level" }, "table": [[1, 6], [5, 8], [10, 10], [15, 12]] }`(Peerless Skill)です。与えられた状態を先に試します。`ally`や`any`のクリーチャーに向ける項目の`notSelf: true`は、使用者自身には使えないようにします。Bardic Inspirationです。戦闘の状態の`oneAtATime`はグループ(`"bardic"`)を指定します。クリーチャーがそのグループの状態を1つ持つ間は、同じものも含め、そのグループのほかの状態は付与されません。状態のイベントは`already`を示します。
+
+より多くの種類のロールへの応答です(Capability API 1.257)。`lowersRoll`は`"also": ["checks", "damage"]`も列挙できます。命中した攻撃判定に加えて、ほかの者の能力値判定(掴みのような対抗判定、アイテムの関門、Counterspellの判定)やダメージロールが行われるときに、そのダイスを引きます。これは、項目の行動枠、使用回数、コストとともに、相手側でその項目がロールする者に届く最初の者によって自動的に消費されます。ただし、その最大値でロールを覆せる場合だけです。成功しそうな判定が失敗し得る場合や、持ち主の側の誰かを倒しそうなダメージが、その者を立ったままにし得る場合です。Cutting Wordsは、レベルで大きさが決まるダイスを持つ`{ "dice": "1d6", "also": ["checks", "damage"] }`で、`needs: ["hearing"]`と`targetTypes: { "notImmuneTo": ["charmed"] }`を持ちます。救済は`saves`を指定できます(`saves`の救済だけです)。その場合、それらのセーヴにだけ消費されます。`budget`があれば、その行動枠も1つ消費し、それがなければ消費されません。ring of evasionは、チャージを使用回数とする`{ "roll": "saves", "by": "success", "saves": ["dex_save"], "budget": "reaction" }`です。アイテムの使用も、`attackRoll`と`amount`とともに`halfOnMiss`を持てます。Acid Arrowのスクロールがこれにあたります。
+
+病気です(Capability API 1.258)。戦闘の状態の`kinds`(`["disease"]`)は、それがどの種類の状態かを示します。種類が状態自身のIDになることはありません。治療の`ends`は、状態の代わりに種類を指定できます。その種類のすべての状態が該当し、`count`は引き続きその数だけを取り除くため、Lesser Restorationの「病気1つ」は`{ "conditions": ["disease", "blinded", "deafened", "paralyzed", "poisoned"], "count": 1 }`です。完全耐性(クリーチャーやアイテムの`conditionImmunities`、または状態や段階のもの)も種類を指定できます。Divine Healthは`"conditionImmunities": ["disease"]`を持つ状態です。`saveEnds`は回数を数えられます。`successes`(2～10)は状態を終わらせる成功の数で、`failures`(`{ "count": 3, "becomes": "blinding_sickness" }`)は、その数のセーヴに失敗すると、代わりに`becomes`を、時間制限もそれ以上のセーヴもなしで付与します。状態のイベントは`worsened`を示します。これがContagionです。各ターンの終わりにセーヴする`until-save`の状態で、どちらも3回です。時間制限のない状態は戦闘が終わっても解けないため、発症した病気は、何かが治すまで戦闘後も続きます。
+
+着用アイテムの救済です(Capability API 1.259)。アイテムの`use`は、項目のmechanicsと同じく、`saves`と`budget`を含めて`rescue`を持てます。メニューには出ず、アイテムを着用していて(スロットを持つ場合)、その使用が消費する`charges`がある間だけ消費されます。消費するとチャージを1つ使います。ring of evasionは、`"charges": { "max": 3 }`と`"use": { "kind": "buff", "targets": "self", "free": true, "charges": 1, "rescue": { "roll": "saves", "by": "success", "saves": ["dex_save"], "budget": "reaction" } }`を持つアイテムです。チャージはアイテムの`recharge`のとおりに戻ります。
+
+戦闘の合間の病気です(Capability API 1.260)。戦闘の状態は`onRest: { "rests": [restId], "lowersMax": { "dice": "3d6", "flat": 0 }, "lasting": true }`を持てます。状態がある間に持ち主がそれらの休息を取るたびに、休息が戻すものを戻した後、休息を取った場所でロールし、その分だけ体力の最大値が下がります。`lasting`がなければ次の休息で戻り、あれば封印を解くものでしか戻りません。`onRest.save: { "save": saveId, "difficulty": 15, "cures": true }`は、ルールセットの判定と同じく、シート自身の修正値で先に振ります。失敗した場合だけ最大値が下がり、`cures`があれば成功で状態が終わります(オーティューの病気)。下げる最大値があるのは、ポイントで保持する体力だけです。5eのMummy Rotは、`"onRest": { "rests": ["long"], "lowersMax": { "dice": "3d6" }, "lasting": true }`を持つ時間制限のない状態です。終了まで、または変化先まで数えるセーヴ(1.258)は、戦闘が終わっても止まらなくなりました。逃走による終了も含めてどの戦闘でも、終了時に持ち主の残りのターンのセーヴをすべて振るため、Contagionはそれまでに治るか発症します。ダメージを受けたときだけ行うセーヴは、ダメージを待ちます。
+
+病気の段階です(Capability API 1.261)。戦闘の状態は次のものを持てます。`onDamaged: { "applies": [...] }`は、持ち主がダメージを受けるたびに、`onEnd`と同じく時間制限付きで付与されます(Slimy Doomの、持ち主の次のターンの終わりまでの朦朧)。`expires: { "becomes": conditionId }`は、状態自身の時間が尽きたとき(戦闘の終了を含みます)に時間制限なしで変化する先で、ほかの方法で終わった場合は変化しません(アボレスのTentacleの病気は1分後に変化します)。`curedOnlyBy: { "catalogs": [catalogId], "minLevel": 6 }`を指定すると、それらのカタログからその段階以上で支払った治療でしか終わりません。`onRest.restoredWhenCured: true`(`lasting`と併用)は、状態がどのように外れても(状態自身のセーヴの成功を含みます)、その状態の休息が最大値から奪った分を戻します。`cannot-heal-nonmagical`の効果は、魔法による回復以外のすべての回復を防ぎます。戦闘中は性質が`"magical"`を示すアクション、戦闘外では`"magical": true`を持つ回復処理(`magical`のタグを持つポーションがその一例です)が魔法の回復で、休息は決して該当しません。拒否された回復は`cannot-heal`を示します。ステータスブロックのアクションは、カタログの項目と同じく、種類も含めて`ends`を持てます。ユニコーンのHealing Touchは`"heal": { "dice": "2d8", "flat": 2 }, "ends": { "conditions": ["disease", "poisoned"] }, "targets": "ally"`です。複数の呪いから1つを選ぶように、術者が状態の中から選ぶ治療は`cureOneOf`(1.204)です。
+
+クリーチャーのアクションの性質です(Capability API 1.262)。ステータスブロックのアクションは、カタログの項目と同じく、ルールセットが宣言するアイテムのタグである`qualities`を持てます。`["magical"]`はその回復を魔法の回復にし、`cannot-heal-nonmagical`もそれを通します。また、それに対するセーヴは魔法に対するセーヴになります。戦闘中のアイテムの使用も同じくアイテム自身のタグを持つため、`magical`のタグを持つポーションは、シート上と同じく戦闘中も魔法として回復します。
+
+オーラです(Capability API 1.263)。戦闘の状態は最大4つの`auras`を持てます。それぞれ、持ち主から`distance`以内にいる`side`(`allies`、`enemies`、`all`)の者に`conditions`を広げ、`self: true`なら持ち主自身にも広げます(`enemies`では不可)。`when`は持ち主のシート上の値を`atLeast`か`atMost`で読むため、あるレベルでオーラを開けます。ダウンしている、倒された、または`cannot-act`の効果を持つ持ち主は何も広げません。オーラが広げるものは戦闘の進行に応じて付与され、両者が離れると外れ(ログは`aura`と`parted`を示します)、シートには決して書き込まれず、戦闘が終わると消えます。オーラが広げる状態は、独自のオーラを持てません。盤面がなければ、オーラはその側の全員に届きます。持ち主がすべての戦闘をその状態で始めるには、カタログの項目のmechanicsかステータスブロックに`keepsOn`を与えます。戦闘全体を通して保持する状態で、これもシートには書き込まれません。5eのAura of Protectionは、パラディンのCharismaをセーヴに加える状態を広げるオーラを持つ、保持し続ける`aura-of-protection`です。Holy Nimbusは敵へのオーラで、その状態は敵のターン開始時に被害を与えます。
+
+強制された行動です(Capability API 1.264)。戦闘の状態は`behavior`を持て、持ち主がターンに何をするかを決めます。`only`は、ターンを終えること以外にそのターンでできることをすべて列挙します。`move`(歩行と起き上がり)、`escape`(拘束から振りほどく)、ルールセットが宣言する標準アクションです。空のリストではターンを終えることしかできません(Commandの停止)。`onlyWhenStuck`は、歩く場所がないときだけ許す標準アクションを指定します(Turn UndeadのDodge)。`moves: "away"`は、状態を付与した者から離れる方向にだけ歩き、1歩も近づかず、より遠くで終わります。`moves: "toward"`は近づく方向にだけ歩きます(Commandの接近、Sympathy)。`table`は持ち主の各ターンの開始時に振る`{dice, rows: [{atMost, does}]}`で、ロールがその値以下になる最初の行がターンを決めます。`wander`はd8で決めた方向へ移動速度いっぱいに歩いてターンを終え、`nothing`はターンを終え、`strike`はダイスで選んだ間合い内のクリーチャー(敵味方を問わず、誰もいなければ何もしません)への近接攻撃だけを許し、`normal`は、すべての行を上回るロールと同じく、ターンをそのままにします(Confusion、Mindfire)。ログはロールを`compelled`のイベントとして示し、それ以外の行動は`compelled`として拒否されます。状態を終わらせるセーヴは`at: "action"`にもでき、持ち主は自分のアクションを消費してそれを振ります(Irresistible Dance)。
+
+オーラのさらなる機能です(Capability API 1.265)。オーラが状態を広げるか、被害を与えるか、セーヴを求める限り、オーラの`conditions`は任意になりました。`needs`は受け手が持つべき感覚を列挙し、持ち主も受け手も、`inside.conditions`がそれらの感覚を奪うゾーンの中にいてはいけません。Countercharmの`needs: ["hearing"]`はSilenceで止まります。`harms`の`{dice, flat, type}`は、持ち主自身の各ターンの開始時に、オーラが届く全員に持ち主が与えます(バロールのFire Aura)。`save`の`{save, difficulty, applies, seen?, immuneOnSuccess?}`は、オーラが届く全員が自身のターンの開始時に行います。失敗すると、持ち主からその難易度で`applies`が付与されます。`seen`は互いを見られる間だけ求め(バジリスクの凝視)、`immuneOnSuccess`は成功後、戦闘の残りの間その持ち主のオーラを受けないようにします(ピット・フィーンドのFear Aura)。セーヴ修正値の`against.casts`は、それらのカタログから発動されたもの(そのカタログから発動するアイテムの使用を含みます)に対するセーヴに絞り、さらにほかに指定したもので絞ります。フィーンドやアンデッドが発動した呪文に対するHoly Nimbusの有利は`against: { casts: ["spells"], from: { types: ["fiend", "undead"] } }`です。
+
+強制された行動のさらなる機能です(Capability API 1.266)。`behavior`は`drops`の`{slots?, tags?, at, pickUp?}`を持てます。持ち主は、`slots`のどれかを占めるか`tags`のどれかを持つ着用アイテムと、`qualities`が`tags`のどれかを持つステータスブロックのアクションを落とします。状態の付与時(`at: "applied"`、Fearの「持っているものを落とす」)か、持ち主の各ターンの開始時(`at: "turn-start"`、Commandの「落とせ」)です。落ちたものは持ち主が立っていたマスにあります。そのアクションは持ち主のものでなくなり(`dropped`として拒否されます)、着用中に与えていたものを与えず、持ち主の防御へのその分の寄与も消えます(盾の2)。そのマスかその隣に立って、ターンに1回の無料の拾い上げで拾うか、状態が指定する場合は`pickUp`の行動枠で拾います。ログは`letFall`と`pickedUp`を示します。`onlyWhenStuck: "any"`は、状態が持ち主に歩くことを許す場所がない状態で始まるターンを、完全に持ち主自身のものにします(Fearの「移動できる場所がない場合を除く」)。`keepsOut`は、状態を付与した者からの距離です。その内側では持ち主はさらに離れる方向にしか歩けず、外側のどこかに届く間は外側でしか止まりません(Turn Undeadの「自分から30フィート以内の場所に自ら移動できない」)。状態を終わらせるセーヴは`unseen: true`にでき、持ち主が付与した者を見られない間だけ振ります(視線の外でのFearのセーヴ)。項目の`applies`は`destroysUpTo`の`[{tier, when?}]`を持てます。セーヴに失敗し、脅威段階が、使用者のシートで`when`が成り立つ最も高い`tier`以下のクリーチャーは、代わりに即座に破壊されます(Destroy Undeadは、クレリック5レベルでCR 1/2から、17レベルでCR 4まで)。キャラクターや段階のないクリーチャーは決して破壊されません。
+
+あらゆる感覚による標的の選択、互いに近い標的、大きくなる範囲、追加の使用、手に持つものです(Capability API 1.267)。感覚を`needs`する項目やクリーチャーのアクションは`needsAny: true`を加えられます。そのいずれか1つを保つ標的は対象になり、すべてを欠く標的だけが拒否されます(Turn Undeadの「自分を見るか聞くことができる各アンデッド」)。`targetsWithin`は、選んだ標的のすべての組が収まるべき距離で、そうでなければ`targets-apart`として拒否されます(上位スロットのCommandの「互いに30フィート以内にいる」クリーチャー)。`area`は`sizePerCostStep`を持てます。コストを上げた1段階ごとにサイズが大きくなる距離です(Confusionの球体はスロット1レベルごとに5フィート大きくなります)。壁は決して大きくなりません。`use`を持つアイテムは`moreUses`の`[{label, use}]`を列挙できます。それぞれがアイテムと`label`の名前を持つ別のメニュー項目で、同じチャージを使い、アイテムとともに落とされます(複数の呪文を持つワンド)。クリーチャーは`held`の`[{label, tags, defense?}]`を列挙できます。自身のアクションではない手に持つもの(ステータスブロックに書かれた盾など)で、`drops`が`tags`のどれかを指定する状態は、タグの付いたアクションとともにそれらを落とさせ、拾うまでその`defense`はクリーチャー自身の防御から消えます。それぞれは落としたアイテムと同じく拾い上げます。
+
+凝視と、届く相手によるオーラです(Capability API 1.268)。オーラは、項目と同じく読む`targetTypes`を持てます。その種類の者にだけ届きます(シー・ハッグのHorrific Appearanceは人型生物だけです)。`sourcesOf`は状態を指定し、持ち主にそれらのどれかを付与した者にだけ届きます(バーブド・デヴィルのBarbed Hideは、自分を掴んだ者に被害を与えます)。オーラの`save`は`failedBy`の`{atLeast, applies}`を持てます。その値以上の差で失敗すると、代わりにそれらを付与します(メデューサの凝視は、5以上の差で失敗すると即座に石化します)。`seen`のセーヴは`avert: true`を持てます。届く者は自分のターンに無償で持ち主から目をそらせます。再び見るまで(これも自分の自由な選択です)、そのセーヴを行わず持ち主を見られないため、持ち主への攻撃は見えない状態で行います。ログは`averted`を示し、ディレクターは、ほかに戦う相手が残っている間、自分のクリーチャーの目をそらせたままにします。状態を終わらせるセーヴは`seenLean`(`"advantage"`または`"disadvantage"`)を持てます。持ち主が状態を付与した者を見られる間はそのように振ります(シー・ハッグの繰り返しのセーヴは、ハッグが見えている間は不利です)。
+
+スタッフは持ち主の数値で発動します(Capability API 1.269)。アイテムの`use`は、`saveDifficulty`の代わりに、`toHit.sheetBonus`と同じく値を読む`sheetDifficulty`で、持ち主のシートからセーヴ難易度を読めます(`{ "derived": "spell_save_dc" }`)。攻撃ボーナスは、能力値なしの`toHit.sheetBonus`(`{ "derived": "spell_attack" }`)で、すでに同じようにシートから読めます。`charges`を持つ使用は`chargeStep`の`{max, amount?, targets?}`を持てます。使用者は最大`max`個まで追加のチャージを消費でき、それぞれが上位コストの1段階として、上位スロットが`perCostStep`と`targetsPerCostStep`を加えるのと同じく`amount`と`targets`を加え、`sizePerCostStep`で範囲を大きくします(Staff of Powerの上位レベルの呪文、Staff of Strikingのチャージごとの1d6の力場)。メニューはそれらを`charges:<how many more>`という名前の支払いとして、アイテムにまだ残っている数だけ提示します。同じマイナーバージョンで、ルールセットが宣言できる状態は320に増え、オーラの`save`は`immuneWhenEnds: true`を持てます。失敗で付与されたものが、どのように終わっても(セーヴ、時間切れ、治療)、終わった後は、`immuneOnSuccess`がセーヴの成功後に防ぐのと同じく、戦闘の残りの間その持ち主のオーラを受けません(シー・ハッグの「成功するか、効果が終了した場合」)。
+
+発動時に指定する種類です(Capability API 1.270)。`applies`を持つカタログの項目の`mechanics`は`kindChoice: true`を持てます。使用者は使用時に`combat.creatureTypes`の1つ(種類かタグ)を指定し、それは`kind-<id>`のモードとして提示され、付与したものはその種類を覚えます。付与したもののオーラで`chosenKind: true`を持つものは、その種類のクリーチャーにだけ届き、`orSeen: true`を持つものは、距離にかかわらず持ち主を見られる者にも届きます。そのため5eのAntipathyは、標的に状態を付与し、そのオーラ(`side: "all"`)は60フィート以内か視界内の選んだ種類を恐怖状態にし、恐怖状態の者は離れていきます(`moves: "away"`)。一方、Sympathyの魅了状態の者は近づいていきます。状態の`saveEnds`はルールセットの距離で`beyond`を持てます。そのセーヴは、持ち主が付与した者からその距離より遠くにいる間だけ振ります。`unseen`も併せると、視界の外にいる間だけです(Antipathyの「標的から60フィート以内にいない、または標的を見られない」)。
+
+スタッフと指輪のさらなる機能です(Capability API 1.271)。アイテムの`use`は`label`を持て、`moreUses`の項目のラベルと同じく、アイテムの名前の横に表示されます(「Staff of Fire: Burning Hands」)。追加の使用は独自の`label`で名前が付きます。使用は、カタログの項目と同じく、持ち主のシートから読んで量に加える値である`amountAdd`を、戦闘中も戦闘外でも持てます(Staff of HealingのCure Woundsの`{ "abilityModFromField": "spellcasting_ability" }`)。`chargeStep`はルールセットの距離で`push`を持てます。追加のチャージごとに、使用自身の`push`に加えて、標的をその分だけ遠くへ押し出します(Ring of the Ramのチャージごとの5フィート)。アイテムの`charges.breaksOn`は`regains`の`{atLeast, amount}`を持てます。最後のチャージを使ったときにダイスが`atLeast`以上を示すと、アイテムは代わりに`amount`個のチャージを取り戻します(Staff of the Magiは20で1d12 + 1)。戦闘中、戦闘外、インベントリーがチャージを消費するときに働きます。決して壊れないアイテムなら、`atMost`は省略できます。
+
+別のアイテムになるアイテムです(Capability API 1.272)。アイテムの`charges.breaksOn`は、`atMost`と並べて、ルールセットの別のアイテムを`<catalog>/<entry>`で示す`becomes`を持てます。壊れるはずの目が出ると、アイテムは代わりにそのアイテムになります(Staff of Strikingの魔法でないクォータースタッフや、+2だけを持つアイテムとして書いた、+2だけを保つStaff of Power)。戦闘中は、以後その使用がなくなって新しいアイテムとして打撃し、戦闘はそのスタックを、その名前でチャージなしのそのアイテムとして書き戻します。戦闘外とインベントリーがチャージを消費するときも、同じようにスタックが変わります。指定するアイテムは、どのカタログファイルにあっても、ルールセットの別のアイテムである必要があります。
+
+命中時に消費するチャージです(Capability API 1.273)。武器の`attack.spends`は、その武器による打撃が命中した後に、持ち主がアイテムのチャージを消費する方法を最大4つ列挙します。それぞれ、`label`、消費する`charges`、打撃に加えるダイスと固定部分の`amount`、独自のダメージの`type`(指定しなければ武器のもの)を持ち、任意で`blow`(`melee`か`ranged`の打撃だけ)、`chargeStep`(追加で最大`max`個のチャージを使い、それぞれが`amount`を再び加えます。Staff of Strikingのチャージごとの1d6の力場、最大3つ)、`onHit`(命中した相手が受ける最大2つの状態で、それぞれ`rounds`、防ぐための`save`、または`saveEnds`を持ちます。Staff of WitheringのConstitutionのセーヴ)を持ちます。戦闘中は、その武器による持ち主自身の命中のときだけ、命中した相手が応じた後に、それぞれが持ち主へ提示されます。ダイスは打撃とともに振られてクリティカルで倍になり、アイテムの最後のチャージのダイスは使用と同じく振られます。アイテムはチャージを持ちます。
+
+状態を付与した者から固定する数値です(Capability API 1.274)。項目が`applies`する状態は、付与時に付与者のシートから読む値参照である`value`を持てます(Heroismの`{ "abilityModFromField": "spellcasting_ability" }`)。戦闘の状態の`temporary`は、持ち主の各ターンの開始時か終了時(`at`)に一時ポイントを与えます。`dice`と`flat`に加え、`value: true`ならその値も加えます。`lostWhenEnds`があれば、状態の終了時に残りが消えます。ただし、持ち主がほかのものからそれより多くを得ている場合は消えません。オーラの`save.appliedDifficulty`は、持ち主にオーラの状態を付与したもののセーヴ難易度(付与時に固定)に対してセーヴを振ります(Antipathy/Sympathyの術者の呪文セーヴ難易度)。何も付与していないオーラには、その`difficulty`が引き続き使われます。`at: "damaged"`で状態を終わらせるセーヴは`bySource`を指定でき、状態を付与した者からの被害でだけ振ります(標的が持ち主を傷つけたときのSympathyのセーヴ)。状態の`behavior.keepsIn`は、付与した者からその距離以内に入った持ち主が、それ以上遠くへ歩けないようにします(Sympathyの「自ら離れることができない」)。また、アイテムの`use`は項目のmechanicsと同じく`kindChoice`を持てるため(1.270)、Antipathy/Sympathyのスクロールは使用時に種類を指定します。
+
+終わらせるのではなく抑える状態です(Capability API 1.275)。`whileSourceInSight`と並べて、戦闘の状態の`orSourceWithin`(ルールセット独自の単位の距離)は、見えるかどうかにかかわらず、持ち主が付与した者のその距離以内にいる間、状態を保ちます。視界の外で距離の外なら抑えられますが、持ち主に付いたまま時間も進み、どちらかが成り立つとすぐに再び効果を持ちます(Antipathyの恐怖、60フィート以内か視界内)。戦闘の状態の`suppresses`は、その状態がある間に抑えるほかの状態を列挙します。それらの効果は止まりますが、付いたまま残り、その状態が終わると再び効果を持ちます(Calm Emotionsの魅了と恐怖、Mindless Rageの同様のもの)。
+
+テレポートです(Capability API 1.276)。カタログの項目の`mechanics.teleport`、アイテムの`use.teleport`、クリーチャーのアクションの`teleport`は、使用者を`distance`(ルールセット独自の単位)以内の空いた場所へ即座に移動させます。間の歩はないため、離れるときに誰も打撃できず、着いた場所のゾーンは歩いて入ったときと同じく巻き込みます。盤面上でのみ働くため、`combat.distance`が必要です。盤面がなければ、テレポートするだけのアクションは提示されません。`seen`があれば、使用者が今見える場所だけです(壁、霧、目を奪う盲目は、その向こうのマスを一覧から除きます)。5eのMisty Stepは`{ "distance": 30, "seen": true }`です。`carries`(1～8)は、`carriesWithin`以内(省略時は接触)にいる、使用者以下の大きさの、使用者の側の自ら望むクリーチャーをその数だけ連れて行き、それぞれは余地がある限り使用者の近くに着きます。Dimension Doorは`{ "distance": 500, "carries": 1, "carriesWithin": 5 }`です。テレポートを持つクリーチャーのアクションは、クリーチャー自身に効果が及びます(ブリンク・ドッグのTeleport)。選択肢は行ける先のマスを`teleport.cells`として、一緒に行ける者を`teleport.carries`として列挙します。選択はマスを`at`として、同行者を`carries`として指定します。テレポートが範囲やリアクションになることはありません。
+
+一度に6つの状態と、本当に見ることとしての視界です(Capability API 1.277)。`applies`は、カタログの項目のmechanics、アイテムの使用、クリーチャーのアクションで最大6項目を持てます(以前は4)。RageとFrenzyは、それぞれ4つに加えてMindless Rageの状態を加えます。また、`whileSourceInSight`(と、それに並べた`orSourceWithin`)は、オーラの`orSeen`と同じく、持ち主自身の視界を読むようになりました。盤面上の遮るもののない線は引き続き必要で、そのうえで持ち主は目か感覚で出所を見る必要があります。そのため、目を奪う盲目、視界を遮る霧、見通せる範囲を超えた暗闇、持ち主から見えない出所(不可視)は、壁と同じくどれもそれを断ちます。
+
+Calm Emotionsです(Capability API 1.278)。セーヴは`alliesMayFail: true`を指定できます(カタログの項目、アイテムの使用、クリーチャーのアクションの`save`で)。使用者自身の側の標的はそれを受け入れて振らずに失敗し、ログがそれを示します。それ以外の者は通常どおり振ります。状態の`effects`は`cannot-target-source-side`を持てます。持ち主は、状態を付与した者にも、その側の誰にも何も向けません。ただし、その側が持ち主自身の側なら誰も除外しません。`endsWhen`は、`damaged`と`harmed-by-source-side`に加えて、さらに2つの終了条件を取り、最大4つすべてを指定できます。`attacked`は、誰かが持ち主に行う攻撃判定で、命中か外れかを問いません(ロールせずに命中するアクションは該当しません)。`ally-harmed-in-sight`は、持ち主が見ている、持ち主の側のほかの誰かへのダメージです(盤面上の遮るもののない線と、自身の目か感覚が必要です)。また、`endsWhenHarmedFrom`はカタログを列挙します。誰によるものでも、それらのいずれかから発動されたもの(スクロールの呪文や場に残ったゾーンを含みます)による持ち主への被害で状態が終わります。被害とは、`harmed-by-source-side`と同じく、ダメージか有害なアクションの標的になることで、まったく同じ状態を再び発動すると、終わらせずに更新します。これらはどれも、原因となった処理が終わるまで待ちます。また、持ち主自身の有効な状態が`suppresses`する状態は、その同じ状態が与える完全耐性ではもう終わらなくなりました。治るのではなく一時停止するため、恐怖への完全耐性を持つ激怒が始まったときにすでに付いていた恐怖は、激怒が終わると戻ります(5eのMindless Rage)。新しい恐怖は引き続き付与されません。
+
+戦闘の外へのテレポート、見える同行者、煙です(Capability API 1.279)。`teleport`(カタログの項目、アイテムの使用、クリーチャーのアクションのもの)は、さらに3つのキーを取ります。`leaves: true`は、マスへ移動する代わりに、使用者を戦闘から完全に連れ出せます(ユニコーンの1マイル)。この場合、選択は`at`を指定せず(メニューには「Leave the fight」ボタンが表示されます)、使用者と同行者は生きたまま去ります(「Left the fight」と表示され、体力は保たれ、何も彼らを戻しません)。盤面がなければ、行き先は戦闘の外だけで、近くに誰が立っているかを測るものがないため、使用者の側に立っている誰でも同行できます。パーティーが戦闘から抜け、その一員がこの方法で去った場合は、逃走したことになります(結果は`fled`で、逃走と同じく戦闘を終えます)。この方法で去った敵は、打ち負かされたのでもまだ立っているのでもなく、逃げおおせたことになり、振り返りがそう示します。ディレクター自身のクリーチャーは、体力が4分の1以下になると、連れて行ける者を連れて去ります。`carriesSeen: true`(`carries`と併用)は、使用者が見える者だけを同行させます。ユニコーンの「見える自ら望むクリーチャー」です。`smoke`(`{}`か`{ "pierced": [senses] }`)は、使用者が離れたマスと着いたマスに雲を残し、着いた瞬間から使用者の次のターンの終わりまで、ゾーンの`obscures`と同じく視界を遮ります。Cape of the Mountebankの煙です。
+
+打撃するテレポートです(Capability API 1.280)。クリーチャーのテレポートは、自身のアクションの1つを`strike`(その`id`)として指定できます。ブリンク・ドッグの「テレポートの前または後に、噛みつき攻撃を1回行える」です。テレポートすると、そのターンにそのアクションを1回無償で続けられ(メニューには「Free, part of the same action」と表示されます)、メニューは逆の順序も、テレポートの行動枠で「Bite, then Teleport」として提示し、その後にテレポートを1回無償で続けられます。どちらも3つ目には続きません。先に行う打撃は、自身のものに加えてテレポートの使用回数と再チャージも消費し、両方が残っている間だけ提示されます。打撃は同じクリーチャーの別の普通のアクションで、テレポート自体、連続行動、別のテレポート、リアクション、ポイントで購入するものは指定できません。打撃を指定できるのはクリーチャーのテレポートだけで、カタログの項目やアイテムの使用のテレポートでは拒否されます。距離を測らない戦闘ではテレポートはどこへも行かないため、何も組み合わせません。ディレクターもこれを使います。獲物まで歩くには遠すぎるクリーチャーは、同じターンにその隣へテレポートして噛みつきます。
+
+吸収する打撃です(Capability API 1.281)。カタログの項目の`mechanics`やクリーチャーのアクションは`drain`を持てます。使用者は、抵抗を適用した後に打撃が各標的に与えたダメージに等しい体力を、端数を切り捨て、最大値を超えない範囲で回復し、標的の最大値からは何も引かれません(それには`reducesMax`を参照してください)。`share`(0より大きく1以下で、省略するとすべて)は回復する割合で、`damageType`はその種類のダメージだけを数えます。アボレスのPsychic Drainは`drain: {}`、Vampiric Touchは`drain: { "share": 0.5, "damageType": "necrotic" }`です。回復を止めるものは、これも止めます。吸収には戻すダメージが必要なため、`amount`のない項目、回復、`damage`のないクリーチャーのアクションでの吸収は拒否されます。
+
+使用者を中心とするバーストです(Capability API 1.282)。`area`(カタログの項目かクリーチャーのアクションのもの)は`around: true`を指定できます。使用者を中心とする`size`のバーストで、決して狙いません。使用時に使用者から`size`以内にいる全員を巻き込み、`friendlyFire`がfalseでない限り敵味方を問いません(回復のものは使用者の側だけです)。使用者自身は決して巻き込みません。両者の間の壁はクリーチャーを守りますが、範囲が`throughWalls: true`も指定する場合は除きます。マミー・ロードのChannel Negative Energyの「障壁の向こうや角の先にいるものも含む」です。盤面のない戦闘では全員を巻き込みます。誰にも向けないため、ターン中と同じく、ターンの間に購入するシグネチャーアクションとしても働きます。使用者を中心とするのは単一のバーストだけで(`copies`は不可)、`throughWalls`は`around`とだけ併用でき、使用者の周囲の項目のバーストは即座に効果を与えるため、`zone`を残しません。Channel Negative Energyは、`signature: { "cost": 2 }`、`area: { "shape": "burst", "size": 60, "around": true, "throughWalls": true }`を持ち、`cannot-heal`の効果を持つ状態をマミー・ロードの次のターンの終わりまで`{ "rounds": 1, "of": "source" }`の間`applies`するクリーチャーのアクションです。ディレクターは、狙う形状を評価するのと同じく、巻き込む相手でこれを評価します。
+
+伝説的な移動です(Capability API 1.283)。`signature`のコストを持つクリーチャーのアクションは、ほかに何もせず`move`だけを指定できます。作り手はターンの間に歩き、自身のターンの歩行と同じく盤面上のマスを選びます。その移動のためだけに貸し出される移動量を使うため、自身のターンの移動量には影響しません。`move: { "share": 0.5 }`は移動速度の割合(タラスクは「移動速度の半分まで移動する」)、`move: { "distance": 60 }`はルールセット独自の単位の距離、`move: {}`は移動速度のすべてです。`share`と`distance`の両方は指定できません。ほかの歩行と同じく、誰かの間合いを離れるときに打撃を受け、それを購入したウィンドウには、打撃が命中した後に再び尋ねます。`noOpportunity: true`は誰の機会攻撃も誘発しません(ヴァンパイアは「機会攻撃を誘発せずに移動速度まで移動する」)。`untouchable: true`は何にも傷つけられず拘束されない移動です(マミー・ロードのWhirlwind of Sand、`{ "distance": 60, "untouchable": true }`)。作り手を止めているものは先に放し、誰もそれを打撃せず、通過するゾーンや地形は何もしません。止められているクリーチャーや移動速度のないクリーチャーは、ほかの移動ではどこへも行けません。盤面がなければ何も提示されません。ディレクターはテレポートと同じくこれを購入します。ひどく傷ついたときに隣の敵から離れるためか、間合いに誰もいないときに敵に近づくためです。
+
+伝説的な発動です(Capability API 1.284)。`signature`のコストを持つクリーチャーのアクションは、ほかに何もせず`casting`だけを指定できます。ターンの間に、作り手が自身のターンにアクションの`budget`で発動できる各呪文を、その`spellcasting`かシートの呪文から、「Cast a Spell: Fireball」のような名前で提示します。それぞれはクリーチャーのターンとまったく同じく狙い、支払い、解決し(標的、範囲のマス、いつもどおり消費するスロットや使用回数)、行動枠の代わりにポイントを消費するため、自身のターンはすべての行動枠を保ちます。`casting: { "cantripsOnly": true }`は初級呪文(どのプールからも支払わない呪文)だけを提示します。リッチのCantripは`signature: { "cost": 1 }`です。スフィンクスのCast a Spellは、`signature: { "cost": 3 }`を持つ`casting: {}`です。呪文が開くもの(Counterspell、それによる被害へのリアクション)はターン中と同じく応じられ、それを購入したウィンドウには、それらがすべて閉じた後に再び尋ねます。ディレクターは、ほかのシグネチャーアクションと同じく評価し、ポイントに見合う呪文のときに購入します。
+
+アクションの後の移動と、1つの移動速度での移動です(Capability API 1.285)。何かをする(ダメージ、範囲、セーヴ、状態)シグネチャーアクションは、`move`も持てます。効果が先に適用され、その後、作り手はメニューが提示したマスのうち、アクションとともに選んだマスへ移動できます。何も選ばないことも選択で、効果の後に届かなくなったマスへは単に歩きません。`move`は`speed`(`walk`、`fly`、`swim`、`climb`、`burrow`)で移動方法を1つ指定することもできます。その場合、`share`はその移動速度だけから読み、その方法でだけ移動し、その移動速度を持たないクリーチャーはどこへも行けません。ドラゴンのWing Attackは、周囲のバースト(`area: { "shape": "burst", "size": 10, "around": true }`、そのセーヴと伏せ状態)に`move: { "share": 0.5, "speed": "fly" }`を加えたものです。「その後、ドラゴンは飛行速度の半分まで飛行できる」です。`move`は引き続き`teleport`、`sequence`、`reaction`、`charge`を持ちません。ディレクターは、敵の隣でひどく傷ついているときは打ち付けた後に飛び去り、間合いの外の敵には近づきます。
+
+軽度の視界不良と風です(Capability API 1.286)。ゾーンの`obscures`やテレポートの`smoke`は`light: true`を指定できます。その場合は誰も隠さず、5eの薄暗い光やCape of the Mountebankの煙と同じく、それを通して、またはその中で見られる者を軽度に視界不良にするだけです(Engineはそのように見られる者を把握しており、HideとPerceptionがそれを読みます)。`dispersed: true`も指定できます。その場合、規則が`disperses: true`を示すゾーンは、すべてのアクションの後、両者が重なる場所でそれを、それを保つ集中とともに終わらせます。5eのFog Cloudは`obscures: { "dispersed": true }`、Gust of Windは`disperses: true`を持つゾーンです。Darknessはどちらも指定しないため、風はそれを残します。散らすだけのゾーンにトリガーは不要です。
+
+Hide、Search、Detectです(Capability API 1.287)。`combat.hiding`は`hide`の標準アクションを実際に機能させます。`{ "stealth": "stealth", "perception": "perception", "noisy": ["verbal"] }`は`combat.checks`の2つと、任意で`passive`(10)、`lightly`(5)、音を立てる`combat.components`を指定します。Hideは戦闘自身のダイスで`stealth`を振ります。使用者は、自分をはっきり見ていない(壁の向こう、霧の中、不可視、または軽度の視界不良の中でしか見ていない)各敵のうち、Hideの合計がその受動Perception(`passive`に`perception`の判定を加え、軽度の視界不良の中でしか見ていない場合は`lightly`を引いたもの)に達する敵から隠れます。隠れている相手からは見えないため、その相手は何も向けられず、使用者はその相手を見えない者として攻撃し、`combat.sight.unseenAttacks`がその攻撃に有利を与えます。隠れた状態はターンをまたいで続き、次のときに終わります。使用者が攻撃する、対抗判定を行う、誰かを傷つける、セーヴを求める、`noisy`の構成要素を必要とするものを使うと、全員に対して終わります(音声の構成要素のない呪文や、霧を置くことでは隠れたままです)。また、どの処理の後でも、歩行のどのマスでも、使用者をはっきり見るようになった敵や、受動の値が合計を上回るようになった敵に対しては、その敵ごとに終わります。`search`の標準アクション(`combat.standard`に加えます。`combat.hiding`が必要です)は`perception`を振り、自分から隠れている者のうち、その合計に達する全員を見つけます。`search: true`を持つクリーチャーのアクションは同じことだけを行います。伝説的なDetectは`{ "name": "Detect", "budget": "action", "signature": { "cost": 1 }, "search": true }`です。クリーチャーは両方の判定を自身の`checks`から読みます。ディレクターは、すべての敵が自分から隠れているときにSearchを行い、誰か1人でも隠れているときはターンの間にDetectを使います。盤面がなければ、すでに隠す状態による場合を除いて誰も隠れられません。
+
+Readyです(Capability API 1.288)。`combat.readying: { "budget": "reaction" }`はReadyアクションを実際に機能させます。使用者が今`standard`の行動枠で取れる各選択肢(攻撃、呪文、クリーチャーのアクション)と歩行について、メニューは2つの項目を提示します。敵が間合いに入ったとき(`comes`)と、敵が行動したとき(`acts`)のための待機です。1つを選ぶと標準の行動枠を消費し、使用者の次のターンの開始までその選択肢を保持します。敵の歩行がどの歩であれ、保持した選択肢をその敵に向けられる位置に来たとき(持ち主がそれを見ている場合)、または敵がそこで何かを終えたとき、ウィンドウが持ち主に尋ねます。持ち主は、`readied`という名前の選択肢を`budget`(5eのリアクション)で取るか、見送ってその歩行の間はもう尋ねられないかを選びます。保持した歩行は持ち主の移動速度いっぱいまで進み、その途中で間合いを離れると、ほかの歩行と同じく機会攻撃を誘発します。`"concentrates": true`(`combat.concentration`が必要です)なら、呪文は待機時に支払われ、集中で保持されます。発動時に再び支払うことはなく、集中を失うと呪文も失い、発動しなかった呪文は消費されたままです。それ以外の待機は、発動するまで何も支払いません。5eのものは`{ "budget": "reaction", "concentrates": true }`です。
+
+ゆっくりとした拡散です(Capability API 1.289)。霧の`dispersed`は`true`の代わりに`{ "after": N }`にできます。その場合、届いた風は、最初に届いたターンから数えて、N回の完全なラウンドにわたって吹き続けた後にだけ霧を終わらせます。それまでに届かなくなった風(移動した、終わった、消えた)は、再び届いたときに数え直します。Gust of Windのような強い風で1ラウンド後に散る5eのStinking Cloudは`"obscures": { "dispersed": { "after": 1 } }`です。
+
+隠れた者の捜索の評価です(Capability API 1.290)。スキルから読む戦闘の判定(`{ "skillMod": "stealth" }`)は、そのロールでそのスキルの判定と数えるようになったため、`skills`でそれに絞った変更がHide、Search、対抗判定に適用されます。重装鎧のStealthへの不利、Pass without Traceの+10、Eyes of the EagleのPerceptionへの有利などです。`combat.hiding.passiveMode`(5eでは5)は、有利のある受動Perceptionに加えられ、不利のある受動Perceptionから引かれます。これがなければ、受動の値はモードを読みません。変更`{ "to": "checks-taken", "skills": ["perception"], "mode": "disadvantage" }`は、持ち主を見つけるための判定(敵の受動の値とSearchの両方)にそのモードを付けます。`mode`だけを取り、ほかは取りません。5eのCloak of Elvenkindです。Searchが、自分に対する振り方を変える者を見つけた場合は、その者のためだけに振り直し、ログはそのロールも示します。
+
+クリーチャー独自の隠れ方と見方です(Capability API 1.291)。クリーチャーのアクションは許可にできます。`"standard": { "actions": ["disengage", "hide"] }`は、それらの標準アクション(`combat.standard`のもの)を、そのアクション自身の行動枠で取ることです。5eのゴブリンのNimble Escapeがボーナスアクションで行うのと同じです。`"while": "obscured"`なら、クリーチャーが霧や靄の中に立っているか、薄暗い光や暗闇の中で戦う戦闘でだけ有効です。シャドウのShadow Stealthです。クリーチャーの`checkModes`は、いくつかのスキルで自身の判定を2回振らせます。`{ "skills": ["perception"], "mode": "advantage", "sight": true }`は見えている間だけ(Keen Sight)、`"light": ["sunlight"]`があればその光の中でだけ(`"mode": "disadvantage"`を持つSunlight Sensitivity)、`"terrain": ["snow"]`があれば、指定した盤面のタイルや場所の種類でだけ有効です(Snow Camouflage。場所はタクティカル生成器のもので、雪、洞窟、山、水などです)。クリーチャーの`passive`は記載された受動Perceptionで、`hiding.passive`に判定を加えた値の代わりに使われます(`combat.hiding`が必要です)。戦闘の光はシーンの時刻から決まります。屋外の昼は日光、夜明けと夕暮れは薄暗い光、夜は暗闇で、屋内や、Engineが読める時刻が示されていない場合は日光ではない明るい光です。光が影響するのは、それを読むもの(これらのモードと`while: "obscured"`)だけです。`combat.sight.darkness`(1.294)がなければ、誰が誰を見られるかは変わりません。
+
+隠れ方と隠れた者の見つけ方の、個々の手段です(Capability API 1.292)。カタログの項目の`mechanics.hiding`(`utility`を含むどの種類でも)とクリーチャーの`hiding`は、`combat.hiding`が実際に隠す場合に読まれる許可です。`"behindLarger": true`は、持ち主と見る者の間に、その間のすべての線上で立つ、少なくとも1サイズ大きい者の陰に持ち主が隠れられるようにします(ハーフリングのNaturally Stealthy。`combat.sizes`が必要です)。`"still": 10`は、隠れるときにStealthの合計にその値を加え、移動するかアクションを取ると再び引きます(レンジャーのHide in Plain Sight)。`"slow": "advantage"`は、このターンに移動速度の半分以下しか移動していない場合に、Hideを有利で振ります(シーフのSupreme Sneak)。`"aware": { "within": 10, "lostWith": ["deafened"] }`は、それらの状態のどれかを持たない限り、ルールセット独自の単位でその距離以内にいる者は誰も持ち主から隠れていないことを示します(ローグのBlindsense)。クリーチャーの`"starts": 15`は、受動Perceptionがその合計を上回らない者から、はっきり見えているかどうかにかかわらず、移動するまでその合計で、見通しのよい場所に隠れた状態で戦闘を始め、Hideアクションで再びその方法で隠れます(ゼラチナス・キューブのTransparent)。
+
+クリーチャー自身の攻撃判定を2回振ります(Capability API 1.293)。クリーチャーの`attackModes`は、`checkModes`が有効になる場面で有効です。`{ "mode": "disadvantage", "sight": true, "light": ["sunlight"] }`は5eのSunlight Sensitivityで、見えていて、戦闘が日光の中で行われる間、攻撃が不利になります。各モードは`sight`、`light`、`terrain`で有効な場面を示します。モードはロールのほかの有利と不利すべてに加わるため、両者は引き続き打ち消し合います。
+
+暗闇です(Capability API 1.294)。`combat.sight.darkness`があると、戦闘の光で目が見えなくなります。`{ "seeIn": ["darkvision"], "pierced": ["truesight"], "carried": { "bright": 20, "dim": 20 } }`のように書きます。暗闇の中にいる者は見えず、薄暗い光の中にいる者ははっきり見えません。ただし、範囲内の`seeIn`の感覚は暗闇を薄暗い光として、薄暗い光を明るい光として見ます。範囲内の`blind`の感覚や`pierced`の感覚は、光にかかわらず見ます。暗闇を照らすものは次のとおりです。`carried`は、`seeIn`の感覚が届く場合を除き、シートで戦う全員が持つ光です(松明)。`light`は、状態(Lightの初級呪文)、アイテムの`worn`または`carried`の効果(ランタン)、クリーチャー(松明を持つ山賊、ファイアー・エレメンタル)に付けます。それぞれルールセット独自の距離で`{ "bright": N, "dim": N }`を指定し、その距離まで明るい光、さらに同じ距離まで薄暗い光になります。壁は光を遮り、倒された者は光を発しません。暗闇が有効な場合、光を読むものはすべて、誰かが立っている場所の光を読みます。誰が誰を見るか(見えない者への攻撃、隠れること、見えるクリーチャー)、視界不良の中に立つこと(`while: "obscured"`)、クリーチャーの`checkModes`と`attackModes`です。洞窟やダンジョンでの戦闘は、どの時刻でも暗闇の中で行われます。
+
+明かりを消して再び灯すことです(Capability API 1.295)。`carried`の光を持つ者は、メニューにその切り替えを持ち、その`label`で名前が付きます(`"Torch"`。指定がなければ「Light」)。`budget`を指定していればそれを消費し、そうでなければ1ターンに1回無料です。消えた光は何も照らさないため、持ち主は暗闇で見えないままでいられます。再び灯すと見えるようになり、隠れていた場合は見つかります。`toggle`を持つアイテムは、覆い付きランタンと同じく、オンの間だけ効果の`light`を発します。
+
+クリーチャーとアイテムによる光の切り替えです(Capability API 1.296)。`"sheds": { "bright": 10, "dim": 10 }`を持つクリーチャーのアクションは、以後使用者が発する光を設定し、`"sheds": "out"`はそれを消します。ほかには何もせず、誰にも向けません。マグミンのIgnited Illuminationはボーナスアクションでの2つのそのようなアクションで、ウィル・オ・ウィスプのVariable Illuminationは届く距離ごとに1つのアクションです。`"unlit": true`を持つクリーチャーは`light`を消した状態で戦闘を始め、灯すには自身のアクションの1つが必要です。アイテムの`toggle.offLight`は、オフの間に効果の光の代わりに発する光です。覆いを下ろした覆い付きランタンは`{ "bright": 0, "dim": 5 }`を発します。明るい光の届く距離がない光は、手に持っている場所でも薄暗い光だけを発します。
+
+ゾーンからの光と、暗闇を終わらせる光、不可視の者を見せる光です(Capability API 1.297)。呪文のゾーンの`lights`(ほかの`light`と同じくフィートで書きます)は、ゾーン自身のマスにだけ光を発し、その中心から測ります。中心は、バーストを発動した地点か、術者が保持するゾーンなら術者です。そのため、ブルズアイ・ランタンは術者に固定した60フィートのコーンで、`"lights": { "bright": 60, "dim": 60 }`を持ち、後ろは何も照らしません。Dancing Lightsは`{ "bright": 0, "dim": 10 }`を持つ1つの動く地点のゾーンです。`"obscures": { "darkness": true }`を持つ視界を遮るゾーンは魔法の暗闇で、`"dispelsDark": { "upTo": 3 }`を持つゾーンは、どちらかが発動されたとき、そのマスが接するそのような暗闇のうち、スロットがそのレベル以下のものをすべて終わらせます。Daylightです。ゾーン、アイテムの効果、状態、クリーチャーに付けた`"reveals": true`の光は、その明るい光の中に立つ、状態によって見えなくなっている全員を見せます。lantern of revealingです。これらのどれにもCapability API 1.297が必要です。
+
+状態で隠れる光と日光です(Capability API 1.298)。クリーチャーの`"lightOutWhile": ["invisible"]`は、それらの状態のどれかが付いている間、アクションが最後に何を設定したかにかかわらず自身の光を消し、状態が終わると元に戻します。ウィル・オ・ウィスプのInvisibilityは光も隠します。クリーチャー、アイテムの効果、状態、ゾーンに付けた`"sunlight": true`の光は、その明るい光を日光にします。判定や攻撃のモードの`"light": ["sunlight"]`が読むのはこれです。Sunlight Sensitivityに対するsun bladeがその例です。その日光は、すでに明るい盤面でも数えられます。
+
+光に対する魔法の暗闇です(Capability API 1.299)。`"dispelsLight": { "upTo": 2 }`を持つ魔法の暗闇のゾーン(`"obscures": { "darkness": true }`)は、両者が接する場所で、どちらが先に来たかにかかわらず、そのレベル以下の呪文が作った光を消します。ゾーンの`lights`や、呪文が付与した状態の`light`で、後者は集中で保持されている場合はその集中とともに終わります(5eのFlame Bladeに対するDarkness)。戦闘の光にかかわらず、魔法の暗闇のマスを照らすのは魔法の光だけです。ゾーンや状態への呪文の光は常に魔法の光で、そのほかの光は`"magical": true`を示す場合に魔法の光です(sun bladeのもの)。暗闇の中の松明はそこでは何も照らしません。`"within": 60`を持つ`dispelsDark`は、その中心からその距離以内の暗闇だけを終わらせます。Daylightの明るい球体で、その外側の薄暗い光は含みません。これらのどれにもCapability API 1.299が必要です。
+
+上位コストの増加を、一定の段階ごとにだけ行います(Capability API 1.300)。`"perCostStepsEvery": 2`は、上位コストの1段階ごとではなく2段階ごとに1回`perCostStep`を加えます。状態が与えるアクション(1.236)は、その状態を付与した呪文が支払われたコストに応じて、自身の`perCostStep`、`perCostStepsEvery`、`perCostStepsMax`で増えるようになりました。5eのFlame Bladeの打撃は`"perCostStep": { "dice": "1d6" }, "perCostStepsEvery": 2`を持つ`3d6`なので、4レベルのスロットで呼び出した刃は4d6で打ちます。`perCostStepsEvery`を使うにはCapability API 1.300が必要です。
+
+誰かとともに運ばれるゾーンと、離して置くコピーです(Capability API 1.301)。ゾーンの`"carried": "any"`は、誰かが立っているマスに置いたバーストを、その者を中心として、その者の行く先々について行かせます。5eの、手に持つ物体にかけたDarknessやDaylightです。`"own"`なら、術者自身の持つ物体にしかかけられない呪文のために、術者が立っているマスだけを数えます。空いたマスに置くと、そこに留まります。運ばれるゾーンは一点の単一のバーストで、自ら動かされることはありません。範囲の`"copiesWithin": 20`は、`copies`を接して置く代わりに、各中心が別のコピーの中心から20フィート以内になるように置きます。術者が`move`できるコピーのゾーンは、すべてを同じように動かします。5eのDancing Lightsは、`"copies": 4, "copiesWithin": 20`と`"lights": { "bright": 0, "dim": 10 }`を持つ10フィートのバーストです。どちらにもCapability API 1.301が必要です。
+
+別の項目を変える項目です(Capability API 1.302)。`"amends": [{ "entry": "spells/eldritch-blast", ... }]`を持つ、シートのリストで保持する項目は、持ち主がその項目を使うたびにそれを変え、複数の変更は重なります。`"damageAdd"`(`{ "abilityMod": "cha" }`のような値)は、命中ごとにそのダメージに加えます。Agonizing Blastです。`"range"`(ルールセットの距離)は、それが遠い場合に射程になります。Eldritch Spearの300フィートです。`"push"`は命中した者をその距離だけ真っすぐ押し出し、`"pushOptional": true`は「Eldritch Blast (no push)」としても提示します。Repelling Blastです。射程や押し出しには`combat.distance`が必要で、指定した項目が存在する必要があります。Capability API 1.302が必要です。
+
+特定の光の中でだけの使用と、移動や行動で終わる状態です(Capability API 1.303)。`"usableIn": { "light": ["dark", "dim"] }`を持つ項目は、使用者がそれらの光の中に立っている間だけ提示されます。One with Shadowsです。状態の`endsWhenHolder`は、`attacks`と`casts`に加えて、`"moves": true`(持ち主が移動すると終わる)や`"acts": true`(持ち主がアクションを取るか、攻撃するか、発動すると終わる)も指定できます。じっとしているウォーロックを影が隠します。Capability API 1.303が必要です。
+
+休息までクリーチャーごとに1回です(Capability API 1.304)。`"oncePerTarget": { "until": "long" }`(ルールセットが宣言する休息)を持つ項目は、間に何回戦闘があっても、使用者がその休息を取るまで、すでに使ったクリーチャーに対しては提示されません。Chains of Carceriです。誰に使ったかは使用者のライブのシートに名前で保持され、その休息だけがそれを消去します。範囲や使用者自身に向ける項目には使えません。Capability API 1.304が必要です。
+
+シートとともに増える標的と、同じ標的への再選択です(Capability API 1.305)。`"targetsScale": { "from": { "field": "level" }, "table": [[1, 0], [5, 1], [11, 2], [17, 3]] }`は、`scales`がダイスを加えるのと同じく、読む値の各段階でその数の標的を加えます。`"targetsRepeat": true`なら同じ標的を複数回選べ、各選択はそれぞれ独自のロールを持つ独立した攻撃で、項目を変更するすべてを持ちます。eldritch blastの光線で、それぞれにAgonizing Blastのダメージと、Repelling Blastの押し出しが付きます。戦闘の標的選択は、余地がある間クリックごとに光線を1本加え、戦闘員を操作するEngineは、残った光線を選んだ相手に向けます。どちらも、範囲や使用者自身に向ける項目には使えません。Capability API 1.305が必要です。
+
+手に呼び出す武器です(Capability API 1.306)。`"conjures": { "items": ["gear/longsword", ...], "proficient": true, "qualities": ["magical"], "binds": { "tags": ["magic"] } }`を持つ`"utility"`の項目は、それらの近接武器の1つを戦闘の残りの間、使用者の手に置きます。武器のモードと同じく使用時に選びます。`binds`は、一致する手持ちの各武器も提示し、選ぶとその武器がこれとして数えられます。`proficient`があれば習熟して使い、その打撃は`qualities`を持ちます。別の使用はそれを置き換え、結び付けた武器は元に戻ります。呼び出す項目への変更は武器にも届きます。変更の`"damagePlus": { "add": { "abilityMod": "cha" }, "type": "necrotic", "atLeast": 1 }`は命中時に独自の種類のダメージを加え(Lifedrinker)、`"strikes": 2`は攻撃の行動枠1回の消費でその数の攻撃を購入できるようにします(Thirsting Blade)。戦闘員を操作するEngineは、最も強く打つ武器を1回手に置きます。Capability API 1.306が必要です。Pact of the Bladeです。
+
+使用者自身が保つものです(Capability API 1.307)。クリーチャー自身のアクションは、カタログの項目と同じく`"concentration": true`を指定できます。付与したものはその集中が終わると終わり、ダメージは通常どおりその集中を試します。インプやクァシットのInvisibilityです。状態の`endsWhenHolder`は`"uses": ["scare", "spells/bolt"]`も指定できます。持ち主がそれらのどれかを使うと終わります。クリーチャー自身のアクションはIDで、カタログの項目は`<catalog>/<entry>`で指定します。クァシットの不可視は、Scareを使うと終わります。項目の`"appliesSelf": [{ "condition": "mote", "duration": { "rounds": 10 } }]`は、標的に何が起きても、使用時にそれらの状態を使用者自身に付与します。集中を持つ場合はその集中で保持され、発動したレベルで付与されます。Sunbeamの光の粒で、後の光線のために`light`と`"actions": ["spells/sunbeam-line"]`を持つ戦闘の状態です。常に不可視のクリーチャーには新しいものは何も要りません。`keepsOn: ["invisible"]`(1.263)が付けたままにします。Capability API 1.307が必要です。
+
+1.303～1.306の残りです(Capability API 1.308)。スクロールやワンドの`use`は、使用者のシートから読む`targetsScale`と`targetsRepeat`を持てます。eldritch blastのスクロールは読み手の5レベルで光線が1本増え、ワンドのダーツはすべてを1体のクリーチャーに向けられます。Capability API 1.308が必要です。次の3つの変更には新しいキーは要りません。リアクションは行動です。`endsWhenHolder`が`"acts": true`を示す状態は、持ち主が取るどのリアクションでも終わります。One with Shadowsが「リアクション」で終わるのと同じです。`oncePerTarget`は同じ名前の2体のクリーチャーを区別します。一方のインプへのChains of Carceriはもう一方のインプを除外せず、後の戦闘のインプが除外されるのは、その名前がその1体のクリーチャーのものだった場合だけです。手に呼び出す武器(1.306)は、投擲できる近接武器(短剣やジャベリンのように、`reach`と`range`の両方を持つ攻撃)でもかまいません。戦闘のメニューからアクションなしで消せ、作り手が死ぬと消えます。戦闘で手から離れることはないため、作り手から5フィートより遠くに離れることはありません。
+
+隠れるための条件、Feral Senses、不意打ち、結び付けの儀式です(Capability API 1.309)。`still`を持つ`hiding`は`"stillWhile": { "holds": "camouflaged", "wall": true }`を指定できます。ボーナスは、持ち主がその状態(1分のutility項目で事前に作るか、戦闘前に設定する迷彩)を持ち、`wall`があれば視線を遮るマスの隣に立っている間だけ数えます。これがHide in Plain Sightです。`"unseenStrikes": true`は、持ち主が見えない相手を攻撃するときの不利をなくします。Feral Sensesの前半です。後半には何も要りません。戦闘は、隠れていないすべてのクリーチャーの位置をすでに把握しているためです。`starts`を持つクリーチャーの`hiding`は`"surprises": true`を指定できます。ゼラチナス・キューブのTransparentと同じく、隠れた状態で戦闘を始めた相手は、不意を突かれた状態で戦闘を始めます。`binds`を持つ`conjures`は、`"boundIn"`でライブのテキストフィールドを指定できます。そこに書かれた手持ちの武器だけが結び付けられ、空の間は何も結び付けられません。そこに名前を書くことが、戦闘外の小休憩中に行う1時間の儀式にあたります。Capability API 1.309が必要です。
+
+繰り返しと、距離で終わる状態です(Capability API 1.310)。集中する項目のmechanicsは`"repeats": { "budget": "action" }`を指定できます。使用者がそれに集中している間、その効果はその行動枠で再び提示され、シートからは何も消費せず、新しい集中を始めず、使用者に何も再付与せず、発動時に支払ったレベルとコスト段階で働きます。メニューには「Vampiric Touch again」と表示されます。`"notSaved": true`は、この発動に対するセーヴに成功したクリーチャーには決して提示しません(Eyebite)。`"sameTargets": true`は、発動時に狙った相手にだけ提示します(ボーナスアクションのHeat Metal)。`repeats`には`concentration`と既知の行動枠が必要です。`applies`は`"endsAway": { "beyond": 60, "unseen": true }`を指定できます。持ち主が付与した者からその距離より遠くに立ち、`unseen`があればその者を見られなくなると、状態が外れます。これがEyebiteの恐慌です。誰の歩行であれ歩行の各歩と、各ターンの終わりに確認します。Capability API 1.310が必要です。
+
+1.307と1.309の残りです(Capability API 1.311)。アイテムの`use`は、項目のmechanicsと同じく`appliesSelf`を持てます。Sunbeamのスクロールは、光の粒と、それとともに後の光線を、読み手の手に残し、読んだときの集中で保持されます。クリーチャーのアクションは、`"dyingOnly": true`(体力が0でまだ生きているクリーチャーだけを選べます)、`"slaysOnFailedSave": true`(アクション自身のセーヴに失敗した標的は死亡します)、`"healsOnSlay": { "dice": "3d6" }`(死亡した1体ごとにクリーチャーがその分回復します)を指定できます。これがウィル・オ・ウィスプのConsume Lifeです。`slaysOnFailedSave`には`save`が、`healsOnSlay`には`slaysOnFailedSave`が必要です。`combat.conditions`の規則は`"endsWhenHolder": { "moves": true, "acts": true }`を指定できます。どのように付与されたものでも、持ち主が最初の一歩を踏み出すか(`moves`)、Hide以外の何か(リアクションを含みます)をすると(`acts`)、状態が持ち主とそのシートから外れます。これが、戦闘前にシートでチェックするHide in Plain Sightの迷彩です。Capability API 1.311が必要です。
+
+命中の周囲の雷鳴です(Capability API 1.312)。武器のモードは`"aroundHit": { "within": 30, "save": { "save": "con_save", "difficulty": 17 }, "condition": "stunned", "rounds": 1, "of": "source" }`を指定できます。そのモードで命中すると、命中した相手と、その相手から`within`以内に立つ全員が、セーヴするか`condition`を受けます。その距離に立っていれば、味方や使い手も含みます。`rounds`は対象自身のターンで数え、`of: "source"`なら使い手のターンで数えるため、`rounds: 1, of: "source"`は「次のターンの終わりまで」です。`of`には`rounds`が必要です。盤面がなければ、命中した相手だけがセーヴします。モードの`range`と`charges`と合わせると、これがチャージを使って投げるHammer of Thunderboltsです。そのGiant's Baneは、`when: "critical"`を持つ武器の`slay`です。Capability API 1.312が必要です。
+
+Maze、Expeditious Retreat、発動の選択肢、上限付きの能力値の加算です(Capability API 1.313)。`while`を持つ`dismisses`は`"turns": true`を指定できます。クリーチャーは戦闘の外にいますが、引き続きターンを取り、そのターンには、自分を遠ざけている状態を終わらせるものか、ターンを終えることだけが提示されます。`applies`は`"checkEnds": { "check": "intellect", "difficulty": 20, "passes": { "types": ["monstrosity"] } }`を持てます。持ち主は標準の行動枠を消費して、その数値に対する`combat.checks`のその判定を行い、状態を終わらせられます。`passes`に該当するクリーチャーはロールせずに成功します。これらを合わせると5eのMazeとそのミノタウロスになり、判定に成功すると元の場所に戻ります。項目のmechanicsは`"takes": ["dash"]`(または`disengage`、`dodge`)を指定でき、使用者は使用時にそれらの標準アクションを取ります。Expeditious Retreatは発動時にDashします。その後のボーナスアクションのDashは、その状態の`grants`によるものです。`repeats`は`group`を指定できます。1つのグループの項目は1回の発動の選択肢で、そのいずれかに集中している間は、そのすべてが再び提示されます。Eyebiteの睡眠、恐慌、不調と同じく、`notSaved`と発動のレベルは共有されます。アイテムの能力値の変更`{ "add": 4, "max": 30 }`は、すべての`set`が残す能力値に`max`まで上乗せし、すでにそれを上回る能力値を下げることはありません。`max`がなければ、加算は以前と同じく働きます。アイテムの`"binds": { "needsWorn": [{ "anyOf": ["magic_items/belt-of-hill-giant-strength", ...] }, { "anyOf": ["magic_items/gauntlets-of-ogre-power"] }] }`は、同じキャラクターが各グループのアイテムを1つずつ着用している間だけ結び付けられるようにし、そのアイテムが結び付ける場所で結び付け、そのどれかが外れるか、結び付けが解かれるか、袋から出ると、すぐに結び付けを解きます。`"worn": { "abilities": { "str": { "add": 4, "max": 30 } } }`と合わせると、これがHammer of Thunderboltsです。Capability API 1.313が必要です。
+
+Resilient Sphereです(Capability API 1.314)。`combat.conditions`の項目は`"sealed": { "rolls": { "budget": "action", "share": 0.5 }, "lifted": { "budget": "action" }, "brokenBy": ["spells/disintegrate"] }`を持てます。状態がある間、持ち主はほかの全員から隔離されます。ほかの誰も持ち主に何も向けられず、範囲やバーストは持ち主を素通りし、ゾーンやオーラも含め、ほかの誰からのものも持ち主を傷つけず、回復させず、状態を付与しません。持ち主のものもほかの誰にも届かず、移動するときに誰も持ち主を打撃せず、持ち主も誰も打撃しません。持ち主自身の移動量は0ですが、`rolls`があれば、その行動枠を消費して移動速度の`share`まで移動できます。`lifted`があれば、隣に立つ者がその行動枠を消費して持ち主を持ち上げられます。その後、持ち主は、運び手が下ろす(無料です)か状態が終わるまで、運び手が歩くところへついて行きます。`brokenBy`の項目は引き続き持ち主に向けられ、その効果の代わりに、状態とそれを保つ集中を終わらせます。球体へのDisintegrateです。項目のmechanicsは`combat.sizes`の1つである`"targetsUpTo": "large"`を指定でき、そのサイズ以下のクリーチャーにだけ向けられます。これがResilient Sphereの「Large以下」です。Capability API 1.314が必要です。
+
+住処アクションです(Capability API 1.315)。クリーチャーのアクションは`"lair": true`を、クリーチャーは`"lairInitiative"`(省略時は20)を持てます。クリーチャーが住処で戦っている間(その敵へのGMの`"inLair": true`か、遭遇の`inLair`リスト)、戦闘のカウントが住処の数値を過ぎるときに、1ラウンドに1回住処アクションを行い、同値では負けます。その数値が間に入る2つのターンの間、全員がその数値以上ならラウンドの最後のターンの後、全員がそれ未満なら最初のターンの前です。同じ住処アクションを2ラウンド続けて行うことはできません。住処アクションは自身のターンと同じく狙って解決し、その`budget`はそのために貸し出されるため、クリーチャー自身のターンからは何も消費しません。クリーチャー自身のターンのメニューに出ることはなく、クリーチャーがダウンしているか行動できない間は行いません。住処アクションはリアクションでもポイントで購入するものでもなく、連続行動が指定することもありません。`lairInitiative`には少なくとも1つの住処アクションが必要です。5eのドラゴンはイニシアチブ・カウント20で住処アクションを行います。
+
+小道具です(Capability API 1.316)。盤面上の戦闘には、壊せる小道具を置けます。遭遇の`board.props`か、描いたワールドの戦場の`props`です。それぞれ`label`、占める`cells`、`health`、`defense`(省略時は10)を持ち、任意で`resist`、`vulnerable`、`immune`のダメージの種類を持ちます。`blocks`は、小道具がある間、そのマスを歩行(`move`)、視線(`sight`)、またはその両方に対して閉じ、誰もその中で戦闘を始めません。`fragile`の小道具は、命中するどんなものでも壊れます。壁の区画を攻撃できる攻撃は、代わりに小道具を攻撃できます。小道具は選択肢の`walls`に列挙され、選択の`wall`がそのマスを指定します。範囲は届くすべての小道具を巻き込み、ほかの全員に対して振ったのと同じダメージを与えます。小道具は決してセーヴしません。0になった小道具は壊れ、もう何も閉じず、そのラベルが盤面の`broken`リスト、戦闘の要約、GMが読む振り返り(`Broken: Sluice Gate; Oil Jar`)に加えられます。物語の`broke`トリガーがそれで発動します。
+
+Legendary Resistanceです(Capability API 1.317)。クリーチャーの`"legendaryResistance": 3`は、1回の戦闘で最初の3回の失敗したセーヴを成功に変えます。5eの「ドラゴンがセーヴィング・スローに失敗したとき、代わりに成功することを選べる(1日3回)」です。Engineは、状態が自動的に失敗させるセーヴも含め、どのセーヴでも常にそれを選びます。クリーチャーがダウンしている間は選びません。セーヴは振ったとおりに記録され、続いて代わりに成功したことと残り回数を示す行が記録されます。値は1～20の整数です。
+
+アイテムの使用も`"targetsUpTo"`を持てます(Capability API 1.317)。項目のmechanicsが1.314から持てるのと同じです。Resilient Sphereのスクロールの`"targetsUpTo": "large"`は、そのサイズ以下のクリーチャーにだけ届きます。`combat.sizes`を読み、範囲ではなくクリーチャーに向ける使用向けです。
+
+盤面のイベントと茂みです(Capability API 1.318)。戦闘の盤面は、ラウンドの経過とともに自ら変化できます。遭遇の`board.events`か、描いたワールドの戦場の`events`です。各イベントは`id`と任意の`label`を持ち、`at`で`"round-start"`か`"round-end"`に起こり、`from`のラウンドから(省略時はラウンド開始なら2、終了なら1)、`every`のラウンドごとに(1)、指定があれば`until`のラウンドまで起こります。`where`はそのマスを指定します。`cells`、`block`(`x`、`y`、`w`、`h`)、マス(`x`、`y`)を囲み、最初は`start`マス、以後は毎回さらに`step`マス広がる`ring`、同じ`start`と`step`で1つの端(`from`に`north`、`south`、`east`、`west`)から内側へ進む`sweep`、または茂みに隣接するすべての空いたマスである`{"spread": "growth"}`です。環や掃引は、最初も含め、深さ`step`マス(最低1)の最も新しい帯にだけ届くため、`start`が3の環は中央をそのままにします。`filled`は内側のすべてに届きます。`onlyOn`は、それらの地形のマスに限ります。`change`はそこで起こることを示し、次のうち少なくとも1つです。`terrain`、`height`(0～3)、`light`(`bright`、`dim`、`dark`、`sunlight`、`clear`)、`obscured`(`light`、`heavy`、`clear`)、`growth`(trueかfalse)、`season`(名前か、外すならnull)、`rotate`(正方形の`block`のみ。タイル、高さ、地面、完全にその中にある小道具、完全にその中に立つ者とともに、時計回りに1、2、3回の4分の1回転をします)、そして通常の行の代わりにログが示す行である`tell`です。誰も立てない場所(割れて水になった氷)に残った者は、最も近い空いたマスに移されます。盤面は最大32個のイベントを持てます。
+
+運ばれることです(Capability API 1.329)。盤面のイベントの`change`は`push`も指定できます。`{"toward": "east", "squares": 3}`(端は`north`、`south`、`east`、`west`で、1～6マス)のように書きます。そのマスの地面に立つ者は、その方向へ1マスずつ運ばれます。盤面の外、壁や閉じた小道具の中、誰も立てない地面、ほかの者の中へは決して運ばれず、それで誰かに打撃されることもありません。その端に最も近い者から先に運ばれ、空中にいる者はそのままです。ログは誰を運んだかを示します。The Mill of Hoursの水路です。または同じ形の`drift`もあります。そのマスの視界を遮るもの(軽度でも重度でも)がその方向へ吹き流され、`block`の反対側から、ほかの`where`なら盤面の反対側から戻ってきます。マスのほかのものは動かず、軽度のものが吹き寄せられても重度のものはそのままです。The Leaffallの吹き寄せです。描いた戦場のイベントは両方を取れます。
+
+茂みのあるマスは、入るコストが2倍で(ほかの移動困難な地形を超えません)、その中に立つ者を軽度に視界不良にします。茂みを切るダメージの種類(盤面の`growth.cutBy`が別に示さない限り斬撃)の打撃は、届く茂みのマスに向けられ、選択肢の`walls`に列挙されます。ロールなしでそのマスを切り開き、アクションを消費します。茂みを焼くダメージの種類(`growth.burnedBy`が別に示さない限り火)のダメージは、着弾したすべてのマス(範囲の届く全体か、命中した者のマス)の茂みを焼き払います。`"clears": "growth"`と`area`を持つ項目のmechanicsやアイテムの使用は、その範囲の茂みを取り除きます。剪定ばさみは`{"kind": "utility", "area": {"shape": "box", "size": 15}, "clears": "growth"}`です。遭遇の`board.ground`は、開始時にマスに茂み、光、視界不良、季節を描きます。ワールドの戦場は、茂みを`g`と`.`の`growth`の行として、季節をExperiencesと同じように描きます。
+
+日陰、光の規則、チャイム、光を嫌う者です(Capability API 1.319)。`"shade": true`を持つ光は日陰を作ります。その`dim`が届く範囲は薄暗い光になり、そこでは、ほかの何が照らしていても、明るい光や日光も薄暗くなります。明るい光は持たず、`reveals`でも`sunlight`でもありません。日陰が魔法の暗闇の中に届くことはありません。ショーケースのLantern of Duskは、`{"light": {"bright": 0, "dim": 15, "shade": true}}`で持ち運ぶアイテムです。マス自身の光(1.318)と日陰は、そこで目が読むものでもあります。明るい盤面でも、暗いマスに立つクリーチャーは、暗闇で見える感覚でしか見えません。
+
+戦闘の盤面は光の規則を持てます。遭遇の`board.lightRule`か、描いたワールドの戦場の`lightRule`です。各ラウンドの終わりに、その光(`in`。指定がなければ明るい光と日光で、明るい光は日光を含みます)の1つの中に完全に立っている全員は、そこでのラウンド終了を1回数え、`rounds`回目(指定がなければ1)ごとに、その`tracks`が`by`だけ動き、その`applies`の状態が付与されます。外に出ると、1マスの日陰に入るだけでも数え直しになります。`spares`は、決して影響しないクリーチャーの`types`と`tags`を指定します。シートが持つトラックを動かさず、戦闘が知る状態も付与しない規則は何もしないため、取り除かれます。Noonfieldは`{"label": "Noonfield", "rounds": 10, "tracks": [{"track": "exhaustion", "by": 1}]}`で、日なたに1分いると消耗が1段階増えます。
+
+光の規則のセーヴです(Capability API 1.321)。光の規則の`save`(`save`、`difficulty`)は、影響を受けそうな各クリーチャーが振り、成功すれば今回は免れます。どちらの場合も数え直しになります。その`against`(戦闘が知る`conditions`、`damage`の種類)は、そのセーヴが何に対するものと数えるかを示すため、一致する`against`を持つセーヴ修正値が適用されます。`{"to": "saves", "mode": "advantage", "against": {"conditions": ["noon_light"]}}`で着用または携帯する麦わら帽子がその例です。トラックの項目の`upTo`は、規則がそれを動かす上限で、それを超えるはずの消耗はそこで止まり、上限に達するともう加わりません。書かれたとおりのNoonfieldは`{"label": "Noonfield", "rounds": 10, "tracks": [{"track": "exhaustion", "by": 1, "upTo": 3}], "save": {"save": "con_save", "difficulty": 12, "against": {"conditions": ["noon_light"]}}}`で、帽子が指定するための`noon_light`の状態をExperienceが加えます。
+
+リアクションとしてのアイテムの使用です(Capability API 1.322)。アイテムの`use`(またはその`moreUses`の1つ)は、カタログの項目と同じ書き方で`reaction`を持て、その場合はその瞬間が開いたときだけ提示され、ほかの使用と同じく、`budget`(持ち主のリアクション)と、チャージかアイテム自体で支払います。Liesl's Coffinは、1日1回、持ち主から5フィート以内のクリーチャーが命中を受けたとき、その命中に対しても、持ち主の次のターンの開始までそのクリーチャーにAC+5を与えます。`"charges": {"max": 1, "recharge": {"rests": ["long"], "amount": "max"}}`を持つアイテムに`{"kind": "buff", "budget": "reaction", "targets": "any", "charges": 1, "reaction": {"on": "hit", "at": "target", "for": "any", "within": 5}, "applies": [{"condition": "coffin_ward", "duration": {"rounds": 1, "at": "turn-start", "of": "source"}}]}`を付けます。The Straw Proxyは、所有者を狙った攻撃を失わせ、身代わりは燃え尽きます。`{"kind": "buff", "budget": "reaction", "targets": "self", "consumes": true, "reaction": {"on": "aimed", "cancels": true, "for": "self"}}`です。アイテムの使用はその瞬間を指定します。`"reaction": true`は拒否されます。
+
+Held Groundと刈り取りです(Capability API 1.323)。戦闘は、死が留め置かれる場所であるHeld Groundで行えます。物語の地域の規則が渡す、戦闘の`heldGround`(`label`、`condition`、`[{"track", "by"}]`の形の`marks`)です。そこでは、体力がなくなった者は、死亡やダウンの代わりに倒れ伏します。敵は戦闘から脱落し、キャラクターは安定した状態で横たわり、死亡のロールを振らず、傷を受けても失敗を受けず、通常どおり回復できます。倒れ伏した者はその`condition`(キャラクターはルールセット自身のダウン状態も)を受け、シートを持つ者はそれぞれ`marks`のトラックを動かします。ショーケースのOwingの印です。即死させるものも、代わりに倒れ伏させます。クリーチャーのアクションやアイテムの攻撃で`reaps`する打撃は、倒れ伏させた者を刈り取ります。その者はダウンしたままで、状態も印も受けず、刈り取られたキャラクターは死亡します。Reaping Hookは、`attack`に`"reaps": true`を持つ武器です。倒れ伏した戦闘員と刈り取られた戦闘員は`felled`と`reaped`を持ち、物語が後で倒れ伏した者を蘇らせるために使います。
+
+Held Groundの解除です(Capability API 1.330)。物語は、年が変わるときのように、戦闘の途中でHeld Groundを解除できます。ディレクターの`releaseRulesetHeldGround(definition, state, release)`(その下では共有の`rulesetReleaseHeldGround`)です。以後、体力がなくなった者は、ほかの場所と同じく死亡するかダウンします。刈り取られていない倒れ伏した者は、敵もキャラクターも死亡します。ただし、`release.felled`が`"down"`なら、キャラクターは代わりにダウンし、ルールセット自身の規則で瀕死を始めます。`release.owing`(`{"track"?, "bonus"?}`。トラックは省略時、Held Groundで最初に印を付けるもの)があれば、各キャラクターのそのトラックの印が清算されます。印1つにつきルールセットの瀕死セーヴを1回、それぞれに`bonus`を加えて(パーティーのDebts Settled)、印が尽きるか結果が決まるまで、瀕死の規則のとおりにナチュラルの出目を扱って振ります。その後、印は消費されます。3回の失敗(失敗トラックの上限)で死亡します。ログは誰が死亡し、誰がダウンしたかと、各キャラクターのロールを示します。Held Groundでない戦闘はそのままです。
+
+クリーチャーの範囲と地面です(Capability API 1.324)。`area`を持つクリーチャーのアクションは、カタログの項目のゾーンと同じ書き方(`rounds`、`triggers`、`obscures`、`terrain`など)の`zone`で、その範囲を場に残せます。The OwedのFreezing Fog、Scatter Flourの小麦粉の立方体、凍って移動困難な地形になる地面などです。`"untilLair": true`を持つゾーンは、`rounds`で先に終わっていなければ、作り手の住処のカウントが次に来たとき、その住処アクションを選ぶ前にも終わります。「次の住処アクションまで」です。クリーチャーのアクションは、代わりに`ground`で、範囲が覆う地面を永続的に変えることもできます。盤面のイベントの`change`と同じ書き方(`terrain`、0～3の`height`、`light`、`obscured`、`growth`、`season`、ログ用の`tell`)です。焚き火が消えかかる(`"light": "dark"`)、氷が割れる(`"terrain": "water"`)などです。誰も立てないマスに残った者は、最も近い空いたマスに移されます。どちらにもアクションの`area`が必要で、`ground`は何かを変える必要があります。どちらかを使うか、どこかで`untilLair`を使うルールセットにはCapability API 1.324が必要です。
+
+戦闘に呼び込まれるクリーチャーです(Capability API 1.325)。クリーチャーのアクションは`"calls": { "creature": "creatures/zombie", "count": { "dice": "1d4" } }`を指定できます。使用時に、指定したベスティアリのクリーチャー(ルールセットのカタログか、戦闘に渡されたベスティアリの`"<catalogId>/<entryId>"`。`count`は`{"dice"}`、`{"flat"}`、またはその両方で、毎回最大8体)がその数だけ使用者の側で戦闘に加わります。戦闘が自身のクリーチャーを組み立てるのと同じく組み立てられ、1体ずつ名前が付きます(「Zombie 1」、「Zombie 2」)。`area`があれば狙った場所に置かれ、そこが埋まると余地がある限りその近くに置かれます。なければ呼び出し手の隣に置かれ、アクションは誰にも向けません。加わったクリーチャーは自身のイニシアチブを振り、順番に加わります。このラウンドのターンがすでに過ぎた位置なら、次のラウンドからです。`"initiative": "after"`なら、代わりに呼び出し手のターンのすぐ後にターンが来ます。住処アクションも呼び出せ(Shelves Lean)、そのカウントが間に入ったターンはそのまま続きます。戦闘開始時にどこにも見つからないクリーチャーは誰も呼び出さず、戦闘に加われるのは最大40体です。ログは誰が来たかを示します。`calls`を使うルールセットにはCapability API 1.325が必要です。
+
+クリーチャーへ引き寄せられることです(Capability API 1.326)。クリーチャーのアクションは`"draws": { "spends": "reaction" }`を指定できます。命中した者(`save`があれば失敗した者だけ)は、その場でその行動枠を消費し、クリーチャーに最も近い、到達できるマスへ空いた道を通って、移動速度までクリーチャーに向かって歩きます。打撃は誘発しません。その行動枠が残っていない者や、それ以上近づけない者は何も消費せず、その場に留まります。The OwedのWhisper a Nameです。`spends`は行動の経済の行動枠の1つです。`draws`を使うルールセットにはCapability API 1.326が必要です。
+
+住処のタイミングです(Capability API 1.327)。`"actedOnly": true`を持つクリーチャーのアクションは、このラウンドにすでにターンを始めた者(進行中の者を含みます)にだけ向けられます。戦闘の最初のターンの前、住処が全員より先に行動する間は、誰もまだ始めていません。これがHour Bellの「このラウンドにすでに行動したクリーチャー1体」です。状態の持続時間は、その`rounds`に`"untilLair": true`を加えられます。付与した者が次に自分の住処のカウントに来たとき、その住処アクションを選ぶ前にも外れます(Hour Bellの「次の住処アクションまで」)。`concentration`で保たれるクリーチャーのアクションは、自身の住処アクションの1つを`"brokenNextLair"`として指定できます。その集中が破られると(被害、ダウン、ゾーンの効果によるもので、持ち主が自ら終えたり別の集中を始めたりした場合は除きます)、前のラウンドに何を行ったかにかかわらず、その住処アクションが次に行うもので、提示される唯一のものになります。行った後は、再び自由に選べます。Father IvoのLitany of Keepingと、棚が傾くことがこれにあたります。これらのどれかを使うルールセットにはCapability API 1.327が必要です。
+
+状態によって動くセーヴ難易度です(Capability API 1.328)。状態の変更`{ "to": "save-difficulty", "flat": -2 }`は、持ち主がそれを持つ間に求めるすべてのセーヴの難易度を動かします。アクション自身のセーヴと、それらのアクションが付与したものを終わらせるセーヴに与えられるセーヴ難易度です。`flat`の量だけを取り、ほかは取りません。判定の難易度、集中セーヴ(ダメージで決まります)、アクションが戦闘に呼び込むクリーチャーには決して影響しません。Miller of HoursのUn-ageは、呪文セーヴ難易度を2下げます。これを使うルールセットにはCapability API 1.328が必要です。
+
+小道具と糧です(Capability API 1.331)。戦闘の状態は`"whileNearProp": {"prop": "Year-Wheel", "within": 10}`を指定できます。持ち主がそのラベルの立っている盤面の小道具から(ルールセット独自の)その距離以内に立っている間だけ有効で、ほかの場所や、その小道具が壊れた後は、終わらずに抑えられます。盤面のない戦闘では有効です。WheelのFavourです。クリーチャーのアクションのバーストの`area`は`"aroundProp": "Shelf"`を指定できます。どこを狙っても、そのラベルの立っている小道具から`size`以内のすべてのマスを、その向こう側も含めて覆います。Granaryの棚の列の周りのShelves Leanです。オーラは`"feeds": 15`を指定できます。オーラが届く者が倒れ伏すか、ダウンするか、殺されるたびに、持ち主はそのヒットポイントを回復します。オーラはこれだけを行うこともできます。The OwedのCollectorです。これらのどれかを使うルールセットにはCapability API 1.331が必要です。
+
+再点火、落下、小道具のそばでの使用です(Capability API 1.332)。盤面の小道具(遭遇の`board.props`か、戦場に描いたもの)は`"relight": {"light": "bright", "squares": 2, "budget"?: "action"}`を指定できます。それから`squares`以内のどれかのマスが、戦闘の読む光でその光になっていない間、その隣に立つ者には、その行動枠(指定がなければ`action`)で「Light it again」が提示され、それらのすべてのマスにその光を付けます。Bonfire Guttersの後のThe Owedの焚き火です。クリーチャーのアクションの`ground`は、`terrain`とともに`"occupants": "stay"`を指定できます。地面が誰も立てないものに変わる場所に立つ者は、最も近い空いたマスに移される(デフォルトの`"shove"`)代わりに、そこに留まり、氷を割って水に落ちます。カタログの項目やアイテムの使用は`"usableNear": {"prop": "Year-Wheel", "within": 5}`を指定できます。使用者が、IDかラベルで指定した立っている小道具からその距離以内に立っている間だけ提示され、盤面のない戦闘では提示されません。Year-WheelでのFennickのHymnalです。1.332から、`whileNearProp`、`aroundProp`、`usableNear`はすべて同じ方法で小道具を指定します。ID(`"p1"`)か、大文字と小文字、先頭の「the」、英字と数字以外のすべてを無視して緩やかに読むラベルです。そのため`"Year-Wheel"`は「The Year-Wheel」というラベルの小道具を見つけます。`usableNear`や`occupants`を使うルールセットにはCapability API 1.332が必要です。
+
+戦闘の盤面のアートです(Capability API 1.333)。戦闘の盤面は盤面パックから描けます。マスのグリッド(RPG Maker風の見た目なら48ピクセル)上のPNGシートで、固定のIDの下にタイルを持ち、Pixelforgeで作ってライブラリーに保存します(`POST /api/game-tile-packs/boards`)。`bt_plains`、`bt_forest`、`bt_mountain`、`bt_ruin`、`bt_water`、`bt_wall`が地形で、それぞれ最大8つのバリエーションをマスごとに選ぶか、マスより大きい1つの模様を盤面に敷きます。`bt_edge_water`と`bt_edge_wall`は、Pixelforgeの`edge_`ブロックと同じく4×4マスに並べた16個のピースからなるデュアルグリッドのブロックで、水と壁を隣の平地になじませます。`bt_height1`～`bt_height3`は、高くなった地面の縁です。`bo_dim`、`bo_dark`、`bo_sunlight`、`bo_fog_light`、`bo_fog_heavy`、`bo_growth`、`bo_ice`(冬のマス)、`bo_zone`、`bo_aim`、`bo_reach`は、現在の色付けの代わりにマスの上に描かれます。小道具のスプライトは、そのマスにまたがる`bp_<name>`(小道具の`"art": "bp_bonfire"`か、省略時は、先頭の「the」を除いたラベルの小文字の語を`_`でつないだもの。「The Year-Wheel」なら`bp_year_wheel`)で、壊れた後は`bp_<name>_broken`です。描いた戦場や遭遇の盤面は`"pack": "local/<id>"`でパックを指定できます。指定がなければ、環境に応じたライブラリーのパック(パックの`environment`)、次に組み込みの`board/<environment>`、次に現在の描き方で描かれ、小道具はライブラリーの小道具パック(`"environment": "props"`)、次に組み込みの`board/props`からも探します。パックにないタイルは現在の描き方で描かれます。カタログのゾーンは`"art": "bz_<name>"`を指定できます。覆うすべてのマスを盤面のパックのそのタイルで描き、なければ`bo_zone`で描きます。ゾーンの`art`を使うルールセットにはCapability API 1.333が必要です。
+
+アイテムによるターンの追加です(Capability API 1.334)。アイテムの使用は、カタログの項目のmechanicsと同じく`"gives": [{"budget": "action", "count": 1}]`を指定できます(Action Surge)。使用すると、使用者にその分のターンを即座に与え、付与先で上限に収めるため、後のために取っておくものはありません。ボーナスアクションで食べるTime-Flour Loafは、今すぐアクションを1回増やします。これを使うルールセットにはCapability API 1.334が必要です。
+
+休息で消費するダイスです(Capability API 1.335)。休息は`"dice": {"pool": "hit_dice", "die": {"field": "hit_die"}, "add": {"abilityMod": "con"}, "heals": "hp", "extra"?: {"die": {...}, "add"?: {...}}}`を指定できます。GMの`[sheet: op="rest" rest="short" dice="2"]`(またはパーティー全体に対するもの)は、休息が定めることを行う前に、まず`pool`からその数を消費し、各ダイス(`die`は任意の値か、「d8」と書いた列挙型フィールド)に`add`を加えて振り(ダイス1個あたり0未満にはなりません)、その分を魔法でない回復として`heals`に戻します。`extra`は、何かを消費した全員に対する追加のダイス1個です。`die`の面数が最も多いパーティーのメンバーが、各人のためにそれを振り、自分の`add`を加えます。5eのSong of Restと、`add`が読むアイテムのステータスとして各ダイスに+1するPell's Brown Teapotがこれにあたります。休息の`dice`を使うルールセットにはCapability API 1.335が必要です。
+
+複数のプールにわたる休息のダイスです(Capability API 1.337)。休息の`"dice"`はリストにでき、プールごとに1項目で、それぞれ独自の`die`、`add`、`heals`、`extra`を持ちます。`[{"pool": "hit_dice_d10", "die": {"const": 10}, ...}, {"pool": "hit_dice_d6", "die": {"const": 6}, ...}]`のように書くと、ファイター1/ウィザード1はd10とd6を消費します。`[sheet: op="rest" rest="short" dice="N" pool="hit_dice_d6"]`はそのプールからだけ消費します。`pool`がなければ、ダイスはダイスが残っている最初に列挙したプールから、次に次のプールから消費し、全体で足りなければ何も消費せずに拒否されます。追加のダイス(Song of Rest)は、それを持つ最初の項目のもので、消費全体で1回振り、最初のプールが消費したダイスの回復先を回復します。後のプールだけが支払う場合でも振られます。ゲーム中、休息のダイスは各キャラクターが携帯するものを読むため、`add`や追加ダイスの`add`の`itemStat`も数えられます。Pell's Teapotは`{"itemStat": {"stat": "song_of_rest_add", "from": "carried", "pick": "max", "default": 0}}`です。ここにリストを持つルールセットにはCapability API 1.337が必要です。
+
+アイコンです(Capability API 1.338)。カタログの項目とシートの状態は、`"icon": "ic_poison_cloud"`でアイコンを指定できます。ゲームのアイコンパック(種類が`icons`の盤面パック。packages/server/src/assets/board-packs/README.mdを参照)のタイルです。指定がなければ、Engineは派生した名前を探します。状態は`ic_cond_<id>`、アイテムは`ic_item_<entry id>`(GMが作ったアイテムなら`ic_item_<name>`)、そのほかのカタログの項目は`ic_<catalog id>_<entry id>`(`ic_spells_fireball`)で、ハイフンは`_`にします。どちらもなければ、現在の文字やテキストを表示します。アイコンを指定するルールセットにはCapability API 1.338が必要です。
+
+集中が破られたときの住処アクションのリストです(Capability API 1.336)。`"brokenNextLair"`は1つの代わりに、自身の住処アクションをそれぞれ1回ずつ並べたリストにできます。`["shelves_lean_north", "shelves_lean_south"]`のように書きます。その集中が破られると、前のラウンドに何を行ったかにかかわらず、次の住処アクションはそのうちの1つでほかのものではなく、クリーチャーを操作する者がどれかを選びます。Engineが操作するクリーチャーは、最も多くの敵を巻き込むものを選び、同等のものの間ではほかと同じく評価します。行った後は、再び自由に選べます。ここにリストを持つルールセットにはCapability API 1.336が必要です。
+
+`"alerts": 15`を持つ状態や、着用または携帯するアイテムは、持ち主からその距離以内で隠れて移動する者の居場所を明かします。その者は誰からも隠れていない状態になり、持ち主が居場所を明かしたと記録されます。ショーケースのWind-Chimeは`{"alerts": 15}`で携帯するアイテムです。クリーチャーの`"stillIn": ["bright"]`は、そのマスのどれかがそれらの光の中にある間、移動できないようにします。そこではメニューに歩行がありません。ショーケースのLantern-Shyです。
+
+大きくなるオーラ、上限のある拘束、引きはがすこと、しがみつくことです(Capability API 1.320)。オーラの`"grows": {"by": 10, "upTo": 40}`は、持ち主の各ターンの開始時に`by`だけ遠くまで届き、`distance`より大きい`upTo`を超えません。ログは今どこまで届くかを示します。その`harms`は`"on": "their-turn"`を指定でき、持ち主のターン開始時に一度に与える代わりに、オーラが届く各者のターン開始時に与えます。`"lingers": true`は、もう届かなくなった者に広げたものを、その者の次のターンの開始まで残し、それまでに再び届けばオーラが再び保持します。The OwedのFrost Debtは`{"distance": 20, "side": "enemies", "conditions": ["no_heal"], "grows": {"by": 10, "upTo": 40}, "lingers": true, "harms": {"dice": "2d6", "type": "cold", "on": "their-turn"}}`です。
+
+アクションが付与するものは`"heldAtMost": 2`を持てます。出所がほかにその数の者をそれで拘束している間は、3人目には付与されません(付与されなかったと記録されます)。The OwedのGraspsです。状態の`shakeOff`に`"self": true`があれば、持ち主も判定なしで行動枠を消費してそれを終わらせられます。Seed Hopperは`{"budget": "action", "self": true}`で、拘束された者かその隣の味方が引きはがします。クリーチャーの`"hangsOn": {"uses": 1, "extraTurn": true, "label": "Hourglass"}`は、即死させるものに対してでなければ、1回の戦闘で`uses`回まで、0に落ちる代わりに1ヒットポイントで残ります。`extraTurn`があれば、それが起きたターンの直後に自身のターンを取り、そのターンが終わると順番は元どおりです。
 
 選択画面はこのブロックを1行で表示します。そのほかの読み手は、ルールセットが選んだブロックで決まります。
 
@@ -557,6 +1141,37 @@ HPを数えないシステムも多くあります。前より悪い段階のマ
 語彙は限定され、上記以外のキーや値は黙って無視せず拒否します。
 
 `cost`は戦闘外でGMの`use`コマンドが支払うものでもあります。次の節で説明します。
+
+### シートコマンド: 永続的な成長(Capability API 1.142)
+
+ルールセットは`sheet.advancement`で、永続的なビルドの変更を受け入れられます。
+
+```json
+"advancement": {
+  "fields": ["xp", "level", "humanity", "discipline"],
+  "abilities": true,
+  "skills": true,
+  "saves": true,
+  "text": "Award XP at the end of a session; change other values only when earned."
+}
+```
+
+シートが数値かテキスト(`text`または`longtext`)として宣言するフィールドIDだけを、最大24個含めてください。真偽値は、それぞれすべての能力値、スキル、セーヴを許可します。省略するかfalseなら許可しません。空の許可、不明なフィールド、未対応のフィールド型、不明なキーはインポート時に拒否されます。`text`は、プロンプトに安全な最大400文字の任意のガイダンスです。`advancement`がなければ、既存のコマンドは以前と同じく動作し、すべての`advance`要求は拒否されます。
+
+```
+[sheet: op="advance" field="xp" by="250" who="party"]
+[sheet: op="advance" field="xp" to="1200"]
+[sheet: op="advance" field="humanity" by="-1"]
+[sheet: op="advance" field="discipline" to="Auspex"]
+[sheet: op="advance" ability="str" by="1"]
+[sheet: op="advance" ability="str" to="16"]
+[sheet: op="advance" skill="stealth" tier="expert"]
+[sheet: op="advance" save="will" tier="trained"]
+```
+
+対象をちょうど1つ指定してください。フィールドと能力値は`by`か`to`のちょうど1つを取り、テキストは`to`だけを取ります。名前と段階は、大文字と小文字を区別せずにIDかラベルに一致させます。スキルとセーヴは`resolution.proficiencyTiers`で宣言した任意の段階を受け付けます。数値フィールドは`integer`、`min`、`max`に従い、能力値は整数の範囲に従い、テキストは`maxLength`に従います。無効な値は黙って範囲に収めず、範囲を示す`bad-amount`の理由とともに拒否されます。成長が無効な場合、許可されていない対象、不明な名前、不明な段階も拒否されます。書き換えたタグは`result`と、`now`に新しい値を持ちます。プレイヤーには`who`を省略し、曖昧さのないすべてのパーティーカードには`who="party"`を使います。一部が拒否された場合は、どのカードが成長できなかったかを示します。
+
+Engineは、プレイヤーの編集と同じメタデータの保存先を通じてゲームのカードにビルドを保存し、シートのバージョンを保ち、新しいビルドから派生値を再計算します。ライブラリーのカードは変わりません。ライブのコマンドと同じく、別のスワイプや再生成した返信は、置き換わる返信の変更より前から始まります。各返信は、成長のない返信も含め、終了時のビルドを記録します。スワイプを選ぶとそのスナップショットを復元し、最新の返信を削除すると直前のスナップショットが現れます。古い返信を削除しても、後のスナップショットはその後の返信が取り除かれるまで有効なままです。続きの生成は同じ返信のスナップショットを更新します。取り消しは、記録された結果とまだ一致する値だけを変えるため、後のプレイヤーの編集は残り、無関係な編集があってもXPの付与を取り消せます。
 
 ### `use`コマンド: 指定した価格をGame Masterに支払わせる
 
@@ -576,7 +1191,23 @@ GMは描写しながら`[sheet: ...]`でシートを更新します。`spend`、
 - 項目の`mechanics.cost`の全要素です。ライブプール指定ならそのプールから払い、プールグループなら宣言順で最初に支払えるプールから払います。グループは必ずしも段階表ではないため、上位プールへ自動的に繰り上げることはありません。
 - 加えて、同じ項目が書いた全リスト行プールから1回分を消費します。上の`Last Ember`の2行目のような特性の使用回数です。最大値0のカウンターには使える回数がなく、無料で通さずコマンドを拒否します。
 
-`pool=`は上位発動です。同じ単一の価格を、同グループの別プールから払います。コストが厳密に1要素で、指定プールがそのグループに属する場合だけ受け付けます。それ以外は解釈し直さず拒否します。
+`pool=`は上位発動です。同じ単一の価格を、同グループの別プールから払います。コストが厳密に1要素で、指定プールがそのグループに属するか、そのグループの支払いを引き受ける場合だけ受け付けます。それ以外は解釈し直さず拒否します。
+
+**ほかのグループの支払いを引き受けるプール**(Capability API 1.171)。ライブのプールの`pays`は、そのコストも支払えるほかのグループを最大4つ指定します。支払いは自身の段階(その`level`か、自身のグループ内の位置)で行い、自身より高い段階のコストは支払いません。5eのパクト・スロットは、マルチクラスのウォーロックと同じく、呪文スロットでコストを定めた呪文を支払えます。
+
+```json
+{
+  "id": "pact_slots",
+  "label": "Pact Slots",
+  "group": "pact",
+  "max": { "field": "pact_slot_count" },
+  "level": { "field": "pact_slot_level" },
+  "pays": ["slots"]
+}
+```
+
+戦闘は、このようなプールを、呪文自身のグループの上位プールと並べて提示し、そこからの支払いは、その段階が呪文の段階を上回る分だけ呪文を段階的に強化します。3レベルのパクト・スロットは、3レベルのスロットと同じくMagic Missileを支払います。自身のプールが空の使用も、上位のプールかその支払いを引き受けるプールからだけ支払う形で提示されるため、1レベルのスロットがなくなった後は、1レベルの呪文を2レベルのスロットで発動できます。項目の`mechanics`の`targetsPerCostStep`(1.171、1～10)は、上位に支払った1段階ごとにその数の標的を加え、最大20です。Hold Personは`"targetCount": 1,
+"targetsPerCostStep": 1`です。
 
 一括で成否を決めます。どれか1つでも払えなければ全コマンドを拒否し、何も変えずプレイヤーへ通知します。初級呪文や常時特性など、コストがまったくない項目は受け付け、何も変更しません。
 
@@ -594,15 +1225,456 @@ GMは描写しながら`[sheet: ...]`でシートを更新します。`spend`、
 { "schemaVersion": 1, "catalog": "knacks", "entries": [] }
 ```
 
-独立したカタログファイルは公式カタログ経由のパッケージ用です。`contributions.assets.paths`で`ruleset.json`とともに宣言し、Capability API 1.21が必要です。クリーチャーのカタログはインラインでも別ファイルでも1.27、アイテムのカタログは1.49が必要です。**単一ファイルでインポートする、またはGitHubリポジトリで共有するルールセットはカタログをインラインで持つ**ため、ファイル全体の256 KB以内に収めます。短い項目なら数百件入ります。
+独立したカタログファイルはパッケージで提供します。公式カタログを通じて公開するパッケージか、自分でインポートするルールセットのパッケージファイルです([ルールセットの共有](#sharing-your-ruleset)を参照)。パッケージは`contributions.assets.paths`で`ruleset.json`とともにファイルを宣言し、Capability API 1.21が必要です。クリーチャーのカタログはインラインでも別ファイルでも1.27、アイテムのカタログは1.49が必要です。**単一ファイルでインポートする、またはGitHubリポジトリで共有するルールセットはカタログをインラインで持つ**ため、ルールセットファイル全体の512 KB以内に収めます。短い項目なら数百件入ります。
 
-上限はルールセットごとに12カタログ、どちらの形式も1カタログ2,000項目、独立カタログ1ファイル1 MBです。
+上限はルールセットごとに12カタログ、どちらの形式も1カタログ2,000項目、独立カタログ1ファイル2 MBです。`ruleset.json`が256 KBを超えるか、1 MBを超えるカタログファイルを持つパッケージには、両方の上限を引き上げたCapability API 1.340が必要です。
+
+### ガイド付きビルダー: 段階を追ったキャラクター作成
+
+シートは`sheet.builder`を宣言できます(Capability API 1.86)。すると、キャラクターエディターとペルソナエディター、およびゲームの**Edit sheet**(シートを編集)にあるシートエディターは、完全なフォームである**All fields**(すべての項目)と並ぶ**Guided**(ガイド付き)表示で開きます。上部にステップが並び、それぞれまだ待っている選択の数を示すバッジが付きます。**Back**(戻る)と**Next**(次へ)は操作を妨げることがなく(プレイヤーは選択を後回しにできます)、その横に現在のキャラクターが表示されます。ステップが書いたもの、能力値、`gm.sheetSummary`が指定する値(アーマークラス、習熟ボーナス)、習熟したセーヴとスキルです。
+
+```json
+"builder": {
+  "tier": "proficient",
+  "steps": [
+    { "id": "race", "label": "Race", "kind": "catalog", "catalog": "races", "field": "race" },
+    { "id": "subrace", "label": "Subrace", "kind": "catalog", "catalog": "races", "min": 0,
+      "within": { "step": "race", "filter": "parent" } },
+    { "id": "class", "label": "Class", "kind": "catalog", "catalog": "classes", "field": "class" },
+    { "id": "level", "label": "Level", "kind": "fields", "fields": ["level", "background"] },
+    { "id": "scores", "label": "Ability Scores", "kind": "abilities", "methods": {
+      "pointBuy": { "budget": 27, "costs": [[8, 0], [9, 1], [10, 2], [11, 3], [12, 4], [13, 5], [14, 7], [15, 9]] },
+      "standardArray": [15, 14, 13, 12, 10, 8],
+      "roll": { "count": 4, "sides": 6, "keep": 3 },
+      "manual": true } },
+    { "id": "skills", "label": "Proficiencies", "kind": "trained" },
+    { "id": "gear", "label": "Equipment", "kind": "startingGear" }
+  ]
+}
+```
+
+ステップは最大24個で、それぞれ`{ id, label, kind, ... }`です。16個を超えるパッケージはCapability API 1.112を宣言します。
+
+- `catalog`: 行のカタログの項目で、カードとして表示され、その`summary`は**Info**(情報)の裏にあります。`min`(デフォルト1)はステップが求める数、`max`(デフォルト1)は受け付ける最大数で、`max`が1なら新しい選択が古い選択を置き換えます。どちらも最大40にでき、どちらかが20を超えるパッケージはCapability API 1.110を宣言します。`field`は、選んだラベルを書き込むテキストか列挙型のフィールドを指定します(列挙型フィールドは、項目のIDかラベルのうち、その値の1つであるものを受け取ります)。`filters`はカタログのフィルターの値を固定し、`within: { step, filter }`は、亜種族が種族を指定するように、`filter`がその前のステップで選んだ項目を指定する項目だけを提示します。種族の選択を外すと、その亜種族は何にも数えられません。`upTo: { filter, value }`(Capability API 1.87)は、数値の`filter`が`value`以下の項目だけを提示します。これは現在のシートから読む値で、キャラクターのレベルまでの特徴などです(`{ "filter": "level", "value": { "derived": "level" } }`)。フィルターを持たない項目は常に提示され、その後シートの値が下回った選択は何にも数えられませんが保持されます。読む値を変える選択(レベルを設定するクラス)は同じ変更の中で決着し、**All fields**で変えた値も同じです(そこでレベルを下げると、それより上の特徴が与えたものを即座に取り戻します)。`countFrom`(Capability API 1.90)は、同じようにシートから読む値で、`min`と`max`の両方を表します。ステップが求める数と受け付ける最大数で、切り捨て、`max`を超えません。キャラクターのレベルでクラスが知っている呪文の数などです(`{ "derived": "spells_known" }`)。それを超える選択は保持されますが、数が再び増えるまで何にも数えられません。
+  カタログのステップは`stamp`(Capability API 1.108)も持てます。追加するすべての行に書き込む1～4個の列の値で、ウィザードの呪文のステップの`"stamp": { "class": "wizard" }`や、クレリックの`"stamp": { "class": "cleric" }`などです。各キーは、カタログが供給するすべてのリストの列である必要があり、値は文字列、数値、真偽値です。スタンプはカタログの初期値を置き換えます。既存の行と、後で**All fields**で行った編集はプレイヤーのものです。Capability API 1.130では、スタンプの値を、`fromWithin`が`"id"`、`"label"`、または親カタログが宣言したフィルターIDであるオブジェクトにもできます。選択順で最初に一致する親を読み、行の追加時に文字列か数値を1回書き込みます。一致する親がないか、そのフィルターがないか配列の場合は、その列にスタンプしません。
+
+  ```json
+  {
+    "id": "spells",
+    "label": "Spells",
+    "kind": "catalog",
+    "catalog": "spells",
+    "within": { "step": "class", "filter": "class_ids" },
+    "stamp": { "class": { "fromWithin": "label" } }
+  }
+  ```
+
+- `fields`: 名前付きフィールドの短いフォームです。バッジは、`optional`に列挙したもの(後のレベルで選ぶサブクラス)を除き、まだ空のものを数えます。`shownWhen: { "field_id": { "field": "level" } }`(Capability API 1.107)は、ステップの名前付きフィールドを、その値参照が現在のシートで0より大きい間だけ表示して数えます。隠れたフィールドは値を保ちます。`total: { "fields": ["level_bard", "level_other"], "max": 20 }`(1.107)は、ステップの少なくとも2つの数値フィールドを合計の上限(1～1000の整数)に収め、各入力の最大値をほかの現在値の分だけ、それ自身の最小値を下回らない範囲で下げ、合計が上限を超えるとバッジに1を加えます。**Next**は引き続き使えます。
+- `abilities`: 能力値(`abilities`。省略するとすべて)で、`methods`のいずれかで設定します。`pointBuy`(すべての能力値を最大まで購入するコストを超えない`budget`と、全能力値の開始値である最低値から1つずつ上げたときの各値のコストです。手で入力した能力値は表で最も近い値から始まります)、`standardArray`(各能力値に1つの値)、`roll`(`sides`面のダイスを`count`個振って上位`keep`個を採用します。Engine自身のダイスで能力値ごとに1回振り、配列と同じく割り振ります)、`manual`です。`manual: true`は既存の能力値の範囲を保ちます。`manual: { min, max }`(Capability API 1.110)は、付与の前に入力した基本能力値をその整数の範囲に収めます。minは-100以上、maxは1000以下で、minはmax以下です。各能力値自身の範囲は引き続き合計に適用されます。`default`(1.87)は、ビルダーが白紙のシートから始めるキャラクターが最初に使う方法です(後でルールセットのデフォルトが変わっても保ちます)。そのため初心者は、たとえば別の方法を選ぶまでポイント購入を見ます。描写から作ったキャラクターはこれを使わず、描写後にプレイヤーが方法を選ぶまで能力値はそのままです。**Manual entry**(手動入力)は範囲内での入力による編集のままで、**All fields**はいつでも使えます。選択が加えるものは上乗せされ、ステップは基本値、ボーナス、合計、修正値を示します。abilitiesのステップは最大1つです。
+- `allocate`(Capability API 1.152): 優先度の割り当てやグループの予算を使って、段階的にドットを振り分けます。後述します。
+- `trained`: 選択が提示するスキルとセーヴの選択と、ステップ自身の`choose: [{ "what": "skills", "count": 2, "from": [...] }]`です(`from`を省略するとすべてが対象です)。
+- `startingGear`: ルールセットの初期装備を一覧にします。装備はいつもどおり、ゲーム中にインベントリーから受け取ります。
+- `choices`(Capability API 1.91): `catalog`で行のカタログを指定します。選択がそのカタログから与える項目(後述の`grants.entries`)を選ぶステップで、好きな言語1つなどがこれにあたります。
+
+初期装備のステップは`"strict": true`を持てます(Capability API 1.109)。デフォルトの合法のみのモードでは、ライブ状態なしの現在のシートで`fits`が真になる装備と、`fits`を持たない装備だけを提示し、その他の装備の一覧はありません。5eでは、Wizardのキットに`fits: { "value": { "field": "wizard_level" }, "atLeast": 1 }`を、ほかの各クラスのキットに対応するクラスレベルのフィールドを付けてください。Acolyteのキットには`fits`を付けず、誰にでも合うようにします。自由編集では再びすべてのキットを提示します。インベントリーの選択画面は、クラスの変更や自由編集の終了で合わなくなった選択を外して理由を示し、装備を受け取る前にも適合を確認します。合う装備がなければステップは空の状態を表示し、Nextは引き続き使えます。`strict`のないステップは、引き続きすべてのキットを提示します。このモードは各画面に固有で、保存したビルドとともに記録されたり、サーバーへ送られたりしません。
+
+選択が与えるものはその項目の`grants`で、ビルダーだけが読みます。
+
+```json
+{
+  "id": "half-elf",
+  "label": "Half-Elf",
+  "grants": {
+    "abilities": { "add": { "cha": 2 }, "choose": [{ "count": 2, "amount": 1, "except": ["cha"] }] },
+    "trained": { "skills": [], "saves": [], "choose": [{ "what": "skills", "count": 2 }] },
+    "sets": { "speed": 30 }
+  }
+}
+```
+
+- `abilities.add`は能力値に加えます。`abilities.choose`は、プレイヤーが`count`個の能力値(同じものを2回は選べず、`except`のものも選べません)を選び、それぞれに`amount`を与えます。`"repeat": true`(Capability API 1.93)なら同じ能力値を複数回選べ、そのたびに`amount`を与えるため、`{ "count": 2, "amount": 1, "repeat": true }`は能力値上昇の、1つの能力値に+2か2つに+1です。ステップは能力値の横にマイナスを表示し、1つ戻せます。どちらの場合も、能力値は`max`を超えません。`upTo`(Capability API 1.96)は、ほかのすべての付与が加えた後で、選択自体が能力値を上げられる上限です。`{ "count": 2, "amount": 1, "repeat": true, "upTo": 20 }`は、「能力値を20より上に上げることはできない」SRDの能力値上昇です。ステップはその値に達した能力値を無効にします。選択はabilitiesのステップに表示され、それがなければ項目を選んだ場所に表示されます。
+- `trained`はスキルとセーヴを習熟させ、選択を提示します。最初のtrainedのステップか、項目を選んだ場所に表示されます。付与の`tier`、なければビルダーの`tier`、なければシートがスキルやセーヴに提示する未習熟より上の最初の段階まで習熟させます。選択は、選んだものがすでにその段階以上に習熟させているもの(直接、または以前の選択を通じて)を決して提示しません(Capability API 1.104)。Insightを習熟させる背景があれば、SRDが求めるとおり、クラスのスキルの選択はほかのものから選びます。そのように取られる前に保存された選択は何にも数えられないため、ステップは別のものを求め、提示するものが何も残っていない選択は表示されません。選択は`"held": "<tier>"`を指定できます(Capability API 1.105)。選んだものがその段階以上に習熟させているもの、または自身の段階より下の選択がそこで保持しているものだけを提示します。5eのExpertiseが習熟している2つのスキルであるのと同じで、`{ "tier": "expertise", "choose": [{ "what": "skills", "count": 2, "held": "proficient" }] }`です。`held`は、選択が習熟させる段階より下の段階です。
+- `sets`はフィールドの値を書き込みます。クラスのヒット・ダイスや呪文発動能力値などです。
+- カタログの項目は、ビルダーのステップがそれを提示する条件を示せます。`offeredWhen`(Capability API 1.99)は現在のシートから読む値で、項目はそれが0より大きい間だけ提示されます。5eがマルチクラスの前提条件を満たしたときだけ2つ目のクラスを提示するのと同じです(クラスごとの派生値)。後で0になった選択は、`upTo`のものと同じく、何にも数えられませんが保持されます。自身の選択が`offeredWhen`の読む値を変える項目(上げる能力値、設定するフィールド、習熟させるスキル、書き込むリスト。直接でも派生値を通じてでも)は、自身を提示し、取り消し、再び提示することになるため拒否されます。`exclusive`のグループを持つ項目は、ステップがそのグループに保存したすべての選択を除いたシートで読みます(Capability API 1.100)。それを選ぶとそれらは外れるためです。能力値上昇の代わりに取る、Strength 13を条件とする特技は、その上昇が与えたStrengthでは提示されません。項目が与える選択(`grants.entries.choose`)も、同じくその選択肢を`offeredWhen`に従わせます(Capability API 1.106)。**All fields**のカタログの選択画面は、いつもどおりすべての項目を提示します。
+- カタログの項目は`exclusive`のグループを指定できます(Capability API 1.94)。ビルダーのステップは各グループの選択を1つだけ保つため、1つを選ぶとステップのそのグループのほかの選択は外れ、最新のものだけが数えられます。能力値上昇の代わりに取る特技は、それとグループを共有します。`"exclusive": "fighter-asi-4"`のように書きます。
+- `entries`(Capability API 1.91)は、別の行のカタログの項目を選択肢として提示します。`{ "choose": [{ "catalog": "languages", "count": 1 }] }`のように書き、選択は最大6つです。`filters`はそのカタログのフィルターの値を固定し、`ids`は提示する唯一の項目を列挙します(`{ "catalog": "tools", "count": 1, "ids": ["smiths-tools", "brewers-supplies", "masons-tools"] }`)。それらは、そのカタログに対するビルダーの`choices`ステップで選びます(それがないカタログを指定する付与は拒否されます)。行を書き込む項目だけが提示され、その行がシートに追加されます。ある付与で選んだ項目は、別の付与には提示されません。それら自身の付与は適用されません。
+- 選択は項目の`rows`も1回書き込みます。項目は`grants`を持ち、`rows`をまったく持たないこともできます(特徴が別のカタログから来るクラス)。すべての項目が付与するだけのカタログには`feeds`は不要で、カタログの選択画面はそのような項目を決して提示しません。
+
+選択を外すと、その選択が与えたものだけを取り戻します。上昇(能力値の範囲内で上げた分)、習熟、フィールドの値、行です。シートにすでにあったプレイヤー自身のもの(手で習熟させたスキル、カタログの選択画面から追加した行)はプレイヤーのままで、**All fields**で行った編集は、その値に対するビルダー自身の答えが変わるまで残ります。1つのカタログに対する2つのステップで選んだ項目は1回だけ付与し、ゲームのレイヤーが隠す項目も、与えたものについては引き続き数えられます。選択が`sets`するフィールドは、まだ空であるか、ビルダーがすでにそれに答えている間だけ書き込まれるため、手で入力したレベルが上書きされることはありません。ビルダーが答える値をプレイヤーが自身のfieldsステップで変えた場合は、ビルダーのものとして残り、後の選択がそれを求めなくなると消えます。プレイヤーの選択はシートと並べて保持されるため、後でステップを開き直せます。
+
+**段階的な評価値の割り振り(Capability API 1.152)。** `allocate`ステップは、独自の予算と作成時の上限で、1ポイントにつき1ドットを購入します。単一の`abilities`ステップの方法や保存した回答は変えません。能力値、美徳、後のフリービーには別々のステップを使ってください。
+
+```json
+{
+  "id": "attributes",
+  "label": "Attributes",
+  "kind": "allocate",
+  "priorities": [7, 5, 3],
+  "annotations": true,
+  "groups": [
+    {
+      "id": "physical",
+      "label": "Physical",
+      "targets": [{ "ability": "strength" }, { "ability": "dexterity" }, { "ability": "stamina" }],
+      "base": 1,
+      "min": 1,
+      "max": 5
+    },
+    {
+      "id": "social",
+      "label": "Social",
+      "targets": [{ "ability": "charisma" }, { "ability": "manipulation" }, { "ability": "appearance" }],
+      "base": 1,
+      "min": 1,
+      "max": 5
+    },
+    {
+      "id": "mental",
+      "label": "Mental",
+      "targets": [{ "ability": "perception" }, { "ability": "intelligence" }, { "ability": "wits" }],
+      "base": 1,
+      "min": 1,
+      "max": 5
+    }
+  ]
+}
+```
+
+グループは1～12個で、それぞれ安定した`id`、`label`、1～120個の対象を持ちます。対象はステップ全体で重複できません。対象は、既存の`{ ability }`、数値の`{ field }`、`{ skill }`、`{ save }`、`{ bonus }`のちょうど1つを指定します。bonusは、既存のスキルやセーヴに対する数値の`build.bonuses`項目です。グループの予算方式はちょうど1つです。`priorities`がグループごとに0以上の整数の割り当てを1つずつ持つ(重複可)か、**すべての**グループが`budget: Ref`を宣言します。優先度の枠は明示的に割り当て、埋まっている枠を割り当てるとグループが入れ替わります。配列の順序は、第1、第2、第3、その後は番号付きの優先度を表します。それらの名前を大きさの順にしたい場合は、大きい割り当てを先に置いてください。予算は最大1,200,000ポイントです。
+
+`base`は任意で、`min`と`max`は必須です。それぞれ整数か、`{ "derived": "archetype_floor" }`のようなライブでない`Ref`を受け付けます。評価値は0～10,000の整数に解決され、対象の保存範囲や段階のマップに収まる必要があります。最初のbaseは空の対象のデフォルトを置き換え、既存の方法による能力値と付与は保ちます。後のbaseは前の段階に対する下限です。baseがなければ、段階は既存の評価値から始まります。minとmaxが等しいと作成時の値が固定されます。`base: 0, min: 0, max: 0`は固定のAppearanceを表します。最小値でドットが自動的に購入されることはありません。予算と範囲には既存の派生演算子を使えますが、このステップや後のステップが変える対象は、派生値を通じても読めません。無料の付与の条件も、それが変えられる割り振りグループ(ほかの段階の関連するグループを含みます)の評価値は読めません。式による価格には対応しておらず、支払う増加分はすべて1ポイントです。解決できないか無効な出所は**not configured**と表示されます。
+
+スキルとセーヴの対象には、対象ごとに`sheet.builder.ratingTiers`が必要です。
+
+```json
+"ratingTiers": [
+  { "target": { "skill": "athletics" }, "tiers": ["none", "trained", "expert"] },
+  { "target": { "save": "will" }, "tiers": ["none", "trained"] }
+]
+```
+
+配列のインデックスが数値の評価値です。マップは、ルールセットの未習熟の段階から始まる、既存で昇順の、提示する段階IDを1～12個持ちます。段階のボーナスから推測されることはありません。対象ごとに別のマップを使えます。作成時の上限が異なる対象は、別々のグループに入れてください。
+
+カタログの`grants.ratings`は、**すべての**支払い段階の前に無料のドットを与えます。
+
+```json
+"ratings": [
+  { "target": { "skill": "athletics" }, "add": 1 },
+  { "target": { "save": "will" }, "set": 1 }
+]
+```
+
+各付与は正の`add`か0以上の`set`のどちらか一方を持ち、両方は持ちません。すべての`set`の付与は下限です。最も高いものが採用され、その後すべてのaddが重なり、対象の保存上限で止まります。そのため2つの無料のランクのaddでランク2になり、支払いの予算は消費しません。既存の習熟とフィールドや能力値の付与は、これらの評価値の付与の前に合成されます。項目の選択は引き続き行を書き込むだけで、選んだ項目の付与を再帰的に適用することはありません。
+
+UIは、基本値/前の段階、無料、購入分、合計の評価値、作成時の範囲、残りの予算を表示します。上限に達したとき、予算がないとき、無効な購入や手動の上書きに対応が必要なときは、プラスが無効になります。使い残し、達成できない最小値、上書きにはバッジが付きます。BackとNextは引き続き使えます。優先度を割り当て直しても、グループの保存済みの増加分は保たれます。予算を超えたグループは全体が無効になり、対象の上限を超える購入はその対象について無効になります。それらの回答を減らすか消去して直すか、以前の割り当てに戻して再び有効にしてください。後の段階は、前の段階の作成時の上限を超えられます。**All fields**は引き続き自由編集で、上書きは作成の規則に合わせて収めずに、明示的に表示されます。
+
+保存された`builder.allocations[stepId]`は、グループIDごとの優先度の枠のインデックス、支払った`bought`の増加分、安定した`kind/id`の対象キー(たとえば`ability/strength`)ごとの任意の`notes`を保持します。`annotations: true`は、出自の説明や専門のために、対象ごとに最大1,000文字を提供します。ビルダーはその文章を判断しません。適用した増加分は段階ごとに別々に保持します。開き直しても付与を再び与えたりリソースを補充したりすることはなく、既存のシートを描写すると、描写の終了時も含め、シートを書き換えずに選択を記録します。選択を外すと、手動の差分を保ちながら、無料の評価値と支払い段階を再計算します。
+
+**共有の予算と価格付きの購入(Capability API 1.153)。** `sheet.builder.pools`で最大12個の作成用プールを宣言します。複数の`spend`ステップが1つのプールを使えます。プールを分けると、職業と個人的関心のポイントを独立させられます。予算はライブでない値参照で、既存の`sum`、`scale`、`multiply`、`min`、`max`、`stepTable`、`enumTable`、`listSum`の計算も使えます。解決した値は有限で、0～100,000である必要があります。出所がなければ「not configured」です。
+
+```json
+{
+  "pools": [
+    { "id": "occupation", "label": "Occupation", "budget": { "derived": "occupation_points" }, "creditLimit": 0 },
+    { "id": "interest", "label": "Personal interest", "budget": { "derived": "interest_points" } }
+  ],
+  "steps": [
+    {
+      "id": "occupation_skills",
+      "label": "Occupation skills",
+      "kind": "spend",
+      "pool": "occupation",
+      "offers": [
+        {
+          "id": "accounting",
+          "label": "Accounting",
+          "target": { "field": "accounting_value" },
+          "cost": { "flat": 1 },
+          "min": 5,
+          "max": 99
+        }
+      ]
+    }
+  ]
+}
+```
+
+各ステップは、安定した`id`と`label`を持つ最大120個の提示を持ちます。対象は、割り振りの段階と同じく、`ability`、数値の`field`、マップのある`skill`/`save`、`bonus`のちょうど1つを指定する取り決めを使います。リストの行の購入は行の識別機能(F4)のために予約されています。このAPIは配列の位置で行を識別しません。範囲は対象の保存範囲に収まる必要があります。開始時の評価値と無料の付与は保たれ、再び課金されることはありません。無料の2ドットと支払った5ドットを持つBackgroundは7です。
+
+コストは次のちょうど1つです。
+
+- `{ "flat": 1 }`: 評価値の増加1ごとに1ポイントです。
+- `{ "perRank": 5 }`: 次のランクの5倍で、2から3に上げると15です。
+- `{ "table": [[5, 0], [5.25, 5], [5.5, 12]] }`: 昇順の評価値での累積価格です。次の購入は隣の評価値に移り、その差額がかかります(ここでは5、次に7)。小数の評価値には整数でない数値フィールドが必要で、表には提示の両方の範囲を含めます。
+
+任意の`overrides: [{ "when": { "derived": "career_affinity" }, "cost": { "perRank": 2 } }]`は最大12項目です。最初に正になる条件が採用されます。条件は購入前のシートを読み、一致しなければ基本価格を使います。予算と条件は、派生値を通じても、購入した対象を読めず、後の選択にも依存できません。無料の付与と割り振りの段階は、価格付きの購入の前に適用されます。
+
+明示的に宣言したクレジットを除き、価格は正の増分を持ちます。評価値が上がる欠点には`"credit": true, "cost": { "flat": -1 }`を使います。宣言した基準値からの減少には`"credit": true, "baseline": 10, "min": 6, "max": 10, "cost": { "flat": 1 }`を使います。購入で10が9に下がり、1ポイントのクレジットを記録します。開始値は基準値と一致する必要があります。クレジットの対象はビルダー全体で1つの提示しか持たないため、購入とクレジットの循環を防げます。
+
+プールのクレジットはデフォルトで0です。`creditLimit`にクレジットの合計の最大値を設定し、任意で最大12個の`caps: [{ "filter": "flaw", "maxCredit": 2 }]`を加えます。フィルターは提示の`tags: ["flaw"]`を指定するため、欠点と不利のクレジットに別々の上限を設けられます。上限は、正の消費とは無関係に、クレジットの総額を数えます。異なる癖の数は、引き続き選択や行の制約です。
+
+**数える行と一致する行(Capability API 1.205)。** `listSum`は、セルが値に等しい行だけを読む`where:
+{ "column", "equals" }`(空のセルは列のデフォルトとして読みます)と、列を合計する代わりに行を数える、`column`の代わりの`count: true`を持てます。Genesysのタレント・ピラミッドは、2つの派生値の数と作成時の規則です。
+
+```json
+{
+  "id": "tier2",
+  "label": "Tier 2 talents",
+  "op": "sum",
+  "of": [{ "listSum": { "list": "talents", "count": true, "where": { "column": "tier", "equals": 2 } } }]
+}
+```
+
+これに、`value`が`tier2`を読み、`max`がtier 1の数から1を引いた値を読む規則を加えます。
+
+**行ごとに計算する行の価格(Capability API 1.206)。** rowsステップのオブジェクトの`cost`は、`column`を`times`倍して`add`を加えられるため、`{ "column": "tier", "times": 5 }`はGenesysのタレントをtierごとに5 XPと価格付けします。`add`だけなら、オブジェクトで書いた固定価格です。`overrides`(最大4個)は、接頭辞と行自身のセルで指定した派生値がシートで0より大きいときに代わりに使う価格です。`{ "add": 5, "overrides": [{ "derived": { "prefix": "affinity_", "cell": "ability" }, "cost": 4 }] }`は、`affinity_<its Ability>`が0より大きいときに、ExaltedのCharmを4 Bonus Pointsと価格付けします。列挙型のセルは、取り得るすべての値について派生値を持つ必要があります。
+
+**価格のない提示(Capability API 1.207)。** spendの提示(またはオーバーライド)の`cost`は、出所が価格を示していない間、`{ "unpriced": true }`にできます。提示は注記付きで表示され、プールから何も差し引かず、決して購入されません。後で価格がなくなった価格で保存された購入は無効になり、修正のために保持されます。
+
+**より多くのフィールド(Capability API 1.208)。** シートは最大240個のフィールドを宣言できます。1.208より前の上限は160です。Rolemasterのスキルランク、カテゴリーランク、潜在値、合計にはこの余地が必要です。
+
+**能力値に書き込むロール(Capability API 1.209)。** `roll`ステップのロールは、`field`の代わりに`ability`を指定できます(2つのうちちょうど1つ)。結果は能力値自身の範囲に収められます。`gain`があれば、能力値に対して判定を振り、それを上回った結果だけが上昇分を加え、ビルダーはそれを上昇として保ちます。能力値を振り直すか購入し直しても、改善は上乗せされたままです。`gain`がなければ、結果は入力した能力値と同じく書き込まれ、その能力値に対するビルダー自身の答えが変わるまで保たれます。計算で求める能力値は振れず、各能力値はステップごとに最大1回振ります。
+
+**計算で求めるリストの列(Capability API 1.210)。** 数値列は`sum`を指定できます。同じ行のほかの数値列を最大6つ合計し(空のセルは列のデフォルトとして読みます)、列の`min`と`max`に収めます。セルは読み取り専用で表示され、保存したシートを読むたびに埋められ、合計、行の判定などあらゆるものから、入力したセルと同じく読まれます。計算で求める列はロールせず、ほかの計算で求める列を合計することもありません。CoCの専門分野の評価値は`"sum": ["base", "occupation", "interest"]`です。
+
+**部分的な能力値上昇(Capability API 1.211)。** 付与の`abilities.choose`は`partialFrom`を指定できます。選択の時点ですでにその値以上の能力値は部分的な上昇を受け、部分的な上昇2つで`amount`を1回与えます。選択は、すべての完全な上昇の後に、ビルダーが行う順に数えるため、Pathfinder 2eの後のブーストは`"amount": 1, "partialFrom": 4`です。+4の修正値を+5にするにはブーストが2つ必要です。`upTo`と組み合わせられます。
+
+**構えでの行の判定(Capability API 1.212)。** リストの`checks[]`項目は、ダイスプールの`resolution.stances`の1つである`stance`を指定できます。すると、構えが列挙するスキルと同じく、すべての行の判定がその構えになります。Stewpotのpursuitsは、STILLNESSの方法でダイスを数えます。GMへのリマインダーは、その構えのスキルとともに行を示します。
+
+**能力値の専門分野(Capability API 1.213)。** リストの`contextual`は`"abilities": true`を設定できます。すると、その`skill`のセルにはスキルのほかに能力値も(ID、ラベル、略称で)指定でき、行はその能力値で振るあらゆる判定に適用されます。素の能力値判定、その能力値を自身の能力値とするスキル、`with=`でその能力値に切り替えたスキルです。World of Darknessの能力値の専門分野「Strength: lifting」は、「lifting」という名前で、スキルのセルが「Strength」である行です。
+
+**相殺の無効化(Capability API 1.214)。** 文脈依存の`check`(リストの`contextual`か項目の`mechanics.contextual`にあるもの)は`"cancel": false`を設定できます。それを適用したロールでは、`resolution.cancel.upTo`以下の面が成功を減らしません。クリティカル失敗では引き続きそれを読みます。ルールセットには、無効にする`resolution.cancel`が必要です。
+
+**携帯せずに使えるアイテム(Capability API 1.215)。** カタログの項目の`grants.itemAccess`は、ルールセットのアイテムを最大48個(`<catalog>/<entry>`。サービスは不可)列挙します。ガイド付きビルダーでその項目を選ぶと、それらがキャラクターに開放されます。シートとGMのシートブロックはそれらを携帯していないものとして列挙し、袋には何も入りません。Bladesのキャラクターがスコアの開始時に荷重を宣言するように、GMは使われたときにそれをインベントリーに加えます。
+
+**作成時の行のドット(Capability API 1.216)。** `allocate`のグループは、最大4つの`{list, column}`の組である`rows`を指定できます。リストの行全体にわたるその数値列のドットは、対象と並んでグループの予算に数えられます。行はリストで編集し、予算を超える行のドットを持つグループはプレイヤーを待ちます。rowsステップのコストのオーバーライドは、固定の`cost`の代わりに、コスト列の単位あたりの率である`times`を与えられます。ExaltedのCraftの行は「dots」を28のAbilityのドットに数え、「bought」のドットを`times: 2`と価格付けし、`affinity_<ability>`が設定されている場合は`times: 1`に上書きします。計算で求める評価値の列(1.210)が2つを合計します。
+
+**最良の評価値(Capability API 1.217)。** 文脈依存の`check`は`"best": true`を設定できます。それを適用したスキル判定は、求められたものより高い場合に、キャラクターの最良のスキル評価値で振ります。`dice-highest`ルールセットは、これだけを行う文脈依存の判定を使えます。ほかのすべての判定効果には引き続きダイスプールが必要です。BladesのRook's Gambitは`"check": {"best": true}`を持つ特殊能力の行で、名前で適用します。
+
+**トラックに印を付けるコスト(Capability API 1.218)。** 文脈依存の`cost`の項目は、`{"pool", "amount"}`のほかに`{"track": "<id>", "by": N}`にもできます。行や項目を適用すると、その普通のライブのトラックに、範囲が許す限りNの印を付けます(負傷トラックにはこの方法で印は付きません)。リストの`contextual`も`cost`を持てます。BladesのRook's Gambitは、`"check": {"best": true}`と`"cost": [{"track": "stress", "by": 2}]`を持つ行です。`apply=`で適用する名前は、カーリーとストレートのアポストロフィーや引用符を同じものとして読みます。
+
+**借用するカタログ(Capability API 1.220)。** カタログは、自身の項目を持つ代わりに、インストール済みの別のルールセットのカタログを借用できます。`{ "id": "creatures", "label": "Creatures", "holds": "creatures", "from": { "ruleset": "5e-2014", "catalog": "creatures" } }`のように書きます。貸し手はIDで見つけ、そのままのIDでもコミュニティの名前空間の下でもかまいません。その項目は借り手のルールセットに照らして読まれるため、借り手が宣言していないもの(状態、脅威段階、感覚)を指定する項目は除外されてログに記録され、残りは取り込まれます。`from`と並べた`entries`は借用した項目に加わるか、同じIDのものを置き換えます。これらはルールセットを読むときに検査されるため、ヘッダーはそれらが持つ`filters`を指定します(何も指定しないヘッダーは貸し手のものを使います)。シートとして書かれた借用クリーチャーは貸し手のIDを使います。`from.sheet`は、それを借り手でどう読むかを示します。`fields`はフィールドを別のIDに対応付け(除外するには`null`)、`values`はフィールドの値を対応付け、`tiers`は習熟段階(クリーチャーのものと、項目が付与するか求めるもの)を対応付けます。`"sheet": { "fields": { "ac": "ac_typed", "size": null }, "values": { "hp_method": { "by_hand": "manual" } }, "tiers": { "proficient": "trained" } }`のように書きます。アイテムを含むどの借用項目も、さらに2つを取れます。`refs`は貸し手の派生値を借り手の値の1つとして読み(`"refs": { "prof_martial_weapons": { "field": "martial_weapons" }, "armor_speed_strength": { "abilityScore": "str" } }`)、`slots`はアイテムのスロットを借り手の名前の下に置きます(`"slots": { "body": "armor" }`)。カタログは、自身のルールセットからも、さらに借用するカタログからも借用できません。借用したクリーチャーのアートは、貸し手のものとして照合します(クリーチャーパックの`5e-2014/creatures/<id>`)。借用したカタログへの参照(クリーチャーの呪文など)は、ルールセットではなくカタログを読むときに検査されます。
+
+**より長い成長のリスト(Capability API 1.219)。** `sheet.advancement.fields`は最大64個のフィールドを取れます(以前は24個)。そのため、すべての呪文レベルのスロットや習熟のリストのように、レベルで多くのフィールドが上がるゲームでも、GMがそのすべてを上げられます。24個を超えるリストには1.219が必要です。
+
+**双方向、所有、交換の購入(Capability API 1.164)。** `"direction": "both"`は、1つの提示で評価値を開始値から上げ下げできるようにします(宣言した場合、その`baseline`はシートと一致する必要があります)。1段階上げるごとに曲線の価格がかかり、開始値を下回って1段階下げるごとにそれがクレジットとして戻り、プールの`creditLimit`と上限に収められます。台帳は常に一方向にしか進まないため、購入した評価値を下げると最後の購入を支払った価格で取り消し、下げた評価値を上げるとそのクレジットを返します。購入して下げてもクレジットは生まれません。このような対象はビルダー全体で1つの提示を持ちます。GURPSのSTは`{ "target": { "ability": "st" }, "direction": "both", "baseline": 10, "min": 7, "max": 14,
+"cost": { "flat": 10 } }`で、表のコストはBasic Speedのような小数の段階に価格を付けます。`"direction": "increase"`と`"decrease"`は一方向の提示を明示します(`"decrease"`は前述の減少で、基準値とクレジットを伴います)。
+
+`"effect": "ownership"`は、提示をその`baseline`(または`min`)から上の独自の段階で価格付けし、シートはそれ自身の値と購入したレベルの高い方を保ちます。GURPSの1ポイントのfamiliarityは、デフォルトの方がすでに良くても支払われて記載され、払い戻してもシートには何の影響もありません。
+
+`"exchange": { "from": <rating>, "units": 2, "gain": 1, "floor": 9 }`は、提示を閉じた作成時の交換にします。各購入は`from`を`units`だけ下げ、対象を`gain`(デフォルト1)だけ上げます。`from`を`floor`未満にしたり、対象を`max`より上にしたりはしません。プールからは何も消費しないため、`cost`は省きます。交換したポイントがさらに交換されることはありません。交換で評価値が上がると、ほかの交換はそれを下げず、交換で評価値が下がると、ほかの交換はそれを上げません。クラスが取れない交換(`when`)は、同じ評価値を逆向きに指定できます。払い戻すと両方の評価値が戻ります。OSEの主要能力値の交換は、下げる能力値ごとに1つの提示です。
+
+```json
+{
+  "id": "wis_to_int",
+  "label": "Lower Wisdom to raise Intelligence",
+  "target": { "ability": "int" },
+  "exchange": { "from": { "ability": "wis" }, "units": 2, "floor": 9 },
+  "min": 3,
+  "max": 18
+}
+```
+
+ビルダーは、符号付きの支払った差分と元の価格を、安定したステップ/提示のIDの下に保存し、1つの提示につき最大1,000行の購入を記録します。払い戻しは最新の行を取り除き、クレジットの削除も含め、その寄与と記録された価格を正確に戻します。無料の評価値を払い戻すことはありません。ライブのXP、インベントリー、通貨、パーティーのリソースは消費しません。
+
+職業、無料の付与、予算の出所を変えても台帳は保たれます。無効な購入は無効状態になり、プールは元の消費と、超過時の負の残りポイントと、新たに提案される価格を表示します。共有の対象は、ほかのプールの依存する購入も一時停止します。**Reprice saved purchases**(保存した購入の価格を更新)は、プールの合法な新しい価格を明示的に受け入れます。そうしない場合は、行を払い戻して直してください。購入が黙って削除されたり売却されたりすることはありません。使っていないポイントは情報表示です。Back/Nextは引き続き使え、**All fields**はスキーマの範囲内で、表示される手動の上書きを保ちます。既存のキャラクターを描写しても、保存した選択を開き直しても、ドットを再び与えることはありません。
+
+**名前付きの行(Capability API 1.154)。** `rows`ステップでは、作成中にプレイヤーがシートのリストの1つで自分の行を追加、編集、削除できます。従者、知人、儀式とその材料など、カタログに載っていないものです。
+
+```json
+{
+  "id": "retainers",
+  "label": "Retainers",
+  "kind": "rows",
+  "list": "retainers",
+  "columns": ["name", "role", "loyalty"],
+  "required": ["name"],
+  "min": 1,
+  "max": 4,
+  "defaults": { "role": "Hireling" }
+}
+```
+
+`columns`はステップが編集するリストの列の一部です(省略するとすべて)。`required`は、行が数えられるために埋める必要がある列を指定します。バッジは、`min`(0～20)に足りない行全体の数と、必須のセルが空のすべての行を数えるため、書きかけの材料は未解決のままです。`max`は**Add a row**(行を追加)を止め、リストの`maxItems`を超えることはありません。新しい行は列自身のデフォルトから始まり、次に`defaults`を適用します。これは各列に合う必要があります。
+
+ステップは各行の位置でリストを編集するため、同じ名前の2人の従者は2行のままで、1つを削除してももう1つは残ります。カタログの選択が書いた行は「Added by a pick」の注記付きで読み取り専用で表示され、選択とともに現れたり消えたりします。**All fields**はこれまでどおりすべての行を編集します。
+
+**条件付きの提示、シートから読む範囲、作成時の規則(Capability API 1.155)。** spendの提示は次のものも持てます。
+
+- `when: Ref`: 購入前のシートで0より大きい間だけ提示します。職業自身のスキルや、部族が取れるBackgroundなどです。一度も購入されない提示はプールをそのままにし、キャラクターがもう取れない提示での保存済みの購入は、修正のために無効状態のまま残ります。
+- `minFrom: Ref`と`maxFrom: Ref`: シートから読む下限と上限で、`min`と`max`の内側に収めます。Credit Ratingは職業の範囲を取り、DodgeはDEXで止まります。下限未満の評価値は、1回の購入で下限まで買い上げます。
+- `allowedRatings: number[]`: 購入で到達できる唯一の評価値です。1、3、5ドットで売るMeritなどです。各購入は、曲線の価格で次の許可された評価値へ直接進みます。
+
+予算やオーバーライドと同じく、これらは購入した対象を読めません。`onDuplicate: "replace"`を持つ習熟の選択は`replacementFrom`を指定できます。重複を置き換えられるスキル(またはセーヴ)で、シートが持つすべてのものの代わりです。表示、保存、適用されるものに適用されます。
+
+`sheet.builder.constraints`は最大40個の作成時の規則を持ちます。それぞれ、バッジにその規則を示す`step`と、失敗している間そこに表示する`label`、任意の`when: Ref`、そして次のちょうど1つを指定します。
+
+- `min`と`max`の一方または両方(それぞれ数値かRef)を持つ`value: Ref`です。
+- `min`と`max`の一方または両方を持つ`rows: { list, filter?, sum? }`です。`filter`(`{ column, equals?, below?, above? }`)が残す行について、リストの行の数か、数値列`sum`の合計です。
+- `distinct: { list, column }`: 2つの行が同じ入力済みの値を共有しません(大文字と小文字、空白は無視します)。
+- `approved: fieldId`: オンである必要がある真偽値フィールドで、Storytellerの承認などです。
+
+```json
+{
+  "constraints": [
+    {
+      "id": "disadvantage_cap",
+      "label": "Disadvantages give at most 50 points.",
+      "step": "traits",
+      "rows": { "list": "traits", "filter": { "column": "cost", "below": 0 }, "sum": "cost" },
+      "min": -50
+    }
+  ]
+}
+```
+
+失敗した規則がBack、Next、**All fields**を妨げることはありません。
+
+**計算で求める能力値と、1回のロールに適用する効果(Capability API 1.156)。** 能力値は`value: Ref[]`(1～8個)を持てます。その能力値はそれらの合計で、`min`と`max`に収められ、読み取り専用で表示されます。Bladesの属性は、印を付けたアクションの合計です。GURPSのPerceptionは`[{ "abilityScore": "iq" }, { "field": "perception_bought" }]`で、それで振るスキルは購入したものに従います。派生値、上限、スキルは計算で求める能力値を読めますが、計算で求める能力値同士は、派生値を通じても互いを読めません。ビルダーがそれを設定することはなく、それに保存されたものは無視されます。
+
+リストは`contextual`を宣言でき、GMが行を指定したときにその行をロールに適用します。
+
+```json
+{
+  "id": "stunts",
+  "label": "Stunts",
+  "maxItems": 10,
+  "columns": [
+    { "id": "name", "label": "Name", "type": "text", "maxLength": 80 },
+    { "id": "skill", "label": "Skill", "type": "text", "maxLength": 40 },
+    { "id": "bonus", "label": "Bonus", "type": "number", "min": -5, "max": 5, "default": 2 }
+  ],
+  "contextual": { "name": "name", "skill": "skill", "bonus": "bonus" }
+}
+```
+
+`name`はGMが行を指定するときに使う列です。`skill`(任意)は行を適用するスキルをIDかラベルで持ち、空のセルはどの判定にも適用されます。`bonus`(数値列)と`dice`(ダイス列)は判定に加え、プールのルールセットではダイスとして加えます。`to: "saves"`は代わりにセーヴに行を適用します。プールのルールセットでは、`check: { dice?, successes?, double?, explode? }`が、適用されるすべての行にプールへの同じ効果を与えます。10が爆発する専門分野などです。
+
+カタログの項目は、`effects`(`own-checks-advantage`やほかの判定とセーヴの効果)、`checks`か`saves`への`modifiers`、絞り込む`skills`と`saves`、プールの`check`の効果、適用したロールで1回支払う`cost: [{ "pool": "...", "amount": 1 }]`を持つ`mechanics.contextual`を持てます。GMは判定に`apply="Strong Back; Quick Eye"`(最大4つの名前)と書きます。その判定に適用される名前だけが判定を変えます。別のスキルの行、2つの行が共有する名前、プールで賄えないコストは何も変えません。行を持っているだけでロールが変わることはありません。記録は適用されたものを`from`に列挙します。
+
+**ロールで決める、またはシートから読む初期の硬貨(Capability API 1.157)。** 初期装備の硬貨の行は、`count`の代わりに`roll`(`"2d6"`のようなダイス)か`countFrom`(持ち主のシートから読むRef)を持てます。両方は持てません。`times`(1～10000)はどちらにも掛けます。
+
+```json
+{ "coins": "gold", "roll": "5d4", "times": 10 }
+```
+
+選択画面はダイスを表示します(「5d4 gold, rolled when taken」)。ロールは、グループや持ち主がパッケージを受け取るときに1回だけ行われるため、選択画面を開き直しても振り直せません。`countFrom`は持ち主自身のシートを読みます。Credit Ratingのフィールドなどです。シートのない持ち主は拒否され、量が0なら何も加えません。アイテムの行は固定の`count`のままです。
+
+**一度だけ設定する開始値(Capability API 1.158)。** `kind: "initialize"`のビルダーのステップは、プレイヤーが確定したときに開始値を書き込み、その後自ら書き込むことはありません。
+
+```json
+{
+  "id": "start",
+  "label": "Starting values",
+  "kind": "initialize",
+  "writes": [
+    { "field": "san_start", "value": { "abilityScore": "pow" } },
+    { "field": "xp", "remaining": "creation" }
+  ]
+}
+```
+
+各書き込みはシートのフィールドと、`value`(固定値か、数値フィールドならRef)か`remaining`(ビルダーのプールで使われずに残った分)のどちらかを指定します。ステップは各フィールドの現在の値と設定される値を示し、バッジはプレイヤーが設定するまで待ちます。書き込んだ値はビルダーとともに保存されるため、開き直しても、キャラクターをインポートしても、後でPOWを変えても、再び書き込まれることはありません。その後シートが変わった場合、ステップは設定し直すと何が置き換わるかを示し、プレイヤーの**Set again**(もう一度設定)だけがそれを行います。現状のままに描写されているキャラクターに書き込むことはありません。
+
+ライブのプールは`startFrom: Ref`を宣言でき、満タンや空ではなくシートから読む値から始まり、0と最大値の範囲に収められます。普通のトラックは`default`の代わりに`startFrom`を宣言できます。initializeステップが書き込んだフィールドを指すと、SANは設定元のPOWから始まり、プレイが残した値に留まります。保存されたライブの値は、プールの開始値より常に優先されます。
+
+**価格付きの選択と行(Capability API 1.159)。** カタログのステップやrowsステップは、ビルダーの`pool`と`cost`を指定できるため、プレイヤーが選ぶものや書くものは、spendステップと同じプールから支払われます。カタログのステップのコストは数値か、項目自身の数値フィルターである`{ "filter": "tier" }`です。rowsステップのコストは数値か、各行から読む`{ "column": "cost" }`です。負の価格はクレジットで、プールの`creditLimit`に収められるため、欠点が特徴の資金になります。rowsステップは`from`も指定できます。そのリストに供給する行のカタログで、プレイヤーは項目の行のコピーを好きなだけ追加でき、各コピーはそれぞれ独立した自分の行として価格付けされ、取り除かれます。
+
+```json
+{
+  "id": "charms",
+  "label": "Charms",
+  "kind": "rows",
+  "list": "charms",
+  "pool": "bonus",
+  "cost": { "column": "cost" },
+  "from": "charm_book"
+}
+```
+
+プールで支払えない選択は提示されません。価格付きの選択と行は最初に支払われ、プレイヤーのために売却されることはありません。欠点を外してプールが予算超過になると、プレイヤーが直すまでspendステップの購入は適用されなくなり、価格付きの各ステップのバッジは修正を数えます。列が超えてはならない合計(Riteのレベル)は、`rows.sum`と`max`を持つ作成時の規則(1.155)です。
+
+**作成プロファイルと前の段階(Capability API 1.160)。** `sheet.builder.profiles`(最大16個)により、キャラクターの種類、職業、パッケージが独自のステップと予算を持てます。
+
+```json
+"profiles": [
+  { "id": "dragon", "label": "Dragon-Blooded", "when": { "field": "dragon" },
+    "steps": ["aspect_gifts"], "budgets": { "bonus": { "const": 15 } } },
+  { "id": "lunar", "label": "Lunar", "when": { "field": "lunar" },
+    "steps": ["moon_gifts"], "budgets": { "bonus": { "const": 18 } } }
+]
+```
+
+`when`が0より大きい最初のプロファイルがキャラクターのもので、ビルダーはどれかを示します。いずれかのプロファイルが列挙するステップは、それを列挙するプロファイルがキャラクターのものである間だけ表示されます。隠れている間も回答は保たれますが、何も付与しません。プロファイルの`budgets`はそれらのプールの予算を置き換えるため、種類を切り替えて別の種類の予算が残ることはありません。もう賄えない購入は、プレイヤーが直すまで適用されなくなります。
+
+カタログのステップやinitializeステップは`reads: { "before": "step_id" }`を宣言できます。すると、その項目の`offeredWhen`と`upTo`(またはinitializeステップの値)は、そのステップより前のステップが作るとおりのシートを読みます。後のステップが選んだもの、付与したもの、購入したものはすべて取り戻され、プレイヤーが入力したものは保たれます。マルチクラスのステップは、このレベルの上昇の前の能力値を読みます。Humanityのスナップショットは、プレイヤーがステップ間をどのように行き来しても、フリービーの前の美徳を読みます。
+
+**それ自体が判定になる行(Capability API 1.161)。** リストは最大4つの`checks`を宣言でき、プレイヤーが書く各行は、GMが名前で求められる判定になります。
+
+```json
+"checks": [{ "id": "science", "name": "name", "rating": "rating", "ability": "edu" }]
+```
+
+`name`は行を呼ぶテキスト列で、`rating`はその評価値である数値列です。`ability`(任意)は、スキルの能力値と同じように加えます。Science (Physics)とScience (Biology)は2つの行で2つの判定で、それぞれ独自の評価値を持ちます。1つのリストの2つの判定は、1つの評価値に基づく2つの構えで、それぞれGMが行の名前の後に言う`label`を持ちます。「Fire stew (bold)」と「Fire stew (careful)」です。シート自身のスキル、セーヴ、能力値が先に照合されます。2つの行が共有する名前は、一方の名前が変わるまで判定になりません。削除した行の判定はそれとともに消えます。GMのシートブロックはすべての行の判定をその数値とともに列挙し、`with=`はスキルと同じく機能します。評価値の列で価格付けしたrowsステップ(1.159)は、作成用プールから評価値を購入します。
+
+**ダイスとともに保持する作成時のロール(Capability API 1.162)。** 作成時のダイスは`{ "count", "sides", "keep"?, "add"?, "multiplier"? }`です。上位`keep`個の面に`add`を加え、`multiplier`を掛けるため、CoCの`(2d6+6) x 5`は`{ "count": 2, "sides": 6, "add": 6, "multiplier": 5 }`です。
+
+abilitiesステップの`methods.rolls`は、すべての能力値を順に、それぞれのグループのダイスで振り、ロールを別の能力値に移すことはできません(方法は`"rolls"`)。
+
+```json
+"rolls": [
+  { "abilities": ["str", "con", "dex", "app", "pow"], "dice": { "count": 3, "sides": 6, "multiplier": 5 } },
+  { "abilities": ["siz", "int", "edu"], "dice": { "count": 2, "sides": 6, "add": 6, "multiplier": 5 } }
+]
+```
+
+`kind: "roll"`のステップは、それぞれ数値の`field`に書き込む最大12個の`rolls`を列挙します。Luck、ヒットポイント、初期資金などです。`best`(2か3)はその回数振って最良のものを採用します。`floor`(数値かRef)は結果の最小値で、1ヒットポイントや、能力値を決して下回らない潜在値などです。`gain`は代わりに上昇判定にし、フィールドに対して振り、ロールがそれを上回ったときだけ`gain`を加えます。CoCのEDUの上昇と同じです。すべてのロールは面とともに保持され、面とともに表示されます。すでに行ったロールは確定し、ビルダーを開き直しても振り直すことはありません。振り直しを提示するのは`retry: true`を持つステップだけです。描写しているキャラクターのために振ることはありません。
+
+**数える選択と作成時の制約(Capability API 1.151)。** どのステップも`when: Ref`(ライブでないシートの値が0より大きい間だけ表示して適用する)と`requiredWhen: Ref`(0より大きい間だけ、未完了の選択をバッジで数える)を持てます。隠れたステップは保存した回答を保ちます。選択が未完了や無効でも、NextとBackは引き続き使え、All fieldsは引き続き自由編集です。
+
+カタログのステップは最大12個の`quotas`を宣言でき、それぞれカタログの型付きフィルターの1つを使います。
+
+```json
+{
+  "id": "ratings",
+  "label": "Skill ratings",
+  "kind": "catalog",
+  "catalog": "ratings",
+  "min": 10,
+  "max": 10,
+  "distinctBy": "skill",
+  "quotas": [
+    { "filter": "rating", "value": 4, "min": 1, "max": 1 },
+    { "filter": "rating", "value": 3, "min": 2, "max": 2 },
+    { "filter": "rating", "value": 2, "min": 3, "max": 3 },
+    { "filter": "rating", "value": 1, "min": 4, "max": 4 }
+  ]
+}
+```
+
+カタログが各スキルを各評価値で提示する場合、これはFate風のピラミッドです。項目は明示的な習熟段階IDで習熟の付与を宣言し、数値のフィルター値が段階の対応を作り出すことはありません。割り当ては`0 <= min <= max <=`ステップの最大値です。最小値はバッジに影響し、最大値はそれ以上の一致する選択を無効にします。`distinctBy`は既存のフィルターを指定し、選択はその値(タグのフィルターならどのタグも)を共有できず、そのフィルターを持たない項目は数えられません。それ以外の場合、重複の判定は項目IDで行います。`quotaBelow: { "filter": "tier" }`は、1より大きい正の整数のtierについて、tier nよりtier n−1の有効な選択が厳密に多いことを求めます。tier 1が基礎です。支える選択を外すと、超過した上位の選択は無効になり、修正のために回答は保ちつつ、その付与を取り戻します。
+
+`abilities.choose`、`trained.choose`、trainedステップの`choose`、`entries.choose`の枠は、次のものを受け付けます。
+
+- `id`: 安定したシートのIDです。新しい枠はこれを使ってください。すると、保存した回答は並べ替えても残ります。IDのない古い枠は位置によるキーを保ちます。IDは、元のステップが提示するすべての選択で一意です。
+- 明示的な`max`(1～20、能力値なら最大6)を伴う`countFrom: Ref`です。`countFrom`がない場合は、`count`が引き続き固定の数です。動的な数は切り捨てられ、0から`max`の範囲に収められます。既存の派生演算子を読み、実行可能な式は決して読みません。
+- `excludeChoices: ["background/restricted"]`: 同じ種類の前の選択のIDで、`source_step/choice_id`と書きます。これらは、置き換えを含め、前の選択の有効な回答を除外します。参照は、定義内か同じカタログファイル内で検証できる必要があります。そのため、インラインの前の付与の選択や明示的なtrainedステップは後のカタログファイルに供給できますが、別の外部カタログファイルへの参照は拒否されます。1つのステップの別の項目の間でも、選択のIDは一意である必要があります。
+
+能力値の選択はさらに`from`を受け付け、シートの能力値と`except`との共通部分を取ります。PF2eの異なるブーストには、`restricted`の選択で`["str", "dex"]`を提示し、続いて`background/restricted`を除外する`free_boost`の選択を置けます。項目の選択は、カタログのステップと同じ`quotas`、`distinctBy`、`quotaBelow`を受け付け、`max`か`count`の範囲に収められます。引き続き、選んだ項目自身の付与を適用せずに行を書き込みます。
+
+習熟の選択はさらに、`tier`(未習熟より上の提示する段階で、付与やビルダーの段階を上書きします)、`only: "any" | "trained" | "untrained"`、`onDuplicate: "replace"`を受け付けます。対象かどうかは、手動の習熟と前の有効な付与を読み、ビルダー自身の以前の書き込みは除外します。それらの出所ですでに習熟しているスキルを選ぶと、同じ種類の未習熟のスキルの中から選ぶ別の置き換えの枠が開き、元の回答は保たれます。置き換えは選択の除外と段階に従います。保存されるキーは、元の枠のキーに`/replacement`を加えたものです。Humanの職業外のランクは、前の職業の選択を除外して`only: "untrained"`を使えます。職業を変えても、無効になった後の回答は保たれます。
+
+条件と新しい枠の数は、前のステップが変えた値しか読めないため、自身を有効にする付与や循環する付与は防がれます。後の外部カタログファイルがシートの値を変え得る場合、枠の数はそれを読めません。その元のステップを前に移すか、そのカタログをインラインにしてください。条件は既存の派生値の`enumTable`を使い、亜種族のステップを1つの祖先だけで必須にできます。`requiredWhen`はバッジにだけ影響し、有効なライブでない値ならどれでも読めます。新しい制約付きの選択は、対象となる内容がない場合、「not configured」の説明付きで未解決のままです。利用できる内容に合わせて必須の数を黙って下げることはありません。シートの手動の編集と描写したキャラクターには、ビルダーの既存の所有の規則が適用されます。
+
+ビルダーを使わずに作ったキャラクター(白紙ではなく、まだビルダーの選択がないシート)は**described**(描写済み)の状態で開きます。選択はキャラクターの現状を記録し(種族の上昇はすでに能力値に含まれているものとみなします)、プレイヤーが**Done: let picks change the sheet**(完了: 選択でシートを変更)を選ぶまで、シートは何も変わりません。それ以降は、選択を変えると、描写された選択が与えたものを取り戻します。
+
+`tier`がなければ、習熟はシートが提示する未習熟より上の最初の段階になります。半分の段階を提示するシート(5eのスキルのように)は`"tier": "proficient"`を設定します。
 
 <a id="items-what-a-party-carries"></a>
 
 ## アイテム: パーティーが持ち運ぶもの
 
-鎧、武器、ポーション、装備品、弾薬、お金はアイテムです。任意の`items`ブロックはルールセットのすべてのアイテムを記述する語彙を宣言し、`holds: "items"`のカタログがアイテムそのものを列挙します。どちらもCapability API 1.49が必要です。機能ごとに必要なバージョンは次のとおりです。GMが作るアイテムを制御するブロックの`rarityCaps`と`propose`は1.51、キャラクターが持つアイテムを読む値(`itemStat`)は1.52、装備中や携行中のアイテムが判定に与える効果とブロックの`bonus`上限は1.53、アイテムが装備者に求める要件と変更する能力値は1.54、武器の`attack`は1.55、アイテムの戦闘中の効果は1.56、武器が撃つものと装填しておく数は1.57、武器のモード、オフハンド攻撃、下限、命中時の状態は1.58、戦闘でのアイテム使用の効果と保持するチャージは1.59、プールを回復する使用は1.60、休息で回復するチャージや使い切ると壊れるアイテムは1.61、先に判定を求める使用(`gate`)は1.62、戦利品表とクリーチャーの戦利品は1.63、硬貨を落とす戦利品の行や硬貨を除くレイヤーは1.64、市場、アイテムの`sold`の場所、`service`は1.65、市場の一日(財布、`buyBack`、売り手の`stock`、`limited`の数、場所を指定しない`sold`)は1.69、手に持った武器で発動する追加効果(`weapons`)は1.70です。
+鎧、武器、ポーション、装備品、弾薬、お金はアイテムです。任意の`items`ブロックはルールセットのすべてのアイテムを記述する語彙を宣言し、`holds: "items"`のカタログがアイテムそのものを列挙します。どちらもCapability API 1.49が必要です。機能ごとに必要なバージョンは次のとおりです。GMが作るアイテムを制御するブロックの`rarityCaps`と`propose`は1.51、キャラクターが持つアイテムを読む値(`itemStat`)は1.52、装備中や携行中のアイテムが判定に与える効果とブロックの`bonus`上限は1.53、アイテムが装備者に求める要件と変更する能力値は1.54、武器の`attack`は1.55、アイテムの戦闘中の効果は1.56、武器が撃つものと装填しておく数は1.57、武器のモード、オフハンド攻撃、下限、命中時の状態は1.58、戦闘でのアイテム使用の効果と保持するチャージは1.59、プールを回復する使用は1.60、休息で回復するチャージや使い切ると壊れるアイテムは1.61、先に判定を求める使用(`gate`)は1.62、戦利品表とクリーチャーの戦利品は1.63、硬貨を落とす戦利品の行や硬貨を除くレイヤーは1.64、市場、アイテムの`sold`の場所、`service`は1.65、市場の一日(財布、`buyBack`、売り手の`stock`、`limited`の数、場所を指定しない`sold`)は1.69、手に持った武器で発動する追加効果(`weapons`)は1.70、初期装備(`startingGear`)は1.78、危険なアイテム、偽物、不正直な売り手は1.79です。
 
 ### アイテムブロック
 
@@ -676,6 +1748,7 @@ GMは描写しながら`[sheet: ...]`でシートを更新します。`spend`、
   - 同じ系統の硬貨は、系統の最小硬貨を単位に数える`value`によって互いに両替できます。そのため最小硬貨の価値は1で、同じ系統の2つの硬貨が同じ価値を持つことはありません。
   - 2つの系統は互いに両替できません。他国の硬貨や、舞台設定上の恩義などは独立した系統です。
   - アイテムのコストは硬貨だけを指定するため、硬貨のIDはすべての系統を通じて一意です。
+  - 硬貨の`label`は、任意の枚数を表す名前です(`pennies`)。`one`(Capability API 1.89)はちょうど1枚を表す名前(`penny`)で、価格、財布、市場が1枚の硬貨を示す場所で使われます。これがなければ、`label`が1枚も表します。
   - `perWeight`(任意で、`carry`がある場合だけ)は、その系統の硬貨がいくつで運搬ステータス1単位の重さになるかです。
   - 硬貨はパーティーのお金で、ほかのアイテムと同じく袋に入れて持ち運びます(後述の「お金」を参照)。
 - `rarityCaps`: 任意で、レアリティーごとに最大1つです。GMが作るアイテムがそのレアリティーで与えられる上限です。`stats`で指定した各数値ステータスの最大値(そのステータス自身の範囲内で、整数のステータスなら整数)と、`bonus`(Capability API 1.53)、つまり装備中・携行中の修正値の1つが加えられる最大の固定ボーナスです。`bonus`のあるレアリティーでは、ダイスは数値に制限できないため、ダイスによるボーナスは省きます。ペナルティには上限を設けません。作られたアイテムはこれに制限されます。カタログに載せたアイテムは作者のもので、制限しません。
@@ -722,6 +1795,7 @@ GMは描写しながら`[sheet: ...]`でシートを更新します。`spend`、
 - `worn`と`carried`(任意、Capability API 1.53): 装備中と、携行しているだけの間に、アイテムが持ち主の判定とセーヴに与える効果、(1.54)設定または上昇させる能力値、(1.56)戦闘中の効果です。[戦闘外の判定](#checks-outside-a-fight)と[戦闘中の鎧と装備効果](#armor-and-worn-effects-in-a-fight)を参照してください。
 - `requires`(任意、Capability API 1.54): アイテムが装備者に求めるものと、満たさない間に適用されるものです。[戦闘外の判定](#checks-outside-a-fight)を参照してください。
 - `attack`(任意、Capability API 1.55): 装備中に戦闘で武器としてアイテムが行うこと、(1.57)撃つものと装填しておく数、(1.58)ほかのモード、オフハンド攻撃、被害の下限、命中時に付与する状態です。[戦闘中の武器](#weapons-in-a-fight)、[弾薬と再装填](#ammunition-and-reloading)、[モード、2つ目の武器、下限、命中時の状態](#modes-a-second-weapon-a-floor-and-conditions-on-a-hit)を参照してください。
+- `toggle`(任意、Capability API 1.170): アイテムが持つスイッチで、`{ "label", "budget" }`です。戦闘はそれをその行動枠の選択肢として提示し(「Turn on Flame Tongue: Flames」)、インベントリーはラベル付きのボタンとして提示します。どちらの状態で残しても、戦闘の間もスタック上でその状態が保たれ、最初はオフです。スイッチを持つアイテムは、オンの間は1スタックに1個です。`when: "toggled"`を持つ武器の`plus`の条項は、オンの間だけ与えられます。5eのflame tongueは`"toggle": { "label": "Flames", "budget": "bonus" }`と`"plus": [{ "dice": "2d6", "type": "fire", "when": "toggled" }]`です。
 - `use`と`charges`(任意、Capability API 1.59): 戦闘中と戦闘外でアイテムを使用したときの効果、その使用が消費するチャージ、(1.60)回復するプールです。[戦闘中のアイテム使用](#using-items-in-a-fight)と[戦闘外のアイテム使用](#using-items-outside-a-fight)を参照してください。
 
 アイテムは`mechanics`を持ちません。効果は`item`ブロックに書きます。
@@ -773,7 +1847,6 @@ ClassicやTacticalの戦闘では、`use`を持つ各アイテムが記述どお
 アイテムはプレイ中に変わるため、`itemStat`はライブ値の読み取りと同じ規則に従います。プールやトラックの`max`、習熟ボーナス、`binding.max`、`carry`の数値、カタログの連動列やスケーリングは、派生値を通じてもそれを読めません。それ以外で数値を読む場所なら読めます。派生値、判定の`adjust`、スキルの`cap`、戦闘の防御、吸収、イニシアチブです。
 
 キャラクターのアイテムは自分の袋に入っているものです。プレイヤーのカード(チャットで演じている人物の名前を持つカード、なければ最初のカード)はプレイヤーの袋を、ほかのカードはそれぞれ自分の袋を読みます。普通のアイテムには読むステータスがないため、数えるのはルールセットのアイテムだけです。画面上のシート、判定、GMのシートブロック、開始時の戦闘は、いずれもその時点で各キャラクターが持っているものを読みます。ゲーム外のシートエディターやインポートの確認画面では誰も何も持っていないため、`itemStat`は`default`を読みます。
-
 
 <a id="checks-outside-a-fight"></a>
 
@@ -830,6 +1903,34 @@ Ember RoadsのOx-hide gauntletsは、握力の弱い者に牛追いの握力を�
 
 Gravewatchはプールで同じことを示します。バインドしたDawn bellはWardにダイスを1個加え、RattledはSootheとBarterから1個減らします。
 
+### 状態、段階、アイテム、シートの行による種類別の防御(Capability API 1.132)
+
+`combat.conditions[]`と`combat.levels[]`は、`resist`、`vulnerable`、`immune`(それぞれ1～30項目)と`conditionImmunities`(1～40個の状態ID)を与えられます。状態が続く間、または段階のしきい値に達している間に適用されます。新たに得た状態への完全耐性は、その状態がすでに有効なら終わらせ、再び付与されるのを防ぎます。完全耐性は抵抗より優先され、抵抗と脆弱は打ち消し合います。複数の抵抗でダメージが2回半減することはありません。
+
+`resist`と`immune`はクリーチャーと同じ形式を使います。ダメージの語か、`{ "type": "bludgeoning",
+"except": ["magical"] }`です。打撃に指定したタグのどれかがあれば、その項目を素通りします。`vulnerable`は普通のダメージの語のままです。同じ例外の形式は、アイテムの`worn`と`carried`の効果でも使えます。例外のタグを`items.tags`で宣言し、武器や呪文の性質に付けてください。たとえば、Stoneskinは次のような状態の対応付けです。
+
+```json
+{
+  "condition": "stoneskin",
+  "resist": [
+    { "type": "bludgeoning", "except": ["magical"] },
+    { "type": "piercing", "except": ["magical"] },
+    { "type": "slashing", "except": ["magical"] }
+  ]
+}
+```
+
+Armor of invulnerabilityは、その`worn`の効果の中で同じ`resist`の配列を使います。Protection from Energyは`resist: ["fire"]`を、Braveのような特性は`conditionImmunities: ["frightened"]`を与えられます。段階はそのしきい値で`resist: ["poison"]`を与えられます。`combat.damageTypes`が語彙を宣言している場合、クリーチャーと同じく、不明な静的ダメージの語が報告されます。その宣言がなければ、ダメージの語は自由な文字列です。
+
+祖先やカタログの特性には、`combat.sheetHides`が最大8つの出所を持ちます(空の配列も使えます)。それぞれシートのリスト、そのリストの1つのテキストか列挙型の列、4種類の1つを指定します。特性の行の`resistance`の列に`"poison"`を持つドワーフなら次のとおりです。
+
+```json
+"sheetHides": [{ "list": "traits", "column": "resistance", "kind": "resist" }]
+```
+
+すべての行は、カンマ区切りの語を提供し、前後の空白を除いて大文字と小文字を区別せずに照合します。空の語は飛ばします。`"fire"`を持つ行を追加すると火への抵抗が加わり、削除するとその出所はなくなります。抵抗と完全耐性の語は、`"bludgeoning except magical silvered"`のように`except`を含められます。脆弱と状態への完全耐性は普通の語です。シートの文章中の宣言されていない不明なダメージの語は無視され、不明な状態IDも無視されます。状態への完全耐性の列挙型の列は、インポート時に状態IDだけを宣言する必要があります。シート、戦闘、GMの要約は、これらの防御とその例外を含みます。
+
 <a id="weapons-in-a-fight"></a>
 
 ### 戦闘中の武器
@@ -847,15 +1948,15 @@ Gravewatchはプールで同じことを示します。バインドしたDawn be
 ```
 
 - `budget`: 消費する行動枠で、`combat.economy.budgets`の1つです。
-- `toHit`: 命中に加えるものです。`abilities`は1つ以上の能力値IDで、その最良のものを数えます(フィネス武器は2つ列挙します)。`skill`は、攻撃の行と同じく、スキル自身の能力値の代わりに攻撃の能力値を使って、そのスキルの判定が加える値を加えます。`proficiency`は持ち主のシート上の値で、0より大きければルールセットの習熟ボーナスを加えます(常に加えるなら`{ "const": 1 }`)。`bonus`は数値です。`target`はプール方式の戦闘でのこの武器の攻撃のダイスごとの目標値です(GravewatchのGrave spadeは、プールの7ではなく6以上の目をすべて数えます)。指定できるのは`target`を動かせる`dice-pool`のルールセットだけで、合計方式の戦闘では`bonus`が同じことを表します。
-- `damage`: 与える`dice`、加えるダメージの`abilities`の最良のもの、`bonus`、`type`です。合計方式の戦闘には`dice`が必要です。プール方式の戦闘では、命中で成功数分のダメージを与え、`dice`はプール自身のダイスをその数だけ加えます。
+- `toHit`: 命中に加えるものです。`abilities`は1つ以上の能力値IDで、その最良のものを数えます(フィネス武器は2つ列挙します)。`skill`は、攻撃の行と同じく、スキル自身の能力値の代わりに攻撃の能力値を使って、そのスキルの判定が加える値を加えます。`proficiency`は持ち主のシート上の値で、0より大きければルールセットの習熟ボーナスを加えます(常に加えるなら`{ "const": 1 }`)。`bonus`は数値です。`sheetBonus`は持ち主のシートから読んでそのまま加える数値で、武器自体ではなく、持ち主がある種類のすべての武器にもたらすものを表します。5eのArcheryの戦闘スタイルは、射手なら2、それ以外なら0になる派生値`{ "derived": "archery" }`を各遠隔武器に与えます(Capability API 1.95。アイテムの情報は、シート上の名前でそれを示します)。`target`はプール方式の戦闘でのこの武器の攻撃のダイスごとの目標値です(GravewatchのGrave spadeは、プールの7ではなく6以上の目をすべて数えます)。指定できるのは`target`を動かせる`dice-pool`のルールセットだけで、合計方式の戦闘では`bonus`が同じことを表します。
+- `damage`: 与える`dice`、ダメージの`abilities`のうち最良のものの加算、`bonus`、`type`です。合計方式の戦闘には`dice`が必要です。プール方式の戦闘では、命中はその成功数を与え、`dice`はプール自身のダイスをその数だけ加えます。`sheetBonus`(Capability API 1.97)は、`toHit`のものと同じく、持ち主のシートからダメージに加える数値で、`"oneHanded": true`なら、武器を片手で持っている間だけ数えます。両手で使う`versatile`の武器や、スロットを2つ使う武器は含みません。5eのDuelingは、1つの武器を持つ決闘者に2となる`{ "derived": "dueling" }`を与えます。`rerollUpTo`(Capability API 1.98)は持ち主のシート上の値で、武器自身のダメージダイス(クリティカルの追加のダイスも含みます)のうちそれ以下の目を1回振り直して新しい目を確定します。武器を両手で使っている間(手が空いている`versatile`の武器か、スロットを2つ使う武器)、かつ合計方式の戦闘でだけ働きます。5eのGreat Weapon Fightingは、そのスタイルを持つと2となる`{ "derived": "great_weapon_fighting" }`を与えます。
 - `reach`と`range`(`normal`と、それを超えても届く`long`)は`combat.distance`の単位で、それが必要です。両方を持つ武器は、攻撃の行と同じく投擲武器です。近くでは振るい、その先では投げます。どちらもなければ1マスに届きます。
 - `versatile`: 持ち主が身に着けているものの中で、占める各スロットに同じだけの空きがある間に代わりに与える`dice`です。片手で持ち、もう片方の手が空いている槍などです。
 - `strikes`: 攻撃の行の`strikes`と同じく、1回の消費で得る打撃の回数で、持ち主のシートから読みます。これがない武器は、使い手が何回攻撃できても1回の消費で1打撃です。
 
 これらの数値や語は、代わりにアイテム自身のステータスを読めます。`{ "stat": "damage" }`はアイテムの`damage`で、アイテムが何も与えないステータスは値を書かなかったのと同じです。`abilities`と`skill`は語が能力値IDやスキルIDである列挙ステータスを、`type`はテキストや列挙のステータスを読みます。そのため、GMが武器を`like=`にして作るアイテムも、自身のステータスで戦う武器になり、ほかのステータスと同じく`rarityCaps`に制限されます(書き込んだ値はそのままコピーします)。スロットもバインドもなしに作ったものは身に着けられないため、攻撃なしで作られます。小さなモデルは武器を記述しても`like=`を省きがちなので、出発点なしで武器のカテゴリーに作られたものは、そのカテゴリーの武器のうち名前が最も似たもの(どちらかの向きで共有する語。crossbowはbowに似ています)、なければ最初のものとして戦い、提案が省いた、その攻撃が読むステータスを引き継ぎます。回答もそう伝えます(「It fights as Hand axe does.」)。GMの提案フォームも、ある武器に似せて作った武器はそれと同じように戦うことを伝えます。
 
-武器のタグは、その打撃が帯びるものです。クリーチャーの`resist`や`immune`の項目は、何がそれを通り抜けるかを指定できます。`{ "type": "tearing", "except": ["silver"] }`は、`silver`タグの武器からは全量を受け、それ以外からは抵抗します。GravewatchのGrave wightはそのように書かれ、Silver coffin nailが通ります。
+武器のタグは、その打撃が帯びるものです。クリーチャーの`resist`や`immune`の項目は、何がそれを通り抜けるかを指定できます。`{ "type": "tearing", "except": ["silver"] }`は、`silver`タグの武器からは全量を受け、それ以外からは抵抗します。GravewatchのGrave wightはそのように書かれ、Silver coffin nailが通ります。武器のアイテム以外による被害は、同じアイテムのタグで、帯びるものを`qualities`(Capability API 1.101)で示します。カタログの項目の`mechanics`(呪文)や、クリーチャーのアクションの`damage`(デーヴァのメイス)に付けます。5eの「魔法でない攻撃による殴打、刺突、斬撃への抵抗」は、`{ "type": "slashing", "except": ["magical"] }`とほかの2つの同様のものを並べ、魔法の武器のタグに`magical`を、呪文とSRDが魔法とするクリーチャーの攻撃に`"qualities": ["magical"]`を付けます。
 
 武器の詳細とGMへの行には、その効果が示されます。`attack (Action): Brawn to hit, 1d6 + Brawn cut, reach 2 paces, range 10 to 20 paces`で、Ember RoadsのBoar spearには`1d8 with a hand free`、GravewatchのGrave spadeには`at 6`が付きます。
 
@@ -901,11 +2002,14 @@ Gravewatchはプールで同じことを示します。バインドしたDawn be
   "offHand": { "budget": "quick", "ability": "full" }
   ```
 
-  その持ち主がこのターンに`offHand`の武器の1つで攻撃すると、身に着けているほかのそうした武器はそれぞれ、その行動枠で2回目の攻撃を提示し、メニューでは「Silver coffin nail, off hand」と表示されます。`ability`は`full`(デフォルト)か`penalty-only`です。後者は5eの二刀流と同じく、何かを差し引く場合だけダメージの能力値を加えます。オフハンド攻撃は、主攻撃が得る打撃の数にかかわらず1撃で、離れていく相手への打撃には使えません。`offHand`の武器には、combatブロックの`offHand`が必要です。
+  その持ち主がこのターンに`offHand`の武器の1つで攻撃すると、身に着けているほかのそうした武器はそれぞれ、その行動枠で2回目の攻撃を提示し、メニューでは「Silver coffin nail, off hand」と表示されます。`ability`は`full`(デフォルト)か`penalty-only`です。後者は5eの二刀流と同じく、何かを差し引く場合だけダメージの能力値を加えます。オフハンド攻撃は、主攻撃が得る打撃の数にかかわらず1撃で、離れていく相手への打撃には使えません。`offHand`の武器には、combatブロックの`offHand`が必要です。`fullWhen`(Capability API 1.97)は戦う者のシート上の値で、0より大きければ、5eのTwo-Weapon Fightingのスタイルと同じく、`ability`にかかわらず、その者のオフハンドは能力値をすべて加えます。
+
 - `floor`: 命中が与える最小値で、直接書くかアイテムの数値ステータスから読みます。プール方式の戦闘の吸収後の被害、または合計方式の戦闘のダメージを、抵抗で半減する前にこの値まで引き上げ、ログにもそう示します。費やす打撃は使い手の数値を振るため、引き上げません。
 - `onHit`: 打撃が与えた被害が`atLeast`に達したとき、標的が受ける状態で、最大4つです。持続は標的自身のターンで`rounds`回、指定がなければ何かが解除するまでです。被害は吸収と抵抗の後に届いた量です。奪う打撃は被害ではなくイニシアチブを奪うため、状態を付与しません。
+  項目は`save: { "save": <save id>, "difficulty": n }`も持てます。状態が付与されるときに標的が振り、成功すれば付与されません。`saveEnds: { "save", "difficulty", "at": "turn-start" | "turn-end" | "damaged" }`も持て、持ち主が自身の各ターンの開始時か終了時、または0より大きいダメージを受けたときにそのセーヴに成功するまで続きます(その場合`rounds`は持ちません)。どちらもその状態に対するセーヴと数え、武器が魔法なら魔法に対するセーヴとも数えます(Capability API 1.169)。5eのsword of woundingは`{ "condition": "wounded", "atLeast": 1, "saveEnds": { "save": "con_save", "difficulty": 15, "at": "turn-start" } }`です。
+- `plus`: 各命中でのさらに最大3つの量で、それぞれ`{ "dice", "flat", "type", "save", "targetIs", "when" }`です。それぞれ独立して振り、種類を持ち、抵抗されます(Capability API 1.169)。`save`は独自の`difficulty`と`onSuccess`(`half`か`none`)を指定します。`targetIs`は、それらのクリーチャーの種類やタグの標的にだけ与えます(「クリーチャーの種類と標的の条件」を参照)。`when: "critical"`はクリティカルヒットのときだけ与えます。どの条項のダイスも、武器のものと同じくクリティカルヒットで倍になります。javelin of lightningは`{ "dice": "4d6", "type": "lightning" }`、dragon slayerは`{ "dice": "3d6", "type": "slashing", "targetIs": { "types": ["dragon"] } }`、sword of sharpnessは`{ "flat": 14, "type": "slashing", "when": "critical" }`です。見込みは、条項が届く標的に対してだけそれを数え、クリティカル専用のものは決して数えません。`when: "toggled"`は、アイテムのスイッチがオンの間だけ与えます(Capability API 1.170。後述の`toggle`を参照)。
 
-武器の詳細とGMへの行には、そのすべてが示されます。`modes Volley (2 shots, -2 to hit, up to 2 targets)`、`off hand (Quick)`、`at least 1 on a hit before resistance`、`Marked for 2 rounds when a hit deals 2 or more`です。
+武器の詳細とGMへの行には、そのすべてが示されます。`modes Volley (2 shots, -2 to hit, up to 2 targets)`、`off hand (Quick)`、`at least 1 on a hit before resistance`、`+3d6 slashing against Dragon`、`Marked for 2 rounds when a hit deals 2 or more`です。
 
 <a id="armor-and-worn-effects-in-a-fight"></a>
 
@@ -913,7 +2017,7 @@ Gravewatchはプールで同じことを示します。バインドしたDawn be
 
 装備中や携行中のアイテムの効果は、持ち主の状態や段階と並んで、戦闘も変えられます(Capability API 1.56)。どちらも、状態のうち戦闘が読む部分を受け付けます。
 
-- `effects`: 段階が持てない4つ(`half-move-to-stand`、`ends-on-damage`、`cannot-target-source`、`cannot-approach-source`)以外の、状態の任意の効果です。誰かがアイテムを持ち主に付けたわけではなく、ひとりでに終わることもないためです。`own-attacks-advantage`、`attacks-against-disadvantage`、`resist-all`、`speed-zero`などです。
+- `effects`: 段階が持てない5つ(`half-move-to-stand`、`ends-on-damage`、`cannot-target-source`、`cannot-target-source-side`、`cannot-approach-source`)以外の、状態の任意の効果です。誰かがアイテムを持ち主に付けたわけではなく、ひとりでに終わることもないためです。`own-attacks-advantage`、`attacks-against-disadvantage`、`resist-all`、`speed-zero`などです。
 - `modifiers`: 状態とまったく同じく、判定とセーヴに加えて防御、攻撃、速度への変更(`to`)です。`dice-pool`の戦闘では、状態と同じく、攻撃への変更はダイスの固定数です。
 - `resist`、`vulnerable`、`immune`: クリーチャーと同じく、持ち主が半分、2倍、ゼロだけ受ける被害の種類です(宣言している場合は`combat.damageTypes`と照合します)。`conditionImmunities`: 持ち主に決して付与されない独自の状態です。
 
@@ -939,7 +2043,7 @@ GravewatchのWidow's ringは呪われていて、すべての攻撃でダイス�
 
 ### 戦闘中のアイテム使用
 
-アイテムは戦闘中に使用できます(Capability API 1.59)。傷に当てる湿布、飲む強壮剤、鳴らす鐘などです。`use`は、カタログ項目の`mechanics`と同じ語彙で使用の効果を示します([戦闘が`mechanics`から読み取るもの](#what-a-fight-reads-from-mechanics)を参照)。`kind`(`heal`、`attack`、`buff`、`debuff`)、`amount`、`damageType`、`plus`、`attackRoll`、`save`、`applies`、`temporary`、`range`、`area`、`targets`、`targetCount`、`friendlyFire`と、消費する`budget`または`free`です。Ember RoadsのPoulticeと、GravewatchのWarming tonicとDawn bellは次のとおりです。
+アイテムは戦闘中に使用できます(Capability API 1.59)。傷に当てる湿布、飲む強壮剤、鳴らす鐘などです。`use`は、カタログ項目の`mechanics`と同じ語彙で使用の効果を示します([戦闘が`mechanics`から読み取るもの](#what-a-fight-reads-from-mechanics)を参照)。`kind`(`heal`、`attack`、`buff`、`debuff`)、`amount`、`damageType`、`plus`、`attackRoll`、`save`、`applies`、`temporary`、`range`、`area`、`targets`、`targetCount`、`friendlyFire`、Capability API 1.174からは`concentration`と`zone`と、消費する`budget`または`free`です。Ember RoadsのPoulticeと、GravewatchのWarming tonicとDawn bellは次のとおりです。
 
 ```json
 "use": { "kind": "heal", "budget": "act", "range": 0, "targets": "ally", "amount": { "dice": "1d4", "flat": 1 }, "consumes": true }
@@ -977,6 +2081,7 @@ GravewatchのWidow's ringは呪われていて、すべての攻撃でダイス�
 
   - `recharge`: チャージを戻す`rests`とその量です。`"max"`はアイテムを満タンにし、量(`{ "dice": "1d6", "flat": 1 }`)はその数だけ戻しますが、`max`を超えません。休息は、シートのRestボタンでもGMの`[sheet: op="rest"]`でも、そのキャラクターが持つ、その休息を指定するすべてのアイテムのチャージを戻します。シートと袋は一緒に書き込み、再生成した返信が再充填するのは1回だけです。休息後、シートには戻ったものが表示され(「Dawn bell 3/3 charges」)、GMはインベントリーで各アイテムの横に残りのチャージを見ます(「2 of 3 charges left」)。
   - `breaksOn`: 使用が最後のチャージを消費すると、Engineはd`die`を振り、`atMost`以下ならアイテムが壊れて袋からなくなります。戦闘中でも戦闘外でも同じです。戦闘ログにも(「Dawn bell breaks (a 1 on its die).」)、Useボタンの報告にも(「Its last charge spent, it breaks.」)示され、Journalは失ったものとして数えます。
+
 - `gate`(Capability API 1.62)は、アイテムが働く前に使用者が通る判定です。読み手より高位の呪文の巻物が判定を求めるようなものです。`check`は振るものを指定します。`{ "skill": "ward" }`、`{ "ability": "wits" }`、またはシート上の値(`{ "value": { "derived": "spell_mod" } }`。5eの術者の呪文発動修正値のように、キャラクターごとに異なる数値用)です。`difficulty`は1から100で、直接書くかアイテムの数値ステータスから読みます(それを与えないアイテムはメニューから除外し、Useボタンもそれをはっきり示します)。`unless`は、使用者のシート上の値が`atLeast`以上なら判定を省きます。判定に失敗すると、アイテムを無駄に使い切ります(またはチャージを消費します)。戦闘中は、アイテムを消費する時点で、戦闘自身のダイス(プール方式の戦闘ではプールで、`difficulty`は必要な成功数)と、戦闘開始時に読んだシートの数値で判定を振り、使用者の状態と身に着けたアイテムがその判定に加えるものも、スキル自身のものを含めて数えます。ログにも示されます(「Ada rolls Ward to use Page of the vigil litany: 2 successes from 2 dice at 7 or more (8, 9), needing 2 successes, a success.」)。GravewatchのPage of the vigil litanyは次のように指定します。
 
   ```json
@@ -1039,6 +2144,44 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
 - インベントリーのスタックの上の行に、表示中の各系統の硬貨と、系統の最小硬貨での価値を表示します。GMは各袋の横にその価値を(`Coin worth 432 pennies`、空の財布なら`no coins`。プレイヤーの袋は何もなくても表示します)、アイテムの横に`cost`を(`costs 3 shillings`)見ます。
 - GMは`[inventory: action="pay" amount="3 shillings" who="Ada"]`で支払い、`action="earn"`で受け取ります。`amount`は数と硬貨で、硬貨はIDかラベル、単数形でも複数形でも、大文字・小文字も問いません(`1 penny`、`12 pennies`)。支払いは1つの袋(`who=`がなければプレイヤーの袋)から、その硬貨の系統の中だけで行います。収まる最大の硬貨から使い、次に残りの不足額をまかなえる最小の硬貨を崩し、お釣りは系統の小さい硬貨で、大きいものから戻します。回答は支払ったものと戻ったものを示します。1 crownが入った財布から3 shillingsを払うと`Paid with crowns ×1; shillings ×2 back.`です。袋で払えない支払いは拒否され(`cannot-afford`)、ない硬貨(`unknown-coin`)や通貨のないルールセットでの支払い(`no-currencies`)も拒否されます。受け取りはその硬貨の追加で、`who`の袋に入るか、運搬の規則で分けます。Journalは使ったものと得たものを記録し、通知も表示されます。GMへの指示には硬貨が列挙され、硬貨のあるルールセットだけにあります。
 - 購入は支払いの後の追加か、市場のあるルールセットでは`buy`(後述)です。店の画面はありません。
+
+### 初期装備
+
+`items.startingGear`(Capability API 1.78)は、キャラクターが開始時に袋に入れられる装備を列挙します。クラスのキット、背景のキット、天職のキットなどです。単独で与えられることはありません。インベントリーには**Starting gear**(初期装備)の行が表示され、プレイヤーは装備を1つと、その各選択の選択肢と、各リストのアイテムを選び、プレイヤーの袋かパーティーのメンバーの袋に入れます。キャラクターのシートが`fits`する装備が先に、次に`fits`のない装備(背景のものなど、どのキャラクターにも合うもの)が並びます。キャラクターのコンセプトはプレイヤーとGMが合意して決めるものなので、すべての装備が提示されます。
+
+```json
+"startingGear": [
+  {
+    "id": "fighter", "label": "Fighter", "group": "class",
+    "fits": { "value": { "field": "level_fighter" }, "atLeast": 1 },
+    "lines": [{ "item": "equipment/shield", "equip": true }],
+    "choices": [
+      {
+        "label": "Armor",
+        "options": [
+          { "label": "Chain mail", "lines": [{ "item": "equipment/chain-mail", "equip": true }] },
+          { "label": "Leather armor and a longbow", "lines": [
+            { "item": "equipment/leather-armor", "equip": true },
+            { "item": "equipment/longbow" }, { "item": "equipment/arrow", "count": 20 }
+          ] }
+        ]
+      },
+      { "label": "A martial weapon", "options": [
+        { "label": "Pick one", "lines": [{ "oneOf": ["equipment/longsword", "equipment/battleaxe"] }] },
+        { "label": "A greataxe", "lines": [{ "item": "equipment/greataxe" }] }
+      ] }
+    ]
+  },
+  { "id": "acolyte", "label": "Acolyte", "group": "background", "lines": [{ "coins": "gp", "count": 15 }, { "name": "Vestments" }] }
+]
+```
+
+- 行は、ルールセットのアイテム(`item`)、硬貨(`coins`、単位ID)、固定のリストからプレイヤーが選ぶ1つのアイテム(`oneOf`、2～48個)、名前で書く普通のアイテム(`name`。`freeform`が普通のアイテムを許す場合で、ラベルの規則に従うため、角括弧、`{{`、改行は使えません)のいずれかです。`count`は1～999です。`equip: true`は、スロットが空いていれば受け取ると同時にアイテムを装備するため、鎧は最初から数えられます。
+- `choices`は0～8個で、それぞれ独自の行を持つ2～6個の選択肢があります。
+- `group`: キャラクターが各グループから1回受け取る装備です(クラスのものと背景のもの)。同じグループをもう一度受け取るかはプレイヤーがダイアログで選び、すでに袋にあるものに加わります。グループのない装備はそれ自体が1つのグループで、同じ名前のグループと同じになることはありません。
+- `fits`は、携帯と同じく、ライブ状態なしでシートを読みます。一覧の順序を決めるだけです。
+- 受け取りはすべてか無かです。持ち主にとって重すぎる装備は丸ごと拒否され、ダイアログは重さとまだ運べる量を示します。レイヤーがゲームから除いたアイテムは除外されて名前が示され、すべてのアイテムが除かれたリストも同様です。レイヤーが除いた硬貨は、同じ価値の残っている最大の硬貨で支払われ、ダイアログはそのように表示します。何も残らない装備は拒否されるため、何もないのに受け取り済みと記録されることはありません。サービスがリストから提示されることはありません。
+- インポートは、すべてのアイテム(インラインのカタログ内のもの。独立したファイルのカタログは装備を受け取るときに検査します)、硬貨、普通のアイテム、`fits`の参照を検査し、サービスを拒否し、袋が一度に受け取れるより多くのスタックを必要とする数を拒否します。
 
 ### 市場
 
@@ -1110,6 +2253,29 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
 - **`purse`**は場所の規模に付け、その売り手たちが1日に合計で支払える最大額で、硬貨の1つで指定します。その硬貨の系統で支払う売却がそれに数えられ、財布がなければ無制限に買い取ります。
 - **売却。** GMは`[inventory: action="sell" item="Silver coffin nail" count="1" seller="smith" who="Ada"]`で売ります。Engineは価格を付け、売るキャラクターの袋(`who=`がなければプレイヤーの袋。バインドした呪われたアイテムは不可)からアイテムを取り出し、硬貨を大きいものから入れるか、拒否して何も変えません。拒否するのは、場所が示されていない、ここで誰も買い取らない(`not-bought`)、価格がない(`not-for-sale`)、今日の財布を使い切った(`purse-spent`)、持っていない、袋が硬貨を運べない場合です。回答は売値(`price="4 shillings"`)を示し、Journalは売却として記録し、通知も表示されます。
 - MARKETブロックには、各売り手の今日の在庫、上限のあるアイテムの残数、ここの売り手が支払う額と今日の財布の残りが加わります。GMへの指示は`sell`と`day="new"`を教えます。
+
+#### 正直な売り手と不正直な売り手
+
+Capability API 1.79では、アイテムを危険なものや偽物にし、売り手を不正直にできます。
+
+```json
+"items": { "market": { "sellers": [
+  { "id": "fence", "label": "Fence", "sells": [{ "tag": "magical" }], "place": "town", "honest": false, "stock": { "table": "fences_odd_lot" } }
+] } }
+```
+
+```json
+{ "id": "bag-of-devouring", "label": "Bag of Devouring", "item": { "category": "wondrous", "passesFor": "magic_items/bag-of-holding", "cost": { "amount": 5, "unit": "gp" } } }
+{ "id": "wand-of-wonder", "label": "Wand of Wonder", "item": { "category": "wand", "risky": "every wave is a gamble; some effects turn on the one who waves it" } }
+```
+
+- アイテムの**`risky`**: 正直な売り手が売る前に警告する内容です。MARKETブロックは、正直な売り手の商品の横に「(warn the buyer first: ...)」と示し、不正直な売り手は何も言いません。
+- アイテムの**`passesFor`**は、それを別のアイテム(`<catalog>/<entry>`)の偽物にします。偽装先は同じカテゴリーで、同じスロットに着用する、実在する売却可能なアイテムで、偽物がバインドするならそれもバインドするものです。両方を読める場合はインポート時に、すべてのカタログファイルについてはインストール時に、さらに市場が提示するときにも検査されるため、対象が存在しないかレイヤーで隠された偽物が売られることはありません。呪われたアイテム(`binds.cursed`)や偽物が誰かの商品に並ぶことはなく、正直な売り手の在庫に入ることもありません。
+- 売り手の**`honest: false`**: その`stock`の表で出た偽物は、偽装先のアイテムとしてその価格で提示され、MARKETブロックはその横にGMへ真実を示します。その売り手とそのアイテムを指定する購入では偽物を受け取り、売り手を指定しない購入では決して受け取りません。
+- **袋の中の偽物**は、プレイヤーが見るあらゆる場所(袋、Journal、通知、戦闘)で偽装先のアイテムとして表示され、本当の正体を保ちます。GMのインベントリーブロックはそれに`[FAKE: really ...]`と印を付け、表示されている名前で呼び続けるよう求めます。
+- **正体の発覚**: `[inventory: action="reveal" item="Bag of Holding" who="Ada"]`、バインド(同調すると呪いが判明します)、使用(本当の効果が起き、規則で解決できない場合はGMが伝えます)、または正直な買い手への売却で発覚します。正直な買い手は本当の正体を告げ、その価値(自身の`cost`)を支払うか、価値がなければ拒否します。不正直な買い手は偽物を見かけどおりのものとして受け取ります。以後、それは本当のアイテムになります。
+- **着用または携帯**: 偽物は、キャラクターのシート上で本当の効果(その`worn`や`carried`の効果とステータス)を持ちます。偽装先のアイテムなら示さない数値や判定への加算をシートが示すようになった後の最初のインベントリーの変更で発覚し、Journalと画面がその正体を示します。戦闘だけが読む違い(抵抗)では発覚せず、シートだけの変更でも、次のインベントリーの変更までは発覚しません。戦闘では、着用した偽の武器は引き続き偽装先の武器として攻撃します。
+- シングルプレイヤーの信頼設定では、Peek PromptがGMの視点を、真実も含めて表示します。
 
 <a id="using-items-outside-a-fight"></a>
 
@@ -1244,7 +2410,7 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
 - `health`: 必須です。戦闘で減るものです。`{ "pool": "grit" }`なら減算するライブプールで、一時的なバッファがある場合はダメージで先にそれを消費します。`{ "track": "harm" }`なら印を付ける負傷トラックです。トラックには`damageKinds`の併記が必要で、一時ポイントは与えません。
 - `defense`: 必須の値参照です。プレイヤーが入力するフィールドか、作者が計算する派生値です。
 - `initiative`: 必須です。開始時に一度振るダイスと、任意の修正値参照です。同値なら修正値が高い方が先で、それも同じなら戦闘の設定時の順序に従います。`"each": "round"`は、新しいラウンドの開始ごとに、その時点の修正値で全員のイニシアチブを振り直し(そのため負傷トラックを読む修正値なら、負傷後は遅くなります)、ラウンドは新しい順序の先頭から始まります。Capability API 1.47です。`dice-pool`の戦闘では、代わりにプールとして振れます。`pool`(値参照)はダイスの個数で、その成功数に`plus`を加えた値が数値になり、`dice`や`modifier`は併記しません。`pool`が必要な`resource`は、その数値を保持して攻撃で動かせるようにします(後述の「攻撃で動くイニシアチブ」を参照)。Capability API 1.48です。
-- `attackRoll`: `attack-vs-defense`では必須で、解決方式自身のプールを振る`dice-pool`では拒否されます。ダイス、2回振って片方を使うか(`advantage`)、単一ダイスの最大・最小の目の効果(`naturals.max`: `critical`、`hit`、`none`、`naturals.min`: `miss`、`none`)、クリティカルヒットがダメージに与える効果(`critical`: `double-dice`はダメージダイスをもう一度振り、`max-dice`はその最大の目を一度加え、`none`は通常の命中)を指定します。判定と同じく、特別な出目には単一のダイスが必要です。戦闘内のセーヴィングスローも同じダイスを振ります。
+- `attackRoll`: `attack-vs-defense`では必須で、解決方式自身のプールを振る`dice-pool`では拒否されます。ダイス、2回振って片方を使うか(`advantage`)、単一ダイスの最大・最小の目の効果(`naturals.max`: `critical`、`hit`、`none`、`naturals.min`: `miss`、`none`)、クリティカルヒットがダメージに与える効果(`critical`: `double-dice`はダメージダイスをもう一度振り、`max-dice`はその最大の目を一度加え、`none`は通常の命中)を指定します。判定と同じく、特別な出目には単一のダイスが必要です。戦闘内のセーヴィングスローも同じダイスを振ります。`criticalFrom`はクリティカルの面を広げます。攻撃者のシートから読む、クリティカルと数える最小のナチュラルの面の値で、シートが19を示す5eのChampionなら`{ "field": "critical_from" }`です。ダイスの最大の面に収められ、2未満の値は範囲がないことを意味し(フィールドを0のままにしたキャラクターと同じく、最大の面だけです)、`naturals.max`を`critical`にした単一のダイスが必要です。Capability API 1.81です。
 - `economy`: 必須です。`budgets`は1ターンに使える行動枠で、ID、ラベル、`per`(`turn`は所有者自身のターン開始時に、`round`は新しいラウンドの開始時に補充)、`count`を持ちます。最初に宣言した行動枠が主枠で、標準アクションはこれを消費します。`movement`は任意の値参照で、独自の距離単位による1ターンの歩行距離です。盤面上の戦闘が読み取ります(「位置」を参照)。
 - `attacks`: 任意です。行が武器になるシートのリストです。`name`は行の名前にするテキスト列、`damage.dice`はダイス列で、`toHit.ability`、`toHit.proficiency`、`toHit.bonus`、`damage.ability`、`damage.bonus`、`damage.type`はそれぞれ同じリストの列を指定します。`ability`列は独自の能力値IDのいずれかを持つ`enum`です。それ以外の値は何も加算しません。`proficiency`列は`boolean`で、オンなら習熟ボーナスを加算します。読み取れるダイスがない行は攻撃にならないため、同じリストのロープは単なるロープのままです。`toHit.skill`は、スキルIDのいずれかを持つ`enum`列を指定します。行はそのスキルの判定が加える値を加え、行自身の`ability`が能力値を指定する場合は、判定の`with=`による入れ替えとまったく同じく、スキルの能力値の代わりにそれを使います(Capability API 1.47)。`strikes`は任意の値参照で、このリストの行動枠を1回消費すると何回の打撃を得るかを示します。手持ちの打撃がない状態で行を選ぶと行動枠を消費し、残りを手持ちにします。手持ちがある間、`strikes`を宣言したすべての行は行動枠を消費しません。そのため、別の武器、別の標的、合間の歩行が自然にメニューから選べます。`strikesCappedBy`は、その行自身をリストの打撃回数に関係なく1回に制限するブール列を指定します。使い手の回数にかかわらず1ターンに1回しか撃てない武器のためのもので、SRD 5.1のLoading特性を表現するために用意されています。もともと1回の消費で1打撃しか得ないリストでは意味がなく、拒否されます。手持ちの打撃は1つのリストではなく戦闘者に属します。2つの武器リストが両方とも`strikes`を宣言しているキャラクターは、どちらの行を振るっても同じ手持ちを消費します。獲得したターンの終了時に消去されます。何も指定しないリストは、1回の消費で1打撃を得ます。この機能以前のすべての戦闘と同じです。
 
@@ -1259,25 +2425,70 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
   ```
 
 - `abilities`: 任意です。カタログの印が付いた行が能力になるシートのリストで、`battle.skills`とまったく同じく`onlyWhen`と`alwaysWhen`で絞り込みます。各能力の効果は元の項目の`mechanics`に従います。このブロックでは、デフォルトで消費する`budget`、命中判定をする項目に加える`toHit`、項目のセーヴの目標値となる`saveDifficulty`を指定します。項目自身のセーヴであれ、付与した状態を終了するセーヴであれ、配置先のリストに`saveDifficulty`がない項目は拒否されます。目標値のないセーヴは常に成功してしまうためです。
+  Capability API 1.108では、`byColumn: { "column": "class", "values": { "cleric": { "toHit": { "derived": "spell_attack_cleric" }, "saveDifficulty": { "derived": "spell_dc_cleric" } }, "wizard": { "toHit": { "derived": "spell_attack_wizard" }, "saveDifficulty": { "derived": "spell_dc_wizard" } } }`が行のクラスによって参照を選びます。クレリック3/ウィザード2なら、クレリックの攻撃を習熟とWisdomから、難易度を8とその攻撃から求め、ウィザードのものは代わりにIntelligenceから求められます。列は出所のリストに存在する必要があり、`values`は1～20項目を持ちます。各項目はどちらの参照も置き換えられます。省略した参照、列の値がない場合、列挙されていない値では、出所自身の参照を保ちます。戦闘、シートの行の要約、GMの要約は、同じ行ごとの数値を読みます。`stamp`と`byColumn`はどちらも、schemaVersion 2とcapabilityApi 1.108以降が必要です。
 - `standard`: 任意で、固定リスト`dash`、`disengage`、`dodge`、`help`、`hide`、`ready`から選びます。`dodge`(回避中の者への攻撃は2回振って悪い方を使う)と`help`(援護された味方の次の攻撃は2回振って良い方を使う)は常に解決します。`dash`(同じ移動量をもう一度得る)と`disengage`(このターン、離れる際に攻撃されない)は盤面上では解決し、盤面外では記録します。`hide`と`ready`は受け付けますが、まだ何もしません。
 - `standardEffects`: 任意で、標準アクションのフラグだけでは表せない部分です。現在対応するのは`dodge`だけです。`{ "dodge": { "saves": ["dex_save"] } }`は、回避が続く間に2回振って良い方を使うセーヴを指定します。シートに宣言したセーヴだけを指定し、`standard`リストに`dodge`がある場合だけ使ってください。省略すれば回避は従来どおり、命中しにくくなるだけです。
-- `conditions`: 任意です。独自の状態IDを効果に対応付けます。シートと戦闘の状態は1つの記録となり、毒を受けたキャラクターは戦闘後も毒のままです。効果は固定リストです。`own-attacks-advantage`、`own-attacks-disadvantage`、`attacks-against-advantage`、`attacks-against-disadvantage`、`attacks-against-adjacent-advantage`、`attacks-against-far-disadvantage`、`attacks-from-adjacent-critical`、`cannot-act`、`cannot-react`、`speed-zero`、`half-move-to-stand`、`ends-on-damage`、`own-saves-advantage`、`own-saves-disadvantage`、`own-checks-advantage`、`own-checks-disadvantage`、`resist-all`、`cannot-target-source`、`cannot-approach-source`です。`failsSaves`は、ダイスを振らずに失敗するセーヴを指定します。距離や移動が必要な6つ(`attacks-against-adjacent-advantage`、`attacks-against-far-disadvantage`、`attacks-from-adjacent-critical`、`speed-zero`、`half-move-to-stand`、`cannot-approach-source`)は盤面のある戦闘だけが読み取り、盤面なしでは意味を持ちません(「位置」を参照)。`cannot-react`の所有者は歩行で開く応答ウィンドウから除外されるため、応答を求められません。効果に加えて、4つのキーがあります。
+- `conditions`: 任意です。独自の状態IDを効果に対応付けます。シートと戦闘の状態は1つの記録となり、毒を受けたキャラクターは戦闘後も毒のままです。効果は固定リストです。`own-attacks-advantage`、`own-attacks-disadvantage`、`attacks-against-advantage`、`attacks-against-disadvantage`、`attacks-against-adjacent-advantage`、`attacks-against-far-disadvantage`、`attacks-from-adjacent-critical`、`cannot-act`、`cannot-react`、`speed-zero`、`half-move-to-stand`、`ends-on-damage`、`own-saves-advantage`、`own-saves-disadvantage`、`own-checks-advantage`、`own-checks-disadvantage`、`resist-all`、`cannot-target-source`、`cannot-target-source-side`(1.278)、`cannot-approach-source`です。`failsSaves`は、ダイスを振らずに失敗するセーヴを指定します。距離や移動が必要な6つ(`attacks-against-adjacent-advantage`、`attacks-against-far-disadvantage`、`attacks-from-adjacent-critical`、`speed-zero`、`half-move-to-stand`、`cannot-approach-source`)は盤面のある戦闘だけが読み取り、盤面なしでは意味を持ちません(「位置」を参照)。`cannot-react`の所有者は歩行で開く応答ウィンドウから除外されるため、応答を求められません。効果に加えて、4つのキーがあります。
   - `modifiers`: 状態の間に変更する数値です。後述の「状態が変更する数値」を参照してください。
   - `saves`: 2つのセーヴ効果と、セーヴへの修正値の対象とするセーヴです。省略するとすべてが対象です。どちらも併記せずに指定すると拒否されます。
   - `skills`: 2つの判定効果と、独自のスキルを指定しない判定への修正値の対象とするスキルです。省略するとすべてが対象です。どちらも併記せずに指定すると拒否されます。戦闘の対抗判定はスキルではなく戦闘自身の判定を振るため、スキルに絞り込んだものは対抗判定には届きません。それらのスキルでの戦闘外の判定はこれを読みます(後述の「戦闘外の判定」を参照)。Capability API 1.53です。
   - `whileSourceInSight`: 状態を付与した相手が所有者の視線内にいる間だけ有効になるものです。`true`なら状態全体を制限し、その状態自身の効果のリストなら列挙した効果だけを制限して残りは維持します。相手が見えるかに関係なく近づけなくする恐怖は、これを必要とします。状態が持っていない効果を指定すると拒否されます。盤面がなければ視線を遮れないため、どちらの場合もすべて有効です。
   - `endsWhenSourceDown`: 状態を付与した相手が倒れた瞬間に解除します。
+  - 感覚(Capability API 1.127): 状態の`lacks`は持ち主が持たない感覚を指定し、カタログの項目の`mechanics.needs`やクリーチャーのアクションの`needs`は、それが効果を及ぼすために標的が持つべき感覚を指定します。5eのDeafenedには`"lacks": ["hearing"]`と書き、Commandにはそのmechanicsに`"needs": ["hearing"]`と書きます。聴覚を失った標的はCommandの標的メニューから除かれます。聴覚を必要とする範囲や複数標的の効果は、その標的を完全に飛ばし、セーヴもダメージも状態もありません。Deafenedが終わると、その標的は再び対象になります。各リストは、ルールセット独自の言葉による1～4個の重複しない感覚IDを持ちます。Engineは感覚の名前を知りません。
+  - シートが許す間だけの使用(Capability API 1.166): カタログの項目の`mechanics.usableWhen`は`{ "value": <value reference>, "atLeast": n, "atMost": n }`(範囲の一方か両方)です。戦闘では、持ち主のシート、ライブ状態、アイテムから読む値が範囲内にある間だけ、持ち主のターンかリアクションのウィンドウで項目が提示されます。メニューを描くたびに読みます。5eのProtectionには手に持った盾が必要です。`"usableWhen": { "value": { "itemStat": { "from": "worn", "pick": "count", "category": "shield" } }, "atLeast": 1 }`です。Rageの「重装鎧を着ていない」は、重装鎧の数に`"atMost": 0`を付けた同じものです。ステータスブロックとして書いたクリーチャーにはシートがないため、何も妨げません。
+  - 付与者のシートが許す間だけ付与する状態(Capability API 1.167): カタログの項目のmechanicsやアイテムの使用の`applies`の項目は、`usableWhen`と同じ形の`"when"`を持てます。付与しようとする瞬間に、付与者のシート、ライブ状態、アイテムから読み、範囲外の項目は飛ばします。ほかの項目は引き続き付与されます。5eのRageは、4項目の上限の中で`raging`と3つのダメージの状態の1つを付与します。`{ "condition": "raging_damage_2", "duration": { "rounds": 10 }, "when": { "value": { "derived": "barbarian_level" }, "atMost": 8 } }`、次に`"atLeast": 9, "atMost": 15`の`raging_damage_3`、`"atLeast": 16`の`raging_damage_4`です。シートのない付与者はすべての項目を付与します。クリーチャーのステータスブロックや状態の`onEnd`には読む付与者のシートがないため、そこでは`when`は拒否されます。schemaVersion 2とcapabilityApi 1.167以降が必要です。
+  - クリーチャーの種類と標的の条件(Capability API 1.168): `combat.creatureTypes`は戦闘員がなり得るものを列挙します。`{ "types": [{ "id": "dragon", "label": "Dragon" }, ...], "tags": [{ "id":
+"devil", "label": "devil" }], "field": "race", "default": "humanoid" }`のように書きます。クリーチャーは自身の`type`と`tags`を指定します。キャラクターの種類は、テキストか選択のフィールド`field`の値が種類の1つならその値、そうでなければ`default`です(5eのキャラクターは人型生物です)。標的の条件は`{ "types": [...], "tags": [...] }`で、どれか1つが一致すれば通ります。種類もタグもない戦闘員は決して一致しません。これは3か所で使います。ダメージの条項の`targetIs`は、一致する標的にだけその条項を与えます(dragon slayerは`"plus": [{ "dice": "3d6", "type": "slashing", "targetIs": { "types": ["dragon"] } }]`、聖水は`{ "dice": "2d6", "type": "radiant", "targetIs": { "types": ["fiend", "undead"] } }`)。`applies`の項目の`targetIs`は、一致する標的にだけその状態を付与します。`mechanics.targetTypes: { "is": test, "not": test }`は、そもそも誰を選べるか、巻き込めるかを示します(Animal Friendshipは`{ "is": { "types": ["beast"] } }`、Sleepは`{ "not": { "types": ["undead"] } }`)。範囲は`targetTypes`が除外する者を素通りします。見込みは、`targetIs`の条項を届く標的に対してだけ数え、シートの単純な平均はそれを除外します。戦闘パネルとGMは、各戦闘員の種類とタグを見られます。schemaVersion 2とcapabilityApi 1.168以降が必要です。
+  - 状態の終了(Capability API 1.125): Charm Personは`"endsWhen": ["harmed-by-source-side"]`を使います。付与した者かその側の誰かによる0より大きいダメージ、またはその者たちが攻撃、セーヴ、有害な状態で持ち主を狙うと、攻撃が外れてもセーヴが成功しても、有害なアクションが完全に解決した後に状態が終わります。`"saveWhenDamaged": true`は、ダメージでターンのセーヴを繰り返します。0より大きいダメージを受けるたびに、付与したアクションの`saveEnds`を保存された難易度で繰り返し、成功すれば終わります。保存されたセーヴや難易度がなければ、何も振りません。Hypnotic Patternは`"endsWhen": ["damaged"]`と`"shakeOff": { "budget": "action" }`を使います。0より大きいダメージで即座に終わるか、持ち主の側の別の戦闘員が自分のターンにその行動枠を消費して終わらせられます。`shakeOff.reach`はルールセットの距離の単位で、デフォルトは1マスです。盤面がなければ距離は測りません。行動の経済はその行動枠を宣言する必要があります。`endsWhen`は1～2個の重複しない項目を持ちます。これらのキーは、出所のダウンや集中による終了を変えません。0より大きいダメージでだけ行い、ターンの開始時や終了時には行わないセーヴには、`saveEnds.at: "damaged"`を使います(Capability API 1.129)。Dominate Personのappliesは`{"condition":"dominated","duration":"until-save","saveEnds":{"save":"wis_save","at":"damaged"}}`で、`saveWhenDamaged`がなくても、付与したアクションの保存された難易度で打撃ごとに1回振ります。
+  - HasteとSlowが変える、行動の経済(Capability API 1.76)です。
+    - `budgets`: `[{ "budget": "haste", "flat": 1 }]`は、持ち主に毎ターン、ターンの行動枠をその数だけ多く(または少なく)与え、0未満にはなりません。この方法で変えられるのは、`per`ターンで補充される行動枠だけです。状態だけが満たす行動枠は`"count": 0`で宣言でき、画面は誰かがそれを持つ間だけ表示します。作られた敵がそれを消費することはありません。
+    - `grants`: `{ "budget": "haste", "standard": ["dash", "disengage", "hide"], "attacks": true,
+"items": true }`は、その行動枠を何に使えるかを示します。指定した標準アクション(ルールセット自身の`standard`リストのもので、すべての標準アクションがすでにある最初の行動枠では使いません)、単一の打撃による武器攻撃1回(アクションが本来与える打撃の数にかかわらず。クリーチャーなら、ステータスブロックの単一標的の攻撃で、連続攻撃は不可)、アイテムの使用です。アイテムは`true`ならどのアイテムも、`{ "tags": ["mundane"] }`ならそれらのタグのどれかを持つアイテムだけです(5eのUse an Objectは普通のアイテムの使用で、魔法のアイテムの起動は含みません)。これらは通常消費する行動枠がなくなった後に、持ち主自身のターンにだけ提示されます。付与がリアクションの支払いになることはありません。
+    - `exclusive`: `["action", "bonus"]`は、ターンにどちらか一方しか消費できない2つの行動枠です。どちらかを消費すると、もう一方は空になります。
+    - `attacksPerTurn`: アクションが何を与えても、持ち主が自身のターンに行う攻撃(命中を振るアクション、連続行動の攻撃部分のそれぞれ、掴みのように打撃の代わりに行う対抗判定)の数です。ほかの者のターンのリアクションは、制限も計数もされません。
+    - `onEnd`: `{ "applies": [{ "condition": "lethargic", "duration": { "rounds": 1 } }] }`は、状態が完全に終わったとき(時間切れ、セーヴやダメージによる終了、集中の中断)に残すもので、再び付与されたときは残しません。`rounds`の間続きます(`"until-save"`や`"instant"`は不可)。持ち主自身のターンの途中で残された場合、そのラウンドは次のターンから始まるため、1ラウンドは次のターン全体です。
+  - 戦闘が終わると、どのように終わっても、戦闘が時間制限、`endsAfter`、集中付きで付与したすべての状態は、何も残さずにシートから外れ、集中も終わります。時間制限のない状態(落下による伏せ状態)は残ります。
 
-  `own-saves-advantage`とその反対の効果は、攻撃と同じくセーヴを2回振って片方を使い、互いに打ち消し合います。`own-checks-advantage`とその反対の効果は、戦闘が能力値判定を行う場である対抗判定の持ち主側と、戦闘外の判定に同じことをします。`resist-all`は標的自身の耐性などに加えてあらゆる種類の被害を半減し、同じように脆弱性と相殺します。`cannot-target-source`は、状態を付与した相手に何かを向けることを禁じます。`cannot-approach-source`は、移動経路も含め、現在のマスよりその相手に近づくことを禁じます。同じ距離のマスへ迂回する経路は引き続き提示されますが、相手の近くを通って反対側に出る経路は提示されません。
+  `own-saves-advantage`とその反対の効果は、攻撃と同じくセーヴを2回振って片方を使い、互いに打ち消し合います。`own-checks-advantage`とその反対の効果は、戦闘が能力値判定を行う場である対抗判定の持ち主側と、戦闘外の判定に同じことをします。`resist-all`は標的自身の耐性などに加えてあらゆる種類の被害を半減し、同じように脆弱性と相殺します。`cannot-target-source`は、状態を付与した相手に何かを向けることを禁じます。`cannot-target-source-side`(1.278)は、さらにその相手の側の誰かに向けることも禁じます。ただし、その側が持ち主自身の側なら除きます。`cannot-approach-source`は、移動経路も含め、現在のマスよりその相手に近づくことを禁じます。同じ距離のマスへ迂回する経路は引き続き提示されますが、相手の近くを通って反対側に出る経路は提示されません。
 
   ```json
   { "condition": "restrained", "effects": ["own-saves-disadvantage"], "saves": ["dex_save"] }
   ```
 
+  **状態が変えるダメージ(Capability API 1.133)。** `damage`は持ち主が与えるものを、`damage-taken`は持ち主が受けるものを変えます。どちらも`flat`、`dice`(と`minus`)、または`times: 0.5 | 2`を受け付けます。加算は、命中に複数のダメージの条項があっても、攻撃の命中ごとに1回行います。クリティカルは、ルールセットがほかのダイスを倍にするのと同じく、加えたダイスを倍にします。セーヴと自動命中には何も加わりません。`times`は加算の後、抵抗の前に命中全体を変え、条項全体にわたって合計を1回切り捨てます。加えた量は、自身の`damageType`(省略時は命中の種類)で抵抗を受けます。同じ種類の加算は、抵抗の前にその量に合わさります。
+
+  `attacks`は`weapon`、`spell`、`any`(デフォルト)のいずれかです。攻撃リストの行と装備したアイテムの攻撃は武器で、単一標的のステータスブロックの攻撃判定も武器です。カタログの能力(クリーチャーの呪文発動を含む)とアイテムの使用は、呪文やその他の攻撃です。`blow: "melee" | "ranged"`は1.118に従うため、間合い内の投擲武器は近接です。`ability`は、攻撃判定に実際に選ばれた能力値を指定します。行の能力値か、アイテムが提示する最良の能力値の最初のもの(フィネスを含みます)です。普通のステータスブロックのアクションは能力値を持たず、能力値の制限に一致することはありません。これらのキーと`damageType`は、ほかの修正値の対象では拒否されます。`fromSource: true`は`damage-taken`専用で、命中は追跡している状態を付与した者からのものである必要があります。追跡していない状態、段階、アイテムには付与した出所がないため、一致しません。
+
+  5eでは、シートでこれらの状態IDを宣言し、`combat.conditions`に次の項目を入れます。
+
+  ```json
+  [
+    {
+      "condition": "divine_favor",
+      "modifiers": [{ "to": "damage", "attacks": "weapon", "dice": "1d4", "damageType": "radiant" }]
+    },
+    {
+      "condition": "rage",
+      "modifiers": [{ "to": "damage", "attacks": "weapon", "blow": "melee", "ability": "str", "flat": 2 }]
+    },
+    {
+      "condition": "enfeebled",
+      "modifiers": [{ "to": "damage", "attacks": "weapon", "ability": "str", "times": 0.5 }]
+    },
+    {
+      "condition": "hunters_mark",
+      "modifiers": [{ "to": "damage-taken", "attacks": "weapon", "fromSource": true, "dice": "1d6" }]
+    }
+  ]
+  ```
+
+  Divine FavorとRageは術者自身に、Ray of EnfeeblementとHunter's Markは標的に付与します。Hexは、マークの`damage-taken`の項目を`attacks: "any"`と`damageType: "necrotic"`で使います。段階と、アイテムの`worn`、`carried`、要件の`otherwise`の効果も、これらの修正値を共有します。攻撃メニューは持ち主自身の加算と倍率だけを数え、標的のマークがそこで約束されることはありません。シートとプロンプトの要約は持ち主自身のダメージの修正値を説明し、戦闘の表示は受けるものも説明します。どちらの対象を使うパッケージも、アイテムが別のカタログファイルにある場合を含め、schemaVersion 2とcapabilityApi 1.133以降が必要です。
+
   **状態が変更する数値。** `modifiers`の各項目は、変更するもの(`to`)と量を指定します。
   - `defense`: 持ち主への攻撃が到達すべき数値です。固定値だけです。
   - `attacks`、`saves`、`checks`: 持ち主自身の攻撃判定、セーヴ、対抗判定です。固定値か、ロールのたびに振る`dice`(`"1d4"`)です。`minus: true`はダイスを加える代わりに差し引きます。
   - `speed`: 持ち主が歩く距離で、独自の距離単位による`flat`か、半分や2倍にする`times` 0.5または2です。倍率はすべての固定値の変更の後に適用します。`speed-zero`と同じく、盤面上でだけ読みます。
+  - `health-max`: `times` 0.5だけを指定すると、持ち主の体力の最大値を半分にし、切り捨て、1未満にはなりません(Capability API 1.115)。マスで表す体力のトラックには半分にする最大値がありません。半分にした最大値を超える体力は戦闘開始時に失われ、回復でそれを超えることはありません。
 
   `checks`への修正値は独自の`skills`を、`saves`への修正値は独自の`saves`を指定でき、状態の指定の代わりにそれで絞り込みます。どちらも`mode: "advantage"`か`"disadvantage"`で2回振ることができ、同名の効果と一緒に数えて同じように打ち消し合い、数値の併記は任意です。そのため1つの状態でSneakを難しくし、同時にClimbを易しくできます。この3つのキーにはCapability API 1.53が必要です。
 
@@ -1295,12 +2506,19 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
   ]
   ```
 
-- `levels`: 任意です。トラックが十分に高い間、状態として数えるライブトラックの段階で、消耗のように段階的に悪化する状態を表す方法です。各項目は普通の`track`(負傷トラックではない)、効果が始まる段階`at`、効果を指定し、状態と同じ`effects`、`modifiers`、`failsSaves`、`saves`、`skills`を持ちます。トラックが到達したすべての段階を数えるため、上がるにつれて累積します。段階は出所を持たず、読み取るものが下がったときだけ終わるため、`half-move-to-stand`、`ends-on-damage`、`cannot-target-source`、`cannot-approach-source`は拒否されます。トラックを持つのはシートを持つ戦闘員だけです。ログはトラックと数値で段階を示します(「- 1 (Heat 3)」)。
+- `levels`: 任意です。トラックが十分に高い間、状態として数えるライブトラックの段階で、消耗のように段階的に悪化する状態を表す方法です。各項目は普通の`track`(負傷トラックではない)、効果が始まる段階`at`、効果を指定し、状態と同じ`effects`、`modifiers`、`failsSaves`、`saves`、`skills`を持ちます。トラックが到達したすべての段階を数えるため、上がるにつれて累積します。段階は出所を持たず、読み取るものが下がったときだけ終わるため、`half-move-to-stand`、`ends-on-damage`、`cannot-target-source`、`cannot-target-source-side`、`cannot-approach-source`は拒否されます。トラックを持つのはシートを持つ戦闘員だけです。ログはトラックと数値で段階を示します(「- 1 (Heat 3)」)。
 
   `track`の代わりに、段階はキャラクターのライブ状態とアイテムを使って計算する`derived`値を読めます(Capability API 1.54)。誰も印を付ける必要はありません。Ember Roadsは、Bulkを10以上運ぶ者を遅くします。
 
   ```json
-  { "derived": "bulk_carried", "at": 10, "modifiers": [{ "to": "speed", "flat": -2 }, { "to": "checks", "skills": ["sneak"], "flat": -1 }] }
+  {
+    "derived": "bulk_carried",
+    "at": 10,
+    "modifiers": [
+      { "to": "speed", "flat": -2 },
+      { "to": "checks", "skills": ["sneak"], "flat": -1 }
+    ]
+  }
   ```
 
   キャラクターごとに異なるしきい値(「Strengthの5倍を超える」)は、それを差し引く派生値で表します。-1の`scale`で差し引く部分を作り、2つの`sum`を段階が読みます。
@@ -1309,9 +2527,16 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
   "levels": [
     { "track": "exhaustion", "at": 1, "effects": ["own-checks-disadvantage"] },
     { "track": "exhaustion", "at": 2, "modifiers": [{ "to": "speed", "times": 0.5 }] },
-    { "track": "exhaustion", "at": 3, "effects": ["own-attacks-disadvantage", "own-saves-disadvantage"] }
+    { "track": "exhaustion", "at": 3, "effects": ["own-attacks-disadvantage", "own-saves-disadvantage"] },
+    { "track": "exhaustion", "at": 4, "modifiers": [{ "to": "health-max", "times": 0.5 }] },
+    { "track": "exhaustion", "at": 5, "effects": ["speed-zero"] },
+    { "track": "exhaustion", "at": 6, "defeats": true }
   ]
   ```
+
+  `"defeats": true`は、戦闘開始時、誰かが動く前に、持ち主を戦闘から完全に退場させます(Capability API 1.115)。これと、半分にした最大値で失われる体力は、戦闘開始時に1回だけ決着します。ほかのすべての段階は、それが変える数値が読まれるたびに読まれます。
+
+  敵もトラックを持ちます(Capability API 1.115)。シートのない敵は、独自のトラックIDで与えられた`tracks`から始まります。GMが提案するクリーチャーはそれを指定でき(`"tracks": { "exhaustion": 2 }`)、戦闘に入れるベスティアリの敵も同じです。クリーチャーの`conditionImmunities`は段階が読むトラックを指定でき、その場合、シートの有無にかかわらず、そのトラックのどの段階も影響しません。消耗に完全耐性を持つ5eのアンデッドと人造がこれにあたります。
 
   修正値、段階、判定の効果にはCapability API 1.45が必要です。
 
@@ -1324,12 +2549,37 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
 - `spendLimits`: 任意です。戦闘の方式にかかわらず、1人の戦闘員が`turn`または`round`ごとにライブプールから消費できる量です。`[{ "pool": "blood", "max": { "derived": "blood_per_turn" }, "per": "turn" }]`のように書きます。`max`は戦闘開始時に1回読みます。上限の残りを超えるコストは、プールにどれだけあっても支払えないため、メニューに出ません。ターンごとの上限は持ち主自身のターン開始時に、ラウンドごとの上限はラウンド開始時にリセットします。数値で直接書いた敵はシートから何も支払わないため上限に縛られず、シートとして書いた敵は自身のプールから支払い、ほかと同じく上限に従います。Capability API 1.47です。
 - `threat`: 任意ですが、ベスティアリには必要です。`tiers`は敵を選ぶ尺度で、ID、ラベル、`health`の帯域、`defense`、`toHit`、`damagePerRound`の帯域、`saveDifficulty`を持ちます。提供するすべてのクリーチャーはこの段階のいずれかを指定します。作者が用意していない敵はGame Masterが求めた段階に調整するため、尺度から外れません。`damagePerRound`の帯域は、一連の行動全体を含め、1ラウンドに1体の標的へ与える量として読み取ります。
 
+### 状態、ダメージ、魔法に対するセーヴ(Capability API 1.134)
+
+`to: "saves"`の修正値は`against`を持てます。`conditions`(シートの状態ID)、`damage`(ダメージの種類)、`magic: true`の少なくとも1つが必要です。どれか1つが一致すれば十分で、`saves`は引き続き、どのセーヴかをAND条件で絞り込みます。この方法で有利を絞り込むには、`effects`ではなく、修正値の`mode: "advantage"`を使ってください。これらの修正値は、状態、到達したトラックや派生値の段階、アイテムの効果で機能します。種族の特徴には、シートの種族の選択から値を派生させ、その値が1のときに到達する段階に修正値を付けてください。修正値の例です。
+
+```json
+[
+  {
+    "$comment": "Dwarven Resilience",
+    "to": "saves",
+    "mode": "advantage",
+    "against": { "conditions": ["poisoned"], "damage": ["poison"] }
+  },
+  { "$comment": "Fey Ancestry", "to": "saves", "mode": "advantage", "against": { "conditions": ["charmed"] } },
+  {
+    "$comment": "Gnome Cunning",
+    "to": "saves",
+    "saves": ["int_save", "wis_save", "cha_save"],
+    "mode": "advantage",
+    "against": { "magic": true }
+  }
+]
+```
+
+Braveは`conditions: ["frightened"]`を使います。Magic Resistanceは、クリーチャーのシート由来の段階かトラックの段階で、`saves`なしで`magic: true`を使います。アクションの`applies`は、セーヴが状態を防いでも数えられ、そのダメージはすべての`plus`の条項を含みます。ダメージの名前は大文字と小文字を区別せずに照合します。魔法とは1.101の`"magical"`の性質のことで、カタログの`mechanics.qualities`(ダメージがなくても)、クリーチャーのアクションの`damage.qualities`、武器のアイテムのタグです。呪文はその性質を持つ必要があり、名前やカタログだけでは魔法になりません。`saveWhenDamaged`や`saveEnds.at: "damaged"`を含め、状態を終わらせるセーヴは、その状態だけに対するものです。集中と死亡のセーヴは何に対するものでもありません。戦闘外では、GMのセーヴの要求は構造化された出所や状態を持たないため、`against`がそれらの要求に一致することはありません。シート、アイテムの詳細、戦闘の詳細、GMのシートの要約は、これらの制限を示します。schemaVersion 2とcapabilityApi 1.134以降が必要です。
+
 ### プールで振る戦闘: `dice-pool`
 
 `dice-pool`ルールセットはダイスを合計せずに成功を数え、その戦闘も同じようにできます。`"kind": "dice-pool"`には`"dice-pool"`の`resolution.kind`が必要で、プール判定と同じようにシートを読みます。**ロールが加える数値はすべてダイスの個数で、ロールが対抗する数値はすべて成功数です。** そのため名前を変えるものはありません。
 
 - 命中の数値(攻撃の行のもの、能力リストの`toHit`、クリーチャーのアクションのもの)は、攻撃が振るプールです。ダイス、ダイスが到達すべき目標値、2倍、爆発、相殺、大失敗となる目は`resolution`のものです。`resolution.penaltyFrom`が指定する負傷トラックは、判定と同じくプールからペナルティを引きます。
-- `defense`は攻撃に必要な成功数で、1未満にはなりません。状態の`defense`への修正値と`cover.bonus`がそれに加わります。
+- `defense`は攻撃に必要な成功数で、1未満にはなりません。状態の`defense`への修正値と遮蔽(`cover.bonus`か`cover.threeQuarters`)がそれに加わります。
 - 必要数を超える成功1つごとに、ダメージダイスが1個増えます。大失敗は、数えた成功にかかわらず外れです。クリティカルはありません。強い命中はその追加ダイスに価値があります。
 - セーヴの数値はそのプールで、難易度は必要な成功数です。対抗判定は両者の判定をプールとして振り、成功の多い側が勝ちます。
 - 状態の攻撃、セーヴ、判定への修正値はダイスの増減なので、`flat`の数値です。振る修正値(`dice`)は拒否されます。
@@ -1356,6 +2606,52 @@ Engineが各アイテムの効果を自ら計算するため、画面が送る�
 Gravewatchはこの方法で書かれています。番人は評価値と専門技能を振り、knockはSinewで吸収してtearはまったく吸収せず、1ターンにResolveを1ポイント消費でき、毎ラウンドイニシアチブを振り直します。
 
 **逆順の宣言は実装していません。** 行動前に全員が遅い順に行動を宣言するシステムもあります。各戦闘員が自分のターンに1つの行動を選ぶ戦闘では、先に宣言しても規則が読むものは何も変わらないため、キーで示すことはありません。
+
+### 最低ダメージダイス(Capability API 1.146)
+
+プール方式の戦闘では、Exaltedの**Overwhelming**のように、高い吸収に対してもダイスを残せます。
+
+```json
+"damage": { "minimum": { "derived": "overwhelming" } }
+```
+
+これは`combat.damage.minimum`で、**攻撃者の**現在のシートから読む値参照です。静的な吸収が命中の最初のダメージプールからダイスを除いた後、プールを少なくともこの数まで引き上げます。これは自動成功ではなくダイスの整数個で、切り捨てられ、0と`resolution.pool.max`の範囲に収められます。残ったダイスはどれも失敗し得ます。振る吸収は、引き続きダメージのロールの後に成功を減らします。ダイスプールを減らすわけではないため、最低値はそれから成功を守りません。抵抗と完全耐性は引き続き適用されます。イニシアチブを費やす打撃は、武器のダメージや吸収を無視するのと同じく最低値を無視し、イニシアチブを奪う打撃はそれを使います。
+
+武器は`item.attack.damage.minimum`で共通の最低値を上書きできます。持ち主に対する同じ値参照か、アイテム自身の数値のステータスの1つを表す`{ "stat": "overwhelming" }`を受け付けます。0を宣言しても共通の最低値を上書きします。これは、吸収後のダメージ量を保証する既存の武器の`floor`とは異なります。追加のダメージの条項や付加効果は、別の最低値を受けません。戦闘の記録とログは、ダイスの横に解決した最低値を示します。combatのキーと武器のキーはどちらも、外部のカタログファイルにある武器を含め、パッケージでは**Capability API 1.146**が必要です。
+
+### ひるませる命中(Capability API 1.147)
+
+```json
+"daze": {
+  "over": { "abilityScore": "stamina" },
+  "measure": "damage",
+  "condition": "dazed",
+  "text": "The blow leaves them reeling until their next turn passes."
+}
+```
+
+`combat.daze`はプール方式の戦闘向けです。`over`は命中の直前の**標的の**現在のシートを読みます。1回の命中が、吸収、セーヴ、抵抗の後に、その数値より**厳密に多い**ダメージを与える必要があります。その命中のダメージの条項は合算しますが、別々の命中がひるみに向けて累積することはありません。打撃ごとに印を付けるトラックでは、ダメージを与える命中は1段階と数えます。体力ではなくイニシアチブを奪う打撃は、ひるませられません。`measure`は現在`"damage"`だけです。
+
+標的はちょうど次の1ターンを飛ばします。そのターンの前にさらにひるませる命中があっても、飛ばすターンは増えません。飛ばしたターンも、ラウンドの変化やイニシアチブの振り直しを含め、状態の時間やほかのターンの処理を進めます。戦闘を保存して再読み込みしても、保留中の飛ばしは保たれます。`condition`があれば、宣言したシートの状態を指定します。戦闘は、飛ばしたターンが過ぎるか戦闘が終わるまで、それで印を付けます。すでにある状態はそのまま残ります。状態への完全耐性は印を防ぎますが、ターンを飛ばすことは防ぎません。`text`は任意の描写で、別の効果ではありません。ログとGMの戦闘のコンテキストは、命中と飛ばしを記録します。このキーには**Capability API 1.147**が必要です。
+
+### 標的が負傷の種類を選ぶ(Capability API 1.148)
+
+既存の`combat.damageKinds`の対応付けに`remap`を加えます。`default`、`byType`、`marks`はそのままにします。
+
+```json
+"damageKinds": {
+  "default": "bashing",
+  "byType": { "bullet": "lethal", "fire": "aggravated" },
+  "marks": "per-point",
+  "remap": [
+    { "when": { "field": "vampire" }, "from": "lethal", "to": "bashing", "tags": ["firearm"] }
+  ]
+}
+```
+
+プール方式の戦闘は、まず通常の対応付けで攻撃の種類を選び、次に**標的**について各remapの`when`を読みます。0でない数値で規則が有効になります。`from`と`to`はどちらも、体力の負傷トラックの種類である必要があります。最初に一致した規則が採用され、remapは連鎖しません。最大12個まで指定できます。`tags`がある場合は、少なくとも1つが攻撃に一致する必要があります。武器はすでに`item.tags`を持ち、カタログのmechanicsとクリーチャーのダメージはすでに`qualities`を持ちます。これらの名前は`items.tags`から来ます。`tags`がなければ、その種類のどの攻撃も一致し得ます。新しい攻撃のタグのフィールドは必要ありません。
+
+結果の種類は、**吸収**と負傷の印の両方を決めます。そのため、火器の致死の命中は、ヴァンパイアに対しては打撃の種類になって打撃の吸収を使います。同じ火器でもほかの者に対してや、刃物でそのヴァンパイアに対しては、通常の種類のままです。攻撃の元のダメージの*種類*は、抵抗と完全耐性については変わりません。各ダメージの条項は、それ自身の種類と攻撃のタグを使います。戦闘の記録とログは元の種類と対応付けた種類を示し、ダメージの見込みも同じ規則を読みます。シートのない普通のクリーチャーは定数の参照を満たせますが、これらの規則のためのシートの値は提供できません。そのためにはクリーチャーにシートを与えてください。**Capability API 1.148**が必要なのは新しい`remap`キーだけで、古いダメージの種類の対応付けは既存の互換性を保ちます。
 
 ### 攻撃で動くイニシアチブ
 
@@ -1388,7 +2684,7 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
 
 ### 戦闘が`mechanics`から読み取るもの
 
-`kind`は`amount`がダメージか回復かを決めます。`reaction`が付いた項目はメニューから除外され、`utility`項目もターン自体に使えるものを変えない限り除外されます(後述)。`attackRoll`はリストの`toHit`を使って標的の防御への判定を行わせ、`autoHit`はそれを完全に省略します。`save`はリストの`saveDifficulty`に対して標的自身のセーヴを振り、`onSuccess`が成功時に半分を受けるかゼロになるかを決めます。`targetCount`は向けられる標的の数です。攻撃判定をしない能力(全員がセーヴする範囲や、自動で命中するもの)は全員分のダイスを一度だけ振り、各標的への命中判定をするものは命中ごとにダイスを振り直します。`applies`は影響を与えるものに状態を付与します。各状態は`duration`として`instant`(独自の時計がなく、何かで解除されるまで残る)、`until-save`(`saveEnds`の併記が必要)、`{ "rounds": n }`のいずれかを持ち、任意の`saveEnds`でセーヴと、それを`turn-end`か`turn-start`のどちらで繰り返すかを指定します。ラウンドは持ち主自身のターンが終わるごとに減ります。`{ "rounds": 1, "at": "turn-start" }`はターンが始まるごとに数え、「次の自分のターンの開始まで」を表します。`endsAfter`は、時計の指定にかかわらず、最初の`own-attack`(持ち主の次の攻撃判定)、`attacked`(持ち主に対する次の攻撃判定)、`own-save`(持ち主の次のセーヴ)の後に状態を解除します。そのため`{ "duration": { "rounds": 1 }, "endsAfter": "own-attack" }`は「次のターンの終了前に行う次の攻撃まで」を表します。1回の攻撃の間続くものは、ダメージも含めてその攻撃全体の間続き、同じ打撃が新たに付与したものは残ります。どちらにもCapability API 1.45が必要です。`temporary`は体力プールに一時ポイントを与えますが、累積せず、大きい方のバッファが残ります。`scales`は読み取った値に対応して表が与える追加ダイスで量を増やします。`cost`はシート自身の`use`コマンドで支払い、`budget`は消費する行動枠を上書きします。
+`kind`は`amount`がダメージか回復かを決めます。`reaction`が付いた項目はメニューから除外され、`utility`項目もターン自体に使えるものを変えない限り除外されます(後述)。`attackRoll`はリストの`toHit`を使って標的の防御への判定を行わせ、`autoHit`はそれを完全に省略します。`save`はリストの`saveDifficulty`に対して標的自身のセーヴを振り、`onSuccess`が成功時に半分を受けるかゼロになるかを決めます。`targetCount`は向けられる標的の数です。攻撃判定をしない能力(全員がセーヴする範囲や、自動で命中するもの)は全員分のダイスを一度だけ振り、各標的への命中判定をするものは命中ごとにダイスを振り直します。`applies`は影響を与えるものに状態を付与します。各状態は`duration`として`instant`(独自の時計がなく、何かで解除されるまで残る)、`until-save`(`saveEnds`の併記が必要)、`{ "rounds": n }`のいずれかを持ち、任意の`saveEnds`でセーヴと、それを`turn-end`か`turn-start`のどちらで繰り返すかを指定します。ラウンドは持ち主自身のターンが終わるごとに減ります。`{ "rounds": 1, "at": "turn-start" }`はターンが始まるごとに数え、「次の自分のターンの開始まで」を表します。`"of": "source"`(Capability API 1.119)は、代わりに付与した者のターンを、その者の次のターンから数え、ほかの者について「次の自分のターンの終了まで」を表します。Guiding Boltの`{ "duration": { "rounds": 1, "of": "source" }, "endsAfter": "attacked" }`は、術者の次のターンの終了前に、その標的に対する次の攻撃判定に有利を与えます。出所が戦闘を離れると、ラウンドは持ち主自身のターンで数えます。戦闘の状態の`delays`(Capability API 1.120)は、持ち主が使うものを遅らせます。その`catalogs`のどれかに属し、その`budget`で支払うアクションは`chance.sides`面のダイスを振り、`chance.atLeast`以上ならまだ起こりません。持ち主の次のターンの開始時に、同じ行動枠で完了し、応答も含めて本来どおりに続きます。行動できないか、その行動枠がない場合は失われます。どちらの場合も、支払ったコストは消費されたままです。5eのSlowは`"delays": { "catalogs": ["spells"], "budget": "action", "chance": { "sides": 20, "atLeast": 11 } }`です。`endsAfter`は、時計の指定にかかわらず、最初の`own-attack`(持ち主の次の攻撃判定)、`attacked`(持ち主に対する次の攻撃判定)、`own-save`(持ち主の次のセーヴ)の後に状態を解除します。そのため`{ "duration": { "rounds": 1 }, "endsAfter": "own-attack" }`は「次のターンの終了前に行う次の攻撃まで」を表します。1回の攻撃の間続くものは、ダメージも含めてその攻撃全体の間続き、同じ打撃が新たに付与したものは残ります。どちらにもCapability API 1.45が必要です。`temporary`は体力プールに一時ポイントを与えますが、累積せず、大きい方のバッファが残ります。`scales`は読み取った値に対応して表が与える追加ダイスで量を増やします。`cost`はシート自身の`use`コマンドで支払い、`budget`は消費する行動枠を上書きします。
 
 `plus`は`amount`に加えて同じ打撃に最大3つの量を追加し、それぞれ独自に振り、種別を持たせます("and 2d6 fire")。節は`{ "dice": "2d6", "flat": 1, "type": "fire" }`の形で、独自の`save`として`{ "save": "con_save", "difficulty": 13, "onSuccess": "none" | "half" }`を持つこともできます。アクションがすでに何を要求していても標的がこれを振ります。成功時、`none`ならその節はゼロ、`half`なら半分となり、どちらでも打撃のほかの部分は変わりません。`difficulty`がなければ、アクション自身のセーヴが使う数値、次いでリストの`saveDifficulty`にフォールバックします。クリティカルは最初の量と同じルールで各節のダイスを倍にします。`type`がない節は打撃自身の被害の種類を使います。打撃全体は依然として、合計ダメージによる1回の集中判定と、1回の倒れるかどうかの判定です。節を付けるには`amount`が必要で、`heal`には付けられません。
 
@@ -1417,7 +2713,7 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
     "on": "hit",
     "sources": ["attacks"],
     "requires": { "column": "finesse" },
-    "when": ["advantage", "ally-adjacent"],
+    "when": ["advantage", "ally-adjacent-no-disadvantage"],
     "oncePer": "turn",
     "amount": { "dice": "1d6" }
   },
@@ -1432,7 +2728,7 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
 ```
 
 `sources`は対象とする攻撃リストを、`requires`はその行の真と評価される列を1つ指定します。特定の武器だけで発動する追加効果でも、Engineが武器の意味を知らずに対象を指定できます。どちらも指定しなければ、所有者によるあらゆる命中が対象です。袋から手に持った武器は行ではないため、`weapons`(Capability API 1.70)で発動するアイテムのタグも指定します。`"weapons": { "tags": ["finesse",
-"ranged"] }`は、どちらかのタグを持つ手持ちの武器による命中で、オフハンドの打撃も含めて発動します。`weapons`だけを指定すると行では発動せず、行だけを指定すると手持ちの武器では発動しません。`when`はいずれか1つを満たせば成立します。`advantage`は最終的に攻撃判定がどちらに有利だったかを表し、`ally-adjacent`は攻撃者の立っていて行動可能な味方で、盤面上なら標的から1マス以内、盤面なしならどこにいても該当します。`oncePer`は`turn`(存在するすべてのターンの開始時に更新するため、他者の行動中の打撃にも乗せられる)か`round`です。`amount`は項目自身の`scales`で増え、`type`は被害の種類で、デフォルトは打撃自身の種類です。
+"ranged"] }`は、どちらかのタグを持つ手持ちの武器による命中で、オフハンドの打撃も含めて発動します。`weapons`だけを指定すると行では発動せず、行だけを指定すると手持ちの武器では発動しません。`when`はいずれか1つを満たせば成立します。`advantage`は最終的に攻撃判定がどちらに有利だったかを表し、`ally-adjacent`は攻撃者の立っていて行動可能な味方で、盤面上なら標的から1マス以内、盤面なしならどこにいても該当します。`ally-adjacent-no-disadvantage`(Capability API 1.126)は、さらに、有利と不利が打ち消し合った後の最終的なロールが不利でないことを求めます。上の例ではSneak Attackにこれを使っています。`oncePer`は`turn`(存在するすべてのターンの開始時に更新するため、他者の行動中の打撃にも乗せられる)か`round`です。`amount`は項目自身の`scales`で増え、`type`は被害の種類で、デフォルトは打撃自身の種類です。
 
 <a id="creatures-a-bestiary-a-fight-reads"></a>
 
@@ -1500,7 +2796,11 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
 - `checks`: 対抗判定で加える値で、`combat.checks`のIDをキーにします。指定しないものはゼロとして読みます。Capability API 1.43です。
 - `soak`: `dice-pool`の戦闘だけで使う吸収量です。`all`はあらゆる被害、`byKind`は体力トラックの種類ごとです。Capability API 1.47です。
 - `hardness`: イニシアチブを攻撃で動かす数値として扱う場合、ダイスがこれ未満の費やす打撃は何も起こしません。Capability API 1.56です。
-- `resist`、`vulnerable`、`immune`: ダメージ種別です。大文字・小文字を区別せず照合し、`combat.damageTypes`を宣言した場合はそれと検証します。`resist`や`immune`の項目は、何がそれを通り抜けるかも`{ "type": "tearing", "except": ["silver"] }`で指定できます。それらのアイテムタグのいずれかを持つ武器アイテムからの打撃は、そのまま受けます(Capability API 1.55。[戦闘中の武器](#weapons-in-a-fight)を参照)。`conditionImmunities`は独自の状態を指定します。
+- `speeds`と`hover`: 歩行以外の移動方法です(「位置」の「ほかの移動方法」を参照)。Capability API 1.113です。
+- `shield: true`: 両手がふさがっているため、アクションの`twoHanded`の代替は成り立ちません。Capability API 1.102です。
+- `size`: `combat.sizes`の1つをIDで指定し、対抗判定の`maxSizeAbove`がそれを読みます(「サイズと脱出の難易度」を参照)。Capability API 1.103です。
+- `type`と`tags`: `combat.creatureTypes.types`の1つと、その`tags`の最大8つをIDで指定し、標的の条件がそれを読みます(「クリーチャーの種類と標的の条件」を参照)。Capability API 1.168です。
+- `resist`、`vulnerable`、`immune`: ダメージ種別です。大文字・小文字を区別せず照合し、`combat.damageTypes`を宣言した場合はそれと検証します。`resist`や`immune`の項目は、何がそれを通り抜けるかも`{ "type": "tearing", "except": ["silver"] }`で指定できます。それらのアイテムタグのいずれかを持つ武器アイテムからの打撃は、そのまま受けます(Capability API 1.55。[戦闘中の武器](#weapons-in-a-fight)を参照)。`damage.qualities`がそのどれかを指定するアクションや、`mechanics.qualities`がそのどれかを指定するカタログの項目も同じです(Capability API 1.101)。`conditionImmunities`は独自の状態か、`combat.levels`が読むトラックを指定します(Capability API 1.115)。
 - `tier`: `combat.threat`のどの段階に属するかです。
 - `loot`(Capability API 1.63): 勝利した戦闘がこのクリーチャーについて振る戦利品表のIDです(前述の「戦利品」を参照)。
 - `traits`: Game Masterに見せる短い名前と説明の組です。自動解決しないため、数値を持つ内容はアクションに書きます。
@@ -1509,6 +2809,7 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
 - `actions`: 最大12個で、それぞれ独自の`id`を持ちます。アクションは手書きのステータスブロックの内容(`toHit`、`autoHit`、`damage`、`save`、`applies`、`targetCount`、`reach`、`range`、`area`)に加え、クリーチャーだけが持つ4つの要素を持ちます。`reach`は打撃が届く距離、`range`は投擲や射撃の距離、`area`は着弾する形状で、すべて独自の距離単位です。`range`は単なる数値か、不利を受けてさらに届く場合は`{ "normal": 30, "long": 120 }`にできます。`area`は`{ "shape": "burst" | "cone" | "line", "size": n, "friendlyFire": false }`です(「位置」を参照)。
   - `uses`: `{ "per": "encounter" | "day", "count": n }`。使い切るとアクションはメニューから消えます。
   - `recharge`: `{ "dice": { "count": 1, "sides": 6 }, "from": 5 }`。戦闘開始時は使用可能で、使うと消費されます。自身のターン開始時に振り、`from`以上なら回復します。どちらの結果でもダイスをログに残します。
+  - `damage.alternatives`(Capability API 1.102): 最初の量の代わりに与える最大4つの量で、それぞれ`{ "when": ..., "dice": "1d10", "flat": 3 }`です。最初に成り立つものが採用されます。種類、条項、性質はアクション自身のままです。`"when": "twoHanded"`は、クリーチャーが`"shield": true`を持たない限り成り立ちます。これは5eの「両手で使う場合は8(1d10 + 3)の斬撃ダメージ」です。`"when": { "selfHealthAtMost": 0.5 }`は、体力が最大値のその割合以下の間成り立ちます。これはスウォームの「スウォームのヒットポイントが半分以下なら5(2d4)の刺突ダメージ」です。メニューの見込みと打撃は、どちらも現在の状態でそれを読みます。
   - `sequence`: 同じブロックのほかのアクションを順番に並べ、それぞれに標的を指定します。**1つのアクションで2回攻撃するクリーチャーはこの方法で書きます。** 1回の行動枠で連続行動全体を支払います。連続行動は独自の内容を持たず、別の連続行動を指定することもできません。
   - `signature`: `{ "cost": n }`。行動枠ではなくクリーチャー自身のポイントで支払い、他者の行動中だけ使えます。戦闘はあるターンと次のターンの間のウィンドウで提示します(「ウィンドウ」を参照)。
   - `reaction`: カタログ項目の`mechanics.reaction`と同じオブジェクトです(「ウィンドウ」を参照)。アクションはどのターンのメニューにも出ず、代わりに指定した瞬間に提示されます。リアクションは固有アクションを兼ねられず、連続行動もリアクションを含められません。
@@ -1526,6 +2827,37 @@ Gravewatchはこの方法で書かれています。番人は評価値と専門�
     ```
 - セーヴにはアクション自身に難易度が必要です。アクションが要求するセーヴなら`save.difficulty`、アクション自身のセーヴがなく、セーヴで終了する状態なら`saveDifficulty`です。シートを持つクリーチャーでもブロックのアクションは直接の数値で書くため、その値はアクションに置きます。節自身のセーヴは`difficulty`を省略して同じ数値にフォールバックできます。
 - `damage.plus`はカタログ項目の`plus`と同じ節のリストで、読み方もまったく同じです。`"damage": { "dice": "1d6", "flat": 2, "type": "piercing", "plus": [{ "dice": "1d4", "type": "fire" }] }`は、熱を独立した量として持つ噛みつきで、その熱は独立して抵抗され、独立して倍化されます。
+
+クリーチャーのアクションは、`heal`(ダイス、固定量、またはその両方)でヒットポイントを戻せ、標的の最大値までに制限されます。`targets: "ally"`は自身を含む自分の側に、`targets: "any"`はどちらの側にも届きます。`targets`がなければ、以前と同じく相手側に届きます。これらのキーにはCapability API 1.121が必要です。回復は`damage`、`toHit`、`save`、`area`を持たず、`targets`は`self`や`sequence`を取らず、連続行動はどちらのキーも持ちません。デーヴァのHealing Touchは次のとおりです。
+
+```json
+{
+  "id": "healing_touch",
+  "name": "Healing Touch",
+  "budget": "action",
+  "heal": { "dice": "4d8", "flat": 2 },
+  "targets": "ally",
+  "uses": { "per": "day", "count": 3 }
+}
+```
+
+クリーチャーの`spellcasting`(Capability API 1.123)は、スロットやポイントを消費せずにカタログの呪文を発動します。その`saveDifficulty`と`toHit`が呪文の数値を与えます。`sheet`を持つクリーチャーは、それらを省略してシートの呪文発動の数値を使えます。普通のクリーチャーは、呪文が必要とする数値をすべて与える必要があります。各`entry`は、`mechanics`を持つ既存のカタログの項目を指定します。`uses`を省略すると無制限です。`level`は`perCostStep`のスケーリングに使う発動レベルで、省略すると項目の基本レベルです。項目は引き続き、行動枠、標的、集中、リアクション、範囲、召喚を与えます。ドライアドの一覧は次のように書けます。これらの呪文IDは説明用で、`spells`カタログで用意する必要があります。
+
+```json
+"spellcasting": {
+  "saveDifficulty": 14,
+  "spells": [
+    { "entry": "spells/druidcraft" },
+    { "entry": "spells/entangle", "uses": { "per": "day", "count": 3 } },
+    { "entry": "spells/goodberry", "uses": { "per": "day", "count": 3 } },
+    { "entry": "spells/barkskin", "uses": { "per": "day", "count": 1 } },
+    { "entry": "spells/pass-without-trace", "uses": { "per": "day", "count": 1 } },
+    { "entry": "spells/shillelagh", "uses": { "per": "day", "count": 1 } }
+  ]
+}
+```
+
+ハッグのカヴンには、`spells`と並べて`"coven": { "id": "marsh_hags", "size": 3, "within": 30 }`を加え、共有する各呪文に`"coven": true`を付けます。それらの呪文は、術者の側の立っている戦闘員のうち少なくとも3人がそのカヴンIDを持ち、それぞれ単純なマス距離で術者からルールセットの距離の単位で30以内にいる間だけ提示されます。盤面がなければ、立っているすべてのメンバーを数えます。各呪文の使用回数は、カヴンIDと項目をキーとする、そのカヴン全体で共有する1つのプールです。カヴンのブロックにはカヴンの呪文が必要で、カヴンの呪文にはブロックが必要です。重複する項目は拒否されます。GMが提案するクリーチャーは、脅威の尺度で呪文の一覧を制限できないため、制限を受けると`spellcasting`を失います。
 
 5eの草案のベスティアリは、`docs/development/ruleset-5e-2014.example.json`にある手書きの5体です。連続行動、再充填、状態を伴うセーヴ、抵抗と完全耐性、使用回数制限、固有ポイント、シートとして記述した1体を網羅しています。
 
@@ -1592,7 +2924,7 @@ Game Masterが敵を作ると、Engineは何かを振る前にその提案を`th
 ```json
 "distance": { "label": "ft", "perCell": 5 },
 "ranged": { "long": "disadvantage", "adjacentFoe": "disadvantage" },
-"cover": { "bonus": 2 },
+"cover": { "bonus": 2, "threeQuarters": 5, "saves": ["dex_save"], "creatures": true },
 "opportunity": { "budget": "reaction" }
 ```
 
@@ -1609,6 +2941,26 @@ Ember Roadsはこの1行だけを宣言します。それ以外が必須では�
 **プレイヤーの画面。** Tacticalスタイル自身の地形を使って盤面を描きます。各マスはポインターや矢印キーで操作できるボタンで、その場所の種類、誰がいるか、選択途中の操作にとって何を意味するかを示します。歩行ではメニューが提示したマスを光らせ、それぞれに独自の単位でコストを表示し、経路を描きます。その経路上で誰かが攻撃するマスは琥珀色で示し、盤面の下に相手の名前を出します。標的を取る選択肢では、選べる相手を盤面とリストの両方で同時に強調します。`area`のある選択肢はマスに向け、ポインターの下のマスには味方も含めて巻き込む相手を表示します。残りの移動量は行動枠の横に、ここでも独自の単位で表示します。画面は測定しません。すべてのマス、コスト、経路、標的、狙い位置はサーバーから送られます。
 
 **移動。** 1ターンの移動量は、パーティーメンバーなら`economy.movement`、クリーチャーなら自身の`speed`を`perCell`で割って切り捨てます。ただし移動可能な限り最低1マスです。所有者自身のターン開始時に補充し、アクションの前、合間、後に使えます。歩き、攻撃し、また歩けます。1マスに入るコストは1で、移動しにくい地形では増えます。この機能が想定するテーブルトップのグリッドに合わせ、8方向すべて同じコストです。味方は通り抜けられますが、誰かの上では止まれません。敵は壁になり、固体のマスには入れず、固体の2マスの角を斜めに抜けることもできません。
+
+**ほかの移動方法**(Capability API 1.113)。クリーチャーの`speeds`は、歩行以外の移動を独自の単位で`{ "fly": 60, "swim": 30, "climb": 30, "burrow": 20 }`のように示し、`"hover": true`は、飛行者が浮いているために動く必要がないことを示します(`fly`の速度が必要です)。パーティーのメンバーのものは、種族の水泳速度や呪文の飛行速度のように、同じキーの値参照である`economy.movementModes`を通じてシートから読みます。0はその方法では移動しないことを表します。`speed`と`economy.movement`は歩行のままです。盤面上では次のとおりです。
+
+- 移動量は最も速い移動方法で、移動した各マスはすべての方法から同時に差し引かれます。そのため、歩行30、飛行60のクリーチャーは、10歩いてから40飛べますが、30を超えて歩くことはありません。
+- 飛行者は、水やどんな高さの段差も含め、固体でない場所ならどこでも1マスのコストで移動します。
+- 水泳者は水を1マスのコストで渡り、陸では歩きます。
+- 登攀者は、どんな高さの段差でも、上がった先の地面のコストで1歩進みます。
+- 盤面には掘り進む地面がないため、穴掘りの速度はGMのために保持され、歩行として移動します。
+
+各歩は、十分な残りがある最も安い方法で行います。盤面のない戦闘はこれを何も読まず、歩くだけの者は以前とまったく同じく移動します。
+
+**飛行の高さ**(Capability API 1.114)。ルールセットが`combat.elevation.levelHeight`と`combat.distance.perCell`を与える盤面では、飛行者はその場でFly upとFly downを提示され、それぞれ飛行の1レベル分のコストがかかります(5フィートのマスで5フィートのレベルなら1マス)。真下の地面から最大20レベル上まで上がれます。上空にいる間は次のとおりです。
+
+- 飛行しかできず、固体でないものの上を1歩1マスで飛びます。
+- ほかの者との距離は、平面の距離と両者の高さの差の大きい方です。そのため、間合い5フィートの剣は30フィート上のドラゴンに届かず、ドラゴンの噛みつきも騎士に届きません。
+- 丘と同じく、低い位置にいる者に対して高所の利を得ます。
+- 届かないほど高くにいる相手の間合いを離れても、打撃を誘発しません。
+- 倒される、伏せ状態にされる、移動速度を0にされると、`hover`を持たない限り、`falling`のとおりに真下の地面へ落下します。
+
+自分の高さと同じかそれより高い地面へ飛ぶと、地上の飛行者が崖の上へ飛ぶのと同じく着地します。新しいキーはありません。1.114より前のEngineは飛行者を地上に留めるため、高さに頼るパッケージは1.114を宣言します。
 
 **間合いと射程。** 武器の行は`combat.attacks[].reach`と`.range`から取得します。それぞれ同じリストの列か、全行共通の数値です。
 
@@ -1650,7 +3002,33 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 
 バーストは狙ったマスからサイズ以内のすべてのマスです。コーンは実行者からそのマスの方向へ伸び、各段階で距離と同じ幅になります。ラインは同じ方向へ1マス幅で伸びます。3つとも固体にぶつかると止まります。
 
-**視線と遮蔽。** 両者を結ぶマスの直線を使います。その上に固体があれば射撃を遮り、範囲が向こうへ広がることを止め、標的は単にメニューに出なくなります。遮蔽となる地形は、攻撃判定の対象となる防御に`cover.bonus`を加え、ログでも示します。四分の三遮蔽、完全遮蔽、高低差はありません。
+項目の`mechanics.area`やクリーチャーのアクションの`area`のラインは、`size`と同じ単位で`width`を持てます。最低1マスとしてマス単位に丸められます(Capability API 1.128)。たとえば、幅10フィートの60フィートのラインは`{ "shape": "line", "size": 60, "width": 10 }`です。1マスなら省略します。偶数のマス幅では、追加の列は術者の左側に置かれます。
+
+**視線と遮蔽。** 両者を結ぶマスの直線を使います。その上に壁や山があれば射撃を遮り、範囲が向こうへ広がることを止め、標的は単にメニューに出なくなります。水は見通せます。射撃は川を越え、ラインの範囲はその上を進みます。Engine自身の戦闘も同じ視線の判定を使います。
+
+遮蔽は攻撃者の立つ位置から、DMGの任意のグリッド規則の角の線で読みます。攻撃者の最良の角から、標的のマスの各角へ1本ずつ線を引きます。3本か4本が壁や山を通れば四分の三遮蔽です。1本でも壁や山を通るか、遮蔽として意味のある地形(森、廃墟)を通れば半遮蔽です。低い地形だけでは半遮蔽を超えません。攻撃者がまったく見えない標的は完全遮蔽で、メニューに出ません。攻撃に対しては、遮蔽として意味のある地形に立つ標的は、これまでどおり少なくとも半遮蔽を得ます。セーヴについては、効果との間にあるものだけが助けになります。
+
+- `cover.bonus`は、半遮蔽が攻撃の対象となる防御に加える値で、ログもそれを示します。
+- `cover.threeQuarters`(Capability API 1.74)は、四分の三遮蔽が加える値です。なければ、`bonus`が両方に使われます。
+- `cover.saves`(1.74)は、遮蔽が助けにもなるセーヴを指定します。アクション自身のセーヴに対してで、状態を終わらせるセーヴや集中を保つセーヴは含みません。バーストが着弾した地点から、それ以外は作り手から判断します。ログもそれを示します。
+- `cover.creatures`(1.74)は、間に立つ者を敵味方を問わず半遮蔽にします。
+- 標的が遮蔽から何の利益も得ないと記述するセーヴ(5eのSacred Flame)は、項目の`mechanics.save`、クリーチャーのアクションの`save`、アイテムの使用の`save`で`"ignoresCover": true`(1.74)を指定します。
+
+**高さ。** 盤面は最大3レベルの高さを持て、位置のあるすべての戦闘は、ルールセットの指定にかかわらず、それに従って歩き、見ます。1レベル上るには1マス余分にかかり、下るにはコストがかかりません。2レベル以上の段差は誰も歩けない崖で(押し上げられることもありません)、両端より高い地面は視線を遮ります。高所から撃ち下ろす場合、間にある低い遮蔽は何も隠しません。ルールセットは、システムが加えるものを`elevation`で示します(Capability API 1.75。`distance`が必要です)。
+
+```json
+"elevation": {
+  "levelHeight": 5,
+  "highGround": "advantage",
+  "rangeBonus": 1,
+  "falling": { "per": 10, "dice": { "count": 1, "sides": 6 }, "max": 20, "type": "bludgeoning", "prone": "prone" }
+}
+```
+
+- `levelHeight`は、ルールセット独自の距離で1レベルがどれだけの高さかです。
+- `highGround`は、高所から打ち下ろすときに攻撃判定が得るものです。`"advantage"`か、攻撃の対象となる防御から引く`{ "bonus": n }`です。省略すると何も与えません。
+- `rangeBonus`は、高所からの射撃が何マス遠くまで届くかです。
+- `falling`は落下の効果です。2レベル以上の段差から押し出された者は下に着地し、落下距離(レベル×`levelHeight`)の`per`ごとに`dice`を、最大`max`個まで`type`で受け、`prone`の状態があればその後にそれを受けます。ダイスはシステムが被害を振るのと同じく振ります。合計するか、`dice-pool`なら成功として数えて吸収を引きます。落下はほかの打撃と同じなので、誰かをダウンさせたり集中を破ったりできます。ログはどれだけ落ちたかを示します。`falling`がなければ、落下は記録されるだけで何もしません。
 
 **離れていく相手への打撃。** `opportunity.budget`を宣言すると、立っていて行動可能で、その行動枠と近接攻撃手段を持つ敵の間合いから戦闘者が出るとき、歩行はその場で止まり、敵に攻撃するか尋ねます。実行すれば行動枠を消費し、自身のターンに同じ攻撃をした場合とまったく同じく解決します。見送ればコストはありません。どちらでも、歩行は停止した地点から再開し、実際に通った各マスのコストを支払います。打撃で移動者が倒れれば、倒れた場所で歩行を終えます。同じ間合いから経路が何度出ても、歩行全体につき各敵に1回の機会です。`disengage`は残りのターン中これを防ぎ、`opportunity`を宣言しないルールセットにはこの仕組み自体がありません。
 
@@ -1736,7 +3114,7 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 
 一部の瞬間には、現在の実行者とは別の者に判断権があります。Engineは代わりに決めず、その者のために戦闘を保留します。この一時停止がウィンドウです。
 
-ウィンドウを開く状況は6つで、そのうち2つはすでに宣言した内容に由来します。
+ウィンドウを開く状況は7つで、そのうち2つはすでに宣言した内容に由来します。
 
 - **誰かが離れる。** 攻撃可能な敵の間合いから出る歩行は、その一歩で止まり、敵に尋ねます。前述の「離れていく相手への打撃」を参照してください。
 - **あるターンと次のターンの間。** ターン終了時、次のターンが始まる前に、`signaturePoints`を持ち、自身の`signature`アクションのいずれかを支払える敵全員へ、購入するかを尋ねます。購入できるのはこの瞬間だけです。固有アクションは、自身も含め誰のターンメニューにも出ません。
@@ -1744,12 +3122,15 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 - **何かが誰かに向けられる。** 解決前に、それが向けられた反対側の者のうち、その瞬間を待つ項目を持つ全員に尋ねます。味方からの回復は対処すべき脅威ではないため、味方のアクションはウィンドウを開きません。
 - **攻撃判定が誰かに命中する。** ダメージの前に、命中を受けた者がその瞬間を待つ項目を持っていれば、その者に尋ねます。その者が実行したことはこの攻撃に反映されます。後述の「命中直後の瞬間」を参照してください。
 - **何かが誰かを傷つけた。** 解決後、誰が行ったかに関係なく、ダメージを受けた者のうち、その瞬間を待つ項目を持つ全員に尋ねます。傷ついたことは自身の事実ですが、加害者に向け返す項目を味方に向けることは依然としてできません。
+- **誰かが落下する。** ダメージと伏せ状態の前に、落下する者に届き、その側を許可するリアクションを持つ者に尋ねます(Capability API 1.124)。
 
-最後の4つは、カタログ項目やクリーチャー自身のアクションが、待つ瞬間を指定して求めるものです。1つのアクションが`used`と`aimed`の両方を開く場合は、まず使用について尋ね、誰も取り消さなければ次に向けられた者に尋ね、両方の回答後に解決します。命中は各ロールが命中するたびに、負傷はアクション全体の終了後に尋ねます。
+- **誰かがターンを開始する。** その者が行動する前に、標的の側でその者に届く項目に対して尋ねます(Capability API 1.131)。
+
+最後の6つは、カタログ項目やクリーチャー自身のアクションが、待つ瞬間を指定して求めるものです。1つのアクションが`used`と`aimed`の両方を開く場合は、まず使用について尋ね、誰も取り消さなければ次に向けられた者に尋ね、両方の回答後に解決します。命中は各ロールが命中するたびに、負傷はアクション全体の終了後に尋ねます。
 
 どの状況で開いた場合も、ウィンドウは次のように動作します。
 
-- **開いている間は、ほかは何も動きません。** 現在のターンの実行者も、ターン終了も、別のウィンドウも進みません。戦闘は待機します。
+- **開いている間は、ほかは何も動きません。** 現在のターンの実行者も、ターン終了も、別のウィンドウも進みません。戦闘は待機します。落下は、それを引き起こした行動の処理が終わるまで着地を保留し、それ以降の落下は後で尋ねます。
 - **行動順に1人ずつ尋ね、各自に1回だけ尋ねます。** 見送りは常に有効な返答で、コストはありません。尋ねる対象に実行可能なものがなければ、質問せず飛ばします。
 - **止めた場所から正確に再開します。** 歩行は残りのマスを進み、実際に通った各マスのコストを支払って完了します。
 - **操作担当が答えます。** 自分のパーティーメンバーのウィンドウは自分で答え、メニューに選択肢とPassが並びます。敵はその操作担当が答え、Game MasterのボスはGame Masterに尋ねます。機会を見送ることも返答の1つです。
@@ -1763,8 +3144,8 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 "reaction": { "on": "aimed", "at": "source", "cancels": true }
 ```
 
-- `on`は`used`、`aimed`、`hit`、`harmed`のいずれかで、そのウィンドウのメニューに項目を載せる指定です。Engineが監視する瞬間はこの4つだけです。依然として`"reaction": true`とだけ書かれた項目は、ターン中に実行しないことしか伝えません。どこかに提示するには不十分なので、どのメニューにも出ません。
-- `at`は`source`(デフォルト)か`chosen`です。`source`はその瞬間を生じさせた相手へ実行内容を向け、標的を自動入力するため、選択を求めません。`chosen`は項目自身の対象設定を保ち、選択を求めます。
+- `on`は`used`、`aimed`、`hit`、`harmed`、`falls`、`turn-start`のいずれかで、そのウィンドウのメニューに項目を載せる指定です。Engineが監視する瞬間はこの6つだけです。依然として`"reaction": true`とだけ書かれた項目は、ターン中に実行しないことしか伝えません。どこかに提示するには不十分なので、どのメニューにも出ません。
+- `at`は`source`(デフォルト)、`target`、`chosen`のいずれかです。`source`はその瞬間を生じさせた相手へ実行内容を向け、標的を自動入力するため、選択を求めません。`chosen`は項目自身の対象設定を保ち、選択を求めます。`target`は、その瞬間の当事者であるクリーチャーに向けます。`falls`への応答は、選んだ落下者に効果を及ぼします。
 - `cancels`は、ウィンドウが保留していた内容自体の発生を止めます。指定できるのは`used`か`aimed`の項目だけです。すでに起きた瞬間は取り消せず、命中は判定済みだからです。
 - `against`は、項目が応じる対象を特定のカタログから使われたものに絞ります。`"against": { "catalogs": ["spells"] }`は呪文だけに応じます。背後に項目のないアクション(リストの武器、クリーチャー自身のアクション)はどのカタログにも由来しないため、カタログを指定する項目の瞬間を開きません。`against`を省略すると、項目は何にでも応じます。
 
@@ -1784,6 +3165,20 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 }
 ```
 
+**届く範囲が限られた対抗手段**(Capability API 1.116)。打ち消す`used`のリアクションの`"upTo": "paid"`は、応答自体以下の段階で支払われたものだけを止め、`"above": { "check": <value>, "dc": 10 }`は、それより高いものでも止めるための、`dc`にその段階を加えた値に対する判定です。5eのCounterspellは、スロットのレベル以下の呪文を止め、それより上なら10 + 呪文のレベルに対して呪文発動能力値の判定を求め、ほかの呪文と同じく上位発動できます。
+
+```json
+"reaction": {
+  "on": "used",
+  "cancels": true,
+  "against": { "catalogs": ["spells"] },
+  "upTo": "paid",
+  "above": { "check": { "abilityModFromField": "spellcasting_ability" }, "dc": 10 }
+}
+```
+
+支払ったものの段階は、それを支払ったプールの段階です。プール自身の`level`(持ち主のシートから読む値。5eのパクト・スロットはウォーロックのスロットのレベルで発動します)があればそれ、なければグループ内の位置で、最初のプールが1です。コストがないものや、グループに属さないプールから支払ったものは段階0なので、そのような対抗手段はどれもそれを止めます。判定は戦闘自身のダイスで、応答者の判定への状態を適用します。`dice-pool`の戦闘には達成すべき難易度がないため、`above`を拒否します。シートのないクリーチャーは判定を`{ "const": n }`と書きます。応答が自身より上に届くときはログが段階とロールを示し、それを止めたときは通常の行が続きます。`above`がなければ、より高いものは単に止まらず、応答のコストは引き続き消費されます。
+
 **命中直後の瞬間。** `hit`の項目で、Shield、Parry、Uncanny Dodgeを表します。攻撃は判定の後で保留され、ダメージを与える前に命中を受けた者に尋ねます。その者が実行したことはその攻撃に反映されます。判定は振り直さず、その時点の防御に対して再確認するため、防御に加算する状態で命中を外れに変えられます。常に命中する出目はそれでも命中します。応答として付与した、1回の攻撃の間続く状態(`endsAfter: "attacked"`)は、ダメージも含めてこの攻撃に適用され、この攻撃で消費されます。「その攻撃のダメージを半減する」は、1回の攻撃に対する`resist-all`で表します。
 
 ```json
@@ -1800,19 +3195,125 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 
 瞬間を指定するパッケージにはCapability API 1.33が、`used`や`against`を使うものには1.44が必要です。`hit`を待つものには1.46が必要です。
 
+**名前で1つの呪文に応じる**(Capability API 1.117)。`against`は`catalogs`と並べて`entries`を`<catalog>/<entry>`で指定でき、どちらかが一致すると瞬間が開きます。`also`は、それぞれ独自の`against`を持つ最大3つの別の瞬間で、同じ応答を行います。状態の`noDamageFrom`は、状態がある間、被害の種類にかかわらず、それらの項目の被害を持ち主に一切与えません。5eのShieldは、攻撃が命中したときと、術者にMagic Missileが向けられたときに使われ、その効果中はMagic Missileが何もしません。
+
+```json
+"reaction": {
+  "on": "hit",
+  "also": [{ "on": "aimed", "against": { "entries": ["spells/magic-missile"] } }]
+}
+```
+
+```json
+{
+  "condition": "shielded",
+  "modifiers": [{ "to": "defense", "flat": 5 }],
+  "noDamageFrom": ["spells/magic-missile"]
+}
+```
+
+打ち消せるのは最初の瞬間だけなので、打ち消すリアクションは`also`を持ちません。項目が指定するカタログは、ルールセットが持つものである必要があります。それに含まれない項目は単に瞬間を開きません。このように防がれた打撃は、ログでは標的が完全耐性を持つものとして示されます。
+
+**一部の打撃にだけ応じる**(Capability API 1.118)。`hit`の瞬間は`"blow": "melee"`か`"blow": "ranged"`を指定できます。標的が武器の間合いに立っている間の打撃は近接なので、遠くから投げた短剣は遠隔で、標的の隣で使った同じ短剣は近接です。間合いがあって射程のない武器は常に近接で、射程があって間合いのない武器は常に遠隔です。盤面のない戦闘では、間合いのある武器は手で振るうものとみなします。`falls`を除くどの瞬間でも、`"seesSource": true`は、持ち主がそれを引き起こした者を見ている間だけ瞬間を開きます。これは盤面上で両者の間に視線があることを意味し(盤面がなければ全員が全員を見ています)、Hideの標準アクションを取った者は、次のターンの開始時にそれが切れるまで決して見えません。5eのParryは両方を使います。
+
+```json
+"reaction": { "on": "hit", "blow": "melee", "seesSource": true }
+```
+
+どちらのキーも`also`の瞬間に書けますが、`blow`は`hit`の瞬間にだけ書けます。
+
+**落下を受け止める**(Capability API 1.124)。`falls`のリアクション(`also`の中のものを含む)は、段差から落ちるクリーチャーや、地面に落とされた飛行者に、落下がダメージを与えたり伏せ状態にしたりする前に応じます。その射程と標的の側は落下する者に対して確認され、応答はそのクリーチャーに効果を及ぼします。Feather Fallには、項目に次のmechanicsを与え、シートのライブの状態で`feather_falling`を宣言してください。
+
+```json
+{
+  "kind": "buff",
+  "targets": "ally",
+  "range": 60,
+  "budget": "reaction",
+  "cost": [{ "pool": "slots_1", "amount": 1 }],
+  "reaction": { "on": "falls" },
+  "applies": [{ "condition": "feather_falling", "duration": { "rounds": 10 } }]
+}
+```
+
+その`combat.conditions`の項目は`{ "condition": "feather_falling", "fallsSafely": true }`です。保持している間、この状態は落下ダメージと、落下が付与する伏せ状態を防ぎます。落下を引き起こした状態は取り除きません。術者自身の落下にだけ応じるには`targets: "self"`を使います。落下には出所の項目がないため、そのリアクションは`cancels`、`blow`、`seesSource`、`against`を持てません。単一標的の項目は、各落下について個別に尋ねます。これは着地を解決するもので、ゆっくりとした降下を追跡するわけではありません。
+
+**別のクリーチャーのために応じる**(Capability API 1.131)。`for`はデフォルトで`self`です。`ally`は持ち主を除き、`any`は持ち主を含みます。どちらも、カタログの距離の単位で必要な`within`以内にいる、標的の側の持ち主に、`aimed`か`hit`のときだけ尋ねます。これらのキーは各`also`の瞬間でも機能します。`seesSource`は引き続き攻撃者が見えていることを求めます。Protectionは、攻撃のダイスを振る前に出所に`own-attacks-disadvantage`を付与します。その`this-action`の持続時間は、アクションが解決するか取り消されると終わります。明示的な出所への射程がなければ、傍観者の応答はその出所に届きます。`within`は守られるクリーチャーまでの距離を測ります。シートで`protected_attack`を宣言し、その戦闘の状態にその効果を与えてください。
+
+```json
+{
+  "kind": "debuff",
+  "targets": "enemy",
+  "budget": "reaction",
+  "reaction": { "on": "aimed", "for": "ally", "within": 5, "at": "source", "seesSource": true },
+  "applies": [{ "condition": "protected_attack", "duration": "this-action" }]
+}
+```
+
+**応答を標的に付ける。** `at: "target"`は攻撃されたクリーチャーに適用され、`source`は攻撃者のままです。Shield Guardianは、アミュレットの着用者を5以内の味方として表します。`parrying`は防御に`+2`を与えます。保留した命中は、応答の後でその味方の防御を確認し直します。
+
+```json
+{
+  "kind": "buff",
+  "targets": "ally",
+  "range": 5,
+  "budget": "reaction",
+  "reaction": { "on": "hit", "for": "ally", "within": 5, "at": "target" },
+  "applies": [{ "condition": "parrying", "duration": "this-action" }]
+}
+```
+
+**ターンの開始時。** `on: "turn-start"`は、項目の標的の側のクリーチャーが射程内でターンを開始したとき、そのクリーチャーが行動する前に尋ねます。そのクリーチャーが`source`です。有害な項目は相手側に、有益な項目は自分の側に応じます。`cancels`、`blow`、`against`、`upTo`は持てません。Unnerving Maskのクリーチャーのアクションは、Wisdomのセーヴを求めます。影響を受けたクリーチャーの時間での1ラウンドはこのターンの間続き、その終わりに切れます(`of: "source"`は省きます)。
+
+```json
+{
+  "id": "unnerving_mask",
+  "name": "Unnerving Mask",
+  "range": 30,
+  "budget": "reaction",
+  "reaction": { "on": "turn-start", "at": "source", "seesSource": true },
+  "save": { "save": "wis_save", "difficulty": 14, "onSuccess": "negates" },
+  "applies": [{ "condition": "frightened", "duration": { "rounds": 1 } }]
+}
+```
+
+**セーヴによる打ち消し。** `cancelSave: { save, dc }`には`cancels`が必要です。持ち主は通常のセーヴ修正値で振ります。成功すれば打ち消し、失敗すれば元のアクションが解決し、どちらの場合もリアクションを消費します。`against.actions`は1～12個のステータスブロックのアクションを指定し、名前全体を大文字と小文字を区別せずに照合します(それぞれ最大80文字)。Rock Catchingは、岩を受け止めることを、殴打ダメージだけでなく、すべてのダメージを含む攻撃全体を打ち消すことで表します。セーヴIDはルールセット独自のものです(ここでは`dex`、同梱の5eの例では`dex_save`)。
+
+```json
+{
+  "on": "aimed",
+  "cancels": true,
+  "cancelSave": { "save": "dex", "dc": 10 },
+  "against": { "actions": ["Rock"] }
+}
+```
+
+**複数の落下者を受け止める。** `targetCount`が1より大きい`falls`の項目は、1つの打撃や効果で落下する、射程内で標的の側にいる対象となるクリーチャーを提示します。メニューとディレクターは、デフォルトで近い順に数の上限まで対象となる全員を選び、プレイヤーは選択を変えられます。後の落下は別のイベントです。Feather Fallは上と同じ`fallsSafely`の状態を使います。
+
+```json
+{
+  "kind": "buff",
+  "targets": "ally",
+  "targetCount": 5,
+  "range": 60,
+  "budget": "reaction",
+  "reaction": { "on": "falls" },
+  "applies": [{ "condition": "feather_falling", "duration": { "rounds": 10 } }]
+}
+```
+
 ### 未対応
 
 ルールセットがEngineにできないことを主張しないよう、明記します。
 
-- **簡素な盤面を超えるもの:** 四分の三遮蔽と完全遮蔽、高低差、障害物の上を飛ぶこと、狭所の通過、騎乗、隠れ身や不意打ちはありません。自身の歩行と対抗判定の押し出し以外で誰かが動くこともありません。掴んでいるクリーチャーを引きずることもできません。
-- **対抗判定は簡素です。** サイズによる制限はなく、ウィンドウも開きません(誰も対抗判定に応答できません)。
-- **項目が待てる瞬間は`used`、`aimed`、`hit`、`harmed`の4つだけです**(前述の「ウィンドウ」を参照)。Engineはこれらを項目のために検知します。ほかの2つのウィンドウ、つまり離脱とターン間の一時停止は戦闘自身が開くもので、項目から求める瞬間ではありません。セーヴの判定、死亡、ターン開始、落下に対応する瞬間はありません。
-- **対抗手段は応じた対象を完全に止めます。** カタログ内の項目を区別できず、自分より大きなものを止めるための判定もありません。
-- **連鎖しません。** 戦闘はウィンドウをスタックではなく1つだけ保持するため、ウィンドウ内で起きたことは別のウィンドウを開きません。対抗にさらに対抗することはできず、リアクションの効果も追加の瞬間を開かず、ウィンドウ内で行った攻撃は命中しても保留されません。
-- **命中となるのは攻撃判定だけです。** 攻撃判定なしで当たるもの(単に命中するダーツ、全員がセーヴする範囲)は`hit`の瞬間を開きません。応答は近接と射撃を区別できないため、ルール上は剣にしか使えないParryでも矢を受け流します。
-- **ダメージは量ではなく半減で変えます。** 応答で1回の攻撃の被害を半分にはできます(その攻撃に対する`resist-all`)が、振った数値から差し引くことはできません。
+- **簡素な盤面を超えるもの**: 障害物の上を飛ぶこと、狭所の通過、騎乗はありません。クリーチャーが動くのは、自身の歩行、テレポート、押し出すもの(対抗判定、項目、クリーチャーのアクション、ゾーン)によるときだけです。掴んでいるクリーチャーを引きずることもできません。
+- **対抗判定は簡素です。** そのロールはウィンドウを開きませんが、それによる落下には応じられます。
+- **項目が待てる瞬間は`used`、`aimed`、`hit`、`harmed`、`falls`、`turn-start`の6つだけです**(前述の「ウィンドウ」を参照)。Engineはこれらを項目のために検知します。ほかの2つのウィンドウ、つまり離脱とターン間の一時停止は戦闘自身が開くもので、項目から求める瞬間ではありません。セーヴの判定や死亡に対応する瞬間はありません。
+- **連鎖しません。** 戦闘はウィンドウをスタックではなく1つだけ保持するため、ウィンドウ内で起きたことは別のウィンドウを開きません。対抗にさらに対抗することはできず、リアクションの効果も追加の瞬間を開かず、ウィンドウ内で行った攻撃は命中しても保留されません。ウィンドウの間に起きた応答可能な落下は、ウィンドウが閉じるまで保留され、その後順に尋ねられます。
+- **命中となるのは攻撃判定だけです。** 攻撃判定なしで当たるもの(単に命中するダーツ、全員がセーヴする範囲)は`hit`の瞬間を開きません。
+- **ダメージの修正値は攻撃の命中に属します。** 応答は持ち主にダメージの修正値を付けたり、`resist-all`で受ける被害を半減したりできます。ダメージの修正値がセーヴだけの効果を変えることはありません。
 - **返却はありません。** キャンセルされたアクションのコストは消費済みです。
-- **状態が変えるものは固定リストです。** 防御、攻撃判定、セーヴ、対抗判定、速度だけです(段階と、戦闘中のアイテムの効果も同様です)。持ち主が与えるダメージへのボーナスや、キャラクターの最大値を下げる段階、戦闘から脱落させる段階はありません。
+- **状態が変えるものは固定リストです。** 防御、攻撃判定、セーヴ、対抗判定の判定、移動速度、体力の最大値、与えるダメージ、受けるダメージです(段階とアイテムの効果も同じです)。ダメージの修正値は攻撃の命中だけを変え、セーヴに基づくダメージや自動命中に加わることはありません。
 - **数値で直接書いたクリーチャーには負傷トラックがありません。** 体力がトラックのルールセットでも、そのようなクリーチャーは点数を失います。`sheet`を与えると、受ける打撃は自身の`resist`、`vulnerable`、`immune`で先に軽減した後、マスに印を付けます。
 - **追加効果は自動発動します。** `on`の値は`hit`だけなので、各期間で最初の条件を満たす命中が効果を使います。消費するか尋ねる瞬間はありません。
 - **攻撃で動く数値は簡素です。** 費やす打撃は数値だけを振り、ほかには何もないため、武器がそれを変えることはなく、`floor`も同様です(頑丈な標的は奪う打撃を吸収し、硬度は費やす打撃を止めますが、それ以外にどちらかを小さくするものはありません)。クラッシュはどれだけ深くても決まったターン数の後に解けます。ウィンドウ内で行う攻撃(離脱する相手への打撃、リアクション、固有の行動)は最初のスタイルで行います。
@@ -1870,7 +3371,7 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 コミュニティのルールセットは、インポートするエージェントと同じスイッチを使います。**Settings**(設定)>**Advanced**(詳細設定)>**Danger Zone**(危険な操作)を開き、**Allow custom Agent imports**(カスタムエージェントのインポートを許可)がオンであることを確認してください。インポートにはlocalhostからのアクセスか、設定済みの**Admin Access**(管理者アクセス)も必要です。
 
 1. **Agents**(エージェント)パネルを開き、**Import agents**(エージェントをインポート)ボタン(パネル上部のボタン列のダウンロードアイコン)を選びます。
-2. **Game Mode ruleset**(Game Modeのルールセット)を選び、JSONファイルを指定します。
+2. **Game Mode ruleset**(Game Modeのルールセット)を選び、JSONファイルか、`.ruleset.json`で終わるルールセットのパッケージファイルを指定します([ルールセットの共有](#sharing-your-ruleset)を参照)。
 3. 確認画面を読みます。名前、バージョン、ライセンス、対応範囲、Game Master向け文章が表示されます。**Import**(インポート)を選びます。
 
 ルールセットはパネルの**Rules**(ルール)セクションと、新しいゲームの設定ウィザードの**Rules**選択肢に表示されます。ファイルからインポートしたものは`local/<your id>`として分類するため、公式や他者のルールセットと混同することはありません。
@@ -1883,9 +3384,66 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 
 シートの形(項目の追加、削除、名前変更)を変えた場合は、`sheet.version`も上げてください。既存のシートは寛容に読み取ります。新しいシートにとって未知の値も保ち、ない値にはデフォルトを使います。
 
+### 値を新しいIDへ移す: `sheet.migrations`
+
+追加するだけなら何も要りません。新しい構成が値を別の場所へ移す場合(名前を変えたフィールド、クラスごとのレベルに分かれる1つのレベル、ダイスごとに分かれる1つのヒット・ダイスのプール)、その方法を`sheet.migrations`(Capability API 1.77)で示してください。そうすれば、古い構成で作ったすべてのキャラクターが、ライブラリー、ゲーム、古いセーブ、分岐、チェックポイント、インポートしたカードで、その数値を保ちます。
+
+```json
+"migrations": [
+  {
+    "from": 3,
+    "steps": [
+      { "rename": "field", "from": "xp", "to": "experience" },
+      {
+        "route": "level",
+        "by": "class",
+        "cases": [
+          { "words": ["fighter"], "to": "level_fighter" },
+          { "words": ["wizard"], "to": "level_wizard" }
+        ],
+        "else": "level_other",
+        "default": 1
+      },
+      {
+        "routeLive": "pool",
+        "from": "hit_dice",
+        "cases": ["hit_dice_d6", "hit_dice_d8", "hit_dice_d10", "hit_dice_d12"],
+        "else": "hit_dice_d8"
+      }
+    ]
+  }
+]
+```
+
+- 各項目は、保存されたシートをバージョン`from`から`from + 1`へ移し、そのバージョン以前に保存されたすべてのシートに対して順に実行されます。一度公開した項目は決して削除しないでください。ずっと前に保存されたシートには引き続き必要です。追加するだけのバージョンには何も要りません。
+- `rename`(`ability`、`skill`、`save`、`field`): 値を新しいIDにコピーします。スキルやセーヴはボーナスも一緒に移します。名前の変更は、前の項目の名前の変更を引き継いだり、後の`route`が送り先にするフィールドに供給したりできます。インポートは、その連鎖を終点までたどります。
+- `route`: 1つのフィールドの値を、別のフィールドの文章が指定するフィールドへ送ります。大文字と小文字を区別せず、`by`の文章にケースの語が単語全体として現れ(単語をつなぐのは英字だけなので、「Fighter3」はfighterを指定します)、ちょうど1つのケースが一致すれば、そのケースが採用されます。一致がないか複数ある場合(「Fighter 3 / Wizard 2」は、尋ねずに1つの数値を分けられません)は`else`へ送ります。`default`は、値を保存したことのないシートの代わりの値です。`by`は、シートが持つフィールドか、以前の構成で名前を変えて移したフィールドです。送り先は、デフォルトがないか、デフォルトが0か空の数値またはテキストのフィールドです。値はそのうちの1つに入り、ほかはすべてデフォルトのままなので、それ以外のデフォルトは誰も与えていないレベルとして読まれてしまいます。後の名前の変更が移す送り先は、そこまでたどります。
+- `routeLive`(ライブ状態の`pool`か`track`): 保存された値を、移行後のシートが示す`cases`の1つ(最大値が0より大きいプール、シートが隠していないトラック)へ送り、なければ`else`へ送ります。値の送り先のトラックは、すべて負傷トラック(印を運びます)か、すべて普通のトラック(数値を運びます)です。
+- どのビルドのステップもコピーします。古い値は元の場所に残るため、ルールセットの古いバージョンは引き続き以前と同じようにシートを読めます。ステップが送り先にすでにある値を上書きすることはありません。
+- インポートは、`sheet.version`以上の項目、同じバージョンからの2つの項目、シートが持たないIDに書き込むステップ、2回列挙したケース、シートがまだ持つIDから読む`rename`や`routeLive`を拒否します(移したIDは二度と使われないため、それらのステップは安全に再実行できます)。
+- シートは読むたびに移行され、新しい構成は次の編集で保存されます。ライブ状態には独自のバージョンがないため、`routeLive`は読むたびに実行されます。古いキーは捨てられ、その値は新しいキーがまだない間だけ移るため、その後消費したり休息で回復したりした値が上書きされることはありません。どこへ移ったかは、アップデート後の最初の書き込みで決まります。後で修正したシート(手で移したクラスのレベル)が再び移されることはありません。新しいバージョンが届いた時点で進行中の戦闘は、これまでどおり最後まで続きます。
+
+<a id="sharing-your-ruleset"></a>
+
 ## ルールセットの共有
 
 **ファイルで。** JSONファイルを友人に送ります。友人も同じ方法でインポートできます。
+
+**パッケージファイルとして。** カタログを独立したファイルに持つ、1つのファイルに収まらないほど大きいルールセットは、`<name>.ruleset.json`という名前の1つの普通のJSONファイルとして配布します。パッケージのマニフェストとルールセットのドキュメントを、それぞれ正確なバイト列をbase64にして持ちます。
+
+```json
+{
+  "format": "marinara-ruleset",
+  "version": 1,
+  "manifest": { "kind": ["ruleset"], "…": "the package manifest" },
+  "files": {
+    "ruleset.json": "<base64>",
+    "catalogs/spells.json": "<base64>"
+  }
+}
+```
+
+マニフェストは、`ruleset.json`と各`catalogs/<id>.json`を`contributions.assets.paths`と`files`に、それぞれのサイズとsha256とともに列挙します。Pixelforgeのようなルールセットエディターがこれを作ります。**Import agents**(エージェントをインポート) → **Game Mode ruleset**(Game Modeのルールセット)がファイルを受け取り、ルールセットファイルと同じ確認画面を、各カタログとその項目数とともに表示します。中身は圧縮されていないため、自身のサイズを超えるものを持つことはありません。データとして読まれ、パッケージとしてインストールされることはありません。ほかのもの(別のキー、ほかのファイル、厳密なbase64でないかUTF-8のテキストでないドキュメント)を持つ場合、マニフェストがルールセット以上のもの(コード、権限、ほかの提供物)を含む場合、ファイルがマニフェストの列挙するものと異なる場合、`$comment`が2,000文字を超えるか、`$schema`がEngine自身のスキーマ以外を指定する場合、ルールセットやカタログが読めない場合は、理由とともに拒否されます。ルールセットファイルと同じく`local/<its id>`として登録され、最大24 MBで、カタログファイルは最大12個、それぞれ2 MBまでです。バージョンはルールセットとカタログを合わせたものなので、カタログを変えた場合も`version`を上げる必要があります。ルールセットのパッケージはzipでは受け付けません。
 
 **GitHubリポジトリから。** 公開GitHubリポジトリで作業を管理している場合、リポジトリ直下の`rulesets`フォルダーに、ルールセットごとに1ファイルずつ置きます。
 

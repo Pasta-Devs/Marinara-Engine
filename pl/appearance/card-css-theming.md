@@ -276,6 +276,7 @@ Filtr oczyszczający usuwa te rzeczy ze względów bezpieczeństwa.
 | `@font-face` z zewnętrznymi adresami URL | Zostają wyłącznie źródła krojów pisma w formie `data:`. Nazwa rodziny dostaje automatycznie nową nazwę, żeby nie mogła nadpisać krojów aplikacji. |
 | `@import` | Żadnego wczytywania zewnętrznych arkuszy stylów. |
 | selektory `:has()` | Nie mogą badać elementów spoza czatu. |
+| Zagnieżdżone reguły i selektory zaczynające się od `~` lub `+` | Usuwane, żeby CSS karty nie mógł sięgnąć poza swój zakres. Zapisz je jako zwykłe selektory. |
 | HTML w `content:` | Tekst ozdobny jest dozwolony, ale znaki `<` i `>` są usuwane, a długość tekstu ograniczona do 200 znaków. Zapisy `attr()` i `counter()` są dozwolone. |
 | `position: fixed` | Zamieniane na `position: absolute`, więc nie da się przykryć całego ekranu. |
 | `!important` | Usuwane, więc CSS karty nie może na siłę nadpisać stylów aplikacji. |

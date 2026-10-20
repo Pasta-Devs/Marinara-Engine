@@ -233,7 +233,7 @@ node scripts/run-regressions.mjs --filter logging-
 
 这是始终启用的修复，不是设置。
 
-**现有实现。** `packages/server/src/app.ts` 的 `buildApp()` 注册核心路由，等待 `capabilityModuleRuntime.start(app)` 通过 `services/capability-packages/capability-module-runtime.service.ts` 的 `activateOne()` 逐个激活包，之后启动 `startServerAutonomousScheduler(app)`。内部 `app.inject()` 来自包的 `capability-route-registration.service.ts` 中 `runCapabilityInternalRoute()`、`server-autonomous-scheduler.service.ts` 的自主调度器及 `routes/generate/prompt-preview.ts`。首次 `inject()` 会启动整个 Fastify，之后不能添加路由、钩子或插件。早期定时器/工作进程若在 `buildApp()` 注册时调用，后续包会报 "Root plugin has already booted"，下一个 `addHook` 抛错并停止服务器。`activateOne()` 的 `catch` 记录后执行 `capabilityPackageManager.rollbackRuntime()`，或保存状态及就绪状态 `"error"`。正常包也可能在以后启动中保持回滚或 `"error"`。
+**现有实现。** `packages/server/src/app.ts` 的 `buildApp()` 注册核心路由，等待 `capabilityModuleRuntime.start(app)` 通过 `services/capability-packages/capability-module-runtime.service.ts` 的 `activateOne()` 逐个激活包，之后启动 `startServerAutonomousScheduler(app)`。内部 `app.inject()` 来自包的 `capability-route-registration.service.ts` 中 `runCapabilityInternalRoute()`、`server-autonomous-scheduler.service.ts` 的自主调度器及 `routes/generate/prompt-preview.ts`。首次 `inject()` 会启动整个 Fastify，之后不能添加路由、钩子或插件。后台任务（包的定时器或提前启动的工作进程）若在 `buildApp()` 仍在注册时调用 `inject()`，后续每个包都会报 "Root plugin has already booted"，下一个 `addHook` 抛错并停止服务器。`activateOne()` 的 `catch` 记录后执行 `capabilityPackageManager.rollbackRuntime()`，或保存状态及就绪状态 `"error"`。正常包也可能在以后启动中保持回滚或 `"error"`。
 
 **新增内容。**
 
@@ -243,7 +243,7 @@ node scripts/run-regressions.mjs --filter logging-
 - `capability-module-runtime.service.ts` 的 `isHostLifecycleActivationError()` 识别 `AVV_ERR_ROOT_PLG_BOOTED`（"Root plugin has already booted"）及 `FST_ERR_INSTANCE_ALREADY_LISTENING`（"Fastify instance is already listening"）。此时不回滚、不持久化状态/就绪状态 `"error"`，保留版本与状态，下次正常激活。仅一条 warn，诊断仍记录。其他失败保留 error、回滚和 `"error"`。
 - 回归：`startup-inject-gate`。
 
-**保持不变。** `buildApp()` 返回后 `app.inject()` 恢复为无包装的 Fastify 原调用。不带参数的链式形式从不等待。注册顺序、路由、`runCapabilityInternalRoute()`、调度器、启动后激活/更新不变。运行服务器上的一个例外：UI 激活的包添加新路由仍收到 `FST_ERR_INSTANCE_ALREADY_LISTENING`，但新版本保持安装，待下次启动激活，不再回滚。调用方仍收到错误。
+**保持不变。** `buildApp()` 返回后 `app.inject()` 恢复为无包装的 Fastify 原调用。链式形式（不带参数的 `app.inject()`）从不等待。注册顺序、路由、`runCapabilityInternalRoute()`、调度器、启动后激活/更新不变。运行服务器上的一个例外：UI 激活的包添加新路由仍收到 `FST_ERR_INSTANCE_ALREADY_LISTENING`，但新版本保持安装，待下次启动激活，不再回滚。调用方仍收到错误。
 
 **验证方式。**
 
@@ -302,6 +302,8 @@ node scripts/run-regressions.mjs --filter startup-inject-gate
 # 后续 pull request
 
 这些章节刻意简短。每个 PR 打开时按同样五部分补充。
+
+状态：PR A 已作为 #6647 合并，PR B 已作为 #6648 合并。PR C(#6649) 未合并即关闭，PR D 到 H 没有作为单独的 pull request 提交。下面 C 到 H 的章节描述的是当时写下的计划；不要把它们当作已按此形式发布的功能。
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 

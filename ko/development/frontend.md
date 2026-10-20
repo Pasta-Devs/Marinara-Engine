@@ -59,9 +59,9 @@ UI는 Discord에서 착안한 3열 구성이며 `components/layout/AppShell.tsx`
 
 ### Zustand 스토어(클라이언트 상태)
 
-클라이언트는 UI 상태와 런타임 상태를 `packages/client/src/stores/`의 Zustand 스토어 묶음으로 관리합니다. 저장되는 스토어는 `ui.store.ts` 하나뿐입니다. 나머지는 채팅, 에이전트, 게임, 로컬 모델 런타임, 번역, 대화 상자, 백필, 테이블 게임의 런타임 상태를 담습니다.
+클라이언트는 UI 상태와 런타임 상태를 `packages/client/src/stores/`의 Zustand 스토어 묶음으로 관리합니다. 저장되는 스토어는 `ui.store.ts` 하나뿐입니다. 나머지는 채팅, 에이전트, 게임, 로컬 모델 런타임, 번역, 대화 상자, 백필의 런타임 상태를 담습니다.
 
-현재 스토어 파일은 `agent.store.ts`, `backfill.store.ts`, `chat.store.ts`, `chess-game.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `poker-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`, `uno-game.store.ts`입니다.
+현재 스토어 파일은 `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `ui.store.ts`입니다. 테이블 게임 스토어는 다운로드 가능한 각 패키지로 옮겨졌으며, `conversation-games.store.ts`는 Conversation 게임 선택기와 설정만 추적합니다.
 
 #### `ui.store.ts`: 설정과 UI 외형
 
@@ -489,6 +489,9 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | `/api/translate` | POST | 텍스트 번역 |
 | `/api/game` | CRUD와 동작 | Game Mode 세션과 상태 |
 | `/api/game-assets` | CRUD와 업로드 | 게임 에셋 |
+| `/api/game-rulesets` | 가져오기, 스키마, 원본, 제거 | 가져온 Game Mode 규칙 집합 |
+| `/api/game-worlds` | 라이브러리 CRUD와 세계 편집 | 새 게임과 지도 팩용 세계 라이브러리 |
+| `/api/game-tile-packs` | 타일 팩, `/creatures`와 `/boards` 포함 | 지도, 크리처, 전투 보드 아트 팩 |
 | `/api/turn-games` | Chess, UNO, Poker 라우트 | Conversation 테이블 게임 |
 | `/api/conversation-calls` | 통화와 세션 라우트 | Conversation 음성 통화 |
 
@@ -503,6 +506,10 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | `/api/gallery/:chatId` | 채팅별 갤러리 이미지 |
 | `/api/global-gallery` | 전체 갤러리 이미지 |
 | `/api/tts` | 음성 합성 라우트 |
+| `/api/speech-to-text` | Speech to Text 서버 설정과 테스트 |
+| `/api/avatar-models` | 아바타 에이전트용 2D 및 3D 아바타 모델 |
+| `/api/avatar-generation` | 스프라이트로 만드는 아바타 초안과 Tripo 키 |
+| `/api/avatar-classify` | 아바타 감정 분류기와 그 로컬 모델 |
 | `/api/youtube` | YouTube DJ 라우트 |
 | `/api/custom-emojis` | 사용자 지정 이모지 에셋 |
 | `/api/custom-stickers` | 사용자 지정 스티커 에셋 |
@@ -539,8 +546,10 @@ Personal Extensions는 서버에 저장하고 정확한 해시로 승인하는 �
 | `/api/connection-folders` | 연결 폴더 |
 | `/api/prompt-overrides` | 기본 제공 프롬프트 재정의 |
 | `/api/achievements` | 업적 해제 |
-| `/api/noodle` | Noodle 소셜 타임라인 |
+| `/api/capability-packages` | 에이전트 카탈로그, 설치, 업데이트, 릴리스 노트, 패키지 에셋 |
+| `/api/noodle` | Noodle 소셜 타임라인(Noodle 패키지가 등록) |
 | `/api/professor-mari/workspace` | Professor Mari 작업 공간 관련 동작 |
+| `/api/professor-mari/quick` | Professor Mari 빠른 답변과 그 편집 제안 적용 |
 
 ## PWA 지원
 
@@ -586,6 +595,10 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 | `persona-stats` | post_processing | 플레이어 페르소나의 능력치 변화를 추적합니다 |
 | `custom-tracker` | post_processing | 사용자가 정의한 구조화 상태를 추적합니다 |
 | `inventory-tracker` | post_processing | 화폐, 장착 장비, 소지품을 추적합니다 |
+| `quartermaster` | post_processing | Roleplay 캐릭터 시트, 장착 장비, 의상을 관리합니다 |
+| `beholder` | post_processing | 각 캐릭터가 입고 있는 것과 들고 있는 것, 부상을 추적합니다 |
+| `relationship-tracker` | post_processing | 캐릭터들과 페르소나가 서로를 어떻게 느끼는지 추적합니다 |
+| `memory-nag` | post_processing | 약속 같은 미해결 사항을 기억해 두었다가 모델에게 상기시킵니다 |
 | `illustrator` | post_processing | 장면 이미지 프롬프트와 미디어 요청을 만듭니다 |
 | `lorebook-keeper` | post_processing | 로어북 항목을 자동으로 만들고 갱신합니다 |
 | `card-evolution-auditor` | post_processing | 캐릭터 카드를 살펴 변화를 제안합니다 |
@@ -600,7 +613,9 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 | `storyboard` | post_processing | Game과 Roleplay의 정지 또는 애니메이션 스토리보드를 계획합니다 |
 | `conversation-calls` | feature | Conversation에 음성/영상 통화와 관련 설정을 추가합니다 |
 | `hierarchical-maps` | feature | Roleplay와 Game에 지도, 공간 컨텍스트, 이동을 추가합니다 |
-| `noodle` | feature | Home에 로컬 Noodle과 Slurp 소셜 피드를 추가합니다 |
+| `noodle` | feature | Home에 로컬 Noodle 소셜 피드를 추가합니다 |
+| `slurp2` | feature | 캐릭터를 위한 비공개 크리에이터 앱인 Slurp를 Home에 추가합니다 |
+| `gacha-forge` | feature | Home에 가챠 게임 모드를 추가합니다 |
 | `uno` | feature | Conversation에 UNO 테이블을 추가합니다 |
 | `chess` | feature | Conversation에 Chess 판을 추가합니다 |
 | `poker` | feature | Conversation에 Texas Hold'em 테이블을 추가합니다 |
@@ -612,7 +627,7 @@ Narrative Director의 Secret Plot 패널처럼 에이전트의 기억을 다루�
 
 에이전트는 프런트엔드가 처리하는 타입이 정해진 결과를 내놓습니다. `packages/shared/src/types/agent.ts`의 `AgentResultType` 유니언에는 다음이 들어 있습니다.
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`, `about_me_update`.
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `character_card_create`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `inventory_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `character_activity_update`, `frontend_theme_update`, `about_me_update`, `memory_nag`.
 
 ## 채팅 모드
 

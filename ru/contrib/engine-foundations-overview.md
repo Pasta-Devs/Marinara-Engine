@@ -233,7 +233,7 @@ node scripts/run-regressions.mjs --filter logging-
 
 Всегда активное исправление, не настройка.
 
-**Текущее состояние.** `buildApp()` в `packages/server/src/app.ts` регистрирует основные маршруты, ждет `capabilityModuleRuntime.start(app)`, активирующий пакеты через `activateOne()` в `services/capability-packages/capability-module-runtime.service.ts`, затем запускает `startServerAutonomousScheduler(app)`. Внутренний `app.inject()` вызывают пакеты через `runCapabilityInternalRoute()` в `capability-route-registration.service.ts`, планировщик в `server-autonomous-scheduler.service.ts` и `routes/generate/prompt-preview.ts`. Первый `inject()` запускает всю Fastify-инстанцию; потом нельзя добавлять маршруты, hooks и плагины. Ранний таймер/worker во время `buildApp()` вызывал "Root plugin has already booted" у последующих пакетов, а следующий `addHook` останавливал сервер. `catch` в `activateOne()` журналирует и вызывает `capabilityPackageManager.rollbackRuntime()` либо сохраняет статус/готовность `"error"`. Здоровый пакет мог оставаться откатанным или `"error"` при следующих запусках.
+**Текущее состояние.** `buildApp()` в `packages/server/src/app.ts` регистрирует основные маршруты, ждет `capabilityModuleRuntime.start(app)`, активирующий пакеты через `activateOne()` в `services/capability-packages/capability-module-runtime.service.ts`, затем запускает `startServerAutonomousScheduler(app)`. Внутренний `app.inject()` вызывают пакеты через `runCapabilityInternalRoute()` в `capability-route-registration.service.ts`, планировщик в `server-autonomous-scheduler.service.ts` и `routes/generate/prompt-preview.ts`. Первый `inject()` запускает всю Fastify-инстанцию; потом нельзя добавлять маршруты, hooks и плагины. Если фоновая задача (таймер пакета или рано запущенный worker) вызывала `inject()`, пока `buildApp()` еще регистрировал маршруты, все последующие пакеты падали с "Root plugin has already booted", а следующий `addHook` выбрасывал ошибку и останавливал сервер. `catch` в `activateOne()` журналирует и вызывает `capabilityPackageManager.rollbackRuntime()` либо сохраняет статус/готовность `"error"`. Здоровый пакет мог оставаться откатанным или `"error"` при следующих запусках.
 
 **Дополнения.**
 
@@ -243,7 +243,7 @@ node scripts/run-regressions.mjs --filter logging-
 - `isHostLifecycleActivationError()` в `capability-module-runtime.service.ts` распознает `AVV_ERR_ROOT_PLG_BOOTED` ("Root plugin has already booted") и `FST_ERR_INSTANCE_ALREADY_LISTENING` ("Fastify instance is already listening"). Нет отката или сохраненного статуса/готовности `"error"`: версия и статус остаются, следующий запуск активирует нормально. Один warn и запись диагностики. Другие ошибки сохраняют error, откат и `"error"`.
 - Регрессия: `startup-inject-gate`.
 
-**Без изменений.** После `buildApp()` вызов `app.inject()` снова оригинальный Fastify без wrapper. Цепочная форма без аргументов никогда не удерживается. Порядок, маршруты, `runCapabilityInternalRoute()`, планировщик и последующие активации/обновления прежние. Один случай на работающем сервере: пакет, активированный из интерфейса и добавляющий новый маршрут, получает `FST_ERR_INSTANCE_ALREADY_LISTENING`, но новая версия остается до следующего запуска, без отката. Вызывающий все равно получает ошибку.
+**Без изменений.** После `buildApp()` вызов `app.inject()` снова оригинальный Fastify без wrapper. Цепочная форма (`app.inject()` без аргументов) никогда не удерживается. Порядок, маршруты, `runCapabilityInternalRoute()`, планировщик и последующие активации/обновления прежние. Один случай на работающем сервере: пакет, активированный из интерфейса и добавляющий новый маршрут, получает `FST_ERR_INSTANCE_ALREADY_LISTENING`, но новая версия остается до следующего запуска, без отката. Вызывающий все равно получает ошибку.
 
 **Как проверить.**
 
@@ -302,6 +302,8 @@ node scripts/run-regressions.mjs --filter startup-inject-gate
 # Последующие pull request
 
 Разделы намеренно краткие. Каждый PR дополнит свой теми же пятью частями при открытии.
+
+Статус: PR A влит как #6647, PR B – как #6648. PR C (#6649) закрыт без слияния, а PR с D по H не открывались как отдельные pull request. Разделы о PR с C по H ниже описывают план в том виде, в каком он был написан; не считайте их функциями, которые вышли именно так.
 
 <a id="pr-b-dev-mcp-for-coding-assistants"></a>
 

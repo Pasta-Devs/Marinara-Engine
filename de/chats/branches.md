@@ -24,6 +24,7 @@ Marinara kopiert den Chat bis einschließlich dieser Nachricht in eine neue Verz
 - Behält Modus, Charaktere, Persona, Prompt-Preset und Verbindung des Ursprungschats bei.
 - Kopiert jede Nachricht, samt aller Swipes (alternativer Antworten) und der Angabe, welcher Swipe aktiv war. Wie Swipes funktionieren, steht in der [Anleitung zu Nachrichten-Aktionen](messages.md).
 - Kopiert die Tracker- und Spielzustands-Schnappschüsse der kopierten Nachrichten, damit Roleplay- und Game-Chats ihren Zustand behalten.
+- Behält in einem Roleplay-Chat die Arbeit von Advanced Memory bei, sodass du den kopierten Verlauf nicht erneut vorbereiten musst. Erinnerungen an frühere, abgeschlossene Szenen bleiben abrufbereit. Die Szene, von der du abzweigst, wird wieder zur laufenden Szene, und ihre alten Erinnerungen werden verworfen. Siehe [Memory Recall und Chat-Zusammenfassungen](../agents/memory.md).
 - Startet mit dem Anzeigenamen **New Branch**. Umbenennen geht jederzeit (siehe unten).
 - Bleibt im selben Chat-Ordner wie der Ursprungschat.
 
@@ -73,6 +74,7 @@ Oben im Abschnitt **Chat Branches** sitzen die Export-Schaltflächen. Sie export
 
 - **JSONL**: lädt die Verzweigung als JSONL-Datei herunter. JSONL heißt: eine Nachricht pro Textzeile. Dieses Format versteht auch SillyTavern.
 - **Text**: lädt die Verzweigung als reines Text-Protokoll herunter.
+- **Markdown** und **Story**: laden die Verzweigung als gut lesbare Markdown-Datei oder als gestaltete Webseite herunter. Siehe [Diese Dateiformate begegnen dir](export-import.md#file-formats-you-will-see).
 
 Willst du viele Chats auf einmal exportieren, hilft [Chats exportieren und importieren](export-import.md) weiter. Dort steht auch, wie du die Gedankengänge des Modells in den Export aufnimmst.
 

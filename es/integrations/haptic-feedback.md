@@ -49,9 +49,7 @@ Para conectarte a mano, haz clic en **Connect**. Si funciona, la fila muestra "C
 
 Si falla, ves un mensaje que dice que la app no pudo conectarse. Te pide que te asegures de que **Intiface Central** se esté ejecutando y de que el servidor esté iniciado. El mensaje incluye un enlace al sitio web de **Intiface Central**.
 
-Una vez conectado, la tarjeta muestra cuántos dispositivos se encuentran. Dice "No devices found" (No se encontraron dispositivos) cuando no hay ninguno conectado, o el número de dispositivos cuando hay algunos. Haz clic en **Scan for devices** (Escanear dispositivos) para buscar de nuevo. El botón dice "Scanning..." (Escaneando...) mientras se ejecuta un escaneo. La tarjeta enumera cada dispositivo con su nombre y las acciones que admite, como vibrar o rotar.
-
-Marinara también entrega al Haptic Agent el nombre exacto de Intiface, un tipo de juguete derivado de sus capacidades y las acciones compatibles. Así puede elegir el dispositivo y la acción correctos en lugar de suponer que todos los juguetes son vibradores.
+Una vez conectado, la tarjeta muestra cuántos dispositivos se encuentran. Dice "No devices found" (No se encontraron dispositivos) cuando no hay ninguno conectado, o el número de dispositivos cuando hay algunos. Haz clic en **Scan for devices** (Escanear dispositivos) para buscar de nuevo. El botón dice "Scanning..." (Escaneando...) mientras se ejecuta un escaneo. La tarjeta enumera cada dispositivo con su nombre exacto de Intiface y las acciones que admite. Marinara también entrega ese nombre, un tipo de juguete derivado de sus capacidades y las acciones compatibles al Haptic Agent, para que pueda elegir el dispositivo y la acción correctos en lugar de suponer que todos los juguetes son vibradores.
 
 ## Acciones y patrones compatibles
 
@@ -67,7 +65,9 @@ El campo **Intiface URL** contiene la dirección de red de tu servidor de **Inti
 ws://127.0.0.1:12345
 ```
 
-La dirección `127.0.0.1` significa "esta misma computadora". Si dejas el campo en blanco, Marinara usa el valor predeterminado del servidor. Marinara también recuerda tu dirección en el navegador, así que se reutiliza en todos los chats y dispositivos.
+La dirección `127.0.0.1` significa "esta misma computadora". Si dejas el campo en blanco, Marinara usa el valor predeterminado del servidor. Marinara guarda tu dirección con el chat y además la recuerda en este navegador, así que los demás chats que abras aquí empiezan con ella.
+
+La dirección se queda en esta instalación de Marinara. Las exportaciones de chats, los perfiles de ajustes exportados y los archivos de **Export Profile** (Exportar perfil) la dejan fuera, e importar cualquiera de ellos nunca la configura. Vuelve a introducirla después de llevar un chat a otra instalación.
 
 Si ejecutas Marinara en Docker, o abres Marinara en un navegador en un dispositivo diferente, `127.0.0.1` no alcanzará tu **Intiface Central**. En ese caso, ingresa la dirección de la computadora que ejecuta **Intiface Central**. Se parece al ejemplo de abajo, donde reemplazas los números con la dirección real de esa computadora.
 

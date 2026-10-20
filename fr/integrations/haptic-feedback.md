@@ -49,9 +49,7 @@ Pour te connecter manuellement, clique sur **Connect**. Si tout se passe bien, l
 
 En cas d'échec, un message signale que l'application n'a pas pu se connecter. Il te demande de vérifier que **Intiface Central** est lancé et que son serveur est démarré. Le message contient un lien vers le site d'**Intiface Central**.
 
-Une fois la connexion établie, l'encart indique combien d'appareils ont été trouvés. Il affiche "No devices found" quand aucun n'est branché, ou le nombre d'appareils le cas échéant. Clique sur **Scan for devices** (rechercher des appareils) pour relancer la recherche. Pendant la recherche, le bouton affiche "Scanning...". L'encart liste chaque appareil avec son nom et les actions qu'il prend en charge, comme vibrer ou tourner.
-
-Marinara transmet aussi au Haptic Agent le nom Intiface exact, un type de jouet déduit des capacités et les actions compatibles. Il peut ainsi choisir le bon appareil et la bonne action au lieu de supposer que tout jouet est un vibrateur.
+Une fois la connexion établie, l'encart indique combien d'appareils ont été trouvés. Il affiche "No devices found" quand aucun n'est branché, ou le nombre d'appareils le cas échéant. Clique sur **Scan for devices** (rechercher des appareils) pour relancer la recherche. Pendant la recherche, le bouton affiche "Scanning...". L'encart liste chaque appareil avec son nom Intiface exact et les actions qu'il prend en charge. Marinara transmet aussi ce nom, un type de jouet déduit des capacités et les actions compatibles au Haptic Agent, pour qu'il puisse choisir le bon appareil et la bonne action au lieu de supposer que tout jouet est un vibrateur.
 
 ## Actions et motifs compatibles
 
@@ -67,7 +65,9 @@ Le champ **Intiface URL** contient l'adresse réseau du serveur **Intiface Centr
 ws://127.0.0.1:12345
 ```
 
-L'adresse `127.0.0.1` signifie "cet ordinateur-ci". Si tu laisses le champ vide, Marinara utilise la valeur par défaut du serveur. Marinara mémorise aussi l'adresse dans le navigateur : elle est donc réutilisée d'un chat et d'un appareil à l'autre.
+L'adresse `127.0.0.1` signifie "cet ordinateur-ci". Si tu laisses le champ vide, Marinara utilise la valeur par défaut du serveur. Marinara enregistre ton adresse avec le chat et la mémorise aussi dans ce navigateur : les autres chats que tu ouvres ici démarrent donc avec elle.
+
+L'adresse reste sur cette installation de Marinara. Les exports de chat, les profils de réglages exportés et les fichiers **Export Profile** (exporter le profil) la laissent de côté, et l'import de l'un d'eux ne la définit jamais. Saisis-la de nouveau après avoir déplacé un chat vers une autre installation.
 
 Si tu fais tourner Marinara dans Docker, ou si tu ouvres Marinara dans un navigateur sur un autre appareil, `127.0.0.1` n'atteindra pas **Intiface Central**. Dans ce cas, saisis l'adresse de l'ordinateur qui fait tourner **Intiface Central**. Elle ressemble à l'exemple ci-dessous, où tu remplaces les chiffres par l'adresse réelle de cet ordinateur.
 

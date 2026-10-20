@@ -18,6 +18,8 @@ Zum Umbenennen doppelklickst du auf die Ordnerzeile – auf dem Touchscreen gen�
 
 Um eine Verbindung in einen Ordner einzusortieren, zieh die Verbindungszeile auf den Ordner. Zieh sie auf die Fläche unterhalb der Ordner, um sie wieder herauszuholen. Beim Ziehen erscheint der Hinweis **Drop here to move out of folder** (hier ablegen, um sie aus dem Ordner zu holen).
 
+Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen, und ziehst sie dann. Eine normale Wischbewegung scrollt weiterhin die Liste.
+
 Ein Klick auf die Ordnerzeile klappt den Ordner zu oder wieder auf. Eine kleine Zahl in der Ordnerzeile zeigt, wie viele Verbindungen darin liegen.
 
 Zum Löschen klickst du auf das Papierkorb-Symbol in der Ordnerzeile. Liegen noch Verbindungen darin, fragt Marinara im Dialogfenster **Delete Folder** (Ordner löschen) nach. Einen leeren Ordner löscht Marinara sofort, ganz ohne Rückfrage. Das Löschen eines Ordners löscht die enthaltenen Verbindungen nicht. Sie wandern stattdessen zurück in den Bereich der nicht einsortierten Verbindungen.
@@ -36,7 +38,7 @@ Das Dropdown-Menü **Sort order** (Sortierung) neben dem Suchfeld ändert die Re
 | **Newest** | Neueste Verbindungen zuerst. |
 | **Oldest** | Älteste Verbindungen zuerst. |
 
-Für eine eigene Reihenfolge ziehst du die Verbindungszeilen nach oben oder unten. Sobald du eine Verbindung ziehst, stellt Marinara die Sortierung automatisch auf **Custom** um.
+Für eine eigene Reihenfolge ziehst du die Verbindungszeilen nach oben oder unten. Sobald du eine Verbindung ziehst, stellt Marinara die Sortierung automatisch auf **Custom** um. Eine fokussierte Zeile kannst du auch mit Alt+Pfeil nach oben oder Alt+Pfeil nach unten verschieben.
 
 ## Duplizieren und Löschen
 
@@ -58,6 +60,8 @@ Um eine Verbindung in den Zufallspool aufzunehmen, klick auf das Mischen-Symbol 
 
 Damit ein Chat den Zufallspool nutzt, öffne **Chat Settings** (Chat-Einstellungen), geh zum Abschnitt **Connection** und wähl im Dropdown-Menü **🎲 Random**. Im Game Mode heißt dieses Dropdown-Menü **GM / Party Model**. Jede Antwort greift dann auf eine zufällige Verbindung aus dem Pool zurück.
 
+Scheitert die Verbindung, die für eine Antwort gezogen wurde, und hast du für **Main** eine Fallback-Verbindung festgelegt, schreibt stattdessen der Fallback die Antwort. Ein Hinweis nennt die gescheiterte Verbindung, ihr Modell und einen kurzen Grund wie „key rejected“, „rate limited“ oder „not found“, damit du erkennst, welche Verbindung im Pool repariert werden muss. Die Antwort behält eine kleine Markierung **Fallback**; tipp darauf oder zeig darauf, um dieselbe Zeile erneut zu sehen.
+
 Noch schneller wechselst du die Verbindung für den aktuellen Chat – und ihr Modell – mit dem **Quick Connection Switcher** (schneller Verbindungswechsel). Klick dafür auf das Link-Symbol im Eingabebereich des Chats. Links zeigt er deine Verbindungen, rechts die **Models** (Modelle) der gewählten Verbindung:
 
 - Klick auf eine Verbindung, um sie sofort für den aktuellen Chat zu verwenden. Das Menü bleibt offen, damit du als Nächstes eines ihrer Modelle wählen kannst.
@@ -69,7 +73,7 @@ Noch schneller wechselst du die Verbindung für den aktuellen Chat – und ihr M
 - Die Würfel-Schaltfläche oben im Menü schaltet den Zufallspool für diesen Chat ein oder aus.
 - Ist der Zufallspool aktiv, nimmt ein Klick auf eine Verbindung sie stattdessen in den Pool auf oder entfernt sie daraus. Ein Häkchen zeigt, welche Verbindungen im Pool liegen. Die Spalte **Models** ist dann ausgeblendet, weil der Pool keine einzelne Verbindung hat.
 
-Auf dem Handy tippst du neben dem Nachrichtenfeld auf den Pfeil und öffnest den Tab **Connections**. Ein Tipp auf eine Verbindung wählt sie aus und zeigt ihre Modelle im selben Menü. Mit dem Zurück-Pfeil kehrst du zur Verbindungsliste zurück.
+Auf dem Handy tippst du neben dem Nachrichtenfeld auf den Pfeil und öffnest den Tab **Connections**. Ein Tipp auf eine Verbindung stellt den Chat auf sie um, und das Menü schließt sich. Willst du ein Modell wählen, tipp stattdessen auf den Pfeil am rechten Ende der Verbindungszeile. Ihre Modelle öffnen sich im selben Menü, und der Chat wechselt erst, wenn du eines auswählst. Mit dem Zurück-Pfeil kehrst du zur Verbindungsliste zurück.
 
 **Ein Modellwechsel gilt überall, wo die Verbindung genutzt wird.** Der Hinweis unten im Menü, „Model changes are saved to this connection.“, bedeutet: Agenten, Hilfsfunktionen und andere Chats, die dieselbe Verbindung nutzen, wechseln ebenfalls auf das neue Modell. Andere Modell-Einstellungen der Verbindung, etwa ihr Embedding-Modell oder die Verbindung für die Bildbeschreibung, bleiben unverändert. Willst du nur für einen bestimmten Zweck ein anderes Modell, dupliziere die Verbindung und ändere die Kopie.
 

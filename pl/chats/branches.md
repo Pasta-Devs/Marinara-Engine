@@ -25,6 +25,7 @@ Marinara kopiuje czat do tej wiadomości włącznie i zapisuje go jako nową ga�
 - Zachowuje ten sam tryb, postacie, personę, preset promptu i połączenie co czat źródłowy.
 - Kopiuje każdą wiadomość, w tym wszystkie swipe'y (alternatywne odpowiedzi) oraz informację o tym, który swipe był aktywny. Działanie swipe'ów opisuje przewodnik [Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie](messages.md).
 - Kopiuje zapisane stany trackerów i stan gry powiązane ze skopiowanymi wiadomościami, więc czaty w trybie Roleplay i Game Mode zachowują swój stan.
+- Zachowuje pracę Advanced Memory w czacie w trybie Roleplay, więc skopiowanej historii nie trzeba przygotowywać ponownie. Wspomnienia wcześniejszych, zakończonych scen pozostają gotowe do przywołania. Scena, od której tworzysz gałąź, znów staje się sceną w toku, a jej stare wspomnienia zostają odrzucone. Zobacz [Memory Recall i podsumowania czatu](../agents/memory.md).
 - Startuje z nazwą wyświetlaną **New Branch**. Nazwę można zmienić (opis poniżej).
 - Zostaje w tym samym folderze czatów co czat źródłowy.
 
@@ -74,6 +75,7 @@ Sekcja **Chat Branches** ma u góry przyciski eksportu. Eksportują one gałąź
 
 - **JSONL**: pobiera gałąź jako plik JSONL. Format JSONL zapisuje jedną wiadomość w jednej linii tekstu i jest zgodny z aplikacją SillyTavern.
 - **Text**: pobiera gałąź jako zwykły zapis tekstowy czatu.
+- **Markdown** i **Story**: pobierają gałąź jako czytelny plik Markdown albo sformatowaną stronę internetową. Zobacz [Formaty plików, które zobaczysz](export-import.md#file-formats-you-will-see).
 
 Zbiorczy eksport wielu czatów naraz opisuje przewodnik [Eksport i import czatów](export-import.md). Ten sam przewodnik omawia opcję dołączania rozumowania modelu do eksportu.
 

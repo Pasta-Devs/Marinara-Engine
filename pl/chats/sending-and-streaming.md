@@ -65,13 +65,13 @@ Streaming pokazuje odpowiedź słowo po słowie, w trakcie generowania, zamiast 
 |---|---|---|
 | **Enable streaming** | On | Pokazuje odpowiedź słowo po słowie w trakcie generowania |
 | **Streaming speed** | 50 | Decyduje o tym, jak szybko tekst pojawia się na ekranie |
-| **Trim incomplete model endings** | Off | Ucina urwane zdanie na końcu przed zapisem |
+| **Trim incomplete sentences from the response** | Off | Ucina urwane zdanie na końcu przed zapisem |
 
 **Streaming speed** to suwak od 1 do 100. Niższa wartość daje wolniejszy efekt maszyny do pisania, więc da się czytać na bieżąco. Wyższa pokazuje tekst niemal natychmiast. Marinara wygładza nierówne tempo napływania tokenów (małych kawałków tekstu) w czasie pisania odpowiedzi, a potem kończy ją z wybraną prędkością. To ustawienie nie zmienia tempa pracy samego modelu.
 
 Kiedy opcja **Enable streaming** jest wyłączona, cała odpowiedź pojawia się naraz, po zakończeniu pracy modelu.
 
-Opcja **Trim incomplete model endings** wpływa wyłącznie na zapisaną wiadomość. Po włączeniu Marinara usuwa z końca odpowiedzi urwane zdanie. Kompletne odpowiedzi i zakończenia w stylu komendy zostają nietknięte.
+Opcja **Trim incomplete sentences from the response** wpływa wyłącznie na zapisaną wiadomość. Po włączeniu Marinara usuwa z końca odpowiedzi urwane zdanie. Kompletne odpowiedzi i zakończenia w stylu komendy zostają nietknięte.
 
 ## Wskaźniki pisania i postępu
 
@@ -95,7 +95,7 @@ Jeśli status obecności postaci jest ustawiony na zajęty albo nieobecny, zamia
 
 Niektóre modele udostępniają ukryty zapis rozumowania, nazywany często "myśleniem". Marinara trzyma go osobno od widocznej odpowiedzi.
 
-Gdy do odpowiedzi dołączone jest myślenie, przy tej wiadomości pojawia się akcja **View thoughts** (podgląd myśli) z ikoną mózgu. Kliknij ją, żeby otworzyć panel z przechwyconym tekstem rozumowania.
+Gdy do odpowiedzi dołączone jest myślenie, przy tej wiadomości pojawia się akcja **View model thoughts** (podgląd myśli modelu) z ikoną mózgu. Kliknij ją, żeby otworzyć panel z przechwyconym tekstem rozumowania.
 
 Rozumowanie pokaże się tylko wtedy, gdy model faktycznie je zwraca. Niektóre modele opakowują je w zwykłe znaczniki tekstowe. W takim wypadku ustaw w połączeniu własne **Thinking Tags** (znaczniki myślenia), żeby Marinara umiała oddzielić ukryte rozumowanie od widocznej odpowiedzi. Kilka popularnych par znaczników jest rozpoznawanych od razu. Sposób ustawiania **Thinking Tags** opisuje przewodnik po parametrach generowania, podlinkowany poniżej.
 

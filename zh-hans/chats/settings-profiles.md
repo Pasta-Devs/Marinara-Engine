@@ -38,7 +38,7 @@
 3. 打开 **Profile**(设置方案) 下拉菜单。
 4. 按名称选择一个方案。
 
-聊天会立即更新。当前设置和任何已保存的方案都对不上时，下拉菜单显示 **Custom settings profile**。之前套用过的方案已经不存在了，则显示 **Missing profile - choose a profile**。
+聊天会立即更新。如果方案打开或关闭了 **Hide summarised messages**(隐藏已摘要消息)，聊天里已摘要的消息也会在同一时刻对 AI 隐藏，或重新对它显示。当前设置和任何已保存的方案都对不上时，下拉菜单显示 **Custom settings profile**。之前套用过的方案已经不存在了，则显示 **Missing profile - choose a profile**。
 
 ## 保存方案
 
@@ -111,7 +111,7 @@ Chat Settings 标题栏里 **Reset View** 旁的星标，会把窗口布局保�
 
 **Export settings profile (.json)** 会下载一个 `.marinara-settings-profile.json` 文件，可以留作备份，也可以分享给别人。**Import settings profile (.json)** 会用一个兼容的文件新建方案，不会覆盖已有方案。旧版本导出的方案文件同样可以导入。
 
-方案里存的是设置，不包含服务商的密钥之类的机密信息。
+方案里存的是设置，不包含服务商的密钥之类的机密信息。导出或导入的方案也不会带上 Discord 镜像的 webhook、DeepLX 地址、DeepL 密钥和 Intiface 地址。在这个安装上保存的方案会保留它们。
 
 ## Default 方案
 

@@ -65,7 +65,7 @@ Marinara 最终保存的是一个循环播放的小体积 GIF，宽 512 像素�
 
 动态表情比静态立绘慢。Marinara 一次只生成一个表情，不会批量处理。一口气选很多表情会等上不少时间，建议先从少量开始。
 
-如果开启了 **Expose media prompts before sending**(发送前显示媒体提示词)（位于 **Settings** 的 **Image Generation**(图像生成) 区域），Marinara 会在提示词检查环节暂停。发给服务商之前，每条提示词都可以先读一遍、改一改。关闭这项设置就会跳过检查。
+如果开启了 **Expose media prompts before sending**(发送前显示媒体提示词)（位于 **Settings** 的 **Overall Generations**(总体生成) 区域），Marinara 会在提示词检查环节暂停。发给服务商之前，每条提示词都可以先读一遍、改一改。关闭这项设置就会跳过检查。
 
 ## 故障排查
 

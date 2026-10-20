@@ -25,7 +25,26 @@ Pole **Source** określa usługę, która tworzy dźwięk. Do wyboru są cztery 
 
 Domyślne źródło to **OpenAI-compatible**. Marinara trzyma osobny zapisany profil dla każdego źródła, razem z zaszyfrowanym kluczem API, adresem, modelem, głosami i parametrami dostawcy. Zmiana źródła przywraca poprzednią konfigurację tego źródła; źródło jeszcze nieskonfigurowane startuje z wartościami domyślnymi.
 
+<a id="use-an-audio-connection"></a>
+
+### Korzystanie z połączenia Audio
+
+Jeśli masz już skonfigurowane połączenie **Audio** (zobacz [Obsługiwani dostawcy AI](../connections/providers-reference.md#audio)), nie musisz tu ponownie wpisywać jego danych. Twoje połączenia Audio są wymienione na liście rozwijanej **Source** w grupie **Audio connections** (połączenia Audio), każde z typem źródła w nawiasie.
+
+1. Otwórz listę rozwijaną **Source** i wybierz połączenie.
+2. Jak zwykle wybierz głosy i pozostałe ustawienia opisane niżej.
+
+Marinara mówi wtedy z użyciem adresu bazowego, klucza API, modelu i wartości **Request timeout (seconds)** (limit czasu żądania w sekundach) tego połączenia, więc sekcja ukrywa te pola. Klucz zostaje w połączeniu: nie jest kopiowany do ustawień sekcji ani wysyłany do przeglądarki. Zmiany w połączeniu, na przykład nowy klucz, działają od razu.
+
+Głosy, prędkość i pozostałe ustawienia mowy są zapisywane osobno dla każdego połączenia. Dwa połączenia tego samego typu, na przykład dwa serwery OpenAI-compatible, nigdy ich nie współdzielą. Twoje ustawienia czterech zwykłych źródeł pozostają bez zmian, więc w każdej chwili możesz do nich wrócić. Przełącznik w nagłówku sekcji nadal włącza i wyłącza TTS, a własne połączenie audio gry nadal tworzy efekty dźwiękowe i muzykę tej gry.
+
+Jeśli wybrane połączenie zostanie usunięte albo nie da się go użyć, sekcja pokazuje **Missing Audio connection** (brak połączenia Audio) i nic nie jest odczytywane, dopóki nie wybierzesz innego źródła. Marinara nigdy sama nie przełącza się na inne połączenie.
+
+Gdy połączenie udostępnia listę swoich głosów, sekcja wskazuje każdy zapisany głos, którego nie ma na tej liście, żeby można było wybrać głos oferowany przez połączenie.
+
 ## Krok 2: wpisz Base URL, API Key i Model
+
+Pomiń ten krok, jeśli źródłem jest połączenie Audio: Marinara używa wtedy własnych ustawień tego połączenia.
 
 Każde źródło potrzebuje adresu internetowego, a większość z nich także klucza API. Klucz API to tajny kod od dostawcy, trochę jak hasło, który potwierdza, że żądanie pochodzi od ciebie.
 
@@ -49,6 +68,16 @@ W przypadku źródła **ElevenLabs** pole **Model** wczytuje modele mowy dostęp
 PocketTTS nie jest wbudowany w aplikację Marinara Engine. Zainstaluj osobno [oficjalny serwer PocketTTS](https://github.com/kyutai-labs/pocket-tts), a następnie uruchom go poleceniem `uvx pocket-tts serve`. Marinara nie pobiera go ani nim nie zarządza.
 
 Oficjalny serwer domyślnie używa `http://localhost:8000`. Zostaw tę wartość **Base URL**, chyba że zmienisz host lub port. Marinara automatycznie wykrywa oficjalne wieloczęściowe API `/tts`. Istniejące własne adresy [adaptera PocketTTS zgodnego z OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) pozostają obsługiwane.
+
+<a id="request-timeout"></a>
+
+### Limit czasu żądania
+
+Domyślnie Marinara czeka na każdą wypowiadaną kwestię do 60 sekund. Serwer głosu działający na twoim komputerze, zwłaszcza na laptopie, może potrzebować więcej czasu na długą kwestię. Żeby czekać dłużej, zwiększ **Request timeout (seconds)** pod polem **Model** w sekcji. Możesz ustawić od 10 do 3 600 sekund.
+
+Połączenie audio ma własne pole **Request timeout (seconds)** pod polem **Default Voice** w edytorze połączenia. Gdy czaty mówią przez połączenie audio, także wybrane jako **Source** w sekcji, używają limitu tego połączenia. Limit z sekcji dotyczy mowy z jej własnych ustawień, w tym przycisku **Preview**.
+
+Jeśli kwestia trwa zbyt długo, komunikat błędu podaje, ile sekund Marinara czekała i które ustawienie trzeba zwiększyć.
 
 ## Krok 3: wybierz głos (Voice Option)
 
@@ -168,15 +197,18 @@ Ta zmiana działa wyłącznie podczas rozmów audio i wideo w trybie Conversatio
 
 ## Rozwiązywanie problemów
 
+- Sekcja pokazuje **Missing Audio connection**: połączenie Audio wybrane jako źródło zostało usunięte albo nie da się go użyć. Wybierz inne źródło. Zobacz [Korzystanie z połączenia Audio](#use-an-audio-connection).
 - Nic nie jest odczytywane: sprawdź, czy przełącznik **Enable TTS** jest włączony. Potem sprawdź właściwy dla danego trybu przełącznik **Auto-play** albo użyj przycisku **Speak** przy wiadomości. Przycisk **Speak** i opcje automatycznego odtwarzania pojawiają się dopiero po włączeniu TTS.
 - Brak głosów na liście rozwijanej: zapisz sekcję z włączonym TTS i, jeśli dostawca go wymaga, poprawnym kluczem API, a potem kliknij przycisk **Refresh voices**. Oficjalny serwer PocketTTS korzysta z wbudowanej listy Marinara, ponieważ nie udostępnia punktu końcowego listy głosów. W przypadku zgodnego adaptera PocketTTS sprawdź, czy `<Base URL>/v1/voices` odpowiada.
 - ElevenLabs nie mówi: sprawdź, czy wybrany jest prawdziwy głos, a nie tekst zastępczy "Select an ElevenLabs voice". Sprawdź też, czy w polu **Model** stoi model mowy, a nie model projektowania głosu z `ttv` w identyfikatorze.
+- Kwestia urywa się z komunikatem **No audio after 60 s**: serwer głosu potrzebuje więcej czasu. Zwiększ **Request timeout (seconds)** w miejscu wskazanym w komunikacie. Zobacz [Limit czasu żądania](#request-timeout).
 - Własny serwer TTS pod adresem lokalnym jest blokowany: włącz na serwerze ustawienie `TTS_LOCAL_URLS_ENABLED`. Dzięki temu aplikacja sięgnie po adres lokalny lub prywatny w przypadku serwerów zgodnych z OpenAI oraz serwerów w stylu ElevenLabs. Źródło PocketTTS tego ustawienia nie potrzebuje. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 - Szybki test konfiguracji: kliknij przycisk **Preview** w sekcji, żeby odtworzyć krótką próbkę z bieżącymi ustawieniami.
 
 ## Powiązane przewodniki
 
 - [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md)
+- [Synchronizacja ust z syntezą mowy](../agents/avatars.md#lip-sync-with-text-to-speech) dla awatarów 2D i 3D
 - [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md)
 - [Game Mode: pierwsze kroki](../game/getting-started.md)
 - [Obsługiwani dostawcy AI](../connections/providers-reference.md)

@@ -85,6 +85,8 @@ Kiedy któryś z trybów zaplanuje już klatki, wspólne formatery budują końc
 
 Każdy numerowany etap ma własną zwiniętą **Prompt library**: Stage 2 zawiera formatery obrazu, Stage 3 planery ruchu uwzględniające obraz, a Stage 4 formatery przekazujące prompt wideo. Wśród wbudowanych opcji obrazu są też **Storyboard Illustration** i **Storyboard First Frame**. Wśród opcji wideo są **Anime Game Video**, **Comic Page Video** i **Narration Passthrough**. Czaty w trybie Game Mode i Roleplay mogą wybrać różne formatery, nie ruszając przy tym wspólnego zbioru promptów.
 
+Opcja **Image-aware shot planning** (planowanie ujęć z uwzględnieniem obrazu) w Stage 3 trzyma się też pola **Video Prompting Instructions** (instrukcje do promptów wideo) z połączenia wideo. Wpisz w tym polu w edytorze połączenia, czego oczekuje twój model wideo, na przykład sposób opisywania pracy kamery, długość promptu albo wskazówki dotyczące dźwięku.
+
 ### Globalne wartości domyślne i własne ustawienia czatu
 
 Każdy czat może nadpisać ustawienia domyślne agenta. Panel Chat Settings oznacza wartości odziedziczone jako **Using agent default**, a po ustawieniu własnej wartości pokazuje przycisk przywracania.

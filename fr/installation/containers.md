@@ -113,7 +113,9 @@ environment:
 docker compose up -d
 ```
 
-Les autres appareils du réseau atteignent désormais Marinara à l'adresse `http://YOUR_COMPUTER_IP:7860` tant que la variable `PORT` n'est pas définie. Si tu définis `PORT`, remplace `7860` par ce port hôte. Ils devront saisir le nom d'utilisateur et le mot de passe que tu as choisis. Pour découvrir de bonnes façons de n'autoriser que certains appareils, et pour comprendre le rôle du secret d'administration, lis [Accès à distance : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+Les autres appareils du réseau atteignent désormais Marinara à l'adresse `http://YOUR_COMPUTER_IP:7860` tant que la variable `PORT` n'est pas définie. Si tu définis `PORT`, remplace `7860` par ce port hôte. Ils devront saisir le nom d'utilisateur et le mot de passe que tu as choisis.
+
+Avec Docker Desktop, OrbStack et Docker sans root (rootless), tous les appareils atteignent le conteneur depuis la même adresse, ton propre navigateur compris. Une fois l'identifiant défini, cet ordinateur te le demande donc aussi, et une liste d'autorisation d'IP ne peut pas distinguer les appareils. Ne retire jamais `127.0.0.1:` sans l'identifiant : avec ces environnements, Marinara ne peut pas distinguer les autres appareils de cet ordinateur. Pour découvrir de bonnes façons de n'autoriser que certains appareils, et pour comprendre le rôle du secret d'administration, lis [Accès à distance : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 
 ## Choisir une image : latest, staging ou lite
 
@@ -142,6 +144,7 @@ L'image lite retire les fonctions qui réclament de gros fichiers locaux :
 | Modèle d'embeddings local | Plus d'embeddings de texte calculés sur l'appareil. |
 | Memory Recall (recherche sémantique) | Dépend du modèle d'embeddings local. |
 | Entrée vocale Whisper locale | La reconnaissance vocale des appels en mode Conversation disparaît. |
+| Lecteur d'humeur des avatars | 2D Avatars et 3D Avatars choisissent les expressions à partir d'une liste de mots au lieu du petit modèle d'émotions local. |
 
 Tout le reste fonctionne à l'identique : le chat, le roleplay, Game Mode, les agents, les lorebooks, les personnages et les connexions aux fournisseurs d'IA distants. Pour profiter des fonctions d'IA avec l'image lite, il faut connecter un fournisseur externe (OpenRouter, OpenAI ou un modèle auto-hébergé, par exemple). Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
@@ -155,7 +158,7 @@ Certaines anciennes images lite plantent sur Raspberry Pi 4 et sur les ordinateu
 
 ## Mettre à jour
 
-Les images de conteneurs ne se mettent pas à jour toutes seules. Tu récupères une image plus récente et tu redémarres le conteneur à la main.
+Les images de conteneurs ne se mettent pas à jour toutes seules. Tu récupères une image plus récente et tu redémarres le conteneur à la main. Fais d'abord une sauvegarde, pour pouvoir revenir exactement là où tu en étais. Voir [Sauvegarder et restaurer Marinara](../data/backup-and-restore.md).
 
 Avec Docker Compose, une seule commande suffit :
 
@@ -170,6 +173,8 @@ podman compose pull && podman compose up -d
 ```
 
 Autre option : vérifier la version depuis l'application. Ouvre la section **Settings** (Paramètres), va dans l'onglet **Advanced** et repère la section **Updates**. Clique sur le bouton **Check for Updates**. Sur une installation en conteneur, Marinara détecte qu'il tourne dans Docker et t'affiche le tag de l'image publiée ainsi que la commande à lancer sur l'hôte. Il ne peut pas appliquer la mise à jour depuis le navigateur : c'est donc à toi de lancer la commande ci-dessus sur la machine hôte.
+
+Pour revenir à une version antérieure, indique son tag de version sur la ligne `image:` du fichier `docker-compose.yml`, par exemple `ghcr.io/pasta-devs/marinara-engine:2.5.0`, puis lance `docker compose up -d`. Revenir à la version 2.5.0 fonctionne et tes chats s'ouvrent normalement, mais la version 2.5.0 ne connaît pas les réglages et les données de jeu ajoutés par les fonctionnalités plus récentes. Tout chat ou toute connexion que la version 2.5.0 enregistre perd ces données, et une nouvelle mise à jour ne les fait pas revenir. Voir [Revenir à la version 2.5.0](../UPGRADING.md#going-back-to-250).
 
 ## Podman
 

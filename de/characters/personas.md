@@ -12,7 +12,7 @@ Du kannst beliebig viele Personas anlegen und im **Personas**-Panel verwalten. W
 
 Ein Makro ist ein Platzhalter im Text, den die App vor dem Senden des Prompts durch einen echten Wert ersetzt. Für **{{user}}** setzt Marinara den Namen der Persona ein, die der Chat gerade verwendet – also die für diesen Chat ausgewählte Persona. Heißt diese Persona zum Beispiel Alex, dann steht im Prompt Alex.
 
-Wenn für einen Chat keine Persona ausgewählt ist, spricht die KI dich mit dem allgemeinen Namen "User" an, und es gehen keinerlei Persona-Angaben mit. Wie ein Chat seine Persona auswählt, steht unter [Die Persona für einen Chat wählen](choosing-your-persona.md). Mehr zu Makros findest du unter [Makros](../prompts/macros.md).
+Wenn für einen Chat keine Persona ausgewählt ist, spricht die KI dich mit dem allgemeinen Namen „User“ an, und es gehen keinerlei Persona-Angaben mit. Wie ein Chat seine Persona auswählt, steht unter [Die Persona für einen Chat wählen](choosing-your-persona.md). Mehr zu Makros findest du unter [Makros](../prompts/macros.md).
 
 ## Das Personas-Panel
 
@@ -20,12 +20,13 @@ Das **Personas**-Panel ist deine Persona-Bibliothek. Öffne es über das Persone
 
 Diese Bedienelemente stehen bereit:
 
-- **Open Full Library** (vollständige Bibliothek öffnen) öffnet die Persona-Bibliothek als eigene, responsive Seite. Sie nutzt dasselbe Layout aus Raster und Vorschau wie die Charakter-Bibliothek – mit Persona-Beschreibungen, Kartenabschnitten, Tags und Token-Schätzungen.
+- **Download** (Herunterladen) öffnet den [Card Browser](bot-browser.md), in dem du auf PlotLight auch Personas findest.
+- **Open Library** (Bibliothek öffnen) öffnet die Persona-Bibliothek als eigene, responsive Seite. Sie nutzt dasselbe Layout aus Raster und Vorschau wie die Charakter-Bibliothek – mit Persona-Beschreibungen, Kartenabschnitten, Tags und Token-Schätzungen.
 - **New** (Neu) erstellt eine Persona.
 - **Import** (Importieren) öffnet das Fenster **Import Persona**.
 - **Select** (Auswählen) schaltet die Mehrfachauswahl ein, sodass du mehrere Personas auf einmal bearbeiten kannst.
 - Das Suchfeld mit dem Platzhaltertext **Search personas** (Personas durchsuchen) durchsucht Name, Beschreibung, Kommentar und Tags.
-- Das Sortier-Dropdown-Menü bietet **A-Z**, **Z-A**, **Newest**, **Oldest** und **Tokens** (geschätzte Prompt-Größe).
+- Das Sortier-Dropdown-Menü bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** und **Tokens** (geschätzte Prompt-Größe). **Manual order** behält die Reihenfolge bei, die du festlegst: Zieh eine Zeile nach oben oder unten oder drück auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen.
 - **New Folder** (Neuer Ordner) legt einen Ordner an, um Personas zu sortieren.
 - Der Chip **Tags** klappt die Tag-Liste zum Filtern auf.
 
@@ -82,7 +83,7 @@ Im Tab **Card** schreibst du die zentralen Persona-Felder. Jedes Feld ist ein gr
 - **Personality**: Temperament, Verhalten, Sprechgewohnheiten und emotionale Muster.
 - **Backstory**: Vorgeschichte, Herkunft, Beziehungen und prägende Ereignisse.
 - **Appearance**: äußere Beschreibung, Kleidung und visuelle Details, die sich das Modell merken soll.
-- **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder): ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für eine Beschreibung deiner Persona zu öffnen, die für das Bildmodell gedacht ist. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diesen Text statt **Appearance**. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**.
+- **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder): ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für kurze Bild-Tags zu öffnen, die deine Persona beschreiben, etwa ein LoRA-Triggerwort. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diese Tags genau so, wie sie dastehen, und **Appearance** dient als Hintergrund. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**.
 - **Scenario**: die Standardsituation oder der Rahmen für Roleplay. Damit legst du fest, wo die Persona startet.
 
 Diese Textfelder unterstützen Makros. Anführungszeichen, die du tippst, passt die App automatisch an den eingestellten Zitatstil an.
@@ -119,11 +120,11 @@ Bleibt eines dieser Felder leer, gelten die Standardfarben des Themes. Ausführl
 Der Tab **Stats** besteht aus zwei getrennten Blöcken. Beide speisen die Werteanzeige (HUD) im Chat – die Info-Leiste am oberen Chatrand.
 
 - **Enable Persona Stats** (Persona-Werte aktivieren) schaltet Statusbalken für Bedürfnisse wie Hunger, Energie und Stimmung frei. Beim ersten Aktivieren bekommst du Startbalken für Satiety, Energy, Hygiene und Mood, jeweils bei 100 von 100. Der Agent **Persona Stats** passt diese Werte im Lauf der Geschichte an.
-- **Enable RPG Attributes** (RPG-Attribute aktivieren) schaltet Werte im RPG-Stil samt HP frei. Beim ersten Aktivieren bekommst du die Startattribute STR, DEX, CON, INT, WIS und CHA, jeweils bei 10. Der Agent **Character Tracker** kann sie aus Kampf- und Erzählereignissen heraus anpassen.
+- **Enable RPG Attributes** (RPG-Attribute aktivieren) schaltet Pools und Attribute im RPG-Stil frei. Beim ersten Aktivieren bekommst du die Start-Pools HP und MP bei 100 von 100 und die Startattribute STR, DEX, CON, INT, WIS und CHA bei 10. Diese Werte werden für Kampf und Game Mode sowie für optionale Würfe in Roleplay oder Game Mode mit der Persona-Karte gesendet. Tracker-Agenten aktualisieren sie nicht.
 
-Die Werte hier sind die Startvorgaben für neue Chats. Von selbst ändern sie sich nicht. Automatische Aktualisierungen brauchen den passenden Agenten, aktiviert für den jeweiligen Chat. Die vollständige Erklärung steht unter [Charakterfarben und RPG-Werte](colors-and-stats.md).
+Ist ein Game-Mode-Regelsatz installiert oder enthält die Persona noch einen Bogen für einen Regelsatz, den du nicht mehr hast, erscheint unter diesen beiden Blöcken der Block **Ruleset sheets** (Regelsatzbögen). Er enthält die Startkonfiguration deiner Persona für jeden Regelsatz, die ein neues Spiel mit diesem Regelsatz übernimmt. Siehe [Regelsatzbögen](colors-and-stats.md#ruleset-sheets).
 
-Ist ein Game Mode-Regelsatz installiert oder enthält die Persona noch einen zugehörigen Bogen, erscheint unter beiden Bereichen **Ruleset sheets** (Regelsatzbögen). Dies ist die Startkonfiguration der Persona je Regelsatz; ein neues Spiel kopiert sie. Siehe [Regelsatzbögen](colors-and-stats.md#ruleset-sheets).
+Die Werte hier sind die Startvorgaben für neue Chats. Die Persona-Statusbalken können sich automatisch aktualisieren, wenn der Agent Persona Stats aktiviert ist; Pools und Attribute im RPG-Stil der Persona verwaltet kein Agent. Die vollständige Erklärung steht unter [Charakterfarben und RPG-Werte](colors-and-stats.md).
 
 ## Versionsverlauf
 
@@ -165,8 +166,8 @@ Jede Datei zeigt ein Symbol für Erfolg oder Fehlschlag samt Meldung. Eine Zusam
 
 Exportieren kannst du über das Symbol **Export persona** im **Persona Editor** oder über die Sammelaktion **Export** im Auswahlmodus des Panels. Das Fenster **Export Persona** bietet zwei Formate:
 
-- **Native**: behält alle Marinara-Persona-Details, Sprites und angehängten Lorebooks. Nimm dieses Format, um eine Persona zwischen zwei Marinara-Installationen umzuziehen.
-- **Compatible**: exportiert nur die einfachen Persona-Felder. Nimm dieses Format für andere Werkzeuge, die Marinaras Format nicht kennen.
+- **Marinara Native**: behält alle Marinara-Persona-Details, Sprites und angehängten Lorebooks. Nimm dieses Format, um eine Persona zwischen zwei Marinara-Installationen umzuziehen.
+- **Compatible JSON**: exportiert nur die einfachen Persona-Felder. Nimm dieses Format für andere Werkzeuge, die Marinaras Format nicht kennen.
 
 Ein Sammelexport lädt eine einzelne ZIP-Datei herunter, mit je einer Datei pro ausgewählter Persona.
 

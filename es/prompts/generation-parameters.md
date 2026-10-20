@@ -12,7 +12,7 @@ Cambia estos ajustes solo cuando quieras arreglar un problema concreto. Esta gu�
 
 ## Dónde encontrarlos
 
-Edita los valores base en **Presets > Parameters** (presets > parámetros) y los de la conexión en **Connections > Default Parameters** (conexiones > parámetros predeterminados). Los ajustes específicos del chat están en **Chat Settings > Advanced Parameters** (ajustes del chat > parámetros avanzados).
+Edita los valores base en **Presets > Parameters** (presets > parámetros) y los de la conexión en **Connections > Default Chat Parameters** (conexiones > parámetros de chat predeterminados). Los ajustes específicos del chat están en **Chat Settings > Advanced Parameters** (ajustes del chat > parámetros avanzados).
 
 1. Abre el chat que quieres cambiar.
 2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
@@ -40,9 +40,9 @@ Cada parámetro numérico tiene una casilla de entrada y su propio interruptor d
 
 Juntas, **Frequency** y **Presence** son las penalizaciones por repetición.
 
-**Reasoning Effort** le dice a un modelo con capacidad de razonamiento cuánto razonar antes de responder. Un modelo con capacidad de razonamiento es uno que resuelve un problema primero en pasos ocultos. Las opciones son **None**, **Low**, **Medium**, **High**, **Xhigh** y **Maximum**. Si el modelo no admite el nivel que eliges, Marinara lo baja al nivel más fuerte que ese modelo permite.
+**Reasoning Effort** le dice a un modelo con capacidad de razonamiento cuánto razonar antes de responder. Un modelo con capacidad de razonamiento es uno que resuelve un problema primero en pasos ocultos. Las opciones son **Off**, **Low**, **Medium**, **High**, **Extra high** y **Maximum**. Si el modelo no admite el nivel que eliges, Marinara lo baja al nivel más fuerte que ese modelo permite. Una vez elegida una conexión, los botones llevan el nombre del nivel que recibe ese modelo, así que **Maximum** puede aparecer como **Max**, **Extra high** o **High**, y los niveles que envían lo mismo aparecen como un solo botón.
 
-Cuando el interruptor del parámetro está activado, **None** pide explícitamente al proveedor que desactive el razonamiento, en vez de limitarse a omitir el ajuste de esfuerzo. Marinara solo envía el control de desactivación específico del proveedor a los modelos que sabe que lo admiten. Algunos modelos de razonamiento obligatorio no permiten desactivarlo y pueden seguir devolviendo razonamiento; elige un modelo sin razonamiento cuando sea imprescindible que no lo haya. Desactivar el propio interruptor del parámetro es distinto: no envía ninguna preferencia de razonamiento y deja intacto el comportamiento predeterminado del proveedor.
+Cuando el interruptor del parámetro está activado, **Off** pide explícitamente al proveedor que desactive el razonamiento, en vez de limitarse a omitir el ajuste de esfuerzo. Marinara solo envía el control de desactivación específico del proveedor a los modelos que sabe que lo admiten. Algunos modelos de razonamiento obligatorio no permiten desactivarlo y pueden seguir devolviendo razonamiento; elige un modelo sin razonamiento cuando sea imprescindible que no lo haya. Desactivar el propio interruptor del parámetro es distinto: no envía ninguna preferencia de razonamiento y deja intacto el comportamiento predeterminado del proveedor.
 
 **Verbosity** controla cuán largas y detalladas deben ser las respuestas. Las opciones son **None**, **Low**, **Medium** y **High**. **Low** mantiene las respuestas cortas. **High** fomenta respuestas más largas y descriptivas. Solo algunos modelos usan este ajuste.
 
@@ -89,7 +89,7 @@ El valor sigue mostrándose en la casilla aunque el **Send toggle** (interruptor
 
 ## Thinking Tags
 
-**Thinking Tags** le dice a Marinara cómo marca un modelo su razonamiento oculto dentro del texto plano. Algunos modelos envuelven su razonamiento en etiquetas. Si Marinara conoce esas etiquetas, puede ocultar ese razonamiento tras la acción **View thoughts** (Ver pensamientos) en lugar de mostrarlo en la respuesta.
+**Thinking Tags** le dice a Marinara cómo marca un modelo su razonamiento oculto dentro del texto plano. Algunos modelos envuelven su razonamiento en etiquetas. Si Marinara conoce esas etiquetas, puede ocultar ese razonamiento tras la acción **View model thoughts** (Ver los pensamientos del modelo) en lugar de mostrarlo en la respuesta.
 
 Escribes un envoltorio por línea, con un hueco en el medio para el texto oculto. Los envoltorios comunes como think, thinking, thought, pipe, channel y los pares de corchetes ya se reconocen. Solo necesitas este campo para modelos que usan un envoltorio poco habitual.
 
@@ -101,9 +101,9 @@ Los Custom Parameters guardados como valores predeterminados de la conexión se 
 
 Este es un campo avanzado. Una clave incorrecta puede hacer que el proveedor rechace la solicitud. El objeto debe usar `true`, `false` y `null` en minúsculas. Deja esto vacío a menos que la guía de un proveedor te diga que añadas una clave específica.
 
-## OpenRouter Service Tier
+## Service Tier
 
-**OpenRouter Service Tier** solo aparece cuando la conexión del chat usa el proveedor OpenRouter. Elige cómo enruta OpenRouter tu solicitud. Las opciones son **Default**, **Flex** y **Priority**. **Flex** puede ser más barato y más lento. **Priority** puede ser más rápido y costar más. **Default** no envía ningún nivel.
+**Service Tier** solo aparece cuando la conexión del chat usa el proveedor OpenRouter o NanoGPT. Elige cómo enruta el proveedor tu solicitud. Las opciones son **Default**, **Flex** y **Priority**. **Flex** puede ser más barato y más lento. **Priority** puede ser más rápido y costar más. **Default** no envía ningún nivel.
 
 ## Límite de mensajes de contexto
 
@@ -144,7 +144,7 @@ El botón **Reset to Defaults** (restablecer valores predeterminados) que aparec
 Los parámetros se resuelven campo por campo, en este orden:
 
 1. Los **Parameters** (parámetros) del preset seleccionado, o los valores de generación integrados si no se usa un preset (temperatura `1`, salida máxima `4096`). En Roleplay, el preset asignado en la conexión tiene prioridad sobre el seleccionado en el chat.
-2. Los **Default Parameters** (parámetros predeterminados) de la conexión.
+2. Los **Default Chat Parameters** (parámetros de chat predeterminados) de la conexión.
 3. Los **Advanced Parameters** de este chat.
 4. Reglas del modo: un chat de escena activo fija la salida en `8192`, el razonamiento en **Maximum** y la verbosidad en **High**. Game usa los parámetros guardados de la conexión y del chat sin forzar el muestreo, el razonamiento ni un tamaño mínimo de salida. Sus llamadas auxiliares también respetan los parámetros guardados; los valores predeterminados de la tarea solo se aplican cuando un valor no está configurado.
 5. Límites de salida: Game aplica el límite de salida conocido del modelo, y **Max Output Tokens override** de la conexión limita las solicitudes en todos los modos. El contexto disponible puede reducir aún más el presupuesto de salida.
@@ -157,9 +157,9 @@ Por ejemplo, un preset en `8192` y este chat en `16384` muestran **Effective: 16
 
 ## Parámetros para agentes
 
-Las llamadas de los agentes usan los **Default Parameters** guardados en la conexión con la que se ejecutan: la conexión propia del agente o la del chat si el agente no tiene una. Marinara los aplica con las mismas reglas que a una respuesta del chat, incluidos los interruptores de envío y los límites del modelo que se explican más abajo. Los presets y los **Advanced Parameters** de un chat no cambian las llamadas de los agentes, salvo por la regla de temperatura siguiente.
+Las llamadas de los agentes usan los **Default Chat Parameters** guardados en la conexión con la que se ejecutan: la conexión propia del agente o la del chat si el agente no tiene una. Marinara los aplica con las mismas reglas que a una respuesta del chat, incluidos los interruptores de envío y los límites del modelo que se explican más abajo. Los presets y los **Advanced Parameters** de un chat no cambian las llamadas de los agentes, salvo por la regla de temperatura siguiente.
 
-- **Se envían a los agentes**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, OpenRouter Service Tier, Custom Parameters, los encabezados personalizados y los parámetros adicionales que añades en **Settings** (Configuración), luego **Advanced** (Avanzado) y luego **Parameters** (Parámetros), como Top A o una semilla. Un parámetro con el interruptor de envío desactivado no se envía.
+- **Se envían a los agentes**: Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, los encabezados personalizados y los parámetros adicionales que añades en **Settings** (Configuración), luego **Advanced** (Avanzado) y luego **Parameters** (Parámetros), como Top A o una semilla. Un parámetro con el interruptor de envío desactivado no se envía.
 - **No se envían a los agentes**: Max Output Tokens, secuencias de parada, prefills, Thinking Tags y otros ajustes de formato del prompt. Cada agente conserva su propio **Max Output Tokens**.
 - **Temperature**: un agente usa la temperatura de la conexión, o `0.7` si no hay ninguna guardada. Beholder siempre usa `0`, y el escritor de prompts de Illustrator usa su propio valor. Durante una respuesta del chat, los agentes que usan la conexión del chat toman la temperatura y los interruptores de envío que el chat resolvió, como antes, pero un parámetro desactivado en la conexión sigue sin enviarse. Los reintentos usan los valores guardados y los interruptores de envío de la conexión, no los del chat.
 - **Reasoning Effort**: el nivel que eliges, o **Off** (Desactivado), se aplica a todos los agentes de esa conexión cuyo modelo admite Reasoning Effort. Activar **Use custom defaults for this connection** (Usar valores predeterminados personalizados para esta conexión) inicia Reasoning Effort en **Maximum** en la mayoría de las conexiones (**Default** en Codex), así que los agentes que la usan razonan al nivel más alto del modelo, lo que es más lento y cuesta más. Elige un nivel inferior o desactiva su interruptor de envío si quieres que los agentes razonen menos. Si no hay un nivel guardado (los valores predeterminados personalizados están desactivados, o se usa **Default** en una conexión de Codex), los agentes que responden en JSON solicitan desactivar el razonamiento y los demás dejan el valor predeterminado del modelo.

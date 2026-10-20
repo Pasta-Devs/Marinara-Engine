@@ -18,7 +18,7 @@ Beim Anwenden der Eintrags- und Token-Budgets eines Lorebooks behandelt Marinara
 
 Die semantische Suche braucht ein Modell, das Embeddings erzeugen kann. Dafür gibt es zwei Wege.
 
-Du kannst die Quelle, für die du dich entscheidest, zum Standard für die ganze App machen: Öffne **Connections** (Verbindungen), dann **Connection defaults** (Standardverbindungen), und wähle sie unter **Embeddings**. Jede Verbindung, die kein eigenes Embedding-Modell und keine eigene **Embedding Connection** festlegt, verwendet sie dann. Die Einstellung einer Verbindung hat weiterhin Vorrang, und die Zeile zeigt dir, wie viele Verbindungen stattdessen ihre eigenen Einstellungen nutzen. Mit **None** bleibt das eingebaute lokale Modell als Rückfall erhalten.
+Du kannst die Quelle, für die du dich entscheidest, zum Standard für die ganze App machen: Öffne **Connections** (Verbindungen), dann **Defaults** (Standardwerte), und wähle sie unter **Embeddings**. Jede Verbindung, die kein eigenes Embedding-Modell und keine eigene **Embedding Connection** (Embedding-Verbindung) festlegt, verwendet sie dann. Die Einstellung einer Verbindung hat weiterhin Vorrang, und die Zeile zeigt dir, wie viele Verbindungen stattdessen ihre eigenen Einstellungen nutzen. Mit **None** bleibt das eingebaute lokale Modell als Rückfall erhalten.
 
 Weg 1: eine Verbindung mit Embedding-Modell.
 
@@ -27,6 +27,8 @@ Weg 1: eine Verbindung mit Embedding-Modell.
 3. Suche den Abschnitt **Semantic Search (Embeddings)** (semantische Suche).
 4. Trag im Modellfeld den Namen eines Embedding-Modells ein. Gängig ist `text-embedding-3-small`.
 5. Speichere die Verbindung.
+
+Eine Verbindung kann ihre Embedding-Anfragen auch über den API-Key und die Adresse einer anderen Verbindung schicken. Wähle diese Verbindung im selben Abschnitt unter **Embedding Connection**. Der Standard ist **Same as this connection** (wie diese Verbindung). Hat die gewählte Verbindung ein eigenes Embedding-Modell, nutzt Marinara dieses; andernfalls das hier eingetippte Modell. Das gilt sowohl beim Vektorisieren als auch im Chat.
 
 Nicht jeder Anbieter bietet Embeddings an. Kann der Anbieter das nicht, weist dich der Editor darauf hin, stattdessen eine eigene Embedding-Verbindung zu wählen.
 
@@ -77,7 +79,7 @@ Vektorisieren heißt: für jeden Eintrag ein Embedding berechnen und speichern. 
 3. Klick auf die Schaltfläche zum Vektorisieren. Fehlt einigen Einträgen der Vektor, heißt sie **Vectorize N missing**, zum Beispiel "Vectorize 5 missing".
 4. Warte, bis der Durchlauf fertig ist. Der Status-Chip zeigt danach alle Einträge als vektorisiert.
 
-Hat keine Verbindung ein Embedding-Modell, erscheint statt des Dropdown-Menüs dieser Hinweis: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Richte dann zuerst eine Embedding-Quelle ein, wie oben beschrieben.
+Hat keine Verbindung ein Embedding-Modell oder eine **Embedding Connection**, erscheint statt des Dropdown-Menüs dieser Hinweis: "No connections with an embedding model configured. Set an Embedding Model on a connection first." Richte dann zuerst eine Embedding-Quelle ein, wie oben beschrieben.
 
 Haben bereits alle Einträge einen Vektor, heißt die Hauptschaltfläche **Re-vectorize N entries**. Damit werden sämtliche gespeicherten Vektoren neu berechnet. Vor dem Überschreiben fragt Marinara nach.
 
@@ -97,7 +99,7 @@ Berechne nach jedem Wechsel des Embedding-Modells alle Vektoren neu. Nutze **Re-
 
 Führe nach einem Modellwechsel keinen Teildurchlauf aus. Liefert ein Durchlauf für nur fehlende Einträge eine andere Vektorgröße als die gespeicherten Vektoren, lehnt der Server ihn mit dieser Meldung ab: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-Ein stiller Fehlerfall ist wichtig zu kennen. Im Chat bettet Marinara die letzten Nachrichten mit einem Abfragemodell ein. Das Abfragemodell ist das Embedding-Modell der aktiven Verbindung oder, falls sie eines festlegt, das Modell ihrer **Embedding Connection**. Legt die Verbindung keins von beiden fest, verwendet Marinara den **Embeddings**-Standard aus **Connection defaults** oder, wenn dort **None** steht, das eingebaute lokale Modell. Das Abfragemodell kann eine andere Vektorgröße liefern als das Modell, das die Einträge vektorisiert hat. Marinara überspringt diese Einträge dann bei der semantischen Suche. Eine Fehlermeldung siehst du nicht. Vektorisiere die Einträge deshalb mit derselben Embedding-Quelle, die auch im Chat zum Einsatz kommt. Ein **Embeddings**-Standard hilft: Die Auswahl beim Vektorisieren startet darauf, solange du vorher nichts anderes gewählt hast, und Verbindungen ohne eigene Embedding-Einstellungen fragen damit ab. Und vektorisiere nach jedem Modellwechsel neu.
+Ein stiller Fehlerfall ist wichtig zu kennen. Im Chat bettet Marinara die letzten Nachrichten mit einem Abfragemodell ein. Das Abfragemodell ist das Embedding-Modell der aktiven Verbindung oder, falls sie eines festlegt, das Modell ihrer **Embedding Connection**. Legt die Verbindung keins von beiden fest, verwendet Marinara den **Embeddings**-Standard unter **Defaults** in **Connections** oder, wenn dort **None** steht, das eingebaute lokale Modell. Das Abfragemodell kann eine andere Vektorgröße liefern als das Modell, das die Einträge vektorisiert hat. Marinara überspringt diese Einträge dann bei der semantischen Suche. Eine Fehlermeldung siehst du nicht. Vektorisiere die Einträge deshalb mit derselben Embedding-Quelle, die auch im Chat zum Einsatz kommt. Ein **Embeddings**-Standard hilft: Die Auswahl beim Vektorisieren startet darauf, solange du vorher nichts anderes gewählt hast, und Verbindungen ohne eigene Embedding-Einstellungen fragen damit ab. Und vektorisiere nach jedem Modellwechsel neu.
 
 ## Was der Knowledge-Router-Agent davon hat
 

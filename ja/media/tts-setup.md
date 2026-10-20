@@ -25,7 +25,26 @@ TTSをオンにしただけでは、何も読み上げは始まりません。�
 
 デフォルトのSourceは**OpenAI-compatible**です。MarinaraはSourceごとに設定を別々に保存します。暗号化されたAPIキー、エンドポイント、モデル、声、プロバイダーのパラメーターがそれぞれ保持されます。Sourceを切り替えると、そのSourceで前回使った設定が戻ります。まだ設定していないSourceは、デフォルトの状態から始まります。
 
+<a id="use-an-audio-connection"></a>
+
+### 音声の接続を使う
+
+**Audio**(音声)の接続をすでに設定している場合([対応しているAIプロバイダー](../connections/providers-reference.md#audio)を参照)は、その詳細をここでもう一度入力する必要はありません。音声の接続は、**Source**ドロップダウンの**Audio connections**(音声の接続)の下に、それぞれソースの種類をかっこ内に添えて並びます。
+
+1. **Source**ドロップダウンを開き、その接続を選びます。
+2. 声と、下にあるそのほかの設定を、いつもどおり選びます。
+
+Marinaraはその接続のBase URL、APIキー、モデル、**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)を使って読み上げるので、カードではそれらの欄が隠れます。キーは接続の中にとどまり、カードの設定にコピーされることも、ブラウザーに送られることもありません。新しいキーなど、接続に加えた変更はすぐに反映されます。
+
+声、速度、そのほかの読み上げの設定は、接続ごとに別々に保存されます。2つのOpenAI-compatibleサーバーのように同じ種類の接続どうしでも、設定を共有することはありません。通常の4つのSourceの設定は元のまま残るので、いつでも切り替えて戻せます。カードのヘッダーにあるスイッチは引き続きText to Speechのオンとオフを切り替え、ゲーム独自の音声の接続は引き続きそのゲームの効果音と音楽を作ります。
+
+選んだ接続が削除された場合や使えない場合、カードには**Missing Audio connection**と表示され、別のSourceを選ぶまで何も読み上げません。Marinaraが勝手に別の接続へ切り替えることはありません。
+
+接続が声の一覧を返す場合、保存済みの声のうち一覧にないものをカードが名前で示すので、接続が提供する声を選び直せます。
+
 ## ステップ2: Base URL、API Key、Modelを入力する
+
+Sourceとして音声の接続を選んだ場合、このステップは飛ばしてください。Marinaraはその接続自身の設定を使います。
 
 どのSourceにもWebアドレスが必要で、ほとんどのSourceではAPIキーも必要です。APIキーとは、そのリクエストが自分のものだと証明するための、プロバイダーから受け取る秘密の文字列です。
 
@@ -49,6 +68,16 @@ TTSをオンにしただけでは、何も読み上げは始まりません。�
 PocketTTSはMarinara Engineに内蔵されていません。[公式PocketTTSサーバー](https://github.com/kyutai-labs/pocket-tts)を別途インストールし、`uvx pocket-tts serve`で起動してください。Marinaraがダウンロードや管理を代行することはありません。
 
 公式サーバーのデフォルトは`http://localhost:8000`です。ホストやポートを変えていなければ、**Base URL**はこの値のままにします。Marinaraは公式のmultipart `/tts` APIを自動検出します。[OpenAI互換PocketTTSラッパー](https://github.com/teddybear082/pocket-tts-openai_streaming_server)用の既存の独自URLも引き続き使えます。
+
+<a id="request-timeout"></a>
+
+### リクエストのタイムアウト
+
+デフォルトでは、Marinaraは読み上げる1行ごとに最大60秒待ちます。自分のコンピューター、特にノートパソコンで動かす音声サーバーでは、長い行に60秒以上かかることがあります。もっと長く待つには、カードの**Model**の下にある**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)の値を大きくしてください。10秒から3,600秒まで設定できます。
+
+音声の接続には、接続エディターの**Default Voice**(デフォルトの声)の下に、独自の**Request timeout (seconds)**欄があります。カードの**Source**として選んだ接続も含め、チャットが音声の接続を通して読み上げる場合は、その接続の上限を使います。カードの上限は、**Preview**ボタンを含め、カード自体の設定による読み上げに適用されます。
+
+1行に時間がかかりすぎた場合、エラーには、Marinaraが何秒待ったかと、どの設定の値を大きくすればよいかが表示されます。
 
 ## ステップ3: 声を選ぶ(Voice Option)
 
@@ -168,15 +197,18 @@ TTSをオンにすると、キャラクターや語り手のメッセージの�
 
 ## トラブルシューティング
 
+- カードに**Missing Audio connection**と表示される: Sourceとして選んだ音声の接続が削除されたか、使えなくなっています。別のSourceを選んでください。[音声の接続を使う](#use-an-audio-connection)を参照してください。
 - 何も読み上げない: まず**Enable TTS**のスイッチがオンか確かめます。次に、使っているモードに対応する**Auto-play**のトグルを確認するか、メッセージごとの**Speak**ボタンを使います。**Speak**ボタンと自動再生の項目は、TTSを有効にしてから表示されます。
 - ドロップダウンに声が出ない: TTSを有効にし、プロバイダーがキーを必要とする場合は正しいAPIキーを入れた状態でカードを保存し、**Refresh voices**をクリックします。公式PocketTTSサーバーには音声一覧エンドポイントがないため、Marinaraの組み込み一覧を使います。互換PocketTTSラッパーの場合は、`<Base URL>/v1/voices`が応答することを確認してください。
 - ElevenLabsが読み上げない: プレースホルダーの「Select an ElevenLabs voice」ではなく、実際の声を選んでいるか確かめます。**Model**が読み上げモデルであり、IDに`ttv`を含む音声デザイン用モデルでないことも確認します。
+- 行が**No audio after 60 s**で止まる: 音声サーバーにもっと時間が必要です。メッセージに示された場所で**Request timeout (seconds)**の値を大きくしてください。[リクエストのタイムアウト](#request-timeout)を参照してください。
 - ローカルアドレスにある自前のTTSサーバーがブロックされる: サーバー設定`TTS_LOCAL_URLS_ENABLED`をオンにします。これでOpenAI-compatibleやElevenLabs形式のサーバーについて、ローカルアドレスやプライベートアドレスへ接続できるようになります。PocketTTSにこの設定は不要です。[サーバー設定リファレンス](../CONFIGURATION.md)を参照してください。
 - 設定をすぐ試す: カード内の**Preview**(試聴)ボタンをクリックすると、現在の設定で短いサンプルを再生できます。
 
 ## 関連ガイド
 
 - [Conversationの音声通話とビデオ通話](../conversation/calls.md)
+- 2Dと3Dのアバター向けの[音声合成によるリップシンク](../agents/avatars.md#lip-sync-with-text-to-speech)
 - [Roleplayモード: はじめに](../roleplay/getting-started.md)
 - [Game Mode: はじめに](../game/getting-started.md)
 - [対応しているAIプロバイダー](../connections/providers-reference.md)

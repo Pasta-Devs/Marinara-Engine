@@ -30,11 +30,11 @@ Três botões de ícone ficam no topo do painel. Eles mostram só o ícone, sem 
 - O botão **Import** (importar, uma seta para baixo) abre a janela **Import Lorebook** (importar lorebook) para trazer um arquivo de lorebook.
 - O botão **Select** (selecionar, um sinal de visto) liga o modo de seleção múltipla, para exportar ou excluir vários lorebooks de uma vez.
 
-Abaixo dos botões há um campo de busca com o texto de exemplo **Search lorebooks**. Ele filtra a lista por nome, descrição, nomes de personagem ou persona vinculados e tags. Ao lado dele fica o menu suspenso **Sort order** (ordem de exibição), com estas opções: **A-Z**, **Z-A**, **Newest**, **Oldest** e **Token Budget**.
+Abaixo dos botões há um campo de busca com o texto de exemplo **Search lorebooks**. Ele filtra a lista por nome, descrição, nomes de personagem ou persona vinculados e tags. Ao lado dele fica o menu suspenso **Sort order** (ordem de exibição), com estas opções: **Manual order** (ordem manual), **A-Z**, **Z-A**, **Newest**, **Oldest** e **Token Budget**. Com **Manual order**, arraste os lorebooks para a ordem que você quiser, ou mova um deles com Alt+Up e Alt+Down no teclado. A sua ordem fica guardada.
 
 Cada linha de lorebook traz o botão **Copy** (copiar) e o botão **Delete** (excluir). Os botões aparecem quando você passa o mouse sobre a linha. No celular, ficam sempre visíveis. O botão **Copy** duplica o lorebook. Um lorebook desativado exibe um pequeno selo **OFF**. Clique na imagem para fazer upload de uma nova ou substituir a atual.
 
-Também é possível criar pastas de biblioteca com o botão **New Folder** (nova pasta). Arraste um lorebook para cima de uma pasta para guardá-lo ali. Assim uma biblioteca grande fica organizada. Essas pastas da biblioteca são diferentes das pastas de entradas que você cria dentro de um mesmo lorebook.
+Também é possível criar pastas de biblioteca com o botão **New Folder** (nova pasta). Arraste um lorebook para cima de uma pasta para guardá-lo ali. Assim uma biblioteca grande fica organizada. No celular, mantenha um lorebook pressionado por um instante e depois arraste-o. Essas pastas da biblioteca são diferentes das pastas de entradas que você cria dentro de um mesmo lorebook.
 
 ## Categorias
 

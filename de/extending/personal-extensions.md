@@ -34,6 +34,8 @@ Mit `marinara.ui.registerContribution(...)` kann eine Erweiterung Aktionen in de
 
 Diese Oberflächen-Funktionen und -Regeln gelten für jede Browser-Erweiterung in der Sandbox gleichermaßen, egal woher sie stammt. Eine importierte externe Erweiterung läuft in dieser sicheren Umgebung – es sei denn, ihr Paket verlangt ausdrücklich **Full page access** (Vollzugriff auf die Seite) oder nutzt das ältere Format `marinara.extension` von vor der Sandbox, das weiter unten beschrieben ist.
 
+<a id="add-a-marinara-rendered-panel"></a>
+
 ### Ein von Marinara gezeichnetes Panel ergänzen
 
 ```js
@@ -105,6 +107,8 @@ marinara.ui.registerContribution({
 ```
 
 Aufwendigere Werkzeuge bauen mehrstufige Oberflächen, indem sie die Panel-Elemente nach einem Ereignis austauschen. Halte den Anwendungszustand in `marinara.storage` – nicht im Markup.
+
+<a id="use-active-chat-context"></a>
 
 ### Den Kontext des aktiven Chats nutzen
 
@@ -180,6 +184,8 @@ Die beiden Schalter für externe Erweiterungen und die Freigabe per exaktem Hash
 Die ältere API `marinara.ui.showWindow(...)` steht weiterhin für ein temporäres Fenster im iframe mit undurchsichtigem Origin bereit. Sie nutzt dieselben festen Bedienelemente und liefert die Handles `update(...)` und `close()`. Greif lieber zu Contributions, wenn sich das Werkzeug über Marinaras normale Navigation erreichen lassen soll.
 
 Eine Server-Erweiterung läuft in einem separaten, rechtebeschränkten Node-Prozess innerhalb von macOS Seatbelt oder Linux Bubblewrap. Sie kommt weder an Marinaras Dateien noch an deine eigenen Dateien, geerbte Server-Geheimnisse, das Netzwerk, Kindprozesse, Worker oder native Addons heran. Lässt sich keine unterstützte Betriebssystem-Sandbox einrichten, bleiben Server-Erweiterungen deaktiviert.
+
+<a id="platform-support"></a>
 
 ### Unterstützte Plattformen
 

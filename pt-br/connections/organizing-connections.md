@@ -18,6 +18,8 @@ Para renomear uma pasta, dê um duplo clique na linha dela ou um toque duplo, se
 
 Para guardar uma conexão dentro de uma pasta, arraste a linha da conexão e solte em cima da pasta. Para tirar a conexão de lá, arraste-a para a área abaixo das pastas. Durante o arraste aparece a indicação **Drop here to move out of folder**.
 
+Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la e depois arraste. Um deslize normal continua rolando a lista.
+
 Para recolher ou expandir uma pasta, clique uma vez na linha dela. Um número pequeno na linha da pasta mostra quantas conexões estão lá dentro.
 
 Para excluir uma pasta, clique no ícone de lixeira na linha dela. Se ainda houver conexões dentro, Marinara pede uma confirmação na janela **Delete Folder**. Uma pasta vazia é excluída na hora, sem pedir confirmação. Excluir a pasta não exclui as conexões que estavam dentro dela. Essas conexões voltam para a área das conexões sem pasta.
@@ -36,7 +38,7 @@ O menu suspenso **Sort order** (ordem da lista), ao lado da caixa de busca, muda
 | **Newest** | As conexões mais novas primeiro. |
 | **Oldest** | As conexões mais antigas primeiro. |
 
-Para definir uma ordem própria, arraste as linhas de conexão para cima ou para baixo. Ao arrastar uma conexão, Marinara já muda a ordenação para **Custom** sozinho.
+Para definir uma ordem própria, arraste as linhas de conexão para cima ou para baixo. Ao arrastar uma conexão, Marinara já muda a ordenação para **Custom** sozinho. Você também pode mover uma linha selecionada com Alt+Up ou Alt+Down.
 
 ## Duplicar e excluir
 
@@ -58,6 +60,8 @@ Para colocar uma conexão no conjunto aleatório, clique no ícone de embaralhar
 
 Para o chat usar o conjunto aleatório, abra **Chat Settings** (configurações do chat), procure a seção **Connection** e escolha **🎲 Random** no menu suspenso. No Game Mode, esse menu suspenso se chama **GM / Party Model**. A partir daí, cada resposta sorteia uma conexão do conjunto.
 
+Se a conexão sorteada para uma resposta falhar e você tiver definido uma conexão de reserva para **Main** (principal), a reserva escreve a resposta no lugar dela. Um aviso mostra a conexão que falhou, o modelo dela e um motivo curto, como "key rejected", "rate limited" ou "not found", para você saber qual conexão do conjunto precisa de conserto. A resposta fica com um pequeno rótulo **Fallback** (reserva); toque nele, ou aponte para ele, para ver a mesma linha de novo.
+
 O **Quick Connection Switcher** é o jeito mais rápido de trocar a conexão do chat em que você está, e também o modelo dela. Clique no ícone de elo na área de digitação do chat para abrir. Ele mostra as conexões à esquerda e, à direita, os **Models** (modelos) da conexão escolhida:
 
 - Clique em uma conexão para o chat atual passar a usá-la na hora. O menu continua aberto para você escolher em seguida um dos modelos dela.
@@ -69,7 +73,7 @@ O **Quick Connection Switcher** é o jeito mais rápido de trocar a conexão do 
 - Clique no botão de dado, no topo do menu, para ativar ou desativar o conjunto aleatório neste chat.
 - Com o conjunto aleatório ativo, clicar em uma conexão passa a colocá-la no conjunto ou tirá-la de lá. Um sinal de visto mostra quais conexões estão no conjunto. A coluna **Models** fica oculta, porque o conjunto não tem uma conexão única.
 
-No celular, toque na seta em forma de chevron ao lado da caixa de mensagem e abra a aba **Connections**. Tocar em uma conexão seleciona essa conexão e mostra os modelos dela no mesmo menu; toque na seta de voltar para retornar à lista de conexões.
+No celular, toque na seta em forma de chevron ao lado da caixa de mensagem e abra a aba **Connections**. Toque em uma conexão para passar o chat para ela; o menu se fecha. Para escolher um modelo, toque na seta no fim da linha da conexão. Os modelos dela abrem no mesmo menu, e o chat só troca quando você escolhe um. Toque na seta de voltar para retornar à lista de conexões.
 
 **A troca de modelo vale em todos os lugares em que a conexão é usada.** A nota no rodapé do menu, "Model changes are saved to this connection.", quer dizer que os agentes, os recursos auxiliares e os outros chats que usam a mesma conexão também passam para o modelo novo. As outras configurações de modelo da conexão, como o modelo de embedding ou a conexão de descrição de imagens, não mudam. Se você quer um modelo diferente só para uma finalidade, duplique a conexão e altere a cópia.
 

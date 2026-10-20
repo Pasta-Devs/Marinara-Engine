@@ -50,6 +50,14 @@ Schreibvorgänge markieren die betroffenen Tabellen als geändert. Eine kurze En
 
 Jedes Abbild landet zunächst in einer temporären Datei, wird geleert und dann atomar umbenannt. Vor dem Ersetzen frischt Marinara das letzte intakte Abbild als `.bak`-Datei auf. Ist die Hauptdatei beim Start unlesbar, stellt Marinara sie nach Möglichkeit aus dem Backup wieder her. Taugt keine der beiden Kopien, verschiebt Marinara die beschädigten Dateien mit einem Zeitstempel-Suffix in Quarantäne und startet nur diese eine Tabelle leer – die Oberfläche bleibt so für die Wiederherstellung erreichbar.
 
+## Schreib-Lease
+
+Nur ein Serverprozess schreibt zur selben Zeit in ein Speicherverzeichnis. Beim Start legt der Store darin das Verzeichnis `.writer-lease` an, mit einer Datei `owner.json`, die PID, Maschinen-ID, Boot-ID, PID-Namespace, Hostnamen und ein zufälliges Token des Schreibers festhält, und entfernt es beim Beenden wieder. Ein zweiter Prozess, der eine Lease vorfindet, verweigert den Start mit einem `StorageWriterLeaseError`, sofern er nicht nachweisen kann, dass der vorherige Schreiber nicht mehr läuft.
+
+Der Nachweis setzt zuerst dieselbe Maschine voraus: eine übereinstimmende Maschinen-ID, das app-private Home-Verzeichnis von Termux oder, wenn eine Seite keine Maschinen-ID hat, Speicher, den nur diese Maschine erreichen kann. Unter Linux und Android ist das ein lokales Dateisystem. Unter Windows ist es ein Laufwerk vom Typ `Fixed` (kein Netzwerk-, Wechsel- oder UNC-Pfad), und die Lease muss von einem nativen Windows-Schreiber mit dem Namen dieses Computers stammen. Eine Lease auf derselben Maschine wird zurückgeholt, wenn sie zu einem früheren Boot gehört (unter Windows zählen Bootzeiten, die bis zu 5 Minuten auseinanderliegen, als derselbe Boot), wenn ihr Liveness-Socket nicht mehr antwortet (Docker und Termux) oder wenn ihre PID beendet ist oder (außer beim Windows-Laufwerksnachweis) inzwischen zu einem neueren Prozess gehört. Gemeinsam genutzter Speicher und Netzwerkspeicher bleiben gesperrt, und die Fehlermeldung nennt die Lease, die du von Hand entfernst, sobald alle Prozesse gestoppt sind.
+
+`scripts/regressions/storage-writer-lock.regression.ts` deckt diese Nachweise ab.
+
 ## Transaktionen
 
 Transaktionen arbeiten mit Copy-on-write-Abbildern, deren Gültigkeitsbereich `AsyncLocalStorage` festlegt. Eine Tabelle wird erst kopiert, wenn die Transaktion sie zum ersten Mal ändert. Wirft der Callback einen Fehler, setzt Marinara nur die Tabellen dieser Transaktion zurück; parallele Schreibvorgänge an anderen Tabellen bleiben erhalten.

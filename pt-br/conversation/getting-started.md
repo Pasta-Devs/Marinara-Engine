@@ -12,6 +12,8 @@ O Conversation Mode traz recursos que só fazem sentido em uma relação contín
 
 Nenhum desses recursos exclusivos do Conversation funciona no Roleplay Mode ou no Game Mode, mesmo quando você reutiliza o mesmo card de personagem lá.
 
+Alguns campos do card funcionam ao contrário. Um chat de Conversation não começa com a **First Message** (primeira mensagem) do card nem com outra saudação; só os chats de Roleplay começam assim. Ele também não usa a **Dialogue Highlight Color** nem a **Message Box Color** do card. A **Name Display Color** continua colorindo o nome do personagem acima de cada mensagem. Veja [Onde as cores aparecem](../characters/colors-and-stats.md#where-your-colors-show).
+
 ### Quando escolher o Conversation Mode
 
 Escolha o Conversation Mode quando quiser:
@@ -167,7 +169,7 @@ Chats longos enchem a memória do modelo. Experimente um modelo com janela de co
 
 ### A selfie não parece o personagem
 
-Abra as configurações de **Selfies** e ative a opção **Attach Card Appearance**. Se o provedor de imagens aceitar imagens de referência, ative também a opção **Send Avatar References**. Veja [Selfies](selfies.md) para os detalhes.
+Abra as configurações de **Selfies** e defina **Attach Card Appearance** como **Images only** (só imagens) ou **Images and videos** (imagens e vídeos). Se o provedor de imagens aceitar imagens de referência, defina também **Send Avatar References**. Veja [Selfies](selfies.md) para os detalhes.
 
 ## Guias relacionados
 

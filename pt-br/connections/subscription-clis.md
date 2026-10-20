@@ -45,7 +45,7 @@ claude auth login
 3. No Marinara, abra o painel **Connections** (Conexões) e clique em **New** (novo).
 4. Na janela **Create Connection** (criar conexão), digite um nome, escolha o provedor **Claude (Subscription)** e clique em **Create**.
 5. No editor, repare que não existe o campo **API Key** nem o campo **Base URL**. Um painel informativo confirma que eles não são necessários.
-6. Escolha um modelo Claude, como um modelo Opus ou Sonnet, no menu suspenso **Model**.
+6. Escolha um modelo Claude, como um modelo Opus ou Sonnet, no menu suspenso **Model**. A lista mostra os modelos que o seu login do Claude Code oferece, quando o Claude Code tem uma lista para ele; caso contrário, mostra uma lista embutida.
 7. Clique em **Save** (salvar) e depois em **Send Test Message** (enviar mensagem de teste). Uma resposta curta significa que o login está funcionando.
 
 As conexões por assinatura do Claude só têm suporte a chat de texto. Esta conexão traz dois controles a mais, **Fast Mode** e **Diagnose Model Routing**, descritos abaixo.
@@ -73,7 +73,7 @@ codex login
 
 Marinara lê o arquivo de login local do Codex e renova a sessão sempre que consegue.
 
-Para definir quanto tempo o Codex pensa antes de responder, abra a conexão e, em **Default Chat Parameters** (parâmetros padrão de chat), ative **Use custom defaults for this connection** (usar padrões personalizados para esta conexão). Depois escolha um nível em **Reasoning Effort** (esforço de raciocínio); o ajuste começa em **Default**. Um chat pode escolher o próprio nível em **Advanced Parameters** (parâmetros avançados). **Default** mantém o nível que o Codex usa para o modelo. O Codex usa esse padrão até a conexão ou o chat escolher um nível; o nível definido no preset não muda isso, e uma conexão Codex usada como reserva segue apenas o próprio nível. Os agentes que usam a conexão seguem o nível dela. Os níveis correspondem aos que o Codex oferece para cada modelo: GPT-5.5 vai até **xhigh**, e os modelos GPT-5.6 e GPT-6 vão até **max**.
+Para definir quanto tempo o Codex pensa antes de responder, abra a conexão e, em **Default Chat Parameters** (parâmetros padrão de chat), ative **Use custom defaults for this connection** (usar padrões personalizados para esta conexão). Depois escolha um nível em **Reasoning Effort** (esforço de raciocínio); o ajuste começa em **Default**. Um chat pode escolher o próprio nível em **Advanced Parameters** (parâmetros avançados). **Default** mantém o nível que o Codex usa para o modelo. O Codex usa esse padrão até a conexão ou o chat escolher um nível; o nível definido no preset não muda isso, e uma conexão Codex usada como reserva segue apenas o próprio nível. Os agentes que usam a conexão seguem o nível dela. Os níveis correspondem aos que o Codex oferece para cada modelo: GPT-5.5 vai até **Extra high**, e os modelos GPT-5.6 e GPT-6 vão até **Max**.
 
 ## Grok CLI (Subscription)
 
@@ -103,6 +103,8 @@ Para carregar os modelos do Grok, use o botão **Fetch Models from Grok CLI** na
 ## Duração do cache de prompts do Claude
 
 No editor de conexões do Claude, **Prompt Caching → Extended token caching (1 hour)** solicita um cache de uma hora para permitir pausas maiores entre mensagens. É necessário usar Claude Code **2.1.242 ou mais recente**. O Marinara passa a configuração para aquela solicitação sem alterar suas configurações salvas do Claude.
+
+A opção também muda quanto de um chat o Claude consegue reaproveitar. Com ela ligada, o Claude reaproveita o histórico anterior do chat e só processa de novo a parte mais recente. Com ela desligada, o Claude reaproveita apenas as instruções do início e processa de novo todo o histórico do chat a cada mensagem. Em chats longos, a opção desligada consome mais do seu plano.
 
 Com a opção desligada, as conversas principais e as solicitações do Agent SDK seguem o padrão do Claude: atualmente uma hora para o uso por assinatura dentro dos limites do plano e cinco minutos para uso extra, créditos ou cobrança por API. Os subagentes do próprio Claude Code usam cinco minutos, salvo configuração separada; algumas solicitações auxiliares controladas pelo servidor podem usar uma hora. As variáveis de ambiente do CLI que substituem esse valor continuam tendo prioridade. Veja [o cache de prompts do Claude Code](https://code.claude.com/docs/en/prompt-caching).
 

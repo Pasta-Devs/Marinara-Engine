@@ -10,6 +10,13 @@ Noodle est le fil de réseau social intégré à Marinara Engine. Si tu le déco
 2. Dans la barre latérale de gauche, clique sur le bouton **Settings** (Paramètres), celui avec l'engrenage.
 3. L'en-tête du panneau affiche **Noodle settings**.
 
+Les réglages sont répartis sur quatre pages. Choisis-en une avec les boutons sous l'en-tête :
+
+- **General** (général) : [Refresh](#refresh) et [Translation](#translation).
+- **Timeline** (fil) : [Activity](#activity) et [Image Generation](#image-generation).
+- **Participants** : [Invites](#invites), **Ambient Profiles** (profils d'ambiance, voir [Utilisateurs aléatoires](#random-users)) et [Active Accounts](#active-accounts).
+- **Advanced** (avancé) : **Noodle Prompt** (prompt de Noodle), [Image Understanding](#image-understanding), [Timeline Writing](#timeline-writing), [World / Lore](#world--lore), [Carryover](#carryover) et [Reset Noodle](#reset-noodle).
+
 Tous les réglages de Noodle sont globaux. Ils s'appliquent à chaque persona et à chaque chat, jamais à un seul chat en particulier. Les changements s'enregistrent dès que tu les fais.
 
 ## Invites
@@ -77,19 +84,30 @@ Mets un champ à 0 pour empêcher l'IA de créer ce type d'activité.
 
 La section **Image Generation** (génération d'images) permet à Noodle de joindre des images créées par l'IA à certains posts. Il faut pour cela une connexion de génération d'images, c'est-à-dire une connexion configurée pour fabriquer des images. Voir [Fournisseurs d'IA pris en charge](../connections/providers-reference.md).
 
-- **Image generation** : un interrupteur, désactivé (**off**) par défaut. Active-le pour laisser l'IA générer les images des posts.
+- **Noodle image generation** (génération d'images Noodle) : un interrupteur, désactivé (**off**) par défaut. Active-le pour laisser l'IA générer les images des posts.
 - Une fois activé, d'autres réglages apparaissent :
-  - **Image generation connection** (connexion de génération d'images) : un menu déroulant, réglé sur **Default image generation connection** par défaut. Laissé sur **Default**, il utilise la connexion marquée comme connexion par défaut pour la génération d'images dans le panneau **Connections**.
-  - **Prompt instructions** (instructions de prompt) : une zone de texte avec un contenu par défaut intégré, jusqu'à 4000 caractères. Ces notes supplémentaires sont fusionnées dans le prompt d'image.
+  - **Image width** (largeur d'image) et **Image height** (hauteur d'image) : la taille des images de post générées, de 64 à 4096 pixels. Les valeurs par défaut sont **1024** sur **1536**.
+  - **Noodle image generation connection** (connexion de génération d'images Noodle) : un menu déroulant, réglé sur **Default image generation connection** par défaut. Laissé sur **Default**, il utilise la connexion marquée comme connexion par défaut pour la génération d'images dans le panneau **Connections**. Un personnage peut utiliser sa propre connexion à la place ; voir [Profils et abonnements](overview.md#profiles-and-following).
+  - **Image instructions (sent to your LLM)** (instructions d'image, envoyées à ton LLM) : une zone de texte avec un contenu par défaut intégré, jusqu'à 4000 caractères. Le modèle du fil suit ces instructions quand il écrit la description d'image de chaque post : rédige-les donc comme des consignes, pas comme des tags d'image. Pour des tags de style envoyés directement au modèle d'image, utilise plutôt un profil de style d'image.
   - **Use avatar references** (utiliser les images de référence de l'avatar) : un interrupteur, activé (**on**) par défaut. Envoie l'avatar ou les images de référence du personnage au modèle d'image.
   - **Interpret image prompts** (interpréter les prompts d'image) : un interrupteur, activé (**on**) par défaut. Un modèle de texte réécrit chaque prompt d'image en suivant les **Image Prompting Instructions** (instructions de prompt d'image) de ta connexion d'images et le Style text (texte de style) de ton profil de style. Quand il est désactivé, les Image Prompting Instructions ne sont pas utilisées et le Style text est ajouté tel quel.
   - **Include descriptions** (inclure les descriptions) : un interrupteur, activé (**on**) par défaut. Ajoute les notes d'apparence écrites du personnage au prompt d'image. Avec **Interpret image prompts** activé, le modèle de texte les intègre au lieu de les coller telles quelles.
   - **Images/refresh** (images par rafraîchissement) : un nombre, de 0 à 50, **3** par défaut. Il plafonne les images de post générées, séparément pour chaque rafraîchissement manuel ou automatique.
-- **Attach gallery images** (joindre des images de la galerie) : un interrupteur distinct, désactivé (**off**) par défaut. Il reste visible même quand **Image generation** est sur **off**. Au lieu de créer une image, il autorise un post à réutiliser une image de la galerie du personnage ou d'un chat où il apparaît.
+- **Attach gallery images** (joindre des images de la galerie) : un interrupteur distinct, désactivé (**off**) par défaut. Il reste visible même quand **Noodle image generation** est sur **off**. Au lieu de créer une image, il autorise un post à réutiliser une image de la galerie du personnage ou d'un chat où il apparaît.
 
-Si tu actives **Image generation** sans avoir de connexion d'images utilisable, le rafraîchissement est bloqué. Le message "Choose an image generation connection for Noodle first." s'affiche. Une image en échec est retentée une fois. Si la seconde tentative échoue aussi, le rafraîchissement continue et publie un post en texte seul, propre, plutôt que d'exposer le prompt d'image inutilisé.
+Si tu actives **Noodle image generation** sans avoir de connexion d'images utilisable, le rafraîchissement est bloqué. Le message "Choose an image generation connection for Noodle first." s'affiche. Une image en échec est retentée une fois. Si la seconde tentative échoue aussi, le rafraîchissement continue et publie un post en texte seul, propre, plutôt que d'exposer le prompt d'image inutilisé.
 
-Le modèle que Noodle utilise pour écrire ces prompts d'image s'appelle **Noodle Post Image**. Tu peux le modifier dans **Settings** > **Generations** > **Image Generation Prompt Overrides**. Ton texte **Prompt instructions** est transmis à ce modèle, et le résultat passe ensuite par ton profil de style d'image habituel. Voir [Remplacements de prompt pour l'image et la vidéo](../prompts/prompt-overrides.md) et [Profils de style d'image](../media/style-profiles.md). Professor Mari n'a pas de fiche de personnage : ses posts illustrés utilisent donc son avatar et ses illustrations de référence intégrés.
+Le modèle que Noodle utilise pour écrire ces prompts d'image s'appelle **Noodle Post Image**. Tu peux le modifier dans **Settings** > **Generations** > **Image Generation Prompt Overrides**. Ton texte **Image instructions (sent to your LLM)** est transmis à ce modèle, et le résultat passe ensuite par ton profil de style d'image habituel. Voir [Remplacements de prompt pour l'image et la vidéo](../prompts/prompt-overrides.md) et [Profils de style d'image](../media/style-profiles.md). Professor Mari n'a pas de fiche de personnage : ses posts illustrés utilisent donc son avatar et ses illustrations de référence intégrés.
+
+## Image Understanding
+
+La section **Image Understanding** (compréhension des images) décide comment l'IA qui écrit le fil voit les images déjà présentes dans la timeline.
+
+- **Show images to the writer** (montrer les images au rédacteur) : un interrupteur, activé (**on**) par défaut. Le modèle rédacteur reçoit jusqu'à huit images récentes de la timeline s'il accepte les images. Désactive-le et le rédacteur ne reçoit aucune image de la timeline.
+- **Image captioning** (description des images) : un interrupteur. Une connexion capable de voir les images décrit les images de la timeline pour le rédacteur : un modèle rédacteur qui ne lit que du texte peut ainsi les suivre lui aussi. Tant que tu ne le modifies pas, il suit le réglage de description des images de la **Generation connection** de Noodle, et **Use connection default** (utiliser le réglage de la connexion) y revient.
+- **Captioning connection** (connexion de description) : apparaît quand la description est activée. **Use Noodle generation connection** (utiliser la connexion de génération de Noodle) utilise la **Generation connection** ; choisis une autre connexion quand ce modèle ne sait pas voir les images.
+
+La description des images envoie toujours les images de la timeline à la connexion de description, même quand **Show images to the writer** est désactivé.
 
 ## Timeline Writing
 
@@ -131,11 +149,15 @@ La section **Reset Noodle** (réinitialiser Noodle) vide le fil tout en gardant 
 
 Seul le contenu du fil est supprimé. Tes comptes, tes identifiants, tes bios, tes abonnements, tes invitations et tous les réglages de Noodle restent en place.
 
+<a id="random-users"></a>
+
 ## Utilisateurs aléatoires
 
 Les utilisateurs aléatoires sont six comptes d'ambiance intégrés qui ne viennent pas de ta bibliothèque : Thread Countess, Packet Soup, Orbit Notice, Glass Bulletin, Moth Hour et Brine Index. Chacun a une courte bio d'ambiance.
 
 Tu les actives avec la ligne **Random users** en haut de la liste **Characters**, dans la section **Invites**. Elle est désactivée (**off**) par défaut. Son sous-titre affiche **Enabled** quand elle est activée, et **Ambient fake profiles** quand elle ne l'est pas. Une fois activés, ces comptes peuvent publier, liker, reposter, répondre et suivre d'autres comptes pendant un rafraîchissement. Ils ne peuvent jamais être suivis depuis un profil.
+
+La section **Ambient Profiles** de la page **Participants** te permet de modifier ces identités ou d'en générer un autre ensemble. Un nouveau tirage conserve les posts et les relations, mais supprime les images de profil.
 
 ## Relier Noodle à tes chats
 
@@ -153,7 +175,7 @@ Pour faire apparaître l'activité Noodle dans un chat, active le mode correspon
 - **Les rafraîchissements automatiques ne se lancent pas** : mets **Refreshes/day** au-dessus de 0, garde le serveur Marinara allumé, et vérifie les horaires prévus et le fuseau horaire sous **Automatic schedule**. Si la planification affiche une erreur, corrige le problème de connexion ou de limite de débit et laisse la nouvelle tentative se faire.
 - **Les posts ne parlent pas d'un chat récent** : active **Allow Noodle references** dans les réglages de ce chat, et vérifie que le personnage est bien invité. Le contexte du chat oriente l'IA, il ne garantit rien.
 - **L'activité Noodle n'apparaît pas dans les chats** : active le mode correspondant sous **Carryover to chats**, et augmente **Carry hours** si l'activité est trop ancienne.
-- **Les posts n'ont pas d'images** : active **Image generation**, choisis une connexion d'images qui fonctionne, et vérifie la limite **Images/refresh**.
+- **Les posts n'ont pas d'images** : active **Noodle image generation**, choisis une connexion d'images qui fonctionne, et vérifie la limite **Images/refresh**.
 
 ## Réglages et valeurs par défaut
 
@@ -173,14 +195,20 @@ Ce tableau liste chaque réglage de Noodle avec sa valeur par défaut et sa plag
 | **Replies** | 12 | 0 à 200 |
 | **Reposts** | 4 | 0 à 100 |
 | **Likes** | 18 | 0 à 500 |
-| **Image generation** | off | on ou off |
-| **Image generation connection** | Default | toute connexion de génération d'images |
-| **Prompt instructions** | texte intégré | jusqu'à 4000 caractères |
+| **Noodle image generation** | off | on ou off |
+| **Image width** | 1024 | 64 à 4096 |
+| **Image height** | 1536 | 64 à 4096 |
+| **Noodle image generation connection** | Default | toute connexion de génération d'images |
+| **Image instructions (sent to your LLM)** | texte intégré | jusqu'à 4000 caractères |
 | **Use avatar references** | on | on ou off |
 | **Interpret image prompts** | on | on ou off |
 | **Include descriptions** | on | on ou off |
 | **Images/refresh** | 3 | 0 à 50 |
 | **Attach gallery images** | off | on ou off |
+| **Show images to the writer** | on | on ou off |
+| **Image captioning** | suit la Generation connection | on ou off |
+| **Captioning connection** | Use Noodle generation connection | toute connexion capable de voir les images |
+| **Use connection default** | on | on ou off ; rétablit le réglage de description des images de la Generation connection |
 | **Lorebook context** | off | on ou off |
 | **Enhanced tone & continuity** | off | on ou off |
 | **Carryover: Conversations** | off | on ou off |

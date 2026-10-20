@@ -21,7 +21,7 @@ Der GM liefert eine kleine, strukturierte Vorgabe aus der Szene. Die Engine best
 
 Der Umgebungs- und Formationsablauf unterstützt optionale Kartengrößen und markante Orte der Szene. Geländehinweise gehören zum jeweiligen Gefecht; Karten-Seeds sind intern pro Gefecht und haben kein Einstellfeld in der Kampagnenkonfiguration. Alte Konfigurationen müssen gültig bleiben. Speichere das akzeptierte Raster samt Angaben zur Generierung, damit ein später geänderter Generator bestehende Kämpfe nicht neu zeichnet. Gespeicherte Seeds reproduzieren die Generierung bei gleicher Vorgabe und gleichen Kämpfern; beliebige Modellausgaben werden dadurch nicht deterministisch.
 
-Generiertes Gelände darf zur Sicherung der Erreichbarkeit repariert werden, aber vorgegebene Einschränkungen dürfen nicht stillschweigend verschwinden. Begrenze Modellausgabe, Feld- und Einheitenzahl sowie Elementabmessungen. Lehne unmögliche Vorgaben mit einem hilfreichen Grund ab und biete ausdrücklich generiertes Ersatzgelände an. Ein vollständiger Mal- und Platzierungseditor sowie beliebige selbst erstellte Karten folgen später und müssen dieselben Validierungsregeln verwenden.
+Generiertes Gelände darf zur Sicherung der Erreichbarkeit repariert werden, aber vorgegebene Einschränkungen dürfen nicht stillschweigend verschwinden. Begrenze Modellausgabe, Feld- und Einheitenzahl sowie Elementabmessungen. Lehne unmögliche Vorgaben mit einem hilfreichen Grund ab und biete ausdrücklich generiertes Ersatzgelände an. Von Hand gemalte Spielfelder für die Orte einer Welt (worldgen W9g, in einem Editor wie Pixelforge) durchlaufen dieselben Regeln: Ihre Aufstellungsstreifen bestehen aus Ebenen, und alle offenen Felder sind verbunden, sodass auf ihnen genau so gekämpft wird, wie sie gemalt wurden.
 
 ### Bewegungsfähigkeiten
 
@@ -29,7 +29,7 @@ Gehen, Fliegen und Teleportation benötigen eindeutige Bewegungsregeln. Flug und
 
 Fehlt der Bewegungsmodus, gilt für ältere Begegnungen Gehen. Ein ausdrücklich angegebener, nicht unterstützter Modus wird mit einem Fehler abgelehnt; ersetze eine angeforderte Fähigkeit nicht stillschweigend durch Gehen. Das gilt für generierte Baupläne und taktische API-Eingaben.
 
-Trenne Durchquerung, erlaubte Ziele und Belegung. Durch eine Wand teleportieren zu können erlaubt nicht, darin zu enden. Das anfängliche flache Raster kann Höhe, Decken, zauberspezifische Sichtanforderungen oder begrenzte Flugdauer nicht darstellen. Dokumentiere diese Grenze, statt vollständige Tabletop-Bewegungsregeln zu behaupten. Verwende dieselbe Bewegungsprüfung für Vorschau, Auflösung, Pfadanimation und Gegner-KI.
+Trenne Durchquerung, erlaubte Ziele und Belegung. Durch eine Wand teleportieren zu können erlaubt nicht, darin zu enden. Seit combat C6b hat das Raster Höhe (Klettern, Klippen, Grate, die die Sicht blockieren, erhöhtes Gelände), kann aber Decken, zauberspezifische Sichtanforderungen oder begrenzte Flugdauer nicht darstellen. Dokumentiere diese Grenze, statt vollständige Tabletop-Bewegungsregeln zu behaupten. Verwende dieselbe Bewegungsprüfung für Vorschau, Auflösung, Pfadanimation und Gegner-KI.
 
 ## Tabletop-Regeln: integrierte Profile und Nachschlagewerkzeuge für den GM
 
@@ -41,7 +41,7 @@ Die Engine sollte echte Würfe, erlaubte Ziele, Bewegung, Aktionsbudgets, Ressou
 
 Beginne mit unterstützten Grundbausteinen für Proben, Züge und Ressourcen. Ein d20-Profil und ein d10-Pool-Profil benötigen unterschiedliche Auswertungsregeln; sie sind nicht bloß Umbenennungen voneinander. Später sollten Initiative, vergleichende Proben, Schaden und Schadensminderung, Zustände und Ressourcenverbrauch folgen. Dokumentiere nicht unterstützte Fälle und kennzeichne GM-Entscheidungen ausdrücklich.
 
-Taktische Tabletop-Regeln benötigen außerdem gemeinsame Sichtlinien- und Deckungsregeln. Das aktuelle Raster verhindert Bewegung durch Wände, doch distanzbasierte Fernangriffe können sie durchqueren. Aktualisiere Regelauswertung, KI, Gegenangriffe, Prognosen und Bedrohungsanzeigen gemeinsam. Behalte Gruppen- und Gegnerphasen bei; individuelle Initiative ist ein gesondert auswählbares Regelprofil.
+Eine gemeinsame Sichtlinie gibt es bereits (combat C6): Eine Wand oder ein Berg blockiert sie in Regelauswertung, KI, Gegenangriffen, Flächen, Prognosen und Bedrohungsanzeigen gleichermaßen. Deckungsstufen bauen auf demselben Test auf. Individuelle Initiative ist eine Spieleinstellung (combat C6c): Neue Spiele würfeln einmal pro Kampf eine Reihenfolge aus und lassen die Einheiten einzeln nacheinander ziehen, in der Engine wie in der Kampfsteuerung. Ältere Spiele behalten die Gruppen- und Gegnerphasen.
 
 ## Beschwörungen: Entwurf behalten, größeres System verschieben
 

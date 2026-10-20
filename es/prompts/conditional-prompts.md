@@ -262,6 +262,16 @@ Kaelen is his usual self.
 
 Aquí el modelo elige entre "angry", "sad" y "none of these". También funciona la forma corta: `decision_choice:"The weather in the latest message" == "rain" || "snow"` ofrece ambas opciones. Escribe la declaración como un tema, por ejemplo "Kaelen's mood in the latest message", y las opciones como respuestas cortas.
 
+Para decirle al modelo qué significa una opción en tu historia, añade criterios después de ella, separados por dos puntos:
+
+```
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry":"Kaelen raises his voice, makes threats or breaks something"}}
+Kaelen's lines are short and clipped.
+{{/if}}
+```
+
+El modelo lee los criterios como la descripción de la opción. Sigue respondiendo "angry", y la comparación sigue siendo con "angry". Pon las dos partes entre el mismo tipo de comillas. Si las comillas son distintas, Marinara no lee "angry" como una opción, y la comparación nunca coincide con ella. Las macros como `{{char}}` funcionan en los criterios. Las opciones sin criterios se ofrecen como antes, y si a una opción se le dan criterios distintos en varios lugares, se usan los primeros.
+
 <a id="sticky-and-cooldown"></a>
 
 ### Sticky y cooldown

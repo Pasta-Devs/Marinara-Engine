@@ -33,7 +33,13 @@ Postać lub persona ze sprite'ami wyrazów twarzy ma już awatar PNGTuber na str
 
 **Show this avatar in chats** (pokazywanie tego awatara w czatach) włącza albo wyłącza awatar bez usuwania go. **Movement** (ruch) ma trzy przełączniki, które działają przy każdym typie: **Lip sync** (synchronizacja ust) porusza ustami, **Blinking** (mruganie) co kilka sekund mruga oczami, a **Idle motion** (ruch w spoczynku) sprawia, że awatar oddycha i kołysze się podczas czekania. Jeśli postać ma więcej niż jeden typ awatara, **Show this one** (pokazywanie tego typu) wybiera typ używany w czatach. Gdy agent tego typu jest w czacie wyłączony, czat pokazuje inny typ, którego agent jest włączony. Usunięcie typu kasuje jego pliki; twoje sprite'y zostają, a awatar wyłączony przez ciebie pozostaje wyłączony.
 
-Awatar pojawia się w czacie w trybie Roleplay, Visual Novel albo Game, gdy czat ma włączonych agentów i dodanego odpowiedniego agenta. Działa z agentem Expression Engine i bez niego. Awatar nie ukrywa sprite'a całej sylwetki, więc jeśli awatar ma go zastąpić, wyłącz ten sprite samodzielnie. Awatary stoją tam, gdzie stałby sprite całej sylwetki, i mają ten sam rozmiar. Aby je przesunąć, użyj trybu **Arrange** (rozmieszczanie) w ustawieniach sprite'ów agenta Expression Engine.
+Awatar pojawia się w czacie w trybie Roleplay, Visual Novel albo Game, gdy czat ma włączonych agentów i dodanego odpowiedniego agenta. Działa z agentem Expression Engine i bez niego. Awatar nie ukrywa sprite'a całej sylwetki, więc jeśli awatar ma go zastąpić, wyłącz ten sprite samodzielnie. Awatary stoją tam, gdzie stałby sprite całej sylwetki, i mają ten sam rozmiar.
+
+Aby przesunąć awatary albo zmienić ich rozmiar, otwórz **Chat Settings**, przejdź do **Agents** i otwórz **Avatars**. Wybierz awatar z listy, a potem powiększ go albo zmniejsz jego suwakiem rozmiaru. Wybierz **Arrange** (rozmieszczanie), żeby przesuwać awatary: dopóki ten tryb jest włączony, przeciągaj je w dowolne miejsce czatu myszą albo palcem albo ustaw fokus na jednym z nich i użyj klawiszy strzałek (z wciśniętym klawiszem Shift przesunięcie jest większe). Gdy skończysz, wybierz **Done** (gotowe); awatary zostają wtedy w wybranych przez ciebie miejscach, a kliknięcia znów trafiają do czatu. **Reset** przywraca każdy awatar na jego zwykłe miejsce.
+
+Awatar 3D ma też opcję **Framing** (kadrowanie): **Portrait** (portret) pokazuje głowę i ramiona (to ustawienie domyślne), **Half body** (pół sylwetki) pokazuje model do bioder, a **Full body** (cała sylwetka) pokazuje cały model od głowy do stóp. Awatar zachowuje swój rozmiar; wyższy kadr mieści większą część modelu w tym samym miejscu. Awatary 2D nie mają kadrowania.
+
+Działa to bez agenta Expression Engine w trybach Roleplay, Visual Novel i Game. Układ jest zapisywany dla tego czatu na tym urządzeniu i przetrwa przeładowanie strony; nie synchronizuje się z innymi urządzeniami. Awatary przesuwa też własny przycisk **Arrange** agenta Expression Engine.
 
 Importowane pliki są sprawdzane przed zapisaniem, a awatary nie mają własnego limitu rozmiaru poniżej zwykłego limitu wgrywania na serwerze. Pliki awatarów leżą w folderze danych w `avatar-models/<character or persona>/<id>/`, obok pliku `avatar.json` z ustawieniami. Kopie zapasowe i eksporty profilu obejmują ten folder. Usunięcie postaci lub persony usuwa jej awatar, także wtedy, gdy sekcja Danger Zone w ustawieniach czyści wszystkie **Characters** (postacie) albo **Personas** (persony), a wyczyszczenie tam kategorii **Media & Assets** (multimedia i zasoby) opróżnia ten folder. Eksport karty postaci nigdy nie zawiera awatarów.
 
@@ -50,7 +56,7 @@ Importowane pliki są sprawdzane przed zapisaniem, a awatary nie mają własnego
 Postać lub persona ze sprite'ami wyrazów twarzy ma już awatar PNGTuber: jej sprite'y są minami i nie trzeba niczego konfigurować. Jeśli istnieją sprite'y portretowe, używane są one, a w przeciwnym razie sprite'y całej sylwetki, więc jeden awatar nigdy nie miesza obu rodzajów.
 
 - **Obrazki mówienia i mrugania.** Dodaj sprite'y nazwane jak mina, z dopiskiem `_talk` dla otwartych ust i `_blink` dla zamkniętych oczu, na przykład `happy_talk` i `happy_blink`, a dla obu naraz `happy_blink_talk`. Działają też `_talking`, `_speak`, `_mouth_open`, `_blinking` i `_eyes_closed`. Mina bez takich obrazków i tak podskakuje podczas mówienia.
-- **Face for each feeling** (mina dla każdej emocji). Wybierz, która mina pokazuje się dla emocji Neutral, Happy, Angry, Sad, Relaxed i Surprised (neutralność, radość, złość, smutek, odprężenie i zaskoczenie). **Resting face** (mina w spoczynku) używa miny Neutral. Gdy agent Expression Engine albo postać Game Master wybierze sprite, który masz, pokazuje się dokładnie ta mina.
+- **Face for each feeling** (mina dla każdej emocji). Wybierz, która mina pokazuje się dla emocji Neutral, Happy, Angry, Sad, Relaxed i Surprised (neutralność, radość, złość, smutek, odprężenie i zaskoczenie). **Resting face** (mina w spoczynku) używa miny Neutral. Do wyboru są wszystkie sprite'y, także te dodane po zapisaniu awatara, maksymalnie 64 miny. Import PNGTuber Plus proponuje tylko własne miny. Gdy agent Expression Engine albo postać Game Master wybierze sprite, który masz, pokazuje się dokładnie ta mina.
 - **More feelings** (więcej emocji). W sekcji **Face for each feeling** rozwiń **More feelings**, aby wybrać minę dla 23 bardziej szczegółowych emocji, pogrupowanych pod sześcioma głównymi: Curiosity (ciekawość) w grupie Neutral; Admiration (podziw), Amusement (rozbawienie), Desire (pragnienie), Embarrassment (zakłopotanie), Excitement (ekscytacja), Gratitude (wdzięczność), Optimism (optymizm) i Pride (duma) w grupie Happy; Annoyance (irytacja), Disapproval (dezaprobata) i Disgust (obrzydzenie) w grupie Angry; Disappointment (rozczarowanie), Grief (żal), Nervousness (nerwowość) i Remorse (skrucha) w grupie Sad; Approval (aprobata), Caring (troska), Love (miłość) i Relief (ulga) w grupie Relaxed; oraz Confusion (dezorientacja), Fear (strach) i Realization (olśnienie) w grupie Surprised. Są opcjonalne. Każda z nich używa miny swojej głównej emocji, dopóki nie wybierzesz innej. Sprite nazwany jak jedna z nich, na przykład `fear` albo `amusement`, albo słowem w rodzaju `scared` czy `laughing`, jest dla niej używany bez żadnej konfiguracji.
 - **Movement.** **Hop while talking** (podskakiwanie podczas mówienia) i **Hop height** (wysokość podskoku) ustawiają podskakiwanie w stylu PNGTuber. **Time between blinks** (czas między mrugnięciami) to wartość średnia; każde mrugnięcie wypada trochę wcześniej albo później, więc nigdy nie wygląda mechanicznie. Gdy na urządzeniu jest włączone ograniczenie ruchu, awatar nie podskakuje ani nie oddycha, ale jego mina i usta nadal się zmieniają.
 - **Sprite'y pokazują się bez zmian.** Sprite narysowany na tle pokazuje się razem z nim, a twoje pliki sprite'ów nigdy nie są zmieniane. Jeśli chcesz min bez tła, zobacz [Miny z awatara](#faces-from-the-avatar).
@@ -81,7 +87,7 @@ Awatary mesh wymagają WebGL2, który mają aktualne przeglądarki. Bez niego, a
 
 **3D Avatars** pokazuje modele VRM, czyli format eksportowany przez program VRoid Studio, rozszerzenie VRM dla programu Blender i UniVRM dla silnika Unity. Działają zarówno pliki VRM 1.0, jak i VRM 0.x.
 
-Model VRM możesz też zrobić ze sprite'a całej sylwetki w usłudze Tripo, korzystając z własnego konta Tripo. Zobacz [Tworzenie modelu 3D w usłudze Tripo](#make-a-3d-model-with-tripo).
+Nie masz jeszcze modelu? [Zrób go w programie VRoid Studio](#get-a-3d-model), darmowej aplikacji, i zaimportuj.
 
 1. Otwórz **3D Avatars** w edytorze agenta i wybierz postać lub personę.
 2. W sekcji **VRM model** wybierz **Import VRM** (import modelu VRM) i wskaż plik `.vrm`.
@@ -91,7 +97,7 @@ Model VRM możesz też zrobić ze sprite'a całej sylwetki w usłudze Tripo, kor
 
 **Replace model** (zamiana modelu) zachowuje animację spoczynkową, bo animacje VRM pasują do każdego modelu VRM. **Remove model** (usunięcie modelu) usuwa model razem z jego animacją spoczynkową.
 
-W trakcie czatu model patrzy na ciebie, sam mruga, jeśli ma ekspresję mrugnięcia, i przechyla głowę, gdy myśli albo słucha. Jego głowa pozostaje przy górnej krawędzi jego miejsca: szerokie miejsce pokazuje głowę i ramiona, a węższe większą część ciała. Niektóre modele VRM 1.0 nie ruszają ustami, gdy pokazują minę; gdy taki model mówi, mina pokazuje się z częściową siłą, żeby usta mogły się poruszać. Przy włączonym ograniczeniu ruchu mina i usta nadal się zmieniają, ale model przestaje się kołysać, oddychać i odtwarzać animację spoczynkową.
+W trakcie czatu model patrzy na ciebie, sam mruga, jeśli ma ekspresję mrugnięcia, i przechyla głowę, gdy myśli albo słucha. Przy domyślnym kadrze **Portrait** jego głowa pozostaje przy górnej krawędzi jego miejsca: szerokie miejsce pokazuje głowę i ramiona, a węższe większą część ciała. Kadry **Half body** i **Full body**, dostępne w ustawieniach awatarów czatu, pokazują większą część modelu. Niektóre modele VRM 1.0 nie ruszają ustami, gdy pokazują minę; gdy taki model mówi, mina pokazuje się z częściową siłą, żeby usta mogły się poruszać. Przy włączonym ograniczeniu ruchu mina i usta nadal się zmieniają, ale model przestaje się kołysać, oddychać i odtwarzać animację spoczynkową.
 
 Niektórych plików nie da się użyć, a import podaje powód:
 
@@ -107,8 +113,6 @@ Poza zwykłym limitem wgrywania w aplikacji nie ma limitu rozmiaru, ale duże mo
 
 Jeśli postać lub persona nie ma jeszcze modelu VRM, zrób go w programie VRoid Studio. To darmowa aplikacja firmy pixiv dla systemów Windows i macOS oraz urządzeń iPad, a zrobionych w niej modeli możesz używać jako własnych. Kilka jej wbudowanych elementów i wszystkie kupione tekstury mają własne warunki, więc najpierw je sprawdź. Jej modele mają sześć min, pięć kształtów ust i mruganie, więc miny i synchronizacja ust działają od razu.
 
-Możesz też zlecić to usłudze Tripo, która zrobi model ze sprite'a całej sylwetki przy użyciu twojego własnego konta Tripo: zobacz [Tworzenie modelu 3D w usłudze Tripo](#make-a-3d-model-with-tripo). Kosztuje to kredyty Tripo, a twarz modelu się nie porusza.
-
 Na stronie **3D Avatars** wybierz postać lub personę. W sekcji **Get a 3D model** (zdobycie modelu 3D) przycisk **Read the guide** (przeczytanie przewodnika) otwiera tę sekcję, a **Copy prompt** (kopiowanie promptu) kopiuje opis wyglądu postaci lub persony.
 
 1. Pobierz program [VRoid Studio](https://vroid.com/en/studio) i zainstaluj go.
@@ -121,33 +125,7 @@ Na stronie **3D Avatars** wybierz postać lub personę. W sekcji **Get a 3D mode
 
 **Co się porusza.** Mina podąża za odpowiedzią, a usta poruszają się zgodnie z tekstem albo głosem, gdy model ma do tego ekspresje. Model VRM z innego narzędzia może mieć ich mniej albo nie mieć żadnych, a sekcja **Faces and mouth shapes** pokazuje, które ma. Niektóre strony internetowe obiecują zrobić model VRM z ekspresjami twarzy na podstawie obrazka albo opisu, ale w chwili pisania tego przewodnika (październik 2026) nie udało się tego potwierdzić dla żadnej z nich, więc ten przewodnik żadnej nie poleca.
 
-<a id="make-a-3d-model-with-tripo"></a>
-
-### Tworzenie modelu 3D w usłudze Tripo
-
-Tripo to płatna usługa, która tworzy modele 3D z obrazków. Na stronie **3D Avatars** przycisk **Make 3D model** (utworzenie modelu 3D) w sekcji **Get a 3D model** zamienia jeden sprite całej sylwetki w model VRM przy użyciu twojego własnego konta Tripo. Jeden model kosztuje około 60 kredytów Tripo (około 0,60 USD) i powstaje w około 3 minuty.
-
-1. Zaloguj się w serwisie Tripo, a potem utwórz klucz API na [stronie kluczy Tripo](https://developers.tripo3d.ai/en/keys). Tam też kupisz kredyty.
-2. Otwórz **3D Avatars** w panelu **Agents** i wybierz postać lub personę. W sekcji **Get a 3D model** wklej klucz w pole **Tripo API key** (klucz API Tripo) i wybierz **Save** (zapis). Przycisk **Get a key** (zdobycie klucza) obok otwiera stronę kluczy Tripo. Klucz jest zachowywany dla wszystkich postaci i person, więc wklejasz go tylko raz. **Remove** go usuwa.
-3. Po zapisaniu klucza widać twoje saldo Tripo. Neutralny sprite całej sylwetki jest wybrany automatycznie; możesz wybrać inny. Użyj sprite'a całej sylwetki, na którym widać całą postać: popiersie albo przycięty sprite daje model bez nóg, który zostaje odrzucony.
-4. Sprawdź saldo i koszt, a potem wybierz **Make 3D model**. Każdy krok pojawia się po zakończeniu, razem z dotąd zużytymi kredytami: Tripo rysuje sprite w pozie T (5 kredytów), tworzy model 3D (30 kredytów) i dodaje szkielet (25 kredytów), a potem Marinara Engine zamienia go w plik VRM.
-5. Obejrzyj obrazki, a potem wybierz **Save as the VRM model** (zapisanie jako model VRM) albo **Discard** (odrzucenie). Zapisanie zastępuje bieżący model VRM postaci lub persony.
-
-**Tylko ciało.** Model z usługi Tripo porusza ciałem, rękami i głową, ale jego twarz się nie porusza: nie ma ekspresji twarzy, więc nie może się uśmiechać, mrugać ani poruszać ustami. Sekcja **Faces and mouth shapes** informuje o tym, zamiast proponować miny do wyboru. Włosy, płaszcze i ogony są częścią ciała i się nie kołyszą, a dłonie nie mają palców, które mogłyby się zginać.
-
-**Cancel** (anulowanie) od razu przerywa czekanie. Tripo nie może zatrzymać kroku, który już się rozpoczął, więc może go jeszcze dokończyć i pobrać za niego kredyty. Za krok, który się nie powiedzie, Tripo zwraca kredyty.
-
-Jeśli coś pójdzie nie tak, panel konfiguracji podaje, co zrobić:
-
-- **Klucz nieprzyjęty:** wklej działający klucz w pole **Tripo API key** na stronie **3D Avatars** i wybierz **Save**. **Get a key** otwiera stronę kluczy Tripo.
-- **Za mało kredytów:** doładuj konto w serwisie Tripo. Saldo jest sprawdzane, zanim cokolwiek się zacznie, więc nic nie zostaje wydane.
-- **Zasady treści:** usługa Tripo odrzuciła obrazek. Spróbuj innego sprite'a.
-- **Serwis zajęty:** spróbuj ponownie za minutę.
-- **Opuszczone ręce albo brak nóg:** model nie może poruszać się jak awatar, więc zostaje odrzucony, zanim cokolwiek zostanie zapisane. Spróbuj innego sprite'a całej sylwetki.
-
-**Co jest wysyłane.** Twój sprite trafia do usługi Tripo, a jeśli ma tło, najpierw zostaje ono usunięte. Klucz jest przechowywany na serwerze w postaci zaszyfrowanej, wysyłany tylko do API Tripo i nigdy nie jest pokazywany w aplikacji, zapisywany w logu ani dołączany do eksportu profilu. Przy włączonym trybie diagnostycznym (Debug mode) log serwera pokazuje ustawienia i numery zadań każdego żądania do Tripo.
-
-**Kto może używać modelu.** Zgodnie z warunkami usługi Tripo modele utworzone przez płacących użytkowników należą do nich, a prawa do modeli utworzonych za darmo zachowuje Tripo. Grafika twojego sprite'a może też należeć do kogoś innego. Dlatego plik modelu deklaruje tylko twój osobisty, niekomercyjny użytek, prosi o podanie autora, zastrzega, że pliku nie należy udostępniać, i zawiera link do [warunków Tripo](https://developers.tripo3d.ai/en/terms). Pokazuje je sekcja **The author's terms**. Sprawdź je przed udostępnieniem modelu.
+Model utworzony wcześniej za pomocą usuniętego generatora Tripo nadal się wczytuje i porusza ciałem, ale jego twarz się nie porusza.
 
 ## Jak miny i usta podążają za odpowiedzią
 
@@ -160,6 +138,8 @@ Awatary reagują samodzielnie; w tej części nie trzeba niczego konfigurować.
 - Mina wraca do spokojnej dopiero po dwóch spokojnych zdaniach z rzędu.
 - Około czterech sekund po zakończeniu odpowiedzi mina rozluźnia się i wraca do spokojnej.
 
+Gdy synteza mowy czyta odpowiedź na głos, miny podążają zamiast tego za głosem; zobacz **Gdy odpowiedź jest czytana na głos** poniżej.
+
 Awatar PNGTuber z minami dla [dodatkowych emocji](#pngtuber-sprites) może też pokazać bardziej szczegółową emocję, którą wyraża zdanie, na przykład Amusement, gdy zdanie jest radosne. Ta mina podlega tym samym zasadom: wymaga wyraźnego odczytu i utrzymuje się co najmniej dwie sekundy, a emocja bez własnej miny pokazuje minę swojej głównej emocji. Tak samo działają wybory agenta Expression Engine i postaci Game Master: gdy awatar nie ma miny o wybranej nazwie, na przykład `scared`, pokazuje minę tej emocji, tutaj Fear. Awatary 3D i mesh pokazują tylko sześć emocji.
 
 **Jak odczytywany jest nastrój.** Połączenie czatu nie jest o to pytane. Tekst czatu zostaje w twojej własnej aplikacji Marinara Engine i nigdy nie trafia do zewnętrznej usługi.
@@ -169,20 +149,31 @@ Awatar PNGTuber z minami dla [dodatkowych emocji](#pngtuber-sprites) może też 
 
 **Miny w trybie Game Mode.** Każda kwestia pokazywana przez postać Game Master ma przypisany wyraz twarzy, który przejmuje awatar mówiącej postaci. Wewnętrzne myśli postaci zmieniają minę, ale nie poruszają ustami.
 
-**Agent Expression Engine.** Gdy jest włączony w czacie, jego wybór po odpowiedzi jest ostateczną miną dla tej odpowiedzi. Wybór, który nadejdzie już po wysłaniu przez ciebie kolejnej wiadomości, zostaje przy odpowiedzi, której dotyczył. Awatary działają również bez niego.
+**Agent Expression Engine.** Gdy jest włączony w czacie, jego wybór po odpowiedzi jest ostateczną miną dla tej odpowiedzi. Wybór, który nadejdzie już po wysłaniu przez ciebie kolejnej wiadomości, zostaje przy odpowiedzi, której dotyczył. Gdy synteza mowy czyta odpowiedź na głos, wybrana mina pojawia się, kiedy głos skończy czytać. Awatary działają również bez tego agenta.
 
 **Usta.** Gdy usta poruszają się na podstawie tekstu, ruszają się tylko przy dialogach (słowach w cudzysłowie, wierszach `[Name]:` i znacznikach mówiącego), a nie przy narracji, mniej więcej w tempie mowy. Jeśli tekst pojawia się szybciej, niż ktokolwiek zdołałby go wypowiedzieć, usta przyspieszają, a potem przeskakują do przodu, żeby nadążać za słowami na ekranie. Przy wyłączonym streamingu dialog z odpowiedzi jest wypowiadany w ciągu ośmiu sekund. Gdy synteza mowy odtwarza kwestię, usta porusza zamiast tego głos, więc narracja postaci czytana jej głosem także porusza jej ustami.
+
+**Gdy odpowiedź jest czytana na głos.** Przy włączonej syntezie mowy i opcji **Auto-play** (automatyczne odtwarzanie) w trybie Roleplay głos zwykle zaczyna się kilka sekund po pojawieniu się odpowiedzi, więc awatar na niego czeka:
+
+- Gdy odpowiedź się pojawia, awatar mruga i porusza się jak zwykle, ale jego usta pozostają zamknięte, a mina jeszcze się nie zmienia.
+- Gdy głos się zaczyna, usta poruszają się zgodnie z nim, a mina zmienia się, gdy głos dochodzi do kolejnych zdań.
+- Mina rozluźnia się około czterech sekund po zakończeniu głosu, a nie tekstu. Krótkie pauzy między kwestiami jej nie rozluźniają.
+- Jeśli głos zawiedzie albo nie zacznie się w ciągu kilku sekund od odpowiedzi, awatar raz odtwarza miny i ruch ust odpowiedzi na podstawie tekstu. Jeśli głos zawiedzie później, awatar pokazuje tylko ostatni nastrój odpowiedzi, a potem się rozluźnia.
+- Po 30 sekundach bez głosu awatar przestaje czekać. Głos, który zacznie się później, nadal porusza ustami.
 
 **Ciało.** Awatar myśli od chwili wysłania wiadomości do swoich pierwszych słów, mówi, gdy poruszają się jego usta, słucha, gdy mówi ktoś inny albo gdy piszesz, a w pozostałych chwilach odpoczywa.
 
 **Czaty grupowe.** W grupie Individual mówi członek, który właśnie odpowiada, także przy swipe'ach wiadomości jednego z członków. W grupie Merged każdy akapit należy do pierwszej postaci, którą wymienia, albo do postaci z poprzedniego akapitu. Dopóki akapit, który nikogo nie wymienia, jeszcze się pojawia, jego dialog czeka, aż imię albo koniec akapitu pokaże, kto go wypowiada. Przy wyłączonym streamingu w grupie Individual na razie tylko odpowiedź ostatniego członka porusza awatarem.
 
+<a id="lip-sync-with-text-to-speech"></a>
+
 ## Synchronizacja ust z syntezą mowy
 
-Gdy synteza mowy czyta odpowiedź w trybie Roleplay, awatar mówiącej postaci porusza ustami zgodnie z głosem. Usta otwierają się szerzej przy głośnych dźwiękach i zamykają w pauzach. Zmieniają też kształt: zaokrąglają się przy ciemnych dźwiękach, takich jak "u", i pokazują zęby przy dźwiękach takich jak "s". Nie trzeba niczego dodatkowo konfigurować. Włącz syntezę mowy zgodnie z przewodnikiem [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md), a synchronizacja ust zadziała z **Auto-play** (automatyczne odtwarzanie) i z przyciskiem **Speak** (Mów) przy wiadomości, także w układzie visual novel.
+Gdy synteza mowy czyta odpowiedź w trybie Roleplay, awatar mówiącej postaci porusza ustami zgodnie z głosem. Usta otwierają się szerzej przy głośnych dźwiękach i zamykają w pauzach. Zmieniają też kształt: zaokrąglają się przy ciemnych dźwiękach, takich jak "u", i pokazują zęby przy dźwiękach takich jak "s". Nie trzeba niczego dodatkowo konfigurować. Włącz syntezę mowy zgodnie z przewodnikiem [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md), a synchronizacja ust zadziała z **Auto-play** i z przyciskiem **Speak** (Mów) przy wiadomości, także w układzie visual novel.
 
 - **Kto mówi:** poruszają się usta postaci, której głos czyta kwestię, czyli tej samej postaci, dla której **Voice Option** (opcja głosu) wybiera głos. Gdy odpowiedź ma kilku mówiących, usta każdej postaci poruszają się tylko podczas jej własnych kwestii. Kwestie czytane głosem narratora oraz mówiący, którzy nie są postaciami w czacie, nie poruszają żadnymi ustami. Przy wyłączonym **Only read dialogues** (czytanie tylko dialogów) własna narracja postaci jest czytana jej głosem, więc jej usta poruszają się także przy niej.
 - **Pauza, zatrzymanie i przełączanie czatów:** wstrzymanie albo zatrzymanie głosu zatrzymuje usta. Jeśli przełączysz się na inny czat, gdy odpowiedź jest jeszcze czytana, awatary w tamtym czacie pozostają nieruchome. Jeśli wrócisz do pierwszego czatu, zanim głos skończy, jego awatar znów podejmie głos.
+- **Miny:** mina zmienia się, gdy głos dochodzi do kolejnych zdań, zarówno przy **Auto-play**, jak i przy przycisku **Speak**, chyba że agent Expression Engine już wybrał minę dla tej odpowiedzi.
 - **Głośność:** suwak **Line volume** (głośność kwestii) zmienia głośność głosu, a nie to, jak szeroko otwierają się usta.
 - **Persony:** usta persony nie poruszają się przy twoich własnych wiadomościach, z syntezą mowy ani bez niej.
 - **Game Mode:** narracja w trybie Game jest odtwarzana przez własny dźwięk trybu Game Mode, więc w trybie Game Mode usta awatarów na razie podążają za tekstem.
@@ -199,16 +190,25 @@ Na stronie **2D Avatars** w edytorze agenta wybierz postać lub personę, a pote
 
 ### Miny z awatara
 
-**Make faces from the avatar** (tworzenie min z awatara) tworzy miny bez tła, także dla postaci lub persony, która nie ma jeszcze sprite'ów. Otwiera generowanie sprite'ów, to samo co w edytorach postaci i persony, z awatarem zaznaczonym jako referencja. Zaczyna od sześciu głównych min: Neutral, Happy, Angry, Sad, Relaxed i Surprised, i proponuje 23 dodatkowe emocje, na przykład Pride, Grief i Realization. Każda dodatkowa emocja jest w wierszu głównej miny, którą pokazuje, dopóki nie ma własnej miny. Wybierz **All faces** (wszystkie miny), aby dostać wszystkie 29, **Main faces** (główne miny), aby dostać sześć głównych, albo dowolne wybrane miny. Miny są rysowane partiami, najpierw główne, po tyle na jednym obrazku, ile mieści siatka; starsze modele GPT Image rysują jedną minę na obrazek. Obrazek, którego nie udało się utworzyć, jest ponawiany raz; jeśli znów się nie uda, tworzenie zatrzymuje się z przyciskiem **Retry picture** (ponowienie obrazka), a **Cancel** zachowuje już utworzone miny. Przy włączonej opcji **Expose media prompts before sending** przeglądasz prompty wszystkich obrazków naraz, zanim zostanie wysłany pierwszy. Każda mina jest rysowana z otwartymi oczami i zamkniętymi ustami, żeby jej obrazki mrugania i mówienia miały co zamykać i otwierać. Funkcja rysuje z awatara nowe sprite'y wyrazów twarzy na jednolitym kolorze, usuwa ten kolor i zapisuje je jako sprite'y postaci lub persony. Nowy sprite zastępuje sprite o tej samej nazwie, więc jeśli chcesz zachować stary, zmień nazwę w ostatnim kroku. Potrzebne są awatar i połączenie do generowania obrazów.
+**Make faces from the avatar** (tworzenie min z awatara) tworzy miny bez tła, także dla postaci lub persony, która nie ma jeszcze sprite'ów. Otwiera generowanie sprite'ów, to samo co w edytorach postaci i persony, z awatarem zaznaczonym jako referencja.
+
+1. Generowanie zaczyna od sześciu głównych min: Neutral, Happy, Angry, Sad, Relaxed i Surprised, i proponuje 23 dodatkowe emocje, na przykład Pride, Grief i Realization. Każda dodatkowa emocja jest w wierszu głównej miny, którą pokazuje, dopóki nie ma własnej miny. Wybierz **All faces** (wszystkie miny), aby dostać wszystkie 29, **Main faces** (główne miny), aby dostać sześć głównych, albo dowolne wybrane miny.
+2. Miny są rysowane partiami, najpierw główne, po tyle na jednym obrazku, ile mieści siatka; starsze modele GPT Image rysują jedną minę na obrazek. Obrazek, którego nie udało się utworzyć, jest ponawiany raz; jeśli znów się nie uda, tworzenie zatrzymuje się z przyciskiem **Retry picture** (ponowienie obrazka), a **Cancel** zachowuje już utworzone miny.
+3. Przy włączonej opcji **Expose media prompts before sending** przeglądasz prompty wszystkich obrazków naraz, zanim zostanie wysłany pierwszy. Każda mina jest rysowana z otwartymi oczami i zamkniętymi ustami, żeby jej obrazki mrugania i mówienia miały co zamykać i otwierać.
+4. Funkcja rysuje z awatara nowe sprite'y wyrazów twarzy na jednolitym kolorze, usuwa ten kolor i zapisuje je jako sprite'y postaci lub persony. Nowy sprite zastępuje sprite o tej samej nazwie, więc jeśli chcesz zachować stary, zmień nazwę w ostatnim kroku. Gdy awatar jest już zapisany, każda nowa mina staje się miną emocji, dla której ją narysowano, nawet jeśli zmieniono jej nazwę; pozostałe sprite'y zostają i można je znowu wybrać w sekcji **Face for each feeling**. Mina utworzona ponownie zaczyna bez obrazków mrugania i mówienia, bo stare by do niej nie pasowały; nowe utworzysz w sekcji [Obrazki mrugania i mówienia](#blink-and-talk-pictures). Import PNGTuber Plus zachowuje własne miny. Potrzebne są awatar i połączenie do generowania obrazów.
+
+<a id="blink-and-talk-pictures"></a>
 
 ### Obrazki mrugania i mówienia
 
 1. Każda mina, którą awatar pokazuje dla jakiejś emocji, to jeden wiersz, podpisany nazwami emocji, które ją pokazują. Obok **Face** (mina) są jej obrazki **Eyes closed** (zamknięte oczy) i **Mouth open** (otwarte usta): zapisane wcześniej, dodane przez ciebie sprite'y `_blink` i `_talk` albo nowe. Gdy postać lub persona ma sprite'y portretowe, używane są tylko one, bo awatar nigdy nie miesza min portretowych i min całej sylwetki. Mina, która nie jest jednym z twoich sprite'ów, na przykład pochodząca z importu PNGTuber Plus, pokazuje swoje obrazki, ale nie da się dla niej narysować nowych.
-2. Sprawdź **Image connection** (połączenie do generowania obrazów; twoje domyślne połączenie obrazowe jest wybrane automatycznie). **Make** (utworzenie) rysuje jeden brakujący obrazek, a **Make pictures** (tworzenie obrazków) rysuje wszystkie. Każdy obrazek to jedno zapytanie o obraz. Przy włączonej opcji **Expose media prompts before sending** (w ustawieniach) najpierw widzisz każdy prompt i możesz go edytować.
+2. Sprawdź **Image connection** (połączenie do generowania obrazów; twoje domyślne połączenie obrazowe jest wybrane automatycznie). **Make** (utworzenie) rysuje jeden brakujący obrazek, a **Make pictures** (tworzenie obrazków) rysuje wszystkie. Każdy obrazek to jedno zapytanie o obraz; połączenie, które nie potrafi edytować obrazów, rysuje oba obrazki miny w jednym zapytaniu (zobacz niżej). Przy włączonej opcji **Expose media prompts before sending** (w ustawieniach) najpierw widzisz każdy prompt i możesz go edytować.
 3. Nowe obrazki pojawiają się po kolei. Przy tych, które wyglądają dobrze, wybierz **Keep** (zachowanie), a przy pozostałych **Try again** (ponowna próba); **Try again** rysuje też od nowa obrazek, który już masz. Rysowany ponownie obrazek pozostaje przyciemniony, z kołowrotkiem, dopóki nie nadejdzie nowy. **Cancel** zatrzymuje tworzenie bieżącego obrazka, także na serwerze, i porzuca obrazki, które jeszcze nie powstały. Jeśli **Try again** się nie uda, zostaje stary obrazek. Aby utworzyć zachowany obrazek od nowa, najpierw wybierz **Kept** (zachowany), żeby z niego zrezygnować.
-4. Wybierz **Save kept pictures** (zapisanie zachowanych obrazków). Stają się one obrazkami mrugania i mówienia awatara PNGTuber dla tych wyrazów twarzy i leżą obok kopii sprite'a, z którego powstały, więc zawsze się z nim pokrywają. Jeśli awatar nadal pokazywał twoje sprite'y w niezmienionej postaci, zachowuje je wszystkie i dostaje nowe obrazki. Jeśli przed zapisaniem podmienisz sprite, utwórz jego obrazki ponownie.
+4. Wybierz **Save kept pictures** (zapisanie zachowanych obrazków). Stają się one obrazkami mrugania i mówienia awatara PNGTuber dla tych wyrazów twarzy i leżą obok kopii sprite'a, z którego powstały, albo obok nowej miny narysowanej razem z nimi, więc zawsze się pokrywają. Jeśli awatar nadal pokazywał twoje sprite'y w niezmienionej postaci, zachowuje je wszystkie i dostaje nowe obrazki. Jeśli przed zapisaniem podmienisz sprite, utwórz jego obrazki ponownie.
 
-Najlepiej sprawdzają się modele obrazów, które edytują obrazy, bo dostają twój sprite jako jedyną referencję, z promptem, który prosi o zmianę tylko oczu albo ust. Sprite jest wysyłany w rozmiarze i proporcjach akceptowanych przez model, jako wycięta postać na białym tle, a potem wycinany z powrotem z wyniku według własnego obrysu sprite'a, więc model, który nie przesuwa obrazu, daje obrazki, które się pokrywają. Jeśli obrazek zmienia coś więcej niż oczy albo usta, awatar przeskakuje przy mrugnięciu albo mówieniu; utwórz wtedy ten obrazek ponownie.
+Przy połączeniu obrazowym, które przyjmuje obraz referencyjny, twój sprite jest wysyłany jako jedyny obraz referencyjny, w rozmiarze i proporcjach akceptowanych przez model (jako wycięta postać na białym tle), z promptem, który prosi o zmianę tylko oczu albo ust. Modele przesuwają, skalują albo uzupełniają marginesami obrazek, który odsyłają, więc najpierw jest on dopasowywany do twojego sprite'a, a dopiero potem wycinane są z niego tylko oczy (przy mrugnięciu) albo usta (przy mówieniu). Wszystko inne, w tym obrys, ubranie i popiersie ucięte przy dolnej krawędzi, to niezmienione piksele twojego sprite'a, więc awatar nie przeskakuje, gdy mruga albo mówi. Jeśli model nie zamknął oczu ani nie otworzył ust albo przesunął obrazek za daleko, żeby dało się go dopasować, tworzenie obrazka kończy się błędem z komunikatem, który to wyjaśnia; spróbuj ponownie.
+
+Niektóre połączenia nie potrafią edytować obrazów, na przykład Pollinations, Together AI, Horde, DALL-E albo workflow ComfyUI bez miejsca na obraz referencyjny. Przy takim połączeniu **Make** rysuje na podstawie wyglądu postaci lub persony nową minę razem z jej obrazkami mrugania i mówienia, na jednym obrazku, żeby wszystkie trzy do siebie pasowały, i na jednolitym kolorze, który potem zostaje usunięty, tak jak w sekcji [Miny z awatara](#faces-from-the-avatar). Wiersz pokazuje ją jako **New face** (nowa mina). **Keep** zachowuje nową minę razem z oboma jej obrazkami, a zapisanie sprawia, że nowa mina staje się w awatarze miną tej emocji; sam twój sprite się nie zmienia. Wymaga to wyglądu albo opisu w karcie postaci lub persony.
 
 <a id="mesh-avatar"></a>
 
@@ -221,7 +221,7 @@ Najlepiej sprawdzają się modele obrazów, które edytują obrazy, bo dostają 
 
 Wygenerowany awatar mesh porusza głową, oczami, brwiami i ustami, a mruga i mówi własnymi powiekami i ustami. Włosy poruszają się razem z głową; dłonie, pojedyncze kosmyki i zwisające akcesoria nie poruszają się osobno. Gdy twarz wypełnia większość dużego sprite'a, awatar powstaje z mniejszej kopii, żeby tworzenie trwało krótko.
 
-Twój sprite jest wysyłany do połączenia obrazowego przy obrazkach mrugania i mówienia (a jeśli to połączenie zawiedzie i ma ustawione zapasowe połączenie obrazowe, także do tamtego) oraz do połączenia czatu przy awatarze mesh. Prompty są częścią agenta 2D Avatars. Przy włączonej opcji **Expose media prompts before sending** możesz przeczytać i zmienić prompt każdego obrazka przed jego wysłaniem. Przy włączonym trybie diagnostycznym każdy prompt trafia do logu serwera.
+Twój sprite jest wysyłany do połączenia obrazowego przy obrazkach mrugania i mówienia (a jeśli to połączenie zawiedzie, ma ustawione zapasowe połączenie obrazowe, a to przyjmuje obraz referencyjny, także do tamtego) oraz do połączenia czatu przy awatarze mesh. Połączenie, które nie potrafi edytować obrazów, dostaje tylko prompt, który zawiera wygląd. Prompty są częścią agenta 2D Avatars. Przy włączonej opcji **Expose media prompts before sending** możesz przeczytać i zmienić prompt każdego obrazka przed jego wysłaniem. Przy włączonym trybie diagnostycznym każdy prompt trafia do logu serwera.
 
 ## Tworzenie własnego modelu
 

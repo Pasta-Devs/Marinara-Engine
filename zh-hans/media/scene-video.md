@@ -41,6 +41,10 @@
 
 用 **SwarmUI** 时，Marinara 会填入本地地址 `http://127.0.0.1:7801`。把 API 格式的视频工作流粘贴到 **ComfyUI Workflow** 里。工作流是必填的。SwarmUI 用不了 `%reference_image_name%` 占位符，所以参考图要改用 `%reference_image%`。如果你的 SwarmUI 服务器要求账号，就把 Swarm Auth Token 粘贴到 **API Key**(API 密钥)。**Fetch Models from API** 会列出 SwarmUI 服务器上的模型。
 
+### Video Prompting Instructions
+
+Video Generation 连接有一个 **Video Prompting Instructions**(视频提示词说明) 输入框。用它告诉撰写视频提示词的 AI，你的视频模型需要什么，例如运镜、提示词长度或声音。它会指导 Roleplay 的 Gallery 动画、Conversation 的视频消息，以及 Storyboard 的 **Image-aware shot planning**(图像感知镜头规划)。如果 AI 把其中完整的一句话照抄进视频提示词，Marinara 会把那句话删掉。Game Mode 的场景视频、通话片段和动态表情会另行生成提示词，**Video Prompting Instructions** 不会影响它们。
+
 ### 设为默认视频连接
 
 Video Generation 连接的编辑界面里有一组 **Default for Videos**(视频默认连接) 选项。开启 **Use as default video connection**(用作默认视频连接)，聊天本身没有指定视频连接时，Marinara 就会用这个连接。默认视频连接只标记一个。

@@ -136,6 +136,8 @@ Eine `pages`-Zwischensequenz läuft vor der Antwort des Game Master in der Erzä
 
 Eine `beats`-Zwischensequenz erzählt der Game Master in diesem Zug in eigenen Worten, Beat für Beat. Die Beats eines `gm`-Ereignisses erhält der Game Master zusammen mit dem Ereignis und erzählt sie in der Antwort, die den Moment markiert. Eine Beats-Szene, die ein `gm`-Ereignis verwendet, kennt der Game Master also von Anfang an, auch wenn ein Ereignis der Engine sie ebenfalls abspielt. Da er sie in jedem Zug mitgeteilt bekommt, sind die Beats aller `gm`-Ereignisse zusammen auf 16.000 Zeichen begrenzt.
 
+<a id="the-intro-message"></a>
+
 ### Die Intro-Nachricht
 
 `intro` (Capability API 1.339) legt fest, wie das Spiel beginnt – dieselbe Wahl, die die GM-Einrichtung jedem Spiel bietet:

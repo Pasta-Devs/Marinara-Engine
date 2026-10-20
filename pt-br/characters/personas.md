@@ -20,12 +20,13 @@ O painel **Personas** é a sua biblioteca de personas. Abra pelo ícone de pesso
 
 O painel traz estes controles:
 
-- O botão **Open Full Library** (abrir a biblioteca completa) abre a Persona Library em página inteira, com layout responsivo. Ela usa o mesmo layout de grade com prévia da Character Library, com descrições da persona, seções do card, tags e estimativas de tokens.
+- O botão **Download** (baixar) abre o [Card Browser](bot-browser.md), onde você também encontra personas no PlotLight.
+- O botão **Open Library** (abrir a biblioteca) abre a Persona Library em página inteira, com layout responsivo. Ela usa o mesmo layout de grade com prévia da Character Library, com descrições da persona, seções do card, tags e estimativas de tokens.
 - O botão **New** (novo) cria uma persona.
 - O botão **Import** (importar) abre a janela **Import Persona**.
 - O botão **Select** (selecionar) liga o modo de seleção em massa, para agir sobre várias personas de uma vez.
 - A caixa de busca, com o texto de exemplo **Search personas**, procura no nome, na descrição, no comentário e nas tags.
-- O menu suspenso de ordenação oferece **A-Z**, **Z-A**, **Newest**, **Oldest** e **Tokens** (tamanho estimado do prompt).
+- O menu suspenso de ordenação oferece **Manual order** (ordem manual), **A-Z**, **Z-A**, **Newest**, **Oldest** e **Tokens** (tamanho estimado do prompt). **Manual order** mantém a ordem que você definiu: arraste uma linha para cima ou para baixo, ou aperte Alt+Up ou Alt+Down em uma linha selecionada. Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la.
 - O botão **New Folder** (nova pasta) cria uma pasta para organizar as personas.
 - A etiqueta **Tags** expande a lista de tags para filtrar.
 
@@ -82,7 +83,7 @@ Na aba **Card** você escreve os campos principais da persona. Cada campo é uma
 - **Personality**: o seu temperamento, o seu comportamento, os seus jeitos de falar e os seus padrões emocionais.
 - **Backstory**: a sua história, a sua origem, as suas relações e os acontecimentos que marcaram você.
 - **Appearance**: descrição física, roupas e detalhes visuais que o modelo deve lembrar.
-- **Image Appearance Override** (aparência alternativa para imagens): um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo onde você pode escrever uma descrição da persona voltada à geração de imagens. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam esse texto no lugar de **Appearance**. Se a opção estiver desativada ou o campo vazio, eles continuam usando **Appearance**. O narrador sempre recebe o texto completo de **Appearance**.
+- **Image Appearance Override** (aparência alternativa para imagens): um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo para tags curtas de imagem que descrevem a sua persona, como a palavra-gatilho de uma LoRA. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto. O narrador sempre recebe o texto completo de **Appearance**.
 - **Scenario**: a situação ou o contexto padrão para os roleplays. Use esse campo para dizer onde a persona começa.
 
 Essas caixas de texto aceitam macros. Marinara formata automaticamente as aspas que você digita conforme o estilo de aspas do aplicativo.
@@ -119,11 +120,11 @@ Deixe qualquer um desses campos em branco para usar as cores padrão do tema do 
 A aba **Stats** tem dois blocos separados. Os dois alimentam o painel de status na tela (HUD), a faixa de informações no topo do chat.
 
 - O botão **Enable Persona Stats** liga as barras de status para necessidades como fome, energia e humor. Ao ativar do zero, você recebe as barras iniciais Satiety, Energy, Hygiene e Mood, cada uma em 100 de 100. O agente **Persona Stats** ajusta esses valores conforme a história avança.
-- O botão **Enable RPG Attributes** liga os atributos no estilo RPG e o HP. Ao ativar do zero, você recebe os atributos iniciais STR, DEX, CON, INT, WIS e CHA, cada um em 10. O agente **Character Tracker** pode ajustá-los a partir do combate e dos acontecimentos da narrativa.
+- O botão **Enable RPG Attributes** liga os Pools e os atributos no estilo RPG. Ao ativar do zero, você recebe os Pools iniciais HP e MP em 100 de 100 e os atributos iniciais STR, DEX, CON, INT, WIS e CHA, cada um em 10. Esses valores são enviados com o card da persona para o combate e o Game Mode, e para as rolagens opcionais no Roleplay ou no Game Mode. Os agentes de tracker não os atualizam.
 
-Os valores definidos aqui são o ponto de partida dos chats novos. Eles não se atualizam sozinhos. Para a atualização automática, o agente correspondente precisa estar ativado no chat. Para a explicação completa, veja [Cores do personagem e status de RPG](colors-and-stats.md).
+Quando há um conjunto de regras de Game Mode instalado, ou a persona ainda guarda uma ficha de um conjunto que você não tem mais, um bloco **Ruleset sheets** (fichas de conjuntos de regras) aparece abaixo desses dois. Ele guarda a configuração inicial da sua persona para cada conjunto de regras, que uma partida nova com esse conjunto copia. Veja [Fichas de conjuntos de regras](colors-and-stats.md#ruleset-sheets).
 
-Se há um conjunto de regras de Game Mode instalado, ou a persona ainda guarda sua ficha, **Ruleset sheets** aparece abaixo das duas seções. É a configuração inicial por conjunto, copiada para cada nova partida. Veja [Fichas de conjuntos de regras](colors-and-stats.md#ruleset-sheets).
+Os valores definidos aqui são o ponto de partida dos chats novos. As barras de status da persona podem se atualizar sozinhas quando o agente Persona Stats está ativado; os Pools e os atributos de RPG da persona não são gerenciados por agentes. Para a explicação completa, veja [Cores do personagem e status de RPG](colors-and-stats.md).
 
 ## Histórico de versões
 
@@ -165,8 +166,8 @@ Cada arquivo mostra um ícone de sucesso ou de falha e uma mensagem. Uma linha d
 
 A exportação sai do ícone **Export persona**, dentro do **Persona Editor**, ou da ação em massa **Export**, no modo de seleção do painel. A janela **Export Persona** oferece dois formatos:
 
-- **Native**: mantém todos os detalhes da persona no Marinara, os sprites e os lorebooks anexados. Use este formato para levar uma persona de uma instalação do Marinara para outra.
-- **Compatible**: exporta só os campos simples da persona. Use este formato em outras ferramentas, que não entendem o formato do Marinara.
+- **Marinara Native**: mantém todos os detalhes da persona no Marinara, os sprites e os lorebooks anexados. Use este formato para levar uma persona de uma instalação do Marinara para outra.
+- **Compatible JSON**: exporta só os campos simples da persona. Use este formato em outras ferramentas, que não entendem o formato do Marinara.
 
 A exportação em massa baixa um único arquivo zip, com um arquivo por persona selecionada.
 

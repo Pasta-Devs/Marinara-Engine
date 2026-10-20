@@ -65,13 +65,13 @@ El streaming muestra la respuesta apareciendo palabra por palabra a medida que s
 |---|---|---|
 | **Enable streaming** | On | Muestra la respuesta palabra por palabra a medida que se genera |
 | **Streaming speed** | 50 | Establece qué tan rápido se muestra en pantalla el texto en streaming |
-| **Trim incomplete model endings** | Off | Recorta una frase final sin terminar antes de guardar |
+| **Trim incomplete sentences from the response** | Off | Recorta una frase final sin terminar antes de guardar |
 
 **Streaming speed** es un control deslizante de 1 a 100. Un valor más bajo da un efecto de máquina de escribir más lento para que puedas leer a la par. Un valor más alto muestra el texto casi al instante. Marinara suaviza la entrega irregular de tokens (fragmentos de texto) mientras el modelo escribe, y luego usa la velocidad que elegiste para terminar la respuesta. Este ajuste no cambia qué tan rápido escribe el modelo en sí.
 
 Cuando **Enable streaming** está desactivado, la respuesta completa aparece toda de una vez después de que el modelo termina.
 
-**Trim incomplete model endings** solo afecta al mensaje guardado. Cuando está activado, Marinara elimina una frase final sin terminar de la respuesta. Deja intactas las respuestas completas y los finales con estilo de comando.
+**Trim incomplete sentences from the response** solo afecta al mensaje guardado. Cuando está activado, Marinara elimina una frase final sin terminar de la respuesta. Deja intactas las respuestas completas y los finales con estilo de comando.
 
 ## Indicadores de escritura y progreso
 
@@ -95,7 +95,7 @@ Si la presencia de un personaje está fijada en un estado de ocupado o ausente, 
 
 Algunos modelos exponen un rastro de razonamiento oculto, a menudo llamado "pensamiento". Marinara lo mantiene separado de la respuesta visible.
 
-Cuando una respuesta tiene pensamiento adjunto, aparece una acción **View thoughts** (Ver pensamientos) (un icono de cerebro) en ese mensaje. Haz clic en ella para abrir un panel que muestra el texto de razonamiento capturado.
+Cuando una respuesta tiene pensamiento adjunto, aparece una acción **View model thoughts** (Ver los pensamientos del modelo) (un icono de cerebro) en ese mensaje. Haz clic en ella para abrir un panel que muestra el texto de razonamiento capturado.
 
 Para que el razonamiento se muestre, el modelo debe devolverlo realmente. Algunos modelos envuelven su razonamiento en etiquetas de texto plano. Para esos, configura **Thinking Tags** (etiquetas de pensamiento) personalizadas en la conexión para que Marinara pueda separar el razonamiento oculto de la respuesta visible. Ya se reconocen varios pares de etiquetas comunes. Mira la guía de parámetros de generación abajo para saber cómo configurar **Thinking Tags**.
 

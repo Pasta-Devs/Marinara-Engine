@@ -12,8 +12,8 @@ Le **Card Browser** interroge plusieurs sites publics de fiches de personnage sa
 
 Le **Card Browser** s'ouvre de deux façons.
 
-1. Clique sur l'icône **Card Browser** dans la barre du haut. Elle se trouve dans la rangée de boutons de panneaux, à droite.
-2. Autre option : ouvre le panneau **Card Browser** dans la barre latérale droite, puis clique sur le bouton **Download Cards** (télécharger des fiches) en haut de ce panneau.
+1. Ouvre le panneau **Characters** (personnages) et clique sur le bouton **Download** (télécharger) en haut. Son infobulle indique **Download character cards**.
+2. Autre option : clique sur le même bouton **Download** en haut du panneau **Personas** (personas).
 
 Dans les deux cas, toute la zone de contenu bascule sur la vue complète du **Card Browser**. Cette vue remplace la zone de chat. Ce n'est pas une petite fenêtre surgissante.
 
@@ -183,15 +183,6 @@ Si le personnage transporte un lorebook intégré, l'import fait apparaître une
 Clique sur **Download as PNG** pour enregistrer le personnage dans un fichier de fiche de personnage PNG standard. Le bouton affiche **Building PNG...** pendant l'opération. Cela fonctionne pour toutes les sources. Le fichier enregistré porte le nom du personnage, par exemple `Some_Character.png`. Tu peux le partager ou l'importer plus tard dans une autre application.
 
 JSON et PNG sont deux formats courants pour les mêmes données de personnage. Le JSON est un format en texte brut. Une fiche PNG est un fichier image qui contient les données du personnage à l'intérieur. Les deux gardent le personnage complet.
-
-## Tes personnages importés
-
-Le panneau **Card Browser** de la barre latérale droite tient une liste distincte des personnages que tu as importés via le **Card Browser**. Les personnages créés à la main ou importés autrement n'y figurent pas. Tous restent visibles dans la bibliothèque **Characters** principale.
-
-- Le bouton **Download Cards** ouvre la vue complète du **Card Browser**.
-- Le champ **Search imported...** filtre cette liste.
-- Le menu déroulant de tri propose **A-Z**, **Z-A**, **Newest** et **Oldest**.
-- Fais un clic droit sur une ligne, ou sers-toi de ses boutons, pour accéder à **Quick Start Roleplay** et **Quick Start Conversation**. Ces options ouvrent un nouveau chat avec ce personnage. C'est aussi ici que tu supprimes le personnage de cette liste.
 
 ## Dépannage
 

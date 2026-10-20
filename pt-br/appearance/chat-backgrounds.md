@@ -51,7 +51,7 @@ As pastas organizam a biblioteca sem mover nem esconder os arquivos de imagem or
 
 1. Clique em **New Folder** (nova pasta). Marinara cria uma pasta com nome único.
 2. Dê dois cliques ou dois toques no nome da pasta para renomeá-la. Outra opção: coloque o foco nela e pressione F2.
-3. No computador, arraste a linha de um plano de fundo para dentro de uma pasta. No celular ou tablet, arraste pela alça visível.
+3. No computador, arraste a linha de um plano de fundo para dentro de uma pasta. No celular ou tablet, mantenha a linha pressionada e depois arraste-a.
 4. Arraste o plano de fundo de volta para a área sem pasta e ele sai da pasta atual.
 
 Marinara salva as pastas e as atribuições no servidor e as inclui nos backups. Ao excluir uma pasta, os planos de fundo dela voltam para a lista sem pasta; as imagens continuam onde estavam. Os filtros de busca e de tag mostram automaticamente os itens correspondentes que estão dentro das pastas.

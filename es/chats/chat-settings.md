@@ -42,7 +42,7 @@ En una computadora, Chat Settings flota sobre el chat. Su contenido se reorganiz
 - **Lock** impide mover o redimensionar la ventana y fija la posición de su botón. Puedes seguir pulsando el botón para abrirla. Desbloquea la ventana para volver a mover cualquiera de los dos.
 - **Close** (la **X**) oculta la ventana.
 
-Las ventanas permanecen dentro del área del chat al cambiar el tamaño del navegador o abrir una barra lateral.
+Las ventanas permanecen dentro del área del chat al cambiar el tamaño del navegador o abrir una barra lateral. En una computadora, una ventana o un botón pueden colocarse en el espacio junto al cuadro de mensaje, hasta la parte inferior del chat. Nunca cubren el propio cuadro de mensaje.
 
 En un teléfono, Chat Settings se abre como un panel de ancho completo. El panel se ajusta por encima del teclado mientras escribes.
 
@@ -188,7 +188,7 @@ Las herramientas del chat también son secciones de Chat Settings. Las que ves d
 - **Chat Summary**, debajo de **Lorebooks**, permite revisar y crear resúmenes de un chat de Roleplay. Consulta [Memoria y resúmenes de chat](../agents/memory.md#chat-summary-roleplay).
 - **Active Context**, debajo de **Chat Summary**, muestra los lorebooks y el contexto activos. Consulta [Presupuestos de tokens y recursión](../lorebooks/token-budgets.md#seeing-skipped-entries-in-active-context).
 - **Agent activity**, justo debajo de **Agents** en un chat de Roleplay con agentes o Advanced Memory, muestra qué hicieron los agentes. También permite volver a ejecutar trackers, reintentar o detener agentes y borrar los trackers. Consulta [Agent activity](../roleplay/getting-started.md#agent-activity).
-- **Author's Notes**, debajo de **Agents**, guarda una nota que la IA lee en cada turno de Roleplay. Consulta [Author's Notes](../roleplay/getting-started.md#authors-notes).
+- **Author's Notes**, debajo de **Agents**, guarda una nota que la IA lee en cada turno de Roleplay. Cuando la abres en una ventana aparte, su cuadro de texto crece con la ventana; en un teléfono, ocupa toda la pantalla. Consulta [Author's Notes](../roleplay/getting-started.md#authors-notes).
 - **Gallery** guarda las imágenes y los videos del chat. Consulta [Fondos de escena y galería](../media/scene-backgrounds.md).
 
 ## Otras secciones del panel

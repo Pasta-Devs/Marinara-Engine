@@ -10,6 +10,8 @@ Jede Szene ist ein eigener Roleplay-Chat. Sie hat einen eigenen Hintergrund, eig
 
 Eine Szene ist bewusst nur vorübergehend gedacht. Solange sie läuft, zeigt der ursprüngliche Conversation-Chat eine kleine Karte mit dem Text **A scene is in progress** (eine Szene läuft gerade). Auf dieser Karte führt die Schaltfläche **Go to Scene** (zur Szene springen) direkt in die aktive Szene.
 
+Solange die Szene läuft, antworten ihre Charaktere im ursprünglichen Conversation-Chat nicht, und ein Hinweis sagt, dass sie in einer aktiven Szene sind. Damit sie dir dort trotzdem antworten, schalte auf der Karte **Allow replies here** (Antworten hier erlauben) ein. Anfangs ist das aus. Ist es an, antworten Szenen-Charaktere, wenn du ihnen schreibst, schicken dort aber weiterhin nicht von sich aus Nachrichten.
+
 Am Ende entscheidest du, was mit der Szene passiert. Möglich sind drei Wege: eine Zusammenfassung zurück in den Conversation-Chat speichern, die Szene wegwerfen oder sie als eigenständiges Roleplay dauerhaft behalten. Diese Möglichkeiten sind weiter unten erklärt.
 
 ## Eine Szene starten

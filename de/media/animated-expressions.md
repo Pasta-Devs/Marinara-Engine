@@ -65,7 +65,7 @@ Der Prüfschritt bestätigt dasselbe mit diesem Hinweis: "Animated portrait spri
 
 Animierte Gesichtsausdrücke dauern länger als statische Sprites. Marinara generiert sie einzeln nacheinander, nicht als Stapel. Viele Gesichtsausdrücke auf einmal ziehen sich entsprechend, fang deshalb mit wenigen an.
 
-Ist **Expose media prompts before sending** (Medien-Prompts vor dem Senden anzeigen) aktiviert – zu finden unter **Settings** im Abschnitt **Image Generation** –, hält Marinara vor dem Senden bei einem Prüfschritt an. Dort kannst du jeden Prompt lesen und bearbeiten, bevor er zum Anbieter geht. Bleibt die Einstellung aus, entfällt die Prüfung.
+Ist **Expose media prompts before sending** (Medien-Prompts vor dem Senden anzeigen) aktiviert – zu finden unter **Settings** im Abschnitt **Overall Generations** –, hält Marinara vor dem Senden bei einem Prüfschritt an. Dort kannst du jeden Prompt lesen und bearbeiten, bevor er zum Anbieter geht. Bleibt die Einstellung aus, entfällt die Prüfung.
 
 ## Fehlerbehebung
 

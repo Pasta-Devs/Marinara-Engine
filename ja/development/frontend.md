@@ -59,9 +59,9 @@ Marinara Engineは、Conversation、Roleplay、Game Modeの3つのモードを�
 
 ### Zustandストア(クライアント側の状態)
 
-UIと実行時の状態には、`packages/client/src/stores/`にあるZustandストア群を使います。永続化しているストアは`ui.store.ts`だけです。残りは、チャット、エージェント、ゲーム、ローカルモデルのランタイム、翻訳、ダイアログ、バックフィル、テーブルゲームの実行時状態を保持します。
+UIと実行時の状態には、`packages/client/src/stores/`にあるZustandストア群を使います。永続化しているストアは`ui.store.ts`だけです。残りは、チャット、エージェント、ゲーム、ローカルモデルのランタイム、翻訳、ダイアログ、バックフィルの実行時状態を保持します。
 
-現在のストアファイルは次のとおりです: `agent.store.ts`、`backfill.store.ts`、`chat.store.ts`、`chess-game.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`poker-game.store.ts`、`sidecar.store.ts`、`translation.store.ts`、`ui.store.ts`、`uno-game.store.ts`。
+現在のストアファイルは次のとおりです: `agent.store.ts`、`backfill.store.ts`、`chat-tools-menu.store.ts`、`chat.store.ts`、`conversation-games.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`floating-window.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`sidecar.store.ts`、`translation.store.ts`、`ui.store.ts`。テーブルゲームのストアは、それぞれのダウンロードできるパッケージに移りました。`conversation-games.store.ts`が扱うのは、Conversationのゲームの選択と準備だけです。
 
 #### `ui.store.ts`: 設定とUIの外枠
 
@@ -489,6 +489,9 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `/api/translate`          | POST                             | テキストの翻訳             |
 | `/api/game`               | CRUDと各種アクション                 | Game Modeのセッションと状態 |
 | `/api/game-assets`        | CRUDとアップロード                 | ゲームのアセット                  |
+| `/api/game-rulesets` | インポート、スキーマ、ソース、削除 | インポートしたGame Modeのルールセット |
+| `/api/game-worlds` | ライブラリーのCRUDと世界の編集 | 新しいゲームとマップパック用の世界ライブラリー |
+| `/api/game-tile-packs` | タイルパック、および`/creatures`と`/boards` | マップ、クリーチャー、戦闘盤面のアートパック |
 | `/api/turn-games`         | Chess、UNO、Pokerのルート         | Conversationのテーブルゲーム     |
 | `/api/conversation-calls` | 通話とセッションのルート          | Conversationの音声通話     |
 
@@ -503,6 +506,10 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `/api/gallery/:chatId`        | チャットごとのギャラリー画像      |
 | `/api/global-gallery`         | 全体のギャラリー画像        |
 | `/api/tts`                    | 音声合成のルート        |
+| `/api/speech-to-text` | 音声認識サーバーの設定とテスト |
+| `/api/avatar-models` | アバターエージェント用の2Dと3Dのアバターモデル |
+| `/api/avatar-generation` | スプライトからのアバターの下書きとTripoのキー |
+| `/api/avatar-classify` | アバターの感情分類器とそのローカルモデル |
 | `/api/youtube`                | YouTube DJのルート         |
 | `/api/custom-emojis`          | カスタム絵文字のアセット          |
 | `/api/custom-stickers`        | カスタムスタンプのアセット        |
@@ -539,8 +546,10 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `/api/connection-folders`       | 接続のフォルダー                      |
 | `/api/prompt-overrides`         | 組み込みプロンプトの上書き               |
 | `/api/achievements`             | 実績の解除                    |
-| `/api/noodle`                   | Noodleのソーシャルタイムライン                  |
+| `/api/capability-packages` | エージェントのカタログ、インストール、アップデート、リリースノート、パッケージのアセット |
+| `/api/noodle` | Noodleのソーシャルタイムライン(Noodleパッケージが登録) |
 | `/api/professor-mari/workspace` | Professor Mariのワークスペース操作     |
+| `/api/professor-mari/quick` | Professor Mariのクイック回答と、その編集の提案の適用 |
 
 ## PWAへの対応
 
@@ -586,6 +595,10 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `persona-stats`          | post_processing | プレイヤーのペルソナの能力値の変化を追跡する                                |
 | `custom-tracker`         | post_processing | 自分で定義した構造化データの状態を追跡する                              |
 | `inventory-tracker`      | post_processing | 通貨、装備中の品、持ち物を追跡する                                      |
+| `quartermaster` | post_processing | Roleplayのキャラクターシート、装備中の品、服装を管理する |
+| `beholder` | post_processing | 各キャラクターが身に着けているもの、持っているもの、けがを追跡する |
+| `relationship-tracker` | post_processing | キャラクターとペルソナがお互いをどう感じているかを追跡する |
+| `memory-nag` | post_processing | 約束などのやり残しを覚えておき、モデルに思い出させる |
 | `illustrator`            | post_processing | シーンの画像プロンプトとメディアのリクエストを生成する                  |
 | `lorebook-keeper`        | post_processing | ロアブックのエントリーを自動で作成、更新する                            |
 | `card-evolution-auditor` | post_processing | キャラクターカードを点検し、成長の案を出す                    |
@@ -600,7 +613,9 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `storyboard` | post_processing | 静止画またはアニメーションのGame・Roleplayストーリーボードを計画します |
 | `conversation-calls`     | feature         | Conversationに音声/動画通話と関連設定を追加する          |
 | `hierarchical-maps`      | feature         | RoleplayとGame Modeにマップ、空間的なコンテキスト、移動を追加する             |
-| `noodle` | feature | ローカルのNoodleとSlurpのソーシャルフィードをHomeに追加します |
+| `noodle` | feature | ローカルのNoodleのソーシャルフィードをHomeに追加します |
+| `slurp2` | feature | キャラクター向けの非公開のクリエイターアプリSlurpをHomeに追加します |
+| `gacha-forge` | feature | ガチャのゲームモードをHomeに追加します |
 | `uno`                    | feature         | ConversationにUNOのテーブルを追加する                               |
 | `chess`                  | feature         | ConversationにChessの盤面を追加する                              |
 | `poker`                  | feature         | ConversationにTexas Hold'emのテーブルを追加する                         |
@@ -612,7 +627,7 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 
 エージェントは型付きの結果を返し、フロントエンドがそれを処理します。`packages/shared/src/types/agent.ts`の`AgentResultType`ユニオンには次の値が含まれます。
 
-`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`frontend_theme_update`、`about_me_update`。
+`game_state_update`、`text_rewrite`、`sprite_change`、`echo_message`、`quest_update`、`image_prompt`、`context_injection`、`continuity_check`、`director_event`、`lorebook_update`、`character_card_update`、`character_card_create`、`background_change`、`character_tracker_update`、`persona_stats_update`、`custom_tracker_update`、`inventory_tracker_update`、`spotify_control`、`youtube_control`、`local_music_control`、`haptic_command`、`cyoa_choices`、`secret_plot`、`game_master_narration`、`party_action`、`game_map_update`、`game_state_transition`、`prompt_patch`、`character_activity_update`、`frontend_theme_update`、`about_me_update`、`memory_nag`。
 
 ## チャットのモード
 

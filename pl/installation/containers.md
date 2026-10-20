@@ -113,7 +113,9 @@ environment:
 docker compose up -d
 ```
 
-Od tej pory inne urządzenia w sieci docierają do aplikacji Marinara Engine pod adresem `http://YOUR_COMPUTER_IP:7860`, o ile zmienna `PORT` nie jest ustawiona. Jeśli ustawisz `PORT`, wstaw ten port zamiast `7860`. Każde urządzenie musi podać ustawioną nazwę użytkownika i hasło. O tym, jak dopuścić tylko wybrane urządzenia i co robi sekret administratora, przeczytasz w przewodniku [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+Od tej pory inne urządzenia w sieci docierają do aplikacji Marinara Engine pod adresem `http://YOUR_COMPUTER_IP:7860`, o ile zmienna `PORT` nie jest ustawiona. Jeśli ustawisz `PORT`, wstaw ten port zamiast `7860`. Każde urządzenie musi podać ustawioną nazwę użytkownika i hasło.
+
+W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie, łącznie z twoją przeglądarką, dociera do kontenera z tego samego adresu. Dlatego po ustawieniu logowania ten komputer też o nie prosi, a lista dozwolonych adresów IP nie potrafi odróżnić urządzeń. Nigdy nie usuwaj `127.0.0.1:` bez ustawionego logowania: w tych środowiskach Marinara nie odróżni innych urządzeń od tego komputera. O tym, jak dopuścić tylko wybrane urządzenia i co robi sekret administratora, przeczytasz w przewodniku [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
 ## Wybór obrazu: latest, staging czy lite
 
@@ -142,6 +144,7 @@ Obraz lite pomija funkcje wymagające dużych plików lokalnych:
 | Lokalny model embeddingów | Brak embeddingów tekstu liczonych na urządzeniu. |
 | Memory Recall (wyszukiwanie znaczeniowe) | Zależy od lokalnego modelu embeddingów. |
 | Lokalne wejście głosowe Whisper | Znika zamiana mowy na tekst w rozmowach w trybie Conversation. |
+| Odczytywanie nastroju przez awatary | Awatary 2D i 3D wybierają miny na podstawie listy słów zamiast małego lokalnego modelu rozpoznawania emocji. |
 
 Cała reszta działa tak samo: czat, roleplay, Game Mode, agenci, lorebooki, postacie i połączenia ze zdalnymi dostawcami AI. Żeby korzystać z funkcji AI na obrazie lite, trzeba podłączyć zewnętrznego dostawcę (na przykład OpenRouter, OpenAI albo model hostowany samodzielnie). Zobacz przewodnik [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
@@ -155,7 +158,7 @@ Część starszych obrazów lite potrafi się wysypać na Raspberry Pi 4 i podob
 
 ## Aktualizacja
 
-Obrazy kontenerów nie aktualizują się same. Nowszy obraz pobiera się ręcznie, a potem restartuje kontener.
+Obrazy kontenerów nie aktualizują się same. Nowszy obraz pobiera się ręcznie, a potem restartuje kontener. Najpierw zrób kopię zapasową, żeby móc wrócić dokładnie do obecnego stanu. Zobacz [Kopia zapasowa i przywracanie danych aplikacji Marinara](../data/backup-and-restore.md).
 
 W przypadku Docker Compose wystarczy jedno polecenie:
 
@@ -170,6 +173,8 @@ podman compose pull && podman compose up -d
 ```
 
 Wersję można też sprawdzić w samej aplikacji. Otwórz panel **Settings** (Ustawienia), przejdź do zakładki **Advanced** i znajdź sekcję **Updates**. Kliknij przycisk **Check for Updates**. Przy instalacji w kontenerze Marinara Engine rozpoznaje, że działa w kontenerze Docker, i pokazuje tag obrazu z wydaniem oraz polecenie do uruchomienia na komputerze. Aktualizacji nie da się przeprowadzić z poziomu przeglądarki, więc powyższe polecenie i tak trzeba wykonać samodzielnie.
+
+Żeby wrócić do starszego wydania, wpisz jego tag wersji w wierszu `image:` pliku `docker-compose.yml`, na przykład `ghcr.io/pasta-devs/marinara-engine:2.5.0`, a potem uruchom `docker compose up -d`. Powrót do wersji 2.5.0 działa i czaty otwierają się normalnie, ale wersja 2.5.0 nie zna ustawień ani danych gier dodanych przez nowsze funkcje. Każdy czat lub połączenie zapisane przez wersję 2.5.0 traci te dane, a ponowna aktualizacja ich nie przywraca. Zobacz [Powrót do wersji 2.5.0](../UPGRADING.md#going-back-to-250).
 
 ## Podman
 

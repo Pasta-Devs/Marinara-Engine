@@ -20,7 +20,7 @@ Le panneau comporte trois boutons en haut :
 - **Import** (icône de téléchargement) : charger un preset depuis un fichier `.json`.
 - **Select** (icône de coche) : sélectionner plusieurs presets pour les exporter ou les supprimer d'un coup.
 
-Sous les boutons se trouvent un champ **Search presets** et un menu de tri avec **A-Z**, **Z-A**, **Newest** et **Oldest**. Le bouton **New Folder** (nouveau dossier) permet de regrouper les presets dans des dossiers. Fais glisser un preset sur un dossier pour l'y déplacer. Double-clique ou double-tape sur un dossier pour le renommer.
+Sous les boutons se trouvent un champ **Search presets** et un menu de tri avec **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest** et **Oldest**. **Manual order** garde l'ordre que tu as défini : fais glisser une ligne de preset vers le haut ou vers le bas, ou appuie sur Alt+Up ou Alt+Down sur une ligne sélectionnée. Le bouton **New Folder** (nouveau dossier) permet de regrouper les presets dans des dossiers. Fais glisser un preset sur un dossier pour l'y déplacer. Sur écran tactile, appuie longuement sur une ligne pour la saisir. Double-clique ou double-tape sur un dossier pour le renommer.
 
 Chaque ligne de preset affiche son nom, son format d'encapsulation, son nombre de sections et son auteur. Un badge **DEFAULT** apparaît si le preset est celui marqué par défaut. Clique sur une ligne de preset pour l'ouvrir dans le **Preset Editor**.
 
@@ -40,13 +40,15 @@ L'éditeur n'enregistre rien tout seul. Les modifications ne sont conservées qu
 
 Pour exporter un preset, ouvre-le et clique sur le bouton d'export (icône de flèche vers le haut) dans la barre du haut. Marinara propose d'abord d'enregistrer si des modifications sont en attente. Pour supprimer un preset, utilise l'icône de corbeille dans la barre du haut.
 
-## Les onglets Overview, Sections et Prompts
+## Les cinq onglets du Preset Editor
 
-Le **Preset Editor** comporte trois onglets.
+Le **Preset Editor** comporte cinq onglets.
 
 - **Overview** (vue d'ensemble) : le nom du preset, sa description, son format d'encapsulation et son auteur.
 - **Sections** : la structure du prompt à proprement parler, bâtie à partir de blocs et de marqueurs.
 - **Prompts** : les prompts de mode utilisés par les chats Conversation et Game.
+- **Parameters** (paramètres) : les réglages de génération de départ des chats qui utilisent ce preset. Voir [Paramètres de génération](generation-parameters.md).
+- **Regex** : les scripts regex liés à ce preset, et le réglage **Scoped regex default** (mode par défaut des regex à portée limitée). Voir [Scripts regex](../extending/regex-scripts.md).
 
 ### Onglet Overview
 

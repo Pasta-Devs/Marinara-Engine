@@ -12,7 +12,7 @@ Kilka pojęć, które wracają w całym przewodniku:
 
 Świeża instalacja aplikacji Marinara odrzuca połączenia z innych urządzeń, dopóki nie skonfigurujesz kontroli dostępu. Chodzi o ochronę danych. Domyślnie zaufane są tylko trzy rodzaje klientów:
 
-1. Loopback (`127.0.0.1` lub `::1`), czyli sam komputer z serwerem.
+1. Loopback (`127.0.0.1` lub `::1`), czyli sam komputer z serwerem. Nie liczą się do niego goście przekazywani przez odwrotne proxy albo tunel na tym samym komputerze; zobacz [Odwrotne proxy i tunele na tym samym komputerze](#reverse-proxies-and-tunnels-on-the-same-computer).
 2. Urządzenia w sieci Tailscale. Tailscale to narzędzie do prywatnych sieci, a jego adresy mieszczą się w zakresie `100.64.0.0/10`.
 3. Klienty Docker na tym samym komputerze. Marinara rozpoznaje typowy zakres mostka `172.16.0.0/12` oraz dokładną bramę domyślną kontenera, co obejmuje też Docker Desktop i własne pule adresów.
 
@@ -71,13 +71,16 @@ Zapisz plik `.env`. Zmiana działa w ciągu kilku sekund, bez restartu. Potem wy
 2. Kiedy przeglądarka o to poprosi, wpisz ustawioną nazwę użytkownika i hasło.
 3. Aplikacja powinna się załadować. Przeglądarka pamięta dane logowania do końca sesji.
 
+Po 10 różnych błędnych hasłach w ciągu 15 minut Marinara odrzuca logowania z tego adresu z kodem **429 Too Many Requests**, dopóki te 15 minut nie minie. Poprawne hasło wpisane wcześniej zeruje licznik. Goście przekazywani przez odwrotne proxy albo tunel na komputerze z serwerem mają jeden wspólny licznik, a zalogowanie się jednego z nich go nie zeruje. Licznik zeruje też restart serwera. Przeglądarka, która logowała się już wcześniej, nadal wchodzi po podaniu poprawnego hasła, więc cudze błędne hasła nie zablokują ci dostępu z urządzenia, z którego już korzystasz.
+
 Domyślnie okno przeglądarki pokazuje napis **Marinara Engine**. Ten tekst zmienia zmienna `BASIC_AUTH_REALM`.
 
 Część klientów pomija hasło nawet przy włączonym Basic Auth:
 
-- Loopback (`127.0.0.1`, `::1`), więc na samym komputerze z serwerem hasło nigdy nie jest potrzebne.
+- Loopback (`127.0.0.1`, `::1`), więc na samym komputerze z serwerem hasło nigdy nie jest potrzebne. Goście przekazywani przez odwrotne proxy albo tunel na tym komputerze nadal go potrzebują.
 - Każdy adres z `IP_ALLOWLIST`. Uwaga: ustawienie listy blokuje jednocześnie wszystkie adresy spoza niej (zobacz opcję 2).
-- Ruch z sieci Tailscale (`100.64.0.0/10`) oraz z mostka lub bramy Docker na tym samym komputerze, o ile pominięcie nie zostanie wyłączone.
+- Bezpośredni ruch z sieci Tailscale (`100.64.0.0/10`), o ile pominięcie nie zostanie wyłączone.
+- Ruch z mostka lub bramy Docker, tylko gdy ustawisz `BYPASS_AUTH_DOCKER=true`. Przy włączonym Basic Auth automatyczne zaufanie do ruchu Docker jest wyłączone (zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](#tailscale-and-docker-bypass)).
 - Adres `/api/health`, dzięki czemu monitory dostępności dalej działają. Bez hasła zwraca on tylko podstawowy stan, bez informacji o twoich lokalnych modelach i karcie graficznej.
 
 Ważne: Basic Auth tylko koduje hasło, ale go nie szyfruje. Ktoś, kto podsłuchuje niezaszyfrowane połączenie, odczyta je bez trudu. Przy udostępnianiu aplikacji Marinara w publicznym internecie połącz Basic Auth z HTTPS (zobacz niżej).
@@ -95,8 +98,9 @@ Zapis `/24` w przykładzie to notacja CIDR. CIDR to skrócony sposób zapisania 
 Jak działa lista dozwolonych adresów IP:
 
 - Każdy adres spoza listy dostaje odpowiedź **403 Forbidden**.
-- Loopback jest zawsze dozwolony, więc dostępu lokalnego nie da się sobie zablokować.
-- Ruch z sieci Tailscale oraz z mostka lub bramy Docker na tym samym komputerze też pomija listę, o ile pominięcie nie zostanie wyłączone (zobacz niżej).
+- Loopback jest zawsze dozwolony, więc dostępu lokalnego nie da się sobie zablokować. Goście przekazywani przez odwrotne proxy albo tunel na tym samym komputerze nie są ruchem loopback, więc lista ich blokuje. Za proxy używaj Basic Auth.
+- W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie dociera do kontenera z tego samego adresu bramy, więc lista nie potrafi ich odróżnić. Tam używaj Basic Auth.
+- Bezpośredni ruch z sieci Tailscale też pomija listę, o ile pominięcie nie zostanie wyłączone. Ruch z mostka lub bramy Docker pomija ją tylko wtedy, gdy ustawisz `BYPASS_AUTH_DOCKER=true` (zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](#tailscale-and-docker-bypass)).
 - Marinara pomija błędne wpisy i zapisuje je w logach. Nie powodują awarii serwera.
 - Lista pozostaje rygorystyczna nawet przy włączonym Basic Auth. Adresy z listy nie widzą pytania o hasło. Pozostałe adresy dostają **403 Forbidden** i nigdy nie zobaczą okna logowania.
 
@@ -122,6 +126,8 @@ Ostrzeżenie: każdy w tej samej sieci dostanie się wtedy do aplikacji Marinara
 
 Istnieje też szersza flaga `ALLOW_UNAUTHENTICATED_REMOTE=true`, która otwiera dostęp bez hasła z DOWOLNEGO adresu, łącznie z publicznym internetem. Nie włączaj jej. Jeśli dostęp publiczny jest naprawdę potrzebny, użyj Basic Auth razem z HTTPS albo postaw przed serwerem odwrotne proxy, które przejmie logowanie.
 
+<a id="tailscale-and-docker-bypass"></a>
+
 ## Pominięcie dla sieci Tailscale i kontenerów Docker
 
 Dwie flagi pozwalają bezpośredniemu ruchowi z sieci Tailscale i z kontenerów Docker pominąć zarówno listę dozwolonych adresów IP, jak i Basic Auth, dokładnie tak samo jak robi to loopback. Zostaw je puste, żeby korzystać z automatycznego wykrywania:
@@ -132,6 +138,8 @@ BYPASS_AUTH_DOCKER=
 ```
 
 Tryb automatyczny ufa urządzeniu Tailscale tylko wtedy, gdy oba końce jego bezpośredniego gniazda używają adresów sieci Tailscale. Ruch Docker jest zaufany tylko wtedy, gdy Marinara Engine działa w kontenerze, a źródło pasuje do wykrytego interfejsu kontenera albo jego dokładnej bramy. Dzięki temu zwykła prywatna konfiguracja sieci Tailscale i kontenerów Docker na tym samym komputerze nadal działa, ale niezwiązany ruch CGNAT, LAN, sieci hosta ani proxy nie jest uznawany za uwierzytelniony.
+
+Automatyczne zaufanie do ruchu Docker działa tylko wtedy, gdy nie ustawiono ani Basic Auth, ani `IP_ALLOWLIST`. Docker Desktop, OrbStack i rootless Docker przepuszczają każde urządzenie, które otwiera opublikowany port, przez bramę kontenera, więc Marinara nie odróżni twojej przeglądarki od telefonu albo obcej osoby w sieci. Po ustawieniu hasła albo listy dozwolonych adresów każdy klient Docker musi przejść te kontrole, łącznie z przeglądarką na komputerze z serwerem. Ustaw `BYPASS_AUTH_DOCKER=true` tylko wtedy, gdy ufasz każdemu urządzeniu, które może dotrzeć do opublikowanego portu.
 
 Ustaw flagę na `false`, jeśli wobec tych klientów mają obowiązywać zwykłe kontrole Basic Auth i listy dozwolonych adresów IP. Ustaw `true`, żeby zachować starsze szerokie pominięcie, gdy automatyczne wykrywanie jest niedostępne: Tailscale ufa wtedy całemu zakresowi `100.64.0.0/10`, a Docker także wykrytym interfejsom i bramie oraz starszemu zakresowi `172.16.0.0/12`. Używaj tego trybu zgodności tylko wtedy, gdy każdy pasujący klient jest zaufany.
 
@@ -147,7 +155,7 @@ Jeśli wykryte urządzenia Docker nie mają omijać uwierzytelniania, wyłącz p
 BYPASS_AUTH_DOCKER=false
 ```
 
-Aplikacja Marinara Engine bywa też ustawiona za kontenerem z odwrotnym proxy albo z tunelem, działającym na mostku Docker lub na wykrytej bramie. Nagłówki przekazywania (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host` lub `X-Forwarded-Proto`) oznaczają, że klient Docker reprezentuje inne urządzenie, więc Marinara domyślnie stosuje wtedy zwykłe kontrole Basic Auth i listy dozwolonych adresów IP:
+Aplikacja Marinara Engine bywa też ustawiona za kontenerem z odwrotnym proxy albo z tunelem, działającym na mostku Docker lub na wykrytej bramie. Nagłówki przekazywania, takie jak `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host` lub `X-Forwarded-Proto`, oznaczają, że klient Docker reprezentuje inne urządzenie, więc Marinara domyślnie stosuje wtedy zwykłe kontrole Basic Auth i listy dozwolonych adresów IP:
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
@@ -156,6 +164,34 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 Żeby przywrócić dawne pominięcie, ustaw tę flagę na `false`. Rób to tylko wtedy, gdy każdy klient zdolny dotrzeć do proxy jest zaufany, bo przekazywani klienci odziedziczą bezhasłowy status ruchu Docker.
 
 Przy pierwszym żądaniu przepuszczonym przez takie pominięcie serwer zapisuje w logach ostrzeżenie `[auth-bypass]`. To potwierdzenie, że pominięcie działa.
+
+<a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
+
+## Odwrotne proxy i tunele na tym samym komputerze
+
+Odwrotne proxy albo tunel na komputerze, na którym działa Marinara, na przykład nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve lub Funnel albo ngrok, łączy się z aplikacją Marinara Engine przez loopback. Marinara rozpoznaje to po nagłówkach przekazywania, które dodaje proxy: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, nagłówkach tożsamości Tailscale albo `Via`. Każde takie żądanie traktuje wtedy tak, jak należy, czyli jako żądanie zdalnego gościa:
+
+- Obowiązuje Basic Auth, więc ustaw `BASIC_AUTH_USER` i `BASIC_AUTH_PASS`. Bez nich goście widzą stronę konfiguracyjną.
+- `IP_ALLOWLIST` blokuje przekazywanych gości, bo proxy ukrywa ich prawdziwe adresy.
+- Działania uprzywilejowane wymagają sekretu administratora, a funkcje dostępne tylko przez loopback pozostają niedostępne.
+
+Twoja własna przeglądarka na tym komputerze, otwarta pod adresem `http://127.0.0.1:7860` albo `http://localhost:7860`, nadal działa bez hasła.
+
+Caddy, Traefik, Cloudflare Tunnel, Tailscale i ngrok domyślnie dodają nagłówki przekazywania. W przypadku nginx dodaj tę linię do bloku `location`:
+
+```nginx
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+Narzędzia przekazujące surowe połączenia, takie jak `socat` albo `ssh -R`, nie dodają żadnych nagłówków, więc ich ruch wygląda na lokalny. Nie publikuj nimi aplikacji Marinara Engine.
+
+Jeśli twoje proxy już wymaga logowania od każdego gościa, zanim cokolwiek przekaże, możesz pominąć własne kontrole aplikacji Marinara Engine dla jego ruchu:
+
+```env
+REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
+```
+
+Goście dostają wtedy taki sam pełny dostęp jak komputer z serwerem, łącznie z działaniami uprzywilejowanymi bez sekretu administratora. Rób to tylko wtedy, gdy logowanie w proxy chroni każdą ścieżkę.
 
 ## Udostępnianie przez HTTPS
 
@@ -170,7 +206,7 @@ SSL_CERT=/path/to/cert.pem
 SSL_KEY=/path/to/key.pem
 ```
 
-2. Odwrotne proxy. Postaw aplikację Marinara za nginx, Caddy, Traefik albo Cloudflare Tunnel. Proxy obsługuje część HTTPS i przekazuje ruch do aplikacji Marinara zwykłym HTTP na tym samym komputerze.
+2. Odwrotne proxy. Postaw aplikację Marinara za nginx, Caddy, Traefik albo Cloudflare Tunnel. Proxy obsługuje część HTTPS i przekazuje ruch do aplikacji Marinara zwykłym HTTP na tym samym komputerze. Najpierw przeczytaj sekcję [Odwrotne proxy i tunele na tym samym komputerze](#reverse-proxies-and-tunnels-on-the-same-computer).
 
 Zanim ustawisz `SSL_CERT` i `SSL_KEY`, potrzebujesz certyfikatu i klucza. Do użytku lokalnego wygenerujesz je narzędziem `mkcert`, a dla publicznej domeny narzędziem `certbot`. Jeśli plików brakuje albo nie da się ich odczytać, serwer zatrzymuje się przy starcie i podaje dokładne ścieżki, których szukał.
 

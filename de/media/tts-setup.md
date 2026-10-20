@@ -25,7 +25,26 @@ Eine **Source** (Quelle) ist der Dienst, der das Audio generiert. Zur Wahl stehe
 
 Standard ist **OpenAI-compatible**. Marinara bewahrt für jede Source ein eigenes Profil auf – mit verschlüsseltem API-Key, Endpunkt, Modell, Stimmen und Anbieter-Parametern. Beim Wechsel kehrt die frühere Einrichtung dieser Source zurück; eine noch nicht konfigurierte Source startet mit ihren Standardwerten.
 
+<a id="use-an-audio-connection"></a>
+
+### Eine Audioverbindung verwenden
+
+Hast du bereits eine Verbindung mit dem Anbieter **Audio** eingerichtet (siehe [Unterstützte KI-Anbieter](../connections/providers-reference.md#audio)), musst du ihre Daten hier nicht noch einmal eintragen. Deine Audioverbindungen stehen im Dropdown-Menü **Source** unter **Audio connections** (Audioverbindungen), jeweils mit der Art ihrer Quelle in Klammern.
+
+1. Öffne das Dropdown-Menü **Source** und wähle die Verbindung.
+2. Wähle wie gewohnt ihre Stimmen und die übrigen Einstellungen weiter unten.
+
+Marinara spricht dann mit der Base URL, dem API-Key, dem Modell und dem **Request timeout (seconds)** (Zeitlimit für Anfragen in Sekunden) dieser Verbindung, deshalb blendet die Karte diese Felder aus. Der Key bleibt in der Verbindung: Er wird weder in die Einstellungen der Karte kopiert noch an deinen Browser geschickt. Änderungen an der Verbindung, etwa ein neuer Key, gelten sofort.
+
+Stimmen, Tempo und die übrigen Spracheinstellungen werden für jede Verbindung getrennt gespeichert. Zwei Verbindungen derselben Art, etwa zwei OpenAI-kompatible Server, teilen sie nie. Deine Einstellungen für die vier regulären Sources bleiben, wie sie waren, sodass du jederzeit zurückwechseln kannst. Der Schalter in der Kopfzeile der Karte schaltet Text to Speech weiterhin ein und aus, und die eigene Audioverbindung eines Spiels erzeugt weiterhin dessen Soundeffekte und Musik.
+
+Wird die gewählte Verbindung gelöscht oder lässt sie sich nicht verwenden, zeigt die Karte **Missing Audio connection**, und es wird nichts gesprochen, bis du eine andere Source wählst. Marinara wechselt nie von selbst zu einer anderen Verbindung.
+
+Liefert die Verbindung eine Liste ihrer Stimmen, nennt die Karte jede gespeicherte Stimme, die nicht auf dieser Liste steht, damit du eine wählen kannst, die die Verbindung anbietet.
+
 ## Schritt 2: Base URL, API Key und Model eintragen
+
+Überspring diesen Schritt, wenn du eine Audioverbindung als Source gewählt hast: Marinara verwendet dann die eigenen Einstellungen der Verbindung.
 
 Jede Source braucht eine Webadresse und – bei den meisten – einen API-Key. Ein API-Key ist ein geheimer Code vom Anbieter, der die Anfrage als deine ausweist.
 
@@ -49,6 +68,16 @@ Bei **ElevenLabs** lädt das Feld **Model** alle sprachfähigen Modelle, die üb
 PocketTTS ist nicht in Marinara Engine eingebaut. Installiere den [offiziellen PocketTTS-Server](https://github.com/kyutai-labs/pocket-tts) separat und starte ihn mit `uvx pocket-tts serve`. Marinara Engine lädt ihn weder herunter noch verwaltet den Server.
 
 Der offizielle Server verwendet standardmäßig `http://localhost:8000`. Lass **Base URL** auf diesem Wert, sofern du Host oder Port nicht geändert hast. Marinara erkennt die offizielle Multipart-API `/tts` automatisch. Bestehende eigene URLs für den [OpenAI-kompatiblen PocketTTS-Wrapper](https://github.com/teddybear082/pocket-tts-openai_streaming_server) werden weiterhin unterstützt.
+
+<a id="request-timeout"></a>
+
+### Zeitlimit für Anfragen
+
+Standardmäßig wartet Marinara bis zu 60 Sekunden auf jede gesprochene Zeile. Ein Sprachserver auf deinem eigenen Computer, vor allem auf einem Laptop, kann für eine lange Zeile länger brauchen. Um länger zu warten, erhöhe in der Karte unter **Model** den Wert **Request timeout (seconds)**. Möglich sind 10 bis 3.600 Sekunden.
+
+Eine Audioverbindung hat ein eigenes Feld **Request timeout (seconds)**, im Verbindungs-Editor unter **Default Voice** (Standardstimme). Sprechen Chats über eine Audioverbindung, auch über eine, die als **Source** der Karte gewählt ist, gilt das Limit dieser Verbindung. Das Limit der Karte gilt für Sprachausgabe mit den eigenen Einstellungen der Karte, einschließlich ihrer Schaltfläche **Preview** (Vorschau).
+
+Dauert eine Zeile zu lange, nennt die Fehlermeldung, wie viele Sekunden Marinara gewartet hat und welche Einstellung du erhöhen solltest.
 
 ## Schritt 3: Eine Stimme wählen (Voice Option)
 
@@ -168,15 +197,18 @@ Diese Vorgabe greift ausschließlich bei Audio- und Videoanrufen in Conversation
 
 ## Fehlerbehebung
 
+- Die Karte zeigt **Missing Audio connection**: Die als Source gewählte Audioverbindung wurde gelöscht oder lässt sich nicht verwenden. Wähle eine andere Source. Siehe [Eine Audioverbindung verwenden](#use-an-audio-connection).
 - Nichts wird gesprochen: Prüf, ob der Schalter **Enable TTS** an ist. Kontrollier dann den passenden **Auto-play**-Schalter für den Modus oder nutze die Schaltfläche **Speak** an der Nachricht. **Speak** und die Auto-play-Optionen erscheinen erst, nachdem TTS aktiviert ist.
 - Keine Stimmen im Dropdown-Menü: Speicher die Karte mit aktiviertem TTS und, falls der Anbieter einen verlangt, gültigem API-Key und klick dann auf **Refresh voices**. Der offizielle PocketTTS-Server verwendet Marinaras eingebaute Stimmenliste, weil er keinen Endpunkt für eine Stimmenliste hat. Bei einem kompatiblen PocketTTS-Wrapper prüf, ob `<Base URL>/v1/voices` antwortet.
 - ElevenLabs spricht nicht: Achte darauf, dass eine echte Stimme gewählt ist und nicht der Platzhalter „Select an ElevenLabs voice“. Prüf außerdem, ob unter **Model** ein Sprachmodell steht und kein Voice-Design-Modell, dessen ID `ttv` enthält.
+- Eine Zeile bricht mit **No audio after 60 s** ab: Der Sprachserver braucht mehr Zeit. Erhöhe **Request timeout (seconds)** dort, wo die Meldung es angibt. Siehe [Zeitlimit für Anfragen](#request-timeout).
 - Ein selbst gehosteter TTS-Server auf einer lokalen Adresse wird blockiert: Aktiviere die Server-Einstellung `TTS_LOCAL_URLS_ENABLED`. Damit erreicht die App lokale oder private Adressen für OpenAI-kompatible oder ElevenLabs-artige Server. PocketTTS braucht diese Einstellung nicht. Siehe [Referenz der Server-Konfiguration](../CONFIGURATION.md).
 - Einrichtung schnell testen: Klick auf die Schaltfläche **Preview** in der Karte, um mit den aktuellen Einstellungen eine kurze Beispielzeile abzuspielen.
 
 ## Weiterführende Anleitungen
 
 - [Audio- und Videoanrufe in Conversation](../conversation/calls.md)
+- [Lippensynchronisation mit Sprachausgabe](../agents/avatars.md#lip-sync-with-text-to-speech) für 2D- und 3D-Avatare
 - [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md)
 - [Game Mode: Erste Schritte](../game/getting-started.md)
 - [Unterstützte KI-Anbieter](../connections/providers-reference.md)

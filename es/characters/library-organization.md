@@ -6,7 +6,8 @@ Esta guía cubre el **Characters panel** (panel de personajes), la barra lateral
 
 El **Characters panel** es la lista de personajes del panel lateral. Contiene cada personaje que has creado o importado. Desde la parte superior del panel puedes:
 
-- Haz clic en **Open Full Library** para abrir una vista de cuadrícula más grande, a página completa, con los mismos personajes.
+- Haz clic en **Download** (Descargar) para abrir el [Card Browser](bot-browser.md) y encontrar personajes en sitios públicos.
+- Haz clic en **Open Library** (Abrir biblioteca) para abrir una vista de cuadrícula más grande, a página completa, con los mismos personajes.
 - Haz clic en el botón **New** (el icono de más) para abrir la ventana **Create Character**.
 - Haz clic en el botón **Import** (el icono de descarga) para importar un archivo de personaje.
 - Haz clic en el botón **Select** (el icono de marca de verificación) para activar el modo de selección múltiple y hacer acciones en lote.
@@ -43,11 +44,14 @@ Junto al cuadro de búsqueda está el menú desplegable de orden. Elige uno de e
 
 | Opción        | Qué hace                              |
 | ------------- | ------------------------------------- |
+| **Manual order** (Orden manual) | El orden que fijas tú mismo. |
 | **A-Z**       | Nombres de la A a la Z.               |
 | **Z-A**       | Nombres de la Z a la A.               |
 | **Newest**    | Primero los creados más recientemente.|
 | **Oldest**    | Primero los creados más antiguos.     |
 | **Favorites** | Primero los favoritos, luego el resto.|
+
+Para fijar un orden manual, arrastra la fila de un personaje hacia arriba o hacia abajo. También puedes pulsar Alt+Arriba o Alt+Abajo en una fila con el foco. Cualquiera de las dos cosas cambia el orden a **Manual order**.
 
 ## Carpetas
 
@@ -62,6 +66,8 @@ Para crear una carpeta:
 Para renombrar una carpeta, haz doble clic en ella, tócala dos veces, o selecciónala y pulsa la tecla F2. Escribe el nuevo nombre y pulsa Enter.
 
 Para poner un personaje en una carpeta, arrastra la fila del personaje y suéltala sobre la carpeta. Una línea de ayuda dice **Drag and drop characters to folders, double-click or double-tap to rename** (Arrastra y suelta personajes en carpetas, haz doble clic o toca dos veces para renombrar) una vez que tienes al menos una carpeta. Para sacar un personaje de nuevo, pasa el cursor por su fila dentro de la carpeta y haz clic en el botón de quitar de la carpeta, o arrástralo fuera.
+
+En una pantalla táctil, mantén pulsada una fila para tomarla y luego arrástrala. Deslizar el dedo con normalidad sigue desplazando la lista. Mientras sostienes una fila, toca otras filas con un segundo dedo para llevarlas también como una pila, y luego suelta la pila sobre una carpeta.
 
 Haz clic en una carpeta para expandirla o contraerla. El número junto al nombre de una carpeta es cuántos personajes hay dentro de ella.
 

@@ -2,7 +2,7 @@
 
 Marinara Engine tłumaczy wiadomości czatu między językami. Z tego przewodnika dowiesz się, jak działają czterej dostawcy tłumaczeń, przełączniki tłumaczenia automatycznego i przycisk **Translate** przy pojedynczej wiadomości. Poznasz też ograniczenia każdego dostawcy.
 
-Tłumaczenie ustawia się osobno dla każdego czatu. Każdy czat ma własnego dostawcę, własny język docelowy i własne klucze. Ustawienie wpisane w jednym czacie nie przenosi się do innego.
+Tłumaczenie ustawia się osobno dla każdego czatu. Każdy czat ma własnego dostawcę, własne języki i własne klucze. Żeby nowe czaty zaczynały z tymi samymi ustawieniami, zapisz je jako [domyślne ustawienia tłumaczenia](#translator-defaults-for-new-chats).
 
 ## Gdzie znaleźć ustawienia tłumaczenia
 
@@ -25,9 +25,12 @@ Lista rozwijana **Provider** (dostawca) ma cztery opcje:
 
 Domyślnie zaznaczona jest opcja **Google Translate** i nie wymaga ona żadnej konfiguracji. Innego dostawcę wybierz tylko wtedy, gdy potrzebna jest któraś z funkcji opisanych niżej.
 
-### Pole **Target Language**
+### Pola **Model Language** i **My Language**
 
-Pole **Target Language** (język docelowy) określa język, na który tłumaczysz. Domyślna wartość to `en` (angielski).
+Języki ustawiają dwa pola. Oba mają domyślnie wartość `en` (angielski).
+
+- **Model Language** (język modelu): na ten język są tłumaczone twoje wiadomości, zanim przeczyta je AI. Korzystają z niego **Translate My Messages** i **Translate draft**.
+- **My Language** (mój język): na ten język są tłumaczone odpowiedzi AI. Korzystają z niego **Auto-Translate Responses** i przycisk **Translate** przy pojedynczej wiadomości.
 
 Format zależy od dostawcy:
 
@@ -64,27 +67,37 @@ Serwer DeepLX pod publicznym adresem internetowym nie potrzebuje tego ustawienia
 
 ### Konfiguracja tłumaczenia przez AI
 
-Po wybraniu opcji **AI (via connection)** tłumaczy jeden z twoich dostawców AI. Pojawiają się wtedy dwa dodatkowe pola.
+Po wybraniu opcji **AI (via connection)** tłumaczy jeden z twoich dostawców AI. Pojawiają się wtedy trzy dodatkowe pola.
 
 Lista rozwijana **Connection** (połączenie) decyduje o tym, które połączenie AI wykonuje tłumaczenie. To pole jest wymagane. Puste pole oznacza błąd tłumaczenia z komunikatem "Connection ID is required for AI translation". Połączenie to zapisany skrót do dostawcy AI. Sposób jego utworzenia opisuje przewodnik po połączeniach, do którego link znajdziesz niżej.
 
-Pole **AI Prompt** (prompt dla AI) zawiera instrukcję wysyłaną do AI przy tłumaczeniu. Wypełnia je wbudowany prompt domyślny, czyli tekst, który Marinara wysyła do AI. Da się go zmienić na potrzeby tego czatu. Po zmianie pojawia się przycisk **Restore** (przywrócenie), który cofa pole do wbudowanej wartości domyślnej. Domyślny prompt brzmi:
+Pola **Outgoing Message Prompt** (prompt dla wiadomości wychodzących) i **Incoming Response Prompt** (prompt dla odpowiedzi przychodzących) zawierają instrukcje wysyłane do AI, gdy tłumaczy ono twoje wiadomości i odpowiedzi AI. Oba wypełnia wbudowany prompt domyślny, czyli tekst, który Marinara wysyła do AI, a każdy z nich da się zmienić na potrzeby tego czatu. `{{targetLanguage}}` w prompcie zamienia się w wartość pola **Model Language** albo **My Language**. Po zmianie promptu pojawia się przycisk **Restore** (przywrócenie), który cofa go do wbudowanej wartości domyślnej. Domyślny prompt brzmi:
 
 ```
-You are a translator. Translate the given text accurately, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
 ## Przełączniki tłumaczenia automatycznego
 
-Pod ustawieniami dostawcy są trzy przełączniki. Wszystkie trzy są domyślnie wyłączone.
+Pod ustawieniami dostawcy są cztery przełączniki. Wszystkie cztery są domyślnie wyłączone.
 
 Przełącznik **Auto-Translate Responses** tłumaczy każdą odpowiedź AI automatycznie, zaraz po jej wygenerowaniu. W trybie Game Mode Marinara usuwa z narracji znaczniki przeznaczone wyłącznie dla postaci Game Master (GM, czyli mistrza gry), zanim ją przetłumaczy.
 
-Przełącznik **Translate My Messages** tłumaczy twoją wiadomość na język docelowy tuż przed wysłaniem jej do AI. Tłumaczenie zastępuje wpisany tekst. Kiedy tłumaczenie się nie uda, Marinara wysyła oryginalny tekst i pokazuje komunikat o błędzie.
+Przełącznik **Translate My Messages** tłumaczy twoją wiadomość na język z pola **Model Language** tuż przed wysłaniem jej do AI. Tłumaczenie zastępuje wpisany tekst. Kiedy tłumaczenie się nie uda, Marinara wysyła oryginalny tekst i pokazuje komunikat o błędzie.
 
 Przełącznik **Show Draft Translate Button** dodaje przycisk **Translate draft** obok przycisku **Send** (wysłanie). Dzięki temu można przetłumaczyć wiadomość i przejrzeć albo poprawić wynik przed wysłaniem. To ręczna alternatywa dla przełącznika **Translate My Messages**, który tłumaczy przy wysyłaniu, bez możliwości sprawdzenia efektu.
 
+Przełącznik **Show Only Translation** (pokazywanie tylko tłumaczenia) pokazuje tłumaczenie przetłumaczonej wiadomości w jej miejscu, zamiast oryginału i tłumaczenia razem.
+
 W trybie **Conversation** zawsze możesz przetłumaczyć niewysłany szkic: otwórz przycisk buźki przy polu wiadomości, a następnie **Tools → Translate draft** (narzędzia → przetłumacz szkic), na komputerze lub telefonie. Nie musisz włączać **Show Draft Translate Button** ani automatycznego tłumaczenia. Akcja używa ustawień tłumaczenia wiadomości wychodzących tego czatu i zastępuje szkic do sprawdzenia; nie wysyła wiadomości. Nieudane tłumaczenie pozostawia szkic bez zmian.
+
+<a id="translator-defaults-for-new-chats"></a>
+
+## Domyślne ustawienia tłumaczenia dla nowych czatów
+
+Pod przełącznikami przycisk **Save translator defaults** (zapisanie domyślnych ustawień tłumaczenia) zapisuje ustawienia tłumaczenia tego czatu dla nowych czatów w każdym trybie. Ustawienia z kreatora i z profilu ustawień mają pierwszeństwo. Istniejące czaty zachowują własne ustawienia. Przycisk **Forget saved defaults** (usunięcie zapisanych ustawień domyślnych) je czyści. [Noodle](../noodle/settings.md#translation) korzysta z tych samych ustawień domyślnych.
+
+Klucz API DeepL i adres DeepLX zostają w tej instalacji aplikacji Marinara Engine. Eksporty czatów, wyeksportowane profile ustawień i pliki z **Export Profile** (Eksportuj profil) je pomijają, a import żadnego z nich nigdy ich nie ustawia. Po przeniesieniu czatu do innej instalacji wpisz je ponownie.
 
 ## Przycisk **Translate** przy pojedynczej wiadomości
 
@@ -92,12 +105,12 @@ Każda wiadomość czatu, twoja i ta od AI, ma przycisk **Translate** (tłumacze
 
 1. Najedź kursorem na wiadomość, żeby pokazał się jej pasek akcji.
 2. Kliknij przycisk **Translate**.
-3. Tłumaczenie pojawia się pod wiadomością.
+3. Tłumaczenie pojawia się pod wiadomością albo, przy włączonym **Show Only Translation**, w jej miejscu.
 4. Kliknij ten sam przycisk ponownie, żeby ukryć tłumaczenie. Jego podpowiedź brzmi teraz **Hide translation**.
 
 Tłumaczenie wykonane w ten sposób zapisuje się razem z wiadomością. Przetrwa odświeżenie strony i zostaje na miejscu po przejściu do innego czatu i powrocie.
 
-Przycisk przy pojedynczej wiadomości korzysta z tego samego dostawcy i języka docelowego, które ustawiono w sekcji **Translation**.
+Przycisk przy pojedynczej wiadomości korzysta z tego samego dostawcy i języka z pola **My Language**, które ustawiono w sekcji **Translation**.
 
 ## Ograniczenia dostawców
 

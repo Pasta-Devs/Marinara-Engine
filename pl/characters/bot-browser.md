@@ -12,8 +12,8 @@ Panel **Card Browser** przeszukuje kilka publicznych stron z kartami postaci bez
 
 Panel **Card Browser** otwiera się na dwa sposoby.
 
-1. Kliknij ikonę **Card Browser** na górnym pasku. Znajdziesz ją w rzędzie przycisków paneli po prawej stronie.
-2. Inna opcja: otwórz panel **Card Browser** na prawym pasku bocznym, a potem kliknij przycisk **Download Cards** (pobranie kart) u góry tego panelu.
+1. Otwórz panel **Characters** (postacie) i kliknij przycisk **Download** (pobranie) u góry. Jego podpowiedź brzmi **Download character cards** (pobieranie kart postaci).
+2. Inna opcja: kliknij ten sam przycisk **Download** u góry panelu **Personas** (Persony).
 
 W obu przypadkach cały obszar treści przełącza się na pełny widok **Card Browser**. Ten widok zastępuje obszar czatu. To nie jest małe okienko.
 
@@ -183,15 +183,6 @@ Jeśli postać niesie ze sobą dołączony lorebook, przy imporcie przeglądarka
 Kliknij przycisk **Download as PNG**, aby zapisać postać jako standardowy plik karty postaci w formacie PNG. W trakcie pracy przycisk pokazuje napis **Building PNG...**. Działa to w każdym źródle. Zapisany plik nosi nazwę postaci, na przykład `Some_Character.png`. Takim plikiem da się podzielić albo zaimportować go później do innej aplikacji.
 
 JSON i PNG to dwa popularne formaty tych samych danych postaci. JSON to zwykły format tekstowy. Karta PNG to plik obrazu z danymi postaci zapisanymi w środku. Oba niosą kompletną postać.
-
-## Twoje zaimportowane postacie
-
-Panel **Card Browser** na prawym pasku bocznym prowadzi osobną listę postaci zaimportowanych przez panel **Card Browser**. Postacie utworzone ręcznie albo zaimportowane inną drogą tu nie trafiają. Wszystkie i tak widać w głównej bibliotece **Characters**.
-
-- Przycisk **Download Cards** otwiera pełny widok **Card Browser**.
-- Pole **Search imported...** filtruje tę listę.
-- Lista rozwijana sortowania oferuje **A-Z**, **Z-A**, **Newest** i **Oldest**.
-- Kliknij wiersz prawym przyciskiem myszy albo użyj jego przycisków, aby znaleźć **Quick Start Roleplay** i **Quick Start Conversation**. Otwierają one nowy czat z tą postacią. Stąd też da się usunąć postać z tej listy.
 
 ## Rozwiązywanie problemów
 

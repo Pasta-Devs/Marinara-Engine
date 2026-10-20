@@ -46,6 +46,72 @@ die Auswahl passender Lorebook-Einträge, das Parsen JSON-ähnlicher Antworten u
 Sprachmodell-Aufrufe. Zugangsdaten von Verbindungen, Anbieter-Implementierungen,
 Datenbank-Handles und Speicherobjekte bleiben der Engine vorbehalten.
 
+### Client-Namensraum des Hosts
+
+Die Engine besitzt ihren Client-Zustand und ihre Bibliotheken, und die Clients von Agent-Paketen nutzen diese, statt Kopien davon mitzubündeln. Eine Kopie hält einen eigenen Zustand: Paket-Clients, die den Store für die UI-Einstellungen mitgebündelt hatten, schrieben bei jedem Laden eine ältere Version davon über die Einstellungen der Engine (Pasta-Devs/Marinara-Agents#1478), und jeder mitgebündelte Chat-Store behielt den Chat, der beim Laden der Seite offen war.
+
+Bevor die Engine den ersten Paket-Client importiert, definiert sie eine einzige globale Variable:
+
+```ts
+globalThis.__MARINARA_HOST__ = {
+  version: 1,
+  capabilityApi,
+  stores,
+  services,
+  modules,
+  queryClient,
+  components,
+  data,
+  api,
+};
+```
+
+Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum sowie seine Objekte `stores`, `services`, `modules`, `components` und `data` sind eingefroren. Der Paketlader (`useCapabilityClientModules`) lädt `lib/marinara-host.ts` per `import()` und wartet auf `ensureMarinaraHost()`, bevor er einen Paket-Client importiert. Der Namensraum ist also vollständig, wenn ein Paketmodul ausgewertet wird. Eine Engine ohne Paket-Clients lädt ihn nie. Lässt er sich nicht laden (etwa wegen eines veralteten Chunks nach einem Update), zeigt jedes Paket seinen bisherigen Ladefehler, und der Rest der Engine funktioniert weiter. Der TypeScript-Typ ist `MarinaraHostV1` in `packages/client/src/lib/marinara-host-contract.ts`, zusammen mit den Listen auf dieser Seite. Paket-Builds deklarieren passende strukturelle Typen, statt Quellcode der Engine zu importieren.
+
+| Mitglied | Wert |
+| --- | --- |
+| `version` | `1`. Ändert sich nur, wenn die Form inkompatibel wird. |
+| `capabilityApi` | Die `supportedCapabilityApi` der Engine, zum Beispiel `{ major: 1, minor: 341 }`. |
+| `stores` | Die laufenden Zustand-Stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` und `backfill`. `chat` enthält den Slice für ausstehende räumliche Übergänge. |
+| `services.tts` | Das Modul `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
+| `services.dialogs` | Das Modul `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
+| `modules` | Bibliotheksmodule mit dem Bare Specifier als Schlüssel (siehe unten). |
+| `queryClient` | Der eine `QueryClient` von React Query, mit dem die Engine rendert. |
+| `components.Modal` | Das `Modal` der Engine, mit seiner Overlay-Reihenfolge und seiner Behandlung von Escape und Zurück-Taste. |
+| `data.emojiCatalog` | Das Modul `lib/emoji-catalog.generated.ts`. |
+| `api` | Das Modul `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
+
+Ein Paket liest ein Mitglied erst nach einer Prüfung, zum Beispiel
+`const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
+Der Namensraum wächst nur: Ein neues Mitglied kommt mit einer Minor-Version der Capability API, und ein Paket, das es braucht, verlangt diese Minor-Version. Pakete, die für den Namensraum gebaut sind, verlangen die Version der Capability API, die ihn eingeführt hat. Eine ältere Engine installiert sie also nie und behält die Paketversion, die sie bereits hat. Fehlt ein Mitglied trotzdem, greift das Paket nie auf eine mitgebündelte Kopie eines zustandsbehafteten Engine-Dienstes zurück: Die Stores `ui` und `chat` werden zu schreibgeschützten Kopien, die nie schreiben, und jedes andere Mitglied meldet, dass die Funktion eine neuere Version von Marinara Engine braucht.
+
+**Host-Module.** `modules[specifier]` ist genau das, was `import * as m from "<specifier>"` im eigenen Build der Engine zurückgibt, einschließlich `default`, sofern die Bibliothek eines hat. Die Specifier sind `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `tailwind-merge` und `clsx`. Ein Paket-Build löst diese Specifier zu Shims auf, die den Namensraum lesen. So rendert das Paket mit dem einen React der Engine und teilt deren React-Query-Cache und Toasts.
+
+- Pakete rendern nie einen `<Toaster>` und erzeugen nie einen `QueryClient`. Ein `toast` aus `sonner` erscheint an der Toast-Position, die der Nutzer eingestellt hat. Die Query-Standardwerte der Engine (eine `staleTime` von 30 Sekunden, ein erneuter Versuch, kein erneutes Laden beim Fokussieren des Fensters) gelten, sofern eine Query keine eigenen Optionen setzt, und ein neuer, paketeigener Query-Key beginnt mit der Paket-ID.
+- Ein Paket hält eine eigene i18next-Instanz aus `i18next.createInstance()` innerhalb von `<I18nextProvider>`. Es verwendet nie `initReactI18next`, `setI18n` oder `setDefaults`, denn diese würden die Instanz der Engine ersetzen.
+- `lucide-react`, `chess.js`, `scheduler` und `@marinara-engine/shared` sind keine Host-Module; Pakete bündeln, was sie davon nutzen.
+- Pakete werden gegen diese Major-Versionen gebaut: `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `tailwind-merge` 3 und `clsx` 2. Ein Major-Upgrade einer davon in der Engine (allen voran React) bricht jedes Paket, das gegen die alte Major-Version gebaut wurde, und verlangt deshalb eine **Major-Version** der Capability API. `scripts/regressions/marinara-host-namespace.regression.ts` schlägt fehl, wenn sich eine Major-Version in `packages/client/package.json` ändert, der Vertrag aber nicht.
+
+**Store-Felder, die Pakete lesen.** Veröffentlichte Pakete lesen heute diese Felder. Die Engine behält jedes davon, und eines zu entfernen oder umzubenennen braucht eine Major-Version der Capability API (`MARINARA_HOST_STORE_FIELDS` legt sie mit `Pick<>` fest):
+
+| Store       | Felder                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui`        | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
+| `chat`      | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `agent`     | `setYoutubePlay`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `sidecar`   | `modelDownloaded`, `modelDisplayName`, `fetchStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `dialog`    | `dialog`, `openDialog`, `closeDialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `gallery`   | `pinImage`, `pinVideo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `encounter` | `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `gameState` | `current`, `setGameState`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `backfill`  | `resetBackfill`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+**Browser-Speicher der Engine.** Pakete dürfen diese Schlüssel lesen, aber nie schreiben oder entfernen: `marinara-engine-ui`, `marinara-engine-ui:host`, `marinara-active-chat-id`, `marinara-input-drafts` (Local Storage und Session Storage), `marinara-pending-spatial-transitions`, `marinara-pinned-gallery-images` und `marinara_sidecar_prompted`. Die IndexedDB-Datenbank `marinara-tts-audio-cache` öffnen sie nie. Um eine Einstellung zu ändern, ruft ein Paket die Aktion des Stores auf, zum Beispiel `host.stores.ui.getState().setConversationCallVoiceMuted(true)`, und die Engine speichert sie.
+
+**App-Dialoge.** Die Engine rendert ihre Dialoge für Hinweis, Bestätigung, Eingabe und Auswahl auf ihrer obersten Ebene, der Ebene der Befehlsleiste. Ein Dialog, den ein Paket öffnet, erscheint also über dem eigenen Overlay des Pakets und erhält den Fokus.
+
+**Paket-Builds aus der Zeit vor dem Namensraum.** Sie bündeln ihre eigene Kopie des UI-Stores in Version 74 und überschreiben `marinara-engine-ui` nur mit den Einstellungen, die diese Kopie kennt. Die Engine speichert außerdem jeden Schreibvorgang in einer reinen Host-Kopie `marinara-engine-ui:host`, und beim Laden ignoriert sie einen gespeicherten Blob, der älter als ihre eigene Version ist, solange diese Kopie auf der aktuellen Version steht. Für installierte Bundles, die die klassische JSX-Runtime verwenden, setzt die Engine weiterhin `globalThis.React` und `globalThis.ReactDOM`.
+
 ### Capability API 1.7: Chat-Branches
 
 Capability API 1.7 ergänzt `CapabilityChatRecord` um normalisierte Branch-Metadaten:
@@ -202,7 +268,7 @@ Diese dritte Gruppe benötigt sieben Quellen, weil die Engine Metadaten in mehre
 
 Regressionen sichern alle Quellen und Extraktoren ab. Zwei Fälle liegen bewusst außerhalb der Suche. Ein Schreibaufruf mit Variable oder Helferergebnis, etwa `patchMetadata(id, hydratedMeta)` oder dieselbe Form an der Metadatenroute, enthält statisch nicht erkennbare Schlüssel. Davon gibt es derzeit zwanzig; die Regression fixiert diese Zahl. Ein einundzwanzigster lässt den Build bis zur manuellen Prüfung scheitern. Ein Lesezugriff _innerhalb_ eines Helfers über einen Parameter ist ebenfalls nicht statisch erfasst. So verhält sich `spatialContext`: Geschrieben vom Client des Pakets `hierarchical-maps` im Agents-Repository, gelesen hier über einen Helfer und dateilokales Parsing. Diese Lücke schließt die gepflegte Liste. Deshalb ist eine Quelle bewusst kuratiert statt abgeleitet; die Ableitung benennt ihre blinden Flecken. `persona` ist ein manuell ergänzter Mindesteintrag ohne heutige Ableitungsquelle.
 
-Die dritte Regel kann absichtlich ganze Pakete ausschließen: `conversation-calls` wird zu `conversationCalls`, und `conversationCalls` + `Enabled` ist bereits ein Engine-Schlüssel. Dieses Paket darf daher unter seiner ID keine Chat-Metadatenschlüssel besitzen. Dasselbe gilt für `noodle` und `background`; Letzteres ist selbst ein Engine-Schlüssel. Solche Pakete dürfen weiterhin schlüssellose Ereignisverben deklarieren. Schlüssel sind flach auf oberster Ebene, passend zum vorhandenen Abgleich des Pakets.
+Die dritte Regel kann absichtlich ganze Pakete ausschließen: `conversation-calls` wird zu `conversationCalls`, und `conversationCalls` + `Enabled` ist bereits ein Engine-Schlüssel. Dieses Paket darf daher unter seiner ID keine Chat-Metadatenschlüssel besitzen. Dasselbe gilt für `noodle` und `background`; Letzteres, weil `background` selbst ein Engine-Schlüssel für Chat-Metadaten ist. Solche Pakete dürfen weiterhin schlüssellose Ereignisverben deklarieren. Schlüssel sind flach auf oberster Ebene, passend zum vorhandenen Abgleich des Pakets.
 
 Verben laufen nur für installierte, bereite Pakete mit `chat-write`. Diese Berechtigung schützt auch die Persistenz-API für Nachrichten, Chat-Metadaten, Roleplay-Ereignisse und räumliche Snapshots. `chat-read` schützt Lesezugriffe auf Chats, Nachrichten, Spielzustand und räumliche Snapshots. Dieselben Prüfungen gelten in Transaktionen und Chatsperren; Schreibrecht gewährt nicht automatisch Leserecht. Engine-eigene Persistenzaufrufe bleiben vertrauenswürdig.
 
@@ -324,7 +390,9 @@ In der Basis bleiben nur der Paketmanager, der Katalog-Client, die generischen V
 
 Der offizielle Katalog ist ein schemavalidiertes, versioniertes JSON-Dokument und wird über HTTPS geladen. Jeder Release-Eintrag nennt unveränderliche Artefakt-URLs, SHA-256-Prüfsummen, Dateigrößen in Byte, die Engine-Kompatibilität, die Berechtigungen und ob die Laufzeit einen Neustart braucht.
 
-Beim Serverstart lädt der Host den Katalog genau einmal, sofern mindestens ein offizielles Paket installiert ist. Er wählt nur neuere Versionen aus, die zur laufenden Engine und zur Capability-API passen, prüft sie über die normale Installationsstrecke und installiert sie, bevor die Paket-Laufzeiten aktiv werden. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
+Updates brauchen die Zustimmung des Nutzers: Abgesehen von einmaligen Migrationen, die die früheren eingebauten Funktionen einer aktualisierten Installation erhalten (siehe [Kompatibilitäts-Migration](#compatibility-migration)), lädt oder installiert der Start nie ein Paket. `GET /api/capability-packages/updates/pending` listet jedes installierte offizielle Paket auf, dessen Katalogversion neuer ist und zur laufenden Engine und zur Capability-API passt; eine Version, die der Nutzer bereits abgelehnt hat, fehlt darin. Der Client zeigt sie gesammelt in einer Abfrage **Agent updates available** an. **Update all** installiert jedes über die normale Installationsstrecke, festgelegt auf die angebotene Version und die SHA-256-Prüfsumme des Artefakts. **Not now** speichert die abgelehnten Versionen in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), sodass diese Version nicht erneut angeboten wird, eine neuere aber schon. **Update** bleibt in **Download Agents** so oder so verfügbar. Fehler bleiben auf das jeweilige Paket beschränkt. Ist der Katalog offline oder schlägt eine Prüfung fehl, bleiben vorhandene Dateien und der Registry-Stand nutzbar; scheitert die Bereitschaft einer Server-Laufzeit, greift der Rollback auf die Vorgängerversion.
+
+Release Notes werden als `notes.json` neben der `catalog.json` veröffentlicht, die sie beschreiben, nie in einem Katalogeintrag oder einem Manifest: Eine ältere Engine verwirft einen Katalogeintrag mit einem Schlüssel, den sie nicht kennt. Jedes ausstehende Update trägt als `releaseNotes` die Notes jeder Version nach der installierten bis zur angebotenen, die neueste zuerst, und `releaseHighlight` ist wahr, wenn eine davon als Änderung markiert ist, die dem Nutzer auffallen wird. Notes sind reiner Text und werden nie als Markdown oder HTML gerendert.
 
 Der Installer muss:
 
@@ -349,6 +417,17 @@ Der Server verwaltet die Registry der installierten Pakete und stellt den Client
 
 Turn-Game-Pakete lassen sich im laufenden Betrieb neu laden: Die Installation registriert Server-Engine und manuellen Slash-Befehl sofort, die Deinstallation löst die Laufzeit ohne Neustart der Engine wieder ab. Die Einstellung **Conversation Commands** (Chat-Befehle) je Chat regelt nur, ob Charaktere den versteckten Befehl des Pakets auslösen dürfen – den eigenen Slash-Befehl schränkt sie nicht ein. Die aktuellen offiziellen Turn-Game-Manifeste tragen aus Vorsicht weiterhin die alte Neustart-Markierung, damit sie mit Engine 2.x kompatibel bleiben; Engine 3.x erkennt die Art `turn-game`, aktiviert sicher im laufenden Betrieb und meldet das Paket als aktiv und einsatzbereit.
 
+### Speicherplatz: Laufzeitkopien und behaltene Versionen
+
+Ein Paket-Server läuft nicht direkt aus `DATA_DIR/capability-packages/versions/<id>/<version>`. Jede Aktivierung prüft die installierten Dateien, kopiert sie in einen neuen Ordner unter `DATA_DIR/capability-runtime-snapshots` und importiert die Kopie. Die Kopie wird gelöscht, wenn diese Laufzeit stoppt.
+
+- **Laufzeitkopien.** Eine Kopie enthält jede geprüfte Manifest-Datei außer dem Client-Einstiegspunkt. Den lädt der Server nie, und der Browser holt ihn aus `versions/`. Assets bleiben enthalten, damit ein Server Dateien neben seiner `server.mjs` lesen kann, wie es Quartermaster mit `icons/` tut. Die kopierten Dateien sind schreibgeschützt.
+- **Aufräumen beim Start.** Nach einem Absturz oder einem erzwungenen Stopp entfällt das Aufräumen einer Kopie. Bei jedem Start, bevor irgendein Paket aktiviert wird, löscht die Engine jeden Eintrag in `capability-runtime-snapshots` außer den gemeinsamen `node_modules`-Links, denn keiner davon kann vom neuen Prozess benutzt werden. Schreibgeschützte Dateien macht sie zuerst beschreibbar, was Windows verlangt, und Links folgt sie nie. Nur der Prozess, der die Schreib-Lease des Speichers hält, erreicht diesen Schritt. Eine zweite Engine, die mit demselben Datenordner gestartet wird, stoppt deshalb schon beim Öffnen des Speichers und löscht nie die Kopien einer laufenden Engine.
+- **Behaltene Versionen.** `versions/<id>` behält die aktuelle Version und `previousVersion`, die der Rollback wiederherstellt, wenn eine neue Server-Laufzeit nicht startet. Ältere Versionen und eine Version, von der ein fehlgeschlagenes Update zurückgerollt wurde, werden nach einer erfolgreichen Aktivierung oder einem erfolgreichen Update sowie beim Start gelöscht. Ein Paket, dessen Update auf einen Neustart wartet (`restart-required`) oder dessen Laufzeit noch nicht gestartet ist (`readiness: "pending"`), behält jede Version, bis es gestartet ist.
+- **Nie gelöscht:** Paketdaten (Ordner wie `DATA_DIR/long-term-memory` und die Tabellen des Pakets in `storage`), Chats, Einstellungen, `installed.json`, Update-Entscheidungen, `.install-*`-Ordner und `versions/`-Ordner von IDs, die in der Registry fehlen. Die Deinstallation entfernt weiterhin den Code des Pakets und behält seine Daten.
+
+<a id="compatibility-migration"></a>
+
 ## Kompatibilitäts-Migration
 
 Beim ersten Start nach dem Update gilt:
@@ -369,199 +448,13 @@ Jede Deinstallation muss bestätigt werden. Betroffene Chats fallen auf ihre gew
 
 ## Katalog-Oberfläche
 
-Im **Agents**-Panel gibt es die Schaltfläche `Download Agents`, passend zum `Download Cards` im **Card Browser** (Kartenbrowser). Sie öffnet eine bildschirmfüllende, responsive Bibliothek mit Suche, Paketarten, Kompatibilitätsangaben, Installations- und Update-Status, Berechtigungen, Speicherbedarf, Dokumentation und Schaltflächen zum Deinstallieren.
+Im **Agents**-Panel gibt es die Schaltfläche `Download Agents`. Sie entspricht der Schaltfläche `Download` in den Panels Characters und Personas, die den **Card Browser** (Kartenbrowser) öffnet, und öffnet selbst eine bildschirmfüllende, responsive Bibliothek mit Suche, Paketarten, Kompatibilitätsangaben, Installations- und Update-Status, Berechtigungen, Speicherbedarf, Dokumentation und Schaltflächen zum Deinstallieren.
 
 Am Desktop steht neben der Übersichtsliste ein Detailbereich. Auf dem Handy gibt es nur ein Panel, dafür eine ausdrückliche Zurück-Navigation und fingerfreundliche Aktionen. Leere, offline, inkompatibel, beschädigter Download, abgebrochene Installation, Update, Rollback und „Neustart nötig“ sind vollwertige Zustände der Oberfläche.
 
 ## Kriterium für eine abgeschlossene Auslagerung
 
 Eine Auslagerung gilt erst dann als abgeschlossen, wenn die produktiven Basis-Bundles von Client und Server die Paket-Implementierung nicht mehr enthalten, eine frische Installation sie ohne Download des Pakets nicht aktivieren kann, eine aktualisierte Installation sie behält und Installation, Update und Deinstallation des Pakets am Desktop, auf dem Handy und auf Termux-kompatiblen Dateisystemen durchlaufen.
-
-### Capability API 1.20: Game Mode-Regelsätze
-
-Ein Regelsatz liefert validierte Daten: eine von der Engine unterstützte Probenauflösung, einen Bogen aus fest definierten Bausteinen, Rasten und GM-Hinweise. Die reservierte Datei `ruleset.json` wird wie `gm-verbs.json` über `contributions.assets.paths` erkannt und in `files[]` mit Hash erfasst.
-
-```json
-{
-  "schemaVersion": 2,
-  "capabilityApi": { "major": 1, "minor": 20 },
-  "id": "ruleset-5e-2014",
-  "kind": ["ruleset"],
-  "permissions": [],
-  "entrypoints": {},
-  "contributions": { "assets": { "paths": ["ruleset.json"] } },
-  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
-}
-```
-
-Das Beispiel zeigt nur regelsatzrelevante Felder; `name`, `version`, `description`, `engine` und `builtAgainst` bleiben Pflicht. Berechtigungen, Agenten und Client- oder Server-Einstiegspunkte sind nicht nötig. Der Typ `ruleset` und `ruleset.json` setzen einander voraus. Die Datei führt weder Code noch Ausdruckszeichenfolgen aus; neue Auflösungsmechaniken brauchen Engine-Änderungen. Format und 5e-Beispiel stehen in [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
-
-Das ist eine feste Kompatibilitätsgrenze: Der Manifest-Eintrag verlangt API 1.20; ältere Engines verweigern die Installation. Die Engine lehnt deklarierte Größen über 256 KB vor dem Lesen ab, prüft den Installationshash erneut und validiert gegen `packages/shared/src/schemas/ruleset.schema.ts`. Ungültige Dateien werden mit einem Logeintrag zu Paket und ersten `path: message`-Fehlern übersprungen. Bei doppelten IDs gewinnt das erste Paket in der Reihenfolge der Paket-IDs; das andere wird mit einem Logeintrag übersprungen. `engine-legacy` und `traditional` sind reserviert.
-
-Das Spiel speichert die Auswahl einmal in `chat.metadata.gameRuleset`. Ohne Bindung gelten die bisherigen Regeln. Fehlende oder ältere Definitionen machen den Regelsatz nicht verfügbar, ohne ihn zu ersetzen. Die Bindung prüft Regelsatz-ID und Anbieterpaket, sodass ein anderes Paket das Spiel nicht durch eine gleiche ID übernehmen kann.
-
-### Capability API 1.21: Regelsatzkataloge
-
-Kataloge liefern fertige Zauber, Klassenfähigkeiten und Ausrüstung für die Bogenauswahl. Der Kopf steht in `ruleset.json` unter `catalogs`; Einträge stehen inline oder in einer reservierten Datei:
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 21 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } },
-  "files": [
-    { "path": "ruleset.json", "sha256": "<sha256>", "bytes": 25767 },
-    { "path": "catalogs/spells.json", "sha256": "<sha256>", "bytes": 418204 }
-  ]
-}
-```
-
-`catalogs/<id>.json` muss zur Katalog-ID passen und darf nicht auf einen fremden Katalog zeigen. Die Datei braucht einen Hash in `files[]` und das deklarierende `ruleset.json`. Deklarierte Größen über 1 MB werden vor dem Lesen abgelehnt. Inline- und Dateieinträge werden gegen denselben Bogen geprüft. Grenzen: 12 Kataloge je Regelsatz, 2000 Einträge je Katalog.
-
-Der Client lädt Inhalte erst beim Öffnen der Auswahl über `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`. Die installierte Liste enthält nur Anzahlen. Katalogtext wird nicht automatisch in Prompts eingefügt; der GM sieht nur die von `gm.sheetSummary` gewählten Angaben. Katalogdateien verlangen API 1.21. Der Installer prüft auch `catalogs` im hashgeprüften `ruleset.json`; ein älteres striktes Schema würde die ganze Datei ablehnen. Keine Berechtigungen nötig.
-
-### Capability API 1.22: battle-Block
-
-Der optionale Block `battle` benennt Gesundheit, optional MP, Zauberplatzpools und Listen, deren Katalogzeilen zu `CombatSkill` werden. Nach dem Kampf werden Werte mit denselben Bogenoperationen zurückgeschrieben wie bei Spieleraktionen.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 22 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-Das verbindet Daten mit dem Engine-Kampf und ist kein vollständiger Tischrollenspieladapter. Die eingebaute Schadensberechnung liest weder `attackRoll`, `save`, `concentration` noch `perCostStep`. Systemgetreue Kämpfe gehören zur getrennten Adapteranbindung. `coverage.combat` bleibt unabhängig und wird von dieser Verbindung nicht gelesen. Der Installer prüft hashgeprüftes `ruleset.json` und lehnt `battle` unter API 1.22 ab, wie `catalogs` unter 1.21. Ohne Berechtigungen; Regelsätze ohne Block bleiben unverändert.
-
-### Capability API 1.23: skalierte Katalogwerte
-
-`scaled` ordnet einer Katalogzeile bis zu vier eigene Zahlenspalten zu, die der Regelsatz verwaltet. Jede verwendet eine vorhandene Wertreferenz und optional eine Stufentabelle, etwa für stufenabhängige Ressourcen oder attributabhängige Nutzungen, ohne neue Rechenoperationen.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 23 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
-}
-```
-
-Die Berechnung geschieht beim Bearbeiten, nicht beim Lesen. Spielzustand, GM-Prompt und Kampf lesen die gespeicherte Zahl. Inline-Zeilen und `catalogs/<id>.json` werden als Manifest-Dateien anhand ihres geprüften Inhalts kontrolliert; `scaled` verlangt API 1.23. Keine neuen Berechtigungen oder Änderungen an unskalierten Katalogen.
-
-Zusätzlich bezahlt `[sheet: op="use" name="..."]` die `mechanics.cost` eines Eintrags und eine Nutzung jedes von ihm angelegten Zeilenpools. Der Befehl braucht keine neue Deklaration, da er vorhandene Kataloge nutzt.
-
-### Capability API 1.24: Würfelpools
-
-`resolution` kann `"kind": "dice-pool"` statt `"dice-sum"` angeben. Der Bogenwert zählt Würfel; Ergebnisse ab der Schwelle zählen als Erfolge. Der Regelsatz kann doppelte Erfolge, Explosionen, gestrichene Erfolge, Patzer, außergewöhnliche Erfolge und Grenzen für situative Pooländerungen des GM festlegen.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 24 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-Der Bogen bleibt gleich: Der bisherige Summenmodifikator wird zur Würfelanzahl. Keine neuen Bogentypen, Editor-Slots oder Paketcodes. Der Installer lehnt `dice-pool` in geprüftem `ruleset.json` unter API 1.24 ab; ältere Engines mit nur `dice-sum` würden die ganze Datei ablehnen. Keine Berechtigungen oder Änderungen für Summenregelsätze.
-
-### Capability API 1.25: Ebenen und Welthinweise
-
-Optionale `layers` sind benannte Varianten, die bei Spielbeginn ausgewählt und dauerhaft in der Bindung gespeichert werden. Der Block `gm` kann die optionale Zeichenfolge `worldGuidance` enthalten. `gm.worldGuidance` wird einmal bei der Welterstellung gelesen, damit die Welt zu den Gruppenregeln passt.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 25 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-Die geschlossene Effektmenge kann Hinweise nach den Regelsatzhinweisen ergänzen, Enum-Werte entfernen, die Schwierigkeitsskala durch eine zum selben Auflösungstyp passende ersetzen und Katalogeinträge ausblenden. Neue Bogenelemente sind nicht erlaubt; vorhandene Bögen bleiben mit jeder Ebenenauswahl lesbar. Kein Paketcode, kein zusätzlicher Modellaufruf. Fremde Ebenen sind für später vorgesehen. Beide Felder verlangen nach Inhaltsprüfung API 1.25. Keine Berechtigungen oder Änderungen für Regelsätze ohne diese Felder.
-
-### Capability API 1.26: Kampfformat
-
-API 1.26 ergänzt `combat` für Würfe, Ziele, Aktionsbudget, Angriffs- und Fähigkeitslisten, Zustände, Konzentration, Verhalten bei null Gesundheit, Schadenstypen und Gegnerstufen. Katalog-`mechanics` kann Ziele, sichere Treffer, Zustände, temporäre Punkte, Bogenskalierung und Budgetverbrauch beschreiben.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 26 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json"] } }
-}
-```
-
-### Capability API 1.27: Kreaturenkataloge
-
-API 1.27 erlaubt `"holds": "creatures"`. Kreaturenwerte verwenden `combat`: feste oder zu Kampfbeginn gewürfelte Gesundheit, Verteidigung, Initiative, Attribute und Rettungswürfe mit Bogen-IDs, Resistenzen, Schwächen, Immunitäten, Gefahrenstufe und GM-Merkmale. Aktionen können treffen, Rettungswürfe verlangen, Zustände anwenden, begrenzte Nutzungen haben, sich durch Würfe aufladen, mehrere Aktionen mit einem Budget ausführen oder eigene Spezialpunkte verbrauchen.
-
-```json
-{
-  "capabilityApi": { "major": 1, "minor": 27 },
-  "kind": ["ruleset"],
-  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/beasts.json"] } }
-}
-```
-
-Ein Kreaturenkatalog deklariert kein `feeds` und erscheint nicht in der Blattauswahl. Bei eingeschaltetem Kampfdirektor verwendet ein Spiel mit `combat` diese Regeln und das Bestiarium auf dem Kampfbildschirm; nach jeder Aktion werden die Blätter gespeichert. Das ist der Stil `ruleset`, ohne zusätzliche Capability-API-Stufe. Ohne `combat` gelten weiterhin der `battle`-Block oder die Wahl Classic/Tactical. Die Installation prüft die verifizierten Dateien `ruleset.json` und `catalogs/<id>.json`: `combat` und die neuen `mechanics`-Schlüssel erfordern 1.26, `holds` und `creature` 1.27. Ein älteres strenges Schema würde die Datei ablehnen. Keine neuen Berechtigungen; Regelwerke ohne diese Felder bleiben unverändert.
-
-### Capability API 1.73: die Avatar-Agenten
-
-Die Engine hostet die beiden Avatar-Agenten `2d-avatars` (PNGTuber-Sprites und Mesh-Avatare) und `3d-avatars` (VRM-Modelle). Ihre Pakete bleiben schlank: je eine Agent-Definition, Standard-Prompts, Sprachdateien und der Katalogeintrag. Alles andere gehört der Engine: der Speicher pro Besitzer unter `DATA_DIR/avatar-models/`, der Import, die verzögert geladenen Renderer, die Einrichtung auf der Agent-Editor-Seite jedes Agenten, der Stream-Director, der Ausdrucks-Klassifikator und die Generierungsrouten. Der gemeinsame Vertrag ist `packages/shared/src/types/avatars.ts` (seine Schemas liegen in `schemas/avatars.schema.ts`), die Client-Hälfte ist `packages/client/src/features/avatars/contract.ts`. Die Nutzeranleitung ist [`docs/agents/avatars.md`](../agents/avatars.md).
-
-Es gibt kein neues Manifestfeld. Ein Avatar-Paket deklariert Schemaversion 2 und Capability API 1.73. Eine Engine ohne diese Oberflächen verweigert deshalb die Installation, statt einen Agenten aufzulisten, der nichts anzeigt. Die Änderung, mit der 1.73 kam, hat diese Oberflächen als wirkungslose Stubs ausgeliefert. Deshalb werden die Pakete erst veröffentlicht, wenn Einrichtung, Bühne und ein Renderer der Engine auf `staging` sind. Das gilt auch für den Vorschau-Katalog. Die Generierungs-Prompts des 2D-Agenten werden als Prompt-Vorlagensammlung `avatarGenerationTemplates` in seinen `defaultSettings` ausgeliefert, mit den IDs in `AVATAR_PROMPT_TEMPLATE_IDS`; der Agent-Editor führt sie zusammen und setzt sie zurück wie jede andere eingebaute Vorlagensammlung.
-
-### Capability API 1.72: das Kartenpaket einer Experience
-
-Ein `game-surface`-Paket, das über den Game-Assistenten eingerichtet wird (`gameSurface.setup`, 1.18), kann mit Schemaversion 2 und Capability API 1.72 ein Kartenpaket mitliefern: ein eigenes Setting-Kit, fertige Welten, die mit diesem Kit gebaut sind, und ein eigenes Tile-Pack. Jedes davon ist die Austauschdatei, die Game Mode und Pixelforge bereits lesen und schreiben (eine `.worldkit.json`, `.world.json`-Dateien und eine `.tilepack.json`), und jedes ist zugleich ein deklariertes Asset, das per Hash festgeschrieben ist.
-
-```json
-{
-  "gameSurface": {
-    "setup": {},
-    "mapPack": {
-      "kit": "map/riverlands.worldkit.json",
-      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
-      "tiles": "map/riverlands.tilepack.json"
-    }
-  },
-  "assets": {
-    "paths": [
-      "map/riverlands.worldkit.json",
-      "map/upriver.world.json",
-      "map/downriver.world.json",
-      "map/riverlands.tilepack.json"
-    ]
-  }
-}
-```
-
-`worlds` (höchstens 32) und `tiles` sind optional. Eine Weltdatei kann das Story-Skript ihrer Welt enthalten (worldgen W10), das als Teil der Karte mitgeliefert wird. Eine Weltdatei der Version 2 enthält außerdem den `snapshot` der Welt, also die Welt, wie sie erstellt wurde (W11): Eine Engine, deren Weltgenerator sich seitdem geändert hat, liest die Welt daraus, genau so, wie sie erstellt wurde. So funktioniert ein Paket auch über Engine-Updates hinweg. Schreib die Dateien über **Download** eines Spiels oder einer Welt aus der Weltbibliothek (oder über `GET /api/game/:chatId/world/file`); diese Dateien enthalten den Snapshot. Eine Paketdatei darf weiterhin höchstens 2 MB groß sein. Eine Welt mit größerer Datei (etwa durch den Snapshot einer großen Welt) lässt sich daher nicht in einem Paket ausliefern. Ist die Experience eingeschaltet, ist ein neues Spiel fest an das Kit des Pakets gebunden; liefert das Paket Welten mit, wählt der Spieler eine davon (samt Story-Skript) und erstellt keine andere. Wird die Experience ausgeschaltet, gelten wieder die eigenen Entscheidungen des Spielers. `POST /api/game/create` setzt dieselbe Bindung für ein Spiel durch. Das Spiel behält wie jedes Spiel sein Kit und seine Welt. Es läuft also weiter, wenn das Paket entfernt wird, und zeichnet seine Oberwelt und Städte mit den Tiles des Pakets, solange das Paket installiert ist.
-
-Die Engine liest die Dateien über den verifizierten Asset-Weg (deklarierte Größe jeweils höchstens 2 MB, Hash erneut geprüft) und prüft sie so, wie sie Austauschdateien prüft. Ein Paket wird als Ganzes abgelehnt, mit Angabe des Grunds, wenn sich eine Datei nicht lesen lässt, wenn eine Welt mit einem anderen Kit erstellt wurde oder nicht dazu passt oder wenn ihre Bytes nicht die installierten sind; die Experience kann dann kein Spiel starten. Ein Regelsatz ist nie Teil eines Kartenpakets: Eine Experience, die eigene Regeln braucht, liefert ein separates Regelsatz-Paket mit.
-
-### Capability API 1.18: Experience-Einrichtung im Game-Assistenten
-
-Ein `game-surface`-Paket kann mit Schemaversion 2 und Capability API 1.18 `contributions.gameSurface.setup` deklarieren. Die Engine behält ihre üblichen sieben Einrichtungsschritte bei, einschließlich **Party** (Gruppe), Zielen, Modellen und Lorebooks. Experiences werden nur für neue Spiele angeboten; beim erneuten Öffnen der Einrichtung eines bestehenden Spiels bleiben dessen Experience und Paketkonfiguration erhalten. Pakete ohne diese Deklaration behalten ihren bisherigen Einrichtungsdialog.
-
-```json
-{
-  "setup": {
-    "seed": { "key": "seed", "label": "World seed" },
-    "config": { "generate": true, "packWanted": true },
-    "requires": { "enableCustomWidgets": false }
-  }
-}
-```
-
-Alle drei Felder sind optional. Der deklarierte Seed erscheint unter der gewählten Experience mit der Schaltfläche **Randomize** (Zufällig wählen). Eine leere Eingabe oder eine Eingabe ohne endlichen Zahlenwert blockiert **Start** (Starten). Der Host schreibt den numerischen Seed und die deklarierten Konstanten in `experienceConfig`; `config` darf den Seed-Schlüssel nicht enthalten. Die Konstanten dürfen serialisiert höchstens 8.000 Zeichen umfassen. Eine Seed-Beschriftung ist vom Paket verfasster Anzeigetext; lass sie weg, um die lokalisierte Engine-Beschriftung zu verwenden.
-
-Eine deklarierte Widget-Anforderung liefert den Standardwert nur, bis der Spieler dieses Steuerelement ändert. Wird die Experience ausgeschaltet, kehrt der gewöhnliche Standardwert zurück, während ausdrückliche Spielerentscheidungen unverändert bleiben. Das Steuerelement erläutert die Erwartung der Experience und bleibt bearbeitbar. Die Einrichtungselemente für räumliche Karten sind für diese Experiences ausgeblendet, sodass kein separater Kartenentwurf, keine Vorlage und kein Kartenersteller gestartet wird.
-
-Im Schritt **Lorebooks** (Lorebooks) lassen sich bis zu 100 einzelne aktivierte Einträge auswählen, auch aus nicht angehängten Büchern. Deaktivierte Bücher, Einträge und Chat-Ausschlüsse werden berücksichtigt. Diese IDs werden in `GameSetupConfig.activeLorebookEntryIds` übergeben. Bei `/game/setup` sind sie zusätzliche erzwungene Einträge: Sie überspringen Wahrscheinlichkeitswürfe, behalten aber die üblichen Token-Limits. Globale, charaktergebundene und angehängte Lore nimmt weiterhin am gewöhnlichen Scan teil. Pakete können dieselben ausgewählten IDs aus der Einrichtungskonfiguration für ihre eigene Weltgenerierungsanfrage lesen.
-
-Der Import einer Einrichtungsdatei stellt eine installierte kompatible Experience und ihren gültigen numerischen Seed wieder her, verwirft aber beliebige Paketkonfiguration. Das aktuelle Manifest liefert die Konstanten erneut. Bestehende Spiele überspringen Experience-Importe mit einer Erklärung. Erstellungssnapshots behalten Experience-Name und Seed für die Einrichtungsübersicht.
-
-Nutze die bestehende Startbereitschaftsdeklaration unabhängig davon, wenn die Welt vor dem ersten Zug vorbereitet werden muss. Deklariere API 1.18 als Mindestversion des Pakets; ältere Hosts können diese Einrichtungsdeklaration nicht interpretieren.
 
 ### Capability API 1.30: Wundleisten, Ausgaben für Proben und Kämpfe mit Wundleisten
 
@@ -622,6 +515,212 @@ Der `combat`-Block kann über `distance: { label, perCell }` den Wert eines Feld
 
 Wie 1.20 bis 1.27 ist dies keine weiche Schnittstelle: Unbekannte Schlüssel lassen die ganze Regelsatzdatei oder den Katalog mit einer Kreatur und zweiteiliger Reichweite scheitern. Die Installation prüft die verifizierten Bytes von `ruleset.json` und jeder deklarierten Datei `catalogs/<id>.json` und lehnt sie unter älterer Deklaration ab. Ohne Entfernungsangaben ändert sich nichts.
 
+### Capability API 1.27: Bestiarien für Regelsätze
+
+Ein Regelsatzkatalog kann `"holds": "creatures"` deklarieren und statt Bogenzeilen Werteblöcke von Kreaturen enthalten. Eine Kreatur wird in den Zahlen geschrieben, die der Block `combat` bereits deklariert: Gesundheit, die eine Zahl oder zu Kampfbeginn geworfene Würfel sein kann, eine Verteidigung, ein Initiativemodifikator, Attributswerte und Rettungswurfmodifikatoren unter den eigenen IDs des Bogens, Schadenstypen, denen sie widersteht, die ihr stärker schaden oder die sie ignoriert, die Zustände, in denen sie nie ist, die Gefahrenstufe, auf der sie steht, Merkmale, die der Game Master sieht, und Aktionen, die treffen, einen Rettungswurf erzwingen, einen Zustand anwenden, auf eine bestimmte Zahl von Anwendungen begrenzt sein, sich durch einen Aufladewurf erneuern, für ein Budget eine Folge anderer Aktionen des Blocks auflösen oder mit den eigenen Signaturpunkten der Kreatur bezahlt werden können.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 27 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/beasts.json"] } }
+}
+```
+
+Ein Katalog mit Kreaturen deklariert kein `feeds` und wird in der Auswahl des Bogeneditors nie angeboten: Ihn liest ein Kampf, kein Charakterbogen. Der Kampf, der ihn liest, ist der Stil `ruleset` des Kampfdirektors, der keine eigene Capability-API-Stufe braucht: Er spielt jeden `combat`-Block und jedes Bestiarium, das ein installierter Regelsatz bereits mitbringt.
+
+Keine weiche Schnittstelle, aus demselben Grund wie bei 1.20 bis 1.26: Eine Engine, die `holds` oder das `creature` eines Eintrags nicht lesen kann, lehnt die ganze Regelsatzdatei oder die Katalogdatei, die es enthält, ab. Deshalb liest die Installation die verifizierten Bytes von `ruleset.json` und von jedem deklarierten `catalogs/<id>.json` und lehnt beide unter einer älteren Deklaration ab. Keine Berechtigung, und keine Änderung für einen Regelsatz ohne Bestiarium.
+
+### Capability API 1.26: Regelsatzkampf
+
+Ein Regelsatz kann einen optionalen Block `combat` auf oberster Ebene mitbringen, der festlegt, wie ein Kampf mit seinen eigenen Zahlen AUFGELÖST wird: was gegen was gewürfelt wird, das Aktionsbudget, welche Bogenlisten Angriffe und welche Fähigkeiten sind, was seine Zustände bewirken, Konzentration, was mit einem Charakter bei null geschieht, welche Schadenstypen es gibt und aus welcher Skala ein Gegner gewählt wird. Mit derselben Version kann `mechanics` eines Katalogeintrags angeben, wie viele Ziele er nimmt, dass er immer trifft, welche Zustände er anwendet, welche temporären Punkte er gewährt, wie er mit dem Bogen wächst und welches Budget er verbraucht.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 26 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Ein Spiel mit einem Regelsatz, der `combat` deklariert, trägt seine Kämpfe bei eingeschaltetem Kampfdirektor nach diesem Block auf dem Kampfbildschirm aus. Ein Regelsatz ohne ihn kämpft wie bisher, über seinen `battle`-Block oder die Wahl des Spielers zwischen Classic und Tactical.
+
+Keine weiche Schnittstelle, aus demselben Grund wie bei 1.20 bis 1.25: Eine Engine, die `combat` oder die neuen `mechanics`-Schlüssel nicht lesen kann, lehnt die ganze Regelsatzdatei oder die Katalogdatei, die sie enthält, ab. Deshalb liest die Installation die verifizierten Bytes von `ruleset.json` und von jedem deklarierten `catalogs/<id>.json` und lehnt beide unter einer älteren Deklaration ab. Keine Berechtigung, und keine Änderung für einen Regelsatz ohne beides.
+
+### Capability API 1.25: Ebenen eines Regelsatzes und Welthinweise
+
+Ein Regelsatz kann ein optionales Array `layers` auf oberster Ebene deklarieren: benannte Varianten seiner selbst (Low magic, Hard winter), die ein Spieler beim Anlegen eines Spiels einschaltet und die für dessen gesamte Lebensdauer in der Bindung dieses Spiels festgeschrieben werden. Mit derselben Version erhält der Basisblock `gm` eine optionale Zeichenfolge `worldGuidance`, die die Weltgenerierung einmal bei der Einrichtung liest, damit das Setting zu den Regeln passt, nach denen die Gruppe spielt.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 25 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Die Effekte einer Ebene bilden eine geschlossene Menge, und jeder davon schränkt ein oder hängt an: Hinweise nach den eigenen Hinweisen des Regelsatzes, aus einem Enum-Feld entfernte Werte, eine Schwierigkeitsskala, die durch eine desselben Auflösungstyps ersetzt wird, und Katalogeinträge, die in der Auswahl des Bogeneditors ausgeblendet werden. Hinzugefügt wird nichts, sodass ein Charakterbogen lesbar bleibt, welche Ebenen ein Spiel auch gewählt hat, und eine Ebene bringt weder Paketcode noch einen zusätzlichen Modellaufruf mit. Ebenen, die jemand anderes als der Autor des Regelsatzes ausliefert, kommen später.
+
+Keine weiche Schnittstelle, aus demselben Grund wie bei 1.20 bis 1.24: Eine Engine, die `layers` oder `gm.worldGuidance` nicht kennt, lehnt die ganze Regelsatzdatei ab. Deshalb liest die Installation die verifizierten Bytes von `ruleset.json` und lehnt beides unter einer älteren Deklaration ab. Keine Berechtigung, und keine Änderung für einen Regelsatz ohne beides.
+
+### Capability API 1.24: der Auflösungstyp Würfelpool
+
+Die `resolution` eines Regelsatzes kann `"kind": "dice-pool"` statt `"dice-sum"` deklarieren. Die Probe wirft dann die eigene Würfelanzahl des Charakterbogens und zählt die Würfel, die eine Schwelle erreichen, optional mit doppelt zählenden, explodierenden und aufhebenden Seiten, Patzern, außergewöhnlichen Erfolgen und einem Bereich situativer Würfel, die der Game Master für eine Probe hinzufügen oder wegnehmen darf.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 24 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Der Bogen ist derselbe Bogen: Was `dice-sum` zum Wurf addiert, ist hier die Zahl der Würfel. Der Typ bringt also kein neues Bogenvokabular, keinen Editor-Slot und keinen Paketcode mit.
+
+Keine weiche Schnittstelle, aus demselben Grund wie bei 1.20 bis 1.23: Eine Engine, die nur `dice-sum` kennt, lehnt die ganze Regelsatzdatei ab. Deshalb liest die Installation die verifizierten Bytes von `ruleset.json` und lehnt eine `dice-pool`-Auflösung unter einer älteren Deklaration ab. Keine Berechtigung, und keine Änderung für einen Regelsatz, der seine Würfel summiert.
+
+### Capability API 1.23: skalierte Katalogwerte
+
+Die Zeile eines Katalogeintrags kann eine optionale Map `scaled` tragen: bis zu vier der eigenen Zahlenspalten dieser Zeile, deren Wert der Regelsatz verwaltet statt des Spielers. Jede davon ist eine gewöhnliche Wertreferenz mit optionaler Stufentabelle, sodass eine Klassenressource einer Stufe und die Anwendungen eines Merkmals einem Attributswert folgen können, ohne dass das Format neue Rechenarten lernen muss.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 23 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } }
+}
+```
+
+Der Wert wird beim Bearbeiten des Bogens berechnet und nie beim Lesen, sodass der Live-Zustand, der Prompt-Block des Game Masters und die Kampfbrücke weiterhin die gespeicherte Zahl lesen.
+
+Eine skalierte Zeile kann inline in `ruleset.json` oder in einem Asset `catalogs/<id>.json` stehen. Das Manifest deklariert beide Dateien als Assets, kann aber die Schlüssel darin nicht zeigen. Deshalb liest die Installation die verifizierten Bytes beider Dateien und lehnt einen Schlüssel `scaled` unter einer Deklaration älter als 1.23 ab, genau wie `catalogs` unter 1.21 und `battle` unter 1.22. Das strenge Schema einer älteren Engine würde die Datei, die ihn enthält, ohnehin ablehnen. Keine Berechtigung, und keine Änderung für einen Regelsatz, dessen Kataloge keine solchen Werte mitliefern.
+
+Mit derselben Version kommt der Befehl `[sheet: op="use" name="..."]`, der die `mechanics.cost` eines Katalogeintrags bezahlt und dazu eine Anwendung jedes Zeilenpools, den dieser Eintrag angelegt hat. Er braucht keine Deklaration: Er liest Kataloge, die die Engine bereits bereitstellt.
+
+### Capability API 1.22: der battle-Block
+
+Ein Regelsatz kann einen optionalen Block `battle` mitbringen, der einem Kampf die Zahlen des Charakterbogens leiht: den laufenden Pool, der die Trefferpunkte bildet, einen optionalen Pool, der zu MP wird, die Pools, die zu Zauberplätzen werden, und die Bogenlisten, deren im Katalog markierte Zeilen zu den eigenen `CombatSkill`s der Engine werden. Endet der Kampf, werden die verbrauchten Trefferpunkte, Energie und Plätze über dieselben Bogenoperationen zurückgeschrieben, die auch die Schaltflächen des Spielers nutzen.
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 22 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json"] } }
+}
+```
+
+Das ist kein Kampfadapter. Die Schadensberechnung bleibt die der Engine, und `attackRoll`, `save`, `concentration` und `perCostStep` an einem Katalogeintrag liest niemand: Eine regelgetreue Auflösung gehört zu den regelsatzspezifischen Adaptern der Kampfübergabe. `coverage.combat` behält seine eigene Bedeutung, und die Brücke liest es nie.
+
+Der Block steht in `ruleset.json`, das das Manifest nicht zeigen kann. Deshalb liest die Installation die verifizierten Bytes und lehnt einen Schlüssel `battle` unter einer Deklaration älter als 1.22 ab, genau wie `catalogs` unter 1.21. Das strenge Schema einer älteren Engine würde die ganze Regelsatzdatei ohnehin ablehnen. Keine Berechtigung, und keine Änderung für einen Regelsatz ohne `battle`-Block.
+
+### Capability API 1.21: Regelsatzkataloge
+
+Ein Regelsatz kann **Kataloge** mitliefern: benannte Sammlungen fertiger Einträge (Zauber, Klassenmerkmale, Ausrüstung), die der Bogeneditor in einer Auswahl anbietet, damit ein Spieler eine Liste nicht Zeile für Zeile abtippen muss. Der Kopf steht in `ruleset.json` unter `catalogs`; die Einträge stehen entweder inline in diesem Kopf oder in einem eigenen reservierten Asset, eine Datei pro Katalog:
+
+```json
+{
+  "capabilityApi": { "major": 1, "minor": 21 },
+  "kind": ["ruleset"],
+  "contributions": { "assets": { "paths": ["ruleset.json", "catalogs/spells.json"] } },
+  "files": [
+    { "path": "ruleset.json", "sha256": "<sha256>", "bytes": 25767 },
+    { "path": "catalogs/spells.json", "sha256": "<sha256>", "bytes": 418204 }
+  ]
+}
+```
+
+`catalogs/<id>.json` ist eine reservierte Asset-Familie: Der Dateiname ist die eigene ID des Katalogs, sodass die Engine die Datei allein anhand des Regelsatzes findet und kein Katalog die Datei eines anderen benennen kann. Ein Katalog-Asset wird wie jedes andere deklarierte Asset in `files[]` per Hash festgeschrieben, wird immer nur neben dem `ruleset.json` ausgeliefert, das es deklariert, und wird bei einer deklarierten Größe über 2 MB abgelehnt, bevor es gelesen wird (1 MB vor Capability API 1.340; ein Paket mit einer Katalogdatei über 1 MB deklariert 1.340). Sein Inhalt durchläuft dieselben Prüfungen wie die Inline-Einträge, gegen denselben Bogen, sodass ein Katalog nie eine Zeile schreiben kann, die der Bogen nicht aufnehmen könnte. Bis zu 12 Kataloge pro Regelsatz und 2.000 Einträge pro Katalog.
+
+Der Client lädt einen Katalog erst, wenn sich eine Auswahl öffnet, über `GET /api/capability-packages/rulesets/catalog?rulesetId=&catalogId=&version=`. Die Liste der installierten Regelsätze enthält nie Inline-Einträge, nur eine Anzahl, weil sie bei jedem Öffnen eines Bogeneditors gelesen wird. Katalogtext erreicht nie einen Prompt: Der Game Master sieht weiterhin nur, was `gm.sheetSummary` nennt, Kataloge kosten also keine Tokens.
+
+Wie 1.20 ist das keine weiche Schnittstelle, und die Sperre hat zwei Hälften, weil Kataloge in der Regelsatzdatei liegen statt im Manifest. Die Deklaration eines Assets `catalogs/<id>.json` verlangt 1.21, und ein `ruleset.json` mit einem Schlüssel `catalogs` wird bei der Installation abgelehnt, wenn das Manifest weniger deklariert, weil das strenge Schema einer älteren Engine die ganze Regelsatzdatei ohnehin ablehnen würde. Wie zuvor keine Berechtigung.
+
+### Capability API 1.20: Game-Mode-Regelsätze
+
+Ein Regelsatz sind die Regeln eines Spiels als validierte Daten: ein Auflösungstyp, den die Engine bereits umsetzt, ein Charakterbogen, der aus einer geschlossenen Menge von Grundbausteinen deklariert wird, Rasten und Hinweise für den Prompt des Game Masters. Ein Paket liefert ihn als Asset mit dem reservierten Dateinamen `ruleset.json` aus, das genau wie `gm-verbs.json` per Konvention erkannt wird: aufgeführt in `contributions.assets.paths` und per Hash in `files[]` festgeschrieben.
+
+```json
+{
+  "schemaVersion": 2,
+  "capabilityApi": { "major": 1, "minor": 20 },
+  "id": "ruleset-5e-2014",
+  "kind": ["ruleset"],
+  "permissions": [],
+  "entrypoints": {},
+  "contributions": { "assets": { "paths": ["ruleset.json"] } },
+  "files": [{ "path": "ruleset.json", "sha256": "<sha256 of the file>", "bytes": 25767 }]
+}
+```
+
+Das Beispiel zeigt nur die Schlüssel, die für einen Regelsatz wichtig sind; die üblichen Manifestfelder (`name`, `version`, `description`, `engine`, `builtAgainst`) sind weiterhin Pflicht.
+
+Ein Regelsatz-Paket braucht keine Berechtigung, keinen Server- oder Client-Einstiegspunkt und keinen Agenten. Typ und Asset gehören zusammen: Ein Paket vom Typ `ruleset` muss `ruleset.json` aufführen, und ein Paket, das `ruleset.json` aufführt, muss den Typ deklarieren, damit ein Regelsatz nicht unter einem anderen Typ hineingelangt. Nichts in der Datei wird ausgeführt: Es gibt keine Ausdruckszeichenfolgen, und eine Mechanik, die kein Auflösungstyp ausdrückt, ist eine Engine-Änderung, die einen Typ hinzufügt, nichts, was ein Regelsatz tun kann. Das Format, die 5e-Datei aus erster Hand und die Gründe für ihre Form stehen in [`game-rulesets-and-sheets-implementation.md`](game-rulesets-and-sheets-implementation.md).
+
+Das ist keine weiche Schnittstelle. Ein Regelsatz-Paket bewirkt auf einer Engine, die es nicht lesen kann, nichts. Deshalb muss ein Manifest, das `ruleset.json` aufführt, Capability API 1.20 deklarieren, und eine ältere Engine verweigert die Installation sauber.
+
+Die Engine lehnt das Asset bei einer deklarierten Größe über 512 KB ab, bevor sie es liest (256 KB vor Capability API 1.340; ein Paket, dessen Regelsatz größer als 256 KB ist, deklariert 1.340), prüft es erneut gegen den Hash der Installation und validiert es mit dem strengen gemeinsamen Schema (`packages/shared/src/schemas/ruleset.schema.ts`). Eine Datei, die sie nicht nutzen kann, wird mit einer Log-Zeile verworfen, die das Paket und die ersten `path: message`-Probleme nennt. Deklarieren zwei Pakete dieselbe Regelsatz-ID, gilt das erste in der Reihenfolge der Paket-IDs, und das andere wird mit einer Log-Zeile verworfen. `engine-legacy` und `traditional` sind IDs der Engine, die keine Datei beanspruchen darf.
+
+Ein Spiel bindet seinen Regelsatz einmal, beim Anlegen, als `chat.metadata.gameRuleset`. Ohne Bindung gelten wie bisher die eigenen Regeln der Engine. Eine Bindung, die die Installation nicht einhalten kann (das Paket ist weg, oder die installierte Definition ist älter als die gebundene Version), wird als nicht verfügbar gemeldet und nie als anderer Regelsatz umgedeutet. Die Bindung wird über die Regelsatz-ID und das Paket abgeglichen, das sie geliefert hat, sodass ein anderes Paket, das dieselbe ID beansprucht, kein bestehendes Spiel übernimmt.
+
+### Capability API 1.73: die Avatar-Agenten
+
+Die Engine hostet die beiden Avatar-Agenten `2d-avatars` (PNGTuber-Sprites und Mesh-Avatare) und `3d-avatars` (VRM-Modelle). Ihre Pakete bleiben schlank: je eine Agent-Definition, Standard-Prompts, Sprachdateien und der Katalogeintrag. Alles andere gehört der Engine: der Speicher pro Besitzer unter `DATA_DIR/avatar-models/`, der Import, die verzögert geladenen Renderer, die Einrichtung auf der Agent-Editor-Seite jedes Agenten, der Stream-Director, der Ausdrucks-Klassifikator und die Generierungsrouten. Der gemeinsame Vertrag ist `packages/shared/src/types/avatars.ts` (seine Schemas liegen in `schemas/avatars.schema.ts`), die Client-Hälfte ist `packages/client/src/features/avatars/contract.ts`. Die Nutzeranleitung ist [`docs/agents/avatars.md`](../agents/avatars.md).
+
+Es gibt kein neues Manifestfeld. Ein Avatar-Paket deklariert Schemaversion 2 und Capability API 1.73. Eine Engine ohne diese Oberflächen verweigert deshalb die Installation, statt einen Agenten aufzulisten, der nichts anzeigt. Die Änderung, mit der 1.73 kam, hat diese Oberflächen als wirkungslose Stubs ausgeliefert; Einrichtung, Bühne und Renderer der Engine sind inzwischen auf `staging`, und die beiden Pakete sind im Vorschau-Katalog aufgeführt. Ihre referenzierten Artefakt-URLs müssen veröffentlicht sein, bevor die Installation funktioniert; ein Katalogeintrag allein beweist nicht, dass sein herunterladbares Artefakt verfügbar ist. Die Generierungs-Prompts des 2D-Agenten werden als Prompt-Vorlagensammlung `avatarGenerationTemplates` in seinen `defaultSettings` ausgeliefert, mit den IDs in `AVATAR_PROMPT_TEMPLATE_IDS`; der Agent-Editor führt sie zusammen und setzt sie zurück wie jede andere eingebaute Vorlagensammlung.
+
+### Capability API 1.72: das Kartenpaket einer Experience
+
+Ein `game-surface`-Paket, das über den Game-Assistenten eingerichtet wird (`gameSurface.setup`, 1.18), kann mit Schemaversion 2 und Capability API 1.72 ein Kartenpaket mitliefern: ein eigenes Setting-Kit, fertige Welten, die mit diesem Kit gebaut sind, und ein eigenes Tile-Pack. Jedes davon ist die Austauschdatei, die Game Mode und Pixelforge bereits lesen und schreiben (eine `.worldkit.json`, `.world.json`-Dateien und eine `.tilepack.json`), und jedes ist zugleich ein deklariertes Asset, das per Hash festgeschrieben ist.
+
+```json
+{
+  "gameSurface": {
+    "setup": {},
+    "mapPack": {
+      "kit": "map/riverlands.worldkit.json",
+      "worlds": ["map/upriver.world.json", "map/downriver.world.json"],
+      "tiles": "map/riverlands.tilepack.json"
+    }
+  },
+  "assets": {
+    "paths": [
+      "map/riverlands.worldkit.json",
+      "map/upriver.world.json",
+      "map/downriver.world.json",
+      "map/riverlands.tilepack.json"
+    ]
+  }
+}
+```
+
+`worlds` (höchstens 32) und `tiles` sind optional. Eine Weltdatei kann das Story-Skript ihrer Welt enthalten (worldgen W10), das als Teil der Karte mitgeliefert wird. Eine Weltdatei der Version 2 enthält außerdem den `snapshot` der Welt, also die Welt, wie sie erstellt wurde (W11): Eine Engine, deren Weltgenerator sich seitdem geändert hat, liest die Welt daraus, genau so, wie sie erstellt wurde. So funktioniert ein Paket auch über Engine-Updates hinweg. Schreib die Dateien über **Download** eines Spiels oder einer Welt aus der Weltbibliothek (oder über `GET /api/game/:chatId/world/file`); diese Dateien enthalten den Snapshot. Eine Paketdatei darf höchstens 8 MB groß sein, die größte Austauschdatei, die die Engine liest (ein Tile-Pack behält seine eigenen, kleineren Grenzen). Eine Welt mit größerer Datei (etwa durch den Snapshot einer sehr großen Welt) lässt sich daher nicht in einem Paket ausliefern. Eine Welt, deren Story ein `intro` festlegt, braucht Capability API 1.339 (siehe [Die Intro-Nachricht](../extending/writing-story-scripts.md#the-intro-message)). `tiles` kann ein Bild-Tile-Pack sein (Tile-Pack-Version 2: PNG-Sheets auf einem Raster aus Zellen, mit Sprites über mehrere Zellen), das Capability API 1.80 braucht; die Engine dekodiert und prüft seine Sheets einmal pro Paketversion. Ist die Experience eingeschaltet, ist ein neues Spiel fest an das Kit des Pakets gebunden; liefert das Paket Welten mit, wählt der Spieler eine davon (samt Story-Skript) und erstellt keine andere. Wird die Experience ausgeschaltet, gelten wieder die eigenen Entscheidungen des Spielers. `POST /api/game/create` setzt dieselbe Bindung für ein Spiel durch. Das Spiel behält wie jedes Spiel sein Kit und seine Welt. Es läuft also weiter, wenn das Paket entfernt wird, und zeichnet seine Oberwelt und Städte mit den Tiles des Pakets, solange das Paket installiert ist.
+
+Die Engine liest die Dateien über den verifizierten Asset-Weg (deklarierte Größe jeweils höchstens 8 MB, Hash erneut geprüft) und prüft sie so, wie sie Austauschdateien prüft. Ein Paket wird als Ganzes abgelehnt, mit Angabe des Grunds, wenn sich eine Datei nicht lesen lässt, wenn eine Welt mit einem anderen Kit erstellt wurde oder nicht dazu passt oder wenn ihre Bytes nicht die installierten sind; die Experience kann dann kein Spiel starten. Ein Regelsatz ist nie Teil eines Kartenpakets: Eine Experience, die eigene Regeln braucht, liefert ein separates Regelsatz-Paket mit.
+
+### Capability API 1.18: Experience-Einrichtung im Game-Assistenten
+
+Ein `game-surface`-Paket kann mit Schemaversion 2 und Capability API 1.18 `contributions.gameSurface.setup` deklarieren. Die Engine behält ihre üblichen sieben Einrichtungsschritte bei, einschließlich **Party** (Gruppe), Zielen, Modellen und Lorebooks. Experiences werden nur für neue Spiele angeboten; beim erneuten Öffnen der Einrichtung eines bestehenden Spiels bleiben dessen Experience und Paketkonfiguration erhalten. Pakete ohne diese Deklaration behalten ihren bisherigen Einrichtungsdialog.
+
+```json
+{
+  "setup": {
+    "seed": { "key": "seed", "label": "World seed" },
+    "config": { "generate": true, "packWanted": true },
+    "requires": { "enableCustomWidgets": false }
+  }
+}
+```
+
+Alle drei Felder sind optional. Der deklarierte Seed erscheint unter der gewählten Experience mit der Schaltfläche **Randomize** (Zufällig wählen). Der Seed ist eine vorzeichenlose ganze Zahl von 0 bis 4.294.967.295; eine leere, gebrochene, negative, in Exponentialschreibweise oder hexadezimal geschriebene Eingabe blockiert **Start** (Starten). Der Host schreibt den numerischen Seed und die deklarierten Konstanten in `experienceConfig`; `config` darf den Seed-Schlüssel nicht enthalten. Die Konstanten dürfen serialisiert höchstens 8.000 Zeichen umfassen. Eine Seed-Beschriftung ist vom Paket verfasster Anzeigetext; lass sie weg, um die lokalisierte Engine-Beschriftung zu verwenden.
+
+Eine deklarierte Widget-Anforderung liefert den Standardwert nur, bis der Spieler dieses Steuerelement ändert. Wird die Experience ausgeschaltet, kehrt der gewöhnliche Standardwert zurück, während ausdrückliche Spielerentscheidungen unverändert bleiben. Das Steuerelement erläutert die Erwartung der Experience und bleibt bearbeitbar. Die Einrichtungselemente für räumliche Karten sind für diese Experiences ausgeblendet, sodass kein separater Kartenentwurf, keine Vorlage und kein Kartenersteller gestartet wird.
+
+Im Schritt **Lorebooks** (Lorebooks) lassen sich bis zu 100 einzelne aktivierte Einträge auswählen, auch aus nicht angehängten Büchern. Deaktivierte Bücher, Einträge und Chat-Ausschlüsse werden berücksichtigt. Diese IDs werden in `GameSetupConfig.activeLorebookEntryIds` übergeben. Bei `/game/setup` sind sie zusätzliche erzwungene Einträge: Sie überspringen Wahrscheinlichkeitswürfe, behalten aber die üblichen Token-Limits. Globale, charaktergebundene und angehängte Lore nimmt weiterhin am gewöhnlichen Scan teil. Pakete können dieselben ausgewählten IDs aus der Einrichtungskonfiguration für ihre eigene Weltgenerierungsanfrage lesen.
+
+Der Import einer Einrichtungsdatei stellt eine installierte kompatible Experience und ihren gültigen numerischen Seed wieder her, verwirft aber beliebige Paketkonfiguration. Das aktuelle Manifest liefert die Konstanten erneut. Bestehende Spiele überspringen Experience-Importe mit einer Erklärung. Erstellungssnapshots behalten Experience-Name und Seed für die Einrichtungsübersicht.
+
+Nutze die bestehende Startbereitschaftsdeklaration unabhängig davon, wenn die Welt vor dem ersten Zug vorbereitet werden muss. Deklariere API 1.18 als Mindestversion des Pakets; ältere Hosts können diese Einrichtungsdeklaration nicht interpretieren.
+
 ### Capability API 1.71: Nachrichten so lesen, wie Agenten sie lesen
 
 Im Roleplay kann eine Nachricht Flüsternachrichten enthalten, die nicht zu ihrem `content` gehören. Jeder Agent, den die Engine ausführt, liest sie mit, und ein Paket, das den Chat selbst liest, kann jetzt denselben Text lesen. Jeder Datensatz aus `persistence.listMessages(chatId)` erhält `agentContent`: die Nachricht so, wie die Agenten der Engine sie lesen. Jede Flüsternachricht steht an ihrer Stelle, markiert als `[Private whisper to <name>: …]`, und eine Nachricht, die nur aus einer Flüsternachricht besteht, liest sich als ihre Flüsternachrichten. Ein Dokument, das ein Charakter übergibt, etwa ein Brief, folgt auf die Nachricht. Die privaten Notizen des Spielers bleiben außen vor.
@@ -656,6 +755,51 @@ if (typeof props.openCharacter === "function") props.openCharacter(characterId, 
 ```
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.66: Szenen aus Paket-Threads
+
+Eine Roleplay-Szene verzweigt normalerweise aus einer Conversation (`/scene`). Ein Paket mit der neuen Berechtigung `scenes` kann stattdessen seine eigenen Threads, etwa einen Thread mit Direktnachrichten, zum Ursprung machen. Die Szene ist ein gewöhnlicher Szenen-Chat: derselbe Planer, derselbe Dialog für Prompt-Vorlieben, dieselben Szenenanweisungen, dieselben Bedienelemente End Scene, Discard und Convert und dasselbe Charaktergedächtnis, wenn sie abgeschlossen wird. Das Paket besitzt die Seite des Threads: was der Planer liest, die Sperre, solange die Szene läuft, und was mit der Zusammenfassung geschieht.
+
+```ts
+export async function activate({ api }) {
+  api.registerSceneOrigin({
+    // Planning context, or null when the thread no longer exists.
+    getContext: async (threadId) => ({
+      characterIds: [creatorCharacterId],
+      personaId,
+      connectionId: null, // the Engine's default connection
+      transcript: [{ speaker: "Mina", content: "Come to my shoot tonight?" }],
+      notes: "Stage persona, limits and anything else the scene writer must respect.",
+    }),
+    // Lock the thread. Return false when it already has an active scene.
+    claim: async (threadId, { sceneChatId, characterIds }) => lockThread(threadId, sceneChatId),
+    // Unlock and receive the outcome.
+    release: async (threadId, end) => {
+      if (!(await holdsLock(threadId, end.sceneChatId))) return;
+      if (end.kind === "concluded") await saveRecap(threadId, end.summary);
+      await unlockThread(threadId);
+    },
+  });
+}
+```
+
+Die Browser-Ansicht (`home-browser-tab`) bekommt diese Props:
+
+- `startScene({ originId, prompt?, planHint?, plan?, data?, initiatorCharacterId?, initiatorName? })` öffnet den Dialog für die Prompt-Vorlieben der Szene, plant und erstellt die Szene und öffnet ihren Chat. Übergib `plan` (einen `SceneFullPlan`: Name, Beschreibung, verborgenes Szenario, erste Nachricht, System-Prompt der Szene, Einstufung, Beziehungsgeschichte, Leitfaden zur Beteiligung, Hintergrund, Besetzung), um die Szene selbst zu schreiben; Dialog und Planer der Engine werden dann übersprungen, und die Szene entsteht genau wie geplant. Das Ergebnis ist `{ chatId }` oder `null`, wenn der Nutzer abbricht oder das Erstellen scheitert (der Nutzer sieht, warum). Der Helfer verwendet immer die eigene ID des Pakets. Er ist eine Bequemlichkeit, keine Grenze: Die Szenenrouten akzeptieren jede Paket-ID, also darf `getContext` nur zurückgeben, was der Spieler in diesem Thread ohnehin sehen darf.
+- `openChat(chatId)` wechselt zu einem Chat, etwa für eine Schaltfläche „Go to scene“ an einem gesperrten Thread.
+- `focusSceneOriginId` ist der Thread, der angezeigt werden soll, wenn der Nutzer aus einer Szene zurückkommt (Back, End Scene, Discard). Ruf `onFocusSceneOriginHandled()` auf, sobald du ihn angezeigt hast.
+
+Wissenswerte Regeln:
+
+- `data` sind die eigenen Einstellungen dieser Szene, ein einfaches JSON-Objekt mit höchstens 4.000 Zeichen. Die Engine speichert es mit der Szene und übergibt es an `claim(originId, { sceneChatId, characterIds, data })` und an `release` als `end.data`, sodass jede Szene selbst entscheiden kann: `claim` kann eine Szene ohne Sperre zulassen (`true` zurückgeben und nichts speichern), und `release` kann entsperren, ohne die Zusammenfassung zu übernehmen, oder sie in dem Umfang übernehmen, den die Szene verlangt hat.
+- Nur `getContext` ist erforderlich. Ein Paket, das nur Szenen starten will, lässt `claim` und `release` weg: Dann wird nichts gesperrt, aus demselben Ursprung können beliebig viele Szenen laufen, und an ihrem Ende wird nichts übergeben (**Back** führt trotzdem zum Paket zurück). Lass nur `release` weg, um zu sperren, ohne das Ergebnis zu erfahren, oder nur `claim`, um Ergebnisse ohne Sperre zu erfahren.
+- Ein Anbieter pro Paket; eine erneute Registrierung ersetzt ihn, und das Deaktivieren entfernt ihn.
+- `characterIds` müssen Engine-Charaktere sein; unbekannte IDs werden verworfen, und ein Kontext ohne einen bekannten Charakter wird abgelehnt. Eine unbekannte `personaId` gilt als keine. `notes` wird bei 8.000 Zeichen abgeschnitten und geht an den Planer sowie, zusammen mit dem Transkript, als verborgener Kontext an den Szenenautor.
+- `claim` läuft, nachdem der Szenen-Chat existiert. `false` verwirft ihn mit einem 409, ein Fehler verwirft ihn mit einem 503. `getContext`, `claim` und `release` haben jeweils 8 Sekunden: Ein verspätetes `getContext` oder `claim` gilt als Fehlschlag (503, der Szenen-Chat wird entfernt), ein verspätetes `release` wird protokolliert und verworfen.
+- `release` bekommt `concluded` (mit `summary`, `description`, `scenario`, `rating` und der Besetzung), `abandoned`, `deleted` oder `converted`. Es muss idempotent sein und eine Szene ignorieren, die die Sperre nicht hält. Ein Release-Aufruf, der einen Fehler wirft oder eintrifft, während das Paket inaktiv ist, wird protokolliert und verworfen: Der Szenen-Chat bleibt so oder so beendet, also gleiche eine veraltete Sperre ab, indem du den Szenen-Chat mit `chat-read` liest. Seine Metadaten enthalten `sceneStatus`, und eine abgeschlossene Szene hat außerdem `sceneSummary`.
+- Die Engine schreibt bei einem Paket-Ursprung nichts in eine Conversation. Das Charaktergedächtnis wird beim Abschluss genau wie bei einer Szene aus einer Conversation gespeichert.
+
+`scenes` wird in einem Manifest abgelehnt, das eine `capabilityApi` älter als 1.66 deklariert.
 
 ### Capability API 1.50: Aktionen für Professor Mari
 

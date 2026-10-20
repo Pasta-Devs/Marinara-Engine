@@ -80,12 +80,12 @@ avant que la langue soit annoncée comme relue.
 Pour une petite correction de formulation, l'éditeur web de GitHub suffit :
 
 1. Ouvre le fichier de langue dans
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
+   [`ui/` sur `docs-i18n`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui).
 2. Clique sur l'icône en forme de crayon pour éditer le fichier. GitHub te propose de créer un fork si nécessaire.
 3. Ne modifie que la valeur traduite. Conserve sa clé, les jetons sensibles à la ponctuation comme `{{name}}` et la
    syntaxe JSON.
 4. Enregistre le commit sur une branche dédiée dans ton fork.
-5. Actualise le manifeste et valide le pack avec la commande ci-dessous, puis ouvre un pull request vers **`docs-i18n`**, pas vers `staging` ni `main`. ([`validate-packs.mjs`](#proposer-une-nouvelle-langue))
+5. Actualise le manifeste et valide le pack avec la commande ci-dessous, puis ouvre un pull request vers **`docs-i18n`**, pas vers `staging` ni `main`.
 6. Dans la description de la PR, indique la langue, explique le sens corrigé et précise si tu parles couramment la
    langue ou si tu as utilisé une aide automatique.
 
@@ -95,8 +95,6 @@ tenir dans une seule PR. Garde à part les modifications de code sans rapport.
 ## Proposer une nouvelle langue
 
 Pour une nouvelle langue, conserve une copie de travail d'Engine sur `staging` comme source anglaise et travaille sur `docs-i18n` :
-
-`/path/to/Engine` désigne une copie de travail existante et distincte de la branche `staging`, contenant `packages/client/src/localization/locales/en.json`. Les commandes suivantes créent la copie supplémentaire destinée aux traductions.
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -168,6 +166,13 @@ placé dans les éléments `code`, `pre`, `script` et `style` est volontairement
 configuration, les URL, les macros et les autres exemples destinés à la machine restent exacts. Les valeurs dynamiques –
 contenu écrit par l'utilisateur, contenu généré, données enregistrées, prompts et valeurs de protocole – doivent elles
 aussi rester en dehors du traducteur d'interface.
+
+La recherche dans les réglages, l'omnibar et Professor Mari lisent les noms des réglages dans `SETTINGS_SEARCHABLE_CONTROLS`, dans
+`packages/client/src/lib/settings-registry.ts`. Chaque contrôle y porte une `labelKey` et une `descriptionKey` à côté de
+son `label` et de sa `description` en anglais. Réutilise la clé existante du contrôle quand son texte anglais est identique ; sinon,
+ajoute `settings.search.<id>.label` ou `.description` à `en.json`, avec l'identifiant du contrôle en camelCase (par exemple
+`settings.search.hideChatHelpButton.description`). `pnpm localization:check` échoue quand un contrôle n'a
+pas de clé, quand une clé manque dans `en.json` ou quand le texte anglais du registre ne correspond plus au texte de `en.json`.
 
 ## Interfaces des Agents téléchargeables
 

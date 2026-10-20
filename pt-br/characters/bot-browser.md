@@ -12,8 +12,8 @@ O **Card Browser** busca em vários sites públicos de cards de personagem sem s
 
 Existem duas formas de abrir o **Card Browser**.
 
-1. Clique no ícone **Card Browser** na barra superior. Ele fica na fileira de botões de painel, do lado direito.
-2. Ou abra o painel **Card Browser** na barra lateral direita e clique no botão **Download Cards** (baixar cards) no topo desse painel.
+1. Abra o painel **Characters** (personagens) e clique no botão **Download** (baixar), no topo. A dica dele diz **Download character cards** (baixar cards de personagem).
+2. Ou clique no mesmo botão **Download**, no topo do painel **Personas**.
 
 De qualquer uma das formas, toda a área de conteúdo passa a mostrar a tela completa do **Card Browser**. Essa tela substitui a área do chat. Não é uma janelinha pop-up.
 
@@ -183,15 +183,6 @@ Se o personagem carrega um lorebook embutido, a importação abre uma pequena ca
 Clique em **Download as PNG** para salvar o personagem como um arquivo PNG de card de personagem no formato comum. Durante o processo, o botão mostra **Building PNG...**. Isso funciona em todas as fontes. O arquivo salvo leva o nome do personagem, por exemplo `Some_Character.png`. Você pode compartilhar esse arquivo ou importá-lo em outro aplicativo depois.
 
 JSON e PNG são dois formatos comuns para os mesmos dados de personagem. JSON é um formato de texto simples. O card PNG é um arquivo de imagem com os dados do personagem guardados dentro dele. Os dois carregam o personagem completo.
-
-## Os personagens que você importou
-
-O painel **Card Browser** na barra lateral direita mantém uma lista separada dos personagens que você importou pelo **Card Browser**. Os personagens que você criou à mão ou importou de outro jeito não aparecem aqui. Todos eles continuam aparecendo na biblioteca principal, em **Characters**.
-
-- O botão **Download Cards** abre a tela completa do **Card Browser**.
-- A caixa **Search imported...** filtra essa lista.
-- O menu suspenso de ordenação oferece **A-Z**, **Z-A**, **Newest** e **Oldest**.
-- Clique com o botão direito em uma linha, ou use os botões dela, para chegar a **Quick Start Roleplay** e **Quick Start Conversation**. Esses comandos abrem um novo chat com aquele personagem. Aqui também é possível excluir o personagem da lista.
 
 ## Solução de problemas
 

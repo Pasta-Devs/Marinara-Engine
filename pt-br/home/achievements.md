@@ -12,35 +12,36 @@ Marinara salva o progresso localmente, dentro do perfil em uso. Outro perfil, ou
 
 ## Como abrir o painel de conquistas
 
-O botão **Achievements** (conquistas) fica na tela inicial. A tela inicial é o que aparece quando nenhum chat está aberto. O botão fica logo abaixo da caixa de chat da Professor Mari e mostra o ícone de um troféu.
+O favorito **Achievements** (conquistas) fica na tela inicial. A tela inicial é o que aparece quando nenhum chat está aberto. O favorito fica na fileira de favoritos no topo e mostra o ícone de um troféu. No celular, toque no botão de favoritos à esquerda das abas para encontrá-lo.
 
-Abaixo do nome, o botão mostra a contagem atualizada, como **12 of 23 unlocked**. Enquanto os dados carregam, aparece **Checking the collection...** no lugar.
+Você também pode adicionar o widget **Achievements** à tela inicial. Clique em **Widgets** nos favoritos e ative-o. O widget mostra a contagem atualizada, como **12 of 24 unlocked**, além das suas conquistas **Last obtained** (última obtida) e **Closest next** (próxima mais perto). Enquanto os dados carregam, a contagem mostra **Checking the collection...** no lugar. Clique no widget para abrir o painel. Veja [Widgets da tela inicial](welcome.md#home-widgets).
 
 Para abrir o painel, siga estes passos:
 
 1. Vá para a tela inicial.
-2. Encontre o botão **Achievements** abaixo da caixa de chat da Professor Mari.
+2. Encontre o favorito **Achievements** no topo.
 3. Clique nele.
 
-A janela **Achievements** deve abrir. No topo aparece uma linha de resumo, como **12 of 23 achievements unlocked in this profile.** Abaixo dela fica uma grade de cards de conquista.
+A janela **Achievements** deve abrir. No topo aparece uma linha de resumo, como **12 of 24 achievements unlocked in this profile.** Abaixo dela fica uma grade de cards de conquista.
 
 Cada card mostra o ícone da medalha, um título, o nome da categoria e uma descrição curta. Quando o card está bloqueado, o título aparece como **?????** e o ícone é um cadeado. Você não consegue ler o que é antes de desbloquear. Depois de conquistar o card, ele ganha a marca **unlocked**. Os cards que têm meta também mostram a linha **Progress** e uma barra de progresso.
 
-O botão e o painel só aparecem com a configuração **Achievements** ativada. Veja a seção sobre a configuração mais abaixo. Nenhum outro menu ou página mostra as conquistas.
+O favorito, o widget e o painel só aparecem com a configuração **Achievements** ativada. Veja a seção sobre a configuração mais abaixo. Nenhum outro menu ou página mostra as conquistas.
 
-## As 23 conquistas
+## As 24 conquistas
 
-São 23 conquistas, divididas em quatro categorias: **Milestone**, **Community**, **Creation** e **Collection**.
+São 24 conquistas, divididas em quatro categorias: **Milestone**, **Community**, **Creation** e **Collection**.
 
 Algumas conquistas têm um desbloqueio único. As de **Creation** e **Collection** são graduadas, com três níveis marcados como **I**, **II** e **III**. Os níveis abrem em 5, depois 25, depois 100. Por isso o título da medalha pode aparecer como **Hoarder II** quando você chega ao segundo nível.
 
 | Conquista | Categoria | Como desbloquear |
 |---|---|---|
 | **Diligent Student** | Milestone | Termine ou pule o tutorial de primeira vez. |
-| **Hello World** | Milestone | Envie a primeira mensagem para a Professor Mari na tela inicial. |
-| **One Of Us** | Community | Clique no link **Discord** no rodapé da tela inicial. |
-| **Based Backer** | Community | Clique no link **Support** (ele abre o Ko-fi) no rodapé da tela inicial. |
-| **Backseat Appreciator** | Community | Clique no botão **Credits** no rodapé da tela inicial. |
+| **Hello World** | Milestone | Envie a primeira mensagem para a Professor Mari. |
+| **Please Handle With Care** | Milestone | Arraste a imagem da Professor Mari pela tela. |
+| **One Of Us** | Community | Clique no favorito **Discord** ou no link **Discord** do widget **Community** (comunidade) da tela inicial. |
+| **Based Backer** | Community | Clique em **Support** (ele abre o Ko-fi) nos favoritos da tela inicial ou no widget **Community**. |
+| **Backseat Appreciator** | Community | Clique em **Credits** nos favoritos da tela inicial ou no widget **Community**. |
 | **Who Needs IRL Friends** | Creation | Crie chats no Conversation Mode (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Crie chats de Roleplay (5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Crie chats no Game Mode (5, 25, 100). |
@@ -68,18 +69,16 @@ A contagem no topo da janela inclui as conquistas dos agentes que você tem inst
 
 Um único botão liga/desliga controla o recurso inteiro. Abra **Settings** (Configurações), vá para a aba **General** e encontre a seção **App Behavior**. O botão se chama **Achievements** e vem ativado por padrão.
 
-O texto de ajuda diz: "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off."
-
 Veja o que o botão faz:
 
-- Ativado: o botão **Achievements** e a janela aparecem na tela inicial, e um aviso em pop-up surge a cada desbloqueio.
-- Desativado: o botão fica escondido e os avisos param. Marinara continua registrando os desbloqueios em silêncio, em segundo plano.
+- Ativado: o favorito **Achievements** da tela inicial e a janela ficam disponíveis, e um aviso em pop-up surge a cada desbloqueio. O widget opcional **Achievements** só aparece se você o adicionou ao layout da tela inicial.
+- Desativado: o favorito e o widget ficam escondidos e os avisos param. Marinara continua registrando os desbloqueios em silêncio, em segundo plano.
 
 Como o acompanhamento continua com a configuração desativada, o progresso não se perde. Se você reativar a configuração depois, tudo o que conquistou nesse meio-tempo já está lá.
 
 ## Como funciona o desbloqueio
 
-Marinara compara as conquistas graduadas com as contagens atuais. Essa verificação acontece quando uma ação acompanhada ocorre, como criar um chat ou clicar em um link do rodapé. Ela também acontece quando você abre o painel de conquistas.
+Marinara compara as conquistas graduadas com as contagens atuais. Essa verificação acontece quando uma ação acompanhada ocorre, como criar um chat ou clicar em um favorito da tela inicial. Ela também acontece quando você abre o painel de conquistas.
 
 Quando uma ação aciona um desbloqueio e a configuração está ativada, aparece um pequeno aviso em pop-up. O título dele é **Achievement unlocked**, e ele diz qual é a medalha, por exemplo **Hoarder II** ou **One Of Us**.
 

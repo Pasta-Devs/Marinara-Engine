@@ -65,7 +65,7 @@ Outros exemplos que você pode digitar:
 - `4d8-1` rola quatro dados de 8 lados e subtrai 1.
 - `2d6+3` rola dois dados de 6 lados e soma 3.
 
-Há dois limites fixos. Você pode rolar no máximo 100 dados de uma vez, e cada dado pode ter até 1000 lados. Se pedir mais, o aplicativo reduz a solicitação a esses limites em vez de recusá-la, e o cartão de resultado mostra a notação reduzida: digitar `500d6` gera um cartão `100d6` para os cem dados que realmente foram rolados. Se o texto não for uma notação de dados válida – `NdM` ou um simples `dM` como `d20` –, a rolagem falha e aparece um erro que informa o formato esperado.
+Há dois limites fixos. Você pode rolar no máximo 100 dados de uma vez, e cada dado pode ter até 1000 lados. Se pedir mais, o aplicativo reduz a solicitação a esses limites em vez de recusá-la, e o cartão de resultado mostra a notação reduzida: digitar `500d6` gera um cartão `100d6` para os cem dados que realmente foram rolados. Se o texto não estiver em uma notação de dados válida, que é `NdM` ou um simples `dM` como `d20`, a rolagem falha e aparece um erro que informa o formato esperado.
 
 ## Testes de perícia
 
@@ -128,28 +128,50 @@ Você pode deixar um `d20` na fila pelo menu de dados antes de o teste acontecer
 
 ## Partidas com um conjunto de regras
 
-Escolha o conjunto uma vez em **Rules** ao criar a partida; veja [Escolher as regras](getting-started.md#choosing-rules). Sem conjunto, valem as regras acima, incluindo paradas simples de sucessos sem dados explosivos ou outras regras especiais.
+Uma partida pode usar um conjunto de regras, como 5e (SRD 5.1), no lugar das regras próprias do Marinara. O conjunto pertence àquela partida e fica com ela. Você o escolhe em **Rules** (regras) no assistente de configuração, ao criar a partida (veja [Escolher as regras](getting-started.md#choosing-rules)). Uma partida sem conjunto de regras funciona exatamente como descrito acima.
 
-- O GM indica a perícia ou salvaguarda e uma dificuldade da escala do conjunto. A escala pode ultrapassar 1–40; a resolução de contingência de um teste pendente em turno salvo continua limitada a 1–40.
-- O motor rola os dados do conjunto e obtém o modificador da ficha: atributo, treinamento (múltiplo de proficiência, valor fixo ou ambos) e bônus extra. Não usa atributos nem bônus de perícia integrados.
-- `who="Name"` seleciona um integrante; sem `who`, seleciona o jogador. Integrantes sem ficha usam os padrões. Nomes desconhecidos ou ambíguos geram uma rolagem sem modificador. O nome da persona sempre indica o jogador, mesmo que coincida com um integrante. Nenhuma ficha alheia é usada como substituta.
-- Resultados naturais seguem o conjunto. Em 5e (SRD 5.1), 20 e 1 naturais não têm efeito especial em testes ou salvaguardas; um 20 pode falhar.
-- Números escritos pelo GM são validados. Modificador, quantidade ou tipo de dados, dado escolhido ou resultado natural inválidos fazem o motor rolar novamente e substituir o resultado.
-- Uma rolagem manual anterior só é aproveitada para um único d20. Outros dados, como 2d6 ou uma parada, são rolados novamente.
-- `with="Ability"` permite outro atributo declarado pelo conjunto; atributos desconhecidos são ignorados. Marcadores podem nomear atributos, perícias, salvaguardas e `PROF`, se houver bônus de proficiência.
-- Pacote ausente ou antigo deixa o teste pendente, sem números. O motor não troca de sistema. Veja recursos, condições e descansos em [A ficha do conjunto](party-and-npcs.md#the-ruleset-sheet).
+Quando uma partida tem um conjunto de regras:
 
-- Se algo escolhido na ficha modifica uma rolagem, como um amuleto que rola novamente os dados que falharam, o GM o nomeia no teste e o motor cobra seu custo, aplica o efeito e rola. Algo que você não escolheu ou não consegue pagar não faz nem custa nada.
-- Se o conjunto permite gastar um recurso para melhorar a rolagem, o GM indica isso no teste e o motor cobra os pontos, adiciona o que compraram e rola em uma só operação. Se a reserva não cobre o custo, nada é gasto e a rolagem continua a original. O registro mostra o que realmente foi pago, não o que foi solicitado.
-- Se o conjunto tem uma trilha de ferimentos cuja penalidade vale nas rolagens, estar ferido dificulta cada teste. Em reservas, retira dados sem baixar do mínimo permitido, que alguns sistemas definem como zero. Em rolagens somadas, aplica uma penalidade fixa. O teste informa quanto foi aplicado para explicar por que você rolou menos dados. Veja [A ficha do conjunto](party-and-npcs.md#the-ruleset-sheet).
+- O Game Master continua apenas nomeando a perícia ou a salvaguarda e definindo uma dificuldade. Ele recebe a escala de dificuldade do próprio conjunto, em vez da escala integrada. Uma dificuldade pode ir até onde essa escala for, mesmo além do intervalo de 1 a 40 que as regras do Marinara permitem. Um caminho continua limitado a 1–40 mesmo em uma partida com conjunto de regras: a alternativa que rola um teste ainda pendente em um turno salvo.
+- O motor rola os dados do conjunto e soma o modificador da **ficha do conjunto** do personagem, formada pelas partes que o conjunto declara: o modificador de atributo quando a perícia ou a salvaguarda nomeia um atributo, o bônus do nível de treinamento (um múltiplo de um bônus de proficiência, um número fixo ou os dois) e qualquer bônus extra informado na ficha. Os bônus de perícia e os atributos integrados não são usados.
+- Um teste pode ser de um integrante da equipe. O Game Master acrescenta `who="Name"` à marcação, e o motor usa a ficha desse personagem. Sem `who`, o teste é do jogador. Um integrante que ainda não tem ficha rola com uma ficha em branco, com todos os valores no padrão do conjunto. Um nome que não corresponde a ninguém da equipe, ou que dois integrantes compartilham, rola os dados sem nenhum modificador. A única exceção é o nome do seu próprio personagem: se um integrante tiver o mesmo nome, esse nome continua significando você e usa a sua ficha. O motor nunca pega emprestada a ficha de outra pessoa.
+- Os resultados naturais seguem o conjunto. Em 5e (SRD 5.1), um 20 natural ou um 1 natural não tem efeito especial em testes e salvaguardas, então um 20 natural que não alcança a dificuldade falha. Isso difere de propósito das regras do próprio Marinara.
+- Os números que o próprio Game Master escreve não são aceitos sem verificação. Uma marcação com cara de concluída é rolada de novo e substituída quando o modificador não é o da ficha, quando rolou uma quantidade ou um tamanho de dados diferente do que o conjunto usa, quando o dado contado não é o que o modo de rolagem mantém, ou quando alega um resultado natural que o conjunto não tem.
+- Um dado que você mesmo rolou antes do teste só é usado quando o conjunto rola um único d20. Um conjunto que rola outros dados, como 2d6 ou uma parada, o ignora e rola normalmente.
+- O Game Master pode rolar uma perícia ou uma salvaguarda com um atributo diferente do habitual, acrescentando `with="Ability"` à marcação. Só vale um atributo que o seu conjunto declara; qualquer outro é ignorado, e a perícia mantém o dela.
+- O Game Master pode nomear uma dificuldade da escala em vez de escrever o número dela, como `difficulty="Hard"`. O motor rola contra o número desse degrau, e o teste salvo mostra o número. Um nome que a escala não tem é ignorado.
+- Os marcadores de rolagem podem nomear os atributos, as perícias e as salvaguardas do conjunto, e `PROF` para o bônus de proficiência quando o conjunto tem um.
+- Se o pacote do conjunto estiver ausente ou for mais antigo que aquele com que a partida foi criada, os testes são salvos sem números e continuam pendentes. Eles nunca são rolados com as regras de outro sistema.
+- Se algo na sua ficha modifica uma rolagem, como um amuleto que rola de novo os dados que caíram mal, o Game Master o nomeia no teste e o motor faz o resto: cobra o custo do amuleto, aplica o efeito e rola. Um amuleto que você não escolheu, ou que não consegue pagar, não faz nada e não custa nada.
+- Se o conjunto permite gastar um recurso para firmar uma rolagem, o Game Master indica isso no próprio teste e o motor faz as duas coisas de uma vez: cobra os pontos, soma o que eles compraram e rola. Se a reserva não cobrir o custo, nada é gasto e a rolagem é a que seria sem isso. O registro mostra o que realmente foi pago, não o que foi pedido. Quanto um teste pode comprar é definido pelo conjunto: um número fixo, um número da sua ficha ou tantos quantos dados o teste tiver.
+- Se o conjunto diz que um número da sua ficha acompanha certas rolagens, como uma mochila pesada em toda rolagem de Brawn, o motor o soma a todo teste em que ele se aplica, e o cartão de dados diz o que a ficha acrescentou.
+- Um conjunto pode dizer o que acontece com um teste quando você não tem treinamento na perícia: ele pode custar dados ou pontos, ficar um degrau mais difícil ou nem ser possível. Um teste que você não pode tentar sem treinamento não é rolado, e a narração diz isso em vez de mostrar um resultado. A sua ficha não mostra número para uma perícia assim até você treiná-la.
+- Se o conjunto tem uma trilha de ferimentos e diz que a penalidade dela vale nas rolagens, estar ferido deixa todo teste mais difícil. Em um conjunto de paradas, ela tira essa quantidade de dados da parada, nunca abaixo da menor parada que o conjunto permite, que alguns sistemas definem como nenhum dado. Em um conjunto que soma os dados, é uma penalidade fixa na rolagem. De qualquer forma, o teste diz quanto foi aplicado, para que você veja por que rolou menos dados. Veja [A ficha do conjunto](party-and-npcs.md#the-ruleset-sheet).
+- O Game Master também mantém atualizados na ficha os recursos, as condições e os descansos de cada personagem, e o motor recusa uma alteração que a ficha não permite. Veja [A ficha do conjunto](party-and-npcs.md#the-ruleset-sheet).
 
 ### Conjuntos com paradas de dados
 
-O valor da ficha indica quantos dados rolar: atributo 3 e perícia 2 dão cinco dados. Editor e contexto do GM mostram "5 dice", não "+5". A dificuldade é a quantidade de sucessos necessária, como três, não uma soma de 15.
+Alguns sistemas não somam um bônus à rolagem. Em vez disso, o número da ficha é quantos dados você rola, e você conta os que saem altos o bastante. Um conjunto de regras pode ser escrito assim, e uma partida com ele se comporta de um jeito um pouco diferente:
 
-O conjunto define limiar, sucessos duplos, explosões, cancelamentos por resultados baixos, falhas críticas e sucessos excepcionais. O cartão mostra todos os dados, destaca os sucessos e compara sua quantidade com a meta. Paradas grandes ocupam mais linhas sem diminuir os dados nem inventar uma soma.
+- **O número da ficha é uma quantidade de dados.** Um atributo 3 e um ofício que vale 2 rolam cinco dados. A sua ficha mostra isso como "5 dice" em vez de "+5", no editor e no que o Game Master lê.
+- **A dificuldade é uma contagem de sucessos.** Um trabalho difícil pede três sucessos, não um total de 15. A escala de dificuldade do conjunto diz quantos cada degrau exige.
+- **O motor rola os dados e os conta.** Quais faces contam, se uma face alta rola outro dado ou conta em dobro, se faces baixas cancelam sucessos e o que conta como tropeço (fumble) ou como sucesso excepcional: tudo isso vem do conjunto. O cartão de dados mostra todos os dados rolados, separando os que alcançaram o alvo dos que não alcançaram, e mostra quantos sucessos saíram contra quantos o teste exigia. Uma parada grande ocupa mais linhas em vez de encolher, e o cartão nunca mostra uma soma quando os dados não foram somados.
+- **O Game Master pode ajustar um teste**, se o conjunto permitir: um alvo por dado mais difícil ou mais fácil, dados acrescentados ou retirados pelas circunstâncias, e uma face mais baixa a partir da qual os dados rolam de novo ou contam em dobro. Cada ajuste fica dentro do intervalo que o conjunto declara. Um degrau da escala de dificuldade pode ter o próprio alvo por dado, que vale quando o Game Master escolhe esse degrau. O cartão de dados avisa quando um teste rolou de novo ou contou em dobro em uma face diferente da habitual do conjunto.
+- **Os dados podem ser rolados de novo**, se o conjunto tiver uma regra para isso: o Game Master a nomeia no teste quando a situação pede, e os dados que caíram baixo são rolados de novo, uma vez ou até saírem mais altos. Um recurso que você gasta pode comprar o mesmo. Uma rolagem só é refeita de um jeito; quando dois jeitos se aplicariam, vale o que alcança mais dados.
+- **Dois atributos podem ser rolados juntos**, se o conjunto disser: um teste de atributo pode somar os dados de um segundo atributo, para que dois valores sejam rolados como uma só parada.
+- **Em alguns conjuntos, algo pode dar errado junto com o resultado.** Em um conjunto que trata como tropeço faces baixas em metade dos dados ou mais, um teste que ainda conseguiu os sucessos mantém o resultado, e o cartão de dados acrescenta que algo deu errado junto. Sem nenhum sucesso, é uma falha crítica.
+- **O Game Master nunca fornece os números.** Um resultado de parada escrito na narração é sempre substituído pela rolagem do próprio motor. Vantagem não se aplica, nem um dado que você mesmo rolou antes do teste.
+- **Deixar o Game Master ver um dado de cada tamanho não vale para esses testes.** Os dados mostrados a ele são de vinte lados; um teste de parada é rolado às cegas pelo motor e narrado como qualquer outra rolagem às cegas.
 
-O GM só pode ajustar o limiar por dado ou a quantidade da parada dentro dos limites do conjunto. Resultados inventados pelo modelo sempre são substituídos por uma rolagem real. Vantagem, rolagens manuais anteriores e a prévia de d20 para o GM não se aplicam; o motor rola a parada sem prévia.
+### Outras formas de um conjunto rolar
+
+Um conjunto de regras também pode rolar os testes de outras formas. O motor continua rolando os dados, e o cartão de dados segue o conjunto:
+
+- **Ficar com os dados mais altos.** Role um punhado de dados e leia o mais alto, os dois mais altos ou os três mais altos, como o conjunto determinar.
+- **Rolar contra a ficha.** Role um valor igual ou menor que um número da sua ficha, como a porcentagem de uma perícia, em vez de somar um bônus aos dados.
+- **Dados com faces próprias.** As faces podem valer outra coisa além do número, como menos, branco e mais. Alguns dados trazem símbolos, como sucesso, vantagem e os opostos deles, em vez de números.
+- **Resultados em patamares.** Um teste pode cair em um de vários resultados, como um sucesso crítico ou um sucesso com custo, em vez de um simples passou ou falhou. O cartão de dados nomeia o patamar, e o Game Master o narra.
+- **Alguns testes rolados de outro jeito.** Um conjunto pode rolar a maioria dos testes de um jeito e nomear alguns que rolam de forma diferente.
 
 <a id="finishing-a-rolled-turn-in-one-request"></a>
 

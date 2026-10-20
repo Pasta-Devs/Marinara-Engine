@@ -85,6 +85,8 @@ Sobald ein Modus seine Bilder geplant hat, bauen gemeinsame Formatierer daraus d
 
 Jede nummerierte Stufe besitzt ihre eigene eingeklappte **Prompt library**: Stage 2 enthält die Bildformatierer, Stage 3 die bildgestützten Bewegungsplaner und Stage 4 die Videoformatierer zur direkten Weitergabe. Bei den Bildern stehen außerdem **Storyboard Illustration** und **Storyboard First Frame** zur Wahl. Bei den Videos gibt es **Anime Game Video**, **Comic Page Video** und **Narration Passthrough**. Game- und Roleplay-Chats dürfen unterschiedliche Formatierer nutzen, ohne die gemeinsame Prompt-Sammlung dahinter zu verändern.
 
+**Image-aware shot planning** (bildgestützte Planung der Kameraeinstellungen) in Stage 3 folgt außerdem den **Video Prompting Instructions** (Anweisungen für Video-Prompts) der Videoverbindung. Beschreibe in diesem Feld im Verbindungseditor, was dein Videomodell erwartet, etwa Formulierungen für die Kamera, die Länge des Prompts oder Hinweise auf Ton.
+
 ### Globale Standardwerte und Überschreibungen pro Chat
 
 Jeder Chat darf die Standardwerte des Agenten überschreiben. Geerbte Werte kennzeichnen die Chat Settings mit **Using agent default**; sobald eine Überschreibung existiert, erscheint eine Schaltfläche zum Zurücksetzen.

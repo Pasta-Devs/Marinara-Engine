@@ -20,7 +20,7 @@ Poniższe przyciski pojawiają się na wiadomościach. Część z nich widać ty
 | **Peek prompt** (podejrzenie promptu) | Pokazuje dokładny prompt, czyli tekst, który AI dostało na potrzeby tej odpowiedzi. | Tylko na najnowszej wiadomości AI |
 | **Stored guidance** (zapisana wskazówka) | Pokazuje wskazówkę, która pokierowała tą odpowiedzią. | Tylko wtedy, gdy odpowiedź powstała na podstawie wskazówki albo przez Impersonate |
 | **Branch from here** (utworzenie gałęzi stąd) | Kopiuje czat aż do tej wiadomości i zakłada z niego nową gałąź. | Zawsze |
-| **View thoughts** (podgląd rozumowania) | Otwiera ukryty tekst rozumowania modelu. | Tylko wtedy, gdy model zwrócił rozumowanie |
+| **View model thoughts** (podgląd myśli modelu) | Otwiera ukryty tekst rozumowania modelu. | Tylko wtedy, gdy model zwrócił rozumowanie |
 | **Delete** (usunięcie) | Usuwa wiadomość. Szczegóły poniżej. | Zawsze |
 | **Pause speaking** (wstrzymanie mowy) / **Resume speaking** (wznowienie mowy) / **Restart speaking** (odtworzenie mowy od nowa) | Steruje odczytem wiadomości na głos. | Tylko gdy Text to Speech jest włączone i trwa odczyt |
 
@@ -99,6 +99,8 @@ Dwa przełączniki decydują o tym, jakie dodatkowe szczegóły widać na wiadom
 - **Show token usage on messages**: dodaje do odpowiedzi AI licznik tokenów dla każdej wiadomości. Token to mały kawałek tekstu, który AI czyta i pisze. Licznik pokazuje tokeny promptu i tokeny odpowiedzi dla danej wiadomości. Jeśli dane są dostępne, pokazuje też trafienia w pamięci podręcznej i czas powstawania odpowiedzi.
 
 Pokrewny przełącznik w tej samej sekcji **Message Tools**, **Show model name on messages**, dodaje nazwę modelu AI, który napisał daną odpowiedź. On również jest domyślnie wyłączony.
+
+Gdy starsze wiadomości trzeba było pominąć w prompcie, żeby się zmieścił, krótka informacja pod odpowiedzią podaje ich liczbę, na przykład "1109 older messages not sent". Żeby ukryć tę informację pod odpowiedzią, wyłącz **Show "older messages not sent" note** (pokazanie informacji o niewysłanych starszych wiadomościach) w tej samej sekcji. Po otwarciu funkcji Checkup informacja nadal może się pokazać. Ten przełącznik jest domyślnie włączony. Informacje o odpowiedzi, która została ucięta albo wróciła pusta, nadal się pokazują.
 
 ## Powiązane przewodniki
 

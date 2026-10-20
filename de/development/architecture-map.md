@@ -41,7 +41,7 @@ Aktueller Inhalt:
 - `schemas`: Zod-Schemas für persistierte und gemeinsam genutzte Entitäten.
 - `constants`: Anbieter, Standardwerte, Chat-Modi, Modelllisten, Agent-Prompts.
 - `utils`: reine Helfer, etwa für Makro-Expansion, XML-Wrapping und Musikbewertung.
-- `features`: Agent-Manifeste und -Registry, Function-Call-Definitionen, Ordner-Pakete sowie die Engines der Zug-Spiele UNO, Chess und Poker.
+- `features`: Agent-Manifeste und -Registry, Function-Call-Definitionen, Ordner-Pakete, die Engines der Zug-Spiele UNO, Chess und Poker, die Game Mode-Regelsätze und ihr Kampf (`rulesets`, `ruleset-combat`, `tactical-combat` und die `combat-*`-Dateien) sowie in `world` der Weltgenerator mit seinen Share-Dateien (Setting-Kits, Welten, Tile-, Board- und Kreaturenpakete).
 
 Regeln:
 
@@ -61,7 +61,7 @@ Aktueller Aufbau der obersten Ebene:
 - `components/chat`: gemischt – allgemeine Chat-, Conversation-, Roleplay-, Szenen-, Sprite- und Begegnungs-UI.
 - `components/game`: Oberfläche und Panels des Game Mode.
 - `components/panels`, `components/modals`, Entitäts-Editoren: Einstellungen und Ressourcenverwaltung.
-- `features`: herausgelöste Feature-Module, derzeit die Abschnitte der Chat-Einstellungen und Teile des Tracker-Panels.
+- `features`: herausgelöste Feature-Module, derzeit die Abschnitte der Chat-Einstellungen, Teile des Tracker-Panels, der Mehrspielermodus sowie Vertrag, Einrichtung, Bühne und Renderer der Avatar-Agenten (`features/avatars`).
 - `hooks`: React-Query-Hooks und Laufzeit-Hooks für die meisten API-Features.
 - `lib`: Browser- und Client-Helfer. Hier mischen sich aktuell allgemeine Helfer mit modusspezifischen Game-Helfern.
 - `stores`: Zustand-Stores für UI, Chat-Laufzeit, Agenten, Spielzustand, Game Mode, Assets, Sidecar, Übersetzung, Galerie, Begegnungen und die Zug-Spiele.
@@ -81,7 +81,7 @@ Fastify-API, dateinativer Speicher und Anbieter-Integrationen. Aktuell sind es m
 Aktueller Aufbau der obersten Ebene:
 
 - `app.ts`, `index.ts`: App-Factory, Bootstrap, statische Auslieferung, Hydration des Dateispeichers und Seeder.
-- `routes`: viele Routen-Dateien. Die meisten sind schlanke CRUD-APIs, `generate.routes.ts` und `game.routes.ts` dagegen große Orchestrierungs-Dateien. Im Ordner `routes/generate/` liegen die ersten herausgelösten Teile des Generierungspfads.
+- `routes`: viele Routen-Dateien. Die meisten sind schlanke CRUD-APIs, `generate.routes.ts` und `game.routes.ts` dagegen große Orchestrierungs-Dateien. Im Ordner `routes/generate/` liegen die bisher aus dem Generierungspfad herausgelösten Teile, darunter die Token-Ausgabekette (`generation-stream-output.ts`), die Tool-Aufrufrunden (`tool-rounds.ts`), das Parsen von Antwortbefehlen und die Textbereinigung sowie das Speichern der Antwort (`save-generated-reply.ts`).
 - `services/storage`: Storage-Fassade für Chats, Charaktere, Prompts, Lorebooks, Einstellungen, Assets, Themes und Spielzustand.
 - `services/llm`: Anbieter-Registry, Basisvertrag für Anbieter, OpenAI-kompatible Anbieter, Brücke zum lokalen Sidecar.
 - `services/prompt`: gemeinsame Prompt-Zusammenstellung für die Generierung außerhalb des Game Mode.
@@ -89,7 +89,7 @@ Aktueller Aufbau der obersten Ebene:
 - `services/game`: GM-Prompts, Würfel, Kampf, Zustandsautomat, Party-Prompts, Karten, Wetter, Zeit, Sitzungen, Checkpoints, Reputation, Assets.
 - `services/sidecar`: lokale Laufzeit, Modellverwaltung, Szenenanalyse, Nachbearbeitung von Szenen.
 - `services/agents`: Ausführung von Agenten und Wissens-Routing.
-- Feature-Grundlagen: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall` und `discord-webhook.ts`.
+- Feature-Grundlagen: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (Speicherung und Generierung der Avatar-Modelle sowie der Emotionsklassifikator für die Avatar-Agenten), `speech-to-text.service.ts` und `discord-webhook.ts`.
 - `db/schema`: Definitionen der Dateitabellen für die Daten unter `DATA_DIR/storage`.
 - `db/file-schema.ts`, `db/file-query.ts`: native Tabellen-Metadaten und Abfrageausdrücke.
 - `db/file-backed-store.ts`: In-Memory-Tabellenspeicher, Transaktionsgrenze, Wiederherstellung nach Abstürzen und Persistenz per JSON-Snapshot. Siehe [Dateinativer Speicher (für Entwickler)](file-storage.md).
@@ -252,7 +252,7 @@ packages/shared/src/
   utils/
 ```
 
-Die alte flache Aufteilung in `types`, `schemas` und `constants` erzählt längst nicht mehr die ganze Geschichte. Unter `packages/shared/src/features/` liegen inzwischen Agenten, Function Calls, Ordner-Pakete und Zug-Spiele. Der erste Aufräumschritt in `shared` sollte trotzdem auf Typ-Ebene und in kleinen Etappen passieren, nicht als große Dateiverschiebung.
+Die alte flache Aufteilung in `types`, `schemas` und `constants` erzählt längst nicht mehr die ganze Geschichte. Unter `packages/shared/src/features/` liegen inzwischen Agenten, Function Calls, Ordner-Pakete, Zug-Spiele, Regelsätze und Kampf sowie der Weltgenerator. Der erste Aufräumschritt in `shared` sollte trotzdem auf Typ-Ebene und in kleinen Etappen passieren, nicht als große Dateiverschiebung.
 
 ## Regeln für die Migration
 
@@ -287,7 +287,7 @@ Diese Aufräumschritte eignen sich gut zum Einstieg, weil sie die Kopplung senke
 4. `GameNarration.tsx` in Befehls-Parsing und -Formatierung plus Anzeige-Komponenten aufteilen.
 5. `game.routes.ts` nach Handler-Gruppen aufteilen.
    - Mögliche Gruppen: Setup und Sitzung, Zug-Generierung, Würfel und Fertigkeitsproben und Quick-Time-Events, Journal und Inventar, Karte und Reisen und Wetter, Kampf, Assets und Szenenanalyse.
-6. `generate.routes.ts` in Generierungs-Transport, Verarbeitung der Agent-Pipeline, Retry-Routen sowie Helfer für Befehle und Nachbearbeitung aufteilen.
+6. `generate.routes.ts` in Generierungs-Transport, Verarbeitung der Agent-Pipeline, Retry-Routen sowie Helfer für Befehle und Nachbearbeitung aufteilen. Issue #7573 hat damit begonnen: Die Token-Ausgabekette, die Tool-Runden, die Antwortbefehle, die Bereinigung des Antworttexts, die Generierungsinfos der gespeicherten Nachricht, der versteckte Befehlsanker und das Speichern der Antwort liegen jetzt in `routes/generate/`, jeweils mit eigener Regression.
 7. `ChatMetadata` in modusspezifische Metadaten-Verträge aufteilen.
 8. Gemeinsame Roleplay- und Game-Visuals aus `components/chat` herausziehen, bevor der Game Mode noch mehr Chat-Interna importiert.
 

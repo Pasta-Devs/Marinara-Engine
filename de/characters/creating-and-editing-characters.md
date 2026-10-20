@@ -55,7 +55,7 @@ Der Tab **Metadata** enthält Angaben zu Identität und Organisation. Sie helfen
 - **Creator**. Die Person, die die Karte erstellt hat – für die Namensnennung beim Teilen.
 - **Version**. Eine Versionsnummer deiner Wahl, etwa `1.0`.
 - **Talkativeness**. Ein Schieberegler von 0 bis 100 Prozent. Er legt fest, wie oft dieser Charakter in Gruppenchats zu Wort kommt. Der Standard sind 50 Prozent.
-- **Tags**. Gib ein oder mehrere Tags (Schlagwörter) in das Feld ein und drück Enter oder klick auf **Add**. Mehrere Tags auf einmal trennst du mit Kommas. Ein einzelnes Tag entfernst du über sein X, alle zusammen über **Remove All**.
+- **Tags**. Gib ein oder mehrere Tags (Schlagwörter) in das Feld ein und drück Enter oder klick auf **Add**. Mehrere Tags auf einmal trennst du mit Kommas. Das Feld schlägt außerdem Tags vor, die deine Bibliothek bereits nutzt – die meistgenutzten zuerst, jeweils mit der Zahl der Charaktere, die sie tragen. Beim Tippen wird die Liste kürzer. Klick auf einen Vorschlag oder wähl ihn mit den Pfeiltasten und Enter. Ein einzelnes Tag entfernst du über sein X, alle zusammen über **Remove All**.
 - **Creator Notes**. Private Notizen, die nie an die KI gehen. In der Bibliothek erscheinen sie trotzdem als Kurzbeschreibung.
 
 Auf diesem Tab liegt auch das Panel **Version history** (Versionsverlauf). Es ist weiter unten im Abschnitt zum Speichern und Versionsverlauf beschrieben.
@@ -68,7 +68,7 @@ Der Tab **Card** ist der eigentliche Schreibarbeitsbereich. Hier stehen die Feld
 - **Personality**. Eine kurze Zusammenfassung von Temperament, Sprechgewohnheiten und Verhaltensmustern.
 - **Backstory**. Vorgeschichte, Herkunft und wichtige Beziehungen.
 - **Appearance**. Körperliche Beschreibung, Kleidung und optische Details. Marinara nutzt diesen Text außerdem als Grundlage für einen KI-Avatar-Prompt.
-- **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder). Ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für eine Beschreibung zu öffnen, die für das Bildmodell gedacht ist. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diesen Text statt **Appearance**. Er wird auch als Vorschlag für den KI-Avatar-Prompt übernommen. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**. Lass den Schalter aus, wenn du das bisherige Verhalten beibehalten möchtest.
+- **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder). Ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für kurze Bild-Tags zu öffnen, die den Charakter beschreiben, etwa ein LoRA-Triggerwort. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diese Tags genau so, wie sie dastehen, und **Appearance** dient als Hintergrund. Das Feld wird auch als Vorschlag für den KI-Avatar-Prompt übernommen. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**. Lass den Schalter aus, wenn du das bisherige Verhalten beibehalten möchtest.
 - **Scenario**. Der Standardrahmen für neue Chats mit diesem Charakter.
 
 Der Abschnitt **Dialogue & Greetings** legt fest, wie ein Chat beginnt und wie der Charakter klingt:

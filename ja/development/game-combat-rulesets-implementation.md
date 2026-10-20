@@ -28,7 +28,7 @@ Cautious Mageはどちらの表示でも慎重であるべきです。ルール�
 
 - `packages/shared/src/types/game.ts`: `Combatant`、`CombatSkill`、Classic結果/スナップショット。能力値は汎用数値で、`speed`は卓上Dexterity値やフィート移動量ではありません。
 - `packages/server/src/services/game/combat.service.ts`: Classicは毎ラウンド順序を振り、一体一命令を汎用式で解決します。旧ゲームはクライアント経由で状態を往復し、新規ウィザードゲームはサーバーdirector台帳を使います。
-- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: 味方/敵交互フェーズ、クラス射程、速度由来移動、反撃。速度追撃は未実装です。
+- `packages/shared/src/features/tactical-combat/{engine,math,types}.ts`: 味方/敵フェーズ、またはゲームが指定した場合はシード付きイニシアチブ順で1体ずつ(combat C6c)、クラス射程、速度由来移動、反撃。速度追撃は未実装です。
 - `packages/shared/src/features/combat-ai.ts`とモードアダプター: 可能行動の優先順位。通常AIの情報境界を守り、GMボスには予測用の味方シート/資源を渡しますが、どちらも未来の出目/宣言前選択を見ません。
 - `packages/server/src/routes/combat-director.routes.ts`と`services/game/combat-director.service.ts`: バージョン付き正規状態、行動位置、保留反応、伝説的予算、重複/古い応答防止。第二台帳を作らずこの受理経路を拡張します。現在のCounterspell確率、スロット支払い、取消費用は汎用Engine方針で5eではありません。
 - `packages/server/src/routes/game.routes.ts`: 旧ラウンド/開始/行動検証。`GameCombatUI`、`TacticalCombatUI`、`use-game.ts`: 入力、予測、受理結果、永続化。
@@ -76,7 +76,7 @@ type RulesetRef = {
 | 規則 | v1案 |
 | --- | --- |
 | イニシアチブ | 有効Speed降順、同値は安定遭遇順。高速/同値で追加行動なし |
-| Tactical進行 | 味方→敵フェーズ。手動は未行動味方を選択、自動は速度順 |
+| Tactical進行 | 陣営ごと: 味方フェーズ→敵フェーズ、プレイヤーが未行動味方から選択。イニシアチブ順(combat C6c): 戦闘ごとに1回振った順で1体ずつ |
 | Classic進行 | 有効Speedの統合降順。手動命令を待機し、各枠で現在合法な対象を解決 |
 | 移動 | Speedと独立した明示予算。既定4マス案と制限付きクラス/能力修正 |
 | Attack Speed | 明示ボーナス/ペナルティだけを加えた有効Speed。架空武器重量なし |

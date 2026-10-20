@@ -36,7 +36,7 @@ Os tipos de imagem mais comuns funcionam, como JPG, PNG, GIF, WebP e AVIF. Cliqu
 3. Arraste os arquivos de vídeo para a caixa **Upload Character Videos** (enviar vídeos do personagem), ou clique nela para escolher os arquivos. Em uma persona, essa caixa se chama **Upload Persona Videos**.
 4. Espere o upload terminar.
 
-Os tipos de vídeo compatíveis são MP4, WebM e MOV. A sub-aba **Videos** também lista os vídeos de cena gerados em chats com esse personagem, além dos trechos de chamada de vídeo. A ordem começa pelos mais recentes.
+Os tipos de vídeo compatíveis são MP4, WebM e MOV. A sub-aba **Videos** também lista os vídeos de cena gerados em chats com esse personagem, além dos trechos de chamada de vídeo. A ordem começa pelos mais recentes. Uma mensagem de vídeo do Conversation só aparece na lista dos personagens que ela mostra. Ou seja, o personagem que a enviou e qualquer um que ela cite pelo nome. Basta o primeiro nome quando ninguém mais no chat tem o mesmo, desde que ele esteja escrito com letra maiúscula. Todos do chat entram quando o texto pede uma foto ou selfie em grupo. Nomes falados entre aspas não contam. A galeria da sua persona só lista o vídeo quando ele cita a sua persona. Os vídeos mais antigos, e os vídeos de chats de Roleplay e Game Mode, aparecem para todos os personagens e para a persona do chat deles.
 
 ## Marcar uma imagem da galeria como emoji ou sticker personalizado
 
@@ -68,6 +68,8 @@ O emoji ou sticker marcado na galeria vale só para aquele personagem ou aquela 
 
 Se um nome da galeria for igual a um nome do conjunto global, a versão da galeria prevalece naquele chat. Marinara não verifica se os nomes são únicos. Escolha um nome distinto para cada imagem e evite surpresas.
 
+<a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
+
 ## Reutilizar uma imagem da galeria em mensagens e saudações
 
 Qualquer imagem da galeria de um personagem pode aparecer dentro do texto do chat: em uma saudação, mensagem de exemplo ou mensagem enviada pelo personagem. Passe o ponteiro sobre a imagem e clique em **Copy image reference** (o ícone de link). Isso copia um pequeno trecho de Markdown que pode ser colado onde o personagem fala:
@@ -78,17 +80,25 @@ Qualquer imagem da galeria de um personagem pode aparecer dentro do texto do cha
 
 Existe uma única regra: **`self` significa o personagem que está falando aquela mensagem.** Ao renderizar, o Marinara substitui `self` pelo personagem e mostra a imagem de sua galeria.
 
-Isso funciona em **First Message**, **Alternate Greetings** e **Example Dialogue** no cartão, em qualquer mensagem enviada por personagem tanto em Roleplay quanto em Conversation e em chats em grupo. Em uma resposta com vários falantes, `self` é resolvido separadamente para cada um. Se a galeria do falante não tiver o arquivo, o Marinara procura nas galerias dos outros personagens do chat.
+Onde funciona:
 
-Por design, não funciona nas suas próprias mensagens, que não têm personagem falante, nem em mensagens do sistema, que não renderizam imagens Markdown. Para publicar uma imagem você mesmo, use o navegador de recursos do chat, que escreve a forma completa `card://characters/<id>/...`. Galerias de persona usam `card://personas/<id>/gallery/<file>`.
+- **First Message**, **Alternate Greetings** e **Example Dialogue** no card de personagem. A pré-visualização de Markdown do campo mostra a imagem enquanto você edita.
+- Qualquer mensagem enviada por um personagem, tanto no **Roleplay** quanto no **Conversation**.
+- **Chats em grupo**: em uma resposta com vários falantes, `self` é resolvido separadamente para cada falante, então a fala de cada personagem mostra a imagem da galeria desse próprio personagem. Se a galeria do falante não tiver o arquivo, o Marinara procura nas galerias dos outros personagens do chat, para que a imagem certa apareça mesmo quando uma resposta é juntada sob um só falante.
 
-Se dois personagens tiverem imagens com o mesmo nome de arquivo, a imagem do falante sempre prevalece. Quando ele não possui o arquivo, a primeira correspondência na ordem de personagens do chat é usada. Dê nomes distintos quando precisar de uma versão específica.
+Onde não funciona, por design:
+
+- **As suas próprias mensagens**. Elas não têm personagem falante, então uma referência `self` aparece como imagem quebrada. Se você quiser publicar você mesmo uma imagem da galeria de um personagem, use a inserção do navegador de recursos do chat (que escreve a forma completa `card://characters/<id>/...`).
+- **Mensagens do sistema**. Elas não renderizam a sintaxe de imagem do Markdown, então uma referência aparece como texto literal.
+- **Galerias de persona**. As imagens da persona aparecem nas suas mensagens, que não têm falante. Use a forma de persona `card://personas/<id>/gallery/<file>`.
+
+Um detalhe para chats em grupo: se dois personagens do chat tiverem imagens na galeria com o **mesmo nome de arquivo**, a imagem do personagem que está falando sempre prevalece. Quando o falante não tem o arquivo, **vale a primeira correspondência**: os outros personagens são verificados na ordem de personagens do chat. Dê nomes de arquivo distintos às imagens de mesmo nome se você precisar que a versão de um personagem específico apareça na fala de outro.
 
 ### Por que usar `self` em vez do link completo
 
-Um link completo contém o id interno do personagem (`card://characters/<id>/gallery/<file>`), e o id é gerado de novo a cada importação; por isso o link quebra ao compartilhar o personagem. A forma `self` não contém id nem endereço do servidor. Ela sobrevive a uma **exportação e importação JSON nativa**: as imagens viajam na exportação e mantêm os nomes dos arquivos.
+Um link completo contém o id interno do personagem (`card://characters/<id>/gallery/<file>`), e o id é gerado de novo a cada importação; por isso o link quebra ao compartilhar o personagem. A forma `self` não contém id nem endereço do servidor. Ela sobrevive a uma **exportação e importação JSON nativa**: as imagens viajam na exportação e mantêm os nomes dos arquivos, então toda referência continua funcionando do outro lado.
 
-Há uma limitação: **as exportações de cartão PNG não incluem a galeria**. Compartilhe a exportação `.json` nativa quando o personagem usar referências de galeria.
+Há uma limitação: **as exportações de cartão PNG não incluem a galeria**, então nenhuma referência de galeria funciona depois de um compartilhamento só em PNG. Compartilhe a exportação `.json` nativa quando o personagem usar referências de galeria.
 
 <a id="save-web-images-from-greetings"></a>
 

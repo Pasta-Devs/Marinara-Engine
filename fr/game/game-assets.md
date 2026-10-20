@@ -99,10 +99,22 @@ La musique suit une organisation stricte. Chaque piste doit se trouver dans un c
 Les valeurs autorisées sont :
 
 - State : `exploration`, `dialogue`, `combat`, `travel_rest`.
-- Genre : `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`.
+- Genre : `fantasy`, `horror`, `romance`, `mystery`, `scifi`, `modern`, `slice_of_life`, `adventure`, `drama`, `custom`, ou la famille d'un univers (voir plus bas), comme `wuxia`.
 - Intensity : `calm`, `tense`, `intense`.
 
 C'est grâce à cette organisation que Game Mode sait quand jouer chaque piste. Les dossiers d'ambiance, d'effets sonores, de sprites et d'arrière-plans échappent à cette règle : nomme leurs sous-dossiers comme tu veux.
+
+<a id="a-settings-own-art-and-music"></a>
+
+### Les visuels et la musique propres à un univers
+
+Une partie lancée avec un kit d'univers a une famille artistique, affichée sous **Art and music** (visuels et musique) quand tu modifies les mots du kit : `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland`, ou une famille propre au kit. La partie utilise les dossiers qui portent le nom de sa famille et tous les dossiers qui ne portent le nom d'aucune famille, et laisse de côté les dossiers des autres familles : une partie cyberpunk ne joue donc jamais de musique de bataille fantasy et n'affiche jamais la forêt enchantée. Quand rien ne convient dans sa propre famille ni dans les dossiers partagés, rien n'est joué, plutôt qu'une piste d'une autre famille.
+
+- **Musique** : place les pistes de l'univers dans `music/<state>/<family>/<intensity>`, par exemple `combat/wuxia/intense`. Elles passent avant les pistes partagées.
+- **Arrière-plans** : `backgrounds/<family>`. Les arrière-plans générés pendant une partie lancée avec un kit d'univers y sont aussi enregistrés.
+- **Sons de combat** : un son placé dans `sfx/combat/<family>` qui porte le même nom qu'un son fourni, comme `sword-swing`, le remplace dans les parties de cette famille. Les sons de combat fournis sont de style fantasy : les combats d'une autre famille restent donc silencieux tant que tu n'ajoutes pas les siens.
+
+Les arrière-plans de départ fournis comptent comme partagés, sauf ceux de fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) et `city_night`, de la famille modern. Une partie sans kit d'univers utilise tous les dossiers, comme avant. Un kit d'univers enregistré avant l'arrivée des familles artistiques fonctionne toujours : un kit créé à partir d'un kit de départ utilise la famille de ce kit de départ, et tout autre kit utilise tous les dossiers jusqu'à ce que tu choisisses une famille sous **Art and music**. La barre de sélection décrite dans [Choisir les ressources autorisées pour une partie](#choosing-which-assets-a-game-can-use) indique la famille de la partie ouverte.
 
 ## Organiser tes ressources
 
@@ -134,6 +146,8 @@ Souviens-toi que les fichiers de départ fournis sont protégés. Tu peux les re
 Marinara tient une liste interne de tes ressources pour que Game Mode les retrouve rapidement. Quand tu téléverses depuis l'application, cette liste se met à jour toute seule.
 
 Si tu copies des fichiers directement dans le dossier des ressources de jeu sur ton ordinateur, en dehors de l'application, celle-ci ne le remarque pas tout de suite. Clique sur le bouton **Rescan** pour qu'elle relise le dossier et prenne en compte les nouveaux fichiers. Le bouton **Rescan** se trouve à la fois dans la barre d'outils du panneau **Asset Browser** et dans la section **Game Assets** de la section **Settings**.
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## Choisir les ressources autorisées pour une partie
 

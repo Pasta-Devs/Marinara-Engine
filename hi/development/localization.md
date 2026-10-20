@@ -77,12 +77,12 @@ packages/client/src/localization/locales/en.json
 शब्दों के छोटे-मोटे सुधार के लिए GitHub का वेब एडिटर ही काफ़ी है:
 
 1. लोकेल फ़ाइल यहाँ खोलें:
-   [`ui/`](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui)।
+   [`docs-i18n` की `ui/` डायरेक्टरी](https://github.com/Pasta-Devs/Marinara-Engine/tree/docs-i18n/ui)।
 2. फ़ाइल बदलने के लिए पेंसिल आइकन चुनें। ज़रूरत होने पर GitHub खुद फ़ोर्क बनाने का विकल्प देगा।
 3. सिर्फ़ अनुवाद वाली वैल्यू बदलें। उसकी कुंजी, `{{name}}` जैसे विराम-चिह्न के प्रति संवेदनशील टोकन और JSON सिंटैक्स
    वैसे ही रहने दें।
 4. बदलाव को अपने फ़ोर्क की एक अलग, सीमित ब्रांच में कमिट करें।
-5. नीचे दिए कमांड से पैक मैनिफ़ेस्ट ताज़ा करें और वैलिडेट करें, फिर **`docs-i18n`** को लक्ष्य बनाकर पुल रिक्वेस्ट खोलें, `staging` या `main` को नहीं। ([`validate-packs.mjs`](#new-localization))
+5. नीचे दिए कमांड से पैक मैनिफ़ेस्ट ताज़ा करें और वैलिडेट करें, फिर **`docs-i18n`** को लक्ष्य बनाकर पुल रिक्वेस्ट खोलें, `staging` या `main` को नहीं।
 6. PR के विवरण में भाषा का नाम दें, बताएँ कि अर्थ में क्या सुधार हुआ, और यह भी लिखें कि आप उस भाषा के जानकार हैं या
    मशीन की मदद ली गई है।
 
@@ -94,8 +94,6 @@ packages/client/src/localization/locales/en.json
 ## नया लोकलाइज़ेशन भेजना
 
 नई भाषा के लिए अंग्रेज़ी स्रोत के तौर पर Engine का `staging` चेकआउट रखें और `docs-i18n` पर काम करें:
-
-`/path/to/Engine` से मतलब `staging` शाखा के एक अलग, मौजूदा चेकआउट से है, जिसमें `packages/client/src/localization/locales/en.json` हो। नीचे दिए कमांड अनुवाद के लिए अतिरिक्त चेकआउट बनाते हैं।
 
 ```bash
 git clone https://github.com/YOUR-NAME/Marinara-Engine.git
@@ -162,6 +160,13 @@ pnpm localization:ui-check
 जान-बूझकर छोड़ दी जाती है, ताकि कमांड, कॉन्फ़िगरेशन, URL, मैक्रो और मशीन के लिए बने बाकी उदाहरण हूबहू बने रहें।
 यूज़र की लिखी, जेनरेट हुई, सेव की गई, प्रॉम्प्ट और प्रोटोकॉल वाली डाइनैमिक वैल्यू भी इसी तरह इंटरफ़ेस ट्रांसलेटर से
 बाहर रहनी चाहिए।
+
+Settings सर्च, ऑम्निबार और Professor Mari सेटिंग्स के नाम `packages/client/src/lib/settings-registry.ts` की
+`SETTINGS_SEARCHABLE_CONTROLS` से पढ़ते हैं। वहाँ हर कंट्रोल अपने अंग्रेज़ी `label` और `description` के साथ एक `labelKey` और एक
+`descriptionKey` रखता है। जब कंट्रोल का अंग्रेज़ी टेक्स्ट वही हो, तो उसकी मौजूदा कुंजी दोबारा इस्तेमाल करें; नहीं तो
+`en.json` में `settings.search.<id>.label` या `.description` जोड़ें, जिसमें कंट्रोल की id camelCase में हो (जैसे
+`settings.search.hideChatHelpButton.description`)। `pnpm localization:check` तब फ़ेल होता है, जब किसी कंट्रोल की कोई कुंजी न हो,
+जब कोई कुंजी `en.json` में न हो, या जब रजिस्ट्री का अंग्रेज़ी टेक्स्ट अब `en.json` के टेक्स्ट से मेल न खाता हो।
 
 ## डाउनलोड किए जाने वाले एजेंट इंटरफ़ेस
 

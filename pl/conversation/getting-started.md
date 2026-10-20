@@ -12,6 +12,8 @@ Tryb Conversation dokłada funkcje, które mają sens tylko przy stałej znajomo
 
 Żadna z tych funkcji nie działa w trybie Roleplay ani Game Mode, nawet jeśli używasz tam tej samej karty postaci.
 
+Z niektórymi polami karty jest odwrotnie. Czat w trybie Conversation nie zaczyna się od pola **First Message** karty ani od innego powitania; robią to tylko czaty w trybie Roleplay. Nie używa też pól **Dialogue Highlight Color** ani **Message Box Color** karty. **Name Display Color** nadal koloruje imię postaci nad każdą wiadomością. Zobacz [Gdzie widać ustawione kolory](../characters/colors-and-stats.md#where-your-colors-show).
+
 ### Kiedy wybrać tryb Conversation
 
 Wybierz tryb Conversation, jeśli zależy ci na czymkolwiek z tej listy:
@@ -167,7 +169,7 @@ Długie czaty zapełniają pamięć modelu. Wypróbuj model z większym oknem ko
 
 ### Selfie nie przypomina postaci
 
-Otwórz ustawienia **Selfies** i włącz **Attach Card Appearance**. Jeśli dostawca obrazów obsługuje obrazy referencyjne, włącz też **Send Avatar References**. Szczegóły opisuje przewodnik [Selfie](selfies.md).
+Otwórz ustawienia **Selfies** i ustaw **Attach Card Appearance** na **Images only** (tylko obrazy) albo **Images and videos** (obrazy i filmy). Jeśli dostawca obrazów obsługuje obrazy referencyjne, ustaw też **Send Avatar References**. Szczegóły opisuje przewodnik [Selfie](selfies.md).
 
 ## Powiązane przewodniki
 

@@ -40,14 +40,14 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 
 ## Gallery 区域
 
-**Gallery** 有 **Images** 和 **Videos**(视频) 两个选项卡，每个选项卡都会显示自己包含多少项。**Videos** 选项卡只在该聊天启用了场景视频时才出现。
+**Gallery** 有 **Images** 和 **Videos**(视频) 两个选项卡，每个选项卡都会显示自己包含多少项。在 Roleplay 和 Game 聊天里，**Videos** 选项卡存放场景视频；在 Conversation 聊天里，它存放视频消息。
 
 区域顶部的操作按钮只在对应功能适用于当前聊天时才显示：
 
 - **Illustrate**(生成插图)：运行 Illustrator 智能体，单独出一张场景图。见 [Illustrator 智能体](illustrator-agent.md)。
 - **Selfie**(自拍)：在 Conversation 模式下生成一张角色自拍。
 - **Background**：生成场景背景并应用，也就是上面讲的流程。
-- **Video**(视频)：用最近一张插图做一段场景视频。
+- **Video**(视频)：用最近一张插图做一段场景视频。在 Conversation 模式下，它会改为让某个角色发送一条视频消息；见[视频消息](../conversation/selfies.md#video-messages)。
 - **Create storyboard**(创建分镜)：在 Storyboard 启用时，为最近一个 Game Mode 回合或已完成的 Roleplay 剧集生成关键帧。
 - **Browse Images**(浏览图像)：打开已保存图像的浏览器，从中插入图像。
 - **View storyboard**(查看分镜)：打开最近一份 Game Mode 分镜。
@@ -59,17 +59,30 @@ Choose an image generation connection for the Illustrator agent, or mark one as 
 在 **Images** 选项卡里把指针移到任意一张图像上，手机端则点一下，就会显示它的操作项：
 
 - 以完整尺寸打开图像（**Open gallery image**）。
-- **Pin to chat**(固定到聊天)：把图像固定在聊天里。
+- **Pin to chat**(固定到聊天)：把图像以浮动图片的形式固定在聊天里。拖动它可以移动位置，拖动它的角上手柄可以调整大小。在这个浏览器里重新加载页面时，它会保持原来的位置和大小。关闭按钮旁边的锁定按钮可以让它无法移动或调整大小，直到你解锁。
 - **Download image**(下载图像)：把图像保存到设备。
 - **Animate illustration**(让插图动起来)：把这张图变成一段场景视频。
 - **Copy prompt**(复制提示词)：复制随图保存的提示词。图像没有保存提示词时，这里显示 **No prompt saved** 并且不可点击。
 - **Delete gallery image**(删除图库图像)：确认后删除图像。
 
+<a id="regenerating-an-image"></a>
+
+### 重新生成图片
+
+你可以重新生成一张图片，而不必重新生成它所属的回复。这适用于聊天 Gallery 里保存了提示词的图片，例如插图、自拍和分镜画面。
+
+1. 从 Gallery 或图片所在的消息里，以原尺寸打开这张图片。
+2. 点击 **Regenerate image**(重新生成图片)（图片右上角的圆形箭头按钮）。
+3. 在图片下方的输入框里修改你想改的内容：**Prompt**(提示词)、**Negative prompt**(负面提示词)、图片带有角色提示词时 **Character prompts**(角色提示词) 下每个角色各一个输入框，以及 **Image connection**(图像连接)。
+4. 点击 **Generate image**(生成图片)，或者点击 **Cancel**(取消) 保持图片不变。
+
+新图片会替换消息里的旧图片。旧图片仍保留在 Gallery 里，所以你可以再次固定它。参考图会根据角色当前的头像重新发送。有些较早的图片没有保存负面提示词和角色提示词；遇到这种情况，编辑器会说明。
+
 ## 在提示词发出前先检查一遍
 
 Marinara 把背景请求发给图像服务商之前，可以先检查并修改提示词。
 
-1. 打开 **Settings** → **Generations** → **Image Generation**。
+1. 打开 **Settings** → **Generations** → **Overall Generations**(总体生成)。
 2. 开启 **Expose media prompts before sending**(发送前显示媒体提示词)。
 
 开启之后，每次请求发出前都会弹出 **Review Image Prompt**(检查图像提示词) 窗口，它的说明文字是：“Edit the prompt below before Marinara sends the image request to your provider.”

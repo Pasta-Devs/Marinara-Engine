@@ -110,11 +110,13 @@ Opcja **Import Profile** przywraca dane z pliku profilu, nawet gdy wskażesz pli
 
 Po zaimportowaniu profilu zrób tak:
 
-1. Otwórz panel **Settings**.
-2. Przejdź na zakładkę **Connections**.
-3. Wpisz od nowa klucz API dla każdego używanego dostawcy.
+1. Otwórz panel **Connections** (połączenia) z górnego paska.
+2. Otwórz każde używane połączenie.
+3. Wpisz od nowa jego klucz API i zapisz połączenie.
 
 Jeśli używasz własnych narzędzi wywołujących adres webhooka, wpisz ten adres od nowa również przy każdym narzędziu.
+
+Plik profilu pomija też kilka adresów zapisanych razem z czatem: webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Dotyczy to również profili ustawień i domyślnych ustawień tłumaczenia dla nowych czatów. Po imporcie profilu w innej instalacji wpisz je ponownie w **Chat Settings** (ustawienia czatu) każdego czatu.
 
 Import nie kasuje kluczy, które są już wpisane. Przy ponownym imporcie starego profilu Marinara zachowuje aktualne klucze i adresy webhooków przy elementach, które nadal istnieją. Ponowny import ich nie wyczyści.
 

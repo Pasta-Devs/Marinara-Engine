@@ -24,14 +24,15 @@ Para levar esse visual ao restante do chat, use os três botões liga/desliga ab
 
 - **Apply preset font** (aplicar fonte do preset) usa a fonte escolhida para os widgets nas mensagens, nos campos de entrada e nos controles do chat.
 - **Apply preset shape** (aplicar forma do preset) usa a forma de moldura escolhida nas mensagens de Roleplay com layout clássico ou de visual novel, na caixa de diálogo de Game, nos campos de entrada e nos controles. As mensagens de Conversation mantêm sua própria forma.
-- **Apply preset colors** (aplicar cores do preset) usa as cores de borda, fundo e texto do widget nessas áreas, incluindo as mensagens de Conversation. Suas cores e gradientes personalizados também se aplicam. As falas entre aspas mantêm a Dialogue Highlight Color própria de cada personagem ou persona.
+- **Apply preset colors** (aplicar cores do preset) usa as cores de borda, fundo e texto do widget nessas áreas, incluindo as mensagens de Conversation. Suas cores e gradientes personalizados também se aplicam. As falas entre aspas mantêm a Dialogue Highlight Color própria de cada personagem ou persona. Uma mensagem feita de HTML, como o card estilizado de um agente, mantém as cores de texto que ela mesma define.
+
+Os botões que carregam mensagens mais antigas ou mais novas, como **Load More** (carregar mais) e **Show older** (mostrar mais antigas), seguem esses botões liga/desliga como os outros controles do chat.
 
 No Game Mode, os botões também se aplicam aos comentários laterais, aos widgets do HUD, ao painel do mapa, às fichas de personagem, aos registros, ao inventário, aos painéis de combate e às janelas de diálogo.
 
 Cada botão começa desativado e funciona de forma independente. Por exemplo, você pode usar as letras da Professor Mari e manter as cores habituais do chat. Desativar um botão restaura essa parte do estilo habitual do chat. Escolher outro preset mantém as opções desses botões. Professor Mari também pode criar temas personalizados para essas áreas.
 
 Os temas CSS personalizados ainda podem substituir esses presets. As variáveis públicas de janelas e gavetas abaixo têm prioridade sobre as cores do preset. Use `--mari-window-font-family` para as letras das janelas, `--mari-drawer-radius` para os cantos das seções e `--mari-window-ornament: none` para ocultar o ornamento do título. Para remover toda a decoração do preset, escolha **Default** primeiro.
-
 
 ## O que é um tema personalizado
 
@@ -230,6 +231,8 @@ Os três botões **Apply preset** também permitem que um tema personalizado use
 | Mensagens de Conversation (somente fonte e cores) | `.mari-chat-style-conversation` |
 | Texto de mensagens de Conversation sem caixa | `.mari-chat-style-text` |
 | Controles do chat, incluindo Calls e controles de grupo de Conversation | `.mari-chat-style-control` |
+| Botões de histórico: **Load More**, **Show older**, **Show newer**, **Latest** e, nos registros do Game, **Older**, **All** e **Show more older logs**. Eles também têm `.mari-chat-style-control` | `.mari-chat-history-pager` |
+| Uma mensagem feita de HTML, como o card estilizado de um agente. As cores de texto definidas dentro dela são mantidas quando **Apply preset colors** está ligado | `.mari-html-content` |
 
 | Variável | O que controla |
 | --- | --- |

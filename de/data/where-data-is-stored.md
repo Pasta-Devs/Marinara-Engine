@@ -26,6 +26,7 @@ Bilder, Audio und andere Mediendateien liegen in eigenen Ordnern, jeweils benann
 | --- | --- |
 | `avatars` | Avatare von Charakteren und Personas |
 | `sprites` | Sprite-Grafiken der Charaktere |
+| `avatar-models` | Dateien für die Agenten **2D Avatars** und **3D Avatars**, etwa PNGTuber-Bilder und 3D-Modelle |
 | `backgrounds` | Selbst hochgeladene Chat-Hintergründe |
 | `gallery` | Bilder der Galerie |
 | `fonts` | Selbst hinzugefügte Schriftarten |

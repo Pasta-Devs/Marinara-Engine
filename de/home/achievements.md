@@ -12,35 +12,36 @@ Der Fortschritt liegt lokal im gerade verwendeten Profil. In einem anderen Profi
 
 ## Das Achievements-Panel öffnen
 
-Die Schaltfläche **Achievements** (Errungenschaften) sitzt auf dem Home-Bildschirm. Der Home-Bildschirm ist das, was du siehst, solange kein Chat geöffnet ist. Die Schaltfläche liegt direkt unter dem Chatfenster von Professor Mari und trägt ein Pokal-Symbol.
+Das Lesezeichen **Achievements** (Errungenschaften) sitzt auf dem Home-Bildschirm. Der Home-Bildschirm ist das, was du siehst, solange kein Chat geöffnet ist. Das Lesezeichen liegt oben in der Reihe der Lesezeichen und trägt ein Pokal-Symbol. Auf dem Handy tippst du links neben den Tabs auf die Lesezeichen-Schaltfläche, um es zu finden.
 
-Unter der Beschriftung zeigt die Schaltfläche einen laufenden Zähler, etwa **12 of 23 unlocked**. Solange noch geladen wird, steht dort stattdessen **Checking the collection...**.
+Du kannst Home auch das Widget **Achievements** hinzufügen. Klick in den Lesezeichen auf **Widgets** und schalte es ein. Das Widget zeigt einen laufenden Zähler, etwa **12 of 24 unlocked**, dazu deine Errungenschaften unter **Last obtained** (zuletzt erhalten) und **Closest next** (als Nächstes in Reichweite). Solange noch geladen wird, steht beim Zähler stattdessen **Checking the collection...**. Ein Klick auf das Widget öffnet das Panel. Siehe [Home-Widgets](welcome.md#home-widgets).
 
 So öffnest du das Panel:
 
 1. Geh auf den Home-Bildschirm.
-2. Such die Schaltfläche **Achievements** unter dem Chatfenster von Professor Mari.
+2. Such oben das Lesezeichen **Achievements**.
 3. Klick darauf.
 
-Daraufhin öffnet sich das Fenster **Achievements**. Ganz oben steht eine Übersichtszeile, zum Beispiel **12 of 23 achievements unlocked in this profile.** Darunter liegt ein Raster aus Errungenschaftskarten.
+Daraufhin öffnet sich das Fenster **Achievements**. Ganz oben steht eine Übersichtszeile, zum Beispiel **12 of 24 achievements unlocked in this profile.** Darunter liegt ein Raster aus Errungenschaftskarten.
 
 Jede Karte zeigt ein Abzeichen-Symbol, einen Titel, eine Kategorie und eine kurze Beschreibung. Bei einer gesperrten Karte lautet der Titel **?????** und das Symbol ist ein Schloss. Was dahintersteckt, erfährst du erst nach dem Freischalten. Verdiente Karten tragen die Markierung **unlocked** (freigeschaltet). Karten mit einem Zielwert zeigen zusätzlich eine Zeile **Progress** (Fortschritt) und einen Fortschrittsbalken.
 
-Schaltfläche und Panel erscheinen nur, wenn die Einstellung **Achievements** aktiviert ist. Mehr dazu im Abschnitt zur Einstellung weiter unten. Ein anderes Menü oder eine andere Seite mit Errungenschaften gibt es nicht.
+Lesezeichen, Widget und Panel erscheinen nur, wenn die Einstellung **Achievements** aktiviert ist. Mehr dazu im Abschnitt zur Einstellung weiter unten. Ein anderes Menü oder eine andere Seite mit Errungenschaften gibt es nicht.
 
-## Die 23 Errungenschaften
+## Die 24 Errungenschaften
 
-Es gibt 23 Errungenschaften in vier Kategorien: **Milestone**, **Community**, **Creation** und **Collection**.
+Es gibt 24 Errungenschaften in vier Kategorien: **Milestone**, **Community**, **Creation** und **Collection**.
 
 Manche Errungenschaften schalten sich genau einmal frei. Die aus **Creation** und **Collection** haben Stufen, gekennzeichnet mit **I**, **II** und **III**. Die Stufen fallen bei 5, dann 25, dann 100. Der Titel des Abzeichens lautet also zum Beispiel **Hoarder II**, sobald du die zweite Stufe erreichst.
 
 | Errungenschaft | Kategorie | So schaltest du sie frei |
 |---|---|---|
 | **Diligent Student** | Milestone | Schließ das Einsteiger-Tutorial ab oder überspring es. |
-| **Hello World** | Milestone | Schick vom Home-Bildschirm aus die erste Nachricht an Professor Mari. |
-| **One Of Us** | Community | Klick auf den Link **Discord** in der Fußzeile des Home-Bildschirms. |
-| **Based Backer** | Community | Klick auf den Link **Support** (öffnet Ko-fi) in der Fußzeile des Home-Bildschirms. |
-| **Backseat Appreciator** | Community | Klick auf die Schaltfläche **Credits** in der Fußzeile des Home-Bildschirms. |
+| **Hello World** | Milestone | Schick die erste Nachricht an Professor Mari. |
+| **Please Handle With Care** | Milestone | Zieh das Bild von Professor Mari über den Bildschirm. |
+| **One Of Us** | Community | Klick auf das Lesezeichen **Discord** oder auf den Link **Discord** im Widget **Community** auf Home. |
+| **Based Backer** | Community | Klick in den Lesezeichen auf Home oder im Widget **Community** auf **Support** (öffnet Ko-fi). |
+| **Backseat Appreciator** | Community | Klick in den Lesezeichen auf Home oder im Widget **Community** auf **Credits**. |
 | **Who Needs IRL Friends** | Creation | Leg Chats im Conversation Mode an (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Leg Roleplay-Chats an (5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Leg Chats im Game Mode an (5, 25, 100). |
@@ -68,18 +69,16 @@ Der Zähler oben im Fenster schließt die Errungenschaften deiner installierten 
 
 Die gesamte Funktion lässt sich mit einem einzigen Schalter ein- und ausschalten. Öffne **Settings** (Einstellungen), geh auf den Tab **General** (Allgemein) und such den Bereich **App Behavior** (App-Verhalten). Der Schalter heißt **Achievements** und ist standardmäßig aktiviert.
 
-Der Hilfetext lautet: „Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off.“
-
 Das bewirkt der Schalter:
 
-- Aktiviert: Schaltfläche und Fenster **Achievements** erscheinen auf dem Home-Bildschirm, und beim Freischalten kommt ein kleiner Hinweis als Einblendung.
-- Deaktiviert: Die Schaltfläche ist ausgeblendet, die Einblendungen bleiben aus. Im Hintergrund zeichnet die App die Freischaltungen trotzdem still weiter auf.
+- Aktiviert: Das Lesezeichen **Achievements** auf dem Home-Bildschirm und das Fenster stehen bereit, und beim Freischalten kommt ein kleiner Hinweis als Einblendung. Das optionale Widget **Achievements** erscheint nur, wenn du es deinem Home-Layout hinzugefügt hast.
+- Deaktiviert: Lesezeichen und Widget sind ausgeblendet, die Einblendungen bleiben aus. Im Hintergrund zeichnet die App die Freischaltungen trotzdem still weiter auf.
 
 Weil die Aufzeichnung auch bei deaktivierter Einstellung weiterläuft, geht kein Fortschritt verloren. Aktivierst du die Einstellung später wieder, ist alles zwischenzeitlich Verdiente bereits vorhanden.
 
 ## Wie das Freischalten abläuft
 
-Marinara gleicht die gestuften Errungenschaften mit den aktuellen Zählerständen ab. Dieser Abgleich läuft, sobald eine erfasste Aktion passiert – etwa ein neuer Chat oder ein Klick auf einen Link in der Fußzeile. Er läuft außerdem beim Öffnen des Achievements-Panels.
+Marinara gleicht die gestuften Errungenschaften mit den aktuellen Zählerständen ab. Dieser Abgleich läuft, sobald eine erfasste Aktion passiert – etwa ein neuer Chat oder ein Klick auf ein Lesezeichen auf Home. Er läuft außerdem beim Öffnen des Achievements-Panels.
 
 Löst eine Aktion eine Freischaltung aus und ist die Einstellung aktiviert, erscheint ein kleiner Hinweis als Einblendung. Sein Titel lautet **Achievement unlocked**, dazu nennt er das Abzeichen, zum Beispiel **Hoarder II** oder **One Of Us**.
 

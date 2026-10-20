@@ -35,11 +35,11 @@ Przy pytaniach aktywacyjnych i stwierdzeniach w promptach lub lorebookach model 
 - Makra w stwierdzeniu są rozwijane wcześniej, więc `{{char}}` dociera jako imię postaci.
 - Gdy wiadomości nie mieszczą się w limicie modelu, najpierw usuwane są starsze. Limit zdalnego połączenia opisuje [Konfiguracja połączenia Decision](#set-up-a-decision-connection).
 
-**Advanced Memory używa własnego modelu decyzyjnego dla każdego czatu.** Kontrola scen odczytuje odpowiednie okno transkryptu. Przywoływanie wysyła niedawną rozmowę oraz do 24 wstępnie wybranych podsumowań archiwalnych, a potem oryginalne wiadomości ze scen wybranych przez model, po sprawdzeniu dostępu postaci; nie obowiązuje tu reguła ostatnich 5 wiadomości. Podsumowań może być więcej, jeśli ustawienie **Maximum recalled scenes** (maksymalna liczba przywołanych scen) ma wyższą wartość. Zewnętrzny dostawca otrzymuje te teksty, czasem w kilku ograniczonych partiach. Po 10 sekundach każdy przebieg przywoływania przechodzi na zwykłe przywoływanie. Zobacz [Opcjonalny model decyzyjny](../agents/memory.md#optional-decision-model).
+**Advanced Memory używa własnego modelu decyzyjnego dla każdego czatu.** Kontrola scen odczytuje odpowiednie okno transkryptu. Przywoływanie wysyła niedawną rozmowę oraz do 24 wstępnie wybranych podsumowań archiwalnych, a potem oryginalne wiadomości ze scen wybranych przez model, po sprawdzeniu dostępu postaci; nie obowiązuje tu reguła ostatnich 5 wiadomości. Podsumowań może być więcej, jeśli ustawienie **Maximum recalled scenes** (maksymalna liczba przywołanych scen) ma wyższą wartość. Zewnętrzny dostawca otrzymuje te teksty, czasem w kilku ograniczonych partiach. Każdy przebieg przywoływania dostaje zwykle od 10 do 25 sekund, zależnie od szybkości modelu. Oba przebiegi dzielą limit 40 sekund na każdą odpowiedź, więc gdy zostało mało czasu, przebieg może dostać mniej niż 10 sekund. Wspomnienia, dla których odpowiedź nie nadejdzie na czas, przechodzą na zwykłe przywoływanie. Zobacz [Opcjonalny model decyzyjny](../agents/memory.md#optional-decision-model).
 
 ## Wybór modelu decyzyjnego
 
-Otwórz **Connections** (połączenia), następnie **Connection defaults** (domyślne połączenia) i wybierz model w **Decision model**. Lista ma trzy grupy:
+Otwórz **Connections** (połączenia), następnie **Defaults** (ustawienia domyślne) i wybierz model w **Decision model**. Lista ma trzy grupy:
 
 - **None** (brak), ustawienie domyślne. Żadne pytania nie są wysyłane, a pola pytań aktywacyjnych w edytorze agenta pozostają wyłączone.
 - **Local models** (modele lokalne): uruchomiony już **Primary local model** (główny model lokalny) lub **Utility local model** (pomocniczy model lokalny). Nic nie jest pobierane i nic nie opuszcza komputera. Zainstalowany **Decision sidecar** (osobny proces decyzyjny) też znajduje się w tej grupie.
@@ -72,7 +72,7 @@ Przy imporcie treści korzystającej z decyzji Marinara pokazuje informację z l
 
 Jeśli masz lokalny model w **Local Model**, możesz używać go do decyzji bez tworzenia połączenia i opłat za żądania.
 
-1. W **Connections** otwórz **Connection defaults** i ustaw **Decision model** na **Primary local model** albo **Utility local model**, jeśli jest skonfigurowany.
+1. W **Connections** otwórz **Defaults** i ustaw **Decision model** na **Primary local model** albo **Utility local model**, jeśli jest skonfigurowany.
 2. Kliknij **Test**. Udany wynik pokazuje prawdopodobieństwo i czas żądania oraz dwie informacje właściwe modelowi lokalnemu: dostępność logarytmów prawdopodobieństw i to, czy model odpowiada bezpośrednio.
 
 Marinara zadaje jedno pytanie tak/nie, pozwala wygenerować jeden token i odczytuje odpowiedź z jego prawdopodobieństw. Żadna odpowiedź czatu nie powstaje, więc żądanie jest krótkie. Wybór spośród wielu odpowiedzi jest zadawany jako osobne pytanie tak/nie dla każdej opcji. Liczba mieszczących się ostatnich wiadomości jest wyliczana z rozmiaru kontekstu danego slotu.

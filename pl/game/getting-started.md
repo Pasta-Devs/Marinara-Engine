@@ -30,9 +30,9 @@ Przy tworzeniu czatu w trybie Game Mode otwiera się **kreator konfiguracji**. M
 
 Siedem kroków wygląda tak:
 
-1. **Connection.** Ustaw nazwę gry, wybierz połączenie dla postaci GM i opcjonalnie połączenie do efektów scenicznych. Efekty sceniczne domyślnie korzystają z opcji **Local Model (Gemma)**.
-2. **World.** Ustaw gatunek, realia, ton, poziom trudności, klasyfikację treści i język. Wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Gry Tactical oferują też opcjonalne ziarno pola bitwy, rozmiar i wskazówki dotyczące terenu. Gdy jest zainstalowany zestaw zasad Game Mode, niżej pojawia się **Rules**: pozostaw **Marinara's own rules** albo wybierz zestaw. Zobacz [Wybór zasad](#choosing-rules).
-3. **Party.** Wybierz personę (postać, w którą się wcielasz), tryb **Game Master Mode** oraz członków drużyny.
+1. **Connection.** Wybierz **Game Mode**: **Overworld RPG** albo **Classic**. Overworld RPG nie jest jeszcze gotowy, więc na razie nowe gry zaczynają się jako **Classic**. Zobacz [Classic czy Overworld RPG](#classic-or-overworld-rpg). Ustaw nazwę gry, wybierz połączenie dla postaci GM i opcjonalnie połączenie do efektów scenicznych. Efekty sceniczne domyślnie korzystają z opcji **Local Model (Gemma)**.
+2. **World.** Ustaw gatunek, realia, ton, poziom trudności, klasyfikację treści i język. Pomysły podsuwane przy realiach, a później przy celach, pochodzą z różnych rodzajów settingu, za każdym otwarciem kreatora w nowym zestawieniu. Wybierz **Classic** (walka z menu) lub **Tactical** (walka na siatce) w polu **Combat Preference** (preferowany rodzaj walki). Gry Tactical oferują też opcjonalne ziarno pola bitwy, rozmiar i wskazówki dotyczące terenu. Gdy jest zainstalowany zestaw zasad Game Mode, niżej pojawia się **Rules**: pozostaw **Marinara's own rules** albo wybierz zestaw. Zobacz [Wybór zasad](#choosing-rules). W grze Overworld RPG niżej znajdują się **Setting kit** (zestaw settingu) i **Your world** (twój świat). Zobacz [Wybór zestawu settingu](#choosing-a-setting-kit) i [Tworzenie świata](#making-a-world).
+3. **Party.** Wybierz personę (postać, w którą się wcielasz), tryb **Game Master Mode** oraz członków drużyny. **GM intro message** (wiadomość otwierająca GM) ustala pierwszą wiadomość gry. Zobacz [Wiadomość otwierająca GM](#the-gm-intro-message).
 4. **Goals.** Powiedz postaci GM, czego oczekujesz od przygody.
 5. **Lorebooks.** Podłącz lorebooki, których fakty postać GM ma traktować jako kanon. Lorebook to zbiór faktów o twoim świecie. Zobacz [Lorebooki](../lorebooks/overview.md).
 6. **Features.** Włącz opcjonalne systemy, takie jak Visual Generation, Music DJ i widgety HUD. Agentów do zainstalowania da się włączyć w panelu Chat Settings po utworzeniu gry.
@@ -42,21 +42,110 @@ Na koniec kliknij przycisk **Start Game** (rozpoczęcie gry).
 
 W grach Tactical puste opcje pola bitwy pozwalają postaci GM dobrać opis do sceny, a silnikowi wygenerować planszę. Stałe ziarno pozwala odtworzyć wynik dla tych samych danych starcia; wskazówki dotyczące terenu proszą postać GM o elementy takie jak zrujnowana ściana czy polana. Zasady ruchu, premie terenu i błędy generowania opisuje przewodnik [Game Mode: walka](combat.md#tactical-battles-and-terrain).
 
+<a id="classic-or-overworld-rpg"></a>
+
+### Classic czy Overworld RPG
+
+Nowa gra toczy się w jednym z dwóch trybów Game Mode, wybieranym w pierwszym kroku i zachowywanym we wszystkich sesjach gry:
+
+- **Overworld RPG** (wartość domyślna, gdy będzie gotowy): świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami do odwiedzenia, miejscami do zbadania i lochami, do których można zejść. Wymaga zestawu settingu i świata; dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy dla gatunku, który nie ma własnego), a świat jest dla niego losowany.
+- **Classic**: Game Mode w dotychczasowej postaci. Historia toczy się scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
+
+Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą Classic.
+
+Overworld RPG jest jeszcze w trakcie dopracowywania. Dopóki nie jest gotowy, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as Classic games." Każda nowa gra jest wtedy grą Classic, a opisane niżej wybory zestawu settingu i świata się nie pojawiają. Opisują one gry Overworld RPG.
+
 <a id="choosing-rules"></a>
 
 ### Wybór zasad
 
-Pole **Rules** (zasady) pojawia się tylko przy tworzeniu gry i tylko wtedy, gdy jest zainstalowany przynajmniej jeden zestaw zasad. Określa działanie testów i arkuszy postaci; osobne **Combat Preference** wybiera sposób prezentacji walki. Domyślne **Marinara's own rules** to wbudowane testy d20 i arkusz sześciu atrybutów. Zestaw, np. **5e (SRD 5.1)**, opisuje swój zakres. Jeżeli nie obejmuje walki, kreator wyjaśnia, że pozostaje walka aplikacji Marinara Engine, zgodna z wybranym **Combat Preference**. Po rozpoczęciu gry zestawu nie można dodać ani zmienić.
+Pole **Rules** (zasady) pojawia się tylko wtedy, gdy jest zainstalowany przynajmniej jeden zestaw zasad, i tylko przy nowej grze. Jest niezależne od **Combat Preference**: jedno decyduje o działaniu testów i arkuszy postaci, drugie o tym, jak pokazywana jest walka.
 
-Kreator rozróżnia trzy możliwości: walkę rozstrzyganą przez sam zestaw zasad, walkę aplikacji Marinara Engine z użyciem zdrowia, energii i zdolności z arkusza albo walkę zgodną z **Combat Preference**. Gdy zestaw sam rozstrzyga walkę, menu pokazuje ataki i zdolności postaci wraz z kosztami. Panel przedstawia kolejność tur, rundę, stany i pozostałe budżety akcji, a dziennik pokazuje rzeczywiste obliczenia. Każde działanie od razu zapisuje się w arkuszu, więc zamknięcie karty przeglądarki w trakcie walki nie gubi wyniku. GM otrzymuje potem informację, że liczby są już rozstrzygnięte. Jeżeli zestaw określa także długość jednego pola planszy we własnej jednostce odległości, **Combat Preference** wybiera prezentację: **Classic** działa bez pozycji, a **Tactical** na wygenerowanej planszy, gdzie poruszasz się, mierzysz zasięg w jednostkach zestawu i wskazujesz pole dla obszaru działania. Zobacz [Game Mode: walka](combat.md#games-whose-ruleset-resolves-its-own-fights). Zestaw bez odległości zachowuje preferencję, ale jej nie używa.
+- **Marinara's own rules** (własne zasady aplikacji Marinara Engine) to wartość domyślna: wbudowane testy d20 i arkusz sześciu atrybutów.
+- Zestaw zasad, na przykład **5e (SRD 5.1)**, pokazuje krótkie podsumowanie tego, co obejmuje, oraz jedną linię o tym, jak będą przebiegać walki. Zestaw, który sam rozstrzyga walki, mówi o tym. Zestaw, który tylko udostępnia arkusz, informuje, że walki korzystają z systemu walki aplikacji Marinara Engine ze zdrowiem, energią i zdolnościami z arkusza. Zestaw, który nie robi żadnej z tych rzeczy, informuje, że walki korzystają z systemu walki aplikacji Marinara Engine, i podaje wybrane **Combat Preference**.
 
-Niektóre zestawy oferują **layers** (warstwy), czyli nazwane warianty, np. Low magic lub Hard winter. Przełączniki opisują ich działanie: mogą zaostrzać trudności, zawężać wybór w arkuszu, ukrywać wpisy katalogu i dodawać wskazówki dla GM, także podczas tworzenia świata. Kreator wyłącza wzajemnie sprzeczne warstwy. Wybór pozostaje stały przez całą grę, a istniejący arkusz zachowuje wartości wykluczone przez warstwę.
+Gdy zestaw sam rozstrzyga walki, ekran walki należy do tego zestawu: menu to ataki i zdolności twojej postaci, każda z informacją, co zużywa z ekonomii akcji i pul zestawu; panel poniżej pokazuje kolejność tur, rundę, stany wszystkich uczestników pod nazwami z zestawu i to, co zostało z każdego budżetu; a dziennik wypisuje rzeczywiste obliczenia, na przykład "Juno attacks Rust jackal with Road axe: 8 (5 + 3) + 3 = 11 against Guard 6, a hit." Każde działanie zapisuje się w arkuszu postaci w chwili, gdy dochodzi do skutku, więc zamknięcie karty przeglądarki w trakcie walki niczego nie gubi, a postać Game Master dostaje potem informację, że liczby są już rozstrzygnięte. Jeżeli zestaw określa też, ile jest warte jedno pole planszy we własnej jednostce odległości, o sposobie pokazania walki decyduje **Combat Preference**: **Classic** rozgrywa ją bez pozycji, a **Tactical** na planszy, po której chodzisz, mierzysz zasięg w jednostkach zestawu i celujesz kształtem w pole. Zobacz [Game Mode: walka](combat.md#games-whose-ruleset-resolves-its-own-fights). Zestaw, który nic nie mówi o odległości, zachowuje preferencję, ale z niej nie korzysta.
 
-Oficjalne zestawy instaluje się przez **Download Agents**, gdzie mają oznaczenie **Rules**. Zestawy społeczności można importować z pliku lub repozytorium GitHub autora; otrzymują identyfikator źródła, np. `local/ember-roads` lub `alice/v20`. Wymagają **Allow custom Agent imports**. Wyłączenie tej opcji ukrywa je w nowych grach, ale istniejące nadal działają na dokładnie tej wersji, z którą powstały. Własny zestaw opisuje przewodnik [Tworzenie zestawów zasad](../extending/writing-rulesets.md).
+Zestaw zasad ustala się przy tworzeniu gry i zostaje on przy tej grze. Nie da się go później zmienić ani dodać.
 
-Krok **Party** pokazuje personę i członków drużyny z oznaczeniem **Has a sheet** (ma arkusz) lub **Starts on a blank sheet** (zaczyna z pustym arkuszem). Arkusz dodaje się w **Stats** edytora postaci lub persony; zobacz [Arkusze zestawów zasad](../characters/colors-and-stats.md#ruleset-sheets). Przy tworzeniu świata gra kopiuje te arkusze. Zmiany w grze nie wracają na kartę; brak arkusza oznacza wartości domyślne zestawu, a nie wyniki wymyślone przez AI.
+Niektóre zestawy oferują **layers** (warstwy): nazwane warianty, na przykład Low magic albo Hard winter, pokazywane jako przełączniki pod zestawem, z linią opisującą działanie każdego z nich. Warstwa może zaostrzyć trudności, zawęzić wybór w arkuszu postaci, pominąć część gotowych wpisów w selektorze edytora arkusza i dać postaci Game Master dodatkowe instrukcje, także dotyczące świata budowanego przy konfiguracji. Niektóre warstwy się wykluczają, a kreator wyłącza tę, której nie można wybrać. Po rozpoczęciu gry warstwy są ustalone, dokładnie tak jak sam zestaw, a arkusz, który już używa czegoś odebranego przez warstwę, zachowuje to.
 
-Eksport konfiguracji zapamiętuje zestaw. Jeżeli przy imporcie brakuje go lub jego wersja jest za stara, kreator pokazuje ostrzeżenie i używa zasad aplikacji Marinara Engine, chyba że zainstalujesz i wybierzesz właściwy zestaw.
+Zestawy zasad pochodzą z dwóch miejsc. Oficjalne instaluje się z **Download Agents**, gdzie mają oznaczenie **Rules**. Zestawy społeczności importuje się z pliku albo z repozytorium GitHub autora i są zapisywane pod nazwą źródła, na przykład `local/ember-roads` albo `alice/v20`. Import korzysta z tego samego przełącznika **Allow custom Agent imports** co importowani agenci. Gdy ten przełącznik jest wyłączony, zaimportowane zestawy są pomijane w nowych grach, a gry, które już z nich korzystają, działają dalej. Gra na zaimportowanym zestawie zawsze korzysta z dokładnie tej wersji, z którą powstała. Pisanie własnego zestawu opisuje przewodnik [Pisanie zestawów zasad Game Mode](../extending/writing-rulesets.md).
+
+Po wybraniu zestawu krok **Party** pokazuje pod selektorami twoją personę i członków drużyny oraz informuje, kto **Has a sheet** (ma arkusz) dla tego zestawu, a kto **Starts on a blank sheet** (zaczyna z pustym arkuszem). Arkusz dodaje się w sekcji **Stats** w edytorze postaci lub persony (zobacz [Arkusze zestawów zasad](../characters/colors-and-stats.md#ruleset-sheets)). Gra kopiuje każdy arkusz przy generowaniu świata. Nic, co zmienisz w grze, nie wraca do postaci ani persony. Członek drużyny bez arkusza dostaje pusty arkusz z każdą wartością ustawioną na domyślną wartość zestawu; generowanie świata nigdy nie wymyśla wyników.
+
+Udostępniony plik konfiguracji zapamiętuje swój zestaw zasad. Jeśli go zaimportujesz, a nie masz tego zestawu albo masz jego starszą wersję, kreator informuje, o jaki zestaw chodziło, a gra korzysta z własnych zasad aplikacji Marinara Engine, chyba że go zainstalujesz i wybierzesz.
+
+<a id="choosing-a-setting-kit"></a>
+
+### Wybór zestawu settingu
+
+**Setting kit** (zestaw settingu) daje postaci Game Master słownictwo, którym opisany jest twój rodzaj świata: jak nazywają się jego miejsca i jak duża może być osada, jakie ma rodzaje grup, z czego może słynąć dane miejsce, jak podróżują ludzie, jak nazywa się rok i dzień, jak jego ludy nazywają same siebie, co może wypaść z wygranej walki, jego pieniądze i codzienne towary na sprzedaż, jego żywioły, miejsca, w których toczą się walki, oraz z jakiej rodziny grafiki, muzyki i dźwięków korzysta (zobacz [Zasoby gry](game-assets.md#a-settings-own-art-and-music)). Określa też, jakie rodzaje zmian zachodzą w świecie, na przykład rywalizacje, przestępczość, wojny albo katastrofy, i jak szybko świat zmienia się sam z siebie. Wyłączony rodzaj zmian nigdy nie pojawia się jako wydarzenie w tle, a scena nie eskaluje w jego stronę, więc kłótnia może pozostać kłótnią.
+
+Zestaw jest dostępny tylko przy nowej grze Overworld RPG, która zawsze go ma: dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku. Na start jest osiem zestawów: high fantasy, wuxia i xianxia, współczesność, współczesność z elementami nadprzyrodzonymi, lata dwudzieste XX wieku, cyberpunk, space opera i postapokalipsa. Współczesność jest domyślnie łagodna, bez przestępczości, konfliktów i katastrof, w wolnym tempie, do opowieści o codziennym życiu (slice of life).
+
+Wybór zestawu, zanim wybierzesz gatunek, ustawia pasujący gatunek, na przykład **Cyberpunk** dla cyberpunku albo **Wuxia** dla wuxia i xianxia, a pomysły na realia i cele zaczynają się wtedy od pomysłów z zestawu. Gatunek wybrany samodzielnie pozostaje bez zmian.
+
+Po wybraniu zestawu przycisk **Write it for my setting** (dopasowanie do mojego settingu) prosi połączenie postaci Game Master o przepisanie go pod wybrany gatunek, realia i ton. Jeśli to, co napisze model, nie jest spójne, model dostaje jeszcze jedną prośbę z podanymi powodami, a potem kreator informuje, co było nie tak, i zachowuje dotychczasowy zestaw. **Change its words** (zmiana słownictwa) otwiera do edycji każde słowo zestawu. Listę wpisuje się w jednej linii, oddzielając elementy przecinkami. Zestaw z problemem, na przykład z pustą nazwą albo bez osad, informuje, co jest nie tak, a gry nie da się rozpocząć, dopóki problem nie zostanie naprawiony.
+
+Gra zachowuje zestaw, z którym ją utworzono. Postać Game Master czyta go w każdej turze, a generowanie świata korzysta z jego słownictwa. Udostępniony plik konfiguracji również zawiera zestaw.
+
+Experience może dostarczać własny **map pack** (pakiet map): zestaw settingu, gotowe mapy i własne kafelki. Gdy to Experience jest włączone, konfiguracja pokazuje jego zestaw jako ustawiony (bez wyboru zestawu), a jeśli dostarcza mapy – pole **Map** (Mapa) do wyboru; gra toczy się na tej mapie i jest rysowana kafelkami tego Experience. Wyłączenie Experience przywraca twoje własne wybory.
+
+**Download this kit** (pobranie zestawu) zapisuje zestaw jako plik (`.worldkit.json`) do udostępnienia, a **Import a kit file** (import pliku zestawu) wczytuje go z powrotem. **Import a world file** (import pliku świata) wczytuje od razu cały świat (zobacz niżej).
+
+<a id="making-a-world"></a>
+
+### Tworzenie świata
+
+Po wybraniu zestawu settingu sekcja **Your world** (twój świat) rozkłada przed startem gry cały świat w słownictwie zestawu: jego regiony, osady każdej wielkości ze skali zestawu, to, z czego słynie każde miejsce, oraz szlaki między nimi (drogi, rzeki, szlaki morskie, korytarze skokowe) wraz z liczbą dni każdej podróży. Każda nowa gra Overworld RPG ma taki świat, wylosowany z ziarna, które można zmienić.
+
+Świat powstaje z pola **World seed** (ziarno świata). To samo ziarno, zestaw i opis świata zawsze dają ten sam świat, więc **Roll** (losowanie) daje inny, a wpisanie liczby z powrotem przywraca dawny. Podgląd pod spodem to świat, w którym będzie toczyć się gra: mała mapa terenu i osad, miejsce startu drużyny oraz lista wszystkich osad według regionów.
+
+- **Start from this lore** (rozpoczęcie od tego lore) odczytuje z zaznaczonych lorebooków podane w nich miejsca i zapisane w nich datowane wydarzenia, każde dokładnie tak, jak mówi lore, razem z wpisami, z których pochodzi. **Build around the lore** (budowanie świata wokół lore) uzupełnia świat wokół nich; **Only the lore's places** (tylko miejsca z lore) nie tworzy niczego poza nimi.
+- **Write the world's brief** (napisanie opisu świata) prosi połączenie postaci Game Master o resztę: teraźniejszość w chwili rozpoczęcia gry, najważniejsze miejsca, grupy, wokół których toczy się teraźniejszość (czego chce każda z nich, kto jest jej sojusznikiem, a kto rywalem), oraz nazwy miejsc i ludzi rysowanych przez świat, zgodne z brzmieniem i szykiem nazw każdego z ludów zestawu. Miejsca z lore zostają zachowane bez względu na to, co napisze model, a wszystko, co nie pasuje do zestawu, jest pomijane i liczone, podobnie jak kilka nazw, po które modele sięgają w kółko. **Change the brief** (zmiana opisu świata) otwiera jego słowa do edycji, łącznie z imionami i nazwiskami każdego ludu.
+
+Bez opisu świata świat to sam zestaw i miejsca z lore, a rysowane przez niego miejsca są numerowane, dopóki opis nie nada im nazw.
+
+Świat ma też przeszłość. Przed rozpoczęciem gry własny silnik świata przewija ją rok po roku od założenia: każda osada zostaje założona i rośnie do obecnej wielkości, grupy z opisu powstają w swoich siedzibach, zyskują i tracą przywódców, zbliżają się do siebie i skłócają, a tam, gdzie świat je ma, bandyci, wojny i klęski głodu zostawiają ślady, a niektóre miejsca przez nie przepadają. Poważna zmiana przychodzi dopiero po tym, jak przez jakiś czas narastała (napięcie przed wojną, susza przed głodem), i korzysta tylko z rodzajów zmian, na które pozwala zestaw: przeszłość łagodnego świata też jest łagodna. Datowane wydarzenia podane w twoim lore albo wymienione w opisie świata dzieją się wtedy i tam, gdzie mówią. To samo ziarno i opis zawsze dają tę samą przeszłość.
+
+Postać Game Master dowiaduje się o najważniejszych wydarzeniach z przeszłości, o tym, która grupa sprawuje władzę nad miejscem, w którym jest drużyna, i kto jej przewodzi, oraz o przeszłości samego tego miejsca. O każde inne miejsce albo grupę może zapytać i dostaje odpowiedź w następnej turze.
+
+Każda osada ma swoich mieszkańców, losowanych z ziarna, gdy drużyna tam dotrze: więcej w większych miejscach, każdy z imieniem z listy własnej kultury, zajęciem pasującym do tego, z czego słynie miejsce, temperamentem, tym, na czym mu zależy, sposobem mówienia i wyglądem, a część z nich przybyła skądinąd. Postać Game Master widzi kilka osób z bieżącego miejsca, których drużyna jeszcze nie poznała, i wprowadza jedną z nich, gdy na scenie pojawia się ktoś nowy. Osoba, którą Game Master nazwie pełnym imieniem, dołącza do śledzonych postaci gry razem z tym, czym się zajmuje i jak wygląda, dzięki czemu dwie osoby o tym samym imieniu da się odróżnić. Bez list imion z opisu świata ludzie występują pod nazwą swojego zajęcia.
+
+W trakcie gry postać Game Master zawsze wie, gdzie jest drużyna, dokąd może się stamtąd udać i ile trwa każda droga. Miejsce, do którego idzie drużyna, wskazuje znacznikiem miejsca. Miejsce wymienione przez świat zachowuje wielkość nadaną mu przez świat. W zestawie zasad z rynkami dostaje też odpowiadającą wielkość na skali rynku, więc stolica świata jest największym miejscem rynku. Miejsce, którego świat nie wymienia, na przykład zagroda albo obóz, zachowuje nazwę nadaną przez Game Master. Po rozpoczęciu gry przeszłość świata jest ustalona. Jego układ też, z wyjątkiem ręcznych zmian (zobacz niżej). Udostępniony plik konfiguracji zawiera świat w postaci, w jakiej pierwotnie powstał.
+
+To, co drużyna zrobi światu, pozostaje. Gdy drużyna pomoże jakiejś grupie albo jej zaszkodzi, sprawi, że dwie grupy zostaną przyjaciółmi lub wrogami, stanie po stronie grupy albo ją zdradzi, poprawi albo zniszczy jakieś miejsce, zdobędzie miejsce dla grupy, zniszczy grupę, postawi kogoś na czele grupy albo doprowadzi miejsce do ruiny, postać Game Master zapisuje to w swojej odpowiedzi, tak samo jak miejsce lub grupę wprowadzoną przez opowieść. Każda taka zmiana jest sprawdzana względem świata: zmiana rodzaju wyłączonego w zestawie, na przykład wojna w przytulnym świecie współczesnym, albo zmiana dotycząca miejsca lub grupy, których świat nie ma, jest odrzucana. Od tej chwili postać Game Master dostaje świat w stanie, w jakim zostawiła go opowieść: jak się ma dane miejsce, kto nim rządzi i kto im przewodzi, co zrobiła tam drużyna, jaką pozycję ma drużyna u każdej grupy, z którą miała do czynienia, i co się zmieniło od początku gry. Miejsce dodane przez opowieść jest miejscem, do którego drużyna może się udać. Zmiana należy do odpowiedzi, która ją wprowadziła, więc swipe, ponowne wygenerowanie albo usunięta wiadomość cofają ją razem z tą odpowiedzią.
+
+Świat żyje też bez drużyny. Gdy postać Game Master mówi, że mija czas (podróż, nocny odpoczynek, długie czekanie), świat wykonuje własne kroki, po tygodniu naraz, i tylko w rodzajach zmian, które ma zestaw: majątki rosną i maleją, osiedlają się przybysze, grupy zbliżają się do siebie albo stają się rywalami, przywódcy ustępują, a tam, gdzie świat je ma, kłopoty spadają na podupadające miejsca, a napięcie między dwiema grupami może po sezonie narastania przerodzić się w wojnę. Katastrofy nigdy nie przychodzą same; tylko postać Game Master może opowiedzieć o katastrofie, tak jak o każdym wydarzeniu poza drużyną, które jest odrzucane, jeśli jego rodzaj jest wyłączony. Nic nie rozstrzyga się tam, gdzie jest drużyna: to, co ma się tam wydarzyć, zostaje do rozegrania w scenie. Wieści podróżują: postać Game Master dowiaduje się o zmianie, gdy miną dni potrzebne na drogę, jako o plotce z daleka, i widzi, co się szykuje w pobliżu, więc drużyna może się wtrącić. Może wstrzymać szykującą się wojnę tylko wtedy, gdy nie ma ona sensu dla świata albo zrujnowałaby grę bez realnej szansy, by drużyna ją powstrzymała. Czyny drużyny ważą tym więcej, im bardziej jest znana: pomoc nieznajomych zmienia niewiele, pomoc słynnej drużyny – bardzo dużo.
+
+Świat może też zachowywać **hand edits** (ręczne zmiany). To zmiany wprowadzone w edytorze świata, czyli narzędziu, które zmienia świat po jego utworzeniu. Możesz zmieniać nazwy miejsc i je przenosić, malować teren oraz dodawać miejsca i ludzi. Możesz też namalować taktyczne pole bitwy dla miejsca (zobacz [Game Mode: walka](combat.md#tactical-battles-and-terrain)) i ręcznie ułożyć miasto (zobacz [Miasto](map-time-weather.md#the-town)). Każda część gry widzi zmiany od razu: postać Game Master, mapa świata, miasta i zakładka World. Miejsce o zmienionej nazwie nadal reaguje na starą nazwę, a postać Game Master dowiaduje się, jak się kiedyś nazywało.
+
+Ręczne zmiany zmieniają świat od teraz, nigdy jego przeszłość. Historia świata i zmiany, które wprowadził sam, pozostają takie, jakie były. Dodana przez ciebie osada pozostaje taka, jaką ją dodano. Miasto zachowuje swój układ, więc dodane miejsca i ludzie trafiają na jego następne wolne działki budowlane i do następnych wolnych domów.
+
+Świat może podróżować jako plik. **Download this world** (pobranie tego świata) w sekcji **Your world** zapisuje tworzony świat, a **Download the world** (pobranie świata) na zakładce World gry zapisuje świat tej gry, łącznie z ręcznymi zmianami, jako plik `.world.json`. **Import a world file** (obok zestawu settingu) wczytuje taki plik do konfiguracji nowej gry: wybiera zestaw settingu z pliku i tworzy jego świat z ręcznymi zmianami. **Your worlds** (twoje światy) robi to samo ze światem przechowywanym w twojej bibliotece, na przykład utworzonym poza jakąkolwiek grą w edytorze takim jak Pixelforge.
+
+Plik świata może też zawierać **story** (fabułę) świata: wydarzenia i sceny napisane do niego przez twórcę. Fabuła przychodzi razem ze światem i jest przechowywana na tych samych zasadach. W trakcie gry sceny fabuły pojawiają się w narracji przed odpowiedzią postaci Game Master, dokładnie tak, jak je napisano. Cele zadań z fabuły są wymienione w sekcji **Story** (opowieść) na zakładce World dziennika, gdy fabuła je pokaże. Jak napisać fabułę, opisuje przewodnik [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md).
+
+Ręczne zmiany i fabuła powstały dla określonego ziarna i opisu świata, więc są pomijane, jeśli zmienisz którekolwiek z nich. Plik, którego nie da się odczytać, jest odrzucany, a kreator podaje powód. Plik świata zawiera też świat w postaci, w jakiej powstał, więc świat utworzony przez inną wersję generatora światów otwiera się dokładnie tak, jak go utworzono. Starszy plik bez tych danych jest odrzucany. Jeśli coś w pliku nie pasuje do zestawu settingu, zostaje pominięte, a kreator mówi, co to było.
+
+Grze utworzonej bez świata, zanim pojawił się wybór trybu Game Mode, można później dodać świat, tylko jeśli tego chcesz: zakładka **World** (świat) dziennika oferuje **Make a world for this game** (utworzenie świata dla tej gry) z tymi samymi wyborami zestawu settingu i świata co przy nowej grze. Świat działa od następnej tury; wcześniejsze tury, mapa i ludzie w grze pozostają bez zmian. Dopóki Overworld RPG nie jest gotowy, przycisk jest wyszarzony z tą samą informacją co w konfiguracji.
+
+Gra zachowuje swój świat w postaci, w jakiej powstał. Miejsca, ludzie, miasta i historia zapisują się razem z grą w chwili jej rozpoczęcia i przy każdym zapisie ręcznych zmian, więc aktualizacja, która zmienia sposób tworzenia światów, nigdy nie zmienia świata, w którym już toczy się gra. Nowa sesja, gałąź i wyeksportowany czat zachowują ten sam świat, a to, jak świat zmieniał się we wcześniejszych sesjach (majątki, władcy i wojny), zostaje zachowane tak, jak się rozegrało. Świat utworzony przez wcześniejszą wersję generatora światów działa dalej tak, jak go utworzono, ale nie da się go już edytować.
+
+Gra ze światem otwiera się na **mapie świata** (overworld), czyli świecie narysowanym jako mapa pikselowa, na której możesz prowadzić drużynę od osady do osady drogami świata i wejść do miasta, w którym się znajduje; widok sceny jest o jedno przełączenie dalej. Zobacz [Mapa świata](map-time-weather.md#the-overworld).
+
+<a id="the-gm-intro-message"></a>
+
+### Wiadomość otwierająca GM
+
+Pole **GM intro message** w kroku **Party** decyduje o tym, jak zaczyna się gra:
+
+- **None** (brak, wartość domyślna): postać Game Master otwiera grę tak, jak uzna za stosowne.
+- **Defined** (określona): wpisz pierwszą wiadomość dokładnie tak, jak ma brzmieć. Gra zaczyna się dokładnie od tej wiadomości, a jej ponowne wygenerowanie daje ten sam tekst.
+- **Guided** (z przewodnikiem): opisz, jak ma wyglądać początek, na przykład gdzie się zaczyna, kto tam jest i co dzieje się najpierw. Postać Game Master pisze otwarcie na tej podstawie.
+
+Tekst może mieć do 8000 znaków. Nie może zawierać podwójnych nawiasów klamrowych, a tekst **Guided** nie może też zawierać nawiasów kwadratowych. Pole informuje, gdy tekstu nie da się użyć. Fabuła świata może mieć własne wprowadzenie. Gdy fabuła je blokuje, pole pokazuje je z komunikatem "Set by this Experience and locked, so the game opens as its creator meant." i nie da się go zmienić.
 
 ### Wartości domyślne, które warto znać
 
@@ -64,7 +153,7 @@ Oto wartości startowe w krokach **World**, **Party** i **Features**. Każdą z 
 
 | Ustawienie | Domyślnie | Uwagi |
 |---|---|---|
-| Genre | Fantasy | Wybór wielokrotny, można też dopisać własne wpisy |
+| Genre | Fantasy | Wybór wielokrotny, można też dopisać własne wpisy; zestaw settingu wybrany wcześniej ustawia własny gatunek |
 | Tone | Heroic | Wybór wielokrotny |
 | Difficulty | Normal | Casual, Normal, Hard lub Brutal; wyższe ustawienia zaostrzają walkę |
 | Content Rating | SFW | SFW lub NSFW; NSFW tylko dopuszcza treści dla dorosłych, wcale ich nie wymusza |
@@ -145,24 +234,30 @@ Pełny opis parametrów znajdziesz w przewodniku [Parametry generowania](../prom
 
 ## Kontrolki gry
 
-Kontrolki gry otwierają się przyciskami blisko prawego górnego rogu czatu:
+Na komputerze kontrolki gry otwierają się przyciskami blisko prawego górnego rogu czatu. Na telefonie znajdziesz je w ruchomym menu **Chat tools** (narzędzia czatu) z trzema kropkami:
 
-- **Game controls** (okrągła strzałka): **Retry turn**, **Retry scene analysis**, **Retry Music DJ**, gdy Music DJ odtwarza muzykę gry, oraz **Retry assets image generation**. Gdy storyboard jest tłem gry, są tu też przyciski ponownego odtwarzania, odtwarzania/pauzy i wyciszenia.
-- **Session** (pióro): historia sesji, dziennik i kontrolki sesji. Zobacz [Game Mode: sesje i zapis gry](sessions-and-saves.md).
+- **Game controls** (Kontrolki gry, ikona kontrolera do gier):
+  - **Retry turn**, **Retry scene analysis**, **Retry Music DJ**, gdy Music DJ odtwarza muzykę gry, oraz **Retry assets image generation**.
+  - Gdy storyboard jest tłem gry, są tu też przyciski ponownego odtwarzania, odtwarzania/pauzy i wyciszenia.
+  - W grze ze światem **Show the scene** (pokazanie sceny) i **Show the overworld** (pokazanie mapy świata) przełączają widoki, a **Show the map** (pokazanie mapy) wraca do otwartej mapy lochu, jaskini albo stacji.
+  - **Edit game data** (edycja danych gry) pozwala ręcznie poprawić zapisane dane gry (zobacz [Ręczna edycja danych gry](sessions-and-saves.md#editing-game-data-by-hand)), a **Checkpoints** (punkty kontrolne) cofa grę do wcześniejszego momentu (zobacz [Jak gra zapisuje postępy](sessions-and-saves.md#how-your-game-saves)).
+- **Session** (pióro): historia sesji, dziennik i kontrolki sesji. Zobacz [Game Mode: sesje i zapisy gry](sessions-and-saves.md).
 - **Volume** (głośnik): głośność **Master**, **Music**, **Sound Effects**, **TTS** i **Ambient**.
 - **Game Assets** (folder): materiały sceny i Asset Browser. Zobacz [Zasoby gry](game-assets.md).
 - **Connected chat**, gdy gra jest połączona z czatem Conversation. Zobacz [Łączenie czatu Conversation z czatem Roleplay lub Game](../chats/connected-chats.md#switching-between-connected-chats).
 
-Kliknij lub dotknij przycisk, żeby otworzyć kontrolki w ruchomym oknie na komputerze lub panelu na całą szerokość ekranu na telefonie. Przeciągnij przycisk, żeby go przenieść. Zamknięcie okna lub panelu przywraca przycisk. Zobacz [Okna kontrolek i ich przyciski](../chats/chat-settings.md#control-windows-and-their-buttons).
+Wybierz narzędzie, żeby otworzyć jego kontrolki w ruchomym oknie na komputerze albo w panelu na całą szerokość ekranu na telefonie. Na komputerze przeciągnij przycisk, żeby go przenieść. Na telefonie przesuń menu z trzema kropkami albo je odblokuj, żeby zmienić kolejność narzędzi w środku. Po zamknięciu okna lub panelu narzędzie da się ponownie otworzyć z tego samego miejsca. Zobacz [Okna narzędzi i ich przyciski](../chats/chat-settings.md#control-windows-and-their-buttons).
 
-Możesz też trzymać te kontrolki wewnątrz **Chat Settings**. Otwórz okno kontrolki i wybierz **Put back in Chat Settings**; pojawi się tam jako rozwijana sekcja. Przycisk otwierania sekcji w osobnym oknie pozwala ponownie ją odłączyć. Każda gra zapisuje twój wybór, a **Reset View** przywraca początkowe przyciski.
+Możesz też trzymać te kontrolki wewnątrz **Chat Settings**. Otwórz okno kontrolki i wybierz **Put back in Chat Settings**; pojawi się tam jako rozwijana sekcja. Przycisk otwierania sekcji w osobnym oknie pozwala ponownie ją odłączyć. Każda gra zapisuje twój wybór, a **Reset View** przywraca początkowy układ: przyciski na komputerze albo pozycje menu Chat tools na telefonie.
+
+**Character Profiles** (profile postaci) zostaje poza menu Chat tools zarówno na komputerze, jak i na telefonie. Przeciągnij przycisk z portretem w dowolne miejsce, a potem otwórz go, żeby wybrać członka drużyny i obejrzeć albo edytować jego arkusz postaci. Na telefonach **Map** też ma własny ruchomy przycisk. Oba przyciski korzystają z twojego stylu widgetów czatu, zapisują swoje położenie dla tej gry i można je zablokować z poziomu otwartego okna. Mapa na komputerze zachowuje dotychczasowe kontrolki panelu mapy.
 
 ## Gdzie szukać poszczególnych tematów
 
 Ten przewodnik wprowadza do gry. Każdy głębszy temat ma własny przewodnik:
 
 - [Game Mode: walka](combat.md) omawia starcia, menu akcji, obliczanie obrażeń i wydarzenia na czas.
-- [Game Mode: drużyna i postacie NPC](party-and-npcs.md) omawia pasek drużyny, arkusze postaci i Adventure Journal.
+- [Game Mode: drużyna i postacie NPC](party-and-npcs.md) omawia Character Profiles, arkusze postaci i Adventure Journal.
 - [Game Mode: sesje i zapisy gry](sessions-and-saves.md) omawia kończenie i rozpoczynanie sesji oraz historię sesji.
 - [Game Mode: mapa, czas i pogoda](map-time-weather.md) omawia widoki mapy oraz automatyczny zegar i pogodę.
 - [Game Mode: rzuty kośćmi i testy umiejętności](dice-and-skill-checks.md) omawia menu kości i zasady testów umiejętności.

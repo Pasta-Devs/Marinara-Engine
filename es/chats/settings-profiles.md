@@ -38,7 +38,7 @@ El menú desplegable de perfiles está en la parte superior de **Chat Settings**
 3. Abre el menú **Profile** (Perfil).
 4. Elige un perfil por su nombre.
 
-El chat se actualiza de inmediato. Cuando sus valores actuales no coinciden con un perfil guardado, el menú muestra **Custom settings profile** (Perfil de ajustes personalizado). Si un perfil aplicado anteriormente ya no existe, muestra **Missing profile - choose a profile** (Falta el perfil: elige uno).
+El chat se actualiza de inmediato. Si el perfil activa o desactiva **Hide summarised messages** (Ocultar los mensajes resumidos), los mensajes resumidos del chat se ocultan a la IA, o vuelven a mostrársele, en ese mismo momento. Cuando sus valores actuales no coinciden con un perfil guardado, el menú muestra **Custom settings profile** (Perfil de ajustes personalizado). Si un perfil aplicado anteriormente ya no existe, muestra **Missing profile - choose a profile** (Falta el perfil: elige uno).
 
 ## Guardar un perfil
 
@@ -111,7 +111,7 @@ Consulta los pasos en [Elegir un diseño para chats nuevos](chat-settings.md#cho
 
 **Export settings profile (.json)** descarga un archivo `.marinara-settings-profile.json` que puedes guardar como copia de seguridad o compartir. **Import settings profile (.json)** crea un perfil nuevo desde un archivo compatible sin sobrescribir uno existente. Los archivos de perfil exportados por versiones anteriores también se pueden importar.
 
-Los perfiles guardan ajustes, no secretos del proveedor.
+Los perfiles guardan ajustes, no secretos del proveedor. Un perfil exportado o importado también deja fuera el webhook de Discord Mirror, la dirección de DeepLX, la clave de DeepL y la dirección de Intiface. Los perfiles que guardas en esta instalación los conservan.
 
 ## El perfil Default
 

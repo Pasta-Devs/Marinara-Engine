@@ -20,7 +20,7 @@ Crée un chat Roleplay pour ouvrir l'assistant de configuration. Cet assistant c
 
 1. **Name & Connection** (nom et connexion). Nomme le roleplay et choisis la connexion à l'IA qui répond. Le nom peut rester vide.
 2. **Pick a Preset** (choisir un preset). Un preset est un modèle de prompt enregistré : il règle la structure du prompt et les paramètres de génération. Le preset par défaut convient à la plupart des chats.
-3. **Persona & Characters** (persona et personnages). Choisis le persona que tu incarnes et les personnages présents dans la scène.
+3. **Persona & Characters** (persona et personnages). Choisis le persona que tu incarnes et les personnages présents dans la scène. Certaines fiches de personnage peuvent te construire un persona à partir de quelques questions : choisis **Create your persona** (créer ton persona) et réponds-y. Voir [Accueil interactif](../characters/interactive-onboarding.md).
 4. **Attach Lorebooks** (attacher des lorebooks). Un lorebook est un recueil de faits sur ton univers, que l'IA lit quand des mots-clés apparaissent. Cette étape est facultative.
 5. **Enable Agents** (activer des agents). Choisis les agents qui tournent dans ce chat. Tu peux en ajouter ou en retirer plus tard dans la section **Chat Settings** (réglages du chat), sous **Agents**.
 
@@ -79,6 +79,8 @@ Tu peux détacher chacune de ces sections, y compris Search, pour la garder dans
 
 Tape la note dans le champ. Par exemple : "Garde un ton sombre et plein de suspense. Le méchant est en réalité un allié."
 
+Pour une note plus longue, agrandis le champ. Sur ordinateur, fais glisser son coin inférieur. Si tu détaches **Author's Notes** dans sa propre fenêtre, le champ s'agrandit avec la fenêtre.
+
 Sous la note se trouve le champ numérique **Injection Depth** (profondeur d'insertion). Il détermine à quelle hauteur de l'historique du chat la note est placée. L'aide intégrée indique : "Depth 0 = after the latest message, 4 = four messages from the end." Une profondeur de 0 garde la note au plus près de la réponse la plus récente.
 
 **Author's Notes** fonctionne de la même façon en Game Mode et en mode Conversation. Ce guide en est la référence principale.
@@ -128,6 +130,8 @@ Une fois un murmure visible, choisis **Edit whisper** (modifier le murmure), cha
 Tu peux aussi écrire `[whisper: character="name" text="the secret"]` dans ton propre message Roleplay pour murmurer à un personnage du chat. Tes propres murmures sont immédiatement visibles pour toi. Cela fonctionne dans les chats ordinaires sans activer le multijoueur.
 
 La même commande fonctionne quand tu modifies le message d'un personnage ou du narrateur : dès que tu enregistres, elle devient le murmure de ce message. Le texte du murmure peut s'étendre sur plusieurs lignes et contenir des dialogues entre guillemets tels quels, par exemple `text=""I love you.""`.
+
+Un message qui ne contient qu'un murmure est entièrement exclu pour les personnages qu'il n'atteint pas : ils ne voient donc pas que quelqu'un a murmuré. Son destinataire et le narrateur désigné le reçoivent toujours. Un personnage reçoit aussi le message si tu as partagé avec lui une note privée posée sur ce message.
 
 ### Tes notes privées
 

@@ -99,10 +99,22 @@ Marinaraはサーバーの初回起動時に、無料のスターターライブ
 使える値は次のとおりです。
 
 - State: `exploration`、`dialogue`、`combat`、`travel_rest`。
-- Genre: `fantasy`、`horror`、`romance`、`mystery`、`scifi`、`modern`、`slice_of_life`、`adventure`、`drama`、`custom`。
+- Genre: `fantasy`、`horror`、`romance`、`mystery`、`scifi`、`modern`、`slice_of_life`、`adventure`、`drama`、`custom`、または`wuxia`のような舞台設定の系統(下記を参照)。
 - Intensity: `calm`、`tense`、`intense`。
 
 Game Modeはこの構成を手がかりに、どのトラックをいつ再生するかを判断します。環境音、効果音、スプライト、背景のフォルダーにはこの決まりがありません。サブフォルダーの名前は自由に付けられます。
+
+<a id="a-settings-own-art-and-music"></a>
+
+### 舞台設定ごとのアートと音楽
+
+舞台設定キットを使って始めたゲームには、アートの系統があります。系統は、キットの言葉を変更するときに**Art and music**(アートと音楽)の下に表示されます。値は`fantasy`、`scifi`、`modern`、`wuxia`、`jazz_age`、`wasteland`、またはキット独自の系統です。ゲームは、自分の系統の名前が付いたフォルダーと、どの系統の名前も付いていないすべてのフォルダーを使い、ほかの系統のフォルダーは使いません。そのため、サイバーパンクのゲームでファンタジーの戦闘音楽が流れたり、魔法の森が表示されたりすることはありません。自分の系統のフォルダーにも共有のフォルダーにも合うものがないときは、ほかの系統のトラックを流さず、何も再生しません。
+
+- **Music**(音楽): その舞台設定のトラックは`music/<state>/<family>/<intensity>`に置きます。たとえば`combat/wuxia/intense`です。共有のトラックより優先して再生されます。
+- **Backgrounds**(背景): `backgrounds/<family>`です。舞台設定キットを使うゲームの途中で生成された背景も、ここに保存されます。
+- **Combat sounds**(戦闘の効果音): `sfx/combat/<family>`に、`sword-swing`のような同梱の効果音と同じ名前の音を置くと、その系統のゲームでは同梱の音の代わりに使われます。同梱の戦闘の効果音はファンタジー用なので、ほかの系統の戦闘は、その系統の音を追加するまで静かなままです。
+
+同梱のスターター背景は共有として扱われます。ただし、ファンタジー用の背景(`ancient_library`、`castle_cliff`、`enchanted_forest`)とモダン用の`city_night`は除きます。舞台設定キットのないゲームは、これまでどおりすべてのフォルダーを使います。アートの系統が導入される前に保存された舞台設定キットも、そのまま使えます。スターターキットから作ったキットはそのスターターの系統を使い、それ以外のキットは、**Art and music**で系統を選ぶまですべてのフォルダーを使います。[ゲームごとに使うアセットの選択](#choosing-which-assets-a-game-can-use)で説明している選択バーには、開いているゲームの系統が表示されます。
 
 ## アセットの整理
 
@@ -134,6 +146,8 @@ Game Modeはこの構成を手がかりに、どのトラックをいつ再生�
 MarinaraはGame Modeがアセットを素早く見つけられるように、内部の一覧を保持しています。アプリからアップロードした場合、この一覧は自動で更新されます。
 
 アプリを通さず、コンピューター上でゲームアセットのフォルダーに直接ファイルをコピーした場合、アプリはすぐには気づきません。**Rescan**ボタンをクリックすると、フォルダーを読み直して新しいファイルを取り込みます。**Rescan**は**Asset Browser**のツールバーと、**Settings**の**Game Assets**セクションの両方にあります。
+
+<a id="choosing-which-assets-a-game-can-use"></a>
 
 ## ゲームごとに使うアセットの選択
 

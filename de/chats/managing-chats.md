@@ -1,6 +1,6 @@
 # Die Chatliste verwalten
 
-In dieser Anleitung geht es um die Chatliste in Marinara Engine. Du erfährst, was die drei Modus-Tabs bedeuten und wie du Chats anlegst, importierst, umbenennst, löschst, ordnest, durchsuchst und gleich mehrere auf einmal verwaltest. Auch die Zeile mit den letzten Chats auf dem Home-Bildschirm kommt zur Sprache.
+In dieser Anleitung geht es um die Chatliste in Marinara Engine. Du erfährst, was die drei Modus-Tabs bedeuten und wie du Chats anlegst, importierst, umbenennst, löschst, ordnest, durchsuchst und gleich mehrere auf einmal verwaltest. Auch das Widget mit den letzten Chats auf dem Home-Bildschirm kommt zur Sprache.
 
 ## Chatliste und Modus-Tabs
 
@@ -81,7 +81,7 @@ Zum Umbenennen doppelklickst du den Ordner, tippst ihn doppelt an oder wählst i
 
 Zum Löschen klick auf die Papierkorb-Schaltfläche in der Ordnerzeile. Ein Dialogfenster mit dem Titel **Delete Folder** bestätigt den Vorgang. Die Chats darin bleiben immer erhalten – sie wandern zurück auf die oberste Ebene.
 
-Die Reihenfolge der Ordner änderst du, indem du sie am Griff nach oben oder unten ziehst.
+Die Reihenfolge der Ordner änderst du, indem du eine Ordnerzeile nach oben oder unten ziehst. Dort, wo sie landen wird, öffnet sich eine Lücke. Das Sortiermenü springt dann auf **Custom** (Benutzerdefiniert), das deine Ordnerreihenfolge beibehält.
 
 Um einen Chat in einen Ordner zu legen, zieh seine Zeile auf den Ordner. Um ihn aus allen Ordnern herauszunehmen, zieh ihn auf die freie Fläche unterhalb der Ordner. Auf dem Touchscreen hältst du einen Chat rund eine halbe Sekunde gedrückt, um das Ziehen zu starten. Sind mehrere Chats ausgewählt, wandert beim Ziehen eines davon die ganze Auswahl mit.
 
@@ -91,10 +91,13 @@ Chats ohne Ordner stehen in einer schlichten Liste unterhalb der Ordner.
 
 Jeder Modus-Tab hat oben in der Liste ein eigenes Suchfeld. Der Platzhaltertext wechselt je nach Tab: **Search conversations...** (Conversations durchsuchen), **Search roleplays...** oder **Search games...**. Gesucht wird im Chatnamen, in den Tags (Schlagwörtern) und in den Namen der Charaktere – nicht im Text der Nachrichten.
 
-Neben dem Suchfeld liegt ein Sortiermenü mit dem Tooltip **Sort chats**. Es bietet vier Optionen:
+Neben dem Suchfeld liegt ein Sortiermenü mit dem Tooltip **Sort chats**. Es bietet diese Optionen:
 
-- **Newest** ist der Standard und stellt die zuletzt aktiven Chats nach vorn.
-- **Oldest** zeigt die am längsten inaktiven zuerst.
+- **Custom** behält deine Ordner in der Reihenfolge, in die du sie gezogen hast.
+- **Manual order** (manuelle Reihenfolge) lässt dich Chats in deine eigene Reihenfolge ziehen. Mit der Tastatur fokussierst du einen Chat und drückst Alt+Pfeil nach oben oder Alt+Pfeil nach unten.
+- **Recent** (Zuletzt aktiv) ist der Standard und stellt die zuletzt aktiven Chats nach vorn.
+- **Newest** zeigt die zuletzt erstellten Chats zuerst.
+- **Oldest** zeigt die ältesten Chats zuerst.
 - **A-Z** sortiert die Namen von A bis Z.
 - **Z-A** sortiert die Namen von Z bis A.
 
@@ -118,7 +121,7 @@ Um den Auswahlmodus ohne Aktion zu verlassen, klick erneut auf die Auswahl-Schal
 
 ## Recent Chats auf dem Home-Bildschirm
 
-Der Home-Bildschirm zeigt eine kompakte Zeile **Recent Chats** (Letzte Chats) mit den drei zuletzt aktiven Chats. Jeder erscheint als kleiner Chip mit Avatar, Modus-Abzeichen und Chatnamen. Ein Klick auf den Chip öffnet den Chat. Ohne Chats steht dort **No chats yet** (Noch keine Chats).
+Der Home-Bildschirm hat ein Widget **Recent chats** (Letzte Chats) mit deinen zuletzt aktiven Chats. Jeder Chat zeigt seinen Namen, ein Modus-Abzeichen und seine letzte Nachricht. Ein Klick auf einen Chat öffnet ihn, ein Klick auf eine leere Stelle des Widgets öffnet die Chatliste. Ohne Chats steht dort **Your chats will show here**. Siehe [Home-Widgets](../home/welcome.md#home-widgets).
 
 ## Verwandte Anleitungen
 

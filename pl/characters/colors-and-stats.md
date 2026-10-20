@@ -28,6 +28,8 @@ Każdy kolor ustaw w polu wyboru koloru albo wpisz wartość:
 
 Kolor półprzezroczysty przepuszcza część tła przez dymek. Format `rgba` to kolejno czerwony, zielony, niebieski oraz wartość alfa od 0 (pełna przezroczystość) do 1 (kolor kryjący).
 
+<a id="where-your-colors-show"></a>
+
 ## Gdzie widać ustawione kolory
 
 Każdy kolor działa w innym miejscu czatu:
@@ -61,28 +63,34 @@ Drugi blok to **RPG Attributes**, włączany przełącznikiem **Enable RPG Attri
 
 ### Arkusze zestawów zasad
 
-Po instalacji zestawu, np. 5e (SRD 5.1), obie zakładki **Stats** otrzymują blok **Ruleset sheets** (arkusze zestawów zasad), po jednym rozwijanym wpisie na zestaw. Blok jest widoczny również wtedy, gdy karta przechowuje arkusz nieobecnego już zestawu.
+Po instalacji zestawu zasad Game Mode, np. 5e (SRD 5.1), obie zakładki **Stats** otrzymują pod opisanymi wyżej sekcjami blok **Ruleset sheets** (arkusze zestawów zasad), po jednym rozwijanym wpisie na każdy zainstalowany zestaw. Blok jest widoczny również wtedy, gdy karta przechowuje arkusz nieobecnego już zestawu.
 
-1. Otwórz wpis i kliknij **Add a sheet** (dodaj arkusz), aby otrzymać wartości domyślne.
-2. Uzupełnij cechy, pola sekcji, listy ataków lub zaklęć, wyszkolenie i dodatkowe premie umiejętności oraz rzutów obronnych. Układ określa zestaw. Wartości obliczane, np. premia biegłości lub pasywna Percepcja, aktualizują się podczas pisania i nie podlegają bezpośredniej edycji.
+1. Otwórz wpis i kliknij **Add a sheet** (dodaj arkusz). Dostaniesz pusty arkusz, w którym każda wartość ma ustawienie domyślne zestawu zasad.
+2. Wypełnij go. Układ pochodzi z samego zestawu zasad: wartości cech z ich modyfikatorami, pola pogrupowane w sekcje, listy takie jak ataki i zaklęcia oraz umiejętności i rzuty obronne, każde z poziomem wyszkolenia i dodatkową premią. Wartości obliczane, np. premia biegłości lub pasywna Percepcja, aktualizują się podczas pisania i nie podlegają bezpośredniej edycji.
 3. Zapisz postać lub personę jak zwykle.
 
-To początkowa konfiguracja postaci. Nowa gra kopiuje arkusz; zmiany w grze nie wracają na kartę. **Add from catalog** (dodaj z katalogu) otwiera wyszukiwarkę gotowych zaklęć, ataków i zdolności. Dodane wiersze są edytowalnymi kopiami.
+Arkusz w tym miejscu to **początkowa konfiguracja** tej postaci dla danego zestawu zasad. Nowa gra na tym zestawie zasad bierze jego kopię. Zmiany wprowadzone w grze zostają w tej grze i nigdy nie wracają na kartę.
 
-Wartości zależne od poziomu lub cechy są tylko do odczytu z opisem "Set by the ruleset" i przeliczają się przy edycji arkusza. Gdy katalog ma nowszy tekst, **Review** (przejrzyj) pokazuje obok siebie zapisany i nowy opis oraz wybór wierszy. **Update selected** (aktualizuj wybrane) zmienia tylko tekst zaznaczonych wierszy. Liczby, przełączniki, inne kolumny i odznaczone wiersze pozostają nietknięte.
+Niektóre zestawy zasad zawierają gotowe zaklęcia, ataki i zdolności. Listy, które wypełniają, mają przycisk **Add from catalog** (dodaj z katalogu) otwierający wyszukiwarkę, a dodane w ten sposób wiersze są kopiami, które da się edytować jak każde inne. Wynikają z tego dwie rzeczy:
 
-Arkusz brakującego zestawu pozostaje zapisany, eksportuje się razem z kartą, nie trafia do AI i ponownie podlega edycji po instalacji zestawu. Ma przycisk **Remove** (usuń). Limit arkusza wynosi 64 KB. Nieczytelny arkusz z nowszej wersji też pozostaje zapisany; jedyna opcja to **Remove this sheet** (usuń ten arkusz), więc dodanie nowego nie nadpisze go przypadkiem.
+- Komórka, którą zestaw zasad prowadzi za ciebie, na przykład liczba użyć zależna od wartości cechy albo zasób klasy rosnący wraz z poziomem, jest widoczna na swoim miejscu, ale nie da się w niej pisać; ma dopisek "Set by the ruleset". Jest wyliczana z reszty arkusza przy każdej jego edycji.
+- Gdy własny tekst zestawu zasad dla jednego z tych wierszy zmienił się od chwili, gdy go wybrano, linia pod listą podaje, ile wierszy ma nowszy tekst, i pokazuje przycisk **Review** (przejrzyj). Przegląd pokazuje każdy wiersz z treścią twojego arkusza obok treści z zestawu zasad oraz pole wyboru przy każdym wierszu. **Update selected** (aktualizuj wybrane) zapisuje zaznaczone wiersze i nic więcej. Porównywany jest tylko tekst: liczby, przełączniki i wszystko, co wpisano w innej kolumnie, pozostają nietknięte, podobnie jak każdy odznaczony wiersz.
 
-Arkusze są niezależne od **Enable RPG Stats** i **Enable RPG Attributes**. Własne zasady aplikacji Marinara Engine je ignorują; gra z zestawem używa ich zamiast zwykłych atrybutów do testów.
+Arkusz zestawu zasad, którego nie masz zainstalowanego, zostaje zachowany, a nie usunięty. Wyświetla się jako jedna linia z przyciskiem **Remove** (usuń), nigdy nie trafia do AI i znów da się go edytować po zainstalowaniu tego zestawu zasad. Przenosi się też razem z kartą przy eksporcie. Każdy arkusz może mieć najwyżej 64 KB.
+
+Arkusz zainstalowanego zestawu zasad, którego ta wersja aplikacji Marinara Engine nie potrafi odczytać, na przykład zapisany przez nowszą wersję, również zostaje zachowany bez zmian. Jego wpis oferuje tylko **Remove this sheet** (usuń ten arkusz), więc dodanie nowego arkusza nigdy go przypadkiem nie nadpisze.
+
+Arkusze zestawów zasad są niezależne od **Enable RPG Stats** i **Enable RPG Attributes**. Gra korzystająca z własnych zasad aplikacji Marinara Engine je pomija, a gra na zestawie zasad używa ich do testów zamiast opisanych wyżej atrybutów.
 
 ## Jak agenci aktualizują statystyki
 
-Wartości w zakładce **Stats** to wyłącznie punkt wyjścia. Żeby statystyki zmieniały się w trakcie czatu, trzeba włączyć odpowiedniego agenta. Agent to pomocnik AI działający w tle czatu.
+Wartości w zakładce **Stats** stają się stanem początkowym czatu. Agenci mogą aktualizować opisane niżej wartości należące do trackerów. Atrybuty RPG, takie jak STR i DEX, są kontekstem karty, a nie wartościami trackerów zarządzanymi przez agentów.
 
-- Agent **Character Tracker** zmienia statystyki RPG postaci oraz sekcję **RPG Attributes** persony na podstawie walki, leczenia i wydarzeń fabularnych.
+- Agent **Character Tracker** zmienia śledzone statystyki postaci, w tym pule takie jak HP, na podstawie walki, leczenia i wydarzeń fabularnych. Nie śledzi persony gracza.
 - Agent **Persona Stats** aktualizuje sekcję **Persona Status Bars** po każdej wiadomości, zgodnie z tym, co dzieje się w historii.
+- Sekcje **RPG Attributes** postaci i persony są wysyłane razem z ich kartą w walce i w trybie Game Mode oraz przy opcjonalnych rzutach w trybie Roleplay lub Game Mode. Agenci nie aktualizują tych atrybutów.
 
-Bez włączonego agenta wartości pozostają takie, jakie zostały ustawione. Sama zakładka **Stats** niczego nie aktualizuje. Sposób włączania tych agentów opisuje przewodnik po wbudowanych agentach.
+Jeśli nie włączysz odpowiedniego agenta trackera, wartości należące do trackerów pozostają takie, jakie zostały ustawione. Sama zakładka **Stats** niczego nie aktualizuje. Sposób włączania tych agentów opisuje przewodnik po wbudowanych agentach.
 
 ## Jak statystyki wyglądają na pasku HUD
 

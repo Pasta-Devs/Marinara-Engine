@@ -12,35 +12,36 @@ Postępy zapisują się lokalnie, wewnątrz używanego profilu. Inny profil albo
 
 ## Otwieranie panelu Achievements
 
-Przycisk **Achievements** (osiągnięcia) znajduje się na ekranie głównym. Ekran główny to widok, który pojawia się, gdy żaden czat nie jest otwarty. Przycisk leży tuż pod polem czatu z asystentką Professor Mari i ma ikonę pucharu.
+Skrót **Achievements** (osiągnięcia) znajduje się na ekranie głównym. Ekran główny to widok, który pojawia się, gdy żaden czat nie jest otwarty. Skrót leży w rzędzie skrótów u góry i ma ikonę pucharu. Na telefonie znajdziesz go po dotknięciu przycisku skrótów po lewej stronie zakładek.
 
-Pod etykietą przycisk pokazuje aktualny licznik, na przykład **12 of 23 unlocked**. Dopóki dane się wczytują, widnieje tam napis **Checking the collection...**.
+Na ekranie głównym możesz też dodać widget **Achievements**. Kliknij **Widgets** (widgety) na pasku skrótów i włącz go. Widget pokazuje aktualny licznik, na przykład **12 of 24 unlocked**, a także osiągnięcia **Last obtained** (ostatnio zdobyte) i **Closest next** (najbliższe kolejne). Dopóki dane się wczytują, w miejscu licznika widnieje napis **Checking the collection...**. Kliknij widget, żeby otworzyć panel. Zobacz [Widgety ekranu głównego](welcome.md#home-widgets).
 
 Aby otworzyć panel, wykonaj kolejno te kroki:
 
 1. Przejdź na ekran główny.
-2. Znajdź przycisk **Achievements** pod polem czatu z asystentką Professor Mari.
+2. Znajdź skrót **Achievements** u góry.
 3. Kliknij go.
 
-Powinno otworzyć się okno **Achievements**. Na górze widać wiersz podsumowania, na przykład **12 of 23 achievements unlocked in this profile.** Niżej rozciąga się siatka kart osiągnięć.
+Powinno otworzyć się okno **Achievements**. Na górze widać wiersz podsumowania, na przykład **12 of 24 achievements unlocked in this profile.** Niżej rozciąga się siatka kart osiągnięć.
 
 Każda karta pokazuje ikonę odznaki, tytuł, etykietę kategorii i krótki opis. Karta zablokowana ma tytuł **?????** i ikonę kłódki. Jej treści nie da się odczytać przed odblokowaniem. Zdobyta karta dostaje znacznik **unlocked**. Karty z celem liczbowym mają dodatkowo wiersz **Progress** i pasek postępu.
 
-Przycisk i panel pojawiają się tylko wtedy, gdy ustawienie **Achievements** jest włączone. Opisuje je sekcja poniżej. Żadne inne menu ani strona nie pokazuje osiągnięć.
+Skrót, widget i panel pojawiają się tylko wtedy, gdy ustawienie **Achievements** jest włączone. Opisuje je sekcja poniżej. Żadne inne menu ani strona nie pokazuje osiągnięć.
 
-## 23 osiągnięcia
+## 24 osiągnięcia
 
-Osiągnięć jest 23 i dzielą się na cztery kategorie: **Milestone**, **Community**, **Creation** oraz **Collection**.
+Osiągnięć jest 24 i dzielą się na cztery kategorie: **Milestone**, **Community**, **Creation** oraz **Collection**.
 
 Część z nich odblokowuje się tylko raz. Osiągnięcia z kategorii **Creation** i **Collection** mają rangi – trzy poziomy oznaczone **I**, **II** i **III**. Kolejne poziomy przypadają na 5, 25 i 100. Dlatego tytuł odznaki po zdobyciu drugiego poziomu brzmi na przykład **Hoarder II**.
 
 | Osiągnięcie | Kategoria | Jak je odblokować |
 |---|---|---|
 | **Diligent Student** | Milestone | Ukończ samouczek dla nowych użytkowników albo go pomiń. |
-| **Hello World** | Milestone | Wyślij pierwszą wiadomość do asystentki Professor Mari z ekranu głównego. |
-| **One Of Us** | Community | Kliknij link **Discord** w stopce ekranu głównego. |
-| **Based Backer** | Community | Kliknij link **Support** w stopce ekranu głównego (otwiera serwis Ko-fi). |
-| **Backseat Appreciator** | Community | Kliknij przycisk **Credits** w stopce ekranu głównego. |
+| **Hello World** | Milestone | Wyślij pierwszą wiadomość do asystentki Professor Mari. |
+| **Please Handle With Care** | Milestone | Przeciągnij obrazek asystentki Professor Mari po ekranie. |
+| **One Of Us** | Community | Kliknij skrót **Discord** albo link **Discord** w widgecie **Community** (społeczność) na ekranie głównym. |
+| **Based Backer** | Community | Kliknij **Support** (otwiera serwis Ko-fi) na pasku skrótów ekranu głównego albo w widgecie **Community**. |
+| **Backseat Appreciator** | Community | Kliknij **Credits** na pasku skrótów ekranu głównego albo w widgecie **Community**. |
 | **Who Needs IRL Friends** | Creation | Twórz czaty w trybie Conversation (5, 25, 100). |
 | **They Feel Real To Me** | Creation | Twórz czaty w trybie Roleplay (5, 25, 100). |
 | **I Have No Other Hobbies** | Creation | Twórz czaty w trybie Game Mode (5, 25, 100). |
@@ -68,18 +69,16 @@ Licznik na górze okna uwzględnia osiągnięcia zainstalowanych agentów.
 
 Całą funkcję włącza i wyłącza jeden przełącznik. Otwórz panel **Settings** (Ustawienia), przejdź na zakładkę **General** i znajdź sekcję **App Behavior**. Przełącznik nosi nazwę **Achievements** i domyślnie jest włączony.
 
-Tekst pomocy brzmi: "Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off."
-
 Oto, co robi ten przełącznik:
 
-- Włączony: na ekranie głównym widać przycisk **Achievements** i jego okno, a każde odblokowanie zgłasza się podręcznym powiadomieniem.
-- Wyłączony: przycisk znika, a podręczne powiadomienia przestają się pokazywać. Aplikacja dalej po cichu zapisuje odblokowane odznaki w tle.
+- Włączony: na ekranie głównym dostępne są skrót **Achievements** i okno osiągnięć, a każde odblokowanie zgłasza się podręcznym powiadomieniem. Opcjonalny widget **Achievements** pojawia się tylko wtedy, gdy dodano go do układu ekranu głównego.
+- Wyłączony: skrót i widget znikają, a podręczne powiadomienia przestają się pokazywać. Aplikacja dalej po cichu zapisuje odblokowane odznaki w tle.
 
 Skoro śledzenie działa również przy wyłączonym ustawieniu, postępy nie przepadają. Po ponownym włączeniu ustawienia wszystko, co zostało zdobyte w międzyczasie, czeka już na miejscu.
 
 ## Jak działa odblokowywanie
 
-Marinara porównuje osiągnięcia z rangami z aktualnymi licznikami. Sprawdzenie następuje przy każdej śledzonej czynności, na przykład po utworzeniu czatu albo kliknięciu linku w stopce. Uruchamia się też przy otwarciu panelu Achievements.
+Marinara porównuje osiągnięcia z rangami z aktualnymi licznikami. Sprawdzenie następuje przy każdej śledzonej czynności, na przykład po utworzeniu czatu albo kliknięciu skrótu na ekranie głównym. Uruchamia się też przy otwarciu panelu Achievements.
 
 Jeśli czynność odblokowuje odznakę, a ustawienie jest włączone, pojawia się małe podręczne powiadomienie. Jego tytuł to **Achievement unlocked**, a treść wskazuje odznakę, na przykład **Hoarder II** albo **One Of Us**.
 

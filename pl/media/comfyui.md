@@ -33,6 +33,8 @@ Lokalny model językowy i model do obrazów mogą nie zmieścić się w pamięci
 
 Workflow w formacie API różni się od zwykłego workflow z edytora wizualnego. Klucze najwyższego poziomu to identyfikatory węzłów, a każdy węzeł zawiera zwykle `class_type` oraz `inputs`. Eksportuj wersję API; nie wklejaj zwykłego pliku workflow z układem graficznym edytora.
 
+<a id="comfyui-video-workflows"></a>
+
 ## Workflow wideo w ComfyUI
 
 Utwórz połączenie typu **Video Generation** (generowanie wideo), wybierz **ComfyUI** i wklej workflow w formacie API do wymaganego pola **ComfyUI Workflow**. WAN 2.2 i inne lokalne grafy wideo są obsługiwane, o ile ten sam workflow działa w ComfyUI i zapisuje plik MP4 przez wyjście takie jak podstawowy węzeł **SaveVideo**.
@@ -164,6 +166,7 @@ Efekty bywają dzięki temu spójniejsze niż przy jednym uniwersalnym workflow,
 | Zadanie kończy się, ale Marinara nie dostaje obrazu | Dodaj podłączone wyjście **SaveImage** i przetestuj workflow jeszcze raz bezpośrednio w ComfyUI.                                                                                                                            |
 | Węzeł obrazu referencyjnego zgłasza błąd         | Przy zwykłym lokalnym węźle **LoadImage** użyj symbolu `%reference_image_name...%`. Surowego base64 używaj tylko z węzłem stworzonym pod ten format i sprawdź, czy funkcja aplikacji Marinara Engine faktycznie przekazała obraz referencyjny. |
 | Zdalny adres ComfyUI w sieci lokalnej jest blokowany | Przy połączeniach do generowania obrazów włącz `IMAGE_LOCAL_URLS_ENABLED`. Ustaw nasłuchiwanie ComfyUI na interfejsie sieciowym i sprawdź zaporę na komputerze docelowym. Nie wystawiaj serwera ComfyUI bez uwierzytelniania do publicznego internetu. |
+| Błąd: `Outbound response exceeded N bytes`      | Odpowiedź przekroczyła ustawiony limit, domyślnie 30 MiB. Mogą to spowodować osadzone w metadanych workflow lub obrazy referencyjne. Wyłącz metadane w ComfyUI albo zwiększ `IMAGE_GEN_MAX_RESPONSE_BYTES` w pliku `.env` aplikacji Marinara Engine i uruchom ją ponownie. |
 | Długie generowanie obrazu przekracza limit czasu | Zwiększ `COMFYUI_GEN_TIMEOUT` w pliku `.env` aplikacji Marinara Engine. Wartość podaje się w sekundach, domyślnie `2400`.                                                                                                     |
 | Długie generowanie wideo przekracza limit czasu  | Zwiększ `VIDEO_GEN_TIMEOUT_MS` w pliku `.env` aplikacji Marinara Engine. Wartość podaje się w milisekundach, domyślnie `1800000` (30 minut).                                                                                  |
 | Generowaniu brakuje pamięci karty graficznej     | Zmniejsz wymiary obrazu lub rozmiar modelu, zwolnij pamięć po lokalnym modelu językowym, użyj zdalnego modelu językowego albo przenieś ComfyUI na inne urządzenie.                                                            |

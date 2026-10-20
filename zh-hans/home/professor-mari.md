@@ -2,17 +2,21 @@
 
 Professor Mari 是 Marinara Engine 主页上的内置助手。本指南介绍去哪里找她、她能做什么、她如何让自己的改动随时可撤销，以及常见问题怎么解决。
 
+<a id="where-to-find-her"></a>
+
 ## 去哪里找她
 
 Professor Mari 待在主页上。没有打开任何聊天时看到的界面就是主页。
 
-找到画着她像素画、标题写着 **Professor Mari** 的卡片。空闲时状态行显示 **Ready to help**(随时待命)，忙碌时显示 **Working on it...**。点击 **Ask Prof. Mari**(问问 Professor Mari) 按钮，打开完整的聊天窗口。
+找到画着她像素画的 **Professor Mari** 小组件，点击 **Ask Professor Mari**(问问 Professor Mari)，打开完整的聊天窗口。主页顶部的 **Professor**(教授) 标签页也能打开它。她的窗口是在 Search 里打开的，所以你在任何界面都能找到她：在 Search 输入框里打字并选择 **Ask Prof. Mari**，按 Ctrl+J(Mac 上是 Cmd+J)，或者在手机上从顶栏往下拉。她窗口标题栏里的状态行在她空闲时显示 **Ready to help**(随时待命)，忙碌时显示 **Working on it...**。
 
-用日常语言和她交流。在输入框里写好消息，按 Enter 发送。同时按 Shift 和 Enter 则是换行。
+用日常语言和她交流。在输入框里写好消息，按 Enter 发送。同时按 Shift 和 Enter 则是换行。如果在她的设置里关掉 **Enter sends to Professor Mari**(按 Enter 发送给 Professor Mari)，Enter 就变成换行，按 Ctrl+Enter(Mac 上是 Cmd+Enter)才会发送。
 
 给她发出第一条消息，就会解锁 **Hello World** 成就。
 
-应用顶栏底部还有一条细线，在任何界面都能显示她的状态：她干活时线条会波动，完成后变成绿色，有批准在等待时变成金色，上一次运行失败则变成红色。打开她的聊天后，这条线就会消失。（**Ask Professor Mari from Search**(从 Search 问问 Professor Mari) 关闭时，这条线也不会显示。）她的所有设置都在 Search 与 Professor Mari 设置里：点 Search(搜索栏) 里的齿轮图标，或者依次打开 **Settings**(设置) > **General**(常规) > **Search and Professor Mari settings**(Search 与 Professor Mari 设置) > **Open**(打开)。
+应用顶栏底部还有一条细线，在任何界面都能显示她的状态：她干活时线条会波动，完成后变成绿色，有批准在等待时变成金色，上一次运行失败则变成红色。打开她的聊天后，这条线就会消失。（**Ask Professor Mari from Search**(从 Search 问问 Professor Mari) 关闭时，这条线也不会显示。）她的窗口关着时，顶栏上的一个小胶囊会以 **Working**(工作中)、**Needs you**(需要你)、**Done**(完成) 或 **Failed**(失败) 显示同样的状态。点击这个胶囊即可回到她的聊天。她的所有设置都在 Search 与 Professor Mari 设置里：点 Search(搜索栏) 里的齿轮图标，或者依次打开 **Settings**(设置) > **General**(常规) > **Search and Professor Mari settings**(Search 与 Professor Mari 设置) > **Open**(打开)。
+
+在电脑上，你也可以在那里调整她窗口的大小。用 **Professor Mari window**(Professor Mari 窗口) 下的 **Height**(高度) 和 **Width**(宽度) 滑块。**Search window**(Search 窗口) 下的滑块对 Search 起同样的作用；它的高度初始为 **Automatic**(自动)。在手机上，这两个窗口始终占满屏幕。
 
 ## 从手头的工作直接问 Professor Mari
 
@@ -21,12 +25,12 @@ Professor Mari 不只是一个问答框。她能讲解这个应用、帮你完�
 在哪里需要帮助，就可以直接从哪里打开 Professor Mari。这些入口会生成一份可编辑的草稿，并附上一份简短、带类型的上下文摘要。发送消息之前，附加的上下文都可以删掉。
 
 - **Character**(角色)、**Persona**(用户角色)、**Lorebook**(世界书) 和 **Preset**(预设) 编辑器：针对打开的资源或选中的字段提问。
-- **FAQ**(常见问题) 答案：用 **Ask Prof. Mari** 把匹配到的问题和写好的答案一起作为起点带上。
+- **FAQ**(常见问题) 答案：用 **Ask Prof. Mari about this**(就此问问 Professor Mari) 把匹配到的问题和写好的答案一起作为起点带上。
 - **Search**：按 `Cmd/Ctrl+K`，选中一个结果，再用 **Ask Prof. Mari** 把选中的结果放进草稿。Search 本身不会发送模型请求，除非开启了快速回答（见下文 **Quick answers in Search**(Search 中的快速回答) 一节）。
-- **Recent Chats**(最近聊天) 和其他出错状态：用 **Retry**(重试) 旁边的 **Ask Prof. Mari**，把错误描述和请求的修复操作一起发给她。
+- **Recent Chats**(最近聊天) 和其他出错状态：用 **Try again**(再试一次) 旁边的 **Ask Professor Mari**，把错误描述和请求的修复操作一起发给她。
 - 普通的 Professor Mari 角色聊天和主页工作区聊天使用同一种交接格式。
 
-附加的项目会以 **Aware of**(已知晓) 小标签的形式显示在输入框上方。不相关的上下文项可以删掉。消息发出后，Professor Mari 会在服务器上按上下文预算解析较大的资源内容。仅仅打开某个编辑器，并不会让她拿到完整的资源。
+附加的项目会以 **Context**(上下文) 小标签的形式显示在输入框上方。不相关的上下文项可以删掉。消息发出后，Professor Mari 会在服务器上按上下文预算解析较大的资源内容。仅仅打开某个编辑器，并不会让她拿到完整的资源。
 
 这些事都可以找她帮忙：
 
@@ -87,11 +91,11 @@ Professor Mari 可以查看 Marinara 自己的程序文件、修改它们，还�
 
 Professor Mari 需要一个连接才能思考。连接就是用 API 密钥把 Marinara 接到某个 AI 服务商上。API 密钥是那家服务商发的一串秘密字符，作用类似密码。
 
-点击回形针旁边的链接图标，打开 **Connections**(连接) 下拉菜单。已经配好的文本生成连接随便选。如果下载过内置的本地模型，它也会出现在这里，显示为 **Local Model (sidecar)**。应用知道模型名字时，括号里显示的就是模型名。选好的连接会记在浏览器里。
+点击回形针旁边的连接按钮。它显示一个链接图标和她所用连接的名称，还没选连接时显示 **Select connection**(选择连接)。它会打开 **Connections**(连接) 列表。已经配好的文本生成连接随便选。如果下载过内置的本地模型，它也会出现在这里，显示为 **Local Model (sidecar)**。应用知道模型名字时，括号里显示的就是模型名。你的选择会随应用偏好一起保存。
 
-如果一个连接都还没有，下拉菜单里显示的是 **Add a connection**(添加连接)。没有连接就发送消息时，Marinara 会替你打开 **Connections** 面板，同时弹出这样一条提示消息（也叫 toast）：
+同一个菜单还会列出所选连接的模型。点击某个模型即可使用它。和在普通聊天里一样，模型会保存到这个连接上，所以使用这个连接的其他聊天也会一起切换过去。在手机上或窄窗口里，点按某个连接即可切换到它，或者点按那一行末尾的箭头先查看它的模型。内置的本地模型没有模型列表。
 
-> You haven't set up a connection yet! Click the link icon beside the paperclip to select one.
+如果一个连接都还没有，列表里显示的是 **Add a connection**(添加连接)。点它就能新建一个。没有连接就发送消息时，Marinara 会替你打开 **Connections** 列表，让你选一个。
 
 完整的操作步骤见文末链接的连接指南。
 
@@ -103,6 +107,10 @@ Professor Mari 有两种工作方式。**Classic** 是默认方式。**Pi** 是�
 
 Pi 适用于所有连接，包括本地模型。如果 Professor Mari 在 Pi 下行为异常，请切回 Classic。
 
+## 改变她的外观
+
+打开 **Search and Professor Mari settings**，滚动到 **Appearance**(外观)。为她挑一个形象，例如 **Basic**、**Prof. Mari loves Dottore** 或 **Safari Prof. Mari**。她的新形象会显示在她的聊天、Search、主页和顶栏里。有些形象要玩够一定时长才会解锁。未解锁的形象会显示你目前已经玩了多少小时。
+
 ## 附加文件
 
 点击标着 **Attach files**(附加文件) 的回形针按钮，就能给消息加上文件。
@@ -113,7 +121,7 @@ Pi 适用于所有连接，包括本地模型。如果 Professor Mari 在 Pi 下
 
 ## 审查她的改动
 
-Professor Mari 改动某样东西时，会立刻保存改动，并在她的回答下方给出一张改动卡片。卡片会列出每个改动过的字段。文字编辑会同时显示原来的和新的文字，世界书则显示它的条目。打开 **Show all**(全部显示) 可以看到所有字段。**Technical details**(技术细节) 会显示原始命令。
+Professor Mari 改动某样东西时，会立刻保存改动，并在她的回答下方给出一张改动卡片。卡片会列出每个改动过的字段。文字编辑会同时显示原来的和新的文字，世界书则显示它的条目。改动位于某个项目更深处时，例如角色卡的交互式引导，会单独列为一个字段，并写明改了什么。打开 **Show all**(全部显示) 可以看到所有字段。**Technical details**(技术细节) 会显示原始命令。
 
 卡片上只有一个操作：
 
@@ -189,29 +197,27 @@ Professor Mari 可以记住你长期不变的偏好，省得每次聊天都重�
 
 Professor Mari 有一套自己的聊天，不会混进你平时的聊天列表。
 
-点击她标题栏里的 **Chats**(聊天) 按钮，打开保存下来的 Professor Mari 聊天。面板上有一句说明：“Restart saves the current chat here.”点击某条保存的聊天，可以打开、重命名或删除。
+点击她标题栏里的 **Chats**(聊天) 按钮，打开保存下来的 Professor Mari 聊天。列表为空时，面板上有一句说明：“New chat keeps this one here.”用 **Search Prof. Mari chats**(搜索 Professor Mari 聊天) 可以查找某条聊天。点击某条保存的聊天，可以打开、重命名或删除。
 
-点击 **Restart**(重新开始) 按钮，就能和她开一段全新的聊天。Restart 会先把当前聊天存进 **Chats** 列表。在输入框里输入 `/restart` 效果完全一样。界面会提示“Professor Mari's previous chat was saved.”
+点击 **New chat**(新建聊天) 按钮，就能和她开一段全新的聊天。它会先把当前聊天存进 **Chats** 列表。在输入框里输入 `/restart` 效果完全一样。界面会提示“Professor Mari's previous chat was saved.”
 
-她干活期间，标题栏会出现 **Stop**(停止) 按钮，点它可以取消当前任务。
+她干活期间，发送按钮会变成 **Stop**(停止) 按钮，点它可以取消当前任务。
 
-## 浮动聊天气泡
+## 离开她的窗口
 
-开着她的聊天窗口跳到别的页面时，Professor Mari 可以变成一个小气泡跟过去。
-
-在手机或窄屏上，她会变成一个能拖动的圆形头像，点一下就重新打开完整聊天。在宽屏上，出现的是一个可拖动的 **Ask Prof. Mari** 小窗口。两种形态都带一个控件，可以让气泡在这次使用期间不再出现。
+她工作期间，你可以关掉她的窗口，继续使用应用。顶栏上的细线和胶囊会显示她的进展，详见[去哪里找她](#where-to-find-her)。点击胶囊即可回到她的聊天。
 
 ## 信任与恢复状态
 
-打开 Professor Mari 标题栏里的 **Aware of**，可以看到下一条消息会带上什么、哪些内容会留在这个 Professor Mari 聊天里，以及她的工作方式：回答所用的模型、上下文预算，以及她的 shell 命令是否在沙箱里运行。标题栏还会显示待批准的事项、Skills 和 Memories。想知道 Professor Mari 能读到什么，就在发请求之前先看一眼这些。
+打开 Professor Mari 标题栏里的 **Context**，可以看到下一条消息会带上什么、哪些内容会留在这个 Professor Mari 聊天里，以及她的工作方式：回答所用的模型、上下文预算，以及她的 shell 命令是否在沙箱里运行。标题栏还会显示待批准的事项、Skills 和 Memories。想知道 Professor Mari 能读到什么，就在发请求之前先看一眼这些。
 
-影响较大的工作区改动，Professor Mari 仍会交给服务器现有的批准和审查规则把关。**Aware of** 不会授予额外的访问权限。敏感文件改动、依赖改动、shell 限制和应用数据校验仍由服务器强制执行。
+影响较大的工作区改动，Professor Mari 仍会交给服务器现有的批准和审查规则把关。**Context** 不会授予额外的访问权限。敏感文件改动、依赖改动、shell 限制和应用数据校验仍由服务器强制执行。
 
-请求失败时，聊天记录会保留失败原因；如果请求可以重新发送，还会显示 **Retry**。先解决界面上指出的连接、沙箱、能力或远程访问问题，再重试。重试不会悄悄地从某次搜索、FAQ 或出错状态自动开始，始终要由你亲自操作。
+请求失败时，聊天记录会保留失败原因；如果请求可以重新发送，还会显示 **Retry**。先解决界面上指出的连接、沙箱、能力或远程访问问题，再重试。如果你的问题没有保存下来，它会连同附件一起回到输入框里，方便你先修改。之后 **Retry** 和 **Retry with another model**(换个模型重试) 会发送输入框里的内容。重试不会悄悄地从某次搜索、FAQ 或出错状态自动开始，始终要由你亲自操作。
 
 ## 她的 FAQ 和聊天是两回事
 
-她的聊天卡片旁边，主页还放着一个 **FAQ** 面板。这是一份写死的问答清单，不是 AI 聊天。
+点击主页上的 **FAQ** 书签，或者 **Learn the engine**(了解引擎) 小组件里的 **Read FAQ**(查看常见问题)，就能打开 **Professor Mari's FAQ**(Professor Mari 的常见问题)。这是一份写死的问答清单，不是 AI 聊天。
 
 在 **Search FAQ**(搜索常见问题) 输入框里打字可以筛选问题。每个问题都带一个彩色分类标签，比如 **Setup**、**Connections** 或 **Game Mode**。点一下问题就能看答案。
 
@@ -231,11 +237,11 @@ Professor Mari 是帮手，代替不了完整文档。这些限制要记住：
 
 ## 故障排查
 
-- 完全没有回复：看看 **Aware of** 里显示的连接，或者用链接图标选一个。一个都没配的话，打开 **Connections** 面板加一个。
+- 完全没有回复：看看 **Context** 里显示的连接，或者用连接按钮选一个。一个都没配的话，打开 **Connections** 面板加一个。
 - 交接带错了内容：删掉那个上下文项，重新开始或切换到正确的 Professor Mari 聊天，再从原来的界面重新发起交接。上下文只作用于这次交接和当前的 Professor Mari 聊天。
 - 结果没有出现在编辑器里：点结果卡片上的 **Open**。Professor Mari 执行完命令时，资源列表可能还没刷新。
 - 请求失败：看清失败状态，解决其中指出的配置问题，然后用 **Retry**。只有上下文本身已经不对时，才需要从原来的位置重新询问 Professor Mari。
-- 弹出“You haven't set up a connection yet”提示消息：从链接图标的下拉菜单里选一个连接，或者先加一个。
+- 按下发送时打开了 **Connections** 列表：说明还没有选连接。从列表里选一个，或者先用 **Add a connection** 添加一个。
 - 她读不出附加的图片：模型必须支持图像输入。换成模型能看图的连接。
 - Fandom 查询失败：Fandom 是外部网站，这需要能上网。
 - 她的操作被权限错误挡住：说明你是通过网络访问 Marinara，而不是在同一台电脑上。先配置远程访问。

@@ -28,7 +28,7 @@ Garde cette URL privée. Quiconque la possède peut publier des messages dans le
 
 ## Activer le miroir
 
-Le réglage du webhook se trouve dans les réglages de chaque chat, à l'intérieur de la section **Connected Chats** (chats connectés). Le champ de saisie n'a pas d'étiquette propre. Repère-le à son texte indicatif, qui affiche `https://discord.com/api/webhooks/...`.
+Le réglage du webhook se trouve dans les réglages de chaque chat, à l'intérieur de la section **Connected Chats** (chats connectés). Le champ de saisie s'intitule **Discord Mirror** (miroir Discord), et son texte indicatif affiche `https://discord.com/api/webhooks/...`.
 
 1. Ouvre le chat à mettre en miroir.
 2. Ouvre la section **Chat Settings** (réglages du chat).
@@ -38,6 +38,8 @@ Le réglage du webhook se trouve dans les réglages de chaque chat, à l'intéri
 Le miroir est actif pour ce chat. Pour le désactiver, vide le champ de saisie.
 
 Si l'URL n'est pas un webhook Discord valide, le texte rouge "Invalid webhook URL format" s'affiche sous le champ. Corrige l'URL et le miroir s'enregistre. Marinara vérifie aussi l'URL côté serveur au moment de l'enregistrement.
+
+L'URL du webhook reste sur cette installation de Marinara. Les exports de chat, les profils de réglages exportés et les fichiers **Export Profile** (exporter le profil) la laissent de côté, et l'import de l'un d'eux n'active jamais de miroir. Pour recopier un chat que tu as déplacé vers une autre installation, colle de nouveau l'URL là-bas. Un profil de réglages enregistré sur cette installation règle toujours ton miroir quand tu l'appliques.
 
 ## Ce qui part vers Discord
 

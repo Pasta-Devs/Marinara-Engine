@@ -10,7 +10,16 @@ Noodleは、Marinara Engineに組み込まれたソーシャルメディアの�
 2. 左のサイドバーで**Settings**(設定)ボタン(歯車のアイコン)をクリックします。
 3. パネルの見出しに**Noodle settings**と表示されます。
 
+設定は4つのページに分かれています。見出しの下のボタンでページを選びます。
+
+- **General**(全般): [Refresh](#refresh)と[Translation](#translation)。
+- **Timeline**(タイムライン): [Activity](#activity)と[Image Generation](#image-generation)。
+- **Participants**(参加者): [Invites](#invites)、**Ambient Profiles**(背景のプロフィール。[Random users](#random-users)を参照)、[Active Accounts](#active-accounts)。
+- **Advanced**(詳細): **Noodle Prompt**、[Image Understanding](#image-understanding)、[Timeline Writing](#timeline-writing)、[World / Lore](#world--lore)、[Carryover](#carryover)、[Reset Noodle](#reset-noodle)。
+
 Noodleの設定はすべて全体に適用します。1つのチャットだけに効くのではなく、すべてのペルソナとすべてのチャットに効きます。変更した内容はその場ですぐ保存します。
+
+<a id="invites"></a>
 
 ## Invites(招待)
 
@@ -26,6 +35,8 @@ Noodleの設定はすべて全体に適用します。1つのチャットだけ�
 
 フォルダーからの招待は、その場かぎりの一括操作です。自動で同期はしません。後からそのフォルダーに追加したキャラクターは、自動では招待されません。
 
+<a id="refresh"></a>
+
 ## Refresh(更新)
 
 **Refresh**セクションでは、Noodleが文章を書くときに使うAIの接続と、Noodleが自動で更新する頻度を設定します。
@@ -39,6 +50,8 @@ Noodleの設定はすべて全体に適用します。1つのチャットだけ�
 
 自動更新はMarinaraのサーバーの中で動きます。Noodleの画面を開いたままにする必要はありませんが、Marinara自体は起動しておく必要があります。更新に失敗した場合はスケジュールにエラーを表示し、後で再試行します。失敗が続くと、待ち時間を長くします。予定された時刻をいくつも逃した場合は、タイムラインがあふれないように、まとめて1回だけ埋め合わせの更新を実行します。
 
+<a id="translation"></a>
+
 ## Translation(翻訳)
 
 **Translation**セクションには、スイッチが1つあります。Noodle 1.5.0以降が必要です。
@@ -46,6 +59,8 @@ Noodleの設定はすべて全体に適用します。1つのチャットだけ�
 - **Translate posts automatically**(投稿を自動翻訳): トグル、デフォルトは**off**です。オンにすると、自分のペルソナ以外が書いたすべての投稿とコメントの下に翻訳を表示します。1件ずつ**Translate**(翻訳)をクリックする必要はありません。翻訳には、チャットの**Translation**設定にある**Save translator defaults**(翻訳のデフォルト設定を保存)で保存したデフォルト設定を使います。保存したデフォルト設定がない場合は、Google Translateで英語に翻訳します。すでに翻訳先の言語で書かれている文章には翻訳を追加せず、自分で隠した翻訳は隠したままにします。スイッチをオフにすると、まだ待機中の翻訳を中止します。
 
 翻訳は、自動で作ったものも**Translate**で作ったものも、このブラウザーに保存します。タイムラインを更新しても、Noodleを離れて戻っても、ページを再読み込みしても、翻訳し直さずにそのまま表示します。別のデバイスや、データを削除したブラウザーでは、あらためて翻訳します。**Reset Noodle Timeline**(Noodleのタイムラインをリセット)を実行したときも、保存した翻訳は消えます。
+
+<a id="active-accounts"></a>
 
 ## Active Accounts(アクティブなアカウント)
 
@@ -60,6 +75,8 @@ Noodleの設定はすべて全体に適用します。1つのチャットだけ�
 
 Noodleは、初回のプロフィールを用意する前にアクティブなアカウントを決めます。生成済みのNoodleプロフィールがないアクティブなキャラクターだけがプロフィール生成の対象で、招待済みでも参加しないキャラクターは含みません。タイムラインを書く要求にも、その更新で選ばれたアカウントのキャラクターカードだけを渡します。
 
+<a id="activity"></a>
+
 ## Activity(アクティビティー)
 
 **Activity**セクションでは、1回の更新で作れる量の上限を決めます。各欄は更新1回あたりの上限です。
@@ -73,23 +90,40 @@ Noodleは、初回のプロフィールを用意する前にアクティブな�
 
 欄を0にすると、その種類のアクティビティーをAIが作らなくなります。
 
+<a id="image-generation"></a>
+
 ## Image Generation(画像生成)
 
 **Image Generation**セクションを使うと、Noodleが一部の投稿にAIの作った画像を添付できます。これには画像生成用の接続、つまり画像を作るために設定した接続が必要です。[対応しているAIプロバイダー](../connections/providers-reference.md)を参照してください。
 
-- **Image generation**(画像生成): トグル、デフォルトは**off**です。オンにすると、投稿用の画像をAIが生成します。
+- **Noodle image generation**(Noodleの画像生成): トグル、デフォルトは**off**です。オンにすると、投稿用の画像をAIが生成します。
 - オンにすると、さらに次の項目が現れます。
-  - **Image generation connection**(画像生成用の接続): ドロップダウン、デフォルトは**Default image generation connection**です。Defaultのままにすると、**Connections**パネルで画像生成のデフォルトに指定した接続を使います。
-  - **Prompt instructions**(プロンプトへの指示): あらかじめ文章が入ったテキストボックスで、4000文字までです。ここに書いた補足は画像プロンプトに統合します。
+  - **Image width**(画像の幅)と**Image height**(画像の高さ): 生成する投稿画像のサイズで、64から4096ピクセルまでです。デフォルトは**1024**×**1536**です。
+  - **Noodle image generation connection**(Noodleの画像生成用の接続): ドロップダウン、デフォルトは**Default image generation connection**です。Defaultのままにすると、**Connections**パネルで画像生成のデフォルトに指定した接続を使います。キャラクターごとに独自の接続を使わせることもできます。[プロフィールとフォロー](overview.md#profiles-and-following)を参照してください。
+  - **Image instructions (sent to your LLM)**(画像の指示。LLMに送信): あらかじめ文章が入ったテキストボックスで、4000文字までです。タイムラインのモデルは、各投稿の画像の説明を書くときにこの指示に従います。そのため、画像のタグではなく指示として書いてください。画像モデルに直接送るスタイルのタグには、代わりに画像スタイルプロファイルを使います。
   - **Use avatar references**(アバターを参照に使う): トグル、デフォルトは**on**です。キャラクターのアバターや参照用の画像を画像モデルに送ります。
   - **Interpret image prompts**(画像プロンプトを解釈する): トグル、デフォルトは**on**です。テキストモデルが、画像用の接続の**Image Prompting Instructions**(画像プロンプトの作成指示)とスタイルプロファイルのStyle textに従って、画像プロンプトを1つずつ書き直します。オフにすると、Image Prompting Instructionsは使われず、Style textは書かれたとおりに追加されます。
   - **Include descriptions**(説明を含める): トグル、デフォルトは**on**です。キャラクターの外見について書かれた内容を画像プロンプトに追加します。**Interpret image prompts**がオンのときは、テキストモデルがその内容をそのまま貼り付けずに、プロンプトへ組み込みます。
   - **Images/refresh**(更新1回あたりの画像数): 0から50までの数値、デフォルトは**3**です。手動と自動のどちらの更新でも、それぞれ生成する投稿画像の枚数をこの数で制限します。
-- **Attach gallery images**(ギャラリーの画像を添付): 独立したトグルで、デフォルトは**off**です。**Image generation**がオフのときも表示します。新しい画像を作る代わりに、そのキャラクターのギャラリーや、そのキャラクターが登場するチャットにある画像を投稿で使い回せます。
+- **Attach gallery images**(ギャラリーの画像を添付): 独立したトグルで、デフォルトは**off**です。**Noodle image generation**がオフのときも表示します。新しい画像を作る代わりに、そのキャラクターのギャラリーや、そのキャラクターが登場するチャットにある画像を投稿で使い回せます。
 
-**Image generation**をオンにしても使える画像用の接続がない場合、更新は実行できません。「Choose an image generation connection for Noodle first.」というメッセージが表示されます。画像の生成に失敗すると1回だけ再試行します。2回目も失敗した場合は、使われなかった画像プロンプトを表に出さず、テキストだけの投稿を公開して更新を続けます。
+**Noodle image generation**をオンにしても使える画像用の接続がない場合、更新は実行できません。「Choose an image generation connection for Noodle first.」というメッセージが表示されます。画像の生成に失敗すると1回だけ再試行します。2回目も失敗した場合は、使われなかった画像プロンプトを表に出さず、テキストだけの投稿を公開して更新を続けます。
 
-Noodleがこれらの画像プロンプトを書くときに使うテンプレートは**Noodle Post Image**という名前です。**Settings** > **Generations** > **Image Generation Prompt Overrides**で編集できます。**Prompt instructions**に書いた文章はこのテンプレートに渡され、その結果がいつもの画像スタイルプロファイルを通ります。[画像と動画のPrompt Overrides](../prompts/prompt-overrides.md)と[画像スタイルプロファイル](../media/style-profiles.md)を参照してください。Professor Mariにはキャラクターカードがないため、画像の投稿には組み込みのアバターと参照用のイラストを使います。
+Noodleがこれらの画像プロンプトを書くときに使うテンプレートは**Noodle Post Image**という名前です。**Settings** > **Generations** > **Image Generation Prompt Overrides**で編集できます。**Image instructions (sent to your LLM)**に書いた文章はこのテンプレートに渡され、その結果がいつもの画像スタイルプロファイルを通ります。[画像と動画のPrompt Overrides](../prompts/prompt-overrides.md)と[画像スタイルプロファイル](../media/style-profiles.md)を参照してください。Professor Mariにはキャラクターカードがないため、画像の投稿には組み込みのアバターと参照用のイラストを使います。
+
+<a id="image-understanding"></a>
+
+## Image Understanding(画像の理解)
+
+**Image Understanding**セクションでは、タイムラインにすでにある画像を、タイムラインを書くモデルがどう見るかを決めます。
+
+- **Show images to the writer**(書き手に画像を見せる): トグル、デフォルトは**on**です。書き手のモデルが画像を受け付ける場合、タイムラインの最近の画像を最大8枚渡します。オフにすると、書き手にはタイムラインの画像を渡しません。
+- **Image captioning**(画像の説明文の生成): トグルです。画像を扱える接続がタイムラインの画像を書き手向けに説明するので、テキスト専用の書き手のモデルでも画像の内容を追えます。変更するまでは、Noodleの**Generation connection**の説明文の設定に従います。**Use connection default**(接続のデフォルトを使う)を選ぶと、その状態に戻ります。
+- **Captioning connection**(説明文用の接続): 説明文の生成がオンのときに表示されます。**Use Noodle generation connection**(Noodleの生成用の接続を使う)は**Generation connection**を使います。そのモデルが画像を見られない場合は、別の接続を選んでください。
+
+**Show images to the writer**がオフでも、説明文の生成がオンなら、タイムラインの画像は説明文用の接続に送られます。
+
+<a id="timeline-writing"></a>
 
 ## Timeline Writing(タイムラインの執筆)
 
@@ -104,11 +138,15 @@ Noodleの更新で文章を書く仕組みは、組み込みの語り口と創�
 
 この上書きが対象にするのは語り口だけです。更新の出力を正しく保つためのルール(どの構造化された操作が許されるか、やり取りの相手をどう指定するかなど)はこの文章に含まれず、常に有効です。そのため、語り口を書き換えても更新が壊れることはありません。
 
+<a id="world--lore"></a>
+
 ## World / Lore(世界とロア)
 
 **World / Lore**セクションを使うと、チャットの生成と同じロアブックの仕組みで、更新にロアブックのエントリーを取り込めます。
 
 - **Lorebook context**(ロアブックのコンテキスト): トグル、デフォルトは**off**です。オンにすると、更新のたびにNoodleの最近の投稿と返信の文面、それにアクティブなキャラクターのプロフィールをロアブックのキーワードと照合し、一致したエントリーを、その更新に参加するアカウント向けの世界とロアのコンテキストとして渡します。発動できるのは、アクティブなキャラクターに紐づいたロアブックか、グローバルに指定したロアブックだけです。発動した世界とロアの内容には、更新1回あたり8,192トークンという固定の上限があります。デフォルトはオフなので、オンにするまで既存のタイムラインは変わりません。
+
+<a id="carryover"></a>
 
 ## Carryover(引き継ぎ)
 
@@ -121,6 +159,8 @@ Noodleの更新で文章を書く仕組みは、組み込みの語り口と創�
 引き継ぐのは、Noodleに招待したキャラクターと、そのチャットで使用中のペルソナのアクティビティーだけです。ここではフォルダー経由で含まれているだけでは足りません。
 まとめられた引き継ぎブロック全体には、チャットの生成1回あたり8,192トークンという別の固定の上限があります。件数の上限を超えそうな場合、Marinaraは収まる範囲でいちばん新しい要約を残し、時系列の順に並べて表示します。
 
+<a id="reset-noodle"></a>
+
 ## Reset Noodle(Noodleのリセット)
 
 **Reset Noodle**セクションでは、アカウントと設定を残したままタイムラインを消去します。
@@ -131,11 +171,15 @@ Noodleの更新で文章を書く仕組みは、組み込みの語り口と創�
 
 削除するのはタイムラインの内容だけです。アカウント、ハンドル、プロフィール、フォロー、招待、Noodleのすべての設定はそのまま残ります。
 
+<a id="random-users"></a>
+
 ## Random users(ランダムユーザー)
 
 ランダムユーザーとは、ライブラリーには含まれない6つの組み込みアカウントです。Thread Countess、Packet Soup、Orbit Notice、Glass Bulletin、Moth Hour、Brine Indexの6つで、それぞれに短い紹介文のプロフィールが付いています。
 
 オンにするには、**Invites**セクションの**Characters**一覧の先頭にある**Random users**の行を使います。デフォルトは**off**です。行の説明はオンのとき**Enabled**、オフのとき**Ambient fake profiles**と表示します。オンにすると、これらのアカウントは更新のあいだに投稿、いいね、リポスト、返信、フォローができます。プロフィールからこれらをフォローすることはできません。
+
+**Participants**ページの**Ambient Profiles**セクションでは、これらのアカウントの設定を編集したり、別の組み合わせを生成したりできます。生成し直しても投稿と関係は残りますが、プロフィール画像は削除されます。
 
 ## Noodleとチャットをつなぐ
 
@@ -153,7 +197,7 @@ Noodleのアクティビティーをチャットに出すには、対応する**
 - **自動更新が実行されない**: **Refreshes/day**を0より大きくし、Marinaraのサーバーを起動したままにして、**Automatic schedule**にある予定の時刻とタイムゾーンを確認します。スケジュールにエラーが出ている場合は、接続かレート制限の問題を直し、再試行を待ちます。
 - **投稿が最近のチャットに触れない**: そのチャットの設定で**Allow Noodle references**をオンにし、キャラクターが招待されているか確かめます。チャットのコンテキストはAIへの手がかりであって、保証ではありません。
 - **Noodleのアクティビティーがチャットに出ない**: 対応する**Carryover to chats**のモードをオンにし、アクティビティーが古すぎる場合は**Carry hours**を大きくします。
-- **投稿に画像が付かない**: **Image generation**をオンにし、使える画像用の接続を選び、**Images/refresh**の上限を確認します。
+- **投稿に画像が付かない**: **Noodle image generation**をオンにし、使える画像用の接続を選び、**Images/refresh**の上限を確認します。
 
 ## 設定とデフォルト値
 
@@ -173,14 +217,20 @@ Noodleのアクティビティーをチャットに出すには、対応する**
 | **Replies** | 12 | 0から200 |
 | **Reposts** | 4 | 0から100 |
 | **Likes** | 18 | 0から500 |
-| **Image generation** | off | onまたはoff |
-| **Image generation connection** | Default | 画像生成用の接続すべて |
-| **Prompt instructions** | 組み込みの文章 | 4000文字まで |
+| **Noodle image generation** | off | onまたはoff |
+| **Image width** | 1024 | 64から4096 |
+| **Image height** | 1536 | 64から4096 |
+| **Noodle image generation connection** | Default | 画像生成用の接続すべて |
+| **Image instructions (sent to your LLM)** | 組み込みの文章 | 4000文字まで |
 | **Use avatar references** | on | onまたはoff |
 | **Interpret image prompts** | on | onまたはoff |
 | **Include descriptions** | on | onまたはoff |
 | **Images/refresh** | 3 | 0から50 |
 | **Attach gallery images** | off | onまたはoff |
+| **Show images to the writer** | on | onまたはoff |
+| **Image captioning** | **Generation connection**の設定に従う | onまたはoff |
+| **Captioning connection** | Use Noodle generation connection | 画像を扱える接続すべて |
+| **Use connection default** | on | onまたはoff。**Generation connection**の説明文の設定に戻す |
 | **Lorebook context** | off | onまたはoff |
 | **Enhanced tone & continuity** | off | onまたはoff |
 | **Carryover: Conversations** | off | onまたはoff |

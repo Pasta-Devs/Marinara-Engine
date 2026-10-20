@@ -28,6 +28,8 @@ Defina cada cor pelo campo de cor ou digite um valor:
 
 Uma cor semitransparente deixa parte do plano de fundo aparecer através do balão. O formato `rgba` é vermelho, verde, azul e um valor alfa que vai de 0 (transparente) a 1 (sólido).
 
+<a id="where-your-colors-show"></a>
+
 ## Onde as cores aparecem
 
 Cada cor afeta uma parte diferente do chat:
@@ -61,28 +63,34 @@ O segundo bloco é **RPG Attributes** (atributos de RPG), ativado pela opção *
 
 ### Fichas de conjuntos de regras
 
-Com um conjunto instalado, como 5e (SRD 5.1), ambas as abas **Stats** incluem **Ruleset sheets** (fichas de conjuntos de regras), com uma seção expansível por conjunto. O bloco também aparece se o cartão guarda uma ficha de um conjunto que não está mais instalado.
+Quando um conjunto de regras de Game Mode está instalado, como 5e (SRD 5.1), as duas abas **Stats** ganham um bloco **Ruleset sheets** (fichas de conjuntos de regras) abaixo das seções acima. Ele tem uma entrada recolhível para cada conjunto instalado. O bloco também aparece quando um card ainda guarda uma ficha de um conjunto que você não tem mais.
 
-1. Abra uma seção e clique em **Add a sheet** para usar os valores padrão.
-2. Edite atributos, campos, listas de ataques ou magias, treinamento e bônus extras de perícias e salvaguardas. O conjunto define a estrutura. Valores calculados, como proficiência ou Percepção passiva, mudam durante a edição e são somente leitura.
+1. Abra a entrada e clique em **Add a sheet** (adicionar uma ficha). Você recebe uma ficha em branco, com todos os valores no padrão do conjunto.
+2. Preencha a ficha. O layout vem do próprio conjunto: valores de atributo com os modificadores, campos agrupados por seção, listas como ataques e magias, e as perícias e salvaguardas, cada uma com um nível de treinamento e um bônus extra. Valores calculados, como o bônus de proficiência ou a Percepção passiva, se atualizam enquanto você digita e não podem ser editados.
 3. Salve o personagem ou a persona normalmente.
 
-Essa é a configuração inicial. Uma nova partida copia a ficha; mudanças em jogo não alteram o cartão. **Add from catalog** abre a busca de magias, ataques e habilidades prontas. As linhas adicionadas são cópias editáveis.
+Uma ficha aqui é a **configuração inicial** desse personagem para aquele conjunto. Uma nova partida com o conjunto leva uma cópia. As mudanças feitas dentro de uma partida ficam nessa partida e nunca voltam para o card.
 
-Números que dependem do nível ou de atributos são somente leitura, mostram "Set by the ruleset" e são recalculados ao editar. Se houver texto mais recente no catálogo, **Review** mostra o texto salvo ao lado do novo. **Update selected** atualiza apenas o texto das linhas escolhidas. Números, controles, outras colunas e linhas não selecionadas ficam intactos.
+Alguns conjuntos trazem magias, ataques e características prontas. As listas que eles preenchem têm um botão **Add from catalog** (adicionar do catálogo), que abre um seletor com busca, e as linhas que ele adiciona são cópias que você edita como qualquer outra. Daí vêm duas coisas:
 
-Uma ficha sem seu conjunto continua salva, é exportada com o cartão e não é enviada à IA. Reinstale o conjunto para editá-la ou use **Remove**. O limite é de 64 KB por ficha. Uma ficha ilegível de versão mais recente também é preservada; só oferece **Remove this sheet**, evitando que uma ficha nova a sobrescreva por acidente.
+- Uma célula que o conjunto mantém para você, como usos que acompanham um valor de atributo ou um recurso de classe que cresce com o nível, aparece no lugar, mas não aceita digitação, com a observação "Set by the ruleset". Ela é recalculada a partir do resto da ficha toda vez que você a edita.
+- Quando o texto do próprio conjunto para uma dessas linhas mudou desde que você a escolheu, uma linha abaixo da lista diz quantas linhas têm texto mais novo, com um botão **Review** (revisar). A revisão mostra cada linha com o que a sua ficha guarda ao lado do que o conjunto diz, e uma marcação por linha. **Update selected** (atualizar as selecionadas) grava as linhas marcadas e nada mais. Só o texto é comparado: números, botões liga/desliga e tudo o que você digitou em outra coluna ficam como estão, assim como toda linha que você desmarcar.
+
+Uma ficha de um conjunto que você não tem instalado é mantida, não excluída. Ela aparece como uma linha com um botão **Remove** (remover), nunca é enviada à IA e volta a ser editável quando você instala esse conjunto. Ela também vai junto com o card quando você o exporta. Cada ficha tem um limite de 64 KB.
+
+Uma ficha de um conjunto instalado que esta versão do Marinara não consegue ler, por exemplo uma salva por uma versão mais nova, também é mantida como está. A entrada dela só oferece **Remove this sheet** (remover esta ficha), para que adicionar uma ficha nova nunca a sobrescreva por acidente.
 
 Essas fichas são independentes de **Enable RPG Stats** e **Enable RPG Attributes**. As regras próprias do Marinara Engine as ignoram; partidas com conjunto as usam no lugar dos atributos comuns para testes.
 
 ## Como os agentes atualizam os status
 
-Os valores da aba **Stats** são só o ponto de partida. Para os status mudarem durante o chat, ative o agente correspondente. Um agente é um ajudante de IA que trabalha junto com o chat.
+Os valores da aba **Stats** viram o estado inicial do chat. Os agentes podem atualizar os valores controlados pelos trackers, descritos abaixo. Os RPG Attributes, como STR e DEX, são contexto do card, e não valores de tracker gerenciados por agentes.
 
-- O agente **Character Tracker** ajusta os status de RPG do personagem e a seção **RPG Attributes** da persona conforme o combate, a cura e os acontecimentos da história.
+- O agente **Character Tracker** ajusta os Stats rastreados do personagem, inclusive Pools como HP, conforme o combate, a cura e os acontecimentos da história. Ele não acompanha a persona do jogador.
 - O agente **Persona Stats** ajusta as **Persona Status Bars** depois de cada mensagem, de acordo com o que acontece na história.
+- Os **RPG Attributes** do personagem e da persona são enviados com o card para Combat e Game Mode, e para as rolagens opcionais no Roleplay ou no Game Mode. Os agentes não atualizam esses atributos.
 
-Sem o agente correspondente ativado, os valores ficam parados nos padrões que você definiu. A aba **Stats** sozinha não atualiza nada. Veja o guia dos agentes integrados para ativar esses agentes.
+Sem o agente tracker correspondente ativado, os valores controlados pelos trackers ficam nos padrões que você definiu. A aba **Stats** sozinha não atualiza nada. Veja o guia dos agentes integrados para ativar esses agentes.
 
 ## Como os status aparecem no HUD
 

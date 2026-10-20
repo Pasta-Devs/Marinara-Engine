@@ -1,6 +1,6 @@
 # 実績
 
-このガイドでは、Marinara Engineの実績機能を説明します。実績は、アプリを使ううちに解除される飾りのバッジです。表示場所、全23種類の一覧、オンとオフを切り替える設定、解除の仕組みがわかります。
+このガイドでは、Marinara Engineの実績機能を説明します。実績は、アプリを使ううちに解除される飾りのバッジです。表示場所、すべての実績の一覧、オンとオフを切り替える設定、解除の仕組みがわかります。
 
 ## 実績とは
 
@@ -12,35 +12,36 @@
 
 ## Achievementsパネルを開く
 
-**Achievements**(実績)ボタンはホーム画面にあります。ホーム画面は、チャットを開いていないときに表示される画面です。ボタンはProfessor Mariのチャット欄のすぐ下にあり、トロフィーのアイコンが付いています。
+**Achievements**(実績)のブックマークはホーム画面にあります。ホーム画面は、チャットを開いていないときに表示される画面です。ブックマークは上部のブックマークの列にあり、トロフィーのアイコンが付いています。スマートフォンでは、タブの左にあるブックマークのボタンをタップすると見つかります。
 
-ラベルの下には、**12 of 23 unlocked**のように現在の解除数が表示されます。読み込み中は代わりに**Checking the collection...**と表示されます。
+ホームに**Achievements**ウィジェットを追加することもできます。ブックマークの**Widgets**(ウィジェット)をクリックして、オンにしてください。ウィジェットには、**12 of 24 unlocked**のような現在の解除数と、**Last obtained**(最後に獲得した実績)、**Closest next**(次に近い実績)が表示されます。読み込み中は、解除数の代わりに**Checking the collection...**と表示されます。ウィジェットをクリックするとパネルが開きます。[ホームのウィジェット](welcome.md#home-widgets)を参照してください。
 
 パネルを開く手順は次のとおりです。
 
 1. ホーム画面を開きます。
-2. Professor Mariのチャット欄の下にある**Achievements**ボタンを探します。
+2. 上部にある**Achievements**のブックマークを探します。
 3. クリックします。
 
-**Achievements**ウィンドウが開きます。上部には**12 of 23 achievements unlocked in this profile.**のような集計行が表示され、その下に実績カードが並びます。
+**Achievements**ウィンドウが開きます。上部には**12 of 24 achievements unlocked in this profile.**のような集計行が表示され、その下に実績カードが並びます。
 
 各カードには、バッジのアイコン、名前、カテゴリー、短い説明が表示されます。未解除のカードは名前が**?????**になり、アイコンは鍵の形です。解除するまで内容はわかりません。獲得したカードには**unlocked**のタグが付きます。目標値のあるカードには、**Progress**の行と進捗バーも表示されます。
 
-ボタンとパネルは、**Achievements**の設定がオンのときだけ表示されます。設定については後述します。実績を確認できる画面はほかにありません。
+ブックマーク、ウィジェット、パネルは、**Achievements**の設定がオンのときだけ表示されます。設定については後述します。実績を確認できる画面はほかにありません。
 
-## 23種類の実績
+## 24種類の実績
 
-実績は全部で23種類あり、**Milestone**、**Community**、**Creation**、**Collection**の4つのカテゴリーに分かれています。
+実績は全部で24種類あり、**Milestone**、**Community**、**Creation**、**Collection**の4つのカテゴリーに分かれています。
 
 一度だけ解除される実績もあれば、段階のある実績もあります。**Creation**と**Collection**は3段階で、**I**、**II**、**III**の印が付きます。段階は5個、25個、100個で解除されます。第2段階に届くと、バッジの名前が**Hoarder II**のような表示に変わります。
 
 | 実績 | カテゴリー | 解除の条件 |
 |---|---|---|
 | **Diligent Student** | Milestone | 初回チュートリアルを完了するか、スキップします。 |
-| **Hello World** | Milestone | ホーム画面からProfessor Mariに最初のメッセージを送ります。 |
-| **One Of Us** | Community | ホーム画面下部の**Discord**リンクをクリックします。 |
-| **Based Backer** | Community | ホーム画面下部の**Support**リンク(Ko-fiが開きます)をクリックします。 |
-| **Backseat Appreciator** | Community | ホーム画面下部の**Credits**ボタンをクリックします。 |
+| **Hello World** | Milestone | Professor Mariに最初のメッセージを送ります。 |
+| **Please Handle With Care** | Milestone | Professor Mariの画像を画面上でドラッグします。 |
+| **One Of Us** | Community | **Discord**のブックマークか、ホームの**Community**(コミュニティ)ウィジェットにある**Discord**のリンクをクリックします。 |
+| **Based Backer** | Community | ホームのブックマークか**Community**ウィジェットの**Support**(Ko-fiが開きます)をクリックします。 |
+| **Backseat Appreciator** | Community | ホームのブックマークか**Community**ウィジェットの**Credits**をクリックします。 |
 | **Who Needs IRL Friends** | Creation | Conversationモードのチャットを作ります(5、25、100)。 |
 | **They Feel Real To Me** | Creation | Roleplayのチャットを作ります(5、25、100)。 |
 | **I Have No Other Hobbies** | Creation | Game Modeのチャットを作ります(5、25、100)。 |
@@ -68,18 +69,16 @@
 
 この機能はトグル1つでまとめてオンとオフを切り替えられます。**Settings**(設定)を開き、**General**(全般)タブの**App Behavior**(アプリの動作)セクションを探します。トグルの名前は**Achievements**で、デフォルトはオンです。
 
-説明文は次のとおりです。「Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off.」
-
 トグルの効果は次のとおりです。
 
-- オン: ホーム画面の**Achievements**ボタンとウィンドウが表示され、解除時にポップアップの通知が出ます。
-- オフ: ボタンは表示されず、ポップアップの通知も出ません。解除の記録だけは裏側で続きます。
+- オン: ホーム画面の**Achievements**のブックマークとウィンドウが使えるようになり、解除時にポップアップの通知が出ます。任意の**Achievements**ウィジェットは、ホームのレイアウトに追加した場合にだけ表示されます。
+- オフ: ブックマークとウィジェットは表示されず、ポップアップの通知も出ません。解除の記録だけは裏側で続きます。
 
 オフの間も記録は続くので、進み具合が失われることはありません。あとで設定をオンに戻せば、その間に獲得したものもそのまま残っています。
 
 ## 解除の仕組み
 
-Marinaraは、段階のある実績を現在の個数と照らし合わせます。この確認は、チャットの作成や画面下部のリンクのクリックなど、対象の操作をしたときに実行されます。**Achievements**パネルを開いたときにも実行されます。
+Marinaraは、段階のある実績を現在の個数と照らし合わせます。この確認は、チャットの作成やホームのブックマークのクリックなど、対象の操作をしたときに実行されます。**Achievements**パネルを開いたときにも実行されます。
 
 操作によって解除され、設定がオンになっている場合は、小さなポップアップの通知が表示されます。通知の見出しは**Achievement unlocked**で、**Hoarder II**や**One Of Us**のようにバッジの名前が入ります。
 

@@ -26,6 +26,7 @@ Marinaraで作ったものは、サーバーが動いているコンピュータ
 | --- | --- |
 | `avatars` | キャラクターとペルソナのアバター |
 | `sprites` | キャラクターのスプライト |
+| `avatar-models` | **2D Avatars**と**3D Avatars**エージェントのファイル。PNGTuberの画像や3Dモデルなど |
 | `backgrounds` | アップロードしたチャットの背景 |
 | `gallery` | ギャラリーの画像 |
 | `fonts` | 追加したカスタムフォント |

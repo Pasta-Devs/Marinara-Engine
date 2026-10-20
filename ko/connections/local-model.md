@@ -182,6 +182,8 @@ Game Mode에서는 장면 관련 작업도 Local Model로 넘길 수 있습니�
 
 녹음된 음성은 컴퓨터 밖으로 나가지 않습니다. 밖으로 전송되는 것은 받아쓴 텍스트뿐이며, 그것도 지정한 채팅 연결로만 갑니다. 통화에서 사용하려면 통화 오디오 입력 방식을 Local Whisper 옵션으로 설정하세요. [Conversation 음성 통화와 영상 통화](../conversation/calls.md) 문서를 참고하세요.
 
+Connections에서 **Speech to Text**(음성 인식) 카드를 켜면, 이 통화 방식은 Local Whisper 대신 그 카드에 입력한 서버로 음성을 보냅니다. [원하는 음성 인식 서버 사용하기](../conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
+
 ## 문제 해결
 
 **"Sidecar runtime install is disabled."** 런타임 설치와 재설치는 보호된 작업입니다. Windows 원클릭 설치본에서는 자동으로 켜집니다. macOS, Linux, Docker에서는 두 가지 방법이 있습니다. 서버의 `.env` 파일에 `SIDECAR_RUNTIME_INSTALL_ENABLED=true`를 설정하세요. 예를 들면 다음과 같습니다.

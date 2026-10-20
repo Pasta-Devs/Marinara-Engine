@@ -74,11 +74,11 @@ Se nenhum personagem salvou nota ainda, a seção explica que as notas envolvida
 
 ## Alternar entre chats conectados
 
-Quando um chat tem outro ligado a ele, aparece um botão móvel **Connected chat**, com uma seta dupla, inicialmente no canto superior direito. Você pode arrastá-lo no computador ou no celular. Clique ou toque nele para abrir uma pequena janela e escolha **Switch to** seguido do nome do outro chat.
+Quando um chat tem outro ligado a ele, um pequeno botão **Connected chat** (chat conectado), com um ícone de seta dupla, começa no canto superior direito no computador. Você pode arrastá-lo para outro lugar. No celular, encontre **Connected chat** no menu de três pontos **Chat tools** (ferramentas do chat). Abra o controle e escolha **Switch to** (alternar para) seguido do nome do outro chat.
 
-A ação leva direto ao chat conectado, sem precisar procurá-lo na lista. O botão aparece nos dois lados da ligação, em Conversation e em Roleplay.
+A ação leva direto ao chat conectado. O botão aparece nos dois lados da ligação.
 
-Se preferir mantê-lo dentro de Chat Settings, escolha **Put back in Chat Settings** na janela. Ele vira a seção **Connected chat**. O botão para destacar essa seção abre uma janela própria novamente.
+Você pode levar esse controle para dentro de Chat Settings com **Put back in Chat Settings** (devolver para as configurações do chat). Ele passa a aparecer na própria seção **Connected chat**; use o botão de destacar dessa seção para devolvê-lo a uma janela separada.
 
 ## Outros controles nesta seção
 

@@ -79,6 +79,22 @@ Narrative Directorが動くのはRoleplayモードだけです。自分から勝
 
 隠された筋書きは**Narrative Director**エージェントとともに保存されます。チャットのエージェント実行履歴と記憶を消しても、筋書きは消えません。消えるのは、チャットから**Narrative Director**エージェントを取り外したときだけです。取り外そうとすると、隠された筋書きが消去され、元に戻せないという警告が表示されます。
 
+### Secret Plotのプロンプト
+
+**Secret Plot Prompt**(Secret Plotのプロンプト)には、Narrative Directorが隠された筋書きを書いたり更新したりするときに従う指示が入っています。組み込みのプロンプトは、それぞれの筋書きを解き明かす謎として組み立てます。冒険や陰謀の物語には合いますが、キャラクターが動かす物語には合わないことがあります。
+
+独自の指示を使うには、次の手順に従います。
+
+1. **Agents**を開き、**Narrative Director**を編集します。
+2. **Secret Plot**セクションで、**Copy default to edit**(デフォルトをコピーして編集)をクリックします。
+3. 文章を変更し、エージェントを保存します。
+
+組み込みのプロンプトに戻すには、**Reset to default**(デフォルトに戻す)をクリックしてから、エージェントを保存します。
+
+プロンプトの末尾にあるJSONの返信形式は残してください。`description`、`protagonistArc`、任意の`characterArc`、`completed`を持つ`overarchingArc`オブジェクトです。これがないと、筋書きを読み取れません。
+
+このプロンプトはエージェントに保存されるため、そのNarrative Directorを使うすべてのチャットに適用されます。
+
 ## 関連ガイド
 
 - [ダウンロードできるエージェント一覧](../agents/built-in-agents.md)

@@ -2,7 +2,7 @@
 
 Marinara Engine은 채팅 메시지를 다른 언어로 번역할 수 있습니다. 이 가이드에서는 번역 제공자 4가지, 자동 번역 토글, 메시지마다 붙는 **Translate**(번역) 버튼, 그리고 제공자별 제한을 설명합니다.
 
-번역 설정은 채팅별로 따로 저장합니다. 채팅마다 제공자, 번역할 언어, 키를 각자 보관합니다. 한 채팅에서 입력한 설정은 다른 채팅으로 이어지지 않습니다.
+번역 설정은 채팅별로 따로 저장합니다. 채팅마다 제공자, 언어, 키를 각자 보관합니다. 새 채팅을 같은 설정으로 시작하려면 [번역기 기본값](#translator-defaults-for-new-chats)으로 저장하세요.
 
 ## 번역 설정 위치
 
@@ -25,9 +25,12 @@ Marinara Engine은 채팅 메시지를 다른 언어로 번역할 수 있습니�
 
 기본으로 선택되는 것은 **Google Translate**이고 따로 설정할 것이 없습니다. 아래 기능이 필요할 때만 다른 제공자로 바꾸세요.
 
-### Target Language
+### Model Language와 My Language
 
-**Target Language**(대상 언어) 입력란에는 번역해서 얻고 싶은 언어를 지정합니다. 기본값은 `en`(영어)입니다.
+언어는 두 입력란에서 정합니다. 둘 다 기본값은 `en`(영어)입니다.
+
+- **Model Language**(모델 언어): AI가 읽기 전에 내 메시지를 이 언어로 번역합니다. **Translate My Messages**와 **Translate draft**가 이 언어를 씁니다.
+- **My Language**(내 언어): AI 답변을 이 언어로 번역합니다. **Auto-Translate Responses**와 메시지마다 붙는 **Translate** 버튼이 이 언어를 씁니다.
 
 형식은 제공자에 따라 다릅니다.
 
@@ -64,27 +67,37 @@ DEEPLX_LOCAL_URLS_ENABLED=true
 
 ### AI 번역 설정
 
-**AI (via connection)**를 고르면 Marinara가 등록해 둔 AI 제공자 중 하나로 번역합니다. 입력란이 두 개 더 나타납니다.
+**AI (via connection)**를 고르면 Marinara가 등록해 둔 AI 제공자 중 하나로 번역합니다. 입력란이 세 개 더 나타납니다.
 
 **Connection**(연결) 드롭다운에서는 어떤 AI 연결로 번역할지 고릅니다. 이 입력란은 반드시 채워야 합니다. 비워 두면 번역이 실패하고 "Connection ID is required for AI translation" 메시지가 뜹니다. 연결은 AI 제공자에 접속하는 데 필요한 정보를 한데 저장해 둔 것입니다. 만드는 방법은 아래 연결 가이드를 참고하세요.
 
-**AI Prompt**(AI 프롬프트) 입력란은 번역할 때 AI에 보내는 지시 내용입니다. 처음에는 기본 프롬프트가 들어 있습니다. 이 채팅에 한해 내용을 고칠 수 있습니다. 한 번 고치면 **Restore**(복원) 버튼이 나타나고, 이 버튼을 누르면 기본 프롬프트로 되돌아갑니다. 기본 프롬프트는 다음과 같습니다.
+**Outgoing Message Prompt**(발신 메시지 프롬프트)와 **Incoming Response Prompt**(수신 응답 프롬프트) 입력란은 내 메시지와 AI 답변을 번역할 때 AI에 보내는 지시 내용입니다. 둘 다 처음에는 기본 프롬프트가 들어 있으며, 이 채팅에 한해 각각 고칠 수 있습니다. 프롬프트 안의 `{{targetLanguage}}`는 **Model Language** 또는 **My Language**로 바뀝니다. 프롬프트를 한 번 고치면 **Restore**(복원) 버튼이 나타나고, 이 버튼을 누르면 기본 프롬프트로 되돌아갑니다. 기본 프롬프트는 다음과 같습니다.
 
 ```
-You are a translator. Translate the given text accurately, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
+You are a translator. Translate the given text accurately into {{targetLanguage}}, preserving formatting, markdown, and any special characters like *asterisks* for actions. Output ONLY the translated text, nothing else -- no explanations, no extra commentary.
 ```
 
 ## 자동 번역 토글
 
-제공자 설정 아래에는 토글이 세 개 있습니다. 셋 다 기본은 꺼짐입니다.
+제공자 설정 아래에는 토글이 네 개 있습니다. 넷 다 기본은 꺼짐입니다.
 
 **Auto-Translate Responses**(응답 자동 번역) 토글을 켜면 AI 응답이 생성되자마자 자동으로 번역합니다. Game Mode에서는 Marinara가 게임 마스터(GM)만 보는 태그를 서술에서 걷어낸 뒤 번역합니다.
 
-**Translate My Messages**(내 메시지 번역) 토글을 켜면 직접 쓴 메시지를 AI로 보내기 직전에 지정한 언어로 번역합니다. 번역문이 입력한 글을 대신합니다. 번역에 실패하면 Marinara가 원래 쓴 글을 그대로 보내고 오류 메시지를 띄웁니다.
+**Translate My Messages**(내 메시지 번역) 토글을 켜면 직접 쓴 메시지를 AI로 보내기 직전에 **Model Language**로 번역합니다. 번역문이 입력한 글을 대신합니다. 번역에 실패하면 Marinara가 원래 쓴 글을 그대로 보내고 오류 메시지를 띄웁니다.
 
 **Show Draft Translate Button**(초안 번역 버튼 표시) 토글을 켜면 **Send**(전송) 버튼 옆에 **Translate draft**(초안 번역) 버튼이 생깁니다. 이 버튼으로 메시지를 먼저 번역해 보고, 보내기 전에 결과를 확인하거나 고칠 수 있습니다. 보낼 때 곧바로 번역해서 확인할 틈이 없는 **Translate My Messages** 대신 손으로 처리하는 방식입니다.
 
+**Show Only Translation**(번역문만 표시)을 켜면 번역된 메시지에서 원문과 번역문을 함께 보여 주는 대신 번역문만 그 자리에 보여 줍니다.
+
 **Conversation**에서는 데스크톱과 모바일 모두 메시지 입력창의 웃는 얼굴 버튼 → **Tools → Translate draft**(도구 → 초안 번역)에서 아직 보내지 않은 초안을 언제든 번역할 수 있습니다. **Show Draft Translate Button**이나 자동 번역을 켤 필요는 없습니다. 이 작업은 해당 채팅의 입력 번역 설정을 사용해 초안을 번역문으로 바꾸므로 보내기 전에 검토할 수 있습니다. 메시지를 전송하지 않으며, 번역에 실패하면 초안은 그대로 유지됩니다.
+
+<a id="translator-defaults-for-new-chats"></a>
+
+## 새 채팅용 번역기 기본값
+
+토글 아래의 **Save translator defaults**(번역기 기본값 저장)는 이 채팅의 번역 설정을 모든 모드의 새 채팅에 쓰도록 저장합니다. 설정 마법사와 설정 프로필의 설정이 먼저 적용됩니다. 기존 채팅은 자체 설정을 유지합니다. **Forget saved defaults**(저장된 기본값 삭제)는 저장한 기본값을 지웁니다. [Noodle](../noodle/settings.md#translation)도 같은 기본값을 씁니다.
+
+DeepL API 키와 DeepLX URL은 이 Marinara 설치에만 남습니다. 채팅 내보내기, 내보낸 설정 프로필, **Export Profile**(프로필 내보내기) 파일에는 들어가지 않으며, 이런 파일을 가져와도 설정되지 않습니다. 채팅을 다른 설치로 옮긴 뒤에는 다시 입력하세요.
 
 ## 메시지마다 붙는 Translate 버튼
 
@@ -92,12 +105,12 @@ You are a translator. Translate the given text accurately, preserving formatting
 
 1. 메시지 위로 포인터를 옮겨 동작 막대를 띄우세요.
 2. **Translate** 버튼을 클릭하세요.
-3. 번역문이 메시지 아래에 나타납니다.
+3. 번역문이 메시지 아래에 나타납니다. **Show Only Translation**을 켜 두었다면 메시지 자리에 나타납니다.
 4. 같은 버튼을 한 번 더 클릭하면 번역문이 숨겨집니다. 이때 버튼의 설명 문구는 **Hide translation**(번역 숨기기)으로 바뀝니다.
 
 이렇게 만든 번역문은 메시지와 함께 저장됩니다. 페이지를 새로 고쳐도 남고, 다른 채팅에 갔다가 돌아와도 그대로 있습니다.
 
-메시지마다 붙는 버튼도 **Translation** 섹션에서 지정한 제공자와 언어를 그대로 씁니다.
+메시지마다 붙는 버튼도 **Translation** 섹션에서 지정한 제공자와 **My Language**를 그대로 씁니다.
 
 ## 제공자별 제한
 

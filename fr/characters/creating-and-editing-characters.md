@@ -55,7 +55,7 @@ L'onglet **Metadata** rassemble les informations d'identité et de classement. E
 - **Creator**. La personne qui a créé la fiche, pour la créditer lors du partage.
 - **Version**. Un numéro de version que tu choisis, par exemple `1.0`.
 - **Talkativeness**. Un curseur de 0 à 100 pour cent. Il règle la fréquence à laquelle ce personnage prend la parole dans les chats de groupe. La valeur par défaut est 50 pour cent.
-- **Tags**. Saisis un ou plusieurs tags dans le champ d'ajout, puis appuie sur Enter ou clique sur **Add**. Tu peux en ajouter plusieurs d'un coup en les séparant par des virgules. Retire un tag avec son X, ou efface-les tous avec **Remove All**.
+- **Tags**. Saisis un ou plusieurs tags dans le champ d'ajout, puis appuie sur Enter ou clique sur **Add**. Tu peux en ajouter plusieurs d'un coup en les séparant par des virgules. Le champ propose aussi les tags que ta bibliothèque utilise déjà, les plus utilisés en premier, avec le nombre de personnages qui portent chacun d'eux. La saisie réduit la liste. Clique sur une suggestion, ou choisis-la avec les flèches du clavier et Enter. Retire un tag avec son X, ou efface-les tous avec **Remove All**.
 - **Creator Notes**. Des notes privées qui ne sont jamais envoyées à l'IA. Elles apparaissent quand même en résumé dans ta bibliothèque.
 
 Le panneau **Version history** (historique des versions) se trouve lui aussi sur cet onglet. Il est décrit plus bas, dans la section sur l'enregistrement et l'historique des versions.
@@ -68,7 +68,7 @@ L'onglet **Card** est l'espace de rédaction principal. Il contient les champs q
 - **Personality**. Un court résumé du tempérament, des habitudes de langage et des comportements types.
 - **Backstory**. Le passé, les origines et les relations importantes.
 - **Appearance**. La description physique, les vêtements et les détails visuels. Marinara se sert aussi de ce texte pour préremplir un prompt d'avatar IA.
-- **Image Appearance Override** (apparence propre aux images). Un interrupteur facultatif sous **Appearance**, désactivé par défaut. Active-le pour afficher un second champ où tu peux décrire le personnage avec un texte adapté à la génération d'images. S'il est activé et que le champ contient du texte, les prompts d'image utilisent ce texte à la place d'**Appearance** ; il sert aussi à préremplir le prompt d'avatar IA. Le narrateur reçoit toujours le texte complet d'**Appearance**. Si l'interrupteur est désactivé ou le champ vide, **Appearance** reste utilisé comme avant.
+- **Image Appearance Override** (apparence propre aux images). Un interrupteur facultatif sous **Appearance**, désactivé par défaut. Active-le pour afficher un second champ où tu peux décrire le personnage avec de courts tags d'image, comme le mot déclencheur d'un LoRA. S'il est activé et que le champ contient du texte, les prompts d'image utilisent ces tags tels quels, **Appearance** servant de contexte ; le champ sert aussi à préremplir le prompt d'avatar IA. Le narrateur reçoit toujours le texte complet d'**Appearance**. Si l'interrupteur est désactivé ou le champ vide, **Appearance** reste utilisé comme avant.
 - **Scenario**. Le cadre par défaut des nouveaux chats avec ce personnage.
 
 La section **Dialogue & Greetings** définit l'ouverture du chat et le ton du personnage :

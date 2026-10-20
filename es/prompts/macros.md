@@ -271,6 +271,8 @@ Cada campo con macros habilitadas tiene dos botones pequeños en su esquina:
 - **Expand editor** (Ampliar editor) abre una ventana de edición más grande para ese campo.
 - **Macro reference** (Referencia de macros) abre una ventana titulada **Macro reference** que lista todas las macros integradas por categoría, cada una con su sintaxis exacta. Esta lista se genera desde la misma fuente que usa el motor, así que siempre es precisa.
 
+Estos campos también completan los nombres de las macros por ti. Escribe `{{ch` al final de una línea y el resto, `ar}}`, aparece en texto tenue. Pulsa Tab, o toca el texto tenue, para aceptarlo. Sigue escribiendo para ignorarlo. Para una macro que recibe un valor, como `{{getvar::`, se detiene donde escribes el valor.
+
 También puedes escribir `/macros` en el cuadro de chat (la forma corta `/macro` también funciona). Imprime la lista completa de macros directamente en el chat como recordatorio rápido.
 
 Los bloques condicionales pueden combinar comparaciones con `||` (OR), `&&` (AND) y paréntesis. Las listas de igualdad pueden usar la forma compacta `{{#if character == "Maukie" || "Pantalone"}}`. Consulta [Prompts condicionales](conditional-prompts.md) para la precedencia, ejemplos de chat grupal y la lista completa de operadores.
