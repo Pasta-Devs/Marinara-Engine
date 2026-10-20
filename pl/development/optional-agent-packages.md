@@ -961,3 +961,66 @@ Pakiety serwerowe mogą używać `api.runtime.integrations` do bieżących usłu
 - `speech.transcribe(audio, { filename, mimeType, signal })` wysyła nagrany dźwięk do serwera zamiany mowy na tekst ustawionego przez użytkownika w **Connections → Speech to Text** i zwraca transkrypcję albo `null`, gdy ten serwer jest wyłączony – wtedy pakiet korzysta dalej z własnej transkrypcji. Stosuje politykę adresów URL hosta (`STT_LOCAL_URLS_ENABLED`) oraz limity rozmiaru i czasu, a zapisanego klucza nigdy nie ujawnia. `speech` jest opcjonalne i nie wymaga nowszego API możliwości: sprawdź `typeof api.runtime.integrations?.speech?.transcribe === "function"`, a w starszym Engine użyj rozwiązania zastępczego.
 
 Typy żądań/wyników eksportuje `@marinara-engine/shared`. Budowanie promptów i orkiestrację pakietu zachowaj w nim; dla operacji dostawcy używaj tych punktów hosta zamiast kopiować usługi Engine. Czyste funkcje pomocnicze i typy nadal można dołączać do pakietu.
+
+### Capability API 1.341: usługi uruchomieniowe hosta i współdzielone biblioteki serwera
+
+Serwer pakietu, który dołącza własną kopię usługi silnika, uruchamia jej drugą instancję z osobnym stanem:
+własnym połączeniem Intiface, własnym dopuszczaniem żądań do połączeń, własną kolejką metadanych czatu i własnym rejestrem usług.
+Capability API 1.341 dodaje elementy `api.runtime`, które sięgają do działających instancji silnika, oraz pozwala
+serwerom pakietów korzystać z kilku bibliotek silnika zamiast dołączać ich kopie. Każdy nowy element w
+`CapabilityRuntimeHost` jest opcjonalny, więc przed użyciem sprawdź, czy istnieje.
+
+- `runtime.services.get(key)` zwraca usługę zarejestrowaną przez pakiet za pomocą `api.registerService` albo `null`,
+  gdy jej nie ma lub trwa generowanie we współdzielonym pokoju. Czyta rejestr silnika, więc każdy pakiet widzi tę samą usługę.
+  Klucze `agent-runtime:` i `mari-actions:` zawsze zwracają `null`; odczytuje je tylko silnik.
+- `runtime.commands.parse(content)`, `strip(content)` i `instructions()` odczytują komendy rozmowy zgodnie ze
+  składnią silnika i zarejestrowanymi znacznikami wszystkich pakietów.
+- `runtime.logger.isLevelEnabled(level)` informuje, czy logger silnika zapisuje obecnie dany poziom.
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })` to kolejkowana aktualizacja metadanych
+  silnika: jedna kolejka na czat, wspólna z zapisami silnika, ochroną współdzielonego pokoju i numerami porządkowymi zapisów.
+  Klucze z aktualizacji zastępują te klucze, a pozostałe pozostają bez zmian. `patch` może być funkcją bieżących metadanych.
+  Wewnątrz `withChatLock` dla tego samego czatu wykonuje się w ramach tej blokady. Tak jak `updateChatMetadata`,
+  odrzuca nowe odwołanie do obrazu z Global Gallery, który już nie istnieje.
+- `runtime.persistence.appendMessages(chatId, messages)` dodaje wiadomości, każdą z pierwszym swipe'em, w jednej
+  partii i je zwraca. `createChatNote` i `createChatInfluence` dodają notatkę lub jednorazowy wpływ z rozmowy do
+  powiązanego z nią czatu w trybie Roleplay. Te cztery elementy zapisu wymagają `chat-write`.
+- `runtime.integrations.admission` to dopuszczanie żądań do połączeń przez silnik, więc zadania pakietu w tle czekają
+  na własne żądania użytkownika w tym samym połączeniu. `withProvider(provider, connectionId, mode)` opakowuje dostawcę
+  utworzonego przez integracje tego samego pakietu, `run(connectionId, mode, operation)` wykonuje jedną próbę,
+  `tryBackground(connectionId)` zajmuje miejsce dla zadania w tle, gdy połączenie jest bezczynne, a `isFailure(error)`
+  rozpoznaje błędy zajętości i odrzucenia przez silnik. Nie wymaga uprawnienia, bo tylko rezerwuje miejsca.
+- `runtime.integrations.haptics` (`status`, `connect`, `executeCommand`) korzysta z jednego połączenia silnika z
+  Intiface Central. Wymaga `network`.
+- `runtime.integrations.spotify` (`commandsAvailable`, `playSong`) korzysta z konta Spotify agenta Music DJ.
+  `playSong` odrzuca wywołanie z `ConversationSpotifyCommandError`; kody `spotify_unavailable` i
+  `missing_playback_scope` oznaczają, że Spotify nie jest skonfigurowane, więc pomiń komendę bez komunikatu. Wymaga `network`.
+- `runtime.integrations.speech.transcribeLocal(wav)` transkrybuje nagranie PCM WAV za pomocą modelu Local Whisper
+  pobranego w **Connections** i odrzuca wywołanie z komunikatem silnika, jeśli model nie jest pobrany. Wymaga `network`.
+- `runtime.integrations.images.addToChatGallery(input)` umieszcza obraz zapisany przez `images.save` w galerii czatu,
+  a `images.persistToEntityGalleries(input)` umieszcza go w galeriach przedstawionych na nim postaci i person,
+  tak jak obrazy wygenerowane przez silnik. Oba wymagają `storage`.
+
+**Nigdy kopia dołączona do pakietu.** Gdy brakuje któregoś z tych elementów, pakiet zgłasza, że funkcja wymaga nowszej
+aplikacji Marinara Engine. Nigdy nie sięga zastępczo po dołączoną do pakietu kopię stanowej usługi silnika, takiej jak
+rejestr dostawców, lokalny sidecar, dopuszczanie żądań do połączeń, haptyka, Spotify, logger, rejestr czy kolejka zapisu,
+bo druga kopia rozdziela stan, który silnik utrzymuje w jednym miejscu. Czyste funkcje pomocnicze i typy nadal można dołączać do pakietu.
+
+**Współdzielone biblioteki serwera.** Serwer pakietu może nie dołączać `zod`, `adm-zip`, `dotenv`, `nanoid` i
+`jsonrepair`, a zamiast tego importować je po nazwie, tak jak już może robić z `@huggingface/transformers`,
+`onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty` i `undici`. Node odnajduje je z uruchomieniowej
+kopii pakietu przez dwa dowiązania: z `<runtime copy>/node_modules` do `DATA_DIR/capability-packages/node_modules`,
+a stamtąd do `packages/server/node_modules` silnika. Pakiet otrzymuje więc dokładnie tę samą instancję modułu co silnik.
+pnpm trzyma tam tylko bezpośrednie zależności serwera, więc rozpoznawane są tylko te nazwy; zależność zależności,
+na przykład `ws`, nie jest dostępna. Silnik zachowuje wymienione nazwy jako bezpośrednie zależności produkcyjne
+`packages/server`, a każda instalacja zachowuje ten układ: instalacja ze źródeł i przez program uruchamiający,
+system Windows (gdzie dowiązanie danych jest połączeniem katalogów), Android i Termux oraz oba obrazy Docker.
+Przy uruchamianiu lub aktywacji pakietu silnik odbudowuje dowiązanie danych prowadzące gdzie indziej, w tym zerwane
+dowiązanie pozostałe po przeniesieniu folderu danych z innej ścieżki instalacji. Elementy, które nie są dowiązaniami,
+pozostają nietknięte.
+
+**Deklarowanie.** Pakiet korzystający z któregokolwiek z tych elementów deklaruje `schemaVersion: 2`,
+`capabilityApi: { major: 1, minor: 341 }` i `builtAgainst` oraz zachowuje swój zakres `engine`. Manifest
+`schemaVersion: 1` nigdy nie jest sprawdzany względem API możliwości, więc przechodzi na wersję 2. Bramką jest API
+możliwości, a nie wersja aplikacji Engine: silnik bez tych elementów odmawia instalacji lub aktualizacji
+("Package requires capability API 1.341; this Engine supports ..."), pomija pakiet na liście aktualizacji i pozostawia
+zainstalowaną wersję działającą.

@@ -967,3 +967,24 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 - `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections → Speech to Text**(接続 → 音声認識)で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
 
 共有の要求・結果型は`@marinara-engine/shared`からエクスポートされます。パッケージ固有のプロンプト構築と処理の調整はパッケージに置き、プロバイダーI/OにはEngineのサービス実装をコピーせず、これらのホスト入口を呼んでください。純粋なヘルパーや型は引き続きバンドルできます。
+
+### Capability API 1.341: ホストのランタイムサービスと共有サーバーライブラリー
+
+パッケージのサーバーがEngineサービスのコピーをバンドルすると、そのサービスの2つ目のインスタンスが動き、それぞれが独自の状態を持ちます。Intiface接続、接続の受付制御、チャットメタデータのキュー、サービスレジストリーが、それぞれ別になります。Capability API 1.341は、代わりにEngineで動いているインスタンスにアクセスする`api.runtime`のメンバーを追加し、パッケージのサーバーがいくつかのライブラリーをバンドルせずにEngineから使えるようにします。新しいメンバーはすべて`CapabilityRuntimeHost`では任意なので、使う前に存在を確認してください。
+
+- `runtime.services.get(key)`は、パッケージが`api.registerService`で登録したサービスを返します。サービスが存在しない場合や共有ルームでの生成中は`null`を返します。Engine自身のレジストリーを読むので、すべてのパッケージから同じサービスが見えます。`agent-runtime:`と`mari-actions:`のキーは常に`null`を返します。これらを読むのはEngineだけです。
+- `runtime.commands.parse(content)`、`strip(content)`、`instructions()`は、Engineの文法とすべてのパッケージが登録したタグを使ってConversationのコマンドを読み取ります。
+- `runtime.logger.isLevelEnabled(level)`は、Engineのロガーが現在そのレベルのログを書き込むかどうかを返します。
+- `runtime.persistence.patchChatMetadata(chatId, patch, { touchUpdatedAt })`は、Engineのキューを使うメタデータのパッチです。キューはチャットごとに1つで、Engine自身の書き込み処理と共有し、共有ルームのガードと書き込み順序番号を使います。パッチに含まれるキーはそのキーを置き換え、ほかのキーはすべて残ります。`patch`には、現在のメタデータを引数に取る関数も渡せます。同じチャットの`withChatLock`内では、そのロック内で実行します。`updateChatMetadata`と同様に、すでに存在しないGlobal Galleryの画像への新しい参照は拒否します。
+- `runtime.persistence.appendMessages(chatId, messages)`は、各メッセージを最初のスワイプとともに一括で追加し、追加したメッセージを返します。`createChatNote`と`createChatInfluence`は、Conversationから接続先のRoleplayへ、ノートまたは1回限りの影響を追加します。この4つの永続化メンバーには`chat-write`が必要です。
+- `runtime.integrations.admission`はEngineの接続の受付制御なので、パッケージのバックグラウンド処理は、同じ接続でのユーザー自身の要求を待ちます。`withProvider(provider, connectionId, mode)`は、同じパッケージの統合機能で作ったプロバイダーを包みます。`run(connectionId, mode, operation)`は1回の試行を実行し、`tryBackground(connectionId)`は接続が使われていないときにバックグラウンド枠を取得します。`isFailure(error)`はEngineのビジー状態や拒否のエラーを識別します。枠を予約するだけなので、権限は必要ありません。
+- `runtime.integrations.haptics`(`status`、`connect`、`executeCommand`)は、Engineの1つのIntiface Central接続を使います。`network`が必要です。
+- `runtime.integrations.spotify`(`commandsAvailable`、`playSong`)はMusic DJエージェントのSpotifyアカウントを使います。`playSong`は`ConversationSpotifyCommandError`で拒否します。コード`spotify_unavailable`と`missing_playback_scope`はSpotifyが設定されていないことを示すので、何も表示せずにそのコマンドを破棄してください。`network`が必要です。
+- `runtime.integrations.speech.transcribeLocal(wav)`は、**Connections**(接続)でダウンロードしたLocal Whisperモデルを使ってPCM WAV録音を文字起こしします。モデルがダウンロードされていない場合は、Engineのメッセージで拒否します。`network`が必要です。
+- `runtime.integrations.images.addToChatGallery(input)`は、`images.save`で保存した画像をチャットのギャラリーに載せます。`images.persistToEntityGalleries(input)`は、Engineが生成した画像と同じように、画像に登場するキャラクターとペルソナのギャラリーに載せます。どちらも`storage`が必要です。
+
+**バンドルしたコピーは使いません。** これらのメンバーがない場合、パッケージはその機能に新しいMarinara Engineが必要だと報告します。プロバイダーレジストリー、ローカルサイドカー、接続の受付制御、ハプティクス、Spotify、ロガー、レジストリー、ストレージのキューなど、状態を持つEngineサービスのバンドル済みコピーには決してフォールバックしません。2つ目のコピーがあると、Engineが1か所で管理する状態が分かれてしまうからです。純粋なヘルパーや型は引き続きバンドルできます。
+
+**共有サーバーライブラリー。** パッケージのサーバーは、`zod`、`adm-zip`、`dotenv`、`nanoid`、`jsonrepair`をバンドルから外し、名前でインポートできます。これは、すでに利用できる`@huggingface/transformers`、`onnxruntime-node`、`onnxruntime-web`、`sharp`、`pino`、`pino-pretty`、`undici`と同じです。Nodeは、パッケージのランタイムコピーから、`<runtime copy>/node_modules`、`DATA_DIR/capability-packages/node_modules`、Engineの`packages/server/node_modules`へつながる2つのリンクを通じて解決するので、パッケージはEngineとまったく同じモジュールインスタンスを使います。pnpmがそこに置くのはサーバーの直接の依存関係だけなので、解決できるのはそれらの名前だけです。`ws`のような依存先の依存関係は解決できません。Engineは上記の名前を`packages/server`の直接の本番依存関係として保持し、どのインストールでもこの配置を維持します。ソースとランチャーからのインストール、Windows(データ側のリンクはジャンクション)、AndroidとTermux、両方のDockerイメージが対象です。起動時やパッケージの有効化時に、Engineは別の場所を指すデータ側のリンクを作り直します。別のインストール先からデータフォルダーを移動してリンク先がなくなった場合も含みます。リンクでないものはそのまま残します。
+
+**宣言。** これらを使うパッケージは、`schemaVersion: 2`、`capabilityApi: { major: 1, minor: 341 }`、`builtAgainst`を宣言し、`engine`の範囲は維持します。`schemaVersion: 1`のマニフェストは機能APIに対して検査されないので、バージョン2に変更してください。判定の基準はEngineのバージョンではなく機能APIです。これらのメンバーがないEngineはインストールやアップデートを拒否し(「Package requires capability API 1.341; this Engine supports ...」)、そのパッケージをアップデートの一覧から外し、インストール済みバージョンの実行を続けます。

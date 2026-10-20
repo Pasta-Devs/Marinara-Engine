@@ -140,6 +140,8 @@ Les avatars réagissent tout seuls ; cette partie ne demande aucune configuratio
 
 Quand la synthèse vocale lit la réponse à voix haute, les visages suivent plutôt la voix ; voir **Quand la réponse est lue à voix haute** plus bas.
 
+Avec le streaming désactivé, chaque phrase garde sa propre humeur. Les visages changent dans l'ordre pendant le temps de parole de la réponse, au lieu de ramener toute la réponse à une seule humeur moyenne.
+
 Un avatar PNGTuber qui a des visages pour [plus d'émotions](#pngtuber-sprites) peut aussi afficher l'émotion plus précise qu'exprime une phrase, comme Amusement pour une phrase joyeuse. Ce visage suit les mêmes règles : il faut une lecture nette, et il reste au moins deux secondes ; une émotion sans visage propre affiche le visage de son émotion principale. Les choix de l'Expression Engine et du GM fonctionnent de la même façon : quand l'avatar n'a pas de visage portant le nom choisi, comme `scared`, il affiche le visage de cette émotion, ici Fear. Les avatars 3D et mesh n'affichent que les six émotions.
 
 **Comment l'humeur est lue.** Ta connexion de chat n'est pas sollicitée. Le texte de ton chat reste sur ta propre installation de Marinara Engine et n'est jamais envoyé à un service extérieur.
@@ -147,7 +149,7 @@ Un avatar PNGTuber qui a des visages pour [plus d'émotions](#pngtuber-sprites) 
 - Une liste de mots intégrée répond tout de suite, partout, et connaît les mots d'humeur courants dans plusieurs langues.
 - Sur les ordinateurs capables de le faire tourner, Marinara Engine lit plutôt les phrases avec un petit modèle d'émotions, le lecteur d'humeur (Mood reader). Il comprend 36 langues. Il se télécharge une seule fois, environ 300 Mo, la première fois que tu ouvres un chat Roleplay où 2D Avatars ou 3D Avatars est activé. Il ne se télécharge pas tant que les deux agents sont désactivés. La page de chaque agent d'avatar, dans **Agents**, affiche la progression du téléchargement, et un téléchargement qui échoue réessaie de lui-même environ 10 minutes plus tard. La liste de mots répond jusqu'à ce que le lecteur d'humeur soit prêt, et une fois téléchargé, il fonctionne hors ligne. Il utilise environ 1 Go de mémoire quand il sert, et se décharge après 10 minutes d'inactivité. Les installations Lite, Android et les ordinateurs de moins de 3 Go de mémoire gardent la liste de mots.
 
-**Les visages en Game Mode.** Chaque réplique affichée par le GM arrive avec une expression, et l'avatar du personnage qui parle la prend. Les pensées intérieures d'un personnage changent son visage, mais pas sa bouche.
+**Les visages en Game Mode.** Chaque réplique affichée par le GM arrive avec une expression, et l'avatar du personnage qui parle la prend. Le GM choisit le visage même quand une voix lit la réplique. Les pensées intérieures d'un personnage changent son visage, mais pas sa bouche.
 
 **L'Expression Engine.** Quand il est activé dans le chat, son choix après la réponse est le visage final de cette réponse. Un choix qui arrive après l'envoi de ton message suivant reste attaché à la réponse qu'il concernait. Quand la synthèse vocale lit la réponse à voix haute, ce choix s'affiche quand la voix se termine. Les avatars fonctionnent aussi sans lui.
 
@@ -176,9 +178,9 @@ Quand la synthèse vocale lit une réponse Roleplay, l'avatar du personnage qui 
 - **Visages :** le visage change à mesure que la voix arrive à chaque phrase, avec **Auto-play** et avec le bouton **Speak**, sauf si l'Expression Engine a déjà choisi le visage de cette réponse.
 - **Volume :** le curseur **Line volume** (volume de la réplique) change le volume de la voix, pas l'ouverture de la bouche.
 - **Personas :** la bouche d'un persona ne bouge pas pour tes propres messages, avec ou sans synthèse vocale.
-- **Game Mode :** la narration de Game passe par l'audio propre au Game Mode ; en Game Mode, la bouche des avatars suit donc le texte pour l'instant.
+- **Game Mode :** avec la synthèse vocale et **Auto-play** activés, la bouche des avatars attend la voix de leur personnage et la suit. La mettre en pause, l'arrêter ou changer de chat arrête la bouche. Les répliques sans voix gardent leur animation à partir du texte, et, si une voix échoue ou ne démarre jamais, la bouche suit une fois le texte. Les voix du narrateur et du joueur ne font bouger la bouche d'aucun personnage ; les pensées intérieures ne sont pas lues à voix haute.
 
-La synchronisation labiale ne change pas la façon dont la voix est jouée. Marinara Engine lit une copie séparée de chaque clip vocal pour caler la bouche : la lecture fonctionne comme avant, y compris dans Safari et sur iPhone et iPad. Si ton navigateur ne peut pas lire un clip, la voix est quand même jouée, et seule la bouche cesse de la suivre.
+La synchronisation labiale ne change pas la façon dont la voix est jouée. Marinara Engine lit une copie séparée de chaque clip vocal pour caler la bouche : la lecture fonctionne comme avant, y compris dans Safari et sur iPhone et iPad. Il prépare la synchronisation de la bouche à mesure que les clips arrivent, tant qu'un avatar est présent. Si le premier clip commence avant que cette synchronisation soit prête, son texte fait bouger la bouche jusqu'à ce que la synchronisation avec la voix prenne le relais. Si ton navigateur ne peut pas lire un clip, la voix est quand même jouée, et seule la bouche cesse de la suivre.
 
 <a id="making-an-avatar-from-a-sprite"></a>
 
@@ -219,7 +221,7 @@ Certaines connexions ne savent pas modifier les images, comme Pollinations, Toge
 3. Sélectionne **Make mesh avatar** (créer l'avatar mesh). Le modèle de chat repère le visage, et Marinara Engine construit l'avatar à partir de ton sprite tel quel. **Cancel** l'arrête.
 4. Vérifie l'aperçu : les contours doivent tomber sur les yeux, les sourcils et la bouche. Sélectionne **Save as mesh avatar** (enregistrer comme avatar mesh), ou **Discard** et essaie un autre sprite ou un autre modèle.
 
-Un avatar mesh généré bouge la tête, les yeux, les sourcils et la bouche, et cligne des yeux et parle avec ses propres paupières et sa propre bouche. Ses cheveux suivent la tête ; les mains, les mèches isolées et les accessoires qui pendent ne sont pas animés. Quand le visage occupe la plus grande partie d'un grand sprite, l'avatar est construit à partir d'une copie plus petite, pour que la création reste rapide.
+Un avatar mesh généré bouge la tête, les yeux, les sourcils et la bouche, et cligne des yeux et parle avec ses propres paupières et sa propre bouche. Ses cheveux suivent la tête ; les mains, les mèches isolées et les accessoires qui pendent ne sont pas animés. Pour les petits sprites, une copie agrandie sert à construire l'avatar, afin que la bouche corresponde au visage. Quand le visage occupe la plus grande partie d'un grand sprite, l'avatar est construit à partir d'une copie plus petite, pour que la création reste rapide.
 
 Ton sprite est envoyé à la connexion d'image pour les images de clignement et de parole (et à la connexion d'image de secours de cette connexion si elle échoue, si une connexion de secours est définie et si elle accepte une image de référence), et à la connexion de chat pour un avatar mesh. Une connexion qui ne sait pas modifier les images ne reçoit que le prompt, qui contient l'apparence. Les prompts sont fournis avec l'agent 2D Avatars. Avec **Expose media prompts before sending** activé, tu peux lire et modifier le prompt de chaque image avant son envoi. Avec le mode débogage activé, chaque prompt est écrit dans le log du serveur.
 
