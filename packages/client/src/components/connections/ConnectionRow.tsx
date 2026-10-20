@@ -174,6 +174,7 @@ export function ModelRow({
   subtitle,
   kind,
   roles = [],
+  roleSlots = 2,
   status,
   customized = false,
   cost,
@@ -201,6 +202,8 @@ export function ModelRow({
     kind?: ModelKind | null;
     /** Localized role labels; the first shows, the rest fold into "+N". */
     roles?: readonly string[];
+    /** How many role names show before the rest fold into "+N". */
+    roleSlots?: 1 | 2;
     /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
     status?: { label: string; state?: string } | null;
     customized?: boolean;
@@ -226,7 +229,7 @@ export function ModelRow({
   const copyId = useId();
   const pill = kind && kind !== "chat" ? KIND_PILL[kind] : null;
   // Two role names fit; only a third or more folds into "+N" (a tooltip alone would hide them on touch).
-  const rest = roles.slice(2);
+  const rest = roles.slice(roleSlots);
   const id = subtitle && subtitle.trim().toLowerCase() !== title.trim().toLowerCase() ? subtitle : null;
   return (
     <div
@@ -326,7 +329,7 @@ export function ModelRow({
           roles.length > 0 && (
             <span data-connection-role className="flex shrink-0 items-center gap-1" title={roles.join(", ")}>
               <span className="mari-connection-pill mari-connection-pill--strong">{roles[0]}</span>
-              {roles[1] && <span className="mari-connection-pill">{roles[1]}</span>}
+              {roleSlots > 1 && roles[1] && <span className="mari-connection-pill">{roles[1]}</span>}
               {rest.length > 0 && (
                 <span className="mari-connection-pill">
                   <span aria-hidden>+{rest.length}</span>

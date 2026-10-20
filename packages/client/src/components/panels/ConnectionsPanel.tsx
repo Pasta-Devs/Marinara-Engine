@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsDownUp,
@@ -58,10 +59,17 @@ import {
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
 import { groupModelsByAccount } from "../../lib/connection-groups";
-import { ConnectionRow, isMediaRow, mediaService, type ConnectionRowData } from "../connections/ConnectionRow";
+import {
+  ConnectionRow,
+  ModelRow,
+  ROW_BUTTON,
+  isMediaRow,
+  mediaService,
+  type ConnectionRowData,
+} from "../connections/ConnectionRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
-import { DeviceDetail, SMALL_ACTION, StateWord, useDeviceEngines } from "../connections/DeviceDetail";
+import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { openAddConnection } from "../../lib/add-connection";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
@@ -73,6 +81,9 @@ import { StarText } from "../connections/StarText";
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
+/** The fold id the On this device card keeps among the folded Connections. */
+const DEVICE_FOLD_ID = "device";
+
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
@@ -232,6 +243,7 @@ export function ConnectionsPanel() {
     [connections, hiddenIds],
   );
   const engines = useDeviceEngines();
+  const localModelUsedBy = useLocalModelUsedBy();
   // ponytail: "had connections before" = a Connection created well after one of its Models, which only the upgrade
   // grouping does (a Model saved without a Connection is linked in the same moment). A Model moved into a much
   // newer Connection also counts; a server flag if that ever matters.
@@ -522,38 +534,92 @@ export function ConnectionsPanel() {
   const defaultsBox = connectionsList.length > 0 && (
     <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
   );
+  // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
+  const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
+  const deviceTitle = t("connections.accounts.section.device");
+  const [onlyEngine] = visible.engines;
   const deviceGroup = visible.engines.length > 0 && (
-    <PanelSection title={t("connections.accounts.section.device")} icon={<HardDrive size="0.75rem" />}>
-      <div className={cn(GROUP_SURFACE, "flex flex-col gap-0.5 p-1")}>
-        {visible.engines.map((engine) => {
-          const key = `device:${engine.item}`;
-          return (
-            <ListRow
-              key={key}
-              rowKey={key}
-              selected={wide && current === key}
-              tile={<ProviderIcon provider={engine.item} />}
-              title={engine.name}
-              label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
-              sub={
-                <>
-                  <StateWord tone={engine.tone} label={engine.state} />
-                  {engine.detail && <span>· {engine.detail}</span>}
-                </>
-              }
-              fix={
-                engine.fix && {
-                  label: engine.fix.label,
-                  aria: t("connections.list.fixFor", { action: engine.fix.label, name: engine.name }),
-                  run: engine.fix.run,
-                }
-              }
-              onOpen={() => select(key)}
-            />
-          );
-        })}
+    <div
+      role="group"
+      aria-label={deviceTitle}
+      data-connection-device-card
+      className="mari-connection-group flex min-w-0 flex-col"
+    >
+      <div className="mari-connection-card-head flex min-w-0 items-center rounded-lg">
+        <button
+          type="button"
+          onClick={() => toggleConnectionCollapsed(DEVICE_FOLD_ID)}
+          aria-expanded={deviceOpen}
+          aria-controls="connection-device-engines"
+          className={cn("flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pe-1 text-left", FOCUS)}
+        >
+          <span aria-hidden className="mari-provider-icon flex shrink-0 items-center justify-center">
+            <HardDrive size="1.125rem" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <strong className="line-clamp-2 min-w-0 break-words text-[0.9375rem] font-semibold leading-5 text-[var(--foreground)]">
+              {deviceTitle}
+            </strong>
+            <span className="mt-0.5 block min-w-0 truncate text-xs text-[var(--muted-foreground)]">
+              {visible.engines.length === 1
+                ? `${onlyEngine.name} · ${onlyEngine.state}`
+                : visible.engines.map((engine) => engine.name).join(" · ")}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => toggleConnectionCollapsed(DEVICE_FOLD_ID)}
+          className={ROW_BUTTON}
+        >
+          <ChevronDown
+            size="0.875rem"
+            className={cn(
+              "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+              !deviceOpen && "-rotate-90",
+            )}
+          />
+        </button>
       </div>
-    </PanelSection>
+      {deviceOpen && (
+        <div id="connection-device-engines" className="mari-connection-model-well min-w-0">
+          {visible.engines.map((engine) => {
+            const key = `device:${engine.item}`;
+            return (
+              <div key={key} className="mari-connection-model-slot min-w-0">
+                <ModelRow
+                  data-connections-row={key}
+                  tile={<ProviderIcon provider={engine.item} size="row" />}
+                  title={engine.name}
+                  subtitle={engine.detail}
+                  roles={engine.item === "local-model" ? localModelUsedBy : []}
+                  // Its own name needs the room: one job shows, the rest fold into "+N".
+                  roleSlots={1}
+                  status={engine.tone === "ok" ? null : { label: engine.state }}
+                  current={wide && current === key}
+                  aria-label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
+                  onClick={() => select(key)}
+                  end={
+                    engine.fix && (
+                      <button
+                        type="button"
+                        onClick={engine.fix.run}
+                        aria-label={t("connections.list.fixFor", { action: engine.fix.label, name: engine.name })}
+                        className={cn(SMALL_ACTION, "shrink-0")}
+                      >
+                        {engine.fix.label}
+                      </button>
+                    )
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 
   const noConnections = !isLoading && !loadFailed && connectionsList.length === 0 && (accounts?.length ?? 0) === 0;
@@ -718,6 +784,7 @@ export function ConnectionsPanel() {
             </section>
           )}
           {defaultsBox}
+          {deviceGroup}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
             role="status"
@@ -773,7 +840,6 @@ export function ConnectionsPanel() {
           )}
         </>
       )}
-      {deviceGroup}
     </div>
   );
 

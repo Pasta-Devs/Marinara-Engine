@@ -407,10 +407,8 @@ const PRIMARY_KEYS = new Set<TileKey>(["main", "agents", "images"]);
 
 /** "All jobs" lists the rest by what they are for. */
 const JOB_GROUPS: Array<{ key: string; jobs: TileKey[] }> = [
-  {
-    key: "chat",
-    jobs: ["main", "agents", "mariConnectionId", "omnibarAsideConnectionId", "impersonateConnectionId"],
-  },
+  { key: "chat", jobs: ["main", "agents", "impersonateConnectionId"] },
+  { key: "omnibar", jobs: ["mariConnectionId", "omnibarAsideConnectionId"] },
   { key: "media", jobs: ["images", "video", "audio", "voice", "stt"] },
   { key: "background", jobs: ["decision", "embeddings"] },
 ];

@@ -33,6 +33,7 @@ import {
   useCapabilityAgentRegistry,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
+import { useFeatureModels } from "../../hooks/use-connection-accounts";
 import { useDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
@@ -227,6 +228,29 @@ export function useDeviceEngines(): DeviceEngine[] {
   return engines;
 }
 
+/** The jobs the Local Model does now, as role labels: for its page and its row in the On this device card. */
+export function useLocalModelUsedBy(): string[] {
+  const { t } = useTranslation();
+  const config = useSidecarStore((s) => s.config);
+  const embeddingDefault = useDefaultEmbeddingConnection();
+  const decisionOptions = useDecisionOptions();
+  const featureModels = useFeatureModels();
+  const decisionSlot = decisionOptions.data?.options.find((entry) => entry.selected)?.slot;
+  const quick = featureModels.data?.omnibarAsideConnectionId ?? null;
+  return [
+    // Unset Quick answers run on the built-in model.
+    (quick === null || quick === LOCAL_SIDECAR_CONNECTION_ID) &&
+      t("connections.defaults.feature.omnibarAsideConnectionId"),
+    featureModels.data?.mariConnectionId === LOCAL_SIDECAR_CONNECTION_ID &&
+      t("connections.defaults.feature.mariConnectionId"),
+    config.useAsAgentsDefault && t("connections.defaults.role.agents"),
+    config.useForTrackers && t("connections.device.usedBy.trackers"),
+    config.useForGameScene && t("connections.device.usedBy.gameScene"),
+    embeddingDefault.data?.connectionId === LOCAL_SIDECAR_CONNECTION_ID && t("connections.defaults.role.embeddings"),
+    decisionSlot === "primary" && t("connections.defaults.role.decision"),
+  ].filter((entry): entry is string => !!entry);
+}
+
 /** The Local Model's page: state, load, model variant, memory, what uses it, and its helper settings. */
 function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
   const { t: localizeUi } = useTranslation();
@@ -236,8 +260,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const createAgent = useCreateAgent();
   const updateAgentConnection = useUpdateAgent();
-  const embeddingDefault = useDefaultEmbeddingConnection();
-  const decisionOptions = useDecisionOptions();
+  const usedBy = useLocalModelUsedBy();
   const {
     status,
     config,
@@ -377,16 +400,6 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
     });
     if (confirmed && (await startDownload(quantization))) toast.success(GEMMA_RESTART_MESSAGE);
   };
-
-  const decisionSlot = decisionOptions.data?.options.find((entry) => entry.selected)?.slot;
-  const usedBy = [
-    config.useAsAgentsDefault && localizeUi("connections.defaults.role.agents"),
-    config.useForTrackers && localizeUi("connections.device.usedBy.trackers"),
-    config.useForGameScene && localizeUi("connections.device.usedBy.gameScene"),
-    embeddingDefault.data?.connectionId === LOCAL_SIDECAR_CONNECTION_ID &&
-      localizeUi("connections.defaults.role.embeddings"),
-    decisionSlot === "primary" && localizeUi("connections.defaults.role.decision"),
-  ].filter((entry): entry is string => !!entry);
 
   const isDownloading = downloadProgress?.status === "downloading";
   const busy = changingModelLoadState || status === "starting_server";

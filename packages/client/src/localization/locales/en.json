@@ -1964,6 +1964,7 @@
   "connections.defaults.group.background": "Behind the scenes",
   "connections.defaults.group.chat": "Chat",
   "connections.defaults.group.media": "Pictures & sound",
+  "connections.defaults.group.omnibar": "Omnibar",
   "connections.defaults.help": "New chats and helpers use these unless a chat picks its own.",
   "connections.defaults.helpLabel": "About defaults",
   "connections.defaults.jobLabel": "{{role}}: {{value}}",
