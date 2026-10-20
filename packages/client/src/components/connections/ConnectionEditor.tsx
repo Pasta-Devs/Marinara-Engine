@@ -35,8 +35,8 @@ import {
   useTestVideoGeneration,
   useDiagnoseClaudeSubscription,
   useModelParameterCapabilities,
-  useFetchModels,
   useSaveConnectionDefaults,
+  useConnectionModels,
   type ClaudeSubscriptionDiagnosis,
   type RemoteConnectionModel,
 } from "../../hooks/use-connections";
@@ -51,24 +51,14 @@ import {
   Link,
   Wifi,
   MessageSquare,
-  FileText,
-  Search,
-  Tag,
   Check,
   X,
   Loader2,
   AlertCircle,
-  Zap,
-  Globe,
-  Key,
-  Server,
-  Sparkles,
   ChevronDown,
   ExternalLink,
   ImageIcon,
-  Eye,
   Film,
-  Music,
   RotateCcw,
   SlidersHorizontal,
   Gauge,
@@ -85,20 +75,17 @@ import {
   createConnectionExportEnvelope,
   type ConnectionTransferRow,
 } from "../../lib/connection-transfer";
-import {
-  connectionFieldsForModelPick,
-  filterConnectionModelOptions,
-  mergeConnectionModelOptions,
-  normalizeGrokCliEditorModel,
-} from "../../lib/connection-model-selection";
+import { mergeConnectionModelOptions, normalizeGrokCliEditorModel } from "../../lib/connection-model-selection";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ConnectionIdentity } from "./ConnectionIdentity";
-import { confirmModelDelete } from "./ConnectionRow";
+import { confirmModelDelete, type ConnectionRowData } from "./ConnectionRow";
+import { ConnectionModelPicker } from "./ConnectionModelPicker";
+import { groupModelsByAccount } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
-import { CostBadge, priceBadge } from "./CostBadge";
+import { priceBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
@@ -340,21 +327,14 @@ function EditorSection({ id, tabbed, children }: { id: TabId; tabbed: boolean; c
 interface ConnectionEditorProps {
   /** Use a specific Model without changing the app-shell editor selection. */
   connectionId?: string;
-  /** Render inside another guided surface, with one save-and-finish action. */
-  embedded?: boolean;
-  onDone?: () => void;
   onSaved?: () => void;
-  onCancel?: () => void;
   onBusyChange?: (busy: boolean) => void;
   closeRequestToken?: number;
 }
 
 export function ConnectionEditor({
   connectionId,
-  embedded = false,
-  onDone,
   onSaved,
-  onCancel,
   onBusyChange,
   closeRequestToken = 0,
 }: ConnectionEditorProps = {}) {
@@ -363,14 +343,7 @@ export function ConnectionEditor({
   const storedConnectionDetailId = useUIStore((s) => s.connectionDetailId);
   const connectionDetailId = connectionId ?? storedConnectionDetailId;
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
-  const closeEditor = useCallback(() => {
-    if (embedded) onCancel?.();
-    else closeConnectionDetail();
-  }, [closeConnectionDetail, embedded, onCancel]);
-  const finishEditor = useCallback(() => {
-    if (embedded) onDone?.();
-    else closeConnectionDetail();
-  }, [closeConnectionDetail, embedded, onDone]);
+  const closeEditor = closeConnectionDetail;
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
   const [activeTab, setActiveTab] = useState<TabId>("model");
@@ -383,6 +356,23 @@ export function ConnectionEditor({
     connectionDetailId,
     !!conn && isLanguageGenerationConnection(conn),
   );
+  // It lends a key, so the choice is a Connection; the saved link stays one of its Model ids.
+  const credentialSources = (source: DecisionSource) => {
+    const provider = source === "openrouter" ? "openrouter" : "custom";
+    const { groups, standalone } = groupModelsByAccount(
+      (allConnections ?? []) as ConnectionRowData[],
+      connectionAccounts ?? [],
+    );
+    return [
+      ...groups.map((group) => ({
+        name: group.account.name,
+        row:
+          group.rows.find((row) => row.provider === provider && row.id === localCredentialsFrom) ??
+          group.rows.find((row) => row.provider === provider),
+      })),
+      ...standalone.map((row) => ({ name: row.name, row })),
+    ].flatMap(({ name, row }) => (row?.provider === provider ? [{ id: row.id, name }] : []));
+  };
   const updateConnection = useUpdateConnection();
   const deleteConnection = useDeleteConnection();
   const testConnection = useTestConnection();
@@ -390,7 +380,6 @@ export function ConnectionEditor({
   const testImageGeneration = useTestImageGeneration();
   const testVideoGeneration = useTestVideoGeneration();
   const diagnoseClaudeSubscription = useDiagnoseClaudeSubscription();
-  const fetchModels = useFetchModels();
   const saveConnectionDefaults = useSaveConnectionDefaults();
   const { data: allConnections } = useConnections();
   const { data: allPresets } = usePresets();
@@ -399,8 +388,8 @@ export function ConnectionEditor({
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
   useEffect(() => {
-    if (!embedded) setEditorDirty(dirty);
-  }, [dirty, embedded, setEditorDirty]);
+    setEditorDirty(dirty);
+  }, [dirty, setEditorDirty]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -413,8 +402,7 @@ export function ConnectionEditor({
     testMessage.isPending ||
     testImageGeneration.isPending ||
     testVideoGeneration.isPending ||
-    diagnoseClaudeSubscription.isPending ||
-    fetchModels.isPending;
+    diagnoseClaudeSubscription.isPending;
   useEffect(() => {
     onBusyChange?.(editorBusy);
   }, [editorBusy, onBusyChange]);
@@ -506,18 +494,12 @@ export function ConnectionEditor({
   } | null>(null);
   const [claudeDiagResult, setClaudeDiagResult] = useState<ClaudeSubscriptionDiagnosis | null>(null);
 
-  // Model search
-  const [modelSearch, setModelSearch] = useState("");
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
-  const modelSearchInputRef = useRef<HTMLInputElement>(null);
   const comfyWorkflowTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const fetchScopeRef = useRef(0);
 
-  // Remote models fetched from provider API
-  const [remoteModels, setRemoteModels] = useState<RemoteConnectionModel[]>([]);
-  const [remoteLoras, setRemoteLoras] = useState<RemoteConnectionModel[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  // The picker reads the same cached list; LoRAs and the context facts come from it too.
+  const modelList = useConnectionModels(connectionDetailId);
+  const remoteModels = useMemo(() => modelList.data?.models ?? [], [modelList.data]);
+  const remoteLoras = useMemo(() => modelList.data?.loras ?? [], [modelList.data]);
   const baseUrlValidation = useMemo(
     () =>
       isLocalAuthConnectionProvider(localProvider)
@@ -837,9 +819,6 @@ export function ConnectionEditor({
     [providerModels, remoteModels],
   );
 
-  const filteredModels = useMemo(() => filterConnectionModelOptions(allModels, modelSearch), [allModels, modelSearch]);
-  const catalogShowsPaid = allModels.some((m) => m.cost === "included" || m.cost?.startsWith("multiplier:"));
-
   const selectedModelInfo = useMemo(() => {
     return allModels.find((m) => m.id === localModel) ?? null;
   }, [allModels, localModel]);
@@ -852,41 +831,6 @@ export function ConnectionEditor({
   const selectedModelCapabilities =
     (selectedModelInfo && "capabilities" in selectedModelInfo ? (selectedModelInfo.capabilities ?? null) : null) ??
     catalogModelCapabilities;
-
-  // Clear remote models when provider changes
-  useEffect(() => {
-    setRemoteModels([]);
-    setRemoteLoras([]);
-    fetchScopeRef.current++;
-    setFetchError(null);
-  }, [localProvider, selectedImageService, connectionDetailId]);
-
-  useEffect(() => {
-    if (!showModelDropdown) return;
-
-    const closeDropdown = () => {
-      setShowModelDropdown(false);
-      setModelSearch("");
-    };
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && modelDropdownRef.current?.contains(target)) return;
-      closeDropdown();
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      closeDropdown();
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown, true);
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown, true);
-      window.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [showModelDropdown]);
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -1507,55 +1451,20 @@ export function ConnectionEditor({
     });
   }, [connectionDetailId, dirty, handleSave, testVideoGeneration]);
 
-  const handleFetchModels = useCallback(async () => {
-    if (!connectionDetailId) return;
-    const requestScope = fetchScopeRef.current;
-    const requestConnectionId = connectionDetailId;
-    setFetchError(null);
-    // Save first if dirty so the server has the right baseUrl/apiKey/provider
-    if (dirty) {
-      try {
-        await handleSave();
-      } catch {
-        return;
-      }
-    }
-    if (fetchScopeRef.current !== requestScope) return;
-    fetchModels.mutate(requestConnectionId, {
-      onSuccess: (data) => {
-        if (fetchScopeRef.current !== requestScope) return;
-        const result = data as { models: RemoteConnectionModel[]; loras?: RemoteConnectionModel[] };
-        setRemoteModels(result.models);
-        setRemoteLoras(result.loras ?? []);
-        setShowModelDropdown(true);
-        requestAnimationFrame(() => {
-          modelSearchInputRef.current?.focus();
-          modelSearchInputRef.current?.select();
-        });
-      },
-      onError: (err) => {
-        if (fetchScopeRef.current !== requestScope) return;
-        setFetchError(err instanceof Error ? err.message : "Failed to fetch models");
-      },
-    });
-  }, [connectionDetailId, dirty, handleSave, fetchModels]);
-
   const selectModel = useCallback(
-    (model: { id: string; context?: number; maxOutput?: number; isRemote?: boolean }) => {
-      // The quick model pickers save the same fields (see connectionFieldsForModelPick).
-      const fields = connectionFieldsForModelPick(localProvider, model);
-      setLocalModel(fields.model);
+    // The picker already ran connectionFieldsForModelPick on the row.
+    (fields: { model?: string; maxContext?: number; maxTokensOverride?: number }) => {
+      const model = fields.model ?? "";
+      setLocalModel(model);
       if (localProvider === "video_generation") {
         const provider = videoSourceToProviderOption(
-          localVideoGenerationSource || localVideoService || inferVideoSource(model.id, localBaseUrl),
+          localVideoGenerationSource || localVideoService || inferVideoSource(model, localBaseUrl),
         );
         setLocalVideoGenerationSource(provider);
-        setLocalVideoService(videoProviderServiceForModel(provider, model.id, localBaseUrl));
+        setLocalVideoService(videoProviderServiceForModel(provider, model, localBaseUrl));
       }
       if (fields.maxContext) setLocalMaxContext(fields.maxContext);
       if (fields.maxTokensOverride) setLocalMaxTokensOverride(fields.maxTokensOverride);
-      setShowModelDropdown(false);
-      setModelSearch("");
       testScopeRef.current++;
       setDirty(true);
     },
@@ -1616,7 +1525,7 @@ export function ConnectionEditor({
   const showsPlanUsageWindows = hasPlanUsageWindows(localProvider);
   const usageWidgetControls = (
     <>
-      <div className="rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
+      <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
         <label className="flex cursor-pointer items-start gap-2.5">
           <input
             type="checkbox"
@@ -1676,16 +1585,13 @@ export function ConnectionEditor({
         <SubscriptionUsageWidget connectionId={connectionDetailId} />
       )}
       {localShowUsageWidget && dirty && (
-        <p className="rounded-xl bg-[var(--secondary)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.saveToLoadSubscriptionUsage")}
         </p>
       )}
     </>
   );
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
-  const modelFetchSourceLabel = isGrokSubscriptionProvider ? "Grok CLI" : "API";
-  const modelFetchButtonLabel = isGrokSubscriptionProvider ? "Fetch Models from Grok CLI" : "Fetch Models from API";
-  const emptyModelLabel = isGrokSubscriptionProvider ? "Use Grok CLI default model" : "Select a model…";
   const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
 
   if (!connectionDetailId) return null;
@@ -1713,16 +1619,12 @@ export function ConnectionEditor({
 
   // ── Test Section ── (last in the Model tab; last on the page for media Models)
   const testSection = (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+    <div className="space-y-3 border-t border-[var(--border)] pt-4">
       <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
       <div className="flex gap-2">
         {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. */}
         {(!accountLinked || hasOwnEndpoint) && (
-          <button
-            onClick={handleTestConnection}
-            disabled={testConnection.isPending}
-            className="flex items-center gap-1.5 rounded-xl bg-sky-400/10 px-4 py-2.5 text-xs font-medium text-sky-400 ring-1 ring-sky-400/20 transition-all hover:bg-sky-400/20 active:scale-[0.98] disabled:opacity-50"
-          >
+          <button onClick={handleTestConnection} disabled={testConnection.isPending} className="mari-connection-btn">
             {testConnection.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
             ) : (
@@ -1735,7 +1637,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestMessage}
             disabled={testMessage.isPending || !canSendTestMessage}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-400/10 px-4 py-2.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-400/20 transition-all hover:bg-emerald-400/20 active:scale-[0.98] disabled:opacity-50"
+            className="mari-connection-btn"
           >
             {testMessage.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
@@ -1749,7 +1651,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestImage}
             disabled={testImageGeneration.isPending}
-            className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
+            className="mari-connection-btn"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestImageGeneration") : undefined}
           >
             {testImageGeneration.isPending ? (
@@ -1764,7 +1666,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestVideo}
             disabled={testVideoGeneration.isPending}
-            className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
+            className="mari-connection-btn"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestVideoGeneration") : undefined}
           >
             {testVideoGeneration.isPending ? (
@@ -1779,7 +1681,7 @@ export function ConnectionEditor({
           <button
             onClick={handleDiagnoseClaudeSubscription}
             disabled={diagnoseClaudeSubscription.isPending || !localModel}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)]/10 px-4 py-2.5 text-xs font-medium text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/20 transition-all hover:bg-[var(--marinara-app-accent-static)]/20 active:scale-[0.98] disabled:opacity-50"
+            className="mari-connection-btn"
             title={localizeUi("ui.connections.connectioneditor.verifyWhichModelTheSdkActuallyBillsAgainstCatches")}
           >
             {diagnoseClaudeSubscription.isPending ? (
@@ -1851,11 +1753,13 @@ export function ConnectionEditor({
           latencyMs={msgResult.latencyMs}
         >
           {msgResult.success ? (
-            <div className="mt-1.5 rounded-lg bg-[var(--secondary)] p-2.5 text-xs leading-relaxed">
+            <div className="mt-1.5 rounded-lg border border-[var(--border)] p-2.5 text-xs leading-relaxed text-[var(--foreground)]">
               {msgResult.response}
             </div>
           ) : (
-            <span className="text-[var(--marinara-editor-accent)]">{msgResult.error || "No response received"}</span>
+            <span className="text-[var(--marinara-editor-accent)]">
+              {msgResult.error || localizeUi("ui.connections.connectioneditor.noResponseReceived")}
+            </span>
           )}
         </TestResultCard>
       )}
@@ -1876,7 +1780,9 @@ export function ConnectionEditor({
               style={{ maxHeight: 300 }}
             />
           ) : (
-            <span className="text-[var(--destructive)]">{imgTestResult.error || "No image returned"}</span>
+            <span className="text-[var(--destructive)]">
+              {imgTestResult.error || localizeUi("ui.connections.connectioneditor.noImageReturned")}
+            </span>
           )}
         </TestResultCard>
       )}
@@ -1897,7 +1803,9 @@ export function ConnectionEditor({
               className="mt-2 aspect-video max-h-[300px] w-full max-w-xl rounded-lg bg-black object-contain"
             />
           ) : (
-            <span className="text-[var(--destructive)]">{vidTestResult.error || "No video returned"}</span>
+            <span className="text-[var(--destructive)]">
+              {vidTestResult.error || localizeUi("ui.connections.connectioneditor.noVideoReturned")}
+            </span>
           )}
         </TestResultCard>
       )}
@@ -1929,7 +1837,7 @@ export function ConnectionEditor({
                   if (detail.length === 0) {
                     return claudeDiagResult.modelsBilled.length
                       ? claudeDiagResult.modelsBilled.join(", ")
-                      : "(none reported)";
+                      : localizeUi("ui.connections.connectioneditor.noneReported");
                   }
                   const primary = detail.filter((u) => u.model === claudeDiagResult.requestedModel);
                   const secondary = detail.filter((u) => u.model !== claudeDiagResult.requestedModel);
@@ -1937,7 +1845,7 @@ export function ConnectionEditor({
                     <span className="flex flex-col gap-1.5">
                       {primary.length > 0 && (
                         <span className="flex flex-col gap-0.5">
-                          <span className="text-[0.5625rem] font-sans uppercase tracking-wide text-emerald-400/80">
+                          <span className="text-[0.625rem] font-medium text-emerald-500">
                             {localizeUi("ui.connections.connectioneditor.roleplayGeneration")}
                           </span>
                           {primary.map((u) => (
@@ -1953,7 +1861,7 @@ export function ConnectionEditor({
                       )}
                       {secondary.length > 0 && (
                         <span className="flex flex-col gap-0.5">
-                          <span className="text-[0.5625rem] font-sans uppercase tracking-wide text-[var(--muted-foreground)]">
+                          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                             {localizeUi("ui.connections.connectioneditor.sdkSessionBookkeeping")}
                           </span>
                           {secondary.map((u) => (
@@ -1979,11 +1887,11 @@ export function ConnectionEditor({
                     : undefined,
                 )}
               >
-                {claudeDiagResult.fastModeState ?? "unknown"}
+                {claudeDiagResult.fastModeState ?? localizeUi("ui.connections.connectioneditor.unknownState")}
               </span>
             </div>
             {claudeDiagResult.billedDifferent && (
-              <div className="rounded-lg bg-[var(--destructive)]/10 p-2.5 text-[0.6875rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30">
+              <div className="rounded-lg border border-[var(--destructive)]/40 bg-[var(--destructive)]/5 p-2.5 text-[0.6875rem] text-[var(--destructive)]">
                 {localizeUi("ui.connections.connectioneditor.silentDowngradeDetectedYouAskedFor")}{" "}
                 <strong>{claudeDiagResult.requestedModel}</strong>{" "}
                 {localizeUi("ui.connections.connectioneditor.butTheSdkBilled")}{" "}
@@ -1995,7 +1903,7 @@ export function ConnectionEditor({
               </div>
             )}
             {claudeDiagResult.modelUsageDetail.some((u) => u.model !== claudeDiagResult.requestedModel) && (
-              <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+              <div className="rounded-lg border border-[var(--border)] p-2.5 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <strong className="text-[var(--foreground)]">
                   {localizeUi("ui.connections.connectioneditor.whyIsHaikuInTheList")}
                 </strong>{" "}
@@ -2006,8 +1914,8 @@ export function ConnectionEditor({
               </div>
             )}
             {claudeDiagResult.response && (
-              <div className="rounded-lg bg-[var(--secondary)] p-2.5 ring-1 ring-[var(--border)]">
-                <div className="text-[0.5625rem] font-sans uppercase tracking-wide text-[var(--muted-foreground)]">
+              <div className="rounded-lg border border-[var(--border)] p-2.5">
+                <div className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("ui.connections.connectioneditor.modelSelfIdentifiesAs")}
                 </div>
                 <div className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{claudeDiagResult.response}</div>
@@ -2023,24 +1931,18 @@ export function ConnectionEditor({
   );
 
   return (
-    <div
-      className={cn(
-        "mari-editor-shell mari-editor-legacy-bridge mari-connection-scope flex flex-1 flex-col overflow-hidden",
-        embedded && "min-h-0",
-      )}
-    >
+    <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
       {/* ── Header ── */}
       <div className={cn("mari-editor-header", tabbed && "mari-editor-header--with-nav")}>
         <div className="mari-editor-header-main">
-          {!embedded && (
-            <button
-              onClick={handleClose}
-              className="mari-editor-action inline-flex shrink-0"
-              aria-label={localizeUi("connections.editor.back")}
-            >
-              <ArrowLeft size="1.125rem" />
-            </button>
-          )}
+          <button
+            onClick={handleClose}
+            className="mari-editor-action inline-flex shrink-0"
+            aria-label={localizeUi("connections.editor.back")}
+          >
+            <ArrowLeft size="1.125rem" />
+          </button>
+
           <ProviderIcon
             provider={localProvider}
             baseUrl={localBaseUrl}
@@ -2071,7 +1973,7 @@ export function ConnectionEditor({
         {tabbed && <EditorTabNavigation tabs={tabs} activeId={activeTab} onChange={scrollToSection} />}
         <div className="mari-editor-actions flex shrink-0">
           {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
+            <span className="mari-editor-status mr-2 text-[var(--destructive)]">
               <AlertCircle size="0.6875rem" />{" "}
               <span className="max-md:hidden">{localizeUi("ui.connections.connectioneditor.saveFailed")}</span>
             </span>
@@ -2091,7 +1993,6 @@ export function ConnectionEditor({
             onClick={async () => {
               try {
                 await handleSave();
-                if (embedded) finishEditor();
               } catch {
                 // The existing error banner explains what must be fixed; keep the editor open.
               }
@@ -2102,30 +2003,27 @@ export function ConnectionEditor({
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
             <Save size="0.8125rem" />
-            <span className={embedded ? undefined : "max-md:hidden"}>
-              {embedded ? t("connections.add.saveFinish") : localizeUi("ui.noodle.noodlehome.save")}
-            </span>
+            <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
           </button>
-          {!embedded && (
-            <>
-              <button
-                onClick={handleExportConnection}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.connections.connectioneditor.exportConnection")}
-                aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
-              >
-                <Upload size="0.9375rem" />
-              </button>
-              <button
-                onClick={handleDelete}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-                aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
-              >
-                <Trash2 size="0.9375rem" />
-              </button>
-            </>
-          )}
+
+          <>
+            <button
+              onClick={handleExportConnection}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.connections.connectioneditor.exportConnection")}
+              aria-label={localizeUi("ui.connections.connectioneditor.exportConnection")}
+            >
+              <Upload size="0.9375rem" />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+              aria-label={localizeUi("ui.connections.connectioneditor.deleteConnection")}
+            >
+              <Trash2 size="0.9375rem" />
+            </button>
+          </>
         </div>
       </div>
 
@@ -2152,7 +2050,7 @@ export function ConnectionEditor({
               onClick={async () => {
                 try {
                   await handleSave();
-                  finishEditor();
+                  closeEditor();
                 } catch {
                   // Keep the editor open so the user can fix the failed save.
                 }
@@ -2168,7 +2066,7 @@ export function ConnectionEditor({
 
       {/* Save error banner */}
       {saveError && (
-        <div className="flex items-center gap-2 bg-red-500/10 px-4 py-2 text-xs text-red-400">
+        <div className="flex items-center gap-2 bg-[var(--destructive)]/10 px-4 py-2 text-xs text-[var(--destructive)]">
           <AlertCircle size="0.8125rem" />
           <span className="flex-1">{saveError}</span>
           <button
@@ -2186,23 +2084,21 @@ export function ConnectionEditor({
         <div className={cn("mari-editor-content-inner", !tabbed && "flex flex-col gap-6")}>
           <EditorSection id="model" tabbed={tabbed}>
             {/* ── Model Name ── */}
-            {!embedded && (
-              <FieldGroup
-                label={localizeUi("connections.editor.name")}
-                icon={<Tag size="0.875rem" className="text-sky-400" />}
-                help={localizeUi("connections.editor.modelNameHelp")}
-              >
-                <input
-                  value={localName}
-                  onChange={(e) => {
-                    setLocalName(e.target.value);
-                    markDirty();
-                  }}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
-                />
-              </FieldGroup>
-            )}
+
+            <FieldGroup
+              label={localizeUi("connections.editor.name")}
+              help={localizeUi("connections.editor.modelNameHelp")}
+            >
+              <input
+                value={localName}
+                onChange={(e) => {
+                  setLocalName(e.target.value);
+                  markDirty();
+                }}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                placeholder={localizeUi("ui.connections.connectioneditor.eGClaudeSonnetRp")}
+              />
+            </FieldGroup>
 
             {/* ── Provider (or the Connection that owns the credentials) ── */}
             {accountLinked ? (
@@ -2234,20 +2130,18 @@ export function ConnectionEditor({
                     </span>
                   )}
                 </span>
-                {!embedded && (
-                  <button
-                    type="button"
-                    onClick={() => openModal("connection-account", { accountId })}
-                    className="mari-connection-btn shrink-0"
-                  >
-                    {t("connections.editor.editConnection")}
-                  </button>
-                )}
+
+                <button
+                  type="button"
+                  onClick={() => openModal("connection-account", { accountId })}
+                  className="mari-connection-btn shrink-0"
+                >
+                  {t("connections.editor.editConnection")}
+                </button>
               </div>
             ) : (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.provider")}
-                icon={<Globe size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.theAiServiceYouWantToConnectToEach")}
               >
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -2309,8 +2203,8 @@ export function ConnectionEditor({
                       className={cn(
                         "truncate rounded-md px-3 py-2.5 text-xs font-medium transition-all",
                         localProvider === key
-                          ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                          : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                          ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                          : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                       )}
                     >
                       {key === "decision" ? t("connections.decision.label") : info.name}
@@ -2322,8 +2216,8 @@ export function ConnectionEditor({
 
             {/* ── Claude (Subscription) — prerequisites notice ── */}
             {isClaudeSubscriptionProvider && (
-              <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
                   <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                   <span>
                     {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
@@ -2355,8 +2249,8 @@ export function ConnectionEditor({
 
             {/* ── OpenAI (ChatGPT) — prerequisites notice ── */}
             {isOpenAIChatGPTProvider && (
-              <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
                   <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                   <span>
                     {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
@@ -2386,8 +2280,8 @@ export function ConnectionEditor({
 
             {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
             {isGrokSubscriptionProvider && (
-              <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
                   <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                   <span>
                     {localizeUi("ui.connections.connectioneditor.routesChatThroughYourLocal")}{" "}
@@ -2421,8 +2315,8 @@ export function ConnectionEditor({
             )}
 
             {localProvider === "google_vertex" && (
-              <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
-                <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[0.6875rem] text-[var(--foreground)]">
                   <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                   <span>{localizeUi("ui.connections.connectioneditor.usesVertexAiSGeminiEndpointSetBaseUrl")}</span>
                 </p>
@@ -2443,7 +2337,7 @@ export function ConnectionEditor({
                 <select
                   id="decision-source"
                   value={localDecisionSource}
-                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                   onChange={(event) => {
                     const source = event.target.value as DecisionSource;
                     setLocalDecisionSource(source);
@@ -2452,10 +2346,7 @@ export function ConnectionEditor({
                     setLocalDecisionTimeoutMs(defaultDecisionTimeoutMs(source));
                     setLocalApiKey("");
                     setClearStoredApiKeyOnSave(true);
-                    const matches =
-                      (allConnections as Array<{ id: string; provider: string }> | undefined)?.filter(
-                        (row) => row.provider === "openrouter",
-                      ) ?? [];
+                    const matches = credentialSources(source);
                     setLocalCredentialsFrom(source === "openrouter" && matches.length === 1 ? matches[0]!.id : "");
                     markDirty();
                   }}
@@ -2488,7 +2379,7 @@ export function ConnectionEditor({
                     <select
                       id="decision-credentials"
                       value={localCredentialsFrom}
-                      className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
+                      className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                       onChange={(event) => {
                         setLocalCredentialsFrom(event.target.value);
                         setLocalApiKey("");
@@ -2498,22 +2389,16 @@ export function ConnectionEditor({
                     >
                       <option value="">{t("connections.decision.separateKey")}</option>
                       {localCredentialsFrom &&
-                        !(allConnections as Array<{ id: string }> | undefined)?.some(
-                          (row) => row.id === localCredentialsFrom,
-                        ) && (
+                        !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom) && (
                           <option value={localCredentialsFrom} disabled>
                             {t("connections.decision.errors.needs_relinking")}
                           </option>
                         )}
-                      {(allConnections as Array<{ id: string; name: string; provider: string }> | undefined)
-                        ?.filter(
-                          (row) => row.provider === (localDecisionSource === "openrouter" ? "openrouter" : "custom"),
-                        )
-                        .map((row) => (
-                          <option key={row.id} value={row.id}>
-                            {t("connections.decision.useKeyFrom", { name: row.name })}
-                          </option>
-                        ))}
+                      {credentialSources(localDecisionSource).map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {t("connections.decision.useKeyFrom", { name: row.name })}
+                        </option>
+                      ))}
                     </select>
                     {localCredentialsFrom && (
                       <p className="text-xs text-[var(--muted-foreground)]">
@@ -2539,7 +2424,7 @@ export function ConnectionEditor({
                     setLocalMaxStateTokens(Math.min(30000, Math.max(1, Math.trunc(Number(event.target.value)) || 1)));
                     markDirty();
                   }}
-                  className="w-32 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
+                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                 />
                 <label className="block text-xs" htmlFor="decision-time-limit">
                   {t("connections.decision.timeLimit")}
@@ -2555,7 +2440,7 @@ export function ConnectionEditor({
                     setLocalDecisionTimeoutMs(resolveDecisionConnectionTimeoutMs(seconds * 1000));
                     markDirty();
                   }}
-                  className="w-32 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
+                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                 />
                 <p id="decision-time-limit-help" className="text-xs text-[var(--muted-foreground)]">
                   {t("connections.decision.timeLimitHelp", {
@@ -2573,7 +2458,6 @@ export function ConnectionEditor({
                 {!accountLinked && (
                   <FieldGroup
                     label={localizeUi("ui.connections.connectioneditor.apiKey")}
-                    icon={<Key size="0.875rem" className="text-sky-400" />}
                     help={localizeUi("ui.connections.connectioneditor.yourAuthenticationKeyFromTheAiProviderYouCan")}
                   >
                     <input
@@ -2584,7 +2468,7 @@ export function ConnectionEditor({
                         markDirty();
                       }}
                       type="password"
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                       placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
                     />
                     <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -2595,7 +2479,7 @@ export function ConnectionEditor({
                         href={apiKeyLink.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
                       >
                         <ExternalLink size="0.625rem" />
                         {apiKeyLink.label}
@@ -2616,7 +2500,6 @@ export function ConnectionEditor({
                   <div className="space-y-6">
                     <FieldGroup
                       label={localizeUi("ui.connections.connectioneditor.managementToken")}
-                      icon={<Key size="0.875rem" className="text-sky-400" />}
                       help={localizeUi("ui.connections.connectioneditor.managementTokenHelp")}
                     >
                       <input
@@ -2626,7 +2509,7 @@ export function ConnectionEditor({
                           markDirty();
                         }}
                         type="password"
-                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                         placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
                       />
                       <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -2649,7 +2532,7 @@ export function ConnectionEditor({
                         href="https://nano-gpt.com/settings#management-api-tokens"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+                        className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)]"
                       >
                         <ExternalLink size="0.625rem" />
                         {localizeUi("ui.connections.connectioneditor.createAManagementToken")}
@@ -2661,10 +2544,9 @@ export function ConnectionEditor({
                 )}
 
                 {/* ── Base URL ── */}
-                {(!accountLinked || (!embedded && hasOwnEndpoint)) && (
+                {(!accountLinked || hasOwnEndpoint) && (
                   <FieldGroup
                     label={localizeUi("ui.connections.connectioneditor.baseUrl")}
-                    icon={<Globe size="0.875rem" className="text-sky-400" />}
                     help={localizeUi("ui.connections.connectioneditor.theApiEndpointUrlUsuallyAutoFilledForKnown")}
                   >
                     <input
@@ -2675,8 +2557,8 @@ export function ConnectionEditor({
                         markDirty();
                       }}
                       className={cn(
-                        "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-                        baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+                        "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
+                        baseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
                       )}
                       placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
                     />
@@ -2710,7 +2592,7 @@ export function ConnectionEditor({
                       </span>
                     </p>
                     {localProvider === "custom" && (
-                      <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
+                      <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
                         <AlertCircle size="0.625rem" className="mt-px shrink-0" />
                         <span>
                           <strong>{localizeUi("ui.connections.connectioneditor.windowsUsers")}</strong>{" "}
@@ -2730,10 +2612,9 @@ export function ConnectionEditor({
             )}
 
             {/* ── Image Service (only for image_generation provider) ── */}
-            {!embedded && localProvider === "image_generation" && (
+            {!accountLinked && localProvider === "image_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.service")}
-                icon={<Globe size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.pickTheBackendTypeOnceThenPointBaseUrl")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2801,8 +2682,8 @@ export function ConnectionEditor({
                         className={cn(
                           "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
                           isActive
-                            ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                         )}
                       >
                         <div className="flex items-center gap-1.5">
@@ -2840,10 +2721,9 @@ export function ConnectionEditor({
               </FieldGroup>
             )}
 
-            {!embedded && localProvider === "video_generation" && (
+            {!accountLinked && localProvider === "video_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.videoService")}
-                icon={<Film size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.pickTheVideoBackendGameModeUsesThisService")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2891,8 +2771,8 @@ export function ConnectionEditor({
                         className={cn(
                           "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
                           isActive
-                            ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                         )}
                       >
                         <div className="flex items-center gap-1.5">
@@ -2920,7 +2800,6 @@ export function ConnectionEditor({
             {isAudioProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.audioSource")}
-                icon={<Music size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.pickTheSpeechBackendBaseUrlModelAndVoice")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2949,8 +2828,8 @@ export function ConnectionEditor({
                         className={cn(
                           "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
                           isActive
-                            ? "bg-sky-400/15 text-sky-400 ring-1 ring-sky-400/30"
-                            : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
+                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                         )}
                       >
                         <div className="flex items-center gap-1.5">
@@ -2981,7 +2860,7 @@ export function ConnectionEditor({
                       setLocalAudioVoice(event.target.value);
                       markDirty();
                     }}
-                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                     placeholder={
                       AUDIO_SOURCE_OPTIONS.find((candidate) => candidate.id === localAudioSource)?.defaultVoice ||
                       localizeUi("ui.connections.connectioneditor.eGAVoiceIdFromYourProvider")
@@ -3004,7 +2883,7 @@ export function ConnectionEditor({
                       setLocalAudioTimeoutMs(seconds * 1000);
                       markDirty();
                     }}
-                    className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
                   />
                   <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                     {t("tts.requestTimeoutHelp")}
@@ -3036,7 +2915,7 @@ export function ConnectionEditor({
                     />
                   </div>
                 ) : (
-                  <p className="rounded-xl bg-[var(--secondary)]/40 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  <p className="rounded-xl border border-[var(--border)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
                     {localizeUi(
                       "ui.connections.connectioneditor.soundEffectAndMusicGenerationCurrentlyRequiresTheElevenlabs",
                     )}
@@ -3048,219 +2927,48 @@ export function ConnectionEditor({
             {/* ── Model Selection ── */}
             <FieldGroup
               label={localizeUi("ui.connections.connectioneditor.model")}
-              icon={<Server size="0.875rem" className="text-sky-400" />}
               help={t("connections.editor.modelIdHelp", { service: providerDef?.name ?? localProvider })}
             >
-              {/* Standard model dropdown + manual input (used for all providers including image_generation) */}
-              <div ref={modelDropdownRef} className={cn("relative min-w-0", showModelDropdown && "z-50")}>
-                <div
-                  onClick={() => setShowModelDropdown(!showModelDropdown)}
-                  className={cn(
-                    "relative flex min-w-0 cursor-pointer items-center gap-2 rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)] transition-all hover:ring-[var(--ring)]",
-                    showModelDropdown && "z-50 ring-sky-400/50",
-                  )}
-                >
-                  <Search size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                  {showModelDropdown ? (
-                    <input
-                      ref={modelSearchInputRef}
-                      value={modelSearch}
-                      onChange={(e) => setModelSearch(e.target.value)}
-                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]"
-                      placeholder={localizeUi("ui.connections.connectioneditor.searchModels")}
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span
-                      className={cn("min-w-0 flex-1 truncate text-sm", !localModel && "text-[var(--muted-foreground)]")}
-                    >
-                      {localModel
-                        ? selectedModelInfo
-                          ? localizeUi("ui.connections.connectioneditor.value1Value2", {
-                              value1: selectedModelInfo.name,
-                              value2: selectedModelInfo.id,
-                            })
-                          : localModel
-                        : emptyModelLabel}
-                    </span>
-                  )}
-                  <ChevronDown
-                    size="0.875rem"
-                    className={cn(
-                      "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                      showModelDropdown && "rotate-180",
-                    )}
-                  />
-                </div>
-
-                {showModelDropdown && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl">
-                    {/* Fetch from API button */}
-                    {!(localProvider === "image_generation" && selectedImageService === "novelai") && (
-                      <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--card)] p-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFetchModels();
-                          }}
-                          disabled={fetchModels.isPending}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-400 transition-all hover:bg-sky-400/20 active:scale-[0.98] disabled:opacity-50"
-                        >
-                          {fetchModels.isPending ? (
-                            <Loader2 size="0.75rem" className="animate-spin" />
-                          ) : (
-                            <Globe size="0.75rem" />
-                          )}
-                          {fetchModels.isPending
-                            ? localizeUi("ui.connections.connectioneditor.fetching")
-                            : modelFetchButtonLabel}
-                        </button>
-                        {fetchError && (
-                          <p className="mt-1.5 text-[0.625rem] text-[var(--marinara-editor-accent)]">{fetchError}</p>
-                        )}
-                        {remoteModels.length > 0 && !fetchError && (
-                          <p className="mt-1 text-[0.625rem] text-emerald-400">
-                            {remoteModels.length} {localizeUi("ui.connections.connectioneditor.model_1d06a0d")}
-                            {remoteModels.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}{" "}
-                            {localizeUi("ui.connections.connectioneditor.availableFrom")} {modelFetchSourceLabel}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {localProvider === "custom" ? (
-                      <div className="p-3">
-                        <p className="mb-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("ui.connections.connectioneditor.customEndpointsTypeTheModelIdOrFetchFrom")}
-                        </p>
-                        <input
-                          value={localModel}
-                          onChange={(e) => handleManualModelChange(e.target.value)}
-                          className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
-                          placeholder={localizeUi("ui.connections.connectioneditor.modelNameOrPath")}
-                        />
-                        {/* Show fetched models for custom provider */}
-                        {remoteModels.length > 0 && (
-                          <div className="mt-2 max-h-48 overflow-y-auto">
-                            {remoteModels
-                              .filter((m) => {
-                                const q = (modelSearch || localModel).trim().toLowerCase();
-                                if (!q) return true;
-                                return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
-                              })
-                              .map((m) => (
-                                <button
-                                  key={m.id}
-                                  onClick={() => selectModel({ ...m, isRemote: true })}
-                                  className={cn(
-                                    "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-                                    localModel === m.id && "bg-sky-400/5",
-                                  )}
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium">{m.name}</span>
-                                      {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
-                                    </div>
-                                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
-                                  </div>
-                                  <span className="shrink-0 rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                    {modelFetchSourceLabel}
-                                  </span>
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                        <button
-                          onClick={() => {
-                            setShowModelDropdown(false);
-                            setModelSearch("");
-                          }}
-                          className="mt-2 w-full rounded-lg bg-sky-400/10 px-3 py-1.5 text-xs font-medium text-sky-400 hover:bg-sky-400/20"
-                        >
-                          {localizeUi("lorebook.editor.batch.done")}
-                        </button>
-                      </div>
-                    ) : filteredModels.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-[var(--muted-foreground)]">
-                        {localizeUi("ui.connections.connectioneditor.noModelsFoundTryADifferentSearchOrType")}
-                        <input
-                          value={localModel}
-                          onChange={(e) => handleManualModelChange(e.target.value)}
-                          className="mt-2 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
-                          placeholder={localizeUi("ui.connections.connectioneditor.customModelId")}
-                        />
-                      </div>
-                    ) : (
-                      filteredModels.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => selectModel(m)}
-                          className={cn(
-                            "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent)]",
-                            localModel === m.id && "bg-sky-400/5",
-                          )}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{m.name}</span>
-                              {m.isRemote && (
-                                <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                  {modelFetchSourceLabel}
-                                </span>
-                              )}
-                              <CostBadge cost={m.cost} showPaid={catalogShowsPaid} pricing={m.pricing} />
-                              {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
-                            </div>
-                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            {m.context > 0 && (
-                              <div className="text-[0.625rem] font-medium text-sky-400">{formatContext(m.context)}</div>
-                            )}
-                            {m.maxOutput > 0 && (
-                              <div className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                                {formatContext(m.maxOutput)} {localizeUi("ui.connections.connectioneditor.out")}
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Manual model ID input below dropdown */}
-              {localProvider !== "custom" && (
-                <div className="mt-2 flex min-w-0 items-center gap-2">
-                  <input
-                    value={localModel}
-                    onChange={(e) => {
-                      handleManualModelChange(e.target.value);
-                    }}
-                    className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
-                    placeholder={
-                      isGrokSubscriptionProvider
-                        ? localizeUi("ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave")
-                        : localizeUi("ui.connections.connectioneditor.orTypeModelIdDirectly")
-                    }
-                  />
-                </div>
-              )}
-
-              {/* Context display */}
-              {selectedModelInfo && (
-                <div className="mt-2 flex items-center gap-4 rounded-lg bg-sky-400/5 px-3 py-2 text-[0.6875rem]">
-                  <span className="text-[var(--muted-foreground)]">
+              <ConnectionModelPicker
+                className="h-80 overflow-hidden rounded-xl border border-[var(--border)]"
+                connection={{
+                  id: connectionDetailId,
+                  name: localName,
+                  provider: localProvider,
+                  model: localModel,
+                  pinnedModels: (conn as { pinnedModels?: unknown }).pinnedModels,
+                  accountId,
+                }}
+                accountName={linkedAccount?.name}
+                onChoose={async (choice) => selectModel(choice)}
+                footer={null}
+              />
+              <input
+                value={localModel}
+                onChange={(e) => handleManualModelChange(e.target.value)}
+                aria-label={localizeUi("ui.connections.connectioneditor.model")}
+                className="mari-chrome-field mt-2 h-11 w-full px-3 font-mono text-xs md:h-9"
+                placeholder={
+                  isGrokSubscriptionProvider
+                    ? localizeUi("ui.connections.connectioneditor.optionalTypeAGrokCliModelIdOrLeave")
+                    : localizeUi("ui.connections.connectioneditor.orTypeModelIdDirectly")
+                }
+              />
+              {!!selectedModelInfo?.context && (
+                <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  <span>
                     {localizeUi("ui.connections.connectioneditor.context")}{" "}
-                    <strong className="text-sky-400">{formatContext(selectedModelInfo.context)}</strong>
+                    <strong className="font-medium text-[var(--foreground)]">
+                      {formatContext(selectedModelInfo.context)}
+                    </strong>
                   </span>
-                  <span className="text-[var(--muted-foreground)]">
+                  <span>
                     {localizeUi("ui.connections.connectioneditor.maxOutput")}{" "}
-                    <strong className="text-sky-400">{formatContext(selectedModelInfo.maxOutput)}</strong>
+                    <strong className="font-medium text-[var(--foreground)]">
+                      {formatContext(selectedModelInfo.maxOutput)}
+                    </strong>
                   </span>
-                </div>
+                </p>
               )}
               {selectedPrice && (
                 <p
@@ -3276,7 +2984,6 @@ export function ConnectionEditor({
             {isChatProvider(localProvider) && (
               <FieldGroup
                 label={t("connections.editor.imageInput.label")}
-                icon={<Eye size="0.875rem" className="text-sky-400" />}
                 help={t("connections.editor.imageInput.help")}
               >
                 <select
@@ -3286,7 +2993,7 @@ export function ConnectionEditor({
                     setLocalImageInput(event.target.value as "" | "reads" | "text");
                     markDirty();
                   }}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-sky-400/50"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 >
                   <option value="">{t("connections.editor.imageInput.auto")}</option>
                   <option value="reads">{t("connections.editor.imageInput.reads")}</option>
@@ -3299,7 +3006,6 @@ export function ConnectionEditor({
             {localProvider === "image_generation" && selectedImageService === "runpod_comfyui" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.runpodEndpointId")}
-                icon={<Server size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.yourRunpodServerlessEndpointIdEGAbc123def456This")}
               >
                 <input
@@ -3310,7 +3016,7 @@ export function ConnectionEditor({
                     markDirty();
                   }}
                   placeholder={localizeUi("ui.connections.connectioneditor.abc123def456")}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)]/50 focus:ring-sky-400/50"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 />
               </FieldGroup>
             )}
@@ -3324,7 +3030,6 @@ export function ConnectionEditor({
                       ? localizeUi("ui.agents.tooleditor.required")
                       : localizeUi("ui.connections.connectioneditor.optional"),
                 })}
-                icon={<Zap size="0.875rem" className="text-sky-400" />}
                 help={
                   localProvider === "video_generation"
                     ? selectedVideoProvider === "swarmui"
@@ -3348,20 +3053,20 @@ export function ConnectionEditor({
                     "ui.connections.connectioneditor.pasteWorkflowJsonHereExportedFromComfyuiViaSave",
                   )}
                   className={cn(
-                    "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-mono outline-none ring-1 transition-shadow placeholder:text-[var(--muted-foreground)]/50 min-h-[120px] max-h-[300px] resize-y",
+                    "mari-chrome-field max-h-[300px] min-h-[120px] w-full resize-y px-3 py-2 font-mono text-xs",
                     comfyWorkflowValidation?.parseError || swarmUiWorkflowError
-                      ? "ring-red-400/60 focus:ring-red-400"
-                      : "ring-[var(--border)] focus:ring-sky-400/50",
+                      ? "border-[var(--destructive)]"
+                      : undefined,
                   )}
                 />
                 {swarmUiWorkflowError && (
-                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-red-400">
+                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
                     <AlertCircle size="0.625rem" className="mt-px shrink-0" />
                     {swarmUiWorkflowError}
                   </p>
                 )}
                 {comfyWorkflowValidation?.parseError && (
-                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-red-400">
+                  <p className="mt-1 flex items-start gap-1 text-[0.625rem] text-[var(--destructive)]">
                     <AlertCircle size="0.625rem" className="mt-px shrink-0" />
                     {comfyWorkflowValidation.charPos !== null ? (
                       <button
@@ -3427,10 +3132,9 @@ export function ConnectionEditor({
               </FieldGroup>
             )}
 
-            {!embedded && localProvider === "image_generation" && (
+            {localProvider === "image_generation" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}
-                icon={<Sparkles size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.imagePromptingInstructionsHelp")}
               >
                 <textarea
@@ -3441,7 +3145,7 @@ export function ConnectionEditor({
                     markDirty();
                   }}
                   placeholder={localizeUi("ui.connections.connectioneditor.imagePromptingInstructionsPlaceholder")}
-                  className="w-full min-h-[96px] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)]/50 focus:ring-sky-400/50"
+                  className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
                 />
               </FieldGroup>
             )}
@@ -3449,7 +3153,6 @@ export function ConnectionEditor({
             {isVideoGenerationProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.videoPromptingInstructions")}
-                icon={<Sparkles size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
                 help={localizeUi("ui.connections.connectioneditor.videoPromptingInstructionsHelp")}
               >
                 <textarea
@@ -3460,7 +3163,7 @@ export function ConnectionEditor({
                     markDirty();
                   }}
                   placeholder={localizeUi("ui.connections.connectioneditor.videoPromptingInstructionsPlaceholder")}
-                  className="w-full min-h-[96px] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)]/50 focus:ring-2 focus:ring-[var(--ring)]"
+                  className="mari-chrome-field min-h-[96px] w-full resize-y px-3 py-2 text-xs"
                 />
               </FieldGroup>
             )}
@@ -3468,7 +3171,6 @@ export function ConnectionEditor({
             {supportsGptImageQuality && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}
-                icon={<Sparkles size="0.875rem" className="text-sky-400" />}
                 help={localizeUi("ui.connections.connectioneditor.gptImageQualityHelp")}
               >
                 <select
@@ -3477,7 +3179,7 @@ export function ConnectionEditor({
                     setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
                     markDirty();
                   }}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-sky-400/50"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 >
                   <option value="auto">{localizeUi("ui.connections.connectioneditor.imageQualityAuto")}</option>
                   <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
@@ -3565,7 +3267,6 @@ export function ConnectionEditor({
             {!isMediaGenerationProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}
-                icon={<FileText size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
                 help={localizeUi(
                   "ui.connections.connectioneditor.optionalWhenRoleplayChatsUseThisConnectionMarinaraAssembles",
                 )}
@@ -3576,7 +3277,7 @@ export function ConnectionEditor({
                     setLocalPromptPresetId(e.target.value);
                     markDirty();
                   }}
-                  className="mari-preset-native-select w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  className="mari-preset-native-select mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 >
                   <option value="">{localizeUi("ui.connections.connectioneditor.useChatSPromptPreset")}</option>
                   {(allPresets ?? []).map((preset) => (
@@ -3595,7 +3296,6 @@ export function ConnectionEditor({
             {!isMediaGenerationProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}
-                icon={<Zap size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
                 help={localizeUi("ui.connections.connectioneditor.defaultGenerationSettingsForChatsAndAgents")}
               >
                 <SettingsSwitch
@@ -3615,7 +3315,7 @@ export function ConnectionEditor({
                 </p>
 
                 {localDefaultParametersEnabled ? (
-                  <div className="rounded-xl bg-[var(--secondary)]/40 p-3 ring-1 ring-[var(--border)]">
+                  <div className="rounded-xl border border-[var(--border)] p-3">
                     <p className="mb-3 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                       {localizeUi("settings.customGenerationParameters.availabilityHint")}
                     </p>
@@ -3669,7 +3369,7 @@ export function ConnectionEditor({
                               setLocalImageCaptioningConnectionId(event.target.value);
                               markDirty();
                             }}
-                            className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                            className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                           >
                             <option value="">{localizeUi("ui.connections.connectioneditor.useThisConnection")}</option>
                             {((allConnections ?? []) as Record<string, unknown>[])
@@ -3698,7 +3398,7 @@ export function ConnectionEditor({
                     </div>
                   </div>
                 ) : (
-                  <p className="rounded-xl bg-[var(--secondary)]/40 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  <p className="rounded-xl border border-[var(--border)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.connectioneditor.thisConnectionIsUsingTheModeDefaultsFromConversation")}
                   </p>
                 )}
@@ -3709,7 +3409,6 @@ export function ConnectionEditor({
             {(localProvider === "anthropic" || localProvider === "openrouter") && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.promptCaching")}
-                icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
                 help={
                   localProvider === "anthropic"
                     ? localizeUi(
@@ -3751,7 +3450,7 @@ export function ConnectionEditor({
                     <p className="px-2 text-[0.625rem] text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.connectioneditor.keepsAnthropicCacheEntriesAliveForOneHourInstead")}
                     </p>
-                    <label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--secondary)]/40 px-3 py-2 ring-1 ring-[var(--border)]">
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
                       <div className="min-w-0">
                         <span className="block text-sm font-medium">
                           {localizeUi("ui.connections.connectioneditor.cacheDepth")}
@@ -3768,7 +3467,7 @@ export function ConnectionEditor({
                           setLocalCachingAtDepth(normalizeCachingAtDepth(value));
                           markDirty();
                         }}
-                        className="h-8 w-16 rounded-lg bg-[var(--background)] px-2 text-right text-sm outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                        className="mari-chrome-field mari-chrome-field--compact h-8 w-16 px-2 text-right text-xs"
                         selectOnFocus
                       />
                     </label>
@@ -3780,12 +3479,11 @@ export function ConnectionEditor({
             {isVideoGenerationProvider && selectedVideoDefaultsService === "seedance" && localVideoDefaults && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.seedanceReferences")}
-                icon={<Sparkles size="0.875rem" className="text-sky-400" />}
                 help={localizeUi(
                   "ui.connections.connectioneditor.controlsTemporaryReferenceFrameUploadsForSeedanceVideoGenerations",
                 )}
               >
-                <div className="mx-2 mt-2 space-y-2 rounded-lg bg-[var(--secondary)]/35 p-2 ring-1 ring-[var(--border)]">
+                <div className="mx-2 mt-2 space-y-2 rounded-lg border border-[var(--border)] p-2">
                   <SettingsSwitch
                     label={localizeUi("ui.connections.connectioneditor.uploadSeedanceReferenceFramesTemporarily")}
                     checked={localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled}
@@ -3808,7 +3506,7 @@ export function ConnectionEditor({
                     className="p-1"
                   />
                   {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
-                    <label className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--card)]/70 px-2 py-1.5 ring-1 ring-[var(--border)]">
+                    <label className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
                       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                         {localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
                       </span>
@@ -3828,7 +3526,7 @@ export function ConnectionEditor({
                           );
                           markDirty();
                         }}
-                        className="h-8 rounded-md bg-[var(--background)] px-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+                        className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
                       >
                         {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -3846,10 +3544,7 @@ export function ConnectionEditor({
             )}
 
             {isClaudeSubscriptionProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.promptCaching")}
-                icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
                 <SettingsSwitch
                   label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
                   description={localizeUi("ui.connections.connectioneditor.subscriptionExtendedCacheDescription")}
@@ -3866,7 +3561,6 @@ export function ConnectionEditor({
             {isClaudeSubscriptionProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.fastMode")}
-                icon={<Zap size="0.875rem" className="text-amber-400" />}
                 help={localizeUi("ui.connections.connectioneditor.whenEnabledAsksTheClaudeAgentSdkToUse")}
               >
                 <SettingsSwitch
@@ -3912,7 +3606,7 @@ export function ConnectionEditor({
                     markDirty();
                   }}
                   labelPosition="start"
-                  className="items-start justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
+                  className="items-start justify-between rounded-xl border border-[var(--border)] px-3 py-2.5"
                   labelClassName="min-w-0 flex-1 text-[0.6875rem] leading-relaxed"
                 />
               </FieldGroup>
@@ -3925,7 +3619,6 @@ export function ConnectionEditor({
               {!isMediaGenerationProvider && (
                 <FieldGroup
                   label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}
-                  icon={<Zap size="0.875rem" className="text-sky-400" />}
                   help={localizeUi("ui.connections.connectioneditor.theMaximumNumberOfTokensThisModelCanProcess")}
                 >
                   <div className="flex items-center gap-3">
@@ -3937,7 +3630,7 @@ export function ConnectionEditor({
                         setLocalMaxContext(nextValue);
                         markDirty();
                       }}
-                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
                     />
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
@@ -3955,7 +3648,6 @@ export function ConnectionEditor({
               {!isMediaGenerationProvider && !isLocalAuthProvider && (
                 <FieldGroup
                   label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}
-                  icon={<Zap size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
                   help={localizeUi("ui.connections.connectioneditor.hardCapOnMaxTokensForTheApiResponse")}
                 >
                   <div className="flex items-center gap-3">
@@ -3967,7 +3659,7 @@ export function ConnectionEditor({
                         setLocalMaxTokensOverride(nextValue > 0 ? nextValue : null);
                         markDirty();
                       }}
-                      className="w-40 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
                     />
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {localMaxTokensOverride
@@ -3988,12 +3680,6 @@ export function ConnectionEditor({
               {!isMediaGenerationProvider && (
                 <FieldGroup
                   label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}
-                  icon={
-                    <SlidersHorizontal
-                      size="0.875rem"
-                      className="text-[var(--marinara-chat-chrome-button-text-active)]"
-                    />
-                  }
                   help={localizeUi("ui.connections.connectioneditor.howManyAgentLlmRequestsMarinaraMayRunAt")}
                 >
                   <div className="flex items-center gap-3">
@@ -4006,7 +3692,7 @@ export function ConnectionEditor({
                         setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
                         markDirty();
                       }}
-                      className="w-24 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
                     />
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {localMaxParallelJobs === 1
@@ -4026,12 +3712,6 @@ export function ConnectionEditor({
               {!isMediaGenerationProvider && (
                 <FieldGroup
                   label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
-                  icon={
-                    <SlidersHorizontal
-                      size="0.875rem"
-                      className="text-[var(--marinara-chat-chrome-button-text-active)]"
-                    />
-                  }
                   help={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinuteHelp")}
                 >
                   <div className="flex items-center gap-3">
@@ -4045,7 +3725,7 @@ export function ConnectionEditor({
                         setLocalMaxRequestsPerMinute(nextValue > 0 ? Math.floor(nextValue) : null);
                         markDirty();
                       }}
-                      className="w-24 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
                     />
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {localMaxRequestsPerMinute === null
@@ -4064,7 +3744,6 @@ export function ConnectionEditor({
             {canTreatAsLocalEndpoint && !accountLinked && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}
-                icon={<Server size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
                 help={localizeUi("ui.connections.connectioneditor.useThisForSelfHostedOrProxiedOpenaiCompatible")}
               >
                 <SettingsSwitch
@@ -4085,7 +3764,6 @@ export function ConnectionEditor({
             {localProvider === "openrouter" && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.preferredProvider")}
-                icon={<Server size="0.875rem" className="text-sky-400" />}
                 help={localizeUi(
                   "ui.connections.connectioneditor.chooseWhichBackendProviderOpenrouterShouldRouteYourRequests",
                 )}
@@ -4096,7 +3774,7 @@ export function ConnectionEditor({
                     setLocalOpenrouterProvider(e.target.value);
                     markDirty();
                   }}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                   placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
                 />
                 <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -4105,7 +3783,7 @@ export function ConnectionEditor({
                     href="https://openrouter.ai/models"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sky-400 hover:underline"
+                    className="text-[var(--foreground)] underline underline-offset-2"
                   >
                     {localizeUi("ui.connections.connectioneditor.openrouterAiModels")}
                   </a>
@@ -4118,7 +3796,6 @@ export function ConnectionEditor({
             {!isMediaGenerationProvider && (
               <FieldGroup
                 label={localizeUi("ui.connections.connectioneditor.semanticSearchEmbeddings")}
-                icon={<Server size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
                 help={localizeUi(
                   "ui.connections.connectioneditor.optionalConfigureTheEmbeddingSourceUsedForLorebookSemantic",
                 )}
@@ -4131,7 +3808,7 @@ export function ConnectionEditor({
                         setLocalEmbeddingModel(e.target.value);
                         markDirty();
                       }}
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
                       placeholder={localizeUi("ui.connections.connectioneditor.eGTextEmbedding3Small")}
                     />
                     <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -4152,8 +3829,8 @@ export function ConnectionEditor({
                           markDirty();
                         }}
                         className={cn(
-                          "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-                          embeddingBaseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+                          "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
+                          embeddingBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
                         )}
                         placeholder={localizeUi("ui.connections.connectioneditor.eGHttpLocalhost5002V1")}
                       />
@@ -4193,7 +3870,7 @@ export function ConnectionEditor({
                       setLocalEmbeddingConnectionId(e.target.value);
                       markDirty();
                     }}
-                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                   >
                     <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
                     {import.meta.env.VITE_MARINARA_LITE !== "true" && (
@@ -4233,21 +3910,10 @@ export function ConnectionEditor({
 //  Helpers
 // ═══════════════════════════════════════════════
 
-function FieldGroup({
-  label,
-  icon,
-  help,
-  children,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  help?: string;
-  children: React.ReactNode;
-}) {
+function FieldGroup({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
   return (
-    <div className="mari-editor-panel space-y-2 p-3">
-      <div className="flex items-center gap-1.5">
-        {icon}
+    <div>
+      <div className="mb-1 flex items-center gap-1.5">
         <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
         {help && <HelpTooltip text={help} />}
       </div>
@@ -4268,31 +3934,37 @@ function TestResultCard({
   children: React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  // Same card as the Add window's test result.
   return (
     <div
+      role="status"
       className={cn(
-        "rounded-lg border p-3",
-        success ? "border-emerald-400/20 bg-emerald-400/5" : "border-[var(--destructive)]/20 bg-[var(--destructive)]/5",
+        "flex items-start gap-3 rounded-xl border p-3",
+        success ? "border-emerald-500/30 bg-emerald-500/5" : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
       )}
     >
-      <div className="flex items-center gap-2 text-xs font-medium">
-        {success ? (
-          <Check size="0.8125rem" className="text-emerald-400" />
-        ) : (
-          <AlertCircle size="0.8125rem" className="text-[var(--destructive)]" />
+      <span
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          success ? "bg-emerald-500/15 text-emerald-500" : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
         )}
-        <span className={success ? "text-emerald-400" : "text-[var(--destructive)]"}>
-          {label}:{" "}
-          {success
-            ? localizeUi("ui.connections.testresultcard.success")
-            : localizeUi("ui.connections.testresultcard.failed")}
-        </span>
-        <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
-          {latencyMs}
-          {localizeUi("ui.connections.testresultcard.ms")}
-        </span>
+      >
+        {success ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-baseline gap-2 text-sm font-medium">
+          <span className="min-w-0 flex-1">{label}</span>
+          {latencyMs > 0 && (
+            <span className="shrink-0 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
+              {localizeUi("ui.connections.testresultcard.latency", { ms: latencyMs })}
+            </span>
+          )}
+        </p>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {localizeUi(success ? "ui.connections.testresultcard.success" : "ui.connections.testresultcard.failed")}
+        </p>
+        <div className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--foreground)]">{children}</div>
       </div>
-      <div className="mt-1 whitespace-pre-wrap break-words text-[0.6875rem] text-[var(--foreground)]">{children}</div>
     </div>
   );
 }
@@ -4404,12 +4076,11 @@ function ImageGenerationDefaultsPanel({
   return (
     <FieldGroup
       label={localizeUi("ui.connections.imagegenerationdefaultspanel.localImageDefaults")}
-      icon={<SlidersHorizontal size="0.875rem" className="text-sky-400" />}
       help={localizeUi(
         "ui.connections.imagegenerationdefaultspanel.connectionScopedDefaultsForLocalStableDiffusionBackendsThese",
       )}
     >
-      <div className="rounded-xl bg-[var(--secondary)]/40 ring-1 ring-[var(--border)]">
+      <div className="rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -4444,7 +4115,7 @@ function ImageGenerationDefaultsPanel({
               <button
                 type="button"
                 onClick={onReset}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               >
                 <RotateCcw size="0.6875rem" />
                 {localizeUi("ui.connections.imagegenerationdefaultspanel.reset")}
@@ -4459,7 +4130,7 @@ function ImageGenerationDefaultsPanel({
                 max={4_294_967_295}
                 onCommit={updateSeed}
               />
-              <label className="flex flex-col gap-1 rounded-lg bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]">
+              <label className="flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
@@ -4468,7 +4139,7 @@ function ImageGenerationDefaultsPanel({
                     <button
                       type="button"
                       onClick={() => updateStyleProfile(suggestedStyleProfile.id)}
-                      className="rounded-md bg-[var(--secondary)] px-1.5 py-0.5 text-[0.55rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                      className="rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                     >
                       {localizeUi("ui.connections.imagegenerationdefaultspanel.use")} {suggestedStyleProfile.name}
                     </button>
@@ -4477,7 +4148,7 @@ function ImageGenerationDefaultsPanel({
                 <select
                   value={value.styleProfileId ?? ""}
                   onChange={(event) => updateStyleProfile(event.target.value)}
-                  className="rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-xs text-[var(--foreground)]"
+                  className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
                 >
                   <option value="">{localizeUi("ui.connections.imagegenerationdefaultspanel.useGlobalDefault")}</option>
                   {styleProfiles.profiles.map((profile) => (
@@ -4627,7 +4298,7 @@ function ImageGenerationDefaultsPanel({
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.restoreFaces")}
                   checked={automatic1111.restoreFaces}
                   onChange={(checked) => updateAutomatic1111({ restoreFaces: checked })}
-                  className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                  className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
               </>
@@ -4668,7 +4339,7 @@ function ImageGenerationDefaultsPanel({
                   )}
                   checked={comfyui.uploadPlaceholderOnMissingReference}
                   onChange={(checked) => updateComfyUi({ uploadPlaceholderOnMissingReference: checked })}
-                  className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                  className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
                 {source === "swarmui" && (
@@ -4677,7 +4348,7 @@ function ImageGenerationDefaultsPanel({
                     description={localizeUi("connections.mediaSources.swarmui.saveToBackendHelp")}
                     checked={comfyui.saveToBackend === true}
                     onChange={(checked) => updateComfyUi({ saveToBackend: checked })}
-                    className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                    className="border border-[var(--border)] px-3 py-2"
                     labelClassName="text-[var(--foreground)]"
                   />
                 )}
@@ -4728,10 +4399,10 @@ function ImageGenerationDefaultsPanel({
                   )}
                   checked={novelai.dynamicResolutionBySubjectCount}
                   onChange={(checked) => updateNovelAi({ dynamicResolutionBySubjectCount: checked })}
-                  className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
+                  className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
-                <div className="space-y-2 rounded-lg bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]">
+                <div className="space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -4747,7 +4418,7 @@ function ImageGenerationDefaultsPanel({
                       <button
                         type="button"
                         onClick={() => novelAiStylePlateInputRef.current?.click()}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
                       >
                         <Upload size="0.6875rem" />
                         {novelai.styleReferenceImage
@@ -4766,7 +4437,7 @@ function ImageGenerationDefaultsPanel({
                         <button
                           type="button"
                           onClick={() => updateNovelAi({ styleReferenceImage: null })}
-                          className="rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          className="rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                         >
                           {localizeUi("settings.notifications.customSound.actions.remove")}
                         </button>
@@ -4832,7 +4503,7 @@ function TextSetting({
         onChange={(event) => onChange(event.target.value)}
         rows={2}
         placeholder={placeholder}
-        className="mt-1 w-full resize-y rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-sky-400/50"
+        className="mari-chrome-field mt-1 w-full resize-y px-3 py-2 text-xs"
       />
     </label>
   );
@@ -4956,7 +4627,6 @@ function VideoGenerationDefaultsPanel({
   return (
     <FieldGroup
       label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}
-      icon={<SlidersHorizontal size="0.875rem" className="text-sky-400" />}
       help={
         service === "xai"
           ? localizeUi("ui.connections.videogenerationdefaultspanel.connectionScopedDefaultsForXaiSceneVideoGeneration")
@@ -4987,7 +4657,7 @@ function VideoGenerationDefaultsPanel({
                       )
       }
     >
-      <div className="rounded-xl bg-[var(--secondary)]/40 ring-1 ring-[var(--border)]">
+      <div className="rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -5013,7 +4683,7 @@ function VideoGenerationDefaultsPanel({
               <button
                 type="button"
                 onClick={onReset}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)]"
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
               >
                 <RotateCcw size="0.6875rem" />
                 {localizeUi("ui.connections.imagegenerationdefaultspanel.reset")}
@@ -5094,7 +4764,7 @@ function VideoGenerationDefaultsPanel({
                         else if (service === "comfyui") updateComfyUi({ aspectRatio });
                         else updateOpenRouter({ aspectRatio });
                       }}
-                      className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+                      className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
                     >
                       <option value="16:9">16:9</option>
                       <option value="9:16">9:16</option>
@@ -5127,7 +4797,7 @@ function VideoGenerationDefaultsPanel({
                         else if (service === "comfyui") updateComfyUi({ resolution });
                         else updateOpenRouter({ resolution });
                       }}
-                      className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+                      className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
                     >
                       {VIDEO_RESOLUTION_OPTIONS.filter(
                         (option) =>
@@ -5202,7 +4872,7 @@ function VideoGenerationDefaultsPanel({
                     onChange={(event) =>
                       updateGeminiOmni({ aspectRatio: event.target.value === "9:16" ? "9:16" : "16:9" })
                     }
-                    className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+                    className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
                   >
                     <option value="16:9">16:9</option>
                     <option value="9:16">9:16</option>
@@ -5238,7 +4908,7 @@ function ComfyUiLoraSettings({
   };
 
   return (
-    <div className="space-y-2 rounded-lg bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]">
+    <div className="space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
       <div>
         <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
           {localizeUi("ui.connections.comfyuilorasettings.loras")}
@@ -5266,7 +4936,7 @@ function ComfyUiLoraSettings({
               value={slot.model}
               onChange={(event) => updateSlot(index, { model: event.target.value })}
               placeholder={localizeUi("ui.connections.comfyuilorasettings.selectOrEnterLora")}
-              className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+              className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
             />
           </label>
           <NumberSetting
@@ -5306,7 +4976,7 @@ function ChoiceSetting({
         list={listId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-sky-400/50"
+        className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
         placeholder={localizeUi("ui.connections.choicesetting.backendDefault")}
       />
       <datalist id={listId}>
@@ -5368,7 +5038,7 @@ function NumberSetting({
             event.currentTarget.blur();
           }
         }}
-        className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+        className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
       />
     </label>
   );
