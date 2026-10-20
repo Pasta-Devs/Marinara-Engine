@@ -38,3 +38,26 @@ Updated all eleven UI packs (`ar`, `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt
 The full English docs/catalog inventory was rechecked after #7882 landed: no other landed source delta remains uncovered. Recheck the two release guides if their branch moves again, and keep any further maintainer-requested top-ups in this PR until merge.
 
 After final-head review and merge, verify published content and manifest bytes, then manually close #7888 and any other fully covered translation issue. Manual Download & Replace, in-app navigation/search and UI-pack refresh remain human verification items.
+
+## Release 2.5.1 What's New follow-up
+
+#7890 merged at `8ee4263f97bcfcd7e79d8493bc90b5d628734de6` with its scope limited to the staging catalog, so Professor Mari's 2.5.1 What's New strings, which exist only on the release branch, were not in it. This follow-up adds them on top of that merge.
+
+| Source | Exact commit | What it contributes |
+| --- | --- | --- |
+| `staging` | `bc09e7d385c930d5acf596e83ec887bc9a8795a7` | Docs baseline and every non-release UI key. Unchanged since #7890. |
+| `release/v2.5.1` | `da0819159c1399c2d20eb017a8f03ee83cc3b35d` | The 29 `ui.modals.whatsnewmodal.release251.*` keys, including the final `paragraphs.mariMore` text (change my **Runtime**, **Pi** by default, **Classic** one click away) and the new `media.avatarsMesh` caption. |
+
+The release `en.json` equals staging's catalog plus exactly those 29 keys: no other key is added, removed or changed. Between `b53f6cea1` and `da0819159` no English docs changed, and `docs/agents/avatars.md` and `docs/agents/built-in-agents.md` keep the same blobs recorded above (`eea41ec6c`, `a5d546a33`). `docs/development/optional-agent-packages.md` is the same on both branches. The docs packs need no further translation.
+
+All eleven UI packs (`ar`, `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-BR`, `ru`, `zh-Hans`) now have all 29 keys: **319 added values**; no existing value changed. Professor Mari speaks in each pack's release 2.5.0 voice. Bold labels follow each pack's own UI strings. They stay English where the pack has no translation for the label, or where its release 2.5.0 What's New kept labels English (`hi`). Arabic had no earlier What's New, so its voice follows the pack's existing Professor Mari strings.
+
+Typed examples stay in English where the app only understands English: `"chat with Shrek"` (the Search start-chat pattern is English-only) and `"mood"` (State Editor search matches English JSON keys and shows the field as **Mood**). `"dark mode"` may use the pack's own Search suggestion (`commandCenter.try.commandDark`). The French draft had translated both typed examples; `paragraphs.search`, `paragraphs.stateEditor` and `media.stateEditor` were corrected to the working English text before commit.
+
+No seasonal content was added.
+
+### Follow-up verification
+
+- `validate-pack.mjs` passes for all ten docs packs from both reference checkouts (staging `bc09e7d38` and release `da0819159`): **140 / 140** each. Rebuilding the manifests with `--source-commit bc09e7d385c930d5acf596e83ec887bc9a8795a7` changed nothing.
+- `validate-packs.mjs` was run with `--write-manifest`, then without it, against the release `en.json` (**14,855 keys**), and passes. The scratch `en-merged.json` has identical keys and values but is not sorted, so the validator's canonical sort check rejects it. The packs also pass against staging's `en.json`, where the release keys are reported as stale and ignored.
+- Mechanical QA on all 319 values: `<strong>` counts match English, there are no placeholders to keep, the text is NFC, and there is no NBSP, U+202F, U+3000, zero-width character, tatweel or CR. No value copies the English. Contributor names, product names, shortcuts and literals (`⌘K`, `⌘J`, `/video`, `{ }`, `[illustrate]`, `***`, `---`, `29`, `.mavatar`) are kept. Every Han character in the `zh-Hans` strings is in GB2312, so they are simplified-only. Each file round-trips through `JSON.stringify(…, null, 2)` byte for byte, and `git diff --check` passes.

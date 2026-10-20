@@ -45,7 +45,7 @@ coverage and the validation for all ten documentation packs and eleven UI packs.
 
 [2026-10-20 release follow-up](audits/2026-10-20-release-catchup.md) tracks the next English guide and UI changes after `dcae41337`, their source snapshots, validation, and later release-branch top-ups.
 
-[v2.5.1 release-guide top-up](audits/2026-10-20-v251-release-topup.md) records the release-branch avatar guides, late staging API changes and Pi / Classic UI recovery translations following the merged initial catch-up.
+[v2.5.1 release-guide top-up](audits/2026-10-20-v251-release-topup.md) records the release-branch avatar guides, late staging API changes, Pi / Classic UI recovery translations and Professor Mari's 2.5.1 What's New following the merged initial catch-up.
 
 ## UI language packs
 
