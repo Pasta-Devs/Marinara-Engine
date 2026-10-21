@@ -14,6 +14,8 @@
 
 기본값은 **Presets > Parameters**(프리셋 > 파라미터), 연결 값은 **Connections > Default Chat Parameters**(연결 > 기본 채팅 파라미터)에서 수정하세요. 채팅별 덮어쓰기는 **Chat Settings > Advanced Parameters**(채팅 설정 > 고급 파라미터)에서 설정합니다. 프리셋은 컨텍스트나 출력 토큰 한도를 설정하지 않습니다. 컨텍스트 창은 **Connections**에서, 출력 한도는 **Connections** 또는 **Chat Settings > Advanced Parameters**에서 설정하세요. 이전 프리셋 파일도 계속 불러올 수 있지만 저장된 토큰 한도는 무시됩니다.
 
+기본 제공 **Marinara's Universal Preset**(Marinara 범용 프리셋)은 샘플링, 추론, 메시지 서식을 포함한 생성 파라미터를 제공하지 않습니다. 연결과 채팅 설정을 사용하고, 지정하지 않은 값에는 Engine 기본값을 사용합니다. 수정 가능한 사용자 프리셋은 자체 파라미터 설정을 유지합니다.
+
 1. 바꾸려는 채팅을 여세요.
 2. **Chat Settings**(채팅 설정)를 여세요. 채팅 안의 **Chat Settings** 버튼은 직접 옮기지 않았다면 오른쪽 위에 있습니다.
 3. **Advanced Parameters** 섹션을 찾아 클릭해서 펼치세요.
