@@ -267,7 +267,7 @@ try {
     connectionChatTarget("lan", "LAN", { ...chatConnection, endpoint: "http://10.0.0.2:11434/v1/chat/completions" }),
   );
   assert.equal(lan.probability, null);
-  assert.equal(lan.error, "network", "a private address needs PROVIDER_LOCAL_URLS_ENABLED");
+  assert.equal(lan.error, "private_address", "a private address needs PROVIDER_LOCAL_URLS_ENABLED");
   assert.equal(requests.length, 0);
 } finally {
   server.closeAllConnections();
