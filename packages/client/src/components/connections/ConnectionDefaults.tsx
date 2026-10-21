@@ -448,7 +448,7 @@ function DefaultsJob({
         aria-expanded={job.onOpen ? undefined : open}
         aria-controls={job.onOpen || !open ? undefined : controlsId}
         aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
-        action={
+        trailing={
           job.onOpen ? (
             tile.setup ? (
               <span className="mari-panel-gradient--connections shrink-0 text-xs font-semibold text-[var(--mari-connection-ink)]">

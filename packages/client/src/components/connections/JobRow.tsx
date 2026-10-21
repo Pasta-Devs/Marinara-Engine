@@ -3,7 +3,7 @@
 // ("model · connection"), its fallback, or what still needs doing. The Defaults box and the
 // Add window's "For a job" list both draw it, so the status text lives only here.
 // ──────────────────────────────────────────────
-import type { HTMLAttributes, ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connections";
@@ -18,16 +18,20 @@ export const isUnset = (tile: DefaultsTile, notSet: string) =>
 export function JobRow({
   tile,
   hint,
-  action,
+  trailing,
   className,
-  ...rowProps
+  ...button
 }: {
   tile: DefaultsTile;
   /** One plain line under the row that says what the job does. */
   hint?: string;
-  /** Trailing control at the row end, such as a chevron. */
-  action?: ReactNode;
-} & HTMLAttributes<HTMLDivElement> & { [key: `data-${string}`]: string | undefined }) {
+  /** Shown at the row end inside the row button, such as a chevron: non-interactive content only. */
+  trailing?: ReactNode;
+  /** Goes on the row's outer element, such as an open state. */
+  className?: string;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "title" | "className"> & {
+    [key: `data-${string}`]: string | undefined;
+  }) {
   const { t } = useTranslation();
   const connections = (useConnections().data ?? []) as ConnectionRowData[];
   const source = tile.source;
@@ -41,10 +45,13 @@ export function JobRow({
   ]);
   const facts = catalog?.of(source?.model);
   const unset = isUnset(tile, t("connections.defaults.notSet"));
+  const hintId = useId();
   return (
     <>
       <ModelRow
-        rowProps={{ ...rowProps, className: cn("mari-connection-defaults-job pe-0", className) }}
+        {...button}
+        aria-describedby={hint ? hintId : undefined}
+        rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
         className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
         tile={
           <span
@@ -80,11 +87,15 @@ export function JobRow({
         trailing={
           <>
             {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}
-            {action}
+            {trailing}
           </>
         }
       />
-      {hint && <p className="mb-1 ml-12 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">{hint}</p>}
+      {hint && (
+        <p id={hintId} className="mb-1 ml-12 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+          {hint}
+        </p>
+      )}
     </>
   );
 }

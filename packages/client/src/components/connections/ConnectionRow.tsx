@@ -297,8 +297,10 @@ export function ModelRow({
       )}
       <button
         type="button"
-        aria-describedby={button["aria-label"] ? copyId : undefined}
         {...button}
+        aria-describedby={
+          [button["aria-label"] ? copyId : null, button["aria-describedby"]].filter(Boolean).join(" ") || undefined
+        }
         className={cn(
           // Text starts 3.25rem in: tile 0.5rem in and 2rem wide, then 0.75rem, with or without the picture button.
           "mari-connection-model-choice flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed",

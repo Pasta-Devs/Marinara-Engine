@@ -551,7 +551,7 @@ function JobCards({ rows, onPick }: { rows: ConnectionRowData[]; onPick: (key: A
                 hint={t(`connections.add.jobHint.${key}`)}
                 data-add-connection-job-choice={key}
                 onClick={() => onPick(key)}
-                action={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+                trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
               />
             </div>
           )
