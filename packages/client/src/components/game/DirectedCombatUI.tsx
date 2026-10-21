@@ -1,4 +1,3 @@
-import { CombatAiControls } from "./CombatAiControls";
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
 import { useEffect, useMemo, useRef, type ComponentProps } from "react";
 import type {
@@ -10,7 +9,7 @@ import type {
 import { useTranslation } from "react-i18next";
 import { useDirectedCombat } from "../../hooks/use-directed-combat";
 import { GameCombatUI } from "./GameCombatUI";
-import { RulesetCombatBoard } from "./RulesetCombatBoard";
+import { RulesetCombatScreen } from "./RulesetCombatScreen";
 import { RulesetCombatStatus } from "./RulesetCombatStatus";
 import { rulesetValueLabel } from "../../lib/ruleset-combat-log";
 import type { RulesetCellChoice } from "../../lib/ruleset-combat-board";
@@ -137,6 +136,47 @@ export function DirectedCombatUI(props: Props) {
       ...(alters?.length && spares ? { spares } : {}),
       ...(alters?.length && heightens ? { heightens } : {}),
     });
+  // A fight on a board is its own screen: the board, the log under it and the combat pane, with
+  // nothing of the bottom strip the other styles keep.
+  if (board && definition) {
+    return (
+      <RulesetCombatScreen
+        definition={definition}
+        view={board}
+        units={[...s.party, ...s.enemies]}
+        weather={s.weather}
+        environment={board.grid?.scene ?? props.environmentLike ?? props.environment}
+        busy={busy}
+        budgetLabel={budgetLabel}
+        defenseLabel={defenseLabel}
+        onChoose={choose}
+        onFlee={() => send({ type: "flee" })}
+        onControl={(unitId, controller) => send({ type: "control", unitId, controller })}
+        notice={
+          (error || s.outcome) && (
+            <div className="shrink-0 space-y-2 border-b border-[var(--border)] px-3.5 py-2.5 text-sm">
+              {error && (
+                <div role="alert" className="text-[var(--destructive)]">
+                  {t("game.combat.director.error")}{" "}
+                  <button className="min-h-9 px-2 underline" onClick={() => void refresh()}>
+                    {t("game.combat.director.retry")}
+                  </button>
+                </div>
+              )}
+              {s.outcome && (
+                <button
+                  className="min-h-10 w-full rounded-lg bg-[var(--primary)] px-4 font-semibold text-[var(--primary-foreground)]"
+                  onClick={finish}
+                >
+                  {t("game.combat.director.finish")}
+                </button>
+              )}
+            </div>
+          )
+        }
+      />
+    );
+  }
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -166,27 +206,6 @@ export function DirectedCombatUI(props: Props) {
                       : { type: "tactical", action },
                 ),
             }}
-          />
-        ) : board ? (
-          <RulesetCombatBoard
-            view={board}
-            units={[...s.party, ...s.enemies]}
-            budgetLabel={budgetLabel}
-            defenseLabel={defenseLabel}
-            environment={board.grid?.scene ?? props.environmentLike ?? props.environment}
-            busy={busy}
-            onChoose={choose}
-            onFlee={() => send({ type: "flee" })}
-            controls={
-              <CombatAiControls
-                party={s.party}
-                enemies={s.enemies}
-                defaultController="ai"
-                locked={busy}
-                onChange={(unitId, controller) => send({ type: "control", unitId, controller })}
-                className={GAME_SECTION_CLASS}
-              />
-            }
           />
         ) : (
           <GameCombatUI

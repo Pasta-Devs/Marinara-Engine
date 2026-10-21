@@ -43,6 +43,7 @@ import type { PullTarget } from "../../lib/pull-to-open";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { OmnibarPullDrop } from "./OmnibarPullDrop";
 import { MariTopbarStatus } from "./MariTopbarStatus";
+import { CombatTopbarControls } from "./CombatTopbarControls";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
   activatePersonalExtensionContribution,
@@ -490,6 +491,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
           </>
         ) : null}
         <MariTopbarStatus state={mariEdgeGlow} />
+        <CombatTopbarControls />
       </div>
 
       {/* Right section - Panel toggles */}

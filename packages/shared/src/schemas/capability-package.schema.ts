@@ -1249,7 +1249,9 @@ const capabilityPackageManifestBaseSchema = z
 //        first message exactly, guided only shapes it; an Experience may lock its own.
 // 1.340: a ruleset of up to 512 KB and catalog files of up to 2 MB (256 KB and 1 MB before).
 // 1.341: the client host namespace (__MARINARA_HOST__), api.runtime services, commands, admission, haptics, Spotify, local speech, chat-gallery and chat-write members, and shared server libraries.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 341 } as const);
+// 1.342: how the fight screen shows a ruleset: a budget's `short` letters and `tone`, and `combat.display`
+//        (the defense column's `short` and `hide`, and which pools show under a turn).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 342 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

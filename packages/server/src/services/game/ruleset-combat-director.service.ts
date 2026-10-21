@@ -36,6 +36,7 @@ import {
   normalizeTacticalFormation,
   placeSpawns,
   readRulesetLive,
+  rulesetAimedCells,
   rulesetAimCells,
   rulesetAnswerDeflects,
   rulesetCombatant,
@@ -666,6 +667,52 @@ function deathTrackOf(definition: RulesetDefinition, combatant: RulesetCombatant
   };
 }
 
+/** What a party member has left of the pools their actions spend (spell slots, ki, sorcery points),
+ *  for the fight's own HUD: a player should not have to open the sheet mid-fight to count slots. */
+function spentPoolsOf(definition: RulesetDefinition, combatant: RulesetCombatant) {
+  if (combatant.side !== "party" || !combatant.sheet) return undefined;
+  // The ruleset may name them itself, in its own order (1.342).
+  const named = definition.combat?.display?.pools;
+  if (named) {
+    const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+    const pools = named.flatMap((id) =>
+      live.pools
+        .filter((pool) => pool.key === id && !pool.listId && pool.max > 0)
+        .map((pool) => ({ id: pool.key, label: pool.label, value: pool.value, max: pool.max })),
+    );
+    return pools.length ? pools : undefined;
+  }
+  const spent = new Set<string>();
+  const groups = new Set<string>();
+  for (const action of combatant.actions) {
+    if (action.use?.pool) spent.add(action.use.pool);
+    if (action.use?.group) groups.add(action.use.group);
+  }
+  for (const pool of definition.sheet.live.pools) {
+    if ((pool.group && groups.has(pool.group)) || pool.pays?.some((group) => groups.has(group))) spent.add(pool.id);
+  }
+  if (spent.size === 0) return undefined;
+  const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+  const pools = live.pools
+    .filter((pool) => !pool.listId && pool.max > 0 && spent.has(pool.key))
+    .map((pool) => ({ id: pool.key, label: pool.label, value: pool.value, max: pool.max }));
+  return pools.length ? pools : undefined;
+}
+
+/** The cells an area held in a window covers, laid as it was aimed: what a board tints while the ones
+ *  it would catch decide whether to answer. */
+function heldAreaCells(encounter: RulesetEncounterState, window: NonNullable<RulesetEncounterState["window"]>) {
+  const resume = window.resume;
+  if (resume?.kind !== "action" || !resume.at) return undefined;
+  if (window.trigger.kind !== "aimed" && window.trigger.kind !== "used") return undefined;
+  const cells = rulesetAimedCells(encounter, resume.actorId, resume.optionId, resume.at, {
+    ...(resume.toward ? { toward: resume.toward } : {}),
+    ...(resume.ring ? { ring: true } : {}),
+    ...(resume.also ? { also: resume.also } : {}),
+  });
+  return cells.length ? cells.map((cell) => ({ x: cell.x, y: cell.y })) : undefined;
+}
+
 function projectCombatant(
   definition: RulesetDefinition,
   combatant: RulesetCombatant,
@@ -719,6 +766,7 @@ function projectCombatant(
       return { kind: { ...(type ? { type } : {}), ...(tags.length ? { tags } : {}) } };
     })(),
     ...(combatant.concentrating ? { concentrating: combatant.concentrating.label } : {}),
+    ...((pools) => (pools ? { pools } : {}))(spentPoolsOf(definition, combatant)),
     ...(combatant.block?.tier ? { tier: combatant.block.tier } : {}),
     ...(combatant.block?.traits?.length ? { traits: combatant.block.traits.map((trait) => ({ ...trait })) } : {}),
     ...(typeof combatant.x === "number" && typeof combatant.y === "number" ? { x: combatant.x, y: combatant.y } : {}),
@@ -878,6 +926,7 @@ export function directedRulesetView(
               ? { total: held.window.trigger.total, defense: held.window.trigger.defense }
               : {}),
             controller: held.controller,
+            ...((cells) => (cells ? { cells } : {}))(grid ? heldAreaCells(encounter, held.window) : undefined),
           },
           ...(held.controller === "manual" && !state.window
             ? { options: rulesetMenu(definition, encounter, held.actorId, true) }
