@@ -1802,7 +1802,7 @@
   "connections.add.question.model.example": "{{model}} from {{service}}",
   "connections.add.question.provider": "A provider or key",
   "connections.add.question.provider.body": "Connect a service you use or already pay for.",
-  "connections.add.question.provider.example": "Paste a key, sign in, or this computer",
+  "connections.add.question.provider.example": "Paste a key, sign in, or use this computer",
   "connections.add.readyChoices": "Where to use the first model",
   "connections.add.readyModels": "Added models",
   "connections.add.readyWithMain_one": "{{count}} model added · {{model}} is your Main model",

@@ -257,6 +257,7 @@ const KIND_ICONS = {
 } as const;
 type ChipKind = keyof typeof KIND_ICONS;
 const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "decision"];
+const MODEL_CHIP_KINDS = new Set<ChipKind>(["chat", "image", "video"]);
 /** "For a job…": the Defaults box's icons, so a job looks the same in both places. */
 const JOB_ICONS: Record<AddJob, typeof MessageSquare> = {
   main: MessageSquareText,
@@ -550,7 +551,15 @@ function JobCards({
         const Icon = JOB_ICONS[key];
         const tileKey = key === "mari" || key === "vision" ? JOB_FEATURE[key] : key;
         const tile = [...tiles, ...features].find((entry) => entry.key === tileKey);
-        const now = tile && !tile.muted ? [tile.value, tile.hint].filter(Boolean).join(" · ") : "";
+        // A muted tile still names its fallback the way the Defaults box does ("Uses the chat's model", "from Agents");
+        // only the Defaults box's "Not set" means nothing runs.
+        const value = tile ? [tile.value, tile.hint].filter(Boolean).join(" · ") : "";
+        const now =
+          !tile || tile.value === t("connections.defaults.notSet")
+            ? ""
+            : tile.muted
+              ? value
+              : t("connections.add.jobNow", { value });
         return (
           <button
             key={key}
@@ -573,7 +582,7 @@ function JobCards({
                 </span>
                 <span className="mt-1 flex flex-wrap items-center gap-1">
                   <span className={cn(MUTED_BADGE_CLASS, "max-w-full truncate")}>
-                    {now ? t("connections.add.jobNow", { value: now }) : t("connections.add.jobNotSet")}
+                    {now || t("connections.add.jobNotSet")}
                   </span>
                 </span>
               </span>
@@ -1538,7 +1547,8 @@ export function CreateConnectionModal({
     <h4 className="px-1 text-xs font-semibold text-[var(--foreground)]">{text}</h4>
   );
 
-  const cards = step === 1 && !pick && !job && !searching;
+  // Entry points that already know the job, kind or new-chat mode skip the cards, as before.
+  const cards = step === 1 && !pick && !jobFor && !newChatMode && !searching;
   const jobList = pick === "job" && !job;
   const listJobs = cards || pick ? [] : shownJobs;
   const listModels = cards || jobList || pick === "provider" ? [] : shownModels;
@@ -1648,9 +1658,10 @@ export function CreateConnectionModal({
         </div>
       )}
       {jobList && <JobCards rows={(rows ?? []) as ConnectionRowData[]} jobLabel={jobLabel} onPick={chooseJob} />}
-      {(job || pick === "model" || (!pick && searching)) && (
+      {!cards && !jobList && pick !== "provider" && (
         <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
-          {[null, ...CHIP_KINDS].map((kind) => (
+          {/* Voice and Decision have no models to list, so the model list leaves them out. */}
+          {[null, ...CHIP_KINDS.filter((kind) => pick !== "model" || MODEL_CHIP_KINDS.has(kind))].map((kind) => (
             <button
               key={kind ?? "all"}
               type="button"
@@ -2278,6 +2289,8 @@ export function CreateConnectionModal({
           else setPick(null);
           setQuery("");
           setKindFilter(null);
+          setShowAllVendors(false);
+          setOtherOpen(false);
         }
       : step === 2
         ? backToList
@@ -2389,6 +2402,12 @@ export function CreateConnectionModal({
   const checkClass = "h-[1.125rem] w-[1.125rem] shrink-0 accent-[var(--primary)]";
   const optionClass =
     "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
+  // On sm+ the top sits where the tall panel's centred top is, so the short cards screen grows downward
+  // and the search field stays under the caret when typing switches to the tall results.
+  const panelClass = cn(
+    "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
+    !cards && "sm:h-[min(90dvh,44rem)]",
+  );
 
   return (
     <Modal
@@ -2399,7 +2418,7 @@ export function CreateConnectionModal({
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
-      panelClassName={cn("mari-connection-scope", !cards && "sm:h-[min(90dvh,44rem)]")}
+      panelClassName={panelClass}
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
