@@ -27,9 +27,9 @@ Awatary konfiguruje się na własnej stronie każdego agenta. Otwórz panel **Ag
 3. Skonfiguruj go we własnej sekcji tego typu pod przełącznikami: użyj swoich sprite'ów albo zaimportuj plik, wybierz minę dla każdej emocji albo usuń awatar. Zobacz [Awatary 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) i [Awatary 3D](#3d-avatars-vrm-models).
 4. Obejrzyj go w sekcji **Preview** (podgląd). **Try a face** (wypróbowanie miny) przełącza emocje, a **Talk** (mówienie) porusza ustami. Gdy nie ma jeszcze nic do pokazania, podgląd wyświetla przykładowy awatar.
 
-Postać lub persona ze sprite'ami wyrazów twarzy ma już awatar PNGTuber na stronie 2D Avatars, więc czaty z włączonym agentem 2D Avatars pokazują go, nawet jeśli nic nie zapisano.
+Postać lub persona ze sprite'ami wyrazów twarzy może wyświetlać ich podgląd jako awatar PNGTuber na stronie agenta 2D Avatars. Przy niezapisanej konfiguracji opcja **Show this avatar in chats** (pokazywanie tego awatara w czatach) jest początkowo wyłączona. Włącz ją, aby zapisać sprite'y jako konfigurację PNGTuber i pokazywać ją w czatach. Sam obrazek profilowy nie tworzy awatara 2D.
 
-**Show this avatar in chats** (pokazywanie tego awatara w czatach) włącza albo wyłącza awatar bez usuwania go. **Movement** (ruch) ma trzy przełączniki, które działają przy każdym typie: **Lip sync** (synchronizacja ust) porusza ustami, **Blinking** (mruganie) co kilka sekund mruga oczami, a **Idle motion** (ruch w spoczynku) sprawia, że awatar oddycha i kołysze się podczas czekania. Jeśli postać ma więcej niż jeden typ awatara, **Show this one** (pokazywanie tego typu) wybiera typ używany w czatach. Gdy agent tego typu jest w czacie wyłączony, czat pokazuje inny typ, którego agent jest włączony. Usunięcie typu kasuje jego pliki; twoje sprite'y zostają, a awatar wyłączony przez ciebie pozostaje wyłączony.
+**Show this avatar in chats** włącza lub wyłącza skonfigurowany awatar bez usuwania go. Bez awatara lub nadających się do użycia sprite'ów przełącznik pozostaje wyłączony, dopóki go nie skonfigurujesz. **Movement** (ruch) ma trzy przełączniki, które działają przy każdym typie: **Lip sync** (synchronizacja ust) porusza ustami, **Blinking** (mruganie) co kilka sekund mruga oczami, a **Idle motion** (ruch w spoczynku) sprawia, że awatar oddycha i kołysze się podczas czekania. Jeśli postać ma więcej niż jeden typ awatara, **Show this one** (pokazywanie tego typu) wybiera typ używany w czatach. Gdy agent tego typu jest w czacie wyłączony, czat pokazuje inny typ, którego agent jest włączony. Usunięcie typu kasuje jego pliki; twoje sprite'y zostają, a awatar wyłączony przez ciebie pozostaje wyłączony.
 
 Awatar pojawia się w czacie w trybie Roleplay, Visual Novel albo Game, gdy czat ma włączonych agentów i dodanego odpowiedniego agenta. Działa z agentem Expression Engine i bez niego. Awatar nie ukrywa sprite'a całej sylwetki, więc jeśli awatar ma go zastąpić, wyłącz ten sprite samodzielnie. Awatary stoją tam, gdzie stałby sprite całej sylwetki, i mają ten sam rozmiar.
 
@@ -41,6 +41,8 @@ Działa to bez agenta Expression Engine w trybach Roleplay, Visual Novel i Game.
 
 Importowane pliki są sprawdzane przed zapisaniem, a awatary nie mają własnego limitu rozmiaru poniżej zwykłego limitu wgrywania na serwerze. Pliki awatarów leżą w folderze danych w `avatar-models/<character or persona>/<id>/`, obok pliku `avatar.json` z ustawieniami. Kopie zapasowe i eksporty profilu obejmują ten folder. Usunięcie postaci lub persony usuwa jej awatar, także wtedy, gdy sekcja Danger Zone w ustawieniach czyści wszystkie **Characters** (postacie) albo **Personas** (persony), a wyczyszczenie tam kategorii **Media & Assets** (multimedia i zasoby) opróżnia ten folder. Eksport karty postaci nigdy nie zawiera awatarów.
 
+Czaty grupowe pokazują każdego uczestnika z zapisanym, włączonym awatarem, którego agent jest włączony, bez stałego limitu liczby postaci. Użyj **Chat Settings → Agents → Avatars**, aby zmienić ich rozmiar i rozmieszczenie. W trybie **Individual** mówi i okazuje emocje postać, która odpowiada. W trybie **Merged (Narrator)** znaczniki mówiącego i dialogi przypisane imieniem kierują odpowiednią postacią; przy włączonych głosach synchronizacja ust podąża za postacią, której głos jest właśnie odtwarzany.
+
 <a id="2d-avatars-pngtuber-sprites-and-mesh-avatars"></a>
 
 ## Awatary 2D: sprite'y PNGTuber i awatary mesh
@@ -51,14 +53,14 @@ Importowane pliki są sprawdzane przed zapisaniem, a awatary nie mają własnego
 
 ### Sprite'y PNGTuber
 
-Postać lub persona ze sprite'ami wyrazów twarzy ma już awatar PNGTuber: jej sprite'y są minami i nie trzeba niczego konfigurować. Jeśli istnieją sprite'y portretowe, używane są one, a w przeciwnym razie sprite'y całej sylwetki, więc jeden awatar nigdy nie miesza obu rodzajów.
+Postać lub persona ze sprite'ami wyrazów twarzy może użyć ich jako awatara PNGTuber: sprite'y są jego minami. Sprawdź podgląd, a potem włącz **Show this avatar in chats** albo zapisz je przyciskiem **Use my sprites** (użycie moich sprite'ów). Jeśli są sprite'y portretowe, używane są one, a w przeciwnym razie sprite'y całej sylwetki, więc jeden awatar nigdy nie miesza obu rodzajów.
 
 - **Obrazki mówienia i mrugania.** Dodaj sprite'y nazwane jak mina, z dopiskiem `_talk` dla otwartych ust i `_blink` dla zamkniętych oczu, na przykład `happy_talk` i `happy_blink`, a dla obu naraz `happy_blink_talk`. Działają też `_talking`, `_speak`, `_mouth_open`, `_blinking` i `_eyes_closed`. Mina bez takich obrazków i tak podskakuje podczas mówienia.
 - **Face for each feeling** (mina dla każdej emocji). Wybierz, która mina pokazuje się dla emocji Neutral, Happy, Angry, Sad, Relaxed i Surprised (neutralność, radość, złość, smutek, odprężenie i zaskoczenie). **Resting face** (mina w spoczynku) używa miny Neutral. Do wyboru są wszystkie sprite'y, także te dodane po zapisaniu awatara, maksymalnie 64 miny. Import PNGTuber Plus proponuje tylko własne miny. Gdy agent Expression Engine albo postać Game Master wybierze sprite, który masz, pokazuje się dokładnie ta mina.
 - **More feelings** (więcej emocji). W sekcji **Face for each feeling** rozwiń **More feelings**, aby wybrać minę dla 23 bardziej szczegółowych emocji, pogrupowanych pod sześcioma głównymi: Curiosity (ciekawość) w grupie Neutral; Admiration (podziw), Amusement (rozbawienie), Desire (pragnienie), Embarrassment (zakłopotanie), Excitement (ekscytacja), Gratitude (wdzięczność), Optimism (optymizm) i Pride (duma) w grupie Happy; Annoyance (irytacja), Disapproval (dezaprobata) i Disgust (obrzydzenie) w grupie Angry; Disappointment (rozczarowanie), Grief (żal), Nervousness (nerwowość) i Remorse (skrucha) w grupie Sad; Approval (aprobata), Caring (troska), Love (miłość) i Relief (ulga) w grupie Relaxed; oraz Confusion (dezorientacja), Fear (strach) i Realization (olśnienie) w grupie Surprised. Są opcjonalne. Każda z nich używa miny swojej głównej emocji, dopóki nie wybierzesz innej. Sprite nazwany jak jedna z nich, na przykład `fear` albo `amusement`, albo słowem w rodzaju `scared` czy `laughing`, jest dla niej używany bez żadnej konfiguracji.
 - **Movement.** **Hop while talking** (podskakiwanie podczas mówienia) i **Hop height** (wysokość podskoku) ustawiają podskakiwanie w stylu PNGTuber. **Time between blinks** (czas między mrugnięciami) to wartość średnia; każde mrugnięcie wypada trochę wcześniej albo później, więc nigdy nie wygląda mechanicznie. Gdy na urządzeniu jest włączone ograniczenie ruchu, awatar nie podskakuje ani nie oddycha, ale jego mina i usta nadal się zmieniają.
 - **Sprite'y pokazują się bez zmian.** Sprite narysowany na tle pokazuje się razem z nim, a twoje pliki sprite'ów nigdy nie są zmieniane. Jeśli chcesz min bez tła, zobacz [Miny z awatara](#faces-from-the-avatar).
-- **Use my sprites** (użycie moich sprite'ów) zapisuje sprite'y jako miny awatara. Wybranie miny albo zmiana ruchu też go zapisuje. **Update from sprites** (aktualizacja ze sprite'ów) dołącza sprite'y dodane później i zachowuje miny wybrane przez ciebie dla poszczególnych emocji. Po imporcie wybierz **Remove** (usunięcie), żeby wrócić do swoich sprite'ów.
+- **Use my sprites** zapisuje sprite'y jako miny awatara. Wybranie miny albo zmiana ruchu też go zapisuje. **Update from sprites** (aktualizacja ze sprite'ów) dołącza sprite'y dodane później i zachowuje miny wybrane przez ciebie dla poszczególnych emocji. Po imporcie wybierz **Remove** (usunięcie), żeby wrócić do swoich sprite'ów.
 
 **Import PNGTuber Plus save** (import zapisu PNGTuber Plus) wczytuje awatar zapisany w programie [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) (plik `.save`). Każdy kostium staje się jedną miną, a jego warstwy mówienia i mrugania stają się obrazkami mówienia i mrugania. Obrazki są przenoszone bez zmian, razem z tłem, jeśli je mają. Kostiumy są dopasowywane do emocji po nazwach obrazków, które pokazują, takich jak `angry eyes.png`. Dla emocji, których nazwy nie objęły, wybierz minę samodzielnie. Niektóre elementy nie są przenoszone:
 
@@ -163,7 +165,7 @@ Awatar PNGTuber z minami dla [dodatkowych emocji](#pngtuber-sprites) może też 
 
 **Ciało.** Awatar myśli od chwili wysłania wiadomości do swoich pierwszych słów, mówi, gdy poruszają się jego usta, słucha, gdy mówi ktoś inny albo gdy piszesz, a w pozostałych chwilach odpoczywa.
 
-**Czaty grupowe.** W grupie Individual mówi członek, który właśnie odpowiada, także przy swipe'ach wiadomości jednego z członków. W grupie Merged każdy akapit należy do pierwszej postaci, którą wymienia, albo do postaci z poprzedniego akapitu. Dopóki akapit, który nikogo nie wymienia, jeszcze się pojawia, jego dialog czeka, aż imię albo koniec akapitu pokaże, kto go wypowiada. Przy wyłączonym streamingu w grupie Individual na razie tylko odpowiedź ostatniego członka porusza awatarem.
+**Czaty grupowe.** W grupie Individual mówi członek, który właśnie odpowiada, także przy swipe'ach wiadomości jednego z członków. W grupie Merged znacznik mówiącego kieruje dialogiem i miną tej postaci, nawet wewnątrz akapitu, który wymienia kogoś innego. Dialog przypisany imieniem też podąża za swoim rozmówcą. Nieznani rozmówcy nie korzystają z awatara innej postaci. Proza bez znaczników należy do pierwszej postaci, którą wymienia, albo do postaci z poprzedniego akapitu. Dopóki akapit, który nikogo nie wymienia, jeszcze się pojawia, jego dialog czeka, aż imię albo koniec akapitu pokaże, kto go wypowiada. Przy wyłączonym streamingu w grupie Individual na razie tylko odpowiedź ostatniego członka porusza awatarem.
 
 <a id="lip-sync-with-text-to-speech"></a>
 
@@ -225,7 +227,7 @@ Twój sprite jest wysyłany do połączenia obrazowego przy obrazkach mrugania i
 
 ## Tworzenie własnego modelu
 
-Na początek nie musisz niczego tworzyć. Postać lub persona ze sprite'ami wyrazów twarzy ma już awatar PNGTuber, a [Tworzenie awatara ze sprite'a](#making-an-avatar-from-a-sprite) dodaje obrazki mrugania i mówienia albo buduje za ciebie awatar mesh. Jeśli zamiast tego chcesz zrobić własny model, użyj jednego z tych narzędzi. Sprite'y pokazują się od razu po dodaniu, a każdy plik importuje się na stronie agenta w panelu **Agents**.
+Na początek nie musisz niczego rysować. Postać lub persona może używać swoich sprite'ów wyrazów twarzy jako awatara PNGTuber, a [Tworzenie awatara ze sprite'a](#making-an-avatar-from-a-sprite) dodaje obrazki mrugania i mówienia albo buduje za ciebie awatar mesh. Jeśli zamiast tego chcesz zrobić własny model, użyj jednego z tych narzędzi. Zapisz konfigurację sprite'ów i włącz **Show this avatar in chats**, aby ją pokazywać. Każdy plik importuje się na stronie agenta w panelu **Agents**.
 
 | Czego potrzebujesz | Narzędzie | Co dostajesz |
 | --- | --- | --- |
@@ -239,7 +241,7 @@ Na początek nie musisz niczego tworzyć. Postać lub persona ze sprite'ami wyra
 1. Narysuj po jednym obrazku dla każdej emocji, wszystkie w tym samym rozmiarze i z postacią w tym samym miejscu. Nazwij każdy według jego emocji: `neutral`, `happy`, `angry`, `sad`, `relaxed` i `surprised`. Działają też nazwy zawierające słowo opisujące emocję, takie jak `smile`, `cry`, `calm` czy `shock`. Dla opcjonalnych [dodatkowych emocji](#pngtuber-sprites) dodaj też obrazki nazwane od nich, na przykład `amusement`, `fear` albo `gratitude`.
 2. Żeby usta się poruszały, narysuj ten sam obrazek, zmieniając tylko usta na otwarte, i dodaj do jego nazwy `_talk`, na przykład `happy_talk`. Do mrugania zamknij tylko oczy i dodaj `_blink`; przy obu zmianach dodaj `_blink_talk`. Emocja bez takich obrazków i tak podskakuje podczas mówienia.
 3. Dodaj obrazki w zakładce **Sprites** postaci lub persony, w kategorii **Facial Expressions** (wyrazy twarzy). **Upload Folder** (wgrywanie folderu) dodaje cały folder i nadaje każdemu sprite'owi nazwę jego pliku. Zobacz [Sprite'y postaci](../characters/sprites.md).
-4. Czaty z włączonym agentem 2D Avatars pokazują je od razu. Aby zmienić minę dla danej emocji albo ruch, zobacz [Sprite'y PNGTuber](#pngtuber-sprites).
+4. Otwórz **2D Avatars** w panelu **Agents**, wybierz postać lub personę i włącz **Show this avatar in chats**, aby zapisać sprite'y jako awatar. Czaty z włączonym agentem 2D Avatars będą go wtedy pokazywać. Aby zmienić minę dla danej emocji albo ruch, zobacz [Sprite'y PNGTuber](#pngtuber-sprites).
 
 ### PNGTuber Plus
 
@@ -287,12 +289,12 @@ Kod rysujący każdy typ awatara pobiera się dopiero wtedy, gdy po raz pierwszy
 
 | | Telefony | Komputery |
 | --- | --- | --- |
-| Awatary rysowane jednocześnie | 2 | 4 |
+| Awatary rysowane jednocześnie | Bez stałego limitu | Bez stałego limitu |
 | Klatki na sekundę podczas mówienia | 30 | 30 |
 | Klatki na sekundę w spoczynku | 20, a 15, gdy telefon jest obciążony | 30 |
 | Ostrość (współczynnik pikseli) | do 1,5× | do 2× |
 
-Czat pokazuje awatary w kolejności swoich postaci, a potem twoją personę, aż do tego limitu. Awatary całkowicie przestają się rysować, gdy karta przeglądarki jest ukryta, okno jest w tle, otwarte są ustawienia Appearance (wygląd) albo czat jest poza ekranem lub zasłonięty panelem albo edytorem. Przy włączonym **Reduce Ambient Animations & Effects** (ograniczenie animacji i efektów otoczenia) albo ustawieniu ograniczenia ruchu na urządzeniu awatary nadal zmieniają miny i poruszają ustami, ale pomijają oddychanie, kołysanie i pozy oczekiwania.
+Czat pokazuje każdy skonfigurowany, włączony awatar 2D lub 3D w kolejności swoich postaci, a potem twoją personę. Nie ma stałego limitu liczby awatarów; dopasuj rozmiar i rozmieszczenie postaci do ekranu i urządzenia. Awatary całkowicie przestają się rysować, gdy karta przeglądarki jest ukryta, okno jest w tle, otwarte są ustawienia Appearance (wygląd) albo czat jest poza ekranem lub zasłonięty panelem albo edytorem. Przy włączonym **Reduce Ambient Animations & Effects** (ograniczenie animacji i efektów otoczenia) albo ustawieniu ograniczenia ruchu na urządzeniu awatary nadal zmieniają miny i poruszają ustami, ale pomijają oddychanie, kołysanie i pozy oczekiwania.
 
 ## Powiązane przewodniki
 

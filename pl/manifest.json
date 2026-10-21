@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "b0a03fddc430506ca098b6d9ff3e5ccce1fa438f",
+  "sourceCommit": "ca59e5a87a7df5d91801d23f3169a48d61b86886",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "c1faa2a4a7e1e68f1cd98ac0f601d998e51aa6d1f2eb4f26954afcd65ffe797e",
-      "bytes": 45336
+      "sha256": "cc0193a632a1966a6d16161e4371885804c95099f42388b6b61fc73227e79ea3",
+      "bytes": 46909
     },
     {
       "path": "agents/built-in-agents.md",
@@ -644,8 +644,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "60d2f775aad0f8c4d93c797bce17eb3dedc5600f862137a33d5008e381137fa0",
-      "bytes": 22609
+      "sha256": "f3a29ed94e62720870fb8aadd807bde3e588d8fd67cb51a9ffb5015bcdcd1550",
+      "bytes": 23237
     },
     {
       "path": "prompts/macros.md",

@@ -27,9 +27,9 @@ Los avatares se configuran en la página propia de cada agente. Abre **Agents**,
 3. Configúralo en la sección propia de ese tipo, debajo de los selectores: usa tus sprites o importa un archivo, elige la cara para cada emoción, o quítalo. Consulta [Avatares 2D](#2d-avatars-pngtuber-sprites-and-mesh-avatars) y [Avatares 3D](#3d-avatars-vrm-models).
 4. Usa **Preview** (Vista previa) para verlo. **Try a face** (Probar una cara) cambia de emoción y **Talk** (Hablar) mueve la boca. Cuando todavía no hay nada que mostrar, la vista previa muestra un avatar de ejemplo.
 
-Un personaje o una persona con sprites de expresión ya tiene un avatar PNGTuber en la página de 2D Avatars, así que los chats con 2D Avatars activado lo muestran sin guardar nada.
+Un personaje o una persona con sprites de expresión puede previsualizarlos como avatar PNGTuber en la página de 2D Avatars. **Show this avatar in chats** (Mostrar este avatar en los chats) empieza desactivado si la configuración aún no se ha guardado. Actívalo para guardar los sprites como configuración PNGTuber y mostrarlos en los chats. Una foto de perfil por sí sola no crea un avatar 2D.
 
-**Show this avatar in chats** (Mostrar este avatar en los chats) activa o desactiva el avatar sin borrarlo. **Movement** (Movimiento) tiene tres interruptores que se aplican a todos los tipos: **Lip sync** (Sincronización labial) mueve la boca, **Blinking** (Parpadeo) hace parpadear al avatar cada pocos segundos, y **Idle motion** (Movimiento en reposo) hace que respire y se balancee mientras espera. Si un personaje tiene más de un tipo de avatar, **Show this one** (Mostrar este) elige el tipo que usan los chats. Cuando el agente de ese tipo está desactivado en un chat, el chat muestra otro tipo cuyo agente está activado. Quitar un tipo borra sus archivos; tus sprites se quedan, y un avatar que desactivaste sigue desactivado.
+**Show this avatar in chats** activa o desactiva un avatar configurado sin borrarlo. Sin un avatar ni sprites utilizables, el interruptor sigue desactivado hasta que configures uno. **Movement** (Movimiento) tiene tres interruptores que se aplican a todos los tipos: **Lip sync** (Sincronización labial) mueve la boca, **Blinking** (Parpadeo) hace parpadear al avatar cada pocos segundos, y **Idle motion** (Movimiento en reposo) hace que respire y se balancee mientras espera. Si un personaje tiene más de un tipo de avatar, **Show this one** (Mostrar este) elige el tipo que usan los chats. Cuando el agente de ese tipo está desactivado en un chat, el chat muestra otro tipo cuyo agente está activado. Quitar un tipo borra sus archivos; tus sprites se quedan, y un avatar que desactivaste sigue desactivado.
 
 Un avatar se muestra en un chat de Roleplay, de novela visual o de Game cuando el chat tiene los agentes activados y el agente correspondiente añadido. Funciona con o sin el agente Expression Engine. El avatar no oculta el sprite de cuerpo completo, así que desactívalo tú si el avatar lo reemplaza. Los avatares se colocan donde iría el sprite de cuerpo completo y comparten su tamaño.
 
@@ -41,6 +41,8 @@ Esto funciona sin el Expression Engine en Roleplay, novela visual y Game. La dis
 
 Los archivos importados se comprueban antes de guardarse, y no hay un límite de tamaño propio de los avatares por debajo del límite de subida normal del servidor. Los archivos de avatar están en la carpeta de datos, en `avatar-models/<character or persona>/<id>/`, junto a un `avatar.json` con los ajustes. Las copias de seguridad y las exportaciones de perfil incluyen esta carpeta. Borrar un personaje o una persona borra su avatar, también cuando la Danger Zone de la configuración borra todos los **Characters** (Personajes) o todas las **Personas**, y borrar **Media & Assets** (Multimedia y recursos) allí vacía la carpeta. Las exportaciones de tarjetas de personaje nunca incluyen avatares.
 
+Los chats de grupo muestran a todos los participantes con un avatar guardado y activado cuyo agente esté encendido, sin un límite fijo de integrantes. Usa **Chat Settings → Agents → Avatars** para ajustar su tamaño y posición. En **Individual**, el personaje que responde habla y expresa emociones. En **Merged (Narrator)**, las etiquetas de hablante y los diálogos atribuidos por nombre dirigen al personaje correspondiente; con las voces activadas, la sincronización labial sigue al personaje cuya voz se está reproduciendo.
+
 <a id="2d-avatars-pngtuber-sprites-and-mesh-avatars"></a>
 
 ## Avatares 2D: sprites PNGTuber y avatares de malla
@@ -51,14 +53,14 @@ Los archivos importados se comprueban antes de guardarse, y no hay un límite de
 
 ### Sprites PNGTuber
 
-Un personaje o una persona con sprites de expresión ya tiene un avatar PNGTuber: sus sprites son las caras, sin nada que configurar. Se usan los sprites de retrato cuando los hay, y si no, los de cuerpo completo, así que un avatar nunca mezcla los dos.
+Un personaje o una persona con sprites de expresión puede usarlos como avatar PNGTuber: sus sprites son las caras. Previsualízalos y luego activa **Show this avatar in chats** o guárdalos con **Use my sprites** (Usar mis sprites). Se usan los sprites de retrato si los hay y, si no, los de cuerpo completo, así que un avatar nunca mezcla ambos.
 
 - **Imágenes para hablar y parpadear.** Añade sprites con el nombre de una cara y `_talk` para la boca abierta y `_blink` para los ojos cerrados, por ejemplo `happy_talk` y `happy_blink`, y `happy_blink_talk` para las dos cosas. También funcionan `_talking`, `_speak`, `_mouth_open`, `_blinking` y `_eyes_closed`. Una cara sin ellas sigue dando saltitos mientras habla.
 - **Face for each feeling (Cara para cada emoción).** Elige qué cara se muestra para Neutral, Happy, Angry, Sad, Relaxed y Surprised (neutral, feliz, enojado, triste, relajado y sorprendido). **Resting face** (Cara en reposo) usa la cara Neutral. Se ofrecen todos los sprites, incluidos los que añadiste después de guardar el avatar, hasta 64 caras. Una importación de PNGTuber Plus ofrece solo sus propias caras. Cuando el agente Expression Engine o el Game Master eligen un sprite que tienes, se muestra exactamente esa cara.
 - **More feelings (Más emociones).** En **Face for each feeling**, abre **More feelings** para elegir una cara para 23 emociones más específicas, agrupadas bajo las seis: Curiosity (curiosidad) en Neutral; Admiration, Amusement, Desire, Embarrassment, Excitement, Gratitude, Optimism y Pride (admiración, diversión, deseo, vergüenza, entusiasmo, gratitud, optimismo y orgullo) en Happy; Annoyance, Disapproval y Disgust (molestia, desaprobación y asco) en Angry; Disappointment, Grief, Nervousness y Remorse (decepción, duelo, nerviosismo y remordimiento) en Sad; Approval, Caring, Love y Relief (aprobación, cariño, amor y alivio) en Relaxed; y Confusion, Fear y Realization (confusión, miedo y comprensión) en Surprised. Son opcionales. Cada una usa la cara de su emoción principal hasta que eliges otra. Un sprite con el nombre de una de ellas, como `fear`, `amusement` o una palabra como `scared` o `laughing`, se usa para ella sin configurar nada.
 - **Movement.** **Hop while talking** (Saltar al hablar) y **Hop height** (Altura del salto) ajustan el rebote al estilo PNGTuber. **Time between blinks** (Tiempo entre parpadeos) es el promedio; cada parpadeo llega un poco antes o un poco después, así que nunca parece mecánico. Con el movimiento reducido activado en tu dispositivo, el avatar no salta ni respira, pero su cara y su boca siguen cambiando.
 - **Los sprites se muestran tal cual.** Un sprite dibujado sobre un fondo se muestra con él, y tus archivos de sprite nunca se modifican. Para tener caras sin fondo, usa [Caras a partir del avatar](#faces-from-the-avatar).
-- **Use my sprites** (Usar mis sprites) guarda los sprites como las caras del avatar. Elegir una cara o cambiar el movimiento también lo guarda. **Update from sprites** (Actualizar desde los sprites) toma los sprites que añadiste después y conserva las caras que elegiste para cada emoción. Después de una importación, elige **Remove** (Quitar) para volver a tus sprites.
+- **Use my sprites** guarda los sprites como las caras del avatar. Elegir una cara o cambiar el movimiento también lo guarda. **Update from sprites** (Actualizar desde los sprites) toma los sprites que añadiste después y conserva las caras que elegiste para cada emoción. Después de una importación, elige **Remove** (Quitar) para volver a tus sprites.
 
 **Import PNGTuber Plus save** (Importar guardado de PNGTuber Plus) lee un avatar guardado por [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) (un archivo `.save`). Cada disfraz (costume) se convierte en una cara, y sus capas para hablar y parpadear se convierten en las imágenes para hablar y parpadear. Las imágenes llegan tal cual, con el fondo que tengan. Los disfraces se asignan a las emociones por los nombres de las imágenes que muestran, como `angry eyes.png`. Elige una cara para cualquier emoción que los nombres no cubrieron. Algunas cosas no se transfieren:
 
@@ -163,7 +165,7 @@ Un avatar PNGTuber con caras para [más emociones](#pngtuber-sprites) también p
 
 **Cuerpo.** Un avatar piensa desde que envías tu mensaje hasta sus primeras palabras, habla mientras su boca se mueve, escucha mientras alguien más habla o mientras tú escribes, y descansa el resto del tiempo.
 
-**Chats de grupo.** En un grupo Individual, habla el miembro que está respondiendo, también cuando pides un swipe (respuesta alternativa) del mensaje de un miembro. En un grupo Merged, cada párrafo pertenece al primer personaje que nombra, o al personaje del párrafo anterior. Mientras sigue apareciendo un párrafo que no nombra a nadie, su diálogo espera hasta que un nombre o el final del párrafo muestra quién lo dice. Con el streaming desactivado en un grupo Individual, por ahora solo la respuesta del último miembro mueve un avatar.
+**Chats de grupo.** En un grupo Individual, habla el miembro que está respondiendo, también cuando pides un swipe (respuesta alternativa) del mensaje de un miembro. En un grupo Merged, una etiqueta de hablante dirige el diálogo y la cara de ese personaje, incluso dentro de un párrafo que nombra a otro. Los diálogos atribuidos por nombre también siguen a su hablante. Los hablantes desconocidos no toman prestado el avatar de otro personaje. La prosa sin etiquetas pertenece al primer personaje que nombra, o al del párrafo anterior. Mientras sigue apareciendo un párrafo que no nombra a nadie, su diálogo espera hasta que un nombre o el final del párrafo muestra quién lo dice. Con el streaming desactivado en un grupo Individual, por ahora solo la respuesta del último miembro mueve un avatar.
 
 <a id="lip-sync-with-text-to-speech"></a>
 
@@ -225,7 +227,7 @@ Tu sprite se envía a la conexión de imagen para las imágenes de parpadeo y de
 
 ## Crea tu propio modelo
 
-No tienes que crear nada para empezar. Un personaje o una persona con sprites de expresión ya tiene un avatar PNGTuber, y [Crear un avatar a partir de un sprite](#making-an-avatar-from-a-sprite) añade imágenes de parpadeo y de habla o construye un avatar de malla por ti. Si prefieres crear tu propio modelo, usa una de estas herramientas. Los sprites se muestran en cuanto los añades, y cada archivo se importa en la página del agente en **Agents**.
+No tienes que dibujar nada para empezar. Un personaje o una persona puede usar sus sprites de expresión como avatar PNGTuber, y [Crear un avatar a partir de un sprite](#making-an-avatar-from-a-sprite) añade imágenes de parpadeo y de habla o construye un avatar de malla por ti. Si prefieres crear tu propio modelo, usa una de estas herramientas. Guarda la configuración de sprites y activa **Show this avatar in chats** para mostrarla. Cada archivo se importa en la página del agente en **Agents**.
 
 | Lo que quieres | Herramienta | Lo que obtienes |
 | --- | --- | --- |
@@ -239,7 +241,7 @@ No tienes que crear nada para empezar. Un personaje o una persona con sprites de
 1. Dibuja una imagen para cada emoción, todas del mismo tamaño y con el personaje en el mismo lugar. Ponle a cada una el nombre de su emoción: `neutral`, `happy`, `angry`, `sad`, `relaxed` y `surprised`. También funcionan los nombres que contienen una palabra de emoción, como `smile`, `cry`, `calm` o `shock`. Para las [emociones adicionales](#pngtuber-sprites), que son opcionales, añade también imágenes con su nombre, como `amusement`, `fear` o `gratitude`.
 2. Para que la boca se mueva, dibuja la misma imagen con solo la boca abierta y añade `_talk` a su nombre, por ejemplo `happy_talk`. Para el parpadeo, cierra solo los ojos y añade `_blink`; para las dos cosas, añade `_blink_talk`. Una emoción sin estas imágenes sigue dando saltitos mientras habla.
 3. Añade las imágenes en la pestaña **Sprites** del personaje o de la persona, en **Facial Expressions** (Expresiones faciales). **Upload Folder** (Subir carpeta) añade una carpeta entera y le pone a cada sprite el nombre de su archivo. Consulta [Sprites de personaje](../characters/sprites.md).
-4. Los chats con 2D Avatars activado los muestran enseguida. Para cambiar la cara de una emoción o el movimiento, consulta [Sprites PNGTuber](#pngtuber-sprites).
+4. Abre **2D Avatars** en **Agents**, elige el personaje o la persona y activa **Show this avatar in chats** para guardar los sprites como avatar. Los chats con 2D Avatars activado lo mostrarán entonces. Para cambiar la cara de una emoción o el movimiento, consulta [Sprites PNGTuber](#pngtuber-sprites).
 
 ### PNGTuber Plus
 
@@ -287,12 +289,12 @@ El código de dibujo de cada tipo de avatar solo se descarga la primera vez que 
 
 | | Teléfonos | Computadoras |
 | --- | --- | --- |
-| Avatares dibujados a la vez | 2 | 4 |
+| Avatares dibujados a la vez | Sin límite fijo | Sin límite fijo |
 | Fotogramas por segundo al hablar | 30 | 30 |
 | Fotogramas por segundo en reposo | 20, o 15 cuando el teléfono está ocupado | 30 |
 | Nitidez (proporción de píxeles) | hasta 1,5× | hasta 2× |
 
-Un chat muestra los avatares en el orden de sus personajes y luego tu persona, hasta ese límite. Los avatares dejan de dibujarse por completo mientras la pestaña está oculta, la ventana está en segundo plano, los ajustes de Appearance (Apariencia) están abiertos, o el chat está fuera de la pantalla o tapado por un panel o un editor. Con **Reduce Ambient Animations & Effects** (Reducir animaciones y efectos ambientales) o el ajuste de movimiento reducido de tu dispositivo activado, los avatares siguen cambiando de cara y moviendo la boca, pero omiten la respiración, el balanceo y las poses de espera.
+Un chat muestra todos los avatares 2D o 3D configurados y activados en el orden de sus personajes y luego tu persona. No hay un límite fijo de cantidad; ajusta el tamaño y la posición de los integrantes a tu pantalla y dispositivo. Los avatares dejan de dibujarse por completo mientras la pestaña está oculta, la ventana está en segundo plano, los ajustes de Appearance (Apariencia) están abiertos, o el chat está fuera de la pantalla o tapado por un panel o un editor. Con **Reduce Ambient Animations & Effects** (Reducir animaciones y efectos ambientales) o el ajuste de movimiento reducido de tu dispositivo activado, los avatares siguen cambiando de cara y moviendo la boca, pero omiten la respiración, el balanceo y las poses de espera.
 
 ## Guías relacionadas
 

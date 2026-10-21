@@ -12,7 +12,7 @@ Zmieniaj te ustawienia tylko wtedy, gdy chcesz rozwiązać konkretny problem. Po
 
 ## Gdzie ich szukać
 
-Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Chat Parameters** (połączenia > domyślne parametry czatu). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane).
+Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Chat Parameters** (połączenia > domyślne parametry czatu). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane). Presety nie ustawiają limitów tokenów kontekstu ani odpowiedzi. Okno kontekstu ustaw w **Connections**, a limity odpowiedzi w **Connections** lub **Chat Settings > Advanced Parameters**. Starsze pliki presetów nadal się wczytują, ale ich zapisane limity tokenów są ignorowane.
 
 1. Otwórz czat, w którym chcesz coś zmienić.
 2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
@@ -137,13 +137,13 @@ Na dole sekcji **Advanced Parameters** przycisk **Save as Connection Default** z
 
 Przycisk pojawia się tylko przy zwykłym, zapisanym połączeniu. Nie ma go przy losowej puli połączeń ani przy wbudowanym modelu lokalnym.
 
-Przycisk **Reset to Defaults** poniżej kasuje wszystkie zmiany parametrów wprowadzone w tym czacie i przywraca jego odziedziczone ustawienia.
+Przycisk **Reset to Defaults** poniżej kasuje wszystkie zmiany parametrów wprowadzone w tym czacie i przywraca jego odziedziczone ustawienia. Odziedziczone przełączniki **Send** podążają za wybranym połączeniem; edycja innej wartości nie zamienia ich w ustawienia tego czatu. Przełącznik **Send** zmieniony ręcznie pozostaje ustawieniem tego czatu aż do zresetowania.
 
 ## Jak nakładają się i nadpisują wartości domyślne
 
 Parametry są ustalane osobno dla każdego pola, w tej kolejności:
 
-1. Sekcja **Parameters** (parametry) wybranego presetu albo wbudowane wartości domyślne generowania, jeśli nie używasz presetu (temperatura `1`, maksymalna długość odpowiedzi `4096`). W trybie Roleplay preset przypisany w połączeniu ma pierwszeństwo przed presetem wybranym w czacie.
+1. Sekcja **Parameters** (parametry) wybranego presetu albo wbudowane wartości domyślne generowania, jeśli nie używasz presetu (temperatura `1`). Początkowy limit odpowiedzi wynosi `4096` tokenów niezależnie od presetu; presety nie mogą ustawiać limitów kontekstu ani odpowiedzi. W trybie Roleplay preset przypisany w połączeniu ma pierwszeństwo przed presetem wybranym w czacie.
 2. Sekcja **Default Chat Parameters** (domyślne parametry czatu) połączenia.
 3. Sekcja **Advanced Parameters** tego czatu.
 4. Reguły trybu: aktywny czat sceny ustawia limit odpowiedzi na `8192`, rozumowanie na **Maximum**, a szczegółowość na **High**. Tryb Game używa zapisanych parametrów połączenia i czatu, bez wymuszania próbkowania, rozumowania ani minimalnej długości odpowiedzi. Wywołania pomocnicze również uwzględniają zapisane parametry; wartości domyślne zadania stosuje się tylko wtedy, gdy dany parametr nie jest ustawiony.
@@ -151,7 +151,7 @@ Parametry są ustalane osobno dla każdego pola, w tej kolejności:
 
 Wiersz **Effective** (obowiązująca wartość) obok parametru pokazuje zapisaną wartość i warstwę, która ma pierwszeństwo, z uwzględnieniem reguł trybu oraz limitów odpowiedzi. W edytorze połączenia korzysta z aktualnie otwartego czatu używającego tego połączenia albo z wartości bazowych trybu Roleplay, gdy żaden czat nie jest otwarty. Zapisz zmiany, żeby odświeżyć wskazanie. Wyłączony przełącznik Send jest pokazany jako **not sent**; dostawcy nadal mogą wymuszać wymagane parametry lub dostosowywać nieobsługiwane wartości. Custom Parameters i dopasowanie do kontekstu mogą dodatkowo zmienić ostateczne żądanie.
 
-Na przykład preset z wartością `8192` i ten czat z wartością `16384` dają **Effective: 16384 · this chat**. Limit odpowiedzi połączenia wynoszący `4096` zmienia wskazanie na **Effective: 4096 · output token cap**. Zresetowanie parametrów czatu odsłania następną obowiązującą warstwę; nie usuwa reguł presetu ani trybu.
+Na przykład połączenie z wartością `8192` i ten czat z wartością `16384` dają **Effective: 16384 · this chat**. Limit odpowiedzi połączenia wynoszący `4096` zmienia wskazanie na **Effective: 4096 · output token cap**. Zresetowanie parametrów czatu odsłania następną obowiązującą warstwę; nie usuwa reguł presetu ani trybu.
 
 <a id="parameters-for-agents"></a>
 
