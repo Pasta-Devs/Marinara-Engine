@@ -1,8 +1,11 @@
 import type { TextDirection } from "../types/localization.js";
 
-/** English ships with Engine; these community packs live on docs-i18n/ui. */
+/** Locales that ship inside Engine as bundled assets. Never downloaded. */
+export const BUNDLED_UI_LANGUAGE_CODES = ["en", "en-x-fancy"] as const;
+
+/** Bundled locales plus community packs, which live on docs-i18n/ui. */
 export const UI_LANGUAGE_CODES = [
-  "en",
+  ...BUNDLED_UI_LANGUAGE_CODES,
   "ar",
   "de",
   "es",
@@ -15,6 +18,10 @@ export const UI_LANGUAGE_CODES = [
   "ru",
   "zh-Hans",
 ] as const;
+
+export function isBundledUILanguage(code: string): boolean {
+  return (BUNDLED_UI_LANGUAGE_CODES as readonly string[]).includes(code);
+}
 
 export function normalizeUILanguage(value: unknown): string | null {
   if (typeof value !== "string") return null;

@@ -1,3 +1,4 @@
+import { isBundledUILanguage } from "@marinara-engine/shared";
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ export function UILanguageSetting({ anchorId }: { anchorId: string }) {
 
   const selectLanguage = async (selected: string, refresh = false) => {
     try {
-      if (selected !== "en" && (refresh || !status.data?.installed.includes(selected))) {
+      if (!isBundledUILanguage(selected) && (refresh || !status.data?.installed.includes(selected))) {
         await download.mutateAsync(selected);
         setLanguage(await activateLocale(selected, true));
       } else {
@@ -48,7 +49,7 @@ export function UILanguageSetting({ anchorId }: { anchorId: string }) {
         ))}
       </select>
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">{t("settings.application.language.fallback")}</p>
-      {(language !== "en" || download.isPending) && (
+      {(!isBundledUILanguage(language) || download.isPending) && (
         <button
           type="button"
           onClick={() => void selectLanguage(language, true)}

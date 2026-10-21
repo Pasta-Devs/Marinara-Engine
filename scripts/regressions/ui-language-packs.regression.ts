@@ -12,7 +12,7 @@ process.env.DOCS_I18N_BASE_URL = "https://93.184.216.34/translation-fixture";
 const { installUIPack, readUIPack, uiPackManifestFile, uiPackPath } =
   await import("../../packages/server/src/services/docs/ui-pack.service.ts");
 const { uiLanguagesRoutes } = await import("../../packages/server/src/routes/ui-languages.routes.ts");
-const { normalizeLocaleResource, normalizeUILanguage, UI_LANGUAGE_CODES } =
+const { isBundledUILanguage, normalizeLocaleResource, normalizeUILanguage, UI_LANGUAGE_CODES } =
   await import("../../packages/shared/src/utils/ui-locales.ts");
 const originalFetch = globalThis.fetch;
 const app = Fastify();
@@ -43,17 +43,30 @@ globalThis.fetch = async (input) => {
 };
 
 try {
-  assert.equal(UI_LANGUAGE_CODES.length, 12);
+  assert.equal(UI_LANGUAGE_CODES.length, 13);
   assert.ok(UI_LANGUAGE_CODES.includes("ar"));
   assert.equal(normalizeUILanguage("PT-br"), "pt-BR");
   assert.equal(normalizeUILanguage("ZH-hans"), "zh-Hans");
-  for (const bad of ["../pl", "pl/../../private", "en", "PL", "xx"]) assert.throws(() => uiPackPath(bad));
+  assert.equal(normalizeUILanguage("EN-x-FANCY"), "en-x-fancy");
+  assert.ok(isBundledUILanguage("en-x-fancy"));
+  assert.ok(!isBundledUILanguage("pl"));
+  for (const bad of ["../pl", "pl/../../private", "en", "en-x-fancy", "PL", "xx"]) {
+    assert.throws(() => uiPackPath(bad));
+  }
   assert.equal(await readUIPack("pl"), null);
-  assert.deepEqual((await app.inject("/api/ui-languages")).json(), { installed: ["en"] });
+  assert.deepEqual((await app.inject("/api/ui-languages")).json(), { installed: ["en", "en-x-fancy"] });
   assert.equal((await app.inject("/api/ui-languages/pl")).json(), null);
+  assert.equal((await app.inject("/api/ui-languages/en-x-fancy")).statusCode, 400, "bundled packs are not read");
   assert.equal(requests, 0, "startup/status/local reads must never download a pack");
   assert.equal((await app.inject({ method: "POST", url: "/api/ui-languages/xx" })).statusCode, 400);
+  assert.equal((await app.inject({ method: "POST", url: "/api/ui-languages/en-x-fancy" })).statusCode, 400);
   assert.equal(requests, 0);
+  assert.equal(
+    normalizeLocaleResource("en-x-fancy", { _meta: { locale: "en-x-fancy", direction: "ltr" }, "a.b": "Hi" }).messages[
+      "a.b"
+    ],
+    "Hi",
+  );
 
   const installResponse = await app.inject({ method: "POST", url: "/api/ui-languages/pl" });
   assert.equal(installResponse.statusCode, 200, installResponse.body);
@@ -64,7 +77,7 @@ try {
   assert.equal(loaded.messages["common.actions.save"], "Zapisz");
   assert.equal(loaded.messages["old.removedKey"], "Old translation", "stale keys are harmless at runtime");
   assert.equal(loaded.messages["new.missingKey"], undefined, "absent keys remain absent for English fallback");
-  assert.deepEqual((await app.inject("/api/ui-languages")).json(), { installed: ["en", "pl"] });
+  assert.deepEqual((await app.inject("/api/ui-languages")).json(), { installed: ["en", "en-x-fancy", "pl"] });
   assert.equal(requests, 2, "reusing an installed pack remains offline");
 
   breakHash = true;

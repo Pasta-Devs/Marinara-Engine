@@ -14033,9 +14033,34 @@ test("UI language selection downloads packs on demand and persists across reload
     body: await page.screenshot(),
     contentType: "image/png",
   });
-  for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
+  for (const locale of ["en", "en-x-fancy", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
     await expect(languageSelect.locator(`option[value="${locale}"]`)).toHaveCount(1);
   }
+
+  packs.setOffline(true);
+  await languageSelect.selectOption({ label: "Fancy English" });
+  await expect(page.getByText("Application etiquette", { exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder("Peruse the preferences", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-tour="panel-settings"]')).toHaveAttribute("title", "Preferences, if you please");
+  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toHaveCount(0);
+  expect(packs.downloads).toEqual([]);
+  await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe("en-x-fancy");
+  await expect.poll(() => page.evaluate(() => document.documentElement.dir)).toBe("ltr");
+  await page.reload();
+  await openGeneralSettings();
+  await expect(languageSelect).toHaveValue("en-x-fancy");
+  await expect(page.getByText("Application etiquette", { exact: true })).toBeVisible();
+  const originalViewport = page.viewportSize();
+  for (const width of [390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(languageSelect).toBeVisible();
+    await testInfo.attach(`fancy-english-${width}`, { body: await page.screenshot(), contentType: "image/png" });
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
+  await languageSelect.selectOption("en");
+  await expect(page.getByText("App Behavior", { exact: true })).toBeVisible();
+  expect(packs.downloads).toEqual([]);
+  packs.setOffline(false);
 
   await languageSelect.selectOption("pl");
   await expect(page.getByText("Działanie aplikacji", { exact: true })).toBeVisible();

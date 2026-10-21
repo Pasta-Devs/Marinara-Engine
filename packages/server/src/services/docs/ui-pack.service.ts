@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { normalizeLocaleResource, normalizeUILanguage } from "@marinara-engine/shared";
+import { isBundledUILanguage, normalizeLocaleResource, normalizeUILanguage } from "@marinara-engine/shared";
 import { getDataDir } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 import { assertInsideDir } from "../../utils/security.js";
@@ -17,7 +17,7 @@ const MAX_PACK_BYTES = 5 * 1024 * 1024;
 const installs = new Map<string, Promise<void>>();
 
 export function uiPackPath(language: string): string {
-  if (!normalizeUILanguage(language) || language === "en" || normalizeUILanguage(language) !== language) {
+  if (!normalizeUILanguage(language) || isBundledUILanguage(language) || normalizeUILanguage(language) !== language) {
     throw new Error("Unsupported UI language");
   }
   return join(getDataDir(), "ui-packs", `${language}.json`);
