@@ -103,7 +103,7 @@ import { MESSAGE_SELECTION_SURFACE_CLASS } from "../chat/message-selection-style
 import { HISTORY_PAGER_BUTTON_CLASS } from "../chat/TranscriptWindowControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { formatNarration } from "./game-narration-format";
-import { i18n } from "../../localization/i18n";
+import { createNarrationHtmlCache } from "./narration-html-cache";
 import { publishAvatarGameLine } from "../../features/avatars/director/game-line-feed";
 import { prepareAvatarAudioBlob, setGameVoicePlayback } from "../../features/avatars/audio/avatar-audio";
 import {
@@ -610,22 +610,10 @@ const DEFAULT_LOG_PAGE_SIZE = 20;
 
 // A Session Log row, a settled segment and a translation show the same text on every render of
 // this component. Formatting and sanitizing it again each time made opening, closing and jumping
-// through a long log slow on phones, so the finished HTML is kept per text, language and effects.
-const NARRATION_HTML_CACHE_LIMIT = 2000;
-const narrationHtmlCache = new Map<string, string>();
-
-function formattedNarrationHtml(content: string, textEffectsEnabled: boolean): string {
-  const key = `${i18n.language}\u0000${textEffectsEnabled ? 1 : 0}\u0000${content}`;
-  const cached = narrationHtmlCache.get(key);
-  if (cached !== undefined) return cached;
-  const html = animateTextHtml(formatNarration(content, false), textEffectsEnabled);
-  if (narrationHtmlCache.size >= NARRATION_HTML_CACHE_LIMIT) {
-    const oldest = narrationHtmlCache.keys().next().value;
-    if (oldest !== undefined) narrationHtmlCache.delete(oldest);
-  }
-  narrationHtmlCache.set(key, html);
-  return html;
-}
+// through a long log slow on phones, so the finished HTML is kept.
+const formattedNarrationHtml = createNarrationHtmlCache((content, textEffectsEnabled) =>
+  animateTextHtml(formatNarration(content, false), textEffectsEnabled),
+);
 
 function getGameTranslationHtml(
   message: NarrationMessage,
