@@ -28,6 +28,7 @@ function englishName(option: LanguageOption) {
     englishNames ??= new Intl.DisplayNames(["en"], { type: "language" });
     return englishNames.of(option.code) ?? option.label;
   } catch {
+    // Older WebViews without DisplayNames still show and search the native label and locale code.
     return option.label;
   }
 }
@@ -84,11 +85,19 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
       const width = Math.min(Math.max(300, rect.width), viewportWidth - padding * 2);
       const below = viewportTop + viewportHeight - rect.bottom - padding - gap;
       const above = rect.top - viewportTop - padding - gap;
-      const desiredHeight = Math.min(420, 100 + filtered.length * 52);
+      const contentHeight = Array.from(panelRef.current?.children ?? []).reduce(
+        (height, child) => height + Math.max(child.scrollHeight, child.getBoundingClientRect().height),
+        2,
+      );
+      const desiredHeight = Math.min(420, contentHeight);
       const openBelow = below >= Math.min(desiredHeight, above);
-      const maxHeight = Math.max(0, Math.min(desiredHeight, openBelow ? below : above));
+      const maxHeight = Math.max(0, Math.min(desiredHeight, openBelow ? below : above, viewportHeight - padding * 2));
+      const preferredTop = openBelow ? rect.bottom + gap : rect.top - maxHeight - gap;
       setPosition({
-        top: openBelow ? rect.bottom + gap : Math.max(viewportTop + padding, rect.top - maxHeight - gap),
+        top: Math.max(
+          viewportTop + padding,
+          Math.min(preferredTop, viewportTop + viewportHeight - maxHeight - padding),
+        ),
         left: Math.max(
           viewportLeft + padding,
           Math.min(rect.right - width, viewportLeft + viewportWidth - width - padding),
@@ -108,7 +117,7 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
       window.visualViewport?.removeEventListener("resize", updatePosition);
       window.visualViewport?.removeEventListener("scroll", updatePosition);
     };
-  }, [isOpen, filtered.length]);
+  }, [isOpen, search, options]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -145,7 +154,6 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
     } else if (event.key === "Tab") {
       // Resume the normal tab order from the trigger rather than the body portal.
       close();
-      if (event.shiftKey) event.preventDefault();
     } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((index) =>
@@ -213,7 +221,7 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
             aria-label={label}
             data-language-picker-portal="true"
             onKeyDown={handleKeyDown}
-            className="fixed z-[10001] flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] shadow-xl"
+            className="mari-chrome-token-scope fixed z-[10001] flex flex-col overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] shadow-xl"
             style={position ?? { visibility: "hidden" }}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] p-2.5">
@@ -243,7 +251,7 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
               id={listId}
               role="listbox"
               aria-label={label}
-              className="min-h-0 overflow-y-auto overscroll-contain p-1.5"
+              className={cn("overflow-y-auto overscroll-contain", filtered.length > 0 ? "min-h-16 p-1.5" : "min-h-0")}
             >
               {filtered.map((option) => {
                 const english = englishName(option);
@@ -279,12 +287,15 @@ export function LanguagePicker({ id, label, value, options, onChange, disabled }
                   </button>
                 );
               })}
-              {filtered.length === 0 && (
-                <p role="status" className="px-3 py-5 text-center text-xs text-[var(--muted-foreground)]">
-                  {t("languagePicker.noMatches")}
-                </p>
-              )}
             </div>
+            {filtered.length === 0 && (
+              <p
+                role="status"
+                className="min-h-16 overflow-y-auto px-3 py-5 text-center text-xs text-[var(--muted-foreground)]"
+              >
+                {t("languagePicker.noMatches")}
+              </p>
+            )}
             <p className="shrink-0 border-t border-[var(--border)] px-3 py-2.5 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("languagePicker.nativeNames")}
             </p>

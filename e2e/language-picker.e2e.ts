@@ -48,6 +48,22 @@ test("soup/language picker searches native names and English names with keyboard
 
   await search.fill("zzzz");
   await expect(popup.getByRole("status")).toHaveText("No languages found. Try another name.");
+  await expect(popup.getByRole("status")).toBeInViewport({ ratio: 1 });
+  await testInfo.attach("language-picker-empty", {
+    body: await page.screenshot({ path: testInfo.outputPath("language-picker-empty.png") }),
+    contentType: "image/png",
+  });
+  if (!testInfo.project.name.includes("mobile")) {
+    const constraint = await page.addStyleTag({
+      content: "[data-language-picker-portal] { max-height: 100px !important; }",
+    });
+    await popup.hover();
+    await page.mouse.wheel(0, 40);
+    await expect(popup.getByRole("status")).toBeInViewport({ ratio: 1 });
+    await constraint.evaluate((element) => {
+      element.parentNode?.removeChild(element);
+    });
+  }
   await page.keyboard.press("Enter");
   expect(packs.downloads).toEqual([]);
   await search.fill("japanese");
@@ -57,6 +73,16 @@ test("soup/language picker searches native names and English names with keyboard
   await expect(popup.getByRole("option")).toHaveCount(1);
   await expect(popup.getByRole("option")).toContainText("Português");
   await page.keyboard.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await page.keyboard.press("Shift+Tab");
+  await expect(popup).toHaveCount(0);
+  await expect(page.locator("#settings-control-language").getByRole("button").first()).toBeFocused();
+
+  await trigger.click();
+  await page.goBack();
   await expect(popup).toHaveCount(0);
   await expect(trigger).toBeFocused();
 
@@ -126,6 +152,10 @@ test("soup/onboarding language picker closes on Escape without ending the tutori
   await expect(tour).toBeVisible();
   await expect(trigger).toBeFocused();
   await trigger.click();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
+  await expect(tour.getByRole("button", { name: "Documentation", exact: true })).toBeFocused();
+  await trigger.click();
   await page.keyboard.press("Tab");
   await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
   await expect(tour.getByRole("button", { name: "Skip", exact: true })).toBeFocused();
@@ -143,16 +173,25 @@ test("soup/language picker fits phone, tablet and desktop in both visual themes"
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
           useUIStore.getState().setVisualTheme(visualTheme);
           useUIStore.getState().setTheme(theme);
+          useUIStore.getState().setChatChromeTextColor("#9d75db");
         },
         { visualTheme, theme },
       );
       for (const width of [390, 768, 1440]) {
         await page.setViewportSize({ width, height: 1000 });
-        await page.locator("#settings-control-language-select").click();
+        const trigger = page.locator("#settings-control-language-select");
+        await trigger.click();
         const popup = page.locator("[data-language-picker-portal]");
         await expect(popup).toBeVisible();
+        await expect(popup).toHaveCSS("color", await trigger.evaluate((element) => getComputedStyle(element).color));
+        const tokens = (element: HTMLElement) => {
+          const style = getComputedStyle(element);
+          return [style.getPropertyValue("--foreground"), style.getPropertyValue("--muted-foreground")];
+        };
+        expect(await popup.evaluate(tokens)).toEqual(await trigger.evaluate(tokens));
+        const screenshotPath = testInfo.outputPath(`language-picker-${visualTheme}-${theme}-${width}.png`);
         await testInfo.attach(`language-picker-${visualTheme}-${theme}-${width}`, {
-          body: await page.screenshot(),
+          body: await page.screenshot({ path: screenshotPath }),
           contentType: "image/png",
         });
         const box = (await popup.boundingBox())!;
