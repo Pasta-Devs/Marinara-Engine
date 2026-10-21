@@ -188,7 +188,7 @@ async function askOnce(
   } catch (err) {
     return finish(
       null,
-      signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : isRefusedFetch(err) ? err.message : "network",
+      signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : isRefusedFetch(err) ? "private_address" : "network",
     );
   }
   if (!response.ok) return finish(null, `http_${response.status}`);

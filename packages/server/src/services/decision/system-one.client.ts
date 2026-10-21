@@ -25,13 +25,7 @@ export interface NoulQuestion {
 /** The option a Choice question adds so a turn that fits none of the others can say so. */
 export const DECISION_CHOICE_NONE = "none of these";
 export type DecisionRequestError =
-  | "timeout"
-  | "cancelled"
-  | "network"
-  | "invalid_response"
-  | "partial_response"
-  | `http_${number}`
-  | `Refused to fetch ${string}`;
+  "timeout" | "cancelled" | "network" | "invalid_response" | "partial_response" | `http_${number}` | "private_address";
 
 export interface DecisionRequest {
   connection: DecisionConnection;
@@ -54,8 +48,8 @@ export interface DecisionRequest {
  * DNS validation precedes the fetch and cannot itself be aborted, so the whole
  * operation is raced against `signal`.
  */
-/** The private-host guard's refusal names the flag to set; keep it instead of a bare "network". */
-export const isRefusedFetch = (err: unknown): err is Error & { message: `Refused to fetch ${string}` } =>
+/** The private-host guard's refusal gets its own code; its full text (it names the flag) goes to the log. */
+export const isRefusedFetch = (err: unknown): err is Error =>
   err instanceof Error && err.message.startsWith("Refused to fetch");
 
 export async function postDecisionRequest(
@@ -113,6 +107,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
   const timeout = AbortSignal.timeout(req.timeoutMs ?? 1500);
   const signal = req.signal ? AbortSignal.any([req.signal, timeout]) : timeout;
   let error: DecisionRequestError | undefined;
+  let guardText: string | undefined;
   let trace: DecisionDebugRequest | undefined;
   try {
     signal.throwIfAborted();
@@ -188,8 +183,9 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
         : caught instanceof SyntaxError
           ? "invalid_response"
           : isRefusedFetch(caught)
-            ? caught.message
+            ? "private_address"
             : "network";
+    guardText = isRefusedFetch(caught) ? caught.message : undefined;
   }
   const results = req.questions.map((question) => ({
     id: question.id,
@@ -211,7 +207,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       `decision.system-one:${error}`,
       undefined,
       "[decision] Activation request failed: %s",
-      error,
+      guardText ?? error,
     );
   return { answers, choices, ...(error ? { error } : {}), latencyMs: Date.now() - start };
 }

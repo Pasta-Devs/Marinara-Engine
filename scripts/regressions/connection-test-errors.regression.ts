@@ -1,5 +1,5 @@
 // Connection Test failures keep their real cause. A private host the server guard refuses
-// must surface the guard's message (flag name included), not a bare "network"; and a
+// must surface its own code (the client words it, naming the flag), not a bare "network"; and a
 // speech row's Test must send the row's key the same way the voice path does.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -49,7 +49,7 @@ try {
   const refused = await app.inject({ method: "POST", url: `/api/connections/${decision.id}/test` });
   const refusedBody = refused.json();
   assert.equal(refusedBody.success, false, refused.body);
-  assert.match(String(refusedBody.errorCode ?? refusedBody.message), /Refused to fetch .*PROVIDER_LOCAL_URLS_ENABLED/);
+  assert.equal(refusedBody.errorCode, "private_address");
 
   // A speech row's Test sends its key as a Bearer header, as /tts/speak does.
   process.env.TTS_LOCAL_URLS_ENABLED = "true";

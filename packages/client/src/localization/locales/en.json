@@ -1901,6 +1901,7 @@
   "connections.decision.errors.no_model": "No model is downloaded for this slot.",
   "connections.decision.errors.not_installed": "This decision model is not installed.",
   "connections.decision.errors.partial_response": "The endpoint did not return a valid answer.",
+  "connections.decision.errors.private_address": "The server blocks addresses on your local network. Set PROVIDER_LOCAL_URLS_ENABLED=true to allow them.",
   "connections.decision.errors.stopped": "The built-in model is not running.",
   "connections.decision.errors.testTimeout": "No answer after {{seconds}} s.",
   "connections.decision.errors.timeout": "The model did not answer within the time limit.",

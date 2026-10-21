@@ -237,11 +237,7 @@ try {
   );
   const lanTest = (await app.inject({ method: "POST", url: `/connections/${lan!.id}/test` })).json();
   assert.equal(lanTest.success, false);
-  assert.match(
-    lanTest.errorCode ?? "",
-    /^Refused to fetch .*PROVIDER_LOCAL_URLS_ENABLED/,
-    "Test reports the refusal as a network error",
-  );
+  assert.equal(lanTest.errorCode, "private_address", "Test reports the refusal as a network error");
 } finally {
   server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
