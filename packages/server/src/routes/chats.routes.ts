@@ -63,6 +63,7 @@ import {
   MAX_PINNED_CONTEXT_MESSAGES,
   semanticSummaryRetrievalSettingsSchema,
   DEFAULT_GENERATION_PARAMS,
+  isStockMarinaraUniversalPreset,
   omitChatMetadataLocalDestinations,
 } from "@marinara-engine/shared";
 import type {
@@ -3668,7 +3669,10 @@ export async function chatsRoutes(app: FastifyInstance) {
                 isSceneChat: chatMeta.sceneStatus === "active",
                 chatParameters: chatMeta.chatParameters,
                 baseReasoningEffort:
-                  preset && chatMode !== "conversation" && chatMode !== "game"
+                  preset &&
+                  !isStockMarinaraUniversalPreset(preset) &&
+                  chatMode !== "conversation" &&
+                  chatMode !== "game"
                     ? (parsePresetParameters(preset.parameters).reasoningEffort ?? null)
                     : DEFAULT_GENERATION_PARAMS.reasoningEffort,
               })

@@ -6,6 +6,7 @@ import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
   createPromptPresetSchema,
+  DEFAULT_GENERATION_PARAMS,
   updatePromptPresetSchema,
   createPromptSectionSchema,
   updatePromptSectionSchema,
@@ -557,7 +558,9 @@ export async function promptsRoutes(app: FastifyInstance) {
             chatMode: chat.mode,
             isSceneChat: chatMeta.sceneStatus === "active",
             chatParameters: chatMeta.chatParameters,
-            baseReasoningEffort: parsePresetParameters(preset.parameters).reasoningEffort ?? null,
+            baseReasoningEffort: isStockMarinaraUniversalPreset(preset)
+              ? DEFAULT_GENERATION_PARAMS.reasoningEffort
+              : (parsePresetParameters(preset.parameters).reasoningEffort ?? null),
           })
         : undefined,
       preset: preset as any,

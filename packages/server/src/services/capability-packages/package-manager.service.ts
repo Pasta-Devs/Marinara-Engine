@@ -43,7 +43,7 @@ import {
   RULESET_COMBAT_MODIFIER_TARGETS,
   type RulesetCatalogItem,
 } from "@marinara-engine/shared";
-import { WORLD_SHARE_FILE_MAX_BYTES } from "@marinara-engine/shared";
+import { CREATURE_PACK_MAX_BYTES, WORLD_SHARE_FILE_MAX_BYTES, type ExperienceMusic } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
@@ -234,6 +234,10 @@ const PACKAGE_ASSET_CONTENT_TYPES = new Map([
   // Tilemap/atlas metadata for contributions.assets. Passive data only — anything
   // active (svg, html, js) stays out of this map: it would execute same-origin.
   [".json", "application/json; charset=utf-8"],
+  // An Experience's own music (Capability API 1.345): passive media, played by an audio element.
+  [".mp3", "audio/mpeg"],
+  [".ogg", "audio/ogg"],
+  [".wav", "audio/wav"],
 ]);
 const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
   ...["1.0.0", "1.0.3", "1.0.6"].map(
@@ -6977,6 +6981,29 @@ export const capabilityPackageManager = {
     }
   },
 
+  /** An installed, ready Experience's map pack music as its manifest declares it (1.345), or null. Read
+   *  off the manifest only: what a turn needs to pick a track, without reading the pack's files. */
+  /** An Experience's people file (1.346) alone, verified as its other map pack files are, for a turn to
+   *  read without the whole pack; null when it ships none or is not installed and ready. */
+  async mapPackPeople(packageId: string): Promise<{ version: string; data: Buffer; sha256: string } | null> {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    const path = installed.manifest.contributions?.gameSurface?.mapPack?.people;
+    if (!path) return null;
+    const declaration = installed.manifest.files.find(
+      (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(path),
+    );
+    if (!declaration || declaration.bytes > WORLD_SHARE_FILE_MAX_BYTES) return null;
+    const data = (await readVerifiedInstalledPackageFile(installed, path)).data;
+    return { version: installed.version, data, sha256: declaration.sha256 };
+  },
+
+  async mapPackMusic(packageId: string): Promise<ExperienceMusic | null> {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    return installed.manifest.contributions?.gameSurface?.mapPack?.music ?? null;
+  },
+
   /** An Experience's map pack files (worldgen W9e), verified: its kit, worlds and tile pack, by the
    *  paths its manifest declares, each declared as an asset, hash-pinned in `files[]` and re-verified
    *  against the install-time hash. Null when the package is not installed, not ready, or ships no map
@@ -6990,18 +7017,26 @@ export const capabilityPackageManager = {
     /** The tiles file's pinned hash, and the Capability API the package declares (image tiles need 1.80, a story intro 1.339). */
     tilesSha256: string | null;
     capabilityApi: { major: number; minor: number } | null;
+    /** Its creature packs (1.344), with their pinned hashes. */
+    creatures: Array<{ path: string; data: Buffer; sha256: string }>;
+    /** Its music (1.345), as declared: the tracks are served as assets, never read here. */
+    music: ExperienceMusic | null;
+    /** Its people file (1.346), with its pinned hash. */
+    people: { path: string; data: Buffer; sha256: string } | null;
+    /** The package's declared asset paths, for the files its people name. */
+    assets: string[];
   } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
     if (!installed || !isInstalledCapabilityReady(installed)) return null;
     const mapPack = installed.manifest.contributions?.gameSurface?.mapPack;
     if (!mapPack) return null;
-    const read = async (path: string) => {
+    const read = async (path: string, maxBytes = WORLD_SHARE_FILE_MAX_BYTES) => {
       const declaration = installed.manifest.files.find(
         (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(path),
       );
       if (!declaration) throw new Error(`${path} is not listed in the package's files`);
       // Refused on its DECLARED size, before the read, as a share file is.
-      if (declaration.bytes > WORLD_SHARE_FILE_MAX_BYTES) throw new Error(`${path} is larger than a share file can be`);
+      if (declaration.bytes > maxBytes) throw new Error(`${path} is larger than a share file can be`);
       return (await readVerifiedInstalledPackageFile(installed, path)).data;
     };
     return {
@@ -7016,6 +7051,28 @@ export const capabilityPackageManager = {
           )?.sha256 ?? null)
         : null,
       capabilityApi: installed.manifest.schemaVersion === 2 ? installed.manifest.capabilityApi : null,
+      music: mapPack.music ?? null,
+      assets: installed.manifest.contributions?.assets?.paths ?? [],
+      people: mapPack.people
+        ? {
+            path: mapPack.people,
+            data: await read(mapPack.people),
+            sha256:
+              installed.manifest.files.find(
+                (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(mapPack.people!),
+              )?.sha256 ?? "",
+          }
+        : null,
+      creatures: await Promise.all(
+        (mapPack.creatures ?? []).map(async (path) => ({
+          path,
+          data: await read(path, CREATURE_PACK_MAX_BYTES),
+          sha256:
+            installed.manifest.files.find(
+              (item) => tryNormalizeArchivePath(item.path) === tryNormalizeArchivePath(path),
+            )?.sha256 ?? "",
+        })),
+      ),
     };
   },
 

@@ -10,6 +10,7 @@ import {
   parseDecisionPromptQuestionLimit,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isStockMarinaraUniversalPreset,
   resolveProviderReasoningEffort,
   resolveMacros,
   DEFAULT_CONVERSATION_PROMPT,
@@ -115,7 +116,7 @@ import {
   setLorebookEntryCounts,
   type AssemblerInput,
 } from "../../services/prompt/index.js";
-import { parsePresetParameters } from "../../services/prompt/assembler.js";
+import { getPresetGenerationParameters, parsePresetParameters } from "../../services/prompt/assembler.js";
 import { resolveReasoningMacroValue } from "../../services/generation/provider-generation-runtime.js";
 import { cardPromptText } from "../../services/prompt/card-text.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
@@ -1116,7 +1117,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       isSceneChat: false,
       chatParameters: chatMeta.chatParameters,
       baseReasoningEffort:
-        !effectivePresetId || !effectivePreset
+        !effectivePresetId || !effectivePreset || isStockMarinaraUniversalPreset(effectivePreset)
           ? reasoningEffort
           : presetUsesModeParameters
             ? (parseStoredGenerationParameters(effectivePreset.parameters)?.reasoningEffort ?? reasoningEffort)
@@ -1877,26 +1878,28 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       finalMessages = assembled.messages;
       lorebookImageEntries = assembled.lorebookScanResult?.imageEntries ?? [];
       advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
-      temperature = assembled.parameters.temperature;
-      topP = assembled.parameters.topP ?? 1;
-      topK = assembled.parameters.topK ?? 0;
-      minP = assembled.parameters.minP ?? 0;
-      frequencyPenalty = assembled.parameters.frequencyPenalty ?? 0;
-      presencePenalty = assembled.parameters.presencePenalty ?? 0;
-      showThoughts = assembled.parameters.showThoughts ?? true;
-      reasoningEffort = assembled.parameters.reasoningEffort ?? null;
-      verbosity = assembled.parameters.verbosity ?? null;
-      serviceTier = assembled.parameters.serviceTier ?? null;
-      assistantPrefill = assembled.parameters.assistantPrefill ?? "";
-      customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
-      if (assembled.parameters.enabledParameters) {
-        enabledParameters = { ...(enabledParameters ?? {}), ...assembled.parameters.enabledParameters };
+      if (!isStockMarinaraUniversalPreset(effectivePreset)) {
+        temperature = assembled.parameters.temperature;
+        topP = assembled.parameters.topP ?? 1;
+        topK = assembled.parameters.topK ?? 0;
+        minP = assembled.parameters.minP ?? 0;
+        frequencyPenalty = assembled.parameters.frequencyPenalty ?? 0;
+        presencePenalty = assembled.parameters.presencePenalty ?? 0;
+        showThoughts = assembled.parameters.showThoughts ?? true;
+        reasoningEffort = assembled.parameters.reasoningEffort ?? null;
+        verbosity = assembled.parameters.verbosity ?? null;
+        serviceTier = assembled.parameters.serviceTier ?? null;
+        assistantPrefill = assembled.parameters.assistantPrefill ?? "";
+        customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
+        if (assembled.parameters.enabledParameters) {
+          enabledParameters = { ...(enabledParameters ?? {}), ...assembled.parameters.enabledParameters };
+        }
       }
     }
 
     const modePresetParameters =
       effectivePresetId && effectivePreset && (chatMode === "conversation" || chatMode === "game")
-        ? parsePresetParameters(effectivePreset.parameters)
+        ? getPresetGenerationParameters(effectivePreset)
         : null;
     if (modePresetParameters) applyParameterOverrides(modePresetParameters);
     applyParameterOverrides(connectionParams);
@@ -2373,7 +2376,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
       return postProcessMessages(messages, {
-        ...parseStoredGenerationParameters(effectivePreset?.parameters),
+        ...(effectivePreset && !isStockMarinaraUniversalPreset(effectivePreset)
+          ? parseStoredGenerationParameters(effectivePreset.parameters)
+          : {}),
         ...connectionParams,
         ...chatParams,
       });

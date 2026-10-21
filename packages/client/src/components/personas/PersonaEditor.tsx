@@ -3777,7 +3777,7 @@ function PersonaMetadataTab({
             <button
               type="button"
               onClick={removeAllTags}
-              className="mari-chrome-accent-surface mari-accent-animated rounded-lg border px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
+              className="mari-editor-action mari-editor-action--compact px-2.5 py-1 text-[0.6875rem]"
             >
               {localizeUi("ui.personas.personametadatatab.removeAll")}
             </button>
@@ -4292,7 +4292,7 @@ function PersonaVersionHistoryPanel({
                     type="button"
                     onClick={() => handleDeleteVersion(version)}
                     disabled={versionMutationPending}
-                    className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
+                    className="mari-editor-action mari-editor-action--compact mari-editor-action--accent inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.personas.personaversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (

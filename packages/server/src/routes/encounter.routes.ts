@@ -20,6 +20,12 @@ import {
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
+import {
+  latestStoryFight,
+  storyFightBlueprintEnemies,
+  storyFightOpponents,
+  storyFightPromptText,
+} from "../services/game/story-fight.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
 // ──────────────────────────────────────────────
 // Routes: Combat Encounter (non-streaming JSON)
@@ -951,9 +957,11 @@ export async function encounterRoutes(app: FastifyInstance) {
       // exactly the blueprint it was asked for before any of this existed.
       let rulesetBrief: EncounterRulesetBrief | null = null;
       const items = { guess: true, ruleset: [] as string[] };
+      let fightRuleset: { definition: RulesetDefinition; packageId: string | null } | null = null;
       if (chatMeta?.gameRuleset != null) {
         const resolved = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
         if (resolved.status === "ok") {
+          fightRuleset = { definition: resolved.definition, packageId: resolved.packageId };
           rulesetBrief = await encounterRulesetBrief(resolved.definition, resolved.packageId);
           items.guess = resolved.definition.items?.native !== false;
           if (resolved.definition.items) {
@@ -978,6 +986,16 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameWorldBattlefields(chatMeta),
         gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
       );
+      // A fight the story set (Capability API 1.343): its opponents are the story's, never the model's.
+      // Creatures the ruleset doesn't have are refused (and logged); with none left, the model picks them.
+      const storyFight = await latestStoryFight(app.db, chatId, chatMeta);
+      const storyRoster = storyFight
+        ? await storyFightOpponents(storyFight, fightRuleset?.definition.combat ? fightRuleset : null)
+        : null;
+      const storyOpponents = storyRoster?.opponents.length ? storyRoster.opponents : null;
+      if (storyFight && storyRoster) {
+        prompt.push({ role: "user", content: storyFightPromptText(storyFight, storyRoster.opponents) });
+      }
       debugLog(
         "[debug/game/combat:init] request chatId=%s model=%s historyMessages=%d settings=%s",
         chatId,
@@ -1021,6 +1039,16 @@ export async function encounterRoutes(app: FastifyInstance) {
       if (!aiBlueprint.success)
         return reply.status(502).send({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
       combatState = aiBlueprint.data;
+      if (storyOpponents?.length) {
+        combatState = {
+          ...combatState,
+          enemies: storyFightBlueprintEnemies(
+            storyOpponents,
+            (combatState.enemies as Array<Record<string, unknown>>) ?? [],
+            rulesetBrief !== null,
+          ),
+        };
+      }
       if (combatStyle === "tactical") {
         const tacticalResult = validateTacticalEncounterBlueprint(combatState);
         if (!tacticalResult.ok) {

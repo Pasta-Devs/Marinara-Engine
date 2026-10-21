@@ -2398,6 +2398,10 @@
    Used by character, persona, preset, lorebook, connection, and agent editors.
    Custom themes can override --marinara-editor-* without touching component code.
    ───────────────────────────────────────────── */
+:root:where(:not([data-theme="light"], [data-visual-theme])) {
+  --marinara-editor-bg: var(--sidebar);
+}
+
 .mari-editor-shell {
   background: var(--marinara-editor-bg);
   color: var(--marinara-editor-text);
@@ -3239,15 +3243,18 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
 
   .mari-editor-action--primary {
-    margin-right: auto;
     padding-inline: 0.75rem;
+  }
+
+  .mari-editor-actions .mari-editor-action--primary {
+    margin-right: auto;
   }
 
   .mari-editor-action--compact {
     min-height: auto;
   }
 
-  .mari-editor-action--compact.mari-editor-action--primary {
+  .mari-editor-actions .mari-editor-action--compact.mari-editor-action--primary {
     margin-right: 0;
   }
 

@@ -4,8 +4,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import { CARD_FIELD_KEYS, type CardFieldDraft } from "../../packages/shared/src/types/card-field.js";
+import {
+  CARD_FIELD_KEYS,
+  CARD_FIELD_GENERATION_KEYS,
+  type CardFieldGenerationDraft,
+} from "../../packages/shared/src/types/card-field.js";
 import { characterDataSchema } from "../../packages/shared/src/schemas/character.schema.js";
+import { cardFieldAlternativeSchema } from "../../packages/shared/src/schemas/card-field-alternative.schema.js";
 
 const directory = mkdtempSync(join(tmpdir(), "marinara-card-field-"));
 const previousStorage = process.env.FILE_STORAGE_DIR;
@@ -60,7 +65,7 @@ const provider = createServer(async (request, response) => {
   response.end(JSON.stringify({ choices: [{ message: { content: output }, finish_reason: finishReason }] }));
 });
 const longSummary = "Thoughtful scientist studies ancient history and protects his colleagues. ".repeat(20).trim();
-const card: CardFieldDraft = {
+const card: CardFieldGenerationDraft = {
   name: "Unsaved name",
   summary: "Unsaved summary",
   description: "Unsaved researcher identity",
@@ -69,6 +74,7 @@ const card: CardFieldDraft = {
   appearance: "Masked face; preserve {{custom_trait}} and {{char}}.",
   scenario: "Unsaved laboratory setting",
   mes_example: "Unsaved playful dialogue direction",
+  first_mes: "The masked scientist welcomes {{user}} to his laboratory; preserve {{custom_trait}}.",
 };
 try {
   app.decorate("db", db);
@@ -96,6 +102,7 @@ try {
     { field: "summary", card: { ...card, summary: 5 } },
     { field: "summary" },
     { field: "summary", card, debugMode: "true" },
+    { field: "first_mes", card: { ...card, first_mes: 5 } },
   ]) {
     const response = await app.inject({ method: "POST", url: characterPath, payload });
     assert.equal(response.statusCode, 400, response.body);
@@ -122,7 +129,7 @@ try {
   const originalCharacter = (await characters.getById(character.id))!;
   const originalPersona = (await characters.getPersona(persona.id))!;
   for (const url of [characterPath, personaPath]) {
-    for (const field of CARD_FIELD_KEYS) {
+    for (const field of url === characterPath ? CARD_FIELD_GENERATION_KEYS : CARD_FIELD_KEYS) {
       response = await generate(url, field);
       assert.equal(response.statusCode, 200, `${url}/${field}: ${response.body}`);
       assert.equal(response.json().text, output);
@@ -144,8 +151,24 @@ try {
           url === personaPath ? /Use \{\{user\}\} for this persona/ : /Use \{\{char\}\} for this character/,
         );
       }
+      if (field === "first_mes") {
+        assert.match(messages[0].content, /only the greeting section of a character card/);
+        assert.match(messages[0].content, /do not write their dialogue, actions, feelings, or decisions/);
+      }
     }
   }
+  const { first_mes: _greeting, ...legacyCard } = card;
+  response = await app.inject({
+    method: "POST",
+    url: characterPath,
+    payload: { field: "description", card: legacyCard },
+  });
+  assert.equal(response.statusCode, 200, "existing seven-field generation requests remain accepted");
+  assert.equal(
+    cardFieldAlternativeSchema.safeParse({ id: "greeting", field: "first_mes", value: "Hello", chatIds: [] }).success,
+    false,
+    "greeting generation does not change the persisted alternative-field contract",
+  );
   assert.deepEqual(await characters.getById(character.id), originalCharacter, "generation never saves the card");
   assert.deepEqual(await characters.getPersona(persona.id), originalPersona, "generation never saves the persona");
   for (const url of [

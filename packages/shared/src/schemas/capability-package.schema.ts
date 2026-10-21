@@ -24,6 +24,39 @@ export const capabilityPermissionSchema = z.enum([
   "ui",
 ]);
 
+/** The largest audio file a package may ship as an asset (Capability API 1.345). */
+export const CAPABILITY_AUDIO_ASSET_MAX_BYTES = 16 * 1024 * 1024;
+const AUDIO_ASSET = /\.(?:ogg|mp3|wav)$/iu;
+const musicId = z.string().regex(/^[a-z0-9_-]{1,40}$/, "A track id is 1 to 40 lowercase letters, digits, _ or -");
+
+/** An Experience's own music (Capability API 1.345). */
+export const experienceMusicSchema = z
+  .object({
+    tracks: z
+      .array(
+        z
+          .object({
+            id: musicId,
+            path: z.string().min(1).max(240).regex(AUDIO_ASSET, "A track is an .ogg, .mp3 or .wav file"),
+            title: z.string().min(1).max(80).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(64),
+    /** Played wherever no place has a track of its own. */
+    default: musicId.optional(),
+    /** Played while a fight is on. */
+    combat: musicId.optional(),
+    /** A place's track (a place id of the pack's worlds), for it and every place inside it. */
+    places: z
+      .array(z.object({ place: z.string().min(1).max(120), track: musicId }).strict())
+      .max(128)
+      .optional(),
+  })
+  .strict();
+export type ExperienceMusic = z.infer<typeof experienceMusicSchema>;
+
 const capabilityPackageManifestBaseSchema = z
   .object({
     id: z
@@ -148,6 +181,31 @@ const capabilityPackageManifestBaseSchema = z
                   .max(240)
                   .regex(/\.tilepack\.json$/u, "A map pack's tiles are a .tilepack.json file")
                   .optional(),
+                /** Creature packs for this Experience's fights (Capability API 1.344): their art comes
+                 *  before the creature pack chosen in the library, in this order. */
+                creatures: z
+                  .array(
+                    z
+                      .string()
+                      .min(1)
+                      .max(240)
+                      .regex(/\.creaturepack\.json$/u, "A map pack's creatures are a .creaturepack.json file"),
+                  )
+                  .min(1)
+                  .max(8)
+                  .optional(),
+                /** The Experience's own music (Capability API 1.345): its tracks, the one for each place
+                 *  (a place's own, else the nearest place it is inside that has one), the one played
+                 *  anywhere else, and the one for fights. A story may cue a track over them. */
+                music: experienceMusicSchema.optional(),
+                /** The Experience's people (Capability API 1.346): a `.people.json` file dressing the named
+                 *  people of its worlds with portraits, expressions, a walking look and lore. */
+                people: z
+                  .string()
+                  .min(1)
+                  .max(240)
+                  .regex(/\.people\.json$/u, "A map pack's people are a .people.json file")
+                  .optional(),
               })
               .strict()
               .optional(),
@@ -239,9 +297,9 @@ const capabilityPackageManifestBaseSchema = z
                   .string()
                   .min(1)
                   .max(240)
-                  // Passive content only — images plus JSON metadata. Never SVG, HTML, or
-                  // scripts: those are active documents on a same-origin route.
-                  .regex(/\.(?:gif|jpe?g|png|webp|json)$/iu),
+                  // Passive content only — images, audio (Capability API 1.345) plus JSON metadata.
+                  // Never SVG, HTML, or scripts: those are active documents on a same-origin route.
+                  .regex(/\.(?:gif|jpe?g|png|webp|json|ogg|mp3|wav)$/iu),
               )
               .min(1)
               // Bounded so a manifest cannot enumerate an arbitrarily large tree.
@@ -1249,7 +1307,35 @@ const capabilityPackageManifestBaseSchema = z
 //        first message exactly, guided only shapes it; an Experience may lock its own.
 // 1.340: a ruleset of up to 512 KB and catalog files of up to 2 MB (256 KB and 1 MB before).
 // 1.341: the client host namespace (__MARINARA_HOST__), api.runtime services, commands, admission, haptics, Spotify, local speech, chat-gallery and chat-write members, and shared server libraries.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 341 } as const);
+// 1.342: a story's number flag may be a `clock` (title, 2-12 segments, a "when full" line, hidden until
+//        shown): the player sees it fill in the HUD and the World tab, and the Game Master is told once
+//        when it fills. A map pack world whose story has one needs 1.342.
+// 1.343: story actions `give` (a ruleset item by `catalog/entry` id, or one by name), `fight` (one of the
+//        script's `fights`: its creatures, counted, on a painted board), `move` (the party to a place) and
+//        `ending` (one of the script's `endings`: a title, a scene and the epilogue; nothing trips after).
+//        A map pack world whose story uses them needs 1.343.
+// 1.344: an Experience's map pack may ship creature packs (`mapPack.creatures`, .creaturepack.json files
+//        declared as assets): its fights draw their creatures from them first, then from the library's.
+// 1.345: a package's assets may be audio (`.ogg`, `.mp3`, `.wav`, 16 MB each at most), and an Experience's
+//        map pack may ship `music`: its tracks, by place, anywhere else and in fights. A story's `music`
+//        action cues one of them over the place's, or hands back to the place's.
+// 1.346: an Experience's map pack may ship its people (`mapPack.people`, a .people.json file declared as
+//        an asset): named people of its worlds with a portrait (the journal, the narration), expressions,
+//        a walking look from its tiles, how they speak, and lore that is active in its games.
+// 1.347: an Experience's people may be companions (`companion`: a role and, per ruleset, a build for each
+//        level they are made for): the story recruits and dismisses them (`recruit` / `dismiss` actions),
+//        the Game Master may take only them in, and they join with their sheet and keep up with the party.
+// 1.348: a story may keep what people know (`knowledge`: a person or keys, the text, flag conditions): an
+//        entry is told to the Game Master on a turn it holds and its person is in the scene (named, or
+//        travelling with the party) or one of its keys is said. Up to 600 entries, 12 a turn.
+// 1.349: story triggers `rest` (a rest the Game Master's sheet tags took), `travel` (the party sets out
+//        from one place for another) and `idle` (some replies with nothing happening), with a `priority`:
+//        one of them goes a turn, the highest. A condition may ask whether a person travels with the party
+//        (`{ "party": "<person id>", "is": "in" | "out" }`). A script may have 256 events (128 before).
+// 1.350: `POST /api/game/experience/check` checks a whole map pack before it is exported, as an installed
+//        one is read: send `{ mapPack, files: { <path>: <parsed JSON> }, assets: [{ path, bytes }] }`, get
+//        `{ ok, minor, issues: [{ path, message }] }` (`minor`: the Capability API minor the pack needs).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 350 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1307,13 +1393,94 @@ export const capabilityPackageManifestSchema = z
         [mapPack.kit, ["kit"]],
         ...(mapPack.worlds ?? []).map((path, index): [string, Array<string | number>] => [path, ["worlds", index]]),
         ...(mapPack.tiles ? [[mapPack.tiles, ["tiles"]] as [string, Array<string | number>]] : []),
+        ...(mapPack.creatures ?? []).map((path, index): [string, Array<string | number>] => [
+          path,
+          ["creatures", index],
+        ]),
+        ...(mapPack.people ? [[mapPack.people, ["people"]] as [string, Array<string | number>]] : []),
       ];
+      if (mapPack.music) {
+        const tracks = new Set(mapPack.music.tracks.map((track) => track.id));
+        files.push(
+          ...mapPack.music.tracks.map((track, index): [string, Array<string | number>] => [
+            track.path,
+            ["music", "tracks", index, "path"],
+          ]),
+        );
+        const named: Array<[string | undefined, Array<string | number>]> = [
+          [mapPack.music.default, ["music", "default"]],
+          [mapPack.music.combat, ["music", "combat"]],
+          ...(mapPack.music.places ?? []).map((each, index): [string, Array<string | number>] => [
+            each.track,
+            ["music", "places", index, "track"],
+          ]),
+        ];
+        for (const [track, at] of named) {
+          if (track !== undefined && !tracks.has(track)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["contributions", "gameSurface", "mapPack", ...at],
+              message: `No track "${track}" in the map pack's music`,
+            });
+          }
+        }
+        if (tracks.size !== mapPack.music.tracks.length) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "gameSurface", "mapPack", "music", "tracks"],
+            message: "Two tracks share an id",
+          });
+        }
+      }
+      if (mapPack.music && (!api || api.major !== 1 || api.minor < 345)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "music"],
+          message: "A map pack's music requires capabilityApi 1.345 or newer",
+        });
+      }
+      if (mapPack.people && (!api || api.major !== 1 || api.minor < 346)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "people"],
+          message: "A map pack's people require capabilityApi 1.346 or newer",
+        });
+      }
+      if (mapPack.creatures && api && api.major === 1 && api.minor < 344) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "gameSurface", "mapPack", "creatures"],
+          message: "A map pack's creature packs require capabilityApi 1.344 or newer",
+        });
+      }
       for (const [path, at] of files) {
         if (!declared.has(path)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["contributions", "gameSurface", "mapPack", ...at],
             message: `${path} must also be declared in contributions.assets.paths`,
+          });
+        }
+      }
+    }
+    // Audio assets (1.345): only an Engine this new serves them, each kept to a size a page can stream.
+    const audio = (manifest.contributions?.assets?.paths ?? []).filter((path) => AUDIO_ASSET.test(path));
+    if (audio.length) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major !== 1 || api.minor < 345) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["contributions", "assets", "paths"],
+          message: "Audio assets require schemaVersion 2 and capabilityApi 1.345 or newer",
+        });
+      }
+      for (const path of audio) {
+        const file = manifest.files.find((each) => each.path === path);
+        if (file && file.bytes > CAPABILITY_AUDIO_ASSET_MAX_BYTES) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["contributions", "assets", "paths"],
+            message: `${path} is larger than an audio asset can be (16 MB)`,
           });
         }
       }

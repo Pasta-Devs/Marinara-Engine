@@ -39,7 +39,10 @@ const { createCharacterGalleryStorage } =
   await import("../../packages/server/src/services/storage/character-gallery.storage.js");
 const { supportedCapabilityApi } = await import("../../packages/shared/src/schemas/capability-package.schema.js");
 
-assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 341 }, "the new members ship as capability API 1.341");
+assert.ok(
+  supportedCapabilityApi.major === 1 && supportedCapabilityApi.minor >= 341,
+  "the new members ship as capability API 1.341",
+);
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const timestamp = new Date().toISOString();

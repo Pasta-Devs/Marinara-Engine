@@ -92,16 +92,16 @@ A short Example Dialogue entry looks like this:
 
 ### Generate a card field with the wand
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, and **Example Dialogue** each have an icon-only wand button above the field. Its tooltip and accessible name identify the field it generates.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message**, and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip and accessible name identify the field it generates.
 
 1. Write any ideas you want to keep in the field, such as `smart, scientist, handsome`, or leave it empty.
 2. Fill in any other card fields you want the AI to use as reference. You do not need to save these edits first.
-3. Click that field's wand. Marinara asks for 100–300 words for that section, using its existing text as the starting details and the other card fields as reference. Example Dialogue asks for sample exchanges rather than a prose description.
+3. Click that field's wand. Marinara asks for 100–300 words for that section, using its existing text as the starting details and the other card fields as reference. Example Dialogue asks for sample exchanges. First Message and Alternate Greeting each ask for one opening roleplay message that leaves your response up to you.
 4. Review and edit the result, then click **Save** to keep it.
 
 The wand uses the same connection selection as the original summary generator: your default agent text connection, falling back to your default text connection when needed. A configured agent fallback connection still applies. Set up a working text connection before generating; see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-Generation replaces only the chosen field in your unsaved editor draft. The wand itself does not save the card or change other fields; the editor's normal save-on-leave behavior still applies when you navigate away. If generation fails, your text stays in place. If you edit the target field while waiting, or switch to another card, a late result does not overwrite your newer work. You can use the wand without opening Professor Mari.
+Generation replaces only the chosen field in your unsaved editor draft. The wand itself does not save the card or change other fields; the editor's normal save-on-leave behavior still applies when you navigate away. If generation fails, your text stays in place. If you edit the target field while waiting, or switch to another card, a late result does not overwrite your newer work. Moving an alternate greeting keeps its generation attached to that greeting; deleting it discards the pending result. You can use the wand without opening Professor Mari.
 
 ### Use alternative fields in selected chats
 

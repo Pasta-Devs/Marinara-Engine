@@ -71,6 +71,7 @@ jobs:
       autofix: ${{ steps.autofix.outputs.autofix }}
       head_sha: ${{ steps.autofix.outputs.head_sha }}
       head_ref: ${{ steps.autofix.outputs.head_ref }}
+      head_repo: ${{ steps.autofix.outputs.head_repo }}
     env:
       PR_NUM: ${{ inputs.pr_number }}
       DOTTORE_COMMENT_BODY: ${{ inputs.comment_body }}
@@ -229,7 +230,7 @@ jobs:
           python /tmp/dottore-review-tool/dottore_review.py autofix-prompt --trigger "$TRIGGER" >> "$GITHUB_OUTPUT"
           if [ -f /tmp/dottore-autofix/meta.json ]; then
             cp /tmp/dottore-review-tool/rules.json /tmp/dottore-autofix/
-            jq -r '"head_sha=\(.head_sha)", "head_ref=\(.head_ref)"' /tmp/dottore-autofix/meta.json >> "$GITHUB_OUTPUT"
+            jq -r '"head_sha=\(.head_sha)", "head_ref=\(.head_ref)", "head_repo=\(.head_repo)"' /tmp/dottore-autofix/meta.json >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload the repair request
@@ -405,7 +406,8 @@ jobs:
 
   # Pushes the checked repair with the Dottore App's token, because a push made with GITHUB_TOKEN starts no CI and no
   # review. It runs no PR code: it applies the patch, commits and pushes; the push starts Dottore's next review, whose
-  # repair check resolves the threads the code confirms. A calling workflow passes DOTTORE_APP_ID/_PRIVATE_KEY.
+  # repair check resolves the threads the code confirms. A fork's branch accepts the push when its author allowed edits
+  # by maintainers (the repair decision refuses the others). A calling workflow passes DOTTORE_APP_ID/_PRIVATE_KEY.
   push:
     name: Dottore repair push
     needs: [review, fix]
@@ -460,6 +462,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.RESULT == 'valid'
         with:
+          repository: ${{ needs.review.outputs.head_repo }}
           ref: ${{ needs.review.outputs.head_ref }}
           token: ${{ steps.app.outputs.token }}
 
@@ -472,7 +475,8 @@ jobs:
       - name: Push the repair
         if: env.RESULT == 'valid'
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          # The App token (contents only) pushes through the checkout's credentials; gh comments with GITHUB_TOKEN.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_SLUG: ${{ steps.app.outputs.app-slug }}
         run: |
           if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
@@ -513,5 +517,18 @@ jobs:
               printf '\n```\n'
             } > /tmp/report.md
             gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" --body-file /tmp/report.md
+            touch /tmp/push-reported
             exit 1
           fi
+
+      # Any other failure once the patch passed (a fork or branch gone before the checkout, a failed commit) says so on
+      # the pull request too, instead of ending as a red job with no word there.
+      - name: Report a repair push that failed
+        if: failure() && env.RESULT == 'valid'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -e /tmp/push-reported ] && exit 0
+          gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" \
+            --body "🩺 Dottore's repair could not be pushed, so the branch is unchanged ([run]($RUN_URL))."

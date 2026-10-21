@@ -1,13 +1,15 @@
 // A creature's art on a fight's board (design-game-creature-art.md): the creature pack chosen in the
 // library, which of its creatures a fighter is, the way it faces, and its frame drawn at its own size,
 // bottom centred on its cell. A fighter with no art keeps its token.
-import { useEffect, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   creatureArtBox,
   creatureArtFrame,
   creatureFacingToward,
   creaturePackSchema,
+  findCreatureArt,
+  type CreatureArtFor,
   type CreatureFacing,
   type CreaturePack,
   type CreaturePackCreature,
@@ -30,6 +32,29 @@ export function useCreaturePack(): CreaturePack | null {
     staleTime: 5 * 60_000,
   });
   return data ?? null;
+}
+
+/** The creature packs the game's Experience ships (Capability API 1.344), put in place by the game's
+ *  screen for the fights it shows. */
+export const ExperienceCreaturePacksContext = createContext<readonly CreaturePack[]>([]);
+
+/** Every creature pack a fight draws from: the Experience's own, in its order, then the library's. */
+export function useCreaturePacks(): readonly CreaturePack[] {
+  const own = useContext(ExperienceCreaturePacksContext);
+  const chosen = useCreaturePack();
+  return useMemo(() => (chosen ? [...own, chosen] : own), [own, chosen]);
+}
+
+/** A fighter's art in the first pack that has it, with that pack. */
+export function findCreatureArtIn(
+  packs: readonly CreaturePack[],
+  who: CreatureArtFor,
+): { pack: CreaturePack; creature: CreaturePackCreature } | null {
+  for (const pack of packs) {
+    const creature = findCreatureArt(pack, who);
+    if (creature) return { pack, creature };
+  }
+  return null;
 }
 
 interface Placed {

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
@@ -190,17 +190,24 @@ function AlternativeField({
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
       <details
-        className="rounded-lg border border-[var(--border)] text-xs"
+        className="group/chats rounded-lg border border-[var(--border)] text-xs"
         onToggle={(event) => {
           if (event.currentTarget.open) retry();
         }}
       >
-        <summary className="min-h-10 cursor-pointer px-3 py-2.5">
-          {loading
-            ? t("ui.cardFields.alternativeChatsLoading")
-            : failed
-              ? t("ui.cardFields.alternativeChatsUnknown")
-              : t("ui.cardFields.alternativeChats", { count: selected })}
+        <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            size="0.75rem"
+            className="shrink-0 transition-transform group-open/chats:rotate-90"
+            aria-hidden
+          />
+          <span>
+            {loading
+              ? t("ui.cardFields.alternativeChatsLoading")
+              : failed
+                ? t("ui.cardFields.alternativeChatsUnknown")
+                : t("ui.cardFields.alternativeChats", { count: selected })}
+          </span>
         </summary>
         <div className="space-y-2 border-t border-[var(--border)] p-3">
           <p className="text-[var(--muted-foreground)]">{t("ui.cardFields.alternativeChatHelp")}</p>

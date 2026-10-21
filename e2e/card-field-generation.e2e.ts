@@ -303,6 +303,140 @@ for (const owner of ["character", "persona"] as const) {
   });
 }
 
+test("character first and alternate greeting wands use their own seeds and save only their target", async ({
+  page,
+  request,
+}, info) => {
+  const id = await createEntity(request, "character", `Greeting ${info.testId}`);
+  const initial = { first_mes: "Saved opening", alternate_greetings: ["Saved alternate"] };
+  const response = await request.patch(endpoint("character", id), { data: { data: initial } });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const sent: Array<{ field: string; card: Draft & { first_mes: string } }> = [];
+  const generated = `The laboratory door opens. ${generatedText("description")}`;
+  await page.route(`**${endpoint("character", id)}/card-field/generate`, async (route) => {
+    sent.push(route.request().postDataJSON());
+    await route.fulfill({ json: { text: generated } });
+  });
+  const readGreetings = async () => {
+    const saved = await request.get(endpoint("character", id));
+    expect(saved.ok(), await saved.text()).toBeTruthy();
+    const entity = await saved.json();
+    const data = typeof entity.data === "string" ? JSON.parse(entity.data) : entity.data;
+    return { first_mes: data.first_mes, alternate_greetings: data.alternate_greetings };
+  };
+  try {
+    await prepare(page);
+    const editor = await openCard(page, "character", id);
+    const first = fieldInput(editor, "First Message");
+    const alternate = fieldInput(editor, "Alternate Greeting #1");
+    await fieldInput(editor, "Description").fill("A masked scientist in a quiet laboratory.");
+    await first.fill("Welcome {{user}}; keep the handwritten opening direction.");
+    await alternate.fill("An alarm interrupts the experiment; keep this alternate direction.");
+    for (const label of ["First Message", "Alternate Greeting #1"]) {
+      const button = wand(editor, label);
+      await button.scrollIntoViewIfNeeded();
+      await expect(button).toBeVisible();
+      await expect(button).toHaveText("");
+      await expect(button.locator("svg")).toHaveCount(1);
+      await expect(button).toHaveAttribute("title", /100[–-]300/);
+      await expect(fieldInput(editor, label)).toHaveAttribute("placeholder", new RegExp(HINT));
+    }
+    await wand(editor, "First Message").click();
+    await expect(first).toHaveValue(generated);
+    expect(sent.at(-1)).toMatchObject({
+      field: "first_mes",
+      card: {
+        first_mes: "Welcome {{user}}; keep the handwritten opening direction.",
+        description: "A masked scientist in a quiet laboratory.",
+      },
+    });
+    await expect(alternate).toHaveValue("An alarm interrupts the experiment; keep this alternate direction.");
+    await wand(editor, "Alternate Greeting #1").click();
+    await expect(alternate).toHaveValue(generated);
+    expect(sent.at(-1)).toMatchObject({
+      field: "first_mes",
+      card: {
+        first_mes: "An alarm interrupts the experiment; keep this alternate direction.",
+        description: "A masked scientist in a quiet laboratory.",
+      },
+    });
+    await expect(first).toHaveValue(generated);
+    expect(await readGreetings()).toEqual(initial);
+    await editor.getByRole("button", { name: "Save", exact: true }).click();
+    await expect.poll(readGreetings).toEqual({ first_mes: generated, alternate_greetings: [generated] });
+    await page.reload();
+    const reopened = await openCard(page, "character", id);
+    await expect(fieldInput(reopened, "First Message")).toHaveValue(generated);
+    await expect(fieldInput(reopened, "Alternate Greeting #1")).toHaveValue(generated);
+  } finally {
+    await request.delete(endpoint("character", id));
+  }
+});
+
+test("character greeting generation protects later typing and follows a reordered greeting without reviving deletion", async ({
+  page,
+  request,
+}, info) => {
+  const id = await createEntity(request, "character", `Protected greeting ${info.testId}`);
+  const response = await request.patch(endpoint("character", id), {
+    data: { data: { first_mes: "Opening seed", alternate_greetings: ["First alternate seed", "Second seed"] } },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  let releasePending: (() => void) | undefined;
+  let nextRequest!: (route: Route) => Promise<void>;
+  await page.route(`**${endpoint("character", id)}/card-field/generate`, (route) => nextRequest(route));
+  const generated = `Generated opening. ${generatedText("description")}`;
+  const hold = () => {
+    let release!: () => void;
+    let arrived!: () => void;
+    let received!: Request;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const started = new Promise<void>((resolve) => (arrived = resolve));
+    releasePending = release;
+    nextRequest = async (route) => {
+      received = route.request();
+      arrived();
+      await held;
+      await route.fulfill({ json: { text: generated } });
+    };
+    return { started, release, request: () => received };
+  };
+  try {
+    await prepare(page);
+    const editor = await openCard(page, "character", id);
+    let pending = hold();
+    await wand(editor, "First Message").click();
+    await pending.started;
+    await fieldInput(editor, "First Message").fill("Newer handwritten opening.");
+    pending.release();
+    await expect(wand(editor, "First Message")).toBeEnabled();
+    await expect(fieldInput(editor, "First Message")).toHaveValue("Newer handwritten opening.");
+
+    pending = hold();
+    await wand(editor, "Alternate Greeting #1").click();
+    await pending.started;
+    await editor.getByRole("button", { name: "Move alternate greeting 1 down", exact: true }).click();
+    await expect(fieldInput(editor, "Alternate Greeting #2")).toHaveValue("First alternate seed");
+    pending.release();
+    await expect(fieldInput(editor, "Alternate Greeting #2")).toHaveValue(generated);
+    await expect(fieldInput(editor, "Alternate Greeting #1")).toHaveValue("Second seed");
+
+    pending = hold();
+    await wand(editor, "Alternate Greeting #2").click();
+    await pending.started;
+    const finished = pending.request().response();
+    await editor.getByRole("button", { name: "Remove alternate greeting 2", exact: true }).click();
+    pending.release();
+    await (await finished)?.finished();
+    await expect(fieldInput(editor, "Alternate Greeting #2")).toHaveCount(0);
+    await expect(fieldInput(editor, "Alternate Greeting #1")).toHaveValue("Second seed");
+    await expect(fieldInput(editor, "First Message")).toHaveValue("Newer handwritten opening.");
+  } finally {
+    releasePending?.();
+    await request.delete(endpoint("character", id));
+  }
+});
+
 test("persona summary, creator notes and dialogue stay searchable in the panel and library", async ({
   page,
   request,

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { CARD_FIELD_KEYS, type CardFieldDraft, type CardFieldKey } from "@marinara-engine/shared";
+import {
+  CARD_FIELD_GENERATION_KEYS,
+  type CardFieldGenerationDraft,
+  type CardFieldGenerationKey,
+} from "@marinara-engine/shared";
 import { logDebugOverride } from "../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import {
@@ -8,7 +12,7 @@ import {
 } from "../chat-summary/connection-resolution.js";
 
 export const cardFieldGenerationSchema = z.object({
-  field: z.enum(CARD_FIELD_KEYS),
+  field: z.enum(CARD_FIELD_GENERATION_KEYS),
   card: z.object({
     name: z.string(),
     summary: z.string(),
@@ -18,11 +22,12 @@ export const cardFieldGenerationSchema = z.object({
     appearance: z.string(),
     scenario: z.string(),
     mes_example: z.string(),
+    first_mes: z.string().optional(),
   }),
   debugMode: z.boolean().optional(),
 });
 
-const FIELD_INSTRUCTIONS: Record<CardFieldKey, string> = {
+const FIELD_INSTRUCTIONS: Record<CardFieldGenerationKey, string> = {
   summary: "Summarize their identity, role, central premise, and defining traits in third-person prose.",
   description: "Describe their general identity, role, and the core details that make them recognizable.",
   personality: "Describe their temperament, values, behavior, preferences, emotional patterns, and speech habits.",
@@ -30,15 +35,21 @@ const FIELD_INSTRUCTIONS: Record<CardFieldKey, string> = {
   appearance: "Describe their physical features, build, hair, clothing, posture, and distinguishing visual details.",
   scenario: "Describe the setting, circumstances, and starting situation for interactions involving them.",
   mes_example: "Write sample dialogue exchanges demonstrating their voice. Separate exchanges with <START>.",
+  first_mes:
+    "Write one opening message for a new roleplay chat, with the character's dialogue and actions establishing the scene. Leave room for {{user}} to respond; do not write their dialogue, actions, feelings, or decisions.",
 };
 
 /** Instructions stay separate from the author's draft, which is reference data. */
-export function buildCardFieldMessages(kind: "character" | "persona", field: CardFieldKey, card: CardFieldDraft) {
+export function buildCardFieldMessages(
+  kind: "character" | "persona",
+  field: CardFieldGenerationKey,
+  card: CardFieldGenerationDraft,
+) {
   return [
     {
       role: "system" as const,
       content: [
-        `Write only the ${field === "mes_example" ? "example dialogue" : field} section of a ${kind} card.`,
+        `Write only the ${field === "mes_example" ? "example dialogue" : field === "first_mes" ? "greeting" : field} section of a ${kind} card.`,
         "Write between 100 and 300 words. Return only the completed section, with no heading, code fence, or commentary.",
         FIELD_INSTRUCTIONS[field],
         field === "mes_example"
@@ -64,8 +75,8 @@ export function countCardFieldWords(text: string): number {
 export async function generateCardField(args: {
   kind: "character" | "persona";
   entityId: string;
-  field: CardFieldKey;
-  card: CardFieldDraft;
+  field: CardFieldGenerationKey;
+  card: CardFieldGenerationDraft;
   debugMode?: boolean;
   signal?: AbortSignal;
   connection: Extract<ResolvedChatSummaryConnection, { ok: true }>;

@@ -58,7 +58,7 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
     >
       <div className="flex flex-col gap-3 text-xs">
         {open ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/15 p-3">
+          <div className="rounded-lg border border-[var(--marinara-chat-chrome-accent)]/40 bg-[var(--marinara-chat-chrome-accent)]/15 p-3">
             <p className="font-semibold text-[var(--foreground)]">{t("settings.accessStatus.peersIntro")}</p>
             <ul className="mt-1 flex list-disc flex-col gap-1 pl-4 text-[var(--foreground)]">
               {peers.map((peer) => (

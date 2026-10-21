@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 341 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 350 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,11 +140,11 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.341/,
+    /requires capability API 2\.0; this Engine supports 1\.350/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 341 },
+    capabilityApi: { major: 1, minor: 350 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   assert.equal(
@@ -188,7 +188,10 @@ try {
     [218, "track costs"],
     [219, "advancement lists up to 64 fields"],
     [339, "the Game Master's intro message"],
-    [340, "the newest minor before this one"],
+    [340, "larger rulesets and catalog files"],
+    [341, "runtime services"],
+    [342, "story clocks"],
+    [349, "the newest minor before this one"],
   ];
   for (const [minor, label] of supportedMinors) {
     assert.equal(
@@ -201,11 +204,11 @@ try {
   }
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 342 },
+    capabilityApi: { major: 1, minor: 351 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.342; this Engine supports 1\.341/,
+    /requires capability API 1\.351; this Engine supports 1\.350/,
   );
   const startupManifest = {
     ...currentMinorManifest,

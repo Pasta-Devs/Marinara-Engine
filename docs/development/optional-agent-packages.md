@@ -1241,6 +1241,135 @@ file does not read, when a world was made with another kit or does not fit it, o
 not the ones installed; the Experience then cannot start a game. A ruleset is never part of a map
 pack: an Experience that needs its own rules ships a separate ruleset package.
 
+#### Capability API 1.344: creature packs
+
+`mapPack.creatures` lists up to 8 `.creaturepack.json` files (each a declared asset, read and checked as
+the library reads a creature pack). In a game of the Experience, every fight draws a creature's art from
+these packs first, in their order, and then from the creature pack chosen in the library.
+
+#### Capability API 1.345: music
+
+A package's assets may be audio from 1.345: `.ogg`, `.mp3` or `.wav`, 16 MB each at most. `mapPack.music`
+names the Experience's tracks and when they play:
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+Each track is also a declared asset, and every track id named is one of `tracks`. A place in `places` is
+a place of one of the pack's worlds, by id. Out of a fight, the game plays the place's track, else the
+track of the nearest place it is inside that has one, else `default`; in a fight, `combat`. A story's
+`music` action (see [Writing Game Mode Story Scripts](../extending/writing-story-scripts.md)) cues one
+of the tracks over all of these until it hands back. With none of these, the Engine's own music plays.
+A player who has picked their own music source (the Music DJ, Spotify) hears that instead: their choice
+always wins.
+
+#### Capability API 1.346: people
+
+`mapPack.people` is a `.people.json` file (a declared asset) that dresses the named people of the pack's
+worlds. People come from the world itself, generated and named or added by hand in its edits (Pixelforge
+or the World tab), so they stand at their places like everyone else; the file says who they are:
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person` is a person id of one of the pack's worlds (`<place id>-<n>`, or `-e<n>` for one added by
+  hand), and that person must have a name there.
+- `portrait` and `expressions` (`neutral`, `happy`, `sad` and the other narration expressions) are
+  pictures among the package's assets. The portrait shows in the Journal once the game meets them, and
+  their expressions are used for the lines they speak.
+- `sprite` is a character of the pack's own (image) tiles, which they wear walking on town and place
+  maps instead of one picked for them.
+- `description`, `voice` and `lore` become a lorebook made with each new game of the Experience
+  (*Experience name*: people), active from the first turn: one entry per person, brought in by their
+  name, one per `lore` entry by its own keys, and one per entry of the file's own `lore`.
+
+#### Capability API 1.347: companions
+
+A person may be a companion: someone the party can take in, so a party that lacks healing, scouting or
+a light in the dark is never locked out of what the story asks of it.
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets` holds a sheet for each ruleset the companion can join a game of, by the ruleset's id. `v` is
+  the ruleset's sheet version the builds were written for (older ones are migrated as stored sheets are).
+- `level` names the sheet fields that hold a character's level in that ruleset, added up (a multiclass
+  sheet keeps one per class). Each build's level fields must add up to its `at`, and the builds go up.
+- A companion joins with the build for the highest level the party has reached (the lowest while the
+  party is below them all), and after each turn moves up to a higher build once the party reaches it. A
+  sheet the player raised past its build is left alone, and nothing lowers one. Their health, pools and
+  conditions are kept apart from the build, so a rise keeps them. Ship a build for each level the
+  companion should be playable at.
+- The story takes them in and lets them go with `recruit` and `dismiss` actions. The Game Master is
+  told who the companions are, where, and what they bring, and may take only them in (a
+  `[party_change]` naming anyone else is refused); the player's own library characters may still join.
+- A companion joins as any recruit does: they are in the party's list, carry their card and sheet, and
+  fight in tactical combat. In a game on a ruleset they have no sheet for, they join with a blank one.
+
+A people file with companions needs 1.347; without, 1.346. A story that recruits or dismisses someone
+needs 1.347, and each person it names must be a companion in the pack's people file.
+
+#### Capability API 1.350: checking a pack before export
+
+An authoring app (Pixelforge) can have the Engine check a whole map pack before it exports the package,
+exactly as an installed one is read, without installing it:
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` holds every JSON file the block names (kit, worlds, tiles, creature packs, people), parsed;
+`assets` lists the package's other assets (pictures, audio) by path and size. The answer is
+`{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`: `minor` is the
+Capability API minor (1.`minor`) the pack needs, and `issues` names each problem by the block's key
+(`mapPack.music.default`) or the file it is in. The manifest's own rules (declared assets, track ids,
+audio sizes) are all reported; the files' checks stop at the first problem, as an install does.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

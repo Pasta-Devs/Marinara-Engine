@@ -12,7 +12,13 @@ import { parseWorldKit, type WorldKit } from "../../schemas/world-kit.schema.js"
 import { checkWorldBrief, type WorldBrief } from "../../schemas/world-brief.schema.js";
 import { worldGeneratorReads } from "./compile.js";
 import type { WorldEdits } from "./edits.js";
-import { compileGameWorld, gameWorldSchema, worldEditIssues, type WORLD_GROUNDINGS } from "./game-world.js";
+import {
+  compileGameWorld,
+  gameWorldSchema,
+  worldEditIssues,
+  type GameWorld,
+  type WORLD_GROUNDINGS,
+} from "./game-world.js";
 import { gameWorldFromSnapshot, readWorldSnapshot, type WorldSnapshot } from "./snapshot.js";
 import { checkStoryScript, type StoryScript } from "./story.js";
 import { worldEditsFightable } from "./battlefield-maps.js";
@@ -90,6 +96,36 @@ export interface ExperienceMapPack {
   kit: WorldKit;
   worlds: Array<{ path: string; name: string; world: WorldFileWorld; story?: StoryScript; snapshot?: WorldSnapshot }>;
   tiles: import("./tile-pack.js").TilePack | null;
+  /** Its creature packs (Capability API 1.344), for its fights, before the library's. */
+  creatures?: import("./creature-pack.js").CreaturePack[];
+  /** Its music (Capability API 1.345), each track with the address it is served at. */
+  music?: import("../../schemas/capability-package.schema.js").ExperienceMusic & {
+    urls: Record<string, string>;
+  };
+  /** Its people (Capability API 1.346; companions 1.347), with the address each of its pictures is
+   *  served at, by path. */
+  people?: import("./experience-people.js").ExperiencePeople & { urls: Record<string, string> };
+}
+
+/**
+ * The Experience track for where the party is (Capability API 1.345): the story's cue while it holds,
+ * else the track of the place or of the nearest place it is inside that has one, else the pack's
+ * `default`; null when none applies (the Engine's own music plays).
+ */
+export function experienceTrackHere(
+  music: import("../../schemas/capability-package.schema.js").ExperienceMusic,
+  game: GameWorld,
+  placeId: string | null | undefined,
+  cue: string | undefined,
+): string | null {
+  const tracks = new Set(music.tracks.map((track) => track.id));
+  if (cue && tracks.has(cue)) return cue;
+  const parents = new Map(game.world.places.map((place) => [place.id, place.parentId]));
+  for (let at = placeId ?? null, hops = 0; at && hops < 64; at = parents.get(at) ?? null, hops++) {
+    const own = music.places?.find((each) => each.place === at);
+    if (own && tracks.has(own.track)) return own.track;
+  }
+  return music.default && tracks.has(music.default) ? music.default : null;
 }
 
 type Read<T> = ({ ok: true; notes: string[] } & T) | { ok: false; issues: string[] };
