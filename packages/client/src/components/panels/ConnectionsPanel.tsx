@@ -57,14 +57,8 @@ import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../.
 import { groupModelsByAccount, knownPrefixName, sortByModelId, upstreamOf } from "../../lib/connection-groups";
 import { modelSubtitle } from "../../lib/connection-identity";
 import { useConnectionFolders } from "../../hooks/use-connection-folders";
-import {
-  ConnectionRow,
-  ModelRow,
-  ROW_BUTTON,
-  isMediaRow,
-  mediaService,
-  type ConnectionRowData,
-} from "../connections/ConnectionRow";
+import { ConnectionRow, ROW_BUTTON, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
+import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";

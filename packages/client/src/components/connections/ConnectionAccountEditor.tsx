@@ -10,7 +10,7 @@ import {
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
-import { useConnections, useTestConnection } from "../../hooks/use-connections";
+import { useCachedCatalogFacts, useConnections, useTestConnection } from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
   useDeleteConnectionAccount,
@@ -30,14 +30,13 @@ import { ConnectionModelList } from "./ConnectionModelList";
 import {
   confirmAccountDelete,
   deleteAccountModels,
-  mediaService,
   menuAt,
-  ModelRow,
   modelRoleLabels,
   modelSubtitle,
   type ConnectionRowData,
   type MenuAt,
 } from "./ConnectionRow";
+import { ModelRow, ModelTile } from "./ModelRow";
 import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
@@ -137,6 +136,7 @@ export function ConnectionAccountEditor({
       (group) => group.account.id === accountId,
     )?.rows ?? [],
   );
+  const [catalog] = useCachedCatalogFacts([models.map((row) => row.id)]);
   // The usage meter reads the same anchor as the card's, so both share one request.
   const usageAnchor = starAnchorOf(models) ?? models[0] ?? null;
   // The test checks the Connection's key and address through one of its Models; a chat Model asks the catalog.
@@ -458,24 +458,15 @@ export function ConnectionAccountEditor({
                   data-account-model-id={row.id}
                   onClick={() => openModel(row.id)}
                   aria-label={t("connections.row.edit", { name: row.name })}
-                  tile={
-                    <ProviderIcon
-                      provider={row.provider === "decision" ? row.provider : account.provider}
-                      baseUrl={account.baseUrl}
-                      service={mediaService(row)}
-                      model={row.model}
-                      name={row.name}
-                      icon={row.icon}
-                      imagePath={row.imagePath}
-                      size="row"
-                    />
-                  }
+                  tile={<ModelTile row={row} account={account} />}
                   title={row.name?.trim() || row.model}
                   tooltip={row.model && row.model !== row.name ? [row.name, row.model].join("\n") : row.name}
                   subtitle={modelSubtitle(row, upstream)}
                   kind={modelKindOf(row.provider)}
                   roles={rolesOf(row)}
                   customized={isChatProvider(row.provider) && !!row.ownSettings}
+                  facts={catalog?.of(row.model)}
+                  showPaid={catalog?.showPaid}
                   trailing={
                     <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
                   }

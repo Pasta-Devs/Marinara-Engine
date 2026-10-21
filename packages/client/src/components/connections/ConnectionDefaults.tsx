@@ -59,7 +59,8 @@ import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
-import { ModelRow, type ConnectionRowData } from "./ConnectionRow";
+import type { ConnectionRowData } from "./ConnectionRow";
+import { ModelRow } from "./ModelRow";
 import { isUnset, JobRow } from "./JobRow";
 import { HelpTooltip } from "../ui/HelpTooltip";
 
