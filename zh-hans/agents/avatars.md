@@ -53,7 +53,7 @@
 
 ### PNGTuber 立绘
 
-有表情立绘的角色或用户角色可以把它们用作 PNGTuber 虚拟形象，立绘就是各张脸。先预览，再开启 **Show this avatar in chats** 或用 **Use my sprites**(使用我的立绘) 保存。有半身立绘时用半身立绘，否则用全身立绘，同一个虚拟形象不会混用两种。
+有表情立绘的角色或用户角色可以把它们用作 PNGTuber 虚拟形象，立绘就是各张脸。先预览，再开启 **Show this avatar in chats** 或用 **Use my sprites**(使用我的立绘) 保存。有肖像立绘时用肖像立绘，否则用全身立绘，同一个虚拟形象不会混用两种。
 
 - **说话和眨眼图片**：添加以表情命名的立绘，张嘴的加 `_talk`，闭眼的加 `_blink`，例如 `happy_talk` 和 `happy_blink`，两者都有的用 `happy_blink_talk`。`_talking`、`_speak`、`_mouth_open`、`_blinking` 和 `_eyes_closed` 也可以。没有这些图片的表情，说话时仍会跳动。
 - **Face for each feeling**(每种情绪的表情)：选择 Neutral(平静)、Happy(开心)、Angry(生气)、Sad(难过)、Relaxed(放松) 和 Surprised(惊讶) 各显示哪个表情。**Resting face**(待机表情) 使用 Neutral 的表情。所有立绘都可供选择，包括保存虚拟形象之后才添加的，最多 64 个表情。从 PNGTuber Plus 导入的虚拟形象只提供它自己的表情。Expression Engine 或游戏主持人（GM）选中一张你已有的立绘时，就会显示那个表情本身。
