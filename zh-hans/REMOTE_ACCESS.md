@@ -90,7 +90,7 @@ openssl rand -base64 24
 - `IP_ALLOWLIST` 里的任何地址。注意：一旦设了允许列表，没列进去的地址就全被拦住了（见方案 2）。
 - 直连的 Tailscale 流量（`100.64.0.0/10`），除非把它的放行开关关掉。
 - Docker 网桥/网关流量，但仅限设置了 `BYPASS_AUTH_DOCKER=true` 时。开着 Basic Auth 时，自动的 Docker 信任是关闭的（见 [Tailscale 与 Docker 放行](#tailscale-and-docker-bypass)）。
-- `/api/health` 地址，这样运行状态监控能继续工作。不带密码访问时，它只报告基本状态，不会透露你的本地模型或显卡信息。
+- `/api/health` 地址，这样运行状态监控能继续工作。打不开应用的访问者只会收到 `{"status": "ok"}`；版本、系统和模型详情只留给这台电脑、受信任的网络和已登录的浏览器。
 
 重要提醒：Basic Auth 只是把密码编码，并没有加密。任何人只要能监听未加密的连接就能读到它。如果要把 Marinara 暴露到公网，一定要给 Basic Auth 配上 HTTPS(见下文)。
 
@@ -146,7 +146,7 @@ BYPASS_AUTH_TAILSCALE=
 BYPASS_AUTH_DOCKER=
 ```
 
-自动模式只在直连 Tailscale 套接字的两端都使用 tailnet 地址时信任该对端。只有当 Marinara 在容器内运行，而且来源与检测到的容器接口或其确切网关匹配时，才信任 Docker 流量。这样，常见的私有 Tailscale 和同主机 Docker 配置仍能正常工作，同时不会把无关的 CGNAT、局域网、主机网络或代理流量当作已经认证。
+自动模式只在 Tailscale 设备直接连接这台电脑的 Tailscale 地址时才信任该设备。在 Linux 上，使用自定义名称的 Tailscale 接口（`tailscaled --tun=...`）不会被自动信任；请登录，或设置 `BYPASS_AUTH_TAILSCALE=true`。只有当 Marinara 在容器内运行，而且来源与检测到的容器接口或其确切网关匹配时，才信任 Docker 流量。这样，常见的私有 Tailscale 和同主机 Docker 配置仍能正常工作，同时不会把无关的 CGNAT、局域网、主机网络或代理流量当作已经认证。
 
 自动的 Docker 信任只在既没有设置 Basic Auth、也没有设置 `IP_ALLOWLIST` 时才生效。Docker Desktop、OrbStack 和 rootless Docker 会让每一台打开已发布端口的设备都经过容器的网关，所以 Marinara 分不清你自己的浏览器、一部手机还是网络上的陌生人。一旦设置了密码或允许列表，每个 Docker 客户端都必须通过它，包括主机上的浏览器。只有当你信任每一台能访问到这个已发布端口的设备时，才设置 `BYPASS_AUTH_DOCKER=true`。
 

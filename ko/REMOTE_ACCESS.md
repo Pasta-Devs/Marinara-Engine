@@ -90,7 +90,7 @@ Basic Auth를 켜 두어도 비밀번호를 건너뛰는 클라이언트가 있�
 - `IP_ALLOWLIST`에 들어 있는 주소입니다. 주의하세요. 허용 목록을 설정하면 목록에 없는 주소는 전부 차단됩니다(선택지 2 참고).
 - 직접 들어오는 Tailscale 트래픽(`100.64.0.0/10`)입니다. 우회를 끄지 않는 한 그렇습니다.
 - Docker 브리지/게이트웨이 트래픽입니다. 단, `BYPASS_AUTH_DOCKER=true`를 설정했을 때만 그렇습니다. Basic Auth를 켜면 Docker 자동 신뢰는 꺼집니다([Tailscale과 Docker 우회](#tailscale-and-docker-bypass) 참고).
-- `/api/health` 주소입니다. 가동 상태 모니터가 계속 동작하도록 하기 위해서입니다. 비밀번호 없이 요청하면 기본 상태만 알려 주며, 로컬 모델이나 그래픽 카드 정보는 알려 주지 않습니다.
+- `/api/health` 주소입니다. 가동 상태 모니터가 계속 동작하도록 하기 위해서입니다. 앱을 열 수 없는 방문자에게는 `{"status": "ok"}`만 알려 주며, 버전, 시스템, 모델 정보는 이 컴퓨터와 신뢰하는 네트워크, 로그인한 브라우저에만 공개됩니다.
 
 중요: Basic Auth는 비밀번호를 인코딩할 뿐 암호화하지는 않습니다. 암호화되지 않은 통신을 들여다보는 사람은 비밀번호를 그대로 읽을 수 있습니다. Marinara를 공용 인터넷에 공개한다면 Basic Auth와 HTTPS를 함께 쓰세요(아래 참고).
 
@@ -146,7 +146,7 @@ BYPASS_AUTH_TAILSCALE=
 BYPASS_AUTH_DOCKER=
 ```
 
-자동 모드는 직접 연결된 Tailscale 소켓의 양 끝이 모두 tailnet 주소를 쓸 때만 해당 피어를 신뢰합니다. Docker 트래픽은 Marinara가 컨테이너에서 실행 중이고 출처가 감지된 컨테이너 인터페이스나 그 인터페이스의 정확한 게이트웨이와 일치할 때만 신뢰합니다. 따라서 일반적인 비공개 Tailscale과 같은 호스트의 Docker 구성은 계속 작동하지만, 관련 없는 CGNAT, LAN, 호스트 네트워크, 프록시 트래픽을 인증된 것으로 처리하지 않습니다.
+자동 모드는 Tailscale 기기가 이 컴퓨터의 Tailscale 주소에 직접 연결할 때만 그 기기를 신뢰합니다. Linux에서 사용자 지정 이름을 쓰는 Tailscale 인터페이스(`tailscaled --tun=...`)는 자동으로 신뢰하지 않습니다. 로그인하거나 `BYPASS_AUTH_TAILSCALE=true`를 설정하세요. Docker 트래픽은 Marinara가 컨테이너에서 실행 중이고 출처가 감지된 컨테이너 인터페이스나 그 인터페이스의 정확한 게이트웨이와 일치할 때만 신뢰합니다. 따라서 일반적인 비공개 Tailscale과 같은 호스트의 Docker 구성은 계속 작동하지만, 관련 없는 CGNAT, LAN, 호스트 네트워크, 프록시 트래픽을 인증된 것으로 처리하지 않습니다.
 
 Docker 자동 신뢰는 Basic Auth와 `IP_ALLOWLIST`가 모두 설정되지 않은 동안에만 적용됩니다. Docker Desktop, OrbStack, rootless Docker는 공개된 포트를 여는 모든 기기를 컨테이너의 게이트웨이를 통해 전달하므로, Marinara는 내 브라우저와 네트워크에 있는 휴대폰이나 낯선 사람을 구분할 수 없습니다. 비밀번호나 허용 목록을 설정하면 호스트의 브라우저를 포함한 모든 Docker 클라이언트가 그 검사를 통과해야 합니다. 공개된 포트에 닿을 수 있는 모든 기기를 신뢰할 때만 `BYPASS_AUTH_DOCKER=true`를 설정하세요.
 
