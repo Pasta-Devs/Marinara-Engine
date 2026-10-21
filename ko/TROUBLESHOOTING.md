@@ -158,6 +158,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 두 기기가 같은 Wi-Fi 네트워크에 있는지 확인하세요.
 - 방화벽이 포트를 막고 있지 않은지 확인하세요. 기본 포트는 `7860`이며, `PORT`로 지정한 값이 있으면 그 포트입니다.
 - 접근 제어를 설정하세요. 일반 네트워크나 공개 클라이언트에서 접근할 때는 `.env`에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 루프백은 비밀번호 없이 그대로 쓸 수 있지만, 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 로그인해야 합니다. Tailscale을 통한 직접 통신은 기본적으로 신뢰합니다. 같은 호스트의 Docker 브리지나 게이트웨이 트래픽은 Basic Auth나 `IP_ALLOWLIST`를 설정하기 전까지만 신뢰합니다. 프록시를 거친 Docker 트래픽은 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`를 직접 설정하지 않는 한 일반적인 인증이 필요합니다.
+- 이 컴퓨터에서 `/etc/hosts`에 `127.0.0.1`로 연결된 사용자 지정 이름으로 Marinara를 열면, Marinara는 이 방문을 전달된 접속으로 간주합니다. 대신 `localhost`, `127.0.0.1` 또는 컴퓨터의 호스트 이름을 사용하세요. 이 컴퓨터에서 프록시나 터널이 실행되지 않는 경우에만 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`를 설정하세요.
 - 기기에 **Too many wrong passwords**가 표시되면 15분 기다린 다음 올바른 Basic Auth 비밀번호로 로그인하세요. 서버를 재시작해도 다시 시도할 수 있습니다.
 - 그 기기에서 백업, 데이터 삭제, 업데이트처럼 권한이 필요한 작업을 하려면 서버 `.env`에 `ADMIN_SECRET`을 설정하세요. 그런 다음 같은 값을 그 기기의 **Settings** > **Advanced** > **Admin Access**(관리자 접근)에 붙여넣고 **Save**(저장)를 클릭하세요.
 - 공개 도메인이나 리버스 프록시 도메인을 쓰는데 **Untrusted request host**가 나타나면 `.env`의 `TRUSTED_HOSTS`에 정확한 호스트 이름을 추가하세요. 휴대폰, LAN 컴퓨터, Tailscale 피어가 쓰는 직접 IP 주소는 자동으로 계속 허용됩니다.

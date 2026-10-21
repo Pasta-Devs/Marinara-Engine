@@ -158,6 +158,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 両方のデバイスが同じWi-Fiネットワークにつながっているか確認します。
 - ファイアウォールがポートをふさいでいないか確認します。デフォルトのポートは`7860`で、`PORT`を設定した場合はその値です。
 - アクセス制御を設定します。通常のネットワーク上のクライアントや公開クライアントに対しては、`.env`に`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を設定します。ループバックはパスワードなしのままですが、同じコンピューター上のリバースプロキシやトンネルが転送した訪問者にはログインが必要です。Tailscaleからの直接の通信は、デフォルトで信頼されます。同一ホストのDockerブリッジまたはゲートウェイからの通信が信頼されるのは、Basic Authか`IP_ALLOWLIST`を設定するまでです。プロキシ経由で転送されたDockerの通信は、`REQUIRE_AUTH_FOR_DOCKER_PROXY=false`を明示的に設定しないかぎり通常の認可が必要です。
+- このコンピューター上で、`/etc/hosts`で`127.0.0.1`に対応付けたカスタム名を使ってMarinaraを開くと、Marinaraはその訪問を転送されたものとして扱います。代わりに`localhost`、`127.0.0.1`、またはマシンのホスト名を使ってください。`REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`を設定してよいのは、このコンピューターでプロキシもトンネルも動いていない場合だけです。
 - デバイスに**Too many wrong passwords**と表示される場合は、15分待ってから、正しいBasic Authのパスワードでサインインしてください。サーバーを再起動しても、もう一度試せるようになります。
 - そのデバイスから権限の必要な操作(バックアップ、データの削除、アップデート)を行うには、サーバーの`.env`に`ADMIN_SECRET`を設定します。そのうえで、同じ値をそのデバイスの**Settings** > **Advanced** > **Admin Access**に貼り付けて、**Save**をクリックします。
 - 公開ドメインやリバースプロキシのドメインを使っていて**Untrusted request host**と表示される場合は、`.env`の`TRUSTED_HOSTS`にそのホスト名を正確に追加します。スマートフォン、LAN上のコンピューター、Tailscaleのピアが使う直接のIPアドレスは、引き続き自動で受け入れられます。

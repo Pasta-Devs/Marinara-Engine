@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "bc09e7d385c930d5acf596e83ec887bc9a8795a7",
+  "sourceCommit": "77ee9026e4fa2eea8471c630608f62ba9b615f3d",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -19,13 +19,13 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "6c5ed405c368a7b5e692469543473cdb677b90fc2a2b858416a7e866a3f20bc0",
-      "bytes": 22889
+      "sha256": "6f29da3d9b3d754d4041b31614757153114832466ba32ae84ac7450aa5267f84",
+      "bytes": 23339
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "2d4cccc6a44966fb9607b1e35a41b6088688bc243a4fdb3dead1e54d45dc0acb",
-      "bytes": 59987
+      "sha256": "eb76ac699c8ad7921c1b8b604e4e67900d990ccaf467ba7cbfd423cf421a1162",
+      "bytes": 60356
     },
     {
       "path": "UPGRADING.md",

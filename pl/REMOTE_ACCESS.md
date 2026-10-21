@@ -169,7 +169,7 @@ Przy pierwszym żądaniu przepuszczonym przez takie pominięcie serwer zapisuje 
 
 ## Odwrotne proxy i tunele na tym samym komputerze
 
-Odwrotne proxy albo tunel na komputerze, na którym działa Marinara, na przykład nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve lub Funnel albo ngrok, łączy się z aplikacją Marinara Engine przez loopback. Marinara rozpoznaje to po nagłówkach przekazywania, które dodaje proxy: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, nagłówkach tożsamości Tailscale albo `Via`. Każde takie żądanie traktuje wtedy tak, jak należy, czyli jako żądanie zdalnego gościa:
+Odwrotne proxy albo tunel na komputerze, na którym działa Marinara, na przykład nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve lub Funnel albo ngrok, łączy się z aplikacją Marinara Engine przez loopback. Marinara rozpoznaje to po nagłówkach przekazywania, które dodaje proxy: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, nagłówkach tożsamości Tailscale albo `Via`. Marinara rozpoznaje także żądanie, którego nagłówek Host wskazuje inny komputer, na przykład domenę lub adres w sieci LAN, nawet gdy proxy nie dodaje nagłówków. Każde takie żądanie traktuje wtedy tak, jak należy, czyli jako żądanie zdalnego gościa:
 
 - Obowiązuje Basic Auth, więc ustaw `BASIC_AUTH_USER` i `BASIC_AUTH_PASS`. Bez nich goście widzą stronę konfiguracyjną.
 - `IP_ALLOWLIST` blokuje przekazywanych gości, bo proxy ukrywa ich prawdziwe adresy.
@@ -275,6 +275,10 @@ Załóżmy, że łączysz aplikację Marinara z lokalnym dostawcą AI, na przyk�
 5. Przy włączonym Basic Auth wpisz nazwę użytkownika i hasło, gdy pojawi się pytanie.
 
 Jeśli strona w ogóle się nie wczytuje, serwer prawdopodobnie jest nieosiągalny. Sprawdź `HOST=0.0.0.0` i wartość `PORT`. Błąd 403 oznacza co innego: urządzenie dociera do serwera, ale nie ma jeszcze wstępu. Wróć do wybranej wyżej opcji i sprawdź ją jeszcze raz.
+
+## Wyszukiwarki
+
+Marinara prosi wyszukiwarki, aby nie indeksowały jego stron (`X-Robots-Tag: noindex, nofollow`). Nie chroni to Twojej instalacji i nie usuwa stron, które są już zindeksowane. Aby zachować prywatność instalacji, użyj opisanych wyżej kontroli dostępu.
 
 ## Powiązane przewodniki
 

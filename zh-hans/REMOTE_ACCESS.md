@@ -169,7 +169,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 同一台电脑上的反向代理和隧道
 
-运行 Marinara 的那台机器上的反向代理或隧道，例如 nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale Serve 或 Funnel、ngrok，是从环回地址连接 Marinara 的。Marinara 会根据代理添加的转发请求头识别出这种情况：`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscale 的身份请求头，或者 `Via`。之后它会把每个请求当作真正的远程访客对待：
+运行 Marinara 的那台机器上的反向代理或隧道，例如 nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale Serve 或 Funnel、ngrok，是从环回地址连接 Marinara 的。Marinara 会根据代理添加的转发请求头识别出这种情况：`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscale 的身份请求头，或者 `Via`。即使代理没有添加任何请求头，Marinara 也会识别 Host 指向另一台计算机（例如域名或局域网地址）的请求。之后它会把每个请求当作真正的远程访客对待：
 
 - Basic Auth 生效，所以要设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。没有设置的话，访客看到的是设置页面。
 - `IP_ALLOWLIST` 会拦下转发过来的访客，因为代理隐藏了他们的真实地址。
@@ -275,6 +275,10 @@ TRUSTED_HOSTS=chat.example.com
 5. 如果配了 Basic Auth，按提示输入用户名和密码。
 
 页面完全打不开，说明多半连不上服务器，检查 `HOST=0.0.0.0` 和 `PORT` 的值。如果收到的是 403，那说明设备能连上，只是还没被放行，回头再看一遍选定的方案。
+
+## 搜索引擎
+
+Marinara 会请求搜索引擎不要索引其页面（`X-Robots-Tag: noindex, nofollow`）。这不能保护你的安装，也不会移除已经被索引的页面。请使用上面的访问控制来保持你的安装私密。
 
 ## 相关指南
 
