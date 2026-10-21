@@ -27,16 +27,8 @@ import { ToggleSetting } from "../panels/settings/SettingControls";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { ConnectionModelList } from "./ConnectionModelList";
-import {
-  confirmAccountDelete,
-  deleteAccountModels,
-  menuAt,
-  modelRoleLabels,
-  modelSubtitle,
-  type ConnectionRowData,
-  type MenuAt,
-} from "./ConnectionRow";
-import { ModelRow, ModelTile } from "./ModelRow";
+import { confirmAccountDelete, deleteAccountModels, modelSubtitle, type ConnectionRowData } from "./ConnectionRow";
+import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 import { PICTURE_MENU_SELECTOR, PictureMenu } from "./PictureMenu";
 import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";

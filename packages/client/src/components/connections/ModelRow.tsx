@@ -6,10 +6,17 @@
 import { useId, type ButtonHTMLAttributes, type HTMLAttributes, type MouseEvent, type ReactNode } from "react";
 import { AudioLines, Film, ImageIcon, KeyRound, Power, Scale, UserCog, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ConnectionAccountListItem, ConnectionModelCost, ModelCatalogPricing } from "@marinara-engine/shared";
+import type { TFunction } from "i18next";
+import {
+  isChatProvider,
+  type ConnectionAccountListItem,
+  ConnectionModelCost,
+  ModelCatalogPricing,
+} from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
-import type { ConnectionModelRow } from "../../lib/connection-groups";
+import { roleBadges, type ConnectionModelRow } from "../../lib/connection-groups";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import type { ModelKind } from "../../lib/connection-identity";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { CostBadge, RetiringHint, costBadgeShows } from "./CostBadge";
@@ -37,6 +44,25 @@ export const mediaService = (
   row.videoGenerationSource ||
   row.audioSource ||
   null;
+
+export const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
+  image_generation: "image",
+  video_generation: "video",
+  audio: "audio",
+};
+/** A Model's role labels: chat roles, or a media kind's Default and Fallback. */
+export function modelRoleLabels(row: ConnectionModelRow, t: TFunction): string[] {
+  const media = !!row.provider && row.provider in MEDIA_KIND;
+  return [
+    ...(isChatProvider(row.provider)
+      ? roleBadges(row)
+          .filter((role) => role !== "random")
+          .map((role) => t(`connections.switcher.role.${role}`))
+      : []),
+    ...(media && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
+    ...(media && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
+  ];
+}
 
 const KIND_PILL: Record<Exclude<ModelKind, "chat">, { icon: LucideIcon; label: string }> = {
   image: { icon: ImageIcon, label: "connections.accounts.kind.image" },
@@ -206,28 +232,31 @@ export function ModelRow({
             {title}
           </span>
           {line2 && (
-            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
-              {pill && (
-                <span data-connection-type className="mari-connection-pill">
-                  <pill.icon size="0.6875rem" aria-hidden />
-                  {t(pill.label)}
-                </span>
-              )}
-              {id && (
-                <span className="min-w-0 truncate tabular-nums" title={id}>
-                  {id}
-                </span>
-              )}
-              {/* Custom settings: a quiet person-and-gear mark right after the model id it adjusts; hover names it. */}
-              {customized && (
-                <span data-model-customized title={t("connections.row.customSettings")} className="flex shrink-0">
-                  <UserCog size="0.6875rem" aria-hidden />
-                  <span className="sr-only">{t("connections.row.customSettings")}</span>
-                </span>
-              )}
-              {details}
+            // A retiring hint that does not fit next to the id wraps to its own line, so a narrow row keeps the id readable.
+            <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-[1.125rem] text-[var(--muted-foreground)]">
+              <span className="flex min-w-0 max-w-full grow items-center gap-1.5">
+                {pill && (
+                  <span data-connection-type className="mari-connection-pill">
+                    <pill.icon size="0.6875rem" aria-hidden />
+                    {t(pill.label)}
+                  </span>
+                )}
+                {id && (
+                  <span className="min-w-0 truncate tabular-nums" title={id}>
+                    {id}
+                  </span>
+                )}
+                {/* Custom settings: a quiet person-and-gear mark right after the model id it adjusts; hover names it. */}
+                {customized && (
+                  <span data-model-customized title={t("connections.row.customSettings")} className="flex shrink-0">
+                    <UserCog size="0.6875rem" aria-hidden />
+                    <span className="sr-only">{t("connections.row.customSettings")}</span>
+                  </span>
+                )}
+                {details}
+              </span>
               {retiring && (
-                <span className="ms-auto flex shrink-0">
+                <span className="flex shrink-0">
                   <RetiringHint deprecated={retiring.deprecated} retiresAt={retiring.retiresAt} />
                 </span>
               )}

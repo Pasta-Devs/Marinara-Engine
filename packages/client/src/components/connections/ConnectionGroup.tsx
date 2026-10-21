@@ -5,8 +5,9 @@
 import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ConnectionIdentity } from "./ConnectionIdentity";
-import { getConnectionIdentity, modelSubtitle } from "../../lib/connection-identity";
+import { getConnectionIdentity, modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import {
+  Check,
   ChevronDown,
   Copy,
   ImageIcon,
@@ -54,15 +55,8 @@ import { resolveUsageConnection } from "../../lib/connection-filters";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { balanceWord } from "./ConnectionBalance";
 import { useFolderChooser } from "./ConnectionFolderGroup";
-import {
-  confirmAccountDelete,
-  deleteAccountModels,
-  menuAt,
-  modelRoleLabels,
-  ROW_BUTTON,
-  type ConnectionRowData,
-  type MenuAt,
-} from "./ConnectionRow";
+import { confirmAccountDelete, deleteAccountModels, ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
+import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
 export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
@@ -385,29 +379,47 @@ export function ConnectionGroup({
         />
       )}
       {picked && (
-        <div data-connection-select className="flex flex-col gap-0.5 p-1">
-          {sortByModelId(rows).map((row) => (
-            <label
-              key={row.id}
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-[var(--accent)]"
-            >
-              <input
-                type="checkbox"
-                checked={picked.has(row.id)}
-                onChange={() =>
-                  setPicked((current) => {
-                    const next = new Set(current);
-                    if (!next.delete(row.id)) next.add(row.id);
-                    return next;
-                  })
-                }
-              />
-              <span className="min-w-0 flex-1 truncate text-xs">{nameOf(row)}</span>
-              {row.model && row.model !== nameOf(row) && (
-                <span className="min-w-0 truncate text-[0.625rem] text-[var(--muted-foreground)]">{row.model}</span>
-              )}
-            </label>
-          ))}
+        <div data-connection-select className="mari-connection-model-list min-w-0">
+          <div className="mari-connection-model-well min-w-0">
+            {sortByModelId(rows).map((row) => {
+              const checked = picked.has(row.id);
+              return (
+                <div key={row.id} className="mari-connection-model-slot min-w-0">
+                  <ModelRow
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() =>
+                      setPicked((current) => {
+                        const next = new Set(current);
+                        if (!next.delete(row.id)) next.add(row.id);
+                        return next;
+                      })
+                    }
+                    tile={<ModelTile row={row} account={account} />}
+                    title={nameOf(row)}
+                    subtitle={modelSubtitle(row)}
+                    kind={modelKindOf(row.provider)}
+                    roles={rolesOf(row)}
+                    facts={catalog?.of(row.model)}
+                    showPaid={catalog?.showPaid}
+                    trailing={
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "me-1 flex size-4 shrink-0 items-center justify-center rounded border",
+                          checked
+                            ? "border-[var(--primary)] text-[var(--primary)]"
+                            : "border-[var(--muted-foreground)]",
+                        )}
+                      >
+                        {checked && <Check size="0.75rem" strokeWidth={3} />}
+                      </span>
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
           <div className="flex flex-wrap items-center gap-2 px-2 pt-1">
             <span className="me-auto text-[0.6875rem] text-[var(--muted-foreground)]" role="status">
               {t("connections.accounts.select.count", { count: pickedRows.length })}

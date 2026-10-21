@@ -47,7 +47,7 @@ import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { modelRoleLabels } from "./ConnectionRow";
+import { modelRoleLabels } from "./ModelRow";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";

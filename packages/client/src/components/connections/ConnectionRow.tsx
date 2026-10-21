@@ -34,12 +34,9 @@ import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
-import { roleBadges, type ConnectionModelRow } from "../../lib/connection-groups";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
-import { ModelRow, ModelTile, menuAt, type MenuAt } from "./ModelRow";
-
-export { menuAt, type MenuAt };
+import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -89,11 +86,6 @@ export type ConnectionRowData = {
   updatedAt?: string;
 };
 
-const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
-  image_generation: "image",
-  video_generation: "video",
-  audio: "audio",
-};
 export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.provider in MEDIA_KIND;
 
 /** The ⋯ beside a row or card heading: the shared quiet icon button. */
@@ -101,20 +93,6 @@ export const ROW_BUTTON = "mari-connection-btn mari-connection-btn--ghost mari-c
 
 /** The menus are portalled, but React events still bubble to the row; keep them off its click. */
 const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
-
-/** A Model's role labels: chat roles, or a media kind's Default and Fallback. */
-export function modelRoleLabels(row: ConnectionModelRow, t: TFunction): string[] {
-  const media = !!row.provider && row.provider in MEDIA_KIND;
-  return [
-    ...(isChatProvider(row.provider)
-      ? roleBadges(row)
-          .filter((role) => role !== "random")
-          .map((role) => t(`connections.switcher.role.${role}`))
-      : []),
-    ...(media && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
-    ...(media && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
-  ];
-}
 
 /** Kept for callers that import it from here; the formatter lives in lib/connection-identity. */
 export { modelSubtitle };
