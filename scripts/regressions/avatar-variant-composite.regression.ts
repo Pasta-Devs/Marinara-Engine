@@ -8,6 +8,9 @@
  *     outside the eyes or mouth, pixel for pixel, has no white rows at the bottom, keeps the face's alpha
  *     everywhere, and shows the change inside;
  *   - a picture with no change, or one turned too far to line up, is refused with a plain message;
+ *   - dark skin and light eyes (issue #7962, a fixed colour step missed or ignored low-contrast changes): a
+ *     maroon mouth on dark purple skin is a change, a blink over pale amber eyes shows the closed lid with none
+ *     of the open iris through it, and the same dark face with only JPEG noise is still refused;
  *   - the capability decision: a connection whose model takes a reference picture edits the sprite, one that
  *     drops it (DALL-E, Pollinations) draws a set instead, never an edit request;
  *   - the set: one sheet with the face, eyes closed and mouth open, each cell cleaned of the chroma matte; each
@@ -46,6 +49,8 @@ const { avatarCanvasPlacement, avatarImageRequestSize, resolveAvatarImageConnect
   await import("../../packages/server/src/services/avatars/generation/generation-context.js");
 const { generatePngtuberVariants, previewPngtuberVariantPrompts, savePngtuberVariants, setPromptId, variantPromptId } =
   await import("../../packages/server/src/services/avatars/generation/pngtuber-variants.js");
+const { keepAvatarFaceChange } =
+  await import("../../packages/server/src/services/avatars/generation/variant-composite.js");
 const sharp = await getSharp();
 
 // ── The face: the reported sprite's shape ──
@@ -111,6 +116,24 @@ const keepPicture = (name: string, png: Buffer) => {
 async function rgba(png: Buffer) {
   const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height };
+}
+
+/** A 313-pixel face in the reported colours (#7962): eyes open, or shut under a lid of the skin's colour, and the
+ *  mouth closed or open (maroon inside). */
+function paletteFaceSvg(skin: string, iris: string, { eyes = "open", mouth = "closed" } = {}) {
+  const eye = (cx: number) =>
+    eyes === "open"
+      ? `<ellipse cx="${cx}" cy="140" rx="16" ry="9" fill="#fffaf6"/><circle cx="${cx}" cy="140" r="8" fill="${iris}"/>` +
+        `<path d="M${cx - 18} 137 Q${cx} 126 ${cx + 18} 137" stroke="#1c1018" stroke-width="3" fill="none"/>`
+      : `<ellipse cx="${cx}" cy="139" rx="21" ry="12" fill="${skin}"/>` +
+        `<path d="M${cx - 17} 141 Q${cx} 148 ${cx + 17} 141" stroke="#1c1018" stroke-width="3" fill="none"/>`;
+  const lips =
+    mouth === "open"
+      ? `<ellipse cx="156" cy="210" rx="11" ry="8" fill="rgb(80,28,40)"/>`
+      : `<path d="M146 208 L166 208" stroke="rgb(58,38,58)" stroke-width="2"/>`;
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="313" height="313">
+    <ellipse cx="156" cy="160" rx="90" ry="110" fill="${skin}"/>${eye(122)}${eye(190)}${lips}
+  </svg>`);
 }
 const dataUrlPng = (url: string) => Buffer.from(url.slice(url.indexOf(",") + 1), "base64");
 
@@ -431,6 +454,42 @@ try {
     }).catch((error: unknown) => ({ drafts: [], failed: [{ error: (error as Error).message }] }));
     assert.equal(response.drafts.length, 0, `${mode}: nothing to keep`);
     assert.match(response.failed[0]?.error ?? "", message, `${mode}: says why, plainly`);
+  }
+
+  // ── Dark skin and light eyes (#7962): a change counts as it looks, and a closed lid hides the whole eye ──
+  {
+    const near = (data: Uint8Array, index: number, other: Uint8Array) =>
+      [0, 1, 2].every((channel) => Math.abs(data[index + channel]! - other[index + channel]!) <= 8);
+    const darkSkin = "rgb(86,64,88)";
+    const darkPng = await cutOut(paletteFaceSvg(darkSkin, "rgb(170,40,70)"));
+    const dark = await rgba(darkPng);
+    const talking = await rgba(await cutOut(paletteFaceSvg(darkSkin, "rgb(170,40,70)", { mouth: "open" })));
+    const talk = keepAvatarFaceChange(dark, talking, "mouth-open").picture;
+    assert.ok(near(talk.data, (210 * 313 + 156) * 4, talking.data), "a maroon mouth on dark purple skin is a change");
+    const noisy = await rgba(await sharp(darkPng).flatten({ background: "#ffffff" }).jpeg({ quality: 60 }).toBuffer());
+    assert.throws(
+      () => keepAvatarFaceChange(dark, noisy, "mouth-open"),
+      /didn't open the mouth/u,
+      "JPEG noise on the dark face is still no change",
+    );
+
+    const amber = "rgb(254,208,149)";
+    const pale = await rgba(await cutOut(paletteFaceSvg("rgb(243,193,180)", amber)));
+    const shut = await rgba(await cutOut(paletteFaceSvg("rgb(243,193,180)", amber, { eyes: "closed" })));
+    const blink = keepAvatarFaceChange(pale, shut, "eyes-closed").picture;
+    let open = 0;
+    let moved = 0;
+    for (let y = 0; y < 313; y += 1) {
+      for (let x = 0; x < 313; x += 1) {
+        const index = (y * 313 + x) * 4;
+        const inEye = [122, 190].some((cx) => ((x - cx) / 16) ** 2 + ((y - 140) / 9) ** 2 <= 1);
+        const own = [0, 1, 2, 3].every((channel) => blink.data[index + channel] === pale.data[index + channel]);
+        if (inEye && !near(blink.data, index, shut.data)) open += 1;
+        if ((y < 100 || y > 180) && !own) moved += 1;
+      }
+    }
+    assert.equal(open, 0, "a blink over pale amber eyes shows the closed lid, none of the open iris through it");
+    assert.equal(moved, 0, "away from the eyes the blink is the face's own");
   }
 
   // ── A connection that can't edit draws a set: the face, eyes closed and mouth open in one sheet ──
