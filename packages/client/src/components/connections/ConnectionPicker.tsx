@@ -10,7 +10,7 @@ import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { ModelRow } from "./ConnectionRow";
+import { ModelRow, ModelTile } from "./ModelRow";
 import {
   choiceLabel,
   useConnectionChoices,
@@ -166,27 +166,14 @@ export function ConnectionPicker({
         disabled={!!suffix && !selected}
         aria-current={selected || undefined}
         onClick={() => pick(row.id)}
-        tile={
-          <ProviderIcon
-            provider={row.provider ?? account?.provider ?? "custom"}
-            model={row.model}
-            baseUrl={account?.baseUrl}
-            name={account?.name}
-            icon={row.icon}
-            imagePath={row.imagePath}
-            size="row"
-            dim={!!suffix}
-          />
-        }
+        tile={<ModelTile row={row} account={account} dim={!!suffix} />}
         title={label}
         subtitle={modelSubtitle(row, upstream)}
         // A picker for one capability does not repeat it on every row.
         kind={kind === "all" ? modelKindOf(row.provider) : null}
         status={suffix ? { label: suffix, state: account?.state } : null}
-        cost={facts?.cost}
-        pricing={facts?.pricing}
+        facts={facts}
         showPaid={catalog?.showPaid}
-        retiring={facts}
         current={selected}
         dim={!!suffix}
         className="rounded-lg"

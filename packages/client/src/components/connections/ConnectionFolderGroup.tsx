@@ -39,7 +39,8 @@ import { useCachedCatalogFacts, type CachedCatalogFacts } from "../../hooks/use-
 import { showChoiceDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
-import { ROW_BUTTON, menuAt, type ConnectionRowData, type MenuAt } from "./ConnectionRow";
+import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
+import { menuAt, type MenuAt } from "./ModelRow";
 
 /** Dot colours a folder can wear; "" is the neutral dot. */
 const FOLDER_COLOURS = {

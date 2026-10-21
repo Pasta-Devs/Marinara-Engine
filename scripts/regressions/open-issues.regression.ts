@@ -9902,11 +9902,13 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionRow.tsx"),
     "utf8",
   );
-  assert.doesNotMatch(
-    connectionRowSource,
-    /opacity-0|group-hover:/u,
-    "Connection rows must not hide actions behind hover",
+  const modelRowSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ModelRow.tsx"),
+    "utf8",
   );
+  for (const source of [connectionRowSource, modelRowSource]) {
+    assert.doesNotMatch(source, /opacity-0|group-hover:/u, "Connection rows must not hide actions behind hover");
+  }
   // Row buttons use the shared mari-connection-btn icon class, which grows to 44 px on phones and touch screens.
   assert.match(connectionRowSource, /ROW_BUTTON = "mari-connection-btn[^"]*mari-connection-btn--icon"/u);
   const connectionStyles = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/styles/globals.css"), "utf8");

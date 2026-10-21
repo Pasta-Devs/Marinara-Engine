@@ -47,7 +47,8 @@ import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ConnectionIdentity } from "./ConnectionIdentity";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { ModelRow } from "./ConnectionRow";
+import { modelRoleLabels } from "./ModelRow";
+import { ModelRow, ModelTile } from "./ModelRow";
 import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddModels } from "../../lib/add-connection";
@@ -753,12 +754,11 @@ export function ConnectionSwitcherBody({
     const highlighted = index !== undefined && index === highlight;
     const group = entry.group;
     const unavailable = unavailableOf(group);
-    const roles = entry.row ? roleBadges(entry.row).filter((role) => role !== "random") : [];
+    const roleLabels = entry.row ? modelRoleLabels(entry.row, t) : [];
     const starred = group?.account && entry.model ? starsOf(group).has(entry.model) : false;
-    const custom = !!entry.row?.ownSettings && !starred && roles.length === 0;
+    const custom = !!entry.row?.ownSettings && !starred && roleLabels.length === 0;
     const showStar = !!group?.account && !!entry.model && (star === "all" || (star === "unstarred" && !starred));
     const stateLabel = unavailable ? t(accountStateLabel({ state: unavailable })) : null;
-    const roleLabels = roles.map((role) => t(`connections.switcher.role.${role}`));
     const local = entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
     const typed = entry.key.startsWith("use:");
     const catalog = catalogOf(group);
@@ -790,17 +790,10 @@ export function ConnectionSwitcherBody({
             <span className="flex h-8 w-8 shrink-0 items-center justify-center text-foreground/50">
               <Search size="0.875rem" aria-hidden />
             </span>
+          ) : local ? (
+            <ProviderIcon provider="local_model" size="row" dim={!!unavailable} />
           ) : (
-            <ProviderIcon
-              provider={local ? "local_model" : (entry.row?.provider ?? group?.account?.provider ?? "custom")}
-              baseUrl={local ? undefined : group?.account?.baseUrl}
-              model={local ? undefined : entry.model}
-              name={local ? undefined : group?.name}
-              icon={local ? undefined : entry.row?.icon}
-              imagePath={local ? undefined : entry.row?.imagePath}
-              size="row"
-              dim={!!unavailable}
-            />
+            <ModelTile row={entry.row} account={group?.account} model={entry.model} dim={!!unavailable} />
           )
         }
         title={entry.title}
@@ -814,10 +807,8 @@ export function ConnectionSwitcherBody({
               : null
         }
         customized={custom}
-        cost={facts?.cost}
-        pricing={facts?.pricing}
+        facts={facts}
         showPaid={catalog?.showPaid}
-        retiring={facts}
         current={isCurrent}
         dim={!!unavailable}
         trailing={isCurrent && <Check size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}

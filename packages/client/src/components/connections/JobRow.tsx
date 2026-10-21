@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
 import type { DefaultsTile } from "./ConnectionDefaults";
-import { ModelRow, type ConnectionRowData } from "./ConnectionRow";
+import type { ConnectionRowData } from "./ConnectionRow";
+import { ModelRow } from "./ModelRow";
 
 /** A job with no Model chosen, or whose engine is not set up: a dashed tile and a warning-tone line. */
 export const isUnset = (tile: DefaultsTile, notSet: string) =>
@@ -80,10 +81,8 @@ export function JobRow({
               (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
           </span>
         }
-        cost={facts?.cost}
-        pricing={facts?.pricing}
+        facts={facts}
         showPaid={catalog?.showPaid}
-        retiring={facts}
         trailing={
           <>
             {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}

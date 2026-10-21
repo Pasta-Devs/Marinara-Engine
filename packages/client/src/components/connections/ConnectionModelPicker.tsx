@@ -46,7 +46,7 @@ import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
-import { ModelRow } from "./ConnectionRow";
+import { ModelRow } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
@@ -495,10 +495,8 @@ export function ConnectionModelPicker({
             </span>
           )
         }
-        cost={row.cost}
-        pricing={row.pricing}
+        facts={row}
         showPaid={showPaid}
-        retiring={row.deprecated || row.retiresAt ? row : null}
         current={current}
         trailing={
           // Adding: the filled star is the one sign that a model is in the connection.
