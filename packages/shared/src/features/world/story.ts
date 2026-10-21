@@ -1992,6 +1992,20 @@ export function storySpendsDue(
   return due;
 }
 
+/** The bodies of the `[sheet: ...]` tags in a reply, read in one pass: a regex here backtracks on unclosed tags. */
+function sheetTagBodies(text: string): string[] {
+  const opening = /\[sheet:/gi;
+  const bodies: string[] = [];
+  for (let found = opening.exec(text); found; found = opening.exec(text)) {
+    const end = text.indexOf("]", opening.lastIndex);
+    // No later tag can close either.
+    if (end < 0) break;
+    bodies.push(text.slice(opening.lastIndex, end));
+    opening.lastIndex = end + 1;
+  }
+  return bodies;
+}
+
 /**
  * This turn of a story: what the Game Master tripped in the latest reply is delivered (its scenes and
  * what it asks), then the events the Engine sees happen trip, in the script's order, each once unless
@@ -2271,8 +2285,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const now = segments.length - 1;
   // A rest the Game Master's sheet tags took last reply (1.349), of this rest or any.
   const restedLast = (rest: string | undefined) =>
-    [...(world.latest ?? "").matchAll(/\[sheet:([^\]]*)\]/gi)].some((match) => {
-      const body = match[1] ?? "";
+    sheetTagBodies(world.latest ?? "").some((body) => {
       if (!/\bop="rest"/i.test(body) || !/\bresult="ok"/i.test(body)) return false;
       const took = /\brest="([^"]*)"/i.exec(body)?.[1]?.trim().toLowerCase();
       return !rest || took === rest.trim().toLowerCase();
