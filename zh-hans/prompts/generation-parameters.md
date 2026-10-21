@@ -14,6 +14,8 @@
 
 基础值在 **Presets > Parameters**(预设 → 参数) 中编辑，连接值在 **Connections > Default Chat Parameters**(连接 → 默认聊天参数) 中编辑。聊天覆盖值在 **Chat Settings > Advanced Parameters**(聊天设置 → 高级参数) 中设置。预设不设置上下文或输出 Token 上限。上下文窗口在 **Connections** 中设置，输出上限在 **Connections** 或 **Chat Settings > Advanced Parameters** 中设置。旧版预设文件仍可加载，但其中保存的 Token 上限会被忽略。
 
+内置的 **Marinara's Universal Preset**(Marinara 通用预设) 不提供任何生成参数，包括采样、推理和消息格式设置。它使用连接和聊天设置，未配置的值由 Engine 默认值补充。可编辑的用户预设保留自己的参数设置。
+
 1. 打开要修改的聊天。
 2. 打开 **Chat Settings**(聊天设置)（点击聊天里的 **Chat Settings** 按钮；除非移动过，否则它在右上角）。
 3. 找到 **Advanced Parameters** 一节，点击展开。

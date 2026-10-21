@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "3339cc404",
+  "sourceCommit": "64a69fc1f7580a8ad7a63993f3653a25bb7c3338",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -114,8 +114,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "a712e662f065e21fee288626eb2fc6679ae1aa8701f222da9bc9499612812970",
-      "bytes": 20524
+      "sha256": "eb756e1bc903adfde12773ba31835850f6a6d52794684484443d9394edcafe0f",
+      "bytes": 25752
     },
     {
       "path": "characters/galleries.md",
@@ -139,8 +139,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "c836d838d67390a653d4ff80c2c5ca74e71692cb985b5a25eaee48146165a0f0",
-      "bytes": 21014
+      "sha256": "4dffd24aa8914179fbf758c8c4e5830285a922c3a430d355d35b24a2621c9938",
+      "bytes": 25918
     },
     {
       "path": "characters/sprites.md",
@@ -644,8 +644,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "9e47e57ca308e9437610bc9d9d9d5a1c6a4793dc8f4b41cab12afad0f3470b94",
-      "bytes": 27892
+      "sha256": "68601865def239c8bccbcffdbdbfb714c6b0f8d03d0a9aa9a7356e67997ef615",
+      "bytes": 28301
     },
     {
       "path": "prompts/macros.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "f0c3c4421426970dfcdfab471b0ed9fa68c788ac8ca06252184e111dd4717c7a",
-      "bytes": 19034
+      "sha256": "8172e24c07235b3f6f78f2cadbf5daa7f88de50119bd52083fc32db7e631b3ed",
+      "bytes": 19512
     },
     {
       "path": "prompts/prompt-overrides.md",

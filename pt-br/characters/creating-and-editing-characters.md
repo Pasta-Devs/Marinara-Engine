@@ -33,7 +33,7 @@ No canto superior direito ficam estes botões:
 - O botão **Duplicate character**.
 - O botão **Delete character**.
 
-Se você tentar sair com trabalho não salvo, aparece um aviso com o texto `You have unsaved changes. Close without saving?` Ele oferece as opções **Keep editing**, **Discard & close** e **Save & close**.
+Ao sair do editor, o card alterado é salvo antes de continuar. Se o salvamento falhar, o editor permanece aberto com seu rascunho para você tentar novamente.
 
 O editor é dividido em abas. Em tela larga, as abas descem pelo lado esquerdo. Em tela estreita, elas viram uma faixa rolável no topo. As abas, na ordem, são **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** e **Advanced**.
 
@@ -62,8 +62,9 @@ O painel **Version history** também fica nesta aba. Ele é explicado na seção
 
 ## A aba Card
 
-A aba **Card** é o espaço principal de escrita. Ela reúne os campos que a IA lê para interpretar o personagem. Os atalhos no topo levam direto a qualquer seção. Cada campo tem um contador de caracteres em tempo real.
+A aba **Card** é o espaço principal de escrita. Os links no topo permitem pular para qualquer seção. Cada campo tem um contador de caracteres atualizado em tempo real.
 
+- **Summary** (resumo). Uma visão geral para a biblioteca e as prévias do card. São metadados e não são enviados ao modelo nos prompts do chat.
 - **Description**. A identidade geral e o papel do personagem. Este texto vai em todo prompt.
 - **Personality**. Um resumo curto do temperamento, dos hábitos de fala e dos padrões de comportamento.
 - **Backstory**. História, origem e relações importantes.
@@ -88,6 +89,38 @@ Uma entrada curta de Example Dialogue fica assim:
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Gerar um campo do card com a varinha
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica e o nome acessível identificam o campo gerado.
+
+1. Escreva no campo as ideias que deseja manter, como `smart, scientist, handsome`, ou deixe-o vazio.
+2. Preencha os outros campos do card que a IA deve usar como referência. Você não precisa salvar essas alterações antes.
+3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para a seção, usando o texto atual como ponto de partida e os outros campos como referência. **Example Dialogue** pede trocas de mensagens de exemplo. **First Message** e **Alternate Greeting** pedem, cada um, uma mensagem de abertura de roleplay que deixa sua resposta a seu critério.
+4. Revise e edite o resultado e clique em **Save** para mantê-lo.
+
+A varinha escolhe a conexão como o gerador de resumos original: sua conexão de texto padrão para agentes, recorrendo à conexão de texto padrão quando necessário. A conexão de reserva de agentes configurada continua valendo. Configure uma conexão de texto funcionando antes de gerar; veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+
+A geração substitui apenas o campo escolhido no rascunho não salvo. A varinha não salva o card nem altera outros campos; o salvamento normal ao sair do editor continua valendo. Se a geração falhar, seu texto fica intacto. Se você editar o campo de destino enquanto espera ou abrir outro card, um resultado atrasado não sobrescreve suas alterações mais recentes. Ao mover uma saudação alternativa, a geração continua vinculada àquela saudação; excluí-la descarta o resultado pendente. Você pode usar a varinha sem abrir a Professor Mari.
+
+### Usar campos alternativos em chats selecionados
+
+Cada um dos sete campos tem **+ Add Alternative Field** (adicionar campo alternativo) abaixo dele. Use isso para dar ao mesmo personagem outra descrição, aparência, história ou outro detalhe em certos chats, mantendo o card original nos demais.
+
+1. Clique em **+ Add Alternative Field** abaixo do campo que deseja variar. Marinara copia o texto atual para uma nova alternativa.
+2. Edite a alternativa ou use a própria varinha dela. Essa varinha usa o texto da alternativa como ponto de partida e os outros campos como referência; não substitui o campo original.
+3. Abra **Active in 0 chats** (ativo em 0 chats) e selecione quantos nomes de chat quiser. Só aparecem chats que incluem esse personagem. Abra o seletor novamente para atualizar a lista depois de adicionar ou remover o personagem em outro chat.
+4. Clique em **Save** para aplicar a alternativa. O salvamento normal ao sair do editor também vale.
+
+Você pode adicionar quantas alternativas precisar. Sem chats selecionados, uma alternativa fica inativa para depois. Uma alternativa vazia limpa intencionalmente esse campo nos chats selecionados. Cada chat só pode usar uma alternativa do mesmo campo: selecionar um chat em outra alternativa move a atribuição dele para lá. Os outros campos e chats mantêm os valores originais. As substituições existentes de cenário e aparência para imagens específicas do chat continuam tendo prioridade.
+
+Alternativas de **Summary** continuam sendo metadados. Elas não acrescentam o resumo ao prompt do chat enviado ao modelo.
+
+A contagem **Active in** inclui apenas chats que usam esse personagem no momento. As atribuições salvas ficam suspensas se o personagem for removido de um chat e voltam a valer quando ele é adicionado novamente. Uma lista de chats carregando ou indisponível não remove atribuições; abra o seletor de novo para atualizar as opções.
+
+Exportar, importar, duplicar cards e converter entre personagens e personas mantém o texto alternativo, mas limpa a seleção de chats. Backups do perfil completo preservam essas seleções.
+
+Para excluir uma alternativa, use a lixeira dela e confirme com **Delete**. Cancelar a mantém. Salve o card para aplicar a exclusão; os chats selecionados voltam ao campo original, respeitando as substituições existentes do chat. Excluir uma alternativa nunca exclui o campo original.
 
 ## Adicionando um avatar
 

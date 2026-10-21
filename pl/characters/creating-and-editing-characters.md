@@ -33,7 +33,7 @@ Po prawej stronie u góry są takie przyciski:
 - **Duplicate character**.
 - **Delete character**.
 
-Przy próbie wyjścia z niezapisaną pracą pojawia się baner o treści `You have unsaved changes. Close without saving?` Daje do wyboru **Keep editing**, **Discard & close** oraz **Save & close**.
+Przy opuszczaniu edytora zmieniona karta zapisuje się przed przejściem dalej. Jeśli zapis się nie powiedzie, edytor pozostaje otwarty z twoją wersją roboczą, żeby można było spróbować ponownie.
 
 Edytor dzieli się na zakładki. Na szerokim ekranie biegną one wzdłuż lewej krawędzi. Na wąskim zamieniają się w przewijany pasek u góry. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** i **Advanced**.
 
@@ -62,8 +62,9 @@ Na tej samej zakładce mieszka panel **Version history**. Opisuje go sekcja o za
 
 ## Zakładka Card
 
-Zakładka **Card** to główne miejsce pisania. Zbiera pola, które AI czyta, żeby odgrywać postać. Odnośniki u góry przenoszą od razu do wybranej sekcji. Każde pole ma licznik znaków aktualizowany na bieżąco.
+Zakładka **Card** to główne miejsce pisania. Odnośniki u góry pozwalają przeskoczyć do dowolnej sekcji. Każde pole ma licznik znaków aktualizowany na bieżąco.
 
+- **Summary** (podsumowanie). Krótki opis do biblioteki i podglądu karty. To metadane, które nie trafiają do modelu w promptach czatu.
 - **Description**. Ogólna tożsamość i rola postaci. Ten tekst trafia do każdego promptu.
 - **Personality**. Krótkie podsumowanie temperamentu, sposobu mówienia i typowych zachowań.
 - **Backstory**. Historia, pochodzenie i ważne relacje.
@@ -88,6 +89,38 @@ Krótki wpis w polu **Example Dialogue** wygląda tak:
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Generowanie pola karty różdżką
+
+Nad polami **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** i każdym **Alternate Greeting** znajduje się przycisk z samą ikoną różdżki. Podpowiedź i nazwa dostępna dla czytnika ekranu wskazują generowane pole.
+
+1. Wpisz w polu pomysły, które chcesz zachować, na przykład `smart, scientist, handsome`, albo zostaw je puste.
+2. Uzupełnij inne pola karty, które AI ma wykorzystać jako kontekst. Nie musisz najpierw zapisywać tych zmian.
+3. Kliknij różdżkę wybranego pola. Marinara prosi o 100–300 słów dla tej sekcji, wykorzystując jej obecną treść jako punkt wyjścia, a pozostałe pola jako kontekst. **Example Dialogue** tworzy przykładowe wymiany zdań. **First Message** i **Alternate Greeting** tworzą po jednej wiadomości otwierającej roleplay, pozostawiając wybór twojej odpowiedzi tobie.
+4. Przejrzyj i popraw wynik, a następnie kliknij **Save**, aby go zachować.
+
+Różdżka wybiera połączenie tak samo jak wcześniejszy generator podsumowania: domyślne połączenie tekstowe agentów, a w razie potrzeby domyślne połączenie tekstowe. Nadal obowiązuje skonfigurowane zapasowe połączenie agentów. Przed generowaniem skonfiguruj działające połączenie tekstowe; zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+
+Generowanie zastępuje tylko wybrane pole w niezapisanej wersji roboczej. Sama różdżka nie zapisuje karty ani nie zmienia innych pól; przy przechodzeniu dalej nadal obowiązuje zwykłe zapisywanie przy opuszczaniu edytora. Jeśli generowanie się nie powiedzie, tekst pozostaje bez zmian. Jeśli podczas oczekiwania edytujesz docelowe pole albo otworzysz inną kartę, spóźniony wynik nie nadpisze nowszych zmian. Po przeniesieniu alternatywnego powitania generowanie pozostaje powiązane z tym powitaniem; usunięcie go odrzuca oczekiwany wynik. Różdżki możesz używać bez otwierania rozmowy z Professor Mari.
+
+### Alternatywne pola w wybranych czatach
+
+Pod każdym z siedmiu pól karty znajduje się **+ Add Alternative Field** (dodaj alternatywne pole). Pozwala nadać tej samej postaci inny opis, wygląd, historię lub inny szczegół w wybranych czatach, zachowując oryginalną kartę we wszystkich pozostałych.
+
+1. Kliknij **+ Add Alternative Field** pod polem, które chcesz zmienić. Marinara kopiuje jego obecną treść do nowego wariantu.
+2. Edytuj wariant albo użyj jego własnej różdżki. Wykorzystuje ona tekst wariantu jako punkt wyjścia, a pozostałe pola karty jako kontekst; nie zastępuje oryginalnego pola.
+3. Otwórz **Active in 0 chats** (aktywne w 0 czatach) i wybierz dowolną liczbę nazw czatów. Lista zawiera tylko czaty z tą postacią. Otwórz wybór ponownie, aby odświeżyć listę po dodaniu lub usunięciu postaci w innym czacie.
+4. Kliknij **Save**, aby zastosować wariant. Obowiązuje też zwykłe zapisywanie przy opuszczaniu edytora.
+
+Możesz dodawać dowolną liczbę wariantów. Brak zaznaczonych czatów pozostawia wariant nieaktywny na później. Pusty wariant celowo czyści dane pole w wybranych czatach. Każdy czat może używać tylko jednego wariantu tego samego pola: zaznaczenie czatu w innym wariancie przenosi tam jego przypisanie. Pozostałe pola i czaty zachowują oryginalne wartości. Istniejące nadpisania scenariusza i wyglądu do obrazów dla danego czatu nadal mają pierwszeństwo.
+
+Warianty **Summary** pozostają metadanymi. Nie dodają podsumowania do promptu czatu wysyłanego modelowi.
+
+Licznik **Active in** obejmuje tylko czaty, które obecnie używają tej postaci. Zapisane przypisania są wstrzymywane po usunięciu postaci z czatu i wznawiane po jej ponownym dodaniu. Wczytywanie lub niedostępność listy czatów nie usuwa przypisań; otwórz wybór ponownie, aby odświeżyć opcje.
+
+Eksport, import, duplikowanie kart oraz konwersja między postaciami a personami zachowują tekst wariantów, ale czyszczą wybór czatów. Kopie zapasowe całego profilu zachowują te przypisania.
+
+Aby usunąć wariant, użyj jego przycisku kosza i potwierdź **Delete**. Anulowanie go zachowuje. Zapisz kartę, aby zastosować usunięcie; wybrane czaty znów użyją oryginalnego pola, z uwzględnieniem istniejących nadpisań czatu. Usunięcie wariantu nigdy nie usuwa oryginalnego pola.
 
 ## Dodawanie awatara
 

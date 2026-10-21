@@ -14,6 +14,8 @@ Ne modifie ces réglages que pour corriger un problème précis. Vers la fin, ce
 
 Modifie les valeurs de base dans **Presets > Parameters** (presets > paramètres), et celles de la connexion dans **Connections > Default Chat Parameters** (connexions > paramètres de chat par défaut). Les valeurs propres au chat se règlent dans **Chat Settings > Advanced Parameters** (réglages du chat > paramètres avancés). Les presets ne fixent pas de limites de tokens de contexte ou de sortie. Règle la fenêtre de contexte dans **Connections**, et les limites de sortie dans **Connections** ou **Chat Settings > Advanced Parameters**. Les anciens fichiers de preset se chargent toujours, mais leurs limites de tokens enregistrées sont ignorées.
 
+Le **Marinara's Universal Preset** intégré ne fournit aucun paramètre de génération, y compris pour l'échantillonnage, le raisonnement et le format des messages. Il utilise tes réglages de connexion et de chat, avec les valeurs par défaut d'Engine pour les valeurs non configurées. Les presets utilisateur modifiables conservent leurs propres réglages de paramètres.
+
 1. Ouvre le chat à modifier.
 2. Ouvre **Chat Settings** (réglages du chat) avec son bouton dans le chat. Il se trouve en haut à droite, sauf si tu l'as déplacé.
 3. Repère la section **Advanced Parameters** et clique dessus pour la déplier.

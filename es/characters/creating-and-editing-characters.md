@@ -33,7 +33,7 @@ Arriba a la derecha tienes estos botones:
 - **Duplicate character** (Duplicar personaje).
 - **Delete character** (Eliminar personaje).
 
-Si intentas salir con trabajo sin guardar, un aviso dice `You have unsaved changes. Close without saving?` Te ofrece **Keep editing** (Seguir editando), **Discard & close** (Descartar y cerrar) y **Save & close** (Guardar y cerrar).
+Al salir del editor, la tarjeta modificada se guarda antes de continuar. Si el guardado falla, el editor permanece abierto con tu borrador para que puedas volver a intentarlo.
 
 El editor está dividido en pestañas. En una pantalla ancha las pestañas van por el lado izquierdo. En una pantalla estrecha se convierten en una tira desplazable en la parte superior. Las pestañas, en orden, son **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** y **Advanced**.
 
@@ -62,8 +62,9 @@ El panel **Version history** (Historial de versiones) también vive en esta pest
 
 ## Pestaña Card
 
-La pestaña **Card** es el espacio de escritura principal. Contiene los campos que la IA lee para interpretar al personaje. Los enlaces de salto de arriba te dejan ir a cualquier sección. Cada campo tiene un contador de caracteres en vivo.
+La pestaña **Card** es el espacio principal de escritura. Los enlaces de la parte superior permiten saltar a cualquier sección. Cada campo tiene un contador de caracteres en tiempo real.
 
+- **Summary** (resumen). Una descripción general para la biblioteca y las vistas previas de la tarjeta. Son metadatos y no se envían al modelo en los prompts del chat.
 - **Description**. La identidad y el rol generales del personaje. Esto se envía en cada prompt.
 - **Personality**. Un breve resumen del temperamento, los hábitos de habla y los patrones de comportamiento.
 - **Backstory**. Historia, origen y relaciones importantes.
@@ -88,6 +89,38 @@ Una entrada corta de Example Dialogue tiene este aspecto:
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Generar un campo de la tarjeta con la varita
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** y cada **Alternate Greeting** tienen un botón que solo muestra una varita encima del campo. Su descripción emergente y su nombre accesible identifican el campo que genera.
+
+1. Escribe las ideas que quieras conservar, como `smart, scientist, handsome`, o deja el campo vacío.
+2. Completa los demás campos de la tarjeta que quieras usar como referencia. No necesitas guardar primero esos cambios.
+3. Pulsa la varita del campo. Marinara solicita entre 100 y 300 palabras para esa sección, usando su texto actual como punto de partida y los demás campos como referencia. **Example Dialogue** pide intercambios de ejemplo. **First Message** y **Alternate Greeting** piden un mensaje de apertura de roleplay que deja tu respuesta en tus manos.
+4. Revisa y edita el resultado y pulsa **Save** para conservarlo.
+
+La varita elige la conexión igual que el generador de resúmenes original: la conexión de texto predeterminada para agentes y, si hace falta, la conexión de texto predeterminada. La conexión de respaldo de agentes configurada sigue aplicándose. Configura una conexión de texto que funcione antes de generar; consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
+
+La generación sustituye únicamente el campo elegido en el borrador sin guardar. La varita no guarda la tarjeta ni cambia otros campos; el guardado habitual al salir del editor sigue aplicándose. Si la generación falla, tu texto permanece intacto. Si editas el campo de destino mientras esperas o abres otra tarjeta, un resultado tardío no sobrescribe tus cambios recientes. Al mover un saludo alternativo, su generación sigue vinculada a ese saludo; al eliminarlo, se descarta el resultado pendiente. Puedes usar la varita sin abrir Professor Mari.
+
+### Usar campos alternativos en chats seleccionados
+
+Cada uno de los siete campos tiene **+ Add Alternative Field** (añadir campo alternativo) debajo. Permite dar al mismo personaje otra descripción, apariencia, historia u otro detalle en ciertos chats, conservando la tarjeta original en los demás.
+
+1. Pulsa **+ Add Alternative Field** bajo el campo que quieras variar. Marinara copia su texto actual en una nueva alternativa.
+2. Edita la alternativa o usa su propia varita. Esta usa el texto de la alternativa como punto de partida y los demás campos como referencia; no sustituye el campo original.
+3. Abre **Active in 0 chats** (activo en 0 chats) y selecciona tantos nombres de chat como quieras. Solo aparecen chats que incluyen a este personaje. Vuelve a abrir el selector para actualizar la lista después de añadir o quitar al personaje en otro chat.
+4. Pulsa **Save** para aplicar la alternativa. También se aplica el guardado habitual al salir del editor.
+
+Puedes añadir tantas alternativas como necesites. Sin chats seleccionados, una alternativa queda inactiva para más adelante. Una alternativa vacía borra deliberadamente ese campo en los chats seleccionados. Cada chat solo puede usar una alternativa del mismo campo: seleccionarlo en otra alternativa traslada allí su asignación. Los demás campos y chats conservan sus valores originales. Las sustituciones existentes de escenario y apariencia para imágenes específicas del chat siguen teniendo prioridad.
+
+Las alternativas de **Summary** siguen siendo metadatos. No añaden el resumen al prompt del chat enviado al modelo.
+
+El contador **Active in** solo incluye chats que usan actualmente a este personaje. Las asignaciones guardadas se pausan al quitar al personaje de un chat y se reanudan al añadirlo de nuevo. Una lista de chats que está cargando o no está disponible no elimina asignaciones; vuelve a abrir el selector para actualizar las opciones.
+
+La exportación, importación, duplicación y conversión entre personajes y personas conservan el texto alternativo, pero borran la selección de chats. Las copias de seguridad del perfil completo conservan esas selecciones.
+
+Para eliminar una alternativa, pulsa su papelera y confirma con **Delete**. Cancelar la conserva. Guarda la tarjeta para aplicar la eliminación; los chats seleccionados vuelven al campo original, respetando las sustituciones existentes del chat. Eliminar una alternativa nunca elimina el campo original.
 
 ## Añadir un avatar
 

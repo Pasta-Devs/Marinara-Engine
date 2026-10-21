@@ -55,7 +55,7 @@ Otwarcie persony zastępuje obszar czatu pełnoekranowym edytorem **Persona Edit
 - Przycisk **Save** (zapis). Pozostaje wyszarzony do pierwszej zmiany.
 - Ikony akcji w nagłówku: **Export persona**, **Add persona as character**, **Duplicate persona** i **Delete persona**.
 
-Przy próbie wyjścia z niezapisanymi zmianami pojawia się pasek z komunikatem "You have unsaved changes. Close without saving?". Daje on do wyboru **Keep editing**, **Discard & close** i **Save & close**.
+Przy opuszczaniu edytora zmieniona persona zapisuje się przed przejściem dalej. Jeśli zapis się nie powiedzie, edytor pozostaje otwarty z twoją wersją roboczą, żeby można było spróbować ponownie.
 
 W treści edytora stoi rząd zakładek, w tej kolejności: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** i **Stats**.
 
@@ -79,14 +79,40 @@ Panel **Version history** stoi pod polem **Version**. Jego działanie opisuje po
 
 W zakładce **Card** wpisujesz najważniejsze pola persony. Każde pole to duże okno tekstowe z żywym licznikiem szacowanych tokenów pod spodem. Pasek odnośników pozwala przeskoczyć do każdej sekcji.
 
+- **Summary** (podsumowanie): krótki opis do biblioteki person i podglądu karty. To metadane, które nie trafiają do modelu w promptach czatu.
 - **Description**: ogólna tożsamość i rola. Marinara wysyła ten opis w każdym prompcie, żeby AI wiedziało, kim jesteś.
 - **Personality**: temperament, zachowanie, nawyki językowe i wzorce emocjonalne.
 - **Backstory**: historia, pochodzenie, relacje i wydarzenia, które ukształtowały postać.
 - **Appearance**: wygląd fizyczny, ubiór i szczegóły wizualne, o których model ma pamiętać.
 - **Image Appearance Override** (osobny opis wyglądu do obrazów): opcjonalny przełącznik pod polem **Appearance**, domyślnie wyłączony. Włącz go, aby pokazać drugie pole na krótkie tagi obrazu opisujące twoją personę, na przykład słowo wyzwalające LoRA. Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Narrator zawsze otrzymuje pełny opis z **Appearance**.
 - **Scenario**: domyślna sytuacja albo kontekst dla roleplayu. Ustal tu, w jakim miejscu startuje persona.
+- **Example Dialogue** (przykładowy dialog): przykładowe wymiany zdań pokazujące, jak mówi persona. Rozdzielaj wymiany znacznikiem `<START>` i używaj `{{user}}` jako symbolu persony, a `{{char}}` jako symbolu drugiej postaci.
 
 Te okna tekstowe obsługują makra. Wpisywane cudzysłowy formatują się automatycznie zgodnie ze stylem cudzysłowów ustawionym w aplikacji.
+
+### Generowanie pola persony różdżką
+
+Pola **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** i **Example Dialogue** mają przycisk z samą ikoną różdżki oraz podpowiedzią wskazującą pole. Wpisz słowa kluczowe, zdanie lub inny tekst początkowy i kliknij różdżkę, aby poprosić o 100–300 słów dla tej sekcji. Zostaw pole puste, aby generować na podstawie pozostałej karty persony. **Example Dialogue** tworzy przykładowe wymiany zdań.
+
+Marinara wykorzystuje bieżącą nazwę persony i pozostałe pola karty jako kontekst, włącznie z niezapisanymi zmianami. Obecna treść wybranego pola jest podstawą nowej sekcji. Połączenie wybierane jest tak samo jak przy generowaniu podsumowania postaci: domyślne połączenie tekstowe agentów, następnie domyślne połączenie tekstowe, z uwzględnieniem skonfigurowanego zapasowego połączenia agentów. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+
+Wynik zastępuje tylko wybrane pole w wersji roboczej. Przejrzyj go i kliknij **Save**, aby go zachować. Sama różdżka nie zapisuje; przy przechodzeniu dalej nadal obowiązuje zwykłe zapisywanie przy opuszczaniu edytora. Nieudane żądanie pozostawia tekst bez zmian. Edycja docelowego pola podczas żądania lub otwarcie innej persony przed jego zakończeniem zapobiega nadpisaniu nowszych zmian przez spóźniony wynik. To szybka alternatywa dla poproszenia asystentki Professor Mari o napisanie karty.
+
+### Alternatywne pola persony w wybranych czatach
+
+Pod każdym z siedmiu pól karty **+ Add Alternative Field** (dodaj alternatywne pole) kopiuje obecną treść do edytowalnego wariantu. Użyj go, aby zmienić rolę, historię, wygląd lub sposób mówienia w wybranych czatach bez zmieniania oryginalnej karty persony dla wszystkich czatów.
+
+Edytuj wariant, a następnie otwórz **Active in 0 chats** (aktywne w 0 czatach) i zaznacz czaty, w których ma zastąpić oryginalne pole. Lista zawiera tylko czaty używające tej persony. Otwórz ją ponownie, aby odświeżyć opcje po zmianie persony czatu. Możesz wybrać zero, jeden lub wiele czatów. Bez zaznaczeń wariant pozostaje nieaktywny na później.
+
+Możesz tworzyć dowolną liczbę wariantów. Każdy czat używa jednego wariantu na pole, więc zaznaczenie czatu w innym wariancie przenosi tam przypisanie tego pola. Pozostawienie pustego wariantu celowo czyści to pole w wybranych czatach. Pozostałe czaty zachowują oryginalne pole. Istniejące nadpisania scenariusza i wyglądu do obrazów dla czatu nadal mają pierwszeństwo. Warianty **Summary** pozostają metadanymi i nie są automatycznie wysyłane w prompcie czatu.
+
+Wariant ma własną różdżkę, która używa jego tekstu jako punktu wyjścia, a pozostałych pól persony jako kontekstu. Generowanie zmienia tylko ten wariant. Kliknij **Save**, aby zachować zmiany i przypisania czatów; obowiązuje też zwykłe zapisywanie przy opuszczaniu edytora.
+
+Licznik **Active in** obejmuje tylko czaty, które obecnie używają tej persony. Zapisane przypisania są wstrzymywane, gdy czat wybiera inną personę, i wznawiane po ponownym wybraniu tej persony. Wczytywanie lub niedostępność listy czatów nie usuwa przypisań; otwórz wybór ponownie, aby odświeżyć opcje.
+
+Eksport, import, duplikowanie kart oraz konwersja między postaciami a personami zachowują tekst wariantów, ale czyszczą wybór czatów. Kopie zapasowe całego profilu zachowują te przypisania.
+
+Użyj przycisku kosza wariantu, aby go usunąć. Potwierdzenie oferuje **Cancel**, aby go zachować, lub **Delete**, aby usunąć go z wersji roboczej. Zapisz personę, aby zastosować usunięcie. Wybrane czaty wrócą wtedy do oryginalnego pola, z uwzględnieniem istniejących nadpisań czatu; usunięcie wariantu nigdy nie usuwa oryginalnego pola.
 
 ### Zakładka Convo
 

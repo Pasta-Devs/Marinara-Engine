@@ -14,6 +14,8 @@
 
 基本値は**Presets > Parameters**(プリセット > パラメーター)、接続の値は**Connections > Default Chat Parameters**(接続 > チャットパラメーターのデフォルト)で編集します。チャットごとの上書きは**Chat Settings > Advanced Parameters**(チャット設定 > 詳細パラメーター)で設定します。プリセットはコンテキストや出力のトークン上限を設定しません。コンテキストウィンドウは**Connections**で、出力の上限は**Connections**か**Chat Settings > Advanced Parameters**で設定してください。古いプリセットファイルも読み込めますが、保存されているトークン上限は無視されます。
 
+組み込みの**Marinara's Universal Preset**(Marinaraの汎用プリセット)は、サンプリング、推論、メッセージの書式を含む生成パラメーターを一切指定しません。接続とチャットの設定を使い、未設定の値にはEngineのデフォルトを使います。編集可能なユーザープリセットは独自のパラメーター設定を保持します。
+
 1. 変更したいチャットを開きます。
 2. **Chat Settings**(チャット設定)を開きます(チャット内の**Chat Settings**ボタンで、移動していなければ右上にあります)。
 3. **Advanced Parameters**セクションを探し、クリックして展開します。

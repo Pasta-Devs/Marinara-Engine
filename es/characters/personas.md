@@ -55,7 +55,7 @@ Al abrir una persona, se reemplaza el área de chat con el **Persona Editor** de
 - Un botón **Save** (Guardar). Permanece atenuado hasta que hagas un cambio.
 - Acciones de icono del encabezado: **Export persona** (Exportar persona), **Add persona as character** (Añadir persona como personaje), **Duplicate persona** (Duplicar persona) y **Delete persona** (Eliminar persona).
 
-Si intentas salir con cambios sin guardar, aparece un aviso que dice "You have unsaved changes. Close without saving?" (Tienes cambios sin guardar. ¿Cerrar sin guardar?). Te ofrece **Keep editing** (Seguir editando), **Discard & close** (Descartar y cerrar) y **Save & close** (Guardar y cerrar).
+Al salir del editor, la persona modificada se guarda antes de continuar. Si el guardado falla, el editor permanece abierto con tu borrador para que puedas volver a intentarlo.
 
 El cuerpo del editor tiene una fila de pestañas, en este orden: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** y **Stats**.
 
@@ -79,14 +79,40 @@ El panel **Version history** (Historial de versiones) está debajo del campo **V
 
 La pestaña **Card** (Tarjeta) es donde escribes los campos centrales de la persona. Cada campo es un cuadro de texto grande con un recuento estimado de tokens en vivo debajo. Una barra de enlaces de salto te permite desplazarte a cada sección.
 
+- **Summary** (resumen): una descripción general para la biblioteca de personas y las vistas previas de la tarjeta. Son metadatos y no se envían al modelo en los prompts del chat.
 - **Description** (Descripción): tu identidad y rol generales. Esto se envía en cada prompt para que la IA sepa quién eres.
 - **Personality** (Personalidad): tu temperamento, comportamiento, hábitos de habla y patrones emocionales.
 - **Backstory** (Trasfondo): tu historia, origen, relaciones y eventos formativos.
 - **Appearance** (Apariencia): descripción física, ropa y detalles visuales que el modelo debe recordar.
 - **Image Appearance Override** (Apariencia alternativa para imágenes): un interruptor opcional debajo de **Appearance**, desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro para etiquetas de imagen breves que describan a tu persona, como la palabra de activación de una LoRA. Si está activado y el cuadro contiene texto, los prompts de imagen usan esas etiquetas tal como están escritas y mantienen **Appearance** como contexto de fondo. El narrador siempre recibe el texto completo de **Appearance**.
 - **Scenario** (Escenario): tu situación o contexto predeterminado para los roleplays. Úsalo para establecer dónde empieza tu persona.
+- **Example Dialogue** (diálogo de ejemplo): intercambios que muestran cómo habla tu persona. Separa los intercambios con `<START>` y usa `{{user}}` para tu persona y `{{char}}` para el otro personaje.
 
 Estos cuadros de texto admiten macros. Los caracteres de comilla que escribes se formatean automáticamente para coincidir con el estilo de comillas de tu app.
+
+### Generar un campo de persona con la varita
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** y **Example Dialogue** tienen un botón que solo muestra una varita y una descripción emergente con el nombre del campo. Añade palabras clave, una frase u otro texto inicial y pulsa su varita para solicitar entre 100 y 300 palabras para esa sección. Déjalo vacío para generar a partir del resto de la tarjeta. **Example Dialogue** produce intercambios de ejemplo.
+
+Marinara incluye el nombre actual de la persona y los demás campos como referencia, incluidos los cambios sin guardar. El texto existente del campo elegido sirve de base. La conexión se elige como en la generación del resumen de personajes: primero la conexión de texto predeterminada para agentes, después la conexión de texto predeterminada, con el respaldo de agentes configurado cuando corresponda. Consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
+
+El resultado solo sustituye el campo elegido en el borrador. Revísalo y pulsa **Save** para conservarlo. La varita no guarda; al navegar a otro lugar sigue aplicándose el guardado habitual al salir del editor. Un fallo deja tu texto intacto. Editar el campo durante la solicitud o abrir otra persona antes de que termine impide que un resultado tardío sobrescriba cambios recientes. Es una alternativa rápida a pedirle a Professor Mari que escriba una tarjeta.
+
+### Usar campos alternativos de persona en chats seleccionados
+
+Debajo de cada uno de los siete campos, **+ Add Alternative Field** (añadir campo alternativo) copia el texto actual en una alternativa editable. Úsala para cambiar el papel, la historia, la apariencia o la voz en determinados chats sin modificar la tarjeta original para todos los chats.
+
+Edita la alternativa, abre **Active in 0 chats** (activo en 0 chats) y marca los chats donde debe sustituir al campo original. La lista solo contiene chats que usan esta persona. Vuelve a abrirla para actualizar las opciones tras cambiar la persona de un chat. Puedes elegir cero, uno o varios chats. Sin selecciones, la alternativa queda inactiva para más adelante.
+
+Puedes crear tantas alternativas como necesites. Cada chat usa una por campo, por lo que marcarlo en otra alternativa traslada allí la asignación de ese campo. Una alternativa vacía borra deliberadamente el campo en los chats seleccionados. Los demás chats conservan el original. Las sustituciones existentes de escenario y apariencia para imágenes específicas del chat siguen teniendo prioridad. Las alternativas de **Summary** siguen siendo metadatos y no se envían automáticamente en el prompt del chat.
+
+Cada alternativa tiene su propia varita, que usa su texto como base y los demás campos de persona como referencia. La generación solo cambia esa alternativa. Pulsa **Save** para conservar cambios y asignaciones; también se aplica el guardado habitual al salir.
+
+El contador **Active in** solo incluye chats que usan actualmente esta persona. Las asignaciones guardadas se pausan cuando un chat elige otra persona y se reanudan al volver a elegir esta. Una lista de chats que está cargando o no está disponible no elimina asignaciones; vuelve a abrir el selector para actualizar las opciones.
+
+La exportación, importación, duplicación y conversión entre personajes y personas conservan el texto alternativo, pero borran la selección de chats. Las copias de seguridad del perfil completo conservan esas selecciones.
+
+Usa la papelera de una alternativa para eliminarla. La confirmación ofrece **Cancel** para conservarla o **Delete** para quitarla del borrador. Guarda la persona para aplicar la eliminación. Los chats seleccionados vuelven al campo original, respetando las sustituciones existentes del chat; eliminar una alternativa nunca elimina el campo original.
 
 ### Pestaña Convo
 

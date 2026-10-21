@@ -14,6 +14,8 @@ Só mude essas configurações quando quiser resolver um problema específico. P
 
 Edite os valores base em **Presets > Parameters** (presets > parâmetros) e os valores da conexão em **Connections > Default Chat Parameters** (conexões > parâmetros padrão de chat). As substituições do chat ficam em **Chat Settings > Advanced Parameters** (configurações do chat > parâmetros avançados). Presets não definem limites de tokens de contexto ou saída. Defina a janela de contexto em **Connections** e os limites de saída em **Connections** ou **Chat Settings > Advanced Parameters**. Arquivos de presets antigos continuam carregando, mas seus limites de tokens salvos são ignorados.
 
+O **Marinara's Universal Preset** integrado não fornece parâmetros de geração, incluindo amostragem, raciocínio e formatação de mensagens. Ele usa as configurações da conexão e do chat, com os padrões do Engine para valores não configurados. Presets de usuário editáveis mantêm suas próprias configurações de parâmetros.
+
 1. Abra o chat que você quer mudar.
 2. Abra **Chat Settings** (configurações do chat) pelo botão no chat. Ele começa no canto superior direito, a menos que você o tenha movido.
 3. Localize a seção **Advanced Parameters** e clique nela para expandir.

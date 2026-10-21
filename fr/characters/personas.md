@@ -55,7 +55,7 @@ Quand tu ouvres un persona, le **Persona Editor** en pleine page remplace la zon
 - Un bouton **Save** (enregistrer). Il reste grisé tant que rien n'a changé.
 - Des actions en icônes dans l'en-tête : **Export persona** (exporter le persona), **Add persona as character** (ajouter le persona comme personnage), **Duplicate persona** (dupliquer le persona) et **Delete persona** (supprimer le persona).
 
-Si tu quittes l'éditeur avec des modifications non enregistrées, un bandeau affiche "You have unsaved changes. Close without saving?". Il propose **Keep editing** (continuer à modifier), **Discard & close** (abandonner et fermer) et **Save & close** (enregistrer et fermer).
+Lorsque tu quittes l'éditeur, la persona modifiée est enregistrée avant de continuer. Si l'enregistrement échoue, l'éditeur reste ouvert avec ton brouillon pour que tu puisses réessayer.
 
 Le corps de l'éditeur présente une rangée d'onglets, dans cet ordre : **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** et **Stats**.
 
@@ -79,14 +79,40 @@ Le panneau **Version history** (historique des versions) se trouve sous le champ
 
 L'onglet **Card** (fiche) accueille les champs principaux du persona. Chaque champ est une grande zone de texte, sous laquelle s'affiche en direct une estimation du nombre de tokens. Une barre de liens rapides permet de sauter à chaque section.
 
+- **Summary** (résumé) : une présentation pour la bibliothèque de personas et les aperçus de fiche. Ce sont des métadonnées, qui ne sont pas envoyées au modèle dans les prompts du chat.
 - **Description** : ton identité générale et ton rôle. Marinara l'envoie dans chaque prompt pour que l'IA sache qui tu es.
 - **Personality** (personnalité) : ton tempérament, ton comportement, tes façons de parler et tes réactions émotionnelles.
 - **Backstory** (passé) : ton histoire, tes origines, tes relations et les événements qui t'ont façonné.
 - **Appearance** (apparence) : description physique, vêtements et détails visuels que le modèle doit retenir.
 - **Image Appearance Override** (apparence propre aux images) : un interrupteur facultatif sous **Appearance**, désactivé par défaut. Active-le pour afficher un second champ où tu peux décrire ton persona avec de courts tags d'image, comme le mot déclencheur d'un LoRA. S'il est activé et que le champ contient du texte, les prompts d'image utilisent ces tags tels quels, **Appearance** servant de contexte. Le narrateur reçoit toujours le texte complet d'**Appearance**.
 - **Scenario** (scénario) : ta situation ou ton contexte par défaut pour les roleplays. Sers-t'en pour poser le point de départ du persona.
+- **Example Dialogue** (exemples de dialogue) : des échanges qui montrent comment parle ta persona. Sépare-les avec `<START>` et utilise `{{user}}` pour ta persona et `{{char}}` pour l'autre personnage.
 
 Ces zones de texte acceptent les macros. Les guillemets que tu saisis sont reformatés automatiquement selon le style de guillemets réglé dans l'application.
+
+### Générer un champ de persona avec la baguette
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** et **Example Dialogue** ont chacun un bouton avec une simple icône de baguette et une infobulle indiquant le champ. Ajoute des mots-clés, une phrase ou tout autre texte de départ, puis clique sur sa baguette pour demander 100–300 mots pour cette section. Laisse le champ vide pour générer à partir du reste de la fiche. **Example Dialogue** produit des exemples d'échanges.
+
+Marinara inclut le nom actuel de la persona et les autres champs comme référence, y compris les modifications non enregistrées. Le texte existant du champ choisi sert de base à la nouvelle section. La connexion est choisie comme pour le résumé des personnages : ta connexion texte par défaut pour les agents, puis ta connexion texte par défaut, avec la connexion de secours des agents lorsqu'elle s'applique. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+
+Le résultat remplace uniquement le champ choisi dans le brouillon. Relis-le et clique sur **Save** pour le conserver. La baguette n'enregistre pas ; l'enregistrement habituel en quittant l'éditeur reste applicable. Un échec laisse ton texte intact. Modifier le champ pendant la requête ou ouvrir une autre persona avant la fin empêche un résultat tardif d'écraser tes modifications récentes. C'est une alternative rapide à demander à Professor Mari d'écrire une fiche.
+
+### Utiliser des champs de persona alternatifs dans certains chats
+
+Sous chacun des sept champs, **+ Add Alternative Field** (ajouter un champ alternatif) copie le texte actuel dans une alternative modifiable. Utilise-la pour un autre rôle, passé, aspect ou style de parole dans certains chats, sans modifier la fiche d'origine pour tous les chats.
+
+Modifie l'alternative, puis ouvre **Active in 0 chats** (actif dans 0 chats) et coche les chats où elle doit remplacer le champ d'origine. La liste contient uniquement les chats utilisant cette persona. Rouvre-la pour actualiser les choix après un changement de persona dans un chat. Tu peux sélectionner zéro, un ou plusieurs chats. Sans sélection, l'alternative reste inactive pour plus tard.
+
+Tu peux créer autant d'alternatives que nécessaire. Chaque chat utilise une alternative par champ : le cocher dans une autre alternative y déplace l'affectation de ce champ. Une alternative vide efface volontairement le champ dans les chats sélectionnés. Les autres chats gardent le champ d'origine. Les remplacements existants du scénario et de l'apparence pour les images propres au chat restent prioritaires. Les alternatives de **Summary** restent des métadonnées et ne sont pas envoyées automatiquement dans le prompt du chat.
+
+Une alternative possède sa propre baguette, qui utilise son texte comme point de départ et les autres champs de la persona comme référence. La génération ne modifie que cette alternative. Clique sur **Save** pour conserver les modifications et les affectations des chats ; l'enregistrement habituel en quittant l'éditeur s'applique aussi.
+
+Le compteur **Active in** inclut uniquement les chats utilisant actuellement cette persona. Les affectations enregistrées sont suspendues si le chat choisit une autre persona, puis reprennent s'il choisit à nouveau celle-ci. Une liste de chats en cours de chargement ou indisponible ne supprime aucune affectation ; rouvre le sélecteur pour actualiser les choix.
+
+L'exportation, l'importation, la duplication et la conversion entre personnages et personas conservent le texte alternatif, mais effacent la sélection des chats. Les sauvegardes du profil complet conservent ces affectations.
+
+Utilise la corbeille d'une alternative pour la supprimer. La confirmation propose **Cancel** pour la conserver ou **Delete** pour la retirer du brouillon. Enregistre la persona pour appliquer la suppression. Les chats sélectionnés reviennent alors au champ d'origine, sous réserve des remplacements existants du chat ; supprimer une alternative ne supprime jamais le champ d'origine.
 
 ### Onglet Convo
 
