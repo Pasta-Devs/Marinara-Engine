@@ -6532,9 +6532,12 @@ async function installCatalogPackage(
     return { ...installed, usesDecisions: false };
   }
 
-  const entries: PackageEntry[] = isRuleset
-    ? readRulesetFileEntries(archive)
-    : validatePackageArchiveEntries(openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET));
+  let entries: PackageEntry[];
+  if (isRuleset) entries = readRulesetFileEntries(archive);
+  else {
+    const zip = openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET);
+    entries = validatePackageArchiveEntries(zip);
+  }
   const manifestEntry = entries.find((item) => item.entryName === "manifest.json");
   if (!manifestEntry || manifestEntry.size > MAX_MANIFEST_BYTES) {
     throw new Error("Package manifest is missing or too large");
