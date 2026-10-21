@@ -12,7 +12,7 @@ import {
   type RulesetDefinition,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { PACKAGE_UPDATE_DECLINE_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { EXPERIENCE_FILE_IMPORT_RATE_LIMIT, PACKAGE_UPDATE_DECLINE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { openRulesetCatalog } from "../services/game/ruleset-catalog.service.js";
 import { readRulesetRegistry } from "../services/game/ruleset-registry.service.js";
 import {
@@ -303,7 +303,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   // An Experience file (Capability API 1.373), after the user reviewed it: the body is read as it arrives,
   // never buffered, so the file may be any size; the manager checks every byte against the manifest.
   app.addContentTypeParser(EXPERIENCE_FILE_CONTENT_TYPE, (_request, payload, done) => done(null, payload));
-  app.post("/experience-file", async (request, reply) => {
+  app.post("/experience-file", { config: { rateLimit: EXPERIENCE_FILE_IMPORT_RATE_LIMIT } }, async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Experience import" })) return;
     const body = request.body as AsyncIterable<Uint8Array> | undefined;
     if (!body || typeof (body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] !== "function") {
