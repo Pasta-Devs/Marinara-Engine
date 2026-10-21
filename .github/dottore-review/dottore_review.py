@@ -1191,7 +1191,11 @@ class StreamStalled(Exception):
 
 
 class ResponseFailed(Exception):
-    """The provider reported a failed response inside a Responses stream, such as an upstream rate limit."""
+    """The provider reported a failed response inside a Responses stream, with its error code when it gave one."""
+
+    def __init__(self, detail, code=None):
+        super().__init__(f"the response failed: {detail}")
+        self.code = code or ""
 
 
 def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
@@ -1327,15 +1331,17 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
         request["reasoning"] = {"effort": settings["effort"]}
     if cache_key:
         request["extra_body"] = {"prompt_cache_key": cache_key}
-    response = None
+    response, capped = None, False
     try:
         with ctx.clients[settings["slot"]].responses.create(**request) as stream:
             for event in watched(stream, started, timing, stream_limit):
                 if event.type in ("response.completed", "response.incomplete"):
                     response = event.response
+                    # An incomplete response was cut short, by the output cap or a filter, as Claude's max_tokens stop.
+                    capped = event.type == "response.incomplete"
                 elif event.type in ("response.failed", "error"):
-                    detail = getattr(getattr(event, "response", None), "error", None) or getattr(event, "message", "")
-                    raise ResponseFailed(f"the response failed: {detail}")
+                    failure = getattr(getattr(event, "response", None), "error", None) or event
+                    raise ResponseFailed(getattr(failure, "message", None) or failure, getattr(failure, "code", None))
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         raise StreamStalled(error_text(exc)) from exc
     if response is None:
@@ -1344,7 +1350,8 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
     for item in response.output or []:
         if item.type == "message":
             text += [part.text for part in item.content or [] if getattr(part, "type", "") == "output_text"]
-        elif item.type == "function_call":
+        elif item.type == "function_call" and not capped:
+            # A call in a cut-short response may have lost the end of its arguments (see claude_reply).
             calls.append(SimpleNamespace(id=item.call_id, function=SimpleNamespace(name=item.name, arguments=item.arguments)))
         elif item.type == "reasoning" and getattr(item, "encrypted_content", None):
             reasoning.append(item.model_dump(exclude_none=True))
@@ -1357,7 +1364,8 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
         "prompt_tokens_details": {"cached_tokens": usage_value(response.usage, "input_tokens_details", "cached_tokens")},
         "completion_tokens_details": {"reasoning_tokens": usage_value(response.usage, "output_tokens_details", "reasoning_tokens")},
     }
-    return SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning), usage
+    message = SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped)
+    return message, usage
 
 
 def claude_messages(messages):
@@ -1471,8 +1479,12 @@ def transient_error(exc):
 
     A gateway can report these inside the reply stream, as a bare APIError the client never retries.
     """
-    if isinstance(exc, (StreamStalled, ResponseFailed)):
+    if isinstance(exc, StreamStalled):
         return True
+    if isinstance(exc, ResponseFailed):
+        # Any other code, such as invalid_prompt, fails the same way on every resend. A failure a gateway relays
+        # without a code is retried, like a bare APIError below.
+        return exc.code in ("", "server_error", "rate_limit_exceeded")
     import anthropic
     import openai
 

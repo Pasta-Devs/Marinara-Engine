@@ -195,8 +195,8 @@ small model and GLM as the large one, both through LinkAPI:
 | `EFFORT` | empty | empty |
 
 Use `anthropic` for Claude models, even through a gateway that also offers Chat Completions: Claude's tool calls only
-work reliably in its own format, and prompt caching and effort work only there. Give a gateway's base URL without
-`/v1`, such as `https://linkapi.ai`.
+work reliably in its own format, and prompt caching and effort work only there. For `anthropic`, give a gateway's base
+URL without `/v1`, such as `https://linkapi.ai`.
 
 Use `responses` when the provider serves the model only on `/v1/responses`, or takes tool calls with reasoning only
 there. It takes the same base URL as `openai`, ending in `/v1`, and the same key. Calls stay stateless: nothing is stored
