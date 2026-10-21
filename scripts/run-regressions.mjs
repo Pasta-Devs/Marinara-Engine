@@ -270,6 +270,7 @@ async function main() {
   // A runner error ends the run, as it did when files ran one at a time.
   await Promise.all(Array.from({ length: workers }, () => worker(pooled))).catch((error) => {
     queue.length = 0;
+    for (const child of activeChildren.keys()) terminateActiveChild(child);
     throw error;
   });
   if (interruption) return;

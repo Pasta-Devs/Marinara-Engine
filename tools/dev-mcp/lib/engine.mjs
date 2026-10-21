@@ -454,9 +454,20 @@ export async function regressions(filter, timeoutMs = 20 * 60_000) {
   const passed = lines.filter((l) => /\] PASSED/.test(l));
   const summary = lines.find((l) => l.startsWith("Regression summary")) ?? null;
   // The closing "Regression not passed" lines are the verdict (a file that misses in the parallel pool prints that
-  // attempt, then a serial retry decides it). A run stopped before its summary lists the misses printed so far.
-  const failed = lines
-    .filter((l) => (summary ? l.startsWith("Regression not passed") : /\] (FAILED|TIMEOUT|START-ERROR) \(/.test(l)))
+  // attempt, then a serial retry decides it). A run stopped before its summary lists each file whose latest printed
+  // attempt missed.
+  const latestAttempts = new Map();
+  if (!summary) {
+    for (const l of lines) {
+      const attempt = /^\[([^\]]+)\] (?:PASSED|FAILED|TIMEOUT|START-ERROR) \(/.exec(l);
+      if (attempt) latestAttempts.set(attempt[1], l);
+    }
+  }
+  const failed = (
+    summary
+      ? lines.filter((l) => l.startsWith("Regression not passed"))
+      : [...latestAttempts.values()].filter((l) => !/\] PASSED \(/.test(l))
+  )
     .map((l) =>
       l
         .replace(/^Regression not passed \(([^)]+)\): (.*)$/, "$2 ($1)")
