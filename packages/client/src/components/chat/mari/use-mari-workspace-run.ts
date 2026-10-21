@@ -112,6 +112,7 @@ export function useMariWorkspaceRun({
     ) => {
       if (isProfessorMariAbortError(error)) return;
       console.error("[Professor Mari] Run failed", error);
+      void refreshWorkspaceStatus().catch(() => undefined);
       setRecovery({ ...retry, kind: classifyProfessorMariFailure(error), detail: describeProfessorMariError(error) });
       // F15: the server already saved this failure on the message; without a reload the local copy
       // still lacks mariRunError, so an OLDER failure in the same session loses its quiet line until
@@ -119,7 +120,7 @@ export function useMariWorkspaceRun({
       // Returns the reload so the caller can tell whether the server saved the message at all.
       return runChatId ? loadMessages(runChatId, { restoreFocus: false }).catch(() => undefined) : undefined;
     },
-    [chatId, loadMessages, setRecovery],
+    [chatId, loadMessages, refreshWorkspaceStatus, setRecovery],
   );
 
   const sendWorkspaceMessage = useCallback(

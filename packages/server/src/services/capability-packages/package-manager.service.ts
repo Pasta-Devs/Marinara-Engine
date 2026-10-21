@@ -247,6 +247,12 @@ const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
 
 export class CapabilityPackageVersionMismatchError extends Error {}
 
+/** This Engine refuses the package version before downloading it: it needs a newer capability API or Engine version,
+ *  or declares something this Engine cannot install. The install route answers 409 with the message. */
+export class CapabilityPackageCompatibilityError extends Error {
+  override name = "CapabilityPackageCompatibilityError";
+}
+
 export function normalizeArchivePath(value: string): string {
   if (!value || value.includes("\\") || value.startsWith("/") || value.includes("\0")) {
     throw new Error("Package contains an unsafe path");
@@ -6382,13 +6388,15 @@ export function findPendingCapabilityPackageUpdates(
 async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDuringStartup = false) {
   const { manifest, artifact } = entry;
   const installIssue = getCapabilityPackageInstallIssue(manifest);
-  if (installIssue) throw new Error(installIssue);
+  if (installIssue) throw new CapabilityPackageCompatibilityError(installIssue);
   const initiallyInstalled = await readInstalledVersion(manifest.id);
   assertNotDowngrade(initiallyInstalled, manifest.version);
   const capabilityApiIssue = getCapabilityApiCompatibilityIssue(manifest);
-  if (capabilityApiIssue) throw new Error(capabilityApiIssue);
+  if (capabilityApiIssue) throw new CapabilityPackageCompatibilityError(capabilityApiIssue);
   if (!supportsEngineVersion(entry, APP_VERSION)) {
-    throw new Error(`Package requires Marinara Engine ${manifest.engine.min} to below ${manifest.engine.maxExclusive}`);
+    throw new CapabilityPackageCompatibilityError(
+      `Package requires Marinara Engine ${manifest.engine.min} to below ${manifest.engine.maxExclusive}`,
+    );
   }
   const archive = await fetchBytes(artifact.url, Math.min(artifact.bytes + 1, MAX_ARTIFACT_BYTES));
   if (archive.byteLength !== artifact.bytes) throw new Error("Downloaded package size does not match the catalog");

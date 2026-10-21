@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Server Entry Point
 // ──────────────────────────────────────────────
+import "./lib/compromised-certificate-authorities.js";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { buildApp } from "./app.js";
@@ -28,6 +29,7 @@ import {
   logStorageDiagnostics,
 } from "./config/runtime-config.js";
 import { logCsrfTrustSummary } from "./middleware/csrf-protection.js";
+import { getPasswordlessPeers } from "./middleware/ip-allowlist.js";
 import { startEnvWatcher } from "./config/env-watcher.js";
 import { migrateTaskbarShortcuts } from "./services/setup/taskbar-shortcut-migration.js";
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
@@ -172,6 +174,15 @@ async function main() {
     startSessionPostmortem();
     stopRuntimeMemoryMonitor = startRuntimeMemoryMonitor();
     logCsrfTrustSummary();
+    // The bound address, not HOST: a DNS name in HOST hides a Tailscale bind.
+    const bound = app.server.address();
+    const passwordlessPeers = getPasswordlessPeers(bound && typeof bound === "object" ? bound.address : host);
+    if (passwordlessPeers.length > 0) {
+      logger.warn(
+        "[access] These visitors get in without a password: %s. See Settings → Advanced → Access and docs/REMOTE_ACCESS.md.",
+        passwordlessPeers.join(", "),
+      );
+    }
     scheduleTaskbarShortcutMigration();
     stopModelCatalogRefresh = startModelCatalogRefresh(app.db);
   } catch (err) {

@@ -37,8 +37,6 @@ export interface StageAvatar {
   kind: AvatarKind;
   /** Position among the shown avatars, for default placement. */
   index: number;
-  /** The owner has an avatar.json; without one the avatar is its expression sprites. */
-  saved: boolean;
 }
 
 /** An avatar the stage shows, as Chat Settings' Avatars drawer lists it. */
@@ -59,16 +57,11 @@ export function sameStageAvatars(a: readonly StageAvatarSummary[], b: readonly S
   );
 }
 
-/** Participants with an enabled avatar their chat can show, in participant order, at most `maxVisible`.
- *  Owners in `spriteAvatarOwners` (ownerKey) have a PNGTuber avatar from their expression sprites even
- *  without an avatar.json, as the 2D section of docs/agents/avatars.md says; turning the avatar off still
- *  hides it. Nothing shows until the summaries have loaded, so a turned-off avatar never flashes in. */
+/** Participants with a saved, enabled avatar their chat can show, in participant order. */
 export function selectStageAvatars(
   participants: readonly AvatarParticipant[],
   summaries: readonly AvatarOwnerSummary[] | undefined,
   enabledAgentIds: readonly AvatarAgentId[],
-  maxVisible: number,
-  spriteAvatarOwners: ReadonlySet<string> = new Set(),
 ): StageAvatar[] {
   if (!summaries || enabledAgentIds.length === 0) return [];
   const byOwner = new Map(summaries.map((summary) => [ownerKey(summary.owner), summary]));
@@ -77,20 +70,11 @@ export function selectStageAvatars(
   for (const participant of participants) {
     const key = ownerKey(participant.owner);
     const summary = byOwner.get(key);
-    const fromSprites = spriteAvatarOwners.has(key);
-    if (seen.has(key) || (summary ? !summary.enabled : !fromSprites)) continue;
-    const kinds = summary?.kinds ?? [];
-    const kind = pickAvatarKind(
-      {
-        activeKind: summary?.activeKind ?? null,
-        kinds: fromSprites && !kinds.includes("pngtuber") ? [...kinds, "pngtuber"] : kinds,
-      },
-      enabledAgentIds,
-    );
+    if (seen.has(key) || !summary?.enabled) continue;
+    const kind = pickAvatarKind(summary, enabledAgentIds);
     if (!kind) continue;
     seen.add(key);
-    shown.push({ participant, kind, index: shown.length, saved: Boolean(summary) });
-    if (shown.length >= maxVisible) break;
+    shown.push({ participant, kind, index: shown.length });
   }
   return shown;
 }
@@ -99,14 +83,14 @@ export function selectStageAvatars(
 const SPRITE_AVATAR_UPDATED_AT = "1970-01-01T00:00:00.000Z";
 
 /** The owner's avatar with its expression sprites as the PNGTuber setup when it has none saved: the
- *  saved config (or a default one) with `fromSprites` filled in. Null without either. */
+ *  saved config (or a disabled preview) with `fromSprites` filled in. Null without either. */
 export function withSpriteAvatar(
   owner: AvatarOwnerRef,
   config: AvatarConfig | null,
   fromSprites: PngtuberAvatarData | null,
 ): AvatarConfig | null {
   if (!fromSprites || config?.kinds.pngtuber) return config;
-  const base = config ?? createAvatarConfig(owner, SPRITE_AVATAR_UPDATED_AT);
+  const base = config ?? { ...createAvatarConfig(owner, SPRITE_AVATAR_UPDATED_AT), enabled: false };
   return { ...base, kinds: { ...base.kinds, pngtuber: fromSprites } };
 }
 

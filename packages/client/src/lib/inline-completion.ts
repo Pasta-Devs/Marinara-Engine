@@ -3,11 +3,10 @@
  * composer: given what the user typed and a ranked list of candidate phrases,
  * return the text that would be appended if they press Tab.
  *
- * Two attempts, in order: continue the whole value (an omnibar query is one
- * phrase, "cel" -> "Celeste"), then continue the last word (prose in the Mari
- * composer, "tell me about cel" -> "Celeste"). Candidates are matched by
- * case-insensitive prefix and the candidate's own casing is kept, so accepting
- * a completion also fixes capitalisation.
+ * Continue the whole value first, then phrases at word boundaries (prose in
+ * the Mari composer, "tell me about dc " -> "dc simulator"). Candidates are matched by
+ * case-insensitive prefix; the suffix keeps the candidate's casing and the
+ * text already typed stays unchanged.
  */
 
 /** Below this, a fragment matches too much to be a useful guess. */
@@ -28,14 +27,16 @@ function matchSuffix(fragment: string, candidates: readonly string[]): string {
  * `candidates` must already be in priority order; the first match wins.
  */
 export function completeInline(value: string, candidates: readonly string[]): string {
-  // Trailing whitespace means the user finished a word; there is nothing to continue.
-  if (!value || /\s$/.test(value)) return "";
-  if (value.length >= MIN_FRAGMENT) {
-    const whole = matchSuffix(value, candidates);
-    if (whole) return whole;
+  if (!value) return "";
+  const maxCandidateLength = candidates.reduce((max, candidate) => Math.max(max, candidate.trim().length), 0);
+  // Try the longest suffix first so spaces inside a name remain part of its prefix.
+  // Whitespace alone (or a single letter followed by a space) is not a useful guess.
+  for (const word of value.matchAll(/\S+/g)) {
+    if (value.length - word.index >= maxCandidateLength) continue;
+    const fragment = value.slice(word.index);
+    if (fragment.trimEnd().length < MIN_FRAGMENT) continue;
+    const suffix = matchSuffix(fragment, candidates);
+    if (suffix) return suffix;
   }
-  const lastBreak = value.search(/\S+$/);
-  const lastWord = lastBreak > 0 ? value.slice(lastBreak) : "";
-  if (lastWord.length < MIN_FRAGMENT) return "";
-  return matchSuffix(lastWord, candidates);
+  return "";
 }

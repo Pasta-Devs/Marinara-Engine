@@ -15,6 +15,7 @@ import { openRulesetCatalog } from "../services/game/ruleset-catalog.service.js"
 import { readRulesetRegistry } from "../services/game/ruleset-registry.service.js";
 import {
   capabilityPackageManager,
+  CapabilityPackageCompatibilityError,
   CapabilityPackageVersionMismatchError,
 } from "../services/capability-packages/package-manager.service.js";
 import { capabilityModuleRuntime } from "../services/capability-packages/capability-module-runtime.service.js";
@@ -273,7 +274,12 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
       try {
         installed = await capabilityPackageManager.install(id, expectedVersion, expectedArtifactSha256);
       } catch (error) {
-        if (error instanceof CapabilityPackageVersionMismatchError) {
+        // A version this Engine refuses says why ("Package requires capability API 1.342; this Engine supports
+        // 1.341"), instead of the error handler's "Internal Server Error".
+        if (
+          error instanceof CapabilityPackageVersionMismatchError ||
+          error instanceof CapabilityPackageCompatibilityError
+        ) {
           return reply.status(409).send({ error: error.message });
         }
         throw error;

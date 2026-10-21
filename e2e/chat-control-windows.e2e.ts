@@ -5,7 +5,7 @@ import { openChatTool } from "./chat-settings-tools.js";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { openChatSettings, resetChatView } from "./chat-settings-tools.js";
+import { closeChatSettings, openChatSettings, resetChatView } from "./chat-settings-tools.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -107,6 +107,7 @@ async function savedWindowLayout(request: APIRequestContext, chatId: string) {
     >;
     bubbles?: Record<string, { x: number; y: number }>;
     phoneBubbles?: Record<string, { x: number; y: number }>;
+    buttonLayout?: "horizontal" | "vertical";
   } | null;
 }
 
@@ -619,5 +620,50 @@ test("Game Character Profiles stays separate, movable and locked across reload w
     await request.delete(`/api/chats/${gameId}?force=true`);
     await request.delete(`/api/chats/${partnerId}?force=true`);
     await request.delete(`/api/characters/${character.id}`);
+  }
+});
+
+test("automatic button rows and columns resize, persist, and restore free positions (#7928)", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(
+    !testInfo.project.name.includes("desktop"),
+    "Automatic layouts arrange desktop buttons; phones retain Chat Tools.",
+  );
+  const { gameId, partnerId } = await createGameWithConnectedChat(request);
+  try {
+    await prepare(page, gameId);
+    await page.goto("/");
+    const launcher = bubble(page, VOLUME);
+    await expect(launcher).toBeVisible();
+    await dragBubble(page, launcher, { x: 680, y: 220 });
+    const free = await box(launcher);
+    const settings = await openChatSettings(page);
+    const layout = settings.getByLabel("Chat button layout", { exact: true });
+    await layout.selectOption("horizontal");
+    await expect.poll(async () => (await savedWindowLayout(request, gameId))?.buttonLayout).toBe("horizontal");
+    await closeChatSettings(page);
+    const horizontal = await box(launcher);
+    await page.setViewportSize({ width: 900, height: 700 });
+    await expect.poll(async () => (await box(launcher)).x).toBeLessThan(horizontal.x);
+    await page.reload();
+    await expect(launcher).toBeVisible();
+    const reopened = await openChatSettings(page);
+    await expect(reopened.getByLabel("Chat button layout", { exact: true })).toHaveValue("horizontal");
+    await reopened.getByLabel("Chat button layout", { exact: true }).selectOption("vertical");
+    await closeChatSettings(page);
+    const vertical = await Promise.all([GAME_CONTROLS, SESSION, VOLUME].map((id) => box(bubble(page, id))));
+    expect(new Set(vertical.map((rect) => rect.x)).size).toBe(1);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const finalSettings = await openChatSettings(page);
+    await finalSettings.getByLabel("Chat button layout", { exact: true }).selectOption("free");
+    await closeChatSettings(page);
+    await expect.poll(async () => (await box(launcher)).x).toBeCloseTo(free.x, 0);
+    await expect.poll(async () => (await box(launcher)).y).toBeCloseTo(free.y, 0);
+    await page.screenshot({ path: testInfo.outputPath("chat-button-layout-restored.png") });
+  } finally {
+    await request.delete(`/api/chats/${gameId}?force=true`);
+    await request.delete(`/api/chats/${partnerId}?force=true`);
   }
 });

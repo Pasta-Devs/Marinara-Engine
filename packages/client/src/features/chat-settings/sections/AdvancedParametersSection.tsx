@@ -184,10 +184,17 @@ export function AdvancedParametersSection({
         sparse[key] = next[key];
       }
     }
-    // Send toggles are behavior, not merely editable values. Keep the explicit
-    // map even when it matches the editor fallback so an inherited preset value
-    // cannot make a disabled parameter reappear in the provider request.
-    sparse.enabledParameters = next.enabledParameters ?? STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS;
+    // Preserve explicit Send choices without freezing inherited connection switches
+    // when the user edits an unrelated value.
+    const previousSend = (params.enabledParameters ?? {}) as Record<string, unknown>;
+    const sendOverrides = Object.fromEntries(
+      Object.entries(next.enabledParameters ?? {}).filter(
+        ([key, value]) =>
+          typeof previousSend[key] === "boolean" ||
+          value !== effectiveParams.enabledParameters?.[key as keyof typeof effectiveParams.enabledParameters],
+      ),
+    );
+    if (Object.keys(sendOverrides).length > 0) sparse.enabledParameters = sendOverrides;
     if (
       next.strictRoleFormatting !== effectiveParams.strictRoleFormatting ||
       next.singleUserMessage !== effectiveParams.singleUserMessage ||

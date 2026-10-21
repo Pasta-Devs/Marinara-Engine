@@ -52,6 +52,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Install NSIS for native prerequisite command proof
+        if: runner.os == 'Windows'
+        run: choco install nsis --yes --no-progress
       - name: Exercise launcher dependency handoff and data preservation
         run: pnpm regression:launcher-update
       - name: Exercise restart ownership

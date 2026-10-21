@@ -22,8 +22,6 @@ import type {
 /** Hard limits for every renderer and the stage. "Phone" is a coarse pointer or a viewport below the md
  *  breakpoint. The stage owns the single frame loop: renderers never run their own requestAnimationFrame. */
 export const AVATAR_RENDER_BUDGET = Object.freeze({
-  /** Avatars drawn at once; the rest show their still sprite or nothing. */
-  maxVisible: Object.freeze({ phone: 2, desktop: 4 }),
   /** Canvas device-pixel-ratio cap. */
   maxDevicePixelRatio: Object.freeze({ phone: 1.5, desktop: 2 }),
   /** Frame rates. Hidden tab, offscreen canvas, or paused effects mean 0 fps (setPaused(true)). Reduced

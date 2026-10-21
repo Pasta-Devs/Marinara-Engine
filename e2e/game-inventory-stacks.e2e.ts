@@ -90,6 +90,9 @@ test("an inventory stack changes by any amount, splits into a chosen size and me
     await page.screenshot({ path: testInfo.outputPath("inventory-stacks.png") });
 
     // Dropping one stack on the other of the same item makes them one again.
+    // These slots are content below the protected header; let the ordinary success toast dismiss.
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     const from = await slot("Apple x150").boundingBox();
     const to = await slot("Apple x200").boundingBox();
     expect(from && to).toBeTruthy();

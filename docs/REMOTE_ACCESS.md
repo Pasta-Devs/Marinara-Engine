@@ -38,6 +38,15 @@ HOST=0.0.0.0
 
 The shell launchers (`start.bat`, `start.sh`) set `HOST=0.0.0.0` for you. Running `pnpm start` directly does not.
 
+Default bind address by how you start Marinara:
+
+| Start method                                                  | `HOST` default                         |
+| ------------------------------------------------------------- | -------------------------------------- |
+| `pnpm start`, `start-local.bat`                               | `127.0.0.1`                            |
+| `start.sh`, `start.bat`, Windows installer, `start-termux.sh` | `0.0.0.0`                              |
+| Docker image                                                  | `0.0.0.0` inside the container         |
+| `docker-compose.yml`                                          | Publishes the port on `127.0.0.1` only |
+
 ## Which option should you pick
 
 Read these in order and stop at the first one that matches you.
@@ -122,6 +131,8 @@ ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 
 This restores the older "open on the LAN, blocked from the public internet" behavior. It applies only to standard private-network ranges, for example `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The CGNAT range `100.64.0.0/10` also counts. CGNAT is a shared address system used by some internet providers, and Tailscale uses the same range. Public-internet addresses are still blocked with a 403.
 
+Some internet and mobile providers give their customers addresses in this range. If this computer has such an address, other customers of the same provider count as private-network clients.
+
 Warning: anyone on the same network can then reach Marinara with no password. That is fine on a network you control. It is not fine on shared Wi-Fi at a coffee shop, airport, or dorm. When in doubt, use Basic Auth instead.
 
 There is also a broader flag, `ALLOW_UNAUTHENTICATED_REMOTE=true`, which allows passwordless access from ANY address, including the public internet. Do not turn this on. If you truly need public access, use Basic Auth plus HTTPS, or put a reverse proxy in front that handles the login.
@@ -141,6 +152,8 @@ Automatic Docker trust applies only while neither Basic Auth nor `IP_ALLOWLIST` 
 
 Set a flag to `false` if you want normal Basic Auth and IP allowlist checks for those clients. Set it to `true` to retain the older broad bypass when automatic detection is unavailable: Tailscale then trusts all of `100.64.0.0/10`, while Docker also trusts its detected interfaces/gateway and the legacy `172.16.0.0/12` range. Use that compatibility mode only when every matching peer is trusted.
 
+Tailscale Serve and Funnel visitors connect from loopback with forwarding headers, so they must log in. There is no flag to turn that off. A direct `100.x` connection stays passwordless.
+
 For example, if your Tailnet includes less-trusted peers, turn the Tailscale bypass off:
 
 ```env
@@ -153,19 +166,19 @@ If you do not want detected Docker peers to bypass authentication, turn the Dock
 BYPASS_AUTH_DOCKER=false
 ```
 
-Marinara may also sit behind a reverse proxy or tunnel container on the Docker bridge or detected gateway. Forwarding headers, such as `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, or `X-Forwarded-Proto`, indicate that the Docker peer represents another client, so Marinara applies its normal Basic Auth and IP allowlist checks by default:
+Marinara may also sit behind a reverse proxy or tunnel container on the Docker bridge or detected gateway. Forwarding headers, such as `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, or `X-Forwarded-Proto`, indicate that the Docker peer represents another client. A Host that names another computer, such as `marinara:7860` or a public name, or an HTTP/1.0 request, does the same. Then Marinara applies its normal Basic Auth and IP allowlist checks by default. A request to `localhost` or `127.0.0.1` from the host's own browser stays passwordless while no login or allowlist is set:
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 ```
 
-To restore the legacy bypass, set this to `false`. Do that only when every client able to reach the proxy is trusted, because forwarded clients will inherit Docker's passwordless status.
+To restore the legacy bypass, set this to `false`. Do that only when the proxy itself requires a login from every visitor, because forwarded clients will inherit Docker's passwordless status. If you put a proxy in front of Docker, keep the `127.0.0.1` port publish from `docker-compose.yml` and set a login first.
 
 The server logs an `[auth-bypass]` warning the first time one of these bypasses lets a request through. That warning confirms the bypass is active.
 
 ## Reverse proxies and tunnels on the same computer
 
-A reverse proxy or tunnel on the machine running Marinara, such as nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve or Funnel, or ngrok, connects to Marinara from loopback. Marinara recognizes this from the forwarding headers the proxy adds: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, the Tailscale identity headers, or `Via`. It then treats each request as the remote visitor it is:
+A reverse proxy or tunnel on the machine running Marinara, such as nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve or Funnel, or ngrok, connects to Marinara from loopback. Marinara recognizes this from the forwarding headers the proxy adds: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, the Tailscale identity headers, or `Via`. Marinara also recognizes a request that arrives over HTTP/1.0, because browsers never use it but a default nginx `proxy_pass` does. Marinara also recognizes a request whose Host names another computer, such as a domain or a LAN address, even when the proxy adds no headers. It then treats each request as the remote visitor it is:
 
 - Basic Auth applies, so set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`. Without them, visitors see the setup page.
 - `IP_ALLOWLIST` blocks the forwarded visitors, because the proxy hides their real addresses.
@@ -173,7 +186,7 @@ A reverse proxy or tunnel on the machine running Marinara, such as nginx, Caddy,
 
 Your own browser on that machine, opened at `http://127.0.0.1:7860` or `http://localhost:7860`, stays passwordless.
 
-Caddy, Traefik, Cloudflare Tunnel, Tailscale, and ngrok add forwarding headers by default. For nginx, add this line to the `location` block:
+Caddy, Traefik, Cloudflare Tunnel, Tailscale, and ngrok add forwarding headers by default. For nginx, this line is still recommended in the `location` block:
 
 ```nginx
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -181,13 +194,13 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 Tools that forward raw connections, such as `socat` or `ssh -R`, add no headers, so their traffic looks local. Do not use them to publish Marinara.
 
-If your proxy already makes every visitor log in before it forwards anything, you can skip Marinara's own checks for its traffic:
+If your proxy already makes every visitor log in before it forwards anything, you can skip Marinara's own checks for its traffic. Do this only when the proxy itself requires a login from every visitor:
 
 ```env
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-Visitors then get the same full access as the host machine, including privileged actions without the admin secret. Only do this when the proxy's own login protects every route.
+Visitors then get the same full access as the host machine, including privileged actions without the admin secret. If you only reach Marinara through a name you added to `/etc/hosts`, do not use this flag. Use a `*.localhost` name instead, for example `marinara.localhost`.
 
 ## Serving over HTTPS
 
@@ -271,6 +284,10 @@ To open Marinara from a phone or tablet on the same network:
 5. If you set Basic Auth, enter your username and password when prompted.
 
 If the page does not load at all, the server may not be reachable. Check `HOST=0.0.0.0` and the `PORT` value. If you get a 403 instead, your device is reachable but not yet allowed in. Recheck your chosen option above.
+
+## Search engines
+
+Marinara asks search engines not to index its pages (`X-Robots-Tag: noindex, nofollow`). This does not protect your installation and does not remove pages that are already indexed. Use the access controls above to keep your installation private.
 
 ## Related guides
 

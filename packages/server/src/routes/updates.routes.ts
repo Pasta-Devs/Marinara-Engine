@@ -551,7 +551,7 @@ function isNewerVersion(current: string, latest: string): boolean {
   return false;
 }
 
-function compareVersions(a: string, b: string): number {
+export function compareVersions(a: string, b: string): number {
   const parse = (v: string) => v.replace(/^v/, "").split(".").map(Number);
   const left = parse(a);
   const right = parse(b);

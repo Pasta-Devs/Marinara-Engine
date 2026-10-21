@@ -3267,6 +3267,8 @@ export function HomeProfessorMariChat({
                         />
 
                         <MariComposer
+                          workspaceStatus={workspaceStatus}
+                          refreshWorkspaceStatus={refreshWorkspaceStatus}
                           acceptDraftCompletion={acceptDraftCompletion}
                           attachComposerDock={attachComposerDock}
                           attachedContext={attachedContext}

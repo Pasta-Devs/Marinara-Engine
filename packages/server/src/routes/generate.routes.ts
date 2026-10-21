@@ -676,7 +676,11 @@ import {
   tryClaimCustomLorebookReadBehindRun,
 } from "./generate/lorebook-keeper-utils.js";
 import { registerDryRunRoute } from "./generate/dry-run-route.js";
-import { describeEmptyModelResponse, sentOutputBudget } from "../services/generation/empty-response-reason.js";
+import {
+  describeEmptyModelResponse,
+  sentOutputBudget,
+  thinkingOnlyReplyPromotable,
+} from "../services/generation/empty-response-reason.js";
 import { registerRawRoute } from "./generate/raw-route.js";
 import { registerRetryAgentsRoute, type ActiveAgentRun } from "./generate/retry-agents-route.js";
 import { fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
@@ -877,12 +881,7 @@ import {
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
-import {
-  fitMessagesForModelAccess,
-  mergeModelContextLimit,
-  resolveModelAccessPolicy,
-  resolveStoredModelContextLimit,
-} from "../services/generation/model-access-policy.js";
+import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "../services/generation/model-access-policy.js";
 import {
   promptPreviewForAgents,
   resolveCustomWritableLorebookIds,
@@ -3869,7 +3868,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           presetOwnsAgentPlacement = true;
           characterAdvancedPromptsInjected = true;
           temperature = assembled.parameters.temperature;
-          maxTokens = assembled.parameters.maxTokens;
           topP = assembled.parameters.topP ?? 1;
           topK = assembled.parameters.topK ?? 0;
           minP = assembled.parameters.minP ?? 0;
@@ -3889,12 +3887,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           stopSequences = (assembled.parameters.stopSequences ?? [])
             .map((value) => value.trim())
             .filter((value) => value.length > 0);
-
-          effectiveMaxContext = mergeModelContextLimit(
-            modelAccessPolicy,
-            effectiveMaxContext,
-            resolveStoredModelContextLimit(modelAccessPolicy, assembled.parameters),
-          );
 
           Object.assign(
             chatMeta,
@@ -7561,6 +7553,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         let fullResponse = "";
         let fullThinking = "";
         let providerThinking = "";
+        // The provider thinking of the latest request only. A tool round's planning is not the
+        // final reply's, so only this may stand in for an empty Game Mode reply.
+        let replyThinking = "";
         let allResponses: string[] = [];
         // The scenes a game reply shows as written (worldgen W10): a rewrite of the reply must keep them.
         let turnShownScenes: readonly string[] = [];
@@ -7584,6 +7579,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         const onThinking = (chunk: string) => {
           providerThinking += chunk;
+          replyThinking += chunk;
           if (showThoughts) {
             streamOutput.receivedThinking = true;
             fullThinking += chunk;
@@ -8684,6 +8680,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           fullResponse = "";
           fullThinking = "";
           providerThinking = "";
+          replyThinking = "";
           streamOutput.resetReasoningClock();
           if (
             tailMessages.assistantPrefillInjected &&
@@ -8887,40 +8884,44 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               {
                 provider,
                 // Read per request: fitting sets the limits, and a round can bring new encrypted reasoning.
-                requestOptions: () => ({
-                  model: conn.model,
-                  preserveContext: advancedMemoryEnabled,
-                  temperature,
-                  maxTokens: effectiveMaxTokensForSend,
-                  maxContext: maxContextForSend,
-                  topP,
-                  topK: providerTopK,
-                  frequencyPenalty: frequencyPenalty || undefined,
-                  presencePenalty: presencePenalty || undefined,
-                  minP: minP || undefined,
-                  stop: stopSequences.length ? stopSequences : undefined,
-                  enableCaching: conn.enableCaching === "true",
-                  anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
-                  cachingAtDepth: conn.cachingAtDepth ?? 5,
-                  enableThinking,
-                  captureReasoning,
-                  reasoningEffort: providerReasoningEffort,
-                  excludePastReasoning,
-                  verbosity: verbosity ?? undefined,
-                  serviceTier,
-                  customParameters,
-                  enabledParameters,
-                  suppressModelParameters,
-                  onThinking,
-                  openrouterProvider: conn.openrouterProvider ?? undefined,
-                  encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
-                  onEncryptedReasoning: excludePastReasoning
-                    ? undefined
-                    : (items) => {
-                        encryptedReasoningItems = items;
-                      },
-                  onChatCompletionsReasoning: rememberChatCompletionsReasoning,
-                }),
+                // Each request also starts the reply's thinking afresh.
+                requestOptions: () => {
+                  replyThinking = "";
+                  return {
+                    model: conn.model,
+                    preserveContext: advancedMemoryEnabled,
+                    temperature,
+                    maxTokens: effectiveMaxTokensForSend,
+                    maxContext: maxContextForSend,
+                    topP,
+                    topK: providerTopK,
+                    frequencyPenalty: frequencyPenalty || undefined,
+                    presencePenalty: presencePenalty || undefined,
+                    minP: minP || undefined,
+                    stop: stopSequences.length ? stopSequences : undefined,
+                    enableCaching: conn.enableCaching === "true",
+                    anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
+                    cachingAtDepth: conn.cachingAtDepth ?? 5,
+                    enableThinking,
+                    captureReasoning,
+                    reasoningEffort: providerReasoningEffort,
+                    excludePastReasoning,
+                    verbosity: verbosity ?? undefined,
+                    serviceTier,
+                    customParameters,
+                    enabledParameters,
+                    suppressModelParameters,
+                    onThinking,
+                    openrouterProvider: conn.openrouterProvider ?? undefined,
+                    encryptedReasoningItems: excludePastReasoning ? undefined : encryptedReasoningItems,
+                    onEncryptedReasoning: excludePastReasoning
+                      ? undefined
+                      : (items) => {
+                          encryptedReasoningItems = items;
+                        },
+                    onChatCompletionsReasoning: rememberChatCompletionsReasoning,
+                  };
+                },
                 streaming: input.streaming,
                 signal: generationSignal,
                 timeoutMs: chatGenerationTimeoutMs,
@@ -8994,6 +8995,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // The narrator owns this finish reason, including when its
             // transport reports none. A planner's synthetic tool_calls is not it.
             finishReason = undefined;
+            replyThinking = "";
             rememberMainPromptPreviewForAgents(narratorMessages);
             logPromptSentToModel(narratorMessages);
             const gen = provider.chat(narratorMessages, { ...textChatOptions, maxContext: maxContextForSend });
@@ -9214,14 +9216,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               contentReplaced = true;
             }
           }
-          const promotableThinking = providerThinking.trim() || fullThinking.trim();
+          // Game Mode promotes only the final reply's own provider thinking, never an earlier tool round's.
+          const promotableThinking =
+            chatMode === "game" ? replyThinking.trim() : providerThinking.trim() || fullThinking.trim();
           // Some OpenAI-compatible providers misplace the actual assistant text
-          // in reasoning/thinking fields. Conversation mode only recovers when
-          // reasoning was not requested; game mode requests reasoning by default,
-          // so it still needs the recovery path to avoid empty GM turns.
+          // in reasoning/thinking fields; thinkingOnlyReplyPromotable says when
+          // that recovery applies (never to a cut-off Game Mode reply).
           const isGlmModel = conn.model.toLowerCase().includes("glm");
-          const shouldPromoteThinkingOnlyResponse =
-            chatMode === "conversation" ? !enableThinking && !resolvedEffort : chatMode === "game";
+          const shouldPromoteThinkingOnlyResponse = thinkingOnlyReplyPromotable({
+            chatMode,
+            reasoningRequested: Boolean(enableThinking || resolvedEffort),
+            finishReason,
+            providerThinking: chatMode === "game" ? replyThinking : providerThinking,
+          });
           if (!fullResponse.trim() && promotableThinking && shouldPromoteThinkingOnlyResponse) {
             if (isGlmModel) {
               logger.warn(
@@ -9241,6 +9248,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               fullResponse = promotableThinking;
               fullThinking = "";
               providerThinking = "";
+              replyThinking = "";
               contentReplaced = true;
             }
           }

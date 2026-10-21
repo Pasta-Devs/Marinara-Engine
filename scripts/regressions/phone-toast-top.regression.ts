@@ -9,6 +9,7 @@ import {
 // lingering toast before the next paint, without a polling delay or idle work after dismissal.
 class ElementStub {
   children: ElementStub[] = [];
+  parentElement: ElementStub | null = null;
   constructor(public selector?: string) {}
   matches(selector: string): boolean {
     return this.selector !== undefined && selector.split(",").includes(this.selector);
@@ -104,7 +105,8 @@ class ResizeStub {
   disconnect() {
     this.observed.clear();
   }
-  notify() {
+  notify(element?: unknown) {
+    if (element !== undefined) assert.ok(this.observed.has(element), "only an observed element can notify a resize");
     this.callback([], this as unknown as ResizeObserver);
   }
 }
@@ -237,6 +239,61 @@ assert.deepEqual([...resizeObserver.observed], [topBar], "removed headers releas
 topBar.rect.bottom = 60;
 for (const listener of resizeListeners) listener();
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "68px", "viewport changes remeasure the shell");
+
+const inventoryHeader = header(50.421875, 99.421875, 13.75, 379.25, "visible", "[data-phone-toast-header]");
+const inventory = new ElementStub();
+inventory.children.push(inventoryHeader);
+inventoryHeader.parentElement = inventory;
+rows.push(inventoryHeader);
+layoutObserver.notify(body, { type: "childList", addedNodes: [inventory] as unknown as NodeList });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "107px", "a late Inventory header clears a lingering toast");
+assert.ok(resizeObserver.observed.has(inventoryHeader), "the custom Inventory header is observed");
+assert.ok(resizeObserver.observed.has(inventory), "the centered panel is observed when its body can move the header");
+inventoryHeader.rect.top = 170;
+inventoryHeader.rect.bottom = 219;
+resizeObserver.notify(inventory);
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "68px", "a short centered panel leaves its header below the stack");
+inventoryHeader.rect.top = 50.421875;
+inventoryHeader.rect.bottom = 99.421875;
+const actions = new ElementStub();
+inventory.children.push(actions);
+const beforeBodyGrowth = measurements;
+layoutObserver.notify(inventory, { type: "childList", addedNodes: [actions] as unknown as NodeList });
+assert.ok(measurements > beforeBodyGrowth, "a custom panel's body growth is a relevant mutation");
+assert.equal(inventoryHeader.rect.height, 49, "the header moves without changing its own size");
+assert.equal(
+  styles.get(PHONE_TOAST_TOP_VARIABLE),
+  "107px",
+  "a growing centered panel moves a settled toast in the same mutation delivery",
+);
+const actionLabel = new ElementStub();
+actions.children.push(actionLabel);
+inventoryHeader.rect.top = 56;
+inventoryHeader.rect.bottom = 105;
+layoutObserver.notify(actions, { type: "childList", addedNodes: [actionLabel] as unknown as NodeList });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "113px", "nested action-bar additions update synchronously");
+inventoryHeader.rect.top = 60;
+inventoryHeader.rect.bottom = 109;
+layoutObserver.notify(actionLabel, { type: "attributes", attributeName: "class" });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "117px", "nested action-bar layout changes update synchronously");
+const beforeUnrelatedPanelMutations = measurements;
+layoutObserver.notify(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
+layoutObserver.notify(message, { type: "attributes", attributeName: "style" });
+assert.equal(measurements, beforeUnrelatedPanelMutations, "a custom panel does not make unrelated messages relevant");
+inventoryHeader.rect.top = 70;
+inventoryHeader.rect.bottom = 119;
+resizeObserver.notify(inventory);
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "127px", "panel-only resizes still move the unchanged-size header");
+inventoryHeader.rect.top = 50.421875;
+inventoryHeader.rect.bottom = 120;
+inventoryHeader.rect.height = inventoryHeader.rect.bottom - inventoryHeader.rect.top;
+resizeObserver.notify();
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "128px", "resizing a custom header keeps Close clear");
+rows = [];
+layoutObserver.notify(body, { type: "childList", removedNodes: [inventory] as unknown as NodeList });
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "68px", "closing Inventory releases its reserved space");
+assert.equal(resizeObserver.observed.has(inventoryHeader), false, "closing Inventory releases its observer");
+assert.equal(resizeObserver.observed.has(inventory), false, "closing Inventory releases its panel observer");
 
 showing = false;
 hostObserver.notify(host);

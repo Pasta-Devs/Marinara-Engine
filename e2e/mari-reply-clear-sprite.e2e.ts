@@ -18,11 +18,17 @@ const SENTENCE_THEN_LIST = [
 ].join("\n");
 const LIST_FIRST = ["1. Save the first card.", "2. Open the second card.", "3. Check the third card."].join("\n");
 
-test.beforeEach(async () => {
+test.beforeEach(async ({ request }) => {
   await acquireMariThreadLock();
+  // The fixture provider answers in the Classic JSON-frame protocol.
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
 });
 
-test.afterEach(() => {
+test.afterEach(async ({ request }) => {
+  // Put back the default runtime, as mari-runtime-recovery does, so later specs on this server get Pi.
+  await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "pi" } }).catch(() => undefined);
   releaseMariThreadLock();
 });
 

@@ -46,6 +46,7 @@ let singleUser = false;
 let continueTurn = false;
 let omitFinishReason = false;
 let emptyNarrator = false;
+let finalReplyThinking = "";
 let refusedCommand = "";
 let nativeDraft = "";
 let nativeRollTotal = 0;
@@ -54,6 +55,21 @@ const originalRandom = Math.random;
 let stateBaseline: { id: string; chatId: string } | undefined;
 const originalPlanner = OpenAIProvider.prototype.chatComplete;
 OpenAIProvider.prototype.chatComplete = async (messages, options) => {
+  if (options.model === "thinking-narrator") {
+    order.push("thinking-main");
+    if (messages.some((message) => message.role === "tool")) {
+      if (finalReplyThinking) options.onThinking?.(finalReplyThinking);
+      return { content: "", toolCalls: [], finishReason: "stop" };
+    }
+    options.onThinking?.("PRIVATE TOOL ROUND PLAN: roll first, then reveal the smuggler.");
+    return {
+      content: null,
+      toolCalls: [
+        { id: "plan-roll", type: "function", function: { name: "roll_dice", arguments: '{"notation":"1d2"}' } },
+      ],
+      finishReason: "tool_calls",
+    };
+  }
   if (options.model === "native-narrator") {
     order.push("native-main");
     const tool = messages
@@ -548,6 +564,66 @@ try {
   }
   Math.random = originalRandom;
   nativeDraft = "";
+
+  // A tool round's thinking is not the final reply's: an empty, finished reply after it must not
+  // show that planning as narration (#7932).
+  const thinkingConnection = await connections.create({
+    name: "Thinking narrator",
+    provider: "openai",
+    model: "thinking-narrator",
+    apiKey: "synthetic",
+    maxContext: 32768,
+  });
+  const thinkingChat = (await chats.create({
+    name: "Tool-round thinking",
+    mode: "game",
+    characterIds: [],
+    connectionId: thinkingConnection.id,
+    promptPresetId: null,
+  }))!;
+  await chats.patchMetadata(thinkingChat.id, { enableAgents: false, enableTools: false });
+  await chats.createMessage({ chatId: thinkingChat.id, role: "user", content: "Pick the lock." });
+  order.length = 0;
+  const thinkingResponse = await app.inject({
+    method: "POST",
+    url: "/api/generate/",
+    payload: { chatId: thinkingChat.id },
+  });
+  assert.equal(thinkingResponse.statusCode, 200, thinkingResponse.body);
+  const thinkingEvents = thinkingResponse.body
+    .split("\n")
+    .filter((line) => line.startsWith("data: "))
+    .map((line) => JSON.parse(line.slice("data: ".length)) as { type: string; data: unknown });
+  // The empty reply is reported as one, not swapped for the plan, and the stream ends normally.
+  const thinkingErrors = thinkingEvents.filter((event) => event.type === "error").map((event) => String(event.data));
+  assert.equal(thinkingErrors.length, 1, thinkingResponse.body);
+  assert.match(thinkingErrors[0]!, /returned no visible text/, "only the empty-reply error, never a provider failure");
+  assert.equal(thinkingEvents.at(-1)?.type, "done", thinkingResponse.body);
+  assert.deepEqual(order, ["thinking-main", "thinking-main"]);
+  const thinkingMessages = await chats.listMessages(thinkingChat.id);
+  assert.ok(
+    thinkingMessages.every((message) => !message.content.includes("PRIVATE TOOL ROUND PLAN")),
+    "an earlier tool round's planning never becomes the narration",
+  );
+  // Tokens are joined in stream order so a plan split across events is still caught.
+  const streamedNarration = thinkingEvents
+    .filter((event) => event.type === "token" || event.type === "content_replace")
+    .map((event) => String(event.data))
+    .join("");
+  assert.doesNotMatch(streamedNarration, /PRIVATE TOOL ROUND PLAN/, "the planning is not streamed as narration either");
+
+  // A finished final reply whose provider put the scene in its own reasoning field is still recovered.
+  finalReplyThinking = "Fog creeps over the quay as the lock clicks open.";
+  await chats.createMessage({ chatId: thinkingChat.id, role: "user", content: "Pick the lock again." });
+  order.length = 0;
+  const recovered = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: thinkingChat.id } });
+  finalReplyThinking = "";
+  assert.equal(recovered.statusCode, 200, recovered.body);
+  assert.doesNotMatch(recovered.body, /"type":"error"/, recovered.body);
+  assert.deepEqual(order, ["thinking-main", "thinking-main"]);
+  const recoveredReply = (await chats.listMessages(thinkingChat.id)).at(-1)!;
+  assert.equal(recoveredReply.role, "assistant");
+  assert.equal(recoveredReply.content, "Fog creeps over the quay as the lock clicks open.");
 
   const refusalChat = (await chats.create({
     name: "Refused commands",

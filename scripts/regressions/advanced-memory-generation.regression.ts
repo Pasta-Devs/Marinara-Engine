@@ -99,6 +99,7 @@ try {
     maxTokensOverride: 512,
     embeddingModel: "fixture-embedding",
   });
+  await createConnectionsStorage(db).updateDefaultParameters(connection.id, { maxContext: 8192, maxTokens: 512 });
   const characters = createCharactersStorage(db);
   const first = await characters.create(characterDataSchema.parse({ name: "Powers That Be" }));
   const second = await characters.create(characterDataSchema.parse({ name: "Maukie" }));
@@ -106,7 +107,6 @@ try {
   const presets = createPromptsStorage(db);
   const preset = await presets.create({
     name: "Advanced fixture",
-    parameters: { maxTokens: 512, maxContext: 8192 },
     wrapFormat: "xml",
   });
   assert.ok(preset);

@@ -53,6 +53,67 @@ const mutationOutput = (sentinel: string) =>
   assert.equal(state.hadPassedClaimAudit, true);
 }
 
+// A terminal recap may repeat the last audited mutation after its evidence was consumed.
+{
+  const claim = "I updated the character.";
+  const results = [appData(mutationOutput(READ_BACK_VERIFIED_SENTINEL))];
+  const read: WorkspaceCommandResult = {
+    id: "r1",
+    name: "app_data",
+    input: { action: "character.get", characterId: "c1" },
+    output: '{"id":"c1"}',
+    success: true,
+  };
+  for (const freshRead of [false, true]) {
+    for (const [text, terminal, expected] of [
+      [claim, true, "continue"],
+      ["Done.", true, "continue"],
+      ["I updated another character.", true, "repair"],
+      ["I deleted the character.", true, "repair"],
+      [`${claim} I also created a lorebook.`, true, "repair"],
+      [claim, false, "repair"],
+    ] as const) {
+      const state = newRoundReviewState();
+      assert.deepEqual(
+        reviewRoundClaim(state, {
+          action: frame(claim, [{ name: "app_data", arguments: read.input }], false),
+          commandResultsForContinuity: results,
+          truncated: false,
+        }),
+        { kind: "continue" },
+      );
+      assert.equal(state.claimAuditWatermark, results.length);
+      const decision = reviewRoundClaim(state, {
+        action: frame(text, terminal ? [] : [{ name: "app_data", arguments: read.input }], terminal),
+        commandResultsForContinuity: freshRead ? [...results, read] : results,
+        truncated: false,
+      });
+      assert.equal(decision.kind, expected, `${text} (terminal=${terminal}, freshRead=${freshRead})`);
+      if (text === claim && terminal) {
+        assert.equal(state.claimAuditWatermark, results.length, "a matching recap does not consume more evidence");
+        assert.equal(state.verificationRepairRounds, 0, "a matching recap spends no repair budget");
+      }
+    }
+  }
+
+  // A matching recap still cannot paper over a later failed or preview-only mutation.
+  for (const unapplied of [
+    { ...appData("Error: update failed"), success: false },
+    { ...appData('{"preview":true}'), input: { action: "character.update", characterId: "c1", apply: false } },
+  ]) {
+    const state = newRoundReviewState();
+    reviewRoundClaim(state, { action: frame(claim), commandResultsForContinuity: results, truncated: false });
+    assert.equal(
+      reviewRoundClaim(state, {
+        action: frame(claim),
+        commandResultsForContinuity: [...results, unapplied, read],
+        truncated: false,
+      }).kind,
+      "repair",
+    );
+  }
+}
+
 // A false "done" with no mutation behind it is sent back for repair, then stops once the budget is spent.
 {
   const state = newRoundReviewState();

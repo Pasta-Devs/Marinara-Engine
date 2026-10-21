@@ -1,11 +1,11 @@
 import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS } from "@marinara-engine/shared";
+import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS, PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
 
-// #7537 (base lane): a character with expression sprites already has a PNGTuber avatar in a Roleplay chat
-// with 2D Avatars on, before anything is saved. The 2D Avatars agent page shows one set of controls (the
+// #7537 and #7915: expression sprites preview in setup, but chats require a saved, enabled avatar.
+// The 2D Avatars agent page shows one set of controls (the
 // base switches above the 2D lane's PNGTuber panel), saves the sprites with `_talk` sprites as open mouths,
 // and the faces can be changed by hand. On phones the chat stays mounted under the agent's page, and its
 // avatars stop drawing while covered. Making an avatar from a sprite never offers a talk picture as the
@@ -110,7 +110,7 @@ function collectFailedAvatarLoads(page: Page) {
   return failed;
 }
 
-test("2D Avatars shows a character's sprites as its avatar and saves them as a PNGTuber", async ({
+test("2D Avatars previews sprites with chats off by default and saves a PNGTuber when enabled", async ({
   page,
   request,
 }, info) => {
@@ -131,23 +131,23 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
   ).toBeTruthy();
 
   try {
-    // ── With nothing saved, the chat already shows the character's sprites as its avatar ──
-    const chatPage = await page.context().newPage();
-    await preparePage(chatPage, character.id, {}, chat.id);
-    await chatPage.goto("/");
-    const avatar = chatPage.locator(`[data-avatar-stage] [data-avatar-owner="${character.id}"]`);
-    await expect(avatar).toHaveAttribute("data-avatar-kind", "pngtuber", { timeout: FIRST_LOAD_TIMEOUT_MS });
-    await expect(avatar.getByRole("img", { name: "Avatar fixture's avatar" })).toBeVisible();
-    await expect(chatPage.locator("[data-avatar-stage]")).not.toHaveAttribute("data-avatar-paused", "true");
+    // The group-stage cases prove sprite-only owners stay hidden after configured peers render.
+    // This setup case checks that previewing and opting in saves real layer data.
     const nothingSaved = await request.get(`/api/avatar-models/character/${character.id}`);
     expect(nothingSaved.status()).toBe(200);
     expect(await nothingSaved.json()).toBeNull();
-    await chatPage.close();
 
     // ── The setup on the agent's page (on phones it covers the chat, which stays mounted under it) ──
-    await preparePage(page, character.id, { agentDetailId: "2d-avatars" }, chat.id);
+    await preparePage(page, character.id, {}, chat.id);
     const failedAvatarLoads = collectFailedAvatarLoads(page);
     await page.goto("/");
+    await expect(page.locator("[data-chat-settings-button]").filter({ visible: true }).first()).toBeVisible({
+      timeout: FIRST_LOAD_TIMEOUT_MS,
+    });
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openAgentDetail("2d-avatars");
+    });
     const setup = page.locator('[data-avatar-setup="2d-avatars"]');
     // The first load also compiles the lazy setup chunk on the dev server.
     await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
@@ -161,10 +161,17 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
     await expect(setup.getByRole("button", { name: "Use my sprites", exact: true })).toHaveCount(1);
     await expect(setup.getByRole("button", { name: "Import PNGTuber Plus save", exact: true })).toHaveCount(1);
     await expect(setup.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
-    await expect(setup.getByText("Shown in chats")).toBeVisible();
+    await expect(setup.getByText("Shown in chats")).toHaveCount(0);
     await expect(setup.getByText("An example avatar. Set one up to see yours.")).toHaveCount(0);
     await expect(setup.getByRole("img", { name: "Preview" })).toBeVisible();
-    await expect(setup.getByRole("checkbox", { name: /Show this avatar in chats/u })).toBeChecked();
+    const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
+    await expect(showInChats).not.toBeChecked();
+    await expect(showInChats).toBeEnabled();
+    await setup.getByRole("radio", { name: /Mesh avatar/u }).check();
+    await expect(showInChats).not.toBeChecked();
+    await expect(showInChats).toBeDisabled();
+    await setup.getByRole("radio", { name: /PNGTuber sprites/u }).check();
+    await expect(showInChats).toBeEnabled();
     expect(failedAvatarLoads, "an owner without an avatar loads without an error").toEqual([]);
     // Making an avatar from a sprite offers faces only, never their talk pictures: blink and talk pictures are
     // made for the talking head's faces, and a face's own talk sprite shows as its open mouth.
@@ -187,8 +194,14 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
       "full idle",
     ]);
     await page.screenshot({ path: info.outputPath("avatar-setup-sprites.png"), animations: "disabled" });
+    // Opting in saves the preview's real layer data together with enabled, so a reload can show it.
+    await showInChats.focus();
+    await showInChats.press("Space");
+    await expect
+      .poll(async () => await (await request.get(`/api/avatar-models/character/${character.id}`)).json())
+      .toMatchObject({ enabled: true, activeKind: "pngtuber", kinds: { pngtuber: { source: "sprites" } } });
+    await expect(showInChats).toBeChecked();
     if (info.project.name.startsWith("mobile")) {
-      // Only the preview draws: the covered chat's avatars stop.
       await expect(page.locator(`[data-avatar-stage]:has([data-avatar-owner="${character.id}"])`)).toHaveAttribute(
         "data-avatar-paused",
         "true",
@@ -196,7 +209,6 @@ test("2D Avatars shows a character's sprites as its avatar and saves them as a P
       );
     }
 
-    await setup.getByRole("button", { name: "Use my sprites", exact: true }).click();
     await expect(setup.locator("[data-avatar-pngtuber-status]")).not.toHaveText(
       "Shows your expression sprites until you change something here.",
     );
@@ -270,6 +282,21 @@ test("Arrange mode drags full-body sprites and avatars with the same gesture", a
   ).toBeTruthy();
 
   try {
+    const saved = await request.put(`/api/avatar-models/character/${character.id}`, {
+      data: {
+        enabled: true,
+        activeKind: "pngtuber",
+        kinds: {
+          pngtuber: {
+            layers: { neutral: { base: { source: "sprite", label: "neutral" } } },
+            expressionMap: {},
+            motion: PNGTUBER_DEFAULT_MOTION,
+            source: "sprites",
+          },
+        },
+      },
+    });
+    expect(saved.ok(), await saved.text()).toBeTruthy();
     await preparePage(page, character.id, { chatSettingsExpandedSections: { "roleplay-agents": true } }, chat.id);
     await page.goto("/");
     // Each item's positioned box is a direct child of its stage.

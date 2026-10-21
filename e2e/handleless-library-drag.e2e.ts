@@ -164,7 +164,18 @@ test("background thumbnail picks up without selecting the background", async ({ 
       await page.mouse.up();
     }
     await expect(preview).toHaveCount(0);
+    // A closing modal stays mounted during its fade; wait for it before checking cancellation.
+    await library.evaluate(async (element) => {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await Promise.allSettled(element.getAnimations().map((animation) => animation.finished));
+    });
+    await expect(library).toBeVisible();
+    await expect(library).toHaveCSS("opacity", "1");
     await expect(source).toHaveAttribute("data-background-selected", selected!);
+    if (!mobile) {
+      await page.keyboard.press("Escape");
+      await expect(library).toBeHidden();
+    }
   } finally {
     await page.mouse.up();
     await request.delete(`/api/backgrounds/${encodeURIComponent(filename)}`);

@@ -19,7 +19,12 @@ import type {
   MacroDecisionAnswers,
   ResolveMacroOptions,
 } from "@marinara-engine/shared";
-import { DEFAULT_GENERATION_PARAMS, generationParametersSchema, resolveMacros } from "@marinara-engine/shared";
+import {
+  DEFAULT_GENERATION_PARAMS,
+  generationParametersSchema,
+  resolveMacros,
+  withoutPresetTokenLimits,
+} from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
@@ -218,7 +223,7 @@ export interface AssemblerOutput {
   /** Final ChatML messages ready for the LLM */
   messages: ChatMLMessage[];
   /** Parsed generation parameters */
-  parameters: GenerationParameters;
+  parameters: Omit<GenerationParameters, "maxTokens" | "maxContext" | "useMaxContext">;
   /** Final preset and choice-variable values available after section macro processing. */
   macroVariables: Record<string, string>;
   /** Agent outputs made available to {{agent::TYPE}} while assembling sections. */
@@ -242,7 +247,7 @@ export interface AssemblerOutput {
   advancedMemoryPlacements?: AdvancedMemoryPlacement[];
 }
 
-export function parsePresetParameters(raw: string): GenerationParameters {
+export function parsePresetParameters(raw: string): AssemblerOutput["parameters"] {
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(raw) as unknown;
@@ -254,7 +259,7 @@ export function parsePresetParameters(raw: string): GenerationParameters {
       ? { ...DEFAULT_GENERATION_PARAMS, ...(parsed as Partial<GenerationParameters>) }
       : { ...DEFAULT_GENERATION_PARAMS };
   const result = generationParametersSchema.safeParse(merged);
-  if (result.success) return result.data;
+  if (result.success) return withoutPresetTokenLimits(result.data);
 
   const out: GenerationParameters = { ...DEFAULT_GENERATION_PARAMS };
   const source = merged as Record<string, unknown>;
@@ -265,7 +270,7 @@ export function parsePresetParameters(raw: string): GenerationParameters {
       (out as Record<keyof GenerationParameters, unknown>)[key] = field.data;
     }
   }
-  return out;
+  return withoutPresetTokenLimits(out);
 }
 
 // ═══════════════════════════════════════════════

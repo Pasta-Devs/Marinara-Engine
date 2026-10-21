@@ -49,7 +49,14 @@ async function startProvider() {
   };
 }
 
-async function setup(page: Page, request: APIRequestContext, testInfo: TestInfo, theme: "dark" | "light") {
+async function setup(
+  page: Page,
+  request: APIRequestContext,
+  testInfo: TestInfo,
+  theme: "dark" | "light",
+  ui: Record<string, unknown> = {},
+  seedMode: "replace" | "if-missing" = "replace",
+) {
   const provider = await startProvider();
   const suffix = `${testInfo.project.name} ${theme} ${Date.now()}`;
   const createConnection = async (name: string, model: string, baseUrl = provider.baseUrl, apiKey = "") => {
@@ -81,14 +88,19 @@ async function setup(page: Page, request: APIRequestContext, testInfo: TestInfo,
   expect((await request.patch(`/api/chats/${chat.id}`, { data: { connectionId: main.id } })).ok()).toBeTruthy();
 
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
-  await seedUIState(page, {
-    hasCompletedOnboarding: true,
-    sidebarOpen: false,
-    rightPanelOpen: false,
-    theme,
-    chatHelpSeenModes: ["conversation", "roleplay", "game"],
-    chatSettingsExpandedSections: { connection: true },
-  });
+  await seedUIState(
+    page,
+    {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      theme,
+      chatHelpSeenModes: ["conversation", "roleplay", "game"],
+      chatSettingsExpandedSections: { connection: true },
+      ...ui,
+    },
+    seedMode,
+  );
   await page.addInitScript(
     ({ chatId, version }) => {
       localStorage.setItem("marinara:whats-new:seen-version", version);
@@ -631,3 +643,119 @@ test("reselecting Main keeps the chat following it, and unavailable search picks
     if (previousMain) await request.patch(`/api/connections/${previousMain.id}`, { data: { isDefault: true } });
   }
 });
+
+test("the Models toggle persists a changed preference after reload (#7928)", async ({ page, request }, testInfo) => {
+  const { cleanup } = await setup(page, request, testInfo, "dark", { quickSwitcherShowModels: true }, "if-missing");
+  const toggleIn = (menu: Locator) => menu.getByRole("button", { name: "Show models in Quick Switcher", exact: true });
+  try {
+    await page.goto("/");
+    const toggle = toggleIn(await openMenu(page, testInfo));
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await page.reload();
+    await expect(toggleIn(await openMenu(page, testInfo))).toHaveAttribute("aria-pressed", "false");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a synchronized connection-only preference closes an open catalog (#7928)", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { main, cleanup } = await setup(page, request, testInfo, "dark", { quickSwitcherShowModels: true });
+  let releaseSettings: (() => void) | undefined;
+  const settingsReady = new Promise<void>((resolve) => {
+    releaseSettings = resolve;
+  });
+  await page.route("**/api/app-settings/ui", async (route) => {
+    if (route.request().method() === "GET") {
+      await settingsReady;
+      await route.fulfill({ json: { value: JSON.stringify({ quickSwitcherShowModels: false }) } });
+    } else {
+      await route.fulfill({ json: { value: "" } });
+    }
+  });
+  try {
+    await page.goto("/");
+    const mainAccount = (await connectionRow(request, main.id))!.accountId as string;
+    const picker = await openModels(page, testInfo, mainAccount);
+    const menu = modelScreen(page);
+    await picker.locator("[data-model-search]").focus();
+    await expect(picker.locator("[data-model-search]")).toBeFocused();
+    releaseSettings?.();
+    await expect(menu.locator("[data-switcher-catalog], [data-connection-model-picker]")).toHaveCount(0);
+    await expect(menu.getByRole("button", { name: "Show models in Quick Switcher", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(menu.locator("[data-switcher-browse]")).toHaveCount(0);
+    // The catalog held focus; it moves to the chooser's button instead of falling to the page.
+    const trigger = page.getByRole("button", {
+      name: isPhone(testInfo) ? "Quick Switcher" : /^Model:/,
+      exact: true,
+    });
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  } finally {
+    releaseSettings?.();
+    await cleanup();
+  }
+});
+
+// #7928: with models off, the chooser never searches or opens a catalog; a saved Model still switches.
+for (const theme of ["dark", "light"] as const) {
+  test(`connection-only switching skips model requests in ${theme} theme (#7928)`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const { provider, main, other, chat, cleanup } = await setup(page, request, testInfo, theme, {
+      quickSwitcherShowModels: false,
+    });
+    const catalogRequests: string[] = [];
+    page.on("request", (req) => {
+      if (/\/api\/connection-accounts\/catalog-search|\/api\/connections\/[^/]+\/models/.test(req.url())) {
+        catalogRequests.push(req.url());
+      }
+    });
+    try {
+      await page.goto("/");
+      await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
+      let menu = await openMenu(page, testInfo);
+      await expect(menu.getByRole("button", { name: "Show models in Quick Switcher", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      await expect(menu.locator("[data-switcher-browse]")).toHaveCount(0);
+      await menu.locator("[data-switcher-search]").fill("vendor/kappa");
+      await expect(menu.locator("[data-switcher-results] [data-switcher-entry]").first()).toHaveAttribute(
+        "data-switcher-entry",
+        other.id,
+      );
+      await menu.locator("[data-switcher-search]").press("Enter");
+      await expect.poll(async () => (await chatState(request, chat.id)).connectionId).toBe(other.id);
+      expect(catalogRequests).toEqual([]);
+      expect(provider.state.calls).toBe(0);
+
+      await page.reload();
+      menu = await openMenu(page, testInfo);
+      await menu.getByRole("button", { name: "Show models in Quick Switcher", exact: true }).click();
+      await expect(menu.locator("[data-switcher-browse]").first()).toBeVisible();
+      await menu.locator("[data-switcher-search]").fill("vendor/alpha");
+      await expect(menu.locator("[data-switcher-results] [data-switcher-entry]").first()).toHaveAttribute(
+        "data-switcher-entry",
+        main.id,
+      );
+      await menu.locator("[data-switcher-search]").press("Enter");
+      await expect.poll(async () => (await chatState(request, chat.id)).connectionId).toBe(main.id);
+      await expectNoHorizontalScroll(page);
+      await capture(page, testInfo, `quick-switcher-fast-${theme}`);
+    } finally {
+      await cleanup();
+    }
+  });
+}

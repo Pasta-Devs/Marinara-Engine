@@ -380,12 +380,14 @@ export function ConnectionSwitcherBody({
   shuffle,
   followDefault,
   listHeader,
+  listFooter,
   empty,
   autoFocusSearch = false,
   pickerFooter,
   className,
   listClassName,
   modelsClassName,
+  catalogBrowse = true,
 }: {
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
@@ -408,6 +410,8 @@ export function ConnectionSwitcherBody({
   /** Follow Main: the host follows the Main model; absent where there is no such state (Professor Mari). */
   followDefault?: { active: boolean; onSelect: () => Promise<void> };
   listHeader?: ReactNode;
+  /** Below the list, inside its column. */
+  listFooter?: ReactNode;
   /** Shown when there is nothing to pick. */
   empty?: ReactNode;
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
@@ -416,6 +420,8 @@ export function ConnectionSwitcherBody({
   className?: string;
   listClassName?: string;
   modelsClassName?: string;
+  /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
+  catalogBrowse?: boolean;
 }) {
   const { t } = useTranslation();
   const { data: connectionsRaw } = useConnections();
@@ -472,7 +478,7 @@ export function ConnectionSwitcherBody({
   );
 
   // Cost badges from the catalogs already cached for each Connection; nothing is fetched for them.
-  const catalogs = useCachedCatalogFacts(groups.map((group) => group.rows.map((row) => row.id)));
+  const catalogs = useCachedCatalogFacts(catalogBrowse ? groups.map((group) => group.rows.map((row) => row.id)) : []);
   const catalogOf = (group: SwitcherGroup | undefined) => (group ? catalogs[groups.indexOf(group)] : undefined);
 
   const mainRow = rows.find((row) => isConnectionFlagTrue(row.isDefault));
@@ -481,7 +487,9 @@ export function ConnectionSwitcherBody({
   const nowRow = currentRow ?? (followDefault?.active ? mainRow : undefined);
   const currentGroup = nowRow ? groupOfRow.get(nowRow.id) : undefined;
   const browsingGroup =
-    layout === "steps" ? groups.find((group) => group.key === browsingKey && group.account) : undefined;
+    layout === "steps" && catalogBrowse
+      ? groups.find((group) => group.key === browsingKey && group.account)
+      : undefined;
   // A catalog pick runs on the Model the chat already uses when it is in that Connection, else on its first one.
   const anchorOf = useCallback(
     (group: SwitcherGroup) => group.rows.find((row) => row.id === nowRow?.id) ?? group.rows[0]!,
@@ -656,7 +664,7 @@ export function ConnectionSwitcherBody({
   // Search (decision 27): saved Models first (starred, then the rest), then catalog models not saved yet, each
   // with prefix matches before the rest, then the typed text as a model id. A Connection's name or a maker
   // ("glm" → Z.ai) also finds saved Models.
-  const catalog = useCatalogSearch(deferredQuery);
+  const catalog = useCatalogSearch(catalogBrowse ? deferredQuery : "");
   const { saved: savedHits, extra: extraHits } = useMemo(() => {
     const q = deferredQuery.toLowerCase();
     if (!q) return { saved: [] as Entry[], extra: [] as Entry[] };
@@ -885,7 +893,8 @@ export function ConnectionSwitcherBody({
           }
           footer={
             // Favorites first; every other model of this Connection is one visible row away, not a header word.
-            !unavailable && (
+            !unavailable &&
+            catalogBrowse && (
               <button
                 type="button"
                 data-switcher-browse={group.key}
@@ -1196,6 +1205,7 @@ export function ConnectionSwitcherBody({
           </>
         )}
       </div>
+      {listFooter}
     </div>
   );
 

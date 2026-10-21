@@ -15,7 +15,7 @@ import type {
   CreateChoiceBlockInput,
   UpdateChoiceBlockInput,
 } from "@marinara-engine/shared";
-import { DEFAULT_GENERATION_PARAMS, resolveScopedRegexMode } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, resolveScopedRegexMode, withoutPresetTokenLimits } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
@@ -91,7 +91,7 @@ export function createPromptsStorage(db: DB) {
         groupOrder: JSON.stringify([]),
         variableGroups: JSON.stringify(input.variableGroups ?? []),
         variableValues: JSON.stringify(input.variableValues ?? {}),
-        parameters: JSON.stringify(input.parameters ?? DEFAULT_GENERATION_PARAMS),
+        parameters: JSON.stringify(withoutPresetTokenLimits(input.parameters ?? DEFAULT_GENERATION_PARAMS)),
         wrapFormat: input.wrapFormat ?? "xml",
         scopedRegexMode: input.scopedRegexMode ?? "disabled",
         isDefault: String(input.isDefault ?? false),
@@ -121,11 +121,13 @@ export function createPromptsStorage(db: DB) {
           .where(eq(promptPresets.id, id))
           .limit(1);
         const existingParameters = parseGenerationParameters(existingRows[0]?.parameters);
-        updateFields.parameters = JSON.stringify({
-          ...DEFAULT_GENERATION_PARAMS,
-          ...existingParameters,
-          ...data.parameters,
-        });
+        updateFields.parameters = JSON.stringify(
+          withoutPresetTokenLimits({
+            ...DEFAULT_GENERATION_PARAMS,
+            ...existingParameters,
+            ...data.parameters,
+          }),
+        );
       }
       if (data.wrapFormat !== undefined) updateFields.wrapFormat = data.wrapFormat;
       if (data.scopedRegexMode !== undefined) updateFields.scopedRegexMode = data.scopedRegexMode;

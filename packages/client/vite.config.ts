@@ -227,7 +227,14 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: `http://127.0.0.1:${process.env.PORT ?? 7860}`,
-        changeOrigin: true,
+        changeOrigin: false,
+        // LAN visitors choose their own Host, so mark them as proxied; local dev stays unmarked.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            const peer = req.socket.remoteAddress ?? "";
+            if (!/^(127\.|::1$|::ffff:127\.)/.test(peer)) proxyReq.setHeader("x-forwarded-for", peer);
+          });
+        },
       },
     },
   },

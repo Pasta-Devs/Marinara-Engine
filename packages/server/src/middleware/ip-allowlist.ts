@@ -15,8 +15,9 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { readFileSync } from "node:fs";
-import { networkInterfaces } from "node:os";
+import os, { networkInterfaces } from "node:os";
 import {
+  getAdminSecret,
   getBasicAuthConfig,
   getDockerBypassMode,
   getIpAllowlist,
@@ -25,8 +26,12 @@ import {
   isDockerProxyAuthRequired,
   isDockerRuntime,
   isLoopbackProxyAuthRequired,
+  isUnauthenticatedPrivateNetworkAllowed,
+  isUnauthenticatedRemoteAllowed,
 } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
+import { evaluateAccessPolicy, isForwardedLoopbackPeer, type AccessFacts, type AccessPolicy } from "./access-policy.js";
+import { firstHeader, parseRequestHostname } from "./host-validation.js";
 
 // ── CIDR helpers ──
 
@@ -507,49 +512,65 @@ function hasProxyForwardingHeaders(request: Pick<FastifyRequest, "headers">): bo
 }
 
 /**
+ * A browser on this computer addresses Marinara by a loopback name. A loopback socket that
+ * announces any other Host (a domain or a LAN address) was relayed by a local proxy or tunnel,
+ * even when that proxy adds no forwarding headers. A Docker gateway peer that
+ * names another Host is relayed too.
+ */
+function hasRelayedHost(request: Pick<FastifyRequest, "headers">): boolean {
+  const hostname = parseRequestHostname(
+    firstHeader(request.headers.host) ?? firstHeader(request.headers[":authority"]),
+  );
+  if (!hostname) return false;
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return false;
+  if (hostname === "0.0.0.0" || hostname === "::") return false;
+  // The machine's own name (Debian maps it to 127.0.1.1) is local too.
+  const own = os.hostname().toLowerCase();
+  if (hostname === own || hostname === `${own}.local`) return false;
+  return !isLoopbackIp(hostname);
+}
+
+/** Browsers speak HTTP/1.1 or newer; nginx's default proxy_pass speaks HTTP/1.0. */
+function isHttp10(request: Pick<AccessRequest, "raw">): boolean {
+  return request.raw?.httpVersion === "1.0";
+}
+
+/**
  * True when a loopback socket relays another client: a reverse proxy or tunnel
  * on this machine connects from 127.0.0.1 but announces itself with forwarding
  * headers. Such requests get the checks of a remote client, not loopback trust.
  */
-export function isForwardedLoopbackRequest(request: Pick<FastifyRequest, "headers" | "ip">): boolean {
-  return isLoopbackIp(request.ip) && hasProxyForwardingHeaders(request) && isLoopbackProxyAuthRequired();
+export function isForwardedLoopbackRequest(request: AccessRequest): boolean {
+  return isForwardedLoopbackPeer(isLoopbackIp(request.ip), isProxiedRequest(request), isLoopbackProxyAuthRequired());
 }
 
 /** True when the request comes from this machine itself rather than through a local proxy. */
-export function isLoopbackRequest(request: Pick<FastifyRequest, "headers" | "ip">): boolean {
+export function isLoopbackRequest(request: AccessRequest): boolean {
   return isLoopbackIp(request.ip) && !isForwardedLoopbackRequest(request);
-}
-
-/**
- * Docker Desktop, OrbStack and rootless Docker re-create published-port
- * connections, so LAN clients reach the container from its gateway like the
- * host's own browser. Automatic Docker trust can stand in for the no-password
- * lockdown, but must not override a password or allowlist the operator set.
- */
-function isAccessControlConfigured(): boolean {
-  const basicAuth = getBasicAuthConfig();
-  return Boolean(basicAuth.user && basicAuth.pass) || getAllowlist() !== null;
 }
 
 let bypassAnnounced = { tailscale: false, docker: false, dockerProxyForwarded: false, dockerAutoWithheld: false };
 
-/** Request-aware variant that can withhold Docker trust for proxy-forwarded traffic. */
-export function isTrustedInterfaceRequest(
-  request: FastifyRequest,
-  dockerNetwork: {
-    interfaces?: ReturnType<typeof networkInterfaces>;
-    gatewayIp?: string | null;
-    containerInterfaceNames?: ReadonlySet<string>;
-  } = {},
-): boolean {
-  const tailscaleMode = getTailscaleBypassMode();
-  const localAddress = request.raw?.socket?.localAddress;
-  const tailscaleTrusted =
-    isTailscaleIp(request.ip) &&
-    (tailscaleMode === "enabled" ||
-      (tailscaleMode === "auto" && typeof localAddress === "string" && isTailscaleIp(localAddress)));
+type DockerNetworkOverride = NonNullable<Parameters<typeof isTrustedInterfaceRequest>[1]>;
 
-  const dockerMode = getDockerBypassMode();
+/** Resolve the request and runtime config into plain facts, then let the pure access policy decide. */
+type AccessRequest = Pick<FastifyRequest, "headers" | "ip"> & Partial<Pick<FastifyRequest, "raw">>;
+
+// Hooks ask several times per request; the facts (hostname, Docker matching) are not free.
+const policyByRequest = new WeakMap<object, AccessPolicy>();
+
+export function getAccessPolicy(request: AccessRequest, dockerNetwork?: DockerNetworkOverride): AccessPolicy {
+  if (dockerNetwork) return computeAccessPolicy(request, dockerNetwork);
+  let policy = policyByRequest.get(request);
+  if (!policy) {
+    policy = computeAccessPolicy(request, {});
+    policyByRequest.set(request, policy);
+  }
+  return policy;
+}
+
+function computeAccessPolicy(request: AccessRequest, dockerNetwork: DockerNetworkOverride): AccessPolicy {
+  const localAddress = request.raw?.socket?.localAddress;
   const defaultDockerNetwork = dockerNetwork.interfaces === undefined ? getDockerInterfaceSnapshot() : undefined;
   const dockerInterfaces = dockerNetwork.interfaces ?? defaultDockerNetwork!.interfaces;
   const parsedDockerCidrs = defaultDockerNetwork?.parsedCidrs;
@@ -563,24 +584,119 @@ export function isTrustedInterfaceRequest(
       dockerNetwork.containerInterfaceNames ?? dockerContainerInterfaceNames,
       parsedDockerCidrs,
     );
-  const dockerAutoWithheld = dockerMode === "auto" && dockerRuntimeMatch && isAccessControlConfigured();
-  if (dockerAutoWithheld && !bypassAnnounced.dockerAutoWithheld) {
+  const ip = request.ip;
+  return evaluateAccessPolicy({
+    loopbackIp: isLoopbackIp(ip),
+    forwardingHeaders: hasProxyForwardingHeaders(request),
+    relayedHost: hasRelayedHost(request),
+    http10: isHttp10(request),
+    allowlisted: isInIpAllowlist(ip),
+    privateNetworkIp: isPrivateNetworkIp(ip),
+    tailscaleIp: isTailscaleIp(ip),
+    tailscaleLocalAddress: typeof localAddress === "string" && isTailscaleIp(localAddress),
+    dockerIp: isDockerIp(ip),
+    dockerRuntimeMatch,
+    dockerCompatibilityNetwork:
+      isDockerRuntime() && isDockerCompatibilityNetworkIp(ip, dockerInterfaces, dockerGatewayIp, parsedDockerCidrs),
+    config: getAccessConfig(),
+  });
+}
+
+function getAccessConfig(): AccessFacts["config"] {
+  const basicAuth = getBasicAuthConfig();
+  return {
+    basicAuthConfigured: Boolean(basicAuth.user && basicAuth.pass),
+    ipAllowlistConfigured: getIpAllowlist() !== null,
+    adminSecretConfigured: Boolean(getAdminSecret()),
+    loopbackProxyAuthRequired: isLoopbackProxyAuthRequired(),
+    dockerProxyAuthRequired: isDockerProxyAuthRequired(),
+    tailscaleMode: getTailscaleBypassMode(),
+    dockerMode: getDockerBypassMode(),
+    allowUnauthenticatedPrivateNetwork: isUnauthenticatedPrivateNetworkAllowed(),
+    allowUnauthenticatedRemote: isUnauthenticatedRemoteAllowed(),
+  };
+}
+
+export type PasswordlessPeer = "internet" | "privateNetwork" | "allowlist" | "tailscale" | "docker" | "proxy";
+
+/** True when a bind address is loopback only, so other devices reach it only through a local proxy. */
+export function isLoopbackBind(host: string): boolean {
+  return host === "localhost" || isLoopbackIp(host);
+}
+
+/** A peer with no facts set; each sample below overrides only what makes it that kind of device. */
+const NO_PEER_FACTS: Omit<AccessFacts, "config"> = {
+  loopbackIp: false,
+  forwardingHeaders: false,
+  relayedHost: false,
+  http10: false,
+  allowlisted: false,
+  privateNetworkIp: false,
+  tailscaleIp: false,
+  tailscaleLocalAddress: false,
+  dockerIp: false,
+  dockerRuntimeMatch: false,
+  dockerCompatibilityNetwork: false,
+};
+
+/**
+ * Kinds of remote device the current configuration lets in without a password. Asks the same
+ * policy the hooks use about one sample device per kind, so the owner summary cannot drift from
+ * enforcement. `bindHost` is the address the server actually listens on. `withLogin` asks which
+ * kinds would still get in once a login password is set.
+ */
+export function getPasswordlessPeers(
+  bindHost: string,
+  interfaces: ReturnType<typeof networkInterfaces> = networkInterfaces(),
+  withLogin = false,
+): PasswordlessPeer[] {
+  const config = withLogin ? { ...getAccessConfig(), basicAuthConfigured: true } : getAccessConfig();
+  const direct = !isLoopbackBind(bindHost);
+  // A tailnet device connects directly only when the bind covers the tailnet address.
+  const anyAddress = ["0.0.0.0", "::", ""].includes(bindHost);
+  const tailscaleBind = anyAddress || isTailscaleIp(bindHost);
+  const tailscaleHere =
+    tailscaleBind &&
+    (config.tailscaleMode === "enabled" ||
+      Object.values(interfaces).some((addresses) => addresses?.some((a) => isTailscaleIp(a.address))));
+  const dockerHere = config.dockerMode === "enabled" || isDockerRuntime();
+  const samples: [PasswordlessPeer, Partial<AccessFacts>, boolean][] = [
+    ["internet", {}, direct],
+    ["privateNetwork", { privateNetworkIp: true }, direct],
+    ["allowlist", { allowlisted: true }, direct && config.ipAllowlistConfigured],
+    ["tailscale", { tailscaleIp: true, privateNetworkIp: true, tailscaleLocalAddress: true }, direct && tailscaleHere],
+    // No relayed Host: the client picks the Host header, and `localhost` passes host validation.
+    ["docker", { dockerIp: true, privateNetworkIp: true, dockerRuntimeMatch: isDockerRuntime() }, direct && dockerHere],
+    // A remote device behind a local proxy names this server by its own address, so it looks relayed.
+    // The proxy dials 127.0.0.1, which a bind to one LAN address does not listen on.
+    ["proxy", { loopbackIp: true, forwardingHeaders: true, relayedHost: true }, !direct || anyAddress],
+  ];
+  return samples
+    .filter(([, facts, reachable]) => {
+      if (!reachable) return false;
+      const policy = evaluateAccessPolicy({ ...NO_PEER_FACTS, ...facts, config });
+      return !policy.authRequired && !policy.lockedDown && (!config.ipAllowlistConfigured || policy.ipAllowed);
+    })
+    .map(([peer]) => peer);
+}
+
+/** True when the request reached this server through a proxy or tunnel. */
+export function isProxiedRequest(request: AccessRequest): boolean {
+  return hasProxyForwardingHeaders(request) || hasRelayedHost(request) || isHttp10(request);
+}
+
+/** Log each automatic or explicit trust bypass once, the first time a peer takes it. */
+function announceBypass(policy: AccessPolicy, ip: string): void {
+  const tailscaleMode = getTailscaleBypassMode();
+  const dockerMode = getDockerBypassMode();
+  if (policy.dockerAutoWithheld && !bypassAnnounced.dockerAutoWithheld) {
     logger.warn(
       "[auth-bypass] Docker peer %s must pass Basic Auth/IP_ALLOWLIST: automatic Docker trust is off while either is configured, because Docker Desktop and OrbStack show LAN clients at the gateway address. Set BYPASS_AUTH_DOCKER=true only if every client of the published port is trusted.",
-      request.ip,
+      ip,
     );
     bypassAnnounced.dockerAutoWithheld = true;
   }
-  const dockerTrusted =
-    dockerMode === "enabled"
-      ? isDockerIp(request.ip) ||
-        dockerRuntimeMatch ||
-        (isDockerRuntime() &&
-          isDockerCompatibilityNetworkIp(request.ip, dockerInterfaces, dockerGatewayIp, parsedDockerCidrs))
-      : dockerMode === "auto" && dockerRuntimeMatch && !dockerAutoWithheld;
-  const dockerProxyForwarded = dockerTrusted && hasProxyForwardingHeaders(request);
-  if (dockerProxyForwarded && isDockerProxyAuthRequired()) return false;
-  if (dockerProxyForwarded) {
+  if (policy.dockerProxyForwarded && !isDockerProxyAuthRequired()) {
     if (!bypassAnnounced.dockerProxyForwarded) {
       logger.warn(
         "[auth-bypass] REQUIRE_AUTH_FOR_DOCKER_PROXY=false — forwarded Docker clients will skip Basic Auth and IP allowlist while Docker trust remains enabled",
@@ -588,8 +704,7 @@ export function isTrustedInterfaceRequest(
       bypassAnnounced.dockerProxyForwarded = true;
     }
   }
-
-  if (tailscaleTrusted) {
+  if (policy.trustedInterface && policy.tailscaleTrusted) {
     if (!bypassAnnounced.tailscale) {
       logger.warn(
         tailscaleMode === "enabled"
@@ -598,10 +713,8 @@ export function isTrustedInterfaceRequest(
       );
       bypassAnnounced.tailscale = true;
     }
-    return true;
   }
-
-  if (dockerTrusted) {
+  if (policy.trustedInterface && !policy.tailscaleTrusted) {
     if (!bypassAnnounced.docker) {
       logger.warn(
         dockerMode === "enabled"
@@ -610,10 +723,27 @@ export function isTrustedInterfaceRequest(
       );
       bypassAnnounced.docker = true;
     }
-    return true;
   }
+}
 
-  return false;
+/** getAccessPolicy for the hooks: also logs the bypass a non-loopback peer takes. */
+export function getRequestAccess(request: Parameters<typeof getAccessPolicy>[0]): AccessPolicy {
+  const policy = getAccessPolicy(request);
+  if (!isLoopbackIp(request.ip)) announceBypass(policy, request.ip);
+  return policy;
+}
+
+export function isTrustedInterfaceRequest(
+  request: Pick<FastifyRequest, "headers" | "ip"> & Partial<Pick<FastifyRequest, "raw">>,
+  dockerNetwork: {
+    interfaces?: ReturnType<typeof networkInterfaces>;
+    gatewayIp?: string | null;
+    containerInterfaceNames?: ReadonlySet<string>;
+  } = {},
+): boolean {
+  const policy = getAccessPolicy(request, dockerNetwork);
+  announceBypass(policy, request.ip);
+  return policy.trustedInterface;
 }
 
 // ── Fastify onRequest hook ──
@@ -633,22 +763,9 @@ export function ipAllowlistHook(request: FastifyRequest, reply: FastifyReply, do
     return;
   }
 
-  // Loopback is always allowed, except a local proxy relaying another client:
-  // its loopback address says nothing about who that client is.
-  if (isLoopbackIp(ip)) {
-    if (isLoopbackRequest(request)) return done();
-    reply.status(403).send({ error: "Forbidden" });
-    return;
-  }
-
-  // Trusted direct Tailscale / Docker connections are treated like loopback —
-  // skip the allowlist check entirely.
-  if (isTrustedInterfaceRequest(request)) return done();
-
-  // Check the allowlist
-  for (const entry of allowlist) {
-    if (matchesCIDR(bytes, entry)) return done();
-  }
-
+  // Loopback is allowed unless a local proxy relays another client; trusted
+  // Tailscale / Docker peers are treated like loopback and skip the allowlist.
+  const policy = getRequestAccess(request);
+  if (policy.ipAllowed) return done();
   reply.status(403).send({ error: "Forbidden" });
 }

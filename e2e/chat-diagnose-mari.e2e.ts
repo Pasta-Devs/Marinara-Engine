@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 
+// These scripted providers return the Classic JSON-frame protocol.
+test.beforeEach(async ({ request }) => {
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
+});
+
 // R3 (slice 62): proves the prompt wiring, not just that `chat.diagnose` exists in isolation.
 // A scripted fake model exercises the real workspace loop and real storage: a chat is seeded with
 // a genuinely cut-off reply, Mari is asked why it got worse, and the test checks the SERVER really
@@ -57,7 +64,9 @@ test("Mari calls chat.diagnose first and names the real limit from the findings"
       await request.post("/api/chats", { data: { name: `Worse reply ${suffix}`, mode: "roleplay", characterIds: [] } })
     ).json();
     roleplayChatId = roleplayChat.id;
-    await request.post(`/api/chats/${roleplayChatId}/messages`, { data: { role: "user", content: "Tell me the story." } });
+    await request.post(`/api/chats/${roleplayChatId}/messages`, {
+      data: { role: "user", content: "Tell me the story." },
+    });
     const reply = await (
       await request.post(`/api/chats/${roleplayChatId}/messages`, {
         data: { role: "assistant", content: "Once upon a time the castle stood on the hill, and the" },

@@ -730,6 +730,7 @@ export function useTouchFolderDrag({
       if (event.key !== "Escape" || !dragRef.current) return;
       // Heard in the capture phase and marked handled, so a side panel's Escape-to-close leaves it alone.
       event.preventDefault();
+      event.stopPropagation();
       cancelTouchDrag(false);
     },
     [cancelTouchDrag],

@@ -91,9 +91,10 @@ export function easeMeshAvatarEyes(current: number, emotion: AvatarEmotion, seco
  *  face's own eye openness (easeMeshAvatarEyes), which the eyelids keep. */
 export function meshAvatarOverrides(
   frame: Pick<AvatarFrameInput, "blink" | "lookAt">,
-  options: { still: boolean; blink: boolean; eyeOpen: number },
+  options: { still: boolean; blink: boolean; eyeOpen: number; mouthOpen?: number },
 ): Record<string, number> {
   const overrides: Record<string, number> = {};
+  if (options.mouthOpen !== undefined) overrides.mouthOpen = Math.max(0, Math.min(1, options.mouthOpen));
   if (options.still) {
     Object.assign(overrides, { angleX: 0, angleY: 0, angleZ: 0, bodyAngleX: 0, bodyAngleZ: 0, breath: 0 });
   }

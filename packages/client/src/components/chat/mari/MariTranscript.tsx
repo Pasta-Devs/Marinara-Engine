@@ -26,6 +26,7 @@ import { WorkspaceTimelineItem, getMessageRunError, getMessageRunTime } from "./
 import { LoadingHistoryState } from "./MariChatStates";
 import { CompactMarkdown } from "./MariReplyContent";
 import { MariWorkTimeline } from "./MariWorkTimeline";
+import { MariConnectionGuidance } from "./MariConnectionGuidance";
 
 /** Her transcript: the arrival or empty welcome, earlier turns, the active turn with its live timeline, reviews and errors. */
 /** One review in a turn: still pending (`outcome: null`) or already decided. */
@@ -232,9 +233,9 @@ export function MariTranscript({
               </div>
             ) : null}
             {showConnectionFirstHint && (
-              <p className="px-3 py-1 text-center text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.chat.homeprofessormarichat.selectAConnectionFirst")}
-              </p>
+              <div className="mx-auto max-w-prose px-3 py-2">
+                <MariConnectionGuidance showSelectionHint />
+              </div>
             )}
             {/* M4: the active turn reserves the transcript's visible height (set on send) so
                                   nothing below it changes the scrollable height until a new turn replaces it. */}

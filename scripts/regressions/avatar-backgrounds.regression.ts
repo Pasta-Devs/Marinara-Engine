@@ -16,15 +16,7 @@
  * Tripo generator (withdrawn by the maintainer on 2026-10-19).
  */
 import assert from "node:assert/strict";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -115,13 +107,17 @@ async function pixelAt(png: Buffer, x: number, y: number) {
   return [...data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)];
 }
 /** The background around the bust is still there: white and solid. */
-async function assertBackground(png: Buffer, what: string) {
+async function assertBackground(png: Buffer, what: string, scale = 1) {
   for (const [x, y] of [
     [2, 2],
     [597, 717],
     [40, 360],
   ] as const) {
-    assert.deepEqual(await pixelAt(png, x, y), [255, 255, 255, 255], `${what}: the background at ${x},${y} stays`);
+    assert.deepEqual(
+      await pixelAt(png, Math.round(x * scale), Math.round(y * scale)),
+      [255, 255, 255, 255],
+      `${what}: the background at source ${x},${y} stays`,
+    );
   }
 }
 /** The red mark the image model draws in the middle of the face. */
@@ -416,9 +412,7 @@ try {
     const softDraft = softDrafts.drafts[0]!;
     const softSaved = await savePngtuberVariants({
       owner,
-      images: [
-        { label: "soft", variant: "eyes-closed", image: softDraft.image, sourceHash: softDraft.sourceHash },
-      ],
+      images: [{ label: "soft", variant: "eyes-closed", image: softDraft.image, sourceHash: softDraft.sourceHash }],
     });
     const blink = softSaved.config.kinds.pngtuber!.layers.soft!.eyesClosed as { path: string };
     assert.deepEqual(
@@ -469,9 +463,10 @@ try {
     const draft = await generateMeshRig(db, { owner, sourceLabel: "neutral", connectionId: vision.id });
     const zip = new AdmZip(Buffer.from(draft.archive, "base64"));
     const basePicture = zip.getEntry("built/base.png")!.getData() as Buffer;
-    await assertBackground(basePicture, "the mesh avatar's base picture");
+    const scale = 1254 / 600;
     const meta = await sharp(basePicture).metadata();
-    assert.deepEqual([meta.width, meta.height], [600, 720]);
+    assert.deepEqual([meta.width, meta.height], [1254, Math.round(720 * scale)]);
+    await assertBackground(basePicture, "the mesh avatar's base picture", scale);
     assert.deepEqual(readFileSync(join(spriteDir, "neutral.png")), opaqueBust, "the sprite is untouched");
     assertNoCutouts("after the mesh avatar");
   }

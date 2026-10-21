@@ -31,13 +31,15 @@ import { join } from "node:path";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-avatar-generation-"));
 process.env.DATA_DIR = dataDir;
+process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 process.env.IMAGE_LOCAL_URLS_ENABLED = "true";
 
 const Fastify = createRequire(new URL("../../packages/server/package.json", import.meta.url))("fastify");
 const meshAvatar = await import(
   new URL("../../packages/client/node_modules/mesh-avatar/dist/index.js", import.meta.url).href
 );
-const { avatarKindDataSchema, isAvatarFilePath } = await import("../../packages/shared/src/index.js");
+const { avatarKindDataSchema, characterDataSchema, isAvatarFilePath } =
+  await import("../../packages/shared/src/index.js");
 const { getSharp } = await import("../../packages/server/src/services/image/sharp-runtime.js");
 const { logger } = await import("../../packages/server/src/lib/logger.js");
 const { openZipArchive } = await import("../../packages/server/src/lib/zip-reader.js");
@@ -50,9 +52,9 @@ const {
   renderAvatarPromptTemplate,
   withAvatarGenerationJob,
 } = await import("../../packages/server/src/services/avatars/generation/generation-context.js");
-const { checkMeshRigLayout, deriveMeshRig, extractLayoutJson, scaleMeshRigLayout } =
+const { MESH_RIG_REFERENCE_SIZE, checkMeshRigLayout, deriveMeshRig, extractLayoutJson, scaleMeshRigLayout } =
   await import("../../packages/server/src/services/avatars/generation/mesh-rig-layout.js");
-const { buildMeshAvatarLayers, meshWorkScale, packMeshAvatar } =
+const { buildMeshAvatarLayers, fitDrawnMouth, meshWorkScale, packMeshAvatar } =
   await import("../../packages/server/src/services/avatars/generation/mesh-layer-builder.js");
 const { generateMeshRig, requestMeshRigLayout } =
   await import("../../packages/server/src/services/avatars/generation/mesh-rig.js");
@@ -74,7 +76,7 @@ const IRIS = [59, 109, 179];
 
 // ── A front-facing bust drawn from SVG ──
 type Eyes = "open" | "closed";
-function bustSvg({ eyes = "open" as Eyes, mouth = "closed" as "closed" | "open", shift = 0 } = {}) {
+function bustSvg({ eyes = "open" as Eyes, mouth = "closed" as "closed" | "open" | "none", shift = 0 } = {}) {
   const eye = (cx: number) =>
     eyes === "open"
       ? `<ellipse cx="${cx}" cy="285" rx="30" ry="14" fill="#fff"/><circle cx="${cx}" cy="285" r="11" fill="rgb(${IRIS})"/>` +
@@ -83,9 +85,11 @@ function bustSvg({ eyes = "open" as Eyes, mouth = "closed" as "closed" | "open",
         `<path d="M${cx - 22} 300 Q${cx} 304 ${cx + 22} 300" stroke="#8a5a4a" stroke-width="2" fill="none"/>`
       : `<path d="M${cx - 30} 288 Q${cx} 296 ${cx + 30} 288" stroke="#222" stroke-width="4" fill="none"/>`;
   const mouthShape =
-    mouth === "open"
-      ? `<ellipse cx="300" cy="397" rx="18" ry="11" fill="#7a2a2a"/>`
-      : `<path d="M275 395 Q300 400 325 395" stroke="#a04848" stroke-width="3" fill="none"/>`;
+    mouth === "none"
+      ? ""
+      : mouth === "open"
+        ? `<ellipse cx="300" cy="397" rx="18" ry="11" fill="#7a2a2a"/>`
+        : `<path d="M275 395 Q300 400 325 395" stroke="#a04848" stroke-width="3" fill="none"/>`;
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="720"><g transform="translate(${shift} 0)">
     <rect x="120" y="540" width="360" height="200" rx="60" fill="#3a5fa0"/>
     <rect x="262" y="440" width="76" height="130" fill="rgb(${SKIN})"/>
@@ -124,6 +128,13 @@ const goodLayout = {
   assert.ok(checked.layout, `a good layout is accepted: ${checked.errors.join("; ")}`);
   assert.deepEqual(checked.layout.eyes[0]!.opening, [221, 272, 279, 298], "eyes are put in left-to-right order");
   assert.deepEqual(checked.layout.brows[0], [220, 238, 282, 250], "brows are put in left-to-right order");
+  const suppliedBow = checkMeshRigLayout({ ...goodLayout, mouth: { ...goodLayout.mouth, bow: 1e6 } }, 600, 720);
+  assert.ok(suppliedBow.layout, "the otherwise valid vision layout is still accepted");
+  assert.equal(
+    suppliedBow.layout.mouth.bow,
+    undefined,
+    "a model-supplied bow cannot replace the measured or default bow",
+  );
   const refused = (layout: unknown, reason: RegExp, message: string) => {
     const result = checkMeshRigLayout(layout, 600, 720);
     assert.equal(result.layout, null, message);
@@ -265,6 +276,178 @@ assert.deepEqual(meshAvatar.parseRig(JSON.parse(new TextDecoder().decode(unpacke
 const zip = openZipArchive(archive);
 assert.equal(zip.getEntries()[0]!.entryName, "avatar.json", "the manifest comes first");
 assert.equal(zip.getEntry("built/base.png")!.read(64 * 1024 * 1024).length > 0, true, "the strict reader reads it");
+
+// ── Painted mouths follow the drawing at the runtime's reference size ──
+{
+  const factor = MESH_RIG_REFERENCE_SIZE / source.width;
+  const curved = await fitDrawnMouth(
+    { png: await sharp(source.png).resize(1254, 1505).png().toBuffer(), width: 1254, height: 1505 },
+    scaleMeshRigLayout(layout, factor).mouth,
+  );
+  // Q300 400 between y395 endpoints has a 2.5-pixel sag at its centre.
+  assert.ok(Math.abs(curved.bow! - 2.5 * factor) <= 1.5, `the drawn curve's bow is measured (${curved.bow})`);
+  assert.equal(scaleMeshRigLayout({ ...layout, mouth: curved }, 2).mouth.bow, curved.bow! * 2);
+  for (const mouth of ["none", "open"] as const) {
+    const fallback = await fitDrawnMouth({ ...source, png: await bustPng({ mouth }) }, layout.mouth);
+    assert.deepEqual(fallback, layout.mouth, `${mouth} keeps the vision corners`);
+    const fallbackRig = deriveMeshRig({ ...layout, mouth: fallback }, source.width, source.height);
+    assert.equal(fallbackRig.mouth.bow, fallbackRig.mouth.halfLen * 0.1, `${mouth} keeps the default bow`);
+  }
+
+  const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+  const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
+  const { createConnectionsStorage } =
+    await import("../../packages/server/src/services/storage/connections.storage.js");
+  const db = await getDB();
+  const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Small drawn face" }));
+  const owner = { ownerType: "character" as const, ownerId: character!.id };
+  const spriteDir = join(dataDir, "sprites", owner.ownerId);
+  mkdirSync(spriteDir, { recursive: true });
+  const smallPng = await sharp(
+    Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="484">
+    <g transform="scale(${512 / 600} ${484 / 720})">${bustSvg({ mouth: "none" }).toString()}</g>
+    <path d="M236 293 H278" stroke="#704238" stroke-width="2" fill="none"/></svg>`),
+  )
+    .png()
+    .toBuffer();
+  writeFileSync(join(spriteDir, "neutral.png"), smallPng);
+  const smallLayout = {
+    headBox: [94, 27, 418, 316],
+    faceBox: [145, 94, 367, 310],
+    eyes: [
+      { opening: [274, 183, 324, 200], region: [265, 171, 333, 207] },
+      { opening: [189, 183, 238, 200], region: [179, 171, 247, 207] },
+    ],
+    brows: [
+      [271, 160, 324, 168],
+      [188, 160, 241, 168],
+    ],
+    nose: [256, 229],
+    mouth: { left: [240, 296], right: [280, 296], box: [244, 291, 276, 301] },
+    neck: [256, 329],
+  };
+  const highlighted = await sharp(smallPng)
+    .composite([
+      {
+        input: Buffer.from(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="484"><rect x="253" y="291" width="5" height="4" fill="rgb(${SKIN})"/></svg>`,
+        ),
+      },
+    ])
+    .png()
+    .toBuffer();
+  const highlightedMouth = await fitDrawnMouth(
+    { png: await sharp(highlighted).resize(1327, 1254).png().toBuffer(), width: 1327, height: 1254 },
+    scaleMeshRigLayout(checkMeshRigLayout(smallLayout, 512, 484).layout!, 1254 / 484).mouth,
+  );
+  assert.ok(Math.abs(highlightedMouth.bow ?? NaN) <= 1, "a short highlight in the lip still fits its line");
+  assert.ok(Math.abs((highlightedMouth.left[0] + highlightedMouth.right[0]) / 2 - 257 * (1254 / 484)) <= 2);
+  // A lip line with a dark centre that fades toward its ends, lighter than the ink threshold for its last
+  // few pixels; the vision corners sit inside the line.
+  const fade = (darkness: number) => `rgb(${SKIN.map((c) => Math.round(c * (1 - darkness / 209.7)))})`;
+  const taperedPng = await sharp(
+    Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="484">
+    <defs><linearGradient id="lip" gradientUnits="userSpaceOnUse" x1="236" y1="0" x2="278" y2="0">
+      <stop offset="0" stop-color="${fade(18)}"/><stop offset="0.12" stop-color="${fade(32)}"/>
+      <stop offset="0.4" stop-color="#704238"/><stop offset="0.6" stop-color="#704238"/>
+      <stop offset="0.88" stop-color="${fade(32)}"/><stop offset="1" stop-color="${fade(18)}"/>
+    </linearGradient></defs>
+    <g transform="scale(${512 / 600} ${484 / 720})">${bustSvg({ mouth: "none" }).toString()}</g>
+    <path d="M236 293 H278" stroke="url(#lip)" stroke-width="2" fill="none"/></svg>`),
+  )
+    .resize(1327, 1254)
+    .png()
+    .toBuffer();
+  const tapered = await fitDrawnMouth(
+    { png: taperedPng, width: 1327, height: 1254 },
+    scaleMeshRigLayout(
+      checkMeshRigLayout(
+        { ...smallLayout, mouth: { left: [242, 294], right: [272, 294], box: [244, 291, 270, 297] } },
+        512,
+        484,
+      ).layout!,
+      1254 / 484,
+    ).mouth,
+  );
+  const kx = 1327 / 512;
+  assert.ok(
+    Math.abs(tapered.left[0] - 236 * kx) <= 2 && Math.abs(tapered.right[0] - 278 * kx) <= 2,
+    `the faded ends of a tapered line are part of the mouth (${tapered.left[0]}, ${tapered.right[0]})`,
+  );
+  assert.ok(Math.abs(tapered.bow ?? NaN) <= 1, `the tapered flat line stays flat (${tapered.bow})`);
+  // A tilted line (3:4) whose faded tail runs flat: the corner is the point on the line nearest the tail's
+  // end (7.2 px from it), not where the tail's horizontal reach would land along the tilt (9 px).
+  const tilted = Buffer.alloc(160 * 140 * 4);
+  const paint = (x: number, y: number, rgb: number[]) => tilted.set([...rgb, 255], (y * 160 + x) * 4);
+  for (let y = 0; y < 140; y += 1) for (let x = 0; x < 160; x += 1) paint(x, y, SKIN);
+  for (let x = 60; x <= 100; x += 1)
+    for (let y = Math.floor(60 + (x - 60) * 0.75); y <= Math.floor(60 + (x - 59) * 0.75); y += 1)
+      paint(x, y, [112, 66, 56]);
+  const tail = SKIN.map((c) => c - 25);
+  for (let x = 101; x <= 112; x += 1) paint(x, 90, tail);
+  const tiltedPng = await sharp(tilted, { raw: { width: 160, height: 140, channels: 4 } })
+    .png()
+    .toBuffer();
+  const tiltedMouth = await fitDrawnMouth(
+    { png: tiltedPng, width: 160, height: 140 },
+    { left: [60, 60], right: [100, 90], box: [60, 58, 100, 92] },
+  );
+  const tailMiss = Math.hypot(tiltedMouth.right[0] - 112.5, tiltedMouth.right[1] - 90.5);
+  assert.ok(tailMiss < 8, `a tilted line's flat tail ends its mouth nearest the tail (${tiltedMouth.right})`);
+  let visionRequests = 0;
+  const provider = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    visionRequests += 1;
+    assert.match(body, /512x484/u, "vision reads the native sprite before enlargement");
+    response.setHeader("content-type", "application/json");
+    response.end(
+      JSON.stringify({
+        choices: [{ message: { role: "assistant", content: JSON.stringify(smallLayout) }, finish_reason: "stop" }],
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  try {
+    const vision = await createConnectionsStorage(db).create({
+      name: "Synthetic mesh vision",
+      provider: "custom",
+      apiKey: "fixture",
+      model: "vision-fixture",
+      baseUrl: `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1`,
+    });
+    const draft = await generateMeshRig(db, { owner, sourceLabel: "neutral", connectionId: vision!.id });
+    const generated = meshAvatar.unpackAvatar(new Uint8Array(Buffer.from(draft.archive, "base64")));
+    const generatedRig = meshAvatar.parseRig(JSON.parse(new TextDecoder().decode(generated["rig.json"])));
+    assert.equal(visionRequests, 1, "one valid native vision answer makes the mesh");
+    assert.ok(Math.abs(Math.min(generatedRig.image.width, generatedRig.image.height) - 1254) <= 1);
+    assert.ok(Math.max(generatedRig.image.width, generatedRig.image.height) <= 2048);
+    const base = await sharp(Buffer.from(generated["built/base.png"])).metadata();
+    assert.deepEqual([base.width, base.height], [generatedRig.image.width, generatedRig.image.height]);
+    const k = 1254 / 484;
+    assert.ok(
+      Math.abs(generatedRig.mouth.cy - 293 * k) <= 1,
+      `the mouth follows the ink's y (${generatedRig.mouth.cy})`,
+    );
+    assert.ok(
+      Math.abs(generatedRig.mouth.cx - 257 * k) <= 2,
+      `the mouth includes the true outer ink (${generatedRig.mouth.cx})`,
+    );
+    assert.ok(Math.abs(generatedRig.mouth.bow) <= 1, `the flat line stays flat (${generatedRig.mouth.bow})`);
+    assert.deepEqual(
+      meshAvatar.validateAvatarFiles(generated),
+      [],
+      "the enlarged fitted archive passes the runtime validator",
+    );
+    assert.ok(
+      !Object.keys(generated).some((path) => path.endsWith("sprites.json")),
+      "painted mouths add no drawn sprites",
+    );
+  } finally {
+    await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+    await closeDB();
+  }
+}
 
 // ── The vision request ──
 {

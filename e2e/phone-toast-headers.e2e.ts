@@ -6,6 +6,7 @@ import { openChatSettings, openChatTool } from "./chat-settings-tools.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+import { inventoryButton } from "./game-inventory-fixture.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -13,7 +14,7 @@ const APP_VERSION = (
 const TOAST_ID = "phone-toast-headers";
 const CHAT_NAME_WINDOW = "drawer:chat-settings:chat-name";
 // Every header row with controls a phone shows at the top: the top bar, the chat's buttons, a window or
-// sheet, the right panel and the chat list (the drawers), and an editor.
+// sheet, the right panel and the chat list (the drawers), an editor, and custom dialog headers.
 const HEADERS = [
   '[data-component="TopBar"]',
   ".mari-window-bubble",
@@ -22,6 +23,7 @@ const HEADERS = [
   ".mari-sidebar-header",
   ".mari-editor-header",
   "[data-chat-window-top-obstacle]",
+  "[data-phone-toast-header]",
 ].join(",");
 
 async function showToast(page: Page, label: string) {
@@ -315,6 +317,43 @@ test.describe("phone toasts", () => {
       await request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
       await request.delete(`/api/lorebooks/${lorebookId}`).catch(() => undefined);
       await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
+    }
+  });
+
+  test("keep Inventory Close clickable while a persistent toast is visible", async ({ page, request }) => {
+    await page.setViewportSize({ width: 393, height: 659 });
+    const chatId = await createChat(request, "game", [], {
+      gameInventory: [
+        { id: "toast-rope", name: "Rope", quantity: 3 },
+        { id: "toast-arrows", name: "Arrow", quantity: 20, holder: "Bram" },
+      ],
+    });
+    try {
+      await prepare(page, chatId);
+      await page.goto("/");
+      await expect(inventoryButton(page)).toBeVisible({ timeout: 60_000 });
+      await inventoryButton(page).click();
+      const inventory = page.getByRole("dialog", { name: "Inventory", exact: true });
+      await expect(inventory.locator("[data-phone-toast-header]")).toBeVisible();
+      const close = inventory.getByRole("button", { name: "Close", exact: true });
+      const entry = sampleHeaderHits(page);
+      const toast = await showToast(page, "Inventory header toast");
+      await headerOverlaps(toast);
+      expect(await entry, "an arriving toast must clear Inventory Close").toEqual([]);
+      // The selected item's actions grow the centered panel and move its unchanged-size header upward.
+      const selection = sampleHeaderHits(page);
+      await inventory.getByRole("button", { name: "Rope x3, carried by Player", exact: true }).click();
+      expect(await selection, "a settled toast must clear Inventory Close while the panel grows").toEqual([]);
+      expect((await headerOverlaps(toast, ["[data-phone-toast-header] button"])).overlaps).toEqual([]);
+      expect(await sampleHeaderHits(page), "a lingering toast must clear every Inventory Close hit point").toEqual([]);
+      await expect(toast).toBeVisible();
+      // A real click must reach Close while the non-expiring toast and its hover bridge still exist.
+      await close.click();
+      await expect(inventory).toBeHidden();
+      await expect(toast).toBeVisible();
+      await dismissToast(page);
+    } finally {
+      await request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
     }
   });
 

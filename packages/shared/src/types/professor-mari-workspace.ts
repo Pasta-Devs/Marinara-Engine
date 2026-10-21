@@ -980,6 +980,8 @@ export interface MariWorkspaceStatus {
   runtimeSelected: MariRuntime;
   /** The runtime the next run actually uses for this connection; "classic" when "pi" cannot run on it. */
   runtimeActive: MariRuntime;
+  /** Consecutive failed Pi runs in this server session; cancellations do not count. */
+  piConsecutiveFailures?: number;
   /** Plain-words reason when runtimeSelected is not runtimeActive. */
   runtimeNote?: string | null;
   /** #5740: latest-round understood-request record (diagnostic only). */

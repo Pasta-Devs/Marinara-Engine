@@ -49,11 +49,15 @@ import {
   normalizeTextForMatch,
   parseGroupedSpeakerSegments,
   stripLeadingMessageTimestamps,
-  type InstalledCapabilityPackage,
   type Message,
   type ScenePackageOrigin,
 } from "@marinara-engine/shared";
-import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
+import {
+  selectConversationSurfacePackages,
+  selectConversationTurnGamePackages,
+  selectEnabledConversationPackages,
+  useInstalledCapabilityPackages,
+} from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { TURN_GAME_BOT_REQUEST_EVENT } from "../../lib/capability-turn-game-events";
 import { useGenerate } from "../../hooks/use-generate";
@@ -318,18 +322,6 @@ function ConversationBackground({
   ) : null;
 }
 
-/** The chat's package integrations the user turned on (Calls, which keeps its header button, aside). */
-function selectEnabledConversationPackages(installed: InstalledCapabilityPackage[], chatMeta: Record<string, any>) {
-  if (chatMeta.enableAgents !== true) return [];
-  const activeAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds) ? chatMeta.activeAgentIds : [];
-  return installed.filter((item) => {
-    if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
-    if (item.manifest.kind.includes("conversation-calls")) return false;
-    const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
-    return activeAgentIds.includes(item.id) || contributedAgentIds.some((id: string) => activeAgentIds.includes(id));
-  });
-}
-
 /** Package toolbars (the conversation-toolbar slot) as control windows that minimize to bubbles. */
 export function ConversationPackageWindows({
   chatId,
@@ -439,9 +431,7 @@ export function ConversationView({
   const gameSetup = useConversationGamesStore((s) => (s.setup?.chatId === chatId ? s.setup : null));
   const closeGameSetup = useConversationGamesStore((s) => s.closeSetup);
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
-  const turnGamePackages = installedCapabilities.filter(
-    (item) => item.status === "active" && item.manifest.kind.includes("turn-game") && item.manifest.entrypoints.client,
-  );
+  const turnGamePackages = selectConversationTurnGamePackages(installedCapabilities);
   const hasLiveStream = isStreaming;
   const streamBuffer = useThrottledStreamBuffer();
   const thinkingBuffer = useChatStore((s) => s.thinkingBuffer);
@@ -554,9 +544,7 @@ export function ConversationView({
     personaInfo,
     toolbarButtonClass: getChatToolbarButtonClass({ sizeClassName: CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS }),
   };
-  const conversationSurfacePackages = selectEnabledConversationPackages(installedCapabilities, chatMeta).filter(
-    (item) => item.manifest.contributions?.slots?.includes("conversation-surface"),
-  );
+  const conversationSurfacePackages = selectConversationSurfacePackages(installedCapabilities, chatMeta);
   const conversationCapabilityProps = { chatId, metadata: chatMeta, characterMap, chatCharIds, personaInfo };
   // Like the Roleplay strip, the see-through header lets touches through to the transcript except on its controls.
   const renderHeader = () => (

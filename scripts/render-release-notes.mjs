@@ -76,7 +76,12 @@ export function renderReleaseNotes(changelog, version, limit = RELEASE_BODY_LIMI
   let body = notes;
   while (kept > 1) {
     kept -= 1;
-    body = bullets.slice(0, kept).join("\n").trimEnd() + footer(bullets.length - kept);
+    // A section heading (and its intro line) left after the last kept bullet has nothing under it, so drop it.
+    const keptText = bullets
+      .slice(0, kept)
+      .join("\n")
+      .replace(/\n+#{1,6} [^\n]*(?:\n(?!- )[^\n]*)*$/u, "");
+    body = keptText.trimEnd() + footer(bullets.length - kept);
     if (body.length <= limit) return body;
   }
   throw new Error(`Release notes for ${version} exceed ${limit} characters even without any entries`);

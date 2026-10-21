@@ -15,7 +15,7 @@ ${StrTrimNewLines}
 
 ; ── App metadata ──
 !define APP_NAME "Marinara Engine"
-!define APP_VERSION "2.5.0"
+!define APP_VERSION "2.5.1"
 !define APP_PUBLISHER "Pasta-Devs"
 !define APP_URL "https://github.com/Pasta-Devs/Marinara-Engine"
 !define REPO_URL "https://github.com/Pasta-Devs/Marinara-Engine.git"
@@ -30,7 +30,7 @@ ${StrTrimNewLines}
 !define NODE_DOWNLOAD_URL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-x64.msi"
 !define GIT_SHA256 "2b96e7854f0520f0f6b709c21041d9801b1be44d5e1a0d9fa621b2fbc40f1983"
 !define NODE_SHA256 "bb0eaee134f9357f22aea915ee793343e627aefc1e66488164bac6915bce2cac"
-!define RELEASE_TAG "v2.5.0"
+!define RELEASE_TAG "v2.5.1"
 !ifndef RELEASE_COMMIT
 !error "RELEASE_COMMIT must pin the exact release commit"
 !endif
@@ -123,6 +123,15 @@ Var STAGE_DIR
 Var STAGE_DIR_CREATED
 Var STAGE_PARENT
 Var USER_DATA_PATHS
+Var PREREQUISITE_INSTALLER
+
+; Pass the resolved NSIS path as environment data, never interpolated PowerShell code.
+Function SetPrerequisiteInstallerPath
+  System::Call 'Kernel32::SetEnvironmentVariable(t "MARINARA_PREREQUISITE_INSTALLER", t "$PREREQUISITE_INSTALLER") i.r0'
+  ${If} $0 == 0
+    Abort
+  ${EndIf}
+FunctionEnd
 
 Function LaunchApp
   ExecShell "" "$INSTDIR\start.bat"
@@ -240,8 +249,10 @@ Section "Install" SecInstall
   ${If} $GIT_OK != 0
     DetailPrint "Git not found — attempting automatic install..."
     DetailPrint "Downloading Git for Windows (this may take a minute)..."
-    ; Download Git installer via PowerShell (known-working path used by the v1.4.7 installer)
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ""${GIT_DOWNLOAD_URL}"" -OutFile ""$TEMP\git-install.exe"" -UseBasicParsing"'
+    StrCpy $PREREQUISITE_INSTALLER "$TEMP\git-install.exe"
+    Call SetPrerequisiteInstallerPath
+    ; Keep PowerShell quotes intact; the path is data shared with execution and cleanup.
+    nsExec::ExecToLog `powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '${GIT_DOWNLOAD_URL}' -OutFile $$env:MARINARA_PREREQUISITE_INSTALLER -UseBasicParsing"`
     Pop $0
     ${If} $0 != 0
       MessageBox MB_YESNO|MB_ICONEXCLAMATION "\
@@ -255,17 +266,17 @@ Would you like to open the Git download page to install it manually?" IDYES open
         Abort "Installation cancelled — Git is required."
     ${EndIf}
     DetailPrint "Verifying Git installer integrity..."
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath ""$TEMP\git-install.exe"").Hash).ToLowerInvariant() -ne ''${GIT_SHA256}'') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath ""$TEMP\git-install.exe"").Status -ne ''Valid'') { exit 1 }"'
+    nsExec::ExecToLog `powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath $$env:MARINARA_PREREQUISITE_INSTALLER).Hash).ToLowerInvariant() -ne '${GIT_SHA256}') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath $$env:MARINARA_PREREQUISITE_INSTALLER).Status -ne 'Valid') { exit 1 }"`
     Pop $0
     ${If} $0 != 0
-      Delete "$TEMP\git-install.exe"
+      Delete "$PREREQUISITE_INSTALLER"
       MessageBox MB_OK|MB_ICONSTOP "The downloaded Git installer failed integrity or signature verification.$\r$\n$\r$\nInstallation was stopped before running it."
       Abort
     ${EndIf}
     DetailPrint "Installing Git (this may request admin permissions)..."
-    nsExec::ExecToLog '"$TEMP\git-install.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"'
+    nsExec::ExecToLog '"$PREREQUISITE_INSTALLER" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"'
     Pop $0
-    Delete "$TEMP\git-install.exe"
+    Delete "$PREREQUISITE_INSTALLER"
     ; Refresh PATH from registry so we can find the newly installed Git
     ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
     ReadRegStr $2 HKCU "Environment" "Path"
@@ -305,7 +316,9 @@ Please restart your computer and run this installer again."
   ${If} $NODE_OK != 0
     DetailPrint "Node.js 24 LTS or newer not found — attempting automatic install..."
     DetailPrint "Downloading Node.js LTS (this may take a minute)..."
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri ""${NODE_DOWNLOAD_URL}"" -OutFile ""$TEMP\node-install.msi"" -UseBasicParsing"'
+    StrCpy $PREREQUISITE_INSTALLER "$TEMP\node-install.msi"
+    Call SetPrerequisiteInstallerPath
+    nsExec::ExecToLog `powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '${NODE_DOWNLOAD_URL}' -OutFile $$env:MARINARA_PREREQUISITE_INSTALLER -UseBasicParsing"`
     Pop $0
     ${If} $0 != 0
       MessageBox MB_YESNO|MB_ICONEXCLAMATION "\
@@ -319,17 +332,17 @@ Would you like to open the Node.js download page to install it manually?" IDYES 
         Abort "Installation cancelled — Node.js is required."
     ${EndIf}
     DetailPrint "Verifying Node.js installer integrity..."
-    nsExec::ExecToLog 'cmd /c powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath ""$TEMP\node-install.msi"").Hash).ToLowerInvariant() -ne ''${NODE_SHA256}'') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath ""$TEMP\node-install.msi"").Status -ne ''Valid'') { exit 1 }"'
+    nsExec::ExecToLog `powershell -NoProfile -Command "if (((Get-FileHash -Algorithm SHA256 -LiteralPath $$env:MARINARA_PREREQUISITE_INSTALLER).Hash).ToLowerInvariant() -ne '${NODE_SHA256}') { exit 1 }; if ((Get-AuthenticodeSignature -LiteralPath $$env:MARINARA_PREREQUISITE_INSTALLER).Status -ne 'Valid') { exit 1 }"`
     Pop $0
     ${If} $0 != 0
-      Delete "$TEMP\node-install.msi"
+      Delete "$PREREQUISITE_INSTALLER"
       MessageBox MB_OK|MB_ICONSTOP "The downloaded Node.js installer failed integrity or signature verification.$\r$\n$\r$\nInstallation was stopped before running it."
       Abort
     ${EndIf}
     DetailPrint "Installing Node.js LTS (this may request admin permissions)..."
-    nsExec::ExecToLog 'msiexec /i "$TEMP\node-install.msi" /qb'
+    nsExec::ExecToLog 'msiexec /i "$PREREQUISITE_INSTALLER" /qb'
     Pop $0
-    Delete "$TEMP\node-install.msi"
+    Delete "$PREREQUISITE_INSTALLER"
     ; Refresh PATH
     ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
     ReadRegStr $2 HKCU "Environment" "Path"

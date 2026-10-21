@@ -580,7 +580,10 @@ export function GameInventory({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.02] px-4 py-3">
+        <div
+          data-phone-toast-header
+          className="flex items-center justify-between border-b border-white/8 bg-white/[0.02] px-4 py-3"
+        >
           <div className="flex items-center gap-2">
             <Package size={15} className="text-amber-400/80" />
             <h2 className="text-sm font-semibold tracking-wide text-white/90">

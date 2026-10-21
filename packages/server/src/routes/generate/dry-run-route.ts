@@ -673,7 +673,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Minimal, safe parameter defaults (still allow chat-level overrides)
     let temperature: number | undefined = 1;
-    let maxTokens = 2048;
+    let maxTokens = 4096;
     let topP: number | undefined = 1;
     let topK = 0;
     let minP = 0;
@@ -1921,7 +1921,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       lorebookImageEntries = assembled.lorebookScanResult?.imageEntries ?? [];
       advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
       temperature = assembled.parameters.temperature;
-      maxTokens = assembled.parameters.maxTokens;
       topP = assembled.parameters.topP ?? 1;
       topK = assembled.parameters.topK ?? 0;
       minP = assembled.parameters.minP ?? 0;
@@ -1936,17 +1935,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       if (assembled.parameters.enabledParameters) {
         enabledParameters = { ...(enabledParameters ?? {}), ...assembled.parameters.enabledParameters };
       }
-
-      effectiveMaxContext = mergeModelContextLimit(
-        modelAccessPolicy,
-        effectiveMaxContext,
-        resolveStoredModelContextLimit(modelAccessPolicy, assembled.parameters),
-      );
     }
 
     const modePresetParameters =
       effectivePresetId && effectivePreset && (chatMode === "conversation" || chatMode === "game")
-        ? parseStoredGenerationParameters(effectivePreset.parameters)
+        ? parsePresetParameters(effectivePreset.parameters)
         : null;
     if (modePresetParameters) applyParameterOverrides(modePresetParameters);
     applyParameterOverrides(connectionParams);

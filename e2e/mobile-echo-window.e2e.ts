@@ -238,7 +238,7 @@ test("mobile Echo can move, resize, lock and restore its saved window", async ({
     await page.touchscreen.tap(190, moved.y + moved.height + 55);
     await expect(bubble).toBeVisible();
     await expect(panel).toHaveCount(0);
-    await expect.poll(async () => (await readLayout())?.minimized).toBe(true);
+    await expect.poll(readLayout).toMatchObject({ ...moved, pinned: false, locked: false, minimized: true });
     await page.reload();
     await expect(bubble).toBeVisible();
     await bubble.tap();

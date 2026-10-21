@@ -1,3 +1,4 @@
+import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
 // ──────────────────────────────────────────────
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
@@ -57,6 +58,11 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const chatPick = useChatModelPick(activeChatId);
+  const modelsEnabled = useUIStore((state) => state.quickSwitcherShowModels);
+  // A synced connection-only preference closes an open catalog; keep focus off the page body.
+  useEffect(() => {
+    if (open && !modelsEnabled && document.activeElement === document.body) btnRef.current?.focus();
+  }, [open, modelsEnabled]);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
@@ -402,6 +408,11 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 <X size="1rem" aria-hidden />
               </button>
             </div>
+            {tab === "connections" && (
+              <div className="flex justify-end border-b border-foreground/10 px-2 py-1">
+                <QuickSwitcherModelsToggle />
+              </div>
+            )}
             {tab === "personas" && (
               <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55">
                 <Search size="0.875rem" className="shrink-0" />
@@ -418,6 +429,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
             {tab === "connections" && (
               <ConnectionSwitcherBody
                 layout="steps"
+                catalogBrowse={modelsEnabled}
                 current={chatPick.current}
                 recent={chatPick.recent}
                 onApply={chatPick.apply}

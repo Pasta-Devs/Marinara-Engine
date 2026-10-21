@@ -37,9 +37,9 @@ const network = {
   containerInterfaceNames: new Set(["eth0"]),
 };
 
-function request(ip: string): FastifyRequest {
+function request(ip: string, host = "127.0.0.1:7860"): FastifyRequest {
   return {
-    headers: { host: "192.168.1.91:7860" },
+    headers: { host },
     ip,
     raw: { socket: { localAddress: "192.168.215.2" } },
     url: "/api/chats",
@@ -54,6 +54,12 @@ try {
     isTrustedInterfaceRequest(request("192.168.215.1"), network),
     true,
     "without configured access control the gateway still replaces the lockdown for the local compose setup",
+  );
+  // Deliberate change (#7914): a gateway request that names a LAN or public Host is a relayed visitor, not the host's own browser.
+  assert.equal(
+    isTrustedInterfaceRequest(request("192.168.215.1", "192.168.1.91:7860"), network),
+    false,
+    "a gateway request with a LAN Host must not skip the login",
   );
   assert.equal(isTrustedInterfaceRequest(request("192.168.215.7"), network), true);
 

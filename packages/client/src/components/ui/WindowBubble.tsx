@@ -35,6 +35,7 @@ import {
   type WindowBounds,
   type WindowPoint,
 } from "../../lib/floating-window-layout";
+import { isPhoneWindowLayout, useFloatingWindowStore } from "../../stores/floating-window.store";
 import type { SnapGuide } from "../../lib/window-bubble-snap";
 
 /** A press that moves less than this (px) opens the bubble instead of dragging it; touch gets more room. */
@@ -50,7 +51,10 @@ const subscribeBubblePlacements = (listener: () => void) => {
   return () => placementListeners.delete(listener);
 };
 function updateBubblePlacements() {
-  const next = placeWindowBubbles(mountedBubbles);
+  const next = placeWindowBubbles(
+    mountedBubbles,
+    isPhoneWindowLayout() ? undefined : useFloatingWindowStore.getState().buttonLayout,
+  );
   if (
     next.size === bubblePlacements.size &&
     [...next].every(([id, point]) => {
@@ -133,6 +137,9 @@ export function WindowBubble({
   children,
 }: WindowBubbleProps) {
   const { t } = useTranslation();
+  const buttonLayout = useFloatingWindowStore((state) => state.buttonLayout);
+  const arranged = !isPhoneWindowLayout() && !!buttonLayout;
+  locked = locked || arranged;
   const ownRef = useRef<HTMLButtonElement | null>(null);
   const bubbleRef = buttonRef ?? ownRef;
   const dragRef = useRef<BubbleDrag | null>(null);
@@ -171,6 +178,7 @@ export function WindowBubble({
     updateBubblePlacements();
   }, [
     id,
+    buttonLayout,
     origin.x,
     origin.y,
     point.automatic,
@@ -240,7 +248,7 @@ export function WindowBubble({
   };
 
   /** Where the bubble lands for this pointer position; Alt places it freely, without snapping. */
-  const readDrop = (drag: BubbleDrag, event: ReactPointerEvent<HTMLButtonElement>) => {
+  const readDrop = (drag: BubbleDrag, event: { clientX: number; clientY: number; altKey: boolean }) => {
     const current = measuredSize();
     const raw = clampWindowBubble(
       { x: drag.start.x + event.clientX - drag.startX, y: drag.start.y + event.clientY - drag.startY },
@@ -257,9 +265,9 @@ export function WindowBubble({
     const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
     if (!drag.moved && distance < drag.threshold) return;
     drag.moved = true;
-    const next = readDrop(drag, event);
+    const pointer = { clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
     cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => setLive(next));
+    frameRef.current = requestAnimationFrame(() => setLive(readDrop(drag, pointer)));
   };
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -343,9 +351,11 @@ export function WindowBubble({
         aria-expanded={expanded}
         aria-describedby={describedBy ?? (hasBanner ? bannerId : undefined)}
         title={
-          locked
-            ? t("window.bubble.lockedHint", { title: label })
-            : (tooltip ?? t("window.bubble.hint", { title: label }))
+          arranged
+            ? t("chat.buttonLayout.buttonHint", { title: label })
+            : locked
+              ? t("window.bubble.lockedHint", { title: label })
+              : (tooltip ?? t("window.bubble.hint", { title: label }))
         }
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

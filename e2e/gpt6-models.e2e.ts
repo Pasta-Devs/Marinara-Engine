@@ -57,7 +57,7 @@ for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
             return {
               model: row.model,
               maxContext: row.maxContext,
-              effort: JSON.parse(row.defaultParameters).reasoningEffort,
+              effort: JSON.parse(row.defaultParameters)?.reasoningEffort,
             };
           })
           .toEqual({ model, maxContext: 1_050_000, effort });

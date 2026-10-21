@@ -1,4 +1,4 @@
-import { DEFAULT_GENERATION_PARAMS } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, withoutPresetTokenLimits } from "@marinara-engine/shared";
 import { GenerationParametersFields, getEditableGenerationParameters } from "../ui/GenerationParametersEditor";
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
@@ -285,7 +285,7 @@ export function PresetEditor() {
       author: localAuthor,
       conversationPrompt: localConversationPrompt,
       gamePrompt: localGamePrompt,
-      parameters: { ...DEFAULT_GENERATION_PARAMS, ...localParameters },
+      parameters: withoutPresetTokenLimits({ ...DEFAULT_GENERATION_PARAMS, ...localParameters }),
       scopedRegexMode: localScopedRegexMode,
     };
     await updatePreset.mutateAsync(payload);
@@ -636,6 +636,7 @@ export function PresetEditor() {
               <GenerationParametersFields
                 value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
                 showServiceTier
+                showTokenLimits={false}
                 onChange={(next) => {
                   setLocalParameters((previous) => ({ ...previous, ...next }));
                   markDirty();

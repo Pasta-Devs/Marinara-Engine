@@ -1702,6 +1702,16 @@ servers take a few libraries from the Engine instead of bundling them. Every new
 - `runtime.persistence.appendMessages(chatId, messages)` adds messages, each with its first swipe, in one batch and
   returns them. `createChatNote` and `createChatInfluence` add a note or a one-time influence from a conversation to
   its connected roleplay. These four persistence members need `chat-write`.
+- `runtime.persistence.updateCharacterStatus(chatId, characterId, { status, activity, duration })` applies a
+  `[schedule_update]` the way the Engine does after a Conversation reply: a temporary status on the character card,
+  so the character shows it in every chat until it ends. `status` is `online`, `idle`, `dnd` or `offline`, `activity`
+  is at most 500 characters, and one of the two is required. `duration` is written as the command writes it (`2h`,
+  `30m`); without one, or with one it cannot read, the status lasts 60 minutes, and never more than a week. It resolves
+  `{ status, activity, expiresAt }`, or `null` when nothing changed: a status the user set by hand stays in charge,
+  and a shared room keeps its own routines. It rejects an update that is not valid, a chat that is not a Conversation
+  chat and a character that is not in the chat, and it needs `chat-write`. It came to capability API 1.341 after the
+  first Engines that report 1.341, so check `typeof api.runtime.persistence.updateCharacterStatus === "function"`, and
+  skip the status change when it is missing.
 - `runtime.integrations.admission` is the Engine's connection admission, so a package's background work waits for the
   user's own requests on the same connection. `withProvider(provider, connectionId, mode)` wraps a provider created by
   the same package's integrations, `run(connectionId, mode, operation)` runs one attempt, `tryBackground(connectionId)`

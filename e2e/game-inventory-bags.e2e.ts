@@ -112,6 +112,9 @@ test("each party member carries their own bag, and stacks are given between them
     await expect.poll(savedInventory).toEqual(["Rope 1 player", "Arrow 20 player", "Rope 2 Bram"]);
 
     // Adding by name from a member's tab puts the new item in that member's bag.
+    // The bag tabs are content below the protected header. Leaving a toast unpauses its normal dismissal.
+    await page.mouse.move(0, 0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await tab("Bram").click();
     const newItem = page.getByLabel("Name of the item to add", { exact: true });
     await newItem.fill("Lantern");

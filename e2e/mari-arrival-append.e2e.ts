@@ -66,6 +66,10 @@ async function openChatThenAskMari(page: Page, chatId: string) {
 // at the same time as any other locked Mari-thread spec; the cleanup then starts from a clean slate.
 test.beforeEach(async ({ request }) => {
   await acquireMariThreadLock();
+  // The scripted model below returns Classic JSON frames.
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
   const existing = (await (await request.get("/api/chats/internal/professor-mari/chats")).json()) as Array<{
     id: string;
   }>;

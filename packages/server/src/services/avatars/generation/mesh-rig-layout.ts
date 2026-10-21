@@ -12,6 +12,9 @@ import { tryParseJsonRecord } from "../../../lib/json-repair.js";
 type Box = [number, number, number, number];
 type Point = [number, number];
 
+/** Picture size the runtime's painted mouth and the maker's mesh cells are calibrated for. */
+export const MESH_RIG_REFERENCE_SIZE = 1254;
+
 const finite = z.number().finite();
 const box = z.tuple([finite, finite, finite, finite]);
 const point = z.tuple([finite, finite]);
@@ -23,7 +26,7 @@ export const meshRigLayoutSchema = z
     eyes: z.array(z.object({ opening: box, region: box }).strict()).length(2),
     brows: z.array(box).length(2),
     nose: point,
-    mouth: z.object({ left: point, right: point, box }).strict(),
+    mouth: z.object({ left: point, right: point, box, bow: finite.optional() }).strict(),
     neck: point,
   })
   .strict();
@@ -84,6 +87,8 @@ export function checkMeshRigLayout(
     ...parsed.data,
     eyes: [...parsed.data.eyes].sort((a, b) => boxCenter(a.opening)[0] - boxCenter(b.opening)[0]),
     brows: [...parsed.data.brows].sort((a, b) => boxCenter(a)[0] - boxCenter(b)[0]),
+    // Bow is measured from the drawing after validation, never supplied by the vision model.
+    mouth: { left: parsed.data.mouth.left, right: parsed.data.mouth.right, box: parsed.data.mouth.box },
   };
   const errors: string[] = [];
   const checkBox = (name: string, b: Box, min = 1) => {
@@ -146,7 +151,12 @@ export function scaleMeshRigLayout(layout: MeshRigLayout, factor: number): MeshR
     eyes: layout.eyes.map((eye) => ({ opening: b(eye.opening), region: b(eye.region) })),
     brows: layout.brows.map(b),
     nose: p(layout.nose),
-    mouth: { left: p(layout.mouth.left), right: p(layout.mouth.right), box: b(layout.mouth.box) },
+    mouth: {
+      left: p(layout.mouth.left),
+      right: p(layout.mouth.right),
+      box: b(layout.mouth.box),
+      ...(layout.mouth.bow === undefined ? {} : { bow: layout.mouth.bow * factor }),
+    },
     neck: p(layout.neck),
   };
 }
@@ -316,7 +326,7 @@ export function deriveMeshRig(layout: MeshRigLayout, width: number, height: numb
   const neck = layout.neck as Point;
   const chestCy = chin + faceH;
   const lowEnd = Math.max(height, chestCy + 1);
-  const scale = Math.max(0.5, Math.min(2, Math.min(width, height) / 1254));
+  const scale = Math.max(0.5, Math.min(2, Math.min(width, height) / MESH_RIG_REFERENCE_SIZE));
   const cell = (value: number, minimum: number) => Math.max(minimum, Math.round(value * scale));
   const clampX = (value: number) => Math.round(Math.max(0, Math.min(width, value)));
   const clampY = (value: number) => Math.round(Math.max(0, Math.min(height, value)));
@@ -379,7 +389,7 @@ export function deriveMeshRig(layout: MeshRigLayout, width: number, height: numb
       cy: round2(mouthCy),
       angle: round2(angle * 1000) / 1000,
       halfLen: round2(halfLen),
-      bow: round2(0.1 * halfLen),
+      bow: round2(layout.mouth.bow ?? 0.1 * halfLen),
       area: {
         ...ellipse(
           boxCenter(mouthBox)[0],

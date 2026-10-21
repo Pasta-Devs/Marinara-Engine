@@ -3,6 +3,7 @@
 // runs (its maker, and whether it follows Main or is this chat's own pick);
 // it opens the shared one-column chooser. A pick applies to this chat only.
 // ──────────────────────────────────────────────
+import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
@@ -38,6 +39,11 @@ export function QuickConnectionSwitcher({
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const chatPick = useChatModelPick(activeChatId);
+  const modelsEnabled = useUIStore((state) => state.quickSwitcherShowModels);
+  // A synced connection-only preference closes an open catalog; keep focus off the page body.
+  useEffect(() => {
+    if (open && !modelsEnabled && document.activeElement === document.body) btnRef.current?.focus();
+  }, [open, modelsEnabled]);
   const effective = useEffectiveChatModel(activeChatId);
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
@@ -173,6 +179,7 @@ export function QuickConnectionSwitcher({
               <h2 id="quick-connection-menu-title" className="min-w-0 flex-1 truncate text-sm font-semibold">
                 {localizeUi("connections.switcher.title")}
               </h2>
+              <QuickSwitcherModelsToggle />
               <button
                 type="button"
                 onClick={close}
@@ -184,6 +191,7 @@ export function QuickConnectionSwitcher({
             </div>
             <ConnectionSwitcherBody
               layout="steps"
+              catalogBrowse={modelsEnabled}
               current={chatPick.current}
               recent={chatPick.recent}
               onApply={chatPick.apply}

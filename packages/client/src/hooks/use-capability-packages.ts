@@ -200,6 +200,45 @@ export function selectGameExperiencePackages(
   );
 }
 
+/** The chat's package integrations the user turned on (Calls, which keeps its header button, aside). */
+export function selectEnabledConversationPackages(
+  installed: InstalledCapabilityPackage[],
+  chatMeta: Record<string, any>,
+): InstalledCapabilityPackage[] {
+  if (chatMeta.enableAgents !== true) return [];
+  const activeAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds) ? chatMeta.activeAgentIds : [];
+  return installed.filter((item) => {
+    if (item.status !== "active" || !item.manifest.entrypoints.client) return false;
+    if (item.manifest.kind.includes("conversation-calls")) return false;
+    const contributedAgentIds = item.manifest.contributions?.agentDetail?.agentIds ?? [];
+    return activeAgentIds.includes(item.id) || contributedAgentIds.some((id: string) => activeAgentIds.includes(id));
+  });
+}
+
+/** Turn games, whose surface (board) a Conversation chat mounts whether or not the game's agent is on. */
+export function selectConversationTurnGamePackages(
+  installed: InstalledCapabilityPackage[],
+): InstalledCapabilityPackage[] {
+  return installed.filter(
+    (item) => item.status === "active" && item.manifest.kind.includes("turn-game") && item.manifest.entrypoints.client,
+  );
+}
+
+/**
+ * Packages mounted in a Conversation chat's `conversation-surface` slot. Turn games declare that slot too, but their
+ * surface is already mounted by selectConversationTurnGamePackages, so they are left out here: with the game's agent
+ * on, the board would otherwise render twice.
+ */
+export function selectConversationSurfacePackages(
+  installed: InstalledCapabilityPackage[],
+  chatMeta: Record<string, any>,
+): InstalledCapabilityPackage[] {
+  return selectEnabledConversationPackages(installed, chatMeta).filter(
+    (item) =>
+      item.manifest.contributions?.slots?.includes("conversation-surface") && !item.manifest.kind.includes("turn-game"),
+  );
+}
+
 /** A restart-required update keeps exposing the manifest paired with the runtime
  * and client module that remain active until the process restarts. */
 export function resolveCapabilityPackageAvailableUntilRestart(

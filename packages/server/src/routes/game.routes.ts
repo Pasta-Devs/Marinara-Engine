@@ -7080,11 +7080,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       ...(setupConfig.gameStoryboardsEnabled ? [STORYBOARD_AGENT_ID] : []),
     ];
     const spotifySourceType = setupConfig.spotifySourceType ?? "liked";
-    const gameChatParameters = mergeStoredGenerationParameters(
-      defaultGenerationParameters,
+    const gameChatOverrides = mergeStoredGenerationParameters(
       sessionMeta.chatParameters,
       setupConfig.generationParameters,
     );
+    const gameChatParameters = mergeStoredGenerationParameters(defaultGenerationParameters, gameChatOverrides);
     const snapshotConnection = async (id: string | null | undefined) => {
       if (!id) return null;
       if (id === "random") return { name: "Random connection pool", provider: "random" };
@@ -7205,7 +7205,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           ? setupConfig.spotifyArtist || null
           : null,
       gameLorebookKeeperEnabled: setupConfig.enableLorebookKeeper === true,
-      ...(gameChatParameters ? { chatParameters: gameChatParameters } : {}),
+      ...(gameChatOverrides ? { chatParameters: gameChatOverrides } : {}),
     });
 
     const updatedSession = await chats.getById(sessionChat.id);

@@ -28,7 +28,7 @@ import { StorageMigrationNoticeModal } from "./components/modals/StorageMigratio
 import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
-import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
+import { AppBannerHost } from "./components/layout/AppBannerHost";
 import { AgentUpdatePrompter } from "./components/agents/AgentUpdatePrompter";
 import { Toaster, toast } from "sonner";
 import {
@@ -1282,7 +1282,7 @@ export function App() {
         </Suspense>
       )}
       <AppDialogRenderer />
-      <CsrfOriginWarningBanner />
+      <AppBannerHost />
       <div
         ref={toasterHostRef}
         // Sonner slides top toasts upward and extends their hover area above the visible box.

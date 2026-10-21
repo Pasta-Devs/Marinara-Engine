@@ -1,13 +1,12 @@
 /**
  * The avatar stage and setup decisions (base lane, #7537):
  *   - a chat shows an owner's active kind when its agent is on, else falls back pngtuber → mesh-avatar → vrm;
- *   - phones show at most 2 avatars and desktops 4, with the budget's frame rates and pixel-ratio caps; in the
+ *   - the cast is uncapped, with the budget's frame rates and pixel-ratio caps; in the
  *     one shared loop only the speaking avatar draws at the talking rate, every other one at the idle rate,
  *     and a phone is under load when one draw of every avatar is slow, whichever avatars share a tick;
  *   - the owner's lip sync, blink and idle-motion switches (and reduced motion) shape every frame;
  *   - PNGTuber pictures resolve to stored files or the owner's sprites, expression sprites first;
- *   - with 2D Avatars on, an owner's expression sprites are a PNGTuber avatar until one is saved (built by
- *     the 2D lane's rule, so `_talk`/`_blink` sprites are mouth and eye variants), and turning it off hides it;
+ *   - expression sprites can preview a PNGTuber setup, but only a saved, enabled setup shows in chats;
  *   - the setup page leaves importing, removing, sprites and faces to the kind panels;
  *   - the chat surfaces load the stage lazily, only for avatar agents the chat turned on, and create the
  *     director only once an avatar shows.
@@ -54,7 +53,7 @@ assert.equal(
 );
 assert.equal(pickAvatarKind({ activeKind: "vrm", kinds: ["vrm"] }, ["2d-avatars"]), null, "nothing can show");
 
-// ── Who shows, within the budget ──
+// ── Only configured, enabled owners show, without a cast limit ──
 const summary = (ownerId: string, kinds: AvatarOwnerSummary["kinds"], enabled = true): AvatarOwnerSummary => ({
   owner: { ownerType: "character", ownerId },
   enabled,
@@ -62,7 +61,7 @@ const summary = (ownerId: string, kinds: AvatarOwnerSummary["kinds"], enabled = 
   kinds,
   updatedAt: "2026-10-13T00:00:00.000Z",
 });
-const participants = ["a", "b", "c", "d", "e", "off"].map((ownerId) => ({
+const participants = ["a", "b", "c", "d", "e", "f", "off", "empty", "unsaved"].map((ownerId) => ({
   owner: { ownerType: "character" as const, ownerId },
   name: ownerId.toUpperCase(),
 }));
@@ -72,10 +71,12 @@ const summaries = [
   summary("c", ["mesh-avatar"]),
   summary("d", ["pngtuber"]),
   summary("e", ["pngtuber"]),
+  summary("f", ["pngtuber"]),
   summary("off", ["pngtuber"], false),
+  summary("empty", []),
 ];
 assert.deepEqual(
-  selectStageAvatars(participants, summaries, ["2d-avatars", "3d-avatars"], 4).map((avatar) => [
+  selectStageAvatars(participants, summaries, ["2d-avatars", "3d-avatars"]).map((avatar) => [
     avatar.participant.owner.ownerId,
     avatar.kind,
     avatar.index,
@@ -85,55 +86,21 @@ assert.deepEqual(
     ["b", "vrm", 1],
     ["c", "mesh-avatar", 2],
     ["d", "pngtuber", 3],
+    ["e", "pngtuber", 4],
+    ["f", "pngtuber", 5],
   ],
-  "desktop draws four",
+  "all configured, enabled avatars show, including beyond the old phone and desktop limits",
 );
 assert.deepEqual(
-  selectStageAvatars(participants, summaries, ["2d-avatars"], 2).map((avatar) => avatar.participant.owner.ownerId),
-  ["a", "c"],
-  "a phone draws two, skipping the VRM whose agent is off",
+  selectStageAvatars(participants, summaries, ["2d-avatars"]).map((avatar) => avatar.participant.owner.ownerId),
+  ["a", "c", "d", "e", "f"],
+  "no disabled, empty, unsaved or 3D-only owner enters the 2D cast",
 );
-assert.deepEqual(selectStageAvatars(participants, summaries, [], 4), [], "no avatar agent, no avatars");
-assert.deepEqual(
-  selectStageAvatars([participants[0]!, participants[0]!], summaries, ["2d-avatars"], 4).length,
-  1,
-  "an owner shows once",
-);
-
-// ── Expression sprites are a PNGTuber avatar until one is saved ──
-const spriteOwners = new Set(["character:s", "character:off", "character:b"]);
-const withSprites = [...participants, { owner: { ownerType: "character" as const, ownerId: "s" }, name: "S" }];
-assert.deepEqual(
-  selectStageAvatars(withSprites, summaries, ["2d-avatars"], 8, spriteOwners).map((avatar) => [
-    avatar.participant.owner.ownerId,
-    avatar.kind,
-    avatar.saved,
-  ]),
-  [
-    ["a", "pngtuber", true],
-    ["b", "pngtuber", true],
-    ["c", "mesh-avatar", true],
-    ["d", "pngtuber", true],
-    ["e", "pngtuber", true],
-    ["s", "pngtuber", false],
-  ],
-  "sprites show with nothing saved; a VRM whose agent is off falls back to its sprites; a turned-off one stays hidden",
-);
-assert.deepEqual(
-  selectStageAvatars(withSprites, summaries, ["3d-avatars"], 8, spriteOwners).map((a) => a.participant.owner.ownerId),
-  ["b"],
-  "sprites need 2D Avatars",
-);
-assert.deepEqual(
-  selectStageAvatars(withSprites, undefined, ["2d-avatars"], 8, spriteOwners),
-  [],
-  "nothing shows before the saved avatars are known, so a turned-off one never flashes in",
-);
-assert.deepEqual(
-  selectStageAvatars(withSprites, [], ["2d-avatars"], 8, spriteOwners).map((a) => a.participant.owner.ownerId),
-  ["b", "off", "s"],
-  "with no avatar saved at all, every owner with sprites shows",
-);
+assert.deepEqual(selectStageAvatars(participants, summaries, []), [], "no avatar agent, no avatars");
+assert.equal(selectStageAvatars([participants[0]!, participants[0]!], summaries, ["2d-avatars"]).length, 1);
+assert.deepEqual(selectStageAvatars(participants, undefined, ["2d-avatars"]), [], "wait for summaries");
+assert.deepEqual(selectStageAvatars(participants, [], ["2d-avatars"]), [], "no saved setups, no cast");
+assert.doesNotMatch(client("features/avatars/contract.ts"), /maxVisible/u, "no device-specific cast limit");
 
 // ── Budget ──
 assert.equal(avatarTargetFps({ talking: true, phone: true, underLoad: true }), 30);
@@ -270,7 +237,7 @@ assert.deepEqual(fromSprites.layers.happy?.mouthOpen, { source: "sprite", label:
 assert.equal(fromSprites.expressionMap.sad?.target, "crying");
 const spriteAvatar = withSpriteAvatar(owner, null, fromSprites);
 assert.ok(spriteAvatar);
-assert.deepEqual([spriteAvatar.enabled, spriteAvatar.activeKind], [true, null]);
+assert.deepEqual([spriteAvatar.enabled, spriteAvatar.activeKind], [false, null]);
 assert.equal(spriteAvatar.kinds.pngtuber, fromSprites);
 assert.ok(avatarConfigSchema.safeParse(spriteAvatar).success, "the sprite avatar is a valid avatar.json");
 assert.equal(withSpriteAvatar(owner, spriteAvatar, fromSprites), spriteAvatar, "the same object, so nothing remounts");

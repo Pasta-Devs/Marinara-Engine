@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { WORLD_GENERATOR_VERSION, WORLD_STARTER_KITS, parseWorldKit } from "@marinara-engine/shared";
 import { openGame } from "./game-ruleset-fight-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { downloadExport } from "./export-save.js";
 
 /**
  * Tile packs (worldgen W9a), on screen: a pack file is imported into the library in the Agents panel,
@@ -57,11 +58,10 @@ test("a tile pack is imported, chosen for its family, drawn on the overworld, ex
       .toEqual({ fantasy: "local/night-meadows" });
     await page.screenshot({ path: testInfo.outputPath("tile-packs-panel.png") });
 
-    // Exported as a file.
-    const [download] = await Promise.all([
-      page.waitForEvent("download"),
+    // #7115 intentionally offers an iPhone Save file action before the browser download.
+    const download = await downloadExport(page, () =>
       page.getByRole("button", { name: "Export Night meadows", exact: true }).click(),
-    ]);
+    );
     expect(download.suggestedFilename()).toBe("Night_meadows.tilepack.json");
     const exported = JSON.parse(await readFile(await download.path(), "utf8"));
     expect(exported.tiles.grass).toEqual(file.tiles.grass);

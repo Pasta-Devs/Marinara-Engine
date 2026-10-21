@@ -1289,6 +1289,7 @@ export function CharacterEditor() {
                 }}
                 className="mari-editor-title-input"
                 title={formData.name || undefined}
+                aria-label={localizeUi("ui.characters.charactereditor.characterName")}
                 placeholder={localizeUi("ui.characters.charactereditor.characterName")}
                 size={Math.max(1, Math.min(formData.name.length || 14, 80))}
               />

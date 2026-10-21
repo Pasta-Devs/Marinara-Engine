@@ -262,7 +262,12 @@ export function createAvatarRenderer(): AvatarRenderer {
     face = nextFace;
 
     eyeOpen = easeMeshAvatarEyes(eyeOpen, nextFace.emotion, seconds);
-    const overrides = meshAvatarOverrides(frame, { still, blink: config.features.blink, eyeOpen });
+    const overrides = meshAvatarOverrides(frame, {
+      still,
+      blink: config.features.blink,
+      eyeOpen,
+      mouthOpen: mouth.mode === "hold" ? frame.mouthOpen : undefined,
+    });
     const key = JSON.stringify(overrides);
     if (key !== overridesKey) {
       target.setParameters(overrides, 1);

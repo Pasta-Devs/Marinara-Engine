@@ -807,7 +807,11 @@ export function gameDungeonSpotsAt(map: GameDungeonMap, hour: number): NonNullab
 /** The way out in words for leaving by it: "the stairs", "the ladder", "the ladder hatch" (the set's
  *  word for the tile says which way it goes, which leaving does not). */
 export function dungeonWayOutWords(set: DungeonSet): string {
-  const tile = (set.props[DUNGEON_EXIT_PROP] ?? "way out").replace(/\s+(down|up)$/u, "");
+  // A trailing " down"/" up" goes without a /\s+(down|up)$/ regex, which stalls on long runs of spaces.
+  const exit = set.props[DUNGEON_EXIT_PROP] ?? "way out";
+  const way = ["down", "up"].find((word) => exit.endsWith(word));
+  const head = way ? exit.slice(0, -way.length) : "";
+  const tile = head.trimEnd() !== head ? head.trimEnd() : exit;
   return /^(an?|the) /u.test(tile) ? tile.replace(/^an? /u, "the ") : `the ${tile}`;
 }
 
@@ -928,8 +932,14 @@ export type GameDungeonTag =
 
 export function readGameDungeonTags(text: string): GameDungeonTag[] {
   const tags: GameDungeonTag[] = [];
-  for (const match of text.matchAll(/\[map:\s*([^\]]*)\]/giu)) {
-    const body = match[1] ?? "";
+  // Each `[map:` runs to the first "]" after it, found by indexOf: a /\[map:\s*([^\]]*)\]/ regex stalls
+  // on a long tag left open (many spaces, or many `[map:`, with no "]" after them).
+  const opener = /\[map:/giu;
+  for (let open = opener.exec(text); open; open = opener.exec(text)) {
+    const close = text.indexOf("]", opener.lastIndex);
+    if (close < 0) break;
+    const body = text.slice(opener.lastIndex, close).trimStart();
+    opener.lastIndex = close + 1;
     if (/^\s*leave\b/iu.test(body) || /\baction\s*=\s*"leave"/iu.test(body)) {
       tags.push({ leave: true });
       continue;

@@ -1257,6 +1257,7 @@ function previewProfileStorageSnapshotStats(
 ) {
   const tableCounts: Record<string, number> = {};
   for (const tableName of FILE_BACKED_TABLES) {
+    if (!profileTableObjects.has(tableName)) continue;
     const rows = snapshot.tables[tableName];
     tableCounts[tableName] = Array.isArray(rows) ? rows.length : 0;
   }
@@ -1314,6 +1315,7 @@ function previewLegacyProfileImportStats(
 
 function countProfileStorageSnapshotItems(snapshot: ProfileStorageSnapshot) {
   const tableRows = FILE_BACKED_TABLES.reduce((count, tableName) => {
+    if (!profileTableObjects.has(tableName)) return count;
     const rows = snapshot.tables[tableName];
     return count + (Array.isArray(rows) ? rows.length : 0);
   }, 0);
@@ -1336,7 +1338,8 @@ function validateProfileStorageTableInputs(snapshot: ProfileStorageSnapshot) {
     }
 
     const table = profileTableObjects.get(tableName);
-    if (!table) throw new ProfileImportRequestError(`Profile table ${tableName} is not supported.`);
+    // Package-registered tables are not profile data; the write step skips them too.
+    if (!table) continue;
     const primaryKey = schemaPrimaryKeyColumn(table);
     for (const row of rows) {
       if (!row || typeof row !== "object" || Array.isArray(row)) {

@@ -30,7 +30,6 @@ import { logger } from "../../../../lib/logger.js";
 export interface TextBlock {
   type: "text";
   text: string;
-  cache_control?: { type: "ephemeral"; ttl?: "1h" };
 }
 export interface ThinkingBlock {
   type: "thinking";
@@ -42,7 +41,6 @@ export interface ToolUseBlock {
   id: string;
   name: string;
   input: Record<string, unknown>;
-  cache_control?: TextBlock["cache_control"];
 }
 export interface ToolResultBlock {
   type: "tool_result";
@@ -292,19 +290,11 @@ export function buildAssistantEntry(args: {
  * System messages are excluded — they ride the SDK's `systemPrompt` option,
  * not the transcript. Each entry points its `parentUuid` at the prior entry's
  * `uuid` so the SDK can walk the conversation back to its root.
- *
- * `historyCacheControl` marks the newest assistant reply that is not the last
- * history entry. Claude Code only marks the system prompt and the current
- * turn, and Marinara's current turn carries per-turn blocks that are gone from
- * it a turn later, so without a history marker the next request can only reuse
- * the system prompt. The last history entry is skipped because prompt
- * wrappers (the xml `</chat_history>` close) ride on it and move every turn.
  */
 export function assembleEntries(
   history: readonly ChatMessage[],
   meta: CommonSessionMeta,
   model: string,
-  historyCacheControl?: TextBlock["cache_control"],
 ): SyntheticEntry[] {
   const entries: SyntheticEntry[] = [];
   let parentUuid: string | null = null;
@@ -320,17 +310,6 @@ export function assembleEntries(
       const entry = buildAssistantEntry({ message: m, parentUuid, meta, model });
       entries.push(entry);
       parentUuid = entry.uuid;
-    }
-  }
-  for (let i = entries.length - 2; historyCacheControl && i >= 0; i--) {
-    const entry = entries[i]!;
-    if (entry.type !== "assistant") continue;
-    // The last block caches the whole reply: tool calls follow the text. A reply with
-    // neither holds only an empty placeholder, which can't take a marker, so keep looking.
-    const lastBlock = entry.message.content.at(-1);
-    if (lastBlock?.type === "tool_use" || (lastBlock?.type === "text" && lastBlock.text)) {
-      lastBlock.cache_control = historyCacheControl;
-      break;
     }
   }
   return entries;
@@ -433,11 +412,30 @@ export function splitHistoryForResume(messages: readonly ChatMessage[]): SplitRe
     };
   }
 
+  const history = nonSystem.slice(0, nonSystem.length - 1);
   return {
-    history: nonSystem.slice(0, nonSystem.length - 1),
-    current: trailing,
+    history,
+    current: trailing.role === "user" ? moveHistoryCloseToCurrent(history, trailing) : trailing,
     shape: trailing.role === "tool" ? "trailing-tool" : "trailing-user",
   };
+}
+
+const XML_HISTORY_CLOSE = "\n</chat_history>";
+
+/**
+ * Claude Code puts its own cache marker on the last history entry, and the
+ * xml wrap appends `</chat_history>` to that entry. The tag moves to the next
+ * reply every turn, so the marked entry never matched the following request
+ * and the whole history was written to the cache again. Moving the tag to the
+ * start of the current turn keeps the text order and leaves the marked entry
+ * identical next turn. Claude Code can already use all four cache markers, so
+ * adding one of Marinara's own is rejected ("A maximum of 4 blocks").
+ */
+function moveHistoryCloseToCurrent(history: ChatMessage[], current: ChatMessage): ChatMessage {
+  const last = history.at(-1);
+  if (!last?.content?.endsWith(XML_HISTORY_CLOSE)) return current;
+  history[history.length - 1] = { ...last, content: last.content.slice(0, -XML_HISTORY_CLOSE.length) };
+  return { ...current, content: `${XML_HISTORY_CLOSE.trimStart()}\n${current.content ?? ""}` };
 }
 
 // ──────────────────────────────────────────────

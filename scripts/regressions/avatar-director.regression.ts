@@ -103,6 +103,100 @@ assert.deepEqual(
   { alice: "Hi there! Fine", bob: "Get lost." },
   "dialogue per owner, with [Name]: lines and an open quote",
 );
+for (const dialogue of ["I <3 you. See you tomorrow.", "a < b, as I told you."]) {
+  const text = `Alice smiles. "${dialogue}"`;
+  const attributed = replyText.attributeReplyParagraphs(text, [alice, bob], "alice", "alice");
+  assert.equal(attributed.at(-1)?.end, text.length, "a bare less-than sign never truncates the reply's owner span");
+  assert.deepEqual(
+    Object.fromEntries(replyText.collectReplyDialogue(text, attributed, [alice, bob])),
+    { alice: dialogue },
+    "heart emoticons and comparisons remain in the speaker's dialogue",
+  );
+}
+for (const text of [
+  'Alice smiles. "x<y is true."\n[Bob]: "Hi."',
+  'Alice smiles. "x<y is true." <speaker="Bob">"Hi."</speaker>',
+]) {
+  const attributed = replyText.attributeReplyParagraphs(text, [alice, bob], null, "alice");
+  assert.equal(attributed.at(-1)?.ownerId, "bob", "a partial tag cannot consume a later line or speaker tag");
+  assert.equal(
+    replyText.collectReplyDialogue(text, attributed, [alice, bob]).get("bob"),
+    "Hi.",
+    "a less-than sign in earlier prose never hides a later speaker's dialogue",
+  );
+}
+const laterPartialTag = 'Alice smiles. "x<y is true." <speaker="Bob';
+assert.equal(
+  replyText.attributeReplyParagraphs(laterPartialTag, [alice, bob], null, "alice").at(-1)?.end,
+  laterPartialTag.lastIndexOf("<speaker"),
+  "a later partial tag is trimmed from its own opening bracket",
+);
+for (const ending of ["\n", "\r\n", "\n\n", "\r\n\r\n"]) {
+  const text = `A greeting. "Hello there." <speaker="Bob${ending}`;
+  const attributed = replyText.attributeReplyParagraphs(text, [alice, bob], null, "alice");
+  assert.deepEqual(
+    attributed.map((paragraph) => paragraph.ownerId),
+    ["alice"],
+    "trailing line breaks in a partial tag never assign earlier narration to its unfinished speaker",
+  );
+  assert.deepEqual(
+    Object.fromEntries(replyText.collectReplyDialogue(text, attributed, [alice, bob])),
+    { alice: "Hello there." },
+    "earlier dialogue keeps its fallback speaker when a partial tag ends in line breaks",
+  );
+}
+
+const inlineTagged = 'Alice waits. <speaker="Bob">"This is wonderful!"</speaker> Alice sobs.';
+const inlineParagraphs = replyText.attributeReplyParagraphs(inlineTagged, [alice, bob], null, "alice");
+assert.deepEqual(
+  inlineParagraphs.map((paragraph) => paragraph.ownerId),
+  ["alice", "bob", "alice"],
+  "inline speaker tags give dialogue and its emotion to their named owner, separate from narration",
+);
+for (const text of ['<speaker="Bob">"Hello there', '<speaker="Bob">"Hello there"</spea']) {
+  assert.deepEqual(
+    Object.fromEntries(
+      replyText.collectReplyDialogue(text, replyText.attributeReplyParagraphs(text, [alice, bob], null, "alice"), [
+        alice,
+        bob,
+      ]),
+    ),
+    { bob: "Hello there" },
+    "a streaming speaker tag speaks its body, never the name attribute or a partial closing tag",
+  );
+}
+for (const unknownTagged of ['<speaker="Guard">"Hello there."</speaker>', '[Guard]: "Hello, Alice."']) {
+  for (const people of [[alice, bob], [alice]]) {
+    const attributed = replyText.attributeReplyParagraphs(unknownTagged, people, null, "alice");
+    assert.deepEqual(
+      Object.fromEntries(replyText.collectReplyDialogue(unknownTagged, attributed, people)),
+      {},
+      "an unknown explicit speaker never borrows a character's avatar, even when only one is on stage",
+    );
+    assert.ok(
+      attributed.every((paragraph) => paragraph.ownerId === null),
+      "unknown speaker markup also gives no character its line's emotion",
+    );
+  }
+}
+
+const bracketed = '[Bob] [happy]: "Alice, this is wonderful."';
+assert.deepEqual(
+  replyText.attributeReplyParagraphs(bracketed, [alice, bob], null, "alice").map((paragraph) => paragraph.ownerId),
+  ["bob"],
+  "bracketed speaker formatting wins over a name mentioned in dialogue",
+);
+assert.deepEqual(
+  Object.fromEntries(
+    replyText.collectReplyDialogue(
+      '[Alice Moon]: "Hello there."',
+      replyText.attributeReplyParagraphs('[Alice Moon]: "Hello there."', [alice, bob], "bob", "alice"),
+      [alice, bob],
+    ),
+  ),
+  { bob: "Hello there." },
+  "a known Individual responder owns bracketed dialogue too",
+);
 
 // ── The speech clock ──
 const run = (clock: ReturnType<typeof createSpeechClock>, from: number, to: number, stepMs = 10) => {
@@ -562,6 +656,40 @@ await flush();
   voicedGame.dispose();
 }
 
+// A previous member's voice can overlap the next displayed Game line. Once that voice has started, it
+// must not repeatedly erase another member's newer unvoiced line or delayed text fallback.
+for (const voiceExpected of [false, true]) {
+  const group = director.createAvatarDirector(
+    { chatId: `game-overlapping-voice-${voiceExpected}`, mode: "game", reducedMotion: false },
+    { classify: async () => assert.fail("Game faces must never use the classifier") },
+  );
+  group.setParticipants([
+    { owner: { ownerType: "character", ownerId: "alice" }, name: "Alice" },
+    { owner: { ownerType: "character", ownerId: "bob" }, name: "Bob" },
+  ]);
+  group.setAudioSource("alice", { ownerId: "alice", level: () => 0.8, isPlaying: () => true });
+  let time = 200_000;
+  group.frame("alice", time);
+  group.frame("bob", time);
+  group.pushGameLine({
+    id: "next-member",
+    ownerId: "bob",
+    speakerName: "Bob",
+    expression: null,
+    text: "I am speaking this next line without a voice clip.",
+    voiceExpected,
+    voicePending: false,
+  });
+  let bobTalking = false;
+  for (let elapsed = 0; elapsed < (voiceExpected ? 2_500 : 500); elapsed += 16) {
+    time += 16;
+    group.frame("alice", time);
+    bobTalking ||= group.frame("bob", time).state === "talking";
+  }
+  assert.ok(bobTalking, "an earlier member's voice does not erase the next Game member's text animation");
+  group.dispose();
+}
+
 // Participant edits are not playback events. New/re-added owners still hydrate, and real source changes still apply.
 {
   const hydrated = director.createAvatarDirector(
@@ -702,6 +830,164 @@ const scene = (id: string, names: string[]) => {
   return { scened, texts, talking, last, play, type, ready, start, end };
 };
 
+// Moving to the next Individual member ends the previous member's text animation, including when their
+// response text happens to match. An unrecognized streaming character must not borrow another avatar.
+{
+  const id = "director-individual-switch";
+  useChatStore.setState({ activeChatId: id, streamingCharacterId: "alice" });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  const line = '"A wonderful afternoon to sit outside together and enjoy the sunshine."';
+  store().setStreamBuffer(line, id);
+  await group.play(200);
+  assert.equal(group.last.alice!.state, "talking");
+  store().setStreamingCharacterId("bob");
+  await group.play(200);
+  assert.equal(group.last.alice!.mouthOpen, 0, "the previous member stops when the next member responds");
+  assert.equal(group.last.bob!.state, "talking", "identical text from a different member is still a new reply");
+  store().setStreamingCharacterId("removed-member");
+  store().setStreamBuffer('"Nobody else owns this reply."', id);
+  await group.play(200);
+  assert.ok(
+    Object.values(group.last).every((frame) => frame.mouthOpen === 0 && frame.state !== "thinking"),
+    "an unknown current responder moves no other character's avatar",
+  );
+  group.end();
+  group.scened.dispose();
+  store().setStreamingCharacterId(null);
+}
+
+// Merged formatting applies within one paragraph: a name in narration does not steal the tagged speaker's
+// mouth or happy face. Partial opening and closing tags must never speak the attribute containing the name.
+{
+  const id = "director-inline-tagged";
+  useChatStore.setState({ activeChatId: id });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  await group.type('Alice waits. <speaker="Bob">"This is wonderful, truly wonderful!"</speaker>');
+  group.end();
+  await group.play(2_000);
+  assert.equal(group.talking.alice, 0, "narration never animates the character it names");
+  assert.ok(group.talking.bob! > 500, "the tagged member speaks while its text streams");
+  assert.equal(group.last.bob!.emotion, "happy", "the tagged member gets its dialogue's emotion");
+  assert.equal(group.last.alice!.emotion, "neutral", "a name in narration gets none of another member's mood");
+  store().setStreamBuffer(
+    'Alice waits. <speaker="Bob">"This is wonderful, truly wonderful!"</speaker> <speaker="Guard">"Hello',
+    id,
+  );
+  await group.play(160);
+  assert.equal(group.last.bob!.mouthOpen, 0, "an unknown tagged speaker stops the previous member's queued mouth");
+  group.scened.dispose();
+}
+
+// Several tags may arrive in one visible-text update: only the last dialogue owner is currently responding.
+{
+  const id = "director-cumulative-tags";
+  useChatStore.setState({ activeChatId: id });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  store().setStreamBuffer(
+    '<speaker="Alice">"This is a wonderful afternoon."</speaker> <speaker="Bob">"I miss him so much today."</speaker>',
+    id,
+  );
+  await group.play(160);
+  assert.equal(group.last.alice!.mouthOpen, 0, "an earlier tag's queued syllables do not overlap the latest speaker");
+  assert.equal(group.last.bob!.state, "talking");
+  group.end();
+  group.scened.dispose();
+}
+
+// The current voice takes priority over stale text timing, and each clip's face follows its actual owner.
+{
+  const id = "director-group-audio-switch";
+  useChatStore.setState({ activeChatId: id, streamingCharacterId: "alice" });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  store().setStreamBuffer('"A very long reply to keep Alice speaking as the next voice starts."', id);
+  await group.play(160);
+  assert.equal(group.last.alice!.state, "talking");
+  group.scened.setAudioSource("bob", {
+    ownerId: "bob",
+    level: () => 0.8,
+    isPlaying: () => true,
+    line: () => ({ text: "This is wonderful.", progress: 0.8 }),
+  });
+  await group.play(2_000);
+  assert.equal(group.last.alice!.mouthOpen, 0, "another member's voice silences the previous text clock");
+  assert.ok(group.last.bob!.mouthOpen > 0.7, "the actual voice's owner moves");
+  assert.equal(group.last.bob!.emotion, "happy", "the actual voice's owner gets the clip's emotion");
+  group.scened.setAudioSource("bob", null);
+  group.scened.setAudioSource("alice", {
+    ownerId: "alice",
+    level: () => 0.8,
+    isPlaying: () => true,
+    line: () => ({ text: "I miss him so much.", progress: 0.8 }),
+  });
+  await group.play(2_000);
+  assert.equal(group.last.bob!.mouthOpen, 0, "the former voice's owner stops on the audio handoff");
+  assert.ok(group.last.alice!.mouthOpen > 0.7);
+  assert.equal(group.last.alice!.emotion, "sad", "the next voice's emotion follows its next owner");
+  group.scened.setAudioSource("alice", null);
+  group.end();
+  group.scened.dispose();
+  store().setStreamingCharacterId(null);
+}
+
+// With streaming disabled, the formatted Merged reply is animated in reading order, never by every avatar
+// at once. The existing replay reveal gives its explicit speaker spans the same pacing as streamed text.
+for (const format of ["tags", "brackets"]) {
+  useUIStore.setState({ enableStreaming: false });
+  const id = `director-whole-${format}`;
+  useChatStore.setState({ activeChatId: id, activeChat: { id, metadata: { groupChatMode: "merged" } } as never });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  const content =
+    format === "tags"
+      ? `<speaker="Alice">"${"Wonderful day. ".repeat(8)}"</speaker> <speaker="Bob">"${"I miss him. ".repeat(8)}"</speaker>`
+      : `[Alice]: "${"Wonderful day. ".repeat(8)}"\n[Bob]: "${"I miss him. ".repeat(8)}"`;
+  store().setStreamBuffer(content, id);
+  await group.play(160);
+  assert.equal(group.talking.alice! + group.talking.bob!, 0, "held whole Merged text waits for message-ready");
+  group.ready(content, "alice");
+  group.end();
+  let simultaneous = false;
+  for (let index = 0; index < 600; index += 1) {
+    await group.play(16);
+    simultaneous ||= group.last.alice!.state === "talking" && group.last.bob!.state === "talking";
+  }
+  assert.ok(group.talking.alice! > 500 && group.talking.bob! > 500, "both members speak their tagged lines");
+  assert.equal(simultaneous, false, "a whole formatted reply never moves both mouths together");
+  group.scened.dispose();
+  useChatStore.setState({ activeChat: null });
+  useUIStore.setState({ enableStreaming: true });
+}
+
+// An unknown speaker at the end of a whole Individual reply does not erase the recognized responder's
+// earlier dialogue, which is scheduled together by speakAll rather than following the newest streamed span.
+{
+  useUIStore.setState({ enableStreaming: false });
+  const id = "director-whole-individual-unknown-tail";
+  useChatStore.setState({ activeChatId: id, activeChat: { id, metadata: { groupChatMode: "individual" } } as never });
+  const group = scene(id, ["Alice", "Bob"]);
+  group.start();
+  await group.play(16);
+  group.ready(
+    'Alice smiles. "A wonderful afternoon to sit outside together and enjoy the sunshine."\n[Guard]: "Halt."',
+    "alice",
+  );
+  group.end();
+  await group.play(800);
+  assert.equal(
+    group.last.alice!.state,
+    "talking",
+    "a trailing unknown speaker does not erase known whole-reply dialogue",
+  );
+  assert.equal(group.last.bob!.mouthOpen, 0, "the unknown line still borrows no other avatar");
+  group.scened.dispose();
+  useChatStore.setState({ activeChat: null });
+  useUIStore.setState({ enableStreaming: true });
+}
+
 // The server says the reply is saved while the typewriter still shows it: the reply goes on until the generation
 // ends, so the classifier gets whole sentences, never one letter per frame.
 {
@@ -774,7 +1060,7 @@ const scene = (id: string, names: string[]) => {
   await merged.play(32);
   merged.ready('Bob slams the mug down. "Get out of my tavern!"\n\nAlice raises an eyebrow. "Fine, fine."', "alice");
   merged.end();
-  await merged.play(4_000);
+  await merged.play(8_000);
   assert.ok(
     merged.talking.bob! > 0 && merged.talking.alice! > 0,
     `both speak their lines ${JSON.stringify(merged.talking)}`,

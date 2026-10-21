@@ -59,21 +59,11 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import {
-  getBasicAuthConfig,
-  isUnauthenticatedPrivateNetworkAllowed,
-  isUnauthenticatedRemoteAllowed,
-} from "../config/runtime-config.js";
+import { getBasicAuthConfig } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
 import { deriveServerKey } from "../utils/crypto.js";
 import { cookieValue } from "./android-local-auth.js";
-import {
-  isForwardedLoopbackRequest,
-  isInIpAllowlist,
-  isLoopbackIp,
-  isPrivateNetworkIp,
-  isTrustedInterfaceRequest,
-} from "./ip-allowlist.js";
+import { getRequestAccess, isForwardedLoopbackRequest } from "./ip-allowlist.js";
 // Same grouping as the multiplayer peer server: an IPv4 address, or an IPv6 /64.
 import { multiplayerPeerSocketKey as clientAddressKey } from "../services/multiplayer/peer-server.js";
 
@@ -275,16 +265,17 @@ function sendChallenge(reply: FastifyReply, realm: string) {
 
 let lockdownAnnounced = false;
 
+const REMOTE_ACCESS_DOCS_URL = "https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/REMOTE_ACCESS.md";
+
 const LOCKDOWN_JSON_MESSAGE =
   "Non-loopback access requires authentication because no Basic Auth credentials are configured. " +
-  "Set BASIC_AUTH_USER and BASIC_AUTH_PASS, add this IP to IP_ALLOWLIST, " +
-  "or explicitly opt in with ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true for LAN/private clients. " +
-  "Set ALLOW_UNAUTHENTICATED_REMOTE=true only if unauthenticated public access is intentional.";
+  "Set BASIC_AUTH_USER and BASIC_AUTH_PASS, or add this IP to IP_ALLOWLIST. " +
+  `Other options: ${REMOTE_ACCESS_DOCS_URL}`;
 
 const PROXIED_LOCKDOWN_JSON_MESSAGE =
   "This request came through a reverse proxy or tunnel on this computer, so it counts as remote. " +
-  "Set BASIC_AUTH_USER and BASIC_AUTH_PASS, or set REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false " +
-  "only if the proxy already requires a login from every visitor.";
+  "Set BASIC_AUTH_USER and BASIC_AUTH_PASS. " +
+  `Other options: ${REMOTE_ACCESS_DOCS_URL}`;
 
 function escapeHtml(value: string): string {
   return value
@@ -305,21 +296,11 @@ function wantsHtml(request: FastifyRequest): boolean {
 function renderLockdownPage(clientIp: string, proxied: boolean): string {
   const safeIp = escapeHtml(clientIp);
   const lede = proxied
-    ? `This request reached Marinara through a reverse proxy or tunnel on this computer, so it counts as remote. To protect your data, the server refuses proxied traffic until you choose how visitors should authenticate. Pick one of the options below, save <code>.env</code>, wait a couple of seconds, then refresh this page.`
+    ? `This request reached Marinara through a reverse proxy or tunnel on this computer, so it counts as remote. To protect your data, the server refuses proxied traffic until you set a login. Follow the steps below, save <code>.env</code>, wait a couple of seconds, then refresh this page.`
     : `You're connecting from <span class="ip-pill">${safeIp}</span>, which isn't loopback. To protect your data, the server refuses non-local traffic until you choose how this device should authenticate. Pick one of the options below, save <code>.env</code>, wait a couple of seconds, then refresh this page.`;
+  // The IP allowlist only helps direct devices. A proxied visitor shows the proxy's address.
   const secondOption = proxied
-    ? `<section class="panel">
-      <h2>Option 2 — Your proxy already asks for a login</h2>
-      <p class="hint">Only when the proxy or tunnel itself makes every visitor sign in before it forwards anything.</p>
-      <ol>
-        <li>Open your <code>.env</code> file in the Marinara Engine folder.</li>
-        <li>Add this line:
-          <pre>REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false</pre>
-        </li>
-        <li>Save <code>.env</code>, wait a couple of seconds, then refresh this page.</li>
-      </ol>
-      <a class="detail" href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer" target="_blank" rel="noopener noreferrer">Detailed walkthrough →</a>
-    </section>`
+    ? ""
     : `<section class="panel">
       <h2>Option 2 — IP allowlist</h2>
       <p class="hint">Best when you only need a few known devices to connect — e.g. your phone on a home network, or specific Tailscale peers.</p>
@@ -332,9 +313,6 @@ function renderLockdownPage(clientIp: string, proxied: boolean): string {
       </ol>
       <a class="detail" href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/REMOTE_ACCESS.md#option-2-ip-allowlist" target="_blank" rel="noopener noreferrer">Detailed walkthrough →</a>
     </section>`;
-  const privateNetworkNote = proxied
-    ? ""
-    : `<strong>On a fully trusted private network?</strong> You can restore the legacy passwordless LAN behavior with <code>ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true</code> in your <code>.env</code>. Only do this when you trust every device that can reach this server — anyone on the network will have full access without a password. <a href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/REMOTE_ACCESS.md#option-3-private-network-bypass-no-password" target="_blank" rel="noopener noreferrer">Read the caveats first →</a>`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -479,8 +457,8 @@ BASIC_AUTH_PASS=a-long-random-password</pre>
     ${secondOption}
 
     <footer>
-      ${privateNetworkNote}
       <div class="links">
+        <a href="${REMOTE_ACCESS_DOCS_URL}" target="_blank" rel="noopener noreferrer">Other options</a>
         <a href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/REMOTE_ACCESS.md" target="_blank" rel="noopener noreferrer">Full Remote Access walkthrough</a>
         <a href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/FAQ.md#how-do-i-access-marinara-engine-from-my-phone-or-another-device" target="_blank" rel="noopener noreferrer">FAQ: Access from another device</a>
         <a href="https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/TROUBLESHOOTING.md#app-not-loading-on-mobile--another-device" target="_blank" rel="noopener noreferrer">Troubleshooting</a>
@@ -503,9 +481,7 @@ function sendLockdown(request: FastifyRequest, reply: FastifyReply, proxied: boo
 
 /** Loopback, IP_ALLOWLIST and trusted Tailscale/Docker peers skip the password; a local proxy's visitors do not. */
 function isTrustedPeer(request: FastifyRequest): boolean {
-  if (isForwardedLoopbackRequest(request)) return false;
-  const ip = request.ip;
-  return isLoopbackIp(ip) || isInIpAllowlist(ip) || isTrustedInterfaceRequest(request);
+  return getRequestAccess(request).trustedPeer;
 }
 
 export function hasBasicAuthConfigured(): boolean {
@@ -513,14 +489,11 @@ export function hasBasicAuthConfigured(): boolean {
 }
 
 export function isBasicAuthSatisfied(request: FastifyRequest): boolean {
-  const ip = request.ip;
-  if (isTrustedPeer(request)) return true;
+  const policy = getRequestAccess(request);
+  if (policy.trustedPeer) return true;
 
   const config = loadConfig();
-  if (!config) {
-    if (isPrivateNetworkIp(ip) && isUnauthenticatedPrivateNetworkAllowed()) return true;
-    return isUnauthenticatedRemoteAllowed();
-  }
+  if (!config) return !policy.lockedDown;
 
   if (lockoutSeconds(request, hasSignedInCookie(request, config)) > 0) return false;
   return hasCorrectPassword(request, config);
@@ -545,22 +518,29 @@ export function basicAuthHook(request: FastifyRequest, reply: FastifyReply, done
   // arriving from a trusted Tailscale / Docker interface (when its bypass
   // flag is on).
   const ip = request.ip;
-  if (isTrustedPeer(request)) return done();
+  const policy = getRequestAccess(request);
+  if (policy.trustedPeer) return done();
 
   const config = loadConfig();
 
   // No credentials configured → fail closed for every non-loopback IP unless
   // the operator has explicitly opted back into private/public unauthenticated access.
   if (!config) {
-    if (isPrivateNetworkIp(ip) && isUnauthenticatedPrivateNetworkAllowed()) return done();
-    if (isUnauthenticatedRemoteAllowed()) return done();
-    const proxied = isForwardedLoopbackRequest(request);
+    if (!policy.lockedDown) return done();
+    const proxied = policy.forwardedLoopback;
     if (!lockdownAnnounced) {
-      logger.warn(
-        proxied
-          ? "[basic-auth] Refused a connection forwarded by a reverse proxy or tunnel on this computer. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS, or set REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false only if the proxy requires its own login."
-          : `[basic-auth] Refused non-loopback connection from ${ip}. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS, add the IP to IP_ALLOWLIST, or explicitly opt in with ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK/ALLOW_UNAUTHENTICATED_REMOTE.`,
-      );
+      if (proxied) {
+        logger.warn(
+          "[basic-auth] Refused a connection forwarded by a reverse proxy or tunnel on this computer. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS. Other options: %s",
+          REMOTE_ACCESS_DOCS_URL,
+        );
+      } else {
+        logger.warn(
+          "[basic-auth] Refused non-loopback connection from %s. No auth configured; set BASIC_AUTH_USER/BASIC_AUTH_PASS or add the IP to IP_ALLOWLIST. Other options: %s",
+          ip,
+          REMOTE_ACCESS_DOCS_URL,
+        );
+      }
       lockdownAnnounced = true;
     }
     sendLockdown(request, reply, proxied);

@@ -308,3 +308,18 @@ export interface ChatMLMessage {
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
   providerMetadata?: Record<string, unknown>;
 }
+
+/** Presets shape prompts; token budgets belong to the connection or chat. */
+export function withoutPresetTokenLimits<T extends Partial<GenerationParameters>>(
+  parameters: T,
+): Omit<T, "maxTokens" | "maxContext" | "useMaxContext"> {
+  const result = { ...parameters };
+  delete result.maxTokens;
+  delete result.maxContext;
+  delete result.useMaxContext;
+  if (result.enabledParameters) {
+    result.enabledParameters = { ...result.enabledParameters };
+    delete result.enabledParameters.maxTokens;
+  }
+  return result;
+}

@@ -334,7 +334,7 @@ Shows your characters and personas as animated 2D avatars that blink, talk, and 
 
 - **Integration**: Agent package; the Engine runs it and draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: **Staging only** while it is tested. **Download Agents** lists it only when Marinara Engine runs on the `staging` branch.
+- **Availability**: in **Download Agents** for every install. It needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**. The agent also carries the prompts used to make blink and talk pictures and a mesh avatar from one of your sprites.
 - **Compatibility**: Engine `2.5.0` through before `4.0.0`, with Capability API 1.73. The package uses `agent-runtime`, `chat-read`, `storage`, and `ui` permissions and does not require a restart.
 - **Full guide**: [2D and 3D Avatars](avatars.md).
@@ -345,7 +345,7 @@ Shows your characters and personas as animated 3D models that blink, talk, and c
 
 - **Integration**: Agent package; the Engine runs it and draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: **Staging only** while it is tested. **Download Agents** lists it only when Marinara Engine runs on the `staging` branch.
+- **Availability**: in **Download Agents** for every install. It needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**.
 - **Compatibility**: Engine `2.5.0` through before `4.0.0`, with Capability API 1.73. The package uses `agent-runtime`, `chat-read`, `storage`, and `ui` permissions and does not require a restart.
 - **Full guide**: [2D and 3D Avatars](avatars.md).

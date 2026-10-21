@@ -21,6 +21,7 @@ export type RoundReviewState = {
   midRunClaimRepairRounds: number;
   claimAuditWatermark: number;
   hadPassedClaimAudit: boolean;
+  lastPassedClaimText: string | null;
 };
 
 export function newRoundReviewState(): RoundReviewState {
@@ -30,6 +31,7 @@ export function newRoundReviewState(): RoundReviewState {
     midRunClaimRepairRounds: 0,
     claimAuditWatermark: 0,
     hadPassedClaimAudit: false,
+    lastPassedClaimText: null,
   };
 }
 
@@ -90,10 +92,12 @@ export function reviewRoundClaim(
       : auditWorkspaceCompletionClaim(action, args.commandResultsForContinuity, {
           auditFrom: state.claimAuditWatermark,
           hadPassedClaimAudit: state.hadPassedClaimAudit,
+          lastPassedClaimText: state.lastPassedClaimText,
         });
   if (claimAudit.advanceWatermark) {
     state.claimAuditWatermark = args.commandResultsForContinuity.length;
     state.hadPassedClaimAudit = true;
+    state.lastPassedClaimText = action.visibleText;
   }
   const verificationIssue = claimAudit.issue;
   if (!verificationIssue) return { kind: "continue" };

@@ -12,7 +12,7 @@ Change these settings only when you want to fix a specific problem. This guide l
 
 ## Where to find them
 
-Edit base values under **Presets > Parameters**, connection values under **Connections > Default Chat Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**.
+Edit base values under **Presets > Parameters**, connection values under **Connections > Default Chat Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**. Presets do not set context or output token limits. Set the context window in **Connections**, and output limits in **Connections** or **Chat Settings > Advanced Parameters**. Older preset files still load, but their saved token limits are ignored.
 
 1. Open the chat you want to change.
 2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
@@ -137,13 +137,13 @@ At the bottom of **Advanced Parameters**, the **Save as Connection Default** but
 
 The button only appears for a normal, saved connection. It is hidden for the random connection pool and for the built-in local model.
 
-The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to its inherited settings.
+The **Reset to Defaults** button below it clears every per-chat parameter change and returns this chat to its inherited settings. Inherited Send switches follow the selected connection; editing another value does not turn them into chat overrides. A Send switch you change yourself remains a chat override until you reset it.
 
 ## How defaults layer and override
 
 Parameters are resolved one field at a time, in this order:
 
-1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`, maximum output `4096`). In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
+1. The selected preset's **Parameters**, or built-in generation defaults when no preset is used (temperature `1`). Output starts at `4096` tokens regardless of the preset; presets cannot set context or output limits. In Roleplay, a connection's preset override takes precedence over the chat's selected preset.
 2. The connection's **Default Chat Parameters**.
 3. This chat's **Advanced Parameters**.
 4. Mode rules: an active scene chat sets output to `8192`, reasoning to **Maximum**, and verbosity to **High**. Game uses the saved connection and chat parameters without forcing sampling, reasoning, or a minimum output size. Its helper calls also honor saved parameters; task defaults apply only when a value is not configured.
@@ -151,7 +151,7 @@ Parameters are resolved one field at a time, in this order:
 
 The **Effective** line beside a parameter shows the saved value and its winning layer, including mode rules and output caps. In the connection editor it uses the currently open chat with that connection, or a Roleplay baseline when no chat is open. Save edits to refresh it. A disabled Send switch is shown as **not sent**; providers can still impose required parameters or normalize unsupported values. Custom Parameters and context fitting may further change the final request.
 
-For example, a preset at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
+For example, a connection at `8192` and this chat at `16384` show **Effective: 16384 · this chat**. A connection output cap of `4096` changes that to **Effective: 4096 · output token cap**. Resetting chat parameters exposes the next applicable layer; it does not remove preset or mode rules.
 
 ## Parameters for agents
 

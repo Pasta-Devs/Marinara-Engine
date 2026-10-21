@@ -33,3 +33,24 @@ export function sentOutputBudget(
   }
   return maxTokens;
 }
+
+/**
+ * Whether a reply with no visible text should show its provider thinking as the reply instead.
+ *
+ * Some OpenAI-compatible providers put the assistant's answer in the reasoning field. Conversation
+ * mode recovers that only when reasoning was not requested. Game Mode requests reasoning by
+ * default, so it recovers too, but only from a reply that finished: one cut off mid-thought (most
+ * often a reasoning model that spent its whole output budget thinking) holds real thinking, and
+ * showing it would put the Game Master's plan in the narration box. Thinking the model tagged
+ * inline is never an answer, so Game Mode recovers only from the provider's reasoning field.
+ */
+export function thinkingOnlyReplyPromotable(args: {
+  chatMode: string;
+  reasoningRequested: boolean;
+  finishReason: string | null | undefined;
+  providerThinking: string;
+}): boolean {
+  if (args.chatMode === "conversation") return !args.reasoningRequested;
+  if (args.chatMode !== "game") return false;
+  return !replyUnfinished(args.finishReason) && args.providerThinking.trim().length > 0;
+}

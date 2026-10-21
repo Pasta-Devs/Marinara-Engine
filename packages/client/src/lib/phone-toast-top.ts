@@ -8,7 +8,7 @@
 
 export const PHONE_TOAST_TOP_VARIABLE = "--mari-phone-toast-top";
 
-// The top bar, the chat's buttons, a window or sheet, the right panel, the chat list and an editor.
+// The chat's buttons, a window or sheet, the right panel, the chat list, an editor and custom headers.
 const PHONE_HEADER_ROWS = [
   ".mari-window-bubble",
   ".mari-window__header",
@@ -16,6 +16,7 @@ const PHONE_HEADER_ROWS = [
   ".mari-sidebar-header",
   ".mari-editor-header",
   "[data-chat-window-top-obstacle]",
+  "[data-phone-toast-header]",
 ].join(",");
 // A row starting this close below the rows above it belongs to the same stack (the chat's buttons sit
 // 8px under the top bar); anything further down, such as a chat button moved lower, does not.
@@ -62,7 +63,12 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
   };
   const resizeObserver = new ResizeObserver(place);
   const refreshHeaders = () => {
-    const headers = new Set(document.querySelectorAll(HEADERS));
+    const headers = new Set<Element>();
+    for (const header of document.querySelectorAll(HEADERS)) {
+      headers.add(header);
+      // A centered custom dialog's growing body moves its header without resizing the header itself.
+      if (header.matches("[data-phone-toast-header]") && header.parentElement) headers.add(header.parentElement);
+    }
     for (const header of observedHeaders) {
       if (headers.has(header)) continue;
       resizeObserver.unobserve(header);
@@ -81,6 +87,10 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
       node.querySelector(HEADERS) !== null ||
       // A class change can remove a header's selector before this delivery.
       [...observedHeaders].some((header) => node.contains(header)));
+  const insideCustomPanel = (node: Node) =>
+    [...observedHeaders].some(
+      (header) => header.matches("[data-phone-toast-header]") && header.parentElement?.contains(node),
+    );
   const layoutObserver = new MutationObserver((records) => {
     // Streaming messages and toast animations cannot move these headers. Keep relevant updates in
     // this delivery: deferring them to another animation frame can paint a toast over new controls.
@@ -88,9 +98,10 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
       records.some(
         (record) =>
           !host.contains(record.target) &&
-          (record.type === "attributes"
-            ? containsHeader(record.target)
-            : [...record.addedNodes, ...record.removedNodes].some(containsHeader)),
+          (insideCustomPanel(record.target) ||
+            (record.type === "attributes"
+              ? containsHeader(record.target)
+              : [...record.addedNodes, ...record.removedNodes].some(containsHeader))),
       )
     ) {
       refreshHeaders();

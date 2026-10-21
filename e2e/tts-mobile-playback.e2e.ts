@@ -13,7 +13,7 @@ interface PlaybackProof {
   played: number;
   rejected: { source: string; stack: string }[];
   elements: HTMLMediaElement[];
-  finish: () => void;
+  finish: () => Promise<void>;
 }
 declare global {
   interface Window {
@@ -75,7 +75,18 @@ test("Roleplay speech keeps tap permission through delayed synthesis and later c
           played: 0,
           rejected: [],
           elements: [],
-          finish: () => proof.elements.at(-1)?.dispatchEvent(new Event("ended")),
+          finish: async () => {
+            // A clip only ends after it has loaded. Ending one still loading makes the app cut the load short,
+            // and Linux WebKit can freeze the page doing that, so wait for the clip as real playback would.
+            const audio = proof.elements.at(-1)!;
+            if (audio.readyState < HTMLMediaElement.HAVE_METADATA) {
+              await new Promise((resolve) => {
+                audio.addEventListener("loadedmetadata", resolve, { once: true });
+                audio.addEventListener("error", resolve, { once: true });
+              });
+            }
+            audio.dispatchEvent(new Event("ended"));
+          },
         };
         window.__ttsPlaybackProof = proof;
         window.addEventListener(

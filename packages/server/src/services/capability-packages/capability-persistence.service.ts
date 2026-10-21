@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
+  type CapabilityCharacterStatusResult,
+  type CapabilityCharacterStatusUpdate,
   type CapabilityChatActivityUpdate,
   type CapabilityChatMetadataUpdate,
   type CapabilityChatRecord,
@@ -42,6 +44,8 @@ import {
   roleplayAgentsSeeWhispers,
   roleplayAgentText,
 } from "../generation/roleplay-commands.js";
+import { handleConversationScheduleCommand } from "../generation/conversation-schedule-command-runtime.js";
+import type { ScheduleUpdateCommand } from "../conversation/character-commands.js";
 import { resolveCharacterNameMap } from "../../routes/generate/generate-route-utils.js";
 import { conversationPromptHistoryContent } from "../../routes/generate/conversation-prompt-formatting.js";
 
@@ -72,6 +76,35 @@ function parseMetadata(value: unknown): Record<string, unknown> | null {
 
 function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+const CHARACTER_STATUSES = new Set(["online", "idle", "dnd", "offline"]);
+const MAX_STATUS_ACTIVITY_CHARS = 500;
+const MAX_STATUS_DURATION_CHARS = 32;
+
+/** A package's status update as the host's `[schedule_update]` command, or a thrown reason it is not one. */
+function readCharacterStatusUpdate(update: CapabilityCharacterStatusUpdate): ScheduleUpdateCommand {
+  if (!update || typeof update !== "object" || Array.isArray(update)) {
+    throw new Error("updateCharacterStatus needs an update object.");
+  }
+  const { status, activity, duration } = update as Record<string, unknown>;
+  if (status !== undefined && (typeof status !== "string" || !CHARACTER_STATUSES.has(status))) {
+    throw new Error('updateCharacterStatus status must be "online", "idle", "dnd" or "offline".');
+  }
+  if (activity !== undefined && (typeof activity !== "string" || activity.length > MAX_STATUS_ACTIVITY_CHARS)) {
+    throw new Error(`updateCharacterStatus activity must be text of at most ${MAX_STATUS_ACTIVITY_CHARS} characters.`);
+  }
+  if (duration !== undefined && (typeof duration !== "string" || duration.length > MAX_STATUS_DURATION_CHARS)) {
+    throw new Error(`updateCharacterStatus duration must be text of at most ${MAX_STATUS_DURATION_CHARS} characters.`);
+  }
+  const trimmedActivity = activity?.trim();
+  if (!status && !trimmedActivity) throw new Error("updateCharacterStatus needs a status or an activity.");
+  return {
+    type: "schedule_update",
+    ...(status ? { status: status as ScheduleUpdateCommand["status"] } : {}),
+    ...(trimmedActivity ? { activity: trimmedActivity } : {}),
+    ...(duration?.trim() ? { duration: duration.trim() } : {}),
+  };
 }
 
 const MAX_ROLEPLAY_EVENT_TEXT_CHARS = 1_000;
@@ -700,6 +733,36 @@ export function createCapabilityPersistenceHost(db: DB, permissions?: readonly s
     async createChatInfluence(sourceChatId, targetChatId, content, anchorMessageId) {
       assertPermission("chat-write");
       await hostChats().createInfluence(sourceChatId, targetChatId, content, anchorMessageId);
+    },
+    async updateCharacterStatus(chatId, characterId, update) {
+      assertPermission("chat-write");
+      const command = readCharacterStatusUpdate(update);
+      const chat = await hostChats().getById(chatId);
+      if (!chat) throw new Error(`Chat ${chatId} was not found.`);
+      if (chat.mode !== "conversation") throw new Error(`Chat ${chatId} is not a Conversation chat.`);
+      // Like a reply's command, it only reaches a character of this chat.
+      if (!parseStringArray(chat.characterIds).includes(characterId)) {
+        throw new Error(`Character ${characterId} is not in chat ${chatId}.`);
+      }
+      // A shared room keeps its own copy of each routine and never writes the character card.
+      const metadata = parseMetadata(chat.metadata) ?? {};
+      if (metadata.multiplayer || metadata.multiplayerSetup === true) return null;
+      let result: CapabilityCharacterStatusResult | null = null;
+      await handleConversationScheduleCommand({
+        command,
+        characterId,
+        chatId,
+        chats: hostChats(),
+        characters: createCharactersStorage(db),
+        sendUpdated: (data) => {
+          result = {
+            status: data.status as CapabilityCharacterStatusResult["status"],
+            activity: (data.activity as string | null | undefined) ?? null,
+            expiresAt: data.expiresAt as string,
+          };
+        },
+      });
+      return result;
     },
   };
 }

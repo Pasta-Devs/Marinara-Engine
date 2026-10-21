@@ -66,7 +66,9 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
       // stays mounted, so clear the edit once saved, or each later visit would send it again.
       const pending = pendingSaveRef.current;
       if (!pending) return;
-      const run = saveQueueRef.current.then(() => putConfig(pending));
+      const run = saveQueueRef.current.then(() => {
+        if (pendingSaveRef.current === pending) return putConfig(pending);
+      });
       saveQueueRef.current = run.catch(() => undefined);
       run.then(
         () => {

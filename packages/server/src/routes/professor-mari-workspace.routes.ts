@@ -371,6 +371,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     if (!privileged(req, reply)) return;
     const input = runtimeSchema.parse(req.body);
     await createAppSettingsStorage(app.db).set(MARI_RUNTIME_SETTINGS_KEY, input.runtime);
+    getProfessorMariWorkspaceService(app).resetRuntimeFailures();
     return { ok: true, runtime: input.runtime };
   });
 

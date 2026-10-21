@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
 import { tripoMadeVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -50,6 +51,18 @@ const AGENTS = [
   },
 }));
 
+const spriteAvatar = {
+  layers: {
+    neutral: {
+      base: { source: "sprite", label: "neutral" },
+      mouthOpen: { source: "sprite", label: "neutral_talk" },
+    },
+  },
+  expressionMap: {},
+  motion: PNGTUBER_DEFAULT_MOTION,
+  source: "sprites",
+};
+
 /** Rows of the canvas that hold any drawn pixel. */
 function drawnRows(canvas: Locator) {
   return canvas.evaluate((node: HTMLCanvasElement) => {
@@ -70,6 +83,259 @@ function drawnRows(canvas: Locator) {
     }
     return { top, bottom, height };
   });
+}
+
+/** Observe the real stage renderers, then send the same stream-store feed generation sends. */
+async function checkGroupSpeaker(page: Page, chatId: string, speakerId: string, otherIds: string[]) {
+  await page.evaluate(() => {
+    type Loose = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const stage = document.querySelector("[data-avatar-stage]") as Loose;
+    let fiber = stage[Object.keys(stage).find((key) => key.startsWith("__reactFiber$"))!];
+    let slots: Map<string, Loose> | undefined;
+    for (; fiber && !slots; fiber = fiber.return) {
+      if (typeof fiber.type !== "function" || fiber.type.name !== "AvatarStage") continue;
+      for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+        const value = hook.memoizedState;
+        if (
+          value?.current instanceof Map &&
+          value.current.size &&
+          [...value.current.values()].every((slot: Loose) => slot?.renderer)
+        ) {
+          slots = value.current;
+          break;
+        }
+      }
+    }
+    if (!slots) throw new Error("The mounted avatar stage renderers were not found");
+    (window as Loose).__groupAvatarFrames = {};
+    for (const [ownerId, slot] of slots) {
+      const canvas = document.querySelector(`[data-avatar-owner="${ownerId}"] canvas`) as HTMLCanvasElement;
+      const resting = canvas.toDataURL();
+      const update = slot.renderer.update;
+      slot.renderer.update = (frame: Loose, dtMs: number) => {
+        update(frame, dtMs);
+        const seen = ((window as Loose).__groupAvatarFrames[ownerId] ??= {
+          talked: false,
+          mouth: false,
+          painted: false,
+        });
+        seen.talked ||= frame.state === "talking";
+        seen.mouth ||= frame.mouthOpen > 0.1;
+        seen.painted ||= frame.state === "talking" && canvas.toDataURL() !== resting;
+      };
+    }
+  });
+  for (const groupMode of ["individual", "merged"] as const) {
+    await page.evaluate(
+      async ({ chatId, speakerId, groupMode }) => {
+        type Loose = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.setState({ enableStreaming: true });
+        useChatStore.setState({ abortControllers: new Map(), streamBuffers: new Map(), streamBuffer: "" });
+        (window as Loose).__groupAvatarFrames = {};
+        const state = useChatStore.getState();
+        const text =
+          groupMode === "individual"
+            ? '"Maukie, I am delighted and happy to see you here today!"'
+            : '<speaker="Pantalone">"I am delighted and happy to see you here today!"</speaker>';
+        useChatStore.setState({
+          activeChat: { ...state.activeChat, metadata: JSON.stringify({ groupChatMode: groupMode }) },
+          abortControllers: new Map([[chatId, new AbortController()]]),
+          streamingChatId: chatId,
+          streamingCharacterId: groupMode === "individual" ? speakerId : null,
+          isStreaming: true,
+          streamBuffers: new Map([[chatId, text]]),
+          streamBuffer: text,
+        });
+      },
+      { chatId, speakerId, groupMode },
+    );
+    const frames = () =>
+      page.evaluate(
+        () =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__groupAvatarFrames as Record<string, { talked: boolean; mouth: boolean; painted: boolean }>,
+      );
+    await expect
+      .poll(async () => (await frames())[speakerId], {
+        message: `${groupMode}: Pantalone speaks and the real renderer changes its picture`,
+      })
+      .toMatchObject({ talked: true, mouth: true, painted: true });
+    const observed = await frames();
+    for (const ownerId of otherIds)
+      expect(observed[ownerId]?.talked ?? false, `${groupMode}: another avatar stays quiet`).toBe(false);
+  }
+}
+
+for (const mode of ["roleplay", "game"] as const) {
+  for (const kind of ["pngtuber", "vrm"] as const) {
+    test(`group ${mode} shows every configured enabled ${kind} avatar and excludes other members`, async ({
+      page,
+      request,
+    }, info) => {
+      test.setTimeout(180_000);
+      const characters: Array<{ id: string }> = [];
+      let chatId: string | undefined;
+      try {
+        for (const name of [
+          "Maukie",
+          "Pantalone",
+          "Dottore",
+          "Mari",
+          "Pip",
+          "Disabled",
+          "Profile only",
+          "Sprites only",
+        ]) {
+          const response = await request.post("/api/characters", { data: { data: { name } } });
+          expect(response.ok(), await response.text()).toBeTruthy();
+          characters.push((await response.json()) as { id: string });
+        }
+        const eligible = characters.slice(0, 5);
+        for (const [index, character] of characters.slice(0, 6).entries()) {
+          if (kind === "vrm") {
+            const imported = await request.post(`/api/avatar-models/character/${character.id}/import`, {
+              multipart: {
+                kind: "vrm",
+                file: { name: "group.vrm", mimeType: "model/gltf-binary", buffer: tripoMadeVrm() },
+              },
+            });
+            expect(imported.ok(), await imported.text()).toBeTruthy();
+          }
+          const response = await request.put(`/api/avatar-models/character/${character.id}`, {
+            data: {
+              enabled: index < 5,
+              activeKind: kind,
+              ...(kind === "pngtuber" ? { kinds: { pngtuber: spriteAvatar } } : {}),
+            },
+          });
+          expect(response.ok(), await response.text()).toBeTruthy();
+        }
+        const picture = readFileSync(
+          new URL("../packages/client/public/sprites/avatar-demo/base.png", import.meta.url),
+        );
+        const uploaded = await request.post(`/api/characters/${characters[6]!.id}/avatar`, {
+          data: { avatar: `data:image/png;base64,${picture.toString("base64")}`, filename: "profile.png" },
+        });
+        expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
+        const chat = await request.post("/api/chats", {
+          data: { name: "Group avatars", mode, characterIds: characters.map(({ id }) => id) },
+        });
+        expect(chat.ok(), await chat.text()).toBeTruthy();
+        chatId = ((await chat.json()) as { id: string }).id;
+        const metadata = await request.patch(`/api/chats/${chatId}/metadata`, {
+          data: {
+            enableAgents: true,
+            activeAgentIds: ["2d-avatars", "3d-avatars"],
+            ...(mode === "game" ? { gameId: chatId, gameSessionStatus: "active", gameIntroPresented: true } : {}),
+          },
+        });
+        expect(metadata.ok(), await metadata.text()).toBeTruthy();
+        const message = await request.post(`/api/chats/${chatId}/messages`, {
+          data: { role: "assistant", content: "The group gathers in the workshop." },
+        });
+        expect(message.ok(), await message.text()).toBeTruthy();
+        await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+        await page.route("**/api/capability-packages/installed", (route) =>
+          route.fulfill({ json: AGENTS.map(({ installed }) => installed) }),
+        );
+        await page.route("**/api/capability-packages/agents", (route) =>
+          route.fulfill({ json: AGENTS.map(({ agent }) => agent) }),
+        );
+        await page.route("**/api/avatar-classify/model", (route) => route.fulfill({ json: { unsupported: "lite" } }));
+        await page.route("**/api/tts/config", async (route) => {
+          const response = await route.fetch();
+          await route.fulfill({ response, json: { ...(await response.json()), enabled: false } });
+        });
+        await page.route("**/api/avatar-models", async (route) => {
+          const response = await route.fetch();
+          const rows = (await response.json()) as Array<{ owner: { ownerId: string } }>;
+          await route.fulfill({
+            response,
+            json: rows.filter((row) => characters.some(({ id }) => row.owner.ownerId === id)),
+          });
+        });
+        for (const character of characters.filter((_, index) => index !== 6)) {
+          await page.route(`**/api/sprites/${character.id}`, (route) =>
+            route.fulfill({
+              json: [
+                { expression: "neutral", filename: "neutral.png", url: "/sprites/avatar-demo/base.png" },
+                {
+                  expression: "neutral_talk",
+                  filename: "neutral_talk.png",
+                  url: "/sprites/avatar-demo/mouth-open.png",
+                },
+              ],
+            }),
+          );
+        }
+        await seedUIState(page, {
+          hasCompletedOnboarding: true,
+          sidebarOpen: false,
+          rightPanelOpen: false,
+          chatHelpSeenModes: ["roleplay", "game"],
+          trackerPanelEnabled: false,
+          trackerPanelOpen: false,
+          gameInstantTextReveal: true,
+        });
+        await page.addInitScript(
+          ({ id, version }) => {
+            localStorage.setItem("marinara-active-chat-id", id);
+            localStorage.setItem("marinara:whats-new:seen-version", version);
+          },
+          { id: chatId, version },
+        );
+        await page.goto("/");
+        const stage = page.locator("[data-avatar-stage]");
+        await expect(stage.locator("[data-avatar-owner]")).toHaveCount(5, { timeout: 60_000 });
+        for (const character of eligible) {
+          const avatar = stage.locator(`[data-avatar-owner="${character.id}"]`);
+          await expect(avatar).toHaveAttribute("data-avatar-kind", kind);
+          const canvas = avatar.getByRole("img");
+          await expect(canvas).toBeInViewport();
+          await expect.poll(async () => (await drawnRows(canvas)).top, { timeout: 30_000 }).toBeGreaterThanOrEqual(0);
+        }
+        for (const character of characters.slice(5)) {
+          await expect(stage.locator(`[data-avatar-owner="${character.id}"]`)).toHaveCount(0);
+        }
+        for (const theme of ["dark", "light"] as const) {
+          await page.evaluate(async (theme) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            useUIStore.getState().setTheme(theme);
+          }, theme);
+          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          await page.screenshot({
+            path: info.outputPath(`group-${mode}-${kind}-${theme}.png`),
+            animations: "disabled",
+          });
+        }
+        if (mode === "roleplay" && kind === "pngtuber") {
+          await checkGroupSpeaker(
+            page,
+            chatId,
+            eligible[1]!.id,
+            eligible.filter((_, index) => index !== 1).map(({ id }) => id),
+          );
+          await page.evaluate(async () => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            useUIStore.getState().openAgentDetail("2d-avatars");
+          });
+          const setup = page.locator('[data-avatar-setup="2d-avatars"]');
+          await expect(setup).toBeVisible({ timeout: 30_000 });
+          await setup.getByLabel("Character or persona").selectOption(`character:${characters[6]!.id}`);
+          const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
+          await expect(showInChats).not.toBeChecked();
+          await expect(showInChats).toBeDisabled();
+          await setup.screenshot({ path: info.outputPath("profile-only-setup-off.png"), animations: "disabled" });
+        }
+      } finally {
+        if (chatId) await request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
+        for (const character of characters)
+          await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+      }
+    });
+  }
 }
 
 /** Device pixels per CSS pixel of the canvas, and what the avatar budget allows on this screen. */
@@ -179,6 +445,10 @@ for (const mode of ["roleplay", "game"] as const) {
         },
       });
       expect(imported.ok(), await imported.text()).toBeTruthy();
+      const savedPng = await request.put(`/api/avatar-models/character/${pip.id}`, {
+        data: { enabled: true, activeKind: "pngtuber", kinds: { pngtuber: spriteAvatar } },
+      });
+      expect(savedPng.ok(), await savedPng.text()).toBeTruthy();
       const createdChat = await request.post("/api/chats", {
         data: { name: `Avatar layout ${mode}`, mode, characterIds: [maukie.id, pip.id] },
       });
@@ -209,9 +479,12 @@ for (const mode of ["roleplay", "game"] as const) {
       await page.route("**/api/avatar-models", async (route) => {
         const response = await route.fetch();
         const rows = (await response.json()) as Array<{ owner: { ownerId: string } }>;
-        await route.fulfill({ response, json: rows.filter((row) => row.owner.ownerId === maukie.id) });
+        await route.fulfill({
+          response,
+          json: rows.filter((row) => characters.some(({ id }) => row.owner.ownerId === id)),
+        });
       });
-      // Pip's expression sprites make a 2D (PNGTuber) avatar.
+      // Pip's saved PNGTuber resolves its layers from the expression sprites.
       await page.route(`**/api/sprites/${pip.id}`, (route) =>
         route.fulfill({
           json: ["neutral", "neutral_talk", "happy"].map((expression) => ({

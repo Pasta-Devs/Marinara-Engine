@@ -347,7 +347,8 @@ test("expanded results stay reachable and expose concise accessible names", asyn
     await openOmnibar(page);
     const omnibar = page.locator('[data-component="GlobalOmnibar"]');
     const input = omnibar.getByRole("searchbox", { name: "Search Marinara" });
-    await input.fill(`char: Preview Reachability ${suffix}`);
+    // Not the start of a name: that start gets Tab completion, whose hint replaces the Ctrl+Enter hint checked below.
+    await input.fill(`char: Reachability ${suffix}`);
     await page.keyboard.press("End");
     const selectedRow = omnibar.locator("[data-command-center-result-row]:has([data-selected='true'])");
     // Wait for the typed results: the empty list's first row (a Now or Try row) has no preview.

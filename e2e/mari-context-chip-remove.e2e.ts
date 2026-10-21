@@ -133,7 +133,9 @@ test("the Context chip's X sends the next message without the chat", async ({ pa
     // Kept (control): the chat goes along, and the forgetting question runs the checkup on it first.
     await page.keyboard.press("Control+j");
     await expect(page.getByPlaceholder(/Search everything/)).toBeVisible();
+    await expect(page.getByPlaceholder(/Search everything/)).toBeFocused();
     await page.keyboard.press("Escape");
+    await expect(page.locator('[data-component="GlobalOmnibar"]')).toBeHidden();
     await askMariFromChat();
     await expect(chip).toContainText("Context chip chat");
     const kept = await sendAndWait("Why does he forget things again?");

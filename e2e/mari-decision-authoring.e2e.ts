@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "node:http";
 
+// These scripted providers return the Classic JSON-frame protocol.
+test.beforeEach(async ({ request }) => {
+  expect((await request.put("/api/professor-mari/workspace/runtime", { data: { runtime: "classic" } })).ok()).toBe(
+    true,
+  );
+});
+
 // Scripted responses exercise the real workspace loop and storage, not an LLM quality benchmark.
 test("Mari Decision authoring waits for the setup answer and preserves it across turns", async ({ request }) => {
   const suffix = Date.now().toString(36);

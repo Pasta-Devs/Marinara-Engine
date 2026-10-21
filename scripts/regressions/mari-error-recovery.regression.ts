@@ -11,6 +11,10 @@ const { getDB, closeDB } = await import("../../packages/server/src/db/connection
 
 try {
   const db = await getDB();
+  // This fixture exercises the Classic JSON-frame protocol explicitly.
+  const { createAppSettingsStorage } =
+    await import("../../packages/server/src/services/storage/app-settings.storage.js");
+  await createAppSettingsStorage(db).set("mari-runtime", "classic");
   const { ProfessorMariWorkspaceService } =
     await import("../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");

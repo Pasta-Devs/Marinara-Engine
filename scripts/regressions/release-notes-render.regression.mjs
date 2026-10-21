@@ -32,6 +32,15 @@ assert.match(
 // The last kept bullet is complete, including its nested detail line.
 assert.match(long, new RegExp(`- Change ${kept}: x+\\n  - detail line ${kept}\\n\\n_…and`, "u"));
 
+// A cut that lands just before a section does not leave that section's heading or intro line behind.
+const firstSection = ["### First\n", ...Array.from({ length: 5 }, (_, i) => `- First ${i + 1}.`)];
+const secondSection = ["### Second\n\nSecond's intro line.\n", `- Second 1: ${"y".repeat(5000)}`, "- Second 2."];
+const firstOnly = renderReleaseNotes(changelog(firstSection), "9.9.9");
+const cut = renderReleaseNotes(changelog([...firstSection, ...secondSection]), "9.9.9", firstOnly.length + 1000);
+assert.match(cut, /### First\n\n\n- First 1\./u);
+assert.match(cut, /- First 5\.\n\n_…and 2 more changes\./u);
+assert.doesNotMatch(cut, /Second/u);
+
 // The real changelog's newest release renders within the limit.
 const { readFile } = await import("node:fs/promises");
 const real = await readFile(new URL("../../CHANGELOG.md", import.meta.url), "utf8");

@@ -659,6 +659,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const issue = auditWorkspaceCompletionClaim({ visibleText: text, commands: [], stop: true }, input.commandResults, {
       auditFrom: reviewState.claimAuditWatermark,
       hadPassedClaimAudit: reviewState.hadPassedClaimAudit,
+      lastPassedClaimText: reviewState.lastPassedClaimText,
     }).issue;
     if (issue) {
       addNote(

@@ -1,6 +1,6 @@
 import type { CapabilityAchievementHost } from "./achievement.js";
 import type { CapabilityIntegrationHost } from "./generation-integration.js";
-import type { ChatMode, MessageRole } from "./chat.js";
+import type { ChatMode, ConversationPresenceStatus, MessageRole } from "./chat.js";
 import type { SpatialContextSnapshot, SpatialSnapshotSource } from "./spatial-context.js";
 
 export type CapabilityRuntimeLogArgument = unknown;
@@ -41,6 +41,23 @@ export interface CapabilityAppendMessageInput {
   content: string;
   extra?: Record<string, unknown>;
   createdAt?: string | null;
+}
+
+/** A `[schedule_update]` for one character, with the fields the command carries. Needs a status or an activity. */
+export interface CapabilityCharacterStatusUpdate {
+  status?: ConversationPresenceStatus;
+  /** What the character is doing now, at most 500 characters. */
+  activity?: string;
+  /** How long it lasts, as the command writes it ("2h", "30m", "1h30m"): 60 minutes when absent or unreadable, at most
+   *  a week. */
+  duration?: string;
+}
+
+/** The status the character card carries after the update, until `expiresAt`. */
+export interface CapabilityCharacterStatusResult {
+  status: ConversationPresenceStatus;
+  activity: string | null;
+  expiresAt: string;
 }
 
 export interface CapabilityChatRecord {
@@ -420,6 +437,18 @@ export interface CapabilityPersistenceHost extends CapabilityPersistenceSession 
     content: string,
     anchorMessageId?: string,
   ): Promise<void>;
+  /**
+   * Applies a `[schedule_update]` for a character of a Conversation chat as the Engine does after a reply: a temporary
+   * status on the character card, so presence shows it in every chat. Resolves the card's new status, or null when
+   * nothing changed: a status the user set by hand stays in charge, and a shared room keeps its own routines. Rejects
+   * bad input, a chat that is not a Conversation chat and a character that is not in it. Requires chat-write. Added
+   * to capability API 1.341 after it was first reported, so feature-detect it.
+   */
+  updateCharacterStatus?(
+    chatId: string,
+    characterId: string,
+    update: CapabilityCharacterStatusUpdate,
+  ): Promise<CapabilityCharacterStatusResult | null>;
 }
 
 export interface CapabilityEmbeddingHost {

@@ -2,13 +2,11 @@
 
 Two downloadable agents give your characters and personas an animated avatar that reacts while a reply streams in. **2D Avatars** shows PNGTuber-style sprites or mesh avatars, and **3D Avatars** shows VRM models. Faces follow the reply, and mouths move with the text or with text-to-speech.
 
-This feature is still being built. The sections below fill in as each part lands on `staging`.
-
 Live2D models are not supported. Live2D's licence needs a separate agreement with Live2D even for free open-source apps, and its runtime cannot be shipped with Marinara Engine.
 
 ## Downloading the agents
 
-Both agents are being tested. For now, **Download Agents** offers them only when Marinara Engine runs on the `staging` branch.
+Both agents are in **Download Agents** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer.
 
 **2D Avatars** and **3D Avatars** are separate downloads, so you can install only the one you want. Both work for characters and personas in Roleplay and Game chats.
 
@@ -27,9 +25,9 @@ Avatars are set up on each agent's own page. Open **Agents**, open **2D Avatars*
 3. Set it up in that type's own section below the switches: use your sprites or import a file, choose the face for each feeling, or remove it. See [2D avatars](#2d-avatars-pngtuber-sprites-and-mesh-avatars) and [3D avatars](#3d-avatars-vrm-models).
 4. Use **Preview** to see it. **Try a face** switches feelings and **Talk** moves the mouth. When there is nothing to show yet, the preview shows an example avatar.
 
-A character or persona with expression sprites already has a PNGTuber avatar on the 2D Avatars page, so chats with 2D Avatars on show it with nothing saved.
+A character or persona with expression sprites can preview them as a PNGTuber avatar on the 2D Avatars page. **Show this avatar in chats** starts off for an unsaved setup. Turn it on to save the sprites as a PNGTuber setup and show it in chats. A profile picture alone does not create a 2D avatar.
 
-**Show this avatar in chats** turns the avatar on or off without deleting it. **Movement** has three switches that apply to every type: **Lip sync** moves the mouth, **Blinking** blinks every few seconds, and **Idle motion** breathes and sways while waiting. If a character has more than one avatar type, **Show this one** picks the type chats use. When that type's agent is off in a chat, the chat shows another type whose agent is on. Removing a type deletes its files; your sprites stay, and an avatar you turned off stays off.
+**Show this avatar in chats** turns a configured avatar on or off without deleting it. Without an avatar or usable sprites, the switch stays off until you set one up. **Movement** has three switches that apply to every type: **Lip sync** moves the mouth, **Blinking** blinks every few seconds, and **Idle motion** breathes and sways while waiting. If a character has more than one avatar type, **Show this one** picks the type chats use. When that type's agent is off in a chat, the chat shows another type whose agent is on. Removing a type deletes its files; your sprites stay, and an avatar you turned off stays off.
 
 An avatar shows in a Roleplay, Visual Novel or Game chat when the chat has agents on and the matching agent added. It works with or without the Expression Engine. The avatar does not hide the full-body sprite, so turn that off yourself if the avatar replaces it. Avatars stand where the full-body sprite would and share its size.
 
@@ -41,13 +39,15 @@ This works without the Expression Engine in Roleplay, Visual Novel and Game. The
 
 Imported files are checked before they are stored, and there is no avatar-specific size limit below the server's normal upload limit. Avatar files live in the data folder under `avatar-models/<character or persona>/<id>/`, next to an `avatar.json` with the settings. Backups and profile exports include this folder. Deleting a character or persona deletes its avatar, also when the Danger Zone of Settings clears all **Characters** or **Personas**, and clearing **Media & Assets** there empties the folder. Character card exports never include avatars.
 
+Group chats show every participant with a saved, enabled avatar whose agent is on, with no fixed limit on the cast. Use **Chat Settings → Agents → Avatars** to size and arrange them. In **Individual** mode, the responding character speaks and emotes. In **Merged (Narrator)** mode, speaker tags and named dialogue direct the matching character; with voices on, lip sync follows the character whose voice is playing.
+
 ## 2D avatars: PNGTuber sprites and mesh avatars
 
 **2D Avatars** shows one of two kinds of avatar: **PNGTuber sprites**, flat pictures that swap faces, open their mouth and blink, and **mesh avatars**, drawings that move their head, eyes and mouth smoothly. Set both up on the agent's page in the Agent editor after you pick a character or persona.
 
 ### PNGTuber sprites
 
-A character or persona with expression sprites already has a PNGTuber avatar: its sprites are the faces, with nothing to set up. Portrait sprites are used when there are any, and full-body sprites otherwise, so one avatar never mixes the two.
+A character or persona with expression sprites can use them as a PNGTuber avatar: its sprites are the faces. Preview them, then turn on **Show this avatar in chats** or save them with **Use my sprites**. Portrait sprites are used when there are any, and full-body sprites otherwise, so one avatar never mixes the two.
 
 - **Talking and blinking pictures.** Add sprites named after a face with `_talk` for the open mouth and `_blink` for closed eyes, for example `happy_talk` and `happy_blink`, and `happy_blink_talk` for both. `_talking`, `_speak`, `_mouth_open`, `_blinking` and `_eyes_closed` work too. A face without them still hops while it talks.
 - **Face for each feeling.** Choose which face shows for Neutral, Happy, Angry, Sad, Relaxed and Surprised. **Resting face** uses the Neutral face. Every sprite is offered, including ones added after you saved the avatar, up to 64 faces. A PNGTuber Plus import offers only its own faces. When the Expression Engine or the Game Master picks a sprite you have, that exact face shows.
@@ -155,7 +155,7 @@ A PNGTuber avatar with faces for [more feelings](#pngtuber-sprites) can also sho
 
 **Body.** An avatar thinks from the moment you send until its first words, talks while its mouth moves, listens while someone else talks or while you type, and rests otherwise.
 
-**Group chats.** In an Individual group, the member who is replying speaks, including when you swipe one member's message. In a Merged group, each paragraph belongs to the first character it names, or to the one before it. While a paragraph that names nobody is still appearing, its dialogue waits until a name or the paragraph's end shows who says it. With streaming off in an Individual group, only the last member's reply moves an avatar for now.
+**Group chats.** In an Individual group, the member who is replying speaks, including when you swipe one member's message. In a Merged group, a speaker tag directs that character's dialogue and face, even within a paragraph that names someone else. Named dialogue also follows its speaker. Untagged prose belongs to the first character it names, or to the one before it. While a paragraph that names nobody is still appearing, its dialogue waits until a name or the paragraph's end shows who says it. With streaming off in an Individual group, only the last member's reply moves an avatar for now.
 
 ## Lip sync with text-to-speech
 
@@ -201,27 +201,27 @@ Some connections can't edit pictures, such as Pollinations, Together AI, Horde, 
 3. Select **Make mesh avatar**. The chat model finds the face, and Marinara Engine builds the avatar from your sprite as it is. **Cancel** stops it.
 4. Check the preview: the outlines should sit on the eyes, brows and mouth. Select **Save as mesh avatar**, or **Discard** and try another sprite or model.
 
-A generated mesh avatar moves its head, eyes, brows and mouth, and blinks and talks with its own eyelids and mouth. Its hair moves with the head; hands, single hair strands and hanging accessories are not rigged. When the face fills most of a large sprite, the avatar is built from a smaller copy so making it stays quick.
+A generated mesh avatar moves its head, eyes, brows and mouth, and blinks and talks with its own eyelids and mouth. Its hair moves with the head; hands, single hair strands and hanging accessories are not rigged. Small sprites are built from a bigger copy so the mouth fits the face. When the face fills most of a large sprite, the avatar is built from a smaller copy so making it stays quick.
 
 Your sprite is sent to the image connection for blink and talk pictures (and to that connection's fallback image connection if it fails, one is set, and it accepts a reference picture), and to the chat connection for a mesh avatar. A connection that can't edit pictures gets only the prompt, which includes the appearance. The prompts come with the 2D Avatars agent. With **Expose media prompts before sending** on, you can read and change each picture's prompt before it is sent. With debug mode on, every prompt is written to the server log.
 
 ## Make your own model
 
-You don't have to make anything to start. A character or persona with expression sprites already has a PNGTuber avatar, and [Making an avatar from a sprite](#making-an-avatar-from-a-sprite) adds blink and talk pictures or builds a mesh avatar for you. To make your own model instead, use one of these tools. Sprites show as soon as you add them, and every file is imported on the agent's page in **Agents**.
+You don't have to draw anything to start. A character or persona can use its expression sprites as a PNGTuber avatar, and [Making an avatar from a sprite](#making-an-avatar-from-a-sprite) adds blink and talk pictures or builds a mesh avatar for you. To make your own model instead, use one of these tools. Save your sprite setup and turn on **Show this avatar in chats** to display it. Every file is imported on the agent's page in **Agents**.
 
-| What you want | Tool | What you get |
-| --- | --- | --- |
-| PNGTuber sprites | Any drawing app, then the character's **Sprites** tab | The sprites |
-| PNGTuber sprites with layers and costumes | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | A `.save` file |
-| A mesh avatar | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | A `.mavatar` file |
-| A 3D model | [VRoid Studio](https://vroid.com/en/studio), or Blender with the [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | A `.vrm` file, and optionally a `.vrma` idle animation |
+| What you want                             | Tool                                                                                                                                 | What you get                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| PNGTuber sprites                          | Any drawing app, then the character's **Sprites** tab                                                                                | The sprites                                            |
+| PNGTuber sprites with layers and costumes | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus)                                                                         | A `.save` file                                         |
+| A mesh avatar                             | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio)                                                               | A `.mavatar` file                                      |
+| A 3D model                                | [VRoid Studio](https://vroid.com/en/studio), or Blender with the [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | A `.vrm` file, and optionally a `.vrma` idle animation |
 
 ### Your own sprites
 
 1. Draw one picture for each feeling, all the same size and with the character in the same place. Name each after its feeling: `neutral`, `happy`, `angry`, `sad`, `relaxed` and `surprised`. Names that contain a feeling word work too, such as `smile`, `cry`, `calm` or `shock`. For the optional [more feelings](#pngtuber-sprites), add pictures named after them too, such as `amusement`, `fear` or `gratitude`.
 2. For a moving mouth, draw the same picture with only the mouth open and add `_talk` to its name, for example `happy_talk`. For blinking, close only the eyes and add `_blink`; with both, add `_blink_talk`. A feeling without these pictures still hops while it talks.
 3. Add the pictures on the **Sprites** tab of the character or persona, under **Facial Expressions**. **Upload Folder** adds a whole folder and names each sprite after its file. See [Character Sprites](../characters/sprites.md).
-4. Chats with 2D Avatars on show them right away. To change the face for a feeling or the movement, see [PNGTuber sprites](#pngtuber-sprites).
+4. Open **2D Avatars** in **Agents**, choose the character or persona, and turn on **Show this avatar in chats** to save the sprites as an avatar. Chats with 2D Avatars on then show it. To change the face for a feeling or the movement, see [PNGTuber sprites](#pngtuber-sprites).
 
 ### PNGTuber Plus
 
@@ -265,14 +265,14 @@ You don't have to make anything to start. A character or persona with expression
 
 Each avatar type's drawing code downloads only the first time an avatar of that type shows, so chats without avatars load nothing extra.
 
-| | Phones | Desktops |
-| --- | --- | --- |
-| Avatars drawn at once | 2 | 4 |
-| Frames per second while talking | 30 | 30 |
-| Frames per second while idle | 20, or 15 when the phone is busy | 30 |
-| Sharpness (pixel ratio) | up to 1.5× | up to 2× |
+|                                 | Phones                           | Desktops       |
+| ------------------------------- | -------------------------------- | -------------- |
+| Avatars drawn at once           | No fixed limit                   | No fixed limit |
+| Frames per second while talking | 30                               | 30             |
+| Frames per second while idle    | 20, or 15 when the phone is busy | 30             |
+| Sharpness (pixel ratio)         | up to 1.5×                       | up to 2×       |
 
-A chat shows avatars in the order of its characters, then your persona, up to that limit. Avatars stop drawing completely while the tab is hidden, the window is in the background, the Appearance settings are open, or the chat is off screen or covered by a panel or editor. With **Reduce Ambient Animations & Effects** or your device's reduced-motion setting on, avatars still change faces and move their mouths but skip breathing, swaying and the waiting poses.
+A chat shows every configured, enabled 2D or 3D avatar in the order of its characters, then your persona. There is no fixed count limit; size and arrange the cast to suit your screen and device. Avatars stop drawing completely while the tab is hidden, the window is in the background, the Appearance settings are open, or the chat is off screen or covered by a panel or editor. With **Reduce Ambient Animations & Effects** or your device's reduced-motion setting on, avatars still change faces and move their mouths but skip breathing, swaying and the waiting poses.
 
 ## Related guides
 

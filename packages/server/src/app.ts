@@ -131,6 +131,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // requestId on every line of a request, echoed as x-request-id.
   registerRequestLogging(app, logController);
 
+  // Runs before host validation so its 421 refusals also carry the security headers.
+  app.addHook("onRequest", securityHeadersHook);
+
   // Reject attacker-controlled DNS names before CORS or loopback trust can
   // treat a rebound browser request as same-origin local traffic.
   app.addHook("onRequest", hostValidationHook);
@@ -298,9 +301,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   app.addHook("preHandler", (_request, reply, done) => {
     runWithGenerationFallbackNotifier(createReplyFallbackNotifier(reply), done);
   });
-
-  // ── Security headers ──
-  app.addHook("onRequest", securityHeadersHook);
 
   // ── IP Allowlist ──
   app.addHook("onRequest", ipAllowlistHook);

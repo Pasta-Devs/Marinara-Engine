@@ -24,6 +24,8 @@ export interface ReplyParagraph {
   ownerId: string | null;
   /** The owner came from the paragraph before (or the fallback): this paragraph names nobody yet. */
   inherited: boolean;
+  /** A speaker tag or [Name]: line owns this span, including a tag whose closing tag is still streaming. */
+  explicitSpeaker?: boolean;
 }
 
 /** A sentence runs on past this many characters before it is cut at a clause. */
@@ -33,6 +35,7 @@ const SENTENCE_END = /[.!?…]+["'”’»)\]*_]*(?=\s)|[。！？]+[」』”�
 const CLAUSE_BREAK = /[,;:—–、，；：]\s*/gu;
 const HAS_LETTER = /\p{L}/u;
 const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
+const INCOMPLETE_TAG = /<\/?\p{L}[^<>\r\n]*(?:[\r\n]\s*)?$/u;
 
 function namePattern(name: string): RegExp | null {
   const full = name.trim();
@@ -62,28 +65,60 @@ export function attributeReplyParagraphs(
         return pattern ? [{ ownerId: candidate.ownerId, pattern }] : [];
       });
   let owner = fixedOwner ?? fallbackOwnerId;
+  const byName = candidates.map((candidate) => [candidate.ownerId, { name: candidate.name }] as const);
+  // A partial HTML tag is structure, never a quoted name to be spoken or classified.
+  const visibleEnd = text.replace(INCOMPLETE_TAG, "").length;
   const breaks = /\n+/gu;
-  let start = 0;
-  for (;;) {
-    const match = breaks.exec(text);
-    const end = match ? match.index : text.length;
-    let inherited = false;
-    if (!fixedOwner) {
+  const appendProse = (from: number, to: number) => {
+    let start = from;
+    breaks.lastIndex = from;
+    for (;;) {
+      const match = breaks.exec(text);
+      const end = match && match.index < to ? match.index : to;
       const paragraph = text.slice(start, end);
-      let firstIndex = Infinity;
-      for (const { ownerId, pattern } of patterns) {
-        const index = paragraph.search(pattern);
-        if (index >= 0 && index < firstIndex) {
-          firstIndex = index;
-          owner = ownerId;
+      const prefix = paragraph.match(/^\s*(?:Dialogue\s*)?\[([^\]\r\n]+)\]\s*(?:\[[^\]\r\n]+\]\s*){0,2}:\s*/iu);
+      let inherited = false;
+      if (prefix) {
+        owner = findTTSCharacterIdBySpeakerName(prefix[1], byName);
+        if (owner && knownOwnerId) owner = knownOwnerId;
+      } else if (!fixedOwner) {
+        let firstIndex = Infinity;
+        for (const { ownerId, pattern } of patterns) {
+          const index = paragraph.search(pattern);
+          if (index >= 0 && index < firstIndex) {
+            firstIndex = index;
+            owner = ownerId;
+          }
         }
+        inherited = firstIndex === Infinity;
       }
-      inherited = firstIndex === Infinity;
+      if (paragraph.trim()) {
+        paragraphs.push({
+          start,
+          end,
+          ownerId: prefix ? owner : (fixedOwner ?? owner),
+          inherited,
+          ...(prefix ? { explicitSpeaker: true } : {}),
+        });
+      }
+      if (!match || match.index >= to) break;
+      start = match.index + match[0].length;
     }
-    if (end > start) paragraphs.push({ start, end, ownerId: owner, inherited });
-    if (!match) break;
-    start = match.index + match[0].length;
+  };
+  const tags = /<speaker="([^"]*)">/giu;
+  let cursor = 0;
+  for (let tag = tags.exec(text); tag && tag.index < visibleEnd; tag = tags.exec(text)) {
+    appendProse(cursor, tag.index);
+    const close = /<\/speaker\s*>/giu;
+    close.lastIndex = tags.lastIndex;
+    const closing = close.exec(text);
+    const end = closing ? closing.index + closing[0].length : visibleEnd;
+    owner = findTTSCharacterIdBySpeakerName(tag[1], byName);
+    if (owner && knownOwnerId) owner = knownOwnerId;
+    paragraphs.push({ start: tag.index, end, ownerId: owner, inherited: false, explicitSpeaker: true });
+    cursor = tags.lastIndex = end;
   }
+  appendProse(cursor, visibleEnd);
   return paragraphs;
 }
 
@@ -114,12 +149,23 @@ export function collectReplyDialogue(
   const nameOf = new Map(speakers.map((speaker) => [speaker.ownerId, speaker.name]));
   const spoken = new Map<string, string[]>();
   paragraphs.forEach((paragraph, index) => {
-    let body = text.slice(paragraph.start, paragraph.end);
+    let body = text.slice(paragraph.start, paragraph.end).replace(INCOMPLETE_TAG, "");
     if (index === paragraphs.length - 1) body = closeOpenQuote(body);
+    if (paragraph.explicitSpeaker && /<speaker="/iu.test(body) && !/<\/speaker\s*>/iu.test(body)) {
+      body += "</speaker>";
+    }
     const fallbackName = paragraph.ownerId ? (nameOf.get(paragraph.ownerId) ?? null) : null;
+    const explicitLines = new Set<string>();
     for (const utterance of extractDialogueUtterances(body, fallbackName)) {
-      const ownerId =
-        (utterance.speaker ? findTTSCharacterIdBySpeakerName(utterance.speaker, byName) : null) ?? paragraph.ownerId;
+      if (paragraph.explicitSpeaker) {
+        if (explicitLines.has(utterance.text)) continue;
+        explicitLines.add(utterance.text);
+      }
+      const ownerId = paragraph.explicitSpeaker
+        ? paragraph.ownerId
+        : utterance.speaker
+          ? findTTSCharacterIdBySpeakerName(utterance.speaker, byName)
+          : paragraph.ownerId;
       if (!ownerId) continue;
       const lines = spoken.get(ownerId) ?? [];
       lines.push(utterance.text);
