@@ -169,7 +169,7 @@ O servidor registra um aviso `[auth-bypass]` no log na primeira vez que uma dess
 
 ## Proxies reversos e túneis no mesmo computador
 
-Um proxy reverso ou túnel na máquina que roda Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve ou Funnel, ou ngrok, se conecta a Marinara pelo loopback. Marinara reconhece isso pelos cabeçalhos de encaminhamento que o proxy acrescenta: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, os cabeçalhos de identidade do Tailscale ou `Via`. Aí trata cada requisição como o visitante remoto que ela realmente é:
+Um proxy reverso ou túnel na máquina que roda Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve ou Funnel, ou ngrok, se conecta a Marinara pelo loopback. Marinara reconhece isso pelos cabeçalhos de encaminhamento que o proxy acrescenta: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, os cabeçalhos de identidade do Tailscale ou `Via`. O Marinara também reconhece uma requisição cujo Host aponta para outro computador, como um domínio ou um endereço da LAN, mesmo quando o proxy não adiciona cabeçalhos. Aí trata cada requisição como o visitante remoto que ela realmente é:
 
 - Basic Auth se aplica, então defina `BASIC_AUTH_USER` e `BASIC_AUTH_PASS`. Sem eles, os visitantes veem a página de configuração.
 - `IP_ALLOWLIST` bloqueia os visitantes encaminhados, porque o proxy esconde os endereços reais deles.
@@ -275,6 +275,10 @@ Para abrir Marinara no celular ou no tablet dentro da mesma rede:
 5. Se você configurou Basic Auth, digite o nome de usuário e a senha quando forem pedidos.
 
 Se a página não carregar de jeito nenhum, talvez o servidor não esteja acessível. Confira `HOST=0.0.0.0` e o valor da variável `PORT`. Se aparecer um 403, o dispositivo alcança o servidor, mas ainda não tem permissão. Revise a opção que você escolheu acima.
+
+## Mecanismos de busca
+
+O Marinara pede aos mecanismos de busca que não indexem as suas páginas (`X-Robots-Tag: noindex, nofollow`). Isso não protege a sua instalação nem remove páginas que já foram indexadas. Use os controles de acesso acima para manter a sua instalação privada.
 
 ## Guias relacionados
 

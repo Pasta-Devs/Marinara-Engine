@@ -169,7 +169,7 @@ Der Server protokolliert eine `[auth-bypass]`-Warnung, sobald eine dieser Ausnah
 
 ## Reverse-Proxys und Tunnel auf demselben Rechner
 
-Ein Reverse-Proxy oder Tunnel auf dem Rechner, auf dem Marinara läuft – etwa nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve oder Funnel oder ngrok –, verbindet sich über Loopback mit Marinara. Marinara erkennt das an den Weiterleitungs-Headern, die der Proxy hinzufügt: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, die Identitäts-Header von Tailscale oder `Via`. Dann behandelt es jede Anfrage als das, was sie ist: ein entfernter Besucher.
+Ein Reverse-Proxy oder Tunnel auf dem Rechner, auf dem Marinara läuft – etwa nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve oder Funnel oder ngrok –, verbindet sich über Loopback mit Marinara. Marinara erkennt das an den Weiterleitungs-Headern, die der Proxy hinzufügt: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, die Identitäts-Header von Tailscale oder `Via`. Marinara erkennt außerdem eine Anfrage, deren Host einen anderen Rechner angibt, etwa eine Domain oder eine LAN-Adresse, auch wenn der Proxy keine Header hinzufügt. Dann behandelt es jede Anfrage als das, was sie ist: ein entfernter Besucher.
 
 - Basic Auth greift, setze also `BASIC_AUTH_USER` und `BASIC_AUTH_PASS`. Ohne diese Werte sehen Besucher die Einrichtungsseite.
 - `IP_ALLOWLIST` blockiert die weitergeleiteten Besucher, weil der Proxy ihre echten Adressen verbirgt.
@@ -275,6 +275,10 @@ So öffnest du Marinara vom Handy oder Tablet im selben Netzwerk:
 5. Falls du Basic Auth eingerichtet hast, gib Benutzername und Passwort ein, sobald danach gefragt wird.
 
 Lädt die Seite gar nicht, ist der Server vermutlich nicht erreichbar. Prüfe `HOST=0.0.0.0` und den Wert von `PORT`. Kommt stattdessen ein 403, ist dein Gerät zwar erreichbar, aber noch nicht zugelassen. Sieh die gewählte Option oben noch einmal durch.
+
+## Suchmaschinen
+
+Marinara bittet Suchmaschinen, seine Seiten nicht zu indexieren (`X-Robots-Tag: noindex, nofollow`). Das schützt deine Installation nicht und entfernt Seiten, die bereits indexiert sind, nicht aus den Suchergebnissen. Nutze die Zugriffskontrollen oben, um deine Installation privat zu halten.
 
 ## Verwandte Anleitungen
 

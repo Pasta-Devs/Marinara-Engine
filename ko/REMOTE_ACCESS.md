@@ -169,7 +169,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 같은 컴퓨터의 리버스 프록시와 터널
 
-nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok처럼 Marinara를 실행하는 컴퓨터에 있는 리버스 프록시나 터널은 루프백에서 Marinara에 연결합니다. Marinara는 프록시가 추가하는 전달 헤더를 보고 이를 알아봅니다. 이런 헤더에는 `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, Tailscale 신원 헤더, `Via`가 있습니다. 그러면 Marinara는 각 요청을 실제 그대로 원격 방문자로 취급합니다.
+nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok처럼 Marinara를 실행하는 컴퓨터에 있는 리버스 프록시나 터널은 루프백에서 Marinara에 연결합니다. Marinara는 프록시가 추가하는 전달 헤더를 보고 이를 알아봅니다. 이런 헤더에는 `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, Tailscale 신원 헤더, `Via`가 있습니다. Marinara는 프록시가 헤더를 추가하지 않더라도, Host가 도메인이나 LAN 주소처럼 다른 컴퓨터를 가리키는 요청을 인식합니다. 그러면 Marinara는 각 요청을 실제 그대로 원격 방문자로 취급합니다.
 
 - Basic Auth가 적용되므로 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 설정하지 않으면 방문자에게 설정 안내 페이지가 표시됩니다.
 - 프록시가 실제 주소를 가리므로 `IP_ALLOWLIST`는 전달된 방문자를 차단합니다.
@@ -275,6 +275,10 @@ TRUSTED_HOSTS=chat.example.com
 5. Basic Auth를 설정했다면 입력창이 뜰 때 사용자 이름과 비밀번호를 입력하세요.
 
 페이지가 아예 열리지 않으면 서버에 닿지 못하는 상태일 수 있습니다. `HOST=0.0.0.0`과 `PORT` 값을 확인하세요. 대신 403이 나온다면 서버에는 닿았지만 아직 허용되지 않은 것입니다. 위에서 고른 방식을 다시 확인하세요.
+
+## 검색 엔진
+
+Marinara는 검색 엔진에 페이지를 색인하지 말아 달라고 요청합니다(`X-Robots-Tag: noindex, nofollow`). 이것으로 설치본이 보호되지는 않으며, 이미 색인된 페이지가 제거되지도 않습니다. 설치본을 비공개로 유지하려면 위의 접근 제어를 사용하세요.
 
 ## 관련 가이드
 

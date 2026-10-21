@@ -169,7 +169,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 同じコンピューター上のリバースプロキシとトンネル
 
-nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale ServeやFunnel、ngrokなど、Marinaraを動かしているコンピューター上のリバースプロキシやトンネルは、ループバックからMarinaraに接続します。Marinaraは、プロキシが付け加える転送用のヘッダーからこれを見分けます。対象は`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscaleの身元を示すヘッダー、`Via`です。見分けたリクエストは、実際のとおりリモートからの訪問者として扱います。
+nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale ServeやFunnel、ngrokなど、Marinaraを動かしているコンピューター上のリバースプロキシやトンネルは、ループバックからMarinaraに接続します。Marinaraは、プロキシが付け加える転送用のヘッダーからこれを見分けます。対象は`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscaleの身元を示すヘッダー、`Via`です。Marinaraは、プロキシがヘッダーを追加しない場合でも、HostがドメインやLANアドレスなど別のコンピューターを指すリクエストを認識します。見分けたリクエストは、実際のとおりリモートからの訪問者として扱います。
 
 - Basic Authが適用されるので、`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を設定してください。設定していない場合、訪問者にはセットアップページが表示されます。
 - プロキシが訪問者の本当のアドレスを隠すため、転送されてきた訪問者は`IP_ALLOWLIST`によって遮断されます。
@@ -275,6 +275,10 @@ Marinaraを、たとえば自分のコンピューターで動かしているロ
 5. Basic Authを設定している場合は、求められたらユーザー名とパスワードを入力します。
 
 ページがまったく開かない場合は、サーバーに届いていない可能性があります。`HOST=0.0.0.0`と`PORT`の値を確認してください。403が返る場合は、サーバーには届いているものの、まだ許可されていない状態です。選んだ方法の設定をもう一度見直してください。
+
+## 検索エンジン
+
+Marinaraは、検索エンジンにページのインデックス登録をしないよう求めます（`X-Robots-Tag: noindex, nofollow`）。これはお使いのインストールを保護するものではなく、すでにインデックス登録されたページを削除するものでもありません。インストールを非公開に保つには、上記のアクセス制御を使用してください。
 
 ## 関連ガイド
 

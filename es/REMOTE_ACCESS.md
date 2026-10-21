@@ -169,7 +169,7 @@ El servidor registra una advertencia `[auth-bypass]` la primera vez que uno de e
 
 ## Proxies inversos y túneles en la misma computadora
 
-Un proxy inverso o un túnel en la máquina que ejecuta Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve o Funnel, o ngrok, se conecta a Marinara desde loopback. Marinara lo reconoce por los encabezados de reenvío que añade el proxy: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, los encabezados de identidad de Tailscale o `Via`. Entonces trata cada solicitud como lo que es, un visitante remoto:
+Un proxy inverso o un túnel en la máquina que ejecuta Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve o Funnel, o ngrok, se conecta a Marinara desde loopback. Marinara lo reconoce por los encabezados de reenvío que añade el proxy: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, los encabezados de identidad de Tailscale o `Via`. Marinara también reconoce una solicitud cuyo Host apunta a otro equipo, como un dominio o una dirección de la LAN, aunque el proxy no añada encabezados. Entonces trata cada solicitud como lo que es, un visitante remoto:
 
 - Se aplica Basic Auth, así que configura `BASIC_AUTH_USER` y `BASIC_AUTH_PASS`. Sin ellos, los visitantes ven la página de configuración.
 - `IP_ALLOWLIST` bloquea a los visitantes reenviados, porque el proxy oculta sus direcciones reales.
@@ -275,6 +275,10 @@ Para abrir Marinara desde un teléfono o una tableta en la misma red:
 5. Si configuraste Basic Auth, escribe tu nombre de usuario y contraseña cuando se te pida.
 
 Si la página no carga en absoluto, puede que el servidor no sea accesible. Revisa `HOST=0.0.0.0` y el valor de `PORT`. Si en cambio recibes un 403, tu dispositivo es accesible pero aún no está permitido. Vuelve a revisar la opción que elegiste arriba.
+
+## Buscadores
+
+Marinara pide a los buscadores que no indexen sus páginas (`X-Robots-Tag: noindex, nofollow`). Esto no protege tu instalación ni elimina las páginas que ya están indexadas. Usa los controles de acceso de arriba para mantener tu instalación privada.
 
 ## Guías relacionadas
 
