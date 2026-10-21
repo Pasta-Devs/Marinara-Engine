@@ -85,6 +85,7 @@ import {
   buildAtlasCloudImageRequest,
   runAtlasCloudPrediction,
 } from "../media/atlas-cloud.js";
+import { generateToAPIsImage, isToAPIsMediaUrl, ToAPIsSubmittedTaskError } from "../media/toapis-media.js";
 import {
   OPENAI_CHATGPT_CODEX_BASE_URL,
   buildOpenAIChatGPTHeaders,
@@ -347,6 +348,7 @@ export async function generateImage(
     request.admissionMode ?? { kind: "foreground" },
   );
   let outcome: ConnectionAttemptOutcome = "failed";
+  let toAPIsSubmissionStarted = false;
 
   try {
     const physicalRequest = () =>
@@ -364,8 +366,6 @@ export async function generateImage(
         };
 
         switch (resolvedSource) {
-          case "openai":
-            return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
           case "codex_chatgpt":
             return generateChatGPTImage(scopedRequest);
           case "arli":
@@ -414,8 +414,11 @@ export async function generateImage(
             return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
           case "gemini_image":
             return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
+          case "openai":
           default:
-            return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
+            return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest, () => {
+              toAPIsSubmissionStarted = true;
+            });
         }
       });
     // Admit on the resolved endpoint rather than a connection id: every caller reaches this
@@ -446,6 +449,11 @@ export async function generateImage(
       : primaryResult;
   } catch (error) {
     const fallback = request.fallback;
+    if (error instanceof ToAPIsSubmittedTaskError) throw error;
+    // The deadline races the worker, so it can arrive before the worker wraps its aborted task.
+    if (error instanceof ImageGenerationDeadlineError && toAPIsSubmissionStarted) {
+      throw new ToAPIsSubmittedTaskError(error);
+    }
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
     // An edit drawn without its picture is a new picture, so a fallback that drops the picture is not tried.
     if (request.referenceIsCanvas && !imageConnectionTakesReferencePicture(fallback)) {
@@ -1311,7 +1319,22 @@ function applyImageCustomFormParameters(request: ImageGenRequest, body: FormData
   );
 }
 
-async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+async function generateOpenAI(
+  baseUrl: string,
+  apiKey: string,
+  request: ImageGenRequest,
+  onToAPIsSubmissionStart?: () => void,
+): Promise<ImageGenResult> {
+  if (isToAPIsMediaUrl(baseUrl)) {
+    return generateToAPIsImage(
+      baseUrl,
+      apiKey,
+      { ...request, prompt: openAITextPrompt(request) },
+      openAIReferenceImages(request).map(decodeReferenceImage),
+      MAX_IMAGE_RESPONSE_BYTES,
+      onToAPIsSubmissionStart,
+    );
+  }
   const usesGptImageApi = isOpenAIGptImageModel(request.model);
   const references = openAIReferenceImages(request);
   const prompt = openAITextPrompt(request);

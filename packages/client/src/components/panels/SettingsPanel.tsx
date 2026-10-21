@@ -30,6 +30,7 @@ import {
   type VisualTheme,
 } from "../../stores/ui.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
+import { LanguagePicker } from "../ui/LanguagePicker";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -2143,24 +2144,18 @@ function DocsLanguageSetting() {
 
   return (
     <div id={getSettingsControlAnchorId("docs-language")} className="flex scroll-mt-3 flex-col gap-1">
-      <label className="flex flex-col gap-1">
-        <span className="inline-flex items-center gap-1 text-xs font-medium">
-          {localizeUi("settings.application.docsLanguage.label")}
-          <HelpTooltip text={localizeUi("settings.application.docsLanguage.help")} />
-        </span>
-        <select
-          value={selection}
-          onChange={(event) => setPickedLanguage(event.target.value)}
-          disabled={statusLoading || setDocsLanguage.isPending}
-          className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-        >
-          {(options.length > 0 ? options : [{ code: "en", label: "English" }]).map((option) => (
-            <option key={option.code} value={option.code}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="inline-flex items-center gap-1 text-xs font-medium">
+        <label htmlFor="settings-docs-language-select">{localizeUi("settings.application.docsLanguage.label")}</label>
+        <HelpTooltip text={localizeUi("settings.application.docsLanguage.help")} />
+      </div>
+      <LanguagePicker
+        id="settings-docs-language-select"
+        label={localizeUi("settings.application.docsLanguage.label")}
+        value={selection}
+        onChange={setPickedLanguage}
+        disabled={statusLoading || setDocsLanguage.isPending}
+        options={options.length > 0 ? options : [{ code: "en", label: "English" }]}
+      />
       {activeInfo && active !== "en" ? (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("settings.application.docsLanguage.active", {

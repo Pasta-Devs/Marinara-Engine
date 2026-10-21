@@ -17,6 +17,7 @@ import {
 } from "../image/comfyui-reference-placeholders.js";
 import { buildAtlasCloudVideoRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
 import { adaptAtlasCloudVideoRequest, fetchAtlasCloudModelSchema } from "../media/atlas-cloud-video-schema.js";
+import { generateToAPIsVideo, isToAPIsMediaUrl, ToAPIsSubmittedTaskError } from "../media/toapis-media.js";
 import { buildComfyUiLoraWorkflowReplacements } from "@marinara-engine/shared";
 
 import type {
@@ -104,6 +105,7 @@ export async function generateVideo(
     });
   } catch (error) {
     const fallback = request.fallback;
+    if (error instanceof ToAPIsSubmittedTaskError) throw error;
     if (!fallback || request.signal?.aborted) throw error;
     logger.warn(
       error,
@@ -1290,6 +1292,7 @@ async function generateSeedanceVideo(
   apiKey: string,
   request: VideoGenerationRequest,
 ): Promise<VideoGenerationResult> {
+  if (isToAPIsMediaUrl(baseUrl)) return generateToAPIsVideo(baseUrl, apiKey, request, MAX_VIDEO_RESPONSE_BYTES);
   if (!apiKey.trim()) throw new Error("Seedance video generation requires a Seedance API key");
   const model = request.model?.trim() || DEFAULT_SEEDANCE_VIDEO_MODEL;
   const startUrl = buildSeedanceUrl(baseUrl, "v1/videos/generations");
