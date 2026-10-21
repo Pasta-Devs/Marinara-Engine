@@ -8,14 +8,14 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 const FILE_TIMEOUT_MS = 30_000;
+const SERIAL_RETRY_LIMIT = 20;
 const REGRESSION_SUFFIXES = ['.regression.ts', '.regression.mjs', '.regression.js'];
 const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143, SIGBREAK: 1 };
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const regressionsRoot = path.join(repositoryRoot, 'scripts', 'regressions');
 const serverRequire = createRequire(path.join(repositoryRoot, 'packages', 'server', 'package.json'));
-let activeChild;
-let activeTermination = false;
-let activeForceTimer;
+// Running children, each mapped to its force-kill timer once termination has started.
+const activeChildren = new Map();
 let interruption;
 
 function repositoryRelative(file) {
@@ -54,9 +54,17 @@ function discoverRegressions(directory = regressionsRoot) {
   return files.sort();
 }
 
+const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>] [--concurrency <n>]';
+
+function parseConcurrency(value, message = USAGE) {
+  if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(message);
+  return Number(value);
+}
+
 function parseArguments(args) {
   let list = false;
   let filter;
+  let concurrency;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -66,16 +74,24 @@ function parseArguments(args) {
       list = true;
     } else if (argument === '--filter') {
       if (filter !== undefined || index + 1 === args.length || args[index + 1] === '') {
-        throw new Error('Usage: node scripts/run-regressions.mjs [--list] [--filter <text>]');
+        throw new Error(USAGE);
       }
       filter = args[index + 1];
+      index += 1;
+    } else if (argument === '--concurrency') {
+      if (concurrency !== undefined) throw new Error(USAGE);
+      concurrency = parseConcurrency(args[index + 1]);
       index += 1;
     } else {
       throw new Error(`Unknown argument: ${argument}`);
     }
   }
 
-  return { filter, list };
+  const fromEnv = process.env.REGRESSION_CONCURRENCY;
+  concurrency ??= fromEnv
+    ? parseConcurrency(fromEnv, 'REGRESSION_CONCURRENCY must be a positive whole number.')
+    : os.availableParallelism();
+  return { concurrency, filter, list };
 }
 
 function pipeWithContext(stream, relativePath, label, destination) {
@@ -107,19 +123,15 @@ function forceTerminateChild(child) {
   }
 }
 
-function terminateActiveChild() {
-  if (!activeChild || activeTermination) return;
-  activeTermination = true;
-  terminateChild(activeChild);
-  activeForceTimer = setTimeout(() => forceTerminateChild(activeChild), 2_000);
+function terminateActiveChild(child) {
+  if (!activeChildren.has(child) || activeChildren.get(child)) return;
+  activeChildren.set(child, setTimeout(() => forceTerminateChild(child), 2_000));
+  terminateChild(child);
 }
 
 function releaseActiveChild(child) {
-  if (activeChild !== child) return;
-  clearTimeout(activeForceTimer);
-  activeForceTimer = undefined;
-  activeChild = undefined;
-  activeTermination = false;
+  clearTimeout(activeChildren.get(child));
+  activeChildren.delete(child);
 }
 
 function handleRunnerSignal(signal) {
@@ -127,7 +139,7 @@ function handleRunnerSignal(signal) {
   interruption = signal;
   process.exitCode = SIGNAL_EXIT_CODES[signal];
   process.stderr.write(`[runner] ${signal} received; terminating active regression.\n`);
-  terminateActiveChild();
+  for (const child of activeChildren.keys()) terminateActiveChild(child);
 }
 
 function commandFor(relativePath) {
@@ -161,11 +173,16 @@ function regressionEnvironment(scratchDir) {
   };
 }
 
-function runRegression(relativePath) {
+// Buffered output is held back and returned with the result, so files running side by side print in whole blocks.
+function runRegression(relativePath, buffered) {
   const { args, command, cwd } = commandFor(relativePath);
   const timeoutMs = regressionTimeoutMs(relativePath);
   const startedAt = Date.now();
-  process.stdout.write(`[${relativePath}] START\n`);
+  const output = [];
+  const sink = (destination) => (buffered ? { write: (text) => output.push([destination, text]) } : destination);
+  const stdout = sink(process.stdout);
+  const stderr = sink(process.stderr);
+  stdout.write(`[${relativePath}] START\n`);
   const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marinara-regression-'));
 
   return new Promise((resolve) => {
@@ -176,16 +193,16 @@ function runRegression(relativePath) {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
-    activeChild = child;
-    pipeWithContext(child.stdout, relativePath, 'stdout', process.stdout);
-    pipeWithContext(child.stderr, relativePath, 'stderr', process.stderr);
+    activeChildren.set(child, undefined);
+    pipeWithContext(child.stdout, relativePath, 'stdout', stdout);
+    pipeWithContext(child.stderr, relativePath, 'stderr', stderr);
 
     let settled = false;
     let timedOut = false;
     const timeoutTimer = setTimeout(() => {
       timedOut = true;
-      process.stderr.write(`[${relativePath}] TIMEOUT after ${timeoutMs / 1000}s; terminating child.\n`);
-      terminateActiveChild();
+      stderr.write(`[${relativePath}] TIMEOUT after ${timeoutMs / 1000}s; terminating child.\n`);
+      terminateActiveChild(child);
     }, timeoutMs);
 
     const finish = (result) => {
@@ -198,7 +215,7 @@ function runRegression(relativePath) {
       } catch {
         // A child still exiting can hold a file open on Windows; the OS temp cleaner removes it.
       }
-      resolve({ ...result, durationMs: Date.now() - startedAt });
+      resolve({ ...result, durationMs: Date.now() - startedAt, output });
     };
 
     child.once('error', (error) => finish({ status: 'start-error', error }));
@@ -218,7 +235,7 @@ async function main() {
   for (const signal of process.platform === 'win32' ? ['SIGINT', 'SIGTERM', 'SIGBREAK'] : ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => handleRunnerSignal(signal));
   }
-  const { filter, list } = parseArguments(process.argv.slice(2));
+  const { concurrency, filter, list } = parseArguments(process.argv.slice(2));
   const discovered = discoverRegressions();
   if (discovered.length === 0) throw new Error('No regression files were discovered.');
 
@@ -230,18 +247,46 @@ async function main() {
     return;
   }
 
-  const results = [];
-  for (const file of selected) {
+  const workers = Math.min(concurrency, selected.length);
+  const pooled = workers > 1;
+  // A longer timeout marks a known slow file; in a pool those start first so they do not finish last.
+  const queue = pooled ? [...selected].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)) : [...selected];
+  let results = [];
+  const worker = async (buffered) => {
+    while (!interruption && queue.length > 0) {
+      const file = queue.shift();
+      const { output, ...result } = await runRegression(file, buffered);
+      for (const [destination, text] of output) destination.write(text);
+      if (interruption) return;
+      results.push({ file, ...result });
+      const detail = result.status === 'failed'
+        ? ` (exit ${result.code ?? 'unknown'}${result.signal ? `, ${result.signal}` : ''})`
+        : result.status === 'start-error'
+          ? ` (${result.error.message})`
+          : '';
+      process.stdout.write(`[${file}] ${result.status.toUpperCase()} (${result.durationMs}ms)${detail}\n`);
+    }
+  };
+  // A runner error ends the run, as it did when files ran one at a time.
+  await Promise.all(Array.from({ length: workers }, () => worker(pooled))).catch((error) => {
+    queue.length = 0;
+    for (const child of activeChildren.keys()) terminateActiveChild(child);
+    throw error;
+  });
+  if (interruption) return;
+
+  // ponytail: the per-file timeouts and a few wall-clock budgets assume one file at a time, so a file that does not
+  // pass beside others gets one serial retry, which decides its result. Ceiling: more than SERIAL_RETRY_LIMIT misses
+  // (say, a broken build) are reported without retries; upgrade path: timeouts and budgets that allow for a busy CPU.
+  const retries = pooled ? results.filter((result) => result.status !== 'passed') : [];
+  if (retries.length > 0 && retries.length <= SERIAL_RETRY_LIMIT) {
+    process.stdout.write(`[runner] Retrying ${retries.length} file(s) that did not pass, one at a time.\n`);
+    results = results.filter((result) => result.status === 'passed');
+    queue.push(...retries.map((result) => result.file));
+    await worker(false);
     if (interruption) return;
-    const result = await runRegression(file);
-    results.push({ file, ...result });
-    if (interruption) return;
-    const detail = result.status === 'failed'
-      ? ` (exit ${result.code ?? 'unknown'}${result.signal ? `, ${result.signal}` : ''})`
-      : result.status === 'start-error'
-        ? ` (${result.error.message})`
-        : '';
-    process.stdout.write(`[${file}] ${result.status.toUpperCase()} (${result.durationMs}ms)${detail}\n`);
+  } else if (retries.length > SERIAL_RETRY_LIMIT) {
+    process.stdout.write(`[runner] ${retries.length} files did not pass; more than ${SERIAL_RETRY_LIMIT}, so none is retried.\n`);
   }
 
   const failed = results.filter((result) => result.status !== 'passed');
