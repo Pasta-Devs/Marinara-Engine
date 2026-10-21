@@ -399,7 +399,7 @@ test("Move to connection offers the same service first, then other services with
     const failed = dialog.locator("[data-move-catalog-error]");
     await expect(failed).toContainText(`Couldn't load Move broken ${suffix}'s models`);
     await expect(dialog.locator("[data-move-not-offered]")).toHaveCount(0);
-    await failed.getByRole("button", { name: "Retry", exact: true }).click();
+    await failed.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(dialog.locator('[data-move-candidate="openai/gpt-5.5"]').getByRole("radio")).toBeChecked();
     await expect(failed).toHaveCount(0);
     await dialog.getByRole("button", { name: "Back", exact: true }).click();

@@ -237,7 +237,8 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     );
     await expect(picker).not.toContainText("Applies to this chat");
     await expect(menu).toContainText("Applies to this chat only");
-    expect(provider.state.calls).toBe(1);
+    // One saved list per Connection (Main and Other each load theirs once, for the cost facts); nothing re-asks later.
+    expect(provider.state.calls).toBe(2);
 
     if (isPhone(testInfo)) {
       await expectNoHorizontalScroll(page);
@@ -293,7 +294,7 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     picker = await openModels(page, testInfo, mainAccount);
     await expect(modelRow(picker, "favorites", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
-    expect(provider.state.calls).toBe(1);
+    expect(provider.state.calls).toBe(2);
 
     // A catalog pick applies to this chat only: the chat keeps its Model and runs Gamma on it with the catalog's
     // context size and output limit. No Model is saved and the saved one does not change.
@@ -334,13 +335,13 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
       "aria-current",
       "true",
     );
-    expect(provider.state.calls).toBe(1);
+    expect(provider.state.calls).toBe(2);
 
     // Refresh asks the provider again and shows what it reports now.
     provider.state.catalog = [...CATALOG, { id: "vendor/delta", name: "Delta" }];
     await picker.locator("[data-model-refresh]").click();
     await expect(modelRow(picker, "all", "vendor/delta")).toBeVisible();
-    expect(provider.state.calls).toBe(2);
+    expect(provider.state.calls).toBe(3);
 
     // Enter with several matches waits for a choice; it never saves the search text as a model.
     let search = picker.locator("[data-model-search]");
@@ -471,6 +472,9 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
 
     // Chat Settings → Connection has the same picker, and a pick there applies to this chat only too.
     const settings = await openChatSettings(page);
+    // The first-run tips take a third of the window; the list can only fit once they are dismissed.
+    const hideTips = settings.getByRole("button", { name: "Hide these tips for this chat" });
+    if (await hideTips.count()) await hideTips.click();
     const field = settings.locator("[data-chat-settings-model-field]");
     await field.scrollIntoViewIfNeeded();
     if (isPhone(testInfo)) {

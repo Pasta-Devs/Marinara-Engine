@@ -6894,9 +6894,9 @@ assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
 assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
-assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
-assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
-assert.match(deviceDetailSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
+assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
+assert.match(deviceDetailSource, /connections\.device\.unloadModel/u);
+assert.match(deviceDetailSource, /connections\.device\.loadModel/u);
 assert.match(
   connectionsPanelSource,
   /className="grid min-w-0 grid-cols-2 gap-2"/u,
@@ -9529,8 +9529,8 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     connectionEditorSource,
-    /setRemoteModels\(\[\]\);[\s\S]{0,120}setRemoteLoras\(\[\]\);[\s\S]{0,120}setFetchError\(null\);/u,
-    "Changing media providers must clear stale remote LoRA choices",
+    /remoteLoras = useMemo\(\(\) => modelList\.data\?\.loras \?\? \[\], \[modelList\.data\]\)/u,
+    "Remote LoRA choices must come from the current model list, so a provider change cannot leave stale ones",
   );
   assert.match(
     connectionEditorSource,
