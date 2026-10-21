@@ -44,8 +44,16 @@ const MAX_SHIFT = 0.12;
 /** Luminance differences are capped in the fit, so the eyes or mouth that did change count no more than any
  *  other mismatch. */
 const FIT_CAP = 40;
-/** A pixel changed when its colour differs this much (largest channel) from every pixel next to it. */
-const CHANGE_THRESHOLD = 48;
+/** A pixel changed when its colour differs this much from every pixel next to it, as a distance in CIE Lab
+ *  (CIE76): a change counts as the eye sees it, so a dark mouth on dark skin counts as one on light skin does. */
+const CHANGE_THRESHOLD = 10;
+/** The strongest group's changes must average this much (Lab) to be a clear change. */
+const CLEAR_CHANGE = 12;
+/** Changes averaging less than this (Lab) must also be at least MIN_CHANGE_TO_CONTRAST of how much the face
+ *  itself varies under them: smaller, they are the picture's compression or redrawing along the face's own lines
+ *  and edges, not closed eyes or an open mouth. */
+const WEAK_CHANGE = 30;
+const MIN_CHANGE_TO_CONTRAST = 0.6;
 /** A picture that changed more than this share of the figure outside the eyes or mouth was redrawn. */
 const MAX_CHANGED_OUTSIDE = 0.25;
 /** A region larger than this share of the figure is not just the eyes or the mouth. */
@@ -60,7 +68,32 @@ export class AvatarPictureUnusableError extends Error {
   }
 }
 
-// ── Luminance planes ──
+// ── Luminance and Lab planes ──
+
+/** An sRGB channel value in linear light. */
+const LINEAR = Float32Array.from({ length: 256 }, (_, value) => {
+  const v = value / 255;
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+});
+/** Lab's cube-root curve, straight near black. */
+const labCurve = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116);
+
+/** CIE Lab (D65) of an RGB plane, three values a pixel. */
+function labPlane(rgb: Uint8Array): Float32Array {
+  const out = new Float32Array(rgb.length);
+  for (let index = 0; index < rgb.length; index += 3) {
+    const red = LINEAR[rgb[index]!]!;
+    const green = LINEAR[rgb[index + 1]!]!;
+    const blue = LINEAR[rgb[index + 2]!]!;
+    const fx = labCurve((0.4124 * red + 0.3576 * green + 0.1805 * blue) / 0.95047);
+    const fy = labCurve(0.2126 * red + 0.7152 * green + 0.0722 * blue);
+    const fz = labCurve((0.0193 * red + 0.1192 * green + 0.9505 * blue) / 1.08883);
+    out[index] = 116 * fy - 16;
+    out[index + 1] = 500 * (fx - fy);
+    out[index + 2] = 200 * (fy - fz);
+  }
+  return out;
+}
 
 /** Luminance of a picture laid on white. A face counts as see-through below half alpha, as the model was
  *  shown it; a model's picture is blended with white by its alpha. */
@@ -139,7 +172,9 @@ function fitCost(face: Plane, drawn: Plane, faceWidth: number, faceHeight: numbe
       const X = bx + (u + 0.5) * face.factor * sx;
       const x0 = Math.floor(X);
       if (!rowInside || x0 < 0 || x0 + 1 >= dw) {
-        sum += FIT_CAP;
+        // Past the model's picture counts as white, the padding models add, so a see-through margin costs nothing.
+        const uncovered = WHITE - fv[v * face.width + u]!;
+        sum += uncovered < FIT_CAP ? uncovered : FIT_CAP;
         continue;
       }
       const fx = X - x0;
@@ -435,6 +470,8 @@ interface ChangeCluster {
   darkening: number;
   /** Sum of (face detail - picture detail): above zero where the picture lost detail. */
   detailLoss: number;
+  /** Sum of how much the face itself varies (Lab) under the changes. */
+  contrast: number;
   score: number;
 }
 
@@ -464,10 +501,11 @@ function unusable(variant: AvatarPngtuberVariant, what: "nothing" | "moved" | "t
  * from the changes themselves: colour changes that a pixel or two of drift can't explain, grouped, the
  * strongest group chosen, with the other eye next to it for a blink, and a generous ellipse drawn around them.
  * A group touching the canvas edge (padding, bars) is never chosen, and changes along the figure's outline
- * (fringes, halos) neither count nor come through. Inside the ellipse, the changed pixels are taken from the
- * picture, feathered into the face; everything else is the face's own pixel, byte for byte, and the alpha is
- * the face's everywhere. Throws AvatarPictureUnusableError when there is no clear change, or when the
- * picture changed too much to be an edit of the eyes or mouth.
+ * (fringes, halos) neither count nor come through. Inside the ellipse, the changed pixels, and every pixel
+ * within each chosen group's own ellipse (so an iris or eye white barely unlike the lid can't show through),
+ * are taken from the picture, feathered into the face; everything else is the face's own pixel, byte for byte,
+ * and the alpha is the face's everywhere. Throws AvatarPictureUnusableError when there is no clear change, or
+ * when the picture changed too much to be an edit of the eyes or mouth.
  */
 export function keepAvatarFaceChange(
   face: RgbaPixels,
@@ -502,36 +540,39 @@ export function keepAvatarFaceChange(
 
   // A change no small drift explains: the face's colour is found nowhere within `reach` of the same place in
   // the picture. A closed eye (the eye is gone) and an open mouth (skin became mouth) both count; a line the
-  // model drew a pixel or two to the side does not.
+  // model drew a pixel or two to the side does not. How much the face itself varies there (its largest step to
+  // a pixel within `reach`) is kept too.
   const reach = Math.max(1, Math.round(longSide / 512));
-  const difference = new Uint8Array(total);
-  const smallest = (from: Uint8Array, to: Uint8Array, x: number, y: number) => {
-    const own = (y * width + x) * 3;
-    let least = 255;
-    for (let dy = -reach; dy <= reach; dy += 1) {
-      const sy = y + dy;
-      if (sy < 0 || sy >= height) continue;
-      for (let dx = -reach; dx <= reach; dx += 1) {
-        const sx = x + dx;
-        if (sx < 0 || sx >= width) continue;
-        const other = (sy * width + sx) * 3;
-        const red = Math.abs(from[own]! - to[other]!);
-        const green = Math.abs(from[own + 1]! - to[other + 1]!);
-        const blue = Math.abs(from[own + 2]! - to[other + 2]!);
-        const most = red > green ? (red > blue ? red : blue) : green > blue ? green : blue;
-        if (most < least) {
-          least = most;
-          if (least === 0) return 0;
-        }
-      }
-    }
-    return least;
+  const faceLab = labPlane(faceRgb);
+  const drawnLab = labPlane(drawnRgb);
+  const difference = new Float32Array(total);
+  const contrast = new Float32Array(total);
+  const squaredDistance = (from: Float32Array, own: number, to: Float32Array, other: number) => {
+    const lightness = from[own]! - to[other]!;
+    const greenRed = from[own + 1]! - to[other + 1]!;
+    const blueYellow = from[own + 2]! - to[other + 2]!;
+    return lightness * lightness + greenRed * greenRed + blueYellow * blueYellow;
   };
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const pixel = y * width + x;
       if (!figure[pixel]) continue;
-      difference[pixel] = smallest(faceRgb, drawnRgb, x, y);
+      const own = pixel * 3;
+      let least = Infinity;
+      let most = 0;
+      for (let dy = -reach; dy <= reach; dy += 1) {
+        const sy = y + dy;
+        if (sy < 0 || sy >= height) continue;
+        for (let dx = -reach; dx <= reach; dx += 1) {
+          const sx = x + dx;
+          if (sx < 0 || sx >= width) continue;
+          const other = (sy * width + sx) * 3;
+          least = Math.min(least, squaredDistance(faceLab, own, drawnLab, other));
+          most = Math.max(most, squaredDistance(faceLab, own, faceLab, other));
+        }
+      }
+      difference[pixel] = Math.sqrt(least);
+      contrast[pixel] = Math.sqrt(most);
     }
   }
   // Single pixels and one-pixel lines are noise; what is left are changes.
@@ -569,6 +610,7 @@ export function keepAvatarFaceChange(
       touchesEdge: false,
       darkening: 0,
       detailLoss: 0,
+      contrast: 0,
       score: 0,
     };
     const id = clusters.length;
@@ -591,6 +633,7 @@ export function keepAvatarFaceChange(
         cluster.bottom = Math.max(cluster.bottom, y);
         cluster.darkening += luma(faceRgb, pixel) - luma(drawnRgb, pixel);
         cluster.detailLoss += detail(faceRgb, x, y) - detail(drawnRgb, x, y);
+        cluster.contrast += contrast[pixel]!;
       }
       for (let dy = -1; dy <= 1; dy += 1) {
         const sy = y + dy;
@@ -611,8 +654,9 @@ export function keepAvatarFaceChange(
   }
 
   // The eyes lose detail when they close; an open mouth is darker than closed lips. A group that changes the
-  // other way still counts, at half weight, since art styles vary.
-  const minimumCount = Math.max(10, Math.round((longSide * longSide) / 25_000));
+  // other way still counts, at half weight, since art styles vary. A smaller group (26 pixels on a 512-pixel
+  // face) is a scrap of a line the model redrew, not an eye or a mouth.
+  const minimumCount = Math.max(10, Math.round((longSide * longSide) / 10_000));
   const candidates = clusters.filter((cluster) => !cluster.touchesEdge && cluster.count >= minimumCount);
   for (const cluster of candidates) {
     const agrees = variant === "eyes-closed" ? cluster.detailLoss > 0 : cluster.darkening > 0;
@@ -620,7 +664,10 @@ export function keepAvatarFaceChange(
   }
   candidates.sort((left, right) => right.score - left.score);
   const main = candidates[0];
-  if (!main || main.strength / main.count < 64) throw unusable(variant, "nothing");
+  if (!main || main.strength / main.count < CLEAR_CHANGE) throw unusable(variant, "nothing");
+  if (main.strength / main.count < WEAK_CHANGE && main.strength < MIN_CHANGE_TO_CONTRAST * main.contrast) {
+    throw unusable(variant, "nothing");
+  }
   const size = clusterSize(main);
   const chosen = [main];
   for (const other of candidates.slice(1)) {
@@ -670,8 +717,22 @@ export function keepAvatarFaceChange(
     }
   }
   if (changedOutside > MAX_CHANGED_OUTSIDE * figureCount) throw unusable(variant, "moved");
+  // Each chosen group's own ellipse, through the corners of its box: everything in it comes from the picture
+  // too, so what changed only a little inside an eye or the mouth (an iris, eye whites, teeth) can't show the
+  // face's own through.
+  const inOwnEllipse = (cluster: ChangeCluster, x: number, y: number) =>
+    Math.hypot(
+      (x - centreX(cluster)) / ((cluster.right - cluster.left + 1) / Math.SQRT2 + soft),
+      (y - centreY(cluster)) / ((cluster.bottom - cluster.top + 1) / Math.SQRT2 + soft),
+    ) <= 1;
+  for (let pixel = 0; pixel < total; pixel += 1) {
+    if (!figure[pixel] || outline[pixel] || kept[pixel]) continue;
+    const x = pixel % width;
+    const y = (pixel - x) / width;
+    if (chosen.some((cluster) => inOwnEllipse(cluster, x, y))) kept[pixel] = 1;
+  }
 
-  // The changed pixels inside the ellipse, grown and feathered, fading out at the ellipse's edge.
+  // The kept pixels inside the ellipse, grown and feathered, fading out at the ellipse's edge.
   const weights = feather(dilate(kept, width, height, soft), width, height, soft);
   const fade = (2 * soft) / Math.min(radiusX, radiusY);
   const out = new Uint8Array(fd);
