@@ -1740,11 +1740,14 @@ export function buildGmFormatReminder(
 
   lines.push(
     `<output_format>`,
-    `Think step by step to decide the next turn: current location and time, the story up to this point, character behavior, dynamics, known vs. hidden information, stakes, cause and effect, sensory tone, and the next point at which player agency returns. Then, output only the VN scene text.`,
+    // The player sees every word of the reply, so planning written out in the open would be shown as narration.
+    // A model that plans on the page has to do it inside a leading thinking block, which the Engine lifts out.
+    `Before you write, decide the next turn privately: current location and time, the story up to this point, character behavior, dynamics, known vs. hidden information, stakes, cause and effect, sensory tone, and the next point at which player agency returns.`,
+    `The player sees everything you write. If you plan in writing, put all of it inside one <think>...</think> block at the very start of the reply and never outside it. After that, output only ${ctx.addressMode === "gm" ? "your out-of-character answer to the player" : "the VN scene text"}: no notes, analysis, headings or plan.`,
     ...(normalizedLanguage && normalizedLanguage.toLowerCase() !== "english"
       ? [
           `LANGUAGE:`,
-          `Write directly in ${normalizedLanguage} as a native speaker would. The English examples below illustrate structure and format only.`,
+          `Write ${ctx.addressMode === "gm" ? "your answer" : "the scene text"} directly in ${normalizedLanguage} as a native speaker would. The English examples below illustrate structure and format only.`,
           ``,
         ]
       : []),
