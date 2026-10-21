@@ -165,6 +165,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 手順の全体は[リモートアクセス](REMOTE_ACCESS.md)と[よくある質問](FAQ.md)を参照してください。
 
+アップデート後にログインできなくなった場合は、[アップデート後にログインできなくなった場合](REMOTE_ACCESS.md#locked-out-after-updating)を参照してください。
+
 ## 保存がブロックされる、設定が保存されない
 
 保存できたように見えるのに再読み込みすると元に戻る場合は、Marinaraのクロスサイト保護がブロックしています。CSRF(クロスサイトリクエストフォージェリ)保護は、データを変更する操作を守る仕組みで、特定のブラウザーのオリジンだけを信頼します。

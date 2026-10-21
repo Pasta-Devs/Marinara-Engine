@@ -165,6 +165,8 @@ Jeśli nie da się otworzyć aplikacji Marinara Engine na telefonie, tablecie al
 
 Pełny opis krok po kroku znajdziesz w przewodnikach [Dostęp zdalny](REMOTE_ACCESS.md) i [Najczęściej zadawane pytania](FAQ.md).
 
+Jeśli po aktualizacji straciłeś dostęp, zobacz [Zablokowany dostęp po aktualizacji](REMOTE_ACCESS.md#locked-out-after-updating).
+
 ## Zablokowany zapis lub ustawienia, które nie zostają
 
 Jeśli zapis niby się udaje, ale po przeładowaniu wraca stara wartość, blokuje go ochrona przed żądaniami z innych witryn. Ochrona CSRF (cross-site request forgery) pilnuje działań, które zmieniają dane. Ufa tylko wybranym adresom źródłowym przeglądarki.

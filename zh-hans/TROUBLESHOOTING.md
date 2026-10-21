@@ -165,6 +165,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 完整操作流程见[远程访问](REMOTE_ACCESS.md)和[常见问题](FAQ.md)。
 
+如果你在更新后被锁在外面，见[更新后被锁在外面](REMOTE_ACCESS.md#locked-out-after-updating)。
+
 ## 保存被拦截，或设置存不住
 
 如果保存看着成功了，重新加载后又变回原样，说明 Marinara 的跨站保护把它拦下了。CSRF(跨站请求伪造) 保护专门看守会改动数据的操作，只信任特定的浏览器来源。

@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "510a0a8fc7a7e974df2c7b31fcbdfcb82dfbe651",
+  "sourceCommit": "bcdfb51d1",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -19,18 +19,18 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "2722150b4f2bfc044868ae1b124770f03c023f5a650920f8085cb6bf8c28cfcf",
-      "bytes": 24662
+      "sha256": "dac03a322a21597941fb08de4a1ac0750d0c1fcafc055c6249f96278a18b6f9d",
+      "bytes": 25849
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "ef2208fb09114a003db1a86743f2d5ba4859e031502c695b3c48384629d33e56",
-      "bytes": 60333
+      "sha256": "bfca573bce907f459af5401e7ecbb666ff4f812bc1f2600b5b6abe6052be7055",
+      "bytes": 60462
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "9a0aa3570b73d63158ff4af4c26cee4dda901cb587bc67103cd5f371d03fc9cb",
-      "bytes": 17960
+      "sha256": "f731b4c05a15011fd61b26f5976ffb098478b97eea6f132e829d5585647b8ae9",
+      "bytes": 18076
     },
     {
       "path": "agents/agents-overview.md",

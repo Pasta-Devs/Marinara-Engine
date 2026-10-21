@@ -287,6 +287,18 @@ TRUSTED_HOSTS=chat.example.com
 
 页面完全打不开，说明多半连不上服务器，检查 `HOST=0.0.0.0` 和 `PORT` 的值。如果收到的是 403，那说明设备能连上，只是还没被放行，回头再看一遍选定的方案。
 
+<a id="locked-out-after-updating"></a>
+
+## 更新后被锁在外面
+
+较新的版本在访问经由反向代理、隧道、Tailscale Serve 或 Tailscale Funnel 到达时，会要求登录。旧版本会不要密码就放行这些访问。如果你现在看到登录页、设置页或 **403**，原因就在这里。
+
+重新进入的方法：
+
+1. 在运行 Marinara 的那台电脑上，打开 `http://localhost:7860`（或你自己的 `PORT`）。本机使用不需要密码。在 Docker 中，只有在没有设置登录也没有设置 `IP_ALLOWLIST` 时才是这样；否则请使用你的登录。
+2. 在那台电脑上打开 `.env` 文件，设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。如果设置了 `IP_ALLOWLIST`，请把你另一台设备的地址加进去，或者删掉该设置，因为不在列表里的设备即使登录也会收到 **403**。
+3. 保存文件。Marinara 会在几秒内读取这个更改。如果没有，或者你使用 Docker，请重启 Marinara。然后在你的另一台设备上用该用户名和密码登录。
+
 ## 搜索引擎
 
 Marinara 会请求搜索引擎不要索引其页面（`X-Robots-Tag: noindex, nofollow`）。这不能保护你的安装，也不会移除已经被索引的页面。请使用上面的访问控制来保持你的安装私密。

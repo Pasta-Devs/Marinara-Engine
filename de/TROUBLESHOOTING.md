@@ -165,6 +165,8 @@ Erreichst du Marinara nicht von Handy, Tablet oder einem anderen Rechner im Netz
 
 Die komplette Anleitung findest du unter [Fernzugriff](REMOTE_ACCESS.md) und in den [Häufigen Fragen](FAQ.md).
 
+Wenn du nach einem Update ausgesperrt wurdest, siehe [Ausgesperrt nach dem Update](REMOTE_ACCESS.md#locked-out-after-updating).
+
 ## Speichern blockiert oder Einstellungen halten nicht
 
 Sieht ein Speichervorgang erfolgreich aus, ist die Änderung nach dem Neuladen aber wieder verschwunden, blockiert Marinaras Schutz vor Cross-Site-Angriffen das Speichern. Der CSRF-Schutz (Cross-Site Request Forgery) sichert alle Aktionen ab, die Daten verändern, und vertraut dabei nur bestimmten Browser-Ursprüngen.

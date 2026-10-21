@@ -165,6 +165,8 @@ Si no puedes acceder a Marinara desde un teléfono, una tableta u otra computado
 
 Para el recorrido completo, revisa [Acceso remoto](REMOTE_ACCESS.md) y las [Preguntas frecuentes](FAQ.md).
 
+Si te quedaste bloqueado después de una actualización, revisa [Bloqueado después de actualizar](REMOTE_ACCESS.md#locked-out-after-updating).
+
 ## Guardado bloqueado, o ajustes que no persisten
 
 Si un guardado parece funcionar pero se revierte al recargar, la protección entre sitios de Marinara lo está bloqueando. La protección CSRF (cross-site request forgery, o falsificación de petición entre sitios) protege las acciones que cambian datos. Solo confía en ciertos orígenes del navegador.
