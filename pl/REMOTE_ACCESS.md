@@ -283,6 +283,18 @@ Załóżmy, że łączysz aplikację Marinara z lokalnym dostawcą AI, na przyk�
 
 Jeśli strona w ogóle się nie wczytuje, serwer prawdopodobnie jest nieosiągalny. Sprawdź `HOST=0.0.0.0` i wartość `PORT`. Błąd 403 oznacza co innego: urządzenie dociera do serwera, ale nie ma jeszcze wstępu. Wróć do wybranej wyżej opcji i sprawdź ją jeszcze raz.
 
+<a id="locked-out-after-updating"></a>
+
+## Zablokowany dostęp po aktualizacji
+
+Nowsze wersje wymagają logowania, gdy wizyta przychodzi przez odwrotne proxy, tunel, Tailscale Serve lub Tailscale Funnel. Starsze wersje wpuszczały takie wizyty bez hasła. Jeśli teraz widzisz stronę logowania, stronę konfiguracji albo **403**, to jest powód.
+
+Aby wrócić:
+
+1. Otwórz Marinarę na komputerze, na którym działa, pod adresem `http://localhost:7860` (lub z własnym `PORT`). Użycie lokalne nie wymaga hasła. W Dockerze to prawda tylko wtedy, gdy nie ustawiono ani logowania, ani `IP_ALLOWLIST`. W przeciwnym razie użyj swojego logowania.
+2. Otwórz plik `.env` na tym komputerze i ustaw `BASIC_AUTH_USER` oraz `BASIC_AUTH_PASS`. Jeśli ustawiono `IP_ALLOWLIST`, dodaj do niej adres swojego drugiego urządzenia albo usuń to ustawienie, bo urządzenie spoza listy dostaje **403** nawet po zalogowaniu.
+3. Zapisz plik. Marinara wczyta zmianę w ciągu kilku sekund. Jeśli tak się nie stanie albo używasz Dockera, uruchom Marinarę ponownie. Potem zaloguj się z drugiego urządzenia tą nazwą użytkownika i tym hasłem.
+
 ## Wyszukiwarki
 
 Marinara prosi wyszukiwarki, aby nie indeksowały jego stron (`X-Robots-Tag: noindex, nofollow`). Nie chroni to Twojej instalacji i nie usuwa stron, które są już zindeksowane. Aby zachować prywatność instalacji, użyj opisanych wyżej kontroli dostępu.

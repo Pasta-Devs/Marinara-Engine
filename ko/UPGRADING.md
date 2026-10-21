@@ -37,6 +37,7 @@ UI 언어 팩은 별도의 수동 다운로드 절차를 사용합니다. 번역
 아래 플랫폼별 절차는 이전과 같습니다. 다만 다른 기기나 다른 사람이 쓰는 서버에는 몇 가지 변경이 영향을 줄 수 있습니다.
 
 - **같은 컴퓨터의 리버스 프록시나 터널.** 이제 기본적으로 nginx, Caddy, Cloudflare Tunnel, Tailscale Serve, ngrok이 Marinara로 전달하는 방문자는 원격으로 간주합니다. Basic Auth가 없으면 방문자에게 설정 안내 페이지가 표시되고, 백업을 비롯한 보호된 작업에는 관리자 시크릿이 필요합니다. [같은 컴퓨터의 리버스 프록시와 터널](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer)을 참고하세요.
+- **업데이트 후 접속이 막혔나요?** 참고: [업데이트 후 접속이 막혔을 때](REMOTE_ACCESS.md#locked-out-after-updating).
 - **비밀번호나 허용 목록을 쓰는 Docker.** Basic Auth를 설정하면 이제 호스트 컴퓨터의 브라우저도 로그인을 요구합니다. `IP_ALLOWLIST`만 설정했다면 컨테이너의 게이트웨이를 목록에 넣지 않는 한 호스트 브라우저가 거부되므로, 대신 Basic Auth를 쓰세요. [Tailscale과 Docker 우회](REMOTE_ACCESS.md#tailscale-and-docker-bypass)를 참고하세요.
 - **다른 설치로 옮긴 채팅과 프로필.** 채팅 기록, 설정 프로필, 전체 프로필은 더 이상 **Discord Mirror**(Discord 미러), **DeepLX URL**, **DeepL API Key**(DeepL API 키), **Intiface URL**을 다른 설치로 가져가지 않습니다. 옮긴 곳에서 다시 입력하세요. 직접 만든 설정 프로필과 같은 설치에서 복원한 전체 프로필에는 그대로 남습니다.
 

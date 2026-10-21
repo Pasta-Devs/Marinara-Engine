@@ -165,6 +165,8 @@ Si tu n'arrives pas à joindre Marinara depuis un téléphone, une tablette ou u
 
 Pour le guide complet, voir [Accès à distance](REMOTE_ACCESS.md) et la [Foire aux questions](FAQ.md).
 
+Si tu as été verrouillé après une mise à jour, voir [Verrouillé après une mise à jour](REMOTE_ACCESS.md#locked-out-after-updating).
+
 ## Enregistrement bloqué, ou réglages qui ne tiennent pas
 
 Si un enregistrement semble réussir mais revient en arrière au rechargement, c'est la protection intersites de Marinara qui le bloque. La protection CSRF (falsification de requête intersites) surveille les actions qui modifient des données. Elle n'accorde sa confiance qu'à certaines origines de navigateur.

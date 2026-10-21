@@ -37,6 +37,7 @@ Marinara 把数据存在运行服务器的那台机器上的本地数据文件�
 下面各平台的步骤和以前一样。有几处变化可能会影响供其他设备或其他人使用的服务器：
 
 - **同一台电脑上的反向代理或隧道。**默认情况下，nginx、Caddy、Cloudflare Tunnel、Tailscale Serve 或 ngrok 转发给 Marinara 的访客现在算作远程访客。没有 Basic Auth 时，他们看到的是设置页面，备份和其他受保护的操作也需要管理员密钥。见[同一台电脑上的反向代理和隧道](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer)。
+- **更新后被锁在外面？**见[更新后被锁在外面](REMOTE_ACCESS.md#locked-out-after-updating)。
 - **设置了密码或允许列表的 Docker。**设置了 Basic Auth 后，主机上的浏览器现在也会要求登录。如果只设置了 `IP_ALLOWLIST`，主机浏览器会被拒绝，除非你把容器的网关列进去，所以请改用 Basic Auth。见 [Tailscale 与 Docker 放行](REMOTE_ACCESS.md#tailscale-and-docker-bypass)。
 - **迁移到另一个安装的聊天和档案。**聊天记录、设置方案或完整档案不会再把它的 **Discord Mirror**(Discord 镜像)、**DeepLX URL**(DeepLX 地址)、**DeepL API Key**(DeepL API 密钥) 或 **Intiface URL**(Intiface 地址) 带到另一个安装里，需要在那边重新填写。你自己的设置方案，以及在同一个安装上恢复的完整档案，会保留这些值。
 

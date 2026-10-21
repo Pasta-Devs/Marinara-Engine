@@ -287,6 +287,18 @@ Pour ouvrir Marinara depuis un téléphone ou une tablette sur le même réseau 
 
 Si la page ne se charge pas du tout, le serveur n'est sans doute pas joignable. Vérifie `HOST=0.0.0.0` et la valeur de la variable `PORT`. Si tu obtiens plutôt une erreur 403, ton appareil joint bien le serveur mais n'est pas encore autorisé. Reprends l'option que tu as choisie plus haut.
 
+<a id="locked-out-after-updating"></a>
+
+## Verrouillé après une mise à jour
+
+Les versions récentes demandent une connexion lorsqu'une visite passe par un reverse proxy, un tunnel, Tailscale Serve ou Tailscale Funnel. Les anciennes versions laissaient entrer ces visites sans mot de passe. Si tu vois maintenant une page de connexion, une page de configuration ou un **403**, c'est la raison.
+
+Pour revenir :
+
+1. Ouvre Marinara sur l'ordinateur qui l'exécute, à l'adresse `http://localhost:7860` (ou ton propre `PORT`). L'usage local ne demande pas de mot de passe. Dans Docker, c'est vrai uniquement tant qu'aucune connexion ni `IP_ALLOWLIST` n'est définie. Sinon, utilise ta connexion.
+2. Ouvre le fichier `.env` sur cet ordinateur et définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS`. Si `IP_ALLOWLIST` est définie, ajoute-y l'adresse de ton autre appareil ou supprime-la, car un appareil absent de la liste reçoit un **403** même avec une connexion.
+3. Enregistre le fichier. Marinara prend en compte le changement en quelques secondes. Si ce n'est pas le cas, ou si tu utilises Docker, redémarre Marinara. Connecte-toi ensuite depuis ton autre appareil avec ce nom d'utilisateur et ce mot de passe.
+
 ## Moteurs de recherche
 
 Marinara demande aux moteurs de recherche de ne pas indexer ses pages (`X-Robots-Tag: noindex, nofollow`). Cela ne protège pas ton installation et ne supprime pas les pages déjà indexées. Utilise les contrôles d'accès ci-dessus pour garder ton installation privée.

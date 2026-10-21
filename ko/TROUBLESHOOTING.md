@@ -165,6 +165,8 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 전체 절차는 [원격 접근](REMOTE_ACCESS.md)과 [자주 묻는 질문](FAQ.md)을 참고하세요.
 
+업데이트 후 접속이 막혔다면 [업데이트 후 접속이 막혔을 때](REMOTE_ACCESS.md#locked-out-after-updating)를 참고하세요.
+
 ## 저장이 차단되거나 설정이 유지되지 않을 때
 
 저장이 된 것처럼 보이는데 다시 불러오면 원래대로 돌아간다면 Marinara의 교차 사이트 보호 기능이 저장을 막고 있는 것입니다. CSRF(교차 사이트 요청 위조) 보호는 데이터를 바꾸는 동작을 지켜 주며, 정해진 브라우저 출처만 신뢰합니다.
