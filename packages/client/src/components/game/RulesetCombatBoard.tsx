@@ -57,6 +57,7 @@ import { boardCellArt, boardSliceStyle, useBoardArt } from "../../lib/board-art"
 import { CreatureArtFigure, useCreatureFacings, useCreaturePack } from "./CreatureArt";
 import { cn } from "../../lib/utils";
 import { rulesetHealthTone } from "./RulesetTurnOrder";
+import { useMatchMedia } from "../../hooks/use-match-media";
 
 export interface RulesetCombatBoardProps {
   /** A view that carries a grid. Without one the caller keeps the Classic stage. */
@@ -326,7 +327,9 @@ export function RulesetCombatBoard({
         ? t("game.combat.ruleset.board.nothingInReach")
         : "");
   // While a step is finished on the board, the line also says how.
-  const hint = [said, boardStage ? t("game.combat.ruleset.screen.stepHint") : ""].filter(Boolean).join(" ");
+  // A finger has no Enter or Escape to be told about.
+  const touch = useMatchMedia("(pointer: coarse)");
+  const hint = [said, boardStage && !touch ? t("game.combat.ruleset.screen.stepHint") : ""].filter(Boolean).join(" ");
 
   return (
     <div className={cn("relative flex min-h-0 flex-col text-white", className)}>
@@ -341,7 +344,7 @@ export function RulesetCombatBoard({
           // width its own shape allows at the full height, whichever is smaller. (A width of 100%
           // with a ceiling on the height does NOT do this: the ceiling clamps the height and the
           // width stays, which stretched every square sideways on a wide screen.)
-          className="relative m-auto shrink-0"
+          className="relative mx-auto mb-auto mt-0 shrink-0 md:m-auto"
           style={{
             aspectRatio: `${grid.width} / ${grid.height}`,
             width: `min(100cqw, calc(100cqh * ${grid.width} / ${grid.height}))`,

@@ -41,6 +41,7 @@ import {
 } from "../../lib/ruleset-combat-menu";
 import { cn } from "../../lib/utils";
 import { RulesetBudgetPip, type RulesetBudgetMark } from "./RulesetBudgetPip";
+import { useMatchMedia } from "../../hooks/use-match-media";
 
 export interface RulesetCombatMenuProps {
   view: DirectedRulesetView;
@@ -80,9 +81,10 @@ export interface RulesetCombatMenuProps {
   /** The board's handle on this menu, so Escape from a cell can put the keyboard back here. */
   menuRef?: RefObject<HTMLDivElement | null>;
   /** "pane" draws it as the fight screen's option list: one dense row per option, each step opened
-   *  under its row, ending a turn and leaving left to the pane's footer. The default is the band
-   *  under the stage the fight without a board has. */
-  layout?: "strip" | "pane";
+   *  under its row, ending a turn and leaving left to the pane's footer. "step" draws only the open
+   *  step, for a phone's bar under the board. The default is the band under the stage the fight
+   *  without a board has. */
+  layout?: "strip" | "pane" | "step";
   /** The ruleset's budgets as pips, for the pane's cost column. */
   marks?: RulesetBudgetMark[];
 }
@@ -132,6 +134,13 @@ const WINDOW_PROMPTS = {
 
 /** What the window holding the fight open is asking, in one sentence: "Mage uses Cone of Cold on
  *  Elara and Brom. Elara may answer." */
+const TOUCH_PROMPTS = new Set([
+  "game.combat.ruleset.board.aimPrompt",
+  "game.combat.ruleset.board.movePrompt",
+  "game.combat.ruleset.board.teleportLeavePrompt",
+  "game.combat.ruleset.board.teleportPrompt",
+]);
+
 export function rulesetWindowPrompt(view: DirectedRulesetView, defenseLabel: string | undefined, t: TFunction): string {
   const window = view.window;
   if (!window) return "";
@@ -165,7 +174,9 @@ export function RulesetCombatMenu({
   marks = [],
 }: RulesetCombatMenuProps) {
   const { t } = useTranslation();
-  const pane = layout === "pane";
+  const pane = layout !== "strip";
+  // A pointer that cannot hover is a finger: no keyboard hints for it.
+  const touch = useMatchMedia("(pointer: coarse)");
   const ink = pane ? PANE_INK : STRIP_INK;
   const [ownStep, setOwnStep] = useState<RulesetMenuStep | null>(null);
   // The number typed into the amount step (1.251), kept as text so a cleared box is not a zero.
@@ -198,11 +209,22 @@ export function RulesetCombatMenu({
   const nameOf = (id: string | undefined) => view.combatants.find((combatant) => combatant.id === id)?.name ?? "";
   const actorName = nameOf(view.actorId);
   const groups = useMemo(() => rulesetMenuGroups(view.options), [view.options]);
+  // A pool by its own name where the fight sent it (the party's pools), else by its id.
+  const poolLabel = (id: string) =>
+    view.combatants
+      .find((combatant) => combatant.id === (view.window?.actorId ?? view.actorId))
+      ?.pools?.find((pool) => pool.id === id)?.label ?? id;
   // A fresh menu is a fresh choice: the turn moved on, so a half-finished pick from the last one
   // must never be sent against it.
+  // A menu that mounts while its owner holds a step (a phone moving the step to the bar under the
+  // board) keeps it: only a turn that moves on clears it.
+  const turnKey = `${view.actorId ?? ""}|${view.round}|${view.window?.id ?? ""}`;
+  const lastTurn = useRef(turnKey);
   useEffect(() => {
+    if (held && lastTurn.current === turnKey) return;
+    lastTurn.current = turnKey;
     setStep(null);
-  }, [view.actorId, view.round, view.window?.id, setStep]);
+  }, [turnKey, held, setStep]);
   // On the pane a question put to the player takes the keyboard to its first answer, and Escape lets
   // the moment go by, as the button under the answers says.
   const asked = pane && !!view.window && !!view.options;
@@ -756,7 +778,7 @@ export function RulesetCombatMenu({
                   ? t("game.combat.ruleset.upcast.charges", {
                       count: Number(pool.slice(RULESET_CHARGE_STEP_PREFIX.length)),
                     })
-                  : t("game.combat.ruleset.upcast.pool", { pool })}
+                  : t("game.combat.ruleset.upcast.pool", { pool: poolLabel(pool) })}
               </button>
             ))}
           </div>
@@ -802,10 +824,12 @@ export function RulesetCombatMenu({
                   : rulesetOptionHasAim(option)
                     ? "game.combat.ruleset.board.aimPrompt"
                     : "game.combat.ruleset.board.aimNobody";
+      // On a touch screen there is no Enter or Escape to name: the same ask, worded for a tap.
+      const touchWords = touch && TOUCH_PROMPTS.has(prompt) ? `${prompt}Touch` : prompt;
       return (
         <div className="flex flex-col gap-2 p-3">
           <p className={`text-xs ${ink.ask}`}>
-            {t(prompt, { label: rulesetOptionLabel(option, t), name: actorName, count: copies, placed })}
+            {t(touchWords, { label: rulesetOptionLabel(option, t), name: actorName, count: copies, placed })}
           </p>
           {/* How a wall is laid (1.177) and how many copies are down (1.178): the board takes the cells. */}
           {carries && (
@@ -1020,6 +1044,7 @@ export function RulesetCombatMenu({
     return null;
   })();
   if (stepPanel && !pane) return stepPanel;
+  if (layout === "step") return stepPanel;
 
   // ── The pane's option list ──
   if (pane) {
@@ -1052,7 +1077,7 @@ export function RulesetCombatMenu({
               onClick={() => (open ? closeStep() : take(option))}
               className={cn(
                 "grid w-full grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-2 rounded-md border px-2 text-left text-[0.78rem] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--primary)] disabled:opacity-50",
-                answer ? "min-h-10 py-1" : "min-h-[1.875rem] py-0.5",
+                answer ? "min-h-11 py-1" : "min-h-11 py-0.5 md:min-h-[1.875rem]",
                 open
                   ? "border-[var(--primary)]/70 bg-[var(--primary)]/10"
                   : "border-transparent hover:border-[var(--border)] hover:bg-[var(--foreground)]/[0.05]",
@@ -1068,7 +1093,7 @@ export function RulesetCombatMenu({
                   </span>
                   {mark && <RulesetBudgetPip mark={mark} size="sm" />}
                   {(cost || reach) && (
-                    <span className="truncate text-[0.68rem] text-[var(--muted-foreground)]">
+                    <span className="truncate text-xs text-[var(--muted-foreground)] md:text-[0.68rem]">
                       {[cost, reach].filter(Boolean).join(" · ")}
                     </span>
                   )}
@@ -1113,9 +1138,11 @@ export function RulesetCombatMenu({
             className="mt-1.5 flex min-h-9 w-full items-center justify-between rounded-md border border-[var(--border)] px-3 text-left text-xs text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
           >
             {t("game.combat.ruleset.screen.letItGo")}
-            <kbd className="rounded border border-[var(--border)] px-1 font-mono text-[0.6rem] text-[var(--muted-foreground)]">
-              Esc
-            </kbd>
+            {!touch && (
+              <kbd className="rounded border border-[var(--border)] px-1 font-mono text-[0.6rem] text-[var(--muted-foreground)]">
+                Esc
+              </kbd>
+            )}
           </button>
         </div>
       );

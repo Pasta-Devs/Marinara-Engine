@@ -21,8 +21,8 @@ import { RulesetCombatBoard, type RulesetCombatBoardProps } from "./RulesetComba
 import { RulesetCombatLog } from "./RulesetCombatLog";
 import { RulesetCombatMenu, rulesetWindowPrompt } from "./RulesetCombatMenu";
 import { zoneLine } from "./RulesetCombatStatus";
-import { RulesetSideBadge, RulesetTurnOrder } from "./RulesetTurnOrder";
-import { rulesetDistanceText, rulesetHeldCaught } from "../../lib/ruleset-combat-board";
+import { RulesetSideBadge, RulesetTurnOrder, rulesetHealthTone } from "./RulesetTurnOrder";
+import { rulesetDistanceText, rulesetHealthPercent, rulesetHeldCaught } from "../../lib/ruleset-combat-board";
 import type { RulesetMenuStep } from "../../lib/ruleset-combat-menu";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -91,25 +91,26 @@ export function RulesetCombatScreen({
   }, [view.actorId, view.round, window?.id]);
 
   // ── A phone ──
+  // The board and the pane are two tabs. A step finished on the board takes the phone to the board,
+  // and it stays there once the step is sent or dropped so the player sees what it did. A new turn
+  // or a new question chooses again: a question and the player's own turn go to the options,
+  // somebody else's turn goes to the board. Nothing switches while a step is open.
   const narrow = useMatchMedia("(max-width: 767px)");
-  const phoneLayout = useCombatScreenStore((state) => state.phoneLayout);
   const [phoneTab, setPhoneTab] = useState<"board" | "pane">("pane");
-  const [sheet, setSheet] = useState<"peek" | "full">("peek");
-  // A step finished on the board takes the phone to the board; a question takes it to the answers.
-  const boardStep = step && (step.stage === "move" || step.stage === "aim" || step.stage === "target");
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const boardStep = !!step && (step.stage === "move" || step.stage === "aim" || step.stage === "target");
+  const ownTurn = !!view.options && !window;
+  const askedId = asked?.id;
   useEffect(() => {
-    if (!narrow) return;
-    if (boardStep) {
-      setPhoneTab("board");
-      setSheet("peek");
-    } else setPhoneTab("pane");
+    if (narrow && boardStep) setPhoneTab("board");
   }, [narrow, boardStep]);
   useEffect(() => {
-    if (narrow && asked) {
-      setPhoneTab("pane");
-      setSheet("full");
-    }
-  }, [narrow, asked]);
+    if (narrow) setPhoneTab(askedId || ownTurn ? "pane" : "board");
+  }, [narrow, askedId, ownTurn, view.actorId, view.round]);
+  useEffect(() => {
+    setLeaving(false);
+  }, [view.actorId, view.round]);
 
   const paneBody = (withOrder: boolean) => (
     <>
@@ -129,9 +130,29 @@ export function RulesetCombatScreen({
             onStepChange={setStep}
             menuRef={menuRoot}
           />
+          {narrow && (
+            <button
+              type="button"
+              onClick={() => setPhoneTab("board")}
+              className="min-h-11 w-full rounded-md border border-[var(--border)] text-sm text-[var(--foreground)]"
+            >
+              {t("game.combat.ruleset.screen.seeOnBoard")}
+            </button>
+          )}
         </ReactionCard>
       )}
-      {withOrder && (
+      {narrow && (
+        <PhoneTurnStrip
+          view={view}
+          open={orderOpen}
+          onOpen={() => setOrderOpen(!orderOpen)}
+          onPick={(id) => {
+            setSelected(id);
+            setOrderOpen(true);
+          }}
+        />
+      )}
+      {withOrder && (!narrow || orderOpen) && (
         <div className="max-h-[42%] shrink-0 overflow-y-auto">
           <RulesetTurnOrder
             definition={definition}
@@ -194,10 +215,17 @@ export function RulesetCombatScreen({
           <button
             type="button"
             disabled={busy}
-            onClick={onFlee}
+            onClick={() => {
+              // On a phone the thumb that ends a turn is right beside it, so leaving asks twice.
+              if (narrow && !leaving) {
+                setLeaving(true);
+                return;
+              }
+              onFlee();
+            }}
             className="min-h-9 rounded-lg border border-[var(--border)] px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--foreground)]/[0.05] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
           >
-            {t("game.combat.ruleset.menu.flee")}
+            {leaving ? t("game.combat.ruleset.screen.leaveConfirm") : t("game.combat.ruleset.menu.flee")}
           </button>
         </div>
         <CombatWeatherSummary weather={weather} tactical={false} inline />
@@ -205,7 +233,7 @@ export function RulesetCombatScreen({
     </>
   );
   const boardColumn = (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <RulesetCombatBoard
         className="min-h-0 flex-1"
         view={view}
@@ -218,7 +246,7 @@ export function RulesetCombatScreen({
         menuRef={menuRoot}
         onHover={setHovered}
       />
-      {logOpen && (
+      {logOpen && !(narrow && boardStep) && (
         <RulesetCombatLog
           definition={definition}
           view={view}
@@ -228,7 +256,7 @@ export function RulesetCombatScreen({
     </div>
   );
 
-  if (narrow && phoneLayout === "tabs") {
+  if (narrow) {
     return (
       <div
         role="region"
@@ -243,76 +271,73 @@ export function RulesetCombatScreen({
               type="button"
               role="tab"
               aria-selected={phoneTab === tab}
+              disabled={boardStep && tab === "pane"}
               onClick={() => setPhoneTab(tab)}
               className={cn(
-                "min-h-10 flex-1 rounded-lg text-sm font-semibold",
+                "inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold disabled:opacity-50",
                 phoneTab === tab ? "bg-[var(--primary)]/15 text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
               )}
             >
               {t(tab === "board" ? "game.combat.ruleset.screen.tabBoard" : "game.combat.ruleset.screen.tabPane")}
-              {tab === "pane" && asked ? " •" : ""}
+              {tab === "pane" && asked && phoneTab !== "pane" && (
+                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-[#f5c97a]" />
+              )}
             </button>
           ))}
         </div>
         {phoneTab === "board" ? (
           <>
             {boardColumn}
-            {boardStep && (
+            {/* The bar under the board: the open step with its way back, the way back to a question,
+                or the end of the player's turn. */}
+            {boardStep ? (
+              <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-[var(--border)] bg-[var(--card)]">
+                <RulesetCombatMenu
+                  layout="step"
+                  marks={marks}
+                  view={view}
+                  budgetLabel={budgetLabel}
+                  defenseLabel={defenseLabel}
+                  busy={busy}
+                  onChoose={onChoose}
+                  onFlee={onFlee}
+                  step={step}
+                  onStepChange={setStep}
+                  menuRef={menuRoot}
+                />
+              </div>
+            ) : asked ? (
               <button
                 type="button"
-                onClick={() => setStep(null)}
-                className="m-2 min-h-11 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm"
+                onClick={() => setPhoneTab("pane")}
+                className="m-2 min-h-11 shrink-0 rounded-lg border-2 border-[#f5c97a] bg-[var(--card)] text-sm font-semibold"
               >
-                {t("game.combat.ruleset.target.back")}
+                {t("game.combat.ruleset.screen.backToAnswer")}
               </button>
-            )}
+            ) : ending ? (
+              <div className="flex shrink-0 gap-2 border-t border-[var(--border)] bg-[var(--card)] p-2">
+                <button
+                  type="button"
+                  onClick={() => setPhoneTab("pane")}
+                  className="min-h-11 flex-1 rounded-lg border border-[var(--border)] text-sm"
+                >
+                  {t("game.combat.ruleset.screen.tabPane")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onChoose(ending.id, [])}
+                  className="min-h-11 flex-1 rounded-lg bg-[var(--primary)] text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+                >
+                  {t("game.combat.ruleset.menu.endTurn")}
+                </button>
+              </div>
+            ) : null}
           </>
         ) : (
           <div data-game-section="ruleset-pane" className="flex min-h-0 flex-1 flex-col bg-[var(--card)]">
             {paneBody(true)}
           </div>
-        )}
-      </div>
-    );
-  }
-
-  if (narrow) {
-    return (
-      <div
-        role="region"
-        aria-label={t("game.combat.director.title")}
-        data-game-section="combat-director"
-        className="relative flex h-full min-h-0 flex-col bg-[var(--background)] text-[var(--foreground)]"
-      >
-        {/* The board keeps the part of the screen the sheet leaves. */}
-        <div
-          className="flex min-h-0 flex-col"
-          style={{ height: !paneOpen ? "100%" : sheet === "full" ? "12%" : boardStep ? "66%" : "48%" }}
-        >
-          {boardColumn}
-        </div>
-        {paneOpen && (
-          <aside
-            aria-label={t("game.combat.ruleset.screen.pane")}
-            data-game-section="ruleset-pane"
-            className={cn(
-              "absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl border-t border-[var(--border)] bg-[var(--card)] shadow-[0_-8px_24px_rgba(0,0,0,0.35)] transition-[height] duration-200",
-              sheet === "full" ? "h-[88%]" : boardStep ? "h-[34%]" : "h-[52%]",
-            )}
-          >
-            <button
-              type="button"
-              aria-expanded={sheet === "full"}
-              aria-label={t(
-                sheet === "full" ? "game.combat.ruleset.screen.sheetLess" : "game.combat.ruleset.screen.sheetMore",
-              )}
-              onClick={() => setSheet(sheet === "full" ? "peek" : "full")}
-              className="flex h-6 shrink-0 items-center justify-center"
-            >
-              <span className="h-1 w-10 rounded-full bg-[var(--muted-foreground)]/50" />
-            </button>
-            {paneBody(sheet === "full")}
-          </aside>
         )}
       </div>
     );
@@ -495,5 +520,71 @@ function ReactionCard({
           : t("game.combat.ruleset.screen.nobodyWaiting")}
       </p>
     </section>
+  );
+}
+
+/** A phone's turn order: one row of faces in the order they act, each with its health under it,
+ *  and the full table one tap away. */
+function PhoneTurnStrip({
+  view,
+  open,
+  onOpen,
+  onPick,
+}: {
+  view: DirectedRulesetView;
+  open: boolean;
+  onOpen: () => void;
+  onPick: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const byId = new Map(view.combatants.map((combatant) => [combatant.id, combatant]));
+  const order = [...new Set(view.order)].flatMap((id) => {
+    const combatant = byId.get(id);
+    return combatant ? [combatant] : [];
+  });
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 py-1.5">
+      <ol
+        aria-label={t("game.combat.ruleset.status.order")}
+        className="m-0 flex min-w-0 flex-1 list-none gap-1.5 overflow-x-auto p-0"
+      >
+        {order.map((combatant) => {
+          const percent = rulesetHealthPercent(combatant.health);
+          const onTurn = combatant.id === view.actorId;
+          const asked = combatant.id === view.window?.actorId;
+          return (
+            <li key={combatant.id} aria-current={onTurn ? "step" : undefined}>
+              <button
+                type="button"
+                onClick={() => onPick(combatant.id)}
+                aria-label={`${combatant.name}, ${t("game.combat.ruleset.screen.healthValue", { value: combatant.health.value, max: combatant.health.max })}`}
+                className={cn(
+                  "flex w-12 flex-col items-center gap-0.5 rounded-md py-0.5",
+                  onTurn && "bg-[var(--foreground)]/[0.08]",
+                  asked && "bg-amber-400/20",
+                  (combatant.defeated || combatant.left) && "opacity-40",
+                )}
+              >
+                <RulesetSideBadge combatant={combatant} className="h-7 w-7" />
+                <span className="h-1 w-8 overflow-hidden rounded-full bg-[var(--foreground)]/10">
+                  <span className={cn("block h-full", rulesetHealthTone(percent))} style={{ width: `${percent}%` }} />
+                </span>
+                <span className="w-full truncate text-center text-[0.6rem] text-[var(--muted-foreground)]">
+                  {combatant.name}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onOpen}
+        className="min-h-11 shrink-0 rounded-md px-2 text-xs text-[var(--muted-foreground)]"
+      >
+        {t(open ? "game.combat.ruleset.screen.orderLess" : "game.combat.ruleset.screen.orderMore")}
+      </button>
+    </div>
   );
 }

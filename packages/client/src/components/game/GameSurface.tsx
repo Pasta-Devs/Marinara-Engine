@@ -13952,7 +13952,7 @@ function GameSurfaceComponent({
         onApplied={handleJsonRepairApplied}
       />
 
-      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+      {!introCinematicActive && !replayActive && !experienceOwnsGame && !boardFightOnScreen && (
         <MobileMapButton
           chatId={activeChatId}
           map={viewedMap}

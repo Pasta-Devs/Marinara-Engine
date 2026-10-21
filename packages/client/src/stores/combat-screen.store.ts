@@ -11,8 +11,6 @@ interface CombatScreenState {
   round: number | null;
   logOpen: boolean;
   paneOpen: boolean;
-  /** How a phone lays the screen out: the pane as a sheet over the board, or a tab beside it. */
-  phoneLayout: "sheet" | "tabs";
   setRound: (round: number | null) => void;
   toggleLog: () => void;
   togglePane: () => void;
@@ -23,13 +21,6 @@ export const useCombatScreenStore = create<CombatScreenState>((set) => ({
   round: null,
   logOpen: true,
   paneOpen: true,
-  phoneLayout: (() => {
-    try {
-      return globalThis.localStorage?.getItem("marinara:combat-phone-layout") === "tabs" ? "tabs" : "sheet";
-    } catch {
-      return "sheet";
-    }
-  })(),
   setRound: (round) => set({ round }),
   toggleLog: () => set((state) => ({ logOpen: !state.logOpen })),
   togglePane: () => set((state) => ({ paneOpen: !state.paneOpen })),
