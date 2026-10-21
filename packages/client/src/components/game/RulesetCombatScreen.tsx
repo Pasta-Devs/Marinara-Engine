@@ -22,7 +22,7 @@ import { RulesetCombatLog } from "./RulesetCombatLog";
 import { RulesetCombatMenu, rulesetWindowPrompt } from "./RulesetCombatMenu";
 import { zoneLine } from "./RulesetCombatStatus";
 import { RulesetSideBadge, RulesetTurnOrder } from "./RulesetTurnOrder";
-import { rulesetDistanceText } from "../../lib/ruleset-combat-board";
+import { rulesetDistanceText, rulesetHeldCaught } from "../../lib/ruleset-combat-board";
 import type { RulesetMenuStep } from "../../lib/ruleset-combat-menu";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -400,7 +400,7 @@ function CurrentTurn({
       </div>
       {moved && (
         <div className="flex items-center gap-2 text-[0.7rem] text-[var(--muted-foreground)]">
-          <span className="w-16 shrink-0">{t("game.combat.ruleset.screen.movement")}</span>
+          <span className="w-24 shrink-0">{t("game.combat.ruleset.screen.movement")}</span>
           <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--foreground)]/10">
             <span className="block h-full rounded-full bg-[#6fcf97]" style={{ width: `${share}%` }} />
           </span>
@@ -414,7 +414,7 @@ function CurrentTurn({
       )}
       {(actor.pools ?? []).map((pool) => (
         <div key={pool.id} className="flex items-center gap-2 text-[0.7rem] text-[var(--muted-foreground)]">
-          <span className="w-16 shrink-0 truncate" title={pool.label}>
+          <span className="w-24 shrink-0 truncate" title={pool.label}>
             {pool.label}
           </span>
           {pool.max <= 12 ? (
@@ -462,7 +462,7 @@ function ReactionCard({
 }) {
   const { t } = useTranslation();
   const window = view.window!;
-  const caught = (window.targetIds ?? [])
+  const caught = rulesetHeldCaught(view)
     .map((id) => view.combatants.find((combatant) => combatant.id === id)?.name)
     .filter(Boolean)
     .join(", ");

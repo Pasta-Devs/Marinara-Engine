@@ -140,7 +140,8 @@ export function rulesetRichLogLines(
   }) as unknown as TFunction;
 
   const lines: RulesetLogLine[] = [];
-  let round = 0;
+  // A fight starts in its first round, whether or not the log has said so yet.
+  let round = 1;
   for (const entry of view.events) {
     if (entry.event.type === "round") round = entry.event.round;
     if (entry.event.type === "budget") continue;

@@ -42,6 +42,7 @@ import {
   rulesetCellSentences,
   rulesetDistanceText,
   rulesetHealthPercent,
+  rulesetHeldCaught,
   rulesetNothingInReach,
   rulesetPathTo,
   type RulesetBoardCell,
@@ -117,7 +118,10 @@ export function RulesetCombatBoard({
   // Who an area being aimed would catch: the player's own while they aim, or, while a window holds the
   // fight open on somebody else's area, whoever that one catches (its cells come with the window).
   const held = view.window?.moment === "aimed" ? view.window : undefined;
-  const caught = useMemo(() => new Set(aimed?.targetIds ?? (held?.cells ? (held.targetIds ?? []) : [])), [aimed, held]);
+  const caught = useMemo(
+    () => new Set(aimed?.targetIds ?? (held?.cells ? rulesetHeldCaught(view) : [])),
+    [aimed, held, view],
+  );
   const heldCells = useMemo(() => new Set((held?.cells ?? []).map(rulesetCellKey)), [held]);
   const readingId = reading ? byKey.get(rulesetCellKey(reading))?.occupant?.id : undefined;
   const hoverRef = useRef(onHover);

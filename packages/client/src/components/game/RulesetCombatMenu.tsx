@@ -1058,7 +1058,9 @@ export function RulesetCombatMenu({
                   : "border-transparent hover:border-[var(--border)] hover:bg-[var(--foreground)]/[0.05]",
               )}
             >
-              <ArtIcon ids={option.icons ?? []} className="h-4 w-4" />
+              <span className="grid h-4 w-4 place-items-center">
+                <ArtIcon ids={option.icons ?? []} className="h-4 w-4" />
+              </span>
               <span className="min-w-0">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate font-semibold text-[var(--foreground)]">
