@@ -1822,7 +1822,7 @@
   "connections.add.tryAgain": "Try again",
   "connections.add.useCustom": "Use any OpenAI-compatible address",
   "connections.add.useInChat": "Use {{model}} in this chat",
-  "connections.add.voiceTestPassed": "The test sentence played. You can save this voice now.",
+  "connections.add.voiceTestPassed": "The test sentence played. This voice is ready.",
   "connections.add.voiceTestSentence": "Hello! This is how I sound in Marinara.",
   "connections.balance.checked": "checked {{age}}",
   "connections.balance.failed": "Could not check the balance: {{error}}",

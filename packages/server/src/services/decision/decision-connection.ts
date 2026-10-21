@@ -1,7 +1,6 @@
 import {
   DECISION_SOURCE_BASE_URLS,
   PROVIDERS,
-  isChatProvider,
   speaksOpenAIChat,
   type APIProvider,
   decisionSourceTakesUrl,
@@ -103,15 +102,13 @@ export async function resolveDecisionConnection(
     if (!linked || linked.id === row.id || linked.credentialsFromConnectionId) {
       return { connection: null, error: "needs_relinking" };
     }
-    // A link never lends a key to another host, including after either row is edited. Any
-    // service may lend it; a media row without its own address has no known host. TypeSafe
-    // keeps its own key (#7084).
+    // A link never lends a provider key to another host, including after either row is edited.
+    const expectedProvider = source === "openrouter" ? "openrouter" : decisionSourceTakesUrl(source) ? "custom" : null;
     try {
       const linkedOrigin = new URL(
-        linked.baseUrl ||
-          (isChatProvider(linked.provider) ? PROVIDERS[linked.provider as APIProvider].defaultBaseUrl : ""),
+        linked.baseUrl || (linked.provider === "openrouter" ? DECISION_SOURCE_BASE_URLS.openrouter : ""),
       ).origin;
-      if (source === "typesafe" || linkedOrigin !== endpoint.origin) {
+      if (!expectedProvider || linked.provider !== expectedProvider || linkedOrigin !== endpoint.origin) {
         return { connection: null, error: "needs_relinking" };
       }
     } catch {

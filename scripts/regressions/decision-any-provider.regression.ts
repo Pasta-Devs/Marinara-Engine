@@ -78,7 +78,7 @@ try {
     lend,
   );
   assert.equal(elsewhere.error, "needs_relinking", "a key never goes to another host");
-  // Any service may lend its key on its own host (the old gate allowed only OpenRouter and Custom).
+  // Old rows keep the old lending rule: a URL source borrows only from a custom row, even on its host.
   const sameHost = await resolve(
     {
       decisionSource: "openai_compatible",
@@ -88,22 +88,14 @@ try {
     },
     lend,
   );
-  assert.equal(sameHost.connection?.apiKey, KEY);
+  assert.equal(sameHost.error, "needs_relinking", "an old row borrows only as before");
 
-  // A chat decision row on a hosted service's address belongs to that service's Connection.
+  // Old decision rows keep their own group, so startup linking never mixes them with chat rows.
   assert.equal(
     credentialVendor({
       provider: "decision",
       decisionSource: "openai_compatible",
       baseUrl: "https://nano-gpt.com/api/v1",
-    }),
-    "nanogpt",
-  );
-  assert.equal(
-    credentialVendor({
-      provider: "decision",
-      decisionSource: "openai_compatible",
-      baseUrl: "http://localhost:11434/v1",
     }),
     "decision:openai_compatible",
   );
@@ -113,6 +105,30 @@ try {
   const db = await getDB();
   const accounts = createConnectionAccountsStorage(db);
   const connections = createConnectionsStorage(db);
+  // An old decision row at nano-gpt.com and a new NanoGPT chat row with the same key stay apart.
+  const shared = "fixture-shared-key";
+  const oldDecision = await connections.create(
+    createConnectionSchema.parse({
+      name: "Old decision",
+      provider: "decision",
+      apiKey: shared,
+      baseUrl: "https://nano-gpt.com/api/v1",
+      decisionSource: "openai_compatible",
+      model: "m",
+    }),
+  );
+  const chat = await connections.create(
+    createConnectionSchema.parse({
+      name: "NanoGPT chat",
+      provider: "nanogpt",
+      apiKey: shared,
+      baseUrl: "https://nano-gpt.com/api/v1",
+      model: "m",
+    }),
+  );
+  assert.ok(oldDecision?.accountId && chat?.accountId);
+  assert.notEqual(chat?.accountId, oldDecision?.accountId, "a chat row never joins an old Decision Connection");
+
   const account = await accounts.create({
     name: "NanoGPT",
     provider: "nanogpt",

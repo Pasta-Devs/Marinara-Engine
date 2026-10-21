@@ -138,17 +138,8 @@ export function credentialVendor(row: IdentityRow): string {
       const source = row.audioSource?.trim() ?? "";
       return AUDIO_SOURCE_VENDOR[source] ?? `audio:${source}`;
     }
-    case "decision": {
-      // A chat decision Model on a hosted service's address uses that service's key, so it
-      // belongs to its Connection (NanoGPT, OpenRouter, …). A server the user runs stays apart,
-      // so a local chat Model never joins an old Decision Connection at the same address.
-      const origin = row.decisionSource === "openai_compatible" ? originOfUrl(trimUrl(row.baseUrl)) : "";
-      const vendor = Object.values(PROVIDERS).find(
-        (provider) =>
-          provider.protocol === "openai_chat" && !!origin && originOfUrl(provider.defaultBaseUrl) === origin,
-      );
-      return vendor?.id ?? `decision:${row.decisionSource ?? ""}`;
-    }
+    case "decision":
+      return `decision:${row.decisionSource ?? ""}`;
     default:
       return row.provider;
   }

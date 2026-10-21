@@ -74,6 +74,7 @@ import {
 import { useSetChatModel } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
+import { useUIStore } from "../../stores/ui.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import {
   ADD_JOBS,
@@ -612,6 +613,7 @@ export function CreateConnectionModal({
   // model without log-probabilities is never saved.
   const [jobTest, setJobTest] = useState<{ ok: boolean; message: string } | null>(null);
   const [jobTesting, setJobTesting] = useState(false);
+  const passedJob = useRef<Record<string, { model: string; name: string }>>({});
   const [query, setQuery] = useState("");
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
@@ -723,10 +725,15 @@ export function CreateConnectionModal({
         // A kind looked at but left without a model leaves an empty placeholder behind.
         const picked = new Set(picks.map((pick) => pick.connectionId));
         for (const id of target.ownedPlaceholderIds ?? []) {
-          if (picked.has(id)) continue;
-        // A decision or voice Model stays only after its test passed (runJobTest records the pick).
-        const row = allRows.find((candidate) => candidate.id === id);
-        if (row?.model?.trim() && row.provider !== "decision" && row.provider !== "audio") continue;
+          const row = allRows.find((candidate) => candidate.id === id);
+          if (picked.has(id)) {
+            // A model tapped after a passed test gives way to the one that passed.
+            const passed = passedJob.current[id];
+            if (passed && row && row.model !== passed.model) await updateRow.mutateAsync({ id, ...passed });
+            continue;
+          }
+          // A decision or voice Model stays only after its test passed (runJobTest records the pick).
+          if (row?.model?.trim() && row.provider !== "decision" && row.provider !== "audio") continue;
           await deleteRow.mutateAsync(id);
         }
       } else if (target.fresh && !mediaSaved) {
@@ -887,6 +894,14 @@ export function CreateConnectionModal({
     return preferred && kinds.includes(preferred as AddableKind) ? (preferred as AddableKind) : (kinds[0] ?? null);
   };
 
+  // The old Decision and Audio services have no model list to pick from: their editor opens over the panel
+  // instead. A chat service's decision or voice Model goes through the job steps.
+  const editInstead = (accountId: string, connectionId: string) => {
+    onClose();
+    flashConnectionCard(accountId);
+    useUIStore.getState().openConnectionDetail(connectionId);
+  };
+
   const chooseService = async (key: ServiceId) => {
     await discard();
     resetFields();
@@ -961,8 +976,7 @@ export function CreateConnectionModal({
       }
       if (isMedia) {
         if (provider === "audio" || provider === "decision") {
-          setSetupKind(provider === "audio" ? "voice" : "decision");
-          setStep(3);
+          editInstead(current.accountId, current.connectionId);
           return;
         }
         const mediaKinds = selectedMedia
@@ -1081,11 +1095,7 @@ export function CreateConnectionModal({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    if (row.provider === "audio" || row.provider === "decision") {
-      setSetupKind(row.provider === "audio" ? "voice" : "decision");
-      setStep(3);
-      return;
-    }
+    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
@@ -1199,8 +1209,8 @@ export function CreateConnectionModal({
   };
 
   // A decision or voice Model is its own row under the Connection. The old Decision and Audio
-  // services made it as their first Model; a chat service gets one at its own address, which
-  // shares the Connection's key.
+  // services open their editor; a chat service gets one at its own address, which shares the
+  // Connection's key.
   const beginJobSetup = async (kind: "decision" | "voice") => {
     const account = target ? accounts?.find((candidate) => candidate.id === target.accountId) : undefined;
     if (!account) return;
@@ -1208,7 +1218,9 @@ export function CreateConnectionModal({
     const vendor = account.provider as APIProvider;
     if (!isChatProvider(vendor)) {
       const own = accountRows(account.id).find((row) => row.provider === rowProvider);
-      if (own) setMediaRowId(own.id);
+      if (own) return editInstead(account.id, own.id);
+      onClose();
+      flashConnectionCard(account.id);
       return;
     }
     setMediaCreating(true);
@@ -1261,7 +1273,6 @@ export function CreateConnectionModal({
   const chooseJobModel = async (choice: ChatModelChoice) => {
     if (!mediaRowId) return;
     setJobTest(null);
-    setPicks((current) => current.filter((pick) => pick.connectionId !== mediaRowId));
     await updateRow.mutateAsync({ id: mediaRowId, model: choice.model, name: choice.name || choice.model });
   };
   const runJobTest = async () => {
@@ -1290,7 +1301,13 @@ export function CreateConnectionModal({
         result = { ok: true, message: t("connections.add.voiceTestPassed") };
       }
       setJobTest(result);
-      if (result.ok) recordPick(row.id, row.model ?? "", setupKind);
+      if (result.ok) {
+        passedJob.current[row.id] = { model: row.model ?? "", name: row.name ?? row.model ?? "" };
+        setPicks((current) => [
+          ...current.filter((pick) => pick.connectionId !== row.id),
+          { connectionId: row.id, modelId: row.model ?? "", kind: setupKind },
+        ]);
+      }
     } catch (error) {
       setJobTest({ ok: false, message: errorText(error) });
     } finally {
