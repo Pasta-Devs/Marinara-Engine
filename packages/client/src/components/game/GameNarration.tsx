@@ -103,6 +103,7 @@ import { MESSAGE_SELECTION_SURFACE_CLASS } from "../chat/message-selection-style
 import { HISTORY_PAGER_BUTTON_CLASS } from "../chat/TranscriptWindowControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { formatNarration } from "./game-narration-format";
+import { i18n } from "../../localization/i18n";
 import { publishAvatarGameLine } from "../../features/avatars/director/game-line-feed";
 import { prepareAvatarAudioBlob, setGameVoicePlayback } from "../../features/avatars/audio/avatar-audio";
 import {
@@ -605,15 +606,33 @@ function slicePreservingEffects(content: string, maxVisible: number): string {
   return result;
 }
 
+const DEFAULT_LOG_PAGE_SIZE = 20;
+
+// A Session Log row, a settled segment and a translation show the same text on every render of
+// this component. Formatting and sanitizing it again each time made opening, closing and jumping
+// through a long log slow on phones, so the finished HTML is kept per text, language and effects.
+const NARRATION_HTML_CACHE_LIMIT = 2000;
+const narrationHtmlCache = new Map<string, string>();
+
+function formattedNarrationHtml(content: string, textEffectsEnabled: boolean): string {
+  const key = `${i18n.language}\u0000${textEffectsEnabled ? 1 : 0}\u0000${content}`;
+  const cached = narrationHtmlCache.get(key);
+  if (cached !== undefined) return cached;
+  const html = animateTextHtml(formatNarration(content, false), textEffectsEnabled);
+  if (narrationHtmlCache.size >= NARRATION_HTML_CACHE_LIMIT) {
+    const oldest = narrationHtmlCache.keys().next().value;
+    if (oldest !== undefined) narrationHtmlCache.delete(oldest);
+  }
+  narrationHtmlCache.set(key, html);
+  return html;
+}
+
 function getGameTranslationHtml(
   message: NarrationMessage,
   translatedText: string,
   textEffectsEnabled: boolean,
 ): string {
-  return animateTextHtml(
-    formatNarration(getGameTranslationSource({ ...message, content: translatedText }), false),
-    textEffectsEnabled,
-  );
+  return formattedNarrationHtml(getGameTranslationSource({ ...message, content: translatedText }), textEffectsEnabled);
 }
 
 function hasGameSegmentOverrides(
@@ -3044,7 +3063,9 @@ export function GameNarration({
     doneTyping,
     localizeUi,
   ]);
-  const logPageSize = Math.max(1, messagesPerPage > 0 ? messagesPerPage : logEntries.length || 20);
+  // Messages per page 0 loads a chat's whole history, but a Session Log built on every entry at once
+  // took seconds on a long game. It opens on the newest page; Older, All and scrolling up reach the rest.
+  const logPageSize = Math.max(1, messagesPerPage > 0 ? messagesPerPage : DEFAULT_LOG_PAGE_SIZE);
   const [visibleLogCount, setVisibleLogCount] = useState(logPageSize);
   useEffect(() => {
     if (!logsOpen) return;
@@ -4912,7 +4933,7 @@ export function GameNarration({
                 )}
                 style={seg.color ? { ...narrationFontStyle, color: seg.color } : narrationFontStyle}
                 dangerouslySetInnerHTML={{
-                  __html: animateTextHtml(formatNarration(segmentDisplayContent, false), gameTextEffectsEnabled),
+                  __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
                 }}
               />
             )}
@@ -4940,7 +4961,7 @@ export function GameNarration({
               className="whitespace-pre-wrap break-words text-xs leading-relaxed"
               style={narrationFontStyle}
               dangerouslySetInnerHTML={{
-                __html: animateTextHtml(formatNarration(segmentDisplayContent, false), gameTextEffectsEnabled),
+                __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
               }}
             />
           )}
@@ -4967,7 +4988,7 @@ export function GameNarration({
               className="text-xs italic leading-relaxed text-amber-200/70"
               style={narrationFontStyle}
               dangerouslySetInnerHTML={{
-                __html: animateTextHtml(formatNarration(segmentDisplayContent, false), gameTextEffectsEnabled),
+                __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
               }}
             />
           )}
@@ -4996,7 +5017,7 @@ export function GameNarration({
             className="text-xs leading-relaxed text-[var(--foreground)]/80 dark:text-white/80"
             style={narrationStyle}
             dangerouslySetInnerHTML={{
-              __html: animateTextHtml(formatNarration(segmentDisplayContent, false), gameTextEffectsEnabled),
+              __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
             }}
           />
         )}
@@ -6372,10 +6393,7 @@ export function GameNarration({
                                   )}
                                   style={seg.color ? { ...narrationFontStyle, color: seg.color } : narrationFontStyle}
                                   dangerouslySetInnerHTML={{
-                                    __html: animateTextHtml(
-                                      formatNarration(segmentDisplayContent, false),
-                                      gameTextEffectsEnabled,
-                                    ),
+                                    __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
                                   }}
                                 />
                               )}
@@ -6413,10 +6431,7 @@ export function GameNarration({
                               className="whitespace-pre-wrap break-words pr-6 text-xs leading-relaxed text-[var(--foreground)]/80 dark:text-cyan-50/80"
                               style={narrationFontStyle}
                               dangerouslySetInnerHTML={{
-                                __html: animateTextHtml(
-                                  formatNarration(segmentDisplayContent, false),
-                                  gameTextEffectsEnabled,
-                                ),
+                                __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
                               }}
                             />
                           </div>
@@ -6450,10 +6465,7 @@ export function GameNarration({
                                 className="text-xs italic leading-relaxed text-amber-200/70"
                                 style={narrationFontStyle}
                                 dangerouslySetInnerHTML={{
-                                  __html: animateTextHtml(
-                                    formatNarration(segmentDisplayContent, false),
-                                    gameTextEffectsEnabled,
-                                  ),
+                                  __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
                                 }}
                               />
                             )}
@@ -6493,10 +6505,7 @@ export function GameNarration({
                               className="text-xs leading-relaxed text-[var(--foreground)]/80 dark:text-white/80"
                               style={narrationStyle}
                               dangerouslySetInnerHTML={{
-                                __html: animateTextHtml(
-                                  formatNarration(segmentDisplayContent, false),
-                                  gameTextEffectsEnabled,
-                                ),
+                                __html: formattedNarrationHtml(segmentDisplayContent, gameTextEffectsEnabled),
                               }}
                             />
                           )}
