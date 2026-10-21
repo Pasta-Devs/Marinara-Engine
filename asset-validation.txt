@@ -1,0 +1,14 @@
+PNG/source identity validator:
+PASS: all12 named PNGs replaced, decoded, nonempty and transparent;12 changed canvases.
+All12 approved source files equal their target PNG bytes; SHA-256 values are in asset-inventory.json.
+
+Browser preview:
+Rendered12 original PNGs at96/128px on light/dark.
+Preview SHA-256:1737c097c1e649aae0b7af7f0c405c1e0f1944bceea35fc48aed65586e41f546
+
+Independent peer visual QA:
+PASS at96px/128px on light/dark. Every pose retains continuous black coverage over both eyes and consistent approved design. No opaque backdrop, halo rectangle or small-display clipping observed.
+
+Local CodeRabbit:
+review_completed;findings=0;reviewedFiles=[];excludedBinaryFiles=all12 PNGs.
+This is not a substantive art review.
