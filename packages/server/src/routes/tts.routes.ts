@@ -35,6 +35,7 @@ import { encryptApiKey, decryptApiKey } from "../utils/crypto.js";
 import { getChatGenerationTimeoutMs, isTtsLocalUrlsEnabled } from "../config/runtime-config.js";
 import { safeFetch } from "../utils/security.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
+import { isRefusedFetch } from "../services/decision/system-one.client.js";
 import { buildAssetManifest, GAME_ASSETS_DIR } from "../services/game/asset-manifest.service.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
@@ -1012,6 +1013,12 @@ function optionalBearerHeaders(apiKey: string) {
   return headers;
 }
 
+/** Auth headers for a source's model list: the same key headers /tts/speak sends. */
+export function ttsCatalogHeaders(source: string, apiKey: string): Record<string, string> {
+  if (source === "elevenlabs") return elevenLabsHeaders(apiKey);
+  return source === "nanogpt" ? nanoGptHeaders(apiKey) : openAiHeaders(apiKey);
+}
+
 function openAiModelSupportsSpeechInstructions(model: string) {
   return /^gpt-4o/i.test(model.trim());
 }
@@ -1862,7 +1869,7 @@ export async function ttsRoutes(app: FastifyInstance) {
         });
       }
       req.log.error(err, "TTS provider request failed");
-      return reply.status(502).send({ error: "TTS provider unreachable" });
+      return reply.status(502).send({ error: isRefusedFetch(err) ? err.message : "TTS provider unreachable" });
     }
 
     if (!providerRes.ok) {

@@ -1,4 +1,5 @@
 import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
+import { ttsCatalogHeaders } from "./tts.routes.js";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { connectionChatTarget, probeDecisionSlot } from "../services/decision/sidecar-decision.backend.js";
 import {
@@ -951,7 +952,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       const testHeaders =
-        conn.provider === "image_generation" && imageSource === "horde" ? hordeHeaders(conn.apiKey) : headers;
+        conn.provider === "image_generation" && imageSource === "horde"
+          ? hordeHeaders(conn.apiKey)
+          : conn.provider === "audio"
+            ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
+            : headers;
       debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
       const res = await safeFetch(testUrl, {
         headers: testHeaders,

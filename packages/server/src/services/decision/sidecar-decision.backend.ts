@@ -33,7 +33,7 @@ import {
 import { whenDecisionServerFree } from "./decision-server-queue.js";
 import { type ResolvedDecisionSlot } from "./decision-slots.js";
 import { isDirectAnswer, readLogprobAnswer, readWordAnswer, type TopLogprob } from "./logprob-answer.js";
-import { postDecisionRequest, type NoulQuestion } from "./system-one.client.js";
+import { isRefusedFetch, postDecisionRequest, type NoulQuestion } from "./system-one.client.js";
 
 const SYSTEM_PROMPT =
   "You answer one question about the conversation below. Reply with exactly one word: yes or no. Do not explain, and do not write anything else.";
@@ -185,8 +185,11 @@ async function askOnce(
           body: JSON.stringify(body),
           signal: combined,
         });
-  } catch {
-    return finish(null, signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : "network");
+  } catch (err) {
+    return finish(
+      null,
+      signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : isRefusedFetch(err) ? err.message : "network",
+    );
   }
   if (!response.ok) return finish(null, `http_${response.status}`);
   let payload: ChatCompletionResponse;

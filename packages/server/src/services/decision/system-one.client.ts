@@ -25,7 +25,13 @@ export interface NoulQuestion {
 /** The option a Choice question adds so a turn that fits none of the others can say so. */
 export const DECISION_CHOICE_NONE = "none of these";
 export type DecisionRequestError =
-  "timeout" | "cancelled" | "network" | "invalid_response" | "partial_response" | `http_${number}`;
+  | "timeout"
+  | "cancelled"
+  | "network"
+  | "invalid_response"
+  | "partial_response"
+  | `http_${number}`
+  | `Refused to fetch ${string}`;
 
 export interface DecisionRequest {
   connection: DecisionConnection;
@@ -48,6 +54,10 @@ export interface DecisionRequest {
  * DNS validation precedes the fetch and cannot itself be aborted, so the whole
  * operation is raced against `signal`.
  */
+/** The private-host guard's refusal names the flag to set; keep it instead of a bare "network". */
+export const isRefusedFetch = (err: unknown): err is Error & { message: `Refused to fetch ${string}` } =>
+  err instanceof Error && err.message.startsWith("Refused to fetch");
+
 export async function postDecisionRequest(
   endpoint: string,
   apiKey: string,
@@ -177,7 +187,9 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
         ? "timeout"
         : caught instanceof SyntaxError
           ? "invalid_response"
-          : "network";
+          : isRefusedFetch(caught)
+            ? caught.message
+            : "network";
   }
   const results = req.questions.map((question) => ({
     id: question.id,
