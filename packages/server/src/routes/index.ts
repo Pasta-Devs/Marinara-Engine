@@ -68,6 +68,7 @@ import { ttsRoutes } from "./tts.routes.js";
 import { speechToTextRoutes } from "./speech-to-text.routes.js";
 import { promptOverridesRoutes } from "./prompt-overrides.routes.js";
 import { csrfDiagnosticsRoutes } from "./csrf-diagnostics.routes.js";
+import { accessStatusRoutes } from "./access-status.routes.js";
 import { professorMariWorkspaceRoutes } from "./professor-mari-workspace.routes.js";
 import { professorMariQuickRoutes } from "./professor-mari-quick.routes.js";
 import { capabilityPackagesRoutes } from "./capability-packages.routes.js";
@@ -174,6 +175,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(speechToTextRoutes, { prefix: "/api/speech-to-text" });
   await app.register(promptOverridesRoutes, { prefix: "/api/prompt-overrides" });
   await app.register(csrfDiagnosticsRoutes, { prefix: "/api/csrf" });
+  await app.register(accessStatusRoutes, { prefix: "/api/access" });
   await app.register(professorMariWorkspaceRoutes, { prefix: "/api/professor-mari/workspace" });
   await app.register(professorMariQuickRoutes, { prefix: "/api/professor-mari/quick" });
   await app.register(capabilityPackagesRoutes, { prefix: "/api/capability-packages" });

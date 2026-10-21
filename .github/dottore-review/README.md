@@ -162,7 +162,7 @@ Each model has the same five settings. The key is a secret; the rest are variabl
 | `DOTTORE_SMALL_MODEL`, `DOTTORE_LARGE_MODEL` | Variable | The model's name at its provider | Required |
 | `DOTTORE_SMALL_API_KEY`, `DOTTORE_LARGE_API_KEY` | Secret | The provider's API key | Required |
 | `DOTTORE_SMALL_BASE_URL`, `DOTTORE_LARGE_BASE_URL` | Variable | The provider's endpoint | OpenAI's or Anthropic's own |
-| `DOTTORE_SMALL_API`, `DOTTORE_LARGE_API` | Variable | `openai` for an OpenAI-compatible Chat Completions endpoint, `anthropic` for Claude's Messages format | `openai` |
+| `DOTTORE_SMALL_API`, `DOTTORE_LARGE_API` | Variable | `openai` for an OpenAI-compatible Chat Completions endpoint, `anthropic` for Claude's Messages format, `responses` for OpenAI's Responses format | `openai` |
 | `DOTTORE_SMALL_EFFORT`, `DOTTORE_LARGE_EFFORT` | Variable | Reasoning effort, such as `medium`, `high` or `xhigh` | The model's default |
 
 The values the fork trial ran, Claude Haiku 5.5 reading and GPT Astra judging, both through LinkAPI:
@@ -195,12 +195,16 @@ small model and GLM as the large one, both through LinkAPI:
 | `EFFORT` | empty | empty |
 
 Use `anthropic` for Claude models, even through a gateway that also offers Chat Completions: Claude's tool calls only
-work reliably in its own format, and prompt caching and effort work only there. Give a gateway's base URL without
-`/v1`, such as `https://linkapi.ai`.
+work reliably in its own format, and prompt caching and effort work only there. For `anthropic`, give a gateway's base
+URL without `/v1`, such as `https://linkapi.ai`.
 
-Effort passes through unchanged, as `reasoning_effort` in the OpenAI format and as Claude's `effort`, so use a value the
-model accepts, or leave it empty for a model that takes none. Starting values, to be measured on a few known pull
-requests before relying on them:
+Use `responses` when the provider serves the model only on `/v1/responses`, or takes tool calls with reasoning only
+there. It takes the same base URL as `openai`, ending in `/v1`, and the same key. Calls stay stateless: nothing is stored
+at the provider, and each turn's encrypted reasoning goes back with the next.
+
+Effort passes through unchanged, as `reasoning_effort` in the OpenAI format, `reasoning.effort` in the Responses format
+and Claude's `effort`, so use a value the model accepts, or leave it empty for a model that takes none. Starting
+values, to be measured on a few known pull requests before relying on them:
 
 | Model | As the large model | As the small model |
 | --- | --- | --- |

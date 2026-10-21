@@ -167,7 +167,9 @@ try {
               {
                 env: { ...env, ...overrides },
                 encoding: "utf8",
-                timeout: 15_000,
+                // A cold PowerShell start, and the first launch of a freshly compiled harness, can take longer
+                // than 15 seconds on a hosted Windows runner; a stub that hangs still fails well inside the job.
+                timeout: 60_000,
                 windowsHide: true,
               },
             );

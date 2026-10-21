@@ -2,6 +2,7 @@
 // Single mount point for app-wide banners: shows only the most severe one
 // ──────────────────────────────────────────────
 import { useState } from "react";
+import { useAccessWarningBanner } from "../diagnostics/use-access-warning-banner";
 import { useCsrfOriginBanner } from "../diagnostics/use-csrf-origin-banner";
 import { AppBanner, type AppBannerCandidate } from "../ui/AppBanner";
 import { useMarinaraNoticeBanners } from "./use-marinara-notice-banners";
@@ -30,7 +31,7 @@ function pickAppBanner(candidates: (AppBannerCandidate | null)[], dismissed: (c:
 }
 
 export function AppBannerHost() {
-  const candidates = [useCsrfOriginBanner(), ...useMarinaraNoticeBanners()];
+  const candidates = [useCsrfOriginBanner(), useAccessWarningBanner(), ...useMarinaraNoticeBanners()];
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const banner = pickAppBanner(candidates, (c) => dismissedIds.includes(c.id) || wasDismissed(c));
 

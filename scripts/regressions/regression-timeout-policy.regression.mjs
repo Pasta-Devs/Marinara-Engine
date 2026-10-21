@@ -81,6 +81,14 @@ try {
   const canonical = list(join(scripts, "run-regressions.mjs"));
   assert.match(canonical, /scripts\/regressions\/regression-timeout-policy\.regression\.mjs/);
   assert.equal(list(join(linkedScripts, "run-regressions.mjs")), canonical);
+  for (const count of ["0", "two"]) {
+    const rejected = spawnSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--concurrency", count], {
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(rejected.status, 1, `--concurrency ${count} must be refused`);
+    assert.match(rejected.stderr, /--concurrency <n>/u);
+  }
   const imported = execFileSync(process.execPath, ["--input-type=module", "-"], {
     input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt.regression.ts'));`,
     encoding: "utf8",

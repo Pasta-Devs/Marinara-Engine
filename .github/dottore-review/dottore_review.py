@@ -226,9 +226,10 @@ MAX_NITPICKS = 2
 MAX_REVIEW_LIMITATIONS = 2
 MAX_GUIDANCE_HEADINGS = 40
 EVIDENCE_WINDOW = 3
-# Each model is reached through OpenAI's Chat Completions format, which most providers and gateways offer, or Claude's
-# Messages format; gateways such as LinkAPI serve Claude only through the latter when tools are used.
-APIS = ("openai", "anthropic")
+# Each model is reached through OpenAI's Chat Completions format, which most providers and gateways offer, Claude's
+# Messages format, or OpenAI's Responses format for a model its provider serves only there; gateways such as LinkAPI
+# serve Claude only through the Messages format when tools are used.
+APIS = ("openai", "anthropic", "responses")
 CACHE_BREAKPOINT = {"type": "ephemeral"}
 DEFAULT_CONCURRENCY = 4
 MAX_CONCURRENCY = 16
@@ -821,6 +822,7 @@ def build_stats(review_packet):
                 "stop_chars": 0,
                 "stop_time": 0,
                 "stop_box": 0,
+                "stop_cap": 0,
                 "prompt_tokens": 0,
                 "cached_tokens": 0,
                 "completion_tokens": 0,
@@ -910,7 +912,7 @@ def review_clients(models):
             "base_url": settings["base_url"] or None,
             "max_retries": MODEL_MAX_RETRIES,
         }
-        if settings["api"] == "openai":
+        if settings["api"] in ("openai", "responses"):
             from openai import OpenAI
 
             clients[slot] = OpenAI(**options)
@@ -1189,6 +1191,14 @@ class StreamStalled(Exception):
     """The connection went quiet or dropped after the reply stream opened."""
 
 
+class ResponseFailed(Exception):
+    """The provider reported a failed response inside a Responses stream, with its error code when it gave one."""
+
+    def __init__(self, detail, code=None):
+        super().__init__(f"the response failed: {detail}")
+        self.code = code or ""
+
+
 def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
     """Yield a stream's events, noting when the first arrived and stopping one that runs too long. A stopped stream
     returns no usage, so the error carries what had streamed by then: thinking, text and tool-input characters."""
@@ -1197,11 +1207,16 @@ def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
     for event in stream:
         elapsed = time.monotonic() - started
         timing.setdefault("first_chunk", elapsed)
-        delta = getattr(event, "delta", None)  # Claude content_block_delta
+        delta = getattr(event, "delta", None)  # Claude content_block_delta, or a Responses delta event's string
         if delta is None and getattr(event, "choices", None):  # Chat Completions chunk
             delta = event.choices[0].delta
+        kind = str(getattr(event, "type", ""))  # Responses: response.output_text.delta, ...function_call_arguments.delta, ...reasoning_*.delta
+        streamed = "text" if "output_text" in kind else "tool" if "function_call_arguments" in kind else "thinking"
         for key, names in (("thinking", ("thinking", "reasoning", "reasoning_content")), ("text", ("text", "content")), ("tool", ("partial_json",))):
-            grew = sum(len(getattr(delta, name, None) or "") for name in names) if delta is not None else 0
+            if isinstance(delta, str):
+                grew = len(delta) if key == streamed else 0
+            else:
+                grew = sum(len(getattr(delta, name, None) or "") for name in names) if delta is not None else 0
             seen[key] += grew
             last = elapsed if grew else last
         if elapsed > limit:
@@ -1260,6 +1275,98 @@ def openai_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
             return read_stream(stream, started, timing, stream_limit)
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         raise StreamStalled(error_text(exc)) from exc
+
+
+def responses_input(messages):
+    """Chat Completions messages as Responses instructions and input items. An assistant turn's reasoning
+    goes back before its text and calls, so the model keeps its train of thought between turns."""
+    instructions, items = [], []
+    for message in messages:
+        role, content = message["role"], message.get("content")
+        if role == "system":
+            instructions.append(content)
+        elif role == "tool":
+            items.append({"type": "function_call_output", "call_id": message["tool_call_id"], "output": content})
+        elif role == "assistant":
+            items.extend(message.get("reasoning_items") or [])
+            if content:
+                items.append({"role": "assistant", "content": content})
+            items.extend(
+                {
+                    "type": "function_call",
+                    "call_id": call["id"],
+                    "name": call["function"]["name"],
+                    "arguments": call["function"]["arguments"],
+                }
+                for call in message.get("tool_calls") or []
+            )
+        elif content:
+            items.append({"role": "user", "content": content})
+    return "\n\n".join(instructions), items
+
+
+def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, started, timing, cache_key, stream_limit=MODEL_STREAM_LIMIT):
+    """One streamed Responses call, returned in the Chat Completions shape the agents use."""
+    import httpx
+    import openai
+
+    instructions, items = responses_input(messages)
+    request = {
+        "model": settings["model"],
+        "input": items,
+        # Nothing is kept on the provider; the encrypted reasoning comes back so the next turn can resend it.
+        "store": False,
+        "include": ["reasoning.encrypted_content"],
+        "stream": True,
+        "timeout": openai.Timeout(read_timeout, connect=30),
+    }
+    if instructions:
+        request["instructions"] = instructions
+    if tools:
+        request["tools"] = [{"type": "function", "strict": False, **tool["function"]} for tool in tools]
+        # "auto" and "required" pass through; only the named form takes Responses' own shape.
+        request["tool_choice"] = (
+            {"type": "function", "name": tool_choice["function"]["name"]} if isinstance(tool_choice, dict) else tool_choice
+        )
+    if settings["effort"]:
+        request["reasoning"] = {"effort": settings["effort"]}
+    if cache_key:
+        request["extra_body"] = {"prompt_cache_key": cache_key}
+    response, capped = None, False
+    try:
+        with ctx.clients[settings["slot"]].responses.create(**request) as stream:
+            for event in watched(stream, started, timing, stream_limit):
+                if event.type in ("response.completed", "response.incomplete"):
+                    response = event.response
+                    # An incomplete response was cut short, by the output cap or a filter, as Claude's max_tokens stop.
+                    capped = event.type == "response.incomplete"
+                elif event.type in ("response.failed", "error"):
+                    failure = getattr(getattr(event, "response", None), "error", None) or event
+                    raise ResponseFailed(getattr(failure, "message", None) or "the provider gave no message", getattr(failure, "code", None))
+    except (httpx.TimeoutException, httpx.TransportError) as exc:
+        raise StreamStalled(error_text(exc)) from exc
+    if response is None:
+        raise StreamStalled("the reply stream ended before the response completed")
+    text, calls, reasoning = [], [], []
+    for item in response.output or []:
+        if item.type == "message":
+            text += [part.text for part in item.content or [] if getattr(part, "type", "") == "output_text"]
+        elif item.type == "function_call" and not capped:
+            # A call in a cut-short response may have lost the end of its arguments (see claude_reply).
+            calls.append(SimpleNamespace(id=item.call_id, function=SimpleNamespace(name=item.name, arguments=item.arguments)))
+        elif item.type == "reasoning" and getattr(item, "encrypted_content", None):
+            reasoning.append(item.model_dump(exclude_none=True))
+    prompt = usage_value(response.usage, "input_tokens")
+    output = usage_value(response.usage, "output_tokens")
+    usage = {
+        "prompt_tokens": prompt,
+        "completion_tokens": output,
+        "total_tokens": prompt + output,
+        "prompt_tokens_details": {"cached_tokens": usage_value(response.usage, "input_tokens_details", "cached_tokens")},
+        "completion_tokens_details": {"reasoning_tokens": usage_value(response.usage, "output_tokens_details", "reasoning_tokens")},
+    }
+    message = SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped)
+    return message, usage
 
 
 def claude_messages(messages):
@@ -1375,6 +1482,10 @@ def transient_error(exc):
     """
     if isinstance(exc, StreamStalled):
         return True
+    if isinstance(exc, ResponseFailed):
+        # Any other code, such as invalid_prompt, fails the same way on every resend. A failure a gateway relays
+        # without a code is retried, like a bare APIError below.
+        return exc.code in ("", "server_error", "rate_limit_exceeded")
     import anthropic
     import openai
 
@@ -1403,7 +1514,7 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         if ctx.failures.get(role, 0) >= MAX_ROLE_FAILURES:
             raise RuntimeError(f"the {role} role failed {MAX_ROLE_FAILURES} calls in a row, so it makes no more")
     first_call = not any(message.get("role") == "assistant" for message in messages)
-    reply = claude_reply if settings["api"] == "anthropic" else openai_reply
+    reply = {"anthropic": claude_reply, "responses": responses_reply}.get(settings["api"], openai_reply)
     # The client retries a request that fails before its stream opens. This retries one that stalls after
     # it at once, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
     # waits out a transient gateway error, which can arrive mid-stream with a request to resend. A role whose calls
@@ -1472,9 +1583,10 @@ def lower_effort(effort):
 
 
 def assistant_turn(message, **fields):
-    """The assistant message to keep in history, with Claude's original blocks when it sent them."""
-    blocks = getattr(message, "claude_blocks", None)
-    return {"role": "assistant", **fields, **({"claude_blocks": blocks} if blocks else {})}
+    """The assistant message to keep in history, with Claude's original blocks or the Responses reasoning
+    when the provider sent them."""
+    kept = {key: getattr(message, key, None) for key in ("claude_blocks", "reasoning_items")}
+    return {"role": "assistant", **fields, **{key: value for key, value in kept.items() if value}}
 
 
 def tool_call_key(call):
@@ -1506,6 +1618,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     With keep, the name of the submit tool's list argument, the submit tool does not end the run: each call adds its
     items, and the first turn that makes no read, or the turn after a limit, ends it with every item kept. No final
     call restates them, and a limit loses only the reads not yet kept.
+
+    A reply cut off at its output cap without a tool call is sent once more at the next lower effort. A cap that
+    cannot be retried raises, or ends a keep run that has kept items with them.
     """
     settings = ctx.models[role]
     budget = settings["reads"] if budget is None else budget
@@ -1545,14 +1660,15 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
         message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
         calls = list(message.tool_calls or [])
-        if keep and (forced or all(call.function.name == submit for call in calls)):
-            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
-            with ctx.lock:
-                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
-            return {keep: kept}
+        # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):
             lower = lower_effort(settings["effort"])
             if lowered or not lower or time.monotonic() > min(deadline, box):
+                if kept:
+                    # Like any other limit, the cap ends a keep run with the items already kept.
+                    with ctx.lock:
+                        ctx.stats["roles"][role]["stop_cap"] += 1
+                    return {keep: kept}
                 raise RuntimeError(f"the {role} reply reached its {settings['max_tokens']}-token output cap")
             # The cap was spent on thinking, so the same call is sent once more at the next lower effort, with a
             # time box of its own: the capped call has usually spent most of the first one.
@@ -1561,6 +1677,11 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             box = time.monotonic() + settings["minutes"] * 60 if settings.get("minutes") else deadline
             lowered = True
             continue
+        if keep and (forced or all(call.function.name == submit for call in calls)):
+            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
+            with ctx.lock:
+                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
+            return {keep: kept}
         if not calls:
             print(f"Dottore {role} replied without a tool call: {redact_for_model(message.content or '')[:400]!r}", flush=True)
             if time.monotonic() > min(deadline, box):
