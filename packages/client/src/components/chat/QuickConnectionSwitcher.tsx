@@ -2,6 +2,8 @@
 // Quick Connection Switcher — inline dropdown with
 // the chosen connection's models beside the list
 // ──────────────────────────────────────────────
+import { useUIStore } from "../../stores/ui.store";
+import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link, Dices, Check } from "lucide-react";
@@ -71,16 +73,22 @@ export function QuickConnectionSwitcher({
     if (!open) setChosenConnectionId(null);
   }, [open]);
   const modelsConnectionId = chosenConnectionId ?? activeConnectionId;
-  const showModels = !isRandom;
+  const modelsEnabled = useUIStore((state) => state.quickSwitcherShowModels);
+  const showModels = modelsEnabled && !isRandom;
   const modelsConnection = showModels ? sorted.find((connection) => connection.id === modelsConnectionId) : undefined;
+
+  useEffect(() => {
+    if (open && !modelsEnabled && document.activeElement === document.body) btnRef.current?.focus();
+  }, [open, modelsEnabled]);
 
   const handleSwitch = useCallback(
     (connId: string) => {
       if (!activeChatId) return;
       setChosenConnectionId(connId);
+      if (!modelsEnabled) setOpen(false);
       if (connId !== activeConnectionId) updateChat.mutate({ id: activeChatId, connectionId: connId });
     },
-    [activeChatId, activeConnectionId, updateChat],
+    [activeChatId, activeConnectionId, modelsEnabled, updateChat],
   );
 
   const handleToggleRandom = useCallback(() => {
@@ -205,6 +213,7 @@ export function QuickConnectionSwitcher({
             >
               <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-3 py-2">
                 <span className="text-[0.6875rem] font-semibold">{localizeUi("navigation.topbar.connections")}</span>
+                <QuickSwitcherModelsToggle />
                 <button
                   type="button"
                   onClick={handleToggleRandom}

@@ -1,3 +1,4 @@
+import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
 // ──────────────────────────────────────────────
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
@@ -63,6 +64,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [expandedCharacterGroups, setExpandedCharacterGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   /** The connection whose models are shown as the menu's second step; null shows the connection list. */
+  const modelsEnabled = useUIStore((state) => state.quickSwitcherShowModels);
   const [modelsStep, setModelsStep] = useState<string | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -204,10 +206,12 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     [activeChatId, activeConnectionId, updateChat],
   );
   useEffect(() => {
-    if (!open) setModelsStep(null);
-  }, [open]);
+    if (!modelsStep || (open && modelsEnabled)) return;
+    setModelsStep(null);
+    if (open && document.activeElement === document.body) btnRef.current?.focus();
+  }, [open, modelsEnabled, modelsStep]);
   const modelsConnection =
-    tab === "connections" && modelsStep && !isRandom
+    modelsEnabled && tab === "connections" && modelsStep && !isRandom
       ? sortedConnections.find(
           (connection) => connection.id === modelsStep && !isLocalSidecarConnectionOption(connection),
         )
@@ -446,6 +450,11 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 {localizeUi("navigation.topbar.personas")}
               </button>
             </div>
+            {tab === "connections" && !modelsStep && (
+              <div className="flex justify-end border-b border-foreground/10 px-2 py-1">
+                <QuickSwitcherModelsToggle />
+              </div>
+            )}
             {tab === "personas" && (
               <label className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 py-2 text-foreground/55">
                 <Search size="0.875rem" className="shrink-0" />
@@ -473,7 +482,10 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   <button
                     type="button"
                     data-model-back
-                    onClick={() => setModelsStep(null)}
+                    onClick={() => {
+                      setModelsStep(null);
+                      btnRef.current?.focus();
+                    }}
                     aria-label={localizeUi("connections.modelPicker.back")}
                     title={localizeUi("connections.modelPicker.back")}
                     className="-my-2 -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground/85"
@@ -547,7 +559,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                         </button>
                       );
                     }
-                    const hasModels = !isLocalSidecarConnectionOption(conn);
+                    const hasModels = modelsEnabled && !isLocalSidecarConnectionOption(conn);
                     return (
                       <div
                         key={conn.id}

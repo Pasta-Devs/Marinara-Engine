@@ -1131,4 +1131,35 @@ assert.match(
 assert.doesNotMatch(floatingWindowSource, /data-window-control="minimize"/u);
 assert.match(read("packages/client/src/styles/globals.css"), /--mari-window-bubble-bg[\s\S]*--mari-window-snap-guide/u);
 
+// #7928: automatic layouts follow resized bounds without overwriting free-position data.
+const freeButtons = new Map([
+  ["one", { point: { x: 200, y: 240 }, bounds, size: 32 }],
+  ["two", { point: { x: 700, y: 300 }, bounds, size: 32 }],
+  ["three", { point: { x: 450, y: 400 }, bounds, size: 32 }],
+]);
+for (const direction of ["horizontal", "vertical"] as const) {
+  for (const right of [1432, 120]) {
+    const narrowed = new Map([...freeButtons].map(([id, value]) => [id, { ...value, bounds: { ...bounds, right } }]));
+    const placed = [...placeWindowBubbles(narrowed, direction).values()];
+    assert.equal(placed.length, 3);
+    for (const [index, point] of placed.entries()) {
+      assert.ok(point.x >= bounds.left && point.x + 32 <= right);
+      assert.ok(point.y >= bounds.top && point.y + 32 <= bounds.bottom);
+      for (const other of placed.slice(index + 1)) {
+        assert.ok(Math.abs(point.x - other.x) >= 32 || Math.abs(point.y - other.y) >= 32);
+      }
+    }
+  }
+}
+assert.deepEqual(placeWindowBubbles(freeButtons).get("one"), { x: 200, y: 240 });
+store.getState().resetView();
+store.getState().setButtonLayout("horizontal");
+const arrangedSnapshot = selectWindowLayoutSnapshot(store.getState());
+assert.equal(isEmptyWindowLayoutSnapshot(arrangedSnapshot), false);
+store.getState().hydrate(JSON.parse(serializeWindowLayoutSnapshot(arrangedSnapshot)));
+assert.equal(store.getState().buttonLayout, "horizontal");
+store.getState().resetView();
+assert.equal(store.getState().buttonLayout, undefined);
+assert.equal(parseWindowLayoutSnapshot({ ...arrangedSnapshot, buttonLayout: "invalid" }).buttonLayout, undefined);
+
 console.log("floating window regression passed");
