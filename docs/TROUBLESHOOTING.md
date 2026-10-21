@@ -163,6 +163,8 @@ If you cannot access Marinara from a phone, tablet, or another computer on your 
 
 For the full walkthrough, see [Remote Access](REMOTE_ACCESS.md) and the [Frequently Asked Questions](FAQ.md).
 
+If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
+
 ## Save blocked, or settings that do not persist
 
 If a save seems to work but reverts when you reload, Marinara's cross-site protection is blocking it. CSRF (cross-site request forgery) protection guards actions that change data. It only trusts certain browser origins.

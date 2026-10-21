@@ -38,6 +38,7 @@ Full steps for backups and restoring are in [Backing Up and Restoring Marinara](
 The steps for each platform below are the same as before. A few changes can affect a server that other devices or people use:
 
 - **A reverse proxy or tunnel on the same computer.** By default, visitors that nginx, Caddy, Cloudflare Tunnel, Tailscale Serve, or ngrok pass to Marinara now count as remote. Without Basic Auth they see the setup page, and backups and other protected actions need the admin secret. See [Reverse proxies and tunnels on the same computer](REMOTE_ACCESS.md#reverse-proxies-and-tunnels-on-the-same-computer).
+- **Locked out after updating?** See [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 - **Docker with a password or an allowlist.** With Basic Auth set, the browser on the host computer now asks for the login too. With only `IP_ALLOWLIST` set, the host browser is refused unless you list the container's gateway, so use Basic Auth instead. See [Tailscale and Docker bypass](REMOTE_ACCESS.md#tailscale-and-docker-bypass).
 - **Chats and profiles moved to another install.** A chat log, settings profile, or full profile no longer carries its **Discord Mirror**, **DeepLX URL**, **DeepL API Key**, or **Intiface URL** to a different install. Enter them again there. Your own settings profiles, and a full profile restored on the same install, keep them.
 
