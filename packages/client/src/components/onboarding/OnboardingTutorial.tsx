@@ -19,6 +19,7 @@ import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
+import { LanguagePicker } from "../ui/LanguagePicker";
 
 // ─── Step definitions ─────────────────────────
 
@@ -593,7 +594,7 @@ function OnboardingTutorialInner() {
     docsLanguageStatus?.configured || !uiMatchedDocsLanguage ? activeDocsLanguage : uiMatchedDocsLanguage;
   const effectiveDocsLanguagePick = docsLanguagePick ?? suggestedDocsLanguage;
 
-  useDialogFocusScope(!modal, cardRef);
+  useDialogFocusScope(!modal, cardRef, undefined, undefined, "[data-language-picker-portal]");
 
   /**
    * Commit the picked docs language when the tour completes via "Get Started".
@@ -752,18 +753,13 @@ function OnboardingTutorialInner() {
       >
         {localizeUi("settings.application.docsLanguage.label")}
       </label>
-      <select
+      <LanguagePicker
         id="onboarding-docs-language"
+        label={localizeUi("settings.application.docsLanguage.label")}
         value={effectiveDocsLanguagePick}
-        onChange={(event) => setDocsLanguagePick(event.target.value)}
-        className="w-full rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-xs text-[var(--marinara-chat-chrome-panel-text)] outline-none focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
-      >
-        {(docsLanguageOptions.length > 0 ? docsLanguageOptions : [{ code: "en", label: "English" }]).map((option) => (
-          <option key={option.code} value={option.code}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        onChange={setDocsLanguagePick}
+        options={docsLanguageOptions.length > 0 ? docsLanguageOptions : [{ code: "en", label: "English" }]}
+      />
     </div>
   ) : undefined;
 
