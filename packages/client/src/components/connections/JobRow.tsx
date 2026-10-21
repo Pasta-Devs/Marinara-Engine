@@ -1,0 +1,90 @@
+// ──────────────────────────────────────────────
+// JobRow — one job as one row: a job tile, its name, and on line 2 the Model it uses
+// ("model · connection"), its fallback, or what still needs doing. The Defaults box and the
+// Add window's "For a job" list both draw it, so the status text lives only here.
+// ──────────────────────────────────────────────
+import type { HTMLAttributes, ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connections";
+import { cn } from "../../lib/utils";
+import type { DefaultsTile } from "./ConnectionDefaults";
+import { ModelRow, type ConnectionRowData } from "./ConnectionRow";
+
+/** A job with no Model chosen, or whose engine is not set up: a dashed tile and a warning-tone line. */
+export const isUnset = (tile: DefaultsTile, notSet: string) =>
+  !!tile.setup || (tile.muted && !tile.source && tile.value === notSet);
+
+export function JobRow({
+  tile,
+  hint,
+  action,
+  className,
+  ...rowProps
+}: {
+  tile: DefaultsTile;
+  /** One plain line under the row that says what the job does. */
+  hint?: string;
+  /** Trailing control at the row end, such as a chevron. */
+  action?: ReactNode;
+} & HTMLAttributes<HTMLDivElement> & { [key: `data-${string}`]: string | undefined }) {
+  const { t } = useTranslation();
+  const connections = (useConnections().data ?? []) as ConnectionRowData[];
+  const source = tile.source;
+  // A Model in an account can come from any of that account's Connections' catalogs.
+  const [catalog] = useCachedCatalogFacts([
+    !source
+      ? []
+      : source.accountId
+        ? connections.filter((row) => row.accountId === source.accountId).map((row) => row.id)
+        : [source.id],
+  ]);
+  const facts = catalog?.of(source?.model);
+  const unset = isUnset(tile, t("connections.defaults.notSet"));
+  return (
+    <>
+      <ModelRow
+        rowProps={{ ...rowProps, className: cn("mari-connection-defaults-job pe-0", className) }}
+        className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
+        tile={
+          <span
+            aria-hidden
+            data-defaults-empty-tile={unset || undefined}
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
+              unset
+                ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
+                : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
+            )}
+          >
+            {tile.icon}
+          </span>
+        }
+        title={tile.title}
+        details={
+          <span
+            className={cn(
+              "min-w-0 truncate text-xs",
+              unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
+              tile.muted && !unset && "italic",
+            )}
+          >
+            {tile.setup?.text ??
+              (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
+          </span>
+        }
+        cost={facts?.cost}
+        pricing={facts?.pricing}
+        showPaid={catalog?.showPaid}
+        retiring={facts}
+        trailing={
+          <>
+            {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}
+            {action}
+          </>
+        }
+      />
+      {hint && <p className="mb-1 ml-12 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">{hint}</p>}
+    </>
+  );
+}

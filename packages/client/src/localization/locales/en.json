@@ -1752,8 +1752,6 @@
   "connections.add.jobHint.video": "Makes short clips",
   "connections.add.jobHint.vision": "Describes images you send",
   "connections.add.jobHint.voice": "Reads replies out loud",
-  "connections.add.jobNotSet": "Not set",
-  "connections.add.jobNow": "Now: {{value}}",
   "connections.add.keyless": "No key needed. Marinara uses the login on this computer.",
   "connections.add.keySaved": "Marinara saves the key with its data on the computer that runs Marinara.",
   "connections.add.kind.all": "All",
