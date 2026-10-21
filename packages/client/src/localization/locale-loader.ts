@@ -29,7 +29,7 @@ function getNativeLanguageName(locale: string): string {
 }
 
 export const APP_LANGUAGE_OPTIONS: readonly LocaleDescriptor[] = Object.freeze(
-  UI_LANGUAGE_CODES.map((id) => ({ id, label: id === "en-x-fancy" ? "Fancy English" : getNativeLanguageName(id) })),
+  UI_LANGUAGE_CODES.map((id) => ({ id, label: getNativeLanguageName(id) })),
 );
 
 export function resolveSupportedLocale(value: unknown): AppLanguage {

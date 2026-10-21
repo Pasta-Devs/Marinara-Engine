@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const LOCALES_DIR = join(ROOT, "packages", "client", "src", "localization", "locales");
 const DEFAULT_LOCALE = "en";
+const FANCY_LOCALE = "en-x-fancy";
 const KEY_PATTERN = /^[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*(?:\.[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*)*$/u;
 
 function canonicalizeLocale(value) {
@@ -154,6 +155,20 @@ async function main() {
   }
 
   for (const key of canonicalKeys) extractTokens(canonical.messages[key], `${canonical.filename}: ${key}`);
+
+  // The bundled Fancy catalog is partial: it may only override existing English keys, with the same tokens.
+  const fancy = await readLocale(`${FANCY_LOCALE}.json`);
+  for (const [key, value] of Object.entries(fancy.messages)) {
+    if (canonical.messages[key] === undefined) {
+      throw new Error(`${fancy.filename}: ${key} is not a key in ${canonical.filename}`);
+    }
+    const english = extractTokens(canonical.messages[key], `${canonical.filename}: ${key}`);
+    const override = extractTokens(value, `${fancy.filename}: ${key}`);
+    if (JSON.stringify(override) !== JSON.stringify(english)) {
+      throw new Error(`${fancy.filename}: ${key} must keep the interpolation and rich-text tokens of ${canonical.filename}`);
+    }
+  }
+
   const missing = await findMissingUsedKeys(canonicalKeys);
   if (missing.length > 0) {
     throw new Error(`keys used in the client are missing from ${canonical.filename}:\n${missing.join("\n")}`);

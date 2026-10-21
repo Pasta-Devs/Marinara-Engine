@@ -44,7 +44,7 @@ export function UILanguageSetting({ anchorId }: { anchorId: string }) {
       >
         {APP_LANGUAGE_OPTIONS.map((option) => (
           <option key={option.id} value={option.id}>
-            {option.label}
+            {option.id === "en-x-fancy" ? t("settings.application.language.fancyEnglish") : option.label}
           </option>
         ))}
       </select>
