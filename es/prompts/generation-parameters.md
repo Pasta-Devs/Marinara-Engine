@@ -12,7 +12,7 @@ Cambia estos ajustes solo cuando quieras arreglar un problema concreto. Esta gu�
 
 ## Dónde encontrarlos
 
-Edita los valores base en **Presets > Parameters** (presets > parámetros) y los de la conexión en **Connections > Default Chat Parameters** (conexiones > parámetros de chat predeterminados). Los ajustes específicos del chat están en **Chat Settings > Advanced Parameters** (ajustes del chat > parámetros avanzados).
+Edita los valores base en **Presets > Parameters** (presets > parámetros) y los de la conexión en **Connections > Default Chat Parameters** (conexiones > parámetros de chat predeterminados). Los ajustes específicos del chat están en **Chat Settings > Advanced Parameters** (ajustes del chat > parámetros avanzados). Los presets no fijan límites de tokens de contexto ni de salida. Configura la ventana de contexto en **Connections**, y los límites de salida en **Connections** o **Chat Settings > Advanced Parameters**. Los archivos de preset antiguos siguen cargándose, pero se ignoran sus límites de tokens guardados.
 
 1. Abre el chat que quieres cambiar.
 2. Abre **Chat Settings** (Ajustes del chat) con su botón en el chat. Está arriba a la derecha, salvo que lo hayas movido.
@@ -137,13 +137,13 @@ En la parte inferior de **Advanced Parameters**, el botón **Save as Connection 
 
 El botón solo aparece para una conexión normal y guardada. Está oculto para el grupo de conexiones aleatorias y para el modelo local integrado.
 
-El botón **Reset to Defaults** (restablecer valores predeterminados) que aparece debajo borra todos los cambios de parámetros de este chat y recupera sus ajustes heredados.
+El botón **Reset to Defaults** (restablecer valores predeterminados) que aparece debajo borra todos los cambios de parámetros de este chat y recupera sus ajustes heredados. Los interruptores **Send** heredados siguen la conexión seleccionada; cambiar otro valor no los convierte en ajustes específicos del chat. Un interruptor **Send** que cambies tú permanece como ajuste específico del chat hasta que lo restablezcas.
 
 ## Cómo se superponen y sustituyen los valores predeterminados
 
 Los parámetros se resuelven campo por campo, en este orden:
 
-1. Los **Parameters** (parámetros) del preset seleccionado, o los valores de generación integrados si no se usa un preset (temperatura `1`, salida máxima `4096`). En Roleplay, el preset asignado en la conexión tiene prioridad sobre el seleccionado en el chat.
+1. Los **Parameters** (parámetros) del preset seleccionado, o los valores de generación integrados si no se usa un preset (temperatura `1`). La salida empieza en `4096` tokens independientemente del preset; los presets no pueden fijar límites de contexto ni de salida. En Roleplay, el preset asignado en la conexión tiene prioridad sobre el seleccionado en el chat.
 2. Los **Default Chat Parameters** (parámetros de chat predeterminados) de la conexión.
 3. Los **Advanced Parameters** de este chat.
 4. Reglas del modo: un chat de escena activo fija la salida en `8192`, el razonamiento en **Maximum** y la verbosidad en **High**. Game usa los parámetros guardados de la conexión y del chat sin forzar el muestreo, el razonamiento ni un tamaño mínimo de salida. Sus llamadas auxiliares también respetan los parámetros guardados; los valores predeterminados de la tarea solo se aplican cuando un valor no está configurado.
@@ -151,7 +151,7 @@ Los parámetros se resuelven campo por campo, en este orden:
 
 La línea **Effective** (valor efectivo) junto a un parámetro muestra el valor guardado y la capa que prevalece, incluidas las reglas del modo y los límites de salida. En el editor de conexiones usa el chat abierto que utilice esa conexión, o una base de Roleplay si no hay ningún chat abierto. Guarda los cambios para actualizarla. Un interruptor Send desactivado aparece como **not sent**; los proveedores aún pueden imponer parámetros obligatorios o adaptar valores no compatibles. Custom Parameters y el ajuste al contexto pueden modificar aún más la solicitud final.
 
-Por ejemplo, un preset en `8192` y este chat en `16384` muestran **Effective: 16384 · this chat**. Un límite de salida de `4096` en la conexión lo cambia a **Effective: 4096 · output token cap**. Restablecer los parámetros del chat deja visible la siguiente capa aplicable; no elimina las reglas del preset ni del modo.
+Por ejemplo, una conexión en `8192` y este chat en `16384` muestran **Effective: 16384 · this chat**. Un límite de salida de `4096` en la conexión lo cambia a **Effective: 4096 · output token cap**. Restablecer los parámetros del chat deja visible la siguiente capa aplicable; no elimina las reglas del preset ni del modo.
 
 <a id="parameters-for-agents"></a>
 

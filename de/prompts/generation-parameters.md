@@ -12,7 +12,7 @@ Ein Parameter macht Antworten zum Beispiel zufälliger und kreativer. Ein andere
 
 ## Wo du sie findest
 
-Die Basiswerte bearbeitest du unter **Presets > Parameters** (Presets > Parameter), die Verbindungswerte unter **Connections > Default Chat Parameters** (Verbindungen > Standard-Chat-Parameter). Chat-spezifische Werte legst du unter **Chat Settings > Advanced Parameters** (Chat-Einstellungen > Erweiterte Parameter) fest.
+Die Basiswerte bearbeitest du unter **Presets > Parameters** (Presets > Parameter), die Verbindungswerte unter **Connections > Default Chat Parameters** (Verbindungen > Standard-Chat-Parameter). Chat-spezifische Werte legst du unter **Chat Settings > Advanced Parameters** (Chat-Einstellungen > Erweiterte Parameter) fest. Presets legen keine Kontext- oder Ausgabe-Token-Limits fest. Das Kontextfenster stellst du unter **Connections** ein, Ausgabelimits unter **Connections** oder **Chat Settings > Advanced Parameters**. Ältere Preset-Dateien werden weiterhin geladen, ihre gespeicherten Token-Limits aber ignoriert.
 
 1. Öffne den Chat, den du ändern willst.
 2. Öffne **Chat Settings** (Chat-Einstellungen) über die Schaltfläche im Chat; anfangs liegt sie oben rechts.
@@ -137,13 +137,13 @@ Ganz unten in **Advanced Parameters** schreibt die Schaltfläche **Save as Conne
 
 Die Schaltfläche erscheint nur bei einer normalen, gespeicherten Verbindung. Beim Zufallspool an Verbindungen und beim eingebauten lokalen Modell bleibt sie ausgeblendet.
 
-Die Schaltfläche **Reset to Defaults** (auf Standard zurücksetzen) darunter verwirft jede Parameteränderung dieses Chats und stellt seine geerbten Einstellungen wieder her.
+Die Schaltfläche **Reset to Defaults** (auf Standard zurücksetzen) darunter verwirft jede Parameteränderung dieses Chats und stellt seine geerbten Einstellungen wieder her. Geerbte **Send**-Schalter folgen der gewählten Verbindung; das Bearbeiten eines anderen Werts macht sie nicht zu Chat-spezifischen Einstellungen. Ein **Send**-Schalter, den du selbst änderst, bleibt bis zum Zurücksetzen eine Chat-spezifische Einstellung.
 
 ## Wie Standards sich schichten und überschreiben
 
 Die Parameter werden einzeln in dieser Reihenfolge aufgelöst:
 
-1. Die **Parameters** (Parameter) des gewählten Presets, oder die eingebauten Generierungsstandards ohne Preset (Temperatur `1`, maximale Ausgabe `4096`). In Roleplay hat die Preset-Zuweisung der Verbindung Vorrang vor dem im Chat gewählten Preset.
+1. Die **Parameters** (Parameter) des gewählten Presets, oder die eingebauten Generierungsstandards ohne Preset (Temperatur `1`). Die Ausgabe beginnt unabhängig vom Preset bei `4096` Tokens; Presets können keine Kontext- oder Ausgabelimits setzen. In Roleplay hat die Preset-Zuweisung der Verbindung Vorrang vor dem im Chat gewählten Preset.
 2. Die **Default Chat Parameters** (Standard-Chat-Parameter) der Verbindung.
 3. Die **Advanced Parameters** dieses Chats.
 4. Modusregeln: Ein aktiver Szenen-Chat setzt die Ausgabe auf `8192`, Reasoning auf **Maximum** und Verbosity auf **High**. Game verwendet die gespeicherten Verbindungs- und Chatparameter, ohne Sampling, Reasoning oder eine Mindestgröße für die Ausgabe zu erzwingen. Auch Hilfsaufrufe beachten gespeicherte Parameter; aufgabenspezifische Standardwerte gelten nur, wenn ein Wert nicht konfiguriert ist.
@@ -151,7 +151,7 @@ Die Parameter werden einzeln in dieser Reihenfolge aufgelöst:
 
 Die Zeile **Effective** (wirksamer Wert) neben einem Parameter zeigt den gespeicherten Wert und die maßgebliche Schicht, einschließlich Modusregeln und Ausgabelimits. Im Verbindungseditor bezieht sie sich auf den aktuell geöffneten Chat mit dieser Verbindung, sonst auf eine Roleplay-Basis ohne offenen Chat. Speichere Änderungen, um die Anzeige zu aktualisieren. Ein deaktivierter Send-Schalter erscheint als **not sent**. Anbieter können trotzdem Pflichtparameter vorgeben oder nicht unterstützte Werte anpassen. Custom Parameters und die Anpassung an das Kontextfenster können die endgültige Anfrage weiter verändern.
 
-Ein Preset mit `8192` und dieser Chat mit `16384` zeigen zum Beispiel **Effective: 16384 · this chat**. Ein Ausgabelimit der Verbindung von `4096` ändert das in **Effective: 4096 · output token cap**. Das Zurücksetzen der Chat-Parameter legt die nächste anwendbare Schicht frei; Preset- und Modusregeln bleiben bestehen.
+Eine Verbindung mit `8192` und dieser Chat mit `16384` zeigen zum Beispiel **Effective: 16384 · this chat**. Ein Ausgabelimit der Verbindung von `4096` ändert das in **Effective: 4096 · output token cap**. Das Zurücksetzen der Chat-Parameter legt die nächste anwendbare Schicht frei; Preset- und Modusregeln bleiben bestehen.
 
 <a id="parameters-for-agents"></a>
 
