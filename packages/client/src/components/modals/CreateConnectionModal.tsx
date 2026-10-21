@@ -10,6 +10,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Cpu,
+  KeyRound,
+  ListChecks,
   AudioLines,
   Database,
   ExternalLink,
@@ -52,6 +55,8 @@ import { ConnectionIdentity } from "../connections/ConnectionIdentity";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { StarText } from "../connections/StarText";
+import { useConnectionDefaults } from "../connections/ConnectionDefaults";
+import type { ConnectionRowData } from "../connections/ConnectionRow";
 import {
   useCachedCatalogFacts,
   useCreateConnection,
@@ -353,6 +358,7 @@ const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
 const PRIMARY_CLASS = "mari-connection-btn mari-connection-btn--primary";
 const SECONDARY_CLASS = "mari-connection-btn";
 const BADGE_CLASS = "mari-connection-pill";
+const MUTED_BADGE_CLASS = "mari-chrome-muted-badge px-1.5 py-0.5 text-[0.5625rem]";
 const HIGHLIGHT_BADGE_CLASS = "mari-connection-pill mari-connection-pill--blue";
 
 const hostOf = (url: string) => {
@@ -526,6 +532,59 @@ function ServiceGroup({
   );
 }
 
+/** Step 1's job list: each job with what it uses now, read from the Defaults box. */
+function JobCards({
+  rows,
+  jobLabel,
+  onPick,
+}: {
+  rows: ConnectionRowData[];
+  jobLabel: (key: AddJob) => string;
+  onPick: (key: AddJob) => void;
+}) {
+  const { t } = useTranslation();
+  const { tiles, features } = useConnectionDefaults(rows);
+  return (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      {ADD_JOBS.map((key) => {
+        const Icon = JOB_ICONS[key];
+        const tileKey = key === "mari" || key === "vision" ? JOB_FEATURE[key] : key;
+        const tile = [...tiles, ...features].find((entry) => entry.key === tileKey);
+        const now = tile && !tile.muted ? [tile.value, tile.hint].filter(Boolean).join(" · ") : "";
+        return (
+          <button
+            key={key}
+            type="button"
+            data-add-connection-job-choice={key}
+            onClick={() => onPick(key)}
+            className="mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs"
+          >
+            <span className="flex min-w-0 items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--marinara-chat-chrome-highlight-bg)] ring-[1.5px] ring-inset ring-[var(--border)]"
+              >
+                <Icon size="1rem" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{jobLabel(key)}</span>
+                <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                  {t(`connections.add.jobHint.${key}`)}
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-1">
+                  <span className={cn(MUTED_BADGE_CLASS, "max-w-full truncate")}>
+                    {now ? t("connections.add.jobNow", { value: now }) : t("connections.add.jobNotSet")}
+                  </span>
+                </span>
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** First run only: the What's New hero band, low and static. */
 function FirstRunIntro({ text, className }: { text: string; className?: string }) {
   return (
@@ -615,6 +674,8 @@ export function CreateConnectionModal({
   const [jobTesting, setJobTesting] = useState(false);
   const passedJob = useRef<Record<string, { model: string; name: string }>>({});
   const [query, setQuery] = useState("");
+  // Step 1 opens on three cards; each opens one list. Typing in the top search shows every match instead.
+  const [pick, setPick] = useState<"job" | "model" | "provider" | null>(null);
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
@@ -687,7 +748,7 @@ export function CreateConnectionModal({
     const fine = window.matchMedia?.("(pointer: fine)").matches;
     if (step === 2 && fine && keyRef.current) keyRef.current.focus();
     else if (step !== 3 || !fine) headingRef.current?.focus();
-  }, [step, provider]);
+  }, [step, provider, pick, job]);
 
   const serviceName = (key: ServiceId) => {
     const media = mediaBackendOf(key);
@@ -1447,7 +1508,7 @@ export function CreateConnectionModal({
         );
   const shownModels = searching
     ? searchModels(modelIndex, needle, modelKind, MODELS_SHOWN)
-    : popularModels(modelIndex, modelKind, 4);
+    : popularModels(modelIndex, modelKind, pick === "model" ? MODELS_SHOWN : 4);
   // A service the user already has a Connection of becomes that Connection; Connections go first.
   const routesOf = (entry: ModelEntry) => {
     const mine = new Map<string, string>();
@@ -1477,42 +1538,137 @@ export function CreateConnectionModal({
     <h4 className="px-1 text-xs font-semibold text-[var(--foreground)]">{text}</h4>
   );
 
+  const cards = step === 1 && !pick && !job && !searching;
+  const jobList = pick === "job" && !job;
+  const listJobs = cards || pick ? [] : shownJobs;
+  const listModels = cards || jobList || pick === "provider" ? [] : shownModels;
+  const listGroups = cards || jobList || pick === "model" ? [] : groups;
+  const searchLabel = t(
+    pick === "model"
+      ? "connections.add.searchModels"
+      : pick === "provider"
+        ? "connections.add.searchProviders"
+        : "connections.add.search",
+  );
+  const modelExample = shownModels[0];
+  const exampleRoute = modelExample && routesOf(modelExample);
+  const exampleService = exampleRoute
+    ? exampleRoute.mine[0]
+      ? accounts?.find((account) => account.id === exampleRoute.mine[0]![0])?.name
+      : exampleRoute.services[0] && serviceName(exampleRoute.services[0].service)
+    : undefined;
+  const questions = [
+    {
+      id: "job",
+      Icon: ListChecks,
+      examples: (["decision", "voice", "embeddings"] as const).map((key) => ({
+        label: jobLabel(key),
+        Icon: JOB_ICONS[key],
+      })),
+    },
+    {
+      id: "model",
+      Icon: Cpu,
+      examples: exampleService
+        ? [
+            {
+              label: t("connections.add.question.model.example", {
+                model: modelExample!.name,
+                service: exampleService,
+              }),
+            },
+          ]
+        : [],
+    },
+    { id: "provider", Icon: KeyRound, examples: [{ label: t("connections.add.question.provider.example") }] },
+  ] as const;
   const serviceList = (
     <div className="flex flex-col gap-3 p-4">
-      {firstRun && <FirstRunIntro text={t("connections.add.intro")} />}
-      <div className="relative">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("connections.add.search")}
-          aria-label={t("connections.add.search")}
-          className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-        />
-      </div>
-      <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
-        {[null, ...CHIP_KINDS].map((kind) => (
-          <button
-            key={kind ?? "all"}
-            type="button"
-            data-add-connection-kind={kind ?? "all"}
-            aria-pressed={kindFilter === kind}
-            onClick={() => setKindFilter(kind)}
-            className="mari-connection-chip gap-1"
-          >
-            {kind &&
-              (() => {
-                const Icon = KIND_ICONS[kind];
-                return <Icon size="0.75rem" aria-hidden />;
-              })()}
-            {t(`connections.add.kind.${kind ?? "all"}`)}
-          </button>
-        ))}
-      </div>
+      {firstRun && !pick && <FirstRunIntro text={t("connections.add.intro")} />}
+      {!jobList && (
+        <div className="relative">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={searchLabel}
+            aria-label={searchLabel}
+            className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+          />
+        </div>
+      )}
+      {cards && (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+          {questions.map(({ id, Icon, examples }) => (
+            <button
+              key={id}
+              type="button"
+              data-add-connection-question={id}
+              onClick={() => {
+                setPick(id);
+                setKindFilter(null);
+              }}
+              className="mari-chrome-control mari-chrome-control--card min-h-24 !flex-row items-center gap-3 p-4 text-xs lg:min-h-36"
+            >
+              <span className="flex min-w-0 flex-1 items-start gap-3 self-stretch lg:flex-col">
+                <span
+                  aria-hidden="true"
+                  className="mari-panel-gradient--connections mari-panel-gradient-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                >
+                  <Icon size="1.125rem" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="text-[0.9375rem] font-semibold">{t(`connections.add.question.${id}`)}</span>
+                  <span className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                    {t(`connections.add.question.${id}.body`)}
+                  </span>
+                  {examples.length > 0 && (
+                    <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                      {examples.map((example) => (
+                        <span key={example.label} className={cn(MUTED_BADGE_CLASS, "inline-flex items-center gap-1")}>
+                          {"Icon" in example && <example.Icon size="0.625rem" aria-hidden />}
+                          {example.label}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </span>
+              </span>
+              <ChevronRight
+                size="1rem"
+                className="shrink-0 self-center text-[var(--muted-foreground)] lg:hidden"
+                aria-hidden
+              />
+            </button>
+          ))}
+        </div>
+      )}
+      {jobList && <JobCards rows={(rows ?? []) as ConnectionRowData[]} jobLabel={jobLabel} onPick={chooseJob} />}
+      {(job || pick === "model" || (!pick && searching)) && (
+        <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
+          {[null, ...CHIP_KINDS].map((kind) => (
+            <button
+              key={kind ?? "all"}
+              type="button"
+              data-add-connection-kind={kind ?? "all"}
+              aria-pressed={kindFilter === kind}
+              onClick={() => setKindFilter(kind)}
+              className="mari-connection-chip gap-1"
+            >
+              {kind &&
+                (() => {
+                  const Icon = KIND_ICONS[kind];
+                  return <Icon size="0.75rem" aria-hidden />;
+                })()}
+              {t(`connections.add.kind.${kind ?? "all"}`)}
+            </button>
+          ))}
+        </div>
+      )}
       {job && (
         <p data-add-connection-job={job} className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className={cn(HIGHLIGHT_BADGE_CLASS, "gap-1")}>
@@ -1537,11 +1693,11 @@ export function CreateConnectionModal({
           </span>
         </p>
       )}
-      {shownJobs.length > 0 && (
+      {listJobs.length > 0 && (
         <section data-add-connection-section="job" className="flex flex-col gap-1.5">
           {sectionTitle(t("connections.add.section.job"))}
           <div className="flex flex-wrap gap-1.5">
-            {shownJobs.map((key) => {
+            {listJobs.map((key) => {
               const Icon = JOB_ICONS[key];
               return (
                 <button
@@ -1559,11 +1715,11 @@ export function CreateConnectionModal({
           </div>
         </section>
       )}
-      {shownModels.length > 0 && (
+      {listModels.length > 0 && (
         <section data-add-connection-section="model" className="flex flex-col gap-1.5">
-          {sectionTitle(t("connections.add.section.model"))}
+          {pick !== "model" && sectionTitle(t("connections.add.section.model"))}
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {shownModels.map((entry) => {
+            {listModels.map((entry) => {
               const { mine, services } = routesOf(entry);
               const pick = { kind: entry.kind };
               return (
@@ -1621,10 +1777,10 @@ export function CreateConnectionModal({
           </div>
         </section>
       )}
-      {groups.length > 0 && (shownJobs.length > 0 || shownModels.length > 0) && (
+      {listGroups.length > 0 && (listJobs.length > 0 || listModels.length > 0) && (
         <div className="-mb-1.5">{sectionTitle(t("connections.add.section.provider"))}</div>
       )}
-      {groups.map((group) => {
+      {listGroups.map((group) => {
         const capped = group.id === "vendors" && !searching && !showAllVendors && group.services.length > VENDORS_SHOWN;
         const shown = capped ? group.services.slice(0, VENDORS_SHOWN) : group.services;
         return (
@@ -1668,7 +1824,7 @@ export function CreateConnectionModal({
           </ServiceGroup>
         );
       })}
-      {searching && groups.length === 0 && shownModels.length === 0 && shownJobs.length === 0 && (
+      {searching && listGroups.length === 0 && listModels.length === 0 && listJobs.length === 0 && (
         <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
           <p className="text-xs text-[var(--muted-foreground)]">
             {t("connections.add.noMatch", { query: query.trim() })}
@@ -2048,7 +2204,15 @@ export function CreateConnectionModal({
   // ── Header: Back, the step's heading and "Step n of N" ──
   const heading =
     step === 1
-      ? t("connections.add.heading.service")
+      ? t(
+          jobList
+            ? "connections.add.heading.forJob"
+            : pick === "model"
+              ? "connections.add.heading.forModel"
+              : pick === "provider"
+                ? "connections.add.heading.forProvider"
+                : "connections.add.heading.service",
+        )
       : step === 2
         ? device
           ? t("connections.add.heading.device", { service: serviceName(device) })
@@ -2068,7 +2232,15 @@ export function CreateConnectionModal({
         ? t("connections.add.sub.gate", { mode: t(`connections.add.mode.${newChatMode}`) })
         : job
           ? t("connections.add.sub.job", { job: jobLabel(job) })
-          : t("connections.add.sub.service")
+          : t(
+              jobList
+                ? "connections.add.forJobHint"
+                : pick === "model"
+                  ? "connections.add.subtitle.forModel"
+                  : pick === "provider"
+                    ? "connections.add.subtitle.forProvider"
+                    : "connections.add.subtitle.pick",
+            )
       : step === 2
         ? t(
             device
@@ -2100,13 +2272,20 @@ export function CreateConnectionModal({
   // Every path has the same three steps, so the bar never jumps; a device ends on its set-up screen.
   const totalSteps = 3;
   const goBack =
-    step === 2
-      ? backToList
-      : step === 3 && !modelsFor && picks.length === 0
-        ? target?.fresh
-          ? () => setStep(2)
-          : backToList
-        : null;
+    step === 1 && pick
+      ? () => {
+          if (job) clearJob();
+          else setPick(null);
+          setQuery("");
+          setKindFilter(null);
+        }
+      : step === 2
+        ? backToList
+        : step === 3 && !modelsFor && picks.length === 0
+          ? target?.fresh
+            ? () => setStep(2)
+            : backToList
+          : null;
 
   // ── Footer: one primary per step ──
   let footerLeft: ReactNode = null;
@@ -2220,7 +2399,7 @@ export function CreateConnectionModal({
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
-      panelClassName="mari-connection-scope sm:h-[min(90dvh,44rem)]"
+      panelClassName={cn("mari-connection-scope", !cards && "sm:h-[min(90dvh,44rem)]")}
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
