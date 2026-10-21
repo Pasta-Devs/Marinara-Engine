@@ -43,7 +43,9 @@ export function StoryClockDial({ clock, size = 28 }: { clock: StoryClock; size?:
 /** The story's clocks and ending the player can see, read with the World tab's journal after each turn. */
 export function useStoryJournal(chatId: string | null, turnKey: string | null) {
   return useQuery({
-    queryKey: ["game", "world-journal", chatId, turnKey],
+    // Under the world journal's key (so its refreshes reach it) but never the same entry: this one keeps
+    // only the story's part, which the World tab's query must not read as its journal.
+    queryKey: ["game", "world-journal", chatId, turnKey, "story"],
     queryFn: async () => {
       const journal = (await api.get<{ journal: WorldJournal | null }>(`/game/${chatId}/world-journal`)).journal;
       return { clocks: journal?.clocks ?? [], ending: journal?.ending ?? null, music: journal?.music ?? null };
