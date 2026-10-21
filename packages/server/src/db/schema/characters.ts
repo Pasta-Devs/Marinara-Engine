@@ -56,6 +56,8 @@ export const personas = fileTable("personas", {
   creatorNotes: text("creator_notes").notNull().default(""),
   /** Pronunciation override used when sending this persona name to TTS */
   phoneticName: text("phonetic_name").notNull().default(""),
+  summary: text("summary").notNull().default(""),
+  mes_example: text("mes_example").notNull().default(""),
   description: text("description").notNull().default(""),
   personality: text("personality").notNull().default(""),
   scenario: text("scenario").notNull().default(""),

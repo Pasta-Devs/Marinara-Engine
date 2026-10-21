@@ -1018,6 +1018,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         personaName = identity.name;
         personaDescription = cardPromptText(identity.description);
         personaFields = {
+          example: cardPromptText(identity.mesExample),
           personality: cardPromptText(identity.personality),
           scenario: cardPromptText(identity.scenario),
           backstory: cardPromptText(identity.backstory),
@@ -1487,6 +1488,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         if (resolvedPersonaBackstory.trim()) personaLines.push(`Backstory: ${resolvedPersonaBackstory.trim()}`);
         if (resolvedPersonaAppearance.trim()) personaLines.push(`Appearance: ${resolvedPersonaAppearance.trim()}`);
         if (resolvedPersonaScenario.trim()) personaLines.push(`Scenario: ${resolvedPersonaScenario.trim()}`);
+        const example = resolvePromptMacros(personaFields.example ?? "").trim();
+        if (example) personaLines.push(`Example dialogue:\n${example}`);
         return wrapContent(personaLines.join("\n"), "Persona", wrapFormat).trim();
       })();
 

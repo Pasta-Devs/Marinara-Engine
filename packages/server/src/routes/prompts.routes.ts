@@ -508,7 +508,13 @@ export async function promptsRoutes(app: FastifyInstance) {
     let personaId: string | null = null;
     let personaName = "User";
     let personaDescription = "";
-    let personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string } = {};
+    let personaFields: {
+      example?: string;
+      personality?: string;
+      scenario?: string;
+      backstory?: string;
+      appearance?: string;
+    } = {};
     // Get active persona
     const activePersona = await resolveChatUserIdentity(charStorage, chat);
     if (activePersona) {
@@ -524,6 +530,7 @@ export async function promptsRoutes(app: FastifyInstance) {
       personaName = activePersona.name;
       personaDescription = cardPromptText(activePersona.description);
       personaFields = {
+        example: cardPromptText(activePersona.mesExample),
         personality: cardPromptText(activePersona.personality),
         scenario: cardPromptText(activePersona.scenario),
         backstory: cardPromptText(activePersona.backstory),

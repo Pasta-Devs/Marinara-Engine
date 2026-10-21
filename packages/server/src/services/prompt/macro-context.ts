@@ -350,6 +350,7 @@ function referencedPersonaMacroContext(macroCtx: MacroContext, persona: PersonaS
       backstory: persona.backstory ?? "",
       appearance: persona.appearance ?? "",
       scenario: persona.scenario ?? "",
+      example: persona.mes_example ?? "",
     },
   };
 }
@@ -370,6 +371,7 @@ function buildReferencedPersonaFields(
     { label: "backstory", value: persona.backstory },
     { label: "appearance", value: persona.appearance },
     { label: "scenario", value: persona.scenario },
+    { label: "example_dialogue", value: persona.mes_example },
     { label: "creator", value: persona.creator },
     { label: "persona_version", value: persona.personaVersion },
     { label: "creator_notes", value: persona.creatorNotes },

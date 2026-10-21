@@ -20,6 +20,10 @@ export interface Persona {
   creatorNotes: string;
   /** Optional pronunciation override used when this persona name is sent to TTS. */
   phoneticName?: string;
+  /** Metadata synopsis for library previews. Not sent to the model. */
+  summary?: string;
+  /** Sample exchanges teaching the persona's voice. */
+  mes_example?: string;
   description: string;
   personality: string;
   scenario: string;

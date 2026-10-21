@@ -310,7 +310,7 @@ type PersonaContext = {
   identitySource: "persona" | "character" | null;
   personaName: string;
   personaDescription: string;
-  personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string };
+  personaFields: { example?: string; personality?: string; scenario?: string; backstory?: string; appearance?: string };
   /** Image-prompt appearance override (#7053); empty when the user has none. */
   imageAppearanceOverride: string;
   personaAvatarPath?: string | null;
@@ -735,6 +735,7 @@ async function resolvePersonaContext(
   const personaAvatarPath = typeof persona.avatarPath === "string" ? persona.avatarPath : null;
   imageAppearanceOverride = persona.imageAppearanceOverride ?? "";
   personaFields = {
+    example: cardPromptText(persona.mesExample),
     personality: cardPromptText(persona.personality),
     scenario: cardPromptText(persona.scenario),
     backstory: cardPromptText(persona.backstory),

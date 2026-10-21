@@ -2069,6 +2069,8 @@ export function BotBrowserView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: personaName,
+        summary: typeof cardData.summary === "string" ? cardData.summary : "",
+        mes_example: typeof cardData.mes_example === "string" ? cardData.mes_example : "",
         description: optionalString(cardData.description) ?? optionalString(cardData.personality) ?? "",
         personality: optionalString(cardData.personality) ?? "",
         scenario: optionalString(cardData.scenario) ?? "",

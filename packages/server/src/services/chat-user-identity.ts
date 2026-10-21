@@ -15,6 +15,8 @@ export type ChatUserIdentity = {
   name: string;
   phoneticName: string;
   description: string;
+  /** Authored examples; never instructions to choose the player's actions. */
+  mesExample?: string;
   personality: string;
   scenario: string;
   backstory: string;
@@ -74,6 +76,7 @@ export async function resolveChatUserIdentity(
       name: data.name,
       phoneticName: stringValue(extensions.phoneticName),
       description: data.description,
+      mesExample: data.mes_example,
       personality: data.personality,
       scenario: data.scenario,
       backstory: stringValue(extensions.backstory),
@@ -104,6 +107,7 @@ export async function resolveChatUserIdentity(
     name: persona.name,
     phoneticName: persona.phoneticName ?? "",
     description: persona.description ?? "",
+    mesExample: persona.mes_example ?? "",
     personality: persona.personality ?? "",
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",

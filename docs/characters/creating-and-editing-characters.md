@@ -62,8 +62,9 @@ The **Version history** panel also lives on this tab. It is covered in the Savin
 
 ## Card tab
 
-The **Card** tab is the main writing workspace. It holds the fields the AI reads to play the character. Jump links at the top let you skip to any section. Each field has a live character counter.
+The **Card** tab is the main writing workspace. Jump links at the top let you skip to any section. Each field has a live character counter.
 
+- **Summary**. A library and card-preview overview. It is metadata and is not sent to the model in chat prompts.
 - **Description**. The character's general identity and role. This is sent in every prompt.
 - **Personality**. A short summary of temperament, speech habits, and behavior patterns.
 - **Backstory**. History, origin, and important relationships.
@@ -88,6 +89,19 @@ A short Example Dialogue entry looks like this:
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Generate a card field with the wand
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, and **Example Dialogue** each have an icon-only wand button above the field. Its tooltip and accessible name identify the field it generates.
+
+1. Write any ideas you want to keep in the field, such as `smart, scientist, handsome`, or leave it empty.
+2. Fill in any other card fields you want the AI to use as reference. You do not need to save these edits first.
+3. Click that field's wand. Marinara asks for 100–300 words for that section, using its existing text as the starting details and the other card fields as reference. Example Dialogue asks for sample exchanges rather than a prose description.
+4. Review and edit the result, then click **Save** to keep it.
+
+The wand uses the same connection selection as the original summary generator: your default agent text connection, falling back to your default text connection when needed. A configured agent fallback connection still applies. Set up a working text connection before generating; see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+
+Generation replaces only the chosen field in your unsaved editor draft. The wand itself does not save the card or change other fields; the editor's normal save-on-leave behavior still applies when you navigate away. If generation fails, your text stays in place. If you edit the target field while waiting, or switch to another card, a late result does not overwrite your newer work. You can use the wand without opening Professor Mari.
 
 ## Adding an avatar
 

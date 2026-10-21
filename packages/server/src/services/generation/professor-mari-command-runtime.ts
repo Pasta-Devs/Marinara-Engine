@@ -151,7 +151,7 @@ async function createCharacter(
   try {
     const charData = {
       name: command.name,
-      summary: (command.summary ?? "").trim().slice(0, 500),
+      summary: (command.summary ?? "").trim(),
       description: command.description ?? "",
       personality: command.personality ?? "",
       first_mes: command.firstMessage ?? "",
@@ -214,7 +214,7 @@ async function updateCharacter(
     const updates: Record<string, unknown> = {};
     const extensionUpdates: Record<string, unknown> = {};
     if (command.description !== undefined) updates.description = command.description;
-    if (command.summary !== undefined) updates.summary = command.summary.trim().slice(0, 500);
+    if (command.summary !== undefined) updates.summary = command.summary.trim();
     if (command.personality !== undefined) updates.personality = command.personality;
     if (command.firstMessage !== undefined) updates.first_mes = command.firstMessage;
     if (command.scenario !== undefined) updates.scenario = command.scenario;

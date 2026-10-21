@@ -651,6 +651,8 @@ async function importPersona(data: unknown, db: DB) {
     "comment",
     "creator",
     "phoneticName",
+    "summary",
+    "mes_example",
     "description",
     "personality",
     "scenario",

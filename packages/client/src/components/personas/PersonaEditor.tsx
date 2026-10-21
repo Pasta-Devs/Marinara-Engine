@@ -33,6 +33,8 @@ import {
   type CharacterGalleryClip,
   type PersonaGalleryImage,
 } from "../../hooks/use-characters";
+import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
+import { CardFieldWand } from "../characters/CardFieldWand";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import {
@@ -130,6 +132,7 @@ import {
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
   syncRpgHpFromPools,
+  type CardFieldKey,
   type CharacterData,
   type ConvoBehaviorConfig,
   type Persona,
@@ -168,18 +171,17 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const PERSONA_CARD_SECTIONS = [
-  { id: "persona-card-description", label: "Description" },
-  { id: "persona-card-personality", label: "Personality" },
-  { id: "persona-card-backstory", label: "Backstory" },
-  { id: "persona-card-appearance", label: "Appearance" },
-  { id: "persona-card-scenario", label: "Scenario" },
+  { id: "persona-card-summary", field: "summary" },
+  { id: "persona-card-description", field: "description" },
+  { id: "persona-card-personality", field: "personality" },
+  { id: "persona-card-backstory", field: "backstory" },
+  { id: "persona-card-appearance", field: "appearance" },
+  { id: "persona-card-scenario", field: "scenario" },
+  { id: "persona-card-dialogue", field: "mes_example" },
 ] as const;
 
 const PERSONA_METADATA_HELP =
   "Use metadata for identity, sharing, and library organization. Name is injected as your persona name, creator/version help track authorship and revisions, tags make the persona searchable, and creator notes stay private.";
-
-const PERSONA_CARD_HELP =
-  "Write the fields that define how the model sees your persona. Description, personality, backstory, appearance, and scenario are kept together so the card feels like one writing document.";
 
 const PERSONA_DESCRIPTION_HELP =
   "Your persona's general identity and role. This is sent in prompts so the AI knows who you are in the scene.";
@@ -218,6 +220,8 @@ interface PersonaFormData {
   personaVersion: string;
   versioningEnabled: boolean;
   creatorNotes: string;
+  summary: string;
+  mes_example: string;
   description: string;
   personality: string;
   scenario: string;
@@ -333,6 +337,8 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     personaVersion: persona.personaVersion ?? "1.0",
     versioningEnabled: persona.versioningEnabled !== false,
     creatorNotes: persona.creatorNotes ?? "",
+    summary: persona.summary ?? "",
+    mes_example: persona.mes_example ?? "",
     description: persona.description,
     personality: persona.personality ?? "",
     scenario: persona.scenario ?? "",
@@ -1259,11 +1265,12 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
 
   return {
     name: formData.name.trim(),
+    summary: formData.summary,
     description: formData.description ?? "",
     personality: formData.personality ?? "",
     scenario: formData.scenario ?? "",
     first_mes: "",
-    mes_example: "",
+    mes_example: formData.mes_example,
     creator_notes: formData.creatorNotes ?? "",
     system_prompt: "",
     post_history_instructions: "",
@@ -3956,10 +3963,12 @@ function PersonaCharacterSheetSection({
   );
 }
 
-const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string }> = [
+const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "creator", label: "Creator" },
   { key: "creatorNotes", label: "Creator Notes" },
+  { key: "summary", label: "Summary", labelKey: "ui.characters.summary.label" },
+  { key: "mes_example", label: "Example Dialogue", labelKey: "chat.settings.inlineEditor.fields.exampleDialogue" },
   { key: "description", label: "Description" },
   { key: "personality", label: "Personality" },
   { key: "scenario", label: "Scenario" },
@@ -3987,6 +3996,8 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     personaVersion: formData.personaVersion,
     versioningEnabled: String(formData.versioningEnabled),
     creatorNotes: formData.creatorNotes,
+    summary: formData.summary,
+    mes_example: formData.mes_example,
     description: formData.description,
     personality: formData.personality,
     scenario: formData.scenario,
@@ -4338,7 +4349,9 @@ function PersonaVersionHistoryPanel({
                 return (
                   <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {field.labelKey ? localizeUi(field.labelKey) : field.label}
+                      </span>
                       {changed && (
                         <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
                           {localizeUi("ui.personas.personaversionhistorypanel.changed")}
@@ -4420,26 +4433,67 @@ function PersonaCardTab({
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const personaId = useUIStore((state) => state.personaDetailId);
+  const generation = useCardFieldGeneration(
+    "persona",
+    personaId,
+    {
+      name: formData.name,
+      summary: formData.summary,
+      description: formData.description,
+      personality: formData.personality,
+      backstory: formData.backstory,
+      appearance: formData.appearance,
+      scenario: formData.scenario,
+      mes_example: formData.mes_example,
+    },
+    (field, text) => updateField(field, text),
+  );
+  const seedHint = localizeUi("ui.cardFields.seedPlaceholder");
+  const wandFor = (field: CardFieldKey) => (
+    <CardFieldWand
+      label={generation.labels[field]}
+      onGenerate={() => void generation.generate(field)}
+      disabled={!personaId || generation.isPending}
+      loading={generation.pendingField === field}
+    />
+  );
   return (
     <div>
       <SectionHeader
         title={localizeUi("editor.tabs.card")}
         subtitle={localizeUi("ui.personas.personacardtab.writeYourCorePersonaCardFieldsInOneFocused")}
-        helpText={PERSONA_CARD_HELP}
+        helpText={localizeUi("ui.cardFields.personaCardHelp")}
       />
-      <EditorSectionJumps items={PERSONA_CARD_SECTIONS} />
+      <EditorSectionJumps
+        items={PERSONA_CARD_SECTIONS.map(({ id, field }) => ({ id, label: generation.labels[field] }))}
+      />
       <div className="space-y-10">
+        <EditorSectionAnchor id="persona-card-summary">
+          <TextareaTab
+            title={localizeUi("ui.characters.summary.label")}
+            subtitle={localizeUi("ui.cardFields.personaSummaryHelp")}
+            value={formData.summary}
+            onChange={(v) => updateField("summary", v)}
+            placeholder={localizeUi("ui.characters.summary.placeholder") + " " + seedHint}
+            rows={4}
+            actions={wandFor("summary")}
+          />
+        </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-description">
-          <DescriptionTab formData={formData} updateField={updateField} />
+          <DescriptionTab formData={formData} updateField={updateField} actions={wandFor("description")} />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-personality">
           <TextareaTab
             title={localizeUi("chat.settings.inlineEditor.fields.personality")}
             subtitle={localizeUi("ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns")}
             helpText={PERSONA_PERSONALITY_HELP}
+            actions={wandFor("personality")}
             value={formData.personality}
             onChange={(v) => updateField("personality", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone")}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone") + " " + seedHint
+            }
             rows={8}
           />
         </EditorSectionAnchor>
@@ -4448,9 +4502,12 @@ function PersonaCardTab({
             title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
             subtitle={localizeUi("ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife")}
             helpText={PERSONA_BACKSTORY_HELP}
+            actions={wandFor("backstory")}
             value={formData.backstory}
             onChange={(v) => updateField("backstory", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA")}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA") + " " + seedHint
+            }
             rows={12}
           />
         </EditorSectionAnchor>
@@ -4461,11 +4518,14 @@ function PersonaCardTab({
               "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
             )}
             helpText={PERSONA_APPEARANCE_HELP}
+            actions={wandFor("appearance")}
             value={formData.appearance}
             onChange={(v) => updateField("appearance", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
-            )}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing") +
+              " " +
+              seedHint
+            }
             rows={8}
           />
           <div className="mt-3">
@@ -4500,12 +4560,26 @@ function PersonaCardTab({
             title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
             subtitle={localizeUi("ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays")}
             helpText={PERSONA_SCENARIO_HELP}
+            actions={wandFor("scenario")}
             value={formData.scenario}
             onChange={(v) => updateField("scenario", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
-            )}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact") +
+              " " +
+              seedHint
+            }
             rows={8}
+          />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-dialogue">
+          <TextareaTab
+            title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
+            subtitle={localizeUi("ui.cardFields.personaDialogueHelp")}
+            value={formData.mes_example}
+            onChange={(v) => updateField("mes_example", v)}
+            placeholder={localizeUi("ui.cardFields.personaDialoguePlaceholder") + " " + seedHint}
+            rows={10}
+            actions={wandFor("mes_example")}
           />
         </EditorSectionAnchor>
       </div>
@@ -4532,24 +4606,34 @@ function PersonaLorebookTab({ personaId, personaName }: { personaId: string; per
 function DescriptionTab({
   formData,
   updateField,
+  actions,
 }: {
+  actions?: ReactNode;
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader
-        title={localizeUi("chat.settings.inlineEditor.fields.description")}
-        subtitle={localizeUi("ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt")}
-        helpText={PERSONA_DESCRIPTION_HELP}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader
+          title={localizeUi("chat.settings.inlineEditor.fields.description")}
+          subtitle={localizeUi("ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt")}
+          helpText={PERSONA_DESCRIPTION_HELP}
+        />
+        {actions}
+      </div>
       <MacroTextarea
         value={formData.description}
         onChange={(value) => updateField("description", value)}
-        placeholder={localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory")}
+        placeholder={
+          localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory") +
+          " " +
+          localizeUi("ui.cardFields.seedPlaceholder")
+        }
         rows={12}
         title={localizeUi("chat.settings.inlineEditor.fields.description")}
+        ariaLabel={localizeUi("chat.settings.inlineEditor.fields.description")}
         showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
@@ -4590,7 +4674,9 @@ function TextareaTab({
   placeholder,
   rows = 8,
   helpText,
+  actions,
 }: {
+  actions?: ReactNode;
   title: string;
   subtitle: string;
   helpText?: ReactNode;
@@ -4602,13 +4688,17 @@ function TextareaTab({
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+        {actions}
+      </div>
       <MacroTextarea
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
         title={title}
+        ariaLabel={title}
         showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />

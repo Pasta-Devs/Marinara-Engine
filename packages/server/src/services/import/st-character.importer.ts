@@ -725,9 +725,7 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
   }
   return {
     name: String(raw.name ?? "Unknown"),
-    summary: String(raw.summary ?? "")
-      .trim()
-      .slice(0, 500),
+    summary: String(raw.summary ?? "").trim(),
     description: String(raw.description ?? ""),
     personality: String(raw.personality ?? ""),
     scenario: String(raw.scenario ?? ""),

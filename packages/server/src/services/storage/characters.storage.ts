@@ -165,6 +165,8 @@ export type PersonaStorageWriteFields = Pick<
   | "versioningEnabled"
   | "creatorNotes"
   | "phoneticName"
+  | "summary"
+  | "mes_example"
   | "description"
   | "personality"
   | "scenario"
@@ -292,6 +294,8 @@ function buildPersonaSnapshot(persona: PersonaStorageRow): PersonaCardSnapshot {
     versioningEnabled: persona.versioningEnabled === "false" ? "false" : "true",
     creatorNotes: persona.creatorNotes ?? "",
     phoneticName: persona.phoneticName ?? "",
+    summary: persona.summary ?? "",
+    mes_example: persona.mes_example ?? "",
     description: persona.description ?? "",
     personality: persona.personality ?? "",
     scenario: persona.scenario ?? "",
@@ -335,6 +339,8 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     versioningEnabled: data.versioningEnabled === "false" ? "false" : "true",
     creatorNotes: data.creatorNotes ?? "",
     phoneticName: data.phoneticName ?? "",
+    summary: data.summary ?? "",
+    mes_example: data.mes_example ?? "",
     description: data.description ?? "",
     personality: data.personality ?? "",
     scenario: data.scenario ?? "",
@@ -892,11 +898,13 @@ export function createCharactersStorage(db: DB) {
             like(personas.creator, pattern),
             like(personas.personaVersion, pattern),
             like(personas.creatorNotes, pattern),
+            like(personas.summary, pattern),
             like(personas.description, pattern),
             like(personas.personality, pattern),
             like(personas.scenario, pattern),
             like(personas.backstory, pattern),
             like(personas.appearance, pattern),
+            like(personas.mes_example, pattern),
             like(personas.tags, pattern),
           )
         : undefined;
@@ -1005,6 +1013,8 @@ export function createCharactersStorage(db: DB) {
         creatorNotes: extra?.creatorNotes ?? "",
         phoneticName: extra?.phoneticName ?? "",
         description,
+        summary: extra?.summary ?? "",
+        mes_example: extra?.mes_example ?? "",
         personality: extra?.personality ?? "",
         scenario: extra?.scenario ?? "",
         backstory: extra?.backstory ?? "",
@@ -1067,6 +1077,8 @@ export function createCharactersStorage(db: DB) {
           versioningEnabled: source.versioningEnabled === "false" ? "false" : "true",
           creatorNotes: source.creatorNotes ?? "",
           phoneticName: source.phoneticName ?? "",
+          summary: source.summary ?? "",
+          mes_example: source.mes_example ?? "",
           description: source.description ?? "",
           personality: source.personality ?? "",
           scenario: source.scenario ?? "",
@@ -1120,6 +1132,8 @@ export function createCharactersStorage(db: DB) {
       if (updates.versioningEnabled !== undefined) sets.versioningEnabled = updates.versioningEnabled;
       if (updates.creatorNotes !== undefined) sets.creatorNotes = updates.creatorNotes;
       if (updates.phoneticName !== undefined) sets.phoneticName = updates.phoneticName;
+      if (updates.summary !== undefined) sets.summary = updates.summary;
+      if (updates.mes_example !== undefined) sets.mes_example = updates.mes_example;
       if (updates.description !== undefined) sets.description = updates.description;
       if (updates.personality !== undefined) sets.personality = updates.personality;
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;
@@ -1155,6 +1169,8 @@ export function createCharactersStorage(db: DB) {
           ...(updates.versioningEnabled !== undefined && { versioningEnabled: updates.versioningEnabled }),
           ...(updates.creatorNotes !== undefined && { creatorNotes: updates.creatorNotes }),
           ...(updates.phoneticName !== undefined && { phoneticName: updates.phoneticName }),
+          ...(updates.summary !== undefined && { summary: updates.summary }),
+          ...(updates.mes_example !== undefined && { mes_example: updates.mes_example }),
           ...(updates.description !== undefined && { description: updates.description }),
           ...(updates.personality !== undefined && { personality: updates.personality }),
           ...(updates.scenario !== undefined && { scenario: updates.scenario }),
@@ -1251,6 +1267,8 @@ export function createCharactersStorage(db: DB) {
             versioningEnabled: data.versioningEnabled,
             creatorNotes: data.creatorNotes,
             phoneticName: data.phoneticName ?? "",
+            summary: data.summary ?? "",
+            mes_example: data.mes_example ?? "",
             description: data.description,
             personality: data.personality,
             scenario: data.scenario,

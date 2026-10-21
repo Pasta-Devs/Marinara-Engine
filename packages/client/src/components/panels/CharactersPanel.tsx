@@ -292,6 +292,7 @@ export function CharactersPanel() {
             c.parsed.description,
             c.parsed.personality,
           ]),
+          creatorNotes: c.parsed.creator_notes,
           tags,
           sections: [
             { content: c.parsed.description },

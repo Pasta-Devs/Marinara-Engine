@@ -140,6 +140,7 @@ export interface AssemblerInput {
   personaPhoneticName?: string;
   personaDescription: string;
   personaFields?: {
+    example?: string;
     phoneticName?: string;
     personality?: string;
     scenario?: string;
@@ -228,6 +229,8 @@ export interface AssemblerOutput {
   macroVariables: Record<string, string>;
   /** Agent outputs made available to {{agent::TYPE}} while assembling sections. */
   macroAgentData: Record<string, string>;
+  /** Resolved Persona examples observed during assembly; callers must still check the emitted messages. */
+  resolvedPersonaExamples: string[];
   /** Valid character cards discovered through exact ID macros, including activated lorebook entries. */
   referencedCharacterIds: string[];
   /** Any lorebook depth entries that were queued (already injected into messages) */
@@ -286,12 +289,16 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const variableValues = JSON.parse(input.preset.variableValues) as Record<string, string>;
   // Preset text can safely delay all character macros until the responder is known.
   // Lorebook content only delays names so field macros keep the same budgeting behavior.
-  const deferAllMacroOptions: ResolveMacroOptions | undefined = input.deferCharacterMacros
-    ? { deferCharacterMacros: "all" }
-    : undefined;
-  const deferNameMacroOptions: ResolveMacroOptions | undefined = input.deferCharacterMacros
-    ? { deferCharacterMacros: "names" }
-    : undefined;
+  const resolvedPersonaExamples = new Set<string>();
+  // Each root gets a new options object; nested resolutions still share its budget.
+  const deferAllMacroOptions = (): ResolveMacroOptions => ({
+    onPersonaExampleResolved: (text) => resolvedPersonaExamples.add(text),
+    ...(input.deferCharacterMacros ? { deferCharacterMacros: "all" } : {}),
+  });
+  const deferNameMacroOptions = (): ResolveMacroOptions => ({
+    ...deferAllMacroOptions(),
+    ...(input.deferCharacterMacros ? { deferCharacterMacros: "names" } : {}),
+  });
 
   // Build lookup maps
   const sectionMap = new Map(input.sections.map((s) => [s.id, s]));
@@ -409,7 +416,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
   // Resolve macros inside variable values themselves (e.g. {{user}} in a choice value)
   for (const key of Object.keys(variableValues)) {
-    variableValues[key] = resolveMacros(variableValues[key]!, macroCtx, deferAllMacroOptions);
+    variableValues[key] = resolveMacros(variableValues[key]!, macroCtx, deferAllMacroOptions());
   }
 
   const addActivatedLorebookCardReferences = async (result: LorebookScanResult) => {
@@ -476,7 +483,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
     if (!discoveredReferences) return;
 
-    const resolveReferenceMacros = (value: string) => resolveMacrosForPreview(value, macroCtx, deferNameMacroOptions);
+    const resolveReferenceMacros = (value: string) => resolveMacrosForPreview(value, macroCtx, deferNameMacroOptions());
     result.worldInfoBefore = resolveReferenceMacros(result.worldInfoBefore);
     result.worldInfoAfter = resolveReferenceMacros(result.worldInfoAfter);
     result.depthEntries = result.depthEntries.map((entry) => ({
@@ -534,7 +541,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     previewOnly: input.previewOnly === true,
     resolveLorebookContent: (value, lorebookEntryCounts) => {
       setLorebookEntryCounts(macroCtx, lorebookEntryCounts);
-      return resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions);
+      return resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions());
     },
     resolveLorebookDecisions: input.lorebookDecisions,
     onLorebookScan: addActivatedLorebookCardReferences,
@@ -622,7 +629,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       resolved = await resolveSection(section, {
         macroCtx,
         markerCtx,
-        macroOptions: deferAllMacroOptions,
+        macroOptions: deferAllMacroOptions(),
         wrapFormat,
         runtimeAgentData: input.runtimeAgentData ?? {},
         runtimeAgentTypesUsed,
@@ -789,7 +796,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       markerCtx.chatSummary,
       wrapFormat,
       macroCtx,
-      deferAllMacroOptions,
+      deferAllMacroOptions(),
       input.chatSummaryReaders,
     );
   }
@@ -829,6 +836,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     parameters,
     macroVariables: { ...macroCtx.variables },
     macroAgentData: { ...(macroCtx.agentData ?? {}) },
+    resolvedPersonaExamples: [...resolvedPersonaExamples],
     referencedCharacterIds: Object.keys(macroCtx.characterReferences ?? {}),
     lorebookDepthEntriesCount,
     ...(markerCtx.updatedEntryStateOverrides

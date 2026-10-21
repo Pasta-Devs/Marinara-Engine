@@ -3636,6 +3636,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             personaDescription = cardPromptText(identity.description);
 
             personaFields = {
+              example: cardPromptText(identity.mesExample),
               personality: cardPromptText(identity.personality),
               scenario: cardPromptText(identity.scenario),
               backstory: cardPromptText(identity.backstory),
@@ -4214,6 +4215,40 @@ export async function chatsRoutes(app: FastifyInstance) {
                 fieldParts.push(
                   wrapContent(resolvePromptMacros(personaFields.appearance), "appearance", wrapFormat, 2),
                 );
+              // Use actual resolved leaves, not raw preset references: disabled or
+              // unselected branches must still receive the fallback.
+              // ponytail: whitespace/case matching covers wrappers and case macros;
+              // other content transforms would need emitted-field provenance.
+              const normalizedContent = allContent
+                .split("\n")
+                .map((line) => line.trim())
+                .join("\n")
+                .normalize("NFC")
+                .toLowerCase()
+                .toUpperCase()
+                .normalize("NFC");
+              const exampleAlreadyInPrompt = (example: string) => {
+                const normalizedExample = example
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .join("\n")
+                  .trim()
+                  .normalize("NFC")
+                  .toLowerCase()
+                  .toUpperCase()
+                  .normalize("NFC");
+                return !!normalizedExample && normalizedContent.includes(normalizedExample);
+              };
+              const hasEmittedPersonaExample = assembled.resolvedPersonaExamples.some(exampleAlreadyInPrompt);
+              if (!hasEmittedPersonaExample) {
+                const resolvedPersonaExample = resolveMacros(personaFields.example ?? "", {
+                  ...promptMacroContext,
+                  variables: assembled.macroVariables,
+                  agentData: assembled.macroAgentData,
+                });
+                if (resolvedPersonaExample && !exampleAlreadyInPrompt(resolvedPersonaExample))
+                  fieldParts.push(wrapContent(resolvedPersonaExample, "example_dialogue", wrapFormat, 2));
+              }
               if (personaFields.scenario && !alreadyInPrompt(personaFields.scenario))
                 fieldParts.push(wrapContent(resolvePromptMacros(personaFields.scenario), "scenario", wrapFormat, 2));
               // Include enabled RPG attributes

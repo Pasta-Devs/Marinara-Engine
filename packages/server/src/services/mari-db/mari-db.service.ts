@@ -1424,6 +1424,8 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
         : "true",
     creatorNotes: firstString(data, ["creatorNotes", "creator_notes", "creator-notes"]) ?? "",
     phoneticName: firstString(data, ["phoneticName", "phonetic_name", "phonetic-name"]) ?? "",
+    summary: firstString(data, ["summary"]) ?? "",
+    mes_example: firstString(data, ["mes_example"]) ?? "",
     description: firstString(data, ["description"]) ?? "",
     personality: firstString(data, ["personality"]) ?? "",
     scenario: firstString(data, ["scenario"]) ?? "",
@@ -2701,7 +2703,7 @@ function buildMinimalCharacterData(
     const val = flagString(flags, flagName);
     if (val !== undefined) data[fieldName] = val;
   }
-  data.summary = typeof data.summary === "string" ? data.summary.trim().slice(0, 500) : "";
+  data.summary = typeof data.summary === "string" ? data.summary.trim() : "";
   // backstory and appearance are Marinara extensions stored under data.extensions.*
   const extensions = data.extensions as Record<string, unknown>;
   const extMap: Array<[string, string]> = [
@@ -3176,6 +3178,8 @@ export class MariDbService {
           ["data", "persona", "row"],
           [
             "name",
+            "summary",
+            "mes_example",
             "description",
             "personality",
             "scenario",
@@ -3225,6 +3229,8 @@ export class MariDbService {
           ["patch", "data", "persona"],
           [
             "name",
+            "summary",
+            "mes_example",
             "description",
             "personality",
             "scenario",
@@ -3251,6 +3257,8 @@ export class MariDbService {
         );
         const patch: Row = { updatedAt: now() };
         assignStringField(patch, data, ["name"], "name");
+        if (typeof data.summary === "string") patch.summary = data.summary.trim();
+        if (typeof data.mes_example === "string") patch.mes_example = data.mes_example.trim();
         assignStringField(patch, data, ["description"], "description");
         assignStringField(patch, data, ["personality"], "personality");
         assignStringField(patch, data, ["scenario"], "scenario");
@@ -3284,7 +3292,7 @@ export class MariDbService {
         assignListField(patch, data, ["tags"], "tags");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "persona.update needs a patch field such as name, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes",
+            "persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes",
           );
         }
         return this.executeMutation(

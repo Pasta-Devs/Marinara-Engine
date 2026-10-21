@@ -98,6 +98,7 @@ import {
   resolveChatSummaryTemperatureOptions,
 } from "../services/chat-summary/connection-resolution.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
+import { cardFieldGenerationSchema, generateCardField } from "../services/generation/card-field-generation.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { embeddedSpriteSizesAreWithinLimits, MAX_EMBEDDED_SPRITE_COUNT } from "../services/import/marinara.importer.js";
 import {
@@ -1141,6 +1142,57 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
     return result;
   });
+
+  // Both editors use the summary connection policy, without saving the generated draft.
+  for (const kind of ["character", "persona"] as const) {
+    const path = kind === "persona" ? "/personas/:id/card-field/generate" : "/:id/card-field/generate";
+    app.post<{ Params: { id: string }; Body: unknown }>(path, async (req, reply) => {
+      const parsed = cardFieldGenerationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: "Invalid card field generation request", issues: parsed.error.issues });
+      }
+      const controller = new AbortController();
+      const onClose = () => {
+        if (!reply.raw.writableFinished) controller.abort(new Error("Card field generation cancelled"));
+      };
+      reply.raw.once("close", onClose);
+      if (reply.raw.destroyed) onClose();
+      try {
+        controller.signal.throwIfAborted();
+        const entity =
+          kind === "persona" ? await storage.getPersona(req.params.id) : await storage.getById(req.params.id);
+        controller.signal.throwIfAborted();
+        if (!entity)
+          return reply.status(404).send({ error: kind === "persona" ? "Persona not found" : "Character not found" });
+        const defaultConnection = await connections.getDefault();
+        const connection = await resolveChatSummaryConnection({
+          chatMetadata: {},
+          defaultConnectionId: defaultConnection?.id,
+          connections,
+          resolveBaseUrl,
+        });
+        controller.signal.throwIfAborted();
+        if (!connection.ok) return reply.status(400).send({ error: connection.error });
+        const text = await generateCardField({
+          kind,
+          entityId: req.params.id,
+          ...parsed.data,
+          connection,
+          signal: controller.signal,
+        });
+        controller.signal.throwIfAborted();
+        return reply.send({ text });
+      } catch (error) {
+        if (controller.signal.aborted || reply.raw.destroyed) return;
+        logger.error(error, "Card field generation failed");
+        return reply.status(502).send({
+          error: error instanceof Error ? error.message : "Card field generation failed",
+        });
+      } finally {
+        reply.raw.off("close", onClose);
+      }
+    });
+  }
 
   app.post<{
     Params: { id: string };

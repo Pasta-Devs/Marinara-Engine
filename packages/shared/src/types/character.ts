@@ -275,6 +275,8 @@ export interface PersonaCardSnapshot {
   versioningEnabled: string;
   creatorNotes: string;
   phoneticName?: string;
+  summary?: string;
+  mes_example?: string;
   description: string;
   personality: string;
   scenario: string;

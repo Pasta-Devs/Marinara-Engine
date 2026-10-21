@@ -275,6 +275,8 @@ const personaFields = {
   versioningEnabled: z.boolean().optional(),
   creatorNotes: z.string().optional(),
   phoneticName: z.string().optional(),
+  summary: z.string().optional(),
+  mes_example: z.string().optional(),
   description: z.string().optional(),
   personality: z.string().optional(),
   scenario: z.string().optional(),

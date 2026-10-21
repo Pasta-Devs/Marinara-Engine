@@ -90,10 +90,126 @@ try {
       const fetched = await mari.executeAction({ action: "persona.get", personaId: "created-persona" });
       assert.equal(fetched.ok, true, "the created persona is persisted");
       assert.equal(
+        (fetched.output as Record<string, unknown>).summary,
+        "",
+        "a legacy create defaults summary",
+      );
+      assert.equal(
+        (fetched.output as Record<string, unknown>).mes_example,
+        "",
+        "a legacy create defaults dialogue",
+      );
+      assert.equal(
         (fetched.output as Record<string, unknown>).useCharacterSheetAsReference,
         "false",
         "the persona stores the required character-sheet reference default",
       );
+
+      const authored = { summary: "A scientist's library summary.", mes_example: "{{user}}: Observe carefully." };
+      const authoredCreate = await mari.executeAction({
+        action: "persona.create",
+        personaId: "authored-persona",
+        data: { name: "Authored Persona", ...authored },
+        apply: true,
+      });
+      assert.equal(authoredCreate.ok, true, "Mari accepts the new card fields in a persona draft");
+      const authoredRead = await mari.executeAction({ action: "persona.get", personaId: "authored-persona" });
+      assert.equal(authoredRead.ok, true);
+      for (const [field, value] of Object.entries(authored)) {
+        assert.equal(
+          (authoredRead.output as Record<string, unknown>)[field],
+          value,
+          `${field} survives creation`,
+        );
+      }
+
+      const directCreate = await mari.executeAction({
+        action: "persona.create",
+        personaId: "direct-fields-persona",
+        name: "Direct Fields Persona",
+        description: "Preserve this description.",
+        ...authored,
+        apply: true,
+      });
+      assert.equal(directCreate.ok, true, "Mari accepts card fields at the top level");
+      const expectedFields: Record<string, string> = { ...authored };
+      const assertDirectFields = async () => {
+        const result = await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" });
+        assert.equal(result.ok, true);
+        const row = result.output as Record<string, unknown>;
+        assert.equal(row.description, "Preserve this description.");
+        for (const [field, value] of Object.entries(expectedFields)) {
+          assert.equal(row[field], value, `${field} survives the Persona command`);
+        }
+      };
+      await assertDirectFields();
+      for (const [field, shape, value] of [
+        ["summary", "top-level", "  A revised top-level summary.  "],
+        ["mes_example", "patch", "  {{user}}: Revised nested dialogue.  "],
+        ["summary", "patch", "A revised nested summary."],
+        ["mes_example", "top-level", "{{user}}: Revised top-level dialogue."],
+      ] as const) {
+        const update = { [field]: value };
+        const updated = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...(shape === "top-level" ? update : { patch: update }),
+          apply: true,
+        });
+        assert.equal(updated.ok, true, `${field}-only ${shape} update succeeds: ${JSON.stringify(updated)}`);
+        expectedFields[field] = value.trim();
+        await assertDirectFields();
+      }
+
+      for (const [field, shape, value] of [
+        ["summary", "top-level", ""],
+        ["mes_example", "patch", ""],
+        ["summary", "patch", " \n "],
+        ["mes_example", "top-level", " \n "],
+      ] as const) {
+        const seeded = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          patch: { [field]: "Clear this field independently." },
+          apply: true,
+        });
+        assert.equal(seeded.ok, true);
+        expectedFields[field] = "Clear this field independently.";
+        await assertDirectFields();
+        const update = { [field]: value };
+        const cleared = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...(shape === "top-level" ? update : { patch: update }),
+          apply: true,
+        });
+        assert.equal(cleared.ok, true, `${field} clears through ${shape}: ${JSON.stringify(cleared)}`);
+        expectedFields[field] = "";
+        await assertDirectFields();
+      }
+      for (const payload of [
+        {},
+        { summary: null, mes_example: 17 },
+        { patch: { summary: 17, mes_example: null } },
+      ]) {
+        const ignored = await mari.executeAction({
+          action: "persona.update",
+          personaId: "direct-fields-persona",
+          ...payload,
+          apply: true,
+        });
+        assert.equal(ignored.ok, false, "omitted or non-string fields remain non-updates");
+        await assertDirectFields();
+      }
+
+      const cliCreate = await mari.executeCli({
+        argv: ["personas", "create", "--id", "cli-persona", "--name", "CLI Persona", "--apply"],
+      });
+      assert.equal(cliCreate.ok, true, "the CLI create also receives every required persona default");
+      const cliRead = await mari.executeAction({ action: "persona.get", personaId: "cli-persona" });
+      assert.equal(cliRead.ok, true);
+      assert.equal((cliRead.output as Record<string, unknown>).summary, "");
+      assert.equal((cliRead.output as Record<string, unknown>).mes_example, "");
     } finally {
       if (db) await db._fileStore.close();
       if (previousBlockStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;

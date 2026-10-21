@@ -88,6 +88,7 @@ export interface MacroContext {
   };
   /** Active persona card fields used by {{persona}} */
   personaFields?: {
+    example?: string;
     phoneticName?: string;
     description?: string;
     personality?: string;
@@ -134,6 +135,8 @@ export interface MacroDecisionAnswers {
 
 export interface ResolveMacroOptions {
   trimResult?: boolean;
+  /** Observe resolved Persona example leaves without changing macro evaluation. */
+  onPersonaExampleResolved?: (text: string) => void;
   /**
    * Preserve character macros as internal tokens for a later known-speaker pass.
    * "names" delays {{char}}/{{charName}} and {{group}}; "all" also delays character field macros.
@@ -1345,6 +1348,7 @@ function resolvePersonaText(ctx: MacroContext): string {
     ctx.personaFields?.backstory,
     ctx.personaFields?.appearance,
     ctx.personaFields?.scenario,
+    ctx.personaFields?.example,
   ]
     .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
     .join("\n");
@@ -3317,17 +3321,19 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   // position, before the conditional/variable-op passes, so persona-field side
   // effects such as {{setvar::…}} still land before conditions that read them.
   let personaText: string | null = null;
-  const buildPersonaText = (): string =>
-    [
+  const buildPersonaText = (): string => {
+    const parts = [
       ctx.personaFields?.description,
       ctx.personaFields?.personality,
       ctx.personaFields?.backstory,
       ctx.personaFields?.appearance,
       ctx.personaFields?.scenario,
-    ]
-      .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
-      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-      .join("\n");
+      ctx.personaFields?.example,
+    ].map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part));
+    const example = parts[5];
+    if (typeof example === "string") options.onPersonaExampleResolved?.(example);
+    return parts.filter((part): part is string => typeof part === "string" && part.trim().length > 0).join("\n");
+  };
   if (/\{\{persona\}\}/i.test(result)) personaText = buildPersonaText();
 
   // ── Multi-character bracket blocks — expand before global substitutions ──

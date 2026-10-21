@@ -266,6 +266,8 @@ export async function injectGameGmPromptRuntime(args: {
         if (personality) parts.push(`Personality: ${personality}`);
         if (backstory) parts.push(`Backstory: ${backstory}`);
         if (appearance) parts.push(`Appearance: ${appearance}`);
+        const example = cardPromptText(persona.mesExample ?? persona.mes_example);
+        if (example) parts.push(`Example dialogue: ${example}`);
         appendGameCardDetails(parts, gameCardByName.get(normalizeTextForMatch(persona.name)));
         playerCard = parts.join("\n");
       }

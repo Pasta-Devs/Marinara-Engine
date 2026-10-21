@@ -79,14 +79,24 @@ The **Version history** panel sits below the **Version** field. The "Version his
 
 The **Card** tab is where you write the core persona fields. Each field is a large text box with a live estimated token count under it. A jump-links bar lets you scroll to each section.
 
+- **Summary**: an overview for the Persona Library and card previews. It is metadata and is not sent to the model in chat prompts.
 - **Description**: your general identity and role. This is sent in every prompt so the AI knows who you are.
 - **Personality**: your temperament, behavior, speech habits, and emotional patterns.
 - **Backstory**: your history, origin, relationships, and formative events.
 - **Appearance**: physical description, clothing, and visual details the model should remember.
 - **Image Appearance Override**: an optional switch under **Appearance**, off by default. Turn it on to reveal a second box for short image tags that describe your persona, such as a LoRA trigger word. While it is on and the box is filled, image prompts use those tags exactly as written, with **Appearance** kept as background. The narrator always sees the full **Appearance** text.
 - **Scenario**: your default situation or context for roleplays. Use it to establish where your persona starts.
+- **Example Dialogue**: sample exchanges that show how your persona talks. Separate exchanges with `<START>` and use `{{user}}` for your persona and `{{char}}` for the other character.
 
 These text boxes support macros. Quote characters you type are auto-formatted to match your app quote style.
+
+### Generate a persona field with the wand
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, and **Example Dialogue** each have an icon-only wand button with a tooltip naming the field. Add keywords, a sentence, or any other starting text to a field, then click its wand to request 100–300 words for that section. Leave it blank to generate from the rest of the persona card. Example Dialogue produces sample exchanges.
+
+Marinara includes your current persona name and other card fields as reference, including edits you have not saved yet. The selected field's existing text is the base for the new section. It uses the same connection selection as character summary generation: your default agent text connection, then your default text connection, with your configured agent fallback when applicable. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+
+The result replaces only the chosen field in your editor draft. Review it and click **Save** to keep it. The wand itself does not save; the editor's normal save-on-leave behavior still applies when you navigate away. A failed request leaves your text intact. Editing the target field while a request is running, or opening another persona before it finishes, prevents a late result from overwriting your newer work. This is a quick alternative to asking Professor Mari to write a card.
 
 ### Convo tab
 

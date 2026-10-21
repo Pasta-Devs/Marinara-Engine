@@ -7343,18 +7343,46 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // Load persona info so the GM can tailor the experience
     let personaCard: string | null = null;
     const setupPersonaFields = {
+      example: setupPersona
+        ? "mes_example" in setupPersona
+          ? setupPersona.mes_example
+          : (setupPersona.mesExample ?? "")
+        : "",
       description: setupPersona?.description ?? "",
       personality: setupPersona?.personality ?? "",
       backstory: setupPersona?.backstory ?? "",
       appearance: setupPersona?.appearance ?? "",
       scenario: setupPersona?.scenario ?? "",
     };
+    const setupLorebookRequested =
+      (setupConfig.activeLorebookIds?.length ?? 0) > 0 || (setupConfig.activeLorebookEntryIds?.length ?? 0) > 0;
+    const setupPromptMacroContext =
+      setupPersonaFields.example || setupLorebookRequested
+        ? await buildPromptMacroContext({
+            db: app.db,
+            characterIds: setupConfig.partyCharacterIds,
+            personaName: setupPersona?.name ?? "User",
+            personaDescription: setupPersonaFields.description,
+            personaFields: setupPersonaFields,
+            variables: {},
+            chatId,
+            lastGenerationType: "game_setup",
+            idleDuration: "0 seconds",
+          })
+        : null;
     if (setupPersona) {
       const parts = [`Name: ${setupPersona.name}`];
       if (setupPersona.description) parts.push(`Description: ${setupPersona.description}`);
       if (setupPersona.personality) parts.push(`Personality: ${setupPersona.personality}`);
       if (setupPersona.backstory) parts.push(`Backstory: ${setupPersona.backstory}`);
       if (setupPersona.appearance) parts.push(`Appearance: ${setupPersona.appearance}`);
+      if (setupPersonaFields.example && setupPromptMacroContext) {
+        const example = resolveMacrosWithVariableSnapshot(setupPersonaFields.example, setupPromptMacroContext);
+        if (example.content.trim()) {
+          parts.push(`Example dialogue: ${example.content}`);
+          example.commit();
+        } else example.rollback();
+      }
       personaCard = parts.join("\n");
     }
 
@@ -7408,18 +7436,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
 
     let setupLorebookContext: string | undefined;
-    if ((setupConfig.activeLorebookIds?.length ?? 0) > 0 || (setupConfig.activeLorebookEntryIds?.length ?? 0) > 0) {
-      const setupPromptMacroContext = await buildPromptMacroContext({
-        db: app.db,
-        characterIds: setupConfig.partyCharacterIds,
-        personaName: personaName ?? "User",
-        personaDescription: setupPersonaFields.description,
-        personaFields: setupPersonaFields,
-        variables: {},
-        chatId,
-        lastGenerationType: "game_setup",
-        idleDuration: "0 seconds",
-      });
+    if (setupLorebookRequested && setupPromptMacroContext) {
       const resolveSetupLorebookMacrosForFinal = (
         value: string,
         lorebookEntryCounts?: Readonly<Record<string, number>>,
@@ -13046,6 +13063,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const lorePersonaId = chat.personaId || experienceSetupConfig?.personaId || null;
         const lorePersona = lorePersonaId ? await characters.getPersona(lorePersonaId) : null;
         const lorePersonaFields = {
+          example: lorePersona?.mes_example ?? "",
           description: lorePersona?.description ?? "",
           personality: lorePersona?.personality ?? "",
           backstory: lorePersona?.backstory ?? "",

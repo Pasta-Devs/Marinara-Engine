@@ -11,6 +11,7 @@ export * from "./types/semantic-summary-retrieval.js";
 export * from "./types/roleplay-command.js";
 export * from "./types/spotify.js";
 export * from "./types/character.js";
+export * from "./types/card-field.js";
 export * from "./types/character-catalog.js";
 export * from "./types/lorebook.js";
 export * from "./types/prompt.js";
