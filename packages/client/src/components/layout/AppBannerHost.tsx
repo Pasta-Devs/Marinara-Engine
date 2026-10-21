@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useCsrfOriginBanner } from "../diagnostics/use-csrf-origin-banner";
 import { AppBanner, type AppBannerCandidate } from "../ui/AppBanner";
+import { useMarinaraNoticeBanners } from "./use-marinara-notice-banners";
 
 const DISMISS_KEY_PREFIX = "marinara:app-banner-dismissed:";
 
@@ -29,7 +30,7 @@ function pickAppBanner(candidates: (AppBannerCandidate | null)[], dismissed: (c:
 }
 
 export function AppBannerHost() {
-  const candidates = [useCsrfOriginBanner()];
+  const candidates = [useCsrfOriginBanner(), ...useMarinaraNoticeBanners()];
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const banner = pickAppBanner(candidates, (c) => dismissedIds.includes(c.id) || wasDismissed(c));
 

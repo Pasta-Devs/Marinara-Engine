@@ -6016,6 +6016,7 @@
   "ui.agents.tooleditor.writeJavascriptHasAccessTo": "Write JavaScript. Has access to",
   "ui.app.banner.details": "Details",
   "ui.app.banner.dismiss": "Dismiss",
+  "ui.app.banner.openOnGitHub": "Open on GitHub",
   "ui.app.fileSave.exportFailed": "Couldn't export the file.",
   "ui.app.fileSave.failed": "Couldn't save the file.",
   "ui.app.fileSave.ready": "Your file is ready.",

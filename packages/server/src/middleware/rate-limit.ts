@@ -103,6 +103,12 @@ export const RUNTIME_DIAGNOSTICS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Marinara notices; each tab asks once on load and then hourly. */
+export const MARINARA_NOTICES_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** One document per guest frame mount; each response reads and embeds the trusted bundle. */
 export const MULTIPLAYER_GUEST_VIEW_RATE_LIMIT = {
   max: 30,

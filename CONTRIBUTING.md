@@ -364,6 +364,54 @@ Release helpers now in the repo:
 - `pnpm guard:installer-artifacts` fails when tracked installer binaries appear under `win/installer/*.exe`.
 - `pnpm release:notes -- <version>` renders the matching `CHANGELOG.md` entry for release publication and prepends the temporary Android APK / Termux notice.
 
+## Marinara Notices
+
+Running installations fetch `notices.json` from the `notices` branch at startup and every hour, and show the owner
+(never an anonymous remote visitor) at most one matching notice as a banner. Owners can turn this off with
+`MARINARA_NOTICES_ENABLED=false` (see `docs/CONFIGURATION.md`).
+
+**When to post one:** only when the owner must act and something bad happens if they do not: a security risk, data
+loss, or an update that needs a manual step (for example "Docker users must do X"). Expect a handful per year. Never
+post new features, releases, surveys, events, community news, or tips; the update card and What's New cover releases.
+If owners learn to close the banner without reading, the one notice that matters is lost.
+
+**How to post one:** open a PR against the `notices` branch that edits `notices.json`. It needs a second maintainer's
+approval, and the PR description must say why owners must act now. The file is a JSON array:
+
+```json
+[
+  {
+    "id": "2026-10-proxy-auth",
+    "level": "critical",
+    "versions": "<=2.5.1",
+    "title": "Security update available",
+    "text": "If you use a reverse proxy or tunnel, anyone who can reach Marinara can use it.",
+    "action": "Update Marinara now, or set a password.",
+    "expires": "2026-12-31",
+    "link": "https://github.com/Pasta-Devs/Marinara-Engine/releases"
+  }
+]
+```
+
+| Field      | Rule                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `id`       | Required. Letters, digits and `-`, at most 64. Dismissals are stored per `id`.                            |
+| `level`    | Required. `warning` (dismissed for good) or `critical` (comes back each browser session). No `info`.      |
+| `versions` | Required. Matching app versions: `<`, `<=`, `>`, `>=`, `=` or a bare version; space = and, `\|\|` = or. Any other syntax drops the notice without a warning. |
+| `title`    | Required. Plain text, at most 120 characters.                                                             |
+| `text`     | Required. One sentence, plain text, at most 500 characters.                                               |
+| `action`   | Required. What the owner must do, one sentence, at most 200 characters.                                   |
+| `expires`  | Required. `YYYY-MM-DD` (UTC). The notice shows through that day, then the app ignores it.                 |
+| `link`     | Optional. Must start with `https://github.com/Pasta-Devs/`; any other link is dropped.                    |
+
+The app drops a notice that breaks any rule, and ignores the whole file if it is not a JSON array or has more than
+20 entries. If the file is not valid JSON, the app keeps the last good notices; a valid file with the wrong shape
+shows nothing. Text is shown as written: HTML and Markdown are not rendered. The banner has no "Update now" button; put
+the update step in `action` and the release in `link`.
+
+**Retiring a notice:** delete it from the file, or let it expire. To show a changed notice again to owners who
+dismissed it, give it a new `id`. Remove expired entries now and then so the file stays short.
+
 ## Immediate Way Forward
 
 - Add launcher and installer smoke tests so startup parity is exercised automatically, not just by manual verification.

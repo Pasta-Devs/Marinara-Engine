@@ -47,6 +47,7 @@ import { chatFoldersRoutes } from "./chat-folders.routes.js";
 import { connectionFoldersRoutes } from "./connection-folders.routes.js";
 import { chatPresetsRoutes } from "./chat-presets.routes.js";
 import { updatesRoutes } from "./updates.routes.js";
+import { noticesRoutes } from "./notices.routes.js";
 import { docsRoutes } from "./docs.routes.js";
 import { uiLanguagesRoutes } from "./ui-languages.routes.js";
 import { themesRoutes } from "./themes.routes.js";
@@ -149,6 +150,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(botBrowserWyvernRoutes, { prefix: "/api/bot-browser" });
   await app.register(botBrowserDatacatRoutes, { prefix: "/api/bot-browser" });
   await app.register(updatesRoutes, { prefix: "/api/updates" });
+  await app.register(noticesRoutes, { prefix: "/api/notices" });
   await app.register(docsRoutes, { prefix: "/api/docs" });
   await app.register(uiLanguagesRoutes, { prefix: "/api/ui-languages" });
   await app.register(themesRoutes, { prefix: "/api/themes" });

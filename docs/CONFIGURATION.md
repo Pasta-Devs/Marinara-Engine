@@ -309,6 +309,26 @@ To connect a local or self-hosted model, see [Connecting a Local or Self-Hosted 
 
 Optional server behaviours, such as retrying failed provider calls or keeping lorebook group picks stable, are switched on in **Settings > Advanced > Features**. All of them are off by default. A few have an environment variable that, when set, wins over the switch. See [Feature Switches](configuration/features.md) for every switch, its default and its variable.
 
+## Marinara notices
+
+Marinara notices are short warnings from the Marinara maintainers, for example about a security problem or a manual step that your version needs. When a notice is for your version, Marinara shows it to you as a banner.
+
+How it works:
+
+- At startup and then every hour, the server downloads one small file, `notices.json`, from the `notices` branch of the Marinara Engine repository on GitHub.
+- The server keeps only the notices that name your version. Your browser asks your own server for them once when the page loads and then every hour.
+- If a download fails, the server keeps the notices it already has and startup is not delayed. If the file is gone, no notices show.
+
+Why it is safe:
+
+- The request is a normal file download. It sends no data about you, your chats, or your settings.
+- The `notices` branch is protected. Only maintainers can change it, and each change needs a review.
+- The file is checked strictly. A notice is plain text only, with a size limit. Links are kept only when they point to `https://github.com/Pasta-Devs/`.
+- Only you see notices: on the computer that runs Marinara, from an address in `IP_ALLOWLIST`, or after you sign in with your login. Other visitors get an empty list.
+- A notice cannot install, run, or change anything. It only shows text.
+
+To turn notices off, set `MARINARA_NOTICES_ENABLED=false`. **Warning:** then Marinara cannot tell you about security fixes or required steps for your version. Watch the [GitHub releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) yourself. Forks can point `MARINARA_NOTICES_URL` at their own file.
+
 ## Full environment variable reference
 
 This section lists the remaining settings, grouped by purpose. The tables above already cover access control, storage, logging, timeouts, privileged actions, and local address opt-ins.
@@ -323,6 +343,8 @@ This section lists the remaining settings, grouped by purpose. The tables above 
 | `MARINARA_ANDROID_SECRET_FILE`              | `~/.marinara-engine/android-secret`            | Private secret-file path used by the Termux launcher and the local `mari` CLI. The APK and launcher manage this file automatically; normal APK users never need to read or copy it.                                                                                                                                                                                                                                                                                                                                                                       |
 | `AUTO_OPEN_BROWSER`                         | `true`                                         | Whether the shell launchers open the app URL for you. Set `false` to stop this. APK-managed setup disables the shell's browser auto-open. The APK handles its saved app/browser choice and authentication separately.                                                                                                                                                                                                                                                                                                                                                    |
 | `AUTO_UPDATE_ENABLED`                       | `true`                                         | Whether Git-based Windows, macOS/Linux, and Termux launchers fetch and apply Engine updates before startup. Set `false` for a persistent opt-out; this takes effect on the next launch. The launcher still performs a read-only check for newer published releases and prints a download reminder when one is available, while manual checks, in-app apply, package updates, and model updates remain available. Use `--skip-update` to skip both launcher checks for one start.                                                                          |
+| `MARINARA_NOTICES_ENABLED`                     | `true`                                         | Whether the server fetches maintainer notices from GitHub. See [Marinara notices](#marinara-notices). Set `false` to stop these requests. **Warning:** then Marinara cannot tell you about security fixes for your version, and you must watch the GitHub releases yourself. |
+| `MARINARA_NOTICES_URL`                         | `notices.json` on the `notices` branch         | Override for the notices file, for forks and mirrors. The file is validated the same way, and links outside `https://github.com/Pasta-Devs/` are dropped. |
 | `MARINARA_ENV_FILE`                         | project-root `.env`                            | Optional path override for the `.env` file. Set it before startup.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY`     | `4`                                            | Process-wide ceiling on concurrent image/video provider requests, across every surface (galleries, storyboards, game assets, sprites, avatars). Raise it for a beefy local GPU or a provider with generous limits; lower it to 1-2 if a local ComfyUI/SwarmUI runs out of VRAM during batches; `0` disables the ceiling entirely. Invalid values are ignored with a logged warning. Batch/automatic work never occupies the last slot, so one permit always stays available for interactive requests. Applies on top of **Queue media generation requests** (**Settings → Generations → Overall Generations**, on by default), which queues image jobs and video jobs separately for each provider account. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000`                                       | How long a generation request may wait for a free concurrency slot before failing with a clear error instead of hanging (10 minutes by default; `0` waits forever).                                                                                                                                                                                                                                                                                                                                                                                       |
