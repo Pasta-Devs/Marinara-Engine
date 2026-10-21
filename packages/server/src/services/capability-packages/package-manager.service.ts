@@ -260,7 +260,7 @@ const PACKAGE_ASSET_CONTENT_TYPES = new Map([
   // Tilemap/atlas metadata for contributions.assets. Passive data only — anything
   // active (svg, html, js) stays out of this map: it would execute same-origin.
   [".json", "application/json; charset=utf-8"],
-  // An Experience's own music (Capability API 1.353): passive media, played by an audio element.
+  // An Experience's own music (Capability API 1.345): passive media, played by an audio element.
   [".mp3", "audio/mpeg"],
   [".ogg", "audio/ogg"],
   [".wav", "audio/wav"],
@@ -6415,7 +6415,7 @@ export function findPendingCapabilityPackageUpdates(
     }));
 }
 
-/** An Experience owns the Game surface. Since 1.382 one comes only as an Experience file, never a package zip. */
+/** An Experience owns the Game surface. Since 1.373 one comes only as an Experience file, never a package zip. */
 function isCatalogExperience(entry: CapabilityCatalogPackage) {
   return (
     entry.manifest.kind.includes("experience") || (entry.manifest.contributions?.slots ?? []).includes("game-surface")
@@ -6430,8 +6430,8 @@ function isExperienceFileArtifact(entry: CapabilityCatalogPackage) {
   }
 }
 
-/** A ruleset in the catalog comes as a ruleset package file (Capability API 1.335), never a package zip. */
-const RULESET_FILE_CAPABILITY_MINOR = 335;
+/** A ruleset in the catalog comes as a ruleset package file (Capability API 1.374), never a package zip. */
+const RULESET_FILE_CAPABILITY_MINOR = 374;
 
 function isRulesetFileArtifact(entry: CapabilityCatalogPackage) {
   try {
@@ -6639,44 +6639,44 @@ async function commitPackageInstall(
   activateDuringStartup = false,
 ): Promise<InstalledCapabilityPackage> {
   const destination = join(VERSIONS, manifest.id, manifest.version);
-    await mkdir(dirname(destination), { recursive: true });
-    await rm(destination, { recursive: true, force: true });
-    await rename(temporary, destination);
-    const registry = await readRegistry();
-    const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
-    const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
-    assertNotDowngrade(await readInstalledVersion(manifest.id), manifest.version);
-    const activePrevious =
-      previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
-        ? { version: previous.previousVersion, manifest: previous.previousManifest }
-        : previous
-          ? { version: previous.version, manifest: previous.manifest }
-          : null;
-    const installed: InstalledCapabilityPackage = {
-      id: manifest.id,
-      version: manifest.version,
-      manifest,
-      installedAt: new Date().toISOString(),
-      status: manifest.restartRequired && !activateDuringStartup ? "restart-required" : "active",
-      error: null,
-      readiness: manifest.entrypoints.server ? "pending" : "ready",
-      readinessError: null,
-      legacy: false,
-      ...(activePrevious && activePrevious.version !== manifest.version
-        ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
-        : {}),
-    };
-    await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
-    try {
-      await clearDeclinedUpdate(manifest.id);
-    } catch (error) {
-      logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
-    }
+  await mkdir(dirname(destination), { recursive: true });
+  await rm(destination, { recursive: true, force: true });
+  await rename(temporary, destination);
+  const registry = await readRegistry();
+  const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
+  const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
+  assertNotDowngrade(await readInstalledVersion(manifest.id), manifest.version);
+  const activePrevious =
+    previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
+      ? { version: previous.previousVersion, manifest: previous.previousManifest }
+      : previous
+        ? { version: previous.version, manifest: previous.manifest }
+        : null;
+  const installed: InstalledCapabilityPackage = {
+    id: manifest.id,
+    version: manifest.version,
+    manifest,
+    installedAt: new Date().toISOString(),
+    status: manifest.restartRequired && !activateDuringStartup ? "restart-required" : "active",
+    error: null,
+    readiness: manifest.entrypoints.server ? "pending" : "ready",
+    readinessError: null,
+    legacy: false,
+    ...(activePrevious && activePrevious.version !== manifest.version
+      ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
+      : {}),
+  };
+  await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
+  try {
+    await clearDeclinedUpdate(manifest.id);
+  } catch (error) {
+    logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
+  }
   return installed;
 }
 
 /**
- * Installs an Experience file (Capability API 1.382) as it streams in: a data-only Experience, its manifest
+ * Installs an Experience file (Capability API 1.373) as it streams in: a data-only Experience, its manifest
  * checked before any file is kept, each file written straight to disk as it decodes and checked against
  * the manifest's size and sha256, so neither the upload nor any one file is ever held whole. Anything
  * out of place stops the import and removes what it wrote.
@@ -7279,9 +7279,9 @@ export const capabilityPackageManager = {
     }
   },
 
-  /** An installed, ready Experience's map pack music as its manifest declares it (1.353), or null. Read
+  /** An installed, ready Experience's map pack music as its manifest declares it (1.345), or null. Read
    *  off the manifest only: what a turn needs to pick a track, without reading the pack's files. */
-  /** An Experience's people file (1.354) alone, verified as its other map pack files are, for a turn to
+  /** An Experience's people file (1.346) alone, verified as its other map pack files are, for a turn to
    *  read without the whole pack; null when it ships none or is not installed and ready. */
   async mapPackPeople(packageId: string): Promise<{ version: string; data: Buffer; sha256: string } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
@@ -7296,7 +7296,7 @@ export const capabilityPackageManager = {
     return { version: installed.version, data, sha256: declaration.sha256 };
   },
 
-  /** Every ready Experience's ruleset overlays (1.363), verified as its other map pack files are, for the
+  /** Every ready Experience's ruleset overlays (1.355), verified as its other map pack files are, for the
    *  ruleset registry. One that cannot be read is left out with a line saying why. Never throws. */
   async experienceRulesetOverlays(): Promise<
     Array<{ packageId: string; ruleset: string; path: string; data: Buffer; sha256: string }>
@@ -7343,7 +7343,7 @@ export const capabilityPackageManager = {
    *  paths its manifest declares, each declared as an asset, hash-pinned in `files[]` and re-verified
    *  against the install-time hash. Null when the package is not installed, not ready, or ships no map
    *  pack; throws (with the reason) when one is declared but cannot be read as installed. */
-  /** An Experience's GM setup values (1.381), as its manifest declares them; null when it sets none or is
+  /** An Experience's GM setup values (1.372), as its manifest declares them; null when it sets none or is
    *  not ready. */
   async experienceSetupDefaults(packageId: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
@@ -7360,17 +7360,17 @@ export const capabilityPackageManager = {
     /** The tiles file's pinned hash, and the Capability API the package declares (image tiles need 1.80, a story intro 1.339). */
     tilesSha256: string | null;
     capabilityApi: { major: number; minor: number } | null;
-    /** Its creature packs (1.352), with their pinned hashes. */
+    /** Its creature packs (1.344), with their pinned hashes. */
     creatures: Array<{ path: string; data: Buffer; sha256: string }>;
-    /** Its music (1.353), as declared: the tracks are served as assets, never read here. */
+    /** Its music (1.345), as declared: the tracks are served as assets, never read here. */
     music: ExperienceMusic | null;
-    /** Its people file (1.354), with its pinned hash. */
+    /** Its people file (1.346), with its pinned hash. */
     people: { path: string; data: Buffer; sha256: string } | null;
     /** The package's declared asset paths, for the files its people name. */
     assets: string[];
-    /** Its ruleset overlays (1.363), with their pinned hashes. */
+    /** Its ruleset overlays (1.355), with their pinned hashes. */
     rulesets: Array<{ ruleset: string; path: string; data: Buffer; sha256: string }>;
-    /** Its image packs for maps made by hand (1.365), with their pinned hashes. */
+    /** Its image packs for maps made by hand (1.357), with their pinned hashes. */
     dungeons: Array<{ path: string; data: Buffer; sha256: string }>;
   } | null> {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
@@ -7796,7 +7796,7 @@ export const capabilityPackageManager = {
     if (removed.length > 0) logger.info("Removed old capability package versions: %s", removed.join(", "));
   },
 
-  /** Imports an Experience file (1.382) the user reviewed, read as it streams in. */
+  /** Imports an Experience file (1.373) the user reviewed, read as it streams in. */
   async installExperienceFile(
     source: AsyncIterable<Uint8Array>,
     options?: Parameters<typeof installExperienceFile>[1],

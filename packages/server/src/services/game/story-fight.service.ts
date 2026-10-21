@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// A story's set-piece fight (Capability API 1.351): the fight the latest reply's story started, who is
+// A story's set-piece fight (Capability API 1.343): the fight the latest reply's story started, who is
 // fought in it as the game's ruleset names them, and the board it is fought on.
 // ──────────────────────────────────────────────
 import {
@@ -27,7 +27,7 @@ import { loadRulesetCatalogEntries } from "./ruleset-catalog.service.js";
 import { gameNoncombatants, gamePartySize } from "./experience-companions.service.js";
 
 /** The fight the Game Master's latest reply started for the story, or null: in its variant for the
- *  party's size (1.364). */
+ *  party's size (1.356). */
 export async function latestStoryFight(
   db: DB,
   chatId: string,
@@ -47,8 +47,8 @@ export async function latestStoryFight(
   }
 }
 
-/** Whether death is held where the party is (1.374), as the story last recorded it: the Held Ground
- *  (1.318) a ruleset fight started now is fought on. Null when it is not, or the game has no story. */
+/** Whether death is held where the party is (1.366), as the story last recorded it: the Held Ground
+ *  (1.323) a ruleset fight started now is fought on. Null when it is not, or the game has no story. */
 export async function latestStoryHeldGround(
   db: DB,
   chatId: string,
@@ -66,8 +66,8 @@ export async function latestStoryHeldGround(
   }
 }
 
-/** How the story fight the latest reply started adjusts its opponents (1.371), by their names in the fight
- *  (case aside), as a party this high meets them (1.379): what a ruleset fight builds each of them with.
+/** How the story fight the latest reply started adjusts its opponents (1.363), by their names in the fight
+ *  (case aside), as a party this high meets them (1.371): what a ruleset fight builds each of them with.
  *  Empty when there is none. */
 export async function latestStoryFightAdjusts(
   db: DB,

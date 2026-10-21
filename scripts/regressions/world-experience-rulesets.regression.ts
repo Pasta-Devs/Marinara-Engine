@@ -1,5 +1,5 @@
 /**
- * An Experience's ruleset overlays (Capability API 1.363).
+ * An Experience's ruleset overlays (Capability API 1.355).
  *
  *   - A map pack names, per ruleset id, a `.overlay.json` file: bestiary creatures, combat conditions, the
  *     sheet conditions they hold, creature tags and entries for the ruleset's other catalogs.
@@ -93,7 +93,7 @@ refused(
 );
 refused({ tracks: [{ id: "owing", label: "Owing" }] }, /./);
 
-// ── Sheet tracks (1.375): a mark of Owing, declared by the overlay and played as the ruleset's own ──
+// ── Sheet tracks (1.367): a mark of Owing, declared by the overlay and played as the ruleset's own ──
 {
   const owingOverlay = readExperienceRulesetOverlay(
     JSON.stringify({ ...overlayInput, tracks: [{ id: "owing", label: "Owing", min: 0, max: 20, default: 0 }] }),
@@ -214,7 +214,7 @@ assert.ok(
 assert.ok(!bob.sheet.live.conditions.some((each) => each.id === "owed_frost_held"));
 
 // ── The manifest names them ──
-const manifest = (rulesets: unknown, minor = 363) =>
+const manifest = (rulesets: unknown, minor = 355) =>
   capabilityPackageManifestSchema.safeParse({
     schemaVersion: 2,
     capabilityApi: { major: 1, minor },
@@ -241,7 +241,7 @@ const manifest = (rulesets: unknown, minor = 363) =>
   });
 const ok = manifest([{ ruleset: "5e-2014", overlay: "rules/5e.overlay.json" }]);
 assert.ok(ok.success, JSON.stringify(!ok.success && ok.error.issues));
-assert.ok(!manifest([{ ruleset: "5e-2014", overlay: "rules/5e.overlay.json" }], 362).success, "needs 1.363");
+assert.ok(!manifest([{ ruleset: "5e-2014", overlay: "rules/5e.overlay.json" }], 354).success, "needs 1.355");
 assert.ok(
   !manifest([
     { ruleset: "5e-2014", overlay: "rules/5e.overlay.json" },

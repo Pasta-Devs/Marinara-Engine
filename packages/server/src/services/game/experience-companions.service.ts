@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// An Experience's companions (Capability API 1.355): people of its worlds the party can take in. One that
+// An Experience's companions (Capability API 1.347): people of its worlds the party can take in. One that
 // joins plays by their sheet for the game's ruleset, the build for the highest level the party has reached,
 // and keeps up with the party as it rises.
 // ──────────────────────────────────────────────
@@ -33,14 +33,14 @@ export function storyPartyNames(meta: Record<string, unknown>): string[] {
   return npcs.flatMap((npc) => (typeof npc.name === "string" && ids.has(buildPartyNpcId(npc.name)) ? [npc.name] : []));
 }
 
-/** How many the party is (1.364): the player and every character travelling with it, library
- *  characters and companions alike, but for the companions who never fight (1.368), by party id. */
+/** How many the party is (1.356): the player and every character travelling with it, library
+ *  characters and companions alike, but for the companions who never fight (1.360), by party id. */
 export function gamePartySize(meta: Record<string, unknown>, noncombatants?: ReadonlySet<string>): number {
   const ids = Array.isArray(meta.gamePartyCharacterIds) ? (meta.gamePartyCharacterIds as unknown[]) : [];
   return 1 + new Set(ids.filter((id): id is string => typeof id === "string" && !noncombatants?.has(id))).size;
 }
 
-/** The party ids of the game's Experience companions who never fight (1.368): they travel with the party
+/** The party ids of the game's Experience companions who never fight (1.360): they travel with the party
  *  but are not counted in its size or put in its fights. */
 export async function gameNoncombatants(db: DB, chatId: string, meta: Record<string, unknown>): Promise<Set<string>> {
   const companions = await gameCompanions(db, chatId, meta).catch(() => null);
@@ -97,7 +97,7 @@ export function companionPartyLevel(
   return highest;
 }
 
-/** The party's level as an Experience counts it (1.379): the highest level any of the party's own has
+/** The party's level as an Experience counts it (1.371): the highest level any of the party's own has
  *  reached, read off the level fields its companion sheets name for this ruleset. Null when the game's
  *  Experience has no companion sheet for the ruleset to say which fields those are. */
 export async function gamePartyLevel(
@@ -141,7 +141,7 @@ export function companionNames(companions: GameCompanions): Set<string> {
 }
 
 /**
- * Brings each companion travelling with the party up to the party's level (1.355): when the party has
+ * Brings each companion travelling with the party up to the party's level (1.347): when the party has
  * reached a level the companion has a higher build for, their sheet becomes it. Their live state (health,
  * pools, conditions) is kept apart from the build and stays. A sheet the player has raised past the
  * build is left alone, and nothing ever lowers one.

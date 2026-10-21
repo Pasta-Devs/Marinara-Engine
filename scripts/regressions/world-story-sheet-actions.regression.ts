@@ -1,5 +1,5 @@
 /**
- * A story's sheet action (Capability API 1.376): Rime Edge's cold that no rest heals.
+ * A story's sheet action (Capability API 1.368): Rime Edge's cold that no rest heals.
  *
  *   - `{ "sheet": { "condition": "<id>", "state": "on" | "off" } }` puts a sheet condition on each of the
  *     party or takes it off; `{ "sheet": { "track": "<id>", "by": n, "upTo"?: m } }` moves a track.
@@ -67,7 +67,7 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 376);
+assert.equal(storyCapabilityMinor(story), 368);
 assert.ok(
   !checkStoryScript(game, {
     ...input,

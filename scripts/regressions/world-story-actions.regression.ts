@@ -1,5 +1,5 @@
 /**
- * Story clocks and story actions (Capability API 1.350 and 1.351).
+ * Story clocks and story actions (Capability API 1.342 and 1.343).
  *
  *   - A number flag can be a clock: the player sees it fill, a hidden one only once shown, and the Game
  *     Master is told once when it fills, by its own tag or a trip.
@@ -280,7 +280,7 @@ assert.deepEqual(
   ["reeve"],
 );
 
-// ── A give by bare entry id, or by alternatives (1.378): one script for two rulesets ──
+// ── A give by bare entry id, or by alternatives (1.370): one script for two rulesets ──
 {
   const twoRulesets = checkStoryScript(game, {
     ...input,
@@ -298,7 +298,7 @@ assert.deepEqual(
     ],
   });
   assert.ok(twoRulesets.ok, JSON.stringify(twoRulesets));
-  assert.equal(storyCapabilityMinor(twoRulesets.story), 378);
+  assert.equal(storyCapabilityMinor(twoRulesets.story), 370);
   // The kenhito-dnd5e book: the hymnal is in its equipment, and a bare id finds it there.
   const offered: Record<string, string> = {
     "equipment/fennicks-hymnal": "Fennick's Hymnal",

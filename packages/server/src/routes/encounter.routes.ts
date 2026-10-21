@@ -979,7 +979,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameWorldBattlefields(chatMeta),
         gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
       );
-      // A fight the story set (Capability API 1.351): its opponents are the story's, never the model's.
+      // A fight the story set (Capability API 1.343): its opponents are the story's, never the model's.
       const storyFight = await latestStoryFight(app.db, chatId, chatMeta);
       const storyOpponents = storyFight
         ? await storyFightOpponents(storyFight, fightRuleset?.definition.combat ? fightRuleset : null)

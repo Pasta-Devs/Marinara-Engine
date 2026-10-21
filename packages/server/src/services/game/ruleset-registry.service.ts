@@ -51,7 +51,7 @@ export type RegisteredRuleset = {
   versions?: ReadonlyMap<number, RulesetDefinition>;
 };
 export type RulesetRegistry = ReadonlyMap<string, RegisteredRuleset> & {
-  /** The installed Experiences' ruleset overlays (1.363), by `<package id>\n<ruleset id>`. */
+  /** The installed Experiences' ruleset overlays (1.355), by `<package id>\n<ruleset id>`. */
   overlays?: ReadonlyMap<string, { overlay: ExperienceRulesetOverlay; sha256: string }>;
 };
 
@@ -65,7 +65,7 @@ const keep = <T>(cache: Map<string, T>, key: string, value: T) => {
   return value;
 };
 
-/** The game's Experience's overlay for its ruleset, merged in (1.363); the ruleset as it was when the
+/** The game's Experience's overlay for its ruleset, merged in (1.355); the ruleset as it was when the
  *  game has none, or when the overlay does not fit it (said once). */
 function withExperienceOverlay(
   metadata: Record<string, unknown>,

@@ -1,17 +1,17 @@
 /**
- * An Experience's people and companions (Capability API 1.354, 1.355), with its music (1.353).
+ * An Experience's people and companions (Capability API 1.346, 1.347), with its music (1.345).
  *
- *   - A map pack may ship a `.people.json` file (1.354): named people of its worlds with a portrait,
+ *   - A map pack may ship a `.people.json` file (1.346): named people of its worlds with a portrait,
  *     expressions, a walking look from its tiles, a description, a voice and lore. It is read strictly:
  *     each person is a named person of one of its worlds, each picture one of its assets, each walking look
  *     one of its tiles' characters.
  *   - A game of the Experience gets a lorebook of its people, active from the first turn; a person the game
  *     meets comes with their portrait.
- *   - A person may be a companion (1.355): a build per level for each ruleset. The story recruits and
+ *   - A person may be a companion (1.347): a build per level for each ruleset. The story recruits and
  *     dismisses them, the Game Master may take only them in, and one who joins plays by the build for the
  *     party's highest level, rising with the party and never lowered.
- *   - Its creature packs (1.352): read with the pack, for its fights' art.
- *   - Its music (1.353): a place's track, else the nearest place's above it, else the default; a story cue
+ *   - Its creature packs (1.344): read with the pack, for its fights' art.
+ *   - Its music (1.345): a place's track, else the nearest place's above it, else the default; a story cue
  *     wins while it holds.
  */
 import assert from "node:assert/strict";
@@ -208,7 +208,7 @@ assert.ok(told.includes(`- ${healer.name} (at Thrushwick): Healing`), told);
 assert.ok(!told.includes(elder.name), "only companions");
 assert.ok(experienceCompanionsPromptText(game, people.people, [healer.name]).includes("travelling with the party"));
 
-// ── The story recruits and dismisses them (1.355) ──
+// ── The story recruits and dismisses them (1.347) ──
 const storyInput: StoryScriptInput = {
   storyVersion: 1,
   events: [
@@ -219,7 +219,7 @@ const storyInput: StoryScriptInput = {
 const parsedStory = checkStoryScript(game, storyInput);
 assert.ok(parsedStory.ok, JSON.stringify(parsedStory));
 const story = parsedStory.story;
-assert.equal(storyCapabilityMinor(story), 355);
+assert.equal(storyCapabilityMinor(story), 347);
 const nobody = checkStoryScript(game, {
   storyVersion: 1,
   events: [{ id: "x", when: { on: "start" }, do: [{ recruit: "zz-9" }] }],
@@ -244,7 +244,7 @@ assert.ok(
 const second = turn([`${first.prepend}They set out.`]);
 assert.ok(second.prepend.includes(`[party_change: character="${healer.name}" change="remove"]`), second.prepend);
 
-// ── Its music (1.353) ──
+// ── Its music (1.345) ──
 const music = {
   tracks: [
     { id: "valley", path: "music/valley.ogg" },
@@ -266,7 +266,7 @@ function install(
   id: string,
   contents: Record<string, string>,
   mapPack: Record<string, unknown>,
-  minor = 355,
+  minor = 347,
   extraAssets: string[] = [],
 ) {
   const root = join(dataDir, "capability-packages", "versions", id, "1.0.0");
@@ -394,7 +394,7 @@ const strayStory = checkStoryScript(game, {
 assert.ok(strayStory.ok);
 const installed = [
   install("peoplefix", contents(), pack),
-  install("oldpeople", contents(), pack, 354),
+  install("oldpeople", contents(), pack, 346),
   install(
     "oldpeoplenocompanions",
     contents({
@@ -402,7 +402,7 @@ const installed = [
       "valley.world.json": text(worldFile("Valley", kit, stored)),
     }),
     pack,
-    354,
+    346,
   ),
   install("nobody", contents(peopleOf({ ...peopleFile, people: [{ person: `${thrushwick.id}-999` }] })), pack),
   install(
@@ -445,15 +445,15 @@ const { createChatsStorage } = await import("../../packages/server/src/services/
 const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
 
 try {
-  // ── The manifest: people need 1.354 ──
+  // ── The manifest: people need 1.346 ──
   const manifest = installed[0]!.manifest;
   assert.ok(
     capabilityPackageManifestSchema.safeParse(manifest).success,
     JSON.stringify(capabilityPackageManifestSchema.safeParse(manifest).error?.issues),
   );
-  const older = capabilityPackageManifestSchema.safeParse({ ...manifest, capabilityApi: { major: 1, minor: 353 } });
+  const older = capabilityPackageManifestSchema.safeParse({ ...manifest, capabilityApi: { major: 1, minor: 345 } });
   assert.ok(
-    !older.success && older.error.issues.some((issue) => /people require capabilityApi 1\.354/.test(issue.message)),
+    !older.success && older.error.issues.some((issue) => /people require capabilityApi 1\.346/.test(issue.message)),
   );
 
   // ── Read whole ──
@@ -476,15 +476,15 @@ try {
     const result = await readMapPack(id);
     assert.ok(result && !result.ok && reason.test(result.reason), `${id}: ${JSON.stringify(result)}`);
   };
-  await why("oldpeople", /needs? capabilityApi 1\.355/);
+  await why("oldpeople", /needs? capabilityApi 1\.347/);
   const older354 = await readMapPack("oldpeoplenocompanions");
-  assert.ok(older354?.ok, `people without companions read at 1.354: ${JSON.stringify(older354)}`);
+  assert.ok(older354?.ok, `people without companions read at 1.346: ${JSON.stringify(older354)}`);
   await why("nobody", /none of its worlds has by name/);
   await why("undeclared", /people\/missing\.png is not one of its assets/);
   await why("nosprite", /no character for/);
   await why("notacompanion", /is not one of its companions/);
 
-  // ── Checked before export (1.358), as an installed pack is read ──
+  // ── Checked before export (1.350), as an installed pack is read ──
   {
     const checkApp = Fastify();
     checkApp.decorate("db", await getDB());
@@ -502,7 +502,7 @@ try {
       checkApp.inject({ method: "POST", url: "/api/game/experience/check", payload: payload as object });
     const good = await check({ mapPack: pack, files: json, assets });
     assert.equal(good.statusCode, 200, good.body);
-    assert.deepEqual(good.json(), { ok: true, minor: 355, issues: [] });
+    assert.deepEqual(good.json(), { ok: true, minor: 347, issues: [] });
     const noPicture = await check({
       mapPack: pack,
       files: json,

@@ -173,7 +173,7 @@ export type OverworldTileDrawer = ((
   ) => boolean;
   /** Whether the pack has edge tiles for a terrain (water, road, street, square). */
   hasEdges: (terrain: WorldEdgeTerrain) => boolean;
-  /** Draws what follows in a season of its own (a place the story holds at one, Capability API 1.359)
+  /** Draws what follows in a season of its own (a place the story holds at one, Capability API 1.351)
    *  instead of the drawer's; undefined goes back to the drawer's. */
   setCellSeason: (season: WorldSeason | undefined) => void;
   /** Whether the pack has a fringe for a ground look (or for the look it stands in for). */
@@ -209,7 +209,7 @@ export type OverworldTileDrawer = ((
   ) => boolean;
 };
 
-/** The walking look an Experience gives its own people (Capability API 1.354): a character of its map
+/** The walking look an Experience gives its own people (Capability API 1.346): a character of its map
  *  pack's tiles, by person id. Provided by the game; empty everywhere else. */
 export const ExperiencePeopleSpritesContext = createContext<ReadonlyMap<string, string>>(new Map());
 

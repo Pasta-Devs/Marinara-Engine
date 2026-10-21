@@ -7004,7 +7004,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // An Experience's map pack (worldgen W9e) locks the game to its kit, and to one of its worlds when
     // it ships any; a pack that does not read keeps the Experience from starting a game, with the reason.
     let mapPack: MapPack | null = null;
-    // The Experience's own intro (1.381), kept with the game as it was when the game began, so its lock
+    // The Experience's own intro (1.372), kept with the game as it was when the game began, so its lock
     // holds whatever the package does later.
     let experienceIntro: GameIntro | null = null;
     const experienceId = parsedCreateGameInput.setupConfig.gameExperienceId;
@@ -7132,7 +7132,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     else if (gameWorld && setupConfig.worldKit) {
       await saveGameWorldSnapshot(app.db, sessionChat.id, { gameWorld, gameWorldKit: setupConfig.worldKit });
     }
-    // The Experience's people (1.354): what is known of them, as a lorebook of this game's own that is
+    // The Experience's people (1.346): what is known of them, as a lorebook of this game's own that is
     // active from the first turn. Only the people this world has; their names bring them in.
     let peopleLorebookId: string | null = null;
     const peopleWorld =
@@ -7212,7 +7212,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // Classic or Overworld, likewise fixed; a setup made before the choice stores none (see
       // `gameStyleFromMetadata`).
       ...(setupConfig.gameStyle ? { gameStyle: setupConfig.gameStyle } : {}),
-      // The Experience's own intro message (1.381), which a locked one keeps over the setup's.
+      // The Experience's own intro message (1.372), which a locked one keeps over the setup's.
       ...(experienceIntro ? { gameExperienceIntro: experienceIntro } : {}),
       // Likewise fixed for the game's lifetime. Written only when a ruleset was chosen, so a game
       // on Marinara's own rules carries exactly the metadata it always has.
@@ -9685,7 +9685,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     } catch {
       chatCharacterIds = [];
     }
-    // An Experience's companions (1.355): one the party takes in joins with their sheet. While the
+    // An Experience's companions (1.347): one the party takes in joins with their sheet. While the
     // Experience has companions, only they (and the player's own library characters) may join.
     const companions = await gameCompanions(app.db, chat.id, meta);
     const pinnedRuleset = meta.gameRuleset != null ? resolveGameRuleset(meta, await loadRulesetRegistry()) : null;
@@ -9712,7 +9712,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const cardInParty = partyCards.find((candidate) => candidate.lookup === requestedLookup);
     let matches: typeof sameNameCards;
     // Someone of this name already in the party stays the only one, even when a stale choice is answered.
-    // An Experience's companion (1.355) joins as themselves, never as a library card.
+    // An Experience's companion (1.347) joins as themselves, never as a library card.
     if (companion) {
       matches = [];
     } else if (cardInParty) {
@@ -9758,7 +9758,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       throw new Error(`${requestedName} is not one of this Experience's companions, so cannot join the party.`);
     }
 
-    let npcRecruit = matches.length === 0 ? (companion ? findGameNpcByName(gameNpcs, companion.name) : trackedNpc) : null;
+    let npcRecruit =
+      matches.length === 0 ? (companion ? findGameNpcByName(gameNpcs, companion.name) : trackedNpc) : null;
     const companionPerson = companion && !npcRecruit ? storyPerson(companions!.world, companion.person) : undefined;
     const fallbackTrackedNpc =
       matches.length === 0 && !npcRecruit
@@ -9797,7 +9798,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const recruitRpgStats = recruit ? extractRecruitCharacterRpgStats(recruit.data) : undefined;
     // In a game on a ruleset a recruit joins the way the party did at setup: with a copy of the
     // library card's starting build, or a blank sheet (an NPC has no library card to copy from).
-    // A companion joins with their own build for the party's level (1.355).
+    // A companion joins with their own build for the party's level (1.347).
     const recruitRulesetSheet =
       pinnedRuleset?.status === "ok" && companion?.sheet
         ? companionSheetEnvelope(
@@ -9806,11 +9807,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             companionPartyLevel(pinnedRuleset.definition, currentCards, companion.sheet, companionNames(companions!)),
           )
         : pinnedRuleset?.status === "ok"
-        ? copyRulesetSheetForGame(
-            pinnedRuleset.definition,
-            recruit?.data.extensions?.rulesetSheets?.[pinnedRuleset.definition.id],
-          )
-        : undefined;
+          ? copyRulesetSheetForGame(
+              pinnedRuleset.definition,
+              recruit?.data.extensions?.rulesetSheets?.[pinnedRuleset.definition.id],
+            )
+          : undefined;
     const recruitSourceCard = recruit
       ? buildRecruitCharacterSourceCard(recruit.data)
       : buildNpcRecruitCharacterSourceCard(npcRecruit!);
@@ -11201,7 +11202,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { time: newTime, formatted: formatGameTime(newTime) };
   });
 
-  /** The season where the party is, in a game with a world (1.359): held by its story, else the day's. */
+  /** The season where the party is, in a game with a world (1.351): held by its story, else the day's. */
   const gameSeasonHere = async (chatId: string, mode: string, meta: Record<string, unknown>) => {
     const world = mode === "game" ? await loadGameWorld(app.db, chatId, meta) : null;
     if (!world) return null;
@@ -11225,7 +11226,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     if (!chat) throw new Error("Chat not found");
 
     const meta = parseMeta(chat.metadata);
-    // A game with a world has its own season where the party is: the one the story holds it at (1.359),
+    // A game with a world has its own season where the party is: the one the story holds it at (1.351),
     // else the day's. Without one, the season sent.
     const season = (await gameSeasonHere(chat.id, chat.mode, meta)) ?? schema.parse(req.body).season;
 
@@ -11414,7 +11415,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const story = gameStoryFromMetadata(meta, world);
     const storyNow = story ? storyState(story, readStoryLedger(replies.all)) : null;
     const clocks = story && storyNow ? storyClocks(story, storyNow) : [];
-    // The Experience's own track for here (1.353): the story's cue, else the place's, else its default.
+    // The Experience's own track for here (1.345): the story's cue, else the place's, else its default.
     const packId = (meta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
     const packMusic = typeof packId === "string" ? await capabilityPackageManager.mapPackMusic(packId) : null;
     const walking = worldWalkFromMetadata(meta);
@@ -11449,7 +11450,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // Reveals from every session (carried ones first), not only this one's.
     const story = gameStoryFromMetadata(meta, world);
     const locks = worldSiteLocks(world, story, replies.all);
-    // The places the story holds at a season whatever the day (1.359).
+    // The places the story holds at a season whatever the day (1.351).
     const seasons = story
       ? storyPlaceSeasons(story, storyState(story, readStoryLedger(replies.all)).seasons, world)
       : {};
@@ -11931,7 +11932,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { kit: read.kit, notes: read.notes };
   });
 
-  // POST /game/experience/check (Capability API 1.358): a whole map pack an author is about to export,
+  // POST /game/experience/check (Capability API 1.350): a whole map pack an author is about to export,
   // checked as an installed one is read, without installing it.
   app.post("/experience/check", { bodyLimit: 128 * 1024 * 1024 }, async (req, reply) => {
     const body = req.body as Partial<MapPackCheckInput> | null;
@@ -12227,7 +12228,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         // Only when the story keeps a site closed: an overworld without any reads as it always did.
         ...(Object.keys(locked).length ? { locked } : {}),
         ...(hidden.size ? { hidden: [...hidden] } : {}),
-        // Only when the story holds a place at a season (1.359).
+        // Only when the story holds a place at a season (1.351).
         ...(Object.keys(seasons).length ? { seasons } : {}),
       },
     };

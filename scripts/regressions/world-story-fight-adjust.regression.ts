@@ -1,5 +1,5 @@
 /**
- * A story fight's creatures adjusted for that fight (Capability API 1.371).
+ * A story fight's creatures adjusted for that fight (Capability API 1.363).
  *
  *   - A fight's (or a variant's) creature entry may carry `adjust`: its Legendary Resistance and its health
  *     (`maxHp`), in place of its stat block's, so a boss scales by party size without a creature of its own.
@@ -66,7 +66,7 @@ const input: StoryScriptInput = {
 };
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
-assert.equal(storyCapabilityMinor(read.story), 371);
+assert.equal(storyCapabilityMinor(read.story), 363);
 assert.ok(
   !checkStoryScript(game, {
     ...input,
@@ -124,7 +124,7 @@ assert.equal(build({ legendaryResistance: 0 }).combatant.block?.legendaryResista
 // The bestiary's own entry is untouched.
 assert.equal(bestiaryCatalog.entries![0]!.creature?.legendaryResistance, undefined);
 
-// ── Whom an action calls, from a party level up (1.379): the Shelves Lean calls a wraith from level 8 ──
+// ── Whom an action calls, from a party level up (1.371): the Shelves Lean calls a wraith from level 8 ──
 {
   const leveled = checkStoryScript(game, {
     ...input,
@@ -149,7 +149,7 @@ assert.equal(bestiaryCatalog.entries![0]!.creature?.legendaryResistance, undefin
     ],
   });
   assert.ok(leveled.ok, JSON.stringify(leveled));
-  assert.equal(storyCapabilityMinor(leveled.story), 379);
+  assert.equal(storyCapabilityMinor(leveled.story), 371);
   const adjust = leveled.story.fights[0]!.creatures[0]!.adjust!;
   assert.deepEqual(storyFightAdjustAt(adjust, 3), { maxHp: 90 });
   assert.deepEqual(storyFightAdjustAt(adjust, null), { maxHp: 90 }, "a level not known: the creature's own");

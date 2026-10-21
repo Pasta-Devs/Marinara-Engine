@@ -1,5 +1,5 @@
 /**
- * Item uses that cost a story number (Capability API 1.367).
+ * Item uses that cost a story number (Capability API 1.359).
  *
  *   - An Experience's ruleset overlay names items (`storyUses`: `catalog/entry`, a story number flag, what
  *     a use adds to it, and `atLeast`). Each is an item of one of the merged ruleset's catalogs, once.

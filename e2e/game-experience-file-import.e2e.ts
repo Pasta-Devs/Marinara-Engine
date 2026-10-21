@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { EXPERIENCE_FILE_CONTENT_TYPE, experienceFileParts } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
 
-// Experience files (Capability API 1.382): the Game wizard reads a file's manifest from its start, shows
+// Experience files (Capability API 1.373): the Game wizard reads a file's manifest from its start, shows
 // how big the import is and what it is made of, and sends the file only when the player chooses Import.
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -23,7 +23,7 @@ const manifest = {
   name: "The Held Autumn (file)",
   version: "1.0.0",
   description: "A harvest that will not end.",
-  capabilityApi: { major: 1, minor: 382 },
+  capabilityApi: { major: 1, minor: 373 },
   builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
   engine: { min: "2.3.0", maxExclusive: "4.0.0" },
   kind: ["experience"],
@@ -51,7 +51,9 @@ async function mountWizard(page: Page, testInfo: TestInfo) {
   await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/connections", (route) =>
     route.fulfill({
-      json: [{ id: "wizard-connection", name: "Wizard connection", provider: "custom", model: "fixture", isDefault: true }],
+      json: [
+        { id: "wizard-connection", name: "Wizard connection", provider: "custom", model: "fixture", isDefault: true },
+      ],
     }),
   );
   await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
@@ -115,8 +117,14 @@ test("an Experience file is reviewed before import: its size, what it is made of
   const input = page.getByTestId("experience-file-input");
 
   // Not an Experience file: said so, and nothing is sent.
-  await input.setInputFiles({ name: "held.zip", mimeType: "application/zip", buffer: Buffer.from("PK\u0003\u0004zip") });
-  await expect(wizard.getByText(/^This file cannot be imported as an Experience: This is not an Experience file\./)).toBeVisible();
+  await input.setInputFiles({
+    name: "held.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from("PK\u0003\u0004zip"),
+  });
+  await expect(
+    wizard.getByText(/^This file cannot be imported as an Experience: This is not an Experience file\./),
+  ).toBeVisible();
 
   // The review: read from the file's start, before anything is sent.
   await input.setInputFiles({
@@ -132,9 +140,7 @@ test("an Experience file is reviewed before import: its size, what it is made of
   await expect(dialog.getByTestId("experience-import-size")).toHaveText(mb(experienceFile.length));
   const total = files.reduce((sum, file) => sum + file.data.length, 0);
   const share = (bytes: number) => Math.round((bytes / total) * 100);
-  await expect(dialog.getByTestId("experience-import-image")).toContainText(
-    `${share(300_000)}% (293.0 KB, 1 file)`,
-  );
+  await expect(dialog.getByTestId("experience-import-image")).toContainText(`${share(300_000)}% (293.0 KB, 1 file)`);
   await expect(dialog.getByTestId("experience-import-audio")).toContainText(`${share(660_000)}% (644.5 KB, 2 files)`);
   await expect(dialog.getByTestId("experience-import-data")).toContainText(`${share(files[3]!.data.length)}%`);
   await page.screenshot({ path: testInfo.outputPath("experience-file-review.png") });
@@ -155,8 +161,13 @@ test("an Experience file is reviewed before import: its size, what it is made of
   expect(uploads).toHaveLength(1);
   expect(uploads[0]!.contentType).toBe(EXPERIENCE_FILE_CONTENT_TYPE);
   expect(uploads[0]!.body?.equals(experienceFile)).toBe(true);
-  await expect(wizard.getByText("Imported The Held Autumn (file). It is on for this game.", { exact: true })).toBeVisible();
-  await expect(wizard.getByRole("switch", { name: /The Held Autumn \(file\)/ })).toHaveAttribute("aria-checked", "true");
+  await expect(
+    wizard.getByText("Imported The Held Autumn (file). It is on for this game.", { exact: true }),
+  ).toBeVisible();
+  await expect(wizard.getByRole("switch", { name: /The Held Autumn \(file\)/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 });
 
 test("a refused import says why in the review and keeps it open", async ({ page }, testInfo) => {

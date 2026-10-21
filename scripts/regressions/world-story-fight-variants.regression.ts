@@ -1,5 +1,5 @@
 /**
- * Fight variants by party size (Capability API 1.364).
+ * Fight variants by party size (Capability API 1.356).
  *
  *   - A story fight may have variants: the first whose `party` (a size, or `{ min, max }`) holds the
  *     party's size is fought with its own creatures, board and note; any other size fights the fight.
@@ -104,7 +104,7 @@ const game2 = {
 const read = checkStoryScript(game2, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 364);
+assert.equal(storyCapabilityMinor(story), 356);
 
 // ── Refused whole: a size covered twice, or a board not painted ──
 const bad = (fight: object, issue: RegExp) => {
@@ -132,7 +132,7 @@ assert.equal(
     fights: [{ ...granary, variants: [{ party: 33, creatures: granary.creatures }] }],
   }).ok,
   false,
-  "a party is named up to 32 (1.368)",
+  "a party is named up to 32 (1.360)",
 );
 
 // ── Which is fought ──

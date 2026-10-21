@@ -40,7 +40,7 @@ const WALK_LONGEST_MS = 3000;
 const PLAIN = { floor: "#4a443d", wall: "#837767", liquid: "#245a78", prop: "#c9a86a" };
 const centreOf = (cell: Point): Point => ({ x: cell.x * T + T / 2, y: cell.y * T + T / 2 });
 
-/** The set's own tile pack: the Experience's dungeon look by that id (1.365), else the player's library's
+/** The set's own tile pack: the Experience's dungeon look by that id (1.357), else the player's library's
  *  pack by the set's name. */
 function useDungeonPack(set: string | undefined, looks?: readonly TilePack[]): TilePack | null | "loading" {
   const { data: library, isPending } = useTilePackLibrary();
@@ -74,7 +74,7 @@ export function DungeonMapView({
   onLeft: () => void;
   /** The game's hour, for who stands on a hand-made map's spots. */
   hour?: number;
-  /** The Experience's own looks for maps made by hand (1.365), named by a map's pack. */
+  /** The Experience's own looks for maps made by hand (1.357), named by a map's pack. */
   dungeonLooks?: readonly TilePack[];
 }) {
   const { t } = useTranslation();

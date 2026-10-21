@@ -1,5 +1,5 @@
 /**
- * Held seasons (Capability API 1.359), and room for 256 flags (1.361).
+ * Held seasons (Capability API 1.351), and room for 256 flags (1.353).
  *
  *   - A story holds places at a season whatever the date (`seasons`), a place and every place inside it, or
  *     the whole world; the `season` action changes one, or lets it go, during play.
@@ -76,10 +76,10 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 359);
+assert.equal(storyCapabilityMinor(story), 351);
 assert.equal(storyCapabilityMinor({ ...story, seasons: [], events: [] }), 0);
 
-// A story may hold 256 flags (1.361), a number each for a companion's approval and quest.
+// A story may hold 256 flags (1.353), a number each for a companion's approval and quest.
 const many = checkStoryScript(game, {
   ...input,
   seasons: [],
@@ -87,7 +87,7 @@ const many = checkStoryScript(game, {
   flags: Array.from({ length: 256 }, (_, n) => ({ id: `f${n}`, kind: "number" as const, initial: 0 })),
 });
 assert.ok(many.ok, JSON.stringify(many));
-assert.equal(storyCapabilityMinor(many.story), 361);
+assert.equal(storyCapabilityMinor(many.story), 353);
 assert.equal(
   checkStoryScript(game, {
     ...input,

@@ -13,7 +13,7 @@ export type CreaturePackSize = (typeof CREATURE_PACK_SIZES)[number];
 export const CREATURE_FACINGS = Object.freeze(["down", "left", "right", "up"] as const);
 export type CreatureFacing = (typeof CREATURE_FACINGS)[number];
 
-/** The order a flying block's three frames play in, over and over (Capability API 1.360). */
+/** The order a flying block's three frames play in, over and over (Capability API 1.352). */
 export const CREATURE_FLY_STEPS = Object.freeze([0, 1, 2, 1] as const);
 
 export const CREATURE_PACK_MAX = Object.freeze({ creatures: 2000, variants: 8, sheets: 64, span: 6, sheetPx: 8192 });
@@ -27,7 +27,7 @@ const packId = z
 
 export const creaturePackSchema = z
   .object({
-    /** 2 for a pack with flying blocks (Capability API 1.360), so an older Engine refuses it plainly. */
+    /** 2 for a pack with flying blocks (Capability API 1.352), so an older Engine refuses it plainly. */
     creaturePackVersion: z.union([z.literal(1), z.literal(2)]),
     id: packId,
     name: z.string().trim().min(1).max(80),
@@ -84,7 +84,7 @@ export const creaturePackSchema = z
               )
               .min(1)
               .max(CREATURE_PACK_MAX.variants),
-            /** Its flying (Capability API 1.360): a block laid out as a walking one (three frames across,
+            /** Its flying (Capability API 1.352): a block laid out as a walking one (three frames across,
              *  the four facings down), played 0, 1, 2, 1 while it is in the air. One per look, or one for
              *  every look. */
             fly: z

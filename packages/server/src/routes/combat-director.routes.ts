@@ -772,7 +772,7 @@ export async function combatDirectorRoutes(
           setup = meta.gameSetupConfig ?? {};
         if (setup.combatDirector !== true)
           return reply.code(400).send({ error: "Directed combat is not enabled for this game." });
-        // An Experience's companions who never fight (1.368) travel with the party but are not put in its fights.
+        // An Experience's companions who never fight (1.360) travel with the party but are not put in its fights.
         const noncombatants = await gameNoncombatants(app.db, input.chatId, meta);
         if (noncombatants.size) {
           const fighting = input.party.filter((member) => !noncombatants.has(buildPartyNpcId(member.name)));
@@ -898,15 +898,15 @@ export async function combatDirectorRoutes(
           );
           // One read of the visible game state, for both its live sheets and its time of day.
           const liveRow = (await visibleLiveRow(input.chatId)).row;
-          // How the story fight the latest reply started has its opponents (1.371), by their names.
-          // A creature changed from a party level up (1.379) reads the party's level as the Experience counts it.
+          // How the story fight the latest reply started has its opponents (1.363), by their names.
+          // A creature changed from a party level up (1.371) reads the party's level as the Experience counts it.
           const adjusts = await latestStoryFightAdjusts(
             app.db,
             input.chatId,
             meta,
             await gamePartyLevel(app.db, input.chatId, meta, definition),
           );
-          // Whether death is held where it is fought (1.374): the story's Held Ground (1.318).
+          // Whether death is held where it is fought (1.366): the story's Held Ground (1.323).
           const heldGround = await latestStoryHeldGround(app.db, input.chatId, meta);
           const built = createRulesetFight({
             definition,
@@ -981,7 +981,7 @@ export async function combatDirectorRoutes(
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid combat save." });
     }
   });
-  /** Held Ground let go in the step a fight just took (1.377): the story's year turns there and then,
+  /** Held Ground let go in the step a fight just took (1.369): the story's year turns there and then,
    *  as the hymn's last verse is sung or the Year-Wheel breaks, and the felled and the Owing come due
    *  in the same round. The ground let go, for the caller to keep once the step is saved. */
   const letHeldGroundGo = async (
@@ -1093,7 +1093,7 @@ export async function combatDirectorRoutes(
           const truly = uses?.effectOf(usedLine.ownName ?? usedLine.name, usedEffect);
           if (truly && truly !== usedEffect) (used!.action as { truly?: CombatItemEffect }).truly = truly;
         }
-        // An item whose use costs a story number (1.367) is refused while the story cannot pay, and what
+        // An item whose use costs a story number (1.359) is refused while the story cannot pay, and what
         // it spends is kept for the next story turn once the fight has taken it.
         const storyUse =
           ruleset && input.command.type === "ruleset" && state.rulesetFight

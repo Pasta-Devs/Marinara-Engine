@@ -35,7 +35,7 @@ export function NewGameExperienceChooser({
   const open = expanded || Boolean(activeId);
   const activeExperience = experiences.find((experience) => experience.id === activeId);
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);
-  // An Experience file (1.382): reviewed here first, from the start of the file alone; sent only on Import.
+  // An Experience file (1.373): reviewed here first, from the start of the file alone; sent only on Import.
   const fileInput = useRef<HTMLInputElement>(null);
   const importExperienceFile = useImportExperienceFile();
   const [pendingFile, setPendingFile] = useState<{

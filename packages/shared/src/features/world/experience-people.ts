@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// An Experience's people (Capability API 1.354): the named people of its worlds, dressed for play. Each is
+// An Experience's people (Capability API 1.346): the named people of its worlds, dressed for play. Each is
 // a person the world already has (generated and named, or added by hand), given a portrait and expressions
 // for the narration and the journal, a walking look from the map pack's tiles, how they speak and what is
 // known of them as lore. A `.people.json` file of its map pack, read strictly, as its kit and worlds are.
@@ -36,7 +36,7 @@ const rulesetRef = z
   .regex(/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,63}\/)?[a-z0-9]+(?:-[a-z0-9]+)*$/u, "A ruleset is named by its id");
 const sheetFieldId = z.string().min(1).max(80);
 
-/** A companion's sheets for one ruleset (Capability API 1.355): one build per level it is made for. */
+/** A companion's sheets for one ruleset (Capability API 1.347): one build per level it is made for. */
 const companionSheetSchema = z
   .object({
     /** The ruleset's sheet version the builds were written for, so a newer layout migrates them. */
@@ -57,7 +57,7 @@ const companionSchema = z
   .object({
     /** What they bring to a party, for the Game Master (healing, a light in the dark, a scout). */
     role: promptSafeText(200).optional(),
-    /** One who travels with the party but never fights (Capability API 1.368): not counted in the party's
+    /** One who travels with the party but never fights (Capability API 1.360): not counted in the party's
      *  size, and not put in its fights. */
     noncombatant: z.literal(true).optional(),
     /** Their sheets, by the id of each ruleset they can join a game of. */
@@ -84,7 +84,7 @@ export const experiencePersonSchema = z
     voice: promptSafeText(400).optional(),
     /** More of what is known about them, each brought in by its own keys. */
     lore: z.array(loreEntry).max(EXPERIENCE_PEOPLE_MAX.personLore).optional(),
-    /** One the party can take in (Capability API 1.355): the story recruits and dismisses them, and while
+    /** One the party can take in (Capability API 1.347): the story recruits and dismisses them, and while
      *  they travel with the party they play by their sheet for the game's ruleset. */
     companion: companionSchema.optional(),
   })
@@ -190,11 +190,11 @@ export function experiencePeopleLore(
   ];
 }
 
-/** Whether a file has companions, for the Capability API it needs (1.368 with one who never fights,
- *  1.355; 1.354 without). */
+/** Whether a file has companions, for the Capability API it needs (1.360 with one who never fights,
+ *  1.347; 1.346 without). */
 export function experiencePeopleMinor(people: ExperiencePeople): number {
-  if (people.people.some((person) => person.companion?.noncombatant)) return 368;
-  return people.people.some((person) => person.companion) ? 355 : 354;
+  if (people.people.some((person) => person.companion?.noncombatant)) return 360;
+  return people.people.some((person) => person.companion) ? 347 : 346;
 }
 
 /** A sheet's level, as a companion's ruleset counts it: its level fields added up (0 when it has none). */
@@ -233,7 +233,7 @@ export function experienceCompanionNamed(game: GameWorld, people: ExperiencePeop
   );
 }
 
-/** A met person as the game tracks them, dressed by their Experience's people (1.354): their portrait for
+/** A met person as the game tracks them, dressed by their Experience's people (1.346): their portrait for
  *  the journal and the narration, and who they are before what the world drew of them. */
 export function experienceDressedNpc<T extends { description: string; avatarUrl?: string | null; worldId?: string }>(
   npc: T,
@@ -249,7 +249,7 @@ export function experienceDressedNpc<T extends { description: string; avatarUrl?
   };
 }
 
-/** What the Game Master is told of an Experience's companions (1.355): who they are, where, what they
+/** What the Game Master is told of an Experience's companions (1.347): who they are, where, what they
  *  bring, who travels with the party now, and that only they may join it. Empty when it has none. */
 export function experienceCompanionsPromptText(game: GameWorld, people: ExperiencePeople, party: string[]): string {
   const companions = experiencePeopleIn(game, people).filter(({ entry }) => entry.companion);

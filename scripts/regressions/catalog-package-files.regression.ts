@@ -1,4 +1,4 @@
-// The agents catalog serves rulesets (Capability API 1.335) and Experiences (1.382) as one plain JSON file
+// The agents catalog serves rulesets (Capability API 1.374) and Experiences (1.373) as one plain JSON file
 // each, never a package zip: a zip of either is refused before anything is downloaded, and a file is read
 // by the same strict reader a player's import of it uses, held to the manifest the catalog lists.
 import assert from "node:assert/strict";
@@ -48,7 +48,7 @@ function rulesetManifest(edit: Record<string, unknown> = {}) {
     files: rulesetFiles.map((file) => ({ path: file.path, sha256: sha256(file.data), bytes: file.data.length })),
     permissions: [],
     restartRequired: false,
-    capabilityApi: { major: 1, minor: 335 },
+    capabilityApi: { major: 1, minor: 374 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     ...edit,
   });
@@ -113,12 +113,12 @@ const refuse = async (
     "A ruleset zip",
     false,
   );
-  const old = rulesetManifest({ version: "1.1.0", capabilityApi: { major: 1, minor: 334 } });
+  const old = rulesetManifest({ version: "1.1.0", capabilityApi: { major: 1, minor: 373 } });
   const oldBytes = Buffer.from(rulesetFileParts(old, rulesetFiles).join(""));
   await refuse(
     entryFor(old, `${ARTIFACTS}/ember-roads-file-1.1.0.ruleset.json`, oldBytes),
     oldBytes,
-    /needs Capability API 1\.335 or newer/,
+    /needs Capability API 1\.374 or newer/,
     "A ruleset file that older Engines would be offered",
     false,
   );
@@ -181,7 +181,7 @@ const refuse = async (
     name: "Catalog Experience",
     version: "1.0.0",
     description: "",
-    capabilityApi: { major: 1, minor: 382 },
+    capabilityApi: { major: 1, minor: 373 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     engine: { min: "2.3.0", maxExclusive: "4.0.0" },
     kind: ["experience"],

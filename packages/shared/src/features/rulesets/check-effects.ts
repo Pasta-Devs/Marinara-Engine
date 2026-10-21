@@ -238,7 +238,7 @@ export interface RulesetCheckEffects {
 export function rulesetCheckEffects(
   sources: readonly RulesetCheckSource[],
   target: RulesetCheckTarget | null,
-  /** What the save is made against, where the Engine knows (1.372): a modifier narrowed with `against`
+  /** What the save is made against, where the Engine knows (1.364): a modifier narrowed with `against`
    *  applies outside a fight too when it matches. */
   against?: RulesetSaveAgainst,
 ): RulesetCheckEffects {

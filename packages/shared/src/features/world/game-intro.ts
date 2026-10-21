@@ -79,7 +79,7 @@ const setupTags = z
   .refine((values) => values.join(", ").length <= 200, { message: "Too many genres or tones" });
 
 /**
- * An Experience's GM setup values (Capability API 1.381), `contributions.gameSurface.setup.defaults`: what
+ * An Experience's GM setup values (Capability API 1.372), `contributions.gameSurface.setup.defaults`: what
  * picking the Experience in the Game wizard fills in, each value the player may still change. Only the
  * intro locks, and only when its creator says so. Every key is optional.
  */

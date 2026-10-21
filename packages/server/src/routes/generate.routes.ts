@@ -2118,7 +2118,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatMode === "game" && !input.impersonate && !input.continueMessageId
             ? (async () => {
                 const game = await loadGameWorld(app.db, input.chatId, chatMeta);
-                // The Experience's own intro (1.381) first, then its story's (1.380).
+                // The Experience's own intro (1.372) first, then its story's (1.339).
                 const intro = gameIntroFor(
                   readGameIntro(chatMeta.gameExperienceIntro) ??
                     (game ? gameStoryFromMetadata(chatMeta, game)?.intro : undefined),
@@ -2155,14 +2155,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const toldEntries = readToldLedger(told);
                 const present = worldPresent(game, [...before, ...toldEntries]);
                 const own = replies.all.slice(replies.carried?.tags ? 1 : 0);
-                // The ruleset's items the story gives by id (1.351), read only when it gives any.
+                // The ruleset's items the story gives by id (1.343), read only when it gives any.
                 const givesById = storyGivesById(story);
                 const book = givesById
                   ? await loadGameInventoryItemBook(app.db, { chatId: input.chatId }, "game-master")
                   : undefined;
                 const item: StoryItemLabel | undefined = book
                   ? (ref) => {
-                      // A bare entry id (1.378) is the first catalog's entry of that id the game offers.
+                      // A bare entry id (1.370) is the first catalog's entry of that id the game offers.
                       const id = storyIsRef(ref)
                         ? ref
                         : book.entries.find((entry) => entry.item.endsWith(`/${ref}`) && book.offers(entry.item))?.item;
@@ -2177,39 +2177,39 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     })
                   : null;
                 const storyTold = storyTurn(story, {
-                    item,
-                    game,
-                    replies: replies.all,
-                    repliesBefore: (replies.carried?.replies ?? 0) + own.length,
-                    latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
-                    told: toldEntries,
-                    added: present.places,
-                    day: present.day,
-                    fight: storyFightOutcome(replies.player),
-                    broke: storyFightBroken(replies.player),
-                    playerName: personaName,
-                    // Who of the world travels with the party (its tracked people), and what the player
-                    // says, for party conditions and what people know (1.356, 1.357).
-                    party: storyPartyNames(chatMeta),
-                    partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
-                    // What items' uses spent of story numbers in fights (1.367), recorded this turn.
-                    spends: gameStorySpends(chatMeta),
-                    // The game's clock, for what being in a place does over time (1.370).
-                    clock: gameClockMinutes(chatMeta.gameTime),
-                  // A shade carried lit (1.373), for the exposures it keeps off.
+                  item,
+                  game,
+                  replies: replies.all,
+                  repliesBefore: (replies.carried?.replies ?? 0) + own.length,
+                  latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
+                  told: toldEntries,
+                  added: present.places,
+                  day: present.day,
+                  fight: storyFightOutcome(replies.player),
+                  broke: storyFightBroken(replies.player),
+                  playerName: personaName,
+                  // Who of the world travels with the party (its tracked people), and what the player
+                  // says, for party conditions and what people know (1.348, 1.349).
+                  party: storyPartyNames(chatMeta),
+                  partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
+                  // What items' uses spent of story numbers in fights (1.359), recorded this turn.
+                  spends: gameStorySpends(chatMeta),
+                  // The game's clock, for what being in a place does over time (1.362).
+                  clock: gameClockMinutes(chatMeta.gameTime),
+                  // A shade carried lit (1.365), for the exposures it keeps off.
                   shade: storyPartyCarriesShade(exposureSheets),
-                    player: input.userMessage ?? null,
-                    // The cells this turn's walks walked (map events): in town, and on a map made by hand.
-                    steps: [
-                      ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
-                      ...(dungeonWalk?.place
-                        ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
-                        : []),
-                    ],
+                  player: input.userMessage ?? null,
+                  // The cells this turn's walks walked (map events): in town, and on a map made by hand.
+                  steps: [
+                    ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
+                    ...(dungeonWalk?.place
+                      ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
+                      : []),
+                  ],
                 });
-                // The saves its exposures owe (1.372), rolled off the sheets this turn starts from.
+                // The saves its exposures owe (1.364), rolled off the sheets this turn starts from.
                 let turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
-                // Held Ground let go (1.377): a fight that let it go has rolled what came due; one still
+                // Held Ground let go (1.369): a fight that let it go has rolled what came due; one still
                 // unfinished on it lets it go on its next step; otherwise the party's Owing is rolled here.
                 const released = turn.released;
                 if (released) {
@@ -5229,7 +5229,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // What the story says to the Game Master this turn (worldgen W10): its values, the directions in
           // force, the scene just shown, and what it asks now.
           const promptTurnStory = await turnStory();
-          // The Experience's companions (1.355), told with the story.
+          // The Experience's companions (1.347), told with the story.
           const promptPackId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
           const promptPeople =
             promptWorld && typeof promptPackId === "string" ? await readMapPackPeople(promptPackId) : null;
@@ -9695,7 +9695,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               turnSheetContext = sheetContext;
               if (sheetContext) {
-                // What the places the party has been in did to it (1.370), applied with the reply's own.
+                // What the places the party has been in did to it (1.362), applied with the reply's own.
                 const storySheet = fullResponse.trim() ? (await turnStory())?.turn.sheet : "";
                 if (storySheet) {
                   fullResponse = `${storySheet}\n\n${fullResponse}`;
@@ -9941,7 +9941,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // Tracked once the reply is saved (below), so a discarded or stopped reply adds nobody.
             if (named.length > 0) worldNpcsNamed = { world: turnWorld, people: named };
           }
-          // An Experience's companions keep up with the party's level (1.355).
+          // An Experience's companions keep up with the party's level (1.347).
           if (chatMode === "game" && !input.impersonate && chatMeta.gameMapPack && chatMeta.gameRuleset != null) {
             try {
               await syncCompanionSheets(app.db, input.chatId, chatMeta);
@@ -10380,7 +10380,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // The world's people the saved reply named become tracked NPCs (worldgen W2).
           if (worldNpcsNamed && savedMsg?.id && !generationSignal.aborted) {
             const { world: namedWorld, people: named } = worldNpcsNamed;
-            // An Experience's own people (1.354) come dressed: their portrait and who they are.
+            // An Experience's own people (1.346) come dressed: their portrait and who they are.
             const packId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
             const people = typeof packId === "string" ? await readMapPackPeople(packId) : null;
             await chats.patchMetadata(input.chatId, (current) => {

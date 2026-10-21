@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
-// Held Ground let go (Capability API 1.377): the story's held ground stops holding (the Held Autumn's year
+// Held Ground let go (Capability API 1.369): the story's held ground stops holding (the Held Autumn's year
 // turns) and what it held comes due. In a ruleset fight still running on it, the fight director lets it go
-// there and then (1.325), in the very step that let it go: the hymn's last verse sung, the Year-Wheel
+// there and then (1.330), in the very step that let it go: the hymn's last verse sung, the Year-Wheel
 // broken. Out of a fight, each of the party rolls the dying saves their marks of Owing cost, off their own
 // sheet, by the ruleset's own dying rule, as the fight would have. A turn that lets go of ground a fight
 // already let go of rolls nothing twice.
@@ -65,7 +65,7 @@ function pendingRelease(meta: Record<string, unknown>): StoryHeldGroundRelease |
 }
 
 /**
- * Whether a ruleset fight on Held Ground lets it go after the step it just took (1.377): a release the
+ * Whether a ruleset fight on Held Ground lets it go after the step it just took (1.369): a release the
  * story left waiting for it, or what the fight did (the story's numbers its items spent, the props it
  * broke) letting the held ground's conditions go. Null when it still holds, the fight is not on Held
  * Ground, or the game has no story.
@@ -144,9 +144,9 @@ export async function keepHeldGroundPending(db: DB, chatId: string, release: Sto
 const sheetValue = (value: string) => value.replace(/"/g, "'");
 
 /**
- * What comes due as held ground lets go out of a fight (1.377): each of the party with marks on the Owing
+ * What comes due as held ground lets go out of a fight (1.369): each of the party with marks on the Owing
  * track rolls one of the ruleset's dying saves a mark, the bonus added, until the marks run out or the
- * count is decided, exactly as `rulesetReleaseHeldGround` (1.325) rolls them in a fight. The marks are
+ * count is decided, exactly as `rulesetReleaseHeldGround` (1.330) rolls them in a fight. The marks are
  * spent; three failures are death, kept on the sheet as the count full; anybody alive has the count
  * cleared, since they were never dying. What it costs joins the turn's sheet commands, what was rolled
  * its tells. A turn that lets nothing go, or whose release has no Owing, is returned as it is.

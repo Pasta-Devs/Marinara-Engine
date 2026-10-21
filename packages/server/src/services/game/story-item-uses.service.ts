@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Item uses that cost a story number (Capability API 1.367): an Experience's overlay names an item whose
+// Item uses that cost a story number (Capability API 1.359): an Experience's overlay names an item whose
 // use adds to (spends) one of its story's number flags, refused while the flag is below what it needs.
 // A use in a fight is checked here before the fight takes it, and what it spent is kept with the game
 // until the next story turn records it (`StorySpend`).

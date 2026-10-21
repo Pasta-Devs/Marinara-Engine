@@ -1587,7 +1587,7 @@ export function TacticalCombatUI({
                           creature: creature.creature,
                           variant: creatureArtVariant(creature.creature, String(liveState?.seed ?? ""), unit.id),
                           facing: facings.get(unit.id) ?? "down",
-                          // A flier is drawn in its flying art (1.360).
+                          // A flier is drawn in its flying art (1.352).
                           flying: unit.movementMode === "fly",
                         }
                       : undefined

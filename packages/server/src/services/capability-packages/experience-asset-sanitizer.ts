@@ -1,4 +1,4 @@
-// Every file an Experience file brings in (Capability API 1.382) is checked to be what its name says and
+// Every file an Experience file brings in (Capability API 1.373) is checked to be what its name says and
 // stripped of anything that is not the picture, the sound or the data itself. Pictures pass the same
 // signature check character cards do (isAllowedImageBuffer), and then lose their text, EXIF, XMP, ICC
 // and comment chunks and anything after their end. Music loses its tags (ID3, APE, RIFF INFO, Ogg

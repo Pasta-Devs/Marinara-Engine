@@ -98,7 +98,7 @@ export function creatureArtBox(creature: Pick<CreaturePackCreature, "w" | "h">):
 }
 
 /** A frame's top-left pixel on its sheet: the facing's row, the standing frame of a walking block. In the
- *  air (`flying`), the frame `step` of its flying block for its look, when it has one (1.360). */
+ *  air (`flying`), the frame `step` of its flying block for its look, when it has one (1.352). */
 export function creatureArtFrame(
   pack: Pick<CreaturePack, "tileSize">,
   creature: CreaturePackCreature,
@@ -117,7 +117,7 @@ export function creatureArtFrame(
 }
 
 /**
- * Whether a ruleset fighter is shown flying (1.360): it is in the air (its `airborne` flag, 1.362), up
+ * Whether a ruleset fighter is shown flying (1.352): it is in the air (its `airborne` flag, 1.354), up
  * above the ground, or a flier with no walk, which never lands. Art
  * only: never read by the fight's rules.
  */

@@ -45,7 +45,7 @@ export async function openRulesetCatalog(
   registry?: RulesetRegistry,
 ): Promise<OpenedRulesetCatalog> {
   if (catalog.from) return openBorrowedCatalog(definition, catalog, catalog.from, registry);
-  // What the game's Experience adds to it (1.363), after its own.
+  // What the game's Experience adds to it (1.355), after its own.
   const added = experienceOverlayEntries(definition, catalog.id);
   if (catalog.entries)
     return { kind: "inline", entries: added.length ? [...catalog.entries, ...added] : catalog.entries };

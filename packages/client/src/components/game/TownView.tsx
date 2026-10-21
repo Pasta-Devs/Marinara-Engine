@@ -98,7 +98,7 @@ export function TownView({
   const { data: town } = useTown(chatId, turnKey, true);
   const visitMutation = useTownVisit();
   const enterMutation = useDungeonEnter();
-  // In the season the story holds the town at (1.359), else the day's.
+  // In the season the story holds the town at (1.351), else the day's.
   const { data: overworld } = useOverworld(chatId, turnKey, true);
   const held = overworld?.seasons;
   const drawTile = useOverworldAtlas(

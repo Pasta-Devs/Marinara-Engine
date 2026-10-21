@@ -69,7 +69,7 @@ const MAX_CELLS = 96 * 64;
 
 const ref = z.string().max(40);
 const placeId = z.string().min(1).max(16);
-/** A hand map's own words for the Game Master (Capability API 1.365). */
+/** A hand map's own words for the Game Master (Capability API 1.357). */
 export const worldMapWordsSchema = z
   .object({
     floor: promptSafeText(80).optional(),
@@ -254,7 +254,7 @@ export const worldEditsSchema = z
               .max(80)
               .regex(/^[a-z0-9][a-z0-9_/-]*$/, "A pack's id is lowercase letters, digits, _ - and /")
               .optional(),
-            /** Its own words for the Game Master (Capability API 1.365): what its floor, walls and liquid
+            /** Its own words for the Game Master (Capability API 1.357): what its floor, walls and liquid
              *  are, and each prop slot 0..7 (null for a slot left unsaid), so a map drawn from a pack of
              *  its own (a corn maze, a flooded orchard) reads as what it is. */
             words: worldMapWordsSchema.optional(),

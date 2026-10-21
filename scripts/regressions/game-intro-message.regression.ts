@@ -5,7 +5,7 @@
  *   - Guided: the Game Master writes the first message, told the guidance; only on the opening reply.
  *   - An Experience's story may set one; locked, the player's setup cannot change it; unlocked, the
  *     player's own (or `{ mode: "none" }`) wins.
- *   - An Experience package's own GM setup values (1.381), its intro among them, kept with the game as
+ *   - An Experience package's own GM setup values (1.372), its intro among them, kept with the game as
  *     `gameExperienceIntro` and read before its story's.
  */
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ assert.ok(!gameIntroSchema.safeParse({ mode: "guided", text: "{{user}} wakes" })
 assert.ok(!gameIntroSchema.safeParse({ mode: "defined", text: "   " }).success, "nor nothing");
 assert.ok(gameIntroChoiceSchema.safeParse({ mode: "none" }).success);
 assert.equal(readGameIntroChoice({ mode: "sideways" }), null);
-// An Experience's GM setup values (1.381): any of the wizard's fields, the intro the only one that locks.
+// An Experience's GM setup values (1.372): any of the wizard's fields, the intro the only one that locks.
 assert.ok(experienceSetupDefaultsSchema.safeParse({ setting: "Sallowmarch", tone: ["Dark"], rating: "sfw" }).success);
 assert.ok(!experienceSetupDefaultsSchema.safeParse({ genre: ["Fantasy, Horror"] }).success, "one genre each");
 assert.ok(!experienceSetupDefaultsSchema.safeParse({ difficulty: "Nightmare" }).success);
@@ -152,7 +152,7 @@ try {
   assert.equal(prompts.length, 4);
   assert.doesNotMatch(prompts[3]!, /opening message/);
 
-  // An Experience package's own intro (1.381), kept with the game: locked, it wins over the setup's.
+  // An Experience package's own intro (1.372), kept with the game: locked, it wins over the setup's.
   const packaged = await game(
     { mode: "guided", text: "Open somewhere else." },
     { mode: "defined", text: DEFINED, locked: true },

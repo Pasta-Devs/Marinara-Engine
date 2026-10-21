@@ -98,7 +98,7 @@ class GameAudioManager {
   private ambientVolume = 0.35;
   private isMuted = false;
   private currentMusicTag: string | null = null;
-  /** An Experience's own track in force (Capability API 1.353): while it is, the Engine's own choices
+  /** An Experience's own track in force (Capability API 1.345): while it is, the Engine's own choices
    *  are kept aside and come back when it ends. */
   private experienceMusic: { tag: string; url: string } | null = null;
   private asideMusic: { tag: string; manifest?: AssetMap | null } | null = null;
@@ -657,7 +657,7 @@ class GameAudioManager {
   }
 
   /**
-   * Play an Experience's own track over the Engine's music (Capability API 1.353), or end it (null) and
+   * Play an Experience's own track over the Engine's music (Capability API 1.345), or end it (null) and
    * go back to what the Engine last chose. The player's volumes and mute apply to it as to any music.
    */
   setExperienceMusic(track: { tag: string; url: string } | null): void {

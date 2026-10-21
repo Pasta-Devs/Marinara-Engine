@@ -1,11 +1,11 @@
 /**
- * Where death is held (Capability API 1.374): the showcase's valley as a story's region rule.
+ * Where death is held (Capability API 1.366): the showcase's valley as a story's region rule.
  *
  *   - A story's `heldGround` names a place (or the whole world), what it is called, the condition the
  *     felled take and the marks each felled character's tracks take, while its `if` holds.
  *   - The story's turn records the party coming onto it and leaving it (`[story: held=...]`), once each,
  *     and tells the Game Master; every turn it holds, the Game Master is told what it means.
- *   - What it recorded is the Held Ground (1.318) a ruleset fight started there is fought on.
+ *   - What it recorded is the Held Ground (1.323) a ruleset fight started there is fought on.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -76,7 +76,7 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 374);
+assert.equal(storyCapabilityMinor(story), 366);
 assert.ok(!checkStoryScript(game, { ...input, heldGround: [{ id: "x", place: "nowhere" }] }).ok, "a real place");
 assert.ok(
   !checkStoryScript(game, { ...input, heldGround: [input.heldGround![0]!, input.heldGround![0]!] }).ok,
@@ -127,7 +127,7 @@ assert.ok(
 replies.push(`${turned.prepend}Cold.`);
 assert.equal(storyHeldGroundNow(story, storyState(story, readStoryLedger(replies))), null);
 assert.doesNotMatch(storyTurnPromptText(story, turnOf(replies)), /death is held/);
-// Its release (1.377): what letting it go does to a fight still running, the bonus read off the story.
+// Its release (1.369): what letting it go does to a fight still running, the bonus read off the story.
 assert.equal(turned.released?.felled, "die", "the felled die when left out");
 assert.equal(turned.released?.id, "valley");
 assert.equal(later.released, undefined);
@@ -142,7 +142,7 @@ const releasing = checkStoryScript(game, {
   ],
 });
 assert.ok(releasing.ok, JSON.stringify(releasing));
-assert.equal(storyCapabilityMinor(releasing.story), 377);
+assert.equal(storyCapabilityMinor(releasing.story), 369);
 const releasingTurn = (rs: string[]) =>
   storyTurn(releasing.story, {
     game,
@@ -168,7 +168,7 @@ assert.ok(
   "a number flag",
 );
 
-// In a fight still running (1.377): what it did lets go of the held ground there and then.
+// In a fight still running (1.369): what it did lets go of the held ground there and then.
 {
   const finale = checkStoryScript(game, {
     ...input,
@@ -212,7 +212,7 @@ assert.ok(
   );
 }
 
-// ── The Owing out of a fight (1.377): each of the party rolls a dying save a mark, off their own sheet ──
+// ── The Owing out of a fight (1.369): each of the party rolls a dying save a mark, off their own sheet ──
 {
   const fiveE = (() => {
     const doc = JSON.parse(
@@ -221,7 +221,7 @@ assert.ok(
         "utf8",
       ),
     );
-    // What an Experience's overlay adds (1.375): the Owing track.
+    // What an Experience's overlay adds (1.367): the Owing track.
     doc.sheet.live.tracks.push({ id: "owing", label: "Owing", min: 0, max: 10 });
     const parsed = parseRulesetDefinition(doc);
     assert.ok(parsed.ok, parsed.ok ? "" : parsed.issues.join("; "));

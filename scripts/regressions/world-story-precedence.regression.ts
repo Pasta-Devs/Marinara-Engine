@@ -1,5 +1,5 @@
 /**
- * What wins when the story says more than one thing (Capability API 1.369).
+ * What wins when the story says more than one thing (Capability API 1.361).
  *
  *   - A season hold `over` everything inside it (`{ "season": { "to": "winter", "over": true } }`) beats
  *     every season there, the script's own and every other hold; `to: null` with `over` gives them back.
@@ -68,7 +68,7 @@ const seasonsInput: StoryScriptInput = {
 };
 const seasons = checkStoryScript(game, seasonsInput);
 assert.ok(seasons.ok, JSON.stringify(seasons));
-assert.equal(storyCapabilityMinor(seasons.story), 369);
+assert.equal(storyCapabilityMinor(seasons.story), 361);
 const heldAfter = (turns: number) => {
   const replies: string[] = [];
   let state = storyTurn(seasons.story, {

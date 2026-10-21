@@ -193,7 +193,7 @@ export interface RulesetFightOpponent {
   /** How it fights: the same competence and temperament its choices in the fight are made with,
    *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
   tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
-  /** How a story fight has it (1.371): its Legendary Resistance and health, when it is a bestiary's. */
+  /** How a story fight has it (1.363): its Legendary Resistance and health, when it is a bestiary's. */
   adjust?: { legendaryResistance?: number; maxHp?: number; calls?: Array<{ action: string; creature: string }> };
 }
 
@@ -741,7 +741,7 @@ function projectCombatant(
       : {}),
     ...(combatant.altitude !== undefined ? { altitude: combatant.altitude } : {}),
     ...(combatant.span !== undefined ? { span: combatant.span } : {}),
-    // Drawn in its flying art (1.360): never read by the rules.
+    // Drawn in its flying art (1.352): never read by the rules.
     ...(rulesetCombatantFlying(state.board?.grid, combatant) ? { flying: true as const } : {}),
   };
 }

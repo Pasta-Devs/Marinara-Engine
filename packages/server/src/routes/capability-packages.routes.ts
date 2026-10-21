@@ -300,7 +300,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
       }
     },
   );
-  // An Experience file (Capability API 1.382), after the user reviewed it: the body is read as it arrives,
+  // An Experience file (Capability API 1.373), after the user reviewed it: the body is read as it arrives,
   // never buffered, so the file may be any size; the manager checks every byte against the manifest.
   app.addContentTypeParser(EXPERIENCE_FILE_CONTENT_TYPE, (_request, payload, done) => done(null, payload));
   app.post("/experience-file", async (request, reply) => {

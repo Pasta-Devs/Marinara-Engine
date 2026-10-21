@@ -627,7 +627,7 @@ export function GameSetupWizard({
   const [gmMode, setGmMode] = useState<GameGmMode>("standalone");
   // The GM intro message (1.339): null follows the Experience's own.
   const [gameIntro, setGameIntro] = useState<GameIntroChoice | null>(null);
-  // The picked Experience's art style (1.381); a setup file's own art style settings come first.
+  // The picked Experience's art style (1.372); a setup file's own art style settings come first.
   const [experienceArtStylePrompt, setExperienceArtStylePrompt] = useState<string | null>(null);
   const [gmCharacterId, setGmCharacterId] = useState<string | null>(null);
   const [partyCharacterIds, setPartyCharacterIds] = useState<string[]>(() =>
@@ -1734,7 +1734,7 @@ export function GameSetupWizard({
     );
   };
 
-  // Picking an Experience fills in its GM setup values (1.381); the player may still change any of them
+  // Picking an Experience fills in its GM setup values (1.372); the player may still change any of them
   // but a locked intro, which the intro field shows read-only. Turning it off leaves them as they are.
   const selectExperience = (id: string | null) => {
     setExperienceId(id);

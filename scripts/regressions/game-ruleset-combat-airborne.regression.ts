@@ -1,5 +1,5 @@
 /**
- * In the air (Capability API 1.362).
+ * In the air (Capability API 1.354).
  *
  *   - A flier with no walk, or that hovers, starts in the air; one that walks starts on the ground.
  *   - A flier on the ground is offered Take off, one in the air with a walk Land, both free. Nobody

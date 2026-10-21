@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
-// An Experience's ruleset overlays (Capability API 1.363): what its map pack adds to a ruleset while the
+// An Experience's ruleset overlays (Capability API 1.355): what its map pack adds to a ruleset while the
 // Experience is on, for one ruleset each. Bestiary creatures its fights and story name, combat conditions
-// and the sheet conditions they hold, sheet tracks (1.375), creature tags, and entries for any of the ruleset's catalogs (its
+// and the sheet conditions they hold, sheet tracks (1.367), creature tags, and entries for any of the ruleset's catalogs (its
 // items). A `.overlay.json` file of its map pack, read strictly for its shape here and checked against the
 // game's ruleset when it is merged in: an overlay that does not fit is left out whole.
 // ──────────────────────────────────────────────
@@ -30,12 +30,12 @@ export const experienceRulesetOverlaySchema = z
     conditions: objects(EXPERIENCE_OVERLAY_MAX.rules),
     /** The sheet conditions they hold, as the ruleset's `sheet.live.conditions`. */
     sheetConditions: objects(EXPERIENCE_OVERLAY_MAX.rules),
-    /** Sheet tracks (Capability API 1.375), as the ruleset's `sheet.live.tracks`: a mark of Owing that a
+    /** Sheet tracks (Capability API 1.367), as the ruleset's `sheet.live.tracks`: a mark of Owing that a
      *  story's Held Ground or a board's light rule moves, shown on the sheet and moved by sheet commands. */
     tracks: objects(EXPERIENCE_OVERLAY_MAX.rules),
     /** Bestiary entries, for the ruleset's `creatures` catalog. */
     creatures: objects(EXPERIENCE_OVERLAY_MAX.entries),
-    /** Item uses that cost a story number (Capability API 1.367): the item, by `catalog/entry` id, and
+    /** Item uses that cost a story number (Capability API 1.359): the item, by `catalog/entry` id, and
      *  what its use adds to the story's number flag `flag` (`add: -2` spends two), refused while the
      *  flag is below `atLeast`. */
     storyUses: z
@@ -86,11 +86,11 @@ export function readExperienceRulesetOverlay(
  *  the definition rather than in it, because a catalog's own entries may be a file read later. */
 const overlayEntries = new WeakMap<RulesetDefinition, Record<string, RulesetCatalogEntry[]>>();
 
-/** What a use of an item costs in story numbers, by the item's `catalog/entry` id (1.367). */
+/** What a use of an item costs in story numbers, by the item's `catalog/entry` id (1.359). */
 export type ExperienceStoryUse = NonNullable<ExperienceRulesetOverlay["storyUses"]>[number];
 const overlayStoryUses = new WeakMap<RulesetDefinition, ReadonlyMap<string, ExperienceStoryUse>>();
 
-/** The story cost of using this item (1.367), by its `catalog/entry` id, in a ruleset an overlay with
+/** The story cost of using this item (1.359), by its `catalog/entry` id, in a ruleset an overlay with
  *  any was merged into; none otherwise. */
 export function experienceStoryUse(definition: RulesetDefinition, item: string): ExperienceStoryUse | undefined {
   return overlayStoryUses.get(definition)?.get(item);
@@ -116,7 +116,7 @@ function sameIds(base: readonly unknown[], added: readonly unknown[], key: strin
 }
 
 /**
- * A ruleset with an Experience's overlay merged in (1.363): its conditions, sheet conditions and tags
+ * A ruleset with an Experience's overlay merged in (1.355): its conditions, sheet conditions and tags
  * added to the ruleset's own and the whole read again as a ruleset is, and its catalog entries checked
  * against it as a catalog file is. Nothing of an overlay that does not fit is merged.
  */
@@ -167,7 +167,7 @@ export function applyExperienceRulesetOverlay(
     if (twice.length) return { ok: false, issues: twice.map((id) => `${catalog}: "${id}" is taken already.`) };
     catalogs[catalog] = [...(catalogs[catalog] ?? []), ...file.entries];
   }
-  // A story cost is for an item of one of its catalogs, once each (1.367).
+  // A story cost is for an item of one of its catalogs, once each (1.359).
   const uses = new Map<string, ExperienceStoryUse>();
   for (const use of overlay.storyUses ?? []) {
     const catalog = use.item.slice(0, use.item.indexOf("/"));

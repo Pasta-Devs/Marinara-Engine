@@ -1,5 +1,5 @@
 /**
- * Exposure saves and stops (Capability API 1.372): Noonfield's DC 12 Constitution save, up to 3 levels.
+ * Exposure saves and stops (Capability API 1.364): Noonfield's DC 12 Constitution save, up to 3 levels.
  *
  *   - An exposure's `save` is made by each of the party each time it bites, rolled by the Engine off their
  *     own sheet; only those who fail take its tracks and conditions, as their own `[sheet:]` commands.
@@ -7,7 +7,7 @@
  *     `against: { conditions: ["noon_light"] }`) counts outside a fight as it does inside one.
  *   - A track's `upTo` stops the move there (`upto=` on the sheet command): never past it, and never
  *     moving one already beyond it. It works on an exposure without a save as well.
- *   - `sparedByShade` (1.373): a shade carried lit by any of the party (a Lantern of Dusk) keeps it off,
+ *   - `sparedByShade` (1.365): a shade carried lit by any of the party (a Lantern of Dusk) keeps it off,
  *     as its `if` not holding does; a switched item counts only while on.
  */
 import assert from "node:assert/strict";
@@ -84,14 +84,14 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 372);
+assert.equal(storyCapabilityMinor(story), 364);
 const { save: _save, ...noSave } = input.exposures![0]!;
-assert.equal(storyCapabilityMinor(checkStoryScript(game, { ...input, exposures: [noSave] }).story!), 372, "upTo");
+assert.equal(storyCapabilityMinor(checkStoryScript(game, { ...input, exposures: [noSave] }).story!), 364, "upTo");
 assert.equal(
   storyCapabilityMinor(
     checkStoryScript(game, { ...input, exposures: [{ ...noSave, tracks: [{ track: "exhaustion", by: 1 }] }] }).story!,
   ),
-  370,
+  362,
 );
 assert.ok(
   !checkStoryScript(game, {
@@ -230,13 +230,13 @@ assert.deepEqual(
   [{ op: "track", track: "exhaustion", by: 2, upTo: 3 }],
 );
 
-// ── Spared by a shade (1.373) ──
+// ── Spared by a shade (1.365) ──
 const shaded = checkStoryScript(game, {
   ...input,
   exposures: [{ ...input.exposures![0]!, sparedByShade: true }],
 });
 assert.ok(shaded.ok, JSON.stringify(shaded));
-assert.equal(storyCapabilityMinor(shaded.story), 373);
+assert.equal(storyCapabilityMinor(shaded.story), 365);
 const shadeTurn = (replies: string[], clock: number, shade: boolean) =>
   storyTurn(shaded.story, {
     game,

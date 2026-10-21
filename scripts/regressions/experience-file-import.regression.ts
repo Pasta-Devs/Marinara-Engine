@@ -1,4 +1,4 @@
-// Experience files (Capability API 1.382): a data-only Experience as one plain JSON file, read as a stream,
+// Experience files (Capability API 1.373): a data-only Experience as one plain JSON file, read as a stream,
 // reviewed from its start alone, and imported only when every file matches its manifest.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -36,7 +36,7 @@ function experience(
     name: "Held Autumn (test)",
     version: "1.0.0",
     description: "An Experience file fixture.",
-    capabilityApi: { major: 1, minor: 382 },
+    capabilityApi: { major: 1, minor: 373 },
     builtAgainst: { engineVersion: "2.4.6", engineCommit: "0".repeat(40) },
     engine: { min: "2.3.0", maxExclusive: "4.0.0" },
     kind: ["experience"],
@@ -188,7 +188,7 @@ const fileText = (manifest: unknown, parts = files) => experienceFileParts(manif
   refuse({ entrypoints: { client: "client.js" } }, /carries no code/);
   refuse({ permissions: ["ui"] }, /no permissions/);
   refuse({ kind: ["experience", "agent"] }, /nothing else/);
-  refuse({ capabilityApi: { major: 1, minor: 381 } }, /1\.382 or newer/);
+  refuse({ capabilityApi: { major: 1, minor: 372 } }, /1\.373 or newer/);
   refuse(
     { files: [{ path: "client.js", sha256: "0".repeat(64), bytes: 1 }] },
     /client\.js is not a picture, music or data file/,
@@ -502,7 +502,7 @@ const refuseImport = async (text: string, pattern: RegExp, message: string) => {
   const zipped = experience(files, { id: "zipped-experience", name: "Zipped Experience" });
   const drawn = {
     ...experience(files, { id: "drawn-surface", name: "Drawn Surface", kind: ["agent"] }),
-    capabilityApi: { major: 1, minor: 381 },
+    capabilityApi: { major: 1, minor: 372 },
     entrypoints: { client: "client.js" },
     files: [{ path: "client.js", sha256: "0".repeat(64), bytes: 1 }],
     contributions: { slots: ["game-surface"], gameSurface: { surfaceClass: "full" } },

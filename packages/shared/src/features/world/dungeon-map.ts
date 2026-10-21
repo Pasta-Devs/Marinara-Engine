@@ -239,7 +239,7 @@ export interface DungeonMap {
   entrance: { x: number; y: number };
   /** A map made by hand (map editor Phase 3): its props are drawn only and never block a walk. */
   drawnProps?: true;
-  /** A map made by hand's own words for the Game Master (1.365). */
+  /** A map made by hand's own words for the Game Master (1.357). */
   words?: WorldMapWords;
 }
 
@@ -588,13 +588,13 @@ export function dungeonMapWords(map: DungeonMap): string {
   const set = DUNGEON_SETS.find((each) => each.id === map.set) ?? DUNGEON_SETS[0]!;
   if (!map.rooms.length) {
     // A map made by hand has no areas, and its pack's props are its own: what it is, not what stands
-    // there by the set's names (the place's name and the story say that), unless it says so itself (1.365).
+    // there by the set's names (the place's name and the story say that), unless it says so itself (1.357).
     const words = map.words;
     const hasLiquid = map.ground.includes("liquid");
     if (!words) {
       const liquid = hasLiquid ? ", with liquid in it" : "";
-    return `A place made by hand${liquid}. The way out is where the party came in.`;
-  }
+      return `A place made by hand${liquid}. The way out is where the party came in.`;
+    }
     const counts = new Map<number, number>();
     for (const prop of map.props) if (prop >= 0 && words.props?.[prop]) counts.set(prop, (counts.get(prop) ?? 0) + 1);
     const ground = [words.floor, words.wall].filter(Boolean).join(", ");
@@ -641,7 +641,7 @@ export const gameDungeonMapSchema = z
     pack: z.string().max(120).optional(),
     /** Made by hand (map editor Phase 3): props drawn only, and the way out is where the party came in. */
     hand: z.literal(true).optional(),
-    /** A map made by hand's own words for the Game Master (1.365). */
+    /** A map made by hand's own words for the Game Master (1.357). */
     words: worldMapWordsSchema.optional(),
     /** Where people stand on a map made by hand, by the hour (map editor Phase 3, B3), with their names as
      *  they were when the party went in. */

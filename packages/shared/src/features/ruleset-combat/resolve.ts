@@ -3934,7 +3934,7 @@ function applyChoice(
     else if (option.id === RULESET_FLY_UP_OPTION || option.id === RULESET_FLY_DOWN_OPTION) {
       resolveFly(ctx, walking, option);
     } else if (option.id === RULESET_TAKE_OFF_OPTION || option.id === RULESET_LAND_OPTION) {
-      // Into the air or down onto the ground where it stands (1.362), for nothing.
+      // Into the air or down onto the ground where it stands (1.354), for nothing.
       if (option.id === RULESET_TAKE_OFF_OPTION) walking.airborne = true;
       else delete walking.airborne;
       ctx.events.push({ type: "lift", actorId: walking.id, up: option.id === RULESET_TAKE_OFF_OPTION });
@@ -6394,7 +6394,7 @@ function groundFlier(ctx: RulesetCombatContext, flier: RulesetCombatant): void {
     !!rulesetProneCondition(ctx.definition, ctx.combat, flier) ||
     rulesetCombatEffects(ctx.definition, ctx.combat, flier, ctx.state).has("speed-zero");
   if (!grounded) return;
-  // Out of the air (1.362); from up above the ground, a fall too.
+  // Out of the air (1.354); from up above the ground, a fall too.
   delete flier.airborne;
   if (!rulesetAirborne(grid, flier)) return;
   const levels = rulesetLevelOf(grid, flier) - elevationAt(grid, flier.x!, flier.y!);
@@ -6588,7 +6588,7 @@ function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: Rule
     // With other ways of moving (1.113) the same choice the menu made, on what this walk has spent.
     // Ground a lasting area makes hard going costs what the menu priced it at (1.173).
     const step = grid ? rulesetMoveStep(grid, at, cell, actor, spent) : null;
-    // A step only its flight takes puts it in the air (1.362).
+    // A step only its flight takes puts it in the air (1.354).
     if (step?.mode === "fly") actor.airborne = true;
     spent += grid
       ? rulesetSlowedStep(

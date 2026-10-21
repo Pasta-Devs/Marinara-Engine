@@ -211,7 +211,7 @@ export interface SkillCheckRequest {
   /** `apply=`: rows or entries the character has that the Game Master says apply to this roll
    *  (Capability API 1.156). Only those that do change it, and owning one is not enough. */
   apply?: string[];
-  /** What a save is made against, where the Engine itself asks for it (1.372): a story's exposure. */
+  /** What a save is made against, where the Engine itself asks for it (1.364): a story's exposure. */
   against?: RulesetSaveAgainst;
 }
 

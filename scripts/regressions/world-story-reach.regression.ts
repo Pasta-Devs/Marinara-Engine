@@ -1,5 +1,5 @@
 /**
- * How far a story script reaches (Capability API 1.366).
+ * How far a story script reaches (Capability API 1.358).
  *
  *   - `any` groups: a condition list holds when any one of a group's conditions does.
  *   - A fight event may name the script's fight it waits on: it trips only when that fight ends so.
@@ -130,7 +130,7 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 366);
+assert.equal(storyCapabilityMinor(story), 358);
 
 // ── Refused whole ──
 const bad = (patch: Partial<StoryScriptInput>, issue: RegExp) => {

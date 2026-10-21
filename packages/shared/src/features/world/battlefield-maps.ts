@@ -255,7 +255,7 @@ export const worldBattlefieldMapSchema = z
         message: "A light rule moves a track or puts a condition on",
       })
       .optional(),
-    /** The season each tile is in (Capability API 1.359), a row of letters each, the same shape as `rows`:
+    /** The season each tile is in (Capability API 1.351), a row of letters each, the same shape as `rows`:
      *  a letter `seasonKeys` names, or `.` for the season of the place it is fought at. A fight starts with
      *  them, and the round's map events may change them. */
     seasons: z
@@ -315,7 +315,7 @@ export function worldBattlefieldIssues(map: WorldBattlefieldMap): string[] {
   return issues;
 }
 
-/** The seasons a board's tiles are painted in (1.359), keyed "x,y" as a fight's `grid.seasons`; a tile
+/** The seasons a board's tiles are painted in (1.351), keyed "x,y" as a fight's `grid.seasons`; a tile
  *  left `.` is in `here` (the season of the place it is fought at), or not in it without one. */
 export function worldBattlefieldSeasons(
   map: Pick<WorldBattlefieldMap, "seasons" | "seasonKeys">,
@@ -332,7 +332,7 @@ export function worldBattlefieldSeasons(
 }
 
 /** A painted board, made to be fought on: its tiles, and their seasons when it is painted with them
- *  (1.359; `here` the season of the place it is fought at). */
+ *  (1.351; `here` the season of the place it is fought at). */
 export function worldBattlefieldMade(map: WorldBattlefieldMap, here?: string): TacticalMadeBattlefield {
   return {
     id: map.id,
@@ -383,7 +383,7 @@ export function worldBattlefieldHere(
   game: GameWorld,
   placeId: string | null | undefined,
   seed: number,
-  /** The season of the place the fight is at (1.359), for a board's tiles painted `.`. */
+  /** The season of the place the fight is at (1.351), for a board's tiles painted `.`. */
   season?: string,
 ): TacticalMadeBattlefield | null {
   const maps = game.edits?.battlefields;

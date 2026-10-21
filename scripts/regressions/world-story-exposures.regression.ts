@@ -1,5 +1,5 @@
 /**
- * What being in a place does to the party over time (Capability API 1.370): Noonfield's light outside a fight.
+ * What being in a place does to the party over time (Capability API 1.362): Noonfield's light outside a fight.
  *
  *   - A story's `exposures` name a place, how many hours there bite once, and what a bite does: tracks
  *     moved and conditions put on, for each of the party, while its `if` holds.
@@ -65,7 +65,7 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 370);
+assert.equal(storyCapabilityMinor(story), 362);
 assert.ok(!checkStoryScript(game, { ...input, exposures: [{ ...input.exposures![0]!, place: "nowhere" }] }).ok);
 assert.ok(
   !checkStoryScript(game, { ...input, exposures: [{ id: "x", place: start, hours: 1 }] } as StoryScriptInput).ok,

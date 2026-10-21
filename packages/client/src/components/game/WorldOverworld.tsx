@@ -168,7 +168,7 @@ export function WorldOverworld({
   // ── The family's tiles: drawn plain until (and unless) they load ──
   // Drawn in the season of the game's day (seasonal tiles, where the pack has them).
   const drawTile = useOverworldAtlas(family, tilePack, time ? worldSeason(time.day) : undefined);
-  // The places the story holds at a season of their own (1.359): each cell drawn in its nearest place's.
+  // The places the story holds at a season of their own (1.351): each cell drawn in its nearest place's.
   const seasonsKey = JSON.stringify(overworld?.seasons ?? {});
   const heldCells = useMemo(
     () => worldSeasonCells(game, JSON.parse(seasonsKey) as Record<string, WorldSeason>),
@@ -273,14 +273,14 @@ export function WorldOverworld({
           const piece = worldEdgePiece(filled, x, y, width, height, rows);
           if (piece < 0) continue;
           inSeason(x, y);
-            drawTile.edge(
-              ctx,
-              terrain,
-              piece,
-              x * OVERWORLD_TILE,
-              y * OVERWORLD_TILE,
-              cellNoise(x, y)(terrain === "water" ? 71 : 73),
-            );
+          drawTile.edge(
+            ctx,
+            terrain,
+            piece,
+            x * OVERWORLD_TILE,
+            y * OVERWORLD_TILE,
+            cellNoise(x, y)(terrain === "water" ? 71 : 73),
+          );
         }
     };
     if (waterEdges) edgePass("water", (x, y) => water[cells[y * width + x]!]!);

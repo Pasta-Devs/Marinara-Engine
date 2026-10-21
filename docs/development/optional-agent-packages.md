@@ -1241,15 +1241,15 @@ file does not read, when a world was made with another kit or does not fit it, o
 not the ones installed; the Experience then cannot start a game. A ruleset is never part of a map
 pack: an Experience that needs its own rules ships a separate ruleset package.
 
-#### Capability API 1.352: creature packs
+#### Capability API 1.344: creature packs
 
 `mapPack.creatures` lists up to 8 `.creaturepack.json` files (each a declared asset, read and checked as
 the library reads a creature pack). In a game of the Experience, every fight draws a creature's art from
 these packs first, in their order, and then from the creature pack chosen in the library.
 
-#### Capability API 1.353: music
+#### Capability API 1.345: music
 
-A package's assets may be audio from 1.353: `.ogg`, `.mp3` or `.wav`, 16 MB each at most. `mapPack.music`
+A package's assets may be audio from 1.345: `.ogg`, `.mp3` or `.wav`, 16 MB each at most. `mapPack.music`
 names the Experience's tracks and when they play:
 
 ```json
@@ -1273,7 +1273,7 @@ of the tracks over all of these until it hands back. With none of these, the Eng
 A player who has picked their own music source (the Music DJ, Spotify) hears that instead: their choice
 always wins.
 
-#### Capability API 1.354: people
+#### Capability API 1.346: people
 
 `mapPack.people` is a `.people.json` file (a declared asset) that dresses the named people of the pack's
 worlds. People come from the world itself, generated and named or added by hand in its edits (Pixelforge
@@ -1308,7 +1308,7 @@ or the World tab), so they stand at their places like everyone else; the file sa
   (_Experience name_: people), active from the first turn: one entry per person, brought in by their
   name, one per `lore` entry by its own keys, and one per entry of the file's own `lore`.
 
-#### Capability API 1.355: companions
+#### Capability API 1.347: companions
 
 A person may be a companion: someone the party can take in, so a party that lacks healing, scouting or
 a light in the dark is never locked out of what the story asks of it.
@@ -1348,10 +1348,10 @@ a light in the dark is never locked out of what the story asks of it.
 - A companion joins as any recruit does: they are in the party's list, carry their card and sheet, and
   fight in tactical combat. In a game on a ruleset they have no sheet for, they join with a blank one.
 
-A people file with companions needs 1.355; without, 1.354. A story that recruits or dismisses someone
-needs 1.355, and each person it names must be a companion in the pack's people file.
+A people file with companions needs 1.347; without, 1.346. A story that recruits or dismisses someone
+needs 1.347, and each person it names must be a companion in the pack's people file.
 
-#### Capability API 1.358: checking a pack before export
+#### Capability API 1.350: checking a pack before export
 
 An authoring app (Pixelforge) can have the Engine check a whole map pack before it exports the package,
 exactly as an installed one is read, without installing it:
@@ -1370,16 +1370,16 @@ Capability API minor (1.`minor`) the pack needs, and `issues` names each problem
 (`mapPack.music.default`) or the file it is in. The manifest's own rules (declared assets, track ids,
 audio sizes) are all reported; the files' checks stop at the first problem, as an install does.
 
-#### Capability API 1.359: held seasons
+#### Capability API 1.351: held seasons
 
 A world's story may hold places at a season whatever the date (`seasons`, and the `season` action: see
 [writing story scripts](../extending/writing-story-scripts.md#seasons)), and a world's battlefields may be
-painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.359. The overworld
+painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.351. The overworld
 reads held places as `seasons` (place id to season, `*` for the whole world) from
 `GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
 keyed `"x,y"`.
 
-#### Capability API 1.363: ruleset overlays
+#### Capability API 1.355: ruleset overlays
 
 An Experience's map pack may add to the rulesets its games play, while the Experience is on: its own
 creatures, conditions and items, which are not the ruleset package's to ship.
@@ -1410,12 +1410,12 @@ whole: an overlay whose entries do not fit it, or that reuses an id the ruleset 
 whole and the game plays the ruleset as it was. `POST /api/game/experience/check` merges each overlay
 into its ruleset as installed and reports what does not fit.
 
-From Capability API 1.375 an overlay may add sheet tracks too, `"tracks": [{ "id": "owing", "label":
+From Capability API 1.367 an overlay may add sheet tracks too, `"tracks": [{ "id": "owing", "label":
 "Owing", "min": 0, "max": 20, "default": 0 }]`, shaped as the ruleset's `sheet.live.tracks` and joining
 them: a track the overlay declares is shown on the sheet, moved by sheet commands, and kept for what a
-story's Held Ground or a board's light rule marks. A pack with an overlay that adds tracks needs 1.375.
+story's Held Ground or a board's light rule marks. A pack with an overlay that adds tracks needs 1.367.
 
-#### Capability API 1.365: dungeon looks and a hand map's own words
+#### Capability API 1.357: dungeon looks and a hand map's own words
 
 An Experience's maps made by hand can be drawn in its own looks, not only the library's cave, crypt,
 temple and station sets, and told to the Game Master in its own words.
@@ -1439,9 +1439,9 @@ A hand map may also carry its own words for the Game Master:
 `props` is one entry per prop slot, 0 to 7 (`null` for a slot left unsaid). The Game Master is then told
 the map as "A place made by hand (stubbled earth, walls of standing corn), with a ditch of rainwater in it;
 in it: a scarecrow (2), a corn-dolly shrine", in place of saying only that it was made by hand. Both need
-an Experience that declares 1.365.
+an Experience that declares 1.357.
 
-#### Capability API 1.367: items that cost a story number
+#### Capability API 1.359: items that cost a story number
 
 An overlay may name items whose use spends (or adds to) one of the Experience's story number flags:
 
@@ -1457,9 +1457,9 @@ using that item (the acting fighter's sheet item) is refused while the flag, wit
 recorded, is below `atLeast`: "Jar of Someone Else's Death needs 2 Debts Settled; the party has 1." A use
 the fight takes is kept with the game, and the next story turn records it once (`spend="<id>"`, by the
 Engine), within the flag's `min` and `max`, and tells the Game Master what it cost. Each flag must be a
-number flag of one of the pack's stories. A map pack with `storyUses` needs 1.367.
+number flag of one of the pack's stories. A map pack with `storyUses` needs 1.359.
 
-#### Capability API 1.368: parties beyond six, and companions who never fight
+#### Capability API 1.360: parties beyond six, and companions who never fight
 
 A story fight's variants may be for parties above six, or open-ended (`"party": { "min": 7 }`), and a
 story condition may ask the party's size (`{ "partySize": { "is": ">=", "value": 7 } }`; see
@@ -1473,9 +1473,9 @@ A companion of the people file may never fight:
 
 They travel with the party and are told to the Game Master as never fighting, but are not counted in the
 party's size (for fight variants and `partySize` conditions) and are not put in its fights. A people file
-with one needs 1.368.
+with one needs 1.360.
 
-### Capability API 1.381: GM setup values
+### Capability API 1.372: GM setup values
 
 `contributions.gameSurface.setup.defaults` sets what picking the Experience in the Game wizard fills in.
 Pixelforge's Experience tab writes it. Every key is optional, and the player may still change each value:
@@ -1507,20 +1507,20 @@ Pixelforge's Experience tab writes it. Every key is optional, and the player may
 - `combatStyle`: `classic` or `tactical`.
 - Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
 
-`intro` is the Game Master's intro message (1.380), with the same rules as a story script's `intro`
+`intro` is the Game Master's intro message (1.339), with the same rules as a story script's `intro`
 (see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
 value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
 setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
 It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
 Experience off leaves the filled values as they are.
 
-### Capability API 1.382: Experience files
+### Capability API 1.373: Experience files
 
 An Experience that holds only pictures, music and data can travel as one `<id>.experience.json` file
 instead of a package zip. Players import it from the Game wizard's Experiences section with
 **Import an Experience file**; it needs no agents catalog.
 
-Its manifest has `"kind": ["experience"]` and nothing else in `kind`, needs `capabilityApi` 1.382 or newer,
+Its manifest has `"kind": ["experience"]` and nothing else in `kind`, needs `capabilityApi` 1.373 or newer,
 and carries no code: `entrypoints` is `{}`, `permissions` is empty, there is no `restartRequired` or
 `prepareBeforeStart`, and `contributions.slots` is exactly `["game-surface"]`. Every file in `files` is
 `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` or `.json`. The game surface draws

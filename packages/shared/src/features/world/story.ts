@@ -17,15 +17,15 @@ import { WORLD_SEASONS, worldSeason, type WorldSeason } from "./overworld.js";
 
 export const STORY_VERSION = 1;
 export const STORY_MAX = Object.freeze({
-  /** 64 before Capability API 1.361, which room for companions' approval, quests and secrets raised. */
+  /** 64 before Capability API 1.353, which room for companions' approval, quests and secrets raised. */
   flags: 256,
   directions: 64,
-  /** 128 before Capability API 1.357, which room for companions' scenes raised. */
+  /** 128 before Capability API 1.349, which room for companions' scenes raised. */
   events: 256,
   cutscenes: 64,
   actions: 32,
   conditions: 8,
-  /** What people know, each brought in as it holds (Capability API 1.356), and how many a turn. */
+  /** What people know, each brought in as it holds (Capability API 1.348), and how many a turn. */
   knowledge: 600,
   knowledgeKeys: 8,
   knowledgeATurn: 12,
@@ -35,9 +35,9 @@ export const STORY_MAX = Object.freeze({
   beats: 20,
   /** The characters of the beats the Game Master is told with its own events, in every turn's prompt. */
   gmBeatChars: 16_000,
-  /** The most segments a clock has (Capability API 1.350). */
+  /** The most segments a clock has (Capability API 1.342). */
   clockSegments: 12,
-  /** Set-piece fights and endings a script names (Capability API 1.351). */
+  /** Set-piece fights and endings a script names (Capability API 1.343). */
   fights: 32,
   fightCreatures: 12,
   endings: 16,
@@ -72,12 +72,12 @@ const tagWord = (max: number) =>
   promptSafeText(max).refine((value) => !value.includes('"'), "Text cannot contain double quotes");
 const value = z.union([z.boolean(), z.number().finite()]);
 const flagCondition = z.object({ flag: id, is: z.enum(["=", "!=", ">", ">=", "<", "<="]), value }).strict();
-/** Whether a person of the world travels with the party (Capability API 1.357), by person id. */
+/** Whether a person of the world travels with the party (Capability API 1.349), by person id. */
 const partyCondition = z.object({ party: z.string().min(1).max(40), is: z.enum(["in", "out"]) }).strict();
-/** The largest party a story names by its size (Capability API 1.368); a variant's open range holds any
+/** The largest party a story names by its size (Capability API 1.360); a variant's open range holds any
  *  larger. */
 export const STORY_PARTY_LIMIT = 32;
-/** How many the party is, its companions who never fight left out (Capability API 1.368). */
+/** How many the party is, its companions who never fight left out (Capability API 1.360). */
 const partySizeCondition = z
   .object({
     partySize: z
@@ -89,13 +89,13 @@ const partySizeCondition = z
   })
   .strict();
 const singleCondition = z.union([flagCondition, partyCondition, partySizeCondition]);
-/** Holds when any one of its conditions does (Capability API 1.366): an either-or in one list. */
+/** Holds when any one of its conditions does (Capability API 1.358): an either-or in one list. */
 const anyCondition = z.object({ any: z.array(singleCondition).min(2).max(STORY_MAX.conditions) }).strict();
 const conditions = z
   .array(z.union([flagCondition, partyCondition, partySizeCondition, anyCondition]))
   .max(STORY_MAX.conditions)
   .optional();
-/** What sets a companion's scene off (Capability API 1.357): one of them happens at most once a turn,
+/** What sets a companion's scene off (Capability API 1.349): one of them happens at most once a turn,
  *  the one with the highest `priority`, so scenes never pile up. */
 export const STORY_QUIET_TRIGGERS = Object.freeze(["rest", "travel", "idle"] as const);
 
@@ -105,9 +105,9 @@ const trigger = z.discriminatedUnion("on", [
   z.object({ on: z.literal("meet"), person: z.string().min(1).max(140) }).strict(),
   z.object({ on: z.literal("day"), day: z.number().int().min(0).max(1_000_000) }).strict(),
   z.object({ on: z.literal("turn"), turn: z.number().int().min(1).max(1_000_000) }).strict(),
-  /** A fight ends in `outcome`: any fight, or (Capability API 1.366) the script's fight `fight`. */
+  /** A fight ends in `outcome`: any fight, or (Capability API 1.358) the script's fight `fight`. */
   z.object({ on: z.literal("fight"), outcome: z.enum(STORY_FIGHT_OUTCOMES), fight: id.optional() }).strict(),
-  /** The party leaves a place, and every place inside it (Capability API 1.366). */
+  /** The party leaves a place, and every place inside it (Capability API 1.358). */
   z.object({ on: z.literal("leave"), place: z.string().min(1).max(120) }).strict(),
   /** A fight broke this prop (Capability API 1.316), by its label: an oil jar, the mill's sluice gate. */
   z.object({ on: z.literal("broke"), prop: z.string().trim().min(1).max(40) }).strict(),
@@ -120,10 +120,10 @@ const trigger = z.discriminatedUnion("on", [
     .strict(),
   z.object({ on: z.literal("flags") }).strict(),
   z.object({ on: z.literal("gm") }).strict(),
-  /** The party rests (Capability API 1.357): a rest the Game Master's sheet tags took last reply, of the
+  /** The party rests (Capability API 1.349): a rest the Game Master's sheet tags took last reply, of the
    *  ruleset's rest `rest` (its id or label, as `short` or `long`) or any. */
   z.object({ on: z.literal("rest"), rest: z.string().min(1).max(40).optional() }).strict(),
-  /** The party sets out from one place for another this turn (1.357), from `from` or to `to` when given. */
+  /** The party sets out from one place for another this turn (1.349), from `from` or to `to` when given. */
   z
     .object({
       on: z.literal("travel"),
@@ -131,7 +131,7 @@ const trigger = z.discriminatedUnion("on", [
       to: z.string().min(1).max(120).optional(),
     })
     .strict(),
-  /** Nothing has happened for `turns` replies (1.357): no story event, no walk and no fight. */
+  /** Nothing has happened for `turns` replies (1.349): no story event, no walk and no fight. */
   z.object({ on: z.literal("idle"), turns: z.number().int().min(1).max(50) }).strict(),
   /** The party walks onto a cell (map editor item 4): of a settlement's town, or of a place's hand-made map
    *  (`place` says which: a settlement never has one). From the map's top-left, 0-based. */
@@ -155,11 +155,11 @@ const worldDeed = z
   })
   .strict();
 
-/** An item the story gives (Capability API 1.351): one of the ruleset's by its id (`catalog/entry`), or
+/** An item the story gives (Capability API 1.343): one of the ruleset's by its id (`catalog/entry`), or
  *  any other by its name, made as the Game Master's own would be. */
 const storyGive = z
   .object({
-    /** From 1.378 also a bare entry id (`fennicks-hymnal`), given from whichever catalog of the game's
+    /** From 1.370 also a bare entry id (`fennicks-hymnal`), given from whichever catalog of the game's
      *  ruleset has it, or a list of alternatives, the first the ruleset offers given: one script for
      *  two rulesets. */
     item: z.union([z.string().min(1).max(120), z.array(z.string().min(1).max(120)).min(1).max(8)]),
@@ -171,7 +171,7 @@ const storyGive = z
   })
   .strict();
 
-/** An action, with its own conditions (Capability API 1.366): done only when they hold as the event
+/** An action, with its own conditions (Capability API 1.358): done only when they hold as the event
  *  reaches it, so one event can branch. */
 const act = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, if: conditions }).strict();
 
@@ -183,34 +183,34 @@ const action = z.union([
   act({ show: id }),
   act({ world: worldDeed }),
   act({ give: storyGive }),
-  /** Starts one of the script's fights (Capability API 1.351). */
+  /** Starts one of the script's fights (Capability API 1.343). */
   act({ fight: id }),
-  /** Puts the party at a place of the world, by id (Capability API 1.351). */
+  /** Puts the party at a place of the world, by id (Capability API 1.343). */
   act({ move: z.string().min(1).max(120) }),
-  /** Ends the game with one of the script's endings (Capability API 1.351). */
+  /** Ends the game with one of the script's endings (Capability API 1.343). */
   act({ ending: id }),
   /** Cues one of its Experience's tracks over the place's music, or (null) hands back to the place's
-   *  (Capability API 1.353). */
+   *  (Capability API 1.345). */
   act({ music: id.nullable() }),
   /** Takes one of its Experience's companions into the party, or lets one go, by their person id
-   *  (Capability API 1.355). */
+   *  (Capability API 1.347). */
   act({ recruit: z.string().min(1).max(40) }),
   act({ dismiss: z.string().min(1).max(40) }),
   /** Holds a place (and every place inside it), or the whole world without one, at a season whatever the
-   *  day; `null` lets it go back to the script's own (Capability API 1.359). */
+   *  day; `null` lets it go back to the script's own (Capability API 1.351). */
   act({
     season: z
       .object({
         place: z.string().min(1).max(120).optional(),
         to: z.enum(WORLD_SEASONS).nullable(),
-        /** Over every season inside it, the script's own and every other hold (Capability API 1.369): an
+        /** Over every season inside it, the script's own and every other hold (Capability API 1.361): an
          *  ending's turned year. `to: null` with `over` lets it go and gives them back. */
         over: z.literal(true).optional(),
       })
       .strict(),
   }),
   /** Puts a condition on each of the party, or takes it off, or moves a track of each one's sheet
-   *  (Capability API 1.376): Rime Edge's cold that no rest heals. The Engine's own sheet command,
+   *  (Capability API 1.368): Rime Edge's cold that no rest heals. The Engine's own sheet command,
    *  applied with the reply it is delivered with. */
   act({
     sheet: z.union([
@@ -226,7 +226,7 @@ const action = z.union([
   }),
 ]);
 
-/** A story's sheet action as the party's own sheet command (1.376). */
+/** A story's sheet action as the party's own sheet command (1.368). */
 function storySheetTag(
   sheet: { condition: string; state: "on" | "off" } | { track: string; by: number; upTo?: number },
 ) {
@@ -236,15 +236,15 @@ function storySheetTag(
     : `[sheet: who="party" op="track" track="${clean(sheet.track)}" by="${sheet.by}"${sheet.upTo !== undefined ? ` upto="${sheet.upTo}"` : ""}]`;
 }
 
-/** The largest party a story fight's variants were written for in 1.364; larger, or an open range
- *  (`{ "min": 7 }`), needs 1.368. */
+/** The largest party a story fight's variants were written for in 1.356; larger, or an open range
+ *  (`{ "min": 7 }`), needs 1.360. */
 export const STORY_PARTY_MAX = 6;
 
-/** What a story fight changes of one of its creatures (1.371), and whom its actions call (1.379). */
+/** What a story fight changes of one of its creatures (1.363), and whom its actions call (1.371). */
 const fightAdjustShape = {
   legendaryResistance: z.number().int().min(0).max(10).optional(),
   maxHp: z.number().int().min(1).max(100_000).optional(),
-  /** A creature action that calls (1.320) calls another creature in this fight (1.379): by the action's id
+  /** A creature action that calls (1.325) calls another creature in this fight (1.371): by the action's id
    *  or name, the creature by bestiary id. */
   calls: z
     .array(z.object({ action: z.string().min(1).max(80), creature: z.string().min(1).max(200) }).strict())
@@ -265,12 +265,12 @@ const fightCreatures = z
         count: z.number().int().min(1).max(20).default(1),
         /** What this one is called in the fight, when not the creature's own name. */
         name: tagWord(60).optional(),
-        /** The creature as this fight has it (Capability API 1.371): its Legendary Resistance and its
+        /** The creature as this fight has it (Capability API 1.363): its Legendary Resistance and its
          *  health, in place of its stat block's, without a creature of its own. */
         adjust: z
           .object({
             ...fightAdjustShape,
-            /** The same again from a party level up (1.379), each over the last: the highest level any of
+            /** The same again from a party level up (1.371), each over the last: the highest level any of
              *  the party has reached, as the Experience's companion sheets count it. */
             levels: z
               .array(
@@ -304,7 +304,7 @@ const page = z
     speaker: z.string().min(1).max(140).optional(),
     expression: z.enum(STORY_EXPRESSIONS).optional(),
     text: promptSafeText(600),
-    /** Shown only when these hold as the scene is shown (Capability API 1.366): a group scene's lines for
+    /** Shown only when these hold as the scene is shown (Capability API 1.358): a group scene's lines for
      *  the companions travelling with the party. */
     if: conditions,
   })
@@ -323,7 +323,7 @@ export const storyScriptSchema = z
             /** The Game Master may set it with a story tag. */
             gm: z.literal(true).optional(),
             note: promptSafeText(200).optional(),
-            /** A number flag's bounds (Capability API 1.366): every set and add, the Game Master's too, is
+            /** A number flag's bounds (Capability API 1.358): every set and add, the Game Master's too, is
              *  kept within them. */
             min: z.number().finite().optional(),
             max: z.number().finite().optional(),
@@ -338,7 +338,7 @@ export const storyScriptSchema = z
               })
               .strict()
               .optional(),
-            /** A clock the player sees (Capability API 1.350): a number flag drawn as a circle of segments,
+            /** A clock the player sees (Capability API 1.342): a number flag drawn as a circle of segments,
              *  one filled per point, full at `segments`. The Game Master is told when it fills. */
             clock: z
               .object({
@@ -360,22 +360,22 @@ export const storyScriptSchema = z
       .array(z.object({ id, text: promptSafeText(600), if: conditions }).strict())
       .max(STORY_MAX.directions)
       .default([]),
-    /** Places held at a season whatever the day (Capability API 1.359): a place and every place inside it,
+    /** Places held at a season whatever the day (Capability API 1.351): a place and every place inside it,
      *  the nearest holding one deciding; one without a place holds the whole world. */
     seasons: z
       .array(z.object({ place: z.string().min(1).max(120).optional(), season: z.enum(WORLD_SEASONS) }).strict())
       .max(64)
       .default([]),
-    /** What people know and say, as it holds (Capability API 1.356): about themselves, others and the
+    /** What people know and say, as it holds (Capability API 1.348): about themselves, others and the
      *  setting, changing as the story moves. Each is told to the Game Master on a turn its conditions hold
      *  and its person is in the scene (named, or travelling with the party), or, without a person, one of
      *  its keys is. */
-    /** What being in a place does to the party over time (Capability API 1.370): every `hours` hours it
+    /** What being in a place does to the party over time (Capability API 1.362): every `hours` hours it
      *  spends there (and inside it) while `if` holds, its tracks move and its conditions go on, for each
      *  of the party. Noonfield's light outside a fight. */
-    /** Where death is held (Capability API 1.374), the showcase's valley: while the party is in `place` (or
+    /** Where death is held (Capability API 1.366), the showcase's valley: while the party is in `place` (or
      *  inside it; the whole world without one) and `if` holds, a fight there is fought on Held Ground
-     *  (1.318): whoever reaches no health is felled instead, `condition` goes on them, and each one with a
+     *  (1.323): whoever reaches no health is felled instead, `condition` goes on them, and each one with a
      *  sheet moves its `marks` tracks (a mark of Owing). The first that holds is the one. */
     heldGround: z
       .array(
@@ -395,7 +395,7 @@ export const storyScriptSchema = z
             if: conditions,
             /** For the Game Master, while it holds. */
             tell: promptSafeText(300).optional(),
-            /** What letting it go does to a fight still running (Capability API 1.377): the felled die
+            /** What letting it go does to a fight still running (Capability API 1.369): the felled die
              *  (`"die"`, as when left out) or go down dying (`"down"`), and with `owing` each felled
              *  character's marks on `track` each cost a dying save, with `bonus` (a number, or a story
              *  number flag's value: Debts Settled) added. */
@@ -431,7 +431,7 @@ export const storyScriptSchema = z
                   .object({
                     track: z.string().trim().min(1).max(40),
                     by: z.number().int().min(-10).max(10),
-                    /** Where the move stops (1.372): never past it, and never moving one already beyond it. */
+                    /** Where the move stops (1.364): never past it, and never moving one already beyond it. */
                     upTo: z.number().int().min(-1000).max(1000).optional(),
                   })
                   .strict(),
@@ -440,10 +440,10 @@ export const storyScriptSchema = z
               .max(4)
               .optional(),
             applies: z.array(z.string().trim().min(1).max(40)).min(1).max(4).optional(),
-            /** A save each of the party makes each time it bites (1.372), rolled by the Engine off their own
+            /** A save each of the party makes each time it bites (1.364), rolled by the Engine off their own
              *  sheets: only those who fail it take its tracks and conditions. `against` is what the save is
              *  made against, so an item's modifier narrowed to it (a straw hat against `noon_light`) counts.
-             *  The same shape as a fight board's light rule `save` (1.316). */
+             *  The same shape as a fight board's light rule `save` (1.321). */
             save: z
               .object({
                 save: z.string().trim().min(1).max(40),
@@ -459,7 +459,7 @@ export const storyScriptSchema = z
               .strict()
               .optional(),
             /** A shade carried lit by any of the party (a Lantern of Dusk, an item whose light `shade`s)
-             *  keeps it off, as `if` not holding does (1.373). */
+             *  keeps it off, as `if` not holding does (1.365). */
             sparedByShade: z.literal(true).optional(),
             if: conditions,
             /** For the Game Master, each time it bites. */
@@ -499,7 +499,7 @@ export const storyScriptSchema = z
             /** The Game Master may trip it with a story tag. */
             gm: z.literal(true).optional(),
             note: promptSafeText(200).optional(),
-            /** Among rest, travel and idle events that could happen on one turn, the highest goes (1.357). */
+            /** Among rest, travel and idle events that could happen on one turn, the highest goes (1.349). */
             priority: z.number().int().min(-100).max(100).optional(),
             do: z.array(action).min(1).max(STORY_MAX.actions),
           })
@@ -538,7 +538,7 @@ export const storyScriptSchema = z
      *  (`"defined"`) or guidance for the one the Game Master writes (`"guided"`); `locked` keeps a player
      *  from changing it at setup. */
     intro: gameIntroSchema.optional(),
-    /** Set-piece fights (Capability API 1.351): who is fought, and where when a board is painted for it. */
+    /** Set-piece fights (Capability API 1.343): who is fought, and where when a board is painted for it. */
     fights: z
       .array(
         z
@@ -550,7 +550,7 @@ export const storyScriptSchema = z
             battlefield: fightBoard.optional(),
             /** For the Game Master: how it comes about. */
             note: promptSafeText(300).optional(),
-            /** The fight for parties of other sizes (Capability API 1.364): the first whose `party` holds the
+            /** The fight for parties of other sizes (Capability API 1.356): the first whose `party` holds the
              *  party's size (its player characters and the companions travelling with it) is fought, with
              *  its own creatures (and board and note, when it gives them); else the fight as above. */
             variants: z
@@ -562,7 +562,7 @@ export const storyScriptSchema = z
                       z
                         .object({
                           min: z.number().int().min(1).max(STORY_PARTY_LIMIT),
-                          /** Left out, any party from `min` up (1.368). */
+                          /** Left out, any party from `min` up (1.360). */
                           max: z.number().int().min(1).max(STORY_PARTY_LIMIT).optional(),
                         })
                         .strict()
@@ -585,7 +585,7 @@ export const storyScriptSchema = z
       )
       .max(STORY_MAX.fights)
       .default([]),
-    /** The endings the game can have (Capability API 1.351): a title, a scene and the epilogue. */
+    /** The endings the game can have (Capability API 1.343): a title, a scene and the epilogue. */
     endings: z
       .array(
         z
@@ -609,7 +609,7 @@ export type StoryAction = StoryEvent["do"][number];
 export type StoryCondition = NonNullable<StoryEvent["if"]>[number];
 export type StoryCutscene = StoryScript["cutscenes"][number];
 export type StoryFight = StoryScript["fights"][number] & {
-  /** The party size it was chosen for, when a variant of it was (1.364). */
+  /** The party size it was chosen for, when a variant of it was (1.356). */
   forParty?: number;
 };
 export type StoryEnding = StoryScript["endings"][number];
@@ -620,12 +620,12 @@ export function storyIsRef(value: string): boolean {
 }
 
 const STORY_BARE_ENTRY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-/** A bare catalog entry id (1.378), given from whichever catalog of the game's ruleset has it. */
+/** A bare catalog entry id (1.370), given from whichever catalog of the game's ruleset has it. */
 export function storyIsBareEntry(value: string): boolean {
   return STORY_BARE_ENTRY.test(value);
 }
 
-/** The items a give names, its alternatives in order (1.378). */
+/** The items a give names, its alternatives in order (1.370). */
 export function storyGiveItems(give: { item: string | readonly string[] }): readonly string[] {
   return typeof give.item === "string" ? [give.item] : give.item;
 }
@@ -646,7 +646,7 @@ export function storyPerson(game: GameWorld, personId: string): WorldPerson | un
   return match ? worldCast(game, match[1]!).find((person) => person.id === personId) : undefined;
 }
 
-/** A list's conditions one by one, an `any` group's each in it (1.366). */
+/** A list's conditions one by one, an `any` group's each in it (1.358). */
 export function storyConditionsFlat(list: StoryEvent["if"]): Array<Exclude<StoryCondition, { any: unknown }>> {
   return (list ?? []).flatMap((condition) => ("any" in condition ? condition.any : [condition]));
 }
@@ -664,7 +664,7 @@ function storyConditionLists(story: StoryScript): Array<StoryEvent["if"]> {
   ];
 }
 
-/** A number kept within its flag's bounds (1.366). */
+/** A number kept within its flag's bounds (1.358). */
 function storyBounded(flag: Pick<StoryFlag, "min" | "max"> | undefined, value: number): number {
   return Math.min(flag?.max ?? Infinity, Math.max(flag?.min ?? -Infinity, value));
 }
@@ -1002,22 +1002,22 @@ export interface StoryLedgerEntry {
   by?: "engine";
   set: Array<[string, boolean | number]>;
   show: string[];
-  /** The script's fight it started (1.351). */
+  /** The script's fight it started (1.343). */
   fight?: string;
-  /** The script's ending it ended the game with (1.351). */
+  /** The script's ending it ended the game with (1.343). */
   ending?: string;
-  /** The track it cued, or null when it handed back to the place's music (1.353). */
+  /** The track it cued, or null when it handed back to the place's music (1.345). */
   music?: string | null;
-  /** The seasons it held places at (1.359), by place id (`*` the whole world); null lets one go. */
+  /** The seasons it held places at (1.351), by place id (`*` the whole world); null lets one go. */
   seasons?: Array<[string, WorldSeason | null]>;
-  /** Which of its event's actions were done (1.366), by place in the list, when some have conditions. */
+  /** Which of its event's actions were done (1.358), by place in the list, when some have conditions. */
   acts?: number[];
-  /** The item use whose story cost it recorded (1.367), by the spend's id. */
+  /** The item use whose story cost it recorded (1.359), by the spend's id. */
   spend?: string;
-  /** An exposure it kept (1.370): since when (game minutes) the party has been in its place, null when it
+  /** An exposure it kept (1.362): since when (game minutes) the party has been in its place, null when it
    *  left, and how many times it has bitten since. */
   exposure?: { id: string; since: number | null; bitten: number };
-  /** The held ground the party came onto (1.374), by id, or null when it left it. */
+  /** The held ground the party came onto (1.366), by id, or null when it left it. */
   held?: string | null;
 }
 
@@ -1112,16 +1112,16 @@ export interface StoryState {
   fired: Record<string, number>;
   /** The hidden objectives shown so far. */
   shown: string[];
-  /** The ending the game has had, once it has (1.351): the story trips nothing after it. */
+  /** The ending the game has had, once it has (1.343): the story trips nothing after it. */
   ended?: string;
-  /** The track the story last cued, while it holds (1.353). */
+  /** The track the story last cued, while it holds (1.345). */
   music?: string;
-  /** The seasons the story holds places at now (1.359), by place id (`*` the whole world). */
+  /** The seasons the story holds places at now (1.351), by place id (`*` the whole world). */
   seasons?: Record<string, WorldSeason>;
-  /** The exposures running now (1.370): since when the party has been in each one's place, and how many
+  /** The exposures running now (1.362): since when the party has been in each one's place, and how many
    *  times it has bitten. */
   exposures?: Record<string, { since: number; bitten: number }>;
-  /** The held ground the party is on (1.374), by id. */
+  /** The held ground the party is on (1.366), by id. */
   held?: string;
 }
 
@@ -1198,7 +1198,7 @@ export function storyObjectives(story: StoryScript, state: StoryState): StoryObj
   });
 }
 
-/** The tracks a script cues (1.353), for its Experience's music to have. */
+/** The tracks a script cues (1.345), for its Experience's music to have. */
 export function storyMusicCues(story: StoryScript): string[] {
   return [
     ...new Set(
@@ -1209,7 +1209,7 @@ export function storyMusicCues(story: StoryScript): string[] {
   ];
 }
 
-/** The companions a script recruits or dismisses (1.355), by person id, for its Experience's people to have. */
+/** The companions a script recruits or dismisses (1.347), by person id, for its Experience's people to have. */
 export function storyCompanionsNamed(story: StoryScript): string[] {
   return [
     ...new Set(
@@ -1222,11 +1222,11 @@ export function storyCompanionsNamed(story: StoryScript): string[] {
   ];
 }
 
-/** The Capability API minor a script needs: 1.378 for gives by bare entry id or alternatives, 1.377 for held ground's release, 1.376 for sheet actions, 1.374 for held ground, 1.373 for exposures spared by a shade, 1.372 for exposure saves and stops, 1.371 for fight adjusts,
- *  1.370 for exposures, 1.369 for holds over everything inside, 1.368 for party size conditions and variants for parties above
- *  six, 1.366 for its reach, 1.364 for fight variants, 1.361 for more than 64 flags, 1.359 for held seasons, 1.357 for rest, travel and idle events, party conditions and more
- *  than 128 events, 1.356 for knowledge, 1.355 for companions, 1.353 for music cues, 1.351 for fights, endings and its give, move, fight and
- *  ending actions, 1.350 for clocks, else 0 (any Engine with stories reads it). */
+/** The Capability API minor a script needs: 1.370 for gives by bare entry id or alternatives, 1.369 for held ground's release, 1.368 for sheet actions, 1.366 for held ground, 1.365 for exposures spared by a shade, 1.364 for exposure saves and stops, 1.363 for fight adjusts,
+ *  1.362 for exposures, 1.361 for holds over everything inside, 1.360 for party size conditions and variants for parties above
+ *  six, 1.358 for its reach, 1.356 for fight variants, 1.353 for more than 64 flags, 1.351 for held seasons, 1.349 for rest, travel and idle events, party conditions and more
+ *  than 128 events, 1.348 for knowledge, 1.347 for companions, 1.345 for music cues, 1.343 for fights, endings and its give, move, fight and
+ *  ending actions, 1.342 for clocks, else 0 (any Engine with stories reads it). */
 export function storyCapabilityMinor(story: StoryScript): number {
   const acts = story.events.some((event) =>
     event.do.some((action) => "give" in action || "move" in action || "fight" in action || "ending" in action),
@@ -1241,7 +1241,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
     fight.creatures,
     ...(fight.variants ?? []).map((variant) => variant.creatures),
   ]);
-  if (fightLists.some((list) => list.some((each) => each.adjust?.calls || each.adjust?.levels))) return 379;
+  if (fightLists.some((list) => list.some((each) => each.adjust?.calls || each.adjust?.levels))) return 371;
   if (
     story.events.some((event) =>
       event.do.some(
@@ -1249,16 +1249,16 @@ export function storyCapabilityMinor(story: StoryScript): number {
       ),
     )
   )
-    return 378;
-  if (story.heldGround.some((held) => held.release)) return 377;
-  if (story.events.some((event) => event.do.some((action) => "sheet" in action))) return 376;
-  if (story.heldGround.length) return 374;
-  if (story.exposures.some((exposure) => exposure.sparedByShade)) return 373;
+    return 370;
+  if (story.heldGround.some((held) => held.release)) return 369;
+  if (story.events.some((event) => event.do.some((action) => "sheet" in action))) return 368;
+  if (story.heldGround.length) return 366;
+  if (story.exposures.some((exposure) => exposure.sparedByShade)) return 365;
   if (story.exposures.some((exposure) => exposure.save || exposure.tracks?.some((moved) => moved.upTo !== undefined)))
-    return 372;
-  if (fightLists.some((list) => list.some((each) => each.adjust))) return 371;
-  if (story.exposures.length) return 370;
-  if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 369;
+    return 364;
+  if (fightLists.some((list) => list.some((each) => each.adjust))) return 363;
+  if (story.exposures.length) return 362;
+  if (story.events.some((event) => event.do.some((action) => "season" in action && action.season.over))) return 361;
   if (
     lists.some((list) => storyConditionsFlat(list).some((condition) => "partySize" in condition)) ||
     story.fights.some(
@@ -1267,7 +1267,7 @@ export function storyCapabilityMinor(story: StoryScript): number {
         fight.variants?.some((variant) => storyPartyRange(variant.party)[1] > STORY_PARTY_MAX),
     )
   )
-    return 368;
+    return 360;
   if (
     lists.some((list) => list?.some((condition) => "any" in condition)) ||
     story.events.some(
@@ -1279,10 +1279,10 @@ export function storyCapabilityMinor(story: StoryScript): number {
     story.cutscenes.some((cutscene) => cutscene.kind === "pages" && cutscene.pages.some((page) => page.if)) ||
     story.flags.some((flag) => flag.min !== undefined || flag.max !== undefined)
   )
-    return 366;
-  if (story.fights.some((fight) => fight.variants?.length)) return 364;
-  if (story.flags.length > 64) return 361;
-  if (story.seasons.length || story.events.some((event) => event.do.some((action) => "season" in action))) return 359;
+    return 358;
+  if (story.fights.some((fight) => fight.variants?.length)) return 356;
+  if (story.flags.length > 64) return 353;
+  if (story.seasons.length || story.events.some((event) => event.do.some((action) => "season" in action))) return 351;
   if (
     partyConditions ||
     story.events.length > 128 ||
@@ -1290,15 +1290,15 @@ export function storyCapabilityMinor(story: StoryScript): number {
       (event) => (STORY_QUIET_TRIGGERS as readonly string[]).includes(event.when.on) || event.priority !== undefined,
     )
   )
-    return 357;
-  if (story.knowledge.length) return 356;
-  if (storyCompanionsNamed(story).length) return 355;
-  if (story.events.some((event) => event.do.some((action) => "music" in action))) return 353;
-  if (acts || story.fights.length || story.endings.length) return 351;
-  return story.flags.some((flag) => flag.clock) ? 350 : 0;
+    return 349;
+  if (story.knowledge.length) return 348;
+  if (storyCompanionsNamed(story).length) return 347;
+  if (story.events.some((event) => event.do.some((action) => "music" in action))) return 345;
+  if (acts || story.fights.length || story.endings.length) return 343;
+  return story.flags.some((flag) => flag.clock) ? 342 : 0;
 }
 
-/** A clock the player sees (Capability API 1.350): its segments, how many are filled, and whether it is full. */
+/** A clock the player sees (Capability API 1.342): its segments, how many are filled, and whether it is full. */
 export interface StoryClock {
   flag: string;
   title: string;
@@ -1342,7 +1342,7 @@ function clocksFilled(story: StoryScript, before: StoryState["flags"], after: St
 export function storyConditionsHold(
   list: StoryEvent["if"],
   flags: StoryState["flags"],
-  /** Who travels with the party, by person id (1.357), and how many it is (1.368); a party condition
+  /** Who travels with the party, by person id (1.349), and how many it is (1.360); a party condition
    *  holds only when it is known. */
   party?: StoryParty,
 ): boolean {
@@ -1369,11 +1369,11 @@ export function storyConditionsHold(
   return (list ?? []).every((condition) => ("any" in condition ? condition.any.some(holds) : holds(condition)));
 }
 
-/** Who travels with the party, by person id (1.357), and how many it is when known (1.368). */
+/** Who travels with the party, by person id (1.349), and how many it is when known (1.360). */
 export type StoryParty = ReadonlySet<string> & { readonly partySize?: number };
 
 /** The people of the world who travel with the party, by person id: its members' names, matched to the
- *  world's named people (1.357); with how many the party is, when given (1.368). */
+ *  world's named people (1.349); with how many the party is, when given (1.360). */
 export function storyPartyOf(
   game: GameWorld,
   story: StoryScript,
@@ -1452,34 +1452,34 @@ export interface StoryTurnWorld {
   day: number;
   /** What this turn's player message says a fight ended in. */
   fight: StoryFightOutcome | null;
-  /** The game's clock, in minutes from its start (1.370), for what being in a place does over time. */
+  /** The game's clock, in minutes from its start (1.362), for what being in a place does over time. */
   clock?: number;
-  /** Whether any of the party carries a shade lit (1.373), for an exposure `sparedByShade`. */
+  /** Whether any of the party carries a shade lit (1.365), for an exposure `sparedByShade`. */
   shade?: boolean;
-  /** What items' uses spent of story numbers in fights (1.367); those not yet recorded are, this turn. */
+  /** What items' uses spent of story numbers in fights (1.359); those not yet recorded are, this turn. */
   spends?: readonly StorySpend[];
-  /** What this turn's player message says a fight broke (1.311), by label. */
+  /** What this turn's player message says a fight broke (1.316), by label. */
   broke?: readonly string[];
   /** The player's name, for a page the player speaks. */
   playerName?: string;
   /** The cells this turn's walk went over (a town visit's path, a map walk's path, the end cell included):
    *  a step event on one of them trips. */
   steps?: ReadonlyArray<{ place: string; x: number; y: number }>;
-  /** The game's ruleset items by id, for the items the story gives by id (1.351). */
+  /** The game's ruleset items by id, for the items the story gives by id (1.343). */
   item?: StoryItemLabel;
-  /** Who travels with the party, by name (1.357): its party conditions hold by them. */
+  /** Who travels with the party, by name (1.349): its party conditions hold by them. */
   party?: readonly string[];
-  /** How many the party is (1.364): its player characters and the companions travelling with it. A
+  /** How many the party is (1.356): its player characters and the companions travelling with it. A
    *  story fight is started in its variant for this size. */
   partySize?: number;
-  /** The player's message this turn, read with the latest reply for who and what is in the scene (1.356). */
+  /** The player's message this turn, read with the latest reply for who and what is in the scene (1.348). */
   player?: string | null;
 }
 
 export interface StoryTurn {
   /** The events this turn trips, in order. */
   tripped: string[];
-  /** The Engine's own sheet commands this turn (1.370): what the places the party has been in did to it,
+  /** The Engine's own sheet commands this turn (1.362): what the places the party has been in did to it,
    *  applied with the reply's. */
   sheet: string;
   /** Put before the reply: the trips' answered tags, the scenes shown as written, the world deeds. */
@@ -1493,25 +1493,25 @@ export interface StoryTurn {
   beats: string[][];
   /** The story after this turn's trips: what the Game Master is told of its flags and directions. */
   state: StoryState;
-  /** The clocks that filled since the latest reply was written, by it or this turn's trips (1.350). */
+  /** The clocks that filled since the latest reply was written, by it or this turn's trips (1.342). */
   filled: Array<{ flag: string; title: string; text: string }>;
-  /** Who of the world travels with the party, by person id (1.357). */
+  /** Who of the world travels with the party, by person id (1.349). */
   party: string[];
-  /** How many the party is, when known (1.368). */
+  /** How many the party is, when known (1.360). */
   partySize?: number;
-  /** The season where the party is, and whether the story holds it there (1.359). */
+  /** The season where the party is, and whether the story holds it there (1.351). */
   season: { season: WorldSeason; held: boolean };
-  /** What people know that holds and is in the scene this turn (1.356), for the Game Master. */
+  /** What people know that holds and is in the scene this turn (1.348), for the Game Master. */
   knowledge: Array<{ who?: string; text: string }>;
-  /** The held ground this turn let go of (1.377), with what letting it go does to a fight still running
+  /** The held ground this turn let go of (1.369), with what letting it go does to a fight still running
    *  on it: the server hands it to the fight director's release. */
   released?: StoryHeldGroundRelease;
-  /** The exposures that bit this turn with a save (1.372): the Engine rolls each one for every member of
+  /** The exposures that bit this turn with a save (1.364): the Engine rolls each one for every member of
    *  the party off their sheet, then `storyExposureSaveOutcome` says what the failures cost. */
   saves: StoryExposureSave[];
 }
 
-/** What letting held ground go does to a fight still running on it (1.377), its bonus read off the story. */
+/** What letting held ground go does to a fight still running on it (1.369), its bonus read off the story. */
 export interface StoryHeldGroundRelease {
   id: string;
   label?: string;
@@ -1519,7 +1519,7 @@ export interface StoryHeldGroundRelease {
   owing?: { track?: string; bonus?: number };
 }
 
-/** What letting this held ground go does, its bonus read off these flags (1.377). */
+/** What letting this held ground go does, its bonus read off these flags (1.369). */
 function storyHeldGroundRelease(
   gone: StoryScript["heldGround"][number],
   flags: StoryState["flags"],
@@ -1544,8 +1544,8 @@ function storyHeldGroundRelease(
 }
 
 /**
- * Whether what happened in a fight still running lets its held ground go there and then (1.377): the
- * story numbers its items' uses spent (1.367), the props it broke (1.311) and the `flags` events those
+ * Whether what happened in a fight still running lets its held ground go there and then (1.369): the
+ * story numbers its items' uses spent (1.359), the props it broke (1.316) and the `flags` events those
  * set off, as the next story turn will record them, read against the held ground's conditions. The
  * release when it no longer holds, else null. The party has not moved, so its place still holds.
  */
@@ -1578,13 +1578,13 @@ export function storyHeldGroundReleaseInFight(
   return storyConditionsHold(held.if, flags, fight.party) ? null : storyHeldGroundRelease(held, flags);
 }
 
-/** What Held Ground means, for the Game Master (1.374). */
+/** What Held Ground means, for the Game Master (1.366). */
 export function storyHeldGroundText(held: StoryScript["heldGround"][number]): string {
   return `${held.label ?? "Held Ground"}: death is held here. Whoever reaches no health in a fight is felled instead (out of it, stable, never dying), and gets up again later unless reaped${held.condition ? `; the felled are ${held.condition}` : ""}${held.marks?.length ? `; each felled character takes ${held.marks.map((mark) => `${mark.by} ${mark.track}`).join(" and ")}` : ""}. The Engine keeps this in fights.`;
 }
 
-/** The held ground a fight is fought on, from what the story recorded (1.374): what the fight director
- *  takes as its `heldGround` (1.318). Null when death is not held where the party is. */
+/** The held ground a fight is fought on, from what the story recorded (1.366): what the fight director
+ *  takes as its `heldGround` (1.323). Null when death is not held where the party is. */
 export function storyHeldGroundNow(
   story: StoryScript,
   state: Pick<StoryState, "held">,
@@ -1598,7 +1598,7 @@ export function storyHeldGroundNow(
   };
 }
 
-/** One exposure's bites this turn, owed a save by each of the party (1.372). */
+/** One exposure's bites this turn, owed a save by each of the party (1.364). */
 export interface StoryExposureSave {
   exposure: string;
   /** What it is called in a tell. */
@@ -1623,7 +1623,7 @@ export interface StoryExposureSaveRoll {
 
 const sheetValue = (value: string) => value.replace(/["[\]]/g, "");
 
-/** What an exposure's saves cost the party (1.372): for each member who failed any, their tracks moved by
+/** What an exposure's saves cost the party (1.364): for each member who failed any, their tracks moved by
  *  each failure (stopped where `upTo` says) and its conditions put on; and the tell for the Game Master. */
 export function storyExposureSaveOutcome(
   bite: StoryExposureSave,
@@ -1695,9 +1695,9 @@ function storyRecord(
 }
 
 /** An event's flag changes and reveals against these flag values (applied to them). A sum that is no
- *  longer a number a record can hold is left as it was; a number is kept within its flag's bounds (1.366).
+ *  longer a number a record can hold is left as it was; a number is kept within its flag's bounds (1.358).
  *  An action with conditions is done only when they hold as the event reaches it, its earlier actions
- *  done (1.366): which were done is recorded, and `done` is the event with only them. */
+ *  done (1.358): which were done is recorded, and `done` is the event with only them. */
 function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["flags"], party?: StoryParty) {
   const declared = new Map(story.flags.map((flag) => [flag.id, flag]));
   const set: Array<[string, boolean | number]> = [];
@@ -1742,14 +1742,14 @@ function applyActions(story: StoryScript, event: StoryEvent, flags: StoryState["
   };
 }
 
-/** The label of a ruleset item by its id, while the game's ruleset offers it (1.351). */
+/** The label of a ruleset item by its id, while the game's ruleset offers it (1.343). */
 export type StoryItemLabel = (ref: string) => string | undefined;
 
 /** An item the story gives, as an inventory tag for the reply's inventory to answer like the Game
  *  Master's; or why it cannot be given: an id the game's ruleset does not offer. */
 function storyGiveTag(give: Extract<StoryAction, { give: unknown }>["give"], label: StoryItemLabel | undefined) {
   const items = storyGiveItems(give);
-  // The first the ruleset offers (1.378): an id, or a bare entry id in whichever catalog has it; else the
+  // The first the ruleset offers (1.370): an id, or a bare entry id in whichever catalog has it; else the
   // first by name. A lone bare id the ruleset has not is a name, as it always was.
   const found = items.find((each) => (storyIsRef(each) || storyIsBareEntry(each)) && label?.(each));
   const byName = items.find((each) => !storyIsRef(each) && (items.length === 1 || !storyIsBareEntry(each)));
@@ -1796,7 +1796,7 @@ function storyActionTags(
   return { tags, refusedItems };
 }
 
-/** A story fight's opponents, one by one (1.351): each creature as many times as it counts, called by its
+/** A story fight's opponents, one by one (1.343): each creature as many times as it counts, called by its
  *  own name in the fight (numbered when there are several), `creature` the bestiary's name for it (`label`
  *  reads an id; a creature by name is its own). */
 export function storyFightRoster(
@@ -1814,14 +1814,14 @@ export function storyFightRoster(
   });
 }
 
-/** One opponent of a story fight, as its roster names it (1.351), with how the fight adjusts it (1.371). */
+/** One opponent of a story fight, as its roster names it (1.343), with how the fight adjusts it (1.363). */
 export interface StoryFightOpponent {
   name: string;
   creature: string;
   adjust?: StoryFightAdjust;
 }
 
-/** What a story fight changes of a creature (1.371, 1.379), with what it changes from a party level up. */
+/** What a story fight changes of a creature (1.363, 1.371), with what it changes from a party level up. */
 export interface StoryFightAdjustAt {
   legendaryResistance?: number;
   maxHp?: number;
@@ -1831,7 +1831,7 @@ export interface StoryFightAdjust extends StoryFightAdjustAt {
   levels?: Array<StoryFightAdjustAt & { from: number }>;
 }
 
-/** A creature's adjust for a party this high (1.379): each level reached laid over the last, a call to
+/** A creature's adjust for a party this high (1.371): each level reached laid over the last, a call to
  *  the same action replaced. A party level not known reads the creature's own adjust alone. */
 export function storyFightAdjustAt(
   adjust: StoryFightAdjust,
@@ -1854,7 +1854,7 @@ export function storyFightAdjustAt(
   return at;
 }
 
-/** How a story fight adjusts an opponent, for the Game Master (1.371): "Legendary Resistance 1, 40 HP". */
+/** How a story fight adjusts an opponent, for the Game Master (1.363): "Legendary Resistance 1, 40 HP". */
 export function storyFightAdjustText(adjust: StoryFightAdjust | undefined): string {
   if (!adjust) return "";
   const said = (at: StoryFightAdjustAt) =>
@@ -1862,7 +1862,7 @@ export function storyFightAdjustText(adjust: StoryFightAdjust | undefined): stri
       ...(at.legendaryResistance !== undefined ? [`Legendary Resistance ${at.legendaryResistance}`] : []),
       ...(at.maxHp !== undefined ? [`${at.maxHp} HP`] : []),
       ...(at.calls ?? []).map((call) => `${call.action} calls ${call.creature}`),
-  ].join(", ");
+    ].join(", ");
   return [said(adjust), ...(adjust.levels ?? []).map((level) => `from party level ${level.from}: ${said(level)}`)]
     .filter(Boolean)
     .join("; ");
@@ -1873,7 +1873,7 @@ function storyPartyRange(party: number | { min: number; max?: number }): [number
   return typeof party === "number" ? [party, party] : [party.min, party.max ?? Number.POSITIVE_INFINITY];
 }
 
-/** The fight as a party this size fights it (1.364): its variant for the size, else itself. */
+/** The fight as a party this size fights it (1.356): its variant for the size, else itself. */
 export function storyFightForParty(fight: StoryFight, size: number | null | undefined): StoryFight {
   if (!size || !fight.variants?.length) return fight;
   const variant = fight.variants.find((each) => {
@@ -1890,7 +1890,7 @@ export function storyFightForParty(fight: StoryFight, size: number | null | unde
   };
 }
 
-/** An ending as the player is shown it (1.351). */
+/** An ending as the player is shown it (1.343). */
 export function storyEndingOf(
   story: StoryScript,
   id: string,
@@ -1899,7 +1899,7 @@ export function storyEndingOf(
   return ending ? { id: ending.id, title: ending.title, epilogue: ending.epilogue } : undefined;
 }
 
-/** The script's fight a reply started (1.351): the latest one its story tags recorded. */
+/** The script's fight a reply started (1.343): the latest one its story tags recorded. */
 export function storyFightIn(story: StoryScript, reply: string | null | undefined): StoryFight | null {
   if (!reply) return null;
   const id = readStoryLedger([reply])
@@ -1922,7 +1922,7 @@ function storyPages(
   cutscene: Extract<StoryCutscene, { kind: "pages" }>,
   playerName: string | undefined,
   /** The flags and who travels with the party as it is shown: a page with conditions only while they
-   *  hold (1.366). */
+   *  hold (1.358). */
   flags: StoryState["flags"],
   party: StoryParty,
 ): string {
@@ -1958,7 +1958,7 @@ function storyWorldTag(game: GameWorld, deed: Extract<StoryAction, { world: unkn
   return `[world: ${parts.join(" ")}]`;
 }
 
-/** What an item's use spent of a story number in a fight (Capability API 1.367): kept with the game until
+/** What an item's use spent of a story number in a fight (Capability API 1.359): kept with the game until
  *  a turn records it, by its id, so it is recorded once whatever is regenerated. */
 export interface StorySpend {
   id: string;
@@ -2030,7 +2030,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   let at: string | null = game.world.startId ?? null;
   const cameIn = new Map<string, number>();
   for (const target of targets) if (inside(at, target)) cameIn.set(target, -1);
-  // When the party last left each place a leave event waits for (1.366).
+  // When the party last left each place a leave event waits for (1.358).
   const exits = new Set(story.events.flatMap((event) => (event.when.on === "leave" ? [event.when.place] : [])));
   const wentOut = new Map<string, number>();
   const goTo = (next: string | null, index: number) => {
@@ -2042,7 +2042,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const ledger: StoryLedgerEntry[] = [];
   let flagsSoFar = storyState(story, []).flags;
   const risen = new Map(rising.map((event) => [event.id, !storyConditionsHold(event.if, flagsSoFar, party)]));
-  // Where this turn's walk set out from and came to (1.357).
+  // Where this turn's walk set out from and came to (1.349).
   let setOutFrom: string | null = null;
   // The flags as they stood before the Game Master's own tags in the latest reply, so a clock they or this
   // turn's trips fill is told once.
@@ -2073,7 +2073,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
     }
   });
 
-  // What items' uses spent in fights since (1.367), recorded first, so this turn's events read it.
+  // What items' uses spent in fights since (1.359), recorded first, so this turn's events read it.
   const spent = storySpendsDue(story, ledger, world.spends, { ...storyState(story, ledger).flags });
   ledger.push(...spent.map((each) => each.entry));
   const state = storyState(story, ledger);
@@ -2093,7 +2093,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       `${spend.label ? `Using ${spend.label}` : "An item's use"} ${spend.add < 0 ? "cost the party" : "gave the party"} ${Math.abs(spend.add)} of ${name}; it is ${entry.set[0]![1]} now.`,
     );
   }
-  // What being where the party is has done to it since it came (1.370), on the game's clock.
+  // What being where the party is has done to it since it came (1.362), on the game's clock.
   const sheet: string[] = [];
   const saves: StoryExposureSave[] = [];
   if (world.clock !== undefined && story.exposures.length) {
@@ -2127,24 +2127,24 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
               ...(exposure.tell ? { tell: exposure.tell } : {}),
             });
           } else {
-          for (const moved of exposure.tracks ?? [])
+            for (const moved of exposure.tracks ?? [])
               sheet.push(
                 `[sheet: who="party" op="track" track="${moved.track}" by="${moved.by * due}"${moved.upTo !== undefined ? ` upto="${moved.upTo}"` : ""}]`,
               );
-          for (const condition of exposure.applies ?? [])
-            sheet.push(`[sheet: who="party" op="condition" condition="${condition}" state="on"]`);
-          tells.push(
-            `${exposure.label ?? `Being in ${place}`} has told on the party: ${due === 1 ? "once" : `${due} times`} more since the last reply (every ${exposure.hours} hour${exposure.hours === 1 ? "" : "s"} there), and the Engine has marked it on each of their sheets.${exposure.tell ? ` ${exposure.tell}` : ""}`,
-          );
+            for (const condition of exposure.applies ?? [])
+              sheet.push(`[sheet: who="party" op="condition" condition="${condition}" state="on"]`);
+            tells.push(
+              `${exposure.label ?? `Being in ${place}`} has told on the party: ${due === 1 ? "once" : `${due} times`} more since the last reply (every ${exposure.hours} hour${exposure.hours === 1 ? "" : "s"} there), and the Engine has marked it on each of their sheets.${exposure.tell ? ` ${exposure.tell}` : ""}`,
+            );
+          }
         }
-      }
       }
       if (!record) continue;
       ledger.push({ exposure: record, by: "engine", set: [], show: [] });
       prepend.push(storyRecord({ exposure: record, set: [], show: [] }, "engine"));
     }
   }
-  // Whether death is held where the party is (1.374), recorded as it comes and goes.
+  // Whether death is held where the party is (1.366), recorded as it comes and goes.
   let released: StoryHeldGroundRelease | undefined;
   if (story.heldGround.length) {
     const holding =
@@ -2165,7 +2165,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       );
     }
   }
-  // The recap of a story fight fought in its variant for the party's size names the variant (1.364).
+  // The recap of a story fight fought in its variant for the party's size names the variant (1.356).
   if (world.fight) {
     const ended = storyFightIn(story, world.latest);
     const as = ended ? storyFightForParty(ended, world.partySize) : null;
@@ -2186,8 +2186,8 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       const pages = storyPages(game, cutscene, world.playerName, flags, party);
       // A scene all of whose pages are held back by their conditions shows nothing.
       if (pages.replace(/^\[bg: [^\]]*\]/u, "").trim()) {
-      prepend.push(pages);
-      shown.push(pages);
+        prepend.push(pages);
+        shown.push(pages);
       }
     } else if (cutscene?.kind === "beats" && byEngine) beats.push([...cutscene.beats]);
   };
@@ -2235,7 +2235,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
       }
     }
     for (const action of event.do) {
-      // On the reply this turn writes, by the Engine or a turn after the Game Master marked it (1.376).
+      // On the reply this turn writes, by the Engine or a turn after the Game Master marked it (1.368).
       if ("sheet" in action) sheet.push(storySheetTag(action.sheet));
     }
     for (const action of event.do) {
@@ -2248,7 +2248,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   // What the Game Master tripped last reply: its scenes and asks arrive now (its deeds went with it).
   for (const entry of world.latest ? readStoryLedger([world.latest]) : []) {
     const event = entry.event ? events.get(entry.event) : undefined;
-    // Only the actions its trip did, when some have conditions (1.366).
+    // Only the actions its trip did, when some have conditions (1.358).
     const acts = entry.acts;
     if (event && entry.by !== "engine")
       deliver(acts ? { ...event, do: event.do.filter((_, index) => acts.includes(index)) } : event, false);
@@ -2269,7 +2269,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
 
   const turnNumber = world.repliesBefore + 1;
   const now = segments.length - 1;
-  // A rest the Game Master's sheet tags took last reply (1.357), of this rest or any.
+  // A rest the Game Master's sheet tags took last reply (1.349), of this rest or any.
   const restedLast = (rest: string | undefined) =>
     [...(world.latest ?? "").matchAll(/\[sheet:([^\]]*)\]/gi)].some((match) => {
       const body = match[1] ?? "";
@@ -2317,7 +2317,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
             )
           : event.repeat === true && latestDeeds.some((entry) => deedMatches(entry, when.deed, when.place));
       case "fight":
-        // With a fight named (1.366), only when the fight that ended is that one: the one the latest reply
+        // With a fight named (1.358), only when the fight that ended is that one: the one the latest reply
         // started.
         return (
           world.fight === when.outcome &&
@@ -2370,7 +2370,7 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   const held: Record<string, WorldSeason> = { ...(state.seasons ?? {}) };
   // A game that has had its ending trips nothing more.
   let ended = state.ended;
-  // A rest, a trip or a quiet spell sets off one scene a turn at most: the highest priority's (1.357).
+  // A rest, a trip or a quiet spell sets off one scene a turn at most: the highest priority's (1.349).
   const quiet = (event: StoryEvent) => (STORY_QUIET_TRIGGERS as readonly string[]).includes(event.when.on);
   let quietTripped = false;
   const ready = (event: StoryEvent) =>
@@ -2432,9 +2432,9 @@ export function storyTurn(story: StoryScript, world: StoryTurnWorld): StoryTurn 
   };
 }
 
-/** The season at a place (1.359): the one the story holds it, or the nearest place it is inside, at (its
+/** The season at a place (1.351): the one the story holds it, or the nearest place it is inside, at (its
  *  events' first, then the script's own), else the one it holds the whole world at, else the day's. */
-/** What marks a place's season hold as over everything inside it (1.369), after its place id. */
+/** What marks a place's season hold as over everything inside it (1.361), after its place id. */
 const STORY_SEASON_OVER = "!";
 
 export function storySeasonAt(
@@ -2446,7 +2446,7 @@ export function storySeasonAt(
 ): { season: WorldSeason; held: boolean } {
   const parents = new Map(game.world.places.map((place) => [place.id, place.parentId]));
   const own = new Map(story.seasons.map((each) => [each.place ?? "*", each.season]));
-  // A hold over everything inside it (1.369) beats every season there, the outermost first.
+  // A hold over everything inside it (1.361) beats every season there, the outermost first.
   const over = held?.[`*${STORY_SEASON_OVER}`];
   if (over) return { season: over, held: true };
   let outermost: WorldSeason | undefined;
@@ -2462,7 +2462,7 @@ export function storySeasonAt(
   return world ? { season: world, held: true } : { season: worldSeason(day), held: false };
 }
 
-/** Every place the story holds at a season now (1.359), with that season: each place whose own, or a place
+/** Every place the story holds at a season now (1.351), with that season: each place whose own, or a place
  *  it is inside, or the world's, is held (and `*` when the world's is). Empty when the story holds none, so the day's season stands. */
 export function storyPlaceSeasons(
   story: StoryScript,
@@ -2480,7 +2480,7 @@ export function storyPlaceSeasons(
   return seasons;
 }
 
-/** The season each cell of the world is held at (1.359), row by row: the one of the place it lies nearest
+/** The season each cell of the world is held at (1.351), row by row: the one of the place it lies nearest
  *  (among the places no other is inside), null where that place is not held. Null when nothing is. */
 export function worldSeasonCells(
   game: GameWorld,
@@ -2508,9 +2508,9 @@ export function worldSeasonCells(
   return cells;
 }
 
-/** What people know that holds now and is in the scene (1.356): an entry whose conditions hold, whose
+/** What people know that holds now and is in the scene (1.348): an entry whose conditions hold, whose
  *  person is named in these texts or travels with the party, and, when it has keys, one of them is said;
- *  a turn's worth at most, ranked (1.369): the people the scene names first, then what its words bring in, then
+ *  a turn's worth at most, ranked (1.361): the people the scene names first, then what its words bring in, then
  *  those only travelling along, each rank shared out person by person; those travelling along keep two
  *  entries however crowded the scene. */
 export function storyKnowledgeHere(
@@ -2533,7 +2533,7 @@ export function storyKnowledgeHere(
     }
     return here.get(personId) ?? null;
   };
-  // What holds, ranked (1.369): the people the scene names first, then what its words bring in, then the
+  // What holds, ranked (1.361): the people the scene names first, then what its words bring in, then the
   // companions who are only travelling along; within each, shared out person by person.
   const named = (personId: string) => {
     const person = storyPerson(game, personId);
@@ -2601,9 +2601,9 @@ export function applyStoryTags(
   before: StoryState,
   /** The events this turn has already tripped: at most once a turn, as the Engine's own. */
   thisTurn: readonly string[] = [],
-  /** The game's ruleset items by id, for the items a trip gives (1.351). */
+  /** The game's ruleset items by id, for the items a trip gives (1.343). */
   item?: StoryItemLabel,
-  /** Who travels with the party, by person id (1.357). */
+  /** Who travels with the party, by person id (1.349). */
   party?: StoryParty,
 ): string {
   let ended = before.ended;
@@ -2660,7 +2660,7 @@ export function applyStoryTags(
         next = typeof read === (flag.kind === "bool" ? "boolean" : "number") ? read : undefined;
       }
       if (next === undefined || (typeof next === "number" && !Number.isFinite(next))) return refuse("unreadable");
-      // Kept within its bounds (1.366).
+      // Kept within its bounds (1.358).
       if (typeof next === "number") next = storyBounded(flag, next);
       flags[flag.id] = next;
       return storyRecord({ flag: flag.id, set: [[flag.id, next]], show: [] });
@@ -2761,7 +2761,7 @@ export function storyTurnPromptText(story: StoryScript, turn: StoryTurn): string
   if (turn.season.held) {
     lines.push(`It is ${turn.season.season} here, whatever the date: the story holds it so.`);
   }
-  // Every turn it holds, not only the one it began (1.374): a fight can start on any of them.
+  // Every turn it holds, not only the one it began (1.366): a fight can start on any of them.
   const held = turn.state.held ? story.heldGround.find((each) => each.id === turn.state.held) : undefined;
   if (held && !turn.tells.some((tell) => tell.startsWith(storyHeldGroundText(held)))) {
     lines.push(storyHeldGroundText(held));

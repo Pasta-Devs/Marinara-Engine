@@ -605,7 +605,7 @@ export type RulesetCombatantInput =
       creature: { catalogId: string; entryId: string };
       /** Where its live tracks stand as the fight begins (1.115), as a bestiary creature has none. */
       tracks?: Record<string, number>;
-      /** Its stat block as this fight has it (1.371): a story fight's Legendary Resistance and health. */
+      /** Its stat block as this fight has it (1.363): a story fight's Legendary Resistance and health. */
       adjust?: { legendaryResistance?: number; health?: number; calls?: Array<{ action: string; creature: string }> };
     };
 
@@ -1463,7 +1463,7 @@ export interface RulesetCombatant {
   speeds?: RulesetMoveSpeeds;
   /** A flier that hovers (1.113). */
   hover?: true;
-  /** In the air (Capability API 1.362): a flier off the ground, whatever its height. One that only
+  /** In the air (Capability API 1.354): a flier off the ground, whatever its height. One that only
    *  flies, or hovers, starts so; one takes off with a step only its flight takes or the "Take off"
    *  move, and comes down with "Land" or when it can no longer stay up. Its art is its flying art. */
   airborne?: true;
@@ -2466,7 +2466,7 @@ export type RulesetCombatEvent =
     }
   /** A flier going up or down a level where it stands (1.114), for cells of its allowance. */
   | { type: "flew"; actorId: string; from: number; to: number; cost: number; left: number }
-  /** A flier taking off or landing where it stands (1.362). */
+  /** A flier taking off or landing where it stands (1.354). */
   | { type: "lift"; actorId: string; up: boolean }
   /** A strike at somebody leaving this combatant's reach. The attack and the damage that follow are
    *  their own events, exactly as they are on a turn. */

@@ -284,7 +284,7 @@ function itemLights(who: RulesetCombatant): RulesetLightRadius[] {
   });
 }
 
-/** Whether any of these held items sheds shade as its stack keeps it now (1.373), outside a fight: a
+/** Whether any of these held items sheds shade as its stack keeps it now (1.365), outside a fight: a
  *  Lantern of Dusk carried lit. One with a switch counts only while it is on, unless it sheds shade off. */
 export function rulesetItemsShedShade(items: readonly RulesetSheetItem[]): boolean {
   return items.some((held) => {

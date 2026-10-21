@@ -906,7 +906,7 @@ export type RulesetSheetOp =
    *  box, or the next free one above it. Told apart from the pool shape above by naming a track,
    *  which is what `"track" in op` reads. */
   | { op: "damage"; track: string; kind: string; amount: number; box?: number }
-  /** `upTo` (1.372) stops a `by` move there: it never carries the track past it, and never moves one
+  /** `upTo` (1.364) stops a `by` move there: it never carries the track past it, and never moves one
    *  already beyond it. */
   | { op: "track"; track: string; to?: number; by?: number; upTo?: number }
   | { op: "condition"; condition: string; active: boolean }

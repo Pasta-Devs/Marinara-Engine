@@ -197,7 +197,7 @@ export function selectGameExperiencePackages(
     (pkg) =>
       isInstalledCapabilityReady(pkg) &&
       pkg.manifest.contributions?.slots?.includes("game-surface") &&
-      // A data-only Experience (1.382) has no client: Game Mode's own view plays it.
+      // A data-only Experience (1.373) has no client: Game Mode's own view plays it.
       (pkg.manifest.kind.includes("experience") || Boolean(pkg.manifest.entrypoints.client?.trim())),
   );
 }
@@ -241,7 +241,7 @@ export function selectConversationSurfacePackages(
   );
 }
 
-/** Whether a game-surface package draws a view of its own; a data-only Experience (1.382) never does. */
+/** Whether a game-surface package draws a view of its own; a data-only Experience (1.373) never does. */
 export function capabilityPackageDrawsOwnSurface(pkg: InstalledCapabilityPackage | null | undefined): boolean {
   return Boolean(pkg?.manifest.entrypoints.client?.trim());
 }
@@ -629,7 +629,7 @@ export function useInstallCapabilityPackage() {
   });
 }
 
-/** Imports an Experience file (1.382) the user reviewed. The file goes up as it is, streamed by the
+/** Imports an Experience file (1.373) the user reviewed. The file goes up as it is, streamed by the
  *  browser from disk, and the server checks every byte of it against its manifest. */
 export function useImportExperienceFile() {
   const invalidate = useInvalidateCapabilityState();

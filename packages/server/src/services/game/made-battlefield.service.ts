@@ -48,7 +48,7 @@ async function battlefieldHere(db: DB, chatId: string, meta: Record<string, unkn
   const world = await loadGameWorld(db, chatId, meta);
   if (!world?.edits?.battlefields?.length) return null;
   const replies = await gameRepliesBefore(db, chatId);
-  // A fight the story set on a board of its own (Capability API 1.351) is fought there, wherever it starts.
+  // A fight the story set on a board of its own (Capability API 1.343) is fought there, wherever it starts.
   const fight = await latestStoryFight(db, chatId, meta);
   const board = fight?.battlefield ? world.edits.battlefields.find((map) => map.id === fight.battlefield) : undefined;
   if (board) {
@@ -59,7 +59,7 @@ async function battlefieldHere(db: DB, chatId: string, meta: Record<string, unkn
   return worldBattlefieldHere(world, placeId, seed, seasonAt(world, meta, replies.all, placeId));
 }
 
-/** The season at a place (1.359): the one the story holds it at, else the game day's. */
+/** The season at a place (1.351): the one the story holds it at, else the game day's. */
 function seasonAt(world: GameWorld, meta: Record<string, unknown>, replies: readonly string[], placeId: string | null) {
   const day = ((meta.gameTime as GameTime | undefined) ?? createInitialTime()).day;
   const story = gameStoryFromMetadata(meta, world);

@@ -424,7 +424,7 @@ export function rulesetRelightCells(state: RulesetEncounterState, prop: RulesetB
   return cells;
 }
 export const RULESET_FLY_DOWN_OPTION = "move:fly-down";
-/** Into the air or back onto the ground where it stands (1.362): free, as part of moving. */
+/** Into the air or back onto the ground where it stands (1.354): free, as part of moving. */
 export const RULESET_TAKE_OFF_OPTION = "move:take-off";
 export const RULESET_LAND_OPTION = "move:land";
 /** How high above the ground under it a flier may go, in levels. A board's own heights are a handful
@@ -2893,7 +2893,7 @@ function movementOptions(
       },
     ];
   }
-  // Taking off and landing where it stands (1.362), free: a flier on the ground, or one in the air at
+  // Taking off and landing where it stands (1.354), free: a flier on the ground, or one in the air at
   // the ground's own height that has a walk to come down to.
   const lift: RulesetCombatOption[] = [];
   if (actor.speeds?.fly && typeof actor.x === "number" && !rulesetAirborne(state.board?.grid, actor)) {

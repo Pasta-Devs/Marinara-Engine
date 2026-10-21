@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// A story clock (Capability API 1.350): a number flag drawn as a circle of segments, one filled per point.
+// A story clock (Capability API 1.342): a number flag drawn as a circle of segments, one filled per point.
 // ──────────────────────────────────────────────
 import { useQuery } from "@tanstack/react-query";
 import type { StoryClock, WorldJournal } from "@marinara-engine/shared";

@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Exposure saves (Capability API 1.372): an exposure with a `save` bites each of the party only when they
+// Exposure saves (Capability API 1.364): an exposure with a `save` bites each of the party only when they
 // fail it. The story's turn says what bit and how often; the saves are rolled here, off each member's own
 // sheet, with what the save is made against, so an item's modifier narrowed to it (a straw hat against
 // `noon_light`) counts out of a fight as it does in one. What the failures cost goes onto the turn's own
@@ -38,7 +38,7 @@ export function storyPartyMembers(meta: Record<string, unknown>, context: SkillC
   return names;
 }
 
-/** The party's sheets and what they hold, as this turn starts, for a story's exposures (1.372, 1.373):
+/** The party's sheets and what they hold, as this turn starts, for a story's exposures (1.364, 1.365):
  *  null when the game has none the Engine can read. */
 export async function loadStoryExposureSheets(
   db: DB,
@@ -54,7 +54,7 @@ export async function loadStoryExposureSheets(
   }
 }
 
-/** Whether any of the party carries a shade lit (1.373): a Lantern of Dusk keeps an exposure off. */
+/** Whether any of the party carries a shade lit (1.365): a Lantern of Dusk keeps an exposure off. */
 export function storyPartyCarriesShade(context: SkillCheckModifierContext | null): boolean {
   return [...(context?.ruleset?.items.values() ?? [])].some((items) => rulesetItemsShedShade(items));
 }

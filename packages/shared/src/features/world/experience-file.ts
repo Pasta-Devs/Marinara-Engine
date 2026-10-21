@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Experience files (Capability API 1.382): an Experience as one plain JSON file, `<name>.experience.json`,
+// Experience files (Capability API 1.373): an Experience as one plain JSON file, `<name>.experience.json`,
 // in place of a package zip. Nothing in it is compressed, so what it holds is never more than the file
 // itself, and it carries no code: only pictures, music and data, each named, sized and hashed in its
 // manifest.

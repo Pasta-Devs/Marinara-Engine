@@ -1,9 +1,9 @@
 /**
- * An Experience's own looks for its maps made by hand (Capability API 1.365).
+ * An Experience's own looks for its maps made by hand (Capability API 1.357).
  *
  *   - A map pack may ship dungeon looks (`mapPack.dungeons`: .tilepack.json files laid out as a dungeon
  *     set), each named by its id from a hand map's `pack`. Each must draw a floor and a wall, and no two
- *     share an id. They need an Experience that declares 1.365.
+ *     share an id. They need an Experience that declares 1.357.
  *   - A hand map may carry its own words (floor, wall, liquid, each prop slot): the kept map keeps them
  *     and the Game Master is told the map in them, so an outdoor site reads as what it is.
  */
@@ -71,7 +71,7 @@ assert.match(
 );
 
 // ── The manifest names its looks ──
-const manifest = (dungeons: unknown, minor = 365) =>
+const manifest = (dungeons: unknown, minor = 357) =>
   capabilityPackageManifestSchema.safeParse({
     schemaVersion: 2,
     capabilityApi: { major: 1, minor },
@@ -98,7 +98,7 @@ const manifest = (dungeons: unknown, minor = 365) =>
   });
 const named = manifest(["map/maze.tilepack.json"]);
 assert.ok(named.success, JSON.stringify(!named.success && named.error.issues));
-assert.ok(!manifest(["map/maze.tilepack.json"], 364).success, "needs 1.365");
+assert.ok(!manifest(["map/maze.tilepack.json"], 356).success, "needs 1.357");
 assert.ok(!manifest(["map/maze.json"]).success, "a .tilepack.json file");
 assert.ok(!manifest(["map/other.tilepack.json"]).success, "declared among its assets");
 
@@ -113,7 +113,7 @@ const maze = look("held-autumn/maze", {
   dn_wall: [{ sheet: "town", x: 2, y: 0 }],
   dn_prop0: [{ sheet: "town", x: 3, y: 0 }],
 });
-const files = (dungeons: TilePack[], minor = 365): MapPackFiles => ({
+const files = (dungeons: TilePack[], minor = 357): MapPackFiles => ({
   version: "1.0.0",
   name: "The Held Autumn",
   kit: Buffer.from(JSON.stringify(worldKitFile(parsedKit.kit))),
@@ -142,7 +142,7 @@ const why = async (input: MapPackFiles, reason: RegExp) => {
   const result = await checkMapPackFiles("held-autumn", input, { cache: false });
   assert.ok(!result.ok && reason.test(result.reason), JSON.stringify(result));
 };
-await why(files([maze], 364), /look0\.tilepack\.json is a dungeon look, which needs capabilityApi 1\.365/);
+await why(files([maze], 356), /look0\.tilepack\.json is a dungeon look, which needs capabilityApi 1\.357/);
 await why(
   files([look("held-autumn/bare", { dn_floor: [{ sheet: "town", x: 0, y: 0 }] })]),
   /has no dn_wall, which a dungeon look needs/,

@@ -1,5 +1,5 @@
 /**
- * Parties beyond six, and companions who never fight (Capability API 1.368).
+ * Parties beyond six, and companions who never fight (Capability API 1.360).
  *
  *   - A story fight's variant may be for a party above six, or open-ended (`{ "min": 7 }`: any party of
  *     seven or more); two variants still never hold one size.
@@ -83,7 +83,7 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 368);
+assert.equal(storyCapabilityMinor(story), 360);
 const small = checkStoryScript(game, {
   ...input,
   events: [],
@@ -91,7 +91,7 @@ const small = checkStoryScript(game, {
   fights: [{ ...granary, variants: [granary.variants[0]!] }],
 });
 assert.ok(small.ok, JSON.stringify(small));
-assert.equal(storyCapabilityMinor(small.story), 364, "a party of six at most is 1.364 still");
+assert.equal(storyCapabilityMinor(small.story), 356, "a party of six at most is 1.356 still");
 
 // ── Refused: sizes held twice, an open range under another ──
 const bad = (variants: unknown[], issue: RegExp) => {
@@ -168,7 +168,7 @@ const people = readExperiencePeople(
   }),
 );
 assert.ok(people.ok, JSON.stringify(people));
-assert.equal(experiencePeopleMinor(people.people), 368);
+assert.equal(experiencePeopleMinor(people.people), 360);
 const told = experienceCompanionsPromptText(game, people.people, [liesl.name]);
 assert.ok(told.includes(`${liesl.name} (travelling with the party): Keeps the ledger (never fights`), told);
 assert.ok(!told.includes(`${healer.name} (at Thrushwick): Healing (never`), told);

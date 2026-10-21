@@ -1,5 +1,5 @@
 /**
- * What people know, and companions' scenes (Capability API 1.356, 1.357).
+ * What people know, and companions' scenes (Capability API 1.348, 1.349).
  *
  *   - A story's `knowledge` is told to the Game Master on a turn its conditions hold and its person is in
  *     the scene (named in the latest reply or the player's message, or travelling with the party), or,
@@ -100,11 +100,11 @@ const input: StoryScriptInput = {
 const read = checkStoryScript(game, input);
 assert.ok(read.ok, JSON.stringify(read));
 const story = read.story;
-assert.equal(storyCapabilityMinor(story), 357);
+assert.equal(storyCapabilityMinor(story), 349);
 assert.equal(
   storyCapabilityMinor({ ...story, events: [], knowledge: story.knowledge.slice(0, 4) }),
-  356,
-  "knowledge alone needs 1.356",
+  348,
+  "knowledge alone needs 1.348",
 );
 
 // ── Refused whole ──

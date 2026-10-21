@@ -35,7 +35,7 @@ export function useCreaturePack(): CreaturePack | null {
   return data ?? null;
 }
 
-/** The creature packs the game's Experience ships (Capability API 1.352), put in place by the game's
+/** The creature packs the game's Experience ships (Capability API 1.344), put in place by the game's
  *  screen for the fights it shows. */
 export const ExperienceCreaturePacksContext = createContext<readonly CreaturePack[]>([]);
 
@@ -127,7 +127,7 @@ export function CreatureArtFigure({
   facing: CreatureFacing;
   cellFraction?: number;
   label: string;
-  /** In the air (1.360): its flying block, played 0, 1, 2, 1, when it has one. */
+  /** In the air (1.352): its flying block, played 0, 1, 2, 1, when it has one. */
   flying?: boolean;
 }) {
   const flaps = useFlyStep(flying && Boolean(creature.fly));

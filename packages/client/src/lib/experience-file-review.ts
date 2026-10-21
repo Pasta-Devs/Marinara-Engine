@@ -1,4 +1,4 @@
-// What the import review shows of an Experience file (Capability API 1.382), read in the browser before
+// What the import review shows of an Experience file (Capability API 1.373), read in the browser before
 // anything is sent: only the start of the file, up to the end of its manifest, never the files it holds.
 import {
   EXPERIENCE_FILE_HEADER_MAX_BYTES,

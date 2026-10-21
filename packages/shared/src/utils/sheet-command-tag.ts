@@ -147,7 +147,7 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     const by = readInteger(values.get("by"));
     // Exactly one of the two, or the tag does not say what it means.
     if (!track || (to === null) === (by === null)) return parsed;
-    // `upto=` (1.372) only stops a move by some amount; beside `to=` it says nothing anyone could mean.
+    // `upto=` (1.364) only stops a move by some amount; beside `to=` it says nothing anyone could mean.
     const upTo = values.has("upto") ? readInteger(values.get("upto")) : undefined;
     if (upTo === null || (upTo !== undefined && to !== null)) return parsed;
     return {

@@ -1,4 +1,4 @@
-// What the user sees before an Experience file (Capability API 1.382) is imported: read from the start of
+// What the user sees before an Experience file (Capability API 1.373) is imported: read from the start of
 // the file alone, in the browser, so nothing of it has reached Marinara yet. It shows how big the import
 // is and what it is made of, says it carries no code, and waits for Import or Don't Import.
 import { useState, type ReactNode } from "react";
