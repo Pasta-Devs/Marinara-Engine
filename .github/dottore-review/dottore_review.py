@@ -822,6 +822,7 @@ def build_stats(review_packet):
                 "stop_chars": 0,
                 "stop_time": 0,
                 "stop_box": 0,
+                "stop_cap": 0,
                 "prompt_tokens": 0,
                 "cached_tokens": 0,
                 "completion_tokens": 0,
@@ -1341,7 +1342,7 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
                     capped = event.type == "response.incomplete"
                 elif event.type in ("response.failed", "error"):
                     failure = getattr(getattr(event, "response", None), "error", None) or event
-                    raise ResponseFailed(getattr(failure, "message", None) or failure, getattr(failure, "code", None))
+                    raise ResponseFailed(getattr(failure, "message", None) or "the provider gave no message", getattr(failure, "code", None))
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         raise StreamStalled(error_text(exc)) from exc
     if response is None:
@@ -1617,6 +1618,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     With keep, the name of the submit tool's list argument, the submit tool does not end the run: each call adds its
     items, and the first turn that makes no read, or the turn after a limit, ends it with every item kept. No final
     call restates them, and a limit loses only the reads not yet kept.
+
+    A reply cut off at its output cap without a tool call is sent once more at the next lower effort. A cap that
+    cannot be retried raises, or ends a keep run that has kept items with them.
     """
     settings = ctx.models[role]
     budget = settings["reads"] if budget is None else budget
@@ -1656,14 +1660,15 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
         message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
         calls = list(message.tool_calls or [])
-        if keep and (forced or all(call.function.name == submit for call in calls)):
-            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
-            with ctx.lock:
-                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
-            return {keep: kept}
+        # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):
             lower = lower_effort(settings["effort"])
             if lowered or not lower or time.monotonic() > min(deadline, box):
+                if kept:
+                    # Like any other limit, the cap ends a keep run with the items already kept.
+                    with ctx.lock:
+                        ctx.stats["roles"][role]["stop_cap"] += 1
+                    return {keep: kept}
                 raise RuntimeError(f"the {role} reply reached its {settings['max_tokens']}-token output cap")
             # The cap was spent on thinking, so the same call is sent once more at the next lower effort, with a
             # time box of its own: the capped call has usually spent most of the first one.
@@ -1672,6 +1677,11 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             box = time.monotonic() + settings["minutes"] * 60 if settings.get("minutes") else deadline
             lowered = True
             continue
+        if keep and (forced or all(call.function.name == submit for call in calls)):
+            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
+            with ctx.lock:
+                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
+            return {keep: kept}
         if not calls:
             print(f"Dottore {role} replied without a tool call: {redact_for_model(message.content or '')[:400]!r}", flush=True)
             if time.monotonic() > min(deadline, box):
