@@ -10,6 +10,8 @@ Presets formen den Prompt für **Roleplay**- und **Game**-Chats. Der **Conversat
 
 Presets brauchen weder API-Key (geheimer Zugangscode, ähnlich einem Passwort) noch Konto. Sie beschreiben nur, wie ein Prompt aufgebaut wird. Zum Senden brauchst du trotzdem eine funktionierende Verbindung. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
+Das integrierte **Marinara's Universal Preset** liefert Prompt-Text, ohne Generierungsparameter zuzuweisen. Seine älteren gespeicherten Einstellungen für Sampling, Reasoning, Formatierung und Tokens werden ignoriert. Verbindungseinstellungen, Chat-Überschreibungen und Engine-Standardwerte gelten weiterhin. Erstelle eine bearbeitbare Kopie, um das Preset anzupassen.
+
 ## Den Preset Editor öffnen
 
 Prompt-Presets liegen im Bereich **Prompts** des Panels **Presets** am linken Rand der App. Die weiteren Bereiche dieses Panels heißen **Regexes** und **Functions**.

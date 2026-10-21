@@ -55,7 +55,7 @@ Ao abrir uma persona, o **Persona Editor** em página inteira ocupa o lugar da �
 - Um botão **Save** (salvar). Ele fica esmaecido até você fazer alguma mudança.
 - Ações em ícone no cabeçalho: **Export persona** (exportar a persona), **Add persona as character** (adicionar a persona como personagem), **Duplicate persona** (duplicar a persona) e **Delete persona** (excluir a persona).
 
-Se você tentar sair com mudanças não salvas, aparece um aviso: "You have unsaved changes. Close without saving?". Ele oferece **Keep editing**, **Discard & close** e **Save & close**.
+Ao sair do editor, a persona alterada é salva antes de continuar. Se o salvamento falhar, o editor permanece aberto com seu rascunho para você tentar novamente.
 
 O corpo do editor tem uma fileira de abas, nesta ordem: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** e **Stats**.
 
@@ -79,14 +79,40 @@ O painel **Version history** (histórico de versões) fica abaixo do campo **Ver
 
 Na aba **Card** você escreve os campos principais da persona. Cada campo é uma caixa de texto grande, com uma contagem estimada de tokens ao vivo logo abaixo. Uma barra de atalhos leva você direto a cada seção.
 
+- **Summary** (resumo): uma visão geral para a biblioteca de personas e as prévias do card. São metadados e não são enviados ao modelo nos prompts do chat.
 - **Description**: a sua identidade e o seu papel em termos gerais. Isso vai em todo prompt, para a IA saber quem você é.
 - **Personality**: o seu temperamento, o seu comportamento, os seus jeitos de falar e os seus padrões emocionais.
 - **Backstory**: a sua história, a sua origem, as suas relações e os acontecimentos que marcaram você.
 - **Appearance**: descrição física, roupas e detalhes visuais que o modelo deve lembrar.
 - **Image Appearance Override** (aparência alternativa para imagens): um botão liga/desliga opcional abaixo de **Appearance**, desativado por padrão. Ative para mostrar um segundo campo para tags curtas de imagem que descrevem a sua persona, como a palavra-gatilho de uma LoRA. Quando a opção está ativada e o campo contém texto, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto. O narrador sempre recebe o texto completo de **Appearance**.
 - **Scenario**: a situação ou o contexto padrão para os roleplays. Use esse campo para dizer onde a persona começa.
+- **Example Dialogue** (diálogo de exemplo): trocas de mensagens que mostram como sua persona fala. Separe as trocas com `<START>` e use `{{user}}` para sua persona e `{{char}}` para o outro personagem.
 
 Essas caixas de texto aceitam macros. Marinara formata automaticamente as aspas que você digita conforme o estilo de aspas do aplicativo.
+
+### Gerar um campo da persona com a varinha
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** e **Example Dialogue** têm um botão só com o ícone de varinha e uma dica que identifica o campo. Adicione palavras-chave, uma frase ou outro texto inicial e clique na varinha para pedir de 100 a 300 palavras para a seção. Deixe o campo vazio para gerar com base no restante do card. **Example Dialogue** produz trocas de mensagens de exemplo.
+
+Marinara inclui o nome atual da persona e os outros campos como referência, inclusive alterações ainda não salvas. O texto atual do campo escolhido é a base da nova seção. A conexão é escolhida como na geração do resumo de personagens: sua conexão de texto padrão para agentes, depois sua conexão de texto padrão, com a conexão de reserva de agentes configurada quando aplicável. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
+
+O resultado substitui apenas o campo escolhido no rascunho. Revise e clique em **Save** para mantê-lo. A varinha não salva; o salvamento normal ao sair do editor continua valendo. Uma solicitação que falha deixa o texto intacto. Editar o campo durante a solicitação ou abrir outra persona antes de ela terminar impede que um resultado atrasado sobrescreva suas alterações mais recentes. É uma alternativa rápida a pedir à Professor Mari para escrever um card.
+
+### Usar campos alternativos da persona em chats selecionados
+
+Abaixo de cada um dos sete campos, **+ Add Alternative Field** (adicionar campo alternativo) copia o texto atual para uma alternativa editável. Use para mudar o papel, a história, a aparência ou o jeito de falar em chats selecionados sem alterar o card original para todos os chats.
+
+Edite a alternativa, abra **Active in 0 chats** (ativo em 0 chats) e marque os chats onde ela deve substituir o campo original. A lista contém apenas chats que usam essa persona. Abra novamente para atualizar as opções depois de mudar a persona de um chat. Você pode selecionar nenhum, um ou vários chats. Sem seleção, a alternativa fica inativa para depois.
+
+Você pode criar quantas alternativas precisar. Cada chat usa uma alternativa por campo; marcá-lo em outra alternativa move a atribuição desse campo para lá. Uma alternativa vazia limpa intencionalmente o campo nos chats selecionados. Os outros chats mantêm o campo original. As substituições existentes de cenário e aparência para imagens específicas do chat continuam tendo prioridade. As alternativas de **Summary** são metadados e não são enviadas automaticamente no prompt do chat.
+
+Cada alternativa tem sua própria varinha, que usa o texto dela como base e os outros campos da persona como referência. A geração muda apenas essa alternativa. Clique em **Save** para manter alterações e atribuições de chats; o salvamento normal ao sair também vale.
+
+A contagem **Active in** inclui apenas chats que usam essa persona no momento. As atribuições salvas ficam suspensas quando o chat escolhe outra persona e voltam a valer se ele selecionar esta de novo. Uma lista de chats carregando ou indisponível não remove atribuições; abra o seletor de novo para atualizar as opções.
+
+Exportar, importar, duplicar cards e converter entre personagens e personas mantém o texto alternativo, mas limpa a seleção de chats. Backups do perfil completo preservam essas seleções.
+
+Use a lixeira de uma alternativa para removê-la. A confirmação oferece **Cancel** para mantê-la ou **Delete** para removê-la do rascunho. Salve a persona para aplicar a exclusão. Os chats selecionados voltam ao campo original, respeitando as substituições existentes do chat; excluir uma alternativa nunca exclui o campo original.
 
 ### Aba Convo
 

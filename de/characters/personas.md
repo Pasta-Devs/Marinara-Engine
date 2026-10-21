@@ -55,7 +55,7 @@ Wähle die neu erstellte Persona in dem Chat aus, in dem du sie verwenden möcht
 - Eine Schaltfläche **Save** (Speichern). Sie bleibt ausgegraut, bis du etwas änderst.
 - Symbolaktionen in der Kopfzeile: **Export persona** (Persona exportieren), **Add persona as character** (Persona als Charakter hinzufügen), **Duplicate persona** (Persona duplizieren) und **Delete persona** (Persona löschen).
 
-Willst du den Editor mit ungespeicherten Änderungen verlassen, erscheint ein Banner mit dem Text „You have unsaved changes. Close without saving?“. Zur Wahl stehen **Keep editing** (Weiter bearbeiten), **Discard & close** (Verwerfen und schließen) und **Save & close** (Speichern und schließen).
+Beim Verlassen des Editors wird die geänderte Persona gespeichert, bevor es weitergeht. Schlägt das Speichern fehl, bleibt der Editor mit deinem Entwurf geöffnet, damit du es erneut versuchen kannst.
 
 Der Editor-Inhalt ist in Tabs gegliedert, in dieser Reihenfolge: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** und **Stats**.
 
@@ -79,14 +79,40 @@ Unter dem Feld **Version** sitzt das Panel **Version history**. Wie es funktioni
 
 Im Tab **Card** schreibst du die zentralen Persona-Felder. Jedes Feld ist ein großes Textfeld mit laufend geschätzter Token-Zahl darunter. Über eine Leiste mit Sprungmarken springst du direkt zu jedem Abschnitt.
 
+- **Summary** (Zusammenfassung): ein Überblick für die Persona-Bibliothek und Kartenvorschauen. Er gehört zu den Metadaten und wird nicht in Chat-Prompts an das Modell gesendet.
 - **Description**: deine allgemeine Identität und Rolle. Dieser Text geht in jeden Prompt, damit die KI weiß, wer du bist.
 - **Personality**: Temperament, Verhalten, Sprechgewohnheiten und emotionale Muster.
 - **Backstory**: Vorgeschichte, Herkunft, Beziehungen und prägende Ereignisse.
 - **Appearance**: äußere Beschreibung, Kleidung und visuelle Details, die sich das Modell merken soll.
 - **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder): ein optionaler Schalter unter **Appearance**, standardmäßig aus. Schalte ihn ein, um ein zweites Feld für kurze Bild-Tags zu öffnen, die deine Persona beschreiben, etwa ein LoRA-Triggerwort. Ist der Schalter an und das Feld ausgefüllt, verwenden Bild-Prompts diese Tags genau so, wie sie dastehen, und **Appearance** dient als Hintergrund. Der Erzähler bekommt immer den vollständigen Text aus **Appearance**.
 - **Scenario**: die Standardsituation oder der Rahmen für Roleplay. Damit legst du fest, wo die Persona startet.
+- **Example Dialogue** (Beispieldialog): Beispielgespräche, die die Sprechweise deiner Persona zeigen. Trenne Gespräche mit `<START>` und verwende `{{user}}` für deine Persona sowie `{{char}}` für den anderen Charakter.
 
 Diese Textfelder unterstützen Makros. Anführungszeichen, die du tippst, passt die App automatisch an den eingestellten Zitatstil an.
+
+### Ein Persona-Feld mit dem Zauberstab generieren
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario** und **Example Dialogue** haben jeweils einen Button mit einem Zauberstab-Symbol und einem Tooltip, der das Feld nennt. Gib Stichwörter, einen Satz oder anderen Ausgangstext ein und klicke auf den Zauberstab, um 100–300 Wörter für diesen Abschnitt anzufordern. Lass das Feld leer, um anhand der restlichen Persona-Karte zu generieren. **Example Dialogue** erzeugt Beispielgespräche.
+
+Marinara verwendet den aktuellen Persona-Namen und die anderen Kartenfelder als Referenz, einschließlich ungespeicherter Änderungen. Der vorhandene Text des ausgewählten Felds ist die Grundlage für den neuen Abschnitt. Die Verbindung wird wie bei der Charakterzusammenfassung gewählt: zuerst deine Standard-Textverbindung für Agenten, dann deine Standard-Textverbindung, gegebenenfalls mit der eingerichteten Ausweichverbindung für Agenten. Siehe [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
+
+Das Ergebnis ersetzt nur das gewählte Feld im Entwurf. Prüfe es und klicke auf **Save**, um es zu behalten. Der Zauberstab selbst speichert nicht; beim Weitergehen gilt das normale Speichern beim Verlassen des Editors. Eine fehlgeschlagene Anfrage lässt deinen Text unverändert. Bearbeitest du das Zielfeld während der Anfrage oder öffnest vor deren Ende eine andere Persona, überschreibt ein verspätetes Ergebnis deine neueren Änderungen nicht. Das ist eine schnelle Alternative dazu, Professor Mari eine Karte schreiben zu lassen.
+
+### Alternative Persona-Felder in ausgewählten Chats verwenden
+
+Unter jedem der sieben Kartenfelder kopiert **+ Add Alternative Field** (alternatives Feld hinzufügen) den aktuellen Text in eine bearbeitbare Alternative. Verwende sie für eine andere Rolle, Vorgeschichte, Erscheinung oder Sprechweise in ausgewählten Chats, ohne die Originalkarte für alle Chats zu ändern.
+
+Bearbeite die Alternative, öffne **Active in 0 chats** (in 0 Chats aktiv) und markiere die Chats, in denen sie das Originalfeld ersetzen soll. Die Liste enthält nur Chats mit dieser Persona. Öffne sie erneut, um die Auswahl nach einem Persona-Wechsel im Chat zu aktualisieren. Du kannst keinen, einen oder viele Chats auswählen. Ohne Auswahl bleibt die Alternative für später inaktiv.
+
+Du kannst beliebig viele Alternativen anlegen. Jeder Chat verwendet eine Alternative pro Feld. Markierst du ihn in einer anderen Alternative, wird die Zuordnung dieses Felds dorthin verschoben. Eine leere Alternative leert das Feld in den ausgewählten Chats absichtlich. Andere Chats behalten das Originalfeld. Vorhandene chatspezifische Überschreibungen für Szenario und Bildaussehen haben weiterhin Vorrang. **Summary**-Alternativen bleiben Metadaten und werden nicht automatisch im Chat-Prompt gesendet.
+
+Eine Alternative hat einen eigenen Zauberstab, der ihren Text als Ausgangspunkt und die anderen Persona-Felder als Referenz nutzt. Die Generierung ändert nur diese Alternative. Klicke auf **Save**, um Änderungen und Chat-Zuordnungen zu behalten; auch das normale Speichern beim Verlassen gilt.
+
+Der Zähler **Active in** umfasst nur Chats, die diese Persona derzeit verwenden. Gespeicherte Zuordnungen pausieren, wenn ein Chat eine andere Persona wählt, und werden bei Rückkehr zu dieser Persona wieder aktiv. Eine ladende oder nicht verfügbare Chat-Liste löscht keine Zuordnungen; öffne die Auswahl erneut, um ihre Einträge zu aktualisieren.
+
+Kartenexport, Import, Duplizieren und die Umwandlung zwischen Charakteren und Personas erhalten den alternativen Text, löschen aber die Chat-Auswahl. Sicherungen des gesamten Profils behalten diese Zuordnungen.
+
+Über den Papierkorb einer Alternative entfernst du sie. Die Bestätigung bietet **Cancel**, um sie zu behalten, oder **Delete**, um sie aus dem Entwurf zu löschen. Speichere die Persona, um das Löschen anzuwenden. Die ausgewählten Chats kehren dann zum Originalfeld zurück, unter Berücksichtigung vorhandener Chat-Überschreibungen; das Originalfeld wird nie mitgelöscht.
 
 ### Tab **Convo**
 

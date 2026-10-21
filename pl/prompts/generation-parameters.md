@@ -14,6 +14,8 @@ Zmieniaj te ustawienia tylko wtedy, gdy chcesz rozwiązać konkretny problem. Po
 
 Wartości bazowe edytuj w **Presets > Parameters** (presety > parametry), a wartości połączenia w **Connections > Default Chat Parameters** (połączenia > domyślne parametry czatu). Ustawienia tego czatu znajdziesz w **Chat Settings > Advanced Parameters** (ustawienia czatu > parametry zaawansowane). Presety nie ustawiają limitów tokenów kontekstu ani odpowiedzi. Okno kontekstu ustaw w **Connections**, a limity odpowiedzi w **Connections** lub **Chat Settings > Advanced Parameters**. Starsze pliki presetów nadal się wczytują, ale ich zapisane limity tokenów są ignorowane.
 
+Wbudowany **Marinara's Universal Preset** nie wnosi żadnych parametrów generowania, w tym próbkowania, rozumowania i formatowania wiadomości. Korzysta z ustawień połączenia i czatu, a dla nieustawionych wartości z ustawień domyślnych Engine. Edytowalne presety użytkownika zachowują własne ustawienia parametrów.
+
 1. Otwórz czat, w którym chcesz coś zmienić.
 2. Otwórz **Chat Settings** przyciskiem w czacie. Domyślnie jest w prawym górnym rogu.
 3. Znajdź sekcję **Advanced Parameters** i kliknij ją, żeby ją rozwinąć.

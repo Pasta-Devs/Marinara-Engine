@@ -33,7 +33,7 @@ En haut à droite, tu disposes de ces boutons :
 - **Duplicate character**.
 - **Delete character**.
 
-Si tu essaies de partir avec des modifications non enregistrées, un bandeau affiche `You have unsaved changes. Close without saving?` Il propose **Keep editing**, **Discard & close** et **Save & close**.
+Lorsque tu quittes l'éditeur, la fiche modifiée est enregistrée avant de continuer. Si l'enregistrement échoue, l'éditeur reste ouvert avec ton brouillon pour que tu puisses réessayer.
 
 L'éditeur est découpé en onglets. Sur un écran large, ils s'alignent verticalement à gauche. Sur un écran étroit, ils deviennent une bande défilante en haut. Les onglets, dans l'ordre, sont **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** et **Advanced**.
 
@@ -62,8 +62,9 @@ Le panneau **Version history** (historique des versions) se trouve lui aussi sur
 
 ## Onglet Card
 
-L'onglet **Card** est l'espace de rédaction principal. Il contient les champs que l'IA lit pour incarner le personnage. Des liens de navigation en haut permettent de sauter directement à une section. Chaque champ affiche un compteur de caractères en direct.
+L'onglet **Card** est l'espace principal de rédaction. Les liens en haut permettent de rejoindre chaque section. Chaque champ possède un compteur de caractères actualisé en direct.
 
+- **Summary** (résumé). Une présentation pour la bibliothèque et les aperçus de fiche. Ce sont des métadonnées, qui ne sont pas envoyées au modèle dans les prompts du chat.
 - **Description**. L'identité générale et le rôle du personnage. Ce texte part dans chaque prompt.
 - **Personality**. Un court résumé du tempérament, des habitudes de langage et des comportements types.
 - **Backstory**. Le passé, les origines et les relations importantes.
@@ -88,6 +89,38 @@ Une courte entrée Example Dialogue ressemble à ceci :
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Générer un champ de la fiche avec la baguette
+
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** et chaque **Alternate Greeting** possèdent un bouton avec une simple icône de baguette au-dessus du champ. Son infobulle et son nom accessible indiquent le champ qu'il génère.
+
+1. Écris les idées à conserver dans le champ, par exemple `smart, scientist, handsome`, ou laisse-le vide.
+2. Remplis les autres champs que l'IA doit utiliser comme référence. Tu n'as pas besoin d'enregistrer ces modifications au préalable.
+3. Clique sur la baguette du champ. Marinara demande 100–300 mots pour cette section, en prenant son texte actuel comme point de départ et les autres champs comme référence. **Example Dialogue** demande des exemples d'échanges. **First Message** et **Alternate Greeting** demandent chacun un message d'ouverture de jeu de rôle qui te laisse choisir ta réponse.
+4. Relis et modifie le résultat, puis clique sur **Save** pour le conserver.
+
+La baguette choisit la connexion comme l'ancien générateur de résumés : ta connexion texte par défaut pour les agents, puis ta connexion texte par défaut si nécessaire. La connexion de secours des agents reste utilisée lorsqu'elle est configurée. Configure une connexion texte fonctionnelle avant de générer ; voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
+
+La génération remplace uniquement le champ choisi dans le brouillon non enregistré. La baguette n'enregistre pas la fiche et ne modifie pas les autres champs ; l'enregistrement habituel en quittant l'éditeur reste applicable. En cas d'échec, ton texte reste intact. Si tu modifies le champ pendant l'attente ou ouvres une autre fiche, un résultat tardif n'écrase pas tes modifications récentes. Déplacer une salutation alternative maintient la génération associée à cette salutation ; la supprimer abandonne le résultat en attente. Tu peux utiliser la baguette sans ouvrir Professor Mari.
+
+### Utiliser des champs alternatifs dans certains chats
+
+Chacun des sept champs possède **+ Add Alternative Field** (ajouter un champ alternatif) en dessous. Cela permet de donner au même personnage une autre description, apparence, histoire ou autre détail dans certains chats, tout en conservant la fiche d'origine dans les autres.
+
+1. Clique sur **+ Add Alternative Field** sous le champ à varier. Marinara copie son texte actuel dans une nouvelle alternative.
+2. Modifie l'alternative ou utilise sa propre baguette. Elle prend le texte de l'alternative comme point de départ et les autres champs comme référence ; elle ne remplace pas le champ d'origine.
+3. Ouvre **Active in 0 chats** (actif dans 0 chats) et sélectionne autant de noms de chat que tu le souhaites. Seuls les chats incluant ce personnage sont proposés. Rouvre le sélecteur pour actualiser la liste après avoir ajouté ou retiré le personnage dans un autre chat.
+4. Clique sur **Save** pour appliquer l'alternative. L'enregistrement habituel en quittant l'éditeur s'applique aussi.
+
+Tu peux ajouter autant d'alternatives que nécessaire. Sans chat sélectionné, une alternative reste inactive pour plus tard. Une alternative vide efface volontairement ce champ dans les chats sélectionnés. Chaque chat ne peut utiliser qu'une alternative du même champ : le sélectionner dans une autre alternative y déplace son affectation. Les autres champs et chats gardent leurs valeurs d'origine. Les remplacements existants du scénario et de l'apparence pour les images propres au chat restent prioritaires.
+
+Les alternatives de **Summary** restent des métadonnées. Elles n'ajoutent pas le résumé au prompt du chat envoyé au modèle.
+
+Le compteur **Active in** inclut uniquement les chats utilisant actuellement ce personnage. Les affectations enregistrées sont suspendues si le personnage est retiré d'un chat, puis reprennent lorsqu'il est ajouté à nouveau. Une liste de chats en cours de chargement ou indisponible ne supprime aucune affectation ; rouvre le sélecteur pour actualiser les choix.
+
+L'exportation, l'importation, la duplication et la conversion entre personnages et personas conservent le texte alternatif, mais effacent la sélection des chats. Les sauvegardes du profil complet conservent ces affectations.
+
+Pour supprimer une alternative, utilise sa corbeille et confirme avec **Delete**. Annuler la conserve. Enregistre la fiche pour appliquer la suppression ; les chats sélectionnés retrouvent alors le champ d'origine, sous réserve des remplacements existants du chat. Supprimer une alternative ne supprime jamais le champ d'origine.
 
 ## Ajouter un avatar
 

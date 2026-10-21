@@ -33,7 +33,7 @@ Oben rechts liegen diese Schaltflächen:
 - **Duplicate character** (Charakter duplizieren).
 - **Delete character** (Charakter löschen).
 
-Willst du den Editor mit ungespeicherter Arbeit verlassen, erscheint ein Hinweisbanner: `You have unsaved changes. Close without saving?` Zur Auswahl stehen **Keep editing**, **Discard & close** und **Save & close**.
+Beim Verlassen des Editors wird die geänderte Karte gespeichert, bevor es weitergeht. Schlägt das Speichern fehl, bleibt der Editor mit deinem Entwurf geöffnet, damit du es erneut versuchen kannst.
 
 Der Editor ist in Tabs unterteilt. Auf einem breiten Bildschirm laufen sie links senkrecht herunter, auf einem schmalen werden sie zu einem scrollbaren Streifen am oberen Rand. Die Reihenfolge lautet **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** und **Advanced**.
 
@@ -62,8 +62,9 @@ Auf diesem Tab liegt auch das Panel **Version history** (Versionsverlauf). Es is
 
 ## Tab „Card“
 
-Der Tab **Card** ist der eigentliche Schreibarbeitsbereich. Hier stehen die Felder, die die KI liest, um den Charakter zu spielen. Über die Sprunglinks oben gelangst du direkt zu jedem Abschnitt. Jedes Feld hat einen mitlaufenden Zeichenzähler.
+Der Tab **Card** ist der zentrale Schreibbereich. Über die Sprunglinks oben erreichst du jeden Abschnitt. Jedes Feld hat einen laufend aktualisierten Zeichenzähler.
 
+- **Summary** (Zusammenfassung). Ein Überblick für Bibliothek und Kartenvorschau. Er gehört zu den Metadaten und wird nicht in Chat-Prompts an das Modell gesendet.
 - **Description**. Identität und Rolle des Charakters im Allgemeinen. Dieser Text geht in jeden Prompt ein.
 - **Personality**. Eine kurze Zusammenfassung von Temperament, Sprechgewohnheiten und Verhaltensmustern.
 - **Backstory**. Vorgeschichte, Herkunft und wichtige Beziehungen.
@@ -88,6 +89,38 @@ Ein kurzer Eintrag unter Example Dialogue sieht so aus:
 {{user}}: Hello!
 {{char}}: *waves excitedly* Hey there!
 ```
+
+### Ein Kartenfeld mit dem Zauberstab generieren
+
+Über **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** und jedem **Alternate Greeting** befindet sich ein Button, der nur ein Zauberstab-Symbol zeigt. Tooltip und barrierefreier Name geben an, welches Feld er generiert.
+
+1. Schreibe Ideen, die erhalten bleiben sollen, in das Feld, etwa `smart, scientist, handsome`, oder lass es leer.
+2. Fülle andere Kartenfelder aus, die der KI als Referenz dienen sollen. Diese Änderungen musst du vorher nicht speichern.
+3. Klicke auf den Zauberstab des Felds. Marinara fordert 100–300 Wörter für diesen Abschnitt an und verwendet seinen vorhandenen Text als Ausgangspunkt sowie die anderen Felder als Referenz. **Example Dialogue** fordert Beispielgespräche an. **First Message** und **Alternate Greeting** fordern jeweils eine eröffnende Roleplay-Nachricht an, die deine Antwort dir überlässt.
+4. Prüfe und bearbeite das Ergebnis und klicke auf **Save**, um es zu behalten.
+
+Der Zauberstab wählt die Verbindung wie der bisherige Zusammenfassungsgenerator: deine Standard-Textverbindung für Agenten, bei Bedarf gefolgt von deiner Standard-Textverbindung. Eine eingerichtete Ausweichverbindung für Agenten gilt weiterhin. Richte vor dem Generieren eine funktionierende Textverbindung ein; siehe [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md).
+
+Die Generierung ersetzt nur das ausgewählte Feld im ungespeicherten Entwurf. Der Zauberstab speichert die Karte nicht und ändert keine anderen Felder; beim Weitergehen gilt weiterhin das normale Speichern beim Verlassen des Editors. Schlägt die Generierung fehl, bleibt dein Text erhalten. Wenn du währenddessen das Zielfeld bearbeitest oder eine andere Karte öffnest, überschreibt ein verspätetes Ergebnis deine neueren Änderungen nicht. Verschiebst du eine alternative Begrüßung, bleibt die Generierung dieser Begrüßung zugeordnet; löschst du sie, wird das ausstehende Ergebnis verworfen. Du kannst den Zauberstab verwenden, ohne Professor Mari zu öffnen.
+
+### Alternative Felder in ausgewählten Chats verwenden
+
+Unter jedem der sieben Kartenfelder steht **+ Add Alternative Field** (alternatives Feld hinzufügen). Damit gibst du demselben Charakter in bestimmten Chats eine andere Beschreibung, ein anderes Aussehen, eine andere Vorgeschichte oder andere Details, während die Originalkarte für alle übrigen Chats erhalten bleibt.
+
+1. Klicke unter dem gewünschten Feld auf **+ Add Alternative Field**. Marinara kopiert seinen aktuellen Text in eine neue Alternative.
+2. Bearbeite die Alternative oder verwende ihren eigenen Zauberstab. Er nutzt den Text der Alternative als Ausgangspunkt und die anderen Kartenfelder als Referenz; das Originalfeld wird nicht ersetzt.
+3. Öffne **Active in 0 chats** (in 0 Chats aktiv) und wähle beliebig viele Chat-Namen aus. Aufgelistet werden nur Chats mit diesem Charakter. Öffne die Auswahl erneut, um die Liste zu aktualisieren, nachdem du den Charakter in einem anderen Chat hinzugefügt oder entfernt hast.
+4. Klicke auf **Save**, um die Alternative anzuwenden. Auch das normale Speichern beim Verlassen des Editors gilt.
+
+Du kannst beliebig viele Alternativen hinzufügen. Ohne ausgewählte Chats bleibt eine Alternative für später inaktiv. Eine leere Alternative leert das Feld in den ausgewählten Chats absichtlich. Pro Chat kann nur eine Alternative desselben Felds aktiv sein: Wählst du einen Chat in einer anderen Alternative aus, wird seine Zuordnung dorthin verschoben. Andere Felder und Chats behalten ihre Originalwerte. Vorhandene chatspezifische Überschreibungen für Szenario und Bildaussehen haben weiterhin Vorrang.
+
+Alternativen für **Summary** bleiben Metadaten. Sie fügen dem Chat-Prompt für das Modell keinen Zusammenfassungstext hinzu.
+
+Der Zähler **Active in** umfasst nur Chats, die diesen Charakter derzeit verwenden. Gespeicherte Zuordnungen pausieren, wenn der Charakter aus einem Chat entfernt wird, und werden beim erneuten Hinzufügen wieder aktiv. Eine ladende oder nicht verfügbare Chat-Liste löscht keine Zuordnungen; öffne die Auswahl erneut, um ihre Einträge zu aktualisieren.
+
+Kartenexport, Import, Duplizieren und die Umwandlung zwischen Charakteren und Personas erhalten den alternativen Text, löschen aber die Chat-Auswahl. Sicherungen des gesamten Profils behalten diese Zuordnungen.
+
+Zum Löschen einer Alternative klicke auf ihren Papierkorb und bestätige mit **Delete**. Abbrechen behält sie. Speichere die Karte, um das Löschen anzuwenden; die ausgewählten Chats verwenden danach wieder das Originalfeld, unter Berücksichtigung vorhandener Chat-Überschreibungen. Das Originalfeld wird durch das Löschen einer Alternative nie entfernt.
 
 ## Einen Avatar hinzufügen
 

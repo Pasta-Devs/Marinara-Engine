@@ -10,6 +10,8 @@ Les presets façonnent le prompt – le texte que Marinara envoie à l'IA – po
 
 Les presets ne demandent ni clé API ni compte. Ils décrivent seulement la façon dont un prompt se construit. Il te faut quand même une connexion opérationnelle pour envoyer le prompt. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
+Le **Marinara's Universal Preset** intégré fournit le texte du prompt sans attribuer de paramètres de génération. Ses anciens réglages enregistrés d'échantillonnage, de raisonnement, de formatage et de tokens sont ignorés. Les réglages de connexion, les remplacements du chat et les valeurs par défaut d'Engine continuent de s'appliquer. Crée une copie modifiable pour personnaliser le preset.
+
 ## Ouvrir le Preset Editor
 
 Les presets de prompt se trouvent dans la section **Prompts** du panneau **Presets**, à gauche de l'application. Les autres sections de ce panneau sont **Regexes** et **Functions**.

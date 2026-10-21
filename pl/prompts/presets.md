@@ -10,6 +10,8 @@ Presety kształtują prompt (tekst, który Marinara wysyła do AI) w czatach **R
 
 Presety nie wymagają klucza API (tajnego kodu, trochę jak hasło) ani konta. Opisują tylko sposób budowania promptu. Do wysłania promptu i tak potrzebne jest działające połączenie. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
+Wbudowany **Marinara's Universal Preset** dostarcza tekst promptu bez przypisywania parametrów generowania. Jego wcześniejsze zapisane ustawienia próbkowania, rozumowania, formatowania i tokenów są ignorowane. Nadal obowiązują ustawienia połączenia, nadpisania czatu i wartości domyślne Engine. Utwórz edytowalną kopię, aby dostosować preset.
+
 ## Otwieranie panelu Preset Editor
 
 Presety promptów znajdziesz w sekcji **Prompts** panelu **Presets** po lewej stronie aplikacji. Pozostałe sekcje tego panelu to **Regexes** i **Functions**.
