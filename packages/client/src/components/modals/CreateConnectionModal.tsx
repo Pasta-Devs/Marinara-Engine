@@ -56,6 +56,7 @@ import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { StarText } from "../connections/StarText";
 import { useConnectionDefaults } from "../connections/ConnectionDefaults";
+import { JobRow } from "../connections/JobRow";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
 import {
   useCachedCatalogFacts,
@@ -533,61 +534,27 @@ function ServiceGroup({
   );
 }
 
-/** Step 1's job list: each job with what it uses now, read from the Defaults box. */
-function JobCards({
-  rows,
-  jobLabel,
-  onPick,
-}: {
-  rows: ConnectionRowData[];
-  jobLabel: (key: AddJob) => string;
-  onPick: (key: AddJob) => void;
-}) {
+/** Step 1's job list: each job as its Defaults row, plus one line on what it does. */
+function JobCards({ rows, onPick }: { rows: ConnectionRowData[]; onPick: (key: AddJob) => void }) {
   const { t } = useTranslation();
   const { tiles, features } = useConnectionDefaults(rows);
   return (
-    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+    <div className="mari-connection-model-well">
       {ADD_JOBS.map((key) => {
-        const Icon = JOB_ICONS[key];
         const tileKey = key === "mari" || key === "vision" ? JOB_FEATURE[key] : key;
         const tile = [...tiles, ...features].find((entry) => entry.key === tileKey);
-        // A muted tile still names its fallback the way the Defaults box does ("Uses the chat's model", "from Agents");
-        // only the Defaults box's "Not set" means nothing runs.
-        const value = tile ? [tile.value, tile.hint].filter(Boolean).join(" · ") : "";
-        const now =
-          !tile || tile.value === t("connections.defaults.notSet")
-            ? ""
-            : tile.muted
-              ? value
-              : t("connections.add.jobNow", { value });
         return (
-          <button
-            key={key}
-            type="button"
-            data-add-connection-job-choice={key}
-            onClick={() => onPick(key)}
-            className="mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs"
-          >
-            <span className="flex min-w-0 items-start gap-3">
-              <span
-                aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--marinara-chat-chrome-highlight-bg)] ring-[1.5px] ring-inset ring-[var(--border)]"
-              >
-                <Icon size="1rem" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">{jobLabel(key)}</span>
-                <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-                  {t(`connections.add.jobHint.${key}`)}
-                </span>
-                <span className="mt-1 flex flex-wrap items-center gap-1">
-                  <span className={cn(MUTED_BADGE_CLASS, "max-w-full truncate")}>
-                    {now || t("connections.add.jobNotSet")}
-                  </span>
-                </span>
-              </span>
-            </span>
-          </button>
+          tile && (
+            <div key={key} className="mari-connection-model-slot min-w-0">
+              <JobRow
+                tile={tile}
+                hint={t(`connections.add.jobHint.${key}`)}
+                data-add-connection-job-choice={key}
+                onClick={() => onPick(key)}
+                trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+              />
+            </div>
+          )
         );
       })}
     </div>
@@ -1657,7 +1624,7 @@ export function CreateConnectionModal({
           ))}
         </div>
       )}
-      {jobList && <JobCards rows={(rows ?? []) as ConnectionRowData[]} jobLabel={jobLabel} onPick={chooseJob} />}
+      {jobList && <JobCards rows={(rows ?? []) as ConnectionRowData[]} onPick={chooseJob} />}
       {!cards && !jobList && pick !== "provider" && (
         <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
           {/* Voice and Decision have no models to list, so the model list leaves them out. */}

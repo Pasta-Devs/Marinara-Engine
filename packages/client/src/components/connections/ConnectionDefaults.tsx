@@ -36,13 +36,7 @@ import {
   type ConnectionAccountListItem,
   type FeatureModelConnections,
 } from "@marinara-engine/shared";
-import {
-  useCachedCatalogFacts,
-  useMayReadImages,
-  useDefaultEmbeddingConnection,
-  useUpdateConnection,
-  type CachedCatalogFacts,
-} from "../../hooks/use-connections";
+import { useMayReadImages, useDefaultEmbeddingConnection, useUpdateConnection } from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
   useFeatureModels,
@@ -66,6 +60,7 @@ import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
 import { ModelRow, type ConnectionRowData } from "./ConnectionRow";
+import { isUnset, JobRow } from "./JobRow";
 import { HelpTooltip } from "../ui/HelpTooltip";
 
 type RoleField = "isDefault" | "defaultForAgents" | "fallbackForMain" | "fallbackForAgents";
@@ -426,104 +421,53 @@ const JOB_GROUPS: Array<{ key: string; jobs: TileKey[] }> = [
   { key: "background", jobs: ["decision", "embeddings", "visionConnectionId"] },
 ];
 
-/** A job nothing is chosen for, or whose engine is not set up: a dashed tile. */
-const isUnset = (tile: DefaultsTile, notSet: string) =>
-  !!tile.setup || (tile.muted && !tile.source && tile.value === notSet);
-
-/** One job as one line: a blue job tile, its name, then "model · connection" under it, then its problem and fix. */
-function JobRow({
+/** One job as one line, then its problem and fix and, when open, its pickers. */
+function DefaultsJob({
   job,
   open,
   onToggle,
-  catalog,
   about,
 }: {
   job: Job;
   open: boolean;
   onToggle: () => void;
-  catalog?: CachedCatalogFacts;
   /** The rarer jobs say in one plain line what they do. */
   about?: boolean;
 }) {
   const { t } = useTranslation();
   const { tile } = job;
   const controlsId = `connections-defaults-${tile.key}`;
-  const unset = isUnset(tile, t("connections.defaults.notSet"));
-  const facts = catalog?.of(tile.source?.model);
   return (
     <section data-defaults-role={tile.key} aria-label={tile.title}>
-      {/* The shared model row: the job's name first, the model it uses on line 2. Fallbacks live in the picker. */}
-      <ModelRow
-        rowProps={{
-          className: cn("mari-connection-defaults-job pe-0", open && "mari-connection-defaults-job--open"),
-        }}
+      <JobRow
+        tile={tile}
+        hint={about ? t(`connections.defaults.about.${tile.key}`) : undefined}
+        className={cn(open && "mari-connection-defaults-job--open")}
         data-defaults-tile={tile.key}
         onClick={job.onOpen ?? onToggle}
         aria-expanded={job.onOpen ? undefined : open}
         aria-controls={job.onOpen || !open ? undefined : controlsId}
         aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
-        className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
-        tile={
-          <span
-            aria-hidden
-            data-defaults-empty-tile={unset || undefined}
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
-              unset
-                ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
-                : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
-            )}
-          >
-            {tile.icon}
-          </span>
-        }
-        title={tile.title}
-        details={
-          <span
-            className={cn(
-              "min-w-0 truncate text-xs",
-              unset && !tile.setup
-                ? "mari-panel-gradient--connections font-medium text-[var(--mari-connection-ink)]"
-                : "text-[var(--muted-foreground)]",
-              tile.muted && !unset && "italic",
-            )}
-          >
-            {tile.setup?.text ??
-              (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
-          </span>
-        }
-        cost={facts?.cost}
-        pricing={facts?.pricing}
-        showPaid={catalog?.showPaid}
-        retiring={facts}
         trailing={
-          <>
-            {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}
-            {job.onOpen ? (
-              tile.setup ? (
-                <span className="mari-panel-gradient--connections shrink-0 text-xs font-semibold text-[var(--mari-connection-ink)]">
-                  {t("connections.defaults.setUpLink")}
-                </span>
-              ) : (
-                <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-              )
+          job.onOpen ? (
+            tile.setup ? (
+              <span className="mari-panel-gradient--connections shrink-0 text-xs font-semibold text-[var(--mari-connection-ink)]">
+                {t("connections.defaults.setUpLink")}
+              </span>
             ) : (
-              <ChevronDown
-                size="0.875rem"
-                className={cn(
-                  "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-                  open && "rotate-180",
-                )}
-              />
-            )}
-          </>
+              <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            )
+          ) : (
+            <ChevronDown
+              size="0.875rem"
+              className={cn(
+                "shrink-0 text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+                open && "rotate-180",
+              )}
+            />
+          )
         }
       />
-      {about && (
-        <p className="mb-1 ml-12 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
-          {t(`connections.defaults.about.${tile.key}`)}
-        </p>
-      )}
       {tile.warning && (
         <div role="status" className="mari-connection-defaults-problem">
           <span className="min-w-0 flex-1 break-words">{tile.warning.text}</span>
@@ -735,16 +679,6 @@ export function ConnectionDefaultsBox({
       };
     }),
   ];
-  // Cost badges from each chosen Model's Connection catalog: one saved list per Connection.
-  const catalogs = useCachedCatalogFacts(
-    jobs.map(({ tile }) =>
-      !tile.source
-        ? []
-        : tile.source.accountId
-          ? connectionsList.filter((row) => row.accountId === tile.source!.accountId).map((row) => row.id)
-          : [tile.source.id],
-    ),
-  );
   // Hold an open row in its original group while a picker changes its configuration. Moving it between
   // groups would remount the control and lose keyboard focus before the picker has finished closing.
   const isShown = ({ tile }: Job) =>
@@ -753,10 +687,9 @@ export function ConnectionDefaultsBox({
   const setCount = jobs.filter(({ tile }) => !tile.muted).length;
   const notSet = t("connections.defaults.notSet");
   const renderJob = (job: Job) => (
-    <JobRow
+    <DefaultsJob
       key={job.tile.key}
       job={job}
-      catalog={catalogs[jobs.indexOf(job)]}
       about={!isShown(job)}
       open={openKey === job.tile.key}
       onToggle={() => {
