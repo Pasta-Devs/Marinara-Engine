@@ -56,8 +56,8 @@ function discoverRegressions(directory = regressionsRoot) {
 
 const USAGE = 'Usage: node scripts/run-regressions.mjs [--list] [--filter <text>] [--concurrency <n>]';
 
-function parseConcurrency(value) {
-  if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(USAGE);
+function parseConcurrency(value, message = USAGE) {
+  if (!/^[1-9][0-9]*$/.test(value ?? '')) throw new Error(message);
   return Number(value);
 }
 
@@ -88,7 +88,9 @@ function parseArguments(args) {
   }
 
   const fromEnv = process.env.REGRESSION_CONCURRENCY;
-  concurrency ??= fromEnv ? parseConcurrency(fromEnv) : os.availableParallelism();
+  concurrency ??= fromEnv
+    ? parseConcurrency(fromEnv, 'REGRESSION_CONCURRENCY must be a positive whole number.')
+    : os.availableParallelism();
   return { concurrency, filter, list };
 }
 
@@ -123,8 +125,8 @@ function forceTerminateChild(child) {
 
 function terminateActiveChild(child) {
   if (!activeChildren.has(child) || activeChildren.get(child)) return;
-  terminateChild(child);
   activeChildren.set(child, setTimeout(() => forceTerminateChild(child), 2_000));
+  terminateChild(child);
 }
 
 function releaseActiveChild(child) {
@@ -136,7 +138,7 @@ function handleRunnerSignal(signal) {
   if (interruption) return;
   interruption = signal;
   process.exitCode = SIGNAL_EXIT_CODES[signal];
-  process.stderr.write(`[runner] ${signal} received; terminating active regressions.\n`);
+  process.stderr.write(`[runner] ${signal} received; terminating active regression.\n`);
   for (const child of activeChildren.keys()) terminateActiveChild(child);
 }
 
@@ -245,15 +247,16 @@ async function main() {
     return;
   }
 
-  const pooled = concurrency > 1;
+  const workers = Math.min(concurrency, selected.length);
+  const pooled = workers > 1;
   // A longer timeout marks a known slow file; in a pool those start first so they do not finish last.
   const queue = pooled ? [...selected].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)) : [...selected];
   let results = [];
   const worker = async (buffered) => {
     while (!interruption && queue.length > 0) {
       const file = queue.shift();
-      const result = await runRegression(file, buffered);
-      for (const [destination, text] of result.output) destination.write(text);
+      const { output, ...result } = await runRegression(file, buffered);
+      for (const [destination, text] of output) destination.write(text);
       if (interruption) return;
       results.push({ file, ...result });
       const detail = result.status === 'failed'
@@ -264,7 +267,11 @@ async function main() {
       process.stdout.write(`[${file}] ${result.status.toUpperCase()} (${result.durationMs}ms)${detail}\n`);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, selected.length) }, () => worker(pooled)));
+  // A runner error ends the run, as it did when files ran one at a time.
+  await Promise.all(Array.from({ length: workers }, () => worker(pooled))).catch((error) => {
+    queue.length = 0;
+    throw error;
+  });
   if (interruption) return;
 
   // ponytail: the per-file timeouts and a few wall-clock budgets assume one file at a time, so a file that does not
@@ -277,6 +284,8 @@ async function main() {
     queue.push(...retries.map((result) => result.file));
     await worker(false);
     if (interruption) return;
+  } else if (retries.length > SERIAL_RETRY_LIMIT) {
+    process.stdout.write(`[runner] ${retries.length} files did not pass; more than ${SERIAL_RETRY_LIMIT}, so none is retried.\n`);
   }
 
   const failed = results.filter((result) => result.status !== 'passed');
