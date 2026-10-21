@@ -88,7 +88,7 @@ Część klientów pomija hasło nawet przy włączonym Basic Auth:
 - Każdy adres z `IP_ALLOWLIST`. Uwaga: ustawienie listy blokuje jednocześnie wszystkie adresy spoza niej (zobacz opcję 2).
 - Bezpośredni ruch z sieci Tailscale (`100.64.0.0/10`), o ile pominięcie nie zostanie wyłączone.
 - Ruch z mostka lub bramy Docker, tylko gdy ustawisz `BYPASS_AUTH_DOCKER=true`. Przy włączonym Basic Auth automatyczne zaufanie do ruchu Docker jest wyłączone (zobacz [Pominięcie dla sieci Tailscale i kontenerów Docker](#tailscale-and-docker-bypass)).
-- Adres `/api/health`, dzięki czemu monitory dostępności dalej działają. Bez hasła zwraca on tylko podstawowy stan, bez informacji o twoich lokalnych modelach i karcie graficznej.
+- Adres `/api/health`, dzięki czemu monitory dostępności dalej działają. Odwiedzający, który nie może otworzyć aplikacji, dostaje tylko `{"status": "ok"}`; informacje o wersji, systemie i modelach zostają na tym komputerze, w zaufanych sieciach i w zalogowanych przeglądarkach.
 
 Ważne: Basic Auth tylko koduje hasło, ale go nie szyfruje. Ktoś, kto podsłuchuje niezaszyfrowane połączenie, odczyta je bez trudu. Przy udostępnianiu aplikacji Marinara w publicznym internecie połącz Basic Auth z HTTPS (zobacz niżej).
 
@@ -144,7 +144,7 @@ BYPASS_AUTH_TAILSCALE=
 BYPASS_AUTH_DOCKER=
 ```
 
-Tryb automatyczny ufa urządzeniu Tailscale tylko wtedy, gdy oba końce jego bezpośredniego gniazda używają adresów sieci Tailscale. Ruch Docker jest zaufany tylko wtedy, gdy Marinara Engine działa w kontenerze, a źródło pasuje do wykrytego interfejsu kontenera albo jego dokładnej bramy. Dzięki temu zwykła prywatna konfiguracja sieci Tailscale i kontenerów Docker na tym samym komputerze nadal działa, ale niezwiązany ruch CGNAT, LAN, sieci hosta ani proxy nie jest uznawany za uwierzytelniony.
+Tryb automatyczny ufa urządzeniu Tailscale tylko wtedy, gdy łączy się ono bezpośrednio z adresem Tailscale tego komputera. W systemie Linux interfejs Tailscale o niestandardowej nazwie (`tailscaled --tun=...`) nie jest zaufany automatycznie; zaloguj się albo ustaw `BYPASS_AUTH_TAILSCALE=true`. Ruch Docker jest zaufany tylko wtedy, gdy Marinara Engine działa w kontenerze, a źródło pasuje do wykrytego interfejsu kontenera albo jego dokładnej bramy. Dzięki temu zwykła prywatna konfiguracja sieci Tailscale i kontenerów Docker na tym samym komputerze nadal działa, ale niezwiązany ruch CGNAT, LAN, sieci hosta ani proxy nie jest uznawany za uwierzytelniony.
 
 Automatyczne zaufanie do ruchu Docker działa tylko wtedy, gdy nie ustawiono ani Basic Auth, ani `IP_ALLOWLIST`. Docker Desktop, OrbStack i rootless Docker przepuszczają każde urządzenie, które otwiera opublikowany port, przez bramę kontenera, więc Marinara nie odróżni twojej przeglądarki od telefonu albo obcej osoby w sieci. Po ustawieniu hasła albo listy dozwolonych adresów każdy klient Docker musi przejść te kontrole, łącznie z przeglądarką na komputerze z serwerem. Ustaw `BYPASS_AUTH_DOCKER=true` tylko wtedy, gdy ufasz każdemu urządzeniu, które może dotrzeć do opublikowanego portu.
 

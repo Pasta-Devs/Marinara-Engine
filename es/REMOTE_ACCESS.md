@@ -88,7 +88,7 @@ Algunos clientes se saltan la contraseña incluso con Basic Auth activado:
 - Cualquier dirección en `IP_ALLOWLIST`. Cuidado: configurar una lista permitida también bloquea toda dirección que no esté en la lista (ver Opción 2).
 - El tráfico directo de Tailscale (`100.64.0.0/10`), salvo que desactives su bypass.
 - El tráfico de puente/puerta de enlace de Docker, solo cuando estableces `BYPASS_AUTH_DOCKER=true`. Con Basic Auth activado, la confianza automática en Docker está desactivada (ver [Bypass de Tailscale y Docker](#tailscale-and-docker-bypass)).
-- La dirección `/api/health`, para que los monitores de disponibilidad sigan funcionando. Sin contraseña, solo muestra el estado básico, no tus modelos locales ni tu tarjeta gráfica.
+- La dirección `/api/health`, para que los monitores de disponibilidad sigan funcionando. Quien no pueda abrir la app solo recibe `{"status": "ok"}`; los detalles de versión, sistema y modelos quedan en este equipo, las redes de confianza y los navegadores con sesión iniciada.
 
 Importante: Basic Auth solo codifica la contraseña. No la cifra. Cualquiera que observe una conexión sin cifrar puede leerla. Si expones Marinara al internet público, combina Basic Auth con HTTPS (ver abajo).
 
@@ -144,7 +144,7 @@ BYPASS_AUTH_TAILSCALE=
 BYPASS_AUTH_DOCKER=
 ```
 
-El modo automático solo confía en un par de Tailscale cuando los dos extremos de su socket directo usan direcciones de tailnet. Solo confía en el tráfico de Docker cuando Marinara se ejecuta en un contenedor y el origen coincide con una interfaz de contenedor detectada o con su puerta de enlace exacta. Así, la configuración privada habitual de Tailscale y Docker en el mismo host sigue funcionando sin tratar como autenticado el tráfico no relacionado de CGNAT, LAN, red del anfitrión o proxy.
+El modo automático solo confía en un dispositivo de Tailscale cuando se conecta directamente a la dirección de Tailscale de este equipo. En Linux, una interfaz de Tailscale con nombre personalizado (`tailscaled --tun=...`) no es de confianza automática; inicia sesión o establece `BYPASS_AUTH_TAILSCALE=true`. Solo confía en el tráfico de Docker cuando Marinara se ejecuta en un contenedor y el origen coincide con una interfaz de contenedor detectada o con su puerta de enlace exacta. Así, la configuración privada habitual de Tailscale y Docker en el mismo host sigue funcionando sin tratar como autenticado el tráfico no relacionado de CGNAT, LAN, red del anfitrión o proxy.
 
 La confianza automática en Docker solo se aplica mientras no estén configurados ni Basic Auth ni `IP_ALLOWLIST`. Docker Desktop, OrbStack y Docker sin root hacen pasar por la puerta de enlace del contenedor a todo dispositivo que abra un puerto publicado, así que Marinara no puede distinguir tu propio navegador de un teléfono o de un desconocido en la red. En cuanto configuras una contraseña o una lista permitida, todo cliente de Docker debe superarla, incluido el navegador del host. Establece `BYPASS_AUTH_DOCKER=true` solo si confías en todos los dispositivos que pueden llegar al puerto publicado.
 

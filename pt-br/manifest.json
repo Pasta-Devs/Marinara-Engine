@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "bcdfb51d1",
+  "sourceCommit": "3339cc404",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -19,8 +19,8 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "6ea2988f167a59fec4a2d6be77a6b44b875a5cd74658a67764932cb03c83ebf5",
-      "bytes": 25538
+      "sha256": "48e9d317fd5fc58e0f3cc2d5e07d3db43dad1e4974663318601ead57ea814a2b",
+      "bytes": 25818
     },
     {
       "path": "TROUBLESHOOTING.md",
