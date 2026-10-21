@@ -317,6 +317,28 @@ Para conectar un modelo local o autoalojado, consulta [Conectar un modelo local 
 
 Los comportamientos opcionales del servidor, como reintentar llamadas fallidas al proveedor o mantener estables las selecciones de grupos del lorebook, se activan en **Settings > Advanced > Features** (configuración > avanzado > funciones). Todos están desactivados de forma predeterminada. Algunos tienen una variable de entorno que, cuando está definida, prevalece sobre el interruptor. Consulta [Interruptores de funciones](configuration/features.md) para cada opción, su valor inicial y su variable.
 
+<a id="marinara-notices"></a>
+
+## Avisos de Marinara
+
+Los avisos de Marinara son advertencias breves de los mantenedores de Marinara, por ejemplo sobre un problema de seguridad o un paso manual que necesita tu versión. Cuando un aviso corresponde a tu versión, Marinara te lo muestra como un banner.
+
+Cómo funciona:
+
+- Al arrancar y después cada hora, el servidor descarga un archivo pequeño, `notices.json`, de la rama `notices` del repositorio de Marinara Engine en GitHub.
+- El servidor conserva solo los avisos que nombran tu versión. Tu navegador pide esos avisos a tu propio servidor una vez al cargar la página y después cada hora.
+- Si falla una descarga, el servidor conserva los avisos que ya tiene y el arranque no se retrasa. Si el archivo ya no existe, no se muestra ningún aviso.
+
+Por qué es seguro:
+
+- La petición es una descarga de archivo normal. No envía datos sobre ti, tus chats ni tus ajustes.
+- La rama `notices` está protegida. Solo los mantenedores pueden cambiarla, y cada cambio necesita una revisión.
+- El archivo se comprueba de forma estricta. Un aviso es solo texto, con un límite de tamaño. Los enlaces se conservan solo si apuntan a `https://github.com/Pasta-Devs/`.
+- Solo tú ves los avisos: en el equipo donde se ejecuta Marinara, desde una dirección de `IP_ALLOWLIST` o después de iniciar sesión con tu login. Los demás visitantes reciben una lista vacía.
+- Un aviso no puede instalar, ejecutar ni cambiar nada. Solo muestra texto.
+
+Para desactivar los avisos, establece `MARINARA_NOTICES_ENABLED=false`. **Advertencia:** entonces Marinara no puede avisarte de correcciones de seguridad ni de pasos necesarios para tu versión. Consulta tú mismo las [versiones en GitHub](https://github.com/Pasta-Devs/Marinara-Engine/releases). Los forks pueden apuntar `MARINARA_NOTICES_URL` a su propio archivo.
+
 ## Referencia completa de variables de entorno
 
 Esta sección lista los ajustes restantes, agrupados por propósito. Las tablas de arriba ya cubren el control de acceso, el almacenamiento, el registro, los tiempos de espera, las acciones privilegiadas y las aceptaciones de direcciones locales.
@@ -331,6 +353,8 @@ Esta sección lista los ajustes restantes, agrupados por propósito. Las tablas 
 | `MARINARA_ANDROID_SECRET_FILE`   | `~/.marinara-engine/android-secret`            | Ruta del archivo de secreto privado que usan el lanzador de Termux y la CLI local `mari`. El APK y el lanzador gestionan este archivo automáticamente; los usuarios normales del APK nunca necesitan leerlo ni copiarlo. |
 | `AUTO_OPEN_BROWSER`              | `true`                                         | Si los lanzadores de shell abren la URL de la app por ti. Ponlo en `false` para desactivarlo. La configuración gestionada por el APK desactiva la apertura automática del navegador desde el shell. El APK gestiona por separado la elección guardada de app o navegador y la autenticación. |
 | `AUTO_UPDATE_ENABLED`            | `true`                                         | Si los lanzadores basados en Git de Windows, macOS/Linux y Termux obtienen y aplican actualizaciones del Engine antes de arrancar. Ponlo en `false` para una exclusión persistente; esto surte efecto en el próximo arranque. El lanzador aún realiza una comprobación de solo lectura de nuevas versiones publicadas e imprime un recordatorio de descarga cuando hay una disponible, mientras que las comprobaciones manuales, la aplicación en la app, las actualizaciones de paquetes y las actualizaciones de modelos siguen disponibles. Usa `--skip-update` para saltar ambas comprobaciones del lanzador en un arranque. |
+| `MARINARA_NOTICES_ENABLED` | `true` | Si el servidor descarga avisos de los mantenedores desde GitHub. Consulta [Avisos de Marinara](#marinara-notices). Establécelo en `false` para detener estas peticiones. **Advertencia:** entonces Marinara no puede avisarte de correcciones de seguridad para tu versión, y tendrás que consultar tú mismo las versiones de GitHub. |
+| `MARINARA_NOTICES_URL` | `notices.json` en la rama `notices` | Sustituye el archivo de avisos, para forks y réplicas. El archivo se valida igual, y los enlaces que no apuntan a `https://github.com/Pasta-Devs/` se descartan. |
 | `MARINARA_ENV_FILE`              | `.env` en la raíz del proyecto                            | Anulación opcional de la ruta del archivo `.env`. Configúrala antes del arranque.                                                                                                                                                                                                                                                                                                                                                                                               |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Límite para todo el proceso de solicitudes simultáneas de imagen y video a los proveedores, en todas las superficies (galerías, storyboards, recursos del juego, sprites, avatares). Súbelo si tienes una GPU local potente o un proveedor con límites generosos; bájalo a 1-2 si un ComfyUI/SwarmUI local se queda sin VRAM durante los lotes; `0` desactiva el límite por completo. Los valores no válidos se ignoran y se registra una advertencia. El trabajo por lotes o automático nunca ocupa el último hueco, así que siempre queda uno libre para las solicitudes interactivas. Se aplica además de **Queue media generation requests** (Poner en cola las solicitudes de generación de medios), en **Settings → Generations → Overall Generations** (Configuración → Generaciones → Generaciones generales) y activado de forma predeterminada, que pone en cola por separado los trabajos de imagen y los de video de cada cuenta de proveedor. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | Cuánto tiempo puede esperar una solicitud de generación a que quede libre un hueco de concurrencia antes de fallar con un error claro en lugar de quedarse colgada (10 minutos de forma predeterminada; `0` espera indefinidamente). |

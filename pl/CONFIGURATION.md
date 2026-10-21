@@ -317,6 +317,28 @@ Jak podłączyć model lokalny albo własny, opisuje przewodnik [Podłączanie m
 
 Opcjonalne zachowania serwera, np. ponawianie nieudanych wywołań dostawcy lub utrzymanie stałych wyborów grup lorebooka, włącza się w **Settings > Advanced > Features** (ustawienia > zaawansowane > funkcje). Wszystkie są domyślnie wyłączone. Niektóre mają zmienną środowiskową, która po ustawieniu wygrywa z przełącznikiem. Zobacz [Przełączniki funkcji](configuration/features.md), gdzie opisano każdy przełącznik, domyślną wartość i zmienną.
 
+<a id="marinara-notices"></a>
+
+## Powiadomienia Marinara
+
+Powiadomienia Marinara to krótkie ostrzeżenia od opiekunów Marinara, na przykład o problemie z bezpieczeństwem albo o ręcznym kroku, którego wymaga twoja wersja. Gdy powiadomienie dotyczy twojej wersji, Marinara pokazuje ci je jako baner.
+
+Jak to działa:
+
+- Przy starcie, a potem co godzinę, serwer pobiera mały plik `notices.json` z gałęzi `notices` repozytorium Marinara Engine na GitHubie.
+- Serwer zachowuje tylko powiadomienia, które wymieniają twoją wersję. Twoja przeglądarka pyta o nie twój własny serwer raz przy ładowaniu strony, a potem co godzinę.
+- Jeśli pobieranie się nie uda, serwer zachowuje powiadomienia, które już ma, a start nie opóźnia się. Jeśli pliku już nie ma, powiadomienia się nie pojawiają.
+
+Dlaczego to bezpieczne:
+
+- Żądanie to zwykłe pobranie pliku. Nie wysyła żadnych danych o tobie, twoich czatach ani ustawieniach.
+- Gałąź `notices` jest chroniona. Tylko opiekunowie mogą ją zmieniać, a każda zmiana wymaga przeglądu.
+- Plik jest ściśle sprawdzany. Powiadomienie to zwykły tekst z limitem rozmiaru. Linki zostają tylko wtedy, gdy prowadzą do `https://github.com/Pasta-Devs/`.
+- Powiadomienia widzisz tylko ty: na komputerze, na którym działa Marinara, z adresu z `IP_ALLOWLIST` albo po zalogowaniu się twoim loginem. Inni odwiedzający dostają pustą listę.
+- Powiadomienie nie może niczego zainstalować, uruchomić ani zmienić. Pokazuje tylko tekst.
+
+Aby wyłączyć powiadomienia, ustaw `MARINARA_NOTICES_ENABLED=false`. **Ostrzeżenie:** wtedy Marinara nie może poinformować cię o poprawkach bezpieczeństwa ani o wymaganych krokach dla twojej wersji. Sam śledź [wydania na GitHubie](https://github.com/Pasta-Devs/Marinara-Engine/releases). Forki mogą skierować `MARINARA_NOTICES_URL` na własny plik.
+
 ## Pełna lista zmiennych środowiskowych
 
 Ta sekcja wymienia pozostałe ustawienia, pogrupowane według przeznaczenia. Tabele powyżej obejmują już kontrolę dostępu, przechowywanie danych, logowanie, limity czasu, działania uprzywilejowane i zgody na adresy lokalne.
@@ -331,6 +353,8 @@ Ta sekcja wymienia pozostałe ustawienia, pogrupowane według przeznaczenia. Tab
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Ścieżka do prywatnego pliku sekretu używanego przez program uruchamiający w środowisku Termux i lokalne narzędzie `mari` CLI. Plikiem automatycznie zarządzają APK i program uruchamiający; zwykli użytkownicy APK nigdy nie muszą go odczytywać ani kopiować. |
 | `AUTO_OPEN_BROWSER` | `true` | Decyduje, czy programy uruchamiające otwierają adres aplikacji. Ustaw `false`, żeby tego nie robiły. Konfiguracja zarządzana przez APK wyłącza automatyczne otwieranie przeglądarki przez skrypt powłoki. APK osobno obsługuje zapamiętany wybór aplikacji lub przeglądarki oraz uwierzytelnianie. |
 | `AUTO_UPDATE_ENABLED` | `true` | Decyduje, czy programy uruchamiające oparte na Git dla systemów Windows i macOS/Linux oraz dla środowiska Termux pobierają i wgrywają aktualizacje silnika przed startem. Ustaw `false`, żeby zrezygnować na stałe; zadziała to przy następnym uruchomieniu. Program uruchamiający nadal sprawdza w trybie tylko do odczytu, czy są nowsze opublikowane wydania, i wypisuje przypomnienie o pobraniu, gdy takie się pojawi. Ręczne sprawdzanie, wgrywanie z aplikacji, aktualizacje pakietów i aktualizacje modeli pozostają dostępne. Użyj `--skip-update`, żeby pominąć oba sprawdzenia przy jednym starcie. |
+| `MARINARA_NOTICES_ENABLED` | `true` | Czy serwer pobiera z GitHuba powiadomienia opiekunów. Zobacz [Powiadomienia Marinara](#marinara-notices). Ustaw `false`, aby zatrzymać te żądania. **Ostrzeżenie:** wtedy Marinara nie może poinformować cię o poprawkach bezpieczeństwa dla twojej wersji i musisz sam śledzić wydania na GitHubie. |
+| `MARINARA_NOTICES_URL` | `notices.json` w gałęzi `notices` | Zastępuje plik powiadomień, dla forków i mirrorów. Plik jest walidowany tak samo, a linki spoza `https://github.com/Pasta-Devs/` są usuwane. |
 | `MARINARA_ENV_FILE` | plik `.env` w korzeniu projektu | Opcjonalna zmiana ścieżki do pliku `.env`. Ustaw ją przed startem. |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | Limit równoczesnych żądań do dostawców obrazów i wideo dla całego procesu serwera, we wszystkich miejscach aplikacji (galerie, storyboardy, zasoby gier, sprite'y, awatary). Zwiększ go przy mocnym lokalnym GPU albo u dostawcy z hojnymi limitami; zmniejsz do 1-2, jeśli lokalnemu ComfyUI/SwarmUI brakuje pamięci VRAM przy partiach zadań; `0` całkowicie wyłącza limit. Nieprawidłowe wartości są pomijane z ostrzeżeniem w logu. Praca wsadowa i automatyczna nigdy nie zajmuje ostatniego miejsca, więc jedno miejsce zawsze zostaje wolne dla żądań interaktywnych. Działa dodatkowo obok opcji **Queue media generation requests** (Kolejkuj żądania generowania mediów) w sekcji **Settings → Generations → Overall Generations** (Ustawienia, Generowanie, Ogólne generowanie), domyślnie włączonej, która osobno kolejkuje zadania obrazów i zadania wideo dla każdego konta dostawcy. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | Jak długo żądanie generowania może czekać na wolne miejsce w limicie równoczesności, zanim zakończy się czytelnym błędem zamiast się zawiesić (domyślnie 10 minut; `0` oznacza czekanie bez końca). |

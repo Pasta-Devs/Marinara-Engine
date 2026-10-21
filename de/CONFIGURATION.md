@@ -317,6 +317,28 @@ Wie du ein lokales oder selbst gehostetes Modell anbindest, steht unter [Ein lok
 
 Optionale Serverfunktionen, etwa das Wiederholen fehlgeschlagener Anbieteraufrufe oder stabile Lorebook-Gruppenauswahlen, aktivierst du unter **Settings > Advanced > Features** (Einstellungen > Erweitert > Funktionen). Alle sind standardmäßig aus. Einige haben eine Umgebungsvariable, die bei gesetztem Wert Vorrang hat. Unter [Funktionsschalter](configuration/features.md) findest du jeden Schalter mit Standardwert und Variable.
 
+<a id="marinara-notices"></a>
+
+## Marinara-Hinweise
+
+Marinara-Hinweise sind kurze Warnungen der Marinara-Maintainer, zum Beispiel zu einem Sicherheitsproblem oder zu einem manuellen Schritt, den deine Version braucht. Betrifft ein Hinweis deine Version, zeigt Marinara ihn dir als Banner an.
+
+So funktioniert es:
+
+- Beim Start und danach jede Stunde lädt der Server eine kleine Datei, `notices.json`, aus dem Branch `notices` des Marinara-Engine-Repositorys auf GitHub herunter.
+- Der Server behält nur die Hinweise, die deine Version nennen. Dein Browser fragt einmal beim Laden der Seite und danach jede Stunde deinen eigenen Server danach.
+- Schlägt ein Download fehl, behält der Server die Hinweise, die er schon hat, und der Start verzögert sich nicht. Gibt es die Datei nicht mehr, erscheinen keine Hinweise.
+
+Warum das sicher ist:
+
+- Die Anfrage ist ein normaler Datei-Download. Sie sendet keine Daten über dich, deine Chats oder deine Einstellungen.
+- Der Branch `notices` ist geschützt. Nur Maintainer können ihn ändern, und jede Änderung braucht ein Review.
+- Die Datei wird streng geprüft. Ein Hinweis ist reiner Text mit einer Größenbegrenzung. Links bleiben nur erhalten, wenn sie auf `https://github.com/Pasta-Devs/` zeigen.
+- Nur du siehst Hinweise: auf dem Rechner, auf dem Marinara läuft, von einer Adresse in `IP_ALLOWLIST` aus oder nachdem du dich mit deinem Login angemeldet hast. Andere Besucher bekommen eine leere Liste.
+- Ein Hinweis kann nichts installieren, ausführen oder ändern. Er zeigt nur Text.
+
+Zum Abschalten der Hinweise setze `MARINARA_NOTICES_ENABLED=false`. **Warnung:** Dann kann Marinara dir keine Sicherheitskorrekturen oder erforderlichen Schritte für deine Version mitteilen. Behalte die [GitHub-Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) dann selbst im Blick. Forks können `MARINARA_NOTICES_URL` auf ihre eigene Datei zeigen lassen.
+
 ## Vollständige Referenz der Umgebungsvariablen
 
 Dieser Abschnitt listet die übrigen Einstellungen, nach Zweck gruppiert. Zugriffskontrolle, Speicherung, Logging, Zeitlimits, privilegierte Aktionen und Freigaben für lokale Adressen decken die Tabellen weiter oben bereits ab.
@@ -331,6 +353,8 @@ Dieser Abschnitt listet die übrigen Einstellungen, nach Zweck gruppiert. Zugrif
 | `MARINARA_ANDROID_SECRET_FILE`   | `~/.marinara-engine/android-secret`            | Pfad zur privaten Geheimwertdatei, die der Termux-Launcher und die lokale `mari`-CLI nutzen. APK und Launcher verwalten diese Datei automatisch; normale APK-Nutzer müssen sie nie lesen oder kopieren. |
 | `AUTO_OPEN_BROWSER`              | `true`                                         | Ob die Shell-Launcher die App-URL für dich öffnen. `false` schaltet das ab. Die APK-verwaltete Einrichtung deaktiviert das automatische Öffnen des Browsers durch die Shell. Die APK kümmert sich separat um die gespeicherte App-/Browser-Auswahl und die Anmeldung. |
 | `AUTO_UPDATE_ENABLED`            | `true`                                         | Ob die Git-basierten Launcher für Windows, macOS/Linux und Termux vor dem Start Engine-Updates holen und einspielen. `false` deaktiviert das dauerhaft und wirkt ab dem nächsten Start. Der Launcher prüft weiterhin nur lesend auf neuere veröffentlichte Releases und erinnert bei Bedarf an den Download; manuelle Prüfungen, das Einspielen in der App, Paket-Updates und Modell-Updates bleiben verfügbar. Mit `--skip-update` überspringst du beide Launcher-Prüfungen für einen Start. |
+| `MARINARA_NOTICES_ENABLED` | `true` | Ob der Server Hinweise der Maintainer von GitHub abruft. Siehe [Marinara-Hinweise](#marinara-notices). Auf `false` stoppst du diese Anfragen. **Warnung:** Dann kann Marinara dir keine Sicherheitskorrekturen für deine Version mitteilen, und du musst die GitHub-Releases selbst im Blick behalten. |
+| `MARINARA_NOTICES_URL` | `notices.json` im Branch `notices` | Überschreibt die Hinweisdatei, für Forks und Spiegel. Die Datei wird genauso geprüft, und Links außerhalb von `https://github.com/Pasta-Devs/` werden verworfen. |
 | `MARINARA_ENV_FILE`              | `.env` im Projekt-Wurzelordner                 | Optionaler abweichender Pfad zur Datei `.env`. Vor dem Start setzen.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4`                                     | Prozessweite Obergrenze für gleichzeitige Anfragen an Bild- und Videoanbieter, über alle Bereiche hinweg (Galerien, Storyboards, Game-Assets, Sprites, Avatare). Erhöhe sie für eine starke lokale GPU oder einen Anbieter mit großzügigen Limits; senke sie auf 1–2, wenn einem lokalen ComfyUI/SwarmUI bei Stapelaufträgen der VRAM ausgeht; `0` hebt die Obergrenze ganz auf. Ungültige Werte werden mit einer Warnung im Log ignoriert. Stapel- und automatische Aufträge belegen nie den letzten Platz, sodass für interaktive Anfragen immer einer frei bleibt. Gilt zusätzlich zu **Queue media generation requests** (Anfragen zur Mediengenerierung in die Warteschlange stellen; **Settings → Generations → Overall Generations**, standardmäßig an), das Bild- und Videoaufträge für jedes Anbieterkonto getrennt in die Warteschlange stellt. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000`                            | Wie lange eine Generierungsanfrage auf einen freien Platz warten darf, bevor sie mit einer klaren Fehlermeldung scheitert, statt hängen zu bleiben (standardmäßig 10 Minuten; `0` wartet unbegrenzt). |

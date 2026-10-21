@@ -317,6 +317,28 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 
 重试失败的服务商调用、固定世界书组选择等可选服务器行为，可在 **Settings > Advanced > Features**(设置 > 高级 > 功能) 中开启，默认全部关闭。部分开关对应环境变量；只要设置了变量，就优先于开关。每个开关及其默认值、变量详见[功能开关](configuration/features.md)。
 
+<a id="marinara-notices"></a>
+
+## Marinara 通知
+
+Marinara 通知是 Marinara 维护者发出的简短警告，例如安全问题，或你的版本需要手动完成的步骤。当某条通知适用于你的版本时，Marinara 会以横幅形式显示给你。
+
+工作方式：
+
+- 启动时以及之后每小时，服务器会从 GitHub 上 Marinara Engine 仓库的 `notices` 分支下载一个小文件 `notices.json`。
+- 服务器只保留指明你的版本的通知。你的浏览器会在页面加载时向你自己的服务器请求一次通知，之后每小时请求一次。
+- 如果下载失败，服务器会保留已有的通知，启动也不会被延迟。如果该文件已被删除，就不会显示任何通知。
+
+为什么安全：
+
+- 这个请求就是一次普通的文件下载。它不会发送任何关于你、你的聊天或你的设置的数据。
+- `notices` 分支受到保护。只有维护者能修改它，每次修改都需要审查。
+- 文件会被严格检查。通知只是纯文本，并有大小限制。只有指向 `https://github.com/Pasta-Devs/` 的链接才会保留。
+- 只有你能看到通知：在运行 Marinara 的电脑上、从 `IP_ALLOWLIST` 中的地址访问，或用你的登录账号登录之后。其他访问者得到的是空列表。
+- 通知不能安装、运行或更改任何东西，它只显示文字。
+
+要关闭通知，请设置 `MARINARA_NOTICES_ENABLED=false`。**警告：** 这样 Marinara 就无法告知你针对你的版本的安全修复或必需步骤。请自己关注 [GitHub 发布页](https://github.com/Pasta-Devs/Marinara-Engine/releases)。Fork 可以让 `MARINARA_NOTICES_URL` 指向自己的文件。
+
 ## 环境变量完整参考
 
 本节按用途分组列出其余设置。前面的表格已经覆盖了访问控制、存储、日志、超时、授权操作和本地地址放行开关。
@@ -331,6 +353,8 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 启动脚本和本地 `mari` CLI 使用的私密密钥文件路径。APK 和启动脚本会自动管理这个文件；普通 APK 用户无需读取或复制。 |
 | `AUTO_OPEN_BROWSER` | `true` | 控制 shell 启动脚本是否自动打开应用 URL。设为 `false` 即可关闭。APK 管理的安装会关闭 shell 的浏览器自动打开功能。APK 会单独处理记住的应用或浏览器选择以及认证。 |
 | `AUTO_UPDATE_ENABLED` | `true` | 基于 Git 的 Windows、macOS/Linux 和 Termux 启动脚本是否在启动前拉取并应用 Engine 更新。设为 `false` 可长期关闭，下次启动生效。启动脚本仍会只读地检查有没有更新的正式发布版，有的话打印一条下载提醒；手动检查、应用内应用更新、包更新和模型更新都照常可用。加 `--skip-update` 可让本次启动跳过这两项检查。 |
+| `MARINARA_NOTICES_ENABLED` | `true` | 服务器是否从 GitHub 获取维护者通知。参见 [Marinara 通知](#marinara-notices)。设为 `false` 可停止这些请求。**警告：** 这样 Marinara 就无法告知你针对你的版本的安全修复，你需要自己关注 GitHub 发布页。 |
+| `MARINARA_NOTICES_URL` | `notices` 分支上的 `notices.json` | 覆盖通知文件，用于 fork 和镜像。该文件的验证方式相同，指向 `https://github.com/Pasta-Devs/` 之外的链接会被丢弃。 |
 | `MARINARA_ENV_FILE` | 项目根目录的 `.env` | 可选，覆盖 `.env` 文件的路径。要在启动前设置。 |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | 整个进程范围内同时进行的图像/视频服务商请求上限，覆盖所有入口（图库、故事板、游戏素材、立绘、头像）。本地 GPU 性能强劲或服务商限额宽松时可以调高；本地 ComfyUI/SwarmUI 在批量任务中显存不足时，降到 1-2；`0` 完全取消这个上限。无效值会被忽略，并记录一条警告。批量或自动任务永远不会占用最后一个名额，所以始终会给交互式请求留出一个。这个上限叠加在 **Queue media generation requests**(媒体生成请求排队) 之上（位于 **Settings → Generations → Overall Generations**(设置 → 生成 → 总体生成)，默认开启），后者会为每个服务商账户分别排队图像任务和视频任务。 |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | 生成请求等待空闲并发名额的最长时间，超时后以明确的错误失败，而不是一直挂起（默认 10 分钟；`0` 表示一直等待）。 |

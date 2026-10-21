@@ -317,6 +317,28 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 
 실패한 제공자 호출 재시도나 로어북 그룹 선택 고정 같은 선택적 서버 동작은 **Settings > Advanced > Features**(설정 > 고급 > 기능)에서 켭니다. 모두 기본적으로 꺼져 있습니다. 일부 환경 변수는 설정되어 있으면 스위치보다 우선합니다. 각 스위치, 기본값, 변수는 [기능 스위치](configuration/features.md)를 참고하세요.
 
+<a id="marinara-notices"></a>
+
+## Marinara 공지
+
+Marinara 공지는 Marinara 메인테이너가 보내는 짧은 경고입니다. 예를 들어 보안 문제나 사용 중인 버전에 필요한 수동 단계를 알립니다. 공지가 사용 중인 버전에 해당하면 Marinara가 배너로 보여 줍니다.
+
+작동 방식:
+
+- 시작할 때, 그리고 그 후 매시간 서버가 GitHub의 Marinara Engine 저장소 `notices` 브랜치에서 작은 파일 `notices.json`을 내려받습니다.
+- 서버는 사용 중인 버전을 지정한 공지만 보관합니다. 브라우저는 페이지를 불러올 때 한 번, 그 후 매시간 자신의 서버에 공지를 요청합니다.
+- 다운로드가 실패하면 서버는 이미 가진 공지를 유지하며, 시작이 지연되지 않습니다. 파일이 없어지면 공지가 표시되지 않습니다.
+
+안전한 이유:
+
+- 요청은 일반 파일 다운로드입니다. 사용자, 채팅, 설정에 관한 데이터를 전혀 보내지 않습니다.
+- `notices` 브랜치는 보호되어 있습니다. 메인테이너만 변경할 수 있으며, 모든 변경에는 리뷰가 필요합니다.
+- 파일은 엄격하게 검사됩니다. 공지는 크기 제한이 있는 일반 텍스트입니다. 링크는 `https://github.com/Pasta-Devs/`를 가리킬 때만 유지됩니다.
+- 공지는 사용자만 볼 수 있습니다. Marinara를 실행하는 컴퓨터에서, `IP_ALLOWLIST`에 있는 주소에서, 또는 로그인으로 로그인한 뒤에 볼 수 있습니다. 다른 방문자에게는 빈 목록이 돌아갑니다.
+- 공지는 아무것도 설치, 실행, 변경할 수 없습니다. 텍스트만 보여 줍니다.
+
+공지를 끄려면 `MARINARA_NOTICES_ENABLED=false`로 설정하세요. **경고:** 그러면 Marinara가 사용 중인 버전의 보안 수정이나 필수 단계를 알려 줄 수 없습니다. [GitHub 릴리스](https://github.com/Pasta-Devs/Marinara-Engine/releases)를 직접 확인하세요. 포크는 `MARINARA_NOTICES_URL`이 자신의 파일을 가리키게 할 수 있습니다.
+
 ## 전체 환경 변수 목록
 
 이 절에는 남은 설정을 용도별로 묶어 정리했습니다. 접근 제어, 저장 위치, 로그, 타임아웃, 권한이 필요한 동작, 로컬 주소 허용 설정은 위의 표에 이미 나와 있습니다.
@@ -331,6 +353,8 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 | `MARINARA_ANDROID_SECRET_FILE` | `~/.marinara-engine/android-secret` | Termux 런처와 로컬 `mari` CLI가 쓰는 비공개 비밀 파일 경로입니다. APK와 런처가 이 파일을 자동으로 관리하며 일반 APK 사용자는 읽거나 복사할 필요가 없습니다. |
 | `AUTO_OPEN_BROWSER` | `true` | 셸 런처가 앱 URL을 자동으로 열지 정합니다. `false`로 설정하면 끕니다. APK로 관리하는 설치에서는 셸의 브라우저 자동 열기를 끕니다. APK가 저장된 앱/브라우저 선택과 인증을 별도로 처리합니다. |
 | `AUTO_UPDATE_ENABLED` | `true` | Git 기반 Windows, macOS/Linux, Termux 런처가 시작 전에 Engine 업데이트를 받아 적용할지 여부입니다. 계속 받지 않으려면 `false`로 설정하세요. 다음 실행부터 적용됩니다. 이렇게 해도 런처는 새로 공개된 릴리스가 있는지 읽기 전용으로 확인해 다운로드 안내를 출력하며, 수동 확인, 앱 내 적용, 패키지 업데이트, 모델 업데이트는 그대로 쓸 수 있습니다. 이번 한 번만 두 가지 런처 확인을 모두 건너뛰려면 `--skip-update`를 쓰세요. |
+| `MARINARA_NOTICES_ENABLED` | `true` | 서버가 GitHub에서 메인테이너 공지를 가져올지 여부. [Marinara 공지](#marinara-notices)를 참고하세요. 이 요청을 멈추려면 `false`로 설정하세요. **경고:** 그러면 Marinara가 사용 중인 버전의 보안 수정을 알려 줄 수 없으므로 GitHub 릴리스를 직접 확인해야 합니다. |
+| `MARINARA_NOTICES_URL` | `notices` 브랜치의 `notices.json` | 공지 파일을 재정의합니다. 포크와 미러용입니다. 파일은 같은 방식으로 검증되며, `https://github.com/Pasta-Devs/` 밖을 가리키는 링크는 제거됩니다. |
 | `MARINARA_ENV_FILE` | 프로젝트 최상위의 `.env` | `.env` 파일 경로를 다른 곳으로 지정하는 선택 설정입니다. 서버를 시작하기 전에 설정하세요. |
 | `MARINARA_MEDIA_GENERATION_CONCURRENCY` | `4` | 모든 화면(갤러리, 스토리보드, 게임 에셋, 스프라이트, 아바타)에 걸쳐 동시에 보내는 이미지/동영상 제공자 요청 수의 프로세스 전체 상한입니다. 성능 좋은 로컬 GPU나 한도가 넉넉한 제공자라면 값을 올리세요. 일괄 작업 중 로컬 ComfyUI/SwarmUI의 VRAM이 부족하면 1-2로 낮추세요. `0`은 상한을 완전히 없앱니다. 잘못된 값은 경고 로그를 남기고 무시합니다. 일괄 작업과 자동 작업은 마지막 자리를 차지하지 않으므로 대화형 요청을 위한 자리 하나는 항상 남습니다. **Queue media generation requests**(미디어 생성 요청 대기열 사용) 위에 추가로 적용됩니다. 이 설정은 **Settings → Generations → Overall Generations**(설정 → 생성 → 전체 생성)에 있고 기본적으로 켜져 있으며, 제공자 계정마다 이미지 작업과 동영상 작업을 따로 대기열에 넣습니다. |
 | `MARINARA_MEDIA_GENERATION_WAIT_TIMEOUT_MS` | `600000` | 생성 요청이 빈 동시 실행 자리를 기다릴 수 있는 시간입니다. 이 시간이 지나면 멈춰 있지 않고 분명한 오류와 함께 실패합니다(기본값 10분, `0`이면 무한정 기다립니다). |
