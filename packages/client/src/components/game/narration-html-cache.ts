@@ -3,7 +3,8 @@ import { i18n } from "../../localization/i18n";
 /**
  * Remembers finished narration HTML per text and text-effects setting, oldest entry out first. The
  * HTML can carry translated text (the item-used badge), so it starts over whenever the language
- * switches or a translation is added, reloaded or removed.
+ * switches or a translation is added, reloaded or removed. Each cache listens to i18n for the life
+ * of the page, so create one per module, never per render.
  */
 export function createNarrationHtmlCache(
   build: (content: string, textEffectsEnabled: boolean) => string,

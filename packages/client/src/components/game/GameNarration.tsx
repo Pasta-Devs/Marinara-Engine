@@ -610,7 +610,9 @@ const DEFAULT_LOG_PAGE_SIZE = 20;
 
 // A Session Log row, a settled segment and a translation show the same text on every render of
 // this component. Formatting and sanitizing it again each time made opening, closing and jumping
-// through a long log slow on phones, so the finished HTML is kept.
+// through a long log slow on phones, so the finished HTML is kept. It depends on the text, the
+// text-effects setting and the loaded translations (the item-used badge); the cache clears itself
+// when translations change.
 const formattedNarrationHtml = createNarrationHtmlCache((content, textEffectsEnabled) =>
   animateTextHtml(formatNarration(content, false), textEffectsEnabled),
 );
