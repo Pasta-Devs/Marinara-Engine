@@ -19,6 +19,8 @@ export interface ProviderDefinition {
   billing?: ProviderBilling;
   /** Set when it serves OpenAI-style `/chat/completions`; a decision Model on it reads log-probabilities there. */
   protocol?: "openai_chat";
+  /** Set when the service reports subscription usage that the usage meter can show. */
+  subscriptionUsage?: boolean;
 }
 
 export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
@@ -58,7 +60,7 @@ export function hasPlanUsageWindows(provider: string | null | undefined): boolea
 
 /** Providers whose connections can show a subscription usage meter. */
 export function supportsSubscriptionUsageWidget(provider: string | null | undefined): boolean {
-  return provider === "nanogpt" || hasPlanUsageWindows(provider);
+  return !!PROVIDERS[provider as APIProvider]?.subscriptionUsage || hasPlanUsageWindows(provider);
 }
 
 export function isLocalAuthProvider(provider: string | null | undefined): boolean {
@@ -209,6 +211,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     apiKeyHeader: null,
     keyUrl: "https://nano-gpt.com/api",
     billing: "pay_per_use",
+    subscriptionUsage: true,
   },
   xai: {
     id: "xai",
