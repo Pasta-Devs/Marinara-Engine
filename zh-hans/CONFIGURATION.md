@@ -164,13 +164,13 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `BASIC_AUTH_REALM` | `Marinara Engine` | 浏览器密码框里显示的文字。 |
 | `IP_ALLOWLIST` | 空 | 始终放行的 IP 或 CIDR 段，用逗号分隔。直连的环回地址始终放行；同一台机器上的反向代理则不会。 |
 | `IP_ALLOWLIST_ENABLED` | `true` | 设为 `false` 可保留列表但暂停生效。 |
-| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。 |
+| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。部分互联网和移动服务商会给用户分配 `100.64.0.0/10` 内的地址。如果这台电脑有这样的地址，该服务商的其他用户也会被当作私有网络客户端。 |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 允许任意地址免密访问，包括公网。不推荐。 |
 | `TRUSTED_PRIVATE_NETWORKS` | 内置默认值 | 替换默认的私有网络段。仍需保留的默认段要自己写进去。 |
-| `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，仅当直连 Tailscale 套接字的两端都是 tailnet 地址才予以信任。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |
+| `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，仅当直连 Tailscale 套接字的两端都是 tailnet 地址且请求不带转发请求头（Tailscale Serve 和 Funnel 需要登录）时才予以信任。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |
 | `BYPASS_AUTH_DOCKER` | 自动 | 留空时，仅信任检测到的容器接口及其确切网关，而且只在没有设置 Basic Auth 或 `IP_ALLOWLIST` 时才信任。设为 `true` 可兼容旧版或自定义网络，设为 `false` 则要求执行正常访问控制。 |
-| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 对经代理转发的 Docker 流量照常执行登录和允许列表检查。只有在确认每一个上游客户端都可信时才设为 `false`。 |
-| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 把同一台机器上的反向代理或隧道转发过来的请求当作远程访客处理。只有在代理本身要求每位访客登录时才设为 `false`。 |
+| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 对代理转发的 Docker 流量（带转发请求头、Host 指向另一台计算机或使用 HTTP/1.0）照常执行登录和允许列表检查。只有在代理本身要求每位访客登录时才设为 `false`。 |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 把同一台机器上的反向代理或隧道转发过来的请求当作远程访客处理，包括 nginx 默认 `proxy_pass` 这类 HTTP/1.0 请求。只有在代理本身要求每位访客登录时才设为 `false`。 |
 | `TRUSTED_HOSTS` | 空 | Marinara 额外允许响应的公网或反向代理主机名。直连 IP、localhost、`.local`、`.home.arpa` 和单段局域网名称自动生效。 |
 | `SSL_CERT` | 空 | TLS 证书文件的路径。与 `SSL_KEY` 一起设置即可直接提供 HTTPS 服务。 |
 | `SSL_KEY` | 空 | TLS 私钥文件的路径。 |

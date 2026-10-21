@@ -34,7 +34,7 @@ Ersetze `192.168.1.42` durch die eigene Host-IP-Adresse.
 
 5. Melde dich an, falls der Browser nach Benutzername und Passwort für Basic Auth fragt. Erscheint stattdessen die Seite **Access blocked**, fehlt noch Schritt 2 auf dem Host.
 
-Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann; der Android-Wrapper erzeugt und verwendet diese Zugangsdaten jedoch automatisch. Andere Geräte bleiben blockiert, bis du die Zugriffskontrolle einrichtest (Basic Auth oder eine IP-Allowlist). Beide Wege erklärt [Fernzugriff](REMOTE_ACCESS.md).
+Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Ein Reverse-Proxy auf demselben Computer, auch nginx, zählt als entfernter Besucher und braucht die Anmeldung. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann; der Android-Wrapper erzeugt und verwendet diese Zugangsdaten jedoch automatisch. Andere Geräte bleiben blockiert, bis du die Zugriffskontrolle einrichtest (Basic Auth oder eine IP-Allowlist). Beide Wege erklärt [Fernzugriff](REMOTE_ACCESS.md).
 
 Liegen die beiden Geräte nicht im selben Netzwerk, hilft ein Werkzeug wie Tailscale. Tailscale gibt jedem Gerät eine feste private Adresse. Damit verbindest du dich von überall, ohne Marinara im öffentlichen Internet freizugeben. Klappt die Verbindung nicht, hilft [Fehlerbehebung](TROUBLESHOOTING.md) weiter.
 

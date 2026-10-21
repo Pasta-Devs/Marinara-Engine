@@ -1,16 +1,16 @@
 {
   "language": "ko",
-  "sourceCommit": "77ee9026e4fa2eea8471c630608f62ba9b615f3d",
+  "sourceCommit": "b0a03fddc430506ca098b6d9ff3e5ccce1fa438f",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "966a1cdf234d5d4a2c160ea25e64164b911edbc99c8ea2a590e7deb6e611996c",
-      "bytes": 59821
+      "sha256": "93a3c9f6e2c308dd0602cb766fa8e9785b8e385f932c8b4287fe35955e0a7ce1",
+      "bytes": 60295
     },
     {
       "path": "FAQ.md",
-      "sha256": "988b20a7f9a456b01efa9d932266dfb08546fe497557612ddd0057cbe26417b2",
-      "bytes": 29784
+      "sha256": "3723636a92b8fa9d747a68afbc80db696d03c15341f0bab1985cf0e2c6582891",
+      "bytes": 29927
     },
     {
       "path": "INSTALLATION.md",
@@ -19,13 +19,13 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "a47f43017bc523772c8138610ff2dce21504eb60ff61c14af18063f6be0cd515",
-      "bytes": 25586
+      "sha256": "d0ca462dbb63ede9b691c58082e6cfb044763c439ce7c26b7baf3ca1c114f4b6",
+      "bytes": 27297
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "aa059c24ba3e4e570ed90cb70a4e8b827d2a621b49ac63e79cd7209dc25b259f",
-      "bytes": 64614
+      "sha256": "0b3f03e188f5423858f11f5a0df07f61dbfaa0140d4ccd829c97854fa06bf7e4",
+      "bytes": 64791
     },
     {
       "path": "UPGRADING.md",
