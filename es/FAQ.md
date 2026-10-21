@@ -34,7 +34,7 @@ Reemplaza `192.168.1.42` por la dirección IP de tu propio anfitrión.
 
 5. Inicia sesión si el navegador pide el nombre de usuario y la contraseña de Basic Auth. Si en su lugar ves una página **Access blocked**, primero completa el paso 2 en el anfitrión.
 
-En las instalaciones normales de escritorio, no necesitas contraseña en la misma computadora (`127.0.0.1`). Las instalaciones de Android gestionadas por el APK añaden un inicio de sesión privado para localhost, de modo que otra app de Android no pueda hacerse pasar por Marinara, pero la envoltura de Android crea y usa esa credencial automáticamente. Otros dispositivos quedan bloqueados hasta que configures el control de acceso (Basic Auth o una lista de IP permitidas). Cada opción se explica en [Acceso remoto](REMOTE_ACCESS.md).
+En las instalaciones normales de escritorio, no necesitas contraseña en la misma computadora (`127.0.0.1`). Un proxy inverso en la misma computadora, incluido nginx, cuenta como visitante remoto y necesita iniciar sesión. Las instalaciones de Android gestionadas por el APK añaden un inicio de sesión privado para localhost, de modo que otra app de Android no pueda hacerse pasar por Marinara, pero la envoltura de Android crea y usa esa credencial automáticamente. Otros dispositivos quedan bloqueados hasta que configures el control de acceso (Basic Auth o una lista de IP permitidas). Cada opción se explica en [Acceso remoto](REMOTE_ACCESS.md).
 
 Si los dos dispositivos no están en la misma red, una herramienta como Tailscale puede ayudar. Tailscale le da a cada dispositivo una dirección privada estable. Luego puedes conectarte desde cualquier lugar sin exponer Marinara a la internet pública. Si no puedes conectarte, consulta [Solución de problemas](TROUBLESHOOTING.md).
 

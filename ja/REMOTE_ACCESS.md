@@ -38,6 +38,15 @@ HOST=0.0.0.0
 
 シェル用の起動スクリプト(`start.bat`、`start.sh`)は`HOST=0.0.0.0`を自動で設定します。`pnpm start`を直接実行した場合は設定されません。
 
+起動方法ごとのデフォルトのバインドアドレスは次のとおりです。
+
+| 起動方法 | `HOST`のデフォルト |
+| --- | --- |
+| `pnpm start`、`start-local.bat` | `127.0.0.1` |
+| `start.sh`、`start.bat`、Windowsインストーラー、`start-termux.sh` | `0.0.0.0` |
+| Dockerイメージ | コンテナー内で`0.0.0.0` |
+| `docker-compose.yml` | ポートを`127.0.0.1`だけに公開します |
+
 ## どの方法を選ぶか
 
 上から順に読み、最初に当てはまったところで止めてください。
@@ -120,7 +129,7 @@ IP_ALLOWLIST_ENABLED=false
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-これで、以前の「LANには開放し、インターネットからは遮断する」という動作に戻ります。対象は標準的なプライベートネットワークの範囲だけで、たとえば`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`です。CGNATの範囲`100.64.0.0/10`も含まれます。CGNATは一部のインターネットプロバイダーが使う共有アドレスの仕組みで、Tailscaleも同じ範囲を使います。インターネット側のアドレスは引き続き403で遮断します。
+これで、以前の「LANには開放し、インターネットからは遮断する」という動作に戻ります。対象は標準的なプライベートネットワークの範囲だけで、たとえば`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`です。CGNATの範囲`100.64.0.0/10`も含まれます。CGNATは一部のインターネットプロバイダーが使う共有アドレスの仕組みで、Tailscaleも同じ範囲を使います。インターネット側のアドレスは引き続き403で遮断します。一部のインターネットプロバイダーや携帯通信事業者は、顧客にこの範囲のアドレスを割り当てます。このコンピューターにそのようなアドレスがあると、同じプロバイダーのほかの顧客もプライベートネットワークのクライアントとして扱われます。
 
 警告: 設定すると、同じネットワークにいる人は誰でもパスワードなしでMarinaraに入れます。自分で管理しているネットワークなら問題ありませんが、カフェや空港、寮の共用Wi-Fiでは危険です。迷ったらBasic Authを使ってください。
 
@@ -143,6 +152,8 @@ Dockerの自動的な信頼が適用されるのは、Basic Authも`IP_ALLOWLIST
 
 これらのクライアントにも通常のBasic AuthとIP許可リストのチェックを適用する場合は、フラグを`false`にします。自動検出を利用できないときに以前の広いバイパスを残すには、`true`にします。この場合、Tailscaleは`100.64.0.0/10`全体を信頼し、Dockerは検出されたインターフェイスとゲートウェイに加えて、従来の`172.16.0.0/12`の範囲も信頼します。この互換モードは、一致するピアをすべて信頼できる場合にだけ使ってください。
 
+Tailscale ServeとFunnelの訪問者は、転送用のヘッダー付きでループバックから接続するため、ログインが必要です。これをオフにするフラグはありません。直接の`100.x`接続はパスワードなしのままです。
+
 たとえば、tailnetに信頼度の低いピアが含まれる場合は、Tailscaleのバイパスをオフにします。
 
 ```env
@@ -155,13 +166,13 @@ BYPASS_AUTH_TAILSCALE=false
 BYPASS_AUTH_DOCKER=false
 ```
 
-Marinaraが、Dockerのブリッジや検出されたゲートウェイの上にあるリバースプロキシやトンネルのコンテナーの背後に置かれることもあります。`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`などの転送用のヘッダーが付いている場合、そのDockerのピアは別のクライアントを代理していることになるため、Marinaraはデフォルトで通常どおりBasic AuthとIP許可リストの確認を行います。
+Marinaraが、Dockerのブリッジや検出されたゲートウェイの上にあるリバースプロキシやトンネルのコンテナーの背後に置かれることもあります。`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`などの転送用のヘッダーが付いている場合、そのDockerのピアは別のクライアントを代理していることになります。`marinara:7860`や公開名のような別のコンピューターを指すHostや、HTTP/1.0のリクエストも同様です。そのため、Marinaraはデフォルトで通常どおりBasic AuthとIP許可リストの確認を行います。ホスト自身のブラウザーから`localhost`または`127.0.0.1`へ送るリクエストは、ログインも許可リストも設定されていないあいだはパスワード不要のままです。
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 ```
 
-従来のバイパスに戻すには、これを`false`にします。ただし、プロキシに到達できるクライアントがすべて信頼できる場合にだけ行ってください。転送されてきたクライアントは、Dockerと同じパスワード不要の扱いを引き継ぐためです。
+従来のバイパスに戻すには、これを`false`にします。ただし、プロキシ自体がすべての訪問者にログインを求めている場合にだけ行ってください。転送されてきたクライアントは、Dockerと同じパスワード不要の扱いを引き継ぐためです。Dockerの前段にプロキシを置く場合は、`docker-compose.yml`の`127.0.0.1`へのポート公開を維持し、先にログインを設定してください。
 
 いずれかのバイパスが最初にリクエストを通したとき、サーバーは`[auth-bypass]`という警告をログに記録します。この警告は、バイパスが働いていることの確認になります。
 
@@ -169,7 +180,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 同じコンピューター上のリバースプロキシとトンネル
 
-nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale ServeやFunnel、ngrokなど、Marinaraを動かしているコンピューター上のリバースプロキシやトンネルは、ループバックからMarinaraに接続します。Marinaraは、プロキシが付け加える転送用のヘッダーからこれを見分けます。対象は`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscaleの身元を示すヘッダー、`Via`です。Marinaraは、プロキシがヘッダーを追加しない場合でも、HostがドメインやLANアドレスなど別のコンピューターを指すリクエストを認識します。見分けたリクエストは、実際のとおりリモートからの訪問者として扱います。
+nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale ServeやFunnel、ngrokなど、Marinaraを動かしているコンピューター上のリバースプロキシやトンネルは、ループバックからMarinaraに接続します。Marinaraは、プロキシが付け加える転送用のヘッダーからこれを見分けます。対象は`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscaleの身元を示すヘッダー、`Via`です。MarinaraはHTTP/1.0で届くリクエストも見分けます。ブラウザーはHTTP/1.0を使いませんが、デフォルトのnginxの`proxy_pass`は使うためです。Marinaraは、プロキシがヘッダーを追加しない場合でも、HostがドメインやLANアドレスなど別のコンピューターを指すリクエストを認識します。見分けたリクエストは、実際のとおりリモートからの訪問者として扱います。
 
 - Basic Authが適用されるので、`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を設定してください。設定していない場合、訪問者にはセットアップページが表示されます。
 - プロキシが訪問者の本当のアドレスを隠すため、転送されてきた訪問者は`IP_ALLOWLIST`によって遮断されます。
@@ -177,7 +188,7 @@ nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale ServeやFunnel、ngrok�
 
 そのコンピューター上で自分のブラウザーから`http://127.0.0.1:7860`または`http://localhost:7860`を開いた場合は、引き続きパスワードは不要です。
 
-Caddy、Traefik、Cloudflare Tunnel、Tailscale、ngrokは、デフォルトで転送用のヘッダーを付け加えます。nginxの場合は、`location`ブロックに次の行を追加してください。
+Caddy、Traefik、Cloudflare Tunnel、Tailscale、ngrokは、デフォルトで転送用のヘッダーを付け加えます。nginxでは、`location`ブロックに次の行を入れておくことを引き続き推奨します。
 
 ```nginx
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -185,13 +196,13 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 `socat`や`ssh -R`のように接続をそのまま転送するツールはヘッダーを付け加えないため、その通信はローカルからのものに見えます。Marinaraの公開にはこうしたツールを使わないでください。
 
-プロキシ自体が、転送する前にすべての訪問者にログインを求めている場合は、そのプロキシからの通信に対するMarinara自身の確認を省略できます。
+プロキシ自体が、転送する前にすべての訪問者にログインを求めている場合は、そのプロキシからの通信に対するMarinara自身の確認を省略できます。これは、プロキシ自体がすべての訪問者にログインを求めている場合にだけ行ってください。
 
 ```env
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-この場合、訪問者にはホストのコンピューターと同じ完全なアクセスが与えられ、管理者用シークレットなしで特権が必要な操作も行えます。プロキシ自体のログインがすべてのルートを保護している場合だけ、この設定を使ってください。
+この場合、訪問者にはホストのコンピューターと同じ完全なアクセスが与えられ、管理者用シークレットなしで特権が必要な操作も行えます。`/etc/hosts`に追加した名前だけでMarinaraに接続する場合は、このフラグを使わないでください。代わりに`*.localhost`の名前、たとえば`marinara.localhost`を使ってください。
 
 ## HTTPSでの公開
 

@@ -38,6 +38,15 @@ HOST=0.0.0.0
 
 启动脚本（`start.bat`、`start.sh`）会自动设置 `HOST=0.0.0.0`，直接运行 `pnpm start` 则不会。
 
+不同启动方式下的默认绑定地址：
+
+| 启动方式 | `HOST` 默认值 |
+| --- | --- |
+| `pnpm start`、`start-local.bat` | `127.0.0.1` |
+| `start.sh`、`start.bat`、Windows 安装程序、`start-termux.sh` | `0.0.0.0` |
+| Docker 镜像 | 容器内为 `0.0.0.0` |
+| `docker-compose.yml` | 只在 `127.0.0.1` 上发布端口 |
+
 ## 该选哪个方案
 
 按顺序往下读，读到第一条符合自己情况的就停下。
@@ -120,7 +129,7 @@ IP_ALLOWLIST_ENABLED=false
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-这会恢复到以前那种“局域网内开放、公网拦截”的行为，只对标准私有地址段生效，例如 `10.0.0.0/8`、`172.16.0.0/12` 和 `192.168.0.0/16`。CGNAT 段 `100.64.0.0/10` 也算在内。CGNAT 是部分网络服务商使用的共享地址系统，Tailscale 用的正是同一段地址。公网地址仍然会被 403 拦下。
+这会恢复到以前那种“局域网内开放、公网拦截”的行为，只对标准私有地址段生效，例如 `10.0.0.0/8`、`172.16.0.0/12` 和 `192.168.0.0/16`。CGNAT 段 `100.64.0.0/10` 也算在内。CGNAT 是部分网络服务商使用的共享地址系统，Tailscale 用的正是同一段地址。公网地址仍然会被 403 拦下。部分互联网和移动服务商会给用户分配这一段内的地址。如果这台电脑有这样的地址，同一服务商的其他用户也会被当作私有网络客户端。
 
 警告：这样一来，同一个网络里的任何人都能免密码访问 Marinara。在自己掌控的网络里没问题，但在咖啡馆、机场或宿舍的共享 Wi-Fi 上就不行。拿不准的时候，改用 Basic Auth。
 
@@ -143,6 +152,8 @@ BYPASS_AUTH_DOCKER=
 
 如果想对这些客户端执行常规的 Basic Auth 和 IP 允许列表检查，请把相应开关设为 `false`。自动检测不可用时，设为 `true` 可保留旧版的宽泛放行：Tailscale 会信任整个 `100.64.0.0/10`，Docker 还会信任检测到的接口和网关以及旧版 `172.16.0.0/12` 网段。只有在所有匹配对端都可信时才使用这种兼容模式。
 
+Tailscale Serve 和 Funnel 的访客是带着转发请求头从环回地址连进来的，所以必须登录，也没有开关可以关掉这一点。直连的 `100.x` 地址仍然免密码。
+
 例如，如果 tailnet 里有不太可信的对端，请关掉 Tailscale 放行：
 
 ```env
@@ -155,13 +166,13 @@ BYPASS_AUTH_TAILSCALE=false
 BYPASS_AUTH_DOCKER=false
 ```
 
-Marinara 也可能架在 Docker 网桥或检测到的网关上的反向代理、隧道容器后面。出现转发请求头，例如 `Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host` 或 `X-Forwarded-Proto`，就说明这个 Docker 对端代表的是另一个客户端，所以 Marinara 默认会照常执行 Basic Auth 和 IP 允许列表检查：
+Marinara 也可能架在 Docker 网桥或检测到的网关上的反向代理、隧道容器后面。出现转发请求头，例如 `Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host` 或 `X-Forwarded-Proto`，就说明这个 Docker 对端代表的是另一个客户端。Host 指向另一台计算机（例如 `marinara:7860` 或公网域名）的请求，以及 HTTP/1.0 请求，也同样如此。所以 Marinara 默认会照常执行 Basic Auth 和 IP 允许列表检查。在没有设置登录或允许列表时，从主机自己的浏览器访问 `localhost` 或 `127.0.0.1` 仍然免密码：
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 ```
 
-把它设成 `false` 可以恢复旧的放行行为。只有当所有能连到这个代理的客户端都可信时才这么做，因为经代理转发的客户端会继承 Docker 的免密码待遇。
+把它设成 `false` 可以恢复旧的放行行为。只有当代理本身要求每位访客登录时才这么做，因为经代理转发的客户端会继承 Docker 的免密码待遇。如果你在 Docker 前面放了代理，请让 `docker-compose.yml` 继续只在 `127.0.0.1` 上发布端口，并设置登录。
 
 这些放行第一次让请求通过时，服务器会记一条 `[auth-bypass]` 警告日志。看到这条警告就说明放行确实生效了。
 
@@ -169,7 +180,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 同一台电脑上的反向代理和隧道
 
-运行 Marinara 的那台机器上的反向代理或隧道，例如 nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale Serve 或 Funnel、ngrok，是从环回地址连接 Marinara 的。Marinara 会根据代理添加的转发请求头识别出这种情况：`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscale 的身份请求头，或者 `Via`。即使代理没有添加任何请求头，Marinara 也会识别 Host 指向另一台计算机（例如域名或局域网地址）的请求。之后它会把每个请求当作真正的远程访客对待：
+运行 Marinara 的那台机器上的反向代理或隧道，例如 nginx、Caddy、Traefik、Cloudflare Tunnel、Tailscale Serve 或 Funnel、ngrok，是从环回地址连接 Marinara 的。Marinara 会根据代理添加的转发请求头识别出这种情况：`Forwarded`、`X-Forwarded-For`、`X-Real-IP`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`CF-Connecting-IP`、`True-Client-IP`、Tailscale 的身份请求头，或者 `Via`。Marinara 也会识别以 HTTP/1.0 到达的请求，因为浏览器从不使用它，而 nginx 的默认 `proxy_pass` 会使用。即使代理没有添加任何请求头，Marinara 也会识别 Host 指向另一台计算机（例如域名或局域网地址）的请求。之后它会把每个请求当作真正的远程访客对待：
 
 - Basic Auth 生效，所以要设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。没有设置的话，访客看到的是设置页面。
 - `IP_ALLOWLIST` 会拦下转发过来的访客，因为代理隐藏了他们的真实地址。
@@ -177,7 +188,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 你自己在这台机器上用 `http://127.0.0.1:7860` 或 `http://localhost:7860` 打开的浏览器，仍然不需要密码。
 
-Caddy、Traefik、Cloudflare Tunnel、Tailscale 和 ngrok 默认会添加转发请求头。nginx 需要在 `location` 块里加上这一行：
+Caddy、Traefik、Cloudflare Tunnel、Tailscale 和 ngrok 默认会添加转发请求头。nginx 仍然建议在 `location` 块里加上这一行：
 
 ```nginx
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -185,13 +196,13 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 转发原始连接的工具，例如 `socat` 或 `ssh -R`，不会添加任何请求头，所以它们的流量看起来就像本地流量。不要用它们来公开 Marinara。
 
-如果你的代理在转发之前已经要求每位访客登录，可以让 Marinara 对它的流量跳过自己的检查：
+如果你的代理在转发之前已经要求每位访客登录，可以让 Marinara 对它的流量跳过自己的检查。只有当代理本身要求每位访客登录时才这么做：
 
 ```env
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-这样一来，访客会获得和主机本身一样的完整权限，包括不用管理员密钥就能执行高权限操作。只有在代理自己的登录保护了所有路由时才这么做。
+这样一来，访客会获得和主机本身一样的完整权限，包括不用管理员密钥就能执行高权限操作。如果你只通过自己加进 `/etc/hosts` 的名称访问 Marinara，请不要使用这个开关，改用 `*.localhost` 名称，例如 `marinara.localhost`。
 
 ## 通过 HTTPS 提供服务
 

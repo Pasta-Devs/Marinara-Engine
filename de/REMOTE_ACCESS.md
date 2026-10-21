@@ -36,7 +36,14 @@ Manchmal erreichen andere Geräte den Server überhaupt nicht: Statt eines 403 l
 HOST=0.0.0.0
 ```
 
-Die Start-Skripte (`start.bat`, `start.sh`) setzen `HOST=0.0.0.0` automatisch. Wer `pnpm start` direkt aufruft, bekommt das nicht.
+Standard-Bind-Adresse je nach Startweg:
+
+| Startweg | `HOST`-Standard |
+| --- | --- |
+| `pnpm start`, `start-local.bat` | `127.0.0.1` |
+| `start.sh`, `start.bat`, Windows-Installer, `start-termux.sh` | `0.0.0.0` |
+| Docker-Image | `0.0.0.0` im Container |
+| `docker-compose.yml` | Veröffentlicht den Port nur auf `127.0.0.1` |
 
 ## Welche Option passt zu dir
 
@@ -120,7 +127,7 @@ Vielleicht ist dein ganzes Netzwerk vertrauenswürdig, etwa ein Heim-LAN (lokale
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-Damit kehrt das alte Verhalten zurück: im LAN offen, aus dem öffentlichen Internet blockiert. Es gilt nur für die üblichen privaten Adressbereiche, zum Beispiel `10.0.0.0/8`, `172.16.0.0/12` und `192.168.0.0/16`. Der CGNAT-Bereich `100.64.0.0/10` zählt ebenfalls dazu. CGNAT ist ein System gemeinsam genutzter Adressen, das manche Internetanbieter einsetzen – Tailscale verwendet denselben Bereich. Adressen aus dem öffentlichen Internet bleiben mit einem 403 blockiert.
+Damit kehrt das alte Verhalten zurück: im LAN offen, aus dem öffentlichen Internet blockiert. Es gilt nur für die üblichen privaten Adressbereiche, zum Beispiel `10.0.0.0/8`, `172.16.0.0/12` und `192.168.0.0/16`. Der CGNAT-Bereich `100.64.0.0/10` zählt ebenfalls dazu. CGNAT ist ein System gemeinsam genutzter Adressen, das manche Internetanbieter einsetzen – Tailscale verwendet denselben Bereich. Adressen aus dem öffentlichen Internet bleiben mit einem 403 blockiert. Manche Internet- und Mobilfunkanbieter vergeben an ihre Kunden Adressen in diesem Bereich. Hat dieser Rechner so eine Adresse, zählen auch andere Kunden desselben Anbieters als Clients im privaten Netzwerk.
 
 Warnung: Jede Person im selben Netzwerk erreicht Marinara dann ohne Passwort. In einem Netzwerk, das dir gehört, ist das unproblematisch. Im gemeinsam genutzten WLAN eines Cafés, Flughafens oder Wohnheims ist es das nicht. Im Zweifel lieber Basic Auth.
 
@@ -143,6 +150,8 @@ Das automatische Vertrauen in Docker gilt nur, solange weder Basic Auth noch `IP
 
 Setze einen Schalter auf `false`, wenn für diese Clients die normalen Prüfungen von Basic Auth und IP-Allowlist gelten sollen. Mit `true` behältst du die ältere breite Ausnahme, falls die automatische Erkennung nicht verfügbar ist: Tailscale vertraut dann dem gesamten Bereich `100.64.0.0/10`, Docker zusätzlich seinen erkannten Schnittstellen und Gateways sowie dem alten Bereich `172.16.0.0/12`. Nutze diesen Kompatibilitätsmodus nur, wenn jeder passende Peer vertrauenswürdig ist.
 
+Tailscale-Serve- und Funnel-Besucher verbinden sich über Loopback mit Weiterleitungs-Headern, deshalb müssen sie sich anmelden. Dafür gibt es keinen Schalter zum Abschalten. Eine direkte `100.x`-Verbindung bleibt ohne Passwort.
+
 Gehören zu deinem Tailnet beispielsweise weniger vertrauenswürdige Peers, schalte die Tailscale-Ausnahme ab:
 
 ```env
@@ -155,13 +164,13 @@ Sollen erkannte Docker-Peers die Authentifizierung nicht umgehen, schalte die Do
 BYPASS_AUTH_DOCKER=false
 ```
 
-Möglich ist außerdem, dass Marinara hinter einem Reverse-Proxy- oder Tunnel-Container auf der Docker-Bridge oder dem erkannten Gateway steht. Weiterleitungs-Header wie `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host` oder `X-Forwarded-Proto` zeigen an, dass der Docker-Peer für einen anderen Client steht. Deshalb wendet Marinara standardmäßig die normalen Prüfungen von Basic Auth und IP-Allowlist an:
+Möglich ist außerdem, dass Marinara hinter einem Reverse-Proxy- oder Tunnel-Container auf der Docker-Bridge oder dem erkannten Gateway steht. Weiterleitungs-Header wie `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host` oder `X-Forwarded-Proto` zeigen an, dass der Docker-Peer für einen anderen Client steht. Ein Host, der einen anderen Rechner nennt, etwa `marinara:7860` oder ein öffentlicher Name, oder eine HTTP/1.0-Anfrage bewirkt dasselbe. Dann wendet Marinara standardmäßig die normalen Prüfungen von Basic Auth und IP-Allowlist an. Eine Anfrage an `localhost` oder `127.0.0.1` aus dem eigenen Browser des Hosts bleibt ohne Passwort, solange weder Anmeldung noch Allowlist gesetzt ist:
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 ```
 
-Um die alte Ausnahme wiederherzustellen, setze den Schalter auf `false`. Tu das nur, wenn jeder Client, der den Proxy erreichen kann, vertrauenswürdig ist – weitergeleitete Clients erben sonst den passwortlosen Status von Docker.
+Um die alte Ausnahme wiederherzustellen, setze den Schalter auf `false`. Tu das nur, wenn der Proxy selbst von jedem Besucher eine Anmeldung verlangt, weil weitergeleitete Clients sonst den passwortlosen Status von Docker erben. Wenn du einen Proxy vor Docker setzt, behalte die Port-Veröffentlichung auf `127.0.0.1` aus der `docker-compose.yml` bei und richte zuerst eine Anmeldung ein.
 
 Der Server protokolliert eine `[auth-bypass]`-Warnung, sobald eine dieser Ausnahmen zum ersten Mal eine Anfrage durchlässt. Die Warnung bestätigt, dass die Ausnahme aktiv ist.
 
@@ -169,7 +178,7 @@ Der Server protokolliert eine `[auth-bypass]`-Warnung, sobald eine dieser Ausnah
 
 ## Reverse-Proxys und Tunnel auf demselben Rechner
 
-Ein Reverse-Proxy oder Tunnel auf dem Rechner, auf dem Marinara läuft – etwa nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve oder Funnel oder ngrok –, verbindet sich über Loopback mit Marinara. Marinara erkennt das an den Weiterleitungs-Headern, die der Proxy hinzufügt: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, die Identitäts-Header von Tailscale oder `Via`. Marinara erkennt außerdem eine Anfrage, deren Host einen anderen Rechner angibt, etwa eine Domain oder eine LAN-Adresse, auch wenn der Proxy keine Header hinzufügt. Dann behandelt es jede Anfrage als das, was sie ist: ein entfernter Besucher.
+Ein Reverse-Proxy oder Tunnel auf dem Rechner, auf dem Marinara läuft – etwa nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve oder Funnel oder ngrok –, verbindet sich über Loopback mit Marinara. Marinara erkennt das an den Weiterleitungs-Headern, die der Proxy hinzufügt: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, die Identitäts-Header von Tailscale oder `Via`. Marinara erkennt außerdem eine Anfrage, die über HTTP/1.0 eintrifft, weil Browser das nie verwenden, das Standard-`proxy_pass` von nginx aber schon. Marinara erkennt außerdem eine Anfrage, deren Host einen anderen Rechner angibt, etwa eine Domain oder eine LAN-Adresse, auch wenn der Proxy keine Header hinzufügt. Dann behandelt es jede Anfrage als das, was sie ist: ein entfernter Besucher.
 
 - Basic Auth greift, setze also `BASIC_AUTH_USER` und `BASIC_AUTH_PASS`. Ohne diese Werte sehen Besucher die Einrichtungsseite.
 - `IP_ALLOWLIST` blockiert die weitergeleiteten Besucher, weil der Proxy ihre echten Adressen verbirgt.
@@ -177,7 +186,7 @@ Ein Reverse-Proxy oder Tunnel auf dem Rechner, auf dem Marinara läuft – etwa 
 
 Dein eigener Browser auf diesem Rechner, geöffnet unter `http://127.0.0.1:7860` oder `http://localhost:7860`, bleibt ohne Passwort.
 
-Caddy, Traefik, Cloudflare Tunnel, Tailscale und ngrok fügen Weiterleitungs-Header von sich aus hinzu. Bei nginx gehört diese Zeile in den `location`-Block:
+Caddy, Traefik, Cloudflare Tunnel, Tailscale und ngrok fügen Weiterleitungs-Header von sich aus hinzu. Bei nginx empfiehlt sich diese Zeile weiterhin im `location`-Block:
 
 ```nginx
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -185,13 +194,13 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 Werkzeuge, die rohe Verbindungen weiterleiten, etwa `socat` oder `ssh -R`, fügen keine Header hinzu, ihr Verkehr sieht also lokal aus. Veröffentliche Marinara nicht damit.
 
-Verlangt dein Proxy bereits von jedem Besucher eine Anmeldung, bevor er überhaupt etwas weiterleitet, kannst du die eigenen Prüfungen von Marinara für seinen Verkehr abschalten:
+Verlangt dein Proxy bereits von jedem Besucher eine Anmeldung, bevor er überhaupt etwas weiterleitet, kannst du die eigenen Prüfungen von Marinara für seinen Verkehr abschalten. Tu das nur, wenn der Proxy selbst von jedem Besucher eine Anmeldung verlangt:
 
 ```env
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-Besucher bekommen dann denselben vollen Zugriff wie der Host-Rechner, einschließlich privilegierter Aktionen ohne Admin-Secret. Tu das nur, wenn die Anmeldung des Proxys jede Route schützt.
+Besucher bekommen dann denselben vollen Zugriff wie der Host-Rechner, einschließlich privilegierter Aktionen ohne Admin-Secret. Wenn du Marinara nur über einen Namen erreichst, den du in `/etc/hosts` eingetragen hast, nutze diesen Schalter nicht. Verwende stattdessen einen `*.localhost`-Namen, zum Beispiel `marinara.localhost`.
 
 ## Betrieb über HTTPS
 

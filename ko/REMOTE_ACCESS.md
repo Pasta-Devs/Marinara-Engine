@@ -38,6 +38,15 @@ HOST=0.0.0.0
 
 셸 런처(`start.bat`, `start.sh`)는 `HOST=0.0.0.0`을 알아서 설정합니다. `pnpm start`를 직접 실행할 때는 설정되지 않습니다.
 
+Marinara를 시작하는 방법별 기본 바인드 주소는 다음과 같습니다.
+
+| 시작 방법 | `HOST` 기본값 |
+| --- | --- |
+| `pnpm start`, `start-local.bat` | `127.0.0.1` |
+| `start.sh`, `start.bat`, Windows 설치 프로그램, `start-termux.sh` | `0.0.0.0` |
+| Docker 이미지 | 컨테이너 안에서 `0.0.0.0` |
+| `docker-compose.yml` | 포트를 `127.0.0.1`에만 공개합니다 |
+
 ## 어떤 선택지를 골라야 할까요
 
 위에서부터 차례로 읽고, 처음으로 해당하는 항목에서 멈추세요.
@@ -120,7 +129,7 @@ IP_ALLOWLIST_ENABLED=false
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-그러면 "LAN 안에서는 열려 있고 공용 인터넷에서는 차단되는" 예전 동작으로 돌아갑니다. 이 설정은 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` 같은 표준 사설 네트워크 범위에만 적용됩니다. CGNAT 범위인 `100.64.0.0/10`도 포함됩니다. CGNAT은 일부 인터넷 서비스 사업자가 쓰는 주소 공유 방식이고, Tailscale도 같은 범위를 씁니다. 공용 인터넷 주소는 여전히 403으로 차단됩니다.
+그러면 "LAN 안에서는 열려 있고 공용 인터넷에서는 차단되는" 예전 동작으로 돌아갑니다. 이 설정은 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` 같은 표준 사설 네트워크 범위에만 적용됩니다. CGNAT 범위인 `100.64.0.0/10`도 포함됩니다. CGNAT은 일부 인터넷 서비스 사업자가 쓰는 주소 공유 방식이고, Tailscale도 같은 범위를 씁니다. 공용 인터넷 주소는 여전히 403으로 차단됩니다. 일부 인터넷 서비스 사업자와 이동통신사는 고객에게 이 범위의 주소를 줍니다. 이 컴퓨터에 그런 주소가 있다면 같은 사업자의 다른 고객도 사설 네트워크 클라이언트로 취급됩니다.
 
 경고: 그러면 같은 네트워크에 있는 누구나 비밀번호 없이 Marinara에 접근할 수 있습니다. 직접 관리하는 네트워크라면 괜찮습니다. 카페, 공항, 기숙사의 공용 Wi-Fi에서는 안 됩니다. 확신이 서지 않으면 Basic Auth를 쓰세요.
 
@@ -143,6 +152,8 @@ Docker 자동 신뢰는 Basic Auth와 `IP_ALLOWLIST`가 모두 설정되지 않�
 
 해당 클라이언트에도 일반적인 Basic Auth와 IP 허용 목록 검사를 적용하려면 플래그를 `false`로 설정하세요. 자동 감지를 쓸 수 없을 때 예전의 넓은 우회를 유지하려면 `true`로 설정하세요. 그러면 Tailscale은 `100.64.0.0/10` 전체를 신뢰하고 Docker는 감지된 인터페이스와 게이트웨이뿐 아니라 예전 `172.16.0.0/12` 범위도 신뢰합니다. 일치하는 모든 피어를 신뢰할 수 있을 때만 이 호환 모드를 쓰세요.
 
+Tailscale Serve와 Funnel 방문자는 전달 헤더와 함께 루프백에서 연결하므로 로그인해야 합니다. 이를 끄는 플래그는 없습니다. `100.x`로 직접 연결하면 계속 비밀번호 없이 쓸 수 있습니다.
+
 예를 들어 tailnet에 덜 신뢰하는 피어가 있다면 Tailscale 우회를 끄세요.
 
 ```env
@@ -155,13 +166,13 @@ BYPASS_AUTH_TAILSCALE=false
 BYPASS_AUTH_DOCKER=false
 ```
 
-Docker 브리지나 감지된 게이트웨이에 있는 리버스 프록시 또는 터널 컨테이너 뒤에 Marinara를 두는 경우도 있습니다. `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto` 같은 전달 헤더가 붙어 있으면 그 Docker 피어가 다른 클라이언트를 대신하고 있다는 뜻입니다. 그래서 Marinara는 기본적으로 평소대로 Basic Auth와 IP 허용 목록을 검사합니다.
+Docker 브리지나 감지된 게이트웨이에 있는 리버스 프록시 또는 터널 컨테이너 뒤에 Marinara를 두는 경우도 있습니다. `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto` 같은 전달 헤더가 붙어 있으면 그 Docker 피어가 다른 클라이언트를 대신하고 있다는 뜻입니다. `marinara:7860`이나 공개 이름처럼 다른 컴퓨터를 가리키는 Host나 HTTP/1.0 요청도 마찬가지입니다. 그래서 Marinara는 기본적으로 평소대로 Basic Auth와 IP 허용 목록을 검사합니다. 호스트 자신의 브라우저에서 `localhost`나 `127.0.0.1`로 보낸 요청은 로그인과 허용 목록이 설정되지 않은 동안 비밀번호 없이 쓸 수 있습니다.
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 ```
 
-예전 방식의 우회로 되돌리려면 이 값을 `false`로 설정하세요. 전달된 클라이언트는 Docker의 비밀번호 없는 상태를 그대로 물려받으므로, 프록시에 닿을 수 있는 모든 클라이언트를 신뢰할 수 있을 때만 그렇게 하세요.
+예전 방식의 우회로 되돌리려면 이 값을 `false`로 설정하세요. 전달된 클라이언트는 Docker의 비밀번호 없는 상태를 그대로 물려받으므로, 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 그렇게 하세요. Docker 앞에 프록시를 둔다면 `docker-compose.yml`의 `127.0.0.1` 포트 공개를 유지하고 먼저 로그인을 설정하세요.
 
 이 우회로 요청이 처음 통과하면 서버가 `[auth-bypass]` 경고를 로그에 남깁니다. 이 경고는 우회가 동작 중이라는 뜻입니다.
 
@@ -169,7 +180,7 @@ REQUIRE_AUTH_FOR_DOCKER_PROXY=true
 
 ## 같은 컴퓨터의 리버스 프록시와 터널
 
-nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok처럼 Marinara를 실행하는 컴퓨터에 있는 리버스 프록시나 터널은 루프백에서 Marinara에 연결합니다. Marinara는 프록시가 추가하는 전달 헤더를 보고 이를 알아봅니다. 이런 헤더에는 `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, Tailscale 신원 헤더, `Via`가 있습니다. Marinara는 프록시가 헤더를 추가하지 않더라도, Host가 도메인이나 LAN 주소처럼 다른 컴퓨터를 가리키는 요청을 인식합니다. 그러면 Marinara는 각 요청을 실제 그대로 원격 방문자로 취급합니다.
+nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok처럼 Marinara를 실행하는 컴퓨터에 있는 리버스 프록시나 터널은 루프백에서 Marinara에 연결합니다. Marinara는 프록시가 추가하는 전달 헤더를 보고 이를 알아봅니다. 이런 헤더에는 `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, Tailscale 신원 헤더, `Via`가 있습니다. Marinara는 HTTP/1.0으로 들어오는 요청도 알아봅니다. 브라우저는 HTTP/1.0을 쓰지 않지만 기본 nginx `proxy_pass`는 쓰기 때문입니다. Marinara는 프록시가 헤더를 추가하지 않더라도, Host가 도메인이나 LAN 주소처럼 다른 컴퓨터를 가리키는 요청을 인식합니다. 그러면 Marinara는 각 요청을 실제 그대로 원격 방문자로 취급합니다.
 
 - Basic Auth가 적용되므로 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 설정하지 않으면 방문자에게 설정 안내 페이지가 표시됩니다.
 - 프록시가 실제 주소를 가리므로 `IP_ALLOWLIST`는 전달된 방문자를 차단합니다.
@@ -177,7 +188,7 @@ nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve 또는 Funnel, ngrok�
 
 그 컴퓨터에서 `http://127.0.0.1:7860`이나 `http://localhost:7860`으로 연 내 브라우저는 계속 비밀번호 없이 쓸 수 있습니다.
 
-Caddy, Traefik, Cloudflare Tunnel, Tailscale, ngrok은 기본적으로 전달 헤더를 추가합니다. nginx라면 `location` 블록에 다음 줄을 추가하세요.
+Caddy, Traefik, Cloudflare Tunnel, Tailscale, ngrok은 기본적으로 전달 헤더를 추가합니다. nginx에서는 `location` 블록에 다음 줄을 두는 것을 계속 권장합니다.
 
 ```nginx
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -185,13 +196,13 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 `socat`이나 `ssh -R`처럼 연결을 그대로 전달하는 도구는 헤더를 추가하지 않으므로 그 트래픽이 로컬처럼 보입니다. 이런 도구로 Marinara를 공개하지 마세요.
 
-프록시가 전달하기 전에 이미 모든 방문자에게 로그인을 요구한다면, 그 트래픽에 대한 Marinara 자체 검사를 건너뛸 수 있습니다.
+프록시가 전달하기 전에 이미 모든 방문자에게 로그인을 요구한다면, 그 트래픽에 대한 Marinara 자체 검사를 건너뛸 수 있습니다. 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 이렇게 하세요.
 
 ```env
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-이렇게 하면 방문자는 호스트 컴퓨터와 똑같은 전체 접근 권한을 얻으며, 관리자 시크릿 없이 권한이 필요한 동작도 할 수 있습니다. 프록시 자체 로그인이 모든 경로를 보호할 때만 이렇게 하세요.
+이렇게 하면 방문자는 호스트 컴퓨터와 똑같은 전체 접근 권한을 얻으며, 관리자 시크릿 없이 권한이 필요한 동작도 할 수 있습니다. `/etc/hosts`에 추가한 이름으로만 Marinara에 접근한다면 이 플래그를 쓰지 마세요. 대신 `*.localhost` 이름, 예를 들어 `marinara.localhost`를 쓰세요.
 
 ## HTTPS로 서비스하기
 

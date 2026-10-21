@@ -34,7 +34,7 @@ http://192.168.1.42:7860
 
 5. 浏览器要求输入 Basic Auth 用户名和密码时登录一下。如果看到的是 **Access blocked** 页面，说明主机上的第 2 步还没做完。
 
-普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara，但 Android 外壳会自动创建并使用这份凭据。其他设备在配好访问控制（Basic Auth 或 IP 允许列表）之前一律被拦。两种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
+普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。同一台电脑上的反向代理（包括默认配置的 nginx）算作远程访客，需要登录。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara，但 Android 外壳会自动创建并使用这份凭据。其他设备在配好访问控制（Basic Auth 或 IP 允许列表）之前一律被拦。两种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
 
 两台设备不在同一网络时，可以借助 Tailscale 这类工具。Tailscale 会给每台设备分配一个固定的私有地址，这样在哪都能连上，也不用把 Marinara 暴露到公网。连不上的话，看 [Marinara Engine 故障排查](TROUBLESHOOTING.md)。
 
