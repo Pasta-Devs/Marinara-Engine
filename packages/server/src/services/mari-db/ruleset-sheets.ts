@@ -126,22 +126,18 @@ export function applyRulesetSheetPatch(
   }
   // A value cleared under an id the ruleset never declared is refused like any other unknown id: the
   // value check below only sees the values that are set.
-  const declared: Array<
-    [
-      Exclude<keyof RulesetSheetPatch, "lists">,
-      string,
-      ReadonlyArray<{ id: string }>,
-      Record<string, unknown> | undefined,
-    ]
-  > = [
-    ["abilities", "ability", definition.sheet.abilities, patch.abilities],
-    ["skills", "skill", definition.sheet.skills, patch.skills],
-    ["saves", "save", definition.sheet.saves, patch.saves],
-    ["bonuses", "skill or save", [...definition.sheet.skills, ...definition.sheet.saves], patch.bonuses],
-    ["fields", "field", definition.sheet.fields, patch.fields],
-  ];
-  for (const [key, noun, entries, values] of declared) {
-    for (const [id, value] of Object.entries(values ?? {})) {
+  // Keyed by the patch's own clearable maps, so a map added to the schema must be listed here too.
+  const declared: Record<Exclude<keyof RulesetSheetPatch, "lists">, [string, ReadonlyArray<{ id: string }>]> = {
+    abilities: ["ability", definition.sheet.abilities],
+    skills: ["skill", definition.sheet.skills],
+    saves: ["save", definition.sheet.saves],
+    bonuses: ["skill or save", [...definition.sheet.skills, ...definition.sheet.saves]],
+    fields: ["field", definition.sheet.fields],
+  };
+  for (const [key, [noun, entries]] of Object.entries(declared) as Array<
+    [keyof typeof declared, (typeof declared)[keyof typeof declared]]
+  >) {
+    for (const [id, value] of Object.entries(patch[key] ?? {})) {
       if (value === null && !entries.some((entry) => entry.id === id))
         issues.push(`${key}.${id}: Unknown ${noun} "${id}"`);
     }
