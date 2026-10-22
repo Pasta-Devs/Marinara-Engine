@@ -10,8 +10,10 @@ permissions:
   issues: read
   pull-requests: read
 
+# A title or description edit never dispatches, so it gets a group of its own: sharing the PR's group would cancel the
+# dispatch of a push made just before it. Pushes and base changes still supersede each other.
 concurrency:
-  group: dottore-review-auto-dispatch-${{ github.event.pull_request.number }}
+  group: dottore-review-auto-dispatch-${{ github.event.pull_request.number }}${{ github.event.action == 'edited' && !github.event.changes.base.ref.from && format('-edit-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
