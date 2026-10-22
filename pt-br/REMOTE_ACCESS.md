@@ -176,7 +176,7 @@ O servidor registra um aviso `[auth-bypass]` no log na primeira vez que uma dess
 
 ## Proxies reversos e túneis no mesmo computador
 
-Um proxy reverso ou túnel na máquina que roda Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve ou Funnel, ou ngrok, se conecta a Marinara pelo loopback. Marinara reconhece isso pelos cabeçalhos de encaminhamento que o proxy acrescenta: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, os cabeçalhos de identidade do Tailscale ou `Via`. \1também reconhece uma requisição que chega por HTTP/1.0, porque os navegadores nunca o usam, mas o `proxy_pass` padrão do nginx usa. \1\2 aponta para outro computador, como um domínio ou um endereço da LAN, mesmo quando o proxy não adiciona cabeçalhos. Aí trata cada requisição como o visitante remoto que ela realmente é:
+Um proxy reverso ou túnel na máquina que roda Marinara, como nginx, Caddy, Traefik, Cloudflare Tunnel, Tailscale Serve ou Funnel, ou ngrok, se conecta a Marinara pelo loopback. Marinara reconhece isso pelos cabeçalhos de encaminhamento que o proxy acrescenta: `Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP`, os cabeçalhos de identidade do Tailscale ou `Via`. A Marinara também reconhece uma requisição que chega por HTTP/1.0, porque os navegadores nunca o usam, mas o `proxy_pass` padrão do nginx usa. A Marinara também reconhece uma requisição cujo Host aponta para outro computador, como um domínio ou um endereço da LAN, mesmo quando o proxy não adiciona cabeçalhos. Aí trata cada requisição como o visitante remoto que ela realmente é:
 
 - Basic Auth se aplica, então defina `BASIC_AUTH_USER` e `BASIC_AUTH_PASS`. Sem eles, os visitantes veem a página de configuração.
 - `IP_ALLOWLIST` bloqueia os visitantes encaminhados, porque o proxy esconde os endereços reais deles.
@@ -198,7 +198,7 @@ Se o seu proxy já faz todo visitante entrar com login antes de encaminhar qualq
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-Assim, os visitantes recebem o mesmo acesso total da máquina host, inclusive ações privilegiadas sem o segredo de administrador. \1 Se você só acessa o Marinara por um nome que adicionou em `/etc/hosts`, não use esta chave. Use um nome `*.localhost`, por exemplo `marinara.localhost`.
+Assim, os visitantes recebem o mesmo acesso total da máquina host, inclusive ações privilegiadas sem o segredo de administrador. Se você só acessa o Marinara por um nome que adicionou em `/etc/hosts`, não use esta chave. Use um nome `*.localhost`, por exemplo `marinara.localhost`.
 
 ## Servir por HTTPS
 
