@@ -164,7 +164,7 @@ As principais configurações de controle de acesso são:
 | `BASIC_AUTH_REALM` | `Marinara Engine` | Texto exibido na caixa de senha do navegador. |
 | `IP_ALLOWLIST` | vazio | IPs ou faixas CIDR separados por vírgula que têm acesso sempre liberado. O loopback direto é sempre permitido; um proxy reverso na mesma máquina, não. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Defina como `false` para manter a lista, mas pausar a aplicação dela. |
-| \1 Alguns provedores de internet e de telefonia móvel dão aos clientes endereços em `100.64.0.0/10`. Se este computador tiver um endereço assim, os outros clientes do mesmo provedor contam como clientes de rede privada. |
+| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Restaura o acesso sem senha de redes privadas quando nenhum login está definido. A faixa `100.64.0.0/10` (CGNAT, NAT de nível de operadora) não está incluída, porque provedores de internet a compartilham entre clientes sem relação entre si; adicione-a a `TRUSTED_PRIVATE_NETWORKS` (que substitui os padrões, então mantenha suas faixas de LAN) somente se você confiar nela. |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Libera o acesso sem senha de qualquer endereço, inclusive da internet pública. Não recomendado. |
 | `TRUSTED_PRIVATE_NETWORKS` | padrões internos | Substitui as faixas de rede privada padrão. Inclua também os padrões que você quiser manter. |
 | `BYPASS_AUTH_TAILSCALE` | automático | Quando vazio, confia em sockets diretos do Tailscale somente se as duas pontas usam endereços da tailnet e a requisição não tem cabeçalhos de encaminhamento (Tailscale Serve e Funnel exigem login). Defina como `true` para manter a liberação antiga de toda a faixa `100.64.0.0/10` ou como `false` para exigir o controle de acesso normal. |

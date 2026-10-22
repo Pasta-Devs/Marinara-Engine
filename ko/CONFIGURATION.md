@@ -164,7 +164,7 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 | `BASIC_AUTH_REALM` | `Marinara Engine` | 브라우저 비밀번호 창에 표시되는 문구. |
 | `IP_ALLOWLIST` | 비어 있음 | 항상 허용할 IP나 CIDR 범위를 쉼표로 구분해 적습니다. 직접 들어오는 루프백 연결은 언제나 허용되지만, 같은 컴퓨터의 리버스 프록시를 거친 요청은 그렇지 않습니다. |
 | `IP_ALLOWLIST_ENABLED` | `true` | `false`로 두면 목록은 남기고 적용만 잠시 멈춥니다. |
-| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 로그인을 설정하지 않았을 때 사설 네트워크에서 비밀번호 없이 접근하도록 되돌립니다. 일부 인터넷 서비스 사업자와 이동통신사는 고객에게 `100.64.0.0/10` 주소를 줍니다. 이 컴퓨터에 그런 주소가 있다면 같은 사업자의 다른 고객도 사설 네트워크 클라이언트로 취급됩니다. |
+| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 로그인을 설정하지 않았을 때 사설 네트워크에서 비밀번호 없이 접근하도록 되돌립니다. `100.64.0.0/10` 범위(통신사급 NAT)는 포함되지 않습니다. 인터넷 서비스 사업자가 서로 관계없는 고객끼리 공유하기 때문입니다. 신뢰할 수 있는 경우에만 `TRUSTED_PRIVATE_NETWORKS`에 추가하세요(기본 범위를 대체하므로 LAN 범위는 남겨 두세요). |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 공개 인터넷을 포함한 모든 주소에서 비밀번호 없이 접근하도록 허용합니다. 권장하지 않습니다. |
 | `TRUSTED_PRIVATE_NETWORKS` | 내장 기본값 | 기본 사설 네트워크 범위를 대체합니다. 계속 쓰고 싶은 기본값은 직접 포함해야 합니다. |
 | `BYPASS_AUTH_TAILSCALE` | 자동 | 비워 두면 직접 연결된 Tailscale 소켓의 양 끝이 모두 tailnet 주소를 쓰고 요청에 전달 헤더가 없을 때만 신뢰합니다(Tailscale Serve와 Funnel은 로그인이 필요합니다). 예전처럼 `100.64.0.0/10` 전체를 우회하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
