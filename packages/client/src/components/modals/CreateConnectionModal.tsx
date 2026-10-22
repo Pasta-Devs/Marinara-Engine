@@ -13,16 +13,13 @@ import {
   Cpu,
   KeyRound,
   ListChecks,
-  AudioLines,
   ExternalLink,
   Eye,
   EyeOff,
   Film,
   Image as ImageIcon,
   Loader2,
-  MessageCircleQuestion,
   MessageSquare,
-  Volume2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -242,9 +239,9 @@ const KIND_ICONS = {
   chat: MessageSquare,
   image: ImageIcon,
   video: Film,
-  voice: Volume2,
-  audio: AudioLines,
-  decision: MessageCircleQuestion,
+  voice: JOB.voice.icon,
+  audio: JOB.audio.icon,
+  decision: JOB.decision.icon,
 } as const;
 type ChipKind = keyof typeof KIND_ICONS;
 const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "audio", "decision"];

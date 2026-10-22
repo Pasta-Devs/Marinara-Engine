@@ -1722,7 +1722,7 @@
   "connections.add.heading.useExisting": "Use an existing {{service}} connection?",
   "connections.add.hint.anthropic": "Claude models from Anthropic",
   "connections.add.hint.arli": "Open models tuned for roleplay",
-  "connections.add.hint.audio": "Voices, music and sound effects",
+  "connections.add.hint.audio": "Music and sound effects",
   "connections.add.hint.claude_subscription": "Use your Claude plan through Claude Code",
   "connections.add.hint.cohere": "Command models from Cohere",
   "connections.add.hint.custom": "Your own server, a proxy or any online service with an OpenAI-style API",
