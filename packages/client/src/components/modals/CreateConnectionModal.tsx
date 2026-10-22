@@ -219,7 +219,8 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   linkapi: ["chat", "image"],
   local_model: ["local"],
   tts: ["voice", "local"],
-  stt: ["voice", "local"],
+  // Dictation is its own job: search finds it, the Voice (Text to speech) filter does not list it.
+  stt: ["local"],
   image_generation: ["image"],
   video_generation: ["video"],
   audio: ["voice"],
