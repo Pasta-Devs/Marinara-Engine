@@ -71,3 +71,55 @@ test("a long Session Log opens on its newest page when Messages per page loads a
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
 });
+
+// Past log entries are kept per message, so they must still pick up an edit to an older line, and a
+// regex script limited by depth must still apply to the newest turn only.
+test("a long Session Log shows edits to older lines and depth-limited regex scripts", async ({ page, request }) => {
+  const script = await request.post("/api/regex-scripts", {
+    data: {
+      name: "Newest turn marker",
+      findRegex: "begins",
+      replaceString: "begins (newest)",
+      placement: ["ai_output"],
+      applyMode: "display",
+      flags: "g",
+      minDepth: 0,
+      maxDepth: 0,
+    },
+  });
+  expect(script.ok()).toBeTruthy();
+  const scriptId = ((await script.json()) as { id: string }).id;
+  const chatId = await seedLongGame(request);
+  try {
+    await openGameChat(page, chatId);
+    await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toBeVisible({ timeout: 30_000 });
+    const logsButton = page.getByRole("button", { name: "Logs", exact: true }).filter({ visible: true }).first();
+    await logsButton.click();
+    const dialog = page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Session Logs" }) });
+    const log = dialog.locator('[data-game-section="logs"]');
+    await expect(log).toContainText(`Turn ${TURNS} begins (newest) at the gatehouse.`);
+    await expect(log).toContainText(`Turn ${TURNS - 1} begins at the gatehouse.`);
+    await expect(log).not.toContainText(`Turn ${TURNS - 1} begins (newest)`);
+
+    const olderRow = log
+      .locator("[data-log-anchor-key]")
+      .filter({ hasText: `Turn ${TURNS - 5} begins` })
+      .first();
+    await olderRow.hover();
+    await olderRow.getByTitle("Edit", { exact: true }).click();
+    const editor = olderRow.locator("textarea");
+    await editor.fill(`Turn ${TURNS - 5} was rewritten.`);
+    await editor.press("Control+Enter");
+    await expect(log).toContainText(`Turn ${TURNS - 5} was rewritten.`);
+    await expect(log).not.toContainText(`Turn ${TURNS - 5} begins`);
+
+    await page.getByRole("button", { name: /close logs/i }).click();
+    await expect(dialog).toBeHidden();
+    await logsButton.click();
+    await expect(log).toContainText(`Turn ${TURNS - 5} was rewritten.`);
+    await expect(log).toContainText(`Turn ${TURNS} begins (newest) at the gatehouse.`);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/regex-scripts/${scriptId}`);
+  }
+});

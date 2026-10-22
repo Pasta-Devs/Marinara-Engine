@@ -19,6 +19,7 @@
   "include": [
     "game-setup-suggestions.regression.ts",
     "game-narration-html-cache.regression.ts",
+    "game-session-log-memo.regression.ts",
     "tts-safari-play-guard.regression.ts",
     "client-runtime-diagnostics.regression.ts",
     "ruleset-catalog-picker.regression.ts",

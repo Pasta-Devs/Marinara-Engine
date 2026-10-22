@@ -104,6 +104,7 @@ import { HISTORY_PAGER_BUTTON_CLASS } from "../chat/TranscriptWindowControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { formatNarration } from "./game-narration-format";
 import { createNarrationHtmlCache } from "./narration-html-cache";
+import { MessageMemo } from "./message-memo";
 import { publishAvatarGameLine } from "../../features/avatars/director/game-line-feed";
 import { prepareAvatarAudioBlob, setGameVoicePlayback } from "../../features/avatars/audio/avatar-audio";
 import {
@@ -219,6 +220,8 @@ type NarrationMessage = Pick<
 > & {
   characterName?: string;
 };
+
+type LogEntry = { messageId: string; segments: NarrationSegment[] };
 
 function formatTokenEstimate(tokens: number): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}m`;
@@ -1221,7 +1224,7 @@ export function GameNarration({
   const { t: localizeUi } = useUiTranslation();
   useRenderTimer("game-narration"); // [#3104 diagnostic]
   const { translate, translations, translationSources, translating, config: translationConfig } = useTranslate();
-  const { applyToAIOutput } = useApplyRegex();
+  const { applyToAIOutput, usesDepthRange } = useApplyRegex();
   // Parse the chat metadata in a memo (not the store selector) so streaming ticks
   // don't re-parse the whole metadata object on every update.
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
@@ -1554,16 +1557,20 @@ export function GameNarration({
     return null;
   }, [messages]);
 
-  const gameTranslationSources = useMemo(
-    () =>
-      new Map(
-        messages.map((message) => [
-          message.id,
+  const [gameTranslationSourceMemo] = useState(() => new MessageMemo<NarrationMessage, string>());
+  const gameTranslationSources = useMemo(() => {
+    gameTranslationSourceMemo.begin([segmentEdits, segmentDeletes, speakerColors]);
+    const sources = new Map(
+      messages.map((message) => [
+        message.id,
+        gameTranslationSourceMemo.get(message, [], () =>
           getGameTranslationSource(message, segmentEdits, segmentDeletes, speakerColors),
-        ]),
-      ),
-    [messages, segmentEdits, segmentDeletes, speakerColors],
-  );
+        ),
+      ]),
+    );
+    gameTranslationSourceMemo.end();
+    return sources;
+  }, [gameTranslationSourceMemo, messages, segmentEdits, segmentDeletes, speakerColors]);
   const gameTranslationMatchesMessage = useCallback(
     (message: NarrationMessage, source: string | undefined) =>
       source !== undefined &&
@@ -1661,8 +1668,10 @@ export function GameNarration({
     return `${entry.messageId}:0`;
   }, []);
 
+  const [flatLogEntryMemo] = useState(() => new MessageMemo<NarrationMessage, FlatLogEntry[]>());
   const flatLogEntries = useMemo<FlatLogEntry[]>(() => {
     const out: FlatLogEntry[] = [];
+    flatLogEntryMemo.begin([speakerColors, segmentDeletes]);
     for (const msg of messages) {
       if (msg.role === "system") continue;
       if (msg.role === "user") {
@@ -1688,16 +1697,22 @@ export function GameNarration({
       }
       if (msg.role !== "assistant" && msg.role !== "narrator") continue;
       if (!isVisibleGameMessage(msg)) continue;
-      const segs = parseNarrationSegments(msg, speakerColors);
-      for (let si = 0; si < segs.length; si++) {
-        const seg = segs[si]!;
-        if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
-        if (seg.partyType === "side" || seg.partyType === "extra") continue;
-        out.push({ kind: "assistant", messageId: msg.id, segmentIndex: si, segment: seg, role: msg.role });
-      }
+      const messageEntries = flatLogEntryMemo.get(msg, [], () => {
+        const entries: FlatLogEntry[] = [];
+        const segs = parseNarrationSegments(msg, speakerColors);
+        for (let si = 0; si < segs.length; si++) {
+          const seg = segs[si]!;
+          if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
+          if (seg.partyType === "side" || seg.partyType === "extra") continue;
+          entries.push({ kind: "assistant", messageId: msg.id, segmentIndex: si, segment: seg, role: msg.role });
+        }
+        return entries;
+      });
+      out.push(...messageEntries);
     }
+    flatLogEntryMemo.end();
     return out;
-  }, [messages, personaDialogueColor, personaInfo, speakerColors, segmentDeletes]);
+  }, [flatLogEntryMemo, messages, personaDialogueColor, personaInfo, speakerColors, segmentDeletes]);
 
   // Past-review entry the player is currently looking at. Each wheel-up bumps
   // `messageOffset`; we step back that many entries from the most recent log entry.
@@ -1766,31 +1781,36 @@ export function GameNarration({
     [fallbackMacroCharacter, macroCharacters],
   );
 
-  const applyOutputRegexForSource = useCallback(
+  // The text steps take a message's depth and character as values rather than reading them from
+  // per-message maps, so the Session Log can keep finished text for messages that did not change.
+  const applyOutputRegexAt = useCallback(
     (
       text: string,
-      sourceMessageId: string | null | undefined,
       sourceRole: Message["role"] | null | undefined,
+      depth: number | undefined,
+      characterId: string | null | undefined,
       resolveMacrosForText: (value: string) => string,
     ) => {
       if (sourceRole !== "assistant" && sourceRole !== "narrator") return text;
       return applyToAIOutput(text, {
-        depth: sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
+        depth,
         resolveMacros: resolveMacrosForText,
         scopedMode: scopedRegexMode,
-        characterId: sourceMessageId ? messageCharacterById.get(sourceMessageId) : undefined,
+        characterId,
       });
     },
-    [applyToAIOutput, messageDepthById, messageCharacterById, scopedRegexMode],
+    [applyToAIOutput, scopedRegexMode],
   );
 
-  const prepareSegmentText = useCallback(
+  const prepareSegmentTextAt = useCallback(
     (
       text: string,
       speaker: string | null | undefined,
       sourceMessageId: string | null | undefined,
       sourceRole: Message["role"] | null | undefined,
       seedKey: string | number,
+      depth: number | undefined,
+      characterId: string | null | undefined,
     ) => {
       const macroContext = {
         userName: personaInfo?.name || "You",
@@ -1803,37 +1823,75 @@ export function GameNarration({
       // chunk (visible churn) and on every edit.
       const macroRandomSeed = `${sourceMessageId ?? "game-segment"}:${seedKey}`;
       const resolveMacrosForText = createMessageMacroResolver(macroContext, { randomSeed: macroRandomSeed });
-      const regexApplied = applyOutputRegexForSource(text, sourceMessageId, sourceRole, resolveMacrosForText);
+      const regexApplied = applyOutputRegexAt(text, sourceRole, depth, characterId, resolveMacrosForText);
       return formatTextQuotes(resolveMacrosForText(regexApplied), quoteFormat);
     },
-    [applyOutputRegexForSource, macroCharacters, personaInfo, quoteFormat, resolveMacroCharacter],
+    [applyOutputRegexAt, macroCharacters, personaInfo, quoteFormat, resolveMacroCharacter],
   );
 
-  const prepareDisplaySegment = useCallback(
-    (segment: NarrationSegment): NarrationSegment => {
+  const prepareSegmentText = useCallback(
+    (
+      text: string,
+      speaker: string | null | undefined,
+      sourceMessageId: string | null | undefined,
+      sourceRole: Message["role"] | null | undefined,
+      seedKey: string | number,
+    ) =>
+      prepareSegmentTextAt(
+        text,
+        speaker,
+        sourceMessageId,
+        sourceRole,
+        seedKey,
+        sourceMessageId ? messageDepthById.get(sourceMessageId) : undefined,
+        sourceMessageId ? messageCharacterById.get(sourceMessageId) : undefined,
+      ),
+    [messageCharacterById, messageDepthById, prepareSegmentTextAt],
+  );
+
+  const prepareDisplaySegmentAt = useCallback(
+    (
+      segment: NarrationSegment,
+      depth: number | undefined,
+      characterId: string | null | undefined,
+    ): NarrationSegment => {
       const regexSourceRole = segment.type === "system" ? "system" : segment.sourceRole;
-      const content = prepareSegmentText(
+      const content = prepareSegmentTextAt(
         segment.content,
         segment.speaker,
         segment.sourceMessageId,
         regexSourceRole,
         segment.sourceSegmentIndex ?? 0,
+        depth,
+        characterId,
       );
       const readableContent =
         segment.readableContent == null
           ? segment.readableContent
-          : prepareSegmentText(
+          : prepareSegmentTextAt(
               segment.readableContent,
               segment.speaker,
               segment.sourceMessageId,
               regexSourceRole,
               `${segment.sourceSegmentIndex ?? 0}:readable`,
+              depth,
+              characterId,
             );
 
       if (content === segment.content && readableContent === segment.readableContent) return segment;
       return { ...segment, content, readableContent };
     },
-    [prepareSegmentText],
+    [prepareSegmentTextAt],
+  );
+
+  const prepareDisplaySegment = useCallback(
+    (segment: NarrationSegment): NarrationSegment =>
+      prepareDisplaySegmentAt(
+        segment,
+        segment.sourceMessageId ? messageDepthById.get(segment.sourceMessageId) : undefined,
+        segment.sourceMessageId ? messageCharacterById.get(segment.sourceMessageId) : undefined,
+      ),
+    [messageCharacterById, messageDepthById, prepareDisplaySegmentAt],
   );
 
   // segmentOriginalIndices[i] = the unfiltered parseNarrationSegments index for segments[i],
@@ -2808,8 +2866,83 @@ export function GameNarration({
   // Build log entries from the LAST scene — includes party chat & player action.
   // Entries are stored chronologically (oldest first, newest last).
   // The modal auto-scrolls to the bottom so the user sees the most recent content.
+  // Past messages do not depend on the reading position, so their finished entries are kept per message
+  // and only a changed message is parsed, edited and run through macros and regex scripts again. Only
+  // the current scene and the party chat are rebuilt as the player steps through it.
+  const [logEntryMemo] = useState(() => new MessageMemo<NarrationMessage, LogEntry | null>());
   const logEntries = useMemo(() => {
-    const entries: Array<{ messageId: string; segments: NarrationSegment[] }> = [];
+    const entries: LogEntry[] = [];
+    const prepareEntry = (msg: NarrationMessage, segments: NarrationSegment[]): LogEntry | null => {
+      if (segments.length === 0) return null;
+      const depth = messageDepthById.get(msg.id);
+      return {
+        messageId: msg.id,
+        segments: segments.map((segment) => prepareDisplaySegmentAt(segment, depth, msg.characterId ?? null)),
+      };
+    };
+    const buildPastEntry = (msg: NarrationMessage): LogEntry | null => {
+      // Include user messages as player dialogue in logs
+      if (msg.role === "user") {
+        const playerName = personaInfo?.name || "You";
+        const color = personaDialogueColor;
+        return prepareEntry(msg, [
+          {
+            id: `${msg.id}-player-log`,
+            type: "dialogue",
+            speaker: playerName,
+            content: msg.content,
+            color,
+            sourceMessageId: msg.id,
+            sourceSegmentIndex: 0,
+            sourceRole: msg.role,
+          },
+        ]);
+      }
+
+      if (msg.role === "system") {
+        return prepareEntry(msg, [
+          {
+            id: `${msg.id}-system-log`,
+            type: "system",
+            content: msg.content,
+            sourceMessageId: msg.id,
+            sourceSegmentIndex: 0,
+            sourceRole: msg.role,
+          },
+        ]);
+      }
+
+      // Past scenes: include ALL segments (narration, dialogue, party chat)
+      const segs = parseNarrationSegments(msg, speakerColors);
+      const skillCheckSegs = formatSkillCheckLogContent(msg, localizeUi);
+      // Apply segment edit overlays
+      if (segmentEdits) {
+        for (let si = 0; si < segs.length; si++) {
+          const edited = segmentEdits.get(`${msg.id}:${si}`);
+          if (edited) segs[si] = applySegmentEditOverlay(segs[si]!, edited, speakerColors);
+        }
+      }
+      const visibleSegs: NarrationSegment[] = [];
+      for (const seg of skillCheckSegs) {
+        visibleSegs.push({ ...seg, sourceMessageId: msg.id, sourceRole: msg.role });
+      }
+      for (let si = 0; si < segs.length; si++) {
+        if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
+        visibleSegs.push(withSegmentSource(segs[si]!, msg.id, si, msg.role));
+      }
+      return prepareEntry(msg, visibleSegs);
+    };
+
+    logEntryMemo.begin([
+      prepareDisplaySegmentAt,
+      speakerColors,
+      segmentEdits,
+      segmentDeletes,
+      personaInfo,
+      personaDialogueColor,
+      localizeUi,
+      usesDepthRange,
+    ]);
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i]!;
       if (!isVisibleGameMessage(msg)) continue;
@@ -2827,47 +2960,14 @@ export function GameNarration({
       )
         continue;
 
-      // Include user messages as player dialogue in logs
-      if (showUserMessages && msg.role === "user" && msg.content.trim()) {
+      if (msg.role === "user") {
+        if (!showUserMessages || !msg.content.trim()) continue;
         if (isSyntheticGameStartMessage(msg)) continue;
-        const playerName = personaInfo?.name || "You";
-        const color = personaDialogueColor;
-        entries.push({
-          messageId: msg.id,
-          segments: [
-            {
-              id: `${msg.id}-player-log`,
-              type: "dialogue",
-              speaker: playerName,
-              content: msg.content,
-              color,
-              sourceMessageId: msg.id,
-              sourceSegmentIndex: 0,
-              sourceRole: msg.role,
-            },
-          ],
-        });
+      } else if (msg.role === "system") {
+        if (!msg.content.trim()) continue;
+      } else if (msg.role !== "assistant" && msg.role !== "narrator") {
         continue;
       }
-
-      if (msg.role === "system" && msg.content.trim()) {
-        entries.push({
-          messageId: msg.id,
-          segments: [
-            {
-              id: `${msg.id}-system-log`,
-              type: "system",
-              content: msg.content,
-              sourceMessageId: msg.id,
-              sourceSegmentIndex: 0,
-              sourceRole: msg.role,
-            },
-          ],
-        });
-        continue;
-      }
-
-      if (msg.role !== "assistant" && msg.role !== "narrator") continue;
 
       if (latestAssistant && msg.id === latestAssistant.id) {
         // Current scene: include already-read segments + current active segment
@@ -2903,29 +3003,17 @@ export function GameNarration({
           if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
           currentSegs.push(withSegmentSource(allSegs[si]!, msg.id, si, msg.role));
         }
-        if (currentSegs.length > 0) entries.push({ messageId: msg.id, segments: currentSegs });
-      } else {
-        // Past scenes: include ALL segments (narration, dialogue, party chat)
-        const segs = parseNarrationSegments(msg, speakerColors);
-        const skillCheckSegs = formatSkillCheckLogContent(msg, localizeUi);
-        // Apply segment edit overlays
-        if (segmentEdits) {
-          for (let si = 0; si < segs.length; si++) {
-            const edited = segmentEdits.get(`${msg.id}:${si}`);
-            if (edited) segs[si] = applySegmentEditOverlay(segs[si]!, edited, speakerColors);
-          }
-        }
-        const visibleSegs: NarrationSegment[] = [];
-        for (const seg of skillCheckSegs) {
-          visibleSegs.push({ ...seg, sourceMessageId: msg.id, sourceRole: msg.role });
-        }
-        for (let si = 0; si < segs.length; si++) {
-          if (isDeletedSegment(segmentDeletes, msg.id, si)) continue;
-          visibleSegs.push(withSegmentSource(segs[si]!, msg.id, si, msg.role));
-        }
-        if (visibleSegs.length > 0) entries.push({ messageId: msg.id, segments: visibleSegs });
+        const entry = prepareEntry(msg, currentSegs);
+        if (entry) entries.push(entry);
+        continue;
       }
+
+      const entry = logEntryMemo.get(msg, usesDepthRange ? [messageDepthById.get(msg.id)] : [], () =>
+        buildPastEntry(msg),
+      );
+      if (entry) entries.push(entry);
     }
+    logEntryMemo.end();
 
     // Append party dialogue lines (separate party-chat call) as their own entry at the end (newest)
     if (partyDialogue?.length || partyChatInput) {
@@ -3025,14 +3113,11 @@ export function GameNarration({
 
       if (visiblePartySegs.length > 0) {
         const pcMsgId = partyChatMessageId ?? "party-chat";
-        entries.push({ messageId: pcMsgId, segments: visiblePartySegs });
+        entries.push({ messageId: pcMsgId, segments: visiblePartySegs.map(prepareDisplaySegment) });
       }
     }
 
-    return entries.map((entry) => ({
-      ...entry,
-      segments: entry.segments.map(prepareDisplaySegment),
-    }));
+    return entries;
   }, [
     messages,
     latestAssistant,
@@ -3047,6 +3132,10 @@ export function GameNarration({
     partyChatMessageId,
     partyDialogue,
     prepareDisplaySegment,
+    prepareDisplaySegmentAt,
+    messageDepthById,
+    usesDepthRange,
+    logEntryMemo,
     segmentEdits,
     segmentDeletes,
     sourceMessagesById,
