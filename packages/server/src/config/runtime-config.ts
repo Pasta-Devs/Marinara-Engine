@@ -434,7 +434,7 @@ export function isUnauthenticatedPrivateNetworkAllowed() {
 /**
  * Optional override for the no-auth-lockdown private-network exemption list.
  * Comma-separated IPs / CIDRs. When set, REPLACES the built-in defaults
- * (RFC 1918, CGNAT, link-local, IPv6 ULA). When unset, defaults are used.
+ * (RFC 1918, link-local, IPv6 ULA; not CGNAT). When unset, defaults are used.
  */
 export function getTrustedPrivateNetworksOverride() {
   return normalizeEnvValue(process.env.TRUSTED_PRIVATE_NETWORKS);

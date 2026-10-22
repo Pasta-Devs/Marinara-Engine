@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { getCsrfTrustedOrigins, getHost, getPort, getServerProtocol } from "../config/runtime-config.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
-import { isPrivateNetworkIp, isLoopbackRequest } from "./ip-allowlist.js";
+import { isNonRoutableNetworkIp, isPrivateNetworkIp, isLoopbackRequest } from "./ip-allowlist.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SAFE_FETCH_SITES = new Set(["same-origin", "same-site", "none"]);
@@ -49,7 +49,7 @@ function isLoopbackHostname(hostname: string): boolean {
 
 function isTrustedLiteralHostname(hostname: string): boolean {
   const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return isLoopbackHostname(normalized) || isPrivateNetworkIp(normalized);
+  return isLoopbackHostname(normalized) || isPrivateNetworkIp(normalized) || isNonRoutableNetworkIp(normalized);
 }
 
 function getRequestProtocol(request: FastifyRequest): string {
