@@ -24,6 +24,7 @@ import {
   workOutRulesetListCells,
   RULESET_SHEET_MAX_BYTES,
   type RulesetDefinition,
+  type RulesetSheetBuild,
   type RulesetSheetEnvelope,
 } from "@marinara-engine/shared";
 
@@ -118,44 +119,36 @@ export function applyRulesetSheetPatch(
       issues.push(`abilities.${id}: this score is worked out by the ruleset and cannot be set`);
     }
   }
-  for (const [id, score] of Object.entries(patch.abilities ?? {})) {
-    const ability = definition.sheet.abilities.find((entry) => entry.id === id);
-    // A cleared score is the ruleset's default.
-    if (score !== null) build.abilities[id] = score;
-    else if (ability) build.abilities[id] = ability.default;
-  }
-  // A value cleared under an id the ruleset never declared is refused like any other unknown id: the
-  // value check below only sees the values that are set.
-  // Keyed by the patch's own clearable maps, so a map added to the schema must be listed here too.
-  const declared: Record<Exclude<keyof RulesetSheetPatch, "lists">, [string, ReadonlyArray<{ id: string }>]> = {
+  // One record drives every clearable map through the same three steps: a value cleared under an id the
+  // ruleset never declared is refused, the rest is applied, and every value set is handed to the value
+  // check. It is keyed by the patch's own maps, so a map added to the schema cannot skip any of them.
+  const clearable: Record<
+    Exclude<keyof RulesetSheetPatch, "lists">,
+    [string, ReadonlyArray<{ id: string; default?: unknown }>]
+  > = {
     abilities: ["ability", definition.sheet.abilities],
     skills: ["skill", definition.sheet.skills],
     saves: ["save", definition.sheet.saves],
     bonuses: ["skill or save", [...definition.sheet.skills, ...definition.sheet.saves]],
     fields: ["field", definition.sheet.fields],
   };
-  for (const [key, [noun, entries]] of Object.entries(declared) as Array<
-    [keyof typeof declared, (typeof declared)[keyof typeof declared]]
+  const touched: RulesetSheetBuild = { abilities: {}, skills: {}, saves: {}, bonuses: {}, fields: {}, lists: {} };
+  for (const [key, [noun, entries]] of Object.entries(clearable) as Array<
+    [keyof typeof clearable, (typeof clearable)[keyof typeof clearable]]
   >) {
-    for (const [id, value] of Object.entries(patch[key] ?? {})) {
-      if (value === null && !entries.some((entry) => entry.id === id))
-        issues.push(`${key}.${id}: Unknown ${noun} "${id}"`);
+    const values: Record<string, unknown> = patch[key] ?? {};
+    const target: Record<string, unknown> = build[key];
+    for (const [id, value] of Object.entries(values)) {
+      const entry = entries.find((declared) => declared.id === id);
+      if (value !== null) target[id] = value;
+      else if (!entry) issues.push(`${key}.${id}: Unknown ${noun} "${id}"`);
+      // A cleared score is the ruleset's default; any other cleared value is simply unset.
+      else if (key === "abilities") target[id] = entry.default;
+      else delete target[id];
     }
+    Object.assign(touched[key], withoutNulls(values));
   }
-  assignClearable(build.skills, patch.skills ?? {});
-  assignClearable(build.saves, patch.saves ?? {});
-  assignClearable(build.bonuses, patch.bonuses ?? {});
-  assignClearable(build.fields, patch.fields ?? {});
-  issues.push(
-    ...rulesetSheetBuildIssues(definition, {
-      abilities: withoutNulls(patch.abilities),
-      skills: withoutNulls(patch.skills),
-      saves: withoutNulls(patch.saves),
-      bonuses: withoutNulls(patch.bonuses),
-      fields: withoutNulls(patch.fields),
-      lists: {},
-    }),
-  );
+  issues.push(...rulesetSheetBuildIssues(definition, touched));
 
   for (const [listId, change] of Object.entries(patch.lists ?? {})) {
     const list = definition.sheet.lists.find((entry) => entry.id === listId);
@@ -186,6 +179,11 @@ export function applyRulesetSheetPatch(
       if (!row) {
         issues.push(`lists.${listId}.${index}: there is no row ${index} (the list holds ${before.length})`);
         continue;
+      }
+      // A cell cleared under a column the list never declared would vanish unnoticed, so it is named.
+      for (const [columnId, value] of Object.entries(cells)) {
+        if (value === null && !list.columns.some((column) => column.id === columnId))
+          issues.push(`lists.${listId}.${index}.${columnId}: Unknown column "${columnId}"`);
       }
       assignClearable(row, cells);
       named.set(row, String(index));

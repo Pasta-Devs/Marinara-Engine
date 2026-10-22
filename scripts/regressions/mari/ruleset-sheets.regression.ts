@@ -113,6 +113,12 @@ try {
     [{ abilities: { brawn: 2, luck: null } }, /abilities\.luck: Unknown ability "luck"/],
     [{ skills: { swim: null } }, /skills\.swim: Unknown skill "swim"/],
     [{ fields: { mood: null } }, /fields\.mood: Unknown field "mood"/],
+    [{ saves: { steel: null } }, /saves\.steel: Unknown save "steel"/],
+    [{ bonuses: { steel: null } }, /bonuses\.steel: Unknown skill or save "steel"/],
+    [
+      { lists: { gear: { update: [{ index: 0, cells: { heft: null } }] } } },
+      /lists\.gear\.0\.heft: Unknown column "heft"/,
+    ],
     [{ skills: { scrap: "master" } }, /Unknown proficiency tier "master"/],
     [{ saves: { steel: "trained" } }, /Unknown save "steel"/],
     [{ fields: { toughness: 7 } }, /Field "toughness" is outside 0 to 6/],
