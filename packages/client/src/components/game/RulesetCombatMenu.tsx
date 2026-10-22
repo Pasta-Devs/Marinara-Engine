@@ -1189,7 +1189,13 @@ export function RulesetCombatMenu({
           }}
           className="group"
         >
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] md:min-h-[1.875rem] [&::-webkit-details-marker]:hidden">
+          <summary
+            // A step inside holds the fold open: the click that would shut it over the step does nothing.
+            onClick={(event) => {
+              if (stepping) event.preventDefault();
+            }}
+            className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] md:min-h-[1.875rem] [&::-webkit-details-marker]:hidden"
+          >
             <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform group-open:rotate-180" />
             {t(labelKey)}
             <span className="truncate text-[0.68rem] font-normal text-[var(--muted-foreground)]">{summary}</span>

@@ -9311,8 +9311,8 @@ function GameSurfaceComponent({
   const boardFightOnScreen = useCombatScreenStore((state) => state.round !== null);
   useEffect(() => {
     if (!boardFightOnScreen) return;
-    useUIStore.getState().foldSidebarForFight(true);
-    return () => useUIStore.getState().foldSidebarForFight(false);
+    useUIStore.getState().hideSidebarForFight(true);
+    return () => useUIStore.getState().hideSidebarForFight(false);
   }, [boardFightOnScreen]);
 
   // The catalogs a bridged battle reads are fetched as soon as the game is open, so that starting a

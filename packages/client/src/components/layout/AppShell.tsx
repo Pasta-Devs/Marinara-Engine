@@ -15,6 +15,7 @@ import {
   MOBILE_SHELL_MEDIA_QUERY,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
+  selectSidebarShown,
   SIDEBAR_WIDTH_MAX,
   SIDEBAR_WIDTH_MIN,
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
@@ -393,7 +394,7 @@ export function AppShell({
     };
   }, []);
 
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarOpen = useUIStore(selectSidebarShown);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);

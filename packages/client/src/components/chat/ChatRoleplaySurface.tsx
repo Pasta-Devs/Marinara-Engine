@@ -59,7 +59,7 @@ import {
   resolveTranscriptRenderWindowSize,
   TRANSCRIPT_RENDER_WINDOW_STEP,
 } from "../../lib/transcript-render-window";
-import { useUIStore } from "../../stores/ui.store";
+import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useChatComposerFocused, useChatKeyboardOpen } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -1003,7 +1003,7 @@ export function ChatRoleplaySurface({
   const linkedChatName = chat?.connectedChatId
     ? getConnectedChatDisplayName(allChats?.find((c) => c.id === chat.connectedChatId))
     : undefined;
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarOpen = useUIStore(selectSidebarShown);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);

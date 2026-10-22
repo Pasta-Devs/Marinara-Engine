@@ -29,7 +29,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useUIStore } from "../../stores/ui.store";
+import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
@@ -126,7 +126,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const localize = useLocalizedUiText();
   const mariEdgeGlow = useMariEdgeGlow();
   const { contributions } = usePersonalExtensionContributions();
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarOpen = useUIStore(selectSidebarShown);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
