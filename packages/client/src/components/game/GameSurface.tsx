@@ -64,6 +64,7 @@ import {
 import { cleanNpcAvatarDisplayName, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import {
   CHAT_SETTINGS_WINDOW_ID,
   selectWindowRestored,
@@ -9331,6 +9332,14 @@ function GameSurfaceComponent({
   // presentation AND the ruleset says what one cell of one is worth. The server still decides: it
   // draws no board for a ruleset with no `distance`, and the screen follows the view it sends.
   const rulesetFightPositioned = !!rulesetFightDefinition?.combat?.distance && effectiveCombatStyle === "tactical";
+  // A fight on a board takes the whole chat area while its screen is up: the map, the party bar and the
+  // Game toolbar's bubbles step aside, and the chat list folds away, coming back as it was after.
+  const boardFightOnScreen = useCombatScreenStore((state) => state.round !== null);
+  useEffect(() => {
+    if (!boardFightOnScreen) return;
+    useUIStore.getState().hideSidebarForFight(true);
+    return () => useUIStore.getState().hideSidebarForFight(false);
+  }, [boardFightOnScreen]);
 
   // The catalogs a bridged battle reads are fetched as soon as the game is open, so that starting a
   // battle finds them in the cache and seeds the party in the same tick a game without a ruleset
@@ -12986,7 +12995,7 @@ function GameSurfaceComponent({
                     tacticalCombatActive
                       ? "top-[calc(var(--tactical-chrome-height,3rem)+0.5rem)]"
                       : topOverlayOffsetClass,
-                    replayActive && "hidden",
+                    (replayActive || boardFightOnScreen) && "hidden",
                   )}
                 >
                   {/* These controls are windows that minimize to bubbles (rendered below). */}
@@ -14114,7 +14123,7 @@ function GameSurfaceComponent({
           onApplied={handleJsonRepairApplied}
         />
 
-        {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+        {!introCinematicActive && !replayActive && !experienceOwnsGame && !boardFightOnScreen && (
           <MobileMapButton
             chatId={activeChatId}
             map={viewedMap}
@@ -14137,7 +14146,7 @@ function GameSurfaceComponent({
           />
         )}
 
-        {!introCinematicActive && !replayActive && !experienceOwnsGame && (
+        {!introCinematicActive && !replayActive && !experienceOwnsGame && !boardFightOnScreen && (
           <GamePartyBar
             key={activeChatId}
             partyMembers={partyMembers}
@@ -14149,7 +14158,7 @@ function GameSurfaceComponent({
 
         {/* The top controls are windows that minimize to bubbles in a row at the top right (below the tactical
           combat bar while it shows, as the old buttons moved down). */}
-        {!introCinematicActive && !replayActive && (
+        {!introCinematicActive && !replayActive && !boardFightOnScreen && (
           <>
             <ChatControlWindow
               id={CHAT_CONTROL_WINDOW_IDS.gameControls}

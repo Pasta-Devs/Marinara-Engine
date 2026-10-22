@@ -157,6 +157,8 @@ export interface DirectedRulesetCombatant {
   deathTrack?: { successes: number; failures: number; successesMax: number; failuresMax: number };
   /** What this combatant is holding together, when the ruleset has concentration. */
   concentrating?: string;
+  /** A party member's pools their actions spend, as they stand (spell slots, ki): the fight's HUD. */
+  pools?: Array<{ id: string; label: string; value: number; max: number }>;
   /** An opponent's rung of the threat scale, and the lines the Game Master is shown. */
   tier?: string;
   traits?: Array<{ name: string; text: string }>;
@@ -279,6 +281,9 @@ export interface DirectedRulesetView {
     moverId?: string;
     /** Who answers it: the same three the fight has everywhere else. */
     controller: "manual" | "ai" | "gm";
+    /** The cells an area being aimed covers, so a board can show who it would catch before anybody
+     *  answers. Present only for a held area on a board. */
+    cells?: Array<{ x: number; y: number }>;
   };
   /** The last 200 events, each with a running number so a client prints only what is new. */
   events: Array<{ seq: number; event: DirectedRulesetEvent }>;

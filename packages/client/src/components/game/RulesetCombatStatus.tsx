@@ -314,7 +314,7 @@ export function RulesetCombatStatus({
 }
 
 /** One standing zone, in words: whose it is and how many of its caster's turns are left. */
-function zoneLine(
+export function zoneLine(
   zone: NonNullable<DirectedRulesetView["zones"]>[number],
   view: DirectedRulesetView,
   t: TFunction,

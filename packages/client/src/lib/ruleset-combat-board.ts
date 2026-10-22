@@ -414,3 +414,24 @@ export function rulesetHealthPercent(health: { value: number; max: number }): nu
   if (health.max <= 0) return 0;
   return Math.max(0, Math.min(100, (health.value / health.max) * 100));
 }
+
+/** Who an area held open for an answer catches: whom the window names, else whoever stands on the
+ *  cells it sent. Nothing is measured: the cells are the server's, this only reads who is on them. */
+export function rulesetHeldCaught(view: DirectedRulesetView): string[] {
+  const window = view.window;
+  if (!window) return [];
+  if (window.targetIds?.length) return window.targetIds;
+  if (!window.cells?.length) return [];
+  const covered = new Set(window.cells.map(rulesetCellKey));
+  return view.combatants
+    .filter((combatant) => {
+      if (combatant.defeated || combatant.left || combatant.away) return false;
+      if (typeof combatant.x !== "number" || typeof combatant.y !== "number") return false;
+      const span = Math.max(1, combatant.span ?? 1);
+      for (let dx = 0; dx < span; dx++)
+        for (let dy = 0; dy < span; dy++)
+          if (covered.has(rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy }))) return true;
+      return false;
+    })
+    .map((combatant) => combatant.id);
+}

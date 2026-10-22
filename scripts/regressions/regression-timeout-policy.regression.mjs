@@ -89,6 +89,30 @@ try {
     assert.equal(rejected.status, 1, `--concurrency ${count} must be refused`);
     assert.match(rejected.stderr, /--concurrency <n>/u);
   }
+  // Shards are disjoint, cover every file and each carry one of the slowest files.
+  const everyFile = canonical.trim().split("\n");
+  const shards = [1, 2, 3].map((index) =>
+    execFileSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", `${index}/3`], {
+      encoding: "utf8",
+      timeout: 10_000,
+    })
+      .trim()
+      .split("\n"),
+  );
+  assert.deepEqual(shards.flat().sort(), everyFile);
+  assert.equal(new Set(shards.flat()).size, everyFile.length, "a file must run in exactly one shard");
+  const slowest = [...everyFile].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)).slice(0, 3);
+  for (const [index, shard] of shards.entries()) {
+    assert.equal(shard.filter((file) => slowest.includes(file)).length, 1, `shard ${index + 1} takes one of the slowest files`);
+  }
+  for (const value of ["0/3", "4/3", "1", "a/b"]) {
+    const rejected = spawnSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", value], {
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(rejected.status, 1, `--shard ${value} must be refused`);
+    assert.match(rejected.stderr, /--shard <i>\/<n>/u);
+  }
   const imported = execFileSync(process.execPath, ["--input-type=module", "-"], {
     input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt.regression.ts'));`,
     encoding: "utf8",

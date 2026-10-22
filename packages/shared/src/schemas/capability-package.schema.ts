@@ -1459,7 +1459,9 @@ const capabilityPackageManifestBaseSchema = z
 //        (features/world/experience-file.ts) the user reviews before it is imported.
 // 1.374: a ruleset in the agents catalog is a ruleset package file (`<id>.ruleset.json`), never a package zip;
 //        its manifest declares 1.374 or newer.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 374 } as const);
+// 1.375: how the fight screen shows a ruleset: a budget's `short` letters and `tone`, and `combat.display`
+//        (the defense column's `short` and `hide`, and which pools show under a turn).
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 375 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

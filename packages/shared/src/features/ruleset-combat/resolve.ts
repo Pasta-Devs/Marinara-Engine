@@ -4034,7 +4034,7 @@ function applyChoice(
   // Targets, checked against the side and the count the option itself declared, or the count the
   // pool it is paid with lets it take (1.171).
   const paidCount = choice.payWith !== undefined ? option.targetsWith?.[choice.payWith] : undefined;
-  const grow = areaGrowth(definition, actor, option.id, choice.payWith);
+  const grow = rulesetAreaGrowth(definition, actor, option.id, choice.payWith);
   // A burst centred on its user (1.282) catches whom it reaches, and is pointed at nobody.
   const around = actor.actions.find((entry) => entry.id === option.id && entry.around);
   const targets = around
@@ -6336,7 +6336,7 @@ function positionedArea(state: RulesetEncounterState, actor: RulesetCombatant, o
 }
 
 /** How many cells an area grows by for the higher cost it was paid with (1.267): Confusion. */
-function areaGrowth(
+export function rulesetAreaGrowth(
   definition: RulesetDefinition,
   actor: RulesetCombatant,
   optionId: string,
@@ -6834,7 +6834,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
     new Set(
       areaCellsFor(state, actor, action.id, ctx.aimedAt!, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }).map((cell) => `${cell.x},${cell.y}`),
     );
   const covered = reaches ? areaOf(ctx.state) : new Set<string>();
@@ -6909,7 +6909,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       grid,
       areaCellsFor(ctx.state, actor, action.id, at, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }),
     );
     ctx.events.push({ type: "growth", actorId: actor.id, label: action.label, cells: cleared, by: "cleared" });
@@ -6918,7 +6918,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
   if (grid && at && action.area && action.ground && !resume.held) {
     const cells = areaCellsFor(ctx.state, actor, action.id, at, {
       ...(resume.also ? { also: resume.also } : {}),
-      grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+      grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
     });
     const moved = rulesetChangeGround(ctx.state, cells, action.ground, action.ground.occupants);
     ctx.events.push({
@@ -6939,7 +6939,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       grid && at
         ? areaCellsFor(ctx.state, actor, action.id, at, {
             ...(resume.also ? { also: resume.also } : {}),
-            grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+            grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
           })
         : undefined,
     );
@@ -6951,7 +6951,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       [action.damage.type, ...(action.damage.plus ?? []).map((clause) => clause.type)],
       areaCellsFor(ctx.state, actor, action.id, at, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }),
     );
   }

@@ -684,6 +684,9 @@ interface UIState {
   showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
   showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
   sidebarOpen: boolean;
+  /** Transient: a fight on a board hides the chat list while its screen is up. `sidebarOpen` stays the
+   *  player's own choice; what is drawn is `selectSidebarShown`. Opening or closing the list clears it. */
+  sidebarHiddenForFight: boolean;
   sidebarWidth: number;
   rightPanelOpen: boolean;
   rightPanelWidth: number;
@@ -1212,6 +1215,7 @@ interface UIState {
   setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  hideSidebarForFight: (hidden: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   toggleTrackerPanel: (chatId?: string | null) => void;
@@ -1793,6 +1797,11 @@ export function pickSyncedSettings(state: UIState) {
   };
 }
 
+/** Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. */
+export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight">) {
+  return state.sidebarOpen && !state.sidebarHiddenForFight;
+}
+
 export function pickPersistedUIState(state: UIState) {
   return {
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
@@ -2065,6 +2074,7 @@ export const useUIStore = create<UIState>()(
         showHomeBrowserDesktopBookmarksOnOtherTabs: true,
         showHomeBrowserMobileBookmarksOnOtherTabs: true,
         sidebarOpen: true,
+        sidebarHiddenForFight: false,
         sidebarWidth: 320,
         rightPanelOpen: false,
         rightPanelWidth: 320,
@@ -2359,17 +2369,19 @@ export const useUIStore = create<UIState>()(
         toggleSidebar: () =>
           set((s) => {
             const mobile = isMobileShellViewport();
-            const sidebarOpen = !s.sidebarOpen || (mobile && s.rightPanelOpen);
+            const sidebarOpen = !selectSidebarShown(s) || (mobile && s.rightPanelOpen);
             dismissChatFloatingUiForMobilePanel(sidebarOpen);
             return {
               sidebarOpen,
+              sidebarHiddenForFight: false,
               ...(mobile && sidebarOpen ? { rightPanelOpen: false } : {}),
             };
           }),
         setSidebarOpen: (open) => {
           dismissChatFloatingUiForMobilePanel(open);
-          set({ sidebarOpen: open });
+          set({ sidebarOpen: open, sidebarHiddenForFight: false });
         },
+        hideSidebarForFight: (hidden) => set({ sidebarHiddenForFight: hidden }),
         setSidebarWidth: (width) =>
           set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
         setRightPanelWidth: (width) =>
@@ -2447,7 +2459,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
             };
           }),
         closeRightPanel: () => set({ rightPanelOpen: false }),
@@ -2459,7 +2471,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
             };
           }),
 

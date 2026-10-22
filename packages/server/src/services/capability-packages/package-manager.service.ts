@@ -5171,6 +5171,20 @@ export function getCapabilityPackageInstallIssue(
   ) {
     return "A ruleset with a creature action that draws whoever it lands on toward it requires schemaVersion 2 and capabilityApi 1.326 or newer";
   }
+  // How the fight screen shows it: a budget's letters and tone, and `combat.display`, 1.375. A
+  // `budgets` that is not a list is left for the ruleset's own check to refuse.
+  const shownCombat = plainRecord(plainRecord(ruleset)?.combat);
+  const shownBudgets = plainRecord(shownCombat?.economy)?.budgets;
+  if (
+    !declaresApi(375) &&
+    (shownCombat?.display !== undefined ||
+      (Array.isArray(shownBudgets) &&
+        shownBudgets.some(
+          (budget) => plainRecord(budget)?.short !== undefined || plainRecord(budget)?.tone !== undefined,
+        )))
+  ) {
+    return "A ruleset that says how the fight screen shows its budgets, defense or pools requires schemaVersion 2 and capabilityApi 1.375 or newer";
+  }
   // A ruleset over 256 KB or a catalog file over 1 MB, the ceilings before 1.340.
   if (
     !declaresApi(340) &&

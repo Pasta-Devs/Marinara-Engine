@@ -48,7 +48,7 @@ import { useCharacterSummaries } from "../../hooks/use-characters";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useChatStore } from "../../stores/chat.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import { isMobileShellViewport, useUIStore, type UserStatus } from "../../stores/ui.store";
+import { isMobileShellViewport, selectSidebarShown, useUIStore, type UserStatus } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
@@ -271,7 +271,7 @@ export function ChatSidebar() {
   const editorDirty = useUIStore((s) => s.editorDirty);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
-  const sidebarIsOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarIsOpen = useUIStore(selectSidebarShown);
   const sidebarNavRef = useRef<HTMLElement>(null);
   const closeSidebarFromKeyboard = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
   const sidebarKeyboard = usePanelKeyboardFocus({

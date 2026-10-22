@@ -292,6 +292,26 @@ const emberParty = [
     /^Tam has no ruleset sheet/,
   );
 
+  // The pools a ruleset names for the turn are shown in its order, once each (1.375).
+  const shown = parsedOrThrow(
+    variant(fiveEText, (doc) => (doc.combat.display = { pools: ["hit_dice", "hp"] })),
+    "the 5e example naming its pools",
+  );
+  const shownState = started({
+    definition: shown,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+  });
+  assert.deepEqual(
+    view(shown, shownState)
+      .combatants.find((c) => c.id === "brenna")!
+      .pools?.map((pool) => pool.id),
+    ["hit_dice", "hp"],
+    "the named pools, in the ruleset's order",
+  );
+
   const rough = started({
     definition: ember,
     cards: emberCards,

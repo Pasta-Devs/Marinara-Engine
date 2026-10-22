@@ -7823,6 +7823,10 @@ const combatNaturalsSchema = z
   .object({ max: z.enum(["critical", "hit", "none"]).default("none"), min: z.enum(["miss", "none"]).default("none") })
   .strict();
 
+/** The tones a budget's pip may take on the fight screen (Capability API 1.375), in the order a
+ *  budget without one takes them by its place. */
+export const RULESET_BUDGET_TONES = ["rose", "amber", "violet", "teal", "sky", "lime", "orange", "slate"] as const;
+
 /** One budget of the action economy: how many times a turn may spend that kind of thing. The first
  *  declared budget is the main one, and is what a standard action spends. */
 const combatBudgetSchema = z
@@ -7834,6 +7838,10 @@ const combatBudgetSchema = z
     /** How many a turn (or round) hands out. 0 (Capability API 1.76) is a budget only a condition's
      *  `budgets` fills, as Haste's extra action is. */
     count: z.number().int().min(0).max(10).default(1),
+    /** How the fight screen marks it (Capability API 1.375): up to two letters on its pip, and one of
+     *  the screen's tones. Without them the pip takes the label's first letter and the tone of its place. */
+    short: z.string().trim().min(1).max(2).optional(),
+    tone: z.enum(RULESET_BUDGET_TONES).optional(),
   })
   .strict();
 
@@ -9550,6 +9558,20 @@ const combatObjectSchema = z
           .optional(),
       })
       .strict(),
+    /** How the fight screen shows this system (Capability API 1.375). `defense.short` heads its
+     *  column ("AC"), and `defense.hide` drops the column where the number says nothing (a dice pool's
+     *  one success needed). `pools` names the sheet pools shown under a turn, in order; without it the
+     *  ones the turn's options spend are shown. */
+    display: z
+      .object({
+        defense: z
+          .object({ short: z.string().trim().min(1).max(6).optional(), hide: z.boolean().optional() })
+          .strict()
+          .optional(),
+        pools: z.array(sheetId).max(16).optional(),
+      })
+      .strict()
+      .optional(),
     /** What one cell of a board is worth in this system's own distance, and what that distance is
      *  called. Declaring it is what makes a fight positionable at all: without it every fight stays
      *  theatre of the mind, and everything below is refused. */
@@ -11397,6 +11419,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   });
 
   const listById = new Map(sheet.lists.map((list) => [list.id, list]));
+  // The pools the fight screen shows under a turn name the sheet's own pools, once each (1.375): a
+  // pool a list's rows make has no single value to show.
+  def.combat?.display?.pools?.forEach((id, index, named) => {
+    const path = ["combat", "display", "pools", index];
+    if (!pools.has(id)) {
+      issue(
+        path,
+        listById.get(id)?.pools
+          ? `"${id}" is a list; a pool its rows make has no single value to show`
+          : `Unknown pool "${id}"`,
+      );
+    } else if (named.indexOf(id) !== index) issue(path, `Duplicate pool "${id}"`);
+  });
+
   def.rests.forEach((rest, restIndex) => {
     rest.restore.forEach((op, opIndex) => {
       const path = ["rests", restIndex, "restore", opIndex];

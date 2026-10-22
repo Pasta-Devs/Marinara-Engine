@@ -82789,6 +82789,24 @@
                     "maximum": 10,
                     "default": 1
                   },
+                  "short": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2
+                  },
+                  "tone": {
+                    "type": "string",
+                    "enum": [
+                      "rose",
+                      "amber",
+                      "violet",
+                      "teal",
+                      "sky",
+                      "lime",
+                      "orange",
+                      "slate"
+                    ]
+                  },
                   "$comment": {}
                 },
                 "required": [
@@ -83708,6 +83726,37 @@
           "required": [
             "budgets"
           ],
+          "additionalProperties": false
+        },
+        "display": {
+          "type": "object",
+          "properties": {
+            "defense": {
+              "type": "object",
+              "properties": {
+                "short": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 6
+                },
+                "hide": {
+                  "type": "boolean"
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "pools": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "maxItems": 16
+            },
+            "$comment": {}
+          },
           "additionalProperties": false
         },
         "distance": {
