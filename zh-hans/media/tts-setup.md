@@ -42,6 +42,23 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 
 连接能列出自己的声音时，如果某个已保存的声音不在列表里，卡片会指出它，方便你改选连接提供的声音。
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## 通过兼容音频服务器生成 Game 音乐和音效
+
+在 **Connections** 中创建或打开一个 **Audio** 连接，选择 **OpenAI-compatible**。填写音乐或音效服务器的地址、密钥和模型。设置 **Generation API format**，输入服务器提供的端点路径，并开启 **Game music** 或 **Game sound effects**。路径留空就无法使用对应功能。在 Game 设置流程或游戏的音频设置中选择这个 Audio 连接。只能生成音乐的模型不是语音模型；Text to Speech 卡片中仍需单独选择语音连接。
+
+端点路径会接在连接的 Base URL 后：例如 `http://localhost:8002/v1` 搭配 `chat/completions`，最终访问 `/v1/chat/completions`。不需要新增提供商。本地 HTTP 端点与其他本地兼容音频请求一样，需要在 `.env` 中设置 `TTS_LOCAL_URLS_ENABLED=true`。
+
+目前支持两种明确的 API 协议：
+
+- **Prompt JSON → MP3 audio** 发送 `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }`，接收 MP3 字节。Game 音乐使用情境曲目的时长（默认 120 秒），音效请求 5 秒。所用端点或适配器必须接受这些字段。
+- **Chat Completions → inline audio (ACE-Step compatible)** 发送 `model`、一条用户 `messages`、`stream: false`，以及带有 `duration`、`instrumental: true` 和 `format: "mp3"` 的 `audio_config`。从 `choices[0].message.audio` 接收内嵌 MP3 音频，支持包含 base64 数据 URL 的 ACE-Step 音频 URL 数组，或带有 base64 `data` 的对象。参见 [ACE-Step 兼容 API 协议](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md)。这两种协议不支持远程结果 URL，也不支持异步任务 API。
+
+只开启服务器实际实现的功能。支持 OpenAI 兼容语音端点，并不代表支持音乐或音效。Infermatic 等提供商必须提供上述协议之一或相应适配器；这里没有验证其实际音乐端点。ElevenLabs 仍使用现有的原生音乐和音效请求。
+
+情境音乐仍然按区域或遭遇等级生成一次，之后重复使用。重复音效使用音频缓存。生成失败后，缓存仍可用于重试。
+
 ## 第 2 步：填写 Base URL、API Key 和 Model
 
 如果你选了音频连接作为 Source，跳过这一步：Marinara 会使用该连接自己的设置。
@@ -152,6 +169,8 @@ Character Voices 区域里的 **Refresh** 按钮会重新加载同一份服务�
 - **Game narration**：朗读新的 Game Mode 旁白和战斗描述。
 - **Progressive playback**：一条回复包含多行时，第一行出来就开始播，不必等整条回复写完。
 - **Only read dialogues**：只朗读带引号或带标记的对白，跳过纯叙述部分。
+
+在 Roleplay 中，主回复保存后就开始准备语音。说话者和情绪提取直接使用这段文本，不必等待无关智能体。如果开启的智能体会改写回复，例如 Prose Guardian，Marinara 会等到改写后的最终文本确定后再准备语音。
 
 自动朗读只在最新一条回复生成完毕的那一刻触发一次。重新打开聊天或者往回滚动时，不会重读旧消息。
 

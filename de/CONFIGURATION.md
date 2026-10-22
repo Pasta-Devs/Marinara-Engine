@@ -118,7 +118,7 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-Der Server liest `.env` von sich aus ein, ganz gleich wie du ihn startest – auch bei einem direkten `pnpm start`. Die Shell-Launcher (`start.bat`, `start.sh`, `start-termux.sh`) machen zwei Dinge zusätzlich: Sie setzen `HOST=0.0.0.0`, damit andere Geräte den Server erreichen, und öffnen den Browser für dich. Bei einem nackten `pnpm start` lauscht der Server nur auf diesem Rechner, solange du `HOST` nicht selbst setzt.
+Der Server liest `.env` von sich aus ein, ganz gleich wie du ihn startest, auch bei einem direkten `pnpm start`. Die Shell-Launcher (`start.bat`, `start.sh`, `start-termux.sh`) machen zwei Dinge zusätzlich: Sie setzen `HOST=0.0.0.0`, damit andere Geräte den Server erreichen, und öffnen den Browser, sobald der Server bereit ist. Dafür gibt es keine feste Wartezeit: Ein langsamer Start oder eine Build-Reparatur wartet auf den Abschluss der Initialisierung, und ein fehlgeschlagener Start öffnet keinen neuen Tab. `AUTO_OPEN_BROWSER=false` schaltet dies weiterhin ab. Bei einem nackten `pnpm start` lauscht der Server nur auf diesem Rechner, solange du `HOST` nicht selbst setzt.
 
 <a id="restart-or-hot-reload"></a>
 

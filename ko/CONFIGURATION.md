@@ -118,7 +118,7 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-서버는 어떤 방식으로 시작하든 `.env`를 스스로 읽습니다. `pnpm start`로 직접 실행할 때도 마찬가지입니다. 셸 런처(`start.bat`, `start.sh`, `start-termux.sh`)는 여기에 두 가지를 더합니다. 다른 기기가 서버에 접근할 수 있도록 `HOST=0.0.0.0`을 설정하고, 브라우저를 대신 열어 줍니다. `pnpm start`만 실행하면 `HOST`를 직접 설정하지 않는 한 서버는 이 컴퓨터에서만 접근할 수 있습니다.
+서버는 어떤 방식으로 시작하든 `.env`를 스스로 읽습니다. `pnpm start`로 직접 실행할 때도 마찬가지입니다. 셸 런처(`start.bat`, `start.sh`, `start-termux.sh`)는 여기에 두 가지를 더합니다. 다른 기기가 서버에 접근하도록 `HOST=0.0.0.0`을 설정하고 서버가 준비된 뒤 브라우저를 엽니다. 고정된 대기 시간은 없습니다. 시작이 느리거나 빌드를 복구한 경우 초기화가 끝날 때까지 기다리며 시작에 실패하면 새 탭을 열지 않습니다. `AUTO_OPEN_BROWSER=false`로 끄는 설정도 그대로 적용됩니다. `pnpm start`만 실행하면 `HOST`를 직접 설정하지 않는 한 서버는 이 컴퓨터에서만 접근할 수 있습니다.
 
 <a id="restart-or-hot-reload"></a>
 

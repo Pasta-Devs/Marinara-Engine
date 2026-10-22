@@ -58,6 +58,12 @@ SHARP_IGNORE_GLOBAL_LIBVIPS=1 pnpm --config.trustPolicy=off --config.confirmModu
 
 如果 Sharp 仍然无法加载，Engine 现在会关闭图像处理并继续运行：已经生成的缩略图照常显示，新的缩略图改为显示原尺寸图片，立绘生成和内置的背景移除不可用。不要换成不相关的 Sharp 版本。报告问题时，请保留完整的错误输出。
 
+<a id="browser-opens-before-startup-finishes"></a>
+
+### 启动尚未完成，浏览器就打开了
+
+更新 Marinara Engine，再通过启动器重新启动。现在只有服务器报告初始化完成后才会打开浏览器，构建修复也包括在等待范围内，不再使用固定计时器。仅出现 `.env` 注入消息不代表已经就绪。如果启动失败，保留终端错误以便寻求支持；这时不应打开新标签页。若要自行打开应用，设置 `AUTO_OPEN_BROWSER=false`。
+
 ### 更新后页面空白，或 JavaScript 被当作 HTML 返回
 
 带有 `text/html` MIME 类型的“Failed to load module script”等错误，可能表示浏览器请求了已安装构建中缺失的 JavaScript 文件。上次会话的退出警告并不能定位这个问题，删除写入租约（writer lease）或用户数据也无法修复这些文件。
@@ -76,7 +82,7 @@ pnpm 是 Marinara 用来安装自身代码的包管理器。如果看到 `EPERM:
 2. 自己安装 pnpm。运行下面这条命令，再重新运行启动脚本：
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 3. 在管理员终端里更新 corepack，然后重新运行启动脚本：
@@ -92,17 +98,19 @@ Marinara v2.3.0 能通过 Corepack 正常启动 pnpm，却会在构建 shared �
 如果仓库本身没法更新，在 Marinara 文件夹里运行 `git pull` 再启动。在 v2.3.0 上还可以临时这样绕过：全局安装指定版本的包管理器，重新运行启动脚本，然后照常更新：
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
-### 将启动器更新至 pnpm 10.34.5
+<a id="launcher-package-manager-handoff"></a>
 
-Marinara v2.4.1 将固定的包管理器升级到 pnpm 10.34.5。现有的 10.33.2 启动器可以在同一次运行中完成这次性交接；刷新后的启动器会在后续启动时选择 10.34.5。Corepack 会根据 `package.json` 中固定的 SHA-512 摘要验证版本，npm 后备路径也会明确请求 10.34.5，而不是未固定的 latest 版本。
+### 启动器的包管理器交接
+
+Marinara 固定使用 pnpm 10.34.7。现有的 10.33.2 或 10.34.5 启动器可以在同一次运行中完成交接；更新后的启动器会在后续启动时选择 10.34.7。Corepack 会根据 `package.json` 中固定的 SHA-512 摘要验证版本，npm 后备路径也明确请求 10.34.7。
 
 如果早期的 v2.4.1 staging 构建已经因 `Expected version: >=10.34.5` 和 `Got: 10.33.2` 而停止，请再运行一次启动器；该构建在停止前已经下载了刷新后的启动器。如果启动器仍无法自动获取固定版本，请安装准确版本后重新运行：
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 ### Linux：安装过程中出现 ERR_PNPM_ENAMETOOLONG

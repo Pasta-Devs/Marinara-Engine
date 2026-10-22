@@ -118,7 +118,7 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-Serwer sam odczytuje plik `.env`, niezależnie od sposobu uruchomienia. Dotyczy to również bezpośredniego wywołania `pnpm start`. Programy uruchamiające (`start.bat`, `start.sh`, `start-termux.sh`) dodają dwie rzeczy. Ustawiają `HOST=0.0.0.0`, żeby inne urządzenia mogły dotrzeć do serwera, oraz otwierają przeglądarkę. Przy samym `pnpm start` serwer nasłuchuje tylko na tym komputerze, chyba że zmienna `HOST` zostanie ustawiona ręcznie.
+Serwer sam odczytuje plik `.env`, niezależnie od sposobu uruchomienia. Dotyczy to również bezpośredniego wywołania `pnpm start`. Programy uruchamiające (`start.bat`, `start.sh`, `start-termux.sh`) dodają dwie rzeczy. Ustawiają `HOST=0.0.0.0`, żeby inne urządzenia mogły dotrzeć do serwera, oraz otwierają przeglądarkę po osiągnięciu gotowości serwera. Nie ma stałego opóźnienia: przy wolnym starcie lub naprawie kompilacji przeglądarka czeka na zakończenie inicjalizacji, a nieudany start nie otwiera nowej karty. `AUTO_OPEN_BROWSER=false` nadal to wyłącza. Przy samym `pnpm start` serwer nasłuchuje tylko na tym komputerze, chyba że zmienna `HOST` zostanie ustawiona ręcznie.
 
 <a id="restart-or-hot-reload"></a>
 

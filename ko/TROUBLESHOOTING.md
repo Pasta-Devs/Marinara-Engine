@@ -58,6 +58,12 @@ SHARP_IGNORE_GLOBAL_LIBVIPS=1 pnpm --config.trustPolicy=off --config.confirmModu
 
 그래도 Sharp를 불러올 수 없으면 Engine은 이제 이미지 처리를 끈 채 계속 실행됩니다. 이미 만든 썸네일은 그대로 보이고, 새 썸네일 대신 원본 크기 이미지가 표시되며, 스프라이트 생성과 기본 제공 배경 제거 기능은 사용할 수 없습니다. Sharp를 관련 없는 버전으로 바꾸지 마세요. 문제를 보고할 때 쓸 수 있도록 전체 오류 출력을 보관하세요.
 
+<a id="browser-opens-before-startup-finishes"></a>
+
+### 시작이 끝나기 전에 브라우저가 열리는 문제
+
+Marinara Engine을 업데이트하고 런처로 다시 시작하세요. 이제 빌드 복구를 포함해 서버가 초기화 완료를 알린 뒤에만 브라우저를 엽니다. 고정된 타이머를 사용하지 않습니다. `.env`를 읽었다는 메시지만으로는 준비 완료를 뜻하지 않습니다. 시작에 실패하면 지원 요청에 사용할 터미널 오류를 보관하세요. 새 탭은 열리지 않아야 합니다. 앱을 직접 열고 싶다면 `AUTO_OPEN_BROWSER=false`를 설정하세요.
+
 ### 업데이트 후 빈 페이지가 나타나거나 JavaScript가 HTML로 반환됨
 
 MIME 유형 `text/html`과 함께 "Failed to load module script" 같은 오류가 나타나면, 브라우저가 설치된 빌드에 없는 JavaScript 파일을 요청했을 수 있습니다. 이전 세션 종료 경고로는 이 문제를 특정할 수 없으며, 쓰기 임대(writer lease)나 사용자 데이터를 삭제해도 파일이 복구되지 않습니다.
@@ -76,7 +82,7 @@ pnpm은 Marinara가 코드를 설치할 때 쓰는 패키지 관리자입니다.
 2. pnpm을 직접 설치하세요. 다음 명령을 실행한 뒤 런처를 다시 실행하세요.
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 3. 관리자 권한 터미널에서 corepack을 업데이트한 다음 런처를 다시 실행하세요.
@@ -92,17 +98,19 @@ Marinara v2.3.0은 Corepack으로 pnpm을 실행하는 데까지는 성공했지
 체크아웃 자체가 업데이트되지 않으면 Marinara 폴더에서 `git pull`을 실행한 다음 다시 시작하세요. v2.3.0을 그대로 쓴다면 임시 방편으로 고정된 버전의 패키지 관리자를 전역 설치하고, 런처를 다시 실행한 뒤 평소대로 업데이트하세요.
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
-### 런처를 pnpm 10.34.5로 업데이트하기
+<a id="launcher-package-manager-handoff"></a>
 
-Marinara v2.4.1은 고정 패키지 관리자를 pnpm 10.34.5로 옮깁니다. 기존 10.33.2 런처는 같은 실행에서 이 일회성 인계를 마칠 수 있으며, 새 런처는 이후 실행부터 10.34.5를 선택합니다. Corepack은 `package.json`에 고정된 SHA-512 다이제스트로 릴리스를 검증하고, npm 대체 경로도 고정되지 않은 latest 대신 정확히 10.34.5를 요청합니다.
+### 런처의 패키지 관리자 전환
+
+Marinara는 pnpm 10.34.7을 고정합니다. 기존 10.33.2 또는 10.34.5 런처는 같은 실행에서 전환을 마칠 수 있으며, 업데이트된 런처는 이후 시작할 때 10.34.7을 선택합니다. Corepack은 `package.json`에 고정된 SHA-512 다이제스트로 릴리스를 검증하며 npm 대체 경로도 정확히 10.34.7을 요청합니다.
 
 이전 v2.4.1 staging 빌드가 이미 `Expected version: >=10.34.5`와 `Got: 10.33.2`에서 중단되었다면 런처를 한 번 더 실행하세요. 그 빌드는 중단되기 전에 새 런처를 내려받았습니다. 런처가 여전히 고정 릴리스를 자동으로 가져오지 못하면 정확한 버전을 설치한 뒤 다시 실행하세요.
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 ### Linux: 설치 중 ERR_PNPM_ENAMETOOLONG

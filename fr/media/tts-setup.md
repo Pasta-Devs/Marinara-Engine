@@ -42,6 +42,23 @@ Si la connexion choisie est supprimée ou inutilisable, la carte affiche **Missi
 
 Quand la connexion liste ses voix, la carte nomme chaque voix enregistrée qui ne figure pas dans la liste, pour que tu puisses en choisir une que la connexion propose.
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## Musique et effets sonores de Game avec un serveur audio compatible
+
+Dans **Connections**, crée ou ouvre une connexion **Audio**, puis choisis **OpenAI-compatible**. Utilise l'adresse, la clé et le modèle de ton serveur de musique ou d'effets sonores. Définis **Generation API format**, saisis les chemins des endpoints proposés par le serveur et active **Game music** ou **Game sound effects**. Un chemin vide rend la fonction correspondante indisponible. Sélectionne cette connexion Audio pendant la configuration du Game ou dans ses réglages audio. Un modèle réservé à la musique n'est pas un modèle de voix ; garde une connexion de voix distincte dans la carte Text to Speech.
+
+Les chemins des endpoints sont ajoutés au Base URL de la connexion : pour `http://localhost:8002/v1`, utilise `chat/completions` pour atteindre `/v1/chat/completions`. Aucun nouveau fournisseur n'est nécessaire. Comme les autres requêtes audio compatibles locales, les endpoints HTTP locaux nécessitent `TTS_LOCAL_URLS_ENABLED=true` dans `.env`.
+
+Deux contrats d'API explicites sont pris en charge :
+
+- **Prompt JSON → MP3 audio** envoie `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` et attend des octets MP3. La musique de Game utilise la durée de la piste de contexte (120 secondes par défaut) ; les effets sonores demandent 5 secondes. Utilise un endpoint ou un adaptateur qui accepte ces champs.
+- **Chat Completions → inline audio (ACE-Step compatible)** envoie `model`, une entrée utilisateur dans `messages`, `stream: false` et `audio_config` avec `duration`, `instrumental: true` et `format: "mp3"`. Le MP3 intégré provient de `choices[0].message.audio` : soit un tableau d'URL audio ACE-Step contenant une URL de données base64, soit un objet avec `data` en base64. Consulte le [contrat d'API compatible ACE-Step](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Ces contrats ne prennent pas en charge les URL de résultats distants ni les API de tâches asynchrones.
+
+Active uniquement les fonctions réellement proposées par le serveur. Un endpoint de voix compatible OpenAI n'implique pas à lui seul la prise en charge de la musique ou des effets sonores. Un fournisseur comme Infermatic doit proposer l'un des contrats ci-dessus ou un adaptateur ; son endpoint de musique réel n'a pas été vérifié ici. ElevenLabs conserve ses requêtes natives de musique et d'effets sonores.
+
+La musique de contexte est toujours composée une fois par zone ou niveau de rencontre, puis réutilisée. Les effets sonores répétés utilisent le cache audio. Une erreur de génération laisse le cache disponible pour réessayer.
+
 ## Étape 2 : renseigner l'URL de base, la clé API et le modèle
 
 Passe cette étape si tu as choisi une connexion Audio comme Source : Marinara utilise les réglages propres à la connexion.
@@ -152,6 +169,8 @@ Sous le titre **Auto-play**, chaque interrupteur demande à l'application de lir
 - **Game narration** : lit les nouvelles lignes de narration et de combat du Game Mode.
 - **Progressive playback** : quand une réponse compte plusieurs lignes, lance la lecture de la première tout de suite, sans attendre la réponse entière.
 - **Only read dialogues** : ne lit que les répliques entre guillemets ou balisées, et saute la narration simple.
+
+En Roleplay, la préparation de la voix commence dès que la réponse principale est enregistrée. L'extraction des locuteurs et des émotions part de ce texte sans attendre les agents sans rapport avec cette étape. Si un agent actif réécrit la réponse, comme Prose Guardian, Marinara attend le texte réécrit définitif avant de préparer la voix.
 
 La lecture automatique ne se déclenche qu'une fois, sur la réponse la plus récente, au moment où elle se termine. Elle ne relit pas les anciens messages quand tu rouvres un chat ou que tu le fais défiler.
 

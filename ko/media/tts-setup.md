@@ -42,6 +42,23 @@ TTS를 켜기만 해서는 아무것도 말하지 않습니다. 각 메시지의
 
 연결이 목소리 목록을 제공하면, 저장된 목소리 중 그 목록에 없는 것이 있을 때 카드가 그 이름을 알려 주므로 연결이 제공하는 목소리를 고를 수 있습니다.
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## 호환 오디오 서버로 Game 음악과 효과음 생성하기
+
+**Connections**에서 **Audio** 연결을 만들거나 열고 **OpenAI-compatible**을 선택하세요. 음악이나 효과음 서버의 주소, 키, 모델을 사용합니다. **Generation API format**을 설정하고 서버에서 제공하는 엔드포인트 경로를 입력한 뒤 **Game music** 또는 **Game sound effects**를 켜세요. 경로를 비워 두면 해당 기능을 사용할 수 없습니다. Game 설정 과정이나 게임의 오디오 설정에서 이 Audio 연결을 선택하세요. 음악 전용 모델은 음성 모델이 아니므로 Text to Speech 카드에서는 음성 연결을 별도로 선택해 두세요.
+
+엔드포인트 경로는 연결의 Base URL 뒤에 붙습니다. `http://localhost:8002/v1`에는 `chat/completions`를 사용하면 `/v1/chat/completions`에 접근합니다. 새 제공자를 추가할 필요는 없습니다. 로컬 HTTP 엔드포인트는 다른 로컬 호환 오디오 요청과 마찬가지로 `.env`에서 `TTS_LOCAL_URLS_ENABLED=true`를 설정해야 합니다.
+
+명시적으로 지원하는 API 입출력 규약은 두 가지입니다.
+
+- **Prompt JSON → MP3 audio** 는 `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }`를 전송하고 MP3 바이트를 받습니다. Game 음악은 컨텍스트 트랙의 길이(기본 120초)를 사용하며 효과음은 5초를 요청합니다. 이 필드를 받는 엔드포인트나 어댑터를 사용하세요.
+- **Chat Completions → inline audio (ACE-Step compatible)** 는 `model`, 사용자 `messages` 항목 하나, `stream: false`, 그리고 `duration`, `instrumental: true`, `format: "mp3"`가 포함된 `audio_config`를 전송합니다. `choices[0].message.audio`에 포함된 MP3 오디오를 받습니다. base64 데이터 URL을 담은 ACE-Step 오디오 URL 배열이나 base64 `data`가 있는 객체를 지원합니다. [ACE-Step 호환 API 규약](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md)을 참고하세요. 원격 결과 URL과 비동기 작업 API는 이 규약에서 지원하지 않습니다.
+
+서버가 실제로 구현한 기능만 켜세요. OpenAI 호환 음성 엔드포인트만으로는 음악이나 효과음 지원을 보장하지 않습니다. Infermatic 같은 제공자는 위 규약 중 하나를 제공하거나 어댑터를 갖춰야 합니다. 여기서는 실제 Infermatic 음악 엔드포인트를 검증하지 않았습니다. ElevenLabs는 기존의 네이티브 음악 및 효과음 요청을 그대로 사용합니다.
+
+컨텍스트 음악은 영역이나 조우 단계마다 한 번 생성한 뒤 계속 재사용합니다. 반복되는 효과음은 오디오 캐시를 사용합니다. 생성 오류가 나도 캐시는 재시도할 수 있도록 남습니다.
+
 ## 2단계: Base URL, API Key, Model 입력하기
 
 Source로 오디오 연결을 골랐다면 이 단계는 건너뛰세요. Marinara가 연결 자체의 설정을 사용합니다.
@@ -152,6 +169,8 @@ Character Voices 상자의 **Refresh**(새로고침) 버튼은 한 목소리 모
 - **Game narration**(게임 나레이션): 새로 온 Game Mode 서술과 전투 줄을 읽습니다.
 - **Progressive playback**(점진적 재생): 답변이 여러 줄일 때 전체가 끝나기를 기다리지 않고 첫 줄부터 바로 재생합니다.
 - **Only read dialogues**(대사만): 따옴표나 태그로 표시된 대사만 읽고 일반 서술은 건너뜁니다.
+
+Roleplay에서는 주 응답이 저장되는 즉시 음성 준비를 시작합니다. 화자와 감정 추출은 관련 없는 에이전트를 기다리지 않고 이 텍스트로 시작합니다. Prose Guardian처럼 응답을 다시 쓰는 에이전트를 켠 경우에는 최종 수정 텍스트를 기다린 뒤 음성을 준비합니다.
 
 자동 재생은 가장 최근 답변이 완성되는 순간 한 번만 동작합니다. 채팅을 다시 열거나 위로 올려 봐도 지난 메시지를 다시 읽지는 않습니다.
 
