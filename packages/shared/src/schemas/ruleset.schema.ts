@@ -13844,6 +13844,21 @@ function creatureSheetIssues(
   }
 }
 
+/** A character's build held to the same rule as a creature's sheet: every id is one the ruleset
+ *  declares and every value is one it can hold. One `path: message` line per problem. Professor Mari
+ *  checks what she writes onto a sheet with it, so she can never store what the editor would refuse. */
+export function rulesetSheetBuildIssues(definition: RulesetDefinition, build: RulesetSheetBuild): string[] {
+  const issues: string[] = [];
+  creatureSheetIssues(
+    definition,
+    build,
+    [],
+    (path, message) => issues.push(path.length > 0 ? `${path.join(".")}: ${message}` : message),
+    false,
+  );
+  return issues;
+}
+
 /** The die a `dice-pool` ruleset throws, which is the die every damage roll of its fights throws. */
 function poolDieSides(definition: RulesetDefinition): number | undefined {
   return definition.resolution.kind === "dice-pool" ? definition.resolution.die.sides : undefined;

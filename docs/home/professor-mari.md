@@ -35,6 +35,7 @@ Ask her for help with any of these:
 - Explaining a setting, a mode, or a concept before you change anything.
 - Creating or editing a character. A character is a card that gives the AI a name, personality, and voice. She can also write a card's [interactive onboarding](../characters/interactive-onboarding.md), the questions players answer to build their persona.
 - Creating or editing a persona. A persona is the identity you play as in a chat, the "you" in the story.
+- Filling in or changing a character's or persona's [ruleset sheet](../characters/colors-and-stats.md#ruleset-sheets) for an installed Game Mode ruleset: scores, training, fields, and list rows such as gear. She uses the ruleset's own names and limits, and the change is refused, with the reason, when a value does not fit the ruleset.
 - Creating or editing a lorebook. A lorebook is a set of world notes the AI pulls in when they are relevant.
 - Creating or editing a theme, an agent, a prompt preset, or a Personal Extension draft. Professor Mari is the only default extension author. Her drafts remain disabled until you inspect the sandboxed code, review any requested active Character-card or Persona permissions, and approve the exact hash in **Settings** > **Addons**.
 - Editing one part of a prompt preset in place. She can list a preset's individual sections, prompt groups, and choice variables, read any one of them in full, and add, change, or remove just that piece — for example, adding a line to a specific section — instead of only creating or replacing the whole preset.
