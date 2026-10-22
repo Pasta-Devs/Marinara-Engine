@@ -57,6 +57,9 @@ const companionSchema = z
   .object({
     /** What they bring to a party, for the Game Master (healing, a light in the dark, a scout). */
     role: promptSafeText(200).optional(),
+    /** One who travels with the party but never fights (Capability API 1.360): not counted in the party's
+     *  size, and not put in its fights. */
+    noncombatant: z.literal(true).optional(),
     /** Their sheets, by the id of each ruleset they can join a game of. */
     sheets: z
       .record(rulesetRef, companionSheetSchema)
@@ -187,8 +190,10 @@ export function experiencePeopleLore(
   ];
 }
 
-/** Whether a file has companions, for the Capability API it needs (1.347; 1.346 without). */
+/** Whether a file has companions, for the Capability API it needs (1.360 with one who never fights,
+ *  1.347; 1.346 without). */
 export function experiencePeopleMinor(people: ExperiencePeople): number {
+  if (people.people.some((person) => person.companion?.noncombatant)) return 360;
   return people.people.some((person) => person.companion) ? 347 : 346;
 }
 
@@ -201,6 +206,15 @@ export function experienceSheetLevel(build: { fields?: Record<string, unknown> }
 }
 
 export type ExperienceCompanionSheet = z.infer<typeof companionSheetSchema>;
+
+/** A companion's sheet for a ruleset as a game plays it: under its exact id, else its bare one, as a
+ *  ruleset imported from a file (`local/<id>`) or a repository (`<owner>/<id>`) is the same ruleset. */
+export function experienceCompanionSheet(
+  companion: NonNullable<ExperiencePerson["companion"]>,
+  rulesetId: string,
+): ExperienceCompanionSheet | undefined {
+  return companion.sheets[rulesetId] ?? companion.sheets[rulesetId.replace(/^[^/]+\//u, "")];
+}
 
 /** The build a companion plays at for a party this high (the party's highest level): the one for the
  *  highest level it has reached, else the lowest. */
@@ -244,7 +258,7 @@ export function experienceCompanionsPromptText(game: GameWorld, people: Experien
   const lines = companions.map(({ entry, name }) => {
     const placeId = /^(.+)-e?\d+$/.exec(entry.person)?.[1];
     const place = game.world.places.find((each) => each.id === placeId)?.name;
-    const role = entry.companion!.role ? `: ${entry.companion!.role}` : "";
+    const role = `${entry.companion!.role ? `: ${entry.companion!.role}` : ""}${entry.companion!.noncombatant ? " (never fights; kept out of every fight)" : ""}`;
     const where = inParty.has(name.trim().toLowerCase())
       ? " (travelling with the party)"
       : place

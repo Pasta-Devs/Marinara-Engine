@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // An Experience's ruleset overlays (Capability API 1.355): what its map pack adds to a ruleset while the
 // Experience is on, for one ruleset each. Bestiary creatures its fights and story name, combat conditions
-// and the sheet conditions they hold, creature tags, and entries for any of the ruleset's catalogs (its
+// and the sheet conditions they hold, sheet tracks (1.367), creature tags, and entries for any of the ruleset's catalogs (its
 // items). A `.overlay.json` file of its map pack, read strictly for its shape here and checked against the
 // game's ruleset when it is merged in: an overlay that does not fit is left out whole.
 // ──────────────────────────────────────────────
@@ -30,6 +30,9 @@ export const experienceRulesetOverlaySchema = z
     conditions: objects(EXPERIENCE_OVERLAY_MAX.rules),
     /** The sheet conditions they hold, as the ruleset's `sheet.live.conditions`. */
     sheetConditions: objects(EXPERIENCE_OVERLAY_MAX.rules),
+    /** Sheet tracks (Capability API 1.367), as the ruleset's `sheet.live.tracks`: a mark of Owing that a
+     *  story's Held Ground or a board's light rule moves, shown on the sheet and moved by sheet commands. */
+    tracks: objects(EXPERIENCE_OVERLAY_MAX.rules),
     /** Bestiary entries, for the ruleset's `creatures` catalog. */
     creatures: objects(EXPERIENCE_OVERLAY_MAX.entries),
     /** Item uses that cost a story number (Capability API 1.359): the item, by `catalog/entry` id, and
@@ -146,6 +149,7 @@ export function applyExperienceRulesetOverlay(
   };
   add(overlay.conditions, merged.combat, "conditions", "condition", "conditions");
   add(overlay.sheetConditions, merged.sheet?.live, "conditions", "id", "sheetConditions");
+  add(overlay.tracks, merged.sheet?.live, "tracks", "id", "tracks");
   add(overlay.creatureTags, merged.combat?.creatureTypes, "tags", "id", "creatureTags");
   if (issues.length) return { ok: false, issues };
   // A stored ruleset is played under its namespaced id (`local/<id>`, `<owner>/<id>`), which a ruleset

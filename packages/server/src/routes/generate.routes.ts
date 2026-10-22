@@ -58,7 +58,25 @@ import {
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
-import { gamePartySize, storyPartyNames, syncCompanionSheets } from "../services/game/experience-companions.service.js";
+import {
+  gameNoncombatants,
+  gamePartySize,
+  storyPartyNames,
+  syncCompanionSheets,
+} from "../services/game/experience-companions.service.js";
+import {
+  loadStoryExposureSheets,
+  rollStoryExposureSavesWith,
+  storyPartyCarriesShade,
+} from "../services/game/story-exposure-saves.service.js";
+import {
+  dropHeldGroundPending,
+  heldGroundFightUnfinished,
+  heldGroundReleasedInFight,
+  keepHeldGroundPending,
+  pendingRelease,
+  rollStoryOwingWith,
+} from "../services/game/story-held-ground.service.js";
 import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
@@ -232,6 +250,7 @@ import {
   gameStoryFromMetadata,
   readToldLedger,
   refuseStoryTags,
+  storyGivesById,
   storyIsRef,
   type StoryItemLabel,
   readStoryLedger,
@@ -710,7 +729,13 @@ import {
   shouldSuppressAssistantSpatialMutation,
   validateSpatialGenerationRequest,
 } from "./generate/spatial-transition-request.js";
-import { addMinutes, createInitialTime, formatGameTime, type GameTime } from "../services/game/time.service.js";
+import {
+  addMinutes,
+  createInitialTime,
+  formatGameTime,
+  gameClockMinutes,
+  type GameTime,
+} from "../services/game/time.service.js";
 import { runTurnGameBotTurns } from "../services/turn-games/turn-game-bot-runner.service.js";
 import { getTurnGameContextBuilder } from "../services/turn-games/turn-game-runner.service.js";
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
@@ -2136,47 +2161,120 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const present = worldPresent(game, [...before, ...toldEntries]);
                 const own = replies.all.slice(replies.carried?.tags ? 1 : 0);
                 // The ruleset's items the story gives by id (1.343), read only when it gives any.
-                const givesById = story.events.some((event) =>
-                  event.do.some((action) => "give" in action && storyIsRef(action.give.item)),
-                );
+                const givesById = storyGivesById(story);
                 const book = givesById
                   ? await loadGameInventoryItemBook(app.db, { chatId: input.chatId }, "game-master")
                   : undefined;
                 const item: StoryItemLabel | undefined = book
-                  ? (ref) => (book.offers(ref) ? book.itemOf(ref)?.name : undefined)
+                  ? (ref) => {
+                      // A bare entry id (1.370) is the first catalog's entry of that id the game offers.
+                      const id = storyIsRef(ref)
+                        ? ref
+                        : book.entries.find((entry) => entry.item.endsWith(`/${ref}`) && book.offers(entry.item))?.item;
+                      return id && book.offers(id) ? book.itemOf(id)?.name : undefined;
+                    }
                   : undefined;
-                return {
-                  story,
-                  game,
+                // The party's sheets, read only for exposures that ask a save or are kept off by a shade.
+                const exposureSheets = story.exposures.some((exposure) => exposure.save || exposure.sparedByShade)
+                  ? await loadStoryExposureSheets(app.db, input.chatId, {
+                      live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                      regenerateMessageId: input.regenerateMessageId ?? null,
+                    })
+                  : null;
+                const storyTold = storyTurn(story, {
                   item,
-                  turn: storyTurn(story, {
-                    item,
-                    game,
-                    replies: replies.all,
-                    repliesBefore: (replies.carried?.replies ?? 0) + own.length,
-                    latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
-                    told: toldEntries,
-                    added: present.places,
-                    day: present.day,
-                    fight: storyFightOutcome(replies.player),
-                    broke: storyFightBroken(replies.player),
-                    playerName: personaName,
-                    // Who of the world travels with the party (its tracked people), and what the player
-                    // says, for party conditions and what people know (1.348, 1.349).
-                    party: storyPartyNames(chatMeta),
-                    partySize: gamePartySize(chatMeta),
-                    // What items' uses spent of story numbers in fights (1.359), recorded this turn.
-                    spends: gameStorySpends(chatMeta),
-                    player: input.userMessage ?? null,
-                    // The cells this turn's walks walked (map events): in town, and on a map made by hand.
-                    steps: [
-                      ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
-                      ...(dungeonWalk?.place
-                        ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
-                        : []),
+                  game,
+                  replies: replies.all,
+                  repliesBefore: (replies.carried?.replies ?? 0) + own.length,
+                  latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
+                  told: toldEntries,
+                  added: present.places,
+                  day: present.day,
+                  fight: storyFightOutcome(replies.player),
+                  broke: storyFightBroken(replies.player),
+                  playerName: personaName,
+                  // Who of the world travels with the party (its tracked people), and what the player
+                  // says, for party conditions and what people know (1.348, 1.349).
+                  party: storyPartyNames(chatMeta),
+                  partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
+                  // What items' uses spent of story numbers in fights (1.359), recorded this turn.
+                  spends: gameStorySpends(chatMeta),
+                  // The game's clock, for what being in a place does over time (1.362).
+                  clock: gameClockMinutes(chatMeta.gameTime),
+                  // A shade carried lit (1.365), for the exposures it keeps off.
+                  shade: storyPartyCarriesShade(exposureSheets),
+                  player: input.userMessage ?? null,
+                  // The cells this turn's walks walked (map events): in town, and on a map made by hand.
+                  steps: [
+                    ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
+                    ...(dungeonWalk?.place
+                      ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
+                      : []),
+                  ],
+                });
+                // The saves its exposures owe (1.364), rolled off the sheets this turn starts from.
+                let turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
+                // Held Ground let go (1.369): a fight that let it go has rolled what came due; one still
+                // unfinished on it lets it go on its next step; otherwise the party's Owing is rolled here.
+                // A release left for a fight that ended (or was left) before its next step is settled
+                // here too, out of the fight.
+                const released = turn.released;
+                const unfinished = await heldGroundFightUnfinished(app.db, input.chatId);
+                const owingSheets = async () =>
+                  exposureSheets ??
+                  (await loadStoryExposureSheets(app.db, input.chatId, {
+                    live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                    regenerateMessageId: input.regenerateMessageId ?? null,
+                  }));
+                const left = pendingRelease(chatMeta);
+                if (left && unfinished !== "unknown" && left.fight !== unfinished) {
+                  const { fight: _fight, ...owed } = left;
+                  const rolled = owed.owing
+                    ? rollStoryOwingWith(await owingSheets(), chatMeta, { ...turn, released: owed })
+                    : turn;
+                  turn = {
+                    ...rolled,
+                    released: turn.released,
+                    tells: [
+                      ...rolled.tells,
+                      `${owed.label ?? "Held Ground"} was let go as the fight on it ended, so what came due is settled now.`,
                     ],
-                  }),
-                };
+                  };
+                  await dropHeldGroundPending(app.db, input.chatId);
+                }
+                if (released) {
+                  if (heldGroundReleasedInFight(chatMeta, released, replies.all.length)) {
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} was let go in the fight, and what came due was rolled there.`,
+                      ],
+                    };
+                  } else if (unfinished === "unknown") {
+                    // The fight could not be read: nothing is rolled or parked on a guess, and the Game
+                    // Master settles it by the ruleset's own rules.
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} has let go, but the fight on it could not be read, so the Engine rolled nothing. Settle what comes due by the ruleset's own rules.`,
+                      ],
+                    };
+                  } else if (unfinished) {
+                    await keepHeldGroundPending(app.db, input.chatId, released, unfinished);
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} lets go of the fight still being fought on it: the Engine settles what comes due on its next step.`,
+                      ],
+                    };
+                  } else if (released.owing) {
+                    turn = rollStoryOwingWith(await owingSheets(), chatMeta, turn);
+                  }
+                }
+                return { story, game, item, turn };
               })()
             : Promise.resolve(null));
       const turnHour = Number((chatMeta.gameTime as { hour?: unknown } | undefined)?.hour ?? 8) || 0;
@@ -9647,6 +9745,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               turnSheetContext = sheetContext;
               if (sheetContext) {
+                // What the places the party has been in did to it (1.362), applied with the reply's own.
+                const storySheet = fullResponse.trim() ? (await turnStory())?.turn.sheet : "";
+                if (storySheet) {
+                  fullResponse = `${storySheet}\n\n${fullResponse}`;
+                  contentReplaced = true;
+                }
                 rulesetSheetTurn = applyGameRulesetSheetTurn(
                   sheetContext,
                   fullResponse,
@@ -9799,7 +9903,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       storyTurnTold?.turn.state ?? storyState(story, readStoryLedger(replies.all)),
                       storyTurnTold?.turn.tripped,
                       storyTurnTold?.item,
-                      storyTurnTold ? new Set(storyTurnTold.turn.party) : undefined,
+                      storyTurnTold
+                        ? Object.assign(new Set(storyTurnTold.turn.party), {
+                            partySize: storyTurnTold.turn.partySize,
+                          })
+                        : undefined,
                     )
                   : refuseStoryTags(fullResponse);
                 if (answered !== fullResponse) {

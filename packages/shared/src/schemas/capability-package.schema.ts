@@ -1405,7 +1405,39 @@ const capabilityPackageManifestBaseSchema = z
 // 1.359: an Experience's ruleset overlay may give items a story cost (`storyUses`: the item by
 //        `catalog/entry`, the story's number flag, what a use adds to it, and `atLeast`): a fight refuses
 //        the use while the flag is below it, and the next story turn records what it spent.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 359 } as const);
+// 1.360: a story fight's variant may be for parties above six, or open-ended (`party: { "min": 7 }`); a
+//        story condition may test the party's size (`{ "partySize": { "is": ">=", "value": 5 } }`); and a
+//        people file's companion may never fight (`noncombatant`): not counted in the party's size, and
+//        not put in its fights.
+// 1.361: a story's `season` action may hold `over` everything inside it (the script's own seasons and
+//        every other hold), and what people know is ranked: the people the scene names first, then what
+//        its words bring in, then companions only travelling along, shared out person by person.
+// 1.362: a story may keep `exposures`: what being in a place does to the party over time (every `hours`
+//        hours there while its `if` holds, tracks moved and conditions put on for each of the party, by
+//        the Engine's own sheet commands on the game's clock). Noonfield's light outside a fight.
+// 1.363: a story fight's (or variant's) creature entry may `adjust` it for that fight: its Legendary
+//        Resistance and its health (`maxHp`), in place of its stat block's.
+// 1.364: a story's exposure may ask a `save` ({ save, difficulty, against? }, as a light rule's 1.321) that
+//        each of the party rolls off their own sheet, only failures taking its tracks and conditions; a
+//        track it moves may stop at `upTo`. A sheet command's `op="track"` takes `upto=` the same way.
+// 1.365: a story's exposure may be `sparedByShade`: a shade carried lit by any of the party (an item whose
+//        light has `shade`, switched on where it has a switch) keeps it off, as its `if` not holding does.
+// 1.366: a story may hold death (`heldGround`: a place or the whole world, a label, the condition the felled
+//        take, the marks their tracks take, flag conditions): recorded as the party comes and goes, and a
+//        ruleset fight started there is fought on that Held Ground (1.323).
+// 1.367: an Experience's ruleset overlay may add sheet tracks (`tracks`, as the ruleset's `sheet.live.tracks`):
+//        shown on the sheet, moved by sheet commands, and kept for Held Ground's and light rules' marks.
+// 1.368: a story action `sheet` puts a sheet condition on each of the party or takes it off, or moves a
+//        track of each one's sheet (`upTo` stops it), as the Engine's own sheet command.
+// 1.369: Held Ground may let go (`heldGround[].release`: the felled die or go down, and marks of a track
+//        come due as dying saves with a bonus, a number or a number flag): in a ruleset fight still on it,
+//        in the very step that lets it go (an item's story spend, a prop broken), and out of a fight each
+//        of the party rolls what they owe off their own sheet.
+// 1.370: a story's `give` may name a ruleset entry by its bare id (the first catalog that offers it), and
+//        may list alternatives, the first the game offers given.
+// 1.371: a story fight's creature `adjust` may change whom its actions call (`calls`), and change any of
+//        it from a party level up (`levels`), the level read off the Experience's companion sheets' fields.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 371 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

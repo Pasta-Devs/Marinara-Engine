@@ -52,6 +52,7 @@ import {
   type RPGAttributes,
   type RulesetCatalogEntriesById,
   type RulesetDefinition,
+  type RulesetSaveAgainst,
   type RulesetUntrained,
   type RulesetLiveState,
   type RulesetLiveStates,
@@ -210,6 +211,8 @@ export interface SkillCheckRequest {
   /** `apply=`: rows or entries the character has that the Game Master says apply to this roll
    *  (Capability API 1.156). Only those that do change it, and owning one is not enough. */
   apply?: string[];
+  /** What a save is made against, where the Engine itself asks for it (1.364): a story's exposure. */
+  against?: RulesetSaveAgainst;
 }
 
 function parsePlayerStats(raw: unknown, chatId: string): Record<string, unknown> | null {
@@ -791,12 +794,13 @@ export function rulesetCheckEffectsFor(
   target: RulesetCheckTarget | null,
   who?: string,
   applied: readonly RulesetCheckSource[] = [],
+  against?: RulesetSaveAgainst,
 ): RulesetCheckEffects {
   const key = who ? normalizeCharacterLookupName(who) : ruleset.playerKey;
   const build = key ? ruleset.builds.get(key) : undefined;
   if (!key || !build) return { modifiers: [], advantage: [], disadvantage: [], fails: [] };
   const sources = rulesetCheckSources(ruleset.definition, build, ruleset.live[key], ruleset.items.get(key));
-  return rulesetCheckEffects([...sources, ...applied], target);
+  return rulesetCheckEffects([...sources, ...applied], target, against);
 }
 
 /** What the Game Master's `apply=` names mean for this roller and this check (1.156). */
@@ -819,7 +823,10 @@ export function rulesetCheckThrowsTwice(ruleset: SkillCheckRulesetContext, reque
   if (resolution.kind !== "dice-sum" || !resolution.advantage) return false;
   const target = rulesetCheckTargetFor(ruleset, request.skill, request.who, request.withAbility);
   const applied = rulesetContextualFor(ruleset, target, request).map((item) => item.source);
-  return rulesetCheckRollMode(request, rulesetCheckEffectsFor(ruleset, target, request.who, applied)) !== "normal";
+  return (
+    rulesetCheckRollMode(request, rulesetCheckEffectsFor(ruleset, target, request.who, applied, request.against)) !==
+    "normal"
+  );
 }
 
 /** The untrained rule a check falls under: null for an ability check, for a trained skill or save,
@@ -949,6 +956,7 @@ function resolveRulesetSkillCheck(
     target,
     request.who,
     contextualAsked.map((item) => item.source),
+    request.against,
   );
   const isSave = target?.type === "save";
   const who = request.who ? { who: request.who } : {};
@@ -1046,6 +1054,7 @@ function resolveRulesetSkillCheck(
         target,
         request.who,
         contextual.map((item) => item.source),
+        request.against,
       );
   }
   const contextualCheck = rulesetContextualCheck(contextual);

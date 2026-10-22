@@ -71,6 +71,12 @@ const keep = <T>(cache: Map<string, T>, key: string, value: T) => {
   return value;
 };
 
+/** One ruleset plays under its bare id (a package), `local/<id>` (imported from a file) or `<owner>/<id>`
+ *  (from a repository): an Experience's overlay for its exact id wins, else the one for its bare id. */
+function overlayFor<T>(overlays: ReadonlyMap<string, T>, packId: string, rulesetId: string): T | undefined {
+  return overlays.get(`${packId}\n${rulesetId}`) ?? overlays.get(`${packId}\n${rulesetId.replace(/^[^/]+\//u, "")}`);
+}
+
 /** The game's Experience's overlay for its ruleset, merged in (1.355); the ruleset as it was when the
  *  game has none, or when the overlay does not fit it (said once). */
 function withExperienceOverlay(
@@ -81,7 +87,7 @@ function withExperienceOverlay(
 ): RulesetDefinition {
   const packId = (metadata.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
   if (typeof packId !== "string" || !registry.overlays?.size) return definition;
-  const found = registry.overlays.get(`${packId}\n${ref.id}`);
+  const found = overlayFor(registry.overlays, packId, ref.id);
   if (!found) return definition;
   const files = registry.overlayFileIds?.get(`${packId}\n${ref.id}\n${definition.version}`);
   const key = `${found.sha256}\n${ref.id}\n${definition.version}\n${JSON.stringify(ref.options)}\n${files?.key ?? ""}`;
@@ -372,19 +378,22 @@ export async function readRulesetRegistry(db?: DB): Promise<RulesetRegistry> {
   // of the file gives; each file is read once per hash. Each overlay gets the catalogs it names, as
   // two Experiences may overlay one ruleset.
   const overlayFileIds = new Map<string, { ids: ReadonlyMap<string, ReadonlySet<string>>; key: string }>();
-  for (const [at, { overlay }] of overlays) {
-    const rulesetId = at.slice(at.indexOf("\n") + 1);
-    const registered = registry.get(rulesetId);
-    if (!registered) continue;
-    const named = overlayCatalogIds(overlay);
-    if (!named.size) continue;
-    for (const definition of [registered.definition, ...(registered.versions?.values() ?? [])]) {
-      const where = `${at}\n${definition.version}`;
-      if (overlayFileIds.has(where)) continue;
-      try {
-        overlayFileIds.set(where, await rulesetFileCatalogIds(registered.packageId, definition, named, registry));
-      } catch (error) {
-        logger.warn(error, "[game/rulesets] The catalog files of %s could not be read for an overlay", definition.id);
+  const packIds = new Set([...overlays.keys()].map((at) => at.slice(0, at.indexOf("\n"))));
+  for (const packId of packIds) {
+    for (const [rulesetId, registered] of registry) {
+      // The overlay a game of this ruleset with this Experience would play (an exact id's, else the bare id's).
+      const overlay = overlayFor(overlays, packId, rulesetId)?.overlay;
+      if (!overlay) continue;
+      const named = overlayCatalogIds(overlay);
+      if (!named.size) continue;
+      for (const definition of [registered.definition, ...(registered.versions?.values() ?? [])]) {
+        const where = `${packId}\n${rulesetId}\n${definition.version}`;
+        if (overlayFileIds.has(where)) continue;
+        try {
+          overlayFileIds.set(where, await rulesetFileCatalogIds(registered.packageId, definition, named, registry));
+        } catch (error) {
+          logger.warn(error, "[game/rulesets] The catalog files of %s could not be read for an overlay", definition.id);
+        }
       }
     }
   }

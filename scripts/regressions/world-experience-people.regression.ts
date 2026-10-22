@@ -30,6 +30,7 @@ import {
   compileGameWorld,
   createRulesetSheetEnvelope,
   experienceCompanionBuild,
+  experienceCompanionSheet,
   experienceCompanionsPromptText,
   experienceDressedNpc,
   experiencePeopleLore,
@@ -182,6 +183,20 @@ assert.deepEqual(experienceDressedNpc(plain, { ...people.people, urls }), plain,
 
 // The build for the party's level: the highest reached, else the lowest.
 const sheet = people.people.people[1]!.companion!.sheets["5e-2014"]!;
+// A ruleset imported from a file or a repository finds the sheet by its bare id; an exact one wins.
+const healerCompanion = people.people.people[1]!.companion!;
+assert.equal(experienceCompanionSheet(healerCompanion, "5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "local/5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "alice/5e-2014"), sheet);
+assert.equal(experienceCompanionSheet(healerCompanion, "dnd5e"), undefined);
+const exactSheet = { ...sheet, builds: [level(1)] };
+assert.equal(
+  experienceCompanionSheet(
+    { ...healerCompanion, sheets: { ...healerCompanion.sheets, "bob/5e-2014": exactSheet } },
+    "bob/5e-2014",
+  ),
+  exactSheet,
+);
 assert.equal(experienceCompanionBuild(sheet, 0).at, 1);
 assert.equal(experienceCompanionBuild(sheet, 2).at, 1);
 assert.equal(experienceCompanionBuild(sheet, 7).at, 3);

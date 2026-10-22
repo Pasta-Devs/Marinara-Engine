@@ -7,6 +7,7 @@ import {
   createRulesetSheetEnvelope,
   experienceCompanionBuild,
   experienceCompanionNamed,
+  experienceCompanionSheet,
   experiencePeopleIn,
   experienceSheetLevel,
   normalizeCharacterLookupName,
@@ -33,10 +34,26 @@ export function storyPartyNames(meta: Record<string, unknown>): string[] {
 }
 
 /** How many the party is (1.356): the player and every character travelling with it, library
- *  characters and companions alike. */
-export function gamePartySize(meta: Record<string, unknown>): number {
+ *  characters and companions alike, but for the companions who never fight (1.360), by party id. */
+export function gamePartySize(meta: Record<string, unknown>, noncombatants?: ReadonlySet<string>): number {
   const ids = Array.isArray(meta.gamePartyCharacterIds) ? (meta.gamePartyCharacterIds as unknown[]) : [];
-  return 1 + new Set(ids.filter((id) => typeof id === "string")).size;
+  return 1 + new Set(ids.filter((id): id is string => typeof id === "string" && !noncombatants?.has(id))).size;
+}
+
+/** The party ids of the game's Experience companions who never fight (1.360): they travel with the party
+ *  but are not counted in its size or put in its fights. */
+export async function gameNoncombatants(db: DB, chatId: string, meta: Record<string, unknown>): Promise<Set<string>> {
+  // A failed read keeps everyone in the fight, and says so.
+  const companions = await gameCompanions(db, chatId, meta).catch((error: unknown) => {
+    logger.warn(error, "[game/experience] Chat %s's companions could not be read; none sits out its fights", chatId);
+    return null;
+  });
+  if (!companions) return new Set();
+  return new Set(
+    experiencePeopleIn(companions.world, companions.people)
+      .filter(({ entry }) => entry.companion?.noncombatant)
+      .map(({ name }) => buildPartyNpcId(name)),
+  );
 }
 
 export interface GameCompanions {
@@ -62,7 +79,7 @@ export async function gameCompanions(
 export function gameCompanionNamed(companions: GameCompanions, name: string, definition: RulesetDefinition | null) {
   const found = experienceCompanionNamed(companions.world, companions.people, name);
   if (!found) return null;
-  const sheet = definition ? found.entry.companion!.sheets[definition.id] : undefined;
+  const sheet = definition ? experienceCompanionSheet(found.entry.companion!, definition.id) : undefined;
   return { name: found.name, person: found.entry.person, sheet };
 }
 
@@ -82,6 +99,31 @@ export function companionPartyLevel(
     if (read) highest = Math.max(highest, experienceSheetLevel(read.build, sheet.level));
   }
   return highest;
+}
+
+/** The party's level as an Experience counts it (1.371): the highest level any of the party's own has
+ *  reached, read off the level fields its companion sheets name for this ruleset. Null when the game's
+ *  Experience has no companion sheet for the ruleset to say which fields those are. */
+export async function gamePartyLevel(
+  db: DB,
+  chatId: string,
+  meta: Record<string, unknown>,
+  definition: RulesetDefinition,
+): Promise<number | null> {
+  // A failed read leaves the party's level unknown, as for an Experience with no companion sheet, and says so.
+  const companions = await gameCompanions(db, chatId, meta).catch((error: unknown) => {
+    logger.warn(error, "[game/experience] Chat %s's companions could not be read; its party level is unknown", chatId);
+    return null;
+  });
+  if (!companions) return null;
+  const sheet = experiencePeopleIn(companions.world, companions.people)
+    .map(({ entry }) => (entry.companion ? experienceCompanionSheet(entry.companion, definition.id) : undefined))
+    .find((each) => each);
+  if (!sheet) return null;
+  const cards = Array.isArray(meta.gameCharacterCards)
+    ? (meta.gameCharacterCards as Array<Record<string, unknown>>)
+    : [];
+  return companionPartyLevel(definition, cards, sheet, companionNames(companions));
 }
 
 /** A companion's sheet for a party this high: their build for it, read as the ruleset reads a stored one. */

@@ -13,6 +13,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   applyExperienceRulesetOverlay,
+  applySheetCommandTags,
+  createRulesetEncounter,
+  defaultRulesetSheetBuild,
+  readRulesetLive,
   capabilityPackageManifestSchema,
   experienceOverlayEntries,
   parseRulesetDefinition,
@@ -23,6 +27,7 @@ import {
 import {
   buildRulesetRegistry,
   resolveGameRuleset,
+  type RegisteredRuleset,
   type RulesetRegistry,
 } from "../../packages/server/src/services/game/ruleset-registry.service.js";
 import {
@@ -85,6 +90,45 @@ const refused = (patch: Record<string, unknown>, issue: RegExp) => {
   assert.ok(!result.ok && result.issues.some((each) => issue.test(each)), JSON.stringify(result));
 };
 refused({ sheetConditions: [{ id: "blinded", label: "Blinded" }] }, /"blinded" is the ruleset's already/);
+refused(
+  { tracks: [{ id: "exhaustion", label: "Exhaustion", min: 0, max: 6 }] },
+  /"exhaustion" is the ruleset's already/,
+);
+refused({ tracks: [{ id: "owing", label: "Owing" }] }, /./);
+
+// ── Sheet tracks (1.367): a mark of Owing, declared by the overlay and played as the ruleset's own ──
+{
+  const owingOverlay = readExperienceRulesetOverlay(
+    JSON.stringify({ ...overlayInput, tracks: [{ id: "owing", label: "Owing", min: 0, max: 20, default: 0 }] }),
+  );
+  assert.ok(owingOverlay.ok, JSON.stringify(owingOverlay));
+  const owed = applyExperienceRulesetOverlay(base, owingOverlay.overlay, false);
+  assert.ok(owed.ok, JSON.stringify(owed));
+  const definition = owed.definition;
+  assert.ok(definition.sheet.live.tracks.some((track) => track.id === "owing"));
+  assert.ok(!base.sheet.live.tracks.some((track) => track.id === "owing"), "the ruleset itself is untouched");
+  // On the sheet, moved by a sheet command and stopped where it says.
+  const build = defaultRulesetSheetBuild(definition);
+  assert.equal(readRulesetLive(definition, build, {}).tracks.find((track) => track.id === "owing")?.value, 0);
+  const marked = applySheetCommandTags('[sheet: who="Jory" op="track" track="owing" by="2" upto="20"]', {
+    definition,
+    cards: [{ name: "Jory", build }],
+    playerName: "Jory",
+    live: {},
+  });
+  assert.deepEqual(marked.live.jory?.tracks, { owing: 2 });
+  // Held Ground's marks are kept for it, where a ruleset without it drops them.
+  const ground = { label: "The Held Autumn", marks: [{ track: "owing", by: 1 }] };
+  const fight = (of: RulesetDefinition) =>
+    createRulesetEncounter({
+      definition: of,
+      seed: 1,
+      combatants: [{ id: "jory", name: "Jory", side: "party", build: defaultRulesetSheetBuild(of), live: {} }],
+      heldGround: ground,
+    }).heldGround;
+  assert.deepEqual(fight(definition), ground);
+  assert.deepEqual(fight(base), { label: "The Held Autumn" });
+}
 refused({ creatures: [lurker] }, /"thorn-lurker" is taken already/);
 refused({ catalogs: { spells_of_the_wheel: [] } }, /not a catalog of this ruleset/);
 refused({ creatureTags: [{ id: "unreaped", label: "Unreaped" }] }, /creatureTags: the ruleset has none/);
@@ -188,6 +232,55 @@ const heldOverlay = (packageId: string) => {
 };
 assert.ok(heldOverlay("held-autumn"), "the first fits");
 assert.ok(!heldOverlay("far-shore"), "the second takes a file's entry and is left out whole");
+// One ruleset imported (`local/<id>`) or from a repository (`<owner>/<id>`) plays the overlay for its bare
+// id, and one for its exact id wins over that.
+const community = (id: string): RegisteredRuleset => {
+  const definition = { ...base, id };
+  return { definition, packageId: null, versions: new Map([[base.version, definition]]) };
+};
+const exactOverlay: ExperienceRulesetOverlay = {
+  ...overlay,
+  sheetConditions: [{ id: "owed_frost_exact", label: "Held by the Frost (exact)" }],
+  conditions: [{ condition: "owed_frost_exact", effects: ["own-attacks-disadvantage"] }],
+};
+const namespaced: RulesetRegistry = Object.assign(
+  new Map([
+    ["local/5e-2014", community("local/5e-2014")],
+    ["alice/5e-2014", community("alice/5e-2014")],
+    ["bob/5e-2014", community("bob/5e-2014")],
+  ]),
+  {
+    overlays: new Map([
+      ["held-autumn\n5e-2014", { overlay, sha256: "b".repeat(64) }],
+      ["held-autumn\nbob/5e-2014", { overlay: exactOverlay, sha256: "c".repeat(64) }],
+    ]),
+  },
+);
+const playedAs = (id: string) => {
+  const played = resolveGameRuleset(
+    {
+      gameRuleset: { id, version: base.version, packageId: null, options: {} },
+      gameMapPack: { packageId: "held-autumn" },
+    },
+    namespaced,
+  );
+  assert.equal(played.status, "ok", JSON.stringify(played));
+  return played.status === "ok" ? played.definition : base;
+};
+for (const id of ["local/5e-2014", "alice/5e-2014"]) {
+  const played = playedAs(id);
+  assert.equal(played.id, id);
+  assert.ok(
+    played.sheet.live.conditions.some((each) => each.id === "owed_frost_held"),
+    `${id} plays the bare overlay`,
+  );
+}
+const bob = playedAs("bob/5e-2014");
+assert.ok(
+  bob.sheet.live.conditions.some((each) => each.id === "owed_frost_exact"),
+  "the exact overlay wins",
+);
+assert.ok(!bob.sheet.live.conditions.some((each) => each.id === "owed_frost_held"));
 
 // ── The manifest names them ──
 const manifest = (rulesets: unknown, minor = 355) =>

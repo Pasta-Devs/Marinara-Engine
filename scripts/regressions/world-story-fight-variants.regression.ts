@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 
 import {
   WORLD_GENERATOR_VERSION,
+  applyStoryTags,
   WORLD_STARTER_KITS,
   checkStoryScript,
   checkWorldBrief,
@@ -128,10 +129,10 @@ assert.equal(
 assert.equal(
   checkStoryScript(game2, {
     ...input,
-    fights: [{ ...granary, variants: [{ party: 7, creatures: granary.creatures }] }],
+    fights: [{ ...granary, variants: [{ party: 33, creatures: granary.creatures }] }],
   }).ok,
   false,
-  "a party is six at most",
+  "a party is named up to 32 (1.360)",
 );
 
 // ── Which is fought ──
@@ -189,5 +190,30 @@ assert.match(
 );
 const soloRecap = turnOf([`${solo.prepend}They come.`], { fight: "victory" });
 assert.doesNotMatch(soloRecap.tells.join("\n"), /fight that just ended/, "the fight as written is not named again");
+
+// A fight the Game Master's own trip starts is in its reply: the next turn (its fight fought) does not
+// tell it as starting again, and its recap still names the variant.
+const byGm = checkStoryScript(game2, {
+  ...input,
+  events: [{ id: "go", when: { on: "gm" }, gm: true, do: [{ fight: "granary" }] }],
+});
+assert.ok(byGm.ok, JSON.stringify(byGm));
+const gmTurn = (replies: string[], fought: StoryTurnWorld["fight"]) =>
+  storyTurn(byGm.story, {
+    game: game2,
+    replies,
+    repliesBefore: replies.length,
+    latest: replies.at(-1) ?? null,
+    told: [],
+    day: 0,
+    fight: fought,
+    partySize: 5,
+  });
+const opened = gmTurn([], null);
+const gmReply = applyStoryTags('[story: event="go"] They come.', byGm.story, game2, opened.state, opened.tripped);
+assert.match(gmReply, /fight="granary"/);
+const afterGm = gmTurn([gmReply], "victory").tells.join("\n");
+assert.doesNotMatch(afterGm, /starts the fight/, "not told as starting again");
+assert.match(afterGm, /The fight that just ended was the story's "The Granary", as set for a party of 5/);
 
 console.log("world-story-fight-variants: ok");

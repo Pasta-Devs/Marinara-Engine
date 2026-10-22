@@ -505,6 +505,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
   const people = mapPack.people ? fileOf(mapPack.people) : null;
   const dungeons = (mapPack.dungeons ?? []).map((path) => ({ path, data: fileOf(path), sha256: "" }));
   let storyCosts = false;
+  let overlayTracks = false;
   const rulesets = (mapPack.rulesets ?? []).map((each) => ({
     ruleset: each.ruleset,
     path: each.overlay,
@@ -549,6 +550,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
   for (const each of rulesets) {
     const read = readExperienceRulesetOverlay(each.data!.toString("utf8"));
     if (read.ok && read.overlay.storyUses?.length) storyCosts = true;
+    if (read.ok && read.overlay.tracks?.length) overlayTracks = true;
   }
   if (rulesets.length) {
     const registry = await loadRulesetRegistry();
@@ -593,6 +595,7 @@ export async function checkMapPack(input: MapPackCheckInput): Promise<MapPackChe
     pack.people ? experiencePeopleMinor(pack.people) : 0,
     rulesets.length ? 355 : 0,
     storyCosts ? 359 : 0,
+    overlayTracks ? 367 : 0,
     pack.dungeons?.length || pack.worlds.some((world) => world.world.edits?.maps?.some((map) => map.words)) ? 357 : 0,
   );
   return { ok: true, minor, issues };
