@@ -568,7 +568,13 @@ function PhoneTurnStrip({
               <button
                 type="button"
                 onClick={() => onPick(combatant.id)}
-                aria-label={`${combatant.name}, ${t("game.combat.ruleset.screen.healthValue", { value: combatant.health.value, max: combatant.health.max })}`}
+                aria-label={t("game.combat.ruleset.screen.tokenLabel", {
+                  name: combatant.name,
+                  health: t("game.combat.ruleset.screen.healthValue", {
+                    value: combatant.health.value,
+                    max: combatant.health.max,
+                  }),
+                })}
                 className={cn(
                   "flex w-12 flex-col items-center gap-0.5 rounded-md py-0.5",
                   onTurn && "bg-[var(--foreground)]/[0.08]",

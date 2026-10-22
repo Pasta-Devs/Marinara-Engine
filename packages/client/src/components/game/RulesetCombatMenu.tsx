@@ -1152,7 +1152,7 @@ export function RulesetCombatMenu({
             {t("game.combat.ruleset.screen.letItGo")}
             {!touch && (
               <kbd className="rounded border border-[var(--border)] px-1 font-mono text-[0.6rem] text-[var(--muted-foreground)]">
-                Esc
+                {t("game.combat.ruleset.screen.escKey")}
               </kbd>
             )}
           </button>
