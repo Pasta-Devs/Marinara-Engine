@@ -118,4 +118,4 @@ ws://192.168.1.50:12345
 
 - [智能体：聊天里的 AI 帮手](../agents/agents-overview.md)
 - [可下载智能体参考](../agents/built-in-agents.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)

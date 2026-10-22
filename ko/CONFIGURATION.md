@@ -143,9 +143,13 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 
 이 중 하나가 바뀌면 로그에 재시작이 필요하다는 경고가 남습니다. `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS` 같은 접근 제어 설정과 비밀 값은 재시작이 필요 없습니다.
 
+<a id="access-control"></a>
+
 ## 접근 제어
 
-접근 제어는 실행 중인 서버에 누가 접근할 수 있는지를 정합니다. 이 절은 빠른 참고용입니다. 예제와 함께 단계별로 따라가려면 [원격 접근: Basic Auth와 IP 허용 목록](REMOTE_ACCESS.md)을 읽어 보세요.
+접근 제어는 실행 중인 서버에 누가 접근할 수 있는지를 정합니다. 이 절은 빠른 참고용입니다. 예제와 함께 단계별로 따라가려면 [원격 접근: 로그인과 IP 허용 목록](REMOTE_ACCESS.md)을 읽어 보세요.
+
+로그인은 `.env` 없이도 설정할 수 있습니다. **Settings**(설정) → **Advanced**(고급) → **Access**에서 이미 로그인된 브라우저로, 어느 기기에서든, 또는 서버 로그의 1회용 설정 코드로 설정하세요. 로그인을 바꾸거나 지우려면 Marinara가 현재 비밀번호를 묻습니다. 서버는 로그인이 없고 서버가 루프백 밖에서 요청을 받는 동안(예: `HOST=0.0.0.0` 또는 Docker)에만 그 코드를 로그에 출력합니다. 그 로그인은 `DATA_DIR/.remote-login.json`에 저장되며, `pnpm reset-login`이 이를 제거하고 모든 브라우저를 로그아웃합니다. `.env`의 로그인이 우선합니다. 로그인 프록시는 `TRUSTED_AUTH_PROXY`를 씁니다. [로그인 프록시(forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth)를 참고하세요.
 
 아래에서 쓰는 용어를 먼저 정리합니다.
 
@@ -168,9 +172,8 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 공개 인터넷을 포함한 모든 주소에서 비밀번호 없이 접근하도록 허용합니다. 권장하지 않습니다. |
 | `TRUSTED_PRIVATE_NETWORKS` | 내장 기본값 | 기본 사설 네트워크 범위를 대체합니다. 계속 쓰고 싶은 기본값은 직접 포함해야 합니다. |
 | `BYPASS_AUTH_TAILSCALE` | 자동 | 비워 두면 직접 연결된 Tailscale 소켓의 양 끝이 모두 tailnet 주소를 쓰고 요청에 전달 헤더가 없을 때만 신뢰합니다(Tailscale Serve와 Funnel은 로그인이 필요합니다). 예전처럼 `100.64.0.0/10` 전체를 우회하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
-| `BYPASS_AUTH_DOCKER` | 자동 | 비워 두면 감지된 컨테이너 인터페이스와 그 인터페이스의 정확한 게이트웨이만 신뢰하며, 그것도 Basic Auth나 `IP_ALLOWLIST`가 설정되지 않은 동안에만 신뢰합니다. 예전 구성이나 사용자 지정 네트워크와 호환하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
-| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 프록시가 중계하는 Docker 트래픽(전달 헤더, 다른 컴퓨터를 가리키는 Host 또는 HTTP/1.0)에도 일반 로그인과 허용 목록 검사를 적용합니다. 상위의 모든 클라이언트를 신뢰할 수 있을 때만 `false`로 두세요. |
-| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 같은 컴퓨터의 리버스 프록시나 터널이 전달한 요청을, nginx 기본 `proxy_pass` 같은 HTTP/1.0 요청까지 포함해 원격 방문자로 취급합니다. 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 `false`로 두세요. |
+| `BYPASS_AUTH_DOCKER` | 자동 | 비워 두면 감지된 컨테이너 인터페이스와 그 인터페이스의 정확한 게이트웨이만 신뢰하며, 그것도 로그인(`.env` 또는 앱), `IP_ALLOWLIST` 또는 유효한 `TRUSTED_AUTH_PROXY`가 설정되지 않은 동안에만 신뢰합니다. 예전 구성이나 사용자 지정 네트워크와 호환하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
+| `TRUSTED_AUTH_PROXY` | 비어 있음 | 모든 방문자를 로그인시키는 forward-auth 프록시(tinyauth, Authelia, Authentik, oauth2-proxy)의 IP나 CIDR 범위입니다. 이 주소에서 온 요청은 로그인과 `IP_ALLOWLIST`를 건너뜁니다. 전달 헤더는 인정하지 않습니다. 프록시가 모든 경로를 보호해야 하며, Marinara에 프록시를 우회해 닿을 수 없어야 합니다. [로그인 프록시](REMOTE_ACCESS.md#login-proxies-forward-auth)를 참고하세요. |
 | `TRUSTED_HOSTS` | 비어 있음 | Marinara가 응답해도 되는 공개 호스트명이나 리버스 프록시 호스트명을 추가합니다. 직접 IP, localhost, `.local`, `.home.arpa`, 점이 없는 LAN 이름은 자동으로 동작합니다. |
 | `SSL_CERT` | 비어 있음 | TLS 인증서 파일 경로. `SSL_KEY`와 함께 설정하면 HTTPS를 직접 제공합니다. |
 | `SSL_KEY` | 비어 있음 | TLS 개인 키 파일 경로. |
@@ -455,7 +458,7 @@ Giphy 키와 관련해 한 가지 유의할 점은, `GIPHY_API_KEY`를 설정하
 ## 관련 가이드
 
 - [기능 스위치](configuration/features.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](REMOTE_ACCESS.md)
 - [Marinara가 데이터를 저장하는 위치](data/where-data-is-stored.md)
 - [AI 제공자에 연결하기](connections/connecting-to-a-provider.md)
 - [장면 동영상](media/scene-video.md)

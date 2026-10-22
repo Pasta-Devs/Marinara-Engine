@@ -253,4 +253,4 @@ Professor Mari to asystentka, a nie pełna dokumentacja. Pamiętaj o tych ograni
 - [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md)
 - [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md)
 - [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)

@@ -101,7 +101,7 @@ Domyślnie Marinara przyjmuje komendy haptyczne tylko z tego komputera, na któr
 
 Z tego powodu haptyczna informacja zwrotna nie zadziała, gdy otworzysz aplikację Marinara Engine na telefonie lub innym urządzeniu. Dotyczy to sytuacji, w której takie urządzenie łączy się z serwerem Marinara Engine działającym gdzie indziej. Połączenie, skanowanie i komendy są wtedy odrzucane, dopóki nie zmienisz ustawień serwera.
 
-Aby zezwolić na sterowanie haptyczne z innego urządzenia, włącz ustawienie serwera o nazwie `HAPTICS_ALLOW_REMOTE`. Trzeba też skonfigurować ochronę dostępu, na przykład Basic Auth albo sekret administratora. Samo ustawienie opisuje [Konfiguracja serwera](../CONFIGURATION.md). Ochronę dostępu opisuje [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Dostęp administratora wpisuje się w panelu **Settings** (Ustawienia), w obszarze **Advanced**, w sekcji **Admin Access**.
+Aby zezwolić na sterowanie haptyczne z innego urządzenia, włącz ustawienie serwera o nazwie `HAPTICS_ALLOW_REMOTE`. Trzeba też skonfigurować ochronę dostępu, na przykład Basic Auth albo sekret administratora. Samo ustawienie opisuje [Konfiguracja serwera](../CONFIGURATION.md). Ochronę dostępu opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Dostęp administratora wpisuje się w panelu **Settings** (Ustawienia), w obszarze **Advanced**, w sekcji **Admin Access**.
 
 ## Kiedy coś nie działa
 
@@ -118,4 +118,4 @@ Kiedy nie ma połączenia z aplikacją **Intiface Central** albo nie jest podł�
 
 - [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md)
 - [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)

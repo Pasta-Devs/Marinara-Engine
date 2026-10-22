@@ -212,4 +212,4 @@ Marinara ведет внутренний список ресурсов, чтоб
 - [Music DJ: Spotify, YouTube и локальная музыка](../media/music.md)
 - [Поддерживаемые провайдеры ИИ](../connections/providers-reference.md)
 - [Game Mode: начало работы](getting-started.md)
-- [Удаленный доступ: Basic Auth и список разрешенных адресов](../REMOTE_ACCESS.md)
+- [Удаленный доступ: вход и список разрешенных адресов](../REMOTE_ACCESS.md)

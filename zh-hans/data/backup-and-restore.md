@@ -130,4 +130,4 @@ Marinara 提供两个保存入口。它们位置不同，用途也不同。
 - [清除或重置数据](clearing-data.md)
 - [升级 Marinara Engine](../UPGRADING.md)
 - [连接 AI 服务商](../connections/connecting-to-a-provider.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)

@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT` legt den Port der Adresse fest (standardmäßig 7860). Außerdem lässt das Startskript standardmäßig zu, dass andere Geräte im LAN den Server erreichen. LAN steht für Local Area Network, also das Netzwerk zu Hause oder im Büro. Marinara blockiert diese Geräte trotzdem, bis du ein Passwort oder eine andere Zugriffsoption einrichtest. Wie das geht, zeigt die Anleitung [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md).
+`PORT` legt den Port der Adresse fest (standardmäßig 7860). Außerdem lässt das Startskript standardmäßig zu, dass andere Geräte im LAN den Server erreichen. LAN steht für Local Area Network, also das Netzwerk zu Hause oder im Büro. Marinara blockiert diese Geräte trotzdem, bis du ein Passwort oder eine andere Zugriffsoption einrichtest. Wie das geht, zeigt die Anleitung [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
 
 ## Manuelle Einrichtung
 
@@ -244,5 +244,5 @@ Alle Update-Schritte – inklusive vorherigem Backup und Wechsel des Release-Kan
 
 - [Marinara Engine installieren](../INSTALLATION.md): die passende Installationsmethode für dein Gerät finden.
 - [Marinara Engine aktualisieren](../UPGRADING.md): vollständige Update- und Backup-Schritte für jede Plattform.
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md): ein Passwort einrichten, damit andere Geräte Marinara erreichen.
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md): ein Passwort einrichten, damit andere Geräte Marinara erreichen.
 - [Fehlerbehebung in Marinara Engine](../TROUBLESHOOTING.md): Lösungen für Probleme bei Installation und Start.

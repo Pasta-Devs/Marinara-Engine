@@ -11,7 +11,7 @@ Les scripts de démarrage (`start.sh`, `start.bat` et `start-termux.sh`) lient d
 Voici la marche à suivre :
 
 1. Laisse Marinara tourner sur l'ordinateur hôte.
-2. Sur l'ordinateur hôte, configure le contrôle d'accès : Basic Auth (un nom d'utilisateur et un mot de passe) ou une liste d'autorisation d'adresses IP (les adresses des appareils de confiance). [Accès à distance](REMOTE_ACCESS.md) détaille chaque option, y compris un contournement pour les réseaux privés entièrement fiables.
+2. Définis une connexion (un nom d'utilisateur et un mot de passe) : dans **Paramètres → Avancé → Accès**, dans un navigateur déjà connecté sur n'importe quel appareil (pour modifier ou supprimer la connexion, il faut le mot de passe actuel), ou sur l'autre appareil avec le code de configuration à usage unique du log du serveur (dans Docker : `docker logs <container> 2>&1 | grep "setup code"`). [Accès à distance](REMOTE_ACCESS.md#option-1-login-recommended) l'explique pas à pas.
 3. Trouve l'adresse IP locale de l'ordinateur hôte. Sous Windows, lance cette commande et lis la ligne **IPv4 Address** :
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 Remplace `192.168.1.42` par l'adresse IP de ton propre hôte.
 
-5. Connecte-toi si le navigateur demande le nom d'utilisateur et le mot de passe Basic Auth. Si une page **Access blocked** s'affiche à la place, termine d'abord l'étape 2 sur l'hôte.
+5. Connecte-toi avec ton nom d'utilisateur et ton mot de passe. Si une page **Access blocked** s'affiche à la place, aucune connexion n'est encore définie : saisis le code de configuration du log du serveur, ainsi qu'un nouveau nom d'utilisateur et un nouveau mot de passe. Pour ajouter d'autres appareils sans retaper le mot de passe, utilise **Add a device** (ajouter un appareil) dans **Paramètres → Avancé → Accès**.
 
-Dans une installation de bureau ordinaire, aucun mot de passe n'est nécessaire sur le même ordinateur (`127.0.0.1`). Un reverse proxy sur le même ordinateur, y compris nginx dans sa configuration par défaut, compte comme un visiteur distant et exige la connexion. Les installations Android gérées par l'APK ajoutent une connexion privée sur localhost pour empêcher une autre application Android de se faire passer pour Marinara, mais l'enveloppe Android crée et utilise automatiquement cet identifiant. Les autres appareils restent bloqués tant que le contrôle d'accès n'est pas configuré (Basic Auth ou liste d'autorisation d'adresses IP). Chaque option est expliquée dans [Accès à distance](REMOTE_ACCESS.md).
+Dans une installation de bureau ordinaire, aucun mot de passe n'est nécessaire sur le même ordinateur (`127.0.0.1`). Un reverse proxy sur le même ordinateur, y compris nginx dans sa configuration par défaut, compte comme un visiteur distant et exige la connexion. Les installations Android gérées par l'APK ajoutent une connexion privée sur localhost pour empêcher une autre application Android de se faire passer pour Marinara, mais l'enveloppe Android crée et utilise automatiquement cet identifiant. Les autres appareils restent bloqués tant que tu n'as pas défini de connexion. Chaque option est expliquée dans [Accès à distance](REMOTE_ACCESS.md).
 
 Si les deux appareils ne sont pas sur le même réseau, un outil comme Tailscale peut aider. Tailscale donne à chaque appareil une adresse privée stable. Tu peux ensuite te connecter depuis n'importe où, sans exposer Marinara à l'internet public. Si la connexion échoue, consulte [Résoudre les problèmes de Marinara Engine](TROUBLESHOOTING.md).
 

@@ -296,4 +296,4 @@ Sieht die App verkorkst aus, lohnt der Blick auf beides – auf das aktive Theme
 - [Anleitung zu Card-CSS-Themes](card-css-theming.md)
 - [Darstellungs-Einstellungen](appearance-settings.md)
 - [Server-Konfigurationsreferenz](../CONFIGURATION.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

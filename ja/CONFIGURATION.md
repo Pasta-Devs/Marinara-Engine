@@ -143,9 +143,13 @@ Marinaraは実行中も`.env`ファイルを監視しています。変更を保
 
 これらを変更すると、再起動が必要である旨の警告がログに出ます。`BASIC_AUTH_USER`、`BASIC_AUTH_PASS`、`IP_ALLOWLIST`、`ADMIN_SECRET`、`CSRF_TRUSTED_ORIGINS`のようなアクセス制御の設定や秘密の値には、再起動は必要ありません。
 
+<a id="access-control"></a>
+
 ## アクセス制御
 
-アクセス制御は、実行中のサーバーに誰が接続できるかを決めます。この節は簡易的なリファレンスです。例を使った手順の説明は[リモートアクセス: Basic AuthとIP許可リスト](REMOTE_ACCESS.md)を読んでください。
+アクセス制御は、実行中のサーバーに誰が接続できるかを決めます。この節は簡易的なリファレンスです。例を使った手順の説明は[リモートアクセス: ログインとIP許可リスト](REMOTE_ACCESS.md)を読んでください。
+
+ログインは`.env`を使わずに設定することもできます。すでにサインイン済みのブラウザーの**Settings → Advanced → Access**で(どのデバイスからでも)設定するか、サーバーのログに出る1回限りのセットアップコードを使います。ログインを変更または削除するときは、現在のパスワードを求められます。サーバーがこのコードをログに出力するのは、ログインが未設定で、サーバーがループバックの外でも待ち受けている(たとえば`HOST=0.0.0.0`やDocker)あいだだけです。このログインは`DATA_DIR/.remote-login.json`に保存されます。`pnpm reset-login`を実行すると、これを削除してすべてのブラウザーをサインアウトします。`.env`のログインはこれより優先されます。ログイン用プロキシには`TRUSTED_AUTH_PROXY`を使います。[ログイン用プロキシ(forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth)を参照してください。
 
 この後で使う用語を先に説明します。
 
@@ -168,9 +172,10 @@ Marinaraは実行中も`.env`ファイルを監視しています。変更を保
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | インターネットを含む任意のアドレスから、パスワードなしで接続できるようにします。推奨しません。 |
 | `TRUSTED_PRIVATE_NETWORKS` | 組み込みのデフォルト | デフォルトのプライベートネットワークの範囲を置き換えます。残したいデフォルトも書き足してください。 |
 | `BYPASS_AUTH_TAILSCALE` | 自動 | 空の場合、直接接続されたTailscaleソケットの両端がtailnetのアドレスで、かつリクエストに転送用のヘッダーがないときだけ信頼します(Tailscale ServeとFunnelにはログインが必要です)。以前と同様に`100.64.0.0/10`全体をバイパスするには`true`、通常のアクセス制御を必須にするには`false`を設定します。 |
-| `BYPASS_AUTH_DOCKER` | 自動 | 空の場合、検出されたコンテナーのインターフェイスとその正確なゲートウェイだけを、Basic Authも`IP_ALLOWLIST`も設定されていないあいだに限って信頼します。以前の構成や独自ネットワークとの互換性を保つには`true`、通常のアクセス制御を必須にするには`false`を設定します。 |
+| `BYPASS_AUTH_DOCKER` | 自動 | 空の場合、検出されたコンテナーのインターフェイスとその正確なゲートウェイだけを、ログイン(`.env`またはアプリ)、`IP_ALLOWLIST`、有効な`TRUSTED_AUTH_PROXY`のいずれも設定されていないあいだに限って信頼します。以前の構成や独自ネットワークとの互換性を保つには`true`、通常のアクセス制御を必須にするには`false`を設定します。 |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | プロキシが中継するDockerの通信(転送用のヘッダー、別のコンピューターを指すHost、またはHTTP/1.0)にも、通常のログインと許可リストの確認を求めます。上流のクライアントがすべて信頼できる場合だけ`false`にしてください。 |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 同じコンピューター上のリバースプロキシやトンネルが転送したリクエストを、nginxのデフォルトの`proxy_pass`のようなHTTP/1.0のリクエストも含め、リモートからの訪問者として扱います。プロキシ自体がすべての訪問者にログインを求めている場合だけ`false`にしてください。 |
+| `TRUSTED_AUTH_PROXY` | 空 | すべての訪問者をログインさせるforward authプロキシ(tinyauth、Authelia、Authentik、oauth2-proxy)のIPアドレスまたはCIDR範囲。これらのアドレスからのリクエストは、ログインと`IP_ALLOWLIST`を通らずに入れます。転送用のヘッダーは判断に使いません。プロキシはすべてのパスを保護する必要があり、Marinaraにはプロキシを迂回して到達できてはいけません。[ログイン用プロキシ](REMOTE_ACCESS.md#login-proxies-forward-auth)を参照してください。 |
 | `TRUSTED_HOSTS` | 空 | Marinaraが応答してよい公開ホスト名やリバースプロキシのホスト名を追加します。IPアドレスの直接指定、localhost、`.local`、`.home.arpa`、ラベルが1つだけのLAN名は自動的に扱われます。 |
 | `SSL_CERT` | 空 | TLS証明書ファイルのパス。`SSL_KEY`と合わせて設定すると、HTTPSを直接提供します。 |
 | `SSL_KEY` | 空 | TLSの秘密鍵ファイルのパス。 |
@@ -455,7 +460,7 @@ Giphyのキーについては、`GIPHY_API_KEY`を設定して再起動するま
 ## 関連ガイド
 
 - [機能スイッチ](configuration/features.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](REMOTE_ACCESS.md)
 - [Marinaraがデータを保存する場所](data/where-data-is-stored.md)
 - [AIプロバイダーへの接続](connections/connecting-to-a-provider.md)
 - [シーン動画](media/scene-video.md)

@@ -253,4 +253,4 @@ Professor Mari est une assistante, pas la documentation complète. Garde ces lim
 - [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md)
 - [Créer et modifier des personnages](../characters/creating-and-editing-characters.md)
 - [Référence des agents à télécharger](../agents/built-in-agents.md)
-- [Accès distant : authentification de base et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)

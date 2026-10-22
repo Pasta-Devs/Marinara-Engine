@@ -80,7 +80,7 @@ Beim ersten Start legt Marinara außerdem eine leere Einstellungsdatei unter `/a
 
 Standardmäßig erlaubt Compose den Zugriff auf Marinara nur vom selben Rechner aus. Das ist die sichere Grundeinstellung. Willst du Marinara auf dem Handy oder einem anderen Rechner im Netzwerk öffnen, sind zwei Dinge nötig: die Port-Zuordnung ändern und eine Anmeldung aktivieren, damit Fremde nicht herankommen.
 
-Basic Auth ist eine einfache Abfrage von Benutzername und Passwort, die die App schützt. Gib Marinara niemals ohne diesen Schutz ins Netzwerk frei.
+Andere Geräte brauchen eine Anmeldung, bevor sie Marinara nutzen können. Gib Marinara niemals ohne sie ins Netzwerk frei.
 
 1. Öffne `docker-compose.yml` in einem Texteditor.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. Ergänze in derselben Datei eine Anmeldung und ein Admin-Geheimnis in der Liste `environment:`. Trag eigene Werte ein:
+4. Ergänze in derselben Datei ein Admin-Geheimnis in der Liste `environment:`. Trag deinen eigenen Wert ein:
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-Andere Geräte im Netzwerk erreichen Marinara nun unter `http://YOUR_COMPUTER_IP:7860`, sofern `PORT` nicht gesetzt ist. Hast du `PORT` gesetzt, ersetze `7860` durch diesen Host-Port. Benutzername und Passwort müssen die Geräte dabei eingeben.
+Andere Geräte im Netzwerk erreichen Marinara nun unter `http://YOUR_COMPUTER_IP:7860`, sofern `PORT` nicht gesetzt ist. Hast du `PORT` gesetzt, ersetze `7860` durch diesen Host-Port. Sie sehen eine Seite, die nach einer Anmeldung fragt. Zum Einrichten findest du den einmaligen Einrichtungscode mit `docker logs <container> 2>&1 | grep "setup code"`. Gib den Code auf dieser Seite mit einem neuen Benutzernamen und Passwort ein. Später kannst du die Anmeldung in einem angemeldeten Browser unter **Settings → Advanced → Access** ändern. Wenn du das Passwort vergisst, führe `docker exec <container> node scripts/reset-login.mjs` aus. Das ändert keine Anmeldung aus `BASIC_AUTH_USER` und `BASIC_AUTH_PASS`; bearbeite diese in der Compose-Datei und erstelle den Container neu. Du kannst eine Anmeldung auch in der Compose-Datei mit `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` in der Liste `environment:` festlegen.
 
-Unter Docker Desktop, OrbStack und rootless Docker erreicht jedes Gerät den Container über dieselbe Adresse, auch dein eigener Browser. Sobald die Anmeldung gesetzt ist, fragt also auch dieser Computer danach, und eine IP-Allowlist kann die Geräte nicht unterscheiden. Entferne `127.0.0.1:` nie ohne Anmeldung: Unter diesen Laufzeitumgebungen kann Marinara andere Geräte nicht von diesem Computer unterscheiden. Wie du den Zugriff auf bestimmte Geräte beschränkst und was das Admin-Geheimnis bewirkt, steht unter [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md).
+Unter Docker Desktop, OrbStack und rootless Docker erreicht jedes Gerät den Container über dieselbe Adresse, auch dein eigener Browser. Sobald die Anmeldung gesetzt ist, fragt also auch dieser Computer danach, und eine IP-Allowlist kann die Geräte nicht unterscheiden. Richte die Anmeldung ein, bevor du `127.0.0.1:` entfernst. Öffne Marinara unter diesen Laufzeitumgebungen auf diesem Computer unter `http://localhost:7860` und nutze **Settings**, oder setze `BASIC_AUTH_USER` und `BASIC_AUTH_PASS` in der Compose-Datei. Entferne `127.0.0.1:` nie ohne Anmeldung: Unter diesen Laufzeitumgebungen kann Marinara andere Geräte nicht von diesem Computer unterscheiden. Wie du den Zugriff auf bestimmte Geräte beschränkst und was das Admin-Geheimnis bewirkt, steht unter [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
 
 ## Das passende Image: latest, staging oder lite
 
@@ -245,5 +243,5 @@ Weitere Hilfe findest du unter [Fehlerbehebung für Marinara Engine](../TROUBLES
 ## Verwandte Anleitungen
 
 - [Referenz der Server-Konfiguration](../CONFIGURATION.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)
 - [Fehlerbehebung für Marinara Engine](../TROUBLESHOOTING.md)

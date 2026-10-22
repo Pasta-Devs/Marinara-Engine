@@ -165,9 +165,10 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 让服务器监听一个能被访问到的地址。默认情况下服务器只监听 `127.0.0.1`(环回地址，仅限本机)。shell 启动脚本会自动设置 `HOST=0.0.0.0`。如果是手动用 `pnpm start` 启动的，先在 `.env` 文件里设置 `HOST=0.0.0.0`。
 - 确认两台设备连的是同一个 Wi-Fi 网络。
 - 确认没有防火墙拦端口。默认端口是 `7860`，或者你在 `PORT` 里设置的值。
-- 配好访问控制。面向普通网络或公网的客户端，在 `.env` 里设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。环回访问仍然免密码，但同一台机器上的反向代理或隧道转发过来的访客需要登录。直连的 Tailscale 流量默认受信任，而 Tailscale Serve/Funnel 和 nginx 默认的 HTTP/1.0 `proxy_pass` 都算作被转发，需要登录。同主机的 Docker 网桥或网关流量只在你设置 Basic Auth 或 `IP_ALLOWLIST` 之前受信任；经代理转发的 Docker 流量则需要正常授权，除非显式设置 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`。
-- 如果你在本机通过一个在 `/etc/hosts` 中映射到 `127.0.0.1` 的自定义名称打开 Marinara，Marinara 会把这次访问视为被转发的访问。请改用 `localhost`、`127.0.0.1`、本机的主机名，或类似 `marinara.localhost` 的 `*.localhost` 名称。只有当代理本身要求每位访客登录时，才设置 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`。
-- 如果设备上显示 **Too many wrong passwords**，等 15 分钟，再用正确的 Basic Auth 密码登录。重启服务器也能让它重新尝试。
+- 设置登录。在被拦住的设备上，输入服务器日志里的一次性设置码（Docker 里运行 `docker logs <container> 2>&1 | grep "setup code"`），并设一个新的用户名和密码。也可以在已登录的浏览器里，到 **Settings** → **Advanced** → **Access** 设置登录。无头服务器上，运行 `ssh -L 7860:127.0.0.1:7860 user@server`，然后打开 `http://localhost:7860` 并使用 **Settings**。见[远程访问](REMOTE_ACCESS.md#option-1-login-recommended)。
+- 环回访问仍然免密码，但同一台机器上的反向代理或隧道转发过来的访客需要登录。直连的 Tailscale 流量默认受信任，而 Tailscale Serve/Funnel 和 nginx 默认的 HTTP/1.0 `proxy_pass` 都算作被转发，需要登录。同主机的 Docker 网桥或网关流量，只在没有设置登录（应用内登录或 Basic Auth）、`IP_ALLOWLIST` 或 `TRUSTED_AUTH_PROXY` 时才受信任；经代理转发的 Docker 流量需要正常授权。
+- 如果你在本机通过一个在 `/etc/hosts` 中映射到 `127.0.0.1` 的自定义名称打开 Marinara，Marinara 会把这次访问视为被转发的访问。请改用 `localhost`、`127.0.0.1`、本机的主机名，或类似 `marinara.localhost` 的 `*.localhost` 名称。
+- 如果设备上显示 **Too many wrong passwords**，等 15 分钟，再用正确的密码登录。忘了密码？在运行 Marinara 的电脑上运行 `pnpm reset-login`（Docker 里运行 `docker exec <container> node scripts/reset-login.mjs`）。重启服务器也能让它重新尝试。
 - 要在那台设备上执行特权操作（备份、清除数据、更新），在服务器的 `.env` 里设置 `ADMIN_SECRET`。然后把同一个值粘贴到那台设备的 **Settings** > **Advanced** > **Admin Access**(管理员访问) 里，点击 **Save**(保存)。
 - 如果用的是公网域名或反向代理域名，并且看到 **Untrusted request host**，把它准确的主机名加进 `.env` 的 `TRUSTED_HOSTS`。手机、局域网电脑和 Tailscale 节点使用的直连 IP 地址仍然会自动放行。
 

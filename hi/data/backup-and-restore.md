@@ -130,4 +130,4 @@ Personal Extension का कोड नेटिव प्रोफ़ाइल 
 - [अपना डेटा मिटाना या रीसेट करना](clearing-data.md)
 - [Marinara Engine को अपडेट करना](../UPGRADING.md)
 - [किसी AI प्रोवाइडर से कनेक्ट करना](../connections/connecting-to-a-provider.md)
-- [रिमोट एक्सेस: Basic Auth और IP अलाउलिस्ट](../REMOTE_ACCESS.md)
+- [रिमोट एक्सेस: लॉगिन और IP अलाउलिस्ट](../REMOTE_ACCESS.md)

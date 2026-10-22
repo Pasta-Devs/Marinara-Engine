@@ -11,7 +11,7 @@ Los scripts de inicio (`start.sh`, `start.bat` y `start-termux.sh`) ya enlazan e
 Sigue estos pasos:
 
 1. Mantén Marinara en ejecución en la computadora anfitriona.
-2. En la computadora anfitriona, configura el control de acceso: Basic Auth (un nombre de usuario y una contraseña) o una lista de IP permitidas (una lista de direcciones de dispositivos de confianza). [Acceso remoto](REMOTE_ACCESS.md) explica cada opción, incluida una excepción para redes privadas de total confianza.
+2. Configura un inicio de sesión (un nombre de usuario y una contraseña): en **Settings** → **Advanced** → **Access**, en un navegador que ya haya iniciado sesión en cualquier dispositivo (para cambiar o quitar el inicio de sesión, necesitas la contraseña actual), o en el otro dispositivo con el código de configuración de un solo uso del registro del servidor (en Docker: `docker logs <container> 2>&1 | grep "setup code"`). [Acceso remoto](REMOTE_ACCESS.md#option-1-login-recommended) lo explica paso a paso.
 3. Encuentra la dirección IP local de la computadora anfitriona. En Windows, ejecuta este comando y lee la **IPv4 Address** (Dirección IPv4):
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 Reemplaza `192.168.1.42` por la dirección IP de tu propio anfitrión.
 
-5. Inicia sesión si el navegador pide el nombre de usuario y la contraseña de Basic Auth. Si en su lugar ves una página **Access blocked**, primero completa el paso 2 en el anfitrión.
+5. Inicia sesión con tu nombre de usuario y tu contraseña. Si en su lugar ves una página **Access blocked**, todavía no hay inicio de sesión: escribe allí el código de configuración del registro del servidor y un nombre de usuario y una contraseña nuevos. Para añadir más dispositivos sin escribir la contraseña, usa **Add a device** en **Settings** → **Advanced** → **Access**.
 
-En las instalaciones normales de escritorio, no necesitas contraseña en la misma computadora (`127.0.0.1`). Un proxy inverso en la misma computadora, incluido nginx, cuenta como visitante remoto y necesita iniciar sesión. Las instalaciones de Android gestionadas por el APK añaden un inicio de sesión privado para localhost, de modo que otra app de Android no pueda hacerse pasar por Marinara, pero la envoltura de Android crea y usa esa credencial automáticamente. Otros dispositivos quedan bloqueados hasta que configures el control de acceso (Basic Auth o una lista de IP permitidas). Cada opción se explica en [Acceso remoto](REMOTE_ACCESS.md).
+En las instalaciones normales de escritorio, no necesitas contraseña en la misma computadora (`127.0.0.1`). Un proxy inverso en la misma computadora, incluido nginx, cuenta como visitante remoto y necesita iniciar sesión. Las instalaciones de Android gestionadas por el APK añaden un inicio de sesión privado para localhost, de modo que otra app de Android no pueda hacerse pasar por Marinara, pero la envoltura de Android crea y usa esa credencial automáticamente. Otros dispositivos quedan bloqueados hasta que configures un inicio de sesión. Cada opción se explica en [Acceso remoto](REMOTE_ACCESS.md).
 
 Si los dos dispositivos no están en la misma red, una herramienta como Tailscale puede ayudar. Tailscale le da a cada dispositivo una dirección privada estable. Luego puedes conectarte desde cualquier lugar sin exponer Marinara a la internet pública. Si no puedes conectarte, consulta [Solución de problemas](TROUBLESHOOTING.md).
 

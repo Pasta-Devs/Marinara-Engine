@@ -145,7 +145,9 @@ Cuando uno de estos cambia, el registro advierte que se requiere un reinicio. Lo
 
 ## Control de acceso
 
-El control de acceso decide quién tiene permiso para llegar a un servidor en ejecución. Esta sección es una referencia rápida. Para un recorrido paso a paso con ejemplos, lee [Acceso remoto: Basic Auth y lista de IP permitidas](REMOTE_ACCESS.md).
+El control de acceso decide quién tiene permiso para llegar a un servidor en ejecución. Esta sección es una referencia rápida. Para un recorrido paso a paso con ejemplos, lee [Acceso remoto: inicio de sesión y lista de IP permitidas](REMOTE_ACCESS.md).
+
+El inicio de sesión también se puede configurar sin `.env`: en **Settings** → **Advanced** → **Access**, en un navegador que ya haya iniciado sesión, en el propio equipo o con el código de configuración de un solo uso del registro del servidor. Para cambiar o quitar el inicio de sesión, Marinara pide la contraseña actual. El servidor imprime ese código en su registro solo mientras no hay inicio de sesión y el servidor escucha más allá de loopback (por ejemplo `HOST=0.0.0.0` o Docker). Ese inicio de sesión se guarda en `DATA_DIR/.remote-login.json`; `pnpm reset-login` lo elimina y cierra la sesión en todos los navegadores. Un inicio de sesión en `.env` prevalece sobre él. Los proxies de inicio de sesión usan `TRUSTED_AUTH_PROXY`; consulta [Proxies de inicio de sesión (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Algunos términos usados abajo:
 
@@ -168,9 +170,10 @@ Los principales ajustes de control de acceso son:
 | `ALLOW_UNAUTHENTICATED_REMOTE`          | `false`           | Permite el acceso sin contraseña desde cualquier dirección, incluida la internet pública. No recomendado.                                                              |
 | `TRUSTED_PRIVATE_NETWORKS`              | valores predeterminados integrados | Reemplaza los rangos de red privada predeterminados. Incluye cualquier valor predeterminado que aún quieras.                                                                         |
 | `BYPASS_AUTH_TAILSCALE`                 | automático        | Vacío confía en sockets directos de Tailscale solo cuando ambos extremos usan direcciones de tailnet y la solicitud no lleva encabezados de reenvío (Tailscale Serve y Funnel necesitan iniciar sesión). Ponlo en `true` para el bypass heredado de todo `100.64.0.0/10` o en `false` para exigir el control de acceso normal. |
-| `BYPASS_AUTH_DOCKER`                    | automático        | Vacío confía solo en una interfaz de contenedor detectada y su puerta de enlace exacta, y solo mientras no haya Basic Auth ni `IP_ALLOWLIST` configurados. Ponlo en `true` por compatibilidad con redes heredadas o personalizadas, o en `false` para exigir el control de acceso normal. |
+| `BYPASS_AUTH_DOCKER` | automático | Vacío confía solo en una interfaz de contenedor detectada y su puerta de enlace exacta, y solo mientras no haya inicio de sesión (`.env` o app), `IP_ALLOWLIST` ni `TRUSTED_AUTH_PROXY` válido configurados. Ponlo en `true` por compatibilidad con redes heredadas o personalizadas, o en `false` para exigir el control de acceso normal. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY`         | `true`            | Exige las comprobaciones normales de inicio de sesión y lista de permitidos para el tráfico de Docker reenviado por un proxy (encabezados de reenvío, un Host que nombra a otro equipo, o HTTP/1.0). Ponlo en `false` solo cuando el propio proxy exija un inicio de sesión a cada visitante. |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY`       | `true`            | Trata como visitantes remotos las solicitudes que reenvía un proxy inverso o un túnel en la misma máquina, incluidas las solicitudes HTTP/1.0 como el `proxy_pass` predeterminado de nginx. Ponlo en `false` solo cuando el propio proxy exija un inicio de sesión a cada visitante. |
+| `TRUSTED_AUTH_PROXY` | vacío | IPs o CIDRs de un proxy de forward auth (tinyauth, Authelia, Authentik, oauth2-proxy) que hace iniciar sesión a cada visitante. Las solicitudes desde estas direcciones se saltan el inicio de sesión y `IP_ALLOWLIST`; los encabezados de reenvío nunca cuentan. El proxy debe proteger cada ruta y Marinara no debe ser accesible sin pasar por él. Consulta [Proxies de inicio de sesión (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth). |
 | `TRUSTED_HOSTS`                         | vacío             | Nombres de host públicos o de proxy inverso adicionales a los que Marinara puede responder. La IP directa, localhost, `.local`, `.home.arpa` y los nombres de LAN de una sola etiqueta funcionan automáticamente. |
 | `SSL_CERT`                              | vacío             | Ruta a un archivo de certificado TLS. Configúralo con `SSL_KEY` para servir HTTPS directamente.                                                                               |
 | `SSL_KEY`                               | vacío             | Ruta al archivo de clave privada TLS.                                                                                                                         |
@@ -455,7 +458,7 @@ Algunas redes solo llegan a internet a través de un proxy HTTP, por ejemplo v2r
 ## Guías relacionadas
 
 - [Interruptores de funciones](configuration/features.md)
-- [Acceso remoto: Basic Auth y lista de IP permitidas](REMOTE_ACCESS.md)
+- [Acceso remoto: inicio de sesión y lista de IP permitidas](REMOTE_ACCESS.md)
 - [Dónde se guardan tus datos](data/where-data-is-stored.md)
 - [Conectarse a un proveedor de IA](connections/connecting-to-a-provider.md)
 - [Video de escena](media/scene-video.md)

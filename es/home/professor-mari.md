@@ -253,4 +253,4 @@ Professor Mari es un ayudante, no la documentación completa. Ten presentes esto
 - [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md)
 - [Crear y editar personajes](../characters/creating-and-editing-characters.md)
 - [Referencia de agentes descargables](../agents/built-in-agents.md)
-- [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md)
+- [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md)

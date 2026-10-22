@@ -100,7 +100,7 @@ Ouvre l'éditeur de **Music DJ** et repère le champ **Custom Music Library**. I
 
 La configuration du chat en Roleplay et en Game affiche la même source sélectionnée. Si tu as choisi un dossier sur l'appareil serveur, les réglages Music DJ du chat affichent ce chemin enregistré et un bouton **Choose Folder**, au lieu de demander un chemin Game Assets.
 
-La lecture depuis un dossier hors Game Assets exige un accès local au serveur. Si tu utilises Marinara depuis un autre appareil sans mot de passe ni secret administrateur, cette fonction précise peut être bloquée. Voir [Accès distant : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+La lecture depuis un dossier hors Game Assets exige un accès local au serveur. Si tu utilises Marinara depuis un autre appareil sans mot de passe ni secret administrateur, cette fonction précise peut être bloquée. Voir [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 
 ## Utiliser le lecteur de musique
 
@@ -170,7 +170,7 @@ Si Spotify n'est pas connecté ou n'a pas l'autorisation de lecture, une command
 - Spotify ne joue rien. Le pilotage de la lecture exige Spotify Premium et un appareil Spotify actif. Ouvre l'application de bureau sur un appareil, ou clique sur **Enable Marinara player** sur ordinateur.
 - La fenêtre de connexion Spotify échoue sur une autre machine. Utilise le champ de collage "Browser couldn't reach the callback?", ou définis `SPOTIFY_REDIRECT_URI` sur le serveur.
 - La recherche YouTube échoue. Vérifie que le service **YouTube Data API v3** est activé pour ton projet et que la clé n'est pas restreinte par référent HTTP. Si tu atteins le quota quotidien, réessaie le lendemain ou utilise une autre clé.
-- La musique Custom refuse de se lancer depuis un dossier de l'appareil en accès distant. Ce dossier exige un accès local au serveur. Voir [Accès distant : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+- La musique Custom refuse de se lancer depuis un dossier de l'appareil en accès distant. Ce dossier exige un accès local au serveur. Voir [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 - La commande de morceau d'un personnage ne fait rien en mode Conversation. Connecte Spotify ou enregistre une clé YouTube, et vérifie que les interrupteurs **Commands** et **Music** sont activés.
 
 ## Guides associés

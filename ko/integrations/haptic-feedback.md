@@ -101,7 +101,7 @@ ws://192.168.1.50:12345
 
 그래서 휴대폰이나 다른 기기에서 Marinara를 열면 햅틱 피드백이 작동하지 않습니다. 그 기기가 다른 곳에서 실행 중인 Marinara 서버에 접속하는 경우가 여기에 해당합니다. 서버 설정을 바꾸지 않는 한 연결, 검색, 명령 전송이 모두 거부됩니다.
 
-다른 기기에서 햅틱을 제어하려면 `HAPTICS_ALLOW_REMOTE`라는 서버 설정을 켜세요. 그리고 Basic Auth나 관리자 시크릿 같은 접근 보호도 함께 설정해야 합니다. 설정 항목은 [서버 설정 참고 문서](../CONFIGURATION.md)를, 접근 보호는 [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요. 관리자 접근 정보는 **Settings**(설정)의 **Advanced**(고급) 영역에 있는 **Admin Access**(관리자 접근) 항목에서 입력합니다.
+다른 기기에서 햅틱을 제어하려면 `HAPTICS_ALLOW_REMOTE`라는 서버 설정을 켜세요. 그리고 Basic Auth나 관리자 시크릿 같은 접근 보호도 함께 설정해야 합니다. 설정 항목은 [서버 설정 참고 문서](../CONFIGURATION.md)를, 접근 보호는 [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요. 관리자 접근 정보는 **Settings**(설정)의 **Advanced**(고급) 영역에 있는 **Admin Access**(관리자 접근) 항목에서 입력합니다.
 
 ## 잘 작동하지 않을 때
 
@@ -118,4 +118,4 @@ AI가 기기를 전혀 작동시키지 못한다면 다음을 순서대로 확�
 
 - [에이전트: 채팅을 도와주는 AI](../agents/agents-overview.md)
 - [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)

@@ -293,4 +293,4 @@ Jeśli aplikacja wygląda źle, warto sprawdzić zarówno aktywny motyw, jak i C
 - [Przewodnik po stylowaniu kart w CSS](card-css-theming.md)
 - [Ustawienia wyglądu](appearance-settings.md)
 - [Konfiguracja serwera](../CONFIGURATION.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)

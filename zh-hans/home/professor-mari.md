@@ -253,4 +253,4 @@ Professor Mari 是帮手，代替不了完整文档。这些限制要记住：
 - [连接 AI 服务商](../connections/connecting-to-a-provider.md)
 - [创建和编辑角色](../characters/creating-and-editing-characters.md)
 - [可下载智能体参考](../agents/built-in-agents.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)

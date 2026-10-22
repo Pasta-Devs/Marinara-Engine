@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-A variável `PORT` define a porta do endereço (7860 por padrão). Por padrão, o script também deixa que outros dispositivos da sua LAN alcancem o servidor. LAN quer dizer rede local, a rede da sua casa ou do escritório. Ainda assim, Marinara bloqueia esses dispositivos até você configurar uma senha ou outra forma de acesso. O guia [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md) mostra como fazer isso.
+A variável `PORT` define a porta do endereço (7860 por padrão). Por padrão, o script também deixa que outros dispositivos da sua LAN alcancem o servidor. LAN quer dizer rede local, a rede da sua casa ou do escritório. Ainda assim, Marinara bloqueia esses dispositivos até você configurar uma senha ou outra forma de acesso. O guia [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md) mostra como fazer isso.
 
 ## Instalação manual
 
@@ -244,5 +244,5 @@ Para conhecer todas as etapas da atualização, incluindo como fazer backup ante
 
 - [Instalação do Marinara Engine](../INSTALLATION.md): escolha o método de instalação certo para o seu dispositivo.
 - [Atualizando Marinara Engine](../UPGRADING.md): as etapas completas de atualização e backup em todas as plataformas.
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md): configure uma senha para que outros dispositivos alcancem Marinara.
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md): configure uma senha para que outros dispositivos alcancem Marinara.
 - [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md): correções para problemas de instalação e de inicialização.

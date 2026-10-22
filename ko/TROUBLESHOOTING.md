@@ -165,9 +165,10 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 - 접근할 수 있는 주소로 서버를 바인딩하세요. 서버는 기본적으로 `127.0.0.1`(루프백, 즉 자기 컴퓨터에서만 접근 가능)에서 요청을 기다립니다. 셸 런처는 `HOST=0.0.0.0`을 알아서 설정해 줍니다. `pnpm start`로 직접 실행했다면 `.env` 파일에 `HOST=0.0.0.0`을 먼저 설정하세요.
 - 두 기기가 같은 Wi-Fi 네트워크에 있는지 확인하세요.
 - 방화벽이 포트를 막고 있지 않은지 확인하세요. 기본 포트는 `7860`이며, `PORT`로 지정한 값이 있으면 그 포트입니다.
-- 접근 제어를 설정하세요. 일반 네트워크나 공개 클라이언트에서 접근할 때는 `.env`에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 루프백은 비밀번호 없이 그대로 쓸 수 있지만, 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 로그인해야 합니다. Tailscale을 통한 직접 통신은 기본적으로 신뢰하지만, Tailscale Serve/Funnel과 nginx 기본 HTTP/1.0 `proxy_pass`는 중계된 통신으로 간주되어 로그인이 필요합니다. 같은 호스트의 Docker 브리지나 게이트웨이 트래픽은 Basic Auth나 `IP_ALLOWLIST`를 설정하기 전까지만 신뢰합니다. 프록시를 거친 Docker 트래픽은 `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`를 직접 설정하지 않는 한 일반적인 인증이 필요합니다.
-- 이 컴퓨터에서 `/etc/hosts`에 `127.0.0.1`로 연결된 사용자 지정 이름으로 Marinara를 열면, Marinara는 이 방문을 전달된 접속으로 간주합니다. 대신 `localhost`, `127.0.0.1`, 컴퓨터의 호스트 이름 또는 `marinara.localhost` 같은 `*.localhost` 이름을 사용하세요. 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false`를 설정하세요.
-- 기기에 **Too many wrong passwords**가 표시되면 15분 기다린 다음 올바른 Basic Auth 비밀번호로 로그인하세요. 서버를 재시작해도 다시 시도할 수 있습니다.
+- 로그인을 설정하세요. 막힌 기기에서 서버 로그의 1회용 설정 코드(Docker에서는 `docker logs <container> 2>&1 | grep "setup code"`)와 새 사용자 이름, 비밀번호를 입력하세요. 또는 이미 로그인된 브라우저의 **Settings** → **Advanced** → **Access**에서 로그인을 설정하세요. 헤드리스 서버에서는 `ssh -L 7860:127.0.0.1:7860 user@server`를 실행한 다음 `http://localhost:7860`을 열고 **Settings**를 쓰세요. [원격 접근](REMOTE_ACCESS.md#option-1-login-recommended)을 참고하세요.
+- 루프백은 비밀번호 없이 그대로 쓸 수 있지만, 같은 컴퓨터의 리버스 프록시나 터널이 전달한 방문자는 로그인해야 합니다. Tailscale을 통한 직접 통신은 기본적으로 신뢰하지만, Tailscale Serve/Funnel과 nginx 기본 HTTP/1.0 `proxy_pass`는 중계된 통신으로 간주되어 로그인이 필요합니다. 같은 호스트의 Docker 브리지나 게이트웨이 트래픽은 로그인(앱 로그인 또는 Basic Auth), `IP_ALLOWLIST` 또는 `TRUSTED_AUTH_PROXY`를 설정하기 전까지만 신뢰합니다. 프록시를 거친 Docker 트래픽은 일반적인 인증이 필요합니다.
+- 이 컴퓨터에서 `/etc/hosts`에 `127.0.0.1`로 연결된 사용자 지정 이름으로 Marinara를 열면, Marinara는 이 방문을 전달된 접속으로 간주합니다. 대신 `localhost`, `127.0.0.1`, 컴퓨터의 호스트 이름 또는 `marinara.localhost` 같은 `*.localhost` 이름을 사용하세요.
+- 기기에 **Too many wrong passwords**가 표시되면 15분 기다린 다음 올바른 비밀번호로 로그인하세요. 비밀번호를 잊었나요? Marinara를 실행하는 컴퓨터에서 `pnpm reset-login`을 실행하세요(Docker에서는 `docker exec <container> node scripts/reset-login.mjs`). 서버를 재시작해도 다시 시도할 수 있습니다.
 - 그 기기에서 백업, 데이터 삭제, 업데이트처럼 권한이 필요한 작업을 하려면 서버 `.env`에 `ADMIN_SECRET`을 설정하세요. 그런 다음 같은 값을 그 기기의 **Settings** > **Advanced** > **Admin Access**(관리자 접근)에 붙여넣고 **Save**(저장)를 클릭하세요.
 - 공개 도메인이나 리버스 프록시 도메인을 쓰는데 **Untrusted request host**가 나타나면 `.env`의 `TRUSTED_HOSTS`에 정확한 호스트 이름을 추가하세요. 휴대폰, LAN 컴퓨터, Tailscale 피어가 쓰는 직접 IP 주소는 자동으로 계속 허용됩니다.
 

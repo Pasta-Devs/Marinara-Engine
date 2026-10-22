@@ -80,7 +80,7 @@ Przy pierwszym starcie Marinara Engine tworzy też pusty plik ustawień `/app/da
 
 Domyślnie Compose wpuszcza do aplikacji Marinara Engine tylko z tego samego komputera. To bezpieczne ustawienie domyślne. Aby otworzyć aplikację na telefonie albo na innym komputerze w sieci, trzeba zrobić dwie rzeczy. Zmienić mapowanie portów i włączyć logowanie, żeby nikt obcy się nie dostał.
 
-Basic Auth to proste okienko z nazwą użytkownika i hasłem, które chroni aplikację. Nigdy nie udostępniaj aplikacji Marinara Engine w sieci bez tego zabezpieczenia.
+Inne urządzenia potrzebują logowania, zanim będą mogły używać aplikacji Marinara Engine. Nigdy nie udostępniaj aplikacji Marinara Engine w sieci bez logowania.
 
 1. Otwórz plik `docker-compose.yml` w edytorze tekstu.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. W tym samym pliku dopisz do listy `environment:` dane logowania i sekret administratora. Wpisz własne wartości:
+4. W tym samym pliku dopisz do listy `environment:` sekret administratora. Wpisz własną wartość:
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-Od tej pory inne urządzenia w sieci docierają do aplikacji Marinara Engine pod adresem `http://YOUR_COMPUTER_IP:7860`, o ile zmienna `PORT` nie jest ustawiona. Jeśli ustawisz `PORT`, wstaw ten port zamiast `7860`. Każde urządzenie musi podać ustawioną nazwę użytkownika i hasło.
+Od tej pory inne urządzenia w sieci docierają do aplikacji Marinara Engine pod adresem `http://YOUR_COMPUTER_IP:7860`, o ile zmienna `PORT` nie jest ustawiona. Jeśli ustawisz `PORT`, wstaw ten port zamiast `7860`. Zobaczą stronę, która prosi o logowanie. Aby je ustawić, znajdź jednorazowy kod konfiguracji poleceniem `docker logs <container> 2>&1 | grep "setup code"`. Wpisz kod na tej stronie razem z nową nazwą użytkownika i hasłem. Później możesz zmienić logowanie w **Settings → Advanced → Access** w zalogowanej przeglądarce. Jeśli zapomnisz hasła, uruchom `docker exec <container> node scripts/reset-login.mjs`. To nie zmienia logowania z `BASIC_AUTH_USER` i `BASIC_AUTH_PASS`; edytuj je w pliku compose i utwórz kontener ponownie. Możesz też ustawić logowanie w pliku compose za pomocą `BASIC_AUTH_USER` i `BASIC_AUTH_PASS` na liście `environment:`.
 
-W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie, łącznie z twoją przeglądarką, dociera do kontenera z tego samego adresu. Dlatego po ustawieniu logowania ten komputer też o nie prosi, a lista dozwolonych adresów IP nie potrafi odróżnić urządzeń. Nigdy nie usuwaj `127.0.0.1:` bez ustawionego logowania: w tych środowiskach Marinara nie odróżni innych urządzeń od tego komputera. O tym, jak dopuścić tylko wybrane urządzenia i co robi sekret administratora, przeczytasz w przewodniku [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+W środowiskach Docker Desktop, OrbStack i rootless Docker każde urządzenie, łącznie z twoją przeglądarką, dociera do kontenera z tego samego adresu. Dlatego po ustawieniu logowania ten komputer też o nie prosi, a lista dozwolonych adresów IP nie potrafi odróżnić urządzeń. Ustaw logowanie, zanim usuniesz `127.0.0.1:`. W tych środowiskach otwórz Marinarę na tym komputerze pod adresem `http://localhost:7860` i użyj **Settings** albo ustaw `BASIC_AUTH_USER` i `BASIC_AUTH_PASS` w pliku compose. Nigdy nie usuwaj `127.0.0.1:` bez logowania: w tych środowiskach Marinara nie odróżni innych urządzeń od tego komputera. O tym, jak dopuścić tylko wybrane urządzenia i co robi sekret administratora, przeczytasz w przewodniku [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
 ## Wybór obrazu: latest, staging czy lite
 
@@ -245,5 +243,5 @@ Więcej pomocy znajdziesz w przewodniku [Rozwiązywanie problemów w aplikacji M
 ## Powiązane przewodniki
 
 - [Konfiguracja serwera](../CONFIGURATION.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
 - [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md)

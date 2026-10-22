@@ -100,7 +100,7 @@ Abre el editor de **Music DJ** y busca el campo **Custom Music Library**. Tiene 
 
 La configuración de chat de Roleplay y Game muestra la misma fuente seleccionada. Si elegiste una carpeta en el dispositivo del servidor, la configuración de Music DJ del chat muestra esa ruta guardada y un botón **Choose Folder** en lugar de pedir una ruta de Game Assets.
 
-Reproducir desde una carpeta fuera de Game Assets requiere acceso local en el servidor. Si usas Marinara desde otro dispositivo sin una contraseña o secreto de administrador, esta función en concreto puede quedar bloqueada. Consulta [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md).
+Reproducir desde una carpeta fuera de Game Assets requiere acceso local en el servidor. Si usas Marinara desde otro dispositivo sin una contraseña o secreto de administrador, esta función en concreto puede quedar bloqueada. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
 
 ## Usar el reproductor de música
 
@@ -170,7 +170,7 @@ Si Spotify no está conectado o no tiene permiso de reproducción, un comando de
 - Spotify no reproduce nada. El control de reproducción requiere Spotify Premium y un dispositivo de Spotify activo. Abre la app de escritorio en un dispositivo, o haz clic en **Enable Marinara player** en escritorio.
 - La ventana de inicio de sesión de Spotify falla en otra máquina. Usa el cuadro para pegar "Browser couldn't reach the callback?", o define `SPOTIFY_REDIRECT_URI` en el servidor.
 - La búsqueda de YouTube falla. Confirma que la **YouTube Data API v3** está activada para tu proyecto y que la clave no está restringida por HTTP referrer. Si alcanzas la cuota diaria, inténtalo al día siguiente o usa otra clave.
-- La música Custom no se reproduce desde una carpeta de un dispositivo por acceso remoto. Esa carpeta necesita acceso local en el servidor. Consulta [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md).
+- La música Custom no se reproduce desde una carpeta de un dispositivo por acceso remoto. Esa carpeta necesita acceso local en el servidor. Consulta [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md).
 - El comando de canción de un personaje no hace nada en el modo Conversation. Conecta Spotify o guarda una clave de YouTube, y asegúrate de que los interruptores **Commands** y **Music** estén activados.
 
 ## Guías relacionadas

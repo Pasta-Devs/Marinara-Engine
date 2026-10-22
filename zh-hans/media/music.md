@@ -100,7 +100,7 @@ Custom 模式播放的是运行 Marinara 服务器的那台机器上的音频文
 
 Roleplay 和 Game 聊天的设置里显示的是同一个已选来源。如果选的是服务器设备上的文件夹，聊天的 Music DJ 设置会显示这个已保存路径和一个 **Choose Folder** 按钮，而不是让你填 Game Assets 路径。
 
-播放 Game Assets 之外的文件夹需要服务器本机权限。如果你是从另一台设备访问 Marinara，又没有设置密码或管理密钥，这一个功能可能会被拦下。见[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+播放 Game Assets 之外的文件夹需要服务器本机权限。如果你是从另一台设备访问 Marinara，又没有设置密码或管理密钥，这一个功能可能会被拦下。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 
 ## 使用音乐播放器
 
@@ -170,7 +170,7 @@ Spotify 在 Game Mode 里的工作方式略有不同。每个场景结束后，�
 - Spotify 一点声音都没有。播放控制需要 Spotify Premium 和一个正在活动的 Spotify 设备。在某台设备上打开 Spotify 客户端，或者在电脑上点 **Enable Marinara player**。
 - 在另一台机器上打不开 Spotify 登录窗口。用“Browser couldn't reach the callback?”那个粘贴框，或者在服务器上设置 `SPOTIFY_REDIRECT_URI`。
 - YouTube 搜索失败。确认项目里已经启用 **YouTube Data API v3**，并且密钥没有按 HTTP referrer 限制。如果当天的用量已经用满，第二天再试，或者换一个密钥。
-- 远程访问时，Custom 音乐放不出设备文件夹里的歌。那个文件夹需要服务器本机权限。见[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+- 远程访问时，Custom 音乐放不出设备文件夹里的歌。那个文件夹需要服务器本机权限。见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 - Conversation 模式里角色的点歌命令没反应。连上 Spotify 或保存 YouTube 密钥，并确认 **Commands** 和 **Music** 两个开关都已打开。
 
 ## 相关指南

@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT` 用来设置地址中的端口（默认 7860）。另外启动脚本默认允许局域网内的其他设备访问这台服务器。局域网指的是家里或办公室的那个网络。在你设置好密码或其他访问方式之前，Marinara 仍然会拦住这些设备。具体做法见[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+`PORT` 用来设置地址中的端口（默认 7860）。另外启动脚本默认允许局域网内的其他设备访问这台服务器。局域网指的是家里或办公室的那个网络。在你设置好密码或其他访问方式之前，Marinara 仍然会拦住这些设备。具体做法见[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 
 ## 手动安装
 
@@ -244,5 +244,5 @@ BACKGROUNDREMOVER_AUTO_INSTALL=true
 
 - [Marinara Engine 安装](../INSTALLATION.md)：为自己的设备挑选合适的安装方式。
 - [升级 Marinara Engine](../UPGRADING.md)：适用于所有平台的完整更新和备份步骤。
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)：设置密码，让其他设备也能访问 Marinara。
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)：设置密码，让其他设备也能访问 Marinara。
 - [Marinara Engine 故障排查](../TROUBLESHOOTING.md)：安装和启动问题的解决办法。

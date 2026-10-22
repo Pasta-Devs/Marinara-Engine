@@ -295,4 +295,4 @@ Card CSS는 다릅니다. 캐릭터나 페르소나 제작자가 카드 안에 C
 - [카드 CSS 테마 가이드](card-css-theming.md)
 - [모양 설정](appearance-settings.md)
 - [서버 설정 참고 문서](../CONFIGURATION.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)

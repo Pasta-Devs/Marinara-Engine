@@ -118,4 +118,4 @@ Ist **Intiface Central** nicht verbunden oder kein Gerät angeschlossen, übersp
 
 - [Agenten: KI-Helfer für deine Chats](../agents/agents-overview.md)
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

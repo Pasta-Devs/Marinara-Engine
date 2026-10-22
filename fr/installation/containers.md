@@ -78,9 +78,9 @@ Au premier démarrage, Marinara crée aussi un fichier de réglages vide dans le
 
 ## Rendre Marinara accessible sur ton réseau local
 
-Par défaut, Compose n'autorise l'accès à Marinara que depuis le même ordinateur. C'est le réglage sûr. Pour ouvrir Marinara sur ton téléphone ou sur un autre ordinateur du réseau, deux actions sont nécessaires. Change la redirection de port, et active une authentification pour que des inconnus ne puissent pas y accéder.
+Par défaut, Compose n'autorise l'accès à Marinara que depuis le même ordinateur. C'est le réglage sûr. Pour ouvrir Marinara sur ton téléphone ou sur un autre ordinateur du réseau, deux actions sont nécessaires. Change la redirection de port, et active une connexion pour que des inconnus ne puissent pas y accéder.
 
-Basic Auth est une simple demande de nom d'utilisateur et de mot de passe qui protège l'application. N'expose jamais Marinara sur ton réseau sans elle.
+Les autres appareils ont besoin d'une connexion avant de pouvoir utiliser Marinara. N'expose jamais Marinara sur ton réseau sans connexion.
 
 1. Ouvre le fichier `docker-compose.yml` dans un éditeur de texte.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. Dans le même fichier, ajoute un identifiant de connexion et un secret d'administration à la liste `environment:`. Utilise tes propres valeurs :
+4. Dans le même fichier, ajoute un secret d'administration à la liste `environment:`. Utilise ta propre valeur :
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-Les autres appareils du réseau atteignent désormais Marinara à l'adresse `http://YOUR_COMPUTER_IP:7860` tant que la variable `PORT` n'est pas définie. Si tu définis `PORT`, remplace `7860` par ce port hôte. Ils devront saisir le nom d'utilisateur et le mot de passe que tu as choisis.
+Les autres appareils du réseau atteignent désormais Marinara à l'adresse `http://YOUR_COMPUTER_IP:7860` tant que la variable `PORT` n'est pas définie. Si tu définis `PORT`, remplace `7860` par ce port hôte. Ils devront saisir le nom d'utilisateur et le mot de passe que tu as choisis. Ils voient une page qui demande une connexion. Pour la définir, trouve le code de configuration à usage unique avec `docker logs <container> 2>&1 | grep "setup code"`. Saisis le code sur cette page avec un nouveau nom d'utilisateur et un nouveau mot de passe. Tu peux modifier la connexion plus tard dans **Paramètres → Avancé → Accès**, dans un navigateur connecté. Si tu oublies le mot de passe, lance `docker exec <container> node scripts/reset-login.mjs`. Cela ne change pas une connexion définie par `BASIC_AUTH_USER` et `BASIC_AUTH_PASS` : modifie ces valeurs dans le fichier compose et recrée le conteneur. Tu peux aussi définir une connexion dans le fichier compose avec `BASIC_AUTH_USER` et `BASIC_AUTH_PASS` dans la liste `environment:`.
 
-Avec Docker Desktop, OrbStack et Docker sans root (rootless), tous les appareils atteignent le conteneur depuis la même adresse, ton propre navigateur compris. Une fois l'identifiant défini, cet ordinateur te le demande donc aussi, et une liste d'autorisation d'IP ne peut pas distinguer les appareils. Ne retire jamais `127.0.0.1:` sans l'identifiant : avec ces environnements, Marinara ne peut pas distinguer les autres appareils de cet ordinateur. Pour découvrir de bonnes façons de n'autoriser que certains appareils, et pour comprendre le rôle du secret d'administration, lis [Accès à distance : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
+Avec Docker Desktop, OrbStack et Docker sans root (rootless), tous les appareils atteignent le conteneur depuis la même adresse, ton propre navigateur compris. Une fois la connexion définie, cet ordinateur te la demande donc aussi, et une liste d'autorisation d'IP ne peut pas distinguer les appareils. Définis la connexion avant de retirer `127.0.0.1:`. Sur ces environnements, ouvre Marinara sur cet ordinateur à l'adresse `http://localhost:7860` et utilise **Paramètres**, ou définis `BASIC_AUTH_USER` et `BASIC_AUTH_PASS` dans le fichier compose. Ne retire jamais `127.0.0.1:` sans la connexion : avec ces environnements, Marinara ne peut pas distinguer les autres appareils de cet ordinateur. Pour découvrir de bonnes façons de n'autoriser que certains appareils, et pour comprendre le rôle du secret d'administration, lis [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md).
 
 ## Choisir une image : latest, staging ou lite
 
@@ -245,5 +243,5 @@ Pour aller plus loin, lis [Résoudre les problèmes de Marinara Engine](../TROUB
 ## Guides associés
 
 - [Référence de configuration du serveur](../CONFIGURATION.md)
-- [Accès à distance : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
 - [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md)

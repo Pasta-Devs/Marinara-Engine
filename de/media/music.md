@@ -100,7 +100,7 @@ Der Custom-Modus spielt eigene Audiodateien von dem Rechner ab, auf dem der Mari
 
 In Roleplay- und Game-Chats erscheint dieselbe gewählte Quelle. Hast du einen Ordner auf dem Server-Gerät gewählt, zeigen die Music-DJ-Einstellungen des Chats diesen gespeicherten Pfad und eine Schaltfläche **Choose Folder** – statt nach einem Game-Assets-Pfad zu fragen.
 
-Für die Wiedergabe aus einem Ordner außerhalb von Game Assets ist lokaler Zugriff auf dem Server nötig. Nutzt du Marinara von einem anderen Gerät ohne Passwort oder Admin-Secret, kann genau diese Funktion blockiert sein. Siehe [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md).
+Für die Wiedergabe aus einem Ordner außerhalb von Game Assets ist lokaler Zugriff auf dem Server nötig. Nutzt du Marinara von einem anderen Gerät ohne Passwort oder Admin-Secret, kann genau diese Funktion blockiert sein. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
 
 ## Den Musikplayer bedienen
 
@@ -170,7 +170,7 @@ Ist Spotify nicht verbunden oder fehlt die Wiedergabeberechtigung, passiert beim
 - Spotify spielt nichts ab. Die Wiedergabesteuerung braucht Spotify Premium und ein aktives Spotify-Gerät. Öffne die Desktop-App auf einem Gerät oder klick am Desktop auf **Enable Marinara player**.
 - Das Spotify-Login-Fenster schlägt auf einem anderen Rechner fehl. Nutze das Einfügefeld unter „Browser couldn't reach the callback?“ oder setze `SPOTIFY_REDIRECT_URI` auf dem Server.
 - Die YouTube-Suche schlägt fehl. Prüfe, ob die **YouTube Data API v3** für das Projekt aktiviert und der Key nicht nach HTTP-Referrer beschränkt ist. Ist das Tageslimit erreicht, versuch es am nächsten Tag noch einmal oder nimm einen anderen Key.
-- Eigene Musik aus einem Geräteordner spielt über Fernzugriff nicht ab. Dieser Ordner braucht lokalen Zugriff auf dem Server. Siehe [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md).
+- Eigene Musik aus einem Geräteordner spielt über Fernzugriff nicht ab. Dieser Ordner braucht lokalen Zugriff auf dem Server. Siehe [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md).
 - Der Song-Befehl eines Charakters bewirkt im Conversation Mode nichts. Verbinde Spotify oder speichere einen YouTube-Key, und achte darauf, dass die Schalter **Commands** und **Music** an sind.
 
 ## Verwandte Anleitungen

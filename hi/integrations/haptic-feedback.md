@@ -118,4 +118,4 @@ ws://192.168.1.50:12345
 
 - [एजेंट: आपकी चैट में मदद करने वाले AI](../agents/agents-overview.md)
 - [डाउनलोड किए जाने वाले एजेंट का रेफ़रेंस](../agents/built-in-agents.md)
-- [रिमोट एक्सेस: Basic Auth और IP अलाउलिस्ट](../REMOTE_ACCESS.md)
+- [रिमोट एक्सेस: लॉगिन और IP अलाउलिस्ट](../REMOTE_ACCESS.md)

@@ -80,7 +80,7 @@ docker volume inspect PROJECT_marinara-data
 
 기본 상태에서 Compose는 같은 컴퓨터에서만 Marinara에 접속할 수 있게 합니다. 안전을 위한 기본값입니다. 휴대폰이나 네트워크의 다른 컴퓨터에서도 Marinara를 열려면 두 가지를 해야 합니다. 포트 매핑을 바꾸고, 모르는 사람이 접속하지 못하도록 로그인을 켜는 것입니다.
 
-Basic Auth는 아이디와 비밀번호를 묻는 간단한 방식으로 앱을 보호합니다. Basic Auth 없이 Marinara를 네트워크에 공개하지 마세요.
+다른 기기는 Marinara를 쓰기 전에 로그인해야 합니다. 로그인 없이 Marinara를 네트워크에 공개하지 마세요.
 
 1. 텍스트 편집기로 `docker-compose.yml`을 여세요.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. 같은 파일의 `environment:` 목록에 로그인 정보와 관리자 시크릿을 추가하세요. 값은 직접 정한 것으로 넣으세요.
+4. 같은 파일의 `environment:` 목록에 관리자 시크릿을 추가하세요. 값은 직접 정한 것으로 넣으세요.
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-이제 `PORT`를 설정하지 않았다면 네트워크의 다른 기기에서 `http://YOUR_COMPUTER_IP:7860` 주소로 Marinara에 접속할 수 있습니다. `PORT`를 설정했다면 `7860` 대신 그 호스트 포트를 넣으세요. 접속할 때는 앞에서 정한 아이디와 비밀번호를 입력해야 합니다.
+이제 `PORT`를 설정하지 않았다면 네트워크의 다른 기기에서 `http://YOUR_COMPUTER_IP:7860` 주소로 Marinara에 접속할 수 있습니다. `PORT`를 설정했다면 `7860` 대신 그 호스트 포트를 넣으세요. 그러면 로그인을 요구하는 페이지가 표시됩니다. 로그인을 설정하려면 `docker logs <container> 2>&1 | grep "setup code"`로 1회용 설정 코드를 찾으세요. 그 페이지에 코드와 새 사용자 이름, 비밀번호를 입력하세요. 나중에 로그인한 브라우저의 **Settings**(설정) → **Advanced**(고급) → **Access**에서 로그인을 바꿀 수 있습니다. 비밀번호를 잊었다면 `docker exec <container> node scripts/reset-login.mjs`를 실행하세요. 이 명령은 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`로 만든 로그인은 바꾸지 않으므로, 그런 로그인은 compose 파일을 고치고 컨테이너를 다시 만드세요. compose 파일의 `environment:` 목록에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 넣어 로그인을 설정할 수도 있습니다.
 
-Docker Desktop, OrbStack, rootless Docker에서는 내 브라우저를 포함한 모든 기기가 같은 주소에서 컨테이너에 접속합니다. 그래서 로그인을 설정하면 이 컴퓨터에서도 로그인을 요구하고, IP 허용 목록으로는 기기를 구분할 수 없습니다. 로그인 없이 `127.0.0.1:`을 절대 지우지 마세요. 이런 런타임에서는 Marinara가 다른 기기와 이 컴퓨터를 구분할 수 없습니다. 특정 기기만 허용하는 방법과 관리자 시크릿의 역할은 [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)에서 확인하세요.
+Docker Desktop, OrbStack, rootless Docker에서는 내 브라우저를 포함한 모든 기기가 같은 주소에서 컨테이너에 접속합니다. 그래서 로그인을 설정하면 이 컴퓨터에서도 로그인을 요구하고, IP 허용 목록으로는 기기를 구분할 수 없습니다. `127.0.0.1:`을 지우기 전에 로그인을 설정하세요. 이런 런타임에서는 이 컴퓨터에서 `http://localhost:7860`으로 Marinara를 열고 **Settings**를 쓰거나, compose 파일에 `BASIC_AUTH_USER`와 `BASIC_AUTH_PASS`를 설정하세요. 로그인 없이 `127.0.0.1:`을 절대 지우지 마세요. 이런 런타임에서는 Marinara가 다른 기기와 이 컴퓨터를 구분할 수 없습니다. 특정 기기만 허용하는 방법과 관리자 시크릿의 역할은 [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)에서 확인하세요.
 
 ## 이미지 고르기: latest, staging, lite
 
@@ -245,5 +243,5 @@ docker build -f Dockerfile.lite -t marinara-engine:lite .
 ## 관련 가이드
 
 - [서버 설정 참고 문서](../CONFIGURATION.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)
 - [Marinara Engine 문제 해결](../TROUBLESHOOTING.md)

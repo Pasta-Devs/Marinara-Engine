@@ -86,7 +86,7 @@ Safariが古いバージョンのアプリを表示し続けたり、保存し�
 
 ## 関連ガイド
 
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)
 - [よくある質問](../FAQ.md)
 - [Marinara Engineのトラブルシューティング](../TROUBLESHOOTING.md)
 - [Android(Termux)インストールガイド](android-termux.md)

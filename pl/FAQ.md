@@ -11,7 +11,7 @@ Skrypty startowe (`start.sh`, `start.bat` i `start-termux.sh`) od razu udostępn
 Wykonaj kolejno te kroki:
 
 1. Zostaw aplikację Marinara Engine uruchomioną na komputerze-hoście.
-2. Na komputerze-hoście skonfiguruj kontrolę dostępu: Basic Auth (nazwa użytkownika i hasło) albo listę dozwolonych adresów IP (spis adresów zaufanych urządzeń). Przewodnik [Dostęp zdalny](REMOTE_ACCESS.md) omawia każdą z opcji, łącznie z obejściem dla w pełni zaufanych sieci prywatnych.
+2. Ustaw logowanie (nazwę użytkownika i hasło): w **Settings → Advanced → Access** w przeglądarce, która jest już zalogowana na dowolnym urządzeniu (aby zmienić lub usunąć logowanie, potrzebujesz obecnego hasła), albo na drugim urządzeniu za pomocą jednorazowego kodu konfiguracji z logu serwera (w Dockerze: `docker logs <container> 2>&1 | grep "setup code"`). Przewodnik [Dostęp zdalny](REMOTE_ACCESS.md#option-1-login-recommended) omawia to krok po kroku.
 3. Sprawdź lokalny adres IP komputera-hosta. W systemie Windows uruchom to polecenie i odczytaj wartość **IPv4 Address**:
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 Zamiast `192.168.1.42` wpisz własny adres IP hosta.
 
-5. Zaloguj się, jeśli przeglądarka poprosi o nazwę użytkownika i hasło Basic Auth. Jeśli zamiast tego pojawia się strona **Access blocked**, dokończ najpierw krok 2 na komputerze-hoście.
+5. Zaloguj się nazwą użytkownika i hasłem. Jeśli zamiast tego pojawia się strona **Access blocked**, logowanie nie jest jeszcze ustawione: wpisz tam kod konfiguracji z logu serwera oraz nową nazwę użytkownika i hasło. Aby dodać kolejne urządzenia bez wpisywania hasła, użyj **Add a device** w **Settings → Advanced → Access**.
 
-W zwykłych instalacjach komputerowych hasło nie jest potrzebne na tym samym komputerze (`127.0.0.1`). Odwrotne proxy na tym samym komputerze, także nginx z domyślną konfiguracją, liczy się jako zdalny gość i wymaga logowania. Instalacje w systemie Android zarządzane przez plik APK dodają prywatne logowanie na localhost, żeby inna aplikacja w systemie Android nie mogła podszyć się pod Marinara Engine, ale nakładka na system Android automatycznie tworzy i używa tego poświadczenia. Inne urządzenia pozostają zablokowane, dopóki nie skonfigurujesz kontroli dostępu (Basic Auth albo lista dozwolonych adresów IP). Każdą z opcji wyjaśnia przewodnik [Dostęp zdalny](REMOTE_ACCESS.md).
+W zwykłych instalacjach komputerowych hasło nie jest potrzebne na tym samym komputerze (`127.0.0.1`). Odwrotne proxy na tym samym komputerze, także nginx z domyślną konfiguracją, liczy się jako zdalny gość i wymaga logowania. Instalacje w systemie Android zarządzane przez plik APK dodają prywatne logowanie na localhost, żeby inna aplikacja w systemie Android nie mogła podszyć się pod Marinara Engine, ale nakładka na system Android automatycznie tworzy i używa tego poświadczenia. Inne urządzenia pozostają zablokowane, dopóki nie ustawisz logowania. Każdą opcję wyjaśnia [Dostęp zdalny](REMOTE_ACCESS.md).
 
 Jeśli urządzenia są w różnych sieciach, pomoże narzędzie takie jak Tailscale. Tailscale nadaje każdemu urządzeniu stały adres prywatny. Dzięki temu da się połączyć z dowolnego miejsca bez wystawiania aplikacji Marinara Engine do publicznego internetu. Jeśli połączenie się nie udaje, zajrzyj do przewodnika [Rozwiązywanie problemów](TROUBLESHOOTING.md).
 

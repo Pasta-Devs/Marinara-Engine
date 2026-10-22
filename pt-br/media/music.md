@@ -100,7 +100,7 @@ Abra o editor de **Music DJ** e localize o campo **Custom Music Library**. Ele t
 
 A configuração do chat de Roleplay e a do Game mostram a mesma fonte selecionada. Se você escolheu uma pasta no dispositivo do servidor, as configurações de Music DJ do chat mostram esse caminho salvo e um botão **Choose Folder**, em vez de pedir um caminho do Game Assets.
 
-Tocar a partir de uma pasta fora do Game Assets exige acesso local no servidor. Se você usa Marinara de outro dispositivo, sem senha nem admin secret, esse recurso específico pode ficar bloqueado. Veja [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md).
+Tocar a partir de uma pasta fora do Game Assets exige acesso local no servidor. Se você usa Marinara de outro dispositivo, sem senha nem admin secret, esse recurso específico pode ficar bloqueado. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
 
 ## Usar o player de música
 
@@ -170,7 +170,7 @@ Se o Spotify não estiver conectado ou não tiver permissão de reprodução, o 
 - O Spotify não toca nada. O controle de reprodução exige o Spotify Premium e um dispositivo do Spotify ativo. Abra o aplicativo do Spotify em um dispositivo, ou clique em **Enable Marinara player** no computador.
 - A janela de login do Spotify falha em outra máquina. Use a caixa de colar de "Browser couldn't reach the callback?", ou defina a variável `SPOTIFY_REDIRECT_URI` no servidor.
 - A busca do YouTube falha. Confira se a **YouTube Data API v3** está ativada no seu projeto e se a chave não está restrita por referenciador HTTP. Se você bateu a quota diária, tente no dia seguinte ou use outra chave.
-- A música em Custom não toca a partir de uma pasta do dispositivo quando o acesso é remoto. Essa pasta exige acesso local no servidor. Veja [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md).
+- A música em Custom não toca a partir de uma pasta do dispositivo quando o acesso é remoto. Essa pasta exige acesso local no servidor. Veja [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
 - O comando de música de um personagem não faz nada no Conversation Mode. Conecte o Spotify ou salve uma chave do YouTube, e verifique se os botões **Commands** e **Music** estão ativados.
 
 ## Guias relacionados

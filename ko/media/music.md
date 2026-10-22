@@ -100,7 +100,7 @@ Custom 모드는 Marinara 서버가 실행되는 컴퓨터의 오디오 파일�
 
 Roleplay와 Game 채팅 설정에는 같은 소스가 선택된 상태로 표시됩니다. 서버 기기의 폴더를 골랐다면, 채팅의 Music DJ 설정에는 Game Assets 경로를 묻는 대신 저장된 경로와 **Choose Folder** 버튼이 표시됩니다.
 
-Game Assets 밖의 폴더에서 재생하려면 서버에 로컬 접근 권한이 필요합니다. 비밀번호나 관리자 시크릿 없이 다른 기기에서 Marinara를 쓰면 이 기능만 막힐 수 있습니다. [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
+Game Assets 밖의 폴더에서 재생하려면 서버에 로컬 접근 권한이 필요합니다. 비밀번호나 관리자 시크릿 없이 다른 기기에서 Marinara를 쓰면 이 기능만 막힐 수 있습니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
 
 ## 음악 플레이어 사용하기
 
@@ -170,7 +170,7 @@ Spotify가 연결되지 않았거나 재생 권한이 없으면 Spotify 곡 명�
 - Spotify에서 아무 소리도 나지 않습니다. 재생 제어에는 Spotify Premium과 동작 중인 Spotify 기기가 필요합니다. 기기에서 데스크톱 앱을 열거나, 데스크톱에서 **Enable Marinara player**를 클릭하세요.
 - 다른 컴퓨터에서 Spotify 로그인 창이 열리지 않습니다. "Browser couldn't reach the callback?" 붙여넣기 상자를 쓰거나, 서버에 `SPOTIFY_REDIRECT_URI`를 설정하세요.
 - YouTube 검색이 실패합니다. 프로젝트에서 **YouTube Data API v3**가 활성화되어 있는지, 키가 HTTP 리퍼러로 제한되어 있지 않은지 확인하세요. 하루 쿼터를 다 썼다면 다음 날 다시 시도하거나 다른 키를 쓰세요.
-- 원격 접근 상태에서 기기 폴더의 Custom 음악이 재생되지 않습니다. 그 폴더를 쓰려면 서버의 로컬 접근 권한이 필요합니다. [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
+- 원격 접근 상태에서 기기 폴더의 Custom 음악이 재생되지 않습니다. 그 폴더를 쓰려면 서버의 로컬 접근 권한이 필요합니다. [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)을 참고하세요.
 - Conversation 모드에서 캐릭터의 곡 명령어가 동작하지 않습니다. Spotify를 연결하거나 YouTube 키를 저장하고, **Commands**와 **Music** 토글이 켜져 있는지 확인하세요.
 
 ## 관련 가이드

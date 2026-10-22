@@ -253,4 +253,4 @@ Professor Mari ist eine Helferin, nicht die vollständige Dokumentation. Behalte
 - [Mit einem KI-Anbieter verbinden](../connections/connecting-to-a-provider.md)
 - [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md)
 - [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

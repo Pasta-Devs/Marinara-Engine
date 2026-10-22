@@ -279,7 +279,7 @@
 1. 在服务器上，于 `.env` 文件中设置 `ADMIN_SECRET`。
 2. 在应用里打开 **Settings -> Advanced -> Admin Access**，填入同一个值。
 
-不这么做，通过网络修改主题就会失败。完整配置方法见[服务器配置参考](../CONFIGURATION.md)和[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+不这么做，通过网络修改主题就会失败。完整配置方法见[服务器配置参考](../CONFIGURATION.md)和[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 
 ## 主题和 Card CSS 如何配合
 
@@ -296,4 +296,4 @@ Card CSS(角色卡 CSS) 不一样。角色或用户角色的作者可以把 CSS 
 - [角色卡 CSS 主题指南](card-css-theming.md)
 - [外观设置](appearance-settings.md)
 - [服务器配置参考](../CONFIGURATION.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)

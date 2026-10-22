@@ -253,4 +253,4 @@ Professor Mari मदद के लिए है, पूरी डॉक्य�
 - [किसी AI प्रोवाइडर से कनेक्ट करना](../connections/connecting-to-a-provider.md)
 - [कैरेक्टर बनाना और एडिट करना](../characters/creating-and-editing-characters.md)
 - [डाउनलोड किए जाने वाले एजेंट का रेफ़रेंस](../agents/built-in-agents.md)
-- [रिमोट एक्सेस: Basic Auth और IP अलाउलिस्ट](../REMOTE_ACCESS.md)
+- [रिमोट एक्सेस: लॉगिन और IP अलाउलिस्ट](../REMOTE_ACCESS.md)

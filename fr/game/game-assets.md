@@ -212,4 +212,4 @@ Le bouton **Open in system folder** ouvre le dossier de ressources sélectionné
 - [Music DJ : Spotify, YouTube et musique locale](../media/music.md)
 - [Fournisseurs d'IA pris en charge](../connections/providers-reference.md)
 - [Game Mode : premiers pas](getting-started.md)
-- [Accès distant : authentification de base et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)

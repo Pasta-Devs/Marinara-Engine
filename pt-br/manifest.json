@@ -1,16 +1,16 @@
 {
   "language": "pt-br",
-  "sourceCommit": "702d2e3e520a45a1a430157341a758818011310c",
+  "sourceCommit": "b7e6b7fbf1cdd12e2f474fd8c44b84fe9ee58ff3",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "0ff5c348a978686c59e1b058769932bf03ad88e95418b75d90ebdd68a5080072",
-      "bytes": 58182
+      "sha256": "ce277b47cc66569a73be705d38e9cddc26ee2ba394eb08144b46d139960a9aec",
+      "bytes": 59447
     },
     {
       "path": "FAQ.md",
-      "sha256": "d72199073a83aad3ee66737e644eebfb05481c0bf474ebf1b9a7f50e4dccf114",
-      "bytes": 26683
+      "sha256": "5a88c34987e3a3c69ad3ee9052e13ac4009fe31a54e089862cfbca7665e7037b",
+      "bytes": 26999
     },
     {
       "path": "INSTALLATION.md",
@@ -19,18 +19,18 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "6f9b1668d134eba9446311faef35f9dbe5978a1b3ee9426b32d65def59e052b1",
-      "bytes": 26110
+      "sha256": "9bc3be9fdaf9363b8565e3072c32e1084281cc7506418d8a1693253bc02c43fe",
+      "bytes": 29420
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "b5ba8856b55190be156168eabe1a16aaf8d8d81e4822e878dc6bdb1fb132f6e0",
-      "bytes": 59780
+      "sha256": "503ac1ccfc76965d49fce951eb38a8d4ec2b4ed137ee086bbc9b10643b7f8289",
+      "bytes": 60167
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "fa255995f983ca185fe7ca08a12730d15864e55665cc7c25194e1c67ada22cdb",
-      "bytes": 18109
+      "sha256": "71779aa6ea21b1cbb1ffe6416bb851345c5cda22a7a76cf22eed3797f8b57942",
+      "bytes": 18320
     },
     {
       "path": "agents/agents-overview.md",
@@ -89,8 +89,8 @@
     },
     {
       "path": "appearance/custom-css-themes.md",
-      "sha256": "a4c40aa9c9b94927f79c0e85dc77a8cfe120e01e0066faf49ed08666236c2c9a",
-      "bytes": 24586
+      "sha256": "f10d8ae57bcc8eb14e9139b6f3fecd127a12178fdb315ef670c95641872eec04",
+      "bytes": 24581
     },
     {
       "path": "appearance/fonts.md",
@@ -289,8 +289,8 @@
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "40d12996ec32377d7dcc61cb1aa86790214b502bd37a348b3d1af15e30fe1d0e",
-      "bytes": 11114
+      "sha256": "fb7bcbc9cd1f21c0777a84f492b70bb3ff0ba536a81e3433425fbd42964e06bf",
+      "bytes": 11109
     },
     {
       "path": "data/clearing-data.md",
@@ -449,8 +449,8 @@
     },
     {
       "path": "game/game-assets.md",
-      "sha256": "5299b2ae3adbe78190e58f02a442e03602e3eb7e64734674d69e0eb501e4452d",
-      "bytes": 15899
+      "sha256": "03a26c761744bf810e5f6ad9ba50b2d236012f451c16df5ec0127731dc5c1082",
+      "bytes": 15894
     },
     {
       "path": "game/getting-started.md",
@@ -494,8 +494,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "795dffaa6ce391e269b5c32b999e2680c80153619d9d3233c4cf7dd80e9aaac9",
-      "bytes": 33002
+      "sha256": "5b27220e46df618db1bcee698e697c54f63a34ce0f2c07d827b4fa502e9fdd70",
+      "bytes": 32997
     },
     {
       "path": "home/tutorial.md",
@@ -514,18 +514,18 @@
     },
     {
       "path": "installation/containers.md",
-      "sha256": "51f761c5f8e658eef0bd7dfbdf6a0a1cce9cf0a1e0404fb6760bbea64862b18b",
-      "bytes": 13090
+      "sha256": "9249425956ad647c7fe4155bc29e8cebeb94f4e9bf8525decb9e5679ef1acae6",
+      "bytes": 13809
     },
     {
       "path": "installation/ios-pwa.md",
-      "sha256": "4553610d5898856feb48c811d5b98e9eba016010a0d648fb422c3f5f3c0c6ecb",
-      "bytes": 7563
+      "sha256": "e380c54337b5e974c7e38bd32ab7bebbf33bcb4be0838ad60a4a21bb398f6cb1",
+      "bytes": 7558
     },
     {
       "path": "installation/macos-linux.md",
-      "sha256": "d24e345d71c4a2e11f1f1fccd49a53d0e6dabdbe2ccc7c2e8cf5d5e49f90019a",
-      "bytes": 9819
+      "sha256": "129c0e0243fe17e5710470262300bc5f83b096328a05357901c4b2bdee987958",
+      "bytes": 9809
     },
     {
       "path": "installation/windows.md",
@@ -539,8 +539,8 @@
     },
     {
       "path": "integrations/haptic-feedback.md",
-      "sha256": "bbd9a257444cc3a7f3e4bd9b0d7706a728f4ab4b33b918437ebdd640025694a5",
-      "bytes": 9436
+      "sha256": "878ad4b120f4c5fcd46278ad71ae93cda8074a27fcd25a0e417448d5a07a2352",
+      "bytes": 9431
     },
     {
       "path": "integrations/home-assistant.md",
@@ -604,8 +604,8 @@
     },
     {
       "path": "media/music.md",
-      "sha256": "343d633e6101c8f105a92f07ec972ae2492c698db3a9dbf5b0a127fcedfea07a",
-      "bytes": 15867
+      "sha256": "83829468b2b39074b35d5791f956ef5a28f438fb5b76293b4bf7ad1da2b09106",
+      "bytes": 15857
     },
     {
       "path": "media/scene-backgrounds.md",

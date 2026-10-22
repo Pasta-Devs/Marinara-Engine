@@ -118,4 +118,4 @@ Quand **Intiface Central** n'est pas connecté, ou qu'aucun appareil n'est branc
 
 - [Agents : des aides IA pour tes chats](../agents/agents-overview.md)
 - [Référence des agents téléchargeables](../agents/built-in-agents.md)
-- [Accès à distance : Basic Auth et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)

@@ -212,4 +212,4 @@ Game Mode는 AI 오디오 서비스인 ElevenLabs로 장면에 쓸 새 효과음
 - [Music DJ: Spotify, YouTube, 로컬 음악](../media/music.md)
 - [지원하는 AI 제공자](../connections/providers-reference.md)
 - [Game Mode: 시작하기](getting-started.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)
