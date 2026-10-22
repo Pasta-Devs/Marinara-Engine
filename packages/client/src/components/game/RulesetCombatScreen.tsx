@@ -21,7 +21,7 @@ import { RulesetCombatBoard, type RulesetCombatBoardProps } from "./RulesetComba
 import { RulesetCombatLog } from "./RulesetCombatLog";
 import { RulesetCombatMenu, rulesetWindowPrompt } from "./RulesetCombatMenu";
 import { zoneLine } from "./RulesetCombatStatus";
-import { RulesetSideBadge, RulesetTurnOrder, rulesetHealthTone } from "./RulesetTurnOrder";
+import { RulesetSideBadge, RulesetTurnOrder, rulesetHealthTone, rulesetStateWord } from "./RulesetTurnOrder";
 import { rulesetDistanceText, rulesetHealthPercent, rulesetHeldCaught } from "../../lib/ruleset-combat-board";
 import type { RulesetMenuStep } from "../../lib/ruleset-combat-menu";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
@@ -43,6 +43,8 @@ export interface RulesetCombatScreenProps {
   onControl: (id: string, controller: CombatController) => void;
   /** An error, or the fight's end, put at the top of the pane by the caller. */
   notice?: ReactNode;
+  /** The fight is over: the pane holds only the notice (the caller's end of the fight), no turn. */
+  ended?: boolean;
 }
 
 export function RulesetCombatScreen({
@@ -58,6 +60,7 @@ export function RulesetCombatScreen({
   onFlee,
   onControl,
   notice,
+  ended,
 }: RulesetCombatScreenProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState<RulesetMenuStep | null>(null);
@@ -106,8 +109,8 @@ export function RulesetCombatScreen({
     if (narrow && boardStep) setPhoneTab("board");
   }, [narrow, boardStep]);
   useEffect(() => {
-    if (narrow) setPhoneTab(askedId || ownTurn ? "pane" : "board");
-  }, [narrow, askedId, ownTurn, view.actorId, view.round]);
+    if (narrow) setPhoneTab(ended || askedId || ownTurn ? "pane" : "board");
+  }, [narrow, ended, askedId, ownTurn, view.actorId, view.round]);
   useEffect(() => {
     setLeaving(false);
   }, [view.actorId, view.round]);
@@ -115,7 +118,7 @@ export function RulesetCombatScreen({
   const paneBody = (withOrder: boolean) => (
     <>
       {notice}
-      {asked && answerer && (
+      {!ended && asked && answerer && (
         <ReactionCard view={view} answerer={answerer} marks={marks} prompt={rulesetWindowPrompt(view, defenseLabel, t)}>
           <RulesetCombatMenu
             layout="pane"
@@ -166,9 +169,9 @@ export function RulesetCombatScreen({
           />
         </div>
       )}
-      {actor && <CurrentTurn actor={actor} marks={marks} distance={distance} t={t} />}
+      {!ended && actor && <CurrentTurn actor={actor} marks={marks} distance={distance} t={t} />}
       <div ref={optionsBox} className="min-h-0 flex-1 overflow-y-auto border-t border-[var(--border)]">
-        {asked ? (
+        {ended ? null : asked ? (
           <p className="m-3 rounded-lg border border-dashed border-[var(--border)] px-3 py-4 text-center text-xs text-[var(--muted-foreground)]">
             {t("game.combat.ruleset.screen.takingTurn", { name: actor?.name ?? "" })}
           </p>
@@ -198,7 +201,7 @@ export function RulesetCombatScreen({
           ))}
         </ul>
       )}
-      <footer className="shrink-0 space-y-2 border-t border-[var(--border)] px-3.5 py-2.5">
+      <footer hidden={ended} className="shrink-0 space-y-2 border-t border-[var(--border)] px-3.5 py-2.5">
         <div className="flex gap-2">
           <button
             type="button"
@@ -306,6 +309,14 @@ export function RulesetCombatScreen({
                   menuRef={menuRoot}
                 />
               </div>
+            ) : ended ? (
+              <button
+                type="button"
+                onClick={() => setPhoneTab("pane")}
+                className="m-2 min-h-11 shrink-0 rounded-lg bg-[var(--primary)] text-sm font-semibold text-[var(--primary-foreground)]"
+              >
+                {t("game.combat.ruleset.screen.howItEnded")}
+              </button>
             ) : asked ? (
               <button
                 type="button"
@@ -586,5 +597,95 @@ function PhoneTurnStrip({
         {t(open ? "game.combat.ruleset.screen.orderLess" : "game.combat.ruleset.screen.orderMore")}
       </button>
     </div>
+  );
+}
+
+const OUTCOME_LINE = {
+  victory: "game.combat.ruleset.event.outcomeVictory",
+  defeat: "game.combat.ruleset.event.outcomeDefeat",
+  flee: "game.combat.ruleset.event.outcomeFled",
+} as const;
+
+/** The end of a fight on a board, at the top of the pane where the turn was: how it went, how
+ *  the party stands, what it found, and the way back to the story. */
+export function RulesetFightEnd({
+  view,
+  outcome,
+  loot,
+  onFinish,
+}: {
+  view: DirectedRulesetView;
+  outcome: keyof typeof OUTCOME_LINE;
+  loot?: Array<{ name: string; quantity?: number }>;
+  onFinish: () => void;
+}) {
+  const { t } = useTranslation();
+  const party = view.combatants.filter((combatant) => combatant.side === "party" && !combatant.left);
+  const foes = view.combatants.filter((combatant) => combatant.side !== "party");
+  const beaten = foes.filter((combatant) => combatant.defeated || combatant.down || combatant.left).length;
+  return (
+    <section
+      aria-label={t("game.combat.ruleset.screen.endTitle")}
+      className={cn(
+        "m-3 flex shrink-0 flex-col gap-3 rounded-xl border-2 p-3.5",
+        outcome === "victory" ? "border-emerald-500/70" : "border-[var(--border)]",
+      )}
+    >
+      <div>
+        <h3 className="text-base font-bold">{t(OUTCOME_LINE[outcome])}</h3>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {t("game.combat.ruleset.screen.endRounds", { count: view.round })}
+          {foes.length > 0 && <> · {t("game.combat.ruleset.screen.endFoes", { beaten, total: foes.length })}</>}
+        </p>
+      </div>
+      <ul className="m-0 list-none space-y-1.5 p-0">
+        {party.map((combatant) => {
+          const state = rulesetStateWord(combatant, t);
+          const percent = rulesetHealthPercent(combatant.health);
+          return (
+            <li key={combatant.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-sm">
+              <RulesetSideBadge combatant={combatant} />
+              <span className="truncate">{combatant.name}</span>
+              <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                {state ? (
+                  <span className="font-semibold text-rose-700 dark:text-[#ff9aaa]">{state}</span>
+                ) : (
+                  <>
+                    <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[var(--foreground)]/10">
+                      <span
+                        className={cn("block h-full", rulesetHealthTone(percent))}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </span>
+                    <span className="font-mono">
+                      {t("game.combat.ruleset.screen.healthValue", {
+                        value: combatant.health.value,
+                        max: combatant.health.max,
+                      })}
+                    </span>
+                  </>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {loot && loot.length > 0 && (
+        <p className="text-xs text-[var(--muted-foreground)]">
+          {t("game.combat.ruleset.screen.endLoot", {
+            items: loot
+              .map((item) => ((item.quantity ?? 1) > 1 ? `${item.name} ×${item.quantity}` : item.name))
+              .join(", "),
+          })}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={onFinish}
+        className="min-h-11 w-full rounded-lg bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+      >
+        {t("game.combat.director.finish")}
+      </button>
+    </section>
   );
 }

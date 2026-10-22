@@ -1147,10 +1147,26 @@ export function RulesetCombatMenu({
         </div>
       );
     }
-    // Ending the turn is the footer's; the standard actions fold into one row of their own.
-    const listed = groups.filter((group) => group.kind !== "end-turn" && group.kind !== "standard");
+    // Ending the turn is the footer's; the standard actions fold into one row of their own, and so
+    // does every readied option, which would otherwise bury the turn under one "Ready …" per action.
+    const listed = groups
+      .filter((group) => group.kind !== "end-turn" && group.kind !== "standard")
+      .map((group) => ({ ...group, options: group.options.filter((option) => !option.ready) }))
+      .filter((group) => group.options.length > 0);
+    const readied = groups.flatMap((group) =>
+      group.kind === "end-turn" || group.kind === "standard" ? [] : group.options.filter((option) => option.ready),
+    );
     const standard = groups.find((group) => group.kind === "standard");
-    const standardOpen = !!standard?.options.some((option) => option.id === openId);
+    const fold = (labelKey: string, options: typeof readied, summary: string) => (
+      <details open={options.some((option) => option.id === openId) || undefined} className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] md:min-h-[1.875rem] [&::-webkit-details-marker]:hidden">
+          <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform group-open:rotate-180" />
+          {t(labelKey)}
+          <span className="truncate text-[0.68rem] font-normal text-[var(--muted-foreground)]">{summary}</span>
+        </summary>
+        <ul className="m-0 grid list-none gap-px p-0 pl-2">{options.map((option) => row(option))}</ul>
+      </details>
+    );
     return (
       <div ref={root} tabIndex={-1} className="flex flex-col gap-2 px-2 py-2 outline-none">
         {listed.map((group) => (
@@ -1161,18 +1177,18 @@ export function RulesetCombatMenu({
             <ul className="m-0 grid list-none gap-px p-0">{group.options.map((option) => row(option))}</ul>
           </section>
         ))}
-        {standard && (
-          <details open={standardOpen || undefined} className="group">
-            <summary className="flex min-h-[1.875rem] cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] [&::-webkit-details-marker]:hidden">
-              <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform group-open:rotate-180" />
-              {t(standard.labelKey)}
-              <span className="truncate text-[0.68rem] font-normal text-[var(--muted-foreground)]">
-                {standard.options.map((option) => rulesetOptionLabel(option, t)).join(", ")}
-              </span>
-            </summary>
-            <ul className="m-0 grid list-none gap-px p-0 pl-2">{standard.options.map((option) => row(option))}</ul>
-          </details>
-        )}
+        {readied.length > 0 &&
+          fold(
+            "game.combat.ruleset.screen.readyFold",
+            readied,
+            t("game.combat.ruleset.screen.readyCount", { count: readied.length }),
+          )}
+        {standard &&
+          fold(
+            standard.labelKey,
+            standard.options,
+            standard.options.map((option) => rulesetOptionLabel(option, t)).join(", "),
+          )}
       </div>
     );
   }

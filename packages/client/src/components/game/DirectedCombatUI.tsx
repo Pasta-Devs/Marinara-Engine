@@ -9,7 +9,7 @@ import type {
 import { useTranslation } from "react-i18next";
 import { useDirectedCombat } from "../../hooks/use-directed-combat";
 import { GameCombatUI } from "./GameCombatUI";
-import { RulesetCombatScreen } from "./RulesetCombatScreen";
+import { RulesetCombatScreen, RulesetFightEnd } from "./RulesetCombatScreen";
 import { RulesetCombatStatus } from "./RulesetCombatStatus";
 import { rulesetValueLabel } from "../../lib/ruleset-combat-log";
 import type { RulesetCellChoice } from "../../lib/ruleset-combat-board";
@@ -153,27 +153,22 @@ export function DirectedCombatUI(props: Props) {
         onFlee={() => send({ type: "flee" })}
         onControl={(unitId, controller) => send({ type: "control", unitId, controller })}
         notice={
-          (error || s.outcome) && (
-            <div className="shrink-0 space-y-2 border-b border-[var(--border)] px-3.5 py-2.5 text-sm">
-              {error && (
-                <div role="alert" className="text-[var(--destructive)]">
-                  {t("game.combat.director.error")}{" "}
-                  <button className="min-h-9 px-2 underline" onClick={() => void refresh()}>
-                    {t("game.combat.director.retry")}
-                  </button>
-                </div>
-              )}
-              {s.outcome && (
-                <button
-                  className="min-h-10 w-full rounded-lg bg-[var(--primary)] px-4 font-semibold text-[var(--primary-foreground)]"
-                  onClick={finish}
-                >
-                  {t("game.combat.director.finish")}
+          <>
+            {error && (
+              <div
+                role="alert"
+                className="shrink-0 border-b border-[var(--border)] px-3.5 py-2.5 text-sm text-[var(--destructive)]"
+              >
+                {t("game.combat.director.error")}{" "}
+                <button className="min-h-9 px-2 underline" onClick={() => void refresh()}>
+                  {t("game.combat.director.retry")}
                 </button>
-              )}
-            </div>
-          )
+              </div>
+            )}
+            {s.outcome && <RulesetFightEnd view={board} outcome={s.outcome} loot={s.summary?.loot} onFinish={finish} />}
+          </>
         }
+        ended={!!s.outcome}
       />
     );
   }
