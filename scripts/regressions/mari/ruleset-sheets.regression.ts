@@ -155,6 +155,36 @@ try {
   assert.deepEqual((sheet.build.lists as Record<string, Row[]>).gear, [{ name: "Lantern" }]);
   assert.equal((sheet.build.lists as Record<string, Row[]>).tricks, undefined, "an emptied list is dropped");
 
+  // A refusal names each row by what a resend calls it: its stored index even after a removal, and
+  // add.<n> for a new row. The resend at that index then fixes the row that was named.
+  const knacks = await update({ lists: { knacks: { set: [{ name: "A" }, { name: "B" }, { name: "C" }] } } });
+  assert.equal(knacks.ok, true, `set with rows: ${knacks.error ?? ""}`);
+  const misaimed = await update({
+    lists: { knacks: { remove: [0], update: [{ index: 2, cells: { name: null } }], add: [{ notes: "unnamed" }] } },
+  });
+  assert.equal(misaimed.ok, false);
+  assert.match(String(misaimed.error), /lists\.knacks\.2: Column "name" is required/);
+  assert.match(String(misaimed.error), /lists\.knacks\.add\.0: Column "name" is required/);
+  const aimed = await update({ lists: { knacks: { remove: [0], update: [{ index: 2, cells: { notes: "third" } }] } } });
+  assert.equal(aimed.ok, true, `resend at the named index: ${aimed.error ?? ""}`);
+  sheet = (await personaStats()).rulesetSheets![EMBER]!;
+  assert.deepEqual((sheet.build.lists as Record<string, Row[]>).knacks, [{ name: "B" }, { name: "C", notes: "third" }]);
+  // Empty arrays beside set are no second write mode; set: [] still clears; a list entry that asks
+  // for nothing is said to change nothing; a null score is the ruleset's default again.
+  const replaced = await update({ lists: { knacks: { set: [{ name: "D" }], update: [], remove: [] } } });
+  assert.equal(replaced.ok, true, `set beside empty arrays: ${replaced.error ?? ""}`);
+  sheet = (await personaStats()).rulesetSheets![EMBER]!;
+  assert.deepEqual((sheet.build.lists as Record<string, Row[]>).knacks, [{ name: "D" }]);
+  const nothing = await update({ lists: { knacks: { update: [] } } });
+  assert.equal(nothing.ok, false);
+  assert.match(String(nothing.error), /lists\.knacks: changes nothing/);
+  const cleared = await update({ abilities: { brawn: null }, lists: { knacks: { set: [] } } });
+  assert.equal(cleared.ok, true, `clear: ${cleared.error ?? ""}`);
+  sheet = (await personaStats()).rulesetSheets![EMBER]!;
+  assert.equal((sheet.build.abilities as Row).brawn, 0, "a null score reads its default again");
+  assert.equal((sheet.build.lists as Record<string, Row[]>).knacks, undefined);
+  await update({ abilities: { brawn: 2 } });
+
   const read = (await mari.executeAction({ action: "persona.rulesetSheet.get", personaId: "rook", rulesetId: EMBER }))
     .output as Row & { values: { abilityMods: Row } };
   assert.equal(read.status, "stored");
@@ -239,6 +269,17 @@ try {
     /Field "watch" takes one of its declared values/,
     "every problem is listed at once",
   );
+
+  // Worked-out values read live state as it starts, as the editor shows them: Harm still to take is
+  // the whole track, not 0.
+  const cardRead = (
+    await mari.executeAction({ action: "character.rulesetSheet.get", characterId: "warden", rulesetId: GRAVE })
+  ).output as Row & { values: { derived: Row } };
+  assert.equal(cardRead.values.derived.harm_left, 4);
+  const blankRead = (
+    await mari.executeAction({ action: "persona.rulesetSheet.get", personaId: "rook", rulesetId: GRAVE })
+  ).output as Row;
+  assert.equal(blankRead.status, "unreadable");
 } finally {
   await closeDB();
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

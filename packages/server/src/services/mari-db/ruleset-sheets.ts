@@ -14,7 +14,7 @@
 import { z } from "zod";
 import {
   createRulesetSheetEnvelope,
-  evaluateRulesetSheet,
+  evaluateRulesetSheetLive,
   readRulesetSheetEnvelope,
   rulesetSheetBuildIssues,
   rulesetSheetEnvelopeSchema,
@@ -51,7 +51,7 @@ const listPatchSchema = z
   .strict();
 export const rulesetSheetPatchSchema = z
   .object({
-    abilities: z.record(z.number().finite()).optional(),
+    abilities: z.record(z.number().finite().nullable()).optional(),
     skills: z.record(z.string().max(40).nullable()).optional(),
     saves: z.record(z.string().max(40).nullable()).optional(),
     bonuses: z.record(z.number().finite().nullable()).optional(),
@@ -117,14 +117,19 @@ export function applyRulesetSheetPatch(
       issues.push(`abilities.${id}: this score is worked out by the ruleset and cannot be set`);
     }
   }
-  Object.assign(build.abilities, patch.abilities ?? {});
+  for (const [id, score] of Object.entries(patch.abilities ?? {})) {
+    const ability = definition.sheet.abilities.find((entry) => entry.id === id);
+    // A cleared score is the ruleset's default; an unknown id is reported below.
+    if (score !== null) build.abilities[id] = score;
+    else if (ability) build.abilities[id] = ability.default;
+  }
   assignClearable(build.skills, patch.skills ?? {});
   assignClearable(build.saves, patch.saves ?? {});
   assignClearable(build.bonuses, patch.bonuses ?? {});
   assignClearable(build.fields, patch.fields ?? {});
   issues.push(
     ...rulesetSheetBuildIssues(definition, {
-      abilities: patch.abilities ?? {},
+      abilities: withoutNulls(patch.abilities),
       skills: withoutNulls(patch.skills),
       saves: withoutNulls(patch.saves),
       bonuses: withoutNulls(patch.bonuses),
@@ -140,36 +145,46 @@ export function applyRulesetSheetPatch(
       continue;
     }
     const before = build.lists[listId] ?? [];
-    if (change.set && (change.update || change.remove)) {
+    const setting = change.set !== undefined;
+    const updates = change.update ?? [];
+    const removing = new Set(change.remove ?? []);
+    const adding = change.add ?? [];
+    if (setting && (updates.length > 0 || removing.size > 0)) {
       issues.push(`lists.${listId}: send either set, or update and remove, not both`);
       continue;
     }
-    const rows: Array<Record<string, Scalar>> = change.set
-      ? change.set.map((row) => ({ ...row }))
-      : before.map((row) => ({ ...row }));
-    const touched = new Set<Record<string, Scalar>>(change.set ? rows : []);
-    for (const { index, cells } of change.update ?? []) {
+    if (!setting && updates.length === 0 && removing.size === 0 && adding.length === 0) {
+      issues.push(`lists.${listId}: changes nothing: send set, update, remove or add`);
+      continue;
+    }
+    // Every row a problem can be reported on carries the name a resend uses for it: its index in the
+    // stored list for an updated row, `add.<n>` or `set.<n>` for one this patch writes.
+    const named = new Map<Record<string, Scalar>, string>();
+    const rows: Array<Record<string, Scalar>> = (change.set ?? before).map((row) => ({ ...row }));
+    if (change.set) rows.forEach((row, index) => named.set(row, `set.${index}`));
+    for (const { index, cells } of updates) {
       const row = rows[index];
       if (!row) {
         issues.push(`lists.${listId}.${index}: there is no row ${index} (the list holds ${before.length})`);
         continue;
       }
       assignClearable(row, cells);
-      touched.add(row);
+      named.set(row, String(index));
     }
-    const removing = new Set(change.remove ?? []);
     for (const index of removing) {
       if (index >= before.length) issues.push(`lists.${listId}.${index}: there is no row ${index} to remove`);
     }
     const kept = rows.filter((_row, index) => !removing.has(index));
-    for (const row of change.add ?? []) {
+    adding.forEach((row, index) => {
       const added = { ...row };
       kept.push(added);
-      touched.add(added);
-    }
+      named.set(added, `add.${index}`);
+    });
     if (kept.length > list.maxItems) issues.push(`lists.${listId}: holds at most ${list.maxItems} rows`);
-    kept.forEach((row, index) => {
-      if (!touched.has(row)) return;
+    const at = `lists.${listId}.0`;
+    for (const row of kept) {
+      const name = named.get(row);
+      if (name === undefined) continue;
       for (const issue of rulesetSheetBuildIssues(definition, {
         abilities: {},
         skills: {},
@@ -178,9 +193,9 @@ export function applyRulesetSheetPatch(
         fields: {},
         lists: { [listId]: [row] },
       })) {
-        issues.push(issue.replace(`lists.${listId}.0`, `lists.${listId}.${index}`));
+        issues.push(issue.startsWith(at) ? `lists.${listId}.${name}${issue.slice(at.length)}` : issue);
       }
-    });
+    }
     if (kept.length > 0) build.lists[listId] = kept;
     else delete build.lists[listId];
   }
@@ -223,6 +238,7 @@ export function describeRulesetSheetLayout(definition: RulesetDefinition): Row {
     ...(spec.type === "number" ? { min: spec.min, max: spec.max, integer: spec.integer } : {}),
     ...(spec.type === "text" || spec.type === "longtext" ? { maxLength: spec.maxLength } : {}),
     ...(spec.type === "enum" ? { values: spec.values } : {}),
+    ...(spec.default !== undefined ? { default: spec.default } : {}),
     ...("required" in spec && spec.required ? { required: true } : {}),
     // A worked-out cell is filled in from the row, whatever is sent for it.
     ...("sum" in spec && spec.sum ? { workedOut: true } : {}),
@@ -267,18 +283,22 @@ export function describeRulesetSheetLayout(definition: RulesetDefinition): Row {
  *  and the layout a patch is written against. */
 export function describeRulesetSheet(definition: RulesetDefinition, stored: unknown): Row {
   const read = stored === undefined ? null : readRulesetSheetEnvelope(definition, stored);
+  // A blank sheet works out too, so Mari sees what an update would start from.
+  const build = read?.build ?? (stored === undefined ? createRulesetSheetEnvelope(definition).build : null);
   let values: Row | undefined;
-  if (read) {
+  let valuesNote: string | undefined;
+  if (build) {
     try {
-      const evaluated = evaluateRulesetSheet(definition, read.build);
+      // Live tracks and pools read as they start, as the sheet editor shows them.
+      const evaluated = evaluateRulesetSheetLive(definition, build);
       values = {
         abilityMods: evaluated.abilityMods,
         skillMods: evaluated.skillMods,
         saveMods: evaluated.saveMods,
         derived: evaluated.derived,
       };
-    } catch {
-      values = undefined;
+    } catch (error) {
+      valuesNote = `The worked-out values could not be computed: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
   return {
@@ -287,6 +307,7 @@ export function describeRulesetSheet(definition: RulesetDefinition, stored: unkn
     status: read ? "stored" : stored === undefined ? "none" : "unreadable",
     ...(read ? { build: read.build } : {}),
     ...(values ? { values } : {}),
+    ...(valuesNote ? { valuesNote } : {}),
     ...(read
       ? {}
       : {
