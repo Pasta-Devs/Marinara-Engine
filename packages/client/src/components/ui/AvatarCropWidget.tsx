@@ -12,7 +12,7 @@
 // container's full area. Square-in-source-pixels crops survive any source aspect
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
-import { Crop, RotateCcw, X } from "lucide-react";
+import { Crop, X } from "lucide-react";
 import type { AvatarCrop, SourceRectAvatarCrop } from "@marinara-engine/shared";
 import { getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -244,7 +244,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
             className="mari-editor-action mari-editor-action--compact inline-flex whitespace-nowrap gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
             title={localizeUi("ui.ui.avatarcropwidget.resetToCenteredMaxSquareCrop")}
           >
-            <RotateCcw size="0.625rem" /> {localizeUi("ui.characters.charactercliptrimmodal.reset")}
+            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
           </button>
           {onRemove && (
             <button

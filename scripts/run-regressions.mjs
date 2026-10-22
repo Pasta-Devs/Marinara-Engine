@@ -34,8 +34,8 @@ export function regressionTimeoutMs(relativePath) {
   if (relativePath === 'scripts/regressions/advanced-memory-recall-shortlist.regression.ts') return 60_000;
   // Hundreds of complete d20 and dice-pool fights: 75-130 s on CI runners and up to about 180 s locally.
   if (relativePath === 'scripts/regressions/ruleset-combat-director.regression.ts') return 300_000;
-  // An out-of-memory control, then a small-heap server exports and re-imports a 64 MB gallery: 16-23 s on CI.
-  if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 60_000;
+  // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
+  if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 90_000;
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
   if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
   return FILE_TIMEOUT_MS;

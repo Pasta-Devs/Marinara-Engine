@@ -184,8 +184,8 @@ MAX_SCOUT_CHARS = 40_000
 # every turn of a tool loop resends the whole conversation.
 ROLE_DEFAULTS = {
     "scout": {"reads": 10, "chars": 40_000, "minutes": 5, "max_tokens": 16_000, "places": MAX_SCOUT_PLACES, "scouts": SCOUTS},
-    "finder": {"reads": 0, "chars": 0, "minutes": 10, "max_tokens": 32_000},
-    "verify": {"reads": 5, "chars": 40_000, "max_tokens": 32_000},
+    "finder": {"reads": 0, "chars": 0, "minutes": 10, "max_tokens": 64_000},
+    "verify": {"reads": 5, "chars": 40_000, "max_tokens": 64_000},
 }
 # DOTTORE_COST_LIMIT_USD stops a review's model calls once it has spent that much (calls in flight still finish). Unset,
 # a review may spend this much; 0 removes the limit.

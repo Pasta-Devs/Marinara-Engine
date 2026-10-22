@@ -2207,6 +2207,23 @@ function buildSegmentDeleteSet(chatMeta: Record<string, unknown>): Set<string> {
   return deleted;
 }
 
+function sameSegmentEditMap(a: Map<string, GameSegmentEdit>, b: Map<string, GameSegmentEdit>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, edit] of a) {
+    const other = b.get(key);
+    if (!other) return false;
+    const fields = new Set([...Object.keys(edit), ...Object.keys(other)]) as Set<keyof GameSegmentEdit>;
+    for (const field of fields) if (edit[field] !== other[field]) return false;
+  }
+  return true;
+}
+
+function sameStringSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
+}
+
 function slugifyGameMapId(value: string): string {
   return value
     .trim()
@@ -2475,12 +2492,17 @@ function GameSurfaceComponent({
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
   );
-  const gameCharacterIds = useMemo(() => {
+  // Joined so that a metadata write that leaves the cast alone keeps the same list downstream.
+  const gameCharacterIdsKey = useMemo(() => {
     const config = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
     const ids = new Set([...chatCharacterIds, ...getActivePartyIds(chatMeta)]);
     if (typeof config?.gmCharacterId === "string") ids.add(config.gmCharacterId);
-    return [...ids].filter((id) => characterMap.has(id));
+    return [...ids].filter((id) => characterMap.has(id)).join("\u0000");
   }, [characterMap, chatCharacterIds, chatMeta]);
+  const gameCharacterIds = useMemo(
+    () => (gameCharacterIdsKey ? gameCharacterIdsKey.split("\u0000") : []),
+    [gameCharacterIdsKey],
+  );
   // An unrelated library card with the same name is not a character in this game.
   const characters = useMemo(
     () => libraryCharacters.filter((character) => gameCharacterIds.includes(character.id)),
@@ -3262,9 +3284,13 @@ function GameSurfaceComponent({
   const [segmentEdits, setSegmentEdits] = useState(() => buildSegmentEditMap(chatMeta));
   const [segmentDeletes, setSegmentDeletes] = useState(() => buildSegmentDeleteSet(chatMeta));
   // Re-sync from chatMeta when it changes (e.g. page refresh loads new metadata)
+  // Most metadata writes leave the overlays as they were. Keeping the same Map and Set then spares
+  // the narration from parsing every message again on an unrelated settings toggle.
   useEffect(() => {
-    setSegmentEdits(buildSegmentEditMap(chatMeta));
-    setSegmentDeletes(buildSegmentDeleteSet(chatMeta));
+    const nextEdits = buildSegmentEditMap(chatMeta);
+    const nextDeletes = buildSegmentDeleteSet(chatMeta);
+    setSegmentEdits((current) => (sameSegmentEditMap(current, nextEdits) ? current : nextEdits));
+    setSegmentDeletes((current) => (sameStringSet(current, nextDeletes) ? current : nextDeletes));
   }, [chatMeta]);
 
   const appliedSegmentsRef = useRef<Set<number>>(new Set());

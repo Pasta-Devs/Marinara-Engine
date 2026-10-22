@@ -269,7 +269,7 @@ Each role's limits are kept in code, in `ROLE_DEFAULTS` in `dottore_review.py`:
 | `reads` | Read-tool calls; `0` offers none | `10` per scout | `0` | `5`, plus 1 per extra candidate |
 | `chars` | Characters of tool output | `40000` per scout | `0` | `40000`, plus 4000 per extra candidate |
 | `minutes` | Time box, from the role's first call | `5` | `10` | the review's last 8 minutes |
-| `max_tokens` | Output cap per call, Claude models only | `16000` | `32000` | `32000` |
+| `max_tokens` | Output cap per call, Claude models only | `16000` | `64000` | `64000` |
 | `places` | Places each scout keeps; `0` turns the scouts off | `6` | – | – |
 | `scouts` | Scouts per packet, each with a share of its changes; a PR split into packets runs more scouts than `DOTTORE_CONCURRENCY` in turn | `4` | – | – |
 
@@ -279,7 +279,8 @@ pings, empty deltas and block boundaries do not refresh the watchdog. Claude req
 its progress is visible even on models that omit thinking text by default. A role offered no
 read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
 `medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. On Claude, thinking
-counts inside `max_tokens`, so a larger or slower Claude model may need a larger cap.
+counts inside `max_tokens`; the judging roles use 64000 so Opus 5.5 at extra-high effort has room for both thinking
+and its submission, following [Anthropic's migration guidance](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 
 Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECONDS`), the last 8 minutes of it
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,

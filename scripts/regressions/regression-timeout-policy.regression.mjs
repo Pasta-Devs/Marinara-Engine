@@ -9,7 +9,7 @@ import { regressionTimeoutMs } from "../run-regressions.mjs";
 assert.equal(regressionTimeoutMs("scripts/regressions/server-signal-shutdown.regression.ts"), 270_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/restart-supervisor.regression.ts"), 90_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/ruleset-combat-director.regression.ts"), 300_000);
-assert.equal(regressionTimeoutMs("scripts/regressions/native-export-memory.regression.ts"), 60_000);
+assert.equal(regressionTimeoutMs("scripts/regressions/native-export-memory.regression.ts"), 90_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/prompt.regression.ts"), 30_000);
 
 // The shard action runs on Ubuntu; native Windows checks do not require Bash.
