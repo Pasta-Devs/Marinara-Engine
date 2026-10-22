@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { modelCost } from "../../packages/shared/src/constants/model-lists.js";
-import { withNanoGptPlan } from "../../packages/server/src/services/nanogpt/subscription-usage.js";
+import { cachedPlanActive, withNanoGptPlan } from "../../packages/server/src/services/nanogpt/subscription-usage.js";
 
 // A proxy's `nanogpt/<id>` models take NanoGPT's plan facts for `<id>`; other ids and unknown models stay bare.
 // An unlisted id matches by its last part only when one plan model has it (`zai-org/glm-5.2` → `z-ai/glm-5.2`);
@@ -31,4 +31,21 @@ assert.deepEqual(
   models.map((model) => modelCost(model, null)),
   ["included", "multiplier:2", "paid", null, null, null, "included", null, null],
 );
+
+let clock = 0;
+let reads = 0;
+const answers: Array<boolean | null> = [true, null, null, false];
+const read = async () => (reads++, answers.shift() ?? null);
+assert.equal(await cachedPlanActive("acct", read, () => clock), true);
+clock = 4 * 60_000;
+assert.equal(await cachedPlanActive("acct", read, () => clock), true, "a hit within 5 min does not read");
+assert.equal(reads, 1);
+clock = 5 * 60_000 + 1;
+assert.equal(await cachedPlanActive("acct", read, () => clock), null);
+clock += 30_000;
+assert.equal(await cachedPlanActive("acct", read, () => clock), null, "unknown is cached for 60 s");
+assert.equal(reads, 2);
+clock += 31_000;
+assert.equal(await cachedPlanActive("acct", read, () => clock), null, "unknown expires after 60 s");
+assert.equal(reads, 3);
 console.log("nanogpt plan badges: ok");

@@ -105,6 +105,7 @@ import { decryptApiKey } from "../utils/crypto.js";
 import {
   fetchNanoGptSubscriptionUsage,
   readNanoGptModelSubscriptionMetadata,
+  cachedPlanActive,
   readNanoGptPlan,
   withNanoGptPlan,
 } from "../services/nanogpt/subscription-usage.js";
@@ -1588,18 +1589,21 @@ export async function connectionsRoutes(app: FastifyInstance) {
    * the user allowed outside reads.
    */
   /** Whether a direct NanoGPT account has an active plan; null when unknown (other provider, no key, failed read). */
-  const readPlanActive = async (provider: string, accountId?: string | null): Promise<boolean | null> => {
-    if (provider !== "nanogpt" || !accountId) return null;
-    try {
-      const row = await storage.getById(accountId);
-      const usage = await fetchNanoGptSubscriptionUsage({
-        managementToken: await storage.getManagementToken(accountId),
-        apiKey: row?.apiKeyEncrypted ? decryptApiKey(row.apiKeyEncrypted) : "",
-      });
-      return usage ? usage.active : null;
-    } catch {
-      return null;
-    }
+  const readPlanActive = (provider: string, accountId?: string | null): Promise<boolean | null> => {
+    if (provider !== "nanogpt" || !accountId) return Promise.resolve(null);
+    return cachedPlanActive(accountId, async () => {
+      try {
+        const row = await storage.getById(accountId);
+        const usage = await fetchNanoGptSubscriptionUsage({
+          managementToken: await storage.getManagementToken(accountId),
+          apiKey: row?.apiKeyEncrypted ? decryptApiKey(row.apiKeyEncrypted) : "",
+          timeoutMs: 3_000,
+        });
+        return usage ? usage.active : null;
+      } catch {
+        return null;
+      }
+    });
   };
 
   const withCosts = async <T extends { models: Array<Record<string, unknown>> }>(
@@ -1607,6 +1611,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     list: T,
   ) => {
     const billing = connectionBilling(conn);
+    const planActivePending = readPlanActive(conn.provider, conn.accountId);
     const allowed = (await appSettings.get(OUTSIDE_READS_SETTINGS_KEY)) === "on";
     const planned =
       conn.provider !== "nanogpt" &&
@@ -1619,7 +1624,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       billing === null && allowed
         ? await withCatalogPrices(conn, planned, cachedLinkApiGroup(conn.accountId))
         : planned;
-    const planActive = await readPlanActive(conn.provider, conn.accountId);
+    const planActive = await planActivePending;
     const models = priced.map((model) => {
       const cost = modelCost(model, billing, planActive);
       return cost ? { ...model, cost } : model;

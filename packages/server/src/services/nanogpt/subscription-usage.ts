@@ -159,6 +159,8 @@ export interface FetchNanoGptUsageOptions {
   managementToken?: string | null;
   /** Fallback: the connection's inference API key. */
   apiKey?: string | null;
+  /** Overrides the default read timeout, for callers that must not wait long. */
+  timeoutMs?: number;
 }
 
 /**
@@ -191,7 +193,7 @@ export async function fetchNanoGptSubscriptionUsage(
     },
     // A stalled response would otherwise hold the usage handler pending forever;
     // safeFetch sets no timeout of its own.
-    signal: AbortSignal.timeout(NANOGPT_USAGE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? NANOGPT_USAGE_TIMEOUT_MS),
   });
 
   const text = await response.text();
@@ -301,4 +303,28 @@ export function describeUsageError(status: number, body: string, usedManagementT
 
   const trimmed = body.trim().slice(0, 200);
   return `NanoGPT returned ${status}${trimmed ? `: ${trimmed}` : ""}`;
+}
+
+const PLAN_ACTIVE_TTL_MS = 5 * 60_000;
+/** A failed read retries soon. */
+const PLAN_ACTIVE_UNKNOWN_TTL_MS = 60_000;
+const planActiveCache = new Map<string, { until: number; active: boolean | null }>();
+
+/**
+ * Whether an account's plan is active, cached per account so model lists do not wait on NanoGPT.
+ * `read` returns null when unknown. ponytail: TTL only, no drop on key change; add an invalidate hook if stale badges matter.
+ */
+export async function cachedPlanActive(
+  accountId: string,
+  read: () => Promise<boolean | null>,
+  now: () => number = Date.now,
+): Promise<boolean | null> {
+  const hit = planActiveCache.get(accountId);
+  if (hit && now() < hit.until) return hit.active;
+  const active = await read();
+  planActiveCache.set(accountId, {
+    until: now() + (active === null ? PLAN_ACTIVE_UNKNOWN_TTL_MS : PLAN_ACTIVE_TTL_MS),
+    active,
+  });
+  return active;
 }
