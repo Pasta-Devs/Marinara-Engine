@@ -20,7 +20,6 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
-  Search,
   Upload,
   X,
   BadgeDollarSign,
@@ -60,6 +59,7 @@ import { useConnectionFolders } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
+import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
@@ -850,24 +850,16 @@ export function ConnectionsPanel() {
   // One row: Search, Add and ⋯ (Import, Export). An empty panel has nothing to search or export yet.
   const header = !isLoading && !noConnections && (
     <div className="flex gap-2">
-      <div className="relative min-w-0 flex-1">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          type="search"
-          placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
-          aria-label={t("connections.list.search")}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setSearchFolded([]);
-          }}
-          autoComplete="off"
-          className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9 [@media(pointer:coarse)]:h-11"
-        />
-      </div>
+      <ListSearch
+        className="flex-1"
+        value={search}
+        onChange={(value) => {
+          setSearch(value);
+          setSearchFolded([]);
+        }}
+        label={t("connections.list.search")}
+        placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
+      />
       <button
         type="button"
         onClick={() => openModal("create-connection")}

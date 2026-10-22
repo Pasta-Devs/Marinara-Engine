@@ -26,7 +26,6 @@ import {
   MessageCircleQuestion,
   MessageSquare,
   MessageSquareText,
-  Search,
   Sparkles,
   Volume2,
   X,
@@ -51,6 +50,7 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { ListSearch, ListStatus } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
@@ -1562,22 +1562,7 @@ export function CreateConnectionModal({
   const serviceList = (
     <div className="flex flex-col gap-3 p-4">
       {firstRun && !pick && <FirstRunIntro text={t("connections.add.intro")} />}
-      {!jobList && (
-        <div className="relative">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchLabel}
-            aria-label={searchLabel}
-            className="mari-chrome-field h-11 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-      )}
+      {!jobList && <ListSearch value={query} onChange={setQuery} label={searchLabel} placeholder={searchLabel} />}
       {cards && (
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
           {questions.map(({ id, Icon, examples }) => (
@@ -1804,9 +1789,7 @@ export function CreateConnectionModal({
       })}
       {searching && listGroups.length === 0 && listModels.length === 0 && listJobs.length === 0 && (
         <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
-          <p className="text-xs text-[var(--muted-foreground)]">
-            {t("connections.add.noMatch", { query: query.trim() })}
-          </p>
+          <ListStatus className="py-0">{t("connections.add.noMatch", { query: query.trim() })}</ListStatus>
           <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>
             {t("connections.add.useCustom")}
           </button>

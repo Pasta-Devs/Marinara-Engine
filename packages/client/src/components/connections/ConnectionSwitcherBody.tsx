@@ -48,6 +48,7 @@ import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ServiceRow } from "./ServiceRow";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
+import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
@@ -158,10 +159,6 @@ function AccentBar() {
       className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
     />
   );
-}
-
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <p className="px-3 pb-0.5 pt-2 text-[0.6875rem] font-medium text-foreground/45">{children}</p>;
 }
 
 /**
@@ -1046,35 +1043,30 @@ export function ConnectionSwitcherBody({
   );
 
   const searchBox = (
-    <label className="mx-1 mb-1 flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25 md:min-h-9">
-      <Search size="0.875rem" className="shrink-0" aria-hidden />
-      <span className="sr-only">{t("connections.switcher.searchLabel")}</span>
-      <input
-        ref={searchRef}
-        data-switcher-search
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          // Keys pressed while an input method is composing belong to the composition.
-          if (event.nativeEvent.isComposing || event.keyCode === 229 || !searching) return;
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            const step = event.key === "ArrowDown" ? 1 : -1;
-            setHighlight((index) => Math.min(Math.max(index + step, 0), searchEntries.length - 1));
-          } else if (event.key === "Enter") {
-            event.preventDefault();
-            const entry = searchEntries[highlight];
-            if (entry) void apply(entry);
-          }
-        }}
-        placeholder={t("connections.switcher.searchPlaceholder")}
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        enterKeyHint="go"
-        className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-foreground outline-none placeholder:text-foreground/40"
-      />
-    </label>
+    <ListSearch
+      className="mx-1 mb-1 mt-1 shrink-0"
+      inputRef={searchRef}
+      data-switcher-search
+      value={query}
+      onChange={setQuery}
+      onKeyDown={(event) => {
+        // Keys pressed while an input method is composing belong to the composition.
+        if (event.nativeEvent.isComposing || event.keyCode === 229 || !searching) return;
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          setHighlight((index) => Math.min(Math.max(index + step, 0), searchEntries.length - 1));
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          const entry = searchEntries[highlight];
+          if (entry) void apply(entry);
+        }
+      }}
+      label={t("connections.switcher.searchLabel")}
+      placeholder={t("connections.switcher.searchPlaceholder")}
+      autoCapitalize="off"
+      autoCorrect="off"
+    />
   );
 
   // The catalog of one Connection through the Model a pick runs on. Only what the chat runs looks current there.
@@ -1108,7 +1100,7 @@ export function ConnectionSwitcherBody({
         layout === "steps" && "sticky top-0 z-[1] bg-[var(--mari-chat-existing-bg,var(--background))]",
       )}
     >
-      <SectionLabel>{nowLabel}</SectionLabel>
+      <ListHeading>{nowLabel}</ListHeading>
       {nowEntry ? renderEntry(nowEntry, { now: true }) : followRow(true)}
     </section>
   );
@@ -1151,27 +1143,28 @@ export function ConnectionSwitcherBody({
   ) : (
     <div data-switcher-list className={cn("flex min-h-0 flex-col", layout === "steps" && "flex-1", listClassName)}>
       {listHeader}
-      {!shuffle?.active && !nothing && <div className="shrink-0 pt-1">{searchBox}</div>}
-      <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1">
+      <ListFrame
+        className="flex-1"
+        search={!shuffle?.active && !nothing && searchBox}
+        listClassName="relative px-1 pb-1"
+      >
         {shuffle?.active ? (
           poolList
         ) : nothing ? (
           (empty ?? (
-            <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
-              {t("ui.chat.quickconnectionswitcher.noConnectionsFound")}
-            </div>
+            <ListStatus className="italic">{t("ui.chat.quickconnectionswitcher.noConnectionsFound")}</ListStatus>
           ))
         ) : searching ? (
           <div data-switcher-results>
             {searchEntries.slice(0, savedCount).map((entry, index) => renderEntry(entry, { index, star: "all" }))}
-            {hasCatalogHits && <SectionLabel>{t("connections.switcher.notStarred")}</SectionLabel>}
+            {hasCatalogHits && <ListHeading>{t("connections.switcher.notStarred")}</ListHeading>}
             {searchEntries
               .slice(savedCount)
               .map((entry, index) => renderEntry(entry, { index: savedCount + index, star: "all" }))}
             {searchEntries.length === 0 && (
-              <p className="px-3 py-3 text-[0.6875rem] text-foreground/50">
+              <ListStatus>
                 {t(catalog.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")}
-              </p>
+              </ListStatus>
             )}
           </div>
         ) : (
@@ -1180,7 +1173,7 @@ export function ConnectionSwitcherBody({
             {followDefault && !followDefault.active && followRow(false)}
             {recent.length > 0 && (
               <section data-switcher-section="recent" aria-label={t("connections.switcher.recent")}>
-                <SectionLabel>{t("connections.switcher.recent")}</SectionLabel>
+                <ListHeading>{t("connections.switcher.recent")}</ListHeading>
                 {recent.map((entry) => renderEntry(entry))}
               </section>
             )}
@@ -1193,7 +1186,7 @@ export function ConnectionSwitcherBody({
             )}
           </>
         )}
-      </div>
+      </ListFrame>
       {listFooter}
     </div>
   );

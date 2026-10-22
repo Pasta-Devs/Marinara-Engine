@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { parseConnectionIcon } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
+import { ListSearch } from "./ListFrame";
 import { BRAND_MARKS, brandMarkProps } from "./ProviderIcon";
 import {
   useUpdateConnection,
@@ -187,6 +188,8 @@ function Panel({ at, onClose, children }: { at: PictureMenuProps["at"]; onClose:
     // Captured before React's listeners, so Escape closes only this menu, not the panel under it.
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // A logo search with text clears first; ListSearch takes that Escape.
+      if (event.target instanceof HTMLInputElement && event.target.type === "search" && event.target.value) return;
       event.preventDefault();
       event.stopPropagation();
       closeRef.current();
@@ -225,14 +228,13 @@ function BrandGrid({ selected, onPick }: { selected: string | null; onPick: (key
   const keys = Object.keys(BRAND_MARKS).filter((key) => key.includes(q));
   return (
     <>
-      <input
+      <ListSearch
         autoFocus
-        type="search"
+        className="mb-2"
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={setQuery}
+        label={t("connections.picture.searchLogos")}
         placeholder={t("connections.picture.searchLogos")}
-        aria-label={t("connections.picture.searchLogos")}
-        className="mari-chrome-field mb-2 h-9 w-full px-2.5 text-xs"
       />
       {keys.length ? (
         <div className="grid max-h-48 grid-cols-6 gap-1 overflow-y-auto">

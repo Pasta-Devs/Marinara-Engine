@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
@@ -15,6 +15,7 @@ import { cn } from "../../lib/utils";
 import { useMoveConnection } from "../../hooks/use-connections";
 import { useCatalogSearch, useSplitModel } from "../../hooks/use-connection-accounts";
 import { Modal } from "../ui/Modal";
+import { ListFrame, ListSearch } from "./ListFrame";
 import { ServiceRow } from "./ServiceRow";
 import type { ConnectionRowData } from "./ConnectionRow";
 
@@ -265,65 +266,62 @@ function ModelStep({
               </p>
             )
           )}
-          <label className="relative block">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              aria-hidden
-            />
-            <span className="sr-only">{t("connections.move.searchLabel", { connection: target.name })}</span>
-            <input
-              data-move-search
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("connections.move.searchPlaceholder", { connection: target.name })}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              className="mari-chrome-field h-11 w-full pl-8 pr-3 text-xs md:h-9"
-            />
-          </label>
-          {options.length > 0 && (
-            <div
-              role="radiogroup"
-              aria-label={t("connections.move.chooseModel", { connection: target.name })}
-              className="flex max-h-72 flex-col gap-1 overflow-y-auto"
-            >
-              {options.map((option) => (
-                <label
-                  key={option.id}
-                  data-move-candidate={option.id}
-                  className={cn(
-                    "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg py-1.5 ps-2 pe-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--marinara-chat-chrome-focus-ring)]",
-                    !manual.trim() && choice === option.id
-                      ? "bg-[var(--mari-connection-tint)]"
-                      : "hover:bg-foreground/[0.06]",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="move-model"
-                    value={option.id}
-                    checked={!manual.trim() && choice === option.id}
-                    onChange={() => {
-                      setManual("");
-                      setPicked(option.id);
-                    }}
-                    className="accent-[var(--mari-panel-gradient-end)]"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{option.name || option.id}</span>
-                    <span className="block truncate text-xs text-[var(--muted-foreground)]">{option.id}</span>
+          <ListFrame
+            search={
+              <ListSearch
+                className="mb-2"
+                data-move-search
+                value={query}
+                onChange={setQuery}
+                label={t("connections.move.searchLabel", { connection: target.name })}
+                placeholder={t("connections.move.searchPlaceholder", { connection: target.name })}
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+            }
+            status={
+              query.trim() && options.length === 0
+                ? t(search.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")
+                : null
+            }
+            role="radiogroup"
+            aria-label={t("connections.move.chooseModel", { connection: target.name })}
+            listClassName="flex max-h-72 flex-col gap-1"
+          >
+            {options.map((option) => (
+              <label
+                key={option.id}
+                data-move-candidate={option.id}
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg py-1.5 ps-2 pe-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                  !manual.trim() && choice === option.id
+                    ? "bg-[var(--mari-connection-tint)]"
+                    : "hover:bg-foreground/[0.06]",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="move-model"
+                  value={option.id}
+                  checked={!manual.trim() && choice === option.id}
+                  onChange={() => {
+                    setManual("");
+                    setPicked(option.id);
+                  }}
+                  className="accent-[var(--mari-panel-gradient-end)]"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{option.name || option.id}</span>
+                  <span className="block truncate text-xs text-[var(--muted-foreground)]">{option.id}</span>
+                </span>
+                {option.pill && (
+                  <span className={`mari-connection-pill mari-connection-pill--${option.pill.tone} shrink-0`}>
+                    {option.pill.label}
                   </span>
-                  {option.pill && (
-                    <span className={`mari-connection-pill mari-connection-pill--${option.pill.tone} shrink-0`}>
-                      {option.pill.label}
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
-          )}
+                )}
+              </label>
+            ))}
+          </ListFrame>
           {plan.data?.manualModelAllowed && (
             <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--muted-foreground)]">
               {t("connections.move.manualLabel")}

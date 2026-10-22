@@ -2269,6 +2269,7 @@
   "connections.list.back": "Connections",
   "connections.list.billing.free": "Free",
   "connections.list.billing.plan": "Plan",
+  "connections.list.clearSearch": "Clear search",
   "connections.list.collapse": "Hide models of {{name}}",
   "connections.list.connectionCount_one": "{{count}} connection",
   "connections.list.connectionCount_other": "{{count}} connections",

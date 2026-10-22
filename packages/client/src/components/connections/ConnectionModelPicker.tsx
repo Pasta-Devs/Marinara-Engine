@@ -14,7 +14,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Check, Loader2, Plus, RefreshCw, Search, Star } from "lucide-react";
+import { Check, Loader2, Plus, RefreshCw, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -46,6 +46,7 @@ import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
+import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
@@ -418,31 +419,10 @@ export function ConnectionModelPicker({
     void (starred ? modelStar.star(target) : modelStar.unstar(target));
   };
 
-  const focusOption = (from: HTMLElement | null, step: 1 | -1) => {
-    const buttons = [...(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-model-option]") ?? [])];
-    if (!from) return buttons[0]?.focus();
-    const index = buttons.indexOf(from as HTMLButtonElement);
-    const next = buttons[index + step];
-    if (next) next.focus();
-    else if (step === -1) searchRef.current?.focus();
-  };
-
-  const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-model-row]");
-    const option = target?.querySelector<HTMLElement>("[data-model-option]") ?? null;
-    if (!option) return;
-    event.preventDefault();
-    focusOption(option, event.key === "ArrowDown" ? 1 : -1);
-  };
-
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // Keys pressed while an input method is composing belong to the composition.
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      focusOption(null, 1);
-    } else if (event.key === "Enter" && typedId) {
+    if (event.key === "Enter" && typedId) {
       event.preventDefault();
       if (enterTarget) void pick(enterTarget);
     }
@@ -596,9 +576,18 @@ export function ConnectionModelPicker({
       ]
     : [];
 
-  const sectionLabel = (label: string) => (
-    <p className="px-3 pb-0.5 pt-2 text-[0.625rem] font-medium text-foreground/45">{label}</p>
-  );
+  const status = modelList.isLoading ? (
+    <ListStatus className="flex items-center justify-center gap-2 py-2">
+      <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
+      {t("connections.modelPicker.loading")}
+    </ListStatus>
+  ) : !modelList.isError &&
+    !typedId &&
+    recommendedRows.length === 0 &&
+    pinnedRows.length === 0 &&
+    otherRows.length === 0 ? (
+    t("connections.modelPicker.empty")
+  ) : null;
 
   return (
     <div data-connection-model-picker className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
@@ -627,245 +616,233 @@ export function ConnectionModelPicker({
       ) : (
         <>
           {/* The Add window's step title sits at its header edge (px-5, px-4 on phones); the search lines up with it. */}
-          <div className={cn("flex min-w-0 items-center gap-1.5 pb-1.5", addMode ? "px-5 max-md:px-4" : "px-3")}>
-            <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border sm:min-h-9 border-foreground/10 bg-foreground/[0.04] px-2.5 text-foreground/55 focus-within:border-foreground/25 [@media(pointer:coarse)]:min-h-11">
-              <Search size="0.875rem" className="shrink-0" aria-hidden />
-              <span className="sr-only">{t("connections.modelPicker.searchLabel")}</span>
-              <input
-                ref={searchRef}
-                data-model-search
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={onSearchKeyDown}
-                placeholder={t("connections.modelPicker.searchPlaceholder")}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                enterKeyHint="go"
-                className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-foreground outline-none placeholder:text-foreground/40"
-              />
-            </label>
-            <button
-              type="button"
-              data-model-refresh
-              onClick={() =>
-                refresh.mutate(connection.id, {
-                  onError: (error) =>
-                    toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
-                })
-              }
-              disabled={refresh.isPending || modelList.isFetching}
-              aria-label={t("connections.modelPicker.refresh")}
-              title={t("connections.modelPicker.refresh")}
-              className="mari-connection-btn mari-connection-btn--icon"
-            >
-              <RefreshCw
-                size="0.875rem"
-                className={cn((refresh.isPending || modelList.isFetching) && "animate-spin")}
-                aria-hidden
-              />
-            </button>
-          </div>
-
-          {addMode && updated && (
-            <p data-model-updated className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
-              {t("connections.modelPicker.updated", { when: updated })}
-            </p>
-          )}
-          {addMode && costLegend && (
-            <p data-model-cost-legend className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
-              {costLegend}
-            </p>
-          )}
-
-          {upstreams.length > 1 && (
-            <div
-              role="group"
-              aria-label={t("connections.modelPicker.filterUpstream")}
-              className="flex shrink-0 gap-1 overflow-x-auto px-3 pb-2"
-            >
-              {[null, ...upstreams].map((value) => (
+          <ListFrame
+            className="flex-1"
+            search={
+              <div className={cn("flex min-w-0 items-center gap-1.5 pb-1.5", addMode ? "px-5 max-md:px-4" : "px-3")}>
+                <ListSearch
+                  className="flex-1"
+                  inputRef={searchRef}
+                  data-model-search
+                  value={search}
+                  onChange={setSearch}
+                  onKeyDown={onSearchKeyDown}
+                  label={t("connections.modelPicker.searchLabel")}
+                  placeholder={t("connections.modelPicker.searchPlaceholder")}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
                 <button
-                  key={value ?? "all"}
                   type="button"
-                  data-model-upstream-filter={value ?? "all"}
-                  aria-pressed={upstream === value}
-                  onClick={() => setUpstream(value)}
-                  className="mari-connection-chip mari-panel-gradient--connections gap-1"
+                  data-model-refresh
+                  onClick={() =>
+                    refresh.mutate(connection.id, {
+                      onError: (error) =>
+                        toast.error(t("connections.modelPicker.refreshFailed", { error: errorMessage(error) })),
+                    })
+                  }
+                  disabled={refresh.isPending || modelList.isFetching}
+                  aria-label={t("connections.modelPicker.refresh")}
+                  title={t("connections.modelPicker.refresh")}
+                  className="mari-connection-btn mari-connection-btn--icon"
                 >
-                  {value && <BrandMark of={value} className="h-3 w-3" />}
-                  {value ? (knownPrefixName(value) ?? value) : t("connections.modelPicker.allUpstreams")}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {addMode && options.length > 1 && (
-            <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">
-              {costKinds.length > 1 && (
-                <div role="group" aria-label={t("connections.modelPicker.filterCost")} className="flex gap-1">
-                  {costKinds.map((kind) => (
-                    <button
-                      key={kind}
-                      type="button"
-                      data-model-cost-filter={kind}
-                      aria-pressed={costFilter === kind}
-                      onClick={() => setCostFilter(costFilter === kind ? null : kind)}
-                      className="mari-connection-chip mari-panel-gradient--connections"
-                    >
-                      {t(`connections.cost.${kind}`)}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <select
-                data-model-sort
-                aria-label={t("connections.modelPicker.sort")}
-                value={sort}
-                onChange={(event) => setSort(event.target.value as ModelSort)}
-                className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
-              >
-                <option value="list">{t("connections.modelPicker.sortList")}</option>
-                <option value="price">{t("connections.modelPicker.sortPrice")}</option>
-                <option value="context">{t("connections.modelPicker.sortContext")}</option>
-              </select>
-            </div>
-          )}
-
-          {modelList.isError && !refresh.isPending && (
-            <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
-              <p>{t("connections.modelPicker.loadFailed")}</p>
-              <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">{errorMessage(modelList.error)}</p>
-            </div>
-          )}
-
-          <div className="flex min-h-0 flex-1">
-            <div
-              ref={listRef}
-              data-model-list
-              onKeyDown={onListKeyDown}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5"
-            >
-              {showTypedRow && (
-                <div data-model-row className="flex">
-                  <button
-                    type="button"
-                    data-model-option
-                    data-model-use-typed
-                    disabled={saving}
-                    onClick={() => void pick(exactId ?? { id: typedId, name: typedId })}
-                    className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25"
-                  >
-                    <span className="truncate text-xs font-medium text-foreground/90">
-                      {t("connections.modelPicker.useTyped", { model: typedId })}
-                    </span>
-                    <span className="text-[0.625rem] text-foreground/50">
-                      {t(
-                        enterUsesTyped
-                          ? "connections.modelPicker.useTypedHint"
-                          : "connections.modelPicker.useTypedAsIs",
-                      )}
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {recommendedRows.length > 0 && (
-                <section aria-label={t("connections.add.recommended")} data-model-section="recommended">
-                  {sectionLabel(t("connections.add.recommended"))}
-                  {recommendedRows.map((row) => renderRow(row, false, "recommended"))}
-                </section>
-              )}
-
-              {pinnedRows.length > 0 && (
-                <section
-                  aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
-                  data-model-section="favorites"
-                  className={cn(recommendedRows.length > 0 && "mt-2")}
-                >
-                  {sectionLabel(t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites"))}
-                  {pinnedRows.map((row) => renderRow(row, true))}
-                </section>
-              )}
-
-              {otherRows.length > 0 && (
-                <section
-                  aria-label={t("connections.modelPicker.allModels")}
-                  data-model-section="all"
-                  className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
-                >
-                  {sectionLabel(t("connections.modelPicker.allModels"))}
-                  {/* A sorted list stays in one run; maker groups would break the order. */}
-                  {(sort === "list"
-                    ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id })))
-                    : [{ upstream: null, rows: otherRows }]
-                  ).map((group) => (
-                    <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
-                      {group.upstream && (
-                        <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
-                          <BrandMark of={group.upstream} className="h-3 w-3" />
-                          {knownPrefixName(group.upstream) ?? group.upstream}
-                        </p>
-                      )}
-                      {group.rows.map((row) => renderRow(row, false))}
-                    </div>
-                  ))}
-                </section>
-              )}
-
-              {totalOther > otherRows.length && (
-                <p className="px-3 py-2 text-[0.625rem] text-foreground/45">
-                  {t("connections.modelPicker.truncated", { shown: otherRows.length, total: totalOther })}
-                </p>
-              )}
-
-              {modelList.isLoading && (
-                <p className="flex items-center gap-2 px-3 py-2 text-[0.6875rem] text-foreground/50">
-                  <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
-                  {t("connections.modelPicker.loading")}
-                </p>
-              )}
-
-              {!modelList.isLoading &&
-                !modelList.isError &&
-                !typedId &&
-                recommendedRows.length === 0 &&
-                pinnedRows.length === 0 &&
-                otherRows.length === 0 && (
-                  <p className="px-3 py-3 text-[0.6875rem] text-foreground/50">{t("connections.modelPicker.empty")}</p>
-                )}
-            </div>
-            {addMode && detailRow && (
-              <aside
-                data-model-detail
-                aria-live="polite"
-                className="hidden w-64 shrink-0 flex-col gap-3 overflow-y-auto border-l border-foreground/10 px-4 py-3 lg:flex"
-              >
-                <div className="flex min-w-0 items-start gap-2">
-                  <ProviderIcon
-                    provider={provider || "custom"}
-                    model={detailRow.id}
-                    name={connection.name ?? undefined}
-                    size="row"
+                  <RefreshCw
+                    size="0.875rem"
+                    className={cn((refresh.isPending || modelList.isFetching) && "animate-spin")}
+                    aria-hidden
                   />
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold text-foreground">
-                      {detailRow.name || detailRow.id}
-                    </p>
-                    <p className="break-all text-[0.6875rem] text-foreground/50">{detailRow.id}</p>
+                </button>
+              </div>
+            }
+            header={
+              <>
+                {addMode && updated && (
+                  <p data-model-updated className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+                    {t("connections.modelPicker.updated", { when: updated })}
+                  </p>
+                )}
+                {addMode && costLegend && (
+                  <p data-model-cost-legend className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+                    {costLegend}
+                  </p>
+                )}
+
+                {upstreams.length > 1 && (
+                  <div
+                    role="group"
+                    aria-label={t("connections.modelPicker.filterUpstream")}
+                    className="flex shrink-0 gap-1 overflow-x-auto px-3 pb-2"
+                  >
+                    {[null, ...upstreams].map((value) => (
+                      <button
+                        key={value ?? "all"}
+                        type="button"
+                        data-model-upstream-filter={value ?? "all"}
+                        aria-pressed={upstream === value}
+                        onClick={() => setUpstream(value)}
+                        className="mari-connection-chip mari-panel-gradient--connections gap-1"
+                      >
+                        {value && <BrandMark of={value} className="h-3 w-3" />}
+                        {value ? (knownPrefixName(value) ?? value) : t("connections.modelPicker.allUpstreams")}
+                      </button>
+                    ))}
                   </div>
-                </div>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[0.6875rem]">
-                  {detailFacts.map(([label, value]) => (
-                    <Fragment key={label}>
-                      <dt className="text-foreground/50">{label}</dt>
-                      <dd className="text-foreground/85 tabular-nums">{value}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              </aside>
+                )}
+
+                {addMode && options.length > 1 && (
+                  <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">
+                    {costKinds.length > 1 && (
+                      <div role="group" aria-label={t("connections.modelPicker.filterCost")} className="flex gap-1">
+                        {costKinds.map((kind) => (
+                          <button
+                            key={kind}
+                            type="button"
+                            data-model-cost-filter={kind}
+                            aria-pressed={costFilter === kind}
+                            onClick={() => setCostFilter(costFilter === kind ? null : kind)}
+                            className="mari-connection-chip mari-panel-gradient--connections"
+                          >
+                            {t(`connections.cost.${kind}`)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <select
+                      data-model-sort
+                      aria-label={t("connections.modelPicker.sort")}
+                      value={sort}
+                      onChange={(event) => setSort(event.target.value as ModelSort)}
+                      className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
+                    >
+                      <option value="list">{t("connections.modelPicker.sortList")}</option>
+                      <option value="price">{t("connections.modelPicker.sortPrice")}</option>
+                      <option value="context">{t("connections.modelPicker.sortContext")}</option>
+                    </select>
+                  </div>
+                )}
+
+                {modelList.isError && !refresh.isPending && (
+                  <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
+                    <p>{t("connections.modelPicker.loadFailed")}</p>
+                    <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">
+                      {errorMessage(modelList.error)}
+                    </p>
+                  </div>
+                )}
+              </>
+            }
+            option="[data-model-option]"
+            listRef={listRef}
+            listClassName="px-1.5 pb-1.5"
+            data-model-list
+            status={status}
+            aside={
+              addMode &&
+              detailRow && (
+                <aside
+                  data-model-detail
+                  aria-live="polite"
+                  className="hidden w-64 shrink-0 flex-col gap-3 overflow-y-auto border-l border-foreground/10 px-4 py-3 lg:flex"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    <ProviderIcon
+                      provider={provider || "custom"}
+                      model={detailRow.id}
+                      name={connection.name ?? undefined}
+                      size="row"
+                    />
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold text-foreground">
+                        {detailRow.name || detailRow.id}
+                      </p>
+                      <p className="break-all text-[0.6875rem] text-foreground/50">{detailRow.id}</p>
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[0.6875rem]">
+                    {detailFacts.map(([label, value]) => (
+                      <Fragment key={label}>
+                        <dt className="text-foreground/50">{label}</dt>
+                        <dd className="text-foreground/85 tabular-nums">{value}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </aside>
+              )
+            }
+          >
+            {showTypedRow && (
+              <div data-model-row className="flex">
+                <button
+                  type="button"
+                  data-model-option
+                  data-model-use-typed
+                  disabled={saving}
+                  onClick={() => void pick(exactId ?? { id: typedId, name: typedId })}
+                  className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-3 py-1.5 text-left outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25"
+                >
+                  <span className="truncate text-xs font-medium text-foreground/90">
+                    {t("connections.modelPicker.useTyped", { model: typedId })}
+                  </span>
+                  <span className="text-[0.625rem] text-foreground/50">
+                    {t(
+                      enterUsesTyped ? "connections.modelPicker.useTypedHint" : "connections.modelPicker.useTypedAsIs",
+                    )}
+                  </span>
+                </button>
+              </div>
             )}
-          </div>
+
+            {recommendedRows.length > 0 && (
+              <section aria-label={t("connections.add.recommended")} data-model-section="recommended">
+                <ListHeading>{t("connections.add.recommended")}</ListHeading>
+                {recommendedRows.map((row) => renderRow(row, false, "recommended"))}
+              </section>
+            )}
+
+            {pinnedRows.length > 0 && (
+              <section
+                aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
+                data-model-section="favorites"
+                className={cn(recommendedRows.length > 0 && "mt-2")}
+              >
+                <ListHeading>
+                  {t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
+                </ListHeading>
+                {pinnedRows.map((row) => renderRow(row, true))}
+              </section>
+            )}
+
+            {otherRows.length > 0 && (
+              <section
+                aria-label={t("connections.modelPicker.allModels")}
+                data-model-section="all"
+                className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
+              >
+                <ListHeading>{t("connections.modelPicker.allModels")}</ListHeading>
+                {/* A sorted list stays in one run; maker groups would break the order. */}
+                {(sort === "list"
+                  ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id })))
+                  : [{ upstream: null, rows: otherRows }]
+                ).map((group) => (
+                  <div key={group.upstream ?? ""} data-model-upstream={group.upstream ?? undefined}>
+                    {group.upstream && (
+                      <p className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[0.625rem] text-foreground/40">
+                        <BrandMark of={group.upstream} className="h-3 w-3" />
+                        {knownPrefixName(group.upstream) ?? group.upstream}
+                      </p>
+                    )}
+                    {group.rows.map((row) => renderRow(row, false))}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {totalOther > otherRows.length && (
+              <p className="px-3 py-2 text-[0.625rem] text-foreground/45">
+                {t("connections.modelPicker.truncated", { shown: otherRows.length, total: totalOther })}
+              </p>
+            )}
+          </ListFrame>
 
           {footer !== null && (
             <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">

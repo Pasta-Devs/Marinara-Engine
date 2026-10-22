@@ -3,11 +3,12 @@
 // It only reports the pick: it saves nothing, stars nothing and changes no chat or default.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { AlertTriangle, Check, Cpu, House, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Check, Cpu, House, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
+import { ListFrame, ListSearch, ListStatus } from "./ListFrame";
 import { ServiceRow } from "./ServiceRow";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ModelRow, ModelTile } from "./ModelRow";
@@ -242,28 +243,31 @@ export function ConnectionPicker({
     </div>
   );
 
-  // Arrows walk the options; Up from the first one goes back to the search.
-  const onListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const options = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>(OPTION) ?? []);
-    const index = options.indexOf(document.activeElement as HTMLButtonElement);
-    if (index < 0) return;
-    event.preventDefault();
-    const next = index + (event.key === "ArrowDown" ? 1 : -1);
-    if (next < 0) searchRef.current?.focus();
-    else options[Math.min(next, options.length - 1)]?.focus();
-  };
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const first = listRef.current?.querySelector<HTMLButtonElement>(OPTION);
-    if (event.key === "ArrowDown" && first) {
-      event.preventDefault();
-      first.focus();
-    } else if (event.key === "Enter" && words.length > 0 && first) {
+    if (event.key === "Enter" && words.length > 0 && first) {
       event.preventDefault();
       first.click();
     }
   };
-
+  const status = choices.loading ? (
+    <ListStatus className="flex items-center justify-center gap-2 py-4">
+      <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+      {t("connections.picker.loading")}
+    </ListStatus>
+  ) : choices.error ? (
+    <div role="alert" className="flex flex-col items-center gap-2 px-3 py-4 text-center text-[0.6875rem]">
+      <span className="text-foreground/60">{t("connections.picker.error")}</span>
+      <button type="button" onClick={choices.retry} className="mari-connection-btn">
+        <RefreshCw size="0.75rem" aria-hidden />
+        {t("connections.picker.retry")}
+      </button>
+    </div>
+  ) : words.length > 0 && nothingShown ? (
+    t("connections.switcher.noMatches")
+  ) : choices.rows.length === 0 ? (
+    t("connections.picker.empty")
+  ) : null;
   return (
     <Modal
       open={open}
@@ -277,28 +281,23 @@ export function ConnectionPicker({
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
     >
-      <div className="shrink-0 px-3 pb-1 pt-3">
-        <label className="mari-chrome-field flex min-h-11 items-center gap-2 px-2.5 text-foreground/55 focus-within:ring-1 focus-within:ring-[var(--ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11">
-          <Search size="0.875rem" className="shrink-0" aria-hidden />
-          <span className="sr-only">{t("connections.picker.searchLabel")}</span>
-          <input
-            ref={searchRef}
-            type="search"
+      <ListFrame
+        className="flex-1"
+        search={
+          <ListSearch
+            className="mx-3 mb-1 mt-3 shrink-0"
+            inputRef={searchRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={setQuery}
             onKeyDown={onSearchKeyDown}
+            label={t("connections.picker.searchLabel")}
             placeholder={t("connections.picker.searchPlaceholder")}
-            autoComplete="off"
-            spellCheck={false}
-            enterKeyHint="go"
-            className="min-w-0 flex-1 bg-transparent py-1.5 text-base text-foreground outline-none placeholder:text-foreground/40 md:text-xs"
           />
-        </label>
-      </div>
-      <div
-        ref={setList}
-        onKeyDown={onListKeyDown}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3"
+        }
+        status={status}
+        option={OPTION}
+        listRef={setList}
+        listClassName="px-2 pb-3"
         aria-busy={choices.loading || undefined}
       >
         {top}
@@ -359,27 +358,7 @@ export function ConnectionPicker({
             })}
           </div>
         )}
-        {choices.loading ? (
-          <p className="flex items-center justify-center gap-2 px-3 py-4 text-[0.6875rem] text-foreground/50">
-            <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
-            {t("connections.picker.loading")}
-          </p>
-        ) : choices.error ? (
-          <div role="alert" className="flex flex-col items-center gap-2 px-3 py-4 text-center text-[0.6875rem]">
-            <span className="text-foreground/60">{t("connections.picker.error")}</span>
-            <button type="button" onClick={choices.retry} className="mari-connection-btn">
-              <RefreshCw size="0.75rem" aria-hidden />
-              {t("connections.picker.retry")}
-            </button>
-          </div>
-        ) : words.length > 0 && nothingShown ? (
-          <p className="px-3 py-4 text-center text-[0.6875rem] text-foreground/50">
-            {t("connections.switcher.noMatches")}
-          </p>
-        ) : choices.rows.length === 0 ? (
-          <p className="px-3 py-4 text-center text-[0.6875rem] text-foreground/50">{t("connections.picker.empty")}</p>
-        ) : null}
-      </div>
+      </ListFrame>
     </Modal>
   );
 }
