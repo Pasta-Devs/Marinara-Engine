@@ -142,7 +142,7 @@ MAX_CONTRACT_STATE_LIST_ITEMS = 3
 # its role's time instead (see chat).
 MODEL_REQUEST_TIMEOUT = 360
 FIRST_CALL_TIMEOUT = 180
-# Caps one attempt that keeps streaming, or the role's time box when that is longer; such an attempt is not retried.
+# Limits time without thinking, text or tool-input progress; pings do not keep an attempt alive.
 MODEL_STREAM_LIMIT = 900
 # Reasoning efforts from least to most. A role offered no tools whose reply hits its output cap is retried once at the
 # next lower effort: the cap is a symptom of thinking, and effort is the lever that reduces it.
@@ -1200,13 +1200,19 @@ class ResponseFailed(Exception):
 
 
 def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
-    """Yield a stream's events, noting when the first arrived and stopping one that runs too long. A stopped stream
+    """Yield a stream's events, noting when the first arrived and stopping one that makes no progress. A stopped stream
     returns no usage, so the error carries what had streamed by then: thinking, text and tool-input characters."""
     seen = {"thinking": 0, "text": 0, "tool": 0}
     last = 0.0  # when the counts last grew; pings and block boundaries do not count
     for event in stream:
         elapsed = time.monotonic() - started
         timing.setdefault("first_chunk", elapsed)
+        if elapsed - last > limit:
+            raise TimeoutError(
+                f"the reply made no thinking, text or tool-input progress for {elapsed - last:.0f}s "
+                f"(limit {limit:.0f}s, elapsed {elapsed:.0f}s), with {seen['thinking']} thinking, {seen['text']} text "
+                f"and {seen['tool']} tool-input characters streamed, the last at {last:.0f}s"
+            )
         delta = getattr(event, "delta", None)  # Claude content_block_delta, or a Responses delta event's string
         if delta is None and getattr(event, "choices", None):  # Chat Completions chunk
             delta = event.choices[0].delta
@@ -1217,13 +1223,13 @@ def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
                 grew = len(delta) if key == streamed else 0
             else:
                 grew = sum(len(getattr(delta, name, None) or "") for name in names) if delta is not None else 0
+                if key == "tool":
+                    grew += sum(
+                        len(getattr(getattr(call, "function", None), "arguments", None) or "")
+                        for call in getattr(delta, "tool_calls", None) or []
+                    )
             seen[key] += grew
             last = elapsed if grew else last
-        if elapsed > limit:
-            raise TimeoutError(
-                f"the reply was still streaming after {limit:.0f}s, with {seen['thinking']} thinking, {seen['text']} text "
-                f"and {seen['tool']} tool-input characters streamed, the last at {last:.0f}s"
-            )
         yield event
 
 
@@ -1431,7 +1437,7 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if settings["effort"]:
         # OpenRouter passes effort to Claude unchanged only beside a thinking field. Alone, it becomes OpenRouter's
         # own reasoning setting, under which Haiku thought until the output cap on every first call.
-        request["thinking"] = {"type": "adaptive"}
+        request["thinking"] = {"type": "adaptive", "display": "summarized"}
         request["output_config"] = {"effort": settings["effort"]}
     try:
         with ctx.clients[settings["slot"]].messages.stream(**request) as stream:
@@ -1526,9 +1532,8 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         timing = {}
         if len(tools) == 1 and until:
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
-            # whole bundle takes minutes, so it may stay silent for the rest of the role's time box (`minutes`), and
-            # a reply still streaming when the box ends is cut there: a Sonnet finder at high streamed thinking
-            # for 900 s past its box without finishing.
+            # whole bundle takes minutes, so it may stay silent for the rest of the role's time box (`minutes`).
+            # Meaningful stream progress refreshes that idle allowance; the workflow still bounds an in-flight call.
             read_timeout = stream_limit = max(FIRST_CALL_TIMEOUT, until - started)
         else:
             read_timeout, stream_limit = (FIRST_CALL_TIMEOUT if first_call else MODEL_REQUEST_TIMEOUT), MODEL_STREAM_LIMIT
