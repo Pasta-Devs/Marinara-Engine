@@ -164,7 +164,7 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `BASIC_AUTH_REALM` | `Marinara Engine` | 浏览器密码框里显示的文字。 |
 | `IP_ALLOWLIST` | 空 | 始终放行的 IP 或 CIDR 段，用逗号分隔。直连的环回地址始终放行；同一台机器上的反向代理则不会。 |
 | `IP_ALLOWLIST_ENABLED` | `true` | 设为 `false` 可保留列表但暂停生效。 |
-| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。`100.64.0.0/10` 段（运营商级 NAT）不包含在内，因为网络服务商会让互不相关的用户共用这一段；只有在你信任它时，才把它加入 `TRUSTED_PRIVATE_NETWORKS`（它会替换默认网段，所以请保留你的局域网网段）。 |
+| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。`100.64.0.0/10` 段（运营商级 NAT）不包含在内，因为网络服务商会让互不相关的用户共用这一段；只有在你信任它时，才把它加入 `TRUSTED_PRIVATE_NETWORKS`（它会替换默认范围，所以请保留你的局域网范围）。 |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 允许任意地址免密访问，包括公网。不推荐。 |
 | `TRUSTED_PRIVATE_NETWORKS` | 内置默认值 | 替换默认的私有网络段。仍需保留的默认段要自己写进去。 |
 | `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，仅当直连 Tailscale 套接字的两端都是 tailnet 地址且请求不带转发请求头（Tailscale Serve 和 Funnel 需要登录）时才予以信任。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |

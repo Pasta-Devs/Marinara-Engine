@@ -4,8 +4,8 @@
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "772b2dd7497ac4fe242f7ff962e12b30ac0d2a0480efcf958824951c20c9622f",
-      "bytes": 71561
+      "sha256": "46db4a94a6daa6248776bb73aeb2892ef2fbf7e3446ba9f69cd1a0f9d90a6edf",
+      "bytes": 71570
     },
     {
       "path": "FAQ.md",
@@ -19,8 +19,8 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "02f5baca802d6f1c160425bd9323b454c99c30dd502666b7855432c9bb8cbc0f",
-      "bytes": 33736
+      "sha256": "540a7cee181edf380767db21bb2da58149780f2366ae740d9740d9c78c9c8ae5",
+      "bytes": 33745
     },
     {
       "path": "TROUBLESHOOTING.md",
