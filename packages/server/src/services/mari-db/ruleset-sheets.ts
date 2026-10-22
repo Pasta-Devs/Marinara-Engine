@@ -12,6 +12,7 @@
  * game's, not the library sheet's, so it is never written here.
  */
 import { z } from "zod";
+import { logger } from "../../lib/logger.js";
 import {
   createRulesetSheetEnvelope,
   evaluateRulesetSheetLive,
@@ -119,9 +120,24 @@ export function applyRulesetSheetPatch(
   }
   for (const [id, score] of Object.entries(patch.abilities ?? {})) {
     const ability = definition.sheet.abilities.find((entry) => entry.id === id);
-    // A cleared score is the ruleset's default; an unknown id is reported below.
+    // A cleared score is the ruleset's default.
     if (score !== null) build.abilities[id] = score;
     else if (ability) build.abilities[id] = ability.default;
+  }
+  // A value cleared under an id the ruleset never declared is refused like any other unknown id: the
+  // value check below only sees the values that are set.
+  const declared: Array<[string, string, ReadonlyArray<{ id: string }>, Record<string, unknown> | undefined]> = [
+    ["abilities", "ability", definition.sheet.abilities, patch.abilities],
+    ["skills", "skill", definition.sheet.skills, patch.skills],
+    ["saves", "save", definition.sheet.saves, patch.saves],
+    ["bonuses", "skill or save", [...definition.sheet.skills, ...definition.sheet.saves], patch.bonuses],
+    ["fields", "field", definition.sheet.fields, patch.fields],
+  ];
+  for (const [key, noun, entries, values] of declared) {
+    for (const [id, value] of Object.entries(values ?? {})) {
+      if (value === null && !entries.some((entry) => entry.id === id))
+        issues.push(`${key}.${id}: Unknown ${noun} "${id}"`);
+    }
   }
   assignClearable(build.skills, patch.skills ?? {});
   assignClearable(build.saves, patch.saves ?? {});
@@ -289,7 +305,7 @@ export function describeRulesetSheet(definition: RulesetDefinition, stored: unkn
   let valuesNote: string | undefined;
   if (build) {
     try {
-      // Live tracks and pools read as they start, as the sheet editor shows them.
+      // A library sheet has no live state, so live tracks and pools read as they start.
       const evaluated = evaluateRulesetSheetLive(definition, build);
       values = {
         abilityMods: evaluated.abilityMods,
@@ -298,7 +314,8 @@ export function describeRulesetSheet(definition: RulesetDefinition, stored: unkn
         derived: evaluated.derived,
       };
     } catch (error) {
-      valuesNote = `The worked-out values could not be computed: ${error instanceof Error ? error.message : String(error)}`;
+      logger.warn(error, "[mari-db] could not work out the values of a %s sheet", definition.id);
+      valuesNote = "The worked-out values could not be computed for this sheet.";
     }
   }
   return {

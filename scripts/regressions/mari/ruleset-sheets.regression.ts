@@ -110,6 +110,9 @@ try {
   for (const [patch, expected] of [
     [{ abilities: { brawn: 9 } }, /Ability "brawn" takes a whole number from -1 to 3/],
     [{ abilities: { might: 1 } }, /Unknown ability "might"/],
+    [{ abilities: { brawn: 2, luck: null } }, /abilities\.luck: Unknown ability "luck"/],
+    [{ skills: { swim: null } }, /skills\.swim: Unknown skill "swim"/],
+    [{ fields: { mood: null } }, /fields\.mood: Unknown field "mood"/],
     [{ skills: { scrap: "master" } }, /Unknown proficiency tier "master"/],
     [{ saves: { steel: "trained" } }, /Unknown save "steel"/],
     [{ fields: { toughness: 7 } }, /Field "toughness" is outside 0 to 6/],
