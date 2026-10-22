@@ -126,7 +126,14 @@ export function applyRulesetSheetPatch(
   }
   // A value cleared under an id the ruleset never declared is refused like any other unknown id: the
   // value check below only sees the values that are set.
-  const declared: Array<[string, string, ReadonlyArray<{ id: string }>, Record<string, unknown> | undefined]> = [
+  const declared: Array<
+    [
+      Exclude<keyof RulesetSheetPatch, "lists">,
+      string,
+      ReadonlyArray<{ id: string }>,
+      Record<string, unknown> | undefined,
+    ]
+  > = [
     ["abilities", "ability", definition.sheet.abilities, patch.abilities],
     ["skills", "skill", definition.sheet.skills, patch.skills],
     ["saves", "save", definition.sheet.saves, patch.saves],
