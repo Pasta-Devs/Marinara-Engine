@@ -198,7 +198,7 @@ Jeśli twoje proxy już wymaga logowania od każdego gościa, zanim cokolwiek pr
 REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false
 ```
 
-Goście dostają wtedy taki sam pełny dostęp jak komputer z serwerem, łącznie z działaniami uprzywilejowanymi bez sekretu administratora. \1 Jeśli docierasz do Marinary tylko przez nazwę dodaną do `/etc/hosts`, nie używaj tej flagi. Użyj zamiast tego nazwy `*.localhost`, na przykład `marinara.localhost`.
+Goście dostają wtedy taki sam pełny dostęp jak komputer z serwerem, łącznie z działaniami uprzywilejowanymi bez sekretu administratora. Jeśli docierasz do Marinary tylko przez nazwę dodaną do `/etc/hosts`, nie używaj tej flagi. Użyj zamiast tego nazwy `*.localhost`, na przykład `marinara.localhost`.
 
 ## Udostępnianie przez HTTPS
 

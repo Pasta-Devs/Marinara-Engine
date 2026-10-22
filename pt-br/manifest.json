@@ -19,13 +19,13 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "0194cc9b987557d618d5232a4e4c868af2c24d29edbc0c578660639b5f25fb47",
-      "bytes": 26053
+      "sha256": "6f9b1668d134eba9446311faef35f9dbe5978a1b3ee9426b32d65def59e052b1",
+      "bytes": 26110
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "d2601165bba9a021489ea6a79cfc7235e3d6f2b45786e75b91091a84573fd4b9",
-      "bytes": 59183
+      "sha256": "c150bdf2f00b2414c8e264b6678cbed98c9805d0c3de77819b77d441e4e8d24a",
+      "bytes": 59220
     },
     {
       "path": "UPGRADING.md",
