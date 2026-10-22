@@ -436,7 +436,9 @@ function ServiceTile({ service }: { service: ServiceId }) {
   if (service === DECISION_BUILTIN) return <ProviderIcon provider="decision" size="add" />;
   return (
     <ProviderIcon
-      provider={media ? (media.image ? "image_generation" : "video_generation") : service}
+      provider={
+        media ? (media.job ? JOB_PROVIDER[media.job] : media.image ? "image_generation" : "video_generation") : service
+      }
       service={media?.source}
       size="add"
     />
@@ -1520,7 +1522,14 @@ export function CreateConnectionModal({
     );
     return {
       ...group,
-      services: group.sorted ? services.sort((a, b) => serviceName(a).localeCompare(serviceName(b))) : services,
+      // The filter's own services (ElevenLabs, TypeSafe) first, so the "Show all" cap never hides them.
+      services: group.sorted
+        ? services.sort(
+            (a, b) =>
+              Number(mediaBackendOf(b)?.job === kindFilter) - Number(mediaBackendOf(a)?.job === kindFilter) ||
+              serviceName(a).localeCompare(serviceName(b)),
+          )
+        : services,
     };
   }).filter((group) => group.services.length > 0);
 
