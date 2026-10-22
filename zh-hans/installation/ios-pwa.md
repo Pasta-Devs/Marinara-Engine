@@ -86,7 +86,7 @@ Tailscale 会给每台设备分配一个固定的私有地址，可达性也更�
 
 ## 相关指南
 
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)
 - [常见问题](../FAQ.md)
 - [Marinara Engine 故障排查](../TROUBLESHOOTING.md)
 - [Android (Termux) 安装指南](android-termux.md)

@@ -130,4 +130,4 @@ Der Abschnitt **Backup & Export** kann eine Liste **Existing backups** (vorhande
 - [Daten löschen oder zurücksetzen](clearing-data.md)
 - [Marinara Engine aktualisieren](../UPGRADING.md)
 - [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

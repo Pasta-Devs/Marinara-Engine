@@ -118,4 +118,4 @@ Cuando **Intiface Central** no está conectado, o no hay ningún dispositivo con
 
 - [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md)
 - [Referencia de agentes descargables](../agents/built-in-agents.md)
-- [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md)
+- [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md)

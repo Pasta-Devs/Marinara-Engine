@@ -212,4 +212,4 @@ Game Mode 还可以借助 AI 音频服务 ElevenLabs，为你的场景生成新�
 - [Music DJ：Spotify、YouTube 与本地音乐](../media/music.md)
 - [支持的 AI 服务商](../connections/providers-reference.md)
 - [Game Mode：入门](getting-started.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)

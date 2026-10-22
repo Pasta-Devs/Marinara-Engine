@@ -11,7 +11,7 @@ Die Startskripte (`start.sh`, `start.bat` und `start-termux.sh`) binden den Serv
 So geht’s:
 
 1. Lass Marinara auf dem Host-Computer laufen.
-2. Richte auf dem Host-Computer die Zugriffskontrolle ein: entweder Basic Auth (Benutzername und Passwort) oder eine IP-Allowlist (eine Liste erlaubter Geräteadressen). [Fernzugriff](REMOTE_ACCESS.md) erklärt beide Wege – samt einer Ausnahme für vollständig vertrauenswürdige private Netzwerke.
+2. Richte eine Anmeldung ein (einen Benutzernamen und ein Passwort): in **Settings → Advanced → Access** in einem Browser, der schon auf einem beliebigen Gerät angemeldet ist (um die Anmeldung zu ändern oder zu entfernen, brauchst du das aktuelle Passwort), oder auf dem anderen Gerät mit dem einmaligen Einrichtungscode aus dem Server-Log (unter Docker: `docker logs <container> 2>&1 | grep "setup code"`). [Fernzugriff](REMOTE_ACCESS.md#option-1-login-recommended) führt dich durch die Einrichtung.
 3. Ermittle die lokale IP-Adresse des Host-Computers. Unter Windows führst du diesen Befehl aus und liest die **IPv4 Address** ab:
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 Ersetze `192.168.1.42` durch die eigene Host-IP-Adresse.
 
-5. Melde dich an, falls der Browser nach Benutzername und Passwort für Basic Auth fragt. Erscheint stattdessen die Seite **Access blocked**, fehlt noch Schritt 2 auf dem Host.
+5. Melde dich mit Benutzername und Passwort an. Erscheint stattdessen die Seite **Access blocked**, ist noch keine Anmeldung gesetzt: Gib dort den Einrichtungscode aus dem Server-Log mit einem neuen Benutzernamen und Passwort ein. Um weitere Geräte ohne Passworteingabe hinzuzufügen, nutze **Add a device** in **Settings → Advanced → Access**.
 
-Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Ein Reverse-Proxy auf demselben Computer, auch nginx, zählt als entfernter Besucher und braucht die Anmeldung. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann; der Android-Wrapper erzeugt und verwendet diese Zugangsdaten jedoch automatisch. Andere Geräte bleiben blockiert, bis du die Zugriffskontrolle einrichtest (Basic Auth oder eine IP-Allowlist). Beide Wege erklärt [Fernzugriff](REMOTE_ACCESS.md).
+Bei gewöhnlichen Desktop-Installationen brauchst du auf demselben Computer (`127.0.0.1`) kein Passwort. Ein Reverse-Proxy auf demselben Computer, auch nginx, zählt als entfernter Besucher und braucht die Anmeldung. Von der APK verwaltete Android-Installationen fügen eine private Anmeldung für localhost hinzu, damit sich keine andere Android-App als Marinara ausgeben kann; der Android-Wrapper erzeugt und verwendet diese Zugangsdaten jedoch automatisch. Andere Geräte bleiben blockiert, bis du eine Anmeldung einrichtest. Jede Option wird in [Fernzugriff](REMOTE_ACCESS.md) erklärt.
 
 Liegen die beiden Geräte nicht im selben Netzwerk, hilft ein Werkzeug wie Tailscale. Tailscale gibt jedem Gerät eine feste private Adresse. Damit verbindest du dich von überall, ohne Marinara im öffentlichen Internet freizugeben. Klappt die Verbindung nicht, hilft [Fehlerbehebung](TROUBLESHOOTING.md) weiter.
 

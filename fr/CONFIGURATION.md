@@ -145,7 +145,9 @@ Quand l'un d'eux change, le log signale qu'un redémarrage est nécessaire. Les 
 
 ## Contrôle d'accès
 
-Le contrôle d'accès décide qui a le droit de joindre un serveur en cours d'exécution. Cette section est un aide-mémoire. Pour une marche à suivre détaillée avec des exemples, lis [Accès distant : Basic Auth et liste d'autorisation d'adresses IP](REMOTE_ACCESS.md).
+Le contrôle d'accès décide qui a le droit de joindre un serveur en cours d'exécution. Cette section est un aide-mémoire. Pour une marche à suivre détaillée avec des exemples, lis [Accès distant : connexion et liste d'autorisation d'adresses IP](REMOTE_ACCESS.md).
+
+La connexion peut aussi être définie sans `.env` : dans **Paramètres → Avancé → Accès**, dans un navigateur déjà connecté, sur n'importe quel appareil, ou avec le code de configuration à usage unique du log du serveur. Pour modifier ou supprimer la connexion, Marinara demande le mot de passe actuel. Le serveur n'affiche ce code dans son log que tant qu'aucune connexion n'est définie et que le serveur écoute au-delà du loopback (par exemple `HOST=0.0.0.0` ou Docker). Cette connexion est enregistrée dans `DATA_DIR/.remote-login.json` ; `pnpm reset-login` la supprime et déconnecte chaque navigateur. Une connexion dans `.env` l'emporte sur elle. Les proxys de connexion utilisent `TRUSTED_AUTH_PROXY` : voir [Proxys de connexion (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Quelques termes employés ci-dessous :
 
@@ -167,10 +169,11 @@ Voici les principaux réglages de contrôle d'accès :
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false`           | Rétablit l'accès sans mot de passe depuis les réseaux privés quand aucune connexion n'est configurée. La plage `100.64.0.0/10` (NAT de niveau opérateur) n'est pas incluse, car les fournisseurs d'accès la partagent entre des clients sans lien entre eux ; ajoute-la à `TRUSTED_PRIVATE_NETWORKS` (qui remplace les valeurs par défaut, donc garde tes plages LAN) seulement si tu lui fais confiance. |
 | `ALLOW_UNAUTHENTICATED_REMOTE`          | `false`           | Autorise l'accès sans mot de passe depuis n'importe quelle adresse, y compris l'internet public. Déconseillé.                                              |
 | `TRUSTED_PRIVATE_NETWORKS`              | valeurs internes  | Remplace les plages de réseau privé par défaut. Pense à inclure celles que tu veux conserver.                                                              |
-| `BYPASS_AUTH_TAILSCALE`                 | automatique       | Une valeur vide ne fait confiance aux connexions Tailscale directes que si leurs deux extrémités utilisent des adresses du tailnet et que la requête n'a aucun en-tête de transmission (Tailscale Serve et Funnel exigent une connexion). Mets `true` pour l'ancien contournement de toute la plage `100.64.0.0/10`, ou `false` pour imposer le contrôle d'accès normal. |
-| `BYPASS_AUTH_DOCKER`                    | automatique       | Une valeur vide ne fait confiance qu'à une interface de conteneur détectée et à sa passerelle exacte, et seulement tant que ni Basic Auth ni `IP_ALLOWLIST` ne sont définis. Mets `true` pour conserver la compatibilité avec les réseaux anciens ou personnalisés, ou `false` pour imposer le contrôle d'accès normal. |
+| `BYPASS_AUTH_TAILSCALE` | automatique | Vide : un appareil ne saute la connexion que s'il se connecte directement à l'adresse Tailscale de cet ordinateur. Les connexions via Tailscale Serve, Funnel ou un autre proxy exigent toujours une connexion. Mets `true` pour l'ancien contournement de toute la plage `100.64.0.0/10`, ou `false` pour imposer le contrôle d'accès normal. |
+| `BYPASS_AUTH_DOCKER` | automatique | Vide : ne fait confiance qu'à une interface de conteneur détectée et à sa passerelle exacte, et seulement tant qu'aucune connexion (`.env` ou application), `IP_ALLOWLIST` ni `TRUSTED_AUTH_PROXY` valide n'est définie. Mets `true` pour conserver la compatibilité avec les réseaux anciens ou personnalisés, ou `false` pour imposer le contrôle d'accès normal. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY`         | `true`            | Impose les vérifications normales de connexion et de liste d'autorisation au trafic Docker qu'un proxy relaie (en-têtes de transmission, un Host qui désigne un autre ordinateur, ou HTTP/1.0). Ne mets `false` que si le proxy lui-même exige une connexion de chaque visiteur. |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY`       | `true`            | Traite les requêtes transmises par un reverse proxy ou un tunnel sur la même machine comme des visiteurs distants, y compris les requêtes HTTP/1.0 comme le `proxy_pass` par défaut de nginx. Ne mets `false` que si le proxy lui-même exige une identification de chaque visiteur. |
+| `TRUSTED_AUTH_PROXY` | vide | IP ou plages CIDR d'un proxy d'authentification préalable (forward auth : tinyauth, Authelia, Authentik, oauth2-proxy) qui fait connecter chaque visiteur. Les requêtes venant de ces adresses passent la connexion et `IP_ALLOWLIST` ; les en-têtes de transmission ne comptent jamais. Le proxy doit protéger chaque chemin, et Marinara ne doit pas être joignable en le contournant. Voir [Proxys de connexion (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth). |
 | `TRUSTED_HOSTS`                         | vide              | Noms d'hôte publics ou de proxy inverse supplémentaires auxquels Marinara peut répondre. L'IP directe, localhost, `.local`, `.home.arpa` et les noms LAN à étiquette unique fonctionnent automatiquement. |
 | `SSL_CERT`                              | vide              | Chemin vers un fichier de certificat TLS. À définir avec `SSL_KEY` pour servir directement en HTTPS.                                                       |
 | `SSL_KEY`                               | vide              | Chemin vers le fichier de clé privée TLS.                                                                                                                 |
@@ -455,7 +458,7 @@ Certains réseaux n'accèdent à Internet que par un proxy HTTP, par exemple v2r
 ## Guides associés
 
 - [Interrupteurs de fonctions](configuration/features.md)
-- [Accès distant : Basic Auth et liste d'autorisation d'adresses IP](REMOTE_ACCESS.md)
+- [Accès distant : connexion et liste d'autorisation d'adresses IP](REMOTE_ACCESS.md)
 - [Où sont stockées tes données](data/where-data-is-stored.md)
 - [Se connecter à un fournisseur d'IA](connections/connecting-to-a-provider.md)
 - [Vidéo de scène](media/scene-video.md)

@@ -100,7 +100,7 @@ Otwórz edytor **Music DJ** i znajdź pole **Custom Music Library**. Ma ono jede
 
 Konfiguracja czatu w trybie Roleplay i Game pokazuje to samo wybrane źródło. Jeśli wybrany jest folder na urządzeniu z serwerem, ustawienia Music DJ w czacie pokazują zapisaną ścieżkę i przycisk **Choose Folder**, zamiast pytać o ścieżkę w Game Assets.
 
-Odtwarzanie z folderu spoza Game Assets wymaga lokalnego dostępu na serwerze. Jeśli korzystasz z aplikacji Marinara Engine z innego urządzenia bez hasła lub sekretu administratora, akurat ta jedna funkcja może być zablokowana. Zobacz [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+Odtwarzanie z folderu spoza Game Assets wymaga lokalnego dostępu na serwerze. Jeśli korzystasz z aplikacji Marinara Engine z innego urządzenia bez hasła lub sekretu administratora, akurat ta jedna funkcja może być zablokowana. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
 ## Korzystanie z odtwarzacza muzyki
 
@@ -170,7 +170,7 @@ Jeśli Spotify nie jest podłączone albo brakuje mu uprawnień do odtwarzania, 
 - Spotify nic nie odtwarza. Sterowanie odtwarzaniem wymaga Spotify Premium i aktywnego urządzenia Spotify. Otwórz aplikację na jakimś urządzeniu albo kliknij **Enable Marinara player** na komputerze.
 - Okno logowania Spotify nie działa na innym komputerze. Skorzystaj z pola wklejania w sekcji "Browser couldn't reach the callback?" albo ustaw `SPOTIFY_REDIRECT_URI` na serwerze.
 - Wyszukiwanie w YouTube zawodzi. Sprawdź, czy **YouTube Data API v3** jest włączone dla projektu i czy klucz nie jest ograniczony po nagłówku HTTP referrer. Po wyczerpaniu dziennego limitu spróbuj następnego dnia albo użyj innego klucza.
-- Muzyka własna nie chce grać z folderu na urządzeniu przy dostępie zdalnym. Ten folder wymaga lokalnego dostępu na serwerze. Zobacz [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+- Muzyka własna nie chce grać z folderu na urządzeniu przy dostępie zdalnym. Ten folder wymaga lokalnego dostępu na serwerze. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 - Komenda z utworem od postaci nic nie robi w trybie Conversation. Podłącz Spotify albo zapisz klucz YouTube i sprawdź, czy przełączniki **Commands** oraz **Music** są włączone.
 
 ## Powiązane przewodniki

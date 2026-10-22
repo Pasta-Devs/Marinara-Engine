@@ -86,7 +86,7 @@ Os chats, os personagens e as configurações ficam guardados no servidor, não 
 
 ## Guias relacionados
 
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)
 - [Perguntas frequentes](../FAQ.md)
 - [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md)
 - [Guia de instalação no Android (Termux)](android-termux.md)

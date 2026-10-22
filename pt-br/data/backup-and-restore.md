@@ -130,4 +130,4 @@ A seção **Backup & Export** pode mostrar uma lista **Existing backups** (backu
 - [Limpar ou zerar os seus dados](clearing-data.md)
 - [Atualizando Marinara Engine](../UPGRADING.md)
 - [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)

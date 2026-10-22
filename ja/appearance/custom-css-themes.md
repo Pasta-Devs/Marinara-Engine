@@ -278,7 +278,7 @@ Game controls、Session、Volume、Game Assets、接続したチャット、パ�
 1. サーバー側で、`.env`ファイルに`ADMIN_SECRET`を設定します。
 2. アプリで**Settings -> Advanced -> Admin Access**を開き、同じ値を入力します。
 
-これを設定しないと、ネットワーク越しのテーマ変更は失敗します。設定全体については[サーバー設定リファレンス](../CONFIGURATION.md)と[リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)を参照してください。
+これを設定しないと、ネットワーク越しのテーマ変更は失敗します。設定全体については[サーバー設定リファレンス](../CONFIGURATION.md)と[リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)を参照してください。
 
 ## テーマとCard CSSの関係
 
@@ -295,4 +295,4 @@ Card CSSはこれとは異なります。キャラクターやペルソナの作
 - [カードCSSテーマ設定ガイド](card-css-theming.md)
 - [外観の設定](appearance-settings.md)
 - [サーバー設定リファレンス](../CONFIGURATION.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)

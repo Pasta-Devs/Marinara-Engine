@@ -118,4 +118,4 @@ AIがデバイスをまったく動かせない場合は、次の順に確認し
 
 - [エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)
 - [ダウンロードできるエージェント一覧](../agents/built-in-agents.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)

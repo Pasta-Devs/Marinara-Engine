@@ -86,7 +86,7 @@ Chats, Charaktere und Einstellungen liegen auf dem Server, nicht auf dem iPhone 
 
 ## Verwandte Anleitungen
 
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)
 - [Häufig gestellte Fragen](../FAQ.md)
 - [Fehlerbehebung für Marinara Engine](../TROUBLESHOOTING.md)
 - [Installationsanleitung für Android (Termux)](android-termux.md)

@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-Zmienna `PORT` ustawia port adresu (domyślnie 7860). Domyślnie skrypt startowy pozwala też innym urządzeniom w sieci LAN dotrzeć do serwera. LAN to sieć lokalna, czyli sieć w domu lub biurze. Marinara i tak blokuje te urządzenia, dopóki nie zostanie ustawione hasło albo inna opcja dostępu. Pokazuje to przewodnik [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+Zmienna `PORT` ustawia port adresu (domyślnie 7860). Domyślnie skrypt startowy pozwala też innym urządzeniom w sieci LAN dotrzeć do serwera. LAN to sieć lokalna, czyli sieć w domu lub biurze. Marinara i tak blokuje te urządzenia, dopóki nie zostanie ustawione hasło albo inna opcja dostępu. Pokazuje to przewodnik [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
 ## Konfiguracja ręczna
 
@@ -244,5 +244,5 @@ Pełne kroki aktualizacji, w tym utworzenie kopii zapasowej i zmianę kanału wy
 
 - [Instalacja aplikacji Marinara Engine](../INSTALLATION.md): wybierz metodę instalacji odpowiednią dla swojego urządzenia.
 - [Aktualizacja aplikacji Marinara Engine](../UPGRADING.md): pełne kroki aktualizacji i tworzenia kopii zapasowej dla każdej platformy.
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md): ustaw hasło, aby inne urządzenia mogły dotrzeć do aplikacji Marinara Engine.
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md): ustaw hasło, aby inne urządzenia mogły dotrzeć do aplikacji Marinara Engine.
 - [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md): rozwiązania problemów z instalacją i uruchamianiem.

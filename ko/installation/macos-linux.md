@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT`는 주소의 포트 번호를 정합니다(기본값은 7860). 또한 런처는 기본적으로 같은 LAN 안의 다른 기기가 서버에 접근할 수 있도록 열어 둡니다. LAN은 근거리 통신망, 즉 집이나 사무실 안의 네트워크입니다. 다만 비밀번호나 다른 접근 방식을 설정하기 전까지 Marinara가 그 기기들을 계속 차단합니다. 설정 방법은 [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md) 가이드에서 설명합니다.
+`PORT`는 주소의 포트 번호를 정합니다(기본값은 7860). 또한 런처는 기본적으로 같은 LAN 안의 다른 기기가 서버에 접근할 수 있도록 열어 둡니다. LAN은 근거리 통신망, 즉 집이나 사무실 안의 네트워크입니다. 다만 비밀번호나 다른 접근 방식을 설정하기 전까지 Marinara가 그 기기들을 계속 차단합니다. 설정 방법은 [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md) 가이드에서 설명합니다.
 
 ## 수동으로 설치하기
 
@@ -244,5 +244,5 @@ Git으로 다운로드한 폴더에서 `./start.sh`로 Marinara를 시작하면 
 
 - [Marinara Engine 설치](../INSTALLATION.md): 기기에 맞는 설치 방법을 고르세요.
 - [Marinara Engine 업데이트](../UPGRADING.md): 모든 플랫폼의 전체 업데이트 및 백업 절차입니다.
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md): 다른 기기에서 Marinara에 접근할 수 있도록 비밀번호를 설정합니다.
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md): 다른 기기에서 Marinara에 접근할 수 있도록 비밀번호를 설정합니다.
 - [Marinara Engine 문제 해결](../TROUBLESHOOTING.md): 설치와 시작 과정에서 생기는 문제의 해결 방법입니다.

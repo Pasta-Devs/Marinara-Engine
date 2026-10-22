@@ -145,7 +145,9 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 
 ## 访问控制
 
-访问控制决定谁可以访问正在运行的服务器。本节是速查表。想看带示例的分步说明，读[远程访问：Basic Auth 与 IP 允许列表](REMOTE_ACCESS.md)。
+访问控制决定谁可以访问正在运行的服务器。本节是速查表。想看带示例的分步说明，读[远程访问：登录与 IP 允许列表](REMOTE_ACCESS.md)。
+
+也可以不用 `.env` 来设置登录：在已经登录的浏览器里，到任意设备的 **Settings** → **Advanced** → **Access** 设置，或者使用服务器日志里的一次性设置码。要修改或移除登录，Marinara 会要求输入当前密码。只有在没有设置登录、且服务器监听范围超出环回地址（例如 `HOST=0.0.0.0` 或 Docker）时，服务器才会在日志里打印这个设置码。这份登录保存在 `DATA_DIR/.remote-login.json` 里；`pnpm reset-login` 会删除它，并让每个浏览器退出登录。`.env` 里的登录优先于它。登录代理使用 `TRUSTED_AUTH_PROXY`，见[登录代理（转发认证）](REMOTE_ACCESS.md#login-proxies-forward-auth)。
 
 下面会用到几个术语：
 
@@ -167,10 +169,11 @@ Marinara 在运行期间会盯着 `.env` 文件。保存修改后，大部分设
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 在没设登录的情况下，恢复私有网络的免密访问。`100.64.0.0/10` 段（运营商级 NAT）不包含在内，因为网络服务商会让互不相关的用户共用这一段；只有在你信任它时，才把它加入 `TRUSTED_PRIVATE_NETWORKS`（它会替换默认范围，所以请保留你的局域网范围）。 |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 允许任意地址免密访问，包括公网。不推荐。 |
 | `TRUSTED_PRIVATE_NETWORKS` | 内置默认值 | 替换默认的私有网络段。仍需保留的默认段要自己写进去。 |
-| `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，仅当直连 Tailscale 套接字的两端都是 tailnet 地址且请求不带转发请求头（Tailscale Serve 和 Funnel 需要登录）时才予以信任。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |
-| `BYPASS_AUTH_DOCKER` | 自动 | 留空时，仅信任检测到的容器接口及其确切网关，而且只在没有设置 Basic Auth 或 `IP_ALLOWLIST` 时才信任。设为 `true` 可兼容旧版或自定义网络，设为 `false` 则要求执行正常访问控制。 |
+| `BYPASS_AUTH_TAILSCALE` | 自动 | 留空时，只有设备直连这台电脑的 Tailscale 地址，才可以跳过登录。经 Tailscale Serve、Funnel 或其他代理的连接仍然需要登录。设为 `true` 可保留旧版对整个 `100.64.0.0/10` 的放行，设为 `false` 则要求执行正常访问控制。 |
+| `BYPASS_AUTH_DOCKER` | 自动 | 留空时，仅信任检测到的容器接口及其确切网关，而且只在没有设置登录（`.env` 或应用内）、`IP_ALLOWLIST` 或有效的 `TRUSTED_AUTH_PROXY` 时才信任。设为 `true` 可兼容旧版或自定义网络，设为 `false` 则要求执行正常访问控制。 |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 对代理转发的 Docker 流量（带转发请求头、Host 指向另一台计算机或使用 HTTP/1.0）照常执行登录和允许列表检查。只有在代理本身要求每位访客登录时才设为 `false`。 |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 把同一台机器上的反向代理或隧道转发过来的请求当作远程访客处理，包括 nginx 默认 `proxy_pass` 这类 HTTP/1.0 请求。只有在代理本身要求每位访客登录时才设为 `false`。 |
+| `TRUSTED_AUTH_PROXY` | 空 | 转发认证代理（tinyauth、Authelia、Authentik、oauth2-proxy）的 IP 或 CIDR 段，这类代理会让每位访客先登录。来自这些地址的请求会跳过登录和 `IP_ALLOWLIST`；转发请求头从不算数。代理必须保护每条路径，而且 Marinara 不能被绕过代理访问到。见[登录代理（转发认证）](REMOTE_ACCESS.md#login-proxies-forward-auth)。 |
 | `TRUSTED_HOSTS` | 空 | Marinara 额外允许响应的公网或反向代理主机名。直连 IP、localhost、`.local`、`.home.arpa` 和单段局域网名称自动生效。 |
 | `SSL_CERT` | 空 | TLS 证书文件的路径。与 `SSL_KEY` 一起设置即可直接提供 HTTPS 服务。 |
 | `SSL_KEY` | 空 | TLS 私钥文件的路径。 |
@@ -455,7 +458,7 @@ Conversation 的日程控件默认使用浏览器或应用所在设备报告的�
 ## 相关指南
 
 - [功能开关](configuration/features.md)
-- [远程访问：Basic Auth 与 IP 允许列表](REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](REMOTE_ACCESS.md)
 - [数据保存在哪里](data/where-data-is-stored.md)
 - [连接 AI 服务商](connections/connecting-to-a-provider.md)
 - [场景视频](media/scene-video.md)

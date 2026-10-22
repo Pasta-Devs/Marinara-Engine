@@ -130,4 +130,4 @@ Webhookのリンクを呼び出すカスタムツールを使っている場合�
 - [データの消去とリセット](clearing-data.md)
 - [Marinara Engineのアップデート](../UPGRADING.md)
 - [AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)

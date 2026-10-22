@@ -145,7 +145,9 @@ Quando uma delas muda, o log avisa que o reinício é necessário. As configura�
 
 ## Controle de acesso
 
-O controle de acesso decide quem tem permissão para alcançar um servidor em execução. Esta seção é uma referência rápida. Para um passo a passo com exemplos, leia [Acesso remoto: Basic Auth e lista de IPs permitidos](REMOTE_ACCESS.md).
+O controle de acesso decide quem tem permissão para alcançar um servidor em execução. Esta seção é uma referência rápida. Para um passo a passo com exemplos, leia [Acesso remoto: login e lista de IPs permitidos](REMOTE_ACCESS.md).
+
+O login também pode ser definido sem `.env`: em **Settings → Advanced → Access** (Configurações → Avançado → Acesso), em um navegador que já está conectado, em qualquer dispositivo, ou com o código de configuração de uso único do log do servidor. Para mudar ou remover o login, Marinara pede a senha atual. O servidor imprime esse código no log somente enquanto nenhum login está definido e o servidor escuta além do loopback (por exemplo `HOST=0.0.0.0` ou Docker). Esse login é salvo em `DATA_DIR/.remote-login.json`; `pnpm reset-login` o remove e desconecta todos os navegadores. Um login no `.env` tem prioridade sobre ele. Proxies de login usam `TRUSTED_AUTH_PROXY`; veja [Proxies de login (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Alguns termos usados adiante:
 
@@ -168,9 +170,10 @@ As principais configurações de controle de acesso são:
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Libera o acesso sem senha de qualquer endereço, inclusive da internet pública. Não recomendado. |
 | `TRUSTED_PRIVATE_NETWORKS` | padrões internos | Substitui as faixas de rede privada padrão. Inclua também os padrões que você quiser manter. |
 | `BYPASS_AUTH_TAILSCALE` | automático | Quando vazio, confia em sockets diretos do Tailscale somente se as duas pontas usam endereços da tailnet e a requisição não tem cabeçalhos de encaminhamento (Tailscale Serve e Funnel exigem login). Defina como `true` para manter a liberação antiga de toda a faixa `100.64.0.0/10` ou como `false` para exigir o controle de acesso normal. |
-| `BYPASS_AUTH_DOCKER` | automático | Quando vazio, confia somente em uma interface de contêiner detectada e no seu gateway exato, e só enquanto nenhum Basic Auth ou `IP_ALLOWLIST` estiver definido. Defina como `true` para manter a compatibilidade com redes antigas ou personalizadas, ou como `false` para exigir o controle de acesso normal. |
+| `BYPASS_AUTH_DOCKER` | automático | Quando vazio, confia somente em uma interface de contêiner detectada e no seu gateway exato, e só enquanto nenhum login (`.env` ou app), `IP_ALLOWLIST` ou `TRUSTED_AUTH_PROXY` válido estiver definido. Defina como `true` para manter a compatibilidade com redes antigas ou personalizadas, ou como `false` para exigir o controle de acesso normal. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | Exige as verificações normais de login e de lista de IPs permitidos para o tráfego do Docker encaminhado por proxy (cabeçalhos de encaminhamento, um Host que nomeia outro computador ou HTTP/1.0). Defina como `false` só quando todo cliente na frente do servidor for confiável. |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | Trata como visitantes remotos as requisições que um proxy reverso ou túnel na mesma máquina encaminha, inclusive requisições HTTP/1.0, como o `proxy_pass` padrão do nginx. Defina como `false` só quando o próprio proxy exigir login de todo visitante. |
+| `TRUSTED_AUTH_PROXY` | vazio | IPs ou CIDRs de um proxy de forward auth (tinyauth, Authelia, Authentik, oauth2-proxy) que exige login de todo visitante. As requisições desses endereços pulam o login e `IP_ALLOWLIST`; cabeçalhos de encaminhamento nunca contam. O proxy precisa proteger todos os caminhos, e Marinara não pode estar acessível sem passar por ele. Veja [Proxies de login (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth). |
 | `TRUSTED_HOSTS` | vazio | Nomes de host públicos ou de proxy reverso adicionais que Marinara pode atender. IP direto, localhost, `.local`, `.home.arpa` e nomes de rede local de rótulo único funcionam sozinhos. |
 | `SSL_CERT` | vazio | Caminho de um arquivo de certificado TLS. Defina junto com `SSL_KEY` para servir HTTPS diretamente. |
 | `SSL_KEY` | vazio | Caminho do arquivo de chave privada TLS. |
@@ -455,7 +458,7 @@ Algumas redes só chegam à internet por um proxy HTTP, por exemplo o v2rayN sem
 ## Guias relacionados
 
 - [Chaves de recursos](configuration/features.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](REMOTE_ACCESS.md)
 - [Onde Marinara salva os seus dados](data/where-data-is-stored.md)
 - [Conectando a um provedor de IA](connections/connecting-to-a-provider.md)
 - [Vídeo de cena](media/scene-video.md)

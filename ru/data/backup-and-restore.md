@@ -130,4 +130,4 @@ Marinara предлагает два варианта сохранения. Он
 - [Очистка и сброс данных](clearing-data.md)
 - [Обновление приложения Marinara Engine](../UPGRADING.md)
 - [Подключение к провайдеру ИИ](../connections/connecting-to-a-provider.md)
-- [Удаленный доступ: Basic Auth и список разрешенных адресов](../REMOTE_ACCESS.md)
+- [Удаленный доступ: вход и список разрешенных адресов](../REMOTE_ACCESS.md)

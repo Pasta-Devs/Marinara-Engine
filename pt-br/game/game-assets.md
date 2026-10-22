@@ -212,4 +212,4 @@ O botão **Open in system folder** abre a pasta de recursos selecionada no geren
 - [Music DJ: Spotify, YouTube e músicas locais](../media/music.md)
 - [Provedores de IA compatíveis](../connections/providers-reference.md)
 - [Game Mode: primeiros passos](getting-started.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)

@@ -143,9 +143,13 @@ Eine kleine Gruppe grundlegender Einstellungen wird beim Serverstart festgelegt.
 
 Ändert sich eine davon, weist das Log per Warnung auf den nötigen Neustart hin. Einstellungen zur Zugriffskontrolle und Geheimnisse wie `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET` und `CSRF_TRUSTED_ORIGINS` kommen ohne Neustart aus.
 
+<a id="access-control"></a>
+
 ## Zugriffskontrolle
 
-Die Zugriffskontrolle entscheidet, wer einen laufenden Server erreichen darf. Dieser Abschnitt ist eine Kurzreferenz. Eine Schritt-für-Schritt-Anleitung mit Beispielen findest du unter [Fernzugriff: Basic Auth und IP-Allowlist](REMOTE_ACCESS.md).
+Die Zugriffskontrolle entscheidet, wer einen laufenden Server erreichen darf. Dieser Abschnitt ist eine Kurzreferenz. Eine Schritt-für-Schritt-Anleitung mit Beispielen findest du unter [Fernzugriff: Anmeldung und IP-Allowlist](REMOTE_ACCESS.md).
+
+Die Anmeldung lässt sich auch ohne `.env` einrichten: in **Settings → Advanced → Access** in einem Browser, der schon angemeldet ist, auf jedem Gerät oder mit dem einmaligen Einrichtungscode aus dem Server-Log. Um die Anmeldung zu ändern oder zu entfernen, fragt Marinara nach dem aktuellen Passwort. Der Server gibt diesen Code nur dann in sein Log aus, wenn keine Anmeldung gesetzt ist und der Server über Loopback hinaus lauscht (zum Beispiel `HOST=0.0.0.0` oder Docker). Diese Anmeldung wird in `DATA_DIR/.remote-login.json` gespeichert; `pnpm reset-login` entfernt sie und meldet jeden Browser ab. Eine Anmeldung in `.env` hat Vorrang. Login-Proxys nutzen `TRUSTED_AUTH_PROXY`; siehe [Login-Proxys (Forward-Auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Ein paar Begriffe vorweg:
 
@@ -168,9 +172,10 @@ Die wichtigsten Einstellungen zur Zugriffskontrolle:
 | `ALLOW_UNAUTHENTICATED_REMOTE`          | `false`           | Erlaubt passwortlosen Zugriff von jeder Adresse, auch aus dem öffentlichen Internet. Nicht empfohlen.                                                       |
 | `TRUSTED_PRIVATE_NETWORKS`              | eingebaute Standards | Ersetzt die standardmäßigen privaten Netzwerkbereiche. Nimm alle Standards mit auf, die du behalten willst.                                             |
 | `BYPASS_AUTH_TAILSCALE`                 | automatisch       | Leer vertraut direkten Tailscale-Sockets nur, wenn beide Endpunkte Tailnet-Adressen nutzen und die Anfrage keine Weiterleitungs-Header hat (Tailscale Serve und Funnel brauchen eine Anmeldung). `true` aktiviert die alte Ausnahme für den gesamten Bereich `100.64.0.0/10`, `false` verlangt die normale Zugriffskontrolle. |
-| `BYPASS_AUTH_DOCKER`                    | automatisch       | Leer vertraut nur einer erkannten Container-Schnittstelle und ihrem exakten Gateway, und das nur, solange weder Basic Auth noch `IP_ALLOWLIST` gesetzt ist. `true` erhält die Kompatibilität mit älteren oder eigenen Netzwerken, `false` verlangt die normale Zugriffskontrolle. |
+| `BYPASS_AUTH_DOCKER`                    | automatisch       | Leer vertraut nur einer erkannten Container-Schnittstelle und ihrem exakten Gateway, und das nur, solange weder eine Anmeldung (`.env` oder App), noch `IP_ALLOWLIST` noch ein gültiger `TRUSTED_AUTH_PROXY` gesetzt ist. `true` erhält die Kompatibilität mit älteren oder eigenen Netzwerken, `false` verlangt die normale Zugriffskontrolle. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY`         | `true`            | Verlangt normale Anmelde- und Allowlist-Prüfungen für Docker-Verkehr, den ein Proxy weiterleitet (Weiterleitungs-Header, ein Host, der einen anderen Rechner nennt, oder HTTP/1.0). Setz den Wert nur auf `false`, wenn der Proxy selbst von jedem Besucher eine Anmeldung verlangt. |
 | `REQUIRE_AUTH_FOR_LOOPBACK_PROXY`       | `true`            | Behandelt Anfragen, die ein Reverse-Proxy oder Tunnel auf demselben Rechner weiterleitet, wie entfernte Besucher, auch HTTP/1.0-Anfragen wie das Standard-`proxy_pass` von nginx. Setz den Wert nur auf `false`, wenn der Proxy selbst von jedem Besucher eine Anmeldung verlangt. |
+| `TRUSTED_AUTH_PROXY`                    | leer              | IPs oder CIDRs eines Forward-Auth-Proxys (tinyauth, Authelia, Authentik, oauth2-proxy), der jeden Besucher anmeldet. Anfragen von diesen Adressen überspringen die Anmeldung und `IP_ALLOWLIST`; Weiterleitungs-Header zählen nie. Der Proxy muss jeden Pfad schützen, und Marinara darf nicht an ihm vorbei erreichbar sein. Siehe [Login-Proxys](REMOTE_ACCESS.md#login-proxies-forward-auth). |
 | `TRUSTED_HOSTS`                         | leer              | Zusätzliche öffentliche oder Reverse-Proxy-Hostnamen, auf die Marinara antworten darf. Direkte IP, localhost, `.local`, `.home.arpa` und einteilige LAN-Namen funktionieren automatisch. |
 | `SSL_CERT`                              | leer              | Pfad zu einer TLS-Zertifikatsdatei. Zusammen mit `SSL_KEY` liefert der Server HTTPS direkt aus.                                                             |
 | `SSL_KEY`                               | leer              | Pfad zur Datei mit dem privaten TLS-Schlüssel.                                                                                                             |
@@ -455,7 +460,7 @@ Manche Netzwerke erreichen das Internet nur über einen HTTP-Proxy, zum Beispiel
 ## Verwandte Anleitungen
 
 - [Funktionsschalter](configuration/features.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](REMOTE_ACCESS.md)
 - [Wo deine Daten gespeichert werden](data/where-data-is-stored.md)
 - [Mit einem KI-Anbieter verbinden](connections/connecting-to-a-provider.md)
 - [Szenen-Video](media/scene-video.md)

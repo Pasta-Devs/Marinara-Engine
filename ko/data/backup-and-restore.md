@@ -130,4 +130,4 @@ Personal Extension의 코드는 네이티브 프로필에 그대로 보존되지
 - [데이터 지우기와 초기화](clearing-data.md)
 - [Marinara Engine 업데이트](../UPGRADING.md)
 - [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)

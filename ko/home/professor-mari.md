@@ -253,4 +253,4 @@ Professor Mari는 문서 전체를 대신하는 존재가 아니라 옆에서 �
 - [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)
 - [캐릭터 만들기와 편집](../characters/creating-and-editing-characters.md)
 - [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)
-- [원격 접근: Basic Auth와 IP 허용 목록](../REMOTE_ACCESS.md)
+- [원격 접근: 로그인과 IP 허용 목록](../REMOTE_ACCESS.md)

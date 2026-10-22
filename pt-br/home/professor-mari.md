@@ -253,4 +253,4 @@ Professor Mari é uma ajudante, não a documentação completa. Tenha estes limi
 - [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md)
 - [Criando e editando personagens](../characters/creating-and-editing-characters.md)
 - [Referência dos agentes para download](../agents/built-in-agents.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)

@@ -80,7 +80,7 @@ Marinaraは初回起動時に、ボリューム内の`/app/data/.env`に空の�
 
 デフォルトでは、Composeは同じコンピューターからのアクセスだけを許可します。これは安全な初期状態です。スマートフォンやネットワーク上の別のコンピューターからMarinaraを開きたい場合は、2つの作業が必要です。ポートマッピングを変更することと、第三者がアクセスできないようにログインを有効にすることです。
 
-Basic Authは、ユーザー名とパスワードの入力を求めてアプリを保護する仕組みです。これを設定せずにMarinaraをネットワークへ公開しないでください。
+ほかのデバイスがMarinaraを使うには、ログインが必要です。ログインなしでMarinaraをネットワークへ公開しないでください。
 
 1. `docker-compose.yml`をテキストエディターで開きます。
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. 同じファイルの`environment:`の一覧に、ログイン情報と管理用のシークレットを追加します。値は自分で決めたものを使ってください。
+4. 同じファイルの`environment:`の一覧に、管理用のシークレットを追加します。値は自分で決めたものを使ってください。
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-これで、`PORT`を設定していない場合は、ネットワーク上の他のデバイスから`http://YOUR_COMPUTER_IP:7860`でMarinaraにアクセスできます。`PORT`を設定した場合は、`7860`をそのホストポートに置き換えます。アクセスするには、設定したユーザー名とパスワードの入力が必要です。
+これで、`PORT`を設定していない場合は、ネットワーク上の他のデバイスから`http://YOUR_COMPUTER_IP:7860`でMarinaraにアクセスできます。`PORT`を設定した場合は、`7860`をそのホストポートに置き換えます。ログインを求めるページが表示されます。ログインを設定するには、`docker logs <container> 2>&1 | grep "setup code"`で1回限りのセットアップコードを探します。そのコードを、新しいユーザー名とパスワードと一緒にこのページで入力します。あとから、サインイン済みのブラウザーの**Settings → Advanced → Access**でログインを変更できます。パスワードを忘れた場合は、`docker exec <container> node scripts/reset-login.mjs`を実行します。これは`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`で設定したログインは変更しません。その場合は、composeファイルでこれらを編集し、コンテナーを作り直してください。composeファイルの`environment:`の一覧に`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を書いて、ログインを設定することもできます。
 
-Docker Desktop、OrbStack、rootless Dockerでは、自分のブラウザーも含め、どのデバイスも同じアドレスからコンテナーに接続します。そのため、ログインを設定すると、このコンピューターでもログインを求められ、IP許可リストではデバイスを区別できません。ログインを設定せずに`127.0.0.1:`を外さないでください。これらのランタイムでは、Marinaraはほかのデバイスとこのコンピューターを区別できません。特定のデバイスだけを許可する方法や、管理用シークレットの役割については[リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)を参照してください。
+Docker Desktop、OrbStack、rootless Dockerでは、自分のブラウザーも含め、どのデバイスも同じアドレスからコンテナーに接続します。そのため、ログインを設定すると、このコンピューターでもログインを求められ、IP許可リストではデバイスを区別できません。`127.0.0.1:`を外す前に、ログインを設定してください。これらのランタイムでは、このコンピューターで`http://localhost:7860`を開いて**Settings**を使うか、composeファイルで`BASIC_AUTH_USER`と`BASIC_AUTH_PASS`を設定します。ログインなしで`127.0.0.1:`を外さないでください。これらのランタイムでは、Marinaraはほかのデバイスとこのコンピューターを区別できません。特定のデバイスだけを許可する方法や、管理用シークレットの役割については[リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)を参照してください。
 
 ## イメージの選び方: latest、staging、lite
 
@@ -245,5 +243,5 @@ docker build -f Dockerfile.lite -t marinara-engine:lite .
 ## 関連ガイド
 
 - [サーバー設定リファレンス](../CONFIGURATION.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)
 - [Marinara Engineのトラブルシューティング](../TROUBLESHOOTING.md)

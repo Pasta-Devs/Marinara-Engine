@@ -86,7 +86,7 @@ Les chats, les personnages et les réglages sont stockés sur le serveur, pas su
 
 ## Guides associés
 
-- [Accès à distance : authentification basique et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
 - [Foire aux questions](../FAQ.md)
 - [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md)
 - [Guide d'installation Android (Termux)](android-termux.md)

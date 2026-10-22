@@ -30,7 +30,7 @@ http://<host-ip>:7860
 4. Wpisz ten adres w pasku adresu przeglądarki Safari i przejdź do niego.
 5. W przeglądarce powinna wczytać się strona startowa aplikacji Marinara Engine.
 
-Jeśli strona się nie wczytuje albo pojawia się prośba o hasło, zajrzyj do sekcji Rozwiązywanie problemów poniżej. To właściciel serwera decyduje o dostępie sieciowym i hasłach. Te ustawienia serwera opisuje [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md), a nie ustawienia na iPhone lub iPad.
+Jeśli strona się nie wczytuje albo pojawia się prośba o hasło, zajrzyj do sekcji Rozwiązywanie problemów poniżej. To właściciel serwera decyduje o dostępie sieciowym i hasłach. Te ustawienia serwera opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md), a nie ustawienia na iPhone lub iPad.
 
 ## Dodawanie do ekranu głównego
 
@@ -52,7 +52,7 @@ Zwykły HTTP w sieci LAN nadal działa w przeglądarce Safari do codziennego uż
 
 Tailscale nadaje każdemu urządzeniu stały adres prywatny i poprawia dostępność, ale sam nie zamienia adresu `http://` na HTTPS. Wybierz konfigurację Tailscale, która wprost udostępnia HTTPS, albo poproś właściciela serwera o ustawienie aplikacji Marinara Engine za HTTPS.
 
-Te możliwości opisuje [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Jeśli zwykły adres HTTP sprawia kłopoty jako aplikacja na ekranie głównym, zostaw go raczej jako zakładkę w przeglądarce Safari.
+Te możliwości opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Jeśli zwykły adres HTTP sprawia kłopoty jako aplikacja na ekranie głównym, zostaw go raczej jako zakładkę w przeglądarce Safari.
 
 ## Czyszczenie i ponowna instalacja aplikacji PWA
 
@@ -72,21 +72,21 @@ Czaty, postacie i ustawienia są zapisane na serwerze, a nie na iPhone lub iPad.
 
 ## Rozwiązywanie problemów
 
-**Strona nie wczytuje się w przeglądarce Safari.** Sprawdź, czy serwer nadal działa na urządzeniu głównym. Sprawdź, czy oba urządzenia są w tej samej sieci lub w sieci Tailscale. Upewnij się, że adres IP i port `7860` są poprawne. Więcej pomocy dotyczącej sieci znajdziesz w dokumentach [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+**Strona nie wczytuje się w przeglądarce Safari.** Sprawdź, czy serwer nadal działa na urządzeniu głównym. Sprawdź, czy oba urządzenia są w tej samej sieci lub w sieci Tailscale. Upewnij się, że adres IP i port `7860` są poprawne. Więcej pomocy dotyczącej sieci znajdziesz w dokumentach [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
-**Safari prosi o nazwę użytkownika i hasło.** Właściciel serwera włączył ochronę hasłem dla urządzeń zdalnych. Poproś o nazwę użytkownika i hasło osobę, która prowadzi serwer. Konfigurację opisuje [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
+**Safari prosi o nazwę użytkownika i hasło.** Właściciel serwera włączył ochronę hasłem dla urządzeń zdalnych. Poproś o nazwę użytkownika i hasło osobę, która prowadzi serwer. Konfigurację opisuje [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md).
 
 **Safari wciąż pokazuje starą wersję.** Najpierw odśwież stronę. Jeśli nadal wygląda staro, wykonaj kroki z sekcji Czyszczenie i ponowna instalacja aplikacji PWA powyżej.
 
 **Aplikacja z ekranu głównego zamyka się lub bieleje podczas generowania.** Otwórz ją ponownie i wróć do czatu. Nie musisz restartować zdrowego serwera. Automatyczne odpowiedzi czatu i ręczne lub ponawiane żądania obrazów wyłącznie Illustrator działają dalej na serwerze po utracie połączenia przeglądarki. Ponownie otwarty czat sprawdza niedokończoną pracę i po jej zakończeniu odświeża zapisane wiadomości oraz obrazy galerii. **Stop** nadal anuluje generowanie wybranego czatu. Jeśli pusty ekran wraca, zgłoś Support Diagnostics i to, czy ponowne otwarcie przywraca czat; to odzyskiwanie nie diagnozuje ani nie zapobiega każdej awarii przeglądarki iOS.
 
-**Czerwony pasek ostrzega, że zapisy będą po cichu przepadać.** To ostrzeżenie serwera o zaufaniu sieciowym, a nie problem z iPhone lub iPad. Właściciel serwera musi dodać twój adres do zaufanych. Zobacz [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
+**Czerwony pasek ostrzega, że zapisy będą po cichu przepadać.** To ostrzeżenie serwera o zaufaniu sieciowym, a nie problem z iPhone lub iPad. Właściciel serwera musi dodać twój adres do zaufanych. Zobacz [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 
-**Działania uprzywilejowane są blokowane.** Część czynności serwisowych wymaga sekretu administratora od właściciela serwera. Na iPhone lub iPad zapisujesz tę wartość w sekcji **Settings**, potem **Advanced**, potem **Admin Access**. [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) wyjaśnia, czym jest sekret administratora i jak go zdobyć.
+**Działania uprzywilejowane są blokowane.** Część czynności serwisowych wymaga sekretu administratora od właściciela serwera. Na iPhone lub iPad zapisujesz tę wartość w sekcji **Settings**, potem **Advanced**, potem **Admin Access**. [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md) wyjaśnia, czym jest sekret administratora i jak go zdobyć.
 
 ## Powiązane przewodniki
 
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
 - [Najczęściej zadawane pytania](../FAQ.md)
 - [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md)
 - [Przewodnik instalacji na Android (Termux)](android-termux.md)

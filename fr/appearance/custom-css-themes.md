@@ -294,4 +294,4 @@ Si l'application a une drôle d'allure, pense à vérifier à la fois le thème 
 - [Guide du CSS de fiche](card-css-theming.md)
 - [Réglages d'apparence](appearance-settings.md)
 - [Référence de configuration du serveur](../CONFIGURATION.md)
-- [Accès à distance : authentification de base et liste d'autorisation d'IP](../REMOTE_ACCESS.md)
+- [Accès à distance : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md)

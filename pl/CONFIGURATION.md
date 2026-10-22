@@ -143,9 +143,13 @@ Niewielka grupa ustawień niskopoziomowych zostaje ustalona przy starcie serwera
 
 Po zmianie któregokolwiek z nich w logu pojawia się ostrzeżenie o konieczności restartu. Ustawienia kontroli dostępu i sekrety, czyli `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, `IP_ALLOWLIST`, `ADMIN_SECRET` i `CSRF_TRUSTED_ORIGINS`, restartu nie wymagają.
 
+<a id="access-control"></a>
+
 ## Kontrola dostępu
 
-Kontrola dostępu decyduje o tym, kto może dotrzeć do działającego serwera. Ta sekcja jest krótkim przypomnieniem. Krok po kroku i z przykładami opisuje to przewodnik [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](REMOTE_ACCESS.md).
+Kontrola dostępu decyduje o tym, kto może dotrzeć do działającego serwera. Ta sekcja jest krótkim przypomnieniem. Krok po kroku i z przykładami opisuje to przewodnik [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](REMOTE_ACCESS.md).
+
+Logowanie można też ustawić bez `.env`: w **Settings → Advanced → Access** w przeglądarce, która jest już zalogowana, na dowolnym urządzeniu albo za pomocą jednorazowego kodu konfiguracji z logu serwera. Aby zmienić lub usunąć logowanie, Marinara prosi o obecne hasło. Serwer wypisuje ten kod w swoim logu tylko wtedy, gdy nie ustawiono logowania, a serwer nasłuchuje poza loopbackiem (na przykład `HOST=0.0.0.0` albo Docker). Logowanie jest zapisywane w `DATA_DIR/.remote-login.json`; `pnpm reset-login` usuwa je i wylogowuje każdą przeglądarkę. Logowanie w `.env` ma pierwszeństwo. Proxy logowania używają `TRUSTED_AUTH_PROXY`; zobacz [Proxy logowania (forward auth)](REMOTE_ACCESS.md#login-proxies-forward-auth).
 
 Kilka pojęć używanych poniżej:
 
@@ -167,10 +171,11 @@ Najważniejsze ustawienia kontroli dostępu:
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Przywraca dostęp bez hasła z sieci prywatnych, gdy nie ustawiono logowania. Zakres `100.64.0.0/10` (CGNAT, czyli NAT klasy operatorskiej) nie jest uwzględniony, bo dostawcy internetu dzielą go między niezwiązanych ze sobą klientów; dodaj go do `TRUSTED_PRIVATE_NETWORKS` (które zastępuje wartości domyślne, więc zachowaj swoje zakresy LAN) tylko wtedy, gdy mu ufasz. |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Dopuszcza dostęp bez hasła z dowolnego adresu, także z publicznego internetu. Niezalecane. |
 | `TRUSTED_PRIVATE_NETWORKS` | wbudowane wartości domyślne | Zastępuje domyślne zakresy sieci prywatnych. Wpisz też te domyślne, które mają zostać. |
-| `BYPASS_AUTH_TAILSCALE` | automatycznie | Pusta wartość ufa bezpośrednim gniazdom Tailscale tylko wtedy, gdy oba końce używają adresów sieci Tailscale, a żądanie nie ma nagłówków przekazywania (Tailscale Serve i Funnel wymagają logowania). Ustaw `true`, żeby zachować dawne pominięcie całego zakresu `100.64.0.0/10`, albo `false`, żeby wymagać zwykłej kontroli dostępu. |
-| `BYPASS_AUTH_DOCKER` | automatycznie | Pusta wartość ufa tylko wykrytemu interfejsowi kontenera i jego dokładnej bramie, i tylko wtedy, gdy nie ustawiono Basic Auth ani `IP_ALLOWLIST`. Ustaw `true`, żeby zachować zgodność ze starszymi lub własnymi sieciami, albo `false`, żeby wymagać zwykłej kontroli dostępu. |
-| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | Wymaga zwykłego logowania i sprawdzenia listy dozwolonych adresów dla ruchu Docker przekazywanego przez proxy (nagłówki przekazywania, nagłówek Host z nazwą innego komputera albo HTTP/1.0). Ustaw `false` tylko wtedy, gdy każdy klient po stronie nadrzędnej jest zaufany. |
-| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | Traktuje żądania przekazywane przez odwrotne proxy lub tunel na tym samym komputerze tak jak żądania zdalnych gości, także żądania HTTP/1.0, takie jak domyślne `proxy_pass` w nginx. Ustaw `false` tylko wtedy, gdy samo proxy wymaga logowania od każdego odwiedzającego. |
+| `BYPASS_AUTH_TAILSCALE` | automatycznie | Puste pozwala urządzeniu pominąć logowanie tylko wtedy, gdy łączy się bezpośrednio z adresem Tailscale tego komputera. Połączenia przez Tailscale Serve, Funnel albo inne proxy nadal wymagają logowania. Ustaw `true`, żeby zachować dawne pominięcie całego zakresu `100.64.0.0/10`, albo `false`, żeby wymagać zwykłej kontroli dostępu. |
+| `BYPASS_AUTH_DOCKER` | automatycznie | Puste ufa tylko wykrytemu interfejsowi kontenera i jego dokładnej bramie, i to tylko dopóki nie ustawiono logowania (`.env` ani aplikacja), `IP_ALLOWLIST` ani ważnego `TRUSTED_AUTH_PROXY`. Ustaw `true` dla zgodności ze starszymi lub niestandardowymi sieciami albo `false`, żeby wymagać zwykłej kontroli dostępu. |
+| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | Wymaga zwykłych kontroli logowania i listy dozwolonych adresów dla ruchu Docker, który przekazuje proxy (nagłówki przekazywania, nagłówek Host wskazujący inny komputer albo HTTP/1.0). Ustaw `false` tylko wtedy, gdy samo proxy wymaga logowania od każdego gościa. |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | Traktuje żądania, które odwrotne proxy lub tunel na tym samym komputerze przekazuje jako żądania zdalnych gości, także żądania HTTP/1.0, takie jak domyślne `proxy_pass` w nginx. Ustaw `false` tylko wtedy, gdy samo proxy wymaga logowania od każdego gościa. |
+| `TRUSTED_AUTH_PROXY` | pusta | Adresy IP lub CIDR proxy forward-auth (tinyauth, Authelia, Authentik, oauth2-proxy), które loguje każdego gościa. Żądania z tych adresów pomijają logowanie i `IP_ALLOWLIST`; nagłówki przekazywania nigdy się nie liczą. Proxy musi chronić każdą ścieżkę, a do Marinary nie wolno dojść z pominięciem proxy. Zobacz [Proxy logowania](REMOTE_ACCESS.md#login-proxies-forward-auth). |
 | `TRUSTED_HOSTS` | pusta | Dodatkowe nazwy publiczne lub nazwy odwrotnego proxy, na które Marinara może odpowiadać. Bezpośredni adres IP, localhost, `.local`, `.home.arpa` oraz jednoczłonowe nazwy w sieci lokalnej działają same z siebie. |
 | `SSL_CERT` | pusta | Ścieżka do pliku certyfikatu TLS. Ustaw razem z `SSL_KEY`, żeby serwer sam obsługiwał HTTPS. |
 | `SSL_KEY` | pusta | Ścieżka do pliku klucza prywatnego TLS. |
@@ -455,7 +460,7 @@ Niektóre sieci łączą się z internetem wyłącznie przez proxy HTTP, na przy
 ## Powiązane przewodniki
 
 - [Przełączniki funkcji](configuration/features.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](REMOTE_ACCESS.md)
 - [Gdzie Marinara przechowuje dane](data/where-data-is-stored.md)
 - [Łączenie z dostawcą AI](connections/connecting-to-a-provider.md)
 - [Generowanie wideo sceny](media/scene-video.md)

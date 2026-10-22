@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT` establece el puerto de la dirección (7860 de forma predeterminada). De forma predeterminada, el lanzador también permite que otros dispositivos de tu LAN lleguen al servidor. LAN significa red de área local, la red de tu casa u oficina. Marinara sigue bloqueando esos dispositivos hasta que configuras una contraseña u otra opción de acceso. La guía [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md) te muestra cómo hacerlo.
+`PORT` establece el puerto de la dirección (7860 de forma predeterminada). De forma predeterminada, el lanzador también permite que otros dispositivos de tu LAN lleguen al servidor. LAN significa red de área local, la red de tu casa u oficina. Marinara sigue bloqueando esos dispositivos hasta que configuras un inicio de sesión u otra opción de acceso. La guía [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md) te muestra cómo hacerlo.
 
 ## Configuración manual
 
@@ -244,5 +244,5 @@ Para los pasos completos de actualización, incluido cómo hacer una copia de se
 
 - [Instalación de Marinara Engine](../INSTALLATION.md): elige el método de instalación correcto para tu dispositivo.
 - [Actualizar Marinara Engine](../UPGRADING.md): pasos completos de actualización y copia de seguridad para cada plataforma.
-- [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md): configura una contraseña para que otros dispositivos puedan llegar a Marinara.
+- [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md): configura una contraseña para que otros dispositivos puedan llegar a Marinara.
 - [Solución de problemas de Marinara Engine](../TROUBLESHOOTING.md): correcciones para problemas de instalación e inicio.

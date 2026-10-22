@@ -201,7 +201,7 @@ Pełny edytor agenta **Music DJ** ma sekcję **Custom Music Library**. Przełąc
 - Przełącznik włączony: pole **Game Assets music folder** wskazuje folder wewnątrz zasobów gry, na przykład `music` albo `music/combat`. Przycisk **Open Folder** otwiera ten folder na maszynie serwera.
 - Przełącznik wyłączony: pole **Music folder on this device** pozwala trybowi Custom odtwarzać muzykę z dowolnego folderu na komputerze, na którym działa serwer. Kliknij przycisk **Select Folder**, żeby otworzyć systemowe okno wyboru folderu, albo wklej ścieżkę folderu do pola.
 
-Wybór folderu spoza aplikacji wymaga podwyższonych uprawnień. Na tym samym komputerze co serwer działa bez dodatkowej konfiguracji. Z innego urządzenia lub przez zdalny dostęp trzeba najpierw skonfigurować dostęp administracyjny. Sposób włączenia opisuje przewodnik [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Wszystko pozostałe o odtwarzaczu muzyki znajdziesz w przewodniku [Music DJ](../media/music.md).
+Wybór folderu spoza aplikacji wymaga podwyższonych uprawnień. Na tym samym komputerze co serwer działa bez dodatkowej konfiguracji. Z innego urządzenia lub przez zdalny dostęp trzeba najpierw skonfigurować dostęp administracyjny. Sposób włączenia opisuje przewodnik [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md). Wszystko pozostałe o odtwarzaczu muzyki znajdziesz w przewodniku [Music DJ](../media/music.md).
 
 ## Otwieranie folderu na komputerze
 
@@ -212,4 +212,4 @@ Przycisk **Open in system folder** otwiera zaznaczony folder zasobów w zwykłym
 - [Music DJ: Spotify, YouTube i muzyka lokalna](../media/music.md)
 - [Obsługiwani dostawcy AI](../connections/providers-reference.md)
 - [Game Mode: pierwsze kroki](getting-started.md)
-- [Dostęp zdalny: Basic Auth i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)
+- [Dostęp zdalny: logowanie i lista dozwolonych adresów IP](../REMOTE_ACCESS.md)

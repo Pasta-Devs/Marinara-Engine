@@ -11,7 +11,7 @@ Marinara Engine 以本地服务器的形式跑在一台电脑上，用浏览器�
 按下面的步骤操作：
 
 1. 让 Marinara 在主机电脑上保持运行。
-2. 在主机电脑上配置访问控制：Basic Auth(一组用户名和密码) 或者 IP 允许列表（一份可信设备地址清单）。[远程访问](REMOTE_ACCESS.md)逐项讲解了这两种方式，也介绍了完全可信的私有网络可以走的放行方式。
+2. 设置登录（一个用户名和密码）：在任意一台已登录的设备的浏览器里，到 **Settings** → **Advanced** → **Access** 设置（要修改或移除登录，需要输入当前密码）；或者在另一台设备上，用服务器日志里的一次性设置码（Docker 里运行 `docker logs <container> 2>&1 | grep "setup code"`）。[远程访问](REMOTE_ACCESS.md#option-1-login-recommended)有详细步骤。
 3. 查出主机电脑的局域网 IP 地址。Windows 上运行这条命令，看 **IPv4 Address**(IPv4 地址)：
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 把 `192.168.1.42` 换成自己的主机 IP 地址。
 
-5. 浏览器要求输入 Basic Auth 用户名和密码时登录一下。如果看到的是 **Access blocked** 页面，说明主机上的第 2 步还没做完。
+5. 用你的用户名和密码登录。如果看到的是 **Access blocked** 页面，说明还没有设置登录：在那里输入服务器日志里的设置码，再设一个新的用户名和密码。想添加更多设备又不想输入密码，在 **Settings** → **Advanced** → **Access** 里用 **Add a device**。
 
-普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。同一台电脑上的反向代理（包括默认配置的 nginx）算作远程访客，需要登录。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara，但 Android 外壳会自动创建并使用这份凭据。其他设备在配好访问控制（Basic Auth 或 IP 允许列表）之前一律被拦。两种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
+普通桌面安装在同一台电脑上（`127.0.0.1`）不需要密码。同一台电脑上的反向代理（包括默认配置的 nginx）算作远程访客，需要登录。由 APK 管理的 Android 安装会为 localhost 添加私密登录，防止其他 Android 应用冒充 Marinara，但 Android 外壳会自动创建并使用这份凭据。其他设备在设置登录之前一律被拦。每种方式都在[远程访问](REMOTE_ACCESS.md)里有详细说明。
 
 两台设备不在同一网络时，可以借助 Tailscale 这类工具。Tailscale 会给每台设备分配一个固定的私有地址，这样在哪都能连上，也不用把 Marinara 暴露到公网。连不上的话，看 [Marinara Engine 故障排查](TROUBLESHOOTING.md)。
 

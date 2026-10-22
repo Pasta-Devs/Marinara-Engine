@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-La variable `PORT` définit le port de l'adresse (7860 par défaut). Par défaut, le lanceur autorise aussi les autres appareils de ton LAN à atteindre le serveur. LAN veut dire réseau local, celui de ta maison ou de ton bureau. Marinara bloque malgré tout ces appareils tant que tu n'as pas mis en place un mot de passe ou une autre option d'accès. Le guide [Accès distant : authentification de base et liste d'autorisation d'IP](../REMOTE_ACCESS.md) explique comment faire.
+La variable `PORT` définit le port de l'adresse (7860 par défaut). Par défaut, le lanceur autorise aussi les autres appareils de ton LAN à atteindre le serveur. LAN veut dire réseau local, celui de ta maison ou de ton bureau. Marinara bloque malgré tout ces appareils tant que tu n'as pas mis en place un mot de passe ou une autre option d'accès. Le guide [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md) explique comment faire.
 
 ## Installation manuelle
 
@@ -244,5 +244,5 @@ Pour la marche à suivre complète, y compris comment sauvegarder au préalable 
 
 - [Installation de Marinara Engine](../INSTALLATION.md) : choisis la méthode d'installation adaptée à ton appareil.
 - [Mettre à jour Marinara Engine](../UPGRADING.md) : la marche à suivre complète pour la mise à jour et la sauvegarde, sur toutes les plateformes.
-- [Accès distant : authentification de base et liste d'autorisation d'IP](../REMOTE_ACCESS.md) : mets en place un mot de passe pour que d'autres appareils atteignent Marinara.
+- [Accès distant : connexion et liste d'autorisation d'IP](../REMOTE_ACCESS.md) : mets en place un mot de passe pour que d'autres appareils atteignent Marinara.
 - [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md) : solutions aux problèmes d'installation et de démarrage.

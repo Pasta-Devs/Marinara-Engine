@@ -80,7 +80,7 @@ Marinara também cria um arquivo de configurações vazio em `/app/data/.env` de
 
 Por padrão, o Compose só permite acessar Marinara a partir do mesmo computador. Esse padrão é o mais seguro. Se você quiser abrir Marinara no celular ou em outro computador da rede, precisa fazer duas coisas. Mudar o mapeamento de porta e ativar um login, para que estranhos não cheguem ao aplicativo.
 
-Basic Auth é uma solicitação simples de usuário e senha que protege o aplicativo. Nunca exponha Marinara à rede sem isso.
+Os outros dispositivos precisam de um login antes de usar Marinara. Nunca exponha Marinara à sua rede sem um.
 
 1. Abra o arquivo `docker-compose.yml` em um editor de texto.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. No mesmo arquivo, adicione um login e um segredo de administrador à lista `environment:`. Use valores próprios:
+4. No mesmo arquivo, adicione um segredo de administrador à lista `environment:`. Use o seu próprio valor:
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-Agora os outros dispositivos da rede alcançam Marinara em `http://YOUR_COMPUTER_IP:7860`, desde que a variável `PORT` não esteja definida. Se você definir a variável `PORT`, troque `7860` por essa porta do host. Cada pessoa precisa digitar o usuário e a senha que você configurou.
+Agora os outros dispositivos da rede alcançam Marinara em `http://YOUR_COMPUTER_IP:7860`, desde que a variável `PORT` não esteja definida. Se você definir a variável `PORT`, troque `7860` por essa porta do host. Eles veem uma página que pede um login. Para defini-lo, encontre o código de configuração de uso único com `docker logs <container> 2>&1 | grep "setup code"`. Digite o código nessa página com um novo nome de usuário e uma nova senha. Depois, você pode mudar o login em **Settings → Advanced → Access** em um navegador conectado. Se esquecer a senha, execute `docker exec <container> node scripts/reset-login.mjs`. Isso não muda um login vindo de `BASIC_AUTH_USER` e `BASIC_AUTH_PASS`; edite essas variáveis no arquivo compose e recrie o contêiner. Você também pode definir um login no arquivo compose com `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` na lista `environment:`.
 
-No Docker Desktop, no OrbStack e no Docker sem root, todo dispositivo chega ao contêiner pelo mesmo endereço, inclusive o seu próprio navegador. Por isso, depois que o login é definido, este computador também passa a pedi-lo, e uma lista de IPs permitidos não consegue diferenciar os dispositivos. Nunca remova `127.0.0.1:` sem o login: nesses ambientes, Marinara não consegue diferenciar os outros dispositivos deste computador. Para conhecer boas formas de liberar apenas certos dispositivos e entender para que serve o segredo de administrador, leia [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md).
+No Docker Desktop, no OrbStack e no Docker sem root, todo dispositivo chega ao contêiner pelo mesmo endereço, inclusive o seu próprio navegador. Por isso, depois que o login é definido, este computador também passa a pedi-lo, e uma lista de IPs permitidos não consegue diferenciar os dispositivos. Defina o login antes de remover `127.0.0.1:`. Nesses ambientes, abra Marinara neste computador em `http://localhost:7860` e use **Settings**, ou defina `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` no arquivo compose. Nunca remova `127.0.0.1:` sem o login: nesses ambientes, Marinara não consegue diferenciar os outros dispositivos deste computador. Para conhecer boas formas de liberar apenas certos dispositivos e entender para que serve o segredo de administrador, leia [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md).
 
 ## Escolher a imagem: latest, staging ou lite
 
@@ -245,5 +243,5 @@ Para mais ajuda, leia [Solução de problemas do Marinara Engine](../TROUBLESHOO
 ## Guias relacionados
 
 - [Referência de configuração do servidor](../CONFIGURATION.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)
 - [Solução de problemas do Marinara Engine](../TROUBLESHOOTING.md)

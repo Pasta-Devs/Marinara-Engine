@@ -212,4 +212,4 @@ Die Schaltfläche **Open in system folder** öffnet den ausgewählten Asset-Ordn
 - [Music DJ: Spotify, YouTube und lokale Musik](../media/music.md)
 - [Unterstützte KI-Anbieter](../connections/providers-reference.md)
 - [Game Mode: Erste Schritte](getting-started.md)
-- [Fernzugriff: Basic Auth und IP-Allowlist](../REMOTE_ACCESS.md)
+- [Fernzugriff: Anmeldung und IP-Allowlist](../REMOTE_ACCESS.md)

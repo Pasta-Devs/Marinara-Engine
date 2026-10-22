@@ -253,4 +253,4 @@ Professor Mariはあくまで手助け役で、ドキュメントの代わりで
 - [AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)
 - [キャラクターの作成と編集](../characters/creating-and-editing-characters.md)
 - [ダウンロードできるエージェント一覧](../agents/built-in-agents.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)

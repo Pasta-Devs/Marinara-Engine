@@ -78,9 +78,9 @@ docker volume inspect PROJECT_marinara-data
 
 ## 把 Marinara 开放给局域网
 
-默认情况下，Compose 只允许从同一台电脑访问 Marinara，这是安全的默认值。想在手机或网络里的另一台电脑上打开 Marinara，就得做两件事：改端口映射，并开启登录验证，免得陌生人也能连进来。
+默认情况下，Compose 只允许从同一台电脑访问 Marinara，这是安全的默认值。想在手机或网络里的另一台电脑上打开 Marinara，就得做两件事：改端口映射，并开启登录，免得陌生人也能连进来。
 
-Basic Auth 就是一个简单的用户名加密码提示框，用来保护应用。把 Marinara 开放到网络上时，绝对不要不开它。
+其他设备要先登录才能使用 Marinara。把 Marinara 开放到网络上时，绝对不要不设登录。
 
 1. 用文本编辑器打开 `docker-compose.yml`。
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. 在同一个文件里，往 `environment:` 列表中加上登录信息和管理员密钥。值要换成自己的：
+4. 在同一个文件里，往 `environment:` 列表中加上管理员密钥。值要换成自己的：
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-这样，在没有设置 `PORT` 时，网络里的其他设备就能通过 `http://YOUR_COMPUTER_IP:7860` 访问 Marinara。如果设置了 `PORT`，把 `7860` 换成对应的宿主机端口。他们必须输入你设定的用户名和密码。
+这样，在没有设置 `PORT` 时，网络里的其他设备就能通过 `http://YOUR_COMPUTER_IP:7860` 访问 Marinara。如果设置了 `PORT`，把 `7860` 换成对应的宿主机端口。他们会看到一个要求登录的页面。设置登录的方法：先用 `docker logs <container> 2>&1 | grep "setup code"` 找到一次性设置码，在那个页面输入设置码，再填一个新的用户名和密码。之后可以在已登录的浏览器里，到 **Settings** → **Advanced** → **Access** 修改登录。如果忘了密码，运行 `docker exec <container> node scripts/reset-login.mjs`。这不会改动由 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS` 设置的登录：要改它，请编辑 compose 文件并重新创建容器。你也可以在 compose 文件的 `environment:` 列表里用 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS` 设置登录。
 
-在 Docker Desktop、OrbStack 和 rootless Docker 上，每台设备都从同一个地址访问容器，包括你自己的浏览器。所以一旦设置了登录，这台电脑也会要求登录，IP 允许列表也无法区分不同的设备。没有设置登录时，千万不要去掉 `127.0.0.1:`：在这些运行环境上，Marinara 分不清其他设备和这台电脑。想知道怎么把访问限制在特定设备上，以及管理员密钥的作用，读[远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)。
+在 Docker Desktop、OrbStack 和 rootless Docker 上，每台设备都从同一个地址访问容器，包括你自己的浏览器。所以一旦设置了登录，这台电脑也会要求登录，IP 允许列表也无法区分不同的设备。去掉 `127.0.0.1:` 之前先设好登录。在这些运行环境上，在这台电脑上用 `http://localhost:7860` 打开 Marinara 并使用 **Settings**，或者在 compose 文件里设置 `BASIC_AUTH_USER` 和 `BASIC_AUTH_PASS`。没有设置登录时，千万不要去掉 `127.0.0.1:`：在这些运行环境上，Marinara 分不清其他设备和这台电脑。想知道怎么把访问限制在特定设备上，以及管理员密钥的作用，读[远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)。
 
 ## 选哪个镜像：latest、staging 还是 lite
 
@@ -245,5 +243,5 @@ docker build -f Dockerfile.lite -t marinara-engine:lite .
 ## 相关指南
 
 - [服务器配置参考](../CONFIGURATION.md)
-- [远程访问：Basic Auth 与 IP 允许列表](../REMOTE_ACCESS.md)
+- [远程访问：登录与 IP 允许列表](../REMOTE_ACCESS.md)
 - [Marinara Engine 故障排查](../TROUBLESHOOTING.md)

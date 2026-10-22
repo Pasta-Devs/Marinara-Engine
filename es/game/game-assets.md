@@ -212,4 +212,4 @@ El botón **Open in system folder** abre la carpeta de recursos seleccionada en 
 - [Music DJ: Spotify, YouTube y música local](../media/music.md)
 - [Proveedores de IA compatibles](../connections/providers-reference.md)
 - [Game Mode: primeros pasos](getting-started.md)
-- [Acceso remoto: Basic Auth y lista de IP permitidas](../REMOTE_ACCESS.md)
+- [Acceso remoto: inicio de sesión y lista de IP permitidas](../REMOTE_ACCESS.md)

@@ -294,4 +294,4 @@ Si la app se ve mal, vale la pena revisar tanto un tema activo como Card CSS. Cu
 - [Card CSS Theming Guide](card-css-theming.md)
 - [Appearance Settings](appearance-settings.md)
 - [Server Configuration Reference](../CONFIGURATION.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

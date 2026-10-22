@@ -293,4 +293,4 @@ Se o aplicativo estiver com a aparência estranha, vale conferir tanto o tema at
 - [Guia de temas com Card CSS](card-css-theming.md)
 - [Configurações de aparência](appearance-settings.md)
 - [Referência de configuração do servidor](../CONFIGURATION.md)
-- [Acesso remoto: Basic Auth e lista de IPs permitidos](../REMOTE_ACCESS.md)
+- [Acesso remoto: login e lista de IPs permitidos](../REMOTE_ACCESS.md)

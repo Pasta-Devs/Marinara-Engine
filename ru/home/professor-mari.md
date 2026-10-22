@@ -253,4 +253,4 @@ Professor Mari – ассистент, а не полная документац
 - [Подключение к провайдеру ИИ](../connections/connecting-to-a-provider.md)
 - [Создание и редактирование персонажей](../characters/creating-and-editing-characters.md)
 - [Справочник агентов для скачивания](../agents/built-in-agents.md)
-- [Удаленный доступ: Basic Auth и список разрешенных адресов](../REMOTE_ACCESS.md)
+- [Удаленный доступ: вход и список разрешенных адресов](../REMOTE_ACCESS.md)

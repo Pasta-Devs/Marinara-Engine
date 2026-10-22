@@ -212,4 +212,4 @@ Game Modeは、AI音声サービスのElevenLabsを使って、シーンに合�
 - [Music DJ: Spotify、YouTube、ローカルの音楽](../media/music.md)
 - [対応しているAIプロバイダー](../connections/providers-reference.md)
 - [Game Mode: はじめに](getting-started.md)
-- [リモートアクセス: Basic AuthとIP許可リスト](../REMOTE_ACCESS.md)
+- [リモートアクセス: ログインとIP許可リスト](../REMOTE_ACCESS.md)
