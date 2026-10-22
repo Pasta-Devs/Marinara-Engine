@@ -1,11 +1,11 @@
 {
   "language": "pl",
-  "sourceCommit": "64a69fc1f7580a8ad7a63993f3653a25bb7c3338",
+  "sourceCommit": "010829b36",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "3ff4e438817df8b4fec18f298d11be221e9ec422d92a293eaa764ffa0e607eb3",
-      "bytes": 58188
+      "sha256": "e324e54c0a66c0530beb08803b436391b557e45db5a3f77221eb54cee613ce4c",
+      "bytes": 58412
     },
     {
       "path": "FAQ.md",
@@ -19,8 +19,8 @@
     },
     {
       "path": "REMOTE_ACCESS.md",
-      "sha256": "f7bb053b8473e080b3a4edcbae2807c48664154b13a2108a15d39567c87bcfe5",
-      "bytes": 26093
+      "sha256": "6974c345212070be34a3886f6ca4454033700b8a20f3c40a1230678d8b311819",
+      "bytes": 26221
     },
     {
       "path": "TROUBLESHOOTING.md",

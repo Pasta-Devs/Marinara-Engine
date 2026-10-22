@@ -164,7 +164,7 @@ Najważniejsze ustawienia kontroli dostępu:
 | `BASIC_AUTH_REALM` | `Marinara Engine` | Tekst wyświetlany w oknie hasła w przeglądarce. |
 | `IP_ALLOWLIST` | pusta | Rozdzielone przecinkami adresy IP lub zakresy CIDR, które są zawsze dozwolone. Bezpośrednia pętla zwrotna jest dozwolona zawsze; odwrotne proxy na tym samym komputerze – nie. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Ustaw `false`, żeby zachować listę, ale wstrzymać jej egzekwowanie. |
-| \1 Niektórzy dostawcy internetu i sieci komórkowej nadają klientom adresy z zakresu `100.64.0.0/10`. Jeśli ten komputer ma taki adres, inni klienci tego dostawcy liczą się jako klienci sieci prywatnej. |
+| `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Przywraca dostęp bez hasła z sieci prywatnych, gdy nie ustawiono logowania. Zakres `100.64.0.0/10` (CGNAT, czyli NAT klasy operatorskiej) nie jest uwzględniony, bo dostawcy internetu dzielą go między niezwiązanych ze sobą klientów; dodaj go do `TRUSTED_PRIVATE_NETWORKS` (które zastępuje wartości domyślne, więc zachowaj swoje zakresy LAN) tylko wtedy, gdy mu ufasz. |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Dopuszcza dostęp bez hasła z dowolnego adresu, także z publicznego internetu. Niezalecane. |
 | `TRUSTED_PRIVATE_NETWORKS` | wbudowane wartości domyślne | Zastępuje domyślne zakresy sieci prywatnych. Wpisz też te domyślne, które mają zostać. |
 | `BYPASS_AUTH_TAILSCALE` | automatycznie | Pusta wartość ufa bezpośrednim gniazdom Tailscale tylko wtedy, gdy oba końce używają adresów sieci Tailscale, a żądanie nie ma nagłówków przekazywania (Tailscale Serve i Funnel wymagają logowania). Ustaw `true`, żeby zachować dawne pominięcie całego zakresu `100.64.0.0/10`, albo `false`, żeby wymagać zwykłej kontroli dostępu. |

@@ -127,7 +127,7 @@ Cała sieć bywa zaufana, na przykład domowa sieć LAN (sieć lokalna) bez prze
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-Wraca wtedy dawne zachowanie: "otwarte w sieci LAN, zablokowane z publicznego internetu". Dotyczy to wyłącznie standardowych zakresów sieci prywatnych, na przykład `10.0.0.0/8`, `172.16.0.0/12` i `192.168.0.0/16`. Liczy się też zakres CGNAT `100.64.0.0/10`. CGNAT to system współdzielonych adresów, którego używa część dostawców internetu, a Tailscale korzysta z tego samego zakresu. Adresy z publicznego internetu nadal dostają błąd 403. Niektórzy dostawcy internetu i sieci komórkowej nadają klientom adresy z tego zakresu. Jeśli ten komputer ma taki adres, inni klienci tego samego dostawcy liczą się jako klienci sieci prywatnej.
+Wraca wtedy dawne zachowanie: "otwarte w sieci LAN, zablokowane z publicznego internetu". Dotyczy to wyłącznie standardowych zakresów sieci prywatnych, na przykład `10.0.0.0/8`, `172.16.0.0/12` i `192.168.0.0/16`. Zakres CGNAT `100.64.0.0/10` się nie liczy, bo niektórzy dostawcy internetu dzielą go między niezwiązanych ze sobą klientów; dodaj go do `TRUSTED_PRIVATE_NETWORKS` tylko wtedy, gdy mu ufasz. Adresy z publicznego internetu nadal dostają błąd 403. Niektórzy dostawcy internetu i sieci komórkowej nadają klientom adresy z tego zakresu. Jeśli go dodasz, inni klienci tego samego dostawcy też liczą się jako klienci sieci prywatnej. `TRUSTED_PRIVATE_NETWORKS` zastępuje zakresy domyślne, więc zostaw na liście zakresy LAN, których nadal potrzebujesz.
 
 Ostrzeżenie: każdy w tej samej sieci dostanie się wtedy do aplikacji Marinara bez hasła. W sieci pod twoją kontrolą to nie problem. We współdzielonym Wi-Fi w kawiarni, na lotnisku czy w akademiku – już tak. W razie wątpliwości wybierz Basic Auth.
 

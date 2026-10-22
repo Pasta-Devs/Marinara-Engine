@@ -127,7 +127,7 @@ Talvez toda a sua rede seja confiável, por exemplo uma LAN doméstica (rede loc
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-Isso restaura o comportamento antigo de "aberto na LAN, bloqueado na internet pública". Vale apenas para as faixas privadas padrão, por exemplo `10.0.0.0/8`, `172.16.0.0/12` e `192.168.0.0/16`. A faixa CGNAT `100.64.0.0/10` também entra na conta. CGNAT é um sistema de endereços compartilhados usado por alguns provedores de internet, e Tailscale usa a mesma faixa. Endereços da internet pública continuam bloqueados com um 403. Alguns provedores de internet e de telefonia móvel dão aos clientes endereços nessa faixa. Se este computador tiver um endereço assim, os outros clientes do mesmo provedor contam como clientes de rede privada.
+Isso restaura o comportamento antigo de "aberto na LAN, bloqueado na internet pública". Vale apenas para as faixas privadas padrão, por exemplo `10.0.0.0/8`, `172.16.0.0/12` e `192.168.0.0/16`. A faixa CGNAT `100.64.0.0/10` não entra na conta, porque alguns provedores de internet a compartilham entre clientes sem relação entre si; adicione-a a `TRUSTED_PRIVATE_NETWORKS` somente se você confiar nela. Endereços da internet pública continuam bloqueados com um 403. Alguns provedores de internet e de telefonia móvel dão aos clientes endereços nessa faixa. Se você a adicionar, os outros clientes do mesmo provedor também contam como clientes de rede privada. `TRUSTED_PRIVATE_NETWORKS` substitui as faixas padrão, então mantenha na lista as faixas de LAN de que ainda precisar.
 
 Aviso: qualquer pessoa na mesma rede passa a acessar Marinara sem senha. Isso não é problema em uma rede que você controla. Já em um Wi-Fi compartilhado de cafeteria, aeroporto ou alojamento, é. Na dúvida, use Basic Auth.
 
