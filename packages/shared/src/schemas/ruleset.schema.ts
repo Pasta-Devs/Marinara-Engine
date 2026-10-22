@@ -11418,6 +11418,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     }
   });
 
+  // The pools the fight screen shows under a turn name the sheet's own pools, once each (1.375): a
+  // pool a list's rows make has no single value to show.
+  def.combat?.display?.pools?.forEach((id, index, named) => {
+    const path = ["combat", "display", "pools", index];
+    if (!pools.has(id)) issue(path, `Unknown pool "${id}"`);
+    else if (named.indexOf(id) !== index) issue(path, `Duplicate pool "${id}"`);
+  });
+
   const listById = new Map(sheet.lists.map((list) => [list.id, list]));
   def.rests.forEach((rest, restIndex) => {
     rest.restore.forEach((op, opIndex) => {

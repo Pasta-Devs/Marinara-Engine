@@ -2421,6 +2421,7 @@
   "game.combat.ruleset.screen.area": "{{size}} {{shape}}",
   "game.combat.ruleset.screen.areaHint": "Amber squares: where {{label}} lands. Ringed: who it catches.",
   "game.combat.ruleset.screen.backToAnswer": "Back to the answer",
+  "game.combat.ruleset.screen.budgetCount": "{{left}}/{{total}}",
   "game.combat.ruleset.screen.catches": "Catches {{names}}.",
   "game.combat.ruleset.screen.choosing": "choosing…",
   "game.combat.ruleset.screen.control": "Control",

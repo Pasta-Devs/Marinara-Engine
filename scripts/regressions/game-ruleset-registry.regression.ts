@@ -179,6 +179,13 @@ function assertRefused(input: unknown, pattern: RegExp, message: string) {
   badRest.rests[0].restore.push({ pool: "mana", to: "max" });
   assertRefused(badRest, /Unknown pool "mana"/, "a rest restores a declared pool");
 
+  const unknownShown = example();
+  unknownShown.combat.display = { pools: ["slots_1", "willpower"] };
+  assertRefused(unknownShown, /^combat\.display\.pools\.1: Unknown pool "willpower"/, "the fight shows declared pools");
+  const twiceShown = example();
+  twiceShown.combat.display = { pools: ["slots_1", "slots_1"] };
+  assertRefused(twiceShown, /^combat\.display\.pools\.1: Duplicate pool "slots_1"/, "a shown pool is named once");
+
   const hideWhenType = example();
   hideWhenType.sheet.derived[3].hideWhen = { field: "spellcasting_ability", equals: "charisma" };
   assertRefused(hideWhenType, /hideWhen\.equals: .*not one of/, "hideWhen compares against a value the field can hold");

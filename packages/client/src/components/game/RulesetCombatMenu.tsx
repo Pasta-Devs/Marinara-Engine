@@ -185,6 +185,8 @@ export function RulesetCombatMenu({
   const [altersPicked, setAltersPicked] = useState<string[]>([]);
   // Who of its user's side is ticked to be spared in the spare step (1.254).
   const [sparesPicked, setSparesPicked] = useState<string[]>([]);
+  // Which folds the player opened. A step inside one holds it open; Back leaves it as the player had it.
+  const [foldsOpen, setFoldsOpen] = useState<Record<string, boolean>>({});
   // Held by the owner only when it passes BOTH halves (`step` may be null, never left out): with one
   // of them missing the menu keeps its own, or a pick would be handed up and never come back down.
   const held = onStepChange !== undefined && heldStep !== undefined;
@@ -353,6 +355,10 @@ export function RulesetCombatMenu({
     if (view.grid && rulesetOptionNeedsAim(option)) return "aim";
     return rulesetOptionNeedsTargets(option) ? "target" : null;
   };
+  /** A readied action with only one foe it could ever be held for, aimed at one, is held for that
+   *  one: there is nobody else to choose. Asked the same whether its budget or a pool pays. */
+  const heldForOnlyFoe = (option: DirectedRulesetOption, stage: RulesetMenuStep["stage"] | null) =>
+    stage === "target" && !!option.ready && option.targetIds.length === 1 && option.targets.count <= 1;
   /** The step after the style and the mode are chosen: what pays for it, where it goes, or who it is
    *  aimed at, as many as the mode aims at. */
   const afterMode = (
@@ -392,9 +398,7 @@ export function RulesetCombatMenu({
       return;
     }
     const stage = stageFor(aimed);
-    // A readied action with only one foe it could ever be held for is held for that one: there is
-    // nobody else to choose.
-    if (stage === "target" && aimed.ready && aimed.targetIds.length === 1) {
+    if (heldForOnlyFoe(aimed, stage)) {
       send(aimed, aimed.targetIds, undefined, style, mode, how.amount, how.alters);
       return;
     }
@@ -433,6 +437,10 @@ export function RulesetCombatMenu({
     const stage = stageFor(option);
     if (!stage) {
       send(option, rulesetDefaultTargets(option), payWith, step.style, step.mode);
+      return;
+    }
+    if (heldForOnlyFoe(option, stage)) {
+      send(option, option.targetIds, payWith, step.style, step.mode);
       return;
     }
     setStep({
@@ -1169,16 +1177,27 @@ export function RulesetCombatMenu({
       group.kind === "end-turn" || group.kind === "standard" ? [] : group.options.filter((option) => option.ready),
     );
     const standard = groups.find((group) => group.kind === "standard");
-    const fold = (labelKey: string, options: typeof readied, summary: string) => (
-      <details open={options.some((option) => option.id === openId) || undefined} className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] md:min-h-[1.875rem] [&::-webkit-details-marker]:hidden">
-          <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform group-open:rotate-180" />
-          {t(labelKey)}
-          <span className="truncate text-[0.68rem] font-normal text-[var(--muted-foreground)]">{summary}</span>
-        </summary>
-        <ul className="m-0 grid list-none gap-px p-0 pl-2">{options.map((option) => row(option))}</ul>
-      </details>
-    );
+    const fold = (labelKey: string, options: typeof readied, summary: string) => {
+      const stepping = options.some((option) => option.id === openId);
+      return (
+        <details
+          open={stepping || foldsOpen[labelKey] === true}
+          onToggle={(event) => {
+            if (stepping) return;
+            const open = event.currentTarget.open;
+            setFoldsOpen((folds) => (folds[labelKey] === open ? folds : { ...folds, [labelKey]: open }));
+          }}
+          className="group"
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md px-2 text-[0.78rem] font-semibold text-[var(--foreground)] hover:bg-[var(--foreground)]/[0.05] md:min-h-[1.875rem] [&::-webkit-details-marker]:hidden">
+            <ChevronDown className="h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform group-open:rotate-180" />
+            {t(labelKey)}
+            <span className="truncate text-[0.68rem] font-normal text-[var(--muted-foreground)]">{summary}</span>
+          </summary>
+          <ul className="m-0 grid list-none gap-px p-0 pl-2">{options.map((option) => row(option))}</ul>
+        </details>
+      );
+    };
     return (
       <div ref={root} tabIndex={-1} className="flex flex-col gap-2 px-2 py-2 outline-none">
         {listed.map((group) => (

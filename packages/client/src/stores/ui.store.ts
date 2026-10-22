@@ -684,6 +684,9 @@ interface UIState {
   showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
   showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
   sidebarOpen: boolean;
+  /** Transient: a fight on a board folded the open chat list away. It is saved as still open and
+   *  comes back when the fight ends, unless the player opens or closes it themselves first. */
+  sidebarFoldedForFight: boolean;
   sidebarWidth: number;
   rightPanelOpen: boolean;
   rightPanelWidth: number;
@@ -1212,6 +1215,7 @@ interface UIState {
   setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  foldSidebarForFight: (folded: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   toggleTrackerPanel: (chatId?: string | null) => void;
@@ -1597,7 +1601,7 @@ export function pickSyncedSettings(state: UIState) {
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
     showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
     showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
-    sidebarOpen: state.sidebarOpen,
+    sidebarOpen: state.sidebarOpen || state.sidebarFoldedForFight,
     sidebarWidth: state.sidebarWidth,
     rightPanelWidth: state.rightPanelWidth,
     trackerPanelEnabled: state.trackerPanelEnabled,
@@ -1798,7 +1802,7 @@ export function pickPersistedUIState(state: UIState) {
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
     showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
     showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
-    sidebarOpen: state.sidebarOpen,
+    sidebarOpen: state.sidebarOpen || state.sidebarFoldedForFight,
     sidebarWidth: state.sidebarWidth,
     rightPanelOpen: state.rightPanelOpen,
     rightPanelWidth: state.rightPanelWidth,
@@ -2065,6 +2069,7 @@ export const useUIStore = create<UIState>()(
         showHomeBrowserDesktopBookmarksOnOtherTabs: true,
         showHomeBrowserMobileBookmarksOnOtherTabs: true,
         sidebarOpen: true,
+        sidebarFoldedForFight: false,
         sidebarWidth: 320,
         rightPanelOpen: false,
         rightPanelWidth: 320,
@@ -2363,13 +2368,19 @@ export const useUIStore = create<UIState>()(
             dismissChatFloatingUiForMobilePanel(sidebarOpen);
             return {
               sidebarOpen,
+              sidebarFoldedForFight: false,
               ...(mobile && sidebarOpen ? { rightPanelOpen: false } : {}),
             };
           }),
         setSidebarOpen: (open) => {
           dismissChatFloatingUiForMobilePanel(open);
-          set({ sidebarOpen: open });
+          set({ sidebarOpen: open, sidebarFoldedForFight: false });
         },
+        foldSidebarForFight: (folded) =>
+          set((s) => {
+            if (folded) return s.sidebarOpen ? { sidebarOpen: false, sidebarFoldedForFight: true } : {};
+            return s.sidebarFoldedForFight ? { sidebarOpen: true, sidebarFoldedForFight: false } : {};
+          }),
         setSidebarWidth: (width) =>
           set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
         setRightPanelWidth: (width) =>
@@ -2447,7 +2458,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarFoldedForFight: false } : {}),
             };
           }),
         closeRightPanel: () => set({ rightPanelOpen: false }),
@@ -2459,7 +2470,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarFoldedForFight: false } : {}),
             };
           }),
 

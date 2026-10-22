@@ -150,35 +150,37 @@ export function RulesetCombatScreen({
       <CombatWeatherSummary weather={weather} tactical={false} inline />
     </footer>
   );
+  // The question waiting on the player: in the pane, or under the board while the pane is put away.
+  const question = !ended && asked && answerer && (
+    <ReactionCard view={view} answerer={answerer} marks={marks} prompt={rulesetWindowPrompt(view, defenseLabel, t)}>
+      <RulesetCombatMenu
+        layout="pane"
+        marks={marks}
+        view={view}
+        budgetLabel={budgetLabel}
+        defenseLabel={defenseLabel}
+        busy={busy}
+        onChoose={onChoose}
+        onFlee={onFlee}
+        step={step}
+        onStepChange={setStep}
+        menuRef={menuRoot}
+      />
+      {narrow && (
+        <button
+          type="button"
+          onClick={() => setPhoneTab("board")}
+          className="min-h-11 w-full rounded-md border border-[var(--border)] text-sm text-[var(--foreground)]"
+        >
+          {t("game.combat.ruleset.screen.seeOnBoard")}
+        </button>
+      )}
+    </ReactionCard>
+  );
   const paneBody = (withOrder: boolean) => (
     <>
       {notice}
-      {!ended && asked && answerer && (
-        <ReactionCard view={view} answerer={answerer} marks={marks} prompt={rulesetWindowPrompt(view, defenseLabel, t)}>
-          <RulesetCombatMenu
-            layout="pane"
-            marks={marks}
-            view={view}
-            budgetLabel={budgetLabel}
-            defenseLabel={defenseLabel}
-            busy={busy}
-            onChoose={onChoose}
-            onFlee={onFlee}
-            step={step}
-            onStepChange={setStep}
-            menuRef={menuRoot}
-          />
-          {narrow && (
-            <button
-              type="button"
-              onClick={() => setPhoneTab("board")}
-              className="min-h-11 w-full rounded-md border border-[var(--border)] text-sm text-[var(--foreground)]"
-            >
-              {t("game.combat.ruleset.screen.seeOnBoard")}
-            </button>
-          )}
-        </ReactionCard>
-      )}
+      {question}
       {narrow && (
         <PhoneTurnStrip
           view={view}
@@ -368,11 +370,13 @@ export function RulesetCombatScreen({
       {paneOpen ? (
         boardColumn
       ) : (
-        // With the pane put away, the fight's end and the way out of the turn stay under the board.
+        // With the pane put away, the fight's end, a waiting question and the way out of the turn
+        // stay under the board.
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {boardColumn}
-          <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)]">
+          <div className="max-h-[50%] shrink-0 overflow-y-auto border-t border-[var(--border)] bg-[var(--card)]">
             {notice}
+            {question}
             {footer}
           </div>
         </div>
@@ -410,13 +414,21 @@ function BudgetPips({
         const total = Math.max(left, mark.count);
         if (total === 0) return [];
         const usable = !spentExcept || spentExcept.has(mark.id);
-        return Array.from({ length: Math.min(total, 6) }, (_, index) => (
-          <RulesetBudgetPip
-            key={`${mark.id}-${index}`}
-            mark={mark}
-            spent={!usable || index >= left}
-            title={t("game.combat.ruleset.status.budget", { label: mark.label, left: usable ? left : 0 })}
-          />
+        const shown = usable ? left : 0;
+        const title = t("game.combat.ruleset.status.budget", { label: mark.label, left: shown });
+        // Past six a row of pips stops reading at a glance, so one pip carries the count beside it.
+        if (total > 6) {
+          return [
+            <span key={mark.id} className="inline-flex items-center gap-0.5" title={title}>
+              <RulesetBudgetPip mark={mark} spent={shown === 0} title={title} />
+              <span className="text-[0.68rem] tabular-nums text-[var(--muted-foreground)]">
+                {t("game.combat.ruleset.screen.budgetCount", { left: shown, total })}
+              </span>
+            </span>,
+          ];
+        }
+        return Array.from({ length: total }, (_, index) => (
+          <RulesetBudgetPip key={`${mark.id}-${index}`} mark={mark} spent={index >= shown} title={title} />
         ));
       })}
     </span>
