@@ -94,14 +94,14 @@ export function DecisionModelModal({ open, onClose }: Props) {
     sidecar.isPending ||
     sidecar.isFetching;
   // Where this machine cannot run any decision model, the way that still works is a
-  // hosted Decision connection, so the panel opens that form rather than naming it.
+  // hosted decision service, so Add opens on the Decision job's services rather than naming one.
   const nothingRuns =
     !!data &&
     (!data.supported ||
       (models.length > 0 && models.every((model) => model.preflight.assessment.verdict === "unsupported")));
   const openDecisionConnection = () => {
     onClose();
-    openModal("create-connection", { provider: "decision" });
+    openModal("create-connection", { forJob: { job: "decision" } });
   };
 
   /**

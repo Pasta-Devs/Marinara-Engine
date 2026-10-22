@@ -58,6 +58,44 @@ export function defaultDecisionStateTokens(source: string | null | undefined): n
 export const AUDIO_GENERATION_SOURCES = ["openai", "elevenlabs", "pockettts", "xai"] as const;
 export type AudioGenerationSource = (typeof AUDIO_GENERATION_SOURCES)[number];
 
+/** Each audio source's name and the base URL / model / voice a new audio connection starts with. */
+export const AUDIO_SOURCE_OPTIONS: Array<{
+  id: AudioGenerationSource;
+  name: string;
+  defaultBaseUrl: string;
+  defaultModel: string;
+  defaultVoice: string;
+}> = [
+  {
+    id: "elevenlabs",
+    name: "ElevenLabs",
+    defaultBaseUrl: "https://api.elevenlabs.io",
+    defaultModel: "eleven_multilingual_v2",
+    defaultVoice: "",
+  },
+  {
+    id: "openai",
+    name: "OpenAI-compatible",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    defaultModel: "tts-1",
+    defaultVoice: "alloy",
+  },
+  {
+    id: "pockettts",
+    name: "PocketTTS",
+    defaultBaseUrl: "http://localhost:8000",
+    defaultModel: "pocket-tts",
+    defaultVoice: "alba",
+  },
+  {
+    id: "xai",
+    name: "xAI Voice",
+    defaultBaseUrl: "https://api.x.ai/v1",
+    defaultModel: "grok-tts",
+    defaultVoice: "eve",
+  },
+];
+
 export const IMAGE_GENERATION_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"] as const;
 export type ImageGenerationQuality = (typeof IMAGE_GENERATION_QUALITIES)[number];
 

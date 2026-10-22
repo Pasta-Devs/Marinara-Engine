@@ -18,11 +18,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { toast } from "sonner";
-import { DECISION_SOURCE_BASE_URLS, isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
+import { isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import {
-  useConnections,
-  useCreateConnection,
   useDeleteConnection,
   useDuplicateConnection,
   useUpdateConnection,
@@ -142,8 +139,6 @@ export function ConnectionRow({
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
   const updateConnection = useUpdateConnection();
-  const createConnection = useCreateConnection();
-  const { data: allConnections } = useConnections();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // A pick closes the ⋯ menu, so "Make default for…" opens a second menu at its place.
@@ -170,29 +165,11 @@ export function ConnectionRow({
         if (id) openConnectionDetail(id);
       },
     });
-  // OpenRouter lends its key to hosted Jev. A Custom connection lends its server, model and key,
-  // so the chat model it already runs answers decisions.
-  const decisionFromChat = row.provider === "custom";
-  const canLendToDecisions = row.provider === "openrouter" || (decisionFromChat && !!row.model?.trim());
+  // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
+  const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
   const useForDecisions = () =>
-    createConnection.mutate(
-      {
-        name: t("connections.decision.linkedName", { name: row.name }),
-        provider: "decision",
-        decisionSource: decisionFromChat ? "openai_compatible" : "openrouter",
-        baseUrl: decisionFromChat ? (row.baseUrl ?? "") : DECISION_SOURCE_BASE_URLS.openrouter,
-        apiKey: "",
-        model: decisionFromChat ? row.model.trim() : "jev-latest",
-        credentialsFromConnectionId: row.id,
-        defaultForAgents: !(allConnections as ConnectionRowData[] | undefined)?.some(
-          (other) => other.provider === "decision" && isConnectionFlagTrue(other.defaultForAgents),
-        ),
-      },
-      {
-        onSuccess: (created) => openConnectionDetail((created as { id: string }).id),
-        onError: (error) => toast.error(error instanceof Error ? error.message : t("connections.decision.saveFailed")),
-      },
-    );
+    useUIStore.getState().openModal("create-connection", { service: row.provider, forJob: { job: "decision" } });
+
   const remove = async () => {
     if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);
   };
@@ -268,10 +245,9 @@ export function ConnectionRow({
     ...(canLendToDecisions
       ? [
           {
-            label: t(decisionFromChat ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
+            label: t(row.provider === "custom" ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
             icon: <GitBranch size="0.75rem" />,
             onSelect: useForDecisions,
-            disabled: createConnection.isPending,
           },
         ]
       : []),

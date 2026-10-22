@@ -1,4 +1,5 @@
 import {
+  AUDIO_SOURCE_OPTIONS,
   IMAGE_GENERATION_SOURCES,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
@@ -28,12 +29,9 @@ export type ConnectionIdentityValue = {
   service: string | null;
 };
 
-const AUDIO_SERVICE_NAMES: Record<string, string> = {
-  elevenlabs: "ElevenLabs",
-  openai: "OpenAI-compatible",
-  pockettts: "PocketTTS",
-  xai: "xAI Voice",
-};
+const AUDIO_SERVICE_NAMES: Record<string, string> = Object.fromEntries(
+  AUDIO_SOURCE_OPTIONS.map((source) => [source.id, source.name]),
+);
 
 function hostOf(url: string | null | undefined): string {
   const value = url?.trim() ?? "";

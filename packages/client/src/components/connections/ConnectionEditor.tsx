@@ -1,7 +1,5 @@
 import {
   DECISION_CONNECTION_TIMEOUT_BOUNDS_MS,
-  DECISION_SOURCES,
-  DECISION_SOURCE_BASE_URLS,
   DECISION_TIMEOUT_MS,
   defaultDecisionStateTokens,
   defaultDecisionTimeoutMs,
@@ -127,6 +125,7 @@ import {
   createDefaultImageGenerationProfile,
   createDefaultVideoGenerationProfile,
   imageSourceToDefaultsService,
+  AUDIO_SOURCE_OPTIONS,
   normalizeImageGenerationProfile,
   normalizeVideoGenerationProfile,
   sanitizeImageGenerationProfile,
@@ -137,7 +136,6 @@ import {
   normalizeVideoPromptInstructions,
   parseConnectionImageCaptioningDefaults,
   type APIProvider,
-  type AudioGenerationSource,
   type ComfyUiLoraSetting,
   type ImageDefaultsService,
   type ImageGenerationDefaultsProfile,
@@ -238,44 +236,18 @@ function normalizeEndpointUrlInput(raw: string, label: string): { value: string;
   return { value, error: null };
 }
 
-// Mirrors TTS_SOURCE_DEFAULTS in TTSConfigCard so a fresh audio connection
-// seeds the same base URL / model / voice the legacy TTS settings used.
-const AUDIO_SOURCE_OPTIONS: Array<{
-  id: AudioGenerationSource;
-  name: string;
-  defaultBaseUrl: string;
-  defaultModel: string;
-  defaultVoice: string;
-}> = [
-  {
-    id: "elevenlabs",
-    name: "ElevenLabs",
-    defaultBaseUrl: "https://api.elevenlabs.io",
-    defaultModel: "eleven_multilingual_v2",
-    defaultVoice: "",
-  },
-  {
-    id: "openai",
-    name: "OpenAI-compatible",
-    defaultBaseUrl: "https://api.openai.com/v1",
-    defaultModel: "tts-1",
-    defaultVoice: "alloy",
-  },
-  {
-    id: "pockettts",
-    name: "PocketTTS",
-    defaultBaseUrl: "http://localhost:8000",
-    defaultModel: "pocket-tts",
-    defaultVoice: "alba",
-  },
-  {
-    id: "xai",
-    name: "xAI Voice",
-    defaultBaseUrl: "https://api.x.ai/v1",
-    defaultModel: "grok-tts",
-    defaultVoice: "eve",
-  },
-];
+/** The service a media, voice or decision Model was added for. It stays fixed: another service is another Add. */
+function LockedService({ id, name, description }: { id: string; name: string; description?: ReactNode }) {
+  return (
+    <div className="col-span-full flex flex-col gap-0.5 rounded-lg bg-[var(--mari-connection-tint)] px-2.5 py-2 text-[0.6875rem] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]">
+      <div className="flex items-center gap-1.5">
+        <BrandMark of={id} className="h-3 w-3" />
+        <span className="font-medium">{name}</span>
+      </div>
+      {description && <span className="text-[0.5625rem] opacity-70">{description}</span>}
+    </div>
+  );
+}
 
 function canProviderTreatAsLocalEndpoint(provider: APIProvider): boolean {
   return isChatProvider(provider) && !isLocalAuthConnectionProvider(provider);
@@ -728,6 +700,12 @@ export function ConnectionEditor({
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
       : "";
   const selectedVideoProvider = videoSourceToProviderOption(selectedVideoService);
+  // A row saved with its service keeps it: another service is another Add. An older row without one still picks.
+  const savedRow = conn as Record<string, unknown> | undefined;
+  const imageLocked = !!(savedRow?.imageGenerationSource || savedRow?.imageService);
+  const videoLocked = !!(savedRow?.videoGenerationSource || savedRow?.videoService);
+  const imageSources = IMAGE_GENERATION_SOURCES.filter((src) => !imageLocked || src.id === selectedImageService);
+  const videoSources = VIDEO_GENERATION_SOURCES.filter((src) => !videoLocked || src.id === selectedVideoProvider);
   const selectedVideoDefaultsService = videoSelectionToDefaultsService(selectedVideoService, localModel, localBaseUrl);
   const swarmUiWorkflowError =
     (selectedImageService === "swarmui" || selectedVideoProvider === "swarmui") &&
@@ -2317,32 +2295,11 @@ export function ConnectionEditor({
 
             {isDecisionProvider && (
               <section className="space-y-3">
-                <label className="block text-xs font-medium" htmlFor="decision-source">
-                  {t("connections.decision.source")}
-                </label>
-                <select
-                  id="decision-source"
-                  value={localDecisionSource}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                  onChange={(event) => {
-                    const source = event.target.value as DecisionSource;
-                    setLocalDecisionSource(source);
-                    setLocalBaseUrl(DECISION_SOURCE_BASE_URLS[source]);
-                    setLocalMaxStateTokens(defaultDecisionStateTokens(source));
-                    setLocalDecisionTimeoutMs(defaultDecisionTimeoutMs(source));
-                    setLocalApiKey("");
-                    setClearStoredApiKeyOnSave(true);
-                    const matches = credentialSources(source);
-                    setLocalCredentialsFrom(source === "openrouter" && matches.length === 1 ? matches[0]!.id : "");
-                    markDirty();
-                  }}
-                >
-                  {DECISION_SOURCES.map((source) => (
-                    <option key={source} value={source}>
-                      {t(`connections.decision.sources.${source}`)}
-                    </option>
-                  ))}
-                </select>
+                <p className="block text-xs font-medium">{t("connections.decision.source")}</p>
+                <LockedService
+                  id={localDecisionSource}
+                  name={t(`connections.decision.sources.${localDecisionSource}`)}
+                />
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {t(
                     localDecisionSource === "custom"
@@ -2604,7 +2561,7 @@ export function ConnectionEditor({
                 help={localizeUi("ui.connections.connectioneditor.pickTheBackendTypeOnceThenPointBaseUrl")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
-                  {IMAGE_GENERATION_SOURCES.map((src) => {
+                  {imageSources.map((src) => {
                     const isActive = selectedImageService === src.id;
                     const sourceName =
                       src.id === "atlas"
@@ -2634,6 +2591,10 @@ export function ConnectionEditor({
                                   : src.id === "spicyapi"
                                     ? t("connections.mediaSources.spicyapi.imageDescription")
                                     : src.description;
+                    if (imageLocked)
+                      return (
+                        <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />
+                      );
                     return (
                       <button
                         key={src.id}
@@ -2713,7 +2674,7 @@ export function ConnectionEditor({
                 help={localizeUi("ui.connections.connectioneditor.pickTheVideoBackendGameModeUsesThisService")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
-                  {VIDEO_GENERATION_SOURCES.map((src) => {
+                  {videoSources.map((src) => {
                     const isActive = selectedVideoProvider === src.id;
                     const sourceName =
                       src.id === "atlas"
@@ -2727,6 +2688,10 @@ export function ConnectionEditor({
                         : src.id === "swarmui"
                           ? t("connections.mediaSources.swarmui.videoDescription")
                           : src.description;
+                    if (videoLocked)
+                      return (
+                        <LockedService key={src.id} id={src.id} name={sourceName} description={sourceDescription} />
+                      );
                     return (
                       <button
                         key={src.id}
@@ -2789,52 +2754,22 @@ export function ConnectionEditor({
                 help={localizeUi("ui.connections.connectioneditor.pickTheSpeechBackendBaseUrlModelAndVoice")}
               >
                 <div className="grid grid-cols-2 gap-1.5">
-                  {AUDIO_SOURCE_OPTIONS.map((src) => {
-                    const isActive = localAudioSource === src.id;
-                    return (
-                      <button
-                        key={src.id}
-                        onClick={() => {
-                          if (localAudioSource === src.id) return;
-                          const previousSource = AUDIO_SOURCE_OPTIONS.find(
-                            (candidate) => candidate.id === localAudioSource,
-                          );
-                          if (!localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl) {
-                            setLocalBaseUrl(src.defaultBaseUrl);
-                          }
-                          if (!localModel || localModel === previousSource?.defaultModel) {
-                            setLocalModel(src.defaultModel);
-                          }
-                          if (!localAudioVoice || localAudioVoice === previousSource?.defaultVoice) {
-                            setLocalAudioVoice(src.defaultVoice);
-                          }
-                          setLocalAudioSource(src.id);
-                          markDirty();
-                        }}
-                        className={cn(
-                          "flex flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left text-[0.6875rem] transition-all",
-                          isActive
-                            ? "bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]"
-                            : "text-[var(--muted-foreground)] shadow-[inset_0_0_0_1px_var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                        )}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <BrandMark of={src.id} className="h-3 w-3" />
-                          <span className="font-medium">{src.name}</span>
-                          {isActive && <Check size="0.625rem" />}
-                        </div>
-                        <span className="text-[0.625rem] opacity-80">
-                          {src.id === "elevenlabs"
-                            ? localizeUi("ui.connections.connectioneditor.speechSoundEffectsAndMusicGeneration")
-                            : src.id === "openai"
-                              ? localizeUi("ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint")
-                              : src.id === "pockettts"
-                                ? localizeUi("ui.connections.connectioneditor.localPocketttsServerFreePrivateOffline")
-                                : localizeUi("ui.connections.connectioneditor.xaiGrokVoiceSynthesis")}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {AUDIO_SOURCE_OPTIONS.filter((src) => src.id === localAudioSource).map((src) => (
+                    <LockedService
+                      key={src.id}
+                      id={src.id}
+                      name={src.name}
+                      description={
+                        src.id === "elevenlabs"
+                          ? localizeUi("ui.connections.connectioneditor.speechSoundEffectsAndMusicGeneration")
+                          : src.id === "openai"
+                            ? localizeUi("ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint")
+                            : src.id === "pockettts"
+                              ? localizeUi("ui.connections.connectioneditor.localPocketttsServerFreePrivateOffline")
+                              : localizeUi("ui.connections.connectioneditor.xaiGrokVoiceSynthesis")
+                      }
+                    />
+                  ))}
                 </div>
                 <label className="block space-y-1.5">
                   <span className="text-xs font-medium text-[var(--muted-foreground)]">

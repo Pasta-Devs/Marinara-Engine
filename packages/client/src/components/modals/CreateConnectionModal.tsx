@@ -25,6 +25,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  AUDIO_SOURCE_OPTIONS,
+  DECISION_SOURCE_BASE_URLS,
   IMAGE_GENERATION_SOURCES,
   IMAGE_SOURCE_VENDOR,
   MODEL_LISTS,
@@ -38,6 +40,7 @@ import {
   withKeyTail,
   type APIProvider,
   type ChatModelChoice,
+  type DecisionSource,
   type TTSVoicesResponse,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
@@ -87,6 +90,7 @@ import {
   type ModelKind,
 } from "../../lib/add-model-search";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
+import { useFollowVoiceJob } from "../../hooks/use-tts";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { LocalWhisper } from "../connections/DeviceDetail";
 import { DecisionModelModal } from "./DecisionModelModal";
@@ -116,7 +120,7 @@ interface Props {
 
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
 type DeviceService = "local_model" | "tts" | "stt";
-type MediaServiceId = `media:${string}`;
+type MediaServiceId = `media:${string}` | `audio:${string}` | `decision:${string}`;
 export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE | typeof DECISION_BUILTIN;
 /** The experimental built-in decision model: its tile under "Other" opens its own installer. */
 const DECISION_BUILTIN = "decision_builtin";
@@ -126,19 +130,56 @@ const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "ht
 const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
-type Kind = "chat" | "image" | "video" | "voice" | "audio" | "decision" | "local";
+type Kind = "chat" | "image" | "video" | "voice" | "decision" | "local";
 type AddableKind = "chat" | "image" | "video" | "decision" | "voice";
 
 type MediaBackend = {
   id: MediaServiceId;
   source: string;
   name: string;
-  description: string;
+  description?: string;
   defaultBaseUrl: string;
   requiresApiKey: boolean;
   image: boolean;
   video: boolean;
+  /** A voice or decision source: its Model is an audio or decision row under the Connection. */
+  job?: "voice" | "decision";
 };
+/** Voice and decision sources with no chat service of their own; OpenAI, xAI, OpenRouter… set up through theirs. */
+const JOB_BACKENDS: MediaBackend[] = [
+  ...AUDIO_SOURCE_OPTIONS.filter((source) => source.id === "elevenlabs" || source.id === "pockettts").map((source) => ({
+    id: `audio:${source.id}` as const,
+    source: source.id,
+    name: source.name,
+    defaultBaseUrl: source.defaultBaseUrl,
+    requiresApiKey: source.id === "elevenlabs",
+    image: false,
+    video: false,
+    job: "voice" as const,
+  })),
+  {
+    id: "decision:typesafe",
+    source: "typesafe",
+    name: "TypeSafe",
+    defaultBaseUrl: DECISION_SOURCE_BASE_URLS.typesafe,
+    requiresApiKey: true,
+    image: false,
+    video: false,
+    job: "decision",
+  },
+  // Its own server (named in serviceName): the address is asked for and the key is optional.
+  {
+    id: "decision:custom",
+    source: "custom",
+    name: "",
+    defaultBaseUrl: "",
+    requiresApiKey: true,
+    image: false,
+    video: false,
+    job: "decision",
+  },
+];
+const JOB_PROVIDER = { voice: "audio", decision: "decision" } as const;
 
 /** Image sources that share a chat service's key or login; Codex images come with the ChatGPT plan. */
 const IMAGE_VENDOR: Record<string, string> = { ...IMAGE_SOURCE_VENDOR, codex_chatgpt: "openai_chatgpt" };
@@ -166,10 +207,10 @@ const MEDIA_BACKENDS: MediaBackend[] = (() => {
       video: (current?.video ?? false) || VIDEO_GENERATION_SOURCES.some((candidate) => candidate.id === source.id),
     });
   }
-  return [...bySource.values()];
+  return [...bySource.values(), ...JOB_BACKENDS];
 })();
 const mediaBackendOf = (service: ServiceId | null) =>
-  typeof service === "string" && service.startsWith("media:")
+  typeof service === "string" && service.includes(":")
     ? (MEDIA_BACKENDS.find((backend) => backend.id === service) ?? null)
     : null;
 
@@ -181,7 +222,7 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   stt: ["voice", "local"],
   image_generation: ["image"],
   video_generation: ["video"],
-  audio: ["voice", "audio"],
+  audio: ["voice"],
   // Decision answers yes/no questions for agents.
   decision: ["decision"],
   decision_builtin: ["decision"],
@@ -197,7 +238,12 @@ const jobKindsOf = (service: ServiceId): Kind[] => [
 ];
 const kindsOf = (service: ServiceId): Kind[] => {
   const media = mediaBackendOf(service);
-  if (media) return [...(media.image ? (["image"] as const) : []), ...(media.video ? (["video"] as const) : [])];
+  if (media)
+    return [
+      ...(media.image ? (["image"] as const) : []),
+      ...(media.video ? (["video"] as const) : []),
+      ...(media.job ? [media.job] : []),
+    ];
   if (SERVICE_KINDS[service]) return [...SERVICE_KINDS[service]!, ...jobKindsOf(service)];
   if (isDevice(service)) return SERVICE_KINDS[service] ?? ["local"];
   const provider = service as APIProvider;
@@ -210,8 +256,16 @@ const kindsOf = (service: ServiceId): Kind[] => {
 };
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** Image and video tools that run on a server the user runs (or rents), not a hosted service. */
-const SELF_HOSTED = new Set(["comfyui", "automatic1111", "swarmui", "drawthings", "runpod_comfyui"]);
+/** Image, video and voice tools and decision servers that run on a server the user runs (or rents). */
+const SELF_HOSTED = new Set([
+  "comfyui",
+  "automatic1111",
+  "swarmui",
+  "drawthings",
+  "runpod_comfyui",
+  "pockettts",
+  "custom",
+]);
 /** One tile per provider. Services sort A–Z and show 4 until "Show all"; "Other" folds. */
 const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; sorted?: boolean; folded?: boolean }> = [
   { id: "start", services: [LINKAPI_SERVICE, "openrouter", "nanogpt"] },
@@ -230,7 +284,7 @@ const SERVICE_GROUPS: Array<{ id: string; services: ServiceId[]; sorted?: boolea
     services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
   },
   { id: "device", services: ["local_model", "tts", "stt"] },
-  { id: "other", folded: true, services: ["decision", DECISION_BUILTIN, "audio"] },
+  { id: "other", folded: true, services: [DECISION_BUILTIN] },
 ];
 const VENDORS_SHOWN = 4;
 /** Old names people still search for. */
@@ -240,11 +294,10 @@ const KIND_ICONS = {
   image: ImageIcon,
   video: Film,
   voice: JOB.voice.icon,
-  audio: JOB.audio.icon,
   decision: JOB.decision.icon,
 } as const;
 type ChipKind = keyof typeof KIND_ICONS;
-const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "audio", "decision"];
+const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "decision"];
 const MODEL_CHIP_KINDS = new Set<ChipKind>(["chat", "image", "video"]);
 /** Vendors and plans with an offline model list, in the order "A specific model…" picks from. */
 const MODEL_SERVICES: APIProvider[] = [
@@ -317,7 +370,17 @@ type ConnectionRowLite = {
   createdAt?: string | null;
   pinnedModels?: unknown;
   audioVoice?: string | null;
+  audioSource?: string | null;
+  decisionSource?: string | null;
 };
+/** The source of an audio or decision row; an older row without one uses its container's default. */
+const jobSourceOf = (row: ConnectionRowLite) =>
+  row.provider === "audio"
+    ? row.audioSource || "elevenlabs"
+    : row.provider === "decision"
+      ? row.decisionSource || "typesafe"
+      : null;
+
 type TestResult = { success: boolean; message?: string };
 
 const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
@@ -574,6 +637,7 @@ export function CreateConnectionModal({
   const setEmbeddingDefault = useSetDefaultEmbeddingConnection();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const deviceSetup = useDeviceSetup();
+  const followVoiceJob = useFollowVoiceJob();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
@@ -652,7 +716,7 @@ export function CreateConnectionModal({
   const def = provider ? PROVIDERS[provider] : null;
   const keyless = !!provider && (isLocalAuthProvider(provider) || (!!selectedMedia && !selectedMedia.requiresApiKey));
   // LinkAPI rides the custom provider, but it is a hosted service with a key, not a local server.
-  const isLocal = provider === "custom" && service !== LINKAPI_SERVICE;
+  const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
   const busy = createAccount.isPending || updateAccount.isPending || testConnection.isPending;
   const closeBlocked =
@@ -693,7 +757,7 @@ export function CreateConnectionModal({
   const serviceName = (key: ServiceId) => {
     const media = mediaBackendOf(key);
     return media
-      ? media.name
+      ? media.name || t("connections.add.decisionServer")
       : isDevice(key)
         ? t(`connections.add.device.${key}`)
         : key === LINKAPI_SERVICE
@@ -709,7 +773,8 @@ export function CreateConnectionModal({
     NETWORK_ERROR.test(errorText(error))
       ? t("connections.add.error.unreachable", { host: serviceName(service ?? provider ?? "custom") })
       : errorText(error);
-  const serviceHint = (key: ServiceId) => mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key}`);
+  const serviceHint = (key: ServiceId) =>
+    mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key.replace(":", "_")}`);
   const kindItems = (key: ServiceId) =>
     kindsOf(key).flatMap((kind) =>
       // A chat service's decision and voice jobs show only when that job is searched for.
@@ -822,8 +887,11 @@ export function CreateConnectionModal({
           isConnectionFlagTrue((row as Record<string, unknown>)[flag]),
       )?.id;
       await updateRow.mutateAsync({ id, [flag]: true });
-      return () =>
+      const undoVoice = job === "voice" ? await followVoiceJob(id).catch(() => null) : null;
+      return () => {
+        undoVoice?.();
         void updateRow.mutateAsync(previous ? { id: previous, [flag]: true } : { id, [flag]: false }).catch(() => {});
+      };
     }
     const feature = entry?.feature;
     if (feature) {
@@ -910,9 +978,11 @@ export function CreateConnectionModal({
       isDevice(key)
         ? null
         : media
-          ? media.image
-            ? "image_generation"
-            : "video_generation"
+          ? media.job
+            ? JOB_PROVIDER[media.job]
+            : media.image
+              ? "image_generation"
+              : "video_generation"
           : key === LINKAPI_SERVICE
             ? "custom"
             : (key as APIProvider),
@@ -941,7 +1011,17 @@ export function CreateConnectionModal({
       ? withKeyTail(target.autoName.replace(KEY_TAIL, ""), apiKey)
       : "";
   const accountFields = () => ({
-    ...(name.trim() || autoName ? { name: name.trim() || autoName } : {}),
+    ...(name.trim() || autoName
+      ? { name: name.trim() || autoName }
+      : // The server would name a voice or decision Connection "Audio" / "Decision"; it is named for its service.
+        selectedMedia?.job && service
+        ? {
+            name:
+              connectedAccounts.length > 0 && apiKey.trim()
+                ? withKeyTail(serviceName(service), apiKey)
+                : serviceName(service),
+          }
+        : {}),
     apiKey: keyless ? "" : apiKey.trim(),
     baseUrl: baseUrl.trim() || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
     maxRequestsPerMinute: maxRpm ? Math.min(600, Math.max(1, Math.trunc(Number(maxRpm)))) : null,
@@ -974,19 +1054,8 @@ export function CreateConnectionModal({
         setTarget(current);
       }
       if (isMedia) {
-        if (provider === "audio" || provider === "decision") {
-          // Added for a job: the new Connection takes the job's flag before its editor opens.
-          const entry = jobFor?.job ? JOB[jobFor.job] : undefined;
-          if (entry?.flag && matchesKind({ provider }, entry.kind!))
-            await updateRow.mutateAsync({ id: current.connectionId, [entry.flag]: true }).catch(() => {});
-          editInstead(current.accountId, current.connectionId);
-          return;
-        }
         const mediaKinds = selectedMedia
-          ? ([
-              ...(selectedMedia.image ? (["image"] as const) : []),
-              ...(selectedMedia.video ? (["video"] as const) : []),
-            ] as AddableKind[])
+          ? (kindsOf(selectedMedia.id).filter((kind) => kind !== "local") as AddableKind[])
           : ([provider === "video_generation" ? "video" : "image"] as AddableKind[]);
         setSetupKind(startKind(mediaKinds));
         setStep(3);
@@ -1081,7 +1150,10 @@ export function CreateConnectionModal({
     let resolvedService = service;
     if (!service) {
       const source = row.imageGenerationSource || row.imageService || row.videoGenerationSource || row.videoService;
-      const inferredService = source ? (`media:${source}` as MediaServiceId) : (row.provider as APIProvider);
+      const jobSource = jobSourceOf(row);
+      const inferredService = (
+        jobSource ? `${row.provider}:${jobSource}` : source ? `media:${source}` : row.provider
+      ) as ServiceId;
       resolvedService = mediaBackendOf(inferredService)
         ? inferredService
         : account && isChatProvider(account.provider)
@@ -1098,7 +1170,9 @@ export function CreateConnectionModal({
       ownedPlaceholderIds: placeholderId ? [placeholderId] : [],
       accountBaseUrl: account?.baseUrl,
     });
-    if (row.provider === "audio" || row.provider === "decision") return editInstead(accountId, row.id);
+    // An older voice or decision row whose service has no tile of its own still opens its editor.
+    if ((row.provider === "audio" || row.provider === "decision") && !mediaBackendOf(resolvedService))
+      return editInstead(accountId, row.id);
     const supportedKinds = resolvedService
       ? kindsOf(resolvedService).filter((kind): kind is AddableKind => kind !== "local")
       : [];
@@ -1211,38 +1285,59 @@ export function CreateConnectionModal({
     }
   };
 
-  // A decision or voice Model is its own row under the Connection. The old Decision and Audio
-  // services open their editor; a chat service gets one at its own address, which shares the
-  // Connection's key.
+  // A decision or voice Model is its own row under the Connection, at its address and with its key: a chat service's
+  // row speaks its OpenAI-style API, a voice or decision service fills the new Connection's first row.
   const beginJobSetup = async (kind: "decision" | "voice") => {
     const account = target ? accounts?.find((candidate) => candidate.id === target.accountId) : undefined;
     if (!account) return;
-    const rowProvider = kind === "decision" ? "decision" : "audio";
+    const rowProvider = JOB_PROVIDER[kind];
     const vendor = account.provider as APIProvider;
-    if (!isChatProvider(vendor)) {
-      const own = accountRows(account.id).find((row) => row.provider === rowProvider);
-      if (own) return editInstead(account.id, own.id);
+    const backend = selectedMedia?.job === kind ? selectedMedia : undefined;
+    const source = backend?.source ?? (kind === "decision" ? "openai_compatible" : SPEECH_SOURCE[vendor]);
+    if (!source || (!backend && !isChatProvider(vendor))) {
       onClose();
       flashConnectionCard(account.id);
       return;
     }
+    const linked = accountRows(account.id);
+    const placeholder = linked.find(
+      (row) => row.id === target?.placeholderId && row.provider === rowProvider && !row.model?.trim(),
+    );
+    // An existing Connection of this service keeps its one row: Done sets it for the job.
+    const own = backend && linked.find((row) => row.provider === rowProvider && jobSourceOf(row) === source);
+    if (!placeholder && own) return setMediaRowId(own.id);
+    const preset = backend && AUDIO_SOURCE_OPTIONS.find((option) => option.id === source);
+    const fields =
+      kind === "decision"
+        ? { decisionSource: source as DecisionSource }
+        : {
+            audioSource: source,
+            ...(preset
+              ? { model: preset.defaultModel, ...(preset.defaultVoice ? { audioVoice: preset.defaultVoice } : {}) }
+              : {}),
+          };
     setMediaCreating(true);
     try {
-      const created = (await createRow.mutateAsync({
-        name: account.name,
-        provider: rowProvider,
-        apiKey: "",
-        baseUrl: account.baseUrl || PROVIDERS[vendor]?.defaultBaseUrl || "",
-        accountId: account.id,
-        ...(kind === "decision" ? { decisionSource: "openai_compatible" } : { audioSource: SPEECH_SOURCE[vendor] }),
-      })) as { id?: string };
-      if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
-      const id = created.id;
-      setTarget((current) =>
-        current?.accountId === account.id
-          ? { ...current, ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), id])] }
-          : current,
-      );
+      let id = placeholder?.id;
+      if (id) await updateRow.mutateAsync({ id, ...fields });
+      else {
+        const created = (await createRow.mutateAsync({
+          name: account.name,
+          provider: rowProvider,
+          apiKey: "",
+          baseUrl: account.baseUrl || PROVIDERS[vendor]?.defaultBaseUrl || "",
+          accountId: account.id,
+          ...fields,
+        })) as { id?: string };
+        if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
+        const createdId = created.id;
+        id = createdId;
+        setTarget((current) =>
+          current?.accountId === account.id
+            ? { ...current, ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), createdId])] }
+            : current,
+        );
+      }
       setMediaRowId(id);
     } catch (error) {
       mediaSetupStarted.current = "";
@@ -1345,6 +1440,13 @@ export function CreateConnectionModal({
         source);
   const compatibleAccounts = (key: ServiceId) => {
     const media = mediaBackendOf(key);
+    // A voice or decision service: the Connections already holding a row of that source.
+    if (media?.job) {
+      const provider = JOB_PROVIDER[media.job];
+      return ownAccounts.filter((account) =>
+        accountRows(account.id).some((row) => row.provider === provider && jobSourceOf(row) === media.source),
+      );
+    }
     if (media)
       return ownAccounts.filter(
         (account) =>
@@ -1967,30 +2069,32 @@ export function CreateConnectionModal({
                   setBaseUrl(e.target.value);
                   resetTest();
                 }}
-                placeholder={LOCAL_PRESETS[0]!.url}
+                placeholder={selectedMedia ? undefined : LOCAL_PRESETS[0]!.url}
                 inputMode="url"
                 spellCheck={false}
                 autoCapitalize="off"
                 aria-describedby={tested ? "add-connection-result" : undefined}
                 className={cn(inputClass, "font-mono")}
               />
-              <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
-                {LOCAL_PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => {
-                      setBaseUrl(preset.url);
-                      resetTest();
-                    }}
-                    aria-pressed={baseUrl.trim() === preset.url}
-                    className="mari-connection-chip gap-1"
-                  >
-                    <BrandMark of={preset.label} className="h-3 w-3" />
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+              {!selectedMedia && (
+                <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
+                  {LOCAL_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setBaseUrl(preset.url);
+                        resetTest();
+                      }}
+                      aria-pressed={baseUrl.trim() === preset.url}
+                      className="mari-connection-chip gap-1"
+                    >
+                      <BrandMark of={preset.label} className="h-3 w-3" />
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
             </div>
           )}
@@ -2027,7 +2131,7 @@ export function CreateConnectionModal({
                       className={inputClass}
                     />
                   </label>
-                  {((!isLocal && !keyless) || selectedMedia) && (
+                  {!isLocal && (!keyless || selectedMedia) && (
                     <label className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
                       <input

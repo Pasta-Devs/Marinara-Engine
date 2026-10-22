@@ -4,7 +4,6 @@
 // so a new job or a changed rule is one edit here.
 // ──────────────────────────────────────────────
 import {
-  AudioLines,
   BrainCircuit,
   Database,
   Eye,
@@ -40,8 +39,8 @@ type Job = {
   feature?: keyof FeatureModelConnections;
   /** What answers while the feature is unset. */
   follows?: "agents" | "main" | "sidecar" | "off";
-  /** A device service (Voice, Dictation) set up on its own screen. */
-  device?: "tts" | "stt";
+  /** A device service (Dictation) set up on its own screen. */
+  device?: "stt";
   /** Not one of the Add window's job cards; "search" still lets its search find it. */
   add?: false | "search";
   /** More words the Add window's search matches. */
@@ -96,15 +95,16 @@ const JOB_LIST = [
     fallback: "fallbackForAgents",
   },
   { key: "video", icon: Film, group: "media", kind: "video", flag: "defaultForAgents", fallback: "fallbackForAgents" },
+  // Text to speech reads this audio default; ElevenLabs also makes the music and sound effects.
   {
-    key: "audio",
-    icon: AudioLines,
+    key: "voice",
+    icon: Volume2,
     group: "media",
     kind: "audio",
     flag: "defaultForAgents",
     fallback: "fallbackForAgents",
+    terms: "tts audio music sound effects",
   },
-  { key: "voice", icon: Volume2, group: "media", device: "tts", terms: "tts" },
   { key: "stt", icon: Mic, group: "media", device: "stt", add: "search", terms: "stt whisper" },
   { key: "decision", icon: BrainCircuit, group: "background", kind: "decision", flag: "defaultForAgents" },
   { key: "embeddings", icon: Database, group: "background", kind: "chat" },
@@ -132,7 +132,7 @@ export const ADD_KIND: Record<ConnectionPickerKind, AddKind | undefined> = {
   chat: "chat",
   image: "image",
   video: "video",
-  audio: "audio",
+  audio: "voice",
   decision: "decision",
   all: undefined,
 };

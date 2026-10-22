@@ -46,6 +46,21 @@ export function useUpdateTTSConfig() {
   });
 }
 
+/**
+ * Text to speech uses the TTS card's chosen Audio connection before the audio default (tts.routes.ts), so setting
+ * the Voice job moves a card choice along. Returns an undo, or null when the card follows the default already.
+ */
+export function useFollowVoiceJob() {
+  const { data: config } = useTTSConfig();
+  const update = useUpdateTTSConfig();
+  return async (connectionId: string | null) => {
+    const previous = config?.connectionId;
+    if (!config || !previous || previous === connectionId) return null;
+    await update.mutateAsync({ ...config, connectionId: connectionId ?? "" });
+    return () => void update.mutateAsync({ ...config, connectionId: previous }).catch(() => {});
+  };
+}
+
 /** Sets or clears one character's voice on the server, leaving every other TTS setting as stored. */
 export function useUpdateTTSVoiceAssignment() {
   const qc = useQueryClient();
