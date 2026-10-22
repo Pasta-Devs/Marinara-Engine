@@ -1750,6 +1750,7 @@
   "connections.add.keyless": "No key needed. Marinara uses the login on this computer.",
   "connections.add.keySaved": "Marinara saves the key with its data on the computer that runs Marinara.",
   "connections.add.kind.all": "All",
+  "connections.add.kind.audio": "Audio",
   "connections.add.kind.chat": "Chat",
   "connections.add.kind.decision": "Decision",
   "connections.add.kind.image": "Image",

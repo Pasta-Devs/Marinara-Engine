@@ -134,7 +134,7 @@ export function recentModels<R extends ConnectionModelRow>(
 
 export type RoleBadge = "main" | "agents" | "fallback" | "random";
 
-/** The roles a Model holds; localized as `connections.switcher.role.<badge>`. */
+/** The roles a Model holds, as plain keys; the row badges take their names from the job table (`modelRoleLabels`). */
 export function roleBadges(row: ConnectionModelRow): RoleBadge[] {
   const badges: RoleBadge[] = [];
   if (isConnectionFlagTrue(row.isDefault)) badges.push("main");

@@ -22,6 +22,7 @@ import {
   Loader2,
   MessageCircleQuestion,
   MessageSquare,
+  Volume2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -128,7 +129,7 @@ const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "ht
 const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
 const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
-type Kind = "chat" | "image" | "video" | "voice" | "decision" | "local";
+type Kind = "chat" | "image" | "video" | "voice" | "audio" | "decision" | "local";
 type AddableKind = "chat" | "image" | "video" | "decision" | "voice";
 
 type MediaBackend = {
@@ -183,7 +184,7 @@ const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   stt: ["voice", "local"],
   image_generation: ["image"],
   video_generation: ["video"],
-  audio: ["voice"],
+  audio: ["voice", "audio"],
   // Decision answers yes/no questions for agents.
   decision: ["decision"],
   decision_builtin: ["decision"],
@@ -241,11 +242,12 @@ const KIND_ICONS = {
   chat: MessageSquare,
   image: ImageIcon,
   video: Film,
-  voice: AudioLines,
+  voice: Volume2,
+  audio: AudioLines,
   decision: MessageCircleQuestion,
 } as const;
 type ChipKind = keyof typeof KIND_ICONS;
-const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "decision"];
+const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "audio", "decision"];
 const MODEL_CHIP_KINDS = new Set<ChipKind>(["chat", "image", "video"]);
 /** Vendors and plans with an offline model list, in the order "A specific model…" picks from. */
 const MODEL_SERVICES: APIProvider[] = [
@@ -976,6 +978,10 @@ export function CreateConnectionModal({
       }
       if (isMedia) {
         if (provider === "audio" || provider === "decision") {
+          // Added for a job: the new Connection takes the job's flag before its editor opens.
+          const entry = jobFor?.job ? JOB[jobFor.job] : undefined;
+          if (entry?.flag && matchesKind({ provider }, entry.kind!))
+            await updateRow.mutateAsync({ id: current.connectionId, [entry.flag]: true }).catch(() => {});
           editInstead(current.accountId, current.connectionId);
           return;
         }

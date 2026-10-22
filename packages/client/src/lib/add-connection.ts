@@ -8,7 +8,7 @@ export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { p
 
 /** A job the Add window can start from ("For a job..."); the jobs live in `connection-jobs.ts`. */
 export type AddJob = JobKey;
-export type AddKind = "chat" | "image" | "video" | "voice" | "decision";
+export type AddKind = "chat" | "image" | "video" | "voice" | "audio" | "decision";
 /**
  * Add for a job (a job picker's "Add a model for this…", a feature with no model yet): the window starts filtered
  * to the job's kind, and Done sets the new Model for it with an Undo toast. `assign` is the picker's own setter

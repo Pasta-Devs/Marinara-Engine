@@ -132,7 +132,7 @@ export const ADD_KIND: Record<ConnectionPickerKind, AddKind | undefined> = {
   chat: "chat",
   image: "image",
   video: "video",
-  audio: "voice",
+  audio: "audio",
   decision: "decision",
   all: undefined,
 };
