@@ -13,8 +13,8 @@ The Home screen is what you see when no chat is open. It looks a bit like a web 
 At the top you find these parts:
 
 - **Tabs.** **Home** is the main page. **Professor** opens Professor Mari, the built-in assistant who can explain the app and help you set things up. Some installed agents add a tab of their own.
-- **Search bar.** On a computer, click the bar under the tabs, or press Ctrl+K (Cmd+K on a Mac), to find chats, characters, settings and more.
-- **Bookmarks.** Quick links to **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** and **Widgets**. **Achievements** shows only when the Achievements setting is on. On a phone, tap the bookmark button at the left of the tabs to see them as a list.
+- **Search bar.** On a computer, click the bar under the tabs, or press Ctrl+K (Cmd+K on a Mac), to find chats, characters, settings and more. Phones, tablets and very narrow windows don't show this bar, in portrait or landscape.
+- **Bookmarks.** Quick links to **Discord**, **Support**, **Credits**, **Documentation**, **Tutorial**, **FAQ**, **Achievements** and **Widgets**. **Achievements** shows only when the Achievements setting is on. Bookmarks appear only on the **Home** tab. On a phone, a tablet or a very narrow window, tap the bookmark button at the left of the tabs to see them as a list.
 
 In the middle you see the app logo, the words **Marinara Engine** and the version number. Below them, the **Conversation**, **Roleplay** and **Game** buttons each start a new chat in that mode.
 
@@ -43,7 +43,7 @@ To choose your widgets, click **Widgets** in the bookmarks. The **Home Widgets**
 
 To move a widget, drag the handle in its top-right corner. On a computer, the handle appears when you point at the widget. With a keyboard, focus the handle and use the arrow keys. Your widget layout is saved in this browser.
 
-At the bottom of the **Home Widgets** window, **Browser chrome** has three switches: **Show URL bar** shows or hides the search bar, and **Other-tab bookmarks (desktop)** and **Other-tab bookmarks (mobile)** keep the bookmarks visible on tabs other than **Home**.
+At the bottom of the **Home Widgets** window, **Browser chrome** has one switch: **Show URL bar** shows or hides the search bar on a computer.
 
 ## Your first steps
 

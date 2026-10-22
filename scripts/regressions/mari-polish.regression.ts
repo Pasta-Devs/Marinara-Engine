@@ -173,19 +173,21 @@ assert.ok(
   browserHubFlat.includes('aria-label={t("home.browser.bookmarksCompact")}'),
   "the compact trigger is labeled for assistive tech",
 );
-// Desktop never shows the compact button; mobile never renders the full bar.
-assert.match(browserHub, /focus-visible:ring-\[var\(--marinara-app-accent-solid\)\] sm:hidden/u);
+// The phone shell decides, not the `sm` width: a landscape phone is wider than `sm` and still gets the
+// compact button, never the fake URL bar or the full bookmarks bar.
+assert.match(browserHub, /const mobileShell = useMatchMedia\(MOBILE_SHELL_MEDIA_QUERY\);/u);
 assert.ok(
-  browserHubFlat.includes(
-    'className="hidden min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:flex sm:min-h-9 sm:px-3"',
-  ),
-  "the full bookmarks bar is desktop-only - no empty row remains at phone widths",
+  browserHubFlat.includes("{showHomeBrowserAddressBar && !mobileShell ? ("),
+  "the fake URL bar is desktop-only",
 );
-// The per-surface visibility settings still gate both surfaces - no new toggle.
-assert.ok(browserHubFlat.includes('activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden"'));
+// Bookmarks belong to Home alone, on desktop and in the phone shell; no setting brings them to package tabs.
 assert.ok(
-  browserHubFlat.includes('mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs)'),
+  browserHubFlat.includes('{mobileShell && activeTab === "home" ? ('),
+  "compact trigger: phone shell, Home only",
 );
+assert.ok(browserHubFlat.includes('{activeTab === "home" && !mobileShell ? ( <nav'), "full bar: desktop, Home only");
+assert.ok(browserHubFlat.includes('{mobileShell && mobileBookmarksOpen && activeTab === "home" ? ('));
+assert.doesNotMatch(browserHub, /BookmarksOnOtherTabs/u);
 assert.ok("home.browser.bookmarksCompact" in enJson);
 
 // #5820: the Accept action for held edits must never be captioned as a mere

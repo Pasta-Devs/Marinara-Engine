@@ -50,6 +50,7 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 import { MariHold } from "./mari/MariHold";
@@ -71,7 +72,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -940,12 +941,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const setSceneOriginFocus = useUIStore((state) => state.setSceneOriginFocus);
   const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
   const showHomeBrowserAddressBar = useUIStore((state) => state.showHomeBrowserAddressBar);
-  const showHomeBrowserDesktopBookmarksOnOtherTabs = useUIStore(
-    (state) => state.showHomeBrowserDesktopBookmarksOnOtherTabs,
-  );
-  const showHomeBrowserMobileBookmarksOnOtherTabs = useUIStore(
-    (state) => state.showHomeBrowserMobileBookmarksOnOtherTabs,
-  );
+  // The phone shell's own signal, not a width breakpoint: a landscape phone is wider than `sm`
+  // but still gets the compact chrome, so the URL bar and the bookmark strip stay desktop-only.
+  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
   const agentWidgetGroups = useMemo(() => {
     const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {
@@ -1605,7 +1603,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
       data-component="HomeBrowserHub"
     >
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-[var(--border)]/75 bg-[var(--card)]/65 shadow-2xl shadow-black/25 sm:rounded-xl">
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-[var(--border)]/75 bg-[var(--marinara-home-page-wash)] shadow-2xl shadow-black/25 sm:rounded-xl">
         <header className="mari-home-browser-chrome relative z-40 shrink-0 border-b border-[var(--marinara-topbar-border)] bg-[var(--marinara-topbar-surface)] shadow-[0_8px_28px_-26px_rgba(0,0,0,0.8)] backdrop-blur-sm">
           <div className="flex h-10 min-w-0 items-end gap-1 border-b border-[var(--border)]/45 px-2 sm:gap-2 sm:px-3">
             <div
@@ -1627,25 +1625,26 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
             {/* #5743: a SIBLING of the tab list, never a child - a tablist may
                 only contain tabs, and two independent reviews flagged the
-                nesting. On phone widths the wordmark above is hidden, so this
-                renders as the strip's leading control beside the Home tab. */}
-            <button
-              ref={mobileBookmarksTriggerRef}
-              type="button"
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-t-lg border border-b-0 border-transparent text-[var(--primary)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden",
-                mobileBookmarksOpen && "bg-[var(--accent)]",
-                activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden",
-              )}
-              aria-label={t("home.browser.bookmarksCompact")}
-              title={t("home.browser.bookmarksCompact")}
-              aria-expanded={mobileBookmarksOpen}
-              aria-controls="marinara-mobile-bookmarks"
-              onClick={() => setMobileBookmarksOpen((open) => !open)}
-              data-component="HomeBrowserHub.MobileBookmarksTrigger"
-            >
-              <Bookmark size="1rem" aria-hidden="true" />
-            </button>
+                nesting. In the phone shell (portrait or landscape) this is the
+                only way to the bookmarks, and only on the Home tab. */}
+            {mobileShell && activeTab === "home" ? (
+              <button
+                ref={mobileBookmarksTriggerRef}
+                type="button"
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-t-lg border border-b-0 border-transparent text-[var(--primary)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)]",
+                  mobileBookmarksOpen && "bg-[var(--accent)]",
+                )}
+                aria-label={t("home.browser.bookmarksCompact")}
+                title={t("home.browser.bookmarksCompact")}
+                aria-expanded={mobileBookmarksOpen}
+                aria-controls="marinara-mobile-bookmarks"
+                onClick={() => setMobileBookmarksOpen((open) => !open)}
+                data-component="HomeBrowserHub.MobileBookmarksTrigger"
+              >
+                <Bookmark size="1rem" aria-hidden="true" />
+              </button>
+            ) : null}
             <div
               className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden sm:gap-1 sm:overflow-x-auto"
               role="tablist"
@@ -1745,12 +1744,12 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           </div>
 
-          {showHomeBrowserAddressBar ? (
+          {showHomeBrowserAddressBar && !mobileShell ? (
             <div
-              className="mari-home-browser-address-row hidden h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:flex sm:h-10 sm:gap-2 sm:px-3"
+              className="mari-home-browser-address-row flex h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:h-10 sm:gap-2 sm:px-3"
               data-component="HomeBrowserHub.AddressRow"
             >
-              <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => selectTab("home")}
@@ -1805,9 +1804,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : null}
 
-          {activeTab === "home" || showHomeBrowserDesktopBookmarksOnOtherTabs ? (
+          {activeTab === "home" && !mobileShell ? (
             <nav
-              className="hidden min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:flex sm:min-h-9 sm:px-3"
+              className="flex min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:min-h-9 sm:px-3"
               aria-label={t("home.browser.bookmarksLabel")}
             >
               <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
@@ -1883,7 +1882,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           ) : null}
 
           <AnimatePresence initial={false}>
-            {mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs) ? (
+            {mobileShell && mobileBookmarksOpen && activeTab === "home" ? (
               <motion.div
                 ref={mobileBookmarksRef}
                 id="marinara-mobile-bookmarks"
@@ -1891,7 +1890,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
                 transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
+                className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:right-auto sm:w-72"
                 data-component="HomeBrowserHub.MobileBookmarksMenu"
                 data-bookmarks-motion="slide"
               >
@@ -2736,18 +2735,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
               checked={showHomeBrowserAddressBar}
               onChange={(visible) => useUIStore.getState().setShowHomeBrowserAddressBar(visible)}
               help={t("home.browser.showAddressBarHelp")}
-            />
-            <ToggleSetting
-              label={t("home.browser.showDesktopBookmarksOnOtherTabs")}
-              checked={showHomeBrowserDesktopBookmarksOnOtherTabs}
-              onChange={(visible) => useUIStore.getState().setShowHomeBrowserDesktopBookmarksOnOtherTabs(visible)}
-              help={t("home.browser.showDesktopBookmarksOnOtherTabsHelp")}
-            />
-            <ToggleSetting
-              label={t("home.browser.showMobileBookmarksOnOtherTabs")}
-              checked={showHomeBrowserMobileBookmarksOnOtherTabs}
-              onChange={(visible) => useUIStore.getState().setShowHomeBrowserMobileBookmarksOnOtherTabs(visible)}
-              help={t("home.browser.showMobileBookmarksOnOtherTabsHelp")}
             />
           </div>
         </div>

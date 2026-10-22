@@ -215,6 +215,8 @@
 
   /* Theme hooks for shared chat, roleplay, and game chrome. */
   --marinara-topbar-surface: color-mix(in srgb, var(--card) 80%, transparent);
+  /* Home's page is this card wash over --background; Professor Mari's window and page paint the same. */
+  --marinara-home-page-wash: color-mix(in oklab, var(--card) 65%, transparent);
   --marinara-topbar-border: color-mix(in srgb, var(--border) 30%, transparent);
   --marinara-shell-edge-border: color-mix(in srgb, var(--primary) 14%, var(--background) 86%);
   --marinara-music-player-shell-bg: var(--marinara-topbar-surface);

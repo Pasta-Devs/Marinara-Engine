@@ -14,8 +14,6 @@ import { seedUIState } from "./ui-state-fixture.js";
 // load it rewrites the shared key with only the settings it knows: everything below disappears from the blob.
 const DROPPED_BY_V74_COPY = [
   "showHomeBrowserAddressBar",
-  "showHomeBrowserDesktopBookmarksOnOtherTabs",
-  "showHomeBrowserMobileBookmarksOnOtherTabs",
   "noodleNavigation",
   "libraryManualOrders",
   "trackerPanelOpenByChatId",

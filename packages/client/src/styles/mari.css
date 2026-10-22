@@ -1072,12 +1072,13 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   }
 }
 
-/* The omnibar is Mari's canonical workspace: velvet-dark, warm, and still one canvas. */
+/* The omnibar is Mari's canonical workspace: one canvas in the Home page's own colour, the same
+   card wash over the app background (each layer opaque on its own, so nesting never doubles it). */
 .mari-workspace-shell {
   --mari-workspace-gold: oklch(0.82 0.11 79);
   --mari-workspace-hoodie: oklch(0.62 0.1 252);
   --mari-workspace-blush: oklch(0.76 0.14 344);
-  background: color-mix(in srgb, var(--background) 94%, oklch(0.22 0.035 326));
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
   border-color: color-mix(in srgb, var(--mari-workspace-blush) 24%, var(--border));
 }
 
@@ -1919,7 +1920,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 .mari-workspace-canvas {
-  background: color-mix(in srgb, var(--background) 97%, oklch(0.2 0.025 315));
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
 }
 
 /* M6: Chats, Skills, Memories and Aware of share one surface - the canvas, one hairline on the
@@ -4763,10 +4764,6 @@ html[data-marinara-accent-animation] .mari-message-action {
   .mari-workspace-composer__send[data-mode="stop"] {
     min-height: 2.75rem;
   }
-}
-
-[data-theme="light"] .mari-workspace-shell {
-  background: color-mix(in srgb, var(--background) 96%, oklch(0.93 0.025 73));
 }
 
 [data-component="GlobalOmnibar"]:not([data-pane="mari"]) .mari-workspace-portrait img,
