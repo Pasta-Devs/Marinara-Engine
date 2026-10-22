@@ -77,7 +77,11 @@ assert.ok(bold);
 assert.equal(compileRegexScriptPattern("\\*\\*(.+?)\\*\\*", "g"), bold, "the same pattern compiles once");
 assert.notEqual(compileRegexScriptPattern("\\*\\*(.+?)\\*\\*", "gi"), bold, "flags are part of the key");
 // A pattern over the safety check's length limit stands in for an unsafe one.
-assert.equal(compileRegexScriptPattern("a".repeat(1001), "g"), null, "a pattern the safety check refuses stays refused");
+assert.equal(
+  compileRegexScriptPattern("a".repeat(1001), "g"),
+  null,
+  "a pattern the safety check refuses stays refused",
+);
 assert.equal(compileRegexScriptPattern("(unclosed", "g"), null, "an invalid pattern is refused");
 
 console.log("game session log memo regression passed");
