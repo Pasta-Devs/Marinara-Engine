@@ -165,8 +165,7 @@ try {
     // normalizer re-nests it, so the wire body must carry the package's
     // ACTUAL schema and name under json_schema, with strict defaulting off.
     const responseFormat = upstreamBodies[0]?.response_format as
-      | { type?: string; json_schema?: { name?: string; schema?: unknown; strict?: boolean } }
-      | undefined;
+      { type?: string; json_schema?: { name?: string; schema?: unknown; strict?: boolean } } | undefined;
     assert.equal(responseFormat?.type, "json_schema", "package schema forwarded as provider structured output");
     assert.equal(responseFormat?.json_schema?.name, "experience_generation", "schema name survives to the wire");
     assert.deepEqual(responseFormat?.json_schema?.schema, BASE_BODY.schema, "schema content survives to the wire");
@@ -430,6 +429,39 @@ try {
     } finally {
       await limited.close();
     }
+  }
+  // Selected Experience lore reads the chat's effective Persona card.
+  {
+    scenario = "happy";
+    const chat = await createExperienceChat("Alternative persona lore");
+    const persona = await characters.createPersona("Scoped traveler", "BASE EXPERIENCE PERSONA", undefined, {
+      cardFieldAlternatives: JSON.stringify([
+        {
+          id: "experience-description",
+          field: "description",
+          value: "ALTERNATIVE EXPERIENCE PERSONA",
+          chatIds: [chat.id],
+        },
+      ]),
+    });
+    assert.ok(persona);
+    createdPersonaIds.push(persona.id);
+    await chats.update(chat.id, { personaId: persona.id });
+    const book = await lorebooks.create({ name: "Alternative Experience lore" });
+    createdLorebookIds.push(book.id);
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Selected identity",
+      content: "Identity: {{personaDescription}}",
+    });
+    assert.ok(entry);
+    upstreamBodies = [];
+    const result = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(result.statusCode, 200, result.body);
+    const sent = JSON.stringify(upstreamBodies[0]?.messages);
+    assert.match(sent, /ALTERNATIVE EXPERIENCE PERSONA/);
+    assert.doesNotMatch(sent, /BASE EXPERIENCE PERSONA/);
+    assert.equal((await characters.getPersona(persona.id))!.description, "BASE EXPERIENCE PERSONA");
   }
 } catch (error) {
   scenarioFailed = true;

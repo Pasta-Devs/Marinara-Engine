@@ -497,7 +497,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const baseUrl = resolveBaseUrl(conn);
     if (!baseUrl) return { errorStatus: 400 as const, error: "No base URL" };
 
-    const charRow = await chars.getById(characterId);
+    const charRow = await chars.getById(characterId, chatId);
     if (!charRow) return { errorStatus: 404 as const, error: "Character not found" };
     const charData = JSON.parse(charRow.data as string) as CharacterData;
     const provider = await createConversationAgentProvider(conn, baseUrl);
@@ -751,7 +751,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     for (const charId of characterIds) {
       if (signal.aborted) return;
       // Load character data
-      const charRow = await chars.getById(charId);
+      const charRow = await chars.getById(charId, chatId);
       if (!charRow) {
         results[charId] = { status: "not_found" };
         continue;
@@ -819,8 +819,9 @@ export async function conversationRoutes(app: FastifyInstance) {
           "free time",
           scheduleNow,
         );
+        // The card used above is a chat projection. Persist runtime state only,
+        // so scoped appearance/backstory never replace the authored base card.
         const extensions = {
-          ...(charData.extensions ?? {}),
           conversationStatus: status,
           conversationSchedule: fullSchedule,
         };

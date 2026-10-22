@@ -45,7 +45,7 @@ export type CharacterPromptInfo = {
 };
 
 type CharactersStore = {
-  getById(id: string): Promise<{ data: unknown; avatarPath?: string | null } | null>;
+  getById(id: string, chatId?: string): Promise<{ data: unknown; avatarPath?: string | null } | null>;
 };
 
 type GenerationPromptMessage = {
@@ -130,14 +130,16 @@ export async function loadCharacterPromptInfo({
   chars,
   characterIds,
   chatMode,
+  chatId,
 }: {
   chars: CharactersStore;
   characterIds: string[];
   chatMode: string;
+  chatId?: string;
 }): Promise<CharacterPromptInfo[]> {
   const charInfo: CharacterPromptInfo[] = [];
   for (const cid of characterIds) {
-    const charRow = await chars.getById(cid);
+    const charRow = await chars.getById(cid, chatId);
     if (!charRow) continue;
 
     const charData = parseRecord(charRow.data);

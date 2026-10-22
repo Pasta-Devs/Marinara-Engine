@@ -444,7 +444,7 @@ export function getTrustedPrivateNetworksOverride() {
  * Choose how direct Tailscale traffic may skip the IP allowlist and Basic Auth.
  *
  * Default: automatic. A Tailscale-shaped client is trusted only when its
- * connection also arrived on a local 100.64.0.0/10 address. Set the flag to
+ * connection also arrived on a 100.64.0.0/10 address of a local Tailscale interface. Set the flag to
  * true for the legacy broad range bypass, or false to disable it.
  */
 export function getTailscaleBypassMode(): "auto" | "enabled" | "disabled" {

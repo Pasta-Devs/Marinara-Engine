@@ -40,7 +40,7 @@ anyone who builds packs another way.
 
 | Field | What it is |
 | --- | --- |
-| `creaturePackVersion` | Always `1`. |
+| `creaturePackVersion` | `1`, or `2` for a pack with flying art (Capability API 1.352). |
 | `id` | Lowercase letters, digits, `_` and `-`. The library files an imported pack under `local/<id>`. |
 | `name`, `author` | Shown in the library. `author` is optional. |
 | `version` | A whole number. A version is never rewritten: to change a pack, raise its version. Importing the same file again changes nothing. |
@@ -65,6 +65,14 @@ them from the picture's header and refuses a pack whose sheets say otherwise.
 | `w`, `h` | One frame's size in cells, 1 to 6 each. |
 | `frames` | `1` for a still creature, `3` for a walking one (step, stand, step). |
 | `variants` | Its **looks**, 1 to 8, each where its block starts on a sheet: `sheet` and the top-left cell `x`, `y`. |
+| `fly` | Optional, needs `creaturePackVersion` 2: its **flying** blocks, laid out as a walking block (three frames across, the four facings down), placed as `variants` are. One for every look, or one per look in the same order. |
+
+### Flying
+
+A creature with `fly` is drawn from its flying block, its frames played 0, 1, 2, 1, while it is shown in
+the air in a fight: it has a fly speed and no walk, it hovers, it is up above the ground, or it flew this
+turn (a step only its flight takes, such as over water). Otherwise it is drawn from its look as before.
+An Experience map pack whose creature packs have flying art needs Capability API 1.352.
 
 ### What `match` names
 

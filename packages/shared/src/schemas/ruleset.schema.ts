@@ -7823,7 +7823,7 @@ const combatNaturalsSchema = z
   .object({ max: z.enum(["critical", "hit", "none"]).default("none"), min: z.enum(["miss", "none"]).default("none") })
   .strict();
 
-/** The tones a budget's pip may take on the fight screen (Capability API 1.342), in the order a
+/** The tones a budget's pip may take on the fight screen (Capability API 1.375), in the order a
  *  budget without one takes them by its place. */
 export const RULESET_BUDGET_TONES = ["rose", "amber", "violet", "teal", "sky", "lime", "orange", "slate"] as const;
 
@@ -7838,7 +7838,7 @@ const combatBudgetSchema = z
     /** How many a turn (or round) hands out. 0 (Capability API 1.76) is a budget only a condition's
      *  `budgets` fills, as Haste's extra action is. */
     count: z.number().int().min(0).max(10).default(1),
-    /** How the fight screen marks it (Capability API 1.342): up to two letters on its pip, and one of
+    /** How the fight screen marks it (Capability API 1.375): up to two letters on its pip, and one of
      *  the screen's tones. Without them the pip takes the label's first letter and the tone of its place. */
     short: z.string().trim().min(1).max(2).optional(),
     tone: z.enum(RULESET_BUDGET_TONES).optional(),
@@ -9558,7 +9558,7 @@ const combatObjectSchema = z
           .optional(),
       })
       .strict(),
-    /** How the fight screen shows this system (Capability API 1.342). `defense.short` heads its
+    /** How the fight screen shows this system (Capability API 1.375). `defense.short` heads its
      *  column ("AC"), and `defense.hide` drops the column where the number says nothing (a dice pool's
      *  one success needed). `pools` names the sheet pools shown under a turn, in order; without it the
      *  ones the turn's options spend are shown. */

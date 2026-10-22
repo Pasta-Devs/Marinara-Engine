@@ -112,6 +112,9 @@ export const apiConnections = fileTable("api_connections", {
   audioSoundEffects: text("audio_sound_effects").notNull().default("false"),
   /** Whether this audio connection may generate game music ("true"/"false"). */
   audioMusic: text("audio_music").notNull().default("false"),
+  audioMusicEndpoint: text("audio_music_endpoint"),
+  audioSoundEffectsEndpoint: text("audio_sound_effects_endpoint"),
+  audioGenerationFormat: text("audio_generation_format").notNull().default("binary"),
   /** Default generation parameters (stored as JSON) for new chats using this connection */
   defaultParameters: text("default_parameters"),
   /** Optional prompt preset override for Roleplay chats using this connection */

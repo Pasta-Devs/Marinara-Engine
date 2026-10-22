@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   canonicalizeLegacyPersonaInput,
+  unassignCardFieldAlternatives,
   createCharacterSchema,
   updateCharacterSchema,
   createGroupSchema,
@@ -737,6 +738,16 @@ function streamNativeExport({ envelope, slot, parts }: NativeExport, space = 0) 
   return streamJsonWithSlot(envelope, slot, parts, space);
 }
 
+function cardFieldAlternativesForExport(value: unknown) {
+  try {
+    return unassignCardFieldAlternatives(value);
+  } catch (error) {
+    // Malformed stored shapes fail closed; foreign assignment conflicts are already cleared above.
+    if (error instanceof z.ZodError) return [];
+    throw error;
+  }
+}
+
 async function buildNativeCharacterExport(
   char: { id: string; createdAt: string; updatedAt: string; comment?: string | null; avatarPath?: string | null },
   data: any,
@@ -745,7 +756,10 @@ async function buildNativeCharacterExport(
   const extensions = parseCharacterDataRecord(data?.extensions);
   const characterSheetImageId =
     typeof extensions.characterSheetImageId === "string" ? extensions.characterSheetImageId : null;
-  const portableExtensions = { ...extensions };
+  const portableExtensions: Record<string, unknown> = {
+    ...extensions,
+    cardFieldAlternatives: cardFieldAlternativesForExport(extensions.cardFieldAlternatives),
+  };
   delete portableExtensions.characterSheetImageId;
   const portableData = { ...data, extensions: portableExtensions };
   const gallery = await galleryStorage.listByCharacterId(char.id);
@@ -787,6 +801,7 @@ export function buildCompatibleCharacterExport(
   // Compatible cards carry no gallery, so baked greeting images go back to their web links.
   data = data ? restoreBakedGreetingImages(data) : data;
   const extensions = { ...parseCharacterDataRecord(data?.extensions) };
+  extensions.cardFieldAlternatives = cardFieldAlternativesForExport(extensions.cardFieldAlternatives);
   delete extensions.bakedGreetingImages;
   const description = [typeof data?.description === "string" ? data.description : ""];
   for (const [key, label] of [
@@ -893,7 +908,10 @@ function canonicalizePersonaForExport(persona: Record<string, unknown>): {
     updatedAt: _updatedAt,
     ...projectedFields
   } = projected;
-  const validationFields: Record<string, unknown> = { ...projectedFields };
+  const validationFields: Record<string, unknown> = {
+    ...projectedFields,
+    cardFieldAlternatives: unassignCardFieldAlternatives(projectedFields.cardFieldAlternatives),
+  };
   const usesFallbackName = typeof validationFields.name !== "string" || !validationFields.name.trim();
 
   if (usesFallbackName) validationFields.name = "Unnamed Persona";
@@ -929,6 +947,7 @@ function canonicalizePersonaForExport(persona: Record<string, unknown>): {
   const row: Record<string, unknown> = { ...persona, ...extra, name, description };
   // Export the public boolean contract rather than the storage-only text flag
   // so compatible and native Persona payloads can be imported unchanged.
+  row.cardFieldAlternatives = parsed.data.cardFieldAlternatives ?? [];
   row.versioningEnabled = parsed.data.versioningEnabled ?? true;
   // Same text-column-to-boolean conversion for the image-appearance toggle
   // (#7053): `row` is spread from the raw row above, so without this the export
@@ -1562,6 +1581,16 @@ export async function charactersRoutes(app: FastifyInstance) {
     const reset = await enqueueUpdate(characterUpdateQueues, req.params.id, () => storage.resetVersions(req.params.id));
     if (!reset) return reply.status(404).send({ error: "Character not found" });
     return reset;
+  });
+
+  app.get<{ Params: { id: string } }>("/:id/card-field-chats", async (req, reply) => {
+    if (!(await storage.getById(req.params.id))) return reply.status(404).send({ error: "Character not found" });
+    return storage.listCardFieldChats("character", req.params.id);
+  });
+
+  app.get<{ Params: { id: string } }>("/personas/:id/card-field-chats", async (req, reply) => {
+    if (!(await storage.getPersona(req.params.id))) return reply.status(404).send({ error: "Persona not found" });
+    return storage.listCardFieldChats("persona", req.params.id);
   });
 
   app.post("/", async (req) => {

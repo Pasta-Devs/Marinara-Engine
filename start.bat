@@ -402,16 +402,17 @@ echo    Press Ctrl+C to stop
 echo  ==========================================
 echo.
 
-:: Open browser after a short delay (use explorer.exe as fallback)
+:: Open the browser only after this server reports readiness to its supervisor.
+set "BROWSER_ARGS="
 if defined AUTO_OPEN_BROWSER_ENABLED (
-    start "" cmd /c "timeout /t 4 /nobreak >nul && start %PROTOCOL%://%BROWSER_HOST%:%PORT% || explorer %PROTOCOL%://%BROWSER_HOST%:%PORT%"
+    set BROWSER_ARGS=--open-browser "%PROTOCOL%://%BROWSER_HOST%:%PORT%"
 ) else (
     echo  [OK] Auto-open disabled ^(AUTO_OPEN_BROWSER=%AUTO_OPEN_BROWSER%^)
 )
 
 :: Start server
 cd packages\server
-node ../../scripts/run-server.mjs dist/index.js
+node ../../scripts/run-server.mjs dist/index.js %BROWSER_ARGS%
 if errorlevel 1 (
     echo.
     echo  [ERROR] Server exited unexpectedly. See the error above.

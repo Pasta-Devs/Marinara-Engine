@@ -181,6 +181,13 @@ async function main() {
       );
     }
     scheduleTaskbarShortcutMigration();
+    // The platform launcher opens its browser only after this child has finished
+    // loading configuration, registering routes and binding the listener.
+    if (process.connected) {
+      process.send?.({ type: "marinara:ready" }, (error: Error | null) => {
+        if (error) logger.warn(error, "[startup] Could not notify the launcher of readiness");
+      });
+    }
   } catch (err) {
     if (isShuttingDown) {
       logger.info("Startup interrupted by shutdown");

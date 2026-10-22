@@ -114,6 +114,7 @@ import {
   type TacticalGrid,
   type CombatTactics,
   type RulesetSheetItem,
+  rulesetCombatantFlying,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
@@ -193,6 +194,8 @@ export interface RulesetFightOpponent {
   /** How it fights: the same competence and temperament its choices in the fight are made with,
    *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
   tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
+  /** How a story fight has it (1.363): its Legendary Resistance and health, when it is a bestiary's. */
+  adjust?: { legendaryResistance?: number; maxHp?: number; calls?: Array<{ action: string; creature: string }> };
 }
 
 export interface RulesetFightSeed {
@@ -289,6 +292,17 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
         name: opponent.name,
         side: "enemy",
         creature: { catalogId: found.catalogId, entryId: found.entry.id },
+        ...(opponent.adjust
+          ? {
+              adjust: {
+                ...(opponent.adjust.legendaryResistance !== undefined
+                  ? { legendaryResistance: opponent.adjust.legendaryResistance }
+                  : {}),
+                ...(opponent.adjust.maxHp !== undefined ? { health: opponent.adjust.maxHp } : {}),
+                ...(opponent.adjust.calls?.length ? { calls: opponent.adjust.calls.map((call) => ({ ...call })) } : {}),
+              },
+            }
+          : {}),
       });
       if (found.entry.creature?.loot) lootTables[opponent.id] = found.entry.creature.loot;
       continue;
@@ -671,7 +685,7 @@ function deathTrackOf(definition: RulesetDefinition, combatant: RulesetCombatant
  *  for the fight's own HUD: a player should not have to open the sheet mid-fight to count slots. */
 function spentPoolsOf(definition: RulesetDefinition, combatant: RulesetCombatant) {
   if (combatant.side !== "party" || !combatant.sheet) return undefined;
-  // The ruleset may name them itself, in its own order (1.342).
+  // The ruleset may name them itself, in its own order (1.375).
   const named = definition.combat?.display?.pools;
   if (named) {
     const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
@@ -775,6 +789,8 @@ function projectCombatant(
       : {}),
     ...(combatant.altitude !== undefined ? { altitude: combatant.altitude } : {}),
     ...(combatant.span !== undefined ? { span: combatant.span } : {}),
+    // Drawn in its flying art (1.352): never read by the rules.
+    ...(rulesetCombatantFlying(state.board?.grid, combatant) ? { flying: true as const } : {}),
   };
 }
 

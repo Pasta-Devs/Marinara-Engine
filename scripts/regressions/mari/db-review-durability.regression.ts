@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileNativeDB } from "../../../packages/server/src/db/file-backed-store.js";
 import { eq } from "../../../packages/server/src/db/file-query.js";
+import { personas } from "../../../packages/server/src/db/schema/characters.js";
 import { lorebookEntries } from "../../../packages/server/src/db/schema/lorebooks.js";
 import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 
@@ -68,6 +69,15 @@ try {
     try {
       db = await createFileNativeDB();
       const mari = new MariDbService(db);
+      const preview = await mari.executeAction({
+        action: "persona.create",
+        personaId: "preview-persona",
+        data: { name: "Preview Persona" },
+        apply: false,
+      });
+      assert.equal(preview.ok, true, "an empty alternatives default passes preview validation");
+      assert.equal(preview.mode, "dry-run");
+      assert.deepEqual(preview.summary?.preview[0]?.after?.cardFieldAlternatives, []);
       const created = await mari.executeAction({
         action: "persona.create",
         personaId: "created-persona",
@@ -89,6 +99,10 @@ try {
 
       const fetched = await mari.executeAction({ action: "persona.get", personaId: "created-persona" });
       assert.equal(fetched.ok, true, "the created persona is persisted");
+      assert.deepEqual(created.summary?.preview[0]?.after?.cardFieldAlternatives, []);
+      assert.deepEqual((fetched.output as Record<string, unknown>).cardFieldAlternatives, []);
+      const [stored] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
+      assert.equal(stored?.cardFieldAlternatives, "[]", "alternatives use the JSON-text storage contract");
       assert.equal(
         (fetched.output as Record<string, unknown>).summary,
         "",
@@ -210,6 +224,25 @@ try {
       assert.equal(cliRead.ok, true);
       assert.equal((cliRead.output as Record<string, unknown>).summary, "");
       assert.equal((cliRead.output as Record<string, unknown>).mes_example, "");
+      assert.deepEqual((cliRead.output as Record<string, unknown>).cardFieldAlternatives, []);
+
+      await mari.keepAppliedReview(reviewId);
+      const renamed = await mari.executeAction({
+        action: "persona.update",
+        personaId: "created-persona",
+        data: { name: "Renamed Persona" },
+        apply: true,
+      });
+      assert.equal(renamed.ok, true);
+      assert.ok(renamed.approval?.id);
+      const restarted = new MariDbService(db);
+      await restarted.restoreAppliedReview(renamed.approval.id);
+      const restored = await restarted.executeAction({ action: "persona.get", personaId: "created-persona" });
+      assert.equal(restored.ok, true);
+      assert.equal((restored.output as Record<string, unknown>).name, "Created Persona");
+      assert.deepEqual((restored.output as Record<string, unknown>).cardFieldAlternatives, []);
+      const [restoredRow] = await db.select().from(personas).where(eq(personas.id, "created-persona"));
+      assert.equal(restoredRow?.cardFieldAlternatives, "[]", "restored alternatives remain serialized JSON text");
     } finally {
       if (db) await db._fileStore.close();
       if (previousBlockStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;

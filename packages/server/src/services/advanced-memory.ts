@@ -2188,6 +2188,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       chars: createCharactersStorage(db),
       characterIds,
       chatMode: "roleplay",
+      chatId: ctx.chatId,
     });
     if (!cards.length) return undefined;
     const lastUser =

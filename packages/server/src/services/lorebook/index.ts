@@ -301,6 +301,7 @@ async function buildLorebookMatchingContext(
   characterIds: string[] | undefined,
   personaId: string | null | undefined,
   gameState: GameStateForScanning | null | undefined,
+  chatId?: string,
 ): Promise<LorebookMatchingContext> {
   const characters = createCharactersStorage(db);
   const activeCharacterIds = uniqueStrings([
@@ -311,7 +312,7 @@ async function buildLorebookMatchingContext(
   const activeCharacterTags: string[] = [];
 
   for (const characterId of activeCharacterIds) {
-    const row = await characters.getById(characterId);
+    const row = await characters.getById(characterId, chatId);
     if (!row) continue;
     const data = safeJsonParse<CharacterData | null>((row as { data?: unknown }).data, null);
     if (!data) continue;
@@ -325,7 +326,7 @@ async function buildLorebookMatchingContext(
   }
 
   if (personaId) {
-    const persona = await characters.getPersona(personaId);
+    const persona = await characters.getPersona(personaId, chatId);
     if (persona) {
       pushSourceText(sourceParts, "persona_description", (persona as { description?: unknown }).description);
       const tags = readStringArray((persona as { tags?: unknown }).tags);
@@ -1429,6 +1430,7 @@ export async function processLorebooks(
     options?.characterIds,
     options?.personaId ?? null,
     gameState ?? null,
+    options?.chatId,
   );
 
   // Scan for activated entries.

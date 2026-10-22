@@ -13,7 +13,7 @@ import { SILENT_AUDIO_DATA_URI } from "./silent-audio";
 const CROSSFADE_MS = 2000;
 const SFX_POOL_SIZE = 8;
 
-type AssetMap = Record<string, { path: string }>;
+type AssetMap = Record<string, { path: string; url?: string }>;
 type AudioSessionType = "auto" | "ambient" | "playback" | "transient" | "transient-solo" | "play-and-record";
 type NavigatorWithAudioSession = Navigator & {
   audioSession?: {
@@ -98,12 +98,16 @@ class GameAudioManager {
   private ambientVolume = 0.35;
   private isMuted = false;
   private currentMusicTag: string | null = null;
+  /** An Experience's own track in force (Capability API 1.345): while it is, the Engine's own choices
+   *  are kept aside and come back when it ends. */
+  private experienceMusic: { tag: string; url: string } | null = null;
+  private asideMusic: { tag: string; manifest?: AssetMap | null } | null = null;
   private currentAmbientTag: string | null = null;
   /** The open game's art family (worldgen W6f), so its sounds are its setting's. */
   private artFamily: string | undefined;
   private fadeInterval: ReturnType<typeof setInterval> | null = null;
   /** Tracks tags whose play() was rejected by autoplay policy. */
-  private pendingMusic: { tag: string; manifest?: Record<string, { path: string }> | null } | null = null;
+  private pendingMusic: { tag: string; manifest?: AssetMap | null } | null = null;
   private pendingAmbient: { tag: string; manifest?: Record<string, { path: string }> | null } | null = null;
   private gestureListenerAttached = false;
   /** True after the user has interacted with the page (click/touch/key). */
@@ -187,6 +191,8 @@ class GameAudioManager {
   resolveAssetUrl(tag: string, manifest?: AssetMap | null): string {
     const normalizedTag = normalizeAssetTag(tag);
     const manifestEntry = manifest?.[tag] ?? manifest?.[normalizedTag];
+    // A file served from elsewhere (an Experience's own track) carries its own address.
+    if (manifestEntry?.url) return manifestEntry.url;
     if (manifestEntry) {
       return gameAssetFileUrl(manifestEntry.path) ?? "";
     }
@@ -650,8 +656,30 @@ class GameAudioManager {
     return false;
   }
 
+  /**
+   * Play an Experience's own track over the Engine's music (Capability API 1.345), or end it (null) and
+   * go back to what the Engine last chose. The player's volumes and mute apply to it as to any music.
+   * `resume: false` ends it without going back, for when another source takes over or the game closes.
+   */
+  setExperienceMusic(track: { tag: string; url: string } | null, options: { resume?: boolean } = {}): void {
+    if (track?.tag === this.experienceMusic?.tag && track?.url === this.experienceMusic?.url) return;
+    this.experienceMusic = track;
+    if (track) {
+      this.playMusic(track.tag, { [track.tag]: { path: "", url: track.url } });
+      return;
+    }
+    const aside = options.resume === false ? null : this.asideMusic;
+    this.asideMusic = null;
+    if (aside) this.playMusic(aside.tag, aside.manifest);
+    else this.stopMusic();
+  }
+
   /** Play background music with crossfade. */
-  playMusic(tag: string, manifest?: Record<string, { path: string }> | null): void {
+  playMusic(tag: string, manifest?: AssetMap | null): void {
+    if (this.experienceMusic && tag !== this.experienceMusic.tag) {
+      this.asideMusic = { tag, manifest };
+      return;
+    }
     if (tag === this.currentMusicTag) {
       if (this.pendingMusic?.tag === tag) this.pendingMusic = null;
       return;
@@ -754,6 +782,9 @@ class GameAudioManager {
   stopMusic(immediate = false): void {
     this.currentMusicTag = null;
     this.pendingMusic = null;
+    // Stopping ends an Experience's track too, and drops the Engine cue it held aside, so neither comes back.
+    this.experienceMusic = null;
+    this.asideMusic = null;
 
     // Cancel any running crossfade so the next-element doesn't keep playing
     if (this.fadeInterval) {

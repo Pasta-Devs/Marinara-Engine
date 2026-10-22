@@ -15,7 +15,12 @@ import type {
   CreateChoiceBlockInput,
   UpdateChoiceBlockInput,
 } from "@marinara-engine/shared";
-import { DEFAULT_GENERATION_PARAMS, resolveScopedRegexMode, withoutPresetTokenLimits } from "@marinara-engine/shared";
+import {
+  DEFAULT_GENERATION_PARAMS,
+  isStockMarinaraUniversalPreset,
+  resolveScopedRegexMode,
+  withoutPresetTokenLimits,
+} from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
@@ -116,17 +121,19 @@ export function createPromptsStorage(db: DB) {
       if (data.variableValues !== undefined) updateFields.variableValues = JSON.stringify(data.variableValues);
       if (data.parameters !== undefined) {
         const existingRows = await db
-          .select({ parameters: promptPresets.parameters })
+          .select({ parameters: promptPresets.parameters, systemKey: promptPresets.systemKey })
           .from(promptPresets)
           .where(eq(promptPresets.id, id))
           .limit(1);
         const existingParameters = parseGenerationParameters(existingRows[0]?.parameters);
         updateFields.parameters = JSON.stringify(
-          withoutPresetTokenLimits({
-            ...DEFAULT_GENERATION_PARAMS,
-            ...existingParameters,
-            ...data.parameters,
-          }),
+          isStockMarinaraUniversalPreset(existingRows[0] ?? {})
+            ? {}
+            : withoutPresetTokenLimits({
+                ...DEFAULT_GENERATION_PARAMS,
+                ...existingParameters,
+                ...data.parameters,
+              }),
         );
       }
       if (data.wrapFormat !== undefined) updateFields.wrapFormat = data.wrapFormat;

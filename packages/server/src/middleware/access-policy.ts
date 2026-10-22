@@ -22,7 +22,7 @@ export interface AccessFacts {
   privateNetworkIp: boolean;
   /** Peer address is in 100.64.0.0/10. */
   tailscaleIp: boolean;
-  /** The local socket address the peer connected to is in 100.64.0.0/10. */
+  /** The local socket address the peer connected to is a 100.64.0.0/10 address on a Tailscale interface. */
   tailscaleLocalAddress: boolean;
   /** Peer address is in 172.16.0.0/12. */
   dockerIp: boolean;

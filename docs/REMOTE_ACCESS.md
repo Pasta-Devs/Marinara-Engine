@@ -90,7 +90,7 @@ Some clients skip the password even when Basic Auth is on:
 - Any address in `IP_ALLOWLIST`. Careful: setting an allowlist also blocks every unlisted address (see Option 2).
 - Direct Tailscale traffic (`100.64.0.0/10`), unless you turn its bypass off.
 - Docker bridge/gateway traffic, only when you set `BYPASS_AUTH_DOCKER=true`. With Basic Auth on, automatic Docker trust is off (see [Tailscale and Docker bypass](#tailscale-and-docker-bypass)).
-- The `/api/health` address, so uptime monitors keep working. Without a password it reports only basic status, not your local models or graphics card.
+- The `/api/health` address, so uptime monitors keep working. Visitors who could not open the app get only `{"status": "ok"}`; version, system and model details stay with this machine, trusted networks and signed-in browsers.
 
 Important: Basic Auth only encodes the password. It does not encrypt it. Anyone watching an unencrypted connection can read it. If you expose Marinara to the public internet, pair Basic Auth with HTTPS (see below).
 
@@ -146,7 +146,7 @@ BYPASS_AUTH_TAILSCALE=
 BYPASS_AUTH_DOCKER=
 ```
 
-Automatic mode trusts a Tailscale peer only when both ends of its direct socket use Tailnet addresses. It trusts Docker traffic only when Marinara is running in a container and the source matches a detected container interface or its exact gateway. This keeps the usual private Tailscale and same-host Docker setup working without treating unrelated CGNAT, LAN, host-network, or proxy traffic as authenticated.
+Automatic mode trusts a Tailscale device only when it connects straight to this computer's Tailscale address. On Linux, a Tailscale interface with a custom name (`tailscaled --tun=...`) is not trusted automatically; sign in or set `BYPASS_AUTH_TAILSCALE=true`. It trusts Docker traffic only when Marinara is running in a container and the source matches a detected container interface or its exact gateway. This keeps the usual private Tailscale and same-host Docker setup working without treating unrelated CGNAT, LAN, host-network, or proxy traffic as authenticated.
 
 Automatic Docker trust applies only while neither Basic Auth nor `IP_ALLOWLIST` is set. Docker Desktop, OrbStack, and rootless Docker pass every device that opens a published port through the container's gateway, so Marinara cannot tell your own browser from a phone or a stranger on the network. Once you set a password or an allowlist, every Docker client must pass it, including the browser on the host. Set `BYPASS_AUTH_DOCKER=true` only if you trust every device that can reach the published port.
 

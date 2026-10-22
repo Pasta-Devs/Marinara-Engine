@@ -228,7 +228,7 @@ async function expandCharacter(
   const charStorage = createCharactersStorage(ctx.db);
   const parts: string[] = [];
   for (const charId of ctx.characterIds) {
-    const row = await charStorage.getById(charId);
+    const row = await charStorage.getById(charId, ctx.chatId);
     if (!row) continue;
     const data = JSON.parse(row.data) as CharacterData;
     const profile = characterMacroProfileFromData(data);
@@ -590,7 +590,7 @@ async function expandDialogueExamples(_config: MarkerConfig, ctx: MarkerContext)
   const parts: string[] = [];
 
   for (const charId of ctx.characterIds) {
-    const row = await charStorage.getById(charId);
+    const row = await charStorage.getById(charId, ctx.chatId);
     if (!row) continue;
     const data = JSON.parse(row.data) as CharacterData;
 

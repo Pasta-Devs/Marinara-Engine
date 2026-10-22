@@ -37,6 +37,12 @@ export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Experience file imports: each one streams a whole file through the package checks. */
+export const EXPERIENCE_FILE_IMPORT_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const UPDATE_CHANNEL_RATE_LIMIT = {
   max: 30,
   timeWindow: 60_000,
@@ -289,6 +295,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       key: "package-update-decline",
       limit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.max,
       windowMs: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/capability-packages\/experience-file(?:\?|$)/,
+    rule: {
+      key: "experience-file-import",
+      limit: EXPERIENCE_FILE_IMPORT_RATE_LIMIT.max,
+      windowMs: EXPERIENCE_FILE_IMPORT_RATE_LIMIT.timeWindow,
     },
   },
   // One-shot LLM call per user click; keep it out of the 600/min default

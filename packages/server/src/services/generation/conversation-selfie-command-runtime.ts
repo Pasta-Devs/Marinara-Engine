@@ -35,7 +35,7 @@ import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 
 type CharactersStore = {
-  getById(id: string): Promise<{ data: unknown } | null>;
+  getById(id: string, chatId?: string): Promise<{ data: unknown } | null>;
   list(): Promise<Array<{ id: string; data: unknown; avatarPath?: string | null }>>;
 };
 
@@ -135,7 +135,7 @@ export async function handleConversationSelfieCommand(args: {
     return true;
   }
 
-  const charRow = args.characterId ? await args.chars.getById(args.characterId) : null;
+  const charRow = args.characterId ? await args.chars.getById(args.characterId, args.chatId) : null;
   const charData = parseRecord(charRow?.data);
   const charName = typeof charData?.name === "string" && charData.name.trim() ? charData.name : "character";
   args.sendEvent({ type: "typing", characters: [charName] });

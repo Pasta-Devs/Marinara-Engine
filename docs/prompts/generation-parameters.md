@@ -14,6 +14,8 @@ Change these settings only when you want to fix a specific problem. This guide l
 
 Edit base values under **Presets > Parameters**, connection values under **Connections > Default Chat Parameters**, and chat overrides under **Chat Settings > Advanced Parameters**. Presets do not set context or output token limits. Set the context window in **Connections**, and output limits in **Connections** or **Chat Settings > Advanced Parameters**. Older preset files still load, but their saved token limits are ignored.
 
+The built-in **Marinara's Universal Preset** contributes no generation parameters, including sampling, reasoning, and message formatting. It uses your connection and chat settings, with Engine defaults for unconfigured values. Editable user presets retain their own parameter settings.
+
 1. Open the chat you want to change.
 2. Open **Chat Settings** (the **Chat Settings** button in the chat, at the top right unless you moved it).
 3. Find the **Advanced Parameters** section and click it to expand it.

@@ -24,6 +24,7 @@ import {
   generationParametersSchema,
   resolveMacros,
   withoutPresetTokenLimits,
+  isStockMarinaraUniversalPreset,
 } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
@@ -80,6 +81,7 @@ export interface AssemblerInput {
     groupOrder: string; // JSON string of string[]
     wrapFormat: string; // "xml" | "markdown"
     parameters: string; // JSON string of GenerationParameters
+    systemKey?: string;
     variableGroups: string;
     variableValues: string;
   };
@@ -224,7 +226,7 @@ export interface AssemblerOutput {
   /** Final ChatML messages ready for the LLM */
   messages: ChatMLMessage[];
   /** Parsed generation parameters */
-  parameters: Omit<GenerationParameters, "maxTokens" | "maxContext" | "useMaxContext">;
+  parameters: Partial<Omit<GenerationParameters, "maxTokens" | "maxContext" | "useMaxContext">>;
   /** Final preset and choice-variable values available after section macro processing. */
   macroVariables: Record<string, string>;
   /** Agent outputs made available to {{agent::TYPE}} while assembling sections. */
@@ -250,7 +252,9 @@ export interface AssemblerOutput {
   advancedMemoryPlacements?: AdvancedMemoryPlacement[];
 }
 
-export function parsePresetParameters(raw: string): AssemblerOutput["parameters"] {
+export function parsePresetParameters(
+  raw: string,
+): Omit<GenerationParameters, "maxTokens" | "maxContext" | "useMaxContext"> {
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(raw) as unknown;
@@ -280,11 +284,19 @@ export function parsePresetParameters(raw: string): AssemblerOutput["parameters"
 //  Main Assembler
 // ═══════════════════════════════════════════════
 
+/** The bundled preset supplies prompt text only; connection/chat settings own generation controls. */
+export function getPresetGenerationParameters(
+  preset: { parameters: string; systemKey?: unknown } | null | undefined,
+): AssemblerOutput["parameters"] {
+  return preset && isStockMarinaraUniversalPreset(preset) ? {} : parsePresetParameters(preset?.parameters ?? "{}");
+}
+
 export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOutput> {
   const wrapFormat = (input.preset.wrapFormat || "xml") as WrapFormat;
   const chatSummary = input.advancedMemory ? null : (input.chatSummary ?? null);
   const advancedMemoryPlacements: AdvancedMemoryPlacement[] = [];
-  const parameters = parsePresetParameters(input.preset.parameters);
+  const parameters = getPresetGenerationParameters(input.preset);
+  const formatting = { ...DEFAULT_GENERATION_PARAMS, ...parameters };
   const sectionOrder = JSON.parse(input.preset.sectionOrder) as string[];
   const variableValues = JSON.parse(input.preset.variableValues) as Record<string, string>;
   // Preset text can safely delay all character macros until the responder is known.
@@ -726,10 +738,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
   // ── Phase 3: Adjacent same-role merging ──
   let finalMessages =
-    input.deferMessagePostProcessing || !parameters.strictRoleFormatting ? messages : mergeAdjacentMessages(messages);
+    input.deferMessagePostProcessing || !formatting.strictRoleFormatting ? messages : mergeAdjacentMessages(messages);
 
   // ── Phase 4: Squash leading system messages if enabled ──
-  if (parameters.squashSystemMessages && !input.deferMessagePostProcessing) {
+  if (formatting.squashSystemMessages && !input.deferMessagePostProcessing) {
     finalMessages = squashLeadingSystemMessages(finalMessages);
   }
 
@@ -779,7 +791,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // ── Phase 6: Strict role formatting ──
   // Keeps explicit section roles while folding system blocks to the front and
   // merging adjacent same-role messages.
-  if (parameters.strictRoleFormatting && !input.deferMessagePostProcessing) {
+  if (formatting.strictRoleFormatting && !input.deferMessagePostProcessing) {
     finalMessages = enforceStrictRoles(finalMessages);
   }
 
@@ -818,7 +830,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
   // ── Phase 8: Single user message mode ──
   // Collapses entire prompt into one user message.
-  if (parameters.singleUserMessage && !input.deferMessagePostProcessing) {
+  if (formatting.singleUserMessage && !input.deferMessagePostProcessing) {
     const combined = finalMessages
       .map((m) => {
         if (m.role !== "user") return `[${m.role.toUpperCase()}]\n${m.content}`;

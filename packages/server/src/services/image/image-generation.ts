@@ -1908,23 +1908,53 @@ async function generateAtlasCloudImage(
   return downloadImageUrl(outputUrl, request.privateImageResultOrigin, request.signal);
 }
 
+function nanoGPTNanoBanana21AspectRatio(width: number, height: number): string {
+  // NanoGPT's nano-banana-2.1 supports these ratios, not arbitrary pixel sizes.
+  const ratios = [
+    ["1:1", 1],
+    ["2:3", 2 / 3],
+    ["3:2", 3 / 2],
+    ["3:4", 3 / 4],
+    ["4:3", 4 / 3],
+    ["4:5", 4 / 5],
+    ["5:4", 5 / 4],
+    ["9:16", 9 / 16],
+    ["16:9", 16 / 9],
+    ["21:9", 21 / 9],
+    ["1:4", 1 / 4],
+    ["4:1", 4],
+    ["1:8", 1 / 8],
+    ["8:1", 8],
+  ] as const;
+  const ratio = width / height;
+  return ratios.reduce((best, candidate) =>
+    Math.abs(candidate[1] - ratio) < Math.abs(best[1] - ratio) ? candidate : best,
+  )[0];
+}
+
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
   const url = nanoGPTImagesUrl(baseUrl);
   const width = request.width ?? 1024;
   const height = request.height ?? 1024;
   const model = request.model?.trim().toLowerCase() ?? "";
   const isNanoBanana = model.includes("nano-banana");
-  const size = isOpenAIGptImageModel(request.model)
-    ? openAIImageSize(request)
-    : isNanoBanana && height > width
-      ? "768x1344"
-      : `${width}x${height}`;
+  const isNanoBanana21 = model === "nano-banana-2.1";
+  const size = isNanoBanana21
+    ? Math.max(width, height) > 1024
+      ? "2k"
+      : "1k"
+    : isOpenAIGptImageModel(request.model)
+      ? openAIImageSize(request)
+      : isNanoBanana && height > width
+        ? "768x1344"
+        : `${width}x${height}`;
   const body: Record<string, unknown> = {
     prompt: request.prompt,
     n: 1,
     size,
     response_format: "url",
   };
+  if (isNanoBanana21) body.aspect_ratio = nanoGPTNanoBanana21AspectRatio(width, height);
   if (request.model) body.model = request.model;
   if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
 

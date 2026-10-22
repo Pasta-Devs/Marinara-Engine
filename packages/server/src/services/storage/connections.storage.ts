@@ -356,6 +356,9 @@ export function createConnectionsStorage(db: DB) {
         audioTimeoutMs: input.audioTimeoutMs ?? null,
         audioSoundEffects: String(input.audioSoundEffects ?? false),
         audioMusic: String(input.audioMusic ?? false),
+        audioMusicEndpoint: input.audioMusicEndpoint ?? null,
+        audioSoundEffectsEndpoint: input.audioSoundEffectsEndpoint ?? null,
+        audioGenerationFormat: input.audioGenerationFormat ?? "binary",
         promptPresetId: input.promptPresetId ?? null,
         maxTokensOverride: input.maxTokensOverride ?? null,
         claudeFastMode: String(input.claudeFastMode ?? false),
@@ -586,6 +589,10 @@ export function createConnectionsStorage(db: DB) {
       if (data.audioMusic !== undefined) {
         updateFields.audioMusic = String(data.audioMusic);
       }
+      if (data.audioMusicEndpoint !== undefined) updateFields.audioMusicEndpoint = data.audioMusicEndpoint;
+      if (data.audioSoundEffectsEndpoint !== undefined)
+        updateFields.audioSoundEffectsEndpoint = data.audioSoundEffectsEndpoint;
+      if (data.audioGenerationFormat !== undefined) updateFields.audioGenerationFormat = data.audioGenerationFormat;
       if (data.promptPresetId !== undefined) {
         updateFields.promptPresetId = data.promptPresetId;
       }
@@ -743,6 +750,9 @@ export function createConnectionsStorage(db: DB) {
         audioTimeoutMs: source.audioTimeoutMs,
         audioSoundEffects: source.audioSoundEffects,
         audioMusic: source.audioMusic,
+        audioMusicEndpoint: source.audioMusicEndpoint,
+        audioSoundEffectsEndpoint: source.audioSoundEffectsEndpoint,
+        audioGenerationFormat: source.audioGenerationFormat,
         promptPresetId: source.promptPresetId,
         maxTokensOverride: source.maxTokensOverride,
         maxParallelJobs: source.maxParallelJobs,

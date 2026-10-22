@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cardFieldAlternativesSchema } from "./card-field-alternative.schema.js";
 import { storedRulesetSheetsSchema } from "./ruleset.schema.js";
 import { avatarCropSchema } from "./avatar-crop.schema.js";
 import { convoBehaviorInsertionStrategySchema } from "./character.schema.js";
@@ -105,6 +106,7 @@ function decodeLegacyJson(value: unknown, emptyValue?: unknown): unknown {
 
 /** The structured Persona fields historical clients serialized as JSON strings. */
 const LEGACY_PERSONA_FIELDS = [
+  "cardFieldAlternatives",
   "avatarCrop",
   "trackerCardColors",
   "personaStats",
@@ -170,6 +172,7 @@ function canonicalizeLegacyPersonaField(field: LegacyPersonaField, value: unknow
       return canonicalizeLegacyConvoBehavior(value);
     case "personaStats":
       return decodeLegacyJson(value, null);
+    case "cardFieldAlternatives":
     case "tags":
     case "savedStatusOptions":
       return decodeLegacyJson(value);
@@ -268,6 +271,7 @@ const convoBehaviorSchema = z
   .transform((value): ConvoBehaviorConfig => value);
 
 const personaFields = {
+  cardFieldAlternatives: cardFieldAlternativesSchema.optional(),
   name: personaNameSchema,
   comment: z.string().optional(),
   creator: z.string().optional(),

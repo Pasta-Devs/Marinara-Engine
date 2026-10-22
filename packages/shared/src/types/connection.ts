@@ -58,6 +58,27 @@ export function defaultDecisionStateTokens(source: string | null | undefined): n
 export const AUDIO_GENERATION_SOURCES = ["openai", "elevenlabs", "pockettts", "xai"] as const;
 export type AudioGenerationSource = (typeof AUDIO_GENERATION_SOURCES)[number];
 
+/** Explicit capabilities: compatible endpoints must be configured before Game can use them. */
+export function audioConnectionSupportsGeneration(
+  connection: {
+    audioSource?: string | null;
+    audioMusic?: boolean | string;
+    audioSoundEffects?: boolean | string;
+    audioMusicEndpoint?: string | null;
+    audioSoundEffectsEndpoint?: string | null;
+  },
+  kind: "music" | "sfx",
+): boolean {
+  const enabled = kind === "music" ? connection.audioMusic : connection.audioSoundEffects;
+  if (enabled !== true && enabled !== "true") return false;
+  const source = connection.audioSource ?? "elevenlabs";
+  return (
+    source === "elevenlabs" ||
+    (source === "openai" &&
+      Boolean((kind === "music" ? connection.audioMusicEndpoint : connection.audioSoundEffectsEndpoint)?.trim()))
+  );
+}
+
 export const IMAGE_GENERATION_QUALITIES = ["auto", "low", "medium", "high", "xhigh", "max"] as const;
 export type ImageGenerationQuality = (typeof IMAGE_GENERATION_QUALITIES)[number];
 
@@ -152,10 +173,15 @@ export interface APIConnection {
   audioVoice: string | null;
   /** How long a speech request on this audio connection may take, in milliseconds; null is the default. */
   audioTimeoutMs?: number | null;
-  /** Whether this audio connection may generate game sound effects (ElevenLabs only today). */
+  /** Whether this audio connection may generate game sound effects. */
   audioSoundEffects: boolean;
-  /** Whether this audio connection may generate game music (ElevenLabs only today). */
+  /** Whether this audio connection may generate game music. */
   audioMusic: boolean;
+  /** Paths relative to the Audio connection's base URL, for compatible generation endpoints. */
+  audioMusicEndpoint?: string | null;
+  audioSoundEffectsEndpoint?: string | null;
+  /** Binary audio JSON endpoint, or the ACE-Step compatible Chat Completions contract. */
+  audioGenerationFormat?: "binary" | "chat_completions";
   /** Default generation parameters for new chats using this connection (JSON) */
   defaultParameters: string | null;
   /** Prompt preset to use instead of a chat's selected preset when this connection is active */

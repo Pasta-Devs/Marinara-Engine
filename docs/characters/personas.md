@@ -55,7 +55,7 @@ Opening a persona replaces the chat area with the full-page **Persona Editor**. 
 - A **Save** button. It stays greyed out until you make a change.
 - Header icon actions: **Export persona**, **Add persona as character**, **Duplicate persona**, and **Delete persona**.
 
-If you try to leave with unsaved changes, a banner appears that says "You have unsaved changes. Close without saving?". It gives you **Keep editing**, **Discard & close**, and **Save & close**.
+Leaving the editor saves your changed persona before moving on. If saving fails, the editor stays open with your draft so you can retry.
 
 The editor body has a row of tabs, in this order: **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, and **Stats**.
 
@@ -97,6 +97,22 @@ These text boxes support macros. Quote characters you type are auto-formatted to
 Marinara includes your current persona name and other card fields as reference, including edits you have not saved yet. The selected field's existing text is the base for the new section. It uses the same connection selection as character summary generation: your default agent text connection, then your default text connection, with your configured agent fallback when applicable. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 The result replaces only the chosen field in your editor draft. Review it and click **Save** to keep it. The wand itself does not save; the editor's normal save-on-leave behavior still applies when you navigate away. A failed request leaves your text intact. Editing the target field while a request is running, or opening another persona before it finishes, prevents a late result from overwriting your newer work. This is a quick alternative to asking Professor Mari to write a card.
+
+### Use alternative persona fields in selected chats
+
+Under each of the seven card fields, **+ Add Alternative Field** copies the current text into an editable alternative. Use it for a different role, history, appearance, or voice in selected chats without changing the original persona card for every chat.
+
+Edit the alternative, then open **Active in 0 chats** and check the chats where it should replace the original field. The list contains only chats using this persona. Reopen it to refresh the choices after changing a chat's persona. You can select no chats, one chat, or many chats. With no selections, the alternative stays inactive for later.
+
+You can create as many alternatives as you need. Each chat uses one alternative per field, so checking a chat in another alternative moves that field's assignment there. Leaving an alternative empty deliberately clears that field in its selected chats. Other chats keep the original field. Existing chat-specific scenario and image appearance overrides still take priority. **Summary** alternatives remain metadata and are not automatically sent in the chat prompt.
+
+An alternative has its own wand, which uses its text as the seed and the other persona card fields as reference. Generation changes only that alternative. Click **Save** to keep edits and chat assignments; normal save-on-leave also applies.
+
+The **Active in** count includes only chats currently using this persona. Saved assignments pause if the chat selects a different persona and resume if it selects this one again. Loading or unavailable chat lists do not remove assignments; reopen the picker to refresh its choices.
+
+Card exports, imports, duplication, and conversion between characters and personas keep alternative text but clear chat selections. Whole-profile backups retain those selections.
+
+Use an alternative's trash button to remove it. The confirmation offers **Cancel** to keep it or **Delete** to remove it from the draft. Save the persona to apply the removal. Its selected chats then return to the original field, subject to any existing chat overrides; deleting an alternative never deletes the original field.
 
 ### Convo tab
 

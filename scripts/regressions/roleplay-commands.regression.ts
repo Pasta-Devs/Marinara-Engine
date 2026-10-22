@@ -34,6 +34,7 @@ import { isDiceRollResult, readRoleplayDiceRolls } from "../../packages/client/s
 import { executeToolCalls } from "../../packages/server/src/services/tools/tool-executor.js";
 import { parseRollDiceToolResult } from "../../packages/server/src/services/game/dice.service.js";
 import { splitAtSceneBreaks } from "../../packages/shared/src/utils/scene-breaks.js";
+import { audioConnectionSupportsGeneration } from "../../packages/shared/src/types/connection.js";
 
 const rollResult = JSON.stringify({ notation: "2d1+3", rolls: [1, 1], modifier: 3, total: 5 });
 const inlineRoll = {
@@ -87,6 +88,8 @@ await assert.rejects(
 const soundSource = readFileSync(new URL("../../packages/server/src/routes/tts.routes.ts", import.meta.url), "utf8");
 const soundEntry = soundSource.match(/^export async function generateRoleplaySoundEffect\([\s\S]*?^}/m)?.[0];
 assert.ok(soundEntry);
+const soundIdentity = soundSource.match(/^function gameAudioCacheIdentity\([\s\S]*?^}/m)?.[0];
+assert.ok(soundIdentity);
 type AudioResult = { tag: string; path: string; cached: boolean };
 let finishAudio!: (value: AudioResult) => void;
 let failAudio!: (error: Error) => void;
@@ -99,7 +102,7 @@ let upstreamAudio = deferredAudio();
 const sharedAudio = new Map<string, Promise<AudioResult>>();
 const audioRequests: unknown[][] = [];
 const sound = runInNewContext(
-  stripTypeScriptTypes(soundEntry.replace(/^export /, "")) + "\ngenerateRoleplaySoundEffect",
+  stripTypeScriptTypes(`${soundIdentity}\n${soundEntry.replace(/^export /, "")}`) + "\ngenerateRoleplaySoundEffect",
   {
     addAbortListener,
     Promise,
@@ -109,8 +112,9 @@ const sound = runInNewContext(
     resolveAudioConfig: async () => ({ source: "elevenlabs", elevenLabsGameSoundEffects: true, apiKey: "fixture-key" }),
     normalizeGameAudioPrompt: (prompt: string) => prompt.trim(),
     logDebugOverride: () => {},
+    audioConnectionSupportsGeneration,
     gameAudioGenerationLocks: sharedAudio,
-    generateElevenLabsGameAudio: (...args: unknown[]) => {
+    generateGameAudio: (...args: unknown[]) => {
       audioRequests.push(args);
       return upstreamAudio;
     },

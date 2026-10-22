@@ -906,7 +906,9 @@ export type RulesetSheetOp =
    *  box, or the next free one above it. Told apart from the pool shape above by naming a track,
    *  which is what `"track" in op` reads. */
   | { op: "damage"; track: string; kind: string; amount: number; box?: number }
-  | { op: "track"; track: string; to?: number; by?: number }
+  /** `upTo` (1.364) stops a `by` move there: it never carries the track past it, and never moves one
+   *  already beyond it. */
+  | { op: "track"; track: string; to?: number; by?: number; upTo?: number }
   | { op: "condition"; condition: string; active: boolean }
   /** Sets a live state to one of its values, named by the value or its label. */
   | { op: "state"; state: string; value: string }
@@ -1299,7 +1301,16 @@ export function applyRulesetSheetOp(
     if (!Number.isInteger(op.to ?? op.by) || Math.abs(op.to ?? op.by!) > MAX_LIVE_NUMBER) {
       return { ok: false, reason: "bad-amount" };
     }
-    const value = clamp(moved, track.min, track.max);
+    if (op.upTo !== undefined && (!Number.isInteger(op.upTo) || Math.abs(op.upTo) > MAX_LIVE_NUMBER)) {
+      return { ok: false, reason: "bad-amount" };
+    }
+    const stopped =
+      op.upTo === undefined || op.by === undefined
+        ? moved
+        : op.by >= 0
+          ? Math.max(track.value, Math.min(moved, op.upTo))
+          : Math.min(track.value, Math.max(moved, op.upTo));
+    const value = clamp(stopped, track.min, track.max);
     setTrack(track, value);
     return done(`${track.label} ${value}`);
   }

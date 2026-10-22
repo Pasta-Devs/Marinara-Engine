@@ -633,9 +633,10 @@ echo "    Press Ctrl+C to stop"
 echo "  ══════════════════════════════════════════"
 echo ""
 
-# Open in Termux browser if available (no-op if not)
+# Keep the authenticated Android entry path, opening only after server readiness.
+BROWSER_ARGS=()
 if [ "$AUTO_OPEN_BROWSER_ENABLED" = "1" ] && command -v termux-open-url &> /dev/null; then
-    (sleep 3 && termux-open-url "${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH}") &
+    BROWSER_ARGS=(--open-browser "${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH}")
 elif [ "$AUTO_OPEN_BROWSER_ENABLED" != "1" ]; then
     echo "  [OK] Auto-open disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
 fi
@@ -691,7 +692,7 @@ cd packages/server
 # Preserve Node's real exit status. The launcher's session-wide tee has already
 # made update, build, and server output durable for the next support report.
 set +e
-node ../../scripts/run-server.mjs dist/index.js
+node ../../scripts/run-server.mjs dist/index.js "${BROWSER_ARGS[@]}"
 MARINARA_SERVER_STATUS=$?
 set -e
 if [ "$MARINARA_SERVER_STATUS" -ne 0 ]; then

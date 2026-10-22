@@ -33,7 +33,7 @@ At the top right you have these buttons:
 - **Duplicate character**.
 - **Delete character**.
 
-If you try to leave with unsaved work, a banner reads `You have unsaved changes. Close without saving?` It gives you **Keep editing**, **Discard & close**, and **Save & close**.
+Leaving the editor saves your changed card before moving on. If saving fails, the editor stays open with your draft so you can retry.
 
 The editor is split into tabs. On a wide screen the tabs run down the left side. On a narrow screen they become a scrollable strip across the top. The tabs, in order, are **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats**, and **Advanced**.
 
@@ -92,16 +92,35 @@ A short Example Dialogue entry looks like this:
 
 ### Generate a card field with the wand
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, and **Example Dialogue** each have an icon-only wand button above the field. Its tooltip and accessible name identify the field it generates.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message**, and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip and accessible name identify the field it generates.
 
 1. Write any ideas you want to keep in the field, such as `smart, scientist, handsome`, or leave it empty.
 2. Fill in any other card fields you want the AI to use as reference. You do not need to save these edits first.
-3. Click that field's wand. Marinara asks for 100–300 words for that section, using its existing text as the starting details and the other card fields as reference. Example Dialogue asks for sample exchanges rather than a prose description.
+3. Click that field's wand. Marinara asks for 100–300 words for that section, using its existing text as the starting details and the other card fields as reference. Example Dialogue asks for sample exchanges. First Message and Alternate Greeting each ask for one opening roleplay message that leaves your response up to you.
 4. Review and edit the result, then click **Save** to keep it.
 
 The wand uses the same connection selection as the original summary generator: your default agent text connection, falling back to your default text connection when needed. A configured agent fallback connection still applies. Set up a working text connection before generating; see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-Generation replaces only the chosen field in your unsaved editor draft. The wand itself does not save the card or change other fields; the editor's normal save-on-leave behavior still applies when you navigate away. If generation fails, your text stays in place. If you edit the target field while waiting, or switch to another card, a late result does not overwrite your newer work. You can use the wand without opening Professor Mari.
+Generation replaces only the chosen field in your unsaved editor draft. The wand itself does not save the card or change other fields; the editor's normal save-on-leave behavior still applies when you navigate away. If generation fails, your text stays in place. If you edit the target field while waiting, or switch to another card, a late result does not overwrite your newer work. Moving an alternate greeting keeps its generation attached to that greeting; deleting it discards the pending result. You can use the wand without opening Professor Mari.
+
+### Use alternative fields in selected chats
+
+Each of the seven card fields has **+ Add Alternative Field** below it. Use this to give the same character a different description, appearance, backstory, or other detail in particular chats while keeping the original card for everyone else.
+
+1. Click **+ Add Alternative Field** under the field you want to vary. Marinara copies its current text into a new alternative.
+2. Edit the alternative, or use its own wand. That wand uses the alternative's text as its starting details and the other card fields as reference; it does not replace the original field.
+3. Open **Active in 0 chats** and select any number of chat names. Only chats that include this character are listed. Reopen the chooser to refresh the list after adding or removing the character in another chat.
+4. Click **Save** to apply the alternative. The editor's normal save-on-leave behavior also applies.
+
+You can add as many alternatives as you need. Selecting no chats keeps one inactive for later. An empty alternative intentionally clears that field in its selected chats. Each chat can use only one alternative for the same field: selecting a chat in another alternative moves its assignment there. Other fields and other chats keep their original values. Existing chat-specific scenario and image appearance overrides still take priority.
+
+Alternatives for **Summary** remain metadata. They do not add summary text to the model's chat prompt.
+
+The **Active in** count includes only chats currently using this character. Saved assignments pause if the character is removed from a chat and resume when it is added again. Loading or unavailable chat lists do not remove assignments; reopen the picker to refresh its choices.
+
+Card exports, imports, duplication, and conversion between characters and personas keep alternative text but clear chat selections. Whole-profile backups retain those selections.
+
+To delete an alternative, use its trash button and confirm **Delete**. Cancel keeps it. Save the card to apply the removal; its selected chats then use the original field again, subject to any existing chat overrides. The original field is never deleted with an alternative.
 
 ## Adding an avatar
 

@@ -56,6 +56,10 @@ This clears pnpm's outdated install record and reinstalls the dependencies. Your
 
 If Sharp still cannot load, Engine now keeps running with image processing off: thumbnails it has already made still show, new ones show the full-size image instead, and sprite generation and the built-in background removal are unavailable. Do not replace Sharp with an unrelated version. Keep the complete error output when you report the problem.
 
+### Browser opens before startup finishes
+
+Update Marinara Engine and restart it through its launcher. The launcher now opens the browser only after the server reports that initialization is complete, including any build repair. It does not use a fixed timer. The `.env` injection message alone is not a readiness signal. If startup fails, keep the terminal error for support; no new tab should open. Set `AUTO_OPEN_BROWSER=false` if you prefer to open the app yourself.
+
 ### Blank page or JavaScript served as HTML after an update
 
 An error such as "Failed to load module script" with a `text/html` MIME type can mean the browser requested a JavaScript file that is missing from the installed build. The previous-session shutdown warning does not identify this problem, and deleting a writer lease or your data will not repair the assets.

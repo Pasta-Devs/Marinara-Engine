@@ -226,7 +226,7 @@ export async function chooseGmCombatOption(
   let personality = "";
   const characterId = meta.gameGmCharacterId ?? meta.gameSetupConfig?.gmCharacterId;
   if (typeof characterId === "string") {
-    const card = await createCharactersStorage(db).getById(characterId);
+    const card = await createCharactersStorage(db).getById(characterId, chatId);
     if (card) {
       const parsed = JSON.parse(card.data);
       const data = parsed?.data ?? parsed;

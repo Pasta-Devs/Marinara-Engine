@@ -1,5 +1,6 @@
 import {
   DECISION_SOURCES,
+  createConnectionSchema,
   defaultDecisionStateTokens,
   resolveDecisionConnectionTimeoutMs,
   resolveTtsRequestTimeoutMs,
@@ -51,6 +52,9 @@ export type ConnectionTransferRow = {
   audioTimeoutMs?: unknown;
   audioSoundEffects?: unknown;
   audioMusic?: unknown;
+  audioMusicEndpoint?: unknown;
+  audioSoundEffectsEndpoint?: unknown;
+  audioGenerationFormat?: unknown;
   service?: unknown;
   imageEndpointId?: unknown;
   imagePromptInstructions?: unknown;
@@ -98,6 +102,9 @@ export type SafeConnectionExport = {
   audioTimeoutMs: number | null;
   audioSoundEffects: boolean;
   audioMusic: boolean;
+  audioMusicEndpoint: string | null;
+  audioSoundEffectsEndpoint: string | null;
+  audioGenerationFormat: "binary" | "chat_completions";
   imageEndpointId: string | null;
   imagePromptInstructions: string | null;
   imageGenerationQuality: ImageGenerationQuality;
@@ -195,6 +202,11 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       audioTimeoutMs: provider === "audio" ? asTimeoutMs(value.audioTimeoutMs, resolveTtsRequestTimeoutMs) : null,
       audioSoundEffects: provider === "audio" && asBoolean(value.audioSoundEffects),
       audioMusic: provider === "audio" && asBoolean(value.audioMusic),
+      audioMusicEndpoint: provider === "audio" ? asAudioGenerationEndpoint(value.audioMusicEndpoint) : null,
+      audioSoundEffectsEndpoint:
+        provider === "audio" ? asAudioGenerationEndpoint(value.audioSoundEffectsEndpoint) : null,
+      audioGenerationFormat:
+        provider === "audio" && value.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary",
       promptPresetId: null,
       maxTokensOverride: asNullablePositiveInteger(value.maxTokensOverride),
       maxParallelJobs: asBoundedPositiveInteger(value.maxParallelJobs, 1, MAX_PARALLEL_JOBS),
@@ -258,6 +270,10 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     audioTimeoutMs: isAudioProvider ? asTimeoutMs(connection.audioTimeoutMs, resolveTtsRequestTimeoutMs) : null,
     audioSoundEffects: isAudioProvider && asBoolean(connection.audioSoundEffects),
     audioMusic: isAudioProvider && asBoolean(connection.audioMusic),
+    audioMusicEndpoint: isAudioProvider ? asAudioGenerationEndpoint(connection.audioMusicEndpoint) : null,
+    audioSoundEffectsEndpoint: isAudioProvider ? asAudioGenerationEndpoint(connection.audioSoundEffectsEndpoint) : null,
+    audioGenerationFormat:
+      isAudioProvider && connection.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary",
     imageEndpointId: asNullableString(connection.imageEndpointId),
     imagePromptInstructions: normalizeImagePromptInstructions(connection.imagePromptInstructions),
     imageGenerationQuality: resolveOpenAIImageQuality(connection.imageGenerationQuality, asString(connection.model)),
@@ -265,6 +281,11 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     treatAsLocalEndpoint: asBoolean(connection.treatAsLocalEndpoint),
     claudeFastMode: asBoolean(connection.claudeFastMode),
   };
+}
+
+function asAudioGenerationEndpoint(value: unknown): string | null {
+  const parsed = createConnectionSchema.shape.audioMusicEndpoint.safeParse(value);
+  return parsed.success ? parsed.data || null : null;
 }
 
 /** Unknown sources degrade to null (resolved as ElevenLabs) instead of failing the whole connection import. */

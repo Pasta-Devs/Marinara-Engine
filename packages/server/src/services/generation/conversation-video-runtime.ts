@@ -124,7 +124,7 @@ export async function generateConversationVideo(args: {
   const setup = await resolveChatVideoSetup(args.db, args.chatMeta);
   const { videoConn, runtime, durationSeconds, aspectRatio } = setup;
 
-  const characterRow = await characters.getById(args.characterId);
+  const characterRow = await characters.getById(args.characterId, args.chatId);
   if (!characterRow) throw new ChatVideoError(404, "Character not found");
   const charData = parseRecord(characterRow.data);
   const extensions = parseRecord(charData.extensions);

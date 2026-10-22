@@ -11,6 +11,7 @@ export type AppBannerSeverity = "warning" | "critical";
 export interface AppBannerCandidate {
   id: string;
   severity: AppBannerSeverity;
+  tone?: "accent";
   title: ReactNode;
   body: ReactNode;
   details?: ReactNode;
@@ -19,6 +20,7 @@ export interface AppBannerCandidate {
 
 export function AppBanner({
   severity,
+  tone,
   title,
   body,
   details,
@@ -34,14 +36,23 @@ export function AppBanner({
       <div
         className={cn(
           "flex items-start gap-3 border-b pt-[max(0.5rem,env(safe-area-inset-top))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-2 pl-[max(1rem,env(safe-area-inset-left))] text-sm",
-          critical
-            ? "border-[var(--destructive)]/40 bg-[var(--destructive)]/15"
-            : "border-amber-500/40 bg-amber-500/15",
+          tone === "accent"
+            ? "border-[var(--marinara-chat-chrome-accent)]/40 bg-[var(--marinara-chat-chrome-accent)]/15"
+            : critical
+              ? "border-[var(--destructive)]/40 bg-[var(--destructive)]/15"
+              : "border-amber-500/40 bg-amber-500/15",
         )}
       >
         <Icon
           aria-hidden="true"
-          className={cn("mt-3 h-4 w-4 shrink-0", critical ? "text-[var(--destructive)]" : "text-amber-600")}
+          className={cn(
+            "mt-3 h-4 w-4 shrink-0",
+            tone === "accent"
+              ? "text-[var(--marinara-chat-chrome-accent)]"
+              : critical
+                ? "text-[var(--destructive)]"
+                : "text-amber-600",
+          )}
         />
         <div className="min-w-0 flex-1 py-2">
           <div role={critical ? "alert" : "status"}>

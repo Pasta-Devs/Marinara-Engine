@@ -42,6 +42,8 @@ export const characterCardVersions = fileTable("character_card_versions", {
  * `services/personas/persona-projector.ts`.
  */
 export const personas = fileTable("personas", {
+  /** Chat-scoped card field alternatives (JSON). */
+  cardFieldAlternatives: text("card_field_alternatives").notNull().default("[]"),
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   /** Short comment shown under the name (for disambiguation) */

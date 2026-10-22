@@ -10,6 +10,7 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import {
+  unassignCardFieldAlternatives,
   capImportedRulesetSheets,
   containsDecisionStatements,
   dropUnreadableOnboarding,
@@ -222,6 +223,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   delete raw._botBrowserSource;
 
   const data = normalizeCharacterData(raw);
+  data.extensions.cardFieldAlternatives = unassignCardFieldAlternatives(data.extensions.cardFieldAlternatives);
   const rawEmbeddedLorebook = extractRawCharacterBook(raw) ?? data.character_book;
   if (rawEmbeddedLorebook) {
     data.character_book = normalizeCharacterBook(rawEmbeddedLorebook);

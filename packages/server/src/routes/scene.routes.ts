@@ -159,10 +159,14 @@ async function resolveConnection(
   return { conn, baseUrl };
 }
 
-async function buildCharacterContext(chars: ReturnType<typeof createCharactersStorage>, characterIds: string[]) {
+async function buildCharacterContext(
+  chars: ReturnType<typeof createCharactersStorage>,
+  characterIds: string[],
+  chatId?: string,
+) {
   let ctx = "";
   for (const cid of characterIds) {
-    const row = await chars.getById(cid);
+    const row = await chars.getById(cid, chatId);
     if (!row) continue;
     const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
     const description = typeof data.description === "string" ? data.description : "";
@@ -185,8 +189,10 @@ async function buildPersonaContext(
   chatPersonaId?: string | null,
   chatMode?: string | null,
   personaCharacterId?: string | null,
+  chatId?: string,
 ) {
   const persona = await resolveChatUserIdentity(chars, {
+    id: chatId,
     personaId: chatPersonaId,
     personaCharacterId,
     mode: chatMode,
@@ -533,7 +539,13 @@ export async function sceneRoutes(app: FastifyInstance) {
     if (!sceneChat) return reply.status(500).send({ error: "Failed to create scene chat" });
 
     // Build conversation transcript as hidden context (NOT displayed)
-    const { personaName } = await buildPersonaContext(chars, origin.personaId, origin.mode, origin.personaCharacterId);
+    const { personaName } = await buildPersonaContext(
+      chars,
+      origin.personaId,
+      origin.mode,
+      origin.personaCharacterId,
+      origin.chat?.id,
+    );
     const initiatorName = initiatorCharId ? await getCharacterName(chars, initiatorCharId) : "User";
     const historyText = (await origin.history(30, { persona: personaName, character: initiatorName }))
       .join("\n\n")
@@ -685,12 +697,13 @@ export async function sceneRoutes(app: FastifyInstance) {
     // Build context — the scene chat inherits its personaId from the origin;
     // the game guard has to come from the origin since scene chats are "roleplay"
     const characterIds = parseCharacterIds(sceneChat.characterIds);
-    const characterCtx = await buildCharacterContext(chars, characterIds);
+    const characterCtx = await buildCharacterContext(chars, characterIds, sceneChat.id);
     const { personaName, personaCtx } = await buildPersonaContext(
       chars,
       sceneChat.personaId,
       packageOrigin ? "conversation" : sceneOriginChat?.mode,
       sceneChat.personaCharacterId,
+      sceneChat.id,
     );
 
     // Get all scene messages for the summary
@@ -1108,12 +1121,13 @@ export async function sceneRoutes(app: FastifyInstance) {
     const provider = await createSceneProvider(conn, baseUrl, createReplyFallbackNotifier(reply));
 
     const characterIds = participants.characterIds;
-    const characterCtx = await buildCharacterContext(chars, characterIds);
+    const characterCtx = await buildCharacterContext(chars, characterIds, origin.chat?.id);
     const { personaName, personaCtx } = await buildPersonaContext(
       chars,
       participants.personaId,
       origin.mode,
       participants.personaCharacterId,
+      origin.chat?.id,
     );
 
     // Get available backgrounds
@@ -1128,6 +1142,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       origin.personaId,
       origin.mode,
       origin.personaCharacterId,
+      origin.chat?.id,
     );
 
     // Get recent conversation for context

@@ -20,6 +20,7 @@ import {
   resolveTtsRequestTimeoutMs,
   TTS_SETTINGS_KEY,
   TTS_API_KEY_MASK,
+  audioConnectionSupportsGeneration,
   ttsRoleplaySpeakerExtractorResponseSchema,
   type TTSSource,
   type TTSConfig,
@@ -40,6 +41,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { generateCompatibleGameAudio } from "../services/game/compatible-audio.js";
 
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
 const OPENAI_FALLBACK_VOICES = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
@@ -183,6 +185,7 @@ const extractedDialogueSchema = z.object({
 const gameAudioSchema = z.object({
   kind: z.enum(["sfx", "music"]),
   prompt: z.string().trim().min(1).max(4_100),
+  debugMode: z.boolean().default(false),
   /** Optional audio-connection override (#5146); absent = default/legacy resolution. */
   audioConnectionId: z.string().optional(),
   /** Context-track request (#5161): a persistent composition generated ONCE
@@ -227,14 +230,20 @@ function scheduleGameAssetManifestRebuild(): void {
 
 type GameAudioContext = { axis: "area" | "tier"; key: string; lengthMs?: number };
 
-async function generateElevenLabsGameAudio(
-  cfg: TTSConfig,
+function gameAudioCacheIdentity(cfg: ResolvedAudioConfig, kind: "sfx" | "music"): string {
+  if (cfg.source === "elevenlabs") return ""; // Preserve existing ElevenLabs cache paths.
+  return `${configuredBaseUrl(cfg)}\0${cfg.model}\0${cfg.audioGenerationFormat}\0${kind === "music" ? cfg.audioMusicEndpoint : cfg.audioSoundEffectsEndpoint}\0`;
+}
+
+async function generateGameAudio(
+  cfg: ResolvedAudioConfig,
   kind: "sfx" | "music",
   prompt: string,
   context?: GameAudioContext,
 ): Promise<{ tag: string; path: string; cached: boolean }> {
   const normalizedPrompt = normalizeGameAudioPrompt(prompt);
-  const hash = createHash("sha256").update(`${kind}\0${normalizedPrompt.toLowerCase()}`).digest("hex");
+  const identity = gameAudioCacheIdentity(cfg, kind);
+  const hash = createHash("sha256").update(`${identity}${kind}\0${normalizedPrompt.toLowerCase()}`).digest("hex");
   let category: string;
   let fileName: string;
   let tag: string;
@@ -280,35 +289,53 @@ async function generateElevenLabsGameAudio(
   // Longer compositions take the provider longer to render; give context
   // tracks the headroom a 2-minute piece needs.
   const timeoutMs = context ? 300_000 : 180_000;
-  const response = await safeFetch(`${elevenLabsApiRoot(configuredBaseUrl(cfg))}${endpoint}`, {
-    method: "POST",
-    headers: elevenLabsHeaders(cfg.apiKey),
-    body: JSON.stringify(
-      kind === "sfx"
-        ? { text: normalizedPrompt, prompt_influence: 0.3 }
-        : {
-            prompt: normalizedPrompt,
-            music_length_ms: context ? (context.lengthMs ?? 120_000) : 30_000,
-            force_instrumental: true,
+  const response =
+    cfg.source === "elevenlabs"
+      ? await safeFetch(`${elevenLabsApiRoot(configuredBaseUrl(cfg))}${endpoint}`, {
+          method: "POST",
+          headers: elevenLabsHeaders(cfg.apiKey),
+          body: JSON.stringify(
+            kind === "sfx"
+              ? { text: normalizedPrompt, prompt_influence: 0.3 }
+              : {
+                  prompt: normalizedPrompt,
+                  music_length_ms: context ? (context.lengthMs ?? 120_000) : 30_000,
+                  force_instrumental: true,
+                },
+          ),
+          signal: AbortSignal.timeout(timeoutMs),
+          policy: {
+            allowLocal: false,
+            allowedProtocols: ["https:"],
           },
-    ),
-    signal: AbortSignal.timeout(timeoutMs),
-    policy: {
-      allowLocal: false,
-      allowedProtocols: ["https:"],
-    },
-    maxResponseBytes: MAX_GAME_AUDIO_BYTES,
-    decodeCompressedResponse: true,
-  });
-  if (!response.ok) {
+          maxResponseBytes: MAX_GAME_AUDIO_BYTES,
+          decodeCompressedResponse: true,
+        })
+      : null;
+  if (response && !response.ok) {
     const detail = readProviderErrorDetail(await response.text().catch(() => ""));
     throw new Error(detail || `ElevenLabs returned ${response.status}`);
   }
 
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (!resolveTTSAudioResponseContentType(response.headers.get("content-type"), bytes)) {
-    throw new Error("ElevenLabs returned a non-audio response");
+  const bytes = response
+    ? new Uint8Array(await response.arrayBuffer())
+    : await generateCompatibleGameAudio({
+        baseUrl: configuredBaseUrl(cfg),
+        endpoint: (kind === "music" ? cfg.audioMusicEndpoint : cfg.audioSoundEffectsEndpoint) ?? "",
+        apiKey: cfg.apiKey,
+        model: cfg.model,
+        format: cfg.audioGenerationFormat ?? "binary",
+        prompt: normalizedPrompt,
+        duration: context ? (context.lengthMs ?? 120_000) / 1000 : 5,
+        allowLocal: allowLocalTtsUrl(cfg),
+        timeoutMs,
+        maxBytes: MAX_GAME_AUDIO_BYTES,
+      });
+  const audioType = resolveTTSAudioResponseContentType(response?.headers.get("content-type") ?? null, bytes);
+  if (!audioType) {
+    throw new Error("Audio provider returned a non-audio response");
   }
+  if (!response && audioType !== "audio/mpeg") throw new Error("Compatible audio endpoint must return MP3 audio");
 
   await mkdir(targetDirectory, { recursive: true });
   const temporaryPath = join(targetDirectory, `.${hash}.${randomUUID()}.tmp`);
@@ -335,17 +362,25 @@ export async function generateRoleplaySoundEffect(
   const cfg = await resolveAudioConfig(createAppSettingsStorage(db), createConnectionsStorage(db), connectionId);
   signal?.throwIfAborted();
   if (cfg.connectionUnavailable) throw new Error(TTS_CONNECTION_UNAVAILABLE);
-  if (cfg.source !== "elevenlabs" || cfg.elevenLabsGameSoundEffects !== true || !cfg.apiKey)
-    throw new Error("Choose an ElevenLabs audio connection with sound effect generation enabled.");
+  if (
+    !audioConnectionSupportsGeneration(
+      {
+        audioSource: cfg.source,
+        audioSoundEffects: cfg.elevenLabsGameSoundEffects,
+        audioSoundEffectsEndpoint: cfg.audioSoundEffectsEndpoint,
+      },
+      "sfx",
+    ) ||
+    (cfg.source === "elevenlabs" && !cfg.apiKey)
+  )
+    throw new Error("Choose an audio connection with sound effect generation enabled.");
   const normalized = normalizeGameAudioPrompt(prompt);
   logDebugOverride(debugMode, "[debug/roleplay/sound] Prompt sent to audio provider:\n%s", normalized);
-  const key = `sfx\0${normalized.toLowerCase()}`;
+  const key = `${gameAudioCacheIdentity(cfg, "sfx")}sfx\0${normalized.toLowerCase()}`;
   let generation = gameAudioGenerationLocks.get(key);
   if (!generation) {
     // Shared Game/Roleplay work finishes for other waiters and the audio cache.
-    generation = generateElevenLabsGameAudio(cfg, "sfx", normalized).finally(() =>
-      gameAudioGenerationLocks.delete(key),
-    );
+    generation = generateGameAudio(cfg, "sfx", normalized).finally(() => gameAudioGenerationLocks.delete(key));
     gameAudioGenerationLocks.set(key, generation);
   }
   let abortListener: ReturnType<typeof addAbortListener> | undefined;
@@ -624,7 +659,13 @@ export const LEGACY_TTS_CONFIG_SENTINEL = "";
 
 const TTS_CONNECTION_UNAVAILABLE = "The Audio connection chosen for Text to Speech is missing or unavailable.";
 
-type ResolvedAudioConfig = TTSConfig & { connectionName?: string; connectionUnavailable?: true };
+type ResolvedAudioConfig = TTSConfig & {
+  connectionName?: string;
+  connectionUnavailable?: true;
+  audioMusicEndpoint?: string | null;
+  audioSoundEffectsEndpoint?: string | null;
+  audioGenerationFormat?: string;
+};
 
 async function resolveAudioConfig(
   storage: ReturnType<typeof createAppSettingsStorage>,
@@ -670,6 +711,9 @@ async function resolveAudioConfig(
     apiKey: row.apiKey,
     elevenLabsGameSoundEffects: row.audioSoundEffects === "true",
     elevenLabsGameMusic: row.audioMusic === "true",
+    audioMusicEndpoint: row.audioMusicEndpoint,
+    audioSoundEffectsEndpoint: row.audioSoundEffectsEndpoint,
+    audioGenerationFormat: row.audioGenerationFormat,
     // The connection's own limit, never the settings card's: each one is set where its server is.
     requestTimeoutMs: resolveTtsRequestTimeoutMs(row.audioTimeoutMs),
     connectionName: row.name,
@@ -1643,7 +1687,7 @@ export async function ttsRoutes(app: FastifyInstance) {
    * Generates and caches scene-specific Game Mode music or sound effects.
    */
   app.post("/game-audio", async (req, reply) => {
-    const { kind, prompt, audioConnectionId, context } = gameAudioSchema.parse(req.body);
+    const { kind, prompt, audioConnectionId, context, debugMode } = gameAudioSchema.parse(req.body);
     if (context && kind !== "music") {
       return reply.status(400).send({ error: "Context tracks are music only" });
     }
@@ -1666,20 +1710,35 @@ export async function ttsRoutes(app: FastifyInstance) {
     const cfg = await resolveAudioConfig(storage, connections, audioConnectionId);
     if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
     const enabled = kind === "sfx" ? cfg.elevenLabsGameSoundEffects === true : cfg.elevenLabsGameMusic === true;
-    if (cfg.source !== "elevenlabs" || !enabled) {
-      return reply.status(400).send({ error: `ElevenLabs game ${kind} generation is not enabled` });
+    if (
+      !audioConnectionSupportsGeneration(
+        {
+          audioSource: cfg.source,
+          audioMusic: cfg.elevenLabsGameMusic,
+          audioSoundEffects: cfg.elevenLabsGameSoundEffects,
+          audioMusicEndpoint: cfg.audioMusicEndpoint,
+          audioSoundEffectsEndpoint: cfg.audioSoundEffectsEndpoint,
+        },
+        kind,
+      ) ||
+      !enabled
+    ) {
+      return reply.status(400).send({ error: `Game ${kind} generation is not enabled for this audio connection` });
     }
-    if (!cfg.apiKey) {
+    if (cfg.source === "elevenlabs" && !cfg.apiKey) {
       return reply.status(400).send({ error: "ElevenLabs API key is not configured" });
     }
 
     const normalizedPrompt = normalizeGameAudioPrompt(prompt);
+    logDebugOverride(debugMode, "[debug/game/audio] Prompt sent to audio provider:\n%s", normalizedPrompt);
     // Context generations lock on their KEY: two turns racing the same area
     // must collapse into one composition even when their prompts differ.
-    const lockKey = context ? `context\0${context.axis}\0${context.key}` : `${kind}\0${normalizedPrompt.toLowerCase()}`;
+    const lockKey = context
+      ? `context\0${context.axis}\0${context.key}`
+      : `${gameAudioCacheIdentity(cfg, kind)}${kind}\0${normalizedPrompt.toLowerCase()}`;
     let generation = gameAudioGenerationLocks.get(lockKey);
     if (!generation) {
-      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt, context).finally(() => {
+      generation = generateGameAudio(cfg, kind, normalizedPrompt, context).finally(() => {
         gameAudioGenerationLocks.delete(lockKey);
       });
       gameAudioGenerationLocks.set(lockKey, generation);
@@ -1687,9 +1746,9 @@ export async function ttsRoutes(app: FastifyInstance) {
     try {
       return await generation;
     } catch (error) {
-      logger.error(error, "ElevenLabs game %s generation failed", kind);
+      logger.error(error, "Game %s audio generation failed", kind);
       return reply.status(502).send({
-        error: `ElevenLabs game ${kind} generation failed`,
+        error: `Game ${kind} audio generation failed`,
         detail: error instanceof Error ? error.message : "Unknown provider error",
       });
     }

@@ -47,6 +47,7 @@ function stringValue(value: unknown): string {
 export async function resolveChatUserIdentity(
   storage: CharactersStorage,
   chat: {
+    id?: string;
     personaId?: string | null;
     personaCharacterId?: string | null;
     mode?: string | null;
@@ -56,7 +57,7 @@ export async function resolveChatUserIdentity(
   preloadedPersonas?: Awaited<ReturnType<CharactersStorage["listPersonas"]>>,
 ): Promise<ChatUserIdentity | null> {
   if (chat.personaCharacterId) {
-    const row = await storage.getById(chat.personaCharacterId);
+    const row = await storage.getById(chat.personaCharacterId, chat.id);
     if (!row) return null;
     let rawData: unknown = row.data;
     if (typeof rawData === "string") {
@@ -98,8 +99,9 @@ export async function resolveChatUserIdentity(
   }
 
   if (!chat.personaId) return null;
-  const personas = preloadedPersonas ?? (await storage.listPersonas());
-  const persona = resolveChatPersonaCandidate(personas, chat.personaId);
+  const persona = chat.id
+    ? await storage.getPersona(chat.personaId, chat.id)
+    : resolveChatPersonaCandidate(preloadedPersonas ?? (await storage.listPersonas()), chat.personaId);
   if (!persona) return null;
   return {
     source: "persona",

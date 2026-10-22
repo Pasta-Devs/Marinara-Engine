@@ -10822,4 +10822,10 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
 }
 
+// A closed story ending (Capability API 1.343) stays closed when the game surface mounts again: the close
+// is kept in this browser by game and ending, and read back before the ending is shown.
+assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
+assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
+assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
+
 console.info("Open-issue regressions passed.");

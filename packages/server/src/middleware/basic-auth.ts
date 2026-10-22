@@ -100,6 +100,12 @@ function loadConfig(): CachedConfig | null {
       };
     } else {
       cached = { raw, resolved: null };
+      if (raw.user || raw.pass) {
+        logger.warn(
+          "[basic-auth] %s is empty, so Basic Auth stays off. Set both BASIC_AUTH_USER and BASIC_AUTH_PASS.",
+          raw.user ? "BASIC_AUTH_PASS" : "BASIC_AUTH_USER",
+        );
+      }
     }
   }
 

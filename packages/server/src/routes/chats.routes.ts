@@ -63,6 +63,7 @@ import {
   MAX_PINNED_CONTEXT_MESSAGES,
   semanticSummaryRetrievalSettingsSchema,
   DEFAULT_GENERATION_PARAMS,
+  isStockMarinaraUniversalPreset,
   omitChatMetadataLocalDestinations,
 } from "@marinara-engine/shared";
 import type {
@@ -532,7 +533,7 @@ function toPeekPromptMessages(
 
 async function buildPersonaSnapshotForChat(
   app: FastifyInstance,
-  chat: { personaId?: string | null; personaCharacterId?: string | null; mode?: string | null } | null,
+  chat: { id?: string; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null } | null,
 ) {
   const charactersStore = createCharactersStorage(app.db);
   if (!chat) return null;
@@ -3668,7 +3669,10 @@ export async function chatsRoutes(app: FastifyInstance) {
                 isSceneChat: chatMeta.sceneStatus === "active",
                 chatParameters: chatMeta.chatParameters,
                 baseReasoningEffort:
-                  preset && chatMode !== "conversation" && chatMode !== "game"
+                  preset &&
+                  !isStockMarinaraUniversalPreset(preset) &&
+                  chatMode !== "conversation" &&
+                  chatMode !== "game"
                     ? (parsePresetParameters(preset.parameters).reasoningEffort ?? null)
                     : DEFAULT_GENERATION_PARAMS.reasoningEffort,
               })
@@ -4021,7 +4025,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                   individual: normalizeGroupChatMode(chatMeta.groupChatMode) === "individual",
                   impersonate: false,
                   narratorCharacterId: normalizeAdvancedMemorySettings(chatMeta.advancedMemory).narratorCharacterId,
-                  ...(await resolveCharacterMacroData(app.db, assistantCharacterIds)),
+                  ...(await resolveCharacterMacroData(app.db, assistantCharacterIds, chat.id)),
                 })
               : undefined,
             enableAgents: chatMeta.enableAgents === true,
@@ -4095,7 +4099,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           // Character info fallback
           for (const cid of assistantCharacterIds) {
-            const charRow = await charStore.getById(cid);
+            const charRow = await charStore.getById(cid, chat.id);
             if (!charRow) continue;
             const charData = JSON.parse(charRow.data as string);
             const charName = charData.name ?? "Unknown";

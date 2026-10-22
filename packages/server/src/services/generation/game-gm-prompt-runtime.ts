@@ -30,12 +30,12 @@ type PromptMessage = {
 };
 
 type CharactersStore = {
-  getById(id: string): Promise<{ data: unknown } | null>;
-  getPersona(id: string): Promise<any | null>;
+  getById(id: string, chatId?: string): Promise<{ data: unknown } | null>;
+  getPersona(id: string, chatId?: string): Promise<any | null>;
 };
 
 type ChatsStore = {
-  getById(id: string): Promise<{ metadata?: unknown } | null>;
+  getById(id: string, chatId?: string): Promise<{ metadata?: unknown } | null>;
   updateMetadata(chatId: string, metadata: Record<string, unknown>): Promise<unknown>;
 };
 
@@ -193,7 +193,7 @@ export async function injectGameGmPromptRuntime(args: {
   const gmCharId = args.chatMetadata.gameGmCharacterId as string | null;
   if (gmCharId) {
     try {
-      const gmChar = await args.chars.getById(gmCharId);
+      const gmChar = await args.chars.getById(gmCharId, args.chatId);
       if (gmChar) {
         const gmData = parseMaybeJson(gmChar.data) as any;
         const { parts } = buildLibraryCardParts(gmData);
@@ -221,7 +221,7 @@ export async function injectGameGmPromptRuntime(args: {
   for (const pcId of partyCharIds) {
     if (isPartyNpcId(pcId)) continue;
     try {
-      const pc = await args.chars.getById(pcId);
+      const pc = await args.chars.getById(pcId, args.chatId);
       if (pc) {
         const pcData = parseMaybeJson(pc.data) as any;
         const { name, parts } = buildLibraryCardParts(pcData);
@@ -255,7 +255,7 @@ export async function injectGameGmPromptRuntime(args: {
   const roomPersona = roomHostIdentity();
   if (playerPersonaId || roomPersona) {
     try {
-      const persona = roomPersona ?? (await args.chars.getPersona(playerPersonaId!));
+      const persona = roomPersona ?? (await args.chars.getPersona(playerPersonaId!, args.chatId));
       if (persona) {
         const parts = [`Name: ${persona.name}`];
         const description = cardPromptText(persona.description);

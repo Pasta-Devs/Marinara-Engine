@@ -424,6 +424,7 @@ export async function seedDefaultPreset(db: DB) {
         existingMarinaraPreset,
         bundledConversationPromptValue,
       );
+      await storage.update(existingMarinaraPreset.id, { parameters: {} });
       await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
       await appSettings.set(MARINARA_PRESET_SNAPSHOT_KEY, computeBundledPresetSnapshotHash(bundled.envelope));
       logger.info(
@@ -472,6 +473,7 @@ export async function seedDefaultPreset(db: DB) {
   if (existing.length === 0) await storage.setDefault(presetId);
   await storage.setSystemKey(presetId, MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY);
   await storage.update(presetId, {
+    parameters: {},
     conversationPrompt: bundledConversationPrompt(bundled.envelope.data.preset),
     gamePrompt: bundledGamePrompt(bundled.envelope.data.preset),
     defaultChoices: parseJsonField(bundled.envelope.data.preset.defaultChoices, {}),

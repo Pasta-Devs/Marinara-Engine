@@ -4,6 +4,9 @@
 // time), which way it faces, and how big it is drawn. Never read by a fight's rules.
 // ──────────────────────────────────────────────
 import type { CreatureFacing, CreaturePack, CreaturePackCreature } from "../world/creature-pack.js";
+import { rulesetAirborne } from "../ruleset-combat/grid.js";
+import type { RulesetCombatant } from "../ruleset-combat/types.js";
+import type { TacticalGrid } from "./types.js";
 
 /** A name or a ref as a Game Master writes it: case and punctuation set aside, as a bestiary is searched. */
 function plainly(text: string): string {
@@ -94,17 +97,31 @@ export function creatureArtBox(creature: Pick<CreaturePackCreature, "w" | "h">):
   return { left: (1 - creature.w) / 2, top: 1 - creature.h, width: creature.w, height: creature.h };
 }
 
-/** A frame's top-left pixel on its sheet: the facing's row, the standing frame of a walking block. */
+/** A frame's top-left pixel on its sheet: the facing's row, the standing frame of a walking block. In the
+ *  air (`flying`), the frame `step` of its flying block for its look, when it has one (1.352). */
 export function creatureArtFrame(
   pack: Pick<CreaturePack, "tileSize">,
   creature: CreaturePackCreature,
   variant: number,
   facing: CreatureFacing,
   step: 0 | 1 | 2 = 1,
+  flying = false,
 ): { sheet: string; sx: number; sy: number; sw: number; sh: number } {
-  const look = creature.variants[Math.max(0, Math.min(creature.variants.length - 1, variant))]!;
+  const at = Math.max(0, Math.min(creature.variants.length - 1, variant));
+  const fly = flying && creature.fly ? (creature.fly[at] ?? creature.fly[0]!) : null;
+  const look = fly ?? creature.variants[at]!;
   const row = ["down", "left", "right", "up"].indexOf(facing);
-  const column = creature.frames === 3 ? step : 0;
+  const column = fly || creature.frames === 3 ? step : 0;
   const [sw, sh] = [creature.w * pack.tileSize, creature.h * pack.tileSize];
   return { sheet: look.sheet, sx: look.x * pack.tileSize + column * sw, sy: look.y * pack.tileSize + row * sh, sw, sh };
+}
+
+/**
+ * Whether a ruleset fighter is shown flying (1.352): it is in the air (its `airborne` flag, 1.354), up
+ * above the ground, or a flier with no walk, which never lands. Art
+ * only: never read by the fight's rules.
+ */
+export function rulesetCombatantFlying(grid: TacticalGrid | undefined, combatant: RulesetCombatant): boolean {
+  if (!(combatant.speeds?.fly ?? 0)) return false;
+  return Boolean(combatant.airborne || combatant.speed <= 0 || rulesetAirborne(grid, combatant));
 }

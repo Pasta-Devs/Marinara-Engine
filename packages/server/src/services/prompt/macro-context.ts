@@ -412,7 +412,7 @@ export async function buildReferencedPersonaContext(input: {
     Math.max(0, input.maxReferences ?? MAX_REFERENCED_PERSONAS),
   );
   const referencedIds = candidateIds.filter((id) => id !== input.activePersonaId);
-  const referencedRows = await Promise.all(referencedIds.map((id) => characters.getPersona(id)));
+  const referencedRows = await Promise.all(referencedIds.map((id) => characters.getPersona(id, input.chatId)));
   const referenced = referencedIds.flatMap((id, index) => {
     const persona = referencedRows[index];
     return persona ? [{ id, persona }] : [];
@@ -509,7 +509,7 @@ export async function buildReferencedCharacterContext(input: {
   const sources = [...input.sources, ...input.chatMessages.map((message) => message.content)];
 
   const activeNames = new Map<string, string>();
-  const activeRows = await Promise.all([...activeIds].map((id) => characters.getById(id)));
+  const activeRows = await Promise.all([...activeIds].map((id) => characters.getById(id, input.chatId)));
   [...activeIds].forEach((id, index) => {
     const data = parseCharacterData(activeRows[index]?.data);
     if (!data) return;
@@ -520,7 +520,7 @@ export async function buildReferencedCharacterContext(input: {
   // Every referenced ID gets a name in every mode; the cap only limits which cards are added (#6956).
   const mentionedIds = extractCharacterReferenceIds(sources, Infinity);
   const outsideIds = mentionedIds.filter((id) => !activeIds.has(id));
-  const outsideRows = await Promise.all(outsideIds.map((id) => characters.getById(id)));
+  const outsideRows = await Promise.all(outsideIds.map((id) => characters.getById(id, input.chatId)));
   const outside = outsideIds.flatMap((id, index) => {
     const data = parseCharacterData(outsideRows[index]?.data);
     return data ? [{ id, data }] : [];
@@ -719,7 +719,11 @@ function parseCharacterData(raw: unknown): CharacterData | null {
   return null;
 }
 
-export async function resolveCharacterMacroData(db: DB, characterIds: string[]): Promise<CharacterMacroData> {
+export async function resolveCharacterMacroData(
+  db: DB,
+  characterIds: string[],
+  chatId?: string,
+): Promise<CharacterMacroData> {
   if (characterIds.length === 0)
     return { names: [], phoneticNames: [], profiles: [], profilesById: new Map(), unreadableIds: new Set() };
 
@@ -732,7 +736,7 @@ export async function resolveCharacterMacroData(db: DB, characterIds: string[]):
   let primaryFields: CharacterMacroData["primaryFields"] | undefined;
 
   for (const id of characterIds) {
-    const row = await chars.getById(id);
+    const row = await chars.getById(id, chatId);
     const data = parseCharacterData(row?.data);
     if (!data) {
       if (row) unreadableIds.add(id);
@@ -797,9 +801,9 @@ export async function loadLorebookIncludesFor(
 }
 
 export async function buildPromptMacroContext(input: BuildPromptMacroContextInput): Promise<MacroContext> {
-  const characterMacroData = await resolveCharacterMacroData(input.db, input.characterIds);
+  const characterMacroData = await resolveCharacterMacroData(input.db, input.characterIds, input.chatId);
   const groupCharacterMacroData = input.groupCharacterIds
-    ? await resolveCharacterMacroData(input.db, input.groupCharacterIds)
+    ? await resolveCharacterMacroData(input.db, input.groupCharacterIds, input.chatId)
     : characterMacroData;
   const variables = input.variables ?? {};
 
@@ -992,7 +996,7 @@ export async function collectCharacterDepthPromptEntries(
   const entries: PromptDepthEntry[] = [];
 
   for (const id of characterIds) {
-    const row = await chars.getById(id);
+    const row = await chars.getById(id, macroCtx.chatId);
     const data = parseCharacterData(row?.data);
     const depthPrompt = normalizeDepthPrompt(data?.extensions?.depth_prompt);
     if (!depthPrompt) continue;
@@ -1035,7 +1039,7 @@ export async function collectCharacterPostHistoryEntries(
   const multiCharacter = characterIds.length > 1;
 
   for (const id of characterIds) {
-    const row = await chars.getById(id);
+    const row = await chars.getById(id, macroCtx.chatId);
     const data = parseCharacterData(row?.data);
     const raw = stripMacroComments(data?.post_history_instructions ?? "").trim();
     if (!data || !raw) continue;

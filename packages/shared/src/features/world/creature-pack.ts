@@ -13,6 +13,9 @@ export type CreaturePackSize = (typeof CREATURE_PACK_SIZES)[number];
 export const CREATURE_FACINGS = Object.freeze(["down", "left", "right", "up"] as const);
 export type CreatureFacing = (typeof CREATURE_FACINGS)[number];
 
+/** The order a flying block's three frames play in, over and over (Capability API 1.352). */
+export const CREATURE_FLY_STEPS = Object.freeze([0, 1, 2, 1] as const);
+
 export const CREATURE_PACK_MAX = Object.freeze({ creatures: 2000, variants: 8, sheets: 64, span: 6, sheetPx: 8192 });
 const PNG_DATA_URL = "data:image/png;base64,";
 const id = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/, "An id is lowercase letters, digits, _ and -");
@@ -24,7 +27,8 @@ const packId = z
 
 export const creaturePackSchema = z
   .object({
-    creaturePackVersion: z.literal(1),
+    /** 2 for a pack with flying blocks (Capability API 1.352), so an older Engine refuses it plainly. */
+    creaturePackVersion: z.union([z.literal(1), z.literal(2)]),
     id: packId,
     name: z.string().trim().min(1).max(80),
     version: z.number().int().min(1).max(100_000),
@@ -80,6 +84,22 @@ export const creaturePackSchema = z
               )
               .min(1)
               .max(CREATURE_PACK_MAX.variants),
+            /** Its flying (Capability API 1.352): a block laid out as a walking one (three frames across,
+             *  the four facings down), played 0, 1, 2, 1 while it is in the air. One per look, or one for
+             *  every look. */
+            fly: z
+              .array(
+                z
+                  .object({
+                    sheet: id,
+                    x: z.number().int().min(0).max(CREATURE_PACK_MAX.sheetPx),
+                    y: z.number().int().min(0).max(CREATURE_PACK_MAX.sheetPx),
+                  })
+                  .strict(),
+              )
+              .min(1)
+              .max(CREATURE_PACK_MAX.variants)
+              .optional(),
           })
           .strict(),
       )
@@ -114,7 +134,7 @@ export function sheetPngSize(dataUrl: string): { width: number; height: number }
 /**
  * A creature pack read and checked before it is kept: its shape; one id per sheet and per creature; every
  * sheet a PNG of the size it states; every look's block (`frames` frames across, the four facings down,
- * each frame `w` by `h` cells) inside its sheet. A creature matching what another creature earlier in
+ * each frame `w` by `h` cells) inside its sheet, and every flying block (three frames across) too. A creature matching what another creature earlier in
  * the pack matches is noted (the earlier one is drawn).
  */
 export function parseCreaturePack(input: unknown): CreaturePackRead {
@@ -166,6 +186,25 @@ export function parseCreaturePack(input: unknown): CreaturePackRead {
       ];
       if (right > sheet.width || bottom > sheet.height)
         issues.push(`${label} reaches past the edge of the sheet "${sheet.id}".`);
+    }
+    if (creature.fly) {
+      if (pack.creaturePackVersion < 2)
+        issues.push(`The creature "${creature.id}" flies, which needs creaturePackVersion 2.`);
+      if (creature.fly.length !== 1 && creature.fly.length !== creature.variants.length)
+        issues.push(`The creature "${creature.id}" has ${creature.fly.length} flying blocks: one, or one a look.`);
+      for (const [n, look] of creature.fly.entries()) {
+        const sheet = sheets.get(look.sheet);
+        const label = `The creature "${creature.id}"'s flying${creature.fly.length > 1 ? ` (look ${n + 1})` : ""}`;
+        if (!sheet) {
+          issues.push(`${label}: no sheet "${look.sheet}".`);
+          continue;
+        }
+        if (
+          (look.x + 3 * creature.w) * pack.tileSize > sheet.width ||
+          (look.y + 4 * creature.h) * pack.tileSize > sheet.height
+        )
+          issues.push(`${label} reaches past the edge of the sheet "${sheet.id}".`);
+      }
     }
     for (const name of creature.match) {
       const earlier = matched.get(key(name));

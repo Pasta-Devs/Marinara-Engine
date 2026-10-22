@@ -86,8 +86,8 @@ const LazyAppShell = lazy(() =>
 
 type HealthResponse = {
   status: string;
-  timestamp: string;
-  version: string;
+  timestamp?: string;
+  version?: string;
   build?: string | null;
 };
 
@@ -1049,11 +1049,13 @@ export function App() {
           return;
         }
 
-        const health = (await res.json()) as HealthResponse;
-        if (cancelled) {
+        const { version, build } = (await res.json()) as HealthResponse;
+        // An untrusted caller gets only `{ status: "ok" }`, which says nothing about the build.
+        if (cancelled || !version) {
           return;
         }
 
+        const health = { version, build };
         const serverBuild = getServerRuntimeBuild(health);
         if (isRuntimeBuildCurrent(APP_VERSION, CLIENT_BUILD, health)) {
           return;

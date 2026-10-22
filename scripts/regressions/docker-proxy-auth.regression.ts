@@ -178,9 +178,23 @@ try {
   delete process.env.MARINARA_DOCKER;
 
   assert.equal(
-    isTrustedInterfaceRequest(request({}, "100.64.0.42", "100.100.10.20")),
+    isTrustedInterfaceRequest(request({}, "100.64.0.42", "100.100.10.20"), {
+      interfaces: {
+        tailscale0: [
+          {
+            address: "100.100.10.20",
+            netmask: "255.192.0.0",
+            family: "IPv4",
+            mac: "00:00:00:00:00:00",
+            internal: false,
+            cidr: "100.100.10.20/10",
+          },
+        ],
+      },
+      platform: "linux",
+    }),
     true,
-    "direct Tailscale traffic is trusted when both socket addresses are in the tailnet range",
+    "direct Tailscale traffic is trusted when the local socket address is on the Tailscale interface",
   );
   assert.equal(
     isTrustedInterfaceRequest(request({}, "100.64.0.42", "192.168.1.20")),

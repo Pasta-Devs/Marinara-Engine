@@ -1,4 +1,9 @@
-import { applyClockCommandTags, TTS_SETTINGS_KEY, type RulesetClocks } from "@marinara-engine/shared";
+import {
+  applyClockCommandTags,
+  TTS_SETTINGS_KEY,
+  isStockMarinaraUniversalPreset,
+  type RulesetClocks,
+} from "@marinara-engine/shared";
 import {
   currentRoomGeneration,
   resolveRoomGenerationPolicy,
@@ -52,6 +57,27 @@ import {
 } from "../services/generation/agent-activation-questions.js";
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
+import { readMapPackPeople } from "../services/game/map-pack.service.js";
+import {
+  gameNoncombatants,
+  gamePartySize,
+  storyPartyNames,
+  syncCompanionSheets,
+} from "../services/game/experience-companions.service.js";
+import {
+  loadStoryExposureSheets,
+  rollStoryExposureSavesWith,
+  storyPartyCarriesShade,
+} from "../services/game/story-exposure-saves.service.js";
+import {
+  dropHeldGroundPending,
+  heldGroundFightUnfinished,
+  heldGroundReleasedInFight,
+  keepHeldGroundPending,
+  pendingRelease,
+  rollStoryOwingWith,
+} from "../services/game/story-held-ground.service.js";
+import { gameStorySpends } from "../services/game/story-item-uses.service.js";
 import {
   createAdvancedMemoryService,
   sceneCheckTranscript,
@@ -215,6 +241,8 @@ import {
   worldWhereYouAreText,
   worldPeopleNamed,
   worldPersonNpc,
+  experienceDressedNpc,
+  experienceCompanionsPromptText,
   applyWorldHistoryTags,
   worldHistoryAnswerText,
   applyWorldTags,
@@ -222,6 +250,9 @@ import {
   gameStoryFromMetadata,
   readToldLedger,
   refuseStoryTags,
+  storyGivesById,
+  storyIsRef,
+  type StoryItemLabel,
   readStoryLedger,
   storyFightBroken,
   storyFightOutcome,
@@ -231,6 +262,7 @@ import {
   gameIntroFor,
   gameIntroGuidanceText,
   readGameIntroChoice,
+  readGameIntro,
   type GameIntro,
   type StoryScript,
   type StoryTurn,
@@ -698,7 +730,13 @@ import {
   shouldSuppressAssistantSpatialMutation,
   validateSpatialGenerationRequest,
 } from "./generate/spatial-transition-request.js";
-import { addMinutes, createInitialTime, formatGameTime, type GameTime } from "../services/game/time.service.js";
+import {
+  addMinutes,
+  createInitialTime,
+  formatGameTime,
+  gameClockMinutes,
+  type GameTime,
+} from "../services/game/time.service.js";
 import { runTurnGameBotTurns } from "../services/turn-games/turn-game-bot-runner.service.js";
 import { getTurnGameContextBuilder } from "../services/turn-games/turn-game-runner.service.js";
 import { getCapabilityService } from "../services/capability-packages/capability-service-registry.service.js";
@@ -1534,6 +1572,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // fall back to the active Persona; Roleplay and Game can stay Persona-less.
       if (userMsg?.id) {
         resolvedUserIdentity = await resolveChatUserIdentity(chars, {
+          id: input.chatId,
           personaId: chat.personaId,
           personaCharacterId: chat.personaCharacterId,
           mode: requestChatMode,
@@ -2087,8 +2126,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           chatMode === "game" && !input.impersonate && !input.continueMessageId
             ? (async () => {
                 const game = await loadGameWorld(app.db, input.chatId, chatMeta);
+                // The Experience's own intro (1.372) first, then its story's (1.339).
                 const intro = gameIntroFor(
-                  game ? gameStoryFromMetadata(chatMeta, game)?.intro : undefined,
+                  readGameIntro(chatMeta.gameExperienceIntro) ??
+                    (game ? gameStoryFromMetadata(chatMeta, game)?.intro : undefined),
                   readGameIntroChoice(chatMeta.gameIntro),
                 );
                 if (!intro) return null;
@@ -2099,7 +2140,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 return null;
               })
             : Promise.resolve(null));
-      let turnStoryRead: Promise<{ story: StoryScript; game: GameWorld; turn: StoryTurn } | null> | undefined;
+      let turnStoryRead:
+        Promise<{ story: StoryScript; game: GameWorld; turn: StoryTurn; item?: StoryItemLabel } | null> | undefined;
       const turnStory = () =>
         (turnStoryRead ??=
           chatMode === "game" && !input.impersonate && !input.continueMessageId
@@ -2121,29 +2163,121 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const toldEntries = readToldLedger(told);
                 const present = worldPresent(game, [...before, ...toldEntries]);
                 const own = replies.all.slice(replies.carried?.tags ? 1 : 0);
-                return {
-                  story,
+                // The ruleset's items the story gives by id (1.343), read only when it gives any.
+                const givesById = storyGivesById(story);
+                const book = givesById
+                  ? await loadGameInventoryItemBook(app.db, { chatId: input.chatId }, "game-master")
+                  : undefined;
+                const item: StoryItemLabel | undefined = book
+                  ? (ref) => {
+                      // A bare entry id (1.370) is the first catalog's entry of that id the game offers.
+                      const id = storyIsRef(ref)
+                        ? ref
+                        : book.entries.find((entry) => entry.item.endsWith(`/${ref}`) && book.offers(entry.item))?.item;
+                      return id && book.offers(id) ? book.itemOf(id)?.name : undefined;
+                    }
+                  : undefined;
+                // The party's sheets, read only for exposures that ask a save or are kept off by a shade.
+                const exposureSheets = story.exposures.some((exposure) => exposure.save || exposure.sparedByShade)
+                  ? await loadStoryExposureSheets(app.db, input.chatId, {
+                      live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                      regenerateMessageId: input.regenerateMessageId ?? null,
+                    })
+                  : null;
+                const storyTold = storyTurn(story, {
+                  item,
                   game,
-                  turn: storyTurn(story, {
-                    game,
-                    replies: replies.all,
-                    repliesBefore: (replies.carried?.replies ?? 0) + own.length,
-                    latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
-                    told: toldEntries,
-                    added: present.places,
-                    day: present.day,
-                    fight: storyFightOutcome(replies.player),
-                    broke: storyFightBroken(replies.player),
-                    playerName: personaName,
-                    // The cells this turn's walks walked (map events): in town, and on a map made by hand.
-                    steps: [
-                      ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
-                      ...(dungeonWalk?.place
-                        ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
-                        : []),
+                  replies: replies.all,
+                  repliesBefore: (replies.carried?.replies ?? 0) + own.length,
+                  latest: own.filter((reply) => reply.trim()).at(-1) ?? replies.carried?.last ?? null,
+                  told: toldEntries,
+                  added: present.places,
+                  day: present.day,
+                  fight: storyFightOutcome(replies.player),
+                  broke: storyFightBroken(replies.player),
+                  playerName: personaName,
+                  // Who of the world travels with the party (its tracked people), and what the player
+                  // says, for party conditions and what people know (1.348, 1.349).
+                  party: storyPartyNames(chatMeta),
+                  partySize: gamePartySize(chatMeta, await gameNoncombatants(app.db, input.chatId, chatMeta)),
+                  // What items' uses spent of story numbers in fights (1.359), recorded this turn.
+                  spends: gameStorySpends(chatMeta),
+                  // The game's clock, for what being in a place does over time (1.362).
+                  clock: gameClockMinutes(chatMeta.gameTime),
+                  // A shade carried lit (1.365), for the exposures it keeps off.
+                  shade: storyPartyCarriesShade(exposureSheets),
+                  player: input.userMessage ?? null,
+                  // The cells this turn's walks walked (map events): in town, and on a map made by hand.
+                  steps: [
+                    ...(visit?.steps ?? []).map((step) => ({ place: visit!.settlementId, ...step })),
+                    ...(dungeonWalk?.place
+                      ? (dungeonWalk.steps ?? []).map((step) => ({ place: dungeonWalk.place!, ...step }))
+                      : []),
+                  ],
+                });
+                // The saves its exposures owe (1.364), rolled off the sheets this turn starts from.
+                let turn = rollStoryExposureSavesWith(exposureSheets, chatMeta, storyTold);
+                // Held Ground let go (1.369): a fight that let it go has rolled what came due; one still
+                // unfinished on it lets it go on its next step; otherwise the party's Owing is rolled here.
+                // A release left for a fight that ended (or was left) before its next step is settled
+                // here too, out of the fight.
+                const released = turn.released;
+                const unfinished = await heldGroundFightUnfinished(app.db, input.chatId);
+                const owingSheets = async () =>
+                  exposureSheets ??
+                  (await loadStoryExposureSheets(app.db, input.chatId, {
+                    live: parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive),
+                    regenerateMessageId: input.regenerateMessageId ?? null,
+                  }));
+                const left = pendingRelease(chatMeta);
+                if (left && unfinished !== "unknown" && left.fight !== unfinished) {
+                  const { fight: _fight, ...owed } = left;
+                  const rolled = owed.owing
+                    ? rollStoryOwingWith(await owingSheets(), chatMeta, { ...turn, released: owed })
+                    : turn;
+                  turn = {
+                    ...rolled,
+                    released: turn.released,
+                    tells: [
+                      ...rolled.tells,
+                      `${owed.label ?? "Held Ground"} was let go as the fight on it ended, so what came due is settled now.`,
                     ],
-                  }),
-                };
+                  };
+                  await dropHeldGroundPending(app.db, input.chatId);
+                }
+                if (released) {
+                  if (heldGroundReleasedInFight(chatMeta, released, replies.all.length)) {
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} was let go in the fight, and what came due was rolled there.`,
+                      ],
+                    };
+                  } else if (unfinished === "unknown") {
+                    // The fight could not be read: nothing is rolled or parked on a guess, and the Game
+                    // Master settles it by the ruleset's own rules.
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} has let go, but the fight on it could not be read, so the Engine rolled nothing. Settle what comes due by the ruleset's own rules.`,
+                      ],
+                    };
+                  } else if (unfinished) {
+                    await keepHeldGroundPending(app.db, input.chatId, released, unfinished);
+                    turn = {
+                      ...turn,
+                      tells: [
+                        ...turn.tells,
+                        `${released.label ?? "Held Ground"} lets go of the fight still being fought on it: the Engine settles what comes due on its next step.`,
+                      ],
+                    };
+                  } else if (released.owing) {
+                    turn = rollStoryOwingWith(await owingSheets(), chatMeta, turn);
+                  }
+                }
+                return { story, game, item, turn };
               })()
             : Promise.resolve(null));
       const turnHour = Number((chatMeta.gameTime as { hour?: unknown } | undefined)?.hour ?? 8) || 0;
@@ -2486,6 +2620,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         roomHostIdentity() ??
         resolvedUserIdentity ??
         (await resolveChatUserIdentity(chars, {
+          id: input.chatId,
           personaId: chat.personaId,
           personaCharacterId: chat.personaCharacterId,
           mode: chatMode,
@@ -2560,7 +2695,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
       let groupHistoryCharacterNamesByIdPromise: Promise<Map<string, string>> | null = null;
       const getGroupHistoryCharacterNamesById = () => {
-        groupHistoryCharacterNamesByIdPromise ??= resolveCharacterNameMap(allCharacterIds, (id) => chars.getById(id));
+        groupHistoryCharacterNamesByIdPromise ??= resolveCharacterNameMap(allCharacterIds, (id) =>
+          chars.getById(id, input.chatId),
+        );
         return groupHistoryCharacterNamesByIdPromise;
       };
       // Every agent reads Roleplay whispers, each with its recipient's name (#7430). Null where they don't.
@@ -2676,6 +2813,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             chars,
             characterIds: allCharacterIds,
             chatMode,
+            chatId: input.chatId,
           });
           const characterInfoById = new Map(routingCharacterInfo.map((character) => [character.id, character]));
           const activeCharacterSet = new Set(characterIds);
@@ -3162,7 +3300,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           isSceneChat: chatMeta.sceneStatus === "active",
           chatParameters: chatMeta.chatParameters,
           baseReasoningEffort:
-            presetId && resolvedPreset && chatMode !== "conversation" && chatMode !== "game"
+            presetId &&
+            resolvedPreset &&
+            !isStockMarinaraUniversalPreset(resolvedPreset) &&
+            chatMode !== "conversation" &&
+            chatMode !== "game"
               ? (parsePresetParameters(resolvedPreset.parameters).reasoningEffort ?? null)
               : reasoningEffort,
         });
@@ -3210,6 +3352,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const { profilesById: historyMacroProfilesById, unreadableIds } = await resolveCharacterMacroData(
           app.db,
           allCharacterIds,
+          input.chatId,
         );
         const chatSummaryReaders = mergedChatSummaryReaders({
           characterIds,
@@ -3832,26 +3975,28 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
           presetOwnsAgentPlacement = true;
           characterAdvancedPromptsInjected = true;
-          temperature = assembled.parameters.temperature;
-          topP = assembled.parameters.topP ?? 1;
-          topK = assembled.parameters.topK ?? 0;
-          minP = assembled.parameters.minP ?? 0;
-          frequencyPenalty = assembled.parameters.frequencyPenalty ?? 0;
-          presencePenalty = assembled.parameters.presencePenalty ?? 0;
-          showThoughts = assembled.parameters.showThoughts ?? true;
-          reasoningEffort = assembled.parameters.reasoningEffort ?? null;
-          verbosity = assembled.parameters.verbosity ?? null;
-          serviceTier = assembled.parameters.serviceTier ?? null;
-          assistantPrefill = assembled.parameters.assistantPrefill ?? "";
-          assistantReasoningPrefill = assembled.parameters.assistantReasoningPrefill ?? "";
-          customThinkingTags = normalizeThinkingTagPairs(assembled.parameters.customThinkingTags);
-          customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
-          if (assembled.parameters.enabledParameters) {
-            enabledParameters = { ...(enabledParameters ?? {}), ...assembled.parameters.enabledParameters };
+          if (!isStockMarinaraUniversalPreset(resolvedPreset)) {
+            temperature = assembled.parameters.temperature;
+            topP = assembled.parameters.topP ?? 1;
+            topK = assembled.parameters.topK ?? 0;
+            minP = assembled.parameters.minP ?? 0;
+            frequencyPenalty = assembled.parameters.frequencyPenalty ?? 0;
+            presencePenalty = assembled.parameters.presencePenalty ?? 0;
+            showThoughts = assembled.parameters.showThoughts ?? true;
+            reasoningEffort = assembled.parameters.reasoningEffort ?? null;
+            verbosity = assembled.parameters.verbosity ?? null;
+            serviceTier = assembled.parameters.serviceTier ?? null;
+            assistantPrefill = assembled.parameters.assistantPrefill ?? "";
+            assistantReasoningPrefill = assembled.parameters.assistantReasoningPrefill ?? "";
+            customThinkingTags = normalizeThinkingTagPairs(assembled.parameters.customThinkingTags);
+            customParameters = mergeCustomParameters(customParameters, assembled.parameters.customParameters);
+            if (assembled.parameters.enabledParameters) {
+              enabledParameters = { ...(enabledParameters ?? {}), ...assembled.parameters.enabledParameters };
+            }
+            stopSequences = (assembled.parameters.stopSequences ?? [])
+              .map((value) => value.trim())
+              .filter((value) => value.length > 0);
           }
-          stopSequences = (assembled.parameters.stopSequences ?? [])
-            .map((value) => value.trim())
-            .filter((value) => value.length > 0);
 
           Object.assign(
             chatMeta,
@@ -3979,7 +4124,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           };
           const profileParticipants: ConversationProfileParticipant[] = [];
           for (const info of convoCharInfo) {
-            const charRow = await chars.getById(info.charId);
+            const charRow = await chars.getById(info.charId, input.chatId);
             let cdata: CharacterData | null = null;
             if (charRow) {
               try {
@@ -4626,7 +4771,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
         }
 
-        const charInfo = await loadCharacterPromptInfo({ chars, characterIds, chatMode });
+        const charInfo = await loadCharacterPromptInfo({ chars, characterIds, chatMode, chatId: input.chatId });
         const roleplayRollParticipants = identity
           ? [
               ...charInfo.filter((character) => character.id !== identity.id),
@@ -4705,7 +4850,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               return knownCharacter.name;
             }
 
-            const gmRow = await chars.getById(gmCharacterId);
+            const gmRow = await chars.getById(gmCharacterId, input.chatId);
             if (gmRow) {
               try {
                 const gmData = JSON.parse(gmRow.data as string);
@@ -5135,10 +5280,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // What the story says to the Game Master this turn (worldgen W10): its values, the directions in
           // force, the scene just shown, and what it asks now.
           const promptTurnStory = await turnStory();
+          // The Experience's companions (1.347), told with the story.
+          const promptPackId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+          const promptPeople =
+            promptWorld && typeof promptPackId === "string" ? await readMapPackPeople(promptPackId) : null;
           const promptStoryNow = [
             // A guided intro (1.339), on the reply that opens the game.
             gameIntroGuidanceText(await gameIntroNow()),
             promptTurnStory ? storyTurnPromptText(promptTurnStory.story, promptTurnStory.turn) : "",
+            promptPeople && promptWorld
+              ? experienceCompanionsPromptText(promptWorld, promptPeople, canonicalGamePartyNames)
+              : "",
           ]
             .filter(Boolean)
             .join("\n\n");
@@ -6225,7 +6377,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           for (const char of agentContext.characters) {
             let publicAboutMe = "";
             try {
-              const row = await chars.getById(char.id);
+              const row = await chars.getById(char.id, input.chatId);
               const data = row ? (typeof row.data === "string" ? JSON.parse(row.data) : row.data) : null;
               const ext = (data?.extensions ?? {}) as Record<string, unknown>;
               if (typeof ext.aboutMe === "string") publicAboutMe = ext.aboutMe;
@@ -8525,7 +8677,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
             return postProcessMessages(messages, {
-              ...parseStoredGenerationParameters(resolvedPreset?.parameters),
+              ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
+                ? parseStoredGenerationParameters(resolvedPreset.parameters)
+                : {}),
               ...providerRuntime.connectionParams,
               ...providerRuntime.chatParams,
             });
@@ -8942,7 +9096,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 roleplayInlinePrefixes,
                 toolDiceRollResults,
                 pendingGameStateToolCalls,
-                getCharacter: (id) => chars.getById(id),
+                getCharacter: (id) => chars.getById(id, input.chatId),
                 sendAgentResult: sendAgentResultEvent,
               },
               fullResponse,
@@ -9594,6 +9748,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
               turnSheetContext = sheetContext;
               if (sheetContext) {
+                // What the places the party has been in did to it (1.362), applied with the reply's own.
+                const storySheet = fullResponse.trim() ? (await turnStory())?.turn.sheet : "";
+                if (storySheet) {
+                  fullResponse = `${storySheet}\n\n${fullResponse}`;
+                  contentReplaced = true;
+                }
                 rulesetSheetTurn = applyGameRulesetSheetTurn(
                   sheetContext,
                   fullResponse,
@@ -9745,6 +9905,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       turnWorld,
                       storyTurnTold?.turn.state ?? storyState(story, readStoryLedger(replies.all)),
                       storyTurnTold?.turn.tripped,
+                      storyTurnTold?.item,
+                      storyTurnTold
+                        ? Object.assign(new Set(storyTurnTold.turn.party), {
+                            partySize: storyTurnTold.turn.partySize,
+                          })
+                        : undefined,
                     )
                   : refuseStoryTags(fullResponse);
                 if (answered !== fullResponse) {
@@ -9827,6 +9993,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             const named = worldPeopleNamed(turnWorld, placeIds, fullResponse);
             // Tracked once the reply is saved (below), so a discarded or stopped reply adds nobody.
             if (named.length > 0) worldNpcsNamed = { world: turnWorld, people: named };
+          }
+          // An Experience's companions keep up with the party's level (1.347).
+          if (chatMode === "game" && !input.impersonate && chatMeta.gameMapPack && chatMeta.gameRuleset != null) {
+            try {
+              await syncCompanionSheets(app.db, input.chatId, chatMeta);
+            } catch (error) {
+              logger.warn(error, "[generate] Could not bring the Experience's companions up to the party's level");
+            }
           }
           const tellsInventory = /\[(?:inventory|loot):/i.test(fullResponse);
           // A rest the sheet commands took may bring charges back to what the rested carry.
@@ -10259,12 +10433,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // The world's people the saved reply named become tracked NPCs (worldgen W2).
           if (worldNpcsNamed && savedMsg?.id && !generationSignal.aborted) {
             const { world: namedWorld, people: named } = worldNpcsNamed;
+            // An Experience's own people (1.346) come dressed: their portrait and who they are.
+            const packId = (chatMeta.gameMapPack as { packageId?: unknown } | undefined)?.packageId;
+            const people = typeof packId === "string" ? await readMapPackPeople(packId) : null;
             await chats.patchMetadata(input.chatId, (current) => {
               const npcs = Array.isArray(current.gameNpcs) ? (current.gameNpcs as GameNpc[]) : [];
               const known = new Set(npcs.flatMap((npc) => (npc.worldId ? [npc.worldId] : [])));
               const added = named
                 .filter((person) => !known.has(person.id))
-                .map((person) => worldPersonNpc(namedWorld, person));
+                .map((person) => experienceDressedNpc(worldPersonNpc(namedWorld, person), people));
               return added.length > 0 ? { gameNpcs: [...npcs, ...added] } : {};
             });
           }
@@ -11521,6 +11698,34 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : allResponses
                 .map((response, index) => agentReplyText(response, responseMessageIds.get(index)))
                 .join("\n\n");
+        let assistantMessageReadySent = false;
+        const sendAssistantMessageReady = async (savedMessage?: typeof currentIterationSavedMsg) => {
+          if (assistantMessageReadySent || generationSignal.aborted || input.impersonate) return;
+          const messageId = (currentIterationSavedMsg as { id?: unknown } | null)?.id;
+          if (typeof messageId !== "string" || !messageId) return;
+          const readyMessage = savedMessage ?? (await chats.getMessage(messageId));
+          if (!readyMessage || readyMessage.role !== "assistant") return;
+          // A false socket write can mean the event was queued under backpressure. Do not send it twice.
+          assistantMessageReadySent = true;
+          sendSseEvent(reply, {
+            type: "assistant_message_ready",
+            data: readyMessage,
+          });
+          // The client releases its composer on this event. Release the matching server slot at once,
+          // including while unrelated post-agent activation questions are still running.
+          if (chatMode === "roleplay" && assistantMessageReadySent) {
+            moveToActiveAgentRuns(messageId, lastSavedSwipeIndex ?? readyMessage.activeSwipeIndex ?? 0);
+          }
+        };
+
+        // No enabled editor can change this text. Speaker/emotion extraction may start now, without
+        // waiting for activation decisions for trackers or any other non-rewriting agent (#8026).
+        if (chatMode === "roleplay" && textRewriteRunAgents.length === 0) {
+          // Readiness also unlocks the next turn: commit this prompt's variable changes first.
+          await persistChatMacroVariables();
+          await sendAssistantMessageReady(currentIterationSavedMsg);
+        }
+
         const continuedTargetIndex = input.continueMessageId
           ? chatMessages.findIndex((message) => message.id === input.continueMessageId)
           : -1;
@@ -11571,31 +11776,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           (agent) => !inactivePostProcessingAgentIds.has(agent.id),
         );
         await persistChatMacroVariables();
-        let assistantMessageReadySent = false;
-        const sendAssistantMessageReady = async (savedMessage?: typeof currentIterationSavedMsg) => {
-          if (assistantMessageReadySent || generationSignal.aborted || input.impersonate) return;
-          const messageId = (currentIterationSavedMsg as { id?: unknown } | null)?.id;
-          if (typeof messageId !== "string" || !messageId) return;
-          const readyMessage = savedMessage ?? (await chats.getMessage(messageId));
-          if (!readyMessage || readyMessage.role !== "assistant") return;
-          assistantMessageReadySent = sendSseEvent(reply, {
-            type: "assistant_message_ready",
-            data: readyMessage,
-          });
-        };
 
         // Speech uses only the assistant message. Do not hold it behind
         // Illustrator, trackers, summaries, or other non-rewriting agents.
         if (activatedTextRewriteRunAgents.length === 0) {
           await sendAssistantMessageReady(currentIterationSavedMsg);
-          // Roleplay post-processing is anchored to the saved message/swipe
-          // below, so it no longer needs to hold the chat-wide generation slot.
-          if (chatMode === "roleplay" && assistantMessageReadySent) {
-            moveToActiveAgentRuns(
-              currentIterationSavedMsg!.id,
-              lastSavedSwipeIndex ?? currentIterationSavedMsg!.activeSwipeIndex ?? 0,
-            );
-          }
         }
 
         // ────────────────────────────────────────
@@ -14356,12 +14541,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // persisted edit (or no-op result) before releasing TTS.
         if (activatedTextRewriteRunAgents.length > 0) {
           await sendAssistantMessageReady();
-          if (chatMode === "roleplay" && assistantMessageReadySent) {
-            moveToActiveAgentRuns(
-              currentIterationSavedMsg!.id,
-              lastSavedSwipeIndex ?? currentIterationSavedMsg!.activeSwipeIndex ?? 0,
-            );
-          }
         }
 
         if (!recoveredAlreadyAppliedOwnerTurn && !generationSignal.aborted) {
@@ -14391,7 +14570,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             const members: Array<{ id: string; name: string }> = charInfo.map((c) => ({ id: c.id, name: c.name }));
             for (const cid of allCharacterIds) {
               if (members.some((m) => m.id === cid)) continue;
-              const row = await chars.getById(cid);
+              const row = await chars.getById(cid, input.chatId);
               if (!row) continue;
               try {
                 const name = JSON.parse(row.data as string)?.name;

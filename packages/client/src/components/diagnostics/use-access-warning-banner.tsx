@@ -51,6 +51,7 @@ export function useAccessWarningBanner(): AppBannerCandidate | null {
     id: `access-open:${peers.join(",")}`,
     // Critical comes back next session; an internet-wide door should not stay dismissed.
     severity: peers.includes("internet") ? "critical" : "warning",
+    tone: "accent",
     title: t("ui.diagnostics.accessWarningBanner.title"),
     body: t("ui.diagnostics.accessWarningBanner.who", {
       list: new Intl.ListFormat(i18n.language).format(peers.map((peer) => t(`settings.accessStatus.peer.${peer}`))),

@@ -100,6 +100,7 @@ import {
 } from "../ui/GenerationParametersEditor";
 import {
   PROVIDERS,
+  createConnectionSchema,
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   IMAGE_GENERATION_SOURCES,
@@ -401,6 +402,9 @@ export function ConnectionEditor() {
   const [localAudioTimeoutMs, setLocalAudioTimeoutMs] = useState<number>(TTS_REQUEST_TIMEOUT_MS.default);
   const [localAudioSoundEffects, setLocalAudioSoundEffects] = useState(false);
   const [localAudioMusic, setLocalAudioMusic] = useState(false);
+  const [localAudioMusicEndpoint, setLocalAudioMusicEndpoint] = useState("");
+  const [localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint] = useState("");
+  const [localAudioGenerationFormat, setLocalAudioGenerationFormat] = useState<"binary" | "chat_completions">("binary");
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
   const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
@@ -543,6 +547,11 @@ export function ConnectionEditor() {
     setLocalAudioTimeoutMs(resolveTtsRequestTimeoutMs(c.audioTimeoutMs));
     setLocalAudioSoundEffects(c.audioSoundEffects === "true" || c.audioSoundEffects === true);
     setLocalAudioMusic(c.audioMusic === "true" || c.audioMusic === true);
+    setLocalAudioMusicEndpoint(typeof c.audioMusicEndpoint === "string" ? c.audioMusicEndpoint : "");
+    setLocalAudioSoundEffectsEndpoint(
+      typeof c.audioSoundEffectsEndpoint === "string" ? c.audioSoundEffectsEndpoint : "",
+    );
+    setLocalAudioGenerationFormat(c.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary");
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
@@ -842,6 +851,16 @@ export function ConnectionEditor() {
       setSaveError(baseUrlValidation.error);
       throw new Error(baseUrlValidation.error);
     }
+    if (
+      localProvider === "audio" &&
+      localAudioSource === "openai" &&
+      (!createConnectionSchema.shape.audioMusicEndpoint.safeParse(localAudioMusicEndpoint).success ||
+        !createConnectionSchema.shape.audioSoundEffectsEndpoint.safeParse(localAudioSoundEffectsEndpoint).success)
+    ) {
+      const message = t("connections.gameAudio.invalidEndpoint");
+      setSaveError(message);
+      throw new Error(message);
+    }
     const supportsDirectEmbeddings = providerSupportsDirectEmbeddingConfig(localProvider);
     if (supportsDirectEmbeddings && embeddingBaseUrlValidation.error) {
       setSaveError(embeddingBaseUrlValidation.error);
@@ -911,9 +930,14 @@ export function ConnectionEditor() {
       // The default is stored as null, like the Decision time limit.
       audioTimeoutMs:
         isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
-      // Only ElevenLabs can generate game sound effects / music today.
-      audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
-      audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
+      audioSoundEffects:
+        isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource) ? localAudioSoundEffects : false,
+      audioMusic: isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource) ? localAudioMusic : false,
+      audioMusicEndpoint:
+        isAudioProvider && localAudioSource === "openai" ? localAudioMusicEndpoint.trim() || null : null,
+      audioSoundEffectsEndpoint:
+        isAudioProvider && localAudioSource === "openai" ? localAudioSoundEffectsEndpoint.trim() || null : null,
+      audioGenerationFormat: isAudioProvider && localAudioSource === "openai" ? localAudioGenerationFormat : "binary",
     };
     // Only send API key if user typed a new one
     if (isLocalAuthProvider) {
@@ -999,6 +1023,7 @@ export function ConnectionEditor() {
       throw err instanceof Error ? err : new Error(message);
     }
   }, [
+    t,
     connectionDetailId,
     localName,
     localProvider,
@@ -1048,6 +1073,9 @@ export function ConnectionEditor() {
     localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
+    localAudioMusicEndpoint,
+    localAudioSoundEffectsEndpoint,
+    localAudioGenerationFormat,
     selectedImageService,
     swarmUiWorkflowError,
     selectedImageDefaultsService,
@@ -1166,8 +1194,14 @@ export function ConnectionEditor() {
       audioVoice: isAudioProvider ? localAudioVoice || null : null,
       audioTimeoutMs:
         isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
-      audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
-      audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
+      audioSoundEffects:
+        isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource) ? localAudioSoundEffects : false,
+      audioMusic: isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource) ? localAudioMusic : false,
+      audioMusicEndpoint:
+        isAudioProvider && localAudioSource === "openai" ? localAudioMusicEndpoint.trim() || null : null,
+      audioSoundEffectsEndpoint:
+        isAudioProvider && localAudioSource === "openai" ? localAudioSoundEffectsEndpoint.trim() || null : null,
+      audioGenerationFormat: isAudioProvider && localAudioSource === "openai" ? localAudioGenerationFormat : "binary",
       imageEndpointId:
         isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
@@ -1237,6 +1271,9 @@ export function ConnectionEditor() {
     localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
+    localAudioMusicEndpoint,
+    localAudioSoundEffectsEndpoint,
+    localAudioGenerationFormat,
   ]);
 
   const handleTestConnection = useCallback(async () => {
@@ -2580,8 +2617,60 @@ export function ConnectionEditor() {
                   {t("tts.requestTimeoutHelp")}
                 </p>
               </label>
-              {localAudioSource === "elevenlabs" ? (
+              {["elevenlabs", "openai"].includes(localAudioSource) ? (
                 <div className="space-y-2">
+                  {localAudioSource === "openai" && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.gameAudio.help")}</p>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs">{t("connections.gameAudio.format")}</span>
+                        <select
+                          value={localAudioGenerationFormat}
+                          onChange={(event) => {
+                            setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
+                            markDirty();
+                          }}
+                          className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                        >
+                          <option value="binary">{t("connections.gameAudio.binary")}</option>
+                          <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
+                        </select>
+                      </label>
+                      {(
+                        [
+                          ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
+                          ["sfx", localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint],
+                        ] as const
+                      ).map(([kind, value, setValue]) => (
+                        <label key={kind} className="block space-y-1.5">
+                          <span className="text-xs">
+                            {t(
+                              kind === "music"
+                                ? "connections.gameAudio.musicEndpoint"
+                                : "connections.gameAudio.sfxEndpoint",
+                            )}
+                          </span>
+                          <input
+                            value={value}
+                            onChange={(event) => {
+                              setValue(event.target.value);
+                              markDirty();
+                            }}
+                            placeholder={t("connections.gameAudio.endpointExample", {
+                              path:
+                                localAudioGenerationFormat === "chat_completions"
+                                  ? "chat/completions"
+                                  : "audio/generations",
+                            })}
+                            className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                          />
+                        </label>
+                      ))}
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        {t("connections.gameAudio.endpointHelp")}
+                      </p>
+                    </div>
+                  )}
                   <SettingsSwitch
                     label={localizeUi("ui.connections.connectioneditor.gameSoundEffects")}
                     description={localizeUi(
@@ -2607,9 +2696,7 @@ export function ConnectionEditor() {
                 </div>
               ) : (
                 <p className="rounded-xl bg-[var(--secondary)]/40 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                  {localizeUi(
-                    "ui.connections.connectioneditor.soundEffectAndMusicGenerationCurrentlyRequiresTheElevenlabs",
-                  )}
+                  {t("connections.gameAudio.unavailable")}
                 </p>
               )}
             </FieldGroup>

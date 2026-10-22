@@ -49,6 +49,23 @@ try {
   );
   assert.match(marker.content, /<example_dialogue>/);
   assert.match(marker.content, /Observe Subject carefully/);
+  const { injectIdentityFallbackMessages } =
+    await import("../../packages/server/src/services/generation/character-prompt-context.js");
+  const fallbackMessages = [{ role: "system" as const, content: "Custom instructions without a persona marker." }];
+  injectIdentityFallbackMessages({
+    messages: fallbackMessages,
+    charInfo: [],
+    promptTargetCharacterId: null,
+    promptMacroContext: macroCtx,
+    wrapFormat: "xml",
+    personaName: identity!.name,
+    personaDescription: identity!.description,
+    personaFields: { example: identity!.mesExample },
+    resolvePromptMacros: (value) => resolveMacros(value, macroCtx),
+  });
+  const fallbackContent = fallbackMessages.map((message) => message.content).join("\n");
+  assert.equal(fallbackContent.match(/<example_dialogue>/g)?.length, 1);
+  assert.equal(fallbackContent.match(/Observe Subject carefully/g)?.length, 1);
   const { injectGameGmPromptRuntime } =
     await import("../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
   const game = await injectGameGmPromptRuntime({

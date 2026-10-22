@@ -1,11 +1,13 @@
 // ──────────────────────────────────────────────
 // User Persona Types
 // ──────────────────────────────────────────────
+import type { CardFieldAlternative } from "../schemas/card-field-alternative.schema.js";
 import type { ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
 import type { AvatarCrop } from "./avatar-crop.js";
 
 /** A user persona (the player's character/identity). */
 export interface Persona {
+  cardFieldAlternatives?: CardFieldAlternative[];
   id: string;
   name: string;
   /** Short comment shown under the name (for disambiguation) */

@@ -133,6 +133,9 @@ export type CreateConnectionPayload = {
   audioTimeoutMs?: number | null;
   audioSoundEffects?: boolean;
   audioMusic?: boolean;
+  audioMusicEndpoint?: string | null;
+  audioSoundEffectsEndpoint?: string | null;
+  audioGenerationFormat?: "binary" | "chat_completions";
   promptPresetId?: string | null;
   maxTokensOverride?: number | null;
   maxParallelJobs?: number;

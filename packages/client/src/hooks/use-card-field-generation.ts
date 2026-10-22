@@ -2,16 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
+import type { CardFieldGenerationDraft, CardFieldGenerationKey, CardFieldKey } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 
 /** Generates into a draft only; a late response must never replace newer authoring. */
-export function useCardFieldGeneration(
+export function useCardFieldGeneration<Field extends CardFieldGenerationKey = CardFieldKey>(
   kind: "character" | "persona",
   id: string | null,
-  card: CardFieldDraft,
-  onApply: (field: CardFieldKey, text: string) => void,
+  card: CardFieldGenerationDraft,
+  onApply: (field: Field, text: string) => void,
 ) {
   const { t } = useTranslation();
   const labels = {
@@ -22,6 +22,7 @@ export function useCardFieldGeneration(
     appearance: t("chat.settings.inlineEditor.fields.appearance"),
     scenario: t("chat.settings.inlineEditor.fields.scenario"),
     mes_example: t("chat.settings.inlineEditor.fields.exampleDialogue"),
+    first_mes: t("ui.characters.dialoguetab.firstMessage"),
   };
   const identity = `${kind}:${id}`;
   const latest = useRef({ identity, card, onApply });
@@ -30,15 +31,15 @@ export function useCardFieldGeneration(
   });
   const alive = useRef(false);
   const active = useRef<{ identity: string; controller: AbortController } | null>(null);
-  const [pending, setPending] = useState<{ identity: string; field: CardFieldKey } | null>(null);
+  const [pending, setPending] = useState<{ identity: string; field: Field } | null>(null);
   const mutation = useMutation({
     mutationFn: ({
       field,
       draft,
       controller,
     }: {
-      field: CardFieldKey;
-      draft: CardFieldDraft;
+      field: Field;
+      draft: CardFieldGenerationDraft;
       controller: AbortController;
     }) =>
       api.post<{ text: string }>(
@@ -56,7 +57,7 @@ export function useCardFieldGeneration(
     };
   }, [identity]);
 
-  const generate = async (field: CardFieldKey) => {
+  const generate = async (field: Field) => {
     if (!id || (active.current?.identity === identity && !active.current.controller.signal.aborted)) return;
     active.current?.controller.abort();
     const controller = new AbortController();

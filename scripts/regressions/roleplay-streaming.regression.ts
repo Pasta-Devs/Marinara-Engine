@@ -152,8 +152,13 @@ assert.match(
 );
 assert.equal(
   (generateRouteSource.match(/moveToActiveAgentRuns\([\s\S]{0,180}lastSavedSwipeIndex/gu) ?? []).length,
-  2,
-  "Both Roleplay reply-release paths must retain the generated message and swipe anchor",
+  1,
+  "All Roleplay reply-release paths share the same generated message and swipe anchor",
+);
+assert.match(
+  generateRouteSource,
+  /const sendAssistantMessageReady = async[\s\S]{0,1300}moveToActiveAgentRuns\(messageId, lastSavedSwipeIndex \?\? readyMessage\.activeSwipeIndex \?\? 0\)/u,
+  "The shared ready event must release its own saved message and swipe, including before agent activation",
 );
 assert.match(
   generateRouteSource,
@@ -939,9 +944,19 @@ assert.match(
   "Roleplay messages should remain editable while ambient rendering stays suspended for background work",
 );
 const earlyTTSReadyIndex = generateRouteSource.indexOf("if (activatedTextRewriteRunAgents.length === 0)");
+const immediateRoleplayTTSReadyIndex = generateRouteSource.indexOf(
+  'if (chatMode === "roleplay" && textRewriteRunAgents.length === 0)',
+);
+const postActivationWaitIndex = generateRouteSource.indexOf(
+  "const inactivePostQuestionIds = await gateActivationQuestions",
+);
 const parallelAgentWaitIndex = generateRouteSource.indexOf("const completedParallelResults = await parallelPromise");
 const textRewritePhaseIndex = generateRouteSource.indexOf("// ── Text rewrite/editing agents:");
 const rewrittenTTSReadyIndex = generateRouteSource.indexOf("if (activatedTextRewriteRunAgents.length > 0)");
+assert.ok(
+  immediateRoleplayTTSReadyIndex > 0 && immediateRoleplayTTSReadyIndex < postActivationWaitIndex,
+  "Roleplay speech without an enabled rewrite agent must also precede unrelated activation model calls",
+);
 assert.ok(
   earlyTTSReadyIndex > 0 && earlyTTSReadyIndex < parallelAgentWaitIndex,
   "TTS-ready text without a rewrite agent must be released before parallel and post-generation agents finish",

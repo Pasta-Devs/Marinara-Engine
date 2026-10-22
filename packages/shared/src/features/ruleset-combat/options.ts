@@ -424,6 +424,9 @@ export function rulesetRelightCells(state: RulesetEncounterState, prop: RulesetB
   return cells;
 }
 export const RULESET_FLY_DOWN_OPTION = "move:fly-down";
+/** Into the air or back onto the ground where it stands (1.354): free, as part of moving. */
+export const RULESET_TAKE_OFF_OPTION = "move:take-off";
+export const RULESET_LAND_OPTION = "move:land";
 /** How high above the ground under it a flier may go, in levels. A board's own heights are a handful
  *  of levels, so this is well above anything worth being out of reach over. */
 export const RULESET_FLY_CEILING = 20;
@@ -2890,8 +2893,22 @@ function movementOptions(
       },
     ];
   }
-  if (left < 1) return [];
-  const options: RulesetCombatOption[] = [];
+  // Taking off and landing where it stands (1.354), free: a flier on the ground, or one in the air at
+  // the ground's own height that has a walk to come down to.
+  const lift: RulesetCombatOption[] = [];
+  if (actor.speeds?.fly && typeof actor.x === "number" && !rulesetAirborne(state.board?.grid, actor)) {
+    const move = (id: string, label: string): RulesetCombatOption => ({
+      id,
+      kind: "move",
+      label,
+      targets: { side: "self", count: 0 },
+      movementCost: 0,
+    });
+    if (!actor.airborne) lift.push(move(RULESET_TAKE_OFF_OPTION, "Take off"));
+    else if (actor.speed > 0) lift.push(move(RULESET_LAND_OPTION, "Land"));
+  }
+  if (left < 1) return lift;
+  const options: RulesetCombatOption[] = [...lift];
   const cells = rulesetReachableCells(definition, state, actor.id);
   if (cells.length > 0) {
     options.push({ id: RULESET_MOVE_OPTION, kind: "move", label: "Move", targets: { side: "self", count: 0 }, cells });

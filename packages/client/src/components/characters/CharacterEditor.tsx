@@ -61,7 +61,9 @@ import {
   type SpriteInfo,
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
+import { CardFieldAlternatives } from "./CardFieldAlternatives";
 import { CardFieldWand } from "./CardFieldWand";
+import { CharacterGreetingWand } from "./CharacterGreetingWand";
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
 import { ONBOARDING_FIELD_COPY } from "./onboarding-field-copy";
 import { CharacterScheduleEditorModal } from "../chat/CharacterScheduleEditorModal";
@@ -183,7 +185,10 @@ import {
   withUniqueOnboardingIds,
   validateOnboarding,
   type CharacterCardVersion,
+  normalizeCardFieldAlternatives,
+  unassignCardFieldAlternatives,
   type CardFieldKey,
+  type CardFieldDraft,
   type CharacterData,
   type CharacterOnboarding,
   type CharacterOnboardingVariable,
@@ -967,6 +972,7 @@ export function CharacterEditor() {
         creatorNotes: formData.creator_notes ?? "",
         summary: formData.summary ?? "",
         mes_example: formData.mes_example ?? "",
+        cardFieldAlternatives: unassignCardFieldAlternatives(formData.extensions.cardFieldAlternatives),
         description: formData.description ?? "",
         personality: formData.personality ?? "",
         scenario: formData.scenario ?? "",
@@ -1524,30 +1530,37 @@ function CharacterCardTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const characterId = useUIStore((state) => state.characterDetailId);
-  const generation = useCardFieldGeneration(
-    "character",
-    characterId,
-    {
-      name: formData.name,
-      summary: formData.summary ?? "",
-      description: formData.description,
-      personality: formData.personality,
-      backstory: String(formData.extensions.backstory ?? ""),
-      appearance: String(formData.extensions.appearance ?? ""),
-      scenario: formData.scenario,
-      mes_example: formData.mes_example,
-    },
-    (field, text) => {
-      if (field === "backstory" || field === "appearance") updateExtension(field, text);
-      else updateField(field, text);
-    },
-  );
+  const card = {
+    name: formData.name,
+    summary: formData.summary ?? "",
+    description: formData.description,
+    personality: formData.personality,
+    backstory: String(formData.extensions.backstory ?? ""),
+    appearance: String(formData.extensions.appearance ?? ""),
+    scenario: formData.scenario,
+    mes_example: formData.mes_example,
+  };
+  const generation = useCardFieldGeneration("character", characterId, card, (field, text) => {
+    if (field === "backstory" || field === "appearance") updateExtension(field, text);
+    else updateField(field, text);
+  });
   const wandFor = (field: CardFieldKey) => (
     <CardFieldWand
       label={generation.labels[field]}
       onGenerate={() => void generation.generate(field)}
       disabled={!characterId || generation.isPending}
       loading={generation.pendingField === field}
+    />
+  );
+  const alternativesFor = (field: CardFieldKey) => (
+    <CardFieldAlternatives
+      kind="character"
+      entityId={characterId}
+      field={field}
+      label={generation.labels[field]}
+      card={card}
+      alternatives={normalizeCardFieldAlternatives(formData.extensions.cardFieldAlternatives)}
+      onChange={(alternatives) => updateExtension("cardFieldAlternatives", alternatives)}
     />
   );
   const seedHint = localizeUi("ui.cardFields.seedPlaceholder");
@@ -1630,14 +1643,24 @@ function CharacterCardTab({
       <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />
       <div className="space-y-10">
         <EditorSectionAnchor id="character-card-summary">
-          <CharacterSummaryField formData={formData} updateField={updateField} actions={wandFor("summary")} />
+          <CharacterSummaryField
+            formData={formData}
+            updateField={updateField}
+            actions={wandFor("summary")}
+            footer={alternativesFor("summary")}
+          />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-description">
           <CharacterDescriptionTab
             formData={formData}
             updateField={updateField}
             actions={wandFor("description")}
-            descriptionFooter={chipsFor("description")}
+            descriptionFooter={
+              <>
+                {chipsFor("description")}
+                {alternativesFor("description")}
+              </>
+            }
             descriptionRef={(element) => {
               fieldRefs.current.description = element;
             }}
@@ -1662,7 +1685,12 @@ function CharacterCardTab({
               fieldRefs.current.personality = element;
             }}
             onFocus={() => setActiveField("personality")}
-            footer={chipsFor("personality")}
+            footer={
+              <>
+                {chipsFor("personality")}
+                {alternativesFor("personality")}
+              </>
+            }
           />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-backstory">
@@ -1681,7 +1709,12 @@ function CharacterCardTab({
               fieldRefs.current.backstory = element;
             }}
             onFocus={() => setActiveField("backstory")}
-            footer={chipsFor("backstory")}
+            footer={
+              <>
+                {chipsFor("backstory")}
+                {alternativesFor("backstory")}
+              </>
+            }
           />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-appearance">
@@ -1704,7 +1737,12 @@ function CharacterCardTab({
               fieldRefs.current.appearance = element;
             }}
             onFocus={() => setActiveField("appearance")}
-            footer={chipsFor("appearance")}
+            footer={
+              <>
+                {chipsFor("appearance")}
+                {alternativesFor("appearance")}
+              </>
+            }
           />
           <div className="mt-3">
             <SettingsSwitch
@@ -1751,7 +1789,12 @@ function CharacterCardTab({
               fieldRefs.current.scenario = element;
             }}
             onFocus={() => setActiveField("scenario")}
-            footer={chipsFor("scenario")}
+            footer={
+              <>
+                {chipsFor("scenario")}
+                {alternativesFor("scenario")}
+              </>
+            }
           />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="character-card-dialogue">
@@ -1759,7 +1802,9 @@ function CharacterCardTab({
             formData={formData}
             updateField={updateField}
             updateFormData={updateFormData}
+            card={card}
             exampleActions={wandFor("mes_example")}
+            exampleFooter={alternativesFor("mes_example")}
           />
         </EditorSectionAnchor>
       </div>
@@ -2263,10 +2308,12 @@ function CharacterSummaryField({
   formData,
   updateField,
   actions,
+  footer,
 }: {
   formData: CharacterData;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
   actions: ReactNode;
+  footer?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const characterId = useUIStore((state) => state.characterDetailId);
@@ -2293,6 +2340,7 @@ function CharacterSummaryField({
         selfCharacterId={characterId}
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
+      {footer}
     </div>
   );
 }
@@ -2769,7 +2817,7 @@ function MetadataTab({
             <button
               type="button"
               onClick={removeAllTags}
-              className="mari-chrome-accent-surface mari-accent-animated rounded-lg border px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
+              className="mari-editor-action mari-editor-action--compact px-2.5 py-1 text-[0.6875rem]"
             >
               {localizeUi("ui.characters.metadatatab.removeAll")}
             </button>
@@ -3189,7 +3237,7 @@ function CharacterVersionHistoryPanel({
                     type="button"
                     onClick={() => handleDeleteVersion(version)}
                     disabled={versionMutationPending}
-                    className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
+                    className="mari-editor-action mari-editor-action--compact mari-editor-action--accent inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.characters.characterversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
@@ -3310,10 +3358,14 @@ function DialogueTab({
   formData,
   updateField,
   updateFormData,
+  card,
   exampleActions,
+  exampleFooter,
 }: {
   formData: CharacterData;
+  card: CardFieldDraft;
   exampleActions?: ReactNode;
+  exampleFooter?: ReactNode;
   updateField: <K extends keyof CharacterData>(key: K, value: CharacterData[K]) => void;
   updateFormData: (update: (data: CharacterData) => CharacterData) => void;
 }) {
@@ -3447,14 +3499,24 @@ function DialogueTab({
 
       {/* First Message */}
       <div className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.characters.dialoguetab.firstMessage")}{" "}
-          <HelpTooltip text={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")} />
-        </span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.characters.dialoguetab.firstMessage")}{" "}
+            <HelpTooltip text={localizeUi("ui.characters.dialoguetab.theCharacterSOpeningMessageWhenANewChat")} />
+          </span>
+          <CharacterGreetingWand
+            entityId={selfCharacterId}
+            card={card}
+            value={formData.first_mes}
+            onApply={(text) => updateField("first_mes", text)}
+            label={localizeUi("ui.characters.dialoguetab.firstMessage")}
+          />
+        </div>
         <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">
           {localizeUi("ui.characters.dialoguetab.greetingsRoleplayOnly")}
         </p>
         <MacroTextarea
+          ariaLabel={localizeUi("ui.characters.dialoguetab.firstMessage")}
           showTokenCount
           value={formData.first_mes}
           onChange={(value) => updateField("first_mes", value)}
@@ -3463,7 +3525,11 @@ function DialogueTab({
           showMarkdownPreview
           selfCharacterId={selfCharacterId}
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-          placeholder={localizeUi("ui.characters.dialoguetab.whatIsTheCharacterSFirstMessageWhenA")}
+          placeholder={
+            localizeUi("ui.characters.dialoguetab.whatIsTheCharacterSFirstMessageWhenA") +
+            " " +
+            localizeUi("ui.cardFields.seedPlaceholder")
+          }
         />
       </div>
 
@@ -3480,7 +3546,7 @@ function DialogueTab({
           <button
             type="button"
             onClick={addGreeting}
-            className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1 text-xs"
+            className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1 text-xs"
           >
             {localizeUi("ui.characters.dialoguetab.add")}
           </button>
@@ -3499,6 +3565,13 @@ function DialogueTab({
                 {i + 1}
               </span>
               <div className="flex shrink-0 items-center gap-1">
+                <CharacterGreetingWand
+                  entityId={selfCharacterId}
+                  card={card}
+                  value={g}
+                  onApply={(text) => updateGreeting(i, text)}
+                  label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                />
                 <button
                   type="button"
                   onClick={() => moveGreeting(i, -1)}
@@ -3524,7 +3597,7 @@ function DialogueTab({
                 <button
                   type="button"
                   onClick={() => removeGreeting(i)}
-                  className={cn(greetingActionButtonClassName, "mari-editor-action--danger")}
+                  className={cn(greetingActionButtonClassName, "mari-editor-action--accent")}
                   aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", { value1: i + 1 })}
                   title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
                 >
@@ -3533,6 +3606,7 @@ function DialogueTab({
               </div>
             </div>
             <MacroTextarea
+              ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
               value={g}
               onChange={(value) => updateGreeting(i, value)}
               rows={3}
@@ -3540,7 +3614,11 @@ function DialogueTab({
               showMarkdownPreview
               selfCharacterId={selfCharacterId}
               className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40"
-              placeholder={localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 1 })}
+              placeholder={
+                localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 1 }) +
+                " " +
+                localizeUi("ui.cardFields.seedPlaceholder")
+              }
             />
           </div>
         ))}
@@ -3576,6 +3654,7 @@ function DialogueTab({
             localizeUi("ui.cardFields.seedPlaceholder")
           }
         />
+        {exampleFooter}
       </div>
     </div>
   );

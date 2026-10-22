@@ -45,6 +45,15 @@ for (const authoredSummary of [true, false]) {
       },
     };
     const metadata = Buffer.from(`chara\0${Buffer.from(JSON.stringify(json)).toString("base64")}`);
+    const portableAlternatives = [
+      {
+        id: "imported-description",
+        field: "description",
+        value: "An alternate authored description.",
+        chatIds: [],
+      },
+      { id: "imported-appearance", field: "appearance", value: "", chatIds: [] },
+    ];
     const chunk = Buffer.alloc(metadata.length + 12);
     chunk.writeUInt32BE(metadata.length);
     chunk.write("tEXt", 4, "ascii");
@@ -127,9 +136,11 @@ for (const authoredSummary of [true, false]) {
       expect(response.ok(), await response.text()).toBeTruthy();
       personaId = ((await response.json()) as { id: string }).id;
       expect(posted).toMatchObject({ name, summary, mes_example: dialogue });
+      expect(posted?.cardFieldAlternatives).toEqual(portableAlternatives);
       const saved = await request.get(`/api/characters/personas/${personaId}`);
       expect(saved.ok()).toBeTruthy();
       expect(await saved.json()).toMatchObject({ name, description, summary, mes_example: dialogue });
+      expect((await saved.json()).cardFieldAlternatives).toEqual(portableAlternatives);
     } finally {
       if (personaId) await request.delete(`/api/characters/personas/${personaId}`);
     }

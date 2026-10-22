@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, 
 import { Skull, Zap } from "lucide-react";
 import {
   creatureArtVariant,
-  findCreatureArt,
   type Combatant,
   type DirectedRulesetView,
   type RulesetCombatCell,
@@ -54,7 +53,7 @@ import {
   type RulesetMenuStep,
 } from "../../lib/ruleset-combat-menu";
 import { boardCellArt, boardSliceStyle, useBoardArt } from "../../lib/board-art";
-import { CreatureArtFigure, useCreatureFacings, useCreaturePack } from "./CreatureArt";
+import { CreatureArtFigure, findCreatureArtIn, useCreatureFacings, useCreaturePacks } from "./CreatureArt";
 import { cn } from "../../lib/utils";
 import { rulesetHealthTone } from "./RulesetTurnOrder";
 import { useMatchMedia } from "../../hooks/use-match-media";
@@ -300,7 +299,7 @@ export function RulesetCombatBoard({
   );
   const drawn = !!boardArt.board;
   // Creature art (design-game-creature-art.md): the library's creature pack, and which way each fighter faces.
-  const creaturePack = useCreaturePack();
+  const creaturePacks = useCreaturePacks();
   const facings = useCreatureFacings(
     cells.flatMap((cell) =>
       cell.occupant && cell.anchor ? [{ id: cell.occupant.id, x: cell.x, y: cell.y, side: cell.occupant.side }] : [],
@@ -637,7 +636,7 @@ export function RulesetCombatBoard({
             // An opponent with no picture of its own is drawn with its creature art when the pack has it.
             const creature =
               combatant.side !== "party" && sprite.kind !== "url"
-                ? findCreatureArt(creaturePack, {
+                ? findCreatureArtIn(creaturePacks, {
                     creature: combatant.creature,
                     rulesetId: view.ruleset.id,
                     name: combatant.name,
@@ -683,14 +682,15 @@ export function RulesetCombatBoard({
                     boxShadow: glow,
                   }}
                 >
-                  {creature && creaturePack ? (
+                  {creature ? (
                     // The token is 0.84 of a cell: its art is drawn at the creature's own size, on the cell.
                     <CreatureArtFigure
-                      pack={creaturePack}
-                      creature={creature}
+                      pack={creature.pack}
+                      creature={creature.creature}
                       // Fights of one ruleset share the key: a fighter keeps its look across them.
-                      variant={creatureArtVariant(creature, view.ruleset.id, combatant.id)}
+                      variant={creatureArtVariant(creature.creature, view.ruleset.id, combatant.id)}
                       facing={facings.get(combatant.id) ?? "down"}
+                      flying={combatant.flying}
                       cellFraction={1 / 0.84}
                       label={combatant.name}
                     />

@@ -29,7 +29,7 @@ export interface RulesetBudgetMark {
 }
 
 /** How each budget of the ruleset is marked: its own letters and tone when the file gives them
- *  (1.342), else the first letter of its label and the tone of its place, which for 5e's Action,
+ *  (1.375), else the first letter of its label and the tone of its place, which for 5e's Action,
  *  Bonus action and Reaction is A, B and R in rose, amber and violet. */
 export function rulesetBudgetMarks(definition: RulesetDefinition | undefined): RulesetBudgetMark[] {
   const budgets = definition?.combat?.economy.budgets ?? [];

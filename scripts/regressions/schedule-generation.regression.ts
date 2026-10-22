@@ -246,6 +246,69 @@ try {
     schedule,
     "Draft generation never overwrites the saved card, even on failure",
   );
+  // A chat-local card projection is model context, never a replacement for
+  // authored card data when the schedule's runtime state is persisted.
+  const alternativeOwner = await chars.create({
+    name: "Scoped routine",
+    description: "BASE ROUTINE DESCRIPTION",
+    personality: "BASE ROUTINE PERSONALITY",
+    extensions: {
+      backstory: "BASE ROUTINE BACKSTORY",
+      appearance: "BASE ROUTINE APPEARANCE",
+      conversationSchedule: schedule,
+      conversationScheduleAutoRenew: true,
+    },
+  } as never);
+  const alternativeChat = await chats.create({
+    name: "Scoped routine chat",
+    mode: "conversation",
+    connectionId: override.id,
+    characterIds: [alternativeOwner.id],
+  });
+  const otherChat = await chats.create({
+    name: "Other routine chat",
+    mode: "conversation",
+    characterIds: [alternativeOwner.id],
+  });
+  const alternatives = ["description", "personality", "backstory", "appearance"].map((field) => ({
+    id: `routine-${field}`,
+    field,
+    value: `ALTERNATIVE ROUTINE ${field}`,
+    chatIds: [alternativeChat.id],
+  }));
+  await chars.update(alternativeOwner.id, { extensions: { cardFieldAlternatives: alternatives } } as never);
+  content = JSON.stringify(schedule);
+  response = await app.inject({
+    method: "POST",
+    url: "/api/conversation/schedule/generate",
+    payload: { chatId: alternativeChat.id, automatic: true, forceRefresh: true },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().results[alternativeOwner.id].status, "generated");
+  const scopedPrompt = requests
+    .at(-1)!
+    .messages.map((message) => message.content)
+    .join("\n");
+  assert.match(scopedPrompt, /ALTERNATIVE ROUTINE description/);
+  assert.match(scopedPrompt, /ALTERNATIVE ROUTINE personality/);
+  const savedBase = JSON.parse((await chars.getById(alternativeOwner.id))!.data);
+  assert.equal(savedBase.description, "BASE ROUTINE DESCRIPTION");
+  assert.equal(savedBase.personality, "BASE ROUTINE PERSONALITY");
+  assert.equal(
+    savedBase.extensions.backstory,
+    "BASE ROUTINE BACKSTORY",
+    "Schedule renewal must not persist a chat's alternative backstory into the base card",
+  );
+  assert.equal(
+    savedBase.extensions.appearance,
+    "BASE ROUTINE APPEARANCE",
+    "Schedule renewal must not persist a chat's alternative appearance into the base card",
+  );
+  assert.deepEqual(savedBase.extensions.cardFieldAlternatives, alternatives);
+  assert.equal(
+    JSON.parse((await chars.getById(alternativeOwner.id, otherChat.id))!.data).extensions.appearance,
+    "BASE ROUTINE APPEARANCE",
+  );
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));

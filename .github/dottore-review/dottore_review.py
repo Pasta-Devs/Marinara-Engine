@@ -3496,7 +3496,8 @@ def render_walkthrough(
             ]
         )
         body.extend([f"- {note}" for note in invalid_findings[:5]])
-    # Last, for a pull request Dottore cannot push to (a fork): the same repair contracts, for an agent of your own.
+    # Last, for a pull request Dottore cannot push to (a fork without maintainer edits): the same repair contracts, for
+    # an agent of your own.
     agent_prompt = render_agent_prompt_details(defects, "🩺 Repair prompt for an agent of your own")
     if agent_prompt:
         body.extend(["", agent_prompt])
@@ -4431,13 +4432,22 @@ def autofix_prompt(args):
         walkthrough = latest_walkthrough_comment(pr_num)
         if not walkthrough or not autofix_ticked(walkthrough.get("body")):
             return
-    fields = "isCrossRepository,headRefName,headRefOid,state"
+    fields = "isCrossRepository,maintainerCanModify,headRepository,headRepositoryOwner,headRefName,headRefOid,state"
     pr = json.loads(run_gh(["pr", "view", pr_num, "--repo", repo, "--json", fields], check=True).stdout)
     if pr.get("state") != "OPEN":
         return
+    # The repair goes to the head branch's repository: this one, or a fork whose author allowed edits by maintainers.
+    owner, name = (pr.get("headRepositoryOwner") or {}).get("login"), (pr.get("headRepository") or {}).get("name")
+    head_repo = f"{owner}/{name}"
     note, threads = "", []
-    if pr.get("isCrossRepository"):
-        note = "Dottore can only push repairs to this repository's own branches; use the repair prompt at the end of the review instead."
+    if not name:
+        note = "This pull request's fork was deleted, so Dottore has no branch to push a repair to."
+    elif pr.get("isCrossRepository") and not pr.get("maintainerCanModify"):
+        note = (
+            f"Dottore cannot push repairs to `{head_repo}`, because this pull request does not allow edits by"
+            " maintainers. Its author can tick **Allow edits and access to secrets by maintainers** on the pull request"
+            " (a fork owned by an organisation cannot), or use the repair prompt at the end of the review instead."
+        )
     elif os.environ.get("DOTTORE_SMALL_API", "").strip().lower() != "anthropic":
         # The repair runs Claude Code, which speaks only Claude's Messages format. Read raw, so a bad value gets this
         # reply instead of model_slot's error.
@@ -4467,7 +4477,7 @@ def autofix_prompt(args):
         heading = re.search(r"### .*?\b(?:BLOCKING|HIGH|MEDIUM|LOW):\s*(.+)", thread["body"])
         title = heading.group(1).strip() if heading else "Dottore finding"
         findings.append({"path": thread["path"], "line": thread["line"], "title": title})
-    meta = {"head_ref": pr["headRefName"], "head_sha": pr["headRefOid"], "findings": findings}
+    meta = {"head_repo": head_repo, "head_ref": pr["headRefName"], "head_sha": pr["headRefOid"], "findings": findings}
     (out / "meta.json").write_text(json.dumps(meta), "utf-8")
     print("autofix=true")
 

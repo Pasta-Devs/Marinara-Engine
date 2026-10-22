@@ -8,6 +8,8 @@ import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engin
 import {
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
+  RULESET_LAND_OPTION,
+  RULESET_TAKE_OFF_OPTION,
   RULESET_MOVE_OPTION,
   RULESET_ZONE_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
@@ -35,19 +37,22 @@ export const RULESET_MENU_KINDS = [
 
 export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
 
-/** A half-made choice: deciding what pays for it, where it walks, who it is pointed at, or where
- *  the shape lands. The board holds this while it draws it, so the menu and the board are never
- *  two steps apart. */
-/** The Engine's own word for each of the two moves a board adds, keyed by the resolver's own id.
+/** The Engine's own word for each move a board adds (walking, standing, flying up or down, taking off
+ *  and landing), keyed by the resolver's own id.
  *  A key segment is built from the WORD and never from the id, which may carry punctuation a
  *  localization key may not. */
-const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown"> = {
+const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown" | "takeOff" | "land"> = {
   [RULESET_MOVE_OPTION]: "walk",
   [RULESET_STAND_OPTION]: "stand",
   [RULESET_FLY_UP_OPTION]: "flyUp",
   [RULESET_FLY_DOWN_OPTION]: "flyDown",
+  [RULESET_TAKE_OFF_OPTION]: "takeOff",
+  [RULESET_LAND_OPTION]: "land",
 };
 
+/** A half-made choice: deciding what pays for it, where it walks, who it is pointed at, or where
+ *  the shape lands. The board holds this while it draws it, so the menu and the board are never
+ *  two steps apart. */
 export interface RulesetMenuStep {
   stage: "style" | "mode" | "alter" | "pay" | "amount" | "move" | "target" | "aim" | "spare" | "heighten";
   option: DirectedRulesetOption;

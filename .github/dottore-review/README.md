@@ -111,9 +111,11 @@ write access; a read or triage collaborator's request is ignored. While the box 
 three Dottore repairs in a row with no push from a person, it stops and says so (`MAX_AUTOFIX_ROUNDS` in
 `dottore_review.py`). The repair is reviewed again by the auto dispatcher; with that workflow disabled, the next
 review waits for a `/dottore` comment, so each repair is one `/dottore` away. Repairs go to the pull request's own
-branch, so a pull request from a fork gets the repair prompt at the end of the walkthrough instead. The pushed commit
-names the findings it repairs, carries the runner's own account of the change, and ends with a `Dottore-Autofix`
-trailer that counts the rounds.
+branch, in this repository or in the fork it comes from. A fork's branch takes them only when its author left **Allow
+edits and access to secrets by maintainers** (**Allow edits from maintainers** on a fork without workflows) ticked; a
+fork owned by an organisation has no such option. Otherwise Dottore says so, and the repair prompt at the end of the
+walkthrough is the way to repair it. The pushed commit names the findings it repairs, carries the
+runner's own account of the change, and ends with a `Dottore-Autofix` trailer that counts the rounds.
 
 A repair runs in two jobs after the review job:
 
@@ -125,7 +127,7 @@ A repair runs in two jobs after the review job:
   App's token, because a push made with `GITHUB_TOKEN` starts no CI and no review. That push starts the next review,
   whose repair check resolves the threads the code confirms. A patch that changed nothing, failed the checks, met a
   branch that moved meanwhile, or was rejected by the push (one editing a workflow file, which the App's token cannot
-  push, so the repair is told not to) is reported in a comment instead.
+  push, so the repair is told not to) is reported in a comment instead, and so is any other failure of the push job.
 
 The App needs **Contents: Read and write** on the repository, installed there, with its ID and private key in the
 `DOTTORE_APP_ID` and `DOTTORE_APP_PRIVATE_KEY` secrets. A calling workflow passes both.

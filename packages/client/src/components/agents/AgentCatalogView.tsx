@@ -142,6 +142,7 @@ function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
   if (kind === "turn-game") return "Conversation Game";
   if (kind === "maps") return "Maps";
   if (kind === "ruleset") return "Rules";
+  if (kind === "experience") return "Experience";
   return "Agent";
 }
 

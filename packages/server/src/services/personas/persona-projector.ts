@@ -1,5 +1,6 @@
 import {
   normalizeConvoBehavior,
+  normalizeCardFieldAlternatives,
   normalizeAvatarCrop,
   normalizePersonaStats,
   normalizePersonaStringArray,
@@ -16,6 +17,7 @@ export function projectPersona(row: PersonaStorageRow): Persona {
   const personaVersion = stringValue(row.personaVersion).trim();
   return {
     id: stringValue(row.id),
+    cardFieldAlternatives: normalizeCardFieldAlternatives(row.cardFieldAlternatives),
     name: stringValue(row.name),
     comment: stringValue(row.comment),
     creator: stringValue(row.creator),
@@ -97,6 +99,8 @@ export function encodePersonaUpdate(input: PersonaUpdateInput): EncodedPersonaUp
   }
   if (Object.hasOwn(input, "personaStats"))
     encoded.personaStats = input.personaStats === null ? "" : encodeStructured(input.personaStats);
+  if (Object.hasOwn(input, "cardFieldAlternatives"))
+    encoded.cardFieldAlternatives = encodeStructured(input.cardFieldAlternatives);
   if (Object.hasOwn(input, "tags")) encoded.tags = encodeStructured(input.tags);
   if (Object.hasOwn(input, "savedStatusOptions"))
     encoded.savedStatusOptions = encodeStructured(input.savedStatusOptions);

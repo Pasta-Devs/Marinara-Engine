@@ -2,7 +2,16 @@
 // What the overworld and the town views share (worldgen W8): the game's clock running in real time as
 // Pixelforge's world does, and a setting family's tiles (its tile pack, W9a).
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   OVERWORLD_SECONDS_PER_GAME_MINUTE,
@@ -164,6 +173,9 @@ export type OverworldTileDrawer = ((
   ) => boolean;
   /** Whether the pack has edge tiles for a terrain (water, road, street, square). */
   hasEdges: (terrain: WorldEdgeTerrain) => boolean;
+  /** Draws what follows in a season of its own (a place the story holds at one, Capability API 1.351)
+   *  instead of the drawer's; undefined goes back to the drawer's. */
+  setCellSeason: (season: WorldSeason | undefined) => void;
   /** Whether the pack has a fringe for a ground look (or for the look it stands in for). */
   hasFringe: (look: string) => boolean;
   /**
@@ -197,6 +209,10 @@ export type OverworldTileDrawer = ((
   ) => boolean;
 };
 
+/** The walking look an Experience gives its own people (Capability API 1.346): a character of its map
+ *  pack's tiles, by person id. Provided by the game; empty everywhere else. */
+export const ExperiencePeopleSpritesContext = createContext<ReadonlyMap<string, string>>(new Map());
+
 /** The tiles a family is drawn with: the pack chosen for it, else the Engine's own for the family, laid
  *  out once on a canvas. A family with neither is drawn plain. */
 /** `own`: the game's own tiles (an Experience's map pack), drawn instead of the family's; "loading" while
@@ -207,6 +223,7 @@ export function useOverworldAtlas(
   season?: WorldSeason,
 ): OverworldTileDrawer {
   const { data: library, isPending: libraryPending } = useTilePackLibrary();
+  const peopleSprites = useContext(ExperiencePeopleSpritesContext);
   const chosen = (family && library?.selection[family]) || null;
   // By version, so a pack saved again is drawn anew.
   const version = (chosen && library?.packs.find((pack) => pack.id === chosen)?.version) || null;
@@ -286,8 +303,12 @@ export function useOverworldAtlas(
     // A look the pack has no tile for (a newer forest) draws the one it stands in for.
     const fallbackOf = (id: string) => WORLD_GROUND_LOOK_FALLBACK[id as WorldGroundLook];
     // A tile's seasonal variant (`<id>@<season>`) in its season, where the pack has one.
-    const seasonal = <T>(tiles: Record<string, T> | undefined, id: string) =>
-      (season ? tiles?.[`${id}@${season}`] : undefined) ?? tiles?.[id];
+    // A cell the story holds at a season of its own is drawn in that one.
+    let cellSeason: WorldSeason | undefined;
+    const seasonal = <T>(tiles: Record<string, T> | undefined, id: string) => {
+      const now = cellSeason ?? season;
+      return (now ? tiles?.[`${id}@${now}`] : undefined) ?? tiles?.[id];
+    };
     const variantOf = <T>(variants: readonly T[] | undefined, pick: number) =>
       variants?.length ? variants[Math.min(variants.length - 1, Math.floor(pick * variants.length))]! : null;
     if (image) {
@@ -340,8 +361,12 @@ export function useOverworldAtlas(
       const folkAll = people.filter((each) => each.for.includes("folk"));
       const folk = folkAll.length > 1 ? folkAll.filter((each) => each !== partyCharacter) : folkAll;
       draw.character = (ctx, who, x, y, facing = "down", frame = 1, lying = false) => {
+        const own = who === "party" ? undefined : peopleSprites.get(who.person);
+        const dressed = own ? people.find((each) => each.id === own) : undefined;
         const chosen =
-          who === "party" ? partyCharacter : folk.length ? folk[characterPick(who.person) % folk.length] : undefined;
+          who === "party"
+            ? partyCharacter
+            : (dressed ?? (folk.length ? folk[characterPick(who.person) % folk.length] : undefined));
         const sheet = ready?.charactersCanvas;
         if (!chosen || !sheet) return false;
         const [fw, fh] = [chosen.w * size, chosen.h * size];
@@ -416,6 +441,9 @@ export function useOverworldAtlas(
         ctx.drawImage(ready.canvas, at.sx, at.sy, size, size, x - half, y - half, OVERWORLD_TILE, OVERWORLD_TILE);
         return true;
       };
+      draw.setCellSeason = (value) => {
+        cellSeason = value;
+      };
       return draw;
     }
     const draw = ((ctx, id, x, y, pick = 0) => {
@@ -440,8 +468,11 @@ export function useOverworldAtlas(
     draw.fringe = () => false;
     draw.edgeRows = () => 0;
     draw.edge = () => false;
+    draw.setCellSeason = (value) => {
+      cellSeason = value;
+    };
     return draw;
-  }, [atlas, chosen, family, fetchFailed, fetched, image, libraryPending, own, ready, season]);
+  }, [atlas, chosen, family, fetchFailed, fetched, image, libraryPending, own, peopleSprites, ready, season]);
 }
 
 /** Canvas pixels per unit for a view's base canvases (the ground and buildings drawn once): an image

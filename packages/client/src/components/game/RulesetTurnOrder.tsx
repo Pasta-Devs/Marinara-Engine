@@ -43,7 +43,7 @@ export function rulesetStateWord(combatant: DirectedRulesetCombatant, t: TFuncti
   return "";
 }
 
-/** The defense column's heading: what the ruleset says (1.342), else its defense's own name made
+/** The defense column's heading: what the ruleset says (1.375), else its defense's own name made
  *  short, "Armor Class" read as "AC" and a short word kept as it is. */
 export function rulesetDefenseShort(definition: RulesetDefinition, names: RulesetCombatNames): string {
   const own = definition.combat?.display?.defense?.short;

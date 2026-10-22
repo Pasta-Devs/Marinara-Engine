@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Character Card V2 Types (compatible with ST / Chub)
 // ──────────────────────────────────────────────
+import type { CardFieldAlternative } from "../schemas/card-field-alternative.schema.js";
 import type { ChoiceDisplayMode, ChoiceOption, ChoiceOptionSort } from "./prompt.js";
 
 /** Full Character Card V2 envelope. */
@@ -34,6 +35,8 @@ export interface CharacterData {
 
 /** ST-compatible extension fields. */
 export interface CharacterExtensions {
+  /** Chat-specific replacements; the authored base fields remain unchanged. */
+  cardFieldAlternatives?: CardFieldAlternative[];
   talkativeness: number;
   fav: boolean;
   world: string;
@@ -269,6 +272,7 @@ export interface CharacterCardVersion {
 
 /** Snapshot data saved for a previous persona card state. */
 export interface PersonaCardSnapshot {
+  cardFieldAlternatives?: string;
   name: string;
   creator: string;
   personaVersion: string;

@@ -63,3 +63,41 @@ export function gameIntroGuidanceText(intro: GameIntro | null | undefined): stri
   if (!intro || intro.mode !== "guided") return "";
   return `This reply is the game's opening message. Write it as you would, guided by this, which its maker set for how the game opens:\n${intro.text}`;
 }
+
+/** An intro kept with a game, read leniently: anything that is not one reads as none. */
+export function readGameIntro(value: unknown): GameIntro | null {
+  const read = gameIntroSchema.safeParse(value);
+  return read.success ? read.data : null;
+}
+
+const setupText = (max: number) => z.string().trim().min(1).max(max);
+/** Genres or tones, joined with commas as a game's setup keeps them (at most 200 characters). */
+const setupTags = z
+  .array(setupText(60).refine((value) => !value.includes(","), { message: "A genre or tone cannot hold a comma" }))
+  .min(1)
+  .max(12)
+  .refine((values) => values.join(", ").length <= 200, { message: "Too many genres or tones" });
+
+/**
+ * An Experience's GM setup values (Capability API 1.372), `contributions.gameSurface.setup.defaults`: what
+ * picking the Experience in the Game wizard fills in, each value the player may still change. Only the
+ * intro locks, and only when its creator says so. Every key is optional.
+ */
+export const experienceSetupDefaultsSchema = z
+  .object({
+    name: setupText(100).optional(),
+    genre: setupTags.optional(),
+    setting: setupText(4000).optional(),
+    tone: setupTags.optional(),
+    difficulty: z.enum(["Casual", "Normal", "Hard", "Brutal"]).optional(),
+    rating: z.enum(["sfw", "nsfw"]).optional(),
+    language: setupText(100).optional(),
+    combatStyle: z.enum(["classic", "tactical"]).optional(),
+    playerGoals: setupText(2000).optional(),
+    preferences: setupText(2000).optional(),
+    gameSpecialInstructions: setupText(2000).optional(),
+    artStylePrompt: setupText(500).optional(),
+    intro: gameIntroSchema.optional(),
+  })
+  .strict();
+export type ExperienceSetupDefaults = z.infer<typeof experienceSetupDefaultsSchema>;

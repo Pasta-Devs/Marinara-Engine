@@ -450,7 +450,15 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   characters: ["data"],
   character_card_versions: ["data"],
   persona_card_versions: ["data"],
-  personas: ["avatarCrop", "trackerCardColors", "personaStats", "tags", "savedStatusOptions", "convoBehavior"],
+  personas: [
+    "avatarCrop",
+    "trackerCardColors",
+    "personaStats",
+    "tags",
+    "savedStatusOptions",
+    "convoBehavior",
+    "cardFieldAlternatives",
+  ],
   character_groups: ["characterIds"],
   persona_groups: ["personaIds"],
   chats: ["characterIds", "metadata"],
@@ -1431,6 +1439,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     scenario: firstString(data, ["scenario"]) ?? "",
     backstory: firstString(data, ["backstory"]) ?? "",
     appearance: firstString(data, ["appearance"]) ?? "",
+    cardFieldAlternatives: [],
     imageAppearanceEnabled:
       data.imageAppearanceEnabled === true ||
       data.imageAppearanceEnabled === "true" ||

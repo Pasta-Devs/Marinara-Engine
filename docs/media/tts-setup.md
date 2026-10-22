@@ -40,6 +40,21 @@ If the chosen connection is deleted or can't be used, the card shows **Missing A
 
 When the connection lists its voices, the card names any saved voice that is not on the list, so you can pick one the connection offers.
 
+## Game music and sound effects on a compatible audio server
+
+In **Connections**, create or open an **Audio** connection and choose **OpenAI-compatible**. Use the address, key and model for your music or sound-effect server. Set **Generation API format**, enter the endpoint paths your server provides, and enable **Game music** or **Game sound effects**. A blank path leaves that capability unavailable. Select this Audio connection in Game setup or the game's audio settings. A music-only model is not a speech model; keep your speech connection selected separately in the Text to Speech card.
+
+Endpoint paths are appended to the connection's Base URL: for `http://localhost:8002/v1`, use `chat/completions` to reach `/v1/chat/completions`. No new provider entry is needed. Local HTTP endpoints require `TTS_LOCAL_URLS_ENABLED=true` in `.env`, as other local compatible audio requests do.
+
+Two explicit API contracts are supported:
+
+- **Prompt JSON → MP3 audio** posts `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` and expects MP3 bytes. Game music uses the context track's duration (120 seconds by default); sound effects request 5 seconds. Use an endpoint or adapter that accepts these fields.
+- **Chat Completions → inline audio (ACE-Step compatible)** posts `model`, one user `messages` entry, `stream: false`, and `audio_config` with `duration`, `instrumental: true` and `format: "mp3"`. It accepts inline MP3 audio from `choices[0].message.audio`, either an ACE-Step audio URL array containing a base64 data URL or an object with base64 `data`. See the [ACE-Step compatible API contract](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Remote result URLs and asynchronous job APIs are not supported by these contracts.
+
+Only enable the capabilities your server actually implements. An OpenAI-compatible speech endpoint alone does not imply music or sound-effect support. A provider such as Infermatic must expose one of the contracts above, or supply an adapter; its live music endpoint has not been verified here. ElevenLabs keeps its existing native music and sound-effect requests.
+
+Generated context music is still composed once per area or encounter tier and reused. Repeated sound effects use the audio cache. A generation error leaves the cache available for retry.
+
 ## Step 2: Enter the Base URL, API Key, and Model
 
 Skip this step if you chose an Audio connection as the Source: Marinara uses the connection's own settings.
@@ -148,6 +163,8 @@ Under the **Auto-play** heading, each toggle tells the app to read one kind of n
 - **Game narration**: reads new Game Mode narration and combat lines.
 - **Progressive playback**: when a reply has several lines, starts playing the first line right away instead of waiting for the whole reply.
 - **Only read dialogues**: reads only quoted or tagged spoken lines and skips plain narration.
+
+In Roleplay, voice preparation starts as soon as the main response has been saved. Speaker and emotion extraction starts from that text without waiting for unrelated agents. If an enabled agent rewrites the reply, such as Prose Guardian, Marinara waits for the final rewritten text before preparing speech.
 
 Auto-play fires only once, on the newest reply, at the moment it finishes. It does not re-read old messages when you reopen or scroll a chat.
 
