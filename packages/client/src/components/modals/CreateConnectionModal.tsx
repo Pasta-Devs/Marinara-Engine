@@ -14,20 +14,14 @@ import {
   KeyRound,
   ListChecks,
   AudioLines,
-  Database,
   ExternalLink,
   Eye,
   EyeOff,
-  Eye as EyeIcon,
   Film,
-  GraduationCap,
   Image as ImageIcon,
   Loader2,
   MessageCircleQuestion,
   MessageSquare,
-  MessageSquareText,
-  Sparkles,
-  Volume2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -82,14 +76,8 @@ import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
-import {
-  ADD_JOBS,
-  ADD_JOB_KIND,
-  flashConnectionCard,
-  type AddFor,
-  type AddJob,
-  type ModelsFor,
-} from "../../lib/add-connection";
+import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../lib/add-connection";
+import { JOB, JOBS, jobAddKind, jobHintKey, jobLabelKey, matchesKind } from "../../lib/connection-jobs";
 import {
   buildOfflineModelIndex,
   keysOf,
@@ -259,28 +247,6 @@ const KIND_ICONS = {
 type ChipKind = keyof typeof KIND_ICONS;
 const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "decision"];
 const MODEL_CHIP_KINDS = new Set<ChipKind>(["chat", "image", "video"]);
-/** "For a job…": the Defaults box's icons, so a job looks the same in both places. */
-const JOB_ICONS: Record<AddJob, typeof MessageSquare> = {
-  main: MessageSquareText,
-  mari: GraduationCap,
-  agents: Sparkles,
-  images: ImageIcon,
-  vision: EyeIcon,
-  voice: Volume2,
-  decision: MessageCircleQuestion,
-  embeddings: Database,
-  video: Film,
-};
-/** Jobs Done can set by itself: a role flag on the new Model, or a feature pick. */
-const JOB_FLAG: Partial<Record<AddJob, "isDefault" | "defaultForAgents">> = {
-  main: "isDefault",
-  agents: "defaultForAgents",
-  images: "defaultForAgents",
-  video: "defaultForAgents",
-  decision: "defaultForAgents",
-  voice: "defaultForAgents",
-};
-const JOB_FEATURE = { mari: "mariConnectionId", vision: "visionConnectionId" } as const;
 /** Vendors and plans with an offline model list, in the order "A specific model…" picks from. */
 const MODEL_SERVICES: APIProvider[] = [
   "anthropic",
@@ -540,17 +506,16 @@ function JobCards({ rows, onPick }: { rows: ConnectionRowData[]; onPick: (key: A
   const { tiles, features } = useConnectionDefaults(rows);
   return (
     <div className="mari-connection-model-well">
-      {ADD_JOBS.map((key) => {
-        const tileKey = key === "mari" || key === "vision" ? JOB_FEATURE[key] : key;
-        const tile = [...tiles, ...features].find((entry) => entry.key === tileKey);
+      {JOBS.filter((job) => job.add === undefined).map((job) => {
+        const tile = [...tiles, ...features].find((entry) => entry.key === job.key);
         return (
           tile && (
-            <div key={key} className="mari-connection-model-slot min-w-0">
+            <div key={job.key} className="mari-connection-model-slot min-w-0">
               <JobRow
                 tile={tile}
-                hint={t(`connections.add.jobHint.${key}`)}
-                data-add-connection-job-choice={key}
-                onClick={() => onPick(key)}
+                hint={t(jobHintKey(job))}
+                data-add-connection-job-choice={job.key}
+                onClick={() => onPick(job.key)}
                 trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
               />
             </div>
@@ -659,7 +624,7 @@ export function CreateConnectionModal({
   const job = jobFor?.job ?? null;
   // The kind chip in step 1; step 3 starts on the same kind.
   const [kindFilter, setKindFilter] = useState<ChipKind | null>(
-    forJob ? (forJob.job ? ADD_JOB_KIND[forJob.job] : (forJob.kind ?? null)) : null,
+    forJob ? (forJob.job ? (jobAddKind(forJob.job) ?? null) : (forJob.kind ?? null)) : null,
   );
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
@@ -829,14 +794,9 @@ export function CreateConnectionModal({
     }
   };
 
-  const jobLabel = (key: AddJob) =>
-    t(
-      key === "mari" || key === "vision"
-        ? `connections.defaults.feature.${JOB_FEATURE[key]}`
-        : `connections.defaults.role.${key}`,
-    );
+  const jobLabel = (key: AddJob) => t(jobLabelKey(JOB[key]));
   // Adding for a job: the first new Model of the job's kind is set for it; the result undoes that.
-  const jobKind = job ? ADD_JOB_KIND[job] : jobFor?.kind;
+  const jobKind = job ? jobAddKind(job) : jobFor?.kind;
   const jobPick = jobFor && jobKind ? picks.find((pick) => pick.kind === jobKind) : undefined;
   const assignJob = async (): Promise<(() => void) | null> => {
     if (!jobPick || !jobFor) return null;
@@ -851,19 +811,22 @@ export function CreateConnectionModal({
       await setEmbeddingDefault.mutateAsync(id);
       return () => void setEmbeddingDefault.mutateAsync(previous).catch(() => {});
     }
-    const flag = job ? JOB_FLAG[job] : undefined;
-    if (flag) {
+    const entry = job ? JOB[job] : undefined;
+    const flag = entry?.flag;
+    // Only a Connection of the job's kind takes its flag: a chat service's voice Model is not the Audio default.
+    const target = allRows.find((row) => row.id === id);
+    if (flag && target && matchesKind(target, entry.kind!)) {
       const previous = allRows.find(
         (row) =>
           row.id !== id &&
-          rowKind(row.provider) === jobPick.kind &&
+          matchesKind(row, entry.kind!) &&
           isConnectionFlagTrue((row as Record<string, unknown>)[flag]),
       )?.id;
       await updateRow.mutateAsync({ id, [flag]: true });
       return () =>
         void updateRow.mutateAsync(previous ? { id: previous, [flag]: true } : { id, [flag]: false }).catch(() => {});
     }
-    const feature = job === "mari" || job === "vision" ? JOB_FEATURE[job] : undefined;
+    const feature = entry?.feature;
     if (feature) {
       const previous = featureModels.data?.[feature] ?? null;
       await setFeatureModels.mutateAsync({ [feature]: id });
@@ -1500,11 +1463,20 @@ export function CreateConnectionModal({
     }
     return { mine: [...mine], services };
   };
-  const shownJobs = job ? [] : ADD_JOBS.filter((key) => !searching || jobLabel(key).toLowerCase().includes(needle));
+  const shownJobs = job
+    ? []
+    : JOBS.filter((entry) =>
+        searching
+          ? entry.add !== false && `${jobLabel(entry.key)} ${entry.terms ?? ""}`.toLowerCase().includes(needle)
+          : entry.add === undefined,
+      ).map((entry) => entry.key);
   const chooseJob = (key: AddJob) => {
-    setJobFor({ job: key });
-    setKindFilter(ADD_JOB_KIND[key]);
     setQuery("");
+    // Voice and Dictation have no Model to pick: open their service's set-up screen.
+    const device = JOB[key].device;
+    if (device) return void chooseService(device);
+    setJobFor({ job: key });
+    setKindFilter(jobAddKind(key) ?? null);
   };
   const clearJob = () => {
     setJobFor(null);
@@ -1540,7 +1512,7 @@ export function CreateConnectionModal({
       Icon: ListChecks,
       examples: (["decision", "voice", "embeddings"] as const).map((key) => ({
         label: jobLabel(key),
-        Icon: JOB_ICONS[key],
+        Icon: JOB[key].icon,
       })),
     },
     {
@@ -1636,7 +1608,7 @@ export function CreateConnectionModal({
         <p data-add-connection-job={job} className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className={cn(HIGHLIGHT_BADGE_CLASS, "gap-1")}>
             {(() => {
-              const Icon = JOB_ICONS[job];
+              const Icon = JOB[job].icon;
               return <Icon size="0.75rem" aria-hidden />;
             })()}
             {t("connections.add.forJob", { job: jobLabel(job) })}
@@ -1661,7 +1633,7 @@ export function CreateConnectionModal({
           {sectionTitle(t("connections.add.section.job"))}
           <div className="flex flex-wrap gap-1.5">
             {listJobs.map((key) => {
-              const Icon = JOB_ICONS[key];
+              const Icon = JOB[key].icon;
               return (
                 <button
                   key={key}

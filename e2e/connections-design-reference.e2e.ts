@@ -184,7 +184,7 @@ test("connections concept A reference renders without overflow", async ({ browse
     await expect(glmRole.locator("> span")).toHaveCount(2);
     await expect(glmRole.locator("> span").first()).toHaveText("Main");
     await expect(glmRole.locator("> span").nth(1)).toHaveText("Agents");
-    await expect(panel.locator('[data-connection-id="c-arli"] [data-connection-role]')).toHaveText("Default");
+    await expect(panel.locator('[data-connection-id="c-arli"] [data-connection-role]')).toHaveText("Images");
     for (const role of await panel.locator("[data-connection-role] > span").all())
       expect(await role.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 

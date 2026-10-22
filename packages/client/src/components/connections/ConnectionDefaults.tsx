@@ -6,26 +6,7 @@
 // Device jobs (Voice, Speech to text) open their engine's page, or the Add window when the engine is not set up.
 // ──────────────────────────────────────────────
 import { useMemo, useState, type ReactNode } from "react";
-import {
-  AlertTriangle,
-  AudioLines,
-  BrainCircuit,
-  ChevronDown,
-  ChevronRight,
-  Database,
-  Eye,
-  Film,
-  GraduationCap,
-  ImageIcon,
-  LayoutGrid,
-  Loader2,
-  MessageCircleQuestion,
-  MessageSquareText,
-  Mic,
-  Sparkles,
-  VenetianMask,
-  Volume2,
-} from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, LayoutGrid, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -34,7 +15,6 @@ import {
   isChatProvider,
   isRetiredBuiltInAgentId,
   type ConnectionAccountListItem,
-  type FeatureModelConnections,
 } from "@marinara-engine/shared";
 import { useMayReadImages, useDefaultEmbeddingConnection, useUpdateConnection } from "../../hooks/use-connections";
 import {
@@ -54,7 +34,8 @@ import { openAddConnection } from "../../lib/add-connection";
 import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { ToggleSetting } from "../panels/settings/SettingControls";
-import { ConnectionSelect, type ConnectionSelectKind } from "./ConnectionSelect";
+import { ConnectionSelect } from "./ConnectionSelect";
+import { FLAG_JOBS, JOB, JOBS, jobHintKey, jobLabelKey, matchesKind, type JobKey } from "../../lib/connection-jobs";
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
@@ -64,89 +45,23 @@ import { ModelRow } from "./ModelRow";
 import { isUnset, JobRow } from "./JobRow";
 import { HelpTooltip } from "../ui/HelpTooltip";
 
-type RoleField = "isDefault" | "defaultForAgents" | "fallbackForMain" | "fallbackForAgents";
-type FlagRoleKey = "main" | "agents" | "images" | "video" | "audio";
-type TileKey = FlagRoleKey | "decision" | "voice" | "stt" | "embeddings" | keyof FeatureModelConnections;
+function JobIcon({ job }: { job: JobKey }) {
+  const Icon = JOB[job].icon;
+  return <Icon size="0.6875rem" />;
+}
 
-const FLAG_ROLES: Array<{
-  key: FlagRoleKey;
-  icon: ReactNode;
-  kind: ConnectionSelectKind;
-  primary: RoleField;
-  fallback: RoleField;
-}> = [
-  {
-    key: "main",
-    icon: <MessageSquareText size="0.6875rem" />,
-    kind: "chat",
-    primary: "isDefault",
-    fallback: "fallbackForMain",
-  },
-  {
-    key: "agents",
-    icon: <Sparkles size="0.6875rem" />,
-    kind: "chat",
-    primary: "defaultForAgents",
-    fallback: "fallbackForAgents",
-  },
-  {
-    key: "images",
-    icon: <ImageIcon size="0.6875rem" />,
-    kind: "image",
-    primary: "defaultForAgents",
-    fallback: "fallbackForAgents",
-  },
-  {
-    key: "video",
-    icon: <Film size="0.6875rem" />,
-    kind: "video",
-    primary: "defaultForAgents",
-    fallback: "fallbackForAgents",
-  },
-  {
-    key: "audio",
-    icon: <AudioLines size="0.6875rem" />,
-    kind: "audio",
-    primary: "defaultForAgents",
-    fallback: "fallbackForAgents",
-  },
-];
-
-const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat" | "all">, string> = {
-  image: "image_generation",
-  video: "video_generation",
-  audio: "audio",
-  decision: "decision",
-};
-const matchesKind = (row: ConnectionRowData, kind: ConnectionSelectKind) =>
-  kind === "all" || (kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind]);
-
-const FEATURE_KEYS: Array<keyof FeatureModelConnections> = [
-  "mariConnectionId",
-  "omnibarAsideConnectionId",
-  "impersonateConnectionId",
-  "visionConnectionId",
-];
 /** Feature values that are not a Model: quick answers can follow Professor Mari, Impersonate can shuffle. */
-const FEATURE_EXTRA_OPTIONS: Partial<Record<keyof FeatureModelConnections, Array<{ value: string; key: string }>>> = {
-  omnibarAsideConnectionId: [{ value: MARI_QUICK_CONNECTION, key: "connections.defaults.featureOption.sameAsMari" }],
-  impersonateConnectionId: [{ value: "random", key: "connections.defaults.featureOption.random" }],
+const FEATURE_EXTRA_OPTIONS: Partial<Record<JobKey, Array<{ value: string; key: string }>>> = {
+  quick: [{ value: MARI_QUICK_CONNECTION, key: "connections.defaults.featureOption.sameAsMari" }],
+  impersonate: [{ value: "random", key: "connections.defaults.featureOption.random" }],
 };
-
-const FEATURE_ICONS: Record<keyof FeatureModelConnections, ReactNode> = {
-  mariConnectionId: <GraduationCap size="0.6875rem" />,
-  omnibarAsideConnectionId: <MessageCircleQuestion size="0.6875rem" />,
-  impersonateConnectionId: <VenetianMask size="0.6875rem" />,
-  visionConnectionId: <Eye size="0.6875rem" />,
-};
-
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 type Warning = { text: string; fix?: { label: string; run: () => void } };
 
 export type DefaultsTile = {
-  key: TileKey;
+  key: JobKey;
   icon: ReactNode;
   title: string;
   value: string;
@@ -208,16 +123,15 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     };
   };
 
-  const primaryOf = (role: (typeof FLAG_ROLES)[number]) =>
-    connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.primary])) ?? null;
-  const mainRow = primaryOf(FLAG_ROLES.find((role) => role.key === "main")!);
-  const agentsRow = primaryOf(FLAG_ROLES.find((role) => role.key === "agents")!);
+  const jobTile = (key: JobKey) => ({ key, icon: <JobIcon job={key} />, title: t(jobLabelKey(JOB[key])) });
+  const primaryOf = (role: (typeof FLAG_JOBS)[number]) =>
+    connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.flag])) ?? null;
+  const mainRow = primaryOf(FLAG_JOBS.find((role) => role.key === "main")!);
+  const agentsRow = primaryOf(FLAG_JOBS.find((role) => role.key === "agents")!);
   /** An unset job shows the model that really runs; line 2 names the job it comes from, then the Connection. */
-  const fromRole = (from: FlagRoleKey, connection?: string) =>
-    [t("connections.defaults.fromRole", { role: t(`connections.defaults.role.${from}`) }), connection]
-      .filter(Boolean)
-      .join(" · ");
-  const inherited = (row: ConnectionRowData | null, from: FlagRoleKey) =>
+  const fromRole = (from: JobKey, connection?: string) =>
+    [t("connections.defaults.fromRole", { role: t(jobLabelKey(JOB[from])) }), connection].filter(Boolean).join(" · ");
+  const inherited = (row: ConnectionRowData | null, from: JobKey) =>
     row ? { value: describe(row).value, hint: fromRole(from, describe(row).hint), source: row, muted: true } : null;
 
   const accountOf = (row: ConnectionRowData) => (row.accountId ? accountById.get(row.accountId) : undefined);
@@ -232,15 +146,13 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     return { ...warning, text: t(key, { job, model: describe(instead!).value }) };
   };
 
-  const tiles: DefaultsTile[] = FLAG_ROLES.map((role) => {
+  const tiles: DefaultsTile[] = FLAG_JOBS.map((role) => {
     const primary = primaryOf(role);
     const fallbackRow =
       connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.fallback])) ?? null;
     const isAgents = role.key === "agents";
     const tile = {
-      key: role.key,
-      icon: role.icon,
-      title: t(`connections.defaults.role.${role.key}`),
+      ...jobTile(role.key),
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
       warning: null,
     };
@@ -266,9 +178,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const embeddingId = embeddingDefault.data?.connectionId ?? null;
   const embeddingRow = embeddingId ? connectionsList.find((row) => row.id === embeddingId) : undefined;
   const embeddings: DefaultsTile = {
-    key: "embeddings",
-    icon: <Database size="0.6875rem" />,
-    title: t("connections.defaults.role.embeddings"),
+    ...jobTile("embeddings"),
     value: t("connections.defaults.notSet"),
     muted: true,
     warning: null,
@@ -295,9 +205,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     decisionSelected?.slot === "primary" &&
     (decisionSelected.unavailable === "no_model" || decisionSelected.unavailable === "not_installed");
   const decision: DefaultsTile = {
-    key: "decision",
-    icon: <BrainCircuit size="0.6875rem" />,
-    title: t("connections.defaults.role.decision"),
+    ...jobTile("decision"),
     value: decisionSelected?.label ?? t("connections.defaults.notSet"),
     muted: !decisionSelected,
     warning: decisionNeedsLocal
@@ -318,9 +226,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 
   // Voice and Speech to text choose a service; the engine row manages the engine.
   const voice: DefaultsTile = {
-    key: "voice",
-    icon: <Volume2 size="0.6875rem" />,
-    title: t("connections.defaults.role.voice"),
+    ...jobTile("voice"),
     warning: null,
     ...(deviceSetup.tts.setUp && tts
       ? {
@@ -336,9 +242,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   };
   const stt: DefaultsTile | null = deviceSetup.stt.available
     ? {
-        key: "stt",
-        icon: <Mic size="0.6875rem" />,
-        title: t("connections.defaults.role.stt"),
+        ...jobTile("stt"),
         warning: null,
         ...(deviceSetup.stt.setUp
           ? { value: t("connections.accounts.state.ok"), hint: t("connections.add.device.stt"), device: "stt" as const }
@@ -352,30 +256,29 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 
   // Features name a Model, the sidecar, or a value of their own; unset ones follow their default. They stay out of
   // the problem count, as before.
-  const features: DefaultsTile[] = FEATURE_KEYS.map((key) => {
-    const value = featureModels.data?.[key] ?? null;
-    const extra = FEATURE_EXTRA_OPTIONS[key]?.find((option) => option.value === value);
+  const features: DefaultsTile[] = JOBS.filter((job) => job.feature).map((job) => {
+    const value = featureModels.data?.[job.feature!] ?? null;
+    const extra = FEATURE_EXTRA_OPTIONS[job.key]?.find((option) => option.value === value);
     const row = value ? connectionsList.find((entry) => entry.id === value) : undefined;
-    const tile = { key, icon: FEATURE_ICONS[key], title: t(`connections.defaults.feature.${key}`), warning: null };
+    const tile = { ...jobTile(job.key), warning: null };
     if (!value) {
-      // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents default, then
-      // Main; Impersonate the chat's model, which is Main in a new chat.
-      if (key === "omnibarAsideConnectionId") return { ...tile, value: sidecarName, muted: true };
-      if (key === "visionConnectionId") {
-        return { ...tile, value: t("connections.defaults.featureDefault.visionConnectionId"), muted: true };
-      }
+      // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents
+      // default, then Main; Impersonate the chat's model, which is Main in a new chat; Image reading nothing.
+      if (job.follows === "sidecar") return { ...tile, value: sidecarName, muted: true };
       const from =
-        key === "mariConnectionId"
+        job.follows === "agents"
           ? sidecarAsAgentsDefault
             ? { value: sidecarName, hint: fromRole("agents"), muted: true }
             : (inherited(agentsRow, "agents") ?? inherited(mainRow, "main"))
-          : inherited(mainRow, "main");
-      return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${key}`), muted: true }) };
+          : job.follows === "main"
+            ? inherited(mainRow, "main")
+            : null;
+      return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${job.feature}`), muted: true }) };
     }
     if (extra) return { ...tile, value: t(extra.key) };
     if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
-    // A blocked model names who answers instead, as the server falls back: Prof. Mari and Quick answers use the
-    // agents default, then Main; Impersonate uses the chat's model, which is Main in a new chat.
+    // A blocked model names who answers instead, as the server falls back: Impersonate uses the chat's model,
+    // which is Main in a new chat; Image reading has no fallback; the rest use the agents default, then Main.
     if (row)
       return {
         ...tile,
@@ -383,13 +286,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         warning: blockedWarning(
           row,
           tile.title,
-          key === "impersonateConnectionId"
-            ? mainRow
-            : key === "visionConnectionId"
-              ? null
-              : usable(agentsRow)
-                ? agentsRow
-                : mainRow,
+          job.follows === "main" ? mainRow : job.follows === "off" ? null : usable(agentsRow) ? agentsRow : mainRow,
         ),
       };
     return {
@@ -411,16 +308,8 @@ type Job = {
   onOpen?: () => void;
 };
 
-/** Main, Agents and Images always show; the other jobs wait behind "All jobs" unless they have a problem. */
-const PRIMARY_KEYS = new Set<TileKey>(["main", "agents", "images"]);
-
-/** "All jobs" lists the rest by what they are for. */
-const JOB_GROUPS: Array<{ key: string; jobs: TileKey[] }> = [
-  { key: "chat", jobs: ["main", "agents", "impersonateConnectionId"] },
-  { key: "omnibar", jobs: ["mariConnectionId", "omnibarAsideConnectionId"] },
-  { key: "media", jobs: ["images", "video", "audio", "voice", "stt"] },
-  { key: "background", jobs: ["decision", "embeddings", "visionConnectionId"] },
-];
+/** The "All jobs" groups, in table order. */
+const JOB_GROUPS = [...new Set(JOBS.map((job) => job.group))];
 
 /** One job as one line, then its problem and fix and, when open, its pickers. */
 function DefaultsJob({
@@ -442,7 +331,7 @@ function DefaultsJob({
     <section data-defaults-role={tile.key} aria-label={tile.title}>
       <JobRow
         tile={tile}
-        hint={about ? t(`connections.defaults.about.${tile.key}`) : undefined}
+        hint={about ? t(jobHintKey(JOB[tile.key])) : undefined}
         className={cn(open && "mari-connection-defaults-job--open")}
         data-defaults-tile={tile.key}
         onClick={job.onOpen ?? onToggle}
@@ -521,7 +410,11 @@ export function ConnectionDefaultsBox({
   // Keep the option visible while the flag is set, so a stale sidecar default can be cleared here.
   const offerLocalSidecar = !lite && (sidecarModelDownloaded || sidecarAsAgentsDefault);
 
-  const setRole = (field: RoleField, current: ConnectionRowData | null, nextId: string | null) => {
+  const setRole = (
+    field: (typeof FLAG_JOBS)[number]["flag" | "fallback"],
+    current: ConnectionRowData | null,
+    nextId: string | null,
+  ) => {
     if (nextId === (current?.id ?? null)) return;
     if (!nextId) {
       if (current) updateConnection.mutate({ id: current.id, [field]: false });
@@ -573,12 +466,12 @@ export function ConnectionDefaultsBox({
     }
   };
 
-  const roleControls = (key: FlagRoleKey) => {
-    const role = FLAG_ROLES.find((entry) => entry.key === key)!;
+  const roleControls = (key: JobKey) => {
+    const role = FLAG_JOBS.find((entry) => entry.key === key)!;
     const rows = connectionsList.filter((row) => matchesKind(row, role.kind));
-    const primary = rows.find((row) => isConnectionFlagTrue(row[role.primary])) ?? null;
+    const primary = rows.find((row) => isConnectionFlagTrue(row[role.flag])) ?? null;
     const fallback = rows.find((row) => isConnectionFlagTrue(row[role.fallback])) ?? null;
-    const title = t(`connections.defaults.role.${key}`);
+    const title = t(jobLabelKey(role));
     const isAgents = key === "agents";
     return (
       <>
@@ -587,10 +480,10 @@ export function ConnectionDefaultsBox({
           label={t("connections.defaults.default")}
           kind={role.kind}
           value={isAgents && sidecarAsAgentsDefault ? LOCAL_SIDECAR_CONNECTION_ID : (primary?.id ?? null)}
-          onChange={(id) => (isAgents ? setAgentsDefault(primary, id) : setRole(role.primary, primary, id))}
+          onChange={(id) => (isAgents ? setAgentsDefault(primary, id) : setRole(role.flag, primary, id))}
           defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
           includeLocalSidecar={isAgents && offerLocalSidecar}
-          addJob={key === "audio" ? undefined : key}
+          addJob={key}
           aria-label={t("connections.defaults.defaultFor", { role: title })}
         />
         <ConnectionSelect
@@ -651,30 +544,28 @@ export function ConnectionDefaultsBox({
               ) : tile.key === "decision" ? (
                 <DecisionDefaultControl />
               ) : (
-                roleControls(tile.key as FlagRoleKey)
+                roleControls(tile.key)
               ),
           },
     ),
     ...featureTiles.map((tile) => {
-      const key = tile.key as keyof FeatureModelConnections;
+      const job = JOB[tile.key];
+      const feature = job.feature!;
       return {
         tile,
         controls: (
           <ConnectionSelect
             variant="menu"
             label={t("connections.defaults.default")}
-            value={features?.[key] ?? null}
-            onChange={(value) => setFeatureModels.mutate({ [key]: value })}
-            defaultLabel={t(`connections.defaults.featureDefault.${key}`)}
-            extraOptions={FEATURE_EXTRA_OPTIONS[key]?.map((extra) => ({
-              value: extra.value,
-              label: t(extra.key),
-            }))}
-            includeLocalSidecar={!lite && key !== "visionConnectionId"}
-            rowFilter={key === "visionConnectionId" ? mayReadImages : undefined}
-            addJob={key === "mariConnectionId" ? "mari" : key === "visionConnectionId" ? "vision" : undefined}
+            value={features?.[feature] ?? null}
+            onChange={(value) => setFeatureModels.mutate({ [feature]: value })}
+            defaultLabel={t(`connections.defaults.featureDefault.${feature}`)}
+            extraOptions={FEATURE_EXTRA_OPTIONS[job.key]?.map((extra) => ({ value: extra.value, label: t(extra.key) }))}
+            includeLocalSidecar={!lite && job.key !== "vision"}
+            rowFilter={job.key === "vision" ? mayReadImages : undefined}
+            addJob={job.add === false ? undefined : job.key}
             className={cn(!features && "opacity-60")}
-            aria-label={t(`connections.defaults.feature.${key}`)}
+            aria-label={t(jobLabelKey(job))}
           />
         ),
       };
@@ -682,8 +573,7 @@ export function ConnectionDefaultsBox({
   ];
   // Hold an open row in its original group while a picker changes its configuration. Moving it between
   // groups would remount the control and lose keyboard focus before the picker has finished closing.
-  const isShown = ({ tile }: Job) =>
-    tile.key === openKey ? !openInUnused : PRIMARY_KEYS.has(tile.key) || !!tile.warning;
+  const isShown = ({ tile }: Job) => (tile.key === openKey ? !openInUnused : !!JOB[tile.key].primary || !!tile.warning);
   const unused = jobs.filter((job) => !isShown(job));
   const setCount = jobs.filter(({ tile }) => !tile.muted).length;
   const notSet = t("connections.defaults.notSet");
@@ -859,8 +749,8 @@ export function ConnectionDefaultsBox({
               </div>
               {showUnused && (
                 <div id="connections-defaults-all">
-                  {JOB_GROUPS.map(({ key, jobs: keys }) => {
-                    const group = unused.filter((job) => keys.includes(job.tile.key));
+                  {JOB_GROUPS.map((key) => {
+                    const group = unused.filter((job) => JOB[job.tile.key].group === key);
                     if (group.length === 0) return null;
                     return (
                       <div key={key} role="group" aria-labelledby={`connections-defaults-group-${key}`}>

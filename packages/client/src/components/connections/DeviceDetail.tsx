@@ -40,6 +40,7 @@ import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { ToggleSetting } from "../panels/settings/SettingControls";
@@ -234,18 +235,17 @@ export function useLocalModelUsedBy(): string[] {
   const decisionOptions = useDecisionOptions();
   const featureModels = useFeatureModels();
   const decisionSlot = decisionOptions.data?.options.find((entry) => entry.selected)?.slot;
-  const quick = featureModels.data?.omnibarAsideConnectionId ?? null;
   return [
-    // Unset Quick answers run on the built-in model.
-    (quick === null || quick === LOCAL_SIDECAR_CONNECTION_ID) &&
-      t("connections.defaults.feature.omnibarAsideConnectionId"),
-    featureModels.data?.mariConnectionId === LOCAL_SIDECAR_CONNECTION_ID &&
-      t("connections.defaults.feature.mariConnectionId"),
-    config.useAsAgentsDefault && t("connections.defaults.role.agents"),
+    // A feature runs on it when set to it, or when unset and it follows the built-in model (Quick answers).
+    ...JOBS.filter((job) => {
+      const value = job.feature ? (featureModels.data?.[job.feature] ?? null) : undefined;
+      return value === LOCAL_SIDECAR_CONNECTION_ID || (value === null && job.follows === "sidecar");
+    }).map((job) => t(jobLabelKey(job))),
+    config.useAsAgentsDefault && t(jobLabelKey(JOB.agents)),
     config.useForTrackers && t("connections.device.usedBy.trackers"),
     config.useForGameScene && t("connections.device.usedBy.gameScene"),
-    embeddingDefault.data?.connectionId === LOCAL_SIDECAR_CONNECTION_ID && t("connections.defaults.role.embeddings"),
-    decisionSlot === "primary" && t("connections.defaults.role.decision"),
+    embeddingDefault.data?.connectionId === LOCAL_SIDECAR_CONNECTION_ID && t(jobLabelKey(JOB.embeddings)),
+    decisionSlot === "primary" && t(jobLabelKey(JOB.decision)),
   ].filter((entry): entry is string => !!entry);
 }
 

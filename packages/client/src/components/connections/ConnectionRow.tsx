@@ -33,6 +33,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { isConnectionFlagTrue, isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { jobLabelKey, rowJobs } from "../../lib/connection-jobs";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
@@ -149,7 +150,6 @@ export function ConnectionRow({
   const [subMenu, setSubMenu] = useState<{ at: MenuAt; items: ContextMenuItem[] } | null>(null);
 
   const chatModel = isChatProvider(row.provider);
-  const kind = MEDIA_KIND[row.provider];
   const unavailable = account && account.state !== "ok" ? account.state : null;
   const inRandomPool = row.useForRandom === "true";
   const canShuffle = row.provider !== "audio" && row.provider !== "decision";
@@ -197,15 +197,8 @@ export function ConnectionRow({
     if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);
   };
 
-  // Media Models carry their kind's default in the agents flag.
-  const defaultRoles: Array<{ label: string; field: "isDefault" | "defaultForAgents" }> = chatModel
-    ? [
-        { label: t("connections.defaults.role.main"), field: "isDefault" },
-        { label: t("connections.defaults.role.agents"), field: "defaultForAgents" },
-      ]
-    : kind
-      ? [{ label: t(`connections.accounts.kind.${kind}`), field: "defaultForAgents" }]
-      : [];
+  // "Make default for…" lists the jobs this Model's kind can do.
+  const defaultRoles = rowJobs(row).map((job) => ({ label: t(jobLabelKey(job)), field: job.flag }));
   const openSub = (items: ContextMenuItem[]) => menu && setSubMenu({ at: menu, items });
 
   const menuItems: ContextMenuItem[] = [

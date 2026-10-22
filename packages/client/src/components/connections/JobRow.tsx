@@ -69,6 +69,7 @@ export function JobRow({
           </span>
         }
         title={tile.title}
+        wrapTitle
         details={
           <span
             className={cn(

@@ -7,15 +7,11 @@ import { useId, type ButtonHTMLAttributes, type HTMLAttributes, type MouseEvent,
 import { AudioLines, Film, ImageIcon, KeyRound, Power, Scale, UserCog, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import {
-  isChatProvider,
-  type ConnectionAccountListItem,
-  ConnectionModelCost,
-  ModelCatalogPricing,
-} from "@marinara-engine/shared";
+import { type ConnectionAccountListItem, ConnectionModelCost, ModelCatalogPricing } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
-import { roleBadges, type ConnectionModelRow } from "../../lib/connection-groups";
+import type { ConnectionModelRow } from "../../lib/connection-groups";
+import { KIND_PROVIDER, jobLabelKey, rowJobs } from "../../lib/connection-jobs";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import type { ModelKind } from "../../lib/connection-identity";
 import type { ConnectionRowData } from "./ConnectionRow";
@@ -45,22 +41,15 @@ export const mediaService = (
   row.audioSource ||
   null;
 
-export const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = {
-  image_generation: "image",
-  video_generation: "video",
-  audio: "audio",
-};
-/** A Model's role labels: chat roles, or a media kind's Default and Fallback. */
+export const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = Object.fromEntries(
+  (["image", "video", "audio"] as const).map((kind) => [KIND_PROVIDER[kind], kind]),
+);
+/** A Model's role labels: the name of each job it does, then "Fallback" when it is one. */
 export function modelRoleLabels(row: ConnectionModelRow, t: TFunction): string[] {
-  const media = !!row.provider && row.provider in MEDIA_KIND;
+  const jobs = rowJobs(row);
   return [
-    ...(isChatProvider(row.provider)
-      ? roleBadges(row)
-          .filter((role) => role !== "random")
-          .map((role) => t(`connections.switcher.role.${role}`))
-      : []),
-    ...(media && isConnectionFlagTrue(row.defaultForAgents) ? [t("connections.accounts.badge.default")] : []),
-    ...(media && isConnectionFlagTrue(row.fallbackForAgents) ? [t("connections.switcher.role.fallback")] : []),
+    ...jobs.filter((job) => isConnectionFlagTrue(row[job.flag])).map((job) => t(jobLabelKey(job))),
+    ...(jobs.some((job) => isConnectionFlagTrue(row[job.fallback])) ? [t("connections.switcher.role.fallback")] : []),
   ];
 }
 
@@ -82,6 +71,7 @@ export function ModelRow({
   tile,
   title,
   tooltip,
+  wrapTitle = false,
   subtitle,
   kind,
   roles = [],
@@ -108,6 +98,8 @@ export function ModelRow({
     title: string;
     /** The name's tooltip; the name by default. */
     tooltip?: string;
+    /** Wraps a long name onto a second line instead of cutting it off (job names). */
+    wrapTitle?: boolean;
     subtitle?: string | null;
     /** Chat shows no pill. */
     kind?: ModelKind | null;
@@ -224,7 +216,8 @@ export function ModelRow({
           <span
             data-model-title
             className={cn(
-              "block min-w-0 truncate text-[0.8125rem] font-semibold leading-5",
+              "block min-w-0 text-[0.8125rem] font-semibold leading-5",
+              wrapTitle ? "break-words" : "truncate",
               dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
             title={tooltip ?? title}

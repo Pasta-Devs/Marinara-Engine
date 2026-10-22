@@ -5,40 +5,19 @@
 import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { LOCAL_SIDECAR_CONNECTION_ID, isChatProvider, type ConnectionPickerKind } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, type ConnectionPickerKind } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
-import { openAddConnection, type AddJob, type AddKind } from "../../lib/add-connection";
+import { openAddConnection, type AddJob } from "../../lib/add-connection";
+import { ADD_KIND, FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 
 // The window loads on first open, so a screen of compact fields does not pull it into startup.
 const ConnectionPicker = lazy(() => import("./ConnectionPicker").then((m) => ({ default: m.ConnectionPicker })));
 
 export type ConnectionSelectKind = ConnectionPickerKind;
-
-/** The Add window's filter for a slot's kind. */
-const ADD_KIND: Record<ConnectionSelectKind, AddKind | undefined> = {
-  chat: "chat",
-  image: "image",
-  video: "video",
-  audio: "voice",
-  decision: "decision",
-  all: undefined,
-};
-
-const KIND_PROVIDER: Record<Exclude<ConnectionSelectKind, "chat" | "all">, string> = {
-  image: "image_generation",
-  video: "video_generation",
-  audio: "audio",
-  decision: "decision",
-};
-
-function matchesKind(row: ConnectionModelRow, kind: ConnectionSelectKind) {
-  if (kind === "all") return true;
-  return kind === "chat" ? isChatProvider(row.provider) : row.provider === KIND_PROVIDER[kind];
-}
 
 export type ConnectionChoiceRow = ConnectionModelRow & { profileImportReviewRequired?: unknown };
 
@@ -87,8 +66,8 @@ export function useConnectionChoices({
     const all = groupModelsByAccount(allRows, accounts ?? []);
     const groups = all.groups.map((group) => ({ ...group, rows: group.rows.filter(offered) }));
     const standalone = all.standalone.filter(offered);
-    // Image, video and audio Models default through the agents flag, not the chat one.
-    const defaultFlag = kind === "image" || kind === "video" || kind === "audio" ? "defaultForAgents" : "isDefault";
+    // Each kind defaults through its job's flag: Main for chat, the agents flag for media.
+    const defaultFlag = FLAG_JOBS.find((job) => job.kind === kind)?.flag ?? "isDefault";
     const resolved = rows.find((row) => isConnectionFlagTrue(row[defaultFlag])) ?? null;
     const resolvedAccount = resolved ? accountOf(resolved) : undefined;
     return { rows, groups, standalone, resolved, resolvedAccount, accountOf };

@@ -2,35 +2,13 @@
 import type { APIProvider, ChatModelChoice } from "@marinara-engine/shared";
 import type { DeviceItem } from "../hooks/use-device-setup";
 import { useUIStore } from "../stores/ui.store";
+import type { JobKey } from "./connection-jobs";
 
 export type AddConnectionTarget = { category: "device"; item: DeviceItem } | { provider: APIProvider } | AddFor;
 
-/** The jobs the Add window can start from ("For a job…"); each filters the services to one kind. */
-export const ADD_JOBS = [
-  "main",
-  "mari",
-  "images",
-  "vision",
-  "voice",
-  "decision",
-  "embeddings",
-  "video",
-  "agents",
-] as const;
-export type AddJob = (typeof ADD_JOBS)[number];
+/** A job the Add window can start from ("For a job..."); the jobs live in `connection-jobs.ts`. */
+export type AddJob = JobKey;
 export type AddKind = "chat" | "image" | "video" | "voice" | "decision";
-export const ADD_JOB_KIND: Record<AddJob, AddKind> = {
-  main: "chat",
-  mari: "chat",
-  agents: "chat",
-  vision: "chat",
-  embeddings: "chat",
-  images: "image",
-  video: "video",
-  voice: "voice",
-  decision: "decision",
-};
-
 /**
  * Add for a job (a job picker's "Add a model for this…", a feature with no model yet): the window starts filtered
  * to the job's kind, and Done sets the new Model for it with an Undo toast. `assign` is the picker's own setter
