@@ -4,7 +4,7 @@
 // The sidebar card head, the Move dialog, the Add window, the switcher and the
 // pickers all draw it; callers only choose the density and the end slots.
 // ──────────────────────────────────────────────
-import { useId, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionAccountState, ConnectionBilling } from "@marinara-engine/shared";
 import { getConnectionIdentity, type ConnectionIdentityRow } from "../../lib/connection-identity";
@@ -74,6 +74,8 @@ export function ServiceRow({
   const billingWord = billing ? t(`connections.list.billing.${billing}`) : null;
   // A healthy Connection shows no status; only a problem shows its word.
   const problem = state && state !== "ok" && stateLabel ? { state, label: stateLabel } : null;
+  // A heading row takes only data-* props; button state (aria-pressed, disabled, tabIndex) never lands on a div.
+  const dataProps = Object.fromEntries(Object.entries(button).filter(([key]) => key.startsWith("data-")));
   const describedBy = [hint ? hintId : null, button["aria-describedby"]].filter(Boolean).join(" ") || undefined;
 
   const tileNode = tile ?? (
@@ -135,7 +137,7 @@ export function ServiceRow({
         className={cn(
           "relative flex min-w-0 items-center rounded-lg",
           md && "mari-connection-card-head",
-          onClick && "transition-colors hover:bg-foreground/[0.04]",
+          onClick && !button.disabled && "transition-colors hover:bg-foreground/[0.04]",
           current && "bg-foreground/[0.06]",
           className,
         )}
@@ -162,7 +164,7 @@ export function ServiceRow({
             {body}
           </button>
         ) : (
-          <div {...(button as HTMLAttributes<HTMLDivElement>)} aria-describedby={describedBy} className={rowClass}>
+          <div {...dataProps} aria-describedby={describedBy} className={rowClass}>
             {body}
           </div>
         )}
