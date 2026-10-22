@@ -387,9 +387,9 @@ for (const [size, theme] of [
     // NanoGPT also offers image and video: the screen opens on Chat, and its chips switch kinds.
     await expect(catalog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
     await expect(catalog.locator('[data-model-id="zai-org/glm-5.2"] [data-model-cost="included"]')).toHaveText(
-      "Included",
+      "Plan",
     );
-    await expect(catalog.locator('[data-model-id="openai/gpt-5.5"] [data-model-cost="multiplier"]')).toHaveText("2x");
+    await expect(catalog.locator('[data-model-id="openai/gpt-5.5"] [data-model-cost="multiplier"]')).toHaveText("Plan ×2");
     await expect(catalog.locator('[data-model-id="anthropic/claude-opus-4"] [data-model-cost="paid"]')).toHaveText(
       "Paid",
     );
@@ -406,7 +406,7 @@ for (const [size, theme] of [
 
     // The catalog is now cached, so the panel rows and the Defaults box wear the same badges.
     await expect(nano.locator('[data-connection-id="c-nano-a"] [data-model-cost="included"]')).toBeVisible();
-    await expect(nano.locator('[data-connection-id="c-nano-b"] [data-model-cost="multiplier"]')).toHaveText("2x");
+    await expect(nano.locator('[data-connection-id="c-nano-b"] [data-model-cost="multiplier"]')).toHaveText("Plan ×2");
     await expect(panel.locator('[data-defaults-role="main"] [data-model-cost="included"]')).toBeVisible();
 
     // One panel setting hides every badge.
