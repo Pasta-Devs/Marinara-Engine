@@ -398,7 +398,9 @@ export function fillRulesetSheetChoices(
 ): { sheet: RulesetSheetBuild; adjusted: string[] } {
   const sheet = structuredClone(proposed);
   const competence = Math.max(0, COMPETENCE.indexOf(tactics.proficiency));
-  const pools = new Map(readRulesetLive(definition, sheet, {}).pools.map((pool) => [pool.key, pool.max]));
+  // Read off `proposed`, not the clone: the clone is written below, and is read only after (see
+  // `withRulesetSheetEvaluationCache`).
+  const pools = new Map(readRulesetLive(definition, proposed, {}).pools.map((pool) => [pool.key, pool.max]));
   const groups = new Map<string, string[]>();
   for (const pool of definition.sheet.live.pools) {
     if (pool.group) groups.set(pool.group, [...(groups.get(pool.group) ?? []), pool.id]);
@@ -523,7 +525,8 @@ export function holdRulesetSheetHealth(
   }
   const target = Math.min(high, Math.max(low, before));
   const sheet = structuredClone(proposed);
-  const current = resolveRulesetValueRef(definition, sheet, { field: field.id });
+  // Off `proposed`, the same until the write below; the clone is read only after it.
+  const current = resolveRulesetValueRef(definition, proposed, { field: field.id });
   const moved = current + (target - before);
   sheet.fields[field.id] = Math.min(field.max, Math.max(field.min, field.integer ? Math.round(moved) : moved));
   const after = maxOf(sheet);

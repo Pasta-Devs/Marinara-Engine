@@ -114,6 +114,7 @@ import {
   type CombatTactics,
   type RulesetSheetItem,
   rulesetCombatantFlying,
+  withRulesetSheetEvaluationCache,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
@@ -2411,6 +2412,17 @@ export function commandRulesetCombatDirector(
   state: CombatDirectorState,
   command: DirectedCommand,
   source: "gm" | "ai" | "manual" | "fallback" = "manual",
+): RulesetCommandResult {
+  // The option and picker loops read the same sheets thousands of times in one command, and no build
+  // is written to during it: the fight's creation and the creature-sheet hold run outside it.
+  return withRulesetSheetEvaluationCache(() => runRulesetCommand(definition, state, command, source));
+}
+
+function runRulesetCommand(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  command: DirectedCommand,
+  source: "gm" | "ai" | "manual" | "fallback",
 ): RulesetCommandResult {
   const fight = fightOf(state);
   if (!fight) return refuse("This battle is not resolved by a ruleset.", "ruleset_combat_not_a_ruleset_fight");
