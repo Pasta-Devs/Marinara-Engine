@@ -12,6 +12,9 @@ import type {
   TTSSource,
 } from "@marinara-engine/shared";
 import { TTS_API_KEY_MASK } from "@marinara-engine/shared";
+import type { ConnectionModelRow } from "../lib/connection-groups";
+import { voiceRowOf } from "../lib/connection-jobs";
+import { useConnections } from "./use-connections";
 
 const KEYS = {
   config: ["tts", "config"] as const,
@@ -59,6 +62,13 @@ export function useFollowVoiceJob() {
     await update.mutateAsync({ ...config, connectionId: connectionId ?? "" });
     return () => void update.mutateAsync({ ...config, connectionId: previous }).catch(() => {});
   };
+}
+
+/** The id of the audio row Text to speech really uses (`voiceRowOf`), for the Voice badge. */
+export function useVoiceRowId() {
+  const { data: tts } = useTTSConfig();
+  const { data: rows } = useConnections();
+  return voiceRowOf((rows ?? []) as ConnectionModelRow[], tts?.connectionId).row?.id ?? null;
 }
 
 /** Sets or clears one character's voice on the server, leaving every other TTS setting as stored. */

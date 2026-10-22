@@ -1307,12 +1307,14 @@ export function CreateConnectionModal({
       (row) => row.id === target?.placeholderId && row.provider === rowProvider && !row.model?.trim(),
     );
     // An existing Connection of this service keeps its one row: Done sets it for the job.
-    const own = backend && linked.find((row) => row.provider === rowProvider && jobSourceOf(row) === source);
+    const own = linked.find((row) => row.provider === rowProvider && jobSourceOf(row) === source);
     if (!placeholder && own) return setMediaRowId(own.id);
+    // "Use for decisions" on a model row: the decision row starts with that row's model.
+    const lentModel = backend ? undefined : linked.find((row) => row.id === modelsFor?.connectionId)?.model?.trim();
     const preset = backend && AUDIO_SOURCE_OPTIONS.find((option) => option.id === source);
     const fields =
       kind === "decision"
-        ? { decisionSource: source as DecisionSource }
+        ? { decisionSource: source as DecisionSource, ...(lentModel ? { model: lentModel } : {}) }
         : {
             audioSource: source,
             ...(preset
@@ -1836,7 +1838,10 @@ export function CreateConnectionModal({
         return (
           <ServiceGroup
             key={group.id}
-            title={t(`connections.add.group.${group.id}`)}
+            // The Decision filter's only folded tile is the on-device model.
+            title={t(
+              `connections.add.group.${group.id === "other" && kindFilter === "decision" ? "device" : group.id}`,
+            )}
             count={group.services.length}
             collapsible={!!group.folded && !searching}
             open={searching || otherOpen}

@@ -57,6 +57,7 @@ import { balanceWord } from "./ConnectionBalance";
 import { useFolderChooser } from "./ConnectionFolderGroup";
 import { confirmAccountDelete, deleteAccountModels, ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
+import { useVoiceRowId } from "../../hooks/use-tts";
 
 /** A block in the Connections list: a tint and spacing, no outline. */
 export const GROUP_SURFACE = "rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)]";
@@ -94,6 +95,7 @@ export function ConnectionGroup({
   providerName?: string;
 }) {
   const { t, i18n } = useTranslation();
+  const voiceRowId = useVoiceRowId();
   const openModal = useUIStore((s) => s.openModal);
   const updateAccount = useUpdateConnectionAccount();
   // Services with a balance endpoint show what is left on line 2; a failed check shows nothing there.
@@ -124,7 +126,7 @@ export function ConnectionGroup({
   const addImageModel = () => openAddModels({ accountId: account.id, kind: "image" });
   // The sidebar's main door is "+ Add" at the top; the card's ⋯ menu is the per-Connection one.
   const addModels = () => openAddModels({ accountId: account.id, connectionId: chatRow?.id });
-  const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t);
+  const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t, voiceRowId);
   const editAccount = () => openModal("connection-account", { accountId: account.id });
   const replaceKey = () => openModal("connection-account", { accountId: account.id, replaceKey: true });
   const runTest = () =>

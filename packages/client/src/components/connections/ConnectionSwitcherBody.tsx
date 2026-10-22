@@ -56,6 +56,7 @@ import { openAddModels } from "../../lib/add-connection";
 import { StarText } from "./StarText";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
+import { useVoiceRowId } from "../../hooks/use-tts";
 
 type SwitcherRow = {
   id: string;
@@ -422,6 +423,7 @@ export function ConnectionSwitcherBody({
   catalogBrowse?: boolean;
 }) {
   const { t } = useTranslation();
+  const voiceRowId = useVoiceRowId();
   const { data: connectionsRaw } = useConnections();
   const { data: accounts } = useConnectionAccounts();
   const { data: chats } = useChats();
@@ -751,7 +753,7 @@ export function ConnectionSwitcherBody({
     const highlighted = index !== undefined && index === highlight;
     const group = entry.group;
     const unavailable = unavailableOf(group);
-    const roleLabels = entry.row ? modelRoleLabels(entry.row, t) : [];
+    const roleLabels = entry.row ? modelRoleLabels(entry.row, t, voiceRowId) : [];
     const starred = group?.account && entry.model ? starsOf(group).has(entry.model) : false;
     const custom = !!entry.row?.ownSettings && !starred && roleLabels.length === 0;
     const showStar = !!group?.account && !!entry.model && (star === "all" || (star === "unstarred" && !starred));

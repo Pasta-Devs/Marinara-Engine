@@ -35,6 +35,7 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
+import { useVoiceRowId } from "../../hooks/use-tts";
 
 export type ConnectionRowData = {
   credentialsFromConnectionId?: string | null;
@@ -65,6 +66,8 @@ export type ConnectionRowData = {
   videoGenerationSource?: string | null;
   videoService?: string | null;
   audioSource?: string | null;
+  audioSoundEffects?: boolean | string;
+  audioMusic?: boolean | string;
   defaultParameters?: string | null;
   /** Whether this chat Model reads images; null lets its catalog decide. */
   imageInput?: string | null;
@@ -135,6 +138,7 @@ export function ConnectionRow({
   catalog?: CachedCatalogFacts;
 }) {
   const { t } = useTranslation();
+  const voiceRowId = useVoiceRowId();
   const facts = catalog?.of(row.model);
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
@@ -149,7 +153,7 @@ export function ConnectionRow({
   const inRandomPool = row.useForRandom === "true";
   const canShuffle = row.provider !== "audio" && row.provider !== "decision";
   const title = row.name?.trim() || row.model?.trim() || row.id;
-  const badges = modelRoleLabels(row, t);
+  const badges = modelRoleLabels(row, t, voiceRowId);
   // Display only: which Models show stays with the star, role and settings rules (decision 30).
   const customSettings = chatModel && !!row.ownSettings;
   const detail = subtitle ?? modelSubtitle(row);
@@ -168,7 +172,15 @@ export function ConnectionRow({
   // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
   const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
   const useForDecisions = () =>
-    useUIStore.getState().openModal("create-connection", { service: row.provider, forJob: { job: "decision" } });
+    useUIStore.getState().openModal(
+      "create-connection",
+      row.accountId
+        ? {
+            modelsFor: { accountId: row.accountId, connectionId: row.id, kind: "decision" },
+            forJob: { job: "decision" },
+          }
+        : { service: row.provider, forJob: { job: "decision" } },
+    );
 
   const remove = async () => {
     if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);

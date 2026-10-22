@@ -25,7 +25,7 @@ export type AddFor = {
 export type ModelsFor = {
   accountId: string;
   /** Optionally open a supported model kind directly. */
-  kind?: "chat" | "image" | "video";
+  kind?: "chat" | "image" | "video" | "decision";
   /** The Model whose stars the screen shows; the Connection's first chat Model by default. */
   connectionId?: string;
   /**

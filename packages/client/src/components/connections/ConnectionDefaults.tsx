@@ -35,7 +35,16 @@ import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../
 import { cn } from "../../lib/utils";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ConnectionSelect } from "./ConnectionSelect";
-import { FLAG_JOBS, JOB, JOBS, jobHintKey, jobLabelKey, matchesKind, type JobKey } from "../../lib/connection-jobs";
+import {
+  FLAG_JOBS,
+  JOB,
+  JOBS,
+  jobHintKey,
+  jobLabelKey,
+  matchesKind,
+  voiceRowOf,
+  type JobKey,
+} from "../../lib/connection-jobs";
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
@@ -80,10 +89,6 @@ export type DefaultsTile = {
   device?: DeviceItem;
 };
 
-/** Text to speech uses the TTS card's chosen Audio connection before the audio default (tts.routes.ts). */
-const ttsChosenRow = (rows: ConnectionRowData[], tts?: { connectionId: string }) =>
-  tts?.connectionId ? rows.find((row) => row.id === tts.connectionId && row.provider === "audio") : undefined;
-
 /** Every job's tile, the Main summary for the list row, and the problems. */
 export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const { t } = useTranslation();
@@ -97,6 +102,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const deviceSetup = useDeviceSetup();
   const { data: tts } = useTTSConfig();
   const updateTTS = useUpdateTTSConfig();
+  const followVoiceJob = useFollowVoiceJob();
   const featureModels = useFeatureModels();
 
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
@@ -130,9 +136,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 
   const jobTile = (key: JobKey) => ({ key, icon: <JobIcon job={key} />, title: t(jobLabelKey(JOB[key])) });
   const primaryOf = (role: (typeof FLAG_JOBS)[number]) =>
-    (role.key === "voice" && ttsChosenRow(connectionsList, tts)) ||
-    connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.flag])) ||
-    null;
+    (role.key === "voice"
+      ? voiceRowOf(connectionsList, tts?.connectionId).row
+      : connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.flag]))) ?? null;
   const mainRow = primaryOf(FLAG_JOBS.find((role) => role.key === "main")!);
   const agentsRow = primaryOf(FLAG_JOBS.find((role) => role.key === "agents")!);
   /** An unset job shows the model that really runs; line 2 names the job it comes from, then the Connection. */
@@ -164,14 +170,36 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       warning: null,
     };
     if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName };
+    // The TTS card names a row that is gone: the server then fails (tts.routes.ts), it does not use the default.
+    if (role.key === "voice" && voiceRowOf(connectionsList, tts?.connectionId).missing) {
+      const flagged = voiceRowOf(connectionsList).row;
+      return {
+        ...tile,
+        value: t("connections.defaults.notSet"),
+        muted: true,
+        warning: {
+          text: t("connections.defaults.warning.voiceMissing"),
+          fix: {
+            label: flagged
+              ? t("connections.defaults.fix.useModel", { model: describe(flagged).value })
+              : t("connections.defaults.fix.clear"),
+            run: () =>
+              void followVoiceJob(flagged?.id ?? null).catch(() => toast.error(t("connections.defaults.saveFailed"))),
+          },
+        },
+      };
+    }
     if (primary) {
       const ttsOff = role.key === "voice" && tts && !tts.enabled;
+      // Game sound effects and music still use this row with text to speech off: a note, not a problem.
+      const makesEffects = isConnectionFlagTrue(primary.audioSoundEffects) || isConnectionFlagTrue(primary.audioMusic);
       return {
         ...tile,
         ...describe(primary),
+        ...(ttsOff && makesEffects ? { hint: t("connections.defaults.ttsOffEffects") } : {}),
         warning:
           blockedWarning(primary, tile.title, fallbackRow) ??
-          (ttsOff
+          (ttsOff && !makesEffects
             ? {
                 text: t("connections.defaults.warning.ttsOff"),
                 fix: {
@@ -484,7 +512,7 @@ export function ConnectionDefaultsBox({
     const role = FLAG_JOBS.find((entry) => entry.key === key)!;
     const rows = connectionsList.filter((row) => matchesKind(row, role.kind));
     const flagged = rows.find((row) => isConnectionFlagTrue(row[role.flag])) ?? null;
-    const primary = (key === "voice" && ttsChosenRow(rows, tts)) || flagged;
+    const primary = key === "voice" ? voiceRowOf(rows, tts?.connectionId).row : flagged;
     const fallback = rows.find((row) => isConnectionFlagTrue(row[role.fallback])) ?? null;
     const title = t(jobLabelKey(role));
     const isAgents = key === "agents";
@@ -498,7 +526,7 @@ export function ConnectionDefaultsBox({
           onChange={(id) => {
             if (isAgents) return setAgentsDefault(primary, id);
             setRole(role.flag, flagged, id);
-            if (key === "voice") void followVoiceJob(id).catch(() => {});
+            if (key === "voice") void followVoiceJob(id).catch(() => toast.error(t("connections.defaults.saveFailed")));
           }}
           defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
           includeLocalSidecar={isAgents && offerLocalSidecar}

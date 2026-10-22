@@ -44,11 +44,16 @@ export const mediaService = (
 export const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = Object.fromEntries(
   (["image", "video", "audio"] as const).map((kind) => [KIND_PROVIDER[kind], kind]),
 );
-/** A Model's role labels: the name of each job it does, then "Fallback" when it is one. */
-export function modelRoleLabels(row: ConnectionModelRow, t: TFunction): string[] {
+/**
+ * A Model's role labels: the name of each job it does, then "Fallback" when it is one. Voice follows the row Text to
+ * speech really uses (`useVoiceRowId`), not the audio flag alone.
+ */
+export function modelRoleLabels(row: ConnectionModelRow, t: TFunction, voiceRowId: string | null): string[] {
   const jobs = rowJobs(row);
+  const does = (job: (typeof jobs)[number]) =>
+    job.key === "voice" ? row.id === voiceRowId : isConnectionFlagTrue(row[job.flag]);
   return [
-    ...jobs.filter((job) => isConnectionFlagTrue(row[job.flag])).map((job) => t(jobLabelKey(job))),
+    ...jobs.filter(does).map((job) => t(jobLabelKey(job))),
     ...(jobs.some((job) => isConnectionFlagTrue(row[job.fallback])) ? [t("connections.switcher.role.fallback")] : []),
   ];
 }

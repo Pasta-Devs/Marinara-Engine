@@ -34,6 +34,7 @@ import { StateWord, type EngineTone } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
 import { ConnectionUsageSection } from "./ConnectionBalance";
 import { starAnchorOf } from "../../hooks/use-model-star";
+import { useVoiceRowId } from "../../hooks/use-tts";
 
 type Draft = {
   name: string;
@@ -116,6 +117,7 @@ export function ConnectionAccountEditor({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const voiceRowId = useVoiceRowId();
   const { data: accounts, isLoading } = useConnectionAccounts();
   const { data: rawRows } = useConnections();
   const update = useUpdateConnectionAccount();
@@ -240,7 +242,7 @@ export function ConnectionAccountEditor({
     }
   };
 
-  const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t);
+  const rolesOf = (row: ConnectionRowData) => modelRoleLabels(row, t, voiceRowId);
   const openModel = (id: string) => void leaveFor(() => openConnectionDetail(id));
   const addModel = () => void leaveFor(() => openAddModels({ accountId }));
 

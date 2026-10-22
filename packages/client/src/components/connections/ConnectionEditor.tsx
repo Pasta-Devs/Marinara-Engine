@@ -238,6 +238,7 @@ function normalizeEndpointUrlInput(raw: string, label: string): { value: string;
 
 /** The service a media, voice or decision Model was added for. It stays fixed: another service is another Add. */
 function LockedService({ id, name, description }: { id: string; name: string; description?: ReactNode }) {
+  const { t } = useTranslation();
   return (
     <div className="col-span-full flex flex-col gap-0.5 rounded-lg bg-[var(--mari-connection-tint)] px-2.5 py-2 text-[0.6875rem] text-[var(--mari-connection-ink)] shadow-[inset_0_0_0_1px_var(--mari-connection-ring)]">
       <div className="flex items-center gap-1.5">
@@ -245,6 +246,7 @@ function LockedService({ id, name, description }: { id: string; name: string; de
         <span className="font-medium">{name}</span>
       </div>
       {description && <span className="text-[0.5625rem] opacity-70">{description}</span>}
+      <span className="text-[0.5625rem] opacity-70">{t("connections.editor.lockedServiceHint")}</span>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { isChatProvider, type ConnectionPickerKind, type FeatureModelConnections } from "@marinara-engine/shared";
 import type { AddKind } from "./add-connection";
+import { isConnectionFlagTrue } from "./connection-filters";
 import type { ConnectionModelRow } from "./connection-groups";
 
 type Job = {
@@ -154,3 +155,20 @@ export const jobAddKind = (key: JobKey) => {
   const kind = JOB[key].kind;
   return kind ? ADD_KIND[kind] : undefined;
 };
+
+/**
+ * The audio row Text to speech uses, in the server's order (tts.routes.ts): the TTS card's row; only with the card
+ * empty, the audio default. `missing` when the card names a row that is gone or not audio — the server then fails.
+ */
+export function voiceRowOf<R extends Pick<ConnectionModelRow, "id" | "provider" | "defaultForAgents">>(
+  rows: readonly R[],
+  cardId?: string | null,
+) {
+  const id = cardId?.trim();
+  if (id) {
+    const row = rows.find((row) => row.id === id && row.provider === "audio") ?? null;
+    return { row, missing: !row };
+  }
+  const row = rows.find((row) => row.provider === "audio" && isConnectionFlagTrue(row.defaultForAgents)) ?? null;
+  return { row, missing: false };
+}
