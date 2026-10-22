@@ -484,7 +484,8 @@ it reads for that first reply alone. `text` is 1 to 8000 characters and may hold
 in a story that may), but never `{{`; guided text may not hold square brackets either. With `locked`, the
 player sees the intro in the GM setup and cannot change it; without it, the intro only fills the setup's
 field, and the player may change or clear it. A game whose first reply was already written, or that
-carries its party over, has no intro.
+carries its party over, has no intro. An Experience can also set its intro beside its other GM setup values
+(`contributions.gameSurface.setup.defaults.intro`, 1.372); that one is read first.
 
 ## How a story plays
 

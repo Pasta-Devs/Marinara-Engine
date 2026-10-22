@@ -50,10 +50,14 @@ function manualChunks(id: string) {
   // rather than weight on GameSurface's budget.
   if (id.endsWith("/components/game/GameInventory.tsx") || id.endsWith("/components/game/RulesetItemPicker.tsx"))
     return "game-inventory";
+  // So does the character sheet, with every stat and resource a ruleset can show.
+  if (id.endsWith("/components/game/GameCharacterSheet.tsx")) return "game-character-sheet";
   // So is the book the inventory reads a ruleset's items through, and the items the Game Master
   // invents, rather than weight on the game tag parser's chunk, which takes the rest of the shared code.
   if (/\/shared\/(?:dist|src)\/features\/rulesets\/(?:item-book|invented-items)\.(?:js|ts)$/u.test(id))
     return "ruleset-items";
+  // The Experience file reader is its own chunk too, rather than weight on the game world's chunk.
+  if (/\/shared\/(?:dist|src)\/features\/world\/experience-file\.(?:js|ts)$/u.test(id)) return "experience-file";
   // So is the world a game is set in (its kit, places, people, history and story), which grows with
   // every part of worldgen, rather than weight on the game tag parser's chunk.
   if (/\/shared\/(?:dist|src)\/features\/world\//u.test(id)) return "game-world";

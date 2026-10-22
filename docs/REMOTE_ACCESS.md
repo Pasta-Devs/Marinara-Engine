@@ -129,9 +129,9 @@ Your whole network may be trusted, for example a home LAN (local network) with n
 ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true
 ```
 
-This restores the older "open on the LAN, blocked from the public internet" behavior. It applies only to standard private-network ranges, for example `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The CGNAT range `100.64.0.0/10` also counts. CGNAT is a shared address system used by some internet providers, and Tailscale uses the same range. Public-internet addresses are still blocked with a 403.
+This restores the older "open on the LAN, blocked from the public internet" behavior. It applies only to standard private-network ranges, for example `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`. The CGNAT range `100.64.0.0/10` does not count, because some internet providers share it between unrelated customers; add it to `TRUSTED_PRIVATE_NETWORKS` only if you trust it. Public-internet addresses are still blocked with a 403.
 
-Some internet and mobile providers give their customers addresses in this range. If this computer has such an address, other customers of the same provider count as private-network clients.
+Some internet and mobile providers give their customers addresses in this range. If you add it, other customers of the same provider also count as private-network clients. `TRUSTED_PRIVATE_NETWORKS` replaces the default ranges, so keep the LAN ranges you still need in the list.
 
 Warning: anyone on the same network can then reach Marinara with no password. That is fine on a network you control. It is not fine on shared Wi-Fi at a coffee shop, airport, or dorm. When in doubt, use Basic Auth instead.
 

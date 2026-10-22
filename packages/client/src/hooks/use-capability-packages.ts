@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  EXPERIENCE_FILE_CONTENT_TYPE,
   isInstalledCapabilityReady,
   replaceBuiltInAgentDefinitions,
   type CapabilityCatalog,
@@ -196,7 +197,8 @@ export function selectGameExperiencePackages(
     (pkg) =>
       isInstalledCapabilityReady(pkg) &&
       pkg.manifest.contributions?.slots?.includes("game-surface") &&
-      Boolean(pkg.manifest.entrypoints.client?.trim()),
+      // A data-only Experience (1.373) has no client: Game Mode's own view plays it.
+      (pkg.manifest.kind.includes("experience") || Boolean(pkg.manifest.entrypoints.client?.trim())),
   );
 }
 
@@ -237,6 +239,11 @@ export function selectConversationSurfacePackages(
     (item) =>
       item.manifest.contributions?.slots?.includes("conversation-surface") && !item.manifest.kind.includes("turn-game"),
   );
+}
+
+/** Whether a game-surface package draws a view of its own; a data-only Experience (1.373) never does. */
+export function capabilityPackageDrawsOwnSurface(pkg: InstalledCapabilityPackage | null | undefined): boolean {
+  return Boolean(pkg?.manifest.entrypoints.client?.trim());
 }
 
 /** A restart-required update keeps exposing the manifest paired with the runtime
@@ -617,6 +624,25 @@ export function useInstallCapabilityPackage() {
           expectedArtifactSha256,
         },
       );
+    },
+    onSettled: invalidate,
+  });
+}
+
+/** Imports an Experience file (1.373) the user reviewed. The file goes up as it is, streamed by the
+ *  browser from disk, and the server checks every byte of it against its manifest. */
+export function useImportExperienceFile() {
+  const invalidate = useInvalidateCapabilityState();
+  return useMutation({
+    mutationFn: async (file: Blob) => {
+      const response = await api.raw("/capability-packages/experience-file", {
+        method: "POST",
+        headers: { "Content-Type": EXPERIENCE_FILE_CONTENT_TYPE },
+        body: file,
+      });
+      const body = (await response.json().catch(() => ({}))) as InstalledCapabilityPackage & { error?: string };
+      if (!response.ok) throw new ApiError(response.status, body.error || response.statusText, body);
+      return body;
     },
     onSettled: invalidate,
   });

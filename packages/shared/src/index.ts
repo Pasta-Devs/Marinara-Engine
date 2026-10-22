@@ -107,6 +107,7 @@ export * from "./features/world/board-pack.js";
 export * from "./features/world/edits.js";
 export * from "./features/world/battlefield-maps.js";
 export * from "./features/world/share-files.js";
+export * from "./features/world/experience-file.js";
 export * from "./features/world/story.js";
 export * from "./features/world/experience-people.js";
 export * from "./features/world/experience-rulesets.js";

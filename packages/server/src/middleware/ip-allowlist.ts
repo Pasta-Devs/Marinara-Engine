@@ -321,7 +321,6 @@ const DEFAULT_PRIVATE_NETWORK_CIDRS: CIDREntry[] = [
   parseCIDR("172.16.0.0/12")!, // RFC 1918 (covers Docker default bridge 172.17.0.0/16)
   parseCIDR("192.168.0.0/16")!, // RFC 1918
   parseCIDR("169.254.0.0/16")!, // RFC 3927 link-local
-  parseCIDR("100.64.0.0/10")!, // RFC 6598 CGNAT (Tailscale, carrier NAT)
   parseCIDR("fc00::/7")!, // RFC 4193 unique local (IPv6 ULA)
   parseCIDR("fe80::/10")!, // RFC 4291 IPv6 link-local
 ];
@@ -442,12 +441,14 @@ export function isLoopbackIp(ip: string): boolean {
 /** True when the IP belongs to the built-in private/non-routable ranges, independent of auth configuration. */
 export function isNonRoutableNetworkIp(ip: string): boolean {
   const bytes = ipToBytes(ip);
-  return Boolean(bytes && DEFAULT_PRIVATE_NETWORK_CIDRS.some((cidr) => matchesCIDR(bytes, cidr)));
+  // CGNAT is never public, but it is not a trusted private network either (see isPrivateNetworkIp).
+  return Boolean(bytes && [...DEFAULT_PRIVATE_NETWORK_CIDRS, TAILSCALE_CIDR].some((cidr) => matchesCIDR(bytes, cidr)));
 }
 
 /**
  * True if the given IP belongs to a trusted private / non-routable range.
- * Defaults to RFC 1918, CGNAT, link-local, and IPv6 ULA — but the operator
+ * Defaults to RFC 1918, link-local, and IPv6 ULA (not CGNAT, which ISPs hand to
+ * unrelated customers) — but the operator
  * can override the entire list via the TRUSTED_PRIVATE_NETWORKS env var.
  */
 export function isPrivateNetworkIp(ip: string): boolean {
@@ -666,7 +667,7 @@ function isBroadAllowlistEntry(entry: CIDREntry): boolean {
     entry.bytes[10] === 0xff &&
     entry.bytes[11] === 0xff;
   if (entry.prefixLen >= (isV4 ? 96 + BROAD_ALLOWLIST_V4_PREFIX : BROAD_ALLOWLIST_V6_PREFIX)) return false;
-  return ![...DEFAULT_PRIVATE_NETWORK_CIDRS, ...LOOPBACK_CIDRS].some(
+  return ![...DEFAULT_PRIVATE_NETWORK_CIDRS, TAILSCALE_CIDR, ...LOOPBACK_CIDRS].some(
     (range) => range.prefixLen <= entry.prefixLen && matchesCIDR(entry.bytes, range),
   );
 }

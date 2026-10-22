@@ -27,6 +27,7 @@ import {
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
+  type GameIntro,
   storyPlaceSeasons,
   storyState,
   type StoryScript,
@@ -7003,8 +7004,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     // An Experience's map pack (worldgen W9e) locks the game to its kit, and to one of its worlds when
     // it ships any; a pack that does not read keeps the Experience from starting a game, with the reason.
     let mapPack: MapPack | null = null;
+    // The Experience's own intro (1.372), kept with the game as it was when the game began, so its lock
+    // holds whatever the package does later.
+    let experienceIntro: GameIntro | null = null;
     const experienceId = parsedCreateGameInput.setupConfig.gameExperienceId;
     if (experienceId) {
+      experienceIntro = (await capabilityPackageManager.experienceSetupDefaults(experienceId))?.intro ?? null;
       const read = await readMapPack(experienceId);
       if (read && !read.ok) {
         return rejectGenerationOutput(reply, 400, {
@@ -7207,6 +7212,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // Classic or Overworld, likewise fixed; a setup made before the choice stores none (see
       // `gameStyleFromMetadata`).
       ...(setupConfig.gameStyle ? { gameStyle: setupConfig.gameStyle } : {}),
+      // The Experience's own intro message (1.372), which a locked one keeps over the setup's.
+      ...(experienceIntro ? { gameExperienceIntro: experienceIntro } : {}),
       // Likewise fixed for the game's lifetime. Written only when a ruleset was chosen, so a game
       // on Marinara's own rules carries exactly the metadata it always has.
       ...(gameRuleset ? { gameRuleset } : {}),

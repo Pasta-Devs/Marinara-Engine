@@ -1475,6 +1475,102 @@ They travel with the party and are told to the Game Master as never fighting, bu
 party's size (for fight variants and `partySize` conditions) and are not put in its fights. A people file
 with one needs 1.360.
 
+### Capability API 1.372: GM setup values
+
+`contributions.gameSurface.setup.defaults` sets what picking the Experience in the Game wizard fills in.
+Pixelforge's Experience tab writes it. Every key is optional, and the player may still change each value:
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: at most 100 characters.
+- `genre` and `tone`: 1 to 12 names each, at most 60 characters, no commas. Joined, each list stays within 200 characters.
+- `difficulty`: `Casual`, `Normal`, `Hard` or `Brutal`.
+- `rating`: `sfw` or `nsfw`.
+- `combatStyle`: `classic` or `tactical`.
+- Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
+
+`intro` is the Game Master's intro message (1.339), with the same rules as a story script's `intro`
+(see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
+value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
+setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
+It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
+Experience off leaves the filled values as they are.
+
+### Capability API 1.373: Experience files
+
+An Experience that holds only pictures, music and data can travel as one `<id>.experience.json` file
+instead of a package zip. Players import it from the Game wizard's Experiences section with
+**Import an Experience file**; it needs no agents catalog.
+
+Its manifest has `"kind": ["experience"]` and nothing else in `kind`, needs `capabilityApi` 1.373 or newer,
+and carries no code: `entrypoints` is `{}`, `permissions` is empty, there is no `restartRequired` or
+`prepareBeforeStart`, and `contributions.slots` is exactly `["game-surface"]`. Every file in `files` is
+`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` or `.json`. The game surface draws
+nothing of its own; the Experience works through its `gameSurface` contributions (setup, maps, worlds,
+creature packs, music).
+
+The file is JSON with its keys in this order:
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` is the package manifest as above, at most 1 MB, and comes before any file.
+- `files` maps each path in the manifest's `files` to its bytes in standard base64 (padding only at its end,
+  no whitespace or line breaks inside it). Every listed file appears exactly once, and nothing else does.
+- Paths are written without escapes, so a path with a quote, a backslash, a control character or a lone surrogate is refused.
+
+Before anything is sent, the wizard reads only the start of the file, up to the end of its manifest, and
+shows a review: the name, version and description, the import size, how much of it is pictures, music and
+data, and Import and Don't Import. Import sends the file to `POST /api/capability-packages/experience-file`
+(content type `application/vnd.marinara.experience+json`). The server reads it as it arrives, writes each
+file to a temporary folder, and checks its size and `sha256` against the manifest. A file that does not
+match, a missing or extra file, a cut-off file or an older version than the one installed is refused, and
+nothing it wrote is kept.
+
+Each file must then be what its name says. Pictures pass the signature check character card imports use
+(`isAllowedImageBuffer`) and must be the type their extension names, so a page or an SVG named `.png` is
+refused. They are stored without their metadata: PNG keeps only the chunks that draw it (no `tEXt`, `zTXt`,
+`iTXt`, `eXIf` or `iCCP`), JPEG drops its APP segments but JFIF and Adobe and its comments (so EXIF
+orientation is not kept), GIF drops comments, plain text and application extensions but the loop count,
+and WebP drops its EXIF, XMP and ICC chunks. Music must be well-formed Ogg Vorbis or Opus (every page's
+checksum checked; its comments and cover art are blanked in place), MP3 (its ID3 and APE tags removed) or
+WAV (only its `fmt `, `fact` and `data` chunks kept). Data files must be UTF-8 JSON. Anything after a
+picture's or sound's end is dropped. The installed manifest records the stored files' sizes and hashes. A newer version replaces the installed one, as a catalog update does. An
+Experience file cannot replace a package of another kind with the same id.
+
+An Experience is never accepted as a package zip. An agents catalog lists one only with an artifact URL
+ending in `.experience.json`. The Engine installs that file through the same reader, checks and stripping,
+and refuses it unless its manifest is the one the catalog lists. A catalog entry that is an Experience
+(`kind` `experience`, or the `game-surface` slot) with any other artifact is refused before anything is
+downloaded, and the first-start catalog install skips Experiences. Experiences already installed keep
+working.
+
+Pixelforge 0.45.0 exports an Experience as this file, and only opens Experience files.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema

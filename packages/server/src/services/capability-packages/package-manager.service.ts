@@ -1,6 +1,18 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { lstat, mkdir, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  statfs,
+  writeFile,
+  type FileHandle,
+} from "node:fs/promises";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { z } from "zod";
 import {
@@ -43,9 +55,23 @@ import {
   RULESET_COMBAT_MODIFIER_TARGETS,
   type RulesetCatalogItem,
 } from "@marinara-engine/shared";
-import { CREATURE_PACK_MAX_BYTES, WORLD_SHARE_FILE_MAX_BYTES, type ExperienceMusic } from "@marinara-engine/shared";
+import {
+  CREATURE_PACK_MAX_BYTES,
+  EXPERIENCE_FILE_EXTENSION,
+  RULESET_PACKAGE_FILE_EXTENSION,
+  RULESET_PACKAGE_FILE_MAX_BYTES,
+  ExperienceFileError,
+  ExperienceFileReader,
+  readExperienceFileManifest,
+  WORLD_SHARE_FILE_MAX_BYTES,
+  type CapabilityPackageManifest,
+  type ExperienceFileEvent,
+  type ExperienceMusic,
+} from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
+import { sanitizeExperienceAsset } from "./experience-asset-sanitizer.js";
+import { readRulesetPackageFile } from "../game/ruleset-package-file.js";
 import { logger } from "../../lib/logger.js";
 import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } from "../../lib/zip-reader.js";
 import { getBuildBranch } from "../../config/build-info.js";
@@ -6389,8 +6415,97 @@ export function findPendingCapabilityPackageUpdates(
     }));
 }
 
-async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDuringStartup = false) {
+/** An Experience owns the Game surface. Since 1.373 one comes only as an Experience file, never a package zip. */
+function isCatalogExperience(entry: CapabilityCatalogPackage) {
+  return (
+    entry.manifest.kind.includes("experience") || (entry.manifest.contributions?.slots ?? []).includes("game-surface")
+  );
+}
+
+function isExperienceFileArtifact(entry: CapabilityCatalogPackage) {
+  try {
+    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(EXPERIENCE_FILE_EXTENSION);
+  } catch {
+    return false;
+  }
+}
+
+/** A ruleset in the catalog comes as a ruleset package file (Capability API 1.374), never a package zip. */
+const RULESET_FILE_CAPABILITY_MINOR = 374;
+
+function isRulesetFileArtifact(entry: CapabilityCatalogPackage) {
+  try {
+    return new URL(entry.artifact.url).pathname.toLowerCase().endsWith(RULESET_PACKAGE_FILE_EXTENSION);
+  } catch {
+    return false;
+  }
+}
+
+/** A downloaded package's files, as a zip's entries are read: by name, size and verified bytes. */
+type PackageEntry = { entryName: string; size: number; read(maximum: number): Buffer };
+
+/** A ruleset package file, read by the reader a player's ruleset import uses: its manifest as manifest.json,
+ *  then each document as the bytes the manifest lists (which that reader has checked by size and sha256). */
+function readRulesetFileEntries(bytes: Buffer): PackageEntry[] {
+  let document: unknown;
+  try {
+    document = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new Error("This is not a ruleset package file.");
+  }
+  const read = readRulesetPackageFile(document);
+  if (!read.ok) throw new Error(`The ruleset package file does not read: ${read.issues.join("; ")}`);
+  const files = (document as { files: Record<string, string> }).files;
+  const manifest = Buffer.from(read.manifest);
+  return [
+    { entryName: "manifest.json", size: manifest.length, read: () => manifest },
+    ...Object.entries(files).map(([name, base64]) => {
+      const data = Buffer.from(base64, "base64");
+      return { entryName: name, size: data.length, read: () => data };
+    }),
+  ];
+}
+
+/** Installs a catalog entry through the caller's download rather than the network, for regressions. */
+export function installCatalogPackageForTests(entry: CapabilityCatalogPackage, download: () => Promise<Buffer>) {
+  return installCatalogPackage(entry, false, download);
+}
+
+/** A catalog Experience the Engine will install: a data-only Experience published as an Experience file. */
+function isInstallableCatalogExperience(entry: CapabilityCatalogPackage) {
+  return entry.manifest.kind.includes("experience") && isExperienceFileArtifact(entry);
+}
+
+async function installCatalogPackage(
+  entry: CapabilityCatalogPackage,
+  activateDuringStartup = false,
+  download: (url: string, maximum: number) => Promise<Buffer> = fetchBytes,
+) {
   const { manifest, artifact } = entry;
+  const isRuleset = manifest.kind.includes("ruleset");
+  if (isRuleset && !isRulesetFileArtifact(entry)) {
+    throw new Error(
+      `${manifest.name} is a ruleset packaged as a zip. Rulesets install only from a ${RULESET_PACKAGE_FILE_EXTENSION} file.`,
+    );
+  }
+  if (isRuleset && artifact.bytes > RULESET_PACKAGE_FILE_MAX_BYTES) {
+    throw new Error(`${manifest.name} is larger than a ruleset package file may be`);
+  }
+  if (
+    isRuleset &&
+    (manifest.schemaVersion === 1 ||
+      (manifest.capabilityApi.major === 1 && manifest.capabilityApi.minor < RULESET_FILE_CAPABILITY_MINOR))
+  ) {
+    throw new Error(
+      `A ruleset published as a ruleset file needs Capability API 1.${RULESET_FILE_CAPABILITY_MINOR} or newer`,
+    );
+  }
+
+  if (isCatalogExperience(entry) && !isInstallableCatalogExperience(entry)) {
+    throw new Error(
+      `${manifest.name} is an Experience packaged as a zip. Experiences install only from an ${EXPERIENCE_FILE_EXTENSION} file.`,
+    );
+  }
   const installIssue = getCapabilityPackageInstallIssue(manifest);
   if (installIssue) throw new CapabilityPackageCompatibilityError(installIssue);
   const initiallyInstalled = await readInstalledVersion(manifest.id);
@@ -6402,13 +6517,27 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       `Package requires Marinara Engine ${manifest.engine.min} to below ${manifest.engine.maxExclusive}`,
     );
   }
-  const archive = await fetchBytes(artifact.url, Math.min(artifact.bytes + 1, MAX_ARTIFACT_BYTES));
+  const archive = await download(artifact.url, Math.min(artifact.bytes + 1, MAX_ARTIFACT_BYTES));
   if (archive.byteLength !== artifact.bytes) throw new Error("Downloaded package size does not match the catalog");
   const digest = createHash("sha256").update(archive).digest("hex");
   if (digest !== artifact.sha256) throw new Error("Downloaded package checksum does not match the catalog");
+  if (isCatalogExperience(entry)) {
+    // The same reader, checks and sanitizing as an Experience file a player imports, held to the catalog's manifest.
+    const installed = await installExperienceFile(
+      (async function* () {
+        yield new Uint8Array(archive);
+      })(),
+      { expectedManifest: manifest, activateDuringStartup },
+    );
+    return { ...installed, usesDecisions: false };
+  }
 
-  const zip = openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET);
-  const entries = validatePackageArchiveEntries(zip);
+  let entries: PackageEntry[];
+  if (isRuleset) entries = readRulesetFileEntries(archive);
+  else {
+    const zip = openZipArchive(archive, PACKAGE_ARCHIVE_BUDGET);
+    entries = validatePackageArchiveEntries(zip);
+  }
   const manifestEntry = entries.find((item) => item.entryName === "manifest.json");
   if (!manifestEntry || manifestEntry.size > MAX_MANIFEST_BYTES) {
     throw new Error("Package manifest is missing or too large");
@@ -6491,7 +6620,6 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   }
 
   const temporary = join(ROOT, `.install-${manifest.id}-${Date.now()}`);
-  const destination = join(VERSIONS, manifest.id, manifest.version);
   await rm(temporary, { recursive: true, force: true });
   await mkdir(temporary, { recursive: true });
   try {
@@ -6501,41 +6629,214 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       await mkdir(dirname(output), { recursive: true });
       await writeFile(output, data, { mode: 0o600 });
     }
-    await mkdir(dirname(destination), { recursive: true });
-    await rm(destination, { recursive: true, force: true });
-    await rename(temporary, destination);
-    const registry = await readRegistry();
-    const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
-    const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
-    assertNotDowngrade(await readInstalledVersion(manifest.id), manifest.version);
-    const activePrevious =
-      previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
-        ? { version: previous.previousVersion, manifest: previous.previousManifest }
-        : previous
-          ? { version: previous.version, manifest: previous.manifest }
-          : null;
-    const installed: InstalledCapabilityPackage = {
-      id: manifest.id,
-      version: manifest.version,
-      manifest,
-      installedAt: new Date().toISOString(),
-      status: manifest.restartRequired && !activateDuringStartup ? "restart-required" : "active",
-      error: null,
-      readiness: manifest.entrypoints.server ? "pending" : "ready",
-      readinessError: null,
-      legacy: false,
-      ...(activePrevious && activePrevious.version !== manifest.version
-        ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
-        : {}),
-    };
-    await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
-    try {
-      await clearDeclinedUpdate(manifest.id);
-    } catch (error) {
-      logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
-    }
-    return { ...installed, usesDecisions };
+    return { ...(await commitPackageInstall(manifest, temporary, activateDuringStartup)), usesDecisions };
   } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+}
+
+/** Moves a package's verified files, written to `temporary`, into place and records it installed. */
+async function commitPackageInstall(
+  manifest: CapabilityPackageManifest,
+  temporary: string,
+  activateDuringStartup = false,
+): Promise<InstalledCapabilityPackage> {
+  const destination = join(VERSIONS, manifest.id, manifest.version);
+  await mkdir(dirname(destination), { recursive: true });
+  await rm(destination, { recursive: true, force: true });
+  await rename(temporary, destination);
+  const registry = await readRegistry();
+  const registryPrevious = registry.packages.find((item) => item.id === manifest.id);
+  const previous = registryPrevious ? await hydratePreviousManifest(registryPrevious) : undefined;
+  assertNotDowngrade(await readInstalledVersion(manifest.id), manifest.version);
+  const activePrevious =
+    previous?.status === "restart-required" && previous.previousVersion && previous.previousManifest
+      ? { version: previous.previousVersion, manifest: previous.previousManifest }
+      : previous
+        ? { version: previous.version, manifest: previous.manifest }
+        : null;
+  const installed: InstalledCapabilityPackage = {
+    id: manifest.id,
+    version: manifest.version,
+    manifest,
+    installedAt: new Date().toISOString(),
+    status: manifest.restartRequired && !activateDuringStartup ? "restart-required" : "active",
+    error: null,
+    readiness: manifest.entrypoints.server ? "pending" : "ready",
+    readinessError: null,
+    legacy: false,
+    ...(activePrevious && activePrevious.version !== manifest.version
+      ? { previousVersion: activePrevious.version, previousManifest: activePrevious.manifest }
+      : {}),
+  };
+  await writeRegistry([...registry.packages.filter((item) => item.id !== manifest.id), installed]);
+  try {
+    await clearDeclinedUpdate(manifest.id);
+  } catch (error) {
+    logger.warn(error, "Could not clear the deferred update marker for capability package %s", manifest.id);
+  }
+  return installed;
+}
+
+/**
+ * Installs an Experience file (Capability API 1.373) as it streams in: a data-only Experience, its manifest
+ * checked before any file is kept, each file written straight to disk as it decodes and checked against
+ * the manifest's size and sha256, so neither the upload nor any one file is ever held whole. Anything
+ * out of place stops the import and removes what it wrote.
+ */
+async function installExperienceFile(
+  source: AsyncIterable<Uint8Array>,
+  options: { expectedManifest?: CapabilityPackageManifest; activateDuringStartup?: boolean } = {},
+): Promise<InstalledCapabilityPackage> {
+  /** A check shared with catalog installs, its refusal told as the file's. */
+  const fileCheck = <T>(check: () => T): T => {
+    try {
+      return check();
+    } catch (error) {
+      throw new ExperienceFileError(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const reader = new ExperienceFileReader();
+  const temporary = join(ROOT, `.import-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  let manifest: CapabilityPackageManifest | null = null;
+  let rawManifest: unknown = null;
+  let declared = new Map<string, CapabilityPackageManifest["files"][number]>();
+  const written = new Set<string>();
+  let current: {
+    path: string;
+    declaration: CapabilityPackageManifest["files"][number];
+    hash: ReturnType<typeof createHash>;
+    bytes: number;
+    handle: FileHandle;
+  } | null = null;
+
+  const onManifest = async (raw: unknown) => {
+    const read = readExperienceFileManifest(raw);
+    if (!read.ok) throw new ExperienceFileError(`This Experience file cannot be imported: ${read.issues.join("; ")}`);
+    const next = read.manifest;
+    if (options.expectedManifest && JSON.stringify(next) !== JSON.stringify(options.expectedManifest)) {
+      throw new ExperienceFileError("The Experience file's manifest does not match the catalog");
+    }
+    const issue = getCapabilityApiCompatibilityIssue(next) ?? getCapabilityPackageInstallIssue(next);
+    if (issue) throw new ExperienceFileError(issue);
+    if (
+      compareCapabilityPackageVersions(APP_VERSION, next.engine.min) < 0 ||
+      compareCapabilityPackageVersions(APP_VERSION, next.engine.maxExclusive) >= 0
+    ) {
+      throw new ExperienceFileError(
+        `This Experience needs Marinara Engine ${next.engine.min} to below ${next.engine.maxExclusive}`,
+      );
+    }
+    const existing = (await readRegistry()).packages.find((item) => item.id === next.id);
+    if (existing && !existing.manifest.kind.includes("experience")) {
+      throw new ExperienceFileError(
+        `${existing.manifest.name} is already installed under the id ${next.id}, and it is not an Experience`,
+      );
+    }
+    const installedVersion = await readInstalledVersion(next.id);
+    fileCheck(() => assertNotDowngrade(installedVersion, next.version));
+    declared = new Map(next.files.map((file) => [fileCheck(() => normalizeArchivePath(file.path)), file]));
+    if (declared.size !== next.files.length) throw new ExperienceFileError("The manifest lists a file twice");
+    const caseFolded = new Set([...declared.keys()].map((path) => path.toLowerCase()));
+    if (caseFolded.size !== declared.size) {
+      throw new ExperienceFileError("The manifest lists files whose names differ only in case");
+    }
+    if (declared.has("manifest.json")) throw new ExperienceFileError("manifest.json is the manifest's own name");
+    const needed = next.files.reduce((total, file) => total + file.bytes, 0);
+    await mkdir(ROOT, { recursive: true });
+    const space = await statfs(ROOT).catch(() => null);
+    if (space && Number(space.bavail) * Number(space.bsize) < needed + 16 * 1024 * 1024) {
+      throw new ExperienceFileError("There is not enough free disk space to import this Experience");
+    }
+    await rm(temporary, { recursive: true, force: true });
+    await mkdir(temporary, { recursive: true });
+    manifest = next;
+    rawManifest = raw;
+  };
+
+  try {
+    const handle = async (event: ExperienceFileEvent) => {
+      switch (event.type) {
+        case "manifest":
+          await onManifest(event.manifest);
+          return;
+        case "file-start": {
+          const path = fileCheck(() => normalizeArchivePath(event.path));
+          const declaration = declared.get(path);
+          if (!declaration)
+            throw new ExperienceFileError(`The Experience file holds ${path}, which its manifest does not list`);
+          const output = inside(temporary, join(temporary, path));
+          await mkdir(dirname(output), { recursive: true });
+          current = {
+            path,
+            declaration,
+            hash: createHash("sha256"),
+            bytes: 0,
+            handle: await open(output, "wx", 0o600),
+          };
+          return;
+        }
+        case "file-data": {
+          const file = current!;
+          file.bytes += event.data.length;
+          if (file.bytes > file.declaration.bytes) {
+            throw new ExperienceFileError(`${file.path} is larger than its manifest says`);
+          }
+          file.hash.update(event.data);
+          await file.handle.write(event.data);
+          return;
+        }
+        case "file-end": {
+          const file = current!;
+          current = null;
+          await file.handle.close();
+          if (file.bytes !== file.declaration.bytes) {
+            throw new ExperienceFileError(`${file.path} is not the size its manifest says`);
+          }
+          if (file.hash.digest("hex") !== file.declaration.sha256) {
+            throw new ExperienceFileError(`${file.path} does not match its manifest's checksum`);
+          }
+          written.add(file.path);
+          return;
+        }
+        case "end":
+          return;
+      }
+    };
+    for await (const chunk of source) {
+      for (const event of reader.push(chunk)) await handle(event);
+    }
+    for (const event of reader.finish()) await handle(event);
+    if (!manifest) throw new ExperienceFileError("The Experience file has no manifest");
+    const missing = [...declared.keys()].filter((path) => !written.has(path));
+    if (missing.length) {
+      throw new ExperienceFileError(`The Experience file is missing ${missing.slice(0, 3).join(", ")}`);
+    }
+    // Each file is kept only as what it says it is, without its metadata; the installed manifest
+    // records the bytes that are stored, so serving still verifies every file.
+    const stored = new Map<string, { sha256: string; bytes: number }>();
+    for (const path of written) {
+      const output = inside(temporary, join(temporary, path));
+      const original = await readFile(output);
+      const sanitized = sanitizeExperienceAsset(path, original);
+      if (sanitized.equals(original)) continue;
+      await writeFile(output, sanitized, { mode: 0o600 });
+      stored.set(path, { sha256: createHash("sha256").update(sanitized).digest("hex"), bytes: sanitized.length });
+    }
+    const restate = <T extends { path: string; sha256: string; bytes: number }>(file: T): T => {
+      const replaced = stored.get(normalizeArchivePath(file.path));
+      return replaced ? { ...file, ...replaced } : file;
+    };
+    // Set by onManifest inside the reader's callbacks, which TypeScript does not follow.
+    const read = manifest as CapabilityPackageManifest;
+    const storedManifest: CapabilityPackageManifest = { ...read, files: read.files.map(restate) };
+    const raw = rawManifest as { files: Array<{ path: string; sha256: string; bytes: number }> };
+    const storedRaw = { ...raw, files: raw.files.map(restate) };
+    await writeFile(join(temporary, "manifest.json"), `${JSON.stringify(storedRaw, null, 2)}\n`, { mode: 0o600 });
+    return await commitPackageInstall(storedManifest, temporary, options.activateDuringStartup);
+  } finally {
+    const unfinished = current as { handle: FileHandle } | null;
+    if (unfinished) await unfinished.handle.close().catch(() => undefined);
     await rm(temporary, { recursive: true, force: true });
   }
 }
@@ -7049,6 +7350,14 @@ export const capabilityPackageManager = {
     return installed.manifest.contributions?.gameSurface?.mapPack?.music ?? null;
   },
 
+  /** An Experience's GM setup values (1.372), as its manifest declares them; null when it sets none or is
+   *  not ready. */
+  async experienceSetupDefaults(packageId: string) {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    return installed.manifest.contributions?.gameSurface?.setup?.defaults ?? null;
+  },
+
   /** An Experience's map pack files (worldgen W9e), verified: its kit, worlds and tile pack, by the
    *  paths its manifest declares, each declared as an asset, hash-pinned in `files[]` and re-verified
    *  against the install-time hash. Null when the package is not installed, not ready, or ships no map
@@ -7348,6 +7657,10 @@ export const capabilityPackageManager = {
     const installedById = new Map((await this.installed()).map((item) => [item.id, item]));
     for (const entry of catalog.packages) {
       if (installedById.get(entry.manifest.id)?.version === entry.manifest.version) continue;
+      // Experiences are the player's choice per game, and a zip one is never accepted.
+      if (isCatalogExperience(entry)) continue;
+      // A ruleset still published as a zip is refused, and must not stop the rest from installing.
+      if (entry.manifest.kind.includes("ruleset") && !isRulesetFileArtifact(entry)) continue;
       await installCatalogPackage(entry, true);
     }
     // Existing-install completion also depends on per-chat selections becoming
@@ -7492,6 +7805,14 @@ export const capabilityPackageManager = {
       logger.warn(error, "Could not check for old capability package versions");
     }
     if (removed.length > 0) logger.info("Removed old capability package versions: %s", removed.join(", "));
+  },
+
+  /** Imports an Experience file (1.373) the user reviewed, read as it streams in. */
+  async installExperienceFile(
+    source: AsyncIterable<Uint8Array>,
+    options?: Parameters<typeof installExperienceFile>[1],
+  ) {
+    return installExperienceFile(source, options);
   },
 
   async uninstall(packageId: string) {

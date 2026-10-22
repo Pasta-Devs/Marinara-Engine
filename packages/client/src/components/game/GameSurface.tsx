@@ -129,6 +129,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import {
   rulesetCatalogQuery,
+  capabilityPackageDrawsOwnSurface,
   selectGameExperiencePackages,
   useCapabilityClientModuleState,
   useInstalledCapabilityPackages,
@@ -2372,15 +2373,20 @@ function GameSurfaceComponent({
    *  chrome that renders outside its element. Declared rather than pushed, so it applies on first paint. */
   const experienceSurfaceClass = experienceSurfacePackage?.manifest.contributions?.gameSurface?.surfaceClass ?? null;
   const experienceSurfaceActive = experienceSurfaceId !== null;
+  /** Whether the Experience draws a view of its own over Game Mode's; a data-only one (1.373) never does,
+   *  so nothing is mounted for it and Game Mode's own view plays it. */
+  const experienceDrawsOwnView = capabilityPackageDrawsOwnSurface(experienceSurfacePackage);
   /** Whether an experience owns this game, which is what every built-in-chrome gate tests. Broader than
    *  `experienceSurfaceActive`, but only while the installed-packages query is in flight: on a cold cache
    *  that is false for a moment even though the chat already says an experience owns the run, and the
    *  built-in HUD would flash before the surface replaces it. Once the query settles this follows the
    *  surface, so a game whose package was uninstalled gets the built-in chrome back instead of losing
    *  both. Mounting the capability element stays on `experienceSurfaceActive` — that one needs the
-   *  package to actually be there. */
+   *  package to actually be there. A data-only Experience (1.373) draws nothing, so once it is known it
+   *  owns nothing either, and Game Mode's own view and chrome play it. */
   const experienceOwnsGame =
-    experienceSurfaceActive || (gameExperienceId !== null && installedCapabilityPackagesPending);
+    (experienceSurfaceActive && experienceDrawsOwnView) ||
+    (gameExperienceId !== null && installedCapabilityPackagesPending);
   // A game made without a world may be given one from the journal (worldgen W12), written for its own
   // setting with its own connection; never one an Experience decides, nor one made as Classic Game Mode.
   const canMakeWorld =
@@ -12894,7 +12900,7 @@ function GameSurfaceComponent({
 
             {/* Underlay mount — the part of the surface that belongs BEHIND the narration, such as a
               standing sprite. The main layer is stacked above it, where a sprite would cover the box. */}
-            {experienceSurfaceActive ? (
+            {experienceSurfaceActive && experienceDrawsOwnView ? (
               <CapabilityElement
                 packageId={experienceSurfaceId}
                 view="surface"
@@ -13018,7 +13024,7 @@ function GameSurfaceComponent({
                     })()}
                   {/* Main mount. pointer-events-none lets clicks fall through empty regions to the
                     narration underneath; the package sets pointer-events-auto on its own chrome. */}
-                  {experienceSurfaceActive ? (
+                  {experienceSurfaceActive && experienceDrawsOwnView ? (
                     <CapabilityElement
                       packageId={experienceSurfaceId}
                       view="surface"

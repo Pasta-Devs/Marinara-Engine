@@ -1,8 +1,11 @@
 // A controlled choice inside the Engine wizard; legacy packages retain their separate setup dialog.
-import { useState } from "react";
-import { Gamepad2, Sparkles, Shuffle } from "lucide-react";
-import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
+import { useRef, useState } from "react";
+import { FileUp, Gamepad2, Sparkles, Shuffle } from "lucide-react";
+import { EXPERIENCE_FILE_EXTENSION, type InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { MAX_EXPERIENCE_SEED } from "../../lib/game-experience-setup";
+import { readExperienceFileReview } from "../../lib/experience-file-review";
+import { useImportExperienceFile } from "../../hooks/use-capability-packages";
+import { ExperienceFileImportModal } from "./ExperienceFileImportModal";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -20,7 +23,7 @@ export function NewGameExperienceChooser({
 }: {
   experiences: InstalledCapabilityPackage[];
   activeId: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, picked?: InstalledCapabilityPackage) => void;
   seed: string;
   onSeedChange: (seed: string) => void;
   onRandomize: () => void;
@@ -32,6 +35,57 @@ export function NewGameExperienceChooser({
   const open = expanded || Boolean(activeId);
   const activeExperience = experiences.find((experience) => experience.id === activeId);
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);
+  // An Experience file (1.373): reviewed here first, from the start of the file alone; sent only on Import.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const importExperienceFile = useImportExperienceFile();
+  const [pendingFile, setPendingFile] = useState<{
+    file: File;
+    review: Parameters<typeof ExperienceFileImportModal>[0]["review"];
+  } | null>(null);
+  const [importFailure, setImportFailure] = useState<string | null>(null);
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
+  const reviewFile = async (file: File | undefined) => {
+    if (!file) return;
+    setFileNotice(null);
+    setImportFailure(null);
+    try {
+      const review = await readExperienceFileReview(file);
+      if (!review.ok) {
+        setFileNotice(localizeUi("game.experienceFile.invalid", { issues: review.issues.join(" ") }));
+        return;
+      }
+      setPendingFile({ file, review: { summary: review.summary, fileBytes: review.fileBytes, fileName: file.name } });
+    } catch {
+      setFileNotice(localizeUi("game.experienceFile.unreadable"));
+    }
+  };
+  const confirmImport = () => {
+    if (!pendingFile) return;
+    setImportFailure(null);
+    importExperienceFile.mutate(pendingFile.file, {
+      onSuccess: (installed) => {
+        setPendingFile(null);
+        setFileNotice(localizeUi("game.experienceFile.imported", { name: installed.manifest.name }));
+        setOpen(true);
+        onSelect(installed.id, installed);
+      },
+      onError: (error) =>
+        setImportFailure(
+          error instanceof Error && error.message ? error.message : localizeUi("game.experienceFile.failed"),
+        ),
+    });
+  };
+  const importButton = (
+    <button
+      type="button"
+      onClick={() => fileInput.current?.click()}
+      disabled={launching || importExperienceFile.isPending}
+      className={SECONDARY_BUTTON}
+    >
+      <FileUp size={13} />
+      {localizeUi("game.experienceFile.open")}
+    </button>
+  );
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -146,10 +200,42 @@ export function NewGameExperienceChooser({
                 <Gamepad2 size={13} />
                 {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
               </button>
+              {importButton}
             </div>
+          )}
+          {experiences.length > 0 && <div className="flex justify-end pt-1">{importButton}</div>}
+          {fileNotice && (
+            <p role="status" className="text-xs text-[var(--muted-foreground)]">
+              {fileNotice}
+            </p>
           )}
         </div>
       )}
+      <input
+        ref={fileInput}
+        type="file"
+        accept={`${EXPERIENCE_FILE_EXTENSION},.json,application/json`}
+        className="hidden"
+        data-testid="experience-file-input"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          void reviewFile(file);
+        }}
+      />
+      <ExperienceFileImportModal
+        review={pendingFile?.review ?? null}
+        installedVersion={
+          (pendingFile && experiences.find((item) => item.id === pendingFile.review?.summary.id)?.version) ?? null
+        }
+        importing={importExperienceFile.isPending}
+        failure={importFailure}
+        onCancel={() => {
+          setPendingFile(null);
+          setImportFailure(null);
+        }}
+        onConfirm={confirmImport}
+      />
     </div>
   );
 }
