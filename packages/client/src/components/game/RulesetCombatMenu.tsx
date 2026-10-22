@@ -392,6 +392,12 @@ export function RulesetCombatMenu({
       return;
     }
     const stage = stageFor(aimed);
+    // A readied action with only one foe it could ever be held for is held for that one: there is
+    // nobody else to choose.
+    if (stage === "target" && aimed.ready && aimed.targetIds.length === 1) {
+      send(aimed, aimed.targetIds, undefined, style, mode, how.amount, how.alters);
+      return;
+    }
     if (stage) {
       setStep({
         stage,
@@ -528,8 +534,14 @@ export function RulesetCombatMenu({
     if (step?.stage === "alter" && step.option.alters?.length) {
       const option = step.option;
       const offers = option.alters!;
+      // Where nothing joins another, only one can be used at a time, so choosing it is the choice.
+      const single = !option.alterNeeded && !offers.some((offer) => offer.joins);
       const toggle = (id: string) => {
         if (id === option.alterNeeded) return;
+        if (single) {
+          afterMode(option, step.style, step.mode, undefined, [id]);
+          return;
+        }
         const offer = offers.find((one) => one.id === id);
         if (altersPicked.includes(id)) {
           setAltersPicked(altersPicked.filter((one) => one !== id));
@@ -557,7 +569,7 @@ export function RulesetCombatMenu({
                   key={offer.id}
                   type="button"
                   disabled={busy || offer.id === option.alterNeeded}
-                  aria-pressed={picked}
+                  aria-pressed={single ? undefined : picked}
                   onClick={() => toggle(offer.id)}
                   className={cn(
                     buttonClass,
@@ -585,7 +597,7 @@ export function RulesetCombatMenu({
               }
               className={cn(buttonClass, `${ink.border} ${ink.fill} ${ink.body} ${ink.hover}`)}
             >
-              {altersPicked.length
+              {altersPicked.length && !single
                 ? t("game.combat.ruleset.alter.use", { count: altersPicked.length })
                 : t("game.combat.ruleset.alter.none")}
             </button>
