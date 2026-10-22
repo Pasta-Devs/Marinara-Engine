@@ -273,19 +273,25 @@ Each role's limits are kept in code, in `ROLE_DEFAULTS` in `dottore_review.py`:
 | `places` | Places each scout keeps; `0` turns the scouts off | `6` | – | – |
 | `scouts` | Scouts per packet, each with a share of its changes; a PR split into packets runs more scouts than `DOTTORE_CONCURRENCY` in turn | `4` | – | – |
 
-A role's `minutes` also bounds each of its model calls: a role offered no tools thinks before its first byte, so its
-call may stay silent for the whole box, and a reply still streaming when the box ends is cut there. A role offered no
-tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
+A role's `minutes` controls when it must submit and how long a call offered only its submit tool may wait without
+progress. A reply that keeps producing thinking, text or tool-input characters can finish past that time box;
+pings, empty deltas and block boundaries do not refresh the watchdog. Claude requests summarized thinking so that
+its progress is visible even on models that omit thinking text by default. A role offered no
+read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
 `medium` → `low`) with a box of its own; at `low`, or with no effort set, the review fails instead. On Claude, thinking
 counts inside `max_tokens`, so a larger or slower Claude model may need a larger cap.
 
 Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECONDS`), the last 8 minutes of it
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,
 a role aborting after 3 failed calls in a row (`MAX_ROLE_FAILURES`), 180 s for a call's first byte and 360 s between
-bytes (`FIRST_CALL_TIMEOUT`, `MODEL_REQUEST_TIMEOUT`), 900 s per streaming reply of a role with tools
-(`MODEL_STREAM_LIMIT`; a role without tools gets its box instead), at most 2 notes and 2 open questions per review
+bytes (`FIRST_CALL_TIMEOUT`, `MODEL_REQUEST_TIMEOUT`), 900 s without meaningful stream progress for a role with
+read tools (`MODEL_STREAM_LIMIT`; a role offered only its submit tool gets its remaining box, with a 180 s minimum),
+at most 2 notes and 2 open questions per review
 (`MAX_NITPICKS`, `MAX_OPEN_QUESTIONS`), and the packet split for large PRs (`MAX_CHUNK_PATCH_CHARS`,
 `MAX_REVIEW_CHUNKS`).
+
+The review deadline stops new work and asks agents to submit; it does not interrupt an active reply. The workflow's
+40-minute review-step limit and 45-minute job limit still bound the entire run, including a reply that keeps progressing.
 
 ## Reading the run log
 
