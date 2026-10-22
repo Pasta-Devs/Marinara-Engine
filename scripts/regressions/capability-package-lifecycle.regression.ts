@@ -192,7 +192,8 @@ try {
     [341, "runtime services"],
     [342, "story clocks"],
     [372, "Experience setup values"],
-    [373, "the newest minor before this one"],
+    [373, "data-only Experiences"],
+    [374, "the newest minor before this one"],
   ];
   for (const [minor, label] of supportedMinors) {
     assert.equal(

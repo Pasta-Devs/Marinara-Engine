@@ -45,6 +45,8 @@ export function CombatTopbarControls() {
         onClick={togglePane}
         className={cn(
           TOGGLE,
+          // A phone shows the pane as a tab of its own, so the toggle is for wider screens only.
+          "max-md:hidden",
           paneOpen
             ? "bg-[var(--primary)]/15 text-[var(--foreground)]"
             : "text-[var(--muted-foreground)] hover:bg-[var(--foreground)]/[0.06]",

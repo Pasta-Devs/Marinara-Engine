@@ -14,15 +14,14 @@ interface CombatScreenState {
   setRound: (round: number | null) => void;
   toggleLog: () => void;
   togglePane: () => void;
-  setPaneOpen: (open: boolean) => void;
 }
 
 export const useCombatScreenStore = create<CombatScreenState>((set) => ({
   round: null,
   logOpen: true,
   paneOpen: true,
-  setRound: (round) => set({ round }),
+  // A fight that goes takes its layout with it: the next one opens with the pane showing.
+  setRound: (round) => set(round === null ? { round, paneOpen: true } : { round }),
   toggleLog: () => set((state) => ({ logOpen: !state.logOpen })),
   togglePane: () => set((state) => ({ paneOpen: !state.paneOpen })),
-  setPaneOpen: (open) => set({ paneOpen: open }),
 }));

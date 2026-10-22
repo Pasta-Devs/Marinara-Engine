@@ -1,7 +1,7 @@
 // The log of a fight on a board, under the board: newest first, each round named once in a column of
 // its own, names in their side's colour and the arithmetic of every roll in a chip. The sentences are
 // the plain log's own (`rulesetCombatEventLine`); only how they are drawn is new.
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DirectedRulesetView, RulesetDefinition } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { rulesetRichLogLines, rulesetWindowLineSeq, type RulesetLogPiece } from "../../lib/ruleset-combat-log-rich";
@@ -33,6 +33,7 @@ export function RulesetCombatLog({
   const newestFirst = useMemo(() => [...lines].reverse(), [lines]);
   const asking = rulesetWindowLineSeq(view);
   const box = useRef<HTMLDivElement>(null);
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
   const newest = lines.at(-1)?.seq;
   useEffect(() => {
     // The box's own scroll, back to the top where the newest line is; never the page's.
@@ -55,24 +56,30 @@ export function RulesetCombatLog({
         </span>
         <span className="flex-1" />
         {view.adjustments.length > 0 && (
-          <details className="relative text-xs">
-            <summary className="cursor-pointer text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-              {t("game.combat.ruleset.screen.adjustments", { count: view.adjustments.length })}
-            </summary>
-            <ul className="absolute right-0 top-6 z-30 max-h-60 w-80 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--popover,var(--card))] p-2 text-[var(--muted-foreground)] shadow-lg">
-              {view.adjustments.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </details>
+          <button
+            type="button"
+            aria-expanded={adjustmentsOpen}
+            onClick={() => setAdjustmentsOpen((open) => !open)}
+            className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          >
+            {t("game.combat.ruleset.screen.adjustments", { count: view.adjustments.length })}
+          </button>
         )}
       </header>
       <div ref={box} className="min-h-0 flex-1 overflow-y-auto px-3 py-1.5">
+        {/* Shown in the log's own scroll box, so a short log card never cuts the list off. */}
+        {adjustmentsOpen && view.adjustments.length > 0 && (
+          <ul className="m-0 mb-1.5 list-none space-y-1 rounded-md border border-[var(--border)] p-2 text-xs text-[var(--muted-foreground)]">
+            {view.adjustments.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
         <ol aria-live="polite" className="m-0 list-none p-0 text-[0.78rem] leading-relaxed">
           {newestFirst.map((line, index) => {
-            // A round is named on its first line, which newest first is the last one of the round.
-            const next = newestFirst[index + 1];
-            const firstOfRound = line.round > 0 && next?.round !== line.round;
+            // A round is named once, at the top of its own block: its newest line.
+            const newer = newestFirst[index - 1];
+            const firstOfRound = line.round > 0 && newer?.round !== line.round;
             return (
               <li
                 key={line.seq}

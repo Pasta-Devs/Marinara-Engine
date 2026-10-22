@@ -292,4 +292,5 @@ export {
   type RulesetHeldGroundRelease,
   rulesetEncounterOutcome,
   rulesetEncounterSummary,
+  rulesetAreaGrowth,
 } from "./resolve.js";

@@ -115,6 +115,41 @@ export function RulesetCombatScreen({
     setLeaving(false);
   }, [view.actorId, view.round]);
 
+  // Ending the turn and leaving: at the foot of the pane, and under the board while the pane is put away.
+  const footer = (
+    <footer hidden={ended} className="shrink-0 space-y-2 border-t border-[var(--border)] px-3.5 py-2.5">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={busy || !ending}
+          onClick={() => {
+            if (!ending) return;
+            setStep(null);
+            onChoose(ending.id, []);
+          }}
+          className="min-h-9 flex-1 rounded-lg bg-[var(--primary)] px-3 text-sm font-semibold text-[var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+        >
+          {t("game.combat.ruleset.menu.endTurn")}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            // On a phone the thumb that ends a turn is right beside it, so leaving asks twice.
+            if (narrow && !leaving) {
+              setLeaving(true);
+              return;
+            }
+            onFlee();
+          }}
+          className="min-h-9 rounded-lg border border-[var(--border)] px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--foreground)]/[0.05] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+        >
+          {leaving ? t("game.combat.ruleset.screen.leaveConfirm") : t("game.combat.ruleset.menu.flee")}
+        </button>
+      </div>
+      <CombatWeatherSummary weather={weather} tactical={false} inline />
+    </footer>
+  );
   const paneBody = (withOrder: boolean) => (
     <>
       {notice}
@@ -201,38 +236,7 @@ export function RulesetCombatScreen({
           ))}
         </ul>
       )}
-      <footer hidden={ended} className="shrink-0 space-y-2 border-t border-[var(--border)] px-3.5 py-2.5">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={busy || !ending}
-            onClick={() => {
-              if (!ending) return;
-              setStep(null);
-              onChoose(ending.id, []);
-            }}
-            className="min-h-9 flex-1 rounded-lg bg-[var(--primary)] px-3 text-sm font-semibold text-[var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
-          >
-            {t("game.combat.ruleset.menu.endTurn")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              // On a phone the thumb that ends a turn is right beside it, so leaving asks twice.
-              if (narrow && !leaving) {
-                setLeaving(true);
-                return;
-              }
-              onFlee();
-            }}
-            className="min-h-9 rounded-lg border border-[var(--border)] px-3 text-xs text-[var(--muted-foreground)] hover:bg-[var(--foreground)]/[0.05] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
-          >
-            {leaving ? t("game.combat.ruleset.screen.leaveConfirm") : t("game.combat.ruleset.menu.flee")}
-          </button>
-        </div>
-        <CombatWeatherSummary weather={weather} tactical={false} inline />
-      </footer>
+      {footer}
     </>
   );
   const boardColumn = (
@@ -361,7 +365,18 @@ export function RulesetCombatScreen({
       data-game-section="combat-director"
       className="flex h-full min-h-0 bg-[var(--background)] text-[var(--foreground)]"
     >
-      {boardColumn}
+      {paneOpen ? (
+        boardColumn
+      ) : (
+        // With the pane put away, the fight's end and the way out of the turn stay under the board.
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {boardColumn}
+          <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)]">
+            {notice}
+            {footer}
+          </div>
+        </div>
+      )}
       {paneOpen && (
         <aside
           aria-label={t("game.combat.ruleset.screen.pane")}

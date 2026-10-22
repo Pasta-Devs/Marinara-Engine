@@ -37,6 +37,7 @@ import {
   placeSpawns,
   readRulesetLive,
   rulesetAimedCells,
+  rulesetAreaGrowth,
   rulesetAimCells,
   rulesetAnswerDeflects,
   rulesetCombatant,
@@ -715,11 +716,19 @@ function spentPoolsOf(definition: RulesetDefinition, combatant: RulesetCombatant
 
 /** The cells an area held in a window covers, laid as it was aimed: what a board tints while the ones
  *  it would catch decide whether to answer. */
-function heldAreaCells(encounter: RulesetEncounterState, window: NonNullable<RulesetEncounterState["window"]>) {
+function heldAreaCells(
+  definition: RulesetDefinition,
+  encounter: RulesetEncounterState,
+  window: NonNullable<RulesetEncounterState["window"]>,
+) {
   const resume = window.resume;
   if (resume?.kind !== "action" || !resume.at) return undefined;
   if (window.trigger.kind !== "aimed" && window.trigger.kind !== "used") return undefined;
+  const actor = encounter.combatants.find((combatant) => combatant.id === resume.actorId);
+  // Grown for the higher cost it was paid with (1.267), as it will land.
+  const grow = actor ? rulesetAreaGrowth(definition, actor, resume.optionId, resume.payWith) : 0;
   const cells = rulesetAimedCells(encounter, resume.actorId, resume.optionId, resume.at, {
+    ...(grow ? { grow } : {}),
     ...(resume.toward ? { toward: resume.toward } : {}),
     ...(resume.ring ? { ring: true } : {}),
     ...(resume.also ? { also: resume.also } : {}),
@@ -942,7 +951,9 @@ export function directedRulesetView(
               ? { total: held.window.trigger.total, defense: held.window.trigger.defense }
               : {}),
             controller: held.controller,
-            ...((cells) => (cells ? { cells } : {}))(grid ? heldAreaCells(encounter, held.window) : undefined),
+            ...((cells) => (cells ? { cells } : {}))(
+              grid ? heldAreaCells(definition, encounter, held.window) : undefined,
+            ),
           },
           ...(held.controller === "manual" && !state.window
             ? { options: rulesetMenu(definition, encounter, held.actorId, true) }

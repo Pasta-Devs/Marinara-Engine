@@ -140,8 +140,11 @@ export function rulesetRichLogLines(
   }) as unknown as TFunction;
 
   const lines: RulesetLogLine[] = [];
-  // A fight starts in its first round, whether or not the log has said so yet.
-  let round = 1;
+  // The view carries only the newest events, so the lines before the first round it still carries
+  // belong to the round before that one; with no round on it at all, every line is the current
+  // round's. A fight starts in its first round, whether or not the log has said so yet.
+  const firstRound = view.events.find((entry) => entry.event.type === "round")?.event;
+  let round = Math.max(1, firstRound?.type === "round" ? firstRound.round - 1 : view.round);
   for (const entry of view.events) {
     if (entry.event.type === "round") round = entry.event.round;
     if (entry.event.type === "budget") continue;
