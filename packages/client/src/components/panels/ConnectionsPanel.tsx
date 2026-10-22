@@ -60,6 +60,7 @@ import { useConnectionFolders } from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
+import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
@@ -106,81 +107,6 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
     .join(" ")
     .toLowerCase();
   return haystack.includes(query);
-}
-
-/** One list row: a button that opens a detail page, and an optional inline fix that needs no drill-in. */
-function ListRow({
-  rowKey,
-  selected,
-  tile,
-  title,
-  sub,
-  label,
-  fix,
-  onOpen,
-}: {
-  /** The page the row opens: "device:<item>" or "other". */
-  rowKey: string;
-  selected: boolean;
-  tile: ReactNode;
-  title: string;
-  sub: ReactNode;
-  label: string;
-  fix?: { label: string; aria: string; run: () => void };
-  onOpen: () => void;
-}) {
-  return (
-    <div
-      className={cn("relative flex min-w-0 items-center gap-1.5 rounded-xl", selected && "bg-[var(--sidebar-accent)]")}
-    >
-      {selected && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--mari-panel-gradient-start)]"
-        />
-      )}
-      <button
-        type="button"
-        data-connections-row={rowKey}
-        onClick={onOpen}
-        aria-current={selected || undefined}
-        aria-label={label}
-        className={cn(
-          "group flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[var(--sidebar-accent)]",
-          FOCUS,
-        )}
-      >
-        {tile}
-        <span className="min-w-0 flex-1">
-          <span
-            data-connection-list-title
-            className="block break-words text-sm font-semibold leading-5 text-[var(--foreground)]"
-          >
-            {title}
-          </span>
-          <span
-            data-connection-list-subtitle
-            className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-[var(--muted-foreground)]"
-          >
-            {sub}
-          </span>
-        </span>
-        {!fix && (
-          <ChevronRight
-            size="0.875rem"
-            className="shrink-0 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100"
-          />
-        )}
-      </button>
-      {fix && (
-        <span className="flex shrink-0 items-center pr-1">
-          <button type="button" onClick={fix.run} aria-label={fix.aria} className={SMALL_ACTION}>
-            {fix.label}
-          </button>
-        </span>
-      )}
-    </div>
-  );
 }
 
 export function ConnectionsPanel() {
@@ -872,15 +798,20 @@ export function ConnectionsPanel() {
                   {visible.standalone.map((row) => renderRow(row))}
                 </div>
               ) : (
-                <div className={cn(GROUP_SURFACE, "p-1")}>
-                  <ListRow
-                    rowKey="other"
-                    selected={wide && current === "other"}
+                <div className="mari-connection-group">
+                  <ServiceRow
+                    account={{ name: t("connections.accounts.section.other"), provider: "custom" }}
+                    rows={[]}
+                    count={t("connections.list.models", { count: grouped.standalone.length })}
                     tile={<ProviderIcon provider="custom" />}
-                    title={t("connections.accounts.section.other")}
-                    label={t("connections.accounts.section.other")}
-                    sub={<span>{t("connections.list.models", { count: grouped.standalone.length })}</span>}
-                    onOpen={() => select("other")}
+                    current={wide && current === "other"}
+                    data-connections-row="other"
+                    aria-current={(wide && current === "other") || undefined}
+                    aria-label={t("connections.accounts.section.other")}
+                    onClick={() => select("other")}
+                    trailing={
+                      <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
+                    }
                   />
                 </div>
               )}

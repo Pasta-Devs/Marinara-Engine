@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
-import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ServiceRow } from "./ServiceRow";
 import { getConnectionIdentity, modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import {
   Check,
@@ -217,157 +217,137 @@ export function ConnectionGroup({
       data-connection-account-id={account.id}
       aria-label={account.name}
     >
-      <div className="mari-connection-card-head flex min-w-0 items-center rounded-lg">
-        {onPictureClick && (
-          <button
-            type="button"
-            onClick={(event) => onPictureClick(menuAt(event))}
-            aria-label={t("connections.picture.change", { name: account.name })}
-            title={t("connections.picture.change", { name: account.name })}
-            // The padding grows the hit area to 2.75rem; the negative margin keeps the tile on the card's edge.
-            className="-m-0.5 flex shrink-0 items-center justify-center rounded-xl p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-          >
-            {tile}
-          </button>
-        )}
-        <button
-          type="button"
-          data-connections-row={`account:${account.id}`}
-          data-connection-group-heading
-          // The heading is the fold.
-          data-connections-toggle={account.id}
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={modelsId}
-          aria-label={
-            account.state === "ok"
-              ? [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", ")
-              : t("connections.list.rowLabel", {
-                  name: [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", "),
-                  state,
-                })
-          }
-          className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pe-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-            // Header text starts on the rows' text column: 0.5rem card padding + 2.5rem tile + 0.75rem.
-            onPictureClick && "ps-3",
-          )}
-        >
-          <ConnectionIdentity
-            account={account}
-            rows={rows}
-            count={count}
-            state={fix ? undefined : account.state}
-            stateLabel={state}
-            billing={account.billing}
-            balance={balance}
-            icon={onPictureClick ? false : tile}
-            className="flex-1"
-          />
-        </button>
-        {fix && (
-          <button type="button" onClick={fix.run} aria-label={fix.aria} className={cn(SMALL_ACTION, "shrink-0")}>
-            {fix.label}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={(event) => setMenu(menuAt(event))}
-          className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
-          title={t("connections.accounts.row.actions", { name: account.name })}
-          aria-label={t("connections.accounts.row.actions", { name: account.name })}
-          aria-haspopup="menu"
-          aria-expanded={!!menu}
-        >
-          <MoreHorizontal size="1rem" />
-        </button>
-        {/* Last, like the upstream headings' chevrons below it. The heading button is the keyboard and screen
-            reader fold; this is a second pointer target for the same toggle. */}
-        <button type="button" tabIndex={-1} aria-hidden onClick={onToggle} className={ROW_BUTTON}>
-          <ChevronDown
-            size="0.875rem"
-            className={cn(
-              "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
-              !open && "-rotate-90",
+      <ServiceRow
+        account={account}
+        rows={rows}
+        count={count}
+        state={fix ? undefined : account.state}
+        stateLabel={state}
+        billing={account.billing}
+        balance={balance}
+        tile={tile}
+        onPictureClick={onPictureClick}
+        data-connections-row={`account:${account.id}`}
+        data-connection-group-heading
+        // The heading is the fold.
+        data-connections-toggle={account.id}
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={modelsId}
+        aria-label={
+          account.state === "ok"
+            ? [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", ")
+            : t("connections.list.rowLabel", {
+                name: [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", "),
+                state,
+              })
+        }
+        end={
+          <>
+            {fix && (
+              <button type="button" onClick={fix.run} aria-label={fix.aria} className={cn(SMALL_ACTION, "shrink-0")}>
+                {fix.label}
+              </button>
             )}
-          />
-        </button>
-        {menu && (
-          <ContextMenu
-            x={menu.x}
-            y={menu.y}
-            autoFocus={menu.keyboard}
-            onClose={() => setMenu(null)}
-            items={[
-              {
-                label: t("connections.accounts.editor.editTitle"),
-                icon: <Settings2 size="0.75rem" />,
-                onSelect: editAccount,
-              },
-              ...(account.hasApiKey
-                ? [
-                    {
-                      label: t("connections.accounts.replaceKey"),
-                      icon: <KeyRound size="0.75rem" />,
-                      onSelect: replaceKey,
-                    },
-                  ]
-                : []),
-              {
-                label: t("connections.accounts.test"),
-                icon: <Wifi size="0.75rem" />,
-                disabled: !firstRow || test.isPending,
-                onSelect: runTest,
-              },
-              {
-                label: t("connections.accounts.addModel"),
-                icon: <Plus size="0.75rem" />,
-                onSelect: addModels,
-              },
-              ...(imageSource
-                ? [
-                    {
-                      label: t("connections.accounts.addImageModel"),
-                      icon: <ImageIcon size="0.75rem" />,
-                      onSelect: addImageModel,
-                    },
-                  ]
-                : []),
-              {
-                label: t("connections.accounts.select.start"),
-                icon: <ListChecks size="0.75rem" />,
-                disabled: rows.length < 2,
-                onSelect: () => setPicked(new Set()),
-              },
-              {
-                label: t("connections.accounts.duplicate"),
-                icon: <Copy size="0.75rem" />,
-                disabled: duplicateAccount.isPending,
-                onSelect: () =>
-                  duplicateAccount.mutate(account.id, {
-                    onSuccess: ({ account: copy }) =>
-                      toast.success(t("connections.accounts.duplicated", { name: copy.name })),
-                    onError: (error) =>
-                      toast.error(t("connections.accounts.duplicateFailed", { error: error.message })),
-                  }),
-              },
-              {
-                // Off in one step: its models stop running and chats fall back, without opening the editor.
-                label: t(account.enabled ? "connections.accounts.turnOff" : "connections.accounts.turnOn"),
-                icon: <Power size="0.75rem" />,
-                onSelect: () => updateAccount.mutate({ id: account.id, enabled: !account.enabled }),
-              },
-              {
-                label: t("connections.accounts.editor.delete"),
-                icon: <Trash2 size="0.75rem" />,
-                destructive: true,
-                disabled: removeAccount.isPending,
-                onSelect: () => void deleteAccount(),
-              },
-            ]}
-          />
-        )}
-      </div>
+            <button
+              type="button"
+              onClick={(event) => setMenu(menuAt(event))}
+              className={cn(ROW_BUTTON, "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}
+              title={t("connections.accounts.row.actions", { name: account.name })}
+              aria-label={t("connections.accounts.row.actions", { name: account.name })}
+              aria-haspopup="menu"
+              aria-expanded={!!menu}
+            >
+              <MoreHorizontal size="1rem" />
+            </button>
+            {/* Last, like the upstream headings' chevrons below it. The heading button is the keyboard and screen
+            reader fold; this is a second pointer target for the same toggle. */}
+            <button type="button" tabIndex={-1} aria-hidden onClick={onToggle} className={ROW_BUTTON}>
+              <ChevronDown
+                size="0.875rem"
+                className={cn(
+                  "text-[var(--muted-foreground)] transition-transform motion-reduce:transition-none",
+                  !open && "-rotate-90",
+                )}
+              />
+            </button>
+          </>
+        }
+      />
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          autoFocus={menu.keyboard}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: t("connections.accounts.editor.editTitle"),
+              icon: <Settings2 size="0.75rem" />,
+              onSelect: editAccount,
+            },
+            ...(account.hasApiKey
+              ? [
+                  {
+                    label: t("connections.accounts.replaceKey"),
+                    icon: <KeyRound size="0.75rem" />,
+                    onSelect: replaceKey,
+                  },
+                ]
+              : []),
+            {
+              label: t("connections.accounts.test"),
+              icon: <Wifi size="0.75rem" />,
+              disabled: !firstRow || test.isPending,
+              onSelect: runTest,
+            },
+            {
+              label: t("connections.accounts.addModel"),
+              icon: <Plus size="0.75rem" />,
+              onSelect: addModels,
+            },
+            ...(imageSource
+              ? [
+                  {
+                    label: t("connections.accounts.addImageModel"),
+                    icon: <ImageIcon size="0.75rem" />,
+                    onSelect: addImageModel,
+                  },
+                ]
+              : []),
+            {
+              label: t("connections.accounts.select.start"),
+              icon: <ListChecks size="0.75rem" />,
+              disabled: rows.length < 2,
+              onSelect: () => setPicked(new Set()),
+            },
+            {
+              label: t("connections.accounts.duplicate"),
+              icon: <Copy size="0.75rem" />,
+              disabled: duplicateAccount.isPending,
+              onSelect: () =>
+                duplicateAccount.mutate(account.id, {
+                  onSuccess: ({ account: copy }) =>
+                    toast.success(t("connections.accounts.duplicated", { name: copy.name })),
+                  onError: (error) => toast.error(t("connections.accounts.duplicateFailed", { error: error.message })),
+                }),
+            },
+            {
+              // Off in one step: its models stop running and chats fall back, without opening the editor.
+              label: t(account.enabled ? "connections.accounts.turnOff" : "connections.accounts.turnOn"),
+              icon: <Power size="0.75rem" />,
+              onSelect: () => updateAccount.mutate({ id: account.id, enabled: !account.enabled }),
+            },
+            {
+              label: t("connections.accounts.editor.delete"),
+              icon: <Trash2 size="0.75rem" />,
+              destructive: true,
+              disabled: removeAccount.isPending,
+              onSelect: () => void deleteAccount(),
+            },
+          ]}
+        />
+      )}
 
       {/* The meter stays when the card folds: it is the card's live state, not part of its model list. */}
       {usage && firstRow && (

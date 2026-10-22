@@ -15,7 +15,7 @@ import { cn } from "../../lib/utils";
 import { useMoveConnection } from "../../hooks/use-connections";
 import { useCatalogSearch, useSplitModel } from "../../hooks/use-connection-accounts";
 import { Modal } from "../ui/Modal";
-import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ServiceRow } from "./ServiceRow";
 import type { ConnectionRowData } from "./ConnectionRow";
 
 type MoveCandidate = { id: string; name: string; match: "exact" | "prefix" | "catalog"; variant: boolean };
@@ -96,18 +96,19 @@ export function MoveConnectionDialog({
     );
 
   const targetRow = (account: ConnectionAccountListItem, onPick: () => void) => (
-    <li key={account.id}>
-      <button type="button" data-move-target={account.id} onClick={onPick} disabled={busy} className={ROW}>
-        <ConnectionIdentity
-          account={account}
-          rows={rowsOf(account.id)}
-          count={t("connections.list.models", { count: rowsOf(account.id).length })}
-          state={account.state}
-          stateLabel={t(`connections.accounts.state.${account.state}`)}
-          billing={account.billing}
-        />
-        <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
-      </button>
+    <li key={account.id} className="mari-connection-group">
+      <ServiceRow
+        account={account}
+        rows={rowsOf(account.id)}
+        count={t("connections.list.models", { count: rowsOf(account.id).length })}
+        state={account.state}
+        stateLabel={t(`connections.accounts.state.${account.state}`)}
+        billing={account.billing}
+        data-move-target={account.id}
+        onClick={onPick}
+        disabled={busy}
+        trailing={<ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />}
+      />
     </li>
   );
 

@@ -313,12 +313,12 @@ export function ProviderIcon({
             : brandMarkProps(brand!.key, brand!.mono))}
         />
       ) : Icon ? (
-        <Icon size={icon} />
+        <Icon size={icon} className="mari-rgb-static-icon" />
       ) : provider === "custom" ? (
         name ? (
           initialOf(name)
         ) : (
-          <Server size={icon} />
+          <Server size={icon} className="mari-rgb-static-icon" />
         )
       ) : (
         initialOf(PROVIDERS[provider as APIProvider]?.name ?? name)

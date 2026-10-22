@@ -79,7 +79,7 @@ import { mergeConnectionModelOptions, normalizeGrokCliEditorModel } from "../../
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
-import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ServiceRow } from "./ServiceRow";
 import { confirmModelDelete, type ConnectionRowData } from "./ConnectionRow";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { groupModelsByAccount } from "../../lib/connection-groups";
@@ -2089,42 +2089,41 @@ export function ConnectionEditor({
 
             {/* ── Provider (or the Connection that owns the credentials) ── */}
             {accountLinked ? (
-              <div className="mari-connection-group flex items-center justify-between gap-3 text-sm">
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <ConnectionIdentity
-                    account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
-                    rows={[
-                      {
-                        provider: localProvider,
-                        model: localModel,
-                        imageGenerationSource: localImageGenerationSource,
-                        imageService: localImageService,
-                        videoGenerationSource: localVideoGenerationSource,
-                        videoService: localVideoService,
-                        audioSource: localAudioSource,
-                      },
-                    ]}
-                    size="sm"
-                  />
-                  {isConnectionFlagTrue(conn?.isDefault) && (
-                    <span className="pl-10 text-xs text-[var(--muted-foreground)]">
-                      {t("connections.defaults.role.main")}
-                    </span>
-                  )}
-                  {localDefaultForAgents && isChatProvider(localProvider) && (
-                    <span className="pl-10 text-xs text-[var(--muted-foreground)]">
-                      {t("connections.editor.roleAgentsDefault")}
-                    </span>
-                  )}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => openModal("connection-account", { accountId })}
-                  className="mari-connection-btn shrink-0"
-                >
-                  {t("connections.editor.editConnection")}
-                </button>
+              <div className="mari-connection-group text-sm">
+                <ServiceRow
+                  account={linkedAccount ?? { name: "…", provider: localProvider, baseUrl: localBaseUrl }}
+                  rows={[
+                    {
+                      provider: localProvider,
+                      model: localModel,
+                      imageGenerationSource: localImageGenerationSource,
+                      imageService: localImageService,
+                      videoGenerationSource: localVideoGenerationSource,
+                      videoService: localVideoService,
+                      audioSource: localAudioSource,
+                    },
+                  ]}
+                  density="sm"
+                  end={
+                    <button
+                      type="button"
+                      onClick={() => openModal("connection-account", { accountId })}
+                      className="mari-connection-btn shrink-0"
+                    >
+                      {t("connections.editor.editConnection")}
+                    </button>
+                  }
+                />
+                {isConnectionFlagTrue(conn?.isDefault) && (
+                  <span className="block ps-[3.25rem] pt-1 text-xs text-[var(--muted-foreground)]">
+                    {t("connections.defaults.role.main")}
+                  </span>
+                )}
+                {localDefaultForAgents && isChatProvider(localProvider) && (
+                  <span className="block ps-[3.25rem] pt-1 text-xs text-[var(--muted-foreground)]">
+                    {t("connections.editor.roleAgentsDefault")}
+                  </span>
+                )}
               </div>
             ) : (
               <FieldGroup

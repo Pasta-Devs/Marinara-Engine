@@ -45,7 +45,7 @@ import {
 import { accountStateLabel, groupModelsByAccount, recentModels, roleBadges } from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
-import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ServiceRow } from "./ServiceRow";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
 import { ModelRow, ModelTile } from "./ModelRow";
@@ -863,18 +863,16 @@ export function ConnectionSwitcherBody({
         data-switcher-section="connection"
         aria-label={group.name}
       >
-        <div data-connection-group={group.key} className="flex min-w-0 items-center gap-2 rounded-lg py-1.5 ps-3 pe-1">
-          <ConnectionIdentity
-            account={group.account}
-            rows={group.rows}
-            count={shown.length ? t("connections.list.models", { count: shown.length }) : undefined}
-            state={group.account.state}
-            stateLabel={t(accountStateLabel(group.account))}
-            size="sm"
-            className="flex-1"
-          />
-          {unavailable && fixButton(group)}
-        </div>
+        <ServiceRow
+          data-connection-group={group.key}
+          account={group.account}
+          rows={group.rows}
+          count={shown.length ? t("connections.list.models", { count: shown.length }) : undefined}
+          state={group.account.state}
+          stateLabel={t(accountStateLabel(group.account))}
+          density="sm"
+          end={unavailable && fixButton(group)}
+        />
         <ConnectionModelList
           provider={group.account.provider}
           rows={shown}

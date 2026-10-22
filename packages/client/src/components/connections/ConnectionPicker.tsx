@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
-import { ConnectionIdentity } from "./ConnectionIdentity";
+import { ServiceRow } from "./ServiceRow";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ModelRow, ModelTile } from "./ModelRow";
 import {
@@ -304,14 +304,13 @@ export function ConnectionPicker({
         {top}
         {groups.map(({ group, rows }, index) => (
           <section key={group.account.id} className="mari-connection-group mt-1" aria-label={group.account.name}>
-            <ConnectionIdentity
+            <ServiceRow
               account={group.account}
               rows={group.rows}
               count={t("connections.list.models", { count: rows.length })}
               state={group.account.state}
               stateLabel={t(accountStateLabel(group.account))}
-              size="sm"
-              className="py-1.5 ps-3 pe-2"
+              density="sm"
             />
             <ConnectionModelList
               provider={group.account.provider}

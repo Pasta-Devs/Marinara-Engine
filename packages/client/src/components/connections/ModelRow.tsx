@@ -22,7 +22,7 @@ import type { ConnectionRowData } from "./ConnectionRow";
 import { CostBadge, RetiringHint, costBadgeShows } from "./CostBadge";
 import { ProviderIcon } from "./ProviderIcon";
 
-const FOCUS =
+export const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 export type MenuAt = { x: number; y: number; keyboard: boolean };

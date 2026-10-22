@@ -51,7 +51,7 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { ConnectionIdentity } from "../connections/ConnectionIdentity";
+import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionModelPicker } from "../connections/ConnectionModelPicker";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
 import { StarText } from "../connections/StarText";
@@ -1958,25 +1958,21 @@ export function CreateConnectionModal({
         <div data-add-connection-existing className="flex flex-col gap-3">
           <ul className="flex flex-col gap-2">
             {connectedAccounts.map((account) => (
-              <li key={account.id}>
-                <button
-                  type="button"
+              <li key={account.id} className="mari-connection-group">
+                <ServiceRow
+                  account={account}
+                  rows={accountRows(account.id)}
+                  count={t("connections.list.models", { count: accountRows(account.id).length })}
+                  state={account.state}
+                  stateLabel={t(`connections.accounts.state.${account.state}`)}
+                  billing={account.billing}
                   data-add-connection-existing-account={account.id}
                   onClick={() => void showModelsOf(account.id)}
                   disabled={closeBlocked}
-                  className="mari-chrome-control mari-chrome-control--card flex min-h-14 w-full !flex-row !items-center gap-3 px-3 py-2 text-left text-xs disabled:opacity-50"
-                >
-                  {/* The same identity as the sidebar card header: name, then count, plan word and host. */}
-                  <ConnectionIdentity
-                    account={account}
-                    rows={accountRows(account.id)}
-                    count={t("connections.list.models", { count: accountRows(account.id).length })}
-                    state={account.state}
-                    stateLabel={t(`connections.accounts.state.${account.state}`)}
-                    billing={account.billing}
-                  />
-                  <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
-                </button>
+                  trailing={
+                    <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
+                  }
+                />
               </li>
             ))}
           </ul>
