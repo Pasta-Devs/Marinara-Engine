@@ -95,6 +95,10 @@ assert.equal(
 assert.equal(connectionBilling({ provider: "image_generation", imageGenerationSource: "openai" }), null);
 assert.equal(modelCost({ subscriptionIncluded: true, inputTokenMultiplier: 2 }, null), "multiplier:2");
 assert.equal(modelCost({ subscriptionIncluded: true, inputTokenMultiplier: 1 }, null), "included");
+assert.equal(modelCost({ subscriptionIncluded: true }, null, true), "included", "active plan keeps the badge");
+assert.equal(modelCost({ subscriptionIncluded: true }, null, false), null, "no active plan, no Plan badge");
+assert.equal(modelCost({ subscriptionIncluded: true, pricing: { prompt: 5 } }, null, false), "paid", "no plan: own price shows");
+assert.equal(modelCost({ subscriptionIncluded: true }, null, null), "included", "unknown plan state is unchanged");
 assert.equal(modelCost({ subscriptionIncluded: true, pricing: { prompt: 5 } }, null), "included", "plan wins");
 assert.equal(modelCost({ subscriptionIncluded: false, pricing: { prompt: 0.1 } }, null), "paid");
 assert.equal(modelCost({ free: true, pricing: { prompt: 0, completion: 0 } }, null), "free");

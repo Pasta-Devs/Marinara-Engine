@@ -1585,8 +1585,10 @@ export function modelCost(
     pricing?: unknown;
   },
   billing: ConnectionBilling,
+  /** The account's own subscription reading: false drops the Plan badge, null/undefined keeps it. */
+  subscriptionActive?: boolean | null,
 ): ConnectionModelCost {
-  if (model.subscriptionIncluded === true) {
+  if (model.subscriptionIncluded === true && subscriptionActive !== false) {
     const multiplier = model.inputTokenMultiplier;
     return typeof multiplier === "number" && Number.isFinite(multiplier) && multiplier > 1
       ? `multiplier:${multiplier}`

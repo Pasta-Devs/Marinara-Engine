@@ -1587,6 +1587,21 @@ export async function connectionsRoutes(app: FastifyInstance) {
    * `nanogpt/<id>` models take NanoGPT's plan facts, and models without a price one from the price catalog, once
    * the user allowed outside reads.
    */
+  /** Whether a direct NanoGPT account has an active plan; null when unknown (other provider, no key, failed read). */
+  const readPlanActive = async (provider: string, accountId?: string | null): Promise<boolean | null> => {
+    if (provider !== "nanogpt" || !accountId) return null;
+    try {
+      const row = await storage.getById(accountId);
+      const usage = await fetchNanoGptSubscriptionUsage({
+        managementToken: await storage.getManagementToken(accountId),
+        apiKey: row?.apiKeyEncrypted ? decryptApiKey(row.apiKeyEncrypted) : "",
+      });
+      return usage ? usage.active : null;
+    } catch {
+      return null;
+    }
+  };
+
   const withCosts = async <T extends { models: Array<Record<string, unknown>> }>(
     conn: Parameters<typeof connectionBilling>[0] & { accountId?: string | null },
     list: T,
@@ -1604,8 +1619,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
       billing === null && allowed
         ? await withCatalogPrices(conn, planned, cachedLinkApiGroup(conn.accountId))
         : planned;
+    const planActive = await readPlanActive(conn.provider, conn.accountId);
     const models = priced.map((model) => {
-      const cost = modelCost(model, billing);
+      const cost = modelCost(model, billing, planActive);
       return cost ? { ...model, cost } : model;
     });
     return { ...list, billing, models };
@@ -1708,11 +1724,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (plan === "not_found") return reply.status(404).send({ error: "Model not found" });
       if (plan === "account_not_found") return reply.status(404).send({ error: "Connection not found" });
       const billing = connectionBilling(plan.account);
+      const planActive = await readPlanActive(plan.account.provider, plan.account.id);
       const { catalog, error: catalogError } = await ensureMoveCatalog(plan);
       const candidates =
         plan.kind === "cross"
           ? rankModelMoveCandidates(plan.row.model, catalog?.models ?? []).map(({ model, match, variant }) => {
-              const cost = modelCost(model as Parameters<typeof modelCost>[0], billing);
+              const cost = modelCost(model as Parameters<typeof modelCost>[0], billing, planActive);
               return {
                 id: model.id,
                 name: model.name,
