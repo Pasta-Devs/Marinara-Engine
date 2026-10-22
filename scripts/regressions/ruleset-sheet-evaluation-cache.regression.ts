@@ -7,6 +7,7 @@
  *   - The creature-sheet health hold, run inside a scope, still says the clamped maximum: the clone it
  *     edits is read only after the edit.
  *   - A scope opened inside another uses the outer one and does not clear it.
+ *   - Work that returns a promise is refused, at the top or nested, and the scope still closes.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -65,6 +66,13 @@ withRulesetSheetEvaluationCache(() => {
   const inner = withRulesetSheetEvaluationCache(() => evaluateRulesetSheet(definition, build));
   assert.equal(inner, outer, "the inner scope reads the outer one's");
   assert.equal(evaluateRulesetSheet(definition, build), outer, "and the outer one is still open after it");
+});
+
+// (e) A promise would outlive the scope, so it is refused, and the scope is closed after.
+assert.throws(() => withRulesetSheetEvaluationCache(() => Promise.resolve(1)), /synchronous work only/);
+assert.notEqual(evaluateRulesetSheet(definition, build), evaluateRulesetSheet(definition, build));
+withRulesetSheetEvaluationCache(() => {
+  assert.throws(() => withRulesetSheetEvaluationCache(() => Promise.resolve(1)), /synchronous work only/);
 });
 
 console.log("ruleset sheet evaluation cache regression passed");

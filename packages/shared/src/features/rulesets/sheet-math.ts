@@ -498,16 +498,26 @@ let scopedEvaluations: WeakMap<RulesetDefinition, WeakMap<RulesetSheetBuild, Eva
  * definition and build, and forgets them all when it ends; a scope opened inside another uses the
  * outer one. A fight option or picker loop reads the same sheet thousands of times in one command.
  * Sound only while nothing writes to a build after it has been evaluated, so inside a scope a build
- * is evaluated only after its last write: a clone is edited first, then read.
+ * is evaluated only after its last write: a clone is edited first, then read. A `run` that returns a
+ * promise throws.
  */
 export function withRulesetSheetEvaluationCache<T>(run: () => T): T {
-  if (scopedEvaluations) return run();
+  if (scopedEvaluations) return synchronous(run());
   scopedEvaluations = new WeakMap();
   try {
-    return run();
+    return synchronous(run());
   } finally {
     scopedEvaluations = null;
   }
+}
+
+/** A promise would be awaited after the scope has closed, so its reads would go uncached, or into
+ *  another command's scope. */
+function synchronous<T>(result: T): T {
+  if (typeof (result as { then?: unknown } | null | undefined)?.then === "function") {
+    throw new TypeError("withRulesetSheetEvaluationCache takes synchronous work only.");
+  }
+  return result;
 }
 
 function evaluateRulesetSheetUncached(
