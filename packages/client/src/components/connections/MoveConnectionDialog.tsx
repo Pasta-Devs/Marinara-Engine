@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
@@ -279,13 +279,27 @@ function ModelStep({
                 autoCorrect="off"
               />
             }
+            header={
+              query.trim() &&
+              search.isError &&
+              !search.isFetching && (
+                <div role="alert" className="mb-2 flex items-center gap-2 text-[0.6875rem]">
+                  <span className="min-w-0 flex-1 text-foreground/60">{t("connections.move.searchFailed")}</span>
+                  <button type="button" onClick={() => void search.refetch()} className="mari-connection-btn">
+                    <RefreshCw size="0.75rem" aria-hidden />
+                    {t("connections.picker.retry")}
+                  </button>
+                </div>
+              )
+            }
             status={
-              query.trim() && options.length === 0
+              query.trim() && options.length === 0 && !search.isError
                 ? t(search.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")
                 : null
             }
-            role="radiogroup"
-            aria-label={t("connections.move.chooseModel", { connection: target.name })}
+            // An empty list is no radiogroup; the status line then stands alone.
+            role={options.length > 0 ? "radiogroup" : undefined}
+            aria-label={options.length > 0 ? t("connections.move.chooseModel", { connection: target.name }) : undefined}
             listClassName="flex max-h-72 flex-col gap-1"
           >
             {options.map((option) => (

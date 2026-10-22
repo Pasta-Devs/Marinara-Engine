@@ -2413,6 +2413,7 @@
   "connections.move.otherServices": "Other services",
   "connections.move.pickHint": "Choose where {{model}} runs.",
   "connections.move.same": "Same model",
+  "connections.move.searchFailed": "Couldn't search the models.",
   "connections.move.searchLabel": "Search the models of {{connection}}",
   "connections.move.searchPlaceholder": "Search {{connection}}",
   "connections.move.title": "Move to connection",

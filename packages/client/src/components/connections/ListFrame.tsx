@@ -42,7 +42,7 @@ export function ListSearch({
   return (
     <div
       className={cn(
-        "mari-chrome-field flex min-h-11 min-w-0 items-center rounded-lg text-foreground/55 focus-within:ring-1 focus-within:ring-[var(--ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11",
+        "mari-chrome-field flex min-h-11 min-w-0 items-center text-foreground/55 focus-within:border-[var(--marinara-chat-chrome-input-border-focus)] focus-within:shadow-[0_0_0_0.125rem_var(--marinara-chat-chrome-focus-ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11",
         className,
       )}
     >
@@ -68,12 +68,14 @@ export function ListSearch({
             event.stopPropagation();
             onChange("");
           }}
-          className="min-w-0 flex-1 bg-transparent py-1.5 text-base text-foreground outline-none placeholder:text-foreground/40 md:text-xs [&::-webkit-search-cancel-button]:appearance-none"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-base text-foreground outline-none placeholder:text-foreground/40 md:text-xs [&::-webkit-search-cancel-button]:hidden"
         />
       </label>
       {value && (
         <button
           type="button"
+          // A tap must not take the focus, or the phone keyboard closes. Not onPointerDown: WebKit then drops the click.
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
             onChange("");
             ref.current?.focus();

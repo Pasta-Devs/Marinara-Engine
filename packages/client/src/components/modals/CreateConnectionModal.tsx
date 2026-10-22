@@ -1789,7 +1789,9 @@ export function CreateConnectionModal({
       })}
       {searching && listGroups.length === 0 && listModels.length === 0 && listJobs.length === 0 && (
         <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
-          <ListStatus className="py-0">{t("connections.add.noMatch", { query: query.trim() })}</ListStatus>
+          <ListStatus className="py-0 text-xs text-[var(--muted-foreground)]">
+            {t("connections.add.noMatch", { query: query.trim() })}
+          </ListStatus>
           <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>
             {t("connections.add.useCustom")}
           </button>
