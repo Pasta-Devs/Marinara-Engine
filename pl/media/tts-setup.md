@@ -42,6 +42,23 @@ Jeśli wybrane połączenie zostanie usunięte albo nie da się go użyć, sekcj
 
 Gdy połączenie udostępnia listę swoich głosów, sekcja wskazuje każdy zapisany głos, którego nie ma na tej liście, żeby można było wybrać głos oferowany przez połączenie.
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## Muzyka i efekty dźwiękowe Game na zgodnym serwerze audio
+
+W **Connections** utwórz lub otwórz połączenie **Audio** i wybierz **OpenAI-compatible**. Użyj adresu, klucza i modelu serwera muzyki lub efektów dźwiękowych. Ustaw **Generation API format**, wpisz ścieżki endpointów udostępnianych przez serwer i włącz **Game music** lub **Game sound effects**. Pusta ścieżka oznacza, że dana funkcja jest niedostępna. Wybierz to połączenie Audio podczas konfiguracji gry lub w jej ustawieniach audio. Model przeznaczony wyłącznie do muzyki nie jest modelem mowy; w sekcji Text to Speech pozostaw osobno wybrane połączenie do mowy.
+
+Ścieżki endpointów są dopisywane do Base URL połączenia: dla `http://localhost:8002/v1` użyj `chat/completions`, aby otrzymać `/v1/chat/completions`. Nie trzeba dodawać nowego dostawcy. Lokalne endpointy HTTP wymagają `TTS_LOCAL_URLS_ENABLED=true` w `.env`, tak jak inne lokalne żądania do zgodnych serwerów audio.
+
+Obsługiwane są dwa jawne kontrakty API:
+
+- **Prompt JSON → MP3 audio** wysyła `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` i oczekuje bajtów MP3. Muzyka Game używa długości utworu kontekstowego (domyślnie 120 sekund); efekty dźwiękowe żądają 5 sekund. Użyj endpointu lub adaptera, który przyjmuje te pola.
+- **Chat Completions → inline audio (ACE-Step compatible)** wysyła `model`, jeden wpis użytkownika w `messages`, `stream: false` oraz `audio_config` z polami `duration`, `instrumental: true` i `format: "mp3"`. Przyjmuje osadzone audio MP3 z `choices[0].message.audio`: tablicę adresów audio ACE-Step zawierającą URL danych base64 albo obiekt z polem `data` w base64. Zobacz [kontrakt API zgodnego z ACE-Step](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Te kontrakty nie obsługują zdalnych adresów wyników ani asynchronicznych API zadań.
+
+Włączaj tylko funkcje faktycznie obsługiwane przez serwer. Sam endpoint mowy zgodny z OpenAI nie oznacza obsługi muzyki ani efektów dźwiękowych. Dostawca taki jak Infermatic musi udostępniać jeden z opisanych kontraktów albo adapter; jego działający endpoint muzyczny nie został tu zweryfikowany. ElevenLabs nadal używa dotychczasowych natywnych żądań muzyki i efektów.
+
+Muzyka kontekstowa nadal powstaje raz na obszar lub poziom starcia i jest używana ponownie. Powtarzane efekty dźwiękowe korzystają z pamięci podręcznej audio. Błąd generowania pozostawia pamięć podręczną dostępną do ponownej próby.
+
 ## Krok 2: wpisz Base URL, API Key i Model
 
 Pomiń ten krok, jeśli źródłem jest połączenie Audio: Marinara używa wtedy własnych ustawień tego połączenia.
@@ -152,6 +169,8 @@ Pod nagłówkiem **Auto-play** każdy przełącznik każe aplikacji czytać jede
 - **Game narration**: czyta nową narrację i wiersze walki w trybie Game Mode.
 - **Progressive playback**: gdy odpowiedź ma kilka wierszy, odtwarza pierwszy od razu, bez czekania na całość.
 - **Only read dialogues**: czyta wyłącznie kwestie ujęte w cudzysłów lub oznaczone jako mówione i pomija zwykłą narrację.
+
+W Roleplay przygotowanie głosu zaczyna się zaraz po zapisaniu głównej odpowiedzi. Rozpoznawanie mówców i emocji korzysta z tego tekstu bez czekania na niezwiązanych agentów. Jeśli włączony agent przepisuje odpowiedź, na przykład Prose Guardian, Marinara czeka z przygotowaniem mowy na ostateczny tekst po zmianach.
 
 Automatyczne odtwarzanie uruchamia się tylko raz, przy najnowszej odpowiedzi, w chwili jej zakończenia. Nie czyta ponownie starych wiadomości po ponownym otwarciu czatu ani przy przewijaniu.
 

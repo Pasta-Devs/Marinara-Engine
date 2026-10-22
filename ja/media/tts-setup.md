@@ -42,6 +42,23 @@ Marinaraはその接続のBase URL、APIキー、モデル、**Request timeout (
 
 接続が声の一覧を返す場合、保存済みの声のうち一覧にないものをカードが名前で示すので、接続が提供する声を選び直せます。
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## 互換オーディオサーバーでGameの音楽と効果音を生成する
+
+**Connections**で**Audio**接続を作成するか開き、**OpenAI-compatible**を選んでください。音楽や効果音のサーバーのアドレス、キー、モデルを指定します。**Generation API format**を設定し、サーバーが提供するエンドポイントのパスを入力して、**Game music**または**Game sound effects**をオンにしてください。パスが空の機能は使えません。Gameのセットアップかゲームのオーディオ設定で、このAudio接続を選んでください。音楽専用モデルは音声モデルではないため、Text to Speechカードでは音声用の接続を別に選んでおきます。
+
+エンドポイントのパスは接続のBase URLに追加されます。`http://localhost:8002/v1`の場合は`chat/completions`を指定すると`/v1/chat/completions`にアクセスします。新しいプロバイダー項目を追加する必要はありません。ローカルHTTPエンドポイントには、ほかのローカル互換オーディオリクエストと同じく、`.env`で`TTS_LOCAL_URLS_ENABLED=true`の設定が必要です。
+
+対応するAPIの入出力仕様は次の2種類です。
+
+- **Prompt JSON → MP3 audio** は`{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }`を送信し、MP3のバイト列を受け取ります。Gameの音楽はコンテキストトラックの長さ(デフォルト120秒)を使い、効果音は5秒を要求します。これらのフィールドを受け付けるエンドポイントかアダプターを使ってください。
+- **Chat Completions → inline audio (ACE-Step compatible)** は`model`、ユーザーの`messages`を1件、`stream: false`、および`duration`、`instrumental: true`、`format: "mp3"`を持つ`audio_config`を送信します。`choices[0].message.audio`内のMP3データを受け取れます。形式は、base64データURLを含むACE-StepのオーディオURL配列、またはbase64の`data`を持つオブジェクトです。[ACE-Step互換APIの仕様](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md)を参照してください。これらの仕様は、リモートの結果URLや非同期ジョブAPIには対応しません。
+
+サーバーが実装している機能だけをオンにしてください。OpenAI互換の音声エンドポイントがあっても、音楽や効果音に対応しているとは限りません。Infermaticなどのプロバイダーには、上記の仕様のいずれか、またはアダプターが必要です。ここでは実際のInfermaticの音楽エンドポイントを検証していません。ElevenLabsは従来のネイティブな音楽・効果音リクエストを引き続き使います。
+
+コンテキスト音楽は引き続きエリアや遭遇段階ごとに1回生成し、再利用します。同じ効果音にはオーディオキャッシュを使います。生成エラーが起きても、キャッシュは再試行に使える状態で残ります。
+
 ## ステップ2: Base URL、API Key、Modelを入力する
 
 Sourceとして音声の接続を選んだ場合、このステップは飛ばしてください。Marinaraはその接続自身の設定を使います。
@@ -152,6 +169,8 @@ Character Voicesの枠にある**Refresh**ボタンを押すと、1つの声を�
 - **Game narration**: Game Modeの新しい語りと戦闘の行を読み上げます。
 - **Progressive playback**: 返信が複数行あるとき、全体を待たずに最初の行から再生を始めます。
 - **Only read dialogues**: 引用符やタグの付いたせりふだけを読み上げ、地の語りは飛ばします。
+
+Roleplayでは、メインの回答が保存されるとすぐに音声の準備が始まります。話者と感情の抽出はそのテキストから始まり、無関係なエージェントを待ちません。Prose Guardianなど、回答を書き直すエージェントがオンの場合は、書き直し後の最終テキストを待ってから音声を準備します。
 
 自動再生が動くのは、いちばん新しい返信が完成した瞬間の1回だけです。チャットを開き直したりスクロールしたりしても、古いメッセージを読み直すことはありません。
 

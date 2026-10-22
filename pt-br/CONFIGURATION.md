@@ -118,7 +118,7 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-O servidor lê o arquivo `.env` sozinho, não importa como você o inicia. Isso vale inclusive para o comando `pnpm start` direto. Os inicializadores de shell (`start.bat`, `start.sh`, `start-termux.sh`) acrescentam duas coisas. Eles definem `HOST=0.0.0.0`, para que outros dispositivos alcancem o servidor, e abrem o navegador para você. Com o comando `pnpm start` puro, o servidor escuta só neste computador, a não ser que você mesmo defina a variável `HOST`.
+O servidor lê o arquivo `.env` sozinho, não importa como você o inicia. Isso vale inclusive para o comando `pnpm start` direto. Os inicializadores de shell (`start.bat`, `start.sh`, `start-termux.sh`) acrescentam duas coisas. Eles definem `HOST=0.0.0.0`, para que outros dispositivos alcancem o servidor, e abrem o navegador depois que o servidor fica pronto. Não há um atraso fixo: uma inicialização lenta ou uma compilação reparada espera o fim da inicialização, e uma falha não abre outra aba. `AUTO_OPEN_BROWSER=false` continua desativando essa abertura. Com o comando `pnpm start` puro, o servidor escuta só neste computador, a não ser que você defina a variável `HOST`.
 
 <a id="restart-or-hot-reload"></a>
 

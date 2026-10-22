@@ -42,6 +42,23 @@ Wird die gewählte Verbindung gelöscht oder lässt sie sich nicht verwenden, ze
 
 Liefert die Verbindung eine Liste ihrer Stimmen, nennt die Karte jede gespeicherte Stimme, die nicht auf dieser Liste steht, damit du eine wählen kannst, die die Verbindung anbietet.
 
+<a id="game-music-and-sound-effects-on-a-compatible-audio-server"></a>
+
+## Game-Musik und Soundeffekte über einen kompatiblen Audioserver
+
+Erstelle oder öffne unter **Connections** eine **Audio**-Verbindung und wähle **OpenAI-compatible**. Verwende Adresse, Schlüssel und Modell deines Musik- oder Soundeffektservers. Lege **Generation API format** fest, trage die vom Server angebotenen Endpunktpfade ein und aktiviere **Game music** oder **Game sound effects**. Ein leerer Pfad lässt die jeweilige Funktion unverfügbar. Wähle diese Audio-Verbindung beim Einrichten des Games oder in dessen Audioeinstellungen. Ein reines Musikmodell ist kein Sprachmodell; lass die Verbindung für Sprachausgabe im Text-to-Speech-Bereich separat ausgewählt.
+
+Endpunktpfade werden an die Base URL der Verbindung angehängt: Verwende bei `http://localhost:8002/v1` den Pfad `chat/completions`, um `/v1/chat/completions` zu erreichen. Ein neuer Anbietereintrag ist nicht nötig. Lokale HTTP-Endpunkte benötigen wie andere lokale kompatible Audioanfragen `TTS_LOCAL_URLS_ENABLED=true` in `.env`.
+
+Zwei ausdrücklich festgelegte API-Verträge werden unterstützt:
+
+- **Prompt JSON → MP3 audio** sendet `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` und erwartet MP3-Bytes. Game-Musik verwendet die Dauer des Kontexttracks (standardmäßig 120 Sekunden); Soundeffekte fordern 5 Sekunden an. Verwende einen Endpunkt oder Adapter, der diese Felder annimmt.
+- **Chat Completions → inline audio (ACE-Step compatible)** sendet `model`, einen Benutzereintrag in `messages`, `stream: false` und `audio_config` mit `duration`, `instrumental: true` und `format: "mp3"`. Inline-MP3-Audio wird aus `choices[0].message.audio` gelesen: entweder aus einem ACE-Step-Array von Audio-URLs mit einer Base64-Daten-URL oder aus einem Objekt mit Base64-`data`. Siehe den [ACE-Step-kompatiblen API-Vertrag](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Entfernte Ergebnis-URLs und asynchrone Job-APIs werden von diesen Verträgen nicht unterstützt.
+
+Aktiviere nur Funktionen, die dein Server tatsächlich anbietet. Ein OpenAI-kompatibler Sprachendpunkt allein bedeutet keine Unterstützung für Musik oder Soundeffekte. Ein Anbieter wie Infermatic muss einen der obigen Verträge oder einen Adapter bereitstellen; sein tatsächlicher Musikendpunkt wurde hier nicht geprüft. ElevenLabs behält seine bisherigen nativen Musik- und Soundeffektanfragen.
+
+Kontextmusik wird weiterhin einmal pro Gebiet oder Begegnungsstufe komponiert und wiederverwendet. Wiederholte Soundeffekte nutzen den Audiocache. Nach einem Generierungsfehler bleibt der Cache für einen erneuten Versuch verfügbar.
+
 ## Schritt 2: Base URL, API Key und Model eintragen
 
 Überspring diesen Schritt, wenn du eine Audioverbindung als Source gewählt hast: Marinara verwendet dann die eigenen Einstellungen der Verbindung.
@@ -152,6 +169,8 @@ Unter der Überschrift **Auto-play** sorgt jeder Schalter dafür, dass eine best
 - **Game narration**: liest neue Erzähl- und Kampfzeilen im Game Mode vor.
 - **Progressive playback**: Bei einer Antwort aus mehreren Zeilen startet die erste Zeile sofort, statt auf die ganze Antwort zu warten.
 - **Only read dialogues**: liest nur zitierte oder markierte Sprechzeilen und überspringt reine Erzählung.
+
+In Roleplay beginnt die Vorbereitung der Sprachausgabe, sobald die Hauptantwort gespeichert ist. Sprecher und Emotionen werden aus diesem Text ermittelt, ohne auf andere, davon unabhängige Agenten zu warten. Schreibt ein aktivierter Agent wie Prose Guardian die Antwort um, wartet Marinara vor der Sprachvorbereitung auf den endgültigen überarbeiteten Text.
 
 Die automatische Wiedergabe greift genau einmal, bei der neuesten Antwort, im Moment ihrer Fertigstellung. Alte Nachrichten liest sie nicht erneut vor, wenn du einen Chat wieder öffnest oder scrollst.
 

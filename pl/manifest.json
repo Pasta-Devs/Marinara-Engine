@@ -1,11 +1,11 @@
 {
   "language": "pl",
-  "sourceCommit": "010829b36",
+  "sourceCommit": "702d2e3e520a45a1a430157341a758818011310c",
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "e324e54c0a66c0530beb08803b436391b557e45db5a3f77221eb54cee613ce4c",
-      "bytes": 58412
+      "sha256": "6bcc065bfc2015f26f8b02cebfc97d10643d087f9151a1698d66bf61431e9903",
+      "bytes": 58661
     },
     {
       "path": "FAQ.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "05ff9c65ca856ddd38970eb2031109b4c8d14f228aefd2e90e1bba739e200ebd",
-      "bytes": 60656
+      "sha256": "1559b8fd0122127691a740dab69ef9ce25368d54feea74aa7109bff7a4bd7558",
+      "bytes": 61227
     },
     {
       "path": "UPGRADING.md",
@@ -624,8 +624,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "ef0818ba6e7685c11245f187a6a14d7b44be70cb7affbab7a33c407143b0f431",
-      "bytes": 21604
+      "sha256": "487a2d3f8f0b041059acc2338bf5e605c26d85e3d4449b0a81d51b1a34328dfa",
+      "bytes": 24595
     },
     {
       "path": "noodle/overview.md",

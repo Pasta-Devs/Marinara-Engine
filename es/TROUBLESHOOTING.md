@@ -58,6 +58,12 @@ Esto borra el registro de instalación obsoleto de pnpm y reinstala las dependen
 
 Si Sharp sigue sin poder cargarse, Engine ahora sigue funcionando con el procesamiento de imágenes desactivado: las miniaturas que ya creó se siguen mostrando, en lugar de las nuevas se muestra la imagen a tamaño completo, y la generación de sprites y la eliminación de fondo integrada no están disponibles. No sustituyas Sharp por una versión que no corresponda. Conserva toda la salida del error cuando reportes el problema.
 
+<a id="browser-opens-before-startup-finishes"></a>
+
+### El navegador se abre antes de que termine el inicio
+
+Actualiza Marinara Engine y vuelve a iniciarlo con su lanzador. Ahora abre el navegador solo cuando el servidor confirma que terminó la inicialización, incluida cualquier reparación de la compilación. No usa un temporizador fijo. El mensaje de carga de `.env` no indica por sí solo que esté listo. Si el inicio falla, conserva el error de la terminal para soporte; no debería abrirse otra pestaña. Establece `AUTO_OPEN_BROWSER=false` si prefieres abrir la app por tu cuenta.
+
 ### Página en blanco o JavaScript servido como HTML después de actualizar
 
 Un error como "Failed to load module script" con el tipo MIME `text/html` puede indicar que el navegador solicitó un archivo JavaScript que falta en la compilación instalada. El aviso sobre el cierre de la sesión anterior no identifica este problema, y borrar un bloqueo de escritura (writer lease) o tus datos no reparará los archivos.
@@ -76,7 +82,7 @@ Elige una solución:
 2. Instala pnpm tú mismo. Ejecuta este comando y luego vuelve a ejecutar el lanzador:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 3. Actualiza corepack en una terminal de administrador y luego vuelve a ejecutar el lanzador:
@@ -92,17 +98,19 @@ Marinara v2.3.0 podía iniciar pnpm mediante Corepack correctamente y luego fall
 Si el propio checkout no puede actualizarse, ejecuta `git pull` en la carpeta de Marinara e inícialo de nuevo. Como solución temporal para v2.3.0, instala el gestor de paquetes fijado de forma global, vuelve a ejecutar el lanzador y luego actualiza normalmente:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
-### Actualización del lanzador a pnpm 10.34.5
+<a id="launcher-package-manager-handoff"></a>
 
-Marinara v2.4.1 cambia su gestor de paquetes fijado a pnpm 10.34.5. Un lanzador existente con 10.33.2 puede completar esta transición única en la misma ejecución; después, el lanzador actualizado selecciona 10.34.5 en los siguientes arranques. Corepack verifica la versión con el resumen SHA-512 fijado en `package.json`, y la alternativa mediante npm también solicita exactamente 10.34.5 en vez de una versión latest sin fijar.
+### Transición del gestor de paquetes del lanzador
+
+Marinara fija pnpm 10.34.7. Un lanzador existente con 10.33.2 o 10.34.5 puede completar la transición en la misma ejecución; después, el lanzador actualizado selecciona 10.34.7 en los siguientes arranques. Corepack verifica la versión con el resumen SHA-512 fijado en `package.json`, y la alternativa mediante npm también solicita exactamente 10.34.7.
 
 Si una compilación staging anterior de v2.4.1 ya se detuvo con `Expected version: >=10.34.5` y `Got: 10.33.2`, ejecuta el lanzador otra vez; esa compilación descargó el lanzador actualizado antes de detenerse. Si aún no puede obtener automáticamente la versión fijada, instala la versión exacta y vuelve a ejecutarlo:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@10.34.7
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG durante la instalación

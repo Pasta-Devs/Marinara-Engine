@@ -118,7 +118,7 @@ BASIC_AUTH_USER=alice
 BASIC_AUTH_PASS=correct-horse-battery-staple
 ```
 
-无论用什么方式启动，服务器都会自己读取 `.env`，直接跑 `pnpm start` 也一样。shell 启动脚本（`start.bat`、`start.sh`、`start-termux.sh`）额外做两件事：设置 `HOST=0.0.0.0` 让其他设备能访问服务器，以及自动打开浏览器。如果只用 `pnpm start`，除非自己设置 `HOST`，服务器只监听本机。
+无论用什么方式启动，服务器都会自己读取 `.env`，直接跑 `pnpm start` 也一样。shell 启动脚本（`start.bat`、`start.sh`、`start-termux.sh`）额外做两件事：设置 `HOST=0.0.0.0` 让其他设备能访问服务器，以及在服务器就绪后打开浏览器。打开浏览器没有固定延时：启动缓慢或修复构建时会等待初始化完成；启动失败则不会打开新标签页。`AUTO_OPEN_BROWSER=false` 仍可关闭自动打开。如果只用 `pnpm start`，除非自己设置 `HOST`，服务器只监听本机。
 
 <a id="restart-or-hot-reload"></a>
 
