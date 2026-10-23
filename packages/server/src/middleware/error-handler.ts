@@ -5,12 +5,14 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import { failureLevel } from "../lib/log-context.js";
 
+const MAX_VALIDATION_DETAILS = 50;
+
 export function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
   // Zod validation errors → 400
   if (error instanceof ZodError) {
     return reply.status(400).send({
       error: "Validation Error",
-      details: error.errors.map((e) => ({
+      details: error.issues.slice(0, MAX_VALIDATION_DETAILS).map((e) => ({
         path: e.path.join("."),
         message: e.message,
       })),

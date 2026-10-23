@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
+import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
@@ -1372,7 +1373,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Create chat
-  app.post("/", async (req, reply) => {
+  app.post("/", chatResourceRequestOptions, async (req, reply) => {
     const input = createChatSchema.parse(req.body);
     if (input.characterIds.includes(PROFESSOR_MARI_ID)) {
       return reply.status(400).send({ error: "Professor Mari is only available from the Home screen." });
@@ -1416,7 +1417,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Update chat
-  app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
+  app.patch<{ Params: { id: string } }>("/:id", chatResourceRequestOptions, async (req, reply) => {
     const data = createChatSchema.partial().parse(req.body);
     const existing = await storage.getById(req.params.id);
     if (!existing || isHomeProfessorMariChat(existing)) {
