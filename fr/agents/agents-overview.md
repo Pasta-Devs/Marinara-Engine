@@ -74,6 +74,8 @@ La section **Agents** contient quelques réglages supplémentaires :
 
 Dans **Chat Settings**, ouvre **Agents**, puis les réglages de l'agent d'écriture, de suivi ou personnalisé. **Attach lorebook for the specific agent** (joindre un lorebook à cet agent) est désactivé au départ. Active-le pour afficher **Reference lorebook** (lorebook de référence) et choisir un livre. Le choix appartient à cet agent dans ce chat ; il ne change ni sa définition globale ni les autres chats.
 
+Les fonctionnalités de paquets téléchargeables, comme World Maps, nécessitent aussi la mise à jour correspondante du paquet en plus de celle de l'Engine.
+
 Les entrées correspondantes suivent les règles habituelles de déclenchement des lorebooks et sont fournies comme contexte de référence à cet agent, y compris lors des relances manuelles. Joindre le livre ne l'active pas pour la réponse principale ou les autres agents. Les agents exécutés ensemble peuvent aussi voir les mêmes entrées de référence. Désactiver l'option arrête l'envoi de ces entrées ; les livres indisponibles ou supprimés n'en fournissent aucune. Les réglages de sources existants des agents personnalisés restent disponibles indépendamment.
 
 ### L'avertissement sur le coût

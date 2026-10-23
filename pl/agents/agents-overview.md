@@ -74,6 +74,8 @@ W sekcji **Agents** jest jeszcze kilka opcji:
 
 W panelu **Chat Settings** otwórz **Agents**, a potem ustawienia agenta piszącego, śledzącego lub niestandardowego. Opcja **Attach lorebook for the specific agent** (dołącz lorebook dla tego agenta) jest domyślnie wyłączona. Włącz ją, aby pokazać pole **Reference lorebook** (lorebook referencyjny) i wybrać jedną książkę. Wybór dotyczy tego agenta w tym czacie; nie zmienia globalnej definicji agenta ani innych czatów.
 
+Funkcje pobieranych pakietów, takie jak World Maps, wymagają też odpowiedniej aktualizacji pakietu wraz z aktualizacją Engine.
+
 Pasujące wpisy podlegają zwykłym regułom wyzwalania lorebooków i trafiają do tego agenta jako kontekst referencyjny, także przy ręcznych ponowieniach. Dołączenie książki nie aktywuje jej dla głównej odpowiedzi ani niezwiązanych agentów. Agenci uruchamiani razem mogą też widzieć te same wpisy referencyjne. Wyłączenie opcji zatrzymuje dostarczanie wpisów; niedostępne lub usunięte książki nie dostarczają żadnych. Istniejące ustawienia źródeł niestandardowych agentów pozostają dostępne niezależnie.
 
 ### Ostrzeżenie o koszcie

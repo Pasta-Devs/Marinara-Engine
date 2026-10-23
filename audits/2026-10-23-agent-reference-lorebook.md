@@ -11,9 +11,9 @@ English UI labels and canonical fragment. Other guide content remains unchanged.
 ## English source and scope
 
 The current candidate English source is
-`de0f1e0a07c30afe0f79c726116dcab09e1ac5af` from #8153, including its concise
-shared-reference visibility sentence. The translated section preserves per-chat
-selection, normal triggers and manual retries, isolation from the main reply and
+`46faa1ad32a945054a94b88971349908151b773b` from #8153, including its concise
+shared-reference visibility sentence and the matching package-update requirement. The translated section preserves per-chat
+selection, downloadable feature package updates, normal triggers and manual retries, isolation from the main reply and
 unrelated agents, possible shared context for agents running together, disabling
 or unavailable-book behavior, and independent custom-agent source settings.
 The prose introduces no behavior beyond that English section.
