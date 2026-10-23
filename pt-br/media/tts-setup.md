@@ -69,7 +69,6 @@ A música e os efeitos sonoros incluídos de Game funcionam sem uma conexão de 
 
 O botão de silenciar no canto superior direito silencia música, diálogo e efeitos sonoros juntos. **Settings → Look (Visual)** (Configurações → aparência) tem controles separados para o volume desses três canais, inclusive volume zero, e para a pausa da reprodução automática. A pausa padrão é de **3 segundos** e começa quando a revelação do texto e qualquer diálogo falado terminam. As escolhas continuam esperando pelo jogador. O diálogo falado é cancelado ao sair de uma cena. A música continua ou muda para combinar com a nova tela; ao sair do mundo, todo o áudio dele é interrompido. Atualize o pacote instalado do Gacha Forge e o Engine para ter esses controles.
 
-
 ## Etapa 2: preencha Base URL, API Key e Model
 
 Pule esta etapa se você escolheu uma conexão de áudio como Source: Marinara usa as configurações da própria conexão.
