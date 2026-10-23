@@ -59,6 +59,7 @@ import {
 import { rulesetRichLogLines } from "../../packages/client/src/lib/ruleset-combat-log-rich.js";
 import {
   rulesetAimSoFar,
+  rulesetAimLaidOverPicks,
   rulesetAimTake,
   rulesetAimTurning,
   rulesetBoardCells,
@@ -2374,6 +2375,12 @@ function drawn(...rows: string[]): TacticalGrid {
   // A ring goes at once, and is never turning.
   assert.deepEqual(rulesetAimTake(wall, { ring: true }, { x: 6, y: 6 }), { send: { at: { x: 6, y: 6 }, ring: true } });
   assert.ok(!rulesetAimTurning(wall, { ring: true, at: { x: 6, y: 6 } }));
+  // Only a pick that finishes a shape laid over several confirms it: a ring chosen in the menu, or a
+  // shape with nothing set down yet, waits for a second tap on the same square.
+  assert.ok(!rulesetAimLaidOverPicks({ ring: true }));
+  assert.ok(!rulesetAimLaidOverPicks(undefined));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 5, y: 5 } }));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 1, y: 1 }, also: [{ x: 3, y: 1 }] }));
   // Three copies: two picks wait, the third sends; a square picked twice changes nothing.
   const storm = { ...base, area: { shape: "box", size: 2, copies: 3, range: 30 } } as never;
   const one = rulesetAimTake(storm, undefined, { x: 1, y: 1 });

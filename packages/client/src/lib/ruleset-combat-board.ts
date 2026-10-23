@@ -123,6 +123,13 @@ export function rulesetAimTurning(option: DirectedRulesetOption, lay: RulesetAim
   return option.area?.shape === "wall" && !lay?.ring && !!lay?.at;
 }
 
+/** Whether a pick that sends this shape is the last of several that laid it (a wall's way, a copy
+ *  after the first), which its prompts already name as the confirming one. A ring chosen in the menu
+ *  has no square yet: its first pick only shows who it catches, like any single-pick aim. */
+export function rulesetAimLaidOverPicks(lay: RulesetAimLay | undefined): boolean {
+  return !!lay?.at;
+}
+
 /** What is sent for the shape as it is laid so far, or null while nothing has been set down. */
 export function rulesetAimSoFar(lay: RulesetAimLay | undefined): RulesetAimChoice | null {
   if (!lay?.at) return null;

@@ -20,6 +20,9 @@ export function isRuntimeBuildCurrent(clientVersion: string, clientBuild: string
   return serverBuild === clientBuild;
 }
 
+/** How long the served-build probe waits for the server's answer. */
+const RUNNING_BUILD_TIMEOUT_MS = 10_000;
+
 /**
  * Whether the server still serves the build this page runs. A new service worker waiting after a
  * server restart says nothing about the page itself: a page loaded after the new build was already
@@ -30,9 +33,16 @@ export async function runningBuildIsServed(
   clientVersion: string,
   clientBuild: string,
   fetcher: (input: string, init?: RequestInit) => Promise<Response> = fetch,
+  // A frozen server can take the connection and never answer, which would hold back the prompt
+  // and the update both: past this it reads as unknown, as the startup version check does.
+  timeoutMs = RUNNING_BUILD_TIMEOUT_MS,
 ): Promise<boolean> {
   try {
-    const res = await fetcher("/api/health", { cache: "no-store", headers: { Accept: "application/json" } });
+    const res = await fetcher("/api/health", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     if (!res.ok) return false;
     const health = (await res.json()) as Partial<RuntimeHealth> | null;
     if (!health?.version) return false;

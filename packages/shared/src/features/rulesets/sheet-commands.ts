@@ -277,7 +277,7 @@ export function applySheetCommandTags(
         targets.who,
       );
     }
-    return record(targets.who, { ok: true, now: joinSheetSummary([...applied, ...refused]) }, targets.who);
+    return record(targets.who, { ok: true, now: joinSheetSummary(applied, undefined, refused) }, targets.who);
   });
 
   return { content: rewritten, live, changed, outcomes, rests, builds };

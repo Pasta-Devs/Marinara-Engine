@@ -682,6 +682,11 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   for (const name of four) assert.ok(said.includes(name), `${name} is in the record: ${said}`);
   assert.deepEqual(Object.keys(tired.live), [], "and all four are rested");
   assert.equal(joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 24), `${"a".repeat(8)}; and 2 more`);
+  // A refusal is never what the count stands for: it stays whole, and only successes are counted off.
+  assert.equal(
+    joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 45, ["Pip refused (no gold)"]),
+    `${"a".repeat(8)}; and 2 more; Pip refused (no gold)`,
+  );
 
   // Two cards under one name share one live-state entry, so a party command touches it once.
   const twinParty = applySheetCommandTags(`[sheet: who="party" op="damage" pool="hp" amount="3"]`, {

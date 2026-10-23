@@ -25,4 +25,18 @@ assert.equal(
   }),
   false,
 );
+// A server that takes the connection and never answers reads as unknown once the probe gives up.
+assert.equal(
+  await runningBuildIsServed(
+    "2.4.6",
+    client,
+    (_input, init) =>
+      new Promise<Response>((_resolve, reject) =>
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true }),
+      ),
+    20,
+  ),
+  false,
+  "a silent server prompts",
+);
 console.info("App update: a waiting worker prompts only when the server serves another build.");
