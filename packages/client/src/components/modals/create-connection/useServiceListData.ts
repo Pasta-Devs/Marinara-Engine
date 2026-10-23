@@ -37,6 +37,7 @@ import {
 type Pick = "job" | "model" | "provider" | null;
 
 interface UseServiceListDataProps {
+  firstRun: boolean | null;
   service: ServiceId | null;
   target: Target | null;
   accounts?: ConnectionAccountListItem[];
@@ -205,9 +206,16 @@ export function useServiceListData(props: UseServiceListDataProps) {
           ? entry.add !== false && `${props.jobLabel(entry.key)} ${entry.terms ?? ""}`.toLowerCase().includes(needle)
           : entry.add === undefined,
       ).map((entry) => entry.key);
-  const cards = props.step === 1 && !props.pick && !props.job && !props.newChatMode && !searching;
+  const cards = props.step === 1 && !props.firstRun && !props.pick && !props.job && !props.newChatMode && !searching;
   const jobList = props.pick === "job" && !props.job;
-  const listJobs = cards || props.pick ? [] : shownJobs;
+  const missingJobs = shownJobs.filter((key) => {
+    const job = JOBS.find((entry) => entry.key === key);
+    if (!job) return false;
+    if (job.flag) return !props.rows.some((row) => row[job.flag!] === true || row[job.flag!] === "true");
+    if (job.feature) return true;
+    return false;
+  });
+  const listJobs = cards || props.pick || props.firstRun ? [] : missingJobs;
   const listModels = cards || jobList || props.pick === "provider" ? [] : shownModels;
   const listGroups = cards || jobList || props.pick === "model" ? [] : groups;
   return { connectedAccounts, badgesFor, searching, groups, shownModels, routesOf, shownJobs, cards, jobList, listJobs, listModels, listGroups };

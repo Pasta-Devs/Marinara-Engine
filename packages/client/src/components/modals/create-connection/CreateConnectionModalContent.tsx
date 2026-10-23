@@ -167,7 +167,7 @@ export function CreateConnectionModalContent({
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
-  const [jobFor] = useState<AddFor | null>(forJob ?? null);
+  const [jobFor, setJobFor] = useState<AddFor | null>(forJob ?? null);
   const job = jobFor?.job ?? null;
   // The kind chip in step 1; step 3 starts on the same kind.
   const [kindFilter, setKindFilter] = useState<ChipKind | null>(
@@ -343,6 +343,20 @@ export function CreateConnectionModalContent({
   };
 
   const jobLabel = (key: AddJob) => t(jobLabelKey(JOB[key]));
+  const chooseJob = (key: AddJob) => {
+    setQuery("");
+    const device = JOB[key].device;
+    if (device) {
+      void chooseService(device);
+      return;
+    }
+    setJobFor({ job: key });
+    setKindFilter(jobAddKind(key) ?? null);
+  };
+  const clearJob = () => {
+    setJobFor(null);
+    setKindFilter(null);
+  };
   // Adding for a job: the first new Model of the job's kind is set for it; the result undoes that.
   const jobKind = job ? jobAddKind(job) : jobFor?.kind;
   const jobPick = jobFor && jobKind ? picks.find((pick) => pick.kind === jobKind) : undefined;
@@ -705,6 +719,7 @@ export function CreateConnectionModalContent({
     listModels,
     listGroups,
   } = useServiceListData({
+    firstRun,
     service,
     target,
     accounts,
@@ -774,8 +789,10 @@ export function CreateConnectionModalContent({
   const heading =
     step === 1
       ? t(
-          jobList
-            ? "connections.add.heading.forJob"
+              firstRun
+                ? "connections.add.heading.firstRun"
+                : jobList
+                ? "connections.add.heading.forJob"
             : pick === "model"
               ? "connections.add.heading.forModel"
               : pick === "provider"
@@ -799,9 +816,11 @@ export function CreateConnectionModalContent({
     step === 1
       ? newChatMode
         ? t("connections.add.sub.gate", { mode: t(`connections.add.mode.${newChatMode}`) })
-        : job
-          ? t("connections.add.sub.job", { job: jobLabel(job) })
-          : t(
+          : job
+            ? t("connections.add.sub.job", { job: jobLabel(job) })
+            : firstRun
+              ? t("connections.add.sub.firstRun")
+            : t(
               jobList
                 ? "connections.add.forJobHint"
                 : pick === "model"

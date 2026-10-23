@@ -476,12 +476,12 @@ export function ServiceGroup({
 }
 
 /** Step 1's job list: each job as its Defaults row, plus one line on what it does. */
-export function JobCards({ rows, onPick }: { rows: ConnectionRowData[]; onPick: (key: AddJob) => void }) {
+export function JobCards({ rows, jobs, onPick }: { rows: ConnectionRowData[]; jobs?: AddJob[]; onPick: (key: AddJob) => void }) {
   const { t } = useTranslation();
   const { tiles, features } = useConnectionDefaults(rows);
   return (
     <div className="mari-connection-model-well">
-      {JOBS.filter((job) => job.add === undefined).map((job) => {
+      {JOBS.filter((job) => job.add === undefined && (!jobs || jobs.includes(job.key))).map((job) => {
         const tile = [...tiles, ...features].find((entry) => entry.key === job.key);
         return (
           tile && (

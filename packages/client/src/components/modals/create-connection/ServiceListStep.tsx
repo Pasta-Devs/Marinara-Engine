@@ -199,7 +199,12 @@ export function ServiceListStep(props: ServiceListStepProps) {
           ))}
         </div>
       )}
-      {jobList && <JobCards rows={(rows ?? []) as ConnectionRowData[]} onPick={chooseJob} />}
+      {!firstRun && listJobs.length > 0 && (
+        <section data-add-connection-section="missing-jobs" className="flex flex-col gap-1.5">
+          <h4 className="px-1 text-xs font-semibold text-[var(--foreground)]">{t("connections.add.section.missingJobs")}</h4>
+          <JobCards rows={(rows ?? []) as ConnectionRowData[]} jobs={listJobs} onPick={chooseJob} />
+        </section>
+      )}
       {!cards && !jobList && pick !== "provider" && (
         <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
           {/* Voice and Decision have no models to list, so the model list leaves them out. */}
@@ -330,7 +335,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
           </div>
         </section>
       )}
-      {listGroups.length > 0 && (listJobs.length > 0 || listModels.length > 0) && (
+      {listGroups.length > 0 && (firstRun || listJobs.length > 0 || listModels.length > 0) && (
         <div className="-mb-1.5">{sectionTitle(t("connections.add.section.provider"))}</div>
       )}
       {listGroups.map((group) => {
