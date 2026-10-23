@@ -114,6 +114,13 @@ Postać może też wysłać ci krótki klip wideo. Wpisz `/video` (albo `/video 
 
 Ustawisz to w **Chat Settings**, **Agents**, **Illustrator Settings**, w sekcji **Video messages**:
 
+- **Generated Videos** (automatyczne filmy) pozwala postaciom samodzielnie wysyłać wiadomości wideo, gdy pasuje to do rozmowy.
+  - Tak jak przy `/video`, opis klipu powstaje na podstawie ostatniej rozmowy, więc zamówiony klip pokazuje to, o co prosisz.
+  - W nowych czatach opcja jest domyślnie wyłączona, ponieważ każdy klip to zapytanie o wideo. Włącz ją tutaj lub zapisz w profilu ustawień, aby była włączona w nowych czatach. Ten sam przełącznik występuje jako **Videos** na liście **Commands** przy tworzeniu czatu i w panelu Chat Settings.
+  - **Video Run Interval** (widoczne po włączeniu opcji) ustala, ile wiadomości musi minąć między tymi klipami. **0** je zatrzymuje.
+  - `/video` i przycisk **Video** w galerii działają niezależnie od tej opcji i pomijają odstęp.
+  - Nowy swipe odpowiedzi, która wysłała klip, może wysłać własny klip.
+  - W czacie grupowym każda postać może wysłać jeden klip na odpowiedź, do limitu **Videos per reply** (domyślnie 3) w sekcji **Settings**, **Generations**, **Video Generation**.
 - Pole **Video Connection** (połączenie wideo) wskazuje połączenie typu Video Generation (generowanie wideo). Zostaw na nim wartość **Default video connection** (domyślne połączenie wideo), żeby użyć domyślnego połączenia wideo. Pole **Video Prompting Instructions** (instrukcje do promptów wideo) w ustawieniach połączenia kieruje AI, które pisze prompt wideo.
 - Pole **First frame** wskazuje obraz, od którego zaczyna się klip:
   - **New selfie, or the avatar if no selfie connection** (nowe selfie albo awatar, gdy brak połączenia do selfie) – wartość domyślna – robi nowe selfie, gdy selfie są włączone i ustawiono **Selfie Connection**, a w przeciwnym razie używa awatara.

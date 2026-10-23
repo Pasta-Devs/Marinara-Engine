@@ -114,6 +114,13 @@ Here is a picture from my walk!
 
 **Chat Settings**, **Agents**, **Illustrator Settings** 안의 **Video messages**(동영상 메시지) 섹션에서 설정합니다.
 
+- **Generated Videos**(자동 동영상)를 켜면 대화에 어울릴 때 캐릭터가 스스로 동영상 메시지를 보낼 수 있습니다.
+  - `/video`와 마찬가지로 최근 대화를 바탕으로 클립 내용을 작성하므로, 요청한 클립에 요청 내용이 반영됩니다.
+  - 클립마다 동영상 요청이 발생하므로 새 채팅에서는 기본적으로 꺼져 있습니다. 여기서 켜거나 설정 프로필에 저장해서 새 채팅에서 켜세요. 같은 토글이 새 채팅 설정과 Chat Settings의 **Commands** 목록에 **Videos**로 표시됩니다.
+  - **Video Run Interval**(켜면 표시)은 이 클립들 사이에 지나야 할 메시지 수를 설정합니다. **0**이면 중단됩니다.
+  - `/video`와 Gallery의 **Video** 버튼은 어느 설정에서든 작동하며 간격을 무시합니다.
+  - 클립을 보낸 답변을 스와이프하면 새 스와이프도 자체 클립을 보낼 수 있습니다.
+  - 그룹 채팅에서 각 캐릭터는 답변마다 클립을 하나 보낼 수 있으며, 상한은 **Settings**, **Generations**, **Video Generation**의 **Videos per reply**(기본값 3)입니다.
 - **Video Connection**(비디오 연결)은 Video Generation 연결을 고릅니다. 기본으로 지정한 연결을 쓰려면 **Default video connection**(기본 비디오 연결)으로 두세요. 연결의 **Video Prompting Instructions**(동영상 프롬프트 지시문)는 동영상 프롬프트를 쓰는 AI에게 지침을 줍니다.
 - **First frame**(첫 프레임)은 클립이 시작할 그림을 고릅니다.
   - **New selfie, or the avatar if no selfie connection**(새 셀카, 셀카 연결이 없으면 아바타)은 기본값입니다. 셀카가 켜져 있고 **Selfie Connection**이 지정되어 있으면 새 셀카를 만들고, 그렇지 않으면 아바타를 씁니다.

@@ -69,12 +69,43 @@ En los **Chat Settings** de un chat de Roleplay, **Attach Card Appearance** es u
 
 - **Off** (Desactivado)
 - **Images only** (Solo imágenes), el comportamiento habitual.
-- **Videos only** (Solo videos). Un clip creado desde la Gallery recibe el texto de apariencia de los personajes que nombra su dirección de movimiento.
+- **Videos only** (Solo videos). Un clip recibe el texto de apariencia de los personajes que muestra. Esto importa sobre todo en un clip **Prompt only**, que no tiene una imagen que los muestre.
 - **Images and videos** (Imágenes y videos) hace ambas cosas.
 
 Con **Attach Card Appearance** activado, una tarjeta o persona que también tenga **Image Appearance Override** (Apariencia alternativa para imágenes) activado y con texto envía ese texto en lugar de **Appearance**. Úsalo cuando **Appearance** esté escrito para el narrador, pero no funcione bien para un modelo de imágenes: conserva la descripción completa en **Appearance** y escribe una versión más corta, en forma de etiquetas, en el segundo cuadro. Si la opción está desactivada o el cuadro está vacío, los prompts de imagen siguen usando **Appearance**. El narrador siempre recibe el texto completo de **Appearance** en ambos casos. El interruptor está debajo de **Appearance** en los editores de personajes y personas.
 
-**Send Avatar References** envía los avatares de personajes y personas, o sus sprites (imágenes del personaje), al proveedor de imágenes como imágenes de referencia. Su texto de ayuda dice: "Send matching character and persona avatars or sprites as reference images when the provider supports them." Esto ayuda al modelo de imágenes a copiar una cara o un atuendo. No todos los proveedores aceptan imágenes de referencia, así que el efecto depende del proveedor que elegiste. En Roleplay sigue siendo un interruptor y solo afecta a las imágenes, porque un clip de Roleplay ya empieza desde una imagen.
+**Send Avatar References** envía los avatares de personajes y personas, o sus sprites (imágenes del personaje), al proveedor de imágenes como imágenes de referencia. Su texto de ayuda dice: "Send matching character and persona avatars or sprites as reference images when the provider supports them." Esto ayuda al modelo de imágenes a copiar una cara o un atuendo. No todos los proveedores aceptan imágenes de referencia, así que el efecto depende del proveedor que elegiste. En un chat de Roleplay es un desplegable como **Attach Card Appearance**. Si incluye videos, un clip con **First frame** en **Prompt only** empieza desde el avatar o sprite del personaje en lugar de hacerlo sin imagen, y esa opción pasa a llamarse **Prompt only (avatar from Send Avatar References)**. Excluye los videos para crear el clip solo a partir de su prompt.
+
+<a id="generated-videos"></a>
+
+## Videos automáticos
+
+En un chat de Roleplay, **Chat Settings**, **Agents**, **Illustrator** tiene un ajuste **Illustrator makes** (qué crea Illustrator):
+
+- **Pictures** (predeterminado): solo imágenes, como antes.
+- **Pictures and clips**: Illustrator también puede añadir un clip corto a una imagen que acaba de crear cuando el movimiento es lo importante del momento, como una acción, un acto de violencia, una persecución o algo que se rompe. Escribe el movimiento siguiendo las **Video Prompting Instructions** de la conexión de video. La imagen aparece primero y el clip se añade al mismo mensaje cuando está listo.
+- **Clips only**: cada vez que Illustrator mostraría una imagen, muestra un clip corto en su lugar. Si se dibuja una imagen para el clip, será su fotograma inicial y se guardará en la Gallery, no en la respuesta. Si el clip falla, en ese caso se muestra esa imagen.
+
+Los clips usan **Video Connection** en **Scene Videos**, y cada uno es una solicitud de video. Sin una conexión de video que funcione, Illustrator crea imágenes, incluso con **Clips only**. Los agentes personalizados que crean imágenes siguen el mismo ajuste.
+
+**Video Run Interval**, visible cuando Illustrator crea clips, establece cuántos mensajes del usuario y del asistente deben pasar después de uno de estos clips antes del siguiente. Es independiente de **Image Run Interval**, que sigue decidiendo con qué frecuencia Illustrator crea imágenes.
+
+- **Clips only**: cada ejecución de Illustrator es un clip. Video Run Interval decide con qué frecuencia se ejecuta Illustrator, e Image Run Interval se oculta.
+- **Valor predeterminado**: un chat sin valor propio usa **Video Run Interval** de la pantalla **Open Setup** de la tarjeta de Illustrator. Si tampoco hay uno allí, es 5.
+- **0**: Illustrator no crea clips por iniciativa propia. Esto incluye los clips de las imágenes que pide el narrador con `[illustrate]`; en su lugar reciben su imagen.
+- **Límite**: una respuesta recibe como máximo **Videos per reply** clips (en **Settings**, **Generations**, **Video Generation**).
+- **Clips manuales**: puedes seguir animando una imagen desde la Gallery. Con **Clips only**, el botón **Illustrate** de un mensaje crea un clip.
+- **Alternativas**: deslizar una respuesta que recibió un clip cuenta como una respuesta nueva. La nueva alternativa puede recibir su propio clip y la anterior conserva el suyo.
+
+**First frame**, visible cuando Illustrator crea clips, decide desde qué empieza cada clip de Illustrator: una imagen nueva de Illustrator, el avatar o sprite del personaje nombrado, la imagen con el avatar como alternativa o ninguna imagen. Es el mismo ajuste que usan los chats de Conversation para los mensajes de video.
+
+- **Clips only** con avatar o sin imagen: no se dibuja ninguna imagen. El clip se crea a partir de la escena y el movimiento de Illustrator.
+- **Pictures and clips**: la imagen sigue mostrándose y solo el clip empieza desde el avatar o sin imagen.
+- Sin fotograma inicial elegido: un clip nunca dibuja una imagen solo para sí mismo. **Pictures and clips** anima la imagen que Illustrator acaba de crear, y **Clips only** crea el clip solo a partir de la escena.
+
+Un clip sin imagen propia describe a todas las personas que nombra, incluida tu persona. El fotograma inicial de avatar usa a quien se nombre primero.
+
+Volver a ejecutar Illustrator desde un mensaje (con su botón **Illustrate**) también sigue **Illustrator makes** y **First frame**: con **Clips only** crea un clip en lugar de una imagen, y con **Pictures and clips** puede añadir un clip cuando el movimiento es lo importante del momento.
 
 ## Varios personajes en NovelAI
 
@@ -92,9 +123,9 @@ No necesitas configurar nada. Las descripciones solo se usan con una conexión a
 
 La tarjeta del Illustrator tiene un botón **Open Setup**. Abre la pantalla de configuración completa del agente, donde puedes definir la frecuencia predeterminada con la que se ejecuta el agente y darle su propia conexión de imagen.
 
-Cada chat de Roleplay tiene su propio **Run Interval** (intervalo de ejecución) en la tarjeta del Illustrator dentro de **Chat Settings**. Su texto de ayuda dice: "Messages between automatic images in this chat. 0 means only when you ask." Un chat que no define el suyo usa el **Run Interval** de la pantalla de configuración, que es **5** salvo que lo cambies. La tarjeta muestra **Using agent default** (Usando el valor predeterminado del agente) o **Chat override** (Valor propio del chat). Pulsa **Use agent default** (Usar el valor predeterminado del agente) para volver al valor de la pantalla de configuración. Cuando añades el Illustrator a un chat, la ventana para añadirlo muestra el mismo campo y guarda tu elección solo para ese chat.
+Cada chat de Roleplay tiene su propio **Image Run Interval** (intervalo de ejecución) en la tarjeta del Illustrator dentro de **Chat Settings**. Su texto de ayuda dice: "Messages between automatic images in this chat. 0 means only when you ask." Un chat que no define el suyo usa el **Image Run Interval** de la pantalla de configuración, que es **5** salvo que lo cambies. La tarjeta muestra **Using agent default** (Usando el valor predeterminado del agente) o **Chat override** (Valor propio del chat). Pulsa **Use agent default** (Usar el valor predeterminado del agente) para volver al valor de la pantalla de configuración. Cuando añades el Illustrator a un chat, la ventana para añadirlo muestra el mismo campo y guarda tu elección solo para ese chat.
 
-Establece **Run Interval** en **0** para generar solo de forma manual. Esto detiene las ejecuciones automáticas de Illustrator, incluidos sus fondos de escena automáticos, pero mantiene al agente instalado y disponible para las acciones de Gallery. Establece un intervalo positivo para reanudar las ejecuciones automáticas.
+Establece **Image Run Interval** en **0** para generar imágenes solo de forma manual. Esto detiene las ejecuciones automáticas de imágenes de Illustrator, incluidos sus fondos de escena. Con **Clips only**, establece en cambio **Video Run Interval** en **0** para detener los clips automáticos. El agente sigue instalado y disponible para las acciones de Gallery. Un intervalo de imágenes positivo reanuda las ejecuciones automáticas de imágenes.
 
 También puedes crear una imagen bajo demanda en lugar de esperar. Abre **Chat Settings** y despliega **Gallery** y usa el botón **Illustrate**. El Illustrator se ejecuta una vez de inmediato y el botón muestra **Generating...** mientras trabaja. Esto es útil cuando quieres una imagen del momento actual y el agente todavía no ha dibujado ninguna.
 

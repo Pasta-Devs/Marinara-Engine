@@ -69,12 +69,43 @@ Illustrator 卡片上有两项设置，能让角色形象保持一致。两项�
 
 - **Off**(关闭)
 - **Images only**(仅图片)，即通常的行为。
-- **Videos only**(仅视频)。用 Gallery 制作的短片会加上其动作描述中点名的角色的外貌描述。
+- **Videos only**(仅视频)。短片会加上其中出场角色的外貌描述。对 **Prompt only** 短片尤其重要，因为它没有图片来呈现这些角色。
 - **Images and videos**(图片和视频) 两者都做。
 
 打开 **Attach Card Appearance** 后，如果角色卡或用户角色还打开了 **Image Appearance Override**(图像专用外貌)，并填写了内容，发送的就是这段文字，而不是 **Appearance** 的内容。当 **Appearance** 是为旁白写的，图像模型却不容易理解时，可以把完整描述留在 **Appearance**，再在图像专用输入框里填写简短的标签式描述。这个开关关闭或输入框留空时，图像提示词仍会使用 **Appearance**。无论哪种情况，负责写旁白的模型始终会收到 **Appearance** 的完整内容。这个开关就在角色和用户角色编辑器的 **Appearance** 下方。
 
-**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像，或者他们的立绘，作为参考图发给图像服务商。它的帮助文字是：“Send matching character and persona avatars or sprites as reference images when the provider supports them.”这样图像模型更容易照着画出同一张脸或同一身衣服。并不是所有服务商都接受参考图，实际效果取决于选的那家服务商。在 Roleplay 里它仍然是一个开关，而且只影响图片，因为 Roleplay 的短片本来就是从一张图片开始的。
+**Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像，或者他们的立绘，作为参考图发给图像服务商。它的帮助文字是：“Send matching character and persona avatars or sprites as reference images when the provider supports them.”这样图像模型更容易照着画出同一张脸或同一身衣服。并不是所有服务商都接受参考图，实际效果取决于选的那家服务商。在 Roleplay 聊天中，它和 **Attach Card Appearance** 一样是下拉菜单。包含视频时，**First frame** 为 **Prompt only** 的短片会从角色的头像或立绘开始，而不再完全没有图片，这个选项也会显示为 **Prompt only (avatar from Send Avatar References)**。如果只想根据提示词制作短片，就不要包含视频。
+
+<a id="generated-videos"></a>
+
+## 自动视频
+
+在 Roleplay 聊天的 **Chat Settings**、**Agents**、**Illustrator** 中，有一个 **Illustrator makes**(Illustrator 生成内容) 设置：
+
+- **Pictures**(默认)：和以前一样，只生成图片。
+- **Pictures and clips**：当动作是场景重点时，例如打斗、暴力、追逐或物体破碎，Illustrator 还可以为刚生成的图片添加一段短片。它会按照视频连接的 **Video Prompting Instructions** 自行编写动作。图片先显示，短片完成后会加入同一条消息。
+- **Clips only**：每当 Illustrator 原本要显示图片时，改为显示短片。如果为短片绘制了图片，这张图片会成为起始帧，存入 Gallery，而不出现在回复中。这种情况下，如果短片失败，就改为显示这张图片。
+
+短片使用 **Scene Videos** 下的 **Video Connection**，每段短片都是一次视频请求。没有可用的视频连接时，即使选择 **Clips only**，Illustrator 也会改为生成图片。生成图片的自定义智能体也遵循同一个设置。
+
+**Video Run Interval** 在 Illustrator 生成短片时显示，用来设置一段此类短片之后，必须经过多少条用户消息和 AI 回复才能生成下一段。它与 **Image Run Interval** 分开，后者仍然决定 Illustrator 生成图片的频率。
+
+- **Clips only**：Illustrator 每次运行都生成短片。Video Run Interval 决定运行频率，Image Run Interval 则隐藏。
+- **默认值**：聊天没有单独设置时，使用 Illustrator 卡片 **Open Setup** 页面中的 **Video Run Interval**。那里也没设置时，使用 5。
+- **0**：Illustrator 不主动生成短片。叙述者用 `[illustrate]` 请求的图片所附带的短片也受此限制，此时只显示图片。
+- **上限**：一条回复最多生成 **Videos per reply** 段短片（位于 **Settings**、**Generations**、**Video Generation**）。
+- **手动短片**：仍然可以从 Gallery 把图片制作成动画。选择 **Clips only** 时，消息上的 **Illustrate** 按钮会生成短片。
+- **滑动候选**：为带有短片的回复切换候选会算作新回复。新候选可以有自己的短片，之前的候选保留原短片。
+
+**First frame** 在 Illustrator 生成短片时显示，决定它生成的每段短片从什么开始：新的 Illustrator 图片、被点名角色的头像或立绘、优先图片并用头像作为后备，或完全没有图片。它与 Conversation 聊天视频消息使用的是同一个设置。
+
+- **Clips only** 搭配头像或无图片：完全不画图片，直接根据 Illustrator 描述的场景和动作制作短片。
+- **Pictures and clips**：图片仍然显示，只是短片从头像开始或不使用图片。
+- 未选择起始帧：短片不会专门为自己生成一张图片。**Pictures and clips** 把 Illustrator 刚生成的图片制作成动画，**Clips only** 则仅根据场景制作短片。
+
+没有自身图片的短片会描述它点名的所有人，包括用户角色。头像起始帧使用最先被点名的人。
+
+从消息重新运行 Illustrator（使用 **Illustrate** 按钮）也遵循 **Illustrator makes** 和 **First frame**：**Clips only** 会生成短片而不是图片；**Pictures and clips** 则可能在动作是场景重点时添加短片。
 
 ## NovelAI 中的多角色场景
 
@@ -92,9 +123,9 @@ Illustrator 卡片上有两项设置，能让角色形象保持一致。两项�
 
 Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是这个智能体的完整设置界面，在那里可以设置它默认的运行频率，也可以单独给它指定图像连接。
 
-每个 Roleplay 聊天都有自己的 **Run Interval**(运行间隔)，就在 **Chat Settings** 里的 Illustrator 卡片上。它的帮助文字是：“Messages between automatic images in this chat. 0 means only when you ask.”没有单独设置过的聊天会使用设置界面里的 **Run Interval**，没改过的话就是 **5**。卡片上会显示 **Using agent default** 或 **Chat override**。按 **Use agent default**(改用智能体默认值) 就能回到设置界面里的值。把 Illustrator 加入聊天时，添加窗口里也有同一个字段，你的选择只会保存到那个聊天。
+每个 Roleplay 聊天都有自己的 **Image Run Interval**(运行间隔)，就在 **Chat Settings** 里的 Illustrator 卡片上。它的帮助文字是：“Messages between automatic images in this chat. 0 means only when you ask.”没有单独设置过的聊天会使用设置界面里的 **Image Run Interval**，没改过的话就是 **5**。卡片上会显示 **Using agent default** 或 **Chat override**。按 **Use agent default**(改用智能体默认值) 就能回到设置界面里的值。把 Illustrator 加入聊天时，添加窗口里也有同一个字段，你的选择只会保存到那个聊天。
 
-把 **Run Interval** 设为 **0**，即可仅手动生成。这会停止 Illustrator 的自动运行，包括自动生成场景背景，但智能体仍保持安装，也仍可用于 Gallery 操作。设为正数即可恢复自动运行。
+把 **Image Run Interval** 设为 **0**，即可仅手动生成图片。这会停止 Illustrator 的自动图片生成，包括场景背景。使用 **Clips only** 时，要停止自动短片，应改为把 **Video Run Interval** 设为 **0**。智能体仍保持安装，也仍可用于 Gallery 操作。把图片间隔设为正数即可恢复自动图片生成。
 
 也可以不等它自己动手，随时手动出一张图。打开 **Chat Settings**，展开 **Gallery**，点 **Illustrate**(生成插图) 按钮，Illustrator 会立刻运行一次，出图期间按钮会显示 **Generating...**。想给眼下这一刻配张图、而智能体还没画的时候，这个按钮很好用。
 

@@ -270,7 +270,7 @@
 
 - **Фаза**: Post-Processing.
 - **Где работает**: Roleplay.
-- **Главные настройки**: по умолчанию запускается раз в 5 сообщений пользователя и ассистента, а в каждом чате Roleplay это можно изменить полем **Run Interval** (интервал запуска) на карточке агента. Среди настроек – **Prompt Model**, **Image Style**, **Attach Card Appearance** и **Send Avatar References**. О полной настройке читайте [Агент Illustrator](../media/illustrator-agent.md).
+- **Главные настройки**: по умолчанию Illustrator запускается раз в 5 сообщений пользователя и ассистента. Измените это полем **Image Run Interval** (интервал изображений) на его карточке в каждом чате Roleplay. Автоматические ролики используют **Video Run Interval** (интервал видео), когда **Illustrator makes** имеет значение **Pictures and clips** или **Clips only**. Задайте **Video Run Interval** значение **0**, чтобы отключить автоматические ролики. Среди настроек – **Prompt Model**, **Image Style**, **Attach Card Appearance** и **Send Avatar References**. О полной настройке читайте [Агент Illustrator](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 

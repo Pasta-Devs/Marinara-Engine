@@ -191,6 +191,8 @@ Game Mode 还有另一个生成场景视频的入口：**Game Assets**。点击�
 
 这一节还有 **Video Generation Prompt Overrides**，可以在里面编辑可复用的视频提示词模板。**Roleplay Gallery Animation Director** 控制的是：生成 Roleplay Gallery 短片之前，发给所选 Prompt Model 的那段指令。其中的 `${durationSeconds}` 变量会被替换成选定的短片时长。想改变短片的运动方式又不想碰代码，这就是进阶做法。
 
+**Videos per reply**(每条回复的视频数) 设置 Conversation 角色在一条回复中能主动发送多少条视频消息，以及 Illustrator 为一条 Roleplay 回复添加多少段短片。默认为 3，可以设为 1 到 10。每个 Conversation 角色最多发送一段。这项设置用于多个角色在同一条回复中作答的群聊，也适用于一次请求多个视频的情况。调高后，更多角色可以发送短片；调低可以节省视频请求，因为每段短片都算一次请求。超出上限的短片会跳过。`/video` 和 Gallery 的 **Video** 按钮不计入这个上限。
+
 同一节里还有 **Animated expression length**(动态表情时长) 设置。那属于另一个功能，也就是会动的角色立绘。相关内容见[动态表情](animated-expressions.md)。
 
 ## 分镜

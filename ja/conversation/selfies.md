@@ -114,6 +114,13 @@ Here is a picture from my walk!
 
 設定は、**Chat Settings**(チャット設定)、**Agents**、**Illustrator Settings**の**Video messages**(動画メッセージ)セクションで行います。
 
+- **Generated Videos**(自動動画)を使うと、会話に合う場面でキャラクターが自発的に動画メッセージを送れます。
+  - `/video`と同じく、直近の会話をもとにクリップの内容を書くため、依頼したクリップにその依頼内容が反映されます。
+  - 各クリップは動画リクエストになるため、新しいチャットではデフォルトでオフです。ここでオンにするか、設定プロファイルに保存して新しいチャットでオンにしてください。同じスイッチは、新規チャット設定とChat Settingsの**Commands**一覧に**Videos**として表示されます。
+  - **Video Run Interval**(オンにすると表示)で、これらのクリップの間に必要なメッセージ数を設定します。**0**で停止します。
+  - `/video`とGalleryの**Video**ボタンは、どちらの設定でも使え、間隔を無視します。
+  - クリップを送った返信をスワイプすると、新しいスワイプも独自のクリップを送れます。
+  - グループチャットでは各キャラクターが1返信につき1本送れます。上限は**Settings**、**Generations**、**Video Generation**の**Videos per reply**(デフォルト3)です。
 - **Video Connection**(動画の接続)では、Video Generationの接続を選びます。デフォルトの接続を使うなら、**Default video connection**のままにしておきます。接続の**Video Prompting Instructions**(動画プロンプトの作成指示)が、動画のプロンプトを書くAIへの指示になります。
 - **First frame**(最初のフレーム)では、クリップの始まりになる画像を選びます。
   - **New selfie, or the avatar if no selfie connection**(デフォルト)は、自撮り写真がオンで**Selfie Connection**が設定されていれば新しい自撮り写真を作り、そうでなければアバターを使います。

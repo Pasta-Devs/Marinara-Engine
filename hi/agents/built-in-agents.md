@@ -268,7 +268,7 @@ Misc एजेंट इमेज, म्यूज़िक, दर्शको�
 
 - **फ़ेज़**: Post-Processing।
 - **कहाँ चलता है**: Roleplay।
-- **मुख्य सेटिंग्स**: डिफ़ॉल्ट रूप से यह हर 5 यूज़र और असिस्टेंट संदेशों पर एक बार चलता है, और हर Roleplay चैट इसे Illustrator कार्ड के **Run Interval** (रन इंटरवल) से बदल सकती है। सेटिंग्स में **Prompt Model**, **Image Style**, **Attach Card Appearance** और **Send Avatar References** शामिल हैं। पूरे सेटअप के लिए देखें [Illustrator एजेंट](../media/illustrator-agent.md)।
+- **मुख्य सेटिंग्स**: Illustrator डिफ़ॉल्ट रूप से हर 5 यूज़र और असिस्टेंट संदेशों पर एक बार चलता है। हर Roleplay चैट में उसके कार्ड के **Image Run Interval** (इमेज का अंतराल) से इसे बदलें। **Illustrator makes** में **Pictures and clips** या **Clips only** होने पर अपने-आप बनने वाली क्लिप **Video Run Interval** (वीडियो का अंतराल) इस्तेमाल करती हैं। ऐसी क्लिप बंद करने के लिए **Video Run Interval** को **0** पर सेट करें। सेटिंग्स में **Prompt Model**, **Image Style**, **Attach Card Appearance** और **Send Avatar References** शामिल हैं। पूरे सेटअप के लिए देखें [Illustrator एजेंट](../media/illustrator-agent.md)।
 
 ### Lorebook Keeper
 

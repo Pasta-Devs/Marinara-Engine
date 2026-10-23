@@ -191,6 +191,8 @@ Game Mode 채팅을 처음 만들 때는 설정 마법사에도 **Video Generati
 
 이 항목에는 **Video Generation Prompt Overrides**도 있어서 재사용하는 동영상 프롬프트 틀을 편집할 수 있습니다. **Roleplay Gallery Animation Director**는 Roleplay의 **Gallery** 클립을 생성하기 전에 선택한 Prompt Model로 보내는 지시문을 관리합니다. 이 지시문의 `${durationSeconds}` 변수는 선택한 클립 길이로 바뀝니다. 코드를 건드리지 않고 클립의 움직임을 바꾸는 고급 방법입니다.
 
+**Videos per reply**(답변당 동영상 수)는 Conversation 캐릭터들이 답변 하나에서 스스로 보낼 수 있는 동영상 메시지 수와 Illustrator가 Roleplay 답변 하나에 추가하는 클립 수를 설정합니다. 기본값은 3이며 1부터 10까지 설정할 수 있습니다. Conversation 캐릭터 하나는 최대 하나만 보냅니다. 한 답변에서 여러 캐릭터가 대답하는 그룹 채팅이나 여러 동영상을 한 번에 요청할 때 쓰는 설정입니다. 더 많은 캐릭터가 클립을 보내게 하려면 값을 높이세요. 클립마다 동영상 요청이므로 요청을 아끼려면 낮추세요. 상한을 넘는 클립은 건너뜁니다. `/video`와 Gallery의 **Video** 버튼은 이 상한에 포함되지 않습니다.
+
 같은 항목에는 **Animated expression length**(애니메이션 표정 길이) 설정도 있습니다. 이 설정은 애니메이션 표정 스프라이트라는 별개의 기능에 속합니다. 자세한 내용은 [애니메이션 표정](animated-expressions.md)을 참고하세요.
 
 ## 스토리보드
