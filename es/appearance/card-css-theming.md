@@ -24,7 +24,7 @@ Das estilo a una tarjeta en dos lugares. Primero añades CSS a la tarjeta. Luego
 4. Abre **Chat Settings** (Ajustes del chat) y luego la sección **Card Theming**.
 5. Elige **Exclusive** o **Chat**. El modo empieza en **Disabled**.
 
-Deberías ver cómo los mensajes del personaje cambian de inmediato. El control **Card Theming** solo aparece cuando un personaje activo en ese chat tiene CSS en sus **Creator Notes**. El CSS de una persona por sí solo no hace que aparezca el control. Al menos un personaje del chat debe llevar su propio bloque `<style>`. Si no ves el control, comprueba que tu bloque `<style>` se guardó correctamente.
+Deberías ver cómo los mensajes del personaje cambian de inmediato. Los botones de modo de **Card Theming** (Disabled, Exclusive, Chat) solo aparecen cuando un personaje activo en ese chat tiene CSS en sus **Creator Notes**. En los chats de Roleplay, la sección siempre está presente, porque también contiene el interruptor **Color Character Names in Text** (colorear los nombres de personajes en el texto). El CSS de una persona por sí solo no hace que aparezcan los botones. Al menos un personaje del chat debe llevar su propio bloque `<style>`. Si no ves los botones, comprueba que tu bloque `<style>` se guardó correctamente.
 
 Aquí tienes un bloque inicial para pegar en **Creator Notes**:
 
@@ -210,7 +210,7 @@ El avatar es un círculo de forma predeterminada. Puedes cambiar su forma y pone
 
 En el modo Conversation, hacer clic en un avatar abre un panel emergente de perfil con el "about me" del personaje o de la persona. Puedes darle estilo con el mismo alcance `[data-card-css]`. Este panel emergente solo existe en el modo Conversation. No existe en roleplay ni en el juego. Envuelve estas reglas en `@chat-mode conversation` si también entregas CSS de roleplay o de juego. Tanto las tarjetas de personaje como las personas pueden dar estilo a su propio panel emergente desde sus **Creator Notes**.
 
-Una salvedad para las personas: el control **Card Theming** solo aparece cuando un personaje activo del chat tiene CSS en sus **Creator Notes**. El CSS solo de persona no hace que aparezca el control. Así que, para que el tema del panel emergente de una persona funcione, al menos un personaje del chat también debe llevar un bloque `<style>`.
+Una salvedad para las personas: los botones de modo de **Card Theming** solo aparecen cuando un personaje activo del chat tiene CSS en sus **Creator Notes**. El CSS solo de persona no hace que aparezcan. Así que, para que el tema del panel emergente de una persona funcione, al menos un personaje del chat también debe llevar un bloque `<style>`.
 
 | Selector | A qué apunta |
 | --- | --- |
@@ -228,7 +228,7 @@ Una salvedad para las personas: el control **Card Theming** solo aparece cuando 
 
 La tarjeta del panel emergente es el elemento de alcance. Apúntalo con `[data-card-css].mari-about-me-popout` (sin espacio, mismo elemento). Apunta a sus hijos con un selector de descendiente, como `[data-card-css] .mari-about-me-name`. En el modo **Chat** toda el área está acotada, así que puedes usar `.mari-about-me-name` directamente.
 
-Aquí tienes un panel emergente "about me" con estilo. Pégalo en las **Creator Notes** de un personaje o de una persona, y luego activa **Card Theming** en **Chat Settings**. Si lo pegas en una persona, recuerda la salvedad de arriba. Un personaje del chat también debe tener CSS en sus **Creator Notes**, o el control queda oculto.
+Aquí tienes un panel emergente "about me" con estilo. Pégalo en las **Creator Notes** de un personaje o de una persona, y luego activa **Card Theming** en **Chat Settings**. Si lo pegas en una persona, recuerda la salvedad de arriba. Un personaje del chat también debe tener CSS en sus **Creator Notes**, o los botones de modo quedan ocultos.
 
 ```html
 <style>

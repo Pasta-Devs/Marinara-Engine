@@ -24,7 +24,7 @@ Das Theming einer Karte passiert an zwei Stellen: Erst kommt das CSS in die Kart
 4. Öffne die **Chat Settings** (Chat-Einstellungen) und dort den Bereich **Card Theming**.
 5. Wähle **Exclusive** oder **Chat**. Der Modus steht anfangs auf **Disabled**.
 
-Die Nachrichten des Charakters sollten sich sofort verändern. Das Bedienelement **Card Theming** taucht erst auf, sobald ein aktiver Charakter in diesem Chat CSS in seinen **Creator Notes** hat. Persona-CSS allein bringt es nicht zum Vorschein. Mindestens ein Charakter im Chat braucht also einen eigenen `<style>`-Block. Fehlt das Bedienelement, prüfe zuerst, ob der `<style>`-Block wirklich gespeichert wurde.
+Die Nachrichten des Charakters sollten sich sofort verändern. Die Modus-Schaltflächen von **Card Theming** (Disabled, Exclusive, Chat) tauchen erst auf, sobald ein aktiver Charakter in diesem Chat CSS in seinen **Creator Notes** hat. In Roleplay-Chats ist der Bereich selbst immer vorhanden, weil er auch den Schalter **Color Character Names in Text** (Charakternamen im Text einfärben) enthält. Persona-CSS allein bringt die Schaltflächen nicht zum Vorschein. Mindestens ein Charakter im Chat braucht also einen eigenen `<style>`-Block. Fehlen die Schaltflächen, prüfe zuerst, ob der `<style>`-Block wirklich gespeichert wurde.
 
 Dieser Startblock lässt sich direkt in die **Creator Notes** einfügen:
 
@@ -210,7 +210,7 @@ Der Avatar ist standardmäßig rund. Form und Ring lassen sich rein mit CSS änd
 
 Im Conversation Mode öffnet ein Klick auf den Avatar ein Profil-Popout (kleines Einblendfenster) mit dem „about me“ des Charakters oder der Persona. Auch das lässt sich über denselben `[data-card-css]`-Scope gestalten. Dieses Popout gibt es ausschließlich im Conversation Mode, nicht in Roleplay oder Game. Packe diese Regeln in `@chat-mode conversation`, wenn du auch CSS für Roleplay oder Game mitlieferst. Sowohl Charakterkarten als auch Personas können ihr eigenes Popout aus den **Creator Notes** heraus gestalten.
 
-Bei Personas gibt es einen Haken: Das Bedienelement **Card Theming** erscheint nur, wenn ein aktiver Charakter im Chat CSS in seinen **Creator Notes** hat. CSS allein in der Persona bringt es nicht zum Vorschein. Damit das Popout-Theme einer Persona wirkt, braucht also mindestens ein Charakter im Chat ebenfalls einen `<style>`-Block.
+Bei Personas gibt es einen Haken: Die Modus-Schaltflächen von **Card Theming** erscheinen nur, wenn ein aktiver Charakter im Chat CSS in seinen **Creator Notes** hat. CSS allein in der Persona bringt sie nicht zum Vorschein. Damit das Popout-Theme einer Persona wirkt, braucht also mindestens ein Charakter im Chat ebenfalls einen `<style>`-Block.
 
 | Selektor | Worauf er wirkt |
 | --- | --- |
@@ -228,7 +228,7 @@ Bei Personas gibt es einen Haken: Das Bedienelement **Card Theming** erscheint n
 
 Die Popout-Karte ist das Scope-Element. Sprich sie mit `[data-card-css].mari-about-me-popout` an (ohne Leerzeichen, dasselbe Element). Ihre Kinder erreichst du über einen Nachfahren-Selektor, etwa `[data-card-css] .mari-about-me-name`. Im Modus **Chat** ist der gesamte Bereich eingegrenzt, dort genügt `.mari-about-me-name` direkt.
 
-Hier ein gestaltetes „about me“-Popout. Füge es in die **Creator Notes** eines Charakters oder einer Persona ein und aktiviere anschließend **Card Theming** in den **Chat Settings**. Bei einer Persona gilt der Haken von oben: Auch ein Charakter im Chat braucht CSS in seinen **Creator Notes**, sonst bleibt das Bedienelement verborgen.
+Hier ein gestaltetes „about me“-Popout. Füge es in die **Creator Notes** eines Charakters oder einer Persona ein und aktiviere anschließend **Card Theming** in den **Chat Settings**. Bei einer Persona gilt der Haken von oben: Auch ein Charakter im Chat braucht CSS in seinen **Creator Notes**, sonst bleiben die Modus-Schaltflächen verborgen.
 
 ```html
 <style>

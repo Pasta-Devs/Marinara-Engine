@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "b7e6b7fbf1cdd12e2f474fd8c44b84fe9ee58ff3",
+  "sourceCommit": "957cb117bae645e029dbeb00157b4df248053ece",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -79,8 +79,8 @@
     },
     {
       "path": "appearance/card-css-theming.md",
-      "sha256": "83f9001f482e3cee8a79a3aa519243575ec3da9aaa9506e5760115c60a755865",
-      "bytes": 28311
+      "sha256": "332a03f84f433440b5c4773636aeb11facb1885dd59f24e7dfcd7d51f5a05da5",
+      "bytes": 28555
     },
     {
       "path": "appearance/chat-backgrounds.md",
@@ -364,8 +364,8 @@
     },
     {
       "path": "development/ios-pwa-safe-area.md",
-      "sha256": "e70655f694cc63677a72978b97dac97a83b463334534a892e9d0e8b9238043b9",
-      "bytes": 7411
+      "sha256": "813d5a95b1345661656774966abf7d30a128a55efedc6d80943b85602263e182",
+      "bytes": 10472
     },
     {
       "path": "development/localization.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "8805c983d407180ab938c17fa137ccb688f9f41c550ad8b89965475e3ef36e4b",
-      "bytes": 126048
+      "sha256": "8f42fd4fc389b3156d6a0829c49825812fdad19486da7c49cf9e0d234790fe9d",
+      "bytes": 127164
     },
     {
       "path": "development/personal-extensions.md",

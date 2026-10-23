@@ -38,6 +38,21 @@ No agregues `interactive-widget=resizes-content` a la etiqueta viewport. En las 
 
 No puedes tener a la vez una barra de estado tipo cristal y una parte inferior rellena. En modo `black` la barra de estado es una barra oscura sólida. `black-translucent` da una parte superior transparente más bonita, pero hace imposible quitar la franja inferior. Esta es una limitación estricta de iOS.
 
+<a id="landscape-the-cameras-side-insets"></a>
+
+## Orientación horizontal: márgenes laterales de la cámara
+
+Cuando un iPhone se gira en horizontal, su cámara (la muesca o Dynamic Island) queda en el borde izquierdo o derecho. Con `viewport-fit=cover`, la página se extiende por debajo, e iOS indica ese espacio mediante `env(safe-area-inset-left)` y `env(safe-area-inset-right)`. En los modelos con Dynamic Island son unos 59px a cada lado, independientemente del sentido del giro. La aplicación de Marinara para Android (SDK de destino 34, sin diseño de borde a borde) se dispone fuera del recorte, por lo que ambos márgenes son 0. Otros navegadores de Android pueden indicar márgenes distintos de cero, por ejemplo en pantalla completa o de borde a borde, y las mismas variables los cubren.
+
+Marinara evita ese espacio del mismo modo que la franja de la barra de estado en vertical:
+
+- `packages/client/src/styles/globals.css` lee una sola vez los dos márgenes y los guarda en `--mari-safe-area-inset-left` y `--mari-safe-area-inset-right`, en `:root`. Todo lo demás lee estas variables, nunca `env()` directamente. `scripts/regressions/mobile-safe-area-inset.regression.ts` lo comprueba. Los diálogos, la omnibar, los editores de pantalla completa y los controles de TopBar conservan esta protección frente a la cámara y las esquinas redondeadas.
+- En iPhone, `AppShell.tsx` identifica el lado de la cámara a partir de `window.orientation` (o `screen.orientation.angle` si no está disponible). A 90°, la cámara está a la izquierda; a −90°/270°, a la derecha. Un atributo `data-mari-camera-side` en `<html>` permite que CSS ponga a cero solo el margen del **contenedor** del lado opuesto, `--mari-shell-inset-left` o `--mari-shell-inset-right`. Los giros desconocidos, iPad y Android conservan los márgenes del sistema.
+- En el contenedor del teléfono, `.mari-app` toma `left` y `right` de las variables del contenedor. El fondo de la página del cuerpo se muestra sobre la cámara, del mismo color que la franja de la barra de estado en vertical, sin un margen reflejado en el borde opuesto.
+- Los elementos fijos dentro del contenedor se posicionan respecto a la pantalla, no al contenedor, de modo que evitan ese espacio por sí mismos. Los paneles del teléfono y sus fondos en `AppShell.tsx` usan `MOBILE_SHELL_PANEL_X_CLASS` con las variables del contenedor. Los adornos, como sus estrellas, son `absolute` y permanecen dentro.
+
+Para comprobarlo sin un teléfono, abre un área visible táctil de 874×402 y pon ambas variables en `59px` con una regla `:root` de la hoja de estilos (los estilos en línea prevalecen sobre el selector del lado de la cámara). En Chromium también puedes emular los márgenes reales con el comando del protocolo de DevTools `Emulation.setSafeAreaInsetsOverride`. `e2e/phone-camera-side.e2e.ts` comprueba ambas direcciones de giro, las API de orientación antigua y nueva, los giros desconocidos y otros dispositivos. La prueba e2e "a phone turned sideways keeps the app out from under its camera" comprueba la alternativa que conserva ambos márgenes.
+
 ## Cómo se diagnosticó
 
 La franja se rastreó coloreando cada capa y volviendo a abrir la app. Inyecta los estilos de diagnóstico en `packages/client/dist/index.html`, dentro de su bloque `<style>` en línea. El service worker no guarda ese archivo en caché y siempre se sirve recién generado. Los cambios aparecen la próxima vez que abres la app, sin necesidad de limpiar la caché.

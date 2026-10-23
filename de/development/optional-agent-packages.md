@@ -754,8 +754,6 @@ Die Browseransicht erhält `openCharacter(characterId, { tab })`. Sie öffnet de
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
 ```
 
-<a id="capability-api-150-professor-mari-actions"></a>
-
 ### Capability API 1.66: Szenen aus Paket-Threads
 
 Eine Roleplay-Szene verzweigt normalerweise aus einer Conversation (`/scene`). Ein Paket mit der neuen Berechtigung `scenes` kann stattdessen seine eigenen Threads, etwa einen Thread mit Direktnachrichten, zum Ursprung machen. Die Szene ist ein gewöhnlicher Szenen-Chat: derselbe Planer, derselbe Dialog für Prompt-Vorlieben, dieselben Szenenanweisungen, dieselben Bedienelemente End Scene, Discard und Convert und dasselbe Charaktergedächtnis, wenn sie abgeschlossen wird. Das Paket besitzt die Seite des Threads: was der Planer liest, die Sperre, solange die Szene läuft, und was mit der Zusammenfassung geschieht.
@@ -800,6 +798,20 @@ Wissenswerte Regeln:
 - Die Engine schreibt bei einem Paket-Ursprung nichts in eine Conversation. Das Charaktergedächtnis wird beim Abschluss genau wie bei einer Szene aus einer Conversation gespeichert.
 
 `scenes` wird in einem Manifest abgelehnt, das eine `capabilityApi` älter als 1.66 deklariert.
+
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376: Vollbild im Home-Browser
+
+Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscreen`:
+
+- `active`: ob dieses Paket gerade den Inhaltsbereich des Home-Browsers ausfüllt.
+- `setActive(boolean)`: Vollbild für dieses aktive Paket ein- oder ausschalten.
+- `enterLabel` und `exitLabel`: lokalisierte barrierefreie Beschriftungen für den Schalter.
+
+Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Aktionen für Professor Mari
 

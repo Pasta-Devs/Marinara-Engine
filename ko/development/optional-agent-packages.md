@@ -794,6 +794,18 @@ export async function activate({ api }) {
 
 `capabilityApi`를 1.66보다 오래된 버전으로 선언한 매니페스트에서는 `scenes`를 거부합니다.
 
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376: Home 브라우저 전체 화면
+
+`home-browser-tab` 뷰는 `capabilityProps.browserFullscreen`을 받습니다.
+
+- `active`: 현재 이 패키지가 Home 브라우저 콘텐츠 영역 전체를 채우는지 여부입니다.
+- `setActive(boolean)`: 이 활성 패키지의 전체 화면을 켜거나 끕니다.
+- `enterLabel`과 `exitLabel`: 토글에 사용할 현지화된 접근성 레이블입니다.
+
+앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mari 동작

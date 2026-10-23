@@ -38,6 +38,21 @@ viewport 태그에 `interactive-widget=resizes-content`를 추가하지 마세�
 
 투명한 상태 표시줄과 빈틈 없는 하단을 동시에 얻을 수는 없습니다. `black` 모드의 상태 표시줄은 어두운 단색 막대입니다. `black-translucent`는 위쪽이 투명해서 더 보기 좋지만, 대신 하단의 띠를 없앨 방법이 사라집니다. iOS 자체의 제약이라 우회할 수 없습니다.
 
+<a id="landscape-the-cameras-side-insets"></a>
+
+## 가로 방향: 카메라 쪽 여백
+
+iPhone을 가로로 돌리면 카메라(노치 또는 Dynamic Island)가 왼쪽이나 오른쪽 가장자리에 놓입니다. `viewport-fit=cover`에서는 페이지가 그 아래까지 확장되며, iOS는 해당 공간을 `env(safe-area-inset-left)`와 `env(safe-area-inset-right)`로 알립니다. Dynamic Island 모델에서는 회전 방향에 관계없이 양쪽이 약 59px입니다. Marinara의 Android 앱(대상 SDK 34, 에지 투 에지 아님)은 카메라 컷아웃을 피해 배치되므로 두 여백이 모두 0입니다. 다른 Android 브라우저에서는 전체 화면이나 에지 투 에지 등에서 0이 아닌 값을 알릴 수 있으며, 같은 변수가 이를 처리합니다.
+
+Marinara는 세로 방향의 상태 표시줄 띠와 같은 방식으로 이 공간을 피합니다.
+
+- `packages/client/src/styles/globals.css`는 두 여백을 한 번 읽어 `:root`의 `--mari-safe-area-inset-left`와 `--mari-safe-area-inset-right`에 저장합니다. 나머지는 모두 이 변수를 읽고 `env()`를 직접 읽지 않습니다. `scripts/regressions/mobile-safe-area-inset.regression.ts`가 이 규칙을 검사합니다. 대화 상자, omnibar, 전체 화면 편집기와 TopBar 컨트롤은 카메라와 둥근 모서리에 대한 이 보호를 유지합니다.
+- iPhone에서는 `AppShell.tsx`가 `window.orientation`(사용할 수 없으면 `screen.orientation.angle`)으로 카메라 쪽을 식별합니다. 90°에서는 왼쪽, −90°/270°에서는 오른쪽입니다. `<html>`의 `data-mari-camera-side` 속성으로 CSS가 반대쪽 **셸** 여백인 `--mari-shell-inset-left` 또는 `--mari-shell-inset-right`만 0으로 설정할 수 있습니다. 알 수 없는 회전, iPad와 Android에서는 시스템 여백을 유지합니다.
+- 휴대폰 셸에서 `.mari-app`은 셸 변수로부터 `left`와 `right` 값을 가져옵니다. 카메라 위에는 세로 방향의 상태 표시줄 띠와 같은 색으로 body의 페이지 배경이 표시되며, 반대쪽 가장자리에는 대칭인 빈 여백이 생기지 않습니다.
+- 셸 안의 고정 요소는 셸이 아니라 화면을 기준으로 배치되므로 스스로 해당 공간을 피합니다. `AppShell.tsx`의 휴대폰 시트와 배경은 셸 변수와 함께 `MOBILE_SHELL_PANEL_X_CLASS`를 사용합니다. 셸의 별 같은 장식은 `absolute`이므로 셸 안에 머뭅니다.
+
+휴대폰 없이 확인하려면 874×402 터치 뷰포트를 열고 스타일시트의 `:root` 규칙에서 두 변수를 `59px`로 설정하세요(인라인 스타일은 카메라 쪽 선택자보다 우선합니다). Chromium에서는 DevTools Protocol 명령 `Emulation.setSafeAreaInsetsOverride`로 실제 여백을 에뮬레이션할 수도 있습니다. `e2e/phone-camera-side.e2e.ts`는 양쪽 회전 방향, 이전 및 새 방향 API, 알 수 없는 회전과 다른 기기를 검사합니다. e2e 테스트 "a phone turned sideways keeps the app out from under its camera"는 양쪽 여백을 유지하는 폴백을 검사합니다.
+
 ## 원인을 찾은 방법
 
 각 레이어에 색을 입히고 앱을 다시 여는 방식으로 띠의 정체를 추적했습니다. 진단용 스타일은 `packages/client/dist/index.html`의 인라인 `<style>` 블록 안에 넣으세요. 이 파일은 서비스 워커가 캐시하지 않고 항상 새로 다운로드합니다. 캐시를 비우지 않아도 다음에 앱을 열면 변경이 반영됩니다.

@@ -751,8 +751,6 @@ La vue du navigateur reçoit `openCharacter(characterId, { tab })`. Elle ouvre l
 if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
 ```
 
-<a id="capability-api-150-professor-mari-actions"></a>
-
 ### Capability API 1.66 : scènes depuis les fils d'un package
 
 Une scène de roleplay part en général d'une Conversation (`/scene`). Un package qui détient la nouvelle permission `scenes`
@@ -825,6 +823,20 @@ Règles à connaître :
   la conclusion exactement comme pour une scène de Conversation.
 
 `scenes` est refusé sur un manifeste qui déclare un `capabilityApi` antérieur à 1.66.
+
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376 : plein écran du navigateur Home
+
+Une vue `home-browser-tab` reçoit `capabilityProps.browserFullscreen` :
+
+- `active` : indique si ce paquet occupe actuellement la zone de contenu du navigateur Home.
+- `setActive(boolean)` : active ou quitte le plein écran pour ce paquet actif.
+- `enterLabel` et `exitLabel` : libellés accessibles localisés du bouton.
+
+Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse et les favoris de Home sont masqués, tandis que la barre supérieure d'Engine reste disponible. Il n'appelle pas l'API Fullscreen du navigateur et ne nécessite pas sa prise en charge. Cet état est temporaire et se réinitialise quand on quitte le paquet ou Home. Garde un bouton de sortie sur chaque écran du paquet et utilise `aria-pressed` pour refléter `active`. Les mises à jour des propriétés doivent actualiser le bouton sans remplacer les formulaires inachevés. Les paquets qui dépendent de cette commande déclarent Capability API 1.376 ou une version ultérieure ; les anciens peuvent garder leurs dispositions actuelles.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50 : actions de Professor Mari
 
