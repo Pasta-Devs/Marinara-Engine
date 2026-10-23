@@ -82,7 +82,7 @@ Escolha uma das soluções:
 2. Instale o pnpm por conta própria. Rode este comando e depois rode o inicializador de novo:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. Atualize o corepack em um terminal de administrador e rode o inicializador de novo:
@@ -98,19 +98,19 @@ Na versão 2.3.0, Marinara conseguia iniciar o pnpm pelo Corepack e depois falha
 Se o próprio checkout não conseguir atualizar, rode `git pull` na pasta do Marinara e inicie de novo. Como solução temporária na versão 2.3.0, instale globalmente a versão fixada do gerenciador de pacotes, rode o inicializador outra vez e depois atualize normalmente:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### Transição do gerenciador de pacotes do inicializador
 
-O Marinara fixa o pnpm 10.34.7. Um inicializador existente com a versão 10.33.2 ou 10.34.5 consegue concluir a transição na mesma execução; depois disso, o inicializador atualizado seleciona a 10.34.7 nas próximas inicializações. O Corepack verifica a versão pelo resumo SHA-512 fixado no `package.json`, e a alternativa pelo npm também solicita exatamente a 10.34.7.
+O Marinara usa pnpm 12.15.0. Atualize o Engine e execute `start.bat`, `start.sh` ou `start-termux.sh` novamente. O inicializador obtém a versão necessária para você; não é preciso substituir uma versão global antiga do pnpm antes. Se ainda falhar, instale a versão exata com o comando abaixo e execute o inicializador novamente.
 
 Se uma compilação staging anterior da v2.4.1 já parou com `Expected version: >=10.34.5` e `Got: 10.33.2`, execute o inicializador mais uma vez; aquela compilação baixou o inicializador atualizado antes de parar. Se ele ainda não conseguir obter automaticamente a versão fixada, instale a versão exata e execute novamente:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG durante a instalação

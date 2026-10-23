@@ -66,12 +66,13 @@ globalThis.__MARINARA_HOST__ = {
 
 包只有先检查过某个成员，才会读取它，例如 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`。命名空间只增不减：新成员会随一个 Capability API 次版本号一起加入，需要它的包就要求这个次版本号。为命名空间构建的包要求引入它的那个 Capability API 版本，所以旧版 Engine 永远不会安装它们，而是保留已有的版本。如果某个成员仍然缺失，包也绝不会回退到自己打包的有状态 Engine 服务副本：`ui` 和 `chat` store 会变成从不写入的只读副本，其他所有成员则提示该功能需要更新版本的 Marinara Engine。
 
-**宿主模块。** `modules[specifier]` 与 Engine 自身构建中 `import * as m from "<specifier>"` 返回的内容完全相同，库有 `default` 时也包括它。这些说明符是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`tailwind-merge` 和 `clsx`。包构建会把这些说明符解析为读取命名空间的垫片（shim），所以包用 Engine 唯一的那份 React 渲染，并共享它的 React Query 缓存和 toast 提示。
+**宿主模块。** `modules[specifier]` 是完整的模块命名空间，库有 `default` 时也包括它。客户端契约中的 `MARINARA_HOST_MODULE_IMPORTS` 把每个公开槽位映射到它导入的依赖。大多数槽位映射到同名依赖。稳定的 `framer-motion` 槽位映射到 `framer-motion-v13`（精确指定 Motion 13.5.1 的 npm 别名），可选的 `motion/react` 槽位则映射到 Engine 的主要依赖 `framer-motion` 14。包工具在导出清单和 TypeScript 路径中都使用这个映射；公开槽位名称不一定是实际依赖的名称。这些说明符是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`motion/react`、`tailwind-merge` 和 `clsx`。包构建会把这些说明符解析为读取命名空间的垫片（shim），所以包用 Engine 唯一的那份 React 渲染，并共享它的 React Query 缓存和 toast 提示。
 
 - 包绝不渲染 `<Toaster>`，也绝不创建 `QueryClient`。来自 `sonner` 的 `toast` 会显示在用户设定的提示位置。除非查询设置了自己的选项，否则沿用 Engine 的查询默认值（30 秒的 `staleTime`、重试一次、窗口获得焦点时不重新拉取）；包新建的查询键以包 ID 开头。
 - 包在 `<I18nextProvider>` 内使用自己通过 `i18next.createInstance()` 创建的 i18next 实例。它绝不使用 `initReactI18next`、`setI18n` 或 `setDefaults`，因为这些会替换掉 Engine 的实例。
 - `lucide-react`、`chess.js`、`scheduler` 和 `@marinara-engine/shared` 不是宿主模块；包自行打包其中用到的部分。
-- 包针对这些主版本构建：`react` 19、`react-dom` 19、`@tanstack/react-query` 5、`zustand` 5、`sonner` 2、`zod` 3、`i18next` 26、`react-i18next` 17、`framer-motion` 13、`tailwind-merge` 3 和 `clsx` 2。Engine 里其中任何一个升级主版本（首先是 React），都会让所有针对旧主版本构建的包失效，所以需要升级 Capability API 的**主版本**。如果 `packages/client/package.json` 里的某个主版本变了而契约没变，`scripts/regressions/marinara-host-namespace.regression.ts` 就会失败。
+- 包针对这些主版本构建：`react` 19、`react-dom` 19、`@tanstack/react-query` 5、`zustand` 5、`sonner` 2、`zod` 3、`i18next` 26、`react-i18next` 17、`framer-motion` 13、`motion` 14（`motion/react` 槽位）、`tailwind-merge` 3 和 `clsx` 2。替换现有公开槽位背后的主版本，需要升级 Capability API 的**主版本**。新增独立槽位属于增量变更：Capability API 1.377 添加 `motion/react`，不会改变 `framer-motion`。`scripts/regressions/marinara-host-namespace.regression.ts` 固定了每个槽位映射的依赖及其主版本。
+- 已安装的包保留完整的 Motion 13 命名空间，不需要重新构建。选择 Motion 14 的包通过宿主垫片导入 `motion/react`，并声明要求 Capability API 1.377 或更新版本。旧宿主会拒绝这个声明，而不是悄悄用 Motion 13 替代。每棵动画树都应只使用一个版本：`AnimatePresence`、`MotionConfig`、`LayoutGroup`、Motion 值及其使用方必须来自同一槽位。两个版本的上下文不同，不提供上下文桥接。包视图挂载自己的 React 根节点，宿主的 `Modal` 则使用 CSS 动画。不要期待跨版本边界共享布局或入场、退场状态。
 
 **包读取的 store 字段。** 已发布的包目前会读取下面这些字段。Engine 会保留每一个字段，删除或重命名其中任何一个都需要升级 Capability API 主版本（`MARINARA_HOST_STORE_FIELDS` 用 `Pick<>` 固定了它们）：
 

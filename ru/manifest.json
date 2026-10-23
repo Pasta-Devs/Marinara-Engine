@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "957cb117bae645e029dbeb00157b4df248053ece",
+  "sourceCommit": "22124bd23da35f6ae0b29cb7625cdaaa768137f2",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "f9e40c0627e3e6159eb99346e121705ae46c3752133c8f8464d468e4b0602d00",
-      "bytes": 94423
+      "sha256": "da22bac06a8cf6c3f5395895830a45c1d8b5c80f5a7dceec03ca93e09cd845dc",
+      "bytes": 94373
     },
     {
       "path": "UPGRADING.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "a26056f7ae4fcf85c97e84c0ac0b5bfa6b68267baa60c3fd45a6d9259f9b23f2",
-      "bytes": 198850
+      "sha256": "d98e4b515722fc4d26a6c76ee391febc3f20ed003f0eef24205c3109c59b59c1",
+      "bytes": 200922
     },
     {
       "path": "development/personal-extensions.md",

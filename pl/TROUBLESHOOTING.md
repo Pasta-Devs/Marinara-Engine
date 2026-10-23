@@ -82,7 +82,7 @@ Wybierz jedno z rozwiązań:
 2. Zainstaluj pnpm samodzielnie. Wykonaj to polecenie, a potem uruchom program uruchamiający ponownie:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. Zaktualizuj corepack w terminalu administratora, a potem uruchom program uruchamiający ponownie:
@@ -98,19 +98,19 @@ Marinara v2.3.0 potrafiła uruchomić pnpm przez Corepack, a mimo to przerywała
 Jeśli sama kopia repozytorium nie potrafi się zaktualizować, wykonaj `git pull` w folderze aplikacji Marinara Engine i uruchom ją ponownie. Jako tymczasowe obejście w wersji v2.3.0 zainstaluj globalnie przypiętą wersję menedżera pakietów, uruchom program uruchamiający ponownie, a potem zaktualizuj aplikację w zwykły sposób:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### Przekazanie menedżera pakietów przez program uruchamiający
 
-Marinara przypina pnpm 10.34.7. Istniejący program uruchamiający z wersją 10.33.2 lub 10.34.5 może dokończyć przekazanie w tym samym uruchomieniu; od kolejnych startów odświeżony program wybiera 10.34.7. Corepack weryfikuje wydanie za pomocą skrótu SHA-512 przypiętego w `package.json`, a awaryjna ścieżka przez npm również żąda dokładnie 10.34.7.
+Marinara używa pnpm 12.15.0. Zaktualizuj Engine, a potem uruchom ponownie `start.bat`, `start.sh` lub `start-termux.sh`. Program uruchamiający pobierze wymaganą wersję; nie musisz najpierw zastępować starszej, globalnej instalacji pnpm. Jeśli nadal się nie uda, zainstaluj dokładną wersję poleceniem poniżej i uruchom program uruchamiający ponownie.
 
 Jeśli wcześniejsza kompilacja staging v2.4.1 zatrzymała się już z komunikatami `Expected version: >=10.34.5` oraz `Got: 10.33.2`, uruchom program ponownie — przed zatrzymaniem tamta kompilacja pobrała jego odświeżoną wersję. Jeśli nadal nie może automatycznie pobrać przypiętego wydania, zainstaluj dokładną wersję i spróbuj ponownie:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG podczas instalacji

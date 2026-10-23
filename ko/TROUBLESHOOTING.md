@@ -82,7 +82,7 @@ pnpm은 Marinara가 코드를 설치할 때 쓰는 패키지 관리자입니다.
 2. pnpm을 직접 설치하세요. 다음 명령을 실행한 뒤 런처를 다시 실행하세요.
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. 관리자 권한 터미널에서 corepack을 업데이트한 다음 런처를 다시 실행하세요.
@@ -98,19 +98,19 @@ Marinara v2.3.0은 Corepack으로 pnpm을 실행하는 데까지는 성공했지
 체크아웃 자체가 업데이트되지 않으면 Marinara 폴더에서 `git pull`을 실행한 다음 다시 시작하세요. v2.3.0을 그대로 쓴다면 임시 방편으로 고정된 버전의 패키지 관리자를 전역 설치하고, 런처를 다시 실행한 뒤 평소대로 업데이트하세요.
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### 런처의 패키지 관리자 전환
 
-Marinara는 pnpm 10.34.7을 고정합니다. 기존 10.33.2 또는 10.34.5 런처는 같은 실행에서 전환을 마칠 수 있으며, 업데이트된 런처는 이후 시작할 때 10.34.7을 선택합니다. Corepack은 `package.json`에 고정된 SHA-512 다이제스트로 릴리스를 검증하며 npm 대체 경로도 정확히 10.34.7을 요청합니다.
+Marinara는 pnpm 12.15.0을 사용합니다. Engine을 업데이트한 다음 `start.bat`, `start.sh` 또는 `start-termux.sh`를 다시 실행하세요. 런처가 필요한 버전을 가져오므로 이전에 전역으로 설치한 pnpm을 먼저 바꿀 필요는 없습니다. 그래도 실패하면 아래 명령으로 정확히 해당 버전을 설치한 후 런처를 다시 실행하세요.
 
 이전 v2.4.1 staging 빌드가 이미 `Expected version: >=10.34.5`와 `Got: 10.33.2`에서 중단되었다면 런처를 한 번 더 실행하세요. 그 빌드는 중단되기 전에 새 런처를 내려받았습니다. 런처가 여전히 고정 릴리스를 자동으로 가져오지 못하면 정확한 버전을 설치한 뒤 다시 실행하세요.
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux: 설치 중 ERR_PNPM_ENAMETOOLONG

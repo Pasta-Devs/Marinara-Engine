@@ -82,7 +82,7 @@ pnpm 是 Marinara 用来安装自身代码的包管理器。如果看到 `EPERM:
 2. 自己安装 pnpm。运行下面这条命令，再重新运行启动脚本：
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. 在管理员终端里更新 corepack，然后重新运行启动脚本：
@@ -98,19 +98,19 @@ Marinara v2.3.0 能通过 Corepack 正常启动 pnpm，却会在构建 shared �
 如果仓库本身没法更新，在 Marinara 文件夹里运行 `git pull` 再启动。在 v2.3.0 上还可以临时这样绕过：全局安装指定版本的包管理器，重新运行启动脚本，然后照常更新：
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### 启动器的包管理器交接
 
-Marinara 固定使用 pnpm 10.34.7。现有的 10.33.2 或 10.34.5 启动器可以在同一次运行中完成交接；更新后的启动器会在后续启动时选择 10.34.7。Corepack 会根据 `package.json` 中固定的 SHA-512 摘要验证版本，npm 后备路径也明确请求 10.34.7。
+Marinara 使用 pnpm 12.15.0。更新 Engine，然后重新运行 `start.bat`、`start.sh` 或 `start-termux.sh`。启动器会获取所需版本，无需先替换旧的全局 pnpm。如果仍然失败，请使用下面的命令安装指定版本，然后重新运行启动器。
 
 如果早期的 v2.4.1 staging 构建已经因 `Expected version: >=10.34.5` 和 `Got: 10.33.2` 而停止，请再运行一次启动器；该构建在停止前已经下载了刷新后的启动器。如果启动器仍无法自动获取固定版本，请安装准确版本后重新运行：
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux：安装过程中出现 ERR_PNPM_ENAMETOOLONG
