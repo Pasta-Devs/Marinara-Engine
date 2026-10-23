@@ -68,6 +68,14 @@ W sekcji **Agents** jest jeszcze kilka opcji:
 - **Review Agent Outputs**: po włączeniu zmiany w lorebooku, podsumowaniu i karcie postaci czekają na twoje zatwierdzenie przed zapisem. Po wyłączeniu zmiany w lorebooku i podsumowaniu zapisują się same, ale zmiany w karcie postaci nadal wymagają wcześniejszego potwierdzenia. Zobacz [Zatwierdzanie zapisów agentów i Agent Suite](approvals-and-agent-suite.md). W czatach Roleplay ta opcja znajduje się w karcie **Trackers Control**.
 - **Agent Suite**: otwiera podgląd, w którym można przeczytać i zmienić wszystko, co agenci zapisali dla tego czatu.
 
+<a id="a-reference-lorebook-for-one-agent"></a>
+
+### Lorebook referencyjny dla jednego agenta
+
+W panelu **Chat Settings** otwórz **Agents**, a potem ustawienia agenta piszącego, śledzącego lub niestandardowego. Opcja **Attach lorebook for the specific agent** (dołącz lorebook dla tego agenta) jest domyślnie wyłączona. Włącz ją, aby pokazać pole **Reference lorebook** (lorebook referencyjny) i wybrać jedną książkę. Wybór dotyczy tego agenta w tym czacie; nie zmienia globalnej definicji agenta ani innych czatów.
+
+Pasujące wpisy podlegają zwykłym regułom wyzwalania lorebooków i trafiają do tego agenta jako kontekst referencyjny, także przy ręcznych ponowieniach. Dołączenie książki nie aktywuje jej dla głównej odpowiedzi ani niezwiązanych agentów. Agenci korzystający ze wspólnego grupowego wywołania modelu mogą zobaczyć kontekst referencyjny w tym wywołaniu. Wyłączenie opcji zatrzymuje dostarczanie wpisów; niedostępne lub usunięte książki nie dostarczają żadnych. Istniejące ustawienia źródeł niestandardowych agentów pozostają dostępne niezależnie.
+
 ### Ostrzeżenie o koszcie
 
 Agenci kosztują dodatkowe tokeny, czyli małe kawałki tekstu, oraz dodatkowe wywołania modelu. Każdy agent dokłada własne instrukcje, a często też własne wywołanie modelu. Marinara łączy agentów korzystających z tego samego połączenia w jedno wywołanie, o ile to możliwe. Nad listą agentów widnieje odczyt z szacunkowym obciążeniem przy obecnych ustawieniach. Pokazuje on w przybliżeniu, ile tokenów instrukcji agentów doszło i ile dodatkowych wywołań przypada na turę.

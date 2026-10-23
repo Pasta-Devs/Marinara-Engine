@@ -68,6 +68,14 @@ La sección **Agents** tiene algunos controles más:
 - **Review Agent Outputs**: cuando está activado, los cambios en el lorebook, el resumen y la tarjeta de personaje esperan tu aprobación antes de guardarse. Cuando está apagado, los cambios en el lorebook y el resumen pueden guardarse por su cuenta, pero las ediciones de la tarjeta de personaje siguen preguntándote primero. Consulta [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md). En los chats de Roleplay, está dentro de **Trackers Control**.
 - **Agent Suite**: abre un visor donde puedes leer y editar todo lo que los agentes han guardado para este chat.
 
+<a id="a-reference-lorebook-for-one-agent"></a>
+
+### Un lorebook de referencia para un agente
+
+En **Chat Settings**, abre **Agents** y después los ajustes del agente de escritura, de seguimiento o personalizado. **Attach lorebook for the specific agent** (adjuntar un lorebook para este agente) está desactivado al principio. Actívalo para mostrar **Reference lorebook** (lorebook de referencia) y elegir un libro. La selección pertenece a este agente en este chat; no cambia su definición global ni otros chats.
+
+Las entradas coincidentes siguen las reglas de activación habituales de los lorebooks y se proporcionan como contexto de referencia para ese agente, también en los reintentos manuales. Adjuntar el libro no lo activa para la respuesta principal ni para otros agentes. Los agentes que comparten una llamada agrupada al modelo pueden ver el contexto de referencia de esa llamada. Al desactivar la opción deja de aportar entradas; los libros no disponibles o eliminados no aportan ninguna. Los ajustes de fuentes que ya tengan los agentes personalizados siguen disponibles de forma independiente.
+
 ### La advertencia de costo
 
 Los agentes cuestan tokens (fragmentos de texto) adicionales y llamadas al modelo adicionales. Cada agente añade sus propias instrucciones, y a menudo su propia llamada al modelo. Marinara agrupa en una sola llamada los agentes que comparten la misma conexión cuando puede. Encima de la lista de agentes, un indicador estima la carga para tu configuración actual. Muestra aproximadamente cuántos tokens de instrucciones de agente añadiste y aproximadamente cuántas llamadas adicionales ocurren por turno.

@@ -66,6 +66,14 @@ Der Abschnitt **Agents** bietet noch ein paar weitere Bedienelemente:
 - **Review Agent Outputs**: Ist das aktiv, warten Änderungen an Lorebook, Zusammenfassung und Charakterkarte auf deine Freigabe, bevor sie gespeichert werden. Ist die Option aus, speichern sich Lorebook- und Zusammenfassungs-Änderungen selbst – Bearbeitungen an der Charakterkarte fragen aber weiterhin bei dir nach. Mehr dazu unter [Agent-Freigaben und die Agent Suite](approvals-and-agent-suite.md). In Roleplay-Chats steckt die Option in **Trackers Control**.
 - **Agent Suite**: öffnet eine Ansicht, in der du alles lesen und bearbeiten kannst, was die Agenten für diesen Chat gespeichert haben.
 
+<a id="a-reference-lorebook-for-one-agent"></a>
+
+### Ein Referenz-Lorebook für einen Agenten
+
+Öffne in **Chat Settings** den Abschnitt **Agents** und dann die Einstellungen des schreibenden, nachverfolgenden oder eigenen Agenten. **Attach lorebook for the specific agent** (Lorebook für diesen Agenten anhängen) ist anfangs aus. Schalte es ein, um **Reference lorebook** (Referenz-Lorebook) einzublenden und ein Buch zu wählen. Die Auswahl gehört zu diesem Agenten in diesem Chat; sie ändert weder seine globale Definition noch andere Chats.
+
+Passende Einträge folgen den normalen Lorebook-Auslöseregeln und werden diesem Agenten als Referenzkontext übergeben, auch bei manuellen Wiederholungen. Die Verknüpfung aktiviert das Buch nicht für die Hauptantwort oder unbeteiligte Agenten. Agenten, die einen gebündelten Modellaufruf teilen, können den Referenzkontext dieses Aufrufs sehen. Schaltest du die Verknüpfung aus, liefert sie keine Einträge mehr; nicht verfügbare oder gelöschte Bücher liefern keine. Bestehende Quellen-Einstellungen eigener Agenten bleiben unabhängig davon verfügbar.
+
 ### Der Kostenhinweis
 
 Agenten kosten zusätzliche Tokens und zusätzliche Modellaufrufe – ein Token ist ein kleines Textstück. Jeder Agent bringt eigene Anweisungen mit, oft auch einen eigenen Modellaufruf. Wo möglich, bündelt Marinara Agenten mit derselben Verbindung in einem einzigen Aufruf. Über der Agentenliste schätzt eine Anzeige die Last deiner aktuellen Auswahl. Sie nennt ungefähr, wie viele Tokens an Agent-Anweisungen dazukommen und wie viele zusätzliche Aufrufe pro Zug anfallen.
