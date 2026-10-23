@@ -254,7 +254,7 @@ SunoAPI 音乐需要一个公开的 HTTPS 回调地址，用来接收完成通�
 
 音乐风格提示词最多 1,000 个字符，音效提示词最多 500 个字符。每次新请求都可能产生服务商费用。账号要求见[音乐 API](https://docs.sunoapi.org/suno-api/generate-music)和[音效 API](https://docs.sunoapi.org/suno-api/generate-sounds)。SunoAPI 音效尚未使用付费账号验证。
 
-升级时，每个已启用生成的 Audio 连接都会新增一个单独的 Music & Sound Effects 连接。旧版独立的 ElevenLabs Game 设置也可能创建自己的连接，因此可能出现多个连接。原来的语音连接和声音分配保持不变。已保存的 Game 选择会保留，并在有对应迁移连接时使用它；如果存在多个连接，检查 **Defaults** 下 Music & Sound Effects 的默认连接和回退连接。删除迁移后的生成连接，不会在重启时重新创建它。从方案恢复的端点在本地检查并保存之前不可用。
+升级时，每个已启用生成的 Audio 连接都会新增一个单独的 Music & Sound Effects 连接。旧版独立的 ElevenLabs Game 设置也可能创建自己的连接，因此可能出现多个连接。原来的语音连接和声音分配保持不变。已保存的 Game 连接 ID 不变。只有对应迁移连接可用，且已启用本次请求所需的音乐或音效生成时，才能生成；否则，选择另一个合适的 Music & Sound Effects 连接。如果存在多个连接，检查 **Defaults** 下 Music & Sound Effects 的默认连接和回退连接。删除迁移后的生成连接，不会在重启时重新创建它。从方案恢复的端点在本地检查并保存之前不可用。
 
 按游戏单独启用 Game 生成音频，或在 Roleplay 的命令设置中启用 **Sound effects**(音效)，以使用 `[sound: description]`。Gacha Forge 有自己的生成音频设置和连接选择。关闭生成时，Game 自带的音频仍然可用。
 
