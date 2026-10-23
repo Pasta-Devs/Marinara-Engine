@@ -1128,8 +1128,14 @@ export async function encounterRoutes(app: FastifyInstance) {
         result.content?.length ?? 0,
         result.content ?? "",
       );
+      // Every refusal is logged with its reason: a setup that fails after the model answered is
+      // otherwise silent on the server, and the screen shows only that it failed.
+      const refuse = (body: { error: string; reason?: string }) => {
+        logger.warn("[game/combat:init] chatId=%s refused: %s", chatId, body.error);
+        return reply.status(502).send(body);
+      };
       if (asked.cutOff) {
-        return reply.status(502).send({
+        return refuse({
           error:
             "The fight's setup was cut off before it finished: the model ran out of room to answer. Retry, or raise this connection's Max tokens.",
           reason: "cut-off",
@@ -1137,22 +1143,22 @@ export async function encounterRoutes(app: FastifyInstance) {
       }
 
       if (!result.content) {
-        return reply.status(502).send({ error: "No response from AI" });
+        return refuse({ error: "No response from AI" });
       }
 
       let combatState: Record<string, unknown>;
       try {
         combatState = parseJSON(result.content) as Record<string, unknown>;
       } catch {
-        return reply.status(502).send({ error: "AI returned invalid JSON" });
+        return refuse({ error: "AI returned invalid JSON" });
       }
 
       if (!combatState?.party || !combatState?.enemies) {
-        return reply.status(502).send({ error: "Invalid combat data returned by AI" });
+        return refuse({ error: "Invalid combat data returned by AI" });
       }
       const aiBlueprint = encounterBlueprintSchema.safeParse(combatState);
       if (!aiBlueprint.success)
-        return reply.status(502).send({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
+        return refuse({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
       combatState = aiBlueprint.data;
       if (storyOpponents?.length) {
         combatState = {
@@ -1167,7 +1173,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       if (combatStyle === "tactical") {
         const tacticalResult = validateTacticalEncounterBlueprint(combatState);
         if (!tacticalResult.ok) {
-          return reply.status(502).send({ error: `AI returned invalid tactical combat data: ${tacticalResult.error}` });
+          return refuse({ error: `AI returned invalid tactical combat data: ${tacticalResult.error}` });
         }
         combatState = tacticalResult.blueprint as Record<string, unknown>;
       }
@@ -1178,6 +1184,12 @@ export async function encounterRoutes(app: FastifyInstance) {
         combatState = { ...combatState, itemEffects: (await loadGameFightItems(app.db, chatMeta, guessed)).effects };
       }
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
+      logger.info(
+        "[game/combat:init] chatId=%s ready: party=%d enemies=%d",
+        chatId,
+        Array.isArray(combatState.party) ? combatState.party.length : 0,
+        Array.isArray(combatState.enemies) ? combatState.enemies.length : 0,
+      );
 
       await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
 

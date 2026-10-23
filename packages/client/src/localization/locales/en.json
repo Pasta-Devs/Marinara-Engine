@@ -10335,6 +10335,7 @@
   "ui.game.gamenarration.combat": "Combat",
   "ui.game.gamenarration.combatGenerationCutOff": "The fight's setup was cut off before it finished: the model ran out of room to answer. Retry, or raise this connection's Max tokens.",
   "ui.game.gamenarration.combatGenerationFailed": "Combat generation failed.",
+  "ui.game.gamenarration.combatGenerationFailedWithReason": "Combat generation failed: {{value1}}",
   "ui.game.gamenarration.combatStartingPleaseWait": "Combat starting, please wait...",
   "ui.game.gamenarration.deleteSegment": "Delete segment",
   "ui.game.gamenarration.expandNarration": "Expand narration",

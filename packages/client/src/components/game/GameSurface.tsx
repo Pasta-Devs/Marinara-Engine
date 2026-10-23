@@ -165,6 +165,7 @@ import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, ApiError, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
 import {
   forgetCombatSetupFailure,
+  isDroppedRequest,
   recalledCombatSetupFailure,
   rememberCombatSetupFailure,
 } from "../../lib/combat-setup-failures";
@@ -9807,8 +9808,9 @@ function GameSurfaceComponent({
             !!err.payload &&
             typeof err.payload === "object" &&
             (err.payload as { reason?: unknown }).reason === "cut-off";
-          // Remembered, so opening this chat again waits for Retry Combat rather than asking again.
-          rememberCombatSetupFailure(requestChatId, messageId, { message, cutOff });
+          // Remembered, so opening this chat again waits for Retry Combat rather than asking again. A request
+          // the browser dropped (a reload mid-setup) is not: the server may have finished it.
+          if (!isDroppedRequest(err)) rememberCombatSetupFailure(requestChatId, messageId, { message, cutOff });
           setCombatGenerationCutOff(cutOff);
           setCombatGenerationError(message);
           // Only the Engine paths (manual button, retry, auto-queue) toast. An Experience/package
@@ -13655,6 +13657,7 @@ function GameSurfaceComponent({
                             combatStarting={combatStarting}
                             combatGenerationFailed={combatGenerationFailedAtGate}
                             combatGenerationCutOff={combatGenerationCutOff}
+                            combatGenerationReason={combatGenerationError}
                             onRetryCombatGeneration={retryCombatGeneration}
                             onDeleteMessage={onDeleteMessage}
                             onPeekPrompt={onPeekPrompt}
@@ -13755,6 +13758,7 @@ function GameSurfaceComponent({
                         combatStarting={combatStarting}
                         combatGenerationFailed={combatGenerationFailedAtGate}
                         combatGenerationCutOff={combatGenerationCutOff}
+                        combatGenerationReason={combatGenerationError}
                         onRetryCombatGeneration={retryCombatGeneration}
                         onDeleteMessage={onDeleteMessage}
                         onPeekPrompt={onPeekPrompt}

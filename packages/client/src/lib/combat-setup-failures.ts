@@ -53,3 +53,13 @@ export function forgetCombatSetupFailure(chatId: string, messageId: string): voi
   delete stored[keyOf(chatId, messageId)];
   write(stored);
 }
+
+/**
+ * A request the browser dropped before the server answered: the page was reloaded or closed mid-setup, or
+ * the connection fell. The server may still finish that setup, so it is not remembered as this turn's
+ * failure; opening the chat again asks again instead of showing a failure that never happened.
+ */
+export function isDroppedRequest(error: unknown): boolean {
+  if (error instanceof DOMException) return error.name === "AbortError";
+  return error instanceof TypeError && /fetch|network|load failed/i.test(error.message);
+}

@@ -275,6 +275,12 @@ try {
   const finesse = fight("ray", definition, [weapon]);
   assert.equal(who(finesse).actions.find((one) => one.label === "Rapier")?.ability, "dex");
   assert.equal(dealt(use(finesse, "Rapier", [10, 4]).events), 9, "finesse Dex escapes Ray");
+  // Held, a weapon the sheet also lists is offered once, as the held one: its better of two abilities,
+  // never the row's Strength beside it.
+  const listedAndHeld = fight(undefined, definition, [{ ...weapon, name: "Sword" }]);
+  const swords = who(listedAndHeld).actions.filter((one) => one.label === "Sword");
+  assert.equal(swords.length, 1, "one Sword, not the row and the held one");
+  assert.equal(swords[0]!.ability, "dex");
   assert.equal(
     dealt(use(fight("favor", definition, [weapon]), "Rapier", [10, 4, 3]).events),
     12,
