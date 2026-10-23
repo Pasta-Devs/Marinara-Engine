@@ -23,11 +23,18 @@ let payload: {
     max_tokens?: number;
     top_p?: number;
   },
-  replyText = '{"candidateId":"0"}';
+  replyText = '{"candidateId":"0"}',
+  broken = false;
 const server = createServer(async (req, res) => {
   let raw = "";
   for await (const chunk of req) raw += chunk;
   payload = JSON.parse(raw);
+  if (broken) {
+    res.statusCode = 400;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: { message: "fixture refuses" } }));
+    return;
+  }
   res.setHeader("Content-Type", "application/json");
   res.end(
     JSON.stringify({
@@ -154,6 +161,19 @@ try {
         `logged: ${JSON.stringify(warned)}`,
       );
     }
+    // A call that throws is answered 500, logged once on the same line with what threw.
+    broken = true;
+    warned.length = 0;
+    const thrown = await app.inject({
+      method: "POST",
+      url: "/encounter/init",
+      payload: { chatId: chat.id, settings: {} },
+    });
+    broken = false;
+    assert.equal(thrown.statusCode, 500, thrown.body);
+    const init = warned.filter((line) => line.includes("[game/combat:init]"));
+    assert.equal(init.length, 1, `one line: ${JSON.stringify(init)}`);
+    assert.match(init[0]!, /refused: .*Encounter init failed: .*fixture refuses/);
     for (const pool of [{ mp: 11, maxMp: 10 }, { mp: 0, maxMp: 10 }, { mp: 10 }, { maxMp: 10 }, {}]) {
       replyText = JSON.stringify({ party: [{ name: "Hero" }], enemies: [{ name: "Caster", ...pool }] });
       const response = await app.inject({

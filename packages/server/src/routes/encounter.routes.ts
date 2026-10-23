@@ -954,8 +954,8 @@ export async function encounterRoutes(app: FastifyInstance) {
 
     // Every refusal is logged with its reason: a setup that fails is otherwise silent on the server,
     // and the screen shows only that it failed.
-    const refuse = (body: { error: string; reason?: string }, status = 502) => {
-      logger.warn("[game/combat:init] chatId=%s refused: %s", chatId ?? "(none)", body.error);
+    const refuse = (body: { error: string; reason?: string }, status = 502, err?: unknown) => {
+      logger.warn(err ?? {}, "[game/combat:init] chatId=%s refused: %s", chatId || "(none)", body.error);
       return reply.status(status).send(body);
     };
     if (!chatId || !settings) {
@@ -1197,8 +1197,7 @@ export async function encounterRoutes(app: FastifyInstance) {
       return { combatState };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      logger.warn(err, "[game/combat:init] Encounter init failed");
-      return reply.status(500).send({ error: `Encounter init failed: ${message}` });
+      return refuse({ error: `Encounter init failed: ${message}` }, 500, err);
     }
   }
 

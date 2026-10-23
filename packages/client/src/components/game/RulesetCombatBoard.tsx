@@ -207,8 +207,9 @@ export function RulesetCombatBoard({
         return;
       }
       // A click picks where it lands and shows who it catches there; a second click on that square, or
-      // Enter, casts it. A cast cannot be taken back.
-      if (!keyed && (step.to?.x !== cell.x || step.to?.y !== cell.y)) {
+      // Enter, casts it. A cast cannot be taken back. A shape laid in more than one pick (a wall's way,
+      // its further parts) is already confirmed by its last pick, as its prompts say.
+      if (!keyed && !step.lay && (step.to?.x !== cell.x || step.to?.y !== cell.y)) {
         setStep({ ...step, to: { x: cell.x, y: cell.y } });
         setCursor({ x: cell.x, y: cell.y });
         return;
