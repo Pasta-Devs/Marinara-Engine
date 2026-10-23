@@ -14,7 +14,7 @@ const modal = readFileSync(
 assert.equal(jobAddKind("embeddings"), "chat");
 // Voice (Text to speech) lists only audio services, so its Done can only set the audio flag.
 assert.equal(jobAddKind("voice"), "voice");
-assert.match(modal, /job === "embeddings"[\s\S]*?setEmbeddingDefault\.mutateAsync\(id\)/);
+assert.match(modal, /assignedJob === "embeddings"[\s\S]*?setEmbeddingDefault\.mutateAsync\(id\)/);
 // Undo puts the previous default back.
 assert.match(modal, /setEmbeddingDefault\.mutateAsync\(previous\)/);
 

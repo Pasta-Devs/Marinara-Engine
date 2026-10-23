@@ -7,7 +7,6 @@ import {
   IMAGE_GENERATION_SOURCES,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
-  errorText,
   inferImageSource,
   inferVideoSource,
   isChatProvider,
@@ -37,6 +36,7 @@ import {
   type Target,
   isSpeechModel,
   jobSourceOf,
+  errorText,
 } from "./shared";
 
 type RecommendedModel = NonNullable<ComponentProps<typeof ConnectionModelPicker>["recommended"]>;

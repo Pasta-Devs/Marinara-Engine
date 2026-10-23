@@ -47,6 +47,7 @@ import { ServiceListStep } from "./ServiceListStep";
 import { useServiceListData } from "./useServiceListData";
 import { starAnchorOf } from "../../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../../lib/connection-filters";
+import { jobsForAddedKinds } from "../../../lib/connection-add-adaptive";
 import { cn } from "../../../lib/utils";
 import {
   DECISION_BUILTIN,
@@ -162,10 +163,8 @@ export function CreateConnectionModalContent({
   const passedJob = useRef<Record<string, { model: string; name: string }>>({});
   const runJobTestAction = useRef<() => Promise<void>>(async () => {});
   const [query, setQuery] = useState("");
-  // Step 1 opens on three cards; each opens one list. Typing in the top search shows every match instead.
+  // Existing users open their services; the browse row opens the complete service list.
   const [pick, setPick] = useState<"job" | "model" | "provider" | null>(null);
-  const [showAllVendors, setShowAllVendors] = useState(false);
-  const [otherOpen, setOtherOpen] = useState(false);
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
   const [jobFor, setJobFor] = useState<AddFor | null>(forJob ?? null);
   const job = jobFor?.job ?? null;
@@ -182,6 +181,8 @@ export function CreateConnectionModalContent({
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
   const [useInChat, setUseInChat] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [choosingJobs, setChoosingJobs] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<AddJob[]>([]);
   // Set once from the first loaded list: a setup with no chat Model yet is a first run.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -307,9 +308,9 @@ export function CreateConnectionModalContent({
   const makeMainOn = makeMain ?? !hasMain;
   // Adding for Main sets Main on Done, so the box would say the same thing twice.
   const offerMain = !hasMain && !alreadyMain && !modelsFor?.chat && job !== "main";
-  const applyChoices = async () => {
+  const applyChoices = async (includeMain = true) => {
     if (!firstPick) return true;
-    if (offerMain && makeMainOn) {
+    if (includeMain && offerMain && makeMainOn) {
       try {
         // A first Main also becomes the Agents default when there is none, when the user chooses to make it Main.
         await updateRow.mutateAsync({
@@ -360,20 +361,23 @@ export function CreateConnectionModalContent({
   // Adding for a job: the first new Model of the job's kind is set for it; the result undoes that.
   const jobKind = job ? jobAddKind(job) : jobFor?.kind;
   const jobPick = jobFor && jobKind ? picks.find((pick) => pick.kind === jobKind) : undefined;
-  const assignJob = async (): Promise<(() => void) | null> => {
-    if (!jobPick || !jobFor) return null;
-    const id = jobPick.connectionId;
-    if (jobFor.assign) {
-      const { assign, previous = null } = jobFor;
+  const assignJob = async (assignment: AddFor | null = jobFor): Promise<(() => void) | null> => {
+    const assignedJob = assignment?.job;
+    const assignedKind = assignedJob ? jobAddKind(assignedJob) : assignment?.kind;
+    const assignedPick = picks.find((pick) => pick.kind === assignedKind);
+    if (!assignedPick || !assignment) return null;
+    const id = assignedPick.connectionId;
+    if (assignment.assign) {
+      const { assign, previous = null } = assignment;
       assign(id);
       return () => assign(previous);
     }
-    if (job === "embeddings") {
+    if (assignedJob === "embeddings") {
       const previous = embeddingDefault.data?.connectionId ?? null;
       await setEmbeddingDefault.mutateAsync(id);
       return () => void setEmbeddingDefault.mutateAsync(previous).catch(() => {});
     }
-    const entry = job ? JOB[job] : undefined;
+    const entry = assignedJob ? JOB[assignedJob] : undefined;
     const flag = entry?.flag;
     // Only a Connection of the job's kind takes its flag: a chat service's voice Model is not the Audio default.
     const target = allRows.find((row) => row.id === id);
@@ -385,7 +389,7 @@ export function CreateConnectionModalContent({
           isConnectionFlagTrue((row as Record<string, unknown>)[flag]),
       )?.id;
       await updateRow.mutateAsync({ id, [flag]: true });
-      const undoVoice = job === "voice" ? await followVoiceJob(id).catch(() => null) : null;
+      const undoVoice = assignedJob === "voice" ? await followVoiceJob(id).catch(() => null) : null;
       return () => {
         undoVoice?.();
         void updateRow.mutateAsync(previous ? { id: previous, [flag]: true } : { id, [flag]: false }).catch(() => {});
@@ -401,14 +405,15 @@ export function CreateConnectionModalContent({
   };
 
   // After adding, the window closes and the panel shows the new card with one flash of its rail.
-  const close = async (saveChoices = false) => {
+  const close = async (saveChoices = false, jobs: AddJob[] = []) => {
     setFinishing(true);
     let undo: (() => void) | null = null;
     try {
-      if (saveChoices && !(await applyChoices())) return;
+      if (saveChoices && !(await applyChoices(!choosingJobs))) return;
       if (saveChoices) {
         try {
           undo = await assignJob();
+          for (const key of jobs) await assignJob({ job: key });
         } catch (error) {
           toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
         }
@@ -707,18 +712,7 @@ export function CreateConnectionModalContent({
 
   // ── Step 1: the service list ──
   const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
-  const {
-    connectedAccounts,
-    badgesFor,
-    searching,
-    shownModels,
-    routesOf,
-    cards,
-    jobList,
-    listJobs,
-    listModels,
-    listGroups,
-  } = useServiceListData({
+  const { connectedAccounts, badgesFor, searching, routesOf, listJobs, listModels, listGroups } = useServiceListData({
     firstRun,
     service,
     target,
@@ -737,6 +731,8 @@ export function CreateConnectionModalContent({
     serviceHint,
     kindItems,
     jobLabel,
+    featureModels: featureModels.data,
+    embeddingId: embeddingDefault.data?.connectionId,
   });
   // ── Step 2: access for the chosen service ──
   const existing = connectedAccounts[0];
@@ -784,20 +780,36 @@ export function CreateConnectionModalContent({
   const isJobKind = setupKind === "decision" || setupKind === "voice";
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
+  const optionalJobs = jobsForAddedKinds(picks.map((pick) => pick.kind));
+  const offerJobs = !jobFor && !modelsFor && !onStartChat && optionalJobs.length > 0;
+  const finishModels = () => {
+    if (!offerJobs) {
+      void close(true);
+      return;
+    }
+    setSelectedJobs(
+      optionalJobs.includes("main") && !hasMain && makeMainOn
+        ? ["main", ...(hasAgents ? [] : ["agents" as const])]
+        : [],
+    );
+    setChoosingJobs(true);
+    requestAnimationFrame(() => headingRef.current?.focus());
+  };
 
   // ── Header: Back, the step's heading and "Step n of N" ──
-  const heading =
-    step === 1
+  const heading = choosingJobs
+    ? t("connections.add.useFor.heading")
+    : step === 1
       ? t(
-              firstRun
-                ? "connections.add.heading.firstRun"
-                : jobList
-                ? "connections.add.heading.forJob"
-            : pick === "model"
-              ? "connections.add.heading.forModel"
-              : pick === "provider"
-                ? "connections.add.heading.forProvider"
-                : "connections.add.heading.service",
+          job
+            ? "connections.add.heading.forJob"
+            : firstRun
+              ? "connections.add.heading.firstRun"
+              : pick === "model"
+                ? "connections.add.heading.forModel"
+                : pick === "provider"
+                  ? "connections.add.heading.forProvider"
+                  : "connections.add.heading.service",
         )
       : step === 2
         ? device
@@ -812,23 +824,22 @@ export function CreateConnectionModalContent({
         : step === 3
           ? t("connections.add.heading.addModels", { name: targetName })
           : "";
-  const subtitle =
-    step === 1
+  const subtitle = choosingJobs
+    ? t("connections.add.useFor.body")
+    : step === 1
       ? newChatMode
         ? t("connections.add.sub.gate", { mode: t(`connections.add.mode.${newChatMode}`) })
-          : job
-            ? t("connections.add.sub.job", { job: jobLabel(job) })
-            : firstRun
-              ? t("connections.add.sub.firstRun")
+        : job
+          ? t("connections.add.sub.job", { job: jobLabel(job) })
+          : firstRun
+            ? t("connections.add.sub.firstRun")
             : t(
-              jobList
-                ? "connections.add.forJobHint"
-                : pick === "model"
+                pick === "model"
                   ? "connections.add.subtitle.forModel"
                   : pick === "provider"
                     ? "connections.add.subtitle.forProvider"
                     : "connections.add.subtitle.pick",
-            )
+              )
       : step === 2
         ? t(
             device
@@ -859,15 +870,14 @@ export function CreateConnectionModalContent({
   const stepNumber = step;
   // Every path has the same three steps, so the bar never jumps; a device ends on its set-up screen.
   const totalSteps = 3;
-  const goBack =
-    step === 1 && pick
+  const goBack = choosingJobs
+    ? () => setChoosingJobs(false)
+    : step === 1 && (pick || job)
       ? () => {
           if (job) clearJob();
           else setPick(null);
           setQuery("");
           setKindFilter(null);
-          setShowAllVendors(false);
-          setOtherOpen(false);
         }
       : step === 2
         ? backToList
@@ -880,7 +890,30 @@ export function CreateConnectionModalContent({
   // ── Footer: one primary per step ──
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
-  if (step === 1) {
+  if (choosingJobs) {
+    footerLeft = (
+      <button
+        type="button"
+        data-add-connection-skip-jobs
+        onClick={() => void close(true)}
+        disabled={finishing}
+        className={SECONDARY_CLASS}
+      >
+        {t("connections.add.useFor.skip")}
+      </button>
+    );
+    footerRight = (
+      <button
+        type="button"
+        data-add-connection-assign-jobs
+        onClick={() => void close(true, selectedJobs)}
+        disabled={finishing}
+        className={PRIMARY_CLASS}
+      >
+        {t("connections.add.done")}
+      </button>
+    );
+  } else if (step === 1) {
     footerLeft = (
       <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.footer.service")}</p>
     );
@@ -968,13 +1001,13 @@ export function CreateConnectionModalContent({
           type="button"
           data-add-connection-done
           // Done applies the choices above the footer and closes; the panel then shows the new card.
-          onClick={() => void close(true)}
+          onClick={finishModels}
           // A new Connection needs one model; without it the window throws the Connection away.
           disabled={finishing || (target?.fresh && picks.length === 0)}
           className={PRIMARY_CLASS}
         >
           {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-          {t("connections.add.done")}
+          {t(offerJobs ? "connections.add.continue" : "connections.add.done")}
         </button>
       );
   }
@@ -987,7 +1020,7 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    !cards && "sm:h-[min(90dvh,44rem)]",
+    "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -1059,15 +1092,45 @@ export function CreateConnectionModalContent({
         </div>
 
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
-          {step === 1 && (
+          {choosingJobs && (
+            <div
+              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
+              data-add-connection-path="assignment"
+            >
+              <div role="group" aria-label={t("connections.add.useFor.heading")} className="flex flex-col gap-1">
+                {optionalJobs.map((key) => {
+                  const Icon = JOB[key].icon;
+                  return (
+                    <label key={key} className={optionClass}>
+                      <input
+                        type="checkbox"
+                        data-add-connection-assign-job={key}
+                        checked={selectedJobs.includes(key)}
+                        onChange={(event) => {
+                          setSelectedJobs((current) =>
+                            event.target.checked ? [...current, key] : current.filter((job) => job !== key),
+                          );
+                        }}
+                        className={checkClass}
+                      />
+                      <Icon size="1rem" aria-hidden />
+                      <span>{jobLabel(key)}</span>
+                      {key === "main" && !hasMain && (
+                        <span className="mari-connection-pill">{t("connections.add.useFor.recommended")}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {!choosingJobs && step === 1 && (
             <ServiceListStep
               firstRun={firstRun}
               pick={pick}
               setPick={setPick}
               query={query}
               setQuery={setQuery}
-              cards={cards}
-              jobList={jobList}
               rows={allRows as ConnectionRowData[]}
               chooseJob={chooseJob}
               kindFilter={kindFilter}
@@ -1078,7 +1141,6 @@ export function CreateConnectionModalContent({
               listJobs={listJobs}
               listModels={listModels}
               listGroups={listGroups}
-              shownModels={shownModels}
               routesOf={routesOf}
               accounts={accounts}
               setWant={setWant}
@@ -1091,13 +1153,9 @@ export function CreateConnectionModalContent({
               badgesFor={badgesFor}
               service={service}
               searching={searching}
-              showAllVendors={showAllVendors}
-              otherOpen={otherOpen}
-              setOtherOpen={setOtherOpen}
-              setShowAllVendors={setShowAllVendors}
             />
           )}
-          {step === 2 && (
+          {!choosingJobs && step === 2 && (
             <AccessStep
               provider={provider}
               service={service}
@@ -1141,46 +1199,48 @@ export function CreateConnectionModalContent({
             />
           )}
 
-          <ModelsStep
-            step={step}
-            service={service}
-            provider={provider}
-            selectedMedia={selectedMedia}
-            modelsFor={modelsFor}
-            target={target}
-            accounts={accounts}
-            accountRows={accountRows}
-            setTarget={setTarget}
-            setPicks={setPicks}
-            setJobTest={setJobTest}
-            setJobTesting={setJobTesting}
-            passedJob={passedJob}
-            setMediaCreating={setMediaCreating}
-            mediaSetupStarted={mediaSetupStarted}
-            onMediaError={(error) => toast.error(friendlyError(error))}
-            onUnsupportedJob={(accountId) => flashConnectionCard(accountId)}
-            runJobTestAction={runJobTestAction}
-            availableKinds={availableKinds}
-            chat={chat}
-            isJobKind={isJobKind}
-            setupKind={setupKind}
-            closeBlocked={closeBlocked}
-            setMediaRowId={setMediaRowId}
-            setSetupKind={setSetupKind}
-            mediaRow={mediaRow}
-            targetName={targetName}
-            want={want}
-            addedIds={addedIds}
-            jobPicker={jobPicker}
-            pickerRow={pickerRow}
-            jobTest={jobTest}
-            inPlace={inPlace}
-            onClose={onClose}
-            recommended={recommended}
-          />
+          {!choosingJobs && (
+            <ModelsStep
+              step={step}
+              service={service}
+              provider={provider}
+              selectedMedia={selectedMedia}
+              modelsFor={modelsFor}
+              target={target}
+              accounts={accounts}
+              accountRows={accountRows}
+              setTarget={setTarget}
+              setPicks={setPicks}
+              setJobTest={setJobTest}
+              setJobTesting={setJobTesting}
+              passedJob={passedJob}
+              setMediaCreating={setMediaCreating}
+              mediaSetupStarted={mediaSetupStarted}
+              onMediaError={(error) => toast.error(friendlyError(error))}
+              onUnsupportedJob={(accountId) => flashConnectionCard(accountId)}
+              runJobTestAction={runJobTestAction}
+              availableKinds={availableKinds}
+              chat={chat}
+              isJobKind={isJobKind}
+              setupKind={setupKind}
+              closeBlocked={closeBlocked}
+              setMediaRowId={setMediaRowId}
+              setSetupKind={setSetupKind}
+              mediaRow={mediaRow}
+              targetName={targetName}
+              want={want}
+              addedIds={addedIds}
+              jobPicker={jobPicker}
+              pickerRow={pickerRow}
+              jobTest={jobTest}
+              inPlace={inPlace}
+              onClose={onClose}
+              recommended={recommended}
+            />
+          )}
         </div>
 
-        {step === 3 && firstPick && !chat && (
+        {!choosingJobs && step === 3 && firstPick && !chat && (
           <div
             data-add-connection-choices
             role="group"

@@ -1,6 +1,4 @@
-import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, Film, Image as ImageIcon, MessageSquare } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { Film, Image as ImageIcon, MessageSquare } from "lucide-react";
 import {
   AUDIO_SOURCE_OPTIONS,
   DECISION_SOURCE_BASE_URLS,
@@ -12,13 +10,8 @@ import {
   speaksOpenAIChat,
   type APIProvider,
 } from "@marinara-engine/shared";
-import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
-import { JobRow } from "../../connections/JobRow";
-import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import { ProviderIcon } from "../../connections/ProviderIcon";
-import { useConnectionDefaults } from "../../connections/ConnectionDefaults";
-import { JOB, JOBS, jobHintKey } from "../../../lib/connection-jobs";
-import type { AddJob } from "../../../lib/add-connection";
+import { JOB } from "../../../lib/connection-jobs";
 import { buildOfflineModelIndex, type ModelKind } from "../../../lib/add-model-search";
 import { cn } from "../../../lib/utils";
 import type { DeviceItem } from "../../../hooks/use-device-setup";
@@ -353,151 +346,6 @@ export function ServiceTile({ service }: { service: ServiceId }) {
       service={media?.source}
       size="add"
     />
-  );
-}
-
-/** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
-export function ServiceCard({
-  service,
-  name,
-  hint,
-  kinds,
-  badges,
-  rail,
-  selected,
-  onClick,
-}: {
-  service: ServiceId;
-  name: string;
-  hint: string;
-  /** What it gives, each with its icon. */
-  kinds: Array<{ kind: ChipKind; label: string }>;
-  badges: Array<{ label: string; highlight?: boolean }>;
-  /** Recommended tiles wear the connections' blue start rail. */
-  rail?: boolean;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-add-connection-service={service}
-      onClick={onClick}
-      aria-pressed={selected}
-      aria-label={name}
-      aria-description={[hint, ...kinds.map((item) => item.label), ...badges.map((badge) => badge.label)]
-        .filter(Boolean)
-        .join(". ")}
-      className={cn("mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs", rail && "mari-add-tile-rail")}
-    >
-      <span className="flex min-w-0 items-start gap-3">
-        <ServiceTile service={service} />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium">{name}</span>
-          {badges.length > 0 && (
-            <span className="mt-1 flex flex-wrap items-center gap-1">
-              {badges.map((badge) => (
-                <span key={badge.label} className={badge.highlight ? HIGHLIGHT_BADGE_CLASS : BADGE_CLASS}>
-                  {badge.label}
-                </span>
-              ))}
-            </span>
-          )}
-          <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-            {hint}
-          </span>
-          {kinds.length > 0 && (
-            <span
-              aria-hidden
-              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]"
-            >
-              {kinds.map(({ kind, label }) => {
-                const Icon = KIND_ICONS[kind];
-                return (
-                  <span key={kind} className="inline-flex items-center gap-1">
-                    <Icon size="0.6875rem" />
-                    {label}
-                  </span>
-                );
-              })}
-            </span>
-          )}
-        </span>
-      </span>
-    </button>
-  );
-}
-
-/** A small group label above choice cards; a long group folds behind the same chevron the panel uses. */
-export function ServiceGroup({
-  title,
-  count,
-  collapsible,
-  open,
-  onToggle,
-  more,
-  children,
-}: {
-  title: string;
-  count: number;
-  collapsible: boolean;
-  open: boolean;
-  onToggle: () => void;
-  /** A "Show all N" link under a capped list. */
-  more?: ReactNode;
-  children: ReactNode;
-}) {
-  const list = <div className="grid grid-cols-1 gap-2 md:grid-cols-2">{children}</div>;
-  if (!collapsible) {
-    return (
-      <section className="flex flex-col gap-1.5">
-        <h4 className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">{title}</h4>
-        {list}
-        {more}
-      </section>
-    );
-  }
-  return (
-    <section className="flex flex-col">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
-      >
-        <ChevronDown size="0.75rem" className={cn("transition-transform", open && "rotate-180")} />
-        {title} ({count})
-      </button>
-      <SmoothFolderContent open={open}>
-        <div className="pt-1">{list}</div>
-      </SmoothFolderContent>
-    </section>
-  );
-}
-
-/** Step 1's job list: each job as its Defaults row, plus one line on what it does. */
-export function JobCards({ rows, jobs, onPick }: { rows: ConnectionRowData[]; jobs?: AddJob[]; onPick: (key: AddJob) => void }) {
-  const { t } = useTranslation();
-  const { tiles, features } = useConnectionDefaults(rows);
-  return (
-    <div className="mari-connection-model-well">
-      {JOBS.filter((job) => job.add === undefined && (!jobs || jobs.includes(job.key))).map((job) => {
-        const tile = [...tiles, ...features].find((entry) => entry.key === job.key);
-        return (
-          tile && (
-            <div key={job.key} className="mari-connection-model-slot min-w-0">
-              <JobRow
-                tile={tile}
-                hint={t(jobHintKey(job))}
-                data-add-connection-job-choice={job.key}
-                onClick={() => onPick(job.key)}
-                trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
-              />
-            </div>
-          )
-        );
-      })}
-    </div>
   );
 }
 

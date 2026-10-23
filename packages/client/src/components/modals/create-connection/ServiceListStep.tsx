@@ -1,45 +1,33 @@
-import { Check, ChevronRight, Cpu, KeyRound, ListChecks, X } from "lucide-react";
+import { ChevronRight, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
-import { ListSearch, ListStatus } from "../../connections/ListFrame";
-import type { ConnectionRowData } from "../../connections/ConnectionRow";
-import { cn } from "../../../lib/utils";
-import { JOB } from "../../../lib/connection-jobs";
+import { ListHeading, ListSearch, ListStatus } from "../../connections/ListFrame";
+import { ServiceRow } from "../../connections/ServiceRow";
+import { ModelRow, ModelTile } from "../../connections/ModelRow";
+import { JOB, jobHintKey } from "../../../lib/connection-jobs";
 import type { AddJob } from "../../../lib/add-connection";
 import type { ModelEntry, ModelKind } from "../../../lib/add-model-search";
 import {
   CHIP_KINDS,
   DECISION_BUILTIN,
-  HIGHLIGHT_BADGE_CLASS,
   KIND_ICONS,
-  MODEL_CHIP_KINDS,
-  MUTED_BADGE_CLASS,
   SECONDARY_CLASS,
-  VENDORS_SHOWN,
-  ServiceCard,
-  ServiceGroup,
+  ServiceTile,
   FirstRunIntro,
-  JobCards,
   type ChipKind,
   type AddableKind,
+  type ConnectionRowLite,
   type ServiceGroupDefinition,
   type ServiceId,
 } from "./shared";
 
-type Pick = "job" | "model" | "provider" | null;
-type ModelRoutes = {
-  mine: Array<[string, string]>;
-  services: Array<{ service: ServiceId; model: string }>;
-};
 type ServiceListStepProps = {
   firstRun: boolean | null;
-  pick: Pick;
-  setPick: (pick: Pick) => void;
+  pick: "job" | "model" | "provider" | null;
+  setPick: (pick: "job" | "model" | "provider" | null) => void;
   query: string;
   setQuery: (query: string) => void;
-  cards: boolean;
-  jobList: boolean;
-  rows: ConnectionRowData[];
+  rows: ConnectionRowLite[];
   chooseJob: (key: AddJob) => void;
   kindFilter: ChipKind | null;
   setKindFilter: (kind: ChipKind | null) => void;
@@ -49,8 +37,10 @@ type ServiceListStepProps = {
   listJobs: AddJob[];
   listModels: ModelEntry[];
   listGroups: Array<ServiceGroupDefinition & { services: ServiceId[] }>;
-  shownModels: ModelEntry[];
-  routesOf: (entry: ModelEntry) => ModelRoutes;
+  routesOf: (entry: ModelEntry) => {
+    mine: Array<[string, string]>;
+    services: Array<{ service: ServiceId; model: string }>;
+  };
   accounts?: ConnectionAccountListItem[];
   setWant: (want: { model: string; kind: ModelKind } | null) => void;
   showModelsOf: (accountId: string, connectionId?: string, kind?: AddableKind) => Promise<void>;
@@ -62,10 +52,6 @@ type ServiceListStepProps = {
   badgesFor: (service: ServiceId) => Array<{ label: string; highlight?: boolean }>;
   service: ServiceId | null;
   searching: boolean;
-  showAllVendors: boolean;
-  otherOpen: boolean;
-  setOtherOpen: (value: boolean | ((value: boolean) => boolean)) => void;
-  setShowAllVendors: (value: boolean) => void;
 };
 
 export function ServiceListStep(props: ServiceListStepProps) {
@@ -76,8 +62,6 @@ export function ServiceListStep(props: ServiceListStepProps) {
     setPick,
     query,
     setQuery,
-    cards,
-    jobList,
     rows,
     chooseJob,
     kindFilter,
@@ -88,7 +72,6 @@ export function ServiceListStep(props: ServiceListStepProps) {
     listJobs,
     listModels,
     listGroups,
-    shownModels,
     routesOf,
     accounts,
     setWant,
@@ -101,301 +84,221 @@ export function ServiceListStep(props: ServiceListStepProps) {
     badgesFor,
     service,
     searching,
-    showAllVendors,
-    otherOpen,
-    setOtherOpen,
-    setShowAllVendors,
   } = props;
   const searchLabel = t(
-    pick === "model"
-      ? "connections.add.searchModels"
-      : pick === "provider"
-        ? "connections.add.searchProviders"
-        : "connections.add.search",
+    firstRun || job || pick === "provider" ? "connections.add.searchServices" : "connections.add.search",
   );
-  const modelExample = shownModels[0];
-  const exampleRoute = modelExample && routesOf(modelExample);
-  const exampleService = exampleRoute
-    ? exampleRoute.mine[0]
-      ? accounts?.find((account) => account.id === exampleRoute.mine[0]![0])?.name
-      : exampleRoute.services[0] && serviceName(exampleRoute.services[0].service)
-    : undefined;
-  const questions = [
-    {
-      id: "job",
-      Icon: ListChecks,
-      examples: (["decision", "voice", "embeddings"] as const).map((key) => ({
-        label: jobLabel(key),
-        Icon: JOB[key].icon,
-      })),
-    },
-    {
-      id: "model",
-      Icon: Cpu,
-      examples:
-        exampleService && modelExample
-          ? [
-              {
-                label: t("connections.add.question.model.example", {
-                  model: modelExample.name,
-                  service: exampleService,
-                }),
-              },
-            ]
-          : [],
-    },
-    { id: "provider", Icon: KeyRound, examples: [{ label: t("connections.add.question.provider.example") }] },
-  ] as const;
-  const sectionTitle = (text: string) => (
-    <h4 className="px-1 text-xs font-semibold text-[var(--foreground)]">{text}</h4>
+  const ownAccounts = (accounts ?? []).filter((account) => {
+    const children = rows.filter((row) => row.accountId === account.id);
+    return (
+      (!kindFilter ||
+        children.some((row) => {
+          const provider =
+            kindFilter === "image"
+              ? "image_generation"
+              : kindFilter === "video"
+                ? "video_generation"
+                : kindFilter === "voice"
+                  ? "audio"
+                  : kindFilter;
+          return (
+            row.provider === provider ||
+            (kindFilter === "chat" &&
+              !["audio", "decision", "image_generation", "video_generation"].includes(row.provider ?? ""))
+          );
+        })) &&
+      (!searching || `${account.name} ${account.provider}`.toLowerCase().includes(query.trim().toLowerCase()))
+    );
+  });
+  const serviceRow = (key: ServiceId) => (
+    <ServiceRow
+      key={key}
+      account={{ name: serviceName(key), provider: key }}
+      rows={[]}
+      tile={<ServiceTile service={key} />}
+      hint={serviceHint(key)}
+      count={[...kindItems(key).map((item) => item.label), ...badgesFor(key).map((badge) => badge.label)].join(" · ")}
+      data-add-connection-service={key}
+      aria-pressed={service === key}
+      onClick={() => {
+        setWant(null);
+        if (key === DECISION_BUILTIN) setDecisionOpen(true);
+        else void chooseService(key);
+      }}
+      trailing={<ChevronRight size="1rem" aria-hidden className="shrink-0 text-[var(--muted-foreground)]" />}
+    />
   );
-  const list = (
-    <div className="flex flex-col gap-3 p-4">
-      {firstRun && !pick && <FirstRunIntro text={t("connections.add.intro")} />}
-      {!jobList && <ListSearch value={query} onChange={setQuery} label={searchLabel} placeholder={searchLabel} />}
-      {cards && (
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-          {questions.map(({ id, Icon, examples }) => (
-            <button
-              key={id}
-              type="button"
-              data-add-connection-question={id}
-              onClick={() => {
-                setPick(id);
-                setKindFilter(null);
-              }}
-              className="mari-chrome-control mari-chrome-control--card min-h-24 !flex-row items-center gap-3 p-4 text-xs lg:min-h-36"
-            >
-              <span className="flex min-w-0 flex-1 items-start gap-3 self-stretch lg:flex-col">
-                <span
-                  aria-hidden="true"
-                  className="mari-panel-gradient--connections mari-panel-gradient-surface flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+  const allServices = listGroups.flatMap((group) => group.services);
+  const popular: ServiceId[] = ["linkapi", "nanogpt", "openrouter", "openai", "anthropic", "google"];
+  const firstGroups = [
+    { id: "popular", services: popular.filter((key) => allServices.includes(key)) },
+    ...listGroups.map((group) => ({ ...group, services: group.services.filter((key) => !popular.includes(key)) })),
+  ].filter((group) => group.services.length > 0);
+  const groups = firstRun && !job ? firstGroups : listGroups;
+  const home = !firstRun && !job && !kindFilter && pick !== "provider";
+
+  return (
+    <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
+      <div
+        className="flex flex-col gap-3 p-4"
+        data-add-connection-path={job ? "job" : firstRun ? "first-run" : pick === "provider" ? "services" : "existing"}
+      >
+        {firstRun && !job && <FirstRunIntro text={t("connections.add.intro")} />}
+        <ListSearch value={query} onChange={setQuery} label={searchLabel} placeholder={searchLabel} />
+        {!job && (pick === "provider" || searching) && (
+          <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
+            {[null, ...CHIP_KINDS].map((kind) => {
+              const Icon = kind ? KIND_ICONS[kind] : null;
+              return (
+                <button
+                  key={kind ?? "all"}
+                  type="button"
+                  data-add-connection-kind={kind ?? "all"}
+                  aria-pressed={kindFilter === kind}
+                  onClick={() => setKindFilter(kind)}
+                  className="mari-connection-chip min-h-11 gap-1"
                 >
-                  <Icon size="1.125rem" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="text-[0.9375rem] font-semibold">{t(`connections.add.question.${id}`)}</span>
-                  <span className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-                    {t(`connections.add.question.${id}.body`)}
-                  </span>
-                  {examples.length > 0 && (
-                    <span className="mt-1.5 flex flex-wrap items-center gap-1">
-                      {examples.map((example) => (
-                        <span key={example.label} className={cn(MUTED_BADGE_CLASS, "inline-flex items-center gap-1")}>
-                          {"Icon" in example && <example.Icon size="0.625rem" aria-hidden />}
-                          {example.label}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </span>
-              </span>
-              <ChevronRight
-                size="1rem"
-                className="shrink-0 self-center text-[var(--muted-foreground)] lg:hidden"
-                aria-hidden
-              />
-            </button>
-          ))}
-        </div>
-      )}
-      {!firstRun && listJobs.length > 0 && (
-        <section data-add-connection-section="missing-jobs" className="flex flex-col gap-1.5">
-          <h4 className="px-1 text-xs font-semibold text-[var(--foreground)]">{t("connections.add.section.missingJobs")}</h4>
-          <JobCards rows={(rows ?? []) as ConnectionRowData[]} jobs={listJobs} onPick={chooseJob} />
-        </section>
-      )}
-      {!cards && !jobList && pick !== "provider" && (
-        <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
-          {/* Voice and Decision have no models to list, so the model list leaves them out. */}
-          {[null, ...CHIP_KINDS.filter((kind) => pick !== "model" || MODEL_CHIP_KINDS.has(kind))].map((kind) => (
+                  {Icon && <Icon size="0.75rem" aria-hidden />}
+                  {t(`connections.add.kind.${kind ?? "all"}`)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {job && (
+          <div className="flex items-center gap-2" data-add-connection-job={job}>
+            <span className="text-xs font-medium">{t("connections.add.forJob", { job: jobLabel(job) })}</span>
             <button
-              key={kind ?? "all"}
               type="button"
-              data-add-connection-kind={kind ?? "all"}
-              aria-pressed={kindFilter === kind}
-              onClick={() => setKindFilter(kind)}
-              className="mari-connection-chip gap-1"
+              data-add-connection-clear-job
+              onClick={clearJob}
+              aria-label={t("connections.add.clearJob")}
+              className="mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon"
             >
-              {kind &&
-                (() => {
-                  const Icon = KIND_ICONS[kind];
-                  return <Icon size="0.75rem" aria-hidden />;
-                })()}
-              {t(`connections.add.kind.${kind ?? "all"}`)}
+              <X size="0.875rem" aria-hidden />
             </button>
-          ))}
-        </div>
-      )}
-      {job && (
-        <p data-add-connection-job={job} className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className={cn(HIGHLIGHT_BADGE_CLASS, "gap-1")}>
-            {(() => {
-              const Icon = JOB[job].icon;
-              return <Icon size="0.75rem" aria-hidden />;
-            })()}
-            {t("connections.add.forJob", { job: jobLabel(job) })}
-          </span>
-          <button
-            type="button"
-            data-add-connection-clear-job
-            onClick={clearJob}
-            aria-label={t("connections.add.clearJob")}
-            title={t("connections.add.clearJob")}
-            className="mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon"
-          >
-            <X size="0.75rem" aria-hidden />
-          </button>
-          <span className="w-full px-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("connections.add.forJobHint")}
-          </span>
-        </p>
-      )}
-      {listJobs.length > 0 && (
-        <section data-add-connection-section="job" className="flex flex-col gap-1.5">
-          {sectionTitle(t("connections.add.section.job"))}
-          <div className="flex flex-wrap gap-1.5">
+          </div>
+        )}
+        {home && listJobs.length > 0 && (
+          <section data-add-connection-section="missing-jobs">
+            <ListHeading>{t("connections.add.section.missingJobs")}</ListHeading>
             {listJobs.map((key) => {
               const Icon = JOB[key].icon;
               return (
-                <button
+                <ModelRow
                   key={key}
-                  type="button"
+                  title={jobLabel(key)}
+                  subtitle={t(jobHintKey(JOB[key]))}
+                  wrapTitle
+                  tile={<Icon size="1.125rem" aria-hidden className="m-2 shrink-0" />}
                   data-add-connection-job-choice={key}
                   onClick={() => chooseJob(key)}
-                  className="mari-connection-chip gap-1"
-                >
-                  <Icon size="0.75rem" aria-hidden />
-                  {jobLabel(key)}
-                </button>
+                  trailing={<span className="mari-connection-pill shrink-0">{t("connections.add.setUp")}</span>}
+                />
               );
             })}
-          </div>
-        </section>
-      )}
-      {listModels.length > 0 && (
-        <section data-add-connection-section="model" className="flex flex-col gap-1.5">
-          {pick !== "model" && sectionTitle(t("connections.add.section.model"))}
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {listModels.map((entry) => {
-              const { mine, services } = routesOf(entry);
-              const pick = { kind: entry.kind };
+          </section>
+        )}
+        {home && ownAccounts.length > 0 && (
+          <section data-add-connection-section="your-services">
+            <ListHeading>{t("connections.add.section.yourServices")}</ListHeading>
+            {ownAccounts.map((account) => {
+              const children = rows.filter((row) => row.accountId === account.id);
               return (
-                <div
-                  key={`${entry.kind}:${entry.key}`}
-                  data-add-model={entry.key}
-                  className="mari-chrome-control mari-chrome-control--card min-h-16 !items-start gap-1 p-3 text-xs"
-                >
-                  <span className="block min-w-0 max-w-full truncate text-sm font-medium">{entry.name}</span>
-                  <span className="flex flex-wrap items-center gap-1">
-                    <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {t("connections.add.model.via")}
-                    </span>
-                    {mine.map(([accountId, model]) => {
-                      const name = accounts?.find((account) => account.id === accountId)?.name ?? "";
-                      return (
-                        <button
-                          key={accountId}
-                          type="button"
-                          data-add-model-account={accountId}
-                          onClick={() => {
-                            setWant({ model, ...pick });
-                            void showModelsOf(accountId, undefined, entry.kind);
-                          }}
-                          aria-label={t("connections.add.model.addTo", { model: entry.name, name })}
-                          className="mari-connection-chip gap-1 !text-[var(--mari-connection-ink)]"
-                        >
-                          {t("connections.add.model.yours", { name })}
-                          <Check size="0.75rem" aria-hidden />
-                        </button>
-                      );
-                    })}
-                    {services.map(({ service: key, model }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        data-add-model-service={key}
-                        onClick={() => {
-                          setWant({ model, ...pick });
-                          void chooseService(key);
-                        }}
-                        aria-label={t("connections.add.model.connectFor", {
-                          model: entry.name,
-                          service: serviceName(key),
-                        })}
-                        className="mari-connection-chip"
-                      >
-                        {serviceName(key)}
-                      </button>
-                    ))}
-                  </span>
-                </div>
+                <ServiceRow
+                  key={account.id}
+                  account={account}
+                  rows={children}
+                  count={t("connections.add.accountModels", {
+                    count: children.filter((row) => row.model?.trim()).length,
+                  })}
+                  data-add-connection-account={account.id}
+                  onClick={() => {
+                    setWant(null);
+                    void showModelsOf(account.id);
+                  }}
+                  trailing={<ChevronRight size="1rem" aria-hidden />}
+                />
               );
             })}
-          </div>
-        </section>
-      )}
-      {listGroups.length > 0 && (firstRun || listJobs.length > 0 || listModels.length > 0) && (
-        <div className="-mb-1.5">{sectionTitle(t("connections.add.section.provider"))}</div>
-      )}
-      {listGroups.map((group) => {
-        const capped = group.id === "vendors" && !searching && !showAllVendors && group.services.length > VENDORS_SHOWN;
-        const shown = capped ? group.services.slice(0, VENDORS_SHOWN) : group.services;
-        return (
-          <ServiceGroup
-            key={group.id}
-            // The Decision filter's only folded tile is the on-device model.
-            title={t(
-              `connections.add.group.${group.id === "other" && kindFilter === "decision" ? "device" : group.id}`,
-            )}
-            count={group.services.length}
-            collapsible={!!group.folded && !searching}
-            open={searching || otherOpen}
-            onToggle={() => setOtherOpen((value) => !value)}
-            more={
-              capped && (
-                <button
-                  type="button"
-                  data-add-connection-show-all
-                  onClick={() => setShowAllVendors(true)}
-                  className="mari-connection-btn mari-connection-btn--ghost mari-add-show-all self-start"
-                >
-                  {t("connections.add.showAll", { count: group.services.length })}
-                </button>
-              )
-            }
-          >
-            {shown.map((key) => (
-              <ServiceCard
-                key={key}
-                service={key}
-                name={serviceName(key)}
-                hint={serviceHint(key)}
-                kinds={kindItems(key)}
-                badges={badgesFor(key)}
-                rail={group.id === "start"}
-                selected={service === key}
-                onClick={() => {
-                  setWant(null);
-                  if (key === DECISION_BUILTIN) setDecisionOpen(true);
-                  else void chooseService(key);
-                }}
-              />
-            ))}
-          </ServiceGroup>
-        );
-      })}
-      {searching && listGroups.length === 0 && listModels.length === 0 && listJobs.length === 0 && (
-        <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
-          <ListStatus className="py-0 text-xs text-[var(--muted-foreground)]">
-            {t("connections.add.noMatch", { query: query.trim() })}
-          </ListStatus>
-          <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>
-            {t("connections.add.useCustom")}
-          </button>
-        </div>
-      )}
+          </section>
+        )}
+        {listModels.length > 0 && (
+          <section data-add-connection-section="model">
+            <ListHeading>{t("connections.add.section.model")}</ListHeading>
+            {listModels.flatMap((entry) => {
+              const { mine, services } = routesOf(entry);
+              return [
+                ...mine.map(([accountId, model]) => (
+                  <ModelRow
+                    key={`${entry.key}:${accountId}`}
+                    title={entry.name}
+                    kind={entry.kind}
+                    subtitle={accounts?.find((account) => account.id === accountId)?.name}
+                    tile={<ModelTile model={model} />}
+                    data-add-model={entry.key}
+                    data-add-model-account={accountId}
+                    onClick={() => {
+                      setWant({ model, kind: entry.kind });
+                      void showModelsOf(accountId, undefined, entry.kind);
+                    }}
+                    trailing={<ChevronRight size="1rem" aria-hidden />}
+                  />
+                )),
+                ...services.map(({ service: key, model }) => (
+                  <ModelRow
+                    key={`${entry.key}:${key}`}
+                    title={entry.name}
+                    kind={entry.kind}
+                    subtitle={serviceName(key)}
+                    tile={<ModelTile model={model} />}
+                    data-add-model={entry.key}
+                    data-add-model-service={key}
+                    onClick={() => {
+                      setWant({ model, kind: entry.kind });
+                      void chooseService(key);
+                    }}
+                    trailing={<ChevronRight size="1rem" aria-hidden />}
+                  />
+                )),
+              ];
+            })}
+          </section>
+        )}
+        {home && !searching && (
+          <section data-add-connection-section="new-service">
+            <ListHeading>{t("connections.add.section.newService")}</ListHeading>
+            <ModelRow
+              title={t("connections.add.chooseService")}
+              subtitle={t("connections.add.chooseServiceHint")}
+              tile={<Plus size="1.125rem" aria-hidden className="m-2 shrink-0" />}
+              data-add-connection-browse
+              onClick={() => setPick("provider")}
+              trailing={<ChevronRight size="1rem" aria-hidden />}
+            />
+          </section>
+        )}
+        {groups.map((group) => (
+          <section key={group.id} data-add-connection-group={group.id}>
+            <ListHeading>
+              {t(`connections.add.${group.id === "popular" ? "popular" : `group.${group.id}`}`)}
+            </ListHeading>
+            {group.services.map(serviceRow)}
+          </section>
+        ))}
+        {searching &&
+          groups.length === 0 &&
+          listModels.length === 0 &&
+          listJobs.length === 0 &&
+          ownAccounts.length === 0 && (
+            <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
+              <ListStatus>{t("connections.add.noMatch", { query: query.trim() })}</ListStatus>
+              <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>
+                {t("connections.add.useCustom")}
+              </button>
+            </div>
+          )}
+      </div>
     </div>
   );
-  return <div className="h-full min-h-0 overflow-y-auto overscroll-contain">{list}</div>;
 }

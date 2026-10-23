@@ -10,6 +10,7 @@ import {
 import { useCachedCatalogFacts } from "../../../hooks/use-connections";
 import type { AddJob } from "../../../lib/add-connection";
 import { JOBS } from "../../../lib/connection-jobs";
+import { isAddService, missingAddJobs } from "../../../lib/connection-add-adaptive";
 import { keysOf, modelKey, popularModels, searchModels, withOwnConnections } from "../../../lib/add-model-search";
 import type { ModelEntry, ModelKind } from "../../../lib/add-model-search";
 import {
@@ -55,6 +56,8 @@ interface UseServiceListDataProps {
   serviceHint: (service: ServiceId) => string;
   kindItems: (service: ServiceId) => Array<{ kind: ChipKind; label: string }>;
   jobLabel: (job: AddJob) => string;
+  featureModels?: Record<string, string | null>;
+  embeddingId?: string | null;
 }
 
 export function useServiceListData(props: UseServiceListDataProps) {
@@ -63,9 +66,11 @@ export function useServiceListData(props: UseServiceListDataProps) {
   const accountRows = props.accountRows;
   const rowUsesMediaSource = (row: ConnectionRowLite, source: string) =>
     (row.provider === "image_generation" &&
-      (row.imageGenerationSource || row.imageService || inferImageSource(row.model ?? "", row.baseUrl ?? "")) === source) ||
+      (row.imageGenerationSource || row.imageService || inferImageSource(row.model ?? "", row.baseUrl ?? "")) ===
+        source) ||
     (row.provider === "video_generation" &&
-      (row.videoGenerationSource || row.videoService || inferVideoSource(row.model ?? "", row.baseUrl ?? "")) === source);
+      (row.videoGenerationSource || row.videoService || inferVideoSource(row.model ?? "", row.baseUrl ?? "")) ===
+        source);
 
   const compatibleAccounts = (key: ServiceId) => {
     const media = mediaBackendOf(key);
@@ -135,6 +140,7 @@ export function useServiceListData(props: UseServiceListDataProps) {
   const groups = SERVICE_GROUPS.map((group) => {
     const services = group.services.filter(
       (key) =>
+        isAddService(key) &&
         (!isDevice(key) || props.deviceAvailable(key)) &&
         (!props.kindFilter || kindsOf(key).includes(props.kindFilter)) &&
         (!searching ||
@@ -150,7 +156,8 @@ export function useServiceListData(props: UseServiceListDataProps) {
       services: group.sorted
         ? services.sort(
             (a, b) =>
-              Number(mediaBackendOf(b)?.job === props.kindFilter) - Number(mediaBackendOf(a)?.job === props.kindFilter) ||
+              Number(mediaBackendOf(b)?.job === props.kindFilter) -
+                Number(mediaBackendOf(a)?.job === props.kindFilter) ||
               props.serviceName(a).localeCompare(props.serviceName(b)),
           )
         : services,
@@ -160,11 +167,15 @@ export function useServiceListData(props: UseServiceListDataProps) {
   const accounts = props.accounts ?? [];
   const ownCatalogs = useCachedCatalogFacts(
     accounts.map((account) =>
-      props.rows.filter((row) => row.accountId === account.id && isProviderChat(row.provider ?? "")).map((row) => row.id),
+      props.rows
+        .filter((row) => row.accountId === account.id && isProviderChat(row.provider ?? ""))
+        .map((row) => row.id),
     ),
   );
   const modelKind: ModelKind | null =
-    props.kindFilter === "chat" || props.kindFilter === "image" || props.kindFilter === "video" ? props.kindFilter : null;
+    props.kindFilter === "chat" || props.kindFilter === "image" || props.kindFilter === "video"
+      ? props.kindFilter
+      : null;
   const modelsOff = !!props.kindFilter && !modelKind;
   const modelIndex =
     props.step !== 1 || modelsOff
@@ -206,17 +217,23 @@ export function useServiceListData(props: UseServiceListDataProps) {
           ? entry.add !== false && `${props.jobLabel(entry.key)} ${entry.terms ?? ""}`.toLowerCase().includes(needle)
           : entry.add === undefined,
       ).map((entry) => entry.key);
-  const cards = props.step === 1 && !props.firstRun && !props.pick && !props.job && !props.newChatMode && !searching;
-  const jobList = props.pick === "job" && !props.job;
-  const missingJobs = shownJobs.filter((key) => {
-    const job = JOBS.find((entry) => entry.key === key);
-    if (!job) return false;
-    if (job.flag) return !props.rows.some((row) => row[job.flag!] === true || row[job.flag!] === "true");
-    if (job.feature) return true;
-    return false;
-  });
-  const listJobs = cards || props.pick || props.firstRun ? [] : missingJobs;
-  const listModels = cards || jobList || props.pick === "provider" ? [] : shownModels;
-  const listGroups = cards || jobList || props.pick === "model" ? [] : groups;
-  return { connectedAccounts, badgesFor, searching, groups, shownModels, routesOf, shownJobs, cards, jobList, listJobs, listModels, listGroups };
+  const missingJobs = missingAddJobs(props.rows, props.featureModels, props.embeddingId).filter((key) =>
+    shownJobs.includes(key),
+  );
+  const listJobs = props.job || props.pick || props.firstRun ? [] : missingJobs;
+  const listModels = searching && !props.job && !props.firstRun ? shownModels : [];
+  const listGroups =
+    props.firstRun || props.job || props.kindFilter || searching || props.pick === "provider" ? groups : [];
+  return {
+    connectedAccounts,
+    badgesFor,
+    searching,
+    groups,
+    shownModels,
+    routesOf,
+    shownJobs,
+    listJobs,
+    listModels,
+    listGroups,
+  };
 }
