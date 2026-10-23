@@ -234,7 +234,7 @@ O que um modelo de decisão faz, como escolher um e a configuração completa es
 - **PocketTTS**: um servidor de voz gratuito que roda no seu próprio computador.
 - **xAI Voice**: o serviço de voz da xAI.
 
-Cada fonte preenche uma URL base e um modelo padrão. **Default Voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala, 60 segundos por padrão; aumente esse valor para um servidor de voz lento. Para escolher qual conexão de áudio Marinara usa por padrão, abra o painel **Connections**, expanda **Defaults** (padrões) e escolha a conexão em **Audio**. Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Usar uma conexão de áudio](../media/tts-setup.md#use-an-audio-connection).
+Cada fonte preenche uma URL base e um modelo padrão. **Default Voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala, 60 segundos por padrão; aumente esse valor para um servidor de voz lento. Para escolher qual conexão de fala Marinara usa por padrão, abra o painel **Connections**, expanda **Defaults** (padrões) e escolha a conexão em **Text to Speech**. Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Usar uma conexão de áudio](../media/tts-setup.md#use-an-audio-connection).
 
 Para vozes e leitura de mensagens em voz alta, veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md). O áudio gerado é configurado separadamente, como explicado abaixo.
 
@@ -242,7 +242,7 @@ Para vozes e leitura de mensagens em voz alta, veja [Configuração de Text to S
 
 ## Música e efeitos sonoros
 
-A categoria de conexão **Music & Sound Effects** (música e efeitos sonoros) gera música instrumental e efeitos sonoros separadamente da fala. Escolha uma fonte, informe a chave e os modelos e ative **Music generation** (geração de música), **Sound-effect generation** (geração de efeitos sonoros) ou as duas opções. As seleções padrão e de fallback são independentes das conexões de Audio e de linguagem.
+A categoria de conexão **Music & Sound Effects** (música e efeitos sonoros) gera música instrumental e efeitos sonoros separadamente da fala. Escolha uma fonte, informe a chave e os modelos e ative **Music generation** (geração de música), **Sound-effect generation** (geração de efeitos sonoros) ou as duas opções. As seleções padrão e de fallback são independentes das conexões de Audio e de linguagem. Para defini-las, abra o painel **Connections**, expanda **Defaults** e escolha as conexões em **Music & Sound Effects**.
 
 | Fonte | Base padrão da API | Configuração |
 | --- | --- | --- |
@@ -254,7 +254,7 @@ A música da SunoAPI exige um endereço público de callback HTTPS para enviar n
 
 Os prompts de estilo musical aceitam até 1.000 caracteres. Os prompts de efeitos sonoros aceitam até 500. Cada solicitação nova pode ter um custo no provedor. Veja a [API de música](https://docs.sunoapi.org/suno-api/generate-music) e a [API de efeitos sonoros](https://docs.sunoapi.org/suno-api/generate-sounds) para os requisitos da conta. Os efeitos sonoros da SunoAPI ainda não foram verificados com uma conta paga.
 
-Depois da atualização, as configurações de geração de Game já ativadas são separadas em outra conexão. A conexão de fala original, as vozes atribuídas e as seleções salvas de Game são preservadas. Excluir a conexão de geração migrada não a recria na próxima inicialização. Endpoints restaurados de um perfil ficam indisponíveis até serem revisados e salvos localmente.
+Na atualização, cada conexão de Audio com geração ativada ganha uma conexão separada de Music & Sound Effects. As configurações antigas independentes da ElevenLabs para Game também podem criar uma conexão própria, então pode aparecer mais de uma. As conexões de fala originais e as vozes atribuídas permanecem inalteradas. As seleções salvas de Game são mantidas e usam a conexão migrada correspondente quando disponível; confira as opções padrão e de fallback de Music & Sound Effects em **Defaults** se houver várias conexões. Excluir uma conexão de geração migrada não a recria na próxima inicialização. Endpoints restaurados de um perfil ficam indisponíveis até serem revisados e salvos localmente.
 
 Ative o áudio gerado por jogo em Game ou ative **Sound effects** (efeitos sonoros) nas configurações de comandos de Roleplay para usar `[sound: description]`. O Gacha Forge tem configuração própria de áudio generativo e seleção de conexão. O áudio incluído de Game continua disponível quando a geração está desligada.
 
