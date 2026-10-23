@@ -74,6 +74,7 @@ Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum s
 | `capabilityApi` | Die `supportedCapabilityApi` der Engine, zum Beispiel `{ major: 1, minor: 341 }`. |
 | `stores` | Die laufenden Zustand-Stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` und `backfill`. `chat` enthält den Slice für ausstehende räumliche Übergänge. |
 | `services.tts` | Das Modul `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
+| `services.audio` | Ab Capability API 1.380 das Modul `lib/audio-service.ts`: unabhängige Player für Musik und Soundeffekte, das gemeinsame Asset-Manifest und die Standardmusikauswahl. Siehe [Audio in Paketen](#package-audio). |
 | `services.dialogs` | Das Modul `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
 | `modules` | Bibliotheksmodule mit dem Bare Specifier als Schlüssel (siehe unten). |
 | `queryClient` | Der eine `QueryClient` von React Query, mit dem die Engine rendert. |
@@ -987,6 +988,42 @@ Serverpakete können über `api.runtime.integrations` die LLM-, Bild- und Videod
 - `speech.transcribe(audio, { filename, mimeType, signal })` schickt aufgenommenes Audio an den Speech-to-Text-Server, den der Nutzer unter **Connections → Speech to Text** (Spracherkennung) eingerichtet hat, und liefert das Transkript – oder `null`, solange dieser Server ausgeschaltet ist, damit das Paket bei seiner eigenen Transkription bleibt. Dabei gelten die URL-Richtlinie des Hosts (`STT_LOCAL_URLS_ENABLED`) sowie seine Größen- und Zeitlimits, und der gespeicherte Key wird nie preisgegeben. `speech` ist optional und braucht keine neuere Capability API: Prüfe `typeof api.runtime.integrations?.speech?.transcribe === "function"` und greife bei älteren Engines auf die eigene Lösung zurück.
 
 Gemeinsame Anfrage- und Ergebnistypen exportiert `@marinara-engine/shared`. Paketabhängiger Prompt-Aufbau und Ablaufsteuerung bleiben im Paket. Rufe diese Host-Schnittstellen für Anbieterzugriffe auf, statt Engine-Dienste zu kopieren. Reine Helfer und Typen dürfen weiterhin gebündelt werden.
+
+<a id="package-audio"></a>
+
+### Audio in Paketen
+
+Ab Capability API **1.380** stellt `__MARINARA_HOST__.services.audio` die Wiedergabe und
+Asset-Auswahl der Engine bereit. Deklariere diese Minor-Version im Paketmanifest und aktualisiere die Engine zusammen mit dem Paket.
+Sprachausgabe bleibt in `services.tts`; Musik und Soundeffekte verwenden `services.audio`.
+`services.tts.ttsService.speakSequence(requests, id?, options?)` akzeptiert ab 1.380 `options.audioConnectionId`.
+Damit gilt die gewählte Verbindung für Sprachausgabe für jeden Abschnitt, während jede Anfrage ihre
+Stimme behält. Lass den Wert für den normalen Standard undefiniert oder übergib `""`, um ausdrücklich die bisherigen TTS-Einstellungen zu verwenden.
+
+- `createPlayer()` liefert einen unabhängigen Player mit `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)` und `dispose()`. Lautstärken reichen von 0 bis 1. `assets` ist eine nach Tag indizierte Zuordnung,
+  deren Einträge `{ path: string, url?: string }` enthalten; Pfade verwenden den vorhandenen Game-Asset-Server, während
+  `url` auf ein paketeigenes Asset zeigen kann. Die Wiedergabe verwendet die Überblendung, die erneuten Autoplay-Versuche und
+  den Soundeffekt-Pool der Engine. Rufe `unlock()` beim Starten von Audio direkt innerhalb einer Nutzeraktion auf; die Autoplay-Regeln des Browsers gelten weiterhin.
+- Halte einen Player für die gemountete Paketansicht und rufe beim Unmounten `dispose()` auf. Dadurch
+  stoppt das Audio dieses Players dauerhaft, sein Kontext und seine Listener für Nutzeraktionen werden freigegeben, und spätere Aufrufe bleiben wirkungslos.
+  Der Player von Game oder einem anderen Paket wird nicht gestoppt. Erstelle einen neuen Player, wenn die Ansicht erneut mountet.
+- `getAssetManifest()` ruft `/api/game-assets/manifest` über den API-Client der Engine ab und liefert
+  `{ scannedAt, count, assets, byCategory }`. Jedes Asset hat `tag`, `category`, `subcategory`, `name`,
+  `path` und `ext`. Übergib `manifest.assets` an die Wiedergabe; rufe das Manifest nach dem Hinzufügen generierter Assets bei Bedarf erneut ab.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` liefert einen vorhandenen Musik-Tag oder `null`.
+  Die Stimmungen sind `home`, `combat`, `boss`, `happy`, `tense`, `sad` und `bond`. Der Helfer verwendet die Musikbewertung von Game
+  und nur die zustandsbasierte Bibliothek; Gebiets-/Stufentitel eines anderen Games und generierte Paket-Kontexttitel
+  sind ausgeschlossen. Übergib den aktuellen Tag, damit passende Musik stabil bleibt. Wähle erneut, wenn sich die Stimmung
+  ändert, statt bei Lautstärkeänderungen. Mehrere Stimmungen können denselben mitgelieferten Titel verwenden: Dieser Helfer erzeugt
+  keine Musik und verspricht keine eigene Komposition für jede Stimmung.
+
+Ein generiertes `{ tag, path }`, das die Engine zurückgibt, spielst du mit
+`player.playMusic(tag, { [tag]: { path } })` ab. Generierung und Anbieterauswahl bleiben auf dem Server; Pakete
+dürfen keine Anbieteranfragen duplizieren oder auf gespeicherte Zugangsdaten zugreifen. Verwende den Generierungsendpunkt der Engine
+für ausdrücklich aktivierte Musik- und Soundeffektgenerierung und halte generierte Kontextschlüssel für jede Paketwelt
+und Stimmung getrennt. Ein fehlgeschlagener oder unverfügbarer generierter Titel kann auf `selectDefaultMusic` zurückfallen.
 
 ### Capability API 1.341: Laufzeitdienste des Hosts und gemeinsame Server-Bibliotheken
 

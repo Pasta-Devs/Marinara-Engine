@@ -166,26 +166,26 @@ Game Mode 채팅은 저장된 에셋 폴더 중 일부만 쓰도록 제한할 �
 
 ## 효과음과 음악 생성
 
-Game Mode는 AI 오디오 서비스인 ElevenLabs로 장면에 쓸 새 효과음과 음악도 만들 수 있습니다. ElevenLabs API 키가 필요합니다. 새 소리나 트랙을 하나 만들 때마다 내 계정으로 ElevenLabs에 요청이 한 번 전송됩니다.
+Game Mode는 **Music & Sound Effects**(음악과 효과음) 연결로 효과음과 음악도 생성할 수 있습니다. ElevenLabs, SunoAPI, 또는 사용자 지정 호환 서버를 고르세요. 새 소리나 트랙은 해당 제공자 계정을 사용하며, 기본 제공 오디오는 생성 없이 사용할 수 있습니다.
 
-먼저 오디오 연결을 설정하세요.
+먼저 생성 연결을 설정하세요.
 
-1. **Connections**(연결) 패널을 열고 **Audio**(오디오) 제공자로 연결을 만드세요.
-2. **Audio Source**(오디오 소스)에서 **ElevenLabs**를 고른 다음 ElevenLabs API 키를 붙여넣으세요.
-3. **Game sound effects**(게임 효과음)나 **Game music**(게임 음악), 또는 둘 다 켜세요. 이 스위치는 **ElevenLabs** 소스에서만 나타납니다.
-4. 연결을 저장하세요.
+1. **Connections**(연결)를 열고 **Music & Sound Effects** 연결을 만드세요.
+2. 서비스를 고르고 키를 입력한 다음 음악과 효과음 모델을 선택하세요. SunoAPI 음악에는 공개 HTTPS 콜백 URL도 필요하며 사용자 지정 서버에는 엔드포인트 경로가 필요합니다.
+3. **Sound-effect generation**(효과음 생성), **Music generation**(음악 생성), 또는 둘 다 켜세요.
+4. 연결을 저장하세요. [제공자 설정과 제한](../connections/providers-reference.md#music--sound-effects)을 참고하세요.
 
 그다음 게임을 만들 때 기능을 켜세요.
 
 1. 설정 마법사의 **Features** 단계에서 **Game Audio**(게임 오디오) 카드를 찾으세요.
-2. **Audio Connection**(오디오 연결)에서 ElevenLabs 연결을 고르거나 **Use the default audio connection**(기본 오디오 연결 사용)을 그대로 두세요.
+2. **Music & Sound Effects connection**(음악과 효과음 연결)에서 연결을 고르거나 **Use the default Music & Sound Effects connection**(기본 음악과 효과음 연결 사용)을 그대로 두세요.
 3. **Sound effects**(효과음)와 **Music**(음악)을 켠 채로 두거나, 원하지 않는 쪽을 끄세요.
 
-고른 연결이 해당 스위치를 켠 ElevenLabs 연결이어야 **Sound effects**나 **Music**을 켤 수 있습니다. 그렇지 않을 때는 카드에 안내가 표시됩니다.
+Game의 각 스위치를 사용하려면 선택한 연결에서 해당 기능이 켜져 있어야 합니다. 음성 전용 Audio 연결은 생성에 사용하지 않습니다.
 
 게임 중에는 다음과 같이 동작합니다.
 
-- **Sound effects**: GM 턴이 끝나면 Marinara가 장면에 어울리는 짧은 효과음을 ElevenLabs에 요청합니다.
+- **Sound effects**: GM 턴이 끝나면 Marinara가 선택한 서비스에 장면에 어울리는 짧은 효과음을 요청합니다.
 - **Music**: Marinara는 파티가 방문하는 장소마다, 그리고 보스 전투 같은 전투 종류마다 2분 정도 길이의 연주곡을 하나씩 작곡합니다. 각 트랙은 한 번만 만들고 이후에는 다시 씁니다. 새 장소의 트랙은 다음 장면 전환 때 시작되므로 장면 도중에 음악이 갑자기 끼어들지 않습니다. 전투 트랙은 준비되자마자 서서히 커지며 재생됩니다.
 
 생성된 소리와 트랙은 게임 에셋과 함께 저장되므로 같은 소리를 두 번 만들지 않습니다. **Music DJ**가 게임에서 음악을 재생하면 Game Mode는 음악을 생성하지 않습니다.

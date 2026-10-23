@@ -227,16 +227,36 @@ Decision 모델의 역할과 고르는 방법, 전체 설정은 [Decision 모델
 
 ## Audio
 
-**Audio**(오디오)는 음성과 생성된 소리를 위한 특별 제공자입니다. 이 제공자를 고른 다음 **Audio Source**(오디오 소스)를 고르세요.
+**Audio**(오디오)는 음성과 캐릭터 목소리를 위한 특별 제공자입니다. 이 제공자를 고른 다음 **Audio Source**(오디오 소스)를 고르세요.
 
-- **ElevenLabs**: 음성, 효과음, 음악을 만듭니다.
+- **ElevenLabs**: 캐릭터 목소리와 내레이션을 제공합니다.
 - **OpenAI-compatible**: OpenAI, 또는 OpenAI의 음성 형식을 그대로 따르는 서버입니다.
 - **PocketTTS**: 직접 컴퓨터에서 돌리는 무료 음성 서버입니다.
 - **xAI Voice**: xAI의 음성 서비스입니다.
 
 소스마다 기본 Base URL과 모델이 채워집니다. **Default Voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 타임아웃, 초 단위)는 Marinara가 음성 대사 한 줄을 기다리는 시간으로, 기본값은 60초입니다. 음성 서버가 느리다면 값을 올리세요. Marinara가 기본으로 쓸 오디오 연결을 고르려면 **Connections** 패널을 열고 **Defaults**(기본값)를 펼친 다음 **Audio** 아래에서 고르세요. 오디오 연결로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 연결을 **Source**(연결 소스)로 고르세요. [오디오 연결 사용하기](../media/tts-setup.md#use-an-audio-connection)를 참고하세요.
 
-**ElevenLabs** 소스에서는 **Game sound effects**(게임 효과음)와 **Game music**(게임 음악) 스위치 2개가 더 나타납니다. 이 스위치를 켜면 Game Mode(게임 모드)가 이 연결로 효과음과 음악을 만듭니다. [효과음과 음악 생성](../game/game-assets.md#generated-sound-effects-and-music)을 참고하세요. 음성과 메시지 소리 내어 읽기는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요.
+음성과 메시지 소리 내어 읽기는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요. 오디오 생성은 아래와 같이 별도로 설정합니다.
+
+<a id="music--sound-effects"></a>
+
+## Music & Sound Effects
+
+**Music & Sound Effects**(음악 및 효과음) 연결 범주는 음성과 별개로 연주곡과 효과음을 생성합니다. 소스를 고르고 키와 모델을 입력한 다음 **Music generation**(음악 생성), **Sound-effect generation**(효과음 생성), 또는 둘 다 켜세요. 기본 연결과 대체 연결은 Audio 및 언어 모델 연결과 독립적입니다.
+
+| 소스 | 기본 API 주소 | 설정 |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabs 키가 필요하며 음악과 효과음의 모델 입력란이 따로 있습니다. |
+| SunoAPI | `https://apibox.erweima.ai` | [sunoapi.org](https://sunoapi.org/)의 키가 필요합니다. 음악을 켜면 공개 HTTPS 콜백 URL도 필요합니다. 일반 소비자용 Suno 구독 로그인이 아닌 SunoAPI 서비스입니다. |
+| Custom compatible server(사용자 지정 호환 서버) | 서버 주소 | 명시적인 음악/효과음 엔드포인트 경로와 지원하는 요청 형식이 필요합니다. [호환 오디오 규약](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)을 참고하세요. |
+
+SunoAPI 음악에는 완료 알림을 보낼 수 있는 공개 HTTPS 콜백 주소가 필요합니다. 이 주소는 직접 제공해야 하며 Marinara가 만들어 주지 않습니다. Marinara는 트랙이 준비됐는지 직접 확인하므로 재생에 이 알림을 사용하지 않습니다.
+
+음악 스타일 프롬프트는 최대 1,000자, 효과음 프롬프트는 최대 500자입니다. 새 요청마다 제공자 요금이 발생할 수 있습니다. 계정 요건은 [음악 API](https://docs.sunoapi.org/suno-api/generate-music)와 [효과음 API](https://docs.sunoapi.org/suno-api/generate-sounds)를 참고하세요. SunoAPI 효과음은 아직 유료 계정으로 검증하지 않았습니다.
+
+업그레이드 후에는 기존에 켜 둔 Game 생성 설정이 별도의 연결로 분리됩니다. 원래의 음성 연결, 목소리 지정, 저장된 Game 선택은 유지됩니다. 이전된 생성 연결을 삭제해도 재시작할 때 다시 만들어지지 않습니다. 프로필에서 복원한 엔드포인트는 로컬에서 검토하고 저장하기 전까지 사용할 수 없습니다.
+
+Game마다 오디오 생성을 켜거나, Roleplay의 명령 설정에서 **Sound effects**(효과음)를 켜서 `[sound: description]` 구문을 사용하세요. Gacha Forge에는 별도의 오디오 생성 설정과 연결 선택이 있습니다. 생성을 꺼도 기본 제공 Game 오디오는 사용할 수 있습니다.
 
 ## 임베딩
 

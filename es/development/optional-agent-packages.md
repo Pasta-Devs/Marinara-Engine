@@ -74,6 +74,7 @@ La propiedad no se puede sobrescribir ni reconfigurar, y el espacio de nombres y
 | `capabilityApi`     | El `supportedCapabilityApi` del Engine, por ejemplo `{ major: 1, minor: 341 }`.                                                                                                                            |
 | `stores`            | Los stores de zustand en vivo `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` y `backfill`. `chat` incluye la parte del estado con las transiciones espaciales pendientes. |
 | `services.tts`      | El módulo `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...).                                                                                                                                   |
+| `services.audio` | Desde la API de capacidades 1.380, el módulo `lib/audio-service.ts`: reproductores independientes de música/efectos, manifiesto de recursos compartido y selección de música predeterminada. Consulta [Audio de los paquetes](#package-audio). |
 | `services.dialogs`  | El módulo `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                                           |
 | `modules`           | Módulos de bibliotecas, indexados por especificador simple (más abajo).                                                                                                                                    |
 | `queryClient`       | El único `QueryClient` de React Query con el que renderiza el Engine.                                                                                                                                      |
@@ -985,6 +986,50 @@ Los paquetes del servidor pueden usar `api.runtime.integrations` para acceder a 
 - `speech.transcribe(audio, { filename, mimeType, signal })` envía el audio grabado al servidor de voz a texto que el usuario configuró en **Connections → Speech to Text** (Conexiones → Voz a texto) y se resuelve con la transcripción, o con `null` mientras ese servidor está desactivado, para que el paquete conserve su propia transcripción. Aplica la política de URL del host (`STT_LOCAL_URLS_ENABLED`) y sus límites de tamaño y tiempo, y nunca expone la clave guardada. `speech` es opcional y no requiere una API de capacidades más reciente: comprueba `typeof api.runtime.integrations?.speech?.transcribe === "function"` y recurre a tu alternativa en los motores anteriores.
 
 `@marinara-engine/shared` exporta los tipos compartidos de solicitud y resultado. Conserva en el paquete la construcción de prompts y la orquestación propias; usa estos puntos del host para E/S de proveedores en vez de copiar servicios del motor. Los tipos y auxiliares puros pueden seguir empaquetándose.
+
+<a id="package-audio"></a>
+
+### Audio de los paquetes
+
+Desde la API de capacidades **1.380**, `__MARINARA_HOST__.services.audio` ofrece reproducción y
+selección de recursos a cargo del motor. Declara esa versión menor en el manifiesto del paquete y
+actualiza el motor junto con el paquete. La voz sigue en `services.tts`; la música y los efectos de
+sonido usan `services.audio`.
+Desde 1.380, `services.tts.ttsService.speakSequence(requests, id?, options?)` acepta
+`options.audioConnectionId` y aplica la conexión de voz seleccionada a cada fragmento, conservando
+la voz de cada solicitud. Déjalo sin definir para usar la opción predeterminada habitual, o pasa
+`""` para usar explícitamente los ajustes de TTS heredados.
+
+- `createPlayer()` devuelve un reproductor independiente con `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)` y `dispose()`. Los volúmenes van de 0 a 1. `assets` es un registro indexado por
+  etiqueta cuyas entradas tienen `{ path: string, url?: string }`; las rutas usan el servidor de
+  recursos de Game existente, mientras que `url` puede apuntar a un recurso propio del paquete.
+  La reproducción reutiliza el fundido cruzado, los reintentos de reproducción automática y el
+  conjunto de reproductores de efectos del motor. Llama a `unlock()` directamente en un gesto
+  del usuario al iniciar el audio; siguen aplicándose las reglas de reproducción automática del navegador.
+- Mantén un reproductor por superficie montada del paquete y llama a `dispose()` al desmontarla.
+  La liberación detiene permanentemente el audio de ese reproductor, libera su contexto y sus
+  escuchas de gestos, y deja sin efecto las llamadas posteriores. No detiene el reproductor de Game
+  ni el de otro paquete. Crea un reproductor nuevo cuando la superficie vuelva a montarse.
+- `getAssetManifest()` obtiene `/api/game-assets/manifest` mediante el cliente de API del motor y
+  devuelve `{ scannedAt, count, assets, byCategory }`. Cada recurso tiene `tag`, `category`,
+  `subcategory`, `name`, `path` y `ext`. Pasa `manifest.assets` a la reproducción; vuelve a obtener
+  el manifiesto después de añadir recursos generados si es necesario.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` devuelve una etiqueta de música
+  existente o `null`. Las señales son `home`, `combat`, `boss`, `happy`, `tense`, `sad` y `bond`.
+  Reutiliza el sistema de puntuación de música de Game y solo la biblioteca basada en estados;
+  excluye las pistas de zonas/niveles de otro juego de Game y las pistas generadas de contexto del
+  paquete. Pasa la etiqueta actual para conservar la música que sigue encajando. Elige de nuevo
+  cuando cambie la señal, no al cambiar el volumen. Varias señales incluidas pueden compartir una
+  pista: este auxiliar no genera música ni promete una composición distinta para cada estado de ánimo.
+
+Para reproducir un resultado generado `{ tag, path }` devuelto por el motor, usa
+`player.playMusic(tag, { [tag]: { path } })`. La generación y la selección de proveedores siguen en el
+servidor; los paquetes no deben duplicar solicitudes a proveedores ni acceder a credenciales guardadas.
+Usa el endpoint de generación del motor para la música y los efectos generados que el usuario active,
+y mantén claves de contexto generadas separadas para cada mundo del paquete y cada señal. Si una pista
+generada falla o no está disponible, puedes recurrir a `selectDefaultMusic`.
 
 ### Capability API 1.341: servicios de ejecución del host y bibliotecas compartidas del servidor
 

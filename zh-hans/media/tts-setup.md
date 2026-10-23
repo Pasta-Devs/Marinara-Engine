@@ -36,7 +36,7 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 
 之后 Marinara 会用该连接的基础 URL、API 密钥、模型和 **Request timeout (seconds)** 来朗读，所以卡片会隐藏这些字段。密钥保留在连接里：不会复制到卡片的设置中，也不会发送到你的浏览器。你对连接所做的改动，比如换了新密钥，会立即生效。
 
-声音、语速和其他语音设置会按连接分别保存。两个同类型的连接，比如两个 OpenAI 兼容服务器，绝不会共用这些设置。四个常规 Source 的设置保持原样，所以随时可以切换回去。卡片标题栏里的开关仍然用来开启和关闭 TTS，游戏自己的音频连接也仍然负责生成该游戏的音效和音乐。
+声音、语速和其他语音设置会按连接分别保存。两个同类型的连接，比如两个 OpenAI 兼容服务器，绝不会共用这些设置。四个常规 Source 的设置保持原样，所以随时可以切换回去。卡片标题栏里的开关仍然用来开启和关闭常规 TTS。生成音乐和音效现在使用独立的连接类别。
 
 如果所选连接被删除或无法使用，卡片会显示 **Missing Audio connection**(缺少音频连接)，在你另选一个 Source 之前不会朗读任何内容。Marinara 绝不会自行切换到别的连接。
 
@@ -46,18 +46,29 @@ TTS 请求由应用自己的服务器转发。服务商的 API 密钥会加密�
 
 ## 通过兼容音频服务器生成 Game 音乐和音效
 
-在 **Connections** 中创建或打开一个 **Audio** 连接，选择 **OpenAI-compatible**。填写音乐或音效服务器的地址、密钥和模型。设置 **Generation API format**，输入服务器提供的端点路径，并开启 **Game music** 或 **Game sound effects**。路径留空就无法使用对应功能。在 Game 设置流程或游戏的音频设置中选择这个 Audio 连接。只能生成音乐的模型不是语音模型；Text to Speech 卡片中仍需单独选择语音连接。
+在 **Connections** 中创建一个 **Music & Sound Effects**(音乐与音效) 连接，选择 **Custom compatible server**(自定义兼容服务器)。填写音乐或音效服务器的地址、密钥和模型。设置 **Generation API format**，输入服务器提供的端点路径，再开启 **Music generation**(音乐生成)、**Sound-effect generation**(音效生成)，或同时开启两项。路径留空就无法使用对应功能。在 Game 设置流程或游戏的音频设置中选择这个连接。Text to Speech 卡片中仍需单独选择语音连接。
 
-端点路径会接在连接的 Base URL 后：例如 `http://localhost:8002/v1` 搭配 `chat/completions`，最终访问 `/v1/chat/completions`。不需要新增提供商。本地 HTTP 端点与其他本地兼容音频请求一样，需要在 `.env` 中设置 `TTS_LOCAL_URLS_ENABLED=true`。
+端点路径会接在连接的 Base URL 后：例如 `http://localhost:8002/v1` 搭配 `chat/completions`，最终访问 `/v1/chat/completions`。本地 HTTP 端点与其他本地兼容音频请求一样，需要在 `.env` 中设置 `TTS_LOCAL_URLS_ENABLED=true`。
 
 目前支持两种明确的 API 协议：
 
 - **Prompt JSON → MP3 audio** 发送 `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }`，接收 MP3 字节。Game 音乐使用情境曲目的时长（默认 120 秒），音效请求 5 秒。所用端点或适配器必须接受这些字段。
 - **Chat Completions → inline audio (ACE-Step compatible)** 发送 `model`、一条用户 `messages`、`stream: false`，以及带有 `duration`、`instrumental: true` 和 `format: "mp3"` 的 `audio_config`。从 `choices[0].message.audio` 接收内嵌 MP3 音频，支持包含 base64 数据 URL 的 ACE-Step 音频 URL 数组，或带有 base64 `data` 的对象。参见 [ACE-Step 兼容 API 协议](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md)。这两种协议不支持远程结果 URL，也不支持异步任务 API。
 
-只开启服务器实际实现的功能。支持 OpenAI 兼容语音端点，并不代表支持音乐或音效。Infermatic 等提供商必须提供上述协议之一或相应适配器；这里没有验证其实际音乐端点。ElevenLabs 仍使用现有的原生音乐和音效请求。
+只开启服务器实际实现的功能。支持 OpenAI 兼容语音端点，并不代表支持音乐或音效。Infermatic 等提供商必须提供上述协议之一或相应适配器；这里没有验证其实际音乐端点。使用 ElevenLabs 或 SunoAPI 的原生生成时，在 **Music & Sound Effects** 下选择对应来源；见[连接参考](../connections/providers-reference.md#music--sound-effects)。
 
 情境音乐仍然按区域或遭遇等级生成一次，之后重复使用。重复音效使用音频缓存。生成失败后，缓存仍可用于重试。
+
+<a id="gacha-forge-dialogue-and-audio"></a>
+
+## Gacha Forge 对白与音频
+
+Gacha Forge 1.11.0 及更新版本使用 **Text to Speech** 卡片当前选中的连接及该连接按角色分配的声音。在新世界设置的 **Lore**(世界设定) 步骤，或已有世界的 **Settings → World → Sources**(设置 → 世界 → 来源) 中，启用 **Read character dialogue**(朗读角色对白)，就能朗读明确分配了声音的导入角色的对白。旁白、想法、没有 Engine 角色 ID 的生成单位，以及没有分配声音的角色都保持静音。只有角色名称，绝不会借用另一个角色的声音。世界的 TTS 开关打开时，可以使用选中的 Audio 连接；直接使用卡片的旧来源设置时，卡片的主 TTS 开关也必须打开。
+
+Game 自带的音乐和音效无需生成连接即可使用。要创作新曲目，在 Gacha Forge 中启用 **Generate music and sound effects**(生成音乐和音效)，再在 **Audio connection**(音频连接) 下选择 Music & Sound Effects 连接。这个选择器在生成开启后才会显示。主页、普通战斗、首领战、开心/紧张/悲伤的故事场景和角色故事使用各自的情境曲目，首次需要时生成，之后重复使用。这些请求使用你的服务商账号。
+
+右上角的静音按钮会同时静音音乐、对白和音效。**Settings → Look (Visual)**(设置 → 外观) 提供这三个声道各自的音量控制，包括零音量，以及自动播放暂停时长。暂停默认是 **3 秒**，在文字显示完毕且语音对白结束之后开始。选项仍然等待玩家选择。离开场景时会取消语音对白。音乐会继续播放，或切换为适合新界面的音乐；离开世界时会停止该世界的音频。要获得这些控件，除了 Engine，也要更新已安装的 Gacha Forge 包。
+
 
 ## 第 2 步：填写 Base URL、API Key 和 Model
 

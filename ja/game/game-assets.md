@@ -166,26 +166,26 @@ Game Modeのチャットごとに、使うアセットフォルダーを一部�
 
 ## 生成される効果音と音楽
 
-Game Modeは、AI音声サービスのElevenLabsを使って、シーンに合った新しい効果音や音楽を作ることもできます。ElevenLabsのAPIキーが必要です。新しい効果音やトラックを1つ作るたびに、自分のアカウントでElevenLabsへのリクエストが1回発生します。
+Game Modeは、**Music & Sound Effects**(音楽と効果音)接続を通して効果音や音楽を生成することもできます。ElevenLabs、SunoAPI、カスタム互換サーバーから選んでください。新しい音やトラックにはそのプロバイダーのアカウントを使います。同梱の音声は生成なしで使えます。
 
-まず、音声の接続を設定します。
+まず、生成用接続を設定します。
 
-1. **Connections**(接続)パネルを開き、**Audio**プロバイダーの接続を作成します。
-2. **Audio Source**で**ElevenLabs**を選び、ElevenLabsのAPIキーを貼り付けます。
-3. **Game sound effects**、**Game music**、またはその両方をオンにします。これらのスイッチは**ElevenLabs**ソースでのみ表示されます。
-4. 接続を保存します。
+1. **Connections**(接続)を開き、**Music & Sound Effects**接続を作成します。
+2. サービスを選び、キーを入力して、音楽と効果音のモデルを選びます。SunoAPIの音楽には公開HTTPSコールバックURLも必要です。カスタムサーバーにはエンドポイントパスが必要です。
+3. **Sound-effect generation**(効果音生成)、**Music generation**(音楽生成)、または両方をオンにします。
+4. 接続を保存します。[プロバイダーの設定と制限](../connections/providers-reference.md#music--sound-effects)を参照してください。
 
 次に、ゲームを作成するときにオンにします。
 
 1. 設定ウィザードの**Features**ステップで、**Game Audio**カードを探します。
-2. **Audio Connection**でElevenLabsの接続を選ぶか、**Use the default audio connection**(デフォルトの音声接続を使う)のままにします。
+2. **Music & Sound Effects connection**(音楽と効果音の接続)で接続を選ぶか、**Use the default Music & Sound Effects connection**(デフォルトの音楽と効果音の接続を使う)のままにします。
 3. **Sound effects**と**Music**はオンのままにするか、不要なほうをオフにします。
 
-選んだ接続が、該当するスイッチをオンにしたElevenLabsの接続でない限り、**Sound effects**や**Music**はオンにできません。そのような場合は、カードに表示されます。
+Gameの各スイッチを使うには、選択した接続で対応する機能をオンにする必要があります。読み上げ専用のAudio接続は生成には使いません。
 
 プレイ中は次のように動きます。
 
-- **Sound effects**: GMのターンのあと、Marinaraはシーンに合った短い効果音をElevenLabsに依頼します。
+- **Sound effects**: GMのターンのあと、Marinaraはシーンに合った短い効果音を選択したサービスに依頼します。
 - **Music**: Marinaraは、パーティーが訪れる場所ごと、そしてボス戦などの戦闘の種類ごとに、約2分のインストゥルメンタルのトラックを1つずつ作曲します。各トラックは一度だけ作られ、その後は再利用されます。新しい場所のトラックは、シーンの途中で音楽が割り込まないよう、その後のシーン切り替えのタイミングで始まります。戦闘のトラックは、準備ができしだいフェードインします。
 
 生成した効果音とトラックはゲームアセットと一緒に保存されるため、同じ音が二度作られることはありません。**Music DJ**がゲームの音楽を再生している場合、Game Modeは音楽を生成しません。

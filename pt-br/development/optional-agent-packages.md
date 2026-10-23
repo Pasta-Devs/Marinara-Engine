@@ -73,6 +73,7 @@ A propriedade não é gravável nem configurável, e o namespace e os objetos `s
 | `capabilityApi` | O `supportedCapabilityApi` do Engine, por exemplo `{ major: 1, minor: 341 }`. |
 | `stores` | Os stores zustand ativos `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` e `backfill`. `chat` inclui a fatia de transições espaciais pendentes. |
 | `services.tts` | O módulo `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
+| `services.audio` | A partir da Capability API 1.380, o módulo `lib/audio-service.ts`: players independentes de música/efeitos sonoros, o manifesto de recursos compartilhado e a seleção de música padrão. Veja [Áudio de pacotes](#package-audio). |
 | `services.dialogs` | O módulo `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
 | `modules` | Módulos de bibliotecas, indexados pelo especificador simples (veja abaixo). |
 | `queryClient` | O único `QueryClient` do React Query com que o Engine renderiza. |
@@ -983,6 +984,19 @@ Pacotes do servidor podem usar `api.runtime.integrations` para acessar os servi�
 - `speech.transcribe(audio, { filename, mimeType, signal })` envia o áudio gravado para o servidor de conversão de fala em texto que o usuário definiu em **Connections → Speech to Text** (Conexões → Speech to Text) e resolve com a transcrição, ou com `null` enquanto esse servidor estiver desligado, para que o pacote mantenha a própria transcrição. Aplica a política de URLs do host (`STT_LOCAL_URLS_ENABLED`) e os limites de tamanho e de tempo, e nunca expõe a chave salva. `speech` é opcional e não exige uma API de capacidades mais nova: verifique `typeof api.runtime.integrations?.speech?.transcribe === "function"` e, em motores antigos, recorra à transcrição do próprio pacote.
 
 `@marinara-engine/shared` exporta os tipos compartilhados de solicitação e resultado. Mantenha a construção de prompts e a orquestração específicas no pacote; use esses pontos do host para E/S de provedores em vez de copiar os serviços do motor. Tipos e auxiliares puros ainda podem ser incluídos no pacote.
+
+<a id="package-audio"></a>
+
+### Áudio de pacotes
+
+A partir da Capability API **1.380**, `__MARINARA_HOST__.services.audio` fornece reprodução e seleção de recursos pelo Engine. Declare essa versão secundária no manifesto do pacote e atualize o Engine junto com o pacote. A fala continua em `services.tts`; música e efeitos sonoros usam `services.audio`. `services.tts.ttsService.speakSequence(requests, id?, options?)` aceita `options.audioConnectionId` desde a versão 1.380, aplicando a conexão de fala selecionada a cada trecho e mantendo a voz de cada solicitação. Deixe o valor indefinido para usar o padrão normal ou passe `""` para usar explicitamente as configurações antigas de TTS.
+
+- `createPlayer()` retorna um player independente com `unlock()`, `playMusic(tag, assets?)`, `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`, `setMuted(boolean)` e `dispose()`. Os volumes vão de 0 a 1. `assets` é um registro indexado por tag, cujas entradas têm `{ path: string, url?: string }`; os caminhos usam o servidor de recursos existente de Game, enquanto `url` pode apontar para um recurso do pacote. A reprodução reutiliza o crossfade, a nova tentativa de reprodução automática e o pool de efeitos sonoros do Engine. Chame `unlock()` diretamente em uma interação do usuário ao iniciar o áudio; as regras de reprodução automática do navegador continuam valendo.
+- Mantenha um player para a interface montada do pacote e chame `dispose()` ao desmontá-la. A limpeza para permanentemente o áudio daquele player, libera o contexto e os listeners de gestos e torna inertes as chamadas posteriores. Não para o Game nem o player de outro pacote. Crie outro player quando a interface for montada de novo.
+- `getAssetManifest()` busca `/api/game-assets/manifest` pelo cliente de API do Engine e retorna `{ scannedAt, count, assets, byCategory }`. Cada recurso tem `tag`, `category`, `subcategory`, `name`, `path` e `ext`. Passe `manifest.assets` para a reprodução; busque de novo depois de adicionar recursos gerados, se necessário.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` retorna uma tag de música existente ou `null`. Os contextos são `home`, `combat`, `boss`, `happy`, `tense`, `sad` e `bond`. Reutiliza o classificador de música de Game e apenas a biblioteca por estado; faixas de área/nível de outro Game e faixas geradas para o contexto de pacotes ficam de fora. Passe a tag atual para manter estável uma música adequada. Escolha de novo quando o contexto mudar, não quando o volume mudar. Os contextos incluídos podem compartilhar uma faixa: esse auxiliar não gera música nem promete uma composição diferente para cada clima.
+
+Para reproduzir um `{ tag, path }` gerado pelo Engine, use `player.playMusic(tag, { [tag]: { path } })`. A geração e a seleção de provedores ficam no servidor; os pacotes não podem duplicar solicitações ao provedor nem acessar credenciais salvas. Use o endpoint de geração do Engine para música e efeitos gerados com ativação opcional e mantenha chaves de contexto gerado separadas para cada mundo e contexto do pacote. Uma faixa gerada que falhar ou estiver indisponível pode recorrer a `selectDefaultMusic`.
 
 ### Capability API 1.341: serviços de execução do host e bibliotecas compartilhadas do servidor
 

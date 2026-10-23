@@ -73,6 +73,7 @@ La propriété n'est ni accessible en écriture ni configurable, et l'espace de 
 | `capabilityApi`     | Le `supportedCapabilityApi` du moteur, par exemple `{ major: 1, minor: 341 }`.                                                                                                          |
 | `stores`            | Les stores zustand actifs `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` et `backfill`. `chat` inclut la tranche des transitions spatiales en attente. |
 | `services.tts`      | Le module `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...).                                                                                                                |
+| `services.audio` | À partir de Capability API 1.380, le module `lib/audio-service.ts` : lecteurs indépendants de musique et d'effets sonores, manifeste partagé des ressources et sélection de la musique par défaut. Consulte [Audio des paquets](#package-audio). |
 | `services.dialogs`  | Le module `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                        |
 | `modules`           | Les modules de bibliothèques, indexés par spécificateur nu (voir plus bas).                                                                                                             |
 | `queryClient`       | L'unique `QueryClient` React Query avec lequel le moteur fait son rendu.                                                                                                                |
@@ -1012,6 +1013,42 @@ Les paquets serveur peuvent utiliser `api.runtime.integrations` pour accéder au
 - `speech.transcribe(audio, { filename, mimeType, signal })` envoie l'audio enregistré au serveur de reconnaissance vocale que l'utilisateur a défini dans **Connections → Speech to Text** (Connexions → Reconnaissance vocale) et se résout avec la transcription, ou avec `null` tant que ce serveur est désactivé, pour que le package continue d'utiliser sa propre transcription. Il applique la politique d'URL de l'hôte (`STT_LOCAL_URLS_ENABLED`) ainsi que les limites de taille et de durée, et n'expose jamais la clé enregistrée. `speech` est facultatif et ne demande aucune API de capacités plus récente : vérifie `typeof api.runtime.integrations?.speech?.transcribe === "function"` et prévois un repli pour les anciens moteurs.
 
 `@marinara-engine/shared` exporte les types partagés de requête et de résultat. Garde la construction des prompts et l'orchestration propres au paquet dans celui-ci ; utilise ces points d'entrée de l'hôte pour les E/S de fournisseur plutôt que copier les services du moteur. Les types et auxiliaires purs peuvent toujours être inclus dans le paquet.
+
+<a id="package-audio"></a>
+
+### Audio des paquets
+
+À partir de Capability API **1.380**, `__MARINARA_HOST__.services.audio` fournit la lecture et
+la sélection des ressources gérées par le moteur. Déclare cette version mineure dans le manifeste du paquet et mets à jour le moteur avec le paquet.
+La parole reste dans `services.tts` ; la musique et les effets sonores utilisent `services.audio`.
+`services.tts.ttsService.speakSequence(requests, id?, options?)` accepte `options.audioConnectionId`
+depuis la version 1.380 : la connexion de voix choisie s'applique à chaque segment tout en conservant la voix de chaque
+requête. Laisse ce paramètre indéfini pour le choix habituel par défaut, ou passe `""` pour utiliser explicitement les anciens réglages TTS.
+
+- `createPlayer()` renvoie un lecteur indépendant avec `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)` et `dispose()`. Les volumes vont de 0 à 1. `assets` est une table indexée par tag,
+  dont les entrées contiennent `{ path: string, url?: string }` ; les chemins utilisent le serveur de ressources Game existant, tandis que
+  `url` peut désigner une ressource appartenant au paquet. La lecture reprend les fondus enchaînés, les nouvelles tentatives de lecture automatique et
+  le groupe de lecteurs d'effets sonores du moteur. Appelle `unlock()` directement pendant une action de l'utilisateur au démarrage de l'audio ; les règles de lecture automatique du navigateur s'appliquent toujours.
+- Garde un lecteur pour la vue montée du paquet et appelle `dispose()` lorsqu'elle est démontée. Cette opération
+  arrête définitivement l'audio de ce lecteur, libère son contexte et ses écouteurs d'actions utilisateur, et rend les appels suivants sans effet.
+  Elle n'arrête pas le lecteur de Game ni celui d'un autre paquet. Crée un nouveau lecteur lorsque la vue est de nouveau montée.
+- `getAssetManifest()` récupère `/api/game-assets/manifest` via le client API du moteur et renvoie
+  `{ scannedAt, count, assets, byCategory }`. Chaque ressource possède `tag`, `category`, `subcategory`, `name`,
+  `path` et `ext`. Passe `manifest.assets` à la lecture ; récupère de nouveau le manifeste après l'ajout de ressources générées si nécessaire.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` renvoie un tag musical existant ou `null`.
+  Les ambiances sont `home`, `combat`, `boss`, `happy`, `tense`, `sad` et `bond`. Cette fonction réutilise l'évaluation musicale de Game
+  et uniquement la bibliothèque basée sur l'état ; elle exclut les pistes de zone/niveau d'un autre Game ainsi que les pistes générées
+  pour le contexte d'un paquet. Passe le tag actuel pour conserver une musique qui convient. Choisis de nouveau lorsque l'ambiance
+  change, plutôt que lors des changements de volume. Plusieurs ambiances peuvent partager une piste fournie : cette fonction ne génère
+  pas de musique et ne garantit pas une composition distincte pour chaque humeur.
+
+Pour lire un résultat généré `{ tag, path }` renvoyé par le moteur, utilise
+`player.playMusic(tag, { [tag]: { path } })`. La génération et le choix du fournisseur restent côté serveur ; les paquets
+ne doivent pas dupliquer les requêtes aux fournisseurs ni accéder aux identifiants enregistrés. Utilise l'endpoint de génération du moteur
+pour la musique et les effets générés sur activation explicite, et sépare les clés de contexte généré pour chaque monde
+et chaque ambiance du paquet. Une piste générée indisponible ou dont la génération échoue peut se rabattre sur `selectDefaultMusic`.
 
 ### Capability API 1.341 : services d'exécution de l'hôte et bibliothèques serveur partagées
 

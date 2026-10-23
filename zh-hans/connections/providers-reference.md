@@ -227,16 +227,36 @@ DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的
 
 ## Audio
 
-**Audio**(音频) 是用于语音和生成音效的特殊服务商。选中它之后，再选择一个 **Audio Source**(音频来源)：
+**Audio**(音频) 是用于语音和角色声音的特殊服务商。选中它之后，再选择一个 **Audio Source**(音频来源)：
 
-- **ElevenLabs**：语音、音效和音乐。
+- **ElevenLabs**：角色声音和旁白。
 - **OpenAI-compatible**：OpenAI，或任何照搬 OpenAI 语音格式的服务器。
 - **PocketTTS**：一个在自己电脑上运行的免费语音服务器。
 - **xAI Voice**：xAI 的语音服务。
 
 每个来源都会自动填好默认的基础 URL 和模型。**Default Voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长，默认 60 秒；语音服务器较慢时可以调高。要选择 Marinara 默认使用哪个音频连接，打开 **Connections** 面板，展开 **Defaults**(默认值)，在 **Audio** 下选择。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
 
-使用 **ElevenLabs** 来源时，还会多出两个开关：**Game sound effects**(游戏音效) 和 **Game music**(游戏音乐)。它们让 Game Mode(游戏模式) 用这个连接生成音效和音乐。参见[生成音效与音乐](../game/game-assets.md#generated-sound-effects-and-music)。语音和朗读消息，见 [Text to Speech (TTS) 设置](../media/tts-setup.md)。
+语音和朗读消息，见 [Text to Speech (TTS) 设置](../media/tts-setup.md)。生成音频在下面单独配置。
+
+<a id="music--sound-effects"></a>
+
+## 音乐与音效
+
+**Music & Sound Effects**(音乐与音效) 类连接用于生成纯器乐音乐和音效，与语音分开。选择来源，填写密钥和模型，再开启 **Music generation**(音乐生成)、**Sound-effect generation**(音效生成)，或同时开启两项。它的默认连接和回退连接独立于 Audio 和语言模型连接。
+
+| 来源 | 默认 API 基础地址 | 设置 |
+| --- | --- | --- |
+| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabs 密钥；音乐和音效有各自的模型字段。 |
+| SunoAPI | `https://apibox.erweima.ai` | [sunoapi.org](https://sunoapi.org/) 的密钥；开启音乐时还要提供公开的 HTTPS 回调 URL。这是 SunoAPI 的服务，不是通过 Suno 面向普通用户的订阅账号登录。 |
+| 自定义兼容服务器 | 服务器地址 | 明确的音乐/音效端点路径和支持的请求格式；见[兼容音频协议](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)。 |
+
+SunoAPI 音乐需要一个公开的 HTTPS 回调地址，用来接收完成通知。这个地址需要你提供，Marinara 不会创建。Marinara 会自行检查曲目是否准备就绪，所以播放时不依赖这些通知。
+
+音乐风格提示词最多 1,000 个字符，音效提示词最多 500 个字符。每次新请求都可能产生服务商费用。账号要求见[音乐 API](https://docs.sunoapi.org/suno-api/generate-music)和[音效 API](https://docs.sunoapi.org/suno-api/generate-sounds)。SunoAPI 音效尚未使用付费账号验证。
+
+升级后，已有且已启用的 Game 生成功能设置会拆分到单独的连接。原来的语音连接、声音分配和已保存的 Game 选择都会保留。删除迁移后的生成连接，不会在重启时重新创建它。从方案恢复的端点在本地检查并保存之前不可用。
+
+按游戏单独启用 Game 生成音频，或在 Roleplay 的命令设置中启用 **Sound effects**(音效)，以使用 `[sound: description]`。Gacha Forge 有自己的生成音频设置和连接选择。关闭生成时，Game 自带的音频仍然可用。
 
 ## 嵌入
 

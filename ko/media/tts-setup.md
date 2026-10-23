@@ -36,7 +36,7 @@ TTS를 켜기만 해서는 아무것도 말하지 않습니다. 각 메시지의
 
 그러면 Marinara는 그 연결의 Base URL, API 키, 모델, **Request timeout (seconds)**를 사용해 말하므로 카드에서는 이 입력란들이 숨겨집니다. 키는 연결 안에 머뭅니다. 카드 설정으로 복사되지 않고 브라우저로 보내지지도 않습니다. 새 키처럼 연결에서 바꾼 내용은 바로 반영됩니다.
 
-목소리, 속도, 그 밖의 음성 설정은 연결마다 따로 저장됩니다. OpenAI-compatible 서버 두 개처럼 종류가 같은 연결끼리도 이 설정을 공유하지 않습니다. 일반 Source 4가지의 설정은 그대로 남아 있으므로 언제든 되돌아갈 수 있습니다. 카드 헤더의 스위치로는 여전히 TTS를 켜고 끄며, 게임 자체의 오디오 연결은 여전히 그 게임의 효과음과 음악을 만듭니다.
+목소리, 속도, 그 밖의 음성 설정은 연결마다 따로 저장됩니다. OpenAI-compatible 서버 두 개처럼 종류가 같은 연결끼리도 이 설정을 공유하지 않습니다. 일반 Source 4가지의 설정은 그대로 남아 있으므로 언제든 되돌아갈 수 있습니다. 카드 헤더의 스위치로는 여전히 일반 TTS를 켜고 끕니다. 생성 음악과 효과음은 이제 별도의 연결 범주를 사용합니다.
 
 고른 연결이 삭제되었거나 쓸 수 없으면 카드에 **Missing Audio connection**(오디오 연결 없음)이 표시되고, 다른 Source를 고를 때까지 아무것도 읽지 않습니다. Marinara는 절대 다른 연결로 알아서 바꾸지 않습니다.
 
@@ -46,18 +46,28 @@ TTS를 켜기만 해서는 아무것도 말하지 않습니다. 각 메시지의
 
 ## 호환 오디오 서버로 Game 음악과 효과음 생성하기
 
-**Connections**에서 **Audio** 연결을 만들거나 열고 **OpenAI-compatible**을 선택하세요. 음악이나 효과음 서버의 주소, 키, 모델을 사용합니다. **Generation API format**을 설정하고 서버에서 제공하는 엔드포인트 경로를 입력한 뒤 **Game music** 또는 **Game sound effects**를 켜세요. 경로를 비워 두면 해당 기능을 사용할 수 없습니다. Game 설정 과정이나 게임의 오디오 설정에서 이 Audio 연결을 선택하세요. 음악 전용 모델은 음성 모델이 아니므로 Text to Speech 카드에서는 음성 연결을 별도로 선택해 두세요.
+**Connections**에서 **Music & Sound Effects**(음악과 효과음) 연결을 만들고 **Custom compatible server**(사용자 지정 호환 서버)를 고르세요. 음악이나 효과음 서버의 주소, 키, 모델을 사용합니다. **Generation API format**을 설정하고 서버가 제공하는 엔드포인트 경로를 입력한 뒤 **Music generation**(음악 생성), **Sound-effect generation**(효과음 생성), 또는 둘 다 켜세요. 경로를 비워 두면 해당 기능을 사용할 수 없습니다. Game 설정 과정이나 게임의 오디오 설정에서 이 연결을 선택하세요. Text to Speech 카드에서는 음성 연결을 별도로 선택해 두세요.
 
-엔드포인트 경로는 연결의 Base URL 뒤에 붙습니다. `http://localhost:8002/v1`에는 `chat/completions`를 사용하면 `/v1/chat/completions`에 접근합니다. 새 제공자를 추가할 필요는 없습니다. 로컬 HTTP 엔드포인트는 다른 로컬 호환 오디오 요청과 마찬가지로 `.env`에서 `TTS_LOCAL_URLS_ENABLED=true`를 설정해야 합니다.
+엔드포인트 경로는 연결의 Base URL 뒤에 붙습니다. `http://localhost:8002/v1`에는 `chat/completions`를 사용하면 `/v1/chat/completions`에 접근합니다. 로컬 HTTP 엔드포인트는 다른 로컬 호환 오디오 요청과 마찬가지로 `.env`에서 `TTS_LOCAL_URLS_ENABLED=true`를 설정해야 합니다.
 
 명시적으로 지원하는 API 입출력 규약은 두 가지입니다.
 
 - **Prompt JSON → MP3 audio** 는 `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }`를 전송하고 MP3 바이트를 받습니다. Game 음악은 컨텍스트 트랙의 길이(기본 120초)를 사용하며 효과음은 5초를 요청합니다. 이 필드를 받는 엔드포인트나 어댑터를 사용하세요.
 - **Chat Completions → inline audio (ACE-Step compatible)** 는 `model`, 사용자 `messages` 항목 하나, `stream: false`, 그리고 `duration`, `instrumental: true`, `format: "mp3"`가 포함된 `audio_config`를 전송합니다. `choices[0].message.audio`에 포함된 MP3 오디오를 받습니다. base64 데이터 URL을 담은 ACE-Step 오디오 URL 배열이나 base64 `data`가 있는 객체를 지원합니다. [ACE-Step 호환 API 규약](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md)을 참고하세요. 원격 결과 URL과 비동기 작업 API는 이 규약에서 지원하지 않습니다.
 
-서버가 실제로 구현한 기능만 켜세요. OpenAI 호환 음성 엔드포인트만으로는 음악이나 효과음 지원을 보장하지 않습니다. Infermatic 같은 제공자는 위 규약 중 하나를 제공하거나 어댑터를 갖춰야 합니다. 여기서는 실제 Infermatic 음악 엔드포인트를 검증하지 않았습니다. ElevenLabs는 기존의 네이티브 음악 및 효과음 요청을 그대로 사용합니다.
+서버가 실제로 구현한 기능만 켜세요. OpenAI 호환 음성 엔드포인트만으로는 음악이나 효과음 지원을 보장하지 않습니다. Infermatic 같은 제공자는 위 규약 중 하나를 제공하거나 어댑터를 갖춰야 합니다. 여기서는 실제 Infermatic 음악 엔드포인트를 검증하지 않았습니다. ElevenLabs나 SunoAPI의 네이티브 생성에는 **Music & Sound Effects** 아래의 해당 소스를 사용하세요. [연결 안내](../connections/providers-reference.md#music--sound-effects)를 참고하세요.
 
 컨텍스트 음악은 영역이나 조우 단계마다 한 번 생성한 뒤 계속 재사용합니다. 반복되는 효과음은 오디오 캐시를 사용합니다. 생성 오류가 나도 캐시는 재시도할 수 있도록 남습니다.
+
+<a id="gacha-forge-dialogue-and-audio"></a>
+
+## Gacha Forge 대화와 오디오
+
+Gacha Forge 1.11.0 이상에서는 **Text to Speech** 카드에서 현재 선택한 연결과 그 연결의 캐릭터별 목소리 지정을 사용합니다. 새 월드의 **Lore**(배경 설정) 단계나 기존 월드의 **Settings → World → Sources**(설정 → 월드 → 소스)에서 **Read character dialogue**(캐릭터 대사 읽기)를 켜면 목소리를 명시적으로 지정한 가져온 캐릭터의 대사를 읽습니다. 내레이션, 생각, Engine 캐릭터 ID가 없는 생성 유닛, 목소리를 지정하지 않은 캐릭터는 소리를 내지 않습니다. 캐릭터 이름만으로 다른 캐릭터의 목소리를 빌려 쓰지는 않습니다. 월드의 TTS 스위치가 켜져 있으면 선택한 Audio 연결을 사용할 수 있습니다. 카드의 기존 소스 설정을 직접 사용할 때는 카드의 기본 TTS 스위치도 켜져 있어야 합니다.
+
+기본 제공 Game 음악과 효과음은 생성 연결 없이 작동합니다. 새 트랙을 작곡하려면 Gacha Forge에서 **Generate music and sound effects**(음악과 효과음 생성)를 켠 다음 **Audio connection**(오디오 연결)에서 Music & Sound Effects 연결을 고르세요. 이 선택기는 생성을 켜면 나타납니다. Home, 전투, 보스, 즐거운/긴장된/슬픈 이야기 장면, 캐릭터 이야기는 별도의 컨텍스트 트랙을 사용하며 처음 필요할 때 생성한 뒤 재사용합니다. 이 요청은 제공자 계정을 사용합니다.
+
+오른쪽 위 음소거 버튼은 음악, 대화, 효과음을 함께 끕니다. **Settings → Look (Visual)**(설정 → 화면)에는 이 세 채널의 개별 음량 조절(음량 0 포함)과 자동 재생 대기 시간이 있습니다. 기본 대기 시간은 **3초**이며 텍스트 표시와 음성 대사가 모두 끝난 뒤 시작됩니다. 선택지는 계속 플레이어의 선택을 기다립니다. 장면을 떠나면 음성 대사를 취소합니다. 음악은 계속 재생되거나 새 화면에 맞게 바뀌며, 월드를 떠나면 해당 월드의 모든 오디오가 멈춥니다. 이 기능을 사용하려면 Engine과 설치된 Gacha Forge 패키지를 모두 업데이트하세요.
 
 ## 2단계: Base URL, API Key, Model 입력하기
 

@@ -2,7 +2,7 @@
 
 Owner: @SpicyMarinara (Codex). Linked issue: #8168; English source PR: #8167.
 
-Preparation is in progress. The four English guide paths are frozen at local candidate `daeaae573b1506b64cbc5cec9df7359d2188a6f2`; their final merged source commit will be recorded before publication. No candidate manifests or translated guide content are published by this ownership commit.
+Preparation is in progress. The four English guide paths are frozen at local candidate `03a899760968ef85a349a1f2b66505471186b5d2`; their final merged source commit will be recorded before publication. No candidate manifests or translated guide content are published by this ownership commit.
 
 The ten packs are `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `zh-hans`. Scope is four existing guides per pack; the current pack inventory stays at 141 guides. The pending #8155 publication is serialized first.
 
@@ -11,10 +11,18 @@ The ten packs are `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `
 | Path under docs/ | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `connections/providers-reference.md` | 22650 | `242c372ab3740f087c509647f728ad7feb85136290f865017a2335192b7edee9` |
-| `media/tts-setup.md` | 22776 | `43ec97b1d41100250028db2931de70047e842385ca133ab0d71e59958fdce085` |
+| `media/tts-setup.md` | 23031 | `f9b9c6b6ac4104c9945f7635edbf507a335ccc248deba16c63b1dbbfca2427fe` |
 | `game/game-assets.md` | 14060 | `99513e61aed4831e139cc68b55c19460b1fccf0688275e78923593943269f5ee` |
 | `development/optional-agent-packages.md` | 152305 | `e2908147b7e9e48f5ce48293bdf53a3914afa4b1364ec01789dd9cf7a3106ba8` |
 
 ## Publication requirements
 
 Translate only the changed prose, headings, tables and link text. Preserve code, inline code, paths, links and UI labels; add canonical anchors for new headings. Retain paid-provider and shared SunoAPI task-lookup qualification without introducing promises. Regenerate all ten manifests only against the final merged English source, validate every pack, complete substantive review, then verify raw published bytes and all 1,410 manifest entry hashes before closing #8168.
+
+## Local translation candidate
+
+All 40 guide deltas are prepared across all 10 packs. The frozen English source includes the corrected Gacha setup/control labels and distinguishes scene dialogue cancellation from continuing/changing music and world-exit audio disposal. Three canonical heading anchors per pack preserve the English link targets. Surrounding translations remain unchanged.
+
+The integrated structural audit checks source hashes, added/removed inline code, link targets, fences and exact English UI-label deltas. Two explicit presentation rules apply: the emphasized prose value "3 seconds" is translated natively, and every provider-category introduction includes the canonical **Music & Sound Effects** label with one native gloss after its translated heading. These changes introduce no behavior promise. All 40 files pass NFC, whitespace, heading and relevant pack typography checks.
+
+No manifests have been regenerated against the unmerged candidate, and translated content is still held locally. Final English ancestry, all 10 pack builds, the 1,410 entry hashes, substantive local review and raw publication proof remain required. The publication order is #8155 first, then #8173.
