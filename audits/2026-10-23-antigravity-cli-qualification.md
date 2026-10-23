@@ -6,7 +6,7 @@ Owner: SpicyMarinara, assisted by Codex. Follow-up: [#8158](https://github.com/P
 
 Translate `docs/development/antigravity-cli-qualification.md` into the existing `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `zh-hans` packs. The note records qualification limits; it does not implement the connection requested in #8143.
 
-The canonical English change is [#8156](https://github.com/Pasta-Devs/Marinara-Engine/pull/8156), reviewed source candidate `838dde1517d505e86c64fd01386176f9cb68771f`. Translated content and manifests are held locally until that English source lands in `staging`.
+The canonical English change is [#8156](https://github.com/Pasta-Devs/Marinara-Engine/pull/8156), reviewed source `838dde1517d505e86c64fd01386176f9cb68771f`, merged into `staging` at `419158a7a55b89cdf8d915a26b27319fcab454ac`. The English note's bytes are identical in both commits; manifests use the reviewed source commit.
 
 ## Validation
 
@@ -18,6 +18,8 @@ The canonical English change is [#8156](https://github.com/Pasta-Devs/Marinara-E
 
 ## Review and publication status
 
-Local review is pending. Content publication remains blocked on the English merge and a final refresh from docs-i18n; raw published bytes and manifest hashes will be verified after the translation merge.
+Local CodeRabbit review completed across all 21 changed files. It found one minor audit-status issue: the English merge completed while review was running, so the English merge gate was outdated. That gate is now removed after verifying the merge and identical English bytes. Translation and manifest content did not change after review.
+
+Refreshed against docs-i18n `2c40d752e89ed4673fdaf92fa8f1c33064397aaf` before publication. Raw published bytes and manifest hashes will be verified after the translation merge.
 
 Native-reader review and an in-app language-pack download/render check remain manual verification items. Structural checks do not establish native prose review, live subscription authentication, hook execution isolation, or physical-platform compatibility.
