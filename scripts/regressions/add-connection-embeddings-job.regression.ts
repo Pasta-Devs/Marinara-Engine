@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs";
 import { jobAddKind } from "../../packages/client/src/lib/connection-jobs.js";
 
 const modal = readFileSync(
-  new URL("../../packages/client/src/components/modals/CreateConnectionModal.tsx", import.meta.url),
+  new URL(
+    "../../packages/client/src/components/modals/create-connection/CreateConnectionModalContent.tsx",
+    import.meta.url,
+  ),
   "utf8",
 );
 

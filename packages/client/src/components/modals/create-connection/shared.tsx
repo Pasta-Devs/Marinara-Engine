@@ -1,0 +1,524 @@
+import type { ReactNode } from "react";
+import { ChevronDown, ChevronRight, Film, Image as ImageIcon, MessageSquare } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  AUDIO_SOURCE_OPTIONS,
+  DECISION_SOURCE_BASE_URLS,
+  IMAGE_GENERATION_SOURCES,
+  IMAGE_SOURCE_VENDOR,
+  VIDEO_GENERATION_SOURCES,
+  isChatProvider,
+  isLocalAuthProvider,
+  speaksOpenAIChat,
+  type APIProvider,
+} from "@marinara-engine/shared";
+import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
+import { JobRow } from "../../connections/JobRow";
+import type { ConnectionRowData } from "../../connections/ConnectionRow";
+import { ProviderIcon } from "../../connections/ProviderIcon";
+import { useConnectionDefaults } from "../../connections/ConnectionDefaults";
+import { JOB, JOBS, jobHintKey } from "../../../lib/connection-jobs";
+import type { AddJob } from "../../../lib/add-connection";
+import { buildOfflineModelIndex, type ModelKind } from "../../../lib/add-model-search";
+import { cn } from "../../../lib/utils";
+import type { DeviceItem } from "../../../hooks/use-device-setup";
+
+/** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
+export type DeviceService = "local_model" | "tts" | "stt";
+export type MediaServiceId = `media:${string}` | `audio:${string}` | `decision:${string}`;
+export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE | typeof DECISION_BUILTIN;
+/** The experimental built-in decision model: its tile under "Other" opens its own installer. */
+export const DECISION_BUILTIN = "decision_builtin";
+/** LinkAPI (Marinara's sponsor): an OpenAI-compatible gateway, set up as a custom address with its own key. */
+export const LINKAPI_SERVICE = "linkapi";
+export const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "https://linkapi.ai/" };
+export const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
+export const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
+export const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
+export type Kind = "chat" | "image" | "video" | "voice" | "decision" | "local";
+export type AddableKind = "chat" | "image" | "video" | "decision" | "voice";
+
+export type MediaBackend = {
+  id: MediaServiceId;
+  source: string;
+  name: string;
+  description?: string;
+  defaultBaseUrl: string;
+  requiresApiKey: boolean;
+  image: boolean;
+  video: boolean;
+  /** A voice or decision source: its Model is an audio or decision row under the Connection. */
+  job?: "voice" | "decision";
+};
+/** Voice and decision sources with no chat service of their own; OpenAI, xAI, OpenRouter… set up through theirs. */
+export const JOB_BACKENDS: MediaBackend[] = [
+  ...AUDIO_SOURCE_OPTIONS.filter((source) => source.id === "elevenlabs" || source.id === "pockettts").map((source) => ({
+    id: `audio:${source.id}` as const,
+    source: source.id,
+    name: source.name,
+    defaultBaseUrl: source.defaultBaseUrl,
+    requiresApiKey: source.id === "elevenlabs",
+    image: false,
+    video: false,
+    job: "voice" as const,
+  })),
+  {
+    id: "decision:typesafe",
+    source: "typesafe",
+    name: "TypeSafe",
+    defaultBaseUrl: DECISION_SOURCE_BASE_URLS.typesafe,
+    requiresApiKey: true,
+    image: false,
+    video: false,
+    job: "decision",
+  },
+  // Its own server (named in serviceName): the address is asked for and the key is optional.
+  {
+    id: "decision:custom",
+    source: "custom",
+    name: "",
+    defaultBaseUrl: "",
+    requiresApiKey: true,
+    image: false,
+    video: false,
+    job: "decision",
+  },
+];
+export const JOB_PROVIDER = { voice: "audio", decision: "decision" } as const;
+
+/** Image sources that share a chat service's key or login; Codex images come with the ChatGPT plan. */
+export const IMAGE_VENDOR: Record<string, string> = { ...IMAGE_SOURCE_VENDOR, codex_chatgpt: "openai_chatgpt" };
+export const VIDEO_SOURCE_VENDOR: Record<string, APIProvider> = {
+  google_ai_studio: "google",
+  xai: "xai",
+  openrouter: "openrouter",
+  nanogpt: "nanogpt",
+};
+
+/** Media backends without their own chat-service tile. Matching image/video ids share one access tile. */
+export const MEDIA_BACKENDS: MediaBackend[] = (() => {
+  const bySource = new Map<string, MediaBackend>();
+  for (const source of [...IMAGE_GENERATION_SOURCES, ...VIDEO_GENERATION_SOURCES]) {
+    if (IMAGE_VENDOR[source.id] || VIDEO_SOURCE_VENDOR[source.id]) continue;
+    const current = bySource.get(source.id);
+    bySource.set(source.id, {
+      id: `media:${source.id}`,
+      source: source.id,
+      name: current?.name ?? source.name,
+      description: current?.description ?? source.description,
+      defaultBaseUrl: current?.defaultBaseUrl ?? source.defaultBaseUrl,
+      requiresApiKey: (current?.requiresApiKey ?? false) || source.requiresApiKey,
+      image: (current?.image ?? false) || IMAGE_GENERATION_SOURCES.some((candidate) => candidate.id === source.id),
+      video: (current?.video ?? false) || VIDEO_GENERATION_SOURCES.some((candidate) => candidate.id === source.id),
+    });
+  }
+  return [...bySource.values(), ...JOB_BACKENDS];
+})();
+export const mediaBackendOf = (service: ServiceId | null) =>
+  typeof service === "string" && service.includes(":")
+    ? (MEDIA_BACKENDS.find((backend) => backend.id === service) ?? null)
+    : null;
+
+export const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
+  custom: ["chat", "local"],
+  linkapi: ["chat", "image"],
+  local_model: ["local"],
+  tts: ["voice", "local"],
+  // Dictation is its own job: search finds it, the Voice (Text to speech) filter does not list it.
+  stt: ["local"],
+  image_generation: ["image"],
+  video_generation: ["video"],
+  audio: ["voice"],
+  // Decision answers yes/no questions for agents.
+  decision: ["decision"],
+  decision_builtin: ["decision"],
+};
+/** A speech model id, for the voice step's list (any id can still be typed). */
+export const isSpeechModel = (row: { id: string }) => /tts|speech|voice/i.test(row.id);
+/** Speech a chat service's own key buys, as the audio source that speaks to its address. */
+export const SPEECH_SOURCE: Partial<Record<APIProvider, string>> = { openai: "openai", xai: "xai", nanogpt: "openai" };
+/** Jobs a chat service's Connection also does with its key: decision (chat with log-probabilities) and voice. */
+export const jobKindsOf = (service: ServiceId): Kind[] => [
+  ...(speaksOpenAIChat(service) ? (["decision"] as const) : []),
+  ...(SPEECH_SOURCE[service as APIProvider] ? (["voice"] as const) : []),
+];
+export const kindsOf = (service: ServiceId): Kind[] => {
+  const media = mediaBackendOf(service);
+  if (media)
+    return [
+      ...(media.image ? (["image"] as const) : []),
+      ...(media.video ? (["video"] as const) : []),
+      ...(media.job ? [media.job] : []),
+    ];
+  if (SERVICE_KINDS[service]) return [...SERVICE_KINDS[service]!, ...jobKindsOf(service)];
+  if (isDevice(service)) return SERVICE_KINDS[service] ?? ["local"];
+  const provider = service as APIProvider;
+  return [
+    ...(isChatProvider(provider) ? (["chat"] as const) : []),
+    ...(Object.values(IMAGE_VENDOR).includes(provider) ? (["image"] as const) : []),
+    ...(Object.values(VIDEO_SOURCE_VENDOR).includes(provider) ? (["video"] as const) : []),
+    ...jobKindsOf(provider),
+  ];
+};
+export const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** Image, video and voice tools and decision servers that run on a server the user runs (or rents). */
+export const SELF_HOSTED = new Set([
+  "comfyui",
+  "automatic1111",
+  "swarmui",
+  "drawthings",
+  "runpod_comfyui",
+  "pockettts",
+  "custom",
+]);
+/** One tile per provider. Services sort A–Z and show 4 until "Show all"; "Other" folds. */
+export type ServiceGroupDefinition = { id: string; services: ServiceId[]; sorted?: boolean; folded?: boolean };
+export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
+  { id: "start", services: [LINKAPI_SERVICE, "openrouter", "nanogpt"] },
+  { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
+  {
+    id: "vendors",
+    sorted: true,
+    services: [
+      ...(["anthropic", "google", "openai", "xai", "mistral", "cohere", "deepseek", "zai", "arli"] as const),
+      "google_vertex",
+      ...MEDIA_BACKENDS.filter((backend) => !SELF_HOSTED.has(backend.source)).map((backend) => backend.id),
+    ],
+  },
+  {
+    id: "address",
+    services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
+  },
+  { id: "device", services: ["local_model", "tts", "stt"] },
+  { id: "other", folded: true, services: [DECISION_BUILTIN] },
+];
+export const VENDORS_SHOWN = 4;
+/** Old names people still search for. */
+export const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = { openai_chatgpt: "codex" };
+export const KIND_ICONS = {
+  chat: MessageSquare,
+  image: ImageIcon,
+  video: Film,
+  voice: JOB.voice.icon,
+  decision: JOB.decision.icon,
+} as const;
+export type ChipKind = keyof typeof KIND_ICONS;
+export const CHIP_KINDS: ChipKind[] = ["chat", "image", "video", "voice", "decision"];
+export const MODEL_CHIP_KINDS = new Set<ChipKind>(["chat", "image", "video"]);
+/** Vendors and plans with an offline model list, in the order "A specific model…" picks from. */
+export const MODEL_SERVICES: APIProvider[] = [
+  "anthropic",
+  "openai",
+  "google",
+  "xai",
+  "deepseek",
+  "mistral",
+  "cohere",
+  "zai",
+  "google_vertex",
+  "claude_subscription",
+  "openai_chatgpt",
+  "grok_subscription",
+];
+export const OFFLINE_MODELS = buildOfflineModelIndex(MODEL_SERVICES);
+export const MODELS_SHOWN = 6;
+export const rowKind = (provider?: string): ModelKind | null =>
+  isChatProvider(provider ?? "")
+    ? "chat"
+    : provider === "image_generation"
+      ? "image"
+      : provider === "video_generation"
+        ? "video"
+        : null;
+
+/** Common ports of local servers; one tap fills the address. Brand names are not translated. */
+export const LOCAL_PRESETS = [
+  { label: "Ollama", url: "http://localhost:11434/v1" },
+  { label: "LM Studio", url: "http://localhost:1234/v1" },
+  { label: "KoboldCpp", url: "http://localhost:5001/v1" },
+  { label: "llama.cpp", url: "http://localhost:8080/v1" },
+];
+
+/** The command that logs a plan in on the computer that runs Marinara. */
+export const LOGIN_COMMANDS: Partial<Record<APIProvider, string>> = {
+  claude_subscription: "claude login",
+  openai_chatgpt: "codex login",
+  grok_subscription: "grok login",
+};
+
+/** Gateways have no fixed model list worth recommending; vendors and plans do. */
+export const NO_RECOMMENDED = new Set<APIProvider>(["openrouter", "nanogpt", "custom", "arli"]);
+
+/** `autoName`: the name the server chose, when the user typed none. */
+export type Target = {
+  accountId: string;
+  connectionId: string;
+  fresh: boolean;
+  autoName?: string;
+  /** Empty Model created by this flow and safe to configure or remove on cancel. */
+  placeholderId?: string;
+  ownedPlaceholderIds?: string[];
+  accountBaseUrl?: string;
+};
+/** The key's end the server adds to an automatic name next to another Connection of the same service. */
+export const KEY_TAIL = / · …\S{4}$/u;
+export type ConnectionRowLite = {
+  id: string;
+  name?: string;
+  provider?: string;
+  baseUrl?: string;
+  accountId?: string | null;
+  model?: string;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+  videoGenerationSource?: string | null;
+  videoService?: string | null;
+  createdAt?: string | null;
+  pinnedModels?: unknown;
+  audioVoice?: string | null;
+  audioSource?: string | null;
+  decisionSource?: string | null;
+};
+/** The source of an audio or decision row; an older row without one uses its container's default. */
+export const jobSourceOf = (row: ConnectionRowLite) =>
+  row.provider === "audio"
+    ? row.audioSource || "elevenlabs"
+    : row.provider === "decision"
+      ? row.decisionSource || "typesafe"
+      : null;
+
+export type TestResult = { success: boolean; message?: string };
+
+export const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
+export const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
+export const PRIMARY_CLASS = "mari-connection-btn mari-connection-btn--primary";
+export const SECONDARY_CLASS = "mari-connection-btn";
+export const BADGE_CLASS = "mari-connection-pill";
+export const MUTED_BADGE_CLASS = "mari-chrome-muted-badge px-1.5 py-0.5 text-[0.5625rem]";
+export const HIGHLIGHT_BADGE_CLASS = "mari-connection-pill mari-connection-pill--blue";
+
+export const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+};
+
+/** A network failure, from the server ("fetch failed") or the browser ("Failed to fetch"). */
+export const NETWORK_ERROR =
+  /connection failed|fetch failed|failed to fetch|networkerror|load failed|ENOTFOUND|ECONNREFUSED|EAI_AGAIN|timed? ?out/iu;
+
+/** Where a media service's key is made; chat services carry theirs in PROVIDERS. */
+export const MEDIA_KEY_URLS: Record<string, string> = {
+  stability: "https://platform.stability.ai/account/keys",
+  togetherai: "https://api.together.ai/settings/api-keys",
+  novelai: "https://novelai.net/",
+  venice: "https://venice.ai/settings/api",
+  atlas: "https://www.atlascloud.ai/",
+  fal: "https://fal.ai/dashboard/keys",
+  spicyapi: "https://spicyapi.ai/",
+  runpod_comfyui: "https://www.runpod.io/console/user/settings",
+  blockentropy: "https://blockentropy.ai/",
+  seedance: "https://seedance2.ai/",
+};
+
+/** A plain reason for a failed test; the raw message stays visible below it. */
+export function failureReason(
+  provider: APIProvider,
+  message: string,
+): "plan" | "key" | "busy" | "unreachable" | "other" {
+  if (isLocalAuthProvider(provider)) return "plan";
+  const status = /API returned (\d{3})/u.exec(message)?.[1];
+  if (status === "401" || status === "403") return "key";
+  if (status === "429") return "busy";
+  if (!status && NETWORK_ERROR.test(message)) return "unreachable";
+  return "other";
+}
+
+/** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
+export function ServiceTile({ service }: { service: ServiceId }) {
+  const media = mediaBackendOf(service);
+  // A custom address: its brand comes from the URL.
+  if (service === LINKAPI_SERVICE)
+    return <ProviderIcon provider="custom" baseUrl={LINKAPI.baseUrl} name={LINKAPI.name} size="add" />;
+  if (service === DECISION_BUILTIN) return <ProviderIcon provider="decision" size="add" />;
+  return (
+    <ProviderIcon
+      provider={
+        media ? (media.job ? JOB_PROVIDER[media.job] : media.image ? "image_generation" : "video_generation") : service
+      }
+      service={media?.source}
+      size="add"
+    />
+  );
+}
+
+/** Choice card (Agent editor / Download Agents rows): tile, name with up to two badges, a 2-line hint. */
+export function ServiceCard({
+  service,
+  name,
+  hint,
+  kinds,
+  badges,
+  rail,
+  selected,
+  onClick,
+}: {
+  service: ServiceId;
+  name: string;
+  hint: string;
+  /** What it gives, each with its icon. */
+  kinds: Array<{ kind: ChipKind; label: string }>;
+  badges: Array<{ label: string; highlight?: boolean }>;
+  /** Recommended tiles wear the connections' blue start rail. */
+  rail?: boolean;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-add-connection-service={service}
+      onClick={onClick}
+      aria-pressed={selected}
+      aria-label={name}
+      aria-description={[hint, ...kinds.map((item) => item.label), ...badges.map((badge) => badge.label)]
+        .filter(Boolean)
+        .join(". ")}
+      className={cn("mari-chrome-control mari-chrome-control--card min-h-16 p-3 text-xs", rail && "mari-add-tile-rail")}
+    >
+      <span className="flex min-w-0 items-start gap-3">
+        <ServiceTile service={service} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">{name}</span>
+          {badges.length > 0 && (
+            <span className="mt-1 flex flex-wrap items-center gap-1">
+              {badges.map((badge) => (
+                <span key={badge.label} className={badge.highlight ? HIGHLIGHT_BADGE_CLASS : BADGE_CLASS}>
+                  {badge.label}
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+            {hint}
+          </span>
+          {kinds.length > 0 && (
+            <span
+              aria-hidden
+              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]"
+            >
+              {kinds.map(({ kind, label }) => {
+                const Icon = KIND_ICONS[kind];
+                return (
+                  <span key={kind} className="inline-flex items-center gap-1">
+                    <Icon size="0.6875rem" />
+                    {label}
+                  </span>
+                );
+              })}
+            </span>
+          )}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** A small group label above choice cards; a long group folds behind the same chevron the panel uses. */
+export function ServiceGroup({
+  title,
+  count,
+  collapsible,
+  open,
+  onToggle,
+  more,
+  children,
+}: {
+  title: string;
+  count: number;
+  collapsible: boolean;
+  open: boolean;
+  onToggle: () => void;
+  /** A "Show all N" link under a capped list. */
+  more?: ReactNode;
+  children: ReactNode;
+}) {
+  const list = <div className="grid grid-cols-1 gap-2 md:grid-cols-2">{children}</div>;
+  if (!collapsible) {
+    return (
+      <section className="flex flex-col gap-1.5">
+        <h4 className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">{title}</h4>
+        {list}
+        {more}
+      </section>
+    );
+  }
+  return (
+    <section className="flex flex-col">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
+      >
+        <ChevronDown size="0.75rem" className={cn("transition-transform", open && "rotate-180")} />
+        {title} ({count})
+      </button>
+      <SmoothFolderContent open={open}>
+        <div className="pt-1">{list}</div>
+      </SmoothFolderContent>
+    </section>
+  );
+}
+
+/** Step 1's job list: each job as its Defaults row, plus one line on what it does. */
+export function JobCards({ rows, onPick }: { rows: ConnectionRowData[]; onPick: (key: AddJob) => void }) {
+  const { t } = useTranslation();
+  const { tiles, features } = useConnectionDefaults(rows);
+  return (
+    <div className="mari-connection-model-well">
+      {JOBS.filter((job) => job.add === undefined).map((job) => {
+        const tile = [...tiles, ...features].find((entry) => entry.key === job.key);
+        return (
+          tile && (
+            <div key={job.key} className="mari-connection-model-slot min-w-0">
+              <JobRow
+                tile={tile}
+                hint={t(jobHintKey(job))}
+                data-add-connection-job-choice={job.key}
+                onClick={() => onPick(job.key)}
+                trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+              />
+            </div>
+          )
+        );
+      })}
+    </div>
+  );
+}
+
+/** First run only: the What's New hero band, low and static. */
+export function FirstRunIntro({ text, className }: { text: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "relative flex items-end gap-3 overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 pt-2",
+        className,
+      )}
+    >
+      <div
+        aria-hidden
+        className="absolute left-12 top-1/2 h-24 w-40 -translate-y-1/2 rounded-full bg-[var(--marinara-chat-chrome-accent)] opacity-10 blur-3xl"
+      />
+      <img
+        src="/illustrations/professor-mari-whats-new.webp"
+        alt=""
+        className="relative h-24 w-auto shrink-0 object-contain object-bottom md:h-28"
+      />
+      <p className="relative self-center pb-2 text-xs leading-relaxed text-[var(--foreground)]">{text}</p>
+    </div>
+  );
+}
