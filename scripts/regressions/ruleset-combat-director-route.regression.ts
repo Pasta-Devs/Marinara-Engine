@@ -954,6 +954,27 @@ try {
     assert.ok(caught.success, JSON.stringify(caught.error?.issues));
     assert.equal((caught.data!.party[0] as Record<string, unknown>).surprised, true);
     assert.equal((caught.data!.enemies[0] as Record<string, unknown>).surprised, undefined);
+    // A number out of an ability's bounds is pulled to them, and one that is not a number left out,
+    // rather than refusing the whole setup (playtest 2026-10-23: Second Wind written with range 0).
+    const bounded = encounterBlueprintSchema.safeParse({
+      party: [
+        {
+          name: "Brannoc",
+          hp: 10,
+          maxHp: 10,
+          attacks: [
+            { name: "Second Wind", kind: "heal", range: 0 },
+            { name: "Longbow", range: 30, areaRadius: -1, slotLevel: "high" },
+          ],
+        },
+      ],
+      enemies: [{ name: "Goblin", hp: 7, maxHp: 7 }],
+      environment: "a road",
+    });
+    assert.ok(bounded.success, JSON.stringify(bounded.error?.issues));
+    const attacks = (bounded.data!.party[0] as { attacks: Array<Record<string, unknown>> }).attacks;
+    assert.equal(attacks[0]!.range, 1);
+    assert.deepEqual([attacks[1]!.range, attacks[1]!.areaRadius, attacks[1]!.slotLevel], [12, 0, undefined]);
     assert.ok(withBrief.at(-1)!.content.includes('"surprised": true'), "the prompt asks who was caught unaware");
     // An invention may be a sheet in the ruleset's own terms, and numbers written beside it go.
     const caster = blueprint({
