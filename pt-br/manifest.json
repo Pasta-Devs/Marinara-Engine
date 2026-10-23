@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "838dde1517d505e86c64fd01386176f9cb68771f",
+  "sourceCommit": "a45d57b036d7b63669afdeca290550988390479a",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "6ae3d6de3dfd05aca9792ccd48eea16d5b172c22e7674945c9b9faa889600044",
-      "bytes": 61807
+      "sha256": "984986ecac93c6df33ff6217ffdc8efdd2e0bbbd31f9c75d54d99f6ccc2565bd",
+      "bytes": 61806
     },
     {
       "path": "appearance/appearance-settings.md",
