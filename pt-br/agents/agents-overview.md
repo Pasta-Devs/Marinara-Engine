@@ -74,7 +74,7 @@ A seção **Agents** tem mais alguns controles:
 
 Em **Chat Settings**, abra **Agents** e depois as configurações do agente de escrita, de rastreamento ou personalizado. **Attach lorebook for the specific agent** (anexar lorebook para este agente) começa desligado. Ligue para mostrar **Reference lorebook** (lorebook de referência) e escolher um livro. A seleção pertence a este agente neste chat; não muda a definição global do agente nem outros chats.
 
-As entradas correspondentes seguem as regras normais de ativação de lorebooks e são fornecidas como contexto de referência para esse agente, inclusive nas novas tentativas manuais. Anexar o livro não o ativa para a resposta principal nem para outros agentes. Agentes que compartilham uma chamada agrupada ao modelo podem ver o contexto de referência dessa chamada. Desligar a opção interrompe o envio das entradas; livros indisponíveis ou excluídos não fornecem nenhuma. As configurações de fontes que já existem nos agentes personalizados continuam disponíveis de forma independente.
+As entradas correspondentes seguem as regras normais de ativação de lorebooks e são fornecidas como contexto de referência para esse agente, inclusive nas novas tentativas manuais. Anexar o livro não o ativa para a resposta principal nem para outros agentes. Agentes executados juntos também podem ver as mesmas entradas de referência. Desligar a opção interrompe o envio das entradas; livros indisponíveis ou excluídos não fornecem nenhuma. As configurações de fontes que já existem nos agentes personalizados continuam disponíveis de forma independente.
 
 ### O aviso de custo
 

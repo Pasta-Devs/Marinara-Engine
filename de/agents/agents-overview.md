@@ -72,7 +72,7 @@ Der Abschnitt **Agents** bietet noch ein paar weitere Bedienelemente:
 
 Öffne in **Chat Settings** den Abschnitt **Agents** und dann die Einstellungen des schreibenden, nachverfolgenden oder eigenen Agenten. **Attach lorebook for the specific agent** (Lorebook für diesen Agenten anhängen) ist anfangs aus. Schalte es ein, um **Reference lorebook** (Referenz-Lorebook) einzublenden und ein Buch zu wählen. Die Auswahl gehört zu diesem Agenten in diesem Chat; sie ändert weder seine globale Definition noch andere Chats.
 
-Passende Einträge folgen den normalen Lorebook-Auslöseregeln und werden diesem Agenten als Referenzkontext übergeben, auch bei manuellen Wiederholungen. Die Verknüpfung aktiviert das Buch nicht für die Hauptantwort oder unbeteiligte Agenten. Agenten, die einen gebündelten Modellaufruf teilen, können den Referenzkontext dieses Aufrufs sehen. Schaltest du die Verknüpfung aus, liefert sie keine Einträge mehr; nicht verfügbare oder gelöschte Bücher liefern keine. Bestehende Quellen-Einstellungen eigener Agenten bleiben unabhängig davon verfügbar.
+Passende Einträge folgen den normalen Lorebook-Auslöseregeln und werden diesem Agenten als Referenzkontext übergeben, auch bei manuellen Wiederholungen. Die Verknüpfung aktiviert das Buch nicht für die Hauptantwort oder unbeteiligte Agenten. Gemeinsam ausgeführte Agenten können dieselben Referenzeinträge ebenfalls sehen. Schaltest du die Verknüpfung aus, liefert sie keine Einträge mehr; nicht verfügbare oder gelöschte Bücher liefern keine. Bestehende Quellen-Einstellungen eigener Agenten bleiben unabhängig davon verfügbar.
 
 ### Der Kostenhinweis
 
