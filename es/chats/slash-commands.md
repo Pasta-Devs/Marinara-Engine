@@ -82,6 +82,7 @@ Estos comandos te ayudan a guiar una historia, interpretar un personaje y añadi
 | `/random` | `/rand`, `/event` | Pide a la IA que añada un evento sorpresa a la historia. |
 | `/scene [description (optional)]` | `/rp` | Se ejecuta desde un chat de Conversation. Inicia una nueva escena de Roleplay que se ramifica a partir de esa conversación. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Genera una imagen de galería para el chat actual. |
+| `/video [description (optional)]` | | Roleplay: crea un clip corto de la respuesta más reciente o de lo que describas, debajo de esa respuesta. Sigue el ajuste **First frame** (Primer fotograma) de Illustrator. En Conversation, `/video` envía un mensaje de video en su lugar (consulta más abajo). |
 | `/impersonate [direction (optional)]` | `/imp` | Escribe una respuesta como tu persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Establece la instrucción que `/impersonate` usa en este chat. |
 

@@ -4,9 +4,9 @@ Ce guide explique comment Marinara Engine transforme l'illustration d'une scène
 
 ## À quoi sert la vidéo de scène
 
-Une vidéo de scène part d'une image déjà présente dans la galerie et l'anime en un court clip MP4. L'image fixe devient la première image du clip, et l'IA ajoute le mouvement. Les vidéos de scène fonctionnent dans les chats **Roleplay** et **Game Mode**. Les chats en mode Conversation envoient plutôt des messages vidéo ; voir [Messages vidéo](../conversation/selfies.md#video-messages).
+Une vidéo de scène est un court clip MP4 de la scène. Elle peut animer une image de la galerie, qui devient la première image du clip tandis que l'IA ajoute le mouvement, ou, en **Roleplay**, être créée à partir du récit seul. Les vidéos de scène fonctionnent dans les chats **Roleplay** et **Game Mode**. Les chats en mode Conversation envoient plutôt des messages vidéo ; voir [Messages vidéo](../conversation/selfies.md#video-messages).
 
-Il faut toujours une image au départ. La génération de vidéos de scène ne part jamais d'un simple texte. Génère ou téléverse une image dans la galerie avant de pouvoir l'animer.
+**Game Mode** et **Animate illustration** partent toujours d'une image : génère ou téléverse donc une image d'abord. En **Roleplay**, `/video` et le bouton **Video** de la Gallery suivent le réglage **First frame** (première image) d'Illustrator et n'ont besoin d'aucune image si aucune première image n'est choisie.
 
 Les vidéos de scène passent par un type de connexion à part, appelé **Video Generation** (génération de vidéos). Ce n'est pas la même chose que la génération d'images classique. Marinara enregistre les clips terminés avec le chat et les affiche dans la galerie, où tu peux les épingler, les télécharger ou les visionner.
 
@@ -128,7 +128,15 @@ Les chats **Roleplay** et **Game Mode** créent des vidéos de scène depuis **G
 
 La galerie a un onglet **Images** et un onglet **Videos**, chacun avec un compteur. Les images fixes se trouvent sous **Images**. Les clips terminés se trouvent sous **Videos**.
 
-Pour animer l'image la plus récente :
+En **Roleplay**, **Video**, dans la rangée d'actions en haut de la Gallery, crée un clip de la **dernière réponse**, comme si tu tapais `/video`. Ajoute une description après `/video` pour préciser ce que le clip doit montrer.
+
+- **First frame** : le clip suit le réglage **First frame** d'Illustrator. Il peut partir d'une nouvelle image d'Illustrator de la dernière réponse (dessinée d'abord, puis animée), de l'avatar ou du sprite du personnage, ou d'aucune image. Sans première image choisie, aucune image n'est dessinée et le clip est créé à partir du récit seul.
+- **Avatar** : le clip part de la première personne nommée dans ta description, y compris ton persona. Une partie du nom qui n'appartient à personne d'autre suffit, avec une majuscule ("Lena" pour "Dr. Lena Kowalski"). Si personne n'est nommé, il part du personnage du chat.
+- **Vérification** : si **Expose media prompts before sending** est activé, tu peux d'abord relire et modifier le prompt du clip.
+- **Contexte lu** : l'IA qui rédige le clip lit autant de messages récents qu'Illustrator pour une image (son réglage **Context Size** (taille du contexte), sous **Agent Budget** (budget de l'agent) sur son écran de configuration). Le clip montre ainsi ce qui se passe maintenant.
+- **Sans image** : lorsque le clip part sans image ou d'un avatar, l'IA décrit elle-même la scène. Ses instructions sont **Roleplay Clip Director** (réalisation des clips Roleplay), sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+
+En **Game Mode**, **Video** anime l'image la plus récente :
 
 1. Vérifie qu'au moins une image existe sous l'onglet **Images**. Passe d'abord par **Illustrate** (illustrer) ou téléverse une image.
 2. Clique sur **Video** dans la rangée d'actions en haut de la galerie.
@@ -144,11 +152,11 @@ Pour animer une image précise plutôt que la plus récente :
 2. Survole l'image voulue.
 3. Clique sur le bouton **Animate illustration** (animer l'illustration), l'icône de pellicule, dans les commandes de survol.
 
-La même fenêtre **Review Video Prompt** (relire le prompt vidéo) s'affiche pour **Animate illustration** quand la relecture du prompt est activée. Elle montre le prompt exact compilé par le serveur, la durée, le format d'image et la résolution qui seront utilisés pour l'image sélectionnée. Ta modification ne vaut que pour cette génération. En Roleplay, les instructions réutilisables qui produisent ce prompt se règlent à part, avec **Roleplay Gallery Animation Director**, sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+La même fenêtre **Review Video Prompt** (relire le prompt vidéo) s'affiche pour **Animate illustration** quand la relecture du prompt est activée. Elle montre le prompt exact compilé par le serveur, la durée, le format d'image et la résolution qui seront utilisés pour l'image sélectionnée. Ta modification ne vaut que pour cette génération. En Roleplay, l'IA qui prépare le mouvement lit autant de messages récents qu'Illustrator (son réglage **Context Size**), jusqu'à la réponse à laquelle l'image appartient. En Roleplay, les instructions réutilisables qui produisent ce prompt se règlent à part, avec **Roleplay Gallery Animation Director**, sous **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 Sous l'onglet **Videos**, chaque clip se lit directement dans la page et affiche sa durée et le nom du modèle. Épingle un clip avec **Pin video to chat**, ou enregistre-le avec **Download scene video** (télécharger la vidéo de scène). S'il n'y a encore aucun clip, l'onglet affiche **No videos yet**.
 
-Si tu tentes de créer une vidéo alors que le chat ne contient aucune image, Marinara affiche ce message : "Add or generate a gallery image before generating a scene video." Génère ou téléverse d'abord une image, puis réessaie.
+Si tu essaies d'animer une image en Game Mode alors que le chat n'en contient aucune, Marinara affiche ce message : "Add or generate a gallery image before generating a scene video." Génère ou téléverse une image, puis réessaie.
 
 ## La vidéo de scène en Game Mode
 

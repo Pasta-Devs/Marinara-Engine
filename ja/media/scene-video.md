@@ -4,9 +4,9 @@
 
 ## シーン動画でできること
 
-シーン動画は、ギャラリーにある既存の画像を短いMP4クリップとして動かします。静止画が最初のフレームになり、そこにAIが動きを加えます。シーン動画は**Roleplay**と**Game Mode**のチャットで使えます。Conversationチャットでは、代わりに動画メッセージが送られます。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。
+シーン動画は、場面を映す短いMP4クリップです。ギャラリーの画像を開始フレームにしてAIが動きを加えることも、**Roleplay**では物語だけから作ることもできます。シーン動画は**Roleplay**と**Game Mode**のチャットで使えます。Conversationチャットでは、代わりに動画メッセージが送られます。[動画メッセージ](../conversation/selfies.md#video-messages)を参照してください。
 
-先に画像が必ず必要です。シーン動画の生成はテキストだけでは実行できません。動かす前に、ギャラリーの画像を生成するかアップロードしておきます。
+**Game Mode**と**Animate illustration**は必ず画像から始まるため、先に画像を生成するかアップロードしてください。**Roleplay**の`/video`とGalleryの**Video**ボタンはIllustratorの**First frame**(開始フレーム)設定に従います。開始フレームを選んでいなければ、画像は一切必要ありません。
 
 シーン動画は**Video Generation**(動画生成)という専用の接続タイプを使います。通常の画像生成とは別物です。完成したクリップはチャットとともに保存され、Galleryに表示されます。Galleryではピン留め、ダウンロード、再生ができます。
 
@@ -128,7 +128,15 @@ Atlas Cloudによる入力仕様の変更などで保存済みのオプション
 
 Galleryには**Images**タブと**Videos**タブがあり、それぞれ件数が表示されます。静止画は**Images**に、完成したクリップは**Videos**に入ります。
 
-いちばん新しい画像を動かす手順は次のとおりです。
+**Roleplay**では、Gallery上部の操作列にある**Video**で、**最新の返信**のクリップを作ります。`/video`と入力する場合と同じです。何を映すか指定するには、`/video`の後に説明を加えてください。
+
+- **First frame**: クリップはIllustratorの**First frame**設定に従います。最新の返信を描いた新しいIllustrator画像(先に描いてから動かします)、キャラクターのアバターやスプライト、または画像なしから始まります。開始フレームを選んでいなければ画像は描かず、物語だけからクリップを作ります。
+- **アバター**: 説明の中で最初に名前を挙げた人物から始まります。ペルソナも対象です。ほかの人と重ならない名前の一部を、先頭を大文字にして書けば十分です(「Dr. Lena Kowalski」に対する「Lena」など)。名前を挙げなければ、チャットのキャラクターから始まります。
+- **確認**: **Expose media prompts before sending**がオンなら、先にクリップのプロンプトを確認して編集できます。
+- **読み取る文脈**: クリップの内容を書くAIは、Illustratorが画像を作るときと同じ件数の最近のメッセージを読みます。件数はIllustratorの設定画面の**Agent Budget**(エージェントの予算)にある**Context Size**(コンテキストサイズ)で決まるため、今起きていることが映ります。
+- **画像なしの場合**: 画像なし、またはアバターから始まるクリップでは、AIが場面自体を描写します。その指示は**Settings**、**Generations**、**Video Generation Prompt Overrides**の**Roleplay Clip Director**(Roleplayクリップの演出)です。
+
+**Game Mode**では、**Video**でいちばん新しい画像を動かします。
 
 1. **Images**タブに画像が1枚以上あることを確かめます。まず**Illustrate**を使うか、画像をアップロードします。
 2. Galleryの上部にある操作列で**Video**をクリックします。
@@ -144,11 +152,11 @@ Galleryには**Images**タブと**Videos**タブがあり、それぞれ件数�
 2. 動かしたい画像にカーソルを合わせます。
 3. ホバー時の操作から**Animate illustration**ボタン(フィルムのアイコン)をクリックします。
 
-プロンプトの確認が有効な場合、**Animate illustration**でも同じ**Review Video Prompt**ウィンドウが開きます。そこには、選んだ画像に実際に使われる、サーバーで組み立てられたプロンプト、長さ、アスペクト比、解像度が表示されます。ここでの編集はその生成にだけ適用されます。Roleplayでは、このプロンプトのもとになる繰り返し使う指示を、**Settings**、**Generations**、**Video Generation Prompt Overrides**にある**Roleplay Gallery Animation Director**で個別に管理します。
+プロンプトの確認が有効な場合、**Animate illustration**でも同じ**Review Video Prompt**ウィンドウが開きます。そこには、選んだ画像に実際に使われる、サーバーで組み立てられたプロンプト、長さ、アスペクト比、解像度が表示されます。ここでの編集はその生成にだけ適用されます。Roleplayでは、動きを計画するAIがIllustratorと同じ件数の最近のメッセージ(**Context Size**)を読みます。読み取る範囲は、その画像が属する返信で終わります。 Roleplayでは、このプロンプトのもとになる繰り返し使う指示を、**Settings**、**Generations**、**Video Generation Prompt Overrides**にある**Roleplay Gallery Animation Director**で個別に管理します。
 
 **Videos**タブでは、各クリップがその場で再生され、長さとモデル名が表示されます。**Pin video to chat**でクリップをピン留めしたり、**Download scene video**で保存したりできます。クリップがまだない場合、タブには**No videos yet**と表示されます。
 
-チャットに画像がない状態で動画を作ろうとすると、Marinaraは「Add or generate a gallery image before generating a scene video.」というメッセージを表示します。先に画像を生成するかアップロードしてから、もう一度試してください。
+Game Modeで、チャットに画像がない状態で画像を動かそうとすると、Marinaraは「Add or generate a gallery image before generating a scene video.」というメッセージを表示します。先に画像を生成するかアップロードしてから、もう一度試してください。
 
 ## Game Modeのシーン動画
 

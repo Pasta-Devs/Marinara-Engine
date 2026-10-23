@@ -4,9 +4,9 @@
 
 ## 场景视频能做什么
 
-场景视频会取图库里已有的一张图片，把它变成一小段 MP4 短片。静态图片作为第一帧，动态部分由 AI 补出来。场景视频可以在 **Roleplay**(角色扮演) 和 **Game Mode**(游戏模式) 聊天里使用。Conversation(对话模式) 聊天则改为发送视频消息，见[视频消息](../conversation/selfies.md#video-messages)。
+场景视频是表现当前场景的一小段 MP4 短片。它可以把图库图片变成动画，以图片为首帧，由 AI 添加动作；在 **Roleplay**(角色扮演) 中，也可以只根据故事生成。场景视频可以在 **Roleplay** 和 **Game Mode**(游戏模式) 聊天里使用。Conversation(对话模式) 聊天则改为发送视频消息，见[视频消息](../conversation/selfies.md#video-messages)。
 
-必须先有图片。场景视频没法只凭文字生成，动画之前一定要先生成或上传一张图库图片。
+**Game Mode** 和 **Animate illustration** 始终从图片开始，所以要先生成或上传一张。在 **Roleplay** 中，`/video` 和 Gallery 的 **Video** 按钮遵循 Illustrator 的 **First frame**(首帧) 设置；未选择 First frame 时，完全不需要图片。
 
 场景视频使用的是一类单独的连接，叫 **Video Generation**(视频生成)，和普通的图像生成不是一回事。生成好的短片会随聊天一起保存，并显示在 Gallery 里，可以在那里固定、下载或播放。
 
@@ -128,7 +128,15 @@ Atlas Cloud 模型接受的设置并不完全相同。每次请求前，Marinara
 
 Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自带数量标记。静态图片在 **Images** 下，生成好的短片在 **Videos** 下。
 
-给最新的一张图片做动画：
+在 **Roleplay** 中，Gallery 顶部操作行的 **Video** 会为**最新回复**生成短片，等同于输入 `/video`。在 `/video` 后添加描述，可以指定短片要展示的内容。
+
+- **First frame**：短片遵循 Illustrator 的 **First frame** 设置，可以先为最新回复绘制一张新的 Illustrator 图片再制作动画，也可以从角色头像或立绘开始，或不使用图片。未选择 First frame 时，不会绘制图片，而是只根据故事制作短片。
+- **头像**：短片从描述中最先点名的人开始，也可以是用户角色。只需写出其他人不共用的一部分名字，并以大写字母开头（例如用“Lena”指代“Dr. Lena Kowalski”）。没有点名任何人时，从聊天角色开始。
+- **检查**：开启 **Expose media prompts before sending** 后，可以先检查和修改短片的提示词。
+- **读取内容**：编写短片的 AI 会读取与 Illustrator 生成图片时相同数量的近期消息（设置页面 **Agent Budget** 下 Illustrator 的 **Context Size**），以呈现当前正在发生的事。
+- **无图片时**：短片从头像开始或不使用图片时，AI 会自行描述场景。它使用的指令是 **Settings**、**Generations**、**Video Generation Prompt Overrides** 下的 **Roleplay Clip Director**。
+
+在 **Game Mode** 中，**Video** 会把最新图片制作成动画：
 
 1. 确认 **Images** 选项卡下至少有一张图片。没有就先用 **Illustrate**(生成插图) 或上传一张。
 2. 点击 Gallery 顶部操作行里的 **Video**(视频)。
@@ -144,11 +152,11 @@ Gallery 分 **Images**(图片) 和 **Videos**(视频) 两个选项卡，各自�
 2. 把鼠标移到想用的那张图片上。
 3. 点击悬浮控件里的 **Animate illustration**(让插图动起来) 按钮，也就是胶片图标。
 
-开启提示词预览后，**Animate illustration** 同样会弹出 **Review Video Prompt**(检查视频提示词) 窗口，里面显示服务器为这张选中图片编译出的确切提示词、时长、宽高比和分辨率。在这里做的修改只对这一次生成生效。在 Roleplay 里，生成这段提示词的可复用指令由另一处控制，位于 **Settings**、**Generations**、**Video Generation Prompt Overrides**(视频生成提示词覆盖) 下的 **Roleplay Gallery Animation Director**(Roleplay 图库动画导演)。
+开启提示词预览后，**Animate illustration** 同样会弹出 **Review Video Prompt**(检查视频提示词) 窗口，里面显示服务器为这张选中图片编译出的确切提示词、时长、宽高比和分辨率。在这里做的修改只对这一次生成生效。在 Roleplay 中，规划动作的 AI 会读取与 Illustrator 相同数量的近期消息（即 **Context Size**），截止到图片所属的回复。在 Roleplay 里，生成这段提示词的可复用指令由另一处控制，位于 **Settings**、**Generations**、**Video Generation Prompt Overrides**(视频生成提示词覆盖) 下的 **Roleplay Gallery Animation Director**(Roleplay 图库动画导演)。
 
 在 **Videos** 选项卡下，每段短片都能就地播放，并显示时长和模型名。可以用 **Pin video to chat** 固定短片，或者用 **Download scene video**(下载场景视频) 保存到本地。还没有短片时，这个选项卡显示 **No videos yet**。
 
-如果聊天里一张图片都没有就去生成视频，Marinara 会提示：“Add or generate a gallery image before generating a scene video.”先生成或上传一张图片，然后再试。
+如果在 Game Mode 中没有任何图片就尝试把图片制作成动画，Marinara 会提示：“Add or generate a gallery image before generating a scene video.”先生成或上传一张图片，然后再试。
 
 ## Game Mode 场景视频
 

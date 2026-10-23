@@ -83,7 +83,7 @@ Wenn **Attach Card Appearance** eingeschaltet ist, liefern Karten und Personas m
 In einem Roleplay-Chat findest du unter **Chat Settings**, **Agents**, **Illustrator** die Einstellung **Illustrator makes** (was Illustrator erzeugt):
 
 - **Pictures** (Standard): wie bisher nur Bilder.
-- **Pictures and clips**: Illustrator kann einem gerade erzeugten Bild auch einen kurzen Clip hinzufügen, wenn die Bewegung den Moment ausmacht, etwa bei Action, Gewalt, einer Verfolgung oder etwas, das zerbricht. Er schreibt die Bewegung selbst nach den **Video Prompting Instructions** der Videoverbindung. Das Bild erscheint zuerst; der fertige Clip kommt zur selben Nachricht hinzu.
+- **Pictures and clips**: Illustrator kann einem gerade erzeugten Bild auch einen kurzen Clip hinzufügen, wenn die Bewegung den Moment ausmacht, etwa bei Action, Gewalt, einer Verfolgung oder etwas, das zerbricht. Das gilt auch für Bilder, die der Erzähler mit `[illustrate]` angefordert hat. Er schreibt die Bewegung selbst nach den **Video Prompting Instructions** der Videoverbindung. Das Bild erscheint zuerst; der fertige Clip kommt zur selben Nachricht hinzu.
 - **Clips only**: Jedes Mal, wenn Illustrator ein Bild zeigen würde, zeigt er stattdessen einen kurzen Clip. Wenn für den Clip ein Bild gezeichnet wird, wird es dessen Startbild und erscheint in der Gallery, nicht in der Antwort. Schlägt der Clip fehl, wird dann stattdessen dieses Bild gezeigt.
 
 Clips nutzen die **Video Connection** unter **Scene Videos**; jeder Clip ist eine Video-Anfrage. Ohne funktionierende Videoverbindung erstellt Illustrator stattdessen Bilder, auch mit **Clips only**. Eigene Agenten, die Bilder erzeugen, folgen derselben Einstellung.
@@ -97,11 +97,11 @@ Clips nutzen die **Video Connection** unter **Scene Videos**; jeder Clip ist ein
 - **Manuelle Clips**: Du kannst weiterhin ein Bild aus der Gallery animieren. Mit **Clips only** erstellt die Schaltfläche **Illustrate** einer Nachricht einen Clip.
 - **Swipes**: Ein Swipe einer Antwort mit Clip zählt als neue Antwort. Der neue Swipe darf seinen eigenen Clip erhalten; der frühere behält seinen.
 
-**First frame** erscheint, sobald Illustrator Clips erzeugt, und bestimmt, womit jeder seiner Clips beginnt: einem neuen Illustrator-Bild, dem Avatar oder Sprite des genannten Charakters, dem Bild mit Avatar als Ersatz oder ganz ohne Bild. Es ist dieselbe Einstellung wie für Videonachrichten in Conversation-Chats.
+**First frame** im selben Abschnitt bestimmt das Startbild aller Roleplay-Clips. Das gilt für Illustrators eigene Clips, `/video` und die Schaltfläche **Video** in der Gallery. Zur Auswahl stehen ein neues Illustrator-Bild, der Avatar oder das Sprite des genannten Charakters, das Bild mit dem Avatar als Ersatz oder gar kein Bild. Es ist dieselbe Einstellung wie für Videonachrichten in Conversation-Chats.
 
 - **Clips only** mit Avatar oder ohne Bild: Es wird gar kein Bild gezeichnet. Der Clip entsteht aus Illustrators Szene und Bewegung.
 - **Pictures and clips**: Das Bild wird weiterhin gezeigt; nur der Clip beginnt mit dem Avatar oder ohne Bild.
-- Kein Startbild gewählt: Ein Clip lässt nie eigens ein Bild zeichnen. **Pictures and clips** animiert das gerade von Illustrator erstellte Bild; **Clips only** erstellt den Clip allein aus der Szene.
+- Kein Startbild gewählt: Ein Clip lässt nie eigens ein Bild zeichnen. **Pictures and clips** animiert das gerade von Illustrator erstellte Bild; **Clips only**, `/video` und die Schaltfläche **Video** in der Gallery erstellen den Clip allein aus der Szene.
 
 Ein Clip ohne eigenes Bild beschreibt alle, die er nennt, einschließlich deiner Persona. Bei einem Avatar als Startbild wird die zuerst genannte Person verwendet.
 
