@@ -46,12 +46,13 @@ assert(missingAddJobs([], undefined).includes("embeddings"));
 assert.deepEqual(missingAddJobs([{ provider: "image_generation" }], undefined), [
   "main",
   "agents",
-  "voice",
+  "mari",
+  "images",
   "video",
+  "voice",
   "decision",
   "embeddings",
   "vision",
-  "mari",
 ]);
 
 assert(!list.includes("data-add-connection-question"), "the old question-card entry must be gone");
