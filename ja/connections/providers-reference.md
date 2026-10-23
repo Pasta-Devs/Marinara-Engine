@@ -227,16 +227,36 @@ Decisionモデルの役割、選び方、詳しい設定は[Decisionモデル](d
 
 ## Audio
 
-**Audio**(音声)は、声と生成される音のための特別なプロバイダーです。選んだあと、**Audio Source**(音声の提供元)を選びます。
+**Audio**(音声)は、読み上げとキャラクターの声のための特別なプロバイダーです。選んだあと、**Audio Source**(音声の提供元)を選びます。
 
-- **ElevenLabs**: 読み上げ、効果音、音楽。
+- **ElevenLabs**: キャラクターの声とナレーション。
 - **OpenAI-compatible**: OpenAI、またはOpenAIの音声形式に合わせたサーバー。
 - **PocketTTS**: 自分のコンピューターで動かせる無料の音声サーバー。
 - **xAI Voice**: xAIの音声サービス。
 
-ソースごとに、デフォルトのBase URLとモデルが入ります。**Default Voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間で、デフォルトは60秒です。音声サーバーが遅い場合は値を大きくしてください。Marinaraがデフォルトで使う音声の接続を選ぶには、**Connections**パネルを開き、**Defaults**(デフォルト)を展開して、**Audio**の下で選びます。その接続でメッセージを読み上げるには、**Text to Speech**(音声合成)カードの**Source**(音声の提供元)でその接続を選びます。[音声の接続を使う](../media/tts-setup.md#use-an-audio-connection)を参照してください。
+ソースごとに、デフォルトのBase URLとモデルが入ります。**Default Voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間で、デフォルトは60秒です。音声サーバーが遅い場合は値を大きくしてください。Marinaraがデフォルトで使う音声の接続を選ぶには、**Connections**パネルを開き、**Defaults**(デフォルト)を展開して、**Text to Speech**の下で選びます。その接続でメッセージを読み上げるには、**Text to Speech**(音声合成)カードの**Source**(音声の提供元)でその接続を選びます。[音声の接続を使う](../media/tts-setup.md#use-an-audio-connection)を参照してください。
 
-**ElevenLabs**ソースでは、**Game sound effects**(ゲームの効果音)と**Game music**(ゲームの音楽)の2つのスイッチが追加で表示されます。これをオンにすると、Game Modeがこの接続で効果音と音楽を作れるようになります。[生成される効果音と音楽](../game/game-assets.md#generated-sound-effects-and-music)を参照してください。声やメッセージの読み上げについては、[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。
+声やメッセージの読み上げについては、[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。音楽や効果音の生成は、以下のように別に設定します。
+
+<a id="music--sound-effects"></a>
+
+## Music & Sound Effects
+
+**Music & Sound Effects**(音楽と効果音)の接続カテゴリーは、読み上げとは別にインストゥルメンタルの音楽と効果音を生成します。ソースを選び、そのキーとモデルを入力して、**Music generation**(音楽生成)、**Sound-effect generation**(効果音生成)、または両方をオンにしてください。デフォルトとフォールバックの接続は、Audioや言語モデルの接続とは独立しています。設定するには、**Connections**パネルを開き、**Defaults**を展開して、**Music & Sound Effects**の下で選んでください。
+
+| ソース | デフォルトのAPIベースURL | 設定 |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabsのキー。音楽と効果音には別々のモデル欄があります。 |
+| SunoAPI | `https://apibox.erweima.ai` | [sunoapi.org](https://sunoapi.org/)のキー。音楽をオンにする場合は、公開HTTPSコールバックURLも必要です。これはSunoAPIのサービスであり、一般向けSunoサブスクリプションのログインではありません。 |
+| Custom compatible server(カスタム互換サーバー) | サーバーのアドレス | 音楽や効果音の明示的なエンドポイントパスと、対応するリクエスト形式。[互換オーディオの入出力仕様](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server)を参照してください。 |
+
+SunoAPIの音楽には、完了通知を送信できる公開HTTPSコールバックアドレスが必要です。このアドレスは自分で用意してください。Marinaraは作成しません。Marinaraはトラックの完成を自分で確認するため、再生にはその通知を使いません。
+
+音楽スタイルのプロンプトは最大1,000文字、効果音のプロンプトは最大500文字です。新しいリクエストごとに、プロバイダーの料金が発生する場合があります。アカウントの要件は[音楽API](https://docs.sunoapi.org/suno-api/generate-music)と[効果音API](https://docs.sunoapi.org/suno-api/generate-sounds)を参照してください。SunoAPIの効果音は、有料アカウントではまだ検証していません。
+
+アップグレードすると、生成がオンになっている各Audio接続に、別のMusic & Sound Effects接続が追加されます。以前の独立したElevenLabsのGame設定からも専用の接続が作成される場合があるため、複数の接続が表示されることがあります。元の読み上げ用接続と声の割り当ては変わりません。保存済みのGame接続IDは変わりません。生成が動作するのは、対応する移行済み接続が利用でき、要求した音楽または効果音の生成がその接続で有効になっている場合だけです。それ以外の場合は、適切な別のMusic & Sound Effects接続を選んでください。接続が複数ある場合は、**Defaults**の下でMusic & Sound Effectsのデフォルトとフォールバックを確認してください。移行された生成用接続を削除しても、再起動で再作成されることはありません。プロファイルから復元したエンドポイントは、ローカルで確認して保存するまで使えません。
+
+Gameごとに音楽や効果音の生成をオンにするか、Roleplayのコマンド設定で**Sound effects**(効果音)をオンにして`[sound: description]`を使ってください。Gacha Forgeには、独自のオーディオ生成設定と接続選択があります。生成がオフでも、同梱のGame音声は使えます。
 
 ## 埋め込み
 

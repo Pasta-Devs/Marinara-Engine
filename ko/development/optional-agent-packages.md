@@ -73,6 +73,7 @@ globalThis.__MARINARA_HOST__ = {
 | `capabilityApi` | Engine의 `supportedCapabilityApi`입니다. 예: `{ major: 1, minor: 341 }`. |
 | `stores` | 실제로 동작 중인 zustand 스토어 `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState`, `backfill`입니다. `chat`에는 대기 중인 공간 전환 슬라이스가 포함됩니다. |
 | `services.tts` | `lib/tts-service.ts` 모듈(`ttsService`, `playWhenAvailable`, ...)입니다. |
+| `services.audio` | Capability API 1.381부터 제공하는 `lib/audio-service.ts` 모듈입니다. 독립적인 음악/효과음 플레이어, 공유 에셋 매니페스트, 기본 음악 선택을 제공합니다. [패키지 오디오](#package-audio)를 참고하세요. |
 | `services.dialogs` | `lib/app-dialogs.ts` 모듈(`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`)입니다. |
 | `modules` | 베어 지정자를 키로 하는 라이브러리 모듈입니다(아래 참고). |
 | `queryClient` | Engine이 렌더링에 쓰는 단 하나의 React Query `QueryClient`입니다. |
@@ -982,6 +983,46 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections → Speech to Text**(연결 → 음성 인식)에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
 
 공유 요청·결과 타입은 `@marinara-engine/shared`에서 내보냅니다. 패키지별 프롬프트 구성과 작업 조정은 패키지에 두고, 제공자 입출력은 Engine 서비스 구현을 복사하지 말고 이 호스트 진입점을 호출하세요. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.
+
+<a id="package-audio"></a>
+
+### 패키지 오디오
+
+Capability API **1.381**부터 `__MARINARA_HOST__.services.audio`는 Engine이 관리하는 재생과
+에셋 선택을 제공합니다. 패키지 매니페스트에 이 마이너 버전을 선언하고 패키지와 함께 Engine도 업데이트하세요.
+음성은 계속 `services.tts`를 사용하며 음악과 효과음은 `services.audio`를 사용합니다.
+`services.tts.ttsService.speakSequence(requests, id?, options?)`는 1.381부터 `options.audioConnectionId`를 받습니다.
+선택한 음성 연결을 모든 청크에 적용하면서 각 요청의 목소리는
+유지합니다. 일반 기본값을 쓰려면 정의하지 않은 채로 두고, 기존 TTS 설정을 명시적으로 사용하려면 `""`를 전달하세요.
+알 수 없거나 삭제 또는 격리되었거나 음성용이 아닌 `audioConnectionId`는 무시하고 일반적인 음성 연결 결정 과정을 따릅니다.
+저장된 음성 선택, 기본/대체 연결, 기존 설정 순으로 결정합니다.
+저장된 음성 선택 자체를 사용할 수 없으면 다른 연결을 빌려 쓰지 않고 재생을 거부합니다.
+특정 연결이 필요한 패키지는 재생 전에 저장된 ID를 검증하세요.
+
+- `createPlayer()`는 `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)`, `dispose()`가 있는 독립 플레이어를 반환합니다. 음량 범위는 0부터 1입니다. `assets`는 태그를 키로 쓰는 레코드이며
+  각 항목은 `{ path: string, url?: string }`를 가집니다. 경로는 기존 Game 에셋 서버를 사용하며
+  `url`로는 패키지 자체 에셋을 지정할 수 있습니다. 재생에는 Engine의 크로스페이드, 자동 재생 재시도,
+  효과음 풀을 재사용합니다. 오디오를 시작할 때 사용자 동작 안에서 직접 `unlock()`을 호출하세요. 브라우저의 자동 재생 규칙은 계속 적용됩니다.
+- 마운트된 패키지 화면마다 플레이어 하나를 유지하고 언마운트할 때 `dispose()`를 호출하세요. 해제하면
+  해당 플레이어의 오디오를 영구적으로 멈추고 컨텍스트와 사용자 동작 리스너를 해제하며 이후 호출은 아무 효과가 없습니다.
+  Game이나 다른 패키지의 플레이어는 멈추지 않습니다. 화면을 다시 마운트할 때 새 플레이어를 만드세요.
+- `getAssetManifest()`는 Engine API 클라이언트로 `/api/game-assets/manifest`를 가져오고
+  `{ scannedAt, count, assets, byCategory }`를 반환합니다. 각 에셋에는 `tag`, `category`, `subcategory`, `name`,
+  `path`, `ext`가 있습니다. 재생에 `manifest.assets`를 전달하세요. 생성 에셋을 추가한 뒤 필요하면 다시 가져오세요.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)`은 기존 음악 태그나 `null`을 반환합니다.
+  큐는 `home`, `combat`, `boss`, `happy`, `tense`, `sad`, `bond`입니다. Game 음악 평가를 재사용하며
+  상태 기반 라이브러리만 사용합니다. 다른 Game의 지역/단계 트랙과 생성된 패키지 컨텍스트
+  트랙은 제외합니다. 알맞은 음악을 안정적으로 유지하려면 현재 태그를 전달하세요. 음량이 바뀔 때가 아니라 큐가
+  바뀔 때 다시 고르세요. 기본 제공 큐끼리는 같은 트랙을 공유할 수 있습니다. 이 도우미는 음악을 생성하거나
+  분위기마다 다른 곡을 보장하지 않습니다.
+
+Engine이 반환한 생성 결과 `{ tag, path }`는
+`player.playMusic(tag, { [tag]: { path } })`으로 재생하세요. 생성과 제공자 선택은 서버 측에서 처리합니다. 패키지는
+제공자 요청을 복제하거나 저장된 인증 정보에 접근해서는 안 됩니다. 사용자가 켠 음악과 효과음 생성에는 Engine의 생성 엔드포인트를
+사용하고, 생성 컨텍스트 키는 패키지 월드와 큐마다
+분리하세요. 생성에 실패했거나 사용할 수 없는 트랙은 `selectDefaultMusic`으로 대체할 수 있습니다.
 
 ### Capability API 1.341: 호스트 런타임 서비스와 공유 서버 라이브러리
 

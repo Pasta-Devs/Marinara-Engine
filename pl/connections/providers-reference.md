@@ -227,16 +227,36 @@ Czym jest model decyzyjny, jak go wybrać i jak go w pełni skonfigurować, wyja
 
 ## Audio
 
-**Audio** to dostawca szczególny dla głosów i generowanego dźwięku. Po jego wybraniu wskaż **Audio Source** (źródło dźwięku):
+**Audio** to dostawca szczególny dla mowy i głosów postaci. Po jego wybraniu wskaż **Audio Source** (źródło dźwięku):
 
-- **ElevenLabs**: mowa, efekty dźwiękowe i muzyka.
+- **ElevenLabs**: głosy postaci i narracja.
 - **OpenAI-compatible**: OpenAI albo dowolny serwer naśladujący format mowy od OpenAI.
 - **PocketTTS**: darmowy serwer głosowy uruchamiany na własnym komputerze.
 - **xAI Voice**: usługa głosowa xAI.
 
-Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię; domyślnie 60 sekund. Przy wolnym serwerze głosu zwiększ tę wartość. Żeby wybrać połączenie audio, którego Marinara używa domyślnie, otwórz panel **Connections**, rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Audio**. Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech**. Zobacz [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
+Każde źródło wpisuje domyślny adres bazowy i model. **Default Voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię; domyślnie 60 sekund. Przy wolnym serwerze głosu zwiększ tę wartość. Żeby wybrać połączenie do syntezy mowy, którego Marinara używa domyślnie, otwórz panel **Connections**, rozwiń sekcję **Defaults** (ustawienia domyślne) i wybierz je w polu **Text to Speech** (synteza mowy). Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech**. Zobacz [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
 
-Przy źródle **ElevenLabs** pojawiają się dwa dodatkowe przełączniki: **Game sound effects** (efekty dźwiękowe w grze) i **Game music** (muzyka w grze). Dzięki nim Game Mode tworzy przez to połączenie efekty dźwiękowe i muzykę. Zobacz [Generowane efekty dźwiękowe i muzyka](../game/game-assets.md#generated-sound-effects-and-music). Głosy i czytanie wiadomości na głos opisuje przewodnik [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
+Głosy i czytanie wiadomości na głos opisuje przewodnik [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). Generowany dźwięk konfiguruje się osobno, poniżej.
+
+<a id="music--sound-effects"></a>
+
+## Muzyka i efekty dźwiękowe
+
+Połączenia z kategorii **Music & Sound Effects** (muzyka i efekty dźwiękowe) generują instrumentalną muzykę i efekty dźwiękowe niezależnie od mowy. Wybierz źródło, wpisz jego klucz i modele, a potem włącz **Music generation** (generowanie muzyki), **Sound-effect generation** (generowanie efektów dźwiękowych) albo oba przełączniki. Wybór połączenia domyślnego i zapasowego jest niezależny od połączeń Audio i modeli językowych. Żeby je ustawić, otwórz panel **Connections**, rozwiń sekcję **Defaults** i wybierz je w kategorii **Music & Sound Effects**.
+
+| Źródło | Domyślny adres bazowy API | Konfiguracja |
+| --- | --- | --- |
+| ElevenLabs | `https://api.elevenlabs.io` | Klucz ElevenLabs; muzyka i efekty dźwiękowe mają osobne pola modeli. |
+| SunoAPI | `https://apibox.erweima.ai` | Klucz z serwisu [sunoapi.org](https://sunoapi.org/) oraz publiczny adres zwrotny HTTPS, jeśli muzyka jest włączona. To usługa SunoAPI, a nie logowanie do subskrypcji konsumenckiej Suno. |
+| Własny zgodny serwer | Adres twojego serwera | Jawna ścieżka endpointu muzyki/efektów i obsługiwany format żądania; zobacz [kontrakty zgodnych serwerów audio](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server). |
+
+Muzyka SunoAPI wymaga publicznego adresu zwrotnego HTTPS, pod który usługa może wysyłać powiadomienia o zakończeniu. Musisz podać ten adres; Marinara go nie tworzy. Marinara sama sprawdza gotowość utworu, więc nie korzysta z tych powiadomień przy odtwarzaniu.
+
+Prompty stylu muzyki mogą mieć do 1000 znaków. Prompty efektów dźwiękowych mogą mieć do 500. Każde nowe żądanie może wiązać się z opłatą u dostawcy. Wymagania dotyczące konta znajdziesz w dokumentacji [API muzyki](https://docs.sunoapi.org/suno-api/generate-music) i [API efektów dźwiękowych](https://docs.sunoapi.org/suno-api/generate-sounds). Efekty dźwiękowe SunoAPI nie zostały jeszcze zweryfikowane z użyciem płatnego konta.
+
+Podczas aktualizacji każde połączenie Audio z włączonym generowaniem zyskuje osobne połączenie Music & Sound Effects. Dawne samodzielne ustawienia ElevenLabs dla Game również mogą utworzyć własne połączenie, więc może pojawić się ich kilka. Oryginalne połączenia mowy i przypisania głosów pozostają bez zmian. Zapisane identyfikatory połączeń Game nie zmieniają się. Generowanie działa tylko wtedy, gdy odpowiednie przeniesione połączenie jest dostępne i ma włączone generowanie żądanego rodzaju dźwięku: muzyki lub efektów dźwiękowych; w przeciwnym razie wybierz inne odpowiednie połączenie Music & Sound Effects. Jeśli połączeń jest kilka, sprawdź połączenie domyślne i zapasowe Music & Sound Effects w sekcji **Defaults**. Usunięcie przeniesionego połączenia generowania nie odtwarza go przy ponownym uruchomieniu. Endpointy odtworzone z profilu pozostają niedostępne, dopóki nie zostaną sprawdzone i zapisane lokalnie.
+
+Włącz generowany dźwięk osobno dla każdej gry albo włącz **Sound effects** (efekty dźwiękowe) w ustawieniach komend trybu Roleplay, żeby używać `[sound: description]`. Gacha Forge ma własne ustawienie generowania dźwięku i wybór połączenia. Wbudowane dźwięki Game są dostępne także przy wyłączonym generowaniu.
 
 ## Embeddings
 

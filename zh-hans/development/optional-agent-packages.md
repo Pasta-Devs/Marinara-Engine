@@ -57,6 +57,7 @@ globalThis.__MARINARA_HOST__ = {
 | `capabilityApi` | Engine 的 `supportedCapabilityApi`，例如 `{ major: 1, minor: 341 }`。 |
 | `stores` | 实时的 zustand store：`ui`、`chat`、`agent`、`sidecar`、`dialog`、`gallery`、`encounter`、`gameState` 和 `backfill`。`chat` 包含待处理空间过渡的状态切片。 |
 | `services.tts` | `lib/tts-service.ts` 模块（`ttsService`、`playWhenAvailable` 等）。 |
+| `services.audio` | 从 Capability API 1.381 起提供的 `lib/audio-service.ts` 模块：独立的音乐/音效播放器、共享素材清单和默认音乐选择。见[包音频](#package-audio)。 |
 | `services.dialogs` | `lib/app-dialogs.ts` 模块（`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`）。 |
 | `modules` | 库模块，以裸模块说明符为键（见下文）。 |
 | `queryClient` | Engine 渲染时使用的那一个 React Query `QueryClient`。 |
@@ -958,6 +959,21 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 - `speech.transcribe(audio, { filename, mimeType, signal })` 把录制的音频发送到用户在 **Connections → Speech to Text**(连接 → 语音识别) 中设置的语音识别服务器，并返回转写文本；该服务器关闭时返回 `null`，包据此继续使用自己的转写。它应用宿主的 URL 策略（`STT_LOCAL_URLS_ENABLED`）以及大小和时间限制，且从不暴露已保存的密钥。`speech` 是可选的，不需要更高版本的能力 API：检查 `typeof api.runtime.integrations?.speech?.transcribe === "function"`，在旧 Engine 上回退。
 
 共享请求和结果类型由 `@marinara-engine/shared` 导出。包专属的提示词构建和流程编排应保留在包内；服务商 I/O 请调用这些宿主入口，而不要复制 Engine 服务实现。纯辅助函数和类型仍可打包。
+
+<a id="package-audio"></a>
+
+### 包音频
+
+从 Capability API **1.381** 起，`__MARINARA_HOST__.services.audio` 提供由 Engine 管理的播放和素材选择。在包清单中声明该次版本，并随包一同更新 Engine。语音仍使用 `services.tts`，音乐和音效使用 `services.audio`。从 1.381 起，`services.tts.ttsService.speakSequence(requests, id?, options?)` 接受 `options.audioConnectionId`，将选中的语音连接应用到每个片段，同时保留各请求的声音。不设置时使用常规默认值；传入 `""` 可明确使用旧 TTS 设置。
+
+未知、已删除、被隔离或不属于语音的 `audioConnectionId` 会被忽略，并执行正常的语音解析：先使用已保存的语音选择，再尝试默认/回退连接，最后使用旧设置。如果已保存的语音选择本身不可用，就会拒绝播放，而不会借用另一个连接。要求使用特定连接的包应在播放前验证保存的 ID。
+
+- `createPlayer()` 返回独立的播放器，具有 `unlock()`、`playMusic(tag, assets?)`、`stopMusic(immediate?)`、`playSfx(tag, assets?, loopCount?)`、`setVolumes({ music, sfx })`、`setMuted(boolean)` 和 `dispose()`。音量范围是 0 到 1。`assets` 是以标签为键的记录，条目格式为 `{ path: string, url?: string }`；路径使用现有的 Game 素材服务器，`url` 则可指向包自己的素材。播放复用 Engine 的交叉淡化、自动播放重试和音效池。开始播放音频时，在用户操作中直接调用 `unlock()`；浏览器的自动播放规则仍然适用。
+- 为已挂载的包界面保留一个播放器，卸载时调用 `dispose()`。这会永久停止该播放器的音频，释放其上下文和手势监听器，并使之后的调用不再生效。它不会停止 Game 或另一个包的播放器。界面重新挂载时，创建新播放器。
+- `getAssetManifest()` 通过 Engine API 客户端获取 `/api/game-assets/manifest`，返回 `{ scannedAt, count, assets, byCategory }`。每个素材包含 `tag`、`category`、`subcategory`、`name`、`path` 和 `ext`。将 `manifest.assets` 传给播放方法；需要时在添加生成素材后重新获取。
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` 返回已有的音乐标签，或 `null`。情境包括 `home`、`combat`、`boss`、`happy`、`tense`、`sad` 和 `bond`。它复用 Game 音乐评分器，只使用按状态组织的音乐库；另一个 Game 的区域/等级曲目和生成的包情境曲目不参与选择。传入当前标签，让合适的音乐保持稳定。情境改变时再选，不要在音量变化时重新选择。自带的不同情境可能共用曲目：这个辅助函数不生成音乐，也不保证每种情绪都有独立曲目。
+
+对于 Engine 返回的生成结果 `{ tag, path }`，可用 `player.playMusic(tag, { [tag]: { path } })` 播放。生成和服务商选择保留在服务端；包不能自行重复向服务商发请求，也不能访问保存的凭据。按需启用的生成音乐和音效应使用 Engine 的生成端点，并为每个包的世界和情境保留独立的生成上下文键。生成曲目失败或不可用时，可以回退到 `selectDefaultMusic`。
 
 ### Capability API 1.341：宿主运行时服务和共享服务端库
 

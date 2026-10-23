@@ -73,6 +73,7 @@ Ta właściwość nie jest zapisywalna ani konfigurowalna, a przestrzeń nazw or
 | `capabilityApi` | `supportedCapabilityApi` silnika, na przykład `{ major: 1, minor: 341 }`. |
 | `stores` | Działające magazyny Zustand `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` i `backfill`. `chat` zawiera wycinek oczekujących przejść przestrzennych. |
 | `services.tts` | Moduł `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
+| `services.audio` | Od wersji 1.381 API możliwości moduł `lib/audio-service.ts`: niezależne odtwarzacze muzyki/efektów, współdzielony manifest zasobów i domyślny wybór muzyki. Zobacz [Dźwięk pakietu](#package-audio). |
 | `services.dialogs` | Moduł `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
 | `modules` | Moduły bibliotek według samego specyfikatora (poniżej). |
 | `queryClient` | Jedyny `QueryClient` React Query, z którym renderuje się silnik. |
@@ -974,6 +975,55 @@ Pakiety serwerowe mogą używać `api.runtime.integrations` do bieżących usłu
 - `speech.transcribe(audio, { filename, mimeType, signal })` wysyła nagrany dźwięk do serwera zamiany mowy na tekst ustawionego przez użytkownika w **Connections → Speech to Text** i zwraca transkrypcję albo `null`, gdy ten serwer jest wyłączony – wtedy pakiet korzysta dalej z własnej transkrypcji. Stosuje politykę adresów URL hosta (`STT_LOCAL_URLS_ENABLED`) oraz limity rozmiaru i czasu, a zapisanego klucza nigdy nie ujawnia. `speech` jest opcjonalne i nie wymaga nowszego API możliwości: sprawdź `typeof api.runtime.integrations?.speech?.transcribe === "function"`, a w starszym Engine użyj rozwiązania zastępczego.
 
 Typy żądań/wyników eksportuje `@marinara-engine/shared`. Budowanie promptów i orkiestrację pakietu zachowaj w nim; dla operacji dostawcy używaj tych punktów hosta zamiast kopiować usługi Engine. Czyste funkcje pomocnicze i typy nadal można dołączać do pakietu.
+
+<a id="package-audio"></a>
+
+### Dźwięk pakietu
+
+Od wersji **1.381** API możliwości `__MARINARA_HOST__.services.audio` udostępnia odtwarzanie i wybór
+zasobów po stronie aplikacji Marinara Engine. Zadeklaruj tę wersję podrzędną w manifeście pakietu i aktualizuj
+aplikację Marinara Engine razem z pakietem. Mowa pozostaje w `services.tts`; muzyka i efekty dźwiękowe
+korzystają z `services.audio`.
+Od wersji 1.381 `services.tts.ttsService.speakSequence(requests, id?, options?)` przyjmuje
+`options.audioConnectionId`, stosując wybrane połączenie mowy do każdego fragmentu z zachowaniem
+głosu określonego w danym żądaniu. Pozostaw tę opcję niezdefiniowaną, żeby użyć zwykłego ustawienia
+domyślnego, albo przekaż `""`, żeby jawnie użyć dawnych ustawień TTS.
+Jeśli `audioConnectionId` jest nieznany albo wskazuje połączenie usunięte, objęte kwarantanną lub inne
+niż połączenie mowy, silnik go ignoruje i stosuje zwykłą kolejność wyboru: zapisane połączenie mowy,
+następnie połączenie domyślne/zapasowe, a na końcu dawne ustawienia. Jeśli samo zapisane połączenie
+mowy jest niedostępne, odtwarzanie jest odrzucane zamiast korzystać z innego połączenia. Pakiety
+wymagające konkretnego połączenia powinny sprawdzać zapisany identyfikator przed odtwarzaniem.
+
+- `createPlayer()` zwraca niezależny odtwarzacz z metodami `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)` i `dispose()`. Głośność mieści się w zakresie od 0 do 1. `assets` to rekord
+  indeksowany tagiem, którego wpisy mają postać `{ path: string, url?: string }`; ścieżki korzystają
+  z istniejącego serwera zasobów Game, a `url` może wskazywać zasób pakietu. Odtwarzanie używa
+  mechanizmów płynnych przejść, ponawiania automatycznego odtwarzania i puli efektów dźwiękowych
+  aplikacji Marinara Engine. Przy uruchamianiu dźwięku wywołaj `unlock()` bezpośrednio w obsłudze
+  gestu użytkownika; zasady automatycznego odtwarzania w przeglądarce nadal obowiązują.
+- Utrzymuj jeden odtwarzacz dla zamontowanego widoku pakietu i wywołuj `dispose()` przy odmontowaniu.
+  Zwolnienie na stałe zatrzymuje dźwięk tego odtwarzacza, zwalnia jego kontekst i nasłuchy gestów oraz
+  sprawia, że kolejne wywołania nie mają skutku. Nie zatrzymuje odtwarzacza Game ani innego pakietu.
+  Utwórz nowy odtwarzacz przy ponownym zamontowaniu widoku.
+- `getAssetManifest()` pobiera `/api/game-assets/manifest` przez klienta API aplikacji Marinara Engine
+  i zwraca `{ scannedAt, count, assets, byCategory }`. Każdy zasób ma pola `tag`, `category`,
+  `subcategory`, `name`, `path` i `ext`. Przekaż `manifest.assets` do odtwarzania; w razie potrzeby
+  pobierz manifest ponownie po dodaniu wygenerowanych zasobów.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` zwraca istniejący tag muzyki albo `null`.
+  Wskazówki to `home`, `combat`, `boss`, `happy`, `tense`, `sad` i `bond`. Funkcja używa mechanizmu
+  oceny muzyki Game i wyłącznie biblioteki opartej na stanach; pomija utwory obszarów/poziomów innej
+  gry Game oraz wygenerowane utwory kontekstu pakietu. Przekaż bieżący tag, żeby zachować pasującą
+  muzykę. Wybieraj ponownie przy zmianie wskazówki, a nie głośności. Wbudowane wskazówki mogą
+  wskazywać ten sam utwór: ta funkcja nie generuje muzyki ani nie gwarantuje osobnej kompozycji
+  dla każdego nastroju.
+
+Wygenerowany wynik `{ tag, path }` zwrócony przez aplikację Marinara Engine odtwórz przez
+`player.playMusic(tag, { [tag]: { path } })`. Generowanie i wybór dostawcy pozostają po stronie serwera;
+pakiety nie mogą powielać żądań do dostawców ani uzyskiwać dostępu do zapisanych danych uwierzytelniających.
+Do opcjonalnego generowania muzyki i efektów używaj endpointu generowania aplikacji Marinara Engine,
+a klucze wygenerowanych kontekstów rozdzielaj dla każdego świata pakietu i każdej wskazówki. Przy awarii
+lub niedostępności wygenerowanego utworu można skorzystać z `selectDefaultMusic`.
 
 ### Capability API 1.341: usługi uruchomieniowe hosta i współdzielone biblioteki serwera
 

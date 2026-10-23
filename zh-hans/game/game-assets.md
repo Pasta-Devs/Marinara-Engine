@@ -166,26 +166,26 @@ Marinara 内部维护着一份素材清单，好让 Game Mode 快速找到文件
 
 ## 生成音效与音乐
 
-Game Mode 还可以借助 AI 音频服务 ElevenLabs，为你的场景生成新的音效和音乐。你需要一个 ElevenLabs API 密钥。每生成一段新音效或一首新曲目，都会用你的账号向 ElevenLabs 发出一次请求。
+Game Mode 也可以通过 **Music & Sound Effects**(音乐与音效) 连接生成音效和音乐。可选择 ElevenLabs、SunoAPI 或自定义兼容服务器。每段新音效或新曲目都会使用相应的服务商账号；自带音频无需生成即可使用。
 
-先设置一个音频连接：
+先设置一个生成连接：
 
-1. 打开 **Connections**(连接) 面板，用 **Audio**(音频) 服务商新建一个连接。
-2. 在 **Audio Source**(音频来源) 下选择 **ElevenLabs**，然后粘贴你的 ElevenLabs API 密钥。
-3. 打开 **Game sound effects**(游戏音效) 或 **Game music**(游戏音乐)，也可以两个都打开。这两个开关只在 **ElevenLabs** 来源下出现。
-4. 保存连接。
+1. 打开 **Connections**(连接)，新建一个 **Music & Sound Effects** 连接。
+2. 选择服务，填写密钥，再选择音乐和音效模型。SunoAPI 音乐还需要公开的 HTTPS 回调 URL；自定义服务器需要提供端点路径。
+3. 打开 **Sound-effect generation**(音效生成)、**Music generation**(音乐生成)，或同时开启两项。
+4. 保存连接。见[服务商设置和限制](../connections/providers-reference.md#music--sound-effects)。
 
 然后在创建游戏时开启它：
 
 1. 在设置向导的 **Features** 这一步，找到 **Game Audio**(游戏音频) 卡片。
-2. 在 **Audio Connection**(音频连接) 下选择你的 ElevenLabs 连接，或者保留 **Use the default audio connection**(使用默认音频连接)。
+2. 在 **Music & Sound Effects connection**(音乐与音效连接) 下选择连接，或者保留 **Use the default Music & Sound Effects connection**(使用默认音乐与音效连接)。
 3. 让 **Sound effects**(音效) 和 **Music**(音乐) 保持开启，或者关掉不想要的那一项。
 
-只有所选连接是开启了对应开关的 ElevenLabs 连接，才能打开 **Sound effects** 或 **Music**。条件不满足时，卡片上会给出提示。
+每个 Game 开关都要求所选连接已启用对应功能。仅支持语音的 Audio 连接不会用于生成。
 
 游戏过程中：
 
-- **Sound effects**：GM 回合结束后，Marinara 会向 ElevenLabs 请求贴合场景的简短音效。
+- **Sound effects**：GM 回合结束后，Marinara 会向所选服务请求贴合场景的简短音效。
 - **Music**：队伍每到一个地方、每遇到一种战斗（比如首领战），Marinara 都会创作一首约两分钟长的纯器乐曲目。每首曲目只生成一次，之后重复使用。新地点的曲目要等到之后的场景切换时才开始播放，所以音乐不会在场景中途突然切入。战斗曲目一准备好就会淡入。
 
 生成的音效和曲目会和你的游戏素材保存在一起，所以同一段音效不会生成两次。如果 **Music DJ** 正在为这个游戏播放音乐，Game Mode 就不会生成音乐。

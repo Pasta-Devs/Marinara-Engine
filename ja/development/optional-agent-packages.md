@@ -73,6 +73,7 @@ globalThis.__MARINARA_HOST__ = {
 | `capabilityApi` | Engineの`supportedCapabilityApi`。たとえば`{ major: 1, minor: 341 }`です。 |
 | `stores` | 実際に動いているzustandストア`ui`、`chat`、`agent`、`sidecar`、`dialog`、`gallery`、`encounter`、`gameState`、`backfill`。`chat`には保留中の空間遷移のスライスが含まれます。 |
 | `services.tts` | `lib/tts-service.ts`モジュール(`ttsService`、`playWhenAvailable`、...)。 |
+| `services.audio` | Capability API 1.381以降の`lib/audio-service.ts`モジュール。独立した音楽と効果音のプレイヤー、共有アセットマニフェスト、デフォルトの音楽選択を提供します。[パッケージの音声](#package-audio)を参照してください。 |
 | `services.dialogs` | `lib/app-dialogs.ts`モジュール(`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`)。 |
 | `modules` | ライブラリーのモジュール。bare specifier(パスを含まないモジュール名)をキーにします(後述)。 |
 | `queryClient` | Engineが描画に使う唯一のReact Queryの`QueryClient`。 |
@@ -980,6 +981,46 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 - `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections → Speech to Text**(接続 → 音声認識)で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
 
 共有の要求・結果型は`@marinara-engine/shared`からエクスポートされます。パッケージ固有のプロンプト構築と処理の調整はパッケージに置き、プロバイダーI/OにはEngineのサービス実装をコピーせず、これらのホスト入口を呼んでください。純粋なヘルパーや型は引き続きバンドルできます。
+
+<a id="package-audio"></a>
+
+### パッケージの音声
+
+Capability API **1.381**以降では、`__MARINARA_HOST__.services.audio`がEngineの再生機能と
+アセット選択を提供します。パッケージのマニフェストにこのマイナーバージョンを宣言し、パッケージと一緒にEngineもアップデートしてください。
+読み上げは引き続き`services.tts`を使い、音楽と効果音には`services.audio`を使います。
+`services.tts.ttsService.speakSequence(requests, id?, options?)`は、1.381以降で`options.audioConnectionId`を受け付けます。
+指定した読み上げ用接続をすべてのチャンクに適用し、各リクエストの声は維持します。
+通常のデフォルトを使う場合は未定義のままにし、従来のTTS設定を明示的に使う場合は`""`を渡してください。
+不明、削除済み、隔離中、または読み上げ用でない`audioConnectionId`は無視され、通常の読み上げ用接続の解決に進みます。
+保存済みの読み上げ用の選択、デフォルト/フォールバック接続、従来の設定の順に解決します。
+保存済みの選択自体が使えない場合は、ほかの接続を借りずに再生を拒否します。
+特定の接続を必要とするパッケージは、再生前に保存済みのIDを検証してください。
+
+- `createPlayer()`は、`unlock()`、`playMusic(tag, assets?)`、
+  `stopMusic(immediate?)`、`playSfx(tag, assets?, loopCount?)`、`setVolumes({ music, sfx })`、
+  `setMuted(boolean)`、`dispose()`を持つ独立したプレイヤーを返します。音量は0から1です。`assets`はタグをキーとするレコードで、
+  各エントリーは`{ path: string, url?: string }`を持ちます。パスには既存のGameアセットサーバーを使い、
+  `url`にはパッケージ独自のアセットを指定できます。再生には、Engineのクロスフェード、自動再生の再試行、
+  効果音プールを再利用します。音声を開始するときは、ユーザー操作の中で直接`unlock()`を呼び出してください。ブラウザーの自動再生ルールは引き続き適用されます。
+- マウント中のパッケージ画面に1つのプレイヤーを保持し、アンマウント時に`dispose()`を呼び出してください。破棄すると、
+  そのプレイヤーの音声が完全に停止し、コンテキストとユーザー操作のリスナーが解放され、以降の呼び出しは何もしなくなります。
+  Gameやほかのパッケージのプレイヤーは停止しません。画面を再度マウントするときは、新しいプレイヤーを作成してください。
+- `getAssetManifest()`は、EngineのAPIクライアント経由で`/api/game-assets/manifest`を取得し、
+  `{ scannedAt, count, assets, byCategory }`を返します。各アセットは`tag`、`category`、`subcategory`、`name`、
+  `path`、`ext`を持ちます。再生には`manifest.assets`を渡してください。生成アセットを追加したあとは、必要に応じて再取得してください。
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)`は、既存の音楽タグまたは`null`を返します。
+  キューは`home`、`combat`、`boss`、`happy`、`tense`、`sad`、`bond`です。Gameの音楽スコアリングを再利用し、
+  状態に基づくライブラリーだけを使います。ほかのGameのエリアや段階ごとのトラック、および生成されたパッケージのコンテキストトラックは
+  除外されます。合う音楽を維持するには、現在のタグを渡してください。音量が変わったときではなく、キューが
+  変わったときに再選択してください。同梱のキューが同じトラックを使うこともあります。このヘルパーは音楽を生成せず、
+  雰囲気ごとに別の曲があることも保証しません。
+
+Engineが返した生成結果`{ tag, path }`は、
+`player.playMusic(tag, { [tag]: { path } })`で再生してください。生成とプロバイダー選択はサーバー側にとどめます。パッケージは
+プロバイダーリクエストを複製したり、保存済み認証情報にアクセスしたりしてはいけません。明示的にオンにした音楽や効果音の生成には、Engineの生成エンドポイントを
+使ってください。生成用のコンテキストキーは、パッケージのワールドとキューごとに
+分けてください。生成に失敗したトラックや使えないトラックは、`selectDefaultMusic`にフォールバックできます。
 
 ### Capability API 1.341: ホストのランタイムサービスと共有サーバーライブラリー
 

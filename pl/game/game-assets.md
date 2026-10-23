@@ -166,26 +166,26 @@ Pasek pokazuje "All folders included" albo liczbę wykluczonych folderów, razem
 
 ## Generowane efekty dźwiękowe i muzyka
 
-Game Mode potrafi też tworzyć do twoich scen nowe efekty dźwiękowe i muzykę za pomocą ElevenLabs, usługi AI do generowania dźwięku. Potrzebny jest klucz API do usługi ElevenLabs. Każdy nowy dźwięk lub utwór to osobne żądanie do usługi ElevenLabs na twoim koncie.
+Game Mode potrafi też generować efekty dźwiękowe i muzykę przez połączenie **Music & Sound Effects** (muzyka i efekty dźwiękowe). Wybierz ElevenLabs, SunoAPI albo własny zgodny serwer. Każdy nowy dźwięk lub utwór korzysta z konta u danego dostawcy; dołączone dźwięki są dostępne bez generowania.
 
-Najpierw skonfiguruj połączenie audio:
+Najpierw skonfiguruj połączenie generowania:
 
-1. Otwórz panel **Connections** (Połączenia) i utwórz połączenie z dostawcą **Audio**.
-2. W polu **Audio Source** (źródło dźwięku) wybierz **ElevenLabs**, a potem wklej klucz API do usługi ElevenLabs.
-3. Włącz **Game sound effects** (efekty dźwiękowe w grze), **Game music** (muzyka w grze) albo oba przełączniki. Te przełączniki pojawiają się tylko przy źródle **ElevenLabs**.
-4. Zapisz połączenie.
+1. Otwórz panel **Connections** (Połączenia) i utwórz połączenie **Music & Sound Effects**.
+2. Wybierz usługę, wpisz jej klucz i wybierz modele muzyki oraz efektów dźwiękowych. Muzyka SunoAPI wymaga też publicznego adresu zwrotnego HTTPS; własny serwer potrzebuje ścieżek endpointów.
+3. Włącz **Sound-effect generation** (generowanie efektów dźwiękowych), **Music generation** (generowanie muzyki) albo oba przełączniki.
+4. Zapisz połączenie. Zobacz [konfigurację dostawców i limity](../connections/providers-reference.md#music--sound-effects).
 
 Potem włącz tę funkcję przy tworzeniu gry:
 
 1. W kroku **Features** kreatora konfiguracji znajdź kartę **Game Audio** (dźwięk w grze).
-2. W polu **Audio Connection** (połączenie audio) wybierz swoje połączenie ElevenLabs albo zostaw **Use the default audio connection** (użycie domyślnego połączenia audio).
+2. W polu **Music & Sound Effects connection** (połączenie muzyki i efektów dźwiękowych) wybierz swoje połączenie albo zostaw **Use the default Music & Sound Effects connection** (użycie domyślnego połączenia muzyki i efektów dźwiękowych).
 3. Zostaw włączone **Sound effects** (efekty dźwiękowe) i **Music** (muzyka) albo wyłącz to, czego nie chcesz.
 
-Opcji **Sound effects** ani **Music** nie da się włączyć, dopóki wybrane połączenie nie jest połączeniem ElevenLabs z włączonym odpowiednim przełącznikiem. Karta wyświetla wtedy odpowiednią informację.
+Każdy przełącznik Game wymaga włączenia odpowiedniej funkcji w wybranym połączeniu. Połączenie Audio obsługujące wyłącznie mowę nie jest używane do generowania.
 
 W trakcie gry:
 
-- **Sound effects**: po turach GM Marinara prosi usługę ElevenLabs o krótkie efekty dźwiękowe pasujące do sceny.
+- **Sound effects**: po turach GM Marinara prosi wybraną usługę o krótkie efekty dźwiękowe pasujące do sceny.
 - **Music**: Marinara komponuje jeden instrumentalny utwór, trwający około dwóch minut, dla każdego miejsca odwiedzanego przez drużynę i dla każdego rodzaju walki, na przykład walki z bossem. Każdy utwór powstaje tylko raz, a potem jest używany ponownie. Utwór nowego miejsca zaczyna grać przy późniejszej zmianie sceny, więc muzyka nie wcina się w środek sceny. Utwór walki płynnie się pojawia, gdy tylko jest gotowy.
 
 Wygenerowane dźwięki i utwory zapisują się razem z zasobami gry, więc ten sam dźwięk nie powstaje dwa razy. Jeśli muzykę w grze odtwarza agent **Music DJ**, Game Mode nie generuje muzyki.

@@ -227,16 +227,36 @@ Was ein Decision-Modell tut, wie du eines auswählst und wie die vollständige E
 
 ## Audio
 
-**Audio** ist ein besonderer Anbieter für Stimmen und generierten Sound. Nach der Auswahl legst du eine **Audio Source** (Audioquelle) fest:
+**Audio** ist ein besonderer Anbieter für Sprachausgabe und Charakterstimmen. Nach der Auswahl legst du eine **Audio Source** (Audioquelle) fest:
 
-- **ElevenLabs**: Sprache, Soundeffekte und Musik.
+- **ElevenLabs**: Charakterstimmen und Erzähltext.
 - **OpenAI-compatible**: OpenAI oder jeder Server, der das Sprachformat von OpenAI nachbildet.
 - **PocketTTS**: ein kostenloser Sprachserver, den du auf dem eigenen Rechner betreibst.
 - **xAI Voice**: der Sprachdienst von xAI.
 
-Jede Quelle trägt eine Standard-Base-URL und ein Standardmodell ein. **Default Voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** (Zeitlimit für Anfragen in Sekunden) legt fest, wie lange Marinara auf eine gesprochene Zeile wartet, standardmäßig 60 Sekunden; erhöhe den Wert bei einem langsamen Sprachserver. Welche Audioverbindung Marinara standardmäßig nutzt, legst du so fest: Öffne das Panel **Connections**, klapp **Defaults** (Standardwerte) auf und wähle sie unter **Audio** aus. Um damit Nachrichten vorlesen zu lassen, wähle sie in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Eine Audioverbindung verwenden](../media/tts-setup.md#use-an-audio-connection).
+Jede Quelle trägt eine Standard-Base-URL und ein Standardmodell ein. **Default Voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** (Zeitlimit für Anfragen in Sekunden) legt fest, wie lange Marinara auf eine gesprochene Zeile wartet, standardmäßig 60 Sekunden; erhöhe den Wert bei einem langsamen Sprachserver. Welche Verbindung für Sprachausgabe Marinara standardmäßig nutzt, legst du so fest: Öffne das Panel **Connections**, klapp **Defaults** (Standardwerte) auf und wähle sie unter **Text to Speech** aus. Um damit Nachrichten vorlesen zu lassen, wähle sie in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Eine Audioverbindung verwenden](../media/tts-setup.md#use-an-audio-connection).
 
-Mit der Quelle **ElevenLabs** erscheinen zwei weitere Schalter: **Game sound effects** (Soundeffekte im Spiel) und **Game music** (Musik im Spiel). Damit erzeugt der Game Mode über diese Verbindung Soundeffekte und Musik. Siehe [Generierte Soundeffekte und Musik](../game/game-assets.md#generated-sound-effects-and-music). Für Stimmen und das Vorlesen von Nachrichten siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md).
+Für Stimmen und das Vorlesen von Nachrichten siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md). Generiertes Audio richtest du getrennt davon ein, wie unten beschrieben.
+
+<a id="music--sound-effects"></a>
+
+## Musik und Soundeffekte
+
+Die Verbindungskategorie **Music & Sound Effects** (Musik und Soundeffekte) erzeugt Instrumentalmusik und Soundeffekte getrennt von der Sprachausgabe. Wähle eine Quelle, trage ihren Key und die Modelle ein und aktiviere **Music generation** (Musikgenerierung), **Sound-effect generation** (Soundeffektgenerierung) oder beides. Ihre Standard- und Ersatzverbindungen sind unabhängig von Audio- und Sprachmodellverbindungen. Öffne dafür das Panel **Connections**, klapp **Defaults** auf und wähle sie unter **Music & Sound Effects** aus.
+
+| Quelle | Standard-API-Basisadresse | Einrichtung |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ElevenLabs | `https://api.elevenlabs.io` | ElevenLabs-Key; Musik und Soundeffekte haben getrennte Modellfelder. |
+| SunoAPI | `https://apibox.erweima.ai` | Ein Key von [sunoapi.org](https://sunoapi.org/) und eine öffentliche HTTPS-Callback-URL, wenn Musik aktiviert ist. Das ist der Dienst von SunoAPI, nicht die Anmeldung mit einem privaten Suno-Abo. |
+| Custom compatible server (eigener kompatibler Server) | Deine Serveradresse | Ein ausdrücklicher Endpunktpfad für Musik/Soundeffekte und ein unterstütztes Anfrageformat; siehe [kompatible Audioverträge](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server). |
+
+SunoAPI-Musik braucht eine öffentliche HTTPS-Callback-Adresse, an die der Dienst Abschlussmeldungen senden kann. Diese Adresse musst du selbst bereitstellen; Marinara erstellt keine. Marinara prüft selbst, wann der Titel fertig ist, und verwendet diese Meldungen daher nicht für die Wiedergabe.
+
+Musikstil-Prompts dürfen bis zu 1.000 Zeichen lang sein, Soundeffekt-Prompts bis zu 500. Jede neue Anfrage kann bei deinem Anbieter Kosten verursachen. Die Kontovoraussetzungen stehen in der [Musik-API](https://docs.sunoapi.org/suno-api/generate-music) und der [Soundeffekt-API](https://docs.sunoapi.org/suno-api/generate-sounds). SunoAPI-Soundeffekte wurden noch nicht mit einem kostenpflichtigen Konto geprüft.
+
+Beim Upgrade erhält jede Audioverbindung mit aktivierter Generierung eine separate Verbindung für Music & Sound Effects. Eigenständige ältere ElevenLabs-Einstellungen für Game Mode können ebenfalls eine eigene Verbindung erzeugen, sodass mehrere erscheinen können. Die ursprünglichen Verbindungen für Sprachausgabe und die Stimmenzuweisungen bleiben unverändert. Die gespeicherten Game-Verbindungs-IDs ändern sich nicht. Die Generierung funktioniert nur, wenn die zugehörige migrierte Verbindung verfügbar und darin die angeforderte Musik- oder Soundeffektgenerierung aktiviert ist; wähle andernfalls eine andere geeignete Verbindung für Music & Sound Effects. Prüfe bei mehreren Verbindungen unter **Defaults** die Standard- und Ersatzverbindung für Music & Sound Effects. Löschst du eine migrierte Generierungsverbindung, wird sie beim Neustart nicht neu angelegt. Aus einem Profil wiederhergestellte Endpunkte bleiben unverfügbar, bis du sie lokal geprüft und gespeichert hast.
+
+Aktiviere generiertes Audio für jedes Game einzeln oder aktiviere **Sound effects** (Soundeffekte) in den Befehlseinstellungen von Roleplay, um `[sound: description]` zu verwenden. Gacha Forge hat eine eigene Einstellung für generiertes Audio und eine eigene Verbindungsauswahl. Die mitgelieferten Game-Sounds bleiben verfügbar, wenn die Generierung aus ist.
 
 ## Embeddings
 

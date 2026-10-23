@@ -36,7 +36,7 @@ Jeśli masz już skonfigurowane połączenie **Audio** (zobacz [Obsługiwani dos
 
 Marinara mówi wtedy z użyciem adresu bazowego, klucza API, modelu i wartości **Request timeout (seconds)** (limit czasu żądania w sekundach) tego połączenia, więc sekcja ukrywa te pola. Klucz zostaje w połączeniu: nie jest kopiowany do ustawień sekcji ani wysyłany do przeglądarki. Zmiany w połączeniu, na przykład nowy klucz, działają od razu.
 
-Głosy, prędkość i pozostałe ustawienia mowy są zapisywane osobno dla każdego połączenia. Dwa połączenia tego samego typu, na przykład dwa serwery OpenAI-compatible, nigdy ich nie współdzielą. Twoje ustawienia czterech zwykłych źródeł pozostają bez zmian, więc w każdej chwili możesz do nich wrócić. Przełącznik w nagłówku sekcji nadal włącza i wyłącza TTS, a własne połączenie audio gry nadal tworzy efekty dźwiękowe i muzykę tej gry.
+Głosy, prędkość i pozostałe ustawienia mowy są zapisywane osobno dla każdego połączenia. Dwa połączenia tego samego typu, na przykład dwa serwery OpenAI-compatible, nigdy ich nie współdzielą. Twoje ustawienia czterech zwykłych źródeł pozostają bez zmian, więc w każdej chwili możesz do nich wrócić. Przełącznik w nagłówku sekcji nadal włącza i wyłącza zwykłe Text to Speech. Generowana muzyka i efekty dźwiękowe korzystają teraz z osobnej kategorii połączeń.
 
 Jeśli wybrane połączenie zostanie usunięte albo nie da się go użyć, sekcja pokazuje **Missing Audio connection** (brak połączenia Audio) i nic nie jest odczytywane, dopóki nie wybierzesz innego źródła. Marinara nigdy sama nie przełącza się na inne połączenie.
 
@@ -46,18 +46,28 @@ Gdy połączenie udostępnia listę swoich głosów, sekcja wskazuje każdy zapi
 
 ## Muzyka i efekty dźwiękowe Game na zgodnym serwerze audio
 
-W **Connections** utwórz lub otwórz połączenie **Audio** i wybierz **OpenAI-compatible**. Użyj adresu, klucza i modelu serwera muzyki lub efektów dźwiękowych. Ustaw **Generation API format**, wpisz ścieżki endpointów udostępnianych przez serwer i włącz **Game music** lub **Game sound effects**. Pusta ścieżka oznacza, że dana funkcja jest niedostępna. Wybierz to połączenie Audio podczas konfiguracji gry lub w jej ustawieniach audio. Model przeznaczony wyłącznie do muzyki nie jest modelem mowy; w sekcji Text to Speech pozostaw osobno wybrane połączenie do mowy.
+W panelu **Connections** utwórz połączenie **Music & Sound Effects** (muzyka i efekty dźwiękowe) i wybierz **Custom compatible server** (własny zgodny serwer). Użyj adresu, klucza i modelu serwera muzyki lub efektów dźwiękowych. Ustaw **Generation API format** (format API generowania), wpisz ścieżki endpointów udostępnianych przez serwer i włącz **Music generation** (generowanie muzyki), **Sound-effect generation** (generowanie efektów dźwiękowych) albo oba przełączniki. Pusta ścieżka oznacza, że dana funkcja jest niedostępna. Wybierz to połączenie podczas konfiguracji gry lub w jej ustawieniach audio. W sekcji Text to Speech pozostaw osobno wybrane połączenie do mowy.
 
-Ścieżki endpointów są dopisywane do Base URL połączenia: dla `http://localhost:8002/v1` użyj `chat/completions`, aby otrzymać `/v1/chat/completions`. Nie trzeba dodawać nowego dostawcy. Lokalne endpointy HTTP wymagają `TTS_LOCAL_URLS_ENABLED=true` w `.env`, tak jak inne lokalne żądania do zgodnych serwerów audio.
+Ścieżki endpointów są dopisywane do Base URL połączenia: dla `http://localhost:8002/v1` użyj `chat/completions`, aby otrzymać `/v1/chat/completions`. Lokalne endpointy HTTP wymagają `TTS_LOCAL_URLS_ENABLED=true` w `.env`, tak jak inne lokalne żądania do zgodnych serwerów audio.
 
 Obsługiwane są dwa jawne kontrakty API:
 
 - **Prompt JSON → MP3 audio** wysyła `{ "model": "your-model", "prompt": "the requested sound", "duration": 5, "response_format": "mp3" }` i oczekuje bajtów MP3. Muzyka Game używa długości utworu kontekstowego (domyślnie 120 sekund); efekty dźwiękowe żądają 5 sekund. Użyj endpointu lub adaptera, który przyjmuje te pola.
 - **Chat Completions → inline audio (ACE-Step compatible)** wysyła `model`, jeden wpis użytkownika w `messages`, `stream: false` oraz `audio_config` z polami `duration`, `instrumental: true` i `format: "mp3"`. Przyjmuje osadzone audio MP3 z `choices[0].message.audio`: tablicę adresów audio ACE-Step zawierającą URL danych base64 albo obiekt z polem `data` w base64. Zobacz [kontrakt API zgodnego z ACE-Step](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Openrouter_API_DOC.md). Te kontrakty nie obsługują zdalnych adresów wyników ani asynchronicznych API zadań.
 
-Włączaj tylko funkcje faktycznie obsługiwane przez serwer. Sam endpoint mowy zgodny z OpenAI nie oznacza obsługi muzyki ani efektów dźwiękowych. Dostawca taki jak Infermatic musi udostępniać jeden z opisanych kontraktów albo adapter; jego działający endpoint muzyczny nie został tu zweryfikowany. ElevenLabs nadal używa dotychczasowych natywnych żądań muzyki i efektów.
+Włączaj tylko funkcje faktycznie obsługiwane przez serwer. Sam endpoint mowy zgodny z OpenAI nie oznacza obsługi muzyki ani efektów dźwiękowych. Dostawca taki jak Infermatic musi udostępniać jeden z opisanych kontraktów albo adapter; jego działający endpoint muzyczny nie został tu zweryfikowany. Do natywnego generowania przez ElevenLabs lub SunoAPI wybierz odpowiednie źródło w kategorii **Music & Sound Effects**; zobacz [opis połączeń](../connections/providers-reference.md#music--sound-effects).
 
 Muzyka kontekstowa nadal powstaje raz na obszar lub poziom starcia i jest używana ponownie. Powtarzane efekty dźwiękowe korzystają z pamięci podręcznej audio. Błąd generowania pozostawia pamięć podręczną dostępną do ponownej próby.
+
+<a id="gacha-forge-dialogue-and-audio"></a>
+
+## Dialogi i dźwięk w pakiecie Gacha Forge
+
+Gacha Forge w wersji 1.11.0 lub nowszej korzysta z połączenia wybranego obecnie w sekcji **Text to Speech** i jego przypisań głosów do postaci. W kroku **Lore** (wiedza o świecie) podczas tworzenia nowego świata albo w **Settings → World → Sources** (ustawienia → świat → źródła) istniejącego świata włącz **Read character dialogue** (czytanie dialogów postaci), żeby odczytywać dialogi zaimportowanych postaci z jawnie przypisanym głosem. Narracja, myśli, wygenerowane jednostki bez identyfikatora postaci w aplikacji Marinara Engine oraz postacie bez przypisanego głosu pozostają nieme. Sama nazwa postaci nigdy nie pożycza głosu innej postaci. Wybrane połączenie Audio może działać przy włączonym przełączniku TTS świata; przy bezpośrednim korzystaniu z dawnych ustawień źródła w sekcji musi być też włączony jej główny przełącznik TTS.
+
+Wbudowana muzyka i efekty dźwiękowe Game działają bez połączenia generowania. Żeby tworzyć nowe utwory, włącz **Generate music and sound effects** (generowanie muzyki i efektów dźwiękowych) w pakiecie Gacha Forge, a potem wybierz połączenie Music & Sound Effects w polu **Audio connection** (połączenie audio). Ta lista pojawia się po włączeniu generowania. Ekran główny, walka, bossowie, wesołe/napięte/smutne sceny fabularne oraz historie postaci korzystają z osobnych utworów kontekstowych, generowanych przy pierwszej potrzebie, a potem używanych ponownie. Te żądania korzystają z twojego konta u dostawcy.
+
+Przycisk wyciszenia w prawym górnym rogu wycisza jednocześnie muzykę, dialogi i efekty dźwiękowe. W **Settings → Look (Visual)** (ustawienia → wygląd: wizualne) są osobne regulatory głośności tych trzech kanałów, w tym głośność zerowa, oraz pauza automatycznego odtwarzania. Pauza domyślnie trwa **3 sekundy** i zaczyna się po zakończeniu odsłaniania tekstu i ewentualnej wypowiadanej kwestii. Wybory nadal czekają na gracza. Opuszczenie sceny anuluje wypowiadany dialog. Muzyka gra dalej albo zmienia się, żeby pasować do nowego ekranu; opuszczenie świata zatrzymuje jego dźwięk. Zaktualizuj zarówno zainstalowany pakiet Gacha Forge, jak i aplikację Marinara Engine, żeby otrzymać te opcje.
 
 ## Krok 2: wpisz Base URL, API Key i Model
 
