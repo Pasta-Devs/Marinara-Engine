@@ -68,6 +68,9 @@ assert.match(modal, /applyChoices\(!choosingJobs\)/, "Skip must not implicitly s
 assert.match(modal, /!jobFor && !modelsFor && !onStartChat/, "prefilled jobs retain direct assign-on-Done");
 assert.match(modal, /t\("connections\.add\.heading\.forJob", \{ job: jobLabel\(job\) \}\)/);
 assert.match(modal, /const totalSteps = job \? 2 : 3/);
+assert.match(modal, /optionalJobs\.map\(\(key, index\) =>/);
+assert.match(modal, /index === 0 && \(\s*<span[^>]*>\{t\("connections\.add\.useFor\.recommended"\)\}/);
+assert.doesNotMatch(modal, /key === "main" && !hasMain && \(/);
 for (const key of [
   "connections.add.useFor.heading",
   "connections.add.useFor.skip",

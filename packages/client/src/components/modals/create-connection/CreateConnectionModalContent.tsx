@@ -1098,7 +1098,7 @@ export function CreateConnectionModalContent({
               data-add-connection-path="assignment"
             >
               <div role="group" aria-label={t("connections.add.useFor.heading")} className="flex flex-col gap-1">
-                {optionalJobs.map((key) => {
+                {optionalJobs.map((key, index) => {
                   const Icon = JOB[key].icon;
                   return (
                     <label key={key} className={optionClass}>
@@ -1115,7 +1115,7 @@ export function CreateConnectionModalContent({
                       />
                       <Icon size="1rem" aria-hidden />
                       <span>{jobLabel(key)}</span>
-                      {key === "main" && !hasMain && (
+                      {index === 0 && (
                         <span className="mari-connection-pill">{t("connections.add.useFor.recommended")}</span>
                       )}
                     </label>
