@@ -141,6 +141,14 @@ Echo Chamber, 트래커, Lorebook Keeper, Long-Term Memory, 그룹 채팅의 **S
 
 메시지 하나에 메모를 저장할 수도 있습니다. 메시지 아래에서 **Bookmark, pin or note**(북마크, 핀 또는 메모)를 선택하고 **Private note**(비공개 메모)를 작성하세요. **Show the note to the narrator character**(내레이터 캐릭터에게 메모 표시)를 켜고 캐릭터를 선택하기 전까지 메모는 비공개로 유지되며 모델에 전송되지 않습니다. 공유하면 선택한 캐릭터만 해당 메시지에 첨부된 메모를 받고, 다른 캐릭터는 받지 않습니다. 공유하려면 단독 채팅이나 **Individual** 그룹 생성이 필요합니다. 병합된 그룹 답변은 모든 캐릭터의 답변을 한꺼번에 작성하기 때문입니다. **Remove note**(메모 삭제)를 선택해도 공유가 중단됩니다.
 
+<a id="video-clips"></a>
+
+## 동영상 클립
+
+**Chat Settings → Agents → Roleplay Commands**에서 **Video clips**(동영상 클립)를 켜면 캐릭터가 중요한 순간의 정지 그림 대신 짧은 동영상 클립을 요청할 수 있습니다. 기본적으로 꺼져 있으며, 채팅에 **Illustrator** 에이전트가 있고 Illustrator의 **Scene Videos**(장면 비디오)에 동영상 연결이 설정되어 있어야 합니다.
+
+모델은 `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]`를 사용하며, 동작이 중요한 순간에는 `[illustrate]`보다 우선하도록 지시받습니다. 클립의 시작은 Illustrator의 **First frame**(첫 프레임) 설정을 따릅니다. 그 순간을 그린 새 Illustrator 그림, 이름이 나온 캐릭터의 아바타나 스프라이트, 또는 그림 없음에서 시작합니다. 클립은 완성되면 답변 안에서 재생됩니다. **Video Run Interval**(동영상 생성 간격)이 클립을 허용할 때만 제공되며, Illustrator 자체 클립과 마찬가지로 **Videos per reply**(답변당 동영상 수) 제한에 포함됩니다.
+
 ## 캐릭터의 말 끊기
 
 **Chat Settings → Agents → Roleplay Commands**에서 **Interruptions**(말 끊기)를 켜면 말이나 행동으로 개입할 수 있는 상황에서 캐릭터가 최신 메시지를 중간에 끊을 수 있습니다. 기본값은 꺼짐이며 다운로드하는 에이전트가 필요하지 않습니다.

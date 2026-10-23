@@ -1,12 +1,12 @@
 # Szenenvideos generieren
 
-In dieser Anleitung erfährst du, wie Marinara Engine aus einer Szenen-Illustration einen kurzen MP4-Videoclip macht. Sie behandelt die Video-Anbieter, die Generierung eines Clips aus der Galerie, die Bedienelemente im Game Mode und die Video-Einstellungen. Ein Szenenvideo ist ein kurzer animierter Clip, der aus einem einzelnen Standbild entsteht.
+In dieser Anleitung erfährst du, wie Marinara Engine aus einer Szenen-Illustration einen kurzen MP4-Videoclip macht. Sie behandelt die Video-Anbieter, die Generierung eines Clips aus der Galerie, die Bedienelemente im Game Mode und die Video-Einstellungen. Ein Szenenvideo ist ein kurzer animierter Clip, der aus einem Standbild oder in **Roleplay** allein aus der Geschichte entsteht.
 
 ## Was ein Szenenvideo macht
 
-Ein Szenenvideo nimmt ein vorhandenes Bild aus der Galerie und animiert es zu einem kurzen MP4-Clip. Das Standbild wird zum ersten Bild, die KI ergänzt die Bewegung. Szenenvideos funktionieren in **Roleplay**- und **Game-Mode**-Chats. Conversation-Chats verschicken stattdessen Videonachrichten; siehe [Videonachrichten](../conversation/selfies.md#video-messages).
+Ein Szenenvideo ist ein kurzer MP4-Clip der Szene. Es kann ein Bild aus der Galerie animieren, wobei das Bild zum Startbild wird und die KI die Bewegung ergänzt, oder in **Roleplay** allein aus der Geschichte entstehen. Szenenvideos funktionieren in **Roleplay**- und **Game Mode**-Chats. Conversation-Chats verschicken stattdessen Videonachrichten; siehe [Videonachrichten](../conversation/selfies.md#video-messages).
 
-Ohne Bild geht nichts. Aus reinem Text lässt sich kein Szenenvideo generieren. Erst muss ein Galeriebild da sein – generiert oder hochgeladen –, dann kannst du es animieren.
+**Game Mode** und **Animate illustration** beginnen immer mit einem Bild. Generiere oder lade also zuerst eines hoch. In **Roleplay** folgen `/video` und die Schaltfläche **Video** in der Gallery Illustrators Einstellung **First frame** (Startbild). Ist kein Startbild gewählt, brauchen sie gar kein Bild.
 
 Szenenvideos laufen über einen eigenen Verbindungstyp namens **Video Generation** (Videogenerierung). Mit der normalen Bildgenerierung hat das nichts zu tun. Die fertigen Clips landen beim Chat und erscheinen in der Galerie. Dort kannst du sie anheften, herunterladen oder ansehen.
 
@@ -128,7 +128,15 @@ Sowohl **Roleplay**- als auch **Game-Mode**-Chats erzeugen Szenenvideos über di
 
 Die Galerie hat einen Tab **Images** (Bilder) und einen Tab **Videos**, jeweils mit Anzahl. Standbilder liegen unter **Images**, fertige Clips unter **Videos**.
 
-So animierst du das neueste Bild:
+In **Roleplay** erstellt **Video** in der Aktionsleiste oben in der Gallery einen Clip der **neuesten Antwort**, genau wie `/video`. Füge hinter `/video` eine Beschreibung hinzu, um festzulegen, was der Clip zeigen soll.
+
+- **First frame**: Der Clip folgt Illustrators Einstellung **First frame**. Er beginnt mit einem neuen Illustrator-Bild der neuesten Antwort (erst gezeichnet, dann animiert), dem Avatar oder Sprite des Charakters oder ganz ohne Bild. Ist kein Startbild gewählt, wird kein Bild gezeichnet und der Clip entsteht allein aus der Geschichte.
+- **Avatar**: Der Clip beginnt mit der Person, die deine Beschreibung zuerst nennt, einschließlich deiner Persona. Ein mit großem Anfangsbuchstaben geschriebener Namensteil genügt, wenn ihn niemand sonst teilt („Lena“ für „Dr. Lena Kowalski“). Ist niemand genannt, beginnt er mit dem Charakter des Chats.
+- **Prüfen**: Mit aktiviertem **Expose media prompts before sending** kannst du den Prompt des Clips vorher prüfen und bearbeiten.
+- **Gelesener Kontext**: Die KI, die den Clip beschreibt, liest so viele aktuelle Nachrichten wie Illustrator für ein Bild (Illustrators **Context Size** (Kontextgröße) unter **Agent Budget** (Agenten-Budget) auf seinem Setup-Bildschirm). So zeigt der Clip das aktuelle Geschehen.
+- **Ohne Bild**: Beginnt der Clip ohne Bild oder mit einem Avatar, beschreibt die KI die Szene selbst. Ihre Anweisungen stehen unter **Roleplay Clip Director** (Clip-Regie für Roleplay) in **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+
+In **Game Mode** animiert **Video** das neueste Bild:
 
 1. Achte darauf, dass unter **Images** mindestens ein Bild liegt. Nutze sonst **Illustrate** (Illustrieren) oder lade ein Bild hoch.
 2. Klick auf **Video** in der Aktionsleiste oben in der Galerie.
@@ -144,11 +152,11 @@ So animierst du stattdessen ein bestimmtes Bild:
 2. Zeig mit der Maus auf das gewünschte Bild.
 3. Klick in den eingeblendeten Bedienelementen auf **Animate illustration** (Illustration animieren, das Filmsymbol).
 
-Bei aktivierter Prompt-Prüfung erscheint auch für **Animate illustration** dasselbe Fenster **Review Video Prompt** (Video-Prompt prüfen). Es zeigt genau den Prompt, den der Server zusammengesetzt hat, dazu Dauer, Seitenverhältnis und Auflösung für das gewählte Bild. Deine Änderung gilt nur für diese eine Generierung. Im Roleplay steuerst du die wiederverwendbaren Anweisungen hinter diesem Prompt separat über **Roleplay Gallery Animation Director** unter **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+Bei aktivierter Prompt-Prüfung erscheint auch für **Animate illustration** dasselbe Fenster **Review Video Prompt** (Video-Prompt prüfen). Es zeigt genau den Prompt, den der Server zusammengesetzt hat, dazu Dauer, Seitenverhältnis und Auflösung für das gewählte Bild. Deine Änderung gilt nur für diese eine Generierung. Im Roleplay liest die KI, die die Bewegung plant, so viele aktuelle Nachrichten wie Illustrator (seine **Context Size**), bis einschließlich der Antwort, zu der das Bild gehört. Im Roleplay steuerst du die wiederverwendbaren Anweisungen hinter diesem Prompt separat über **Roleplay Gallery Animation Director** unter **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 Unter **Videos** läuft jeder Clip direkt im Panel und zeigt Länge und Modellnamen an. Mit **Pin video to chat** heftest du einen Clip fest, mit **Download scene video** (Szenenvideo herunterladen) speicherst du ihn. Gibt es noch keine Clips, steht dort **No videos yet**.
 
-Versuchst du ein Video ohne Bild im Chat, meldet Marinara: „Add or generate a gallery image before generating a scene video.“ Generiere oder lade also erst ein Bild hoch und versuch es dann erneut.
+Versuchst du im Game Mode, ein Bild zu animieren, obwohl im Chat keines vorhanden ist, meldet Marinara: „Add or generate a gallery image before generating a scene video.“ Generiere oder lade also erst ein Bild hoch und versuch es dann erneut.
 
 ## Szenenvideos im Game Mode
 
@@ -209,7 +217,7 @@ Für den Chat ist keine Videoverbindung ausgewählt. Öffne **Chat Settings**, d
 
 ### „Add or generate a gallery image before generating a scene video“
 
-Ein Szenenvideo animiert immer ein vorhandenes Bild. Nutze **Illustrate**, lade ein Bild hoch, oder klick bei einem vorhandenen Bild auf **Animate illustration**.
+Für **Game Mode** und **Animate illustration** ist ein vorhandenes Bild nötig; in **Roleplay** kann der Clip allein aus der Geschichte entstehen, wenn kein Startbild gewählt ist. Nutze **Illustrate**, lade ein Bild hoch, oder klick bei einem vorhandenen Bild auf **Animate illustration**.
 
 ### Das Video dauert lange
 

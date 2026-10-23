@@ -141,6 +141,14 @@ Le narrateur cesse aussi de recevoir les notes d'un personnage quand celui-ci es
 
 Tu peux aussi enregistrer une note sur un seul message. Choisis **Bookmark, pin or note** (ajouter un signet, épingler ou annoter) sous le message et écris une **Private note** (note privée). Elle reste privée et n'est jamais envoyée au modèle, sauf si tu actives **Show the note to the narrator character** (montrer la note au personnage narrateur) et choisis un personnage. Ce personnage reçoit alors la note à côté du message, et aucun autre ne la reçoit. Le partage nécessite un chat avec un seul personnage ou la génération de groupe **Individual**, car une réponse de groupe fusionnée est écrite pour tous les personnages à la fois. **Remove note** (supprimer la note) met aussi fin à son partage.
 
+<a id="video-clips"></a>
+
+## Clips vidéo
+
+Dans **Chat Settings → Agents → Roleplay Commands**, active **Video clips** (clips vidéo) pour permettre aux personnages de demander un court clip vidéo d'un moment clé plutôt qu'une image fixe. L'option est désactivée par défaut et nécessite l'agent **Illustrator** dans le chat ainsi qu'une connexion vidéo dans **Scene Videos** (vidéos de scène) d'Illustrator.
+
+Le modèle utilise `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` et reçoit l'instruction de le préférer à `[illustrate]` lorsque le moment repose sur le mouvement. Le point de départ du clip suit le réglage **First frame** (première image) d'Illustrator : une nouvelle image du moment créée par Illustrator, l'avatar ou le sprite du personnage nommé, ou aucune image. Le clip se lit dans la réponse lorsqu'il est prêt. Il n'est proposé que lorsque **Video Run Interval** (intervalle entre les vidéos) permet un clip, et compte dans **Videos per reply** (vidéos par réponse) comme les clips d'Illustrator.
+
 ## Interruptions par les personnages
 
 Dans **Chat Settings → Agents → Roleplay Commands**, active **Interruptions** (interruptions) pour permettre aux personnages de couper le dernier message lorsqu'une intervention verbale ou physique est plausible. Cette fonction est désactivée au départ et ne nécessite aucun agent à télécharger.

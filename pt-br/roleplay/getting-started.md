@@ -139,6 +139,14 @@ O narrador também deixa de receber as notas de um personagem quando ele é desa
 
 Você também pode salvar uma nota em uma única mensagem. Escolha **Bookmark, pin or note** (marcar, fixar ou adicionar nota) abaixo da mensagem e escreva uma **Private note** (nota privada). Ela continua privada e nunca é enviada ao modelo, a menos que você ative **Show the note to the narrator character** (mostrar a nota ao personagem narrador) e escolha um personagem. Só esse personagem recebe a nota junto à mensagem; nenhum outro a recebe. Para compartilhar, é preciso usar um chat com um único personagem ou a geração em grupo **Individual**, porque uma resposta de grupo mesclada é escrita para todos os personagens ao mesmo tempo. **Remove note** (remover nota) também interrompe o compartilhamento.
 
+<a id="video-clips"></a>
+
+## Clipes de vídeo
+
+Em **Chat Settings → Agents → Roleplay Commands**, ative **Video clips** (clipes de vídeo) para permitir que personagens peçam um clipe curto de um momento importante no lugar de uma imagem estática. A opção começa desativada e precisa do agente **Illustrator** no chat e de uma conexão de vídeo em **Scene Videos** de Illustrator.
+
+O modelo usa `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` e recebe a instrução de preferir esse comando a `[illustrate]` quando o momento envolve movimento. O ponto de partida do clipe segue a configuração **First frame** (primeiro quadro) de Illustrator: uma nova imagem de Illustrator do momento, o avatar ou sprite do personagem mencionado, ou nenhuma imagem. O clipe toca na resposta quando fica pronto. Ele só é oferecido enquanto **Video Run Interval** permite um clipe e entra na contagem de **Videos per reply**, como os clipes do próprio Illustrator.
+
 ## Interrupções dos personagens
 
 Em **Chat Settings → Agents → Roleplay Commands**, ative **Interruptions** (interrupções) para permitir que personagens cortem a última mensagem quando uma intervenção verbal ou física for plausível. A função começa desativada e não exige nenhum agente baixado.
