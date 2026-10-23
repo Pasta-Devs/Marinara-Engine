@@ -1755,6 +1755,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       // Numbers clamp to 0-100; anything else returns the chat to the agent's Run Interval.
       incoming.illustratorRunInterval = normalizeIllustratorRunInterval(incoming.illustratorRunInterval);
     }
+    if (Object.prototype.hasOwnProperty.call(incoming, "illustratorVideoRunInterval")) {
+      // Same 0-100 range; anything else returns the chat to the agent's Video Run Interval.
+      incoming.illustratorVideoRunInterval = normalizeIllustratorRunInterval(incoming.illustratorVideoRunInterval);
+    }
     if (
       Object.prototype.hasOwnProperty.call(incoming, "noodleTimelineContextEnabled") &&
       typeof incoming.noodleTimelineContextEnabled !== "boolean"

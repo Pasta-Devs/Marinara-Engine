@@ -112,6 +112,13 @@ A character can also send you a short video clip. Type `/video`, or `/video Aste
 
 Set this up under **Chat Settings**, **Agents**, **Illustrator Settings**, in the **Video messages** section:
 
+- **Generated Videos** lets characters send you a video message on their own when it fits the conversation.
+  - Like `/video`, the clip is written from the recent conversation, so a clip you ask for shows what you asked for.
+  - It is off by default in new chats, because each clip is a video request. Turn it on here, or save it in a settings profile to have it on in new chats. The same switch appears as **Videos** in the **Commands** list of the new-chat setup and Chat Settings.
+  - **Video Run Interval** (shown once it is on) sets how many messages must pass between these clips. **0** stops them.
+  - `/video` and the Gallery's **Video** button work either way and ignore the interval.
+  - Swiping a reply that sent a clip lets the new swipe send its own.
+  - In a group chat, each character can send one clip per reply, up to **Videos per reply** (3 by default) under **Settings**, **Generations**, **Video Generation**.
 - **Video Connection** picks the Video Generation connection. Leave it on **Default video connection** to use your default one. A connection's **Video Prompting Instructions** guide the AI that writes the video prompt.
 - **First frame** picks the picture the clip starts from:
   - **New selfie, or the avatar if no selfie connection** (the default) makes a new selfie when selfies are on and a **Selfie Connection** is set, and otherwise uses the avatar.

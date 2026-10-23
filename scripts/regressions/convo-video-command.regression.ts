@@ -383,7 +383,7 @@ try {
   assert.equal(newestExtra.attachments.at(-1)?.characterName, undefined, "no sent-video note for an animation");
 
   // A reasoning model gets room to think: the writer asks for the same budget as the selfie writer.
-  assert.equal(Math.max(...writerMaxTokens), 8196);
+  assert.equal(Math.max(...writerMaxTokens), 8192);
   // Inline reasoning is not part of the prompt.
   await setFirstFrame("prompt_only", null);
   writerMode = "inline-thinking";

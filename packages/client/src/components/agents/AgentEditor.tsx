@@ -110,6 +110,8 @@ import {
   getAgentContextSources,
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
+  normalizeIllustratorRunInterval,
+  MAX_ILLUSTRATOR_RUN_INTERVAL,
   parseAgentSettingsRecord,
   homeAgentWidgetsSchema,
   type HomeAgentWidgetDefinition,
@@ -761,6 +763,7 @@ export function AgentEditor() {
   const [localContextSize, setLocalContextSize] = useState<number | "">("");
   const [localMaxTokens, setLocalMaxTokens] = useState<number | "">("");
   const [localRunInterval, setLocalRunInterval] = useState<number | "">("");
+  const [localVideoRunInterval, setLocalVideoRunInterval] = useState<number | "">("");
   const [localEchoMessageDelaySeconds, setLocalEchoMessageDelaySeconds] = useState(
     DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
   );
@@ -893,6 +896,7 @@ export function AgentEditor() {
   useEffect(() => () => setActiveEditorField(null), [agentDetailId, setActiveEditorField]);
   const reportField = (id: string, label: string) => () => setActiveEditorField({ id, label });
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [showCustomAgentNotice, setShowCustomAgentNotice] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -922,6 +926,9 @@ export function AgentEditor() {
       );
       setLocalRunInterval(
         (settings.runInterval as number | undefined) ?? (defaultSettings.runInterval as number) ?? "",
+      );
+      setLocalVideoRunInterval(
+        normalizeIllustratorRunInterval(settings.videoRunInterval ?? defaultSettings.videoRunInterval) ?? "",
       );
       setLocalEchoMessageDelaySeconds(normalizeEchoChamberMessageDelaySeconds(settings.messageDelaySeconds));
       setLocalActivationKeywordsText(
@@ -1048,6 +1055,7 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens((defaultSettings.maxTokens as number) ?? "");
       setLocalRunInterval((defaultSettings.runInterval as number) ?? "");
+      setLocalVideoRunInterval(normalizeIllustratorRunInterval(defaultSettings.videoRunInterval) ?? "");
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
@@ -1106,6 +1114,7 @@ export function AgentEditor() {
       setLocalPrompt("");
     } else {
       // Brand new custom agent — start empty
+      setShowCustomAgentNotice(true);
       setLocalName("New Agent");
       setLocalHomeWidgets([]);
       setLocalDescription("");
@@ -1118,6 +1127,7 @@ export function AgentEditor() {
       setLocalContextSize("");
       setLocalMaxTokens(DEFAULT_AGENT_MAX_TOKENS);
       setLocalRunInterval(customRunIntervalMeta?.defaultValue ?? "");
+      setLocalVideoRunInterval("");
       setLocalEchoMessageDelaySeconds(DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS);
       setLocalActivationKeywordsText("");
       setLocalActivationQuestion("");
@@ -1500,6 +1510,7 @@ export function AgentEditor() {
         ...(!isDirectorAgent && !isStoryboardAgent && localRunInterval !== ""
           ? { runInterval: Number(localRunInterval) }
           : {}),
+        ...(isIllustratorAgent && localVideoRunInterval !== "" ? { videoRunInterval: localVideoRunInterval } : {}),
         ...(isEchoChamberAgent ? { messageDelaySeconds: localEchoMessageDelaySeconds } : {}),
         ...(localInjectAsSection ? { injectAsSection: true } : {}),
         ...(isMusicAgent
@@ -1622,6 +1633,8 @@ export function AgentEditor() {
     localContextSize,
     localMaxTokens,
     localRunInterval,
+    localVideoRunInterval,
+    isIllustratorAgent,
     localEchoMessageDelaySeconds,
     localActivationQuestion,
     localActivationThreshold,
@@ -1749,6 +1762,7 @@ export function AgentEditor() {
       ...(!isDirectorAgent && !isStoryboardAgent && localRunInterval !== ""
         ? { runInterval: Number(localRunInterval) }
         : {}),
+      ...(isIllustratorAgent && localVideoRunInterval !== "" ? { videoRunInterval: localVideoRunInterval } : {}),
       ...(isEchoChamberAgent ? { messageDelaySeconds: localEchoMessageDelaySeconds } : {}),
       ...(localInjectAsSection ? { injectAsSection: true } : {}),
       ...(exportingMusicAgent
@@ -2212,6 +2226,23 @@ export function AgentEditor() {
       {/* ── Body ── */}
       <div className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4">
         <div className="mari-editor-content-inner mari-editor-content-inner--wide w-full min-w-0 max-w-full space-y-6">
+          {isNewCustomAgent && showCustomAgentNotice && (
+            <div
+              role="note"
+              className="flex items-start gap-2 rounded-xl bg-[var(--marinara-app-accent-static)]/10 p-3 text-xs leading-relaxed text-[color-mix(in_oklab,var(--marinara-app-accent-static)_65%,var(--foreground))] ring-1 ring-[var(--marinara-app-accent-static)]/30"
+            >
+              <Info size="1rem" className="mt-0.5 shrink-0" aria-hidden="true" />
+              <p className="min-w-0 flex-1">{localizeUi("ui.agents.agenteditor.customAgentLimitations")}</p>
+              <button
+                type="button"
+                onClick={() => setShowCustomAgentNotice(false)}
+                className="mari-editor-action shrink-0"
+                aria-label={localizeUi("ui.agents.agenteditor.dismissCustomAgentInformation")}
+              >
+                <X size="0.875rem" aria-hidden="true" />
+              </button>
+            </div>
+          )}
           {/* ── Description ── */}
           <FieldGroup
             label={localizeUi("chat.settings.inlineEditor.fields.description")}
@@ -3428,7 +3459,7 @@ export function AgentEditor() {
           {/* ── Run Interval (Illustrator) ── */}
           {isIllustratorAgent && (
             <FieldGroup
-              label={localizeUi("ui.agents.agenteditor.runInterval")}
+              label={localizeUi("ui.agents.agenteditor.imageRunInterval")}
               icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
               help={localizeUi(
                 "ui.agents.agenteditor.howManyAssistantMessagesBetweenAllowedIllustratorImageGenerations",
@@ -3440,6 +3471,7 @@ export function AgentEditor() {
                   min={0}
                   max={100}
                   value={localRunInterval}
+                  aria-label={localizeUi("ui.agents.agenteditor.imageRunInterval")}
                   onChange={(e) => {
                     const v = e.target.value;
                     setLocalRunInterval(v === "" ? "" : Math.max(0, Math.min(100, parseInt(v) || 0)));
@@ -3461,6 +3493,34 @@ export function AgentEditor() {
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("agents.illustrator.manualOnlyIntervalHelp")}
               </p>
+            </FieldGroup>
+          )}
+          {isIllustratorAgent && (
+            <FieldGroup
+              label={localizeUi("ui.agents.agenteditor.videoRunInterval")}
+              icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
+              help={localizeUi("agents.illustrator.videoRunIntervalHelp")}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={MAX_ILLUSTRATOR_RUN_INTERVAL}
+                  value={localVideoRunInterval}
+                  aria-label={localizeUi("ui.agents.agenteditor.videoRunInterval")}
+                  onChange={(e) => {
+                    setLocalVideoRunInterval(
+                      e.target.value === "" ? "" : (normalizeIllustratorRunInterval(e.target.value) ?? ""),
+                    );
+                    markDirty();
+                  }}
+                  placeholder="5"
+                  className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.agenteditor.messages")}
+                </span>
+              </div>
             </FieldGroup>
           )}
 

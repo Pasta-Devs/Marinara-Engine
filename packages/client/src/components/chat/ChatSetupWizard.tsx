@@ -89,6 +89,7 @@ import {
   type Lorebook,
   type Message,
   type Persona,
+  isConversationCommandToggleOn,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -118,6 +119,7 @@ import {
 import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 
 // ─── Step definitions ─────────────────────────
@@ -183,10 +185,20 @@ const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
   id: ConversationCommandKey;
   label: string;
   description: string;
+  /** Catalog keys for the label and description; entries without them still show their English text. */
+  labelKey?: string;
+  descriptionKey?: string;
 }> = [
   { id: "schedule_update", label: "Schedule Updates", description: "Let characters change their current status." },
   { id: "cross_post", label: "Cross-Post", description: "Let characters redirect a message into another chat." },
   { id: "selfie", label: "Selfies", description: "Let characters request generated selfies." },
+  {
+    id: "video",
+    label: "Videos",
+    description: "Let characters send short video messages.",
+    labelKey: "ui.chat.conversationcommands.videos",
+    descriptionKey: "ui.chat.conversationcommands.videosDescription",
+  },
   { id: "memory", label: "Memories", description: "Let characters create memories for other characters." },
   { id: "scene", label: "Scenes", description: "Let characters start an immersive scene." },
   { id: "music", label: "Music", description: "Let characters play songs through the active Music Player." },
@@ -419,13 +431,6 @@ function readConversationCommandToggles(value: unknown): Partial<Record<Conversa
     if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
   }
   return toggles;
-}
-
-function isConversationCommandToggleEnabled(
-  toggles: Partial<Record<ConversationCommandKey, boolean>>,
-  command: ConversationCommandKey,
-): boolean {
-  return toggles[command] !== false;
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number, max: number, min = 1): number {
@@ -1491,7 +1496,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
     const selfieCommandEnabled =
       commandsEnabled &&
       availableConversationCommandIds.has("selfie") &&
-      isConversationCommandToggleEnabled(conversationCommandToggles, "selfie");
+      isConversationCommandToggleOn(conversationCommandToggles, "selfie");
     const selfieSetup = resolveConversationSelfieSetup({
       commandToggles: conversationCommandToggles,
       selfieCommandAvailable: availableConversationCommandIds.has("selfie"),
@@ -2007,7 +2012,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
       {hasConversationCommands && commandsEnabled && (
         <div className="grid gap-1.5 pt-1 sm:grid-cols-2">
           {availableConversationCommandOptions.map((command) => {
-            const enabled = isConversationCommandToggleEnabled(conversationCommandToggles, command.id);
+            const enabled = isConversationCommandToggleOn(conversationCommandToggles, command.id);
             return (
               <button
                 key={command.id}
@@ -2025,9 +2030,11 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{command.label}</span>
+                  <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
+                    {command.labelKey ? localizeUi(command.labelKey) : command.label}
+                  </span>
                   <p className="mt-0.5 text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
-                    {command.description}
+                    {command.descriptionKey ? localizeUi(command.descriptionKey) : command.description}
                   </p>
                 </div>
                 <div
@@ -2138,6 +2145,7 @@ function ConversationQuickSetup({ chat, onFinish, defaultsApplied, defaultsActio
 
 function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const localizeText = useLocalizedUiText();
   const defaultDisplayStyle = useUIStore((state) => state.roleplayDisplayStyle);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
   const STEPS = ROLEPLAY_STEPS;
@@ -3577,7 +3585,7 @@ function RoleplaySetupWizard({ chat, onFinish, defaultsApplied, defaultsAction }
                 {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
                   <label className="space-y-1">
                     <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                      {agentAddIntervalMeta.label}
+                      {localizeText(agentAddIntervalMeta.label)}
                     </span>
                     <DraftNumberInput
                       min={agentAddIntervalMeta.min ?? 1}

@@ -18,6 +18,7 @@ import {
   resolveIllustratorCharacterReferences,
   type IllustratorPersonaReference,
 } from "../image/illustrator-references.js";
+import { claimAutomaticVideoRun } from "./agent-cadence.js";
 import { CONVERSATION_VIDEO, loadPrompt } from "../prompt-overrides/index.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -35,12 +36,14 @@ import { excerptIllustrationPromptForVideo, formatRecentVideoContext } from "../
 import { createAgentsStorage } from "../storage/agents.storage.js";
 import { normalizeAgentContextSize } from "../agents/agent-executor.js";
 import { resolveSceneVideoPrompt } from "../video/scene-video-prompt-review.js";
+import { attachVideoToMessage, buildChatVideoAttachment } from "../video/chat-video-messages.js";
+import { formatVideoAppearanceDetails, videoInstructionsUseAppearance } from "../video/appearance-reference.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 import {
   handleConversationSelfieCommand,
   resolveConversationSelfieRequestedNames,
 } from "./conversation-selfie-command-runtime.js";
-import { appendVideoPromptInstructions } from "./image-prompt-instructions.js";
+import { appendGoverningVideoPromptInstructions, withGoverningVideoFormat } from "./image-prompt-instructions.js";
 import { resolveIllustratorPromptRuntime, type IllustratorPromptConnection } from "./illustrator-prompt-runtime.js";
 
 export interface ConversationVideoPreview {
@@ -60,10 +63,12 @@ export interface ConversationVideoResult {
   firstFrame: "gallery" | "selfie" | "avatar" | "none";
 }
 
-const VIDEO_PROMPT_WRITER_MAX_TOKENS = 8_196;
+const VIDEO_PROMPT_WRITER_MAX_TOKENS = 8_192;
 const SELFIE_CONTEXT_MAX_CHARS = 2_000;
 const PICTURE_PROMPT_MAX_CHARS = 1_500;
 const UNCLOSED_THINKING_RE = /^<(?:think|thinking|reasoning)\b/iu;
+/** A character's own description longer than this is shortened before the writers see it. */
+export const VIDEO_CONTEXT_MAX_CHARS = 2_000;
 
 type PromptCharacter = Parameters<typeof handleConversationSelfieCommand>[0]["charInfo"][number];
 type ReadyFrame = {
@@ -132,6 +137,8 @@ export async function generateConversationVideo(args: {
 
   // Settings and pictures are checked first, so a request that can't work fails before any paid call.
   const plan = await planFirstFrame({ ...args, characterName, avatarPath: characterRow.avatarPath ?? null });
+  // Everything below (the writers, the selfie first frame, who the clip shows) reads the fitted description.
+  args = { ...args, context: await fitVideoContext(args, connections, debugOverrideEnabled) };
 
   // A clip the user asks for (/video, the Gallery's Video button) has no context of its own: it reads the recent
   // conversation instead, as much of it as Illustrator reads for a picture (its Agent Budget). The video prompt and
@@ -187,13 +194,41 @@ export async function generateConversationVideo(args: {
           : `Write a short video message from ${characterName} that fits the current conversation.`,
       );
     }
+    // Attach Card Appearance for videos: everyone in the chat (and the persona) with their appearance details, for
+    // the writer to build into the prompt in its format; nothing is pasted after it.
+    if (
+      args.chatMeta.selfieVideoIncludeCharacterAppearance === true &&
+      videoInstructionsUseAppearance(videoConn.videoPromptInstructions)
+    ) {
+      const everyone = [
+        ...args.charInfo.map((character) => character.name),
+        ...(args.persona ? [args.persona.name] : []),
+      ];
+      const details = await resolveIllustratorCharacterReferences({
+        charactersStore: createCharactersStorage(args.db),
+        chatCharacters: args.charInfo.map((character) => ({
+          id: character.id,
+          name: character.name,
+          avatarPath: character.avatarPath,
+          appearance: character.appearance,
+        })),
+        persona: args.persona ?? null,
+        requestedNames: everyone,
+        promptText: everyone.join("\n"),
+        fallbackToChatCharacters: true,
+        includeReferenceImages: false,
+        maxReferences: 12,
+      });
+      const block = formatVideoAppearanceDetails(details.appearanceBlock);
+      if (block) parts.push(block);
+    }
     const request = parts.join("\n\n");
-    const user = appendVideoPromptInstructions(request, videoConn.videoPromptInstructions);
+    const user = appendGoverningVideoPromptInstructions(request, videoConn.videoPromptInstructions);
     logDebugOverride(debugOverrideEnabled, "[debug/conversation/video] prompt-builder system:\n%s", system);
     logDebugOverride(debugOverrideEnabled, "[debug/conversation/video] prompt-builder user:\n%s", user);
     const result = await promptRuntime.provider.chatComplete(
       [
-        { role: "system", content: system },
+        { role: "system", content: withGoverningVideoFormat(system, videoConn.videoPromptInstructions) },
         { role: "user", content: user },
       ],
       {
@@ -223,14 +258,19 @@ export async function generateConversationVideo(args: {
       );
     }
   }
-  // Matched once, from the writer's prompt; a reviewed prompt already carries the appearance lines.
+  // Matched once, from the writer's prompt. Instructions that speak to appearance had it built in; otherwise the
+  // named people's appearance lines go after the prompt. A reviewed prompt already carries them.
   const shown = await resolveVideoCharacters({
     ...args,
     characterName,
     prompt,
     picturePrompt: plan.kind === "gallery" ? plan.picturePrompt : undefined,
   });
-  if (!args.promptOverride?.trim() && args.chatMeta.selfieVideoIncludeCharacterAppearance === true) {
+  if (
+    !args.promptOverride?.trim() &&
+    args.chatMeta.selfieVideoIncludeCharacterAppearance === true &&
+    !videoInstructionsUseAppearance(videoConn.videoPromptInstructions)
+  ) {
     if (shown.appearanceBlock) prompt = `${prompt}\n\n${shown.appearanceBlock}`;
   }
   prompt = resolveSceneVideoPrompt({
@@ -275,6 +315,76 @@ export async function generateConversationVideo(args: {
   });
   logger.info("[conversation/video] %s sent video %s in chat %s", characterName, video.id, args.chatId);
   return { video, characterName, firstFrame: firstFrame.kind };
+}
+
+/**
+ * A description past VIDEO_CONTEXT_MAX_CHARS goes back to the Prompt Model once to be shortened. When that fails or
+ * still runs long, it is cut at the limit, so the clip is made either way.
+ */
+async function fitVideoContext(
+  args: Parameters<typeof generateConversationVideo>[0],
+  connections: ReturnType<typeof createConnectionsStorage>,
+  debugOverrideEnabled: boolean,
+): Promise<string | null | undefined> {
+  const context = args.context?.trim();
+  if (!context || context.length <= VIDEO_CONTEXT_MAX_CHARS) return args.context;
+  try {
+    const promptRuntime = await resolveIllustratorPromptRuntime({
+      chatMetadata: args.chatMeta,
+      defaultConnection: args.promptConnection,
+      defaultConnectionId: args.promptConnectionId,
+      connections,
+      resolveBaseUrl,
+    });
+    // ponytail: a fixed instruction, not a Prompt Overrides entry; register one if users ask to edit it.
+    const system =
+      `Shorten this description of a short video message to under ${VIDEO_CONTEXT_MAX_CHARS} characters. ` +
+      "Keep who is in it, what they wear and do, the setting, the camera, and any spoken lines. " +
+      "Reply with the shortened description only.";
+    logDebugOverride(debugOverrideEnabled, "[debug/conversation/video] shorten-context system:\n%s", system);
+    logDebugOverride(debugOverrideEnabled, "[debug/conversation/video] shorten-context user:\n%s", context);
+    const result = await promptRuntime.provider.chatComplete(
+      [
+        { role: "system", content: system },
+        { role: "user", content: context },
+      ],
+      {
+        model: promptRuntime.model,
+        ...(promptRuntime.suppressModelParameters
+          ? {}
+          : { temperature: 0.3, maxTokens: VIDEO_PROMPT_WRITER_MAX_TOKENS, serviceTier: args.serviceTier ?? null }),
+        suppressModelParameters: promptRuntime.suppressModelParameters,
+        signal: args.signal,
+        enableCaching: promptRuntime.enableCaching,
+        anthropicExtendedCacheTtl: promptRuntime.anthropicExtendedCacheTtl,
+      },
+    );
+    const answer = extractLeadingThinkingBlocks(result.content ?? "").content.trim();
+    if (answer && !UNCLOSED_THINKING_RE.test(answer) && answer.length <= VIDEO_CONTEXT_MAX_CHARS) {
+      logDebugOverride(
+        debugOverrideEnabled,
+        "[debug/conversation/video] shortened a %d-character description to %d:\n%s",
+        context.length,
+        answer.length,
+        answer,
+      );
+      return answer;
+    }
+    logger.warn(
+      "[conversation/video] The Prompt Model did not shorten a %d-character video description; cutting it at %d",
+      context.length,
+      VIDEO_CONTEXT_MAX_CHARS,
+    );
+  } catch (err) {
+    if (args.signal?.aborted) throw err;
+    logger.warn(
+      err,
+      "[conversation/video] Could not shorten a %d-character video description; cutting it at %d",
+      context.length,
+      VIDEO_CONTEXT_MAX_CHARS,
+    );
+  }
+  return context.slice(0, VIDEO_CONTEXT_MAX_CHARS);
 }
 
 async function planFirstFrame(
@@ -533,4 +643,95 @@ export async function loadIllustratorContextSize(db: DB): Promise<number> {
   return normalizeAgentContextSize(
     mergeBuiltInAgentSettings("illustrator", parseAgentSettingsRecord(illustrator?.settings)).contextSize,
   );
+}
+
+/**
+ * A character's `[video]` command: make the clip in the background and attach it to the character's
+ * message. Returns the running job (for the caller to keep the stream open), or null when the command
+ * is not a video request.
+ */
+export function startConversationVideoCommand(args: {
+  command: { type: string; context?: string };
+  characterId: string | null;
+  chatId: string;
+  messageId: string;
+  swipeIndex: number | null;
+  chatMeta: Record<string, unknown>;
+  charInfo: PromptCharacter[];
+  /** The chat's persona, for its appearance details and gallery. */
+  persona?: IllustratorPersonaReference | null;
+  promptConnection: IllustratorPromptConnection;
+  promptConnectionId: string;
+  debugMode?: boolean;
+  serviceTier: "flex" | "priority" | null;
+  db: DB;
+  /** Stop: ends the clip while it waits its turn or renders. */
+  signal?: AbortSignal;
+  sendEvent: (payload: Record<string, unknown>) => void;
+}): Promise<boolean> | null {
+  if (args.command.type !== "video" || !args.characterId) return null;
+  const characterId = args.characterId;
+  args.sendEvent({ type: "video_started", data: { characterId, messageId: args.messageId } });
+  return (async () => {
+    // The Video Run Interval counts from this message as the clip starts, and is given back if it fails. Whether a
+    // clip may run was decided with the reply, so this claim is never refused.
+    const videoRun = await claimAutomaticVideoRun(createChatsStorage(args.db), args.chatId, args.messageId);
+    try {
+      // A bare [video] reads the recent conversation, as /video does: the user's request and the reply around it,
+      // so a clip the user asked for shows what they asked for even when the reply jokes around it.
+      const context = args.command.context?.trim() || undefined;
+      const result = await generateConversationVideo({
+        persona: args.persona ?? null,
+        db: args.db,
+        chatId: args.chatId,
+        chatMeta: args.chatMeta,
+        characterId,
+        charInfo: args.charInfo,
+        promptConnection: args.promptConnection,
+        promptConnectionId: args.promptConnectionId,
+        context,
+        queue: true,
+        debugMode: args.debugMode,
+        serviceTier: args.serviceTier,
+        signal: args.signal,
+      });
+      if (!("video" in result)) {
+        await videoRun?.settle(false);
+        return false;
+      }
+      // The clip is saved by now, so it counts as made: failing to add it to the message only logs.
+      await videoRun?.settle(true);
+      let messageId: string | null = null;
+      try {
+        const attached = await attachVideoToMessage(
+          createChatsStorage(args.db),
+          { messageId: args.messageId, swipeIndex: args.swipeIndex ?? 0 },
+          buildChatVideoAttachment(result.video, result.characterName),
+        );
+        // Reported on the message only when the clip landed (the message may have been deleted meanwhile).
+        if (attached) messageId = args.messageId;
+      } catch (attachErr) {
+        logger.warn(attachErr, "[commands] Saved video %s but could not attach it", result.video.id);
+      }
+      args.sendEvent({
+        type: "video",
+        data: {
+          characterId,
+          characterName: result.characterName,
+          messageId,
+          videoUrl: result.video.url,
+          videoId: result.video.id,
+        },
+      });
+      return true;
+    } catch (err) {
+      await videoRun?.settle(false);
+      logger.error(err, "[commands] Video message failed");
+      args.sendEvent({
+        type: "video_error",
+        data: { characterId, error: err instanceof Error ? err.message : "Video generation failed" },
+      });
+      return false;
+    }
+  })();
 }

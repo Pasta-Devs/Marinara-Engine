@@ -69,12 +69,41 @@ In a Roleplay chat's **Chat Settings**, **Attach Card Appearance** is a dropdown
 
 - **Off**
 - **Images only**, the usual behavior.
-- **Videos only**. A clip made from the Gallery gets the appearance text of the characters its motion direction names.
+- **Videos only**. A clip gets the appearance text of the characters it shows. This matters most for a **Prompt only** clip, which has no picture to show them.
 - **Images and videos** does both.
 
 When **Attach Card Appearance** is on, any card or persona that also has **Image Appearance Override** turned on sends that override instead of its **Appearance** text. Use it when **Appearance** is written for the narrator but reads badly to an image model: leave the full description in **Appearance** and put a shorter, tag-style version in the override. While the override is off, or its box is empty, image prompts keep using **Appearance**. The narrator always sees the full **Appearance** text either way. The switch sits under **Appearance** in the Character and Persona editors.
 
-**Send Avatar References** sends character and persona avatars, or their sprites, to the image provider as reference images. Its help text reads: "Send matching character and persona avatars or sprites as reference images when the provider supports them." This helps the image model copy a face or outfit. Not every provider accepts reference images, so the effect depends on the provider you chose. It stays a toggle in Roleplay and only affects pictures, because a Roleplay clip already starts from a picture.
+**Send Avatar References** sends character and persona avatars, or their sprites, to the image provider as reference images. Its help text reads: "Send matching character and persona avatars or sprites as reference images when the provider supports them." This helps the image model copy a face or outfit. Not every provider accepts reference images, so the effect depends on the provider you chose. In a Roleplay chat it is a dropdown like **Attach Card Appearance**. With videos included, a clip whose **First frame** is **Prompt only** starts from the character's avatar or sprite instead of from nothing, and that choice then reads **Prompt only (avatar from Send Avatar References)**. Leave videos out for a clip made from its prompt alone.
+
+## Generated Videos
+
+In a Roleplay chat, **Chat Settings**, **Agents**, **Illustrator** has an **Illustrator makes** setting:
+
+- **Pictures** (the default): pictures only, as before.
+- **Pictures and clips**: Illustrator may also turn a picture it just made into a short clip when motion is the point of the moment, such as action, violence, a chase or something breaking. It writes the motion itself, following the video connection's **Video Prompting Instructions**. The picture appears first, and the clip joins the same message when it is ready.
+- **Clips only**: every time Illustrator would show a picture, it shows a short clip instead. The picture it draws is the clip's starting frame and goes to the Gallery, not the reply. If the clip fails, the picture is shown instead.
+
+Clips use the **Video Connection** under **Scene Videos**, and each one is a video request. Without a working video connection, Illustrator makes pictures instead, even with **Clips only**. Custom agents that create images follow the same setting.
+
+**Video Run Interval**, shown once Illustrator makes clips, is how many user and assistant messages must pass after one of these clips before the next. It is separate from the **Image Run Interval**, which still decides how often Illustrator makes pictures.
+
+- **Clips only**: every Illustrator run is a clip. The Video Run Interval decides how often Illustrator runs, and the Image Run Interval is hidden.
+- **Default**: a chat with no value uses the **Video Run Interval** on the Illustrator card's **Open Setup** screen. Without one, it is 5.
+- **0**: Illustrator makes no clips on its own. This includes clips for the pictures the storyteller asks for with `[illustrate]`; those get their picture instead.
+- **Limit**: one reply gets at most **Videos per reply** clips (under **Settings**, **Generations**, **Video Generation**).
+- **Manual clips**: you can still animate a picture from the Gallery. With **Clips only**, a message's **Illustrate** button makes a clip.
+- **Swipes**: swiping a reply that got a clip counts as a new reply. The new swipe can get its own clip, and the earlier swipe keeps its clip.
+
+**First frame**, shown once Illustrator makes clips, decides what every clip Illustrator makes starts from: a new Illustrator picture, the named character's avatar or sprite, the picture with the avatar as fallback, or no picture at all. It is the same setting Conversation chats use for video messages.
+
+- **Clips only** with the avatar or no picture: no picture is drawn at all. The clip is made from Illustrator's scene and motion.
+- **Pictures and clips**: the picture is still shown, and only the clip starts from the avatar or nothing.
+- No first frame chosen: a clip never draws a picture just for itself. **Pictures and clips** animates the picture Illustrator just made, and **Clips only** makes the clip from the scene alone.
+
+A clip with no picture of its own describes everyone it names, your persona included. The avatar first frame starts from whoever is named first.
+
+Re-running Illustrator from a message (its **Illustrate** button) follows **Illustrator makes** and **First frame** too: with **Clips only** it makes a clip instead of a picture, and with **Pictures and clips** it may add a clip when motion is the point of the moment.
 
 ## Multiple characters on NovelAI
 
@@ -92,9 +121,9 @@ No setting is needed. The captions appear only for a NovelAI connection on its o
 
 The Illustrator card has an **Open Setup** button. It opens the agent's full setup screen, where you can set the default for how often the agent runs and give it its own image connection.
 
-Each Roleplay chat has its own **Run Interval** on the Illustrator card in **Chat Settings**. Its help text reads: "Messages between automatic images in this chat. 0 means only when you ask." A chat that hasn't set one uses the **Run Interval** from the setup screen, which is **5** unless you change it. The card shows **Using agent default** or **Chat override**. Press **Use agent default** to go back to the setup screen's value. When you add the Illustrator to a chat, the add window shows the same field and saves your choice to that chat only.
+Each Roleplay chat has its own **Image Run Interval** on the Illustrator card in **Chat Settings**. Its help text reads: "Messages between automatic images in this chat. 0 means only when you ask." A chat that hasn't set one uses the **Image Run Interval** from the setup screen, which is **5** unless you change it. The card shows **Using agent default** or **Chat override**. Press **Use agent default** to go back to the setup screen's value. When you add the Illustrator to a chat, the add window shows the same field and saves your choice to that chat only.
 
-Set **Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. Set a positive interval to resume automatic runs.
+Set **Image Run Interval** to **0** for manual-only generation. This stops automatic Illustrator runs, including its automatic scene backgrounds, while keeping the agent installed and available for Gallery actions. Set a positive interval to resume automatic runs.
 
 You can also make a picture on demand instead of waiting. Open **Chat Settings**, expand the **Gallery** section, and use the **Illustrate** button. The Illustrator runs once right away and the button shows **Generating...** while it works. This is useful when you want a picture of the current moment and the agent has not drawn one yet.
 

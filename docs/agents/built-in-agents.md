@@ -268,7 +268,7 @@ Responsible for image and video generations. It writes visual prompts for import
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: it runs once every 5 user and assistant messages by default, and each Roleplay chat can change that with **Run Interval** on its card. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
+- **Key settings**: Illustrator runs once every 5 user and assistant messages by default. Set **Image Run Interval** on each Roleplay chat's card to change this. Automatic clips use **Video Run Interval** when **Illustrator makes** is **Pictures and clips** or **Clips only**. Set **Video Run Interval** to **0** to turn automatic clips off. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 

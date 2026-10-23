@@ -87,6 +87,8 @@ const runningState = (tag: string) => ({
   pixelforgeCorruptExcerpt: `damaged ${tag}`,
   trackerFeaturedCharacterKeys: [`char-${tag}`],
   conversationSetupComplete: tag === "source",
+  sceneLastVideoId: `video-${tag}`,
+  lastAutomaticVideoMessageId: `video-msg-${tag}`,
   // Not on the exclusion list: every multiplayer room key stays out of profiles by its prefix.
   multiplayerFutureState: { room: `room-${tag}` },
 });

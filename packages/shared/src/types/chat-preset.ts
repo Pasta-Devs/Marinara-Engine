@@ -171,6 +171,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "spatialSharedWorldLink",
   "trackerFeaturedCharacterKeys",
   "conversationSetupComplete",
+  // This chat's latest scene video and the message its last automatic video joined (the Video Run Interval anchor).
+  "sceneLastVideoId",
+  "lastAutomaticVideoMessageId",
 ] as const;
 
 /**
@@ -265,9 +268,12 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorIncludeCharacterAppearance", // Illustrator: add card appearance
   "illustratorUseAvatarReferences", // Illustrator: send avatars as references
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
+  "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval
+  "illustratorVideoRunInterval", // Illustrator: messages between videos it makes on its own
   "sceneVideoConnectionId", // Illustrator: connection for scene videos
   "imageStyleProfileId", // Illustrator: image style
   "narrativeDirectorSecretPlotEnabled", // Director: secret plot

@@ -820,6 +820,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Input",
   },
   {
+    id: "video-per-reply",
+    sectionId: "video-generation",
+    labelKey: "ui.panels.videogenerationsettings.videosPerReply",
+    label: "Videos per reply",
+    description: "Set how many video messages characters can send in one reply.",
+    descriptionKey: "settings.search.videoPerReply.description",
+    aliases: ["video", "group", "limit", "clips", "conversation"],
+    kind: "Input",
+  },
+  {
     id: "visual-theme",
     sectionId: "app-style",
     labelKey: "ui.panels.appearancesettings.visualStyle",

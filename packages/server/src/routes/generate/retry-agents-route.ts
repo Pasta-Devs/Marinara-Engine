@@ -102,6 +102,20 @@ import { createCharactersStorage } from "../../services/storage/characters.stora
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
+import {
+  animateGalleryImage,
+  generateRoleplayClip,
+  roleplayVideoFirstFrame,
+} from "../../services/video/chat-video-generation.js";
+import { attachVideoToMessage, buildChatVideoAttachment } from "../../services/video/chat-video-messages.js";
+import {
+  createRoleplayClipTools,
+  resolveIllustratorVideoOffer,
+} from "../../services/video/roleplay-illustrator-clips.js";
+import type {
+  IllustratorChatCharacterReference,
+  IllustratorPersonaReference,
+} from "../../services/image/illustrator-references.js";
 import { createCharacterGalleryStorage } from "../../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../../services/storage/persona-gallery.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
@@ -660,6 +674,13 @@ async function executeManualIllustratorPromptRequest(args: {
       styleInstruction,
       characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
+      // Pictures and clips / Clips only: the planner may ask for a clip, as the Illustrator agent can.
+      videoOffer:
+        args.agentContext.memory._generatedVideos && typeof args.agentContext.memory._generatedVideos === "object"
+          ? (args.agentContext.memory._generatedVideos as Parameters<
+              typeof writeManualIllustratorPromptPlan
+            >[0]["videoOffer"])
+          : null,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
     });
@@ -690,6 +711,64 @@ async function executeManualIllustratorPromptRequest(args: {
       error: error instanceof Error ? error.message : "Manual Illustrator prompt generation failed",
     };
   }
+}
+
+/**
+ * Who a re-run Illustrator can show, for its picture references and its clips alike: the chat's characters, a
+ * character used as the user, and the persona, read from the agent context.
+ */
+async function retryIllustratorClipCast(
+  agentContext: AgentContext,
+  chars: ReturnType<typeof createCharactersStorage>,
+  chatId: string,
+): Promise<{ chatCharacters: IllustratorChatCharacterReference[]; persona: IllustratorPersonaReference | null }> {
+  const identityId =
+    typeof agentContext.memory._userIdentityId === "string" ? agentContext.memory._userIdentityId : null;
+  const identitySource =
+    agentContext.memory._userIdentitySource === "persona" || agentContext.memory._userIdentitySource === "character"
+      ? agentContext.memory._userIdentitySource
+      : null;
+  const avatarPath =
+    typeof agentContext.memory._personaAvatarPath === "string" ? agentContext.memory._personaAvatarPath : null;
+  const chatCharacters: IllustratorChatCharacterReference[] = agentContext.characters.map((character) => ({
+    id: character.id,
+    name: character.name,
+    appearance: character.appearance,
+    appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, character.id),
+  }));
+  if (
+    identitySource === "character" &&
+    identityId &&
+    agentContext.persona &&
+    !chatCharacters.some((character) => character.id === identityId)
+  ) {
+    chatCharacters.push({
+      id: identityId,
+      name: agentContext.persona.name,
+      avatarPath,
+      appearance: agentContext.persona.appearance,
+      appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, identityId),
+    });
+  }
+  const personaRow = identitySource === "persona" && identityId ? await chars.getPersona(identityId, chatId) : null;
+  const persona: IllustratorPersonaReference | null =
+    identitySource === "persona" && identityId && agentContext.persona
+      ? {
+          id: identityId,
+          name: agentContext.persona.name,
+          avatarPath: typeof personaRow?.avatarPath === "string" ? personaRow.avatarPath : avatarPath,
+          appearance: agentContext.persona.appearance,
+          appearanceOverride:
+            typeof agentContext.memory._personaImageAppearanceOverride === "string" &&
+            agentContext.memory._personaImageAppearanceOverride.trim()
+              ? agentContext.memory._personaImageAppearanceOverride.trim()
+              : null,
+          characterSheetImageId:
+            typeof personaRow?.characterSheetImageId === "string" ? personaRow.characterSheetImageId : null,
+          useCharacterSheetAsReference: personaRow?.useCharacterSheetAsReference === "true",
+        }
+      : null;
+  return { chatCharacters, persona };
 }
 
 async function resolvePersonaContext(
@@ -1243,6 +1322,10 @@ async function buildRetryAgentContext(args: {
         : lastAssistant.id,
   });
   if (previousBeholderState) agentContext.memory._beholderState = previousBeholderState;
+  // A re-run Illustrator (or custom image agent) is offered clips exactly as on a fresh reply: Illustrator makes and a
+  // working video connection. Only agents that make images are shown the offer.
+  const videoOffer = await resolveIllustratorVideoOffer(chat.mode, chatMeta, createConnectionsStorage(db));
+  if (videoOffer) agentContext.memory._generatedVideos = videoOffer;
 
   const gameImageStylePrompt = getGameImageStylePrompt(chat, chatMeta);
   if (gameImageStylePrompt) {
@@ -3643,7 +3726,96 @@ async function applyRetryResultEffects(args: {
           }
           imgConnFull ??= await conns.getDefaultForImageGeneration();
           assertRetryActive();
-          if (imgConnFull) {
+          // Generated Videos: a re-run follows Illustrator makes and First frame, as a fresh reply does.
+          const videoOffer = retryMessageId ? await resolveIllustratorVideoOffer(chat.mode, chatMeta, conns) : null;
+          assertRetryActive();
+          const writtenMotion = typeof illData.videoPrompt === "string" ? illData.videoPrompt.trim() : "";
+          const clipsOnly = videoOffer?.clipsOnly === true;
+          // A clip the writer chose without saying how it moves is skipped (Pictures and clips); Clips only always
+          // makes one.
+          const wantsVideo = clipsOnly || (!!videoOffer && illData.generateVideo === true && !!writtenMotion);
+          const clipCast = await retryIllustratorClipCast(agentContext, chars, chatId);
+          const clipTools = videoOffer
+            ? createRoleplayClipTools({
+                db: app.db,
+                chat,
+                chatMeta: chatMeta,
+                chatId,
+                characterNames: agentContext.characters.map((character) => character.name),
+                cast: () => clipCast,
+                charactersStore: chars,
+                characterGallery: createCharacterGalleryStorage(app.db),
+                personaGallery: createPersonaGalleryStorage(app.db),
+                debugMode,
+                signal,
+              })
+            : null;
+          const clipAppearance = chatMeta.illustratorVideoIncludeCharacterAppearance === true;
+          // A saved clip counts as made: failing to add it to the reply only logs, and it stays in the Gallery.
+          const attachRetryClip = async (video: Parameters<typeof buildChatVideoAttachment>[0]) => {
+            let attachedTo: string | null = null;
+            try {
+              if (
+                retryMessageId &&
+                (await attachVideoToMessage(
+                  createChatsStorage(app.db),
+                  { messageId: retryMessageId, swipeIndex: retrySwipeIndex },
+                  buildChatVideoAttachment(video),
+                ))
+              ) {
+                attachedTo = retryMessageId;
+              }
+            } catch (attachErr) {
+              logger.warn(attachErr, "[retry-agents] Saved clip %s but could not attach it", video.id);
+            }
+            sendSseEvent(reply, {
+              type: "video",
+              data: {
+                messageId: attachedTo,
+                videoUrl: video.url,
+                videoId: video.id,
+                characterName: imagePromptAgent?.cfg.name ?? "Illustrator",
+              },
+            });
+          };
+          // Clips only, starting from the avatar or from no picture: no picture is drawn at all.
+          const clipOnlyFrame = clipsOnly ? roleplayVideoFirstFrame(chatMeta, Boolean(imgConnFull)) : "picture";
+          if (clipTools && clipOnlyFrame !== "picture" && retryMessageId) {
+            try {
+              // No picture shows this moment, so the Clip Director writes the whole clip (scene and motion).
+              const prompt = await clipTools.writeClipPrompt({
+                messageId: retryMessageId,
+                request: [imagePrompt, writtenMotion].filter(Boolean).join("\n"),
+                withoutPicture: true,
+              });
+              assertRetryActive();
+              const cast = await clipTools.resolveClipCast(illCharacters, prompt, clipOnlyFrame !== "none");
+              const video = await generateRoleplayClip(app.db, {
+                chatId,
+                chatMeta: chatMeta,
+                prompt,
+                firstFrame: clipOnlyFrame,
+                avatar: cast.avatar,
+                characterIds: cast.characterIds,
+                appearanceBlock: clipAppearance ? cast.appearanceBlock : null,
+                queue: true,
+                signal,
+                debugMode,
+              });
+              assertRetryActive();
+              await attachRetryClip(video);
+              await agentsStore
+                .saveRun({ agentConfigId: result.agentId, chatId, messageId: retryMessageId, result })
+                .catch((err) => logger.warn(err, "[retry-agents] Failed to persist successful Illustrator run"));
+            } catch (videoErr) {
+              assertRetryActive();
+              logger.warn(videoErr, "[retry-agents] Illustrator clip failed");
+              sendSseEvent(reply, {
+                type: "video_error",
+                data: { error: videoErr instanceof Error ? videoErr.message : String(videoErr) },
+              });
+            }
+          } else if (imgConnFull) {
             const { generateImage, saveImageToDisk } = await import("../../services/image/image-generation.js");
             assertRetryActive();
             const { createGalleryStorage } = await import("../../services/storage/gallery.storage.js");
@@ -3747,80 +3919,12 @@ async function applyRetryResultEffects(args: {
                 });
             assertRetryActive();
             let referenceImages: string[] | undefined;
-            const retryIdentityId =
-              typeof agentContext.memory._userIdentityId === "string" ? agentContext.memory._userIdentityId : null;
-            const retryIdentitySource =
-              agentContext.memory._userIdentitySource === "persona" ||
-              agentContext.memory._userIdentitySource === "character"
-                ? agentContext.memory._userIdentitySource
-                : null;
-            const retryPersonaId = retryIdentitySource === "persona" ? retryIdentityId : null;
-            const retryPersonaReference = retryPersonaId ? await chars.getPersona(retryPersonaId, chatId) : null;
-            assertRetryActive();
-            // #7053: a character-backed user identity ("Add persona as character")
-            // carries its override on the identity, not on `_personaId`, which is
-            // reserved for persona-store rows. Read whichever id this identity
-            // actually uses, so both flavours reach the appearance block.
-            const retryIdentityOverride =
-              retryIdentitySource === "character"
-                ? readIllustratorImageAppearanceOverride(agentContext.memory, retryIdentityId)
-                : null;
-            const retryCharacterIdentity =
-              retryIdentitySource === "character" && retryIdentityId && agentContext.persona
-                ? {
-                    id: retryIdentityId,
-                    name: agentContext.persona.name,
-                    avatarPath:
-                      typeof agentContext.memory._personaAvatarPath === "string"
-                        ? agentContext.memory._personaAvatarPath
-                        : null,
-                    appearance: agentContext.persona.appearance,
-                    appearanceOverride: retryIdentityOverride,
-                  }
-                : null;
             const referenceResolution = await resolveIllustratorCharacterReferences({
               charactersStore: chars,
               characterGallery: createCharacterGalleryStorage(app.db),
               personaGallery: createPersonaGalleryStorage(app.db),
-              chatCharacters: [
-                ...agentContext.characters.map((character) => ({
-                  id: character.id,
-                  name: character.name,
-                  appearance: character.appearance,
-                  appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, character.id),
-                })),
-                ...(retryCharacterIdentity &&
-                !agentContext.characters.some((character) => character.id === retryCharacterIdentity.id)
-                  ? [retryCharacterIdentity]
-                  : []),
-              ],
-              persona:
-                retryIdentitySource === "persona" && agentContext.persona
-                  ? {
-                      id: retryPersonaId,
-                      name: agentContext.persona.name,
-                      avatarPath:
-                        typeof retryPersonaReference?.avatarPath === "string"
-                          ? retryPersonaReference.avatarPath
-                          : typeof agentContext.memory._personaAvatarPath === "string"
-                            ? agentContext.memory._personaAvatarPath
-                            : null,
-                      appearance: agentContext.persona.appearance,
-                      // #7053: same override-wins rule as the caption path, so the
-                      // engine-appended appearance block matches the agent's own
-                      // `<character_appearance_reference>` instead of sending prose.
-                      appearanceOverride:
-                        typeof agentContext.memory._personaImageAppearanceOverride === "string" &&
-                        agentContext.memory._personaImageAppearanceOverride.trim()
-                          ? agentContext.memory._personaImageAppearanceOverride.trim()
-                          : null,
-                      characterSheetImageId:
-                        typeof retryPersonaReference?.characterSheetImageId === "string"
-                          ? retryPersonaReference.characterSheetImageId
-                          : null,
-                      useCharacterSheetAsReference: retryPersonaReference?.useCharacterSheetAsReference === "true",
-                    }
-                  : null,
+              // The same cast its clips use: the chat's characters, a character used as the user, and the persona.
+              ...clipCast,
               requestedNames: illCharacters.filter((name): name is string => typeof name === "string"),
               promptText: [
                 [...agentContext.recentMessages].reverse().find((message) => message.role === "user")?.content ?? "",
@@ -4044,6 +4148,9 @@ async function applyRetryResultEffects(args: {
             });
             assertRetryActive();
 
+            // Clips only: the picture is the clip's first frame, shown only if the clip fails.
+            const pictureShows: Array<() => Promise<void>> = [];
+            let firstGalleryImageId: string | null = null;
             for (const [variantIndex, imageResult] of imageResults.entries()) {
               assertRetryActive();
               const renderedPrompt = imageResult.effectivePrompt ?? promptSubmission.prompt;
@@ -4090,37 +4197,108 @@ async function applyRetryResultEffects(args: {
               });
               assertRetryActive();
 
+              firstGalleryImageId ??= (galleryEntry as { id?: string } | null)?.id ?? null;
               const filename = filePath.split("/").pop()!;
               const imageUrl = `/api/gallery/file/${chatId}/${encodeURIComponent(filename)}`;
+              const showPicture = async () => {
+                // Attach to message
+                if (retryMessageId) {
+                  const chatsDb = createChatsStorage(app.db);
+                  const attachment = {
+                    type: "image",
+                    url: imageUrl,
+                    filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
+                    prompt: renderedPrompt,
+                    galleryId: (galleryEntry as any)?.id,
+                  };
+                  assertRetryActive();
+                  await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
+                  assertRetryActive();
+                  await chatsDb.appendMessageAttachmentForActiveSwipe(retryMessageId, retrySwipeIndex, attachment);
+                  assertRetryActive();
+                }
 
-              // Attach to message
-              if (retryMessageId) {
-                const chatsDb = createChatsStorage(app.db);
-                const attachment = {
-                  type: "image",
-                  url: imageUrl,
-                  filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
-                  prompt: renderedPrompt,
-                  galleryId: (galleryEntry as any)?.id,
-                };
                 assertRetryActive();
-                await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
+                sendSseEvent(reply, {
+                  type: "illustration",
+                  data: {
+                    messageId: retryMessageId,
+                    imageUrl,
+                    prompt: renderedPrompt,
+                    reason: illData.reason,
+                    galleryId: (galleryEntry as any)?.id,
+                  },
+                });
+              };
+              if (clipsOnly && wantsVideo) pictureShows.push(showPicture);
+              else await showPicture();
+            }
+            // The clip, as on a fresh reply: Clips only animates (or starts from the First frame), and Pictures and
+            // clips adds one when the writer asked for it. A failed clip leaves its pictures in the reply.
+            if (clipTools && wantsVideo && retryMessageId && firstGalleryImageId) {
+              try {
+                const videoFirstFrame = roleplayVideoFirstFrame(chatMeta, true, true);
+                const appearanceBlock = clipAppearance ? referenceResolution.appearanceBlock : null;
+                const video =
+                  videoFirstFrame === "picture"
+                    ? await animateGalleryImage(app.db, {
+                        chatId,
+                        chatMeta: chatMeta,
+                        galleryImageId: firstGalleryImageId,
+                        motionPrompt:
+                          writtenMotion ||
+                          (await clipTools.writeClipPrompt({
+                            messageId: retryMessageId,
+                            request: "",
+                            withoutPicture: false,
+                            referenceImagePrompt: imagePrompt,
+                          })),
+                        // Filed under the people the picture shows (and the persona), as the picture is.
+                        characterIds: referenceResolution.personaId
+                          ? [...referenceResolution.characterIds, referenceResolution.personaId]
+                          : referenceResolution.characterIds,
+                        appearanceBlock,
+                        queue: true,
+                        signal,
+                        debugMode,
+                      })
+                    : await generateRoleplayClip(app.db, {
+                        chatId,
+                        chatMeta: chatMeta,
+                        prompt: await clipTools.writeClipPrompt({
+                          messageId: retryMessageId,
+                          request: [imagePrompt, writtenMotion].filter(Boolean).join("\n"),
+                          withoutPicture: true,
+                        }),
+                        firstFrame: videoFirstFrame,
+                        avatar:
+                          videoFirstFrame === "none"
+                            ? null
+                            : (await clipTools.resolveClipCast(illCharacters, imagePrompt, true)).avatar,
+                        characterIds: referenceResolution.personaId
+                          ? [...referenceResolution.characterIds, referenceResolution.personaId]
+                          : referenceResolution.characterIds,
+                        appearanceBlock,
+                        queue: true,
+                        signal,
+                        debugMode,
+                      });
                 assertRetryActive();
-                await chatsDb.appendMessageAttachmentForActiveSwipe(retryMessageId, retrySwipeIndex, attachment);
+                await attachRetryClip(video);
+                // The clip replaced its pictures; they stay in the Gallery.
+                pictureShows.length = 0;
+              } catch (videoErr) {
                 assertRetryActive();
+                logger.warn(videoErr, "[retry-agents] Illustrator clip failed");
+                sendSseEvent(reply, {
+                  type: "video_error",
+                  data: { error: videoErr instanceof Error ? videoErr.message : String(videoErr) },
+                });
               }
-
-              assertRetryActive();
-              sendSseEvent(reply, {
-                type: "illustration",
-                data: {
-                  messageId: retryMessageId,
-                  imageUrl,
-                  prompt: renderedPrompt,
-                  reason: illData.reason,
-                  galleryId: (galleryEntry as any)?.id,
-                },
-              });
+            }
+            // Pictures held back for a clip that wasn't made; one that can't be added doesn't hold back the others.
+            for (const show of pictureShows.splice(0)) {
+              await show().catch((err) => logger.warn(err, "[retry-agents] Could not show a picture"));
             }
             logger.info(
               "[retry-agents] Illustrator generated %d image(s): %s...",

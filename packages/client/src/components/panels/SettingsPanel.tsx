@@ -77,6 +77,8 @@ import {
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   DEFAULT_IMAGE_STYLE_PROFILES,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+  VIDEO_PER_REPLY_MAX,
+  VIDEO_PER_REPLY_MIN,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
   VIDEO_CALL_CLIP_DURATION_MAX,
   VIDEO_CALL_CLIP_DURATION_MIN,
@@ -714,6 +716,7 @@ const GAME_ASSET_CATEGORIES = [
 const VIDEO_PROMPT_TEMPLATE_KEYS = [
   "game.video",
   "roleplay.galleryVideoDirector",
+  "roleplay.clipDirector",
   "conversation.video",
   "conversation.callVideo.idle",
   "conversation.callVideo.talking",
@@ -2955,6 +2958,10 @@ function VideoGenerationSettings() {
     commitSettings({ ...draft, animatedExpressionClipDurationSeconds: duration });
   };
 
+  const handleVideosPerReplyChange = (count: number) => {
+    commitSettings({ ...draft, maxCharacterVideosPerReply: count });
+  };
+
   return (
     <SettingsSection
       title={localizeUi("settings.sections.videoGeneration.title")}
@@ -3101,6 +3108,34 @@ function VideoGenerationSettings() {
               <span className="text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.noodle.stageprofileview.s")}
               </span>
+            </div>
+          </div>
+
+          <div
+            id={getSettingsControlAnchorId("video-per-reply")}
+            className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+                <HelpTooltip text={localizeUi("ui.panels.videogenerationsettings.videosPerReplyHelp")} />
+              </div>
+              <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReplyRange", {
+                  min: VIDEO_PER_REPLY_MIN,
+                  max: VIDEO_PER_REPLY_MAX,
+                })}
+              </div>
+            </div>
+            <div className="sm:w-28">
+              <DraftNumberInput
+                value={draft.maxCharacterVideosPerReply}
+                min={VIDEO_PER_REPLY_MIN}
+                max={VIDEO_PER_REPLY_MAX}
+                onCommit={handleVideosPerReplyChange}
+                className="w-16 min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
+                ariaLabel={localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+              />
             </div>
           </div>
         </div>

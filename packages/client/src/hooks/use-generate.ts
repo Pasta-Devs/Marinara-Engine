@@ -1551,6 +1551,8 @@ export function useGenerate() {
       let agentFailuresThisRun: AgentFailure[] = [];
       let illustrationQueued = false;
       let illustrationSettled = false;
+      // Clips this stream is still waiting for (video_started until video, video_error or video_skipped).
+      let videosPending = 0;
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let committedSpatialTravel: ResolvedSpatialTravel | undefined;
@@ -2894,6 +2896,45 @@ export function useGenerate() {
               break;
             }
 
+            case "video_started": {
+              videosPending += 1;
+              // A clip that starts after the reply is done (one following its picture) frees the next message too.
+              if (sawDoneEvent && useChatStore.getState().abortControllers.get(params.chatId) === abortController) {
+                useChatStore.getState().setBackgroundIllustration(params.chatId, true);
+              }
+              break;
+            }
+
+            case "video_skipped": {
+              videosPending = Math.max(0, videosPending - 1);
+              break;
+            }
+
+            case "video": {
+              videosPending = Math.max(0, videosPending - 1);
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              // A clip that was saved but couldn't join its message is still made; it waits in the Gallery.
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", params.chatId] });
+              // A clip usually lands after "done"; one that beats the streamed reply waits for the final refresh.
+              if (sawDoneEvent || (!streamingEnabled && !isGameGeneration)) {
+                await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
+              }
+              break;
+            }
+
+            case "video_error": {
+              videosPending = Math.max(0, videosPending - 1);
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              toast.error(translate("generation.video.failed", { error: errData.error }));
+              break;
+            }
+
             case "conversation_call_ringing": {
               const data = event.data as {
                 session?: {
@@ -3175,9 +3216,9 @@ export function useGenerate() {
 
             case "done": {
               sawDoneEvent = true;
+              // Only media (a picture or a clip that takes minutes) is left: the next message may start meanwhile.
               if (
-                illustrationQueued &&
-                !illustrationSettled &&
+                ((illustrationQueued && !illustrationSettled) || videosPending > 0) &&
                 useChatStore.getState().abortControllers.get(params.chatId) === abortController
               ) {
                 useChatStore.getState().setBackgroundIllustration(params.chatId, true);
@@ -4106,6 +4147,27 @@ export function useGenerate() {
               if (isIllustratorOnlyRetry) {
                 useChatStore.getState().setBackgroundIllustration(chatId, true);
               }
+              break;
+            }
+            // A re-run Illustrator in Pictures and clips or Clips only makes a clip, as a fresh reply does.
+            case "video": {
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", chatId] });
+              // Also when the user moved to another chat meanwhile: an inactive query is only marked stale.
+              void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+              break;
+            }
+            case "video_error": {
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              // The retry made no clip, so it must not end with a success notice.
+              hasError = true;
+              toast.error(translate("generation.video.failed", { error: errData.error }));
               break;
             }
             case "image_prompt_review": {

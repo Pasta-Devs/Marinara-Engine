@@ -428,6 +428,9 @@ function sourceGalleryImagePathForMetadata(image: ChatGalleryImageRow): string {
   return `gallery/${image.filePath.replace(/\\/g, "/")}`;
 }
 
+// Kept apart from roleplay-clip-writer's copy on purpose: these reads off this file's parseChatMetadata binding are
+// how the capability guard (capability-gm-verbs regression) knows `scenario` is the Engine's own chat-metadata key.
+// A shared helper reading it off a parameter is invisible to that sweep, which would let a package claim the key.
 function buildRoleplayVideoSettingLine(chat: ChatRow, meta: Record<string, unknown>, maxPartLength: number): string {
   const parts = [
     readTrimmedString(meta.groupScenarioText),
@@ -814,7 +817,11 @@ export async function galleryRoutes(app: FastifyInstance) {
         });
         // A sentence of the connection's instructions the director copied word for word is not video-model text.
         promptDraft = removeCopiedPromptGuidance(
-          resolveRoleplayVideoDirection(result.content, videoRuntime.promptLimits.finalPrompt),
+          resolveRoleplayVideoDirection(
+            result.content,
+            videoRuntime.promptLimits.finalPrompt,
+            videoConn.videoPromptInstructions,
+          ),
           [videoConn.videoPromptInstructions],
         );
       } catch (err) {

@@ -87,6 +87,7 @@ import {
   resolveBeholderStateResponse,
   type BeholderPassLane,
 } from "./beholder-state.js";
+import { formatOptionalVideoOffer } from "../generation/image-prompt-instructions.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -2924,8 +2925,19 @@ function buildAgentMessages(
   // assistant. Anthropic treats a trailing assistant turn as prefill and rejects
   // some models, so add a terminal user instruction for that agent type too.
   const outputFormatBlock = options.outputFormatBlock?.trim() ?? "";
+  const generatedVideos =
+    options.includeImagePromptInstructions === true &&
+    context.memory._generatedVideos &&
+    typeof context.memory._generatedVideos === "object"
+      ? (context.memory._generatedVideos as {
+          instructions?: unknown;
+          clipsOnly?: unknown;
+          describeAppearance?: unknown;
+        })
+      : null;
   const requiresTerminalUserInstruction =
     finalParts.length > 0 ||
+    !!generatedVideos ||
     contextAgentTypes.includes("echo-chamber") ||
     !!outputFormatBlock ||
     (options.includeImagePromptInstructions === true &&
@@ -2941,6 +2953,10 @@ function buildAgentMessages(
     );
     finalParts.push(lateImagePromptInstructions);
     finalParts.push("</image_prompting_instructions>");
+  }
+  if (generatedVideos) {
+    // Generated Videos: the picture can become a short clip when the agent decides motion adds to the moment.
+    finalParts.push(`\n${formatOptionalVideoOffer(generatedVideos)}`);
   }
 
   if (requiresTerminalUserInstruction) {

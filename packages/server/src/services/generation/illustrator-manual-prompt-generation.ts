@@ -16,7 +16,7 @@ import {
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
-import { appendImagePromptInstructions } from "./image-prompt-instructions.js";
+import { appendImagePromptInstructions, formatOptionalVideoOffer } from "./image-prompt-instructions.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -41,6 +41,10 @@ export type ManualIllustratorPromptPlan = {
   reason: string;
   /** Raw NovelAI character captions; validated against characters at dispatch time. */
   characterPrompts: unknown[];
+  /** Generated Videos: the planner asked for a clip of this picture (Pictures and clips). */
+  generateVideo?: boolean;
+  /** Generated Videos: how the clip moves, written to the video connection's instructions. */
+  videoPrompt?: string;
 };
 
 export type ManualIllustratorPromptResult = {
@@ -106,6 +110,8 @@ export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustra
     aspectRatio: normalizeAspectRatio(record.aspectRatio ?? record.aspect_ratio),
     reason: readTrimmedString(record.reason).slice(0, 500),
     characterPrompts: Array.isArray(record.characterPrompts) ? record.characterPrompts.slice(0, 32) : [],
+    ...(record.generateVideo === true ? { generateVideo: true } : {}),
+    ...(readTrimmedString(record.videoPrompt) ? { videoPrompt: readTrimmedString(record.videoPrompt) } : {}),
   };
 }
 
@@ -217,6 +223,8 @@ export function buildManualIllustratorPromptMessages(args: {
   characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
+  /** Generated Videos: the clip offer the Illustrator agent gets, so a manual illustration can become a clip too. */
+  videoOffer?: Parameters<typeof formatOptionalVideoOffer>[0] | null;
 }): ChatMessage[] {
   // Custom prompts may mix visual instructions with schemas or generation conditions.
   // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
@@ -256,6 +264,7 @@ export function buildManualIllustratorPromptMessages(args: {
       "Write the image-model prompt now for the current scene. The Illustration button has already selected the output type.",
       ...(args.request ? [`Depict this explicit request: ${args.request}`] : []),
       "</manual_gallery_illustration_request>",
+      ...(args.videoOffer ? [formatOptionalVideoOffer(args.videoOffer)] : []),
     ].join("\n"),
     args.imagePromptInstructions,
   );
@@ -275,6 +284,7 @@ export async function writeManualIllustratorPromptPlan(args: {
   characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
+  videoOffer?: Parameters<typeof formatOptionalVideoOffer>[0] | null;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<ManualIllustratorPromptResult> {
@@ -292,6 +302,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     characterPromptInstruction: args.characterPromptInstruction,
     imagePromptInstructions: args.imagePromptInstructions,
     request: args.request,
+    videoOffer: args.videoOffer,
   });
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",

@@ -6164,6 +6164,24 @@ const cases: RegressionCase[] = [
         "She stops and holds as the room tone settles.",
       );
       assert.equal(resolveRoleplayVideoDirection('{"wrongField":"do not send raw JSON"}', 3_800), "");
+      // A JSON shape the video connection's instructions ask for is the prompt itself.
+      assert.equal(
+        resolveRoleplayVideoDirection(
+          '```json\n{"shot":"Mira draws the blade","soundscape":"steel rings"}\n```',
+          3_800,
+          "Answer as JSON with shot and soundscape fields.",
+        ),
+        '{"shot":"Mira draws the blade","soundscape":"steel rings"}',
+      );
+      assert.equal(
+        resolveRoleplayVideoDirection('[{"shot":"Mira bows"}]', 3_800, "Answer as a JSON list of shots."),
+        '[{"shot":"Mira bows"}]',
+      );
+      // Instructions that ask for no JSON make a stray object (an error payload) no prompt at all.
+      assert.equal(
+        resolveRoleplayVideoDirection('{"error":"rate limited"}', 3_800, "Write one cinematic paragraph."),
+        "",
+      );
 
       const galleryRouteSource = readFileSync(
         new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
