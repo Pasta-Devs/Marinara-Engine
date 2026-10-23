@@ -136,9 +136,10 @@ MAX_CHUNK_PATCH_CHARS = 90_000
 MAX_INLINE_COMMENT_CHARS = 1_200
 MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
-# A carried candidate's body, cut so MAX_VERIFIED_CANDIDATES of them take about a third of the walkthrough comment's
-# 65,536 characters; their repair contracts are dropped, the last candidate's first, while the entries outgrow
-# MAX_CARRIED_MARKER_CHARS (about 32,000 once encoded).
+# The candidates an examination left unjudged ride in its walkthrough comment (65,536 characters at most) as at most
+# MAX_CARRIED_MARKER_CHARS of JSON, about 32,000 once encoded. A body is cut to MAX_CARRIED_TEXT_CHARS and a title and
+# fix hint to 200 each, so the 19 a recorded examination can leave fit once their repair contracts are dropped, unless
+# their text needs heavy escaping.
 MAX_CARRIED_TEXT_CHARS = 600
 MAX_CARRIED_MARKER_CHARS = 24_000
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
@@ -2644,21 +2645,28 @@ def check_threads(ctx, threads, pool):
 
 def unjudged_entries(candidates):
     """The walkthrough marker's entries for the candidates an examination left unjudged: enough of each for the next
-    one to judge it and, confirmed, publish it with its repair. A cut body ends in an ellipsis."""
+    one to judge it and, confirmed, publish it with its repair. A cut body ends in an ellipsis. Past
+    MAX_CARRIED_MARKER_CHARS the repair contracts go, the least severe candidate's first; entries that outgrow it even
+    then are not carried, and the head stays unrecorded."""
     entries = [
         {
             **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
             "title": compact_state_text(item.title, 200),
             "body": item.body if len(item.body) <= MAX_CARRIED_TEXT_CHARS else item.body[: MAX_CARRIED_TEXT_CHARS - 1].rstrip() + "…",
-            "fix_hint": compact_state_text(item.fix_hint, 260),
+            "fix_hint": compact_state_text(item.fix_hint, 200),
             "repair_contract": compact_contract_for_state(item.repair_contract),
         }
         for item in candidates
     ]
+    def size():
+        return len(json.dumps(entries, separators=(",", ":")))
     for entry in reversed(entries):
-        if len(json.dumps(entries, separators=(",", ":"))) <= MAX_CARRIED_MARKER_CHARS:
+        if size() <= MAX_CARRIED_MARKER_CHARS:
             break
         entry["repair_contract"] = None
+    if size() > MAX_CARRIED_MARKER_CHARS:
+        print(f"Dottore unjudged: {plural(len(entries), 'candidate')} need {size()} characters, over {MAX_CARRIED_MARKER_CHARS}; not carried", flush=True)
+        return []
     return entries
 
 

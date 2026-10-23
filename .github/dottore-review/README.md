@@ -58,8 +58,9 @@ Required** (defects open) and **Specimen Unstable** (a high or blocking defect, 
 Unexamined** means the review did not finish, so nothing is reported as found. **Examination Incomplete** means the
 checker judged some candidates but not all, usually for lack of time: the head is recorded with the unjudged ones, the
 status fails, and the next review is incremental and judges them, with or without new changes, beside its own
-candidates by severity. An unjudged removed line is not carried, so the head stays unrecorded and the next review is
-full; a carried candidate whose file is gone is dropped. A head with no new diff
+candidates by severity. An unjudged removed line, or unjudged candidates too long for the walkthrough comment even
+without their repair contracts, are not carried, so the head stays unrecorded and the next review is full; a carried
+candidate whose file is gone is dropped. A head with no new diff
 since the last examination (a base merge, a repeated `/dottore`) keeps that examination's walkthrough and verdict,
 recorded for the new head; `/dottore full` examines it afresh.
 

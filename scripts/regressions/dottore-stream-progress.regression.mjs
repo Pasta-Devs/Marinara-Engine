@@ -213,6 +213,17 @@ class StreamProgress(unittest.TestCase):
         self.assertLessEqual(len(reviewer.json.dumps(entries, separators=(",", ":"))), reviewer.MAX_CARRIED_MARKER_CHARS)
         self.assertIsNotNone(entries[0]["repair_contract"])
         self.assertIsNone(entries[-1]["repair_contract"])
+        # The 19 a recorded examination can leave fit at full length; text that escapes heavily is not carried.
+        path = "packages/server/src/services/some/deeply/nested/module/file-name-of-typical-length.ts"
+        full = [reviewer.Finding("low", path, 1234, "t" * 300, "b" * 900, "h" * 400, contract) for _ in range(reviewer.MAX_VERIFIED_CANDIDATES - 1)]
+        self.assertEqual(len(reviewer.unjudged_entries(full)), reviewer.MAX_VERIFIED_CANDIDATES - 1)
+        escaped = [reviewer.Finding("low", path, 1234, "é" * 300, "é" * 900, "é" * 400) for _ in range(reviewer.MAX_VERIFIED_CANDIDATES - 1)]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(reviewer.unjudged_entries(escaped), [])
+        self.assertIn("Dottore unjudged: 19 candidates need", out.getvalue())
+        overrun = {"verification": {"rejected": 1, "unverified": 19}, "unjudged_candidates": [], "pre_merge_checks": []}
+        self.assertIn("last-reviewed-sha=unrecorded", reviewer.render_walkthrough(overrun, [], [], [], "a" * 40))
 
     def test_carried_candidates_take_their_place_by_severity_under_the_cap(self):
         carried = [reviewer.Finding("low", "f.py", n, f"Carried {n}", "body", "fix") for n in range(1, reviewer.MAX_VERIFIED_CANDIDATES + 1)]
