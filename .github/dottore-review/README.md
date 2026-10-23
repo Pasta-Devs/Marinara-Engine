@@ -57,7 +57,9 @@ The verdicts: **Viable** (nothing found) and **Viable, With Notes** (nitpicks on
 Required** (defects open) and **Specimen Unstable** (a high or blocking defect, or a failed control) hold it; **Specimen
 Unexamined** means the review did not finish, so nothing is reported as found. **Examination Incomplete** means the
 checker judged some candidates but not all, usually for lack of time: the head is recorded with the unjudged ones, the
-status fails, and the next review is incremental and judges them, with or without new changes. A head with no new diff
+status fails, and the next review is incremental and judges them, with or without new changes, beside its own
+candidates by severity. An unjudged removed line is not carried, so the head stays unrecorded and the next review is
+full; a carried candidate whose file is gone is dropped. A head with no new diff
 since the last examination (a base merge, a repeated `/dottore`) keeps that examination's walkthrough and verdict,
 recorded for the new head; `/dottore full` examines it afresh.
 
@@ -301,7 +303,7 @@ The review deadline stops new work and asks agents to submit; it does not interr
 Each review logs a `Dottore roles:` line with the model, API and effort each role resolved to; a `Dottore review base:`
 line when an incremental review merged the base branch into its diff base; a `Dottore call:` line per model call with
 its tokens, the reply's stop reason, cache use, time and the dollars spent so far; a `Dottore carried:` line when an
-incremental review takes up candidates the last one left unjudged; a `Dottore scout:` line per scout and per packet with the
+incremental review finds candidates the last one left unjudged, with how many it took up and dropped; a `Dottore scout:` line per scout and per packet with the
 places they added; and a `Dottore telemetry:` line with totals by role. The repair job logs an `Autofix:` line with
 Claude Code's turns, time and list price. Use them to compare cost, caching and time between setups.
 

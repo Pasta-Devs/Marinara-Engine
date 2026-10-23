@@ -136,9 +136,11 @@ MAX_CHUNK_PATCH_CHARS = 90_000
 MAX_INLINE_COMMENT_CHARS = 1_200
 MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
-# A carried candidate's text, cut so MAX_VERIFIED_CANDIDATES of them take at most about 25,000 of the walkthrough
-# comment's 65,536 characters.
+# A carried candidate's body, cut so MAX_VERIFIED_CANDIDATES of them take about a third of the walkthrough comment's
+# 65,536 characters; their repair contracts are dropped, the last candidate's first, while the entries outgrow
+# MAX_CARRIED_MARKER_CHARS (about 32,000 once encoded).
 MAX_CARRIED_TEXT_CHARS = 600
+MAX_CARRIED_MARKER_CHARS = 24_000
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
 # Replies stream, so these limit silence on the stream, not the reply: an attempt that sends nothing for
 # this long is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
@@ -2640,6 +2642,26 @@ def check_threads(ctx, threads, pool):
     return results
 
 
+def unjudged_entries(candidates):
+    """The walkthrough marker's entries for the candidates an examination left unjudged: enough of each for the next
+    one to judge it and, confirmed, publish it with its repair. A cut body ends in an ellipsis."""
+    entries = [
+        {
+            **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
+            "title": compact_state_text(item.title, 200),
+            "body": item.body if len(item.body) <= MAX_CARRIED_TEXT_CHARS else item.body[: MAX_CARRIED_TEXT_CHARS - 1].rstrip() + "…",
+            "fix_hint": compact_state_text(item.fix_hint, 260),
+            "repair_contract": compact_contract_for_state(item.repair_contract),
+        }
+        for item in candidates
+    ]
+    for entry in reversed(entries):
+        if len(json.dumps(entries, separators=(",", ":"))) <= MAX_CARRIED_MARKER_CHARS:
+            break
+        entry["repair_contract"] = None
+    return entries
+
+
 def agentic_review(ctx, mode, pool, threads=(), carried=()):
     """Scout, find, merge, then let the checker judge each candidate before it can be posted. The open threads are
     re-judged alongside, once the scouts have filled the bundle, and the candidates carried from the last examination
@@ -2654,20 +2676,17 @@ def agentic_review(ctx, mode, pool, threads=(), carried=()):
     merged["nitpicks"] = (merged["nitpicks"] + [dataclasses.asdict(item) for item in severity_nitpicks])[:2]
     for candidate in carried:
         candidate.packet = next((index for index, chunk in enumerate(ctx.chunks) if candidate.path in chunk), None)
-    confirmed, hypotheses, counts, unjudged = verify_candidates(ctx, [*carried, *claims], pool)
+    # The claims come most severe first and the cap drops the least severe, so the carried candidates take their
+    # place by severity rather than ahead of every claim.
+    severity_rank = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+    ranked = sorted([*carried, *claims], key=lambda item: severity_rank.get(item.severity, 2))
+    confirmed, hypotheses, counts, unjudged = verify_candidates(ctx, ranked, pool)
     ctx.stats["verification"] = counts
     if carried:
         merged.setdefault("what_i_checked", []).append(
             f"Took up {plural(len(carried), 'candidate')} the last examination left unjudged."
         )
-    merged["unjudged_candidates"] = [
-        {
-            **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
-            "title": item.title[:200],
-            "body": item.body[:MAX_CARRIED_TEXT_CHARS],
-        }
-        for item in unjudged
-    ]
+    merged["unjudged_candidates"] = unjudged_entries(unjudged)
     open_questions = hypotheses + merged["open_questions"]
     merged["findings"] = confirmed
     merged["open_questions"] = open_questions[:MAX_OPEN_QUESTIONS]
@@ -3411,13 +3430,14 @@ def render_walkthrough(
     resolved = review_obj.get("resolved_since_last_review") or []
     # An examination that judged some candidates and left others unjudged is recorded with those carried, so the next
     # review is incremental and judges them; the commit status fails on it until then and the head is not discharged.
-    # One that failed or judged none is not recorded, and the next review examines it in full.
+    # One that failed or judged none is not recorded, and the next review examines it in full. So is one that left a
+    # removed line unjudged: its number is in the old file of this examination's diff, which the next one's may not be.
     unjudged = review_obj.get("unjudged_candidates") or []
     counts = review_obj.get("verification") if isinstance(review_obj.get("verification"), dict) else {}
     judged = any(
         isinstance(counts.get(key), int) and counts[key] > 0 for key in ("confirmed", "rejected", "uncertain", "same_as")
     )
-    carried = bool(unjudged) and judged
+    carried = bool(unjudged) and judged and all(entry.get("side") == "RIGHT" for entry in unjudged)
     recorded = head_sha and not has_incomplete_review_check(pre_merge) and (carried or not unexamined_candidates(review_obj))
     state_marker = f"<!-- dottore:last-reviewed-sha={head_sha if recorded else 'unrecorded'} -->"
     # Every graded finding is a defect: a review thread and a hold on the verdict. The notes are the nitpicks.
@@ -3957,17 +3977,19 @@ def discover_last_reviewed_sha(pr_num):
 
 def carried_candidates(pr_num, reviewed):
     """The candidates the examination of `reviewed` left unjudged, read from the walkthrough that recorded it, with
-    their head lines followed to this head."""
-    header = walkthrough_header((latest_walkthrough_comment(pr_num) or {}).get("body"))
+    their head lines followed to this head. One in a file this head no longer has is dropped: its code is gone, and a
+    renamed file is new diff to the finders. A removed line is never recorded unjudged, so it is dropped too."""
+    headers = (walkthrough_header(comment.get("body")) for comment in reversed(sorted_walkthrough_comments(pr_num)))
+    header = next((header for header in headers if reviewed in STATE_MARKER_RE.findall(header)), "")
     encoded = UNJUDGED_RE.findall(header)
-    if not encoded or reviewed not in STATE_MARKER_RE.findall(header):
+    if not encoded:
         return []
     try:
-        entries = json.loads(base64.urlsafe_b64decode(encoded[-1].encode("ascii")).decode("utf-8"))
+        entries = as_list(json.loads(base64.urlsafe_b64decode(encoded[-1].encode("ascii")).decode("utf-8")))
     except Exception:
-        return []
+        entries = []
     carried = []
-    for entry in as_list(entries)[:MAX_VERIFIED_CANDIDATES]:
+    for entry in entries[:MAX_VERIFIED_CANDIDATES]:
         try:
             candidate = normalize_review_item(entry, default_severity="medium")
             candidate.path = tool_path(candidate.path)
@@ -3975,10 +3997,12 @@ def carried_candidates(pr_num, reviewed):
             continue
         if isinstance(candidate.line, bool) or not isinstance(candidate.line, int) or not candidate.title:
             continue
+        if candidate.side != "RIGHT" or not (REPO_ROOT / candidate.path).is_file():
+            continue
         candidate.segment = "carried"
-        if candidate.side == "RIGHT":
-            candidate.line = followed_line(reviewed, candidate.path, candidate.line)
+        candidate.line = followed_line(reviewed, candidate.path, candidate.line)
         carried.append(candidate)
+    print(f"Dottore carried: candidates={len(carried)}; dropped={len(entries) - len(carried)}; from={reviewed[:12]}", flush=True)
     return carried
 
 
@@ -4107,8 +4131,6 @@ def produce_review(args):
     base, effective_mode = review_base_commit(base, base_ref, effective_mode)
     # An incremental review also judges what the last examination left unjudged, new diff or not.
     leftover = carried_candidates(pr_num, reviewed) if effective_mode == "incremental" else []
-    if leftover:
-        print(f"Dottore carried: candidates={len(leftover)}; from={reviewed[:12]}", flush=True)
     patch_command_status_running(pr_num, head_sha, effective_mode)
     files = changed_files(base)
     if not files and effective_mode == "incremental" and not leftover:

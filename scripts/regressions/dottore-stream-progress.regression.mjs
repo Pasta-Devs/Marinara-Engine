@@ -11,7 +11,7 @@ const reviewer =
   process.argv[2] ?? fileURLToPath(new URL("../../.github/dottore-review/dottore_review.py", import.meta.url));
 const proof = String.raw`
 from __future__ import annotations
-import pathlib, subprocess, sys, tempfile, threading, types, unittest
+import contextlib, io, pathlib, subprocess, sys, tempfile, threading, types, unittest
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace as NS
 from unittest.mock import patch
@@ -163,17 +163,19 @@ class StreamProgress(unittest.TestCase):
             lines[10] = "line 8 rewritten"
             pathlib.Path(tree, "f.py").write_text("".join(f"{line}\n" for line in lines))
             git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "new")
+            contract = {"invariant": ["The moved line is guarded."]}
             candidates = [
-                reviewer.Finding("high", "f.py", 5, "Moved", "Lines above it were added.", "fix"),
+                reviewer.Finding("high", "f.py", 5, "Moved", "Lines above it were added.", "fix", contract),
                 reviewer.Finding("medium", "f.py", 8, "Rewritten", "Its line was rewritten.", "fix", packet=None),
                 reviewer.Finding("low", "f.py", 2, "Judged", "The checker rejected it.", "fix"),
+                reviewer.Finding("low", "gone.py", 3, "Gone", "Its file is deleted by the next push.", "fix"),
             ]
             def check(ctx, packet, group):
                 return [("rejected" if item.title == "Judged" else "unverified", item, "", []) for item in group]
             with patch.object(reviewer, "verify_file", check), ThreadPoolExecutor(2) as pool:
                 _, _, counts, unjudged = reviewer.verify_candidates(NS(), candidates, pool)
-            self.assertEqual(sorted(item.title for item in unjudged), ["Moved", "Rewritten"])
-            entries = [{"severity": c.severity, "path": c.path, "line": c.line, "side": c.side, "title": c.title, "body": c.body} for c in unjudged]
+            self.assertEqual(sorted(item.title for item in unjudged), ["Gone", "Moved", "Rewritten"])
+            entries = reviewer.unjudged_entries(unjudged)
             partial = {"verification": counts, "unjudged_candidates": entries, "pre_merge_checks": []}
             body = reviewer.render_walkthrough(partial, [], [], [], old)
             self.assertIn(f"last-reviewed-sha={old} -->", body)
@@ -182,11 +184,53 @@ class StreamProgress(unittest.TestCase):
             body_none = reviewer.render_walkthrough(none_judged, [], [], [], old)
             self.assertIn("last-reviewed-sha=unrecorded", body_none)
             self.assertNotIn("dottore:unjudged=", body_none)
-            with patch.object(reviewer, "latest_walkthrough_comment", lambda pr: {"body": body}), \
-                    patch.object(reviewer, "REPO_ROOT", pathlib.Path(tree)):
+            # A removed line is numbered in this examination's old file, so leaving one unjudged leaves the head unrecorded.
+            removed = {**partial, "unjudged_candidates": [*entries, {**entries[0], "side": "LEFT"}]}
+            self.assertIn("last-reviewed-sha=unrecorded", reviewer.render_walkthrough(removed, [], [], [], old))
+            # A failed review posted after the recorded one does not hide the candidates of the head the base comes from.
+            walkthroughs = [{"body": body}, {"body": body_none}]
+            out = io.StringIO()
+            with patch.object(reviewer, "sorted_walkthrough_comments", lambda pr: walkthroughs), \
+                    patch.object(reviewer, "REPO_ROOT", pathlib.Path(tree)), contextlib.redirect_stdout(out):
                 carried = reviewer.carried_candidates("1", old)
                 self.assertEqual(reviewer.carried_candidates("1", "0" * 40), [])
+            self.assertEqual(out.getvalue().count("Dottore carried:"), 1)
+            self.assertIn(f"Dottore carried: candidates=2; dropped=1; from={old[:12]}", out.getvalue())
             self.assertEqual(sorted((c.title, c.line, c.segment) for c in carried), [("Moved", 8, "carried"), ("Rewritten", 11, "carried")])
+            moved = next(c for c in carried if c.title == "Moved")
+            self.assertEqual((moved.fix_hint, moved.repair_contract), ("fix", contract))
+            # Confirmed without new prose, the carried candidate is published with its repair.
+            verdict = {"verdict": "confirmed", "evidence": [{"path": "f.py", "line": 8, "snippet": "line 5"}]}
+            with patch.object(reviewer, "evidence_grounded", lambda ctx, evidence: True):
+                outcome, finding, _, _ = reviewer.judge(NS(anchorable={}), moved, verdict)
+            self.assertEqual((outcome, finding.fix_hint, finding.repair_contract), ("confirmed", "fix", contract))
+
+    def test_carried_entries_mark_a_cut_body_and_fit_their_budget(self):
+        contract = {key: ["y" * 400] * 5 for key in ("invariant", "related_failure_paths", "adjacent_traps", "acceptable_fix_shapes", "expected_proof")}
+        candidates = [reviewer.Finding("low", "f.py", n, "T", "x" * 700, "fix", contract) for n in range(1, reviewer.MAX_VERIFIED_CANDIDATES + 1)]
+        entries = reviewer.unjudged_entries(candidates)
+        self.assertEqual((len(entries[0]["body"]), entries[0]["body"][-1]), (reviewer.MAX_CARRIED_TEXT_CHARS, "…"))
+        self.assertLessEqual(len(reviewer.json.dumps(entries, separators=(",", ":"))), reviewer.MAX_CARRIED_MARKER_CHARS)
+        self.assertIsNotNone(entries[0]["repair_contract"])
+        self.assertIsNone(entries[-1]["repair_contract"])
+
+    def test_carried_candidates_take_their_place_by_severity_under_the_cap(self):
+        carried = [reviewer.Finding("low", "f.py", n, f"Carried {n}", "body", "fix") for n in range(1, reviewer.MAX_VERIFIED_CANDIDATES + 1)]
+        fresh = reviewer.Finding("high", "f.py", 99, "Fresh", "body", "fix")
+        judged = []
+        def check(ctx, packet, group):
+            judged.extend(item.title for item in group)
+            return [("rejected", item, "", []) for item in group]
+        ctx = NS(chunks=[["f.py"]], stats={}, base="base")
+        with patch.object(reviewer, "scout_bundles", lambda ctx, pool: (0, 0)), \
+                patch.object(reviewer, "check_threads", lambda ctx, threads, pool: lambda: []), \
+                patch.object(reviewer, "run_finders", lambda ctx: []), \
+                patch.object(reviewer, "validate_review_items", lambda review, base: ([fresh], [], [])), \
+                patch.object(reviewer, "verify_file", check), ThreadPoolExecutor(2) as pool:
+            review = reviewer.agentic_review(ctx, "incremental", pool, carried=carried)
+        self.assertIn("Fresh", judged)
+        self.assertNotIn(f"Carried {reviewer.MAX_VERIFIED_CANDIDATES}", judged)
+        self.assertEqual(review["verification"]["capped"], 1)
 
 unittest.main(argv=["dottore-stream-progress"], verbosity=2)
 `;
