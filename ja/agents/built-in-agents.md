@@ -270,7 +270,7 @@ Roleplayチャットごとに、短く編集可能な記憶保管庫を維持し
 
 - **フェーズ**: Post-Processing。
 - **使える場所**: Roleplay。
-- **主な設定**: デフォルトではユーザーとアシスタントのメッセージ5回に1度動き、Roleplayのチャットごとにカードの**Run Interval**(実行間隔)で変更できます。設定には**Prompt Model**、**Image Style**、**Attach Card Appearance**、**Send Avatar References**があります。詳しい設定方法は[Illustratorエージェント](../media/illustrator-agent.md)を参照してください。
+- **主な設定**: Illustratorはデフォルトでユーザーとアシスタントのメッセージ5回に1度動きます。Roleplayのチャットごとにカードの**Image Run Interval**(画像の実行間隔)で変更できます。**Illustrator makes**が**Pictures and clips**または**Clips only**の場合、自動クリップには**Video Run Interval**(動画の実行間隔)を使います。自動クリップをオフにするには**Video Run Interval**を**0**にしてください。設定には**Prompt Model**、**Image Style**、**Attach Card Appearance**、**Send Avatar References**があります。詳しい設定方法は[Illustratorエージェント](../media/illustrator-agent.md)を参照してください。
 
 ### Lorebook Keeper
 

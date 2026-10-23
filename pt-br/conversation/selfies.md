@@ -114,6 +114,13 @@ O personagem também pode enviar um clipe de vídeo curto para você. Digite `/v
 
 Configure isso em **Chat Settings**, **Agents**, **Illustrator Settings**, na seção **Video messages** (mensagens de vídeo):
 
+- **Generated Videos** (vídeos automáticos) permite que os personagens enviem uma mensagem de vídeo por conta própria quando ela combinar com a conversa.
+  - Como em `/video`, o clipe é escrito a partir da conversa recente, para que um clipe solicitado mostre o que você pediu.
+  - A opção começa desligada em chats novos, pois cada clipe é uma solicitação de vídeo. Ligue aqui ou salve em um perfil de configurações para ativá-la em chats novos. O mesmo botão aparece como **Videos** na lista **Commands** da configuração de novos chats e de Chat Settings.
+  - **Video Run Interval** (mostrado depois de ligar) define quantas mensagens devem passar entre esses clipes. **0** os interrompe.
+  - `/video` e o botão **Video** da Gallery funcionam nos dois casos e ignoram o intervalo.
+  - Ao deslizar uma resposta que enviou um clipe, a nova alternativa pode enviar seu próprio clipe.
+  - Em um chat em grupo, cada personagem pode enviar um clipe por resposta, até **Videos per reply** (3 por padrão), em **Settings**, **Generations**, **Video Generation**.
 - O campo **Video Connection** (conexão de vídeo) escolhe a conexão de Video Generation. Deixe em **Default video connection** (conexão de vídeo padrão) para usar a sua conexão padrão. As **Video Prompting Instructions** (instruções de prompt de vídeo) de uma conexão orientam a IA que escreve o prompt do vídeo.
 - O campo **First frame** (primeiro quadro) escolhe a imagem de onde o clipe parte:
   - A opção padrão, **New selfie, or the avatar if no selfie connection** (nova selfie ou o avatar, se não houver conexão de selfie), cria uma selfie nova quando as selfies estão ativadas e há uma **Selfie Connection** definida; caso contrário, usa o avatar.

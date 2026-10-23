@@ -191,6 +191,8 @@ El ajuste principal de video de escena aquí es **Scene video fallback length** 
 
 Esta sección también contiene **Video Generation Prompt Overrides**, donde puedes editar las plantillas de prompt de video reutilizables. **Roleplay Gallery Animation Director** controla las instrucciones que se envían al Prompt Model seleccionado antes de generar un clip de la **Gallery** en Roleplay. Su variable `${durationSeconds}` se reemplaza con la duración de clip seleccionada. Esta es la forma avanzada de cambiar cómo se mueven los clips sin editar código.
 
+**Videos per reply** (videos por respuesta) establece cuántos mensajes de video pueden enviar los personajes de Conversation por iniciativa propia en una respuesta y cuántos clips añade Illustrator a una respuesta de Roleplay. El valor predeterminado es 3 y puedes elegir de 1 a 10. Cada personaje de Conversation envía como máximo uno. Sirve para chats grupales, donde varios personajes contestan en una respuesta, y para cuando pides varios videos a la vez. Auméntalo para permitir que más personajes envíen un clip; redúcelo para ahorrar solicitudes de video, ya que cada clip es una. Los clips que superen el límite se omiten. `/video` y el botón **Video** de la Gallery no cuentan para este límite.
+
 La misma sección tiene un ajuste **Animated expression length** (Duración de la expresión animada). Ese pertenece a una función aparte, los sprites (imágenes del personaje) de retrato animado. Consulta [Expresiones animadas](animated-expressions.md) para esa función.
 
 ## Storyboards

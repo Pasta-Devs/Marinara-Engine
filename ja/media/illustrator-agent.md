@@ -69,12 +69,43 @@ Roleplayのチャットの**Chat Settings**(チャット設定)では、**Attach
 
 - **Off**(オフ)
 - **Images only**(画像のみ): 通常の動作です。
-- **Videos only**(動画のみ): Galleryから作るクリップに、その動きの指示に名前が出てくるキャラクターの外見の記述が追加されます。
+- **Videos only**(動画のみ): クリップに映るキャラクターの外見の記述を追加します。特に、その姿を示す画像がない**Prompt only**のクリップで重要です。
 - **Images and videos**(画像と動画): 両方を行います。
 
 **Attach Card Appearance**がオンのとき、カードやペルソナの**Image Appearance Override**(画像用の外見指定)もオンで、その欄に内容が入力されていれば、**Appearance**の代わりにそちらの文章を送ります。物語を書くモデル向けの**Appearance**が画像モデルには伝わりにくいときに便利です。詳しい説明は**Appearance**に残し、画像用の欄には短いタグ形式の説明を入力してください。スイッチがオフの場合や欄が空の場合は、画像プロンプトにも引き続き**Appearance**を使います。どちらの場合も、物語を書くモデルには**Appearance**の全文が送られます。このスイッチは、キャラクターとペルソナのエディターの**Appearance**の下にあります。
 
-**Send Avatar References**(アバターを参照画像として送信)は、キャラクターとペルソナのアバター、またはそのスプライトを、参照画像として画像プロバイダーに送ります。ヘルプの文言は「Send matching character and persona avatars or sprites as reference images when the provider supports them.」です。顔立ちや衣装を画像モデルに真似させたいときに役立ちます。参照画像に対応していないプロバイダーもあるため、効果は選んだプロバイダーによって変わります。Roleplayのクリップはすでに画像から始まるため、Roleplayではこの設定はトグルのままで、画像にだけ影響します。
+**Send Avatar References**(アバターを参照画像として送信)は、キャラクターとペルソナのアバター、またはそのスプライトを、参照画像として画像プロバイダーに送ります。ヘルプの文言は「Send matching character and persona avatars or sprites as reference images when the provider supports them.」です。顔立ちや衣装を画像モデルに真似させたいときに役立ちます。参照画像に対応していないプロバイダーもあるため、効果は選んだプロバイダーによって変わります。Roleplayのチャットでは**Attach Card Appearance**と同じドロップダウンになります。動画を含めると、**First frame**が**Prompt only**のクリップは画像なしではなくキャラクターのアバターかスプライトから始まり、選択肢は**Prompt only (avatar from Send Avatar References)**に変わります。プロンプトだけからクリップを作るには動画を対象から外してください。
+
+<a id="generated-videos"></a>
+
+## 自動動画
+
+Roleplayのチャットでは、**Chat Settings**、**Agents**、**Illustrator**に**Illustrator makes**(Illustratorが作るもの)があります。
+
+- **Pictures**(デフォルト): これまでと同じく画像だけです。
+- **Pictures and clips**: アクション、暴力、追跡、物が壊れる場面など、動きが中心になる瞬間には、Illustratorが作成直後の画像に短いクリップを追加することもあります。動画接続の**Video Prompting Instructions**に従い、動きを自ら記述します。先に画像が表示され、完成したクリップは同じメッセージに追加されます。
+- **Clips only**: Illustratorが画像を表示するはずの場面で、代わりに短いクリップを表示します。クリップ用の画像を描く場合は、それが開始フレームになり、返信ではなくGalleryに保存されます。その場合、クリップが失敗すると代わりにその画像が表示されます。
+
+クリップは**Scene Videos**の**Video Connection**を使い、1本ごとに動画リクエストになります。使える動画接続がなければ、**Clips only**でもIllustratorは代わりに画像を作ります。画像を作成するカスタムエージェントも同じ設定に従います。
+
+**Video Run Interval**はIllustratorでクリップを作るときに表示され、1本作ってから次までに必要なユーザーとアシスタントのメッセージ数を設定します。画像の作成頻度を決める**Image Run Interval**とは別です。
+
+- **Clips only**: Illustratorの実行は毎回クリップになります。Video Run Intervalが実行頻度を決め、Image Run Intervalは非表示になります。
+- **デフォルト**: チャットに独自の値がなければ、Illustratorカードの**Open Setup**画面にある**Video Run Interval**を使います。そこにもなければ5です。
+- **0**: Illustratorは自発的にクリップを作りません。語り手が`[illustrate]`で求めた画像のクリップも対象となり、代わりに画像を表示します。
+- **上限**: 1返信のクリップ数は**Videos per reply**までです(**Settings**、**Generations**、**Video Generation**)。
+- **手動クリップ**: Galleryから画像をアニメーションにすることは引き続き可能です。**Clips only**では、メッセージの**Illustrate**ボタンでクリップを作ります。
+- **スワイプ**: クリップ付き返信のスワイプは新しい返信として数えます。新しいスワイプには独自のクリップを付けられ、以前のスワイプは元のクリップを保持します。
+
+**First frame**はIllustratorでクリップを作るときに表示され、各クリップの開始画像を決めます。新しいIllustrator画像、名前を挙げたキャラクターのアバターかスプライト、画像がなければアバター、または画像なしを選べます。Conversationチャットの動画メッセージと同じ設定です。
+
+- アバターまたは画像なしの**Clips only**: 画像は一切描かれません。Illustratorが記述した場面と動きからクリップを作ります。
+- **Pictures and clips**: 画像は引き続き表示され、クリップだけがアバターまたは画像なしから始まります。
+- 開始フレーム未選択: クリップのためだけに画像を描くことはありません。**Pictures and clips**はIllustratorが作った直後の画像をアニメーションにし、**Clips only**は場面だけからクリップを作ります。
+
+独自の画像がないクリップでは、ペルソナを含め、名前を挙げる全員を描写します。アバターを開始フレームにする場合は最初に名前を挙げた人物を使います。
+
+メッセージの**Illustrate**ボタンでIllustratorを再実行するときも**Illustrator makes**と**First frame**に従います。**Clips only**では画像の代わりにクリップを作り、**Pictures and clips**では動きが中心になる場面にクリップを追加することがあります。
 
 ## NovelAIで複数のキャラクターを描く
 
@@ -92,9 +123,9 @@ Illustratorの画像接続がNovelAIのV4、V4.5、V5モデルを使う場合、
 
 Illustratorのカードには**Open Setup**ボタンがあります。押すとエージェントのフル設定画面が開き、実行の頻度のデフォルトを設定したり、専用の画像の接続を指定したりできます。
 
-Roleplayの各チャットには、**Chat Settings**のIllustratorのカードに、そのチャット専用の**Run Interval**(実行間隔)があります。ヘルプの文言は「Messages between automatic images in this chat. 0 means only when you ask.」です。値を設定していないチャットでは、設定画面の**Run Interval**を使います。変更しないかぎり、この値は**5**です。カードには**Using agent default**または**Chat override**と表示されます。設定画面の値に戻すには、**Use agent default**(エージェントのデフォルトを使う)を押します。Illustratorをチャットに追加するときは、追加用のウィンドウにも同じ欄が表示され、選んだ値はそのチャットにだけ保存されます。
+Roleplayの各チャットには、**Chat Settings**のIllustratorのカードに、そのチャット専用の**Image Run Interval**(実行間隔)があります。ヘルプの文言は「Messages between automatic images in this chat. 0 means only when you ask.」です。値を設定していないチャットでは、設定画面の**Image Run Interval**を使います。変更しないかぎり、この値は**5**です。カードには**Using agent default**または**Chat override**と表示されます。設定画面の値に戻すには、**Use agent default**(エージェントのデフォルトを使う)を押します。Illustratorをチャットに追加するときは、追加用のウィンドウにも同じ欄が表示され、選んだ値はそのチャットにだけ保存されます。
 
-手動生成専用にするには、**Run Interval**を**0**に設定します。シーン背景の自動生成を含むIllustratorの自動実行が停止しますが、エージェントはインストールされたままGalleryの操作で利用できます。自動実行を再開するには正の値を設定してください。
+画像を手動生成専用にするには、**Image Run Interval**を**0**に設定します。シーン背景を含むIllustratorの画像の自動生成が停止します。**Clips only**で自動クリップを停止するには、代わりに**Video Run Interval**を**0**に設定してください。エージェントはインストールされたままGalleryの操作で利用できます。画像の自動生成を再開するには画像の間隔を正の値にしてください。
 
 生成を待たずに、その場で1枚描かせることもできます。**Chat Settings**を開き、**Gallery**セクションを展開して、**Illustrate**(イラストを生成)ボタンを押します。Illustratorがすぐに1回だけ動き、処理中はボタンの表示が**Generating...**に変わります。今この瞬間の絵がほしいのに、エージェントがまだ描いていないときに便利です。
 

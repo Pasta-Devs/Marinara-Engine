@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "507830a8a8b27360d4c4aa6d56438f66037519f7",
+  "sourceCommit": "bf791797fac694d1351bf1ff1a4828dfcff4d998",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "3254e9bc0d65586bd9d8edfe063049f7acb8d32be10b35ac75ca5c93d447db1f",
-      "bytes": 61119
+      "sha256": "f2fd1487e4189398a5144210d435a5b5fd24a8469cedafd3b3a6d2fff530d316",
+      "bytes": 61484
     },
     {
       "path": "agents/custom-agents.md",
@@ -279,8 +279,8 @@
     },
     {
       "path": "conversation/selfies.md",
-      "sha256": "4ebddafff67c9840764300fbc3dcfe424cb9a190a926d3656ca7ea087c84ce1b",
-      "bytes": 20664
+      "sha256": "faa03b9ef3c79ce580fac73dab265d2a69fdc6242e5443d3b797f970e70c7089",
+      "bytes": 22422
     },
     {
       "path": "conversation/table-games.md",
@@ -594,8 +594,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "ab60e9f04e3e6827809f6bd61180ec8b26e86c66796f5783442c0eeabda5db41",
-      "bytes": 22611
+      "sha256": "eac63628c3ee0f5ad04a3305363e66abcf74b49e8d88240934df7d027c74dec7",
+      "bytes": 28708
     },
     {
       "path": "media/image-providers.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "e8d9666e86f7aa5195adf6e7d1e7961c8dde83ec2e79e8994475125e25011223",
-      "bytes": 36142
+      "sha256": "f3e093449ea9f9280450c35c89fb2fe55aae22d666cd042382b8397d1bcab745",
+      "bytes": 37255
     },
     {
       "path": "media/style-profiles.md",
