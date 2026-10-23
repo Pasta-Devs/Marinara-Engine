@@ -82,6 +82,7 @@
 | `/random` | `/rand`、`/event` | 让 AI 给故事加一个意外事件。 |
 | `/scene [description (optional)]` | `/rp` | 在 Conversation 聊天里运行。从这段对话分支出一个新的 Roleplay 场景。 |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | 为当前聊天生成一张图库图像。 |
+| `/video [description (optional)]` | | Roleplay：为最新回复或指定描述生成短片，显示在这条回复下方。它遵循 Illustrator 的 **First frame**(首帧) 设置。在 Conversation 中，`/video` 则会发送视频消息（见下文）。 |
 | `/impersonate [direction (optional)]` | `/imp` | 以用户角色的身份写一条回复。 |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | 设定本聊天里 `/impersonate` 使用的指示内容。 |
 

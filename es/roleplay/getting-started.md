@@ -141,6 +141,14 @@ El narrador también deja de recibir las notas de un personaje cuando este se de
 
 También puedes guardar una nota en un solo mensaje. Elige **Bookmark, pin or note** (marcar, fijar o añadir una nota) debajo del mensaje y escribe una **Private note** (nota privada). La nota sigue siendo privada y nunca se envía al modelo a menos que actives **Show the note to the narrator character** (mostrar la nota al personaje narrador) y elijas un personaje. Solo ese personaje recibe entonces la nota junto al mensaje; ningún otro la recibe. Para compartirla necesitas un chat con un solo personaje o la generación grupal **Individual**, porque una respuesta grupal combinada se escribe para todos los personajes a la vez. **Remove note** (eliminar nota) también deja de compartirla.
 
+<a id="video-clips"></a>
+
+## Clips de video
+
+En **Chat Settings → Agents → Roleplay Commands** (Ajustes del chat → Agentes → Comandos de Roleplay), activa **Video clips** (Clips de video) para que los personajes puedan pedir un clip corto de un momento clave en vez de una imagen fija. Empieza desactivado y necesita el agente **Illustrator** en el chat y una conexión de video en **Scene Videos** (Videos de escena) de Illustrator.
+
+El modelo usa `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` y recibe la instrucción de preferirlo a `[illustrate]` cuando el momento trata sobre movimiento. El inicio del clip sigue el ajuste **First frame** (Primer fotograma) de Illustrator: una imagen nueva del momento creada por Illustrator, el avatar o sprite del personaje nombrado, o ninguna imagen. El clip se reproduce en la respuesta cuando está listo. Solo se ofrece mientras **Video Run Interval** (Intervalo entre videos) permite un clip y cuenta para **Videos per reply** (Videos por respuesta), igual que los propios clips de Illustrator.
+
 ## Interrupciones de personajes
 
 En **Chat Settings → Agents → Roleplay Commands**, activa **Interruptions** (interrupciones) para permitir que los personajes corten el último mensaje cuando sea plausible una intervención verbal o física. Está desactivado inicialmente y no necesita ningún agente descargable.

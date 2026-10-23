@@ -82,6 +82,7 @@
 | `/random` | `/rand`, `/event` | AI से कहानी में कोई अचानक घटना जुड़वाता है। |
 | `/scene [description (optional)]` | `/rp` | Conversation चैट से चलता है। उसी Conversation से अलग होकर नया Roleplay सीन शुरू करता है। |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | मौजूदा चैट के लिए गैलरी इमेज जेनरेट करता है। |
+| `/video [description (optional)]` | | Roleplay: सबसे नए जवाब की, या आपके बताए सीन की छोटी क्लिप उसी जवाब के नीचे बनाता है। यह Illustrator की **First frame** सेटिंग के मुताबिक चलता है। Conversation में `/video` इसके बजाय वीडियो संदेश भेजता है (नीचे देखें)। |
 | `/impersonate [direction (optional)]` | `/imp` | आपके पर्सोना की तरफ़ से जवाब लिखता है। |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | तय करता है कि इस चैट में `/impersonate` किस निर्देश पर चले। |
 

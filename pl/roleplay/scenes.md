@@ -28,13 +28,19 @@ Wykonaj kolejno te kroki:
 ```
 
 3. Naciśnij Enter. Otwiera się okno **Scene Prompt Setup** (konfiguracja promptu sceny).
-4. Wybierz **Prompt preset** (preset promptu) dla nowej sceny lub pozostaw **None** (brak). Aplikacja Marinara Engine zapamiętuje ten wybór dla kolejnej sceny. Instrukcje samej sceny nadal obowiązują obok wybranego presetu.
+4. Wybierz **Prompt preset** (preset promptu) dla nowej sceny lub pozostaw **None** (brak), żeby użyć presetu z twojego profilu ustawień Roleplay oznaczonego gwiazdką. Aplikacja Marinara Engine zapamiętuje ten wybór dla kolejnej sceny. Instrukcje samej sceny nadal obowiązują obok presetu.
 5. W sekcji **POV** wybierz sposób narracji: **First Person**, **Second Person** albo **Third Person**.
 6. W sekcji **Tense** wybierz **Past**, **Present** albo **Future**.
 7. W polu **Extra instructions** (dodatkowe wskazówki) możesz wpisać uwagi, które pokierują sceną.
 8. Kliknij przycisk **Plan Scene**.
 
 Marinara planuje scenę i otwiera ją jako nowy czat roleplay. Nowa scena pojawia się na liście czatów i otwiera się automatycznie, a wiadomość otwierająca opisuje sytuację. Jeśli w oknie konfiguracji zmienisz zdanie, kliknij przycisk **Cancel** – wtedy żadna scena nie powstanie.
+
+Nowa scena przejmuje ustawienia z twojego profilu ustawień Roleplay oznaczonego gwiazdką, tak jak każdy nowy czat Roleplay. Jej początek działa tak:
+
+- Opis sceny jest osobną wiadomością narratora, publikowaną przed wiadomością otwierającą.
+- Przy jednej postaci wiadomość otwierająca jest napisana jej głosem. Wypowiadane na głos słowa są ujęte w podwójne cudzysłowy, chyba że twoje instrukcje pisania określają inny styl.
+- W scenie grupowej początek jest zgodny z trybem grupy w profilu. W trybie scalonym (domyślnym) jeden głos narratora wypowiada się za wszystkich. W trybie **Individual** (indywidualnym) wiadomość otwierającą pisze postać rozpoczynająca scenę.
 
 Scenę da się też rozpocząć bez opisu. Wpisz samą komendę, jeśli w czacie Conversation jest już dość historii, na której można się oprzeć.
 

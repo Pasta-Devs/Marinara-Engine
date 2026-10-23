@@ -143,6 +143,14 @@ Der Erzähler erhält auch die Notizen eines Charakters nicht mehr, sobald diese
 
 Du kannst auch eine Notiz zu einer einzelnen Nachricht speichern. Wähle unter der Nachricht **Bookmark, pin or note** (Lesezeichen, anheften oder Notiz) und schreibe eine **Private note** (private Notiz). Sie bleibt privat und wird nie an das Modell gesendet, solange du nicht **Show the note to the narrator character** (Notiz dem Erzählercharakter zeigen) aktivierst und einen Charakter auswählst. Nur dieser Charakter erhält die Notiz dann direkt bei der zugehörigen Nachricht, kein anderer. Zum Teilen brauchst du einen Einzelchat oder die Gruppengenerierung **Individual**, weil eine zusammengeführte Gruppenantwort für alle Charaktere zugleich geschrieben wird. **Remove note** (Notiz entfernen) beendet auch das Teilen der Notiz.
 
+<a id="video-clips"></a>
+
+## Videoclips
+
+Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **Video clips** (Videoclips), damit Charaktere statt eines Standbilds einen kurzen Videoclip eines wichtigen Moments anfordern können. Die Option ist standardmäßig aus und benötigt den Agenten **Illustrator** im Chat sowie eine Videoverbindung unter Illustrators **Scene Videos** (Szenenvideos).
+
+Das Modell verwendet `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` und wird angewiesen, dies gegenüber `[illustrate]` zu bevorzugen, wenn die Bewegung den Moment ausmacht. Womit der Clip beginnt, richtet sich nach Illustrators Einstellung **First frame** (Startbild): einem neuen Illustrator-Bild des Moments, dem Avatar oder Sprite des genannten Charakters oder keinem Bild. Sobald der Clip fertig ist, wird er in der Antwort abgespielt. Die Option wird nur angeboten, wenn **Video Run Interval** (Abstand zwischen Videos) einen Clip zulässt, und zählt wie Illustrators eigene Clips zur Grenze **Videos per reply** (Videos pro Antwort).
+
 ## Unterbrechungen durch Charaktere
 
 Aktiviere unter **Chat Settings → Agents → Roleplay Commands** die Option **Interruptions** (Unterbrechungen), damit Charaktere die letzte Nachricht bei einem plausiblen verbalen oder körperlichen Eingreifen abbrechen können. Die Funktion ist zunächst ausgeschaltet und benötigt keinen herunterladbaren Agenten.

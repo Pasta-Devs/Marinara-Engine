@@ -141,6 +141,14 @@ Narrator przestaje też otrzymywać notatki postaci, gdy jest ona wyłączona lu
 
 Możesz też zapisać notatkę przy pojedynczej wiadomości. Wybierz **Bookmark, pin or note** (dodaj zakładkę, przypnij lub dodaj notatkę) pod wiadomością i wpisz **Private note** (prywatną notatkę). Pozostaje ona prywatna i nigdy nie trafia do modelu, chyba że włączysz **Show the note to the narrator character** (pokaż notatkę postaci narratora) i wybierzesz postać. Wtedy tylko ta postać otrzyma notatkę obok wiadomości; żadna inna jej nie otrzyma. Udostępnianie wymaga czatu z jedną postacią lub generowania grupowego **Individual**, ponieważ scalona odpowiedź grupy jest pisana dla wszystkich postaci naraz. **Remove note** (usuń notatkę) również kończy jej udostępnianie.
 
+<a id="video-clips"></a>
+
+## Klipy wideo
+
+W sekcji **Chat Settings → Agents → Roleplay Commands** (ustawienia czatu → agenci → komendy Roleplay) włącz **Video clips** (klipy wideo), żeby postacie mogły poprosić o krótki klip ważnego momentu zamiast nieruchomego obrazu. Opcja jest domyślnie wyłączona. Wymaga agenta **Illustrator** w czacie i połączenia wideo w jego sekcji **Scene Videos** (wideo sceny).
+
+Model używa `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]` i otrzymuje instrukcję, żeby wybierać tę komendę zamiast `[illustrate]`, gdy najważniejszy jest ruch. O tym, od czego zaczyna się klip, decyduje ustawienie **First frame** (pierwsza klatka) agenta Illustrator: nowy obraz danego momentu, awatar lub sprite wymienionej postaci albo brak obrazu. Gotowy klip odtwarza się w odpowiedzi. Model dostaje tę możliwość tylko wtedy, gdy ustawienie **Video Run Interval** (odstęp między klipami) pozwala na klip. Klip wlicza się w limit **Videos per reply** (liczba klipów na odpowiedź), tak samo jak własne klipy agenta Illustrator.
+
 ## Przerywanie wypowiedzi i działań
 
 W sekcji **Chat Settings → Agents → Roleplay Commands** włącz **Interruptions** (przerywanie), aby postacie mogły przerwać ostatnią wiadomość, gdy słowna lub fizyczna interwencja jest wiarygodna. Opcja jest domyślnie wyłączona i nie wymaga pobieranego agenta.

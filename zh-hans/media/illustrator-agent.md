@@ -83,7 +83,7 @@ Illustrator 卡片上有两项设置，能让角色形象保持一致。两项�
 在 Roleplay 聊天的 **Chat Settings**、**Agents**、**Illustrator** 中，有一个 **Illustrator makes**(Illustrator 生成内容) 设置：
 
 - **Pictures**(默认)：和以前一样，只生成图片。
-- **Pictures and clips**：当动作是场景重点时，例如打斗、暴力、追逐或物体破碎，Illustrator 还可以为刚生成的图片添加一段短片。它会按照视频连接的 **Video Prompting Instructions** 自行编写动作。图片先显示，短片完成后会加入同一条消息。
+- **Pictures and clips**：当动作是场景重点时，例如打斗、暴力、追逐或物体破碎，Illustrator 还可以为刚生成的图片添加一段短片。这也包括旁白通过 `[illustrate]` 请求的图片。它会按照视频连接的 **Video Prompting Instructions** 自行编写动作。图片先显示，短片完成后会加入同一条消息。
 - **Clips only**：每当 Illustrator 原本要显示图片时，改为显示短片。如果为短片绘制了图片，这张图片会成为起始帧，存入 Gallery，而不出现在回复中。这种情况下，如果短片失败，就改为显示这张图片。
 
 短片使用 **Scene Videos** 下的 **Video Connection**，每段短片都是一次视频请求。没有可用的视频连接时，即使选择 **Clips only**，Illustrator 也会改为生成图片。生成图片的自定义智能体也遵循同一个设置。
@@ -97,11 +97,11 @@ Illustrator 卡片上有两项设置，能让角色形象保持一致。两项�
 - **手动短片**：仍然可以从 Gallery 把图片制作成动画。选择 **Clips only** 时，消息上的 **Illustrate** 按钮会生成短片。
 - **滑动候选**：为带有短片的回复切换候选会算作新回复。新候选可以有自己的短片，之前的候选保留原短片。
 
-**First frame** 在 Illustrator 生成短片时显示，决定它生成的每段短片从什么开始：新的 Illustrator 图片、被点名角色的头像或立绘、优先图片并用头像作为后备，或完全没有图片。它与 Conversation 聊天视频消息使用的是同一个设置。
+**First frame** 位于同一区域，决定每段 Roleplay 短片从什么开始，包括 Illustrator 自己生成的短片、`/video` 和 Gallery 的 **Video** 按钮。选项有新的 Illustrator 图片、被点名角色的头像或立绘、优先图片并用头像作为后备，或完全没有图片。它与 Conversation 聊天视频消息使用的是同一个设置。
 
 - **Clips only** 搭配头像或无图片：完全不画图片，直接根据 Illustrator 描述的场景和动作制作短片。
 - **Pictures and clips**：图片仍然显示，只是短片从头像开始或不使用图片。
-- 未选择起始帧：短片不会专门为自己生成一张图片。**Pictures and clips** 把 Illustrator 刚生成的图片制作成动画，**Clips only** 则仅根据场景制作短片。
+- 未选择起始帧：短片不会专门为自己生成一张图片。**Pictures and clips** 把 Illustrator 刚生成的图片制作成动画，而 **Clips only**、`/video` 和 Gallery 的 **Video** 按钮仅根据场景制作短片。
 
 没有自身图片的短片会描述它点名的所有人，包括用户角色。头像起始帧使用最先被点名的人。
 

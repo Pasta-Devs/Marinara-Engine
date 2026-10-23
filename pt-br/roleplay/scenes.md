@@ -28,13 +28,19 @@ Siga estes passos:
 ```
 
 3. Pressione Enter. A janela **Scene Prompt Setup** (preparação do prompt da cena) abre.
-4. Escolha um **Prompt preset** (predefinição de prompt) para a nova cena ou mantenha **None** (nenhum). Marinara lembra essa escolha para a próxima cena. As instruções da própria cena continuam valendo junto com a predefinição selecionada.
+4. Escolha um **Prompt preset** (predefinição de prompt) para a nova cena ou mantenha **None** (nenhum) para usar a predefinição do perfil de configurações de Roleplay marcado com estrela. Marinara lembra essa escolha para a próxima cena. As instruções da própria cena continuam valendo junto com a predefinição.
 5. Na seção **POV**, escolha o enquadramento da narração: **First Person**, **Second Person** ou **Third Person**.
 6. Na seção **Tense**, escolha **Past**, **Present** ou **Future**.
 7. Se quiser, escreva observações no campo **Extra instructions** para direcionar a cena.
 8. Clique em **Plan Scene**.
 
 Marinara planeja a cena e abre tudo como um novo chat de roleplay. A cena nova aparece na lista de chats e abre sozinha, já com uma mensagem de abertura que apresenta a situação. Mudou de ideia na janela de preparação? Clique em **Cancel** e nenhuma cena é criada.
+
+A nova cena parte do perfil de configurações de Roleplay marcado com estrela, como qualquer novo chat de Roleplay. A abertura funciona assim:
+
+- A descrição da cena aparece como uma mensagem própria do narrador, publicada antes da abertura.
+- Com um personagem, a mensagem de abertura é escrita na voz dele. As falas ficam entre aspas duplas, a menos que as instruções de escrita definam outro estilo.
+- Em uma cena em grupo, a abertura segue o modo de grupo do perfil. No modo mesclado (o padrão), uma única voz narrativa fala por todos. No modo **Individual** (individual), o personagem que inicia a cena escreve a abertura.
 
 Também é possível começar uma cena sem descrição nenhuma. Digite só o comando, desde que a conversa já tenha histórico suficiente para servir de base.
 
