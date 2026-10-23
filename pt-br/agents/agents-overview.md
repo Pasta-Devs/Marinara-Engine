@@ -68,6 +68,18 @@ A seção **Agents** tem mais alguns controles:
 - **Review Agent Outputs**: quando está ativado, as mudanças em lorebooks, resumos e cards de personagem esperam a sua aprovação antes de serem salvas. Quando está desativado, as mudanças em lorebooks e resumos podem ser salvas sozinhas, mas as edições no card de personagem continuam pedindo a sua confirmação. Veja [Aprovações de agentes e o Agent Suite](approvals-and-agent-suite.md). Nos chats de Roleplay, essa opção fica dentro de **Trackers Control**.
 - **Agent Suite**: abre um visualizador onde você lê e edita tudo o que os agentes salvaram nesse chat.
 
+<a id="a-reference-lorebook-for-one-agent"></a>
+
+### Um lorebook de referência para um agente
+
+Em **Chat Settings**, abra **Agents** e depois as configurações do agente de escrita, de rastreamento ou personalizado. **Attach lorebook for the specific agent** (anexar lorebook para este agente) começa desligado. Ligue para mostrar **Reference lorebook** (lorebook de referência) e escolher um livro. A seleção pertence a este agente neste chat; não muda a definição global do agente nem outros chats.
+
+Recursos de pacotes baixáveis, como World Maps, também precisam da atualização correspondente do pacote junto com a atualização do Engine.
+
+As entradas correspondentes seguem as regras normais de ativação de lorebooks e são fornecidas como contexto de referência para esse agente, inclusive nas novas tentativas manuais. Anexar o livro não o ativa para a resposta principal nem para outros agentes. Agentes executados juntos também podem ver as mesmas entradas de referência. Desligar a opção interrompe o envio das entradas; livros indisponíveis ou excluídos não fornecem nenhuma. As configurações de fontes que já existem nos agentes personalizados continuam disponíveis de forma independente.
+
+Mensagens antigas ou importadas podem não ter informações suficientes para distinguir uma resposta em grupo de uma continuação; nesses casos, os gatilhos usam um fallback conservador.
+
 ### O aviso de custo
 
 Os agentes custam tokens extras (o token é um pedacinho de texto) e chamadas extras ao modelo. Cada agente acrescenta as próprias instruções e, muitas vezes, a própria chamada ao modelo. Marinara junta em uma única chamada os agentes que usam a mesma conexão, quando isso é possível. Acima da lista de agentes, um indicador estima a carga da configuração atual. Ele mostra mais ou menos quantos tokens de instruções de agente você acrescentou e quantas chamadas extras acontecem por turno.
