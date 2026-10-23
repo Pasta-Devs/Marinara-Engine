@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "bf791797fac694d1351bf1ff1a4828dfcff4d998",
+  "sourceCommit": "de0f1e0a07c30afe0f79c726116dcab09e1ac5af",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "528f51b4a795263681217acd552e1beb27c4e9f46071350572b4ff01be1dc389",
-      "bytes": 14028
+      "sha256": "7230ea5dc6de3de497e52d5f7ff1d59043c3a041156e31502147b49e08b85e63",
+      "bytes": 15123
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
