@@ -219,6 +219,12 @@ values, to be measured on a few known pull requests before relying on them:
 | Claude Opus or Sonnet | `high` | `medium` |
 | Claude Haiku or GPT Luna | not recommended: small models browse without forming claims | `high` |
 
+Effort weighs most on a large pull request. It is split into packets (`MAX_CHUNK_PATCH_CHARS`, `MAX_REVIEW_CHUNKS`),
+and every packet's scouts run first, sharing `DOTTORE_CONCURRENCY`; then all the finders start together, each with its
+full `minutes`, and the checker takes the last 8 minutes. A higher small-model effort therefore delays every finder,
+and a large-model effort above the table lengthens every packet's thinking. Prefer the table's values, or a Haiku-class
+small model, before changing `minutes`.
+
 The cost limit counts tokens at the price table in `dottore_review.py` (`MODEL_PRICES_USD`). A model it does not list
 counts at the dearest listed rates, so a review on it reports more than it spent and reaches `DOTTORE_COST_LIMIT_USD`
 early: add the model's prices to the table, or raise the limit. Before relying on a different model, run a few reviews
@@ -278,8 +284,8 @@ Each role's limits are kept in code, in `ROLE_DEFAULTS` in `dottore_review.py`:
 | `places` | Places each scout keeps; `0` turns the scouts off | `6` | – | – |
 | `scouts` | Scouts per packet, each with a share of its changes; a PR split into packets runs more scouts than `DOTTORE_CONCURRENCY` in turn | `4` | – | – |
 
-A role's `minutes` controls when it must submit and how long a call offered only its submit tool may wait without
-progress. A reply that keeps producing thinking, text or tool-input characters can finish past that time box;
+A role's `minutes` controls when it must submit and how long each call offered only its submit tool may wait without
+progress, however late in the review it starts. A reply that keeps producing thinking, text or tool-input characters can finish past that time box;
 pings, empty deltas and block boundaries do not refresh the watchdog. Claude requests summarized thinking so that
 its progress is visible even on models that omit thinking text by default. A role offered no
 read tools whose reply runs into `max_tokens` is sent once more at the next lower effort (`max` → `xhigh` → `high` →
@@ -291,12 +297,13 @@ Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECOND
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,
 a role aborting after 3 failed calls in a row (`MAX_ROLE_FAILURES`), 180 s for a call's first byte and 360 s between
 bytes (`FIRST_CALL_TIMEOUT`, `MODEL_REQUEST_TIMEOUT`), 900 s without meaningful stream progress for a role with
-read tools (`MODEL_STREAM_LIMIT`; a role offered only its submit tool gets its remaining box, with a 180 s minimum),
+read tools (`MODEL_STREAM_LIMIT`; a role offered only its submit tool gets its whole `minutes` box; a reply stopped for silence
+is not resent),
 at most 2 notes and 2 open questions per review
 (`MAX_NITPICKS`, `MAX_OPEN_QUESTIONS`), and the packet split for large PRs (`MAX_CHUNK_PATCH_CHARS`,
 `MAX_REVIEW_CHUNKS`).
 
-The review deadline stops new work and asks agents to submit; it does not interrupt an active reply. The workflow's
+The review deadline stops new work and asks agents to submit; it does not interrupt an active reply or shorten its silence allowance. The workflow's
 40-minute review-step limit and 45-minute job limit still bound the entire run, including a reply that keeps progressing.
 
 ## Reading the run log

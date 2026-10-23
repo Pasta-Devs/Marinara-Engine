@@ -143,14 +143,15 @@ MAX_CONTRACT_STATE_TEXT_CHARS = 320
 MAX_CARRIED_TEXT_CHARS = 600
 MAX_CARRIED_MARKER_CHARS = 24_000
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
-# Replies stream, so these limit silence on the stream, not the reply: an attempt that sends nothing for
-# this long is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
+# Replies stream, so these limit silence on the stream, not the reply: a read that waits this long for any byte
+# fails and is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
 # provider's queue, while a working one starts replying within about a minute, so it is retried sooner. A call
-# offered only its submit tool thinks over the whole bundle before replying, so it may stay silent for the rest of
-# its role's time instead (see chat).
+# offered only its submit tool thinks over the whole bundle before replying, so it may stay silent for its role's
+# whole time box (`minutes`) instead, however late it starts (see chat).
 MODEL_REQUEST_TIMEOUT = 360
 FIRST_CALL_TIMEOUT = 180
-# Limits time without thinking, text or tool-input progress; pings do not keep an attempt alive.
+# Limits time without thinking, text or tool-input progress; pings do not keep an attempt alive. An attempt stopped
+# for that is a failed call, not resent: its silence has already spent the role's time box.
 MODEL_STREAM_LIMIT = 900
 # Reasoning efforts from least to most. A role offered no tools whose reply hits its output cap is retried once at the
 # next lower effort: the cap is a symptom of thinking, and effort is the lever that reduces it.
@@ -1555,11 +1556,12 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
     for attempt in range(len(RETRY_DELAYS) + 1):
         started = time.monotonic()
         timing = {}
-        if len(tools) == 1 and until:
+        if len(tools) == 1 and settings.get("minutes"):
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
-            # whole bundle takes minutes, so it may stay silent for the rest of the role's time box (`minutes`).
-            # Meaningful stream progress refreshes that idle allowance; the workflow still bounds an in-flight call.
-            read_timeout = stream_limit = max(FIRST_CALL_TIMEOUT, until - started)
+            # whole bundle takes minutes, so an attempt may stay silent for the role's whole time box (`minutes`),
+            # however late in the review it starts. Meaningful stream progress refreshes that allowance. The
+            # deadline only stops new work; the workflow's step limit still bounds an in-flight reply.
+            read_timeout = stream_limit = settings["minutes"] * 60
         else:
             read_timeout, stream_limit = (FIRST_CALL_TIMEOUT if first_call else MODEL_REQUEST_TIMEOUT), MODEL_STREAM_LIMIT
         try:
