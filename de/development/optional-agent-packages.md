@@ -74,7 +74,7 @@ Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum s
 | `capabilityApi` | Die `supportedCapabilityApi` der Engine, zum Beispiel `{ major: 1, minor: 341 }`. |
 | `stores` | Die laufenden Zustand-Stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` und `backfill`. `chat` enthält den Slice für ausstehende räumliche Übergänge. |
 | `services.tts` | Das Modul `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
-| `services.audio` | Ab Capability API 1.380 das Modul `lib/audio-service.ts`: unabhängige Player für Musik und Soundeffekte, das gemeinsame Asset-Manifest und die Standardmusikauswahl. Siehe [Audio in Paketen](#package-audio). |
+| `services.audio` | Ab Capability API 1.381 das Modul `lib/audio-service.ts`: unabhängige Player für Musik und Soundeffekte, das gemeinsame Asset-Manifest und die Standardmusikauswahl. Siehe [Audio in Paketen](#package-audio). |
 | `services.dialogs` | Das Modul `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
 | `modules` | Bibliotheksmodule mit dem Bare Specifier als Schlüssel (siehe unten). |
 | `queryClient` | Der eine `QueryClient` von React Query, mit dem die Engine rendert. |
@@ -993,12 +993,16 @@ Gemeinsame Anfrage- und Ergebnistypen exportiert `@marinara-engine/shared`. Pake
 
 ### Audio in Paketen
 
-Ab Capability API **1.380** stellt `__MARINARA_HOST__.services.audio` die Wiedergabe und
+Ab Capability API **1.381** stellt `__MARINARA_HOST__.services.audio` die Wiedergabe und
 Asset-Auswahl der Engine bereit. Deklariere diese Minor-Version im Paketmanifest und aktualisiere die Engine zusammen mit dem Paket.
 Sprachausgabe bleibt in `services.tts`; Musik und Soundeffekte verwenden `services.audio`.
-`services.tts.ttsService.speakSequence(requests, id?, options?)` akzeptiert ab 1.380 `options.audioConnectionId`.
+`services.tts.ttsService.speakSequence(requests, id?, options?)` akzeptiert ab 1.381 `options.audioConnectionId`.
 Damit gilt die gewählte Verbindung für Sprachausgabe für jeden Abschnitt, während jede Anfrage ihre
 Stimme behält. Lass den Wert für den normalen Standard undefiniert oder übergib `""`, um ausdrücklich die bisherigen TTS-Einstellungen zu verwenden.
+Eine unbekannte, gelöschte, unter Quarantäne stehende oder nicht für Sprachausgabe geeignete `audioConnectionId` wird ignoriert. Dann greift die normale Auflösung:
+zuerst die gespeicherte Auswahl für Sprachausgabe, dann die Standard-/Ersatzverbindung, dann die bisherigen Einstellungen.
+Ist die gespeicherte Auswahl selbst nicht verfügbar, startet die Wiedergabe nicht und weicht nicht auf eine andere Verbindung aus.
+Pakete, die eine bestimmte Verbindung brauchen, sollten die gespeicherte ID vor der Wiedergabe prüfen.
 
 - `createPlayer()` liefert einen unabhängigen Player mit `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

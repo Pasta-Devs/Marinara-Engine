@@ -74,7 +74,7 @@ La propiedad no se puede sobrescribir ni reconfigurar, y el espacio de nombres y
 | `capabilityApi`     | El `supportedCapabilityApi` del Engine, por ejemplo `{ major: 1, minor: 341 }`.                                                                                                                            |
 | `stores`            | Los stores de zustand en vivo `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` y `backfill`. `chat` incluye la parte del estado con las transiciones espaciales pendientes. |
 | `services.tts`      | El módulo `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...).                                                                                                                                   |
-| `services.audio` | Desde la API de capacidades 1.380, el módulo `lib/audio-service.ts`: reproductores independientes de música/efectos, manifiesto de recursos compartido y selección de música predeterminada. Consulta [Audio de los paquetes](#package-audio). |
+| `services.audio` | Desde la API de capacidades 1.381, el módulo `lib/audio-service.ts`: reproductores independientes de música/efectos, manifiesto de recursos compartido y selección de música predeterminada. Consulta [Audio de los paquetes](#package-audio). |
 | `services.dialogs`  | El módulo `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                                           |
 | `modules`           | Módulos de bibliotecas, indexados por especificador simple (más abajo).                                                                                                                                    |
 | `queryClient`       | El único `QueryClient` de React Query con el que renderiza el Engine.                                                                                                                                      |
@@ -991,14 +991,19 @@ Los paquetes del servidor pueden usar `api.runtime.integrations` para acceder a 
 
 ### Audio de los paquetes
 
-Desde la API de capacidades **1.380**, `__MARINARA_HOST__.services.audio` ofrece reproducción y
+Desde la API de capacidades **1.381**, `__MARINARA_HOST__.services.audio` ofrece reproducción y
 selección de recursos a cargo del motor. Declara esa versión menor en el manifiesto del paquete y
 actualiza el motor junto con el paquete. La voz sigue en `services.tts`; la música y los efectos de
 sonido usan `services.audio`.
-Desde 1.380, `services.tts.ttsService.speakSequence(requests, id?, options?)` acepta
+Desde 1.381, `services.tts.ttsService.speakSequence(requests, id?, options?)` acepta
 `options.audioConnectionId` y aplica la conexión de voz seleccionada a cada fragmento, conservando
 la voz de cada solicitud. Déjalo sin definir para usar la opción predeterminada habitual, o pasa
 `""` para usar explícitamente los ajustes de TTS heredados.
+Si `audioConnectionId` es desconocido o corresponde a una conexión eliminada, en cuarentena o que
+no sea de voz, se ignora y se aplica la resolución de voz habitual: la conexión de voz guardada,
+luego la conexión predeterminada o de respaldo y, por último, los ajustes heredados. Si la propia
+conexión de voz guardada no está disponible, se rechaza la reproducción en vez de utilizar otra
+conexión. Los paquetes que requieran una conexión concreta deben validar el ID guardado antes de reproducir.
 
 - `createPlayer()` devuelve un reproductor independiente con `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

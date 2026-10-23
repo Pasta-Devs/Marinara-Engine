@@ -73,7 +73,7 @@ Ta właściwość nie jest zapisywalna ani konfigurowalna, a przestrzeń nazw or
 | `capabilityApi` | `supportedCapabilityApi` silnika, na przykład `{ major: 1, minor: 341 }`. |
 | `stores` | Działające magazyny Zustand `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` i `backfill`. `chat` zawiera wycinek oczekujących przejść przestrzennych. |
 | `services.tts` | Moduł `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
-| `services.audio` | Od wersji 1.380 API możliwości moduł `lib/audio-service.ts`: niezależne odtwarzacze muzyki/efektów, współdzielony manifest zasobów i domyślny wybór muzyki. Zobacz [Dźwięk pakietu](#package-audio). |
+| `services.audio` | Od wersji 1.381 API możliwości moduł `lib/audio-service.ts`: niezależne odtwarzacze muzyki/efektów, współdzielony manifest zasobów i domyślny wybór muzyki. Zobacz [Dźwięk pakietu](#package-audio). |
 | `services.dialogs` | Moduł `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
 | `modules` | Moduły bibliotek według samego specyfikatora (poniżej). |
 | `queryClient` | Jedyny `QueryClient` React Query, z którym renderuje się silnik. |
@@ -980,14 +980,19 @@ Typy żądań/wyników eksportuje `@marinara-engine/shared`. Budowanie promptów
 
 ### Dźwięk pakietu
 
-Od wersji **1.380** API możliwości `__MARINARA_HOST__.services.audio` udostępnia odtwarzanie i wybór
+Od wersji **1.381** API możliwości `__MARINARA_HOST__.services.audio` udostępnia odtwarzanie i wybór
 zasobów po stronie aplikacji Marinara Engine. Zadeklaruj tę wersję podrzędną w manifeście pakietu i aktualizuj
 aplikację Marinara Engine razem z pakietem. Mowa pozostaje w `services.tts`; muzyka i efekty dźwiękowe
 korzystają z `services.audio`.
-Od wersji 1.380 `services.tts.ttsService.speakSequence(requests, id?, options?)` przyjmuje
+Od wersji 1.381 `services.tts.ttsService.speakSequence(requests, id?, options?)` przyjmuje
 `options.audioConnectionId`, stosując wybrane połączenie mowy do każdego fragmentu z zachowaniem
 głosu określonego w danym żądaniu. Pozostaw tę opcję niezdefiniowaną, żeby użyć zwykłego ustawienia
 domyślnego, albo przekaż `""`, żeby jawnie użyć dawnych ustawień TTS.
+Jeśli `audioConnectionId` jest nieznany albo wskazuje połączenie usunięte, objęte kwarantanną lub inne
+niż połączenie mowy, silnik go ignoruje i stosuje zwykłą kolejność wyboru: zapisane połączenie mowy,
+następnie połączenie domyślne/zapasowe, a na końcu dawne ustawienia. Jeśli samo zapisane połączenie
+mowy jest niedostępne, odtwarzanie jest odrzucane zamiast korzystać z innego połączenia. Pakiety
+wymagające konkretnego połączenia powinny sprawdzać zapisany identyfikator przed odtwarzaniem.
 
 - `createPlayer()` zwraca niezależny odtwarzacz z metodami `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

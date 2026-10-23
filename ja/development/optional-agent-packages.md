@@ -73,7 +73,7 @@ globalThis.__MARINARA_HOST__ = {
 | `capabilityApi` | Engineの`supportedCapabilityApi`。たとえば`{ major: 1, minor: 341 }`です。 |
 | `stores` | 実際に動いているzustandストア`ui`、`chat`、`agent`、`sidecar`、`dialog`、`gallery`、`encounter`、`gameState`、`backfill`。`chat`には保留中の空間遷移のスライスが含まれます。 |
 | `services.tts` | `lib/tts-service.ts`モジュール(`ttsService`、`playWhenAvailable`、...)。 |
-| `services.audio` | Capability API 1.380以降の`lib/audio-service.ts`モジュール。独立した音楽と効果音のプレイヤー、共有アセットマニフェスト、デフォルトの音楽選択を提供します。[パッケージの音声](#package-audio)を参照してください。 |
+| `services.audio` | Capability API 1.381以降の`lib/audio-service.ts`モジュール。独立した音楽と効果音のプレイヤー、共有アセットマニフェスト、デフォルトの音楽選択を提供します。[パッケージの音声](#package-audio)を参照してください。 |
 | `services.dialogs` | `lib/app-dialogs.ts`モジュール(`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`)。 |
 | `modules` | ライブラリーのモジュール。bare specifier(パスを含まないモジュール名)をキーにします(後述)。 |
 | `queryClient` | Engineが描画に使う唯一のReact Queryの`QueryClient`。 |
@@ -986,12 +986,16 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 
 ### パッケージの音声
 
-Capability API **1.380**以降では、`__MARINARA_HOST__.services.audio`がEngineの再生機能と
+Capability API **1.381**以降では、`__MARINARA_HOST__.services.audio`がEngineの再生機能と
 アセット選択を提供します。パッケージのマニフェストにこのマイナーバージョンを宣言し、パッケージと一緒にEngineもアップデートしてください。
 読み上げは引き続き`services.tts`を使い、音楽と効果音には`services.audio`を使います。
-`services.tts.ttsService.speakSequence(requests, id?, options?)`は、1.380以降で`options.audioConnectionId`を受け付けます。
+`services.tts.ttsService.speakSequence(requests, id?, options?)`は、1.381以降で`options.audioConnectionId`を受け付けます。
 指定した読み上げ用接続をすべてのチャンクに適用し、各リクエストの声は維持します。
 通常のデフォルトを使う場合は未定義のままにし、従来のTTS設定を明示的に使う場合は`""`を渡してください。
+不明、削除済み、隔離中、または読み上げ用でない`audioConnectionId`は無視され、通常の読み上げ用接続の解決に進みます。
+保存済みの読み上げ用の選択、デフォルト/フォールバック接続、従来の設定の順に解決します。
+保存済みの選択自体が使えない場合は、ほかの接続を借りずに再生を拒否します。
+特定の接続を必要とするパッケージは、再生前に保存済みのIDを検証してください。
 
 - `createPlayer()`は、`unlock()`、`playMusic(tag, assets?)`、
   `stopMusic(immediate?)`、`playSfx(tag, assets?, loopCount?)`、`setVolumes({ music, sfx })`、

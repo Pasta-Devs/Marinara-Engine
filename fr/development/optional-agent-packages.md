@@ -73,7 +73,7 @@ La propriété n'est ni accessible en écriture ni configurable, et l'espace de 
 | `capabilityApi`     | Le `supportedCapabilityApi` du moteur, par exemple `{ major: 1, minor: 341 }`.                                                                                                          |
 | `stores`            | Les stores zustand actifs `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` et `backfill`. `chat` inclut la tranche des transitions spatiales en attente. |
 | `services.tts`      | Le module `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...).                                                                                                                |
-| `services.audio` | À partir de Capability API 1.380, le module `lib/audio-service.ts` : lecteurs indépendants de musique et d'effets sonores, manifeste partagé des ressources et sélection de la musique par défaut. Consulte [Audio des paquets](#package-audio). |
+| `services.audio` | À partir de Capability API 1.381, le module `lib/audio-service.ts` : lecteurs indépendants de musique et d'effets sonores, manifeste partagé des ressources et sélection de la musique par défaut. Consulte [Audio des paquets](#package-audio). |
 | `services.dialogs`  | Le module `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                        |
 | `modules`           | Les modules de bibliothèques, indexés par spécificateur nu (voir plus bas).                                                                                                             |
 | `queryClient`       | L'unique `QueryClient` React Query avec lequel le moteur fait son rendu.                                                                                                                |
@@ -1018,12 +1018,16 @@ Les paquets serveur peuvent utiliser `api.runtime.integrations` pour accéder au
 
 ### Audio des paquets
 
-À partir de Capability API **1.380**, `__MARINARA_HOST__.services.audio` fournit la lecture et
+À partir de Capability API **1.381**, `__MARINARA_HOST__.services.audio` fournit la lecture et
 la sélection des ressources gérées par le moteur. Déclare cette version mineure dans le manifeste du paquet et mets à jour le moteur avec le paquet.
 La parole reste dans `services.tts` ; la musique et les effets sonores utilisent `services.audio`.
 `services.tts.ttsService.speakSequence(requests, id?, options?)` accepte `options.audioConnectionId`
-depuis la version 1.380 : la connexion de voix choisie s'applique à chaque segment tout en conservant la voix de chaque
+depuis la version 1.381 : la connexion de voix choisie s'applique à chaque segment tout en conservant la voix de chaque
 requête. Laisse ce paramètre indéfini pour le choix habituel par défaut, ou passe `""` pour utiliser explicitement les anciens réglages TTS.
+Une `audioConnectionId` inconnue, supprimée, en quarantaine ou ne correspondant pas à une connexion de voix est ignorée, puis la résolution habituelle reprend :
+la sélection de source vocale enregistrée, puis la connexion par défaut/de secours, puis les anciens réglages.
+Si la sélection vocale enregistrée est elle-même indisponible, la lecture est refusée au lieu d'emprunter une autre connexion.
+Les paquets qui exigent une connexion précise devraient vérifier l'identifiant enregistré avant la lecture.
 
 - `createPlayer()` renvoie un lecteur indépendant avec `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

@@ -73,7 +73,7 @@ globalThis.__MARINARA_HOST__ = {
 | `capabilityApi` | Engine의 `supportedCapabilityApi`입니다. 예: `{ major: 1, minor: 341 }`. |
 | `stores` | 실제로 동작 중인 zustand 스토어 `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState`, `backfill`입니다. `chat`에는 대기 중인 공간 전환 슬라이스가 포함됩니다. |
 | `services.tts` | `lib/tts-service.ts` 모듈(`ttsService`, `playWhenAvailable`, ...)입니다. |
-| `services.audio` | Capability API 1.380부터 제공하는 `lib/audio-service.ts` 모듈입니다. 독립적인 음악/효과음 플레이어, 공유 에셋 매니페스트, 기본 음악 선택을 제공합니다. [패키지 오디오](#package-audio)를 참고하세요. |
+| `services.audio` | Capability API 1.381부터 제공하는 `lib/audio-service.ts` 모듈입니다. 독립적인 음악/효과음 플레이어, 공유 에셋 매니페스트, 기본 음악 선택을 제공합니다. [패키지 오디오](#package-audio)를 참고하세요. |
 | `services.dialogs` | `lib/app-dialogs.ts` 모듈(`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`)입니다. |
 | `modules` | 베어 지정자를 키로 하는 라이브러리 모듈입니다(아래 참고). |
 | `queryClient` | Engine이 렌더링에 쓰는 단 하나의 React Query `QueryClient`입니다. |
@@ -988,12 +988,16 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 
 ### 패키지 오디오
 
-Capability API **1.380**부터 `__MARINARA_HOST__.services.audio`는 Engine이 관리하는 재생과
+Capability API **1.381**부터 `__MARINARA_HOST__.services.audio`는 Engine이 관리하는 재생과
 에셋 선택을 제공합니다. 패키지 매니페스트에 이 마이너 버전을 선언하고 패키지와 함께 Engine도 업데이트하세요.
 음성은 계속 `services.tts`를 사용하며 음악과 효과음은 `services.audio`를 사용합니다.
-`services.tts.ttsService.speakSequence(requests, id?, options?)`는 1.380부터 `options.audioConnectionId`를 받습니다.
+`services.tts.ttsService.speakSequence(requests, id?, options?)`는 1.381부터 `options.audioConnectionId`를 받습니다.
 선택한 음성 연결을 모든 청크에 적용하면서 각 요청의 목소리는
 유지합니다. 일반 기본값을 쓰려면 정의하지 않은 채로 두고, 기존 TTS 설정을 명시적으로 사용하려면 `""`를 전달하세요.
+알 수 없거나 삭제 또는 격리되었거나 음성용이 아닌 `audioConnectionId`는 무시하고 일반적인 음성 연결 결정 과정을 따릅니다.
+저장된 음성 선택, 기본/대체 연결, 기존 설정 순으로 결정합니다.
+저장된 음성 선택 자체를 사용할 수 없으면 다른 연결을 빌려 쓰지 않고 재생을 거부합니다.
+특정 연결이 필요한 패키지는 재생 전에 저장된 ID를 검증하세요.
 
 - `createPlayer()`는 `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
