@@ -183,7 +183,7 @@ export function CreateConnectionModalContent({
   const [finishing, setFinishing] = useState(false);
   const [choosingJobs, setChoosingJobs] = useState(false);
   const [selectedJobs, setSelectedJobs] = useState<AddJob[]>([]);
-  // Set once from the first loaded list: a setup with no chat Model yet is a first run.
+  // Set once from the first loaded list: first run means no connection rows exist.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
@@ -194,7 +194,7 @@ export function CreateConnectionModalContent({
   const hasAgents = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents));
   useEffect(() => {
     if (firstRun !== null || !rows) return;
-    setFirstRun(!modelsFor && !(rows as ConnectionRowLite[]).some((row) => isChatProvider(row.provider ?? "")));
+    setFirstRun(!modelsFor && (rows as ConnectionRowLite[]).length === 0);
   }, [firstRun, modelsFor, rows]);
 
   const selectedMedia = mediaBackendOf(service);
@@ -802,7 +802,7 @@ export function CreateConnectionModalContent({
     : step === 1
       ? t(
           job
-            ? "connections.add.heading.forJob"
+            ? t("connections.add.heading.forJob", { job: jobLabel(job) })
             : firstRun
               ? "connections.add.heading.firstRun"
               : pick === "model"
@@ -867,9 +867,9 @@ export function CreateConnectionModalContent({
                       : "connections.add.sub.models",
             )
           : "";
-  const stepNumber = step;
-  // Every path has the same three steps, so the bar never jumps; a device ends on its set-up screen.
-  const totalSteps = 3;
+  const stepNumber = job ? Math.max(1, step - 1) : step;
+  // A prefilled job skips service selection, so its progress has two steps.
+  const totalSteps = job ? 2 : 3;
   const goBack = choosingJobs
     ? () => setChoosingJobs(false)
     : step === 1 && (pick || job)
@@ -1069,7 +1069,7 @@ export function CreateConnectionModalContent({
               </span>
             )}
           </div>
-          {!modelsFor && (
+          {!modelsFor && !job && (
             <div aria-hidden className="mt-2 flex gap-1">
               {Array.from({ length: totalSteps }, (_, index) => (
                 <span

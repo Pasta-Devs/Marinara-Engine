@@ -43,6 +43,16 @@ assert(missing.includes("voice"), "a chat Agents flag does not fill Voice");
 assert(missing.includes("video"), "an image flag does not fill Video");
 assert(missing.includes("decision"));
 assert(missingAddJobs([], undefined).includes("embeddings"));
+assert.deepEqual(missingAddJobs([{ provider: "image_generation" }], undefined), [
+  "main",
+  "agents",
+  "voice",
+  "video",
+  "decision",
+  "embeddings",
+  "vision",
+  "mari",
+]);
 
 assert(!list.includes("data-add-connection-question"), "the old question-card entry must be gone");
 assert(!list.includes("<ServiceCard"));
@@ -55,6 +65,8 @@ assert.match(modal, /assignment.assign[\s\S]*?assign\(id\)[\s\S]*?assign\(previo
 assert.match(modal, /for \(const key of jobs\) await assignJob\(\{ job: key \}\)/);
 assert.match(modal, /applyChoices\(!choosingJobs\)/, "Skip must not implicitly set Main");
 assert.match(modal, /!jobFor && !modelsFor && !onStartChat/, "prefilled jobs retain direct assign-on-Done");
+assert.match(modal, /t\("connections\.add\.heading\.forJob", \{ job: jobLabel\(job\) \}\)/);
+assert.match(modal, /const totalSteps = job \? 2 : 3/);
 for (const key of [
   "connections.add.useFor.heading",
   "connections.add.useFor.skip",

@@ -1718,7 +1718,7 @@
   "connections.add.heading.connect": "Connect {{service}}",
   "connections.add.heading.device": "Set up {{service}}",
   "connections.add.heading.firstRun": "Which service do you use?",
-  "connections.add.heading.forJob": "What is it for?",
+  "connections.add.heading.forJob": "Which service for {{job}}?",
   "connections.add.heading.forModel": "Which model?",
   "connections.add.heading.forProvider": "Which provider?",
   "connections.add.heading.key": "Paste your {{service}} key",
