@@ -38,6 +38,21 @@ Füge dem Viewport-Tag kein `interactive-widget=resizes-content` hinzu. In mobil
 
 Eine gläserne Statusleiste und ein gefüllter unterer Rand sind nicht gleichzeitig zu haben. Im Modus `black` ist die Statusleiste ein durchgehend dunkler Balken. `black-translucent` sieht oben mit seiner Transparenz hübscher aus, macht den unteren Streifen aber unentfernbar. Das ist eine harte Beschränkung von iOS.
 
+<a id="landscape-the-cameras-side-insets"></a>
+
+## Querformat: seitliche Abstände für die Kamera
+
+Wird ein iPhone quer gehalten, sitzt seine Kamera (Notch oder Dynamic Island) am linken oder rechten Rand. Mit `viewport-fit=cover` reicht die Seite darunter, und iOS meldet den Platz als `env(safe-area-inset-left)` und `env(safe-area-inset-right)`. Bei Dynamic-Island-Modellen sind das auf beiden Seiten ungefähr 59 px, unabhängig von der Drehrichtung. Die Android-App von Marinara (Ziel-SDK 34, nicht Edge-to-Edge) liegt außerhalb des Kameraausschnitts, deshalb sind dort beide Abstände 0. Andere Android-Browser können Abstände größer als 0 melden, etwa im Vollbild oder bei Edge-to-Edge; dieselben Variablen decken auch das ab.
+
+Marinara hält diesen Platz ähnlich frei wie den Statusleisten-Streifen im Hochformat:
+
+- `packages/client/src/styles/globals.css` liest die beiden Abstände einmal in `--mari-safe-area-inset-left` und `--mari-safe-area-inset-right` auf `:root` ein. Alles andere liest diese Variablen, nie direkt `env()`. `scripts/regressions/mobile-safe-area-inset.regression.ts` setzt das durch. Dialoge, Omnibar, Vollbild-Editoren und TopBar-Bedienelemente behalten diesen Schutz vor Kamera und abgerundeten Ecken.
+- Auf dem iPhone erkennt `AppShell.tsx` die Kameraseite über `window.orientation` (oder `screen.orientation.angle`, wenn es nicht verfügbar ist). Bei 90° liegt die Kamera links, bei −90°/270° rechts. Ein Attribut `data-mari-camera-side` auf `<html>` erlaubt CSS, nur den gegenüberliegenden **Shell**-Abstand auf 0 zu setzen: `--mari-shell-inset-left` oder `--mari-shell-inset-right`. Bei unbekannten Drehwinkeln sowie auf iPad und Android bleiben die Systemabstände erhalten.
+- In der Handy-Shell bezieht `.mari-app` seine Werte für `left` und `right` aus den Shell-Variablen. Über der Kamera erscheint der Seitenhintergrund des Bodys in derselben Farbe wie der Statusleisten-Streifen im Hochformat, ohne gespiegelten Rand auf der anderen Seite.
+- Fixierte Elemente innerhalb der Shell richten sich am Bildschirm aus, nicht an der Shell, und halten deshalb selbst Abstand. Die Handy-Panels und ihre Backdrops in `AppShell.tsx` nutzen `MOBILE_SHELL_PANEL_X_CLASS` mit den Shell-Variablen. Dekorationen wie die Sterne der Shell sind `absolute` und bleiben so innerhalb der Shell.
+
+Zum Prüfen ohne Handy öffnest du einen Touch-Viewport mit 874×402 und setzt beide Variablen in einer `:root`-Stylesheet-Regel auf `59px` (Inline-Styles überstimmen den Kameraseiten-Selektor). In Chromium kannst du die echten Abstände stattdessen mit dem DevTools-Protocol-Befehl `Emulation.setSafeAreaInsetsOverride` emulieren. `e2e/phone-camera-side.e2e.ts` prüft beide Drehrichtungen, die ältere und neuere Orientierungs-API, unbekannte Drehwinkel und andere Geräte. Der E2E-Test "a phone turned sideways keeps the app out from under its camera" prüft den Fallback, der beide Abstände erhält.
+
 ## So wurde der Fehler gefunden
 
 Der Streifen ließ sich einkreisen, indem jede Ebene eingefärbt und die App neu geöffnet wurde. Füge die Diagnose-Styles in `packages/client/dist/index.html` ein, und zwar in den dortigen Inline-Block `<style>`. Diese Datei landet nicht im Cache des Service Workers und wird immer frisch ausgeliefert. Änderungen sind beim nächsten Öffnen sichtbar, ganz ohne Cache-Leerung.

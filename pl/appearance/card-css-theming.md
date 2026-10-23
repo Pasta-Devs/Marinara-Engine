@@ -24,7 +24,7 @@ Stylowanie karty odbywa się w dwóch miejscach. Najpierw dodaj CSS do karty. Po
 4. Otwórz **Chat Settings** (ustawienia czatu), a potem sekcję **Card Theming**.
 5. Wybierz **Exclusive** albo **Chat**. Na starcie tryb stoi na **Disabled**.
 
-Wiadomości postaci powinny zmienić wygląd od razu. Kontrolka **Card Theming** pojawia się dopiero wtedy, gdy aktywna postać w tym czacie ma kod CSS w polu **Creator Notes**. Sam CSS persony nie wywoła tej kontrolki. Przynajmniej jedna postać w czacie musi mieć własny blok `<style>`. Jeśli kontrolki nie widać, sprawdź, czy blok `<style>` zapisał się poprawnie.
+Wiadomości postaci powinny zmienić wygląd od razu. Przyciski trybu **Card Theming** (Disabled, Exclusive, Chat) pojawiają się dopiero wtedy, gdy aktywna postać w tym czacie ma kod CSS w polu **Creator Notes**. W czatach Roleplay sama sekcja jest zawsze widoczna, ponieważ zawiera też przełącznik **Color Character Names in Text** (kolorowanie imion postaci w tekście). Sam CSS persony nie wywoła przycisków. Przynajmniej jedna postać w czacie musi mieć własny blok `<style>`. Jeśli przycisków nie widać, sprawdź, czy blok `<style>` zapisał się poprawnie.
 
 Oto blok na początek, do wklejenia w pole **Creator Notes**:
 
@@ -210,7 +210,7 @@ Awatar jest domyślnie kółkiem. Samym CSS da się zmienić jego kształt i dod
 
 W trybie Conversation kliknięcie awatara otwiera panel podręczny profilu z sekcją "about me" postaci lub persony. Można go ostylować w tym samym zakresie `[data-card-css]`. Ten panel istnieje wyłącznie w trybie Conversation. Nie ma go w trybie Roleplay ani Game Mode. Zamknij te reguły w `@chat-mode conversation`, jeśli w karcie jest też CSS dla trybu Roleplay lub Game Mode. Zarówno karty postaci, jak i persony mogą ostylować własny panel z poziomu pola **Creator Notes**.
 
-Jedno zastrzeżenie przy personach: kontrolka **Card Theming** pojawia się tylko wtedy, gdy aktywna postać w czacie ma kod CSS w polu **Creator Notes**. Sam CSS persony nie wywoła tej kontrolki. Żeby motyw panelu persony zadziałał, przynajmniej jedna postać w czacie też musi mieć blok `<style>`.
+Jedno zastrzeżenie przy personach: przyciski trybu **Card Theming** pojawiają się tylko wtedy, gdy aktywna postać w czacie ma kod CSS w polu **Creator Notes**. Sam CSS persony ich nie wywoła. Żeby motyw panelu persony zadziałał, przynajmniej jedna postać w czacie też musi mieć blok `<style>`.
 
 | Selektor | Co obejmuje |
 | --- | --- |
@@ -228,7 +228,7 @@ Jedno zastrzeżenie przy personach: kontrolka **Card Theming** pojawia się tylk
 
 Karta panelu jest elementem wyznaczającym zakres. Obejmiesz ją zapisem `[data-card-css].mari-about-me-popout` (bez spacji, ten sam element). Elementy w środku obejmij selektorem potomka, na przykład `[data-card-css] .mari-about-me-name`. W trybie **Chat** zakresem objęty jest cały obszar, więc można pisać wprost `.mari-about-me-name`.
 
-Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub persony, a potem włącz **Card Theming** w **Chat Settings**. Przy wklejaniu do persony pamiętaj o zastrzeżeniu powyżej. Jakaś postać w czacie też musi mieć kod CSS w polu **Creator Notes**, inaczej kontrolka pozostanie ukryta.
+Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub persony, a potem włącz **Card Theming** w **Chat Settings**. Przy wklejaniu do persony pamiętaj o zastrzeżeniu powyżej. Jakaś postać w czacie też musi mieć kod CSS w polu **Creator Notes**, inaczej przyciski trybu pozostaną ukryte.
 
 ```html
 <style>

@@ -792,6 +792,18 @@ export async function activate({ api }) {
 
 1.66より古い`capabilityApi`を宣言したマニフェストでは`scenes`を拒否します。
 
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376: Homeブラウザーの全画面表示
+
+`home-browser-tab`ビューは`capabilityProps.browserFullscreen`を受け取ります。
+
+- `active`: 現在このパッケージがHomeブラウザーのコンテンツ領域全体に表示されているか。
+- `setActive(boolean)`: このアクティブなパッケージの全画面表示を開始または終了します。
+- `enterLabel`と`exitLabel`: 切り替えボタン用のローカライズされたアクセシブルなラベル。
+
+これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mariのアクション

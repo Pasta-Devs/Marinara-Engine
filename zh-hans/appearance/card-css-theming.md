@@ -24,7 +24,7 @@
 4. 打开 **Chat Settings**(聊天设置)，找到 **Card Theming** 一节。
 5. 选择 **Exclusive** 或 **Chat**。这个模式初始为 **Disabled**。
 
-角色的消息应该立刻变样。只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 控件才会出现。光有用户角色的 CSS 不足以让控件出现，聊天里至少要有一个角色自带 `<style>` 块。如果看不到这个控件，先确认 `<style>` 块确实保存成功了。
+角色的消息应该立刻变样。只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 的模式按钮（Disabled、Exclusive、Chat）才会出现。Roleplay 聊天中始终显示该区域，因为它还包含 **Color Character Names in Text**(为正文中的角色名称着色)开关。光有用户角色的 CSS 不足以让按钮出现，聊天里至少要有一个角色自带 `<style>` 块。如果看不到这些按钮，先确认 `<style>` 块确实保存成功了。
 
 下面是一段可以直接粘进 **Creator Notes** 的起步代码：
 
@@ -210,7 +210,7 @@ Roleplay 和 Conversation 的聊天结构是同一套骨架。下面这些元素
 
 在 Conversation 模式下点击头像，会弹出一个展示角色或用户角色“about me”的个人资料浮层。用同一套 `[data-card-css]` 作用域就能给它做主题。这个浮层只存在于 Conversation 模式，Roleplay 和 Game 里没有。如果这张卡同时还带 Roleplay 或 Game 的 CSS，记得把这些规则包进 `@chat-mode conversation`。角色卡和用户角色都可以从各自的 **Creator Notes** 里给自己的浮层做主题。
 
-用户角色有一点要注意：只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 控件才会出现。只有用户角色的 CSS 是不够的。所以想让用户角色的浮层主题生效，聊天里至少还要有一个角色也带着 `<style>` 块。
+用户角色有一点要注意：只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 的模式按钮才会出现。只有用户角色的 CSS 是不够的。所以想让用户角色的浮层主题生效，聊天里至少还要有一个角色也带着 `<style>` 块。
 
 | 选择器 | 作用对象 |
 | --- | --- |
@@ -228,7 +228,7 @@ Roleplay 和 Conversation 的聊天结构是同一套骨架。下面这些元素
 
 浮层卡片就是作用域元素，要用 `[data-card-css].mari-about-me-popout` 选中它（不加空格，同一个元素）。它的子元素用后代选择器，比如 `[data-card-css] .mari-about-me-name`。在 **Chat** 模式下整个区域都在作用域内，可以直接写 `.mari-about-me-name`。
 
-下面是一个做过主题的“about me”浮层。把它粘进角色或用户角色的 **Creator Notes**，再到 **Chat Settings** 里启用 **Card Theming**。如果粘的是用户角色，别忘了上面那条注意事项：聊天里必须还有一个角色的 **Creator Notes** 里也有 CSS，否则控件不会出现。
+下面是一个做过主题的“about me”浮层。把它粘进角色或用户角色的 **Creator Notes**，再到 **Chat Settings** 里启用 **Card Theming**。如果粘的是用户角色，别忘了上面那条注意事项：聊天里必须还有一个角色的 **Creator Notes** 里也有 CSS，否则模式按钮不会出现。
 
 ```html
 <style>

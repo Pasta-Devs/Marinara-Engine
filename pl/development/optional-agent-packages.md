@@ -786,6 +786,18 @@ Zasady, które warto znać:
 
 Uprawnienie `scenes` jest odrzucane w manifeście, który deklaruje `capabilityApi` starsze niż 1.66.
 
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376: pełny ekran przeglądarki Home
+
+Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
+
+- `active`: czy pakiet zajmuje obecnie cały obszar treści przeglądarki Home.
+- `setActive(boolean)`: włącza lub wyłącza pełny ekran dla tego aktywnego pakietu.
+- `enterLabel` i `exitLabel`: zlokalizowane etykiety dostępności przełącznika.
+
+To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: akcje dla Professor Mari

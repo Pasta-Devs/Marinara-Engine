@@ -38,6 +38,21 @@ mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden
 
 半透明的状态栏和填满的底部只能二选一。`black` 模式下状态栏是一条纯深色的实心条；`black-translucent` 的顶部更好看，是透明的，但底部那条色条就再也去不掉了。这是 iOS 的硬性限制。
 
+<a id="landscape-the-cameras-side-insets"></a>
+
+## 横屏：摄像头一侧的边距
+
+iPhone 横放时，摄像头（刘海或 Dynamic Island）位于左侧或右侧边缘。使用 `viewport-fit=cover` 时，页面会延伸到摄像头下面，iOS 通过 `env(safe-area-inset-left)` 和 `env(safe-area-inset-right)` 报告这部分空间。在 Dynamic Island 机型上，不论手机朝哪边转，两侧都约为 59px。Marinara 的 Android 应用（目标 SDK 34，非边到边布局）会避开摄像头开孔，因此两侧边距均为 0。其他 Android 浏览器在全屏或边到边显示等情况下可能报告非零边距，同样由这些变量处理。
+
+Marinara 避开这部分空间的方式与竖屏时的状态栏色带相同：
+
+- `packages/client/src/styles/globals.css` 只读取一次两侧边距，将其写入 `:root` 上的 `--mari-safe-area-inset-left` 和 `--mari-safe-area-inset-right`。其他地方都读取这些变量，不直接读取 `env()`。`scripts/regressions/mobile-safe-area-inset.regression.ts` 会检查这一规则。弹窗、omnibar、全屏编辑器和 TopBar 控件仍保留针对摄像头与圆角的保护。
+- 在 iPhone 上，`AppShell.tsx` 通过 `window.orientation`（不可用时改用 `screen.orientation.angle`）识别摄像头在哪一侧。90° 时摄像头在左侧，−90°/270° 时在右侧。`<html>` 上的 `data-mari-camera-side` 属性让 CSS 只将相反一侧的**外壳**边距 `--mari-shell-inset-left` 或 `--mari-shell-inset-right` 设为零。未知旋转方向、iPad 和 Android 保留系统边距。
+- 在手机外壳中，`.mari-app` 从外壳变量取得 `left` 和 `right`。摄像头上方显示 body 的页面背景，颜色与竖屏状态栏色带相同，而不会在另一端出现镜像空白边距。
+- 外壳内的固定元素相对屏幕定位，而非相对外壳，因此要自行避让。`AppShell.tsx` 中的手机面板及其背景使用带外壳变量的 `MOBILE_SHELL_PANEL_X_CLASS`。外壳的星星等装饰使用 `absolute`，所以会留在外壳内。
+
+不用手机检查时，打开 874×402 的触控视口，并在样式表的 `:root` 规则中把两个变量都设为 `59px`（内联样式会覆盖摄像头侧选择器）。在 Chromium 中，也可以使用 DevTools Protocol 命令 `Emulation.setSafeAreaInsetsOverride` 模拟真实边距。`e2e/phone-camera-side.e2e.ts` 会检查两个旋转方向、新旧方向 API、未知旋转及其他设备。e2e 测试 “a phone turned sideways keeps the app out from under its camera” 检查保留两侧边距的回退行为。
+
 ## 当初是怎么排查出来的
 
 排查思路是给每一层刷上不同的颜色，然后重新打开应用。把诊断用的样式写进 `packages/client/dist/index.html` 内联的 `<style>` 块里。这个文件不会被 service worker 缓存，每次都是最新的，改完下次重开应用就能看到效果，不用清缓存。

@@ -38,6 +38,21 @@ Nie dodawaj `interactive-widget=resizes-content` do znacznika viewport. W aplika
 
 Nie da się mieć jednocześnie szklanego paska stanu i wypełnionego dołu ekranu. W trybie `black` pasek stanu jest jednolicie ciemny. Tryb `black-translucent` daje ładniejszą, przezroczystą górę, ale przez niego dolnego paska nie da się usunąć. To twarde ograniczenie systemu iOS.
 
+<a id="landscape-the-cameras-side-insets"></a>
+
+## Poziomy ekran: boczne marginesy kamery
+
+Po obróceniu iPhone'a poziomo jego kamera (notch lub Dynamic Island) znajduje się przy lewej albo prawej krawędzi. Przy `viewport-fit=cover` strona rozciąga się pod nią, a iOS zgłasza tę przestrzeń jako `env(safe-area-inset-left)` i `env(safe-area-inset-right)`. W modelach z Dynamic Island to około 59px po każdej stronie, niezależnie od kierunku obrotu telefonu. Aplikacja Marinara na Androida (docelowy SDK 34, bez trybu od krawędzi do krawędzi) omija wycięcie kamery, więc oba marginesy wynoszą tam 0. Inne przeglądarki na Androidzie mogą zgłaszać niezerowe wartości, np. w trybie pełnoekranowym lub od krawędzi do krawędzi; te same zmienne je obsługują.
+
+Aplikacja Marinara omija tę przestrzeń tak jak pas paska stanu przy pionowym ekranie:
+
+- `packages/client/src/styles/globals.css` odczytuje oba marginesy raz, do `--mari-safe-area-inset-left` i `--mari-safe-area-inset-right` w `:root`. Wszystko inne odczytuje te zmienne, nigdy bezpośrednio `env()`. Pilnuje tego `scripts/regressions/mobile-safe-area-inset.regression.ts`. Okna dialogowe, omnibar, pełnoekranowe edytory i kontrolki TopBar zachowują tę ochronę przed kamerą i zaokrąglonymi rogami.
+- Na iPhonie `AppShell.tsx` rozpoznaje stronę kamery z `window.orientation` (lub `screen.orientation.angle`, gdy pierwsze API jest niedostępne). Przy 90° kamera jest po lewej, a przy −90°/270° po prawej. Atrybut `data-mari-camera-side` na `<html>` pozwala CSS wyzerować tylko przeciwny margines **powłoki**: `--mari-shell-inset-left` lub `--mari-shell-inset-right`. Przy nieznanym obrocie oraz na iPadzie i Androidzie pozostają marginesy systemowe.
+- W powłoce telefonu `.mari-app` pobiera `left` i `right` ze zmiennych powłoki. Nad kamerą widać tło strony z elementu body w tym samym kolorze co pas paska stanu przy pionowym ekranie, bez lustrzanego pustego marginesu po drugiej stronie.
+- Elementy o stałym położeniu w powłoce są pozycjonowane względem ekranu, nie powłoki, więc same omijają tę przestrzeń. Arkusze telefonu i ich tła w `AppShell.tsx` używają `MOBILE_SHELL_PANEL_X_CLASS` ze zmiennymi powłoki. Dekoracje, takie jak gwiazdy powłoki, mają `absolute`, więc pozostają w jej obrębie.
+
+Aby sprawdzić to bez telefonu, otwórz dotykowy obszar widoku 874×402 i ustaw obie zmienne na `59px` w regule `:root` arkusza stylów (style wpisane bezpośrednio w atrybucie nadpisują selektor strony kamery). W Chromium możesz też emulować rzeczywiste marginesy poleceniem DevTools Protocol `Emulation.setSafeAreaInsetsOverride`. `e2e/phone-camera-side.e2e.ts` sprawdza oba kierunki obrotu, starsze i nowsze API orientacji, nieznane obroty oraz inne urządzenia. Test e2e "a phone turned sideways keeps the app out from under its camera" sprawdza wariant awaryjny zachowujący oba marginesy.
+
 ## Jak to zdiagnozowano
 
 Pasek namierzono, kolorując kolejne warstwy i otwierając aplikację od nowa. Wstaw style diagnostyczne do `packages/client/dist/index.html`, wewnątrz osadzonego bloku `<style>`. Tego pliku nie zapisuje w pamięci podręcznej service worker, więc zawsze trafia do urządzenia w świeżej wersji. Zmiany widać po ponownym otwarciu, bez czyszczenia pamięci podręcznej.

@@ -24,7 +24,7 @@ O tema do card é montado em dois lugares. Primeiro você acrescenta o CSS ao ca
 4. Abra **Chat Settings** (configurações do chat) e vá até a seção **Card Theming**.
 5. Escolha **Exclusive** ou **Chat**. O modo começa em **Disabled**.
 
-As mensagens do personagem mudam na hora. O controle **Card Theming** só aparece quando um personagem ativo naquele chat tem CSS no campo **Creator Notes**. O CSS de persona sozinho não faz o controle aparecer. Pelo menos um personagem do chat precisa ter o próprio bloco `<style>`. Se o controle não aparecer, verifique se o bloco `<style>` foi salvo corretamente.
+As mensagens do personagem mudam na hora. Os botões de modo de **Card Theming** (Disabled, Exclusive, Chat) só aparecem quando um personagem ativo naquele chat tem CSS no campo **Creator Notes**. Nos chats de Roleplay, a seção em si está sempre presente, pois também contém o interruptor **Color Character Names in Text** (colorir os nomes dos personagens no texto). O CSS de persona sozinho não faz os botões aparecerem. Pelo menos um personagem do chat precisa ter o próprio bloco `<style>`. Se os botões não aparecerem, verifique se o bloco `<style>` foi salvo corretamente.
 
 Veja um bloco inicial para colar no campo **Creator Notes**:
 
@@ -210,7 +210,7 @@ Por padrão, o avatar é um círculo. Com CSS puro, você muda o formato e acres
 
 No Conversation Mode, ao clicar em um avatar abre uma janelinha de perfil com o "about me" do personagem ou da persona. Ela pode receber tema pelo mesmo escopo `[data-card-css]`. Essa janelinha só existe no Conversation Mode. Não existe em roleplay nem em game. Coloque essas regras dentro de `@chat-mode conversation` se o card também trouxer CSS de roleplay ou de game. Tanto os cards de personagem quanto as personas podem dar tema à própria janelinha a partir do campo **Creator Notes**.
 
-Um detalhe sobre as personas: o controle **Card Theming** só aparece quando um personagem ativo do chat tem CSS no campo **Creator Notes**. CSS só de persona não faz o controle aparecer. Portanto, para o tema da janelinha da persona funcionar, pelo menos um personagem do chat também precisa ter um bloco `<style>`.
+Um detalhe sobre as personas: os botões de modo de **Card Theming** só aparecem quando um personagem ativo do chat tem CSS no campo **Creator Notes**. CSS só de persona não faz os botões aparecerem. Portanto, para o tema da janelinha da persona funcionar, pelo menos um personagem do chat também precisa ter um bloco `<style>`.
 
 | Seletor | O que atinge |
 | --- | --- |
@@ -228,7 +228,7 @@ Um detalhe sobre as personas: o controle **Card Theming** só aparece quando um 
 
 O card da janelinha é o elemento de escopo. Mire nele com `[data-card-css].mari-about-me-popout` (sem espaço, mesmo elemento). Mire nos filhos com um seletor descendente, como `[data-card-css] .mari-about-me-name`. No modo **Chat**, a área inteira está no escopo, então `.mari-about-me-name` pode ser usado direto.
 
-Veja uma janelinha de "about me" com tema. Cole no campo **Creator Notes** de um personagem ou de uma persona e ative o **Card Theming** em **Chat Settings**. Se você colar em uma persona, lembre do detalhe citado acima. Algum personagem do chat também precisa ter CSS no campo **Creator Notes**, senão o controle continua escondido.
+Veja uma janelinha de "about me" com tema. Cole no campo **Creator Notes** de um personagem ou de uma persona e ative o **Card Theming** em **Chat Settings**. Se você colar em uma persona, lembre do detalhe citado acima. Algum personagem do chat também precisa ter CSS no campo **Creator Notes**, senão os botões de modo continuam escondidos.
 
 ```html
 <style>

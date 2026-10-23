@@ -24,7 +24,7 @@
 4. **Chat Settings**(채팅 설정)를 열고 **Card Theming** 섹션으로 이동하세요.
 5. **Exclusive**나 **Chat**을 고르세요. 처음에는 **Disabled** 상태입니다.
 
-곧바로 캐릭터의 메시지가 달라집니다. **Card Theming** 컨트롤은 그 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 들어 있을 때만 나타납니다. 페르소나 쪽 CSS만으로는 컨트롤이 나타나지 않습니다. 채팅에 있는 캐릭터 중 최소 하나가 자기 `<style>` 블록을 가지고 있어야 합니다. 컨트롤이 보이지 않으면 `<style>` 블록이 제대로 저장됐는지 확인하세요.
+곧바로 캐릭터의 메시지가 달라집니다. **Card Theming**의 모드 버튼(Disabled, Exclusive, Chat)은 그 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 들어 있을 때만 나타납니다. Roleplay 채팅에서는 **Color Character Names in Text**(본문의 캐릭터 이름에 색상 적용) 스위치도 포함하므로 섹션 자체는 항상 표시됩니다. 페르소나 쪽 CSS만으로는 버튼이 나타나지 않습니다. 채팅에 있는 캐릭터 중 최소 하나가 자기 `<style>` 블록을 가지고 있어야 합니다. 버튼이 보이지 않으면 `<style>` 블록이 제대로 저장됐는지 확인하세요.
 
 **Creator Notes**에 붙여넣어 볼 수 있는 시작용 블록입니다.
 
@@ -210,7 +210,7 @@ Conversation이나 롤플레이의 말풍선을 꾸민 예입니다.
 
 Conversation 모드에서 아바타를 클릭하면 캐릭터나 페르소나의 "about me"가 담긴 프로필 팝아웃이 열립니다. 같은 `[data-card-css]` 범위로 여기에도 테마를 입힐 수 있습니다. 이 팝아웃은 Conversation 모드에만 있습니다. 롤플레이와 게임에는 없습니다. 롤플레이나 게임용 CSS도 함께 넣는다면 이 규칙들을 `@chat-mode conversation`으로 감싸세요. 캐릭터 카드와 페르소나 모두 자기 **Creator Notes**에서 자기 팝아웃을 꾸밀 수 있습니다.
 
-페르소나에는 한 가지 주의할 점이 있습니다. **Card Theming** 컨트롤은 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 있을 때만 나타납니다. 페르소나 쪽 CSS만으로는 컨트롤이 나타나지 않습니다. 따라서 페르소나의 팝아웃 테마를 적용하려면 채팅에 있는 캐릭터 중 최소 하나도 `<style>` 블록을 가지고 있어야 합니다.
+페르소나에는 한 가지 주의할 점이 있습니다. **Card Theming**의 모드 버튼은 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 있을 때만 나타납니다. 페르소나 쪽 CSS만으로는 버튼이 나타나지 않습니다. 따라서 페르소나의 팝아웃 테마를 적용하려면 채팅에 있는 캐릭터 중 최소 하나도 `<style>` 블록을 가지고 있어야 합니다.
 
 | 선택자 | 대상 |
 | --- | --- |
@@ -228,7 +228,7 @@ Conversation 모드에서 아바타를 클릭하면 캐릭터나 페르소나의
 
 팝아웃 카드가 곧 범위 요소입니다. `[data-card-css].mari-about-me-popout`처럼 공백 없이 같은 요소로 지정하세요. 그 안의 요소는 `[data-card-css] .mari-about-me-name`처럼 하위 선택자로 지정합니다. **Chat** 모드에서는 영역 전체가 범위이므로 `.mari-about-me-name`을 바로 써도 됩니다.
 
-"about me" 팝아웃을 꾸민 예입니다. 캐릭터나 페르소나의 **Creator Notes**에 붙여넣은 다음 **Chat Settings**에서 **Card Theming**을 켜세요. 페르소나에 붙여넣는다면 위의 주의 사항을 기억하세요. 채팅에 있는 캐릭터에도 **Creator Notes**에 CSS가 있어야 하며, 없으면 컨트롤이 계속 숨겨져 있습니다.
+"about me" 팝아웃을 꾸민 예입니다. 캐릭터나 페르소나의 **Creator Notes**에 붙여넣은 다음 **Chat Settings**에서 **Card Theming**을 켜세요. 페르소나에 붙여넣는다면 위의 주의 사항을 기억하세요. 채팅에 있는 캐릭터에도 **Creator Notes**에 CSS가 있어야 하며, 없으면 모드 버튼이 계속 숨겨져 있습니다.
 
 ```html
 <style>

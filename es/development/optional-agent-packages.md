@@ -797,6 +797,18 @@ Reglas que conviene conocer:
 
 `scenes` se rechaza en un manifiesto que declara un `capabilityApi` anterior a 1.66.
 
+<a id="capability-api-1376-home-browser-fullscreen"></a>
+
+### Capability API 1.376: pantalla completa del navegador de Home
+
+Una vista `home-browser-tab` recibe `capabilityProps.browserFullscreen`:
+
+- `active`: indica si este paquete ocupa actualmente el área de contenido del navegador de Home.
+- `setActive(boolean)`: entra o sale de pantalla completa para este paquete activo.
+- `enterLabel` y `exitLabel`: etiquetas accesibles localizadas para el botón.
+
+Es pantalla completa dentro de la aplicación: se ocultan las pestañas, la barra de direcciones y los marcadores de Home, mientras que la barra superior de Engine sigue disponible. No llama a la API Fullscreen del navegador ni requiere que el navegador la admita. El estado es temporal y se reinicia al salir del paquete o de Home. Mantén un botón para salir en todas las pantallas del paquete y usa `aria-pressed` para reflejar `active`. Los cambios de propiedades deben actualizar el botón sin sustituir los formularios sin terminar. Los paquetes que dependan de este control declaran Capability API 1.376 o posterior; los anteriores pueden mantener sus diseños actuales.
+
 <a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: acciones de Professor Mari
