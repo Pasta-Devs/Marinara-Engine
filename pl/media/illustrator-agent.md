@@ -83,7 +83,7 @@ Przełącznik **Send Avatar References** wysyła do dostawcy obrazów awatary po
 W czacie Roleplay w sekcji **Chat Settings**, **Agents**, **Illustrator** jest ustawienie **Illustrator makes** (co tworzy agent Illustrator):
 
 - **Pictures** (domyślne): tylko obrazy, tak jak wcześniej.
-- **Pictures and clips**: agent Illustrator może też dodać krótki klip do właśnie utworzonego obrazu, gdy najważniejszy jest ruch, na przykład w scenie akcji, przemocy, pościgu lub gdy coś się rozbija. Sam opisuje ruch zgodnie z **Video Prompting Instructions** połączenia wideo. Obraz pojawia się najpierw, a gotowy klip trafia do tej samej wiadomości.
+- **Pictures and clips**: agent Illustrator może też dodać krótki klip do właśnie utworzonego obrazu, gdy najważniejszy jest ruch, na przykład w scenie akcji, przemocy, pościgu lub gdy coś się rozbija. Dotyczy to także obrazów zamówionych przez narratora za pomocą `[illustrate]`. Sam opisuje ruch zgodnie z **Video Prompting Instructions** połączenia wideo. Obraz pojawia się najpierw, a gotowy klip trafia do tej samej wiadomości.
 - **Clips only**: za każdym razem, gdy agent Illustrator miałby pokazać obraz, pokazuje zamiast niego krótki klip. Jeśli do klipu zostanie narysowany obraz, staje się on pierwszą klatką i trafia do galerii, a nie do odpowiedzi. Jeśli klip się nie uda, wtedy zamiast niego wyświetla się ten obraz.
 
 Klipy korzystają z **Video Connection** w sekcji **Scene Videos** i każdy z nich to zapytanie o wideo. Bez działającego połączenia wideo agent Illustrator tworzy obrazy, nawet przy **Clips only**. Niestandardowi agenci tworzący obrazy korzystają z tego samego ustawienia.
@@ -97,11 +97,11 @@ Klipy korzystają z **Video Connection** w sekcji **Scene Videos** i każdy z ni
 - **Ręczne klipy**: nadal można animować obraz z galerii. Przy **Clips only** przycisk **Illustrate** przy wiadomości tworzy klip.
 - **Swipe'y**: nowy swipe odpowiedzi z klipem liczy się jako nowa odpowiedź. Może dostać własny klip, a wcześniejszy swipe zachowuje swój.
 
-**First frame**, widoczne po włączeniu tworzenia klipów, ustala, od czego zaczyna się każdy klip agenta Illustrator: nowego obrazu, awatara lub sprite'a wymienionej postaci, obrazu z awatarem jako zastępstwem albo bez żadnego obrazu. To samo ustawienie służy do wiadomości wideo w czatach Conversation.
+**First frame** (pierwsza klatka), w tej samej sekcji, ustala, od czego zaczyna się każdy klip w trybie Roleplay. Dotyczy to własnych klipów agenta Illustrator, komendy `/video` oraz przycisku **Video** (wideo) w panelu Gallery. Do wyboru jest nowy obraz agenta Illustrator, awatar lub sprite wymienionej postaci, obraz z awatarem jako zastępstwem albo brak obrazu. To samo ustawienie służy do wiadomości wideo w czatach Conversation.
 
 - **Clips only** z awatarem lub bez obrazu: żaden obraz nie jest rysowany. Klip powstaje z opisu sceny i ruchu przygotowanego przez agenta Illustrator.
 - **Pictures and clips**: obraz nadal jest widoczny, a tylko klip zaczyna się od awatara lub bez obrazu.
-- Bez wybranej pierwszej klatki: klip nigdy nie zamawia obrazu tylko dla siebie. **Pictures and clips** animuje obraz właśnie utworzony przez agenta Illustrator, a **Clips only** tworzy klip wyłącznie na podstawie sceny.
+- Bez wybranej pierwszej klatki: klip nigdy nie zamawia obrazu tylko dla siebie. **Pictures and clips** animuje obraz właśnie utworzony przez agenta Illustrator, a **Clips only**, `/video` i przycisk **Video** w panelu Gallery tworzą klip wyłącznie na podstawie sceny.
 
 Klip bez własnego obrazu opisuje wszystkich, których wymienia, łącznie z twoją personą. Pierwsza klatka z awatarem korzysta z osoby wymienionej jako pierwsza.
 

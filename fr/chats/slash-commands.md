@@ -82,6 +82,7 @@ Ces commandes servent à orienter une histoire, à jouer un personnage et à ajo
 | `/random` | `/rand`, `/event` | Demande à l'IA d'ajouter un événement surprise à l'histoire. |
 | `/scene [description (optional)]` | `/rp` | À lancer depuis un chat Conversation. Démarre une nouvelle scène Roleplay qui crée une branche à partir de cette conversation. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Génère une image de galerie pour le chat en cours. |
+| `/video [description (optional)]` | | Roleplay : crée sous la dernière réponse un court clip de cette réponse ou de ce que tu décris. Suit le réglage **First frame** (première image) d'Illustrator. En Conversation, `/video` envoie plutôt un message vidéo (voir ci-dessous). |
 | `/impersonate [direction (optional)]` | `/imp` | Écrit une réponse à la place de ton persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Définit l'instruction utilisée par `/impersonate` dans ce chat. |
 

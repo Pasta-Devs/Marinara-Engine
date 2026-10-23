@@ -82,6 +82,7 @@
 | `/random` | `/rand`, `/event` | Просит ИИ добавить в историю неожиданное событие. |
 | `/scene [description (optional)]` | `/rp` | Запускается из чата **Conversation**. Начинает новую сцену **Roleplay** как ветку этого чата. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Генерирует изображение в галерее текущего чата. |
+| `/video [description (optional)]` | | Roleplay: создает короткий ролик по последнему ответу или вашему описанию и показывает его под этим ответом. Следует настройке **First frame** агента Illustrator. В Conversation `/video` вместо этого отправляет видеосообщение (см. ниже). |
 | `/impersonate [direction (optional)]` | `/imp` | Пишет ответ за вашу персону. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Задает инструкцию, которой команда `/impersonate` пользуется в этом чате. |
 

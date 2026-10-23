@@ -1,12 +1,12 @@
 # Geração de vídeo de cena
 
-Este guia explica como Marinara Engine transforma a ilustração de uma cena em um clipe de vídeo MP4 curto. Aqui você vê os provedores de vídeo, como gerar um clipe pela galeria, os controles do Game Mode e as configurações de vídeo. Um vídeo de cena é um clipe animado curto, criado a partir de uma única imagem estática.
+Este guia explica como Marinara Engine transforma a ilustração de uma cena em um clipe de vídeo MP4 curto. Aqui você vê os provedores de vídeo, como gerar um clipe pela galeria, os controles do Game Mode e as configurações de vídeo. Um vídeo de cena é um clipe animado curto, criado a partir de uma imagem estática ou, em **Roleplay**, apenas da história.
 
 ## Para que serve o vídeo de cena
 
-O vídeo de cena pega uma imagem que já está na galeria e a anima em um clipe MP4 curto. A imagem estática vira o primeiro quadro, e a IA acrescenta o movimento. Os vídeos de cena funcionam nos chats de **Roleplay** e de **Game Mode**. Já os chats de Conversation enviam mensagens de vídeo; veja [Mensagens de vídeo](../conversation/selfies.md#video-messages).
+Um vídeo de cena é um clipe MP4 curto da cena. Ele pode animar uma imagem da galeria, usando a imagem como primeiro quadro e acrescentando movimento com IA, ou, em **Roleplay**, ser criado só a partir da história. Os vídeos de cena funcionam nos chats de **Roleplay** e de **Game Mode**. Já os chats de Conversation enviam mensagens de vídeo; veja [Mensagens de vídeo](../conversation/selfies.md#video-messages).
 
-Você sempre precisa de uma imagem antes. A geração de vídeos de cena não funciona só com texto. Gere ou faça upload de uma imagem na galeria para depois animá-la.
+**Game Mode** e **Animate illustration** sempre partem de uma imagem, então gere ou faça upload de uma antes. Em **Roleplay**, `/video` e o botão **Video** da Gallery seguem a configuração **First frame** (primeiro quadro) de Illustrator e, sem um First frame escolhido, não precisam de imagem.
 
 Os vídeos de cena usam um tipo de conexão à parte, chamado **Video Generation** (geração de vídeos). Não é a mesma coisa que a geração de imagens comum. Marinara salva os clipes prontos junto com o chat e os mostra na galeria, onde você pode fixar, baixar ou assistir a cada um.
 
@@ -128,7 +128,15 @@ Tanto os chats de **Roleplay** quanto os de **Game Mode** criam vídeos de cena 
 
 A galeria tem a aba **Images** e a aba **Videos**, cada uma com um contador. As imagens estáticas ficam em **Images**. Os clipes prontos ficam em **Videos**.
 
-Para animar a imagem mais recente:
+Em **Roleplay**, **Video** na linha de ações no topo da Gallery cria um clipe da **resposta mais recente**, como digitar `/video`. Acrescente uma descrição depois de `/video` para dizer o que o clipe deve mostrar.
+
+- **First frame**: o clipe segue a configuração **First frame** de Illustrator. Pode ser uma nova imagem de Illustrator da resposta mais recente (desenhada primeiro e depois animada), o avatar ou sprite do personagem, ou nenhuma imagem. Sem um First frame escolhido, nenhuma imagem é desenhada, e o clipe é criado só a partir da história.
+- **Avatar**: o clipe parte de quem a descrição mencionar primeiro, incluindo sua persona. Basta uma parte do nome que ninguém mais compartilhe, escrita com inicial maiúscula ("Lena" para "Dr. Lena Kowalski"). Sem ninguém mencionado, ele parte do personagem do chat.
+- **Revisão**: com **Expose media prompts before sending** ativado, você pode revisar e editar o prompt do clipe antes de enviá-lo.
+- **O que ele lê**: a IA que escreve o clipe lê a mesma quantidade de mensagens recentes que Illustrator lê para uma imagem (**Context Size** de Illustrator, em **Agent Budget** na tela de configuração), para mostrar o que acontece agora.
+- **Sem imagem**: quando o clipe parte de nenhuma imagem ou de um avatar, a IA descreve a própria cena. As instruções ficam em **Roleplay Clip Director**, em **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+
+Em **Game Mode**, **Video** anima a imagem mais recente:
 
 1. Verifique se existe pelo menos uma imagem na aba **Images**. Use o botão **Illustrate** ou faça upload de uma imagem antes.
 2. Clique em **Video** na linha de ações no topo da galeria.
@@ -144,11 +152,11 @@ Para animar uma imagem específica em vez da mais recente:
 2. Passe o mouse sobre a imagem desejada.
 3. Clique no botão **Animate illustration** (o ícone de filme) nos controles que aparecem.
 
-A mesma janela **Review Video Prompt** abre no caso do **Animate illustration** quando a revisão de prompt está ativada. Ela mostra o prompt exato compilado pelo servidor, além da duração, da proporção e da resolução que serão usadas naquela imagem. A edição vale só para aquela geração. No **Roleplay**, as instruções reaproveitáveis que geram esse prompt são controladas à parte pela configuração **Roleplay Gallery Animation Director**, em **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+A mesma janela **Review Video Prompt** abre no caso do **Animate illustration** quando a revisão de prompt está ativada. Ela mostra o prompt exato compilado pelo servidor, além da duração, da proporção e da resolução que serão usadas naquela imagem. A edição vale só para aquela geração. No Roleplay, a IA que planeja o movimento lê a mesma quantidade de mensagens recentes que Illustrator (**Context Size**), terminando na resposta à qual a imagem pertence. No **Roleplay**, as instruções reaproveitáveis que geram esse prompt são controladas à parte pela configuração **Roleplay Gallery Animation Director**, em **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 Na aba **Videos**, cada clipe toca ali mesmo e mostra a duração e o nome do modelo. Você pode fixar um clipe com **Pin video to chat** ou salvá-lo com **Download scene video**. Se ainda não houver nenhum clipe, a aba mostra **No videos yet**.
 
-Se você tentar criar um vídeo sem nenhuma imagem no chat, Marinara mostra esta mensagem: "Add or generate a gallery image before generating a scene video." Gere ou faça upload de uma imagem antes e tente de novo.
+Se você tentar animar uma imagem no Game Mode sem nenhuma imagem no chat, Marinara mostra esta mensagem: "Add or generate a gallery image before generating a scene video." Gere ou faça upload de uma imagem antes e tente de novo.
 
 ## Vídeo de cena no Game Mode
 
@@ -209,7 +217,7 @@ O chat está sem conexão de vídeo selecionada. Abra **Chat Settings**, depois 
 
 ### "Add or generate a gallery image before generating a scene video"
 
-O vídeo de cena sempre anima uma imagem que já existe. Use o botão **Illustrate**, faça upload de uma imagem ou clique em **Animate illustration** em uma imagem que você já tem.
+**Game Mode** e **Animate illustration** precisam de uma imagem existente; em **Roleplay**, o clipe pode ser gerado só a partir da história se nenhum primeiro quadro estiver selecionado. Use o botão **Illustrate**, faça upload de uma imagem ou clique em **Animate illustration** em uma imagem que você já tem.
 
 ### O vídeo demora muito
 

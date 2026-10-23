@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "sourceCommit": "838dde1517d505e86c64fd01386176f9cb68771f",
+  "sourceCommit": "e6b1ac67afca21592557fd9b6d4dac2390ca417b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "62b5e7de4155d03b5e1f22dedfb236a82eb70a6b37adfce0557df3fb0df5af7c",
-      "bytes": 101764
+      "sha256": "c3e85c21041efed8f07cde8b0169ab4cf376d18fb489d0417e53b66d50c211ff",
+      "bytes": 101763
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "7185829fd07753ae1ce4ff2bde1e5cf266a6f05f38cbd6d993a407c2eec81b4e",
-      "bytes": 17892
+      "sha256": "fce039f208c7aa62a63eb522526616f8b6446fbf41c254cd2af0b84b3ebe8a69",
+      "bytes": 18319
     },
     {
       "path": "configuration/features.md",
@@ -599,8 +599,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "eac63628c3ee0f5ad04a3305363e66abcf74b49e8d88240934df7d027c74dec7",
-      "bytes": 28708
+      "sha256": "c62c3d3d14555e6f17faa89798d79e3ae29977d5b6c96106f57b15487b1c774d",
+      "bytes": 29001
     },
     {
       "path": "media/image-providers.md",
@@ -619,8 +619,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "f3e093449ea9f9280450c35c89fb2fe55aae22d666cd042382b8397d1bcab745",
-      "bytes": 37255
+      "sha256": "9e363c0772b037599334b6fc0664f174c221a5596b4ace59e1aa0d11be35bedf",
+      "bytes": 40155
     },
     {
       "path": "media/style-profiles.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "roleplay/getting-started.md",
-      "sha256": "489ebfbf595bcc0c355975da603caefaed56f930e4ea0a7284328c8593be5fa2",
-      "bytes": 36934
+      "sha256": "f1a780e57c8cd6f75b9d716a166472b9587c1312b031d5254a0f2b66ab15e78b",
+      "bytes": 38423
     },
     {
       "path": "roleplay/hud-and-trackers.md",

@@ -82,6 +82,7 @@ Mit diesen Befehlen lenkst du die Geschichte, spielst einen Charakter und ergän
 | `/random` | `/rand`, `/event` | Bittet die KI, ein überraschendes Ereignis in die Geschichte einzubauen. |
 | `/scene [description (optional)]` | `/rp` | Wird aus einem Conversation-Chat heraus ausgeführt. Startet eine neue Roleplay-Szene, die sich von diesem Chat verzweigt. |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | Generiert ein Galeriebild für den aktuellen Chat. |
+| `/video [description (optional)]` | | Roleplay: Erstellt unter der neuesten Antwort einen kurzen Clip dieser Antwort oder deiner Beschreibung. Folgt Illustrators Einstellung **First frame** (Startbild). In Conversation verschickt `/video` stattdessen eine Videonachricht (siehe unten). |
 | `/impersonate [direction (optional)]` | `/imp` | Schreibt eine Antwort im Namen deiner Persona. |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | Legt die Anweisung fest, die `/impersonate` in diesem Chat verwendet. |
 

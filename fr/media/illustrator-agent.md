@@ -83,7 +83,7 @@ Quand **Attach Card Appearance** est activé, toute fiche ou tout persona qui a 
 Dans un chat Roleplay, **Chat Settings**, **Agents**, **Illustrator** propose le réglage **Illustrator makes** (ce que crée Illustrator) :
 
 - **Pictures** (par défaut) : seulement des images, comme auparavant.
-- **Pictures and clips** : Illustrator peut aussi ajouter un court clip à une image qu'il vient de créer lorsque le mouvement fait tout l'intérêt du moment, par exemple une scène d'action ou de violence, une poursuite ou un objet qui se brise. Il décrit lui-même le mouvement en suivant les **Video Prompting Instructions** de la connexion vidéo. L'image apparaît d'abord, puis le clip rejoint le même message lorsqu'il est prêt.
+- **Pictures and clips** : Illustrator peut aussi ajouter un court clip à une image qu'il vient de créer lorsque le mouvement fait tout l'intérêt du moment, par exemple une scène d'action ou de violence, une poursuite ou un objet qui se brise. Cela comprend les images demandées par le narrateur avec `[illustrate]`. Il décrit lui-même le mouvement en suivant les **Video Prompting Instructions** de la connexion vidéo. L'image apparaît d'abord, puis le clip rejoint le même message lorsqu'il est prêt.
 - **Clips only** : chaque fois qu'Illustrator aurait affiché une image, il montre un court clip à la place. Si une image est dessinée pour le clip, elle devient sa première image et va dans la Gallery, pas dans la réponse. Si le clip échoue, cette image s'affiche alors à sa place.
 
 Les clips utilisent la **Video Connection** de **Scene Videos** et chacun représente une requête vidéo. Sans connexion vidéo fonctionnelle, Illustrator crée des images à la place, même avec **Clips only**. Les agents personnalisés qui créent des images suivent le même réglage.
@@ -97,11 +97,11 @@ Les clips utilisent la **Video Connection** de **Scene Videos** et chacun repré
 - **Clips manuels** : tu peux toujours animer une image depuis la Gallery. Avec **Clips only**, le bouton **Illustrate** d'un message crée un clip.
 - **Variantes** : passer à une variante d'une réponse ayant reçu un clip compte comme une nouvelle réponse. La nouvelle variante peut recevoir son propre clip, et la précédente conserve le sien.
 
-**First frame**, visible dès qu'Illustrator crée des clips, détermine le point de départ de chacun : une nouvelle image d'Illustrator, l'avatar ou le sprite du personnage nommé, l'image avec l'avatar comme solution de repli, ou aucune image. C'est le même réglage que pour les messages vidéo des chats Conversation.
+**First frame**, dans la même section, détermine le point de départ de tous les clips Roleplay. Ce réglage s'applique aux clips d'Illustrator, à `/video` et au bouton **Video** de la Gallery. Tu peux choisir une nouvelle image d'Illustrator, l'avatar ou le sprite du personnage nommé, l'image avec l'avatar comme solution de repli, ou aucune image. C'est le même réglage que pour les messages vidéo des chats Conversation.
 
 - **Clips only** avec l'avatar ou sans image : aucune image n'est dessinée. Le clip est créé à partir de la scène et du mouvement d'Illustrator.
 - **Pictures and clips** : l'image reste affichée et seul le clip part de l'avatar ou sans image.
-- Aucune première image choisie : un clip ne fait jamais dessiner une image uniquement pour lui. **Pictures and clips** anime l'image qu'Illustrator vient de créer, et **Clips only** crée le clip à partir de la scène seule.
+- Aucune première image choisie : un clip ne fait jamais dessiner une image uniquement pour lui. **Pictures and clips** anime l'image qu'Illustrator vient de créer, tandis que **Clips only**, `/video` et le bouton **Video** de la Gallery créent le clip à partir de la scène seule.
 
 Un clip sans image propre décrit toutes les personnes qu'il nomme, y compris ta persona. L'avatar utilisé comme première image est celui de la première personne nommée.
 
