@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "bf791797fac694d1351bf1ff1a4828dfcff4d998",
+  "sourceCommit": "838dde1517d505e86c64fd01386176f9cb68771f",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -306,6 +306,11 @@
       "path": "data/where-data-is-stored.md",
       "sha256": "c6c0e8f6d6335731eff286bc7d1d8ad781ca46574e81e2474e8d4e5e455dab91",
       "bytes": 11796
+    },
+    {
+      "path": "development/antigravity-cli-qualification.md",
+      "sha256": "2825992866afd2bae1a8405c759eb302ca37c8b022e8be472e0f8c1861fca765",
+      "bytes": 14291
     },
     {
       "path": "development/architecture-map.md",
