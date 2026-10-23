@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
+import { AudioGenerationProviderError } from "../services/audio/generative-audio-providers.js";
 import {
   AudioGenerationConfigurationError,
   generateAudioAsset,
@@ -26,6 +27,16 @@ const generateSchema = z.object({
     })
     .optional(),
 });
+// Only diagnoses written by this host become localized UI classes; raw detail stays out of the panel.
+const audioFailureCodes = [
+  [/MP3 audio|MP3 audio only|size limit|no supported inline audio/, "invalid_audio"],
+  [/callback URL/, "invalid_callback"],
+  [
+    /length must|positive number of milliseconds|exceeds \d+ characters|custom .+ endpoint|endpoint must be a path|audio API base/,
+    "invalid_input",
+  ],
+  [/SunoAPI (?:did not accept|could not look up|completed|audio task|audio download)/, "task_failed"],
+] as const;
 
 export async function audioRoutes(app: FastifyInstance) {
   app.get("/config", async (req, reply) => {
@@ -57,9 +68,14 @@ export async function audioRoutes(app: FastifyInstance) {
       if (error instanceof AudioGenerationConfigurationError)
         return reply.status(error.statusCode).send({ error: error.message });
       logger.error(error, "Audio generation failed");
+      const failureCode =
+        error instanceof Error ? audioFailureCodes.find(([pattern]) => pattern.test(error.message))?.[1] : undefined;
       return reply.status(502).send({
         error: "Audio generation failed",
         detail: error instanceof Error ? error.message : "Unknown provider error",
+        ...(error instanceof AudioGenerationProviderError
+          ? { providerStatus: error.providerStatus, providerCode: error.providerCode, reason: error.reason }
+          : { failureCode }),
       });
     }
   });

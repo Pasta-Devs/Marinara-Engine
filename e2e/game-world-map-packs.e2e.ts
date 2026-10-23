@@ -204,7 +204,7 @@ test("an Experience's map pack sets the kit and offers only its maps, and lets g
   await expect(wizard.getByRole("radio", { name: "Downriver", exact: true })).toBeChecked();
 
   // Started: the game is made with the pack's kit and the map picked.
-  const start = wizard.getByRole("button", { name: "Start Game", exact: true });
+  const start = wizard.getByRole("button", { name: "Create world", exact: true });
   for (let step = 0; step < 6 && !(await start.isVisible()); step++) await go("Next");
   await start.click();
   const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}") as {
@@ -245,7 +245,7 @@ test("an Experience whose map pack Marinara cannot read cannot start a game, and
   // Neither the pack's maps nor the player's own kit chooser: nothing to start with.
   await expect(wizard.getByRole("radio", { name: "Upriver", exact: true })).toHaveCount(0);
   await expect(wizard.getByRole("button", { name: "Import a world file", exact: true })).toHaveCount(0);
-  const start = wizard.getByRole("button", { name: "Start Game", exact: true });
+  const start = wizard.getByRole("button", { name: "Create world", exact: true });
   for (let step = 0; step < 6 && !(await start.isVisible()); step++) await next();
   await expect(start).toBeDisabled();
   await expect(wizard.getByText("Marinara could not read this Experience's map pack, so the Experience cannot start a game.")).toBeVisible();

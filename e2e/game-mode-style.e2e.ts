@@ -100,7 +100,7 @@ async function stepTo(wizard: Locator, title: string) {
 
 /** Walks on to the last step and starts the game; the setup it started. */
 async function start(page: Page, wizard: Locator): Promise<Record<string, any>> {
-  const startButton = wizard.getByRole("button", { name: "Start Game", exact: true });
+  const startButton = wizard.getByRole("button", { name: "Create world", exact: true });
   for (let guard = 0; guard < 8 && !(await startButton.isVisible()); guard++) await next(wizard);
   await startButton.click();
   await expect.poll(() => page.evaluate(() => Boolean(window.__styleSetup))).toBe(true);

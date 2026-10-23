@@ -130,6 +130,7 @@ export async function resolveGenerativeAudioConfig(db: DB, requestedId?: string 
 }
 
 const locks = new Map<string, Promise<GeneratedAudioAsset>>();
+const testPublicationTails = new Map<string, Promise<GeneratedAudioAsset>>();
 
 /** Report each usable capability independently; checking readiness never calls a provider. */
 export async function resolveGenerativeAudioReadiness(db: DB, requestedId?: string | null) {
@@ -191,16 +192,19 @@ async function compose(
   prompt: string,
   context?: GeneratedAudioContext,
 ): Promise<GeneratedAudioAsset> {
-  const hash = createHash("sha256")
-    .update(`${cacheIdentity(config, kind)}${kind}\0${prompt.toLowerCase()}`)
-    .digest("hex");
+  const isConnectionTest = context && "scope" in context && context.scope === "connection-test";
+  const hash = isConnectionTest
+    ? randomUUID().replaceAll("-", "")
+    : createHash("sha256")
+        .update(`${cacheIdentity(config, kind)}${kind}\0${prompt.toLowerCase()}`)
+        .digest("hex");
   const category = context
     ? "axis" in context
       ? `music/${context.axis}/${context.key}`
       : `music/contexts/${context.scope}/${context.key}`
     : `${kind === "music" ? "music" : "sfx"}/generated`;
   const directory = join(GAME_ASSETS_DIR, category);
-  if (context) {
+  if (context && !isConnectionTest) {
     // A user-supplied replacement covers the context as well as a generated file.
     const covered = (await readdir(directory, { withFileTypes: true }).catch(() => [])).find(
       (entry) => entry.isFile() && !entry.name.startsWith(".") && AUDIO_FILE_PATTERN.test(entry.name),
@@ -215,11 +219,13 @@ async function compose(
   const filename = context ? `generated-${hash.slice(0, 16)}.mp3` : `${hash}.mp3`;
   const path = `${category}/${filename}`;
   const tag = `${category.replaceAll("/", ":")}:${filename.replace(/\.mp3$/, "")}`;
-  try {
-    await access(join(GAME_ASSETS_DIR, path));
-    return { tag, path, cached: true };
-  } catch {
-    /* compose below */
+  if (!isConnectionTest) {
+    try {
+      await access(join(GAME_ASSETS_DIR, path));
+      return { tag, path, cached: true };
+    } catch {
+      /* compose below */
+    }
   }
   const bytes = await generateAudioBytes(config, kind, prompt, {
     lengthMs: context?.lengthMs ?? (context ? 120_000 : 5_000),
@@ -232,6 +238,14 @@ async function compose(
   } catch (error) {
     await unlink(temporary).catch(() => {});
     throw error;
+  }
+  if (isConnectionTest) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isFile() && /^generated-[a-f0-9]{16}\.mp3$/.test(entry.name) && entry.name !== filename)
+        await unlink(join(directory, entry.name)).catch((error) =>
+          logger.warn(error, "Failed to remove a previous connection test track"),
+        );
+    }
   }
   scheduleManifestRebuild();
   return { tag, path, cached: false };
@@ -265,17 +279,33 @@ export async function generateAudioAsset(
     "[debug/audio/generate] Prompt sent to audio provider:\n%s",
     prompt,
   );
-  const context = request.context;
-  const key = context
+  const context =
+    request.context && "scope" in request.context && request.context.scope === "connection-test"
+      ? { ...request.context, key: createHash("sha256").update(config.id).digest("hex").slice(0, 32) }
+      : request.context;
+  const directoryKey = context
     ? "axis" in context
       ? `music/${context.axis}/${context.key}`
       : `music/contexts/${context.scope}/${context.key}`
     : `${cacheIdentity(config, request.kind)}${request.kind}\0${prompt.toLowerCase()}`;
+  const isConnectionTest = context && "scope" in context && context.scope === "connection-test";
+  const key = isConnectionTest
+    ? `${directoryKey}\0${createHash("sha256")
+        .update(JSON.stringify([config, request.kind, prompt, context.lengthMs ?? 120_000]))
+        .digest("hex")}`
+    : directoryKey;
   let pending = locks.get(key);
   if (!pending) {
     // Aborting one listener must not discard a paid result for other listeners.
-    pending = compose(config, request.kind, prompt, context).finally(() => locks.delete(key));
+    const previousTest = isConnectionTest ? testPublicationTails.get(directoryKey) : undefined;
+    const generate = () => compose(config, request.kind, prompt, context);
+    pending = (previousTest ? previousTest.catch(() => {}).then(generate) : generate()).finally(() => {
+      locks.delete(key);
+      if (isConnectionTest && testPublicationTails.get(directoryKey) === pending)
+        testPublicationTails.delete(directoryKey);
+    });
     locks.set(key, pending);
+    if (isConnectionTest) testPublicationTails.set(directoryKey, pending);
   }
   let listener: ReturnType<typeof addAbortListener> | undefined;
   try {

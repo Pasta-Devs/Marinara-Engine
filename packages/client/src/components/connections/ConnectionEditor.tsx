@@ -68,6 +68,8 @@ import {
 import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { api, ApiError } from "../../lib/api-client";
+import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
@@ -467,6 +469,17 @@ export function ConnectionEditor() {
 
   // Test results
   const testScopeRef = useRef(0);
+  const audioTestControllerRef = useRef<AbortController | null>(null);
+  const [audioTestPending, setAudioTestPending] = useState(false);
+  const [audioTestUrl, setAudioTestUrl] = useState<string | null>(null);
+  const [audioTestError, setAudioTestError] = useState<string | null>(null);
+  const clearAudioTest = useCallback(() => {
+    audioTestControllerRef.current?.abort();
+    audioTestControllerRef.current = null;
+    setAudioTestPending(false);
+    setAudioTestUrl(null);
+    setAudioTestError(null);
+  }, []);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
@@ -641,12 +654,14 @@ export function ConnectionEditor() {
   // Clear results when changing the selected connection, not on its save/refetch.
   useEffect(() => {
     testScopeRef.current++;
+    clearAudioTest();
     setTestResult(null);
     setMsgResult(null);
     setImgTestResult(null);
     setVidTestResult(null);
     setClaudeDiagResult(null);
-  }, [connectionDetailId]);
+    return () => audioTestControllerRef.current?.abort();
+  }, [connectionDetailId, clearAudioTest]);
 
   const comfyWorkflowValidation = useMemo(() => {
     const wf = localComfyuiWorkflow;
@@ -836,11 +851,15 @@ export function ConnectionEditor() {
 
   // Model list for current provider
   const providerModels = useMemo(() => {
+    if (localProvider === "audio_generation")
+      return localAudioGenerationSource === "elevenlabs"
+        ? [{ id: "music_v2_5", name: t("connections.audioGeneration.elevenMusicV25"), context: 0, maxOutput: 0 }]
+        : [];
     if (localProvider === "video_generation" && selectedVideoProvider === "nanogpt") return [];
     if (localProvider === "image_generation" && selectedImageService === "novelai")
       return (MODEL_LISTS[localProvider] ?? []).filter((m) => m.id.startsWith("nai-"));
     return MODEL_LISTS[localProvider] ?? [];
-  }, [localProvider, selectedVideoProvider, selectedImageService]);
+  }, [localProvider, localAudioGenerationSource, selectedVideoProvider, selectedImageService, t]);
 
   // Merge known models with remote models (remote first, deduped)
   const allModels = useMemo(
@@ -1586,6 +1605,70 @@ export function ConnectionEditor() {
     });
   }, [connectionDetailId, dirty, handleSave, testVideoGeneration]);
 
+  const handleTestMusic = useCallback(async () => {
+    if (!connectionDetailId || !localAudioMusic || audioTestControllerRef.current) return;
+    const controller = new AbortController();
+    audioTestControllerRef.current = controller;
+    const scope = testScopeRef.current;
+    setAudioTestPending(true);
+    setAudioTestUrl(null);
+    setAudioTestError(null);
+    try {
+      if (dirty) await handleSave();
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      const result = await api.post<{ path: string }>(
+        "/audio/generate",
+        {
+          kind: "music",
+          prompt: "A short calm instrumental with gentle piano and warm strings, no vocals.",
+          audioConnectionId: connectionDetailId,
+          context: {
+            scope: "connection-test",
+            key: "sample",
+            lengthMs: 10_000,
+          },
+        },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      if (
+        typeof result.path !== "string" ||
+        !/^music\/contexts\/connection-test\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/.test(result.path)
+      )
+        throw new Error(t("connections.audioGeneration.testMusicInvalidAudio"));
+      setAudioTestUrl(gameAssetFileUrl(result.path));
+    } catch (error) {
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      const payload = error instanceof ApiError ? (error.payload as Record<string, unknown> | undefined) : undefined;
+      const status = payload?.providerStatus;
+      const failureMessage =
+        payload?.failureCode === "invalid_audio"
+          ? t("connections.audioGeneration.testMusicInvalidAudio")
+          : payload?.failureCode === "invalid_callback"
+            ? t("connections.audioGeneration.testMusicCallbackError")
+            : payload?.failureCode === "invalid_input"
+              ? t("connections.audioGeneration.testMusicInputError")
+              : payload?.failureCode === "task_failed"
+                ? t("connections.audioGeneration.testMusicTaskError")
+                : undefined;
+      const message =
+        failureMessage ??
+        (typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599
+          ? typeof payload?.reason === "string" && payload.reason
+            ? t("connections.audioGeneration.testMusicProviderError", { status, reason: payload.reason.slice(0, 300) })
+            : t("connections.audioGeneration.testMusicHttpError", { status })
+          : error instanceof Error
+            ? error.message.slice(0, 300)
+            : t("connections.audioGeneration.testMusicFailed"));
+      setAudioTestError(message);
+    } finally {
+      if (audioTestControllerRef.current === controller) {
+        audioTestControllerRef.current = null;
+        setAudioTestPending(false);
+      }
+    }
+  }, [connectionDetailId, localAudioMusic, dirty, handleSave, t]);
+
   const handleFetchModels = useCallback(async () => {
     if (!connectionDetailId) return;
     const requestScope = fetchScopeRef.current;
@@ -1636,16 +1719,18 @@ export function ConnectionEditor() {
       setShowModelDropdown(false);
       setModelSearch("");
       testScopeRef.current++;
+      clearAudioTest();
       setDirty(true);
     },
-    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService],
+    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService, clearAudioTest],
   );
 
   const markDirty = useCallback(() => {
     // A manual configuration edit invalidates in-flight tests; save hydration does not.
     testScopeRef.current++;
+    clearAudioTest();
     setDirty(true);
-  }, []);
+  }, [clearAudioTest]);
 
   const handleManualModelChange = useCallback(
     (model: string) => {
@@ -3151,7 +3236,7 @@ export function ConnectionEditor() {
             )}
 
             {/* Context display */}
-            {selectedModelInfo && (
+            {selectedModelInfo && !isGenerativeAudioProvider && (
               <div className="mt-2 flex items-center gap-4 rounded-lg bg-sky-400/5 px-3 py-2 text-[0.6875rem]">
                 <span className="text-[var(--muted-foreground)]">
                   {localizeUi("ui.connections.connectioneditor.context")}{" "}
@@ -4027,9 +4112,43 @@ export function ConnectionEditor() {
 
           {/* ── Test Section ── */}
           {isGenerativeAudioProvider && (
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-xs text-[var(--muted-foreground)]">
-              {t("connections.audioGeneration.testHelp")}
-            </p>
+            <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
+              <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
+              <p className="text-xs text-[var(--muted-foreground)]">{t("connections.audioGeneration.testHelp")}</p>
+              <button
+                type="button"
+                onClick={handleTestMusic}
+                disabled={audioTestPending || !connectionDetailId || !localAudioMusic}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)]/10 px-4 py-2.5 text-xs font-medium text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/20 transition-all hover:bg-[var(--marinara-app-accent-static)]/20 active:scale-[0.98] disabled:opacity-50"
+              >
+                {audioTestPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Music size="0.8125rem" />}
+                {t(
+                  audioTestPending
+                    ? "connections.audioGeneration.testMusicGenerating"
+                    : "connections.audioGeneration.testMusic",
+                )}
+              </button>
+              {!localAudioMusic && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {t("connections.audioGeneration.testMusicEnable")}
+                </p>
+              )}
+              {audioTestError && (
+                <p role="alert" className="break-words text-xs text-[var(--marinara-app-accent-static)]">
+                  {audioTestError}
+                </p>
+              )}
+              {audioTestUrl && (
+                <audio
+                  controls
+                  preload="metadata"
+                  src={audioTestUrl}
+                  aria-label={t("connections.audioGeneration.testMusicPlayer")}
+                  className="w-full"
+                  onError={() => setAudioTestError(t("connections.audioGeneration.testMusicInvalidAudio"))}
+                />
+              )}
+            </section>
           )}
           <div
             hidden={isGenerativeAudioProvider}

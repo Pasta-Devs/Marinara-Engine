@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const data = mkdtempSync(join(tmpdir(), "marinara-generative-audio-"));
 Object.assign(process.env, {
@@ -37,6 +38,14 @@ const settings = createAppSettingsStorage(db);
 const app = Fastify();
 app.decorate("db", db);
 app.setErrorHandler(errorHandler);
+let enteredSampleRequests = 0;
+app.addHook("preHandler", async (request) => {
+  if (
+    request.url === "/api/audio/generate" &&
+    (request.body as { context?: { scope?: string } } | undefined)?.context?.scope === "connection-test"
+  )
+    enteredSampleRequests++;
+});
 await app.register(audioRoutes, { prefix: "/api/audio" });
 await app.register(ttsRoutes, { prefix: "/api/tts" });
 await app.register(connectionsRoutes, { prefix: "/api/connections" });
@@ -291,6 +300,118 @@ try {
     (await generate(row.id, { ...music, context: { scope: "gacha-forge", key: "world-1-sad" } })).json().path,
     "music/contexts/gacha-forge/world-1-sad/my-track.ogg",
   );
+  const sampleInput = {
+    kind: "music",
+    context: { scope: "connection-test", key: "untrusted-client-key", lengthMs: 10_000 },
+  };
+  const beforeSamples = calls.length;
+  const sample1 = (await generate(row.id, sampleInput)).json();
+  const sampleDirectory = dirname(sample1.path);
+  assert.equal(
+    sampleDirectory,
+    `music/contexts/connection-test/${createHash("sha256").update(row.id).digest("hex").slice(0, 32)}`,
+    "the server derives sample ownership from the selected connection, not a client key",
+  );
+  const sampleReplacement = join(data, "game-assets", sampleDirectory, "my-track.ogg");
+  writeFileSync(sampleReplacement, "user owned audio");
+  const sample2 = (
+    await generate(row.id, { ...sampleInput, context: { ...sampleInput.context, key: "other-key" } })
+  ).json();
+  assert.equal(dirname(sample2.path), sampleDirectory);
+  assert.notEqual(sample1.path, sample2.path, "each successful test has a fresh URL despite browser asset caching");
+  assert.equal(sample1.cached, false);
+  assert.equal(sample2.cached, false);
+  assert.equal(calls.length, beforeSamples + 2, "each later click really contacts the selected provider");
+  assert.equal(existsSync(join(data, "game-assets", sample1.path)), false, "the previous test track is reclaimed");
+  assert.deepEqual(
+    readdirSync(join(data, "game-assets", sampleDirectory)).sort(),
+    [sample2.path.split("/").at(-1), "my-track.ogg"].sort(),
+  );
+  assert.equal(readFileSync(sampleReplacement, "utf8"), "user owned audio");
+  assert.equal(
+    readFileSync(join(replacement, "my-track.ogg"), "utf8"),
+    "user owned audio",
+    "other scopes remain intact",
+  );
+  const otherSample = (await generate(changed.id, sampleInput)).json();
+  assert.notEqual(dirname(otherSample.path), sampleDirectory, "connections do not share sample assets or locks");
+  assert(existsSync(join(data, "game-assets", sample2.path)));
+  const beforeRacingSamples = calls.length;
+  const racingSamples = await Promise.all([
+    generate(row.id, sampleInput),
+    generate(row.id, { ...sampleInput, prompt: "  a   gentle chime  " }),
+  ]);
+  assert.equal(racingSamples[0]!.json().path, racingSamples[1]!.json().path);
+  assert.equal(calls.length, beforeRacingSamples + 1, "concurrent listeners share one in-flight sample only");
+  assert.equal(
+    readdirSync(join(data, "game-assets", sampleDirectory)).filter((name) => /^generated-/.test(name)).length,
+    1,
+  );
+  const queuedConnection = await create({ audioMusicEndpoint: "hold", model: "sample-model-a" });
+  for (const changedInput of ["model", "prompt", "apiKey", "length"] as const) {
+    held = undefined;
+    const beforeQueue = calls.length;
+    const enteredBeforeQueue = enteredSampleRequests;
+    const earlier = generate(queuedConnection.id, sampleInput).then((result) => result);
+    for (let n = 0; n < 100 && !held; n++) await new Promise((resolve) => setTimeout(resolve, 5));
+    const firstHold = held as { release: () => void } | undefined;
+    assert(firstHold, "the first paid request is in flight");
+    if (changedInput === "model") await connections.update(queuedConnection.id, { model: "sample-model-b" });
+    if (changedInput === "apiKey")
+      await connections.update(queuedConnection.id, { apiKey: "changed-fixture-audio-key" });
+    const later = generate(queuedConnection.id, {
+      ...sampleInput,
+      ...(changedInput === "prompt" ? { prompt: "a different test instrumental" } : {}),
+      ...(changedInput === "length" ? { context: { ...sampleInput.context, lengthMs: 15_000 } } : {}),
+    }).then((result) => result);
+    for (let n = 0; n < 100 && enteredSampleRequests < enteredBeforeQueue + 2; n++)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(enteredSampleRequests, enteredBeforeQueue + 2);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(calls.length, beforeQueue + 1, "different requests serialize publication into their shared directory");
+    firstHold.release();
+    const earlierResult = await earlier;
+    for (let n = 0; n < 100 && held === firstHold; n++) await new Promise((resolve) => setTimeout(resolve, 5));
+    const nextHold = held as { release: () => void } | undefined;
+    assert(
+      nextHold && nextHold !== firstHold,
+      "changed input submits a distinct provider request after the previous one",
+    );
+    nextHold.release();
+    const laterResult = await later;
+    assert.equal(earlierResult.statusCode, 200, earlierResult.body);
+    assert.equal(laterResult.statusCode, 200, laterResult.body);
+    assert.notEqual(earlierResult.json().path, laterResult.json().path);
+    assert.equal(calls.length, beforeQueue + 2);
+    assert.notEqual(
+      changedInput === "apiKey"
+        ? calls[beforeQueue]!.authorization
+        : calls[beforeQueue]!.body[changedInput === "length" ? "duration" : changedInput],
+      changedInput === "apiKey"
+        ? calls[beforeQueue + 1]!.authorization
+        : calls[beforeQueue + 1]!.body[changedInput === "length" ? "duration" : changedInput],
+    );
+    assert.equal(existsSync(join(data, "game-assets", earlierResult.json().path)), false);
+    assert(existsSync(join(data, "game-assets", laterResult.json().path)));
+  }
+  held = undefined;
+  const beforeCrossKind = calls.length;
+  const crossKind = await Promise.all(
+    (["music", "sfx"] as const).map((kind) =>
+      generateAudioAsset(db, {
+        ...sampleInput,
+        audioConnectionId: row.id,
+        prompt: "kind-specific test sample",
+        kind,
+      }),
+    ),
+  );
+  assert.equal(
+    calls.length,
+    beforeCrossKind + 2,
+    "different audio kinds cannot coalesce in the internal shared helper",
+  );
+  assert.notEqual(crossKind[0]!.path, crossKind[1]!.path);
   for (const extra of [
     { kind: "music" },
     { context: { scope: "gacha-forge", key: "x" } },
@@ -314,6 +435,59 @@ try {
     { models: [] },
   );
   assert.equal(calls.length, beforeUnsupportedTests, "generation connections never send chat/model-list test requests");
+  const native = await create({ audioGenerationSource: "elevenlabs", baseUrl: "https://8.8.8.8", model: "music_v2_5" });
+  const originalFetch = globalThis.fetch;
+  const nativeRequests: Record<string, unknown>[] = [];
+  try {
+    globalThis.fetch = async (url, init) => {
+      assert.equal(new URL(String(url)).hostname, "8.8.8.8");
+      nativeRequests.push(JSON.parse(String(init?.body)));
+      return new Response(
+        JSON.stringify({ detail: { status: "invalid_model_id", message: "Select another model. fixture-audio-key" } }),
+        { status: 400 },
+      );
+    };
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/audio/generate",
+      payload: {
+        audioConnectionId: native.id,
+        kind: "music",
+        prompt: "A test sample",
+        context: { scope: "connection-test", key: "fixture", lengthMs: 10_000 },
+      },
+    });
+    assert.equal(rejected.statusCode, 502);
+    assert.deepEqual(rejected.json(), {
+      error: "Audio generation failed",
+      detail: "ElevenLabs audio request returned HTTP 400",
+      providerStatus: 400,
+      providerCode: "invalid_model_id",
+      reason: "Select another model. [redacted]",
+    });
+    assert.equal(nativeRequests.length, 1);
+    assert.equal(nativeRequests[0]!.model_id, "music_v2_5");
+    assert.equal(nativeRequests[0]!.music_length_ms, 10_000);
+    assert(!rejected.body.includes("fixture-audio-key"));
+    globalThis.fetch = async () => new Response("not MP3 audio");
+    const invalidAudio = await generate(native.id, sampleInput);
+    assert.equal(invalidAudio.statusCode, 502);
+    assert.equal(invalidAudio.json().failureCode, "invalid_audio");
+    assert.equal(invalidAudio.json().providerStatus, undefined);
+    const suno = await create({ audioGenerationSource: "sunoapi", baseUrl: "https://8.8.8.8", model: "V6" });
+    assert.equal((await generate(suno.id, sampleInput)).json().failureCode, "invalid_callback");
+    assert.equal(
+      (await generate(suno.id, { ...sampleInput, prompt: "x".repeat(1001) })).json().failureCode,
+      "invalid_input",
+    );
+    await connections.update(suno.id, { audioGenerationCallbackUrl: "https://9.9.9.9/callback" });
+    globalThis.fetch = async () => new Response(JSON.stringify({ code: 400, msg: "private raw provider text" }));
+    const taskFailure = await generate(suno.id, sampleInput);
+    assert.equal(taskFailure.json().failureCode, "task_failed");
+    assert(!taskFailure.body.includes("private raw provider text"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
   const broken = await create({ audioSoundEffectsEndpoint: "error" });
   const beforeFailure = calls.length;
   assert.equal((await generate(broken.id)).statusCode, 502);

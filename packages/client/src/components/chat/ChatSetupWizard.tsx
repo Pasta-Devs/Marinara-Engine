@@ -3461,12 +3461,14 @@ function RoleplaySetupWizard({
                 <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
               </button>
             ))}
-            {available.length === 0 && (
+            {available.length === 0 && lorebooks !== undefined && (
               <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {((lorebooks ?? []) as Array<{ id: string }>).filter((lb) => !activeLorebookIds.includes(lb.id))
-                  .length === 0
-                  ? localizeUi("ui.chat.roleplaysetupwizard.allLorebooksAlreadyAdded")
-                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
+                {(lorebooks ?? []).length === 0
+                  ? localizeUi("ui.panels.lorebookspanel.noLorebooksYet")
+                  : ((lorebooks ?? []) as Array<{ id: string }>).filter((lb) => !activeLorebookIds.includes(lb.id))
+                        .length === 0
+                    ? localizeUi("ui.chat.roleplaysetupwizard.allLorebooksAlreadyAdded")
+                    : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
               </p>
             )}
           </div>

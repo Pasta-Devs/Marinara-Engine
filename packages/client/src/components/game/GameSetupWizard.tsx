@@ -422,6 +422,19 @@ function filterCustomLearnedValues(values: string[], builtIns: string[]) {
   return values.map((value) => value.trim()).filter((value) => value && !excluded.has(optionKey(value)));
 }
 
+/** Says a field still holds the text kept from the last game set up, with a way to empty it. */
+function RememberedTextNote({ onClear }: { onClear: () => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  return (
+    <div className="mt-1 flex items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
+      <span>{localizeUi("ui.game.gamesetupwizard.fromYourLastGame")}</span>
+      <button type="button" onClick={onClear} className="underline transition-colors hover:text-[var(--primary)]">
+        {localizeUi("ui.game.gamesetupwizard.clearRememberedText")}
+      </button>
+    </div>
+  );
+}
+
 function LearnedOptionChips({
   options,
   expanded,
@@ -647,12 +660,13 @@ export function GameSetupWizard({
   const [partyCharacterIds, setPartyCharacterIds] = useState<string[]>(() =>
     Array.from(new Set(initialPartyCharacterIds.filter((id) => characters.some((character) => character.id === id)))),
   );
-  const [playerGoals, setPlayerGoals] = useState(
-    () => useUIStore.getState().rememberedGameSetupText?.playerGoals ?? "",
-  );
-  const [preferences, setPreferences] = useState(
-    () => useUIStore.getState().rememberedGameSetupText?.preferences ?? "",
-  );
+  // Goals and preferences start as the last game's; a note says so while the text is unchanged.
+  const [rememberedSetupText] = useState(() => ({
+    playerGoals: useUIStore.getState().rememberedGameSetupText?.playerGoals ?? "",
+    preferences: useUIStore.getState().rememberedGameSetupText?.preferences ?? "",
+  }));
+  const [playerGoals, setPlayerGoals] = useState(rememberedSetupText.playerGoals);
+  const [preferences, setPreferences] = useState(rememberedSetupText.preferences);
   const [gmSearch, setGmSearch] = useState("");
   const [partySearch, setPartySearch] = useState("");
   const [partyFolderId, setPartyFolderId] = useState("");
@@ -3490,6 +3504,9 @@ export function GameSetupWizard({
                         rows={3}
                         className="w-full resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                       />
+                      {rememberedSetupText.playerGoals && playerGoals === rememberedSetupText.playerGoals && (
+                        <RememberedTextNote onClear={() => setPlayerGoals("")} />
+                      )}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {goalSuggestions.map((s) => (
                           <button
@@ -3523,6 +3540,9 @@ export function GameSetupWizard({
                         rows={3}
                         className="w-full resize-none rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                       />
+                      {rememberedSetupText.preferences && preferences === rememberedSetupText.preferences && (
+                        <RememberedTextNote onClear={() => setPreferences("")} />
+                      )}
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {PREFERENCE_SUGGESTIONS.map((s) => (
                           <button
@@ -3606,11 +3626,13 @@ export function GameSetupWizard({
                               <Plus size={12} className="text-[var(--muted-foreground)]" />
                             </button>
                           ))}
-                          {availableLorebooks.length === 0 && (
+                          {availableLorebooks.length === 0 && lorebooksList !== undefined && (
                             <p className="px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                              {lorebooks.filter((lb) => !activeLorebookIds.includes(lb.id)).length === 0
-                                ? localizeUi("ui.game.gamesetupwizard.allLorebooksAlreadyAdded")
-                                : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
+                              {lorebooks.length === 0
+                                ? localizeUi("ui.panels.lorebookspanel.noLorebooksYet")
+                                : lorebooks.filter((lb) => !activeLorebookIds.includes(lb.id)).length === 0
+                                  ? localizeUi("ui.game.gamesetupwizard.allLorebooksAlreadyAdded")
+                                  : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
                             </p>
                           )}
                         </div>
@@ -4366,7 +4388,7 @@ export function GameSetupWizard({
                         <>
                           <Wand2 size={14} />
                           {localizeUi(
-                            multiplayerPlayers ? "multiplayer.game.review" : "ui.game.gamesurfacecomponent.startGame",
+                            multiplayerPlayers ? "multiplayer.game.review" : "ui.game.gamesetupwizard.createWorld",
                           )}
                         </>
                       )}

@@ -3,6 +3,8 @@ import { isTtsLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { safeFetch, validateOutboundUrl } from "../../utils/security.js";
 import { generateCompatibleGameAudio } from "../game/compatible-audio.js";
 import { detectTTSAudioMimeType } from "./audio-content-type.js";
+import { sanitizeApiError } from "../llm/base-provider.js";
+import { privateErrorLogFields } from "../../lib/logger.js";
 
 export interface GenerativeAudioProviderConfig {
   source: "elevenlabs" | "sunoapi" | "custom";
@@ -26,6 +28,100 @@ export interface GenerateAudioBytesOptions {
 const MAX_AUDIO_BYTES = 60 * 1024 * 1024;
 const DEADLINE_MS = 300_000;
 const PUBLIC_HTTPS = { allowLocal: false, allowLoopback: false, allowMdns: false, allowedProtocols: ["https:"] };
+const MAX_ERROR_BYTES = 16 * 1024;
+const PROVIDER_ERROR_CODES = new Set([
+  "invalid_api_key",
+  "quota_exceeded",
+  "model_not_found",
+  "invalid_model_id",
+  "invalid_request",
+  "unauthorized",
+  "rate_limit_exceeded",
+  "too_many_concurrent_requests",
+]);
+
+export class AudioGenerationProviderError extends Error {
+  readonly [privateErrorLogFields]: { type: string; status: number };
+  constructor(
+    source: "elevenlabs" | "sunoapi",
+    readonly providerStatus: number,
+    readonly reason?: string,
+    readonly providerCode?: string,
+  ) {
+    super(`${source === "elevenlabs" ? "ElevenLabs" : "SunoAPI"} audio request returned HTTP ${providerStatus}`);
+    this[privateErrorLogFields] = { type: "AudioGenerationProviderError", status: providerStatus };
+  }
+}
+
+/** Read only a small JSON error envelope; never expose raw bodies or echoed connection secrets. */
+async function providerRejection(
+  response: Response,
+  config: GenerativeAudioProviderConfig & { source: "elevenlabs" | "sunoapi" },
+  signal: AbortSignal,
+): Promise<AudioGenerationProviderError> {
+  const fallback = () => new AudioGenerationProviderError(config.source, response.status);
+  const reader = response.body?.getReader();
+  if (!reader) return fallback();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      signal.throwIfAborted();
+      const { value, done } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > MAX_ERROR_BYTES) return fallback();
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  signal.throwIfAborted();
+  let body: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return fallback();
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return fallback();
+  }
+  const detail = body?.detail;
+  const detailObject = detail && typeof detail === "object" ? (detail as Record<string, unknown>) : undefined;
+  const errorObject =
+    body.error && typeof body.error === "object" ? (body.error as Record<string, unknown>) : undefined;
+  const message =
+    detailObject?.message ??
+    (typeof detail === "string" ? detail : undefined) ??
+    (Array.isArray(detail)
+      ? detail
+          .map((entry) => entry?.msg)
+          .filter((msg) => typeof msg === "string")
+          .join("; ")
+      : undefined) ??
+    errorObject?.message ??
+    (typeof body.error === "string" && !PROVIDER_ERROR_CODES.has(body.error) ? body.error : undefined) ??
+    body?.message ??
+    body?.msg;
+  let reason = typeof message === "string" ? sanitizeApiError(message, message.length) : "";
+  const secrets = [config.apiKey, config.apiKey.trim(), config.baseUrl, config.callbackUrl]
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => b.length - a.length);
+  for (const secret of secrets) reason = reason.replaceAll(secret, "[redacted]");
+  reason = reason
+    .replace(/https?:\/\/[^\s"'<>]+/gi, "[redacted URL]")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+  const code = detailObject?.status ?? errorObject?.code ?? body.code ?? body.error;
+  return new AudioGenerationProviderError(
+    config.source,
+    response.status,
+    reason || undefined,
+    typeof code === "string" && PROVIDER_ERROR_CODES.has(code) ? code : undefined,
+  );
+}
 
 /** Match the provider's music prerequisite without submitting a composition. */
 export async function validateSunoMusicCallback(callbackUrl?: string | null): Promise<void> {
@@ -100,6 +196,7 @@ export async function generateAudioBytes(
     );
   }
 
+  const source = config.source;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(config.source === "elevenlabs"
@@ -118,10 +215,7 @@ export async function generateAudioBytes(
       maxResponseBytes: config.source === "elevenlabs" ? MAX_AUDIO_BYTES : 2 * 1024 * 1024,
       decodeCompressedResponse: true,
     });
-    if (!response.ok)
-      throw new Error(
-        `${config.source === "elevenlabs" ? "ElevenLabs" : "SunoAPI"} audio request returned HTTP ${response.status}`,
-      );
+    if (!response.ok) throw await providerRejection(response, { ...config, source }, signal);
     return response;
   };
 

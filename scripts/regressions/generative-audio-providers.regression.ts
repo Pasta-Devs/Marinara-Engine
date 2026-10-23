@@ -9,7 +9,8 @@ const directory = mkdtempSync(join(tmpdir(), "marinara-audio-provider-"));
 process.env.DATA_DIR = directory;
 process.env.FILE_STORAGE_DIR = join(directory, "storage");
 process.env.MARINARA_ENV_FILE = join(directory, ".env");
-const { generateAudioBytes } = await import("../../packages/server/src/services/audio/generative-audio-providers.js");
+const { generateAudioBytes, AudioGenerationProviderError } =
+  await import("../../packages/server/src/services/audio/generative-audio-providers.js");
 const bytes = Buffer.from([0xff, 0xfb, 0x90, 0, 1]);
 const apiBase = "https://8.8.8.8";
 const downloadUrl = "https://1.1.1.1/track.mp3";
@@ -179,6 +180,63 @@ try {
     generateAudioBytes(suno, "sfx", "Chime"),
     (error: Error) => /HTTP 401/.test(error.message) && !error.message.includes(key),
   );
+
+  const rejection = async (body: unknown, config: typeof eleven & { callbackUrl?: string } = eleven) => {
+    reset(() => new Response(JSON.stringify(body), { status: 400 }));
+    let caught: unknown;
+    try {
+      await generateAudioBytes(config, "music", "A test sample", { lengthMs: 10_000 });
+    } catch (error) {
+      caught = error;
+    }
+    assert(caught instanceof AudioGenerationProviderError);
+    assert.equal(caught.message, "ElevenLabs audio request returned HTTP 400", "legacy status detail is stable");
+    assert.equal(caught.providerStatus, 400);
+    assert.equal(calls.length, 1, "an upstream rejection never retries the paid POST");
+    return caught;
+  };
+  const rejected = await rejection({
+    detail: { status: "invalid_model_id", message: "Select a supported music model." },
+  });
+  assert.equal(rejected.reason, "Select a supported music model.");
+  assert.equal(rejected.providerCode, "invalid_model_id");
+  const validation = await rejection({ detail: [{ msg: "Invalid output format", input: key }] });
+  assert.equal(validation.reason, "Invalid output format", "validation input fields are never exposed");
+  const stringError = await rejection({ error: "Invalid API key", message: "unrelated fallback" });
+  assert.equal(stringError.reason, "Invalid API key");
+  assert.equal((await rejection({ error: `Invalid API key ${key}` })).reason, "Invalid API key [redacted]");
+  const stringCode = await rejection({ error: "invalid_api_key" });
+  assert.equal(stringCode.providerCode, "invalid_api_key");
+  assert.equal(stringCode.reason, undefined, "machine codes do not masquerade as human reasons");
+  const callbackUrl = `${eleven.baseUrl}/private-callback`;
+  const redacted = await rejection(
+    {
+      detail: {
+        message: `Use <b>another model</b>\n${key} ${eleven.baseUrl} ${callbackUrl} https://private.example/token?q=secret ${"x".repeat(400)}`,
+      },
+    },
+    { ...eleven, callbackUrl },
+  );
+  assert(redacted.reason!.length <= 300);
+  for (const secret of [key, eleven.baseUrl, callbackUrl, "private-callback", "private.example", "<b>", "\n"])
+    assert(!redacted.reason!.includes(secret), "secrets and markup are removed before the display cap");
+  for (const body of [
+    null,
+    [],
+    { raw: key },
+    { detail: { message: { secret: key } } },
+    { message: "x".repeat(16 * 1024) },
+  ])
+    assert.equal((await rejection(body)).reason, undefined);
+  assert.equal((await rejection({ message: "Safe reason", code: key })).providerCode, undefined);
+  reset(() => new Response(JSON.stringify({ code: "quota_exceeded", msg: "Insufficient credits." }), { status: 402 }));
+  await assert.rejects(generateAudioBytes(suno, "music", "A test sample"), (error: unknown) => {
+    assert(error instanceof AudioGenerationProviderError);
+    assert.equal(error.providerStatus, 402);
+    assert.equal(error.providerCode, "quota_exceeded");
+    assert.equal(error.reason, "Insufficient credits.");
+    return true;
+  });
 
   reset((call) =>
     call.method === "POST"
