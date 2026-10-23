@@ -11,7 +11,8 @@ const reviewer =
   process.argv[2] ?? fileURLToPath(new URL("../../.github/dottore-review/dottore_review.py", import.meta.url));
 const proof = String.raw`
 from __future__ import annotations
-import pathlib, sys, types, unittest
+import pathlib, subprocess, sys, tempfile, threading, types, unittest
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
@@ -95,8 +96,9 @@ class StreamProgress(unittest.TestCase):
             "httpx2": NS(TimeoutException=TimeoutError, TransportError=OSError),
         }
         with patch.dict(sys.modules, modules):
-            reviewer.claude_reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
+            message, _ = reviewer.claude_reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
         self.assertEqual(captured["thinking"], {"type": "adaptive", "display": "summarized"})
+        self.assertEqual(message.stop_reason, "end_turn")
         self.assertEqual(captured["output_config"], {"effort": "xhigh"})
 
     def test_provider_transport_failures_use_httpx2_without_legacy_httpx(self):
@@ -128,6 +130,63 @@ class StreamProgress(unittest.TestCase):
                     with self.assertRaises(expected) as stopped:
                         reply(ctx, settings, [{"role": "user", "content": "Review."}], [], "auto", 600, 0, {}, "")
                     self.assertIs(type(stopped.exception), expected)
+
+    def test_chat_completions_reply_keeps_its_stop_reason(self):
+        chunks = [
+            NS(usage=None, choices=[NS(finish_reason=None, delta=NS(content="text", tool_calls=None))]),
+            NS(usage=None, choices=[NS(finish_reason="length", delta=NS(content=None, tool_calls=None))]),
+        ]
+        message, _ = reviewer.read_stream(chunks, reviewer.time.monotonic(), {})
+        self.assertEqual((message.content, message.stop_reason), ("text", "length"))
+
+    def test_every_finder_starts_at_once_whatever_the_packet_count(self):
+        barrier = threading.Barrier(7)
+        def finder(ctx, role, messages, tools, **kwargs):
+            barrier.wait(timeout=3)
+            return {"findings": []}
+        ctx = NS(packets=["packet"] * 7, system="system", deadline=reviewer.time.monotonic() + 600, cache_key="key")
+        with patch.object(reviewer, "run_agent", finder), patch.object(reviewer, "finder_count", lambda: 1), \
+                patch.object(reviewer, "finder_instructions", lambda ctx: "find"):
+            reports = reviewer.run_finders(ctx)
+        self.assertEqual([index for _, index, _ in reports], list(range(7)))
+
+    def test_unjudged_candidates_are_recorded_and_carried_to_the_next_head(self):
+        with tempfile.TemporaryDirectory() as tree:
+            def git(*args):
+                return subprocess.run(["git", "-C", tree, *args], check=True, capture_output=True, text=True).stdout.strip()
+            git("init", "-q")
+            pathlib.Path(tree, "f.py").write_text("".join(f"line {n}\n" for n in range(1, 11)))
+            git("add", "f.py")
+            git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "old")
+            old = git("rev-parse", "HEAD")
+            lines = ["new a", "new b", "new c", *(f"line {n}" for n in range(1, 11))]
+            lines[10] = "line 8 rewritten"
+            pathlib.Path(tree, "f.py").write_text("".join(f"{line}\n" for line in lines))
+            git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "new")
+            candidates = [
+                reviewer.Finding("high", "f.py", 5, "Moved", "Lines above it were added.", "fix"),
+                reviewer.Finding("medium", "f.py", 8, "Rewritten", "Its line was rewritten.", "fix", packet=None),
+                reviewer.Finding("low", "f.py", 2, "Judged", "The checker rejected it.", "fix"),
+            ]
+            def check(ctx, packet, group):
+                return [("rejected" if item.title == "Judged" else "unverified", item, "", []) for item in group]
+            with patch.object(reviewer, "verify_file", check), ThreadPoolExecutor(2) as pool:
+                _, _, counts, unjudged = reviewer.verify_candidates(NS(), candidates, pool)
+            self.assertEqual(sorted(item.title for item in unjudged), ["Moved", "Rewritten"])
+            entries = [{"severity": c.severity, "path": c.path, "line": c.line, "side": c.side, "title": c.title, "body": c.body} for c in unjudged]
+            partial = {"verification": counts, "unjudged_candidates": entries, "pre_merge_checks": []}
+            body = reviewer.render_walkthrough(partial, [], [], [], old)
+            self.assertIn(f"last-reviewed-sha={old} -->", body)
+            self.assertTrue(reviewer.is_completed_review_body(body))  # so the next auto review is incremental
+            none_judged = {**partial, "verification": {**counts, "rejected": 0}}
+            body_none = reviewer.render_walkthrough(none_judged, [], [], [], old)
+            self.assertIn("last-reviewed-sha=unrecorded", body_none)
+            self.assertNotIn("dottore:unjudged=", body_none)
+            with patch.object(reviewer, "latest_walkthrough_comment", lambda pr: {"body": body}), \
+                    patch.object(reviewer, "REPO_ROOT", pathlib.Path(tree)):
+                carried = reviewer.carried_candidates("1", old)
+                self.assertEqual(reviewer.carried_candidates("1", "0" * 40), [])
+            self.assertEqual(sorted((c.title, c.line, c.segment) for c in carried), [("Moved", 8, "carried"), ("Rewritten", 11, "carried")])
 
 unittest.main(argv=["dottore-stream-progress"], verbosity=2)
 `;

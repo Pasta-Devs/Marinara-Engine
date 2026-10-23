@@ -55,9 +55,11 @@ A review posts:
 
 The verdicts: **Viable** (nothing found) and **Viable, With Notes** (nitpicks only) discharge the head; **Repair
 Required** (defects open) and **Specimen Unstable** (a high or blocking defect, or a failed control) hold it; **Specimen
-Unexamined** means the review did not finish, so nothing is reported as found. A head with no new diff since the last
-examination (a base merge, a repeated `/dottore`) keeps that examination's walkthrough and verdict, recorded for the
-new head; `/dottore full` examines it afresh.
+Unexamined** means the review did not finish, so nothing is reported as found. **Examination Incomplete** means the
+checker judged some candidates but not all, usually for lack of time: the head is recorded with the unjudged ones, the
+status fails, and the next review is incremental and judges them, with or without new changes. A head with no new diff
+since the last examination (a base merge, a repeated `/dottore`) keeps that examination's walkthrough and verdict,
+recorded for the new head; `/dottore full` examines it afresh.
 
 ## How a review runs
 
@@ -232,7 +234,7 @@ These are all of Dottore's repository variables, beside the model settings above
 | `DOTTORE_AUTO_REVIEW` | `true` reviews a pull request when it opens, is marked ready for review or gets a push (drafts wait until ready). Otherwise a review starts only on request; a repair Dottore pushes is still reviewed | off | the auto dispatcher |
 | `DOTTORE_BASE_REFS` | Comma-separated base branches whose pull requests get reviewed | `refactor,main,staging` | every dispatcher and the review job |
 | `DOTTORE_COST_LIMIT_USD` | Stop a review's model calls once it has spent this many dollars at the price table in `dottore_review.py`; `0` removes the limit | `1.00` | the review job |
-| `DOTTORE_CONCURRENCY` | Model calls run at once, up to 16 | `4` | the review job |
+| `DOTTORE_CONCURRENCY` | Scout and checker calls run at once, up to 16; the finders always run all at once, up to 16 | `4` | the review job |
 | `DOTTORE_FINDERS` | Finder copies per packet, `1` or `2`; a second one starts a few seconds later and reuses the cache | `1` | the review job |
 
 Everything else the reviewer reads from its environment, the workflow sets itself: the pull request number, head and
@@ -298,7 +300,8 @@ The review deadline stops new work and asks agents to submit; it does not interr
 
 Each review logs a `Dottore roles:` line with the model, API and effort each role resolved to; a `Dottore review base:`
 line when an incremental review merged the base branch into its diff base; a `Dottore call:` line per model call with
-its tokens, cache use, time and the dollars spent so far; a `Dottore scout:` line per scout and per packet with the
+its tokens, the reply's stop reason, cache use, time and the dollars spent so far; a `Dottore carried:` line when an
+incremental review takes up candidates the last one left unjudged; a `Dottore scout:` line per scout and per packet with the
 places they added; and a `Dottore telemetry:` line with totals by role. The repair job logs an `Autofix:` line with
 Claude Code's turns, time and list price. Use them to compare cost, caching and time between setups.
 

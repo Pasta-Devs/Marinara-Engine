@@ -34,6 +34,8 @@ MAX_AUTOFIX_ROUNDS = 3
 FINDING_MARKER_RE = re.compile(r"<!-- dottore:finding=([0-9a-f]{16}) -->")
 STATE_MARKER_RE = re.compile(r"<!-- dottore:last-reviewed-sha=([0-9a-f]{40}) -->")
 CONTRACT_STATE_RE = re.compile(r"<!-- dottore:contract-state=([A-Za-z0-9_=-]+) -->")
+# The candidates a recorded examination left unjudged, for the next incremental one to check.
+UNJUDGED_RE = re.compile(r"<!-- dottore:unjudged=([A-Za-z0-9_=-]+) -->")
 
 
 def walkthrough_header(body):
@@ -134,6 +136,9 @@ MAX_CHUNK_PATCH_CHARS = 90_000
 MAX_INLINE_COMMENT_CHARS = 1_200
 MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
+# A carried candidate's text, cut so MAX_VERIFIED_CANDIDATES of them take at most about 25,000 of the walkthrough
+# comment's 65,536 characters.
+MAX_CARRIED_TEXT_CHARS = 600
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
 # Replies stream, so these limit silence on the stream, not the reply: an attempt that sends nothing for
 # this long is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
@@ -258,7 +263,8 @@ class Finding:
     segment: str = ""
     # A confirmed defect the checker placed on a line the PR did not change: walkthrough only, never inline.
     outside_diff: bool = False
-    packet: int = 0
+    # None for a carried candidate whose file no packet of this review holds.
+    packet: int | None = 0
 
 
 def _safe_path(rel: str) -> pathlib.Path:
@@ -968,6 +974,8 @@ class ReviewRun:
     # Each packet's changed files; empty means one packet of every changed file.
     chunks: list = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    # The PR's merge base, set when an incremental review checks candidates carried from the last examination.
+    pr_base: str = ""
 
 
 def function_tool(name, description, properties, required):
@@ -1235,10 +1243,11 @@ def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
 
 def read_stream(stream, started, timing, limit=MODEL_STREAM_LIMIT):
     """Assemble a streamed Chat Completions reply; return (message, usage)."""
-    content, calls, usage = [], {}, None
+    content, calls, usage, stop = [], {}, None, None
     for chunk in watched(stream, started, timing, limit):
         usage = getattr(chunk, "usage", None) or usage
         for choice in chunk.choices or []:
+            stop = getattr(choice, "finish_reason", None) or stop
             delta = choice.delta
             content.append(delta.content or "")
             for part in delta.tool_calls or []:
@@ -1251,7 +1260,7 @@ def read_stream(stream, started, timing, limit=MODEL_STREAM_LIMIT):
         SimpleNamespace(id=call["id"], function=SimpleNamespace(name=call["name"], arguments=call["arguments"]))
         for _, call in sorted(calls.items())
     ]
-    return SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None), usage
+    return SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None, stop_reason=stop), usage
 
 
 def openai_reply(ctx, settings, messages, tools, tool_choice, read_timeout, started, timing, cache_key, stream_limit=MODEL_STREAM_LIMIT):
@@ -1378,7 +1387,11 @@ def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, s
         "prompt_tokens_details": {"cached_tokens": usage_value(response.usage, "input_tokens_details", "cached_tokens")},
         "completion_tokens_details": {"reasoning_tokens": usage_value(response.usage, "output_tokens_details", "reasoning_tokens")},
     }
-    message = SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped)
+    # An incomplete response names its cause, such as max_output_tokens; a finished one only its status.
+    stop = getattr(getattr(response, "incomplete_details", None), "reason", None) or getattr(response, "status", None)
+    message = SimpleNamespace(
+        content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped, stop_reason=stop
+    )
     return message, usage
 
 
@@ -1484,7 +1497,9 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
         "prompt_tokens_details": {"cached_tokens": cached, "cache_write_tokens": written},
         "completion_tokens_details": {"reasoning_tokens": usage_value(reply.usage, "output_tokens_details", "thinking_tokens")},
     }
-    message = SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, claude_blocks=blocks, capped=capped)
+    message = SimpleNamespace(
+        content="".join(text) or None, tool_calls=calls or None, claude_blocks=blocks, capped=capped, stop_reason=reply.stop_reason
+    )
     return message, usage
 
 
@@ -1580,6 +1595,7 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         f"cache_write_tokens={usage_value(usage, 'prompt_tokens_details', 'cache_write_tokens')}; "
         f"completion_tokens={usage_value(usage, 'completion_tokens')}; "
         f"reasoning_tokens={usage_value(usage, 'completion_tokens_details', 'reasoning_tokens')}; "
+        f"stop_reason={getattr(message, 'stop_reason', None) or '-'}; "
         f"first_chunk_s={timing.get('first_chunk', 0):.1f}; elapsed_s={time.monotonic() - started:.1f}; "
         f"review_spent_usd={ctx.spent_usd:.3f}",
         flush=True,
@@ -1985,10 +2001,15 @@ def staggered(delay, function, *args, **kwargs):
     return function(*args, **kwargs)
 
 
-def run_finders(ctx, pool):
+def run_finders(ctx):
     """Stage 1: the finder copies run over every packet concurrently. Returns the finder reports as (label, packet,
-    report). A finder failure ends the review."""
+    report). A finder failure ends the review.
+
+    Each finder gets a worker of its own (up to MAX_CONCURRENCY), not one of DOTTORE_CONCURRENCY's: a finder queued
+    behind the others starts with too little time left to think over its packet, then times out or eats the
+    checker's reserve."""
     copies = finder_count()
+    pool = ThreadPoolExecutor(max_workers=max(1, min(len(ctx.packets) * copies, MAX_CONCURRENCY)))
     finders = [
         (
             "finder" if copy == 0 else f"finder-{copy + 1}",
@@ -2014,10 +2035,8 @@ def run_finders(ctx, pool):
     ]
     try:
         return [(label, index, future.result()) for label, index, future in finders]
-    except Exception:
-        for _, _, future in finders:
-            future.cancel()
-        raise
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 # ponytail: line-based declaration patterns, not a parser. An unnamed callback or an unusual signature
@@ -2355,13 +2374,15 @@ def verification_prompt(ctx, candidates):
     path = candidates[0].path
     reads, chars = verifier_budget(ctx, candidates)
     around = candidate_code(ctx, candidates[0].packet, [(c.path, c.line, c.side) for c in candidates])
+    # A carried candidate's file may be unchanged since the last examination, so it is judged on the PR's whole diff.
+    base = ctx.pr_base if ctx.pr_base and any(c.segment == "carried" for c in candidates) else ctx.base
     return (
         f"{role_prompt(ctx, 'Checker', TOOLS=tools_line({'reads': reads, 'chars': chars}, 'the bundle and the code around each candidate are'))}"
         "\n\nFinish by calling submit_verdicts with one verdict per candidate number."
         f"\n\n# Candidates in {path}\n{json.dumps(listed, indent=2)}"
         + (f"\n\n# Code Around the Candidates\nQuoted by code from the PR head where the bundle does not already show it, with the PR's changed lines marked `+`.\n\n{around}" if around else "")
         + f"\n\n# Path Rules\n{matching_path_rules([path])}"
-        f"\n\n# Diff of {path}\n{truncate(diff_for_path(ctx.base, path), MAX_CONTEXT_FILE_CHARS) or 'Unchanged by this PR.'}"
+        f"\n\n# Diff of {path}\n{truncate(diff_for_path(base, path), MAX_CONTEXT_FILE_CHARS) or 'Unchanged by this PR.'}"
     )
 
 
@@ -2369,7 +2390,7 @@ def candidate_code(ctx, packet, places):
     """The code around each (path, line, side) place the packet's bundle does not already show, quoted the bundle's
     way: the line's window and short enclosing block, the values it reads and the same-file functions it calls.
     Questions mostly point at unchanged code the change feeds, which is where the checker used to spend its reads."""
-    shown = bundle_ranges(ctx.bundles[packet])
+    shown = bundle_ranges(ctx.bundles[packet]) if packet is not None else {}
     touched = {}
     for path, line, side in places:
         if line and side == "RIGHT" and not shown_in(shown, path, line, line):
@@ -2453,7 +2474,8 @@ def verify_file(ctx, packet, candidates):
         "verify",
         [
             {"role": "system", "content": ctx.system},
-            {"role": "user", "content": ctx.packets[packet]},
+            # A candidate carried from the last examination has no packet when this run's diff leaves its file alone.
+            *([] if packet is None else [{"role": "user", "content": ctx.packets[packet]}]),
             {"role": "user", "content": verification_prompt(ctx, candidates)},
         ],
         SUBMIT_VERDICTS,
@@ -2483,10 +2505,11 @@ def verify_file(ctx, packet, candidates):
 
 def verify_candidates(ctx, candidates, pool):
     """Check the finder's highest-severity claims, one checker per packet and file in parallel, and sort them by
-    outcome."""
+    outcome. Also returns the chosen candidates left without a verdict. A carried candidate in no packet has packet
+    None."""
     chosen = candidates[:MAX_VERIFIED_CANDIDATES]
     groups = {}
-    for candidate in sorted(chosen, key=lambda candidate: (candidate.packet, candidate.path, candidate.line or 0)):
+    for candidate in sorted(chosen, key=lambda item: (item.packet is not None, item.packet or 0, item.path, item.line or 0)):
         groups.setdefault((candidate.packet, candidate.path), []).append(candidate)
     futures = {key: pool.submit(verify_file, ctx, key[0], group) for key, group in groups.items()}
     counts = dict.fromkeys(("candidates", "confirmed", "rejected", "uncertain", "same_as", "unverified", "failed", "capped"), 0)
@@ -2502,12 +2525,15 @@ def verify_candidates(ctx, candidates, pool):
         except Exception as exc:
             print(f"Dottore checker failed for {key[1]}: {error_text(exc)}", flush=True)
             counts["failed"] += len(groups[key])
-    confirmed, hypotheses = [], []
+    confirmed, hypotheses, unjudged = [], [], []
     for candidate in chosen:
         if id(candidate) not in results:
+            unjudged.append(candidate)
             continue
         outcome, finding, note, evidence = results[id(candidate)]
         counts[outcome] += 1
+        if outcome == "unverified":
+            unjudged.append(candidate)
         print(
             f"Dottore candidate: {outcome}; found_by={finding.segment}; {finding.severity}; "
             f"{candidate.path}:{candidate.line}"
@@ -2520,7 +2546,7 @@ def verify_candidates(ctx, candidates, pool):
             confirmed.append({**dataclasses.asdict(finding), "verification": {"note": note, "evidence": evidence[:3]}})
         elif outcome == "uncertain":
             hypotheses.append(f"{finding.title} (`{finding.path}:{finding.line}`): {note}")
-    return confirmed, hypotheses, counts
+    return confirmed, hypotheses, counts, unjudged
 
 
 def repair_prompt(ctx, packet, threads):
@@ -2614,19 +2640,34 @@ def check_threads(ctx, threads, pool):
     return results
 
 
-def agentic_review(ctx, mode, pool, threads=()):
+def agentic_review(ctx, mode, pool, threads=(), carried=()):
     """Scout, find, merge, then let the checker judge each candidate before it can be posted. The open threads are
-    re-judged alongside, once the scouts have filled the bundle."""
+    re-judged alongside, once the scouts have filled the bundle, and the candidates carried from the last examination
+    are judged first."""
     scout_failures, scouts = scout_bundles(ctx, pool)
     repairs = check_threads(ctx, threads, pool)
-    reports = run_finders(ctx, pool)
+    reports = run_finders(ctx)
     merged = merge_segments(reports)
     claims, severity_nitpicks, withheld = validate_review_items(
         {"findings": merged["findings"], "mode": mode}, ctx.base
     )
     merged["nitpicks"] = (merged["nitpicks"] + [dataclasses.asdict(item) for item in severity_nitpicks])[:2]
-    confirmed, hypotheses, counts = verify_candidates(ctx, claims, pool)
+    for candidate in carried:
+        candidate.packet = next((index for index, chunk in enumerate(ctx.chunks) if candidate.path in chunk), None)
+    confirmed, hypotheses, counts, unjudged = verify_candidates(ctx, [*carried, *claims], pool)
     ctx.stats["verification"] = counts
+    if carried:
+        merged.setdefault("what_i_checked", []).append(
+            f"Took up {plural(len(carried), 'candidate')} the last examination left unjudged."
+        )
+    merged["unjudged_candidates"] = [
+        {
+            **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
+            "title": item.title[:200],
+            "body": item.body[:MAX_CARRIED_TEXT_CHARS],
+        }
+        for item in unjudged
+    ]
     open_questions = hypotheses + merged["open_questions"]
     merged["findings"] = confirmed
     merged["open_questions"] = open_questions[:MAX_OPEN_QUESTIONS]
@@ -3368,13 +3409,17 @@ def render_walkthrough(
     checked = review_obj.get("what_i_checked") or []
     pre_merge = review_obj.get("pre_merge_checks") or []
     resolved = review_obj.get("resolved_since_last_review") or []
-    # An examination that left candidates unjudged is not recorded: the commit status fails on it, the head is not
-    # discharged, and the next review examines it in full.
-    state_marker = (
-        f"<!-- dottore:last-reviewed-sha={head_sha} -->"
-        if head_sha and not has_incomplete_review_check(pre_merge) and not unexamined_candidates(review_obj)
-        else "<!-- dottore:last-reviewed-sha=unrecorded -->"
+    # An examination that judged some candidates and left others unjudged is recorded with those carried, so the next
+    # review is incremental and judges them; the commit status fails on it until then and the head is not discharged.
+    # One that failed or judged none is not recorded, and the next review examines it in full.
+    unjudged = review_obj.get("unjudged_candidates") or []
+    counts = review_obj.get("verification") if isinstance(review_obj.get("verification"), dict) else {}
+    judged = any(
+        isinstance(counts.get(key), int) and counts[key] > 0 for key in ("confirmed", "rejected", "uncertain", "same_as")
     )
+    carried = bool(unjudged) and judged
+    recorded = head_sha and not has_incomplete_review_check(pre_merge) and (carried or not unexamined_candidates(review_obj))
+    state_marker = f"<!-- dottore:last-reviewed-sha={head_sha if recorded else 'unrecorded'} -->"
     # Every graded finding is a defect: a review thread and a hold on the verdict. The notes are the nitpicks.
     defects = [finding for finding in findings if is_defect(finding)]
     notes = [finding for finding in findings if not is_defect(finding)] + list(nitpicks)
@@ -3394,6 +3439,9 @@ def render_walkthrough(
         body.append(DISCHARGE_MARKER)
     if contract_state_marker:
         body.append(contract_state_marker)
+    if carried and recorded:
+        raw = json.dumps(unjudged, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        body.append(f"<!-- dottore:unjudged={base64.urlsafe_b64encode(raw).decode('ascii')} -->")
     body.extend([
         render_merge_signal(review_obj, defects, notes, pre_merge, head_sha),
         "",
@@ -3907,6 +3955,51 @@ def discover_last_reviewed_sha(pr_num):
     return None
 
 
+def carried_candidates(pr_num, reviewed):
+    """The candidates the examination of `reviewed` left unjudged, read from the walkthrough that recorded it, with
+    their head lines followed to this head."""
+    header = walkthrough_header((latest_walkthrough_comment(pr_num) or {}).get("body"))
+    encoded = UNJUDGED_RE.findall(header)
+    if not encoded or reviewed not in STATE_MARKER_RE.findall(header):
+        return []
+    try:
+        entries = json.loads(base64.urlsafe_b64decode(encoded[-1].encode("ascii")).decode("utf-8"))
+    except Exception:
+        return []
+    carried = []
+    for entry in as_list(entries)[:MAX_VERIFIED_CANDIDATES]:
+        try:
+            candidate = normalize_review_item(entry, default_severity="medium")
+            candidate.path = tool_path(candidate.path)
+        except (AttributeError, ValueError):
+            continue
+        if isinstance(candidate.line, bool) or not isinstance(candidate.line, int) or not candidate.title:
+            continue
+        candidate.segment = "carried"
+        if candidate.side == "RIGHT":
+            candidate.line = followed_line(reviewed, candidate.path, candidate.line)
+        carried.append(candidate)
+    return carried
+
+
+def followed_line(old, path, line):
+    """Where line `line` of `path` at commit `old` stands at HEAD: moved by the hunks above it, or at the start of the
+    hunk that rewrote it."""
+    shift = 0
+    diff = run_git_raw(diff_command(old, "--unified=0", paths=[path]))
+    for start, count, new_start, new_count in re.findall(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", diff, re.M):
+        start, count, new_start, new_count = int(start), int(count or 1), int(new_start), int(new_count or 1)
+        if not count:  # lines added after old line `start`
+            shift += new_count if start < line else 0
+        elif start + count <= line:
+            shift += new_count - count
+        elif start <= line:
+            return max(new_start, 1)
+        else:
+            break
+    return line + shift
+
+
 def valid_review_base_sha(candidate, head_sha):
     if not candidate or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         return False
@@ -4010,10 +4103,15 @@ def produce_review(args):
     requested_mode = args.mode or parse_command_mode()
     base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
     ensure_local_head(head_sha, pr_num)
+    reviewed = base
     base, effective_mode = review_base_commit(base, base_ref, effective_mode)
+    # An incremental review also judges what the last examination left unjudged, new diff or not.
+    leftover = carried_candidates(pr_num, reviewed) if effective_mode == "incremental" else []
+    if leftover:
+        print(f"Dottore carried: candidates={len(leftover)}; from={reviewed[:12]}", flush=True)
     patch_command_status_running(pr_num, head_sha, effective_mode)
     files = changed_files(base)
-    if not files and effective_mode == "incremental":
+    if not files and effective_mode == "incremental" and not leftover:
         # The last walkthrough (a base merge or a repeated /dottore changed nothing) is carried to this head.
         carried = (latest_walkthrough_comment(pr_num) or {}).get("body") or ""
         write_skipped_review(
@@ -4094,6 +4192,7 @@ def produce_review(args):
             deadline=stats["started_at"] + REVIEW_DEADLINE_SECONDS,
             cost_limit=cost_limit(),
             chunks=chunks,
+            pr_base=git_out(["merge-base", f"origin/{base_ref}", "HEAD"]) if leftover else "",
         )
         print(
             "Dottore roles: "
@@ -4105,7 +4204,7 @@ def produce_review(args):
             flush=True,
         )
         with ThreadPoolExecutor(max_workers=review_concurrency()) as pool:
-            review_obj = agentic_review(ctx, effective_mode, pool, threads)
+            review_obj = agentic_review(ctx, effective_mode, pool, threads, leftover)
     except Exception as exc:
         write_skipped_review(
             "Review Failed",
