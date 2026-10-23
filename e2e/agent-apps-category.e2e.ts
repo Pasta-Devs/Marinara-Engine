@@ -36,7 +36,8 @@ const PACKAGES = [
   },
 }));
 
-test("standalone apps get their own group in Agents and Download Agents", async ({ page }) => {
+test("standalone apps get their own group and appear only under All in Agents", async ({ page }, info) => {
+  let foldered = false;
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
   );
@@ -86,6 +87,22 @@ test("standalone apps get their own group in Agents and Download Agents", async 
     }),
   );
   await page.route("**/api/agents", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/library-folders/agents", (route) =>
+    route.fulfill({
+      json: foldered
+        ? [
+            {
+              id: "app-folder",
+              scope: "agents",
+              name: "App folder",
+              collapsed: false,
+              sortOrder: 0,
+              itemIds: ["pocket-town"],
+            },
+          ]
+        : [],
+    }),
+  );
   await page.route("**/api/capability-packages/*/client?*", (route) =>
     route.fulfill({ contentType: "text/javascript", body: "export {};" }),
   );
@@ -100,6 +117,34 @@ test("standalone apps get their own group in Agents and Download Agents", async 
   await expect(miscCards).toHaveCount(2);
   await expect(miscCards.filter({ hasText: "Scene Painter" })).toHaveCount(1);
   await expect(miscCards.filter({ hasText: "Story Pack" })).toHaveCount(1);
+
+  const appCard = agentsPanel.locator('[data-agent-card][data-agent-name="Pocket Town"]');
+  const modes = agentsPanel.getByRole("group", { name: "Filter agents by supported chat mode" });
+  const agentSearch = agentsPanel.getByPlaceholder("Search agents", { exact: true });
+  for (const location of ["root", "folder"]) {
+    if (location === "folder") {
+      foldered = true;
+      await page.reload();
+      await clickTopbarPanel(page, "agents");
+      await expect(agentsPanel.getByText("App folder", { exact: true })).toBeVisible();
+    }
+    await expect(appCard).toBeVisible();
+    for (const mode of ["Conversation", "Roleplay", "Game"]) {
+      await modes.getByRole("button", { name: mode, exact: true }).click();
+      await expect(appCard).toHaveCount(0);
+      if (mode === "Game")
+        await expect(agentsPanel.locator('[data-agent-card][data-agent-name="Story Pack"]')).toBeVisible();
+      await agentSearch.fill("Pocket Town");
+      await expect(agentsPanel.locator("[data-agent-card]")).toHaveCount(0);
+      await agentSearch.fill("");
+    }
+    await page.screenshot({ path: info.outputPath(`apps-hidden-in-game-${location}.png`) });
+    await modes.getByRole("button", { name: "All", exact: true }).click();
+    await agentSearch.fill("Pocket Town");
+    await expect(appCard).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`apps-visible-in-all-${location}.png`) });
+    await agentSearch.fill("");
+  }
 
   await agentsPanel.getByRole("button", { name: "Download Agents", exact: true }).click();
   const catalogView = page.locator('[data-component="AgentCatalogView"]');

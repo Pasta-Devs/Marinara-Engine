@@ -428,7 +428,9 @@ export function AgentsPanel() {
   const agentSearchActive = agentSearchQuery.length > 0;
   const agentFilterActive = agentSearchActive || agentModeFilter !== "all";
   const matchesAgentFilters = (agent: { type: string; name: string; description: string; category: string }) => {
-    const matchesMode = agentModeFilter === "all" || isAgentAvailableInChatMode(agentModeFilter, agent.type);
+    const matchesMode =
+      agentModeFilter === "all" ||
+      (agent.category !== "app" && isAgentAvailableInChatMode(agentModeFilter, agent.type));
     const matchesSearch =
       !agentSearchQuery ||
       agent.name.toLowerCase().includes(agentSearchQuery) ||
