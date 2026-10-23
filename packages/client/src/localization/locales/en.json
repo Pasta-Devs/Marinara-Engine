@@ -2027,7 +2027,7 @@
   "game.combat.ruleset.board.aimCastNow_other": "Cast with {{count}} parts",
   "game.combat.ruleset.board.aimCopiesPrompt": "Choose where each part of {{label}} lands, up to {{count}}, each touching another. {{placed}} placed so far.",
   "game.combat.ruleset.board.aimNobody": "{{label}} would catch nobody from here. Move closer, or go back.",
-  "game.combat.ruleset.board.aimPrompt": "Choose where {{label}} lands, then press Enter. Escape goes back.",
+  "game.combat.ruleset.board.aimPrompt": "Choose where {{label}} lands, then click it again or press Enter. Escape goes back.",
   "game.combat.ruleset.board.aimPromptTouch": "Tap where {{label}} lands. Back goes back.",
   "game.combat.ruleset.board.aimRing": "Lay it as a ring",
   "game.combat.ruleset.board.aimSideFar": "Its side faces away",

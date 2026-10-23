@@ -118,7 +118,9 @@ export function RulesetCombatBoard({
     if (!end) return new Set<string>();
     return new Set(rulesetPathTo(step, end).map(rulesetCellKey));
   }, [step, reading]);
-  const aimed = reading && step?.stage === "aim" ? byKey.get(rulesetCellKey(reading))?.aim : undefined;
+  // Where an aim is read: the square under the pointer or the keyboard, else the one a click picked.
+  const aimAt = step?.stage === "aim" ? (reading ?? step.to) : undefined;
+  const aimed = aimAt ? byKey.get(rulesetCellKey(aimAt))?.aim : undefined;
   // Who an area being aimed would catch: the player's own while they aim, or, while a window holds the
   // fight open on somebody else's area, whoever that one catches (its cells come with the window).
   const held = view.window?.moment === "aimed" ? view.window : undefined;
@@ -182,7 +184,8 @@ export function RulesetCombatBoard({
   const touch = useMatchMedia("(pointer: coarse)");
   /** What clicking or pressing Enter on this square does, which is only ever finishing a step the
    *  player opened. A square outside the step is inert: it is information, not a command. */
-  const takeCell = (cell: RulesetBoardCell) => {
+  // `keyed` is Enter or Space on the square, which takes it at once: the arrows already chose it.
+  const takeCell = (cell: RulesetBoardCell, keyed = false) => {
     if (busy || !step) return;
     if (step.stage === "move" && cell.reach) {
       // A finger is easily a square off, and a walk cannot be taken back: on a touch screen the
@@ -201,6 +204,13 @@ export function RulesetCombatBoard({
       const taken = rulesetAimTake(step.option, step.lay, cell);
       if ("lay" in taken) {
         setStep({ ...step, lay: taken.lay });
+        return;
+      }
+      // A click picks where it lands and shows who it catches there; a second click on that square, or
+      // Enter, casts it. A cast cannot be taken back.
+      if (!keyed && (step.to?.x !== cell.x || step.to?.y !== cell.y)) {
+        setStep({ ...step, to: { x: cell.x, y: cell.y } });
+        setCursor({ x: cell.x, y: cell.y });
         return;
       }
       // Who it spares and who it heightens are picked in the menu first, where there is a pick
@@ -374,7 +384,7 @@ export function RulesetCombatBoard({
               const provokes = (cell.reach?.provokes.length ?? 0) > 0;
               const isCursor = cursor.x === cell.x && cursor.y === cell.y;
               const isActor = actor?.x === cell.x && actor?.y === cell.y;
-              const isAimed = !!aimed && reading?.x === cell.x && reading?.y === cell.y;
+              const isAimed = !!aimed && aimAt?.x === cell.x && aimAt?.y === cell.y;
               const art = cellArt.get(key);
               return (
                 <button
@@ -408,7 +418,7 @@ export function RulesetCombatBoard({
                           .join(": ")
                       : undefined
                   }
-                  onClick={() => takeCell(cell)}
+                  onClick={(event) => takeCell(cell, event.detail === 0)}
                   onKeyDown={(event) => onKeyDown(event, cell)}
                   onFocus={() => {
                     setCursor({ x: cell.x, y: cell.y });

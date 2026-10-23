@@ -76,7 +76,8 @@ export interface RulesetMenuStep {
   spared?: string[];
   /** Who it could heighten, while that is picked (1.255). */
   heighten?: { ids: string[] };
-  /** Where a walk on a touch screen would end, tapped once and waiting for a second tap to go. */
+  /** Where a walk on a touch screen would end, or where an aim would land, picked once and waiting for a
+   *  second tap or click to go. */
   to?: { x: number; y: number };
 }
 

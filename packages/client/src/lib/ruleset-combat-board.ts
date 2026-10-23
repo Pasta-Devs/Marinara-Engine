@@ -181,15 +181,20 @@ export function rulesetBoardCells(view: DirectedRulesetView, step: RulesetMenuSt
   const grid = view.grid;
   if (!grid) return [];
   const standing = new Map<string, DirectedRulesetCombatant>();
+  const fallen = (combatant: DirectedRulesetCombatant) => (combatant.defeated ? 2 : combatant.down ? 1 : 0);
   for (const combatant of view.combatants) {
     if (typeof combatant.x !== "number" || typeof combatant.y !== "number") continue;
     // Sent away (1.236): not on the board at all.
     if (combatant.away) continue;
-    // Every cell they fill (1.194).
+    // Every cell they fill (1.194). A creature still up is drawn over one down, and one down over a
+    // body, so whoever walks onto a fallen creature's square stays on the board.
     const span = Math.max(1, combatant.span ?? 1);
     for (let dy = 0; dy < span; dy++) {
       for (let dx = 0; dx < span; dx++) {
-        standing.set(rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy }), combatant);
+        const key = rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy });
+        const there = standing.get(key);
+        if (there && fallen(there) < fallen(combatant)) continue;
+        standing.set(key, combatant);
       }
     }
   }
