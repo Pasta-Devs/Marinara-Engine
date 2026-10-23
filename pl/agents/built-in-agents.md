@@ -270,7 +270,7 @@ Odpowiada za generowanie obrazów i wideo. Pisze prompty wizualne do ważnych mo
 
 - **Faza**: Post-Processing.
 - **Gdzie działa**: Roleplay.
-- **Najważniejsze ustawienia**: domyślnie działa raz na 5 wiadomości użytkownika i asystenta, a w każdym czacie Roleplay da się to zmienić polem **Run Interval** (odstęp uruchamiania) na karcie agenta. Wśród ustawień są **Prompt Model**, **Image Style**, **Attach Card Appearance** i **Send Avatar References**. Pełną konfigurację opisuje przewodnik [Agent Illustrator](../media/illustrator-agent.md).
+- **Najważniejsze ustawienia**: domyślnie agent Illustrator działa raz na 5 wiadomości użytkownika i asystenta. Zmień to polem **Image Run Interval** (odstęp między obrazami) na jego karcie w każdym czacie Roleplay. Automatyczne klipy korzystają z **Video Run Interval** (odstęp między filmami), gdy **Illustrator makes** ma wartość **Pictures and clips** lub **Clips only**. Ustaw **Video Run Interval** na **0**, aby wyłączyć automatyczne klipy. Wśród ustawień są **Prompt Model**, **Image Style**, **Attach Card Appearance** i **Send Avatar References**. Pełną konfigurację opisuje przewodnik [Agent Illustrator](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 

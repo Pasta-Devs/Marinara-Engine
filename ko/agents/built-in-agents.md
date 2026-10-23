@@ -268,7 +268,7 @@ Misc 에이전트는 이미지, 음악, 관객 반응, 카드 업데이트 같�
 
 - **단계**: Post-Processing.
 - **사용 가능한 곳**: Roleplay.
-- **주요 설정**: 기본적으로 사용자와 어시스턴트 메시지 5개마다 한 번 실행되며, Roleplay 채팅마다 카드의 **Run Interval**(실행 간격)로 이 값을 바꿀 수 있습니다. 설정에는 **Prompt Model**(프롬프트 모델), **Image Style**(이미지 스타일), **Attach Card Appearance**(카드 외형 첨부), **Send Avatar References**(아바타 참조 전송)가 있습니다. 전체 설정 방법은 [Illustrator 에이전트](../media/illustrator-agent.md)에서 설명합니다.
+- **주요 설정**: Illustrator는 기본적으로 사용자와 어시스턴트 메시지 5개마다 한 번 실행됩니다. Roleplay 채팅마다 카드의 **Image Run Interval**(이미지 실행 간격)로 이 값을 바꿀 수 있습니다. **Illustrator makes**가 **Pictures and clips** 또는 **Clips only**이면 자동 클립은 **Video Run Interval**(동영상 실행 간격)을 사용합니다. 자동 클립을 끄려면 **Video Run Interval**을 **0**으로 설정하세요. 설정에는 **Prompt Model**, **Image Style**, **Attach Card Appearance**, **Send Avatar References**가 있습니다. 전체 설정 방법은 [Illustrator 에이전트](../media/illustrator-agent.md)에서 설명합니다.
 
 ### Lorebook Keeper
 

@@ -69,12 +69,43 @@ Roleplay 채팅의 **Chat Settings**에서 **Attach Card Appearance**는 선택�
 
 - **Off**(꺼짐)
 - **Images only**(이미지만): 평소 동작입니다.
-- **Videos only**(동영상만): Gallery에서 만든 클립은 동작 지시에 이름이 나오는 캐릭터의 외형 설명을 받습니다.
+- **Videos only**(동영상만): 클립에 등장하는 캐릭터의 외형 설명을 받습니다. 캐릭터를 보여 줄 그림이 없는 **Prompt only** 클립에서 특히 중요합니다.
 - **Images and videos**(이미지와 동영상): 둘 다 적용합니다.
 
 **Attach Card Appearance**가 켜져 있을 때 카드나 페르소나에서 **Image Appearance Override**(이미지용 외형 지정)도 켜고 내용을 입력했다면, **Appearance** 대신 그 글을 보냅니다. **Appearance**가 이야기용으로 쓰여 있어 이미지 모델이 이해하기 어려울 때 사용하세요. 자세한 설명은 **Appearance**에 남겨 두고, 이미지용 입력란에는 짧은 태그 형태로 작성하면 됩니다. 이 옵션을 끄거나 입력란을 비워 두면 이미지 프롬프트는 계속 **Appearance**를 사용합니다. 어느 쪽이든 이야기를 서술하는 모델에는 **Appearance**의 전체 내용이 전달됩니다. 이 옵션은 캐릭터와 페르소나 편집기의 **Appearance** 아래에 있습니다.
 
-**Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타 또는 스프라이트를 참조 이미지로 이미지 제공자에 보냅니다. 도움말 문구는 다음과 같습니다: "Send matching character and persona avatars or sprites as reference images when the provider supports them." 이미지 모델이 얼굴이나 복장을 따라 그리는 데 도움이 됩니다. 참조 이미지를 받지 않는 제공자도 있어서 효과는 고른 제공자에 따라 달라집니다. Roleplay 클립은 이미 그림에서 시작하므로, Roleplay에서는 이 설정이 계속 토글로 남고 그림에만 영향을 줍니다.
+**Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타 또는 스프라이트를 참조 이미지로 이미지 제공자에 보냅니다. 도움말 문구는 다음과 같습니다: "Send matching character and persona avatars or sprites as reference images when the provider supports them." 이미지 모델이 얼굴이나 복장을 따라 그리는 데 도움이 됩니다. 참조 이미지를 받지 않는 제공자도 있어서 효과는 고른 제공자에 따라 달라집니다. Roleplay 채팅에서는 **Attach Card Appearance**와 같은 드롭다운입니다. 동영상을 포함하면 **First frame**이 **Prompt only**인 클립도 그림 없이 시작하는 대신 캐릭터의 아바타나 스프라이트에서 시작하며, 해당 선택지는 **Prompt only (avatar from Send Avatar References)**로 표시됩니다. 프롬프트만으로 클립을 만들려면 동영상을 제외하세요.
+
+<a id="generated-videos"></a>
+
+## 자동 동영상
+
+Roleplay 채팅의 **Chat Settings**, **Agents**, **Illustrator**에는 **Illustrator makes**(Illustrator가 만드는 콘텐츠) 설정이 있습니다.
+
+- **Pictures**(기본값): 이전처럼 그림만 만듭니다.
+- **Pictures and clips**: 액션, 폭력, 추격, 무언가 깨지는 장면처럼 동작이 중요한 순간에는 Illustrator가 방금 만든 그림에 짧은 클립을 추가할 수도 있습니다. 동영상 연결의 **Video Prompting Instructions**에 따라 동작을 직접 작성합니다. 그림이 먼저 나타나고 완성된 클립은 같은 메시지에 추가됩니다.
+- **Clips only**: Illustrator가 그림을 보여 줄 때마다 짧은 클립을 대신 보여 줍니다. 클립을 위해 그림을 그리는 경우 그 그림이 첫 프레임이 되어 답변이 아닌 Gallery에 저장됩니다. 이 경우 클립이 실패하면 그 그림이 대신 표시됩니다.
+
+클립은 **Scene Videos**의 **Video Connection**을 사용하며, 클립마다 동영상 요청이 발생합니다. 작동하는 동영상 연결이 없으면 **Clips only**에서도 Illustrator가 그림을 대신 만듭니다. 이미지를 만드는 사용자 지정 에이전트도 같은 설정을 따릅니다.
+
+Illustrator가 클립을 만들 때 표시되는 **Video Run Interval**은 이런 클립이 나온 뒤 다음 클립까지 지나야 하는 사용자와 어시스턴트 메시지 수입니다. 그림을 만드는 빈도를 정하는 **Image Run Interval**과는 별개입니다.
+
+- **Clips only**: Illustrator 실행마다 클립을 만듭니다. Video Run Interval이 실행 빈도를 정하며 Image Run Interval은 숨겨집니다.
+- **기본값**: 자체 값이 없는 채팅은 Illustrator 카드의 **Open Setup** 화면에 있는 **Video Run Interval**을 사용합니다. 거기에도 없으면 5입니다.
+- **0**: Illustrator가 스스로 클립을 만들지 않습니다. 내레이터가 `[illustrate]`로 요청한 그림의 클립도 포함되며, 이때는 그림이 대신 나옵니다.
+- **상한**: 답변 하나당 최대 **Videos per reply**개의 클립을 받습니다(**Settings**, **Generations**, **Video Generation**).
+- **수동 클립**: Gallery에서 그림을 애니메이션으로 만드는 기능은 계속 사용할 수 있습니다. **Clips only**에서는 메시지의 **Illustrate** 버튼이 클립을 만듭니다.
+- **스와이프**: 클립을 받은 답변을 스와이프하면 새 답변으로 계산됩니다. 새 스와이프는 자체 클립을 받을 수 있고 이전 스와이프는 기존 클립을 유지합니다.
+
+Illustrator가 클립을 만들 때 표시되는 **First frame**은 각 클립의 시작을 정합니다. 새 Illustrator 그림, 이름이 나온 캐릭터의 아바타나 스프라이트, 그림이 없으면 아바타로 대체하는 방식, 또는 그림 없음을 선택합니다. Conversation 채팅의 동영상 메시지와 같은 설정입니다.
+
+- 아바타 또는 그림 없음으로 설정한 **Clips only**: 그림을 전혀 그리지 않습니다. Illustrator가 작성한 장면과 동작으로 클립을 만듭니다.
+- **Pictures and clips**: 그림은 계속 표시되며 클립만 아바타 또는 그림 없이 시작합니다.
+- 첫 프레임 미선택: 클립만을 위해 그림을 그리지 않습니다. **Pictures and clips**는 Illustrator가 방금 만든 그림을 애니메이션으로 바꾸고, **Clips only**는 장면만으로 클립을 만듭니다.
+
+자체 그림이 없는 클립은 페르소나를 포함해 이름이 나온 모든 사람을 묘사합니다. 아바타 첫 프레임은 이름이 처음 나온 사람을 사용합니다.
+
+메시지의 **Illustrate** 버튼으로 Illustrator를 다시 실행해도 **Illustrator makes**와 **First frame**을 따릅니다. **Clips only**이면 그림 대신 클립을 만들고, **Pictures and clips**이면 동작이 중요한 순간에 클립을 추가할 수 있습니다.
 
 ## NovelAI의 여러 캐릭터 장면
 
@@ -92,9 +123,9 @@ Illustrator의 이미지 연결이 NovelAI의 V4, V4.5 또는 V5 모델을 사�
 
 Illustrator 카드에는 **Open Setup** 버튼이 있습니다. 에이전트의 전체 설정 화면이 열리며, 실행 빈도의 기본값을 정하고 전용 이미지 연결을 지정할 수 있습니다.
 
-Roleplay 채팅마다 **Chat Settings**의 Illustrator 카드에 자체 **Run Interval**(실행 간격)이 있습니다. 도움말 문구는 다음과 같습니다: "Messages between automatic images in this chat. 0 means only when you ask." 값을 정하지 않은 채팅은 설정 화면의 **Run Interval**을 사용하며, 이 값은 바꾸지 않았다면 **5**입니다. 카드에는 **Using agent default**(에이전트 기본값 사용 중) 또는 **Chat override**(채팅 재정의)가 표시됩니다. 설정 화면의 값으로 되돌리려면 **Use agent default**(에이전트 기본값 사용)를 누르세요. 채팅에 Illustrator를 추가할 때는 추가 창에도 같은 필드가 나오며, 고른 값은 그 채팅에만 저장됩니다.
+Roleplay 채팅마다 **Chat Settings**의 Illustrator 카드에 자체 **Image Run Interval**(실행 간격)이 있습니다. 도움말 문구는 다음과 같습니다: "Messages between automatic images in this chat. 0 means only when you ask." 값을 정하지 않은 채팅은 설정 화면의 **Image Run Interval**을 사용하며, 이 값은 바꾸지 않았다면 **5**입니다. 카드에는 **Using agent default**(에이전트 기본값 사용 중) 또는 **Chat override**(채팅 재정의)가 표시됩니다. 설정 화면의 값으로 되돌리려면 **Use agent default**(에이전트 기본값 사용)를 누르세요. 채팅에 Illustrator를 추가할 때는 추가 창에도 같은 필드가 나오며, 고른 값은 그 채팅에만 저장됩니다.
 
-수동으로만 생성하려면 **Run Interval**을 **0**으로 설정하세요. 자동 장면 배경을 포함한 Illustrator의 자동 실행이 중지되지만 에이전트는 설치된 상태로 유지되며 Gallery 작업에서 계속 사용할 수 있습니다. 자동 실행을 다시 시작하려면 양수 간격을 설정하세요.
+이미지를 수동으로만 생성하려면 **Image Run Interval**을 **0**으로 설정하세요. 장면 배경을 포함한 Illustrator의 자동 이미지 생성이 중지됩니다. **Clips only**에서 자동 클립을 중지하려면 대신 **Video Run Interval**을 **0**으로 설정하세요. 에이전트는 설치된 상태로 유지되며 Gallery 작업에서 계속 사용할 수 있습니다. 자동 이미지 생성을 다시 시작하려면 이미지 간격을 양수로 설정하세요.
 
 기다리지 않고 원하는 순간에 그림을 만들 수도 있습니다. **Chat Settings**를 열고 **Gallery** 섹션을 펼친 다음 **Illustrate**(이미지 생성) 버튼을 누르세요. Illustrator가 즉시 한 번 실행되고, 작업하는 동안 버튼에 **Generating...**이 표시됩니다. 지금 이 장면을 그림으로 남기고 싶은데 에이전트가 아직 그리지 않았을 때 유용합니다.
 

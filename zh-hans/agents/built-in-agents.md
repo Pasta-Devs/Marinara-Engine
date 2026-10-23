@@ -270,7 +270,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **阶段**：Post-Processing。
 - **适用范围**：Roleplay。
-- **主要设置**：默认每 5 条用户消息和 AI 回复运行一次，每个 Roleplay 聊天都可以用卡片上的 **Run Interval**(运行间隔) 修改这个值。设置包括 **Prompt Model**(提示词模型)、**Image Style**(图像风格)、**Attach Card Appearance**(附带角色卡外貌) 和 **Send Avatar References**(发送头像参考)。完整设置步骤见 [Illustrator 智能体](../media/illustrator-agent.md)。
+- **主要设置**：Illustrator 默认每 5 条用户消息和 AI 回复运行一次。每个 Roleplay 聊天都可以用卡片上的 **Image Run Interval**(图像运行间隔) 修改这个值。**Illustrator makes** 设为 **Pictures and clips** 或 **Clips only** 时，自动短片使用 **Video Run Interval**(视频运行间隔)。把 **Video Run Interval** 设为 **0** 就会关闭自动短片。设置包括 **Prompt Model**、**Image Style**、**Attach Card Appearance** 和 **Send Avatar References**。完整设置步骤见 [Illustrator 智能体](../media/illustrator-agent.md)。
 
 ### Lorebook Keeper
 

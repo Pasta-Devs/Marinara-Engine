@@ -114,6 +114,13 @@ Here is a picture from my walk!
 
 相关设置位于 **Chat Settings**、**Agents**、**Illustrator Settings** 下的 **Video messages**(视频消息) 部分：
 
+- **Generated Videos**(自动视频) 让角色在符合对话情境时主动发送视频消息。
+  - 和 `/video` 一样，短片内容根据最近的对话编写，因此请求的短片会体现你提出的要求。
+  - 新聊天默认关闭，因为每段短片都会发起一次视频请求。可以在这里开启，或保存到设置配置中，让新聊天也开启。同一个开关也会以 **Videos** 的名称出现在新聊天设置和 Chat Settings 的 **Commands** 列表中。
+  - **Video Run Interval**(开启后显示) 设置这类短片之间必须经过多少条消息。**0** 会停止自动短片。
+  - `/video` 和 Gallery 的 **Video** 按钮不受开关影响，也不受间隔限制。
+  - 对已发送短片的回复切换滑动候选时，新候选也可以发送自己的短片。
+  - 群聊中，每个角色每条回复可以发送一段短片，总数不超过 **Settings**、**Generations**、**Video Generation** 下的 **Videos per reply**，默认为 3。
 - **Video Connection**(视频连接) 用来选择 Video Generation(视频生成) 连接。保持 **Default video connection**(默认视频连接) 即可使用你的默认连接。连接里的 **Video Prompting Instructions**(视频提示词指令) 会指导撰写视频提示词的 AI。
 - **First frame**(首帧) 用来选择短片从哪张图片开始：
   - **New selfie, or the avatar if no selfie connection**(新自拍，没有自拍连接时用头像)（默认）会在自拍已开启且设置了 **Selfie Connection** 时拍一张新自拍，否则使用头像。
