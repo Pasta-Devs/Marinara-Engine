@@ -25,6 +25,18 @@ export const combatBossSchema = z.object({
   moveCost: z.number().int().min(1).max(6).optional(),
 });
 export type CombatBoss = z.infer<typeof combatBossSchema>;
+export const combatInterruptFields = {
+  projectile: z.boolean().optional(),
+  requiresSight: z.boolean().optional(),
+  spell: z.boolean().optional(),
+  areaRadius: z.number().int().min(0).max(3).optional(),
+  friendlyFire: z.boolean().optional(),
+  targetScope: z.enum(["single", "all-enemies"]).optional(),
+  reaction: z.enum(["counterspell", "guard"]).optional(),
+  range: z.number().int().min(1).max(12).optional(),
+  slotLevel: z.number().int().min(1).max(9).optional(),
+  legendaryCost: z.number().int().min(1).max(6).optional(),
+};
 /** A whole number a model writes for an ability, held to its bounds: one out of range (a self
  *  ability's `range: 0`) is pulled to the nearest bound rather than refusing the whole fight's
  *  setup over it (playtest 2026-10-23), and anything that is not a number is left out. */
@@ -37,14 +49,11 @@ const boundedAbilityInt = (min: number, max: number) =>
     )
     .optional()
     .catch(undefined);
-export const combatInterruptFields = {
-  projectile: z.boolean().optional(),
-  requiresSight: z.boolean().optional(),
-  spell: z.boolean().optional(),
+/** The same fields as a model's fight setup reads them. Only the setup is lenient: a turn or a
+ *  replayed save still refuses an ability out of bounds. */
+export const lenientCombatInterruptFields = {
+  ...combatInterruptFields,
   areaRadius: boundedAbilityInt(0, 3),
-  friendlyFire: z.boolean().optional(),
-  targetScope: z.enum(["single", "all-enemies"]).optional(),
-  reaction: z.enum(["counterspell", "guard"]).optional(),
   range: boundedAbilityInt(1, 12),
   slotLevel: boundedAbilityInt(1, 9),
   legendaryCost: boundedAbilityInt(1, 6),

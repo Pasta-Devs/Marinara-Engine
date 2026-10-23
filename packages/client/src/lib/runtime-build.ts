@@ -37,11 +37,13 @@ export async function runningBuildIsServed(
   // and the update both: past this it reads as unknown, as the startup version check does.
   timeoutMs = RUNNING_BUILD_TIMEOUT_MS,
 ): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetcher("/api/health", {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: controller.signal,
     });
     if (!res.ok) return false;
     const health = (await res.json()) as Partial<RuntimeHealth> | null;
@@ -49,5 +51,7 @@ export async function runningBuildIsServed(
     return isRuntimeBuildCurrent(clientVersion, clientBuild, health as RuntimeHealth);
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }

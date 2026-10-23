@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  combatInterruptFields,
   parseRulesetDefinition,
   readRulesetLive,
   rowsFromCatalogEntry,
@@ -975,6 +976,8 @@ try {
     const attacks = (bounded.data!.party[0] as { attacks: Array<Record<string, unknown>> }).attacks;
     assert.equal(attacks[0]!.range, 1);
     assert.deepEqual([attacks[1]!.range, attacks[1]!.areaRadius, attacks[1]!.slotLevel], [12, 0, undefined]);
+    // Only the setup is lenient: a turn or a replayed save still refuses an ability out of bounds.
+    assert.equal(combatInterruptFields.range.safeParse(0).success, false);
     assert.ok(withBrief.at(-1)!.content.includes('"surprised": true'), "the prompt asks who was caught unaware");
     // An invention may be a sheet in the ruleset's own terms, and numbers written beside it go.
     const caster = blueprint({

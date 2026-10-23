@@ -13204,6 +13204,7 @@ function GameSurfaceComponent({
                         spatialContextLoading={activeSpatialContextLoading}
                         chatId={activeChatId}
                         constraintsRef={hudSurfaceRef}
+                        inFight={combatUiActive}
                       />
                     </div>
 
