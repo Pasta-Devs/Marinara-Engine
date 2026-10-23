@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "46faa1ad32a945054a94b88971349908151b773b",
+  "sourceCommit": "a45d57b036d7b63669afdeca290550988390479a",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -34,8 +34,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "78ebf1210e8461a121edf6a3f819b1c5cd2296498cf168eaf4b8c424fa33a71e",
-      "bytes": 15403
+      "sha256": "40053365c63139eeb3eb12a619b0a459f373730dd10bf09817b397980c67d663",
+      "bytes": 14158
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "312b33110a848d145ab76f815878dfad5a47524a7783b63e44bc42e900ef7923",
-      "bytes": 63380
+      "sha256": "dae35a738f91eaa6a58adbcc413b61cd5d4a89238a8da795ecad4c72609fded1",
+      "bytes": 63379
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -306,6 +306,11 @@
       "path": "data/where-data-is-stored.md",
       "sha256": "32950445878b18c45633b68f88535cb5ed8464d746a37de920c3808925383af8",
       "bytes": 6010
+    },
+    {
+      "path": "development/antigravity-cli-qualification.md",
+      "sha256": "04e0b9e1db940217dbbb4e77a115f8288d745c10e31e8a2af0b06d86ce7bbe0d",
+      "bytes": 7784
     },
     {
       "path": "development/architecture-map.md",
