@@ -138,12 +138,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
   audio: CONNECTION_ICON_COLORS,
-  audio_generation: {
-    from: "from-[var(--primary)]",
-    to: "to-[var(--primary)]",
-    ring: "ring-[var(--primary)]/40",
-    badge: "bg-[var(--primary)]",
-  },
+  audio_generation: CONNECTION_ICON_COLORS,
   decision: CONNECTION_ICON_COLORS,
 };
 const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
@@ -1302,8 +1297,7 @@ function ConnectionRow({
     getConnectionFallbackIcon(conn.provider)
   );
   const iconFrameClasses = cn(
-    "relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br shadow-sm",
-    conn.provider === "audio_generation" ? "text-[var(--primary-foreground)]" : "text-white",
+    "relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-sm",
     conn.imagePath ? "bg-[var(--muted)]" : `${colors.from} ${colors.to}`,
   );
 
@@ -1392,10 +1386,7 @@ function ConnectionRow({
               colors.badge,
             )}
           >
-            <Check
-              size="0.625rem"
-              className={conn.provider === "audio_generation" ? "text-[var(--primary-foreground)]" : "text-white"}
-            />
+            <Check size="0.625rem" className="text-white" />
           </div>
         )}
       </button>

@@ -116,16 +116,17 @@ for (const theme of ["dark", "light"] as const) {
       const colors = await icon.evaluate((element) => {
         const probe = document.createElement("span");
         element.append(probe);
-        probe.style.color = "var(--primary)";
-        const primary = getComputedStyle(probe).color;
-        probe.style.color = "var(--primary-foreground)";
-        const foreground = getComputedStyle(probe).color;
+        probe.style.color = "var(--color-sky-400)";
+        const from = getComputedStyle(probe).color;
+        probe.style.color = "var(--color-blue-500)";
+        const to = getComputedStyle(probe).color;
         probe.remove();
         const computed = getComputedStyle(element);
-        return { primary, foreground, gradient: computed.backgroundImage, color: computed.color };
+        return { from, to, gradient: computed.backgroundImage, color: computed.color };
       });
-      expect(colors.gradient).toContain(colors.primary);
-      expect(colors.color).toBe(colors.foreground);
+      expect(colors.gradient).toContain(colors.from);
+      expect(colors.gradient).toContain(colors.to);
+      expect(colors.color).toBe("rgb(255, 255, 255)");
       await capture(page, info, `audio-category-theme-${theme}`, row);
       let editor = await openConnection(page, id);
       await expect(editor.getByRole("button", { name: "Test Connection", exact: true })).not.toBeVisible();
