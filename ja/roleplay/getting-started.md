@@ -141,6 +141,14 @@ Narrative Directorには、チャット入力欄の上に**Push Story**ボタン
 
 1つのメッセージにメモを保存することもできます。メッセージの下にある**Bookmark, pin or note**(ブックマーク・固定・メモ)を選び、**Private note**(非公開メモ)を書いてください。**Show the note to the narrator character**(ナレーター役のキャラクターにメモを見せる)をオンにしてキャラクターを選ばない限り、メモは非公開のままで、モデルに送られることはありません。共有すると、選んだキャラクターだけがそのメッセージに添えられたメモを受け取り、ほかのキャラクターには渡りません。共有には単独チャットか**Individual**のグループ生成が必要です。統合されたグループ返信は、全キャラクターの分をまとめて書くためです。**Remove note**(メモを削除)でも共有が止まります。
 
+<a id="video-clips"></a>
+
+## 動画クリップ
+
+**Chat Settings → Agents → Roleplay Commands**で**Video clips**(動画クリップ)をオンにすると、キャラクターが重要な瞬間の静止画の代わりに短い動画クリップを求められるようになります。デフォルトはオフです。チャットに**Illustrator**エージェントがあり、その**Scene Videos**(シーン動画)に動画接続を設定している必要があります。
+
+モデルは`[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]`を使い、動きが中心になる瞬間には`[illustrate]`より優先するよう指示されます。クリップの開始画像はIllustratorの**First frame**(開始フレーム)設定に従い、その瞬間を描いた新しいIllustrator画像、名前を挙げたキャラクターのアバターやスプライト、または画像なしになります。完成したクリップは返信の中で再生されます。**Video Run Interval**(動画の生成間隔)でクリップが許可されているときだけモデルに提示され、Illustrator自身のクリップと同じく**Videos per reply**(返信ごとの動画数)の上限に数えられます。
+
 ## キャラクターによる割り込み
 
 **Chat Settings → Agents → Roleplay Commands**で**Interruptions**(割り込み)をオンにすると、言葉や動作による介入が自然な場面で、キャラクターが最新メッセージを途中で遮れるようになります。デフォルトはオフで、ダウンロードするエージェントは不要です。

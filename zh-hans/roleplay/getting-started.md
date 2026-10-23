@@ -139,6 +139,14 @@ Narrative Director 在输入框上方有一个 **Push Story** 按钮，按下后
 
 你也可以给单条消息保存笔记。在消息下方选择 **Bookmark, pin or note**(添加书签、固定或记笔记)，然后填写 **Private note**(私人笔记)。除非开启 **Show the note to the narrator character**(向旁白角色展示笔记) 并选定一个角色，否则笔记会保持私密，绝不会发送给模型。共享后，只有所选角色会收到附在该消息旁的笔记，其他角色不会收到。共享需要单角色聊天或 **Individual** 群组生成，因为合并群组回复会一次为所有角色生成内容。**Remove note**(删除笔记) 也会停止共享。
 
+<a id="video-clips"></a>
+
+## 视频短片
+
+在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Video clips**(视频短片)，就能让角色为关键时刻请求一段短片，而不是静态图片。默认关闭，需要聊天中有 **Illustrator** 智能体，并在 Illustrator 的 **Scene Videos** 下配置视频连接。
+
+模型使用 `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]`，并会收到指令，在强调动作的时刻优先使用它，而不是 `[illustrate]`。短片从什么开始遵循 Illustrator 的 **First frame**(首帧) 设置：该时刻新绘制的 Illustrator 图片、被点名角色的头像或立绘，或不使用图片。完成后，短片会在回复中播放。只有 **Video Run Interval** 允许生成短片时才会提供这个命令，它与 Illustrator 自己生成的短片一样，计入 **Videos per reply**。
+
 ## 角色打断
 
 在 **Chat Settings → Agents → Roleplay Commands** 中启用 **Interruptions**(打断)，角色就可以在合理的言语或身体介入场景下，截断最新消息。默认关闭，不需要下载智能体。

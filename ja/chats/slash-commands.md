@@ -82,6 +82,7 @@
 | `/random` | `/rand`, `/event` | 物語に予想外の出来事を加えるようAIに指示します。 |
 | `/scene [description (optional)]` | `/rp` | Conversationチャットから実行します。そのチャットから分岐する新しいRoleplayのシーンを開始します。 |
 | `/illustrate [range=N\|range=N-M (optional)] [prompt (optional)]` | `/ill` | 現在のチャット向けにギャラリーの画像を生成します。 |
+| `/video [description (optional)]` | | Roleplay: 最新の返信、または指定した内容の短いクリップを、その返信の下に作ります。Illustratorの**First frame**(開始フレーム)設定に従います。Conversationでは、`/video`は代わりに動画メッセージを送ります(下記参照)。 |
 | `/impersonate [direction (optional)]` | `/imp` | 自分のペルソナとして返信を書きます。 |
 | `/impersonate_prompt [prompt\|reset]` | `/imp_prompt` | このチャットで`/impersonate`が使う指示を設定します。 |
 

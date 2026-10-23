@@ -1,12 +1,12 @@
 # Generowanie wideo sceny
 
-Ten przewodnik wyjaśnia, jak Marinara Engine zamienia ilustrację sceny w krótki klip wideo MP4. Znajdziesz tu opis dostawców wideo, sposób generowania klipu w panelu **Gallery** (galeria), kontrolki trybu **Game Mode** oraz ustawienia wideo. Wideo sceny to krótki animowany klip zrobiony z jednego nieruchomego obrazu.
+Ten przewodnik wyjaśnia, jak Marinara Engine zamienia ilustrację sceny w krótki klip wideo MP4. Znajdziesz tu opis dostawców wideo, sposób generowania klipu w panelu **Gallery** (galeria), kontrolki trybu **Game Mode** oraz ustawienia wideo. Wideo sceny to krótki animowany klip tworzony z nieruchomego obrazu lub, w trybie **Roleplay**, na podstawie samej fabuły.
 
 ## Do czego służy wideo sceny
 
-Wideo sceny bierze istniejący obraz z galerii i animuje go w krótki klip MP4. Nieruchomy obraz staje się pierwszą klatką, a AI dodaje ruch. Wideo sceny działa w czatach w trybie **Roleplay** i **Game Mode**. Czaty w trybie Conversation wysyłają zamiast tego wiadomości wideo; zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages).
+Wideo sceny to krótki klip MP4 przedstawiający scenę. Może animować obraz z galerii, który staje się pierwszą klatką, a AI dodaje ruch, albo, w trybie **Roleplay**, powstać wyłącznie na podstawie fabuły. Wideo sceny działa w czatach w trybie **Roleplay** i **Game Mode**. Czaty w trybie Conversation wysyłają zamiast tego wiadomości wideo; zobacz [Wiadomości wideo](../conversation/selfies.md#video-messages).
 
-Najpierw zawsze potrzebny jest obraz. Generowanie wideo sceny nie ruszy z samego tekstu. Zanim cokolwiek da się zanimować, trzeba wygenerować lub wgrać obraz do galerii.
+Tryb **Game Mode** i przycisk **Animate illustration** (animowanie ilustracji) zawsze korzystają z obrazu, więc najpierw go wygeneruj lub wgraj. W trybie **Roleplay** komenda `/video` i przycisk **Video** (wideo) w panelu Gallery korzystają z ustawienia **First frame** (pierwsza klatka) agenta Illustrator. Bez wybranej pierwszej klatki nie potrzebują żadnego obrazu.
 
 Wideo sceny korzysta z osobnego typu połączenia o nazwie **Video Generation** (generowanie wideo). To nie to samo co zwykłe generowanie obrazów. Gotowe klipy zapisują się razem z czatem i pokazują się w panelu **Gallery**, gdzie można je przypiąć, pobrać lub obejrzeć.
 
@@ -128,7 +128,15 @@ Czaty w trybie **Roleplay** i **Game Mode** robią wideo sceny z poziomu **Galle
 
 Panel **Gallery** ma zakładkę **Images** i zakładkę **Videos**, każdą z licznikiem. Nieruchome obrazy znajdują się w zakładce **Images**. Gotowe klipy trafiają do zakładki **Videos**.
 
-Żeby zanimować najnowszy obraz:
+W trybie **Roleplay** przycisk **Video** w rzędzie akcji na górze panelu Gallery tworzy klip z **najnowszej odpowiedzi**, tak samo jak wpisanie `/video`. Dodaj opis po `/video`, żeby wskazać, co ma przedstawiać klip.
+
+- **First frame**: klip korzysta z ustawienia **First frame** agenta Illustrator. Może to być nowy obraz najnowszej odpowiedzi, najpierw narysowany przez agenta Illustrator i potem animowany, awatar lub sprite postaci albo brak obrazu. Bez wybranej pierwszej klatki żaden obraz nie jest rysowany, a klip powstaje wyłącznie na podstawie fabuły.
+- **Awatar**: klip zaczyna się od osoby wymienionej jako pierwsza w opisie, także od twojej persony. Wystarczy część imienia lub nazwiska, której nie ma nikt inny, zapisana wielką literą ("Lena" dla "Dr. Lena Kowalski"). Bez wskazanej osoby klip zaczyna się od postaci czatu.
+- **Przegląd**: przy włączonej opcji **Expose media prompts before sending** (pokazywanie promptów mediów przed wysłaniem) możesz najpierw przejrzeć i poprawić prompt klipu.
+- **Co czyta**: AI piszące klip czyta tyle ostatnich wiadomości, ile agent Illustrator przy tworzeniu obrazu (jego ustawienie **Context Size** (rozmiar kontekstu) w sekcji **Agent Budget** (budżet agenta) na ekranie konfiguracji), więc pokazuje bieżące wydarzenia.
+- **Bez obrazu**: gdy klip zaczyna się bez obrazu lub od awatara, AI samo opisuje scenę. Odpowiadają za to instrukcje **Roleplay Clip Director** (reżyser klipów Roleplay) w sekcji **Settings** (ustawienia), **Generations** (generowanie), **Video Generation Prompt Overrides** (nadpisywanie promptów generowania wideo).
+
+W trybie **Game Mode** przycisk **Video** animuje najnowszy obraz:
 
 1. Sprawdź, czy w zakładce **Images** jest przynajmniej jeden obraz. Użyj wcześniej przycisku **Illustrate** albo wgraj obraz.
 2. Kliknij przycisk **Video** w rzędzie akcji na górze panelu **Gallery**.
@@ -144,11 +152,11 @@ W trybie **Roleplay** gotowy klip odtwarza się też bezpośrednio w czacie, pod
 2. Najedź kursorem na wybrany obraz.
 3. Kliknij przycisk **Animate illustration** (ikona kliszy filmowej) wśród kontrolek, które się wtedy pokazują.
 
-Przy włączonym przeglądaniu promptu to samo okno **Review Video Prompt** pojawia się także dla przycisku **Animate illustration**. Pokazuje dokładny prompt skompilowany przez serwer, czas trwania, proporcje obrazu i rozdzielczość, które zostaną użyte dla wybranego obrazu. Poprawka działa tylko dla tego jednego generowania. W trybie **Roleplay** wielokrotnymi instrukcjami, które tworzą ten prompt, steruje osobno ustawienie **Roleplay Gallery Animation Director** w sekcji **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+Przy włączonym przeglądaniu promptu to samo okno **Review Video Prompt** pojawia się także dla przycisku **Animate illustration**. Pokazuje dokładny prompt skompilowany przez serwer, czas trwania, proporcje obrazu i rozdzielczość, które zostaną użyte dla wybranego obrazu. Poprawka działa tylko dla tego jednego generowania. W trybie **Roleplay** AI planujące ruch czyta tyle ostatnich wiadomości, ile agent Illustrator (jego ustawienie **Context Size**), kończąc na odpowiedzi, do której należy obraz. W trybie **Roleplay** instrukcjami wielokrotnego użytku, które tworzą ten prompt, steruje osobno ustawienie **Roleplay Gallery Animation Director** w sekcji **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 W zakładce **Videos** każdy klip odtwarza się na miejscu i pokazuje swoją długość oraz nazwę modelu. Klip można przypiąć przyciskiem **Pin video to chat** albo zapisać przyciskiem **Download scene video**. Dopóki nie ma żadnych klipów, zakładka pokazuje napis **No videos yet**.
 
-Przy próbie zrobienia wideo bez żadnego obrazu w czacie Marinara pokazuje komunikat: "Add or generate a gallery image before generating a scene video." Wygeneruj lub wgraj obraz, a potem spróbuj ponownie.
+Przy próbie animowania obrazu w trybie Game Mode bez żadnego obrazu w czacie Marinara pokazuje komunikat: "Add or generate a gallery image before generating a scene video." Wygeneruj lub wgraj obraz, a potem spróbuj ponownie.
 
 ## Wideo sceny w trybie Game Mode
 
@@ -209,7 +217,7 @@ Czat nie ma wybranego połączenia wideo. Otwórz sekcję **Chat Settings**, nas
 
 ### "Add or generate a gallery image before generating a scene video"
 
-Wideo sceny zawsze animuje istniejący obraz. Użyj przycisku **Illustrate**, wgraj obraz albo kliknij przycisk **Animate illustration** na obrazie, który już masz.
+Tryb **Game Mode** i przycisk **Animate illustration** wymagają istniejącego obrazu; w trybie **Roleplay** klip może powstać na podstawie samej fabuły, jeśli nie wybrano pierwszej klatki. Użyj przycisku **Illustrate**, wgraj obraz albo kliknij przycisk **Animate illustration** na obrazie, który już masz.
 
 ### Wideo powstaje bardzo długo
 

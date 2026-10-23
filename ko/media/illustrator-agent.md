@@ -83,7 +83,7 @@ Roleplay 채팅의 **Chat Settings**에서 **Attach Card Appearance**는 선택�
 Roleplay 채팅의 **Chat Settings**, **Agents**, **Illustrator**에는 **Illustrator makes**(Illustrator가 만드는 콘텐츠) 설정이 있습니다.
 
 - **Pictures**(기본값): 이전처럼 그림만 만듭니다.
-- **Pictures and clips**: 액션, 폭력, 추격, 무언가 깨지는 장면처럼 동작이 중요한 순간에는 Illustrator가 방금 만든 그림에 짧은 클립을 추가할 수도 있습니다. 동영상 연결의 **Video Prompting Instructions**에 따라 동작을 직접 작성합니다. 그림이 먼저 나타나고 완성된 클립은 같은 메시지에 추가됩니다.
+- **Pictures and clips**: 액션, 폭력, 추격, 무언가 깨지는 장면처럼 동작이 중요한 순간에는 Illustrator가 방금 만든 그림에 짧은 클립을 추가할 수도 있습니다. 이야기를 서술하는 모델이 `[illustrate]`로 요청한 그림도 포함됩니다. 동영상 연결의 **Video Prompting Instructions**에 따라 동작을 직접 작성합니다. 그림이 먼저 나타나고 완성된 클립은 같은 메시지에 추가됩니다.
 - **Clips only**: Illustrator가 그림을 보여 줄 때마다 짧은 클립을 대신 보여 줍니다. 클립을 위해 그림을 그리는 경우 그 그림이 첫 프레임이 되어 답변이 아닌 Gallery에 저장됩니다. 이 경우 클립이 실패하면 그 그림이 대신 표시됩니다.
 
 클립은 **Scene Videos**의 **Video Connection**을 사용하며, 클립마다 동영상 요청이 발생합니다. 작동하는 동영상 연결이 없으면 **Clips only**에서도 Illustrator가 그림을 대신 만듭니다. 이미지를 만드는 사용자 지정 에이전트도 같은 설정을 따릅니다.
@@ -97,11 +97,11 @@ Illustrator가 클립을 만들 때 표시되는 **Video Run Interval**은 이�
 - **수동 클립**: Gallery에서 그림을 애니메이션으로 만드는 기능은 계속 사용할 수 있습니다. **Clips only**에서는 메시지의 **Illustrate** 버튼이 클립을 만듭니다.
 - **스와이프**: 클립을 받은 답변을 스와이프하면 새 답변으로 계산됩니다. 새 스와이프는 자체 클립을 받을 수 있고 이전 스와이프는 기존 클립을 유지합니다.
 
-Illustrator가 클립을 만들 때 표시되는 **First frame**은 각 클립의 시작을 정합니다. 새 Illustrator 그림, 이름이 나온 캐릭터의 아바타나 스프라이트, 그림이 없으면 아바타로 대체하는 방식, 또는 그림 없음을 선택합니다. Conversation 채팅의 동영상 메시지와 같은 설정입니다.
+같은 구역의 **First frame**은 모든 Roleplay 클립의 시작을 정합니다. Illustrator 자체 클립, `/video`, Gallery의 **Video** 버튼에 모두 적용됩니다. 새 Illustrator 그림, 이름이 나온 캐릭터의 아바타나 스프라이트, 그림이 없으면 아바타로 대체하는 방식, 또는 그림 없음을 선택할 수 있습니다. Conversation 채팅의 동영상 메시지와 같은 설정입니다.
 
 - 아바타 또는 그림 없음으로 설정한 **Clips only**: 그림을 전혀 그리지 않습니다. Illustrator가 작성한 장면과 동작으로 클립을 만듭니다.
 - **Pictures and clips**: 그림은 계속 표시되며 클립만 아바타 또는 그림 없이 시작합니다.
-- 첫 프레임 미선택: 클립만을 위해 그림을 그리지 않습니다. **Pictures and clips**는 Illustrator가 방금 만든 그림을 애니메이션으로 바꾸고, **Clips only**는 장면만으로 클립을 만듭니다.
+- 첫 프레임 미선택: 클립만을 위해 그림을 그리지 않습니다. **Pictures and clips**는 Illustrator가 방금 만든 그림을 애니메이션으로 바꾸고, **Clips only**, `/video`, Gallery의 **Video** 버튼은 장면만으로 클립을 만듭니다.
 
 자체 그림이 없는 클립은 페르소나를 포함해 이름이 나온 모든 사람을 묘사합니다. 아바타 첫 프레임은 이름이 처음 나온 사람을 사용합니다.
 

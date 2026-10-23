@@ -1,12 +1,12 @@
 # 장면 동영상 생성
 
-이 가이드에서는 Marinara Engine이 장면 일러스트를 짧은 MP4 동영상 클립으로 바꾸는 방법을 설명합니다. 동영상 제공자, **Gallery**(갤러리)에서 클립을 만드는 방법, Game Mode(게임 모드)의 조작, 동영상 설정을 다룹니다. 장면 동영상은 정지 이미지 한 장으로 만든 짧은 애니메이션 클립입니다.
+이 가이드에서는 Marinara Engine이 장면 일러스트를 짧은 MP4 동영상 클립으로 바꾸는 방법을 설명합니다. 동영상 제공자, **Gallery**(갤러리)에서 클립을 만드는 방법, Game Mode(게임 모드)의 조작, 동영상 설정을 다룹니다. 장면 동영상은 정지 이미지로, 또는 **Roleplay**에서는 이야기만으로 만드는 짧은 애니메이션 클립입니다.
 
 ## 장면 동영상이 하는 일
 
-장면 동영상은 갤러리에 이미 있는 이미지를 짧은 MP4 클립으로 움직이게 만듭니다. 정지 이미지가 첫 프레임이 되고, AI가 움직임을 더합니다. 장면 동영상은 **Roleplay**(롤플레이)와 **Game Mode** 채팅에서 쓸 수 있습니다. Conversation(대화) 채팅에서는 대신 동영상 메시지를 보냅니다. [동영상 메시지](../conversation/selfies.md#video-messages)를 참고하세요.
+장면 동영상은 장면을 보여 주는 짧은 MP4 클립입니다. 갤러리 그림을 첫 프레임으로 삼고 AI가 동작을 더해 움직이게 만들거나, **Roleplay**에서는 이야기만으로 만들 수도 있습니다. 장면 동영상은 **Roleplay**와 **Game Mode** 채팅에서 쓸 수 있습니다. Conversation 채팅에서는 대신 동영상 메시지를 보냅니다. [동영상 메시지](../conversation/selfies.md#video-messages)를 참고하세요.
 
-먼저 그림이 반드시 있어야 합니다. 장면 동영상 생성은 글만으로는 실행되지 않습니다. 움직이게 만들려면 갤러리 이미지를 먼저 생성하거나 업로드해야 합니다.
+**Game Mode**와 **Animate illustration**은 항상 그림에서 시작하므로 먼저 그림을 생성하거나 업로드하세요. **Roleplay**의 `/video`와 Gallery의 **Video** 버튼은 Illustrator의 **First frame**(첫 프레임) 설정을 따르며, 첫 프레임을 선택하지 않으면 그림이 전혀 필요하지 않습니다.
 
 장면 동영상은 **Video Generation**(동영상 생성)이라는 별도의 연결 종류를 씁니다. 일반 이미지 생성과는 다릅니다. 완성된 클립은 채팅과 함께 저장되고 **Gallery**에 표시되며, 여기서 고정하거나 다운로드하거나 볼 수 있습니다.
 
@@ -128,7 +128,15 @@ Atlas Cloud가 모델의 입력을 변경하는 등의 이유로 저장된 옵�
 
 **Gallery**에는 **Images**(이미지) 탭과 **Videos**(동영상) 탭이 있고, 각각 개수가 표시됩니다. 정지 그림은 **Images**에, 완성된 클립은 **Videos**에 들어갑니다.
 
-가장 최근 그림을 움직이게 만들려면 다음과 같이 하세요.
+**Roleplay**에서는 Gallery 위쪽 동작 줄의 **Video**가 **가장 최근 답변**의 클립을 만듭니다. `/video`를 입력하는 것과 같습니다. 클립에 무엇을 보여 줄지 지정하려면 `/video` 뒤에 설명을 덧붙이세요.
+
+- **First frame**: 클립은 Illustrator의 **First frame** 설정을 따릅니다. 가장 최근 답변을 그린 새 Illustrator 그림(먼저 그린 다음 움직이게 만듭니다), 캐릭터의 아바타나 스프라이트, 또는 그림 없음에서 시작합니다. 첫 프레임을 선택하지 않으면 그림을 그리지 않고 이야기만으로 클립을 만듭니다.
+- **아바타**: 페르소나를 포함해 설명에서 이름이 처음 나온 사람을 사용합니다. 다른 사람과 겹치지 않는 이름 일부를 첫 글자가 대문자가 되도록 적으면 충분합니다("Dr. Lena Kowalski"의 "Lena"처럼). 이름을 지정하지 않으면 채팅의 캐릭터를 사용합니다.
+- **검토**: **Expose media prompts before sending**이 켜져 있으면 클립의 프롬프트를 먼저 검토하고 수정할 수 있습니다.
+- **읽는 맥락**: 클립 내용을 작성하는 AI는 Illustrator가 그림을 만들 때와 같은 수의 최근 메시지를 읽습니다. 설정 화면의 **Agent Budget**(에이전트 예산)에 있는 **Context Size**(컨텍스트 크기) 값에 따라 현재 진행 중인 상황을 보여 줍니다.
+- **그림이 없는 경우**: 그림 없이 또는 아바타에서 시작하는 클립은 AI가 장면 자체를 묘사합니다. 지시문은 **Settings**, **Generations**, **Video Generation Prompt Overrides**의 **Roleplay Clip Director**(Roleplay 클립 연출)에 있습니다.
+
+**Game Mode**에서는 **Video**가 가장 최근 그림을 움직이게 만듭니다.
 
 1. **Images** 탭에 그림이 하나 이상 있는지 확인하세요. 없으면 **Illustrate**(이미지 생성)를 쓰거나 그림을 업로드하세요.
 2. **Gallery** 위쪽 동작 줄에서 **Video**(비디오)를 클릭하세요.
@@ -144,11 +152,11 @@ Atlas Cloud가 모델의 입력을 변경하는 등의 이유로 저장된 옵�
 2. 원하는 그림 위에 마우스를 올리세요.
 3. 마우스를 올렸을 때 나타나는 조작 중 **Animate illustration**(삽화 애니메이션 만들기) 버튼(필름 아이콘)을 클릭하세요.
 
-프롬프트 확인 기능을 켜 두면 **Animate illustration**에서도 같은 **Review Video Prompt** 창이 나타납니다. 이 창에는 서버가 완성한 프롬프트와 길이, 화면 비율, 해상도가 그대로 표시됩니다. 선택한 이미지에 실제로 쓰이는 값입니다. 여기서 수정한 내용은 그 생성 한 번에만 적용됩니다. Roleplay에서 이 프롬프트를 만들어 내는 재사용 지시문은 **Settings**, **Generations**, **Video Generation Prompt Overrides**(동영상 생성 프롬프트 재정의)의 **Roleplay Gallery Animation Director**에서 따로 관리합니다.
+프롬프트 확인 기능을 켜 두면 **Animate illustration**에서도 같은 **Review Video Prompt** 창이 나타납니다. 이 창에는 서버가 완성한 프롬프트와 길이, 화면 비율, 해상도가 그대로 표시됩니다. 선택한 이미지에 실제로 쓰이는 값입니다. 여기서 수정한 내용은 그 생성 한 번에만 적용됩니다. Roleplay에서 동작을 계획하는 AI는 Illustrator와 같은 수의 최근 메시지(**Context Size**)를 읽으며, 해당 그림이 속한 답변까지만 읽습니다. Roleplay에서 이 프롬프트를 만들어 내는 재사용 지시문은 **Settings**, **Generations**, **Video Generation Prompt Overrides**(동영상 생성 프롬프트 재정의)의 **Roleplay Gallery Animation Director**에서 따로 관리합니다.
 
 **Videos** 탭에서는 각 클립이 그 자리에서 재생되고 길이와 모델 이름이 함께 표시됩니다. **Pin video to chat**(비디오를 채팅에 고정)으로 클립을 채팅에 고정하거나 **Download scene video**(장면 비디오 다운로드)로 저장할 수 있습니다. 클립이 하나도 없으면 탭에 **No videos yet**이라고 표시됩니다.
 
-채팅에 그림이 없는 상태에서 동영상을 만들려고 하면 Marinara가 다음 메시지를 표시합니다. "Add or generate a gallery image before generating a scene video." 그림을 먼저 생성하거나 업로드한 뒤 다시 시도하세요.
+Game Mode에서 채팅에 그림이 없는 상태로 그림을 움직이게 만들려고 하면 Marinara가 다음 메시지를 표시합니다. "Add or generate a gallery image before generating a scene video." 그림을 먼저 생성하거나 업로드한 뒤 다시 시도하세요.
 
 ## Game Mode의 장면 동영상
 
@@ -209,7 +217,7 @@ Game Mode 채팅을 처음 만들 때는 설정 마법사에도 **Video Generati
 
 ### "Add or generate a gallery image before generating a scene video"
 
-장면 동영상은 언제나 이미 있는 그림을 움직이게 만듭니다. **Illustrate**를 쓰거나, 그림을 업로드하거나, 이미 가진 그림에서 **Animate illustration**을 클릭하세요.
+**Game Mode**와 **Animate illustration**에는 기존 그림이 필요하며, **Roleplay**에서는 첫 프레임을 선택하지 않으면 이야기만으로 클립을 생성할 수 있습니다. **Illustrate**를 쓰거나, 그림을 업로드하거나, 이미 가진 그림에서 **Animate illustration**을 클릭하세요.
 
 ### 동영상 생성이 오래 걸립니다
 
