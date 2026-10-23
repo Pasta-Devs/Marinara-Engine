@@ -82,7 +82,7 @@ Choisis l'une de ces solutions :
 2. Installe pnpm toi-même. Lance cette commande, puis relance le lanceur :
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. Mets corepack à jour dans un terminal administrateur, puis relance le lanceur :
@@ -98,19 +98,19 @@ Marinara v2.3.0 arrivait à démarrer pnpm via Corepack, puis échouait pendant 
 Si le dépôt lui-même n'arrive pas à se mettre à jour, lance `git pull` dans le dossier Marinara puis redémarre. Contournement temporaire en v2.3.0 : installe globalement la version épinglée du gestionnaire de paquets, relance le lanceur, puis mets à jour normalement :
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### Transfert du gestionnaire de paquets par le lanceur
 
-Marinara épingle pnpm 10.34.7. Un lanceur existant en 10.33.2 ou 10.34.5 peut effectuer le transfert pendant la même exécution ; le lanceur actualisé sélectionne ensuite 10.34.7 lors des prochains démarrages. Corepack vérifie la version à l'aide de l'empreinte SHA-512 épinglée dans `package.json`, et la solution de repli npm demande elle aussi exactement 10.34.7.
+Marinara utilise pnpm 12.15.0. Mets Engine à jour, puis relance `start.bat`, `start.sh` ou `start-termux.sh`. Le lanceur récupère la version requise pour toi ; tu n'as pas besoin de remplacer d'abord une ancienne version globale de pnpm. Si cela échoue encore, installe la version exacte avec la commande ci-dessous et relance le lanceur.
 
 Si une ancienne build staging de v2.4.1 s'est déjà arrêtée avec `Expected version: >=10.34.5` et `Got: 10.33.2`, relance le lanceur : cette build a téléchargé le lanceur actualisé avant de s'arrêter. S'il ne parvient toujours pas à obtenir automatiquement la version épinglée, installe la version exacte et relance-le :
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux : ERR_PNPM_ENAMETOOLONG pendant l'installation

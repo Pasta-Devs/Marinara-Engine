@@ -82,7 +82,7 @@ Wähl eine der drei Lösungen:
 2. pnpm selbst installieren. Führ diesen Befehl aus und starte danach den Launcher erneut:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 3. Corepack in einem Administrator-Terminal aktualisieren und den Launcher erneut starten:
@@ -98,19 +98,19 @@ Marinara v2.3.0 konnte pnpm zwar über Corepack starten, scheiterte dann aber be
 Lässt sich die lokale Kopie selbst nicht aktualisieren, führ `git pull` im Marinara-Ordner aus und starte erneut. Als vorübergehende Notlösung für v2.3.0 installierst du den festgelegten Paketmanager global, startest den Launcher erneut und aktualisierst anschließend ganz normal:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 <a id="launcher-package-manager-handoff"></a>
 
 ### Übergabe des Paketmanagers durch den Launcher
 
-Marinara legt pnpm 10.34.7 fest. Ein vorhandener Launcher mit 10.33.2 oder 10.34.5 kann die Übergabe im selben Lauf abschließen; anschließend wählt der aktualisierte Launcher bei künftigen Starts 10.34.7. Corepack prüft die Version anhand des in `package.json` festgelegten SHA-512-Digests, und auch der npm-Fallback fordert exakt 10.34.7 an.
+Marinara verwendet pnpm 12.15.0. Aktualisiere Engine und führe dann `start.bat`, `start.sh` oder `start-termux.sh` erneut aus. Der Launcher lädt die benötigte Version für dich herunter; eine ältere globale pnpm-Version musst du vorher nicht ersetzen. Falls es weiterhin fehlschlägt, installiere die genaue Version mit dem folgenden Befehl und starte den Launcher erneut.
 
 Falls ein früherer Staging-Build von v2.4.1 bereits mit `Expected version: >=10.34.5` und `Got: 10.33.2` abgebrochen ist, führe den Launcher noch einmal aus; dieser Build hat den aktualisierten Launcher vor dem Abbruch heruntergeladen. Kann der Launcher die festgelegte Version weiterhin nicht automatisch beziehen, installiere sie exakt und starte ihn erneut:
 
 ```bash
-npm install -g pnpm@10.34.7
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG bei der Installation
