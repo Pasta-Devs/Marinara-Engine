@@ -952,13 +952,19 @@ export async function encounterRoutes(app: FastifyInstance) {
       logDebugOverride(debugMode === true, message, ...args);
     };
 
+    // Every refusal is logged with its reason: a setup that fails is otherwise silent on the server,
+    // and the screen shows only that it failed.
+    const refuse = (body: { error: string; reason?: string }, status = 502) => {
+      logger.warn("[game/combat:init] chatId=%s refused: %s", chatId ?? "(none)", body.error);
+      return reply.status(status).send(body);
+    };
     if (!chatId || !settings) {
-      return reply.status(400).send({ error: "Missing required fields: chatId, settings" });
+      return refuse({ error: "Missing required fields: chatId, settings" }, 400);
     }
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return refuse({ error: "Chat not found" }, 404);
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat.connectionId);
       const provider = createLLMProvider(
@@ -1009,9 +1015,10 @@ export async function encounterRoutes(app: FastifyInstance) {
           : null;
       if (tacticalBattlefieldResult && !tacticalBattlefieldResult.success) {
         const issue = tacticalBattlefieldResult.error.issues[0];
-        return reply.status(400).send({
-          error: `Stored tactical battlefield settings are invalid: ${issue?.message ?? "invalid settings"}`,
-        });
+        return refuse(
+          { error: `Stored tactical battlefield settings are invalid: ${issue?.message ?? "invalid settings"}` },
+          400,
+        );
       }
       const gameStateCtx = await buildGameStateContext(gsStorage, chatId, personaName, chatMeta);
       const spellbookCtx = await loadSpellbookContext(spellbookId);
@@ -1128,12 +1135,6 @@ export async function encounterRoutes(app: FastifyInstance) {
         result.content?.length ?? 0,
         result.content ?? "",
       );
-      // Every refusal is logged with its reason: a setup that fails after the model answered is
-      // otherwise silent on the server, and the screen shows only that it failed.
-      const refuse = (body: { error: string; reason?: string }) => {
-        logger.warn("[game/combat:init] chatId=%s refused: %s", chatId, body.error);
-        return reply.status(502).send(body);
-      };
       if (asked.cutOff) {
         return refuse({
           error:
