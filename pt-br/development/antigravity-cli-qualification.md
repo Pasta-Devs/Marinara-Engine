@@ -28,7 +28,7 @@ O [instalador oficial](https://antigravity.google/cli/install.sh) e seu [manifes
 
 A soma de verificação do arquivo conferiu. O binário foi extraído em um diretório temporário exclusivo da tarefa. Somente `--version` e `--help` foram executados, dentro de uma sandbox do macOS que negava acesso à rede, leitura/escrita no diretório pessoal e acesso ao serviço de chaves. Ambos terminaram com sucesso. A ajuda não listou nenhuma opção para desativar hooks, isolar um perfil ou definir um diretório de configuração.
 
-Essa verificação **não** instalou nem autenticou a CLI, inspecionou credenciais, invocou um modelo, listou os modelos de uma conta conectada ou testou a execução de hooks. Ela confirma o inventário público de opções; não comprova que o isolamento seja impossível nem valida a geração por assinatura.
+Essa verificação **não** instalou nem autenticou a CLI, nem inspecionou credenciais, nem invocou um modelo, nem listou os modelos de uma conta conectada, nem testou a execução de hooks. Ela confirma o inventário público de opções; não comprova que o isolamento seja impossível nem valida a geração por assinatura.
 
 ## Evidências necessárias antes de lançar um adaptador
 

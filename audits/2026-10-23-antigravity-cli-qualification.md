@@ -18,7 +18,9 @@ The canonical English change is [#8156](https://github.com/Pasta-Devs/Marinara-E
 
 ## Review and publication status
 
-Local CodeRabbit review completed across all 21 changed files. It found one minor audit-status issue: the English merge completed while review was running, so the English merge gate was outdated. That gate is now removed after verifying the merge and identical English bytes. Translation and manifest content did not change after review.
+The first local CodeRabbit review completed across all 21 changed files. It found one minor audit-status issue: the English merge completed while review was running, so the English merge gate was outdated. That gate was removed after verifying the merge and identical English bytes.
+
+Hosted review of `39b2778d18627515705ed68eac19552a349e6eea` found two minor negation defects in the Spanish and Brazilian Portuguese experimental record. Both sentences now explicitly negate every action that the probe did not perform. A final glossary pass also aligned the Chinese provider term with the pack's established `服务商`. The three affected manifest hashes were regenerated, and all ten packs were revalidated. The focused local repair review completed across all seven changed files with zero findings; hosted re-examination is pending.
 
 Refreshed against docs-i18n `2c40d752e89ed4673fdaf92fa8f1c33064397aaf` before publication. Raw published bytes and manifest hashes will be verified after the translation merge.
 
