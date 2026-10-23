@@ -28,13 +28,19 @@ Voici la marche à suivre :
 ```
 
 3. Appuie sur Enter. La fenêtre **Scene Prompt Setup** (configuration du prompt de scène) s'ouvre.
-4. Choisis un **Prompt preset** (préréglage de prompt) pour la nouvelle scène, ou garde **None** (aucun). Marinara mémorise ce choix pour la scène suivante. Les instructions propres à la scène continuent de s'appliquer avec le préréglage sélectionné.
+4. Choisis un **Prompt preset** (préréglage de prompt) pour la nouvelle scène, ou garde **None** (aucun) pour utiliser le préréglage de ton profil de réglages Roleplay marqué d'une étoile. Marinara mémorise ce choix pour la scène suivante. Les instructions propres à la scène continuent de s'appliquer avec le préréglage.
 5. Sous **POV**, choisis le point de vue du texte : **First Person**, **Second Person** ou **Third Person**.
 6. Sous **Tense** (le temps), choisis **Past**, **Present** ou **Future**.
 7. Si tu le souhaites, écris des consignes dans le champ **Extra instructions** (instructions supplémentaires) pour orienter la scène.
 8. Clique sur **Plan Scene** (planifier la scène).
 
 Marinara planifie la scène et l'ouvre comme un nouveau chat de roleplay. La nouvelle scène apparaît dans la liste des chats et s'ouvre toute seule, avec un message d'accueil qui plante la situation. Si tu changes d'avis dans la fenêtre de configuration, clique sur **Cancel** (annuler) : aucune scène n'est créée.
+
+La nouvelle scène part de ton profil de réglages Roleplay marqué d'une étoile, comme tout nouveau chat Roleplay. Son ouverture fonctionne ainsi :
+
+- La description de la scène forme un message distinct du narrateur, publié avant l'ouverture.
+- Avec un seul personnage, le message d'ouverture est écrit dans sa voix. Les paroles prononcées à voix haute sont entre guillemets doubles, sauf si tes instructions d'écriture demandent un autre style.
+- Dans une scène de groupe, l'ouverture suit le mode de groupe du profil. En mode fusionné (le mode par défaut), une seule voix narrative parle pour tout le monde. En mode **Individual** (individuel), le personnage qui commence la scène écrit l'ouverture.
 
 Autre option : lancer une scène sans description. Tape seulement la commande, à condition que la conversation ait déjà assez d'historique pour servir de base.
 
