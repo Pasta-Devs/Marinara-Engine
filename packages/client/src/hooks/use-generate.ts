@@ -32,6 +32,7 @@ import {
   isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
+  shouldTypeOutLiveStream,
   takeTypewriterCharacters,
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
@@ -1764,6 +1765,11 @@ export function useGenerate() {
       };
 
       const startTypewriter = () => {
+        // Nobody watches a Game reply's stream, so its text goes straight through and never holds the reveal.
+        if (!shouldTypeOutLiveStream({ isGameGeneration })) {
+          flushTypewriterBuffer();
+          return;
+        }
         if (typingActive) return;
         typingActive = true;
         const tick = (now = performance.now()) => {

@@ -11,6 +11,7 @@ import {
   isMessageShadowedByLiveStream,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
+  shouldTypeOutLiveStream,
   takeTypewriterCharacters,
 } from "../../packages/client/src/lib/generation-stream-policy.js";
 import { reconcilePersistedMessages } from "../../packages/client/src/lib/message-cache-reconciliation.js";
@@ -1502,6 +1503,15 @@ assert.equal(
     isContinuation: false,
   }),
   false,
+);
+
+// Nobody watches a Game reply's stream: typing it out only held the saved narration's reveal back.
+assert.equal(shouldTypeOutLiveStream({ isGameGeneration: true }), false);
+assert.equal(shouldTypeOutLiveStream({ isGameGeneration: false }), true);
+assert.match(
+  useGenerateSource,
+  /const startTypewriter = \(\) => \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(!shouldTypeOutLiveStream\(\{ isGameGeneration \}\)\) \{\n\s*flushTypewriterBuffer\(\);\n\s*return;/u,
+  "a Game generation must move its stream text straight through instead of typing it out",
 );
 
 assert.deepEqual(

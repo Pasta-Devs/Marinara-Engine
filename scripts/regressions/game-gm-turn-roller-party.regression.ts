@@ -378,6 +378,34 @@ const party = ["Isolde", "Hessa", "Brannoc", "Pip"];
     nextValue: () => 4,
   });
   assert.equal(filled.content, '[sheet: who="Brannoc" op="damage" pool="Health" amount="4"]');
+  assert.match(reminder(true), /When the narration already shows that roll, write the same placeholder in the amount/);
+  // The amount that repeats a narrated roll is that roll: one die, one card, one number for both.
+  const faces = [2, 5, 3, 6];
+  const paired = resolveRollPlaceholders(
+    'Brannoc falls for [[roll: 1d6]] damage. [sheet: who="Brannoc" op="damage" pool="Health" amount="[[roll: 1d6]]"]',
+    { nextValue: () => faces.shift()! },
+  );
+  assert.equal(
+    paired.content,
+    'Brannoc falls for 2 damage. [sheet: who="Brannoc" op="damage" pool="Health" amount="2"]',
+  );
+  assert.equal(paired.records.length, 1);
+  // Each narrated roll pairs once, the nearest one before the command; a different notation rolls its own.
+  const two = [1, 4, 6, 3];
+  const both = resolveRollPlaceholders(
+    'Pip burns for [[roll: 1d6]], Brannoc for [[roll: 1d6]]. [sheet: who="Brannoc" op="damage" amount="[[roll: 1d6]]"] [sheet: who="Pip" op="damage" amount="[[roll:1D6]]"] [sheet: who="Pip" op="damage" amount="[[roll: 1d8]]"]',
+    { nextValue: () => two.shift()! },
+  );
+  assert.equal(
+    both.content,
+    'Pip burns for 1, Brannoc for 4. [sheet: who="Brannoc" op="damage" amount="4"] [sheet: who="Pip" op="damage" amount="1"] [sheet: who="Pip" op="damage" amount="6"]',
+  );
+  // Prose that only repeats a notation rolls again: pairing is for a sheet amount alone.
+  const again = [2, 5];
+  assert.equal(
+    resolveRollPlaceholders("A [[roll: 1d6]] and a [[roll: 1d6]].", { nextValue: () => again.shift()! }).content,
+    "A 2 and a 5.",
+  );
 }
 
 console.log(

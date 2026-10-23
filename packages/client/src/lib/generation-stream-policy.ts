@@ -189,6 +189,15 @@ export function isMessageShadowedByLiveStream(input: LiveStreamMessageShadowInpu
 }
 
 /**
+ * Game Mode never shows a reply's live stream: its narration appears once the reply is saved. Typing that
+ * unseen stream out at the reading speed still held the reveal back by the reply's length over the speed
+ * (a minute or more for a long turn), so a Game generation moves its stream text straight through instead.
+ */
+export function shouldTypeOutLiveStream(input: { isGameGeneration: boolean }): boolean {
+  return !input.isGameGeneration;
+}
+
+/**
  * Fresh Roleplay streams keep ownership of the visible transcript until the
  * entire SSE lifecycle has finished. The server persists the assistant message
  * before post-processing agents run, so handing off on `message_saved` would
