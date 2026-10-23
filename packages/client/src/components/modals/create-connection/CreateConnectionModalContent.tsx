@@ -1,42 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  AlertCircle,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  Loader2,
-} from "lucide-react";
+import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  AUDIO_SOURCE_OPTIONS,
-  IMAGE_GENERATION_SOURCES,
   MODEL_LISTS,
   PROVIDERS,
-  VIDEO_GENERATION_SOURCES,
-  inferImageSource,
-  inferVideoSource,
   isChatProvider,
   isLocalAuthProvider,
   withKeyTail,
   type APIProvider,
-  type ChatModelChoice,
-  type DecisionSource,
-  type TTSVoicesResponse,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
-import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
-import { ServiceRow } from "../../connections/ServiceRow";
-import { ConnectionModelPicker } from "../../connections/ConnectionModelPicker";
-import { BrandMark } from "../../connections/ProviderIcon";
 import { StarText } from "../../connections/StarText";
 import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import {
-  useCachedCatalogFacts,
   useCreateConnection,
   useConnectionModels,
   useConnections,
@@ -60,67 +37,45 @@ import { useSidecarStore } from "../../../stores/sidecar.store";
 import { useUIStore } from "../../../stores/ui.store";
 import { useDeviceSetup } from "../../../hooks/use-device-setup";
 import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../../lib/add-connection";
-import { JOB, JOBS, jobAddKind, jobLabelKey, matchesKind } from "../../../lib/connection-jobs";
-import { type ModelEntry, type ModelKind } from "../../../lib/add-model-search";
-import { TTSConfigCard } from "../../panels/settings/TTSConfigCard";
+import { JOB, jobAddKind, jobLabelKey, matchesKind } from "../../../lib/connection-jobs";
+import type { ModelKind } from "../../../lib/add-model-search";
 import { useFollowVoiceJob } from "../../../hooks/use-tts";
-import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
-import { LocalWhisper } from "../../connections/DeviceDetail";
 import { DecisionModelModal } from "../DecisionModelModal";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
 import { ServiceListStep } from "./ServiceListStep";
+import { useServiceListData } from "./useServiceListData";
 import { starAnchorOf } from "../../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../../lib/connection-filters";
 import { cn } from "../../../lib/utils";
-import { api } from "../../../lib/api-client";
-import { decisionConnectionTestMessage } from "../../../lib/decision-test-message";
-import { ttsService } from "../../../lib/tts-service";
 import {
   DECISION_BUILTIN,
   DEVICE_ITEMS,
-  IMAGE_VENDOR,
   JOB_PROVIDER,
   KEY_TAIL,
   KIND_ICONS,
   LINKAPI,
   LINKAPI_SERVICE,
-  LOCAL_PRESETS,
-  LOGIN_COMMANDS,
-  MEDIA_KEY_URLS,
-  MODELS_SHOWN,
   NO_RECOMMENDED,
-  OFFLINE_MODELS,
   PRIMARY_CLASS,
   SECONDARY_CLASS,
-  SERVICE_GROUPS,
-  SEARCH_ALIASES,
-  VIDEO_SOURCE_VENDOR,
   errorText,
   failureReason,
-  hostOf,
-  inputClass,
   isDevice,
-  isLinkApiUrl,
-  isSpeechModel,
   jobSourceOf,
   NETWORK_ERROR,
-  SPEECH_SOURCE,
   jobKindsOf,
   kindsOf,
-  labelClass,
   mediaBackendOf,
-  rowKind,
-  ServiceTile,
   type AddableKind,
   type ChipKind,
   type ConnectionRowLite,
   type DeviceService,
+  type ModelPick,
   type ServiceId,
   type Target,
   type TestResult,
 } from "./shared";
-import { keysOf, modelKey, popularModels, searchModels, withOwnConnections } from "../../../lib/add-model-search";
 
 type ChatMode = "conversation" | "roleplay" | "game";
 
@@ -194,7 +149,7 @@ export function CreateConnectionModalContent({
   const [maxJobs, setMaxJobs] = useState("");
   const [tested, setTested] = useState<TestResult | null>(null);
   // The models starred in this setup, in order; the first one is what the ready screen offers.
-  const [picks, setPicks] = useState<Array<{ connectionId: string; modelId: string; kind: AddableKind }>>([]);
+  const [picks, setPicks] = useState<ModelPick[]>([]);
   const [setupKind, setSetupKind] = useState<AddableKind | null>(null);
   // The image or video Model row whose models step 3 lists; its workflow and options are set later with Edit.
   const [mediaRowId, setMediaRowId] = useState<string | null>(null);
@@ -205,13 +160,14 @@ export function CreateConnectionModalContent({
   const [jobTest, setJobTest] = useState<{ ok: boolean; message: string } | null>(null);
   const [jobTesting, setJobTesting] = useState(false);
   const passedJob = useRef<Record<string, { model: string; name: string }>>({});
+  const runJobTestAction = useRef<() => Promise<void>>(async () => {});
   const [query, setQuery] = useState("");
   // Step 1 opens on three cards; each opens one list. Typing in the top search shows every match instead.
   const [pick, setPick] = useState<"job" | "model" | "provider" | null>(null);
   const [showAllVendors, setShowAllVendors] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
-  const [jobFor, setJobFor] = useState<AddFor | null>(forJob ?? null);
+  const [jobFor] = useState<AddFor | null>(forJob ?? null);
   const job = jobFor?.job ?? null;
   // The kind chip in step 1; step 3 starts on the same kind.
   const [kindFilter, setKindFilter] = useState<ChipKind | null>(
@@ -720,230 +676,7 @@ export function CreateConnectionModalContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialize once data is available; target ends setup
   }, [modelsFor, rows, accounts]);
 
-  const mediaSourceFor = (kind: "image" | "video") => {
-    if (selectedMedia && selectedMedia[kind]) return selectedMedia.source;
-    const linked = target ? accountRows(target.accountId) : [];
-    const existing = linked.find((row) => row.provider === `${kind}_generation`);
-    const existingSource =
-      kind === "image"
-        ? existing?.imageGenerationSource ||
-          existing?.imageService ||
-          (existing ? inferImageSource(existing.model ?? "", existing.baseUrl ?? "") : "")
-        : existing?.videoGenerationSource ||
-          existing?.videoService ||
-          (existing ? inferVideoSource(existing.model ?? "", existing.baseUrl ?? "") : "");
-    if (existingSource) return existingSource;
-    // LinkAPI serves OpenAI-style image models (gpt-image-1.5) at its own address.
-    if (service === LINKAPI_SERVICE) return kind === "image" ? "openai" : undefined;
-    if (provider && isChatProvider(provider)) {
-      if (kind === "image") return Object.entries(IMAGE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
-      return Object.entries(VIDEO_SOURCE_VENDOR).find(([, vendor]) => vendor === provider)?.[0];
-    }
-    return undefined;
-  };
-
   const mediaSetupStarted = useRef("");
-  const beginMediaSetup = async (kind: "image" | "video") => {
-    if (!target) return;
-    const source = mediaSourceFor(kind);
-    if (!source) {
-      mediaSetupStarted.current = "";
-      setSetupKind(null);
-      toast.error(t("connections.add.mediaCreateFailed"));
-      return;
-    }
-    const rowProvider: APIProvider = kind === "image" ? "image_generation" : "video_generation";
-    const linked = accountRows(target.accountId);
-    const sourceDef = (kind === "image" ? IMAGE_GENERATION_SOURCES : VIDEO_GENERATION_SOURCES).find(
-      (candidate) => candidate.id === source,
-    );
-    const preserveAccountEndpoint = source === "comfyui" || source === "swarmui" || service === LINKAPI_SERVICE;
-    const siblingEndpoint = linked.find((row) => rowUsesMediaSource(row, source))?.baseUrl;
-    const endpoint = preserveAccountEndpoint
-      ? siblingEndpoint || target.accountBaseUrl || sourceDef?.defaultBaseUrl || ""
-      : sourceDef?.defaultBaseUrl || "";
-    setMediaCreating(true);
-    try {
-      const empty = linked.find(
-        (row) => row.id === target.placeholderId && row.provider === rowProvider && !row.model?.trim(),
-      );
-      let id: string;
-      if (empty) {
-        await updateRow.mutateAsync({
-          id: empty.id,
-          provider: rowProvider,
-          name: sourceDef?.name ?? source,
-          baseUrl: endpoint,
-          ...(kind === "image"
-            ? { imageGenerationSource: source, imageService: source }
-            : { videoGenerationSource: source, videoService: source }),
-        });
-        id = empty.id;
-      } else {
-        const created = (await createRow.mutateAsync({
-          name: sourceDef?.name ?? source,
-          provider: rowProvider,
-          apiKey: "",
-          baseUrl: endpoint,
-          accountId: target.accountId,
-          ...(kind === "image"
-            ? { imageGenerationSource: source, imageService: source }
-            : { videoGenerationSource: source, videoService: source }),
-        })) as { id?: string };
-        if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
-        id = created.id;
-        setTarget((current) =>
-          current?.accountId === target.accountId
-            ? {
-                ...current,
-                placeholderId: id,
-                ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), id])],
-              }
-            : current,
-        );
-      }
-      setSetupKind(kind);
-      setMediaRowId(id);
-    } catch (error) {
-      toast.error(friendlyError(error));
-      setSetupKind(null);
-    } finally {
-      mediaSetupStarted.current = "";
-      setMediaCreating(false);
-    }
-  };
-
-  // A decision or voice Model is its own row under the Connection, at its address and with its key: a chat service's
-  // row speaks its OpenAI-style API, a voice or decision service fills the new Connection's first row.
-  const beginJobSetup = async (kind: "decision" | "voice") => {
-    const account = target ? accounts?.find((candidate) => candidate.id === target.accountId) : undefined;
-    if (!account) return;
-    const rowProvider = JOB_PROVIDER[kind];
-    const vendor = account.provider as APIProvider;
-    const backend = selectedMedia?.job === kind ? selectedMedia : undefined;
-    const source = backend?.source ?? (kind === "decision" ? "openai_compatible" : SPEECH_SOURCE[vendor]);
-    if (!source || (!backend && !isChatProvider(vendor))) {
-      onClose();
-      flashConnectionCard(account.id);
-      return;
-    }
-    const linked = accountRows(account.id);
-    const placeholder = linked.find(
-      (row) => row.id === target?.placeholderId && row.provider === rowProvider && !row.model?.trim(),
-    );
-    // An existing Connection of this service keeps its one row: Done sets it for the job.
-    const own = linked.find((row) => row.provider === rowProvider && jobSourceOf(row) === source);
-    if (!placeholder && own) return setMediaRowId(own.id);
-    // "Use for decisions" on a model row: the decision row starts with that row's model.
-    const lentModel = backend ? undefined : linked.find((row) => row.id === modelsFor?.connectionId)?.model?.trim();
-    const preset = backend && AUDIO_SOURCE_OPTIONS.find((option) => option.id === source);
-    const fields =
-      kind === "decision"
-        ? { decisionSource: source as DecisionSource, ...(lentModel ? { model: lentModel } : {}) }
-        : {
-            audioSource: source,
-            ...(preset
-              ? { model: preset.defaultModel, ...(preset.defaultVoice ? { audioVoice: preset.defaultVoice } : {}) }
-              : {}),
-          };
-    setMediaCreating(true);
-    try {
-      let id = placeholder?.id;
-      if (id) await updateRow.mutateAsync({ id, ...fields });
-      else {
-        const created = (await createRow.mutateAsync({
-          name: account.name,
-          provider: rowProvider,
-          apiKey: "",
-          baseUrl: account.baseUrl || PROVIDERS[vendor]?.defaultBaseUrl || "",
-          accountId: account.id,
-          ...fields,
-        })) as { id?: string };
-        if (!created.id) throw new Error(t("connections.add.mediaCreateFailed"));
-        const createdId = created.id;
-        id = createdId;
-        setTarget((current) =>
-          current?.accountId === account.id
-            ? { ...current, ownedPlaceholderIds: [...new Set([...(current.ownedPlaceholderIds ?? []), createdId])] }
-            : current,
-        );
-      }
-      setMediaRowId(id);
-    } catch (error) {
-      mediaSetupStarted.current = "";
-      toast.error(friendlyError(error));
-    } finally {
-      setMediaCreating(false);
-    }
-  };
-
-  useEffect(() => {
-    if (step !== 3 || !target || mediaRowId || !setupKind || setupKind === "chat") return;
-    const key = `${target.accountId}:${setupKind}`;
-    if (mediaSetupStarted.current === key) return;
-    mediaSetupStarted.current = key;
-    void (setupKind === "image" || setupKind === "video" ? beginMediaSetup(setupKind) : beginJobSetup(setupKind));
-    // The target/kind transition is the trigger; the helper reads the latest loaded rows.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, target?.accountId, setupKind, mediaRowId]);
-
-  // A chat pick adds a Model; an image or video pick sets the one model of its row.
-  const recordPick = (connectionId: string, modelId: string, kind: AddableKind = "chat") =>
-    setPicks((current) =>
-      kind !== "chat"
-        ? [...current.filter((pick) => pick.connectionId !== connectionId), { connectionId, modelId, kind }]
-        : current.some((pick) => pick.modelId === modelId)
-          ? current
-          : [...current, { connectionId, modelId, kind }],
-    );
-
-  // A star taken off here: the model is no longer added. The star hook removes the Model (decision 30).
-  const chooseJobModel = async (choice: ChatModelChoice) => {
-    if (!mediaRowId) return;
-    setJobTest(null);
-    await updateRow.mutateAsync({ id: mediaRowId, model: choice.model, name: choice.name || choice.model });
-  };
-  const runJobTest = async () => {
-    const row = mediaRowId ? allRows.find((candidate) => candidate.id === mediaRowId) : undefined;
-    if (!row || (setupKind !== "decision" && setupKind !== "voice")) return;
-    setJobTesting(true);
-    try {
-      let result: { ok: boolean; message: string };
-      if (setupKind === "decision") {
-        const tested = await testConnection.mutateAsync(row.id);
-        result =
-          tested.success && tested.logprobs === false
-            ? { ok: false, message: t("connections.add.decisionNoLogprobs") }
-            : { ...decisionConnectionTestMessage(t, tested), ok: tested.success };
-      } else {
-        // The default voice is the first one the service lists.
-        if (!row.audioVoice?.trim()) {
-          const { voices } = await api.get<TTSVoicesResponse>(`/tts/voices?connectionId=${encodeURIComponent(row.id)}`);
-          if (voices[0]) await updateRow.mutateAsync({ id: row.id, audioVoice: voices[0] });
-        }
-        ttsService.preparePlayback();
-        await ttsService.speak(t("connections.add.voiceTestSentence"), "add-connection-voice-test", {
-          throwOnError: true,
-          audioConnectionId: row.id,
-        });
-        result = { ok: true, message: t("connections.add.voiceTestPassed") };
-      }
-      setJobTest(result);
-      if (result.ok) {
-        passedJob.current[row.id] = { model: row.model ?? "", name: row.name ?? row.model ?? "" };
-        setPicks((current) => [
-          ...current.filter((pick) => pick.connectionId !== row.id),
-          { connectionId: row.id, modelId: row.model ?? "", kind: setupKind },
-        ]);
-      }
-    } catch (error) {
-      setJobTest({ ok: false, message: errorText(error) });
-    } finally {
-      setJobTesting(false);
-    }
-  };
-
-  const unstar = (modelId: string) => setPicks((current) => current.filter((pick) => pick.modelId !== modelId));
 
   const startChatting = async () => {
     if (!onStartChat || !firstPick) return;
@@ -959,186 +692,41 @@ export function CreateConnectionModalContent({
   };
 
   // ── Step 1: the service list ──
-  const ownAccounts = (accounts ?? []).filter((account) => account.id !== target?.accountId);
   const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
-  const rowUsesMediaSource = (row: ConnectionRowLite, source: string) =>
-    (row.provider === "image_generation" &&
-      (row.imageGenerationSource || row.imageService || inferImageSource(row.model ?? "", row.baseUrl ?? "")) ===
-        source) ||
-    (row.provider === "video_generation" &&
-      (row.videoGenerationSource || row.videoService || inferVideoSource(row.model ?? "", row.baseUrl ?? "")) ===
-        source);
-  const compatibleAccounts = (key: ServiceId) => {
-    const media = mediaBackendOf(key);
-    // A voice or decision service: the Connections already holding a row of that source.
-    if (media?.job) {
-      const provider = JOB_PROVIDER[media.job];
-      return ownAccounts.filter((account) =>
-        accountRows(account.id).some((row) => row.provider === provider && jobSourceOf(row) === media.source),
-      );
-    }
-    if (media)
-      return ownAccounts.filter(
-        (account) =>
-          accountRows(account.id).some((row) => rowUsesMediaSource(row, media.source)) ||
-          (["image_generation", "video_generation"].includes(account.provider) &&
-            account.baseUrl.replace(/\/+$/u, "") === media.defaultBaseUrl.replace(/\/+$/u, "")),
-      );
-    if (isDevice(key)) return [];
-    if (key === LINKAPI_SERVICE)
-      return ownAccounts.filter((account) => account.provider === "custom" && isLinkApiUrl(account.baseUrl));
-    const providerKey = key as APIProvider;
-    const imageSources = Object.entries(IMAGE_VENDOR)
-      .filter(([, vendor]) => vendor === providerKey)
-      .map(([source]) => source);
-    const videoSources = Object.entries(VIDEO_SOURCE_VENDOR)
-      .filter(([, vendor]) => vendor === providerKey)
-      .map(([source]) => source);
-    const sharesVendorOrigin = (accountUrl: string) => {
-      try {
-        return new URL(accountUrl).origin === new URL(PROVIDERS[providerKey].defaultBaseUrl).origin;
-      } catch {
-        return false;
-      }
-    };
-    return ownAccounts.filter(
-      (account) =>
-        account.provider === providerKey ||
-        (!isChatProvider(account.provider) &&
-          sharesVendorOrigin(account.baseUrl) &&
-          accountRows(account.id).some((row) =>
-            [...imageSources, ...videoSources].some((source) => rowUsesMediaSource(row, source)),
-          )),
-    );
-  };
-  const connectedAccounts = service ? compatibleAccounts(service) : [];
-  const connectedAccount = (key: ServiceId) => compatibleAccounts(key)[0];
-  const badgesFor = (service: ServiceId) => {
-    const badges: Array<{ label: string; highlight?: boolean }> = [];
-    if (isDevice(service) && deviceSetup[DEVICE_ITEMS[service]].setUp)
-      badges.push({ label: t("connections.add.badge.setUp"), highlight: true });
-    else if (connectedAccount(service)) badges.push({ label: t("connections.add.badge.connected"), highlight: true });
-    // The group already says "Recommended"; LinkAPI says why it is first.
-    if (service === LINKAPI_SERVICE) badges.push({ label: t("connections.add.badge.sponsor"), highlight: true });
-    if (isDevice(service) || service === DECISION_BUILTIN) badges.push({ label: t("connections.add.badge.builtIn") });
-    const billing =
-      service === LINKAPI_SERVICE
-        ? "pay_per_use"
-        : isDevice(service) || mediaBackendOf(service) || service === DECISION_BUILTIN
-          ? undefined
-          : PROVIDERS[service as APIProvider]?.billing;
-    // NanoGPT has a monthly plan too, so "Pay per use" alone would be wrong.
-    if (service === "nanogpt") badges.push({ label: t("connections.add.badge.planOrPay") });
-    else if (billing) badges.push({ label: t(`connections.add.badge.${billing}`) });
-    return badges.slice(0, 2);
-  };
-  const needle = query.trim().toLowerCase();
-  const searching = needle.length > 0;
-  // A chip hides tiles without that kind; every group keeps its place, and an empty group hides.
-  const groups = SERVICE_GROUPS.map((group) => {
-    const services = group.services.filter(
-      (key) =>
-        (!isDevice(key) || deviceSetup[DEVICE_ITEMS[key]].available) &&
-        (!kindFilter || kindsOf(key).includes(kindFilter)) &&
-        (!searching ||
-          [
-            serviceName(key),
-            serviceHint(key),
-            SEARCH_ALIASES[key] ?? "",
-            ...kindItems(key).map((item) => item.label),
-          ].some((text) => text.toLowerCase().includes(needle))),
-    );
-    return {
-      ...group,
-      // The filter's own services (ElevenLabs, TypeSafe) first, so the "Show all" cap never hides them.
-      services: group.sorted
-        ? services.sort(
-            (a, b) =>
-              Number(mediaBackendOf(b)?.job === kindFilter) - Number(mediaBackendOf(a)?.job === kindFilter) ||
-              serviceName(a).localeCompare(serviceName(b)),
-          )
-        : services,
-    };
-  }).filter((group) => group.services.length > 0);
-
-  // ── "A specific model…": the offline index plus what the user's own Connections hold ──
-  const ownAccountList = accounts ?? [];
-  const ownCatalogs = useCachedCatalogFacts(
-    ownAccountList.map((account) =>
-      allRows.filter((row) => row.accountId === account.id && isChatProvider(row.provider ?? "")).map((row) => row.id),
-    ),
-  );
-  const modelKind: ModelKind | null =
-    kindFilter === "chat" || kindFilter === "image" || kindFilter === "video" ? kindFilter : null;
-  const modelsOff = !!kindFilter && !modelKind;
-  const modelIndex =
-    step !== 1 || modelsOff
-      ? []
-      : withOwnConnections(
-          OFFLINE_MODELS,
-          ownAccountList.map((account, index) => {
-            const models = new Map<string, { id: string; kind: ModelKind }>();
-            for (const row of accountRows(account.id)) {
-              const kind = rowKind(row.provider);
-              if (kind && row.model?.trim()) models.set(modelKey(row.model), { id: row.model, kind });
-            }
-            for (const ids of ownCatalogs[index]?.idSets ?? [])
-              for (const [key, id] of keysOf(ids)) if (!models.has(key)) models.set(key, { id, kind: "chat" });
-            return { accountId: account.id, models };
-          }),
-        );
-  const shownModels = searching
-    ? searchModels(modelIndex, needle, modelKind, MODELS_SHOWN)
-    : popularModels(modelIndex, modelKind, pick === "model" ? MODELS_SHOWN : 4);
-  // A service the user already has a Connection of becomes that Connection; Connections go first.
-  const routesOf = (entry: ModelEntry) => {
-    const mine = new Map<string, string>();
-    const services: Array<{ service: ServiceId; model: string }> = [];
-    for (const route of entry.routes) {
-      if ("accountId" in route) {
-        if (!mine.has(route.accountId)) mine.set(route.accountId, route.model);
-        continue;
-      }
-      const have = compatibleAccounts(route.service as ServiceId);
-      if (have.length === 0) services.push({ service: route.service as ServiceId, model: route.model });
-      for (const account of have) if (!mine.has(account.id)) mine.set(account.id, route.model);
-    }
-    return { mine: [...mine], services };
-  };
-  const shownJobs = job
-    ? []
-    : JOBS.filter((entry) =>
-        searching
-          ? entry.add !== false && `${jobLabel(entry.key)} ${entry.terms ?? ""}`.toLowerCase().includes(needle)
-          : entry.add === undefined,
-      ).map((entry) => entry.key);
-  const chooseJob = (key: AddJob) => {
-    setQuery("");
-    // Voice and Dictation have no Model to pick: open their service's set-up screen.
-    const device = JOB[key].device;
-    if (device) return void chooseService(device);
-    setJobFor({ job: key });
-    setKindFilter(jobAddKind(key) ?? null);
-  };
-  const clearJob = () => {
-    setJobFor(null);
-    setKindFilter(null);
-  };
-  // Entry points that already know the job, kind or new-chat mode skip the cards, as before.
-  const cards = step === 1 && !pick && !jobFor && !newChatMode && !searching;
-  const jobList = pick === "job" && !job;
-  const listJobs = cards || pick ? [] : shownJobs;
-  const listModels = cards || jobList || pick === "provider" ? [] : shownModels;
-  const listGroups = cards || jobList || pick === "model" ? [] : groups;
+  const {
+    connectedAccounts,
+    badgesFor,
+    searching,
+    shownModels,
+    routesOf,
+    cards,
+    jobList,
+    listJobs,
+    listModels,
+    listGroups,
+  } = useServiceListData({
+    service,
+    target,
+    accounts,
+    rows: allRows,
+    accountRows,
+    kindFilter,
+    query,
+    pick,
+    step,
+    job,
+    newChatMode,
+    deviceAvailable: (key) => deviceSetup[DEVICE_ITEMS[key as DeviceService]].available,
+    deviceSetUp: (key) => deviceSetup[DEVICE_ITEMS[key as DeviceService]].setUp,
+    serviceName,
+    serviceHint,
+    kindItems,
+    jobLabel,
+  });
   // ── Step 2: access for the chosen service ──
   const existing = connectedAccounts[0];
   // Already connected: the user picks one of those connections or makes a new one before any field shows.
   const choosing = connectedAccounts.length > 0 && !target && !second;
-  const keyUrl = selectedMedia
-    ? MEDIA_KEY_URLS[selectedMedia.source]
-    : service === LINKAPI_SERVICE
-      ? LINKAPI.keyUrl
-      : def?.keyUrl;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
   const connectDisabled = busy || choosing || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
@@ -1147,316 +735,6 @@ export function CreateConnectionModalContent({
     setSecond(true);
     if (window.matchMedia?.("(pointer: fine)").matches) requestAnimationFrame(() => keyRef.current?.focus());
   };
-
-  const keyField = (optional: boolean) => (
-    <div className="flex flex-col gap-1">
-      <label htmlFor="add-connection-key" className={labelClass}>
-        {t(optional ? "connections.add.apiKeyOptional" : "connections.add.apiKey")}
-      </label>
-      <div className="flex gap-1.5">
-        <input
-          id="add-connection-key"
-          ref={optional ? undefined : keyRef}
-          type={showKey ? "text" : "password"}
-          value={apiKey}
-          onChange={(e) => {
-            setApiKey(e.target.value);
-            resetTest();
-          }}
-          autoComplete="off"
-          spellCheck={false}
-          autoCapitalize="off"
-          aria-describedby={tested ? "add-connection-key-help add-connection-result" : "add-connection-key-help"}
-          className={cn(inputClass, "min-w-0 flex-1 font-mono")}
-        />
-        <button
-          type="button"
-          onClick={() => setShowKey((value) => !value)}
-          aria-pressed={showKey}
-          aria-label={t("connections.add.showKey")}
-          title={t("connections.add.showKey")}
-          className="mari-connection-btn mari-connection-btn--icon"
-        >
-          {showKey ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
-        </button>
-      </div>
-      <p id="add-connection-key-help" className="text-[0.6875rem] text-[var(--muted-foreground)]">
-        {t("connections.add.keySaved")}
-      </p>
-      {keyUrl && !optional && (
-        <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem]">
-          <a
-            href={keyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center gap-1 font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)] md:min-h-0"
-          >
-            {t("connections.add.getKey")}
-            <ExternalLink size="0.6875rem" aria-hidden />
-            <span className="sr-only">{t("connections.add.newTab")}</span>
-          </a>
-          <span className="text-[var(--muted-foreground)]">· {hostOf(keyUrl)}</span>
-        </p>
-      )}
-    </div>
-  );
-
-  const resultCard = tested && (
-    <div
-      id="add-connection-result"
-      role="status"
-      data-add-connection-result={tested.success ? "ok" : "failed"}
-      className={cn(
-        "flex items-start gap-3 rounded-xl border p-3",
-        tested.success
-          ? "border-emerald-500/30 bg-emerald-500/5"
-          : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
-      )}
-    >
-      <span
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          tested.success
-            ? "bg-emerald-500/15 text-emerald-500"
-            : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
-        )}
-      >
-        {tested.success ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
-      </span>
-      <div className="min-w-0 flex-1">
-        {tested.success ? (
-          <p className="text-sm font-medium">
-            {modelCount === undefined
-              ? t("connections.add.connected")
-              : t("connections.add.connectedModels", { count: modelCount })}
-          </p>
-        ) : (
-          <>
-            <p className="text-sm font-medium">
-              {t(`connections.add.error.${failure ?? "other"}`, {
-                host:
-                  hostOf(baseUrl.trim() || selectedMedia?.defaultBaseUrl || def?.defaultBaseUrl || "") ||
-                  serviceName(service ?? provider!),
-              })}
-            </p>
-            {tested.message && (
-              <p className="mt-1 break-words font-mono text-[0.625rem] text-[var(--muted-foreground)]">
-                {tested.message}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {failure === "plan" && provider && LOGIN_COMMANDS[provider]
-                ? t("connections.add.loginHint", { command: LOGIN_COMMANDS[provider] })
-                : t(isLocal ? "connections.add.retryLocal" : "connections.add.retryKey")}
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  const connectPane = provider && (
-    <div className="flex flex-col gap-4 p-4 md:p-5">
-      {/* The heading names the service; this row only says what it is and what it costs. */}
-      <div className="flex items-center gap-3">
-        <ServiceTile service={service ?? provider} />
-        <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
-          <p>{service ? serviceHint(service) : t(`connections.add.hint.${provider}`)}</p>
-          {/* The existing connections below show their own billing (a NanoGPT plan is not pay per use). */}
-          {def?.billing && !choosing && (
-            <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${def.billing}`)}</p>
-          )}
-        </div>
-      </div>
-
-      {choosing && (
-        <div data-add-connection-existing className="flex flex-col gap-3">
-          <ul className="flex flex-col gap-2">
-            {connectedAccounts.map((account) => (
-              <li key={account.id} className="mari-connection-group">
-                <ServiceRow
-                  account={account}
-                  rows={accountRows(account.id)}
-                  count={t("connections.list.models", { count: accountRows(account.id).length })}
-                  state={account.state}
-                  stateLabel={t(`connections.accounts.state.${account.state}`)}
-                  billing={account.billing}
-                  data-add-connection-existing-account={account.id}
-                  onClick={() => void showModelsOf(account.id)}
-                  disabled={closeBlocked}
-                  trailing={
-                    <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            data-add-connection-make-new
-            onClick={connectSecond}
-            className={cn(SECONDARY_CLASS, "self-start")}
-          >
-            {t("connections.add.makeNew")}
-          </button>
-        </div>
-      )}
-
-      {!choosing && (
-        <>
-          {second && !keyless && (
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {t(isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
-            </p>
-          )}
-          {isLocal && (
-            <div className="flex flex-col gap-1">
-              <label htmlFor="add-connection-url" className={labelClass}>
-                {t("connections.add.serverAddress")}
-              </label>
-              <input
-                id="add-connection-url"
-                ref={keyRef}
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value);
-                  resetTest();
-                }}
-                placeholder={selectedMedia ? undefined : LOCAL_PRESETS[0]!.url}
-                inputMode="url"
-                spellCheck={false}
-                autoCapitalize="off"
-                aria-describedby={tested ? "add-connection-result" : undefined}
-                className={cn(inputClass, "font-mono")}
-              />
-              {!selectedMedia && (
-                <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
-                  {LOCAL_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        setBaseUrl(preset.url);
-                        resetTest();
-                      }}
-                      aria-pressed={baseUrl.trim() === preset.url}
-                      className="mari-connection-chip gap-1"
-                    >
-                      <BrandMark of={preset.label} className="h-3 w-3" />
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
-            </div>
-          )}
-          {requiresAccessKey && keyField(false)}
-          {keyless && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>}
-          {isMedia && <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.mediaNext")}</p>}
-
-          {resultCard}
-
-          {(!isMedia || selectedMedia) && (
-            <>
-              <button
-                type="button"
-                onClick={() => setMoreOpen((value) => !value)}
-                aria-expanded={moreOpen}
-                aria-controls="add-connection-more"
-                className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
-              >
-                <ChevronDown size="0.75rem" className={cn("transition-transform", moreOpen && "rotate-180")} />
-                {t("connections.add.moreOptions")}
-              </button>
-              <SmoothFolderContent open={moreOpen}>
-                <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
-                  {isLocal && keyField(true)}
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={
-                        // Next to another Connection of this service the automatic name ends with the key's last 4.
-                        !isLocal && existing ? withKeyTail(def?.name ?? "", apiKey) : def?.name
-                      }
-                      className={inputClass}
-                    />
-                  </label>
-                  {!isLocal && (!keyless || selectedMedia) && (
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
-                      <input
-                        value={baseUrl}
-                        onChange={(e) => {
-                          setBaseUrl(e.target.value);
-                          resetTest();
-                        }}
-                        placeholder={selectedMedia?.defaultBaseUrl ?? def?.defaultBaseUrl}
-                        inputMode="url"
-                        className={cn(inputClass, "font-mono")}
-                      />
-                    </label>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {t("connections.add.maxRequestsPerMinute")}
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={600}
-                        value={maxRpm}
-                        onChange={(e) => setMaxRpm(e.target.value)}
-                        className={inputClass}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {t("connections.add.maxParallelJobs")}
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={16}
-                        value={maxJobs}
-                        onChange={(e) => setMaxJobs(e.target.value)}
-                        className={inputClass}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </SmoothFolderContent>
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
-
-  // ── Step 2 for "On this device": each part keeps its own set-up controls ──
-  const deviceState = device ? deviceSetup[DEVICE_ITEMS[device]] : null;
-  const devicePane = device && (
-    <div className="flex flex-col gap-4 p-4 md:p-5">
-      <div className={cn("flex items-start gap-3", device !== "local_model" && "hidden")}>
-        <ServiceTile service={device} />
-        <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
-          <p>{t(`connections.add.hint.${device}`)}</p>
-          <p data-add-connection-device-state className="mt-1 text-[0.6875rem]">
-            {t(deviceState?.setUp ? "connections.add.deviceReady" : "connections.add.deviceNotSetUp")}
-          </p>
-        </div>
-      </div>
-      {device === "local_model" && (
-        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{t("connections.add.localModelInfo")}</p>
-      )}
-      {device === "tts" && <TTSConfigCard defaultExpanded />}
-      {device === "stt" && <SpeechToTextCard defaultExpanded />}
-      {device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
-    </div>
-  );
 
   // ── Step 3: star models ──
   const chat = modelsFor?.chat;
@@ -1596,7 +874,11 @@ export function CreateConnectionModalContent({
           onClick={() => useSidecarStore.getState().setShowDownloadModal(true)}
           className={PRIMARY_CLASS}
         >
-          {t(deviceState?.setUp ? "connections.add.localModelOpen" : "connections.add.localModelDownload")}
+          {t(
+            device && deviceSetup[DEVICE_ITEMS[device]].setUp
+              ? "connections.add.localModelOpen"
+              : "connections.add.localModelDownload",
+          )}
         </button>
       ) : (
         <button type="button" onClick={onClose} className={PRIMARY_CLASS}>
@@ -1644,7 +926,7 @@ export function CreateConnectionModalContent({
         <button
           type="button"
           data-add-connection-job-test-run
-          onClick={() => void runJobTest()}
+          onClick={() => void runJobTestAction.current()}
           disabled={jobTesting || !mediaRow || (jobPicker && !mediaRow.model?.trim())}
           className={PRIMARY_CLASS}
         >
@@ -1796,122 +1078,87 @@ export function CreateConnectionModalContent({
               setShowAllVendors={setShowAllVendors}
             />
           )}
-          {step === 2 && <AccessStep>{devicePane ?? connectPane}</AccessStep>}
+          {step === 2 && (
+            <AccessStep
+              provider={provider}
+              service={service}
+              device={device}
+              deviceSetUp={device ? deviceSetup[DEVICE_ITEMS[device]].setUp : false}
+              selectedMedia={selectedMedia}
+              def={def}
+              choosing={choosing}
+              connectedAccounts={connectedAccounts}
+              accountRows={(accountId) => accountRows(accountId) as ConnectionRowData[]}
+              closeBlocked={closeBlocked}
+              showModelsOf={showModelsOf}
+              connectSecond={connectSecond}
+              second={second}
+              keyless={keyless}
+              isLocal={isLocal}
+              isMedia={isMedia}
+              requiresAccessKey={requiresAccessKey}
+              apiKey={apiKey}
+              setApiKey={setApiKey}
+              showKey={showKey}
+              setShowKey={setShowKey}
+              baseUrl={baseUrl}
+              setBaseUrl={setBaseUrl}
+              resetTest={resetTest}
+              tested={tested}
+              moreOpen={moreOpen}
+              setMoreOpen={setMoreOpen}
+              name={name}
+              setName={setName}
+              maxRpm={maxRpm}
+              setMaxRpm={setMaxRpm}
+              maxJobs={maxJobs}
+              setMaxJobs={setMaxJobs}
+              existing={existing}
+              secondaryClass={SECONDARY_CLASS}
+              serviceHint={serviceHint}
+              serviceName={serviceName}
+              modelCount={modelCount}
+              keyRef={keyRef}
+            />
+          )}
 
-          <ModelsStep>
-            {step === 3 && target && availableKinds.length > 1 && !chat && !isJobKind && (
-              <div
-                role="group"
-                aria-label={t("connections.add.kindFilter")}
-                className="flex shrink-0 flex-wrap gap-1.5 px-5 pt-3 max-md:px-4"
-              >
-                {availableKinds.map((kind) => {
-                  const Icon = KIND_ICONS[kind];
-                  return (
-                    <button
-                      key={kind}
-                      type="button"
-                      data-add-connection-capability={kind}
-                      aria-pressed={setupKind === kind}
-                      disabled={closeBlocked}
-                      onClick={() => {
-                        if (setupKind === kind) return;
-                        setMediaRowId(null);
-                        setSetupKind(kind);
-                      }}
-                      className="mari-connection-chip gap-1"
-                    >
-                      <Icon size="0.75rem" aria-hidden />
-                      {t(`connections.add.kind.${kind}`)}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {step === 3 && (setupKind === "image" || setupKind === "video") && mediaRow && (
-              <ConnectionModelPicker
-                className="h-full"
-                // No account here: a model taken back off stays on its row instead of removing the row.
-                connection={{ ...mediaRow, accountId: undefined }}
-                accountName={targetName}
-                onPicked={(modelId) => recordPick(mediaRow.id, modelId, setupKind)}
-                preselect={want?.kind === setupKind ? want.model : undefined}
-                addedIds={addedIds}
-                addMode
-                onUnstar={unstar}
-                footer={null}
-                autoFocusSearch
-              />
-            )}
-
-            {step === 3 && isJobKind && target && (
-              <div className="flex h-full min-h-0 flex-col">
-                {jobPicker && pickerRow && mediaRow && (
-                  <ConnectionModelPicker
-                    className="min-h-0 flex-1"
-                    // The service's own list; a tap sets the model of the new decision or voice row.
-                    connection={{ ...pickerRow, model: mediaRow.model ?? "" }}
-                    accountName={targetName}
-                    onChoose={chooseJobModel}
-                    only={setupKind === "voice" ? isSpeechModel : undefined}
-                    footer={null}
-                    autoFocusSearch
-                  />
-                )}
-                {jobTest && (
-                  <div
-                    role="status"
-                    data-add-connection-job-test={jobTest.ok ? "ok" : "failed"}
-                    className={cn(
-                      "mx-5 my-3 flex shrink-0 items-start gap-3 rounded-xl border p-3 max-md:mx-4",
-                      jobTest.ok
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                        jobTest.ok
-                          ? "bg-emerald-500/15 text-emerald-500"
-                          : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
-                      )}
-                    >
-                      {jobTest.ok ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
-                    </span>
-                    <p className="min-w-0 flex-1 self-center break-words text-sm">{jobTest.message}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {step === 3 && setupKind === "chat" && target && pickerRow && (
-              <ConnectionModelPicker
-                className="h-full"
-                // From a chat's quick switch the check marks what that chat runs, and a tap chooses for it.
-                connection={chat ? { ...pickerRow, model: chat.currentModel } : pickerRow}
-                onChoose={
-                  chat
-                    ? async (choice) => {
-                        await chat.onChoose(choice);
-                        onClose();
-                      }
-                    : undefined
-                }
-                accountName={targetName}
-                onPicked={inPlace ? (modelId) => recordPick(target.connectionId, modelId) : undefined}
-                applyPick={inPlace ? undefined : async (connectionId, modelId) => recordPick(connectionId, modelId)}
-                recommended={recommended}
-                preselect={want?.kind === "chat" ? want.model : undefined}
-                addedIds={addedIds}
-                addMode
-                onUnstar={unstar}
-                footer={null}
-                autoFocusSearch
-              />
-            )}
-          </ModelsStep>
+          <ModelsStep
+            step={step}
+            service={service}
+            provider={provider}
+            selectedMedia={selectedMedia}
+            modelsFor={modelsFor}
+            target={target}
+            accounts={accounts}
+            accountRows={accountRows}
+            setTarget={setTarget}
+            setPicks={setPicks}
+            setJobTest={setJobTest}
+            setJobTesting={setJobTesting}
+            passedJob={passedJob}
+            setMediaCreating={setMediaCreating}
+            mediaSetupStarted={mediaSetupStarted}
+            onMediaError={(error) => toast.error(friendlyError(error))}
+            onUnsupportedJob={(accountId) => flashConnectionCard(accountId)}
+            runJobTestAction={runJobTestAction}
+            availableKinds={availableKinds}
+            chat={chat}
+            isJobKind={isJobKind}
+            setupKind={setupKind}
+            closeBlocked={closeBlocked}
+            setMediaRowId={setMediaRowId}
+            setSetupKind={setSetupKind}
+            mediaRow={mediaRow}
+            targetName={targetName}
+            want={want}
+            addedIds={addedIds}
+            jobPicker={jobPicker}
+            pickerRow={pickerRow}
+            jobTest={jobTest}
+            inPlace={inPlace}
+            onClose={onClose}
+            recommended={recommended}
+          />
         </div>
 
         {step === 3 && firstPick && !chat && (

@@ -37,6 +37,7 @@ export const isDevice = (service: ServiceId | null): service is DeviceService =>
 export const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
 export type Kind = "chat" | "image" | "video" | "voice" | "decision" | "local";
 export type AddableKind = "chat" | "image" | "video" | "decision" | "voice";
+export type ModelPick = { connectionId: string; modelId: string; kind: AddableKind };
 
 export type MediaBackend = {
   id: MediaServiceId;
