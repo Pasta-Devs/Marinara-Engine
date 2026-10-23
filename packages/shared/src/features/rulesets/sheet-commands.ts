@@ -16,10 +16,9 @@ import { defaultRulesetSheetBuild, type RulesetSheetItem } from "./sheet-math.js
 import { normalizeCharacterLookupName } from "../../utils/character-lookup-name.js";
 import {
   createSheetCommandTagRegex,
+  joinSheetSummary,
   parseSheetCommandTagBody,
   serializeSheetCommandTag,
-  SHEET_COMMAND_NOW_MAX_LENGTH,
-  truncateSheetSummary,
   type SheetCommandTagOutcome,
 } from "../../utils/sheet-command-tag.js";
 import {
@@ -278,11 +277,7 @@ export function applySheetCommandTags(
         targets.who,
       );
     }
-    return record(
-      targets.who,
-      { ok: true, now: truncateSheetSummary([...applied, ...refused].join("; "), SHEET_COMMAND_NOW_MAX_LENGTH) },
-      targets.who,
-    );
+    return record(targets.who, { ok: true, now: joinSheetSummary([...applied, ...refused]) }, targets.who);
   });
 
   return { content: rewritten, live, changed, outcomes, rests, builds };

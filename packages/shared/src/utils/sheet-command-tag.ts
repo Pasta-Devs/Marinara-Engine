@@ -196,8 +196,21 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
 }
 
 /** The outcome summary (`now`) of a command for the whole party lists one value per member, so it
- *  gets more room than an ordinary attribute. */
-export const SHEET_COMMAND_NOW_MAX_LENGTH = 240;
+ *  gets more room than an ordinary attribute: a long rest for four casters reads every pool back. */
+export const SHEET_COMMAND_NOW_MAX_LENGTH = 600;
+
+/** A party command's entries, one per member, joined to fit the summary. Where they cannot all fit,
+ *  the last say how many more there were, so the record never reads as if a member was left out
+ *  (playtest: a long rest whose summary named three of four). */
+export function joinSheetSummary(entries: readonly string[], limit = SHEET_COMMAND_NOW_MAX_LENGTH): string {
+  const all = entries.join("; ");
+  if (all.length <= limit) return all;
+  for (let kept = entries.length - 1; kept > 0; kept--) {
+    const joined = `${entries.slice(0, kept).join("; ")}; and ${entries.length - kept} more`;
+    if (joined.length <= limit) return joined;
+  }
+  return truncateSheetSummary(all, limit);
+}
 
 /** Cut a `; `-joined summary to a limit without splitting an entry in half. */
 export function truncateSheetSummary(value: string, limit: number): string {

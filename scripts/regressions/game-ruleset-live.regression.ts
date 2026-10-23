@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   applyRulesetSheetOp,
   applySheetCommandTags,
+  joinSheetSummary,
   defaultRulesetSheetBuild,
   listRulesetLivePools,
   parseRulesetDefinition,
@@ -667,6 +668,21 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.deepEqual(Object.keys(party.live), ["tam the bold"], "a character back at every default drops out again");
   assert.deepEqual(party.live["tam the bold"], { tracks: { exhaustion: 1 } });
 
+  // Four casters' long rest names all four: what does not fit says how many more, never drops one.
+  const four = ["Isolde Venn", "Mother Hessa", "Brannoc Ashvale", "Pip Underbough"];
+  const tired = applySheetCommandTags(`[sheet: who="party" op="rest" rest="long"]`, {
+    ...context,
+    cards: four.map((name) => ({ name, build: caster })),
+    playerName: four[0]!,
+    live: Object.fromEntries(
+      four.map((name) => [name.toLowerCase(), { pools: { hp: { value: 4 }, slots_1: { value: 0 } } }]),
+    ),
+  });
+  const said = /now="([^"]*)"/.exec(tired.content)?.[1] ?? "";
+  for (const name of four) assert.ok(said.includes(name), `${name} is in the record: ${said}`);
+  assert.deepEqual(Object.keys(tired.live), [], "and all four are rested");
+  assert.equal(joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 24), `${"a".repeat(8)}; and 2 more`);
+
   // Two cards under one name share one live-state entry, so a party command touches it once.
   const twinParty = applySheetCommandTags(`[sheet: who="party" op="damage" pool="hp" amount="3"]`, {
     ...context,
@@ -761,7 +777,11 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.ok(withCatalog.ok, `the test catalog must validate: ${withCatalog.ok ? "" : withCatalog.issues.join("; ")}`);
   const ruleset = withCatalog.definition;
   const catalogs = { spells: ruleset.catalogs![0]!.entries! };
-  const rowsOf = (id: string) => rowsFromCatalogEntry("spells", catalogs.spells.find((entry) => entry.id === id)!);
+  const rowsOf = (id: string) =>
+    rowsFromCatalogEntry(
+      "spells",
+      catalogs.spells.find((entry) => entry.id === id)!,
+    );
   const picked = [...rowsOf("fireball"), ...rowsOf("magic-missile"), ...rowsOf("fire-bolt"), ...rowsOf("second-wind")];
   const rowsFor = (list: string) => picked.filter((row) => row.list === list).map((row) => row.row);
   const wizard = buildFor(
@@ -869,7 +889,10 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.ok(emberParsed.ok, "the 2d6 example must validate");
   const ember = emberParsed.definition;
   const emberCatalogs = { knacks: ember.catalogs![0]!.entries! };
-  const emberRows = rowsFromCatalogEntry("knacks", emberCatalogs.knacks.find((entry) => entry.id === "last-ember")!);
+  const emberRows = rowsFromCatalogEntry(
+    "knacks",
+    emberCatalogs.knacks.find((entry) => entry.id === "last-ember")!,
+  );
   const vex = recomputeScaledRows(
     ember,
     rulesetSheetBuildSchema.parse({
