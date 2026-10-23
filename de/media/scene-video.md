@@ -1,6 +1,6 @@
 # Szenenvideos generieren
 
-In dieser Anleitung erfährst du, wie Marinara Engine aus einer Szenen-Illustration einen kurzen MP4-Videoclip macht. Sie behandelt die Video-Anbieter, die Generierung eines Clips aus der Galerie, die Bedienelemente im Game Mode und die Video-Einstellungen. Ein Szenenvideo ist ein kurzer animierter Clip, der aus einem einzelnen Standbild entsteht.
+In dieser Anleitung erfährst du, wie Marinara Engine aus einer Szenen-Illustration einen kurzen MP4-Videoclip macht. Sie behandelt die Video-Anbieter, die Generierung eines Clips aus der Galerie, die Bedienelemente im Game Mode und die Video-Einstellungen. Ein Szenenvideo ist ein kurzer animierter Clip, der aus einem Standbild oder in **Roleplay** allein aus der Geschichte entsteht.
 
 ## Was ein Szenenvideo macht
 
@@ -217,7 +217,7 @@ Für den Chat ist keine Videoverbindung ausgewählt. Öffne **Chat Settings**, d
 
 ### „Add or generate a gallery image before generating a scene video“
 
-Ein Szenenvideo animiert immer ein vorhandenes Bild. Nutze **Illustrate**, lade ein Bild hoch, oder klick bei einem vorhandenen Bild auf **Animate illustration**.
+Für **Game Mode** und **Animate illustration** ist ein vorhandenes Bild nötig; in **Roleplay** kann der Clip allein aus der Geschichte entstehen, wenn kein Startbild gewählt ist. Nutze **Illustrate**, lade ein Bild hoch, oder klick bei einem vorhandenen Bild auf **Animate illustration**.
 
 ### Das Video dauert lange
 

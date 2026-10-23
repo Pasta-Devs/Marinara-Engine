@@ -1,6 +1,6 @@
 # 场景视频生成
 
-本指南介绍 Marinara Engine 如何把一张场景插图变成一小段 MP4 视频，内容包括可用的视频服务商、在 Gallery 里生成短片的方法、Game Mode 的相关控件，以及视频相关设置。场景视频就是由一张静态图片生成的一小段动画短片。
+本指南介绍 Marinara Engine 如何把一张场景插图变成一小段 MP4 视频，内容包括可用的视频服务商、在 Gallery 里生成短片的方法、Game Mode 的相关控件，以及视频相关设置。场景视频是一小段动画短片，可以根据静态图片制作，也可以在 **Roleplay** 中只根据故事生成。
 
 ## 场景视频能做什么
 
@@ -217,7 +217,7 @@ Game Mode 还有另一个生成场景视频的入口：**Game Assets**。点击�
 
 ### "Add or generate a gallery image before generating a scene video"
 
-场景视频永远是给已有图片做动画。先用 **Illustrate** 生成、上传一张图片，或者对已有图片点击 **Animate illustration**。
+**Game Mode** 和 **Animate illustration** 需要已有图片；未选择首帧时，**Roleplay** 可以只根据故事生成短片。先用 **Illustrate** 生成、上传一张图片，或者对已有图片点击 **Animate illustration**。
 
 ### 视频生成很慢
 

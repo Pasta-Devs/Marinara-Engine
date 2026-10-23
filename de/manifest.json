@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "d44814a34f675ac060bd96e4527e4a38a8d18ce3",
+  "sourceCommit": "e6b1ac67afca21592557fd9b6d4dac2390ca417b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -619,8 +619,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "3e24f6d11f8a60e413b0fe7a98fc4f1d302e587a64d2a1e852230ee4b7328431",
-      "bytes": 26432
+      "sha256": "fa19f93679becf0239a4523f7b7b3a8d749e60728bdf11e00a02b356793a5f99",
+      "bytes": 26598
     },
     {
       "path": "media/style-profiles.md",

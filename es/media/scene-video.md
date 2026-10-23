@@ -1,6 +1,6 @@
 # Generación de video de escena
 
-Esta guía explica cómo Marinara Engine convierte la ilustración de una escena en un breve clip de video MP4. Cubre los proveedores de video, cómo generar un clip desde la **Gallery** (Galería), los controles de **Game Mode** (modo de juego) y los ajustes de video. Un video de escena es un clip animado corto hecho a partir de una sola imagen fija.
+Esta guía explica cómo Marinara Engine convierte la ilustración de una escena en un breve clip de video MP4. Cubre los proveedores de video, cómo generar un clip desde la **Gallery** (Galería), los controles de **Game Mode** (modo de juego) y los ajustes de video. Un video de escena es un breve clip animado creado a partir de una imagen fija o, en **Roleplay**, solo de la historia.
 
 ## Qué hace el video de escena
 
@@ -217,7 +217,7 @@ Tu chat no tiene ninguna conexión de video seleccionada. Abre **Chat Settings**
 
 ### "Add or generate a gallery image before generating a scene video"
 
-El video de escena siempre anima una imagen existente. Usa **Illustrate**, sube una imagen, o haz clic en **Animate illustration** en una imagen que ya tengas.
+**Game Mode** y **Animate illustration** requieren una imagen existente; **Roleplay** puede generar el clip solo a partir de la historia cuando no se elige un primer fotograma. Usa **Illustrate**, sube una imagen, o haz clic en **Animate illustration** en una imagen que ya tengas.
 
 ### El video tarda mucho
 

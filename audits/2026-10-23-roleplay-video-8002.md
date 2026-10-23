@@ -2,8 +2,13 @@
 
 Incremental follow-up for #8002, owned by @SpicyMarinara (Codex). English
 implementation #8001 merged into `staging` as
-`d44814a34f675ac060bd96e4527e4a38a8d18ce3`. Its four guide blobs match the
-reviewed contributor head `b3367e27449baaad7307b4b1eab1bc1c3fba0bdb` byte-for-byte.
+`d44814a34f675ac060bd96e4527e4a38a8d18ce3`. Canonical English follow-up #8191
+merged as `e6b1ac67afca21592557fd9b6d4dac2390ca417b`, correcting the intro and
+troubleshooting claims that incorrectly required a still image for every clip.
+All four final guide blobs match reviewed #8191 head
+`4f5246ce880939e39fb2c13c3acc3cd655943b97` byte-for-byte; the other three guides
+also retain their original reviewed contributor bytes from
+`b3367e27449baaad7307b4b1eab1bc1c3fba0bdb`.
 
 ## Scope
 
@@ -29,7 +34,7 @@ language glossary. The new section keeps the canonical `video-clips` anchor.
 | --- | --- |
 | `docs/chats/slash-commands.md` | `99b5257a4848df10fbe4e8cbb3ebb3b9c2c231715cd2bf8bc77653734c0e604e` |
 | `docs/media/illustrator-agent.md` | `6852f221aad42183f4321f0908e5655926a5f35dceb48d03f6054c94a36a40e8` |
-| `docs/media/scene-video.md` | `268a4c89f6f3b12bca594260cbac52fedcc0697e390cfa04843de890e09c814b` |
+| `docs/media/scene-video.md` | `b2ff128560aba20f08014193eaeee624dca8c8389c6929ce19a772715e925da9` |
 | `docs/roleplay/getting-started.md` | `4501340532b7e7e2f8761b99e59a78c61bebfba99b9914bdfe4411e15253f2ff` |
 
 The English validation snapshot contains only Markdown and the two canonical
@@ -47,11 +52,20 @@ other 1,370 entries remain byte-identical to the published docs base
 `a84eaafa6d7dfa7dfd0fa179a7198e5efbab1cbc`, including its memory-default update.
 
 The manifest format has one pack-wide `sourceCommit`, not a per-guide English
-fingerprint. Advancing it to `d44814a34f675ac060bd96e4527e4a38a8d18ce3` records
+fingerprint. Advancing it to `e6b1ac67afca21592557fd9b6d4dac2390ca417b` records
 this four-guide source snapshot; it does not certify that every guide has been
 retranslated against every intervening Engine change. Separate lorebook and
 audio guide work remains tracked by #8155 and #8173, and Scene documentation by
 #8008. Their unrelated guide entries are intentionally unchanged here.
+
+The initial 51-file local review reported zero findings. Hosted review then
+identified a Polish wording error for reusable instructions and the inherited
+canonical English image requirement. The Polish wording is corrected, and the
+two canonical #8191 claims are translated in all ten packs. An independent
+read-only review confirms all twenty corrected claims preserve the still-image
+or Roleplay-story-only distinction and its first-frame condition. The final
+repair delta receives a separate local review; its outcome and dispositions
+are recorded in the PR.
 
 Substantive local review, its findings and dispositions are recorded in the PR.
 Before closing #8002, delivery must also verify the actual docs merge ancestry,

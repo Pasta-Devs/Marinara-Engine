@@ -1,6 +1,6 @@
 # Geração de vídeo de cena
 
-Este guia explica como Marinara Engine transforma a ilustração de uma cena em um clipe de vídeo MP4 curto. Aqui você vê os provedores de vídeo, como gerar um clipe pela galeria, os controles do Game Mode e as configurações de vídeo. Um vídeo de cena é um clipe animado curto, criado a partir de uma única imagem estática.
+Este guia explica como Marinara Engine transforma a ilustração de uma cena em um clipe de vídeo MP4 curto. Aqui você vê os provedores de vídeo, como gerar um clipe pela galeria, os controles do Game Mode e as configurações de vídeo. Um vídeo de cena é um clipe animado curto, criado a partir de uma imagem estática ou, em **Roleplay**, apenas da história.
 
 ## Para que serve o vídeo de cena
 
@@ -217,7 +217,7 @@ O chat está sem conexão de vídeo selecionada. Abra **Chat Settings**, depois 
 
 ### "Add or generate a gallery image before generating a scene video"
 
-O vídeo de cena sempre anima uma imagem que já existe. Use o botão **Illustrate**, faça upload de uma imagem ou clique em **Animate illustration** em uma imagem que você já tem.
+**Game Mode** e **Animate illustration** precisam de uma imagem existente; em **Roleplay**, o clipe pode ser gerado só a partir da história se nenhum primeiro quadro estiver selecionado. Use o botão **Illustrate**, faça upload de uma imagem ou clique em **Animate illustration** em uma imagem que você já tem.
 
 ### O vídeo demora muito
 

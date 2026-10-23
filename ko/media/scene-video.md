@@ -1,6 +1,6 @@
 # 장면 동영상 생성
 
-이 가이드에서는 Marinara Engine이 장면 일러스트를 짧은 MP4 동영상 클립으로 바꾸는 방법을 설명합니다. 동영상 제공자, **Gallery**(갤러리)에서 클립을 만드는 방법, Game Mode(게임 모드)의 조작, 동영상 설정을 다룹니다. 장면 동영상은 정지 이미지 한 장으로 만든 짧은 애니메이션 클립입니다.
+이 가이드에서는 Marinara Engine이 장면 일러스트를 짧은 MP4 동영상 클립으로 바꾸는 방법을 설명합니다. 동영상 제공자, **Gallery**(갤러리)에서 클립을 만드는 방법, Game Mode(게임 모드)의 조작, 동영상 설정을 다룹니다. 장면 동영상은 정지 이미지로, 또는 **Roleplay**에서는 이야기만으로 만드는 짧은 애니메이션 클립입니다.
 
 ## 장면 동영상이 하는 일
 
@@ -217,7 +217,7 @@ Game Mode 채팅을 처음 만들 때는 설정 마법사에도 **Video Generati
 
 ### "Add or generate a gallery image before generating a scene video"
 
-장면 동영상은 언제나 이미 있는 그림을 움직이게 만듭니다. **Illustrate**를 쓰거나, 그림을 업로드하거나, 이미 가진 그림에서 **Animate illustration**을 클릭하세요.
+**Game Mode**와 **Animate illustration**에는 기존 그림이 필요하며, **Roleplay**에서는 첫 프레임을 선택하지 않으면 이야기만으로 클립을 생성할 수 있습니다. **Illustrate**를 쓰거나, 그림을 업로드하거나, 이미 가진 그림에서 **Animate illustration**을 클릭하세요.
 
 ### 동영상 생성이 오래 걸립니다
 
