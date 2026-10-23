@@ -1,12 +1,11 @@
-# Music and sound-effects documentation translation audit
+# Music and sound-effects documentation publication
 
-Owner: @SpicyMarinara (Codex). Linked issue: #8168; English source PR: #8167.
+Owner: @SpicyMarinara (Codex). Issue #8168; English PR #8167.
+English is actually merged at `3a7081f3223f112860e59550d863c8418849ca69`, verified as an ancestor of staging.
+The four source guide bytes exactly match frozen candidate `4abb699ced7d920715c23c44d7136120626d556f`.
+This publication changes four guides in each of ten packs; it adds no guide paths.
 
-Preparation is in progress. The four English guide paths are frozen at local candidate `4abb699ced7d920715c23c44d7136120626d556f`; their final merged source commit will be recorded before publication. No candidate manifests or translated guide content are published by this ownership commit.
-
-The ten packs are `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `zh-hans`. Scope is four existing guides per pack; the current pack inventory stays at 141 guides. Publication #8189 is verified on `docs-i18n` at `e3050b2ce255d811df0d95afe8be91a0ae447935`; #8155 is serialized next before this publication.
-
-## Frozen English byte inventory
+## Exact English inventory
 
 | Path under docs/ | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -15,18 +14,33 @@ The ten packs are `de`, `es`, `fr`, `hi`, `ja`, `ko`, `pl`, `pt-br`, `ru`, and `
 | `game/game-assets.md` | 14060 | `99513e61aed4831e139cc68b55c19460b1fccf0688275e78923593943269f5ee` |
 | `development/optional-agent-packages.md` | 152710 | `b2197dc60d5ffbab0fc85165060844427a427a8a662c292e581fb9ee4a01f760` |
 
-## Publication requirements
+## Translation and review scope
 
-Translate only the changed prose, headings, tables and link text. Preserve code, inline code, paths, links and UI labels; add canonical anchors for new headings. Retain paid-provider and shared SunoAPI task-lookup qualification without introducing promises. Regenerate all ten manifests only against the final merged English source, validate every pack, complete substantive review, then verify raw published bytes and all 1,410 manifest entry hashes before closing #8168.
+All 40 guide bytes match reviewed translation head `fc62bf864`. Prior full-guide
+and provider-clarification reviews are scoped separately; the final conditional
+migration paragraph review examined all ten packs and this audit with zero
+findings. Source/literal checks preserve inline code, link targets, fences and
+English UI labels. The prose value "3 seconds" is translated natively, and the
+provider category retains its canonical Music & Sound Effects label plus one
+native gloss. Three canonical section anchors per pack remain unique.
 
-## Local translation candidate
+The guides retain the actual speech/generation Defaults labels, corrected Gacha
+setup labels, scene/world audio lifecycle and API 1.381 selection fallback rules.
+Saved Game IDs remain separate from availability and requested generation-channel
+eligibility. Provider limits and the unverified paid SunoAPI sound-effects boundary
+are preserved without new guarantees. No paid-provider or physical-device proof
+is claimed by this documentation update.
 
-All 40 guide deltas are prepared across all 10 packs. The frozen English source includes the corrected Gacha setup/control labels and distinguishes scene dialogue cancellation from continuing/changing music and world-exit audio disposal. Three canonical heading anchors per pack preserve the English link targets. Surrounding translations remain unchanged.
+## Manifest and publication validation
 
-The final package guide delta uses audio capability API 1.381 and preserves the documented speech-selection distinction: a stale requested connection ID follows normal resolution, while an unavailable saved speech selection refuses playback. All ten translations carry that qualification without promising a particular fallback connection.
+All ten pack validators pass against the merged English snapshot: 141 guides per
+pack and 1,410 manifest entries. Every local blob matches its size and SHA-256.
+Only the four listed guide entries change per manifest, alongside sourceCommit.
+All other published guide content and hashes are preserved from `8c77fd30e6e00bb49b53e4d207809a20a8c3414c`,
+including the preceding agent-reference, Roleplay-video and scene-guide publications. Global sourceCommit
+identifies this scoped English snapshot; it does not certify every other guide
+as fully current.
 
-The integrated structural audit checks source hashes, added/removed inline code, link targets, fences and exact English UI-label deltas. Two explicit presentation rules apply: the emphasized prose value "3 seconds" is translated natively, and every provider-category introduction includes the canonical **Music & Sound Effects** label with one native gloss after its translated heading. These changes introduce no behavior promise. All 40 files pass NFC, whitespace, heading and relevant pack typography checks.
-
-The final provider-guide follow-up changes exactly three paragraphs in every pack: speech defaults use the actual **Text to Speech** label; generation has an independent **Music & Sound Effects** default/fallback pair; and migration can create separate per-Audio and legacy ElevenLabs generation connections. Saved Game connection IDs remain unchanged. Generation requires an available corresponding migrated connection with the requested music or sound-effect channel enabled; otherwise another suitable connection must be selected. Removing migrated connections remains permanent. Exact literal/UI-label deltas and all surrounding bytes are verified across all ten packs. The prior four-guide translation reviews completed with zero findings; the preceding three-paragraph provider clarification completed a focused eleven-file local review with zero findings. The subsequent conditional migration clarification changes only one paragraph per pack; its ten-pack source/literal/surrounding-byte checks pass, and its final focused review is recorded separately.
-
-No manifests have been regenerated against the unmerged candidate, and translated content is still held locally. Final English ancestry, all 10 pack builds, the 1,410 entry hashes, substantive local review and raw publication proof remain required. The publication order is #8189, then #8155, then #8173.
+Final delivery still requires the docs-i18n merge, 51 raw published-file matches,
+all 1,410 published entry hashes and reviewed-head/published ancestry verification.
+App download/rendering and independent native-reader checks remain manual.

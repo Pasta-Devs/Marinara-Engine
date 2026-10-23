@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "b2a126f952272ed6c5be51ee8b6fef7babdcbfc1",
+  "sourceCommit": "3a7081f3223f112860e59550d863c8418849ca69",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -239,8 +239,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "1aa1b071167f2ada1021838a21e8323bbdeacff2fbe4bc03bca3e4f42ee64107",
-      "bytes": 25193
+      "sha256": "7d7745968097aae708eda723e8c2f44ecad7bea26b9c75b64e6ab2b7c1ed85af",
+      "bytes": 28526
     },
     {
       "path": "connections/subscription-clis.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "55a997a8c660bc16ee17f0da7db34d19d7a204643ce96a4d4b6d5e13e0b393c6",
-      "bytes": 140884
+      "sha256": "328fee4718a6bdc6d7e1fe2f474d158df8fa2bb71ca6872c1c66c33c0749d254",
+      "bytes": 145317
     },
     {
       "path": "development/personal-extensions.md",
@@ -454,8 +454,8 @@
     },
     {
       "path": "game/game-assets.md",
-      "sha256": "eb3b29b6d22c95d2fa25efaf1eee5aa62a3686c1965169d9a770963edaed894e",
-      "bytes": 18109
+      "sha256": "5a224146e8b8efcb3045884d53bd2bbb26e95f670d1ad455ec6b042798d80751",
+      "bytes": 18357
     },
     {
       "path": "game/getting-started.md",
@@ -629,8 +629,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "e0fea384817ab7335f81b2e04aa2e0d544b995cffdd1d1ee981d2878080de330",
-      "bytes": 27120
+      "sha256": "8d4adcebed1d8bba8b3f8052c3c293bbad481a1189cf5979b871136b88aef29a",
+      "bytes": 29515
     },
     {
       "path": "noodle/overview.md",
