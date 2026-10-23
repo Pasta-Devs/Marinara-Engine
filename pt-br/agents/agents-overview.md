@@ -78,6 +78,8 @@ Recursos de pacotes baixáveis, como World Maps, também precisam da atualizaç�
 
 As entradas correspondentes seguem as regras normais de ativação de lorebooks e são fornecidas como contexto de referência para esse agente, inclusive nas novas tentativas manuais. Anexar o livro não o ativa para a resposta principal nem para outros agentes. Agentes executados juntos também podem ver as mesmas entradas de referência. Desligar a opção interrompe o envio das entradas; livros indisponíveis ou excluídos não fornecem nenhuma. As configurações de fontes que já existem nos agentes personalizados continuam disponíveis de forma independente.
 
+Mensagens antigas ou importadas podem não ter informações suficientes para distinguir uma resposta em grupo de uma continuação; nesses casos, os gatilhos usam um fallback conservador.
+
 ### O aviso de custo
 
 Os agentes custam tokens extras (o token é um pedacinho de texto) e chamadas extras ao modelo. Cada agente acrescenta as próprias instruções e, muitas vezes, a própria chamada ao modelo. Marinara junta em uma única chamada os agentes que usam a mesma conexão, quando isso é possível. Acima da lista de agentes, um indicador estima a carga da configuração atual. Ele mostra mais ou menos quantos tokens de instruções de agente você acrescentou e quantas chamadas extras acontecem por turno.

@@ -78,6 +78,8 @@ Les fonctionnalités de paquets téléchargeables, comme World Maps, nécessiten
 
 Les entrées correspondantes suivent les règles habituelles de déclenchement des lorebooks et sont fournies comme contexte de référence à cet agent, y compris lors des relances manuelles. Joindre le livre ne l'active pas pour la réponse principale ou les autres agents. Les agents exécutés ensemble peuvent aussi voir les mêmes entrées de référence. Désactiver l'option arrête l'envoi de ces entrées ; les livres indisponibles ou supprimés n'en fournissent aucune. Les réglages de sources existants des agents personnalisés restent disponibles indépendamment.
 
+Les messages anciens ou importés peuvent ne pas contenir assez d'informations pour distinguer une réponse de groupe de la prolongation d'une réponse ; leurs déclencheurs utilisent donc une solution de repli prudente.
+
 ### L'avertissement sur le coût
 
 Les agents consomment des tokens et des appels au modèle en plus. Un token est un petit morceau de texte. Chaque agent ajoute ses propres instructions, et souvent son propre appel au modèle. Quand c'est possible, Marinara regroupe en un seul appel les agents qui partagent la même connexion. Au-dessus de la liste des agents, un indicateur estime la charge de ta configuration actuelle. Il affiche à peu près le nombre de tokens d'instructions d'agents ajoutés, et le nombre d'appels supplémentaires par tour.

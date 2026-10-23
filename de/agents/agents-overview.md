@@ -76,6 +76,8 @@ Herunterladbare Paketfunktionen wie World Maps benötigen neben dem Engine-Updat
 
 Passende Einträge folgen den normalen Lorebook-Auslöseregeln und werden diesem Agenten als Referenzkontext übergeben, auch bei manuellen Wiederholungen. Die Verknüpfung aktiviert das Buch nicht für die Hauptantwort oder unbeteiligte Agenten. Gemeinsam ausgeführte Agenten können dieselben Referenzeinträge ebenfalls sehen. Schaltest du die Verknüpfung aus, liefert sie keine Einträge mehr; nicht verfügbare oder gelöschte Bücher liefern keine. Bestehende Quellen-Einstellungen eigener Agenten bleiben unabhängig davon verfügbar.
 
+Ältere oder importierte Nachrichten enthalten möglicherweise nicht genug Informationen, um eine Gruppenantwort von einer Fortsetzung zu unterscheiden, sodass ihre Auslöser einen konservativen Fallback verwenden.
+
 ### Der Kostenhinweis
 
 Agenten kosten zusätzliche Tokens und zusätzliche Modellaufrufe – ein Token ist ein kleines Textstück. Jeder Agent bringt eigene Anweisungen mit, oft auch einen eigenen Modellaufruf. Wo möglich, bündelt Marinara Agenten mit derselben Verbindung in einem einzigen Aufruf. Über der Agentenliste schätzt eine Anzeige die Last deiner aktuellen Auswahl. Sie nennt ungefähr, wie viele Tokens an Agent-Anweisungen dazukommen und wie viele zusätzliche Aufrufe pro Zug anfallen.

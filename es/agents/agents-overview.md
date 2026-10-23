@@ -78,6 +78,8 @@ Las funciones de paquetes descargables, como World Maps, también necesitan la a
 
 Las entradas coincidentes siguen las reglas de activación habituales de los lorebooks y se proporcionan como contexto de referencia para ese agente, también en los reintentos manuales. Adjuntar el libro no lo activa para la respuesta principal ni para otros agentes. Los agentes que se ejecutan juntos también pueden ver las mismas entradas de referencia. Al desactivar la opción deja de aportar entradas; los libros no disponibles o eliminados no aportan ninguna. Los ajustes de fuentes que ya tengan los agentes personalizados siguen disponibles de forma independiente.
 
+Los mensajes antiguos o importados pueden no contener información suficiente para distinguir una respuesta de grupo de una continuación, por lo que sus disparadores se determinan mediante un mecanismo de respaldo conservador.
+
 ### La advertencia de costo
 
 Los agentes cuestan tokens (fragmentos de texto) adicionales y llamadas al modelo adicionales. Cada agente añade sus propias instrucciones, y a menudo su propia llamada al modelo. Marinara agrupa en una sola llamada los agentes que comparten la misma conexión cuando puede. Encima de la lista de agentes, un indicador estima la carga para tu configuración actual. Muestra aproximadamente cuántos tokens de instrucciones de agente añadiste y aproximadamente cuántas llamadas adicionales ocurren por turno.

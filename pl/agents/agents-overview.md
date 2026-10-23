@@ -78,6 +78,8 @@ Funkcje pobieranych pakietów, takie jak World Maps, wymagają też odpowiedniej
 
 Pasujące wpisy podlegają zwykłym regułom wyzwalania lorebooków i trafiają do tego agenta jako kontekst referencyjny, także przy ręcznych ponowieniach. Dołączenie książki nie aktywuje jej dla głównej odpowiedzi ani niezwiązanych agentów. Agenci uruchamiani razem mogą też widzieć te same wpisy referencyjne. Wyłączenie opcji zatrzymuje dostarczanie wpisów; niedostępne lub usunięte książki nie dostarczają żadnych. Istniejące ustawienia źródeł niestandardowych agentów pozostają dostępne niezależnie.
 
+Starsze lub zaimportowane wiadomości mogą nie zawierać dość informacji, żeby odróżnić odpowiedź grupową od kontynuacji, dlatego ich wyzwalacze są ustalane za pomocą zachowawczego mechanizmu zastępczego.
+
 ### Ostrzeżenie o koszcie
 
 Agenci kosztują dodatkowe tokeny, czyli małe kawałki tekstu, oraz dodatkowe wywołania modelu. Każdy agent dokłada własne instrukcje, a często też własne wywołanie modelu. Marinara łączy agentów korzystających z tego samego połączenia w jedno wywołanie, o ile to możliwe. Nad listą agentów widnieje odczyt z szacunkowym obciążeniem przy obecnych ustawieniach. Pokazuje on w przybliżeniu, ile tokenów instrukcji agentów doszło i ile dodatkowych wywołań przypada na turę.
