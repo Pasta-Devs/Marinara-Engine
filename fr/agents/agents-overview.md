@@ -68,6 +68,18 @@ La section **Agents** contient quelques réglages supplémentaires :
 - **Review Agent Outputs** : sur on, les modifications de lorebook, de résumé et de fiche de personnage attendent ton accord avant d'être enregistrées. Sur off, les modifications de lorebook et de résumé s'enregistrent seules, mais les retouches de fiche de personnage te sont toujours soumises. Voir [Validations des agents et Agent Suite](approvals-and-agent-suite.md). Dans les chats Roleplay, cet interrupteur se trouve dans **Trackers Control**.
 - **Agent Suite** : ouvre une visionneuse où tu peux lire et modifier tout ce que les agents ont enregistré pour ce chat.
 
+<a id="a-reference-lorebook-for-one-agent"></a>
+
+### Un lorebook de référence pour un agent
+
+Dans **Chat Settings**, ouvre **Agents**, puis les réglages de l'agent d'écriture, de suivi ou personnalisé. **Attach lorebook for the specific agent** (joindre un lorebook à cet agent) est désactivé au départ. Active-le pour afficher **Reference lorebook** (lorebook de référence) et choisir un livre. Le choix appartient à cet agent dans ce chat ; il ne change ni sa définition globale ni les autres chats.
+
+Les fonctionnalités de paquets téléchargeables, comme World Maps, nécessitent aussi la mise à jour correspondante du paquet en plus de celle de l'Engine.
+
+Les entrées correspondantes suivent les règles habituelles de déclenchement des lorebooks et sont fournies comme contexte de référence à cet agent, y compris lors des relances manuelles. Joindre le livre ne l'active pas pour la réponse principale ou les autres agents. Les agents exécutés ensemble peuvent aussi voir les mêmes entrées de référence. Désactiver l'option arrête l'envoi de ces entrées ; les livres indisponibles ou supprimés n'en fournissent aucune. Les réglages de sources existants des agents personnalisés restent disponibles indépendamment.
+
+Les messages anciens ou importés peuvent ne pas contenir assez d'informations pour distinguer une réponse de groupe de la prolongation d'une réponse ; leurs déclencheurs utilisent donc une solution de repli prudente.
+
 ### L'avertissement sur le coût
 
 Les agents consomment des tokens et des appels au modèle en plus. Un token est un petit morceau de texte. Chaque agent ajoute ses propres instructions, et souvent son propre appel au modèle. Quand c'est possible, Marinara regroupe en un seul appel les agents qui partagent la même connexion. Au-dessus de la liste des agents, un indicateur estime la charge de ta configuration actuelle. Il affiche à peu près le nombre de tokens d'instructions d'agents ajoutés, et le nombre d'appels supplémentaires par tour.
