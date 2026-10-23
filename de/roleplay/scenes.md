@@ -28,13 +28,19 @@ So geht's:
 ```
 
 3. Drück Enter. Das Fenster **Scene Prompt Setup** (Szenen-Einrichtung) öffnet sich.
-4. Wähle eine **Prompt preset** (Prompt-Vorlage) für die neue Szene oder lasse **None** (keine) ausgewählt. Marinara merkt sich diese Auswahl für die nächste Szene. Die eigenen Anweisungen der Szene gelten weiterhin zusammen mit der ausgewählten Vorlage.
+4. Wähle eine **Prompt preset** (Prompt-Vorlage) für die neue Szene oder lasse **None** (keine) ausgewählt, um das Preset deines mit einem Stern markierten Roleplay-Einstellungsprofils zu verwenden. Marinara merkt sich diese Auswahl für die nächste Szene. Die eigenen Anweisungen der Szene gelten weiterhin zusammen mit dem Preset.
 5. Leg unter **POV** die Erzählperspektive fest: **First Person**, **Second Person** oder **Third Person**.
 6. Wähl unter **Tense** die Zeitform: **Past**, **Present** oder **Future**.
 7. Ins Feld **Extra instructions** (zusätzliche Anweisungen) kannst du optional Notizen schreiben, um die Szene zu lenken.
 8. Klick auf **Plan Scene**.
 
 Marinara plant die Szene und öffnet sie als neuen Roleplay-Chat. Die neue Szene taucht in der Chatliste auf und öffnet sich automatisch, mit einer Eröffnungsnachricht, die die Situation setzt. Wenn du es dir im Einrichtungsfenster anders überlegst, klick auf **Cancel** – dann entsteht keine Szene.
+
+Die neue Szene übernimmt als Ausgangspunkt dein mit einem Stern markiertes Roleplay-Einstellungsprofil, wie jeder neue Roleplay-Chat. Für die Eröffnung gilt:
+
+- Die Beschreibung der Szene erscheint als eigene Erzählernachricht vor der Eröffnung.
+- Bei einem einzelnen Charakter ist die Eröffnungsnachricht im Sprachstil dieses Charakters verfasst. Laut gesprochene Worte stehen in doppelten Anführungszeichen, sofern deine Schreibanweisungen keinen anderen Stil vorgeben.
+- In einer Gruppenszene richtet sich die Eröffnung nach dem Gruppenmodus des Profils. Im zusammengeführten Modus (dem Standard) spricht eine Erzählerstimme für alle. Im Modus **Individual** (einzeln) schreibt der Charakter die Eröffnung, der die Szene beginnt.
 
 Eine Szene lässt sich auch ohne Beschreibung starten. Tipp einfach nur den Befehl, sofern der Chat schon genug Vorgeschichte hat, auf der die Szene aufbauen kann.
 

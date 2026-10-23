@@ -28,13 +28,19 @@ Sigue estos pasos:
 ```
 
 3. Pulsa Enter. Se abre la ventana **Scene Prompt Setup** (Preparación del prompt de escena).
-4. Elige un **Prompt preset** (preajuste de prompt) para la nueva escena o déjalo en **None** (ninguno). Marinara recuerda esta elección para la siguiente escena. Las instrucciones propias de la escena siguen aplicándose junto con el preajuste seleccionado.
+4. Elige un **Prompt preset** (preajuste de prompt) para la nueva escena o déjalo en **None** (ninguno) para usar el preajuste de tu perfil de ajustes de Roleplay marcado con una estrella. Marinara recuerda esta elección para la siguiente escena. Las instrucciones propias de la escena siguen aplicándose junto con el preajuste.
 5. En **POV**, elige cómo se enmarca la escritura: **First Person**, **Second Person** o **Third Person**.
 6. En **Tense**, elige **Past**, **Present** o **Future**.
 7. Opcionalmente, escribe notas en la caja **Extra instructions** para dirigir la escena.
 8. Haz clic en **Plan Scene**.
 
 Marinara planifica la escena y la abre como un nuevo chat de roleplay. Deberías ver la nueva escena aparecer en tu lista de chats y abrirse automáticamente, con un mensaje de apertura que plantea la situación. Si cambias de idea en la ventana de preparación, haz clic en **Cancel** y no se crea ninguna escena.
+
+La nueva escena parte de tu perfil de ajustes de Roleplay marcado con una estrella, igual que cualquier chat nuevo de Roleplay. Su apertura funciona así:
+
+- La descripción de la escena es un mensaje independiente del narrador, publicado antes del mensaje de apertura.
+- Con un solo personaje, el mensaje de apertura está escrito con la voz de ese personaje. Las palabras pronunciadas en voz alta van entre comillas dobles, salvo que tus instrucciones de escritura indiquen otro estilo.
+- En una escena de grupo, la apertura sigue el modo de grupo del perfil. En el modo combinado (el predeterminado), una sola voz narrativa habla por todos. En el modo **Individual** (individual), lo escribe el personaje que abre la escena.
 
 También puedes iniciar una escena sin descripción. Escribe solo el comando por sí mismo si la conversación ya tiene suficiente historia con la que construir.
 
