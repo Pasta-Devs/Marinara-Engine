@@ -98,9 +98,13 @@ class CommentShape(unittest.TestCase):
         with patch.object(reviewer, "evidence_grounded", lambda ctx, evidence: True):
             _, rewritten, _, _ = reviewer.judge(ctx, finding(), rewrite)
             _, kept, _, _ = reviewer.judge(ctx, finding(), {"verdict": "confirmed"})
+            _, quoted, _, _ = reviewer.judge(ctx, finding(), {"verdict": "confirmed", "quip": "A new data point."})
+            carried = reviewer.normalize_review_item(reviewer.unjudged_entries([finding()])[0], default_severity="medium")
+            _, revived, _, _ = reviewer.judge(ctx, carried, {"verdict": "confirmed", "quip": "It returns. Splendid."})
         self.assertEqual(rewritten.quip, "")
         self.assertNotIn("> *", reviewer.render_finding_body(rewritten))
         self.assertEqual(kept.quip, finding().quip)
+        self.assertEqual((quoted.quip, revived.quip), ("A new data point.", "It returns. Splendid."))
 
     def test_nineteen_maximal_candidates_are_carried(self):
         big = reviewer.dataclasses.replace(

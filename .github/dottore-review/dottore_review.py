@@ -2635,8 +2635,10 @@ def judge(ctx, candidate, verdict):
         finding.title, finding.body, finding.lead = written["title"], written["body"], written["lead"]
         finding.fix_hint = written["fix_hint"] or finding.fix_hint
         # A quote written for the finder's claim does not fit the checker's rewrite of it.
-        finding.quip = written["quip"]
+        finding.quip = ""
         finding.repair_contract = normalize_repair_contract(verdict.get("repair_contract")) or finding.repair_contract
+    # The checker's quote, rewrite or not: a carried candidate has none of its own.
+    finding.quip = written["quip"] or finding.quip
     line = verdict.get("line")
     if isinstance(line, int) and not isinstance(line, bool) and line > 0:
         try:
