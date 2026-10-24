@@ -210,7 +210,7 @@ export function ModelRow({
         }
         className={cn(
           // Text starts 3.25rem in: tile 0.5rem in and 2rem wide, then 0.75rem, with or without the picture button.
-          "mari-connection-model-choice flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed",
+          "mari-connection-model-choice flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed max-md:min-h-11 max-md:py-1",
           FOCUS,
           className,
         )}
