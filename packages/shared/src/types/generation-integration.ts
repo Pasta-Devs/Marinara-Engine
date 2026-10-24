@@ -46,6 +46,10 @@ export interface LLMToolCall {
     name: string;
     arguments: string;
   };
+  /** Provider-native fields the call came with, sent back with it unchanged on the next tool round:
+   *  Gemini's OpenAI-compatible endpoint puts the call's thought signature in
+   *  `extra_content.google.thought_signature`, and refuses the round without it. */
+  extra_content?: Record<string, unknown>;
 }
 
 export interface LLMToolDefinition {

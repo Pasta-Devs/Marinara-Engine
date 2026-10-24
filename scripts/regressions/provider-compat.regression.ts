@@ -3645,6 +3645,35 @@ try {
       { role: "assistant", content: null, tool_calls: [call], reasoning_details: details },
       "an OpenRouter Gemini tool call must carry its reasoning_details into the next round",
     );
+    // Gemini's own OpenAI-compatible endpoint, and proxies that pass it through, put the call's
+    // thought signature on the call itself: it goes back on the call, or the round is refused with
+    // "Function call is missing a thought_signature" (laptop playtest 2026-10-24).
+    const signed = {
+      ...call,
+      extra_content: { google: { thought_signature: "sig-1" } },
+    };
+    raws.length = 0;
+    reply = { content: null, tool_calls: [signed] };
+    const signedRound = await openRouter.chatComplete([{ role: "user", content: "Roll." }], {
+      model: "gemini-3.5-flash",
+      ...options,
+      tools: [diceTool],
+    });
+    assert.deepEqual(signedRound.toolCalls, [signed], "the signature is kept on the call");
+    reply = { content: "Rolled 4." };
+    await openRouter.chatComplete(
+      [
+        { role: "user", content: "Roll." },
+        { role: "assistant", content: "", tool_calls: signedRound.toolCalls },
+        { role: "tool", tool_call_id: "call_1", content: "4" },
+      ],
+      { model: "gemini-3.5-flash", ...options, tools: [diceTool] },
+    );
+    assert.deepEqual(
+      ((sent(1).messages as Array<{ tool_calls?: unknown }>)[1] ?? {}).tool_calls,
+      [signed],
+      "and sent back with it",
+    );
     // Saved chat history still replays none (#1097), even when its reasoning reaches the provider.
     raws.length = 0;
     await collectProviderOutputForMessages(
@@ -4106,13 +4135,11 @@ try {
             tool_calls: identifiedResult.toolCalls,
             ...(replayMetadata ? { providerMetadata: identifiedResult.providerMetadata } : {}),
           },
-          ...identifiedResult.toolCalls.map(
-            (call, index): ChatMessage => ({
-              role: "tool",
-              tool_call_id: call.id,
-              content: JSON.stringify({ total: 17 + index }),
-            }),
-          ),
+          ...identifiedResult.toolCalls.map((call, index): ChatMessage => ({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ total: 17 + index }),
+          })),
         ],
         { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
       );
@@ -4736,6 +4763,63 @@ try {
     }
   } finally {
     await new Promise<void>((resolve) => cutServer.close(() => resolve()));
+  }
+}
+
+// A streamed call keeps the thought signature Gemini's OpenAI-compatible endpoint sends on it, in
+// whichever delta it comes, for the next tool round to send back (laptop playtest 2026-10-24).
+{
+  const signedServer = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      const opening = {
+        index: 0,
+        id: "call-1",
+        type: "function",
+        function: { name: "roll", arguments: '{"n":' },
+        extra_content: { google: { thought_signature: "sig-1" } },
+      };
+      const rest = { index: 0, function: { arguments: "2}" } };
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(
+        [
+          `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [opening] }, finish_reason: null }] })}`,
+          `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [rest] }, finish_reason: "tool_calls" }] })}`,
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => signedServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = signedServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = new OpenAIProvider(
+      `http://127.0.0.1:${address.port}/v1`,
+      "test",
+      undefined,
+      undefined,
+      undefined,
+      "custom",
+    );
+    const tools = [{ type: "function" as const, function: { name: "roll", parameters: { type: "object" } } }];
+    const result = await provider.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-3.5-flash",
+      stream: true,
+      tools,
+    });
+    assert.deepEqual(result.toolCalls, [
+      {
+        id: "call-1",
+        type: "function",
+        function: { name: "roll", arguments: '{"n":2}' },
+        extra_content: { google: { thought_signature: "sig-1" } },
+      },
+    ]);
+  } finally {
+    await new Promise<void>((resolve) => signedServer.close(() => resolve()));
   }
 }
 
