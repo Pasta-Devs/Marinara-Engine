@@ -7248,6 +7248,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       connectionId,
       chat.connectionId,
     );
+    // The connection the setup was run on becomes the game's own, so the start screen and every turn
+    // after it use the one the player picked, not one the chat held before (laptop playtest
+    // 2026-10-24: the start screen offered the old connection). "random" stays a per-request pick.
+    if (connectionId && connectionId !== "random" && conn?.id === connectionId && connectionId !== chat.connectionId) {
+      await app.db.update(chatsTable).set({ connectionId, updatedAt: now() }).where(eq(chatsTable.id, chatId));
+    }
     const provider = await createGameMainProvider(connections, conn, baseUrl);
     const setupGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
 
