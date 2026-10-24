@@ -18,7 +18,8 @@ export function isDiceRollResult(value: unknown): value is DiceRollResult {
     candidate.rolls.every((roll) => Number.isFinite(roll)) &&
     Number.isFinite(candidate.modifier) &&
     Number.isFinite(candidate.total) &&
-    (candidate.dc === undefined || Number.isSafeInteger(candidate.dc))
+    (candidate.dc === undefined || Number.isSafeInteger(candidate.dc)) &&
+    (candidate.success === undefined || typeof candidate.success === "boolean")
   );
 }
 

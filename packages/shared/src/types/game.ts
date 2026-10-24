@@ -460,6 +460,8 @@ export interface DiceRollResult {
   total: number;
   /** Optional difficulty class declared before the roll. */
   dc?: number;
+  /** The server's verdict against `dc`. Absent when the roll had no DC. */
+  success?: boolean;
   /** Who rolled, or who and why, as the roll was asked for: a `[dice:]` tag's `who=`, or a tool
    *  roll's reason. Absent on rolls that named nobody. */
   label?: string;

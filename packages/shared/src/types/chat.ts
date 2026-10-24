@@ -605,6 +605,8 @@ export interface ChatMetadata {
   /** An actual group participant, used only for individual Roleplay generations. */
   roleplayCommandNarratorId?: string | null;
   roleplayRollAudience?: RoleplayCommandAudience;
+  /** How a roll card is tinted by its result. Missing means "outcome". */
+  roleplayRollOutcomeTone?: "off" | "outcome" | "outcome-crits";
   roleplayCombatAudience?: RoleplayCommandAudience;
   roleplayDocumentAudience?: RoleplayCommandAudience;
   roleplayWhisperAudience?: RoleplayCommandAudience;

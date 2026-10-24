@@ -11,6 +11,7 @@ import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { AgentSettingsCard } from "./AgentSettingsControls";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { cn } from "../../lib/utils";
+import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
 
 export function RoleplayCommandsSettings({
   chat,
@@ -140,6 +141,27 @@ export function RoleplayCommandsSettings({
                           <option value="all">{t("roleplay.commands.audience.all")}</option>
                           <option value="narrator">{t("roleplay.commands.audience.narrator")}</option>
                         </select>
+                        {key === "roll" && (
+                          <>
+                            <label htmlFor={`${chat.id}:roll-outcome-tone`}>
+                              {t("roleplay.commands.roll.outcomeTone.label")}
+                            </label>
+                            <select
+                              id={`${chat.id}:roll-outcome-tone`}
+                              value={normalizeRollOutcomeToneMode(metadata.roleplayRollOutcomeTone)}
+                              onChange={(event) =>
+                                update.mutate({ id: chat.id, roleplayRollOutcomeTone: event.target.value })
+                              }
+                              className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
+                            >
+                              <option value="off">{t("roleplay.commands.roll.outcomeTone.off")}</option>
+                              <option value="outcome">{t("roleplay.commands.roll.outcomeTone.outcome")}</option>
+                              <option value="outcome-crits">
+                                {t("roleplay.commands.roll.outcomeTone.outcomeCrits")}
+                              </option>
+                            </select>
+                          </>
+                        )}
                         {showAudienceWarning && (
                           <span
                             id={`${chat.id}:${key}-audience-status`}
