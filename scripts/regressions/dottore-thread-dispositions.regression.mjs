@@ -130,6 +130,8 @@ class ReviewContext(unittest.TestCase):
         bare = reviewer.issue_sections("Idea\n\n" + "word " * 200)
         self.assertLess(len(bare), 600)
         self.assertIn("truncated", bare)
+        crlf = reviewer.issue_sections("T\r\n\r\n## Summary\r\nWhy.\r\n\r\n## **Expected behavior:**\r\nShould X\r\n")
+        self.assertEqual(crlf, "T\n\nExpected behavior:\nShould X")
 
     def test_linked_issues_reach_the_finder_and_checker_not_the_scouts(self):
         packet = reviewer.finder_packet("Review.", "Full diff.", "None.", "BUNDLE", "Issue #12: Expected.")

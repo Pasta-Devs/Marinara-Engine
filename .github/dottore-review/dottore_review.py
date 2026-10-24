@@ -650,10 +650,11 @@ def pr_description(pr_num):
 def issue_sections(text):
     """An issue's title and the template sections that state the intended behavior or its limits, or the opening of
     its body when it has none of them."""
-    title, _, body = text.strip().partition("\n\n")
+    title, _, body = text.replace("\r\n", "\n").strip().partition("\n\n")
     body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
     parts = ISSUE_HEADING_RE.split(body)
-    found = {head.lower(): section.strip() for head, section in zip(parts[1::2], parts[2::2])}
+    # A hand-written heading may be bold or end in a colon: "## **Expected behavior:**".
+    found = {head.strip("*: ").lower(): section.strip() for head, section in zip(parts[1::2], parts[2::2])}
     kept = "\n\n".join(f"{name.capitalize()}:\n{found[name]}" for name in ISSUE_SECTIONS if found.get(name))
     shown = truncate(kept, MAX_ISSUE_CHARS) if kept else truncate(body.strip(), MAX_UNSTRUCTURED_ISSUE_CHARS)
     return f"{title}\n\n{shown}"
