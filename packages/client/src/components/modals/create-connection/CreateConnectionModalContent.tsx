@@ -770,6 +770,7 @@ export function CreateConnectionModalContent({
     (target.fresh || !!target.ownedPlaceholderIds?.includes(shownRow.id));
   const recommended = provider && !NO_RECOMMENDED.has(provider) ? (MODEL_LISTS[provider] ?? []).slice(0, 3) : [];
   const targetName =
+    (setupKind === "decision" ? serviceName(service ?? provider ?? "custom") : undefined) ||
     (target && accounts?.find((account) => account.id === target.accountId)?.name) ||
     serviceName(service ?? provider ?? "custom");
   const modelName = (modelId: string) =>
