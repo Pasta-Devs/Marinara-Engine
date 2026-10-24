@@ -183,7 +183,7 @@ MAX_CALLEE_LINES = 60
 MAX_BUNDLE_CODE_CHARS = 160_000
 MAX_PR_DESCRIPTION_CHARS = 4_000
 MAX_LINKED_ISSUES = 2
-CLOSING_ISSUE_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.I)
+CLOSING_ISSUE_RE = re.compile(r"(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.I)
 MAX_TESTS_ON_DISK = 30
 # Scouts add code the bundle builder could not follow by name: places they keep, quoted by code. Each scout of a
 # packet takes a share of its changed functions and they run at once, so the reading takes one scout's time.
@@ -628,8 +628,11 @@ def pr_description(pr_num):
     # Read from the closing keywords, because GitHub links closing issues only on PRs into the default branch and
     # these PRs target staging; an issue linked only by a plain mention or from the sidebar is not read.
     for number in list(dict.fromkeys(CLOSING_ISSUE_RE.findall(result.stdout)))[:MAX_LINKED_ISSUES]:
-        issue = run_gh(["issue", "view", number, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
-        text = issue.stdout.strip() if issue.returncode == 0 else "Could not be read."
+        try:
+            issue = run_gh(["issue", "view", number, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
+            text = issue.stdout.strip() if issue.returncode == 0 else "Could not be read."
+        except subprocess.TimeoutExpired:
+            text = "Could not be read."
         parts.append(f"Linked issue #{number}: {truncate(redact_for_model(text), MAX_PR_DESCRIPTION_CHARS)}")
     return "\n\n".join(parts)
 
@@ -2780,7 +2783,7 @@ def agentic_review(ctx, mode, pool, threads=(), carried=()):
                 "name": "Verification Coverage",
                 "status": "warn",
                 "type": "Review Limitation",
-                "detail": f"{plural(unexamined, 'candidate')} went unexamined ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error, {counts['unmatched']} confirmed on evidence that did not match the code), so they were withheld.",
+                "detail": f"{plural(unexamined, 'candidate')} went unexamined or unmatched ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error, {counts['unmatched']} confirmed on evidence that did not match the code), so they were withheld.",
             }
         )
     return merged
@@ -3644,11 +3647,13 @@ def render_walkthrough(
         body.extend(["", "### 📝 Lab Notes"])
     if verification:
         unexamined = verification.get("capped", 0) + verification.get("unverified", 0) + verification.get("failed", 0)
+        unmatched = verification.get("unmatched", 0)
         body.append(
             f"- {plural(verification.get('candidates', 0), 'candidate')} examined against the code: "
             f"{verification.get('confirmed', 0)} confirmed, {verification.get('rejected', 0)} rejected, "
             f"{verification.get('uncertain', 0)} left unresolved"
             + (f", {verification['same_as']} the same defect as another" if verification.get("same_as") else "")
+            + (f", {unmatched} confirmed on evidence that did not match the code" if unmatched else "")
             + (f", {unexamined} unexamined." if unexamined else ".")
         )
     if invalid_findings:
@@ -3808,19 +3813,20 @@ query($owner: String!, $name: String!, $number: Int!) {
       reviewThreads(first: 100) {
         nodes {
           id isResolved path line originalLine diffSide
-          comments(first: 50) { nodes { databaseId body author { __typename login } } }
+          comments(first: 50) { nodes { databaseId body authorAssociation author { __typename login } } }
         }
       }
     }
   }
 }
 """
+MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 RESOLVE_THREAD_MUTATION = "mutation($thread: ID!) { resolveReviewThread(input: {threadId: $thread}) { thread { id } } }"
 MAX_REPAIR_THREADS = 12
 
 
 def dottore_threads(pr_num):
-    """Every review thread Dottore opened, resolved or not, with the last reply a person left on it."""
+    """Every review thread Dottore opened, resolved or not, with the last reply a maintainer left on it."""
     # ponytail: the first 100 threads and 50 comments a thread; page reviewThreads when a PR outgrows that.
     owner, name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
     gh = run_gh(
@@ -3839,7 +3845,12 @@ def dottore_threads(pr_num):
         marker = FINDING_MARKER_RE.search(first.get("body") or "")
         if author.get("__typename") != "Bot" or not marker:
             continue
-        replies = [comment for comment in comments[1:] if (comment.get("author") or {}).get("__typename") != "Bot"]
+        # Only someone with write access settles a finding; a reply from anyone else does not reach the finder.
+        replies = [
+            comment
+            for comment in comments[1:]
+            if (comment.get("author") or {}).get("__typename") != "Bot" and comment.get("authorAssociation") in MAINTAINER_ASSOCIATIONS
+        ]
         threads.append(
             {
                 "thread_id": node.get("id"),
@@ -3866,7 +3877,7 @@ def open_dottore_threads(pr_num, answered=False, threads=None):
 
 
 def dispose_contracts(entries, threads):
-    """The prior contracts less those whose thread is resolved, with those a person answered marked disposed and
+    """The prior contracts less those whose thread is resolved, with those a maintainer answered marked disposed and
     carrying the reply, so the finder stops re-judging a point a maintainer has settled."""
     by_id = {}
     for thread in threads:
@@ -3876,6 +3887,9 @@ def dispose_contracts(entries, threads):
     kept = []
     for entry in entries:
         thread = by_id.get(entry.get("id"))
+        # ponytail: a finding raised again after its only thread was resolved gets no new thread (the inline
+        # duplicate filter counts resolved threads' markers), so its contract is dropped the round after; repost a
+        # finding whose thread is resolved, or record which round raised it, if that case shows up.
         if thread and thread["resolved"]:
             continue
         if thread and thread["reply"]:
@@ -4591,7 +4605,10 @@ def post_review(args):
     if existing and autofix_ticked(existing.get("body")):
         body = body.replace(AUTOFIX_BOX, AUTOFIX_BOX.replace("- [ ]", "- [x]", 1), 1)
     # A push during the review leaves this examination on the older head; say so rather than read as current.
-    current = run_gh(["pr", "view", pr_num, "--json", "headRefOid", "--jq", ".headRefOid"]).stdout.strip()
+    try:
+        current = run_gh(["pr", "view", pr_num, "--json", "headRefOid", "--jq", ".headRefOid"]).stdout.strip()
+    except subprocess.TimeoutExpired:
+        current = ""
     if head_sha and re.fullmatch(r"[0-9a-f]{40}", current) and current != head_sha:
         body = SUPERSEDED_NOTE_RE.sub("", body).rstrip() + (
             f"\n\n> 🎭 *Examined `{short_ref(head_sha)}`; the PR head has since moved to `{short_ref(current)}`,"

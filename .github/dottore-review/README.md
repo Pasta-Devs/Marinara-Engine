@@ -103,8 +103,8 @@ evidence quoted from the head, gets a reply in voice and is resolved; one a pers
 that review raised again, stays open. Threads on files the review left alone are not checked.
 
 The repair contracts of earlier findings are carried in the walkthrough and shown to the finder on each later review.
-A contract whose thread is resolved, by Dottore or by a person, is dropped. One whose thread a person replied to is
-shown as disposed, with the reply, and the finder is told not to raise it again unless new code changes the input the
+A contract whose thread is resolved, by Dottore or by a person, is dropped. One whose thread a repository owner, member
+or collaborator replied to is shown as disposed, with the reply, and the finder is told not to raise it again unless new code changes the input the
 reply names. A reply that only says a fix is coming also marks the contract disposed; the thread still holds the
 approval until someone resolves it.
 GitHub refuses to resolve a thread without `contents: write`, so a separate `resolve` job does it with that
