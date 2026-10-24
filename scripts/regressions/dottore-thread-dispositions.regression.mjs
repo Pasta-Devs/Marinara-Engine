@@ -161,7 +161,9 @@ class ReviewContext(unittest.TestCase):
         posted = []
         def gh(args, input_text=None, **kwargs):
             if args[:2] == ["pr", "view"]:
-                return NS(stdout=moved, stderr="", returncode=0)
+                # The readiness check asks for state and draft; the moved-head check asks for the head.
+                ready = json.dumps({"state": "OPEN", "isDraft": False})
+                return NS(stdout=moved if "headRefOid" in args else ready, stderr="", returncode=0)
             posted.append(input_text)
             return NS(stdout="", stderr="", returncode=0)
         with tempfile.TemporaryDirectory() as folder:

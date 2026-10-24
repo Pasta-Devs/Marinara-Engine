@@ -67,11 +67,16 @@ reviewed; a request on another gets a reply saying so. To keep Dottore strictly 
 A review posts:
 
 - **The walkthrough**, one comment per pull request, updated in place: the verdict in its title, Dottore beside it, the
-  counts, the change summary, the defects table, the notes, the autofix box, his observations and lab notes, and, folded
-  at the end, a repair prompt for an agent of your own. The last reviewed head and the open repair contracts ride in
-  HTML comments inside it, so the next review knows where it left off.
-- **A review thread per confirmed defect**, at its line, with a suggested fix and a footer naming the two ways it gets
-  resolved: a push Dottore re-examines, or the autofix box.
+  counts, the change summary, the defects table, the optional notes, any failed or blocking checks, the autofix box,
+  then, folded, his review notes (the other control checks, open questions, observations and lab notes) and a repair
+  prompt for an agent of your own, which opens by telling the agent to verify each finding before changing code. The last
+  reviewed head and the open repair contracts ride in HTML comments inside it, so the next review knows where it left off.
+- **A review thread per confirmed defect**, at its line: the severity and title, one plain sentence on what breaks, the
+  suggested fix, one quote in his voice, and, folded under Details, the full explanation, the other acceptable fixes
+  and the proof expected (only that fold is trimmed when a finding runs long). A footer names the two ways it gets
+  resolved: a push Dottore re-examines, or the autofix box. A new defect within a few lines of, or in the same function
+  as, an open thread checked that round is posted as a reply in that thread instead of a new one, and the thread stays
+  open on it.
 - **The `Dottore Review` commit status**: success once the review is posted, whatever it found, with the verdict and
   the counts in its text; failure only when the review did not run or did not finish.
 
@@ -119,8 +124,9 @@ variants), up to 1,000 characters. An issue with none of those sections shows th
 What gets published depends on kind, not severity. Every finding is a defect, low included: each gets a review thread,
 as a CodeRabbit finding does, and any of them makes the verdict Repair Required (Specimen Unstable from high up), so a
 low finding is carried across reviews, repaired by autofix and resolved before merge like any other. Severity grades the
-size of the repair. Nitpicks are notes: they are listed under Minor Imperfections, at most two, get no thread, and leave
-the verdict Viable, With Notes. The walkthrough states the verdict once in its title, with a remark in his voice and
+size of the repair. Nitpicks are notes: they are listed under Optional notes, at most two, get no thread, and leave
+the verdict Viable, With Notes, a green box that says nothing is required. Facts are written plainly; his voice is kept
+to the quotes. The walkthrough states the verdict once in its title, with a remark in his voice and
 one of his chibis beside the verdict box and the counts (`chibi/`, a few poses per verdict, both chosen by the head SHA
 and served raw from the pinned tooling checkout; the command status window has poses of its own, so the two comments
 never show the same one); the commit status carries the same verdict with the counts. A walkthrough posted after the pull request got a new push

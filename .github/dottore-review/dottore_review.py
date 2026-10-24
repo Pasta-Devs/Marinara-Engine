@@ -67,43 +67,58 @@ DOTTORE_CHIBIS = {
     "CONCLUDED": ["sorting", "reading"],
     "": ["instrument-failed"],
 }
-# One remark per verdict, in his voice.
+# One remark per verdict, in his voice: the Second Harbinger's, clinical and politely contemptuous. The facts sit in
+# the verdict box above it; a remark never carries one, and a viable head's remark never reads as a to-do.
 DOTTORE_REMARKS = {
     "VIABLE": [
-        "Not a tremor on the table. Dismissed, for now.",
-        "A clean specimen. How dull. How welcome.",
-        "Nothing to cut. I am almost disappointed.",
-        "The instruments found nothing to object to. Carry on before I look harder.",
+        "No defects. A disappointing result, scientifically speaking; a subject that does not fail teaches me nothing.",
+        "The specimen held under every condition I applied. Dismissed, and free to remain this uninteresting.",
+        "Nothing to cut. I confess a certain disappointment. Failure is so much more informative.",
+        "It works. Merely works. Still, that is more than most subjects manage on the first trial.",
     ],
     "VIABLE, WITH NOTES": [
-        "Nothing worth the scalpel, only a few smudges on the glass.",
-        "Healthy enough. Polish the notes before the next exhibit.",
-        "No incisions today. Read the notes; I do not write them for my own amusement.",
+        "Nothing here requires the scalpel. The notes are observations for the curious, not instructions; the subject"
+        " may be released as it is.",
+        "Viable. I left a few remarks in the margins out of habit, not necessity. None of them stand between this and"
+        " the merge.",
+        "The experiment succeeds. What remains below is polish for anyone unwilling to stop at adequate, and nothing in"
+        " it is required.",
     ],
     "REPAIR REQUIRED": [
-        "The specimen lives, but it twitches where it should not. Hold the scalpel for now.",
-        "Fascinating. Bring it back when it stops bleeding.",
-        "Every thread below is an incision. Close each one and I will look again.",
-        "I have marked where it fails. Mend it, or let me.",
+        "The subject lives, but not correctly. Each thread is a data point; repair them, and the next trial will show"
+        " what they were worth.",
+        "Fascinating. Flawed in precisely the places that matter. Mend what is marked and return it to the table.",
+        "Close enough to working to be interesting, far enough to be useless. The marked threads are the difference.",
+        "I have recorded where it fails. Repair it, or tick the box and allow me to. Either way, the experiment"
+        " continues.",
     ],
     "SPECIMEN UNSTABLE": [
-        "Do not move this specimen. Something inside is still reacting.",
-        "Lethal, and therefore interesting. Contain it before it reaches the branch.",
-        "The table is not clean. Repair the worst of it before anyone else touches it.",
+        "Do not move this specimen. Something inside is still reacting, and I would rather observe it here than on the"
+        " branch.",
+        "Unstable, and therefore interesting. Contain it before it reaches anything of value.",
+        "A severe result. Instructive, certainly, but no subject leaves this table in such a condition.",
     ],
     "NO NEW DIFF REVIEWED": [
-        "Nothing new under the glass since the last examination. The prior verdict stands.",
-        "A base merge is not a specimen. I examined what changed, which was nothing.",
+        "Nothing new under the glass since the last examination. The prior verdict stands; I do not repeat experiments"
+        " for amusement.",
+        "A base merge is not a new specimen. I examined what changed, which was nothing.",
     ],
     "REVIEW INCOMPLETE": [
-        "The instruments failed before the specimen did. Rerun the examination.",
-        "An interrupted experiment proves nothing. Again.",
+        "The instruments failed before the specimen did. An interrupted experiment proves nothing; run it again.",
+        "Incomplete data is worse than none at all. Rerun the examination.",
     ],
-    "": ["The examination ended before a verdict. Ask again and I will look properly."],
+    "": ["The examination ended before a verdict. Ask again, and this time let the procedure finish."],
 }
+# The quote above the Defects table.
+DEFECTS_REMARKS = [
+    "Each entry below is a failure I could reproduce on paper. Valuable data. Considerably less valuable code.",
+    "The results. The subject did not enjoy the procedure, but results have never cared for a subject's comfort.",
+    "Catalogued in order of severity. Imperfection is where improvement begins, provided someone acts on it.",
+    "Failure is only wasteful when nothing is learned from it. Here is what there is to learn.",
+]
 
 
-THREAD_FOOTER = "*🎭 Push a repair and Dottore re-examines this thread; or tick the 🩺 box in his walkthrough to let him repair it.*"
+THREAD_FOOTER = "*🎭 Push a fix and Dottore re-checks this thread, or tick 🩺 in the walkthrough.*"
 
 
 def pick_for_head(pool, head_sha, slot=""):
@@ -134,7 +149,8 @@ GITHUB_CONTEXT_LINES = 3  # unchanged lines GitHub shows around each change in a
 MAX_FILE_PATCH_CHARS = 55_000
 MAX_REVIEW_CHUNKS = 8
 MAX_CHUNK_PATCH_CHARS = 90_000
-MAX_INLINE_COMMENT_CHARS = 1_200
+# The heading, lead, fix, quote and footer are never cut; only the collapsed details are trimmed to fit.
+MAX_INLINE_COMMENT_CHARS = 3_000
 MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
 # The candidates an examination left unjudged ride in its walkthrough comment (65,536 characters at most) as at most
@@ -243,6 +259,8 @@ MAX_SUBMIT_ATTEMPTS = 3
 MAX_TOOL_LINES = 120
 MAX_TOOL_CHARS = 8_000
 NEARBY_LINES = 3
+# A new defect this many lines from an open thread checked this round, or in its enclosing block, is a follow-up.
+FOLLOW_UP_LINES = 20
 MAX_VERIFIED_CANDIDATES = 20
 MAX_OPEN_QUESTIONS = 2
 MAX_NITPICKS = 2
@@ -283,6 +301,10 @@ class Finding:
     outside_diff: bool = False
     # None for a carried candidate whose file no packet of this review holds.
     packet: int | None = 0
+    # One plain sentence on what breaks; empty for an older candidate, which falls back to the body's first sentence.
+    lead: str = ""
+    # Dottore's quote about the finding, the only voiced text on it.
+    quip: str = ""
 
 
 def _safe_path(rel: str) -> pathlib.Path:
@@ -427,9 +449,7 @@ def redact_for_model(text):
 def inline_truncate(text, limit=MAX_INLINE_COMMENT_CHARS):
     if len(text) <= limit:
         return text
-    suffix = f"\n\n[truncated: inline finding was {len(text)} chars, limit is {limit} chars]"
-    keep = max(0, limit - len(suffix))
-    return text[:keep].rstrip() + suffix
+    return text[: max(0, limit - 1)].rstrip() + "…"
 
 
 def compact_state_text(value, limit=MAX_CONTRACT_STATE_TEXT_CHARS):
@@ -1182,8 +1202,10 @@ REVIEW_ITEM = {
         "line": {"type": "integer"},
         "side": {"type": "string", "enum": ["LEFT", "RIGHT"]},
         "title": {"type": "string"},
+        "lead": {"type": "string"},
         "body": {"type": "string"},
         "fix_hint": {"type": "string"},
+        "quip": {"type": "string"},
         "repair_contract": {"type": "object"},
     },
     "required": ["path", "line", "title", "body"],
@@ -1205,6 +1227,7 @@ SUBMIT_FINDINGS = function_tool(
     "Submit the candidate findings and notes. This ends the pass.",
     {
         "change_summary": STRING_LIST,
+        "summary_quip": {"type": "string"},
         "findings": {"type": "array", "items": REVIEW_ITEM},
         "nitpicks": {"type": "array", "items": REVIEW_ITEM},
         "pre_merge_checks": {
@@ -1240,7 +1263,7 @@ SUBMIT_VERDICTS = function_tool(
                     "evidence": EVIDENCE,
                     "note": {"type": "string"},
                     "same_as": {"type": "integer", "description": "The candidate number this one shares a defect with."},
-                    **{key: REVIEW_ITEM["properties"][key] for key in ("path", "line", "title", "body", "fix_hint", "repair_contract")},
+                    **{key: REVIEW_ITEM["properties"][key] for key in ("path", "line", "title", "lead", "body", "fix_hint", "quip", "repair_contract")},
                 },
                 "required": ["candidate", "verdict", "severity", "evidence", "note"],
             },
@@ -2453,6 +2476,7 @@ def same_spot(left, right):
 def merge_segments(reports):
     """Combine the finder reports without a model call."""
     merged = {key: [] for key in ("change_summary", "findings", "nitpicks", "open_questions")}
+    merged["summary_quip"] = ""
     checks = {}
     notes = []
     status_rank = {"fail": 0, "warn": 1, "unknown": 2, "pass": 3}
@@ -2460,6 +2484,7 @@ def merge_segments(reports):
     for number, (role, packet, report) in enumerate(reports):
         if number == 0 or role == "finder":
             merged["change_summary"].extend(str(item) for item in as_list(report.get("change_summary")))
+            merged["summary_quip"] = merged["summary_quip"] or " ".join(str(report.get("summary_quip") or "").split())
         for key in ("findings", "nitpicks"):
             for item in as_list(report.get(key)):
                 if not isinstance(item, dict):
@@ -2576,7 +2601,7 @@ def verifier_budget(ctx, candidates):
     return settings["reads"] + VERIFIER_READS_PER_EXTRA * extra, settings["chars"] + VERIFIER_CHARS_PER_EXTRA * extra
 
 
-FINDING_FIELDS = ("title", "body", "fix_hint")
+FINDING_FIELDS = ("title", "lead", "body", "fix_hint", "quip")
 
 
 def judge(ctx, candidate, verdict):
@@ -2607,8 +2632,9 @@ def judge(ctx, candidate, verdict):
     if severity in {"blocking", "high", "medium", "low"}:
         finding.severity = severity
     if written["title"] and written["body"]:
-        finding.title, finding.body = written["title"], written["body"]
+        finding.title, finding.body, finding.lead = written["title"], written["body"], written["lead"]
         finding.fix_hint = written["fix_hint"] or finding.fix_hint
+        finding.quip = written["quip"] or finding.quip
         finding.repair_contract = normalize_repair_contract(verdict.get("repair_contract")) or finding.repair_contract
     line = verdict.get("line")
     if isinstance(line, int) and not isinstance(line, bool) and line > 0:
@@ -2818,6 +2844,8 @@ def unjudged_entries(candidates):
             "title": compact_state_text(item.title, 200),
             "body": item.body if len(item.body) <= MAX_CARRIED_TEXT_CHARS else item.body[: MAX_CARRIED_TEXT_CHARS - 1].rstrip() + "…",
             "fix_hint": compact_state_text(item.fix_hint, 200),
+            "lead": compact_state_text(item.lead, 200),
+            "quip": compact_state_text(item.quip),
             "repair_contract": compact_contract_for_state(item.repair_contract),
         }
         for item in candidates
@@ -2986,6 +3014,8 @@ def normalize_review_item(item, *, default_severity, outside_ok=False):
         segment=str(item.get("segment", "")).strip(),
         outside_diff=outside_ok and item.get("outside_diff") is True,
         packet=item.get("packet") if isinstance(item.get("packet"), int) else 0,
+        lead=" ".join(str(item.get("lead") or "").split()),
+        quip=" ".join(str(item.get("quip") or "").split()),
     )
 
 
@@ -3098,21 +3128,56 @@ def validate_review_items(review_obj, base, outside_ok=False):
     return findings, nitpicks[:MAX_NITPICKS], invalid
 
 
-def render_finding_body(finding):
+def finding_lead(finding):
+    """The one-sentence lead; an older finding without one leads with its body's first sentence."""
+    if finding.lead:
+        return finding.lead
+    body = " ".join(finding.body.split())
+    match = re.match(r"(.+?[.!?])(?:\s|$)", body)
+    return match.group(1) if match else body
+
+
+def quote_line(text):
+    """Dottore's quote as one italic blockquote line; an asterisk inside would end the italics early."""
+    text = " ".join(str(text or "").split()).replace("*", "")
+    return f"> *{text}*" if text else ""
+
+
+def render_finding_body(finding, intro=""):
+    """The heading, the one-sentence lead, the fix and Dottore's quote stay visible; the explanation, the other
+    acceptable fixes and the proof expected are collapsed, and only they are trimmed to fit."""
     meta = severity_meta(finding.severity)
-    parts = [
-        finding_marker(finding),
-        f"### {meta['icon']} {meta['label']}: {finding.title}",
-        "",
-        f"**Location:** {location_label(finding)}",
-        "",
-        blockquote(finding.body),
-    ]
+    lead = finding_lead(finding)
+    visible = [finding_marker(finding)]
+    if intro:
+        visible += [intro, ""]
+    # threads_to_check and inline_comment_contract_entry parse the heading and the Suggested fix label.
+    visible += [f"### {meta['icon']} {meta['label']}: {finding.title}", "", lead]
     if finding.fix_hint:
-        parts.extend([""] + alert_block("TIP", [f"**Suggested fix:** {finding.fix_hint}"]))
-    # The finding is cut to leave room for the footer, so a long one still carries its next step.
-    body = inline_truncate("\n".join(parts).strip(), MAX_INLINE_COMMENT_CHARS - len(THREAD_FOOTER) - 2)
-    return f"{body}\n\n{THREAD_FOOTER}"
+        visible += ["", f"**Suggested fix:** {' '.join(finding.fix_hint.split())}"]
+    if quote_line(finding.quip):
+        visible += ["", quote_line(finding.quip)]
+    contract = finding.repair_contract or {}
+    detail = []
+    if finding.body and " ".join(finding.body.split()) != lead:
+        detail.append(finding.body)
+    others = [shape for shape in compact_list(contract.get("acceptable_fix_shapes")) if shape != finding.fix_hint]
+    if others:
+        detail.append("**Other acceptable fixes:** " + "; ".join(others))
+    proof = compact_list(contract.get("expected_proof"))
+    if proof:
+        detail.append("**Proof expected:** " + "; ".join(proof))
+    parts = ["\n".join(visible).strip()]
+    opening, closing = "<details><summary>Details</summary>\n\n", "\n\n</details>"
+    room = MAX_INLINE_COMMENT_CHARS - len(parts[0]) - len(THREAD_FOOTER) - len(opening) - len(closing) - 8
+    if detail and room > 80:
+        text = inline_truncate("\n\n".join(detail), room)
+        # A cut inside a code fence would swallow the closing tag.
+        if text.count("```") % 2:
+            text += "\n```"
+        parts.append(opening + text + closing)
+    parts.append(THREAD_FOOTER)
+    return "\n\n".join(parts)
 
 
 def finding_id(finding):
@@ -3285,26 +3350,32 @@ def merge_signal(review_obj, findings, nitpicks, pre_merge):
             "admonition": "CAUTION",
             "detail": "Dottore Review did not complete, so no model findings are available.",
         }
-    has_blocking = any(
-        severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
-        for finding in findings
+    severe = sum(
+        1 for finding in findings if severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
     )
-    has_failed_check = any(
-        status_meta(item.get("status"))["label"] == "FAIL" for item in pre_merge
-    )
-    if has_blocking or has_failed_check:
+    failed = sum(1 for item in pre_merge if status_meta(item.get("status"))["label"] == "FAIL")
+    gaps = sum(1 for item in pre_merge if warn_is_blocking_proof_gap(item))
+    owed = []
+    if findings:
+        owed.append(plural(len(findings), "defect") + (f" ({severe} blocking or high)" if severe else ""))
+    if failed:
+        owed.append(plural(failed, "failed control"))
+    if gaps:
+        owed.append(plural(gaps, "blocking proof gap"))
+    owed_detail = ", ".join(owed) + " to fix before merge."
+    if severe or failed:
         return {
             "label": "SPECIMEN UNSTABLE",
             "title": "Specimen Unstable",
             "admonition": "CAUTION",
-            "detail": "Repair blocking/high findings or failed controls before merge.",
+            "detail": owed_detail,
         }
-    if findings or any(warn_is_blocking_proof_gap(item) for item in pre_merge):
+    if findings or gaps:
         return {
             "label": "REPAIR REQUIRED",
             "title": "Repair Required",
             "admonition": "WARNING",
-            "detail": "Actionable findings or blocking proof gaps remain for this head.",
+            "detail": owed_detail,
         }
     if unexamined_candidates(review_obj):
         # Chosen candidates went unjudged (the Lab Notes count them): nothing certifies this head as viable.
@@ -3314,22 +3385,24 @@ def merge_signal(review_obj, findings, nitpicks, pre_merge):
             "admonition": "CAUTION",
             "detail": "Some candidates went unjudged, so no viable verdict is certified; rerun the review.",
         }
-    has_notes = nitpicks or any(
-        status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
+    notes = len(nitpicks) + sum(
+        1
         for item in pre_merge
+        if status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
     )
-    if has_notes:
+    if notes:
+        # Green, like a clean head: nothing below is owed, and the box must not read as a to-do.
         return {
             "label": "VIABLE, WITH NOTES",
             "title": "Viable, With Notes",
-            "admonition": "WARNING",
-            "detail": "No actionable defects were isolated, but non-blocking notes remain.",
+            "admonition": "TIP",
+            "detail": f"No actionable defects. {plural(notes, 'optional note')} below; nothing is required before merge.",
         }
     return {
         "label": "VIABLE",
         "title": "Viable",
         "admonition": "TIP",
-        "detail": "No actionable findings were isolated for this head.",
+        "detail": "No actionable defects for this head.",
     }
 
 
@@ -3391,13 +3464,25 @@ def location_label(finding, cell=str):
     return f"`{cell(finding.path)}:{finding.line}`" + (" (removed line)" if finding.side == "LEFT" else "")
 
 
+# Leads every repair prompt Dottore hands an agent: the findings are claims to check, not instructions.
+VERIFY_FIRST = (
+    "These findings come from an automated reviewer and can be wrong, stale or overstated.\n"
+    "Before changing any code, reproduce or trace each finding against the current code.\n"
+    "If a finding does not hold, leave that code unchanged and say why. Treat the suggested and\n"
+    "acceptable fixes as options, not requirements; prefer the smallest correct repair."
+)
+
+
 def agent_prompt_for_finding(finding):
     contract = finding.repair_contract or {}
     lines = [
         f"Task: Fix {location_label(finding)}.",
         f"Finding: {finding.title}",
+        f"What breaks: {finding_lead(finding)}",
         f"Severity: {finding.severity}",
     ]
+    if finding.fix_hint:
+        lines.append(f"Suggested fix: {' '.join(finding.fix_hint.split())}")
     if finding.severity != "nitpick":
         for key, label in (
             ("invariant", "Goal"),
@@ -3417,10 +3502,8 @@ def render_agent_prompt_details(findings, summary):
     if not findings:
         return ""
     prompt = code_block_text(
-        "\n\n".join(agent_prompt_for_finding(finding) for finding in findings)
+        "\n\n".join([VERIFY_FIRST, *(agent_prompt_for_finding(finding) for finding in findings)])
     )
-    if not prompt:
-        return ""
     return "\n".join(
         [
             "<details>",
@@ -3660,13 +3743,19 @@ def render_walkthrough(
     body.extend([
         render_merge_signal(review_obj, defects, notes, pre_merge, head_sha),
         "",
-        "### 🧭 Specimen Summary",
+        "### 🧭 Summary",
     ])
-    body.extend([f"- {line}" for line in summary[:2]] or ["- No specimen summary produced."])
-    body.extend(["", "### 🔎 Isolated Defects"])
+    if quote_line(review_obj.get("summary_quip")):
+        body.extend([quote_line(review_obj.get("summary_quip")), ""])
+    body.extend([f"- {line}" for line in summary[:2]] or ["- No summary produced."])
+    # No defects needs no section: the verdict box above already says so.
     if defects:
         body.extend(
             [
+                "",
+                "### 🔎 Defects",
+                quote_line(pick_for_head(DEFECTS_REMARKS, head_sha, "defects")),
+                "",
                 "| Severity | Location | Finding |",
                 "| :---: | --- | --- |",
             ]
@@ -3679,27 +3768,27 @@ def render_walkthrough(
                 f"{location_label(finding, md_cell)} | "
                 f"{md_cell(finding.title)} |"
             )
-    else:
-        if has_failed_review_check(pre_merge):
-            body.extend(
-                [
-                    "",
-                    "> [!CAUTION]",
-                    "> No model findings are available because Dottore Review failed before completing inspection.",
-                ]
-            )
-        else:
-            body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
+    elif has_failed_review_check(pre_merge):
+        body.extend(
+            [
+                "",
+                "### 🔎 Defects",
+                "",
+                "> [!CAUTION]",
+                "> No model findings are available because Dottore Review failed before completing inspection.",
+            ]
+        )
     if resolved:
-        body.extend(["", "### ✅ Repairs Confirmed"])
+        body.extend(["", "### ✅ Repairs confirmed"])
         for item in resolved[:5]:
             location = f"{item.get('path') or 'unknown'}:{item.get('line') or '?'}"
             title = item.get("title") or "Prior Dottore finding"
             body.append(f"- `{md_cell(location)}` - {md_cell(title)}")
-    body.extend(["", "### 🧹 Minor Imperfections"])
     if notes:
         body.extend(
             [
+                "",
+                "### 🧹 Optional notes",
                 "| Kind | Location | Note |",
                 "| :---: | --- | --- |",
             ]
@@ -3711,8 +3800,25 @@ def render_walkthrough(
                 f"{location_label(note, md_cell)} | "
                 f"{md_cell(note.title)} |"
             )
-    else:
-        body.append("- None recorded.")
+
+    def control_rows(items):
+        rows = ["| Status | Type | Check | Detail |", "| :---: | --- | --- | --- |"]
+        for item in items[:5]:
+            rows.append(
+                "| "
+                f"{status_badge(status_meta(item.get('status', 'unknown')))} | "
+                f"{md_cell(control_type(item))} | "
+                f"{md_cell(item.get('name', 'check'))} | "
+                f"{md_cell(item.get('detail', ''))} |"
+            )
+        return rows
+
+    # The controls that hold the verdict stay in view; the rest go in the collapsed review notes.
+    blocking = [
+        item for item in pre_merge if status_meta(item.get("status"))["label"] == "FAIL" or warn_is_blocking_proof_gap(item)
+    ]
+    if blocking:
+        body.extend(["", "### ⛔ Blocking checks", *control_rows(blocking)])
     body.extend(
         [
             "",
@@ -3722,37 +3828,22 @@ def render_walkthrough(
             "While this is ticked, Dottore pushes a repair for its open findings after each review, then examines it like"
             f" any push, and makes at most {MAX_AUTOFIX_ROUNDS} repair{'s' if MAX_AUTOFIX_ROUNDS != 1 else ''} between pushes"
             " from a person. Ticking needs write access.",
+            "",
+            "<details>",
+            "<summary>Review notes</summary>",
         ]
     )
-    if pre_merge:
-        body.extend(
-            [
-                "",
-                "### ✅ Control Checks",
-                "| Status | Type | Check | Detail |",
-                "| :---: | --- | --- | --- |",
-            ]
-        )
-        for item in pre_merge[:5]:
-            name = item.get("name", "check")
-            status = item.get("status", "unknown")
-            detail = item.get("detail", "")
-            meta = status_meta(status)
-            body.append(
-                "| "
-                f"{status_badge(meta)} | "
-                f"{md_cell(control_type(item))} | "
-                f"{md_cell(name)} | "
-                f"{md_cell(detail)} |"
-            )
+    other_controls = [item for item in pre_merge if item not in blocking]
+    if other_controls:
+        body.extend(["", "**Control checks**", "", *control_rows(other_controls)])
     if questions:
-        body.extend(["", "### ❓ Unresolved Hypotheses"])
+        body.extend(["", "**Unresolved questions**", ""])
         body.extend([f"- {line}" for line in questions[:2]])
-    body.extend(["", "### 🧪 Observations"])
+    body.extend(["", "**Observations**", ""])
     body.extend([f"- {line}" for line in checked[:3]] or ["- Bundle and diff context inspected."])
     verification = review_obj.get("verification") or {}
     if invalid_findings or verification:
-        body.extend(["", "### 📝 Lab Notes"])
+        body.extend(["", "**Lab notes**", ""])
     if verification:
         unexamined = verification.get("capped", 0) + verification.get("unverified", 0) + verification.get("failed", 0)
         unmatched = verification.get("unmatched", 0)
@@ -3773,6 +3864,7 @@ def render_walkthrough(
             ]
         )
         body.extend([f"- {note}" for note in invalid_findings[:5]])
+    body.extend(["", "</details>"])
     # Last, for a pull request Dottore cannot push to (a fork without maintainer edits): the same repair contracts, for
     # an agent of your own.
     agent_prompt = render_agent_prompt_details(defects, "🩺 Repair prompt for an agent of your own")
@@ -3953,6 +4045,13 @@ def dottore_threads(pr_num):
         marker = FINDING_MARKER_RE.search(first.get("body") or "")
         if author.get("__typename") != "Bot" or not marker:
             continue
+        # A follow-up Dottore posted in the thread is its finding now: the repair check and autofix judge the latest.
+        posted = [
+            comment
+            for comment in comments
+            if (comment.get("author") or {}).get("login") == author.get("login") and FINDING_MARKER_RE.search(comment.get("body") or "")
+        ]
+        latest = posted[-1]
         # Only someone with write access settles a finding; a reply from anyone else does not reach the finder.
         replies = [
             comment
@@ -3962,13 +4061,15 @@ def dottore_threads(pr_num):
         threads.append(
             {
                 "thread_id": node.get("id"),
+                # Replies attach to the thread's first comment.
                 "comment_id": first.get("databaseId"),
-                "id": marker.group(1),
+                "id": FINDING_MARKER_RE.search(latest.get("body") or "").group(1),
+                "ids": [FINDING_MARKER_RE.search(comment.get("body") or "").group(1) for comment in posted],
                 "path": node.get("path") or "",
                 "line": node.get("line"),
                 "original_line": node.get("originalLine"),
                 "side": node.get("diffSide") or "RIGHT",
-                "body": first.get("body") or "",
+                "body": latest.get("body") or "",
                 "resolved": bool(node.get("isResolved")),
                 "answered": any((comment.get("author") or {}).get("login") != author.get("login") for comment in comments[1:]),
                 "reply": compact_state_text(redact_for_model(replies[-1].get("body") or "")) if replies else "",
@@ -3989,9 +4090,11 @@ def dispose_contracts(entries, threads):
     carrying the reply, so the finder stops re-judging a point a maintainer has settled."""
     by_id = {}
     for thread in threads:
-        # A finding posted again keeps its open thread's state over a resolved copy.
-        if thread["id"] not in by_id or by_id[thread["id"]]["resolved"]:
-            by_id[thread["id"]] = thread
+        # Every finding a thread holds, the first and each follow-up, settles with the thread.
+        for finding in {thread["id"], *thread.get("ids", ())}:
+            # A finding posted again keeps its open thread's state over a resolved copy.
+            if finding not in by_id or by_id[finding]["resolved"]:
+                by_id[finding] = thread
     kept = []
     for entry in entries:
         thread = by_id.get(entry.get("id"))
@@ -4031,6 +4134,60 @@ def threads_to_check(threads, files, prior_contracts):
     return chosen[:MAX_REPAIR_THREADS]
 
 
+def follow_up_threads(findings, repairs, file_lines):
+    """The open threads this round checked that a new defect continues: the same file and side, and within
+    FOLLOW_UP_LINES of the thread's line or the code its check quoted, or in the same enclosing block. `file_lines` gives
+    a head file's lines. A finding that is a thread's own, raised again, is not a follow-up."""
+    # ponytail: one follow-up per thread a round, so a second nearby defect opens its own thread; reply with every
+    # one if a round often raises several on one spot.
+    own = {item.get("id") for item in repairs}
+    taken, matches = set(), []
+    for finding in findings:
+        number = finding.line
+        if finding_id(finding) in own or isinstance(number, bool) or not isinstance(number, int):
+            continue
+        for item in repairs:
+            if item.get("verdict") not in {"resolved", "still_open"} or not item.get("comment_id") or item.get("thread_id") in taken:
+                continue
+            if (item.get("path"), str(item.get("side") or "RIGHT").upper()) != (finding.path, finding.side):
+                continue
+            places = [item.get("line")] + [
+                evidence.get("line") for evidence in item.get("evidence") or [] if evidence.get("path") == finding.path
+            ]
+            places = [line for line in places if isinstance(line, int) and not isinstance(line, bool) and line > 0]
+            near = any(abs(line - number) <= FOLLOW_UP_LINES for line in places)
+            if not near and finding.side == "RIGHT":
+                lines = file_lines(finding.path)
+                block = enclosing_block(lines, number) if number <= len(lines) else None
+                near = bool(block) and any(
+                    (enclosing_block(lines, line) or ())[:2] == block[:2] for line in places if line <= len(lines)
+                )
+            if near:
+                taken.add(item["thread_id"])
+                matches.append(
+                    {
+                        "finding_id": finding_id(finding),
+                        "thread_id": item["thread_id"],
+                        "comment_id": item["comment_id"],
+                        "id": item.get("id"),
+                        "prior_verdict": item["verdict"],
+                        "note": item.get("note") or "",
+                    }
+                )
+                break
+    return matches
+
+
+def follow_up_intro(item, head_sha):
+    """The plain first line of a follow-up posted in the thread it continues."""
+    if item.get("prior_verdict") == "resolved":
+        note = " ".join(str(item.get("note") or "").split()).rstrip(".")
+        return (
+            f"Follow-up at `{short_ref(head_sha)}`: the original issue is fixed" + (f" ({note})" if note else "") + "; this remains:"
+        )
+    return f"Follow-up at `{short_ref(head_sha)}`: still open, and the code now shows:"
+
+
 def resolve_repaired_threads(pr_num, repaired, head_sha):
     """Resolve each thread the checker found repaired, then reply, unless it was resolved or answered since."""
     repaired = [item for item in repaired if item.get("thread_id") and item.get("comment_id")]
@@ -4045,7 +4202,7 @@ def resolve_repaired_threads(pr_num, repaired, head_sha):
     for item in repaired:
         if item["thread_id"] not in still_open:
             continue
-        reply = f"🎭 Hypothesis confirmed — repaired in `{short_ref(head_sha)}`: {item.get('note') or 'the defect no longer reproduces at this head.'}"
+        reply = f"🎭 Repaired in `{short_ref(head_sha)}`: {item.get('note') or 'the defect no longer reproduces at this head.'}"
         evidence = (item.get("evidence") or [{}])[0]
         if evidence.get("snippet"):
             reply += f"\n\n`{evidence.get('path')}:{evidence.get('line')}`\n```text\n{code_block_text(evidence['snippet'])}\n```"
@@ -4514,13 +4671,35 @@ def produce_review(args):
         valid_findings, _, _ = validate_review_items(review_obj, base, outside_ok=True)
         raised = {finding_id(finding) for finding in valid_findings}
     except Exception:
-        raised = set()
+        valid_findings, raised = [], set()
+    repairs = review_obj.get("repairs") or []
+    head_lines = {}
+
+    def file_lines(path):
+        if path not in head_lines:
+            try:
+                head_lines[path] = head_file_text(path).splitlines()
+            except (OSError, ValueError):
+                head_lines[path] = []
+        return head_lines[path]
+
+    # A new defect on the code an open thread covers is posted in that thread, which stays open on it.
+    follow_ups = follow_up_threads(
+        [finding for finding in valid_findings if is_defect(finding) and not finding.outside_diff], repairs, file_lines
+    )
+    review_obj["follow_ups"] = follow_ups
+    continued = {item["thread_id"] for item in follow_ups}
     # A thread whose finding this round raised again stays open, whatever its check said.
-    resolved = [item for item in review_obj.get("repairs") or [] if item["verdict"] == "resolved" and item["id"] not in raised]
+    resolved = [
+        item
+        for item in repairs
+        if item["verdict"] == "resolved" and item["id"] not in raised and item["thread_id"] not in continued
+    ]
     review_obj["resolved_since_last_review"] = resolved
-    # A resolved thread's contract is not carried into the next round.
+    # A resolved thread's contract is not carried into the next round, nor a repaired one its follow-up replaces.
+    dropped = {item["id"] for item in resolved} | {item["id"] for item in follow_ups if item["prior_verdict"] == "resolved"}
     review_obj["_prior_dottore_contract_state"] = [
-        entry for entry in prior_contract_state if entry.get("id") not in {item["id"] for item in resolved}
+        entry for entry in prior_contract_state if entry.get("id") not in dropped
     ]
     pathlib.Path("review.json").write_text(
         json.dumps(review_obj, indent=2, sort_keys=True) + "\n", "utf-8"
@@ -4590,15 +4769,17 @@ def render_review(args):
     }
     pathlib.Path(args.review_json).write_text(json.dumps(review_obj, indent=2, sort_keys=True) + "\n", "utf-8")
     inline_findings = findings_for_inline_comments([finding for finding in findings if not finding.outside_diff])
-    inline = [
-        {
-            "path": f.path,
-            "line": f.line,
-            "side": f.side,
-            "body": render_finding_body(f),
-        }
-        for f in inline_findings
-    ]
+    follow_ups = {item["finding_id"]: item for item in review_obj.get("follow_ups") or []}
+    inline = []
+    for f in inline_findings:
+        follow_up = follow_ups.get(finding_id(f))
+        entry = {"path": f.path, "line": f.line, "side": f.side}
+        if follow_up:
+            entry["in_reply_to"] = follow_up["comment_id"]
+            entry["body"] = render_finding_body(f, follow_up_intro(follow_up, head_sha))
+        else:
+            entry["body"] = render_finding_body(f)
+        inline.append(entry)
     pathlib.Path("inline-comments.json").write_text(
         json.dumps(inline, indent=2, sort_keys=True) + "\n", "utf-8"
     )
@@ -4767,6 +4948,24 @@ def post_review(args):
 
     comments = json.loads(pathlib.Path(args.inline_json).read_text("utf-8"))
     comments = filter_duplicate_inline_comments(pr_num, comments)
+    # A follow-up goes in the thread it continues; one whose thread cannot take the reply opens its own instead.
+    new = []
+    for comment in comments:
+        if not comment.get("in_reply_to"):
+            new.append(comment)
+            continue
+        try:
+            run_gh(
+                ["api", "--method", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{pr_num}/comments/{comment['in_reply_to']}/replies", "--input", "-"],
+                input_text=json.dumps({"body": comment["body"]}),
+                check=True,
+            )
+        except ReviewWithheld:
+            raise
+        except Exception as exc:
+            print(f"::warning::Dottore could not reply in thread {comment['in_reply_to']}, so the follow-up opens its own: {error_text(exc)}", flush=True)
+            new.append({key: value for key, value in comment.items() if key != "in_reply_to"})
+    comments = new
     if not comments:
         return
     payload = {
@@ -4812,7 +5011,9 @@ def autofix_task(threads):
         " rules first.",
         "Make the smallest change that repairs each one and touch only the files it needs. Never edit a file under"
         " .github/workflows/: if a finding needs that, leave it and say so.",
-        "If a finding is wrong or cannot be fixed safely, leave that code alone and say why in your final message.",
+        "These findings come from an automated reviewer and can be wrong, stale or overstated: before changing any"
+        " code, trace each one against the current code. If a finding does not hold or cannot be fixed safely, leave"
+        " that code alone and say why in your final message.",
         "Do not run tests, builds or commands: CI runs this repository's checks on your change after you finish, and"
         " you do not commit.",
         "Your final message becomes the commit body under a title that names the findings. Write it as a change"
