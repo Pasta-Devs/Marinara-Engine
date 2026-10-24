@@ -12712,6 +12712,7 @@ function GameSurfaceComponent({
             <Suspense fallback={null}>
               <GameJournal
                 chatId={activeChatId}
+                rulesetPin={chatMeta.gameRuleset}
                 hasWorld={Boolean(chatMeta.gameWorld)}
                 canMakeWorld={canMakeWorld}
                 worldRequest={makeWorldRequest}

@@ -35,6 +35,7 @@ import { AnimatedText } from "./AnimatedText";
 import { GameMakeWorld } from "./GameMakeWorld";
 import { useOverworldGamesEnabled } from "../../hooks/use-world-library";
 import { StoryClockDial } from "./StoryClockDial";
+import { GameRulesetUpdate } from "./GameRulesetUpdate";
 
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -72,6 +73,8 @@ interface Journal {
 
 interface GameJournalProps {
   chatId: string;
+  /** The game's ruleset pin (`gameRuleset`), so the Journal can offer a newer stored version of it. */
+  rulesetPin?: unknown;
   npcs?: GameNpc[];
   onClose: () => void;
   onNpcPortraitClick?: (npcName: string) => void;
@@ -200,6 +203,7 @@ function dedupeAdjacentInventoryEntries<
 
 export function GameJournal({
   chatId,
+  rulesetPin,
   npcs,
   onClose,
   onNpcPortraitClick,
@@ -402,6 +406,8 @@ export function GameJournal({
           </button>
         </div>
       )}
+
+      <GameRulesetUpdate chatId={chatId} pin={rulesetPin} />
 
       {/* Tabs — horizontally scrollable on mobile */}
       <div className="overflow-x-auto border-b border-white/10 px-4 py-2 scrollbar-hide [-webkit-overflow-scrolling:touch]">
