@@ -655,9 +655,17 @@ def issue_sections(text):
     parts = ISSUE_HEADING_RE.split(body)
     # A hand-written heading may be bold or end in a colon: "## **Expected behavior:**".
     found = {head.strip("*: ").lower(): section.strip() for head, section in zip(parts[1::2], parts[2::2])}
-    kept = "\n\n".join(f"{name.capitalize()}:\n{found[name]}" for name in ISSUE_SECTIONS if found.get(name))
-    shown = truncate(kept, MAX_ISSUE_CHARS) if kept else truncate(body.strip(), MAX_UNSTRUCTURED_ISSUE_CHARS)
-    return f"{title}\n\n{shown}"
+    sections = [(name, found[name]) for name in ISSUE_SECTIONS if found.get(name)]
+    if not sections:
+        opening = truncate(body.strip(), MAX_UNSTRUCTURED_ISSUE_CHARS)
+        return f"{title}\n\nOpening of the issue, which has no expected behavior or scope section:\n{opening}"
+    # Shortest first, each taking an even share of what is left, so a long section cannot crowd out the scope.
+    budget, shown = MAX_ISSUE_CHARS, {}
+    for count, (name, section) in enumerate(sorted(sections, key=lambda item: len(item[1]))):
+        share = budget // (len(sections) - count)
+        shown[name] = truncate(section, share)
+        budget -= min(len(section), share)
+    return f"{title}\n\n" + "\n\n".join(f"{name.capitalize()}:\n{shown[name]}" for name, _ in sections)
 
 
 def tests_on_disk(focus):
@@ -675,7 +683,9 @@ def repository_variables(files):
     if not any(path.startswith(".github/") for path in files):
         return ""
     try:
-        variables = json.loads(os.environ.get("DOTTORE_VARS_JSON") or "{}")
+        variables = json.loads(os.environ["DOTTORE_VARS_JSON"])
+    except KeyError:
+        return "Not passed to this run."
     except json.JSONDecodeError:
         return "Could not be read."
     return "\n".join(f"{name}={value}" for name, value in sorted(variables.items())) or "None set."
@@ -4344,6 +4354,7 @@ def produce_review(args):
         bundles.append(bundle)
         packets.append(finder_packet(review_target, focus_note, prior_contract_context, bundle, issues))
     stats = build_stats("".join(bundles))
+    stats["review_packet_chars"] = sum(len(packet) for packet in packets)
     print(f"Dottore bundles: packets={len(bundles)}; chars={','.join(str(len(bundle)) for bundle in bundles)}", flush=True)
     allowed = touched_lines(base)
     try:

@@ -128,8 +128,12 @@ class ReviewContext(unittest.TestCase):
         text = reviewer.issue_sections(body)
         self.assertEqual(text, "Bug title\n\nExpected behavior:\nEntries are restored.\n\nNot in scope:\nNo schema change.")
         bare = reviewer.issue_sections("Idea\n\n" + "word " * 200)
-        self.assertLess(len(bare), 600)
+        self.assertLess(len(bare), 700)
         self.assertIn("truncated", bare)
+        self.assertIn("no expected behavior or scope section", bare)
+        long = reviewer.issue_sections("T\n\n## Expected behavior\n" + "x" * 3000 + "\n\n## Not in scope\nNo schema change.")
+        self.assertIn("Not in scope:\nNo schema change.", long)
+        self.assertLess(len(long), reviewer.MAX_ISSUE_CHARS + 200)
         crlf = reviewer.issue_sections("T\r\n\r\n## Summary\r\nWhy.\r\n\r\n## **Expected behavior:**\r\nShould X\r\n")
         self.assertEqual(crlf, "T\n\nExpected behavior:\nShould X")
 
@@ -137,6 +141,13 @@ class ReviewContext(unittest.TestCase):
         packet = reviewer.finder_packet("Review.", "Full diff.", "None.", "BUNDLE", "Issue #12: Expected.")
         self.assertLess(packet.index("# Linked Issues"), packet.index("BUNDLE"))
         self.assertNotIn("Linked Issues", reviewer.finder_packet("Review.", "Full diff.", "None.", "BUNDLE"))
+
+    def test_unpassed_variables_are_not_reported_as_none_set(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("DOTTORE_VARS_JSON", None)
+            self.assertEqual(reviewer.repository_variables([".github/a.yml"]), "Not passed to this run.")
+        with patch.dict(os.environ, {"DOTTORE_VARS_JSON": "{}"}):
+            self.assertEqual(reviewer.repository_variables([".github/a.yml"]), "None set.")
 
     def test_unmatched_confirmation_is_counted_not_published(self):
         finding = reviewer.Finding("medium", "src/a.ts", 3, "Title", "Body", "Fix")
