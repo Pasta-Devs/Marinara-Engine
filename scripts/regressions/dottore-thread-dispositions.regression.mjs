@@ -116,10 +116,25 @@ class ReviewContext(unittest.TestCase):
                 return NS(stdout="Title\n\nRuns auto-fix #11. Fixes #12, closes #13 and resolves #14. See #15.", stderr="", returncode=0)
             return NS(stdout=f"Issue {args[2]}\n\nAcceptance criteria.", stderr="", returncode=0)
         with patch.object(reviewer, "run_gh", gh):
-            text = reviewer.pr_description("7")
+            description, issues = reviewer.pr_description("7")
         self.assertEqual([call[2] for call in calls if call[0] == "issue"], ["12", "13"])
-        self.assertIn("Linked issue #12: Issue 12", text)
-        self.assertNotIn("#14:", text)
+        self.assertIn("Issue #12: Issue 12", issues)
+        self.assertNotIn("#14:", issues)
+        self.assertNotIn("Issue #12", description)
+
+    def test_an_issue_shows_only_what_the_change_must_do(self):
+        body = ("Bug title\n\n## Summary\nWhy.\n\n## Actual behavior\n" + "trace " * 500 + "\n\n## Expected behavior\n"
+                "<!-- template hint -->\nEntries are restored.\n\n## Not in scope\nNo schema change.\n\n## Environment\nWindows")
+        text = reviewer.issue_sections(body)
+        self.assertEqual(text, "Bug title\n\nExpected behavior:\nEntries are restored.\n\nNot in scope:\nNo schema change.")
+        bare = reviewer.issue_sections("Idea\n\n" + "word " * 200)
+        self.assertLess(len(bare), 600)
+        self.assertIn("truncated", bare)
+
+    def test_linked_issues_reach_the_finder_and_checker_not_the_scouts(self):
+        packet = reviewer.finder_packet("Review.", "Full diff.", "None.", "BUNDLE", "Issue #12: Expected.")
+        self.assertLess(packet.index("# Linked Issues"), packet.index("BUNDLE"))
+        self.assertNotIn("Linked Issues", reviewer.finder_packet("Review.", "Full diff.", "None.", "BUNDLE"))
 
     def test_unmatched_confirmation_is_counted_not_published(self):
         finding = reviewer.Finding("medium", "src/a.ts", 3, "Title", "Body", "Fix")

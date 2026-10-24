@@ -183,6 +183,15 @@ MAX_CALLEE_LINES = 60
 MAX_BUNDLE_CODE_CHARS = 160_000
 MAX_PR_DESCRIPTION_CHARS = 4_000
 MAX_LINKED_ISSUES = 2
+# The issue template sections that say what a change must do or leave alone, shown in this order. The rest describe
+# the fault (actual behavior, steps, environment, logs) or restate the PR's why, and are left out.
+ISSUE_SECTIONS = (
+    "expected behavior", "expected", "requested behavior", "requested change", "proposed solution", "proposal",
+    "describe the solution you'd like", "proposed package or change", "scope", "not in scope",
+)
+MAX_ISSUE_CHARS = 1_000
+MAX_UNSTRUCTURED_ISSUE_CHARS = 500
+ISSUE_HEADING_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.M)
 CLOSING_ISSUE_RE = re.compile(r"(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.I)
 MAX_TESTS_ON_DISK = 30
 # Scouts add code the bundle builder could not follow by name: places they keep, quoted by code. Each scout of a
@@ -618,23 +627,36 @@ SCOUT_NOTE = (
 
 
 def pr_description(pr_num):
-    """The PR's title and description, then the first issues it closes, or "" when gh cannot read the PR."""
+    """The PR's title and description, and what the first issues it closes say the change must do; each is "" when
+    gh cannot read the PR."""
     if not pr_num:
-        return ""
+        return "", ""
     result = run_gh(["pr", "view", pr_num, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
     if result.returncode != 0:
-        return ""
-    parts = [truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS)]
+        return "", ""
+    issues = []
     # Read from the closing keywords, because GitHub links closing issues only on PRs into the default branch and
     # these PRs target staging; an issue linked only by a plain mention or from the sidebar is not read.
     for number in list(dict.fromkeys(CLOSING_ISSUE_RE.findall(result.stdout)))[:MAX_LINKED_ISSUES]:
         try:
             issue = run_gh(["issue", "view", number, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
-            text = issue.stdout.strip() if issue.returncode == 0 else "Could not be read."
+            text = issue_sections(issue.stdout) if issue.returncode == 0 else "Could not be read."
         except subprocess.TimeoutExpired:
             text = "Could not be read."
-        parts.append(f"Linked issue #{number}: {truncate(redact_for_model(text), MAX_PR_DESCRIPTION_CHARS)}")
-    return "\n\n".join(parts)
+        issues.append(f"Issue #{number}: {redact_for_model(text)}")
+    return truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS), "\n\n".join(issues)
+
+
+def issue_sections(text):
+    """An issue's title and the template sections that state the intended behavior or its limits, or the opening of
+    its body when it has none of them."""
+    title, _, body = text.strip().partition("\n\n")
+    body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
+    parts = ISSUE_HEADING_RE.split(body)
+    found = {head.lower(): section.strip() for head, section in zip(parts[1::2], parts[2::2])}
+    kept = "\n\n".join(f"{name.capitalize()}:\n{found[name]}" for name in ISSUE_SECTIONS if found.get(name))
+    shown = truncate(kept, MAX_ISSUE_CHARS) if kept else truncate(body.strip(), MAX_UNSTRUCTURED_ISSUE_CHARS)
+    return f"{title}\n\n{shown}"
 
 
 def tests_on_disk(focus):
@@ -789,7 +811,7 @@ def build_bundle(base, focus, description):
     )
     on_disk = tests_on_disk(focus)
     sections = [
-        ("Pull Request and Linked Issues", description or "No description could be read."),
+        ("Pull Request", description or "No description could be read."),
         ("Changed Files", listed + (f"\n\nTest files ({len(tests)}) are listed but not shown." if tests else "")),
         (
             "Tests on Disk",
@@ -1846,9 +1868,11 @@ def reviewer_system(prompts):
     )
 
 
-def finder_packet(review_target, focus_note, prior_contracts, bundle):
-    # Shared by the finder and the checker and placed before their instructions, so providers can cache it.
-    return f"{review_target} {focus_note}\n\n# Prior Dottore Repair Contracts\n{prior_contracts}\n\n{bundle}"
+def finder_packet(review_target, focus_note, prior_contracts, bundle, issues=""):
+    # Shared by the finder and the checker and placed before their instructions, so providers can cache it. Linked
+    # issues are here and not in the bundle, because the scouts that read the bundle look only for code.
+    linked = f"# Linked Issues\n{issues}\n\n" if issues else ""
+    return f"{review_target} {focus_note}\n\n# Prior Dottore Repair Contracts\n{prior_contracts}\n\n{linked}{bundle}"
 
 
 def tools_line(settings, in_view):
@@ -4307,7 +4331,7 @@ def produce_review(args):
         f"Review this PR. The review base is commit '{base}' on target branch '{base_ref}', "
         f"head is '{head_sha}', and mode is '{effective_mode}'."
     )
-    description = pr_description(pr_num)
+    description, issues = pr_description(pr_num)
     bundles, packets = [], []
     for index, chunk in enumerate(chunks, 1):
         bundle = build_bundle(base, chunk, description)
@@ -4317,7 +4341,7 @@ def produce_review(args):
             else "Review the full current diff."
         )
         bundles.append(bundle)
-        packets.append(finder_packet(review_target, focus_note, prior_contract_context, bundle))
+        packets.append(finder_packet(review_target, focus_note, prior_contract_context, bundle, issues))
     stats = build_stats("".join(bundles))
     print(f"Dottore bundles: packets={len(bundles)}; chars={','.join(str(len(bundle)) for bundle in bundles)}", flush=True)
     allowed = touched_lines(base)

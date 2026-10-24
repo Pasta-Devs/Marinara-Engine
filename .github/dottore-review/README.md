@@ -68,12 +68,17 @@ recorded for the new head; `/dottore full` examines it afresh.
 
 Code first builds a bundle for each packet of the pull request: the PR description, the changed code at the head with
 its changes marked and the code around it, the definitions it reads, the same-file functions it calls two hops deep,
-where changed names are used elsewhere, the path rules and a guidance index. It adds the first two issues the
-description closes (`Closes #N`, `Fixes #N`, `Resolves #N`); GitHub links closing issues only on pull requests into
-the default branch, so the keywords are read from the description, and an issue linked only by a plain mention or from
-the sidebar is not shown. It lists by name, without contents, the tracked tests named after a changed file, and, when
-the pull request changes a file under `.github/`, the repository's Actions variables (never its secrets). Then three roles run on two models (see
-Models): the small model reads, the large one judges.
+where changed names are used elsewhere, the path rules and a guidance index. It lists by name, without contents, the
+tracked tests named after a changed file, and, when the pull request changes a file under `.github/`, the repository's
+Actions variables (never its secrets). Then three roles run on two models (see Models): the small model reads, the
+large one judges.
+
+The finder and checker, but not the scouts, also see the first two issues the description closes (`Closes #N`,
+`Fixes #N`, `Resolves #N`). GitHub links closing issues only on pull requests into the default branch, so the keywords
+are read from the description, and an issue linked only by a plain mention or from the sidebar is not shown. Of each
+issue they see the title and the sections that say what the change must do or leave alone (Expected behavior,
+Requested behavior or change, Proposed solution, Proposed package or change, Scope and Not in scope, and their common
+variants), up to 1,000 characters. An issue with none of those sections shows the first 500 characters of its body.
 
 - **`scout`** reads outward from the bundle with the read-only tools and keeps places as it reads: the callers in other
   files, imported definitions and what the changed values flow into. Each packet's changed functions are split into
