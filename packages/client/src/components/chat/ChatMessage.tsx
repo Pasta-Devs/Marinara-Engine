@@ -41,6 +41,7 @@ import { ChatImagePreview } from "./ChatImagePreview";
 import { ChatVideoAttachment, isAttachmentHiddenByImageText, isVideoAttachment } from "./ChatVideoAttachment";
 import { recordClientRuntimeEvent } from "../../lib/client-runtime-diagnostics";
 import { isDiceRollResult, readRoleplayDiceRolls } from "../../lib/dice-roll-result";
+import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
 import { DiceMessageContent, diceRollReplacesMessageContent } from "./ConversationMessageShared";
 import {
   User,
@@ -2640,6 +2641,10 @@ export const ChatMessage = memo(function ChatMessage({
   // we don't JSON-parse the whole chat metadata on every store tick during streaming.
   const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
   const presetVariables = useMessagePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`);
+  const rollToneMode = useMemo(
+    () => normalizeRollOutcomeToneMode(parseChatMetadata(activeChatMetadata).roleplayRollOutcomeTone),
+    [activeChatMetadata],
+  );
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
   // Roleplay can show a private note to one character; it stays private only when each character replies alone.
   const noteSharing = useMemo<MessageNoteSharing | undefined>(() => {
@@ -3185,9 +3190,11 @@ export const ChatMessage = memo(function ChatMessage({
           key={`roll-${message.id}-${message.activeSwipeIndex}-${command.index}`}
           result={command.result}
           createdAt={message.createdAt}
+          toneMode={rollToneMode}
         />
       ),
     [
+      rollToneMode,
       message.chatId,
       message.id,
       message.activeSwipeIndex,

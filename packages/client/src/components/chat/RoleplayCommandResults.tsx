@@ -21,6 +21,7 @@ import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { RoleplayDocument } from "./RoleplayDocument";
 import { AnimatedDiceRoll, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import { isDiceRollResult } from "../../lib/dice-roll-result";
+import { rollTone, type RollOutcomeToneMode } from "../dice/dice-tone";
 
 const loadedAt = Date.now();
 
@@ -180,7 +181,15 @@ export function RoleplayWhisper({
   );
 }
 
-export function RoleplayDiceRoll({ result, createdAt }: { result: string; createdAt: string }) {
+export function RoleplayDiceRoll({
+  result,
+  createdAt,
+  toneMode,
+}: {
+  result: string;
+  createdAt: string;
+  toneMode: RollOutcomeToneMode;
+}) {
   const roll = useMemo(() => {
     try {
       const value: unknown = JSON.parse(result);
@@ -192,7 +201,7 @@ export function RoleplayDiceRoll({ result, createdAt }: { result: string; create
   const [animate] = useState(() => Date.parse(createdAt) >= loadedAt && shouldAnimateDiceRollMessage(createdAt));
   return roll ? (
     <div className="my-3 min-w-0 max-w-full whitespace-normal" data-roleplay-inline-roll>
-      <AnimatedDiceRoll {...roll} animate={animate} />
+      <AnimatedDiceRoll {...roll} tone={rollTone(roll, toneMode)} animate={animate} />
     </div>
   ) : null;
 }
