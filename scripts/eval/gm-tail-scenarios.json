@@ -1,0 +1,43 @@
+[
+  {
+    "id": "stealth",
+    "input": "{party1} slips ahead along the wall to look into the next room without being seen.",
+    "expect": [{ "name": "stealthCheck", "tag": "\\[skill_check:[^\\]]*stealth" }]
+  },
+  {
+    "id": "search",
+    "input": "{party2} searches the room carefully for anything hidden.",
+    "expect": [{ "name": "searchCheck", "tag": "\\[skill_check:[^\\]]*(investigation|perception)" }]
+  },
+  {
+    "id": "heal-spell",
+    "input": "{party0} casts Cure Wounds on {party3} with a 1st-level spell slot.",
+    "expect": [
+      { "name": "spendsSlot", "tag": "\\[sheet:[^\\]]*op=\"spend\"" },
+      { "name": "healsOnSheet", "tag": "\\[sheet:[^\\]]*op=\"restore\"|\\[dice:|\\[\\[roll:" }
+    ]
+  },
+  {
+    "id": "give-item",
+    "input": "{party1} hands {party2} a torch from their pack.",
+    "expect": [{ "name": "inventoryGive", "tag": "\\[inventory:[^\\]]*action=\"give\"" }]
+  },
+  {
+    "id": "party-talk",
+    "input": "[To the party] So, what do we all think we should do next?",
+    "expect": [{ "name": "partyAnswers", "speakers": 2 }]
+  },
+  {
+    "id": "ooc-sheet",
+    "input": "[To the GM] What are {party0}'s Armor Class and current hit points right now?",
+    "expect": [
+      { "name": "sheetNumbers", "sheet": "{party0}", "fields": ["ac", "hpNow"] },
+      { "name": "oocNoScene", "noSpeakerLines": true }
+    ]
+  },
+  {
+    "id": "npc-talk",
+    "input": "{party3} walks up to the nearest local and asks what has been happening around here lately.",
+    "expect": []
+  }
+]
