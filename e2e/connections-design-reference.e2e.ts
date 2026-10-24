@@ -419,6 +419,7 @@ for (const [size, theme] of [
     // Add, service already connected: the existing Connection uses the card header's identity.
     await panel.getByRole("button", { name: "Add connection" }).first().click();
     const add = page.getByRole("dialog", { name: "Add connection", exact: true });
+    await add.locator("[data-add-connection-browse]").click();
     await add.locator('[data-add-connection-service="nanogpt"]').click();
     await expect(add.getByRole("heading", { name: "Use an existing NanoGPT connection?", exact: true })).toBeVisible();
     const existing = add.locator('[data-add-connection-existing-account="acc-nano"]');
