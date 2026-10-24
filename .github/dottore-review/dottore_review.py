@@ -147,7 +147,8 @@ MAX_CONTRACT_STATE_LIST_ITEMS = 3
 # fails and is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
 # provider's queue, while a working one starts replying within about a minute, so it is retried sooner. A call
 # offered only its submit tool thinks over the whole bundle before replying, so it may stay silent for its role's
-# whole time box (`minutes`) instead, however late it starts (see chat).
+# whole time box (`minutes`) instead, however late it starts, or, without a box, for what is left before its
+# deadline (see chat).
 MODEL_REQUEST_TIMEOUT = 360
 FIRST_CALL_TIMEOUT = 180
 # Limits time without thinking, text or tool-input progress; pings do not keep an attempt alive. An attempt stopped
@@ -1556,12 +1557,14 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
     for attempt in range(len(RETRY_DELAYS) + 1):
         started = time.monotonic()
         timing = {}
-        if len(tools) == 1 and settings.get("minutes"):
+        if len(tools) == 1 and (settings.get("minutes") or until):
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
             # whole bundle takes minutes, so an attempt may stay silent for the role's whole time box (`minutes`),
-            # however late in the review it starts. Meaningful stream progress refreshes that allowance. The
-            # deadline only stops new work; the workflow's step limit still bounds an in-flight reply.
-            read_timeout = stream_limit = settings["minutes"] * 60
+            # however late in the review it starts. A role without a box (a checker with no reads) may stay silent
+            # for what is left before its deadline, at least FIRST_CALL_TIMEOUT. Meaningful stream progress
+            # refreshes that allowance. The deadline only stops new work; the workflow's step limit still bounds
+            # an in-flight reply.
+            read_timeout = stream_limit = settings["minutes"] * 60 if settings.get("minutes") else max(FIRST_CALL_TIMEOUT, until - started)
         else:
             read_timeout, stream_limit = (FIRST_CALL_TIMEOUT if first_call else MODEL_REQUEST_TIMEOUT), MODEL_STREAM_LIMIT
         try:

@@ -297,8 +297,8 @@ Other limits in `dottore_review.py`: a 30-minute review (`REVIEW_DEADLINE_SECOND
 reserved for the checker, at most 20 candidates checked per review (`MAX_VERIFIED_CANDIDATES`), 3 submit attempts,
 a role aborting after 3 failed calls in a row (`MAX_ROLE_FAILURES`), 180 s for a call's first byte and 360 s between
 bytes (`FIRST_CALL_TIMEOUT`, `MODEL_REQUEST_TIMEOUT`), 900 s without meaningful stream progress for a role with
-read tools (`MODEL_STREAM_LIMIT`; a role offered only its submit tool gets its whole `minutes` box; a reply stopped for silence
-is not resent),
+read tools (`MODEL_STREAM_LIMIT`; a finder or scout offered only its submit tool gets its whole `minutes` box, and a
+checker with `reads` at `0` what is left of the review, at least 180 s; a reply stopped for silence is not resent),
 at most 2 notes and 2 open questions per review
 (`MAX_NITPICKS`, `MAX_OPEN_QUESTIONS`), and the packet split for large PRs (`MAX_CHUNK_PATCH_CHARS`,
 `MAX_REVIEW_CHUNKS`).
