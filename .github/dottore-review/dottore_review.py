@@ -155,8 +155,8 @@ MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
 # The candidates an examination left unjudged ride in its walkthrough comment (65,536 characters at most) as at most
 # MAX_CARRIED_MARKER_CHARS of JSON, about 32,000 once encoded. A body is cut to MAX_CARRIED_TEXT_CHARS and a title and
-# fix hint to 200 each, so the 19 a recorded examination can leave fit once their repair contracts are dropped, unless
-# their text needs heavy escaping.
+# fix hint to 200 each, so the 19 a recorded examination can leave fit once their repair contracts and leads are
+# dropped, unless their text needs heavy escaping. A quip is not carried: the checker writes the quote it publishes.
 MAX_CARRIED_TEXT_CHARS = 600
 MAX_CARRIED_MARKER_CHARS = 24_000
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
@@ -2634,7 +2634,8 @@ def judge(ctx, candidate, verdict):
     if written["title"] and written["body"]:
         finding.title, finding.body, finding.lead = written["title"], written["body"], written["lead"]
         finding.fix_hint = written["fix_hint"] or finding.fix_hint
-        finding.quip = written["quip"] or finding.quip
+        # A quote written for the finder's claim does not fit the checker's rewrite of it.
+        finding.quip = written["quip"]
         finding.repair_contract = normalize_repair_contract(verdict.get("repair_contract")) or finding.repair_contract
     line = verdict.get("line")
     if isinstance(line, int) and not isinstance(line, bool) and line > 0:
@@ -2839,8 +2840,8 @@ def check_threads(ctx, threads, pool):
 def unjudged_entries(candidates):
     """The walkthrough marker's entries for the candidates an examination left unjudged: enough of each for the next
     one to judge it and, confirmed, publish it with its repair. A cut body ends in an ellipsis. Past
-    MAX_CARRIED_MARKER_CHARS the repair contracts go, the least severe candidate's first; entries that outgrow it even
-    then are not carried, and the head stays unrecorded."""
+    MAX_CARRIED_MARKER_CHARS the repair contracts and leads go, the least severe candidate's first; entries that outgrow
+    it even then are not carried, and the head stays unrecorded."""
     entries = [
         {
             **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
@@ -2848,7 +2849,6 @@ def unjudged_entries(candidates):
             "body": item.body if len(item.body) <= MAX_CARRIED_TEXT_CHARS else item.body[: MAX_CARRIED_TEXT_CHARS - 1].rstrip() + "…",
             "fix_hint": compact_state_text(item.fix_hint, 200),
             "lead": compact_state_text(item.lead, 200),
-            "quip": compact_state_text(item.quip),
             "repair_contract": compact_contract_for_state(item.repair_contract),
         }
         for item in candidates
@@ -2858,7 +2858,8 @@ def unjudged_entries(candidates):
     for entry in reversed(entries):
         if size() <= MAX_CARRIED_MARKER_CHARS:
             break
-        entry["repair_contract"] = None
+        # A candidate without a lead leads with its body's first sentence.
+        entry["repair_contract"], entry["lead"] = None, ""
     if size() > MAX_CARRIED_MARKER_CHARS:
         print(f"Dottore unjudged: {plural(len(entries), 'candidate')} need {size()} characters, over {MAX_CARRIED_MARKER_CHARS}; not carried", flush=True)
         return []
@@ -4184,6 +4185,18 @@ def follow_up_threads(findings, repairs, file_lines):
     return matches
 
 
+def repaired_threads(repairs, raised, continued):
+    """The threads this round's check found repaired that it resolves. A thread holding any finding this round raised
+    again stays open, whatever its check said, as does one a follow-up continues."""
+    return [
+        item
+        for item in repairs
+        if item["verdict"] == "resolved"
+        and not raised & set(item.get("ids") or [item["id"]])
+        and item["thread_id"] not in continued
+    ]
+
+
 def follow_up_intro(item, finding, head_sha):
     """The plain first line of a follow-up posted in the thread it continues. It names the follow-up's own line, which
     the thread's anchor does not show, for the next repair check and autofix."""
@@ -4699,12 +4712,7 @@ def produce_review(args):
     )
     review_obj["follow_ups"] = follow_ups
     continued = {item["thread_id"] for item in follow_ups}
-    # A thread whose finding this round raised again stays open, whatever its check said.
-    resolved = [
-        item
-        for item in repairs
-        if item["verdict"] == "resolved" and item["id"] not in raised and item["thread_id"] not in continued
-    ]
+    resolved = repaired_threads(repairs, raised, continued)
     review_obj["resolved_since_last_review"] = resolved
     # A resolved thread's contract is not carried into the next round, nor a repaired one its follow-up replaces.
     dropped = {item["id"] for item in resolved} | {item["id"] for item in follow_ups if item["prior_verdict"] == "resolved"}

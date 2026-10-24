@@ -92,6 +92,33 @@ class CommentShape(unittest.TestCase):
         self.assertTrue(prompt.startswith(reviewer.VERIFY_FIRST.splitlines()[0]))
         self.assertIn("What breaks: Deleting the last swipe leaves the index past the end.", prompt)
 
+    def test_a_rewritten_finding_takes_only_the_checker_quip(self):
+        ctx = types.SimpleNamespace(anchorable={})
+        rewrite = {"verdict": "confirmed", "title": "Index read past the end", "body": "selectSwipe reads swipes[length]."}
+        with patch.object(reviewer, "evidence_grounded", lambda ctx, evidence: True):
+            _, rewritten, _, _ = reviewer.judge(ctx, finding(), rewrite)
+            _, kept, _, _ = reviewer.judge(ctx, finding(), {"verdict": "confirmed"})
+        self.assertEqual(rewritten.quip, "")
+        self.assertNotIn("> *", reviewer.render_finding_body(rewritten))
+        self.assertEqual(kept.quip, finding().quip)
+
+    def test_nineteen_maximal_candidates_are_carried(self):
+        big = reviewer.dataclasses.replace(
+            finding(path="packages/server/src/routes/" + "m" * 40 + ".ts", line=12345, title="t" * 400, body="b" * 2000),
+            fix_hint="f" * 400, lead="l" * 400, quip="q" * 800,
+        )
+        entries = reviewer.unjudged_entries([big] * 19)
+        self.assertEqual(len(entries), 19)
+        # The last candidate gives up its lead first and leads with its body instead.
+        carried = reviewer.normalize_review_item(entries[-1], default_severity="medium")
+        self.assertEqual(carried.quip, "")
+        self.assertTrue(reviewer.finding_lead(carried).startswith("b"))
+
+    def test_a_thread_holding_a_finding_raised_again_stays_open(self):
+        thread = {"id": "b" * 16, "ids": ["a" * 16, "b" * 16], "thread_id": "T_1", "verdict": "resolved"}
+        self.assertEqual(reviewer.repaired_threads([thread], {"a" * 16}, set()), [])
+        self.assertEqual(reviewer.repaired_threads([thread], set(), set()), [thread])
+
     def test_a_thread_is_judged_by_its_latest_finding(self):
         bot = {"__typename": "Bot", "login": "github-actions"}
         comments = [{"databaseId": 1, "body": "### MEDIUM: first\n<!-- dottore:finding=" + "a" * 16 + " -->", "author": bot},
