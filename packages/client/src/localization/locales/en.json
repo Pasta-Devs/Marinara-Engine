@@ -11040,6 +11040,7 @@
   "ui.game.rulesetUpdate.available": "This game plays by {{name}} version {{current}}. Version {{version}} is installed.",
   "ui.game.rulesetUpdate.confirmMessage": "From now on this game plays by {{name}} version {{version}}. Character sheets carry over to it. A game cannot go back to an older version.",
   "ui.game.rulesetUpdate.confirmTitle": "Update this game’s rules?",
+  "ui.game.rulesetUpdate.current": "This game plays by {{name}} version {{version}}.",
   "ui.game.rulesetUpdate.failed": "The game’s rules could not be updated.",
   "ui.game.rulesetUpdate.update": "Update this game",
   "ui.game.rulesetUpdate.updated": "This game now plays by {{name}} version {{version}}.",
