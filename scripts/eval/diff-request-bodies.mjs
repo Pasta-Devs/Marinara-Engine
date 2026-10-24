@@ -16,7 +16,10 @@ if (!logPath) {
 const last = Number(rest[rest.indexOf("--last") + 1]) || 6;
 const marker = "[debug/openai] responses request body: ";
 const bodies = [];
-for (const raw of (await readFile(logPath, "utf8")).split("\n")) {
+// Colour codes a pretty logger writes around the message would end the JSON early.
+// eslint-disable-next-line no-control-regex
+const ansi = /\x1b\[[0-9;]*m/g;
+for (const raw of (await readFile(logPath, "utf8")).replace(ansi, "").split("\n")) {
   // A JSON log line carries the message in its msg field; a pretty one carries it as is.
   let line = raw;
   if (raw.startsWith("{")) {
