@@ -54,21 +54,37 @@ class CommentShape(unittest.TestCase):
         text = reviewer.render_walkthrough(review, [], [note], [], HEAD)
         self.assertIn("> [!TIP]", text)
         self.assertIn("nothing is required before merge", text)
+        self.assertNotIn("below;", text)
         self.assertNotIn("### 🔎 Defects", text)
         self.assertIn("> *A modest procedure.*", text)
         notes = text.split("<summary>Review notes</summary>", 1)[1]
         self.assertIn("**Control checks**", notes.split("</details>", 1)[0])
 
     def test_a_nearby_defect_follows_up_in_the_thread_it_continues(self):
-        repairs = [{"id": "a" * 16, "thread_id": "T_a", "comment_id": 11, "verdict": "resolved", "path": "src/a.ts",
-                    "side": "RIGHT", "line": 25, "note": "the index is clamped"}]
+        repaired = {"id": "a" * 16, "thread_id": "T_a", "comment_id": 11, "verdict": "resolved", "path": "src/a.ts",
+                    "side": "RIGHT", "line": 25, "anchored": True, "note": "the index is clamped"}
         near, elsewhere = finding(line=40), finding(path="src/b.ts", line=26)
         again = finding(line=26)
-        repairs.append({**repairs[0], "id": reviewer.finding_id(again), "thread_id": "T_b", "comment_id": 12})
+        repairs = [
+            repaired,
+            # A thread holding an earlier finding raised again: neither is a follow-up of the other.
+            {**repaired, "id": "b" * 16, "ids": [reviewer.finding_id(again), "b" * 16], "thread_id": "T_b", "comment_id": 12},
+        ]
         matches = reviewer.follow_up_threads([near, elsewhere, again], repairs, lambda path: [])
         self.assertEqual([(m["finding_id"], m["comment_id"]) for m in matches], [(reviewer.finding_id(near), 11)])
-        intro = reviewer.follow_up_intro(matches[0], HEAD)
-        self.assertIn("the original issue is fixed (the index is clamped); this remains:", intro)
+        # A still-open thread keeps judging its own finding, and an outdated one's line is an old commit's.
+        for other in ({"verdict": "still_open"}, {"anchored": False}):
+            self.assertEqual(reviewer.follow_up_threads([near], [{**repaired, **other}], lambda path: []), [])
+        intro = reviewer.follow_up_intro(matches[0], near, HEAD)
+        self.assertIn("on " + chr(96) + "src/a.ts:40" + chr(96) + ": the original issue is fixed (the index is clamped); this remains:", intro)
+        body = reviewer.render_finding_body(near, intro)
+        standalone = reviewer.FOLLOW_UP_INTRO_RE.sub(r"\1", body, count=1)
+        self.assertNotIn("Follow-up at", standalone)
+        self.assertEqual(standalone, reviewer.render_finding_body(near))
+
+    def test_autofix_names_each_thread_location(self):
+        thread = {"path": "src/a.ts", "line": None, "original_line": 25, "body": reviewer.render_finding_body(finding())}
+        self.assertIn("Thread at " + chr(96) + "src/a.ts:25" + chr(96) + ".", reviewer.autofix_task([thread]))
 
     def test_the_repair_prompt_tells_an_agent_to_verify_first(self):
         text = reviewer.render_agent_prompt_details([finding()], [])

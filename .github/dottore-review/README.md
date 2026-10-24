@@ -75,7 +75,7 @@ A review posts:
   suggested fix, one quote in his voice, and, folded under Details, the full explanation, the other acceptable fixes
   and the proof expected (only that fold is trimmed when a finding runs long). A footer names the two ways it gets
   resolved: a push Dottore re-examines, or the autofix box. A new defect within a few lines of, or in the same function
-  as, an open thread checked that round is posted as a reply in that thread instead of a new one, and the thread stays
+  as, a thread that round found repaired is posted as a reply in that thread instead of a new one, and the thread stays
   open on it.
 - **The `Dottore Review` commit status**: success once the review is posted, whatever it found, with the verdict and
   the counts in its text; failure only when the review did not run or did not finish.

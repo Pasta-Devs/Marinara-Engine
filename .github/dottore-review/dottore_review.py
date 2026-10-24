@@ -2805,6 +2805,9 @@ def check_repairs(ctx, packet, threads):
                 **{key: thread[key] for key in ("thread_id", "comment_id", "id", "path", "side", "title")},
                 # An outdated thread has no line at the head; the walkthrough shows where it was opened.
                 "line": thread["line"] or thread["original_line"],
+                # Only a thread still anchored at the head can take a follow-up: an outdated one's line is an old commit's.
+                "anchored": bool(thread["line"]),
+                "ids": thread.get("ids") or [thread["id"]],
                 "verdict": outcome,
                 "note": note,
                 "evidence": evidence[:3],
@@ -3132,9 +3135,10 @@ def finding_lead(finding):
     """The one-sentence lead; an older finding without one leads with its body's first sentence."""
     if finding.lead:
         return finding.lead
-    body = " ".join(finding.body.split())
+    # The first paragraph up to any code fence, so a fence or a list never lands in the visible lead.
+    body = " ".join(finding.body.split("\n\n", 1)[0].split("```", 1)[0].split())
     match = re.match(r"(.+?[.!?])(?:\s|$)", body)
-    return match.group(1) if match else body
+    return inline_truncate(match.group(1) if match else body, 240)
 
 
 def quote_line(text):
@@ -3396,7 +3400,7 @@ def merge_signal(review_obj, findings, nitpicks, pre_merge):
             "label": "VIABLE, WITH NOTES",
             "title": "Viable, With Notes",
             "admonition": "TIP",
-            "detail": f"No actionable defects. {plural(notes, 'optional note')} below; nothing is required before merge.",
+            "detail": "No actionable defects. The notes are optional; nothing is required before merge.",
         }
     return {
         "label": "VIABLE",
@@ -4124,6 +4128,7 @@ def threads_to_check(threads, files, prior_contracts):
         chosen.append(
             {
                 **{key: thread[key] for key in ("thread_id", "comment_id", "id", "path", "line", "original_line", "side")},
+                "ids": thread.get("ids") or [thread["id"]],
                 "title": contract.get("title") or (heading.group(1).strip() if heading else "Prior Dottore finding"),
                 "finding": redact_for_model(FINDING_MARKER_RE.sub("", body).strip()),
                 "contract": contract.get("repair_contract"),
@@ -4139,15 +4144,16 @@ def follow_up_threads(findings, repairs, file_lines):
     FOLLOW_UP_LINES of the thread's line or the code its check quoted, or in the same enclosing block. `file_lines` gives
     a head file's lines. A finding that is a thread's own, raised again, is not a follow-up."""
     # ponytail: one follow-up per thread a round, so a second nearby defect opens its own thread; reply with every
-    # one if a round often raises several on one spot.
-    own = {item.get("id") for item in repairs}
+    # one if a round often raises several on one spot. Only a repaired thread takes one: a still-open thread keeps its
+    # own finding as the one its next check judges, so a nearby defect opens a thread of its own beside it.
+    own = {finding for item in repairs for finding in item.get("ids") or [item.get("id")]}
     taken, matches = set(), []
     for finding in findings:
         number = finding.line
         if finding_id(finding) in own or isinstance(number, bool) or not isinstance(number, int):
             continue
         for item in repairs:
-            if item.get("verdict") not in {"resolved", "still_open"} or not item.get("comment_id") or item.get("thread_id") in taken:
+            if item.get("verdict") != "resolved" or not item.get("anchored") or not item.get("comment_id") or item.get("thread_id") in taken:
                 continue
             if (item.get("path"), str(item.get("side") or "RIGHT").upper()) != (finding.path, finding.side):
                 continue
@@ -4178,14 +4184,18 @@ def follow_up_threads(findings, repairs, file_lines):
     return matches
 
 
-def follow_up_intro(item, head_sha):
-    """The plain first line of a follow-up posted in the thread it continues."""
-    if item.get("prior_verdict") == "resolved":
-        note = " ".join(str(item.get("note") or "").split()).rstrip(".")
-        return (
-            f"Follow-up at `{short_ref(head_sha)}`: the original issue is fixed" + (f" ({note})" if note else "") + "; this remains:"
-        )
-    return f"Follow-up at `{short_ref(head_sha)}`: still open, and the code now shows:"
+def follow_up_intro(item, finding, head_sha):
+    """The plain first line of a follow-up posted in the thread it continues. It names the follow-up's own line, which
+    the thread's anchor does not show, for the next repair check and autofix."""
+    note = " ".join(str(item.get("note") or "").split()).rstrip(".")
+    return (
+        f"Follow-up at `{short_ref(head_sha)}` on {location_label(finding)}: the original issue is fixed"
+        + (f" ({note})" if note else "")
+        + "; this remains:"
+    )
+
+
+FOLLOW_UP_INTRO_RE = re.compile(r"(<!-- dottore:finding=[0-9a-f]+ -->\n)Follow-up at [^\n]*\n\n")
 
 
 def resolve_repaired_threads(pr_num, repaired, head_sha):
@@ -4776,7 +4786,7 @@ def render_review(args):
         entry = {"path": f.path, "line": f.line, "side": f.side}
         if follow_up:
             entry["in_reply_to"] = follow_up["comment_id"]
-            entry["body"] = render_finding_body(f, follow_up_intro(follow_up, head_sha))
+            entry["body"] = render_finding_body(f, follow_up_intro(follow_up, f, head_sha))
         else:
             entry["body"] = render_finding_body(f)
         inline.append(entry)
@@ -4964,7 +4974,10 @@ def post_review(args):
             raise
         except Exception as exc:
             print(f"::warning::Dottore could not reply in thread {comment['in_reply_to']}, so the follow-up opens its own: {error_text(exc)}", flush=True)
-            new.append({key: value for key, value in comment.items() if key != "in_reply_to"})
+            # ponytail: the repaired thread it continued stays open until a later round checks it again; resolve it here
+            # if failed replies show up often.
+            body = FOLLOW_UP_INTRO_RE.sub(r"\1", comment["body"], count=1)
+            new.append({**{key: value for key, value in comment.items() if key != "in_reply_to"}, "body": body})
     comments = new
     if not comments:
         return
@@ -5021,7 +5034,13 @@ def autofix_task(threads):
         " does. No first person, no greetings, no mention of tests you did not run, no trailers.",
     ]
     for number, thread in enumerate(threads[:MAX_REPAIR_THREADS], 1):
-        parts += ["", f"## Finding {number}", re.sub(r"<!--.*?-->", "", thread["body"], flags=re.S).strip()]
+        location = f"`{thread['path']}:{thread['line'] or thread.get('original_line') or '?'}`"
+        parts += [
+            "",
+            f"## Finding {number}",
+            f"Thread at {location}.",
+            re.sub(r"<!--.*?-->", "", thread["body"], flags=re.S).strip(),
+        ]
     return "\n".join(parts) + "\n"
 
 
