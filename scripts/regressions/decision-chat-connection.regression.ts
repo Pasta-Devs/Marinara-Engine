@@ -188,6 +188,7 @@ try {
   );
   assert.equal((await resolveRow(linkedDecision!.id)).connection!.endpoint, `${origin}/v1/chat/completions`);
   await (await import("../../packages/server/src/services/storage/connection-accounts.storage.js")).createConnectionAccountsStorage(db).update(account.id, { baseUrl: `${origin}/moved/v1` });
+  assert.equal((await storage.getById(linkedDecision!.id))!.baseUrl, `${origin}/moved/v1`);
   assert.equal(
     (await resolveRow(linkedDecision!.id)).connection!.endpoint,
     `${origin}/moved/v1/chat/completions`,

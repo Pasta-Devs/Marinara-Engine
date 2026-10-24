@@ -682,7 +682,8 @@ export function createConnectionAccountsStorage(db: DB) {
           const rows = await tx.select().from(apiConnections).where(eq(apiConnections.accountId, id));
           const detached = new Set<string>();
           const kept = new Set<string>();
-          const isMedia = (provider: string) => provider === "image_generation" || provider === "video_generation";
+            const isMedia = (provider: string) =>
+              provider === "image_generation" || provider === "video_generation" || provider === "decision";
           // The account row has no media source: the oldest linked row stands for the account's service.
           const representative = [...(rows as ConnectionRow[])].sort(
             (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
