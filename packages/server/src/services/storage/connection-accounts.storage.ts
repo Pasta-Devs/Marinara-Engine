@@ -682,8 +682,8 @@ export function createConnectionAccountsStorage(db: DB) {
           const rows = await tx.select().from(apiConnections).where(eq(apiConnections.accountId, id));
           const detached = new Set<string>();
           const kept = new Set<string>();
-            const isMedia = (provider: string) =>
-              provider === "image_generation" || provider === "video_generation" || provider === "decision";
+          const isMedia = (provider: string) =>
+            provider === "image_generation" || provider === "video_generation" || provider === "decision";
           // The account row has no media source: the oldest linked row stands for the account's service.
           const representative = [...(rows as ConnectionRow[])].sort(
             (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
@@ -704,7 +704,8 @@ export function createConnectionAccountsStorage(db: DB) {
               row.provider === "decision" &&
               !!trimUrl(account.baseUrl) &&
               trimUrl(row.baseUrl) === trimUrl(account.baseUrl);
-            const takesBaseUrl = (sameType || sharesMediaEndpoint || followsDecisionAccount) && input.baseUrl !== undefined;
+            const takesBaseUrl =
+              (sameType || sharesMediaEndpoint || followsDecisionAccount) && input.baseUrl !== undefined;
             // A second endpoint (embeddings) on another origin would also receive the row's key.
             const foreignEndpoint =
               !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
