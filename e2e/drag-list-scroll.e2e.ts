@@ -457,3 +457,136 @@ test("reordering accepts a drop in the opened insertion gap", async ({ page, req
     for (const id of ids) await request.delete(`/api/characters/${id}`);
   }
 });
+
+test("connection cards sort and move, and folders keep their saved drag order", async ({ page, request }, testInfo) => {
+  const accountIds: string[] = [];
+  const connectionIds: string[] = [];
+  const folderIds: string[] = [];
+  try {
+    for (const name of ["Sort Alpha", "Sort Beta", "Sort Gamma"]) {
+      const response = await request.post("/api/connection-accounts", {
+        data: {
+          provider: "openai",
+          name: `${name} ${Date.now()}`,
+          apiKey: "fixture-not-a-real-key",
+          baseUrl: "http://127.0.0.1:9/v1",
+          model: "gpt-5.5",
+        },
+      });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      const result = (await response.json()) as { account: { id: string }; connectionId: string };
+      accountIds.push(result.account.id);
+      connectionIds.push(result.connectionId);
+    }
+    for (const name of ["Folder A", "Folder B", "Folder C"]) {
+      const response = await request.post("/api/connection-folders", { data: { name: `${name} ${Date.now()}` } });
+      expect(response.ok(), await response.text()).toBeTruthy();
+      folderIds.push(((await response.json()) as { id: string }).id);
+    }
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: false,
+      connectionsGroupBy: "connection",
+      connectionPanelSort: "name-asc",
+    });
+    await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
+    await page.goto("/");
+    const mobile = testInfo.project.name.includes("mobile");
+    await clickTopbarPanel(page, "connections");
+    const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
+    const sort = panel.getByRole("combobox").last();
+    await expect(sort).toHaveValue("name-asc");
+    await sort.selectOption("name-desc");
+    const cards = panel.locator('[data-drag-kind="connection"]');
+    await expect
+      .poll(() => cards.evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.dragId)))
+      .toEqual([accountIds[2], accountIds[1], accountIds[0]]);
+    await sort.selectOption("custom");
+    const source = panel.locator(`[data-drag-id="${accountIds[2]}"]`);
+    const target = panel.locator(`[data-drag-id="${accountIds[0]}"]`);
+    await source.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    const sourceBox = (await source.boundingBox())!;
+    const targetBox = (await target.boundingBox())!;
+    const finger: Finger = {
+      identifier: 82,
+      clientX: sourceBox.x + sourceBox.width / 2,
+      clientY: sourceBox.y + sourceBox.height / 2,
+    };
+    if (mobile) {
+      await touch(source, "touchstart", [finger]);
+      await page.waitForTimeout(350);
+      finger.clientX = targetBox.x + targetBox.width / 2;
+      finger.clientY = targetBox.y + targetBox.height + 5;
+      await touch(source, "touchmove", [finger]);
+      await touch(source, "touchend", [], [finger]);
+    } else {
+      await page.mouse.move(finger.clientX, finger.clientY);
+      await page.mouse.down();
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height + 5);
+      await page.mouse.up();
+    }
+    await expect(sort).toHaveValue("custom");
+    await expect
+      .poll(async () => {
+        const current = (await (await request.get("/api/connections")).json()) as Array<{
+          id: string;
+          sortOrder?: number;
+          accountId?: string;
+        }>;
+        return current
+          .filter((row) => connectionIds.includes(row.id))
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          .map((row) => row.accountId);
+      })
+      .toEqual([accountIds[0], accountIds[2], accountIds[1]]);
+
+    await panel.getByRole("button", { name: /more actions/i }).click();
+    const menu = page.locator('body > [role="menu"]').filter({ hasText: /group by folder/i });
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitemcheckbox", { name: /group by folder/i }).click();
+    const foldersButton = panel
+      .getByRole("button")
+      .filter({ hasText: /Folder A/ })
+      .first();
+    await expect(foldersButton).toBeVisible();
+    // Connection folders are created at the top, so the initial order is C, B, A.
+    // Drag A before C to prove that the server order changes.
+    const folderSource = panel.locator(`[data-drag-id="${folderIds[0]}"]`);
+    const folderTarget = panel.locator(`[data-drag-id="${folderIds[2]}"]`);
+    await folderSource.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    const folderSourceBox = (await folderSource.boundingBox())!;
+    const folderTargetBox = (await folderTarget.boundingBox())!;
+    finger.clientX = folderSourceBox.x + folderSourceBox.width / 2;
+    finger.clientY = folderSourceBox.y + folderSourceBox.height / 2;
+    if (mobile) {
+      await touch(folderSource, "touchstart", [finger]);
+      await page.waitForTimeout(350);
+      finger.clientY = folderTargetBox.y + 2;
+      await touch(folderSource, "touchmove", [finger]);
+      await touch(folderSource, "touchend", [], [finger]);
+    } else {
+      await page.mouse.move(finger.clientX, finger.clientY);
+      await page.mouse.down();
+      await page.mouse.move(folderTargetBox.x + folderTargetBox.width / 2, folderTargetBox.y + 2);
+      await page.mouse.up();
+    }
+    await expect
+      .poll(async () => {
+        const current = (await (await request.get("/api/connection-folders")).json()) as Array<{
+          id: string;
+          sortOrder: number;
+        }>;
+        return current
+          .filter((folder) => folderIds.includes(folder.id))
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((folder) => folder.id);
+      })
+      .toEqual([folderIds[0], folderIds[2], folderIds[1]]);
+  } finally {
+    for (const id of connectionIds) await request.delete(`/api/connections/${id}`).catch(() => undefined);
+    for (const id of accountIds) await request.delete(`/api/connection-accounts/${id}`).catch(() => undefined);
+    for (const id of folderIds) await request.delete(`/api/connection-folders/${id}`).catch(() => undefined);
+  }
+});

@@ -3,7 +3,7 @@
 // as a Connection's card (icon in the folder's colour, name, count, ⋯, fold), and "Not in a folder" last. Also the one folder
 // chooser the row ⋯ menu and multi-select share.
 // ──────────────────────────────────────────────
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type HTMLAttributes, type ReactNode } from "react";
 import {
   BookOpen,
   Briefcase,
@@ -129,6 +129,8 @@ export function ConnectionFolderGroup({
   open,
   onToggle,
   renderRow,
+  children,
+  dragBindings,
 }: {
   /** null: the Models in no folder. */
   folder: ConnectionFolder | null;
@@ -137,6 +139,8 @@ export function ConnectionFolderGroup({
   open: boolean;
   onToggle: () => void;
   renderRow: (row: ConnectionRowData, catalog?: CachedCatalogFacts) => ReactNode;
+  children?: ReactNode;
+  dragBindings?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>;
 }) {
   const { t } = useTranslation();
   const updateFolder = useUpdateConnectionFolder();
@@ -199,14 +203,20 @@ export function ConnectionFolderGroup({
 
   return (
     <div
+      {...dragBindings}
       role="group"
       aria-label={name}
       data-connection-folder={folder?.id ?? "none"}
+      data-connection-folder-id={folder?.id ?? ""}
+      data-connection-folder-root={folder ? undefined : "true"}
+      data-drag-id={folder?.id ?? undefined}
+      data-drag-kind={folder ? "connection-folder" : undefined}
       className="mari-connection-group flex min-w-0 flex-col"
     >
       <div className="mari-connection-card-head flex min-w-0 items-center rounded-lg">
         <button
           type="button"
+          data-drag-surface
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={listId}
@@ -299,7 +309,12 @@ export function ConnectionFolderGroup({
           />
         )}
       </div>
-      {open && visibleRows.length > 0 && (
+      {open && children && (
+        <div id={listId} className="mari-connection-model-well min-w-0">
+          {children}
+        </div>
+      )}
+      {open && !children && visibleRows.length > 0 && (
         <div id={listId} className="mari-connection-model-well min-w-0">
           {visibleRows.map((row) => (
             <div key={row.id} className="mari-connection-model-slot min-w-0">

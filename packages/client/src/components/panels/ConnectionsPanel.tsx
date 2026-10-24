@@ -29,6 +29,7 @@ import {
   Sparkles,
   Split,
   MousePointerClick,
+  ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -53,9 +54,26 @@ import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
-import { groupModelsByAccount, knownPrefixName, sortByModelId, upstreamOf } from "../../lib/connection-groups";
+import {
+  connectionGroupFolder,
+  groupModelsByAccount,
+  knownPrefixName,
+  reorderConnectionGroups,
+  sortByModelId,
+  sortConnectionGroups,
+  upstreamOf,
+} from "../../lib/connection-groups";
+import { sortPanelFolders } from "../../lib/panel-sort";
+import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { useLibraryOrder } from "../../hooks/use-library-order";
+import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { modelSubtitle } from "../../lib/connection-identity";
-import { useConnectionFolders } from "../../hooks/use-connection-folders";
+import {
+  useConnectionFolders,
+  useReorderConnectionFolders,
+  useReorderConnections,
+} from "../../hooks/use-connection-folders";
 import { ConnectionRow, ROW_BUTTON, isMediaRow, type ConnectionRowData } from "../connections/ConnectionRow";
 import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
@@ -72,6 +90,13 @@ import { ContextMenu } from "../ui/ContextMenu";
 import { PictureMenu } from "../connections/PictureMenu";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
 import { StarText } from "../connections/StarText";
+import type { ConnectionPanelSort } from "../../stores/ui.store";
+
+type ConnectionGroupData = {
+  account: ComponentProps<typeof ConnectionGroup>["account"];
+  rows: ConnectionRowData[];
+  visibleRows?: ConnectionRowData[];
+};
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
@@ -126,6 +151,7 @@ export function ConnectionsPanel() {
   const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
   const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
+  const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const setShowCostBadges = useUIStore((s) => s.setShowCostBadges);
@@ -134,6 +160,10 @@ export function ConnectionsPanel() {
   const setGroupBy = useUIStore((s) => s.setConnectionsGroupBy);
   const { data: folders } = useConnectionFolders();
   const chooseFolder = useFolderChooser();
+  const sort = useUIStore((s) => s.connectionPanelSort);
+  const setSort = useUIStore((s) => s.setConnectionPanelSort);
+  const reorderFolders = useReorderConnectionFolders();
+  const reorderConnections = useReorderConnections();
 
   const [search, setSearch] = useState("");
   /** Connections folded while a search runs; a new query unfolds every match again. */
@@ -187,13 +217,13 @@ export function ConnectionsPanel() {
   const hadFolders = connectionsList.some((row) => !!row.folderId);
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
-    const sorted = [...groups].sort((a, b) => a.account.name.localeCompare(b.account.name));
+    const sorted = sortConnectionGroups(groups, sort);
     return {
       all: sorted,
       // Until the Connections load, every Model would look standalone.
       standalone: accounts ? standalone : [],
     };
-  }, [accounts, connectionsList]);
+  }, [accounts, connectionsList, sort]);
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
 
   const query = search.trim().toLowerCase();
@@ -227,23 +257,43 @@ export function ConnectionsPanel() {
 
   // Group by folder: the user's folders in their order, then the Models in none. A search or the attention filter
   // narrows the rows; an empty folder shows only without them.
+  const sortedFolders = useMemo(() => sortPanelFolders(folders ?? [], sort), [folders, sort]);
   const folderGroups = useMemo(() => {
     if (!byFolder) return [];
-    const shown = (row: ConnectionRowData) =>
-      (!needsAttention || (!!row.accountId && (accountById.get(row.accountId)?.state ?? "ok") !== "ok")) &&
-      connectionMatchesSearch(row, query);
-    const known = new Set((folders ?? []).map((folder) => folder.id));
-    return [...(folders ?? []), null].flatMap((folder) => {
-      const rows = sortByModelId(
-        connectionsList.filter((row) =>
-          folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId),
+    const known = new Set(sortedFolders.map((folder) => folder.id));
+    return [...sortedFolders, null].flatMap((folder) => {
+      const rowsWithoutAccount = sortByModelId(
+        connectionsList.filter(
+          (row) => !row.accountId && (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)),
         ),
       );
-      const visibleRows = rows.filter(shown);
-      if (visibleRows.length === 0 && (query || needsAttention || !folder)) return [];
-      return [{ folder, key: `folder:${folder?.id ?? "none"}`, rows, visibleRows }];
+      const groups = sortConnectionGroups(
+        grouped.all.filter((group) => {
+          const groupFolder = connectionGroupFolder(group);
+          return folder ? groupFolder === folder.id : !groupFolder || !known.has(groupFolder);
+        }),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const visibleGroups = groups.flatMap((group) => {
+        const { account, rows } = group;
+        if (needsAttention && account.state === "ok") return [];
+        const accountHit =
+          !!query && [account.name, account.provider, hostOf(account.baseUrl)].join(" ").toLowerCase().includes(query);
+        const visibleRows = accountHit ? rows : rows.filter((row) => connectionMatchesSearch(row, query));
+        const showEmpty = rows.length === 0 && !query;
+        return visibleRows.length > 0 || showEmpty ? [{ ...group, visibleRows }] : [];
+      });
+      const visibleStandalone = rowsWithoutAccount.filter(
+        (row) => (!needsAttention && connectionMatchesSearch(row, query)) || (!query && !needsAttention),
+      );
+      if (visibleGroups.length === 0 && visibleStandalone.length === 0 && (query || needsAttention || !folder))
+        return [];
+      return [
+        { folder, key: `folder:${folder?.id ?? "none"}`, groups, visibleGroups, rowsWithoutAccount, visibleStandalone },
+      ];
     });
-  }, [accountById, byFolder, connectionsList, folders, needsAttention, query]);
+  }, [accountManualOrder?.ids, byFolder, connectionsList, grouped.all, needsAttention, query, sort, sortedFolders]);
 
   // Provider families are visual only: separate endpoints and keys keep their account actions and rows.
   const providerGroups = useMemo(() => {
@@ -278,6 +328,111 @@ export function ConnectionsPanel() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [visible]);
+  const providerNameByAccount = useMemo(
+    () =>
+      new Map(
+        providerGroups.flatMap((provider) =>
+          provider.groups.map((group) => [group.account.id, provider.name] as const),
+        ),
+      ),
+    [providerGroups],
+  );
+
+  const reorderAccountCards = useCallback(
+    (ids: string[], target: string, edge: InsertEdge, _visibleIds: string[]) => {
+      const sourceGroup = grouped.all.find((group) => group.account.id === ids[0]);
+      const targetGroup = grouped.all.find((group) => group.account.id === target);
+      if (!sourceGroup || !targetGroup || connectionGroupFolder(sourceGroup) !== connectionGroupFolder(targetGroup))
+        return;
+      const folderId = connectionGroupFolder(sourceGroup);
+      const bucket = sortConnectionGroups(
+        grouped.all.filter((group) => connectionGroupFolder(group) === folderId),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const orderedIds = insertLibraryItems(
+        bucket.map((group) => group.account.id),
+        ids,
+        target,
+        edge,
+      );
+      const orderedConnectionIds = reorderConnectionGroups(
+        grouped.all.filter((group) => connectionGroupFolder(group) === folderId),
+        orderedIds,
+        orderedIds,
+      ).map((row) => row.id);
+      setSort("custom");
+      if (orderedConnectionIds.length) reorderConnections.mutate({ orderedConnectionIds, folderId });
+    },
+    [accountManualOrder?.ids, grouped.all, reorderConnections, setSort, sort],
+  );
+  const accountOrder = useLibraryOrder("connection", (ids, target, edge, visibleIds) => {
+    const state = useUIStore.getState();
+    const raw = state.libraryManualOrders?.connection;
+    const base = raw?.active
+      ? Array.from(new Set([...raw.ids, ...visibleIds, ...ids]))
+      : Array.from(new Set([...visibleIds, ...(raw?.ids ?? []), ...ids]));
+    state.setLibraryManualOrder("connection", { active: true, ids: insertLibraryItems(base, ids, target, edge) });
+    reorderAccountCards(ids, target, edge, visibleIds);
+  });
+  const orderedAllGroups = useMemo(() => {
+    const sorted = sortConnectionGroups(grouped.all, sort);
+    return sort === "custom" && accountOrder.active
+      ? accountOrder.orderItems(sorted, (group) => group.account.id)
+      : sorted;
+  }, [accountOrder, grouped.all, sort]);
+  const visibleAccountGroups = useMemo(() => {
+    const visibleIds = new Set(visible.groups.map((group) => group.account.id));
+    return orderedAllGroups.filter((group) => visibleIds.has(group.account.id));
+  }, [orderedAllGroups, visible.groups]);
+  const moveAccountToFolder = useCallback(
+    (accountId: string, folderId: string | null) => {
+      const group = grouped.all.find((item) => item.account.id === accountId);
+      if (!group?.rows.length) return;
+      const targetGroups = sortConnectionGroups(
+        grouped.all.filter((item) => connectionGroupFolder(item) === folderId && item.account.id !== accountId),
+        sort,
+        accountManualOrder?.ids,
+      );
+      const insertedAccountIds = [
+        ...targetGroups.filter((item) => item.account.id !== accountId).map((item) => item.account.id),
+        accountId,
+      ];
+      const orderedRows = reorderConnectionGroups([...targetGroups, group], insertedAccountIds, insertedAccountIds);
+      setSort("custom");
+      reorderConnections.mutate({ orderedConnectionIds: orderedRows.map((row) => row.id), folderId });
+    },
+    [accountManualOrder?.ids, grouped.all, reorderConnections, setSort, sort],
+  );
+  const dragAccount = useTouchFolderDrag({
+    getDragIds: (id) => [id],
+    onReorder: (ids, target, edge, visibleIds) => {
+      accountOrder.reorder(ids, target, edge, visibleIds);
+      reorderAccountCards(ids, target, edge, visibleIds);
+    },
+    onActivate: () => {},
+    onDrop: (accountId, x, y) => {
+      const hit = document.elementFromPoint(x, y);
+      const folder = hit?.closest<HTMLElement>("[data-connection-folder-id]");
+      const root = hit?.closest("[data-connection-folder-root]");
+      const folderId = folder?.dataset.connectionFolderId || null;
+      const group = grouped.all.find((item) => item.account.id === accountId);
+      if ((folder || root) && group && connectionGroupFolder(group) !== folderId)
+        moveAccountToFolder(accountId, folderId);
+    },
+  });
+  const startAccountDrag = (event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>, id: string) =>
+    dragAccount.startTouchDrag(event, id);
+  const folderDrag = useLibraryFolderDrag("connection", (ids, target, edge) => {
+    setSort("custom");
+    const orderedIds = insertLibraryItems(
+      sortedFolders.map((folder) => folder.id),
+      ids,
+      target,
+      edge,
+    );
+    reorderFolders.mutate(orderedIds);
+  });
 
   const validKey = (key: string | null) => {
     if (!key) return false;
@@ -442,13 +597,21 @@ export function ConnectionsPanel() {
       .join(" · ");
     return renderRow(row, modelSubtitle(row, upstream), where || undefined, catalog);
   };
-  const accountRow = ({ account, rows, visibleRows }: (typeof visible.groups)[number], providerName: string) => (
+  const accountRow = ({ account, rows, visibleRows = rows }: ConnectionGroupData, providerName: string) => (
     <ConnectionGroup
       key={account.id}
       account={account}
       rows={rows}
       visibleRows={visibleRows}
       providerName={providerName}
+      dragBindings={{
+        "data-drag-id": account.id,
+        "data-drag-order-id": account.id,
+        "data-drag-kind": "connection",
+        "aria-keyshortcuts": "Alt+ArrowUp Alt+ArrowDown",
+        onMouseDown: (event) => startAccountDrag(event, account.id),
+        onTouchStart: (event) => startAccountDrag(event, account.id),
+      }}
       open={query ? !searchFolded.includes(account.id) : !collapsedConnections.includes(account.id)}
       onToggle={() =>
         query
@@ -768,28 +931,36 @@ export function ConnectionsPanel() {
             </p>
           )}
           {byFolder &&
-            folderGroups.map(({ folder, key, rows, visibleRows }) => (
+            folderGroups.map(({ folder, key, groups, visibleGroups, rowsWithoutAccount, visibleStandalone }) => (
               <ConnectionFolderGroup
                 key={key}
                 folder={folder}
-                rows={rows}
-                visibleRows={visibleRows}
+                rows={[...groups.flatMap((group) => group.rows), ...rowsWithoutAccount]}
+                visibleRows={[...visibleGroups.flatMap((group) => group.visibleRows), ...visibleStandalone]}
                 open={query ? !searchFolded.includes(key) : !collapsedConnections.includes(key)}
+                dragBindings={folder ? folderDrag.bind(folder.id) : undefined}
                 onToggle={() =>
                   query
                     ? setSearchFolded((ids) => (ids.includes(key) ? ids.filter((id) => id !== key) : [...ids, key]))
                     : toggleConnectionCollapsed(key)
                 }
                 renderRow={folderRow}
-              />
+              >
+                <div className="flex min-w-0 flex-col gap-2">
+                  {visibleGroups.map((group) =>
+                    accountRow(group, PROVIDERS[group.account.provider as APIProvider]?.name ?? group.account.provider),
+                  )}
+                  {visibleStandalone.map((row) => renderRow(row))}
+                </div>
+              </ConnectionFolderGroup>
             ))}
-          {!byFolder &&
-            providerGroups.map((provider) => (
-              // Provider ordering stays; accounts are peers and each folds by its own id.
-              <div key={provider.key} data-connection-provider={provider.key} className="flex min-w-0 flex-col gap-3">
-                {provider.groups.map((group) => accountRow(group, provider.name))}
-              </div>
-            ))}
+          {!byFolder && (
+            <div className="flex min-w-0 flex-col gap-3">
+              {visibleAccountGroups.map((group) =>
+                accountRow(group, providerNameByAccount.get(group.account.id) ?? group.account.provider),
+              )}
+            </div>
+          )}
           {!byFolder && visible.standalone.length > 0 && (
             <PanelSection title={t("connections.accounts.section.other")} icon={<Link size="0.75rem" />}>
               {query ? (
@@ -860,6 +1031,26 @@ export function ConnectionsPanel() {
         label={t("connections.list.search")}
         placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
       />
+      <label className="relative flex min-h-11 items-center md:min-h-9">
+        <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as ConnectionPanelSort)}
+          aria-label={t("ui.panels.connectionspanel.sortConnections")}
+          className="mari-chrome-field mari-chrome-sort-field h-full appearance-none py-0 ps-2 pe-7 text-xs"
+        >
+          <option value="custom">{t("connections.list.sortCustom")}</option>
+          <option value="name-asc">{t("connections.list.sortNameAsc")}</option>
+          <option value="name-desc">{t("connections.list.sortNameDesc")}</option>
+          <option value="newest">{t("connections.list.sortNewest")}</option>
+          <option value="oldest">{t("connections.list.sortOldest")}</option>
+        </select>
+        <ArrowUpDown
+          aria-hidden
+          size="0.625rem"
+          className="pointer-events-none absolute right-2 text-muted-foreground"
+        />
+      </label>
       <button
         type="button"
         onClick={() => openModal("create-connection")}

@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────────
 import { PROVIDERS, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import { isConnectionFlagTrue } from "./connection-filters";
+import { sortBasicPanelItems, type BasicPanelSort } from "./panel-sort";
 
 /** The Model row fields these helpers read. Flags may be "true"/"false" strings or booleans. */
 export type ConnectionModelRow = {
@@ -21,12 +22,64 @@ export type ConnectionModelRow = {
   /** The picture menu's choice and an uploaded picture. */
   icon?: string | null;
   imagePath?: string | null;
+  folderId?: string | null;
+  sortOrder?: number;
 };
 
 export type ConnectionGroup<R extends ConnectionModelRow = ConnectionModelRow> = {
   account: ConnectionAccountListItem;
   rows: R[];
 };
+
+/** The first saved Model places the whole account card; old split folders stay intact until a card moves. */
+export function connectionGroupFolder(group: ConnectionGroup): string | null {
+  return (
+    [...group.rows].sort(
+      (a, b) =>
+        (Number.isFinite(a.sortOrder) ? a.sortOrder! : Number.MAX_SAFE_INTEGER) -
+          (Number.isFinite(b.sortOrder) ? b.sortOrder! : Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id),
+    )[0]?.folderId ?? null
+  );
+}
+
+/** Existing Model sortOrder also orders account cards. Empty accounts use the saved library order. */
+export function sortConnectionGroups<R extends ConnectionModelRow>(
+  groups: readonly ConnectionGroup<R>[],
+  sort: BasicPanelSort | "custom",
+  emptyOrder: readonly string[] = [],
+): ConnectionGroup<R>[] {
+  if (sort !== "custom")
+    return sortBasicPanelItems(
+      groups,
+      sort,
+      (group) => group.account.name,
+      (group) => group.account.createdAt,
+    );
+  const rank = (group: ConnectionGroup<R>) => {
+    const orders = group.rows.map((row) => row.sortOrder).filter((value): value is number => Number.isFinite(value));
+    return orders.length ? Math.min(...orders) : Infinity;
+  };
+  // The library order includes empty cards and permits a single order across provider families and folders.
+  const saved = new Map(emptyOrder.map((id, index) => [id, index]));
+  return [...groups].sort(
+    (a, b) =>
+      (saved.get(a.account.id) ?? Infinity) - (saved.get(b.account.id) ?? Infinity) ||
+      rank(a) - rank(b) ||
+      a.account.name.localeCompare(b.account.name),
+  );
+}
+
+/** Move an account card block while keeping hidden cards and every model row in its account together. */
+export function reorderConnectionGroups<R extends ConnectionModelRow>(
+  groups: readonly ConnectionGroup<R>[],
+  orderedIds: readonly string[],
+  accountIds: readonly string[],
+) {
+  const moving = new Set(accountIds);
+  const byAccount = new Map(groups.map((group) => [group.account.id, group]));
+  const ordered = orderedIds.flatMap((id) => byAccount.get(id)?.rows ?? []);
+  return [...ordered, ...groups.filter((group) => !moving.has(group.account.id)).flatMap((group) => group.rows)];
+}
 
 /**
  * One group per Connection, in account order (empty Connections included), plus the standalone rows.
