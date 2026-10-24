@@ -168,6 +168,31 @@ try {
   assert.equal(chatConnection.endpoint, `${origin}/v1/chat/completions`);
   assert.equal(chatConnection.timeoutMs, DECISION_TIMEOUT_MS.sidecar, "an unset limit follows the source's default");
   assert.equal(chatConnection.maxStateTokens, 3500);
+
+  // A Decision Model follows its owning Connection when the account address changes.
+  const account = await (await import("../../packages/server/src/services/storage/connection-accounts.storage.js")).createConnectionAccountsStorage(db).create({
+    name: "Local chat account",
+    provider: "custom",
+    baseUrl: `${origin}/v1`,
+    apiKey: "sk-account",
+  });
+  const linkedDecision = await storage.create(
+    createConnectionSchema.parse({
+      name: "Linked decisions",
+      provider: "decision",
+      decisionSource: "openai_compatible",
+      accountId: account.id,
+      baseUrl: `${origin}/v1`,
+      model: "gemma4:e2b",
+    }),
+  );
+  assert.equal((await resolveRow(linkedDecision!.id)).connection!.endpoint, `${origin}/v1/chat/completions`);
+  await (await import("../../packages/server/src/services/storage/connection-accounts.storage.js")).createConnectionAccountsStorage(db).update(account.id, { baseUrl: `${origin}/moved/v1` });
+  assert.equal(
+    (await resolveRow(linkedDecision!.id)).connection!.endpoint,
+    `${origin}/moved/v1/chat/completions`,
+    "a Decision Model follows its account's current base URL",
+  );
   const noModel = await storage.create(
     createConnectionSchema.parse({
       name: "No model",
