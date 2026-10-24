@@ -2742,6 +2742,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.stripUnsupportedSamplerParameters(body, options);
     }
 
+    // The request as it is sent, tools and instructions included: what a provider caches is this
+    // body's prefix, so two turns' bodies are what to compare when a cache misses.
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/openai] responses request body: %j",
+      body,
+    );
     return body;
   }
 
