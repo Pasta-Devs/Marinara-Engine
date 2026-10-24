@@ -3,6 +3,7 @@ import type {
   CreatePersonalExtensionInput,
   PersonalClientExtensionRuntime,
   PersonalExtension,
+  PersonalExtensionListItem,
   PersonalExtensionPolicy,
   UpdatePersonalExtensionInput,
 } from "@marinara-engine/shared";
@@ -18,7 +19,7 @@ export const personalExtensionKeys = {
 export function usePersonalExtensions() {
   return useQuery({
     queryKey: personalExtensionKeys.list(),
-    queryFn: () => api.get<PersonalExtension[]>("/personal-extensions"),
+    queryFn: () => api.get<PersonalExtensionListItem[]>("/personal-extensions"),
     staleTime: 30_000,
   });
 }

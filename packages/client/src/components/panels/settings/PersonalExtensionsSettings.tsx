@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import {
   PERSONAL_EXTENSION_CAPABILITIES,
   PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
-  type PersonalExtension,
+  type PersonalExtensionListItem,
 } from "@marinara-engine/shared";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
@@ -88,14 +88,14 @@ function shortHash(hash: string) {
   return hash.replace(/^sha256:/, "").slice(0, 12);
 }
 
-function sourceLabel(source: PersonalExtension["source"], t: TFunction) {
+function sourceLabel(source: PersonalExtensionListItem["source"], t: TFunction) {
   if (source === "professor_mari") return "Professor Mari";
   if (source === "profile_import") return "Profile import";
   if (source === "legacy") return "Recovered legacy";
   return t("settings.externalExtensions.source");
 }
 
-function extensionDraft(extension: PersonalExtension): EditorDraft {
+function extensionDraft(extension: PersonalExtensionListItem): EditorDraft {
   return {
     name: extension.name,
     version: extension.version,
@@ -147,7 +147,7 @@ function validateDraft(draft: EditorDraft) {
   return null;
 }
 
-function riskMessage(extension: PersonalExtension, t: TFunction) {
+function riskMessage(extension: PersonalExtensionListItem, t: TFunction) {
   const fingerprint = extension.contentHash;
   if (extension.runtime === "server") {
     return t("settings.personalExtensions.approval.server", { name: extension.name, hash: fingerprint });
@@ -235,7 +235,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     deleteExtension.isPending ||
     importing;
 
-  const openExisting = useCallback((extension: PersonalExtension) => {
+  const openExisting = useCallback((extension: PersonalExtensionListItem) => {
     setDraft(extensionDraft(extension));
     setEditorId(extension.id);
   }, []);
@@ -284,7 +284,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
   }, [draft, editingExtension, updateExtension, localizeUi]);
 
   const runExtension = useCallback(
-    async (extension: PersonalExtension) => {
+    async (extension: PersonalExtensionListItem) => {
       const fullPageAccess = extension.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
       const confirmed = await showConfirmDialog({
         title: t(
@@ -324,7 +324,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
   );
 
   const disableExtension = useCallback(
-    async (extension: PersonalExtension) => {
+    async (extension: PersonalExtensionListItem) => {
       try {
         await updateExtension.mutateAsync({ id: extension.id, enabled: false });
         toast.success(localizeUi("ui.panels.extensionsettings.value1Disabled", { value1: extension.name }));
@@ -341,7 +341,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
   );
 
   const removeExtension = useCallback(
-    async (extension: PersonalExtension) => {
+    async (extension: PersonalExtensionListItem) => {
       const confirmed = await showConfirmDialog({
         title: localizeUi("ui.panels.extensionsettings.deletePersonalExtension"),
         message: localizeUi("ui.panels.extensionsettings.deleteValue1AndItsPrivateExtensionStorageThisCannot", {
@@ -367,7 +367,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
   );
 
   const restoreRevision = useCallback(
-    async (extension: PersonalExtension, contentHash: string) => {
+    async (extension: PersonalExtensionListItem, contentHash: string) => {
       const confirmed = await showConfirmDialog({
         title: localizeUi("ui.panels.extensionsettings.restoreThisRevision"),
         message: localizeUi("ui.panels.extensionsettings.restoreHashValue1AsADisabledDraftYouWill", {
@@ -395,7 +395,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
   );
 
   const installDraft = useCallback(
-    async (imported: PersonalExtensionImportDraft, candidates: PersonalExtension[]) => {
+    async (imported: PersonalExtensionImportDraft, candidates: PersonalExtensionListItem[]) => {
       const existing = candidates.find(
         (extension) => extension.name.trim().toLowerCase() === imported.name.trim().toLowerCase(),
       );

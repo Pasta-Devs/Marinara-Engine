@@ -18,6 +18,7 @@ import {
   type CharacterData,
   type PersonalClientExtensionRuntime,
   type PersonalExtension,
+  type PersonalExtensionListItem,
   type PersonalExtensionCapability,
   type PersonalExtensionCharacterSnapshot,
   type PersonalExtensionPersonaSnapshot,
@@ -1171,7 +1172,16 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
     const policy = await getPersonalExtensionPolicy(app.db);
     return (await storage.list())
       .filter((extension) => canExecutePersonalExtension(extension, policy))
-      .map((extension) => personalServerExtensionRuntime.withRuntimeStatus(extension));
+      .map((extension): PersonalExtensionListItem => ({
+        ...personalServerExtensionRuntime.withRuntimeStatus(extension),
+        revisions: extension.revisions.map(({ contentHash, version, runtime, capabilities, savedAt }) => ({
+          contentHash,
+          version,
+          runtime,
+          capabilities,
+          savedAt,
+        })),
+      }));
   });
 
   app.get("/runtime/client", async (): Promise<PersonalClientExtensionRuntime[]> => {
