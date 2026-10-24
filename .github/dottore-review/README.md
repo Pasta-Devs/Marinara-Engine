@@ -68,7 +68,11 @@ recorded for the new head; `/dottore full` examines it afresh.
 
 Code first builds a bundle for each packet of the pull request: the PR description, the changed code at the head with
 its changes marked and the code around it, the definitions it reads, the same-file functions it calls two hops deep,
-where changed names are used elsewhere, the path rules and a guidance index. Then three roles run on two models (see
+where changed names are used elsewhere, the path rules and a guidance index. It adds the first two issues the
+description closes (`Closes #N`, `Fixes #N`, `Resolves #N`); GitHub links closing issues only on pull requests into
+the default branch, so the keywords are read from the description, and an issue linked only by a plain mention or from
+the sidebar is not shown. It lists by name, without contents, the tracked tests named after a changed file, and, when
+the pull request changes a file under `.github/`, the repository's Actions variables (never its secrets). Then three roles run on two models (see
 Models): the small model reads, the large one judges.
 
 - **`scout`** reads outward from the bundle with the read-only tools and keeps places as it reads: the callers in other
@@ -78,7 +82,8 @@ Models): the small model reads, the large one judges.
 - **`finder`** makes one call with no tools on the bundle and claims defects at changed lines.
 - **`verify`** (the checker) judges the finder's claims, one call per file, with the bundle and the code around each
   candidate in view and a few reads for what is still out of reach. Only confirmed findings are published; a confirmed
-  claim whose defect differs from its wording carries the finding text the checker wrote.
+  claim whose defect differs from its wording carries the finding text the checker wrote. A confirmation whose quoted
+  evidence does not match the head is withheld and counted under Verification Coverage.
 
 What gets published depends on kind, not severity. Every finding is a defect, low included: each gets a review thread,
 as a CodeRabbit finding does, and any of them makes the verdict Repair Required (Specimen Unstable from high up), so a
@@ -87,7 +92,8 @@ size of the repair. Nitpicks are notes: they are listed under Minor Imperfection
 the verdict Viable, With Notes. The walkthrough states the verdict once in its title, with a remark in his voice and
 one of his chibis beside the verdict box and the counts (`chibi/`, a few poses per verdict, both chosen by the head SHA
 and served raw from the pinned tooling checkout; the command status window has poses of its own, so the two comments
-never show the same one); the commit status carries the same verdict with the counts. The repair
+never show the same one); the commit status carries the same verdict with the counts. A walkthrough posted after the pull request got a new push
+says the head has moved past the commit it examined. The repair
 contracts of the defects are repeated at the end of the walkthrough as a prompt for an agent of your own, for a pull
 request Dottore cannot push to.
 
@@ -95,6 +101,12 @@ On a later review, the checker also re-judges Dottore's open threads on the file
 with the finder: one call per packet, with each thread's finding and repair contract. A thread it finds repaired, with
 evidence quoted from the head, gets a reply in voice and is resolved; one a person has replied to, or one whose finding
 that review raised again, stays open. Threads on files the review left alone are not checked.
+
+The repair contracts of earlier findings are carried in the walkthrough and shown to the finder on each later review.
+A contract whose thread is resolved, by Dottore or by a person, is dropped. One whose thread a person replied to is
+shown as disposed, with the reply, and the finder is told not to raise it again unless new code changes the input the
+reply names. A reply that only says a fix is coming also marks the contract disposed; the thread still holds the
+approval until someone resolves it.
 GitHub refuses to resolve a thread without `contents: write`, so a separate `resolve` job does it with that
 permission; it checks out no code and holds no model key, and runs only when a review found a repair. A repository that
 calls the shared workflow, such as Marinara-Agents, must grant `contents: write` in its caller too.
@@ -246,6 +258,9 @@ These are all of Dottore's repository variables, beside the model settings above
 | `DOTTORE_CONCURRENCY` | Scout and checker calls run at once, up to 16; the finders always run all at once, up to 16 | `4` | the review job |
 | `DOTTORE_FINDERS` | Finder copies per packet, `1` or `2`; a second one starts a few seconds later and reuses the cache | `1` | the review job |
 
+The review job also passes every repository variable to the reviewer, which shows them in the bundle only for a pull
+request that changes a file under `.github/`. Do not keep a value in a variable that a model provider must not see.
+
 Everything else the reviewer reads from its environment, the workflow sets itself: the pull request number, head and
 base, the mode, the paths of the prompt and rules it copied out of the pinned checkout, and that checkout's repository
 and commit, from which the chibis are served.
@@ -266,7 +281,7 @@ pull request cannot change the rules that examine it, and a repository that call
 | --- | --- |
 | `exclude_paths` | Glob patterns (`fnmatch`) of changed paths the review leaves out: they are listed as excluded in the bundle, and the tools neither read nor search them. |
 | `review_focus` | The areas the finder and checker are told to weigh, sent with the path rules. |
-| `severity_policy` | What each grade means, `blocking` to `nitpick`, sent to the models with the path rules. The prompt sets the same scale; keep the two in step. |
+| `severity_policy` | What each grade means, `blocking` to `nitpick`, sent to the models with the path rules. The prompt sets the same scale; keep the two in step. A missing test is a Proof Gap under pre-merge checks, not a graded finding. |
 | `repo_concerns` | Repository-wide rules that count as defects wherever a change touches them. |
 | `path_instructions` | A list of rules, each with a `name`, the path `prefixes` it applies to, the `guidance` documents whose headings go into the bundle's guidance index when a changed file matches, and the `checks` the models judge matching files against. `AGENTS.md` is always in the index. |
 | `autofix.validate` | The shell command the repair job runs on a patch before it is pushed, with a 25-minute limit; empty runs none. |

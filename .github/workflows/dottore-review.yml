@@ -187,6 +187,8 @@ jobs:
           DOTTORE_CONCURRENCY: ${{ vars.DOTTORE_CONCURRENCY }}
           DOTTORE_FINDERS: ${{ vars.DOTTORE_FINDERS }}
           DOTTORE_COST_LIMIT_USD: ${{ vars.DOTTORE_COST_LIMIT_USD }}
+          # Shown to the reviewer only when the PR changes a file under .github/; secrets are never passed.
+          DOTTORE_VARS_JSON: ${{ toJSON(vars) }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/dottore-review-tool/dottore_review.py produce
 

@@ -182,6 +182,9 @@ MAX_CHANGED_BLOCK_LINES = 150
 MAX_CALLEE_LINES = 60
 MAX_BUNDLE_CODE_CHARS = 160_000
 MAX_PR_DESCRIPTION_CHARS = 4_000
+MAX_LINKED_ISSUES = 2
+CLOSING_ISSUE_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.I)
+MAX_TESTS_ON_DISK = 30
 # Scouts add code the bundle builder could not follow by name: places they keep, quoted by code. Each scout of a
 # packet takes a share of its changed functions and they run at once, so the reading takes one scout's time.
 MAX_SCOUT_PLACES = 6
@@ -606,7 +609,7 @@ BUNDLE_NOTE = (
     "calls, two calls deep; where each changed function and each name declared on a changed line is used outside the "
     "diff; the diff of files other than code (docs, changelog, strings); and, when scouts ran, the code they added "
     "from other files: callers, imported definitions and what the changed values flow into. Test files are listed, "
-    "not shown."
+    "not shown, and so are the tracked tests named after a changed file."
 )
 SCOUT_NOTE = (
     "Places the scouts read and kept, quoted by code from the PR head (or from the review base where marked), "
@@ -615,11 +618,41 @@ SCOUT_NOTE = (
 
 
 def pr_description(pr_num):
-    """The PR's title and description, or "" when gh cannot read them."""
+    """The PR's title and description, then the first issues it closes, or "" when gh cannot read the PR."""
     if not pr_num:
         return ""
     result = run_gh(["pr", "view", pr_num, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
-    return truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS) if result.returncode == 0 else ""
+    if result.returncode != 0:
+        return ""
+    parts = [truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS)]
+    # Read from the closing keywords, because GitHub links closing issues only on PRs into the default branch and
+    # these PRs target staging; an issue linked only by a plain mention or from the sidebar is not read.
+    for number in list(dict.fromkeys(CLOSING_ISSUE_RE.findall(result.stdout)))[:MAX_LINKED_ISSUES]:
+        issue = run_gh(["issue", "view", number, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
+        text = issue.stdout.strip() if issue.returncode == 0 else "Could not be read."
+        parts.append(f"Linked issue #{number}: {truncate(redact_for_model(text), MAX_PR_DESCRIPTION_CHARS)}")
+    return "\n\n".join(parts)
+
+
+def tests_on_disk(focus):
+    """Tracked test files named after a focus file, by name only, so a reader can tell such a test exists."""
+    stems = {posixpath.basename(path).split(".")[0] for path in focus if not TEST_PATH_RE.search(path)}
+    return [
+        path
+        for path in run_git_raw(["ls-files"]).splitlines()
+        if TEST_PATH_RE.search(path) and posixpath.basename(path).split(".")[0] in stems
+    ]
+
+
+def repository_variables(files):
+    """The repository's Actions variables, never its secrets, for a PR that changes the workflows reading them."""
+    if not any(path.startswith(".github/") for path in files):
+        return ""
+    try:
+        variables = json.loads(os.environ.get("DOTTORE_VARS_JSON") or "{}")
+    except json.JSONDecodeError:
+        return "Could not be read."
+    return "\n".join(f"{name}={value}" for name, value in sorted(variables.items())) or "None set."
 
 
 def removed_lines(base):
@@ -751,9 +784,19 @@ def build_bundle(base, focus, description):
     listed = "\n".join(focus) + (
         f"\n\nChanged files reviewed in other packets ({len(elsewhere)}):\n" + "\n".join(elsewhere) if elsewhere else ""
     )
+    on_disk = tests_on_disk(focus)
     sections = [
-        ("Pull Request", description or "No description could be read."),
+        ("Pull Request and Linked Issues", description or "No description could be read."),
         ("Changed Files", listed + (f"\n\nTest files ({len(tests)}) are listed but not shown." if tests else "")),
+        (
+            "Tests on Disk",
+            "Tracked test files named after a file in this packet, listed by name and not shown; read_file one when a "
+            "claim turns on it. A test under another name is not listed, so absence here does not show a test is missing."
+            + "\n\n"
+            # ponytail: a common stem such as index matches tests across packages; the list is capped, not scoped.
+            + ("\n".join(on_disk[:MAX_TESTS_ON_DISK]) or "None found.")
+            + (f"\n...and {len(on_disk) - MAX_TESTS_ON_DISK} more." if len(on_disk) > MAX_TESTS_ON_DISK else ""),
+        ),
         # Listed so a reader does not mistake an excluded file, such as a rebuilt bundle, for one the PR forgot.
         ("Changed but Excluded From Review", "\n".join(changed_files(base, excluded=True)) or "None."),
         ("Diff Stat", run_git(diff_command(base, "--stat", paths=focus), 20_000) if focus else "No included changes."),
@@ -766,6 +809,8 @@ def build_bundle(base, focus, description):
             + (seeds or "No named changes found."),
         ),
     ]
+    if variables := repository_variables(files):
+        sections.append(("Repository Variables", "The Actions variables (not secrets) the workflows read.\n\n" + variables))
     if patch:
         sections.append(("Diff of Files Other Than Code", f"```diff\n{truncate(patch, MAX_SECTION_CHARS)}\n```"))
     bundle = f"# Bundle\n{BUNDLE_NOTE}\n\n" + "\n\n".join(f"# {title}\n{redact_for_model(body)}" for title, body in sections)
@@ -2434,7 +2479,8 @@ def judge(ctx, candidate, verdict):
     if outcome not in {"confirmed", "rejected", "uncertain"}:
         outcome = "uncertain"
     if outcome == "confirmed" and not evidence_grounded(ctx, evidence):
-        outcome = "uncertain"
+        # Withheld and counted under Verification Coverage, not published as a hypothesis that walks it back.
+        outcome = "unmatched"
         note = f"The quoted evidence did not match the code. {note}".strip()
         for item in evidence[:3]:
             print(
@@ -2520,7 +2566,9 @@ def verify_candidates(ctx, candidates, pool):
     for candidate in sorted(chosen, key=lambda item: (item.packet is not None, item.packet or 0, item.path, item.line or 0)):
         groups.setdefault((candidate.packet, candidate.path), []).append(candidate)
     futures = {key: pool.submit(verify_file, ctx, key[0], group) for key, group in groups.items()}
-    counts = dict.fromkeys(("candidates", "confirmed", "rejected", "uncertain", "same_as", "unverified", "failed", "capped"), 0)
+    counts = dict.fromkeys(
+        ("candidates", "confirmed", "rejected", "uncertain", "unmatched", "same_as", "unverified", "failed", "capped"), 0
+    )
     counts["candidates"] = len(candidates)
     # Claims past the cap are the lowest-severity ones and a rerun would skip them again, so they are counted apart
     # from the chosen candidates the checker left without a verdict.
@@ -2725,14 +2773,14 @@ def agentic_review(ctx, mode, pool, threads=(), carried=()):
                 "detail": f"{plural(unresolved, 'more candidate')} could be neither confirmed nor refuted from the code, so they were withheld.",
             }
         )
-    unexamined = counts["capped"] + counts["unverified"] + counts["failed"]
+    unexamined = counts["capped"] + counts["unverified"] + counts["failed"] + counts["unmatched"]
     if unexamined:
         merged["pre_merge_checks"].append(
             {
                 "name": "Verification Coverage",
                 "status": "warn",
                 "type": "Review Limitation",
-                "detail": f"{plural(unexamined, 'candidate')} went unexamined ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error), so they were withheld.",
+                "detail": f"{plural(unexamined, 'candidate')} went unexamined ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error, {counts['unmatched']} confirmed on evidence that did not match the code), so they were withheld.",
             }
         )
     return merged
@@ -3345,6 +3393,7 @@ def normalize_contract_state_entries(entries):
                 "title": compact_state_text(raw.get("title"), 180),
                 "fix_hint": compact_state_text(raw.get("fix_hint"), 260),
                 "repair_contract": contract,
+                **({"reply": compact_state_text(raw["reply"])} if raw.get("reply") else {}),
             }
         )
         if len(normalized) >= MAX_CONTRACT_STATE_ENTRIES:
@@ -3412,8 +3461,18 @@ def format_contract_entries_for_prompt(entries, limit=12_000):
     lines = [
         "Prior Dottore repair contracts from earlier review rounds. Judge whether the current diff satisfies each invariant before reporting adjacent defects.",
     ]
+    disposed = [entry for entry in entries if entry.get("status") == "disposed"]
+    entries = [entry for entry in entries if entry.get("status") != "disposed"] + disposed
     for index, entry in enumerate(entries, 1):
         location = f"{entry.get('path') or 'unknown'}:{entry.get('line') or '?'}"
+        if disposed and entry is disposed[0]:
+            lines.extend(
+                [
+                    "",
+                    "# Disposed by a maintainer",
+                    "A maintainer answered these threads. Do not raise them again unless new code changes the input the reply names; quote the reply if you do.",
+                ]
+            )
         lines.extend(
             [
                 "",
@@ -3425,6 +3484,8 @@ def format_contract_entries_for_prompt(entries, limit=12_000):
                 f"- Side: {entry.get('side') or 'RIGHT'}",
             ]
         )
+        if entry.get("reply"):
+            lines.append(f"- Maintainer reply: {entry['reply']}")
         if entry.get("fix_hint"):
             lines.append(f"- Suggested repair: {entry['fix_hint']}")
         contract = entry.get("repair_contract") or {}
@@ -3455,7 +3516,8 @@ def render_walkthrough(
     unjudged = review_obj.get("unjudged_candidates") or []
     counts = review_obj.get("verification") if isinstance(review_obj.get("verification"), dict) else {}
     judged = any(
-        isinstance(counts.get(key), int) and counts[key] > 0 for key in ("confirmed", "rejected", "uncertain", "same_as")
+        isinstance(counts.get(key), int) and counts[key] > 0
+        for key in ("confirmed", "rejected", "uncertain", "unmatched", "same_as")
     )
     carried = bool(unjudged) and judged and all(entry.get("side") == "RIGHT" for entry in unjudged)
     recorded = head_sha and not has_incomplete_review_check(pre_merge) and (carried or not unexamined_candidates(review_obj))
@@ -3757,8 +3819,8 @@ RESOLVE_THREAD_MUTATION = "mutation($thread: ID!) { resolveReviewThread(input: {
 MAX_REPAIR_THREADS = 12
 
 
-def open_dottore_threads(pr_num, answered=False):
-    """The unresolved review threads Dottore opened that no one else has replied to, or all of them with answered."""
+def dottore_threads(pr_num):
+    """Every review thread Dottore opened, resolved or not, with the last reply a person left on it."""
     # ponytail: the first 100 threads and 50 comments a thread; page reviewThreads when a PR outgrows that.
     owner, name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
     gh = run_gh(
@@ -3770,16 +3832,14 @@ def open_dottore_threads(pr_num, answered=False):
     threads = []
     for node in nodes:
         comments = (node.get("comments") or {}).get("nodes") or []
-        if node.get("isResolved") or not comments:
+        if not comments:
             continue
         first = comments[0]
         author = first.get("author") or {}
         marker = FINDING_MARKER_RE.search(first.get("body") or "")
         if author.get("__typename") != "Bot" or not marker:
             continue
-        # A person who answered the thread owns its outcome.
-        if not answered and any((comment.get("author") or {}).get("login") != author.get("login") for comment in comments[1:]):
-            continue
+        replies = [comment for comment in comments[1:] if (comment.get("author") or {}).get("__typename") != "Bot"]
         threads.append(
             {
                 "thread_id": node.get("id"),
@@ -3790,31 +3850,55 @@ def open_dottore_threads(pr_num, answered=False):
                 "original_line": node.get("originalLine"),
                 "side": node.get("diffSide") or "RIGHT",
                 "body": first.get("body") or "",
+                "resolved": bool(node.get("isResolved")),
+                "answered": any((comment.get("author") or {}).get("login") != author.get("login") for comment in comments[1:]),
+                "reply": compact_state_text(redact_for_model(replies[-1].get("body") or "")) if replies else "",
             }
         )
     return threads
 
 
-def threads_to_check(pr_num, files, prior_contracts):
+def open_dottore_threads(pr_num, answered=False, threads=None):
+    """The unresolved review threads Dottore opened that no one else has replied to, or all of them with answered."""
+    # A person who answered the thread owns its outcome.
+    threads = dottore_threads(pr_num) if threads is None else threads
+    return [thread for thread in threads if not thread["resolved"] and (answered or not thread["answered"])]
+
+
+def dispose_contracts(entries, threads):
+    """The prior contracts less those whose thread is resolved, with those a person answered marked disposed and
+    carrying the reply, so the finder stops re-judging a point a maintainer has settled."""
+    by_id = {}
+    for thread in threads:
+        # A finding posted again keeps its open thread's state over a resolved copy.
+        if thread["id"] not in by_id or by_id[thread["id"]]["resolved"]:
+            by_id[thread["id"]] = thread
+    kept = []
+    for entry in entries:
+        thread = by_id.get(entry.get("id"))
+        if thread and thread["resolved"]:
+            continue
+        if thread and thread["reply"]:
+            entry = {**entry, "status": "disposed", "reply": thread["reply"]}
+        kept.append(entry)
+    return kept
+
+
+def threads_to_check(threads, files, prior_contracts):
     """The open Dottore threads on the files this round changed, with their finding text and repair contract."""
     # ponytail: a thread whose file this round left alone is not checked, so a repair made only in another file
     # waits for a person or a later round that touches the thread's file; check every open thread if that shows up.
-    try:
-        threads = open_dottore_threads(pr_num) if pr_num else []
-    except Exception as exc:
-        print(f"Dottore could not list the open threads: {error_text(exc)}", flush=True)
-        return []
     contracts = {entry.get("id"): entry for entry in prior_contracts}
     chosen = []
-    for thread in threads:
+    for thread in open_dottore_threads(None, threads=threads):
         if thread["path"] not in files:
             continue
-        body = thread.pop("body")
+        body = thread["body"]
         heading = re.search(r"### .*?\b(?:BLOCKING|HIGH|MEDIUM|LOW):\s*(.+)", body)
         contract = contracts.get(thread["id"]) or {}
         chosen.append(
             {
-                **thread,
+                **{key: thread[key] for key in ("thread_id", "comment_id", "id", "path", "line", "original_line", "side")},
                 "title": contract.get("title") or (heading.group(1).strip() if heading else "Prior Dottore finding"),
                 "finding": redact_for_model(FINDING_MARKER_RE.sub("", body).strip()),
                 "contract": contract.get("repair_contract"),
@@ -4192,13 +4276,19 @@ def produce_review(args):
 
     chunks = chunk_changed_files(base, files)
     prompts = prompt_sections(dottore_prompt_path().read_text("utf-8"))
-    prior_contract_state = prior_review_contract_state(pr_num)
+    try:
+        pr_threads = dottore_threads(pr_num) if pr_num else []
+    except Exception as exc:
+        print(f"Dottore could not list the review threads, so prior contracts keep their state: {error_text(exc)}", flush=True)
+        pr_threads = []
+    recorded_state = prior_review_contract_state(pr_num)
+    prior_contract_state = dispose_contracts(recorded_state, pr_threads)
     prior_contract_context = (
         format_contract_entries_for_prompt(prior_contract_state)
-        if prior_contract_state
+        if recorded_state
         else prior_review_contracts_context(pr_num)
     )
-    threads = threads_to_check(pr_num, set(files), prior_contract_state)
+    threads = threads_to_check(pr_threads, set(files), prior_contract_state)
     review_target = (
         f"Review this PR. The review base is commit '{base}' on target branch '{base_ref}', "
         f"head is '{head_sha}', and mode is '{effective_mode}'."
@@ -4303,6 +4393,7 @@ def findings_for_inline_comments(findings):
 
 
 CARRY_NOTE_RE = re.compile(r"\n\n> 🎭 \*No new diff since [^\n]*\*\s*$")
+SUPERSEDED_NOTE_RE = re.compile(r"\n\n> 🎭 \*Examined `[^`\n]*`; the PR head has since moved [^\n]*\*\s*$")
 
 
 def carry_walkthrough(body, head_sha):
@@ -4310,7 +4401,7 @@ def carry_walkthrough(body, head_sha):
     code it examined is this head's code. A fresh examination is one `/dottore full` away."""
     reviewed = STATE_MARKER_RE.search(walkthrough_header(body))
     carried = body.replace(reviewed.group(0), f"<!-- dottore:last-reviewed-sha={head_sha} -->", 1)
-    return CARRY_NOTE_RE.sub("", carried).rstrip() + (
+    return CARRY_NOTE_RE.sub("", SUPERSEDED_NOTE_RE.sub("", carried)).rstrip() + (
         f"\n\n> 🎭 *No new diff since `{short_ref(reviewed.group(1))}`; that examination stands for `{short_ref(head_sha)}`."
         " Comment `/dottore full` for a fresh one.*"
     )
@@ -4499,6 +4590,13 @@ def post_review(args):
     existing = latest_walkthrough_comment(pr_num)
     if existing and autofix_ticked(existing.get("body")):
         body = body.replace(AUTOFIX_BOX, AUTOFIX_BOX.replace("- [ ]", "- [x]", 1), 1)
+    # A push during the review leaves this examination on the older head; say so rather than read as current.
+    current = run_gh(["pr", "view", pr_num, "--json", "headRefOid", "--jq", ".headRefOid"]).stdout.strip()
+    if head_sha and re.fullmatch(r"[0-9a-f]{40}", current) and current != head_sha:
+        body = SUPERSEDED_NOTE_RE.sub("", body).rstrip() + (
+            f"\n\n> 🎭 *Examined `{short_ref(head_sha)}`; the PR head has since moved to `{short_ref(current)}`,"
+            " which this examination does not cover.*"
+        )
     comment_id = existing.get("id") if existing else None
     if comment_id:
         run_gh(
@@ -4514,7 +4612,7 @@ def post_review(args):
             check=True,
         )
     else:
-        run_gh(["pr", "comment", pr_num, "--body-file", args.review_md], check=True)
+        run_gh(["pr", "comment", pr_num, "--body-file", "-"], input_text=body, check=True)
 
     patch_command_status_complete(pr_num, head_sha, carried=bool(carried_title(load_review_for_status(args.review_json))))
 
