@@ -7,7 +7,10 @@ import { z } from "zod";
  *  (laptop playtest 2026-10-24: one encounter principle over 160 characters dropped a blueprint). */
 export function clipText(value: string, max: number): string {
   if (value.length <= max) return value;
-  const cut = value.slice(0, max - 1);
+  let cut = value.slice(0, max - 1);
+  // Never half of a pair: an emoji straddling the cut goes whole.
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
   const space = cut.lastIndexOf(" ");
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }

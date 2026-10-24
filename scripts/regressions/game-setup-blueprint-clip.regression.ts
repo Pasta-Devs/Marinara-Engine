@@ -30,5 +30,10 @@ assert.ok(plan.factions[0]!.secret!.length <= 180);
 assert.equal(clipText("alpha beta gamma", 12), "alpha beta…");
 assert.equal(clipText("abcdefghijklmnop", 8), "abcdefg…");
 assert.equal(clipText("short", 8), "short");
+// An emoji straddling the cut is dropped whole, never split into half a pair.
+const straddled = clipText("abcdef\u{1F600}ghij", 8);
+assert.equal(straddled, "abcdef…");
+assert.ok(straddled.length <= 8);
+assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(straddled));
 
 console.log("game-setup-blueprint-clip: ok");
