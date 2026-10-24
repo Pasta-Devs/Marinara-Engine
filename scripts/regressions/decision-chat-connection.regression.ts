@@ -30,6 +30,7 @@ import {
 } from "../../packages/server/src/services/decision/sidecar-decision.backend.js";
 import { clearDecisionThinkingCache } from "../../packages/server/src/services/decision/decision-thinking-cache.js";
 import { createConnectionsStorage } from "../../packages/server/src/services/storage/connections.storage.js";
+import { createConnectionAccountsStorage } from "../../packages/server/src/services/storage/connection-accounts.storage.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
 import { decisionConnectionTestMessage } from "../../packages/client/src/lib/decision-test-message.js";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
@@ -194,6 +195,63 @@ try {
     `${origin}/moved/v1/chat/completions`,
     "a Decision Model follows its account's current base URL",
   );
+
+  // The normal Add flow creates the chat row first. A later Decision row must still follow the account URL.
+  const chatFirstAccount = await createConnectionAccountsStorage(db).create({
+    name: "Chat first account",
+    provider: "custom",
+    baseUrl: `${origin}/chat/v1`,
+    apiKey: "sk-chat-first",
+  });
+  const chatFirst = await storage.create(
+    createConnectionSchema.parse({
+      name: "Chat first",
+      provider: "custom",
+      accountId: chatFirstAccount.id,
+      baseUrl: `${origin}/chat/v1`,
+      model: "chat-model",
+    }),
+  );
+  const decisionAfterChat = await storage.create(
+    createConnectionSchema.parse({
+      name: "Decision after chat",
+      provider: "decision",
+      decisionSource: "openai_compatible",
+      accountId: chatFirstAccount.id,
+      baseUrl: `${origin}/chat/v1`,
+      model: "decision-model",
+    }),
+  );
+  assert.ok(chatFirst && decisionAfterChat);
+  await createConnectionAccountsStorage(db).update(chatFirstAccount.id, { baseUrl: `${origin}/chat/v2` });
+  assert.equal((await storage.getById(decisionAfterChat!.id))!.baseUrl, `${origin}/chat/v2`);
+  assert.equal((await resolveRow(decisionAfterChat!.id)).connection!.endpoint, `${origin}/chat/v2/chat/completions`);
+
+  await createConnectionAccountsStorage(db).update(chatFirstAccount.id, { baseUrl: "http://127.0.0.1:1/other/v1" });
+  assert.equal((await storage.getById(decisionAfterChat!.id))!.baseUrl, "http://127.0.0.1:1/other/v1");
+  assert.equal(
+    (await resolveRow(decisionAfterChat!.id)).connection!.endpoint,
+    "http://127.0.0.1:1/other/v1/chat/completions",
+  );
+
+  const customPathAccount = await createConnectionAccountsStorage(db).create({
+    name: "Custom path account",
+    provider: "custom",
+    baseUrl: `${origin}/base/v1`,
+    apiKey: "sk-custom-path",
+  });
+  const customPathDecision = await storage.create(
+    createConnectionSchema.parse({
+      name: "Custom path decision",
+      provider: "decision",
+      decisionSource: "openai_compatible",
+      accountId: customPathAccount.id,
+      baseUrl: `${origin}/special/v1`,
+      model: "custom-path-model",
+    }),
+  );
+  await createConnectionAccountsStorage(db).update(customPathAccount.id, { baseUrl: `${origin}/new-base/v1` });
+  assert.equal((await storage.getById(customPathDecision!.id))!.baseUrl, `${origin}/special/v1`);
   const noModel = await storage.create(
     createConnectionSchema.parse({
       name: "No model",

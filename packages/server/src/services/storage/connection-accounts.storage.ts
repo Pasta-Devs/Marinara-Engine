@@ -698,7 +698,13 @@ export function createConnectionAccountsStorage(db: DB) {
               credentialVendor(row) === credentialVendor(representative) &&
               !!trimUrl(account.baseUrl) &&
               credentialEndpoint(row) === trimUrl(account.baseUrl);
-            const takesBaseUrl = (sameType || sharesMediaEndpoint) && input.baseUrl !== undefined;
+            // A Decision Model added after the chat row is still an account URL peer. Check its
+            // own endpoint against the old account URL so this does not depend on row order.
+            const followsDecisionAccount =
+              row.provider === "decision" &&
+              !!trimUrl(account.baseUrl) &&
+              trimUrl(row.baseUrl) === trimUrl(account.baseUrl);
+            const takesBaseUrl = (sameType || sharesMediaEndpoint || followsDecisionAccount) && input.baseUrl !== undefined;
             // A second endpoint (embeddings) on another origin would also receive the row's key.
             const foreignEndpoint =
               !!row.embeddingBaseUrl?.trim() && originOfUrl(trimUrl(row.embeddingBaseUrl)) !== accountOrigin;
