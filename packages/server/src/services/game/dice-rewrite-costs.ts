@@ -21,8 +21,10 @@ import {
   createInventoryTagRegex,
   createPlaceTagRegex,
   createSheetCommandTagRegex,
+  gamePlaceTagBeginsDay,
   parseInventoryTagBody,
   parseSheetCommandTagBody,
+  withoutGamePlaceNewDays,
 } from "@marinara-engine/shared";
 
 /** The sheet ops that pay for doing something, which the dice outcome cannot take back. */
@@ -87,10 +89,6 @@ export function rewriteKeptCommandsNote(sheets: boolean): string {
   return ` ${trades}${sheet} Apart from these kept commands${sheets ? " and the already-applied check costs" : ""}, only commands in your revised output will execute.`;
 }
 
-/** A place tag's `day="new"`, which begins a new market day where it is said. */
-const NEW_DAY = /\bday\s*=\s*"new"/i;
-const NEW_DAY_ATTRIBUTE = /\s+day\s*=\s*"new"/gi;
-
 /** The draft's `spend` and `use` sheet tags and its trade inventory tags, as written. */
 export function draftCostTags(draft: string): string[] {
   return costTags(draft).map((entry) => entry.tag);
@@ -122,7 +120,7 @@ export function keepDraftCosts(draft: string, rewrite: string, playerName?: stri
       missing.unshift(place);
       // A new market day the draft began is begun once: by the place carried, not again by the
       // rewrite's own telling of it, which would start another day after the trades.
-      if (NEW_DAY.test(place)) told = told.replace(createPlaceTagRegex(), (tag) => tag.replace(NEW_DAY_ATTRIBUTE, ""));
+      if (gamePlaceTagBeginsDay(place)) told = withoutGamePlaceNewDays(told);
     }
   }
   return missing.length ? [...missing, ...(told ? [told] : [])].join("\n") : told;
