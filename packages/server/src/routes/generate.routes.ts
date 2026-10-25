@@ -874,13 +874,6 @@ import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import { buildGmFormatReminder, buildGmSceneState } from "../services/game/gm-prompts.js";
 import {
-  gmTailCheckpointDepthOf,
-  gmTailLayoutOf,
-  insertPartyStateCheckpoint,
-  insertStableGmInstructions,
-  recordGmTailEvalTurn,
-} from "../services/game/gm-tail-eval.js";
-import {
   createGameRollTagRegex,
   parseRollDiceToolResult,
   resolveGameDiceRequests,
@@ -5135,9 +5128,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         let addressMode: "party" | "gm" | undefined;
         if (chatMode === "game") {
-          // The lore written after the GM's prompt, which the tail-caching eval writes its stable
-          // instructions in front of.
-          let gameLoreAfterBlock = "";
           // Resolve once so the cached reference and per-turn guidance use the same ruleset.
           // `loadRulesetRegistry` never throws: a failed read returns an empty registry, and a
           // pin the install cannot honour keeps the built-in reminder and saves checks sparse.
@@ -5228,7 +5218,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ? `<lore>\n${lorebookResult.worldInfoBefore}\n</lore>`
               : "";
             const loreAfter = lorebookResult.worldInfoAfter ? `<lore>\n${lorebookResult.worldInfoAfter}\n</lore>` : "";
-            gameLoreAfterBlock = loreAfter;
             if (loreBefore || loreAfter) {
               // Keep world-info positions on either side of the GM's character and game context.
               const sysMsg = finalMessages.find((m) => m.role === "system");
@@ -5607,135 +5596,115 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 return max === undefined ? undefined : { now: Math.min(max, stack.charges ?? max), max };
               }
             : undefined;
-          const gmReminderArgs: Parameters<typeof buildGmFormatReminder>[0] = {
-            sceneState: buildGmSceneState(gmCtx),
-            ttsEmotionIndicatorsEnabled: gameTtsEmotionIndicatorsEnabled(await appSettings.get(TTS_SETTINGS_KEY)),
-            hasSceneModel,
-            hudWidgets: gmCtx.hudWidgets,
-            turnNumber: gameTurnNumber,
-            gameActiveState: gameActiveState as import("@marinara-engine/shared").GameActiveState,
-            sessionNumber,
-            gameTime,
-            map: gameMap,
-            partyNames: gmCtx.partyNames,
-            playerName: gmCtx.playerName,
-            playerIsParty: gmCtx.playerIsParty,
-            characterSprites: gmCtx.characterSprites,
-            language: gmCtx.language,
-            rating: gmCtx.rating,
-            enableQuickTimeEvents: gmCtx.enableQuickTimeEvents,
-            gameSpecialInstructions: gmCtx.gameSpecialInstructions,
-            canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
-            artStylePrompt: gmCtx.artStylePrompt,
-            addressMode,
-            playerDiceRollSubmitted,
-            // One-request dice (#6215). Off, the three fields below are inert and
-            // the reminder renders the bytes it renders today.
-            oneRequestDice: oneRequestDiceTurn,
-            skillModifiers: gameSkillModifierView,
-            ...(promptKitItems ? { kitItems: promptKitItems.definition } : {}),
-            ...(pinnedGameRuleset?.status === "ok"
-              ? {
-                  ruleset: pinnedGameRuleset.definition,
-                  // Gated on impersonate like the package verbs below: an impersonated turn is the
-                  // player writing, nothing applies sheet commands to it, and a tag the model wrote
-                  // there would land in the player's own message as visible text.
-                  ...(!input.impersonate
-                    ? {
-                        rulesetClocks: pinnedGameRuleset.definition.clocks
-                          ? parseStoredRulesetClocks((await turnStartRulesetSnapshot())?.rulesetClocks)
-                          : undefined,
-                        rulesetSheetBlocks: renderGameRulesetSheetBlocks(
-                          pinnedGameRuleset.definition,
-                          turnSheetCards,
-                          parseStoredRulesetLive(
-                            (
-                              await (pinnedGameRuleset.definition.party
-                                ? turnStartRulesetSnapshot()
-                                : selectedGameStateSnapshotPromise)
-                            )?.rulesetLive,
-                          ),
-                          promptRulesetCatalogs,
-                          promptItemBook
-                            ? {
-                                book: promptItemBook,
-                                stacks: promptInventoryStacks,
-                                playerName: personaName || null,
-                              }
-                            : undefined,
-                          turnSheetMetadata.gamePartySheet,
-                        ),
-                      }
-                    : {}),
-                }
-              : {}),
-            dicePoolMode: gameDicePoolTurn,
-            dicePoolBlock,
-            rollDiceToolAttached,
-            // A package that brought its own inventory takes the built-in one out of the prompt.
-            // Dungeon, cave and station maps are the Overworld RPG's; Classic Game Mode never opens one.
-            overworld: gameStyleFromMetadata(chatMeta) === "overworld",
-            experienceProvidedSystems: capabilityPromptContext.provides,
-            // A package that declares GM verbs gets one COMMANDS line each. No package declares a
-            // table today, so this renders nothing and the reminder is byte-identical.
-            //
-            // Gated on impersonate to match the scan below, which skips impersonated turns
-            // (`chatMode === "game" && !input.impersonate`). An impersonated turn is the player
-            // writing, so nothing parses verbs back out of it, and the game surface renders
-            // user-role rows raw — a verb tag the model wrote would land in the player's own
-            // message as visible text. The built-in GM tags already teach-but-never-parse on
-            // these turns; the gate declines to widen that wart rather than matching it.
-            experienceGmVerbs:
-              gmVerbTableForPrompt && !input.impersonate ? renderGmVerbInstructions(gmVerbTableForPrompt) : undefined,
-            // One line per item with its total, so a stack the player split reads as one thing,
-            // and the same per bag once anybody else in the party carries something.
-            playerInventory: (() => {
-              const inv = gameInventoryTotals(promptInventoryStacks, promptCharges);
-              return inv.length > 0 ? inv : undefined;
-            })(),
-            partyInventory: gameInventoryBags(promptInventoryStacks, promptCharges),
-            ...(promptItemFacts ? { inventoryItemFacts: promptItemFacts } : {}),
-            ...(promptFakeNames && Object.keys(promptFakeNames).length > 0
-              ? { inventoryFakeNames: promptFakeNames }
-              : {}),
-            ...(promptBearers ? { inventoryBearers: promptBearers } : {}),
-            ...(promptPurses ? { inventoryPurses: promptPurses } : {}),
-            ...(promptWhereYouAre
-              ? { whereYouAre: [promptWhereYouAre, promptHistoryAsked].filter(Boolean).join("\n\n") }
-              : {}),
-            ...(promptStoryNow ? { storyNow: promptStoryNow } : {}),
-            ...(promptMarket ? { market: promptMarket } : {}),
-            ...(promptDungeonMap ? { dungeonMap: promptDungeonMap } : {}),
-            ...(pinnedGameRuleset?.status === "ok" && pinnedGameRuleset.layers.length > 0
-              ? {
-                  rulesetLayerOptions: Object.fromEntries(
-                    pinnedGameRuleset.layers.map((layer) => [rulesetLayerOptionKey(layer.id), true]),
-                  ),
-                }
-              : {}),
-          };
-          const gmTailLayout = gmTailLayoutOf(chatMeta);
           const formatReminder = resolvePromptMacros(
-            buildGmFormatReminder(
-              gmTailLayout === "legacy"
-                ? gmReminderArgs
-                : { ...gmReminderArgs, part: "turn", partyStateInHistory: gmTailLayout === "split-history" },
-            ),
+            buildGmFormatReminder({
+              sceneState: buildGmSceneState(gmCtx),
+              ttsEmotionIndicatorsEnabled: gameTtsEmotionIndicatorsEnabled(await appSettings.get(TTS_SETTINGS_KEY)),
+              hasSceneModel,
+              hudWidgets: gmCtx.hudWidgets,
+              turnNumber: gameTurnNumber,
+              gameActiveState: gameActiveState as import("@marinara-engine/shared").GameActiveState,
+              sessionNumber,
+              gameTime,
+              map: gameMap,
+              partyNames: gmCtx.partyNames,
+              playerName: gmCtx.playerName,
+              playerIsParty: gmCtx.playerIsParty,
+              characterSprites: gmCtx.characterSprites,
+              language: gmCtx.language,
+              rating: gmCtx.rating,
+              enableQuickTimeEvents: gmCtx.enableQuickTimeEvents,
+              gameSpecialInstructions: gmCtx.gameSpecialInstructions,
+              canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
+              artStylePrompt: gmCtx.artStylePrompt,
+              addressMode,
+              playerDiceRollSubmitted,
+              // One-request dice (#6215). Off, the three fields below are inert and
+              // the reminder renders the bytes it renders today.
+              oneRequestDice: oneRequestDiceTurn,
+              skillModifiers: gameSkillModifierView,
+              ...(promptKitItems ? { kitItems: promptKitItems.definition } : {}),
+              ...(pinnedGameRuleset?.status === "ok"
+                ? {
+                    ruleset: pinnedGameRuleset.definition,
+                    // Gated on impersonate like the package verbs below: an impersonated turn is the
+                    // player writing, nothing applies sheet commands to it, and a tag the model wrote
+                    // there would land in the player's own message as visible text.
+                    ...(!input.impersonate
+                      ? {
+                          rulesetClocks: pinnedGameRuleset.definition.clocks
+                            ? parseStoredRulesetClocks((await turnStartRulesetSnapshot())?.rulesetClocks)
+                            : undefined,
+                          rulesetSheetBlocks: renderGameRulesetSheetBlocks(
+                            pinnedGameRuleset.definition,
+                            turnSheetCards,
+                            parseStoredRulesetLive(
+                              (
+                                await (pinnedGameRuleset.definition.party
+                                  ? turnStartRulesetSnapshot()
+                                  : selectedGameStateSnapshotPromise)
+                              )?.rulesetLive,
+                            ),
+                            promptRulesetCatalogs,
+                            promptItemBook
+                              ? {
+                                  book: promptItemBook,
+                                  stacks: promptInventoryStacks,
+                                  playerName: personaName || null,
+                                }
+                              : undefined,
+                            turnSheetMetadata.gamePartySheet,
+                          ),
+                        }
+                      : {}),
+                  }
+                : {}),
+              dicePoolMode: gameDicePoolTurn,
+              dicePoolBlock,
+              rollDiceToolAttached,
+              // A package that brought its own inventory takes the built-in one out of the prompt.
+              // Dungeon, cave and station maps are the Overworld RPG's; Classic Game Mode never opens one.
+              overworld: gameStyleFromMetadata(chatMeta) === "overworld",
+              experienceProvidedSystems: capabilityPromptContext.provides,
+              // A package that declares GM verbs gets one COMMANDS line each. No package declares a
+              // table today, so this renders nothing and the reminder is byte-identical.
+              //
+              // Gated on impersonate to match the scan below, which skips impersonated turns
+              // (`chatMode === "game" && !input.impersonate`). An impersonated turn is the player
+              // writing, so nothing parses verbs back out of it, and the game surface renders
+              // user-role rows raw — a verb tag the model wrote would land in the player's own
+              // message as visible text. The built-in GM tags already teach-but-never-parse on
+              // these turns; the gate declines to widen that wart rather than matching it.
+              experienceGmVerbs:
+                gmVerbTableForPrompt && !input.impersonate ? renderGmVerbInstructions(gmVerbTableForPrompt) : undefined,
+              // One line per item with its total, so a stack the player split reads as one thing,
+              // and the same per bag once anybody else in the party carries something.
+              playerInventory: (() => {
+                const inv = gameInventoryTotals(promptInventoryStacks, promptCharges);
+                return inv.length > 0 ? inv : undefined;
+              })(),
+              partyInventory: gameInventoryBags(promptInventoryStacks, promptCharges),
+              ...(promptItemFacts ? { inventoryItemFacts: promptItemFacts } : {}),
+              ...(promptFakeNames && Object.keys(promptFakeNames).length > 0
+                ? { inventoryFakeNames: promptFakeNames }
+                : {}),
+              ...(promptBearers ? { inventoryBearers: promptBearers } : {}),
+              ...(promptPurses ? { inventoryPurses: promptPurses } : {}),
+              ...(promptWhereYouAre
+                ? { whereYouAre: [promptWhereYouAre, promptHistoryAsked].filter(Boolean).join("\n\n") }
+                : {}),
+              ...(promptStoryNow ? { storyNow: promptStoryNow } : {}),
+              ...(promptMarket ? { market: promptMarket } : {}),
+              ...(promptDungeonMap ? { dungeonMap: promptDungeonMap } : {}),
+              ...(pinnedGameRuleset?.status === "ok" && pinnedGameRuleset.layers.length > 0
+                ? {
+                    rulesetLayerOptions: Object.fromEntries(
+                      pinnedGameRuleset.layers.map((layer) => [rulesetLayerOptionKey(layer.id), true]),
+                    ),
+                  }
+                : {}),
+            }),
           );
-          if (gmTailLayout !== "legacy") {
-            insertStableGmInstructions(
-              finalMessages,
-              resolvePromptMacros(buildGmFormatReminder({ ...gmReminderArgs, part: "stable" })),
-              gameLoreAfterBlock,
-            );
-            if (gmTailLayout === "split-history") {
-              insertPartyStateCheckpoint(
-                finalMessages,
-                resolvePromptMacros(buildGmFormatReminder({ ...gmReminderArgs, part: "party" })),
-                gmTailCheckpointDepthOf(chatMeta),
-              );
-            }
-          }
           if (advancedMemoryEnabled)
             finalMessages.push(
               ...advancedMemoryPlacements.map((placement) => ({
@@ -9423,20 +9392,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
            */
           const turnStartRulesetLive = async () =>
             parseStoredRulesetLive((await turnStartRulesetSnapshot())?.rulesetLive);
-
-          if (chatMode === "game" && !input.impersonate) {
-            await recordGmTailEvalTurn({
-              chatId: input.chatId,
-              layout: gmTailLayoutOf(chatMeta),
-              model: conn.model,
-              messages: narratorMessages,
-              response: fullResponse,
-              thinking: fullThinking,
-              usage,
-              finishReason,
-              durationMs,
-            }).catch((error) => logger.warn(error, "[generate/game] Could not write the tail-eval record"));
-          }
 
           // Some models inline reasoning blocks instead of using provider-native
           // thinking channels. Lift those blocks into message.extra.thinking.
