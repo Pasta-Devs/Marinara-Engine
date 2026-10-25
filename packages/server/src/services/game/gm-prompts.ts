@@ -1927,7 +1927,7 @@ export function buildGmFormatReminder(
       ``,
       `COMMANDS:`,
       `- Emit commands when canonical game or UI state changes; no command is needed for flavor alone.`,
-      `- [choices: "Option A"|"Option B"|"Option C"] - only for explicit player-facing options that require a selection.`,
+      `- [choices: "Option A"|"Option B"|"Option C"] - only for explicit player-facing options that require a selection. Each set fits where the story is now: never offer again choices the player passed over by doing something else, nor the same set turn after turn.`,
     );
 
   // The engine supplies numbers before the GM writes outcome narration.
