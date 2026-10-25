@@ -139,5 +139,26 @@ assert.deepEqual(
   ["empty", "b", "a"],
 );
 
+// The switcher hides image Models, but orders accounts by all of them, like the panel: A's image Model
+// (order 1) puts A before B (order 2) even though A's chat Model alone (order 3) would put it after.
+const mixedGroups = [
+  { account: { ...account("b"), name: "Beta" }, rows: [row("b-chat", { sortOrder: 2 })] },
+  {
+    account: { ...account("a"), name: "Alpha" },
+    rows: [row("a-image", { sortOrder: 1 }), row("a-chat", { sortOrder: 3 })],
+  },
+];
+assert.deepEqual(
+  orderAccountGroups(mixedGroups, "custom").map((group) => group.account.id),
+  ["a", "b"],
+);
+assert.deepEqual(
+  orderAccountGroups(
+    mixedGroups.map((group) => ({ ...group, rows: group.rows.filter((r) => r.id.endsWith("chat")) })),
+    "custom",
+  ).map((group) => group.account.id),
+  ["b", "a"],
+);
+
 assert.equal(accountStateLabel({ state: "needs_key" }), "connections.accounts.state.needs_key");
 console.log("connection-groups regression passed");

@@ -509,6 +509,13 @@ test("connection cards sort and move, and folders keep their saved drag order", 
     };
     await expectSort("name-asc");
     await openMenu();
+    // Menu keys: arrows wrap, Home and End jump.
+    await page.keyboard.press("End");
+    await expect(page.locator('[role="menu"] button').last()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.locator('[role="menu"] button:not(:disabled)').first()).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(page.locator('[role="menu"] button').last()).toBeFocused();
     await page.getByRole("menuitemradio", { name: sortLabels["name-desc"] }).click();
     const cards = panel.locator('[data-drag-kind="connection"]');
     await expect

@@ -464,23 +464,30 @@ export function ConnectionSwitcherBody({
   );
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
-    return [
-      // Connections with only image or voice Models have nothing to pick here.
-      ...orderAccountGroups(
-        byAccount.filter((group) => group.rows.length > 0),
+    // The panel orders accounts by all their Models; the language filter only trims the rows shown.
+    const accountRank = new Map(
+      orderAccountGroups(
+        groupModelsByAccount((connectionsRaw ?? []) as SwitcherRow[], accounts ?? []).groups,
         sort,
         accountManualOrder,
-      ).map((group) => ({
-        key: group.account.id,
-        account: group.account,
-        name: group.account.name,
-        rows: group.rows,
-      })),
+      ).map((group, index) => [group.account.id, index]),
+    );
+    return [
+      // Connections with only image or voice Models have nothing to pick here.
+      ...byAccount
+        .filter((group) => group.rows.length > 0)
+        .sort((a, b) => (accountRank.get(a.account.id) ?? Infinity) - (accountRank.get(b.account.id) ?? Infinity))
+        .map((group) => ({
+          key: group.account.id,
+          account: group.account,
+          name: group.account.name,
+          rows: group.rows,
+        })),
       ...standalone
         .map((row) => ({ key: row.id, account: null, name: rowLabel(row), rows: [row] }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     ];
-  }, [accountManualOrder, accounts, rows, sort]);
+  }, [accountManualOrder, accounts, connectionsRaw, rows, sort]);
   const groupOfRow = useMemo(() => {
     const map = new Map<string, SwitcherGroup>();
     for (const group of groups) for (const row of group.rows) map.set(row.id, group);
