@@ -5,6 +5,8 @@ import {
   stripGmTagsKeepReadables,
 } from "../../packages/shared/src/utils/game-narration-text.js";
 import { parseGmTags } from "../../packages/shared/src/utils/game-tag-parser.js";
+import { applySegmentEdits } from "../../packages/server/src/services/game/segment-edits.js";
+import { truncateMessageContentAtSegment } from "../../packages/client/src/lib/narration-truncation.js";
 
 // The shapes a GM drifted into in the tail-caching eval, put back into `[Name] [type] [expression]: text`.
 for (const [written, repaired] of [
@@ -106,6 +108,40 @@ assert.equal(
   stripGmTagsKeepReadables("Rain falls. [weather: storm] [sound: thunder] [party_morale: low]"),
   "Rain falls.",
 );
+
+// Segment edits and the Interrupt cut count the beats the screen shows, drifted lines included.
+for (const drifted of [
+  "[Vyre Ashcombe] [thought] - Something doesn't sit right.",
+  '[Vyre Ashcombe] [main] [side] [disgusted]: "Charming."',
+  '[Brother Kesh] [main|thinking]: "Hm."',
+  '[music: calm] [Vyre Ashcombe] [main] [side] [disgusted]: "Charming."',
+]) {
+  const raw = `The hall goes quiet.\n${drifted}\nRain on the roof.\n\n[Brother Kesh] [main] [calm]: "Let it be."\nThe fire dies.`;
+  const screen = parseGameNarrationSegments({ id: "m", content: raw });
+  assert.equal(screen.length, 5, drifted);
+  const driftedAt = 1;
+  assert.equal(screen.at(driftedAt)!.type, "dialogue", drifted);
+  // An edit at the screen's index lands on the drifted line, and a delete there removes only it.
+  const edited = applySegmentEdits(raw, { [driftedAt]: { content: "EDITED" } });
+  const editedScreen = parseGameNarrationSegments({ id: "m", content: edited });
+  assert.equal(editedScreen.length, 5, drifted);
+  assert.equal(editedScreen.at(driftedAt)!.content, "EDITED", drifted);
+  assert.equal(editedScreen.at(driftedAt)!.speaker, screen.at(driftedAt)!.speaker, drifted);
+  const deleted = parseGameNarrationSegments({ id: "m", content: applySegmentEdits(raw, {}, new Set([driftedAt])) });
+  assert.deepEqual(
+    deleted.map((segment) => segment.content),
+    screen.filter((_, index) => index !== driftedAt).map((segment) => segment.content),
+    drifted,
+  );
+  // Cutting after each beat keeps exactly the beats up to it, as a prefix of the raw text.
+  screen.forEach((segment, index) => {
+    const cut = truncateMessageContentAtSegment(raw, index);
+    assert.ok(raw.startsWith(cut), drifted);
+    const kept = parseGameNarrationSegments({ id: "m", content: cut });
+    assert.equal(kept.length, index + 1, `${drifted} cut at ${index}`);
+    assert.equal(kept.at(-1)!.content, segment.content, `${drifted} cut at ${index}`);
+  });
+}
 
 // Bounded work on runaway output: a long run of speaker-looking brackets is not rescanned.
 const runaway = "[A] [whisper:B]".repeat(20_000);

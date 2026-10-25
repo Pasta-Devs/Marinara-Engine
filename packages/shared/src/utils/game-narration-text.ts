@@ -288,6 +288,8 @@ export function repairGameSpeakerLine(line: string): string {
   else if (/^[-–—]\s/u.test(line.slice(at, at + 2))) rest = line.slice(at + 1);
   else return line;
   const [name, ...slots] = groups;
+  // A command tag ahead of the speaker is not a speaker; the strippers take it out first.
+  if (/^\w+\s*:/.test(name!)) return line;
   const parts = slots.flatMap((slot) =>
     slot.includes("|")
       ? slot
