@@ -3795,6 +3795,38 @@ try {
         assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
       }
     }
+    // A call-only round whose signature streams on a part of its own: the replayed call carries it.
+    globalThis.fetch = async () =>
+      new Response(
+        sseFrames([
+          { candidates: [{ content: { parts: [{ text: "", thoughtSignature: "lone-signature" }] } }] },
+          {
+            candidates: [
+              {
+                content: { parts: [{ functionCall: { name: "roll_dice", args: { notation: "1d20" } } }] },
+                finishReason: "STOP",
+              },
+            ],
+          },
+        ]),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    {
+      const result = await new GoogleProvider("https://generativelanguage.googleapis.com", "test").chatComplete(
+        [{ role: "user", content: "roll" }],
+        {
+          model: "gemini-3-pro-preview",
+          stream: true,
+          reasoningEffort: "high",
+          tools: [rollDiceTool],
+          signal: AbortSignal.timeout(3000),
+        },
+      );
+      const parts = (result.providerMetadata?.geminiParts ?? []) as Array<Record<string, unknown>>;
+      const call = parts.find((part) => part.functionCall);
+      assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
+      assert.equal(call?.thoughtSignature, "lone-signature", JSON.stringify(parts));
+    }
     let cancelled = false;
     globalThis.fetch = async () =>
       new Response(
@@ -4820,6 +4852,69 @@ try {
     ]);
   } finally {
     await new Promise<void>((resolve) => signedServer.close(() => resolve()));
+  }
+}
+
+// A Gemini 3 tool round sent back with no signature on its first call (a gateway that drops it, a
+// call read from reply text) carries Google's placeholder instead of a 400; a signed one goes as it
+// is, and other models get nothing added (laptop playtest 2026-10-25: a custom aggregator).
+{
+  const bodies: Array<Record<string, any>> = [];
+  const replayServer = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      bodies.push(JSON.parse(body));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "done" } }] }));
+    });
+  });
+  await new Promise<void>((resolve) => replayServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = replayServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = new OpenAIProvider(
+      `http://127.0.0.1:${address.port}/v1`,
+      "test",
+      undefined,
+      undefined,
+      undefined,
+      "custom",
+    );
+    const round = (extra?: Record<string, unknown>): ChatMessage[] => [
+      { role: "user", content: "roll" },
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "roll", arguments: "{}" },
+            ...(extra ? { extra_content: extra } : {}),
+          },
+          { id: "call-2", type: "function", function: { name: "roll", arguments: "{}" } },
+        ],
+      },
+      { role: "tool", tool_call_id: "call-1", content: "4" },
+      { role: "tool", tool_call_id: "call-2", content: "5" },
+    ];
+    const sent = async (model: string, extra?: Record<string, unknown>) => {
+      await provider.chatComplete(round(extra), { model, stream: false });
+      const calls = bodies.at(-1)!.messages.find((message: any) => message.tool_calls).tool_calls;
+      return calls.map((call: any) => call.extra_content);
+    };
+    assert.deepEqual(await sent("gemini-3.1-pro-preview"), [
+      { google: { thought_signature: "skip_thought_signature_validator" } },
+      undefined,
+    ]);
+    assert.deepEqual(await sent("gemini-3.1-pro-preview", { google: { thought_signature: "sig-1" } }), [
+      { google: { thought_signature: "sig-1" } },
+      undefined,
+    ]);
+    assert.deepEqual(await sent("gpt-4o"), [undefined, undefined]);
+  } finally {
+    await new Promise<void>((resolve) => replayServer.close(() => resolve()));
   }
 }
 

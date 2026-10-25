@@ -3791,6 +3791,19 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "a Gemini thought signature refusal is not sent hunting for a setting",
+    run() {
+      const providerMessage =
+        "Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly.";
+      const hint = formatGenerationParameterError(providerMessage);
+      assert.doesNotMatch(hint, /turn on Send for/);
+      assert.match(hint, /not a setting/);
+      assert.match(hint, /Provider message: Function call is missing a thought_signature/);
+      // A signature that is there but spoiled is the provider's own message.
+      assert.equal(formatGenerationParameterError("Corrupted thought signature."), "Corrupted thought signature.");
+    },
+  },
+  {
     name: "regex macro values are literal in find and inert in replace",
     run() {
       const resolveMacro = (value: string) => {
