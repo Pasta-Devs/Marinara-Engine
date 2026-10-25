@@ -3795,6 +3795,38 @@ try {
         assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
       }
     }
+    // A call-only round whose signature streams on a part of its own: the replayed call carries it.
+    globalThis.fetch = async () =>
+      new Response(
+        sseFrames([
+          { candidates: [{ content: { parts: [{ text: "", thoughtSignature: "lone-signature" }] } }] },
+          {
+            candidates: [
+              {
+                content: { parts: [{ functionCall: { name: "roll_dice", args: { notation: "1d20" } } }] },
+                finishReason: "STOP",
+              },
+            ],
+          },
+        ]),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    {
+      const result = await new GoogleProvider("https://generativelanguage.googleapis.com", "test").chatComplete(
+        [{ role: "user", content: "roll" }],
+        {
+          model: "gemini-3-pro-preview",
+          stream: true,
+          reasoningEffort: "high",
+          tools: [rollDiceTool],
+          signal: AbortSignal.timeout(3000),
+        },
+      );
+      const parts = (result.providerMetadata?.geminiParts ?? []) as Array<Record<string, unknown>>;
+      const call = parts.find((part) => part.functionCall);
+      assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
+      assert.equal(call?.thoughtSignature, "lone-signature", JSON.stringify(parts));
+    }
     let cancelled = false;
     globalThis.fetch = async () =>
       new Response(

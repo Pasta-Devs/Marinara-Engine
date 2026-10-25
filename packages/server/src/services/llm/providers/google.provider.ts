@@ -908,9 +908,14 @@ export class GoogleProvider extends BaseLLMProvider {
     // replay hole this fix closes rather than creates.
     const responseParts: GeminiPart[] = [];
     if (thoughtText) responseParts.push({ text: thoughtText, thought: true });
+    // A signature streamed on a part of its own (an empty text part beside the call) belongs to the
+    // round's first call when that call came without one: Gemini refuses a replayed call missing it.
+    const firstCall = toolParts[0];
+    const signsCall = !!lastSignature && !!firstCall && !firstCall.thoughtSignature;
+    if (signsCall) firstCall.thoughtSignature = lastSignature;
     if (responseText) {
       const textPart: GeminiPart = { text: responseText };
-      if (lastSignature) textPart.thoughtSignature = lastSignature;
+      if (lastSignature && !signsCall) textPart.thoughtSignature = lastSignature;
       responseParts.push(textPart);
     }
     responseParts.push(...toolParts);
