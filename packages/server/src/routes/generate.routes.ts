@@ -9861,6 +9861,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // The first draft predates these results. Rewrite it with the real
               // outcomes in context, including on providers without a tools API.
               const records = [...fullResponse.matchAll(createGameRollTagRegex())].map((match) => match[0]);
+              // The draft as it stands now, its chance branches already picked: a cost in the half the
+              // dice threw away was never spent.
+              const draftForCosts = fullResponse;
               const checks = [...(rolled.results ?? []), ...generalRolls.checkResults];
               const paidCheckCosts = (rolled.results ?? []).flatMap(({ who, spent }) =>
                 spent ? [{ who: who ?? null, ...spent }] : [],
@@ -9955,7 +9958,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               debugLog("[generate/game/raw] rewrite after rolls: %s", narration);
               // What the draft spent to act at all is spent whatever the dice say, even where the
               // rewrite left it out or failed.
-              if (chatMeta.gameRuleset != null) narration = keepDraftCosts(gameDraftWithCommands, narration).trim();
+              if (chatMeta.gameRuleset != null)
+                narration = keepDraftCosts(
+                  draftForCosts,
+                  narration,
+                  personaName !== "User" ? personaName : null,
+                ).trim();
               fullResponse = [narration, ...records].join("\n");
               if (hierarchicalMapsEnabledForChat) {
                 const spatial = extractAssistantSpatialDirective(fullResponse);

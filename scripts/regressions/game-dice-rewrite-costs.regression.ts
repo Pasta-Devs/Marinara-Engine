@@ -3,7 +3,9 @@
  *
  * After the engine rolls, the GM rewrites its draft around the results and only the rewrite's
  * commands execute. A `spend` or `use` sheet command is the price of acting at all, so one the
- * rewrite drops is put back; one it repeats is kept once; everything else is the rewrite's own.
+ * rewrite drops is put back; one it repeats is kept once, a command naming nobody being the
+ * player's; everything else is the rewrite's own. The route hands in the draft with its chance
+ * branches already picked, so a cost in a discarded half is never paid.
  */
 import assert from "node:assert/strict";
 
@@ -36,6 +38,17 @@ assert.equal(keepDraftCosts(draft, repeated), `${spendSong}\n${repeated}`);
 // A use is a cost too, and a failed rewrite still pays the draft's costs.
 const cast = `[sheet: who="Ada" op="use" name="Bless"]`;
 assert.equal(keepDraftCosts(`${cast}\nAda prays.`, ""), cast);
+
+// A command naming nobody is the player's: the same cost as one naming them, either way round.
+const unnamed = `[sheet: op="spend" pool="Ki" amount="1"]`;
+const named = `[sheet: who="Mira" op="spend" pool="Ki" amount="1"]`;
+assert.equal(keepDraftCosts(unnamed, named, "Mira"), named, "the draft's unnamed spend is the rewrite's named one");
+assert.equal(keepDraftCosts(named, unnamed, "mira"), unnamed, "and the reverse");
+// Another member's spend on the same pool stays a cost of its own, and so does the party sheet's.
+const theirs = `[sheet: who="Tam" op="spend" pool="Ki" amount="1"]`;
+assert.equal(keepDraftCosts(theirs, unnamed, "Mira"), `${theirs}\n${unnamed}`);
+const party = `[sheet: sheet="party" op="spend" pool="Ki" amount="1"]`;
+assert.equal(keepDraftCosts(party, unnamed, "Mira"), `${party}\n${unnamed}`);
 
 // A draft with no costs leaves the rewrite exactly as it is.
 assert.equal(keepDraftCosts("No tags at all.", rewrite), rewrite);

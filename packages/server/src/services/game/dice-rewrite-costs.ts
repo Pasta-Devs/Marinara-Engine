@@ -17,13 +17,15 @@ import { createSheetCommandTagRegex, parseSheetCommandTagBody } from "@marinara-
 /** The sheet ops that pay for doing something, which the dice outcome cannot take back. */
 const COST_OPS = new Set(["spend", "use"]);
 
-/** One cost command as a comparable key: who, which sheet and the op, words compared without case. */
-function costKey(body: string): string | null {
+/** One cost command as a comparable key: whose sheet and the op, words compared without case. A
+ *  command that names nobody is the player's, as the sheet pass reads it; one on another sheet (the
+ *  party's) is that sheet's, whoever it names. */
+function costKey(body: string, playerName?: string | null): string | null {
   const parsed = parseSheetCommandTagBody(body);
   if (!parsed.op || !COST_OPS.has(parsed.op.op)) return null;
   const plain = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : value);
   return JSON.stringify([
-    plain(parsed.who ?? ""),
+    parsed.sheet !== undefined ? "" : plain(parsed.who ?? playerName ?? ""),
     plain(parsed.sheet ?? ""),
     Object.entries(parsed.op)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -40,17 +42,18 @@ export function draftCostTags(draft: string): string[] {
 
 /**
  * The rewrite with every cost its draft wrote and it left out put back in front, each on its own line.
- * A cost the rewrite repeats is kept once: one of the draft's is matched by one of the rewrite's.
+ * A cost the rewrite repeats is kept once: one of the draft's is matched by one of the rewrite's, a
+ * command naming nobody standing for `playerName`, the player the sheet pass applies it to.
  */
-export function keepDraftCosts(draft: string, rewrite: string): string {
+export function keepDraftCosts(draft: string, rewrite: string, playerName?: string | null): string {
   const carried = new Map<string, number>();
   for (const match of rewrite.matchAll(createSheetCommandTagRegex())) {
-    const key = costKey(match[1] ?? "");
+    const key = costKey(match[1] ?? "", playerName);
     if (key) carried.set(key, (carried.get(key) ?? 0) + 1);
   }
   const missing: string[] = [];
   for (const tag of draftCostTags(draft)) {
-    const key = costKey(tag.slice("[sheet:".length, -1))!;
+    const key = costKey(tag.slice("[sheet:".length, -1), playerName)!;
     const left = carried.get(key) ?? 0;
     if (left > 0) carried.set(key, left - 1);
     else missing.push(tag);
