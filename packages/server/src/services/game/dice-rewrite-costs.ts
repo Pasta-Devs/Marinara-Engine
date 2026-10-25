@@ -44,8 +44,9 @@ function costKey(body: string, playerName?: string | null): string | null {
   ]);
 }
 
-/** One inventory cost as a comparable key: whose bag, the action, the items and the count, words
- *  compared without case. A tag naming nobody is the player's. */
+/** One inventory cost as a comparable key: whose bag, the action, the items and to whom, words
+ *  compared without case. A tag naming nobody is the player's. The count is left out, so a rewrite
+ *  that re-emits a trade with another count stands in for the draft's instead of trading twice. */
 function tradeKey(body: string, playerName?: string | null): string | null {
   const parsed = parseInventoryTagBody(body);
   if (!parsed || !COST_ACTIONS.has(parsed.action)) return null;
@@ -54,7 +55,6 @@ function tradeKey(body: string, playerName?: string | null): string | null {
     plain(parsed.who ?? playerName ?? ""),
     parsed.action,
     parsed.items.map(plain),
-    parsed.count,
     plain(parsed.to),
   ]);
 }
@@ -70,6 +70,18 @@ function costTags(text: string, playerName?: string | null, sheets = true): Arra
     ...(sheets ? read(createSheetCommandTagRegex(), (body) => costKey(body, playerName)) : []),
     ...read(createInventoryTagRegex(), (body) => tradeKey(body, playerName)),
   ];
+}
+
+/** What the rewrite prompt tells the GM about the commands kept from its draft, so it neither counts
+ *  on dropping one nor repeats it. The sheet wording is for games with a ruleset, whose sheet pass
+ *  runs; the trades are kept in every game. */
+export function rewriteKeptCommandsNote(sheets: boolean): string {
+  const trades =
+    "The trade and gear inventory commands of your draft (buy, sell, pay, give, equip, unequip, bind, unbind, use) are kept as written whatever the results: do not change or repeat them.";
+  const sheet = sheets
+    ? " The sheet spend and use commands of your draft are kept as written too. The check pass has already applied any accepted purchases and check-entry costs to the sheets: do not re-emit already-applied check-pass sheet effects or charge those costs again. Write sheet commands for new harm, healing and genuinely additional resource costs these results decide, using the rolled totals: narration alone applies none of these new consequences."
+    : "";
+  return ` ${trades}${sheet} Apart from these kept commands${sheets ? " and the already-applied check costs" : ""}, only commands in your revised output will execute.`;
 }
 
 /** The draft's `spend` and `use` sheet tags and its trade inventory tags, as written. */
