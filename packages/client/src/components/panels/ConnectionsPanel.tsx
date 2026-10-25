@@ -5,16 +5,7 @@
 // narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
 // Connection yet the panel only teaches the first step.
 // ──────────────────────────────────────────────
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -116,14 +107,6 @@ const SORT_OPTIONS = [
   ["oldest", "connections.list.sortOldest"],
 ] as const satisfies readonly (readonly [ConnectionPanelSort, string])[];
 
-/** Below Tailwind's md the search keeps its width and the sort choice moves into the ⋯ menu. */
-const PHONE_QUERY = "(max-width: 767px)";
-const subscribePhone = (notify: () => void) => {
-  const query = window.matchMedia(PHONE_QUERY);
-  query.addEventListener("change", notify);
-  return () => query.removeEventListener("change", notify);
-};
-
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
 /** The fold id the On this device card keeps among the folded Connections. */
@@ -187,7 +170,6 @@ export function ConnectionsPanel() {
   const { data: folders } = useConnectionFolders();
   const chooseFolder = useFolderChooser();
   const sort = useUIStore((s) => s.connectionPanelSort);
-  const phone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches);
   const setSort = useUIStore((s) => s.setConnectionPanelSort);
   const reorderFolders = useReorderConnectionFolders();
   const reorderConnections = useReorderConnections();
@@ -1067,7 +1049,7 @@ export function ConnectionsPanel() {
         label={t("connections.list.search")}
         placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
       />
-      {!phone && (
+      {wide && (
         <label className="relative flex min-h-9 items-center">
           <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
           <select
@@ -1130,7 +1112,7 @@ export function ConnectionsPanel() {
               disabled: connectionsList.length === 0,
               onSelect: () => void exportConnections(connectionsList),
             },
-            ...(phone
+            ...(!wide
               ? SORT_OPTIONS.map(([value, key]) => ({
                   label: t(key),
                   icon: <ArrowUpDown size="0.75rem" />,
