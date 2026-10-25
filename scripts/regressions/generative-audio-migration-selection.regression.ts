@@ -13,8 +13,10 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { migrateGenerativeAudioConnections } =
   await import("../../packages/server/src/services/connections/generative-audio-connection-migration.js");
-const { resolveGenerativeAudioConfig } = await import("../../packages/server/src/services/audio/generative-audio.service.js");
-const { createConnectionSchema, TTS_SETTINGS_KEY, ttsConfigSchema } = await import("../../packages/shared/dist/index.js");
+const { resolveGenerativeAudioConfig } =
+  await import("../../packages/server/src/services/audio/generative-audio.service.js");
+const { createConnectionSchema, TTS_SETTINGS_KEY, ttsConfigSchema } =
+  await import("../../packages/shared/dist/index.js");
 const { apiConnections, appSettings } = await import("../../packages/server/src/db/schema/index.js");
 const { encryptApiKey } = await import("../../packages/server/src/utils/crypto.js");
 const db = await createFileNativeDB();
@@ -56,13 +58,21 @@ try {
   const row = await speech("unflagged");
   const originalConfig = await storeConfig();
   await migrateGenerativeAudioConnections(db);
-  assert.equal((await generationRows()).length, 2, "an explicit row and independent legacy settings remain separate configurations");
+  assert.equal(
+    (await generationRows()).length,
+    2,
+    "an explicit row and independent legacy settings remain separate configurations",
+  );
   const explicit = await connections.getAudioGenerationForLegacyConnection(row.id);
   assert(explicit);
   assert.equal(explicit.baseUrl, row.baseUrl);
   assert.equal((await resolveGenerativeAudioConfig(db, row.id)).apiKey, "row-key");
   assert.equal((await resolveGenerativeAudioConfig(db)).baseUrl, "https://blob.example.com");
-  assert.equal((await resolveGenerativeAudioConfig(db)).apiKey, "blob-key", "the default preserves the legacy settings identity");
+  assert.equal(
+    (await resolveGenerativeAudioConfig(db)).apiKey,
+    "blob-key",
+    "the default preserves the legacy settings identity",
+  );
   assert.equal((await connections.getById(row.id))?.audioVoice, "retained-voice");
   assert.equal(await settings.get(TTS_SETTINGS_KEY), originalConfig, "speech settings stay byte-identical");
   await migrateGenerativeAudioConnections(db);
@@ -94,7 +104,11 @@ try {
   const chosenSplit = await connections.getAudioGenerationForLegacyConnection(chosen.id);
   const otherSplit = await connections.getAudioGenerationForLegacyConnection(other.id);
   assert(chosenSplit && otherSplit);
-  assert.equal((await resolveGenerativeAudioConfig(db)).id, chosenSplit.id, "the explicit chosen row wins over table order");
+  assert.equal(
+    (await resolveGenerativeAudioConfig(db)).id,
+    chosenSplit.id,
+    "the explicit chosen row wins over table order",
+  );
   assert.equal(chosenSplit.defaultForAgents, "true");
   assert.equal(chosenSplit.fallbackForAgents, "false");
   assert.equal(otherSplit.fallbackForAgents, "true");
@@ -107,7 +121,11 @@ try {
   await migrateGenerativeAudioConnections(db);
   const markedSplit = await connections.getAudioGenerationForLegacyConnection(marked.id);
   assert(markedSplit);
-  assert.equal((await resolveGenerativeAudioConfig(db)).id, markedSplit.id, "an explicit fallback wins over earlier unmarked rows");
+  assert.equal(
+    (await resolveGenerativeAudioConfig(db)).id,
+    markedSplit.id,
+    "an explicit fallback wins over earlier unmarked rows",
+  );
 
   await reset();
   await storeConfig();
@@ -118,7 +136,9 @@ try {
   await migrateGenerativeAudioConnections(db);
   assert.equal((await generationRows()).length, 1);
 
-  console.info("PASS: independent row/blob identities, reachable unflagged/fallback rows, chosen-row priority, idempotence, deletion and speech-off blob continuity");
+  console.info(
+    "PASS: independent row/blob identities, reachable unflagged/fallback rows, chosen-row priority, idempotence, deletion and speech-off blob continuity",
+  );
 } finally {
   await db._fileStore.close();
   rmSync(directory, { recursive: true, force: true });

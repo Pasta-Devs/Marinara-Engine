@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 import { apiProviderSchema, connectionIconSchema, connectionModelIdSchema } from "./connection.schema.js";
+import { partialInput } from "../utils/zod-input.js";
 import type { ConnectionBilling } from "../constants/model-lists.js";
 import type { ConnectionBalanceSource } from "../constants/connection-balance.js";
 
@@ -37,7 +38,9 @@ export const createConnectionAccountSchema = z.object({
 });
 
 /** `provider` is immutable after create, so it is not part of the update shape. */
-export const updateConnectionAccountSchema = z.object({ name: z.string().min(1).max(200), ...accountFields }).partial();
+export const updateConnectionAccountSchema = partialInput(
+  z.object({ name: z.string().min(1).max(200), ...accountFields }),
+);
 
 /** `PUT /connection-accounts/:id/usage-keys/:upstream`: link a Connection of the upstream, or a usage-only key. */
 export const connectionUsageKeySchema = z.union([
