@@ -614,7 +614,21 @@ try {
     const shielded = answer(held.state, "brenna", "Shield");
     assert.equal(
       rulesetCombatEventLine(firstOf(shielded.events, "recheck"), names, t),
-      "Against Armor Class 23 (Shielded + 5), Snag's Scimitar now misses Brenna.",
+      "Against Armor Class 23 (from 18: Shielded + 5), Snag's Scimitar now misses Brenna.",
+    );
+    // A guard whose name carries its number says it once (#8273: "Parrying (+2) + 2").
+    const recheck = firstOf(shielded.events, "recheck");
+    assert.equal(
+      rulesetCombatEventLine(
+        {
+          ...recheck,
+          defense: 17,
+          guards: [{ ...recheck.guards![0]!, condition: "Parrying (+2)", item: true, value: 2 }],
+        },
+        names,
+        t,
+      ),
+      "Against Armor Class 17 (from 15: Parrying (+2)), Snag's Scimitar now misses Brenna.",
     );
     assert.equal(
       english["game.combat.ruleset.menu.windowHit"],

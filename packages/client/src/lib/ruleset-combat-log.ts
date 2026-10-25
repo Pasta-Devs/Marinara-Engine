@@ -244,6 +244,30 @@ function defenseText(names: RulesetCombatNames, defense: number): string {
   return names.defense ? `${names.defense} ${defense}` : String(defense);
 }
 
+/** A defense raised by what the target has on (Shield, a Parry): the number rolled against, the one it
+ *  rose from, and what raised it, each value said once (#8273: "Armor Class 17 (Parrying
+ *  (+2) + 2)"). A name that already carries its number is not given it again. */
+function guardedText(
+  t: TFunction,
+  named: (bonus: RulesetConditionBonus) => string,
+  defense: string,
+  total: number,
+  guards: readonly RulesetConditionBonus[],
+): string {
+  const base = total - guards.reduce((sum, guard) => sum + guard.value, 0);
+  return t("game.combat.ruleset.roll.guarded", {
+    defense,
+    base,
+    guards: guards
+      .map((guard) => {
+        const name = named(guard);
+        const own = new RegExp(`\\(\\s*${guard.value < 0 ? "-" : "\\+"}\\s*${Math.abs(guard.value)}\\s*\\)`);
+        return own.test(name) ? name : t("game.combat.ruleset.roll.guard", { name, value: signed(guard.value) });
+      })
+      .join(", "),
+  });
+}
+
 /** What a condition, or a level of a track or a derived value, that changed a number is called in the
  *  log. A level is named by what it reads. */
 function bonusNamer(names: RulesetCombatNames, t: TFunction): (bonus: RulesetConditionBonus) => string {
@@ -395,16 +419,7 @@ export function rulesetCombatEventLine(
             ? t("game.combat.ruleset.event.attackStyle", { label: event.label, style: names.style(event.style) })
             : event.label,
           roll: pool ? rulesetPoolRollText({ ...event, pool }, t, named) : rulesetRollText(event, t, named),
-          defense: event.guards?.length
-            ? t("game.combat.ruleset.roll.guarded", {
-                defense,
-                guards: event.guards
-                  .map((guard) =>
-                    t("game.combat.ruleset.roll.guard", { name: named(guard), value: signed(guard.value) }),
-                  )
-                  .join(", "),
-              })
-            : defense,
+          defense: event.guards?.length ? guardedText(t, named, defense, event.defense, event.guards) : defense,
         },
       );
     }
@@ -1137,14 +1152,7 @@ export function rulesetCombatEventLine(
         target: names.combatant(event.targetId),
         label: event.label,
         total: event.total,
-        defense: event.guards?.length
-          ? t("game.combat.ruleset.roll.guarded", {
-              defense,
-              guards: event.guards
-                .map((guard) => t("game.combat.ruleset.roll.guard", { name: named(guard), value: signed(guard.value) }))
-                .join(", "),
-            })
-          : defense,
+        defense: event.guards?.length ? guardedText(t, named, defense, event.defense, event.guards) : defense,
       });
     }
     case "pass":
