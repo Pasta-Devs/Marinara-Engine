@@ -49,6 +49,11 @@ const theirs = `[sheet: who="Tam" op="spend" pool="Ki" amount="1"]`;
 assert.equal(keepDraftCosts(theirs, unnamed, "Mira"), `${theirs}\n${unnamed}`);
 const party = `[sheet: sheet="party" op="spend" pool="Ki" amount="1"]`;
 assert.equal(keepDraftCosts(party, unnamed, "Mira"), `${party}\n${unnamed}`);
+// A party command that names anybody is refused by the sheet pass, so it never stands in for the
+// draft's: the draft's is put back.
+const partyNamed = `[sheet: sheet="party" who="Mira" op="spend" pool="Ki" amount="1"]`;
+assert.equal(keepDraftCosts(party, partyNamed, "Mira"), `${party}\n${partyNamed}`);
+assert.equal(keepDraftCosts(party, party, "Mira"), party, "the same party command is kept once");
 
 // A draft with no costs leaves the rewrite exactly as it is.
 assert.equal(keepDraftCosts("No tags at all.", rewrite), rewrite);

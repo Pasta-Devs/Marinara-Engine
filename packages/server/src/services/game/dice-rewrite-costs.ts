@@ -18,14 +18,15 @@ import { createSheetCommandTagRegex, parseSheetCommandTagBody } from "@marinara-
 const COST_OPS = new Set(["spend", "use"]);
 
 /** One cost command as a comparable key: whose sheet and the op, words compared without case. A
- *  command that names nobody is the player's, as the sheet pass reads it; one on another sheet (the
- *  party's) is that sheet's, whoever it names. */
+ *  command that names nobody is the player's, as the sheet pass reads it. One on another sheet (the
+ *  party's) keeps whom it names apart, since the sheet pass refuses a party command that names
+ *  anybody: that one never stands in for the draft's. */
 function costKey(body: string, playerName?: string | null): string | null {
   const parsed = parseSheetCommandTagBody(body);
   if (!parsed.op || !COST_OPS.has(parsed.op.op)) return null;
   const plain = (value: unknown) => (typeof value === "string" ? value.trim().toLowerCase() : value);
   return JSON.stringify([
-    parsed.sheet !== undefined ? "" : plain(parsed.who ?? playerName ?? ""),
+    plain(parsed.sheet !== undefined ? (parsed.who ?? "") : (parsed.who ?? playerName ?? "")),
     plain(parsed.sheet ?? ""),
     Object.entries(parsed.op)
       .sort(([a], [b]) => a.localeCompare(b))
