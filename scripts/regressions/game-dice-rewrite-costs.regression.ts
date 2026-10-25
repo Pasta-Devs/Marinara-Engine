@@ -93,6 +93,15 @@ assert.equal(
 // A place said after the trade is not where it was made, and a draft with no trade keeps no place.
 assert.equal(keepDraftCosts(`${buyLantern} [place: name="Gate"]`, rewrite, "Mira"), `${buyLantern}\n${rewrite}`);
 assert.equal(keepDraftCosts(`[place: name="Gate"] Quiet.`, rewrite, "Mira"), rewrite);
+// A new day the draft began is begun once, before the trades, however the rewrite says the place.
+assert.equal(
+  keepDraftCosts(
+    `[place: name="Elm Street" size="town" day="new"] ${buyLantern}`,
+    `[place: name="Elm Street" day="new"] Done.`,
+    "Mira",
+  ),
+  `[place: name="Elm Street" size="town" day="new"]\n${buyLantern}\n[place: name="Elm Street"] Done.`,
+);
 
 // A draft with no costs leaves the rewrite exactly as it is.
 assert.equal(keepDraftCosts("No tags at all.", rewrite), rewrite);

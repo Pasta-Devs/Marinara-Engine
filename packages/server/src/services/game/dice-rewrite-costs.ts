@@ -87,6 +87,10 @@ export function rewriteKeptCommandsNote(sheets: boolean): string {
   return ` ${trades}${sheet} Apart from these kept commands${sheets ? " and the already-applied check costs" : ""}, only commands in your revised output will execute.`;
 }
 
+/** A place tag's `day="new"`, which begins a new market day where it is said. */
+const NEW_DAY = /\bday\s*=\s*"new"/i;
+const NEW_DAY_ATTRIBUTE = /\s+day\s*=\s*"new"/gi;
+
 /** The draft's `spend` and `use` sheet tags and its trade inventory tags, as written. */
 export function draftCostTags(draft: string): string[] {
   return costTags(draft).map((entry) => entry.tag);
@@ -107,14 +111,19 @@ export function keepDraftCosts(draft: string, rewrite: string, playerName?: stri
     if (left > 0) carried.set(key, left - 1);
     else missing.push(tag);
   }
-  // The trades kept were made where the draft last said the scene was before them (laptop playtest
-  // 2026-10-25: a rolled turn's buys refused as made nowhere, the rewrite having left the place out).
+  let told = rewrite;
+  // The trades kept were made where the draft last said the scene was before them.
   const trades = missing.filter((tag) => /^\[inventory:/i.test(tag));
   if (trades.length > 0) {
     const last = Math.max(...trades.map((tag) => draft.lastIndexOf(tag)));
     let place: string | undefined;
-    for (const match of draft.matchAll(createPlaceTagRegex())) if (match.index < last) place = match[0];
-    if (place) missing.unshift(place);
+    for (const match of draft.matchAll(createPlaceTagRegex())) if ((match.index ?? 0) < last) place = match[0];
+    if (place) {
+      missing.unshift(place);
+      // A new market day the draft began is begun once: by the place carried, not again by the
+      // rewrite's own telling of it, which would start another day after the trades.
+      if (NEW_DAY.test(place)) told = told.replace(createPlaceTagRegex(), (tag) => tag.replace(NEW_DAY_ATTRIBUTE, ""));
+    }
   }
-  return missing.length ? [...missing, ...(rewrite ? [rewrite] : [])].join("\n") : rewrite;
+  return missing.length ? [...missing, ...(told ? [told] : [])].join("\n") : told;
 }
