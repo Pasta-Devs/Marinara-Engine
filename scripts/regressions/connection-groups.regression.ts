@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import {
   accountStateLabel,
   groupModelsByAccount,
+  connectionGroupFolder,
+  reorderConnectionGroups,
+  orderAccountGroups,
+  sortConnectionGroups,
   recentModels,
   roleBadges,
   subgroupByUpstream,
@@ -88,6 +92,72 @@ assert.deepEqual(
 assert.deepEqual(
   standalone.map((r) => r.id),
   ["lone", "orphan", "borrower-of-lone"],
+);
+
+const sortableGroups = [
+  {
+    account: { ...account("b"), name: "Beta", createdAt: "2026-02-01" },
+    rows: [row("b-1", { sortOrder: 1, folderId: "f" }), row("b-2", { sortOrder: 2, folderId: "f" })],
+  },
+  {
+    account: { ...account("a"), name: "Alpha", createdAt: "2026-01-01" },
+    rows: [row("a-1", { sortOrder: 3, folderId: "f" })],
+  },
+  { account: { ...account("empty"), name: "Empty", createdAt: "2026-03-01" }, rows: [] },
+];
+assert.deepEqual(
+  sortConnectionGroups(sortableGroups, "name-asc").map((group) => group.account.id),
+  ["a", "b", "empty"],
+);
+assert.deepEqual(
+  sortConnectionGroups(sortableGroups, "custom").map((group) => group.account.id),
+  ["b", "a", "empty"],
+);
+assert.deepEqual(connectionGroupFolder(sortableGroups[0]!), "f");
+assert.deepEqual(
+  reorderConnectionGroups(sortableGroups, ["a", "b"], ["a", "b"]).map((item) => item.id),
+  ["a-1", "b-1", "b-2"],
+);
+
+// The quick switcher and the panel share one order: a computed sort ignores the saved Custom order, an active one wins.
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "name-asc", { active: true, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["a", "b", "empty"],
+);
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "custom", { active: true, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["empty", "b", "a"],
+);
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "custom", { active: false, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["empty", "b", "a"],
+);
+
+// The switcher hides image Models, but orders accounts by all of them, like the panel: A's image Model
+// (order 1) puts A before B (order 2) even though A's chat Model alone (order 3) would put it after.
+const mixedGroups = [
+  { account: { ...account("b"), name: "Beta" }, rows: [row("b-chat", { sortOrder: 2 })] },
+  {
+    account: { ...account("a"), name: "Alpha" },
+    rows: [row("a-image", { sortOrder: 1 }), row("a-chat", { sortOrder: 3 })],
+  },
+];
+assert.deepEqual(
+  orderAccountGroups(mixedGroups, "custom").map((group) => group.account.id),
+  ["a", "b"],
+);
+assert.deepEqual(
+  orderAccountGroups(
+    mixedGroups.map((group) => ({ ...group, rows: group.rows.filter((r) => r.id.endsWith("chat")) })),
+    "custom",
+  ).map((group) => group.account.id),
+  ["b", "a"],
 );
 
 assert.equal(accountStateLabel({ state: "needs_key" }), "connections.accounts.state.needs_key");

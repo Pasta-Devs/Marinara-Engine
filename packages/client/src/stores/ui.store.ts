@@ -79,6 +79,7 @@ export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[num
 export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
+export type ConnectionPanelSort = BasicPanelSort | "custom";
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22 | 26 | 30 | 34;
 export type VisualTheme = "default" | "sillytavern";
 export type ChatWidgetPreset = "default" | "dottore" | "mari";
@@ -1157,6 +1158,8 @@ interface UIState {
   showCostBadges: boolean;
   /** The Connections list and quick picker group Models by Connection or by the user's folders. */
   connectionsGroupBy: "connection" | "folder";
+  connectionPanelSort: ConnectionPanelSort;
+  setConnectionPanelSort: (sort: ConnectionPanelSort) => void;
   /** The Chat Settings "drag to place it" tip was dismissed on this device. */
   chatSettingsMoveTipDismissed: boolean;
   /** The once-only chat window introduction was dismissed across chats and devices. */
@@ -1764,6 +1767,7 @@ export function pickSyncedSettings(state: UIState) {
     connectionsCollapsed: state.connectionsCollapsed,
     showCostBadges: state.showCostBadges,
     connectionsGroupBy: state.connectionsGroupBy,
+    connectionPanelSort: state.connectionPanelSort,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -2018,6 +2022,7 @@ export function pickPersistedUIState(state: UIState) {
     connectionsCollapsed: state.connectionsCollapsed,
     showCostBadges: state.showCostBadges,
     connectionsGroupBy: state.connectionsGroupBy,
+    connectionPanelSort: state.connectionPanelSort,
     chatSettingsMoveTipDismissed: state.chatSettingsMoveTipDismissed,
     chatWindowIntroDismissed: state.chatWindowIntroDismissed,
     echoChamberOpen: state.echoChamberOpen,
@@ -2338,6 +2343,7 @@ export const useUIStore = create<UIState>()(
         connectionsCollapsed: [],
         showCostBadges: true,
         connectionsGroupBy: "connection",
+        connectionPanelSort: "name-asc",
         chatSettingsMoveTipDismissed: false,
         chatWindowIntroDismissed: false,
         echoChamberOpen: true,
@@ -3445,6 +3451,8 @@ export const useUIStore = create<UIState>()(
           })),
         setShowCostBadges: (v) => set({ showCostBadges: v }),
         setConnectionsGroupBy: (v) => set({ connectionsGroupBy: v }),
+        setConnectionPanelSort: (sort) =>
+          set({ connectionPanelSort: sort === "custom" ? sort : normalizeBasicPanelSort(sort) }),
         dismissChatSettingsMoveTip: () => set({ chatSettingsMoveTipDismissed: true }),
         dismissChatWindowIntro: () => set({ chatWindowIntroDismissed: true }),
         toggleEchoChamber: () => set((s) => ({ echoChamberOpen: !s.echoChamberOpen })),
@@ -3979,6 +3987,10 @@ export const useUIStore = create<UIState>()(
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
         persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
+        persisted.connectionPanelSort =
+          persisted.connectionPanelSort === "custom"
+            ? "custom"
+            : normalizeBasicPanelSort(persisted.connectionPanelSort);
         normalizePersistedMainSurface(persisted);
         if (Array.isArray(persisted.recentUserActivities)) {
           persisted.recentUserActivities = persisted.recentUserActivities

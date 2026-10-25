@@ -7,6 +7,8 @@ import type {
   ConnectionFolder,
   CreateConnectionFolderInput,
   MoveConnectionToFolderInput,
+  ReorderConnectionsInFolderInput,
+  ReorderFoldersInput,
   UpdateFolderInput,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
@@ -58,6 +60,23 @@ export function useMoveConnectionToFolder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: MoveConnectionToFolderInput) => api.post("/connection-folders/move-connection", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
+  });
+}
+
+export function useReorderConnectionFolders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderedIds: ReorderFoldersInput["orderedIds"]) =>
+      api.post("/connection-folders/reorder", { orderedIds } satisfies ReorderFoldersInput),
+    onSuccess: () => qc.invalidateQueries({ queryKey: connectionFolderKeys.list() }),
+  });
+}
+
+export function useReorderConnections() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ReorderConnectionsInFolderInput) => api.post("/connection-folders/reorder-connections", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }

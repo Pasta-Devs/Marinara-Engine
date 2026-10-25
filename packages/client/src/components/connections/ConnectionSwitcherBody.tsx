@@ -42,10 +42,17 @@ import {
   isConnectionFlagTrue,
   resolveUsageConnection,
 } from "../../lib/connection-filters";
-import { accountStateLabel, groupModelsByAccount, recentModels, roleBadges } from "../../lib/connection-groups";
+import {
+  accountStateLabel,
+  groupModelsByAccount,
+  orderAccountGroups,
+  recentModels,
+  roleBadges,
+} from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ServiceRow } from "./ServiceRow";
+import { sortPanelFolders } from "../../lib/panel-sort";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
 import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
@@ -68,6 +75,7 @@ type SwitcherRow = {
   credentialsFromConnectionId?: string | null;
   pinnedModels?: unknown;
   createdAt?: string | null;
+  sortOrder?: number;
   useForRandom?: boolean | string | null;
   isDefault?: boolean | string | null;
   defaultForAgents?: unknown;
@@ -430,6 +438,8 @@ export function ConnectionSwitcherBody({
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const openModal = useUIStore((state) => state.openModal);
   // The Connections panel's "Group by" choice applies here too.
+  const sort = useUIStore((state) => state.connectionPanelSort);
+  const accountManualOrder = useUIStore((state) => state.libraryManualOrders?.connection);
   const byFolder = useUIStore((state) => state.connectionsGroupBy) === "folder";
   const { data: folders } = useConnectionFolders();
   const updateConnection = useUpdateConnection();
@@ -454,19 +464,30 @@ export function ConnectionSwitcherBody({
   );
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
+    // The panel orders accounts by all their Models; the language filter only trims the rows shown.
+    const accountRank = new Map(
+      orderAccountGroups(
+        groupModelsByAccount((connectionsRaw ?? []) as SwitcherRow[], accounts ?? []).groups,
+        sort,
+        accountManualOrder,
+      ).map((group, index) => [group.account.id, index]),
+    );
     return [
       // Connections with only image or voice Models have nothing to pick here.
       ...byAccount
         .filter((group) => group.rows.length > 0)
+        .sort((a, b) => (accountRank.get(a.account.id) ?? Infinity) - (accountRank.get(b.account.id) ?? Infinity))
         .map((group) => ({
           key: group.account.id,
           account: group.account,
           name: group.account.name,
           rows: group.rows,
         })),
-      ...standalone.map((row) => ({ key: row.id, account: null, name: rowLabel(row), rows: [row] })),
-    ].sort((a, b) => a.name.localeCompare(b.name));
-  }, [accounts, rows]);
+      ...standalone
+        .map((row) => ({ key: row.id, account: null, name: rowLabel(row), rows: [row] }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    ];
+  }, [accountManualOrder, accounts, connectionsRaw, rows, sort]);
   const groupOfRow = useMemo(() => {
     const map = new Map<string, SwitcherGroup>();
     for (const group of groups) for (const row of group.rows) map.set(row.id, group);
@@ -913,7 +934,7 @@ export function ConnectionSwitcherBody({
   // Group by folder: each folder's saved Models, then the ones in none; a row names its Connection.
   const folderSections = () => {
     const known = new Set((folders ?? []).map((folder) => folder.id));
-    return [...(folders ?? []), null].map((folder) => {
+    return [...sortPanelFolders(folders ?? [], sort), null].map((folder) => {
       const entries = rows
         .filter((row) => (folder ? row.folderId === folder.id : !row.folderId || !known.has(row.folderId)))
         .map((row) => entryOfRow(row, groupOfRow.get(row.id)))

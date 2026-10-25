@@ -2,7 +2,7 @@
 // ConnectionGroup — a Connection card: a heading that folds the card (name, model count, host, one status
 // word), its ⋯ menu ("Edit connection" first) and its model well.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode } from "react";
+import { useState, type HTMLAttributes, type ReactNode } from "react";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { ServiceRow } from "./ServiceRow";
 import { getConnectionIdentity, modelKindOf, modelSubtitle } from "../../lib/connection-identity";
@@ -80,6 +80,7 @@ export function ConnectionGroup({
   onToggle,
   tile,
   onPictureClick,
+  dragBindings,
 }: {
   account: ConnectionAccountListItem;
   rows: ConnectionRowData[];
@@ -93,6 +94,7 @@ export function ConnectionGroup({
   onPictureClick?: (at: MenuAt) => void;
   /** Provider identity is part of each account heading, without an enclosing family header. */
   providerName?: string;
+  dragBindings?: HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>;
 }) {
   const { t, i18n } = useTranslation();
   const voiceRowId = useVoiceRowId();
@@ -214,9 +216,13 @@ export function ConnectionGroup({
         : null;
   return (
     <div
+      {...dragBindings}
       role="group"
       className="mari-connection-group flex min-w-0 flex-col"
       data-connection-account-id={account.id}
+      data-drag-id={account.id}
+      data-drag-order-id={account.id}
+      data-drag-kind="connection"
       aria-label={account.name}
     >
       <ServiceRow
@@ -231,6 +237,7 @@ export function ConnectionGroup({
         onPictureClick={onPictureClick}
         data-connections-row={`account:${account.id}`}
         data-connection-group-heading
+        data-drag-surface
         // The heading is the fold.
         data-connections-toggle={account.id}
         onClick={onToggle}
