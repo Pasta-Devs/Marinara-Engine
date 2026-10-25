@@ -1027,7 +1027,44 @@ function findPool(pools: ResolvedRulesetLive["pools"], requested: string): PoolM
   if (declared) return { pool: declared };
   const rows = pools.filter((pool) => pool.listId && (sameName(pool.key, wanted) || sameName(pool.label, wanted)));
   if (rows.length === 1) return { pool: rows[0]! };
-  return { refusal: rows.length > 1 ? "ambiguous-pool" : "unknown-pool" };
+  if (rows.length > 1) return { refusal: "ambiguous-pool" };
+  // A declared pool only, and only where one alone fits (#8271: a GM's damage tag on
+  // pool="hit_points" refused while the widget took it).
+  const alike = pools.filter((pool) => !pool.listId && poolLooselyNamed(pool, wanted));
+  if (alike.length === 1) return { pool: alike[0]! };
+  return { refusal: alike.length > 1 ? "ambiguous-pool" : "unknown-pool" };
+}
+
+/** A pool's name written the way a key is ("hit_points" for "Hit Points"), or shortened to its
+ *  label's initials ("hp"), for where no pool has the name exactly (#8271). */
+function poolLooselyNamed(pool: { key: string; label?: string }, wanted: string): boolean {
+  const loose = (text: string) =>
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, " ");
+  const initials = (text: string) =>
+    loose(text)
+      .split(" ")
+      .map((word) => word[0] ?? "")
+      .join("");
+  const looseWanted = loose(wanted);
+  return (
+    loose(pool.key) === looseWanted ||
+    (!!pool.label && (loose(pool.label) === looseWanted || initials(pool.label) === looseWanted))
+  );
+}
+
+/** The one pool of `pools` a name finds: by its key or label exactly, else loosely where one alone
+ *  fits. */
+function poolNamed<Pool extends { key: string; label?: string }>(
+  pools: readonly Pool[],
+  wanted: string,
+): Pool | undefined {
+  const exact = pools.find((pool) => sameName(pool.key, wanted) || (!!pool.label && sameName(pool.label, wanted)));
+  if (exact) return exact;
+  const alike = pools.filter((pool) => poolLooselyNamed(pool, wanted));
+  return alike.length === 1 ? alike[0] : undefined;
 }
 
 function poolNow(pool: { max: number }, value: number, temp: number): string {
@@ -1722,9 +1759,7 @@ export function planRulesetUse(
     // rather than reinterpreted, because paying a different bill is not what was asked for.
     const named = op.pool.trim();
     const group = terms.length === 1 ? groupOf(terms[0]!.pool) : undefined;
-    const target = named
-      ? declared.find((pool) => sameName(pool.key, named) || sameName(pool.label, named))
-      : undefined;
+    const target = named ? poolNamed(declared, named) : undefined;
     // A pool of another group pays too where it says so (1.171): 5e's pact slots, for a spell
     // costed from the spell slots, and at no lower a level than the cost's own.
     const pays = definition.sheet.live.pools.find((pool) => pool.id === target?.key)?.pays;
@@ -1877,10 +1912,20 @@ function rulesetSpendRestDice(
   items: ReadonlyArray<RulesetSheetItem> | undefined,
 ): RulesetSheetOpResult {
   const evaluated = evaluateRulesetSheetLive(definition, build, stored, items);
-  const entries = rulesetRestDiceEntries(dice).filter((entry) => pool === undefined || sameName(entry.pool, pool));
+  const pools = readRulesetLive(definition, build, stored).pools;
+  const listed = rulesetRestDiceEntries(dice);
+  // The pool asked for by its key, or by its name or loosely where one listed pool alone fits.
+  const asked =
+    pool === undefined
+      ? undefined
+      : (listed.find((entry) => sameName(entry.pool, pool))?.pool ??
+        poolNamed(
+          pools.filter((one) => listed.some((entry) => entry.pool === one.key)),
+          pool,
+        )?.key);
+  const entries = listed.filter((entry) => pool === undefined || entry.pool === asked);
   if (entries.length === 0) return { ok: false, reason: "bad-pool" };
   // How many each pool gives, in order, before anything is spent: too few in all is refused whole.
-  const pools = readRulesetLive(definition, build, stored).pools;
   const plan: Array<{ entry: RestDice; count: number }> = [];
   let left = count;
   for (const entry of entries) {

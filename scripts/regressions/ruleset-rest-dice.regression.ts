@@ -209,6 +209,8 @@ try {
     assert.ok(named.ok);
     assert.equal(named.live.pools?.hp?.value, 16);
     assert.equal(named.live.pools?.hit_dice_d10?.value, undefined, "untouched, still full");
+    // Written loosely, as a GM might, it is still the d6 (#8271).
+    assert.equal(rest(ada, 1, "Hit Dice d6").ok && rest(ada, 1, "hit-dice-d6").live.pools?.hp?.value, 16);
     assert.deepEqual(rest(ada, 2, "hit_dice_d6"), { ok: false, reason: "insufficient" });
     assert.deepEqual(rest(ada, 3), { ok: false, reason: "insufficient" });
     assert.deepEqual(rest(ada, 1, "hit_dice_d12"), { ok: false, reason: "bad-pool" });

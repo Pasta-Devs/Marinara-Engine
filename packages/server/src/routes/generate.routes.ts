@@ -899,6 +899,7 @@ import {
   shouldNarrateGameDiceOutcome,
   summarizeGameDiceTurn,
 } from "../services/game/one-request-dice.js";
+import { keepDraftCosts } from "../services/game/dice-rewrite-costs.js";
 import {
   isGameDicePoolEnabled,
   loadGameDicePoolSession,
@@ -9860,6 +9861,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // The first draft predates these results. Rewrite it with the real
               // outcomes in context, including on providers without a tools API.
               const records = [...fullResponse.matchAll(createGameRollTagRegex())].map((match) => match[0]);
+              // The draft as it stands now, its chance branches already picked: a cost in the half the
+              // dice threw away was never spent.
+              const draftForCosts = fullResponse;
               const checks = [...(rolled.results ?? []), ...generalRolls.checkResults];
               const paidCheckCosts = (rolled.results ?? []).flatMap(({ who, spent }) =>
                 spent ? [{ who: who ?? null, ...spent }] : [],
@@ -9889,7 +9893,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${chatMeta.gameRuleset != null ? " The check pass has already applied any accepted purchases and check-entry costs to the sheets: do not re-emit already-applied check-pass sheet effects or charge those costs again. Write sheet commands for new harm, healing and genuinely additional resource costs these results decide, using the rolled totals: narration alone applies none of these new consequences." : ""} Apart from the already-applied check costs, only commands in your revised output will execute. ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${chatMeta.gameRuleset != null ? " The sheet spend and use commands of your draft are kept as written whatever the results: do not change or repeat them. The check pass has already applied any accepted purchases and check-entry costs to the sheets: do not re-emit already-applied check-pass sheet effects or charge those costs again. Write sheet commands for new harm, healing and genuinely additional resource costs these results decide, using the rolled totals: narration alone applies none of these new consequences." : ""} Apart from the already-applied check costs, only commands in your revised output will execute. ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
                   },
                 ],
                 { tools: undefined },
@@ -9951,6 +9955,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 gameOutcomeNarrationFailed = true;
                 sendSseEvent(reply, { type: "game_outcome_narration_failed", data: { chatId: input.chatId } });
               }
+              debugLog("[generate/game/raw] rewrite after rolls: %s", narration);
+              // What the draft spent to act at all is spent whatever the dice say, even where the
+              // rewrite left it out or failed.
+              if (chatMeta.gameRuleset != null)
+                narration = keepDraftCosts(
+                  draftForCosts,
+                  narration,
+                  personaName !== "User" ? personaName : null,
+                ).trim();
               fullResponse = [narration, ...records].join("\n");
               if (hierarchicalMapsEnabledForChat) {
                 const spatial = extractAssistantSpatialDirective(fullResponse);

@@ -368,6 +368,7 @@ try {
         total: 20,
         defense: 23,
         guards: [{ condition: "shielded", value: 5 }],
+        unguarded: 18,
         outcome: "miss",
       },
     ]);
@@ -614,6 +615,27 @@ try {
     const shielded = answer(held.state, "brenna", "Shield");
     assert.equal(
       rulesetCombatEventLine(firstOf(shielded.events, "recheck"), names, t),
+      "Against Armor Class 23 (from 18: Shielded + 5), Snag's Scimitar now misses Brenna.",
+    );
+    // A guard whose name carries its number says it once (#8273: "Parrying (+2) + 2").
+    const recheck = firstOf(shielded.events, "recheck");
+    assert.equal(
+      rulesetCombatEventLine(
+        {
+          ...recheck,
+          defense: 17,
+          unguarded: 15,
+          guards: [{ ...recheck.guards![0]!, condition: "Parrying (+2)", item: true, value: 2 }],
+        },
+        names,
+        t,
+      ),
+      "Against Armor Class 17 (from 15: Parrying (+2)), Snag's Scimitar now misses Brenna.",
+    );
+    // With no base carried (a pool's clamped need), only what raised it is said.
+    const { unguarded: _base, ...bare } = recheck;
+    assert.equal(
+      rulesetCombatEventLine(bare, names, t),
       "Against Armor Class 23 (Shielded + 5), Snag's Scimitar now misses Brenna.",
     );
     assert.equal(

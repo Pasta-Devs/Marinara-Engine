@@ -50,9 +50,17 @@ const boundedAbilityInt = (min: number, max: number) =>
     .optional()
     .catch(undefined);
 /** The same fields as a model's fight setup reads them. Only the setup is lenient: a turn or a
- *  replayed save still refuses an ability out of bounds. */
+ *  replayed save still refuses an ability out of bounds. A word or a flag it cannot read (a
+ *  `reaction: "counterattack"` for a duelist's Parry, laptop playtest 2026-10-25) is left out
+ *  rather than refusing the whole fight. */
 export const lenientCombatInterruptFields = {
   ...combatInterruptFields,
+  projectile: combatInterruptFields.projectile.catch(undefined),
+  requiresSight: combatInterruptFields.requiresSight.catch(undefined),
+  spell: combatInterruptFields.spell.catch(undefined),
+  friendlyFire: combatInterruptFields.friendlyFire.catch(undefined),
+  targetScope: combatInterruptFields.targetScope.catch(undefined),
+  reaction: combatInterruptFields.reaction.catch(undefined),
   areaRadius: boundedAbilityInt(0, 3),
   range: boundedAbilityInt(1, 12),
   slotLevel: boundedAbilityInt(1, 9),

@@ -182,7 +182,9 @@ const itemEffect = z.object({
     .object({
       name: key,
       emoji: z.string().max(30),
-      duration: z.number().int().min(1).max(100),
+      // A status carried in from the story may have run down to 0 turns; it is applied for the
+      // default length, as a missing one is.
+      duration: z.number().int().min(0).max(100),
       modifier: z.number().finite().min(-100000).max(100000).optional(),
       stat: z.enum(["hp", "attack", "defense", "speed"]).optional(),
     })
@@ -738,7 +740,9 @@ export async function combatDirectorRoutes(
               description: z.string().max(3000),
               ownerName: z.string().max(200).optional(),
               trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
-              interval: z.number().int().min(1).max(100).optional(),
+              // 0 for a mechanic no interval drives (an hp_threshold one's `interval: 0` refused the
+              // whole fight), which every reader takes as none.
+              interval: z.number().int().min(0).max(100).optional(),
               hpThreshold: z.number().min(0).max(100).optional(),
               counterplay: z.string().max(3000).optional(),
               effectType: z
@@ -764,7 +768,17 @@ export async function combatDirectorRoutes(
           .default([]),
       })
       .safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
+    if (!parsed.success) {
+      // Where it went wrong, so a refused fight can be traced to the one value ("Number must be
+      // greater than or equal to 1" alone names nothing).
+      const issue = parsed.error.issues[0];
+      const path = issue?.path.join(".") ?? "";
+      logger.warn("[combat-director/start] refused: %s: %s", path || "body", issue?.message ?? "invalid");
+      // A nested field is named; a top-level refusal ("This fight has nobody to fight.") reads as is.
+      return reply
+        .code(400)
+        .send({ error: issue && issue.path.length > 1 ? `${path}: ${issue.message}` : issue?.message });
+    }
     const input = parsed.data;
     try {
       return await serialized(input.chatId, async () => {

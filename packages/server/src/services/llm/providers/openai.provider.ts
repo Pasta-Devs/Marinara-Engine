@@ -57,6 +57,8 @@ import {
  */
 const RESPONSES_ONLY_PREFIXES = ["gpt-5.6", "gpt-5.5", "gpt-5.4", "codex-"];
 const RESPONSES_ONLY_SUFFIXES = ["-codex", "-codex-max", "-codex-mini"];
+/** What Google documents for a Gemini call it did not sign: accepted in place of a thought signature. */
+const GEMINI_UNSIGNED_CALL_SIGNATURE = "skip_thought_signature_validator";
 
 class StreamingUnsupportedError extends LLMHttpError {}
 
@@ -594,6 +596,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         : typeof raw.call_id === "string" && raw.call_id.trim()
           ? raw.call_id
           : OpenAIProvider.toolCallId(index);
+    const extra = OpenAIProvider.asRecord(raw.extra_content);
     return {
       id,
       type: "function",
@@ -604,7 +607,26 @@ export class OpenAIProvider extends BaseLLMProvider {
           fn.arguments ?? fn.parameters ?? raw.arguments ?? raw.args ?? raw.parameters,
         ),
       },
+      ...(extra && Object.keys(extra).length > 0 ? { extra_content: extra } : {}),
     };
+  }
+
+  /** A streamed call's `extra_content` (Gemini's thought signature) merged into what came before:
+   *  each provider's own object is merged one level down, so a signature sent in a later delta
+   *  joins the one the call opened with rather than replacing it. */
+  private static mergeExtraContent(
+    into: Record<string, unknown> | undefined,
+    delta: unknown,
+  ): Record<string, unknown> | undefined {
+    const next = OpenAIProvider.asRecord(delta);
+    if (!next) return into;
+    const merged: Record<string, unknown> = { ...(into ?? {}) };
+    for (const [key, value] of Object.entries(next)) {
+      const before = OpenAIProvider.asRecord(merged[key]);
+      const now = OpenAIProvider.asRecord(value);
+      merged[key] = before && now ? { ...before, ...now } : value;
+    }
+    return merged;
   }
 
   private static normalizeToolCalls(value: unknown): LLMToolCall[] {
@@ -1634,6 +1656,40 @@ export class OpenAIProvider extends BaseLLMProvider {
     return createHash("sha256").update(id).digest("hex").slice(0, 9);
   }
 
+  /**
+   * Gemini 3 refuses a replayed tool round whose first call carries no thought signature. A gateway that
+   * passes Google's own `extra_content` hands it back with the call; one that does not (an aggregator that
+   * drops it, a call read from reply text) leaves nothing to send, so the first call gets the placeholder
+   * Google documents for calls it did not issue. Signed rounds and OpenRouter's reasoning_details go as they are.
+   * https://cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+   */
+  private signedGeminiToolCalls(
+    toolCalls: LLMToolCall[],
+    model: string | undefined,
+    reasoningPayload: Record<string, unknown>,
+  ): LLMToolCall[] {
+    if (!model || !/(?:^|\/)gemini-(?:[3-9]|\d{2,})/u.test(capabilityModelId(model))) return toolCalls;
+    if (this.isOpenRouterEndpoint() || reasoningPayload.reasoning_details) return toolCalls;
+    const signed = toolCalls.some((toolCall) => {
+      const google = OpenAIProvider.asRecord(toolCall.extra_content?.google);
+      return typeof google?.thought_signature === "string" && !!google.thought_signature;
+    });
+    if (signed) return toolCalls;
+    const [first, ...rest] = toolCalls;
+    if (!first) return toolCalls;
+    const google = OpenAIProvider.asRecord(first.extra_content?.google) ?? {};
+    return [
+      {
+        ...first,
+        extra_content: {
+          ...(first.extra_content ?? {}),
+          google: { ...google, thought_signature: GEMINI_UNSIGNED_CALL_SIGNATURE },
+        },
+      },
+      ...rest,
+    ];
+  }
+
   /** The Chat Completions messages for a request: Claude gets them in the shape Anthropic takes. */
   private chatCompletionsMessages(messages: ChatMessage[], model?: string): ChatCompletionsWireMessage[] {
     const formatted: ChatCompletionsWireMessage[] = this.formatMessages(messages, model);
@@ -1672,7 +1728,7 @@ export class OpenAIProvider extends BaseLLMProvider {
             tool_calls:
               this.providerKind === "mistral"
                 ? m.tool_calls.map((toolCall) => ({ ...toolCall, id: this.formatToolCallId(toolCall.id) }))
-                : m.tool_calls,
+                : this.signedGeminiToolCalls(m.tool_calls, model, reasoningPayload),
             ...reasoningPayload,
           };
         }
@@ -2248,7 +2304,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     // Accumulate tool calls from deltas
     const toolCallsMap = new Map<
       number,
-      { id: string; type: "function"; function: { name: string; arguments: string } }
+      {
+        id: string;
+        type: "function";
+        function: { name: string; arguments: string };
+        extra_content?: Record<string, unknown>;
+      }
     >();
     const contentBlockToolCallsMap = new Map<number, LLMToolCall>();
     const providerContentBlockToolCallIndexes = new Map<string, number>();
@@ -2386,6 +2447,7 @@ export class OpenAIProvider extends BaseLLMProvider {
                           : "";
               const existing = toolCallsMap.get(index);
               if (!existing) {
+                const extra = OpenAIProvider.mergeExtraContent(undefined, tc.extra_content);
                 toolCallsMap.set(index, {
                   id: typeof tc.id === "string" ? tc.id : typeof tc.call_id === "string" ? tc.call_id : "",
                   type: "function",
@@ -2393,8 +2455,11 @@ export class OpenAIProvider extends BaseLLMProvider {
                     name: nameDelta,
                     arguments: argumentDelta,
                   },
+                  ...(extra ? { extra_content: extra } : {}),
                 });
               } else {
+                const extra = OpenAIProvider.mergeExtraContent(existing.extra_content, tc.extra_content);
+                if (extra) existing.extra_content = extra;
                 if (typeof tc.id === "string" && tc.id) existing.id = tc.id;
                 else if (typeof tc.call_id === "string" && tc.call_id) existing.id = tc.call_id;
                 if (nameDelta) existing.function.name += nameDelta;

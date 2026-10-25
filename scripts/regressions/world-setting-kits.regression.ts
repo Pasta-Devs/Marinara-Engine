@@ -187,6 +187,7 @@ assert.ok(address && typeof address !== "string");
 
 const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { buildGmSystemPrompt, buildSetupPrompt } = await import("../../packages/server/src/services/game/gm-prompts.js");
 const { gameRoutes } = await import("../../packages/server/src/routes/game.routes.js");
@@ -346,6 +347,8 @@ try {
       return requests[0]!.messages[0]!.content;
     };
     assert.ok((await setupAsks(withKit.json().sessionChat.id)).includes("The kind of setting: Harbor town life."));
+    // The connection the setup ran on becomes the game's own, for the start screen and the turns after.
+    assert.equal((await createChatsStorage(db).getById(withKit.json().sessionChat.id))!.connectionId, connection!.id);
     assert.ok(!(await setupAsks(withoutKit.json().sessionChat.id)).includes("<world>"));
     const broken = await create({ ...baseConfig, worldKit: { ...harbor, sizes: [] } });
     assert.equal(broken.statusCode, 400, broken.body);
