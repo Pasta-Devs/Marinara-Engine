@@ -150,6 +150,24 @@ try {
   assert.equal((await app.inject({ url: "/combat/state" })).statusCode, 400);
   const bad = await post("/combat/start", { ...input, party: [unit("__proto__", "player")] });
   assert.equal(bad.statusCode, 400);
+  // A mechanic no interval drives may say 0, and a status may have run down to 0 turns: neither
+  // refuses the fight (a Treant's hp_threshold "Blighted Sap" with `interval: 0` did). A value that
+  // is refused is named where it is.
+  const sap = {
+    name: "Blighted Sap",
+    description: "Sap that corrodes.",
+    trigger: "hp_threshold",
+    interval: 0,
+    hpThreshold: 75,
+    effectType: "damage_all",
+    power: 0.8,
+    status: { name: "Corroded", emoji: "", duration: 0, modifier: -2 },
+  };
+  const elsewhere = { ...input, chatId: "no-such-chat", mechanics: [sap] };
+  assert.equal((await post("/combat/start", elsewhere)).json().error, "Chat not found.");
+  const named = await post("/combat/start", { ...elsewhere, mechanics: [{ ...sap, interval: -1 }] });
+  assert.equal(named.statusCode, 400);
+  assert.match(named.json().error, /^mechanics\.0\.interval: /);
   const start = await post("/combat/start", input);
   assert.equal(start.statusCode, 200, start.body);
   s = start.json().session;
