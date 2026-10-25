@@ -8877,6 +8877,7 @@ function resolveActionBody(
           total: roll.total,
           defense: needed,
           ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 && needed === guarded.defense ? { unguarded: guarded.unguarded } : {}),
           outcome,
         });
       }
@@ -9057,6 +9058,7 @@ function resolveActionBody(
           total: thrown.successes,
           defense: needed,
           ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 && needed === guarded.defense ? { unguarded: guarded.unguarded } : {}),
           outcome,
           pool: poolRecord(thrown),
           ...(style ? { style: style.id } : {}),
@@ -9162,7 +9164,7 @@ function resolveActionBody(
           ...(bonuses.length > 0 ? { bonuses } : {}),
           total,
           defense: guarded.defense,
-          ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 ? { guards: guarded.guards, unguarded: guarded.unguarded } : {}),
           outcome,
         });
         // Help is spent by the attack it was given for, landed or not.

@@ -251,13 +251,14 @@ function guardedText(
   t: TFunction,
   named: (bonus: RulesetConditionBonus) => string,
   defense: string,
-  total: number,
   guards: readonly RulesetConditionBonus[],
+  unguarded: number | undefined,
 ): string {
-  const base = total - guards.reduce((sum, guard) => sum + guard.value, 0);
-  return t("game.combat.ruleset.roll.guarded", {
+  // The base is said only where the event carries it: a pool's clamped need or a symbol throw's
+  // difficulty is no defense plus its guards.
+  return t(unguarded === undefined ? "game.combat.ruleset.roll.guarded" : "game.combat.ruleset.roll.guardedFrom", {
     defense,
-    base,
+    base: unguarded,
     guards: guards
       .map((guard) => {
         const name = named(guard);
@@ -419,7 +420,7 @@ export function rulesetCombatEventLine(
             ? t("game.combat.ruleset.event.attackStyle", { label: event.label, style: names.style(event.style) })
             : event.label,
           roll: pool ? rulesetPoolRollText({ ...event, pool }, t, named) : rulesetRollText(event, t, named),
-          defense: event.guards?.length ? guardedText(t, named, defense, event.defense, event.guards) : defense,
+          defense: event.guards?.length ? guardedText(t, named, defense, event.guards, event.unguarded) : defense,
         },
       );
     }
@@ -1152,7 +1153,7 @@ export function rulesetCombatEventLine(
         target: names.combatant(event.targetId),
         label: event.label,
         total: event.total,
-        defense: event.guards?.length ? guardedText(t, named, defense, event.defense, event.guards) : defense,
+        defense: event.guards?.length ? guardedText(t, named, defense, event.guards, event.unguarded) : defense,
       });
     }
     case "pass":
