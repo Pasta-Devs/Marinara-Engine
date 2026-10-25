@@ -69,6 +69,18 @@ export function sortConnectionGroups<R extends ConnectionModelRow>(
   );
 }
 
+/** The panel's account-card order: the sort mode, then a saved Custom order on top when active. */
+export function orderAccountGroups<R extends ConnectionModelRow>(
+  groups: readonly ConnectionGroup<R>[],
+  sort: BasicPanelSort | "custom",
+  saved?: { active?: boolean; ids?: readonly string[] },
+): ConnectionGroup<R>[] {
+  const sorted = sortConnectionGroups(groups, sort, saved?.ids ?? []);
+  if (sort !== "custom" || !saved?.active) return sorted;
+  const rank = new Map((saved.ids ?? []).map((id, index) => [id, index]));
+  return sorted.sort((a, b) => (rank.get(a.account.id) ?? Infinity) - (rank.get(b.account.id) ?? Infinity));
+}
+
 /** Move an account card block while keeping hidden cards and every model row in its account together. */
 export function reorderConnectionGroups<R extends ConnectionModelRow>(
   groups: readonly ConnectionGroup<R>[],

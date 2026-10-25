@@ -5,6 +5,7 @@ import {
   groupModelsByAccount,
   connectionGroupFolder,
   reorderConnectionGroups,
+  orderAccountGroups,
   sortConnectionGroups,
   recentModels,
   roleBadges,
@@ -116,6 +117,26 @@ assert.deepEqual(connectionGroupFolder(sortableGroups[0]!), "f");
 assert.deepEqual(
   reorderConnectionGroups(sortableGroups, ["a", "b"], ["a", "b"]).map((item) => item.id),
   ["a-1", "b-1", "b-2"],
+);
+
+// The quick switcher and the panel share one order: a computed sort ignores the saved Custom order, an active one wins.
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "name-asc", { active: true, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["a", "b", "empty"],
+);
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "custom", { active: true, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["empty", "b", "a"],
+);
+assert.deepEqual(
+  orderAccountGroups(sortableGroups, "custom", { active: false, ids: ["empty", "b", "a"] }).map(
+    (group) => group.account.id,
+  ),
+  ["empty", "b", "a"],
 );
 
 assert.equal(accountStateLabel({ state: "needs_key" }), "connections.accounts.state.needs_key");
