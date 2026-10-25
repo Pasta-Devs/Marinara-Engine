@@ -55,6 +55,19 @@ const partyNamed = `[sheet: sheet="party" who="Mira" op="spend" pool="Ki" amount
 assert.equal(keepDraftCosts(party, partyNamed, "Mira"), `${party}\n${partyNamed}`);
 assert.equal(keepDraftCosts(party, party, "Mira"), party, "the same party command is kept once");
 
+// What the draft traded is kept too: a buy the rewrite dropped is put back, one it repeats is kept
+// once, and an item found is the rewrite's to say (laptop 2026-10-25: a rewrite after a roll dropped
+// a whole shopping trip and the player never saw the coin refusal).
+const buyRope = `[inventory: action="buy" item="Rope, hempen (50 feet)" seller="general store" who="Rook Hallow"]`;
+const buyLantern = `[inventory: action="buy" item="Lantern, hooded" who="Rook Hallow"]`;
+const found = `[inventory: action="add" item="Silver key" who="Rook Hallow"]`;
+const shopping = [buyRope, buyLantern, found, "Rook haggles.", `[skill_check: skill="Persuasion" dc="12"]`].join("\n");
+assert.deepEqual(draftCostTags(shopping), [buyRope, buyLantern], "trades only, not what was found");
+const shopped = `[inventory: who="rook hallow" item="lantern, hooded" action="BUY"]\nThe shopkeeper relents.`;
+assert.equal(keepDraftCosts(shopping, shopped, "Mira"), `${buyRope}\n${shopped}`);
+// In a game with no ruleset the trades are kept and a sheet command is left alone.
+assert.equal(keepDraftCosts(`${cast}\n${buyLantern}`, "", null, false), buyLantern);
+
 // A draft with no costs leaves the rewrite exactly as it is.
 assert.equal(keepDraftCosts("No tags at all.", rewrite), rewrite);
 

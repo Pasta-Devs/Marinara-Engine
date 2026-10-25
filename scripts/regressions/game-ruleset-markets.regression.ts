@@ -378,6 +378,19 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
       book,
     );
     assert.equal(readResolvedInventoryTags(two.content).length, 2, two.content);
+    // Each comma name in a list is found whole too (laptop 2026-10-25).
+    const listed = applyGameInventoryTags(
+      '[inventory: action="add" item="Tonic, warming, Grave spade"]',
+      [],
+      party,
+      undefined,
+      commaBook,
+    );
+    assert.deepEqual(
+      readResolvedInventoryTags(listed.content).map((tag) => tag.item),
+      ["Tonic, warming", "Grave spade"],
+      listed.content,
+    );
   }
   // Two items of one label: the ref names the one it is, and the label the first (#8271).
   {

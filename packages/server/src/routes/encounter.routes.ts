@@ -340,6 +340,36 @@ async function buildGameStateContext(
 // Prompt Builders
 // ──────────────────────────────────────────────
 
+/** What an attack does, read leniently: a word for one of the four ("damage", "healing") is that
+ *  one, and any other word leaves it unsaid rather than refusing the fight (laptop 2026-10-25:
+ *  `kind: "damage"` refused a whole setup). */
+const ATTACK_KIND_WORDS: Record<string, "attack" | "heal" | "buff" | "debuff"> = {
+  damage: "attack",
+  harm: "attack",
+  offense: "attack",
+  offensive: "attack",
+  strike: "attack",
+  melee: "attack",
+  ranged: "attack",
+  healing: "heal",
+  restore: "heal",
+  support: "buff",
+  boon: "buff",
+  hinder: "debuff",
+  control: "debuff",
+  curse: "debuff",
+};
+const encounterAttackKindSchema = z
+  .preprocess(
+    (value) => {
+      if (typeof value !== "string") return value;
+      const word = value.trim().toLowerCase();
+      return ATTACK_KIND_WORDS[word] ?? word;
+    },
+    z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+  )
+  .catch(undefined);
+
 /** The shape a blueprint has to arrive in. Only ever loosened, never tightened: the Game Master
  *  writes prose and numbers, and the Engine checks what it will act on rather than the whole reply.
  *  Hoisted out of the handler so it is built once and a regression can drive it. */
@@ -359,7 +389,7 @@ export const encounterBlueprintSchema = z
               z
                 .object({
                   ...lenientCombatInterruptFields,
-                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  kind: encounterAttackKindSchema,
                   mpCost: z.number().min(0).max(10000).optional(),
                 })
                 .passthrough(),
@@ -393,7 +423,7 @@ export const encounterBlueprintSchema = z
               z
                 .object({
                   ...lenientCombatInterruptFields,
-                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  kind: encounterAttackKindSchema,
                   mpCost: z.number().min(0).max(10000).optional(),
                 })
                 .passthrough(),

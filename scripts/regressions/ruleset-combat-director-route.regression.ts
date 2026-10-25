@@ -1004,6 +1004,31 @@ try {
       [undefined, undefined, undefined],
     );
     assert.equal(duelist[2]!.reaction, "guard", "a word it knows is kept");
+    // An attack's kind is read the same way: a word for one of the four is that one, and an unknown
+    // one is left out (laptop 2026-10-25: kind "damage" refused a whole fight).
+    const kinded = encounterBlueprintSchema.safeParse({
+      party: [{ name: "Brannoc", hp: 10, maxHp: 10, attacks: [{ name: "Mend", kind: "Healing" }] }],
+      enemies: [
+        {
+          name: "Ogre",
+          hp: 30,
+          maxHp: 30,
+          attacks: [
+            { name: "Club", kind: "damage" },
+            { name: "Roar", kind: "intimidate" },
+            { name: "Bellow", kind: "debuff" },
+          ],
+        },
+      ],
+      environment: "a cave",
+    });
+    assert.ok(kinded.success, JSON.stringify(kinded.error?.issues));
+    const ogre = (kinded.data!.enemies[0] as { attacks: Array<Record<string, unknown>> }).attacks;
+    assert.deepEqual(
+      ogre.map((attack) => attack.kind),
+      ["attack", undefined, "debuff"],
+    );
+    assert.equal((kinded.data!.party[0] as { attacks: Array<Record<string, unknown>> }).attacks[0]!.kind, "heal");
     assert.equal(combatInterruptFields.reaction.safeParse("counterattack").success, false);
     assert.ok(withBrief.at(-1)!.content.includes('"surprised": true'), "the prompt asks who was caught unaware");
     // An invention may be a sheet in the ruleset's own terms, and numbers written beside it go.

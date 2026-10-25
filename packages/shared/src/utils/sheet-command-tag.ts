@@ -45,12 +45,19 @@ const MAX_ATTRIBUTE_LENGTH = 120;
 
 function readAttributes(body: string): Map<string, string> {
   const values = new Map<string, string>();
-  for (const attribute of readGmTagAttributes(body)) {
+  const attributes = readGmTagAttributes(body);
+  attributes.forEach((attribute, index) => {
     const key = attribute.key.trim().toLowerCase();
-    const rawValue = attribute.rawValue.trim();
-    if (!key || !rawValue) continue;
+    // An unquoted value runs to the next attribute, as an inventory tag's does, so a name whose
+    // quotes a rewrite lost (`who=Ulfgar Stonejaw op=damage`) is the whole name.
+    const quoted = /^["']/.test(attribute.rawValue);
+    const raw = quoted
+      ? attribute.rawValue
+      : body.slice(attribute.end - attribute.rawValue.length, attributes[index + 1]?.start ?? body.length);
+    const rawValue = raw.trim();
+    if (!key || !rawValue) return;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
-  }
+  });
   return values;
 }
 
@@ -112,8 +119,12 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
       return { ...parsed, op: { op: "damage", track, kind, amount, ...(box !== null ? { box } : {}) } };
     }
     const pool = values.get("pool")?.trim();
-    if (!pool || amount === null) return parsed;
-    return { ...parsed, op: { op: name, pool, amount } };
+    if (amount === null) return parsed;
+    // Harm, a heal or a shield that names no pool is health's, which the sheet pass fills in from
+    // the ruleset (laptop 2026-10-25: an injury written as `op="damage" amount="1"` refused). A spend
+    // has to say what it spends.
+    if (!pool && name === "spend") return parsed;
+    return { ...parsed, op: { op: name, pool: pool ?? "", amount } };
   }
   if (name === "advance") {
     const targets = ["field", "ability", "skill", "save"].filter((key) => values.has(key));

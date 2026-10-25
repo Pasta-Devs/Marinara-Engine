@@ -256,7 +256,14 @@ export function applySheetCommandTags(
     const targets = findTargets(parsed.who);
     if ("refusal" in targets) return record(named, { ok: false, reason: targets.refusal });
 
-    const op = parsed.op;
+    // A pool left out is health's, where the ruleset keeps health in a pool.
+    const health = ctx.definition.combat?.health;
+    const healthPool = health && "pool" in health ? health.pool : undefined;
+    if ("pool" in parsed.op && !parsed.op.pool && !healthPool)
+      return record(named, { ok: false, reason: "unknown-pool" });
+    const op = "pool" in parsed.op && !parsed.op.pool ? { ...parsed.op, pool: healthPool! } : parsed.op;
+    // The saved reply says which pool it was.
+    parsed.op = op;
     const results = targets.cards.map((card) => ({ card, result: applyTo(card, op) }));
     // One target reads as the value alone; a party tag has to say whose value each one is.
     const many = results.length > 1;

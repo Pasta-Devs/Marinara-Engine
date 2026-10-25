@@ -9956,14 +9956,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 sendSseEvent(reply, { type: "game_outcome_narration_failed", data: { chatId: input.chatId } });
               }
               debugLog("[generate/game/raw] rewrite after rolls: %s", narration);
-              // What the draft spent to act at all is spent whatever the dice say, even where the
-              // rewrite left it out or failed.
-              if (chatMeta.gameRuleset != null)
-                narration = keepDraftCosts(
-                  draftForCosts,
-                  narration,
-                  personaName !== "User" ? personaName : null,
-                ).trim();
+              // What the draft spent to act at all, and what it traded, happen whatever the dice say,
+              // even where the rewrite left them out or failed.
+              narration = keepDraftCosts(
+                draftForCosts,
+                narration,
+                personaName !== "User" ? personaName : null,
+                chatMeta.gameRuleset != null,
+              ).trim();
               fullResponse = [narration, ...records].join("\n");
               if (hierarchicalMapsEnabledForChat) {
                 const spatial = extractAssistantSpatialDirective(fullResponse);

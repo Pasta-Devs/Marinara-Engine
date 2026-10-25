@@ -539,6 +539,12 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const forged = parseSheetCommandTagBody(`op="spend" pool="slots_1" amount="1" result="ok" now="99/99" reason="x"`);
   assert.deepEqual(forged.op, { op: "spend", pool: "slots_1", amount: 1 });
   assert.equal("result" in forged, false);
+  // Harm that names no pool is health's, filled in by the sheet pass (laptop 2026-10-25).
+  assert.deepEqual(parseSheetCommandTagBody(`op="damage" amount="1" result="ok" now="54/55"`).op, {
+    op: "damage",
+    pool: "",
+    amount: 1,
+  });
 
   for (const body of [
     ``,
@@ -637,6 +643,16 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const forOther = applySheetCommandTags(`[sheet: who="tam the bold" op="damage" pool="hp" amount="4"]`, context);
   assert.deepEqual(Object.keys(forOther.live), ["tam the bold"]);
   assert.match(forOther.content, /who="Tam the Bold" op="damage" pool="hp" amount="4" result="ok" now="8\/12"/);
+  // A story injury the dice rewrite wrote with no pool, its quotes gone and the Engine's own fields
+  // filled in, is health's harm all the same (laptop 2026-10-25: refused as malformed, the widget
+  // and the sheet then disagreed).
+  const injury = applySheetCommandTags(`[sheet: who=Tam the Bold op=damage amount=1 result=ok now=11/12]`, context);
+  assert.match(injury.content, /who="Tam the Bold" op="damage" pool="hp" amount="1" result="ok" now="11\/12"/);
+  const healed = applySheetCommandTags(`[sheet: who="Tam the Bold" op="heal" amount="2"]`, {
+    ...context,
+    live: injury.live,
+  });
+  assert.match(healed.content, /op="restore" pool="hp" amount="2" result="ok" now="12\/12"/);
   const stranger = applySheetCommandTags(`[sheet: who="A Guard" op="damage" pool="hp" amount="4"]`, context);
   assert.match(stranger.content, /result="refused" reason="unknown-character"/);
   assert.deepEqual([stranger.live, stranger.changed], [{}, false]);
