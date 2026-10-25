@@ -84,6 +84,16 @@ for (const sheets of [true, false]) {
   assert.equal(/sheet spend and use commands/.test(note), sheets);
 }
 
+// The trades kept are made where the draft said they were: its place goes in front of them.
+const atMarket = `We reach Elm Street. [place: name="Elm Street" size="town"] ${buyLantern}`;
+assert.equal(
+  keepDraftCosts(atMarket, "The shopkeeper warms to you.", "Mira"),
+  `[place: name="Elm Street" size="town"]\n${buyLantern}\nThe shopkeeper warms to you.`,
+);
+// A place said after the trade is not where it was made, and a draft with no trade keeps no place.
+assert.equal(keepDraftCosts(`${buyLantern} [place: name="Gate"]`, rewrite, "Mira"), `${buyLantern}\n${rewrite}`);
+assert.equal(keepDraftCosts(`[place: name="Gate"] Quiet.`, rewrite, "Mira"), rewrite);
+
 // A draft with no costs leaves the rewrite exactly as it is.
 assert.equal(keepDraftCosts("No tags at all.", rewrite), rewrite);
 

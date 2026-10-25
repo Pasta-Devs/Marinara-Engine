@@ -13,10 +13,13 @@
 // its trades and handling of gear: a buy, a sale, a payment, a gift, gear worn
 // or bound, an item used (a rewrite dropped a whole shopping trip the same day,
 // and the player was never told). An item found or coin earned is the dice's.
+// The place the trades were made at goes in front of them: a rewrite that left
+// out the draft's place had every kept buy refused as made nowhere.
 // ──────────────────────────────────────────────
 
 import {
   createInventoryTagRegex,
+  createPlaceTagRegex,
   createSheetCommandTagRegex,
   parseInventoryTagBody,
   parseSheetCommandTagBody,
@@ -103,6 +106,15 @@ export function keepDraftCosts(draft: string, rewrite: string, playerName?: stri
     const left = carried.get(key) ?? 0;
     if (left > 0) carried.set(key, left - 1);
     else missing.push(tag);
+  }
+  // The trades kept were made where the draft last said the scene was before them (laptop playtest
+  // 2026-10-25: a rolled turn's buys refused as made nowhere, the rewrite having left the place out).
+  const trades = missing.filter((tag) => /^\[inventory:/i.test(tag));
+  if (trades.length > 0) {
+    const last = Math.max(...trades.map((tag) => draft.lastIndexOf(tag)));
+    let place: string | undefined;
+    for (const match of draft.matchAll(createPlaceTagRegex())) if (match.index < last) place = match[0];
+    if (place) missing.unshift(place);
   }
   return missing.length ? [...missing, ...(rewrite ? [rewrite] : [])].join("\n") : rewrite;
 }
