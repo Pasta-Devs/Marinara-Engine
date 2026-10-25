@@ -147,7 +147,7 @@ function splitRepairedLineMetadata(line: TruncationLine): TruncationLine[] {
   const repaired = repairGameSpeakerLine(body);
   if (repaired === body) return splitInlineVnDialogueLineMetadata(line);
   const contentEnd = line.originalStart + line.text.trimEnd().length;
-  const rawOffset = (at: number) => Math.max(line.originalStart, contentEnd - (repaired.length - at));
+  const rawOffset = (offset: number) => Math.max(line.originalStart, contentEnd - (repaired.length - offset));
   return splitInlineVnDialogueLineMetadata({ text: repaired, originalStart: 0, originalEnd: repaired.length }).map(
     (piece) => ({
       text: piece.text,
