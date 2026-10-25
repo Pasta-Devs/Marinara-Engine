@@ -332,6 +332,53 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     ["shillings", 5, ""],
     ["Warming tonic", 3, "Bram"],
   ]);
+  // By its id, with its catalog or without; and a name with a comma in it is one item, not two
+  // (ship-readiness pass 2026-10-25: "Rope, hempen (50 feet)" and "Lantern, hooded").
+  for (const item of ["kit/warming-tonic", "warming-tonic"]) {
+    const byId = buy(`[inventory: action="buy" item="${item}"]`, coins([["shillings", "shilling", 1]]));
+    assert.match(byId.content, /item="Warming tonic"[^\]]*result="ok"/, `${item}: ${byId.content}`);
+  }
+  {
+    const comma = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs)
+          for (const entry of catalog.entries ?? []) if (entry.id === "warming-tonic") entry.label = "Tonic, warming";
+      }),
+      "Gravewatch with a comma",
+    );
+    const commaBook = rulesetItemBook(comma, entriesOf(comma));
+    const commaQuote = rulesetMarketQuoter(comma, commaBook, town, () => true);
+    const tagged = '[inventory: action="buy" item="Tonic, warming"]';
+    const one = applyGameInventoryTags(
+      tagged,
+      coins([["shillings", "shilling", 1]]),
+      party,
+      undefined,
+      commaBook,
+      undefined,
+      undefined,
+      commaQuote,
+    );
+    assert.equal(readResolvedInventoryTags(one.content).length, 1, one.content);
+    assert.match(one.content, /item="Tonic, warming"[^\]]*result="ok"/, one.content);
+    // Held, it is found whole too; and a real list still splits.
+    const added = applyGameInventoryTags(
+      '[inventory: action="add" item="Tonic, warming"]',
+      [],
+      party,
+      undefined,
+      commaBook,
+    );
+    assert.deepEqual(held(added.stacks), [["Tonic, warming", 1, ""]]);
+    const two = applyGameInventoryTags(
+      '[inventory: action="add" item="Grave spade, Warming tonic"]',
+      [],
+      party,
+      undefined,
+      book,
+    );
+    assert.equal(readResolvedInventoryTags(two.content).length, 2, two.content);
+  }
   // Refusals change nothing.
   const refusedWith = (tag: string, reason: string, stacks = coins([["crowns", "crown", 9]]), at = quoter()) => {
     const answered = buy(tag, stacks, at);

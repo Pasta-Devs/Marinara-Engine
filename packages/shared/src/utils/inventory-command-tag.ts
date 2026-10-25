@@ -60,6 +60,10 @@ function readAction(value: string | undefined): InventoryTagAction | undefined {
 export interface InventoryTagRequest {
   action: InventoryTagAction;
   items: string[];
+  /** What a list of items said before it was split at its commas, when it had any: one name that holds
+   *  a comma ("Rope, hempen (50 feet)") read as the list it looks like. Whoever knows the items reads
+   *  it whole when it is the name of one. */
+  whole?: string;
   count: number;
   /** Whose bag: the receiver of an add, the one who loses a remove, the giver of a give, the one who
    *  puts on, takes off, binds or unbinds. */
@@ -177,11 +181,13 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   // A payment or an earning names its coins as an amount ("5 gold"), or as an item and a count.
   const amount =
     action === "pay" || action === "earn" ? /^(\d{1,9})\s*(\S.*)$/.exec(values.get("amount")?.trim() ?? "") : null;
-  const items = (amount ? amount[2]! : (values.get("items") ?? values.get("item") ?? ""))
+  const listed = amount ? amount[2]! : (values.get("items") ?? values.get("item") ?? "");
+  const items = listed
     .split(",")
     .map((item) => cleanName(unquote(item)))
     .filter((item): item is string => Boolean(item));
   if (items.length === 0) return null;
+  const whole = items.length > 1 ? cleanName(unquote(listed)) : undefined;
 
   const countText = amount?.[1] ?? values.get("count") ?? values.get("quantity") ?? values.get("qty");
   const parsedCount = countText && /^\d{1,9}$/.test(countText.trim()) ? Number.parseInt(countText, 10) : 1;
@@ -196,6 +202,7 @@ export function parseInventoryTagBody(body: string): InventoryTagRequest | null 
   return {
     action,
     items,
+    ...(whole ? { whole } : {}),
     count,
     ...(who ? { who } : {}),
     ...(to ? { to } : {}),

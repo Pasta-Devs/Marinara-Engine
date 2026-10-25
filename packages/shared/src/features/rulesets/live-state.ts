@@ -1027,7 +1027,28 @@ function findPool(pools: ResolvedRulesetLive["pools"], requested: string): PoolM
   if (declared) return { pool: declared };
   const rows = pools.filter((pool) => pool.listId && (sameName(pool.key, wanted) || sameName(pool.label, wanted)));
   if (rows.length === 1) return { pool: rows[0]! };
-  return { refusal: rows.length > 1 ? "ambiguous-pool" : "unknown-pool" };
+  if (rows.length > 1) return { refusal: "ambiguous-pool" };
+  // Written the way a key is ("hit_points" for "Hit Points"), or shortened to its initials ("hp"):
+  // a declared pool only, and only where one alone fits (laptop 2026-10-25: a GM's damage tag on
+  // pool="hit_points" refused while the widget took it).
+  const loose = (text: string) =>
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, " ");
+  const initials = (text: string) =>
+    loose(text)
+      .split(" ")
+      .map((word) => word[0] ?? "")
+      .join("");
+  const looseWanted = loose(wanted);
+  const alike = pools.filter(
+    (pool) =>
+      !pool.listId &&
+      (loose(pool.key) === looseWanted || loose(pool.label) === looseWanted || initials(pool.label) === looseWanted),
+  );
+  if (alike.length === 1) return { pool: alike[0]! };
+  return { refusal: alike.length > 1 ? "ambiguous-pool" : "unknown-pool" };
 }
 
 function poolNow(pool: { max: number }, value: number, temp: number): string {

@@ -325,7 +325,15 @@ export function applyGameInventoryTags(
 
     const who = resolveGameInventoryHolder(request.who, party, current);
     const to = request.action === "give" ? resolveGameInventoryHolder(request.to, party, current) : null;
-    return request.items
+    // One item whose name holds a comma is that item, not a list (ship-readiness pass 2026-10-25:
+    // "Rope, hempen (50 feet)" bought as "Rope" and "hempen (50 feet)").
+    const whole = request.whole;
+    const oneItem =
+      !!whole &&
+      (!!rules?.itemNamed(whole) ||
+        !!rules?.coinNamed?.(whole) ||
+        current.some((stack) => gameInventoryItemsNamed(current, whole).has(gameInventoryItemId(stack))));
+    return (oneItem ? [whole!] : request.items)
       .map((item) => {
         const shown = {
           action: request.action,
