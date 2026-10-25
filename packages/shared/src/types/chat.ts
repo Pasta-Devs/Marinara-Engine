@@ -756,7 +756,7 @@ export interface ChatMetadata {
   /**
    * Finish a rolled Game turn in one provider request: the GM commits its prose blind,
    * the engine rolls afterwards and fills the result in, and the narration rewrite never
-   * fires. Absent means off.
+   * fires. Absent means on.
    */
   gameOneRequestDice?: boolean;
   /**

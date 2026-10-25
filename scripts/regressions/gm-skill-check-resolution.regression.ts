@@ -503,7 +503,7 @@ assert.match(
 // obtain a roll the pool did not contain by deliberately overflowing it.
 assert.match(
   gameSurface,
-  /const poolModeActive =\s*chatMeta\.gameOneRequestDice === true && chatMeta\.gameDicePoolMode === true;/u,
+  /const poolModeActive =\s*chatMeta\.gameOneRequestDice !== false && chatMeta\.gameDicePoolMode === true;/u,
   "the client fallback must be gated on the sighted pool sub-option",
 );
 

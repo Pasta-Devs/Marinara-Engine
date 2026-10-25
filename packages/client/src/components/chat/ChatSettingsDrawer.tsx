@@ -10559,7 +10559,7 @@ export function ChatSettingsDrawer({
               onGameDiceOutcomeNarrationChange={(gameDiceOutcomeNarration) =>
                 updateMeta.mutate({ id: chat.id, gameDiceOutcomeNarration })
               }
-              gameOneRequestDice={metadata.gameOneRequestDice === true}
+              gameOneRequestDice={metadata.gameOneRequestDice !== false}
               onGameOneRequestDiceChange={(gameOneRequestDice) =>
                 updateMeta.mutate({ id: chat.id, gameOneRequestDice })
               }

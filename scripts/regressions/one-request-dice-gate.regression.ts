@@ -51,9 +51,14 @@ const { ClaudeSubscriptionProvider } =
 // ── The gate, as a predicate ──
 // While the switch is on this reads as if the narration toggle were off, for every
 // branch of the failure contract, whatever the stored narration preference says.
-assert.equal(shouldNarrateGameDiceOutcome({}, true), true, "today's default still rewrites a rolled turn");
-assert.equal(shouldNarrateGameDiceOutcome({}, false), false, "a turn with no rolls never rewrote");
-assert.equal(shouldNarrateGameDiceOutcome({ gameDiceOutcomeNarration: false }, true), false);
+assert.equal(shouldNarrateGameDiceOutcome({}, true), false, "the default finishes a rolled turn in one request");
+assert.equal(
+  shouldNarrateGameDiceOutcome({ gameOneRequestDice: false }, true),
+  true,
+  "with the switch off a rolled turn is rewritten",
+);
+assert.equal(shouldNarrateGameDiceOutcome({ gameOneRequestDice: false }, false), false, "a turn with no rolls never rewrote");
+assert.equal(shouldNarrateGameDiceOutcome({ gameOneRequestDice: false, gameDiceOutcomeNarration: false }, true), false);
 for (const stored of [undefined, true, false]) {
   const meta = { gameOneRequestDice: true, ...(stored === undefined ? {} : { gameDiceOutcomeNarration: stored }) };
   assert.equal(shouldNarrateGameDiceOutcome(meta, true), false, "the switch holds the rewrite closed when rolls land");
@@ -64,10 +69,10 @@ for (const stored of [undefined, true, false]) {
     "the gate reads the stored narration preference and never writes it",
   );
 }
-assert.equal(isOneRequestDiceEnabled(undefined), false, "absent means off");
-assert.equal(isOneRequestDiceEnabled({}), false);
+assert.equal(isOneRequestDiceEnabled(undefined), true, "absent means on");
+assert.equal(isOneRequestDiceEnabled({}), true);
 assert.equal(isOneRequestDiceEnabled({ gameOneRequestDice: false }), false);
-assert.equal(isOneRequestDiceEnabled({ gameOneRequestDice: "true" }), false, "only a real boolean arms the switch");
+assert.equal(isOneRequestDiceEnabled({ gameOneRequestDice: "false" }), true, "only a real false turns it off");
 assert.equal(isOneRequestDiceEnabled({ gameOneRequestDice: true }), true);
 
 // ── The roller ──

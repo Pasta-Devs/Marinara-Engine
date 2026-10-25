@@ -144,9 +144,10 @@ export interface GameTurnChanceSessionOptions {
   loadModifierContext?: () => Promise<SkillCheckModifierContext>;
 }
 
-/** Absent means off. The switch defaults to off at first release. */
+/** Absent means on (2026-10-25): a rolled turn is finished in one request unless the chat turned the
+ *  switch off. Only a real `false` turns it off. */
 export function isOneRequestDiceEnabled(chatMeta: Record<string, unknown> | null | undefined): boolean {
-  return chatMeta?.gameOneRequestDice === true;
+  return chatMeta?.gameOneRequestDice !== false;
 }
 
 /**

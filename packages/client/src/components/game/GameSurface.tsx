@@ -5256,7 +5256,7 @@ function GameSurfaceComponent({
     // contain. With the sub-option on the sparse tag is left exactly as it is, and the
     // outcome is narrated at the start of the next turn. The endpoint is untouched and
     // keeps serving the live path and the player's own composer.
-    const poolModeActive = chatMeta.gameOneRequestDice === true && chatMeta.gameDicePoolMode === true;
+    const poolModeActive = chatMeta.gameOneRequestDice !== false && chatMeta.gameDicePoolMode === true;
     void (async () => {
       for (const sc of tags.skillChecks) {
         try {
