@@ -2533,6 +2533,7 @@
   "game.combat.ruleset.roll.disadvantage": "{{kept}} (rolled {{rolls}}, with disadvantage)",
   "game.combat.ruleset.roll.guard": "{{name}} {{value}}",
   "game.combat.ruleset.roll.guarded": "{{defense}} ({{guards}})",
+  "game.combat.ruleset.roll.guardedFrom": "{{defense}} (from {{base}}: {{guards}})",
   "game.combat.ruleset.roll.kept": "{{kept}} (rolled {{rolls}})",
   "game.combat.ruleset.roll.level": "{{track}} {{level}}",
   "game.combat.ruleset.roll.needed_one": "{{count}} success",

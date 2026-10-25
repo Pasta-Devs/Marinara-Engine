@@ -945,7 +945,7 @@ export function rulesetDefenseAgainst(
   attacker: RulesetCombatant | undefined,
   /** The blow itself, where one weapon ignores cover against this target (1.189). */
   action?: RulesetCombatAction,
-): { defense: number; cover: number; guards: RulesetConditionBonus[] } {
+): { defense: number; cover: number; guards: RulesetConditionBonus[]; unguarded: number } {
   // What the target's own conditions add. Defense is never rolled, so each is its flat number.
   const guards = rulesetConditionModifiers(definition, combat, target, "defense", state).map(
     ({ condition, level, derived, item, modifier }) => ({
@@ -969,7 +969,8 @@ export function rulesetDefenseAgainst(
     : rulesetCoverBonus(combat, state, target, rulesetPositionOf(attacker), "attack", attacker?.id);
   const highGround = combat.elevation?.highGround;
   const above = typeof highGround === "object" && rulesetAbove(state, attacker, target) ? highGround.bonus : 0;
-  return { defense: defense + cover - above, cover, guards };
+  const raised = guards.reduce((total, guard) => total + guard.value, 0);
+  return { defense: defense + cover - above, cover, guards, unguarded: defense - raised + cover - above };
 }
 
 /** What conditions add to one roll, as a forecast reads it: the flat part, and every die with the
