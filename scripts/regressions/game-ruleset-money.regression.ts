@@ -486,7 +486,7 @@ const withoutMarket = (doc: Record<string, any>) => {
   );
   // With sheets shown, nobody makes light, fire or an item out of an ability the sheet does not give them.
   const abilities =
-    /Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one \(like Breath Weapon\) is spent with its \[sheet:\] tag\./;
+    /Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one \(a power with uses per day\) is spent with its \[sheet:\] tag\./;
   assert.doesNotMatch(ownCharacter, abilities, "no sheets, nothing to hold an ability to");
   const sheeted = { rulesetSheetBlocks: ["Kesh: HP 38/38"] };
   assert.match(reminder(coinless, { ...potions, ...sheeted, playerName: "Ada", partyNames: ["Kesh"] }), abilities);

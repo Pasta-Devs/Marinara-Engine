@@ -1802,11 +1802,12 @@ export function buildGmFormatReminder(
   // nothing in it: a Game Master never told a purse is empty narrates a buy the Engine then refuses.
   const withMoney = Boolean(normalizePromptText(ctx.inventoryPurses?.[gameInventoryBagKey(undefined)]));
   const nobodyElse = withMoney ? [`Party members not listed carry nothing, coins included.`] : [];
-  // Without a torch to hand over, a model makes one of fire its sheets never gave anyone.
+  // Told an item is not there, a model makes it, or the light or fire it was for, with an ability
+  // no sheet lists.
   const sheetAbilitiesOnly =
     ctx.ruleset && (ctx.rulesetSheetBlocks ?? []).some((block) => block.trim())
       ? [
-          `Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one (like Breath Weapon) is spent with its [sheet:] tag.`,
+          `Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one (a power with uses per day) is spent with its [sheet:] tag.`,
         ]
       : [];
 
