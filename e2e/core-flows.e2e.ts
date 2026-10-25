@@ -1301,7 +1301,13 @@ test("Game dice outcome narration can be disabled and stays disabled after reloa
     expect(
       (
         await request.patch(`/api/chats/${chat.id}/metadata`, {
-          data: { gameId: "dice-settings-fixture", gameSessionStatus: "active", gameIntroPresented: true },
+          // The narration toggle is live only with one-request dice off, which is on by default.
+          data: {
+            gameId: "dice-settings-fixture",
+            gameSessionStatus: "active",
+            gameIntroPresented: true,
+            gameOneRequestDice: false,
+          },
         })
       ).ok(),
     ).toBeTruthy();

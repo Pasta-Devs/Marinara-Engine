@@ -103,6 +103,8 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
             gameSessionStatus: "active",
             gameIntroPresented: true,
             gameImageAutoGenerationEnabled: false,
+            // On by default; this test starts from the switch turned off.
+            gameOneRequestDice: false,
             enableAgents: false,
             enableTools: false,
           },
@@ -179,7 +181,7 @@ test("Game finishes a rolled turn in one request, and leaves the shipped two-req
     const narration = page.locator('[data-component="GameNarration.ActivePanel"]');
     await expect(narration).toContainText("A guard paces the warehouse floor.");
 
-    // ── The switch renders, defaults off, and the narration toggle is live beside it ──
+    // ── The switch renders off, and the narration toggle is live beside it ──
     let section = await openTools();
     const oneRequest = () => section.getByLabel("Finish rolled turns in one request", { exact: true });
     const narrateOutcomes = () => section.getByLabel("Narrate dice outcomes immediately", { exact: true });

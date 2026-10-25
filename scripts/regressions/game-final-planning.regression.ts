@@ -66,7 +66,12 @@ try {
     instructions = [];
     const chat = await chats.create({ name: label, mode, characterIds: [], connectionId: connection.id });
     assert(chat);
-    await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false, gameActiveState: "exploration" });
+    await chats.patchMetadata(chat.id, {
+      enableAgents: false,
+      enableTools: false,
+      gameActiveState: "exploration",
+      gameOneRequestDice: false,
+    });
     const response = await app.inject({
       method: "POST",
       url: "/api/generate/",

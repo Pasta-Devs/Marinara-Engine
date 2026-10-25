@@ -57,7 +57,11 @@ assert.equal(
   true,
   "with the switch off a rolled turn is rewritten",
 );
-assert.equal(shouldNarrateGameDiceOutcome({ gameOneRequestDice: false }, false), false, "a turn with no rolls never rewrote");
+assert.equal(
+  shouldNarrateGameDiceOutcome({ gameOneRequestDice: false }, false),
+  false,
+  "a turn with no rolls never rewrote",
+);
 assert.equal(shouldNarrateGameDiceOutcome({ gameOneRequestDice: false, gameDiceOutcomeNarration: false }, true), false);
 for (const stored of [undefined, true, false]) {
   const meta = { gameOneRequestDice: true, ...(stored === undefined ? {} : { gameDiceOutcomeNarration: stored }) };
@@ -208,7 +212,7 @@ try {
     promptPresetId: null,
   });
   assert.ok(chat);
-  await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false });
+  await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false, gameOneRequestDice: false });
 
   // Switch off: today's behaviour, byte for byte. A rolled turn still pays for the rewrite.
   await chats.createMessage({ chatId: chat.id, role: "user", content: "Sneak past the guard." });

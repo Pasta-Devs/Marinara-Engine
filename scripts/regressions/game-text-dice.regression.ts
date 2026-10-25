@@ -162,7 +162,7 @@ try {
       promptPresetId: null,
     });
     assert.ok(chat);
-    await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false });
+    await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false, gameOneRequestDice: false });
     for (const failure of [false, true]) {
       calls.length = 0;
       failContinuation = failure;
