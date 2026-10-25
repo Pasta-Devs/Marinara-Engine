@@ -45,6 +45,7 @@ import {
   runInMediaProviderLane,
   runMediaGenerationRequest,
 } from "./image-generation-queue.js";
+import { runSharedGpuTurn } from "../generation/shared-gpu-turns.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
@@ -86,6 +87,7 @@ import {
   runAtlasCloudPrediction,
 } from "../media/atlas-cloud.js";
 import { generateToAPIsImage, isToAPIsMediaUrl, ToAPIsSubmittedTaskError } from "../media/toapis-media.js";
+import { formatGeneratedImageForStorage } from "./generated-image-format.js";
 import {
   OPENAI_CHATGPT_CODEX_BASE_URL,
   buildOpenAIChatGPTHeaders,
@@ -310,8 +312,10 @@ export function imageAdmissionKey(normalizedBaseUrl: string, resolvedSource: str
  * way generateVideo already is, so EVERY image path is capped at this single
  * point — game assets, sprites, avatars, storyboards, Mari images — instead of
  * relying on per-caller wiring. Callers that additionally wrap in
- * runImageGenerationRequest for the per-connection FIFO are safe: the nested
- * acquire re-uses their held permit (AsyncLocalStorage re-entrancy guard). Batch/automatic work
+ * runImageGenerationRequest for the per-connection FIFO pass taskTakesPermit, so
+ * the shared GPU turn is waited for here before any permit is taken. (A wrapper
+ * that does take a permit is still safe from deadlock: the nested acquire re-uses
+ * it through the AsyncLocalStorage re-entrancy guard.) Batch/automatic work
  * (admissionMode "background") never occupies the last permit ahead of
  * interactive requests.
  *
@@ -427,8 +431,10 @@ export async function generateImage(
     // ponytail: image work keys on the endpoint URL while text work keys on the connection
     // id, so the two do not hold each other off on a connection used for both. Unify the
     // key if that overlap ever shows up in practice.
-    // The provider lane comes first and the global permit second, so requests waiting
-    // their turn at one account never hold permits other providers could use.
+    // The provider lane comes first, then the shared GPU turn, then the global permit and the
+    // connection admission, so requests waiting their turn at one account or on a busy shared
+    // GPU never hold permits or admission other providers could use. The turn sits outside the
+    // request deadline, so waiting for it costs no render time.
     const admissionKey = imageAdmissionKey(normalizedBaseUrl, resolvedSource, request.imageEndpointId);
     const primaryResult = await runInMediaProviderLane({
       laneKey: mediaProviderLaneKey(admissionKey, apiKey),
@@ -440,13 +446,17 @@ export async function generateImage(
           queue: false,
           signal: request.signal,
           priority: request.admissionMode?.kind === "background" ? "background" : "foreground",
+          aroundPermit: (work) => runSharedGpuTurn("media", normalizedBaseUrl, work, request.signal),
           task: () => withConnectionAdmission(admissionKey, primaryMode, physicalRequest),
         }),
     });
     outcome = "completed";
+    const storedResult = request.preserveProviderOutput
+      ? primaryResult
+      : await formatGeneratedImageForStorage(primaryResult);
     return flattenedPrompt
-      ? { ...primaryResult, effectivePrompt: primaryResult.effectivePrompt ?? flattenedPrompt }
-      : primaryResult;
+      ? { ...storedResult, effectivePrompt: storedResult.effectivePrompt ?? flattenedPrompt }
+      : storedResult;
   } catch (error) {
     const fallback = request.fallback;
     if (error instanceof ToAPIsSubmittedTaskError) throw error;
@@ -1908,23 +1918,53 @@ async function generateAtlasCloudImage(
   return downloadImageUrl(outputUrl, request.privateImageResultOrigin, request.signal);
 }
 
+function nanoGPTNanoBanana21AspectRatio(width: number, height: number): string {
+  // NanoGPT's nano-banana-2.1 supports these ratios, not arbitrary pixel sizes.
+  const ratios = [
+    ["1:1", 1],
+    ["2:3", 2 / 3],
+    ["3:2", 3 / 2],
+    ["3:4", 3 / 4],
+    ["4:3", 4 / 3],
+    ["4:5", 4 / 5],
+    ["5:4", 5 / 4],
+    ["9:16", 9 / 16],
+    ["16:9", 16 / 9],
+    ["21:9", 21 / 9],
+    ["1:4", 1 / 4],
+    ["4:1", 4],
+    ["1:8", 1 / 8],
+    ["8:1", 8],
+  ] as const;
+  const ratio = width / height;
+  return ratios.reduce((best, candidate) =>
+    Math.abs(candidate[1] - ratio) < Math.abs(best[1] - ratio) ? candidate : best,
+  )[0];
+}
+
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
   const url = nanoGPTImagesUrl(baseUrl);
   const width = request.width ?? 1024;
   const height = request.height ?? 1024;
   const model = request.model?.trim().toLowerCase() ?? "";
   const isNanoBanana = model.includes("nano-banana");
-  const size = isOpenAIGptImageModel(request.model)
-    ? openAIImageSize(request)
-    : isNanoBanana && height > width
-      ? "768x1344"
-      : `${width}x${height}`;
+  const isNanoBanana21 = model === "nano-banana-2.1";
+  const size = isNanoBanana21
+    ? Math.max(width, height) > 1024
+      ? "2k"
+      : "1k"
+    : isOpenAIGptImageModel(request.model)
+      ? openAIImageSize(request)
+      : isNanoBanana && height > width
+        ? "768x1344"
+        : `${width}x${height}`;
   const body: Record<string, unknown> = {
     prompt: request.prompt,
     n: 1,
     size,
     response_format: "url",
   };
+  if (isNanoBanana21) body.aspect_ratio = nanoGPTNanoBanana21AspectRatio(width, height);
   if (request.model) body.model = request.model;
   if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
 

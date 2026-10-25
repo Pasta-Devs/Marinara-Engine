@@ -62,14 +62,22 @@ jobs:
             exit 1
           fi
 
-  node:
-    name: complete-node-regressions
+  # The suite is CPU-bound on a 4-vCPU runner (one runner takes the same time with 4 or 8
+  # workers), so wall time only drops by spreading the files over runners. The runner deals
+  # them slow-first, so the two files near their 5-minute budgets land in different shards.
+  node-shards:
+    name: node-regressions ${{ matrix.shard }}/3
     needs: revision
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     permissions:
       contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout
@@ -92,8 +100,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run complete Node regression suite
-        run: pnpm regression
+      - name: Run Node regression shard
+        env:
+          # Node reuses compiled bytecode across the hundreds of child processes in one shard.
+          NODE_COMPILE_CACHE: ${{ runner.temp }}/node-compile-cache
+        run: pnpm regression --shard ${{ matrix.shard }}/3
+
+  # One verdict keeps the check name the shards replaced.
+  node:
+    name: complete-node-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [revision, node-shards]
+    if: always() && github.event_name != 'schedule'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Verdict
+        shell: bash
+        env:
+          REVISION_RESULT: ${{ needs.revision.result }}
+          SHARDS_RESULT: ${{ needs.node-shards.result }}
+        run: |
+          if [[ "$REVISION_RESULT" != "success" ]]; then
+            echo "Revision job did not succeed: $REVISION_RESULT"
+            exit 1
+          fi
+          if [[ "$SHARDS_RESULT" == "success" ]]; then
+            exit 0
+          fi
+          echo "Shard result: $SHARDS_RESULT"
+          exit 1
 
   smoke:
     name: browser-smoke

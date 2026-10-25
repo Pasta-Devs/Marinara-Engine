@@ -28,13 +28,19 @@ Follow these steps:
 ```
 
 3. Press Enter. The **Scene Prompt Setup** window opens.
-4. Choose a **Prompt preset** for the new scene, or leave it at **None**. Marinara remembers this choice for the next scene. The scene's own setup instructions still apply alongside the selected preset.
+4. Choose a **Prompt preset** for the new scene, or leave it at **None** to use the preset of your starred Roleplay settings profile. Marinara remembers this choice for the next scene. The scene's own setup instructions still apply alongside the preset.
 5. Under **POV**, pick how the writing is framed: **First Person**, **Second Person**, or **Third Person**.
 6. Under **Tense**, pick **Past**, **Present**, or **Future**.
 7. Optionally, type notes in the **Extra instructions** box to steer the scene.
 8. Click **Plan Scene**.
 
 Marinara plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
+
+The new scene starts from your starred Roleplay settings profile, as any new Roleplay chat does. Its opening works like this:
+
+- The scene's description is its own narrator message, posted before the opening.
+- With one character, the opening message is written in that character's voice. Words spoken aloud are in double quotes, unless your writing instructions set another style.
+- In a group scene, the opening follows the profile's group mode. In merged mode (the default) one narrating voice speaks for everyone. In **Individual** mode the character who opens the scene writes it.
 
 You can also start a scene without a description. Type just the command on its own if the conversation already has enough history to build from.
 

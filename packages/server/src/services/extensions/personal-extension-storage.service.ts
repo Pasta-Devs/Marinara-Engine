@@ -1,10 +1,13 @@
 import {
   createPersonalExtensionSchema,
+  personalExtensionRevisionRetentionSchema,
+  PERSONAL_EXTENSION_DEFAULT_REVISIONS,
   PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   normalizePersonalExtensionCapabilities,
   type CreatePersonalExtensionInput,
   type PersonalExtension,
   type PersonalExtensionRevision,
+  type PersonalExtensionRevisionRetentionInput,
   type PersonalExtensionSource,
   type UpdatePersonalExtensionInput,
 } from "@marinara-engine/shared";
@@ -13,11 +16,12 @@ import type { DB } from "../../db/connection.js";
 import { installedExtensions } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { computePersonalExtensionHash } from "./personal-extension-hash.js";
+import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 
 type ExtensionRow = typeof installedExtensions.$inferSelect;
 type ExtensionInsert = typeof installedExtensions.$inferInsert;
 
-const MAX_REVISIONS = 10;
+const REVISION_RETENTION_KEY = "extension-revision-retention";
 
 function normalizeSource(value: unknown): PersonalExtensionSource {
   return value === "external" || value === "local" || value === "professor_mari" || value === "profile_import"
@@ -136,6 +140,14 @@ function normalizePayload(input: CreatePersonalExtensionInput, source: PersonalE
 }
 
 export function createPersonalExtensionsStorage(db: DB) {
+  const appSettings = createAppSettingsStorage(db);
+  const getRevisionRetention = async () => {
+    const raw = await appSettings.get(REVISION_RETENTION_KEY);
+    const parsed = personalExtensionRevisionRetentionSchema.shape.limit.safeParse(
+      raw?.trim() ? Number(raw) : undefined,
+    );
+    return parsed.success ? parsed.data : PERSONAL_EXTENSION_DEFAULT_REVISIONS;
+  };
   const getById = async (id: string) => {
     const rows = await db.select().from(installedExtensions).where(eq(installedExtensions.id, id));
     const row = rows[0];
@@ -164,6 +176,28 @@ export function createPersonalExtensionsStorage(db: DB) {
 
     getById,
     getByName,
+    getRevisionRetention,
+
+    async setRevisionRetention(input: PersonalExtensionRevisionRetentionInput) {
+      const { limit, confirmPrune } = personalExtensionRevisionRetentionSchema.parse(input);
+      return db.transaction(async () => {
+        const extensions = await list();
+        if (
+          !confirmPrune &&
+          (limit < (await getRevisionRetention()) || extensions.some((extension) => extension.revisions.length > limit))
+        )
+          return null;
+        for (const extension of extensions) {
+          if (extension.revisions.length <= limit) continue;
+          await db
+            .update(installedExtensions)
+            .set({ revisions: JSON.stringify(extension.revisions.slice(0, limit)) })
+            .where(eq(installedExtensions.id, extension.id));
+        }
+        await appSettings.set(REVISION_RETENTION_KEY, String(limit));
+        return { limit };
+      });
+    },
 
     async create(
       input: CreatePersonalExtensionInput,
@@ -191,46 +225,48 @@ export function createPersonalExtensionsStorage(db: DB) {
     },
 
     async update(id: string, data: UpdatePersonalExtensionInput) {
-      const existing = await getById(id);
-      if (!existing) return null;
-      const runtime = data.runtime ?? existing.runtime;
-      const payload = normalizePayload(
-        {
-          name: data.name ?? existing.name,
-          version: data.version === undefined ? existing.version : data.version,
-          description: data.description ?? existing.description,
-          runtime,
-          capabilities:
-            runtime === "client" ? (data.capabilities === undefined ? existing.capabilities : data.capabilities) : [],
-          css: runtime === "client" ? (data.css === undefined ? existing.css : data.css) : null,
-          js: runtime === "client" ? (data.js === undefined ? existing.js : data.js) : null,
-          serverJs: runtime === "server" ? (data.serverJs === undefined ? existing.serverJs : data.serverJs) : null,
-        },
-        existing.source,
-      );
-      const contentHash = computePersonalExtensionHash(payload);
-      const executableChanged = contentHash !== existing.contentHash;
-      const revisions = executableChanged
-        ? [
-            revisionFrom(existing),
-            ...existing.revisions.filter((revision) => revision.contentHash !== existing.contentHash),
-          ].slice(0, MAX_REVISIONS)
-        : existing.revisions;
-      const update: Partial<ExtensionInsert> = {
-        ...payload,
-        capabilities: JSON.stringify(payload.capabilities),
-        contentHash,
-        revisions: JSON.stringify(revisions),
-        updatedAt: now(),
-      };
-      if (executableChanged) {
-        update.enabled = "false";
-        update.approvedHash = null;
-      } else if (data.enabled === false) {
-        update.enabled = "false";
-      }
-      await db.update(installedExtensions).set(update).where(eq(installedExtensions.id, id));
-      return getById(id);
+      return db.transaction(async () => {
+        const existing = await getById(id);
+        if (!existing) return null;
+        const runtime = data.runtime ?? existing.runtime;
+        const payload = normalizePayload(
+          {
+            name: data.name ?? existing.name,
+            version: data.version === undefined ? existing.version : data.version,
+            description: data.description ?? existing.description,
+            runtime,
+            capabilities:
+              runtime === "client" ? (data.capabilities === undefined ? existing.capabilities : data.capabilities) : [],
+            css: runtime === "client" ? (data.css === undefined ? existing.css : data.css) : null,
+            js: runtime === "client" ? (data.js === undefined ? existing.js : data.js) : null,
+            serverJs: runtime === "server" ? (data.serverJs === undefined ? existing.serverJs : data.serverJs) : null,
+          },
+          existing.source,
+        );
+        const contentHash = computePersonalExtensionHash(payload);
+        const executableChanged = contentHash !== existing.contentHash;
+        const revisions = executableChanged
+          ? [
+              revisionFrom(existing),
+              ...existing.revisions.filter((revision) => revision.contentHash !== existing.contentHash),
+            ].slice(0, await getRevisionRetention())
+          : existing.revisions;
+        const update: Partial<ExtensionInsert> = {
+          ...payload,
+          capabilities: JSON.stringify(payload.capabilities),
+          contentHash,
+          revisions: JSON.stringify(revisions),
+          updatedAt: now(),
+        };
+        if (executableChanged) {
+          update.enabled = "false";
+          update.approvedHash = null;
+        } else if (data.enabled === false) {
+          update.enabled = "false";
+        }
+        await db.update(installedExtensions).set(update).where(eq(installedExtensions.id, id));
+        return getById(id);
+      });
     },
 
     async approve(id: string, contentHash: string) {
@@ -269,31 +305,33 @@ export function createPersonalExtensionsStorage(db: DB) {
     },
 
     async rollback(id: string, contentHash: string) {
-      const existing = await getById(id);
-      if (!existing) return null;
-      const revision = existing.revisions.find((candidate) => candidate.contentHash === contentHash);
-      if (!revision) throw new Error("Extension revision not found");
-      const nextRevisions = [
-        revisionFrom(existing),
-        ...existing.revisions.filter((candidate) => candidate.contentHash !== contentHash),
-      ].slice(0, MAX_REVISIONS);
-      await db
-        .update(installedExtensions)
-        .set({
-          version: revision.version,
-          runtime: revision.runtime,
-          capabilities: JSON.stringify(revision.capabilities),
-          css: revision.runtime === "client" ? revision.css : null,
-          js: revision.runtime === "client" ? revision.js : null,
-          serverJs: revision.runtime === "server" ? revision.serverJs : null,
-          enabled: "false",
-          contentHash: revision.contentHash,
-          approvedHash: null,
-          revisions: JSON.stringify(nextRevisions),
-          updatedAt: now(),
-        })
-        .where(eq(installedExtensions.id, id));
-      return getById(id);
+      return db.transaction(async () => {
+        const existing = await getById(id);
+        if (!existing) return null;
+        const revision = existing.revisions.find((candidate) => candidate.contentHash === contentHash);
+        if (!revision) throw new Error("Extension revision not found");
+        const nextRevisions = [
+          revisionFrom(existing),
+          ...existing.revisions.filter((candidate) => candidate.contentHash !== contentHash),
+        ].slice(0, await getRevisionRetention());
+        await db
+          .update(installedExtensions)
+          .set({
+            version: revision.version,
+            runtime: revision.runtime,
+            capabilities: JSON.stringify(revision.capabilities),
+            css: revision.runtime === "client" ? revision.css : null,
+            js: revision.runtime === "client" ? revision.js : null,
+            serverJs: revision.runtime === "server" ? revision.serverJs : null,
+            enabled: "false",
+            contentHash: revision.contentHash,
+            approvedHash: null,
+            revisions: JSON.stringify(nextRevisions),
+            updatedAt: now(),
+          })
+          .where(eq(installedExtensions.id, id));
+        return getById(id);
+      });
     },
 
     async remove(id: string) {

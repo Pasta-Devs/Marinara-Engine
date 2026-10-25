@@ -611,6 +611,7 @@ try {
     enableTools: false,
     enableAgents: false,
     gameDiceOutcomeNarration: false,
+    gameOneRequestDice: false,
   });
   await chats.createMessage({ chatId: off.id, role: "user", content: "Sneak past the guard." });
   const offResponse = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: off.id } });

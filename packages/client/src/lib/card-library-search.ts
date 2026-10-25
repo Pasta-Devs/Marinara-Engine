@@ -10,6 +10,7 @@ export type CardLibrarySearchDocument = {
   title?: unknown;
   meta?: unknown;
   summary?: unknown;
+  creatorNotes?: unknown;
   tags?: readonly string[];
   sections?: readonly { content?: unknown }[];
 };
@@ -59,6 +60,7 @@ export function matchesCardLibrarySearch(document: CardLibrarySearchDocument, qu
     document.title,
     document.meta,
     document.summary,
+    document.creatorNotes,
     ...tags,
     ...(document.sections ?? []).map((section) => section.content),
   ]

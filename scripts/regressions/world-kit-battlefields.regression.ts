@@ -39,6 +39,7 @@ const { buildInitPrompt, encounterRoutes } = await import("../../packages/server
 const { combatDirectorRoutes } = await import("../../packages/server/src/routes/combat-director.routes.js");
 const { injectGameGmPromptRuntime } =
   await import("../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
+const { buildGmSceneState } = await import("../../packages/server/src/services/game/gm-prompts.js");
 const { buildMapGenerationPrompt } = await import("../../packages/server/src/services/game/map.service.js");
 const { generatePerceptionHints } = await import("../../packages/server/src/services/game/perception.service.js");
 const { buildWorldKitWritingPrompt } = await import("../../packages/server/src/services/game/world-kit-writer.js");
@@ -310,10 +311,10 @@ try {
       Math.random = random;
     }
 
-    // A turn's passive perception reads the setting's places.
+    // A turn's passive perception reads the setting's places. It reaches the GM in the scene state.
     const turn = async (chatMetadata: Record<string, unknown>) => {
       const messages = [{ role: "system", content: "placeholder" }];
-      await injectGameGmPromptRuntime({
+      const { gmCtx } = await injectGameGmPromptRuntime({
         messages,
         chatId: "battlefields",
         chat: {},
@@ -330,7 +331,7 @@ try {
         personaName: "Player",
         resolvePromptMacros: (value: string) => value,
       } as unknown as Parameters<typeof injectGameGmPromptRuntime>[0]);
-      return messages.map((message) => message.content).join("\n");
+      return [...messages.map((message) => message.content), buildGmSceneState(gmCtx)].join("\n");
     };
     assert.match(await turn(cyberGame), /hidden passage/);
     assert.doesNotMatch(await turn({}), /hidden passage/);

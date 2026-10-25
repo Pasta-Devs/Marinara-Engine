@@ -247,6 +247,11 @@ export interface PersonalExtension {
   updatedAt: string;
 }
 
+/** List responses retain revision metadata without historical executable code. */
+export type PersonalExtensionListItem = Omit<PersonalExtension, "revisions"> & {
+  revisions: Omit<PersonalExtensionRevision, "css" | "js" | "serverJs">[];
+};
+
 export interface PersonalClientExtensionRuntime {
   id: string;
   name: string;

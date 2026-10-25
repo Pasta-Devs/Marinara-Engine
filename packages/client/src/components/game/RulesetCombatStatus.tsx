@@ -17,6 +17,7 @@ import { rulesetCombatLogLines, rulesetCombatNames } from "../../lib/ruleset-com
 import { rulesetDistanceText } from "../../lib/ruleset-combat-board";
 import { rulesetEffectPhrase } from "./RulesetItemPicker";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 
 /** The ruleset's own words for what a combatant is (1.168): "Fiend (devil)". */
 function kindLine(kind: { type?: string; tags?: string[] }): string {
@@ -37,7 +38,8 @@ export function RulesetCombatStatus({
   // Built fresh on every render rather than accumulated, so a saved fight read back, or a language
   // changed mid-battle, prints in the language on screen now. The running number is the key, so a
   // re-render adds only the lines that are new and a reader is told only about those.
-  const lines = rulesetCombatLogLines(view.events, names, t);
+  const debugMode = useUIStore((state) => state.debugMode);
+  const lines = rulesetCombatLogLines(view.events, names, t, -1, debugMode);
   const [orderOpen, setOrderOpen] = useState(
     () => typeof window === "undefined" || window.matchMedia("(min-width: 640px)").matches,
   );
@@ -314,7 +316,7 @@ export function RulesetCombatStatus({
 }
 
 /** One standing zone, in words: whose it is and how many of its caster's turns are left. */
-function zoneLine(
+export function zoneLine(
   zone: NonNullable<DirectedRulesetView["zones"]>[number],
   view: DirectedRulesetView,
   t: TFunction,

@@ -743,6 +743,28 @@ assert.equal(spotifyProvider.calls, 1, "Spotify Music DJ should make one plannin
 assert.equal(spotifyProvider.options[0]?.tools, undefined, "Spotify planning should not enter the LLM tool loop");
 assert.equal(spotifyToolExecutions, 0, "Spotify tools should run later in the deterministic playback stage");
 
+// #8251: post-reply agents see the map location after the reply, not the one the turn started in.
+const locationProvider = new RecordingProvider(
+  JSON.stringify({ shouldGenerate: false, prompt: "", style: "", characters: [], reason: "quiet beat" }),
+);
+const locationIllustrator: ResolvedAgent = { ...makeAgent("illustrator"), provider: locationProvider };
+const locationContext: AgentContext = {
+  ...context,
+  currentLocation: { path: "Palace > Throne Room", description: "OLD_ROOM_SENTINEL" },
+};
+await createAgentPipeline([locationIllustrator], locationContext).postGenerate("They walk out to the yard.", {
+  currentLocation: { path: "Palace > Palace Yard", description: "NEW_ROOM_SENTINEL" },
+});
+const movedPrompt = locationProvider.messages[0]!.map((message) => message.content).join("\n");
+assert.match(movedPrompt, /Path: Palace > Palace Yard\nDescription: NEW_ROOM_SENTINEL/u);
+assert.doesNotMatch(movedPrompt, /OLD_ROOM_SENTINEL/u);
+await createAgentPipeline([locationIllustrator], locationContext).postGenerate("They stay put.");
+assert.match(
+  locationProvider.messages[1]!.map((message) => message.content).join("\n"),
+  /OLD_ROOM_SENTINEL/u,
+  "without an override the pipeline keeps its own location",
+);
+
 const spotifyFallbackCalls: string[] = [];
 let spotifyFallbackReportsActiveUri = true;
 const spotifyFallbackAgent = {

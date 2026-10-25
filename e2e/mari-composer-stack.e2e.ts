@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
-import { seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -133,6 +133,40 @@ test("the empty state ends above the composer after Mari, Search, Mari", async (
     await page.keyboard.press("Control+j");
     await expect(pane.locator("textarea:visible")).toBeVisible();
     await expect.poll(() => contentUnderStack(page), { message: "back to Mari" }).toBeLessThanOrEqual(1);
+  } finally {
+    await cleanup(request, connectionId);
+  }
+});
+
+test("landscape: empty welcome quick options scroll clear of the composer", async ({ page, request }, testInfo) => {
+  await isolateSyncedUISettings(page);
+  const { connectionId } = await openMariFixture(page, request);
+  try {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
+    const pane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
+    await expect(pane.locator(".mari-omnibar-empty-welcome")).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) {
+      await expect
+        .poll(
+          () =>
+            pane.evaluate((element) => {
+              const transcript = element
+                .querySelector('[data-component="HomeProfessorMariChat.Transcript"]')!
+                .getBoundingClientRect();
+              const dock = element.querySelector(".mari-workspace-composer-dock")!.getBoundingClientRect();
+              return transcript.bottom - dock.top;
+            }),
+          { message: "the touch scrollport itself is clear of the composer" },
+        )
+        .toBeLessThanOrEqual(1);
+    }
+    await expect.poll(() => contentUnderStack(page), { message: "landscape quick options" }).toBeLessThanOrEqual(1);
+    const option = pane.locator(".mari-suggestion-chips button").last();
+    await expect(option).toBeInViewport();
+    await option.click({ trial: true });
+    await testInfo.attach("mari-landscape-quick-options", { body: await pane.screenshot(), contentType: "image/png" });
   } finally {
     await cleanup(request, connectionId);
   }

@@ -3,7 +3,9 @@ import type {
   CreatePersonalExtensionInput,
   PersonalClientExtensionRuntime,
   PersonalExtension,
+  PersonalExtensionListItem,
   PersonalExtensionPolicy,
+  PersonalExtensionRevisionRetentionInput,
   UpdatePersonalExtensionInput,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
@@ -13,12 +15,13 @@ export const personalExtensionKeys = {
   list: () => [...personalExtensionKeys.all, "list"] as const,
   runtime: () => [...personalExtensionKeys.all, "runtime"] as const,
   policy: () => [...personalExtensionKeys.all, "policy"] as const,
+  revisionHistory: () => [...personalExtensionKeys.all, "revision-history"] as const,
 };
 
 export function usePersonalExtensions() {
   return useQuery({
     queryKey: personalExtensionKeys.list(),
-    queryFn: () => api.get<PersonalExtension[]>("/personal-extensions"),
+    queryFn: () => api.get<PersonalExtensionListItem[]>("/personal-extensions"),
     staleTime: 30_000,
   });
 }
@@ -44,6 +47,22 @@ export function useSetExternalExtensionsEnabled() {
   return useMutation({
     mutationFn: (enabled: boolean) =>
       api.patch<PersonalExtensionPolicy>("/personal-extensions/policy/external", { enabled }),
+    onSuccess: invalidate,
+  });
+}
+
+export function usePersonalExtensionRevisionRetention() {
+  return useQuery({
+    queryKey: personalExtensionKeys.revisionHistory(),
+    queryFn: () => api.get<{ limit: number }>("/personal-extensions/revision-history"),
+  });
+}
+
+export function useSetPersonalExtensionRevisionRetention() {
+  const invalidate = useInvalidatePersonalExtensions();
+  return useMutation({
+    mutationFn: (input: PersonalExtensionRevisionRetentionInput) =>
+      api.patch<{ limit: number }>("/personal-extensions/revision-history", input),
     onSuccess: invalidate,
   });
 }

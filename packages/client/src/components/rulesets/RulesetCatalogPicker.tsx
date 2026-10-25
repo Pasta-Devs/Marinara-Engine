@@ -54,19 +54,24 @@ function describeCatalogError(error: unknown, fallback: string): { message: stri
   return { message: error.message.trim() || fallback, issues };
 }
 
-/** The values one entry carries for the catalog's declared filters, as small chips. Deduplicated,
- *  because two filters may well name the same word and one chip says it once. A bare number says
- *  nothing on its own, so a number filter's chip carries the filter's label too. */
+/** The values one entry carries for the catalog's declared filters, as small chips. Deduplicated
+ *  whatever their case, because two filters may well name the same word and one chip says it once,
+ *  and a value that only repeats the entry's own label or id ("wizard" under Wizard) is left out. A
+ *  bare number says nothing on its own, so a number filter's chip carries the filter's label too. */
 function entryChips(entry: RulesetCatalogEntry, catalog: RulesetCatalogHeaderView, t: TFunction): string[] {
-  const chips = new Set<string>();
+  const seen = new Set([entry.id, entry.label].map((text) => text.trim().toLowerCase()));
+  const chips: string[] = [];
   for (const filter of catalog.filters ?? []) {
     for (const text of catalogEntryFilterTexts(entry, filter.id)) {
-      chips.add(
-        filter.type === "number" ? t("game.ruleset.catalog.filterChip", { label: filter.label, value: text }) : text,
-      );
+      const chip =
+        filter.type === "number" ? t("game.ruleset.catalog.filterChip", { label: filter.label, value: text }) : text;
+      const key = chip.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      chips.push(chip);
     }
   }
-  return [...chips];
+  return chips;
 }
 
 export function RulesetCatalogPicker({

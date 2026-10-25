@@ -847,6 +847,18 @@ try {
       cells.filter((cell: any) => cell.anchor).map((cell: any) => `${cell.occupant.id}@${cell.x},${cell.y}`),
       ["hero@0,0", "ogre@5,5"],
     );
+    // Whoever stands on a body is the one drawn there, whichever comes first in the list.
+    for (const order of [
+      ["body", "cultist"],
+      ["cultist", "body"],
+    ]) {
+      const fallen = {
+        body: { id: "body", name: "Body", side: "enemy", x: 3, y: 1, defeated: true, health: { value: 0, max: 1 } },
+        cultist: { id: "cultist", name: "Cultist", side: "enemy", x: 3, y: 1, health: { value: 6, max: 6 } },
+      } as Record<string, unknown>;
+      const drawn = rulesetBoardCells({ grid: grid(), combatants: order.map((id) => fallen[id]) } as never, null);
+      assert.equal(drawn.find((cell: any) => cell.x === 3 && cell.y === 1)?.occupant?.id, "cultist", order.join());
+    }
   }
 
   // ── Refusals and the gate ──

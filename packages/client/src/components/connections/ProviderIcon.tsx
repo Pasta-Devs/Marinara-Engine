@@ -4,6 +4,7 @@
 import { useState, type CSSProperties } from "react";
 import {
   AudioLines,
+  Music,
   BrainCircuit,
   Cpu,
   Film,
@@ -221,6 +222,7 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
   image_generation: ImageIcon,
   video_generation: Film,
   audio: AudioLines,
+  audio_generation: Music,
   decision: Scale,
 };
 

@@ -20,16 +20,16 @@ ${StrTrimNewLines}
 !define APP_URL "https://github.com/Pasta-Devs/Marinara-Engine"
 !define REPO_URL "https://github.com/Pasta-Devs/Marinara-Engine.git"
 !define DEFAULT_DIR "$LOCALAPPDATA\Marinara-Engine"
-!define PNPM_VERSION "10.34.5"
-!define PNPM_DESCRIPTOR "10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e"
+!define PNPM_VERSION "12.15.0"
+!define PNPM_DESCRIPTOR "12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61"
 
 ; ── Prerequisite download URLs ──
 ; Pin to known-good versions so the installer is deterministic and doesn't
 ; need PowerShell/GitHub API calls (a major AV false-positive trigger).
 !define GIT_DOWNLOAD_URL "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe"
-!define NODE_DOWNLOAD_URL "https://nodejs.org/dist/v24.21.0/node-v24.21.0-x64.msi"
+!define NODE_DOWNLOAD_URL "https://nodejs.org/dist/v24.22.1/node-v24.22.1-x64.msi"
 !define GIT_SHA256 "2b96e7854f0520f0f6b709c21041d9801b1be44d5e1a0d9fa621b2fbc40f1983"
-!define NODE_SHA256 "bb0eaee134f9357f22aea915ee793343e627aefc1e66488164bac6915bce2cac"
+!define NODE_SHA256 "3bda4baf1ee709b33cf920dd633106ddb23951e322bff9c03ec9f64ab8981b01"
 !define RELEASE_TAG "v2.5.1"
 !ifndef RELEASE_COMMIT
 !error "RELEASE_COMMIT must pin the exact release commit"

@@ -1,8 +1,11 @@
 // ──────────────────────────────────────────────
 // React Query: chat settings profiles (legacy hook/route names retain "ChatPreset")
 // ──────────────────────────────────────────────
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { advanceStarredProfileDraft } from "../lib/chat-setup-draft";
+import { useChatStore } from "../stores/chat.store";
 import { api } from "../lib/api-client";
+import { CHAT_PRESET_APPLY_MUTATION_KEY, chatPresetApplyFilters } from "../lib/chat-preset-apply";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot, syncCachedChat } from "./use-chats";
 import type { Chat, ChatMode, ChatPreset, ChatPresetSettings } from "@marinara-engine/shared";
 
@@ -74,6 +77,7 @@ export function useImportChatPreset() {
 export function useApplyChatPreset() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: CHAT_PRESET_APPLY_MUTATION_KEY,
     mutationFn: ({
       presetId,
       chatId,
@@ -82,6 +86,7 @@ export function useApplyChatPreset() {
       presetId: string;
       chatId: string;
       connectionId?: string | null;
+      initialSetupProfile?: ChatPreset;
     }) =>
       api.post<Chat>(
         `/chat-presets/${presetId}/apply/${chatId}`,
@@ -89,12 +94,25 @@ export function useApplyChatPreset() {
       ),
     onMutate: ({ chatId }) => ({ metadataVersion: captureChatMetadataVersion(chatId) }),
     onSuccess: (data, variables, context) => {
+      const draft = useChatStore.getState().pendingNewChatSetups[variables.chatId];
+      if (data && variables.initialSetupProfile && draft?.id === variables.chatId) {
+        useChatStore
+          .getState()
+          .setPendingNewChatSetup(
+            advanceStarredProfileDraft(draft, data, variables.initialSetupProfile, variables.connectionId),
+          );
+      }
       if (data) syncCachedChat(qc, guardServerChatSnapshot(qc, data, context?.metadataVersion ?? 0));
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
       qc.invalidateQueries({ queryKey: [...chatKeys.all, "group"] });
     },
   });
+}
+
+/** True while a profile is being applied to this chat, as when a new chat starts from the starred profile. */
+export function useIsApplyingChatPreset(chatId: string) {
+  return useIsMutating(chatPresetApplyFilters(chatId)) > 0;
 }
 
 /** After saving a profile, update the chat settings of the other chats that use it. */

@@ -555,7 +555,7 @@ test("LAN HTTP contexts without randomUUID retain cryptographic bootstrap and us
     const nativeRandom = crypto.getRandomValues.bind(crypto);
     Object.defineProperty(crypto, "getRandomValues", {
       configurable: true,
-      value: (values: Uint8Array) => {
+      value: (values: Uint8Array<ArrayBuffer>) => {
         (window as any).cryptographicIdCalls = ((window as any).cryptographicIdCalls ?? 0) + 1;
         return nativeRandom(values);
       },

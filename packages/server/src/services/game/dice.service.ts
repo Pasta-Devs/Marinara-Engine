@@ -73,8 +73,30 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
   if (!Number.isFinite(modifier)) return null;
   const dc = payload.dc;
   if (dc !== undefined && (typeof dc !== "number" || !Number.isSafeInteger(dc))) return null;
+  // A fresh tool result names its roller in `reason`; a saved roll read back (a continued turn) in `label`.
+  const named = typeof payload.label === "string" ? payload.label : payload.reason;
+  const label = typeof named === "string" ? cleanRollLabel(named) : "";
 
-  return { notation, rolls, modifier, total, ...(dc !== undefined ? { dc } : {}) };
+  return { notation, rolls, modifier, total, ...(dc !== undefined ? { dc } : {}), ...(label ? { label } : {}) };
+}
+
+/** A roller's name or a roll's reason as the card shows it: one line, nothing that could close a tag. */
+function cleanRollLabel(value: string): string {
+  return value
+    .replace(/["\[\]\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
+/** A `[dice:]` request's `who="Name"`, taken off so the rest reads as the notation it always was. */
+function splitDiceRoller(body: string): { body: string; who: string } {
+  const match = /\s+who\s*=\s*"([^"]*)"/i.exec(body);
+  if (!match) return { body, who: "" };
+  return {
+    body: body.slice(0, match.index) + body.slice(match.index + match[0].length),
+    who: cleanRollLabel(match[1]!),
+  };
 }
 
 /** Fresh regex so callers can collect or remove the same narration roll records. */
@@ -111,7 +133,9 @@ export function hasPoolClaim(body: string): boolean {
 /** The engine's own `[dice:]` record, with the slot it spent named on the end. */
 function serializeDiceRecord(result: DiceRollResult, pool?: string): string {
   const modifier = result.modifier ? ` ${result.modifier > 0 ? "+" : "-"} ${Math.abs(result.modifier)}` : "";
-  return `[dice: ${result.notation} = ${result.total} (${result.rolls.join(" + ")}${modifier})${pool ? ` pool="${pool}"` : ""}]`;
+  return `[dice: ${result.notation} = ${result.total} (${result.rolls.join(" + ")}${modifier})${pool ? ` pool="${pool}"` : ""}${
+    result.label ? ` who="${result.label}"` : ""
+  }]`;
 }
 
 /**
@@ -152,15 +176,16 @@ export function resolveGameDiceRequests(
   let poolTagIndex = 0;
   const resolved = content.replace(createGameRollTagRegex(), (original, kind: string, body: string) => {
     if (kind.toLowerCase() === "dice") {
-      const notation = parseDiceNotation(body);
+      const roller = splitDiceRoller(body);
+      const notation = parseDiceNotation(roller.body);
       // A resolved [dice: NdM = total (...)] record is not a new request.
       if (!notation) {
         // The pool's own attachment point, BEFORE the return below: the complete record the
         // pool prompt asks for parses as a record here, so the roller further down is never
         // reached for it and a branch placed after this return would never run.
-        const poolBody = pool ? readPoolDiceBody(body) : null;
+        const poolBody = pool ? readPoolDiceBody(roller.body) : null;
         if (pool && poolBody)
-          return resolvePoolDiceTag(pool, poolBody, body, diceRolls, () => rolled++, poolTagIndex++);
+          return resolvePoolDiceTag(pool, poolBody, roller.body, diceRolls, () => rolled++, poolTagIndex++, roller.who);
         if (pool && hasPoolClaim(body)) {
           // `pool=` written in front of nothing the grammar can read. The numbers on such
           // a record are a claim the pool never validated, so they are dropped with the
@@ -174,12 +199,14 @@ export function resolveGameDiceRequests(
         // sufficient: it makes a pool-bearing record PASS the historical test, which is
         // right for a re-read and fatal for a fresh turn without the out-of-band session
         // above — which is exactly why the pool branch sits in front of it.
-        const recorded = /^([^\s=]+)\s*=\s*-?\d+\s*\([^)]*\)(?:\s+pool="[^"]*")?\s*$/u.exec(body.trim());
+        const recorded = /^([^\s=]+)\s*=\s*-?\d+\s*\([^)]*\)(?:\s+pool="[^"]*")?(?:\s+who="[^"]*")?\s*$/u.exec(
+          body.trim(),
+        );
         if (!recorded || !parseDiceNotation(recorded[1]!))
           reportUnresolved(body, "Unsupported dice notation. Use NdM with an optional +K or -K modifier.");
         return original;
       }
-      const result = roll(notation.notation);
+      const result = { ...roll(notation.notation), ...(roller.who ? { label: roller.who } : {}) };
       diceRolls.push(result);
       rolled++;
       return serializeDiceRecord(result);
@@ -360,6 +387,7 @@ function resolvePoolDiceTag(
   diceRolls: DiceRollResult[],
   countRoll: () => void,
   tagIndex: number,
+  who = "",
 ): string {
   const notation = clampParsedDiceToLimits(poolBody.notation);
   const spent = spendPoolForNotation(pool, notation, body, tagIndex);
@@ -369,9 +397,10 @@ function resolvePoolDiceTag(
     ...(poolBody.slots ? { slots: poolBody.slots.slots } : {}),
     values: readRecordedDiceValues(body),
   });
-  diceRolls.push(spent.result);
+  const result = who ? { ...spent.result, label: who } : spent.result;
+  diceRolls.push(result);
   countRoll();
-  return serializeDiceRecord(spent.result, spent.name);
+  return serializeDiceRecord(result, spent.name);
 }
 
 /** The per-die numbers the model wrote inside a `[dice: NdM = T (a + b)]` record. */

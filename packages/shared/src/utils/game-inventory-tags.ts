@@ -325,8 +325,36 @@ export function applyGameInventoryTags(
 
     const who = resolveGameInventoryHolder(request.who, party, current);
     const to = request.action === "give" ? resolveGameInventoryHolder(request.to, party, current) : null;
-    return request.items
-      .map((item) => {
+    // One item whose name holds a comma is that item, not a list (#8271: "Rope, hempen (50 feet)"
+    // bought as "Rope" and "hempen (50 feet)"); and so is each such item in a list, the longest run of
+    // parts that names one first (laptop 2026-10-25: "Rope, hempen (50 feet), Lantern, hooded").
+    const known = (name: string) => {
+      const held = gameInventoryItemsNamed(current, name);
+      return (
+        !!rules?.itemNamed(name) ||
+        !!rules?.coinNamed?.(name) ||
+        current.some((stack) => held.has(gameInventoryItemId(stack)))
+      );
+    };
+    const named: string[] = [];
+    if (request.whole && known(request.whole)) named.push(request.whole);
+    else
+      for (let from = 0; from < request.items.length;) {
+        let to = request.items.length;
+        while (to - from > 1 && !known(request.items.slice(from, to).join(", "))) to -= 1;
+        named.push(request.items.slice(from, to).join(", "));
+        from = to;
+      }
+    return named
+      .map((written) => {
+        // An item written by its ref is read by its name from here on, so a stack of it is found as
+        // a name finds it, a fake among them (#8271); unless that name finds another item first,
+        // when the ref stays as written.
+        const byRef = rules?.itemNamed(written);
+        const item =
+          byRef && byRef.item === written.trim() && rules?.itemNamed(byRef.name)?.item === byRef.item
+            ? byRef.name
+            : written;
         const shown = {
           action: request.action,
           item,

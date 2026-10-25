@@ -1,12 +1,16 @@
 // What the in-game ruleset sheet shows beside its editor: the summary, pool group headings and the
 // level the character card's header shows.
 import {
+  createRulesetEncounter,
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
+  rulesetIsAttack,
   isRulesetItemHidden,
   readRulesetLive,
   resolveRulesetAbilityValues,
   type EvaluatedRulesetSheet,
+  type RulesetCombatAmount,
+  type RulesetCombatDamage,
   type RulesetDefinition,
   type RulesetLiveState,
   type RulesetSheetBuild,
@@ -87,4 +91,62 @@ export function rulesetRowSpellcastingText(
       ];
     })
     .join(" · ");
+}
+
+/** One attack the sheet lists, as a fight would offer it: its name, what it adds to hit and the
+ *  damage it deals, in dice ("1d8+3 slashing"). */
+export interface RulesetSheetAttack {
+  id: string;
+  label: string;
+  toHit?: number;
+  damage?: string;
+}
+
+function amountText(amount: RulesetCombatAmount): string {
+  const dice = amount.count > 0 && amount.sides > 0 ? `${amount.count}d${amount.sides}` : "";
+  if (!dice) return String(amount.flat);
+  if (!amount.flat) return dice;
+  return amount.flat > 0 ? `${dice}+${amount.flat}` : `${dice}${amount.flat}`;
+}
+
+function damageText(damage: RulesetCombatDamage): string {
+  return [damage, ...(damage.plus ?? [])]
+    .map((part) => [amountText(part), part.type].filter(Boolean).join(" "))
+    .join(" + ");
+}
+
+/** The attacks a fight would offer this character, read the way a fight reads them: the same
+ *  sheet, live state and held items set into a fight of one, so the sheet never works out a to-hit
+ *  of its own that could disagree with the fight's. Empty for a ruleset with no fights, and for a
+ *  sheet a fight could not be started from. */
+export function rulesetSheetAttacks(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  live: RulesetLiveState | undefined,
+  items: ReadonlyArray<RulesetSheetItem> | undefined,
+): RulesetSheetAttack[] {
+  if (!definition.combat) return [];
+  try {
+    const state = createRulesetEncounter({
+      definition,
+      seed: 1,
+      roller: () => 1,
+      combatants: [{ id: "sheet", name: "sheet", side: "party", build, live, ...(items ? { items } : {}) }],
+    });
+    const seen = new Set<string>();
+    return (state.combatants[0]?.actions ?? []).flatMap((action) => {
+      if (!rulesetIsAttack(action) || action.kind !== "attack" || seen.has(action.label)) return [];
+      seen.add(action.label);
+      return [
+        {
+          id: action.id,
+          label: action.label,
+          ...(typeof action.toHit === "number" && !action.autoHit ? { toHit: action.toHit } : {}),
+          ...(action.damage ? { damage: damageText(action.damage) } : {}),
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
 }

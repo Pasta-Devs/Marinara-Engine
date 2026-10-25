@@ -27,6 +27,13 @@ export type RulesetCombatRoller = (sides: number) => number;
 export type RulesetCombatSide = "party" | "enemy";
 
 /** Dice plus a flat adjustment, as a fight rolls them. */
+/** A menu heading a ruleset names for abilities from one of its lists (1.378): the list's tab, and
+ *  the heading of the row's place in it, with that place's number to order by. */
+export interface RulesetCombatMenuGroup {
+  label: string;
+  sub?: { label: string; order: number };
+}
+
 export interface RulesetCombatAmount {
   count: number;
   sides: number;
@@ -201,6 +208,14 @@ export interface RulesetCombatPoolRoll {
   /** Dice the wound penalty took off, as a negative number. Absent when it took none. */
   penalty?: number;
   botch?: boolean;
+  /** A `symbol-pool` fight's throw (1.382): the symbols left after cancelling, by id, and the dice
+   *  that went in. `dice` is then the thrower's own dice, `upgrades` how many were upgraded, and
+   *  `difficulty` the dice thrown against them. */
+  symbols?: Record<string, number>;
+  upgrades?: number;
+  difficulty?: number;
+  boost?: number;
+  setback?: number;
 }
 
 /** What one condition (or a level of a track or a derived value) added to, or took from, one roll or
@@ -350,6 +365,8 @@ export interface RulesetStatBlockAction {
   name: string;
   budget: string;
   toHit?: number;
+  /** In a `symbol-pool` fight, how many of the `toHit` dice are upgraded ones (1.382). */
+  upgrades?: number;
   autoHit?: boolean;
   /** Senses a target must have for this to affect it (Capability API 1.127). */
   needs?: string[];
@@ -605,6 +622,8 @@ export type RulesetCombatantInput =
       creature: { catalogId: string; entryId: string };
       /** Where its live tracks stand as the fight begins (1.115), as a bestiary creature has none. */
       tracks?: Record<string, number>;
+      /** Its stat block as this fight has it (1.363): a story fight's Legendary Resistance and health. */
+      adjust?: { legendaryResistance?: number; health?: number; calls?: Array<{ action: string; creature: string }> };
     };
 
 /** One thing a combatant may do, with every number already read off the sheet or the stat block.
@@ -643,6 +662,8 @@ export interface RulesetCombatAction {
   /** Offered only on a target holding one of these, or one of `fromSelf` its maker put on (1.235). */
   targetHolds?: { conditions?: string[]; fromSelf?: string[] };
   toHit?: number;
+  /** In a `symbol-pool` fight, how many of the `toHit` dice are upgraded ones (1.382). */
+  upgrades?: number;
   /** The per-die target a pool fight throws this attack against, where the ruleset lets it move: a
    *  weapon's own. Without one the attack is thrown against the pool's usual target. */
   target?: number;
@@ -939,6 +960,11 @@ export interface RulesetCombatAction {
   /** Turning one of the holder's items on or off (1.170): its place in `sheet.items`. */
   /** What it turns: an item (1.170), or the light its holder carries (1.295). */
   switches?: { item: number } | { carried: true } | { conjured: string };
+  /** What turning it on and off is called (1.378): a hooded lantern's "Raise the hood". */
+  switchLabels?: { on?: string; off?: string };
+  /** The menu heading it sits under, from its list's `display` (1.378): "Spells", and the row's
+   *  split under it, "1st level". */
+  menuGroup?: RulesetCombatMenuGroup;
   /** Other ways to make this attack, chosen with it like an initiative style. */
   modes?: RulesetCombatMode[];
   /** How many one attack shoots when a mode says so, in place of its ammunition's own. */
@@ -1258,6 +1284,8 @@ export interface RulesetCombatant {
   strikesLeft?: number;
   /** One pending skipped turn. A named condition is owned only if this daze put it on. */
   dazed?: { condition?: string };
+  /** Boost and setback dice a symbol spend left for the next roll they make (1.382), spent by it. */
+  symbolDice?: { boost?: number; setback?: number };
   /** Strikes the entries their rows came from let them buy with another budget (1.242). */
   strikeGrants?: RulesetStrikeGrant[];
   /** What this combatant adds to a qualifying hit without anybody choosing it. */
@@ -1461,6 +1489,10 @@ export interface RulesetCombatant {
   speeds?: RulesetMoveSpeeds;
   /** A flier that hovers (1.113). */
   hover?: true;
+  /** In the air (Capability API 1.354): a flier off the ground, whatever its height. One that only
+   *  flies, or hovers, starts so; one takes off with a step only its flight takes or the "Take off"
+   *  move, and comes down with "Land" or when it can no longer stay up. Its art is its flying art. */
+  airborne?: true;
   /** What is left this turn of each way they move, in CELLS (1.113): every cell moved comes off all
    *  of them, as switching from walking to flying takes what was already walked off the flight.
    *  Absent for somebody who only walks, whose walk is `movementLeft`. */
@@ -1509,6 +1541,10 @@ export interface RulesetEncounterState {
   /** One up per window ever opened in this fight, so no two windows share an id and an answer
    *  written for a closed one is refused rather than spent on the one that replaced it. */
   windows?: number;
+  /** Who picks the spends of their own symbol throws (1.382) rather than leaving it to the Engine:
+   *  a throw that leaves them something to buy holds the fight in a `spend` window until they have
+   *  chosen. The Engine's pick is what everybody else gets. */
+  askSpends?: string[];
   /** Remaining uses shared by a coven, keyed by coven id and spell entry (1.123). */
   covenUses?: Record<string, number>;
   /** Held Ground (1.323): nobody here dies at no health; they are felled. */
@@ -1555,8 +1591,9 @@ export interface RulesetCombatWindow {
 }
 
 /** What a window is for. `reaction` is somebody spending a budget out of turn; `signature` is a
- *  block buying one of its own actions with its points between two turns. */
-export type RulesetWindowKind = "reaction" | "signature";
+ *  block buying one of its own actions with its points between two turns; `spend` is somebody
+ *  choosing what a symbol throw's leftover symbols buy (1.382). */
+export type RulesetWindowKind = "reaction" | "signature" | "spend";
 
 /** What opened the window. The fight reads it to build the menu, and a caller reads it to say why
  *  somebody is being asked. */
@@ -1608,7 +1645,18 @@ export type RulesetWindowTrigger =
   | { kind: "turn-start"; sourceId: string; label: string }
   /** What somebody readied waits for has happened (1.288): `sourceId` came where it can be reached
    *  (`comes`, before the rest of their walk) or has just used something (`acts`). */
-  | { kind: "readied"; sourceId: string; on: RulesetReadyOn };
+  | { kind: "readied"; sourceId: string; on: RulesetReadyOn }
+  /** A symbol throw (1.382) has left the one being asked symbols they may spend: `by` is the side
+   *  they spend for, `hit` whether the throw landed. `sourceId` made the throw at `targetIds`. */
+  | {
+      kind: "spend";
+      targetIds: string[];
+      sourceId: string;
+      optionId: string;
+      label: string;
+      by: "attacker" | "target";
+      hit: boolean;
+    };
 
 /** The moments the Engine notices, and opens a window for. `aimed` is before something lands on
  *  the holder, `used` is before somebody on the other side uses something, `hit` is after an attack
@@ -1746,6 +1794,12 @@ export interface RulesetHeldAddition {
   onHit?: NonNullable<RulesetCombatAction["onHit"]>;
 }
 
+/** One spend somebody chose for a symbol throw (1.382), by the ruleset's spend id. */
+export interface RulesetSymbolSpendChoice {
+  spend: string;
+  times: number;
+}
+
 /** An attack held after its roll hit, while the one it hit is asked. It picks up exactly here: the
  *  same roll against that target, then the rest of this action's targets, then the rest of its parts
  *  when it is one part of an action made of others. */
@@ -1765,6 +1819,11 @@ export interface RulesetHeldAttack {
     natural: boolean;
     /** What answers took off it after it hit (1.250): Cutting Words. */
     lowered?: number;
+    /** A symbol fight's throw (1.382): the symbols it left, spent once it is known to land. */
+    symbols?: Record<string, number>;
+    /** What each side asked has chosen to buy with them so far, by spend id. A side that is here was
+     *  asked, and is never asked again for this throw; one that is not gets the Engine's pick. */
+    spends?: { attacker?: RulesetSymbolSpendChoice[]; target?: RulesetSymbolSpendChoice[] };
   };
   /** The attacker's one-use conditions the roll used, spent once the blow is over. */
   mine: string[];
@@ -2074,6 +2133,8 @@ export type RulesetCombatEvent =
       defense: number;
       /** What the target's conditions added to its defense, already inside `defense`. */
       guards?: RulesetConditionBonus[];
+      /** With `guards`: the defense they rose from, where `defense` is that plus them (#8273). */
+      unguarded?: number;
       outcome: RulesetCombatAttackOutcome;
       /** Under `dice-pool`: the pool as it was thrown. `total` is its net successes and `defense` the
        *  successes it needed. */
@@ -2460,6 +2521,8 @@ export type RulesetCombatEvent =
     }
   /** A flier going up or down a level where it stands (1.114), for cells of its allowance. */
   | { type: "flew"; actorId: string; from: number; to: number; cost: number; left: number }
+  /** A flier taking off or landing where it stands (1.354). */
+  | { type: "lift"; actorId: string; up: boolean }
   /** A strike at somebody leaving this combatant's reach. The attack and the damage that follow are
    *  their own events, exactly as they are on a turn. */
   | { type: "opportunity"; actorId: string; targetId: string; label: string; budget: string }
@@ -2647,6 +2710,8 @@ export type RulesetCombatEvent =
       total: number;
       defense: number;
       guards?: RulesetConditionBonus[];
+      /** With `guards`: the defense they rose from, where `defense` is that plus them (#8273). */
+      unguarded?: number;
       outcome: RulesetCombatAttackOutcome;
     }
   /** What the ground the target stands on added to the defense the next attack is rolled against. */
@@ -2655,6 +2720,24 @@ export type RulesetCombatEvent =
   | { type: "cover"; targetId: string; bonus: number; defense?: number; save?: string }
   /** A spending blow whose dice were below the target's hardness: it landed and did nothing. */
   | { type: "hardness"; targetId: string; sourceId: string; label: string; hardness: number; dice: number }
+  /** Symbols left over on an attack's roll bought something (1.382): `actorId` chose it, for `times`
+   *  of `cost` `symbol` each, on the roll `rollerId` made at `targetId`. What it did follows as its
+   *  own events; boost and setback dice wait on `onId`'s next roll. */
+  | {
+      type: "symbol-spend";
+      actorId: string;
+      rollerId: string;
+      targetId: string;
+      spendId: string;
+      label: string;
+      symbol: string;
+      cost: number;
+      times: number;
+      onId?: string;
+      boost?: number;
+      setback?: number;
+      critical?: true;
+    }
   /** A weapon was fired: what it has loaded now (`of` its clip), or, without a clip, how many of
    *  what it shoots its holder still carries. */
   | { type: "shot"; actorId: string; optionId: string; label: string; left: number; of?: number }
@@ -2749,6 +2832,9 @@ export interface RulesetCombatAlterOffer {
 export interface RulesetCombatOption {
   /** The holder must pass this save to cancel (1.131). */
   cancelSave?: { save: string; dc: number; label: string };
+  /** The save whoever it lands on makes against it, in the sheet's own words, and what a made one
+   *  leaves: the menu and the aim say it beside the damage. */
+  saveAgainst?: { label: string; dc: number; onSuccess: "none" | "half" | "negates" };
   /** Rolling the sphere its actor is shut in (1.314): `condition` is the sphere's. */
   rollsSealed?: { condition: string; label: string };
   /** Picking up somebody shut in a sphere (1.314), or putting them down (`down`). */
@@ -2766,7 +2852,18 @@ export interface RulesetCombatOption {
   icons?: string[];
   /** `move` is the one a positioned fight adds: walking, and getting back up. `reload` fills a
    *  weapon's clip. */
-  kind: "attack" | "ability" | "block" | "contest" | "standard" | "end-turn" | "move" | "reload" | "item" | "switch";
+  kind:
+    | "attack"
+    | "ability"
+    | "block"
+    | "contest"
+    | "standard"
+    | "end-turn"
+    | "move"
+    | "reload"
+    | "item"
+    | "switch"
+    | "spend";
   label: string;
   /** Absent on "end turn", which spends nothing, and on anything that costs no budget: something
    *  the entry called free, or a strike taken out of what a spend already bought. */
@@ -2775,7 +2872,8 @@ export interface RulesetCombatOption {
   strikes?: number;
   /** `repeat`: the same target may be named more than once, each its own attack (1.305). */
   targets: { side: "enemy" | "ally" | "self" | "any"; count: number; repeat?: true };
-  cost?: Array<{ pool: string; label: string; amount: number }>;
+  /** `unit` and `units` are what one of the pool and more than one are called (1.378). */
+  cost?: Array<{ pool: string; label: string; amount: number; unit?: string; units?: string }>;
   /** Other pools of the same family this could be paid from instead, in declaration order. */
   payWith?: string[];
   /** How many uses may be chosen for it, one up to `max` (1.251): Lay on Hands' points. */
@@ -2808,6 +2906,9 @@ export interface RulesetCombatOption {
   ready?: { optionId: string; label: string; on: RulesetReadyOn };
   /** What its holder readied, offered when it happens (1.288). */
   readied?: true;
+  /** In a `spend` window (1.382): one more of this spend, bought with `cost`, or `engine`, the
+   *  Engine's own pick for whatever is still unspent (`picks`). */
+  symbolSpend?: { spend?: string; engine?: true; picks?: RulesetSymbolSpendChoice[] };
   /** A legendary action that moves after what it does (1.285): `cells` are where it may then go,
    *  and going nowhere is a choice too. */
   moveAfter?: true;
@@ -2821,6 +2922,10 @@ export interface RulesetCombatOption {
   offHand?: true;
   /** Whether the item a switch turns is on now (1.170). */
   on?: boolean;
+  /** What turning it on and off is called (1.378), where the ruleset names the two. */
+  switchLabels?: { on?: string; off?: string };
+  /** The menu heading it sits under in place of the kind's own (1.378). */
+  menuGroup?: RulesetCombatMenuGroup;
   /** Putting away a weapon put in hand (1.308), named by `label`. */
   dismiss?: true;
   /** A concentration entry's effect made again (1.310), named by `label`. */
@@ -2844,7 +2949,9 @@ export interface RulesetCombatOption {
    *  `hitChance` the share of rolls that would land against the first legal target. A sequence
    *  forecasts the sum of its parts' damage and no single chance to hit, because its parts each
    *  roll their own. */
-  forecast?: { hitChance?: number; averageDamage?: number };
+  /** `worth` (1.382): in a symbol fight, what a hit is worth in harm with what either side's spends
+   *  buy folded in, the misses' share included, so the chance times it is the attack's whole worth. */
+  forecast?: { hitChance?: number; averageDamage?: number; worth?: number };
   /** The initiative styles this attack may be made in, each with what it is expected to do: a style
    *  that takes says how much of the target's number it would take (`shift`), one that spends says
    *  the harm its dice would do. Present only where initiative is a number attacks move. */

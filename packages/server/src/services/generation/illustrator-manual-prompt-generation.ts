@@ -1,4 +1,9 @@
-import { DEFAULT_GENERATION_PARAMS, type AgentContext } from "@marinara-engine/shared";
+import {
+  DEFAULT_GENERATION_PARAMS,
+  getAgentContextSources,
+  type AgentContext,
+  type CustomAgentContextSources,
+} from "@marinara-engine/shared";
 import {
   buildCharacterAppearanceReferenceBlock,
   NOVELAI_V5_MAX_CHARACTER_PROMPTS,
@@ -8,6 +13,8 @@ import {
 import { logger } from "../../lib/logger.js";
 import {
   agentRequestOptions,
+  buildAgentCurrentLocationBlock,
+  buildAgentReferenceContextBlock,
   gateAgentTemperature,
   normalizeAgentContextSize,
   renderAgentPromptTemplate,
@@ -16,7 +23,7 @@ import {
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
-import { appendImagePromptInstructions } from "./image-prompt-instructions.js";
+import { appendImagePromptInstructions, formatOptionalVideoOffer } from "./image-prompt-instructions.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -41,6 +48,10 @@ export type ManualIllustratorPromptPlan = {
   reason: string;
   /** Raw NovelAI character captions; validated against characters at dispatch time. */
   characterPrompts: unknown[];
+  /** Generated Videos: the planner asked for a clip of this picture (Pictures and clips). */
+  generateVideo?: boolean;
+  /** Generated Videos: how the clip moves, written to the video connection's instructions. */
+  videoPrompt?: string;
 };
 
 export type ManualIllustratorPromptResult = {
@@ -106,6 +117,10 @@ export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustra
     aspectRatio: normalizeAspectRatio(record.aspectRatio ?? record.aspect_ratio),
     reason: readTrimmedString(record.reason).slice(0, 500),
     characterPrompts: Array.isArray(record.characterPrompts) ? record.characterPrompts.slice(0, 32) : [],
+    ...(record.generateVideo === true ? { generateVideo: true } : {}),
+    ...(readTrimmedString(record.videoPrompt)
+      ? { videoPrompt: readTrimmedString(record.videoPrompt).slice(0, 2_000) }
+      : {}),
   };
 }
 
@@ -217,10 +232,18 @@ export function buildManualIllustratorPromptMessages(args: {
   characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
+  /** Generated Videos: the clip offer the Illustrator agent gets, so a manual illustration can become a clip too. */
+  videoOffer?: Parameters<typeof formatOptionalVideoOffer>[0] | null;
+  /** The Illustrator agent's Context Sources; omitted means the built-in defaults. */
+  contextSources?: CustomAgentContextSources;
 }): ChatMessage[] {
   // Custom prompts may mix visual instructions with schemas or generation conditions.
   // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
   const promptModeInstruction = args.selectedPromptTemplate?.trim();
+  // The current location, lorebook entries, summary and author notes follow the Illustrator's
+  // Context Sources, exactly as in an automatic Illustrator run (#8246, #8251).
+  const currentLocation = buildAgentCurrentLocationBlock(args.context, args.contextSources);
+  const referenceContext = buildAgentReferenceContextBlock(args.context, args.contextSources);
   const systemPrompt = [
     promptModeInstruction
       ? [
@@ -236,6 +259,8 @@ export function buildManualIllustratorPromptMessages(args: {
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     args.characterPromptInstruction?.trim() ?? "",
     buildCharacterPersonaContext(args.context),
+    ...(currentLocation ? [currentLocation] : []),
+    ...(referenceContext ? [referenceContext] : []),
   ].join("\n\n");
   const messages: ChatMessage[] = [
     {
@@ -256,6 +281,7 @@ export function buildManualIllustratorPromptMessages(args: {
       "Write the image-model prompt now for the current scene. The Illustration button has already selected the output type.",
       ...(args.request ? [`Depict this explicit request: ${args.request}`] : []),
       "</manual_gallery_illustration_request>",
+      ...(args.videoOffer ? [formatOptionalVideoOffer(args.videoOffer)] : []),
     ].join("\n"),
     args.imagePromptInstructions,
   );
@@ -275,6 +301,7 @@ export async function writeManualIllustratorPromptPlan(args: {
   characterPromptInstruction?: string;
   imagePromptInstructions?: string;
   request?: string;
+  videoOffer?: Parameters<typeof formatOptionalVideoOffer>[0] | null;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<ManualIllustratorPromptResult> {
@@ -292,6 +319,8 @@ export async function writeManualIllustratorPromptPlan(args: {
     characterPromptInstruction: args.characterPromptInstruction,
     imagePromptInstructions: args.imagePromptInstructions,
     request: args.request,
+    videoOffer: args.videoOffer,
+    contextSources: getAgentContextSources(args.illustratorAgent),
   });
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",
@@ -310,7 +339,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     );
     if (!measureContextBudget(requestMessages, { maxContext, maxTokens }).fits) {
       throw new Error(
-        "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt or reduce Illustrator context size, or increase the connection context limit.",
+        "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt, reduce the Illustrator context size or Context Sources, or increase the connection context limit.",
       );
     }
     return args.illustratorAgent.provider.chatComplete(requestMessages, {

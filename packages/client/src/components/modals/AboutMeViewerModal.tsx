@@ -97,7 +97,7 @@ interface CharacterConvoProfile {
 }
 
 function parseCharacterConvo(data: unknown): CharacterConvoProfile {
-  let parsed: Record<string, unknown> | null = null;
+  let parsed: Record<string, unknown> | null;
   try {
     parsed = (typeof data === "string" ? JSON.parse(data) : data) as Record<string, unknown>;
   } catch {

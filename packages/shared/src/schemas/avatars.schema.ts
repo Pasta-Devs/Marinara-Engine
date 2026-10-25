@@ -5,6 +5,7 @@
 // schemas. File paths are checked with isAvatarFilePath here, which keeps every stored reference
 // inside the owner's own avatar folder.
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import {
   AVATAR_CLASSIFIER_TIERS,
   AVATAR_CLASSIFY_LIMITS,
@@ -196,7 +197,7 @@ export const avatarConfigUpdateSchema = z
   .object({
     enabled: z.boolean().optional(),
     activeKind: z.enum(AVATAR_KINDS).nullable().optional(),
-    features: avatarFeatureFlagsSchema.partial().optional(),
+    features: partialInput(avatarFeatureFlagsSchema).optional(),
     kinds: avatarKindDataSchema.optional(),
   })
   .strict() satisfies z.ZodType<AvatarConfigUpdate>;

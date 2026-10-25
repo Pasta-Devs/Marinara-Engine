@@ -244,6 +244,49 @@ const MARI_RUNTIME_LABEL_KEYS: Record<MariRuntime, string> = {
 
 type MariRuntimeStatus = Pick<MariWorkspaceStatus, "runtimeSelected" | "runtimeActive">;
 
+// #7949: the "read the handbook before the first write" gate. Server-authoritative like the runtime
+// below, so Mari cannot lift it; on until the server says otherwise.
+function SkillGateRow() {
+  const { t } = useTranslation();
+  const [enabled, setEnabled] = useState(true);
+  const writeSeqRef = useRef(0);
+  useEffect(() => {
+    let cancelled = false;
+    const seqAtStart = writeSeqRef.current;
+    api
+      .get<{ enabled: boolean }>("/professor-mari/workspace/skill-gate")
+      .then((response) => {
+        if (!cancelled && writeSeqRef.current === seqAtStart) setEnabled(response.enabled);
+      })
+      .catch(() => {
+        // The toggle keeps the default; a failed read is not worth a toast in a settings view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const change = async (next: boolean) => {
+    const writeSeq = ++writeSeqRef.current;
+    setEnabled(next);
+    try {
+      await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/skill-gate", { enabled: next }));
+    } catch {
+      if (writeSeqRef.current !== writeSeq) return;
+      setEnabled(!next);
+      toast.error(t("omnibar.settings.mariSkillGate.couldNotChange"));
+    }
+  };
+  return (
+    <SettingRow
+      controlId="mari-skill-gate"
+      label={t("omnibar.settings.mariSkillGate.label")}
+      description={t("omnibar.settings.mariSkillGate.description")}
+      checked={enabled}
+      onChange={(next) => void change(next)}
+    />
+  );
+}
+
 // Professor Mari's runtime ("classic" or "pi"), the same server-authoritative pattern as the
 // Permissions Mode row above. The workspace status answers for her connection, so it also says
 // when "pi" is selected but the next run falls back to "classic" there.
@@ -753,6 +796,7 @@ export function OmnibarSettingsSheet({
           />
           <PermissionsModeRow />
           <RuntimeRow />
+          <SkillGateRow />
           <SettingRow
             controlId="professor-mari-suggestions"
             label={t("settings.controls.professorMariSuggestions.label")}

@@ -8,6 +8,7 @@ import {
   llmFetch,
   llmHttpErrorFromResponse,
   sanitizeApiError,
+  toolCallFinishReason,
   type ChatCompletionResult,
   type ChatMessage,
   type ChatOptions,
@@ -690,15 +691,10 @@ export class GoogleProvider extends BaseLLMProvider {
         ? normalizeGoogleGenerativeLanguageBaseUrl(this.baseUrl)
         : normalizeGoogleBaseUrl(this.baseUrl);
 
-    // Stream the tools round whenever the caller wired a token sink and did not opt out.
-    // The gate is deliberately narrower than the base `options.stream ?? !!options.onToken`
-    // formula: a caller that sets `stream: true` without a sink (the agent tool loop) keeps
-    // the buffered path it uses today. Only the official endpoint streams thinking;
-    // unrecognized proxies retain the workaround for stripped thought parts.
+    // Internal streaming also keeps quiet tool rounds alive without a UI token sink.
+    // Unrecognized proxies retain the workaround for stripped thought parts.
     const useStream =
-      !!options.onToken &&
-      options.stream !== false &&
-      (!thinkingConfig || supportsGoogleThinkingStreaming(base, model));
+      (options.stream ?? !!options.onToken) && (!thinkingConfig || supportsGoogleThinkingStreaming(base, model));
     const endpoint = useStream ? "streamGenerateContent" : "generateContent";
     const url =
       this.providerKind === "google_vertex"
@@ -785,7 +781,7 @@ export class GoogleProvider extends BaseLLMProvider {
       return {
         content: content || null,
         toolCalls,
-        finishReason: toolCalls.length > 0 ? "tool_calls" : normalizeGeminiFinishReason(candidate?.finishReason),
+        finishReason: toolCallFinishReason(toolCalls.length, normalizeGeminiFinishReason(candidate?.finishReason)),
         usage: geminiUsage(json.usageMetadata),
         ...(parts.length > 0 ? { providerMetadata: { geminiParts: parts } } : {}),
       };
@@ -912,9 +908,14 @@ export class GoogleProvider extends BaseLLMProvider {
     // replay hole this fix closes rather than creates.
     const responseParts: GeminiPart[] = [];
     if (thoughtText) responseParts.push({ text: thoughtText, thought: true });
+    // A signature streamed on a part of its own (an empty text part beside the call) belongs to the
+    // round's first call when that call came without one: Gemini refuses a replayed call missing it.
+    const firstCall = toolParts[0];
+    const signsCall = !!lastSignature && !!firstCall && !firstCall.thoughtSignature;
+    if (signsCall) firstCall.thoughtSignature = lastSignature;
     if (responseText) {
       const textPart: GeminiPart = { text: responseText };
-      if (lastSignature) textPart.thoughtSignature = lastSignature;
+      if (lastSignature && !signsCall) textPart.thoughtSignature = lastSignature;
       responseParts.push(textPart);
     }
     responseParts.push(...toolParts);
@@ -925,9 +926,7 @@ export class GoogleProvider extends BaseLLMProvider {
       toolCalls,
       finishReason: options.signal?.aborted
         ? "abort"
-        : toolCalls.length > 0
-          ? "tool_calls"
-          : normalizeGeminiFinishReason(lastFinishReason),
+        : toolCallFinishReason(toolCalls.length, normalizeGeminiFinishReason(lastFinishReason)),
       usage: streamUsage,
       ...(responseParts.length > 0 ? { providerMetadata: { geminiParts: responseParts } } : {}),
     };

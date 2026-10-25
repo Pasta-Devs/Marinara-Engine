@@ -16,6 +16,7 @@ import {
 } from "../../lib/connection-filters";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
+import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
@@ -57,6 +58,7 @@ import {
   ExternalLink,
   ImageIcon,
   Film,
+  Music,
   RotateCcw,
   SlidersHorizontal,
   Gauge,
@@ -65,6 +67,8 @@ import {
 import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { api, ApiError } from "../../lib/api-client";
+import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
@@ -97,6 +101,7 @@ import {
 } from "../ui/GenerationParametersEditor";
 import {
   PROVIDERS,
+  createConnectionSchema,
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   IMAGE_GENERATION_SOURCES,
@@ -124,6 +129,8 @@ import {
   SD_WEBUI_SCHEDULER_OPTIONS,
   createDefaultImageGenerationProfile,
   createDefaultVideoGenerationProfile,
+  getOpenRouterVideoModelLimits,
+  resolveOpenRouterVideoModelDefaults,
   imageSourceToDefaultsService,
   AUDIO_SOURCE_OPTIONS,
   normalizeImageGenerationProfile,
@@ -136,6 +143,9 @@ import {
   normalizeVideoPromptInstructions,
   parseConnectionImageCaptioningDefaults,
   type APIProvider,
+  type GenerativeAudioSource,
+  GENERATIVE_AUDIO_DEFAULTS,
+  GENERATIVE_AUDIO_SOURCES,
   type ComfyUiLoraSetting,
   type ImageDefaultsService,
   type ImageGenerationDefaultsProfile,
@@ -165,6 +175,7 @@ const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
 const VIDEO_RESOLUTION_OPTIONS: Array<{ value: VideoResolution; label: string }> = [
   { value: "480p", label: "480p" },
   { value: "720p", label: "720p" },
+  { value: "768p", label: "768p" },
   { value: "1080p", label: "1080p" },
 ];
 const VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS: Array<{ value: VideoReferenceUploadExpiry; label: string }> = [
@@ -221,6 +232,46 @@ function videoProviderServiceForModel(
 function defaultVideoModelForService(value: string | null | undefined): string {
   if (value === "nanogpt") return "";
   return DEFAULT_VIDEO_MODELS[videoSourceToDefaultsService(value)];
+}
+
+// Static form feedback only; the server still checks DNS and the complete outbound policy.
+function isPublicHttpsAudioCallback(value: string): boolean {
+  try {
+    const url = new URL(value);
+    let host = url.hostname.toLowerCase().replace(/^\[|\]$|\.$/g, "");
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      ["localhost", "localhost.localdomain", "ip6-localhost", "ip6-loopback"].includes(host) ||
+      [".localhost", ".local", ".internal"].some((suffix) => host.endsWith(suffix))
+    )
+      return false;
+    // URL normalizes alternate IPv4 spellings and mapped IPv6 into these literal forms.
+    const mapped = host.match(/^::ffff:([\da-f]{1,4}):([\da-f]{1,4})$/);
+    if (mapped) {
+      const high = parseInt(mapped[1]!, 16);
+      const low = parseInt(mapped[2]!, 16);
+      host = [high >> 8, high & 255, low >> 8, low & 255].join(".");
+    }
+    if (host.includes(":")) return !/^(?:::([\da-f]{1,4}(:[\da-f]{1,4})?)?$|f[cd]|fe[89ab]|ff|2001:db8:)/.test(host);
+    if (!/^(\d+\.){3}\d+$/.test(host)) return true;
+    const [a = 0, b = 0, c = 0] = host.split(".").map(Number);
+    return !(
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
+      (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+      (a === 203 && b === 0 && c === 113) ||
+      a >= 224
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeEndpointUrlInput(raw: string, label: string): { value: string; error: string | null } {
@@ -367,6 +418,7 @@ export function ConnectionEditor({
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  useKeepFocusedFieldAboveKeyboard(contentRef);
 
   const editorBusy =
     isLoading ||
@@ -384,7 +436,8 @@ export function ConnectionEditor({
 
   // Local editable state
   const [localName, setLocalName] = useState("");
-  const [localProvider, setLocalProvider] = useState<APIProvider>("openai");
+  // Cached connections hydrate on mount; provider effects must preserve their saved media defaults.
+  const [localProvider, setLocalProvider] = useState<APIProvider>(() => (conn?.provider as APIProvider) ?? "openai");
   const [localBaseUrl, setLocalBaseUrl] = useState("");
   const [localApiKey, setLocalApiKey] = useState("");
   const [clearStoredApiKeyOnSave, setClearStoredApiKeyOnSave] = useState(false);
@@ -421,10 +474,16 @@ export function ConnectionEditor({
   const [localMaxStateTokens, setLocalMaxStateTokens] = useState(30000);
   const [localDecisionTimeoutMs, setLocalDecisionTimeoutMs] = useState<number>(DECISION_TIMEOUT_MS.systemOne);
   const [localAudioSource, setLocalAudioSource] = useState("elevenlabs");
+  const [localAudioGenerationSource, setLocalAudioGenerationSource] = useState<GenerativeAudioSource>("elevenlabs");
+  const [localAudioGenerationCallbackUrl, setLocalAudioGenerationCallbackUrl] = useState("");
+  const [localAudioSoundEffectsModel, setLocalAudioSoundEffectsModel] = useState("");
   const [localAudioVoice, setLocalAudioVoice] = useState("");
   const [localAudioTimeoutMs, setLocalAudioTimeoutMs] = useState<number>(TTS_REQUEST_TIMEOUT_MS.default);
   const [localAudioSoundEffects, setLocalAudioSoundEffects] = useState(false);
   const [localAudioMusic, setLocalAudioMusic] = useState(false);
+  const [localAudioMusicEndpoint, setLocalAudioMusicEndpoint] = useState("");
+  const [localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint] = useState("");
+  const [localAudioGenerationFormat, setLocalAudioGenerationFormat] = useState<"binary" | "chat_completions">("binary");
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
   /** "" = Automatic (the catalog decides), else "reads" or "text". */
   const [localImageInput, setLocalImageInput] = useState<"" | "reads" | "text">("");
@@ -443,6 +502,17 @@ export function ConnectionEditor({
 
   // Test results
   const testScopeRef = useRef(0);
+  const audioTestControllerRef = useRef<AbortController | null>(null);
+  const [audioTestPending, setAudioTestPending] = useState(false);
+  const [audioTestUrl, setAudioTestUrl] = useState<string | null>(null);
+  const [audioTestError, setAudioTestError] = useState<string | null>(null);
+  const clearAudioTest = useCallback(() => {
+    audioTestControllerRef.current?.abort();
+    audioTestControllerRef.current = null;
+    setAudioTestPending(false);
+    setAudioTestUrl(null);
+    setAudioTestError(null);
+  }, []);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs: number } | null>(null);
   const [msgResult, setMsgResult] = useState<{
     success: boolean;
@@ -559,10 +629,24 @@ export function ConnectionEditor({
     setLocalMaxStateTokens(Number(c.maxStateTokens ?? defaultDecisionStateTokens(c.decisionSource as string)));
     setLocalDecisionTimeoutMs(resolveDecisionConnectionTimeoutMs(c.decisionTimeoutMs, c.decisionSource as string));
     setLocalAudioSource((c.audioSource as string) || "elevenlabs");
+    setLocalAudioGenerationSource(
+      GENERATIVE_AUDIO_SOURCES.includes(c.audioGenerationSource as GenerativeAudioSource)
+        ? (c.audioGenerationSource as GenerativeAudioSource)
+        : "elevenlabs",
+    );
+    setLocalAudioGenerationCallbackUrl(
+      typeof c.audioGenerationCallbackUrl === "string" ? c.audioGenerationCallbackUrl : "",
+    );
+    setLocalAudioSoundEffectsModel(typeof c.audioSoundEffectsModel === "string" ? c.audioSoundEffectsModel : "");
     setLocalAudioVoice((c.audioVoice as string) ?? "");
     setLocalAudioTimeoutMs(resolveTtsRequestTimeoutMs(c.audioTimeoutMs));
     setLocalAudioSoundEffects(c.audioSoundEffects === "true" || c.audioSoundEffects === true);
     setLocalAudioMusic(c.audioMusic === "true" || c.audioMusic === true);
+    setLocalAudioMusicEndpoint(typeof c.audioMusicEndpoint === "string" ? c.audioMusicEndpoint : "");
+    setLocalAudioSoundEffectsEndpoint(
+      typeof c.audioSoundEffectsEndpoint === "string" ? c.audioSoundEffectsEndpoint : "",
+    );
+    setLocalAudioGenerationFormat(c.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary");
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalImageInput(c.imageInput === "reads" || c.imageInput === "text" ? c.imageInput : "");
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
@@ -598,12 +682,14 @@ export function ConnectionEditor({
   // Clear results when changing the selected connection, not on its save/refetch.
   useEffect(() => {
     testScopeRef.current++;
+    clearAudioTest();
     setTestResult(null);
     setMsgResult(null);
     setImgTestResult(null);
     setVidTestResult(null);
     setClaudeDiagResult(null);
-  }, [connectionDetailId]);
+    return () => audioTestControllerRef.current?.abort();
+  }, [connectionDetailId, clearAudioTest]);
 
   const comfyWorkflowValidation = useMemo(() => {
     const wf = localComfyuiWorkflow;
@@ -725,7 +811,7 @@ export function ConnectionEditor({
     const url = PROVIDERS[service]?.keyUrl;
     return url ? { label: t("connections.add.getKey", { service: PROVIDERS[service].name }), url } : undefined;
   };
-  const apiKeyLink =
+  const baseApiKeyLink =
     localProvider === "image_generation" && selectedImageService === "arli"
       ? { label: t("connections.mediaSources.arli.apiKeyLink"), url: "https://www.arliai.com/docs/api?lang=en" }
       : localProvider === "image_generation" && selectedImageService === "venice"
@@ -757,6 +843,11 @@ export function ConnectionEditor({
                         : // Gemini and Veo clips use a Google AI Studio key.
                           keyLink(localProvider === "video_generation" ? "google" : localProvider);
 
+  const apiKeyLink =
+    localProvider === "audio_generation" && localAudioGenerationSource === "sunoapi"
+      ? { label: t("connections.audioGeneration.sunoKeyLink"), url: "https://sunoapi.org/" }
+      : baseApiKeyLink;
+
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
       localImageDefaultsRef.current = null;
@@ -778,20 +869,31 @@ export function ConnectionEditor({
       setLocalVideoDefaults(null);
       return;
     }
-    setLocalVideoDefaults((current) =>
-      current
+    setLocalVideoDefaults((current) => {
+      const next = current
         ? sanitizeVideoGenerationProfile({ ...current, service: selectedVideoDefaultsService })
-        : createDefaultVideoGenerationProfile(selectedVideoDefaultsService),
-    );
-  }, [localProvider, selectedVideoDefaultsService]);
+        : createDefaultVideoGenerationProfile(selectedVideoDefaultsService);
+      if (selectedVideoDefaultsService === "openrouter") {
+        next.openrouter = resolveOpenRouterVideoModelDefaults(
+          effectiveVideoGenerationSource === "nanogpt" ? "" : localModel,
+          next.openrouter,
+        );
+      }
+      return next;
+    });
+  }, [localProvider, selectedVideoDefaultsService, effectiveVideoGenerationSource, localModel]);
 
   // Model list for current provider
   const providerModels = useMemo(() => {
+    if (localProvider === "audio_generation")
+      return localAudioGenerationSource === "elevenlabs"
+        ? [{ id: "music_v2_5", name: t("connections.audioGeneration.elevenMusicV25"), context: 0, maxOutput: 0 }]
+        : [];
     if (localProvider === "video_generation" && selectedVideoProvider === "nanogpt") return [];
     if (localProvider === "image_generation" && selectedImageService === "novelai")
       return (MODEL_LISTS[localProvider] ?? []).filter((m) => m.id.startsWith("nai-"));
     return MODEL_LISTS[localProvider] ?? [];
-  }, [localProvider, selectedVideoProvider, selectedImageService]);
+  }, [localProvider, localAudioGenerationSource, selectedVideoProvider, selectedImageService, t]);
 
   // Merge known models with remote models (remote first, deduped)
   const allModels = useMemo(
@@ -808,9 +910,9 @@ export function ConnectionEditor({
   const catalogModelCapabilities = useModelParameterCapabilities(
     connectionDetailId ? { id: connectionDetailId, provider: localProvider, model: localModel } : null,
   );
-  const selectedModelCapabilities =
-    (selectedModelInfo && "capabilities" in selectedModelInfo ? (selectedModelInfo.capabilities ?? null) : null) ??
-    catalogModelCapabilities;
+  const embeddedModelCapabilities =
+    selectedModelInfo && "capabilities" in selectedModelInfo ? selectedModelInfo.capabilities : undefined;
+  const selectedModelCapabilities = embeddedModelCapabilities ?? catalogModelCapabilities;
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -838,6 +940,27 @@ export function ConnectionEditor({
       setSaveError(baseUrlValidation.error);
       throw new Error(baseUrlValidation.error);
     }
+    if (
+      localProvider === "audio_generation" &&
+      localAudioGenerationSource === "custom" &&
+      (!createConnectionSchema.shape.audioMusicEndpoint.safeParse(localAudioMusicEndpoint).success ||
+        !createConnectionSchema.shape.audioSoundEffectsEndpoint.safeParse(localAudioSoundEffectsEndpoint).success)
+    ) {
+      const message = t("connections.gameAudio.invalidEndpoint");
+      setSaveError(message);
+      throw new Error(message);
+    }
+    if (
+      localProvider === "audio_generation" &&
+      localAudioGenerationSource === "sunoapi" &&
+      (localAudioMusic || localAudioGenerationCallbackUrl.trim() !== "") &&
+      (!isPublicHttpsAudioCallback(localAudioGenerationCallbackUrl.trim()) ||
+        !createConnectionSchema.shape.audioGenerationCallbackUrl.safeParse(localAudioGenerationCallbackUrl).success)
+    ) {
+      const message = t("connections.audioGeneration.invalidCallback");
+      setSaveError(message);
+      throw new Error(message);
+    }
     const supportsDirectEmbeddings = providerSupportsDirectEmbeddingConfig(localProvider);
     if (supportsDirectEmbeddings && embeddingBaseUrlValidation.error) {
       setSaveError(embeddingBaseUrlValidation.error);
@@ -846,7 +969,13 @@ export function ConnectionEditor({
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isAudioProvider = localProvider === "audio";
-    const isMediaProvider = isImageProvider || isVideoProvider || isAudioProvider || localProvider === "decision";
+    const isGenerativeAudioProvider = localProvider === "audio_generation";
+    const isMediaProvider =
+      isImageProvider ||
+      isVideoProvider ||
+      isAudioProvider ||
+      isGenerativeAudioProvider ||
+      localProvider === "decision";
     const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
     const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
     const existingEmbeddingModel = (conn as { embeddingModel?: string | null } | undefined)?.embeddingModel ?? "";
@@ -904,13 +1033,39 @@ export function ConnectionEditor({
           ? localDecisionTimeoutMs
           : null,
       audioSource: isAudioProvider ? localAudioSource || null : null,
+      audioGenerationSource: isGenerativeAudioProvider ? localAudioGenerationSource : null,
+      audioGenerationCallbackUrl:
+        isGenerativeAudioProvider && localAudioGenerationSource === "sunoapi"
+          ? localAudioGenerationCallbackUrl.trim() || null
+          : null,
+      audioSoundEffectsModel: isGenerativeAudioProvider ? localAudioSoundEffectsModel.trim() || null : null,
       audioVoice: isAudioProvider ? localAudioVoice || null : null,
       // The default is stored as null, like the Decision time limit.
       audioTimeoutMs:
         isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
-      // Only ElevenLabs can generate game sound effects / music today.
-      audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
-      audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
+      audioSoundEffects:
+        isGenerativeAudioProvider || (isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource))
+          ? localAudioSoundEffects
+          : false,
+      audioMusic:
+        isGenerativeAudioProvider || (isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource))
+          ? localAudioMusic
+          : false,
+      audioMusicEndpoint:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioMusicEndpoint.trim() || null
+          : null,
+      audioSoundEffectsEndpoint:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioSoundEffectsEndpoint.trim() || null
+          : null,
+      audioGenerationFormat:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioGenerationFormat
+          : "binary",
     };
     // Only send API key if user typed a new one
     if (isLocalAuthProvider) {
@@ -1014,6 +1169,7 @@ export function ConnectionEditor({
   }, [
     accountId,
     onSaved,
+    t,
     connectionDetailId,
     localName,
     localProvider,
@@ -1060,10 +1216,16 @@ export function ConnectionEditor({
     localMaxStateTokens,
     localDecisionTimeoutMs,
     localAudioSource,
+    localAudioGenerationSource,
+    localAudioGenerationCallbackUrl,
+    localAudioSoundEffectsModel,
     localAudioVoice,
     localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
+    localAudioMusicEndpoint,
+    localAudioSoundEffectsEndpoint,
+    localAudioGenerationFormat,
     selectedImageService,
     swarmUiWorkflowError,
     selectedImageDefaultsService,
@@ -1103,7 +1265,13 @@ export function ConnectionEditor({
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isAudioProvider = localProvider === "audio";
-    const isMediaProvider = isImageProvider || isVideoProvider || isAudioProvider || localProvider === "decision";
+    const isGenerativeAudioProvider = localProvider === "audio_generation";
+    const isMediaProvider =
+      isImageProvider ||
+      isVideoProvider ||
+      isAudioProvider ||
+      isGenerativeAudioProvider ||
+      localProvider === "decision";
     const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
     const defaultParameters = isImageProvider
       ? buildImageDefaultParameters(
@@ -1120,7 +1288,7 @@ export function ConnectionEditor({
               ? sanitizeVideoGenerationProfile({ ...localVideoDefaults, service: selectedVideoDefaultsService })
               : null,
           )
-        : isAudioProvider
+        : isAudioProvider || isGenerativeAudioProvider
           ? null
           : localDefaultParametersEnabled
             ? buildLanguageDefaultParameters(
@@ -1176,11 +1344,38 @@ export function ConnectionEditor({
       videoGenerationSource: videoProvider,
       videoService,
       audioSource: isAudioProvider ? localAudioSource || null : null,
+      audioGenerationSource: isGenerativeAudioProvider ? localAudioGenerationSource : null,
+      audioGenerationCallbackUrl:
+        isGenerativeAudioProvider && localAudioGenerationSource === "sunoapi"
+          ? localAudioGenerationCallbackUrl.trim() || null
+          : null,
+      audioSoundEffectsModel: isGenerativeAudioProvider ? localAudioSoundEffectsModel.trim() || null : null,
       audioVoice: isAudioProvider ? localAudioVoice || null : null,
       audioTimeoutMs:
         isAudioProvider && localAudioTimeoutMs !== TTS_REQUEST_TIMEOUT_MS.default ? localAudioTimeoutMs : null,
-      audioSoundEffects: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioSoundEffects : false,
-      audioMusic: isAudioProvider && localAudioSource === "elevenlabs" ? localAudioMusic : false,
+      audioSoundEffects:
+        isGenerativeAudioProvider || (isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource))
+          ? localAudioSoundEffects
+          : false,
+      audioMusic:
+        isGenerativeAudioProvider || (isAudioProvider && ["elevenlabs", "openai"].includes(localAudioSource))
+          ? localAudioMusic
+          : false,
+      audioMusicEndpoint:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioMusicEndpoint.trim() || null
+          : null,
+      audioSoundEffectsEndpoint:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioSoundEffectsEndpoint.trim() || null
+          : null,
+      audioGenerationFormat:
+        (isGenerativeAudioProvider && localAudioGenerationSource === "custom") ||
+        (isAudioProvider && localAudioSource === "openai")
+          ? localAudioGenerationFormat
+          : "binary",
       imageEndpointId:
         isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
@@ -1246,10 +1441,16 @@ export function ConnectionEditor({
     localVideoDefaults,
     localizeUi,
     localAudioSource,
+    localAudioGenerationSource,
+    localAudioGenerationCallbackUrl,
+    localAudioSoundEffectsModel,
     localAudioVoice,
     localAudioTimeoutMs,
     localAudioSoundEffects,
     localAudioMusic,
+    localAudioMusicEndpoint,
+    localAudioSoundEffectsEndpoint,
+    localAudioGenerationFormat,
   ]);
 
   const handleTestConnection = useCallback(async () => {
@@ -1431,6 +1632,72 @@ export function ConnectionEditor({
     });
   }, [connectionDetailId, dirty, handleSave, testVideoGeneration]);
 
+  const handleTestMusic = useCallback(async () => {
+    if (!connectionDetailId || !localAudioMusic || audioTestControllerRef.current) return;
+    const controller = new AbortController();
+    audioTestControllerRef.current = controller;
+    const scope = testScopeRef.current;
+    setAudioTestPending(true);
+    setAudioTestUrl(null);
+    setAudioTestError(null);
+    try {
+      if (dirty) await handleSave();
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      const result = await api.post<{ path: string }>(
+        "/audio/generate",
+        {
+          kind: "music",
+          prompt: "A short calm instrumental with gentle piano and warm strings, no vocals.",
+          audioConnectionId: connectionDetailId,
+          context: {
+            scope: "connection-test",
+            key: "sample",
+            lengthMs: 10_000,
+          },
+        },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      if (
+        typeof result.path !== "string" ||
+        !/^music\/contexts\/connection-test\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/.test(result.path)
+      )
+        throw new Error(t("connections.audioGeneration.testMusicInvalidAudio"));
+      setAudioTestUrl(gameAssetFileUrl(result.path));
+    } catch (error) {
+      if (controller.signal.aborted || testScopeRef.current !== scope) return;
+      const payload = error instanceof ApiError ? (error.payload as Record<string, unknown> | undefined) : undefined;
+      const status = payload?.providerStatus;
+      const failureMessage =
+        payload?.failureCode === "invalid_audio"
+          ? t("connections.audioGeneration.testMusicInvalidAudio")
+          : payload?.failureCode === "invalid_callback"
+            ? t("connections.audioGeneration.testMusicCallbackError")
+            : payload?.failureCode === "invalid_input"
+              ? t("connections.audioGeneration.testMusicInputError")
+              : payload?.failureCode === "task_failed"
+                ? t("connections.audioGeneration.testMusicTaskError")
+                : undefined;
+      const message =
+        failureMessage ??
+        (typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599
+          ? typeof payload?.reason === "string" && payload.reason
+            ? t("connections.audioGeneration.testMusicProviderError", { status, reason: payload.reason.slice(0, 300) })
+            : payload?.providerCode === "invalid_api_key" || payload?.providerCode === "unauthorized"
+              ? t("connections.audioGeneration.testMusicAuthError")
+              : t("connections.audioGeneration.testMusicHttpError", { status })
+          : error instanceof Error
+            ? error.message.slice(0, 300)
+            : t("connections.audioGeneration.testMusicFailed"));
+      setAudioTestError(message);
+    } finally {
+      if (audioTestControllerRef.current === controller) {
+        audioTestControllerRef.current = null;
+        setAudioTestPending(false);
+      }
+    }
+  }, [connectionDetailId, localAudioMusic, dirty, handleSave, t]);
+
   const selectModel = useCallback(
     // The picker already ran connectionFieldsForModelPick on the row.
     (fields: { model?: string; maxContext?: number; maxTokensOverride?: number }) => {
@@ -1446,16 +1713,18 @@ export function ConnectionEditor({
       if (fields.maxContext) setLocalMaxContext(fields.maxContext);
       if (fields.maxTokensOverride) setLocalMaxTokensOverride(fields.maxTokensOverride);
       testScopeRef.current++;
+      clearAudioTest();
       setDirty(true);
     },
-    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService],
+    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService, clearAudioTest],
   );
 
   const markDirty = useCallback(() => {
     // A manual configuration edit invalidates in-flight tests; save hydration does not.
     testScopeRef.current++;
+    clearAudioTest();
     setDirty(true);
-  }, []);
+  }, [clearAudioTest]);
 
   const handleJumpToJsonError = useCallback(() => {
     const ta = comfyWorkflowTextareaRef.current;
@@ -1469,9 +1738,14 @@ export function ConnectionEditor({
   const isImageGenerationProvider = localProvider === "image_generation";
   const isVideoGenerationProvider = localProvider === "video_generation";
   const isAudioProvider = localProvider === "audio";
+  const isGenerativeAudioProvider = localProvider === "audio_generation";
   const isDecisionProvider = localProvider === "decision";
   const isMediaGenerationProvider =
-    isImageGenerationProvider || isVideoGenerationProvider || isAudioProvider || isDecisionProvider;
+    isImageGenerationProvider ||
+    isVideoGenerationProvider ||
+    isAudioProvider ||
+    isGenerativeAudioProvider ||
+    isDecisionProvider;
   const tabbed = !isMediaGenerationProvider;
   const tabs: EditorTabItem<TabId>[] = TABS.map((tab) => ({ ...tab, label: t(tab.label) }));
   const isClaudeSubscriptionProvider = localProvider === "claude_subscription";
@@ -1482,7 +1756,8 @@ export function ConnectionEditor({
   // keep their own endpoint (decision 20), so only that field stays here.
   const accountLinked = !!accountId;
   const hasOwnEndpoint =
-    accountLinked && ["image_generation", "video_generation", "audio", "decision"].includes(localProvider);
+    accountLinked &&
+    ["image_generation", "video_generation", "audio", "audio_generation", "decision"].includes(localProvider);
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   // The usage switch, the plan window switches and the meter, shared by the
@@ -1583,7 +1858,44 @@ export function ConnectionEditor({
   }
 
   // ── Test Section ── (last in the Model tab; last on the page for media Models)
-  const testSection = (
+  const musicTestSection = (
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
+      <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
+      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.audioGeneration.testHelp")}</p>
+      <button
+        type="button"
+        onClick={handleTestMusic}
+        disabled={audioTestPending || !connectionDetailId || !localAudioMusic}
+        className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)]/10 px-4 py-2.5 text-xs font-medium text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/20 transition-all hover:bg-[var(--marinara-app-accent-static)]/20 active:scale-[0.98] disabled:opacity-50"
+      >
+        {audioTestPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Music size="0.8125rem" />}
+        {t(
+          audioTestPending
+            ? "connections.audioGeneration.testMusicGenerating"
+            : "connections.audioGeneration.testMusic",
+        )}
+      </button>
+      {!localAudioMusic && (
+        <p className="text-xs text-[var(--muted-foreground)]">{t("connections.audioGeneration.testMusicEnable")}</p>
+      )}
+      {audioTestError && (
+        <p role="alert" className="break-words text-xs text-[var(--marinara-app-accent-static)]">
+          {audioTestError}
+        </p>
+      )}
+      {audioTestUrl && (
+        <audio
+          controls
+          preload="metadata"
+          src={audioTestUrl}
+          aria-label={t("connections.audioGeneration.testMusicPlayer")}
+          className="w-full"
+          onError={() => setAudioTestError(t("connections.audioGeneration.testMusicInvalidAudio"))}
+        />
+      )}
+    </section>
+  );
+  const standardTestSection = (
     <div className="space-y-3 border-t border-[var(--border)] pt-4">
       <h3 className="text-sm font-semibold">{localizeUi("ui.connections.connectioneditor.connectionTests")}</h3>
       <div className="flex gap-2">
@@ -1896,6 +2208,7 @@ export function ConnectionEditor({
       )}
     </div>
   );
+  const testSection = isGenerativeAudioProvider ? musicTestSection : standardTestSection;
 
   return (
     <div className={cn("mari-editor-shell mari-connection-scope flex flex-1 flex-col overflow-hidden")}>
@@ -1967,7 +2280,7 @@ export function ConnectionEditor({
             aria-label={localizeUi("ui.noodle.noodlehome.save")}
             title={localizeUi("ui.noodle.noodlehome.save")}
             disabled={updateConnection.isPending || saveConnectionDefaults.isPending || !!swarmUiWorkflowError}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--primary inline-flex max-md:order-first disabled:opacity-50"
           >
             <Save size="0.8125rem" />
             <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
@@ -2847,9 +3160,173 @@ export function ConnectionEditor({
               </FieldGroup>
             )}
 
+            {/* ── Generative audio source (only for audio_generation provider) ── */}
+            {isGenerativeAudioProvider && (
+              <FieldGroup
+                label={t("connections.audioGeneration.source")}
+
+                help={t("connections.audioGeneration.sourceHelp")}
+              >
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {GENERATIVE_AUDIO_SOURCES.map((source) => (
+                    <button
+                      key={source}
+                      type="button"
+                      aria-pressed={localAudioGenerationSource === source}
+                      onClick={() => {
+                        if (source === localAudioGenerationSource) return;
+                        const before = GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource];
+                        const next = GENERATIVE_AUDIO_DEFAULTS[source];
+                        if (!before.baseUrl || !localBaseUrl || localBaseUrl === before.baseUrl)
+                          setLocalBaseUrl(next.baseUrl);
+                        if (!before.model || !localModel || localModel === before.model) setLocalModel(next.model);
+                        if (
+                          !before.soundEffectsModel ||
+                          !localAudioSoundEffectsModel ||
+                          localAudioSoundEffectsModel === before.soundEffectsModel
+                        )
+                          setLocalAudioSoundEffectsModel(next.soundEffectsModel);
+                        setLocalAudioGenerationSource(source);
+                        // Credentials cannot silently move to a different service.
+                        setLocalApiKey("");
+                        setClearStoredApiKeyOnSave(
+                          conn?.provider !== "audio_generation" ||
+                            source !== (conn.audioGenerationSource ?? "elevenlabs"),
+                        );
+                        markDirty();
+                      }}
+                      className={cn(
+                        "flex min-w-0 flex-col gap-1 rounded-lg px-2.5 py-2 text-left text-xs ring-1 transition-colors",
+                        localAudioGenerationSource === source
+                          ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40"
+                          : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 font-medium">
+                        {t(`connections.audioGeneration.sources.${source}`)}
+                        {localAudioGenerationSource === source && <Check size="0.625rem" />}
+                      </span>
+                      <span className="text-[0.625rem] leading-relaxed">
+                        {t(`connections.audioGeneration.sourceDescriptions.${source}`)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {localAudioGenerationSource === "sunoapi" && (
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium">{t("connections.audioGeneration.callbackUrl")}</span>
+                    <input
+                      value={localAudioGenerationCallbackUrl}
+                      type="url"
+                      onChange={(event) => {
+                        setLocalAudioGenerationCallbackUrl(event.target.value);
+                        markDirty();
+                      }}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                    <span className="block text-xs leading-relaxed text-[var(--muted-foreground)]">
+                      {t("connections.audioGeneration.callbackHelp")}
+                    </span>
+                  </label>
+                )}
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium">{t("connections.audioGeneration.sfxModel")}</span>
+                  <input
+                    value={localAudioSoundEffectsModel}
+                    onChange={(event) => {
+                      setLocalAudioSoundEffectsModel(event.target.value);
+                      markDirty();
+                    }}
+                    placeholder={
+                      GENERATIVE_AUDIO_DEFAULTS[localAudioGenerationSource].soundEffectsModel ||
+                      t("connections.audioGeneration.sameModel")
+                    }
+                    className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                  <span className="block text-xs leading-relaxed text-[var(--muted-foreground)]">
+                    {t("connections.audioGeneration.sfxModelHelp")}
+                  </span>
+                </label>
+                {localAudioGenerationSource === "custom" && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-[var(--muted-foreground)]">{t("connections.gameAudio.help")}</p>
+                    <label className="block space-y-1.5">
+                      <span className="text-xs">{t("connections.gameAudio.format")}</span>
+                      <select
+                        value={localAudioGenerationFormat}
+                        onChange={(event) => {
+                          setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
+                          markDirty();
+                        }}
+                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                      >
+                        <option value="binary">{t("connections.gameAudio.binary")}</option>
+                        <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
+                      </select>
+                    </label>
+                    {(
+                      [
+                        ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
+                        ["sfx", localAudioSoundEffectsEndpoint, setLocalAudioSoundEffectsEndpoint],
+                      ] as const
+                    ).map(([kind, value, setValue]) => (
+                      <label key={kind} className="block space-y-1.5">
+                        <span className="text-xs">
+                          {t(
+                            kind === "music"
+                              ? "connections.gameAudio.musicEndpoint"
+                              : "connections.gameAudio.sfxEndpoint",
+                          )}
+                        </span>
+                        <input
+                          value={value}
+                          onChange={(event) => {
+                            setValue(event.target.value);
+                            markDirty();
+                          }}
+                          placeholder={t("connections.gameAudio.endpointExample", {
+                            path:
+                              localAudioGenerationFormat === "chat_completions"
+                                ? "chat/completions"
+                                : "audio/generations",
+                          })}
+                          className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
+                        />
+                      </label>
+                    ))}
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {t("connections.audioGeneration.endpointHelp")}
+                    </p>
+                  </div>
+                )}
+                <SettingsSwitch
+                  label={t("connections.audioGeneration.soundEffects")}
+                  description={t("connections.audioGeneration.soundEffectsHelp")}
+                  checked={localAudioSoundEffects}
+                  onChange={(value) => {
+                    setLocalAudioSoundEffects(value);
+                    markDirty();
+                  }}
+                />
+                <SettingsSwitch
+                  label={t("connections.audioGeneration.music")}
+                  description={t("connections.audioGeneration.musicHelp")}
+                  checked={localAudioMusic}
+                  onChange={(value) => {
+                    setLocalAudioMusic(value);
+                    markDirty();
+                  }}
+                />
+              </FieldGroup>
+            )}
+
             {/* ── Model Selection ── */}
             <FieldGroup
-              label={localizeUi("ui.connections.connectioneditor.model")}
+              label={
+                isGenerativeAudioProvider
+                  ? t("connections.audioGeneration.musicModel")
+                  : localizeUi("ui.connections.connectioneditor.model")
+              }
               help={t("connections.editor.modelIdHelp", { service: providerDef?.name ?? localProvider })}
             >
               {isGrokSubscriptionProvider && (
@@ -4466,6 +4943,7 @@ function VideoGenerationDefaultsPanel({
     value.service === "google_veo"
       ? value.service
       : "gemini_omni";
+  const openRouterLimits = service === "openrouter" && !isNanoGpt ? getOpenRouterVideoModelLimits(model) : null;
   const summary =
     service === "xai"
       ? `${value.xai.durationSeconds}s, ${value.xai.aspectRatio}, ${value.xai.resolution}`
@@ -4638,8 +5116,14 @@ function VideoGenerationDefaultsPanel({
                                 ? value.comfyui.durationSeconds
                                 : value.openrouter.durationSeconds
                     }
-                    min={service === "google_veo" || service === "seedance" ? 4 : 1}
-                    max={service === "xai" || service === "seedance" ? 15 : service === "google_veo" ? 8 : 60}
+                    min={
+                      openRouterLimits?.minDurationSeconds ??
+                      (service === "google_veo" || service === "seedance" ? 4 : 1)
+                    }
+                    max={
+                      openRouterLimits?.maxDurationSeconds ??
+                      (service === "xai" || service === "seedance" ? 15 : service === "google_veo" ? 8 : 60)
+                    }
                     onCommit={(durationSeconds) => {
                       if (service === "xai") updateXai({ durationSeconds });
                       else if (service === "google_veo") {
@@ -4727,7 +5211,9 @@ function VideoGenerationDefaultsPanel({
                       {VIDEO_RESOLUTION_OPTIONS.filter(
                         (option) =>
                           (service !== "google_veo" || option.value !== "480p") &&
-                          (service !== "comfyui" || option.value !== "1080p"),
+                          (service !== "comfyui" || option.value !== "1080p") &&
+                          (option.value !== "768p" || !!openRouterLimits?.resolutions.includes("768p")) &&
+                          (!openRouterLimits || openRouterLimits.resolutions.includes(option.value)),
                       ).map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}

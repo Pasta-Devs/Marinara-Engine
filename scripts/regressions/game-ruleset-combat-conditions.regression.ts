@@ -288,7 +288,7 @@ try {
     refuses(
       fiveEText,
       modifier({ to: "healing", flat: 2 }),
-      /Invalid enum value/,
+      /modifiers\.0\.to: Invalid option: expected one of/,
       "healing is not a number a condition changes",
     );
     refuses(
@@ -356,7 +356,7 @@ try {
     refuses(
       fiveEText,
       level({ track: "exhaustion", at: 0, effects: ["cannot-act"] }),
-      /greater than or equal to 1/,
+      /Too small: expected number to be >=1/,
       "level 0",
     );
 
@@ -802,7 +802,7 @@ try {
     const miss = act(fiveE, snagTurn, { actorId: "snag", optionId: "scimitar", targetIds: ["brenna"] }, 18, 3);
     assert.match(
       rulesetCombatEventLine(firstOf(miss.events, "attack"), names, t),
-      /18 \+ 4 = 22 against Armor Class 23 \(Shielded \+ 5\), a miss\./,
+      /18 \+ 4 = 22 against Armor Class 23 \(from 18: Shielded \+ 5\), a miss\./,
     );
     const levelLine = rulesetCombatEventLine(
       { ...firstOf(hit.events, "attack"), bonuses: [{ condition: "exhaustion", level: 3, value: -1 }], total: 11 },

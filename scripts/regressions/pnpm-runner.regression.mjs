@@ -9,6 +9,29 @@ import { fileURLToPath } from "node:url";
 import { resolvePlaywrightProjectStdio, resolvePnpmRunner } from "../pnpm-runner.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const nativeRunner = resolvePnpmRunner({
+  environment: { npm_config_user_agent: "pnpm/12.15.0", npm_execpath: process.execPath },
+});
+assert.deepEqual(
+  nativeRunner,
+  { command: process.execPath, args: [] },
+  "Native pnpm must execute directly, not as Node source",
+);
+assert.equal(spawnSync(nativeRunner.command, [...nativeRunner.args, "--version"]).status, 0);
+const nativeCli = spawnSync(
+  process.execPath,
+  [fileURLToPath(new URL("../pnpm-runner.mjs", import.meta.url)), "--version"],
+  {
+    encoding: "utf8",
+    env: { ...process.env, npm_config_user_agent: "pnpm/12.15.0", npm_execpath: process.execPath },
+  },
+);
+assert.equal(nativeCli.status, 0, nativeCli.stderr);
+assert.equal(
+  nativeCli.stdout.trim(),
+  process.version,
+  "Nested scripts reuse the native runner instead of a global pnpm",
+);
 const windowsNode = "C:\\Program Files\\nodejs\\node.exe";
 const windowsPnpmCli =
   "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\pnpm\\10.34.5\\node_modules\\pnpm\\bin\\pnpm.cjs";
@@ -41,7 +64,8 @@ assert.deepEqual(
     environment: {
       ComSpec: windowsComSpec,
       npm_config_user_agent: "pnpm/10.34.5 npm/? node/v24.15.0 win32 x64",
-      npm_execpath: "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\@pnpm+exe\\10.34.5\\node_modules\\@pnpm\\exe\\pnpm.exe",
+      npm_execpath:
+        "C:\\Users\\runner\\AppData\\Local\\pnpm\\.tools\\@pnpm+exe\\10.34.5\\node_modules\\@pnpm\\exe\\pnpm.exe",
     },
   }),
   { command: windowsComSpec, args: ["/d", "/s", "/c", "pnpm"] },

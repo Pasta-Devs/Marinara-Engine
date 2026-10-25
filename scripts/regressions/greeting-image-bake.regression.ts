@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 // #7221: a user-triggered action saves the web images in a character's greetings into the
@@ -17,11 +17,14 @@ const {
   characterDataSchema,
   findGreetingImageUrls,
   readBakedGreetingImages,
+  hasBakedGreetingImages,
   restoreBakedGreetingImages,
 } = await import("../../packages/shared/dist/index.js");
 const { resolveCardAssetImageSources, resolveSelfCardAssets } =
   await import("../../packages/client/src/lib/card-asset-links.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
+const { characters } = await import("../../packages/server/src/db/schema/index.js");
+const { eq } = await import("../../packages/server/src/db/file-query.js");
 const { errorHandler } = await import("../../packages/server/src/middleware/error-handler.js");
 const { buildCompatibleCharacterExport, charactersRoutes } =
   await import("../../packages/server/src/routes/characters.routes.js");
@@ -114,8 +117,30 @@ assert.equal(
 );
 assert.deepEqual(
   (restored.extensions as { bakedGreetingImages: unknown }).bakedGreetingImages,
-  [],
-  "an empty list, so a character save replaces the stored one",
+  readBakedGreetingImages(baked.extensions),
+  "reverting to links keeps the reusable gallery mapping",
+);
+
+assert.equal(hasBakedGreetingImages(baked), true);
+assert.equal(hasBakedGreetingImages(restored), false);
+const rebaked = applyBakedGreetingImages(restored, readBakedGreetingImages(restored.extensions));
+assert.equal(rebaked.first_mes, baked.first_mes);
+assert.deepEqual(readBakedGreetingImages(rebaked.extensions), readBakedGreetingImages(baked.extensions));
+assert.deepEqual(
+  readBakedGreetingImages(restoreBakedGreetingImages(rebaked).extensions),
+  readBakedGreetingImages(baked.extensions),
+);
+const editedAway = { ...baked, first_mes: "A greeting without its previous image", alternate_greetings: [] };
+assert.deepEqual(readBakedGreetingImages(restoreBakedGreetingImages(editedAway).extensions), []);
+const partlyEdited = {
+  ...baked,
+  first_mes: "A greeting without its previous image",
+  alternate_greetings: [baked.alternate_greetings[1]],
+};
+assert.deepEqual(
+  readBakedGreetingImages(restoreBakedGreetingImages(partlyEdited).extensions),
+  readBakedGreetingImages(baked.extensions).filter((entry) => entry.url === "https://img.example/d.jpg"),
+  "restoring drops orphaned mappings while retaining the image still used by a greeting",
 );
 
 const compatible = buildCompatibleCharacterExport(baked);
@@ -234,6 +259,100 @@ try {
     assert.equal(gallery[0]!.filePath, `characters/${character.id}/${saved[0]!.file}`);
     assert.equal(gallery[0]!.width, 320);
 
+    // The draft can supply the mapping even before its character card is saved.
+    requests.length = 0;
+    const reuse = await app.inject({
+      method: "POST",
+      url: `/api/characters/${character.id}/gallery/bake`,
+      payload: { urls: [saved[0]!.url], bakedImages: saved },
+    });
+    assert.equal(reuse.statusCode, 200, reuse.body);
+    assert.deepEqual(reuse.json().results, saved);
+    assert.equal(requests.length, 0, "a valid saved copy is reused without downloading");
+    assert.equal((await createCharacterGalleryStorage(db).listByCharacterId(character.id)).length, 1);
+
+    const mapping = saved.map(({ url, file }) => ({ url, file: file! }));
+    const saveCard = async (data: Record<string, unknown>) => {
+      const response = await app.inject({ method: "PATCH", url: `/api/characters/${character.id}`, payload: { data } });
+      assert.equal(response.statusCode, 200, response.body);
+      const row = await createCharactersStorage(db).getById(character.id);
+      assert.ok(row);
+      return JSON.parse(row.data);
+    };
+    await saveCard({
+      first_mes: `![saved](${bakedGreetingImageRef(mapping[0]!.file)})`,
+      extensions: { bakedGreetingImages: mapping },
+    });
+    assert.deepEqual(readBakedGreetingImages((await saveCard({ description: "Unrelated edit" })).extensions), mapping);
+    assert.deepEqual(
+      readBakedGreetingImages((await saveCard({ first_mes: `![web](${mapping[0]!.url})` })).extensions),
+      mapping,
+    );
+    await saveCard({
+      first_mes: "Edited first greeting",
+      alternate_greetings: [`![saved](${bakedGreetingImageRef(mapping[0]!.file)})`],
+    });
+    assert.deepEqual(
+      readBakedGreetingImages((await saveCard({ description: "Alternate still uses it" })).extensions),
+      mapping,
+    );
+    assert.deepEqual(
+      readBakedGreetingImages((await saveCard({ alternate_greetings: [] })).extensions),
+      [],
+      "ordinary saves drop mappings edited out of every greeting",
+    );
+
+    // Simulate an older stored card that still carries an orphaned cache record.
+    const storage = createCharactersStorage(db);
+    const before = (await storage.getById(character.id))!;
+    const stale = JSON.parse(before.data);
+    stale.extensions.bakedGreetingImages = mapping;
+    await db
+      .update(characters)
+      .set({ data: JSON.stringify(stale) })
+      .where(eq(characters.id, character.id));
+    const snapshotCount = async () =>
+      (await storage.listVersions(character.id)).filter((version) => !version.isCurrent).length;
+    const previousCount = await snapshotCount();
+    const unchanged = await saveCard({ description: stale.description });
+    assert.deepEqual(readBakedGreetingImages(unchanged.extensions), []);
+    assert.equal(unchanged.character_version, stale.character_version, "cache pruning is not an authored revision");
+    assert.equal(await snapshotCount(), previousCount, "cache pruning alone creates no snapshot");
+    const authored = await saveCard({ description: "A real authored edit after cleanup" });
+    assert.notEqual(authored.character_version, unchanged.character_version);
+    assert.equal(await snapshotCount(), previousCount + 1, "real content edits still create a snapshot");
+    const commentSave = await app.inject({
+      method: "PATCH",
+      url: `/api/characters/${character.id}`,
+      payload: { data: {}, comment: "A real card comment" },
+    });
+    assert.equal(commentSave.statusCode, 200, commentSave.body);
+    assert.equal(await snapshotCount(), previousCount + 2, "real comment edits still create a snapshot");
+    assert.equal((await saveCard({ character_version: "99.7" })).character_version, "99.7");
+    assert.equal(await snapshotCount(), previousCount + 3, "explicit version changes still create a snapshot");
+
+    const other = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Other" }));
+    const wrongOwner = await app.inject({
+      method: "POST",
+      url: `/api/characters/${other!.id}/gallery/bake`,
+      payload: { urls: [saved[0]!.url], bakedImages: saved },
+    });
+    assert.equal(wrongOwner.statusCode, 200, wrongOwner.body);
+    assert.notEqual(wrongOwner.json().results[0].file, saved[0]!.file, "another character's file is never reused");
+    assert.ok(requests.length > 0);
+
+    unlinkSync(filePath);
+    requests.length = 0;
+    const deletedCopy = await app.inject({
+      method: "POST",
+      url: `/api/characters/${character.id}/gallery/bake`,
+      payload: { urls: [saved[0]!.url], bakedImages: saved },
+    });
+    assert.equal(deletedCopy.statusCode, 200, deletedCopy.body);
+    assert.ok(deletedCopy.json().results[0].file);
+    assert.notEqual(deletedCopy.json().results[0].file, saved[0]!.file);
+    assert.ok(requests.length > 0, "a deleted copy is downloaded again instead of restoring a broken link");
+
     const tooMany = await app.inject({
       method: "POST",
       url: `/api/characters/${character.id}/gallery/bake`,
@@ -259,6 +378,11 @@ try {
     const exportedBaked = exportedCards.find((card) => card.name === "Baked");
     assert.equal(exportedBaked.first_mes, greetings.first_mes, "compatible profile cards get the web links back");
     assert.equal(exportedBaked.alternate_greetings[1], restored.alternate_greetings[1]);
+    assert.equal(
+      "bakedGreetingImages" in exportedBaked.extensions,
+      false,
+      "compatible profile cards carry no gallery metadata",
+    );
   } finally {
     await app.close();
     await closeDB();

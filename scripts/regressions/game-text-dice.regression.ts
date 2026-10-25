@@ -106,7 +106,7 @@ let failContinuation = false;
 let roleplay = false;
 let unsupportedOnly = false;
 const raw =
-  'He does not see you. [skill_check: skill="Stealth" dc="40" rolls="2"] You escape unseen. [dice: 3d1+2] [skill_check: skill="Pool" dc="6" dice="6d1" resolution="successes" threshold="1"]';
+  'He does not see you. [skill_check: skill="Stealth" dc="40" rolls="2"] You escape unseen. [dice: 3d1+2 who="Mari"] [skill_check: skill="Pool" dc="6" dice="6d1" resolution="successes" threshold="1"]';
 async function* scriptedChat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage> {
   calls.push(structuredClone(messages));
   assert.equal(options.tools, undefined, "subscription transports never receive native tool schemas");
@@ -125,7 +125,7 @@ async function* scriptedChat(messages: ChatMessage[], options: ChatOptions): Asy
     assert.equal(options.tools, undefined, "outcome continuation needs no native tools schema");
     assert.equal(unsupportedOnly, false, "unsupported requests have no real outcome to rewrite");
     assert.match(messages.at(-1)!.content, /Stealth/);
-    assert.match(messages.at(-1)!.content, /3d1\+2 = 5/);
+    assert.match(messages.at(-1)!.content, /🎲 Mari: 3d1\+2 = 5/, "the summary names who rolled");
     if (failContinuation) {
       yield "UNSAFE PARTIAL OUTCOME";
       throw new Error("Synthetic provider failure");
@@ -162,7 +162,7 @@ try {
       promptPresetId: null,
     });
     assert.ok(chat);
-    await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false });
+    await chats.patchMetadata(chat.id, { enableAgents: false, enableTools: false, gameOneRequestDice: false });
     for (const failure of [false, true]) {
       calls.length = 0;
       failContinuation = failure;
@@ -197,7 +197,9 @@ try {
           "failure keeps the real log records without repeating their totals as prose",
         );
       }
-      assert.deepEqual(extra.diceRollResults, [{ notation: "3d1+2", rolls: [1, 1, 1], modifier: 2, total: 5 }]);
+      assert.deepEqual(extra.diceRollResults, [
+        { notation: "3d1+2", rolls: [1, 1, 1], modifier: 2, total: 5, label: "Mari" },
+      ]);
       const checks = [...saved.content.matchAll(createSkillCheckTagRegex())].map((match) =>
         parseSkillCheckTagBody(match[1]!),
       );

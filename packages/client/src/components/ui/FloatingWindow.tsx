@@ -268,8 +268,8 @@ function readSafeAreaInsets() {
     safeAreaProbe.setAttribute("aria-hidden", "true");
     safeAreaProbe.style.cssText =
       "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
-      "padding:env(safe-area-inset-top) env(safe-area-inset-right) " +
-      "var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)) env(safe-area-inset-left)";
+      "padding:env(safe-area-inset-top) var(--mari-safe-area-inset-right) " +
+      "var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)) var(--mari-safe-area-inset-left)";
     document.body.appendChild(safeAreaProbe);
   }
   const style = window.getComputedStyle(safeAreaProbe);

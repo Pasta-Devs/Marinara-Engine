@@ -41,6 +41,7 @@ export interface MemoryCharacterOption {
 export function AdvancedMemorySettings({
   chatId,
   metadataSettings,
+  gameMode = false,
   individual,
   characters,
   hasHistory = false,
@@ -48,6 +49,8 @@ export function AdvancedMemorySettings({
 }: {
   chatId: string;
   metadataSettings: unknown;
+  /** A Game chat: the GM is the only reader, so the per-character controls do not apply. */
+  gameMode?: boolean;
   individual: boolean;
   characters: MemoryCharacterOption[];
   hasHistory?: boolean;
@@ -220,6 +223,11 @@ export function AdvancedMemorySettings({
         className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
         labelClassName="text-xs font-medium"
       />
+      {gameMode && (
+        <p className="px-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+          {t("chat.advancedMemory.gameHelp")}
+        </p>
+      )}
       {status.isError && (
         <p role="alert" className="text-xs text-[var(--destructive)]">
           {t("chat.advancedMemory.failed", { message: status.error.message })}{" "}
@@ -521,23 +529,25 @@ export function AdvancedMemorySettings({
               {t("chat.advancedMemory.excerptMessagesHelp")}
             </p>
           </div>
-          <SettingsSwitch
-            label={t("chat.advancedMemory.characterRecollections")}
-            description={t("chat.advancedMemory.characterRecollectionsHelp")}
-            checked={settings.characterRecollections}
-            disabled={disabled}
-            // Turning it on for a prepared chat starts writing recollections for its scenes.
-            onChange={(characterRecollections) =>
-              action.mutate({
-                action: "settings",
-                settings: { characterRecollections },
-                debugMode: useUIStore.getState().debugMode,
-              })
-            }
-            labelPosition="start"
-            className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
-            labelClassName="text-xs font-medium"
-          />
+          {!gameMode && (
+            <SettingsSwitch
+              label={t("chat.advancedMemory.characterRecollections")}
+              description={t("chat.advancedMemory.characterRecollectionsHelp")}
+              checked={settings.characterRecollections}
+              disabled={disabled}
+              // Turning it on for a prepared chat starts writing recollections for its scenes.
+              onChange={(characterRecollections) =>
+                action.mutate({
+                  action: "settings",
+                  settings: { characterRecollections },
+                  debugMode: useUIStore.getState().debugMode,
+                })
+              }
+              labelPosition="start"
+              className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+              labelClassName="text-xs font-medium"
+            />
+          )}
           <label className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.initialModel")}</span>
             <select
@@ -633,11 +643,12 @@ export function AdvancedMemorySettings({
               {t("chat.advancedMemory.reviewKnowledge")}
             </button>
           )}
-          {(status.data?.job.status === "idle" || status.data?.job.status === "needs_confirmation") && (
-            <button type="button" disabled={disabled} className={`${actionClass} w-full`} onClick={initialize}>
-              {t("chat.advancedMemory.initialize")}
-            </button>
-          )}
+          {variant === "drawer" &&
+            (status.data?.job.status === "idle" || status.data?.job.status === "needs_confirmation") && (
+              <button type="button" disabled={disabled} className={`${actionClass} w-full`} onClick={initialize}>
+                {t("chat.advancedMemory.initialize")}
+              </button>
+            )}
         </div>
       )}
       {confirmKnowledge && (

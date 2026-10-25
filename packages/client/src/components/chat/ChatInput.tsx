@@ -203,6 +203,7 @@ interface ChatInputProps {
   ) => void | Promise<void>;
   onPeekPrompt?: () => void;
   onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
+  onRoleplayVideo?: (description?: string) => void | Promise<void>;
   combatAgentEnabled?: boolean;
   onStartEncounter?: () => void;
   interactionsLocked?: boolean;
@@ -216,6 +217,7 @@ export const ChatInput = memo(function ChatInput({
   onExpressionChange,
   onPeekPrompt,
   onIllustrate,
+  onRoleplayVideo,
   combatAgentEnabled,
   onStartEncounter,
   interactionsLocked = false,
@@ -839,6 +841,7 @@ export const ChatInput = memo(function ChatInput({
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
       illustrate: onIllustrate,
+      roleplayVideo: onRoleplayVideo,
       availableCapabilityIds,
     };
   }, [
@@ -857,6 +860,7 @@ export const ChatInput = memo(function ChatInput({
     lastMessageRole,
     onExpressionChange,
     onIllustrate,
+    onRoleplayVideo,
     availableCapabilityIds,
     pendingSpatialTransition,
     qc,

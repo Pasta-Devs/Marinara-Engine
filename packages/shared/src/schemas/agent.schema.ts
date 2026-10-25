@@ -2,6 +2,7 @@
 // Agent Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 import {
   MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH,
@@ -62,7 +63,7 @@ export const homeAgentWidgetsSchema = z
   );
 export type HomeAgentWidgetDefinition = z.infer<typeof homeAgentWidgetSchema>;
 
-const agentSettingsSchema = z.record(z.unknown()).superRefine((settings, ctx) => {
+const agentSettingsSchema = z.record(z.string(), z.unknown()).superRefine((settings, ctx) => {
   if (settings.homeWidgets === undefined) return;
   const result = homeAgentWidgetsSchema.safeParse(settings.homeWidgets);
   if (!result.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid agent Home widgets" });
@@ -79,10 +80,10 @@ export const createAgentConfigSchema = z.object({
   imagePath: z.string().nullable().default(null),
   resultType: agentResultTypeSchema.optional(),
   promptTemplate: z.string().default(""),
-  settings: agentSettingsSchema.default({}),
+  settings: agentSettingsSchema.prefault({}),
 });
 
-export const updateAgentConfigSchema = createAgentConfigSchema.partial();
+export const updateAgentConfigSchema = partialInput(createAgentConfigSchema);
 
 export const customAgentImportPolicyUpdateSchema = z.object({
   enabled: z.boolean(),

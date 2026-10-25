@@ -46,9 +46,16 @@ export function formatNarration(content: string, boldDialogue = true): string {
       }`;
     })
     .replace(
-      /\[dice:\s*((?:\d+)?d\d+(?:[+-]\d+)?)\s*=\s*(-?\d+)(?:\s*\([^\]]+\))?\]/gi,
-      (_match, notation: string, total: string) =>
-        commandBadge("bg-white/10 text-white/60 font-mono", "🎲", `${notation} → ${total}`),
+      /\[dice:\s*((?:\d+)?d\d+(?:[+-]\d+)?)\s*=\s*(-?\d+)(?:\s*\([^)\]]*\))?((?:\s+\w+="[^"\]]*")*)\s*\]/gi,
+      (_match, notation: string, total: string, rawAttrs: string) => {
+        // Who rolled, when the record names them.
+        const who = parseCommandAttributes(rawAttrs ?? "").who;
+        return commandBadge(
+          "bg-white/10 text-white/60 font-mono",
+          "🎲",
+          `${who ? `${who}: ` : ""}${notation} → ${total}`,
+        );
+      },
     )
     .replace(/\[qte_bonus:\s*(-?\d+)\]/gi, (_match, bonus: string) =>
       commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE Bonus", formatSignedNumber(bonus)),
@@ -61,7 +68,7 @@ export function formatNarration(content: string, boldDialogue = true): string {
     })
     .replace(/\[skill_check:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
       const attrs = parseCommandAttributes(rawAttrs);
-      const skill = attrs.skill || "Skill";
+      const skill = attrs.who ? `${attrs.who}: ${attrs.skill || "Skill"}` : attrs.skill || "Skill";
       // A check that names its ladder step instead of a number shows the step's own name.
       const dc = attrs.dc ? `DC ${attrs.dc}` : attrs.difficulty || "";
       const total = attrs.total ? `total ${attrs.total}` : "";

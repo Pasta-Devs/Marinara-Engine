@@ -5,7 +5,7 @@
  * one), and given their turns: their own initiative, or right after their caller.
  */
 import { createRulesetEncounter, rulesetFitCell } from "./encounter.js";
-import { rulesetFootprint, rulesetPositionOf } from "./grid.js";
+import { rulesetFootprint, rulesetFootprintAt, rulesetPositionOf, rulesetSpanOf } from "./grid.js";
 import type {
   RulesetCombatAction,
   RulesetCombatCell,
@@ -76,6 +76,29 @@ export function rulesetCallCreatures(
     combatants: entries,
     ...(grid ? { board: { grid: structuredClone(grid), placements } } : {}),
   });
+  // Set down again by the room all of each one needs, the biggest first, clear of everybody already
+  // in the fight (cloud AI fights 2026-10-25: eight Draft Horses called by Conjure Animals were set
+  // down by one cell each, and a Large one stood on the Gladiator it was called to fight).
+  if (grid) {
+    const taken = new Set(
+      state.combatants
+        .filter((one) => !one.defeated || one.object)
+        .flatMap((one) => rulesetFootprint(one))
+        .map((cell) => `${cell.x},${cell.y}`),
+    );
+    const placed = built.combatants.filter((one) => placements[one.id] && rulesetPositionOf(one));
+    for (const combatant of [...placed].sort((a, b) => rulesetSpanOf(b) - rulesetSpanOf(a))) {
+      const span = rulesetSpanOf(combatant);
+      const at = rulesetFitCell(grid, { x: combatant.x!, y: combatant.y! }, span, taken);
+      if (!at) {
+        delete placements[combatant.id];
+        continue;
+      }
+      combatant.x = at.x;
+      combatant.y = at.y;
+      for (const cell of rulesetFootprintAt(at, span)) taken.add(`${cell.x},${cell.y}`);
+    }
+  }
   const came: RulesetCombatant[] = [];
   for (const combatant of built.combatants) {
     // On a board, only those it found room for.

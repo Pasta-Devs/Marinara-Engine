@@ -80,7 +80,7 @@ Marinara also creates an empty settings file at `/app/data/.env` inside the volu
 
 By default, Compose only lets you reach Marinara from the same computer. This is the safe default. If you want to open Marinara on your phone or another computer on your network, you must do two things. Change the port mapping, and turn on a login so strangers cannot reach it.
 
-Basic Auth is a simple username and password prompt that protects the app. Never expose Marinara to your network without it.
+Other devices need a login before they can use Marinara. Never expose Marinara to your network without one.
 
 1. Open `docker-compose.yml` in a text editor.
 
@@ -98,12 +98,10 @@ ports:
   - "${PORT:-7860}:7860"
 ```
 
-4. In the same file, add a login and an admin secret to the `environment:` list. Use your own values:
+4. In the same file, add an admin secret to the `environment:` list. Use your own value:
 
 ```yaml
 environment:
-  - BASIC_AUTH_USER=yourname
-  - BASIC_AUTH_PASS=a-long-random-password
   - ADMIN_SECRET=another-long-random-value
 ```
 
@@ -113,9 +111,9 @@ environment:
 docker compose up -d
 ```
 
-Now other devices on your network can reach Marinara at `http://YOUR_COMPUTER_IP:7860` when `PORT` is unset. If you set `PORT`, replace `7860` with that host port. They must enter the username and password you set.
+Now other devices on your network can reach Marinara at `http://YOUR_COMPUTER_IP:7860` when `PORT` is unset. If you set `PORT`, replace `7860` with that host port. They see a page that asks for a login. To set it, find the one-time setup code with `docker logs <container> 2>&1 | grep "setup code"`. Type the code on that page with a new username and password. Later, you can change the login in **Settings → Advanced → Access** in a signed-in browser. If you forget the password, run `docker exec <container> node scripts/reset-login.mjs`. This does not change a login from `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`; edit those in the compose file and recreate the container. You can also set a login in the compose file with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in the `environment:` list.
 
-On Docker Desktop, OrbStack, and rootless Docker, every device reaches the container from the same address, your own browser included. So once the login is set, this computer asks for it too, and an IP allowlist cannot tell devices apart. Never remove `127.0.0.1:` without the login: on these runtimes Marinara cannot tell other devices from this computer. To find good ways to allow only certain devices, and to learn what the admin secret does, read [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
+On Docker Desktop, OrbStack, and rootless Docker, every device reaches the container from the same address, your own browser included. So once the login is set, this computer asks for it too, and an IP allowlist cannot tell devices apart. Set the login before you remove `127.0.0.1:`. On these runtimes, open Marinara on this computer at `http://localhost:7860` and use **Settings**, or set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in the compose file. Never remove `127.0.0.1:` without the login: on these runtimes Marinara cannot tell other devices from this computer. To find good ways to allow only certain devices, and to learn what the admin secret does, read [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md).
 
 ## Choosing an image: latest, staging, or lite
 
@@ -245,5 +243,5 @@ For more help, read [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 ## Related guides
 
 - [Server Configuration Reference](../CONFIGURATION.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)
 - [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)

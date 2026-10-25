@@ -4,10 +4,12 @@
 // each one lists exactly who it may be pointed at. Nothing here decides legality or does any
 // arithmetic; it groups what arrived, spells what an option spends out of the words the option
 // carries, and keeps a player's picking inside the option's own list and count.
-import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
+import type { DirectedCombatView, DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
 import {
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
+  RULESET_LAND_OPTION,
+  RULESET_TAKE_OFF_OPTION,
   RULESET_MOVE_OPTION,
   RULESET_ZONE_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
@@ -16,11 +18,13 @@ import {
 import type { TFunction } from "i18next";
 import { rulesetDistanceText, type RulesetBoardDistance, type RulesetCellChoice } from "./ruleset-combat-board";
 
-/** The order a menu reads in: where you go, what you swing, what you cast, what a stat block can
- *  do, the contests it may start, the moves the kind implements, and finally ending the turn.
- *  Walking comes first because a turn on a board usually starts with it, and it may be taken again
- *  after an action. */
+/** The order a menu reads in: what a symbol throw's leftovers buy (1.382), then where you go, what
+ *  you swing, what you cast, what a stat block can do, the contests it may start, the moves the kind
+ *  implements, and finally ending the turn. Spends are only ever asked in a window of their own, so
+ *  on a turn walking comes first: a turn on a board usually starts with it, and it may be taken
+ *  again after an action. */
 export const RULESET_MENU_KINDS = [
+  "spend",
   "move",
   "attack",
   "reload",
@@ -35,19 +39,22 @@ export const RULESET_MENU_KINDS = [
 
 export type RulesetMenuKind = (typeof RULESET_MENU_KINDS)[number];
 
-/** A half-made choice: deciding what pays for it, where it walks, who it is pointed at, or where
- *  the shape lands. The board holds this while it draws it, so the menu and the board are never
- *  two steps apart. */
-/** The Engine's own word for each of the two moves a board adds, keyed by the resolver's own id.
+/** The Engine's own word for each move a board adds (walking, standing, flying up or down, taking off
+ *  and landing), keyed by the resolver's own id.
  *  A key segment is built from the WORD and never from the id, which may carry punctuation a
  *  localization key may not. */
-const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown"> = {
+const MOVE_OPTION_WORDS: Record<string, "walk" | "stand" | "flyUp" | "flyDown" | "takeOff" | "land"> = {
   [RULESET_MOVE_OPTION]: "walk",
   [RULESET_STAND_OPTION]: "stand",
   [RULESET_FLY_UP_OPTION]: "flyUp",
   [RULESET_FLY_DOWN_OPTION]: "flyDown",
+  [RULESET_TAKE_OFF_OPTION]: "takeOff",
+  [RULESET_LAND_OPTION]: "land",
 };
 
+/** A half-made choice: deciding what pays for it, where it walks, who it is pointed at, or where
+ *  the shape lands. The board holds this while it draws it, so the menu and the board are never
+ *  two steps apart. */
 export interface RulesetMenuStep {
   stage: "style" | "mode" | "alter" | "pay" | "amount" | "move" | "target" | "aim" | "spare" | "heighten";
   option: DirectedRulesetOption;
@@ -71,6 +78,9 @@ export interface RulesetMenuStep {
   spared?: string[];
   /** Who it could heighten, while that is picked (1.255). */
   heighten?: { ids: string[] };
+  /** Where a walk on a touch screen would end, or where an aim would land, picked once and waiting for a
+   *  second tap or click to go. */
+  to?: { x: number; y: number };
 }
 
 /** A shape half laid on the board: the cell it was first set down on, further copies of it, and for
@@ -84,8 +94,12 @@ export interface RulesetAimLay {
 
 export interface RulesetMenuGroup {
   kind: RulesetMenuKind;
+  /** Which group it is among those of one kind: the kind itself, or a heading a ruleset named. */
+  key: string;
   /** The heading key for this group, so a caller never builds one by hand. */
   labelKey: string;
+  /** What a ruleset-named heading fills in (1.378): its list's tab, and the row's place in it. */
+  labelValues?: { tab: string; sub?: string };
   options: DirectedRulesetOption[];
 }
 
@@ -96,11 +110,43 @@ export function rulesetMenuGroups(options: DirectedRulesetOption[] | undefined):
   for (const kind of RULESET_MENU_KINDS) {
     const found = (options ?? []).filter((option) => option.kind === kind);
     if (found.length === 0) continue;
-    groups.push({
-      kind,
-      labelKey: `game.combat.ruleset.group.${kind === "end-turn" ? "endTurn" : kind}`,
-      options: found,
-    });
+    const own = found.filter((option) => !option.menuGroup);
+    if (own.length)
+      groups.push({
+        kind,
+        key: kind,
+        labelKey: `game.combat.ruleset.group.${kind === "end-turn" ? "endTurn" : kind}`,
+        options: own,
+      });
+    // What a ruleset's list gives sits under the list's own heading (1.378), "Spells", split by
+    // the row's place in it, "Spells: 1st level", in its order.
+    const named = new Map<string, { order: number; group: RulesetMenuGroup }>();
+    for (const option of found) {
+      const menuGroup = option.menuGroup;
+      if (!menuGroup) continue;
+      const key = `${kind}:${menuGroup.label}:${menuGroup.sub?.label ?? ""}`;
+      const entry = named.get(key);
+      if (entry) entry.group.options.push(option);
+      else
+        named.set(key, {
+          order: menuGroup.sub?.order ?? -1,
+          group: {
+            kind,
+            key,
+            labelKey: menuGroup.sub ? "game.combat.ruleset.group.listedSplit" : "game.combat.ruleset.group.listed",
+            labelValues: { tab: menuGroup.label, ...(menuGroup.sub ? { sub: menuGroup.sub.label } : {}) },
+            options: [option],
+          },
+        });
+    }
+    groups.push(
+      ...[...named.values()]
+        .sort(
+          (left, right) =>
+            left.group.labelValues!.tab.localeCompare(right.group.labelValues!.tab) || left.order - right.order,
+        )
+        .map((entry) => entry.group),
+    );
   }
   return groups;
 }
@@ -123,6 +169,8 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
       name: option.lifts.name,
     });
   if (option.kind === "end-turn") return t("game.combat.ruleset.menu.endTurn", { defaultValue: option.label });
+  // The Engine's own pick for what is left of a symbol throw (1.382), named by what it buys.
+  if (option.symbolSpend?.engine) return t("game.combat.ruleset.menu.engineSpends", { spends: option.label });
   // Walking and getting back up are the board's own two moves, named by this Engine for the same
   // reason the standard actions are: the closed list is the Engine's vocabulary, not the file's.
   // Which is which comes off the two exported ids, never off the spelling of one: the ids belong to
@@ -145,10 +193,14 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
   // A concentration entry made again (1.310): Vampiric Touch's later touches.
   if (option.again) return t("game.combat.ruleset.menu.again", { label: option.label });
   // A switch says which way it turns the item, which is the Engine's own word too.
-  if (option.kind === "switch")
+  if (option.kind === "switch") {
+    // In the ruleset's own words for the two, where it gives them (1.378): "Lower the hood".
+    const named = option.on ? option.switchLabels?.off : option.switchLabels?.on;
+    if (named) return named;
     return t(option.on ? "game.combat.ruleset.menu.switchOff" : "game.combat.ruleset.menu.switchOn", {
       item: option.label,
     });
+  }
   // Picking up what was dropped (1.266) is the Engine's own move too.
   if (option.pickUp) return t("game.combat.ruleset.menu.pickUp", { item: option.label });
   // Averting the eyes from a gaze (1.268), and looking again.
@@ -170,7 +222,7 @@ export function rulesetOptionLabel(option: DirectedRulesetOption, t: TFunction):
 }
 
 /** The name a readied option goes by (1.288): a walk is the Engine's own word. */
-function rulesetMenuReadyName(label: string, optionId: string, t: TFunction): string {
+export function rulesetMenuReadyName(label: string, optionId: string, t: TFunction): string {
   return optionId === RULESET_MOVE_OPTION ? t("game.combat.ruleset.board.walk", { defaultValue: label }) : label;
 }
 
@@ -201,7 +253,12 @@ export function rulesetOptionCostText(
     );
   }
   for (const cost of option.cost ?? []) {
-    parts.push(t("game.combat.ruleset.option.cost", { amount: cost.amount, pool: cost.label }));
+    // Paid out of a pool of its own name (Action Surge on Action Surge's card) says nothing the
+    // button does not.
+    if (cost.amount === 1 && cost.label.trim().toLowerCase() === option.label.trim().toLowerCase()) continue;
+    // In the pool's own words for one and for more than one (1.378), "1 3rd-level slot".
+    const pool = (cost.amount === 1 ? cost.unit : cost.units) ?? cost.label;
+    parts.push(t("game.combat.ruleset.option.cost", { amount: cost.amount, pool }));
   }
   if (option.signature) {
     parts.push(
@@ -231,6 +288,44 @@ export function rulesetModeText(
   return [expected, aimed].filter(Boolean).join(" · ");
 }
 
+/** Paying for it as it is, in a player's words: what it spends, and how many it is aimed at where
+ *  paying more aims it at more (a Magic Missile's 3 darts at 1st level, 4 at 2nd). */
+export function rulesetUpcastOwnText(
+  option: DirectedRulesetOption,
+  budgetLabel: (id: string) => string,
+  t: TFunction,
+  distance?: RulesetBoardDistance,
+): string {
+  const spent = (option.cost ?? []).map((cost) =>
+    t("game.combat.ruleset.option.cost", {
+      amount: cost.amount,
+      pool: (cost.amount === 1 ? cost.unit : cost.units) ?? cost.label,
+    }),
+  );
+  const text = spent.length
+    ? t("game.combat.ruleset.upcast.use", { cost: spent.join(", ") })
+    : t("game.combat.ruleset.upcast.own", { cost: rulesetOptionCostText(option, budgetLabel, t, distance) });
+  return option.targetsWith && Object.keys(option.targetsWith).length
+    ? t("game.combat.ruleset.upcast.withTargets", { text, count: option.targets.count })
+    : text;
+}
+
+/** Paying for it out of another pool of its family: one of what that pool holds, where the ruleset
+ *  names one ("Use 1 2nd-level slot"), and how many it is then aimed at. */
+export function rulesetUpcastPoolText(
+  option: DirectedRulesetOption,
+  pool: string,
+  name: string,
+  isUnit: boolean,
+  t: TFunction,
+): string {
+  const text = isUnit
+    ? t("game.combat.ruleset.upcast.use", { cost: t("game.combat.ruleset.option.cost", { amount: 1, pool: name }) })
+    : t("game.combat.ruleset.upcast.pool", { pool: name });
+  const count = option.targetsWith?.[pool];
+  return count ? t("game.combat.ruleset.upcast.withTargets", { text, count }) : text;
+}
+
 /** What the option is expected to do, in words. The server computed both numbers; a screen that
  *  worked out its own chance to hit could disagree with the fight it is describing. */
 export function rulesetOptionForecastText(option: DirectedRulesetOption, t: TFunction): string {
@@ -249,11 +344,23 @@ export function rulesetOptionForecastText(option: DirectedRulesetOption, t: TFun
   }
   // An attack made in a style does what its style does, which the style step says: the weapon's
   // own damage is neither what a taking style takes nor what a spending one throws.
-  if (typeof forecast?.averageDamage === "number" && !option.styles?.length) {
+  // "About 0 damage" (an Unarmed Strike with no Strength to speak of) says nothing worth reading.
+  // A save is said before what it would do, and what a made one leaves after it: "DEX save DC 15,
+  // about 28 (14 on a save)".
+  const save = option.saveAgainst;
+  if (save) parts.push(t("game.combat.ruleset.option.forecastSave", { save: save.label, dc: save.dc }));
+  if (typeof forecast?.averageDamage === "number" && Math.round(forecast.averageDamage) > 0 && !option.styles?.length) {
+    const amount = Math.round(forecast.averageDamage);
+    const damage = t(
+      option.heals ? "game.combat.ruleset.option.forecastHeal" : "game.combat.ruleset.option.forecastDamage",
+      { amount },
+    );
     parts.push(
-      t(option.heals ? "game.combat.ruleset.option.forecastHeal" : "game.combat.ruleset.option.forecastDamage", {
-        amount: Math.round(forecast.averageDamage),
-      }),
+      save?.onSuccess === "half"
+        ? t("game.combat.ruleset.option.forecastSavedHalf", { damage, amount: Math.floor(amount / 2) })
+        : save?.onSuccess === "negates"
+          ? t("game.combat.ruleset.option.forecastSavedNone", { damage })
+          : damage,
     );
   }
   return parts.join(", ");
@@ -272,7 +379,7 @@ export function rulesetStyleForecastText(
   }
   if (typeof forecast?.shift === "number") {
     parts.push(t("game.combat.ruleset.option.forecastShift", { amount: Math.round(forecast.shift) }));
-  } else if (typeof forecast?.averageDamage === "number") {
+  } else if (typeof forecast?.averageDamage === "number" && Math.round(forecast.averageDamage) > 0) {
     parts.push(t("game.combat.ruleset.option.forecastDamage", { amount: Math.round(forecast.averageDamage) }));
   }
   return parts.join(", ");
@@ -285,6 +392,13 @@ export function rulesetOptionNeedsTargets(option: DirectedRulesetOption): boolea
   if (option.targets.side === "self") return false;
   // A wall's section it may strike instead counts (1.200).
   return option.targets.count > 0 && (option.targetIds.length > 0 || (option.walls?.length ?? 0) > 0);
+}
+
+/** Whether an option is pointed at somebody and has nobody to point it at right now (a sword with
+ *  every foe out of reach): the menu folds these into one muted line rather than a row each. */
+export function rulesetOptionOutOfReach(option: DirectedRulesetOption): boolean {
+  if (option.targets.side === "self" || option.targets.count === 0) return false;
+  return option.targetIds.length === 0 && !(option.walls?.length ?? 0) && !(option.aim?.length ?? 0);
 }
 
 /** The targets a player has picked after clicking one more. Only ids the option itself lists can
@@ -404,4 +518,74 @@ export function rulesetDefaultTargets(option: DirectedRulesetOption): string[] {
  *  anything that may take several is confirmed, so a second target is still reachable. */
 export function rulesetSendsOnPick(option: DirectedRulesetOption): boolean {
   return option.targets.count === 1;
+}
+
+/** The fight a spend carry was sent into, how many times it was lost on the way, and, while it has
+ *  not landed, how it failed: refused by the rules at a revision, or lost while one view stood. */
+export interface RulesetSpendCarried {
+  key: string;
+  lost: number;
+  failed?: { refused: true; at: number } | { refused: false; view: number };
+}
+
+/** A carry lost on the way is sent this many times in all, so a server that is down is not asked
+ *  for ever. A refusal is not counted: the rules answered it, and it waits for the fight to move. */
+export const RULESET_SPEND_CARRY_TRIES = 3;
+
+/** Whether this browser's choice of picking its own symbol spends (1.382) is carried into the fight
+ *  on screen now. Null while it waits: no fight in symbol dice, a fight already over, a step in
+ *  flight, a decision standing open (which would refuse the command), or this fight already carried.
+ *  One the rules refused is tried again once the fight has moved past that revision; one lost on
+ *  the way, once a fresh view has come in (`view` is when the one on screen arrived), up to its
+ *  tries. Otherwise the fight's key, whether the command needs sending at all, and the revision and
+ *  view it goes at. A fight is its id and its instance, since a restored checkpoint is another. */
+export function rulesetSpendCarry(
+  session:
+    | (Pick<DirectedCombatView, "id" | "instanceId" | "revision" | "window" | "outcome"> & {
+        ruleset?: Pick<DirectedRulesetView, "spends">;
+      })
+    | undefined,
+  view: number,
+  busy: boolean,
+  carried: RulesetSpendCarried | null,
+  preferred: boolean,
+): { key: string; send: boolean; revision: number; view: number } | null {
+  const spends = session?.ruleset?.spends;
+  if (!session || !spends || session.outcome || busy || session.window) return null;
+  const key = `${session.id}|${session.instanceId ?? ""}`;
+  if (carried?.key === key) {
+    const failed = carried.failed;
+    if (!failed) return null;
+    if (failed.refused && failed.at === session.revision) return null;
+    if (!failed.refused && (failed.view === view || carried.lost >= RULESET_SPEND_CARRY_TRIES)) return null;
+  }
+  return { key, send: preferred && !spends.choose, revision: session.revision, view };
+}
+
+/** The carry itself: at most one command per fight while it is in flight or landed, however often
+ *  this runs, and one that does not come back accepted is marked with how it failed. */
+export function runRulesetSpendCarry(
+  carry: ReturnType<typeof rulesetSpendCarry>,
+  carried: { current: RulesetSpendCarried | null },
+  send: (command: { type: "spends"; choose: true }, options: { onError: (error: unknown) => void }) => void,
+  /** Whether an error is the rules saying no, rather than the command being lost. */
+  refused: (error: unknown) => boolean,
+): void {
+  if (!carry) return;
+  const at = carried.current?.key === carry.key ? carried.current : null;
+  if (at && !at.failed) return;
+  const lost = at?.lost ?? 0;
+  carried.current = { key: carry.key, lost };
+  if (!carry.send) return;
+  send(
+    { type: "spends", choose: true },
+    {
+      onError: (error) => {
+        if (carried.current?.key !== carry.key) return;
+        carried.current = refused(error)
+          ? { key: carry.key, lost, failed: { refused: true, at: carry.revision } }
+          : { key: carry.key, lost: lost + 1, failed: { refused: false, view: carry.view } };
+      },
+    },
+  );
 }

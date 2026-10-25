@@ -41,6 +41,17 @@ export function resolveLorebookGenerationTriggers(
   return Array.from(triggers);
 }
 
+/** Accept only complete intent snapshots emitted by the resolver for this chat mode. */
+export function normalizeStoredLorebookGenerationTriggers(value: unknown, chatMode: string): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return [
+    resolveLorebookGenerationTriggers({ userMessage: "input" }, chatMode),
+    resolveLorebookGenerationTriggers({}, chatMode),
+    resolveLorebookGenerationTriggers({ impersonate: true }, chatMode),
+    resolveLorebookGenerationTriggers({ regenerateMessageId: "message" }, chatMode),
+  ].find((triggers) => triggers.length === value.length && triggers.every((trigger) => value.includes(trigger)));
+}
+
 export function buildLorebookScanMessagesWithGenerationGuide(
   messages: LorebookScanMessage[],
   input: {

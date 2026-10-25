@@ -15,11 +15,13 @@ import {
   MOBILE_SHELL_MEDIA_QUERY,
   RIGHT_PANEL_WIDTH_MAX,
   RIGHT_PANEL_WIDTH_MIN,
+  selectSidebarShown,
   SIDEBAR_WIDTH_MAX,
   SIDEBAR_WIDTH_MIN,
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
   useUIStore,
 } from "../../stores/ui.store";
+import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useChatStore } from "../../stores/chat.store";
 import { useDialogStore } from "../../stores/dialog.store";
 import { useBackgroundAutonomousPolling } from "../../hooks/use-background-autonomous";
@@ -131,7 +133,10 @@ const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="bubble"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const ROLEPLAY_CHAT_COLUMN_SELECTOR = '[data-roleplay-chat-column="true"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
-const MOBILE_SHELL_PANEL_TOP_CLASS = "top-[calc(env(safe-area-inset-top)_+_3rem)]";
+// Below the TopBar, whose height a sideways phone shortens (--mari-topbar-height in globals.css).
+const MOBILE_SHELL_PANEL_TOP_CLASS = "top-[calc(env(safe-area-inset-top)_+_var(--mari-topbar-height,3rem))]";
+// Phone sheets fill the width the shell has: a phone turned sideways keeps its camera insets clear.
+const MOBILE_SHELL_PANEL_X_CLASS = "left-(--mari-shell-inset-left) right-(--mari-shell-inset-right)";
 const MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS =
   "pb-[min(max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.5rem),3rem)]";
 const CENTER_COMPACT_WIDTH = 768;
@@ -304,6 +309,18 @@ export function AppShell({
       if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         frame = 0;
+        // iPhone safe areas are symmetric in landscape, although the camera is on one edge.
+        // Prefer its legacy angle: older Safari inverted ScreenOrientation.angle.
+        const angle = window.orientation ?? window.screen.orientation?.angle;
+        const cameraSide = /iPhone|iPod/iu.test(navigator.userAgent)
+          ? angle === 90
+            ? "left"
+            : angle === -90 || angle === 270
+              ? "right"
+              : null
+          : null;
+        if (cameraSide) root.setAttribute("data-mari-camera-side", cameraSide);
+        else root.removeAttribute("data-mari-camera-side");
         const viewport = window.visualViewport;
         const scale = viewport && Number.isFinite(viewport.scale) && viewport.scale > 0 ? viewport.scale : 1;
         // Compare heights at the same zoom level so pinch zoom alone does not
@@ -373,6 +390,7 @@ export function AppShell({
     window.visualViewport?.addEventListener("scroll", updateVisualViewportGeometry);
     window.addEventListener("resize", updateVisualViewportGeometry);
     window.addEventListener("orientationchange", refreshAfterOrientationChange);
+    window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
     document.addEventListener("focusin", refreshAfterFocusChange);
     document.addEventListener("focusout", refreshAfterFocusChange);
 
@@ -384,16 +402,18 @@ export function AppShell({
       window.visualViewport?.removeEventListener("scroll", updateVisualViewportGeometry);
       window.removeEventListener("resize", updateVisualViewportGeometry);
       window.removeEventListener("orientationchange", refreshAfterOrientationChange);
+      window.screen.orientation?.removeEventListener("change", refreshAfterOrientationChange);
       document.removeEventListener("focusin", refreshAfterFocusChange);
       document.removeEventListener("focusout", refreshAfterFocusChange);
       root.style.removeProperty("--mari-visual-viewport-height");
       root.style.removeProperty("--mari-visual-viewport-offset-top");
       root.removeAttribute("data-mari-ios-webkit");
+      root.removeAttribute("data-mari-camera-side");
       root.removeAttribute("data-mari-software-keyboard-open");
     };
   }, []);
 
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarOpen = useUIStore(selectSidebarShown);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
@@ -619,6 +639,17 @@ export function AppShell({
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const discardNewChatSetup = useDiscardNewChatSetup();
+  useEffect(
+    () => () => {
+      // Watch above the lazy wizard: navigation may happen before its first mount.
+      // StrictMode probes and editor remounts leave the active id unchanged.
+      if (activeChatId && useChatStore.getState().activeChatId !== activeChatId) {
+        void discardNewChatSetup(activeChatId).catch(() => toast.error(localizeUi("chat.wizard.cancelFailed")));
+      }
+    },
+    [activeChatId, discardNewChatSetup, localizeUi],
+  );
   const activeChat = useChatStore((s) => s.activeChat);
   const clearUnread = useChatStore((s) => s.clearUnread);
   const { mutate: clearAutonomousUnread, isPending: isClearingAutonomousUnread } = useClearAutonomousUnread();
@@ -1333,7 +1364,11 @@ export function AppShell({
       {/* Mobile navigation backdrop */}
       {mobileNavigationPanel && (
         <div
-          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+          className={cn(
+            "fixed bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
+            MOBILE_SHELL_PANEL_TOP_CLASS,
+            MOBILE_SHELL_PANEL_X_CLASS,
+          )}
           onClick={() => {
             setSidebarOpen(false);
             closeRightPanel();
@@ -1446,19 +1481,21 @@ export function AppShell({
             {detailView && (
               <motion.aside
                 key="detail-editor"
-                initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}
-                animate={{ opacity: 1, x: 0 }}
-                exit={shellOverlayMode ? { opacity: 0, x: 24 } : undefined}
+                // A fade, not a slide: the sheet sits between the camera strips, and any sideways travel crosses one.
+                initial={shellOverlayMode ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                exit={shellOverlayMode ? { opacity: 0 } : undefined}
                 transition={{ type: "spring", damping: 30, stiffness: 360 }}
                 data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
                 aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                 tabIndex={-1}
                 className={cn(
-                  "mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
+                  "mari-detail-editor-surface mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
                   shellOverlayMode &&
                     cn(
-                      "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
+                      "mari-mobile-detail-sheet !fixed bottom-0 z-50 bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
                       MOBILE_SHELL_PANEL_TOP_CLASS,
+                      MOBILE_SHELL_PANEL_X_CLASS,
                       MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                     ),
                 )}
@@ -1491,7 +1528,11 @@ export function AppShell({
       {/* Overlay tracker panel backdrop */}
       {trackerPanelVisible && shellOverlayMode && (
         <div
-          className={cn("fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+          className={cn(
+            "fixed bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
+            MOBILE_SHELL_PANEL_TOP_CLASS,
+            MOBILE_SHELL_PANEL_X_CLASS,
+          )}
           onClick={closeTrackerPanel}
         />
       )}
@@ -1504,17 +1545,18 @@ export function AppShell({
               ref={overlayTrackerPanelRef}
               tabIndex={-1}
               key="mobile-tracker"
-              initial={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+              // A whole screen, not the sheet's width: an inset sheet would leave a slice in the camera strip.
+              initial={{ x: trackerPanelSide === "left" ? "-100vw" : "100vw" }}
               animate={{ x: 0 }}
-              exit={{ x: trackerPanelSide === "left" ? "-100%" : "100%" }}
+              exit={{ x: trackerPanelSide === "left" ? "-100vw" : "100vw" }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               data-component="TrackerDataSidebarMobile"
               aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
               className={cn(
-                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl outline-none ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-xl",
+                "mari-tracker-panel !fixed bottom-0 z-50 max-w-none overflow-hidden bg-zinc-950/95 shadow-2xl outline-none ring-1 ring-[var(--marinara-app-accent-solid)] backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
                 MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
-                trackerPanelSide === "left" ? "left-0" : "right-0",
+                MOBILE_SHELL_PANEL_X_CLASS,
               )}
               style={trackerPanelBackgroundStyle}
             >
@@ -1532,9 +1574,9 @@ export function AppShell({
           {mobileNavigationPanel && (
             <motion.aside
               key="mobile-navigation"
-              initial={{ x: "100%" }}
+              initial={{ x: "100vw" }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              exit={{ x: "100vw" }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               data-tour={mobileNavigationPanel === "chats" ? "sidebar" : undefined}
               data-component={mobileNavigationPanel === "chats" ? "ChatSidebarPanel" : "RightPanelMobile"}
@@ -1544,14 +1586,22 @@ export function AppShell({
                   : "ui.layout.appshell.settingsAndToolsPanel",
               )}
               className={cn(
-                "!fixed right-0 bottom-0 z-50 !w-full overflow-hidden shadow-2xl backdrop-blur-xl",
+                // contain: layout makes the sheet the frame for its fixed selection bar on every engine; its blur
+                // already does that except on iOS, where the blur is switched off for this sheet.
+                "!fixed bottom-0 z-50 overflow-hidden shadow-2xl backdrop-blur-xl [contain:layout]",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
+                MOBILE_SHELL_PANEL_X_CLASS,
                 MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
                 mobileNavigationPanel === "chats"
                   ? "mari-sidebar bg-[var(--background)]/95"
                   : "mari-right-panel bg-[var(--background)]/80",
               )}
-              style={{ "--mari-right-panel-width": "100vw" } as CSSProperties}
+              style={
+                {
+                  "--mari-right-panel-width":
+                    "calc(100vw - var(--mari-shell-inset-left) - var(--mari-shell-inset-right))",
+                } as CSSProperties
+              }
             >
               {mobileNavigationPanel === "chats" ? (
                 <ChatSidebar />

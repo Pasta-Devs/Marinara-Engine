@@ -1,4 +1,5 @@
 import {
+  audioConnectionSupportsGeneration,
   RULESET_PARTY_KEY,
   assignCombatTactics,
   combatTacticsSchema,
@@ -26,25 +27,39 @@ import {
   type GameInventoryStack,
   type PlayerStats,
   type RulesetLiveStates,
+  type CreaturePack,
   rulesetCardItems,
   rulesetReadsItems,
+  rulesetCombatStyle,
   gameDungeonMapFromMetadata,
 } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Game: Main Surface (rendered by ChatArea when mode === "game")
 // ──────────────────────────────────────────────
 import { useExperienceMapPack } from "../../hooks/use-map-pack";
+import { ExperiencePeopleSpritesContext } from "../../hooks/use-overworld-view";
+import {
+  getCombatStyle,
+  isBuiltInCombatStyle,
+  listCombatStyles,
+  offerCombatStart,
+  resolveCombatStyle,
+  styleOwnedFightFromSnapshot,
+  type CombatSurfaceContext,
+} from "./combat-styles";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   lazy,
   memo,
   Suspense,
   type ComponentProps,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -58,8 +73,10 @@ import {
   type GameAssetManifest,
 } from "../../hooks/use-game-assets";
 import { cleanNpcAvatarDisplayName, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
+import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import {
   CHAT_SETTINGS_WINDOW_ID,
   selectWindowRestored,
@@ -116,7 +133,6 @@ import {
   guardServerChatSnapshot,
   useBranchChat,
   useCreateMessage,
-  useDeleteChat,
   useUpdateChat,
   useUpdateChatMetadata,
   useUpdateMessage,
@@ -125,6 +141,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import {
   rulesetCatalogQuery,
+  capabilityPackageDrawsOwnSurface,
   selectGameExperiencePackages,
   useCapabilityClientModuleState,
   useInstalledCapabilityPackages,
@@ -146,6 +163,12 @@ import { createInputMacroResolverForChat, expandMessageIncludes, VARIABLE_WRITE_
 import { parseChatMetadata } from "../../lib/chat-display";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, ApiError, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
+import {
+  forgetCombatSetupFailure,
+  isDroppedRequest,
+  recalledCombatSetupFailure,
+  rememberCombatSetupFailure,
+} from "../../lib/combat-setup-failures";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
@@ -153,7 +176,13 @@ import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-event
 import { cn, generateClientId } from "../../lib/utils";
 import { GAME_DIALOG_CLASS, GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { describeGameInventoryRefusal, gameInventoryRefusalKeys } from "../../lib/game-inventory-refusal";
-import { filterAudioGenerationConnections, isConnectionFlagTrue } from "../../lib/connection-filters";
+import { StoryClockStrip, useStoryJournal } from "./StoryClockDial";
+import { ExperienceCreaturePacksContext } from "./CreatureArt";
+import {
+  filterAudioGenerationConnections,
+  matchesAudioGenerationConnectionId,
+  isConnectionFlagTrue,
+} from "../../lib/connection-filters";
 import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { audioManager } from "../../lib/game-audio";
 import {
@@ -181,7 +210,6 @@ import {
   type RulesetCombatSeeds,
 } from "../../lib/ruleset-combat-bridge";
 import { useSceneAnalysis } from "../../hooks/use-scene-analysis";
-import { useTTSConfig } from "../../hooks/use-tts";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { parsePartyDialogue } from "../../lib/party-dialogue-parser";
 import { dispatchSpotifySceneTrackChange } from "../../lib/spotify-playback-events";
@@ -237,7 +265,11 @@ import {
   type MusicEnemyTier,
   scoreAmbient,
   normalizeCharacterLookupName,
+  partyHealthWidgetUpdates,
   readRulesetSheetEnvelope,
+  rulesetHealthWords,
+  rulesetSheetBuildsByName,
+  rulesetSheetHealth,
   defaultRulesetSheetBuild,
   type RulesetSheetBuild,
   type RulesetCatalogEntriesById,
@@ -1619,15 +1651,8 @@ const GameAssetsBrowserView = lazy(async () => {
 
 const DirectedCombatUI = lazy(() => import("./DirectedCombatUI").then((m) => ({ default: m.DirectedCombatUI })));
 
-const GameCombatUI = lazy(async () => {
-  const module = await import("./GameCombatUI");
-  return { default: module.GameCombatUI };
-});
-
-const TacticalCombatUI = lazy(async () => {
-  const module = await import("./TacticalCombatUI");
-  return { default: module.TacticalCombatUI };
-});
+/** For a combat style without its own state: nothing to listen to. */
+const subscribeNever = () => () => {};
 
 const StoryboardBackgroundControls = lazy(async () => {
   const module = await import("./StoryboardBackgroundControls");
@@ -2084,6 +2109,7 @@ import {
   Loader2,
   Map as MapIcon,
   PanelsTopLeft,
+  Pencil,
   Play,
   Plug,
   RefreshCw,
@@ -2194,6 +2220,23 @@ function buildSegmentDeleteSet(chatMeta: Record<string, unknown>): Set<string> {
     }
   }
   return deleted;
+}
+
+function sameSegmentEditMap(a: Map<string, GameSegmentEdit>, b: Map<string, GameSegmentEdit>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, edit] of a) {
+    const other = b.get(key);
+    if (!other) return false;
+    const fields = new Set([...Object.keys(edit), ...Object.keys(other)]) as Set<keyof GameSegmentEdit>;
+    for (const field of fields) if (edit[field] !== other[field]) return false;
+  }
+  return true;
+}
+
+function sameStringSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
 }
 
 function slugifyGameMapId(value: string): string {
@@ -2311,6 +2354,18 @@ function GameSurfaceComponent({
       : null;
   const mapPackQuery = useExperienceMapPack(mapPackId);
   const mapPackTiles = mapPackId && mapPackQuery.isLoading ? ("loading" as const) : (mapPackQuery.data?.tiles ?? null);
+  // Its creature packs (Capability API 1.344): the game's fights draw from them before the library's.
+  const mapPackCreatures = useMemo(() => mapPackQuery.data?.creatures ?? [], [mapPackQuery.data]);
+  // Its people's walking looks (1.346), by person id, for the maps to dress them in.
+  const mapPackPeopleSprites = useMemo(
+    () =>
+      new Map(
+        (mapPackQuery.data?.people?.people ?? []).flatMap((person) =>
+          person.sprite ? [[person.person, person.sprite] as const] : [],
+        ),
+      ),
+    [mapPackQuery.data],
+  );
   const artFamilyRef = useRef(artFamily);
   artFamilyRef.current = artFamily;
   useEffect(() => {
@@ -2351,15 +2406,20 @@ function GameSurfaceComponent({
    *  chrome that renders outside its element. Declared rather than pushed, so it applies on first paint. */
   const experienceSurfaceClass = experienceSurfacePackage?.manifest.contributions?.gameSurface?.surfaceClass ?? null;
   const experienceSurfaceActive = experienceSurfaceId !== null;
+  /** Whether the Experience draws a view of its own over Game Mode's; a data-only one (1.373) never does,
+   *  so nothing is mounted for it and Game Mode's own view plays it. */
+  const experienceDrawsOwnView = capabilityPackageDrawsOwnSurface(experienceSurfacePackage);
   /** Whether an experience owns this game, which is what every built-in-chrome gate tests. Broader than
    *  `experienceSurfaceActive`, but only while the installed-packages query is in flight: on a cold cache
    *  that is false for a moment even though the chat already says an experience owns the run, and the
    *  built-in HUD would flash before the surface replaces it. Once the query settles this follows the
    *  surface, so a game whose package was uninstalled gets the built-in chrome back instead of losing
    *  both. Mounting the capability element stays on `experienceSurfaceActive` — that one needs the
-   *  package to actually be there. */
+   *  package to actually be there. A data-only Experience (1.373) draws nothing, so once it is known it
+   *  owns nothing either, and Game Mode's own view and chrome play it. */
   const experienceOwnsGame =
-    experienceSurfaceActive || (gameExperienceId !== null && installedCapabilityPackagesPending);
+    (experienceSurfaceActive && experienceDrawsOwnView) ||
+    (gameExperienceId !== null && installedCapabilityPackagesPending);
   // A game made without a world may be given one from the journal (worldgen W12), written for its own
   // setting with its own connection; never one an Experience decides, nor one made as Classic Game Mode.
   const canMakeWorld =
@@ -2447,12 +2507,17 @@ function GameSurfaceComponent({
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
   );
-  const gameCharacterIds = useMemo(() => {
+  // Joined so that a metadata write that leaves the cast alone keeps the same list downstream.
+  const gameCharacterIdsKey = useMemo(() => {
     const config = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
     const ids = new Set([...chatCharacterIds, ...getActivePartyIds(chatMeta)]);
     if (typeof config?.gmCharacterId === "string") ids.add(config.gmCharacterId);
-    return [...ids].filter((id) => characterMap.has(id));
+    return [...ids].filter((id) => characterMap.has(id)).join("\u0000");
   }, [characterMap, chatCharacterIds, chatMeta]);
+  const gameCharacterIds = useMemo(
+    () => (gameCharacterIdsKey ? gameCharacterIdsKey.split("\u0000") : []),
+    [gameCharacterIdsKey],
+  );
   // An unrelated library card with the same name is not a character in this game.
   const characters = useMemo(
     () => libraryCharacters.filter((character) => gameCharacterIds.includes(character.id)),
@@ -2467,45 +2532,28 @@ function GameSurfaceComponent({
   const useCustomGameMusic = gameMusicDjEnabled && musicPlayerSource === "custom";
   const useJsonMusicDjGameMusic = useYoutubeGameMusic || useCustomGameMusic;
   const useMusicDjPlayerMusic = useSpotifyGameMusic || useJsonMusicDjGameMusic;
-  const { data: ttsConfig } = useTTSConfig();
   const activeGameMetaId = typeof chatMeta.gameId === "string" ? chatMeta.gameId : "";
   const sceneRuntimeScopeKey = `${activeChatId}:${activeGameMetaId}`;
   const { data: connectionsList } = useConnections();
-  // Game audio capability: the game's audio connection (explicit pick, else the
-  // one chosen as the Text to Speech Source, else the category default, else
-  // the fallback) wins; the legacy TTS settings blob still gates setups that
-  // predate audio connections. Mirrors the server's resolveAudioConfig order.
-  const ttsChosenConnectionId = ttsConfig?.connectionId ?? "";
+  // Music/SFX resolve independently of speech, including explicit legacy picks migrated by the host.
   const gameAudioConnection = useMemo(() => {
-    // Quarantined (review-required) imports are refused by the server's
-    // resolution (getWithKey/getDefaultForAudio return null for them), so
-    // they must not drive capability gating here either.
     const rows = filterAudioGenerationConnections((connectionsList ?? []) as Record<string, unknown>[]);
     const explicitId = typeof chatMeta.gameAudioConnectionId === "string" ? chatMeta.gameAudioConnectionId : "";
-    const explicit = explicitId ? rows.find((connection) => connection.id === explicitId) : undefined;
-    if (explicit) return explicit;
-    // A missing chosen connection is refused by the server, never swapped for the default.
-    if (ttsChosenConnectionId) return rows.find((connection) => connection.id === ttsChosenConnectionId) ?? null;
+    if (explicitId)
+      return rows.find((connection) => matchesAudioGenerationConnectionId(connection, explicitId)) ?? null;
     return (
       rows.find((connection) => isConnectionFlagTrue(connection.defaultForAgents)) ??
       rows.find((connection) => isConnectionFlagTrue(connection.fallbackForAgents)) ??
       null
     );
-  }, [connectionsList, chatMeta.gameAudioConnectionId, ttsChosenConnectionId]);
-  const gameAudioConnectionIsElevenLabs =
-    gameAudioConnection != null &&
-    ((gameAudioConnection.audioSource as string | null) ?? "elevenlabs") === "elevenlabs";
-  // The card's own ElevenLabs switches count only while no Audio connection is its Source.
-  const ttsSettingsElevenLabs = ttsConfig?.source === "elevenlabs" && !ttsChosenConnectionId;
+  }, [connectionsList, chatMeta.gameAudioConnectionId]);
   const generateGameSoundEffects =
-    (gameAudioConnection
-      ? gameAudioConnectionIsElevenLabs && isConnectionFlagTrue(gameAudioConnection.audioSoundEffects)
-      : ttsSettingsElevenLabs && ttsConfig?.elevenLabsGameSoundEffects === true) &&
+    !!gameAudioConnection &&
+    audioConnectionSupportsGeneration(gameAudioConnection, "sfx") &&
     chatMeta.gameAudioSoundEffectsEnabled !== false;
   const generateGameMusic =
-    (gameAudioConnection
-      ? gameAudioConnectionIsElevenLabs && isConnectionFlagTrue(gameAudioConnection.audioMusic)
-      : ttsSettingsElevenLabs && ttsConfig?.elevenLabsGameMusic === true) &&
+    !!gameAudioConnection &&
+    audioConnectionSupportsGeneration(gameAudioConnection, "music") &&
     chatMeta.gameAudioMusicEnabled !== false &&
     !useMusicDjPlayerMusic;
   const sceneVideosQuery = useQuery({
@@ -2764,7 +2812,12 @@ function GameSurfaceComponent({
           (signal) =>
             api.post<{ tag: string; path: string }>(
               "/tts/game-audio",
-              { kind, prompt, ...(gameAudioConnectionId ? { audioConnectionId: gameAudioConnectionId } : {}) },
+              {
+                kind,
+                prompt,
+                debugMode: useUIStore.getState().debugMode,
+                ...(gameAudioConnectionId ? { audioConnectionId: gameAudioConnectionId } : {}),
+              },
               { signal },
             ),
           GAME_AUDIO_GENERATION_TIMEOUT_MS,
@@ -2868,6 +2921,7 @@ function GameSurfaceComponent({
                 {
                   kind: "music",
                   prompt,
+                  debugMode: useUIStore.getState().debugMode,
                   context: { axis, key },
                   ...(gameAudioConnectionId ? { audioConnectionId: gameAudioConnectionId } : {}),
                 },
@@ -2965,10 +3019,14 @@ function GameSurfaceComponent({
   const [preparedCombatState, setPreparedCombatState] = useState<PreparedCombatState | null>(null);
   const [combatGenerationPending, setCombatGenerationPending] = useState(false);
   const [combatGenerationError, setCombatGenerationError] = useState<string | null>(null);
+  /** The last failed setup stopped part way: the model ran out of room to answer (B1). */
+  const [combatGenerationCutOff, setCombatGenerationCutOff] = useState(false);
   /** Synchronous in-flight flag beside the async combatGenerationPending state: same-frame double
    *  requests all read the stale state, the ref does not. Declared early so the turn-retry handler,
    *  which must abandon an in-flight generation, can reach it. #5094. */
   const combatGenerationInFlightRef = useRef(false);
+  // The message whose fight a registered combat style took over (#8109), so it is started once.
+  const combatStyleStartedMessageIdRef = useRef<string | null>(null);
   /** Monotonic id for the CURRENT combat request; a stale completion whose id no longer matches bails.
    *  Bumped on every new request, on chat switch, and when a turn retry abandons a generation. #5094. */
   const combatGenerationRequestIdRef = useRef(0);
@@ -3067,6 +3125,40 @@ function GameSurfaceComponent({
     () => gameInventoryFightEffects(fightInventoryLines, combatItemEffects),
     [fightInventoryLines, combatItemEffects],
   );
+  // A party health widget follows the sheets (laptop playtest 2026-10-25: "Ulfgar HP" stayed at 50
+  // while the sheet said 48, as the Game Master wrote no widget tag that turn). Whenever a sheet's
+  // health or the widgets change, a row that belongs to a member is brought to what the sheet says.
+  const healthDefinition = gameRuleset.status === "ok" ? gameRuleset.definition : null;
+  const healthCards = chatMeta.gameCharacterCards;
+  const healthLive = gameSnapshot?.rulesetLive;
+  const healthPlayer = personaInfo?.name;
+  useEffect(() => {
+    if (!healthDefinition?.battle || !healthLive || replaySessionNumber !== null || hudWidgets.length === 0) return;
+    const builds = rulesetSheetBuildsByName(healthDefinition, healthCards, healthPlayer);
+    if (builds.size === 0) return;
+    const rows = (Array.isArray(healthCards) ? (healthCards as Array<{ name?: unknown }>) : []).flatMap((card) => {
+      const name = typeof card?.name === "string" ? card.name.trim() : "";
+      const key = name ? normalizeCharacterLookupName(name) : "";
+      const build = key ? builds.get(key) : undefined;
+      const health = build ? rulesetSheetHealth(healthDefinition, build, healthLive[key]) : undefined;
+      return health ? [{ name, ...health }] : [];
+    });
+    // The ruleset's own name for what a fight damages ("Grit") names a row as well as "HP" does.
+    const updates = partyHealthWidgetUpdates(hudWidgets, rows, rulesetHealthWords(healthDefinition));
+    if (updates.length === 0) return;
+    let next = hudWidgets;
+    for (const update of updates) next = applyWidgetUpdate(update);
+    syncHudWidgetsToChatCache(next);
+  }, [
+    healthDefinition,
+    healthCards,
+    healthLive,
+    healthPlayer,
+    hudWidgets,
+    replaySessionNumber,
+    applyWidgetUpdate,
+    syncHudWidgetsToChatCache,
+  ]);
   /** What the inventory just did, shown for a moment: gains in green, everything else in red. */
   const [inventoryNotifications, setInventoryNotifications] = useState<Array<{ text: string; gain: boolean }>>([]);
   const [removingPartyMemberId, setRemovingPartyMemberId] = useState<string | null>(null);
@@ -3224,9 +3316,13 @@ function GameSurfaceComponent({
   const [segmentEdits, setSegmentEdits] = useState(() => buildSegmentEditMap(chatMeta));
   const [segmentDeletes, setSegmentDeletes] = useState(() => buildSegmentDeleteSet(chatMeta));
   // Re-sync from chatMeta when it changes (e.g. page refresh loads new metadata)
+  // Most metadata writes leave the overlays as they were. Keeping the same Map and Set then spares
+  // the narration from parsing every message again on an unrelated settings toggle.
   useEffect(() => {
-    setSegmentEdits(buildSegmentEditMap(chatMeta));
-    setSegmentDeletes(buildSegmentDeleteSet(chatMeta));
+    const nextEdits = buildSegmentEditMap(chatMeta);
+    const nextDeletes = buildSegmentDeleteSet(chatMeta);
+    setSegmentEdits((current) => (sameSegmentEditMap(current, nextEdits) ? current : nextEdits));
+    setSegmentDeletes((current) => (sameStringSet(current, nextDeletes) ? current : nextDeletes));
   }, [chatMeta]);
 
   const appliedSegmentsRef = useRef<Set<number>>(new Set());
@@ -3439,6 +3535,7 @@ function GameSurfaceComponent({
     // combat, apply state, or set an error against the reset combat state.
     combatGenerationInFlightRef.current = false;
     combatGenerationRequestIdRef.current += 1;
+    combatStyleStartedMessageIdRef.current = null;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -3781,8 +3878,24 @@ function GameSurfaceComponent({
     if (personaInfo?.name && personaSpriteQuery.data?.length) {
       map.set(normalizeTextForMatch(personaInfo.name), personaSpriteQuery.data);
     }
+    // An Experience's people (1.346) speak with their own expressions, once the game has met them.
+    const people = mapPackQuery.data?.people;
+    if (people) {
+      const byPerson = new Map(people.people.map((each) => [each.person, each]));
+      for (const npc of npcs) {
+        const entry = npc.worldId ? byPerson.get(npc.worldId) : undefined;
+        if (!npc.name || !entry?.expressions || map.has(normalizeTextForMatch(npc.name))) continue;
+        const sprites: SpriteInfo[] = Object.entries(entry.expressions).flatMap(([expression, path]) =>
+          path && people.urls[path] ? [{ expression, filename: path, url: people.urls[path]! }] : [],
+        );
+        if (entry.portrait && people.urls[entry.portrait] && !entry.expressions.neutral) {
+          sprites.push({ expression: "neutral", filename: entry.portrait, url: people.urls[entry.portrait]! });
+        }
+        if (sprites.length) map.set(normalizeTextForMatch(npc.name), sprites);
+      }
+    }
     return map;
-  }, [characterIds, characterMap, personaInfo, personaSpriteQuery.data, spriteQueries]);
+  }, [characterIds, characterMap, personaInfo, personaSpriteQuery.data, spriteQueries, mapPackQuery.data, npcs]);
 
   // Speaker-avatar seam: an experience whose cast has no engine character cards pushes a name→url map
   // here, so its speakers still get an avatar in the narration.
@@ -3976,6 +4089,29 @@ function GameSurfaceComponent({
   }, [messages]);
   const latestAssistantSwipeIndex = latestAssistantMsg?.activeSwipeIndex ?? 0;
   const latestAssistantTurnKey = narrationTurnKey(latestAssistantMsg);
+  const storyJournalQuery = useStoryJournal(
+    chatMeta.gameStory != null || mapPackQuery.data?.music ? activeChatId : null,
+    latestAssistantTurnKey,
+  );
+  const storyClocks = storyJournalQuery.data?.clocks ?? [];
+  const storyEnding = storyJournalQuery.data?.ending ?? null;
+  // The story's ending (Capability API 1.343), shown once per game until the player closes it. The close
+  // is kept in this browser too, so reopening the game doesn't bring the ending back.
+  const [storyEndingClosed, setStoryEndingClosed] = useState<string | null>(null);
+  const storyEndingKey = storyEnding ? `${activeChatId}:${storyEnding.id}` : null;
+  const storyEndingClosedBefore = useMemo(
+    () => (storyEndingKey ? readIntroPresentedFlag(`story-ending-closed:${storyEndingKey}`) : false),
+    [storyEndingKey],
+  );
+  const closeStoryEnding = useCallback(() => {
+    if (!storyEndingKey) return;
+    setStoryEndingClosed(storyEndingKey);
+    try {
+      localStorage.setItem(`story-ending-closed:${storyEndingKey}`, "1");
+    } catch {
+      // Storage can be unavailable (private mode); the close still holds for this visit.
+    }
+  }, [storyEndingKey]);
   const turnStoryboardsQuery = useGameTurnStoryboards(
     activeChatId,
     latestAssistantMsg?.id,
@@ -4698,6 +4834,7 @@ function GameSurfaceComponent({
     // combat, apply state, or set an error against the reset combat state.
     combatGenerationInFlightRef.current = false;
     combatGenerationRequestIdRef.current += 1;
+    combatStyleStartedMessageIdRef.current = null;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -4716,6 +4853,20 @@ function GameSurfaceComponent({
     if (combatRestoredChatIdRef.current === activeChatId) return;
     const snapshot = chatMeta.gameCombatState as GameCombatStateSnapshot | null | undefined;
     combatRestoredChatIdRef.current = activeChatId;
+    // A fight a registered style took over (#8109) saves only its pin and anchor; the style keeps
+    // the rest itself.
+    const styleOwnedFight = styleOwnedFightFromSnapshot(snapshot, activeChatId);
+    if (styleOwnedFight) {
+      // A style this client can no longer play leaves nothing to draw, so its save is stale.
+      if (styleOwnedFight.style === null || chatMeta.gameActiveState !== "combat") {
+        clearCombatSnapshot(activeChatId);
+        return;
+      }
+      setCombatPinnedStyle(styleOwnedFight.style);
+      setCombatStartMessageId(styleOwnedFight.startMessageId);
+      useGameModeStore.getState().setGameState("combat");
+      return;
+    }
     if (!snapshot || !snapshot.party?.length || !snapshot.enemies?.length) return;
     if (chatMeta.gameActiveState !== "combat") {
       // Stale snapshot — combat ended but the metadata write didn't land. Clear it.
@@ -4746,13 +4897,12 @@ function GameSurfaceComponent({
     // board before consulting the setting for the next encounter.
     const setup = chatMeta.gameSetupConfig as GameSetupConfig | undefined;
     const restoredCombatStyle: GameCombatStyle =
-      snapshot.combatStyle === "tactical" || snapshot.combatStyle === "classic"
-        ? snapshot.combatStyle
+      // A pinned style this client no longer knows plays as classic, as it does live.
+      snapshot.combatStyle
+        ? resolveCombatStyle(snapshot.combatStyle)
         : chatMeta.gameTacticalCombatSnapshot
           ? "tactical"
-          : (chatMeta.gameCombatStyle ?? setup?.combatStyle) === "tactical"
-            ? "tactical"
-            : "classic";
+          : resolveCombatStyle((chatMeta.gameCombatStyle as GameCombatStyle | undefined) ?? setup?.combatStyle);
     setCombatPinnedStyle(restoredCombatStyle);
     const restoredEnvironmentType =
       snapshot.sceneEnvironmentType ?? snapshot.styleNotes?.environmentType?.trim() ?? null;
@@ -5071,6 +5221,9 @@ function GameSurfaceComponent({
     setPendingSegmentEffects([]);
     setPendingInventorySegmentUpdates([]);
     appliedSegmentsRef.current = new Set();
+    // A new turn's inventory is announced afresh: a segment told last turn would otherwise keep this
+    // turn's buys and refusals at the same segment silent (laptop playtest 2026-10-25).
+    appliedInventorySegmentsRef.current = new Set();
     // Cancel any pending segment persist timer to prevent it from overwriting our reset
     if (segmentPersistTimer.current) {
       clearTimeout(segmentPersistTimer.current);
@@ -5137,7 +5290,7 @@ function GameSurfaceComponent({
     // contain. With the sub-option on the sparse tag is left exactly as it is, and the
     // outcome is narrated at the start of the next turn. The endpoint is untouched and
     // keeps serving the live path and the player's own composer.
-    const poolModeActive = chatMeta.gameOneRequestDice === true && chatMeta.gameDicePoolMode === true;
+    const poolModeActive = chatMeta.gameOneRequestDice !== false && chatMeta.gameDicePoolMode === true;
     void (async () => {
       for (const sc of tags.skillChecks) {
         try {
@@ -6875,6 +7028,7 @@ function GameSurfaceComponent({
     // combat, apply state, or set an error against the reset combat state.
     combatGenerationInFlightRef.current = false;
     combatGenerationRequestIdRef.current += 1;
+    combatStyleStartedMessageIdRef.current = null;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -7161,7 +7315,7 @@ function GameSurfaceComponent({
   const updateCampaignProgression = useUpdateCampaignProgression();
   const startSession = useStartSession();
   const generateMap = useGenerateMap();
-  const deleteChat = useDeleteChat();
+  const discardNewChatSetup = useDiscardNewChatSetup();
   const updateChatMetadata = useUpdateChatMetadata();
   const uploadCharacterAvatar = useUploadAvatar();
   const uploadPersonaAvatar = useUploadPersonaAvatar();
@@ -8843,7 +8997,50 @@ function GameSurfaceComponent({
     [activeChatId, removePartyMember, localizeUi],
   );
 
-  const combatUiActive = gameState === "combat" && !!combatParty && !!combatEnemies;
+  // Effective combat style: active encounter pin ?? runtime metadata override
+  // (settings drawer) ?? wizard setup choice ?? legacy default "classic". An id
+  // this client has not registered plays as classic (#8109).
+  const combatSetupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
+  // A style the game's ruleset leaves out (`combat.styles`, 1.379) plays as the first it lists; a fight
+  // already pinned keeps its own.
+  const effectiveCombatStyle: GameCombatStyle = resolveCombatStyle(
+    combatPinnedStyle ??
+      rulesetCombatStyle(
+        gameRuleset.status === "ok" ? gameRuleset.definition : null,
+        (chatMeta.gameCombatStyle as GameCombatStyle | undefined) ??
+          (combatSetupConfig?.combatStyle as GameCombatStyle | undefined),
+        listCombatStyles(),
+      ),
+  );
+  const combatStyleSurface = getCombatStyle(effectiveCombatStyle);
+  // A style that keeps its own state (#8109) counts as an active fight while it says so.
+  const combatStyleActive = useSyncExternalStore(
+    combatStyleSurface.subscribe ?? subscribeNever,
+    () => !!activeChatId && (combatStyleSurface.isActive?.(activeChatId) ?? false),
+  );
+  const combatUiActive = gameState === "combat" && ((!!combatParty && !!combatEnemies) || combatStyleActive);
+  // The Experience's own music (Capability API 1.345): its fight track in a fight, else the track the
+  // Engine picked for here (the story's cue, the place's, the pack's default), over the Engine's own
+  // music. The player's own music source wins, and their volumes and mute apply as to any music.
+  const experienceMusic = mapPackQuery.data?.music;
+  const experienceTrack = experienceMusic
+    ? combatUiActive && experienceMusic.combat
+      ? experienceMusic.combat
+      : (storyJournalQuery.data?.music ?? null)
+    : null;
+  const experienceTrackUrl = experienceTrack ? (experienceMusic?.urls[experienceTrack] ?? null) : null;
+  useEffect(() => {
+    if (useMusicDjPlayerMusic || replayActive) {
+      audioManager.setExperienceMusic(null, { resume: false });
+      return;
+    }
+    if (!mapPackId || !experienceTrack || !experienceTrackUrl) {
+      audioManager.setExperienceMusic(null);
+      return;
+    }
+    audioManager.setExperienceMusic({ tag: `experience:${mapPackId}:${experienceTrack}`, url: experienceTrackUrl });
+  }, [experienceTrack, experienceTrackUrl, mapPackId, replayActive, useMusicDjPlayerMusic]);
+  useEffect(() => () => audioManager.setExperienceMusic(null, { resume: false }), []);
   // The overworld (worldgen W8): a game with a world opens on it, and the player can switch to the scene
   // view and back. A fight, a replay and a package that draws the game itself keep their own screens.
   // A dungeon, cave or station map the Game Master opened with [map:] is shown over everything else,
@@ -8884,14 +9081,6 @@ function GameSurfaceComponent({
     );
     closeChatControlSheet(CHAT_CONTROL_WINDOW_IDS.gameControls);
   }, [activeChatId, overworldShown, setWorldView]);
-  // Effective combat style: active encounter pin ?? runtime metadata override
-  // (settings drawer) ?? wizard setup choice ?? legacy default "classic".
-  const combatSetupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
-  const effectiveCombatStyle: GameCombatStyle =
-    combatPinnedStyle ??
-    (chatMeta.gameCombatStyle as GameCombatStyle | undefined) ??
-    (combatSetupConfig?.combatStyle as GameCombatStyle | undefined) ??
-    "classic";
   // Live snapshot for the identity-stable combat seam (#5094): a package may
   // cache requestCombat at mount, so the callback must read CURRENT values, not
   // its creation render's closure. messageId rides latestAssistantMsgRef.
@@ -8911,9 +9100,10 @@ function GameSurfaceComponent({
   useEffect(() => {
     combatGenerationInFlightRef.current = false;
     combatGenerationRequestIdRef.current += 1;
+    combatStyleStartedMessageIdRef.current = null;
     setCombatGenerationError(null);
   }, [activeChatId]);
-  const tacticalCombatActive = combatUiActive && effectiveCombatStyle === "tactical";
+  const combatOwnsTopChrome = combatUiActive && !!combatStyleSurface.ownsTopChrome;
   const topOverlayOffsetClass = "top-3";
   const queuedCombatMatchesLatest =
     !!queuedCombatGeneration?.messageId &&
@@ -9207,6 +9397,14 @@ function GameSurfaceComponent({
   // presentation AND the ruleset says what one cell of one is worth. The server still decides: it
   // draws no board for a ruleset with no `distance`, and the screen follows the view it sends.
   const rulesetFightPositioned = !!rulesetFightDefinition?.combat?.distance && effectiveCombatStyle === "tactical";
+  // A fight on a board takes the whole chat area while its screen is up: the map, the party bar and the
+  // Game toolbar's bubbles step aside, and the chat list folds away, coming back as it was after.
+  const boardFightOnScreen = useCombatScreenStore((state) => state.round !== null);
+  useEffect(() => {
+    if (!boardFightOnScreen) return;
+    useUIStore.getState().hideSidebarForFight(true);
+    return () => useUIStore.getState().hideSidebarForFight(false);
+  }, [boardFightOnScreen]);
 
   // The catalogs a bridged battle reads are fetched as soon as the game is open, so that starting a
   // battle finds them in the cache and seeds the party in the same tick a game without a ruleset
@@ -9427,6 +9625,41 @@ function GameSurfaceComponent({
       // frame — same-frame double calls (a package spamming requestCombat, #5094)
       // all read false. The ref flips synchronously and clears with the request.
       if (combatGenerationPending || combatGenerationInFlightRef.current) return;
+      // A combat style that sets up its own encounter takes the fight here (#8109): the
+      // generation pass below is skipped, and the style's isActive keeps the fight on screen.
+      // One start per message, guarded like the pass below (#5094); see offerCombatStart.
+      const styleStart = offerCombatStart(
+        combatStyleSurface,
+        { chatId: activeChatId, messageId },
+        { inFlight: combatGenerationInFlightRef, startedMessageId: combatStyleStartedMessageIdRef },
+      );
+      if (styleStart === "already-taken") return;
+      if (styleStart === "taken") {
+        // Such a fight has no generated party, so the live snapshot writer never runs for it:
+        // save its pin and anchor now, so a reload restores the fight and its end can name it.
+        const snapshot: GameCombatStateSnapshot = {
+          party: [],
+          enemies: [],
+          itemEffects: [],
+          mechanics: [],
+          dialogueCues: [],
+          startMessageId: messageId,
+          combatStyle: effectiveCombatStyle,
+        };
+        // The server enters combat only once the snapshot is saved, so a save that fails cannot
+        // leave a game in combat with no fight to restore.
+        const requestChatId = activeChatId;
+        api
+          .patch(`/chats/${requestChatId}/metadata`, { gameCombatState: snapshot })
+          .then(() => transitionGameState.mutate({ chatId: requestChatId, newState: "combat" }))
+          .catch((err) => console.error("[game-surface] combat snapshot persist failed", err));
+        setQueuedCombatGeneration(null);
+        setPreparedCombatState(null);
+        setCombatPinnedStyle(effectiveCombatStyle);
+        setCombatStartMessageId(messageId);
+        useGameModeStore.getState().setGameState("combat");
+        return;
+      }
       const debugMode = useUIStore.getState().debugMode;
       if (debugMode) {
         console.warn("[game-combat] Starting combat state generation", { chatId: activeChatId, messageId });
@@ -9581,6 +9814,7 @@ function GameSurfaceComponent({
           const blueprintTerrainBriefError = (response.combatState as { battlefield?: { terrainBriefError?: unknown } })
             .battlefield?.terrainBriefError;
 
+          forgetCombatSetupFailure(requestChatId, messageId);
           setPreparedCombatState({
             messageId,
             party: combatants.party,
@@ -9604,6 +9838,15 @@ function GameSurfaceComponent({
           if (combatGenerationRequestIdRef.current !== requestId || activeChatIdRef.current !== requestChatId) return; // superseded; don't set stale error
           const message = err instanceof Error ? err.message : "Combat generation failed.";
           console.warn("[game-combat] Failed to generate combat state", err);
+          const cutOff =
+            err instanceof ApiError &&
+            !!err.payload &&
+            typeof err.payload === "object" &&
+            (err.payload as { reason?: unknown }).reason === "cut-off";
+          // Remembered, so opening this chat again waits for Retry Combat rather than asking again. A request
+          // the browser dropped (a reload mid-setup) is not: the server may have finished it.
+          if (!isDroppedRequest(err)) rememberCombatSetupFailure(requestChatId, messageId, { message, cutOff });
+          setCombatGenerationCutOff(cutOff);
           setCombatGenerationError(message);
           // Only the Engine paths (manual button, retry, auto-queue) toast. An Experience/package
           // request passes notify=false and renders its own feedback from combatError, so a failed
@@ -9631,6 +9874,9 @@ function GameSurfaceComponent({
       playContextCombatMusic,
       chatMeta.gameSetupConfig,
       localizeUi,
+      combatStyleSurface,
+      effectiveCombatStyle,
+      transitionGameState,
     ],
   );
 
@@ -9650,6 +9896,13 @@ function GameSurfaceComponent({
     if (pendingEncounter || combatUiActive || combatGenerationPending || combatGenerationError) return;
     if (preparedCombatState?.messageId === queuedCombatGeneration.messageId) return;
     if (isStreaming || scenePreparing || assetGenerationBlocksScene) return;
+    // This turn's setup already failed: it waits for Retry Combat instead of a new model call.
+    const failed = activeChatId ? recalledCombatSetupFailure(activeChatId, queuedCombatGeneration.messageId) : null;
+    if (failed) {
+      setCombatGenerationCutOff(failed.cutOff);
+      setCombatGenerationError(failed.message);
+      return;
+    }
 
     generateCombatStateForMessage(queuedCombatGeneration.messageId, queuedCombatGeneration.notify);
   }, [
@@ -9805,11 +10058,18 @@ function GameSurfaceComponent({
       toast.error(localizeUi("ui.game.gamesurfacecomponent.noCurrentTurnIsAvailableForCombatGeneration"));
       return;
     }
+    if (activeChatId) forgetCombatSetupFailure(activeChatId, messageId);
     setQueuedCombatGeneration({ messageId, notify: true });
     setPreparedCombatState(null);
     setCombatGenerationError(null);
     generateCombatStateForMessage(messageId, true);
-  }, [generateCombatStateForMessage, latestAssistantMsg?.id, queuedCombatGeneration?.messageId, localizeUi]);
+  }, [
+    activeChatId,
+    generateCombatStateForMessage,
+    latestAssistantMsg?.id,
+    queuedCombatGeneration?.messageId,
+    localizeUi,
+  ]);
 
   /** Keeps the identity-stable combat seam pointing at the CURRENT generator
    *  (whose own identity tracks its render-state deps). */
@@ -11256,6 +11516,7 @@ function GameSurfaceComponent({
     // combat, apply state, or set an error against the reset combat state.
     combatGenerationInFlightRef.current = false;
     combatGenerationRequestIdRef.current += 1;
+    combatStyleStartedMessageIdRef.current = null;
     setCombatGenerationPending(false);
     setCombatItemEffects([]);
     setCombatMechanics([]);
@@ -11295,6 +11556,8 @@ function GameSurfaceComponent({
     (outcome: "victory" | "defeat" | "flee", summary: CombatSummary) => {
       // The message that started the fight names it, so a win reported twice drops its loot once.
       const fightKey = combatStartMessageId;
+      // A fight a registered style took over has ended, so its message may start one again.
+      combatStyleStartedMessageIdRef.current = null;
       setCombatParty(null);
       setCombatEnemies(null);
       setCombatSceneMeta(null);
@@ -11687,15 +11950,6 @@ function GameSurfaceComponent({
     });
   }, [hudWidgets]);
 
-  const handleStartGameRequest = useCallback(() => {
-    if (experienceStartupBlocked || startGame.isPending || startGameRequested || startGameGuardRef.current) return;
-    if (normalizedWidgets.length > 0) {
-      setPrepareInitialWidgetsOpen(true);
-      return;
-    }
-    handleStartGameNow();
-  }, [experienceStartupBlocked, handleStartGameNow, normalizedWidgets.length, startGame.isPending, startGameRequested]);
-
   useEffect(() => {
     if (combatUiActive || normalizedWidgets.length === 0) {
       // Reset to the same width heuristic the state initializes with, NOT a
@@ -11903,7 +12157,6 @@ function GameSurfaceComponent({
     [chat.characterIds],
   );
   const setupWizardDismissed = dismissedSetupWizardChatId === activeChatId;
-  const canAutoDeleteEmptySetupChat = needsCreation && !isMessagesLoading && messages.length === 0;
   const shouldShowSetupWizard =
     isSetupActive || (!setupWizardDismissed && (needsCreation || sessionStatus === "setup"));
 
@@ -11927,7 +12180,7 @@ function GameSurfaceComponent({
   if (shouldShowSetupWizard) {
     // Shared with an experience's own setup, so closing either one behaves identically.
     /** Closes setup from either wizard: no-op while a launch is pending, and drops an empty chat. */
-    const dismissSetupWizard = () => {
+    const dismissSetupWizard = async () => {
       if (
         createGame.isPending ||
         gameSetup.isPending ||
@@ -11938,10 +12191,10 @@ function GameSurfaceComponent({
       )
         return;
       useGameModeStore.getState().setSetupActive(false);
-      if (canAutoDeleteEmptySetupChat) {
-        deleteChat.mutate(activeChatId, {
-          onSuccess: () => useChatStore.getState().setActiveChatId(null),
-        });
+      try {
+        if (await discardNewChatSetup(activeChatId)) return;
+      } catch {
+        toast.error(localizeUi("chat.wizard.cancelFailed"));
         return;
       }
       setDismissedSetupWizardChatId(activeChatId);
@@ -12312,18 +12565,32 @@ function GameSurfaceComponent({
                     </button>
                   )}
                 </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    audioManager.unlock();
-                    handleStartGameRequest();
-                  }}
-                  disabled={experienceStartupBlocked || startGame.isPending || startGameRequested}
-                  className="group flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-700/80 transition-all hover:scale-105 hover:bg-zinc-800 hover:shadow-lg hover:shadow-black/25 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                  <Play size={18} className="transition-transform group-hover:scale-110" />
-                  {localizeUi("ui.game.gamesurfacecomponent.startGame")}
-                </button>
+              ) : prepareInitialWidgetsOpen ? null : (
+                // Start Game starts the game: the setup wizard already asked once. The starting widgets
+                // sheet is there for whoever wants it, and has its own Start Game, so this one waits.
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    onClick={() => {
+                      audioManager.unlock();
+                      handleStartGameNow();
+                    }}
+                    disabled={experienceStartupBlocked || startGame.isPending || startGameRequested}
+                    className="group flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-700/80 transition-all hover:scale-105 hover:bg-zinc-800 hover:shadow-lg hover:shadow-black/25 disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    <Play size={18} className="transition-transform group-hover:scale-110" />
+                    {localizeUi("ui.game.gamesurfacecomponent.startGame")}
+                  </button>
+                  {normalizedWidgets.length > 0 && (
+                    <button
+                      onClick={() => setPrepareInitialWidgetsOpen(true)}
+                      disabled={experienceStartupBlocked || startGame.isPending || startGameRequested}
+                      className={cn(SURFACE_BTN, "disabled:opacity-50")}
+                    >
+                      <Pencil size={12} />
+                      {localizeUi("ui.game.gamesurfacecomponent.reviewStartingWidgets")}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -12469,6 +12736,7 @@ function GameSurfaceComponent({
             <Suspense fallback={null}>
               <GameJournal
                 chatId={activeChatId}
+                rulesetPin={chatMeta.gameRuleset}
                 hasWorld={Boolean(chatMeta.gameWorld)}
                 canMakeWorld={canMakeWorld}
                 worldRequest={makeWorldRequest}
@@ -12768,396 +13036,429 @@ function GameSurfaceComponent({
   };
 
   return (
-    <div
-      className={cn(
-        "relative flex h-full overflow-hidden bg-black mari-card-css",
-        (isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing) &&
-          "mari-generation-render-paused",
-      )}
-      data-chat-mode="game"
-    >
-      <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
-        <DirectionEngine
-          directions={activeDirections}
-          backgroundUrl={displayedBackground ?? undefined}
-          backgroundBlurPx={chatBackgroundBlur}
-          onPlayingChange={(playing) => {
-            setDirectionsPlaying(playing);
-            // When intro cinematic finishes, clear the flag
-            if (!playing && introCinematicActive) setIntroCinematicActive(false);
-          }}
-        >
-          {!replayActive && renderStoryboardBackgroundVisual()}
-
-          {/* Underlay mount — the part of the surface that belongs BEHIND the narration, such as a
-              standing sprite. The main layer is stacked above it, where a sprite would cover the box. */}
-          {experienceSurfaceActive ? (
-            <CapabilityElement
-              packageId={experienceSurfaceId}
-              view="surface"
-              capabilityProps={experienceUnderlayProps}
-              className="pointer-events-none absolute inset-0"
-            />
-          ) : null}
-
-          {/* Full-body VN sprite — active speaker only */}
-          <div
-            className="transition-opacity duration-700 ease-in-out"
-            style={{
-              opacity: spriteVisible && !overworldShown && !dungeonShown ? 1 : 0,
-              pointerEvents: spriteVisible && !overworldShown && !dungeonShown ? "auto" : "none",
+    <ExperienceMapPackProviders creatures={mapPackCreatures} peopleSprites={mapPackPeopleSprites}>
+      <div
+        className={cn(
+          "relative flex h-full overflow-hidden bg-black mari-card-css",
+          (isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing) &&
+            "mari-generation-render-paused",
+        )}
+        data-chat-mode="game"
+      >
+        <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
+          <DirectionEngine
+            directions={activeDirections}
+            backgroundUrl={displayedBackground ?? undefined}
+            backgroundBlurPx={chatBackgroundBlur}
+            onPlayingChange={(playing) => {
+              setDirectionsPlaying(playing);
+              // When intro cinematic finishes, clear the flag
+              if (!playing && introCinematicActive) setIntroCinematicActive(false);
             }}
           >
-            {displaySpriteIds.length > 0 && (
+            {!replayActive && renderStoryboardBackgroundVisual()}
+
+            {/* Underlay mount — the part of the surface that belongs BEHIND the narration, such as a
+              standing sprite. The main layer is stacked above it, where a sprite would cover the box. */}
+            {experienceSurfaceActive && experienceDrawsOwnView ? (
+              <CapabilityElement
+                packageId={experienceSurfaceId}
+                view="surface"
+                capabilityProps={experienceUnderlayProps}
+                className="pointer-events-none absolute inset-0"
+              />
+            ) : null}
+
+            {/* Full-body VN sprite — active speaker only */}
+            <div
+              className="transition-opacity duration-700 ease-in-out"
+              style={{
+                opacity: spriteVisible && !overworldShown && !dungeonShown ? 1 : 0,
+                pointerEvents: spriteVisible && !overworldShown && !dungeonShown ? "auto" : "none",
+              }}
+            >
+              {displaySpriteIds.length > 0 && (
+                <Suspense fallback={null}>
+                  <SpriteOverlay
+                    characterIds={displaySpriteIds}
+                    messages={replayActive ? replaySpriteMessages : narrationMessages}
+                    side={displaySpriteIds.length === 1 ? "center" : "right"}
+                    spriteExpressions={gameSpriteExpressions}
+                    fullBodyOnly
+                    spriteScale={gameFullBodySpriteScale}
+                  />
+                </Suspense>
+              )}
+            </div>
+            {avatarAgentIds.length > 0 && avatarParticipants.length > 0 && !overworldShown && !dungeonShown && (
               <Suspense fallback={null}>
-                <SpriteOverlay
-                  characterIds={displaySpriteIds}
-                  messages={replayActive ? replaySpriteMessages : narrationMessages}
-                  side={displaySpriteIds.length === 1 ? "center" : "right"}
-                  spriteExpressions={gameSpriteExpressions}
-                  fullBodyOnly
-                  spriteScale={gameFullBodySpriteScale}
+                <AvatarStage
+                  chatId={activeChatId}
+                  mode="game"
+                  participants={avatarParticipants}
+                  enabledAgentIds={avatarAgentIds}
+                  side="center"
+                  {...avatarStage}
                 />
               </Suspense>
             )}
-          </div>
-          {avatarAgentIds.length > 0 && avatarParticipants.length > 0 && !overworldShown && !dungeonShown && (
-            <Suspense fallback={null}>
-              <AvatarStage
-                chatId={activeChatId}
-                mode="game"
-                participants={avatarParticipants}
-                enabledAgentIds={avatarAgentIds}
-                side="center"
-                {...avatarStage}
-              />
-            </Suspense>
-          )}
 
-          <div className="relative flex min-w-0 h-full flex-col overflow-hidden">
-            {/* Fade in all UI chrome after intro cinematic finishes */}
-            <div
-              className={`absolute inset-0 z-10 flex flex-col transition-opacity duration-1000 ease-out ${
-                introCinematicActive ? "pointer-events-none opacity-0" : "opacity-100"
-              }`}
-            >
-              {/* Top-right action controls */}
+            <div className="relative flex min-w-0 h-full flex-col overflow-hidden">
+              {/* Fade in all UI chrome after intro cinematic finishes */}
               <div
-                data-tour="game-controls"
-                data-game-float="controls"
-                data-tracker-panel-anchor="roleplay-hud"
-                className={cn(
-                  "pointer-events-none absolute right-3 z-50",
-                  tacticalCombatActive
-                    ? "top-[calc(var(--tactical-chrome-height,3rem)+0.5rem)]"
-                    : topOverlayOffsetClass,
-                  replayActive && "hidden",
-                )}
+                className={`absolute inset-0 z-10 flex flex-col transition-opacity duration-1000 ease-out ${
+                  introCinematicActive ? "pointer-events-none opacity-0" : "opacity-100"
+                }`}
               >
-                {/* These controls are windows that minimize to bubbles (rendered below). */}
-              </div>
-
-              {!replayActive && pendingReaction && (
-                <GameElementReaction
-                  reaction={pendingReaction}
-                  elements={gameKit ? gameElements : undefined}
-                  onDismiss={() => setPendingReaction(null)}
-                />
-              )}
-
-              {/* Main content area */}
-              <div
-                ref={attachHudSurface}
-                data-chat-resource-drop-surface
-                className={cn("relative flex min-h-0 flex-1 flex-col overflow-hidden", experienceSurfaceClass)}
-              >
-                {dungeonShown && (
-                  <Suspense fallback={null}>
-                    <DungeonMapView
-                      chatId={activeChatId}
-                      turnKey={narrationTurnKey(latestAssistantMsg)}
-                      canWalk={!isStreaming && narrationDone && sessionInteractive}
-                      onLeft={() => undefined}
-                      hour={typeof gameTimeMeta?.hour === "number" ? normalizeGameHour(gameTimeMeta.hour) : undefined}
-                    />
-                  </Suspense>
-                )}
-                {overworldShown &&
-                  gameWorld &&
-                  (() => {
-                    const view = {
-                      chatId: activeChatId,
-                      game: gameWorld,
-                      turnKey: narrationTurnKey(latestAssistantMsg),
-                      time: gameTimeMeta
-                        ? {
-                            day: normalizeGameDay(gameTimeMeta.day),
-                            hour: normalizeGameHour(gameTimeMeta.hour),
-                            minute: normalizeGameMinute(gameTimeMeta.minute),
-                          }
-                        : null,
-                      clockRunning: !isStreaming && narrationDone && sessionInteractive,
-                      canWalk: !isStreaming && narrationDone && sessionInteractive,
-                      family: artFamily,
-                      tilePack: mapPackTiles,
-                      handleRef: overworldClockRef,
-                    };
-                    return (
-                      <Suspense fallback={null}>
-                        {townShown ? (
-                          <TownView {...view} onLeave={() => setWorldView("overworld")} />
-                        ) : (
-                          <WorldOverworld {...view} onEnterTown={() => setWorldView("town")} />
-                        )}
-                      </Suspense>
-                    );
-                  })()}
-                {/* Main mount. pointer-events-none lets clicks fall through empty regions to the
-                    narration underneath; the package sets pointer-events-auto on its own chrome. */}
-                {experienceSurfaceActive ? (
-                  <CapabilityElement
-                    packageId={experienceSurfaceId}
-                    view="surface"
-                    capabilityProps={experienceSurfaceProps}
-                    className="pointer-events-none absolute inset-0 z-30"
-                  />
-                ) : null}
-
-                {/* Top-left: Map + Party portraits side by side, clear of a phone's row of control bubbles */}
+                {/* Top-right action controls */}
                 <div
-                  data-game-float="map-and-party"
+                  data-tour="game-controls"
+                  data-game-float="controls"
+                  data-tracker-panel-anchor="roleplay-hud"
                   className={cn(
-                    // On a phone it stops short of the control-button rows in the right half of the chat.
-                    "pointer-events-auto absolute left-3 right-[calc(50%+1.625rem)] z-20 flex min-w-0 items-start gap-2 md:right-auto",
-                    gameRuleset?.status === "ok" &&
-                      gameRuleset.definition.clocks &&
-                      Boolean(gameSnapshot?.rulesetClocks?.length) &&
-                      "flex-wrap md:flex-nowrap",
-                    tacticalCombatActive
+                    "pointer-events-none absolute right-3 z-50",
+                    combatOwnsTopChrome
                       ? "top-[calc(var(--tactical-chrome-height,3rem)+0.5rem)]"
                       : topOverlayOffsetClass,
-                    replayActive && "hidden",
-                    // The package draws its own header and party bar, so the built-in ones would collide.
-                    // Gated on ownership rather than the mount, so they do not flash while the package
-                    // is still being resolved.
-                    experienceOwnsGame && "hidden",
+                    (replayActive || boardFightOnScreen) && "hidden",
                   )}
                 >
-                  {/* Desktop: inline minimap */}
-                  <div className="hidden md:block">
-                    <GameMapPanel
-                      map={viewedMap}
-                      maps={availableMaps}
-                      activeMapId={activeMapId}
-                      viewedMapId={effectiveViewedMapId}
-                      onViewedMapChange={handleViewedMapChange}
-                      onMove={handleMapMove}
-                      selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
-                      onGenerateMap={handleGenerateMap}
-                      generateMapDisabled={isStreaming || !sessionInteractive}
-                      disabled={isStreaming || !narrationDone || !sessionInteractive}
-                      gameState={gameState}
-                      timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
-                      day={currentGameDay}
-                      onDayChange={handleGameDayChange}
-                      onTimeChange={handleGameTimeChange}
-                      spatialContext={activeSpatialContext}
-                      spatialContextLoading={activeSpatialContextLoading}
-                      chatId={activeChatId}
-                      constraintsRef={hudSurfaceRef}
+                  {/* These controls are windows that minimize to bubbles (rendered below). */}
+                </div>
+
+                {!replayActive && pendingReaction && (
+                  <GameElementReaction
+                    reaction={pendingReaction}
+                    elements={gameKit ? gameElements : undefined}
+                    onDismiss={() => setPendingReaction(null)}
+                  />
+                )}
+
+                {/* Main content area */}
+                <div
+                  ref={attachHudSurface}
+                  data-chat-resource-drop-surface
+                  className={cn("relative flex min-h-0 flex-1 flex-col overflow-hidden", experienceSurfaceClass)}
+                >
+                  {dungeonShown && (
+                    <Suspense fallback={null}>
+                      <DungeonMapView
+                        chatId={activeChatId}
+                        turnKey={narrationTurnKey(latestAssistantMsg)}
+                        canWalk={!isStreaming && narrationDone && sessionInteractive}
+                        onLeft={() => undefined}
+                        hour={typeof gameTimeMeta?.hour === "number" ? normalizeGameHour(gameTimeMeta.hour) : undefined}
+                        dungeonLooks={mapPackQuery.data?.dungeons}
+                      />
+                    </Suspense>
+                  )}
+                  {overworldShown &&
+                    gameWorld &&
+                    (() => {
+                      const view = {
+                        chatId: activeChatId,
+                        game: gameWorld,
+                        turnKey: narrationTurnKey(latestAssistantMsg),
+                        time: gameTimeMeta
+                          ? {
+                              day: normalizeGameDay(gameTimeMeta.day),
+                              hour: normalizeGameHour(gameTimeMeta.hour),
+                              minute: normalizeGameMinute(gameTimeMeta.minute),
+                            }
+                          : null,
+                        clockRunning: !isStreaming && narrationDone && sessionInteractive,
+                        canWalk: !isStreaming && narrationDone && sessionInteractive,
+                        family: artFamily,
+                        tilePack: mapPackTiles,
+                        handleRef: overworldClockRef,
+                      };
+                      return (
+                        <Suspense fallback={null}>
+                          {townShown ? (
+                            <TownView {...view} onLeave={() => setWorldView("overworld")} />
+                          ) : (
+                            <WorldOverworld {...view} onEnterTown={() => setWorldView("town")} />
+                          )}
+                        </Suspense>
+                      );
+                    })()}
+                  {/* Main mount. pointer-events-none lets clicks fall through empty regions to the
+                    narration underneath; the package sets pointer-events-auto on its own chrome. */}
+                  {experienceSurfaceActive && experienceDrawsOwnView ? (
+                    <CapabilityElement
+                      packageId={experienceSurfaceId}
+                      view="surface"
+                      capabilityProps={experienceSurfaceProps}
+                      className="pointer-events-none absolute inset-0 z-30"
                     />
+                  ) : null}
+
+                  {/* Top-left: Map + Party portraits side by side, clear of a phone's row of control bubbles */}
+                  <div
+                    data-game-float="map-and-party"
+                    className={cn(
+                      // On a phone it stops short of the control-button rows in the right half of the chat.
+                      "pointer-events-auto absolute left-3 right-[calc(50%+1.625rem)] z-20 flex min-w-0 items-start gap-2 md:right-auto",
+                      gameRuleset?.status === "ok" &&
+                        gameRuleset.definition.clocks &&
+                        Boolean(gameSnapshot?.rulesetClocks?.length) &&
+                        "flex-wrap md:flex-nowrap",
+                      combatOwnsTopChrome
+                        ? "top-[calc(var(--tactical-chrome-height,3rem)+0.5rem)]"
+                        : topOverlayOffsetClass,
+                      replayActive && "hidden",
+                      // The package draws its own header and party bar, so the built-in ones would collide.
+                      // Gated on ownership rather than the mount, so they do not flash while the package
+                      // is still being resolved.
+                      experienceOwnsGame && "hidden",
+                    )}
+                  >
+                    {/* Desktop: inline minimap */}
+                    <div className="hidden md:block">
+                      <GameMapPanel
+                        map={viewedMap}
+                        maps={availableMaps}
+                        activeMapId={activeMapId}
+                        viewedMapId={effectiveViewedMapId}
+                        onViewedMapChange={handleViewedMapChange}
+                        onMove={handleMapMove}
+                        selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
+                        onGenerateMap={handleGenerateMap}
+                        generateMapDisabled={isStreaming || !sessionInteractive}
+                        disabled={isStreaming || !narrationDone || !sessionInteractive}
+                        gameState={gameState}
+                        timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+                        day={currentGameDay}
+                        onDayChange={handleGameDayChange}
+                        onTimeChange={handleGameTimeChange}
+                        spatialContext={activeSpatialContext}
+                        spatialContextLoading={activeSpatialContextLoading}
+                        chatId={activeChatId}
+                        constraintsRef={hudSurfaceRef}
+                        inFight={combatUiActive}
+                      />
+                    </div>
+
+                    {gameRuleset?.status === "ok" &&
+                      gameRuleset.definition.clocks &&
+                      Boolean(gameSnapshot?.rulesetClocks?.length) && (
+                        <div className="order-last w-full md:order-none md:w-48">
+                          <GameProgressClocks clocks={gameSnapshot?.rulesetClocks ?? []} />
+                        </div>
+                      )}
+
+                    {gameRuleset?.status === "ok" && gameRuleset.definition.party && (
+                      <div className="order-last w-full md:order-none md:w-64">
+                        <GameRulesetPartySheet
+                          definition={gameRuleset.definition}
+                          stored={chatMeta.gamePartySheet}
+                          live={gameSnapshot?.rulesetLive?.[RULESET_PARTY_KEY]}
+                          chatId={activeChatId}
+                          revision={
+                            typeof chatMeta.gamePartySheetRevision === "number" ? chatMeta.gamePartySheetRevision : 0
+                          }
+                          memberBuilds={partySheetMemberBuilds}
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {gameRuleset?.status === "ok" &&
-                    gameRuleset.definition.clocks &&
-                    Boolean(gameSnapshot?.rulesetClocks?.length) && (
-                      <div className="order-last w-full md:order-none md:w-48">
-                        <GameProgressClocks clocks={gameSnapshot?.rulesetClocks ?? []} />
+                  {/* Dynamic weather effects from tracked game state */}
+                  {!replayActive &&
+                    weatherEffectsEnabled &&
+                    (gameSnapshot?.weather || gameSnapshot?.time || metaTime) && (
+                      <div className="pointer-events-none absolute inset-0 z-[1]">
+                        <WeatherEffects
+                          weather={gameSnapshot?.weather ?? null}
+                          timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+                          showCelestial={false}
+                          paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
+                        />
                       </div>
                     )}
 
-                  {gameRuleset?.status === "ok" && gameRuleset.definition.party && (
-                    <div className="order-last w-full md:order-none md:w-64">
-                      <GameRulesetPartySheet
-                        definition={gameRuleset.definition}
-                        stored={chatMeta.gamePartySheet}
-                        live={gameSnapshot?.rulesetLive?.[RULESET_PARTY_KEY]}
-                        chatId={activeChatId}
-                        revision={
-                          typeof chatMeta.gamePartySheetRevision === "number" ? chatMeta.gamePartySheetRevision : 0
-                        }
-                        memberBuilds={partySheetMemberBuilds}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Dynamic weather effects from tracked game state */}
-                {!replayActive &&
-                  weatherEffectsEnabled &&
-                  (gameSnapshot?.weather || gameSnapshot?.time || metaTime) && (
-                    <div className="pointer-events-none absolute inset-0 z-[1]">
-                      <WeatherEffects
-                        weather={gameSnapshot?.weather ?? null}
-                        timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
-                        showCelestial={false}
-                        paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
-                      />
-                    </div>
-                  )}
-
-                {!replayActive && sidecarStartupFailed && (
-                  <div className="pointer-events-auto absolute top-4 left-1/2 z-30 w-[min(92vw,42rem)] -translate-x-1/2">
-                    <div
-                      data-game-section="scene-alert"
-                      className={cn(
-                        GAME_SECTION_CLASS,
-                        "rounded-xl border border-amber-500/20 bg-black/80 px-4 py-3 shadow-lg backdrop-blur-sm",
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-amber-200">
-                            {localizeUi("ui.game.gamesurfacecomponent.localSceneHelperFailedToStart")}
+                  {!replayActive && sidecarStartupFailed && (
+                    <div className="pointer-events-auto absolute top-4 left-1/2 z-30 w-[min(92vw,42rem)] -translate-x-1/2">
+                      <div
+                        data-game-section="scene-alert"
+                        className={cn(
+                          GAME_SECTION_CLASS,
+                          "rounded-xl border border-amber-500/20 bg-black/80 px-4 py-3 shadow-lg backdrop-blur-sm",
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-amber-200">
+                              {localizeUi("ui.game.gamesurfacecomponent.localSceneHelperFailedToStart")}
+                            </div>
+                            <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/70">
+                              {localizeUi("ui.game.gamesurfacecomponent.marinaraWillKeepTheGameRunningWithoutTheLocal")}
+                              {sidecarFailedRuntimeVariant &&
+                                ` Runtime: ${sidecarFailedRuntimeVariant.replace(/-/g, " ")}.`}
+                              {sidecarStartupError
+                                ? localizeUi("ui.game.gamesurfacecomponent.value1", { value1: sidecarStartupError })
+                                : ""}
+                            </div>
+                            <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/55">
+                              {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModelToRetryStartupSwitchModels")}
+                            </div>
                           </div>
-                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/70">
-                            {localizeUi("ui.game.gamesurfacecomponent.marinaraWillKeepTheGameRunningWithoutTheLocal")}
-                            {sidecarFailedRuntimeVariant &&
-                              ` Runtime: ${sidecarFailedRuntimeVariant.replace(/-/g, " ")}.`}
-                            {sidecarStartupError
-                              ? localizeUi("ui.game.gamesurfacecomponent.value1", { value1: sidecarStartupError })
-                              : ""}
-                          </div>
-                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/55">
-                            {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModelToRetryStartupSwitchModels")}
-                          </div>
+                          <button
+                            onClick={() => {
+                              void refreshSidecarStatus();
+                              openSidecarModal(true);
+                            }}
+                            className="rounded-lg bg-white/10 px-3 py-1.5 text-[0.6875rem] font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                          >
+                            {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModel")}
+                          </button>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Image generation failed — retry banner */}
+                  {!replayActive && assetGenerationFailed && pendingAssetGeneration && (
+                    <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
+                      <div
+                        data-game-section="scene-retry"
+                        className={cn(
+                          GAME_SECTION_CLASS,
+                          "flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm",
+                        )}
+                      >
+                        <AlertTriangle size={14} className="shrink-0 text-amber-400" />
+                        <span className="text-xs text-white/70">
+                          {localizeUi("ui.game.gamesurfacecomponent.imageGenerationFailed")}
+                        </span>
+                        <button
+                          onClick={() => retryAssetGeneration()}
+                          className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                        >
+                          <RefreshCw size={12} />
+                          {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                        </button>
                         <button
                           onClick={() => {
-                            void refreshSidecarStatus();
-                            openSidecarModal(true);
+                            setAssetGenerationFailed(false);
+                            setPendingAssetGeneration(null);
+                            setAssetGenerationBlocksScene(false);
                           }}
-                          className="rounded-lg bg-white/10 px-3 py-1.5 text-[0.6875rem] font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                          className="text-white/40 transition-colors hover:text-white/70"
                         >
-                          {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModel")}
+                          <X size={14} />
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Image generation failed — retry banner */}
-                {!replayActive && assetGenerationFailed && pendingAssetGeneration && (
-                  <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
-                    <div
-                      data-game-section="scene-retry"
-                      className={cn(
-                        GAME_SECTION_CLASS,
-                        "flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm",
-                      )}
-                    >
-                      <AlertTriangle size={14} className="shrink-0 text-amber-400" />
-                      <span className="text-xs text-white/70">
-                        {localizeUi("ui.game.gamesurfacecomponent.imageGenerationFailed")}
-                      </span>
-                      <button
-                        onClick={() => retryAssetGeneration()}
-                        className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-                      >
-                        <RefreshCw size={12} />
-                        {localizeUi("ui.game.gamesurfacecomponent.retry")}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAssetGenerationFailed(false);
-                          setPendingAssetGeneration(null);
-                          setAssetGenerationBlocksScene(false);
-                        }}
-                        className="text-white/40 transition-colors hover:text-white/70"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Scene analysis failed — retry banner (only when narration is still blocked) */}
-                {!replayActive && sceneAnalysisFailed && introPresented && (
-                  <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
-                    <div
-                      data-game-section="scene-retry"
-                      className={cn(
-                        GAME_SECTION_CLASS,
-                        "flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm",
-                      )}
-                    >
-                      <AlertTriangle size={14} className="shrink-0 text-amber-400" />
-                      <span className="text-xs text-white/70">
-                        {localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}
-                      </span>
-                      <button
-                        onClick={() => retrySceneAnalysis()}
-                        className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-                      >
-                        <RefreshCw size={12} />
-                        {localizeUi("ui.game.gamesurfacecomponent.retry")}
-                      </button>
-                      <button
-                        onClick={() => setSceneAnalysisFailed(false)}
-                        className="text-white/40 transition-colors hover:text-white/70"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Game content — Combat UI / TravelView / Narration */}
-                {(() => {
-                  const choicesVisible = Boolean(activeChoices && narrationDone);
-
-                  // Mobile widget slot — rendered inside GameNarration to sit above the narration box
-                  const mobileWidgetSlot =
-                    !combatUiActive &&
-                    !experienceOwnsGame &&
-                    hudWidgets.length > 0 &&
-                    !(compactHudWidgets && choicesVisible) ? (
+                  {/* Scene analysis failed — retry banner (only when narration is still blocked) */}
+                  {!replayActive && sceneAnalysisFailed && introPresented && (
+                    <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
                       <div
-                        data-component="GameSurface.MobileWidgetTray"
+                        data-game-section="scene-retry"
                         className={cn(
-                          "pointer-events-auto mb-2 flex items-end justify-between",
-                          !compactHudWidgets && "md:hidden",
+                          GAME_SECTION_CLASS,
+                          "flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm",
                         )}
                       >
-                        <MobileWidgetPanel widgets={normalizedWidgets} position="hud_left" chatId={activeChatId} />
-                        <MobileWidgetPanel widgets={normalizedWidgets} position="hud_right" chatId={activeChatId} />
+                        <AlertTriangle size={14} className="shrink-0 text-amber-400" />
+                        <span className="text-xs text-white/70">
+                          {localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}
+                        </span>
+                        <button
+                          onClick={() => retrySceneAnalysis()}
+                          className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                        >
+                          <RefreshCw size={12} />
+                          {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                        </button>
+                        <button
+                          onClick={() => setSceneAnalysisFailed(false)}
+                          className="text-white/40 transition-colors hover:text-white/70"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
-                    ) : undefined;
+                    </div>
+                  )}
 
-                  // Choice cards slot — rendered inside GameNarration above the narration box.
-                  // An experience that declares `providesChoices` is checked FIRST: it offers the turn's
-                  // choices through its own menu, so the Classic cards would double up, and letting them
-                  // win would unmount the anchor its menu is portaled into.
-                  const choicesSlot =
-                    activeChoices && narrationDone && !activeExperienceChrome?.providesChoices ? (
-                      compactHudWidgets && !combatUiActive && !experienceOwnsGame && hudWidgets.length > 0 ? (
+                  {/* Game content — Combat UI / TravelView / Narration */}
+                  {(() => {
+                    const choicesVisible = Boolean(activeChoices && narrationDone);
+
+                    // Mobile widget slot — rendered inside GameNarration to sit above the narration box
+                    const mobileWidgetSlot =
+                      !combatUiActive &&
+                      !experienceOwnsGame &&
+                      hudWidgets.length > 0 &&
+                      !(compactHudWidgets && choicesVisible) ? (
                         <div
-                          data-component="GameSurface.MobileChoiceStage"
+                          data-component="GameSurface.MobileWidgetTray"
                           className={cn(
-                            "pointer-events-auto mb-2 flex min-h-0 w-full shrink items-stretch gap-1.5 overflow-hidden",
-                            GAME_MOBILE_CHOICE_STAGE_HEIGHT,
+                            "pointer-events-auto mb-2 flex items-end justify-between",
+                            !compactHudWidgets && "md:hidden",
                           )}
                         >
+                          <MobileWidgetPanel widgets={normalizedWidgets} position="hud_left" chatId={activeChatId} />
+                          <MobileWidgetPanel widgets={normalizedWidgets} position="hud_right" chatId={activeChatId} />
+                        </div>
+                      ) : undefined;
+
+                    // Choice cards slot — rendered inside GameNarration above the narration box.
+                    // An experience that declares `providesChoices` is checked FIRST: it offers the turn's
+                    // choices through its own menu, so the Classic cards would double up, and letting them
+                    // win would unmount the anchor its menu is portaled into.
+                    const choicesSlot =
+                      activeChoices && narrationDone && !activeExperienceChrome?.providesChoices ? (
+                        compactHudWidgets && !combatUiActive && !experienceOwnsGame && hudWidgets.length > 0 ? (
                           <div
-                            data-component="GameSurface.MobileWidgetRailLeft"
-                            className="relative z-10 flex shrink-0 items-center"
+                            data-component="GameSurface.MobileChoiceStage"
+                            className={cn(
+                              "pointer-events-auto mb-2 flex min-h-0 w-full shrink items-stretch gap-1.5 overflow-hidden",
+                              GAME_MOBILE_CHOICE_STAGE_HEIGHT,
+                            )}
                           >
-                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_left" chatId={activeChatId} />
+                            <div
+                              data-component="GameSurface.MobileWidgetRailLeft"
+                              className="relative z-10 flex shrink-0 items-center"
+                            >
+                              <MobileWidgetPanel
+                                widgets={normalizedWidgets}
+                                position="hud_left"
+                                chatId={activeChatId}
+                              />
+                            </div>
+                            <div
+                              data-component="GameSurface.MobileChoiceStack"
+                              className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+                            >
+                              <GameChoiceCards
+                                choices={activeChoices}
+                                onSelect={handleChoiceSelect}
+                                onDismiss={handleDismissChoices}
+                                disabled={isStreaming || !sessionInteractive}
+                              />
+                            </div>
+                            <div
+                              data-component="GameSurface.MobileWidgetRailRight"
+                              className="relative z-10 flex shrink-0 items-center"
+                            >
+                              <MobileWidgetPanel
+                                widgets={normalizedWidgets}
+                                position="hud_right"
+                                chatId={activeChatId}
+                              />
+                            </div>
                           </div>
+                        ) : (
                           <div
                             data-component="GameSurface.MobileChoiceStack"
-                            className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+                            className={cn(
+                              "pointer-events-auto mb-2 flex min-h-0 w-full shrink justify-center overflow-hidden md:max-h-[min(52dvh,32rem)]",
+                              GAME_MOBILE_CHOICE_STAGE_HEIGHT,
+                            )}
                           >
                             <GameChoiceCards
                               choices={activeChoices}
@@ -13166,900 +13467,958 @@ function GameSurfaceComponent({
                               disabled={isStreaming || !sessionInteractive}
                             />
                           </div>
-                          <div
-                            data-component="GameSurface.MobileWidgetRailRight"
-                            className="relative z-10 flex shrink-0 items-center"
-                          >
-                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_right" chatId={activeChatId} />
-                          </div>
-                        </div>
-                      ) : (
+                        )
+                      ) : // An in-flow anchor the experience portals its own choice menu into, so it lands
+                      // where the Classic cards go instead of floating over the narration. Collapses to zero
+                      // height when empty; Classic never takes this branch.
+                      experienceSurfaceActive && narrationDone ? (
                         <div
-                          data-component="GameSurface.MobileChoiceStack"
+                          data-component="GameSurface.ExperienceChoiceSlot"
+                          ref={setExperienceChoiceSlotEl}
                           className={cn(
+                            // Mirrors the Classic choice wrapper, so a tall menu scrolls instead of overflowing.
                             "pointer-events-auto mb-2 flex min-h-0 w-full shrink justify-center overflow-hidden md:max-h-[min(52dvh,32rem)]",
                             GAME_MOBILE_CHOICE_STAGE_HEIGHT,
                           )}
-                        >
-                          <GameChoiceCards
-                            choices={activeChoices}
-                            onSelect={handleChoiceSelect}
-                            onDismiss={handleDismissChoices}
-                            disabled={isStreaming || !sessionInteractive}
-                          />
-                        </div>
-                      )
-                    ) : // An in-flow anchor the experience portals its own choice menu into, so it lands
-                    // where the Classic cards go instead of floating over the narration. Collapses to zero
-                    // height when empty; Classic never takes this branch.
-                    experienceSurfaceActive && narrationDone ? (
-                      <div
-                        data-component="GameSurface.ExperienceChoiceSlot"
-                        ref={setExperienceChoiceSlotEl}
-                        className={cn(
-                          // Mirrors the Classic choice wrapper, so a tall menu scrolls instead of overflowing.
-                          "pointer-events-auto mb-2 flex min-h-0 w-full shrink justify-center overflow-hidden md:max-h-[min(52dvh,32rem)]",
-                          GAME_MOBILE_CHOICE_STAGE_HEIGHT,
-                        )}
-                      />
-                    ) : undefined;
-
-                  const skillCheckSlot =
-                    !diceRollResult && pendingSkillChecks[0] ? (
-                      <GameSkillCheckResult
-                        result={pendingSkillChecks[0]}
-                        onDismiss={() => setPendingSkillChecks((pending) => pending.slice(1))}
-                      />
-                    ) : undefined;
-
-                  const diceResultSlot = diceRollResult ? (
-                    <GameDiceResult result={diceRollResult} onDismiss={handleDismissDice} />
-                  ) : undefined;
-
-                  if (replaySessionNumber != null) {
-                    return (
-                      <Suspense
-                        fallback={
-                          <div className="flex h-full flex-1 items-center justify-center text-sm text-white/70">
-                            <Loader2 size={15} className="mr-2 animate-spin" />
-                            {localizeUi("ui.game.gamesurfacecomponent.loadingReplay")}
-                          </div>
-                        }
-                      >
-                        <GameSessionReplay
-                          gameId={activeGameMetaId}
-                          sessionNumber={replaySessionNumber}
-                          characterMap={characterMap}
-                          activeCharacterIds={characterIds}
-                          personaInfo={effectivePersonaInfo}
-                          spriteMap={spriteMap}
-                          speakerAvatarMap={librarySpeakerAvatars}
-                          gameVoiceVolume={effectiveGameVoiceVolume}
-                          directionsActive={directionsPlaying}
-                          assetMap={scopedAssetMap}
-                          useMusicDjPlayerMusic={useMusicDjPlayerMusic}
-                          onActiveSpeakerChange={handleActiveSpeakerChange}
-                          onBackgroundChange={setReplayBackgroundTag}
-                          onPlayDirections={playDirections}
-                          onMessagesLoaded={setReplaySpriteMessages}
-                          onExit={handleExitSessionReplay}
                         />
-                      </Suspense>
-                    );
-                  }
+                      ) : undefined;
 
-                  if (combatUiActive) {
-                    const combatControlsSlot = (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setCombatLogsOpen(true)}
-                          className="mari-chat-style-control mari-game-scene-control flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/65 px-3 py-1.5 text-xs font-semibold text-white/80 shadow-lg backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white"
-                          title={localizeUi("ui.game.gamesurfacecomponent.openCombatLogs")}
-                        >
-                          <ScrollText size={13} />
-                          {localizeUi("ui.game.gamesurfacecomponent.logs")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleReturnToPreCombatTurn}
-                          disabled={!latestAssistantMsg?.id}
-                          className="mari-chat-style-control mari-game-scene-control mari-game-scene-control--amber flex items-center gap-1.5 rounded-lg border border-[var(--marinara-app-accent-static)]/25 bg-[var(--marinara-app-accent-static)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--marinara-app-accent-static)] shadow-lg backdrop-blur-md transition-colors hover:bg-[var(--marinara-app-accent-static)]/30 disabled:opacity-50"
-                          title={localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheTurnThatStartedIt")}
-                        >
-                          <RotateCcw size={13} />
-                          {localizeUi("ui.game.gamesurfacecomponent.previousTurn")}
-                        </button>
-                      </>
-                    );
+                    const skillCheckSlot =
+                      !diceRollResult && pendingSkillChecks[0] ? (
+                        <GameSkillCheckResult
+                          result={pendingSkillChecks[0]}
+                          onDismiss={() => setPendingSkillChecks((pending) => pending.slice(1))}
+                        />
+                      ) : undefined;
 
-                    return (
-                      <div className="relative h-full min-h-0">
+                    const diceResultSlot = diceRollResult ? (
+                      <GameDiceResult result={diceRollResult} onDismiss={handleDismissDice} />
+                    ) : undefined;
+
+                    if (replaySessionNumber != null) {
+                      return (
                         <Suspense
                           fallback={
-                            <div className="flex h-full items-center justify-center text-sm text-white/70">
-                              {localizeUi("ui.game.gamesurfacecomponent.loadingCombat")}
+                            <div className="flex h-full flex-1 items-center justify-center text-sm text-white/70">
+                              <Loader2 size={15} className="mr-2 animate-spin" />
+                              {localizeUi("ui.game.gamesurfacecomponent.loadingReplay")}
                             </div>
                           }
                         >
-                          {combatSetupConfig?.combatDirector && combatStartMessageId ? (
-                            <DirectedCombatUI
-                              key={`${activeChatId}:${combatStartMessageId}`}
-                              chatId={activeChatId}
-                              anchor={combatStartMessageId}
-                              style={rulesetFightDefinition ? "ruleset" : effectiveCombatStyle}
-                              rulesetDefinition={rulesetFightDefinition ?? undefined}
-                              positioned={rulesetFightPositioned}
-                              battlefield={combatSceneMeta?.battlefield ?? undefined}
-                              party={combatParty}
-                              enemies={combatEnemies}
-                              inventoryItems={fightInventoryLines}
-                              combatItemEffects={fightItemEffects}
-                              combatMechanics={combatMechanics}
-                              environment={combatSceneMeta?.environmentType ?? undefined}
-                              environmentLike={
-                                gameKit?.scenes
-                                  ? worldSceneLike(worldBattlefields(gameKit), combatSceneMeta?.environmentType)
-                                  : undefined
-                              }
-                              tileWords={gameKit?.tiles}
-                              formation={combatSceneMeta?.formation ?? undefined}
-                              onCombatEnd={handleCombatEnd}
-                              onInventoryItemUsed={handleUseCombatInventoryItem}
-                              onCombatantsChange={handleCombatantsChange}
-                            />
-                          ) : effectiveCombatStyle === "tactical" ? (
-                            <TacticalCombatUI
-                              tileWords={gameKit?.tiles}
-                              key={activeChatId}
-                              chatId={activeChatId}
-                              party={combatParty}
-                              enemies={combatEnemies}
-                              difficulty={(combatSetupConfig?.difficulty as string | undefined) ?? "normal"}
-                              initialState={
-                                (chatMeta.gameTacticalCombatSnapshot as TacticalCombatState | null | undefined) ?? null
-                              }
-                              environment={combatSceneMeta?.environmentType ?? null}
-                              formation={combatSceneMeta?.formation ?? null}
-                              battlefield={combatSceneMeta?.battlefield ?? null}
-                              battlefieldError={combatSceneMeta?.battlefieldError ?? null}
-                              onBattlefieldReady={handleTacticalBattlefieldReady}
-                              playerCombatantId={combatParty[0]?.id ?? null}
-                              onCombatEnd={handleCombatEnd}
-                              onCustomInstruction={handleCombatCustomInstruction}
-                            />
-                          ) : (
-                            <GameCombatUI
-                              elements={gameKit ? gameElements : undefined}
-                              chatId={activeChatId}
-                              party={combatParty}
-                              enemies={combatEnemies}
-                              inventoryItems={fightInventoryLines}
-                              onCombatEnd={handleCombatEnd}
-                              onInventoryItemUsed={handleUseCombatInventoryItem}
-                              onCombatantsChange={handleCombatantsChange}
-                              onOpenInventory={() => setInventoryOpen(true)}
-                              onCustomInstruction={handleCombatCustomInstruction}
-                              onSpriteSuggestionChange={setCombatSpriteSuggestion}
-                              isStreaming={isStreaming}
-                              narration="Battle starts."
-                              combatDialogue={combatDialogueLines}
-                              combatDialogueCues={combatDialogueCues}
-                              combatItemEffects={fightItemEffects}
-                              combatMechanics={combatMechanics}
-                              voicedCombatSpeakerNames={voicedCombatSpeakerNames}
-                              gameVoiceVolume={effectiveGameVoiceVolume}
-                              combatControlsSlot={combatControlsSlot}
-                            />
-                          )}
-                        </Suspense>
-                      </div>
-                    );
-                  }
-                  if (gameState === "travel_rest") {
-                    return (
-                      <GameTravelView>
-                        <GameNarration
-                          passThrough={overworldShown || dungeonShown}
-                          messages={narrationMessages}
-                          isStreaming={isStreaming}
-                          characterMap={characterMap}
-                          activeCharacterIds={characterIds}
-                          personaInfo={effectivePersonaInfo}
-                          spriteMap={spriteMap}
-                          speakerAvatarMap={librarySpeakerAvatars}
-                          onActiveSpeakerChange={handleActiveSpeakerChange}
-                          onSegmentEnter={handleSegmentEnter}
-                          showUserMessages
-                          partyDialogue={partyDialogue}
-                          partyChatMessageId={partyChatMessageId}
-                          scenePreparing={scenePreparing}
-                          assetsGenerating={!!pendingAssetGeneration}
-                          sceneAnalysisFailed={sceneAnalysisFailed}
-                          onRetryScene={retrySceneAnalysis}
-                          onSkipScene={skipSceneAnalysis}
-                          generationFailed={generationFailed}
-                          onRetryGeneration={retryGeneration}
-                          onRetryTurn={handleRetryTurn}
-                          hasStoredNarrationPosition={restoredNarrationState.hasStoredPosition}
-                          restoredSegmentIndex={restoredSegmentIndex}
-                          onSegmentChange={handleSegmentChange}
-                          onNarrationComplete={handleNarrationComplete}
-                          onReadable={handleReadable}
-                          onNpcPortraitClick={handleNpcPortraitClick}
-                          onNpcPortraitGenerate={handleNpcPortraitGenerate}
-                          onNpcPortraitLoadError={handleNpcPortraitLoadError}
-                          npcPortraitGenerationEnabled={gameImageGenerationEnabled}
-                          generatingNpcPortraitNames={generatingNpcPortraitNames}
-                          autoPlayBlocked={narrationAutoPlayBlocked || storyboardBackgroundAnimationPlaying}
-                          voicePlaybackBlocked={narrationVoicePlaybackBlocked}
-                          gameVoiceVolume={effectiveGameVoiceVolume}
-                          directionsActive={directionsPlaying}
-                          widgetSlot={mobileWidgetSlot}
-                          choicesSlot={choicesSlot}
-                          diceResultSlot={diceResultSlot}
-                          skillCheckSlot={skillCheckSlot}
-                          onOpenInventory={classicInventoryOpener}
-                          inventoryCount={inventoryItems.length}
-                          onRequestCombatStart={classicCombatStarter}
-                          combatStarting={combatStarting}
-                          combatGenerationFailed={combatGenerationFailedAtGate}
-                          onRetryCombatGeneration={retryCombatGeneration}
-                          onDeleteMessage={onDeleteMessage}
-                          onPeekPrompt={onPeekPrompt}
-                          onBranchMessage={handleBranchMessage}
-                          multiSelectMode={multiSelectMode}
-                          selectedMessageIds={selectedMessageIds}
-                          onDeleteSegment={handleDeleteSegment}
-                          onEditMessage={handleEditMessage}
-                          segmentEdits={segmentEdits}
-                          segmentDeletes={segmentDeletes}
-                          onEditSegment={handleEditSegment}
-                          onInterruptRequest={handleInterruptRequest}
-                          onInterruptCancel={handleInterruptCancel}
-                          interruptPending={interruptPending}
-                          interruptCommitted={interruptCommitted}
-                          messageOffset={messageOffset}
-                          onStepForward={handleStepForward}
-                          onJumpToLatest={handleReturnToLatest}
-                          onSetReviewOffset={setMessageOffset}
-                          nextActionToken={nextActionToken}
-                          onMaxNavOffsetChange={handleMaxNavOffsetChange}
-                          // Read off activeExperienceChrome, never raw experienceChrome: the request
-                          // has to evaporate when the experience is no longer the live surface.
-                          requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
-                          inputSlot={
-                            activeExperienceChrome?.providesPlayerInput ? undefined : (
-                              <GameInput
-                                onSend={handleSendGameTurn}
-                                onRollDice={handleRollDice}
-                                hasPartyMembers={partyMembers.length > 0}
-                                pendingMoveLabel={pendingMapMove?.label ?? null}
-                                onClearPendingMove={() => setPendingMapMove(null)}
-                                disabled={
-                                  gameInputGenerationBlocked || sequentialGameMediaPending || !sessionInteractive
-                                }
-                                draftDisabled={!sessionInteractive}
-                                isStreaming={gameInputGenerationBlocked}
-                                inline
-                                draftKey={activeChatId}
-                                focusToken={gameInputFocusToken}
-                                onIllustrate={handleManualSceneIllustration}
-                                spatialCapabilityEnabled={hierarchicalMapsActive}
-                                interruptMode={pendingInterruptMode}
-                                sessionConcluded={!sessionInteractive}
-                                onStartNewSession={handleStartNewSession}
-                                startNewSessionPending={startSessionLocked}
-                              />
-                            )
-                          }
-                        />
-                      </GameTravelView>
-                    );
-                  }
-                  return (
-                    <GameNarration
-                      passThrough={overworldShown || dungeonShown}
-                      messages={narrationMessages}
-                      isStreaming={isStreaming}
-                      characterMap={characterMap}
-                      activeCharacterIds={characterIds}
-                      personaInfo={effectivePersonaInfo}
-                      spriteMap={spriteMap}
-                      speakerAvatarMap={librarySpeakerAvatars}
-                      onActiveSpeakerChange={handleActiveSpeakerChange}
-                      onSegmentEnter={handleSegmentEnter}
-                      showUserMessages
-                      partyDialogue={partyDialogue}
-                      partyChatMessageId={partyChatMessageId}
-                      scenePreparing={scenePreparing}
-                      assetsGenerating={!!pendingAssetGeneration}
-                      sceneAnalysisFailed={sceneAnalysisFailed}
-                      onRetryScene={retrySceneAnalysis}
-                      onSkipScene={skipSceneAnalysis}
-                      generationFailed={generationFailed}
-                      onRetryGeneration={retryGeneration}
-                      onRetryTurn={handleRetryTurn}
-                      hasStoredNarrationPosition={restoredNarrationState.hasStoredPosition}
-                      restoredSegmentIndex={restoredSegmentIndex}
-                      onSegmentChange={handleSegmentChange}
-                      onNarrationComplete={handleNarrationComplete}
-                      onReadable={handleReadable}
-                      onNpcPortraitClick={handleNpcPortraitClick}
-                      onNpcPortraitGenerate={handleNpcPortraitGenerate}
-                      onNpcPortraitLoadError={handleNpcPortraitLoadError}
-                      npcPortraitGenerationEnabled={gameImageGenerationEnabled}
-                      generatingNpcPortraitNames={generatingNpcPortraitNames}
-                      autoPlayBlocked={narrationAutoPlayBlocked || storyboardBackgroundAnimationPlaying}
-                      voicePlaybackBlocked={narrationVoicePlaybackBlocked}
-                      gameVoiceVolume={effectiveGameVoiceVolume}
-                      directionsActive={directionsPlaying}
-                      widgetSlot={mobileWidgetSlot}
-                      choicesSlot={choicesSlot}
-                      diceResultSlot={diceResultSlot}
-                      skillCheckSlot={skillCheckSlot}
-                      onOpenInventory={classicInventoryOpener}
-                      inventoryCount={inventoryItems.length}
-                      onRequestCombatStart={classicCombatStarter}
-                      combatStarting={combatStarting}
-                      combatGenerationFailed={combatGenerationFailedAtGate}
-                      onRetryCombatGeneration={retryCombatGeneration}
-                      onDeleteMessage={onDeleteMessage}
-                      onPeekPrompt={onPeekPrompt}
-                      onBranchMessage={handleBranchMessage}
-                      multiSelectMode={multiSelectMode}
-                      selectedMessageIds={selectedMessageIds}
-                      onDeleteSegment={handleDeleteSegment}
-                      onEditMessage={handleEditMessage}
-                      segmentEdits={segmentEdits}
-                      segmentDeletes={segmentDeletes}
-                      onEditSegment={handleEditSegment}
-                      onInterruptRequest={handleInterruptRequest}
-                      onInterruptCancel={handleInterruptCancel}
-                      interruptPending={interruptPending}
-                      interruptCommitted={interruptCommitted}
-                      messageOffset={messageOffset}
-                      onStepForward={handleStepForward}
-                      onJumpToLatest={handleReturnToLatest}
-                      onSetReviewOffset={setMessageOffset}
-                      nextActionToken={nextActionToken}
-                      onMaxNavOffsetChange={handleMaxNavOffsetChange}
-                      // Read off activeExperienceChrome, never raw experienceChrome: the request
-                      // has to evaporate when the experience is no longer the live surface.
-                      requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
-                      // Withheld while the experience drives the turn through its own menus. The
-                      // declaration is dynamic, so the input returns when it has no action to offer.
-                      inputSlot={
-                        activeExperienceChrome?.providesPlayerInput ? undefined : (
-                          <GameInput
-                            onSend={handleSendGameTurn}
-                            onRollDice={handleRollDice}
-                            hasPartyMembers={partyMembers.length > 0}
-                            pendingMoveLabel={pendingMapMove?.label ?? null}
-                            onClearPendingMove={() => setPendingMapMove(null)}
-                            disabled={gameInputGenerationBlocked || sequentialGameMediaPending || !sessionInteractive}
-                            draftDisabled={!sessionInteractive}
-                            isStreaming={gameInputGenerationBlocked}
-                            inline
-                            draftKey={activeChatId}
-                            focusToken={gameInputFocusToken}
-                            onIllustrate={handleManualSceneIllustration}
-                            spatialCapabilityEnabled={hierarchicalMapsActive}
-                            interruptMode={pendingInterruptMode}
-                            sessionConcluded={!sessionInteractive}
-                            onStartNewSession={handleStartNewSession}
-                            startNewSessionPending={startSessionLocked}
+                          <GameSessionReplay
+                            gameId={activeGameMetaId}
+                            sessionNumber={replaySessionNumber}
+                            characterMap={characterMap}
+                            activeCharacterIds={characterIds}
+                            personaInfo={effectivePersonaInfo}
+                            spriteMap={spriteMap}
+                            speakerAvatarMap={librarySpeakerAvatars}
+                            gameVoiceVolume={effectiveGameVoiceVolume}
+                            directionsActive={directionsPlaying}
+                            assetMap={scopedAssetMap}
+                            useMusicDjPlayerMusic={useMusicDjPlayerMusic}
+                            onActiveSpeakerChange={handleActiveSpeakerChange}
+                            onBackgroundChange={setReplayBackgroundTag}
+                            onPlayDirections={playDirections}
+                            onMessagesLoaded={setReplaySpriteMessages}
+                            onExit={handleExitSessionReplay}
                           />
-                        )
-                      }
-                    />
-                  );
-                })()}
+                        </Suspense>
+                      );
+                    }
 
-                {!replayActive && renderStoryboardInlineViewer()}
+                    if (combatUiActive) {
+                      const combatControlsSlot = (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setCombatLogsOpen(true)}
+                            className="mari-chat-style-control mari-game-scene-control flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/65 px-3 py-1.5 text-xs font-semibold text-white/80 shadow-lg backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white"
+                            title={localizeUi("ui.game.gamesurfacecomponent.openCombatLogs")}
+                          >
+                            <ScrollText size={13} />
+                            {localizeUi("ui.game.gamesurfacecomponent.logs")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleReturnToPreCombatTurn}
+                            disabled={!latestAssistantMsg?.id}
+                            className="mari-chat-style-control mari-game-scene-control mari-game-scene-control--amber flex items-center gap-1.5 rounded-lg border border-[var(--marinara-app-accent-static)]/25 bg-[var(--marinara-app-accent-static)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--marinara-app-accent-static)] shadow-lg backdrop-blur-md transition-colors hover:bg-[var(--marinara-app-accent-static)]/30 disabled:opacity-50"
+                            title={localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheTurnThatStartedIt")}
+                          >
+                            <RotateCcw size={13} />
+                            {localizeUi("ui.game.gamesurfacecomponent.previousTurn")}
+                          </button>
+                        </>
+                      );
 
-                {/* QTE overlay — absolute, centered */}
-                {!replayActive && activeQte && sessionInteractive && (
-                  <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center">
-                    <GameQteOverlay
-                      actions={activeQte.actions.map((a) => ({ label: a }))}
-                      timerSeconds={activeQte.timer}
-                      onSelect={handleQteSelect}
-                      onTimeout={handleQteTimeout}
-                      onDismiss={handleDismissQte}
-                    />
-                  </div>
-                )}
+                      const directedCombatStyle = rulesetFightDefinition
+                        ? ("ruleset" as const)
+                        : isBuiltInCombatStyle(effectiveCombatStyle)
+                          ? effectiveCombatStyle
+                          : null;
+                      const combatSurfaceContext: CombatSurfaceContext = {
+                        chatId: activeChatId,
+                        anchorMessageId: combatStartMessageId,
+                        party: combatParty,
+                        enemies: combatEnemies,
+                        setupConfig: combatSetupConfig,
+                        chatMeta,
+                        scene: {
+                          environment: combatSceneMeta?.environmentType ?? null,
+                          formation: combatSceneMeta?.formation ?? null,
+                          battlefield: combatSceneMeta?.battlefield ?? null,
+                          battlefieldError: combatSceneMeta?.battlefieldError ?? null,
+                          tileWords: gameKit?.tiles,
+                        },
+                        elements: gameKit ? gameElements : undefined,
+                        inventoryItems: fightInventoryLines,
+                        itemEffects: fightItemEffects,
+                        mechanics: combatMechanics,
+                        dialogue: {
+                          lines: combatDialogueLines,
+                          cues: combatDialogueCues,
+                          voicedSpeakerNames: voicedCombatSpeakerNames,
+                          voiceVolume: effectiveGameVoiceVolume,
+                        },
+                        isStreaming,
+                        controlsSlot: combatControlsSlot,
+                        onCombatEnd: handleCombatEnd,
+                        onInventoryItemUsed: handleUseCombatInventoryItem,
+                        onCombatantsChange: handleCombatantsChange,
+                        onOpenInventory: () => setInventoryOpen(true),
+                        onCustomInstruction: handleCombatCustomInstruction,
+                        onSpriteSuggestionChange: setCombatSpriteSuggestion,
+                        onBattlefieldReady: handleTacticalBattlefieldReady,
+                      };
 
-                {combatLogsOpen && (
-                  <div
-                    className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-                    {...combatLogsBackdropDismiss}
-                  >
-                    <div
-                      data-game-section="combat-logs"
-                      className={cn(
-                        GAME_SECTION_CLASS,
-                        "flex max-h-[82vh] w-full max-w-2xl flex-col rounded-xl border border-white/15 bg-[var(--card)] shadow-2xl",
-                      )}
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <ScrollText size={16} className="text-[var(--muted-foreground)]" />
-                          <span className="text-sm font-semibold text-[var(--foreground)]">
-                            {localizeUi("ui.game.gamesurfacecomponent.combatLogs")}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCombatLogsOpen(false)}
-                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
-                          title={localizeUi("ui.game.gamesurfacecomponent.closeLogs")}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <div
-                        className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
-                        ref={(el) => {
-                          if (el && !combatLogScrolledRef.current) {
-                            combatLogScrolledRef.current = true;
-                            requestAnimationFrame(() => {
-                              el.scrollTop = el.scrollHeight;
-                            });
-                          }
-                        }}
-                      >
-                        {combatLogEntries.length === 0 ? (
-                          <p className="text-sm text-[var(--muted-foreground)]">
-                            {localizeUi("ui.game.gamesurfacecomponent.noLogsYet")}
-                          </p>
-                        ) : (
-                          <>
-                            {hiddenCombatLogCount > 0 && (
-                              <div className="flex justify-center pb-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    combatLogScrolledRef.current = true;
-                                    setCombatLogVisibleCount((current) =>
-                                      Math.min(combatLogEntries.length, current + combatLogPageSize),
-                                    );
-                                  }}
-                                  className={HISTORY_PAGER_BUTTON_CLASS}
-                                >
-                                  {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
-                                  {hiddenCombatLogCount})
-                                </button>
+                      return (
+                        <div className="relative h-full min-h-0">
+                          <Suspense
+                            fallback={
+                              <div className="flex h-full items-center justify-center text-sm text-white/70">
+                                {localizeUi("ui.game.gamesurfacecomponent.loadingCombat")}
                               </div>
+                            }
+                          >
+                            {/* The director runs the built-in styles and a ruleset's own fights; a registered
+                                style draws its battle itself. */}
+                            {combatSetupConfig?.combatDirector &&
+                            combatStartMessageId &&
+                            combatParty &&
+                            combatEnemies &&
+                            directedCombatStyle ? (
+                              <DirectedCombatUI
+                                key={`${activeChatId}:${combatStartMessageId}`}
+                                chatId={activeChatId}
+                                anchor={combatStartMessageId}
+                                style={directedCombatStyle}
+                                rulesetDefinition={rulesetFightDefinition ?? undefined}
+                                positioned={rulesetFightPositioned}
+                                battlefield={combatSceneMeta?.battlefield ?? undefined}
+                                party={combatParty}
+                                enemies={combatEnemies}
+                                inventoryItems={fightInventoryLines}
+                                combatItemEffects={fightItemEffects}
+                                combatMechanics={combatMechanics}
+                                environment={combatSceneMeta?.environmentType ?? undefined}
+                                environmentLike={
+                                  gameKit?.scenes
+                                    ? worldSceneLike(worldBattlefields(gameKit), combatSceneMeta?.environmentType)
+                                    : undefined
+                                }
+                                tileWords={gameKit?.tiles}
+                                formation={combatSceneMeta?.formation ?? undefined}
+                                onCombatEnd={handleCombatEnd}
+                                onInventoryItemUsed={handleUseCombatInventoryItem}
+                                onCombatantsChange={handleCombatantsChange}
+                              />
+                            ) : (
+                              combatStyleSurface.render(combatSurfaceContext)
                             )}
-                            {visibleCombatLogEntries.map((entry) => {
-                              const label =
-                                entry.role === "user"
-                                  ? personaInfo?.name || "You"
-                                  : entry.role === "assistant" || entry.role === "narrator"
-                                    ? "GM"
-                                    : "System";
-                              return (
-                                <div key={entry.id} className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
-                                  <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-white/45">
-                                    {label}
-                                  </div>
-                                  <div
-                                    className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/80"
-                                    dangerouslySetInnerHTML={{ __html: formatNarration(entry.content, false) }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </>
+                          </Suspense>
+                        </div>
+                      );
+                    }
+                    if (gameState === "travel_rest") {
+                      return (
+                        <GameTravelView>
+                          <GameNarration
+                            passThrough={overworldShown || dungeonShown}
+                            messages={narrationMessages}
+                            isStreaming={isStreaming}
+                            characterMap={characterMap}
+                            activeCharacterIds={characterIds}
+                            personaInfo={effectivePersonaInfo}
+                            spriteMap={spriteMap}
+                            speakerAvatarMap={librarySpeakerAvatars}
+                            onActiveSpeakerChange={handleActiveSpeakerChange}
+                            onSegmentEnter={handleSegmentEnter}
+                            showUserMessages
+                            partyDialogue={partyDialogue}
+                            partyChatMessageId={partyChatMessageId}
+                            scenePreparing={scenePreparing}
+                            assetsGenerating={!!pendingAssetGeneration}
+                            sceneAnalysisFailed={sceneAnalysisFailed}
+                            onRetryScene={retrySceneAnalysis}
+                            onSkipScene={skipSceneAnalysis}
+                            generationFailed={generationFailed}
+                            onRetryGeneration={retryGeneration}
+                            onRetryTurn={handleRetryTurn}
+                            hasStoredNarrationPosition={restoredNarrationState.hasStoredPosition}
+                            restoredSegmentIndex={restoredSegmentIndex}
+                            onSegmentChange={handleSegmentChange}
+                            onNarrationComplete={handleNarrationComplete}
+                            onReadable={handleReadable}
+                            onNpcPortraitClick={handleNpcPortraitClick}
+                            onNpcPortraitGenerate={handleNpcPortraitGenerate}
+                            onNpcPortraitLoadError={handleNpcPortraitLoadError}
+                            npcPortraitGenerationEnabled={gameImageGenerationEnabled}
+                            generatingNpcPortraitNames={generatingNpcPortraitNames}
+                            autoPlayBlocked={narrationAutoPlayBlocked || storyboardBackgroundAnimationPlaying}
+                            voicePlaybackBlocked={narrationVoicePlaybackBlocked}
+                            gameVoiceVolume={effectiveGameVoiceVolume}
+                            directionsActive={directionsPlaying}
+                            widgetSlot={mobileWidgetSlot}
+                            choicesSlot={choicesSlot}
+                            diceResultSlot={diceResultSlot}
+                            skillCheckSlot={skillCheckSlot}
+                            onOpenInventory={classicInventoryOpener}
+                            inventoryCount={inventoryItems.length}
+                            onRequestCombatStart={classicCombatStarter}
+                            combatStarting={combatStarting}
+                            combatGenerationFailed={combatGenerationFailedAtGate}
+                            combatGenerationCutOff={combatGenerationCutOff}
+                            combatGenerationReason={combatGenerationError}
+                            onRetryCombatGeneration={retryCombatGeneration}
+                            onDeleteMessage={onDeleteMessage}
+                            onPeekPrompt={onPeekPrompt}
+                            onBranchMessage={handleBranchMessage}
+                            multiSelectMode={multiSelectMode}
+                            selectedMessageIds={selectedMessageIds}
+                            onDeleteSegment={handleDeleteSegment}
+                            onEditMessage={handleEditMessage}
+                            segmentEdits={segmentEdits}
+                            segmentDeletes={segmentDeletes}
+                            onEditSegment={handleEditSegment}
+                            onInterruptRequest={handleInterruptRequest}
+                            onInterruptCancel={handleInterruptCancel}
+                            interruptPending={interruptPending}
+                            interruptCommitted={interruptCommitted}
+                            messageOffset={messageOffset}
+                            onStepForward={handleStepForward}
+                            onJumpToLatest={handleReturnToLatest}
+                            onSetReviewOffset={setMessageOffset}
+                            nextActionToken={nextActionToken}
+                            onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                            // Read off activeExperienceChrome, never raw experienceChrome: the request
+                            // has to evaporate when the experience is no longer the live surface.
+                            requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
+                            inputSlot={
+                              activeExperienceChrome?.providesPlayerInput ? undefined : (
+                                <GameInput
+                                  onSend={handleSendGameTurn}
+                                  onRollDice={handleRollDice}
+                                  hasPartyMembers={partyMembers.length > 0}
+                                  pendingMoveLabel={pendingMapMove?.label ?? null}
+                                  onClearPendingMove={() => setPendingMapMove(null)}
+                                  disabled={
+                                    gameInputGenerationBlocked || sequentialGameMediaPending || !sessionInteractive
+                                  }
+                                  draftDisabled={!sessionInteractive}
+                                  isStreaming={gameInputGenerationBlocked}
+                                  inline
+                                  draftKey={activeChatId}
+                                  focusToken={gameInputFocusToken}
+                                  onIllustrate={handleManualSceneIllustration}
+                                  spatialCapabilityEnabled={hierarchicalMapsActive}
+                                  interruptMode={pendingInterruptMode}
+                                  sessionConcluded={!sessionInteractive}
+                                  onStartNewSession={handleStartNewSession}
+                                  startNewSessionPending={startSessionLocked}
+                                />
+                              )
+                            }
+                          />
+                        </GameTravelView>
+                      );
+                    }
+                    return (
+                      <GameNarration
+                        passThrough={overworldShown || dungeonShown}
+                        messages={narrationMessages}
+                        isStreaming={isStreaming}
+                        characterMap={characterMap}
+                        activeCharacterIds={characterIds}
+                        personaInfo={effectivePersonaInfo}
+                        spriteMap={spriteMap}
+                        speakerAvatarMap={librarySpeakerAvatars}
+                        onActiveSpeakerChange={handleActiveSpeakerChange}
+                        onSegmentEnter={handleSegmentEnter}
+                        showUserMessages
+                        partyDialogue={partyDialogue}
+                        partyChatMessageId={partyChatMessageId}
+                        scenePreparing={scenePreparing}
+                        assetsGenerating={!!pendingAssetGeneration}
+                        sceneAnalysisFailed={sceneAnalysisFailed}
+                        onRetryScene={retrySceneAnalysis}
+                        onSkipScene={skipSceneAnalysis}
+                        generationFailed={generationFailed}
+                        onRetryGeneration={retryGeneration}
+                        onRetryTurn={handleRetryTurn}
+                        hasStoredNarrationPosition={restoredNarrationState.hasStoredPosition}
+                        restoredSegmentIndex={restoredSegmentIndex}
+                        onSegmentChange={handleSegmentChange}
+                        onNarrationComplete={handleNarrationComplete}
+                        onReadable={handleReadable}
+                        onNpcPortraitClick={handleNpcPortraitClick}
+                        onNpcPortraitGenerate={handleNpcPortraitGenerate}
+                        onNpcPortraitLoadError={handleNpcPortraitLoadError}
+                        npcPortraitGenerationEnabled={gameImageGenerationEnabled}
+                        generatingNpcPortraitNames={generatingNpcPortraitNames}
+                        autoPlayBlocked={narrationAutoPlayBlocked || storyboardBackgroundAnimationPlaying}
+                        voicePlaybackBlocked={narrationVoicePlaybackBlocked}
+                        gameVoiceVolume={effectiveGameVoiceVolume}
+                        directionsActive={directionsPlaying}
+                        widgetSlot={mobileWidgetSlot}
+                        choicesSlot={choicesSlot}
+                        diceResultSlot={diceResultSlot}
+                        skillCheckSlot={skillCheckSlot}
+                        onOpenInventory={classicInventoryOpener}
+                        inventoryCount={inventoryItems.length}
+                        onRequestCombatStart={classicCombatStarter}
+                        combatStarting={combatStarting}
+                        combatGenerationFailed={combatGenerationFailedAtGate}
+                        combatGenerationCutOff={combatGenerationCutOff}
+                        combatGenerationReason={combatGenerationError}
+                        onRetryCombatGeneration={retryCombatGeneration}
+                        onDeleteMessage={onDeleteMessage}
+                        onPeekPrompt={onPeekPrompt}
+                        onBranchMessage={handleBranchMessage}
+                        multiSelectMode={multiSelectMode}
+                        selectedMessageIds={selectedMessageIds}
+                        onDeleteSegment={handleDeleteSegment}
+                        onEditMessage={handleEditMessage}
+                        segmentEdits={segmentEdits}
+                        segmentDeletes={segmentDeletes}
+                        onEditSegment={handleEditSegment}
+                        onInterruptRequest={handleInterruptRequest}
+                        onInterruptCancel={handleInterruptCancel}
+                        interruptPending={interruptPending}
+                        interruptCommitted={interruptCommitted}
+                        messageOffset={messageOffset}
+                        onStepForward={handleStepForward}
+                        onJumpToLatest={handleReturnToLatest}
+                        onSetReviewOffset={setMessageOffset}
+                        nextActionToken={nextActionToken}
+                        onMaxNavOffsetChange={handleMaxNavOffsetChange}
+                        // Read off activeExperienceChrome, never raw experienceChrome: the request
+                        // has to evaporate when the experience is no longer the live surface.
+                        requestsCollapsedNarration={activeExperienceChrome?.requestsCollapsedNarration}
+                        // Withheld while the experience drives the turn through its own menus. The
+                        // declaration is dynamic, so the input returns when it has no action to offer.
+                        inputSlot={
+                          activeExperienceChrome?.providesPlayerInput ? undefined : (
+                            <GameInput
+                              onSend={handleSendGameTurn}
+                              onRollDice={handleRollDice}
+                              hasPartyMembers={partyMembers.length > 0}
+                              pendingMoveLabel={pendingMapMove?.label ?? null}
+                              onClearPendingMove={() => setPendingMapMove(null)}
+                              disabled={gameInputGenerationBlocked || sequentialGameMediaPending || !sessionInteractive}
+                              draftDisabled={!sessionInteractive}
+                              isStreaming={gameInputGenerationBlocked}
+                              inline
+                              draftKey={activeChatId}
+                              focusToken={gameInputFocusToken}
+                              onIllustrate={handleManualSceneIllustration}
+                              spatialCapabilityEnabled={hierarchicalMapsActive}
+                              interruptMode={pendingInterruptMode}
+                              sessionConcluded={!sessionInteractive}
+                              onStartNewSession={handleStartNewSession}
+                              startNewSessionPending={startSessionLocked}
+                            />
+                          )
+                        }
+                      />
+                    );
+                  })()}
+
+                  {!replayActive && renderStoryboardInlineViewer()}
+
+                  {/* QTE overlay — absolute, centered */}
+                  {!replayActive && activeQte && sessionInteractive && (
+                    <div className="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center">
+                      <GameQteOverlay
+                        actions={activeQte.actions.map((a) => ({ label: a }))}
+                        timerSeconds={activeQte.timer}
+                        onSelect={handleQteSelect}
+                        onTimeout={handleQteTimeout}
+                        onDismiss={handleDismissQte}
+                      />
+                    </div>
+                  )}
+
+                  {combatLogsOpen && (
+                    <div
+                      className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+                      {...combatLogsBackdropDismiss}
+                    >
+                      <div
+                        data-game-section="combat-logs"
+                        className={cn(
+                          GAME_SECTION_CLASS,
+                          "flex max-h-[82vh] w-full max-w-2xl flex-col rounded-xl border border-white/15 bg-[var(--card)] shadow-2xl",
                         )}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <ScrollText size={16} className="text-[var(--muted-foreground)]" />
+                            <span className="text-sm font-semibold text-[var(--foreground)]">
+                              {localizeUi("ui.game.gamesurfacecomponent.combatLogs")}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCombatLogsOpen(false)}
+                            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
+                            title={localizeUi("ui.game.gamesurfacecomponent.closeLogs")}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <div
+                          className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
+                          ref={(el) => {
+                            if (el && !combatLogScrolledRef.current) {
+                              combatLogScrolledRef.current = true;
+                              requestAnimationFrame(() => {
+                                el.scrollTop = el.scrollHeight;
+                              });
+                            }
+                          }}
+                        >
+                          {combatLogEntries.length === 0 ? (
+                            <p className="text-sm text-[var(--muted-foreground)]">
+                              {localizeUi("ui.game.gamesurfacecomponent.noLogsYet")}
+                            </p>
+                          ) : (
+                            <>
+                              {hiddenCombatLogCount > 0 && (
+                                <div className="flex justify-center pb-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      combatLogScrolledRef.current = true;
+                                      setCombatLogVisibleCount((current) =>
+                                        Math.min(combatLogEntries.length, current + combatLogPageSize),
+                                      );
+                                    }}
+                                    className={HISTORY_PAGER_BUTTON_CLASS}
+                                  >
+                                    {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
+                                    {hiddenCombatLogCount})
+                                  </button>
+                                </div>
+                              )}
+                              {visibleCombatLogEntries.map((entry) => {
+                                const label =
+                                  entry.role === "user"
+                                    ? personaInfo?.name || "You"
+                                    : entry.role === "assistant" || entry.role === "narrator"
+                                      ? "GM"
+                                      : "System";
+                                return (
+                                  <div
+                                    key={entry.id}
+                                    className="rounded-lg border border-white/10 bg-black/25 px-3 py-2"
+                                  >
+                                    <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-white/45">
+                                      {label}
+                                    </div>
+                                    <div
+                                      className="whitespace-pre-wrap break-words text-xs leading-relaxed text-white/80"
+                                      dangerouslySetInnerHTML={{ __html: formatNarration(entry.content, false) }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              <input
-                ref={npcPortraitUploadInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const targetName = pendingNpcPortraitUploadName;
-                  const file = e.target.files?.[0];
-                  setPendingNpcPortraitUploadName(null);
-                  e.target.value = "";
-                  if (file && targetName) {
-                    void handleNpcPortraitUpload(targetName, file);
-                  }
-                }}
-              />
-
-              <PinnedImageOverlay activeChatId={activeChatId} includeSceneVideos />
-
-              {/* Inventory overlay */}
-              <GameInventory
-                items={inventoryItems}
-                bags={inventoryBags}
-                open={inventoryOpen}
-                onClose={() => setInventoryOpen(false)}
-                onAddItem={handleAddInventoryItem}
-                itemBook={inventoryItemBook}
-                rulesetDefinition={gameRuleset.status === "ok" ? gameRuleset.definition : undefined}
-                onAddRulesetItems={handleAddRulesetItems}
-                placeAmong={inventoryPlaceAmong}
-                onWearItem={handleWearInventoryStack}
-                onSwitchItem={handleSwitchInventoryStack}
-                onRenameItem={handleRenameInventoryItem}
-                onSetItemQuantity={handleSetInventoryStackQuantity}
-                onSplitItem={handleSplitInventoryStack}
-                onMergeItems={handleMergeInventoryStacks}
-                onGiveItem={handleGiveInventoryStack}
-                onSwapItems={handleSwapInventoryStacks}
-                canInteract={sessionInteractive && narrationDone && !isStreaming}
-                onUseItem={handleUseInventoryStack}
-                startingGear={inventoryStartingGear}
-              />
-
-              {/* Readable document display (Notes / Books) */}
-              {activeReadable && (
-                <GameReadableDisplay
-                  type={activeReadable.type}
-                  content={activeReadable.content}
-                  onClose={() => {
-                    const next = readableQueueRef.current.shift();
-                    setActiveReadable(next ?? null);
+                <input
+                  ref={npcPortraitUploadInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const targetName = pendingNpcPortraitUploadName;
+                    const file = e.target.files?.[0];
+                    setPendingNpcPortraitUploadName(null);
+                    e.target.value = "";
+                    if (file && targetName) {
+                      void handleNpcPortraitUpload(targetName, file);
+                    }
                   }}
                 />
-              )}
 
-              {/* Inventory notifications */}
-              {inventoryNotifications.length > 0 && (
-                <div className="pointer-events-none absolute left-1/2 top-20 z-40 -translate-x-1/2 flex flex-col gap-1">
-                  {inventoryNotifications.map((n, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "animate-in fade-in-0 slide-in-from-bottom-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur-sm",
-                        n.gain
-                          ? "border-emerald-400/30 bg-emerald-900/80 text-emerald-200"
-                          : "border-red-400/30 bg-red-900/80 text-red-200",
-                      )}
-                    >
-                      {n.text}
-                    </div>
-                  ))}
-                </div>
-              )}
+                <PinnedImageOverlay activeChatId={activeChatId} includeSceneVideos />
 
-              {/* HUD Widgets - Left & Right, tops aligned */}
-              {/* Hidden while the package owns the game — it draws its own HUD. */}
-              {!replayActive &&
-                !combatUiActive &&
-                !experienceOwnsGame &&
-                hudWidgets.length > 0 &&
-                !compactHudWidgets && (
-                  <>
-                    {/* Desktop: full widget cards */}
-                    <div className="pointer-events-none absolute inset-x-3 bottom-24 z-30 hidden items-end justify-between md:flex">
-                      <div className="w-44" data-game-widget-rail="left">
-                        <GameWidgetPanel
-                          widgets={normalizedWidgets}
-                          position="hud_left"
-                          chatId={activeChatId}
-                          constraintsRef={hudSurfaceRef}
-                        />
-                      </div>
-                      <div className="w-44" data-game-widget-rail="right">
-                        <GameWidgetPanel
-                          widgets={normalizedWidgets}
-                          position="hud_right"
-                          chatId={activeChatId}
-                          constraintsRef={hudSurfaceRef}
-                        />
-                      </div>
-                    </div>
-                  </>
+                {/* Inventory overlay */}
+                <GameInventory
+                  items={inventoryItems}
+                  bags={inventoryBags}
+                  open={inventoryOpen}
+                  onClose={() => setInventoryOpen(false)}
+                  onAddItem={handleAddInventoryItem}
+                  itemBook={inventoryItemBook}
+                  rulesetDefinition={gameRuleset.status === "ok" ? gameRuleset.definition : undefined}
+                  onAddRulesetItems={handleAddRulesetItems}
+                  placeAmong={inventoryPlaceAmong}
+                  onWearItem={handleWearInventoryStack}
+                  onSwitchItem={handleSwitchInventoryStack}
+                  onRenameItem={handleRenameInventoryItem}
+                  onSetItemQuantity={handleSetInventoryStackQuantity}
+                  onSplitItem={handleSplitInventoryStack}
+                  onMergeItems={handleMergeInventoryStacks}
+                  onGiveItem={handleGiveInventoryStack}
+                  onSwapItems={handleSwapInventoryStacks}
+                  canInteract={sessionInteractive && narrationDone && !isStreaming}
+                  onUseItem={handleUseInventoryStack}
+                  startingGear={inventoryStartingGear}
+                />
+
+                {/* Readable document display (Notes / Books) */}
+                {activeReadable && (
+                  <GameReadableDisplay
+                    type={activeReadable.type}
+                    content={activeReadable.content}
+                    onClose={() => {
+                      const next = readableQueueRef.current.shift();
+                      setActiveReadable(next ?? null);
+                    }}
+                  />
                 )}
+
+                {/* Inventory notifications */}
+                {inventoryNotifications.length > 0 && (
+                  <div className="pointer-events-none absolute left-1/2 top-20 z-40 -translate-x-1/2 flex flex-col gap-1">
+                    {inventoryNotifications.map((n, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "animate-in fade-in-0 slide-in-from-bottom-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-lg backdrop-blur-sm",
+                          n.gain
+                            ? "border-emerald-400/30 bg-emerald-900/80 text-emerald-200"
+                            : "border-red-400/30 bg-red-900/80 text-red-200",
+                        )}
+                      >
+                        {n.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* The story's clocks (Capability API 1.342): small dials the player watches fill. */}
+                {!replayActive && !combatUiActive && !experienceOwnsGame && storyClocks.length > 0 && (
+                  <div className="pointer-events-none absolute left-3 top-14 z-30 max-w-[70%]">
+                    <StoryClockStrip clocks={storyClocks} />
+                  </div>
+                )}
+
+                {/* HUD Widgets - Left & Right, tops aligned */}
+                {/* Hidden while the package owns the game — it draws its own HUD. */}
+                {!replayActive &&
+                  !combatUiActive &&
+                  !experienceOwnsGame &&
+                  hudWidgets.length > 0 &&
+                  !compactHudWidgets && (
+                    <>
+                      {/* Desktop: full widget cards */}
+                      <div className="pointer-events-none absolute inset-x-3 bottom-24 z-30 hidden items-end justify-between md:flex">
+                        <div className="w-44" data-game-widget-rail="left">
+                          <GameWidgetPanel
+                            widgets={normalizedWidgets}
+                            position="hud_left"
+                            chatId={activeChatId}
+                            constraintsRef={hudSurfaceRef}
+                          />
+                        </div>
+                        <div className="w-44" data-game-widget-rail="right">
+                          <GameWidgetPanel
+                            widgets={normalizedWidgets}
+                            position="hud_right"
+                            chatId={activeChatId}
+                            constraintsRef={hudSurfaceRef}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+              </div>
             </div>
-          </div>
-        </DirectionEngine>
-      </GameTransitionManager>
+          </DirectionEngine>
+        </GameTransitionManager>
 
-      {/* Character sheet modal */}
-      {characterSheetOpen && characterSheetCharId && partyCards[characterSheetCharId] && (
-        <GameCharacterSheet
-          key={`${activeChatId}:${characterSheetCharId}`}
-          card={partyCards[characterSheetCharId]}
-          onClose={closeCharacterSheet}
-          onRegenerate={async () => {
-            const result = await regenerateCharacterSheet.mutateAsync({
-              chatId: activeChatId,
-              characterId: characterSheetCharId,
-              characterName: partyCards[characterSheetCharId].title,
-              debugMode: useUIStore.getState().debugMode,
-            });
-            return result.gameCard;
-          }}
-          isRegenerating={regenerateCharacterSheet.isPending}
-          onSave={(gameCard: GameCharacterSheetGameCard | undefined) =>
-            handleSaveCharacterSheet(partyCards[characterSheetCharId].title, gameCard)
-          }
-          onAvatarSelect={(file) =>
-            handlePartyPortraitUpload(characterSheetCharId, partyCards[characterSheetCharId].title, file)
-          }
-          ruleset={characterSheetRuleset}
-          rulesetPinned={gameRuleset.status !== "none"}
-        />
-      )}
-
-      {imagePromptReviewModal}
-
-      <Modal
-        open={interruptModalOpen}
-        onClose={closeInterruptModal}
-        title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")}
-        width="max-w-md"
-        panelClassName={GAME_DIALOG_CLASS}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
-              <AlertTriangle size="1.125rem" className="text-red-300" />
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {localizeUi("ui.game.gamesurfacecomponent.interruptionAttemptsCanGoBadlyDependingOnTheSituation")}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              onClick={closeInterruptModal}
-              className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
-            >
-              {localizeUi("ui.game.gamesurfacecomponent.no")}
-            </button>
-            <button
-              onClick={() => confirmInterrupt("force")}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition-colors"
-              style={{
-                color: "#20C20E",
-                backgroundColor: "rgba(32, 194, 14, 0.12)",
-                borderColor: "rgba(32, 194, 14, 0.35)",
-                boxShadow: "0 0 0 1px rgba(32, 194, 14, 0.35) inset",
-              }}
-              title={localizeUi("ui.game.gamesurfacecomponent.cutInWithoutTellingTheGmItWasAn")}
-            >
-              {localizeUi("ui.game.gamesurfacecomponent.forceInterrupt")}
-            </button>
-            <button
-              onClick={() => confirmInterrupt("risky")}
-              className="rounded-lg bg-[var(--marinara-app-accent-static)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/40 transition-colors hover:bg-[var(--marinara-app-accent-static)]/30"
-              title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
-            >
-              {localizeUi("ui.game.gamesurfacecomponent.yes")}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={confirmEndSessionOpen}
-        onClose={handleCloseEndSessionDialog}
-        title={
-          concludeSession.isPending
-            ? localizeUi("ui.game.gamesurfacecomponent.endingSession")
-            : localizeUi("ui.game.gamesurfacecomponent.endSession")
-        }
-        width="max-w-md"
-        panelClassName={GAME_DIALOG_CLASS}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--destructive)]/10">
-              <AlertTriangle size="1.125rem" className="text-[var(--destructive)]" />
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {concludeSession.isPending
-                ? localizeUi("ui.game.gamesurfacecomponent.endingThisSessionAndGeneratingItsSummaryPleaseWait")
-                : localizeUi("ui.game.gamesurfacecomponent.areYouSureYouWantToEndThisSession")}
-            </p>
-          </div>
-
-          {concludeSession.isError && !concludeSession.isPending && (
-            <p className="rounded-lg border border-[var(--destructive)]/25 bg-[var(--destructive)]/10 px-3 py-2 text-xs text-[var(--destructive)]">
-              {concludeSession.error.message || "Failed to end the session. You can try again."}
-            </p>
-          )}
-
-          {!concludeSession.isPending && (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-[var(--foreground)]">
-                {localizeUi("ui.game.gamesurfacecomponent.whatDoYouWantToHappenInTheNext")}
-              </span>
-              <textarea
-                value={nextSessionRequest}
-                onChange={(event) => setNextSessionRequest(event.target.value)}
-                rows={4}
-                maxLength={5000}
-                placeholder={localizeUi("ui.game.gamesurfacecomponent.leaveEmptyToLetTheGmSteerNaturally")}
-                className="resize-none rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/70 focus:border-zinc-400/60"
-              />
-            </label>
-          )}
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={handleCloseEndSessionDialog}
-              disabled={concludeSession.isPending}
-              className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-            <button
-              onClick={handleConfirmEndSession}
-              disabled={concludeSession.isPending}
-              className="rounded-lg bg-[var(--destructive)]/15 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25 transition-colors hover:bg-[var(--destructive)]/25 disabled:opacity-50"
-            >
-              {concludeSession.isPending
-                ? localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f")
-                : localizeUi("ui.game.gamesurfacecomponent.endSession")}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {widgetSessionPrepModal}
-
-      <GameJsonRepairModal
-        request={jsonRepairRequest}
-        onClose={() => setJsonRepairRequest(null)}
-        onApplied={handleJsonRepairApplied}
-      />
-
-      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
-        <MobileMapButton
-          chatId={activeChatId}
-          map={viewedMap}
-          maps={availableMaps}
-          activeMapId={activeMapId}
-          viewedMapId={effectiveViewedMapId}
-          onViewedMapChange={handleViewedMapChange}
-          onMove={handleMapMove}
-          selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
-          onGenerateMap={handleGenerateMap}
-          generateMapDisabled={isStreaming || !sessionInteractive}
-          disabled={isStreaming || !narrationDone || !sessionInteractive}
-          gameState={gameState}
-          timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
-          day={currentGameDay}
-          onDayChange={handleGameDayChange}
-          onTimeChange={handleGameTimeChange}
-          spatialContext={activeSpatialContext}
-          spatialContextLoading={activeSpatialContextLoading}
-        />
-      )}
-
-      {!introCinematicActive && !replayActive && !experienceOwnsGame && (
-        <GamePartyBar
-          key={activeChatId}
-          partyMembers={partyMembers}
-          partyCards={partyCards}
-          onRemovePartyMember={handleRemovePartyMemberFromBar}
-          removingPartyMemberId={removingPartyMemberId}
-        />
-      )}
-
-      {/* The top controls are windows that minimize to bubbles in a row at the top right (below the tactical
-          combat bar while it shows, as the old buttons moved down). */}
-      {!introCinematicActive && !replayActive && (
-        <>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.gameControls}
-            title={t("chat.controls.gameControls")}
-            icon={
-              <Gamepad2 size={14} className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-pulse" : ""} />
+        {/* Character sheet modal */}
+        {characterSheetOpen && characterSheetCharId && partyCards[characterSheetCharId] && (
+          <GameCharacterSheet
+            key={`${activeChatId}:${characterSheetCharId}`}
+            card={partyCards[characterSheetCharId]}
+            onClose={closeCharacterSheet}
+            onRegenerate={async () => {
+              const result = await regenerateCharacterSheet.mutateAsync({
+                chatId: activeChatId,
+                characterId: characterSheetCharId,
+                characterName: partyCards[characterSheetCharId].title,
+                debugMode: useUIStore.getState().debugMode,
+              });
+              return result.gameCard;
+            }}
+            isRegenerating={regenerateCharacterSheet.isPending}
+            onSave={(gameCard: GameCharacterSheetGameCard | undefined) =>
+              handleSaveCharacterSheet(partyCards[characterSheetCharId].title, gameCard)
             }
-            slot={4}
-            width={288}
-            height={220}
-            helpTarget="game-controls"
-          >
-            <div className="flex flex-col gap-1 p-1.5">
-              {/* The overworld and the scene (worldgen W8): a game with a world switches between them. */}
-              {/* A dungeon, cave or station map the Game Master opened, and the scene. */}
-              {dungeonMapOpen && (
-                <button onClick={handleToggleDungeonView} className={GAME_ACTION_MENU_ITEM}>
-                  {dungeonShown ? <Film size={13} /> : <MapIcon size={13} />}
-                  <span>{dungeonShown ? t("game.dungeon.showScene") : t("game.dungeon.show")}</span>
-                </button>
-              )}
-              {gameWorld && !dungeonShown && (
-                <button onClick={handleToggleWorldView} className={GAME_ACTION_MENU_ITEM}>
-                  {overworldShown ? <Film size={13} /> : <MapIcon size={13} />}
-                  <span>{overworldShown ? t("game.overworld.showScene") : t("game.overworld.show")}</span>
-                </button>
-              )}
-              {renderStoryboardBackgroundControls() && (
-                <div className={cn("flex items-center gap-0.5 px-1 pb-1", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
-                  {renderStoryboardBackgroundControls()}
-                </div>
-              )}
-              {renderRetryItems()}
+            onAvatarSelect={(file) =>
+              handlePartyPortraitUpload(characterSheetCharId, partyCards[characterSheetCharId].title, file)
+            }
+            ruleset={characterSheetRuleset}
+            rulesetPinned={gameRuleset.status !== "none"}
+          />
+        )}
+
+        {imagePromptReviewModal}
+
+        <Modal
+          open={interruptModalOpen}
+          onClose={closeInterruptModal}
+          title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")}
+          width="max-w-md"
+          panelClassName={GAME_DIALOG_CLASS}
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+                <AlertTriangle size="1.125rem" className="text-red-300" />
+              </div>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {localizeUi("ui.game.gamesurfacecomponent.interruptionAttemptsCanGoBadlyDependingOnTheSituation")}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
-                onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
-                className={GAME_ACTION_MENU_ITEM}
+                onClick={closeInterruptModal}
+                className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
               >
-                <Braces size={13} />
-                <span>{t("game.toolbar.editGameData")}</span>
+                {localizeUi("ui.game.gamesurfacecomponent.no")}
               </button>
               <button
-                onClick={() => useUIStore.getState().openModal("game-checkpoints", { chatId: activeChatId })}
-                className={GAME_ACTION_MENU_ITEM}
+                onClick={() => confirmInterrupt("force")}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition-colors"
+                style={{
+                  color: "#20C20E",
+                  backgroundColor: "rgba(32, 194, 14, 0.12)",
+                  borderColor: "rgba(32, 194, 14, 0.35)",
+                  boxShadow: "0 0 0 1px rgba(32, 194, 14, 0.35) inset",
+                }}
+                title={localizeUi("ui.game.gamesurfacecomponent.cutInWithoutTellingTheGmItWasAn")}
               >
-                <History size={13} />
-                <span>{t("game.toolbar.checkpoints")}</span>
+                {localizeUi("ui.game.gamesurfacecomponent.forceInterrupt")}
+              </button>
+              <button
+                onClick={() => confirmInterrupt("risky")}
+                className="rounded-lg bg-[var(--marinara-app-accent-static)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/40 transition-colors hover:bg-[var(--marinara-app-accent-static)]/30"
+                title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
+              >
+                {localizeUi("ui.game.gamesurfacecomponent.yes")}
               </button>
             </div>
-          </ChatControlWindow>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.session}
-            title={t("game.toolbar.session")}
-            icon={<Feather size={14} />}
-            slot={3}
-            width={672}
-            height={640}
-            helpTarget="session"
-            scroll={false}
-          >
-            {renderSessionPanel()}
-          </ChatControlWindow>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.volume}
-            title={t("game.toolbar.volume")}
-            icon={audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            slot={2}
-            width={280}
-            height={270}
-            helpTarget="volume"
-          >
-            <GameVolumeMixer
-              audioMuted={audioMuted || masterVolume === 0}
-              masterVolume={masterVolume}
-              musicVolume={musicVolume}
-              sfxVolume={sfxVolume}
-              ttsVolume={ttsVolume}
-              ambientVolume={ambientVolume}
-              onMasterVolumeChange={handleMasterVolumeChange}
-              onMusicVolumeChange={(value) => handleChannelVolumeChange("musicVolume", setMusicVolume, value)}
-              onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
-              onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
-              onAmbientVolumeChange={(value) => handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)}
-              onToggleMute={handleToggleMute}
-              onAudioInteract={handleAudioInteract}
-            />
-          </ChatControlWindow>
-          <ChatControlWindow
-            id={CHAT_CONTROL_WINDOW_IDS.assets}
-            title={t("game.toolbar.assets")}
-            icon={<Folder size={14} />}
-            slot={1}
-            width={864}
-            height={640}
-            helpTarget="assets"
-            scroll={false}
-          >
-            {renderGameAssetsPanel()}
-          </ChatControlWindow>
-          {onSwitchChat ? (
-            <ChatConnectedChatWindow name={connectedChatName} onSwitch={handleSwitchConnectedChat} />
-          ) : null}
-        </>
-      )}
-    </div>
+          </div>
+        </Modal>
+
+        <Modal
+          open={
+            storyEnding !== null &&
+            storyEndingKey !== storyEndingClosed &&
+            !storyEndingClosedBefore &&
+            sessionStatus !== "concluded" &&
+            !replayActive &&
+            !confirmEndSessionOpen
+          }
+          onClose={closeStoryEnding}
+          title={storyEnding?.title ?? ""}
+          width="max-w-lg"
+        >
+          <div className="flex flex-col gap-4" data-story-ending="">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              {localizeUi("ui.game.storyEnding.theEnd")}
+            </p>
+            <p className="whitespace-pre-line text-sm leading-relaxed">{storyEnding?.epilogue}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeStoryEnding}
+                className="rounded-xl px-3 py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+              >
+                {localizeUi("ui.game.storyEnding.keepReading")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeStoryEnding();
+                  handleRequestEndSession();
+                }}
+                className="rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)]"
+              >
+                {localizeUi("ui.game.storyEnding.endSession")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal
+          open={confirmEndSessionOpen}
+          onClose={handleCloseEndSessionDialog}
+          title={
+            concludeSession.isPending
+              ? localizeUi("ui.game.gamesurfacecomponent.endingSession")
+              : localizeUi("ui.game.gamesurfacecomponent.endSession")
+          }
+          width="max-w-md"
+          panelClassName={GAME_DIALOG_CLASS}
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--destructive)]/10">
+                <AlertTriangle size="1.125rem" className="text-[var(--destructive)]" />
+              </div>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {concludeSession.isPending
+                  ? localizeUi("ui.game.gamesurfacecomponent.endingThisSessionAndGeneratingItsSummaryPleaseWait")
+                  : localizeUi("ui.game.gamesurfacecomponent.areYouSureYouWantToEndThisSession")}
+              </p>
+            </div>
+
+            {concludeSession.isError && !concludeSession.isPending && (
+              <p className="rounded-lg border border-[var(--destructive)]/25 bg-[var(--destructive)]/10 px-3 py-2 text-xs text-[var(--destructive)]">
+                {concludeSession.error.message || "Failed to end the session. You can try again."}
+              </p>
+            )}
+
+            {!concludeSession.isPending && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-[var(--foreground)]">
+                  {localizeUi("ui.game.gamesurfacecomponent.whatDoYouWantToHappenInTheNext")}
+                </span>
+                <textarea
+                  value={nextSessionRequest}
+                  onChange={(event) => setNextSessionRequest(event.target.value)}
+                  rows={4}
+                  maxLength={5000}
+                  placeholder={localizeUi("ui.game.gamesurfacecomponent.leaveEmptyToLetTheGmSteerNaturally")}
+                  className="resize-none rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/70 focus:border-zinc-400/60"
+                />
+              </label>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={handleCloseEndSessionDialog}
+                disabled={concludeSession.isPending}
+                className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
+              <button
+                onClick={handleConfirmEndSession}
+                disabled={concludeSession.isPending}
+                className="rounded-lg bg-[var(--destructive)]/15 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25 transition-colors hover:bg-[var(--destructive)]/25 disabled:opacity-50"
+              >
+                {concludeSession.isPending
+                  ? localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f")
+                  : localizeUi("ui.game.gamesurfacecomponent.endSession")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        {widgetSessionPrepModal}
+
+        <GameJsonRepairModal
+          request={jsonRepairRequest}
+          onClose={() => setJsonRepairRequest(null)}
+          onApplied={handleJsonRepairApplied}
+        />
+
+        {!introCinematicActive && !replayActive && !experienceOwnsGame && !boardFightOnScreen && (
+          <MobileMapButton
+            chatId={activeChatId}
+            map={viewedMap}
+            maps={availableMaps}
+            activeMapId={activeMapId}
+            viewedMapId={effectiveViewedMapId}
+            onViewedMapChange={handleViewedMapChange}
+            onMove={handleMapMove}
+            selectedPosition={viewedMapIsActive ? (pendingMapMove?.position ?? null) : null}
+            onGenerateMap={handleGenerateMap}
+            generateMapDisabled={isStreaming || !sessionInteractive}
+            disabled={isStreaming || !narrationDone || !sessionInteractive}
+            gameState={gameState}
+            timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
+            day={currentGameDay}
+            onDayChange={handleGameDayChange}
+            onTimeChange={handleGameTimeChange}
+            spatialContext={activeSpatialContext}
+            spatialContextLoading={activeSpatialContextLoading}
+          />
+        )}
+
+        {!introCinematicActive && !replayActive && !experienceOwnsGame && !boardFightOnScreen && (
+          <GamePartyBar
+            key={activeChatId}
+            partyMembers={partyMembers}
+            partyCards={partyCards}
+            onRemovePartyMember={handleRemovePartyMemberFromBar}
+            removingPartyMemberId={removingPartyMemberId}
+          />
+        )}
+
+        {/* The top controls are windows that minimize to bubbles in a row at the top right (below the tactical
+          combat bar while it shows, as the old buttons moved down). */}
+        {!introCinematicActive && !replayActive && !boardFightOnScreen && (
+          <>
+            <ChatControlWindow
+              id={CHAT_CONTROL_WINDOW_IDS.gameControls}
+              title={t("chat.controls.gameControls")}
+              icon={
+                <Gamepad2 size={14} className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-pulse" : ""} />
+              }
+              slot={4}
+              width={288}
+              height={220}
+              helpTarget="game-controls"
+            >
+              <div className="flex flex-col gap-1 p-1.5">
+                {/* The overworld and the scene (worldgen W8): a game with a world switches between them. */}
+                {/* A dungeon, cave or station map the Game Master opened, and the scene. */}
+                {dungeonMapOpen && (
+                  <button onClick={handleToggleDungeonView} className={GAME_ACTION_MENU_ITEM}>
+                    {dungeonShown ? <Film size={13} /> : <MapIcon size={13} />}
+                    <span>{dungeonShown ? t("game.dungeon.showScene") : t("game.dungeon.show")}</span>
+                  </button>
+                )}
+                {gameWorld && !dungeonShown && (
+                  <button onClick={handleToggleWorldView} className={GAME_ACTION_MENU_ITEM}>
+                    {overworldShown ? <Film size={13} /> : <MapIcon size={13} />}
+                    <span>{overworldShown ? t("game.overworld.showScene") : t("game.overworld.show")}</span>
+                  </button>
+                )}
+                {renderStoryboardBackgroundControls() && (
+                  <div className={cn("flex items-center gap-0.5 px-1 pb-1", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
+                    {renderStoryboardBackgroundControls()}
+                  </div>
+                )}
+                {renderRetryItems()}
+                <button
+                  onClick={() => useUIStore.getState().openModal("game-data-editor", { chatId: activeChatId })}
+                  className={GAME_ACTION_MENU_ITEM}
+                >
+                  <Braces size={13} />
+                  <span>{t("game.toolbar.editGameData")}</span>
+                </button>
+                <button
+                  onClick={() => useUIStore.getState().openModal("game-checkpoints", { chatId: activeChatId })}
+                  className={GAME_ACTION_MENU_ITEM}
+                >
+                  <History size={13} />
+                  <span>{t("game.toolbar.checkpoints")}</span>
+                </button>
+              </div>
+            </ChatControlWindow>
+            <ChatControlWindow
+              id={CHAT_CONTROL_WINDOW_IDS.session}
+              title={t("game.toolbar.session")}
+              icon={<Feather size={14} />}
+              slot={3}
+              width={672}
+              height={640}
+              helpTarget="session"
+              scroll={false}
+            >
+              {renderSessionPanel()}
+            </ChatControlWindow>
+            <ChatControlWindow
+              id={CHAT_CONTROL_WINDOW_IDS.volume}
+              title={t("game.toolbar.volume")}
+              icon={audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              slot={2}
+              width={280}
+              height={270}
+              helpTarget="volume"
+            >
+              <GameVolumeMixer
+                audioMuted={audioMuted || masterVolume === 0}
+                masterVolume={masterVolume}
+                musicVolume={musicVolume}
+                sfxVolume={sfxVolume}
+                ttsVolume={ttsVolume}
+                ambientVolume={ambientVolume}
+                onMasterVolumeChange={handleMasterVolumeChange}
+                onMusicVolumeChange={(value) => handleChannelVolumeChange("musicVolume", setMusicVolume, value)}
+                onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
+                onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
+                onAmbientVolumeChange={(value) => handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)}
+                onToggleMute={handleToggleMute}
+                onAudioInteract={handleAudioInteract}
+              />
+            </ChatControlWindow>
+            <ChatControlWindow
+              id={CHAT_CONTROL_WINDOW_IDS.assets}
+              title={t("game.toolbar.assets")}
+              icon={<Folder size={14} />}
+              slot={1}
+              width={864}
+              height={640}
+              helpTarget="assets"
+              scroll={false}
+            >
+              {renderGameAssetsPanel()}
+            </ChatControlWindow>
+            {onSwitchChat ? (
+              <ChatConnectedChatWindow name={connectedChatName} onSwitch={handleSwitchConnectedChat} />
+            ) : null}
+          </>
+        )}
+      </div>
+    </ExperienceMapPackProviders>
   );
 }
 
 export const GameSurface = memo(GameSurfaceComponent);
+
+/** What an Experience's map pack brings the game's views: its creature art (1.344) and its people's
+ *  walking looks (1.346). */
+function ExperienceMapPackProviders({
+  creatures,
+  peopleSprites,
+  children,
+}: {
+  creatures: CreaturePack[];
+  peopleSprites: ReadonlyMap<string, string>;
+  children: ReactNode;
+}) {
+  return (
+    <ExperienceCreaturePacksContext.Provider value={creatures}>
+      <ExperiencePeopleSpritesContext.Provider value={peopleSprites}>
+        {children}
+      </ExperiencePeopleSpritesContext.Provider>
+    </ExperienceCreaturePacksContext.Provider>
+  );
+}

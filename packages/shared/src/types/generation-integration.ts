@@ -46,6 +46,10 @@ export interface LLMToolCall {
     name: string;
     arguments: string;
   };
+  /** Provider-native fields the call came with, sent back with it unchanged on the next tool round:
+   *  Gemini's OpenAI-compatible endpoint puts the call's thought signature in
+   *  `extra_content.google.thought_signature`, and refuses the round without it. */
+  extra_content?: Record<string, unknown>;
 }
 
 export interface LLMToolDefinition {
@@ -272,6 +276,8 @@ export interface ImageGenRequest {
   characterPrompts?: SceneIllustrationCharacterPrompt[];
   /** Request a transparent image background when the provider/model supports it. */
   transparentBackground?: boolean;
+  /** Keep uncompressed provider output for sprite/portrait processing that requires its original pixels and format. */
+  preserveProviderOutput?: boolean;
   /** Optional caller-owned abort signal for cancelling long image requests. */
   signal?: AbortSignal;
   /** Emit the final provider request even when the global log level is above debug. */
@@ -361,7 +367,7 @@ export interface VideoGenerationRequest {
   // Gemini Omni currently takes duration guidance through the prompt, not video_config.
   durationSeconds: number;
   aspectRatio: "16:9" | "9:16";
-  resolution?: "480p" | "720p" | "1080p";
+  resolution?: "480p" | "720p" | "768p" | "1080p";
   referenceImage?: VideoReferenceImage | null;
   /** API-format workflow JSON for local ComfyUI video generation. */
   comfyWorkflow?: string;
@@ -404,6 +410,18 @@ export interface VideoGenerationResult {
   base64: string;
   mimeType: "video/mp4";
   ext: "mp4";
+}
+
+export interface CapabilityGalleryImageAnimationInput {
+  connectionId: string;
+  galleryImageId: string;
+  prompt: string;
+  durationSeconds?: number;
+  aspectRatio?: "16:9" | "9:16";
+  /** Use the illustration as both endpoints where the selected provider supports it. */
+  loop?: boolean;
+  debugMode?: boolean;
+  signal?: AbortSignal;
 }
 
 export type FallbackConnection = {
@@ -493,6 +511,9 @@ export interface CapabilityIntegrationHost {
     ): Promise<{ characterCount: number; personaCount: number }>;
   };
   videos: {
+    /** Capability API 1.384. Animate a saved Global Gallery image using a saved video connection.
+     *  Requires `network` and `storage`; credentials stay in the host. The package owns the returned video. */
+    animateGalleryImage?(input: CapabilityGalleryImageAnimationInput): Promise<VideoGenerationResult>;
     generate(
       source: string,
       baseUrl: string,

@@ -195,6 +195,7 @@ const INTERNAL_EXTRA_KEYS = new Set([
   "geminiParts",
   "generationInfo",
   "generationReplay",
+  "lorebookGenerationTriggers",
   "lorebookScan",
 ]);
 

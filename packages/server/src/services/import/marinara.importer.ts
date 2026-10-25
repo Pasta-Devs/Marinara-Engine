@@ -9,6 +9,7 @@ import {
 import type { DB } from "../../db/connection.js";
 import {
   canReparentFolder,
+  unassignCardFieldAlternatives,
   getFolderImportEntries,
   getFolderManifestConfig,
   isJsonRecord,
@@ -476,6 +477,7 @@ async function importCharacter(data: unknown, db: DB) {
     charData.extensions && typeof charData.extensions === "object"
       ? ({ ...(charData.extensions as Record<string, unknown>) } as Record<string, unknown>)
       : {};
+  extensions.cardFieldAlternatives = unassignCardFieldAlternatives(extensions.cardFieldAlternatives);
   const useCharacterSheetAsReference = extensions.useCharacterSheetAsReference === true;
   delete extensions.characterSheetImageId;
   extensions.useCharacterSheetAsReference = false;
@@ -633,6 +635,7 @@ async function importPersona(data: unknown, db: DB) {
   // Alias selection and native-import defaults stay local; the shared adapter
   // owns the legacy structured-field inventory and its decoding policy.
   const personaInput: Record<string, unknown> = {
+    cardFieldAlternatives: unassignCardFieldAlternatives(d.cardFieldAlternatives),
     name: typeof d.name === "string" ? d.name : "Imported Persona",
     ...(d.avatarCrop === undefined ? {} : { avatarCrop: d.avatarCrop }),
     ...(d.trackerCardColors === undefined ? {} : { trackerCardColors: d.trackerCardColors }),
@@ -651,6 +654,8 @@ async function importPersona(data: unknown, db: DB) {
     "comment",
     "creator",
     "phoneticName",
+    "summary",
+    "mes_example",
     "description",
     "personality",
     "scenario",

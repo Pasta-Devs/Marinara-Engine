@@ -143,11 +143,12 @@ const stateShape = {
   spending: spendingSchema.optional(),
   allocations: z
     .record(
+      z.string(),
       z
         .object({
-          priorities: z.record(z.number().int().min(0).max(11).catch(-1)).optional().catch(undefined),
-          bought: z.record(z.number().int().min(0).max(10000).catch(0)).optional().catch(undefined),
-          notes: z.record(z.string().max(1000).catch("")).optional().catch(undefined),
+          priorities: z.record(z.string(), z.number().int().min(0).max(11).catch(-1)).optional().catch(undefined),
+          bought: z.record(z.string(), z.number().int().min(0).max(10000).catch(0)).optional().catch(undefined),
+          notes: z.record(z.string(), z.string().max(1000).catch("")).optional().catch(undefined),
         })
         .catch({}),
     )
@@ -174,14 +175,16 @@ const stateShape = {
       ),
     )
     .optional(),
-  base: z.record(z.number().finite()).optional(),
+  base: z.record(z.string(), z.number().finite()).optional(),
   rolled: z.array(z.number().finite()).max(40).optional(),
-  assign: z.record(z.number().int().min(0).max(40)).optional(),
-  picks: z.record(idList).optional(),
-  abilityChoices: z.record(idList).optional(),
-  trainedChoices: z.record(idList).optional(),
-  entryChoices: z.record(idList).optional(),
-  trainingBase: z.object({ skills: z.record(z.string().max(40)), saves: z.record(z.string().max(40)) }).optional(),
+  assign: z.record(z.string(), z.number().int().min(0).max(40)).optional(),
+  picks: z.record(z.string(), idList).optional(),
+  abilityChoices: z.record(z.string(), idList).optional(),
+  trainedChoices: z.record(z.string(), idList).optional(),
+  entryChoices: z.record(z.string(), idList).optional(),
+  trainingBase: z
+    .object({ skills: z.record(z.string(), z.string().max(40)), saves: z.record(z.string(), z.string().max(40)) })
+    .optional(),
   describing: z.boolean().optional(),
   initialized: z
     .record(
@@ -195,6 +198,7 @@ const stateShape = {
     .object({
       spending: z
         .record(
+          z.string(),
           z.object({
             before: z.union([z.number().finite(), z.string().max(4000), z.boolean()]).optional(),
             desired: z.number().finite(),
@@ -204,6 +208,7 @@ const stateShape = {
         .catch(undefined),
       ratings: z
         .record(
+          z.string(),
           z.object({
             before: z.union([z.number().finite(), z.string().max(4000), z.boolean()]).optional(),
             desired: z.number().finite(),
@@ -212,17 +217,17 @@ const stateShape = {
         .optional()
         .catch(undefined),
       allocations: z
-        .record(z.record(z.number().int().min(0).max(10000)))
+        .record(z.string(), z.record(z.string(), z.number().int().min(0).max(10000)))
         .optional()
         .catch(undefined),
-      increases: z.record(z.number().finite()).default({}),
-      scores: z.record(z.number().finite()).default({}),
-      skills: z.record(z.string().max(40)).default({}),
-      saves: z.record(z.string().max(40)).default({}),
-      fields: z.record(z.union([z.number().finite(), z.string().max(4000), z.boolean()])).default({}),
+      increases: z.record(z.string(), z.number().finite()).prefault({}),
+      scores: z.record(z.string(), z.number().finite()).prefault({}),
+      skills: z.record(z.string(), z.string().max(40)).prefault({}),
+      saves: z.record(z.string(), z.string().max(40)).prefault({}),
+      fields: z.record(z.string(), z.union([z.number().finite(), z.string().max(4000), z.boolean()])).prefault({}),
       rows: z.array(z.string().max(200)).max(1000).default([]),
       trainingBefore: z
-        .object({ skills: z.record(z.string().max(40)), saves: z.record(z.string().max(40)) })
+        .object({ skills: z.record(z.string(), z.string().max(40)), saves: z.record(z.string(), z.string().max(40)) })
         .optional(),
     })
     .optional(),
@@ -3154,4 +3159,41 @@ export function rulesetBuilderRoll(
     build: { ...build, fields: { ...build.fields, [roll.field!]: written } },
     state: { ...state, rolls: { ...state.rolls, [stepId]: { ...state.rolls?.[stepId], [rollId]: record } } },
   };
+}
+
+/** Whether everything an entry would write is already on the sheet (Capability API 1.378): its rows
+ *  are there by the entry's own mark (a cleric's domain spell, granted by a later step), or by name
+ *  where something else wrote a row that is nothing but its name (a dwarf's Dwarvish, written by
+ *  the race). A step offers
+ *  such an entry as already known rather than as one more pick. An entry that writes no rows is
+ *  never held. */
+export function rulesetBuilderEntryHeld(
+  definition: RulesetDefinition,
+  build: RulesetSheetBuild,
+  catalogId: string,
+  entry: RulesetCatalogEntry,
+): boolean {
+  const rows = rowsFromCatalogEntry(catalogId, entry);
+  if (!rows.length) return false;
+  return rows.every(({ list, row }) => {
+    const held = build.lists?.[list];
+    if (!Array.isArray(held)) return false;
+    const declared = definition.sheet.lists.find((one) => one.id === list);
+    const nameColumn =
+      definition.gm.sheetSummary.lists.find((one) => one.list === list)?.nameColumn ??
+      declared?.columns.find((column) => column.type === "text")?.id;
+    const name = nameColumn ? row[nameColumn] : undefined;
+    // A name speaks for the entry only where the name is all its row writes: a row that also writes
+    // damage or a range is held only by the entry's own mark, or those columns would go unwritten.
+    const nameOnly = Object.keys(row).every((key) => key === nameColumn || key === RULESET_CATALOG_ROW_KEY);
+    const wanted = nameOnly && typeof name === "string" ? name.trim().toLowerCase() : undefined;
+    const mark = row[RULESET_CATALOG_ROW_KEY];
+    return held.some((raw) => {
+      if (!raw || typeof raw !== "object") return false;
+      const other = raw as Record<string, unknown>;
+      if (mark !== undefined && other[RULESET_CATALOG_ROW_KEY] === mark) return true;
+      const otherName = nameColumn ? other[nameColumn] : undefined;
+      return !!wanted && typeof otherName === "string" && otherName.trim().toLowerCase() === wanted;
+    });
+  });
 }

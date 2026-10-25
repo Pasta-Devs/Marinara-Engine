@@ -164,7 +164,8 @@ export function GlobalOmnibar() {
         // the overlay registry too.
         !ui.modal &&
         !isModalOverlayOpen() &&
-        !isTypingTarget(event.target)
+        // A package shadow root retargets the event to its host; the path retains its editor.
+        !event.composedPath().some(isTypingTarget)
       ) {
         event.preventDefault();
         ui.openModal("keyboard-shortcuts");

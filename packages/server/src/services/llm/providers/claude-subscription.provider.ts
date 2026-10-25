@@ -30,7 +30,13 @@ import {
   isClaudeStrictRequestModel,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
-import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
+import {
+  BaseLLMProvider,
+  markLlmRequestActivity,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMUsage,
+} from "../base-provider.js";
 import { resolveAnthropicAdaptiveEffort, supportsAnthropicThinkingDisable } from "./anthropic.provider.js";
 import { logger } from "../../../lib/logger.js";
 import { isClaudeSubscriptionResumeEnabled } from "../../../config/runtime-config.js";
@@ -594,6 +600,7 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       });
 
       for await (const message of queryHandle) {
+        markLlmRequestActivity();
         if (message.type === "stream_event") {
           const event = message.event as {
             type: string;

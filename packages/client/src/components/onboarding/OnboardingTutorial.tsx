@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
@@ -399,8 +400,8 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
 
   let maxHeight: number;
 
-  let top = 0;
-  let left = 0;
+  let top: number;
+  let left: number;
 
   if (placement === "right") {
     maxHeight = Math.min(Math.max(minScrollableHeight, availableViewportHeight), availableViewportHeight);
@@ -463,9 +464,9 @@ function TourCardContent({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { poses } = useMariAppearancePack();
-  // UX-06: on a phone there is no search field to point at; the same step tells the user about the pull-down.
-  const bodyKey =
-    currentStep.phoneBodyKey && getViewportWidth() < MOBILE_BREAKPOINT ? currentStep.phoneBodyKey : currentStep.bodyKey;
+  // UX-06: the phone shell (landscape too) has no search field to point at; the same step tells the user about the pull-down.
+  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
+  const bodyKey = currentStep.phoneBodyKey && mobileShell ? currentStep.phoneBodyKey : currentStep.bodyKey;
   const localizedBody = bodyKey
     ? localizeUi(bodyKey, { mod: formatShortcutKey("Mod") })
     : localize(currentStep.body ?? "");

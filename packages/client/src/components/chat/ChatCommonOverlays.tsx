@@ -13,6 +13,7 @@ import { FloatingWindow } from "../ui/FloatingWindow";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps } from "./chat-settings-window";
+import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 
 const loadChatSettingsDrawer = async () => {
@@ -265,7 +266,7 @@ type ChatCommonOverlaysProps = {
   sceneSettings: SharedSceneSettingsProps;
   onCloseSettings: (options?: { force?: boolean }) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
-  onWizardFinish: () => void;
+  onWizardFinish: (discarded?: boolean) => void;
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
@@ -311,7 +312,8 @@ export function ChatCommonOverlays({
   onSelectAllBelowSelection,
 }: ChatCommonOverlaysProps) {
   // Popped-out sections render from inside Chat Settings, so it stays mounted (hidden) while any is out.
-  const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID);
+  // The setup wizard sits below floating windows, so they wait until it closes; their layout is kept.
+  const settingsSectionsPoppedOut = useHostHasDetachedDrawers(CHAT_SETTINGS_WINDOW_ID) && !wizardOpen;
   return (
     <>
       {chat && (settingsOpen || settingsSectionsPoppedOut) && (
@@ -340,6 +342,7 @@ export function ChatCommonOverlays({
           />
         </Suspense>
       )}
+      {chat && <ChatBranchGraphWindow chatId={chat.id} groupId={chat.groupId ?? null} />}
       {chat && (
         <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
       )}

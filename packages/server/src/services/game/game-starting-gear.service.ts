@@ -41,7 +41,8 @@ export function readGameStartingGearTaken(raw: unknown): GameStartingGearTaken {
   return Object.fromEntries(
     Object.entries(raw as Record<string, unknown>).flatMap(([key, ids]) => {
       if (!Array.isArray(ids)) return [];
-      const kept = ids.filter((id): id is string => typeof id === "string" && id.length <= 64).slice(0, 40);
+      // The newest forty: a kit just taken is never the one dropped.
+      const kept = ids.filter((id): id is string => typeof id === "string" && id.length <= 64).slice(-40);
       return kept.length > 0 ? [[key, kept]] : [];
     }),
   );
@@ -194,7 +195,8 @@ export async function takeGameStartingGear(
     const worn = equips.length > 0 ? applyGameInventoryOps(added.stacks, equips, undefined, book) : added;
     const next: GameStartingGearTaken = {
       ...taken,
-      [bagKey]: [...takenHere.filter((id) => rulesetStartingGearKind(definition, id) !== kind), gear.id],
+      // Taken again, it is taken too: the marker keeps every gear the bag has taken.
+      [bagKey]: [...takenHere.filter((id) => id !== gear.id), gear.id].slice(-40),
     };
     // Written as the bag writes a stack: "Handaxe x2".
     const list = resolution.adds.map((add) => (add.count > 1 ? `${add.name} x${add.count}` : add.name)).join(", ");

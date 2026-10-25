@@ -103,6 +103,20 @@ import { createCharactersStorage } from "../../services/storage/characters.stora
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
+import {
+  animateGalleryImage,
+  generateRoleplayClip,
+  roleplayVideoFirstFrame,
+} from "../../services/video/chat-video-generation.js";
+import { attachVideoToMessage, buildChatVideoAttachment } from "../../services/video/chat-video-messages.js";
+import {
+  createRoleplayClipTools,
+  resolveIllustratorVideoOffer,
+} from "../../services/video/roleplay-illustrator-clips.js";
+import type {
+  IllustratorChatCharacterReference,
+  IllustratorPersonaReference,
+} from "../../services/image/illustrator-references.js";
 import { createCharacterGalleryStorage } from "../../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../../services/storage/persona-gallery.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
@@ -161,10 +175,21 @@ import {
 import { createGameStateStorage } from "../../services/storage/game-state.storage.js";
 import { normalizeCharacterRpgStats } from "../../services/generation/character-prompt-context.js";
 import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
+import { normalizeGenerationReplay } from "./generation-replay.js";
+import { createAgentLorebookTriggerResolver } from "../../services/generation/agent-lorebook-triggers.js";
+import {
+  normalizeStoredLorebookGenerationTriggers,
+  resolveLorebookGenerationTriggers,
+  resolveLorebookTokenBudget,
+} from "../../services/generation/lorebook-generation-runtime.js";
+import type { Lorebook, LorebookEntry } from "@marinara-engine/shared";
+import type { GameStateForScanning } from "../../services/lorebook/keyword-scanner.js";
+import { filterRelevantLorebooks } from "../../services/lorebook/index.js";
 import { storedContentForTextlessScanEntries } from "../../services/lorebook/lorebook-scan-compaction.js";
 import { createCustomToolsStorage } from "../../services/storage/custom-tools.storage.js";
 import { syncGameMapMetaPartyPosition } from "../../services/game/map-position.service.js";
 import {
+  agentCurrentLocationFromProjection,
   formatOwnerSpatialBreadcrumb,
   omitAuthoritativeGameLocation,
   projectGameSnapshotLocation,
@@ -190,6 +215,7 @@ import {
   resolveBaseUrl,
   resolveRoleplayChatSummaryForPrompt,
   resolveVisibleGameStateAnchor,
+  resolveKnowledgeSourceLorebookIds,
 } from "./generate-route-utils.js";
 import { shouldAttachSummariesToAgents } from "../../services/generation/roleplay-summary-retrieval.js";
 import { roleplayAgentsSeeWhispers, roleplayAgentText } from "../../services/generation/roleplay-commands.js";
@@ -311,7 +337,7 @@ type PersonaContext = {
   identitySource: "persona" | "character" | null;
   personaName: string;
   personaDescription: string;
-  personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string };
+  personaFields: { example?: string; personality?: string; scenario?: string; backstory?: string; appearance?: string };
   /** Image-prompt appearance override (#7053); empty when the user has none. */
   imageAppearanceOverride: string;
   personaAvatarPath?: string | null;
@@ -661,6 +687,13 @@ async function executeManualIllustratorPromptRequest(args: {
       styleInstruction,
       characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
+      // Pictures and clips / Clips only: the planner may ask for a clip, as the Illustrator agent can.
+      videoOffer:
+        args.agentContext.memory._generatedVideos && typeof args.agentContext.memory._generatedVideos === "object"
+          ? (args.agentContext.memory._generatedVideos as Parameters<
+              typeof writeManualIllustratorPromptPlan
+            >[0]["videoOffer"])
+          : null,
       signal: args.agentContext.signal,
       debugLog: (message, ...values) => logDebugOverride(args.debugMode || isDebugAgentsEnabled(), message, ...values),
     });
@@ -693,6 +726,64 @@ async function executeManualIllustratorPromptRequest(args: {
   }
 }
 
+/**
+ * Who a re-run Illustrator can show, for its picture references and its clips alike: the chat's characters, a
+ * character used as the user, and the persona, read from the agent context.
+ */
+async function retryIllustratorClipCast(
+  agentContext: AgentContext,
+  chars: ReturnType<typeof createCharactersStorage>,
+  chatId: string,
+): Promise<{ chatCharacters: IllustratorChatCharacterReference[]; persona: IllustratorPersonaReference | null }> {
+  const identityId =
+    typeof agentContext.memory._userIdentityId === "string" ? agentContext.memory._userIdentityId : null;
+  const identitySource =
+    agentContext.memory._userIdentitySource === "persona" || agentContext.memory._userIdentitySource === "character"
+      ? agentContext.memory._userIdentitySource
+      : null;
+  const avatarPath =
+    typeof agentContext.memory._personaAvatarPath === "string" ? agentContext.memory._personaAvatarPath : null;
+  const chatCharacters: IllustratorChatCharacterReference[] = agentContext.characters.map((character) => ({
+    id: character.id,
+    name: character.name,
+    appearance: character.appearance,
+    appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, character.id),
+  }));
+  if (
+    identitySource === "character" &&
+    identityId &&
+    agentContext.persona &&
+    !chatCharacters.some((character) => character.id === identityId)
+  ) {
+    chatCharacters.push({
+      id: identityId,
+      name: agentContext.persona.name,
+      avatarPath,
+      appearance: agentContext.persona.appearance,
+      appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, identityId),
+    });
+  }
+  const personaRow = identitySource === "persona" && identityId ? await chars.getPersona(identityId, chatId) : null;
+  const persona: IllustratorPersonaReference | null =
+    identitySource === "persona" && identityId && agentContext.persona
+      ? {
+          id: identityId,
+          name: agentContext.persona.name,
+          avatarPath: typeof personaRow?.avatarPath === "string" ? personaRow.avatarPath : avatarPath,
+          appearance: agentContext.persona.appearance,
+          appearanceOverride:
+            typeof agentContext.memory._personaImageAppearanceOverride === "string" &&
+            agentContext.memory._personaImageAppearanceOverride.trim()
+              ? agentContext.memory._personaImageAppearanceOverride.trim()
+              : null,
+          characterSheetImageId:
+            typeof personaRow?.characterSheetImageId === "string" ? personaRow.characterSheetImageId : null,
+          useCharacterSheetAsReference: personaRow?.useCharacterSheetAsReference === "true",
+        }
+      : null;
+  return { chatCharacters, persona };
+}
+
 async function resolvePersonaContext(
   chars: ReturnType<typeof createCharactersStorage>,
   chat: any,
@@ -709,6 +800,7 @@ async function resolvePersonaContext(
 
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
   const persona = await resolveChatUserIdentity(chars, {
+    id: chat.id,
     personaId: chat.personaId,
     personaCharacterId: chat.personaCharacterId,
     mode: chatMode,
@@ -736,6 +828,7 @@ async function resolvePersonaContext(
   const personaAvatarPath = typeof persona.avatarPath === "string" ? persona.avatarPath : null;
   imageAppearanceOverride = persona.imageAppearanceOverride ?? "";
   personaFields = {
+    example: cardPromptText(persona.mesExample),
     personality: cardPromptText(persona.personality),
     scenario: cardPromptText(persona.scenario),
     backstory: cardPromptText(persona.backstory),
@@ -797,11 +890,46 @@ export function resolveLorebookKeeperRetryAnchor(target: { id: string; activeSwi
   return { messageId: target.id, swipeIndex: target.activeSwipeIndex ?? 0 };
 }
 
+function resolveRetryLorebookGenerationTriggers(
+  messages: Array<{ id: string; role?: unknown; content?: string }>,
+  target: { id: string; extra?: unknown; activeSwipeIndex?: number | null } | null | undefined,
+  chatMode: string,
+): string[] {
+  const targetExtra = parseExtra(target?.extra);
+  const saved = normalizeStoredLorebookGenerationTriggers(targetExtra.lorebookGenerationTriggers, chatMode);
+  if (saved) return saved;
+  const targetIndex = target ? messages.findIndex((message) => message.id === target.id) : messages.length;
+  const previous = messages
+    .slice(0, targetIndex < 0 ? messages.length : targetIndex)
+    .filter((message) => message.role === "user" || message.role === "assistant")
+    .at(-1);
+  const replay = normalizeGenerationReplay(targetExtra.generationReplay);
+  return resolveLorebookGenerationTriggers(
+    {
+      ...replay,
+      userMessage: replay?.userMessage ?? (previous?.role === "user" ? previous.content : null),
+      regenerateMessageId: target && (target.activeSwipeIndex ?? 0) > 0 ? target.id : null,
+    },
+    chatMode,
+  );
+}
+
 type RetryAgentPhaseToolInputs = {
   requestBody: Record<string, unknown>;
   promptCharacterIds: string[];
   agentContext: AgentContext;
 };
+
+function resolveRetryTargetCharacterId(
+  activeCharacterIds: string[],
+  selectedTargetMessage: { role?: unknown; characterId?: unknown } | null | undefined,
+): string | null {
+  return selectedTargetMessage?.role === "assistant" &&
+    typeof selectedTargetMessage.characterId === "string" &&
+    activeCharacterIds.includes(selectedTargetMessage.characterId)
+    ? selectedTargetMessage.characterId
+    : null;
+}
 
 export function resolveRetryAgentPhaseToolInputs(args: {
   requestBody: Record<string, unknown>;
@@ -814,12 +942,7 @@ export function resolveRetryAgentPhaseToolInputs(args: {
 } {
   const resolveForContext = (agentContext: AgentContext): RetryAgentPhaseToolInputs => {
     const activeCharacterIds = agentContext.characters.map((character) => character.id);
-    const targetCharacterId =
-      args.selectedTargetMessage?.role === "assistant" &&
-      typeof args.selectedTargetMessage.characterId === "string" &&
-      activeCharacterIds.includes(args.selectedTargetMessage.characterId)
-        ? args.selectedTargetMessage.characterId
-        : null;
+    const targetCharacterId = resolveRetryTargetCharacterId(activeCharacterIds, args.selectedTargetMessage);
     const requestBody = { ...args.requestBody };
     if (targetCharacterId) {
       requestBody.forCharacterId = targetCharacterId;
@@ -839,6 +962,9 @@ export function resolveRetryAgentPhaseToolInputs(args: {
 }
 
 async function buildRetryAgentContext(args: {
+  selectedTargetMessage: { role?: unknown; characterId?: unknown } | null | undefined;
+  signal: AbortSignal;
+  lorebookGenerationTriggers: string[];
   cyoaAgentWillRun: boolean;
   chatId: string;
   /** Prose Beholder should read instead of the chat, when the operator typed a correction. */
@@ -862,6 +988,8 @@ async function buildRetryAgentContext(args: {
   forceIllustratorImageGeneration: boolean;
   /** Snapshot button (#4682): tell retried custom image agents the user explicitly requested an image. */
   forceCustomImageGeneration: boolean;
+  /** Draw a picture only: no clip is offered or made (the caller animates the picture itself). */
+  illustratorStillOnly?: boolean;
   /**
    * When retrying agents for a specific assistant message (e.g. refreshing cached prompt injections),
    * use the game-state snapshot committed for that message+swipe — not the latest chat snapshot.
@@ -904,10 +1032,15 @@ async function buildRetryAgentContext(args: {
     ? (chatMeta.activeLorebookIds as string[])
     : [];
   const charInfo: AgentContext["characters"] = [];
+  const characterTagsById = new Map<string, string[]>();
   for (const cid of characterIds) {
-    const charRow = await chars.getById(cid);
+    const charRow = await chars.getById(cid, chatId);
     if (!charRow) continue;
     const charData = parseJsonIfString<Record<string, unknown>>(charRow.data as string);
+    characterTagsById.set(
+      cid,
+      Array.isArray(charData.tags) ? charData.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    );
     const extensions =
       charData.extensions && typeof charData.extensions === "object" && !Array.isArray(charData.extensions)
         ? (charData.extensions as Record<string, unknown>)
@@ -932,6 +1065,11 @@ async function buildRetryAgentContext(args: {
     });
   }
 
+  const availableCharacterIds = charInfo.map((character) => character.id);
+  const targetCharacterId = resolveRetryTargetCharacterId(availableCharacterIds, args.selectedTargetMessage);
+  const promptCharacterIds = targetCharacterId ? [targetCharacterId] : availableCharacterIds;
+  const attachmentCharacterTags = new Set(promptCharacterIds.flatMap((id) => characterTagsById.get(id) ?? []));
+
   const lorebookCharacterIds =
     personaContext.identitySource === "character" &&
     personaContext.identityId &&
@@ -940,8 +1078,21 @@ async function buildRetryAgentContext(args: {
       : characterIds;
   const initialMacroVariables = normalizeChatMacroVariables(chatMeta.macroVariables);
   const retryMacroVariables = { ...initialMacroVariables };
+  const promptWorldState = historicalGameStateAnchor
+    ? await gameStateStore.getByChatAndMessage(
+        chatId,
+        historicalGameStateAnchor.messageId,
+        historicalGameStateAnchor.swipeIndex,
+      )
+    : useLatestGameStateFallback
+      ? await gameStateStore.getForGeneration(chatId, {
+          preferLatestVisible: true,
+          visibleAnchor: lastAssistant ? resolveVisibleGameStateAnchor([lastAssistant]) : null,
+        })
+      : null;
   const promptMacroContext = await buildPromptMacroContext({
     db,
+    worldState: promptWorldState,
     characterIds,
     personaName: personaContext.personaName,
     personaDescription: personaContext.personaDescription,
@@ -963,7 +1114,7 @@ async function buildRetryAgentContext(args: {
       typeof chatMeta.authorNotes === "string" ? chatMeta.authorNotes : "",
     ],
   });
-  const historyMacroProfilesById = (await resolveCharacterMacroData(db, allCharacterIds)).profilesById;
+  const historyMacroProfilesById = (await resolveCharacterMacroData(db, allCharacterIds, chatId)).profilesById;
   const resolveHistoryMessageMacros = <T extends { content: string; characterId?: string | null }>(
     messages: T[],
   ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
@@ -1091,14 +1242,23 @@ async function buildRetryAgentContext(args: {
   let recalledAgentVectorMemories: string[] = [];
   let embeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;
   let summaryVectorizerAvailable = false;
-  if (customAgentVectorAccessEnabled || chatMeta.semanticSummaryRetrievalEnabled === true) {
+  const agentsWithLorebookTriggers = resolvedAgents.filter(
+    (agent) =>
+      agent.settings.chatLorebookAttachmentEnabled === true ||
+      (!isBuiltInAgentType(agent.type) && agent.settings.triggerLorebooksForAgentCalls === true),
+  );
+  if (
+    customAgentVectorAccessEnabled ||
+    chatMeta.semanticSummaryRetrievalEnabled === true ||
+    agentsWithLorebookTriggers.length > 0
+  ) {
     try {
       const connectionId = typeof chat.connectionId === "string" ? chat.connectionId : null;
       embeddingSource = await resolveMemoryRecallEmbeddingSource(db, {
         chatMetadata: chatMeta,
         connectionId,
       });
-      if (chatMeta.semanticSummaryRetrievalEnabled === true) {
+      if (chatMeta.semanticSummaryRetrievalEnabled === true || agentsWithLorebookTriggers.length > 0) {
         summaryVectorizerAvailable =
           embeddingSource !== null ||
           (await isMemoryRecallVectorizerAvailable(db, {
@@ -1182,6 +1342,7 @@ async function buildRetryAgentContext(args: {
         typeof lastAssistant?.id === "string" ? lastAssistant.id : undefined,
       ),
     gameState: null,
+    currentLocation: agentCurrentLocationFromProjection(retryOwnerSpatialProjection),
     characters: charInfo,
     characterTrackerHistory: characterTrackerHistory as unknown as AgentContext["characterTrackerHistory"],
     persona: buildRetryAgentPersona(
@@ -1242,6 +1403,12 @@ async function buildRetryAgentContext(args: {
         : lastAssistant.id,
   });
   if (previousBeholderState) agentContext.memory._beholderState = previousBeholderState;
+  // A re-run Illustrator (or custom image agent) is offered clips exactly as on a fresh reply: Illustrator makes and a
+  // working video connection. Only agents that make images are shown the offer.
+  const videoOffer = args.illustratorStillOnly
+    ? null
+    : await resolveIllustratorVideoOffer(chat.mode, chatMeta, createConnectionsStorage(db));
+  if (videoOffer) agentContext.memory._generatedVideos = videoOffer;
 
   const gameImageStylePrompt = getGameImageStylePrompt(chat, chatMeta);
   if (gameImageStylePrompt) {
@@ -1534,6 +1701,52 @@ async function buildRetryAgentContext(args: {
     };
   }
 
+  if (agentsWithLorebookTriggers.length > 0) {
+    const lorebookScopeExclusions = resolveLorebookScopeExclusions(chat.mode, chatMeta);
+    const scopedLorebookIds = new Set(
+      filterRelevantLorebooks((await lorebooksStore.list()) as unknown as Lorebook[], {
+        chatId,
+        characterIds: [
+          ...promptCharacterIds,
+          ...(personaContext.identitySource === "character" && personaContext.identityId
+            ? [personaContext.identityId]
+            : []),
+        ],
+        personaId: personaContext.personaId,
+        activeLorebookIds,
+        ...lorebookScopeExclusions,
+      }).map((book) => book.id),
+    );
+    agentContext.triggeredLorebookEntriesByAgentId = await createAgentLorebookTriggerResolver({
+      agents: agentsWithLorebookTriggers.map((agent) => ({
+        id: agent.id,
+        contextSize: normalizeAgentContextSize(agent.settings.contextSize),
+        ...(!isBuiltInAgentType(agent.type) && agent.settings.triggerLorebooksForAgentCalls === true
+          ? resolveKnowledgeSourceLorebookIds({ settings: agent.settings, chatActiveLorebookIds: activeLorebookIds })
+          : { sourceLorebookIds: [], source: "none" as const }),
+        additionalManualLorebookIds:
+          agent.settings.chatLorebookAttachmentEnabled === true &&
+          typeof agent.settings.chatAttachedLorebookId === "string"
+            ? [agent.settings.chatAttachedLorebookId]
+            : [],
+      })),
+      activeCharacterIds: promptCharacterIds,
+      activeCharacterTags: [...attachmentCharacterTags],
+      embeddingSource,
+      entryStateOverrides:
+        (chatMeta.entryStateOverrides as Record<string, { enabled?: boolean; ephemeral?: number | null }>) ?? {},
+      filterSourceLorebookIds: async (ids, source) =>
+        source === "chat_active" ? ids.filter((id) => scopedLorebookIds.has(id)) : ids,
+      gameState: agentContext.gameState as GameStateForScanning | null,
+      generationTriggers: args.lorebookGenerationTriggers,
+      listEntriesByLorebookIds: async (ids) => (await lorebooksStore.listEntriesByLorebooks(ids)) as LorebookEntry[],
+      listLorebooks: async () => (await lorebooksStore.list()) as unknown as Lorebook[],
+      resolveContent: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
+      tokenBudget: resolveLorebookTokenBudget(chatMeta),
+      vectorizerAvailable: summaryVectorizerAvailable,
+      signal: args.signal,
+    })(agentContext.recentMessages);
+  }
   return { agentContext, initialMacroVariables, macroVariables: retryMacroVariables, agentWhisperNames };
 }
 
@@ -2762,6 +2975,12 @@ async function executeLorebookKeeperRetries(args: {
   chatId: string;
   chatName: string | null | undefined;
   requireApproval: boolean;
+  buildHistoricalContext: (
+    base: AgentContext,
+    messages: any[],
+    targetId: string,
+    entries: ResolvedRetryAgent[],
+  ) => Promise<AgentContext | null>;
 }): Promise<Array<{ messageId: string; swipeIndex: number; result: AgentResult }>> {
   const {
     lorebookKeeperAgent,
@@ -2774,6 +2993,7 @@ async function executeLorebookKeeperRetries(args: {
     chatId,
     chatName,
     requireApproval,
+    buildHistoricalContext,
   } = args;
 
   const eligibleTargets = getLorebookKeeperBackfillTargets(messages, readBehindMessages, lastProcessedMessageId);
@@ -2790,7 +3010,7 @@ async function executeLorebookKeeperRetries(args: {
     if (baseContext.signal?.aborted) return results;
     const startedAt = Date.now();
     try {
-      const retryContext = buildHistoricalLorebookKeeperContext(baseContext, messages, target.id);
+      const retryContext = await buildHistoricalContext(baseContext, messages, target.id, [lorebookKeeperAgent]);
       if (!retryContext) continue;
 
       if (preferredTargetLorebookId) {
@@ -2900,6 +3120,7 @@ async function applyRetryResultEffects(args: {
   reviewImagePromptsBeforeSend: boolean;
   illustratorPromptReviewOverride: IllustratorPromptReviewOverride | null;
   illustratorRetryTargets: IllustratorRetryTarget[] | undefined;
+  illustratorStillOnly: boolean;
   forceImageGeneration: boolean;
   debugMode: boolean;
   secretPlotRerollMode?: "full" | "turn_only";
@@ -2925,6 +3146,7 @@ async function applyRetryResultEffects(args: {
     reviewImagePromptsBeforeSend,
     illustratorPromptReviewOverride,
     illustratorRetryTargets,
+    illustratorStillOnly,
     forceImageGeneration,
     debugMode,
     secretPlotRerollMode,
@@ -3646,7 +3868,100 @@ async function applyRetryResultEffects(args: {
           }
           imgConnFull ??= await conns.getDefaultForImageGeneration();
           assertRetryActive();
-          if (imgConnFull) {
+          // Generated Videos: a re-run follows Illustrator makes and First frame, as a fresh reply does.
+          // A still-only re-run draws the first frame for a clip its caller makes, so it never makes one of its own.
+          const videoOffer =
+            retryMessageId && !illustratorStillOnly
+              ? await resolveIllustratorVideoOffer(chat.mode, chatMeta, conns)
+              : null;
+          assertRetryActive();
+          const writtenMotion = typeof illData.videoPrompt === "string" ? illData.videoPrompt.trim() : "";
+          const clipsOnly = videoOffer?.clipsOnly === true;
+          // A clip the writer chose without saying how it moves is skipped (Pictures and clips); Clips only always
+          // makes one.
+          const wantsVideo = clipsOnly || (!!videoOffer && illData.generateVideo === true && !!writtenMotion);
+          const clipCast = await retryIllustratorClipCast(agentContext, chars, chatId);
+          const clipTools = videoOffer
+            ? createRoleplayClipTools({
+                db: app.db,
+                chat,
+                chatMeta: chatMeta,
+                chatId,
+                characterNames: agentContext.characters.map((character) => character.name),
+                cast: () => clipCast,
+                charactersStore: chars,
+                characterGallery: createCharacterGalleryStorage(app.db),
+                personaGallery: createPersonaGalleryStorage(app.db),
+                debugMode,
+                signal,
+              })
+            : null;
+          const clipAppearance = chatMeta.illustratorVideoIncludeCharacterAppearance === true;
+          // A saved clip counts as made: failing to add it to the reply only logs, and it stays in the Gallery.
+          const attachRetryClip = async (video: Parameters<typeof buildChatVideoAttachment>[0]) => {
+            let attachedTo: string | null = null;
+            try {
+              if (
+                retryMessageId &&
+                (await attachVideoToMessage(
+                  createChatsStorage(app.db),
+                  { messageId: retryMessageId, swipeIndex: retrySwipeIndex },
+                  buildChatVideoAttachment(video),
+                ))
+              ) {
+                attachedTo = retryMessageId;
+              }
+            } catch (attachErr) {
+              logger.warn(attachErr, "[retry-agents] Saved clip %s but could not attach it", video.id);
+            }
+            sendSseEvent(reply, {
+              type: "video",
+              data: {
+                messageId: attachedTo,
+                videoUrl: video.url,
+                videoId: video.id,
+                characterName: imagePromptAgent?.cfg.name ?? "Illustrator",
+              },
+            });
+          };
+          // Clips only, starting from the avatar or from no picture: no picture is drawn at all.
+          const clipOnlyFrame = clipsOnly ? roleplayVideoFirstFrame(chatMeta, Boolean(imgConnFull)) : "picture";
+          if (clipTools && clipOnlyFrame !== "picture" && retryMessageId) {
+            try {
+              // No picture shows this moment, so the Clip Director writes the whole clip (scene and motion).
+              const prompt = await clipTools.writeClipPrompt({
+                messageId: retryMessageId,
+                request: [imagePrompt, writtenMotion].filter(Boolean).join("\n"),
+                withoutPicture: true,
+              });
+              assertRetryActive();
+              const cast = await clipTools.resolveClipCast(illCharacters, prompt, clipOnlyFrame !== "none");
+              const video = await generateRoleplayClip(app.db, {
+                chatId,
+                chatMeta: chatMeta,
+                prompt,
+                firstFrame: clipOnlyFrame,
+                avatar: cast.avatar,
+                characterIds: cast.characterIds,
+                appearanceBlock: clipAppearance ? cast.appearanceBlock : null,
+                queue: true,
+                signal,
+                debugMode,
+              });
+              assertRetryActive();
+              await attachRetryClip(video);
+              await agentsStore
+                .saveRun({ agentConfigId: result.agentId, chatId, messageId: retryMessageId, result })
+                .catch((err) => logger.warn(err, "[retry-agents] Failed to persist successful Illustrator run"));
+            } catch (videoErr) {
+              assertRetryActive();
+              logger.warn(videoErr, "[retry-agents] Illustrator clip failed");
+              sendSseEvent(reply, {
+                type: "video_error",
+                data: { error: videoErr instanceof Error ? videoErr.message : String(videoErr) },
+              });
+            }
+          } else if (imgConnFull) {
             const { generateImage, saveImageToDisk } = await import("../../services/image/image-generation.js");
             assertRetryActive();
             const { createGalleryStorage } = await import("../../services/storage/gallery.storage.js");
@@ -3750,80 +4065,12 @@ async function applyRetryResultEffects(args: {
                 });
             assertRetryActive();
             let referenceImages: string[] | undefined;
-            const retryIdentityId =
-              typeof agentContext.memory._userIdentityId === "string" ? agentContext.memory._userIdentityId : null;
-            const retryIdentitySource =
-              agentContext.memory._userIdentitySource === "persona" ||
-              agentContext.memory._userIdentitySource === "character"
-                ? agentContext.memory._userIdentitySource
-                : null;
-            const retryPersonaId = retryIdentitySource === "persona" ? retryIdentityId : null;
-            const retryPersonaReference = retryPersonaId ? await chars.getPersona(retryPersonaId) : null;
-            assertRetryActive();
-            // #7053: a character-backed user identity ("Add persona as character")
-            // carries its override on the identity, not on `_personaId`, which is
-            // reserved for persona-store rows. Read whichever id this identity
-            // actually uses, so both flavours reach the appearance block.
-            const retryIdentityOverride =
-              retryIdentitySource === "character"
-                ? readIllustratorImageAppearanceOverride(agentContext.memory, retryIdentityId)
-                : null;
-            const retryCharacterIdentity =
-              retryIdentitySource === "character" && retryIdentityId && agentContext.persona
-                ? {
-                    id: retryIdentityId,
-                    name: agentContext.persona.name,
-                    avatarPath:
-                      typeof agentContext.memory._personaAvatarPath === "string"
-                        ? agentContext.memory._personaAvatarPath
-                        : null,
-                    appearance: agentContext.persona.appearance,
-                    appearanceOverride: retryIdentityOverride,
-                  }
-                : null;
             const referenceResolution = await resolveIllustratorCharacterReferences({
               charactersStore: chars,
               characterGallery: createCharacterGalleryStorage(app.db),
               personaGallery: createPersonaGalleryStorage(app.db),
-              chatCharacters: [
-                ...agentContext.characters.map((character) => ({
-                  id: character.id,
-                  name: character.name,
-                  appearance: character.appearance,
-                  appearanceOverride: readIllustratorImageAppearanceOverride(agentContext.memory, character.id),
-                })),
-                ...(retryCharacterIdentity &&
-                !agentContext.characters.some((character) => character.id === retryCharacterIdentity.id)
-                  ? [retryCharacterIdentity]
-                  : []),
-              ],
-              persona:
-                retryIdentitySource === "persona" && agentContext.persona
-                  ? {
-                      id: retryPersonaId,
-                      name: agentContext.persona.name,
-                      avatarPath:
-                        typeof retryPersonaReference?.avatarPath === "string"
-                          ? retryPersonaReference.avatarPath
-                          : typeof agentContext.memory._personaAvatarPath === "string"
-                            ? agentContext.memory._personaAvatarPath
-                            : null,
-                      appearance: agentContext.persona.appearance,
-                      // #7053: same override-wins rule as the caption path, so the
-                      // engine-appended appearance block matches the agent's own
-                      // `<character_appearance_reference>` instead of sending prose.
-                      appearanceOverride:
-                        typeof agentContext.memory._personaImageAppearanceOverride === "string" &&
-                        agentContext.memory._personaImageAppearanceOverride.trim()
-                          ? agentContext.memory._personaImageAppearanceOverride.trim()
-                          : null,
-                      characterSheetImageId:
-                        typeof retryPersonaReference?.characterSheetImageId === "string"
-                          ? retryPersonaReference.characterSheetImageId
-                          : null,
-                      useCharacterSheetAsReference: retryPersonaReference?.useCharacterSheetAsReference === "true",
-                    }
-                  : null,
+              // The same cast its clips use: the chat's characters, a character used as the user, and the persona.
+              ...clipCast,
               requestedNames: illCharacters.filter((name): name is string => typeof name === "string"),
               promptText: [
                 [...agentContext.recentMessages].reverse().find((message) => message.role === "user")?.content ?? "",
@@ -4047,6 +4294,9 @@ async function applyRetryResultEffects(args: {
             });
             assertRetryActive();
 
+            // Clips only: the picture is the clip's first frame, shown only if the clip fails.
+            const pictureShows: Array<() => Promise<void>> = [];
+            let firstGalleryImageId: string | null = null;
             for (const [variantIndex, imageResult] of imageResults.entries()) {
               assertRetryActive();
               const renderedPrompt = imageResult.effectivePrompt ?? promptSubmission.prompt;
@@ -4093,37 +4343,108 @@ async function applyRetryResultEffects(args: {
               });
               assertRetryActive();
 
+              firstGalleryImageId ??= (galleryEntry as { id?: string } | null)?.id ?? null;
               const filename = filePath.split("/").pop()!;
               const imageUrl = `/api/gallery/file/${chatId}/${encodeURIComponent(filename)}`;
+              const showPicture = async () => {
+                // Attach to message
+                if (retryMessageId) {
+                  const chatsDb = createChatsStorage(app.db);
+                  const attachment = {
+                    type: "image",
+                    url: imageUrl,
+                    filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
+                    prompt: renderedPrompt,
+                    galleryId: (galleryEntry as any)?.id,
+                  };
+                  assertRetryActive();
+                  await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
+                  assertRetryActive();
+                  await chatsDb.appendMessageAttachmentForActiveSwipe(retryMessageId, retrySwipeIndex, attachment);
+                  assertRetryActive();
+                }
 
-              // Attach to message
-              if (retryMessageId) {
-                const chatsDb = createChatsStorage(app.db);
-                const attachment = {
-                  type: "image",
-                  url: imageUrl,
-                  filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
-                  prompt: renderedPrompt,
-                  galleryId: (galleryEntry as any)?.id,
-                };
                 assertRetryActive();
-                await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
+                sendSseEvent(reply, {
+                  type: "illustration",
+                  data: {
+                    messageId: retryMessageId,
+                    imageUrl,
+                    prompt: renderedPrompt,
+                    reason: illData.reason,
+                    galleryId: (galleryEntry as any)?.id,
+                  },
+                });
+              };
+              if (clipsOnly && wantsVideo) pictureShows.push(showPicture);
+              else await showPicture();
+            }
+            // The clip, as on a fresh reply: Clips only animates (or starts from the First frame), and Pictures and
+            // clips adds one when the writer asked for it. A failed clip leaves its pictures in the reply.
+            if (clipTools && wantsVideo && retryMessageId && firstGalleryImageId) {
+              try {
+                const videoFirstFrame = roleplayVideoFirstFrame(chatMeta, true, true);
+                const appearanceBlock = clipAppearance ? referenceResolution.appearanceBlock : null;
+                const video =
+                  videoFirstFrame === "picture"
+                    ? await animateGalleryImage(app.db, {
+                        chatId,
+                        chatMeta: chatMeta,
+                        galleryImageId: firstGalleryImageId,
+                        motionPrompt:
+                          writtenMotion ||
+                          (await clipTools.writeClipPrompt({
+                            messageId: retryMessageId,
+                            request: "",
+                            withoutPicture: false,
+                            referenceImagePrompt: imagePrompt,
+                          })),
+                        // Filed under the people the picture shows (and the persona), as the picture is.
+                        characterIds: referenceResolution.personaId
+                          ? [...referenceResolution.characterIds, referenceResolution.personaId]
+                          : referenceResolution.characterIds,
+                        appearanceBlock,
+                        queue: true,
+                        signal,
+                        debugMode,
+                      })
+                    : await generateRoleplayClip(app.db, {
+                        chatId,
+                        chatMeta: chatMeta,
+                        prompt: await clipTools.writeClipPrompt({
+                          messageId: retryMessageId,
+                          request: [imagePrompt, writtenMotion].filter(Boolean).join("\n"),
+                          withoutPicture: true,
+                        }),
+                        firstFrame: videoFirstFrame,
+                        avatar:
+                          videoFirstFrame === "none"
+                            ? null
+                            : (await clipTools.resolveClipCast(illCharacters, imagePrompt, true)).avatar,
+                        characterIds: referenceResolution.personaId
+                          ? [...referenceResolution.characterIds, referenceResolution.personaId]
+                          : referenceResolution.characterIds,
+                        appearanceBlock,
+                        queue: true,
+                        signal,
+                        debugMode,
+                      });
                 assertRetryActive();
-                await chatsDb.appendMessageAttachmentForActiveSwipe(retryMessageId, retrySwipeIndex, attachment);
+                await attachRetryClip(video);
+                // The clip replaced its pictures; they stay in the Gallery.
+                pictureShows.length = 0;
+              } catch (videoErr) {
                 assertRetryActive();
+                logger.warn(videoErr, "[retry-agents] Illustrator clip failed");
+                sendSseEvent(reply, {
+                  type: "video_error",
+                  data: { error: videoErr instanceof Error ? videoErr.message : String(videoErr) },
+                });
               }
-
-              assertRetryActive();
-              sendSseEvent(reply, {
-                type: "illustration",
-                data: {
-                  messageId: retryMessageId,
-                  imageUrl,
-                  prompt: renderedPrompt,
-                  reason: illData.reason,
-                  galleryId: (galleryEntry as any)?.id,
-                },
-              });
+            }
+            // Pictures held back for a clip that wasn't made; one that can't be added doesn't hold back the others.
+            for (const show of pictureShows.splice(0)) {
+              await show().catch((err) => logger.warn(err, "[retry-agents] Could not show a picture"));
             }
             logger.info(
               "[retry-agents] Illustrator generated %d image(s): %s...",
@@ -4497,6 +4818,8 @@ export async function registerRetryAgentsRoute(
       illustratorPromptReviewOverride?: unknown;
       /** Limit an Illustrator retry to visual jobs that failed in the original run. */
       illustratorRetryTargets?: unknown;
+      /** Draw the Illustrator picture only, never a clip: Roleplay /video animates it afterwards. */
+      illustratorStillOnly?: boolean;
       /** Inclusive stored-message IDs selected by /illustrate range=N-M. */
       illustratorMessageRange?: unknown;
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
@@ -4531,6 +4854,7 @@ export async function registerRetryAgentsRoute(
       agentPromptTemplateIds,
       illustratorPromptReviewOverride: rawIllustratorPromptReviewOverride,
       illustratorRetryTargets: rawIllustratorRetryTargets,
+      illustratorStillOnly = false,
       illustratorMessageRange,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
@@ -4556,6 +4880,9 @@ export async function registerRetryAgentsRoute(
     }
     if (illustratorRetryTargets && !agentTypes.includes("illustrator")) {
       return reply.status(400).send({ error: "Illustrator retry targets require an Illustrator retry" });
+    }
+    if (typeof illustratorStillOnly !== "boolean" || (illustratorStillOnly && !agentTypes.includes("illustrator"))) {
+      return reply.status(400).send({ error: "illustratorStillOnly requires an Illustrator retry" });
     }
     // Trimmed and bounded once, here, so neither call site has to remember to.
     const sanitisedDirective =
@@ -4796,6 +5123,11 @@ export async function registerRetryAgentsRoute(
           ...resolveLorebookKeeperRetryAnchor(chunk.target),
         };
       }
+      const lorebookGenerationTriggers = resolveRetryLorebookGenerationTriggers(
+        recentMessages,
+        rangeTarget ?? lastAssistant,
+        chat.mode,
+      );
       const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
       const retryWrapFormat = await runRetrySetupPhase(abortController.signal, () =>
         resolveRetryAgentWrapFormat({
@@ -4814,34 +5146,39 @@ export async function registerRetryAgentsRoute(
       const retryPersonaContext = await runRetrySetupPhase(abortController.signal, () =>
         resolvePersonaContext(chars, chat),
       );
-      const agentContextResult = await runRetrySetupPhase(abortController.signal, () =>
-        buildRetryAgentContext({
-          cyoaAgentWillRun,
-          chatId,
-          beholderDirective: sanitisedDirective,
-          historicalAnchorId: rangeTarget?.id ?? forMessageId ?? null,
-          db: app.db,
-          chat,
-          chatMeta: illustratorMessageRange
-            ? { ...chatMeta, attachSummariesToAgents: false, semanticSummaryRetrievalEnabled: false }
-            : chatMeta,
-          currentBackground,
-          recentMessages,
-          resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
-          lastAssistant,
-          chars,
-          personaContext: retryPersonaContext,
-          gameStateStore,
-          lorebooksStore,
-          streaming,
-          wrapFormat: retryWrapFormat,
-          forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
-          forceIllustratorImageGeneration: isManualIllustratorImageRequest,
-          forceCustomImageGeneration: forceImageGeneration === true,
-          historicalGameStateAnchor,
-          useLatestGameStateFallback: !illustratorMessageRange,
-        }),
-      );
+      const retryContextArgs: Parameters<typeof buildRetryAgentContext>[0] = {
+        selectedTargetMessage: rangeTarget ?? lastAssistant,
+        signal: abortController.signal,
+        lorebookGenerationTriggers,
+        cyoaAgentWillRun,
+        chatId,
+        beholderDirective: sanitisedDirective,
+        historicalAnchorId: rangeTarget?.id ?? forMessageId ?? null,
+        db: app.db,
+        chat,
+        chatMeta: illustratorMessageRange
+          ? { ...chatMeta, attachSummariesToAgents: false, semanticSummaryRetrievalEnabled: false }
+          : chatMeta,
+        currentBackground,
+        recentMessages,
+        resolvedAgents: resolvedAgents.map((entry) => entry.resolved),
+        lastAssistant,
+        chars,
+        personaContext: retryPersonaContext,
+        gameStateStore,
+        lorebooksStore,
+        streaming,
+        wrapFormat: retryWrapFormat,
+        forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
+        forceIllustratorImageGeneration: isManualIllustratorImageRequest,
+        forceCustomImageGeneration: forceImageGeneration === true,
+        illustratorStillOnly,
+        historicalGameStateAnchor,
+        useLatestGameStateFallback: !illustratorMessageRange,
+      };
+      const buildContext = (overrides: Partial<typeof retryContextArgs> = {}) =>
+        runRetrySetupPhase(abortController.signal, () => buildRetryAgentContext({ ...retryContextArgs, ...overrides }));
+      const agentContextResult = await buildContext();
       const agentContext = agentContextResult.agentContext;
       agentContext.signal = abortController.signal;
       // Lorebook Keeper and read-behind runs read whispers too (#7430).
@@ -4852,11 +5189,47 @@ export async function registerRetryAgentsRoute(
             content: roleplayAgentText(message.content, message, agentWhisperNames),
           }))
         : recentMessages;
+      const buildHistoricalContext = async (
+        baseContext: AgentContext,
+        messages: any[],
+        targetId: string,
+        entries: ResolvedRetryAgent[],
+      ): Promise<AgentContext | null> => {
+        const context = buildHistoricalLorebookKeeperContext(baseContext, messages, targetId);
+        const referenceAgents = entries.filter(
+          (entry) =>
+            entry.resolved.settings.chatLorebookAttachmentEnabled === true ||
+            (!isBuiltInAgentType(entry.resolved.type) &&
+              entry.resolved.settings.triggerLorebooksForAgentCalls === true),
+        );
+        if (!context || referenceAgents.length === 0 || targetId === (rangeTarget ?? lastAssistant)?.id) return context;
+        const targetIndex = recentMessages.findIndex((message: any) => message.id === targetId);
+        if (targetIndex < 0) throw new Error("Historical reference target is outside the retry history");
+        const target = recentMessages[targetIndex]!;
+        // Reuse historical identity/macros/state and scanning; keep the established tools/effects/memory context.
+        // The returned local macro variables are intentionally not persisted a second time.
+        const prepared = await buildContext({
+          selectedTargetMessage: target,
+          lorebookGenerationTriggers: resolveRetryLorebookGenerationTriggers(recentMessages, target, chat.mode),
+          recentMessages: recentMessages.slice(0, targetIndex + 1),
+          resolvedAgents: referenceAgents.map((entry) => entry.resolved),
+          lastAssistant: target,
+          historicalAnchorId: target.id,
+          historicalGameStateAnchor: resolveLorebookKeeperRetryAnchor(target),
+          useLatestGameStateFallback: false,
+          cyoaAgentWillRun: false,
+        });
+        context.triggeredLorebookEntriesByAgentId = prepared.agentContext.triggeredLorebookEntriesByAgentId;
+        return context;
+      };
       const hasPreGenerationRetries = resolvedAgents.some((entry) => entry.resolved.phase === "pre_generation");
       const preGenerationAgentContextResult =
         hasPreGenerationRetries && preGenerationRecentMessages
           ? await runRetrySetupPhase(abortController.signal, () =>
               buildRetryAgentContext({
+                selectedTargetMessage: rangeTarget ?? lastAssistant,
+                signal: abortController.signal,
+                lorebookGenerationTriggers,
                 cyoaAgentWillRun: false,
                 beholderDirective: sanitisedDirective,
                 chatId,
@@ -4876,6 +5249,7 @@ export async function registerRetryAgentsRoute(
                 forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
                 forceIllustratorImageGeneration: isManualIllustratorImageRequest,
                 forceCustomImageGeneration: forceImageGeneration === true,
+                illustratorStillOnly,
                 historicalGameStateAnchor: preGenerationGameStateAnchor,
                 useLatestGameStateFallback: false,
               }),
@@ -5278,40 +5652,45 @@ export async function registerRetryAgentsRoute(
         string,
         { context: AgentContext; messageId: string; swipeIndex: number }
       >();
-      const nonLorebookAgents = resolvedAgents.filter((entry) => {
-        if (entry.resolved.type === "lorebook-keeper") return false;
+      const nonLorebookAgents: ResolvedRetryAgent[] = [];
+      for (const entry of resolvedAgents) {
+        if (entry.resolved.type === "lorebook-keeper") continue;
         if (customLorebookBackfillTarget) {
-          const context = buildHistoricalLorebookKeeperContext(
+          if (entry.resolved.id !== customLorebookBackfillTarget.agentConfigId) continue;
+          const context = await buildHistoricalContext(
             agentContext,
             agentHistory,
             customLorebookBackfillTarget.messageId,
+            [entry],
           );
-          if (!context || entry.resolved.id !== customLorebookBackfillTarget.agentConfigId) return false;
+          if (!context) continue;
           customLorebookReadBehindTargets.set(entry.resolved.id, {
             context,
             messageId: customLorebookBackfillTarget.messageId,
             swipeIndex: customLorebookBackfillTarget.swipeIndex,
           });
-          return true;
+          nonLorebookAgents.push(entry);
+          continue;
         }
         const readBehindMessages = getCustomLorebookReadBehindMessages(entry.resolved.settings);
-        const usesCustomLorebookReadBehind = customAgentUsesLorebookReadBehind(entry.resolved);
-        if (!usesCustomLorebookReadBehind) return true;
-
+        if (!customAgentUsesLorebookReadBehind(entry.resolved)) {
+          nonLorebookAgents.push(entry);
+          continue;
+        }
         const target = getLorebookKeeperBackfillTargets(recentMessages, readBehindMessages, null).at(-1);
-        if (!target) return false;
-        const context = buildHistoricalLorebookKeeperContext(agentContext, agentHistory, target.id);
-        if (!context) return false;
+        if (!target) continue;
         const runKey = customLorebookReadBehindRunKey(chatId, entry.resolved.id, target.id);
-        if (!tryClaimCustomLorebookReadBehindRun(activeCustomLorebookReadBehindRuns, runKey)) return false;
+        if (!tryClaimCustomLorebookReadBehindRun(activeCustomLorebookReadBehindRuns, runKey)) continue;
         customLorebookReadBehindRunKeys.add(runKey);
+        const context = await buildHistoricalContext(agentContext, agentHistory, target.id, [entry]);
+        if (!context) continue;
         entry.resolved.batchContextKey = `message:${target.id}`;
         customLorebookReadBehindTargets.set(entry.resolved.id, {
           context,
           ...resolveLorebookKeeperRetryAnchor(target),
         });
-        return true;
-      });
+        nonLorebookAgents.push(entry);
+      }
       if (
         (illustratorPromptReviewOverride || isManualIllustratorBackgroundRequest || isManualIllustratorImageRequest) &&
         (nonLorebookAgents.length !== 1 || nonLorebookAgents[0]?.resolved.type !== "illustrator")
@@ -5428,6 +5807,7 @@ export async function registerRetryAgentsRoute(
             lastProcessedMessageId:
               (await agentsStore.getLastSuccessfulRunByType("lorebook-keeper", chatId))?.messageId ?? null,
             backfillUnprocessed: lorebookKeeperBackfill,
+            buildHistoricalContext,
             lorebooksStore,
             chatId,
             chatName: (chat as any).name,
@@ -5628,6 +6008,7 @@ export async function registerRetryAgentsRoute(
         reviewImagePromptsBeforeSend,
         illustratorPromptReviewOverride,
         illustratorRetryTargets,
+        illustratorStillOnly,
         forceImageGeneration: forceImageGeneration === true,
         debugMode,
         secretPlotRerollMode,

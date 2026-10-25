@@ -8,14 +8,14 @@ export const chatPresetSettingsSchema = z
   .object({
     connectionId: z.string().nullable().optional(),
     promptPresetId: z.string().nullable().optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
 export const createChatPresetSchema = z.object({
   name: z.string().min(1).max(120),
   mode: chatModeSchema,
-  settings: chatPresetSettingsSchema.default({}),
+  settings: chatPresetSettingsSchema.prefault({}),
 });
 
 export const updateChatPresetSchema = z

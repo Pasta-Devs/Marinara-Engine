@@ -1,3 +1,4 @@
+import { partialInput } from "@marinara-engine/shared";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatMessage } from "../../services/llm/base-provider.js";
 import {
@@ -41,6 +42,8 @@ import {
   type WrapFormat,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
+import type { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import {
   parseSceneManualOverrides,
   parseStoredRulesetClocks,
@@ -1070,6 +1073,25 @@ export async function resolveCharacterNameMap(
   return new Map([...identities].map(([id, identity]) => [id, identity.name]));
 }
 
+/** The names of a chat's characters and persona: who may speak in the prompt of a clip a character sent. */
+export async function resolveChatSpeakerNames(
+  chars: ReturnType<typeof createCharactersStorage>,
+  chat: { characterIds: unknown; personaId?: string | null; personaCharacterId?: string | null; mode?: string | null },
+): Promise<string[]> {
+  let characterIds: string[] = [];
+  try {
+    const parsed: unknown = typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
+    if (Array.isArray(parsed)) characterIds = parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    // Unreadable ids: no character names, as the routes read them.
+  }
+  const [names, persona] = await Promise.all([
+    resolveCharacterNameMap(characterIds, (id) => chars.getById(id)),
+    resolveChatUserIdentity(chars, chat),
+  ]);
+  return [...names.values(), ...(persona ? [persona.name] : [])];
+}
+
 function prefixSpeakerName(content: string, speakerName: string): string {
   const speaker = speakerName.trim();
   if (!speaker) return content;
@@ -1105,10 +1127,8 @@ export function resolveGroupIndividualHistorySpeaker(
   }
   if (message.role === "user") return message.personaSnapshotName?.trim() || options.personaName.trim() || "User";
   if (message.role === "assistant") {
-    return (
-      (message.characterId ? (options.characterNamesById.get(message.characterId) ?? null) : null) ??
-      (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null)
-    );
+    const characterName = message.characterId ? options.characterNamesById.get(message.characterId) : undefined;
+    return characterName ?? (typeof message.name === "string" && message.name.trim() ? message.name.trim() : null);
   }
   return null;
 }
@@ -1475,7 +1495,7 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
 
-  const result = generationParametersSchema.partial().safeParse(parsed);
+  const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (result.success) return result.data;
 
   // Older installs or extension callers may leave one malformed field in an

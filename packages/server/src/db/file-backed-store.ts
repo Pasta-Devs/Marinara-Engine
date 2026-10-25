@@ -227,10 +227,10 @@ export type FileNativeStoreController = {
    */
   markShardDirty?: (table: string, shardKeys: Iterable<string>) => void;
   /**
-   * Monotonic per-table write counter (#4705): bumped on every markDirty, so
-   * pollers can skip work when a table hasn't changed since their last look.
+   * Monotonic per-table change counter (#4705): bumped on writes, load-created
+   * repairs and rollback, so pollers can skip work when a table hasn't changed.
    * Deliberately NOT rolled back on transaction rollback — a spurious wake is
-   * safe, a missed one is not. 0 = never written in this process.
+   * safe, a missed one is not. 0 = never changed in this process.
    */
   getTableWriteGeneration: (table: string) => number;
   /**
@@ -3470,6 +3470,7 @@ class FileTableStore {
   }
 
   private recordLoadHealMarks(table: string, keys?: Iterable<string>) {
+    this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
     const ctx = this.loadEffectTransactionContext();
     if (!ctx) return;
     ctx.loadHealDirtyTables.add(table);
@@ -4508,7 +4509,10 @@ class FileTableStore {
     const malformedRowCount = parsedRows.length - source.length;
     if (malformedRowCount > 0 && source.length === 0) {
       const files = quarantineUnrecoverableFilesSync([path, `${path}.bak`], `table ${table} shard ${encoded}`);
-      if (files.length > 0) this.quarantinedTables.push({ table, files });
+      if (files.length > 0) {
+        this.quarantinedTables.push({ table, files });
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
+      }
       logger.error(
         { table, shard: encoded, malformedRowCount, preservedFiles: files.map((file) => file.to) },
         "[file-storage] Shard contained only malformed rows; quarantined its files for manual recovery.",
@@ -4534,6 +4538,7 @@ class FileTableStore {
       const files = quarantineUnrecoverableFilesSync(unreadablePaths, `table ${table} shard ${encoded}`);
       if (files.length > 0) {
         this.quarantinedTables.push({ table, files });
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
         if (files.some((file) => file.from === path)) known.delete(encoded);
         logger.error(
           { table, shard: encoded, files },
@@ -4644,6 +4649,9 @@ class FileTableStore {
       const stale = this.staleShardFiles.get(table) ?? new Set<string>();
       stale.add(sourceEncoded);
       this.staleShardFiles.set(table, stale);
+    }
+    if (replacements.size > 0 && duplicateCount === 0) {
+      this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
     }
     const keys = this.shardKeysForRows(table, incoming);
     // A merge that saw any corruption-healing event (dropped duplicates,

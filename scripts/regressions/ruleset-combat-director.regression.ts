@@ -28,6 +28,8 @@ import {
   planRulesetCombatCost,
   rowsFromCatalogEntry,
   RULESET_MOVE_OPTION,
+  RULESET_PASS_OPTION,
+  rulesetActiveConditions,
   rulesetCombatant,
   rulesetCombatRoller,
   rulesetCombatStanding,
@@ -50,8 +52,10 @@ import {
   directedRulesetView,
   rulesetDirectorStage,
   rulesetFightLiveStates,
+  RULESET_COMBAT_EVENT_LIMIT,
   rulesetWindowTargetOf,
   syncRulesetCombatants,
+  trimRulesetFightEvents,
   type RulesetFightOpponent,
 } from "../../packages/server/src/services/game/ruleset-combat-director.service.js";
 import type { Combatant } from "../../packages/shared/src/types/game.js";
@@ -290,6 +294,26 @@ const emberParty = [
       enemies: [{ id: "lurker", name: "Thorn Lurker" }],
     }),
     /^Tam has no ruleset sheet/,
+  );
+
+  // The pools a ruleset names for the turn are shown in its order, once each (1.375).
+  const shown = parsedOrThrow(
+    variant(fiveEText, (doc) => (doc.combat.display = { pools: ["hit_dice", "hp"] })),
+    "the 5e example naming its pools",
+  );
+  const shownState = started({
+    definition: shown,
+    cards: fiveECards,
+    partyCatalogs: spellCatalogs,
+    party: fiveEParty,
+    enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+  });
+  assert.deepEqual(
+    view(shown, shownState)
+      .combatants.find((c) => c.id === "brenna")!
+      .pools?.map((pool) => pool.id),
+    ["hit_dice", "hp"],
+    "the named pools, in the ruleset's order",
   );
 
   const rough = started({
@@ -1545,7 +1569,7 @@ console.log(
     } as unknown as RulesetCatalogEntry;
     const shieldRows = rowsFromCatalogEntry("spells", shield).map((row) => row.row);
     const guarded = { ...base, lists: { ...base.lists, spells: [...(base.lists?.spells ?? []), ...shieldRows] } };
-    const hits = { opened: 0, deflected: 0, letGo: 0 };
+    const hits = { opened: 0, deflected: 0, letGo: 0, shownRaised: 0 };
     for (let seed = 1; seed <= 40; seed++) {
       const state = started({
         definition: shielding,
@@ -1563,6 +1587,17 @@ console.log(
         const before = state.rulesetFight!.events.length;
         assert.ok(commandRulesetCombatDirector(shielding, state, { type: "continue" }).ok);
         assert.equal(state.rulesetFight!.encounter.window, undefined, `seed ${seed}: a held hit left open`);
+        // The screen shows the defense an attack is rolled against now: Shield's +5 while it holds.
+        {
+          const encounter = state.rulesetFight!.encounter;
+          const corwin = encounter.combatants.find((one) => one.id === "corwin")!;
+          const up = rulesetActiveConditions(shielding, shielding.combat!, corwin, encounter).some(
+            (source) => source.condition === "shielded",
+          );
+          const shown = view(shielding, state).combatants.find((one) => one.id === "corwin")!.defense;
+          assert.equal(shown, corwin.defense + (up ? 5 : 0), `seed ${seed}: the defense the screen shows`);
+          if (up) hits.shownRaised++;
+        }
         const events = state.rulesetFight!.events.slice(before).map((entry) => entry.event);
         assert.ok(!events.some((event) => event.type === "refused"), `seed ${seed}: an answer the rules refused`);
         for (const [index, event] of events.entries()) {
@@ -1588,6 +1623,56 @@ console.log(
     assert.ok(hits.opened > 0, "hits on a Shield holder the Engine plays were held");
     assert.ok(hits.deflected > 0, "the Engine raised it when it turned the hit aside");
     assert.ok(hits.letGo > 0, "and let a blow it could not stop land");
+    assert.ok(hits.shownRaised > 0, "and the screen showed the raised defense while Shield held");
+
+    // Played by hand, the held hit's answer says what it does: Shield raises the defense by 5, and
+    // says whether that turns the hit aside; the question says what rides on it.
+    let asked = 0;
+    for (let seed = 1; seed <= 40 && asked < 3; seed++) {
+      const state = started({
+        definition: shielding,
+        cards: [card("Corwin", guarded)],
+        partyCatalogs: { spells: [...spellEntries, shield] },
+        party: [{ id: "corwin", name: "Corwin" }],
+        enemies: [
+          { id: "a", name: "Thorn Lurker" },
+          { id: "b", name: "Thorn Lurker" },
+        ],
+        seed,
+      });
+      for (let turn = 0; turn < 10 && !state.outcome; turn++) {
+        const held = state.rulesetFight!.encounter.window;
+        if (held?.trigger.kind === "hit") {
+          const shown = view(shielding, state);
+          const answer = shown.options?.find((option) => option.label === "Shield");
+          if (answer) {
+            asked++;
+            assert.equal(answer.raisesDefense?.to, held.trigger.defense + 5, `seed ${seed}: Shield's raised defense`);
+            assert.equal(
+              answer.raisesDefense?.misses === true,
+              held.trigger.total < held.trigger.defense + 5,
+              `seed ${seed}: whether Shield turns the hit aside`,
+            );
+            assert.ok((shown.window?.stakes ?? 0) > 0, `seed ${seed}: what rides on the hit`);
+          }
+          assert.ok(
+            commandRulesetCombatDirector(shielding, state, {
+              type: "ruleset",
+              optionId: RULESET_PASS_OPTION,
+              targetIds: [],
+            }).ok,
+          );
+          continue;
+        }
+        const options = view(shielding, state).options;
+        const end = options?.find((option) => option.kind === "end-turn");
+        const result = end
+          ? commandRulesetCombatDirector(shielding, state, { type: "ruleset", optionId: end.id, targetIds: [] })
+          : commandRulesetCombatDirector(shielding, state, { type: "continue" });
+        assert.ok(result.ok);
+      }
+    }
+    assert.ok(asked > 0, "a held hit asked the player, with Shield's answer said");
   }
 
   assert.ok(moments.opened > 0, "being hurt opened windows for a party member the Engine plays");
@@ -1854,4 +1939,156 @@ console.log(
     !JSON.stringify(rulesetFightLiveStates(fled.rulesetFight!)).includes("reeling"),
     "and off it after fleeing",
   );
+}
+
+// ── The Engine says why its picker did what it did, read back from its own scoring (the debug log) ──
+{
+  const whys = new Set([
+    "damage",
+    "finish",
+    "healing",
+    "support",
+    "setup",
+    "protection",
+    "coordination",
+    "risk",
+    "cost",
+    "walked",
+    "approach",
+    "driven",
+    "nothingWorth",
+  ]);
+  const played = (definition: RulesetDefinition, state: CombatDirectorState, party: Array<{ id: string }>) => {
+    for (const member of party)
+      assert.ok(
+        commandRulesetCombatDirector(definition, state, { type: "control", unitId: member.id, controller: "ai" }).ok,
+      );
+    let guard = 0;
+    while (!state.outcome && guard++ < 60)
+      assert.ok(commandRulesetCombatDirector(definition, state, { type: "continue" }).ok);
+    return state.rulesetFight!.events.map((entry) => entry.event);
+  };
+  const board = played(
+    fiveE,
+    started({
+      definition: fiveE,
+      cards: fiveECards,
+      partyCatalogs: spellCatalogs,
+      party: fiveEParty,
+      enemies: [{ id: "lurker", name: "Thorn Lurker" }],
+      positioned: true,
+    }),
+    fiveEParty,
+  );
+  const plain = played(
+    ember,
+    started({
+      definition: ember,
+      cards: emberCards,
+      partyCatalogs: emberCatalogs,
+      party: emberParty,
+      enemies: [{ id: "moth", name: "Cinder Moth" }],
+      seed: 11,
+    }),
+    emberParty,
+  );
+  for (const events of [board, plain]) {
+    const reasons = events.flatMap((event, index) => (event.type === "reasoning" ? [{ event, index }] : []));
+    assert.ok(reasons.length > 0, "the picker says why it did what it did");
+    for (const { event, index } of reasons) {
+      assert.ok(event.reasons.length > 0, "never an empty reason");
+      for (const reason of event.reasons) {
+        assert.ok(whys.has(reason.why), `a reason the log knows: ${JSON.stringify(reason)}`);
+        if (reason.why === "damage") assert.ok(["heavy", "solid", "some"].includes(reason.strength));
+      }
+      // A turn it did nothing with says so, and follows no step.
+      if (event.reasons.every((reason) => reason.why === "nothingWorth")) continue;
+      // Right after a step of its own: something it did since the last reason or turn began.
+      const since: typeof events = [];
+      for (const one of events.slice(0, index).reverse()) {
+        if (one.type === "reasoning" || one.type === "turn") break;
+        since.push(one);
+      }
+      assert.ok(
+        since.some(
+          (one) =>
+            ("actorId" in one && one.actorId === event.actorId) ||
+            ("sourceId" in one && one.sourceId === event.actorId),
+        ),
+        `${event.actorId}'s reason follows a step of its own: ${JSON.stringify(since)}`,
+      );
+    }
+  }
+  // On a board, a walk is said too: to where it acted from, or toward the nearest opponent.
+  assert.ok(
+    board.some(
+      (event) =>
+        event.type === "reasoning" &&
+        event.reasons.some((reason) => reason.why === "walked" || reason.why === "approach"),
+    ),
+    "a walk on a board says why",
+  );
+}
+
+// The opponent a closing walk is said to close on is the one its walk got nearer, by the walk still
+// left to reach them, not the nearest in a straight line: a jackal walled in beside her is not
+// whom she walked toward.
+{
+  const axeOnly = build({
+    abilities: { brawn: 3, wits: 0, heart: 0 },
+    fields: { toughness: 6 },
+    lists: { gear: [{ name: "Road axe", swing: "brawn", damage: "1d6", harm: "cut" }] },
+  });
+  const state = started({
+    definition: ember,
+    cards: [card("Juno", axeOnly)],
+    partyCatalogs: {},
+    party: [emberParty[0]!],
+    enemies: [
+      { id: "jackal", name: "Rust Jackal" },
+      { id: "moth", name: "Cinder Moth" },
+    ],
+    seed: 3,
+    positioned: true,
+  });
+  const encounter = state.rulesetFight!.encounter;
+  const grid = encounter.board!.grid;
+  const drawn = ["....mmm.....", "....m.m.....", "....mmm.....", ...Array.from({ length: 37 }, () => "............")];
+  const terrain = { ".": "plains", m: "mountain" } as const;
+  grid.width = 12;
+  grid.height = drawn.length;
+  grid.tiles = drawn.map((row) => [...row].map((cell) => terrain[cell as keyof typeof terrain]));
+  Object.assign(rulesetCombatant(encounter, "juno")!, { x: 5, y: 4 });
+  Object.assign(rulesetCombatant(encounter, "jackal")!, { x: 5, y: 1 });
+  Object.assign(rulesetCombatant(encounter, "moth")!, { x: 5, y: 38 });
+  assert.ok(commandRulesetCombatDirector(ember, state, { type: "control", unitId: "juno", controller: "ai" }).ok);
+  let approach: { targetId?: string } | undefined;
+  for (let guard = 0; guard < 12 && !approach && !state.outcome; guard++) {
+    assert.ok(commandRulesetCombatDirector(ember, state, { type: "continue" }).ok);
+    for (const { event } of state.rulesetFight!.events)
+      if (event.type === "reasoning" && event.actorId === "juno")
+        approach ??= event.reasons.find((reason) => reason.why === "approach");
+  }
+  assert.ok(approach, "Juno walks toward trouble with nothing in reach");
+  assert.equal(approach.targetId, "moth", "toward the moth her walk closed on, not the jackal behind the rock");
+}
+
+// The AI's reasons give way first when the fight's events are cut back: the fight's own events keep
+// the whole window, and only once they fill it does the oldest of them go.
+{
+  const entry = (seq: number, type: string) => ({ seq, event: { type } });
+  const real = Array.from({ length: RULESET_COMBAT_EVENT_LIMIT }, (_, index) => entry(index * 2, "attack"));
+  const mixed = real.flatMap((one) => [one, entry(one.seq + 1, "reasoning")]);
+  assert.deepEqual(trimRulesetFightEvents(mixed), real, "every reason goes before any event of the fight");
+  const fewer = [...real.slice(0, 150).flatMap((one) => [one, entry(one.seq + 1, "reasoning")])];
+  const trimmed = trimRulesetFightEvents(fewer);
+  assert.equal(trimmed.length, RULESET_COMBAT_EVENT_LIMIT);
+  assert.equal(trimmed.filter((one) => one.event.type === "attack").length, 150, "no event of the fight lost");
+  assert.deepEqual(
+    trimmed.filter((one) => one.event.type === "reasoning").map((one) => one.seq),
+    real.slice(100, 150).map((one) => one.seq + 1),
+    "the newest reasons are the ones kept",
+  );
+  const over = [...real, entry(RULESET_COMBAT_EVENT_LIMIT * 2, "attack")];
+  assert.deepEqual(trimRulesetFightEvents(over), over.slice(1), "with no reason left, the oldest event goes");
 }

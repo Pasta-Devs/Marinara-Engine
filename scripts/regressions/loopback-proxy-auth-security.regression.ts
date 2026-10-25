@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { enableLoginSetupCode } from "../../packages/server/src/config/login-credential.js";
 import { basicAuthHook } from "../../packages/server/src/middleware/basic-auth.js";
 import { csrfProtectionHook } from "../../packages/server/src/middleware/csrf-protection.js";
 import { hostValidationHook } from "../../packages/server/src/middleware/host-validation.js";
@@ -274,9 +275,12 @@ try {
     "the private-network opt-in does not cover proxied visitors",
   );
   delete process.env.ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK;
+  // A server that listens beyond loopback prints a setup code, so the page offers the form.
+  enableLoginSetupCode();
   const lanPage = await inject("GET", "/", { host: "192.168.1.20:7860", accept: "text/html" }, "192.168.1.77");
   assert.equal(lanPage.statusCode, 403);
-  assert.match(lanPage.body, /IP_ALLOWLIST=192\.168\.1\.77/u, "a LAN device still gets its allowlist snippet");
+  assert.match(lanPage.body, /action="\/login\/setup"/u, "a LAN device gets the setup-code form");
+  assert.doesNotMatch(lanPage.body, /IP_ALLOWLIST/u, "a LAN device gets no allowlist advice");
   const lanJson = await inject("GET", "/api/chats", { host: "192.168.1.20:7860" }, "192.168.1.77");
   assert.equal(lanJson.statusCode, 403);
   assertSafeLockdownHint(lanPage.body, "the LAN lockdown page");

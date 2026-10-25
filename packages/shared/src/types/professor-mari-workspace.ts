@@ -689,6 +689,11 @@ export interface MariWorkspaceSkillSummary {
   updatedAt: string;
   size: number;
   filePath: string;
+  /**
+   * `builtin` skills ship with the app and are always on and read-only; `user`
+   * skills live in the user's own skills store and can be edited or deleted.
+   */
+  origin: "builtin" | "user";
 }
 
 export interface MariWorkspaceSkillDetail extends MariWorkspaceSkillSummary {
@@ -829,6 +834,8 @@ export interface MariDbCommandResult {
   };
   journalPath?: string | null;
   error?: string;
+  /** #7999: arguments used differently than sent (a lowered limit), when no app_data call collected them. */
+  notes?: string[];
 }
 
 export interface MariDbPendingApproval {

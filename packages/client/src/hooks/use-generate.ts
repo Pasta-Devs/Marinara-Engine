@@ -32,6 +32,7 @@ import {
   isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
+  shouldTypeOutLiveStream,
   takeTypewriterCharacters,
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
@@ -88,6 +89,10 @@ type RetryAgentsOptions = {
     negativePrompt?: string;
   };
   illustratorRetryTargets?: IllustratorRetryTarget[];
+  /** Draw the picture only, never a clip: the caller animates it. A run paused for prompt review returns false. */
+  illustratorStillOnly?: boolean;
+  /** Told the Gallery id of each picture the Illustrator draws in this run. */
+  onIllustration?: (galleryImageId: string) => void;
   illustratorMessageRange?: [string, string];
   /** Force image generation for the retried custom image agents' results (snapshot button, #4682). */
   forceImageGeneration?: boolean;
@@ -1551,6 +1556,8 @@ export function useGenerate() {
       let agentFailuresThisRun: AgentFailure[] = [];
       let illustrationQueued = false;
       let illustrationSettled = false;
+      // Clips this stream is still waiting for (video_started until video, video_error or video_skipped).
+      let videosPending = 0;
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let committedSpatialTravel: ResolvedSpatialTravel | undefined;
@@ -1758,6 +1765,11 @@ export function useGenerate() {
       };
 
       const startTypewriter = () => {
+        // Nobody watches a Game reply's stream, so its text goes straight through and never holds the reveal.
+        if (!shouldTypeOutLiveStream({ isGameGeneration })) {
+          flushTypewriterBuffer();
+          return;
+        }
         if (typingActive) return;
         typingActive = true;
         const tick = (now = performance.now()) => {
@@ -2894,6 +2906,45 @@ export function useGenerate() {
               break;
             }
 
+            case "video_started": {
+              videosPending += 1;
+              // A clip that starts after the reply is done (one following its picture) frees the next message too.
+              if (sawDoneEvent && useChatStore.getState().abortControllers.get(params.chatId) === abortController) {
+                useChatStore.getState().setBackgroundIllustration(params.chatId, true);
+              }
+              break;
+            }
+
+            case "video_skipped": {
+              videosPending = Math.max(0, videosPending - 1);
+              break;
+            }
+
+            case "video": {
+              videosPending = Math.max(0, videosPending - 1);
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              // A clip that was saved but couldn't join its message is still made; it waits in the Gallery.
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", params.chatId] });
+              // A clip usually lands after "done"; one that beats the streamed reply waits for the final refresh.
+              if (sawDoneEvent || (!streamingEnabled && !isGameGeneration)) {
+                await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
+              }
+              break;
+            }
+
+            case "video_error": {
+              videosPending = Math.max(0, videosPending - 1);
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              toast.error(translate("generation.video.failed", { error: errData.error }));
+              break;
+            }
+
             case "conversation_call_ringing": {
               const data = event.data as {
                 session?: {
@@ -3175,9 +3226,9 @@ export function useGenerate() {
 
             case "done": {
               sawDoneEvent = true;
+              // Only media (a picture or a clip that takes minutes) is left: the next message may start meanwhile.
               if (
-                illustrationQueued &&
-                !illustrationSettled &&
+                ((illustrationQueued && !illustrationSettled) || videosPending > 0) &&
                 useChatStore.getState().abortControllers.get(params.chatId) === abortController
               ) {
                 useChatStore.getState().setBackgroundIllustration(params.chatId, true);
@@ -3550,6 +3601,9 @@ export function useGenerate() {
           receivedContent &&
           persistedMessages.size === 0 &&
           partialContent &&
+          // A failed game turn has its own retry; saving what streamed before the failure left a half-turn
+          // (often the GM's lead-in to a tool call) in the story, and a second reply right after it.
+          !(replyErrorSeen && isGameGeneration) &&
           !params.regenerateMessageId &&
           !params.continueMessageId &&
           !(params.impersonate && params.pendingSpatialTransition)
@@ -3807,6 +3861,7 @@ export function useGenerate() {
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
+            ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
@@ -4093,7 +4148,13 @@ export function useGenerate() {
             }
             case "illustration": {
               recordClientRuntimeEvent("image-arrived");
-              const illData = event.data as { messageId: string; imageUrl: string; reason?: string };
+              const illData = event.data as {
+                messageId: string;
+                imageUrl: string;
+                reason?: string;
+                galleryId?: unknown;
+              };
+              if (typeof illData.galleryId === "string") options?.onIllustration?.(illData.galleryId);
               toast(illData.reason ? `🎨 ${illData.reason}` : "🎨 Scene illustration generated");
               // Refresh messages so the illustration attachment appears
               if (isActiveChat()) {
@@ -4108,6 +4169,27 @@ export function useGenerate() {
               }
               break;
             }
+            // A re-run Illustrator in Pictures and clips or Clips only makes a clip, as a fresh reply does.
+            case "video": {
+              const videoData = event.data as { characterName: string; messageId: string | null };
+              toast(
+                videoData.messageId
+                  ? translate("generation.video.sent", { name: videoData.characterName })
+                  : translate("ui.chat.chatarea.videoSavedToGalleryOnly"),
+              );
+              void qc.invalidateQueries({ queryKey: ["gallery", "scene-videos", chatId] });
+              // Also when the user moved to another chat meanwhile: an inactive query is only marked stale.
+              void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+              break;
+            }
+            case "video_error": {
+              const errData = event.data as { error: string };
+              console.warn("[video] Generation failed:", errData.error);
+              // The retry made no clip, so it must not end with a success notice.
+              hasError = true;
+              toast.error(translate("generation.video.failed", { error: errData.error }));
+              break;
+            }
             case "image_prompt_review": {
               imagePromptReviewRequested = true;
               window.dispatchEvent(
@@ -4115,6 +4197,7 @@ export function useGenerate() {
                   detail: {
                     ...(event.data as Record<string, unknown>),
                     illustratorMessageRange: options?.illustratorMessageRange,
+                    ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
                   },
                 }),
               );
@@ -4203,7 +4286,8 @@ export function useGenerate() {
           void refreshVisibleGameStateAfterGeneration(chatId);
         }
       }
-      return !hasError;
+      // A still-only picture waiting for prompt review isn't drawn yet; the review's Continue animates it.
+      return !hasError && !(options?.illustratorStillOnly && imagePromptReviewRequested);
     },
     [
       addResult,

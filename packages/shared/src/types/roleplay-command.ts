@@ -2,6 +2,7 @@ import { toStraightQuotes } from "../utils/quote-format.js";
 
 export const ROLEPLAY_COMMAND_KEYS = [
   "illustrate",
+  "video",
   "document",
   "sound",
   "music",
@@ -33,6 +34,7 @@ export interface RoleplayDocument {
 export type RoleplayCommand =
   | RoleplayPrivateCommand
   | { type: "illustrate"; subject: string; characters?: string[] }
+  | { type: "video"; subject: string; motion?: string; characters?: string[] }
   | { type: "document"; documentType: string; title: string; content: string }
   | { type: "sound"; description: string }
   | { type: "music"; mood: string }

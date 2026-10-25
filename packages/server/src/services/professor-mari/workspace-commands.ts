@@ -18,7 +18,8 @@ import {
 } from "./documentation-tools.js";
 import { type MariPermissionsMode } from "@marinara-engine/shared";
 import type { MariWorkspaceActionResult, MariDependencyTarget, MariWorkspaceTraceItem } from "@marinara-engine/shared";
-import { getMariDbService } from "../mari-db/mari-db.service.js";
+import { getMariDbService, normalizeAppDataActionName, probeAppDataCall } from "../mari-db/mari-db.service.js";
+import { collectArgumentNotes } from "../mari-db/tool-error.js";
 import { mariWorkspaceSessionId } from "./mari-session.js";
 import {
   elideDataUrls,
@@ -50,6 +51,7 @@ import {
   COMMAND_FILE_READ_LIMIT,
   COMMAND_OUTPUT_LIMIT,
   DEFAULT_BASH_TIMEOUT_SECONDS,
+  APP_DATA_DRY_RUN_SENTINEL,
   MARI_DRY_RUN_SENTINEL,
   MAX_BASH_TIMEOUT_SECONDS,
   MAX_PARALLEL_READONLY_COMMANDS,
@@ -74,6 +76,7 @@ import {
   globToRegExp,
   isMariCodeCheckArgv,
   isMutatingWorkspaceCommand,
+  isPreviewOnlyAppDataCommand,
   isReadOnlyWorkspaceCommand,
   isRecord,
   isWithin,
@@ -90,12 +93,16 @@ import {
   windowsShellCompatibilityIssue,
   workspaceCommandValidationIssue,
   workspaceMutationTargetForPath,
+  readStoredMariSkillGate,
 } from "./workspace-agent.service.js";
+import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 
 export type WorkspaceRunScope = {
   permissionsMode: MariPermissionsMode;
   manualSilentMutationBlocked: boolean;
   askLatchSilentMutationBlocked: boolean;
+  /** The user accepted these exact held calls; the skill gate does not apply to them. */
+  acceptedHeldCalls?: boolean;
   decisionContext: { db: FastifyInstance["db"]; chatId: string; userMessageId: string } | null;
 };
 
@@ -103,6 +110,108 @@ export type WorkspaceRunScope = {
  * Professor Mari's workspace tool commands. Long-lived state (workspace root, change reviews and
  * the single mutation queue) lives here; run-scoped state is read through `getRun` at call time.
  */
+/**
+ * Action prefix -> shipped skill. A failed call is the one moment the model already knows which
+ * surface it is on, so the error names the handbook instead of leaving it to inference (#7827).
+ */
+// Prefixes are in normalizeAppDataActionName's form (lowercase, no "-" or "_"), the name mari-db
+// dispatches on, so "lorebooks.create" or "home-widget.create" cannot skip the gate.
+const SKILL_BY_ACTION_PREFIX: ReadonlyArray<readonly [string, string]> = [
+  ["character.onboarding.", "builtin-onboarding"],
+  ["character.", "builtin-characters"],
+  ["persona.", "builtin-characters"],
+  ["lorebook.", "builtin-lorebook"],
+  ["preset.", "builtin-presets"],
+  ["theme.", "builtin-themes"],
+  ["personalextension.", "builtin-extensions"],
+  ["homewidget.", "builtin-home-widgets"],
+  ["chat.diagnose", "builtin-repair"],
+  ["chat.updatemessage", "builtin-repair"],
+];
+
+// A `decision:` / `decision_choice:` operand inside `{{#if …}}` or `{{else if …}}`, or a Decision field by
+// name. Prose such as `Her decision: "stay"` is not decision work.
+const DECISION_CONTENT =
+  /\{\{\s*(?:#if|else if)\b[^}]*\bdecision(?:_choice)?:|"(?:decisionStatement|activationQuestion)"/u;
+
+function skillForAction(action: string): string | undefined {
+  const key = normalizeAppDataActionName(action);
+  return SKILL_BY_ACTION_PREFIX.find(([prefix]) => key.startsWith(prefix))?.[1];
+}
+
+// A character-lorebook link is documented in both handbooks, so whichever one was read covers it.
+const LINK_ACTIONS = new Set(["lorebook.linkcharacter", "lorebook.unlinkcharacter"]);
+const LINK_SKILLS = ["builtin-lorebook", "builtin-characters"];
+
+function actionSkillNeeded(action: string, seen: Set<string>): string | undefined {
+  if (LINK_ACTIONS.has(normalizeAppDataActionName(action)) && LINK_SKILLS.some((id) => seen.has(id))) {
+    return undefined;
+  }
+  return skillForAction(action);
+}
+
+export function skillHintForFailedAction(action: string): string | null {
+  const skillId = action ? skillForAction(action) : undefined;
+  if (!skillId) return null;
+  const label = skillId.slice("builtin-".length).replace(/-/gu, " ");
+  return `Hint: this is the ${label} surface - read skill \`${skillId}\` with skill.get (id: "${skillId}") before retrying; it documents the arguments and this error.`;
+}
+
+// The user's switch is the "Read the handbook before the first write" setting, read per call. This
+// override is for regressions that script a model around other behaviour: they turn the gate off rather
+// than add a skill round to every write; app-data-envelope-errors.regression.ts pins the gate itself.
+let skillGateEnabled = true;
+export function setSkillGateEnabled(enabled: boolean) {
+  skillGateEnabled = enabled;
+}
+
+const DRY_RUN_FOOTER =
+  '\n\nNOT SAVED. Nothing changed and the user sees nothing. If the user asked for this change, send this same call again with top-level "apply": true to save it.';
+// Guards read these on an output's first line only (see isDryRunResult, the read-back check and the
+// bash "Command: " header in isStagedSensitiveMutation).
+// Built per call: workspace-agent.service imports this module, so its constants are not set at load.
+function leadingSentinel(output: string): string | undefined {
+  const sentinel = [
+    MARI_DRY_RUN_SENTINEL,
+    APP_DATA_DRY_RUN_SENTINEL,
+    READ_BACK_VERIFIED_SENTINEL,
+    READ_BACK_MISMATCH_SENTINEL,
+  ].find((line) => output.startsWith(`${line}\n`));
+  if (sentinel || !output.startsWith("Command: ")) return sentinel;
+  const end = output.indexOf("\n");
+  return end === -1 ? output : output.slice(0, end);
+}
+
+function missingApplyMessage(action: string, args: Record<string, unknown>): string {
+  const nested = ["patch", "data"].find((key) => isRecord(args[key]) && "apply" in (args[key] as object));
+  return `Nothing was saved: ${action} changes existing data, so it needs a top-level "apply". Send this same call again with "apply": true next to "action" to save it${nested ? ` (the "apply" inside "${nested}" is ignored)` : ""}. Send "apply": false only when the user asked for a preview.`;
+}
+
+/**
+ * The failure hint never fires on a write that succeeds wrongly (a live 12b saved both words of an AND
+ * entry as primary keys, no skill read). So the first write, or preview, on a handbook surface in a
+ * chat is refused once until its skill is read. `seen` holds the skills read or already gated in this
+ * chat; a gated skill passes next time, so a disabled or unreadable skill cannot lock the surface.
+ */
+export function skillGateRefusal(
+  action: string,
+  args: Record<string, unknown>,
+  seen: Set<string>,
+  enabled = true,
+): string | null {
+  if (!skillGateEnabled || !enabled) return null;
+  const command = { id: "skill-gate", name: "app_data" as const, arguments: args };
+  if (!isMutatingWorkspaceCommand(command) && !isPreviewOnlyAppDataCommand(command)) return null;
+  // Decision content rides on a lorebook or preset write, so the payload, not the action, routes it.
+  const skillId = [
+    DECISION_CONTENT.test(JSON.stringify(args)) ? "builtin-decisions" : undefined,
+    actionSkillNeeded(action, seen),
+  ].find((id): id is string => id !== undefined && !seen.has(id));
+  if (!skillId) return null;
+  seen.add(skillId);
+  return `Nothing was saved: read skill \`${skillId}\` first with app_data {"action":"skill.get","id":"${skillId}"}, then send this ${action} again. Its handbook names the fields and the silent traps on this surface; this check runs once per chat.`;
+}
+
 export class WorkspaceCommands {
   workspaceRoot = getMonorepoRoot();
   readonly workspaceChangeReviews = new WorkspaceChangeReviewService(this.workspaceRoot);
@@ -110,6 +219,8 @@ export class WorkspaceCommands {
   // her mutations so path validation and the operation cannot overlap another
   // agent mutation; user and host processes remain outside this sandbox boundary.
   private workspaceMutationTail: Promise<void> = Promise.resolve();
+  /** Handbook skills read (or gated once) per Mari chat session; see skillGateRefusal. */
+  private readonly skillsSeenBySession = new Map<string, Set<string>>();
 
   constructor(
     private readonly app: FastifyInstance,
@@ -205,9 +316,24 @@ export class WorkspaceCommands {
           ? withMariDecisionContext(context, () => this.runWorkspaceCommand(command, signal))
           : this.runWorkspaceCommand(command, signal);
       };
-      const execution = isReadOnlyWorkspaceCommand(command) ? await run() : await this.serializeWorkspaceMutation(run);
-      const output = typeof execution === "string" ? execution : execution.output;
-      const compacted = compactOutput(output);
+      const argumentNotes: string[] = [];
+      const execution = await collectArgumentNotes(argumentNotes, () =>
+        isReadOnlyWorkspaceCommand(command) ? run() : this.serializeWorkspaceMutation(run),
+      );
+      const result = typeof execution === "string" ? execution : execution.output;
+      // #7999: near the top, so output compaction cannot cut the note off; under a leading sentinel,
+      // which the dry-run and read-back guards only trust on line 1.
+      const sentinel = leadingSentinel(result);
+      const notes = argumentNotes.join("\n");
+      const output = !argumentNotes.length
+        ? result
+        : sentinel
+          ? `${sentinel}\n${notes}${result.slice(sentinel.length)}`
+          : `${notes}\n${result}`;
+      // The NOT SAVED line is the last thing a model reads before it answers, so truncation keeps it.
+      const compacted = output.endsWith(DRY_RUN_FOOTER)
+        ? `${compactOutput(output.slice(0, -DRY_RUN_FOOTER.length))}${DRY_RUN_FOOTER}`
+        : compactOutput(output);
       const endedAt = Date.now();
       upsertTraceTool(trace, {
         id: command.id,
@@ -366,7 +492,8 @@ export class WorkspaceCommands {
   private async commandRead(args: Record<string, unknown>): Promise<string> {
     const filePath = this.resolveWorkspacePath(stringArg(args, "path"), { readOnly: true });
     const stats = await stat(filePath);
-    if (!stats.isFile()) throw new Error("read path must be a file");
+    if (!stats.isFile())
+      throw new Error(`read path must be a file: ${this.displayPath(filePath)} is a directory. Use ls to list it.`);
     if (stats.size > COMMAND_FILE_READ_LIMIT) {
       return `File ${this.displayPath(filePath)} is ${stats.size} bytes; refusing to read more than ${COMMAND_FILE_READ_LIMIT} bytes. Use grep or a narrower file.`;
     }
@@ -391,7 +518,8 @@ export class WorkspaceCommands {
   private async commandLs(args: Record<string, unknown>): Promise<string> {
     const dirPath = this.resolveWorkspacePath(stringArg(args, "path", "."), { readOnly: true });
     const stats = await stat(dirPath);
-    if (!stats.isDirectory()) throw new Error("ls path must be a directory");
+    if (!stats.isDirectory())
+      throw new Error(`ls path must be a directory: ${this.displayPath(dirPath)} is a file. Use read to open it.`);
     const limit = numberArg(args, "limit", 500, 1, 1000);
     const entries = await readdir(dirPath, { withFileTypes: true });
     const names = entries
@@ -533,7 +661,10 @@ export class WorkspaceCommands {
     // A copy only reads its source, so a build file may be copied out but never in.
     const source = this.ordinaryMutationPath(stringArg(args, "source"), { readOnly: true });
     const destination = this.ordinaryMutationPath(stringArg(args, "destination"), { allowMissing: true });
-    if (!(await stat(source)).isFile()) throw new Error("copy source must be a file");
+    if (!(await stat(source)).isFile())
+      throw new Error(
+        `copy source must be a file: ${this.displayPath(source)} is a directory. Copy one file at a time.`,
+      );
     await mkdir(dirname(destination), { recursive: true });
     try {
       await copyFile(source, destination, constants.COPYFILE_EXCL);
@@ -547,7 +678,10 @@ export class WorkspaceCommands {
   private async commandMove(args: Record<string, unknown>): Promise<string> {
     const source = this.ordinaryMutationPath(stringArg(args, "source"));
     const destination = this.ordinaryMutationPath(stringArg(args, "destination"), { allowMissing: true });
-    if (!(await stat(source)).isFile()) throw new Error("move source must be a file");
+    if (!(await stat(source)).isFile())
+      throw new Error(
+        `move source must be a file: ${this.displayPath(source)} is a directory. Move one file at a time.`,
+      );
     await mkdir(dirname(destination), { recursive: true });
     try {
       // A hard link is an atomic, no-replace claim on the destination and keeps
@@ -590,23 +724,35 @@ export class WorkspaceCommands {
       forbidStorageMutation: true,
     });
     const edits = Array.isArray(args.edits) ? args.edits : [];
-    if (edits.length === 0) throw new Error("edit requires non-empty edits array");
+    if (edits.length === 0) {
+      throw new Error('edit needs a non-empty "edits" array: [{"oldText":"exact old lines","newText":"replacement"}].');
+    }
     const text = await readFile(filePath, "utf8");
     const ranges: Array<{ start: number; end: number; oldText: string; newText: string }> = [];
     for (const rawEdit of edits) {
       if (!isRecord(rawEdit) || typeof rawEdit.oldText !== "string" || typeof rawEdit.newText !== "string") {
-        throw new Error("Each edit requires oldText and newText strings");
+        throw new Error(
+          'Each entry in "edits" needs "oldText" and "newText" strings: [{"oldText":"exact old lines","newText":"replacement"}].',
+        );
       }
       const start = text.indexOf(rawEdit.oldText);
-      if (start < 0) throw new Error(`oldText not found in ${this.displayPath(filePath)}`);
+      if (start < 0) {
+        throw new Error(
+          `oldText not found in ${this.displayPath(filePath)}: matching is exact, including whitespace and indentation. Read the file again and copy the lines verbatim.`,
+        );
+      }
       if (text.indexOf(rawEdit.oldText, start + rawEdit.oldText.length) >= 0) {
-        throw new Error(`oldText is not unique in ${this.displayPath(filePath)}`);
+        throw new Error(
+          `oldText is not unique in ${this.displayPath(filePath)}: it matches more than once. Include surrounding lines so it matches exactly once.`,
+        );
       }
       ranges.push({ start, end: start + rawEdit.oldText.length, oldText: rawEdit.oldText, newText: rawEdit.newText });
     }
     ranges.sort((a, b) => a.start - b.start);
     for (let index = 1; index < ranges.length; index += 1) {
-      if (ranges[index]!.start < ranges[index - 1]!.end) throw new Error("edits overlap");
+      if (ranges[index]!.start < ranges[index - 1]!.end) {
+        throw new Error("edits overlap: two oldText blocks share lines. Merge them into one edit.");
+      }
     }
     let next = "";
     let cursor = 0;
@@ -931,8 +1077,13 @@ export class WorkspaceCommands {
       cwd: this.workspaceRoot,
       sessionId: this.runSessionId(),
     });
+    // A failed read can carry both an error and an output; the error is the part the model needs.
     const printable =
-      isRecord(result) && "output" in result && !("summary" in result) ? result.output : compactMutationResult(result);
+      isRecord(result) && "output" in result && !("summary" in result)
+        ? result.ok === false && typeof result.error === "string"
+          ? { error: result.error, output: result.output }
+          : result.output
+        : compactMutationResult(result);
     const output = compactOutput(
       [
         // A sentinel MUST be the output's first line: everything after it can
@@ -977,43 +1128,95 @@ export class WorkspaceCommands {
   }
 
   private async commandAppData(args: Record<string, unknown>): Promise<WorkspaceCommandExecution> {
-    const action = typeof args.action === "string" ? args.action : "unknown";
+    // mari-db also takes "type" for the action; the gate must see the same name.
+    const action =
+      typeof args.action === "string" ? args.action : typeof args.type === "string" ? args.type : "unknown";
     if (action === "decision.get" || action === "decision.record") {
       return { output: stringifyOutput(await executeMariDecisionAction(action, args.data)) };
     }
+    const sessionId = this.runSessionId();
+    let skillsSeen = this.skillsSeenBySession.get(sessionId);
+    if (!skillsSeen) this.skillsSeenBySession.set(sessionId, (skillsSeen = new Set()));
+    const service = getMariDbService(this.app.db);
+    const envelope = { ...args, cwd: this.workspaceRoot, sessionId: this.runSessionId() };
+    const gateOn =
+      !this.getRun().acceptedHeldCalls && (await readStoredMariSkillGate(createAppSettingsStorage(this.app.db)));
+    const gate = skillGateRefusal(action, args, skillsSeen, gateOn);
+    if (gate) {
+      // #7949 run 3: refusing before the call ran hid its own error (a bogus `linked_characters`
+      // field), so a 12b fixed one problem per round. A dry run of the same call saves nothing and
+      // names that error in the same answer.
+      // T15 (round 2): the same holds for a missing "apply", which only showed on the resend.
+      const { result: probe, savesWithoutApply } = await probeAppDataCall(() =>
+        service.executeAction({ ...envelope, apply: false }),
+      );
+      const probeError = probe.ok === false && typeof probe.error === "string" ? probe.error : null;
+      throw new Error(
+        probeError
+          ? `${gate}
+
+The call itself would also have failed:
+${probeError}`
+          : args.apply === undefined && !savesWithoutApply
+            ? `${gate}
+
+The call itself would also not have saved:
+${missingApplyMessage(action, args)}`
+            : gate,
+      );
+    }
     // Slice 87: every applied change keeps a restore copy in every permissions mode; the mode only
     // decides whether she asks first.
-    const result = await getMariDbService(this.app.db).executeAction({
-      ...args,
-      cwd: this.workspaceRoot,
-      sessionId: this.runSessionId(),
-    });
+    const result = await service.executeAction(envelope);
+    // #7949 run 3: a 12b sent one character.update without "apply" five times; each dry run read as a
+    // success, so the repeated-failure stop never fired. Only an explicit "apply": false previews.
+    if (isRecord(result) && result.mode === "dry-run" && result.ok !== false && args.apply === undefined) {
+      throw new Error(missingApplyMessage(action, args));
+    }
     if (result.ok !== false && (action === "personal_extension.create" || action === "personal_extension.update")) {
       await personalServerExtensionRuntime.reloadAll();
     }
+    const readSkillId =
+      normalizeAppDataActionName(action) === "skill.get" && result.ok !== false ? (args.id ?? args.skillId) : undefined;
+    if (typeof readSkillId === "string") skillsSeen.add(readSkillId.trim());
+    // A failed read can carry both an error and an output; the error is the part the model needs.
     const printable =
-      isRecord(result) && "output" in result && !("summary" in result) ? result.output : compactMutationResult(result);
+      isRecord(result) && "output" in result && !("summary" in result)
+        ? result.ok === false && typeof result.error === "string"
+          ? { error: result.error, output: result.output }
+          : result.output
+        : compactMutationResult(result);
     const truncationNote = formatMariReadTruncation(result.truncation);
-    const output = compactOutput(
-      [
-        // The sentinel MUST be the output's first line: everything after it
-        // can contain model-authored text (the action string, echoed rows),
-        // so the verification guard only trusts position zero.
-        ...(isRecord(result.readBack) && result.readBack.status === "verified"
-          ? [READ_BACK_VERIFIED_SENTINEL]
-          : isRecord(result.readBack) && result.readBack.status === "mismatch"
-            ? [READ_BACK_MISMATCH_SENTINEL]
-            : []),
-        `Command: app_data ${action}`,
-        `Exit code: ${result.ok === false ? 1 : 0} (structured app-data runtime)`,
-        "",
-        "stdout:",
-        stringifyOutput(printable),
-        ...(truncationNote ? ["", truncationNote] : []),
-      ].join("\n"),
-    );
+    const dryRun = isRecord(result) && result.mode === "dry-run" && result.ok !== false;
+    const output =
+      compactOutput(
+        [
+          // The sentinel MUST be the output's first line: everything after it
+          // can contain model-authored text (the action string, echoed rows),
+          // so the verification guard only trusts position zero. Read-back and
+          // dry-run are exclusive: a read-back only rides an applied write.
+          ...(isRecord(result.readBack) && result.readBack.status === "verified"
+            ? [READ_BACK_VERIFIED_SENTINEL]
+            : isRecord(result.readBack) && result.readBack.status === "mismatch"
+              ? [READ_BACK_MISMATCH_SENTINEL]
+              : dryRun
+                ? [APP_DATA_DRY_RUN_SENTINEL]
+                : []),
+          `Command: app_data ${action}`,
+          `Exit code: ${result.ok === false ? 1 : 0} (structured app-data runtime)`,
+          "",
+          "stdout:",
+          stringifyOutput(printable),
+          ...(truncationNote ? ["", truncationNote] : []),
+        ].join("\n"),
+      ) +
+      // Last, past any truncation: the line a model reads just before it answers.
+      (dryRun ? DRY_RUN_FOOTER : "");
     if (result.ok === false) {
-      const failure = new Error(output) as Error & { actionResult?: MariWorkspaceActionResult };
+      const hint = skillHintForFailedAction(action);
+      const failure = new Error(hint ? `${output}\n\n${hint}` : output) as Error & {
+        actionResult?: MariWorkspaceActionResult;
+      };
       const reason =
         typeof (result as { error?: unknown }).error === "string" ? (result as { error: string }).error : output;
       failure.actionResult = buildMariFailedActionResult(action, args, reason) ?? undefined;

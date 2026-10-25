@@ -11,6 +11,7 @@
 // Roads' words and a fight on 5e reads in 5e's.
 import type {
   DirectedRulesetEvent,
+  DirectedRulesetReason,
   DirectedRulesetView,
   RulesetCombatPoolRoll,
   RulesetCombatDamagePool,
@@ -49,6 +50,8 @@ export interface RulesetCombatNames {
   distance: (cells: number) => string;
   /** A drop of so many levels of the board in the ruleset's own distance (combat C6b): "10 ft". */
   height: (levels: number) => string;
+  /** One of a symbol pool's symbols (1.382), by id. */
+  symbol?: (id: string) => string;
 }
 
 function lookup(entries: Array<{ id: string; label: string }> | undefined) {
@@ -103,6 +106,7 @@ export function rulesetCombatNames(
     tier: lookup(definition.combat?.threat?.tiers),
     style: lookup(definition.combat?.initiative.resource?.styles),
     defense: rulesetValueLabel(definition, definition.combat?.defense),
+    symbol: lookup(definition.resolution.kind === "symbol-pool" ? definition.resolution.symbols : []),
   };
 }
 
@@ -175,7 +179,9 @@ export function rulesetPoolRollText(
   },
   t: TFunction,
   bonusName: (bonus: RulesetConditionBonus) => string = (bonus) => bonus.condition,
+  symbolName: (id: string) => string = (id) => id,
 ): string {
+  if (roll.pool.symbols) return rulesetSymbolRollText({ ...roll, pool: roll.pool }, t, bonusName, symbolName);
   const parts = [
     ...(roll.bonuses ?? []).map((bonus) =>
       t("game.combat.ruleset.roll.bonus", { value: signed(bonus.value), name: bonusName(bonus) }),
@@ -199,9 +205,68 @@ export function rulesetPoolRollText(
   return text;
 }
 
+/** The symbols a throw left, as the ruleset names them: "2 Success, 1 Advantage". */
+function symbolsText(symbols: Record<string, number>, t: TFunction, symbolName: (id: string) => string): string {
+  const named = Object.entries(symbols)
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => `${count} ${symbolName(id)}`);
+  return named.length > 0 ? named.join(", ") : (t("game.combat.ruleset.roll.noSymbols") as string);
+}
+
+/** A symbol throw (1.382), for a `symbol-pool` fight: the symbols left after cancelling, from how
+ *  many of the thrower's own dice (how many upgraded, the boost and setback dice, and what made them
+ *  up). What it was thrown against is the line's to say. */
+export function rulesetSymbolRollText(
+  roll: { modifier: number; bonuses?: RulesetConditionBonus[]; pool: RulesetCombatPoolRoll },
+  t: TFunction,
+  bonusName: (bonus: RulesetConditionBonus) => string = (bonus) => bonus.condition,
+  symbolName: (id: string) => string = (id) => id,
+): string {
+  const pool = roll.pool;
+  const parts = [
+    ...(pool.upgrades ? [t("game.combat.ruleset.roll.upgraded", { count: pool.upgrades })] : []),
+    ...(pool.boost ? [t("game.combat.ruleset.roll.boost", { count: pool.boost })] : []),
+    ...(pool.setback ? [t("game.combat.ruleset.roll.setback", { count: pool.setback })] : []),
+    ...(roll.bonuses ?? []).map((bonus) =>
+      t("game.combat.ruleset.roll.bonus", { value: signed(bonus.value), name: bonusName(bonus) }),
+    ),
+    ...(pool.penalty ? [t("game.combat.ruleset.roll.penalty", { value: signed(pool.penalty) })] : []),
+  ];
+  const dice = t("game.combat.ruleset.roll.dice", { count: pool.dice });
+  return t("game.combat.ruleset.roll.symbols", {
+    symbols: symbolsText(pool.symbols ?? {}, t, symbolName),
+    dice: parts.length > 0 ? t("game.combat.ruleset.roll.poolFrom", { dice, parts: parts.join(", ") }) : dice,
+  }) as string;
+}
+
 /** A defense in the ruleset's own word for it, when the file gave it one. */
 function defenseText(names: RulesetCombatNames, defense: number): string {
   return names.defense ? `${names.defense} ${defense}` : String(defense);
+}
+
+/** A defense raised by what the target has on (Shield, a Parry): the number rolled against, the one it
+ *  rose from, and what raised it, each value said once (#8273: "Armor Class 17 (Parrying
+ *  (+2) + 2)"). A name that already carries its number is not given it again. */
+function guardedText(
+  t: TFunction,
+  named: (bonus: RulesetConditionBonus) => string,
+  defense: string,
+  guards: readonly RulesetConditionBonus[],
+  unguarded: number | undefined,
+): string {
+  // The base is said only where the event carries it: a pool's clamped need or a symbol throw's
+  // difficulty is no defense plus its guards.
+  return t(unguarded === undefined ? "game.combat.ruleset.roll.guarded" : "game.combat.ruleset.roll.guardedFrom", {
+    defense,
+    base: unguarded,
+    guards: guards
+      .map((guard) => {
+        const name = named(guard);
+        const own = new RegExp(`\\(\\s*${guard.value < 0 ? "-" : "\\+"}\\s*${Math.abs(guard.value)}\\s*\\)`);
+        return own.test(name) ? name : t("game.combat.ruleset.roll.guard", { name, value: signed(guard.value) });
+      })
+      .join(", "),
+  });
 }
 
 /** What a condition, or a level of a track or a derived value, that changed a number is called in the
@@ -241,7 +306,7 @@ export function rulesetRefusalText(code: string | undefined, serverText: string,
 /** A check thrown on its own (1.287), as one side of a contest is written. */
 function checkRollText(roll: RulesetContestSide, names: RulesetCombatNames, t: TFunction): string {
   return roll.pool
-    ? rulesetPoolRollText({ ...roll, pool: roll.pool }, t, bonusNamer(names, t))
+    ? rulesetPoolRollText({ ...roll, pool: roll.pool }, t, bonusNamer(names, t), names.symbol)
     : rulesetRollText(
         {
           ...roll,
@@ -265,6 +330,7 @@ const WINDOW_LINES = {
   falls: "windowFalls",
   "turn-start": "windowTurnStart",
   used: "windowUsed",
+  spend: "windowSpend",
 } as const;
 
 /**
@@ -321,6 +387,16 @@ export function rulesetCombatEventLine(
       return key("turn", { actor: names.combatant(event.actorId) });
     case "attack": {
       const named = bonusNamer(names, t);
+      // A symbol throw carries its difficulty dice with it (1.382).
+      if (event.pool?.symbols) {
+        return key(event.outcome === "miss" ? "attackSymbolMiss" : "attackSymbolHit", {
+          actor: names.combatant(event.actorId),
+          target: names.combatant(event.targetId),
+          label: event.label,
+          roll: rulesetSymbolRollText({ ...event, pool: event.pool }, t, named, names.symbol),
+          difficulty: t("game.combat.ruleset.roll.difficultyDice", { count: event.pool.difficulty ?? event.defense }),
+        });
+      }
       // The ruleset's own word for what it was rolled against, when the file gave it one, and what
       // the target's conditions added to it. A pool says how many successes it needed instead.
       const pool = event.pool;
@@ -344,16 +420,7 @@ export function rulesetCombatEventLine(
             ? t("game.combat.ruleset.event.attackStyle", { label: event.label, style: names.style(event.style) })
             : event.label,
           roll: pool ? rulesetPoolRollText({ ...event, pool }, t, named) : rulesetRollText(event, t, named),
-          defense: event.guards?.length
-            ? t("game.combat.ruleset.roll.guarded", {
-                defense,
-                guards: event.guards
-                  .map((guard) =>
-                    t("game.combat.ruleset.roll.guard", { name: named(guard), value: signed(guard.value) }),
-                  )
-                  .join(", "),
-              })
-            : defense,
+          defense: event.guards?.length ? guardedText(t, named, defense, event.guards, event.unguarded) : defense,
         },
       );
     }
@@ -362,6 +429,16 @@ export function rulesetCombatEventLine(
         return key(event.success ? "saveAutomaticSuccess" : "saveAutomatic", {
           actor: names.combatant(event.actorId),
           save: names.save(event.save),
+        });
+      }
+      if (event.pool?.symbols) {
+        return key(event.success ? "saveSymbolSuccess" : "saveSymbolFailure", {
+          actor: names.combatant(event.actorId),
+          save: names.save(event.save),
+          roll: rulesetSymbolRollText({ ...event, pool: event.pool }, t, bonusNamer(names, t), names.symbol),
+          difficulty: t("game.combat.ruleset.roll.difficultyDice", {
+            count: event.pool.difficulty ?? event.difficulty,
+          }),
         });
       }
       if (event.pool) {
@@ -829,6 +906,17 @@ export function rulesetCombatEventLine(
     case "fake":
       return key(event.dud ? "fakeDud" : "fake", { label: event.label, truly: event.truly });
     case "gate":
+      if (event.pool?.symbols) {
+        return key(event.success ? "gateSymbolSuccess" : "gateSymbolFailure", {
+          actor: names.combatant(event.actorId),
+          check: event.check,
+          label: event.label,
+          roll: rulesetSymbolRollText({ ...event, pool: event.pool }, t, bonusNamer(names, t), names.symbol),
+          difficulty: t("game.combat.ruleset.roll.difficultyDice", {
+            count: event.pool.difficulty ?? event.difficulty,
+          }),
+        });
+      }
       if (event.pool) {
         return key(event.success ? "gatePoolSuccess" : "gatePoolFailure", {
           actor: names.combatant(event.actorId),
@@ -1020,6 +1108,8 @@ export function rulesetCombatEventLine(
         cost: names.distance(event.cost),
         left: names.distance(event.left),
       });
+    case "lift":
+      return key(event.up ? "tookOff" : "landed", { actor: names.combatant(event.actorId) });
     case "flew":
       return key(event.to > event.from ? "flewUp" : "flewDown", {
         actor: names.combatant(event.actorId),
@@ -1040,7 +1130,9 @@ export function rulesetCombatEventLine(
       return key(
         event.targetIds?.some((id) => id !== event.waiting[0]) && (event.moment === "aimed" || event.moment === "hit")
           ? "windowBystander"
-          : WINDOW_LINES[event.moment ?? (event.kind === "signature" ? "between" : "leaving")],
+          : WINDOW_LINES[
+              event.moment ?? (event.kind === "signature" ? "between" : event.kind === "spend" ? "spend" : "leaving")
+            ],
         {
           actor: names.combatant(event.waiting[0] ?? ""),
           others: Math.max(0, event.waiting.length - 1),
@@ -1061,14 +1153,7 @@ export function rulesetCombatEventLine(
         target: names.combatant(event.targetId),
         label: event.label,
         total: event.total,
-        defense: event.guards?.length
-          ? t("game.combat.ruleset.roll.guarded", {
-              defense,
-              guards: event.guards
-                .map((guard) => t("game.combat.ruleset.roll.guard", { name: named(guard), value: signed(guard.value) }))
-                .join(", "),
-            })
-          : defense,
+        defense: event.guards?.length ? guardedText(t, named, defense, event.guards, event.unguarded) : defense,
       });
     }
     case "pass":
@@ -1116,6 +1201,22 @@ export function rulesetCombatEventLine(
       return key(event.on ? "switchOn" : "switchOff", { actor: names.combatant(event.actorId), label: event.label });
     case "recovered":
       return key("recovered", { actor: names.combatant(event.actorId), label: event.label, count: event.count });
+    case "symbol-spend": {
+      const symbol = names.symbol?.(event.symbol) ?? event.symbol;
+      const line = key(event.times > 1 ? "symbolSpendTimes" : "symbolSpend", {
+        actor: names.combatant(event.actorId),
+        symbols: `${event.cost * event.times} ${symbol}`,
+        label: event.label,
+        times: event.times,
+      });
+      const dice = event.boost ?? event.setback;
+      if (!dice || !event.onId) return line;
+      return key(event.boost ? "symbolSpendBoost" : "symbolSpendSetback", {
+        line,
+        target: names.combatant(event.onId),
+        dice: t("game.combat.ruleset.roll.dice", { count: dice }),
+      });
+    }
     case "hardness":
       return key("hardness", {
         actor: names.combatant(event.sourceId),
@@ -1203,8 +1304,38 @@ export function rulesetCombatEventLine(
       });
     case "director":
       return key("unavailable", { reason: event.text });
+    case "reasoning":
+      return event.reasons.length
+        ? key("reasoning", {
+            actor: names.combatant(event.actorId),
+            reasons: event.reasons.map((reason) => rulesetReasonText(reason, names, t)).join("; "),
+          })
+        : null;
     default:
       return null;
+  }
+}
+
+/** One reason the Engine gives for an AI combatant's step, in no ruleset's own words. */
+function rulesetReasonText(reason: DirectedRulesetReason, names: RulesetCombatNames, t: TFunction): string {
+  const say = (name: string, params: Record<string, unknown> = {}) =>
+    t(`game.combat.ruleset.event.reason.${name}`, params) as string;
+  const target = (id?: string) => (id ? names.combatant(id) : "") || say("itsTarget");
+  switch (reason.why) {
+    case "damage":
+      return say(`damage_${reason.strength}`, { target: target(reason.targetId) });
+    case "finish":
+    case "healing":
+    case "support":
+    case "setup":
+    case "coordination":
+      return say(reason.why, { target: target(reason.targetId) });
+    case "walked":
+      return say("walked", { distance: names.distance(reason.cells) });
+    case "approach":
+      return say(reason.sprinted ? "approachSprint" : "approach", { target: target(reason.targetId) });
+    default:
+      return say(reason.why);
   }
 }
 
@@ -1268,6 +1399,8 @@ export function rulesetCombatLogLines(
   names: RulesetCombatNames,
   t: TFunction,
   afterSeq = -1,
+  /** With Debug on: the Engine's reasons for its AI's steps, after each one. */
+  reasons = false,
 ): Array<{ seq: number; text: string }> {
   const lines: Array<{ seq: number; text: string }> = [];
   for (const entry of events) {
@@ -1275,8 +1408,36 @@ export function rulesetCombatLogLines(
     // What is left of a budget is a number the status panel already shows, and the resolver reports
     // it BEFORE the action it paid for, so in a log it read as "0 Action left" and then the blow.
     if (entry.event.type === "budget") continue;
+    if (entry.event.type === "reasoning" && !reasons) continue;
     const text = rulesetCombatEventLine(entry.event, names, t);
     if (text) lines.push({ seq: entry.seq, text });
   }
   return lines;
+}
+
+/** Each foe's one fate when a fight ends, which the end card's count and its names both read: gone
+ *  from the fight (fled, sent away), felled (down when it ended counts, since the fight is over for
+ *  it), or still on its feet. `beaten` is exactly the felled list, so the tally names nobody the
+ *  lines file elsewhere. */
+export type RulesetFoeFate = "endDefeated" | "endGone" | "endStanding";
+export function rulesetFoeFates(view: DirectedRulesetView): {
+  fates: Array<[RulesetFoeFate, DirectedRulesetView["combatants"]]>;
+  beaten: number;
+  total: number;
+} {
+  const foes = view.combatants.filter((combatant) => combatant.side !== "party");
+  const fateOf = (one: (typeof foes)[number]): RulesetFoeFate =>
+    one.away || one.left ? "endGone" : one.defeated || one.down ? "endDefeated" : "endStanding";
+  const by: Record<RulesetFoeFate, DirectedRulesetView["combatants"]> = {
+    endDefeated: [],
+    endGone: [],
+    endStanding: [],
+  };
+  for (const one of foes) by[fateOf(one)].push(one);
+  const order: RulesetFoeFate[] = ["endDefeated", "endGone", "endStanding"];
+  return {
+    fates: order.filter((key) => by[key].length > 0).map((key) => [key, by[key]]),
+    beaten: by.endDefeated.length,
+    total: foes.length,
+  };
 }

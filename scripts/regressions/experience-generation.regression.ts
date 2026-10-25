@@ -16,6 +16,7 @@
 //      package can degrade to its own defaults.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { characterDataSchema } from "../../packages/shared/src/schemas/character.schema.js";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { errorHandler } from "../../packages/server/src/middleware/error-handler.js";
 import { rateLimitHook } from "../../packages/server/src/middleware/rate-limit.js";
@@ -33,12 +34,13 @@ const lorebooks = createLorebooksStorage(db);
 const characters = createCharactersStorage(db);
 const createdLorebookIds: string[] = [];
 const createdPersonaIds: string[] = [];
+const createdCharacterIds: string[] = [];
 const createdChatIds: string[] = [];
 let createdConnectionId: string | null = null;
 let previousMainFallbackId: string | null = null;
 
 // ── Mock OpenAI-compatible provider ──────────────────────────────────────────
-type Scenario = "happy" | "repair" | "truncated" | "garbage" | "empty-then-stream" | "slow-happy";
+type Scenario = "happy" | "setup" | "repair" | "truncated" | "garbage" | "empty-then-stream" | "slow-happy";
 let scenario: Scenario = "happy";
 let upstreamBodies: Array<Record<string, unknown>> = [];
 
@@ -62,6 +64,13 @@ const mockProvider = createServer(async (request, response) => {
     );
   };
   if (scenario === "happy") return respond(VALID_BRIEF);
+  if (scenario === "setup")
+    return respond(JSON.stringify({
+      storyArc: "Explore the valley",
+      worldOverview: "A quiet valley",
+      plotTwists: ["An old road has reopened"],
+      startingNpcs: [{ name: "Mira", description: "A local guide" }],
+    }));
   if (scenario === "repair")
     return attempt === 1 ? respond("Sure! Here is your world, in prose.") : respond(VALID_BRIEF);
   if (scenario === "truncated") return respond('{"version":1,"theme":"sci-fi', "length");
@@ -156,8 +165,7 @@ try {
     // normalizer re-nests it, so the wire body must carry the package's
     // ACTUAL schema and name under json_schema, with strict defaulting off.
     const responseFormat = upstreamBodies[0]?.response_format as
-      | { type?: string; json_schema?: { name?: string; schema?: unknown; strict?: boolean } }
-      | undefined;
+      { type?: string; json_schema?: { name?: string; schema?: unknown; strict?: boolean } } | undefined;
     assert.equal(responseFormat?.type, "json_schema", "package schema forwarded as provider structured output");
     assert.equal(responseFormat?.json_schema?.name, "experience_generation", "schema name survives to the wire");
     assert.deepEqual(responseFormat?.json_schema?.schema, BASE_BODY.schema, "schema content survives to the wire");
@@ -184,6 +192,76 @@ try {
     assert.equal(small.statusCode, 200, small.body);
     assert.equal(upstreamBodies.length, 1, "A schema that fits still reaches the provider");
     await connections.update(conn.id, { maxContext: 32_768 });
+  }
+
+  // The whole-persona macro includes newly authored dialogue in selected Experience lore.
+  {
+    const chat = await createExperienceChat("Persona dialogue in selected lore");
+    const companion = await characters.create(characterDataSchema.parse({ name: "Dialogue guide" }));
+    assert.ok(companion);
+    createdCharacterIds.push(companion.id);
+    const persona = await characters.createPersona("Dialogue traveler", "", undefined, {
+      summary: "METADATA_SYNOPSIS_STAYS_PRIVATE",
+      mes_example: "{{user}}: TRAVELER_DIALOGUE_REACHES_EXPERIENCE {{char}}.",
+    });
+    assert.ok(persona);
+    createdPersonaIds.push(persona.id);
+    await chats.update(chat.id, { personaId: persona.id, characterIds: [companion.id] });
+    const book = await lorebooks.create({ name: "Persona dialogue reference" });
+    createdLorebookIds.push(book.id);
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Selected identity",
+      content: "Identity: {{persona}}",
+    });
+    assert.ok(entry);
+    upstreamBodies = [];
+    const complete = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(complete.statusCode, 200, complete.body);
+    const messages = JSON.stringify(upstreamBodies[0]?.messages);
+    assert.ok(
+      messages.includes("Dialogue traveler: TRAVELER_DIALOGUE_REACHES_EXPERIENCE Dialogue guide."),
+      "selected lore resolves both speaker macros in authored persona dialogue",
+    );
+    assert.ok(!messages.includes("{{user}}") && !messages.includes("{{char}}"), "speaker macros never reach the provider");
+    assert.ok(
+      !messages.includes("METADATA_SYNOPSIS_STAYS_PRIVATE"),
+      "the metadata summary stays outside model prompts",
+    );
+
+    // Built-in setup sends the same new dialogue even when no lorebook is active.
+    scenario = "setup";
+    for (const includeLore of [false, true]) {
+      await chats.patchMetadata(chat.id, () => ({
+        gameSetupConfig: {
+          genre: "Fantasy",
+          setting: "A quiet valley",
+          tone: "Hopeful",
+          difficulty: "normal",
+          playerGoals: "Explore",
+          gmMode: "standalone",
+          rating: "sfw",
+          partyCharacterIds: [companion.id],
+          activeLorebookEntryIds: includeLore ? [entry.id] : [],
+        },
+      }));
+      upstreamBodies = [];
+      const setup = await app.inject({
+        method: "POST",
+        url: "/api/game/setup",
+        payload: { chatId: chat.id, connectionId: conn.id, streaming: false },
+      });
+      assert.equal(setup.statusCode, 200, setup.body);
+      assert.equal(upstreamBodies.length, 1);
+      const setupMessages = JSON.stringify(upstreamBodies[0]?.messages);
+      assert.ok(
+        setupMessages.includes("Example dialogue: Dialogue traveler: TRAVELER_DIALOGUE_REACHES_EXPERIENCE Dialogue guide."),
+        "built-in setup resolves persona dialogue speaker macros before the model call",
+      );
+      assert.ok(!setupMessages.includes("{{user}}") && !setupMessages.includes("{{char}}"));
+      assert.ok(!setupMessages.includes("METADATA_SYNOPSIS_STAYS_PRIVATE"));
+    }
+    scenario = "happy";
   }
 
   // Selected lore must arrive whole after macros, or fail visibly without a call (#6145).
@@ -352,6 +430,39 @@ try {
       await limited.close();
     }
   }
+  // Selected Experience lore reads the chat's effective Persona card.
+  {
+    scenario = "happy";
+    const chat = await createExperienceChat("Alternative persona lore");
+    const persona = await characters.createPersona("Scoped traveler", "BASE EXPERIENCE PERSONA", undefined, {
+      cardFieldAlternatives: JSON.stringify([
+        {
+          id: "experience-description",
+          field: "description",
+          value: "ALTERNATIVE EXPERIENCE PERSONA",
+          chatIds: [chat.id],
+        },
+      ]),
+    });
+    assert.ok(persona);
+    createdPersonaIds.push(persona.id);
+    await chats.update(chat.id, { personaId: persona.id });
+    const book = await lorebooks.create({ name: "Alternative Experience lore" });
+    createdLorebookIds.push(book.id);
+    const entry = await lorebooks.createEntry({
+      lorebookId: book.id,
+      name: "Selected identity",
+      content: "Identity: {{personaDescription}}",
+    });
+    assert.ok(entry);
+    upstreamBodies = [];
+    const result = await post(chat.id, { ...BASE_BODY, lorebookEntryIds: [entry.id] });
+    assert.equal(result.statusCode, 200, result.body);
+    const sent = JSON.stringify(upstreamBodies[0]?.messages);
+    assert.match(sent, /ALTERNATIVE EXPERIENCE PERSONA/);
+    assert.doesNotMatch(sent, /BASE EXPERIENCE PERSONA/);
+    assert.equal((await characters.getPersona(persona.id))!.description, "BASE EXPERIENCE PERSONA");
+  }
 } catch (error) {
   scenarioFailed = true;
   scenarioError = error;
@@ -371,6 +482,7 @@ const runCleanup = async (cleanup: () => Promise<unknown>) => {
 for (const chatId of createdChatIds) await runCleanup(() => chats.remove(chatId));
 for (const bookId of createdLorebookIds) await runCleanup(() => lorebooks.remove(bookId));
 for (const personaId of createdPersonaIds) await runCleanup(() => characters.removePersona(personaId));
+for (const characterId of createdCharacterIds) await runCleanup(() => characters.remove(characterId));
 if (createdConnectionId) await runCleanup(() => connections.remove(createdConnectionId));
 if (previousMainFallbackId) {
   await runCleanup(() => connections.update(previousMainFallbackId, { fallbackForMain: true }));

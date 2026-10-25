@@ -114,15 +114,17 @@ export function reviewRoundClaim(
     return {
       kind: "repair",
       prompt:
-        verificationIssue === "none" && !terminalClaim
-          ? "You claimed a step was completed, but no command output since your last verified claim backs it up. Do not repeat the claim. First run a read that shows the state you claimed; if the work is genuinely missing, perform it and verify it with another read before moving on. Never redo work a read shows already exists."
-          : verificationIssue === "none"
-            ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true. If an earlier run already completed the work, answer from what the read shows - never redo work that already exists."
-            : verificationIssue === "mismatch"
-              ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
-              : verificationIssue === "staged"
-                ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
-                : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
+        verificationIssue === "dry_run"
+          ? 'Every write since your last checked reply was a dry run, so those changes were not saved and the user sees no change from them (anything applied earlier still stands). Do not say they are done. If the user asked for this change, send the same call again with top-level "apply": true and answer from that result. If they asked only for a preview, or you asked whether to apply, say plainly that nothing was saved yet.'
+          : verificationIssue === "none" && !terminalClaim
+            ? "You claimed a step was completed, but no command output since your last verified claim backs it up. Do not repeat the claim. First run a read that shows the state you claimed; if the work is genuinely missing, perform it and verify it with another read before moving on. Never redo work a read shows already exists."
+            : verificationIssue === "none"
+              ? "Your previous reply claimed the requested workspace change was complete, but no mutating command succeeded in this run. Do not repeat the completion claim. Use a read command to inspect the requested state; if it is missing, perform the mutation, then verify it with another read before setting stop to true. If an earlier run already completed the work, answer from what the read shows - never redo work that already exists."
+              : verificationIssue === "mismatch"
+                ? "Your previous reply claimed a change was complete, but the store read-back observed that a change in this run did NOT persist as intended (see readBack.mismatches on that result). Do not claim success. Tell the user plainly which change failed to persist and what the store observed; you may retry the mutation once if a retry is sensible - a retry whose result confirms the persisted state clears this."
+                : verificationIssue === "staged"
+                  ? "Your previous reply claimed a change was complete, but at least one change in this run was only staged for the user's approval and has NOT been applied. Do not claim it is done, and do not re-run the mutation - the change is already staged and re-running it cannot apply it. Restate plainly which changes are applied and which are awaiting the user's approval, then stop."
+                  : "A mutating workspace command succeeded, but no successful read verified the resulting state. Run a confirmatory read now. Only claim completion after that read confirms the change. Do it matter-of-factly - never apologize or present the check as fixing a mistake; report the confirmed state plainly.",
     };
   }
   return {

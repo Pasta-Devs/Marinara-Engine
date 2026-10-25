@@ -58,7 +58,24 @@ jobs:
       - name: Exercise launcher dependency handoff and data preservation
         run: pnpm regression:launcher-update
       - name: Exercise restart ownership
+        id: restart-source
+        env:
+          MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
         run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+      - name: Compare compiled-server restart ownership
+        if: success() || steps.restart-source.outcome == 'failure'
+        env:
+          MARINARA_RESTART_COMPILED: "true"
+          MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+      - name: Retain restart diagnostic evidence
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: restart-diagnostics-${{ matrix.os }}
+          path: test-results/restart-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Exercise native console shutdown and saved-data flush
         # This file runs several separately bounded console/PTY scenarios; the
         # general regression runner's 30s whole-file cap cuts those short.
@@ -138,7 +155,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "17"
@@ -147,13 +164,13 @@ jobs:
           packages: "platform-tools platforms;android-34 build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
-          gradle-version: "9.8.1"
+          gradle-version: "9.8.2"
           cache-read-only: true
       - name: Bootstrap pinned Gradle wrapper
         working-directory: android
         run: |
           if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 9.8.1 --gradle-distribution-sha256-sum dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f
+            gradle wrapper --gradle-version 9.8.2 --gradle-distribution-sha256-sum 21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607
           fi
           chmod +x ./gradlew
       - name: Assemble debug APK through the documented build script

@@ -1,16 +1,20 @@
 // ──────────────────────────────────────────────
-// Shared app-wide banner (one at a time, see AppBannerHost)
+// Shared app-wide banner (one at a time with a count of the rest, see AppBannerHost)
 // ──────────────────────────────────────────────
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { ChevronDown, ShieldAlert, TriangleAlert, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+
+/** The banner's bottom edge in px; the toaster keeps top toasts below it (App.tsx). */
+export const APP_BANNER_BOTTOM_VARIABLE = "--app-banner-bottom";
 
 export type AppBannerSeverity = "warning" | "critical";
 
 export interface AppBannerCandidate {
   id: string;
   severity: AppBannerSeverity;
+  tone?: "accent";
   title: ReactNode;
   body: ReactNode;
   details?: ReactNode;
@@ -19,33 +23,70 @@ export interface AppBannerCandidate {
 
 export function AppBanner({
   severity,
+  tone,
   title,
   body,
   details,
   actions,
+  more = 0,
   onDismiss,
-}: AppBannerCandidate & { onDismiss: () => void }) {
+}: AppBannerCandidate & { more?: number; onDismiss: () => void }) {
   const { t: localizeUi } = useUiTranslation();
   const critical = severity === "critical";
   const Icon = critical ? ShieldAlert : TriangleAlert;
+  const cardRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    const root = document.documentElement.style;
+    const place = () =>
+      root.setProperty(APP_BANNER_BOTTOM_VARIABLE, `${Math.round(card.getBoundingClientRect().bottom)}px`);
+    const observer = new ResizeObserver(place);
+    observer.observe(card);
+    place();
+    return () => {
+      observer.disconnect();
+      root.removeProperty(APP_BANNER_BOTTOM_VARIABLE);
+    };
+  }, []);
 
   return (
-    <div className="fixed inset-x-0 top-0 z-[9999] max-h-[50dvh] overflow-y-auto bg-[var(--background)] text-[var(--foreground)] shadow-md">
+    // A card just below the 3rem top bar: it leaves the top bar's buttons and the chat composer free.
+    <div
+      ref={cardRef}
+      className="fixed left-[max(0.5rem,var(--mari-safe-area-inset-left))] right-[max(0.5rem,var(--mari-safe-area-inset-right))] top-[calc(env(safe-area-inset-top)+3.5rem)] z-[9999] max-h-[50dvh] overflow-y-auto rounded-xl bg-[var(--background)] text-[var(--foreground)] shadow-lg md:right-auto md:left-4 md:w-[28rem]"
+    >
       <div
         className={cn(
-          "flex items-start gap-3 border-b pt-[max(0.5rem,env(safe-area-inset-top))] pr-[max(0.5rem,env(safe-area-inset-right))] pb-2 pl-[max(1rem,env(safe-area-inset-left))] text-sm",
-          critical
-            ? "border-[var(--destructive)]/40 bg-[var(--destructive)]/15"
-            : "border-amber-500/40 bg-amber-500/15",
+          "flex items-start gap-3 rounded-xl border py-2 pr-2 pl-4 text-sm",
+          tone === "accent"
+            ? "border-[var(--marinara-chat-chrome-accent)]/40 bg-[var(--marinara-chat-chrome-accent)]/15"
+            : critical
+              ? "border-[var(--destructive)]/40 bg-[var(--destructive)]/15"
+              : "border-amber-500/40 bg-amber-500/15",
         )}
       >
         <Icon
           aria-hidden="true"
-          className={cn("mt-3 h-4 w-4 shrink-0", critical ? "text-[var(--destructive)]" : "text-amber-600")}
+          className={cn(
+            "mt-3 h-4 w-4 shrink-0",
+            tone === "accent"
+              ? "text-[var(--marinara-chat-chrome-accent)]"
+              : critical
+                ? "text-[var(--destructive)]"
+                : "text-amber-600",
+          )}
         />
         <div className="min-w-0 flex-1 py-2">
           <div role={critical ? "alert" : "status"}>
-            <p className="font-semibold">{title}</p>
+            <p className="font-semibold">
+              {title}
+              {more > 0 && (
+                <span className="ml-2 inline-block rounded-full bg-[var(--foreground)]/10 px-2 align-middle text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+                  {localizeUi("ui.app.banner.more", { count: more })}
+                </span>
+              )}
+            </p>
             <div className="mt-1 leading-snug text-[var(--muted-foreground)]">{body}</div>
           </div>
           {(actions || details) && (

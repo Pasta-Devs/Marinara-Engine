@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { getCsrfTrustedOrigins, getHost, getPort, getServerProtocol } from "../config/runtime-config.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
-import { isPrivateNetworkIp, isLoopbackRequest } from "./ip-allowlist.js";
+import { isNonRoutableNetworkIp, isPrivateNetworkIp, isLoopbackRequest } from "./ip-allowlist.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SAFE_FETCH_SITES = new Set(["same-origin", "same-site", "none"]);
@@ -49,7 +49,7 @@ function isLoopbackHostname(hostname: string): boolean {
 
 function isTrustedLiteralHostname(hostname: string): boolean {
   const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return isLoopbackHostname(normalized) || isPrivateNetworkIp(normalized);
+  return isLoopbackHostname(normalized) || isPrivateNetworkIp(normalized) || isNonRoutableNetworkIp(normalized);
 }
 
 function getRequestProtocol(request: FastifyRequest): string {
@@ -134,6 +134,11 @@ function getRequestOrigin(request: FastifyRequest): string | null {
   } catch {
     return null;
   }
+}
+
+function sameServerOrigin(request: FastifyRequest, origin: string | null): boolean {
+  const normalized = origin ? normalizeOrigin(origin) : null;
+  return normalized !== null && normalized === getRequestOrigin(request);
 }
 
 function canUseSameOriginCompatibility(
@@ -281,6 +286,17 @@ export function csrfProtectionHook(request: FastifyRequest, reply: FastifyReply,
   // These two device-local routes authenticate the request itself with either
   // a one-time HMAC proof or the full 256-bit per-install secret.
   if (ANDROID_SELF_AUTHENTICATING_PATHS.has(requestPath)) return done();
+  // The sign-in and setup forms check the password or setup code themselves, and a plain HTML form cannot send
+  // the CSRF header. Only a post the browser marks as same-origin skips the origin
+  // list; anything else gets the usual Origin/Referer check below. Plain HTTP gets no
+  // Sec-Fetch-Site, so an Origin equal to this server's own origin counts too.
+  if (
+    (requestPath === "/login" || requestPath === "/login/setup") &&
+    (firstHeader(request.headers["sec-fetch-site"])?.toLowerCase() === "same-origin" ||
+      sameServerOrigin(request, firstHeader(request.headers.origin)))
+  ) {
+    return done();
+  }
 
   const origin = firstHeader(request.headers.origin);
   const referer = firstHeader(request.headers.referer);

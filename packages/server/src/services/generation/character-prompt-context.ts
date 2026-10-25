@@ -45,7 +45,7 @@ export type CharacterPromptInfo = {
 };
 
 type CharactersStore = {
-  getById(id: string): Promise<{ data: unknown; avatarPath?: string | null } | null>;
+  getById(id: string, chatId?: string): Promise<{ data: unknown; avatarPath?: string | null } | null>;
 };
 
 type GenerationPromptMessage = {
@@ -85,7 +85,7 @@ export function normalizeCharacterRpgStats(value: unknown): RPGStatsConfig | und
 
 type CharacterFallbackFieldKey =
   "description" | "personality" | "scenario" | "backstory" | "appearance" | "systemPrompt" | "mesExample";
-type PersonaFallbackFieldKey = "description" | "personality" | "backstory" | "appearance" | "scenario";
+type PersonaFallbackFieldKey = "mesExample" | "description" | "personality" | "backstory" | "appearance" | "scenario";
 
 const CHARACTER_FALLBACK_FIELDS: Array<{
   key: CharacterFallbackFieldKey;
@@ -111,6 +111,7 @@ const PERSONA_FALLBACK_FIELDS: Array<{
   { key: "backstory", label: "backstory", macroAliases: ["personaBackstory", "persona"] },
   { key: "appearance", label: "appearance", macroAliases: ["personaAppearance", "persona"] },
   { key: "scenario", label: "scenario", macroAliases: ["personaScenario", "persona"] },
+  { key: "mesExample", label: "example_dialogue", macroAliases: ["persona"] },
 ];
 
 function parseRecord(value: unknown): any {
@@ -129,14 +130,16 @@ export async function loadCharacterPromptInfo({
   chars,
   characterIds,
   chatMode,
+  chatId,
 }: {
   chars: CharactersStore;
   characterIds: string[];
   chatMode: string;
+  chatId?: string;
 }): Promise<CharacterPromptInfo[]> {
   const charInfo: CharacterPromptInfo[] = [];
   for (const cid of characterIds) {
-    const charRow = await chars.getById(cid);
+    const charRow = await chars.getById(cid, chatId);
     if (!charRow) continue;
 
     const charData = parseRecord(charRow.data);
@@ -234,7 +237,7 @@ export function injectIdentityFallbackMessages(args: {
   wrapFormat: WrapFormat;
   personaName: string;
   personaDescription: string;
-  personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string };
+  personaFields: { example?: string; personality?: string; scenario?: string; backstory?: string; appearance?: string };
   persona?: { personaStats?: unknown } | null;
   promptTemplateSources?: readonly string[];
   resolvePromptMacros(value: string): string;
@@ -306,6 +309,7 @@ export function injectIdentityFallbackMessages(args: {
   }
 
   const resolvedPersonaFields: Record<PersonaFallbackFieldKey, string> = {
+    mesExample: args.resolvePromptMacros(args.personaFields.example ?? ""),
     description: args.resolvePromptMacros(args.personaDescription),
     personality: args.resolvePromptMacros(args.personaFields.personality ?? ""),
     backstory: args.resolvePromptMacros(args.personaFields.backstory ?? ""),

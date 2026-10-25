@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { getAdminSecret, isAdminSecretRequiredOnLoopback } from "../config/runtime-config.js";
-import { isBasicAuthSatisfied } from "./basic-auth.js";
+import { hasBrowserSession, isBasicAuthSatisfied } from "./basic-auth.js";
 import { getRequestAccess } from "./ip-allowlist.js";
 import { safeCompareString } from "../utils/security.js";
 import { isRequestHostTrusted } from "./host-validation.js";
@@ -13,11 +13,18 @@ export function isAdminAuthorized(request: FastifyRequest): boolean {
   return typeof value === "string" && safeCompareString(value, adminSecret);
 }
 
+/** This computer or the admin secret: owners who do not need the login password. */
+export function isOwnerWithoutLogin(request: FastifyRequest): boolean {
+  return (getRequestAccess(request).local && !isAdminSecretRequiredOnLoopback()) || isAdminAuthorized(request);
+}
+
 export function requirePrivilegedAccess(
   request: FastifyRequest,
   reply: FastifyReply,
   options: {
     loopbackOnly?: boolean;
+    /** A browser signed in with the login may pass too. */
+    signedIn?: boolean;
     trustedNetwork?: boolean;
     feature?: string;
     oneTimeCapabilityAuthorized?: boolean;
@@ -38,6 +45,10 @@ export function requirePrivilegedAccess(
     });
     return false;
   }
+
+  // A browser that signed in on /login (a cookie session, not a bare Basic header) proves the
+  // login. Never the Docker gateway address: on Docker Desktop every LAN client shares it.
+  if (options.signedIn && hasBrowserSession(request)) return true;
 
   // A reverse proxy or tunnel on this machine connects from loopback too; its
   // forwarded visitors are remote clients, not the local user.

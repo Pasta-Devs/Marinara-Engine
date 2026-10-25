@@ -121,9 +121,17 @@ test("coins show their worth, are picked from the Coins list, and the Game Maste
       // What the coins in view are worth, in the family's smallest coin.
       await expect(page.getByText("Coin: crowns x1, pennies x12 (worth 72 pennies)", { exact: true })).toBeVisible();
 
+      // Escape over the picker closes only the picker, not the inventory beneath it.
+      const inventory = page.getByRole("dialog", { name: "Inventory", exact: true });
+      const picker = page.getByRole("dialog", { name: "Add items from the ruleset" });
+      await page.getByRole("button", { name: "From the ruleset", exact: true }).click();
+      await expect(picker).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(picker).toBeHidden();
+      await expect(inventory).toBeVisible();
+
       // The picker offers the coins as one more list.
       await page.getByRole("button", { name: "From the ruleset", exact: true }).click();
-      const picker = page.getByRole("dialog", { name: "Add items from the ruleset" });
       await picker.getByRole("combobox", { name: "Catalog", exact: true }).selectOption({ label: "Coins" });
       await expect(picker.getByRole("checkbox")).toHaveCount(3);
       await picker.getByRole("checkbox", { name: "shillings", exact: true }).check();
@@ -136,12 +144,13 @@ test("coins show their worth, are picked from the Coins list, and the Game Maste
         .poll(() => coinsOf(request, chatId))
         .toEqual(["crowns <coin:crown> 1", "pennies <coin:penny> 12", "shillings <coin:shilling> 1"]);
       await page.screenshot({ path: testInfo.outputPath("money-purse.png") });
-      // The inventory's close button has no name to find it by, so the page is opened again instead.
-      await page.reload();
-      await expect(page.locator('[data-component="GameNarration.ActivePanel"]')).toContainText(
-        "The ferryman holds out a hand.",
-        { timeout: 30_000 },
-      );
+      // Escape closes the inventory, and so does its X.
+      await page.keyboard.press("Escape");
+      await expect(inventory).toBeHidden();
+      await inventoryButton(page).click();
+      await expect(inventory).toBeVisible();
+      await page.getByRole("button", { name: "Close inventory", exact: true }).click();
+      await expect(inventory).toBeHidden();
 
       // A turn: the Game Master charges 3 shillings and gives 2 pennies back.
       await page.getByPlaceholder("What do you do?", { exact: true }).fill("I pay the ferryman.");

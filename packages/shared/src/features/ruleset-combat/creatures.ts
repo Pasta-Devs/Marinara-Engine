@@ -196,6 +196,7 @@ function creatureAction(action: RulesetCreatureAction): RulesetStatBlockAction {
     name: action.name,
     budget: action.budget,
     ...(action.toHit !== undefined ? { toHit: action.toHit } : {}),
+    ...(action.upgrades ? { upgrades: action.upgrades } : {}),
     ...(action.autoHit ? { autoHit: true } : {}),
     ...(action.needs ? { needs: [...action.needs] } : {}),
     ...(action.needs && action.needsAny ? { needsAny: true as const } : {}),
@@ -844,6 +845,10 @@ export function clampRulesetStatBlock(
     if (action.toHit !== undefined && action.toHit > toHitCap) {
       adjusted.push(`"${action.name}" now hits at ${toHitCap} instead of ${action.toHit}.`);
       action.toHit = toHitCap;
+      // Never more upgraded dice than it now throws (1.382).
+      if (action.upgrades !== undefined && action.upgrades > Math.max(0, toHitCap)) {
+        action.upgrades = Math.max(0, toHitCap);
+      }
     }
     if (action.damage?.type && types && !types.has(action.damage.type.trim().toLowerCase())) {
       adjusted.push(

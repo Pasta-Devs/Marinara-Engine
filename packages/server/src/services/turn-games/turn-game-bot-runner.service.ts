@@ -80,9 +80,10 @@ async function buildPersonaBlock(
   characters: ReturnType<typeof createCharactersStorage>,
   seatId: string,
   fallbackName: string,
+  chatId?: string,
 ): Promise<string> {
   try {
-    const row = await characters.getById(seatId);
+    const row = await characters.getById(seatId, chatId);
     if (row?.data) {
       const data = JSON.parse(row.data) as { name?: unknown; description?: unknown; personality?: unknown };
       const name = typeof data.name === "string" && data.name.trim() ? data.name.trim() : fallbackName;
@@ -200,7 +201,7 @@ async function drainAndVoiceAnnouncements(args: {
       data: { characterId: dealerCharId, characterName: fallbackName, index: turnIndex },
     });
 
-    const persona = await buildPersonaBlock(characters, dealerCharId, fallbackName);
+    const persona = await buildPersonaBlock(characters, dealerCharId, fallbackName, chatId);
     dealerLine = await narrateAnnouncements(provider, model, persona, engine.label, eventSummary, signal);
   }
   if (!dealerLine) dealerLine = eventSummary;
@@ -360,7 +361,7 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
         parameters: t.parameters as unknown as Record<string, unknown>,
       },
     }));
-    const persona = await buildPersonaBlock(characters, seatId, seatName);
+    const persona = await buildPersonaBlock(characters, seatId, seatName, chatId);
     const recent = await buildRecentContext(chats, chatId, state.seatNames ?? {});
 
     const moveMessages: ChatMessage[] = [

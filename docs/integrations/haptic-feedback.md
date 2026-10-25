@@ -118,4 +118,4 @@ When **Intiface Central** is not connected, or no device is attached, Marinara s
 
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
 - [Downloadable Agents Reference](../agents/built-in-agents.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

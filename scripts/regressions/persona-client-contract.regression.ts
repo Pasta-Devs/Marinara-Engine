@@ -202,7 +202,7 @@ assert.match(botScope, /tags: personaTags,/u);
 // Structural sentries where the browser/runtime owner is not importable here.
 const genericHook = balanced(hooks, "export function useUpdatePersona()", "generic update");
 const trackerHook = balanced(hooks, "export function useUpdatePersonaTrackerCard()", "tracker update");
-assert.equal(hooks.match(/await syncCachedPersona\(qc, /gu)?.length, 5, "every retained authoritative write must await cache ordering");
+assert.equal(hooks.match(/await syncCachedPersona\(qc, /gu)?.length, 6, "every retained authoritative write must await cache ordering");
 assert.match(genericHook, /api\.patch<Persona>\(\s*`\/characters\/personas\/\$\{id\}`/u);
 assert.match(genericHook, /syncCachedPersona\(qc, updatedPersona\)/u);
 assert.match(genericHook, /invalidatePersonaVersions/u);
@@ -290,10 +290,10 @@ assert.match(finishMutationScope, /mutationTokenRef\.current = null;\s*mutationK
 assert.match(hydrationScope, /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;\s*setMutationKind\(null\);/u);
 assert.match(
   hydrationScope,
-  /const avatarOperationActive = mutationKindRef\.current === "avatar" \|\| mutationKindRef\.current === "gallery-avatar";/u,
+  /const avatarOperationActive =\s*mutationKindRef\.current === "avatar" \|\|\s*mutationKindRef\.current === "gallery-avatar" \|\|\s*mutationKindRef\.current === "remove-avatar";/u,
 );
 assert.match(teardownScope, /mutationTokenRef\.current = null;\s*mutationKindRef\.current = null;/u);
-for (const kind of ["save", "avatar", "gallery-avatar", "delete"]) assert.ok(editor.includes(`beginMutation("${kind}")`));
+for (const kind of ["save", "avatar", "gallery-avatar", "remove-avatar", "delete"]) assert.ok(editor.includes(`beginMutation("${kind}")`));
 const deleteScope = balanced(editor, "const handleDelete = async () =>", "Delete");
 const deleteSuccessScope = between(deleteScope, "try {", "} finally {", "Delete success");
 const deleteFailureScope = between(deleteScope, "} catch (error) {", "} finally {", "Delete failure");

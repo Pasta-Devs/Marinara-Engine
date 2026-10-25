@@ -131,7 +131,7 @@ const night = { "layer.long_night": true };
     for (const key of path.slice(0, -1)) node = node[key];
     node[path.at(-1)!] = value;
   };
-  refused(at(["prices"], []), /items\.market\.prices: Array must contain at least 1/, "no price levels");
+  refused(at(["prices"], []), /items\.market\.prices: Too small: expected array to have >=1 items/, "no price levels");
   refused(
     at(
       ["prices"],
@@ -156,10 +156,10 @@ const night = { "layer.long_night": true };
   );
   refused(
     at(["prices", "0", "times"], 0),
-    /items\.market\.prices\.0\.times: Number must be greater than 0/,
+    /items\.market\.prices\.0\.times: Too small: expected number to be >0/,
     "a level of nothing",
   );
-  refused(at(["places"], []), /items\.market\.places: Array must contain at least 1/, "no places");
+  refused(at(["places"], []), /items\.market\.places: Too small: expected array to have >=1 items/, "no places");
   refused(at(["places", "1", "id"], "hamlet"), /market\.places\.1\.id: Duplicate place id "hamlet"/, "a place twice");
   refused(at(["sold", "0", "place"], "metropolis"), /sold\.0\.place: Unknown place "metropolis"/, "a rule's place");
   refused(at(["sold", "0", "filter"], { rarity: "mythic" }), /sold\.0\.filter\.rarity: Unknown item rarity/, "a word");
@@ -332,6 +332,97 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     ["shillings", 5, ""],
     ["Warming tonic", 3, "Bram"],
   ]);
+  // By its ref; and a name with a comma in it is one item, not two
+  // (#8271: "Rope, hempen (50 feet)" and "Lantern, hooded").
+  for (const item of ["kit/warming-tonic"]) {
+    const byId = buy(`[inventory: action="buy" item="${item}"]`, coins([["shillings", "shilling", 1]]));
+    assert.match(byId.content, /item="Warming tonic"[^\]]*result="ok"/, `${item}: ${byId.content}`);
+  }
+  {
+    const comma = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs)
+          for (const entry of catalog.entries ?? []) if (entry.id === "warming-tonic") entry.label = "Tonic, warming";
+      }),
+      "Gravewatch with a comma",
+    );
+    const commaBook = rulesetItemBook(comma, entriesOf(comma));
+    const commaQuote = rulesetMarketQuoter(comma, commaBook, town, () => true);
+    const tagged = '[inventory: action="buy" item="Tonic, warming"]';
+    const one = applyGameInventoryTags(
+      tagged,
+      coins([["shillings", "shilling", 1]]),
+      party,
+      undefined,
+      commaBook,
+      undefined,
+      undefined,
+      commaQuote,
+    );
+    assert.equal(readResolvedInventoryTags(one.content).length, 1, one.content);
+    assert.match(one.content, /item="Tonic, warming"[^\]]*result="ok"/, one.content);
+    // Held, it is found whole too; and a real list still splits.
+    const added = applyGameInventoryTags(
+      '[inventory: action="add" item="Tonic, warming"]',
+      [],
+      party,
+      undefined,
+      commaBook,
+    );
+    assert.deepEqual(held(added.stacks), [["Tonic, warming", 1, ""]]);
+    const two = applyGameInventoryTags(
+      '[inventory: action="add" item="Grave spade, Warming tonic"]',
+      [],
+      party,
+      undefined,
+      book,
+    );
+    assert.equal(readResolvedInventoryTags(two.content).length, 2, two.content);
+    // Each comma name in a list is found whole too (laptop 2026-10-25).
+    const listed = applyGameInventoryTags(
+      '[inventory: action="add" item="Tonic, warming, Grave spade"]',
+      [],
+      party,
+      undefined,
+      commaBook,
+    );
+    assert.deepEqual(
+      readResolvedInventoryTags(listed.content).map((tag) => tag.item),
+      ["Tonic, warming", "Grave spade"],
+      listed.content,
+    );
+  }
+  // Two items of one label: the ref names the one it is, and the label the first (#8271).
+  {
+    const twins = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs) {
+          const entries = catalog.entries ?? [];
+          const tonic = entries.find((entry: { id: string }) => entry.id === "warming-tonic");
+          if (tonic) entries.push({ ...structuredClone(tonic), id: "warming-tonic-dear" });
+        }
+      }),
+      "Gravewatch with twin tonics",
+    );
+    const twinBook = rulesetItemBook(twins, entriesOf(twins));
+    const twinQuote = rulesetMarketQuoter(twins, twinBook, town, () => true);
+    const items = (tag: string, market?: typeof twinQuote) =>
+      applyGameInventoryTags(
+        tag,
+        coins([["shillings", "shilling", 1]]),
+        party,
+        undefined,
+        twinBook,
+        undefined,
+        undefined,
+        market,
+      ).stacks.flatMap((stack) => (stack.item?.startsWith("kit/") ? [stack.item] : []));
+    assert.deepEqual(items('[inventory: action="add" item="kit/warming-tonic-dear"]'), ["kit/warming-tonic-dear"]);
+    assert.deepEqual(items('[inventory: action="buy" item="kit/warming-tonic-dear"]', twinQuote), [
+      "kit/warming-tonic-dear",
+    ]);
+    assert.deepEqual(items('[inventory: action="buy" item="Warming tonic"]', twinQuote), ["kit/warming-tonic"]);
+  }
   // Refusals change nothing.
   const refusedWith = (tag: string, reason: string, stacks = coins([["crowns", "crown", 9]]), at = quoter()) => {
     const answered = buy(tag, stacks, at);
@@ -603,6 +694,9 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
   assert.match(taught, /\[inventory: action="buy" item="Name" count="1" level="fair" seller="Seller" who="Name"\]/);
   assert.match(taught, /Levels: cheap ×0\.75, fair ×1 \(the default\), dear ×1\.5/);
   assert.match(taught, /Buying is a buy \(below\)/);
+  // A shop the block does not list is narrated as for sale nowhere (laptop playtest 2026-10-25: a
+  // village herbalist's "shelf of red-tinged vials", where no potion was sold).
+  assert.match(taught, /Describe only the sellers and wares it lists: .*never narrate one as for sale\./);
   assert.ok(taught.includes(text), "the block");
   const untaught = prompt(ember);
   assert.doesNotMatch(untaught, /\[place:|action="buy"|MARKET:/);
@@ -738,12 +832,8 @@ const manifest = (minor: number) => ({
     /A rule names a place, a limit or both/,
     "a rule naming nothing",
   );
-  day((doc) => (doc.items.market.buyBack = 0), /buyBack: Number must be greater than 0/, "nothing back");
-  day(
-    (doc) => (doc.items.market.buyBack = 1.5),
-    /buyBack: Number must be less than or equal to 1/,
-    "more back than paid",
-  );
+  day((doc) => (doc.items.market.buyBack = 0), /buyBack: Too small: expected number to be >0/, "nothing back");
+  day((doc) => (doc.items.market.buyBack = 1.5), /buyBack: Too big: expected number to be <=1/, "more back than paid");
   day((doc) => (doc.items.market.sold[0].limited = 0), /sold\.0\.limited/, "a limit of none");
   const pistolOf = (doc: Record<string, any>) =>
     doc.catalogs
@@ -1050,6 +1140,18 @@ const manifest = (minor: number) => ({
     { item: "Lantern-keeper's coat", action: "sold", quantity: 1 },
     { item: "shillings", action: "acquired", quantity: 4 },
   ]);
+  // Sold by its ref, it is the coat; and a fake sold by ref is seen through as one sold by name (#8271).
+  assert.match(
+    dayTags('[inventory: action="sell" item="kit/lantern-coat"]', coats(1), dayQuoter(dayHamlet)).content,
+    /item="Lantern-keeper's coat" count="1" seller="chandler" result="ok" now="0" price="4 shillings"/,
+  );
+  const fakeCoat: GameInventoryStack[] = [{ ...coats(1)[0]!, truly: "kit/warming-tonic" }];
+  for (const item of ["Lantern-keeper's coat", "kit/lantern-coat"])
+    assert.match(
+      dayTags(`[inventory: action="sell" item="${item}"]`, fakeCoat, dayQuoter(dayHamlet)).content,
+      /revealed="Warming tonic" result="ok" now="0" price="2 pennies"/,
+      item,
+    );
   // A hamlet pays out 10 shillings a day: two coats (8), then a third is too much.
   const three = dayTags(
     '[inventory: action="sell" item="Lantern-keeper\'s coat" count="2"] [inventory: action="sell" item="Lantern-keeper\'s coat"]',
@@ -1181,6 +1283,11 @@ const manifest = (minor: number) => ({
   );
   const taught = buildGmFormatReminder({ ruleset: fixed } as Parameters<typeof buildGmFormatReminder>[0]);
   assert.match(taught, /say the place again with day="new"/);
+  // A buy before any place is refused, so the place comes first (#8273).
+  assert.match(
+    taught,
+    /Say the place before the first buy or sell there: with no place said, every buy and sell is refused\./,
+  );
   assert.match(taught, /\[inventory: action="sell" item="Name" count="1" seller="Seller" who="Name"\]/);
   assert.doesNotMatch(
     buildGmFormatReminder({ ruleset: gravewatch } as Parameters<typeof buildGmFormatReminder>[0]),

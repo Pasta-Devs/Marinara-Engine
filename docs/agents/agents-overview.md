@@ -64,6 +64,16 @@ The **Agents** section has a few more controls:
 - **Review Agent Outputs**: when on, lorebook, summary, and character card changes wait for your approval before they save. When off, lorebook and summary changes can save on their own, but character card edits still ask you first. See [Agent Approvals and the Agent Suite](approvals-and-agent-suite.md). In Roleplay chats, it is inside **Trackers Control**.
 - **Agent Suite**: opens a viewer where you can read and edit everything the agents have stored for this chat.
 
+### A reference lorebook for one agent
+
+In **Chat Settings**, open **Agents**, then the writing, tracking, or custom agent's settings. **Attach lorebook for the specific agent** starts off. Turn it on to reveal **Reference lorebook** and choose one book. The selection belongs to this agent in this chat; it does not change the agent's global definition or other chats.
+
+Downloadable package features such as World Maps also need the matching package update alongside the Engine update.
+
+Matching entries follow the normal lorebook trigger rules and are supplied as reference context for that agent, including manual retries. The attachment does not activate the book for the main reply or unrelated agents. Agents running together may also see the same reference entries. Turning the attachment off stops it from supplying entries; unavailable or deleted books supply none. Existing custom-agent source settings remain available independently.
+
+Older or imported messages can lack enough information to distinguish a group reply from a continuation, so their triggers use a conservative fallback.
+
 ### The cost warning
 
 Agents cost extra tokens and extra model calls. Each agent adds its own instructions, and often its own model call. Marinara groups agents that share the same connection into one call when it can. Above the agent list, a readout estimates the load for your current setup. It shows about how many tokens of agent instructions you added and about how many extra calls happen per turn.

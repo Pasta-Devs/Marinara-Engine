@@ -157,7 +157,12 @@ try {
     refused(emberText, worn({}), /An item's effect does something/, "an empty effect");
     // What only a fight reads is an item's too since 1.56 (see the armor lane), but not an effect that
     // needs somebody to have put it on or ends by itself.
-    refused(emberText, worn({ effects: ["ends-on-damage"] }), /Invalid enum value/, "an effect that ends by itself");
+    refused(
+      emberText,
+      worn({ effects: ["ends-on-damage"] }),
+      /Invalid option: expected one of/,
+      "an effect that ends by itself",
+    );
     refused(emberText, worn({ modifiers: [{ to: "checks" }] }), /or for checks and saves by a mode/, "no change");
     refused(
       emberText,

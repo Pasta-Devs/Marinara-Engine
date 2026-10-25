@@ -55,14 +55,32 @@ export interface KnowledgeAgentSourceSettings {
 export const VIDEO_FIRST_FRAMES = ["picture_or_avatar", "picture", "avatar", "prompt_only"] as const;
 export type VideoFirstFrame = (typeof VIDEO_FIRST_FRAMES)[number];
 
-export function normalizeVideoFirstFrame(value: unknown): VideoFirstFrame {
-  return VIDEO_FIRST_FRAMES.includes(value as VideoFirstFrame) ? (value as VideoFirstFrame) : "picture_or_avatar";
+export function normalizeVideoFirstFrame(
+  value: unknown,
+  fallback: VideoFirstFrame = "picture_or_avatar",
+): VideoFirstFrame {
+  return VIDEO_FIRST_FRAMES.includes(value as VideoFirstFrame) ? (value as VideoFirstFrame) : fallback;
+}
+
+/**
+ * A Roleplay clip with no First frame chosen never draws a picture for itself: it animates a picture Illustrator
+ * just made, or else is written from the recent story alone (see roleplayVideoFirstFrame).
+ */
+export const ROLEPLAY_DEFAULT_VIDEO_FIRST_FRAME: VideoFirstFrame = "prompt_only";
+
+/** What a Roleplay Illustrator makes. Clips only draws a picture solely as a clip's first frame. */
+export const ILLUSTRATOR_VIDEO_MODES = ["pictures", "pictures_and_clips", "clips_only"] as const;
+export type IllustratorVideoMode = (typeof ILLUSTRATOR_VIDEO_MODES)[number];
+
+export function normalizeIllustratorVideoMode(value: unknown): IllustratorVideoMode {
+  return ILLUSTRATOR_VIDEO_MODES.includes(value as IllustratorVideoMode) ? (value as IllustratorVideoMode) : "pictures";
 }
 
 export const CONVERSATION_COMMAND_KEYS = [
   "schedule_update",
   "cross_post",
   "selfie",
+  "video",
   "memory",
   "scene",
   "call",
@@ -83,9 +101,18 @@ export type ConversationCommandKey = (typeof CONVERSATION_COMMAND_KEYS)[number];
 
 export type ConversationCommandToggles = Partial<Record<ConversationCommandKey, boolean>>;
 
+/** Whether a Conversation command is on. Videos is opt-in, unlike the other commands: each video message is a video request. */
+export function isConversationCommandToggleOn(
+  toggles: ConversationCommandToggles,
+  command: ConversationCommandKey,
+): boolean {
+  return command === "video" ? toggles.video === true : toggles[command] !== false;
+}
+
 /** Downloadable agent package that owns each optional Conversation command. */
 export const CONVERSATION_COMMAND_AGENT_IDS: Partial<Record<ConversationCommandKey, string>> = {
   selfie: "illustrator",
+  video: "illustrator",
   call: "conversation-calls",
   uno: "uno",
   chess: "chess",
@@ -371,12 +398,16 @@ export interface ChatMetadata {
   activeAgentIds: string[];
   /** Per-chat selected named prompt template for each agent type. Missing/default = the agent's default prompt. */
   agentPromptTemplateIds?: Record<string, string>;
+  /** Optional reference lorebook for each agent type, scoped to this chat. */
+  agentLorebookAttachments?: Record<string, { enabled: boolean; lorebookId: string | null }>;
   /** Whether Illustrator should append matched character card appearance text to image prompts. */
   illustratorIncludeCharacterAppearance?: boolean;
   /** Whether Illustrator should send matching character/persona avatar references to image providers. */
   illustratorUseAvatarReferences?: boolean;
   /** Whether Roleplay video prompts get matched character appearance lines, like images with the setting above. */
   illustratorVideoIncludeCharacterAppearance?: boolean;
+  /** Send Avatar References for Roleplay videos: a Prompt only clip starts from the character's avatar or sprite. */
+  illustratorVideoUseAvatarReferences?: boolean;
   /** Optional per-chat LLM connection override used only to write Illustrator/selfie image prompts. */
   illustratorPromptConnectionId?: string | null;
   /** Optional per-chat image generation connection override used by Illustrator. */
@@ -388,6 +419,19 @@ export interface ChatMetadata {
    * it only runs when the user asks (Gallery or slash command). Missing/null = the agent's Run Interval.
    */
   illustratorRunInterval?: number | null;
+  /**
+   * Messages between videos made on their own (Generated Videos, a character's [video]): 0 to 100, where 0
+   * means only when the user asks. Missing/null = the Illustrator agent's Video Run Interval, else 5.
+   */
+  illustratorVideoRunInterval?: number | null;
+  /** The message the last automatic video joined; the Video Run Interval counts from it. */
+  lastAutomaticVideoMessageId?: string | null;
+  /**
+   * What a Roleplay Illustrator (and custom image agents) makes: pictures only, pictures that it may animate
+   * into short clips when motion adds to the moment, or a clip instead of every picture. See
+   * normalizeIllustratorVideoMode; clips use the chat's scene-video connection.
+   */
+  illustratorVideoMode?: IllustratorVideoMode | null;
   /** Whether Roleplay Illustrator may generate and activate a reusable background after a scene-location change. */
   illustratorAutoBackgroundsEnabled?: boolean;
   /** Whether Conversation selfie commands should send the matching character avatar as a reference image. */
@@ -466,6 +510,11 @@ export interface ChatMetadata {
    * card styling is opt-in per chat.
    */
   cardCssMode?: "disabled" | "exclusive" | "chat";
+  /**
+   * Color character names and their aliases in their name color inside this
+   * Roleplay chat's messages. Unset falls back to the retired global setting.
+   */
+  colorInlineNames?: boolean;
   /**
    * How character-scoped regex scripts (those with target characters) apply at
    * display time in this chat: "exclusive" (a scoped script only transforms its
@@ -556,6 +605,8 @@ export interface ChatMetadata {
   /** An actual group participant, used only for individual Roleplay generations. */
   roleplayCommandNarratorId?: string | null;
   roleplayRollAudience?: RoleplayCommandAudience;
+  /** How a roll card is tinted by its result. Missing means "outcome". */
+  roleplayRollOutcomeTone?: "off" | "outcome" | "outcome-crits";
   roleplayCombatAudience?: RoleplayCommandAudience;
   roleplayDocumentAudience?: RoleplayCommandAudience;
   roleplayWhisperAudience?: RoleplayCommandAudience;
@@ -705,7 +756,7 @@ export interface ChatMetadata {
   /**
    * Finish a rolled Game turn in one provider request: the GM commits its prose blind,
    * the engine rolls afterwards and fills the result in, and the narration rewrite never
-   * fires. Absent means off.
+   * fires. Absent means on.
    */
   gameOneRequestDice?: boolean;
   /**
@@ -764,7 +815,7 @@ export interface ChatMetadata {
   gameLastSceneVideoId?: string | null;
   /** Connection used for roleplay/gallery scene-video generation and Conversation video messages. */
   sceneVideoConnectionId?: string | null;
-  /** First frame of a Conversation video message; see `normalizeVideoFirstFrame`. */
+  /** First frame of a Conversation video message or a Roleplay clip; see `normalizeVideoFirstFrame`. */
   sceneVideoFirstFrame?: VideoFirstFrame | null;
   /** Last generated roleplay/gallery scene-video record ID. */
   sceneLastVideoId?: string | null;
@@ -1064,6 +1115,8 @@ export interface MessageExtra {
     impersonateBlockAgents?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
+  /** Internal trigger intent captured from the request that generated this message or swipe. */
+  lorebookGenerationTriggers?: string[];
 }
 
 /**
@@ -1229,4 +1282,33 @@ export function normalizeManualTrackerAgentTypes(value: unknown): Record<string,
     if (key && enabled === true) manualTypes[key] = true;
   }
   return manualTypes;
+}
+
+/** A message the branch graph labels: a branch's fork point or its latest message. */
+export interface ChatBranchGraphMessage {
+  messageId: string;
+  /** Position in its chat's transcript, from 0. */
+  index: number;
+  role: MessageRole;
+  characterId: string | null;
+  /** The message text on one line, cut to about 80 characters. */
+  snippet: string;
+}
+
+/** One chat of a group in `GET /chats/group/:groupId/branch-graph`. */
+export interface ChatBranchGraphEntry {
+  chatId: string;
+  /**
+   * Index of the fork message in this chat's own transcript (its copy of the parent's message). -1 when
+   * it was branched from an empty chat; null when unknown (a root, an older or imported branch, or a
+   * deleted fork message).
+   */
+  forkIndex: number | null;
+  /** Index of the fork message in the parent's transcript; null when the parent or that message is gone. */
+  parentForkIndex: number | null;
+  messageCount: number;
+  /** One letter per message after the fork (every message when forkIndex is null): u, a, s or n. */
+  roles: string;
+  fork: ChatBranchGraphMessage | null;
+  tip: ChatBranchGraphMessage | null;
 }

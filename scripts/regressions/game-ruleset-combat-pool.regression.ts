@@ -347,7 +347,7 @@ try {
           all: 1,
         };
       },
-      /Soak is for a "dice-pool" fight/,
+      /Soak is for a "dice-pool" or "symbol-pool" fight/,
       "soak outside a pool fight",
     );
     refuses(

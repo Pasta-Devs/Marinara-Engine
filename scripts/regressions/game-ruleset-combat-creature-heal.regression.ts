@@ -330,7 +330,7 @@ try {
     );
     refused(
       fiveE((doc) => withTouch(doc, { ...touch, heal: { flat: 1.5 } })),
-      /integer/,
+      /heal\.flat: Invalid input: expected int, received number/,
       "fractional heal",
     );
     refused(
@@ -340,7 +340,7 @@ try {
     );
     refused(
       fiveE((doc) => withTouch(doc, { ...touch, targets: "enemy" })),
-      /enemy/,
+      /targets: Invalid option: expected one of "ally"\|"any"/,
       "unknown target side",
     );
     parsedOrThrow(

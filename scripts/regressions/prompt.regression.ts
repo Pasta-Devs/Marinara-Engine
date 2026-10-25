@@ -72,6 +72,7 @@ import {
   normalizeInventoryTrackerPlayerStats,
   findInvalidInventoryTrackerRow,
   nameToXmlTag,
+  getAgentContextSources,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
 import { buildInventoryTrackerEditPatch } from "../../packages/client/src/features/tracker-panel/lib/inventory-tracker-edit.js";
@@ -291,6 +292,8 @@ const regressionAgentDefinitions = REGRESSION_AGENT_IDS.map((id) => ({
 replaceBuiltInAgentDefinitions(regressionAgentDefinitions);
 replaceBuiltInAgentDefinitionsDist(regressionAgentDefinitions);
 import {
+  buildAgentCurrentLocationBlock,
+  buildAgentReferenceContextBlock,
   buildIllustratorImageStyleInstructionBlock,
   compactGameStateForAgentContext,
   executeAgent,
@@ -312,6 +315,7 @@ import {
   shouldMigrateCleanHtmlPattern,
 } from "../../packages/server/src/db/seed-regex.js";
 import { applyRegexScriptsToPromptText } from "../../packages/server/src/services/regex/regex-application.js";
+import { agentCurrentLocationFromProjection } from "../../packages/server/src/services/spatial-context/projection.js";
 import { shouldSkipAgentByMessageInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
 import {
   DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
@@ -3787,6 +3791,19 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "a Gemini thought signature refusal is not sent hunting for a setting",
+    run() {
+      const providerMessage =
+        "Function call is missing a thought_signature in functionCall parts. This is required for tools to work correctly.";
+      const hint = formatGenerationParameterError(providerMessage);
+      assert.doesNotMatch(hint, /turn on Send for/);
+      assert.match(hint, /not a setting/);
+      assert.match(hint, /Provider message: Function call is missing a thought_signature/);
+      // A signature that is there but spoiled is the provider's own message.
+      assert.equal(formatGenerationParameterError("Corrupted thought signature."), "Corrupted thought signature.");
+    },
+  },
+  {
     name: "regex macro values are literal in find and inert in replace",
     run() {
       const resolveMacro = (value: string) => {
@@ -4922,15 +4939,15 @@ const cases: RegressionCase[] = [
         /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance\),/u,
       );
       assert.equal(retryRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
-      for (const selfiePath of [
-        "routes/gallery.routes.ts",
-        "services/generation/conversation-selfie-command-runtime.ts",
-      ]) {
-        assert.match(
-          routeSource(selfiePath),
-          /removeCopiedPromptGuidance\(\(promptResult\.content \?\? ""\)\.trim\(\), \[/u,
-        );
-      }
+      assert.match(
+        routeSource("routes/gallery.routes.ts"),
+        /removeCopiedPromptGuidance\(\(promptResult\.content \?\? ""\)\.trim\(\), \[/u,
+      );
+      // The Conversation selfie writer strips leading reasoning first, then the copied guidance.
+      assert.match(
+        routeSource("services/generation/conversation-selfie-command-runtime.ts"),
+        /removeCopiedPromptGuidance\(answer, \[/u,
+      );
       assert.match(
         routeSource("services/generation/illustrator-background-generation.ts"),
         /sceneDescription: removeCopiedPromptGuidance\(plan\.prompt, \[styleInstruction, imagePromptInstructions\]\)/u,
@@ -5213,6 +5230,15 @@ const cases: RegressionCase[] = [
           imagePrompt: "Maukie takes a casual selfie at home.",
         }),
         ["Maukie"],
+      );
+      // A group video's selfie first frame shows the group too.
+      assert.deepEqual(
+        resolveConversationSelfieRequestedNames({
+          speakerName: "Maukie",
+          chatCharacters: [{ name: "Maukie" }, { name: "Dottore" }],
+          commandContext: "User: Send me a group video of you two!",
+        }),
+        ["Maukie", "Dottore"],
       );
     },
   },
@@ -6164,14 +6190,38 @@ const cases: RegressionCase[] = [
         "She stops and holds as the room tone settles.",
       );
       assert.equal(resolveRoleplayVideoDirection('{"wrongField":"do not send raw JSON"}', 3_800), "");
+      // A JSON shape the video connection's instructions ask for is the prompt itself.
+      assert.equal(
+        resolveRoleplayVideoDirection(
+          '```json\n{"shot":"Mira draws the blade","soundscape":"steel rings"}\n```',
+          3_800,
+          "Answer as JSON with shot and soundscape fields.",
+        ),
+        '{"shot":"Mira draws the blade","soundscape":"steel rings"}',
+      );
+      assert.equal(
+        resolveRoleplayVideoDirection('[{"shot":"Mira bows"}]', 3_800, "Answer as a JSON list of shots."),
+        '[{"shot":"Mira bows"}]',
+      );
+      // Instructions that ask for no JSON make a stray object (an error payload) no prompt at all.
+      assert.equal(
+        resolveRoleplayVideoDirection('{"error":"rate limited"}', 3_800, "Write one cinematic paragraph."),
+        "",
+      );
 
       const galleryRouteSource = readFileSync(
         new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
         "utf8",
       );
       assert.match(galleryRouteSource, /!promptDraft && chat\.mode === "roleplay"/u);
-      assert.match(galleryRouteSource, /resolveIllustratorPromptRuntime/u);
-      assert.match(galleryRouteSource, /buildRoleplayVideoDirectionMessages\(promptOverridesStorage/u);
+      // Roleplay planning goes through the shared clip writer, which uses the Prompt Model and the director messages.
+      assert.match(galleryRouteSource, /writeRoleplayClipDirection\(app\.db/u);
+      const clipWriterSource = readFileSync(
+        new URL("../../packages/server/src/services/video/roleplay-clip-writer.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(clipWriterSource, /resolveIllustratorPromptRuntime/u);
+      assert.match(clipWriterSource, /buildRoleplayVideoDirectionMessages\(createPromptOverridesStorage\(db\)/u);
       assert.match(galleryRouteSource, /input\.promptOverride\?\.trim\(\) \?\? ""/u);
       assert.doesNotMatch(galleryRouteSource, /chat\.mode === "roleplay"[\s\S]{0,400}gameStoryboard/u);
     },
@@ -6442,6 +6492,57 @@ const cases: RegressionCase[] = [
       assert.match(manualContract, /ignore automatic-generation conditions, cadence, and response schemas/u);
       assert.doesNotMatch(manualContract, /"shouldGenerate"\s*:/u);
       assert.doesNotMatch(manualContract, /"generateBackground"\s*:/u);
+
+      // #8246: [illustrate:] commands and the Gallery button follow the Illustrator's Context Sources
+      // for lorebook entries, summary and author notes, like an automatic Illustrator run.
+      const referenceContext = {
+        ...makeRegressionAgentContext(),
+        activatedLorebookEntries: [
+          { id: "lore-harbor", name: "Silver Harbor", content: "LORE_SILVER_HARBOR_LANTERNS" },
+        ],
+        chatSummary: "SUMMARY_SHIPWRECK_ARC",
+        authorNotes: "NOTES_KEEP_IT_RAINY",
+      };
+      const runReferenceWriter = async (settings: Record<string, unknown>) => {
+        const capture = makeCapturingProvider(
+          JSON.stringify({ prompt: "Lantern-lit harbor at night.", characters: [], reason: "Scene." }),
+        );
+        await writeManualIllustratorPromptPlan({
+          illustratorAgent: {
+            ...makeRegressionAgentConfig({
+              id: "builtin:illustrator",
+              type: "illustrator",
+              name: "Illustrator",
+              promptTemplate: "Illustrate the scene.",
+              settings: { contextSize: 2, maxTokens: 512, ...settings },
+            }),
+            provider: capture.provider,
+            model: "regression-model",
+          } as any,
+          context: referenceContext,
+        });
+        return capture.calls[0]![0]!.content;
+      };
+      const defaultReferencePrompt = await runReferenceWriter({});
+      assert.match(defaultReferencePrompt, /<activated_lorebook_context>[\s\S]*LORE_SILVER_HARBOR_LANTERNS/u);
+      assert.match(defaultReferencePrompt, /<chat_summary>\nSUMMARY_SHIPWRECK_ARC/u);
+      assert.match(defaultReferencePrompt, /<author_notes>\nNOTES_KEEP_IT_RAINY/u);
+      assert.ok(
+        defaultReferencePrompt.includes(
+          buildAgentReferenceContextBlock(referenceContext, getAgentContextSources({ settings: {} })),
+        ),
+        "manual writer renders the same reference block as normal agent calls",
+      );
+      const toggledReferencePrompt = await runReferenceWriter({
+        contextSources: {
+          ...getAgentContextSources({ settings: {} }),
+          activatedLorebookEntries: false,
+          chatSummary: false,
+        },
+      });
+      assert.doesNotMatch(toggledReferencePrompt, /LORE_SILVER_HARBOR_LANTERNS/u);
+      assert.doesNotMatch(toggledReferencePrompt, /SUMMARY_SHIPWRECK_ARC/u);
+      assert.match(toggledReferencePrompt, /NOTES_KEEP_IT_RAINY/u);
 
       const macroCapture = makeCapturingProvider(
         JSON.stringify({
@@ -7675,6 +7776,104 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(Array.isArray(questState.playerStats.activeQuests), true);
       assert.equal(questState.playerStats.activeQuests?.[0]?.name, "The Man Called Maukie");
       assert.equal(questState.fieldLocks["quests.id:The%20Man%20Called%20Maukie.name"], true);
+    },
+  },
+  {
+    name: "Illustrator prompts carry the current Maps location under Tracker data (#8251)",
+    async run() {
+      const projection = {
+        kind: "owner",
+        chatId: "chat-1",
+        ownerMode: "roleplay",
+        definitionRevision: 1,
+        currentLocationId: "loc_throne",
+        breadcrumb: [
+          { id: "loc_palace", name: "Royal Palace" },
+          { id: "loc_throne", name: "Throne Room" },
+        ],
+        description: "  A vaulted white hall where the Queen holds court.  ",
+        modelMemory: "PRIVATE_MEMORY_SENTINEL",
+        referenceImageId: "img-1",
+        useReferenceImage: true,
+        lorebookEntryIds: [],
+        destinations: [{ id: "loc_yard", name: "Palace Yard", kind: "area", relation: "link", sortOrder: 0 }],
+        omittedDestinationCount: 0,
+      } as any;
+      const currentLocation = agentCurrentLocationFromProjection(projection);
+      assert.deepEqual(currentLocation, {
+        path: "Royal Palace > Throne Room",
+        description: "A vaulted white hall where the Queen holds court.",
+      });
+      assert.equal(agentCurrentLocationFromProjection({ ...projection, ownerMode: "game" }), null);
+      assert.equal(agentCurrentLocationFromProjection(null), null);
+
+      const defaultSources = getAgentContextSources({ settings: {} });
+      const context = makeRegressionAgentContext({
+        mainResponse: "The Queen rises from the throne.",
+        currentLocation,
+      });
+      const block = buildAgentCurrentLocationBlock(context, defaultSources);
+      assert.match(block, /^<current_location>\n/u);
+      assert.match(block, /Path: Royal Palace > Throne Room\nDescription: A vaulted white hall/u);
+      assert.doesNotMatch(block, /PRIVATE_MEMORY_SENTINEL|Palace Yard|loc_throne/u);
+      assert.equal(buildAgentCurrentLocationBlock(context, { ...defaultSources, trackerData: false }), "");
+      assert.equal(buildAgentCurrentLocationBlock({ ...context, currentLocation: null }, defaultSources), "");
+
+      const illustratorConfig = (settings: Record<string, unknown> = {}) =>
+        makeRegressionAgentConfig({
+          id: "builtin:illustrator",
+          type: "illustrator",
+          name: "Illustrator",
+          promptTemplate: "Illustrate the scene.",
+          settings: { contextSize: 2, maxTokens: 512, ...settings },
+        });
+      const quietBeat = `{"shouldGenerate":false,"prompt":"","style":"","characters":[],"reason":"quiet beat"}`;
+
+      // Automatic Illustrator run.
+      const automatic = makeCapturingProvider(quietBeat);
+      await executeAgent(illustratorConfig() as any, context, automatic.provider as any, "regression-model");
+      const automaticText = automatic.calls[0]!.map((message) => message.content).join("\n");
+      assert.ok(automaticText.includes(block), "automatic Illustrator run gets the location block");
+
+      const automaticOff = makeCapturingProvider(quietBeat);
+      await executeAgent(
+        illustratorConfig({ contextSources: { ...defaultSources, trackerData: false } }) as any,
+        context,
+        automaticOff.provider as any,
+        "regression-model",
+      );
+      assert.doesNotMatch(automaticOff.calls[0]!.map((message) => message.content).join("\n"), /<current_location>/u);
+
+      // Agents that don't write image prompts never get it.
+      const tracker = makeCapturingProvider("{}");
+      await executeAgent(
+        makeRegressionAgentConfig({ type: "world-state", settings: { contextSize: 2, maxTokens: 512 } }) as any,
+        context,
+        tracker.provider as any,
+        "regression-model",
+      );
+      assert.doesNotMatch(tracker.calls[0]!.map((message) => message.content).join("\n"), /<current_location>/u);
+
+      // [illustrate:] commands and the Gallery button.
+      const runManualWriter = async (settings: Record<string, unknown> = {}) => {
+        const capture = makeCapturingProvider(
+          JSON.stringify({ prompt: "The Queen rises.", characters: [], reason: "Scene." }),
+        );
+        await writeManualIllustratorPromptPlan({
+          illustratorAgent: {
+            ...illustratorConfig(settings),
+            provider: capture.provider,
+            model: "regression-model",
+          } as any,
+          context,
+        });
+        return capture.calls[0]![0]!.content;
+      };
+      assert.ok((await runManualWriter()).includes(block), "manual writer gets the same location block");
+      assert.doesNotMatch(
+        await runManualWriter({ contextSources: { ...defaultSources, trackerData: false } }),
+        /<current_location>/u,
+      );
     },
   },
   {
@@ -9249,6 +9448,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       ) =>
         assemblePrompt({
           db,
+          worldState: null, // This card-only fixture has no snapshot store.
           preset: {
             id: `preset-example-fallback-${wrapFormat}`,
             name: "Example Dialogue Fallback Fixture",

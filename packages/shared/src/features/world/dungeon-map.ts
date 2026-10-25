@@ -3,6 +3,7 @@
 // party comes in. Pure and seeded: the same seed and set always lay out the same map.
 
 import type { WorldPlaceMap } from "./place-maps.js";
+import { worldMapWordsSchema, type WorldMapWords } from "./edits.js";
 import { z } from "zod";
 
 export type DungeonKind = "cave" | "dungeon" | "station";
@@ -238,6 +239,8 @@ export interface DungeonMap {
   entrance: { x: number; y: number };
   /** A map made by hand (map editor Phase 3): its props are drawn only and never block a walk. */
   drawnProps?: true;
+  /** A map made by hand's own words for the Game Master (1.357). */
+  words?: WorldMapWords;
 }
 
 function mulberry32(seed: number): () => number {
@@ -585,9 +588,21 @@ export function dungeonMapWords(map: DungeonMap): string {
   const set = DUNGEON_SETS.find((each) => each.id === map.set) ?? DUNGEON_SETS[0]!;
   if (!map.rooms.length) {
     // A map made by hand has no areas, and its pack's props are its own: what it is, not what stands
-    // there by the set's names (the place's name and the story say that).
-    const liquid = map.ground.includes("liquid") ? ", with liquid in it" : "";
-    return `A place made by hand${liquid}. The way out is where the party came in.`;
+    // there by the set's names (the place's name and the story say that), unless it says so itself (1.357).
+    const words = map.words;
+    const hasLiquid = map.ground.includes("liquid");
+    if (!words) {
+      const liquid = hasLiquid ? ", with liquid in it" : "";
+      return `A place made by hand${liquid}. The way out is where the party came in.`;
+    }
+    const counts = new Map<number, number>();
+    for (const prop of map.props) if (prop >= 0 && words.props?.[prop]) counts.set(prop, (counts.get(prop) ?? 0) + 1);
+    const ground = [words.floor, words.wall].filter(Boolean).join(", ");
+    const things = [...counts]
+      .sort(([a], [b]) => a - b)
+      .map(([prop, n]) => (n > 1 ? `${words.props![prop]} (${n})` : words.props![prop]!));
+    const liquid = hasLiquid ? (words.liquid ?? "liquid") : null;
+    return `A place made by hand${ground ? ` (${ground})` : ""}${liquid ? `, with ${liquid} in it` : ""}${things.length ? `; in it: ${things.join(", ")}` : ""}. The way out is where the party came in.`;
   }
   const rooms = map.rooms.map((room, index) => {
     const counts = new Map<number, number>();
@@ -626,6 +641,8 @@ export const gameDungeonMapSchema = z
     pack: z.string().max(120).optional(),
     /** Made by hand (map editor Phase 3): props drawn only, and the way out is where the party came in. */
     hand: z.literal(true).optional(),
+    /** A map made by hand's own words for the Game Master (1.357). */
+    words: worldMapWordsSchema.optional(),
     /** Where people stand on a map made by hand, by the hour (map editor Phase 3, B3), with their names as
      *  they were when the party went in. */
     spots: z
@@ -740,6 +757,7 @@ export function dungeonFromGameDungeonMap(map: GameDungeonMap): DungeonMap {
     rooms: map.rooms,
     entrance: map.entrance,
     ...(map.hand ? { drawnProps: true as const } : {}),
+    ...(map.words ? { words: map.words } : {}),
   };
 }
 
@@ -783,6 +801,7 @@ export function gameDungeonMapFromPlaceMap(
     set: set.id,
     ...(map.pack ? { pack: map.pack } : {}),
     hand: true,
+    ...(map.words ? { words: structuredClone(map.words) } : {}),
     seed: 0,
     width: map.width,
     height: map.height,

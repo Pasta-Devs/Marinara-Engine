@@ -129,6 +129,7 @@ export async function generateTrackerPortrait(args: {
         imageDefaults,
         quality: resolveConnectionImageQuality(connection),
         debugMode: args.debugMode,
+        preserveProviderOutput: true,
         fallback: await resolveImageConnectionFallback(connections, connection.id),
         onFallback: args.onFallback,
       },

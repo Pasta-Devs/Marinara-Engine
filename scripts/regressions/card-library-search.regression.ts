@@ -11,6 +11,7 @@ const characterLibrarySearchDocument = {
   title: "Modern AU version",
   meta: formatCardLibraryMeta("Pasta Devs", "3.0"),
   summary: getCardLibrarySummary(["A meticulous creator note.", "A Fatui researcher."]),
+  creatorNotes: "A hidden character provenance note.",
   tags: ["scientist", "villain"],
   sections: [
     { content: "A Fatui researcher." },
@@ -29,6 +30,11 @@ assert.equal(
   true,
 );
 assert.equal(
+  matchesCardLibrarySearch(characterLibrarySearchDocument, parseCardLibrarySearchQuery("character provenance")),
+  true,
+  "creator notes remain searchable when another summary is displayed",
+);
+assert.equal(
   matchesCardLibrarySearch(characterLibrarySearchDocument, parseCardLibrarySearchQuery("-tag:villain dottore")),
   false,
 );
@@ -38,6 +44,7 @@ const personaLibrarySearchDocument = {
   title: "Research partner",
   meta: formatCardLibraryMeta("SpicyMarinara", "2.0"),
   summary: getCardLibrarySummary(["A precise persona card.", "An AI engineer."]),
+  creatorNotes: "A hidden persona provenance note.",
   tags: ["engineer"],
   sections: [
     { content: "An AI engineer." },
@@ -55,6 +62,16 @@ assert.equal(
 assert.equal(
   matchesCardLibrarySearch(personaLibrarySearchDocument, parseCardLibrarySearchQuery("formidable")),
   true,
+);
+assert.equal(
+  matchesCardLibrarySearch(personaLibrarySearchDocument, parseCardLibrarySearchQuery("persona provenance")),
+  true,
+  "persona creator notes remain searchable beside an explicit summary",
+);
+assert.equal(
+  matchesCardLibrarySearch(personaLibrarySearchDocument, parseCardLibrarySearchQuery("precise persona card")),
+  true,
+  "the explicit summary remains searchable too",
 );
 
 console.info("Card library search regression checks passed.");

@@ -57,6 +57,8 @@ const capabilityClientScript = (ids: string[]) => `for (const id of ${JSON.strin
 
 type WizardMountOptions = {
   isNewGame: boolean;
+  theme?: "dark" | "light";
+  registeredStyles?: Array<{ id: string; label?: string }>;
   chatMetadata?: Record<string, unknown>;
   characters?: Array<{ id: string; name: string }>;
   multiplayerPlayers?: MultiplayerPlayer[];
@@ -69,7 +71,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
     hasCompletedOnboarding: true,
     sidebarOpen: false,
     rightPanelOpen: false,
-    theme: testInfo.project.name === "desktop-chromium" ? "light" : "dark",
+    theme: options.theme ?? (testInfo.project.name === "desktop-chromium" ? "light" : "dark"),
   });
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
@@ -78,8 +80,10 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
   });
   await prepareViteFixtureDependencies(page);
   await page.evaluate(
-    async ({ isNewGame, chatMetadata, characters, multiplayerPlayers }) => {
+    async ({ isNewGame, chatMetadata, characters, multiplayerPlayers, registeredStyles }) => {
       const { GameSetupWizard } = await import("/src/components/game/GameSetupWizard.tsx" as string);
+      const { registerCombatStyle } = await import("/src/components/game/combat-styles.tsx" as string);
+      for (const { id, label } of registeredStyles) registerCombatStyle(id, { label, render: () => null });
       const dependencyUrl = window.__viteFixtureDependencyUrl;
       const { default: React } = await import(dependencyUrl("react"));
       const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
@@ -126,6 +130,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
       chatMetadata: options.chatMetadata ?? {},
       characters: options.characters ?? [],
       multiplayerPlayers: options.multiplayerPlayers,
+      registeredStyles: options.registeredStyles ?? [],
     },
   );
   const wizard = page.locator('[data-component="GameSetupWizard"]');
@@ -280,6 +285,85 @@ test("Game Features switches keep equal thumb insets and do not shrink on mobile
   await wizard.getByRole("button", { name: /^Quick Time Events/u }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("game-feature-switches.png"), animations: "disabled" });
 });
+
+for (const theme of ["dark", "light"] as const) {
+  test(`Registered combat setup choices stay visible, allowed and selected (${theme})`, async ({ page }, info) => {
+    test.setTimeout(90_000);
+    const customLabel = "Hex board with a deliberately long registered combat presentation label";
+    const base = JSON.parse(
+      readFileSync(new URL("../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8"),
+    );
+    const rulesets = [
+      { id: "registered-fixture", name: "Registered battles", styles: ["hex-board", "tactical"] },
+      { id: "tactical-fixture", name: "Tactical battles", styles: ["tactical"] },
+      { id: "missing-fixture", name: "Unregistered battles", styles: ["missing-board", "classic"] },
+    ].map(({ id, name, styles }) => ({
+      packageId: "fixture-rulesets",
+      definition: { ...base, id, name, combat: { ...base.combat, styles } },
+    }));
+    await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/capability-packages/rulesets", (route) => route.fulfill({ json: rulesets }));
+    await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
+    await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const wizard = await mountWizard(page, info, {
+      isNewGame: true,
+      theme,
+      registeredStyles: [{ id: "hex-board", label: customLabel }, { id: "duel" }],
+    });
+    await wizard.getByPlaceholder("Name your adventure...", { exact: true }).fill("Registered style proof");
+    await wizard
+      .locator("select")
+      .filter({ has: page.locator('option[value="wizard-connection"]') })
+      .first()
+      .selectOption("wizard-connection");
+    const { next } = stepNavigation(wizard);
+    await next();
+    await expect(wizard.getByRole("button", { name: "duel", exact: true })).toBeVisible();
+    await wizard.getByRole("button", { name: /^Registered battles/ }).click();
+    await wizard.getByText("Combat Preference", { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`registered-combat-${theme}.png`) });
+    const custom = wizard.getByRole("button", { name: customLabel, exact: true });
+    await expect(custom).toBeVisible();
+    await expect(custom).toHaveAttribute("aria-pressed", "true");
+    await expect(wizard.getByRole("button", { name: /^Classic/ })).toHaveCount(0);
+    await expect(wizard.getByRole("button", { name: "duel", exact: true })).toHaveCount(0);
+    await wizard
+      .getByRole("button", { name: /^Tactical Grid battles/ })
+      .first()
+      .click();
+    await expect(custom).toHaveAttribute("aria-pressed", "false");
+    await custom.click();
+    await expect(custom).toHaveAttribute("aria-pressed", "true");
+    const geometry = await custom.evaluate((button) => ({
+      width: button.clientWidth,
+      scrollWidth: button.scrollWidth,
+      viewport: window.innerWidth,
+      right: button.getBoundingClientRect().right,
+    }));
+    expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width + 1);
+    expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1);
+    await wizard.getByRole("button", { name: /^Tactical battles/ }).click();
+    await expect(custom).toHaveCount(0);
+    await expect(wizard.getByRole("button", { name: /^Tactical Grid battles/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await wizard.getByRole("button", { name: /^Unregistered battles/ }).click();
+    await expect(wizard.getByRole("button", { name: "missing-board", exact: true })).toHaveCount(0);
+    await expect(wizard.getByRole("button", { name: /^Classic/ })).toHaveAttribute("aria-pressed", "true");
+    await wizard.getByRole("button", { name: /^Registered battles/ }).click();
+    await expect(custom).toHaveAttribute("aria-pressed", "true");
+    for (let step = 1; step < 6; step++) await next();
+    await wizard.getByRole("button", { name: /Start/u }).click();
+    const result = JSON.parse((await page.getByTestId("wizard-result").textContent()) ?? "{}");
+    expect(result.config.combatStyle).toBe("hex-board");
+    expect(result.config.ruleset.id).toBe("registered-fixture");
+    expect(errors).toEqual([]);
+  });
+}
 
 /** A fresh new-game wizard with only the inline-setup Experience installed and switched on. */
 async function openWizardWithExperience(page: Page, testInfo: TestInfo): Promise<Locator> {

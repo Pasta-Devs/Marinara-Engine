@@ -1,13 +1,16 @@
 // A creature's art on a fight's board (design-game-creature-art.md): the creature pack chosen in the
 // library, which of its creatures a fighter is, the way it faces, and its frame drawn at its own size,
 // bottom centred on its cell. A fighter with no art keeps its token.
-import { useEffect, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   creatureArtBox,
   creatureArtFrame,
   creatureFacingToward,
+  CREATURE_FLY_STEPS,
   creaturePackSchema,
+  findCreatureArt,
+  type CreatureArtFor,
   type CreatureFacing,
   type CreaturePack,
   type CreaturePackCreature,
@@ -30,6 +33,29 @@ export function useCreaturePack(): CreaturePack | null {
     staleTime: 5 * 60_000,
   });
   return data ?? null;
+}
+
+/** The creature packs the game's Experience ships (Capability API 1.344), put in place by the game's
+ *  screen for the fights it shows. */
+export const ExperienceCreaturePacksContext = createContext<readonly CreaturePack[]>([]);
+
+/** Every creature pack a fight draws from: the Experience's own, in its order, then the library's. */
+export function useCreaturePacks(): readonly CreaturePack[] {
+  const own = useContext(ExperienceCreaturePacksContext);
+  const chosen = useCreaturePack();
+  return useMemo(() => (chosen ? [...own, chosen] : own), [own, chosen]);
+}
+
+/** A fighter's art in the first pack that has it, with that pack. */
+export function findCreatureArtIn(
+  packs: readonly CreaturePack[],
+  who: CreatureArtFor,
+): { pack: CreaturePack; creature: CreaturePackCreature } | null {
+  for (const pack of packs) {
+    const creature = findCreatureArt(pack, who);
+    if (creature) return { pack, creature };
+  }
+  return null;
 }
 
 interface Placed {
@@ -93,6 +119,7 @@ export function CreatureArtFigure({
   facing,
   cellFraction = 1,
   label,
+  flying = false,
 }: {
   pack: CreaturePack;
   creature: CreaturePackCreature;
@@ -100,8 +127,11 @@ export function CreatureArtFigure({
   facing: CreatureFacing;
   cellFraction?: number;
   label: string;
+  /** In the air (1.352): its flying block, played 0, 1, 2, 1, when it has one. */
+  flying?: boolean;
 }) {
-  const frame = creatureArtFrame(pack, creature, variant, facing);
+  const flaps = useFlyStep(flying && Boolean(creature.fly));
+  const frame = creatureArtFrame(pack, creature, variant, facing, flaps ?? 1, flaps !== null);
   const sheet = pack.sheets.find((each) => each.id === frame.sheet);
   if (!sheet) return null;
   const box = creatureArtBox(creature);
@@ -116,6 +146,7 @@ export function CreatureArtFigure({
       aria-label={label}
       data-creature-art={creature.id}
       data-facing={facing}
+      data-flying={flaps !== null ? "" : undefined}
       className="pointer-events-none absolute block [image-rendering:pixelated]"
       style={{
         // Bottom centred on the cell the element stands for.
@@ -130,4 +161,17 @@ export function CreatureArtFigure({
       }}
     />
   );
+}
+
+/** The flying frame to show, stepping through 0, 1, 2, 1 while `on` (held on the first one for a
+ *  viewer who asks for less motion); null when not flying. */
+function useFlyStep(on: boolean): 0 | 1 | 2 | null {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!on) return;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setTick((value) => (value + 1) % CREATURE_FLY_STEPS.length), 180);
+    return () => window.clearInterval(timer);
+  }, [on]);
+  return on ? CREATURE_FLY_STEPS[tick % CREATURE_FLY_STEPS.length]! : null;
 }

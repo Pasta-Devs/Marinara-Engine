@@ -18,7 +18,7 @@ import {
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { getAgentCallTimeoutMs } from "../../config/runtime-config.js";
-import { withLlmRequestTimeout } from "../llm/base-provider.js";
+import { withLlmInactivityTimeout } from "../llm/base-provider.js";
 import { unwrapConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
@@ -51,11 +51,6 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         options: CapabilityLanguageModelCompletionOptions = {},
       ) {
         const timeoutMs = getAgentCallTimeoutMs();
-        // AGENT_CALL_TIMEOUT_MS caps the TOTAL duration of the capability LLM call even
-        // while streaming, matching the host's normal agent-call policy (agent-executor
-        // agentCallSignal). Preserve the caller's own cancellation signal via AbortSignal.any.
-        const timeoutSignal = AbortSignal.timeout(timeoutMs);
-        const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
         const packageOptions = {
           temperature: options.temperature,
           maxTokens: options.maxTokens,
@@ -66,14 +61,19 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         const requestOptions = saved
           ? resolveCapabilityChatOptions({ ...saved, model }, packageOptions)
           : packageOptions;
-        const result = await withLlmRequestTimeout(timeoutMs, async () =>
-          provider.chatComplete(messages as ChatMessage[], {
-            model,
-            ...requestOptions,
-            debugMode: options.debugMode,
-            signal,
-            responseFormat: options.responseFormat ? { ...options.responseFormat } : undefined,
-          }),
+        const result = await withLlmInactivityTimeout(
+          timeoutMs,
+          (signal) =>
+            provider.chatComplete(messages as ChatMessage[], {
+              model,
+              ...requestOptions,
+              // Keep upstream progress alive while the package receives only the completed response.
+              stream: true,
+              debugMode: options.debugMode,
+              signal,
+              responseFormat: options.responseFormat ? { ...options.responseFormat } : undefined,
+            }),
+          options.signal,
         );
         return { content: result.content, finishReason: result.finishReason, usage: result.usage };
       },

@@ -6,6 +6,7 @@ import {
   createPersonalExtensionSchema,
   externalExtensionsPolicyUpdateSchema,
   personalExtensionStoragePatchSchema,
+  personalExtensionRevisionRetentionSchema,
   rollbackPersonalExtensionSchema,
   updatePersonalExtensionSchema,
   PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
@@ -18,11 +19,13 @@ import {
   type CharacterData,
   type PersonalClientExtensionRuntime,
   type PersonalExtension,
+  type PersonalExtensionListItem,
   type PersonalExtensionCapability,
   type PersonalExtensionCharacterSnapshot,
   type PersonalExtensionPersonaSnapshot,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { EXTENSION_REVISION_HISTORY_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { createPersonalExtensionsStorage } from "../services/extensions/personal-extension-storage.service.js";
 import { createPersonalExtensionSettingsStorage } from "../services/extensions/personal-extension-settings.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
@@ -1152,6 +1155,28 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
 
   app.get("/policy", async () => getPersonalExtensionPolicy(app.db));
 
+  app.get("/revision-history", { config: { rateLimit: EXTENSION_REVISION_HISTORY_RATE_LIMIT } }, async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    return { limit: await storage.getRevisionRetention() };
+  });
+
+  app.patch(
+    "/revision-history",
+    { config: { rateLimit: EXTENSION_REVISION_HISTORY_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!privileged(req, reply)) return;
+      const input = personalExtensionRevisionRetentionSchema.parse(req.body);
+      const result = await storage.setRevisionRetention(input);
+      if (!result) {
+        return reply.status(409).send({
+          error: "Confirm permanently removing older extension revisions before changing retention.",
+          code: "confirmation_required",
+        });
+      }
+      return result;
+    },
+  );
+
   app.patch("/policy/external", async (req, reply) => {
     if (!privileged(req, reply)) return;
     const input = externalExtensionsPolicyUpdateSchema.parse(req.body);
@@ -1171,7 +1196,16 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
     const policy = await getPersonalExtensionPolicy(app.db);
     return (await storage.list())
       .filter((extension) => canExecutePersonalExtension(extension, policy))
-      .map((extension) => personalServerExtensionRuntime.withRuntimeStatus(extension));
+      .map((extension): PersonalExtensionListItem => ({
+        ...personalServerExtensionRuntime.withRuntimeStatus(extension),
+        revisions: extension.revisions.map(({ contentHash, version, runtime, capabilities, savedAt }) => ({
+          contentHash,
+          version,
+          runtime,
+          capabilities,
+          savedAt,
+        })),
+      }));
   });
 
   app.get("/runtime/client", async (): Promise<PersonalClientExtensionRuntime[]> => {

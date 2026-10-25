@@ -22,6 +22,19 @@ import { useUIStore } from "../stores/ui.store";
  *  turn instead of the whole fight arriving in one frame. */
 const RULESET_TURN_PAUSE_MS = 900;
 
+/** The code of a ruleset refusal: the rules saying no to a command, which changed nothing on the
+ *  server. Anything else is the command failing, not being refused. */
+function rulesetRefusalCode(error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || error.status !== 400) return undefined;
+  const payload = error.payload as { error?: unknown; code?: unknown } | undefined;
+  const code = typeof payload?.code === "string" ? payload.code : undefined;
+  return code?.startsWith("ruleset_combat_") ? code : undefined;
+}
+
+export function isRulesetRefusal(error: unknown): boolean {
+  return rulesetRefusalCode(error) !== undefined;
+}
+
 export function useDirectedCombat(input: {
   chatId: string;
   anchor: string;
@@ -95,11 +108,9 @@ export function useDirectedCombat(input: {
     onError: (error) => {
       // A refusal is the rules saying no, not a broken battle: it changed nothing on the server, so
       // it is said once and the fight stays exactly where it was.
-      if (!(error instanceof ApiError) || error.status !== 400) return;
-      const payload = error.payload as { error?: unknown; code?: unknown } | undefined;
-      const code = typeof payload?.code === "string" ? payload.code : undefined;
-      if (!code?.startsWith("ruleset_combat_")) return;
-      toast.warning(rulesetRefusalText(code, error.message, t));
+      const code = rulesetRefusalCode(error);
+      if (!code) return;
+      toast.warning(rulesetRefusalText(code, (error as Error).message, t));
       // Remember WHICH state was refused before the error is cleared: a refusal changes nothing, so
       // the revision stays where it was, and autoplay must not send the same thing at it again
       // every pause (a toast a second, for ever). It picks up once the fight has moved.
@@ -131,6 +142,8 @@ export function useDirectedCombat(input: {
     error: query.error ?? mutate.error,
     loading: query.isPending,
     busy: mutate.isPending,
+    /** When the view on screen arrived: a refetch or an accepted step, never a command failing. */
+    viewedAt: query.dataUpdatedAt,
     send,
     refresh: () => {
       mutate.reset();

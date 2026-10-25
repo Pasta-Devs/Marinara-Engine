@@ -143,14 +143,45 @@ export function validatePullRequestTriage() {
   const browserCheckouts = [...browserWorkflow.matchAll(/^\s+ref: (.+)$/gmu)];
   assert.ok(browserCheckouts.length > 0);
   for (const checkout of browserCheckouts) assert.equal(checkout[1], "${{ github.sha }}");
-  for (const jobId of ["node", "smoke", "desktop-chromium-shards", "mobile-chromium-shards", "mobile-webkit-shards"]) {
+  for (const jobId of [
+    "node",
+    "node-shards",
+    "smoke",
+    "desktop-chromium-shards",
+    "mobile-chromium-shards",
+    "mobile-webkit-shards",
+  ]) {
     const job = extractJob(browserWorkflow, jobId);
-    assert.match(job, /needs: revision/u);
+    // The verdict needs the revision and the shards it judges; every other job needs the revision alone.
+    const needs = job.match(/^\s+needs: (.+)$/mu);
+    assert.ok(needs, `${jobId} must declare needs`);
+    assert.equal(needs[1], jobId === "node" ? "[revision, node-shards]" : "revision");
     assert.doesNotMatch(job, /^\s+[\w-]+: write\s*$/mu);
     if (jobId === "smoke") {
       assert.ok(job.includes("if: github.event_name == 'push' && needs.revision.outputs.full != 'true'"));
-    } else if (jobId !== "node") assert.ok(job.includes("if: needs.revision.outputs.full == 'true'"));
+    } else if (!jobId.startsWith("node")) assert.ok(job.includes("if: needs.revision.outputs.full == 'true'"));
   }
+  // The shard count is written in three places; a shrunk matrix must not pass a verdict over unrun files.
+  const nodeShards = extractJob(browserWorkflow, "node-shards");
+  const shardMatrix = nodeShards.match(/^\s+shard: \[([0-9, ]+)\]$/mu);
+  assert.ok(shardMatrix, "node-shards must list its shards");
+  const shardTotal = shardMatrix[1].split(",").length;
+  assert.deepEqual(
+    shardMatrix[1].split(",").map((value) => Number(value.trim())),
+    Array.from({ length: shardTotal }, (_, index) => index + 1),
+  );
+  assert.match(
+    nodeShards,
+    new RegExp(`^\\s+name: node-regressions \\$\\{\\{ matrix\\.shard \\}\\}/${shardTotal}$`, "mu"),
+  );
+  assert.match(
+    nodeShards,
+    new RegExp(`^\\s+run: pnpm regression --shard \\$\\{\\{ matrix\\.shard \\}\\}/${shardTotal}$`, "mu"),
+  );
+  // The verdict only reports, so its name is all that ties it to the required check.
+  const verdict = extractJob(browserWorkflow, "node");
+  assert.match(verdict, /^\s+name: complete-node-regressions$/mu);
+  assert.match(verdict, /SHARDS_RESULT: \$\{\{ needs\.node-shards\.result \}\}/u);
 
   const prChecks = readFileSync(new URL("../.github/workflows/pull-request-checks.yml", import.meta.url), "utf8");
   const requiredSmoke = extractNamedStep(extractJob(prChecks, "pnpm-validate"), "Run required Chromium smoke suite");

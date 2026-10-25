@@ -28,7 +28,7 @@ export async function buildMultiplayerGuest(outDir = resolve(packageRoot, "dist/
         fileName: () => "guest.js",
         cssFileName: "guest",
       },
-      rollupOptions: { output: { inlineDynamicImports: true } },
+      rolldownOptions: { output: { codeSplitting: false } },
     },
   });
 }

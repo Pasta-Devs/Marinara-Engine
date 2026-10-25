@@ -5,8 +5,8 @@ import { MariStorySprite } from "../MariStorySprite";
 import { MariHold } from "./MariHold";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, ChevronRight, Pencil, Search, Terminal, type LucideIcon } from "lucide-react";
-import { type MariWorkspaceActionResult } from "@marinara-engine/shared";
+import { AlertTriangle, ChevronRight, MinusCircle, Pencil, Search, Terminal, type LucideIcon } from "lucide-react";
+import { isDryRunOutput, type MariWorkspaceActionResult } from "@marinara-engine/shared";
 import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { resolveRunAnchorMs, resolveRunSeconds, type RunStepTiming } from "../../../lib/mari-work-card-timing";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
@@ -125,19 +125,32 @@ function MariSprite({
  */
 function MariLiveHeadline({ text, subject }: { text: string; subject?: string | null }) {
   const reduceMotion = useReducedMotion();
-  const letters = (value: string, offset: number) =>
-    [...value].map((char, index) => (
-      <span
-        key={index}
-        className="mari-work-timeline__char"
-        style={{ "--i": Math.min(offset + index, 40) } as CSSProperties}
-      >
-        {char}
-      </span>
-    ));
+  const letters = (value: string, offset: number) => {
+    let index = offset;
+    return value
+      .split(/(\s+)/u)
+      .filter(Boolean)
+      .map((part, partIndex) => {
+        const glyphs = [...part].map((char) => {
+          const i = index++;
+          return (
+            <span key={i} className="mari-work-timeline__char" style={{ "--i": Math.min(i, 40) } as CSSProperties}>
+              {char}
+            </span>
+          );
+        });
+        return /^\s+$/u.test(part) ? (
+          glyphs
+        ) : (
+          <span key={`word-${partIndex}`} className="mari-work-timeline__word">
+            {glyphs}
+          </span>
+        );
+      });
+  };
   return (
     <span className="mari-work-timeline__phrase" role="status">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={`${text}\u0000${subject ?? ""}`}
           className="mari-work-timeline__line"
@@ -302,6 +315,8 @@ function describeStep(
     missed,
     notFound: missed && isMariNotFoundOutput(tool.output),
     failed: tool.status === "error" && !missed,
+    // A dry run finished but saved nothing: amber and neutral, never the green check.
+    previewed: tool.status === "done" && isDryRunOutput(tool.output),
   };
 }
 
@@ -491,7 +506,7 @@ export function MariWorkTimeline({
               // ticking, sibling update) keeps the same key and replays nothing.
               <motion.li
                 key={`${id}:${tool.status}`}
-                data-status={described.missed ? "missed" : tool.status}
+                data-status={described.missed ? "missed" : described.previewed ? "previewed" : tool.status}
                 initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={reduceMotion ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0.25 }}
@@ -501,6 +516,8 @@ export function MariWorkTimeline({
                     {/* Slice 72: the row's state leads it - the green check, an amber or red warning. */}
                     {tool.status === "error" ? (
                       <AlertTriangle className="mari-step__glyph" aria-hidden="true" />
+                    ) : described.previewed ? (
+                      <MinusCircle className="mari-step__glyph" aria-hidden="true" />
                     ) : (
                       <MariDoneMark className="mari-step__glyph" />
                     )}

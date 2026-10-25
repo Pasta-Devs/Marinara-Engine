@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   applyRulesetSheetOp,
   applySheetCommandTags,
+  joinSheetSummary,
   defaultRulesetSheetBuild,
   listRulesetLivePools,
   parseRulesetDefinition,
@@ -168,6 +169,10 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "1st-level slots", amount: 1 }).now, "1/2");
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "ki", amount: 2 }).now, "3/5");
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "Ki Points", amount: 1 }), "unknown-pool");
+  // A declared pool written the way a key is, or by its initials (#8271: "hit_points").
+  const byKey = applied(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 1 }).now;
+  for (const pool of ["hit_points", "Hit-Points", "HP"])
+    assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool, amount: 1 }).now, byKey, pool);
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 0 }), "bad-amount");
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 1.5 }), "bad-amount");
 
@@ -534,6 +539,12 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const forged = parseSheetCommandTagBody(`op="spend" pool="slots_1" amount="1" result="ok" now="99/99" reason="x"`);
   assert.deepEqual(forged.op, { op: "spend", pool: "slots_1", amount: 1 });
   assert.equal("result" in forged, false);
+  // Harm that names no pool is health's, filled in by the sheet pass (laptop 2026-10-25).
+  assert.deepEqual(parseSheetCommandTagBody(`op="damage" amount="1" result="ok" now="54/55"`).op, {
+    op: "damage",
+    pool: "",
+    amount: 1,
+  });
 
   for (const body of [
     ``,
@@ -632,6 +643,16 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const forOther = applySheetCommandTags(`[sheet: who="tam the bold" op="damage" pool="hp" amount="4"]`, context);
   assert.deepEqual(Object.keys(forOther.live), ["tam the bold"]);
   assert.match(forOther.content, /who="Tam the Bold" op="damage" pool="hp" amount="4" result="ok" now="8\/12"/);
+  // A story injury the dice rewrite wrote with no pool, its quotes gone and the Engine's own fields
+  // filled in, is health's harm all the same (laptop 2026-10-25: refused as malformed, the widget
+  // and the sheet then disagreed).
+  const injury = applySheetCommandTags(`[sheet: who=Tam the Bold op=damage amount=1 result=ok now=11/12]`, context);
+  assert.match(injury.content, /who="Tam the Bold" op="damage" pool="hp" amount="1" result="ok" now="11\/12"/);
+  const healed = applySheetCommandTags(`[sheet: who="Tam the Bold" op="heal" amount="2"]`, {
+    ...context,
+    live: injury.live,
+  });
+  assert.match(healed.content, /op="restore" pool="hp" amount="2" result="ok" now="12\/12"/);
   const stranger = applySheetCommandTags(`[sheet: who="A Guard" op="damage" pool="hp" amount="4"]`, context);
   assert.match(stranger.content, /result="refused" reason="unknown-character"/);
   assert.deepEqual([stranger.live, stranger.changed], [{}, false]);
@@ -666,6 +687,26 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   );
   assert.deepEqual(Object.keys(party.live), ["tam the bold"], "a character back at every default drops out again");
   assert.deepEqual(party.live["tam the bold"], { tracks: { exhaustion: 1 } });
+
+  // Four casters' long rest names all four: what does not fit says how many more, never drops one.
+  const four = ["Isolde Venn", "Mother Hessa", "Brannoc Ashvale", "Pip Underbough"];
+  const tired = applySheetCommandTags(`[sheet: who="party" op="rest" rest="long"]`, {
+    ...context,
+    cards: four.map((name) => ({ name, build: caster })),
+    playerName: four[0]!,
+    live: Object.fromEntries(
+      four.map((name) => [name.toLowerCase(), { pools: { hp: { value: 4 }, slots_1: { value: 0 } } }]),
+    ),
+  });
+  const said = /now="([^"]*)"/.exec(tired.content)?.[1] ?? "";
+  for (const name of four) assert.ok(said.includes(name), `${name} is in the record: ${said}`);
+  assert.deepEqual(Object.keys(tired.live), [], "and all four are rested");
+  assert.equal(joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 24), `${"a".repeat(8)}; and 2 more`);
+  // A refusal is never what the count stands for: it stays whole, and only successes are counted off.
+  assert.equal(
+    joinSheetSummary(["a".repeat(8), "b".repeat(8), "c".repeat(8)], 45, ["Pip refused (no gold)"]),
+    `${"a".repeat(8)}; and 2 more; Pip refused (no gold)`,
+  );
 
   // Two cards under one name share one live-state entry, so a party command touches it once.
   const twinParty = applySheetCommandTags(`[sheet: who="party" op="damage" pool="hp" amount="3"]`, {
@@ -761,7 +802,11 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.ok(withCatalog.ok, `the test catalog must validate: ${withCatalog.ok ? "" : withCatalog.issues.join("; ")}`);
   const ruleset = withCatalog.definition;
   const catalogs = { spells: ruleset.catalogs![0]!.entries! };
-  const rowsOf = (id: string) => rowsFromCatalogEntry("spells", catalogs.spells.find((entry) => entry.id === id)!);
+  const rowsOf = (id: string) =>
+    rowsFromCatalogEntry(
+      "spells",
+      catalogs.spells.find((entry) => entry.id === id)!,
+    );
   const picked = [...rowsOf("fireball"), ...rowsOf("magic-missile"), ...rowsOf("fire-bolt"), ...rowsOf("second-wind")];
   const rowsFor = (list: string) => picked.filter((row) => row.list === list).map((row) => row.row);
   const wizard = buildFor(
@@ -794,6 +839,8 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const upcast = run(`[sheet: op="use" name="Fireball" pool="3rd-level slots"]`);
   assert.match(upcast.content, /now="3rd-level slots 0\/1"/);
   assert.deepEqual(upcast.live.mira, { pools: { slots_3: { value: 0 } } });
+  // Written loosely, as a GM might, it is the same pool (#8271).
+  assert.match(run(`[sheet: op="use" name="Fireball" pool="3rd_level_slots"]`).content, /now="3rd-level slots 0\/1"/);
   // It works off a single-pool cost too, because that pool is in the group as well.
   assert.match(run(`[sheet: op="use" name="Magic Missile" pool="2nd-level slots"]`).content, /now="2nd-level slots/);
 
@@ -869,7 +916,10 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.ok(emberParsed.ok, "the 2d6 example must validate");
   const ember = emberParsed.definition;
   const emberCatalogs = { knacks: ember.catalogs![0]!.entries! };
-  const emberRows = rowsFromCatalogEntry("knacks", emberCatalogs.knacks.find((entry) => entry.id === "last-ember")!);
+  const emberRows = rowsFromCatalogEntry(
+    "knacks",
+    emberCatalogs.knacks.find((entry) => entry.id === "last-ember")!,
+  );
   const vex = recomputeScaledRows(
     ember,
     rulesetSheetBuildSchema.parse({

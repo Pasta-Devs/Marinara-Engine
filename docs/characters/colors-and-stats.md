@@ -65,6 +65,8 @@ When a Game Mode ruleset is installed, such as 5e (SRD 5.1), both **Stats** tabs
 2. Fill it in. The layout comes from the ruleset itself: ability scores with their modifiers, fields grouped by section, lists such as attacks and spells, and the skills and saves with a training level and an extra bonus each. Calculated values, such as a proficiency bonus or passive Perception, update as you type and cannot be edited.
 3. Save the character or persona as usual.
 
+You can also ask Professor Mari to fill in or change a sheet, for example "give Rook a Brawn of 2 and add a crowbar to Rook's gear". She writes only that ruleset's sheet, holds every value to the ruleset's limits, and shows the change on a change card.
+
 A sheet here is that character's **starting build** for that ruleset. A new game on the ruleset takes a copy. Changes made inside a game stay in that game and never come back to the card.
 
 Some rulesets ship ready-made spells, attacks and features. Lists they fill have an **Add from catalog** button that opens a searchable picker, and the rows it adds are copies you can edit like any other. Two things follow from that:

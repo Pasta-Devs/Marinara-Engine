@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { protectMarkdownCode } from "./markdown-code";
 import { sanitizeChatMessageCss } from "./chat-message-css";
 import { currentRemoteImagePolicy, holdRemoteImages } from "./remote-image-policy";
 import type { RemoteImagePolicy } from "./remote-images";
@@ -25,7 +26,7 @@ export function decodeEncodedChatHtmlTags(value: string): string {
 }
 
 export function containsChatHtml(value: string): boolean {
-  return HTML_TAG_RE.test(decodeEncodedChatHtmlTags(value));
+  return HTML_TAG_RE.test(decodeEncodedChatHtmlTags(protectMarkdownCode(value).text));
 }
 
 const CHAT_HTML_ALLOWED_TAGS = [

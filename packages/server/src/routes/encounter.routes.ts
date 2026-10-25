@@ -1,13 +1,15 @@
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
+import { withConnectionThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import { z } from "zod";
 import { resolveGameConnection as resolveEncounterConnection } from "../services/game/connection.service.js";
 import {
   TTS_SETTINGS_KEY,
   combatAiHintsSchema,
   combatBossSchema,
-  combatInterruptFields,
+  lenientCombatInterruptFields,
   gameInventoryFightLines,
   normalizeGameInventoryStacks,
+  rulesetCombatStyle,
   rulesetProposedCreatureSchema,
   type CombatItemEffect,
   type RulesetDefinition,
@@ -20,6 +22,12 @@ import {
 } from "@marinara-engine/shared";
 import { loadGameFightItems } from "../services/game/game-inventory.service.js";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
+import {
+  latestStoryFight,
+  storyFightBlueprintEnemies,
+  storyFightOpponents,
+  storyFightPromptText,
+} from "../services/game/story-fight.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "../services/game/ruleset-registry.service.js";
 // ──────────────────────────────────────────────
 // Routes: Combat Encounter (non-streaming JSON)
@@ -62,6 +70,33 @@ import type {
 // ──────────────────────────────────────────────
 
 const COMBAT_BLUEPRINT_OUTPUT_TOKENS = 12000;
+/** Reasoning efforts the blueprint call turns down to medium. */
+const COMBAT_BLUEPRINT_EFFORT_CAPPED = new Set(["high", "xhigh", "max"]);
+
+/**
+ * Whether a blueprint answer stopped before it finished: the provider said it ran out of room, or the
+ * JSON ends part way through, inside a string or with an object or list still open. A reply that
+ * merely fails to parse is not this; it is an invalid answer.
+ */
+export function combatBlueprintCutOff(finishReason: string | undefined, content: string | null | undefined): boolean {
+  if (finishReason && ["length", "max_tokens", "max_output_tokens"].includes(finishReason.toLowerCase())) return true;
+  const text = (content ?? "").replace(/```\s*$/u, "").trim();
+  const start = text.indexOf("{");
+  if (start < 0) return false;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (const char of text.slice(start)) {
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+    } else if (char === '"') quoted = true;
+    else if (char === "{" || char === "[") depth++;
+    else if (char === "}" || char === "]") depth--;
+  }
+  return quoted || depth > 0;
+}
 
 function configuredHpMax(rpgStats: RPGStatsConfig | undefined): number | null {
   if (!rpgStats?.enabled) return null;
@@ -123,10 +158,14 @@ function fallbackActionResult(input: EncounterActionRequest): CombatActionResult
 }
 
 /** Build character context from the chat's character IDs. */
-async function buildCharacterContext(chars: ReturnType<typeof createCharactersStorage>, characterIds: string[]) {
+async function buildCharacterContext(
+  chars: ReturnType<typeof createCharactersStorage>,
+  characterIds: string[],
+  chatId?: string,
+) {
   let ctx = "";
   for (const cid of characterIds) {
-    const row = await chars.getById(cid);
+    const row = await chars.getById(cid, chatId);
     if (!row) continue;
     const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
     ctx += `<character="${data.name}">\n`;
@@ -159,8 +198,10 @@ async function buildPersonaContext(
   chatPersonaId: string | null,
   chatMode?: string | null,
   personaCharacterId?: string | null,
+  chatId?: string,
 ) {
   const persona = await resolveChatUserIdentity(chars, {
+    id: chatId,
     personaId: chatPersonaId,
     personaCharacterId,
     mode: chatMode,
@@ -299,6 +340,36 @@ async function buildGameStateContext(
 // Prompt Builders
 // ──────────────────────────────────────────────
 
+/** What an attack does, read leniently: a word for one of the four ("damage", "healing") is that
+ *  one, and any other word leaves it unsaid rather than refusing the fight (laptop 2026-10-25:
+ *  `kind: "damage"` refused a whole setup). */
+const ATTACK_KIND_WORDS: Record<string, "attack" | "heal" | "buff" | "debuff"> = {
+  damage: "attack",
+  harm: "attack",
+  offense: "attack",
+  offensive: "attack",
+  strike: "attack",
+  melee: "attack",
+  ranged: "attack",
+  healing: "heal",
+  restore: "heal",
+  support: "buff",
+  boon: "buff",
+  hinder: "debuff",
+  control: "debuff",
+  curse: "debuff",
+};
+const encounterAttackKindSchema = z
+  .preprocess(
+    (value) => {
+      if (typeof value !== "string") return value;
+      const word = value.trim().toLowerCase();
+      return ATTACK_KIND_WORDS[word] ?? word;
+    },
+    z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+  )
+  .catch(undefined);
+
 /** The shape a blueprint has to arrive in. Only ever loosened, never tightened: the Game Master
  *  writes prose and numbers, and the Engine checks what it will act on rather than the whole reply.
  *  Hoisted out of the handler so it is built once and a regression can drive it. */
@@ -317,8 +388,8 @@ export const encounterBlueprintSchema = z
             .array(
               z
                 .object({
-                  ...combatInterruptFields,
-                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  ...lenientCombatInterruptFields,
+                  kind: encounterAttackKindSchema,
                   mpCost: z.number().min(0).max(10000).optional(),
                 })
                 .passthrough(),
@@ -351,8 +422,8 @@ export const encounterBlueprintSchema = z
             .array(
               z
                 .object({
-                  ...combatInterruptFields,
-                  kind: z.enum(["attack", "heal", "buff", "debuff"]).optional(),
+                  ...lenientCombatInterruptFields,
+                  kind: encounterAttackKindSchema,
                   mpCost: z.number().min(0).max(10000).optional(),
                 })
                 .passthrough(),
@@ -650,7 +721,7 @@ export function buildInitPrompt(
   inst += `- For each party member and enemy, include aiHints: {category: "beast|monstrosity|other|unknown", proficiency: "novice|trained|veteran|master", temperament: "mindless|reckless|cautious|opportunistic|protective|supportive|disciplined|cowardly|patient|methodical|coordinated"}. Use established identity and training, not HP or appearance. Omit temperament when personality is unknown; do not mistake negated traits for positive evidence. Every Beast and Monstrosity is Mindless. These values are protocol enums and must not be translated.\n`;
   inst += `- For every attack include kind: "attack|heal|buff|debuff" and a nonnegative mpCost. For every enemy include numeric mp and maxMp, preserving established resources. Otherwise give a finite pool appropriate to its skills. Class hints (fighter|knight|rogue|archer|mage|healer) may be supplied in either combat mode. Do not invent abilities to fit a temperament.\n`;
   inst += `- Explicitly identify each actual boss enemy with boss: {points: 3, anticipation: true, attackCost: 1, defendCost: 1, moveCost: 1}; omit boss for ordinary enemies and elites. This also applies to a solo boss. Do not infer boss status from HP alone. Boss skills may have legendaryCost: 1..3 when they are appropriate additional actions.\n`;
-  inst += `- Mark actual spellcasting abilities with spell: true. For an established area attack, supply areaRadius: 1..3 and friendlyFire: true/false for Tactical; targetScope: "all-enemies" supplies explicit non-spatial group damage in Classic. Omit these for single-target spells. Only when the established kit includes one, represent an interrupting spell with reaction: "counterspell", spell: true, range: 3, and its real mpCost/cooldown. A defensive ward/interception can use reaction: "guard" with its real cost/range. Reaction-only abilities are not ordinary turn attacks. Do not give every caster Counterspell. You may supply range: 1..12 tiles for Tactical abilities. Spell slots may be supplied as spellSlots: {"3": 2} and slotLevel: 3 ONLY when established; otherwise use finite MP and omit slot fields. These are generic Engine rules, not a claim of 5e compliance.\n`;
+  inst += `- Mark actual spellcasting abilities with spell: true. For an established area attack, supply areaRadius: 1..3 and friendlyFire: true/false for Tactical; targetScope: "all-enemies" supplies explicit non-spatial group damage in Classic. Omit these for single-target spells. Only when the established kit includes one, represent an interrupting spell with reaction: "counterspell", spell: true, range: 3, and its real mpCost/cooldown. A defensive ward/interception can use reaction: "guard" with its real cost/range. Reaction-only abilities are not ordinary turn attacks. Do not give every caster Counterspell. You may supply range: 1..12 tiles for Tactical abilities; an ability used on oneself takes range: 1 or none. Spell slots may be supplied as spellSlots: {"3": 2} and slotLevel: 3 ONLY when established; otherwise use finite MP and omit slot fields. These are generic Engine rules, not a claim of 5e compliance.\n`;
   inst += `- battlefield.terrainBrief.exposure: exposed only when the actual combat site is open to outdoor weather; sheltered for enclosed/covered sites; unknown if context cannot establish either. Apply this in both Classic and Tactical. Do not invent current weather.\n`;
   inst += `- On each combatant, projectile and requiresSight are optional boolean traits of their BASIC attack. On each attack/skill, supply its own projectile/requiresSight booleans when grounded in its actual mechanics (arrows are projectiles; sight-aimed attacks require sight). These flags control weather penalties. Do not infer traits from translated names or grant weather immunity. Omitted flags receive no weather accuracy modifier.\n`;
   inst += `- Describe the environment at THIS encounter's current location, using current scene details. Do not reuse a world-creation terrain template.\n`;
@@ -868,19 +939,62 @@ export async function encounterRoutes(app: FastifyInstance) {
   }
 
   // ───────────────────────── INIT ─────────────────────────
+  // One fight setup at a time for a chat (playtest B1): a second request while one is running, from
+  // the chat opened again or another tab, waits for it and gets the same answer instead of asking the
+  // model again, which may take minutes.
+  const settingUp = new Map<string, Promise<{ status: number; body: unknown }>>();
+  type SetupReply = { status(code: number): { send(body: unknown): unknown } };
   app.post<{ Body: EncounterInitRequest }>("/init", async (req, reply) => {
-    const { chatId, connectionId, settings, spellbookId, debugMode } = req.body;
+    const chatId = typeof req.body?.chatId === "string" ? req.body.chatId : "";
+    let pending = chatId ? settingUp.get(chatId) : undefined;
+    if (!pending) {
+      const answered = { status: 200, body: undefined as unknown };
+      const recorder: SetupReply = {
+        status: (code) => ({
+          send: (body) => {
+            answered.status = code;
+            answered.body = body;
+            return answered;
+          },
+        }),
+      };
+      const running = initEncounter(req.body, recorder).then((result) => {
+        if (result !== answered) answered.body = result;
+        return answered;
+      });
+      pending = running;
+      if (chatId) {
+        settingUp.set(chatId, running);
+        void running
+          .finally(() => {
+            if (settingUp.get(chatId) === running) settingUp.delete(chatId);
+          })
+          .catch(() => {});
+      }
+    }
+    const answer = await pending;
+    return reply.status(answer.status).send(answer.body);
+  });
+
+  async function initEncounter(body: EncounterInitRequest, reply: SetupReply): Promise<unknown> {
+    const { chatId, connectionId, settings, spellbookId, debugMode } = body;
     const debugLog = (message: string, ...args: unknown[]) => {
       logDebugOverride(debugMode === true, message, ...args);
     };
 
+    // Every refusal is logged with its reason: a setup that fails is otherwise silent on the server,
+    // and the screen shows only that it failed.
+    const refuse = (body: { error: string; reason?: string }, status = 502, err?: unknown) => {
+      logger.warn(err ?? {}, "[game/combat:init] chatId=%s refused: %s", chatId || "(none)", body.error);
+      return reply.status(status).send(body);
+    };
     if (!chatId || !settings) {
-      return reply.status(400).send({ error: "Missing required fields: chatId, settings" });
+      return refuse({ error: "Missing required fields: chatId, settings" }, 400);
     }
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return refuse({ error: "Chat not found" }, 404);
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
@@ -897,12 +1011,13 @@ export async function encounterRoutes(app: FastifyInstance) {
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
-      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
       const { personaName, personaCtx } = await buildPersonaContext(
         chars,
         chat.personaId ?? null,
         chat.mode,
         chat.personaCharacterId,
+        chat.id,
       );
       let chatMeta: Record<string, unknown> | null = null;
       if (typeof chat.metadata === "string") {
@@ -914,10 +1029,15 @@ export async function encounterRoutes(app: FastifyInstance) {
       } else {
         chatMeta = (chat.metadata as Record<string, unknown> | null) ?? null;
       }
-      const combatStyle =
+      // The game's ruleset, read once: it may name the combat styles its games play (1.379), and a fight
+      // it resolves gets its brief below.
+      const resolvedRuleset =
+        chatMeta?.gameRuleset != null ? resolveGameRuleset(chatMeta, await loadRulesetRegistry()) : null;
+      const combatStyle = rulesetCombatStyle(
+        resolvedRuleset?.status === "ok" ? resolvedRuleset.definition : null,
         (chatMeta?.gameCombatStyle as string | undefined) ??
-        ((chatMeta?.gameSetupConfig as Record<string, unknown> | undefined)?.combatStyle as string | undefined) ??
-        "classic";
+          ((chatMeta?.gameSetupConfig as Record<string, unknown> | undefined)?.combatStyle as string | undefined),
+      );
       const setupConfig = chatMeta?.gameSetupConfig as Record<string, unknown> | undefined;
       const tacticalBattlefieldResult =
         combatStyle === "tactical" && setupConfig?.tacticalBattlefield !== undefined
@@ -925,9 +1045,10 @@ export async function encounterRoutes(app: FastifyInstance) {
           : null;
       if (tacticalBattlefieldResult && !tacticalBattlefieldResult.success) {
         const issue = tacticalBattlefieldResult.error.issues[0];
-        return reply.status(400).send({
-          error: `Stored tactical battlefield settings are invalid: ${issue?.message ?? "invalid settings"}`,
-        });
+        return refuse(
+          { error: `Stored tactical battlefield settings are invalid: ${issue?.message ?? "invalid settings"}` },
+          400,
+        );
       }
       const gameStateCtx = await buildGameStateContext(gsStorage, chatId, personaName, chatMeta);
       const spellbookCtx = await loadSpellbookContext(spellbookId);
@@ -944,16 +1065,16 @@ export async function encounterRoutes(app: FastifyInstance) {
       // exactly the blueprint it was asked for before any of this existed.
       let rulesetBrief: EncounterRulesetBrief | null = null;
       const items = { guess: true, ruleset: [] as string[] };
-      if (chatMeta?.gameRuleset != null) {
-        const resolved = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
-        if (resolved.status === "ok") {
-          rulesetBrief = await encounterRulesetBrief(resolved.definition, resolved.packageId);
-          items.guess = resolved.definition.items?.native !== false;
-          if (resolved.definition.items) {
-            items.ruleset = gameInventoryFightLines(normalizeGameInventoryStacks(chatMeta.gameInventory)).flatMap(
-              (line) => (line.item ? [line.name] : []),
-            );
-          }
+      let fightRuleset: { definition: RulesetDefinition; packageId: string | null } | null = null;
+      if (chatMeta && resolvedRuleset?.status === "ok") {
+        const resolved = resolvedRuleset;
+        fightRuleset = { definition: resolved.definition, packageId: resolved.packageId };
+        rulesetBrief = await encounterRulesetBrief(resolved.definition, resolved.packageId);
+        items.guess = resolved.definition.items?.native !== false;
+        if (resolved.definition.items) {
+          items.ruleset = gameInventoryFightLines(normalizeGameInventoryStacks(chatMeta.gameInventory)).flatMap(
+            (line) => (line.item ? [line.name] : []),
+          );
         }
       }
       const prompt = buildInitPrompt(
@@ -971,6 +1092,16 @@ export async function encounterRoutes(app: FastifyInstance) {
         gameWorldBattlefields(chatMeta),
         gameTtsEmotionIndicatorsEnabled(await createAppSettingsStorage(app.db).get(TTS_SETTINGS_KEY)),
       );
+      // A fight the story set (Capability API 1.343): its opponents are the story's, never the model's.
+      // Creatures the ruleset doesn't have are refused (and logged); with none left, the model picks them.
+      const storyFight = await latestStoryFight(app.db, chatId, chatMeta);
+      const storyRoster = storyFight
+        ? await storyFightOpponents(storyFight, fightRuleset?.definition.combat ? fightRuleset : null)
+        : null;
+      const storyOpponents = storyRoster?.opponents.length ? storyRoster.opponents : null;
+      if (storyFight && storyRoster) {
+        prompt.push({ role: "user", content: storyFightPromptText(storyFight, storyRoster.opponents) });
+      }
       debugLog(
         "[debug/game/combat:init] request chatId=%s model=%s historyMessages=%d settings=%s",
         chatId,
@@ -981,13 +1112,52 @@ export async function encounterRoutes(app: FastifyInstance) {
       debugLog("[debug/game/combat:init] prompt messages:\n%s", JSON.stringify(prompt, null, 2));
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
-      const result = await provider.chatComplete(prompt, {
-        model: conn.model,
-        ...storedOptions,
-        temperature: storedOptions.temperature ?? 0.8,
-        enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
-        maxTokens: resolveStoredMaxTokens(conn.defaultParameters, COMBAT_BLUEPRINT_OUTPUT_TOKENS),
-      });
+      // A connection's Max tokens is sized for story replies, and a whole battle's JSON cut off at
+      // 4096 tokens cannot be read (playtest), so the setup asks for at least its own budget. The
+      // connection's hard cap (maxTokensOverride) still clamps it in the provider.
+      const visibleMaxTokens = Math.max(
+        resolveStoredMaxTokens(conn.defaultParameters, COMBAT_BLUEPRINT_OUTPUT_TOKENS),
+        COMBAT_BLUEPRINT_OUTPUT_TOKENS,
+      );
+      // One call for the blueprint, thinking at medium effort at most: it is structured output, and a
+      // long think at a high effort spends the room the blueprint needs (playtest: 16000 tokens at
+      // xhigh left about 6000 for a 20000-character answer). Asked again once with thinking off when
+      // the answer was cut off before it finished.
+      const ask = async (reasoningEffort: typeof storedOptions.reasoningEffort) => {
+        const thinking = !!reasoningEffort && reasoningEffort !== "none";
+        const maxTokens = withConnectionThinkingHeadroom({
+          provider: conn.provider,
+          model: conn.model ?? "",
+          maxTokens: visibleMaxTokens,
+          reasoningEffort: thinking ? reasoningEffort : null,
+          maxTokensOverride: conn.maxTokensOverride,
+        });
+        const answer = await provider.chatComplete(prompt, {
+          model: conn.model,
+          ...storedOptions,
+          ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+          temperature: storedOptions.temperature ?? 0.8,
+          enableThinking: thinking,
+          maxTokens,
+        });
+        const cutOff = combatBlueprintCutOff(answer.finishReason, answer.content);
+        logger.info(
+          "[game/combat:init] chatId=%s model=%s reasoning=%s maxTokens=%d finish=%s chars=%d outputTokens=%s%s",
+          chatId,
+          conn.model ?? "",
+          thinking ? reasoningEffort : "off",
+          maxTokens,
+          answer.finishReason,
+          answer.content?.length ?? 0,
+          answer.usage?.completionTokens ?? "unknown",
+          cutOff ? " (cut off)" : "",
+        );
+        return { answer, cutOff };
+      };
+      const effort = storedOptions.reasoningEffort;
+      let asked = await ask(effort && COMBAT_BLUEPRINT_EFFORT_CAPPED.has(effort) ? "medium" : effort);
+      if (asked.cutOff && effort && effort !== "none") asked = await ask("none");
+      const result = asked.answer;
       debugLog(
         "[debug/game/combat:init] raw response chatId=%s model=%s chars=%d\n%s",
         chatId,
@@ -995,29 +1165,46 @@ export async function encounterRoutes(app: FastifyInstance) {
         result.content?.length ?? 0,
         result.content ?? "",
       );
+      if (asked.cutOff) {
+        return refuse({
+          error:
+            "The fight's setup was cut off before it finished: the model ran out of room to answer. Retry, or raise this connection's Max tokens.",
+          reason: "cut-off",
+        });
+      }
 
       if (!result.content) {
-        return reply.status(502).send({ error: "No response from AI" });
+        return refuse({ error: "No response from AI" });
       }
 
       let combatState: Record<string, unknown>;
       try {
         combatState = parseJSON(result.content) as Record<string, unknown>;
       } catch {
-        return reply.status(502).send({ error: "AI returned invalid JSON" });
+        return refuse({ error: "AI returned invalid JSON" });
       }
 
       if (!combatState?.party || !combatState?.enemies) {
-        return reply.status(502).send({ error: "Invalid combat data returned by AI" });
+        return refuse({ error: "Invalid combat data returned by AI" });
       }
       const aiBlueprint = encounterBlueprintSchema.safeParse(combatState);
       if (!aiBlueprint.success)
-        return reply.status(502).send({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
+        return refuse({ error: `Invalid combat AI data: ${aiBlueprint.error.issues[0]?.message}` });
       combatState = aiBlueprint.data;
+      if (storyOpponents?.length) {
+        combatState = {
+          ...combatState,
+          enemies: storyFightBlueprintEnemies(
+            storyOpponents,
+            (combatState.enemies as Array<Record<string, unknown>>) ?? [],
+            rulesetBrief !== null,
+          ),
+        };
+      }
       if (combatStyle === "tactical") {
         const tacticalResult = validateTacticalEncounterBlueprint(combatState);
         if (!tacticalResult.ok) {
-          return reply.status(502).send({ error: `AI returned invalid tactical combat data: ${tacticalResult.error}` });
+          return refuse({ error: `AI returned invalid tactical combat data: ${tacticalResult.error}` });
         }
         combatState = tacticalResult.blueprint as Record<string, unknown>;
       }
@@ -1028,16 +1215,21 @@ export async function encounterRoutes(app: FastifyInstance) {
         combatState = { ...combatState, itemEffects: (await loadGameFightItems(app.db, chatMeta, guessed)).effects };
       }
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
+      logger.info(
+        "[game/combat:init] chatId=%s ready: party=%d enemies=%d",
+        chatId,
+        Array.isArray(combatState.party) ? combatState.party.length : 0,
+        Array.isArray(combatState.enemies) ? combatState.enemies.length : 0,
+      );
 
       await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
 
       return { combatState };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      logger.warn(err, "[game/combat:init] Encounter init failed");
-      return reply.status(500).send({ error: `Encounter init failed: ${message}` });
+      return refuse({ error: `Encounter init failed: ${message}` }, 500, err);
     }
-  });
+  }
 
   // ───────────────────────── ACTION ─────────────────────────
   app.post<{ Body: EncounterActionRequest }>("/action", async (req, reply) => {
@@ -1066,12 +1258,13 @@ export async function encounterRoutes(app: FastifyInstance) {
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
-      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
       const { personaName, personaCtx } = await buildPersonaContext(
         chars,
         chat.personaId ?? null,
         chat.mode,
         chat.personaCharacterId,
+        chat.id,
       );
       const spellbookCtx = await loadSpellbookContext(spellbookId);
 
@@ -1176,12 +1369,13 @@ export async function encounterRoutes(app: FastifyInstance) {
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
-      const characterCtx = await buildCharacterContext(chars, characterIds);
+      const characterCtx = await buildCharacterContext(chars, characterIds, chat.id);
       const { personaName, personaCtx } = await buildPersonaContext(
         chars,
         chat.personaId ?? null,
         chat.mode,
         chat.personaCharacterId,
+        chat.id,
       );
 
       const prompt = buildSummaryPrompt(

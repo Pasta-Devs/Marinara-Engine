@@ -381,6 +381,7 @@ const originalAudioDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Aud
 let activeTTSRequests = 0;
 let peakActiveTTSRequests = 0;
 const startedTTSChunks: number[] = [];
+const observedSequenceRequests: Array<Record<string, unknown>> = [];
 
 class RegressionAudio {
   volume = 1;
@@ -405,7 +406,9 @@ class RegressionAudio {
 
 try {
   Object.defineProperty(globalThis, "Audio", { configurable: true, value: RegressionAudio });
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (input, init) => {
+    assert.equal(input, "/api/tts/speak");
+    observedSequenceRequests.push(JSON.parse(String(init?.body)));
     activeTTSRequests += 1;
     peakActiveTTSRequests = Math.max(peakActiveTTSRequests, activeTTSRequests);
     const exceedsProviderConcurrency = activeTTSRequests > 1;
@@ -421,15 +424,31 @@ try {
   };
 
   await ttsService.speakSequence(
-    [{ text: "First narration." }, { text: "Second narration." }, { text: "Third narration." }],
+    [
+      { text: "First narration.", voice: "first-voice" },
+      { text: "Second narration.", voice: "second-voice" },
+      { text: "Third narration.", voice: "third-voice" },
+    ],
     "tts-concurrency-regression",
     {
       throwOnError: true,
+      audioConnectionId: "selected-tts-connection",
       onChunkStart: (_request, index) => startedTTSChunks.push(index),
     },
   );
   assert.equal(peakActiveTTSRequests, 1, "Non-progressive TTS pre-generation must respect serial providers");
   assert.deepEqual(startedTTSChunks, [0, 1, 2], "A provider limit must not silently remove narration chunks");
+  assert.deepEqual(
+    observedSequenceRequests.map(({ voice, audioConnectionId }) => ({ voice, audioConnectionId })),
+    [
+      { voice: "first-voice", audioConnectionId: "selected-tts-connection" },
+      { voice: "second-voice", audioConnectionId: "selected-tts-connection" },
+      { voice: "third-voice", audioConnectionId: "selected-tts-connection" },
+    ],
+    "each actual chunk uses the selected speech connection and its own assigned voice",
+  );
+  assert.equal(ttsService.getState(), "idle");
+  assert.equal(ttsService.getPlayback(), null);
 
   let failedProgressiveFetches = 0;
   globalThis.fetch = async () => {
@@ -471,21 +490,26 @@ try {
     staleFetchStarted = resolve;
   });
   globalThis.fetch = async (_input, init) => {
+    const request = JSON.parse(String(init?.body));
+    assert.equal(request.audioConnectionId, "", "an explicit legacy-settings sentinel is forwarded unchanged");
+    assert.equal(request.voice, "cancel-voice");
     staleFetchStarted();
     return await new Promise<Response>((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
     });
   };
   const staleSequence = ttsService.speakSequence(
-    [{ text: "Cancelled narration.", cacheKey: "tts-abort-cleanup-regression" }],
+    [{ text: "Cancelled narration.", voice: "cancel-voice", cacheKey: "tts-abort-cleanup-regression" }],
     "tts-abort-cleanup",
-    { signal: callerSignal },
+    { signal: callerSignal, audioConnectionId: "" },
   );
   await staleFetchReady;
   ttsService.stop();
   await staleSequence;
   assert.equal(callerAbortListenersAdded, 1, "TTS should attach one caller abort listener per sequence");
   assert.equal(callerAbortListenersRemoved, 1, "A superseded TTS sequence must detach its caller abort listener");
+  assert.equal(ttsService.getState(), "idle", "cancelling the chosen connection returns speech to idle");
+  assert.equal(ttsService.getPlayback(), null);
 } finally {
   ttsService.stop();
   globalThis.fetch = originalFetch;

@@ -392,6 +392,11 @@ export interface AgentContext {
   /** Current game state (if any) */
   gameState: import("./game-state.js").GameState | null;
   /**
+   * The Roleplay Maps location the story is in: breadcrumb path and public description.
+   * Image agents read it under the "Tracker data" Context Source (#8251).
+   */
+  currentLocation?: { path: string; description: string } | null;
+  /**
    * Active characters in the chat. The base shape (id/name/description) is
    * always populated. Richer card fields are optional — they're present in
    * practice, but agents should not rely on them unless needed. The Card

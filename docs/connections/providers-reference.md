@@ -90,7 +90,7 @@ Argon can take several minutes to answer, on either Google connection. If chat r
 
 Marinara reads NanoGPT's detailed model catalog, so the dropdown marks which models your subscription covers and which cost more of it:
 
-- A model included in your subscription shows an **input-token multiplier** pill: `1x` in green when it consumes quota at the normal rate, or a higher value such as `2x` when each token sent costs that many input tokens from your quota. A model that is *not* included shows a **Paid** pill, because its usage bills to your paid balance instead. A model with no pill had no subscription data to report.
+- A model included in your subscription shows an **input-token multiplier** pill: `1x` in green when it consumes quota at the normal rate, or a higher value such as `2x` when each token sent costs that many input tokens from your quota. A model that is _not_ included shows a **Paid** pill, because its usage bills to your paid balance instead. A model with no pill had no subscription data to report.
 
 ### Subscription usage
 
@@ -228,16 +228,34 @@ What a decision model does, how to choose one, and the full setup live in [Decis
 
 ## Audio
 
-**Audio** is a special provider for voices and generated sound. After you pick it, choose an **Audio Source**:
+**Audio** is a special provider for speech and character voices. After you pick it, choose an **Audio Source**:
 
-- **ElevenLabs**: speech, sound effects, and music.
+- **ElevenLabs**: character voices and narration.
 - **OpenAI-compatible**: OpenAI, or any server that copies OpenAI's speech format.
 - **PocketTTS**: a free voice server you run on your own computer.
 - **xAI Voice**: xAI's voice service.
 
-Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 seconds by default; raise it for a slow voice server. To pick which audio connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Audio**. To read messages aloud with one, choose it as the **Source** in the **Text to Speech** card. See [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
+Each source fills in a default base URL and model. **Default Voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line, 60 seconds by default; raise it for a slow voice server. To pick which speech connection Marinara uses by default, open the **Connections** panel, expand **Defaults**, and choose it under **Text to Speech**. To read messages aloud with one, choose it as the **Source** in the **Text to Speech** card. See [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
 
-With the **ElevenLabs** source, two more switches appear: **Game sound effects** and **Game music**. They let Game Mode make sound effects and music with this connection. See [Generated sound effects and music](../game/game-assets.md#generated-sound-effects-and-music). For voices and reading messages aloud, see [Text to Speech (TTS) Setup](../media/tts-setup.md).
+For voices and reading messages aloud, see [Text to Speech (TTS) Setup](../media/tts-setup.md). Generated audio is configured separately below.
+
+## Music & Sound Effects
+
+This connection category generates instrumental music and sound effects separately from speech. Choose a source, enter its key and models, and enable **Music generation**, **Sound-effect generation**, or both. Its default and fallback selections are independent of Audio and language connections. To set them, open the **Connections** panel, expand **Defaults**, and choose them under **Music & Sound Effects**.
+
+| Source                   | Default API base            | Setup                                                                                                                                                                                |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ElevenLabs               | `https://api.elevenlabs.io` | ElevenLabs key; music and sound effects have separate model fields.                                                                                                                  |
+| SunoAPI                  | `https://apibox.erweima.ai` | A key from [sunoapi.org](https://sunoapi.org/), with a public HTTPS callback URL when music is enabled. This is SunoAPI's service, not a consumer Suno subscription login.           |
+| Custom compatible server | Your server address         | An explicit music/SFX endpoint path and supported request format; see [compatible audio contracts](../media/tts-setup.md#game-music-and-sound-effects-on-a-compatible-audio-server). |
+
+SunoAPI music needs a public HTTPS callback address where it can send completion notifications. You must provide that address; Marinara does not create one. Marinara checks when the track is ready itself, so it does not use those notifications for playback.
+
+Music style prompts can have up to 1,000 characters. Sound-effect prompts can have up to 500. Each new request can cost money with your provider. See the [music API](https://docs.sunoapi.org/suno-api/generate-music) and [sound-effects API](https://docs.sunoapi.org/suno-api/generate-sounds) for account requirements. SunoAPI sound effects have not yet been verified using a paid account.
+
+On upgrade, each Audio connection with generation enabled gains a separate Music & Sound Effects connection. Legacy standalone ElevenLabs Game settings may also create their own connection, so more than one can appear. Original speech connections and voice assignments stay unchanged. Saved Game connection IDs do not change. Generation works only when the corresponding migrated connection is available and has the requested music or sound-effect generation enabled; otherwise, select another suitable Music & Sound Effects connection. Check the Music & Sound Effects default and fallback under **Defaults** if several connections are present. Removing a migrated generation connection does not recreate it on restart. Endpoints restored from a profile remain unavailable until reviewed and saved locally.
+
+Enable generated audio per Game, or enable **Sound effects** in Roleplay's command settings to use `[sound: description]`. Gacha Forge has its own generative-audio setting and connection selection. Stock Game audio remains available when generation is off.
 
 ## Embeddings
 

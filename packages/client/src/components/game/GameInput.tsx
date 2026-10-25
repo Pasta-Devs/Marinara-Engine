@@ -270,7 +270,7 @@ export function GameInput({
 
     if (queuedDice) {
       setRollingQueuedDice(true);
-      let diceResult: DiceRollResult | null = null;
+      let diceResult: DiceRollResult | null;
       try {
         diceResult = await onRollDice(queuedDice);
       } finally {

@@ -78,8 +78,9 @@ try {
 
   const noUsage = {
     chatComplete: async (_messages: unknown, options: ChatOptions) => {
-      assert.equal(options.stream, false);
+      assert.equal(options.stream, true, "upstream keeps streaming while the UI waits for the final answer");
       assert.equal(options.onToken, undefined);
+      assert.equal(options.onThinking, undefined);
       return { content: "ok", toolCalls: [], finishReason: "stop" };
     },
   } as unknown as BaseLLMProvider;

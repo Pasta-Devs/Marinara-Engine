@@ -69,6 +69,16 @@ const MAX_CELLS = 96 * 64;
 
 const ref = z.string().max(40);
 const placeId = z.string().min(1).max(16);
+/** A hand map's own words for the Game Master (Capability API 1.357). */
+export const worldMapWordsSchema = z
+  .object({
+    floor: promptSafeText(80).optional(),
+    wall: promptSafeText(80).optional(),
+    liquid: promptSafeText(80).optional(),
+    props: z.array(promptSafeText(60).nullable()).max(8).optional(),
+  })
+  .strict();
+export type WorldMapWords = z.infer<typeof worldMapWordsSchema>;
 const placeName = promptSafeText(60).refine((value) => value.trim().length > 0, "A name needs more than spaces");
 const personName = promptSafeText(40).refine((value) => value.trim().length > 0, "A name needs more than spaces");
 const cell = z.object({ x: z.number().int().min(0).max(255), y: z.number().int().min(0).max(255) }).strict();
@@ -244,6 +254,10 @@ export const worldEditsSchema = z
               .max(80)
               .regex(/^[a-z0-9][a-z0-9_/-]*$/, "A pack's id is lowercase letters, digits, _ - and /")
               .optional(),
+            /** Its own words for the Game Master (Capability API 1.357): what its floor, walls and liquid
+             *  are, and each prop slot 0..7 (null for a slot left unsaid), so a map drawn from a pack of
+             *  its own (a corn maze, a flooded orchard) reads as what it is. */
+            words: worldMapWordsSchema.optional(),
             width: z.number().int().min(4).max(WORLD_MAP_MAX.width),
             height: z.number().int().min(4).max(WORLD_MAP_MAX.height),
             /** One character per cell, row by row: "#" wall, "." floor, "~" liquid. */

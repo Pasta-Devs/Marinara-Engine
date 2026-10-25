@@ -7,6 +7,7 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIMES,
   MARI_RUNTIME_SETTINGS_KEY,
+  MARI_SKILL_GATE_SETTINGS_KEY,
   withMariReceiptOutcome,
 } from "@marinara-engine/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -16,6 +17,7 @@ import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } fr
 import {
   readStoredMariPermissionsMode,
   readStoredMariRuntime,
+  readStoredMariSkillGate,
 } from "../services/professor-mari/workspace-agent.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -223,6 +225,7 @@ const permissionsModeSchema = z.object({
 
 // Professor Mari's runtime ("classic" or "pi"): the same validated-route pattern, global only.
 const runtimeSchema = z.object({ runtime: z.enum(MARI_RUNTIMES) });
+const skillGateSchema = z.object({ enabled: z.boolean() });
 
 /**
  * What the user reads when Keep or Restore fails (#6842), instead of a bare "Internal Server
@@ -319,6 +322,11 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.put<{ Params: { id: string } }>("/skills/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
+    // Shipped procedure: the app's own copy is the only source of truth, so neither
+    // editing nor toggling one is a server operation. Copy it into a user skill to change it.
+    if (await getProfessorMariWorkspaceSkillsService().isReadOnly(req.params.id)) {
+      return reply.code(403).send({ error: "Built-in skills are read-only. Copy it into a new skill to change it." });
+    }
     const input = skillUpdateSchema.parse(req.body);
     const skill = await getProfessorMariWorkspaceSkillsService().update(req.params.id, input);
     await getProfessorMariWorkspaceService(app).reset();
@@ -327,6 +335,9 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/skills/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
+    if (await getProfessorMariWorkspaceSkillsService().isReadOnly(req.params.id)) {
+      return reply.code(403).send({ error: "Built-in skills are read-only." });
+    }
     await getProfessorMariWorkspaceSkillsService().delete(req.params.id);
     await getProfessorMariWorkspaceService(app).reset();
     return { ok: true };
@@ -373,6 +384,18 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     await createAppSettingsStorage(app.db).set(MARI_RUNTIME_SETTINGS_KEY, input.runtime);
     getProfessorMariWorkspaceService(app).resetRuntimeFailures();
     return { ok: true, runtime: input.runtime };
+  });
+
+  app.get("/skill-gate", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    return { enabled: await readStoredMariSkillGate(createAppSettingsStorage(app.db)) };
+  });
+
+  app.put("/skill-gate", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const input = skillGateSchema.parse(req.body);
+    await createAppSettingsStorage(app.db).set(MARI_SKILL_GATE_SETTINGS_KEY, input.enabled ? "true" : "false");
+    return { ok: true, enabled: input.enabled };
   });
 
   app.get("/instructions", async (req, reply) => {

@@ -48,6 +48,7 @@
 //     picks from, which is what the enemy's own turn will read.
 
 export * from "./types.js";
+export * from "./symbols.js";
 export * from "./zones.js";
 export * from "./board-events.js";
 export * from "./calls.js";
@@ -114,6 +115,7 @@ export {
 export {
   createRulesetEncounter,
   currentRulesetActor,
+  rulesetIsAttack,
   refreshRulesetMovement,
   rulesetActiveConditions,
   rulesetWardsOn,
@@ -133,6 +135,9 @@ export {
   rulesetCombatHealth,
   rulesetCombatHide,
   rulesetCombatStanding,
+  rulesetSymbolSpendHolder,
+  rulesetSymbolSpendBudget,
+  rulesetSymbolSpendStanding,
   rulesetConditionModifiers,
   rulesetDamageInEffect,
   rulesetSizeRank,
@@ -230,6 +235,7 @@ export {
   rulesetCriticalFromAdjacent,
   rulesetCoverBonus,
   rulesetDefenseAgainst,
+  rulesetForecastsByTarget,
   rulesetForbiddenTargets,
   rulesetFreeStrike,
   rulesetGrantedStandard,
@@ -269,11 +275,15 @@ export {
   RULESET_ZONE_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
   RULESET_PASS_OPTION,
+  RULESET_ENGINE_SPENDS_OPTION,
+  RULESET_SPEND_OPTION_PREFIX,
   RULESET_STAND_OPTION,
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
   RULESET_RELIGHT_OPTION_PREFIX,
   rulesetRelightCells,
+  RULESET_LAND_OPTION,
+  RULESET_TAKE_OFF_OPTION,
   RULESET_FLY_CEILING,
   type RulesetBonusDice,
   type RulesetCombatCost,
@@ -290,4 +300,5 @@ export {
   type RulesetHeldGroundRelease,
   rulesetEncounterOutcome,
   rulesetEncounterSummary,
+  rulesetAreaGrowth,
 } from "./resolve.js";

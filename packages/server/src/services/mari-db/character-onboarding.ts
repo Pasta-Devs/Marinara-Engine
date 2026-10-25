@@ -18,6 +18,7 @@ import {
   type OnboardingIssue,
 } from "@marinara-engine/shared";
 import { newId } from "../../utils/id-generator.js";
+import { assertOnboardingMacros } from "./macro-lint.js";
 
 type Row = Record<string, unknown>;
 
@@ -170,10 +171,19 @@ export function buildOnboardingUpdate(
   if (!isRecord(patch)) throw new Error("character.onboarding.update needs an onboarding object.");
   const unknownKeys = Object.keys(patch).filter((key) => !ONBOARDING_KEYS.includes(key));
   if (unknownKeys.length > 0) {
+    // A model that escapes a closing quote turns the rest of its string into keys ("}}",backstory").
+    // Say that out loud, or the model keeps "fixing" the field names it never got wrong.
+    const cut = unknownKeys.some(
+      (key) => key.includes('"') || key.includes("{") || key.includes("}") || key.includes("\\"),
+    );
+    const hint = cut
+      ? ' A key containing a quote or a brace usually means a string value was cut by an unescaped " — resend each value as one plain JSON string, with no escaped quotes.'
+      : "";
     throw new Error(
-      `Unknown onboarding key(s): ${unknownKeys.join(", ")}. Use ${ONBOARDING_KEYS.join(", ")} (variables = persona questions, cardVariables = character questions).`,
+      `Unknown onboarding key(s): ${unknownKeys.join(", ")}. Use ${ONBOARDING_KEYS.join(", ")} (variables = persona questions, cardVariables = character questions).${hint}`,
     );
   }
+  assertOnboardingMacros(patch);
   const nested = unknownNestedKeys(patch);
   if (nested.length > 0) {
     throw new Error(

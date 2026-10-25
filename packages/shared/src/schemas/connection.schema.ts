@@ -4,6 +4,7 @@
 import { z } from "zod";
 import {
   DECISION_SOURCES,
+  GENERATIVE_AUDIO_SOURCES,
   IMAGE_GENERATION_QUALITIES,
   MAX_MODEL_ID_LENGTH,
   MAX_PINNED_MODELS,
@@ -31,11 +32,24 @@ export const apiProviderSchema = z.enum([
   "custom",
   "image_generation",
   "video_generation",
+  "audio_generation",
   "audio",
   "decision",
 ]);
 
 export const audioGenerationSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
+export const generativeAudioSourceSchema = z.enum(GENERATIVE_AUDIO_SOURCES);
+
+const audioGenerationEndpointSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => value === "" || /^(?!\/\/)[^?#:\\\s]+$/.test(value),
+    "Use an endpoint path without a host, query, or fragment",
+  )
+  .nullable()
+  .default(null);
 
 export const imageGenerationQualitySchema = z.enum(IMAGE_GENERATION_QUALITIES);
 
@@ -152,6 +166,9 @@ export const createConnectionSchema = z.object({
   videoService: z.string().nullable().default(null),
   videoPromptInstructions: z.string().trim().max(MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH).nullable().default(null),
   audioSource: audioGenerationSourceSchema.nullable().default(null),
+  audioGenerationSource: generativeAudioSourceSchema.nullable().default(null),
+  audioGenerationCallbackUrl: z.string().trim().url().or(z.literal("")).nullable().default(null),
+  audioSoundEffectsModel: z.string().trim().max(MAX_MODEL_ID_LENGTH).nullable().default(null),
   decisionSource: z.enum(DECISION_SOURCES).nullable().default(null),
   credentialsFromConnectionId: z.string().trim().min(1).nullable().default(null),
   accountId: z.string().trim().min(1).nullable().default(null),
@@ -177,6 +194,9 @@ export const createConnectionSchema = z.object({
     .default(null),
   audioSoundEffects: z.boolean().default(false),
   audioMusic: z.boolean().default(false),
+  audioMusicEndpoint: audioGenerationEndpointSchema,
+  audioSoundEffectsEndpoint: audioGenerationEndpointSchema,
+  audioGenerationFormat: z.enum(["binary", "chat_completions"]).default("binary"),
   promptPresetId: z.string().nullable().default(null),
   maxTokensOverride: z.number().int().min(1).nullable().default(null),
   maxParallelJobs: z.number().int().min(1).max(16).default(1),

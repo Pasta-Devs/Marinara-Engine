@@ -1,7 +1,10 @@
 import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { getWorkspaceInstallProblems } from "./check-workspace-install.mjs";
 import { resolveDevSharedBuildScript } from "./dev-shared-build.mjs";
 import { resolvePnpmRunner } from "./pnpm-runner.mjs";
+import { readLauncherEnvValue } from "./read-launcher-env.mjs";
 
 function parseIntegerEnv(name, fallback) {
   const raw = process.env[name];
@@ -10,7 +13,27 @@ function parseIntegerEnv(name, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-const SERVER_PORT = parseIntegerEnv("PORT", 7860);
+// Resolve PORT the way the server does: an exported value wins (dotenv never
+// overrides it), otherwise the server's .env file decides, parsed like getPort().
+// Reading the environment alone polled the 7860 default whenever PORT lived only
+// in .env, so another install on 7860 passed the health check as this server.
+function resolveServerPort() {
+  let raw = process.env.PORT;
+  if (raw === undefined) {
+    const envFile = resolve(import.meta.dirname, "..", process.env.MARINARA_ENV_FILE?.trim() || ".env");
+    try {
+      raw = readLauncherEnvValue(readFileSync(envFile, "utf8"), "PORT") ?? undefined;
+    } catch {
+      // No readable .env: the server falls back to its default as well.
+    }
+  }
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) ? parsed : 7860;
+}
+
+const SERVER_PORT = resolveServerPort();
+// Children inherit it, so the server and the Vite proxy use the port checked here.
+process.env.PORT = String(SERVER_PORT);
 const SERVER_HEALTH_URL = `http://127.0.0.1:${SERVER_PORT}/api/health`;
 const HEALTH_TIMEOUT_MS = parseIntegerEnv("DEV_SERVER_READY_TIMEOUT_MS", 120_000);
 const SHARED_BUILD_SCRIPT = resolveDevSharedBuildScript();

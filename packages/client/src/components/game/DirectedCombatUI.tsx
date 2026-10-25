@@ -1,6 +1,5 @@
-import { CombatAiControls } from "./CombatAiControls";
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
-import { useEffect, useMemo, useRef, type ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import type {
   CombatDecisionOption,
   RulesetDefinition,
@@ -8,11 +7,13 @@ import type {
   TacticalTerrain,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
-import { useDirectedCombat } from "../../hooks/use-directed-combat";
+import { isRulesetRefusal, useDirectedCombat } from "../../hooks/use-directed-combat";
 import { GameCombatUI } from "./GameCombatUI";
-import { RulesetCombatBoard } from "./RulesetCombatBoard";
+import { RulesetCombatScreen, RulesetFightEnd } from "./RulesetCombatScreen";
 import { RulesetCombatStatus } from "./RulesetCombatStatus";
+import { readSpendChoice, writeSpendChoice } from "./RulesetSpendToggle";
 import { rulesetValueLabel } from "../../lib/ruleset-combat-log";
+import { rulesetSpendCarry, runRulesetSpendCarry, type RulesetSpendCarried } from "../../lib/ruleset-combat-menu";
 import type { RulesetCellChoice } from "../../lib/ruleset-combat-board";
 import { TacticalCombatUI } from "./TacticalCombatUI";
 import { cn } from "../../lib/utils";
@@ -45,6 +46,7 @@ export function DirectedCombatUI(props: Props) {
     busy,
     send,
     refresh,
+    viewedAt,
   } = useDirectedCombat({
     chatId: props.chatId,
     anchor: props.anchor,
@@ -70,6 +72,35 @@ export function DirectedCombatUI(props: Props) {
   }, [definition]);
   // What the ruleset calls the number an attack is rolled against, for the one prompt that shows it.
   const defenseLabel = definition ? rulesetValueLabel(definition, definition.combat?.defense) : "";
+  // Whether the player picks their own symbol spends (1.382) is this browser's, carried into each new
+  // fight once, as it opens: the fight starts with the Engine picking.
+  const spendsCarried = useRef<RulesetSpendCarried | null>(null);
+  const [preferSpends, setPreferSpends] = useState(readSpendChoice);
+  const carry = rulesetSpendCarry(
+    s?.style === "ruleset" ? s : undefined,
+    viewedAt,
+    busy,
+    spendsCarried.current,
+    preferSpends,
+  );
+  const carryKey = carry?.key;
+  const carrySends = !!carry?.send;
+  const carryRevision = carry?.revision;
+  const carryView = carry?.view;
+  useEffect(() => {
+    if (carryKey === undefined || carryRevision === undefined || carryView === undefined) return;
+    runRulesetSpendCarry(
+      { key: carryKey, send: carrySends, revision: carryRevision, view: carryView },
+      spendsCarried,
+      send,
+      isRulesetRefusal,
+    );
+  }, [carryKey, carrySends, carryRevision, carryView, send]);
+  const chooseSpends = (choose: boolean) => {
+    writeSpendChoice(choose);
+    setPreferSpends(choose);
+    send({ type: "spends", choose });
+  };
   if (loading || !s)
     return (
       <div className="flex h-full items-center justify-center p-4 text-[var(--foreground)]" role="status">
@@ -137,6 +168,43 @@ export function DirectedCombatUI(props: Props) {
       ...(alters?.length && spares ? { spares } : {}),
       ...(alters?.length && heightens ? { heightens } : {}),
     });
+  // A fight on a board is its own screen: the board, the log under it and the combat pane, with
+  // nothing of the bottom strip the other styles keep.
+  if (board && definition) {
+    return (
+      <RulesetCombatScreen
+        definition={definition}
+        view={board}
+        units={[...s.party, ...s.enemies]}
+        weather={s.weather}
+        environment={board.grid?.scene ?? props.environmentLike ?? props.environment}
+        busy={busy}
+        budgetLabel={budgetLabel}
+        defenseLabel={defenseLabel}
+        onChoose={choose}
+        onFlee={() => send({ type: "flee" })}
+        onControl={(unitId, controller) => send({ type: "control", unitId, controller })}
+        onSpends={chooseSpends}
+        notice={
+          <>
+            {error && (
+              <div
+                role="alert"
+                className="shrink-0 border-b border-[var(--border)] px-3.5 py-2.5 text-sm text-[var(--destructive)]"
+              >
+                {t("game.combat.director.error")}{" "}
+                <button className="min-h-9 px-2 underline" onClick={() => void refresh()}>
+                  {t("game.combat.director.retry")}
+                </button>
+              </div>
+            )}
+            {s.outcome && <RulesetFightEnd view={board} outcome={s.outcome} loot={s.summary?.loot} onFinish={finish} />}
+          </>
+        }
+        ended={!!s.outcome}
+      />
+    );
+  }
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -167,27 +235,6 @@ export function DirectedCombatUI(props: Props) {
                 ),
             }}
           />
-        ) : board ? (
-          <RulesetCombatBoard
-            view={board}
-            units={[...s.party, ...s.enemies]}
-            budgetLabel={budgetLabel}
-            defenseLabel={defenseLabel}
-            environment={board.grid?.scene ?? props.environmentLike ?? props.environment}
-            busy={busy}
-            onChoose={choose}
-            onFlee={() => send({ type: "flee" })}
-            controls={
-              <CombatAiControls
-                party={s.party}
-                enemies={s.enemies}
-                defaultController="ai"
-                locked={busy}
-                onChange={(unitId, controller) => send({ type: "control", unitId, controller })}
-                className={GAME_SECTION_CLASS}
-              />
-            }
-          />
         ) : (
           <GameCombatUI
             {...props}
@@ -211,6 +258,7 @@ export function DirectedCombatUI(props: Props) {
                       busy,
                       onChoose: choose,
                       onFlee: () => send({ type: "flee" }),
+                      onSpends: chooseSpends,
                     },
                   }
                 : {}),

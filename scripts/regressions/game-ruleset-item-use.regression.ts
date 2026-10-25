@@ -236,7 +236,7 @@ try {
     refused(
       gravewatchText,
       tonicUse((use) => (use.temporary = { flat: 1 })),
-      /use\.temporary: Health is the wound track "harm", which carries no buffer for temporary points/,
+      /use\.temporary: Health is the track "harm", which carries no buffer for temporary points/,
       "temporary points on a wound track",
     );
     refused(

@@ -1,16 +1,16 @@
 # Chat Branches
 
-This guide explains chat branches in Marinara Engine: what a branch is and how to make one. It also covers switching, renaming, deleting, exporting, and importing branches. A branch lets you try a different path in a chat without losing the original.
+This guide explains chat branches in Marinara Engine: what a branch is and how to make one. It also covers switching, viewing the branch graph, renaming, deleting, exporting, and importing branches. A branch lets you try a different path in a chat without losing the original.
 
 ## What a branch is
 
 A branch is a copy of a chat that shares history up to a chosen point. You use branches to explore a different direction while keeping the original chat safe.
 
-All branches of the same chat are grouped together. In the chat list, a chat with more than one branch shows as a single row. A small branch count appears next to it. You open and switch between its branches from the **Chat Branches** section of **Chat Settings** (see below).
+All branches of the same chat are grouped together. In the chat list, the chat keeps its row and shows a branch count. Once at least one branch in the group records which of the group's chats it was made from, clicking that count opens the branches underneath it; a branch whose source is unknown sits directly under the chat. Game sessions are numbered sessions rather than branches, so a Game group always keeps its single row. Each branch shows its display name and when it was last active. A branch made from a branch nests under that one, so branches of branches read as a tree instead of a flat pile. You can switch straight to a branch from the list, or use the **Chat Branches** section of **Chat Settings** (see below) to rename, delete, export or import them.
 
 Each branch can have its own display name, so you can label them like "friendly ending" and "dark ending". This display name is separate from the underlying chat name.
 
-Branch lineage records the immediate source chat and the message where the fork was made. The source message ID and its copied message ID are both retained; this lets integrations identify the fork boundary even though copied messages receive new IDs. Branching a branch records that branch as the immediate parent, not the original root. Older branches and imported siblings keep their display name but have no known lineage.
+Branch lineage records the immediate source chat and the message where the fork was made. The source message ID and its copied message ID are both retained; this lets integrations identify the fork boundary even though copied messages receive new IDs. Branching a branch records that branch as the immediate parent, not the original root. Older branches and imported siblings keep their display name but have no known lineage: a group with no known lineage keeps its single row in the chat list, and its branches are still reached from the **Chat Branches** section.
 
 ## Branch from here
 
@@ -43,6 +43,24 @@ The section lists every branch of the current chat, with the branch you are view
 ### Switch to another branch
 
 Click any branch row to open that branch. The chat view switches to the branch you picked.
+
+### See the branch graph
+
+The branch graph shows where each branch split off, which the list cannot.
+
+1. Open the **Chat Branches** section.
+2. Click the **Branch graph** button, the long button above the export buttons. Click it again to close the graph.
+
+The graph opens in its own window, which you can move and resize. On a phone, it opens as a sheet. The graph fills the window: a bigger window folds fewer stretches, and a graph with room to spare zooms in and spreads out. A graph slightly too wide shrinks to fit, down to three-quarters size, and scrolls sideways beyond that. The rows share the window's height, and scroll when there are too many chats to fit.
+
+- Each chat in the group gets one row, in the same tree order as the chat list. Messages run left to right, one dot per message. Grey dots are your messages, accent-coloured dots are character replies, and hollow rings are narrator or system messages.
+- A branch draws only its own messages. A line joins it to the message it was branched from, so you can see exactly where it split off.
+- Older branches and branches whose source chat was deleted have no recorded fork point. They are drawn from the top chat with a dashed line, and the legend shows **Fork not recorded**.
+- Long stretches with no fork nearby fold into a **··· N ···** marker, where N is the number of hidden messages. Click it to show those messages, or use **Expand all** to unfold every stretch. **Collapse long runs** folds them again.
+- Fork points and each branch's latest message have a ring. Hover over a ring, tap it, or focus it with the keyboard to see the message number, who wrote it and the start of its text.
+- Click a branch's name or row to switch to that branch. The branch you are viewing is highlighted, and the graph opens scrolled to its latest message.
+
+The graph updates when you branch, rename or delete a chat, and shortly after new messages arrive.
 
 ### Rename a branch
 

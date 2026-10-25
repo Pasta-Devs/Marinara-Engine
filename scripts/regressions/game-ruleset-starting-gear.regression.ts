@@ -41,6 +41,8 @@ const { createGameStateStorage } = await import("../../packages/server/src/servi
 const { createGameRulesetsStorage } =
   await import("../../packages/server/src/services/storage/game-rulesets.storage.js");
 const { gameInventoryRoutes } = await import("../../packages/server/src/routes/game-inventory.routes.js");
+const { readGameStartingGearTaken } =
+  await import("../../packages/server/src/services/game/game-starting-gear.service.js");
 const { getCapabilityPackageInstallIssue } =
   await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
 
@@ -128,9 +130,9 @@ try {
       [(doc: Record<string, any>) => (gear(doc).lines[0].coins = "crown"), /Unknown currency unit "crown"/],
       [
         (doc: Record<string, any>) => (gear(doc).choices[1].options[1].lines[0].oneOf = ["outfitter/hand-axe"]),
-        /at least 2/,
+        /Too small: expected array to have >=2 items/,
       ],
-      [(doc: Record<string, any>) => gear(doc).choices[0].options.pop(), /at least 2/],
+      [(doc: Record<string, any>) => gear(doc).choices[0].options.pop(), /Too small: expected array to have >=2 items/],
       [(doc: Record<string, any>) => (doc.items.startingGear[1].lines = []), /Starting gear gives something/],
       [(doc: Record<string, any>) => (doc.items.freeform = "refuse"), /refuses plain items/],
       [(doc: Record<string, any>) => (gear(doc).lines[0].equip = true), /Only one of the ruleset's items is put on/],
@@ -415,10 +417,14 @@ try {
     assert.equal(heavy.statusCode, 409);
     assert.equal(heavy.json().reason, "too-heavy");
     assert.deepEqual((await metadataOf(chatId)).gameStartingGearTaken, { "": ["traveller", "pilgrim"] });
-    // Asked again, the calling's gear may be taken a second time, and replaces the first in the marker.
+    // Asked again, the calling's gear may be taken a second time, and the marker keeps both (playtest:
+    // a second calling's kit dropped the first from it).
     const twice = await take({ chatId, selection: { gear: "drifter", choices: [], picks: {} }, again: true });
     assert.equal(twice.statusCode, 200, twice.body);
-    assert.deepEqual(twice.json().taken, { "": ["pilgrim", "drifter"] });
+    assert.deepEqual(twice.json().taken, { "": ["traveller", "pilgrim", "drifter"] });
+    // Read back, a bag's marker keeps its newest forty: the kit just taken is never the one dropped.
+    const many = Array.from({ length: 41 }, (_, index) => `kit-${index}`);
+    assert.deepEqual(readGameStartingGearTaken({ "": many })[""], many.slice(1));
     // A party member's own bag, by their card's name; nobody else's.
     const juno = await take({ chatId, holder: "juno", selection: { gear: "pilgrim", choices: [], picks: {} } });
     assert.equal(juno.statusCode, 200, juno.body);

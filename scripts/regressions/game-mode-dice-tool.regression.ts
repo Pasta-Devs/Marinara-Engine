@@ -475,6 +475,11 @@ assert.match(
 assert.match(reminder, /Never invent a die result/i, "the prompt must forbid inventing the number");
 assert.match(
   reminder,
+  /Call it without announcing it: the narration never says you are about to roll, check or get a number\./,
+  "the prompt must keep the call out of the narration",
+);
+assert.match(
+  reminder,
   /override the sparse-check instructions above/,
   "a tool-resolved check must not request a second roll",
 );

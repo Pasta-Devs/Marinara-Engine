@@ -111,6 +111,9 @@ const MAX_LIVE_NUMBER = 1_000_000;
 const MAX_OP_AMOUNT = 100_000;
 
 const liveNumber = z.number().int().min(-MAX_LIVE_NUMBER).max(MAX_LIVE_NUMBER);
+// Built once: reading a stored live state runs for every combatant on every read.
+const liveTextValue = z.string().max(MAX_LIVE_TEXT_LENGTH);
+const liveStateValue = z.string().max(MAX_LIVE_STATE_VALUE_LENGTH);
 
 export const rulesetLivePoolValueSchema = z
   .object({
@@ -135,7 +138,7 @@ export const rulesetLiveWoundsSchema = z
   .strict();
 
 function boundedRecord<T extends z.ZodTypeAny>(values: T, maxEntries: number, what: string) {
-  return z.record(values).superRefine((record, ctx) => {
+  return z.record(z.string(), values).superRefine((record, ctx) => {
     const keys = Object.keys(record);
     if (keys.length > maxEntries) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: `At most ${maxEntries} ${what} can be stored` });
@@ -155,9 +158,9 @@ export const rulesetLiveStateSchema = z
     pools: boundedRecord(rulesetLivePoolValueSchema, MAX_LIVE_POOLS, "pools").optional(),
     tracks: boundedRecord(liveNumber, MAX_LIVE_TRACKS, "tracks").optional(),
     wounds: boundedRecord(rulesetLiveWoundsSchema, MAX_LIVE_TRACKS, "wound tracks").optional(),
-    text: boundedRecord(z.string().max(MAX_LIVE_TEXT_LENGTH), MAX_LIVE_TEXTS, "text fields").optional(),
+    text: boundedRecord(liveTextValue, MAX_LIVE_TEXTS, "text fields").optional(),
     conditions: z.array(z.string().max(MAX_LIVE_CONDITION_LENGTH)).max(MAX_LIVE_CONDITIONS).optional(),
-    states: boundedRecord(z.string().max(MAX_LIVE_STATE_VALUE_LENGTH), MAX_LIVE_STATES, "states").optional(),
+    states: boundedRecord(liveStateValue, MAX_LIVE_STATES, "states").optional(),
     lowered: boundedRecord(liveNumber, MAX_LIVE_CONDITIONS, "lowered maximums").optional(),
     usedOn: boundedRecord(liveUsedOnNames, MAX_LIVE_USED_ON, "used-on lists").optional(),
   })
@@ -702,7 +705,7 @@ function readStoredLiveStateAsIs(stored: unknown): RulesetLiveState {
   if (tracks) state.tracks = tracks;
   const wounds = keepValid(source.wounds, rulesetLiveWoundsSchema, MAX_LIVE_TRACKS);
   if (wounds) state.wounds = wounds;
-  const text = keepValid(source.text, z.string().max(MAX_LIVE_TEXT_LENGTH), MAX_LIVE_TEXTS);
+  const text = keepValid(source.text, liveTextValue, MAX_LIVE_TEXTS);
   if (text) state.text = text;
   if (Array.isArray(source.conditions)) {
     const conditions = [
@@ -714,7 +717,7 @@ function readStoredLiveStateAsIs(stored: unknown): RulesetLiveState {
     ].slice(0, MAX_LIVE_CONDITIONS);
     if (conditions.length > 0) state.conditions = conditions;
   }
-  const states = keepValid(source.states, z.string().max(MAX_LIVE_STATE_VALUE_LENGTH), MAX_LIVE_STATES);
+  const states = keepValid(source.states, liveStateValue, MAX_LIVE_STATES);
   if (states) state.states = states;
   const lowered = keepValid(source.lowered, liveNumber, MAX_LIVE_CONDITIONS);
   if (lowered) state.lowered = lowered;
@@ -838,6 +841,34 @@ function resolveLive(
   };
 }
 
+/**
+ * A live track read as health (1.383): what it has LEFT out of its length. A wound track's left is
+ * its levels still clear; a plain track fills from its floor up to its maximum, so its left is the
+ * room still above its value, and a full one is a combatant with nothing left. Neither carries a
+ * buffer, so `temp` is always 0.
+ */
+export function rulesetTrackHealth(track: ResolvedRulesetLive["tracks"][number]): {
+  value: number;
+  max: number;
+  temp: number;
+} {
+  if (track.wound)
+    return { value: track.wound.levels.length - track.wound.filled, max: track.wound.levels.length, temp: 0 };
+  return { value: Math.max(0, track.max - track.value), max: Math.max(0, track.max - track.min), temp: 0 };
+}
+
+/** The sheet op that moves a health track by `delta` levels LEFT (1.383): fewer left is harm. A
+ *  plain track moves by the number, the other way round; a wound track is marked with `kind`, or has
+ *  one mark cleared per level given back, which names no kind. */
+export function rulesetTrackHealthOp(track: RulesetLiveTrack, delta: number, kind: string): RulesetSheetOp | null {
+  const amount = Math.round(Math.abs(delta));
+  if (!Number.isFinite(delta) || amount < 1) return null;
+  if (!isRulesetWoundTrack(track)) return { op: "track", track: track.id, by: delta < 0 ? amount : -amount };
+  return delta < 0
+    ? { op: "damage", track: track.id, kind, amount }
+    : { op: "damage", track: track.id, kind: "", amount: -amount };
+}
+
 /** Where a live state starts, and where a rest's `to: "default"` puts it back. */
 export function rulesetStateDefault(state: { values: readonly string[]; default?: string }): string {
   return state.default !== undefined && state.values.includes(state.default) ? state.default : state.values[0]!;
@@ -906,7 +937,9 @@ export type RulesetSheetOp =
    *  box, or the next free one above it. Told apart from the pool shape above by naming a track,
    *  which is what `"track" in op` reads. */
   | { op: "damage"; track: string; kind: string; amount: number; box?: number }
-  | { op: "track"; track: string; to?: number; by?: number }
+  /** `upTo` (1.364) stops a `by` move there: it never carries the track past it, and never moves one
+   *  already beyond it. */
+  | { op: "track"; track: string; to?: number; by?: number; upTo?: number }
   | { op: "condition"; condition: string; active: boolean }
   /** Sets a live state to one of its values, named by the value or its label. */
   | { op: "state"; state: string; value: string }
@@ -994,7 +1027,44 @@ function findPool(pools: ResolvedRulesetLive["pools"], requested: string): PoolM
   if (declared) return { pool: declared };
   const rows = pools.filter((pool) => pool.listId && (sameName(pool.key, wanted) || sameName(pool.label, wanted)));
   if (rows.length === 1) return { pool: rows[0]! };
-  return { refusal: rows.length > 1 ? "ambiguous-pool" : "unknown-pool" };
+  if (rows.length > 1) return { refusal: "ambiguous-pool" };
+  // A declared pool only, and only where one alone fits (#8271: a GM's damage tag on
+  // pool="hit_points" refused while the widget took it).
+  const alike = pools.filter((pool) => !pool.listId && poolLooselyNamed(pool, wanted));
+  if (alike.length === 1) return { pool: alike[0]! };
+  return { refusal: alike.length > 1 ? "ambiguous-pool" : "unknown-pool" };
+}
+
+/** A pool's name written the way a key is ("hit_points" for "Hit Points"), or shortened to its
+ *  label's initials ("hp"), for where no pool has the name exactly (#8271). */
+function poolLooselyNamed(pool: { key: string; label?: string }, wanted: string): boolean {
+  const loose = (text: string) =>
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, " ");
+  const initials = (text: string) =>
+    loose(text)
+      .split(" ")
+      .map((word) => word[0] ?? "")
+      .join("");
+  const looseWanted = loose(wanted);
+  return (
+    loose(pool.key) === looseWanted ||
+    (!!pool.label && (loose(pool.label) === looseWanted || initials(pool.label) === looseWanted))
+  );
+}
+
+/** The one pool of `pools` a name finds: by its key or label exactly, else loosely where one alone
+ *  fits. */
+function poolNamed<Pool extends { key: string; label?: string }>(
+  pools: readonly Pool[],
+  wanted: string,
+): Pool | undefined {
+  const exact = pools.find((pool) => sameName(pool.key, wanted) || (!!pool.label && sameName(pool.label, wanted)));
+  if (exact) return exact;
+  const alike = pools.filter((pool) => poolLooselyNamed(pool, wanted));
+  return alike.length === 1 ? alike[0] : undefined;
 }
 
 function poolNow(pool: { max: number }, value: number, temp: number): string {
@@ -1299,7 +1369,16 @@ export function applyRulesetSheetOp(
     if (!Number.isInteger(op.to ?? op.by) || Math.abs(op.to ?? op.by!) > MAX_LIVE_NUMBER) {
       return { ok: false, reason: "bad-amount" };
     }
-    const value = clamp(moved, track.min, track.max);
+    if (op.upTo !== undefined && (!Number.isInteger(op.upTo) || Math.abs(op.upTo) > MAX_LIVE_NUMBER)) {
+      return { ok: false, reason: "bad-amount" };
+    }
+    const stopped =
+      op.upTo === undefined || op.by === undefined
+        ? moved
+        : op.by >= 0
+          ? Math.max(track.value, Math.min(moved, op.upTo))
+          : Math.min(track.value, Math.max(moved, op.upTo));
+    const value = clamp(stopped, track.min, track.max);
     setTrack(track, value);
     return done(`${track.label} ${value}`);
   }
@@ -1680,9 +1759,7 @@ export function planRulesetUse(
     // rather than reinterpreted, because paying a different bill is not what was asked for.
     const named = op.pool.trim();
     const group = terms.length === 1 ? groupOf(terms[0]!.pool) : undefined;
-    const target = named
-      ? declared.find((pool) => sameName(pool.key, named) || sameName(pool.label, named))
-      : undefined;
+    const target = named ? poolNamed(declared, named) : undefined;
     // A pool of another group pays too where it says so (1.171): 5e's pact slots, for a spell
     // costed from the spell slots, and at no lower a level than the cost's own.
     const pays = definition.sheet.live.pools.find((pool) => pool.id === target?.key)?.pays;
@@ -1835,10 +1912,20 @@ function rulesetSpendRestDice(
   items: ReadonlyArray<RulesetSheetItem> | undefined,
 ): RulesetSheetOpResult {
   const evaluated = evaluateRulesetSheetLive(definition, build, stored, items);
-  const entries = rulesetRestDiceEntries(dice).filter((entry) => pool === undefined || sameName(entry.pool, pool));
+  const pools = readRulesetLive(definition, build, stored).pools;
+  const listed = rulesetRestDiceEntries(dice);
+  // The pool asked for by its key, or by its name or loosely where one listed pool alone fits.
+  const asked =
+    pool === undefined
+      ? undefined
+      : (listed.find((entry) => sameName(entry.pool, pool))?.pool ??
+        poolNamed(
+          pools.filter((one) => listed.some((entry) => entry.pool === one.key)),
+          pool,
+        )?.key);
+  const entries = listed.filter((entry) => pool === undefined || entry.pool === asked);
   if (entries.length === 0) return { ok: false, reason: "bad-pool" };
   // How many each pool gives, in order, before anything is spent: too few in all is refused whole.
-  const pools = readRulesetLive(definition, build, stored).pools;
   const plan: Array<{ entry: RestDice; count: number }> = [];
   let left = count;
   for (const entry of entries) {

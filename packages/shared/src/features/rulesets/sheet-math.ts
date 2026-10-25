@@ -15,6 +15,7 @@ import {
   type RulesetDefinition,
   type RulesetDifficultyLadderStep,
   type RulesetResolution,
+  type RulesetDerivedHideWhen,
   type RulesetHideWhen,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
@@ -85,7 +86,14 @@ export function createRulesetSheetEnvelope(
 export function copyRulesetSheetForGame(definition: RulesetDefinition, stored: unknown): RulesetSheetEnvelope {
   const read = readRulesetSheetEnvelope(definition, stored);
   if (!read) return createRulesetSheetEnvelope(definition);
-  return { v: read.v, build: structuredClone(read.build) };
+  // The guided builder's picks go along, so a character built in the library opens in the game as
+  // the builder made it rather than as one typed in by hand.
+  const builder = (read as { builder?: unknown }).builder;
+  return {
+    v: read.v,
+    build: structuredClone(read.build),
+    ...(builder && typeof builder === "object" && !Array.isArray(builder) ? { builder: structuredClone(builder) } : {}),
+  };
 }
 
 // ── Migrations (Capability API 1.77) ──
@@ -473,8 +481,54 @@ export function rulesetSectionGroups<T extends { section?: string }>(
 /** Every number the sheet yields, computed once, top to bottom. `live` is what a live track or pool
  *  reads; without it they read 0, which is right only where the format refuses them (a maximum, the
  *  proficiency bonus, a catalog's scaling). Anything a player or the Game Master sees, and anything a
- *  check or a fight reads, goes through `evaluateRulesetSheetLive`, which supplies it. */
+ *  check or a fight reads, goes through `evaluateRulesetSheetLive`, which supplies it. Without `live`,
+ *  inside `withRulesetSheetEvaluationCache`, a build already evaluated comes back as it was. */
 export function evaluateRulesetSheet(
+  definition: RulesetDefinition,
+  stored: RulesetSheetBuild,
+  live?: RulesetSheetLiveValues,
+): EvaluatedRulesetSheet {
+  if (live !== undefined || !scopedEvaluations) return evaluateRulesetSheetUncached(definition, stored, live);
+  let byBuild = scopedEvaluations.get(definition);
+  if (!byBuild) scopedEvaluations.set(definition, (byBuild = new WeakMap()));
+  const known = byBuild.get(stored);
+  if (known) return known;
+  const evaluated = evaluateRulesetSheetUncached(definition, stored);
+  byBuild.set(stored, evaluated);
+  return evaluated;
+}
+
+/** The live-less evaluations of the open scope, by definition and build, or null outside one. */
+let scopedEvaluations: WeakMap<RulesetDefinition, WeakMap<RulesetSheetBuild, EvaluatedRulesetSheet>> | null = null;
+
+/**
+ * Runs `run` (synchronous) with every live-less sheet evaluation remembered by the identity of its
+ * definition and build, and forgets them all when it ends; a scope opened inside another uses the
+ * outer one. A fight option or picker loop reads the same sheet thousands of times in one command.
+ * Sound only while nothing writes to a build after it has been evaluated, so inside a scope a build
+ * is evaluated only after its last write: a clone is edited first, then read. A `run` that returns a
+ * promise throws.
+ */
+export function withRulesetSheetEvaluationCache<T>(run: () => T): T {
+  if (scopedEvaluations) return synchronous(run());
+  scopedEvaluations = new WeakMap();
+  try {
+    return synchronous(run());
+  } finally {
+    scopedEvaluations = null;
+  }
+}
+
+/** A promise would be awaited after the scope has closed, so its reads would go uncached, or into
+ *  another command's scope. */
+function synchronous<T>(result: T): T {
+  if (typeof (result as { then?: unknown } | null | undefined)?.then === "function") {
+    throw new TypeError("withRulesetSheetEvaluationCache takes synchronous work only.");
+  }
+  return result;
+}
+
+function evaluateRulesetSheetUncached(
   definition: RulesetDefinition,
   stored: RulesetSheetBuild,
   live?: RulesetSheetLiveValues,
@@ -691,6 +745,24 @@ export function isRulesetItemHidden(
   if (!hide) return false;
   const value = effectiveFieldValue(definition, build, hide.field);
   if (hide.in) return value !== undefined && hide.in.includes(value);
+  if (hide.notEquals !== undefined) return value !== hide.notEquals;
+  return value === hide.equals;
+}
+
+/** Whether a live text field is off the sheet (Capability API 1.378): by a field, as anything else
+ *  is, or by a derived value, which only a text field may be hidden by. `derived` is what the sheet
+ *  worked out. */
+export function isRulesetTextHidden(
+  entry: { hideWhen?: RulesetHideWhen | RulesetDerivedHideWhen },
+  build: RulesetSheetBuild,
+  definition: RulesetDefinition,
+  derived: Readonly<Record<string, number>>,
+): boolean {
+  const hide = entry.hideWhen;
+  if (!hide) return false;
+  if ("field" in hide) return isRulesetItemHidden({ hideWhen: hide }, build, definition);
+  const value = derived[hide.derived] ?? 0;
+  if (hide.in) return hide.in.includes(value);
   if (hide.notEquals !== undefined) return value !== hide.notEquals;
   return value === hide.equals;
 }

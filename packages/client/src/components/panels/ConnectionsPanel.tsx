@@ -89,9 +89,10 @@ function originOf(url: string): string {
   }
 }
 
-function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
+function connectionMatchesSearch(conn: ConnectionRowData, query: string, categoryLabel?: string) {
   if (!query) return true;
   const haystack = [
+    categoryLabel,
     conn.name,
     conn.provider,
     conn.model,
@@ -100,6 +101,9 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
     conn.imageGenerationSource,
     conn.videoService,
     conn.videoGenerationSource,
+    conn.audioSource,
+    conn.audioGenerationSource,
+    conn.audioSoundEffectsModel,
     conn.openrouterProvider,
     conn.embeddingModel,
   ]

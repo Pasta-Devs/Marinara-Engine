@@ -14,8 +14,9 @@
 import {
   advanceRulesetTurn,
   applyRulesetCombatChoice,
+  rulesetCombatIsSymbol,
   assignCombatTactics,
-  chooseCombatCandidate,
+  chooseRankedCombatCandidate,
   clampRulesetStatBlock,
   createRulesetEncounter,
   currentRulesetActor,
@@ -23,6 +24,7 @@ import {
   findRulesetCreature,
   fillRulesetSheetChoices,
   generateTacticalBattlefield,
+  validateTacticalBattlefieldBrief,
   madeTacticalBattlefield,
   foothillElevation,
   holdRulesetCombatant,
@@ -36,6 +38,8 @@ import {
   normalizeTacticalFormation,
   placeSpawns,
   readRulesetLive,
+  rulesetAimedCells,
+  rulesetAreaGrowth,
   rulesetAimCells,
   rulesetAnswerDeflects,
   rulesetCombatant,
@@ -45,6 +49,9 @@ import {
   rulesetCombatConditions,
   rulesetZoneConditions,
   rulesetCombatHealth,
+  rulesetDefenseAgainst,
+  rulesetForecastsByTarget,
+  rulesetConditionIcons,
   rulesetCombatHide,
   rulesetCombatOptions,
   rulesetCostSteps,
@@ -84,15 +91,20 @@ import {
   rulesetAreaCells,
   rulesetZoneCatches,
   rulesetZoneCells,
+  RULESET_LAIR_OPTION_PREFIX,
   RULESET_MOVE_OPTION,
   RULESET_ZONE_OPTION_PREFIX,
   RULESET_ZONE_TURN_OPTION_PREFIX,
   RULESET_PASS_OPTION,
+  RULESET_ENGINE_SPENDS_OPTION,
   RULESET_STAND_OPTION,
   type CombatAiCandidate,
+  type CombatAiScoreParts,
   type Combatant,
   type CombatDecisionOption,
   type DirectedCommand,
+  type DirectedRulesetEvent,
+  type DirectedRulesetReason,
   type DirectedRulesetCombatant,
   type DirectedRulesetOption,
   type DirectedRulesetView,
@@ -113,6 +125,8 @@ import {
   type TacticalGrid,
   type CombatTactics,
   type RulesetSheetItem,
+  rulesetCombatantFlying,
+  withRulesetSheetEvaluationCache,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
@@ -136,15 +150,55 @@ export interface RulesetFightState {
   encounter: RulesetEncounterState;
   /** One per event ever produced, so a client prints only what it has not seen. */
   eventSeq: number;
-  events: Array<{ seq: number; event: RulesetCombatEvent }>;
+  events: Array<{ seq: number; event: DirectedRulesetEvent }>;
   /** Who plays each party member. An opponent is never in here. */
   controllers: Record<string, "manual" | "ai">;
+  /** The player chooses what their own symbol throws buy (1.382): every party member they play is
+   *  asked, and the Engine picks for everybody else. */
+  chooseSpends?: boolean;
   /** The opponents the client marked as bosses, which is what routes a turn to the Game Master. */
   bosses: string[];
   /** Every clamp and every fallback the opponents were built with, in plain words. */
   adjustments: string[];
   /** The loot table each opponent built from the bestiary carries, by combatant id: what a win rolls. */
   lootTables?: Record<string, string>;
+  /** What each opponent was made from, by combatant id: what one that gets away comes back as. */
+  made?: Record<string, RulesetReturningFoe>;
+}
+
+/** An opponent as it was made for a fight, kept for when it gets away and comes back (laptop playtest
+ *  2026-10-25: a Cult Mage that fled at CR 3 with 32 health came back at CR 4 with 65). */
+export interface RulesetReturningFoe {
+  name: string;
+  creature?: string;
+  tier?: string;
+  proposed?: unknown;
+  /** The most health it had, where its dice threw it (a block with no sheet): thrown once, kept. */
+  health?: number;
+}
+
+/** The key a returning opponent is kept and found under: its name, any case and spacing. */
+export function rulesetReturningFoeKey(name: string): string {
+  return normalizeCharacterLookupName(name);
+}
+
+/** The opponents of a finished fight that got away alive, as they were made, and the names of those
+ *  beaten for good: the first come back as they were, the second are forgotten. Called ones are
+ *  neither. */
+export function rulesetFightReturningFoes(fight: RulesetFightState): {
+  fled: RulesetReturningFoe[];
+  beaten: string[];
+} {
+  const fled: RulesetReturningFoe[] = [];
+  const beaten: string[] = [];
+  for (const one of fight.encounter.combatants) {
+    if (one.side !== "enemy" || one.calledBy !== undefined || one.object) continue;
+    const made = fight.made?.[one.id];
+    if (!made) continue;
+    if (one.away?.left) fled.push({ ...made, ...(!one.sheet && one.health ? { health: one.health.max } : {}) });
+    else if (one.down || (one.defeated && !one.away)) beaten.push(made.name);
+  }
+  return { fled, beaten };
 }
 
 export type RulesetCommandResult = { ok: true } | { ok: false; error: string; code: string };
@@ -169,6 +223,17 @@ export function rulesetDirectorStage(state: CombatDirectorState): CombatDirector
  *  what keeps the Engine's `party`, `enemies` and `CombatSummary` in step with the fight, and a
  *  fight that has ended has no decision open and nobody on turn. */
 function settled(state: CombatDirectorState): RulesetCommandResult {
+  const fight = fightOf(state);
+  if (fight) {
+    // Who picks their own spends follows who the player plays, as that changes.
+    const asked = fight.chooseSpends
+      ? fight.encounter.combatants
+          .filter((combatant) => combatant.side === "party" && rulesetController(state, fight, combatant) === "manual")
+          .map((combatant) => combatant.id)
+      : [];
+    if (asked.length > 0) fight.encounter.askSpends = asked;
+    else delete fight.encounter.askSpends;
+  }
   combatDirectorView(state);
   if (state.outcome) {
     state.window = undefined;
@@ -192,6 +257,8 @@ export interface RulesetFightOpponent {
   /** How it fights: the same competence and temperament its choices in the fight are made with,
    *  which is also what fills an invented sheet's open choices. Assigned here when not given. */
   tactics?: Pick<CombatTactics, "proficiency" | "adjective">;
+  /** How a story fight has it (1.363): its Legendary Resistance and health, when it is a bestiary's. */
+  adjust?: { legendaryResistance?: number; maxHp?: number; calls?: Array<{ action: string; creature: string }> };
 }
 
 export interface RulesetFightSeed {
@@ -288,6 +355,17 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
         name: opponent.name,
         side: "enemy",
         creature: { catalogId: found.catalogId, entryId: found.entry.id },
+        ...(opponent.adjust
+          ? {
+              adjust: {
+                ...(opponent.adjust.legendaryResistance !== undefined
+                  ? { legendaryResistance: opponent.adjust.legendaryResistance }
+                  : {}),
+                ...(opponent.adjust.maxHp !== undefined ? { health: opponent.adjust.maxHp } : {}),
+                ...(opponent.adjust.calls?.length ? { calls: opponent.adjust.calls.map((call) => ({ ...call })) } : {}),
+              },
+            }
+          : {}),
       });
       if (found.entry.creature?.loot) lootTables[opponent.id] = found.entry.creature.loot;
       continue;
@@ -414,6 +492,17 @@ export function createRulesetFight(input: RulesetFightSeed): RulesetFightSeedRes
     bosses: input.enemies.filter((opponent) => opponent.boss).map((opponent) => opponent.id),
     adjustments: adjustments.slice(0, RULESET_ADJUSTMENT_LIMIT),
     ...(Object.keys(lootTables).length > 0 ? { lootTables } : {}),
+    made: Object.fromEntries(
+      input.enemies.map((opponent) => [
+        opponent.id,
+        {
+          name: opponent.name,
+          ...(opponent.creature !== undefined ? { creature: opponent.creature } : {}),
+          ...(opponent.tier !== undefined ? { tier: opponent.tier } : {}),
+          ...(opponent.proposed !== undefined ? { proposed: structuredClone(opponent.proposed) } : {}),
+        },
+      ]),
+    ),
   };
   record(fight, encounter.opening);
   for (const line of fight.adjustments) logger.info("[game/combat:ruleset] %s", line);
@@ -460,15 +549,39 @@ function buildRulesetBoard(
   }));
   // The same cursor the tactical style reserves for setup, from the same seed, so the two styles
   // generate the same board for the same fight.
-  const rng = deterministicRng(input.seed >>> 0, 0);
-  const generated = input.made
+  let rng = deterministicRng(input.seed >>> 0, 0);
+  const terrain = normalizeTacticalEnvironment(input.environment ?? undefined);
+  let generated = input.made
     ? madeTacticalBattlefield(input.made)
-    : generateTacticalBattlefield(
-        stands.length,
-        rng,
-        normalizeTacticalEnvironment(input.environment ?? undefined),
-        input.battlefield,
+    : generateTacticalBattlefield(stands.length, rng, terrain, input.battlefield);
+  // Features the Game Master asked for that cannot all stand together (two of different terrain
+  // laid on the same side, laptop playtest 2026-10-25) keep those that can, the first said first,
+  // rather than leaving the fight unstartable.
+  const asked = input.made ? undefined : validateTacticalBattlefieldBrief(input.battlefield);
+  if (!generated.ok && asked?.ok && asked.brief?.features?.length) {
+    const { features, ...rest } = asked.brief;
+    const kept: typeof features = [];
+    for (const feature of features) {
+      const brief = { ...rest, features: [...kept, feature] };
+      if (generateTacticalBattlefield(stands.length, deterministicRng(input.seed >>> 0, 0), terrain, brief).ok)
+        kept.push(feature);
+    }
+    rng = deterministicRng(input.seed >>> 0, 0);
+    generated = generateTacticalBattlefield(
+      stands.length,
+      rng,
+      terrain,
+      kept.length > 0 ? { ...rest, features: kept } : rest,
+    );
+    if (generated.ok)
+      logger.info(
+        "[game/combat:ruleset] Battlefield features left out so the rest could stand: %s",
+        features
+          .filter((feature) => !kept.includes(feature))
+          .map((feature) => `${feature.terrain} ${feature.placement} ${feature.shape}`)
+          .join(", "),
       );
+  }
   if (!generated.ok) return { error: generated.error };
   const { grid } = generated;
   if (
@@ -553,11 +666,21 @@ export function rulesetBoardLightFor(
 const fightOf = (state: CombatDirectorState): RulesetFightState | null =>
   state.style === "ruleset" ? (state.rulesetFight ?? null) : null;
 
-function record(fight: RulesetFightState, events: readonly RulesetCombatEvent[]): void {
+function record(fight: RulesetFightState, events: readonly DirectedRulesetEvent[]): void {
   for (const event of events) fight.events.push({ seq: ++fight.eventSeq, event });
-  if (fight.events.length > RULESET_COMBAT_EVENT_LIMIT) {
-    fight.events = fight.events.slice(-RULESET_COMBAT_EVENT_LIMIT);
-  }
+  fight.events = trimRulesetFightEvents(fight.events);
+}
+
+/**
+ * The fight's events cut back to `RULESET_COMBAT_EVENT_LIMIT`. The AI's reasons (only ever shown
+ * with Debug on) go first, oldest first, so they never cost a player an event of the fight itself:
+ * the fight's own events keep the whole window, and only once they fill it does the oldest go.
+ */
+export function trimRulesetFightEvents<T extends { event: { type: string } }>(events: T[]): T[] {
+  let over = events.length - RULESET_COMBAT_EVENT_LIMIT;
+  if (over <= 0) return events;
+  const kept = events.filter((entry) => !(entry.event.type === "reasoning" && over-- > 0));
+  return over > 0 ? kept.slice(over) : kept;
 }
 
 /** Who plays this combatant: the player, the Engine's own picker, or the Game Master. */
@@ -632,7 +755,7 @@ function conditionsOf(
   definition: RulesetDefinition,
   combatant: RulesetCombatant,
   state?: RulesetEncounterState,
-): Array<{ id: string; label: string; rounds?: number }> {
+): Array<{ id: string; label: string; rounds?: number; icons?: string[] }> {
   const declared = new Map(definition.sheet.live.conditions.map((entry) => [entry.id, entry.label]));
   const tracked = new Map(combatant.tracked.map((entry) => [entry.condition, entry.rounds]));
   // And what a zone they stand in puts on them while they stay (1.179).
@@ -642,10 +765,12 @@ function conditionsOf(
   ]);
   return [...ids].map((id) => {
     const rounds = tracked.get(id);
+    const icons = rulesetConditionIcons(definition, id);
     return {
       id,
       label: declared.get(id) ?? id,
       ...(typeof rounds === "number" ? { rounds } : {}),
+      ...(icons.length ? { icons } : {}),
     };
   });
 }
@@ -666,10 +791,71 @@ function deathTrackOf(definition: RulesetDefinition, combatant: RulesetCombatant
   };
 }
 
+/** What a party member has left of the pools their actions spend (spell slots, ki, sorcery points),
+ *  for the fight's own HUD: a player should not have to open the sheet mid-fight to count slots. */
+function spentPoolsOf(definition: RulesetDefinition, combatant: RulesetCombatant) {
+  if (combatant.side !== "party" || !combatant.sheet) return undefined;
+  // What one of it is called, for a player paying with it (1.378): "a 2nd-level slot".
+  const unitOf = (id: string) => {
+    const declared = definition.sheet.live.pools.find((pool) => pool.id === id);
+    return declared?.unit ? { unit: declared.unit } : {};
+  };
+  // The ruleset may name them itself, in its own order (1.375).
+  const named = definition.combat?.display?.pools;
+  if (named) {
+    const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+    const pools = named.flatMap((id) =>
+      live.pools
+        .filter((pool) => pool.key === id && !pool.listId && pool.max > 0)
+        .map((pool) => ({ id: pool.key, label: pool.label, value: pool.value, max: pool.max, ...unitOf(pool.key) })),
+    );
+    return pools.length ? pools : undefined;
+  }
+  const spent = new Set<string>();
+  const groups = new Set<string>();
+  for (const action of combatant.actions) {
+    if (action.use?.pool) spent.add(action.use.pool);
+    if (action.use?.group) groups.add(action.use.group);
+  }
+  for (const pool of definition.sheet.live.pools) {
+    if ((pool.group && groups.has(pool.group)) || pool.pays?.some((group) => groups.has(group))) spent.add(pool.id);
+  }
+  if (spent.size === 0) return undefined;
+  const live = readRulesetLive(definition, combatant.sheet.build, combatant.sheet.live);
+  const pools = live.pools
+    .filter((pool) => !pool.listId && pool.max > 0 && spent.has(pool.key))
+    .map((pool) => ({ id: pool.key, label: pool.label, value: pool.value, max: pool.max, ...unitOf(pool.key) }));
+  return pools.length ? pools : undefined;
+}
+
+/** The cells an area held in a window covers, laid as it was aimed: what a board tints while the ones
+ *  it would catch decide whether to answer. */
+function heldAreaCells(
+  definition: RulesetDefinition,
+  encounter: RulesetEncounterState,
+  window: NonNullable<RulesetEncounterState["window"]>,
+) {
+  const resume = window.resume;
+  if (resume?.kind !== "action" || !resume.at) return undefined;
+  if (window.trigger.kind !== "aimed" && window.trigger.kind !== "used") return undefined;
+  const actor = encounter.combatants.find((combatant) => combatant.id === resume.actorId);
+  // Grown for the higher cost it was paid with (1.267), as it will land.
+  const grow = actor ? rulesetAreaGrowth(definition, actor, resume.optionId, resume.payWith) : 0;
+  const cells = rulesetAimedCells(encounter, resume.actorId, resume.optionId, resume.at, {
+    ...(grow ? { grow } : {}),
+    ...(resume.toward ? { toward: resume.toward } : {}),
+    ...(resume.ring ? { ring: true } : {}),
+    ...(resume.also ? { also: resume.also } : {}),
+  });
+  return cells.length ? cells.map((cell) => ({ x: cell.x, y: cell.y })) : undefined;
+}
+
 function projectCombatant(
   definition: RulesetDefinition,
   combatant: RulesetCombatant,
   state: RulesetEncounterState,
+  /** Whose turn it is, when one is taking it. */
+  attacker: RulesetCombatant | undefined,
 ): DirectedRulesetCombatant {
   const combat = definition.combat!;
   const health = rulesetCombatHealth(definition, combat, combatant);
@@ -688,7 +874,17 @@ function projectCombatant(
     ...(combatant.creature ? { creature: { ...combatant.creature } } : {}),
     initiative: combatant.initiative,
     health,
-    defense: combatant.defense,
+    // What an attack is rolled against now, with what its conditions add (a Shield's +5), what a
+    // dropped shield took away and the cover of the ground it stands on. Against a foe whose turn it
+    // is, the cover and high ground between them too: the number the log will say. With no such foe,
+    // only what holds against a blow from anywhere.
+    defense: rulesetDefenseAgainst(
+      definition,
+      combat,
+      state,
+      combatant,
+      attacker && attacker.side !== combatant.side ? attacker : undefined,
+    ).defense,
     conditions: conditionsOf(definition, combatant, state),
     hides: rulesetCombatHide(definition, combatant, state),
     damageModifiers: active.flatMap((source) => {
@@ -719,6 +915,7 @@ function projectCombatant(
       return { kind: { ...(type ? { type } : {}), ...(tags.length ? { tags } : {}) } };
     })(),
     ...(combatant.concentrating ? { concentrating: combatant.concentrating.label } : {}),
+    ...((pools) => (pools ? { pools } : {}))(spentPoolsOf(definition, combatant)),
     ...(combatant.block?.tier ? { tier: combatant.block.tier } : {}),
     ...(combatant.block?.traits?.length ? { traits: combatant.block.traits.map((trait) => ({ ...trait })) } : {}),
     ...(typeof combatant.x === "number" && typeof combatant.y === "number" ? { x: combatant.x, y: combatant.y } : {}),
@@ -727,6 +924,8 @@ function projectCombatant(
       : {}),
     ...(combatant.altitude !== undefined ? { altitude: combatant.altitude } : {}),
     ...(combatant.span !== undefined ? { span: combatant.span } : {}),
+    // Drawn in its flying art (1.352): never read by the rules.
+    ...(rulesetCombatantFlying(state.board?.grid, combatant) ? { flying: true as const } : {}),
   };
 }
 
@@ -760,12 +959,79 @@ export function rulesetMenu(
       inWindow && encounter.window?.trigger.kind === "falls" && option.targets.count > 1 && actor && action
         ? rulesetFallTargets(definition, encounter, actor, action)
         : undefined;
+    const targetIds = fallers ?? rulesetOptionTargets(definition, encounter, actorId, option);
+    // Odds for each one it may be pointed at, where there is a choice to make between them.
+    const forecastFor =
+      targetIds.length > 1 && option.forecast && !option.area
+        ? rulesetForecastsByTarget(definition, encounter, actorId, option.id, targetIds)
+        : undefined;
+    const raisesDefense =
+      inWindow && encounter.window?.trigger.kind === "hit" && option.kind !== "end-turn"
+        ? heldHitAnswer(definition, encounter, actorId, option, targetIds, encounter.window.trigger)
+        : undefined;
     return {
       ...option,
-      targetIds: fallers ?? rulesetOptionTargets(definition, encounter, actorId, option),
+      targetIds,
+      ...(forecastFor && Object.keys(forecastFor).length > 0 ? { forecastFor } : {}),
+      ...(raisesDefense ? { raisesDefense } : {}),
       ...(aim.length > 0 ? { aim } : {}),
     };
   });
+}
+
+type HeldHit = Extract<NonNullable<RulesetEncounterState["window"]>["trigger"], { kind: "hit" }>;
+
+/** What taking one answer to a held hit does to the defense it is checked against: the answer is
+ *  taken on a copy of the fight with every die at its middle, and the defense read again. Nothing
+ *  when it does not raise it (a counter-strike, or a reaction aimed elsewhere). */
+function heldHitAnswer(
+  definition: RulesetDefinition,
+  encounter: RulesetEncounterState,
+  actorId: string,
+  option: RulesetCombatOption,
+  targetIds: string[],
+  hit: HeldHit,
+): { to: number; misses?: true } | undefined {
+  const combat = definition.combat;
+  if (!combat) return undefined;
+  const struckId = hit.targetIds?.[0] ?? actorId;
+  // The one struck leads, when the answer may go to them: a reaction shielding an ally.
+  const aimed = targetIds.includes(struckId) ? [struckId, ...targetIds.filter((id) => id !== struckId)] : targetIds;
+  try {
+    const step = applyRulesetCombatChoice(
+      definition,
+      encounter,
+      { actorId, optionId: option.id, targetIds: aimed.slice(0, Math.max(0, option.targets.count)) },
+      (sides) => Math.ceil(sides / 2),
+    );
+    const struck = rulesetCombatant(step.state, struckId);
+    const source = rulesetCombatant(step.state, hit.sourceId);
+    if (!struck) return undefined;
+    const heldId = hit.optionId.startsWith(RULESET_LAIR_OPTION_PREFIX)
+      ? hit.optionId.slice(RULESET_LAIR_OPTION_PREFIX.length)
+      : hit.optionId;
+    const action = source?.actions.find((one) => one.id === heldId);
+    const to = rulesetDefenseAgainst(definition, combat, step.state, struck, source, action).defense;
+    if (to <= hit.defense) return undefined;
+    return { to, ...(hit.total < to ? { misses: true as const } : {}) };
+  } catch (error) {
+    logger.debug(error, "[game/combat:ruleset] could not preview %s's answer %s to a held hit", actorId, option.id);
+    return undefined;
+  }
+}
+
+/** About how much a held hit's damage comes to against the one it hit. */
+function heldHitStakes(
+  definition: RulesetDefinition,
+  encounter: RulesetEncounterState,
+  hit: HeldHit,
+  /** The one being asked, who was hit where the hit names nobody else. */
+  askedId: string,
+): number | undefined {
+  const struckId = hit.targetIds?.[0] ?? askedId;
+  const damage = rulesetForecastsByTarget(definition, encounter, hit.sourceId, hit.optionId, [struckId])[struckId]
+    ?.averageDamage;
+  return damage !== undefined && Math.round(damage) > 0 ? Math.round(damage) : undefined;
 }
 
 /** The fight as a screen reads it. A projection: no sheet build, no live blob and no catalogs. */
@@ -844,7 +1110,9 @@ export function directedRulesetView(
       : {}),
     ...(actor && !over ? { actorId: actor.id } : {}),
     controller,
-    combatants: encounter.combatants.map((combatant) => projectCombatant(definition, combatant, encounter)),
+    combatants: encounter.combatants.map((combatant) =>
+      projectCombatant(definition, combatant, encounter, actor && !over ? actor : undefined),
+    ),
     // The areas spells left standing (1.172), drawn on the board and listed beside it.
     ...(rulesetZonesShown(encounter).length > 0 ? { zones: rulesetZonesShown(encounter) } : {}),
     // What stands on the board that may be broken (1.316), broken ones too.
@@ -867,6 +1135,9 @@ export function directedRulesetView(
           window: {
             id: held.window.id,
             kind: held.window.kind,
+            ...(held.window.trigger.kind === "spend"
+              ? { spend: { by: held.window.trigger.by, hit: held.window.trigger.hit } }
+              : {}),
             actorId: held.actorId,
             waiting: Math.max(0, held.window.waiting.length - 1),
             ...(held.window.trigger.kind === "leaves-reach" ? { moverId: held.window.trigger.moverId } : {}),
@@ -875,9 +1146,16 @@ export function directedRulesetView(
             ...(rulesetWindowMoment(held.window.trigger) ? { moment: rulesetWindowMoment(held.window.trigger)! } : {}),
             ...("label" in held.window.trigger ? { label: held.window.trigger.label } : {}),
             ...(held.window.trigger.kind === "hit"
-              ? { total: held.window.trigger.total, defense: held.window.trigger.defense }
+              ? ((hit, stakes) => ({
+                  total: hit.total,
+                  defense: hit.defense,
+                  ...(stakes !== undefined ? { stakes } : {}),
+                }))(held.window.trigger, heldHitStakes(definition, encounter, held.window.trigger, held.actorId))
               : {}),
             controller: held.controller,
+            ...((cells) => (cells ? { cells } : {}))(
+              grid ? heldAreaCells(definition, encounter, held.window) : undefined,
+            ),
           },
           ...(held.controller === "manual" && !state.window
             ? { options: rulesetMenu(definition, encounter, held.actorId, true) }
@@ -886,6 +1164,7 @@ export function directedRulesetView(
       : actor && !over && controller === "manual" && !state.window
         ? { options: rulesetMenu(definition, encounter, actor.id) }
         : {}),
+    ...(rulesetCombatIsSymbol(definition.combat) ? { spends: { choose: !!fight.chooseSpends } } : {}),
     events: fight.events.map((entry) => ({ seq: entry.seq, event: entry.event })),
     ...(over ? { summary: rulesetEncounterSummary(definition, encounter) } : {}),
     adjustments: [...fight.adjustments],
@@ -1425,8 +1704,15 @@ function rulesetCandidatesFrom(
       const ally = target.side === actor.side;
       const health = rulesetCombatHealth(definition, combat, target);
       const pool = Math.max(1, health.value + health.temp);
-      const chance = option.forecast?.hitChance ?? 1;
-      const average = option.forecast?.averageDamage ?? 0;
+      // A symbol fight's forecast hangs on who is aimed at (1.382): their soak, their side's allies,
+      // the conditions they already have. Every other fight's menu number holds for each target.
+      const aimed =
+        option.forecast?.worth !== undefined
+          ? (rulesetForecastsByTarget(definition, encounter, actorId, option.id, [targetId])[targetId] ??
+            option.forecast)
+          : option.forecast;
+      const chance = aimed?.hitChance ?? 1;
+      const average = aimed?.averageDamage ?? 0;
       const candidate: CombatAiCandidate<RulesetCandidate> = {
         action: {
           choice: { actorId, optionId: option.id, targetIds: lands ? [] : [targetId], ...paying(way) },
@@ -1479,7 +1765,9 @@ function rulesetCandidatesFrom(
             ...others.map((other) => other.id),
             ...Array.from({ length: again }, () => targetId),
           ];
-        candidate.damage = Math.min(2, (average / pool) * (1 + others.length + again)) * chance;
+        // A symbol fight's hit is weighed with what either side's spends buy (1.382).
+        const worth = aimed?.worth ?? average;
+        candidate.damage = Math.min(2, (worth / pool) * (1 + others.length + again)) * chance;
         if (average >= pool) candidate.finish = chance;
       } else if (ally) {
         // Giving back a pool that is already full, or one somebody without a sheet does not have,
@@ -1910,14 +2198,65 @@ function pickRulesetChoice(
   /** A window's own menu, when the pick is an answer to one rather than a turn. */
   menu?: RulesetCombatOption[],
 ): RulesetCandidate | null {
+  return pickRulesetRanked(definition, state, encounter, actorId, menu)?.candidate.action ?? null;
+}
+
+/** The pick with how it was scored, for the reasons the debug log gives after it. */
+function pickRulesetRanked(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  encounter: RulesetEncounterState,
+  actorId: string,
+  menu?: RulesetCombatOption[],
+): { candidate: CombatAiCandidate<RulesetCandidate>; parts: CombatAiScoreParts } | null {
   const candidates = menu
     ? rulesetCandidatesFrom(definition, encounter, actorId, null, brokenLairMenu(definition, encounter, actorId, menu))
     : rulesetCandidates(definition, encounter, actorId);
   if (candidates.length === 0) return null;
   const unit = [...state.party, ...state.enemies].find((entry) => entry.id === actorId);
-  if (!unit) return candidates[0]!.action;
+  if (!unit) return { candidate: candidates[0]!, parts: {} };
   unit.tactics ??= assignCombatTactics(unit, state.seed);
-  return chooseCombatCandidate(unit, candidates, encounter.round, normalizeGameDifficulty(state.difficulty));
+  return chooseRankedCombatCandidate(unit, candidates, encounter.round, normalizeGameDifficulty(state.difficulty));
+}
+
+/** How small a part of a pick's score is too small to give as a reason. */
+const RULESET_REASON_FLOOR = 0.05;
+
+/**
+ * Why a pick was made, read back from its own scoring (debug log): the parts that weighed most,
+ * largest first, at most three, then the walk it took to get where it acted from. Nothing here is
+ * asked of a model, and nothing names a ruleset's own spells or attacks.
+ */
+function rulesetPickReasons(
+  candidate: CombatAiCandidate<RulesetCandidate>,
+  parts: CombatAiScoreParts,
+  walked?: number,
+): DirectedRulesetReason[] {
+  const targetId = candidate.targetId;
+  const reasons = (Object.entries(parts) as Array<[keyof CombatAiScoreParts, number]>)
+    .filter(([, part]) => Math.abs(part) >= RULESET_REASON_FLOOR)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 3)
+    .map(([why]): DirectedRulesetReason => {
+      if (why === "damage") {
+        const damage = candidate.damage ?? 0;
+        return {
+          why,
+          ...(targetId ? { targetId } : {}),
+          strength: damage >= 0.5 ? "heavy" : damage >= 0.2 ? "solid" : "some",
+        };
+      }
+      if (why === "risk" || why === "cost") return { why };
+      return { why, ...(targetId ? { targetId } : {}) };
+    });
+  if (walked) reasons.push({ why: "walked", cells: walked });
+  if (reasons.length === 0 && candidate.action.option.kind === "end-turn") reasons.push({ why: "nothingWorth" });
+  return reasons;
+}
+
+/** The reasons for a step just taken, on the log after it. Nothing when there is nothing to say. */
+function recordReasons(fight: RulesetFightState, actorId: string, reasons: DirectedRulesetReason[]): void {
+  if (reasons.length) record(fight, [{ type: "reasoning", actorId, reasons }]);
 }
 
 /**
@@ -2030,15 +2369,29 @@ function answerRulesetWindows(
     const combatant = rulesetCombatant(fight.encounter, asking);
     const controller = rulesetController(state, fight, combatant);
     if (controller === "manual") return;
+    // A chooser of their own spends handed to the Engine mid-throw (1.382) gets the Engine's pick.
+    if (window.kind === "spend") {
+      const engine = rulesetWindowOptions(definition, fight.encounter, asking).some(
+        (option) => option.id === RULESET_ENGINE_SPENDS_OPTION,
+      );
+      applyChoiceOnly(definition, state, fight, {
+        actorId: asking,
+        optionId: engine ? RULESET_ENGINE_SPENDS_OPTION : RULESET_PASS_OPTION,
+        targetIds: [],
+        window: window.id,
+      });
+      continue;
+    }
     if (controller === "gm" && openRulesetWindowDecision(definition, state, fight, asking)) return;
     const menu = rulesetWindowOptions(definition, fight.encounter, asking);
     // Somebody hidden from it, and a Detect to look for them with (1.287).
     const looking = searchOption(definition, fight.encounter, asking, menu, false);
-    const picked = looking
+    const ranked = looking
       ? null
       : menu.length > 0
-        ? pickRulesetChoice(definition, state, fight.encounter, asking, menu)
+        ? pickRulesetRanked(definition, state, fight.encounter, asking, menu)
         : null;
+    const picked = ranked?.candidate.action;
     const choice: RulesetCombatChoice = looking
       ? { actorId: asking, optionId: looking.id, targetIds: [], window: window.id }
       : picked?.choice
@@ -2060,6 +2413,8 @@ function answerRulesetWindows(
         targetIds: [],
         window: window.id,
       });
+    } else if (ranked && choice.optionId !== RULESET_PASS_OPTION) {
+      recordReasons(fight, asking, rulesetPickReasons(ranked.candidate, ranked.parts));
     }
   }
 }
@@ -2114,8 +2469,10 @@ function playRulesetTurn(
   }
   // Driven away or toward somebody (1.264), the walk comes first, sprinting where it may.
   const actor = rulesetCombatant(fight.encounter, actorId);
-  if (actor && rulesetDrivenFrom(definition, fight.encounter, actor))
-    walkTowardsTrouble(definition, state, fight, actorId);
+  if (actor && rulesetDrivenFrom(definition, fight.encounter, actor)) {
+    if (walkTowardsTrouble(definition, state, fight, actorId, false))
+      recordReasons(fight, actorId, [{ why: "driven" }]);
+  }
   // Everybody it could fight is hidden from it (1.287): it looks for them first.
   const looking = searchOption(
     definition,
@@ -2127,10 +2484,16 @@ function playRulesetTurn(
   if (looking) applyChoice(definition, state, fight, { actorId, optionId: looking.id, targetIds: [] });
   for (let action = 0; action < RULESET_TURN_ACTION_LIMIT; action++) {
     if (rulesetEncounterOutcome(fight.encounter) !== "ongoing") break;
-    const picked = pickRulesetChoice(definition, state, fight.encounter, actorId);
+    const ranked = pickRulesetRanked(definition, state, fight.encounter, actorId);
+    const picked = ranked?.candidate.action ?? null;
     const idle = !picked || picked.option.kind === "end-turn";
     if (idle) {
-      if (!walkTowardsTrouble(definition, state, fight, actorId)) break;
+      if (!walkTowardsTrouble(definition, state, fight, actorId)) {
+        // Ending a turn it did nothing with says why; ending one it already spent says nothing new.
+        if (ranked && picked && action === 0)
+          recordReasons(fight, actorId, rulesetPickReasons(ranked.candidate, ranked.parts));
+        break;
+      }
       continue;
     }
     // A standard action is only ever picked when nothing it has can hurt or help anybody from
@@ -2138,10 +2501,14 @@ function playRulesetTurn(
     // more as a sprint towards the fight than as a dodge nobody is swinging at; the standard is
     // what is left once there is nowhere better to stand.
     if (picked.option.kind === "standard" && walkTowardsTrouble(definition, state, fight, actorId)) continue;
+    const from = rulesetPositionOf(rulesetCombatant(fight.encounter, actorId));
     if (picked.to && !stepBefore(definition, state, fight, actorId, picked.to)) break;
+    const walked =
+      picked.to && from ? Math.max(Math.abs(picked.to.x - from.x), Math.abs(picked.to.y - from.y)) : undefined;
     // A refusal here would be an Engine bug rather than a player's mistake, so the turn ends
     // instead of asking again with the same state and looping.
     if (applyChoice(definition, state, fight, picked.choice).refused) break;
+    recordReasons(fight, actorId, rulesetPickReasons(ranked!.candidate, ranked!.parts, walked));
   }
   advanceTurn(definition, state, fight);
 }
@@ -2193,12 +2560,24 @@ function walkTowardsTrouble(
   state: CombatDirectorState,
   fight: RulesetFightState,
   actorId: string,
+  /** Whether to say why on the debug log: it closed on the nearest opponent. */
+  explain = true,
 ): boolean {
   if (!fight.encounter.board?.grid) return false;
   const actor = rulesetCombatant(fight.encounter, actorId);
   if (!actor || (actor.movementLeft ?? 0) < 1) return false;
   const closing = rulesetClosingMove(definition, fight.encounter, actorId);
   if (!closing) return false;
+  const walked = (sprinted: boolean): boolean => {
+    if (explain) {
+      const after = rulesetCombatant(fight.encounter, actorId);
+      const nearest = after ? rulesetApproachedOpponent(fight.encounter, after) : undefined;
+      recordReasons(fight, actorId, [
+        { why: "approach", ...(nearest ? { targetId: nearest.id } : {}), ...(sprinted ? { sprinted: true } : {}) },
+      ]);
+    }
+    return true;
+  };
   const sprint = (definition.combat?.standard ?? []).includes("dash") && !actor.flags.dashed;
   if (sprint) {
     const sprinted = applyChoice(definition, state, fight, {
@@ -2209,10 +2588,32 @@ function walkTowardsTrouble(
     // A sprint the rules refused costs nothing: the walk below happens either way.
     if (!sprinted.refused) {
       const again = rulesetClosingMove(definition, fight.encounter, actorId);
-      return !!again && !applyChoice(definition, state, fight, again.choice).refused;
+      return !!again && !applyChoice(definition, state, fight, again.choice).refused && walked(true);
     }
   }
-  return !applyChoice(definition, state, fight, closing.choice).refused;
+  return !applyChoice(definition, state, fight, closing.choice).refused && walked(false);
+}
+
+/**
+ * The opponent its walk closed on, for a reason that names whom it walked toward: the one nearest by
+ * the walk still left to reach any cell they fill, which is how the closing move chose its cell, so a
+ * wall between them or a big foe's reach counts as it did there.
+ */
+function rulesetApproachedOpponent(
+  encounter: RulesetEncounterState,
+  actor: RulesetCombatant,
+): RulesetCombatant | undefined {
+  const grid = encounter.board?.grid;
+  if (!grid || !rulesetPositionOf(actor)) return undefined;
+  const mine = rulesetFootprint(actor);
+  let best: { one: RulesetCombatant; gap: number } | undefined;
+  for (const one of encounter.combatants) {
+    if (one.side === actor.side || !rulesetPositionOf(one) || !rulesetCombatStanding(one)) continue;
+    const walking = rulesetWalkingDistances(grid, rulesetFootprint(one), actor);
+    const gap = Math.min(...mine.map((cell) => walking.get(`${cell.x},${cell.y}`) ?? Infinity));
+    if (gap < (best?.gap ?? Infinity)) best = { one, gap };
+  }
+  return best?.one;
 }
 
 // ── The Game Master's window ──
@@ -2396,6 +2797,17 @@ export function commandRulesetCombatDirector(
   command: DirectedCommand,
   source: "gm" | "ai" | "manual" | "fallback" = "manual",
 ): RulesetCommandResult {
+  // The option and picker loops read the same sheets thousands of times in one command, and no build
+  // is written to during it: the fight's creation and the creature-sheet hold run outside it.
+  return withRulesetSheetEvaluationCache(() => runRulesetCommand(definition, state, command, source));
+}
+
+function runRulesetCommand(
+  definition: RulesetDefinition,
+  state: CombatDirectorState,
+  command: DirectedCommand,
+  source: "gm" | "ai" | "manual" | "fallback",
+): RulesetCommandResult {
   const fight = fightOf(state);
   if (!fight) return refuse("This battle is not resolved by a ruleset.", "ruleset_combat_not_a_ruleset_fight");
   if (!definition.combat)
@@ -2409,6 +2821,16 @@ export function commandRulesetCombatDirector(
   if (command.type === "flee") {
     state.outcome = "flee";
     fight.encounter = settleRulesetFledFight(definition, fight.encounter, rollerFor(fight)).state;
+    return settled(state);
+  }
+
+  if (command.type === "spends") {
+    if (!rulesetCombatIsSymbol(definition.combat)) {
+      return refuse("Only a fight in symbol dice has spends to choose.", "ruleset_combat_no_spends");
+    }
+    if (state.window) return refuse("Resolve the open decision first.", "ruleset_combat_decision_open");
+    if (command.choose) fight.chooseSpends = true;
+    else delete fight.chooseSpends;
     return settled(state);
   }
 

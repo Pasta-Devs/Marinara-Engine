@@ -2,6 +2,7 @@
 // Prompt Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
 
 export const managedGenerationParameterValueSchema = z.object({
   enabled: z.boolean(),
@@ -37,6 +38,7 @@ const RESERVED_REQUEST_HEADERS = new Set([
 /** Connection-only, non-secret API options; authentication and transport stay host-managed. */
 export const customRequestHeadersSchema = z
   .record(
+    z.string(),
     z
       .string()
       .max(2048)
@@ -116,9 +118,9 @@ export const generationParametersSchema = z.object({
     )
     .max(20)
     .default([]),
-  customParameters: z.record(z.unknown()).default({}),
+  customParameters: z.record(z.string(), z.unknown()).prefault({}),
   customHeaders: customRequestHeadersSchema.optional(),
-  managedCustomParameters: z.record(managedGenerationParameterValueSchema).default({}),
+  managedCustomParameters: z.record(z.string(), managedGenerationParameterValueSchema).prefault({}),
   enabledParameters: z
     .object({
       temperature: z.boolean().optional(),
@@ -173,7 +175,7 @@ export const createChoiceBlockSchema = z.object({
   optionSort: choiceOptionSortSchema.default("manual"),
 });
 
-export const updateChoiceBlockSchema = createChoiceBlockSchema.omit({ presetId: true }).partial();
+export const updateChoiceBlockSchema = partialInput(createChoiceBlockSchema.omit({ presetId: true }));
 
 // ── Groups ──
 
@@ -185,7 +187,7 @@ export const createPromptGroupSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
-export const updatePromptGroupSchema = createPromptGroupSchema.omit({ presetId: true }).partial();
+export const updatePromptGroupSchema = partialInput(createPromptGroupSchema.omit({ presetId: true }));
 
 // ── Presets ──
 
@@ -196,8 +198,8 @@ export const createPromptPresetSchema = z.object({
   conversationPrompt: z.string().default(""),
   gamePrompt: z.string().default(""),
   variableGroups: z.array(promptVariableGroupSchema).default([]),
-  variableValues: z.record(z.string()).default({}),
-  parameters: generationParametersSchema.default({}),
+  variableValues: z.record(z.string(), z.string()).prefault({}),
+  parameters: generationParametersSchema.prefault({}),
   wrapFormat: wrapFormatSchema.default("xml"),
   scopedRegexMode: scopedRegexModeSchema.default("disabled"),
   isDefault: z.boolean().default(false),
@@ -213,12 +215,12 @@ export const updatePromptPresetSchema = z.object({
   sectionOrder: z.array(z.string()).optional(),
   groupOrder: z.array(z.string()).optional(),
   variableGroups: z.array(promptVariableGroupSchema).optional(),
-  variableValues: z.record(z.string()).optional(),
-  parameters: generationParametersSchema.partial().optional(),
+  variableValues: z.record(z.string(), z.string()).optional(),
+  parameters: partialInput(generationParametersSchema).optional(),
   wrapFormat: wrapFormatSchema.optional(),
   scopedRegexMode: scopedRegexModeSchema.optional(),
   author: z.string().optional(),
-  defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
+  defaultChoices: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 });
 
 // ── Sections ──
@@ -240,9 +242,9 @@ export const createPromptSectionSchema = z.object({
   skipWrap: z.boolean().default(false),
 });
 
-export const updatePromptSectionSchema = createPromptSectionSchema
-  .omit({ presetId: true, identifier: true, isMarker: true })
-  .partial();
+export const updatePromptSectionSchema = partialInput(
+  createPromptSectionSchema.omit({ presetId: true, identifier: true, isMarker: true }),
+);
 
 // ── Exported input types ──
 

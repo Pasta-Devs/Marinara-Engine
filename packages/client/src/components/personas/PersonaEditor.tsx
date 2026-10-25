@@ -3,7 +3,16 @@
 // Replaces the chat area when editing a persona.
 // Sections: Metadata, Card, Convo, Lorebook, Sprites, Gallery, Colors, Stats
 // ──────────────────────────────────────────────
-import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import {
   useCreateCharacter,
@@ -11,6 +20,7 @@ import {
   useUpdatePersona,
   useUploadAvatar,
   useUploadPersonaAvatar,
+  useRemovePersonaAvatar,
   useDeletePersona,
   useDuplicatePersona,
   usePersonaVersions,
@@ -33,6 +43,9 @@ import {
   type CharacterGalleryClip,
   type PersonaGalleryImage,
 } from "../../hooks/use-characters";
+import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
+import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
+import { CardFieldWand } from "../characters/CardFieldWand";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import {
@@ -130,6 +143,10 @@ import {
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
   syncRpgHpFromPools,
+  normalizeCardFieldAlternatives,
+  unassignCardFieldAlternatives,
+  type CardFieldAlternative,
+  type CardFieldKey,
   type CharacterData,
   type ConvoBehaviorConfig,
   type Persona,
@@ -168,18 +185,17 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const PERSONA_CARD_SECTIONS = [
-  { id: "persona-card-description", label: "Description" },
-  { id: "persona-card-personality", label: "Personality" },
-  { id: "persona-card-backstory", label: "Backstory" },
-  { id: "persona-card-appearance", label: "Appearance" },
-  { id: "persona-card-scenario", label: "Scenario" },
+  { id: "persona-card-summary", field: "summary" },
+  { id: "persona-card-description", field: "description" },
+  { id: "persona-card-personality", field: "personality" },
+  { id: "persona-card-backstory", field: "backstory" },
+  { id: "persona-card-appearance", field: "appearance" },
+  { id: "persona-card-scenario", field: "scenario" },
+  { id: "persona-card-dialogue", field: "mes_example" },
 ] as const;
 
 const PERSONA_METADATA_HELP =
   "Use metadata for identity, sharing, and library organization. Name is injected as your persona name, creator/version help track authorship and revisions, tags make the persona searchable, and creator notes stay private.";
-
-const PERSONA_CARD_HELP =
-  "Write the fields that define how the model sees your persona. Description, personality, backstory, appearance, and scenario are kept together so the card feels like one writing document.";
 
 const PERSONA_DESCRIPTION_HELP =
   "Your persona's general identity and role. This is sent in prompts so the AI knows who you are in the scene.";
@@ -218,6 +234,9 @@ interface PersonaFormData {
   personaVersion: string;
   versioningEnabled: boolean;
   creatorNotes: string;
+  cardFieldAlternatives: CardFieldAlternative[];
+  summary: string;
+  mes_example: string;
   description: string;
   personality: string;
   scenario: string;
@@ -279,7 +298,7 @@ function formatPersonaFieldValue<K extends keyof PersonaFormData>(
 
 /** Persona mutations the editor coordinates. Only one may run at a time,
  *  because each writes or removes the same Persona row. */
-type PersonaMutationKind = "save" | "avatar" | "gallery-avatar" | "delete";
+type PersonaMutationKind = "save" | "avatar" | "gallery-avatar" | "remove-avatar" | "delete";
 
 /** The decoded PATCH contract this editor writes: the shared update input plus
  *  the character-sheet fields the Persona route still handles separately. */
@@ -333,6 +352,9 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     personaVersion: persona.personaVersion ?? "1.0",
     versioningEnabled: persona.versioningEnabled !== false,
     creatorNotes: persona.creatorNotes ?? "",
+    cardFieldAlternatives: normalizeCardFieldAlternatives(persona.cardFieldAlternatives),
+    summary: persona.summary ?? "",
+    mes_example: persona.mes_example ?? "",
     description: persona.description,
     personality: persona.personality ?? "",
     scenario: persona.scenario ?? "",
@@ -1259,11 +1281,12 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
 
   return {
     name: formData.name.trim(),
+    summary: formData.summary,
     description: formData.description ?? "",
     personality: formData.personality ?? "",
     scenario: formData.scenario ?? "",
     first_mes: "",
-    mes_example: "",
+    mes_example: formData.mes_example,
     creator_notes: formData.creatorNotes ?? "",
     system_prompt: "",
     post_history_instructions: "",
@@ -1273,6 +1296,7 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
     alternate_greetings: [],
     character_book: null,
     extensions: {
+      cardFieldAlternatives: unassignCardFieldAlternatives(formData.cardFieldAlternatives),
       talkativeness: 0.5,
       fav: false,
       world: "",
@@ -1305,6 +1329,7 @@ export function PersonaEditor() {
   const updatePersona = useUpdatePersona();
   const uploadCharacterAvatar = useUploadAvatar();
   const uploadAvatar = useUploadPersonaAvatar();
+  const removeAvatar = useRemovePersonaAvatar();
   const setGalleryImageAsAvatar = useSetPersonaGalleryImageAsAvatar(personaId ?? "");
   const deletePersona = useDeletePersona();
   const duplicatePersona = useDuplicatePersona();
@@ -1380,7 +1405,7 @@ export function PersonaEditor() {
 
   const mutationBusy = mutationKind !== null;
   const saving = mutationKind === "save";
-  const avatarBusy = mutationKind === "avatar" || mutationKind === "gallery-avatar";
+  const avatarUploading = mutationKind === "avatar" || mutationKind === "gallery-avatar";
 
   const beginMutation = useCallback((kind: PersonaMutationKind) => {
     if (mutationTokenRef.current) return null;
@@ -1485,7 +1510,10 @@ export function PersonaEditor() {
 
     // An avatar/gallery replacement owns the preview and crop until it settles;
     // an interim refetch must not flip the image back and forth underneath it.
-    const avatarOperationActive = mutationKindRef.current === "avatar" || mutationKindRef.current === "gallery-avatar";
+    const avatarOperationActive =
+      mutationKindRef.current === "avatar" ||
+      mutationKindRef.current === "gallery-avatar" ||
+      mutationKindRef.current === "remove-avatar";
     const baseline = baselineFormRef.current;
     const avatarUnchanged = authoritativeAvatarPathRef.current === rawPersona.avatarPath;
     if (
@@ -1501,12 +1529,13 @@ export function PersonaEditor() {
   // Forced teardown (unmount, or a Persona switch that never re-hydrates) drops the
   // local identity so an in-flight completion can still update shared caches through
   // the hooks but can no longer write this editor's state.
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       editorSessionRef.current = generateClientId();
       loadedPersonaIdRef.current = null;
       mutationTokenRef.current = null;
       mutationKindRef.current = null;
+      setMutationKind(null);
     };
   }, [personaId]);
 
@@ -1647,6 +1676,41 @@ export function PersonaEditor() {
     },
     [adoptAuthoritativePersona, commitFormData, isCurrentEditorSession, updateField, uploadAvatar],
   );
+
+  const handleAvatarRemove = useCallback(async () => {
+    if (!personaId || !avatarPreview) return;
+    const token = beginMutation("remove-avatar");
+    if (!token) return;
+    const session = editorSessionRef.current;
+    try {
+      const confirmed = await showConfirmDialog({
+        title: localizeUi("ui.ui.avatarcropwidget.removeAvatar"),
+        message: localizeUi("persona.avatar.removeConfirm", { name: formDataRef.current?.name ?? "" }),
+        confirmLabel: localizeUi("settings.notifications.customSound.actions.remove"),
+        tone: "destructive",
+      });
+      if (!confirmed || !isCurrentEditorSession(session)) return;
+      const updated = await removeAvatar.mutateAsync(personaId);
+      if (!isCurrentEditorSession(session)) return;
+      adoptAuthoritativePersona(updated, { adoptAvatar: true });
+      toast.success(localizeUi("persona.avatar.removed"));
+    } catch (error) {
+      if (isCurrentEditorSession(session)) {
+        toast.error(error instanceof Error ? error.message : localizeUi("persona.avatar.removeFailed"));
+      }
+    } finally {
+      finishMutation(token);
+    }
+  }, [
+    adoptAuthoritativePersona,
+    avatarPreview,
+    beginMutation,
+    finishMutation,
+    isCurrentEditorSession,
+    localizeUi,
+    personaId,
+    removeAvatar,
+  ]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2136,11 +2200,15 @@ export function PersonaEditor() {
                 onSelectAvatar={() => {
                   if (!mutationBusy) fileInputRef.current?.click();
                 }}
+                onRemoveAvatar={() => void handleAvatarRemove()}
                 onGenerateAvatar={() => {
                   if (!mutationBusy) setAvatarGeneratorOpen(true);
                 }}
                 imageGenerationAvailable={imageGenerationAvailable}
-                avatarUploading={avatarBusy}
+                avatarUploading={avatarUploading}
+                avatarRemoving={
+                  mutationKind === "remove-avatar" && removeAvatar.isPending && removeAvatar.variables === personaId
+                }
                 hasUnsavedChanges={dirty}
                 avatarMutationBusy={mutationBusy}
               />
@@ -3547,8 +3615,10 @@ function PersonaMetadataTab({
   avatarPreview,
   onSelectAvatar,
   onGenerateAvatar,
+  onRemoveAvatar,
   imageGenerationAvailable,
   avatarUploading,
+  avatarRemoving,
   hasUnsavedChanges,
   // The editor's live save/avatar/gallery mutex. Replacing or reframing the avatar
   // while one of those is running would race the image the server is about to
@@ -3561,8 +3631,10 @@ function PersonaMetadataTab({
   avatarPreview: string | null;
   onSelectAvatar: () => void;
   onGenerateAvatar: () => void;
+  onRemoveAvatar: () => void;
   imageGenerationAvailable: boolean;
   avatarUploading: boolean;
+  avatarRemoving: boolean;
   hasUnsavedChanges: boolean;
   avatarMutationBusy: boolean;
 }) {
@@ -3634,6 +3706,8 @@ function PersonaMetadataTab({
               src={avatarPreview}
               alt={formData.name}
               crop={formData.avatarCrop}
+              onRemove={onRemoveAvatar}
+              removing={avatarRemoving}
               onChange={(next) => {
                 if (avatarMutationBusy) return;
                 updateField("avatarCrop", next);
@@ -3763,7 +3837,7 @@ function PersonaMetadataTab({
             <button
               type="button"
               onClick={removeAllTags}
-              className="mari-chrome-accent-surface mari-accent-animated rounded-lg border px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
+              className="mari-editor-action mari-editor-action--compact px-2.5 py-1 text-[0.6875rem]"
             >
               {localizeUi("ui.personas.personametadatatab.removeAll")}
             </button>
@@ -3956,10 +4030,12 @@ function PersonaCharacterSheetSection({
   );
 }
 
-const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string }> = [
+const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "creator", label: "Creator" },
   { key: "creatorNotes", label: "Creator Notes" },
+  { key: "summary", label: "Summary", labelKey: "ui.characters.summary.label" },
+  { key: "mes_example", label: "Example Dialogue", labelKey: "chat.settings.inlineEditor.fields.exampleDialogue" },
   { key: "description", label: "Description" },
   { key: "personality", label: "Personality" },
   { key: "scenario", label: "Scenario" },
@@ -3987,6 +4063,9 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     personaVersion: formData.personaVersion,
     versioningEnabled: String(formData.versioningEnabled),
     creatorNotes: formData.creatorNotes,
+    cardFieldAlternatives: JSON.stringify(formData.cardFieldAlternatives),
+    summary: formData.summary,
+    mes_example: formData.mes_example,
     description: formData.description,
     personality: formData.personality,
     scenario: formData.scenario,
@@ -4273,7 +4352,7 @@ function PersonaVersionHistoryPanel({
                     type="button"
                     onClick={() => handleDeleteVersion(version)}
                     disabled={versionMutationPending}
-                    className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
+                    className="mari-editor-action mari-editor-action--compact mari-editor-action--accent inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.personas.personaversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
@@ -4338,7 +4417,9 @@ function PersonaVersionHistoryPanel({
                 return (
                   <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {field.labelKey ? localizeUi(field.labelKey) : field.label}
+                      </span>
                       {changed && (
                         <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
                           {localizeUi("ui.personas.personaversionhistorypanel.changed")}
@@ -4420,26 +4501,81 @@ function PersonaCardTab({
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const personaId = useUIStore((state) => state.personaDetailId);
+  const card = {
+    name: formData.name,
+    summary: formData.summary,
+    description: formData.description,
+    personality: formData.personality,
+    backstory: formData.backstory,
+    appearance: formData.appearance,
+    scenario: formData.scenario,
+    mes_example: formData.mes_example,
+  };
+  const generation = useCardFieldGeneration("persona", personaId, card, (field, text) => updateField(field, text));
+  const alternativesFor = (field: CardFieldKey) => (
+    <CardFieldAlternatives
+      kind="persona"
+      entityId={personaId}
+      field={field}
+      label={generation.labels[field]}
+      card={card}
+      alternatives={formData.cardFieldAlternatives}
+      onChange={(alternatives) => updateField("cardFieldAlternatives", alternatives)}
+    />
+  );
+  const seedHint = localizeUi("ui.cardFields.seedPlaceholder");
+  const wandFor = (field: CardFieldKey) => (
+    <CardFieldWand
+      label={generation.labels[field]}
+      onGenerate={() => void generation.generate(field)}
+      disabled={!personaId || generation.isPending}
+      loading={generation.pendingField === field}
+    />
+  );
   return (
     <div>
       <SectionHeader
         title={localizeUi("editor.tabs.card")}
         subtitle={localizeUi("ui.personas.personacardtab.writeYourCorePersonaCardFieldsInOneFocused")}
-        helpText={PERSONA_CARD_HELP}
+        helpText={localizeUi("ui.cardFields.personaCardHelp")}
       />
-      <EditorSectionJumps items={PERSONA_CARD_SECTIONS} />
+      <EditorSectionJumps
+        items={PERSONA_CARD_SECTIONS.map(({ id, field }) => ({ id, label: generation.labels[field] }))}
+      />
       <div className="space-y-10">
+        <EditorSectionAnchor id="persona-card-summary">
+          <TextareaTab
+            title={localizeUi("ui.characters.summary.label")}
+            subtitle={localizeUi("ui.cardFields.personaSummaryHelp")}
+            value={formData.summary}
+            onChange={(v) => updateField("summary", v)}
+            placeholder={localizeUi("ui.characters.summary.placeholder") + " " + seedHint}
+            rows={4}
+            actions={wandFor("summary")}
+            footer={alternativesFor("summary")}
+          />
+        </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-description">
-          <DescriptionTab formData={formData} updateField={updateField} />
+          <DescriptionTab
+            formData={formData}
+            updateField={updateField}
+            actions={wandFor("description")}
+            footer={alternativesFor("description")}
+          />
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-personality">
           <TextareaTab
             title={localizeUi("chat.settings.inlineEditor.fields.personality")}
             subtitle={localizeUi("ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns")}
             helpText={PERSONA_PERSONALITY_HELP}
+            actions={wandFor("personality")}
+            footer={alternativesFor("personality")}
             value={formData.personality}
             onChange={(v) => updateField("personality", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone")}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.calmAndAnalyticalButQuickToActWhenSomeone") + " " + seedHint
+            }
             rows={8}
           />
         </EditorSectionAnchor>
@@ -4448,9 +4584,13 @@ function PersonaCardTab({
             title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
             subtitle={localizeUi("ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife")}
             helpText={PERSONA_BACKSTORY_HELP}
+            actions={wandFor("backstory")}
+            footer={alternativesFor("backstory")}
             value={formData.backstory}
             onChange={(v) => updateField("backstory", v)}
-            placeholder={localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA")}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.grewUpInAFrontierTownApprenticedUnderA") + " " + seedHint
+            }
             rows={12}
           />
         </EditorSectionAnchor>
@@ -4461,11 +4601,15 @@ function PersonaCardTab({
               "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
             )}
             helpText={PERSONA_APPEARANCE_HELP}
+            actions={wandFor("appearance")}
+            footer={alternativesFor("appearance")}
             value={formData.appearance}
             onChange={(v) => updateField("appearance", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing",
-            )}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.averageHeightDarkHairWornLoosePrefersPracticalClothing") +
+              " " +
+              seedHint
+            }
             rows={8}
           />
           <div className="mt-3">
@@ -4500,12 +4644,28 @@ function PersonaCardTab({
             title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
             subtitle={localizeUi("ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays")}
             helpText={PERSONA_SCENARIO_HELP}
+            actions={wandFor("scenario")}
+            footer={alternativesFor("scenario")}
             value={formData.scenario}
             onChange={(v) => updateField("scenario", v)}
-            placeholder={localizeUi(
-              "ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact",
-            )}
+            placeholder={
+              localizeUi("ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact") +
+              " " +
+              seedHint
+            }
             rows={8}
+          />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-dialogue">
+          <TextareaTab
+            title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
+            subtitle={localizeUi("ui.cardFields.personaDialogueHelp")}
+            value={formData.mes_example}
+            onChange={(v) => updateField("mes_example", v)}
+            placeholder={localizeUi("ui.cardFields.personaDialoguePlaceholder") + " " + seedHint}
+            rows={10}
+            actions={wandFor("mes_example")}
+            footer={alternativesFor("mes_example")}
           />
         </EditorSectionAnchor>
       </div>
@@ -4532,30 +4692,43 @@ function PersonaLorebookTab({ personaId, personaName }: { personaId: string; per
 function DescriptionTab({
   formData,
   updateField,
+  actions,
+  footer,
 }: {
+  actions?: ReactNode;
+  footer?: ReactNode;
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader
-        title={localizeUi("chat.settings.inlineEditor.fields.description")}
-        subtitle={localizeUi("ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt")}
-        helpText={PERSONA_DESCRIPTION_HELP}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader
+          title={localizeUi("chat.settings.inlineEditor.fields.description")}
+          subtitle={localizeUi("ui.personas.descriptiontab.yourGeneralDescriptionThisIsSentInEveryPrompt")}
+          helpText={PERSONA_DESCRIPTION_HELP}
+        />
+        {actions}
+      </div>
       <MacroTextarea
         value={formData.description}
         onChange={(value) => updateField("description", value)}
-        placeholder={localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory")}
+        placeholder={
+          localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory") +
+          " " +
+          localizeUi("ui.cardFields.seedPlaceholder")
+        }
         rows={12}
         title={localizeUi("chat.settings.inlineEditor.fields.description")}
+        ariaLabel={localizeUi("chat.settings.inlineEditor.fields.description")}
         showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
         {formatEstimatedTokens(estimateTextTokens(formData.description), localizeUi)}
       </p>
+      {footer}
     </div>
   );
 }
@@ -4590,7 +4763,11 @@ function TextareaTab({
   placeholder,
   rows = 8,
   helpText,
+  actions,
+  footer,
 }: {
+  actions?: ReactNode;
+  footer?: ReactNode;
   title: string;
   subtitle: string;
   helpText?: ReactNode;
@@ -4602,19 +4779,24 @@ function TextareaTab({
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mari-editor-panel space-y-3 p-3">
-      <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+        {actions}
+      </div>
       <MacroTextarea
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         rows={rows}
         title={title}
+        ariaLabel={title}
         showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
         {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
       </p>
+      {footer}
     </div>
   );
 }

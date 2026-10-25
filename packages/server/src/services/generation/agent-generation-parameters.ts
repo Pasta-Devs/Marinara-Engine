@@ -173,6 +173,32 @@ export function withThinkingHeadroom(
   return visibleMaxTokens + resolveThinkingHeadroom(effort, visibleMaxTokens);
 }
 
+/**
+ * A one-off call's answer budget with room for thinking added where the connection's provider counts
+ * thinking inside max tokens and does not add the room itself, capped at what the model and the
+ * connection allow. Unchanged when the call does not think.
+ */
+export function withConnectionThinkingHeadroom(args: {
+  provider: string;
+  model: string;
+  maxTokens: number;
+  reasoningEffort: string | null | undefined;
+  maxTokensOverride?: number | null;
+}): number {
+  const effort = args.reasoningEffort;
+  if (!effort || effort === "none" || PROVIDERS_WITHOUT_THINKING_HEADROOM.has(args.provider.toLowerCase()))
+    return args.maxTokens;
+  return Math.max(
+    args.maxTokens,
+    clampGenerationMaxOutputTokens({
+      provider: args.provider,
+      model: args.model,
+      maxTokens: args.maxTokens + resolveThinkingHeadroom(effort, args.maxTokens),
+      maxTokensOverride: args.maxTokensOverride,
+    }),
+  );
+}
+
 type CapabilityChatOptions = Pick<
   ChatOptions,
   | "temperature"

@@ -1,12 +1,12 @@
 # Scene Video Generation
 
-This guide explains how Marinara Engine turns a scene illustration into a short MP4 video clip. It covers the video providers, how to generate a clip from the Gallery, the Game Mode controls, and the video settings. A scene video is a brief animated clip made from one still image.
+This guide explains how Marinara Engine turns a scene illustration into a short MP4 video clip. It covers the video providers, how to generate a clip from the Gallery, the Game Mode controls, and the video settings. A scene video is a brief animated clip made from a still image or, in **Roleplay**, from the story alone.
 
 ## What scene video does
 
-A scene video takes an existing gallery image and animates it into a short MP4 clip. The still image becomes the first frame, and the AI adds motion. Scene videos work in **Roleplay** and **Game Mode** chats. Conversation chats send video messages instead; see [Video messages](../conversation/selfies.md#video-messages).
+A scene video is a short MP4 clip of the scene. It can animate a gallery picture, with the picture as the first frame and the AI adding motion, or, in **Roleplay**, it can be made from the story alone. Scene videos work in **Roleplay** and **Game Mode** chats. Conversation chats send video messages instead; see [Video messages](../conversation/selfies.md#video-messages).
 
-You always need a picture first. Scene video generation cannot run from text alone. You must generate or upload a gallery image before you can animate it.
+**Game Mode** and **Animate illustration** always start from a picture, so generate or upload one first. In **Roleplay**, `/video` and the Gallery's **Video** button follow Illustrator's **First frame** setting, and with no First frame chosen they need no picture at all.
 
 Scene videos use a separate connection type called **Video Generation**. They are not the same as normal image generation. The finished clips are saved with the chat and shown in the Gallery, where you can pin, download, or view them.
 
@@ -128,7 +128,15 @@ Both **Roleplay** and **Game Mode** chats can make scene videos from the **Galle
 
 The Gallery has an **Images** tab and a **Videos** tab, each with a count. Still pictures live under **Images**. Finished clips live under **Videos**.
 
-To animate the newest picture:
+In **Roleplay**, **Video** in the action row at the top of the Gallery makes a clip of the **latest reply**, the same as typing `/video`. Add a description after `/video` to say what the clip should show.
+
+- **First frame**: the clip follows Illustrator's **First frame** setting. That is a new Illustrator picture of the latest reply (drawn first, then animated), the character's avatar or sprite, or no picture at all. With no First frame chosen, no picture is drawn and the clip is made from the story alone.
+- **Avatar**: the clip starts from whoever your description names first, your persona included. A part of a name that no one else shares is enough, written with a capital ("Lena" for "Dr. Lena Kowalski"). With no one named, it starts from the chat's character.
+- **Review**: when **Expose media prompts before sending** is on, you can review and edit the clip's prompt first.
+- **What it reads**: the AI writing the clip reads as many recent messages as Illustrator does for a picture (Illustrator's **Context Size**, under **Agent Budget** on its setup screen), so it shows what is happening now.
+- **Without a picture**: when the clip starts from no picture or an avatar, the AI describes the scene itself. Its instructions are **Roleplay Clip Director** under **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+
+In **Game Mode**, **Video** animates the newest picture:
 
 1. Make sure at least one picture exists under the **Images** tab. Use **Illustrate** or upload a picture first.
 2. Click **Video** in the action row at the top of the Gallery.
@@ -144,11 +152,11 @@ To animate one specific picture instead of the newest one:
 2. Hover over the picture you want.
 3. Click the **Animate illustration** button (the film icon) in the hover controls.
 
-The same **Review Video Prompt** window appears for **Animate illustration** when prompt review is enabled. It shows the exact server-compiled prompt, duration, aspect ratio, and resolution that will be used for that selected image. Your edit applies only to that generation. In Roleplay, the reusable instructions that produce this prompt are controlled separately by **Roleplay Gallery Animation Director** under **Settings**, **Generations**, **Video Generation Prompt Overrides**.
+The same **Review Video Prompt** window appears for **Animate illustration** when prompt review is enabled. It shows the exact server-compiled prompt, duration, aspect ratio, and resolution that will be used for that selected image. Your edit applies only to that generation. In Roleplay, the AI planning the motion reads as many recent messages as Illustrator does (its **Context Size**), ending at the reply the picture belongs to. In Roleplay, the reusable instructions that produce this prompt are controlled separately by **Roleplay Gallery Animation Director** under **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 Under the **Videos** tab, each clip plays inline and shows its length and model name. You can pin a clip with **Pin video to chat**, or save it with **Download scene video**. If there are no clips yet, the tab reads **No videos yet**.
 
-If you try to make a video with no picture in the chat, Marinara shows this message: "Add or generate a gallery image before generating a scene video." Generate or upload a picture first, then try again.
+If you try to animate a picture in Game Mode with no picture in the chat, Marinara shows this message: "Add or generate a gallery image before generating a scene video." Generate or upload a picture first, then try again.
 
 ## Game Mode scene video
 
@@ -191,6 +199,8 @@ The main scene-video setting here is **Scene video fallback length**, which defa
 
 This section also holds **Video Generation Prompt Overrides**, where you can edit the reusable video prompt templates. **Roleplay Gallery Animation Director** controls the instructions sent to the selected Prompt Model before a Roleplay Gallery clip is generated. Its `${durationSeconds}` variable is replaced with the selected clip length. This is the advanced way to change how clips move without editing any code.
 
+**Videos per reply** sets how many video messages Conversation characters can send on their own in one reply, and how many clips Illustrator adds to one Roleplay reply. It defaults to 3, and you can set it from 1 to 10. Each Conversation character sends at most one. It exists for group chats, where several characters answer in one reply, and for when you ask for more than one video at once. Raise it to let more characters send a clip; lower it to save video requests, since each clip is one. Clips past the limit are skipped. `/video` and the Gallery's **Video** button don't count toward it.
+
 The same section has an **Animated expression length** setting. That belongs to a separate feature, animated portrait sprites. See [Animated Expressions](animated-expressions.md) for that feature.
 
 ## Storyboards
@@ -207,7 +217,7 @@ Your chat has no video connection selected. Open **Chat Settings**, then **Agent
 
 ### "Add or generate a gallery image before generating a scene video"
 
-Scene video always animates an existing picture. Use **Illustrate**, upload a picture, or click **Animate illustration** on a picture you already have.
+**Game Mode** and **Animate illustration** require an existing picture; **Roleplay** can generate from the story alone when no first frame is chosen. Use **Illustrate**, upload a picture, or click **Animate illustration** on a picture you already have.
 
 ### The video takes a long time
 

@@ -33,7 +33,7 @@ import {
   type CachedTTSAudioExportEntry,
 } from "../../../lib/tts-audio-cache";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
-import { filterAudioGenerationConnections } from "../../../lib/connection-filters";
+import { filterTTSConnections } from "../../../lib/connection-filters";
 import type {
   TTSConfig,
   TTSConnectionProfile,
@@ -177,7 +177,7 @@ type TTSAudioConnectionOption = {
 
 /** Audio connections the card can speak with, as the server resolves them (adapter, address, model). */
 function readTTSAudioConnectionOptions(connections: unknown[] | undefined): TTSAudioConnectionOption[] {
-  return filterAudioGenerationConnections((connections ?? []) as Array<Record<string, unknown>>)
+  return filterTTSConnections((connections ?? []) as Array<Record<string, unknown>>)
     .filter((connection) => typeof connection.id === "string" && typeof connection.name === "string")
     .map((connection) => {
       const audioSource = connection.audioSource;
@@ -2282,30 +2282,9 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
         </FieldRow>
       )}
 
-      {source === "elevenlabs" && !connectionId && (
-        <div className="space-y-1">
-          <span className="text-xs font-medium">{localizeUi("ui.panels.ttsconfigcard.gameAudioGeneration")}</span>
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.ttsconfigcard.gameAudioGenerationHelp")}
-          </p>
-          <ToggleRow
-            label={localizeUi("ui.panels.ttsconfigcard.generateGameSoundEffects")}
-            checked={elevenLabsGameSoundEffects}
-            onChange={(value) => {
-              setElevenLabsGameSoundEffects(value);
-              mark({ elevenLabsGameSoundEffects: value });
-            }}
-          />
-          <ToggleRow
-            label={localizeUi("ui.panels.ttsconfigcard.generateGameMusic")}
-            checked={elevenLabsGameMusic}
-            onChange={(value) => {
-              setElevenLabsGameMusic(value);
-              mark({ elevenLabsGameMusic: value });
-            }}
-          />
-        </div>
-      )}
+      <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+        {localizeUi("connections.audioGeneration.speechSettingsHelp")}
+      </p>
 
       {/* Auto-play */}
       <div className="space-y-1">

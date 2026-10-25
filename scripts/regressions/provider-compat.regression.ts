@@ -506,6 +506,14 @@ try {
   });
   assert.equal(recoveredPrefills?.assistantPrefill, "Visible prefix");
   assert.equal(recoveredPrefills?.assistantReasoningPrefill, "Reasoning prefix");
+  assert.deepEqual(recoveredPrefills, {
+    assistantPrefill: "Visible prefix",
+    assistantReasoningPrefill: "Reasoning prefix",
+  });
+  // Connection/chat overlays share this parser across modes; omitted fields must not override another source.
+  assert.deepEqual(parseStoredGenerationParameters({}), {});
+  assert.deepEqual(parseStoredGenerationParameters({ temperature: 0.7 }), { temperature: 0.7 });
+  assert.deepEqual(parseStoredGenerationParameters('{"topP":0.8}'), { topP: 0.8 });
 
   customParametersRequestBody = null;
   await provider.chatComplete(buildPrefillMessages("Visible prefix  \n", "Reasoning prefix  \n"), {
@@ -3645,6 +3653,35 @@ try {
       { role: "assistant", content: null, tool_calls: [call], reasoning_details: details },
       "an OpenRouter Gemini tool call must carry its reasoning_details into the next round",
     );
+    // Gemini's own OpenAI-compatible endpoint, and proxies that pass it through, put the call's
+    // thought signature on the call itself: it goes back on the call, or the round is refused with
+    // "Function call is missing a thought_signature" (laptop playtest 2026-10-24).
+    const signed = {
+      ...call,
+      extra_content: { google: { thought_signature: "sig-1" } },
+    };
+    raws.length = 0;
+    reply = { content: null, tool_calls: [signed] };
+    const signedRound = await openRouter.chatComplete([{ role: "user", content: "Roll." }], {
+      model: "gemini-3.5-flash",
+      ...options,
+      tools: [diceTool],
+    });
+    assert.deepEqual(signedRound.toolCalls, [signed], "the signature is kept on the call");
+    reply = { content: "Rolled 4." };
+    await openRouter.chatComplete(
+      [
+        { role: "user", content: "Roll." },
+        { role: "assistant", content: "", tool_calls: signedRound.toolCalls },
+        { role: "tool", tool_call_id: "call_1", content: "4" },
+      ],
+      { model: "gemini-3.5-flash", ...options, tools: [diceTool] },
+    );
+    assert.deepEqual(
+      ((sent(1).messages as Array<{ tool_calls?: unknown }>)[1] ?? {}).tool_calls,
+      [signed],
+      "and sent back with it",
+    );
     // Saved chat history still replays none (#1097), even when its reasoning reaches the provider.
     raws.length = 0;
     await collectProviderOutputForMessages(
@@ -3765,6 +3802,38 @@ try {
         assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
         assert.match(JSON.stringify(result.providerMetadata?.geminiParts), /call-signature/u);
       }
+    }
+    // A call-only round whose signature streams on a part of its own: the replayed call carries it.
+    globalThis.fetch = async () =>
+      new Response(
+        sseFrames([
+          { candidates: [{ content: { parts: [{ text: "", thoughtSignature: "lone-signature" }] } }] },
+          {
+            candidates: [
+              {
+                content: { parts: [{ functionCall: { name: "roll_dice", args: { notation: "1d20" } } }] },
+                finishReason: "STOP",
+              },
+            ],
+          },
+        ]),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    {
+      const result = await new GoogleProvider("https://generativelanguage.googleapis.com", "test").chatComplete(
+        [{ role: "user", content: "roll" }],
+        {
+          model: "gemini-3-pro-preview",
+          stream: true,
+          reasoningEffort: "high",
+          tools: [rollDiceTool],
+          signal: AbortSignal.timeout(3000),
+        },
+      );
+      const parts = (result.providerMetadata?.geminiParts ?? []) as Array<Record<string, unknown>>;
+      const call = parts.find((part) => part.functionCall);
+      assert.equal(result.toolCalls[0]?.function.name, "roll_dice");
+      assert.equal(call?.thoughtSignature, "lone-signature", JSON.stringify(parts));
     }
     let cancelled = false;
     globalThis.fetch = async () =>
@@ -4106,13 +4175,11 @@ try {
             tool_calls: identifiedResult.toolCalls,
             ...(replayMetadata ? { providerMetadata: identifiedResult.providerMetadata } : {}),
           },
-          ...identifiedResult.toolCalls.map(
-            (call, index): ChatMessage => ({
-              role: "tool",
-              tool_call_id: call.id,
-              content: JSON.stringify({ total: 17 + index }),
-            }),
-          ),
+          ...identifiedResult.toolCalls.map((call, index): ChatMessage => ({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ total: 17 + index }),
+          })),
         ],
         { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
       );
@@ -4237,17 +4304,19 @@ try {
       "the buffered tools round returns its raw parts for replay too",
     );
 
-    // stream:true without a token sink (the agent tool loop) keeps the buffered path.
-    await gemini.chatComplete([{ role: "user", content: "roll" }], {
+    // Quiet agent tool rounds still request upstream streaming for inactivity tracking.
+    geminiResult = await gemini.chatComplete([{ role: "user", content: "roll" }], {
       model: "gemini-2.0-flash",
       stream: true,
       tools: [rollDiceTool],
     });
     assert.match(
       geminiRequestUrls.at(-1) ?? "",
-      /:generateContent$/,
-      "a tools call with no onToken must not be switched to streaming",
+      /:streamGenerateContent\?alt=sse$/,
+      "an explicitly streamed tools call does not require an onToken sink",
     );
+    assert.equal(geminiResult.content, "No roll needed.");
+    assert.deepEqual(geminiResult.toolCalls, []);
   } finally {
     await new Promise<void>((resolve, reject) => geminiServer.close((error) => (error ? reject(error) : resolve())));
   }
@@ -4491,7 +4560,7 @@ try {
     assert.deepEqual(anthropicResult.toolCalls, []);
     assert.equal(anthropicResult.finishReason, "end_turn");
 
-    // stream:true without a token sink (the agent tool loop) keeps the buffered path.
+    // Quiet agent tool rounds still request upstream streaming for inactivity tracking.
     anthropicResult = await anthropic.chatComplete([{ role: "user", content: "roll" }], {
       model: "claude-opus-5",
       stream: true,
@@ -4499,14 +4568,11 @@ try {
     });
     assert.equal(
       anthropicToolRequestBodies.at(-1)?.stream,
-      false,
-      "a tools call with no onToken must not be switched to streaming",
+      true,
+      "an explicitly streamed tools call does not require an onToken sink",
     );
-    assert.equal(anthropicResult.content, "Buffered narration.");
-    assert.deepEqual(
-      anthropicResult.toolCalls.map((call) => call.id),
-      ["toolu_buffered"],
-    );
+    assert.equal(anthropicResult.content, "No roll needed.");
+    assert.deepEqual(anthropicResult.toolCalls, []);
   } finally {
     await new Promise<void>((resolve, reject) =>
       anthropicToolServer.close((error) => (error ? reject(error) : resolve())),
@@ -4685,6 +4751,178 @@ try {
     );
   } finally {
     await new Promise<void>((resolve) => strictTemplateServer.close(() => resolve()));
+  }
+}
+
+// A tool call cut at the output limit still reports "length", streamed or not: its arguments may stop mid-JSON,
+// and a caller that saw "tool_calls" would run it.
+{
+  const cutArguments = '{"action":"lorebook.update","lorebookId":"b';
+  const cutServer = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      const call = { index: 0, id: "cut-1", type: "function", function: { name: "app_data", arguments: cutArguments } };
+      if ((JSON.parse(body) as { stream?: boolean }).stream) {
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        response.end(
+          [
+            `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [call] }, finish_reason: null }] })}`,
+            `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "length" }] })}`,
+            "data: [DONE]",
+            "",
+          ].join("\n\n"),
+        );
+        return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message: { tool_calls: [call] }, finish_reason: "length" }] }));
+    });
+  });
+  await new Promise<void>((resolve) => cutServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = cutServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = new OpenAIProvider(
+      `http://127.0.0.1:${address.port}/v1`,
+      "test",
+      undefined,
+      undefined,
+      undefined,
+      "custom",
+    );
+    const tools = [{ type: "function" as const, function: { name: "app_data", parameters: { type: "object" } } }];
+    for (const stream of [true, false]) {
+      const result = await provider.chatComplete([{ role: "user", content: "write it" }], {
+        model: "gemma",
+        stream,
+        tools,
+      });
+      assert.equal(result.finishReason, "length", `stream=${stream}: a cut tool call is not reported as tool_calls`);
+      assert.equal(result.toolCalls[0]?.function.arguments, cutArguments);
+    }
+  } finally {
+    await new Promise<void>((resolve) => cutServer.close(() => resolve()));
+  }
+}
+
+// A streamed call keeps the thought signature Gemini's OpenAI-compatible endpoint sends on it, in
+// whichever delta it comes, for the next tool round to send back (laptop playtest 2026-10-24).
+{
+  const signedServer = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      const opening = {
+        index: 0,
+        id: "call-1",
+        type: "function",
+        function: { name: "roll", arguments: '{"n":' },
+        extra_content: { google: { thought_signature: "sig-1" } },
+      };
+      const rest = { index: 0, function: { arguments: "2}" } };
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(
+        [
+          `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [opening] }, finish_reason: null }] })}`,
+          `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [rest] }, finish_reason: "tool_calls" }] })}`,
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => signedServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = signedServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = new OpenAIProvider(
+      `http://127.0.0.1:${address.port}/v1`,
+      "test",
+      undefined,
+      undefined,
+      undefined,
+      "custom",
+    );
+    const tools = [{ type: "function" as const, function: { name: "roll", parameters: { type: "object" } } }];
+    const result = await provider.chatComplete([{ role: "user", content: "roll" }], {
+      model: "gemini-3.5-flash",
+      stream: true,
+      tools,
+    });
+    assert.deepEqual(result.toolCalls, [
+      {
+        id: "call-1",
+        type: "function",
+        function: { name: "roll", arguments: '{"n":2}' },
+        extra_content: { google: { thought_signature: "sig-1" } },
+      },
+    ]);
+  } finally {
+    await new Promise<void>((resolve) => signedServer.close(() => resolve()));
+  }
+}
+
+// A Gemini 3 tool round sent back with no signature on its first call (a gateway that drops it, a
+// call read from reply text) carries Google's placeholder instead of a 400; a signed one goes as it
+// is, and other models get nothing added (laptop playtest 2026-10-25: a custom aggregator).
+{
+  const bodies: Array<Record<string, any>> = [];
+  const replayServer = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      bodies.push(JSON.parse(body));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "done" } }] }));
+    });
+  });
+  await new Promise<void>((resolve) => replayServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = replayServer.address();
+    assert.ok(address && typeof address === "object");
+    const provider = new OpenAIProvider(
+      `http://127.0.0.1:${address.port}/v1`,
+      "test",
+      undefined,
+      undefined,
+      undefined,
+      "custom",
+    );
+    const round = (extra?: Record<string, unknown>): ChatMessage[] => [
+      { role: "user", content: "roll" },
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "roll", arguments: "{}" },
+            ...(extra ? { extra_content: extra } : {}),
+          },
+          { id: "call-2", type: "function", function: { name: "roll", arguments: "{}" } },
+        ],
+      },
+      { role: "tool", tool_call_id: "call-1", content: "4" },
+      { role: "tool", tool_call_id: "call-2", content: "5" },
+    ];
+    const sent = async (model: string, extra?: Record<string, unknown>) => {
+      await provider.chatComplete(round(extra), { model, stream: false });
+      const calls = bodies.at(-1)!.messages.find((message: any) => message.tool_calls).tool_calls;
+      return calls.map((call: any) => call.extra_content);
+    };
+    assert.deepEqual(await sent("gemini-3.1-pro-preview"), [
+      { google: { thought_signature: "skip_thought_signature_validator" } },
+      undefined,
+    ]);
+    assert.deepEqual(await sent("gemini-3.1-pro-preview", { google: { thought_signature: "sig-1" } }), [
+      { google: { thought_signature: "sig-1" } },
+      undefined,
+    ]);
+    assert.deepEqual(await sent("gpt-4o"), [undefined, undefined]);
+  } finally {
+    await new Promise<void>((resolve) => replayServer.close(() => resolve()));
   }
 }
 

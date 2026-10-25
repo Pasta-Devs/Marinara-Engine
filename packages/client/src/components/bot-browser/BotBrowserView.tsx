@@ -32,6 +32,7 @@ import {
   Unplug,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { unassignCardFieldAlternatives } from "@marinara-engine/shared";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api } from "../../lib/api-client";
@@ -41,12 +42,8 @@ import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { scopeChatMessageCss } from "../../lib/chat-message-css";
 import { handleRemoteImageClick, useRemoteImagePolicy } from "../../lib/remote-image-policy";
-import {
-  containsChatHtml,
-  decodeEncodedChatHtmlTags,
-  extractChatStyleBlocks,
-  sanitizeChatHtml,
-} from "../../lib/chat-html";
+import { HTML_TAG_RE, decodeEncodedChatHtmlTags, extractChatStyleBlocks, sanitizeChatHtml } from "../../lib/chat-html";
+import { protectMarkdownCode } from "../../lib/markdown-code";
 import {
   countLorebookEntries,
   hasLorebookEntries,
@@ -1325,8 +1322,8 @@ const datacatProvider: ProviderConfig = {
     // text-search support, so any user query forces the recent-public path.
     const useFresh = p.sort === "fresh" && tagIds.length === 0 && trimmedQuery.length === 0;
 
-    let list: any[] = [];
-    let totalCount = 0;
+    let list: any[];
+    let totalCount: number;
 
     if (useFresh) {
       const params = new URLSearchParams({
@@ -2069,6 +2066,9 @@ export function BotBrowserView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: personaName,
+        summary: typeof cardData.summary === "string" ? cardData.summary : "",
+        mes_example: typeof cardData.mes_example === "string" ? cardData.mes_example : "",
+        cardFieldAlternatives: unassignCardFieldAlternatives(extensions.cardFieldAlternatives),
         description: optionalString(cardData.description) ?? optionalString(cardData.personality) ?? "",
         personality: optionalString(cardData.personality) ?? "",
         scenario: optionalString(cardData.scenario) ?? "",
@@ -3924,10 +3924,12 @@ function DefSection({ title, content, allowHtml = false }: { title: string; cont
   const htmlScopeClass = `mari-bot-notes-${sectionId.replace(/[^a-zA-Z0-9_-]/g, "") || "content"}`;
   const remoteImages = useRemoteImagePolicy();
   const renderedHtml = useMemo(() => {
-    if (!allowHtml || !containsChatHtml(content)) return null;
-    const decoded = decodeEncodedChatHtmlTags(content);
+    if (!allowHtml) return null;
+    const code = protectMarkdownCode(content);
+    const decoded = decodeEncodedChatHtmlTags(code.text);
+    if (!HTML_TAG_RE.test(decoded)) return null;
     const { html, css } = extractChatStyleBlocks(decoded);
-    const clean = sanitizeChatHtml(html, { allowStyle: true, allowLinks: false, remoteImages });
+    const clean = sanitizeChatHtml(code.restoreHtml(html), { allowStyle: true, allowLinks: false, remoteImages });
     const scopedCss = scopeChatMessageCss(css, `.${htmlScopeClass}`, { remoteUrls: remoteImages.loadAll });
     return scopedCss ? `<style>${scopedCss}</style>${clean}` : clean;
   }, [allowHtml, content, htmlScopeClass, remoteImages]);

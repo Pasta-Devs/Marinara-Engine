@@ -194,11 +194,18 @@ export function useRulesetItemOutsideFight(input: {
     const added = healed && use.amountAdd ? sheetValue(use.amountAdd) : 0;
     const heal = healed ? { ...healed, total: Math.max(0, healed.total + (Number.isFinite(added) ? added : 0)) } : null;
     if (heal && health) {
-      // A wound track clears one mark, as a heal in a fight does; a pool takes the amount.
+      // A wound track clears one mark, as a heal in a fight does; a pool, or a plain track that fills
+      // up (1.383), takes the amount.
+      const plainTrack =
+        "track" in health && !definition.sheet.live.tracks.find((track) => track.id === health.track)?.kinds;
       const now =
         "track" in health
           ? heal.total > 0
-            ? write({ op: "damage", track: health.track, kind: "", amount: -1 })
+            ? write(
+                plainTrack
+                  ? { op: "track", track: health.track, by: -heal.total }
+                  : { op: "damage", track: health.track, kind: "", amount: -1 },
+              )
             : undefined
           : heal.total > 0
             ? named(

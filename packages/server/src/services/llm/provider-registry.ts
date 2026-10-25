@@ -11,6 +11,7 @@ import type { BaseLLMProvider } from "./base-provider.js";
 import { withConnectionDefaultParameters } from "./connection-default-provider.js";
 import { withConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { withRateLimitAwareProvider } from "./rate-limit-aware-provider.js";
+import { withSharedGpuTurnProvider } from "../generation/shared-gpu-turns.js";
 
 export function normalizeCohereOpenAIBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
@@ -174,7 +175,8 @@ export function createLLMProvider(
       );
       break;
   }
-  const configured = withConnectionDefaultParameters(resolved, defaultParameters);
+  // Innermost, so a turn on a shared GPU is held only while the request is with the backend.
+  const configured = withSharedGpuTurnProvider(withConnectionDefaultParameters(resolved, defaultParameters), baseUrl);
   if (!connectionId) return configured;
   // Pace + pause/resume outside the admission (concurrency) gate so a proxy 429 retries the same
   // connection before any fallback decision, and the per-connection throttle applies to everyone.

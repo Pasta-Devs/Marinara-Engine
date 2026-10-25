@@ -1,0 +1,86 @@
+---
+name: Home widgets
+description: Read before creating, editing or reviewing a Home widget: its four fields and limits, why a create is a dry run without apply, how ids are generated, and why an edit can fail on a stale catalog.
+---
+
+# Home widgets
+
+Purpose: build or change one of the custom cards on the Home screen — title, description, accent, icon, and nothing else. An agent's own Home widget is a different, agent-owned thing this action set cannot touch.
+
+Actions: reads `home_widget.list|get`; writes `home_widget.create|update|delete`. All five act on the custom catalog in `app_settings.home_custom_widgets` and return it only — agent widgets never appear in `list`. `list` gives the generated ids; `get`, `update` and `delete` take `id` (or `widgetId`) at the top level, and an unknown id answers `ok: false` with no error on `get`, while the other two throw.
+
+## Write contract
+
+- **`home_widget.create` is a dry run unless you send `apply: true`** — unlike the other create actions, which write by default. `apply` also accepts `"true"`, `"1"`, `"yes"`, `"on"` and `"enabled"`, and recognises `"false"`, `"0"`, `"no"`, `"off"` and `"disabled"` as false.
+- **`apply` is a sibling of `data`/`patch`, never inside them.** A `data.apply` is not read; inside `data` or `patch` it is an unrecognised key and fails the call.
+- `update` and `delete` need `apply: true` too; sent without `apply` they are refused and save nothing. A requested edit or removal needs it as much as a create.
+- A dry run saves nothing and shows nothing: the result says no changes were saved and that the user cannot see the preview. Never present it as reviewable, and never answer your own question.
+- Send the four fields in `data` on a create and in `patch` (or `data`/`widget`) on an update; they also work at the top level of the action. Unknown top-level keys are dropped silently — a `body`, `text`, `size`, `order` or `color` there leaves the widget created anyway. Inside `data`/`patch` the schema is strict, and the same keys fail the call.
+- Every write carries `reason`: one short sentence on what the card gives the user, never "User asked".
+
+## Workflow
+
+1. **Read the catalog first.** `home_widget.list` is the only source of ids and the only proof of what exists; `create` ignores any id you supply, so never invent or carry one.
+2. **Resolve the four values before calling.** When the user gave only a title and a sentence, name the defaults you resolved. `description` is the whole body: one short paragraph, because the card collapses whitespace and clamps the text.
+3. **Create in one call with `apply: true` in the same response**, state the resolved title, description, accent and icon, and set `awaitingAuthorization: true` so Marinara holds the create for the user's Accept, in Auto mode too. With native tool calls there is no such field: ask in the same turn's text, which holds it the same way. One response, no preview round.
+4. **Read back with `home_widget.list`.** The new card appears under its generated id — that id, not the title, is what an update or delete takes. Outside Plan and Bypass the create is held for the user's Accept, so the create and this same-response list do not run until they accept; in Plan nothing runs, and in Bypass nothing is held. Say what will happen; do not claim the card already exists.
+5. **Change only what was asked**: `update` with the id from `list` and a `patch` holding the changed field, or `delete` on an explicit request, both with `apply: true`.
+
+## The four fields
+
+| Field         | Rule                                                                                 | What the card does with it               |
+| ------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `title`       | required, trimmed, 1–80 characters                                                   | the heading, truncated to one line       |
+| `description` | required, trimmed, 1–500 characters                                                  | the only free text; clamped to six lines |
+| `accent`      | `cyan` \| `orange` \| `pink` \| `violet`, default `cyan`                             | the card colour                          |
+| `icon`        | `sparkles` \| `note` \| `heart` \| `star` \| `book` \| `compass`, default `sparkles` | the glyph beside the description text    |
+
+No body, text, size, order, colour or placement field exists: a "card body" does not exist, so `description` carries the whole note. `id`, `createdAt` and `updatedAt` are server-managed and no write accepts them. The catalog holds at most 24 widgets.
+
+**A card cannot be scheduled, triggered or conditionally hidden.** It is always there while the user keeps it shown (Home → the **Widgets** bookmark is a per-browser setting, not something you write), so a timed request — "remind me on Sundays" — is copy, not a schedule: write the note so it reads well whenever it is seen, and say plainly that the card cannot fire only on Sundays.
+
+Ids are generated by the server from the title, with a random suffix; a non-Latin title still gets a readable slug. Read the real id from `list` — never predict it, and never reuse one you saw in another chat.
+
+**Both fields render as plain text** — React text children, so no markdown, no HTML, no script and no sanitizer, because none is needed. `<b>hi</b>` in a description appears literally, newlines collapse, and emoji are just Unicode characters. Custom cards only: an agent's capability widget is executable content owned by that agent.
+
+## Ownership and what is impossible
+
+An agent Home widget belongs to its agent: a custom agent declares it in `settings.homeWidgets`, an installed package in its manifest, and only the owning agent's publish tool writes its text. Both paths are refused at plan time:
+
+- `Professor Mari cannot publish agent Home widget data. The owning agent must publish it.`
+- `Professor Mari cannot change agent Home widgets. Edit them in Agent Editor.`
+
+You cannot create, change or remove such a card, add it to Home, or grant its permissions — placement is a per-browser client setting, not an app-data action. What is _not_ technically blocked is a custom card copying an agent widget's title and description; do not make one, and never pass a custom card off as an agent's widget.
+
+The real path for the user: Home → the **Widgets** bookmark → the window titled **Home Widgets**, with sections **Built-in**, then **Agents** and **Personal** when they have entries. Cards are shown and hidden there; reordering happens by dragging them on Home itself. "Widget Manager" is not a label in the app — do not send anyone there.
+
+## Errors and fixes
+
+| Message                                                                                                                                                           | Fix                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `Home supports at most 24 custom widgets.`                                                                                                                        | Delete a card the user no longer wants before creating another.                                       |
+| `No home widget has the id "<id>". …`                                                                                                                             | The id is not in the catalog. Take it from `home_widget.list`; the message prints the id you sent.    |
+| `Home widget id is required (none was sent): send a non-empty "id" or "widgetId" top-level. If you do not know it, use the matching list or search action first.` | Resolve the widget with `home_widget.list` first.                                                     |
+| `home_widget.update needs a non-empty patch.`                                                                                                                     | Send at least one of `title`, `description`, `accent`, `icon`.                                        |
+| `The stored Home custom widget catalog is invalid and must be repaired before editing it.`                                                                        | Every action, `list` included, throws this; there is no `app_data` repair path. Report it and stop.   |
+| `Home widget catalog changed; refresh it and try again.`                                                                                                          | A concurrent write won the revision check. Re-read with `list`, reapply, retry once — never force it. |
+| `Unrecognized key(s) in object: 'body'`                                                                                                                           | Inside `data`/`patch` only the four fields belong; a body, text or size key is rejected there.        |
+| `Unknown home widget action "<name>".`                                                                                                                            | No move, reorder, resize or colour action exists — only `list`, `get`, `create`, `update`, `delete`.  |
+
+An enum value outside the set returns `Invalid enum value. Expected 'cyan' | 'orange' | 'pink' | 'violet', received 'blue'`. A top-level unknown key is dropped instead, so put the four fields in `data`/`patch` when you want a typo to fail loudly.
+
+## Worked example
+
+One `app_data` argument object per line, all in the response the user sees: read the catalog, create with `apply: true`, read it back.
+
+```
+{"action":"home_widget.list"}
+{"action":"home_widget.create","data":{"title":"Field Formula","description":"Mix 2 parts coffee to 1 part milk before the next scene.","accent":"cyan","icon":"sparkles"},"reason":"Keeps the requested note on Home","apply":true}
+{"action":"home_widget.list"}
+```
+
+The second `list` shows exactly one new `Field Formula` under an id the server generated (a slug plus random characters) — read it there, never predict it; `home_widget.get` with it shows the four fields. Report that in one line. That holds in Plan and Bypass; in the default mode step 4 applies — the create and the second `list` wait for Accept, so say the card is waiting for the user's approval and claim no id. The same create without `apply` is the trap: a dry run that saves nothing and shows the user nothing, so never send one as a preview round.
+
+## Where the detail lives
+
+No user-facing page exists: `docs_read docs/home/welcome.md` walks the Home screen and omits the widget grid, and no heading containing "widget" exists under `docs/home/`. Do not cite one. The only documented anchor, covering package-declared agent widgets rather than these cards, is `docs_read docs/development/optional-agent-packages.md` at `Capability API 1.35: agent Home widgets`.

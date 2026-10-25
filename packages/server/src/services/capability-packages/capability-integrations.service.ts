@@ -3,6 +3,7 @@ import type {
   CapabilityChatGalleryImageInput,
   CapabilityEntityGalleryImageInput,
   CapabilityIntegrationHost,
+  CapabilityGalleryImageAnimationInput,
   CapabilityIntegrationProvider,
   CapabilitySpeechTranscribeOptions,
   ConnectionAdmissionMode,
@@ -49,6 +50,7 @@ import {
   resolveVideoReferencePublicUploadOptions,
 } from "../video/video-generation.js";
 import { transcribeWithSavedSpeechToTextServer } from "../speech-to-text.service.js";
+import { animateCapabilityGalleryImage } from "./capability-gallery-animation.service.js";
 
 /** Bind each package to the live host services, including their queues, security checks and logging. */
 export function createCapabilityIntegrationHost(
@@ -150,6 +152,12 @@ export function createCapabilityIntegrationHost(
       }),
     }),
     videos: Object.freeze({
+      animateGalleryImage: guarded(
+        "network",
+        guarded("storage", (input: CapabilityGalleryImageAnimationInput) =>
+          animateCapabilityGalleryImage(requireDb(), input),
+        ),
+      ),
       generate: guarded("network", generateVideo),
       save: guarded("storage", saveVideoToDisk),
       remove: guarded("storage", removeSavedVideoFromDisk),

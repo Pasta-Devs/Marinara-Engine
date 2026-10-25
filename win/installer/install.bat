@@ -7,8 +7,8 @@ color 0A
 :: -- Safety net: if anything goes catastrophically wrong, the window stays open --
 :: -- This label is jumped to on fatal errors --
 set "INSTALL_ERROR="
-set "NODE_DOWNLOAD_URL=https://nodejs.org/dist/v24.21.0/node-v24.21.0-x64.msi"
-set "NODE_SHA256=bb0eaee134f9357f22aea915ee793343e627aefc1e66488164bac6915bce2cac"
+set "NODE_DOWNLOAD_URL=https://nodejs.org/dist/v24.22.1/node-v24.22.1-x64.msi"
+set "NODE_SHA256=3bda4baf1ee709b33cf920dd633106ddb23951e322bff9c03ec9f64ab8981b01"
 set "GIT_DOWNLOAD_URL=https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe"
 set "GIT_SHA256=2b96e7854f0520f0f6b709c21041d9801b1be44d5e1a0d9fa621b2fbc40f1983"
 set "RELEASE_TAG=v2.5.1"

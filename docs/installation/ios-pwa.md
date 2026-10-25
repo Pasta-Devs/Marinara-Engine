@@ -86,7 +86,7 @@ Your chats, characters, and settings are stored on the server, not on your iPhon
 
 ## Related guides
 
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)
 - [Frequently Asked Questions](../FAQ.md)
 - [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
 - [Android (Termux) Installation Guide](android-termux.md)

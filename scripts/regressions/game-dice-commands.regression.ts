@@ -166,6 +166,7 @@ try {
       enableTools: false,
       enableAgents: true,
       activeAgentIds: ["hierarchical-maps"],
+      gameOneRequestDice: false,
     });
     await chats.createMessage({
       chatId: chat.id,

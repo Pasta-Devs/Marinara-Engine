@@ -769,7 +769,8 @@ export function HomeProfessorMariChat({
     () => skills.find((skill) => skill.id === selectedSkillId) ?? null,
     [selectedSkillId, skills],
   );
-  const activeSkillCount = skills.filter((skill) => skill.enabled).length;
+  // Shipped skills are always on, so counting them would leave a badge that never changes.
+  const activeSkillCount = skills.filter((skill) => skill.enabled && skill.origin !== "builtin").length;
   const selectedMemory = useMemo(
     () => memories.find((memory) => memory.id === selectedMemoryId) ?? null,
     [selectedMemoryId, memories],
@@ -3183,7 +3184,6 @@ export function HomeProfessorMariChat({
                         runRestart={runRestart}
                         setConnectionMenuOpen={setConnectionMenuOpen}
                         setHandoffContext={setHandoffContext}
-                        skills={skills}
                         skillsMenuOpen={skillsMenuOpen}
                         toggleChatHistory={toggleChatHistory}
                         toggleMemoriesMenu={toggleMemoriesMenu}

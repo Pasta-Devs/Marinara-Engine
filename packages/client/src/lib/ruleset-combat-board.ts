@@ -123,6 +123,13 @@ export function rulesetAimTurning(option: DirectedRulesetOption, lay: RulesetAim
   return option.area?.shape === "wall" && !lay?.ring && !!lay?.at;
 }
 
+/** Whether a pick that sends this shape is the last of several that laid it (a wall's way, a copy
+ *  after the first), which its prompts already name as the confirming one. A ring chosen in the menu
+ *  has no square yet: its first pick only shows who it catches, like any single-pick aim. */
+export function rulesetAimLaidOverPicks(lay: RulesetAimLay | undefined): boolean {
+  return !!lay?.at;
+}
+
 /** What is sent for the shape as it is laid so far, or null while nothing has been set down. */
 export function rulesetAimSoFar(lay: RulesetAimLay | undefined): RulesetAimChoice | null {
   if (!lay?.at) return null;
@@ -181,15 +188,20 @@ export function rulesetBoardCells(view: DirectedRulesetView, step: RulesetMenuSt
   const grid = view.grid;
   if (!grid) return [];
   const standing = new Map<string, DirectedRulesetCombatant>();
+  const fallen = (combatant: DirectedRulesetCombatant) => (combatant.defeated ? 2 : combatant.down ? 1 : 0);
   for (const combatant of view.combatants) {
     if (typeof combatant.x !== "number" || typeof combatant.y !== "number") continue;
     // Sent away (1.236): not on the board at all.
     if (combatant.away) continue;
-    // Every cell they fill (1.194).
+    // Every cell they fill (1.194). A creature still up is drawn over one down, and one down over a
+    // body, so whoever walks onto a fallen creature's square stays on the board.
     const span = Math.max(1, combatant.span ?? 1);
     for (let dy = 0; dy < span; dy++) {
       for (let dx = 0; dx < span; dx++) {
-        standing.set(rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy }), combatant);
+        const key = rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy });
+        const there = standing.get(key);
+        if (there && fallen(there) < fallen(combatant)) continue;
+        standing.set(key, combatant);
       }
     }
   }
@@ -413,4 +425,25 @@ export function rulesetCellSentences(cell: RulesetBoardCell, view: DirectedRules
 export function rulesetHealthPercent(health: { value: number; max: number }): number {
   if (health.max <= 0) return 0;
   return Math.max(0, Math.min(100, (health.value / health.max) * 100));
+}
+
+/** Who an area held open for an answer catches: whom the window names, else whoever stands on the
+ *  cells it sent. Nothing is measured: the cells are the server's, this only reads who is on them. */
+export function rulesetHeldCaught(view: DirectedRulesetView): string[] {
+  const window = view.window;
+  if (!window) return [];
+  if (window.targetIds?.length) return window.targetIds;
+  if (!window.cells?.length) return [];
+  const covered = new Set(window.cells.map(rulesetCellKey));
+  return view.combatants
+    .filter((combatant) => {
+      if (combatant.defeated || combatant.left || combatant.away) return false;
+      if (typeof combatant.x !== "number" || typeof combatant.y !== "number") return false;
+      const span = Math.max(1, combatant.span ?? 1);
+      for (let dx = 0; dx < span; dx++)
+        for (let dy = 0; dy < span; dy++)
+          if (covered.has(rulesetCellKey({ x: combatant.x + dx, y: combatant.y + dy }))) return true;
+      return false;
+    })
+    .map((combatant) => combatant.id);
 }

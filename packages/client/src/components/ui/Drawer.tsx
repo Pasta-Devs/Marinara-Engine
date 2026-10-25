@@ -420,8 +420,8 @@ function DetachedDrawerWindow({
     setContainer(anchorRef.current?.closest(".mari-window")?.parentElement ?? document.body);
   }, []);
 
-  // FloatingWindow keeps a shown window in the stacking order; leaving (a chat switch) takes it out.
-  useEffect(() => () => useFloatingWindowStore.getState().closeWindow(windowId), [windowId]);
+  // A replacement host (including StrictMode's remount) keeps an explicitly opened window alive.
+  useEffect(() => useFloatingWindowStore.getState().registerHost(windowId), [windowId]);
 
   const dock = () => useFloatingWindowStore.getState().dockDrawer(windowId);
   // Put back: the drawer returns to its host, and focus to its pop-out button there.

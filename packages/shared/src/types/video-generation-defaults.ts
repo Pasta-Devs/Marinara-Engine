@@ -4,7 +4,7 @@ export type VideoDefaultsService =
   "gemini_omni" | "google_veo" | "xai" | "openrouter" | "atlas" | "seedance" | "comfyui";
 
 export type VideoAspectRatio = "16:9" | "9:16";
-export type VideoResolution = "480p" | "720p" | "1080p";
+export type VideoResolution = "480p" | "720p" | "768p" | "1080p";
 export type VideoReferenceUploadExpiry = "1h" | "12h" | "24h" | "72h";
 
 export interface GeminiOmniVideoDefaults {

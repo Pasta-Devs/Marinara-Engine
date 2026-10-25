@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import {
   getMariAppearancePack,
   MARI_APPEARANCE_PACKS,
@@ -77,10 +78,10 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
     assert.ok(readFileSync(publicFile(url)).length);
   }
   // P5: the Home Mari widget draws the greet pose at exactly 1x with fixed 106x192 width/height.
-  const greet = await sharp(publicFile(appearance.poses.greet).pathname).metadata();
+  const greet = await sharp(fileURLToPath(publicFile(appearance.poses.greet))).metadata();
   assert.deepEqual([greet.width, greet.height], [106, 192], `${appearance.id} greet pose must stay 106x192`);
   // 45b: six 96 px pull heads at native size; the circle crops them in CSS.
-  const heads = await sharp(publicFile(appearance.portraits.pullHeads).pathname).metadata();
+  const heads = await sharp(fileURLToPath(publicFile(appearance.portraits.pullHeads))).metadata();
   assert.deepEqual([heads.format, heads.width, heads.height, heads.hasAlpha], ["webp", 576, 96, true]);
   assert.ok(mariAssetUrls(appearance, 2).includes(appearance.portraits.pullHeads), "the pull heads are prefetched");
   // Slice 85: every pack holds its own four-frame dangle sheet (4 cells of 300x450), never a shared idle story.
@@ -89,11 +90,11 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
     `/sprites/mari/${appearance.id}/portrait-drag.webp?v=${MARI_SPRITE_VERSION}`,
     "held sheet is per pack",
   );
-  const held = await sharp(publicFile(appearance.portraits.drag).pathname).metadata();
+  const held = await sharp(fileURLToPath(publicFile(appearance.portraits.drag))).metadata();
   assert.deepEqual([held.format, held.width, held.height, held.hasAlpha], ["webp", 1200, 450, true]);
   // Slice 85 hover: the approved hover portrait is the idle portrait's size, so the swap moves nothing.
-  const idle = await sharp(publicFile(appearance.portraits.idle).pathname).metadata();
-  const hover = await sharp(publicFile(appearance.portraits.hover).pathname).metadata();
+  const idle = await sharp(fileURLToPath(publicFile(appearance.portraits.idle))).metadata();
+  const hover = await sharp(fileURLToPath(publicFile(appearance.portraits.hover))).metadata();
   assert.deepEqual(
     [hover.format, hover.width, hover.height],
     [idle.format, idle.width, idle.height],
@@ -111,7 +112,7 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
       state,
     });
     assert.equal(chosen, appearance.stories[state], "explicit state must beat tool keywords");
-    const image = sharp(publicFile(chosen.src).pathname);
+    const image = sharp(fileURLToPath(publicFile(chosen.src)));
     const metadata = await image.metadata();
     assert.equal(metadata.width, 512, "four equal cells");
     assert.equal(metadata.height, 192, "consistent scale across stories");

@@ -54,9 +54,12 @@ import {
   rulesetRefusalKey,
   rulesetRefusalText,
   rulesetValueLabel,
+  rulesetFoeFates,
 } from "../../packages/client/src/lib/ruleset-combat-log.js";
+import { rulesetRichLogLines } from "../../packages/client/src/lib/ruleset-combat-log-rich.js";
 import {
   rulesetAimSoFar,
+  rulesetAimLaidOverPicks,
   rulesetAimTake,
   rulesetAimTurning,
   rulesetBoardCells,
@@ -83,7 +86,11 @@ import {
   rulesetHeightenPick,
   rulesetPicksStep,
   rulesetSparePick,
+  rulesetSpendCarry,
+  RULESET_SPEND_CARRY_TRIES,
+  runRulesetSpendCarry,
   type RulesetMenuStep,
+  type RulesetSpendCarried,
 } from "../../packages/client/src/lib/ruleset-combat-menu.js";
 import {
   isRulesetCombatFight,
@@ -397,6 +404,55 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   );
   assert.equal(line(fiveE, state, { type: "round", round: 1 }), "Round 1.");
   assert.equal(line(fiveE, state, { type: "turn", actorId: "brenna", round: 1 }), "Brenna takes their turn.");
+  {
+    // A new round's line belongs to nobody's turn: the turn before it ended with the round.
+    const [first, second] = state.order;
+    const rich = rulesetRichLogLines(
+      fiveE,
+      viewOf(state, [
+        { type: "turn", actorId: first!, round: 1 },
+        { type: "round", round: 2 },
+        { type: "turn", actorId: second!, round: 2 },
+      ] as DirectedRulesetEvent[]),
+      t as never,
+    );
+    assert.deepEqual(
+      rich.map((one) => [one.round, one.turnOf]),
+      [
+        [1, first],
+        [2, undefined],
+        [2, second],
+      ],
+    );
+  }
+
+  {
+    // The end card's count and its lines read one fate per foe: a fled foe, one sent away and one
+    // down are each named once, and only the felled are counted beaten.
+    const base = viewOf(state);
+    const foe = base.combatants.find((one) => one.side !== "party")!;
+    const foes = (["down", "left", "away"] as const).map((flag, index) => ({
+      ...foe,
+      id: `foe-${flag}`,
+      name: `Foe ${index}`,
+      [flag]: true,
+    }));
+    const ended = rulesetFoeFates({
+      ...base,
+      combatants: [...base.combatants.filter((one) => one.side === "party"), ...foes],
+    });
+    assert.deepEqual(
+      ended.fates.map(([key, list]) => [key, list.map((one) => one.id)]),
+      [
+        ["endDefeated", ["foe-down"]],
+        ["endGone", ["foe-left", "foe-away"]],
+      ],
+    );
+    assert.equal(ended.beaten, 1, "the tally is the felled line's length");
+    assert.equal(ended.total, 3);
+    const fled = rulesetFoeFates({ ...base, combatants: [{ ...foe, left: true }] });
+    assert.equal(fled.beaten, 0, "a fight every foe left alive beats none of them");
+  }
 
   const menu = menuOf(fiveE, state, "brenna");
   const sword = menu.find((option) => option.label === "Longsword")!;
@@ -428,6 +484,33 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     !printed.some((line) => line.includes("Action left")),
     `what is left of a budget belongs to the status panel, not the log: ${JSON.stringify(printed)}`,
   );
+
+  // The Engine's reasons for its picks are printed only with Debug on, after the step they explain.
+  {
+    const reasoned = [
+      ...swing.events.map((event, index) => ({ seq: index + 1, event: event as DirectedRulesetEvent })),
+      {
+        seq: swing.events.length + 1,
+        event: {
+          type: "reasoning",
+          actorId: "brenna",
+          reasons: [{ why: "approach", targetId: "lurker", sprinted: true }],
+        } as DirectedRulesetEvent,
+      },
+    ];
+    const hidden = rulesetCombatLogLines(reasoned, names, t).map((entry) => entry.text);
+    assert.ok(!hidden.some((text) => text.startsWith("Why ")), "no reasons without Debug");
+    const shown = rulesetCombatLogLines(reasoned, names, t, -1, true).map((entry) => entry.text);
+    assert.equal(shown.at(-1), "Why Brenna did that: nothing in reach, so it sprinted toward Thorn Lurker.");
+    const richView = viewOf(
+      swing.state,
+      reasoned.map((entry) => entry.event),
+    );
+    assert.ok(!rulesetRichLogLines(fiveE, richView, t as never).some((one) => one.reason), "nor on the board's log");
+    const richLast = rulesetRichLogLines(fiveE, richView, t as never, true).at(-1)!;
+    assert.equal(richLast.reason, true, "drawn as an aside");
+    assert.equal(richLast.text, "Why Brenna did that: nothing in reach, so it sprinted toward Thorn Lurker.");
+  }
 
   // Only the lines that are new are handed back, so a screen prints a fight once.
   const all = swing.events.map((event, index) => ({ seq: index + 1, event: event as DirectedRulesetEvent }));
@@ -525,7 +608,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   });
   const say = (event: DirectedRulesetEvent) => line(fiveE, state, event);
 
-  const table: Array<[RulesetCombatEvent["type"] | "director", string | null]> = [
+  const table: Array<[RulesetCombatEvent["type"] | "director" | "reasoning", string | null]> = [
     ["initiative", say({ type: "initiative", entries: [{ actorId: "brenna", roll: [12], modifier: 2, total: 14 }] })],
     ["round", say({ type: "round", round: 3 })],
     ["turn", say({ type: "turn", actorId: "brenna", round: 3 })],
@@ -685,6 +768,18 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     ["outcome", say({ type: "outcome", outcome: "victory" })],
     ["refused", say({ type: "refused", actorId: "brenna", optionId: "sword", reason: "no-budget" })],
     ["director", say({ type: "director", reason: "ruleset-unavailable", text: "The rules are gone." })],
+    [
+      "reasoning",
+      say({
+        type: "reasoning",
+        actorId: "lurker",
+        reasons: [
+          { why: "finish", targetId: "brenna" },
+          { why: "damage", targetId: "brenna", strength: "heavy" },
+          { why: "walked", cells: 2 },
+        ],
+      }),
+    ],
     // The four a fight on a board adds. The board itself is a later slice; the lines are here so a
     // positioned fight reads as a fight rather than as a gap in the log.
     [
@@ -717,6 +812,22 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     [
       "hardness",
       say({ type: "hardness", targetId: "lurker", sourceId: "brenna", label: "Longsword", hardness: 6, dice: 4 }),
+    ],
+    [
+      "symbol-spend",
+      say({
+        type: "symbol-spend",
+        actorId: "brenna",
+        rollerId: "brenna",
+        targetId: "lurker",
+        spendId: "rally",
+        label: "Rally",
+        symbol: "a",
+        cost: 1,
+        times: 2,
+        onId: "lurker",
+        setback: 2,
+      }),
     ],
     [
       "recheck",
@@ -887,6 +998,7 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
 
     ["summon", say({ type: "summon", actorId: "corwin", label: "Spiritual Weapon", outcome: "appeared" })],
     ["flew", say({ type: "flew", actorId: "lurker", from: 0, to: 1, cost: 1, left: 5 })],
+    ["lift", say({ type: "lift", actorId: "lurker", up: true })],
     ["delay", say({ type: "delay", actorId: "corwin", label: "Fireball", outcome: "held", roll: 14, needed: 11 })],
     [
       "counter",
@@ -1058,6 +1170,11 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     printed.get("hardness"),
     "Brenna's Longsword lands on Thorn Lurker with 4 dice, below a hardness of 6, and does nothing.",
   );
+  // A ruleset with no symbols names one by its id.
+  assert.equal(
+    printed.get("symbol-spend"),
+    "Brenna spends 2 a: Rally ×2. Thorn Lurker throws 2 dice more as setback on their next roll.",
+  );
   assert.equal(printed.get("shot"), "Longbow: 11 left to shoot.");
   assert.equal(
     line(fiveE, state, { type: "shot", actorId: "brenna", optionId: "item:1", label: "Pistol", left: 5, of: 6 }),
@@ -1153,10 +1270,15 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
   assert.equal(printed.get("outcome"), "The fight is won.");
   assert.equal(printed.get("refused"), "Brenna could not do that: They have nothing left to spend on it this turn.");
   assert.equal(printed.get("director"), "The fight stopped here: The rules are gone.");
+  assert.equal(
+    printed.get("reasoning"),
+    "Why Thorn Lurker did that: likely takes Brenna out of the fight; heavy damage to Brenna; walked 2 first to act from there.",
+  );
   assert.equal(printed.get("move"), "Brenna moves to 4, 2 for 3 and has 3 left.");
   assert.equal(printed.get("opportunity"), "Thorn Lurker strikes at Brenna with Barbed claw as they move away.");
   assert.equal(printed.get("cover"), "Thorn Lurker is under cover, which adds 2 for a defense of 15.");
-  assert.equal(printed.get("area"), "Corwin aims Fireball at 5, 3, covering 3 cells.");
+  // Who it catches is said by the lines that follow; squares and cell counts read like the Engine's own notes.
+  assert.equal(printed.get("area"), "Corwin aims Fireball.");
   assert.equal(
     printed.get("contest"),
     "Brenna tries Grapple on Thorn Lurker: 14 + 7 = 21 with Athletics against 9 + 2 = 11 with Acrobatics, and wins.",
@@ -1575,6 +1697,20 @@ const line = (definition: RulesetDefinition, state: RulesetEncounterState, event
     "a heal is worded as healing, because both are an amount",
   );
   assert.equal(rulesetOptionForecastText({ ...sword, forecast: undefined }, t), "");
+  // A save is said before the damage, and what a made one leaves after it.
+  const blast = { ...sword, forecast: { averageDamage: 28 } };
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "DEX save", dc: 15, onSuccess: "half" } }, t),
+    "DEX save DC 15, about 28 damage (14 on a save)",
+  );
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "WIS save", dc: 13, onSuccess: "negates" } }, t),
+    "WIS save DC 13, about 28 damage (none on a save)",
+  );
+  assert.equal(
+    rulesetOptionForecastText({ ...blast, saveAgainst: { label: "CON save", dc: 12, onSuccess: "none" } }, t),
+    "CON save DC 12, about 28 damage",
+  );
 
   // What a spell costs is the sheet's own pool name, and how many are left is the server's count.
   // The menu only ever holds the actor on turn's own options, so the wizard is given the initiative
@@ -2264,6 +2400,12 @@ function drawn(...rows: string[]): TacticalGrid {
   // A ring goes at once, and is never turning.
   assert.deepEqual(rulesetAimTake(wall, { ring: true }, { x: 6, y: 6 }), { send: { at: { x: 6, y: 6 }, ring: true } });
   assert.ok(!rulesetAimTurning(wall, { ring: true, at: { x: 6, y: 6 } }));
+  // Only a pick that finishes a shape laid over several confirms it: a ring chosen in the menu, or a
+  // shape with nothing set down yet, waits for a second tap on the same square.
+  assert.ok(!rulesetAimLaidOverPicks({ ring: true }));
+  assert.ok(!rulesetAimLaidOverPicks(undefined));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 5, y: 5 } }));
+  assert.ok(rulesetAimLaidOverPicks({ at: { x: 1, y: 1 }, also: [{ x: 3, y: 1 }] }));
   // Three copies: two picks wait, the third sends; a square picked twice changes nothing.
   const storm = { ...base, area: { shape: "box", size: 2, copies: 3, range: 30 } } as never;
   const one = rulesetAimTake(storm, undefined, { x: 1, y: 1 });
@@ -2287,12 +2429,108 @@ function drawn(...rows: string[]): TacticalGrid {
   assert.equal(rulesetAimSoFar(undefined), null);
 }
 
-// ── The menu groups, the movement group first ──
+// ── The menu groups, the movement group first on a turn ──
 {
+  // A symbol throw's spends (1.382) are only ever asked in a window of their own, so they lead it.
   assert.deepEqual(
     [...RULESET_MENU_KINDS],
-    ["move", "attack", "reload", "ability", "item", "switch", "block", "contest", "standard", "end-turn"],
+    ["spend", "move", "attack", "reload", "ability", "item", "switch", "block", "contest", "standard", "end-turn"],
   );
+  assert.ok(messages["game.combat.ruleset.group.spend"], "en.json is missing the spend heading");
+  const engine = {
+    id: "engine-spends",
+    kind: "spend",
+    label: "Cut deeper, Rally",
+    targets: { side: "self", count: 0 },
+    targetIds: [],
+    symbolSpend: { engine: true, picks: [] },
+  } as never;
+  assert.equal(rulesetOptionLabel(engine, t), "Let the Engine choose: Cut deeper, Rally");
+  // The browser's choice is carried into a symbol fight once, and never while a decision is open.
+  const fightView = (choose: boolean, extra: Record<string, unknown> = {}) =>
+    ({ id: "fight", instanceId: "row-1", revision: 4, ruleset: { spends: { choose } }, ...extra }) as never;
+  const sends = { key: "fight|row-1", send: true, revision: 4, view: 100 };
+  const carriedOnce = { key: "fight|row-1", lost: 0 };
+  assert.deepEqual(rulesetSpendCarry(fightView(false), 100, false, null, true), sends);
+  assert.deepEqual(rulesetSpendCarry(fightView(false), 100, false, null, false), { ...sends, send: false });
+  assert.deepEqual(rulesetSpendCarry(fightView(true), 100, false, null, true), { ...sends, send: false });
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, carriedOnce, true), null, "carried once");
+  assert.equal(rulesetSpendCarry(fightView(false, { window: { id: "w" } }), 100, false, null, true), null, "waits");
+  assert.equal(rulesetSpendCarry(fightView(false), 100, true, null, true), null, "waits for a step in flight");
+  assert.equal(
+    rulesetSpendCarry({ id: "fight", revision: 1 } as never, 100, false, null, true),
+    null,
+    "no symbol fight",
+  );
+  assert.equal(
+    rulesetSpendCarry(fightView(false, { outcome: "victory" }), 100, false, null, true),
+    null,
+    "a fight over",
+  );
+  assert.deepEqual(
+    rulesetSpendCarry(fightView(false, { instanceId: "row-2" }), 100, false, carriedOnce, true),
+    { ...sends, key: "fight|row-2" },
+    "a restored checkpoint is another fight",
+  );
+  // One the rules refused waits for the fight to move; one lost on the way waits for a fresh view,
+  // up to its tries, and a refusal never counts against them.
+  const refusedAt = { key: "fight|row-1", lost: 0, failed: { refused: true as const, at: 4 } };
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, refusedAt, true), null, "not again at that revision");
+  assert.deepEqual(rulesetSpendCarry(fightView(false, { revision: 5 }), 100, false, refusedAt, true), {
+    ...sends,
+    revision: 5,
+  });
+  const lost = (count: number) => ({ key: "fight|row-1", lost: count, failed: { refused: false as const, view: 100 } });
+  assert.equal(rulesetSpendCarry(fightView(false), 100, false, lost(1), true), null, "lost: not from the same view");
+  assert.deepEqual(
+    rulesetSpendCarry(fightView(false), 101, false, lost(1), true),
+    { ...sends, view: 101 },
+    "a fresh one",
+  );
+  assert.equal(
+    rulesetSpendCarry(fightView(false), 101, false, lost(RULESET_SPEND_CARRY_TRIES), true),
+    null,
+    "its tries",
+  );
+  // The carry itself: one command however often it runs, and a failure marked by how it failed.
+  {
+    const carried: { current: RulesetSpendCarried | null } = { current: null };
+    const sent: Array<(error: unknown) => void> = [];
+    const send = (_command: unknown, options: { onError: (error: unknown) => void }) => sent.push(options.onError);
+    const refused = (error: unknown) => error === "refused";
+    /** One render of the screen: the gate, then the effect, as DirectedCombatUI runs them. */
+    const render = (view: number, revision = 4) =>
+      runRulesetSpendCarry(
+        rulesetSpendCarry(fightView(false, { revision }), view, false, carried.current, true),
+        carried,
+        send,
+        refused,
+      );
+    render(100);
+    render(100);
+    assert.equal(sent.length, 1, "run twice by one closure, one command leaves");
+    assert.deepEqual(carried.current, carriedOnce);
+    sent[0]!("refused");
+    assert.deepEqual(carried.current, refusedAt, "a refusal is marked at its revision, and not counted");
+    render(100);
+    assert.equal(sent.length, 1, "and not sent again there");
+    render(100, 5);
+    assert.equal(sent.length, 2, "but once the fight has moved");
+    sent[1]!(new Error("network"));
+    assert.deepEqual(carried.current, { key: "fight|row-1", lost: 1, failed: { refused: false, view: 100 } });
+    render(100, 5);
+    render(100, 5);
+    assert.equal(sent.length, 2, "a lost one is not resent in a burst from the view it failed on");
+    render(101, 5);
+    assert.equal(sent.length, 3, "only once a fresh view comes in");
+    sent[2]!(new Error("network"));
+    render(102, 5);
+    sent[3]!(new Error("network"));
+    render(103, 5);
+    assert.equal(sent.length, RULESET_SPEND_CARRY_TRIES + 1, "three losses in all, after the refusal, then it stops");
+    runRulesetSpendCarry({ ...sends, send: false }, { current: null }, send, refused);
+    assert.equal(sent.length, RULESET_SPEND_CARRY_TRIES + 1, "nothing to send is nothing sent");
+  }
   const grid = drawn(".....", ".....");
   const state = createRulesetEncounter({
     definition: fiveE,

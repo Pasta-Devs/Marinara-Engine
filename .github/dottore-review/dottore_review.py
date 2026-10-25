@@ -12,6 +12,7 @@ import posixpath
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -34,6 +35,8 @@ MAX_AUTOFIX_ROUNDS = 3
 FINDING_MARKER_RE = re.compile(r"<!-- dottore:finding=([0-9a-f]{16}) -->")
 STATE_MARKER_RE = re.compile(r"<!-- dottore:last-reviewed-sha=([0-9a-f]{40}) -->")
 CONTRACT_STATE_RE = re.compile(r"<!-- dottore:contract-state=([A-Za-z0-9_=-]+) -->")
+# The candidates a recorded examination left unjudged, for the next incremental one to check.
+UNJUDGED_RE = re.compile(r"<!-- dottore:unjudged=([A-Za-z0-9_=-]+) -->")
 
 
 def walkthrough_header(body):
@@ -64,43 +67,58 @@ DOTTORE_CHIBIS = {
     "CONCLUDED": ["sorting", "reading"],
     "": ["instrument-failed"],
 }
-# One remark per verdict, in his voice.
+# One remark per verdict, in his voice: the Second Harbinger's, clinical and politely contemptuous. The facts sit in
+# the verdict box above it; a remark never carries one, and a viable head's remark never reads as a to-do.
 DOTTORE_REMARKS = {
     "VIABLE": [
-        "Not a tremor on the table. Dismissed, for now.",
-        "A clean specimen. How dull. How welcome.",
-        "Nothing to cut. I am almost disappointed.",
-        "The instruments found nothing to object to. Carry on before I look harder.",
+        "No defects. A disappointing result, scientifically speaking; a subject that does not fail teaches me nothing.",
+        "The specimen held under every condition I applied. Dismissed, and free to remain this uninteresting.",
+        "Nothing to cut. I confess a certain disappointment. Failure is so much more informative.",
+        "It works. Merely works. Still, that is more than most subjects manage on the first trial.",
     ],
     "VIABLE, WITH NOTES": [
-        "Nothing worth the scalpel, only a few smudges on the glass.",
-        "Healthy enough. Polish the notes before the next exhibit.",
-        "No incisions today. Read the notes; I do not write them for my own amusement.",
+        "Nothing here requires the scalpel. The notes are observations for the curious, not instructions; the subject"
+        " may be released as it is.",
+        "Viable. I left a few remarks in the margins out of habit, not necessity. None of them stand between this and"
+        " the merge.",
+        "The experiment succeeds. What remains below is polish for anyone unwilling to stop at adequate, and nothing in"
+        " it is required.",
     ],
     "REPAIR REQUIRED": [
-        "The specimen lives, but it twitches where it should not. Hold the scalpel for now.",
-        "Fascinating. Bring it back when it stops bleeding.",
-        "Every thread below is an incision. Close each one and I will look again.",
-        "I have marked where it fails. Mend it, or let me.",
+        "The subject lives, but not correctly. Each thread is a data point; repair them, and the next trial will show"
+        " what they were worth.",
+        "Fascinating. Flawed in precisely the places that matter. Mend what is marked and return it to the table.",
+        "Close enough to working to be interesting, far enough to be useless. The marked threads are the difference.",
+        "I have recorded where it fails. Repair it, or tick the box and allow me to. Either way, the experiment"
+        " continues.",
     ],
     "SPECIMEN UNSTABLE": [
-        "Do not move this specimen. Something inside is still reacting.",
-        "Lethal, and therefore interesting. Contain it before it reaches the branch.",
-        "The table is not clean. Repair the worst of it before anyone else touches it.",
+        "Do not move this specimen. Something inside is still reacting, and I would rather observe it here than on the"
+        " branch.",
+        "Unstable, and therefore interesting. Contain it before it reaches anything of value.",
+        "A severe result. Instructive, certainly, but no subject leaves this table in such a condition.",
     ],
     "NO NEW DIFF REVIEWED": [
-        "Nothing new under the glass since the last examination. The prior verdict stands.",
-        "A base merge is not a specimen. I examined what changed, which was nothing.",
+        "Nothing new under the glass since the last examination. The prior verdict stands; I do not repeat experiments"
+        " for amusement.",
+        "A base merge is not a new specimen. I examined what changed, which was nothing.",
     ],
     "REVIEW INCOMPLETE": [
-        "The instruments failed before the specimen did. Rerun the examination.",
-        "An interrupted experiment proves nothing. Again.",
+        "The instruments failed before the specimen did. An interrupted experiment proves nothing; run it again.",
+        "Incomplete data is worse than none at all. Rerun the examination.",
     ],
-    "": ["The examination ended before a verdict. Ask again and I will look properly."],
+    "": ["The examination ended before a verdict. Ask again, and this time let the procedure finish."],
 }
+# The quote above the Defects table.
+DEFECTS_REMARKS = [
+    "Each entry below is a failure I could reproduce on paper. Valuable data. Considerably less valuable code.",
+    "The results. The subject did not enjoy the procedure, but results have never cared for a subject's comfort.",
+    "Catalogued in order of severity. Imperfection is where improvement begins, provided someone acts on it.",
+    "Failure is only wasteful when nothing is learned from it. Here is what there is to learn.",
+]
 
 
-THREAD_FOOTER = "*🎭 Push a repair and Dottore re-examines this thread; or tick the 🩺 box in his walkthrough to let him repair it.*"
+THREAD_FOOTER = "*🎭 Push a fix and Dottore re-checks this thread, or tick 🩺 in the walkthrough.*"
 
 
 def pick_for_head(pool, head_sha, slot=""):
@@ -131,18 +149,27 @@ GITHUB_CONTEXT_LINES = 3  # unchanged lines GitHub shows around each change in a
 MAX_FILE_PATCH_CHARS = 55_000
 MAX_REVIEW_CHUNKS = 8
 MAX_CHUNK_PATCH_CHARS = 90_000
-MAX_INLINE_COMMENT_CHARS = 1_200
+# The heading, lead, fix, quote and footer are never cut; only the collapsed details are trimmed to fit.
+MAX_INLINE_COMMENT_CHARS = 3_000
 MAX_CONTRACT_STATE_ENTRIES = 12
 MAX_CONTRACT_STATE_TEXT_CHARS = 320
+# The candidates an examination left unjudged ride in its walkthrough comment (65,536 characters at most) as at most
+# MAX_CARRIED_MARKER_CHARS of JSON, about 32,000 once encoded. A body is cut to MAX_CARRIED_TEXT_CHARS and a title and
+# fix hint to 200 each, so the 19 a recorded examination can leave fit once their repair contracts and leads are
+# dropped, unless their text needs heavy escaping. A quip is not carried: the checker writes the quote it publishes.
+MAX_CARRIED_TEXT_CHARS = 600
+MAX_CARRIED_MARKER_CHARS = 24_000
 MAX_CONTRACT_STATE_LIST_ITEMS = 3
-# Replies stream, so these limit silence on the stream, not the reply: an attempt that sends nothing for
-# this long is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
+# Replies stream, so these limit silence on the stream, not the reply: a read that waits this long for any byte
+# fails and is retried. An agent's first call has nothing cached yet and has stalled for minutes in the
 # provider's queue, while a working one starts replying within about a minute, so it is retried sooner. A call
-# offered only its submit tool thinks over the whole bundle before replying, so it may stay silent for the rest of
-# its role's time instead (see chat).
+# offered only its submit tool thinks over the whole bundle before replying, so it may stay silent for its role's
+# whole time box (`minutes`) instead, however late it starts, or, without a box, for what is left before its
+# deadline (see chat).
 MODEL_REQUEST_TIMEOUT = 360
 FIRST_CALL_TIMEOUT = 180
-# Caps one attempt that keeps streaming, or the role's time box when that is longer; such an attempt is not retried.
+# Limits time without thinking, text or tool-input progress; pings do not keep an attempt alive. An attempt stopped
+# for that is a failed call, not resent: its silence has already spent the role's time box.
 MODEL_STREAM_LIMIT = 900
 # Reasoning efforts from least to most. A role offered no tools whose reply hits its output cap is retried once at the
 # next lower effort: the cap is a symptom of thinking, and effort is the lever that reduces it.
@@ -172,6 +199,18 @@ MAX_CHANGED_BLOCK_LINES = 150
 MAX_CALLEE_LINES = 60
 MAX_BUNDLE_CODE_CHARS = 160_000
 MAX_PR_DESCRIPTION_CHARS = 4_000
+MAX_LINKED_ISSUES = 2
+# The issue template sections that say what a change must do or leave alone, shown in this order. The rest describe
+# the fault (actual behavior, steps, environment, logs) or restate the PR's why, and are left out.
+ISSUE_SECTIONS = (
+    "expected behavior", "expected", "requested behavior", "requested change", "proposed solution", "proposal",
+    "describe the solution you'd like", "proposed package or change", "scope", "not in scope",
+)
+MAX_ISSUE_CHARS = 1_000
+MAX_UNSTRUCTURED_ISSUE_CHARS = 500
+ISSUE_HEADING_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.M)
+CLOSING_ISSUE_RE = re.compile(r"(?<![\w-])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b", re.I)
+MAX_TESTS_ON_DISK = 30
 # Scouts add code the bundle builder could not follow by name: places they keep, quoted by code. Each scout of a
 # packet takes a share of its changed functions and they run at once, so the reading takes one scout's time.
 MAX_SCOUT_PLACES = 6
@@ -184,8 +223,8 @@ MAX_SCOUT_CHARS = 40_000
 # every turn of a tool loop resends the whole conversation.
 ROLE_DEFAULTS = {
     "scout": {"reads": 10, "chars": 40_000, "minutes": 5, "max_tokens": 16_000, "places": MAX_SCOUT_PLACES, "scouts": SCOUTS},
-    "finder": {"reads": 0, "chars": 0, "minutes": 10, "max_tokens": 32_000},
-    "verify": {"reads": 5, "chars": 40_000, "max_tokens": 32_000},
+    "finder": {"reads": 0, "chars": 0, "minutes": 10, "max_tokens": 64_000},
+    "verify": {"reads": 5, "chars": 40_000, "max_tokens": 64_000},
 }
 # DOTTORE_COST_LIMIT_USD stops a review's model calls once it has spent that much (calls in flight still finish). Unset,
 # a review may spend this much; 0 removes the limit.
@@ -220,15 +259,18 @@ MAX_SUBMIT_ATTEMPTS = 3
 MAX_TOOL_LINES = 120
 MAX_TOOL_CHARS = 8_000
 NEARBY_LINES = 3
+# A new defect this many lines from an open thread checked this round, or in its enclosing block, is a follow-up.
+FOLLOW_UP_LINES = 20
 MAX_VERIFIED_CANDIDATES = 20
 MAX_OPEN_QUESTIONS = 2
 MAX_NITPICKS = 2
 MAX_REVIEW_LIMITATIONS = 2
 MAX_GUIDANCE_HEADINGS = 40
 EVIDENCE_WINDOW = 3
-# Each model is reached through OpenAI's Chat Completions format, which most providers and gateways offer, or Claude's
-# Messages format; gateways such as LinkAPI serve Claude only through the latter when tools are used.
-APIS = ("openai", "anthropic")
+# Each model is reached through OpenAI's Chat Completions format, which most providers and gateways offer, Claude's
+# Messages format, or OpenAI's Responses format for a model its provider serves only there; gateways such as LinkAPI
+# serve Claude only through the Messages format when tools are used.
+APIS = ("openai", "anthropic", "responses")
 CACHE_BREAKPOINT = {"type": "ephemeral"}
 DEFAULT_CONCURRENCY = 4
 MAX_CONCURRENCY = 16
@@ -257,7 +299,12 @@ class Finding:
     segment: str = ""
     # A confirmed defect the checker placed on a line the PR did not change: walkthrough only, never inline.
     outside_diff: bool = False
-    packet: int = 0
+    # None for a carried candidate whose file no packet of this review holds.
+    packet: int | None = 0
+    # One plain sentence on what breaks; empty for an older candidate, which falls back to the body's first sentence.
+    lead: str = ""
+    # Dottore's quote about the finding, the only voiced text on it.
+    quip: str = ""
 
 
 def _safe_path(rel: str) -> pathlib.Path:
@@ -306,8 +353,73 @@ def run_git(args, limit=MAX_SECTION_CHARS):
     return truncate(result.stdout + result.stderr, limit)
 
 
+class ReviewWithheld(RuntimeError):
+    """The PR is not known to be open and Ready; no model work or review mutation is permitted."""
+
+
+def gh_mutates(args):
+    if args[:2] in (["pr", "comment"], ["pr", "review"]):
+        return True
+    if not args or args[0] != "api":
+        return False
+    if "graphql" in args:
+        query = next((arg.split("=", 1)[1].lstrip() for arg in args if arg.startswith("query=")), "")
+        return not (query.startswith("query") or query.startswith("{"))
+    method = next((args[index + 1].upper() for index, arg in enumerate(args[:-1]) if arg in ("-X", "--method")), "")
+    return method not in ("", "GET", "HEAD") or (not method and any(arg in args for arg in ("-f", "-F", "--field", "--raw-field", "--input")))
+
+
 def run_gh(args, *, input_text=None, timeout=120, check=False):
+    if gh_mutates(args):
+        require_ready(os.environ.get("PR_NUM", ""))
     return run(["gh", *args], input_text=input_text, timeout=timeout, check=check)
+
+
+def require_ready(pr_num, fields=""):
+    """Read live metadata, never event snapshots or CI results. Missing evidence fails closed."""
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if not pr_num or not repo:
+        raise ReviewWithheld("Dottore withheld: pull request identity is unavailable.")
+    names = ",".join(dict.fromkeys(["state", "isDraft", *filter(None, fields.split(","))]))
+    try:
+        pr = json.loads(run_gh(["pr", "view", pr_num, "--repo", repo, "--json", names], check=True).stdout)
+    except Exception as exc:
+        raise ReviewWithheld(f"Dottore withheld: live readiness could not be verified ({error_text(exc)}).") from exc
+    if not isinstance(pr, dict) or pr.get("state") != "OPEN" or pr.get("isDraft") is not False:
+        raise ReviewWithheld("Dottore withheld: the pull request must be open and Ready for review.")
+    return pr
+
+
+def workflow_ready(value):
+    if output := os.environ.get("GITHUB_OUTPUT"):
+        with open(output, "a", encoding="utf-8") as stream:
+            stream.write(f"ready={str(value).lower()}\n")
+
+
+class ReviewReadiness:
+    """Share a throttled stream check across the existing workers; a withheld run cannot resume itself."""
+    def __init__(self, pr_num):
+        self.pr_num, self.checked, self.withheld = pr_num, None, None
+        self.lock = threading.Lock()
+
+    def __call__(self, fresh=False):
+        with self.lock:
+            if self.withheld:
+                raise self.withheld
+            if not fresh and self.checked is not None and time.monotonic() - self.checked < 15:
+                return
+            try:
+                require_ready(self.pr_num)
+            except ReviewWithheld as exc:
+                self.withheld = exc
+                raise
+            self.checked = time.monotonic()
+
+
+def write_withheld_review(exc):
+    workflow_ready(False)
+    pathlib.Path("review.json").write_text(json.dumps({"review_state": "withheld", "detail": str(exc)}) + "\n", "utf-8")
+    print(str(exc), file=sys.stderr)
 
 
 def truncate(text, limit):
@@ -337,9 +449,7 @@ def redact_for_model(text):
 def inline_truncate(text, limit=MAX_INLINE_COMMENT_CHARS):
     if len(text) <= limit:
         return text
-    suffix = f"\n\n[truncated: inline finding was {len(text)} chars, limit is {limit} chars]"
-    keep = max(0, limit - len(suffix))
-    return text[:keep].rstrip() + suffix
+    return text[: max(0, limit - 1)].rstrip() + "…"
 
 
 def compact_state_text(value, limit=MAX_CONTRACT_STATE_TEXT_CHARS):
@@ -594,7 +704,7 @@ BUNDLE_NOTE = (
     "calls, two calls deep; where each changed function and each name declared on a changed line is used outside the "
     "diff; the diff of files other than code (docs, changelog, strings); and, when scouts ran, the code they added "
     "from other files: callers, imported definitions and what the changed values flow into. Test files are listed, "
-    "not shown."
+    "not shown, and so are the tracked tests named after a changed file."
 )
 SCOUT_NOTE = (
     "Places the scouts read and kept, quoted by code from the PR head (or from the review base where marked), "
@@ -603,11 +713,68 @@ SCOUT_NOTE = (
 
 
 def pr_description(pr_num):
-    """The PR's title and description, or "" when gh cannot read them."""
+    """The PR's title and description, and what the first issues it closes say the change must do; each is "" when
+    gh cannot read the PR."""
     if not pr_num:
-        return ""
+        return "", ""
     result = run_gh(["pr", "view", pr_num, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
-    return truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS) if result.returncode == 0 else ""
+    if result.returncode != 0:
+        return "", ""
+    issues = []
+    # Read from the closing keywords, because GitHub links closing issues only on PRs into the default branch and
+    # these PRs target staging; an issue linked only by a plain mention or from the sidebar is not read.
+    for number in list(dict.fromkeys(CLOSING_ISSUE_RE.findall(result.stdout)))[:MAX_LINKED_ISSUES]:
+        try:
+            issue = run_gh(["issue", "view", number, "--json", "title,body", "--jq", '.title + "\\n\\n" + .body'])
+            text = issue_sections(issue.stdout) if issue.returncode == 0 else "Could not be read."
+        except subprocess.TimeoutExpired:
+            text = "Could not be read."
+        issues.append(f"Issue #{number}: {redact_for_model(text)}")
+    return truncate(redact_for_model(result.stdout.strip()), MAX_PR_DESCRIPTION_CHARS), "\n\n".join(issues)
+
+
+def issue_sections(text):
+    """An issue's title and the template sections that state the intended behavior or its limits, or the opening of
+    its body when it has none of them."""
+    title, _, body = text.replace("\r\n", "\n").strip().partition("\n\n")
+    body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
+    parts = ISSUE_HEADING_RE.split(body)
+    # A hand-written heading may be bold or end in a colon: "## **Expected behavior:**".
+    found = {head.strip("*: ").lower(): section.strip() for head, section in zip(parts[1::2], parts[2::2])}
+    sections = [(name, found[name]) for name in ISSUE_SECTIONS if found.get(name)]
+    if not sections:
+        opening = truncate(body.strip(), MAX_UNSTRUCTURED_ISSUE_CHARS)
+        return f"{title}\n\nOpening of the issue, which has no expected behavior or scope section:\n{opening}"
+    # Shortest first, each taking an even share of what is left, so a long section cannot crowd out the scope.
+    budget, shown = MAX_ISSUE_CHARS, {}
+    for count, (name, section) in enumerate(sorted(sections, key=lambda item: len(item[1]))):
+        share = budget // (len(sections) - count)
+        shown[name] = truncate(section, share)
+        budget -= min(len(section), share)
+    return f"{title}\n\n" + "\n\n".join(f"{name.capitalize()}:\n{shown[name]}" for name, _ in sections)
+
+
+def tests_on_disk(focus):
+    """Tracked test files named after a focus file, by name only, so a reader can tell such a test exists."""
+    stems = {posixpath.basename(path).split(".")[0] for path in focus if not TEST_PATH_RE.search(path)}
+    return [
+        path
+        for path in run_git_raw(["ls-files"]).splitlines()
+        if TEST_PATH_RE.search(path) and posixpath.basename(path).split(".")[0] in stems
+    ]
+
+
+def repository_variables(files):
+    """The repository's Actions variables, never its secrets, for a PR that changes the workflows reading them."""
+    if not any(path.startswith(".github/") for path in files):
+        return ""
+    try:
+        variables = json.loads(os.environ["DOTTORE_VARS_JSON"])
+    except KeyError:
+        return "Not passed to this run."
+    except json.JSONDecodeError:
+        return "Could not be read."
+    return "\n".join(f"{name}={value}" for name, value in sorted(variables.items())) or "None set."
 
 
 def removed_lines(base):
@@ -739,9 +906,19 @@ def build_bundle(base, focus, description):
     listed = "\n".join(focus) + (
         f"\n\nChanged files reviewed in other packets ({len(elsewhere)}):\n" + "\n".join(elsewhere) if elsewhere else ""
     )
+    on_disk = tests_on_disk(focus)
     sections = [
         ("Pull Request", description or "No description could be read."),
         ("Changed Files", listed + (f"\n\nTest files ({len(tests)}) are listed but not shown." if tests else "")),
+        (
+            "Tests on Disk",
+            "Tracked test files named after a file in this packet, listed by name and not shown; read_file one when a "
+            "claim turns on it. A test under another name is not listed, so absence here does not show a test is missing."
+            + "\n\n"
+            # ponytail: a common stem such as index matches tests across packages; the list is capped, not scoped.
+            + ("\n".join(on_disk[:MAX_TESTS_ON_DISK]) or "None found.")
+            + (f"\n...and {len(on_disk) - MAX_TESTS_ON_DISK} more." if len(on_disk) > MAX_TESTS_ON_DISK else ""),
+        ),
         # Listed so a reader does not mistake an excluded file, such as a rebuilt bundle, for one the PR forgot.
         ("Changed but Excluded From Review", "\n".join(changed_files(base, excluded=True)) or "None."),
         ("Diff Stat", run_git(diff_command(base, "--stat", paths=focus), 20_000) if focus else "No included changes."),
@@ -754,6 +931,8 @@ def build_bundle(base, focus, description):
             + (seeds or "No named changes found."),
         ),
     ]
+    if variables := repository_variables(files):
+        sections.append(("Repository Variables", "The Actions variables (not secrets) the workflows read.\n\n" + variables))
     if patch:
         sections.append(("Diff of Files Other Than Code", f"```diff\n{truncate(patch, MAX_SECTION_CHARS)}\n```"))
     bundle = f"# Bundle\n{BUNDLE_NOTE}\n\n" + "\n\n".join(f"# {title}\n{redact_for_model(body)}" for title, body in sections)
@@ -821,6 +1000,7 @@ def build_stats(review_packet):
                 "stop_chars": 0,
                 "stop_time": 0,
                 "stop_box": 0,
+                "stop_cap": 0,
                 "prompt_tokens": 0,
                 "cached_tokens": 0,
                 "completion_tokens": 0,
@@ -908,9 +1088,9 @@ def review_clients(models):
         options = {
             "api_key": os.environ[f"DOTTORE_{slot.upper()}_API_KEY"].strip(),
             "base_url": settings["base_url"] or None,
-            "max_retries": MODEL_MAX_RETRIES,
+            "max_retries": 0,  # chat owns retries so each attempt checks live readiness.
         }
-        if settings["api"] == "openai":
+        if settings["api"] in ("openai", "responses"):
             from openai import OpenAI
 
             clients[slot] = OpenAI(**options)
@@ -966,6 +1146,9 @@ class ReviewRun:
     # Each packet's changed files; empty means one packet of every changed file.
     chunks: list = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    # The PR's merge base, set when an incremental review checks candidates carried from the last examination.
+    pr_base: str = ""
+    readiness: object = None
 
 
 def function_tool(name, description, properties, required):
@@ -1019,8 +1202,10 @@ REVIEW_ITEM = {
         "line": {"type": "integer"},
         "side": {"type": "string", "enum": ["LEFT", "RIGHT"]},
         "title": {"type": "string"},
+        "lead": {"type": "string"},
         "body": {"type": "string"},
         "fix_hint": {"type": "string"},
+        "quip": {"type": "string"},
         "repair_contract": {"type": "object"},
     },
     "required": ["path", "line", "title", "body"],
@@ -1042,6 +1227,7 @@ SUBMIT_FINDINGS = function_tool(
     "Submit the candidate findings and notes. This ends the pass.",
     {
         "change_summary": STRING_LIST,
+        "summary_quip": {"type": "string"},
         "findings": {"type": "array", "items": REVIEW_ITEM},
         "nitpicks": {"type": "array", "items": REVIEW_ITEM},
         "pre_merge_checks": {
@@ -1077,7 +1263,7 @@ SUBMIT_VERDICTS = function_tool(
                     "evidence": EVIDENCE,
                     "note": {"type": "string"},
                     "same_as": {"type": "integer", "description": "The candidate number this one shares a defect with."},
-                    **{key: REVIEW_ITEM["properties"][key] for key in ("path", "line", "title", "body", "fix_hint", "repair_contract")},
+                    **{key: REVIEW_ITEM["properties"][key] for key in ("path", "line", "title", "lead", "body", "fix_hint", "quip", "repair_contract")},
                 },
                 "required": ["candidate", "verdict", "severity", "evidence", "note"],
             },
@@ -1189,35 +1375,57 @@ class StreamStalled(Exception):
     """The connection went quiet or dropped after the reply stream opened."""
 
 
-def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT):
-    """Yield a stream's events, noting when the first arrived and stopping one that runs too long. A stopped stream
+class ResponseFailed(Exception):
+    """The provider reported a failed response inside a Responses stream, with its error code when it gave one."""
+
+    def __init__(self, detail, code=None):
+        super().__init__(f"the response failed: {detail}")
+        self.code = code or ""
+
+
+def watched(stream, started, timing, limit=MODEL_STREAM_LIMIT, readiness=None):
+    """Yield a stream's events, noting when the first arrived and stopping one that makes no progress. A stopped stream
     returns no usage, so the error carries what had streamed by then: thinking, text and tool-input characters."""
     seen = {"thinking": 0, "text": 0, "tool": 0}
     last = 0.0  # when the counts last grew; pings and block boundaries do not count
     for event in stream:
+        if readiness:
+            readiness()
         elapsed = time.monotonic() - started
         timing.setdefault("first_chunk", elapsed)
-        delta = getattr(event, "delta", None)  # Claude content_block_delta
-        if delta is None and getattr(event, "choices", None):  # Chat Completions chunk
-            delta = event.choices[0].delta
-        for key, names in (("thinking", ("thinking", "reasoning", "reasoning_content")), ("text", ("text", "content")), ("tool", ("partial_json",))):
-            grew = sum(len(getattr(delta, name, None) or "") for name in names) if delta is not None else 0
-            seen[key] += grew
-            last = elapsed if grew else last
-        if elapsed > limit:
+        if elapsed - last > limit:
             raise TimeoutError(
-                f"the reply was still streaming after {limit:.0f}s, with {seen['thinking']} thinking, {seen['text']} text "
+                f"the reply made no thinking, text or tool-input progress for {elapsed - last:.0f}s "
+                f"(limit {limit:.0f}s, elapsed {elapsed:.0f}s), with {seen['thinking']} thinking, {seen['text']} text "
                 f"and {seen['tool']} tool-input characters streamed, the last at {last:.0f}s"
             )
+        delta = getattr(event, "delta", None)  # Claude content_block_delta, or a Responses delta event's string
+        if delta is None and getattr(event, "choices", None):  # Chat Completions chunk
+            delta = event.choices[0].delta
+        kind = str(getattr(event, "type", ""))  # Responses: response.output_text.delta, ...function_call_arguments.delta, ...reasoning_*.delta
+        streamed = "text" if "output_text" in kind else "tool" if "function_call_arguments" in kind else "thinking"
+        for key, names in (("thinking", ("thinking", "reasoning", "reasoning_content")), ("text", ("text", "content")), ("tool", ("partial_json",))):
+            if isinstance(delta, str):
+                grew = len(delta) if key == streamed else 0
+            else:
+                grew = sum(len(getattr(delta, name, None) or "") for name in names) if delta is not None else 0
+                if key == "tool":
+                    grew += sum(
+                        len(getattr(getattr(call, "function", None), "arguments", None) or "")
+                        for call in getattr(delta, "tool_calls", None) or []
+                    )
+            seen[key] += grew
+            last = elapsed if grew else last
         yield event
 
 
-def read_stream(stream, started, timing, limit=MODEL_STREAM_LIMIT):
+def read_stream(stream, started, timing, limit=MODEL_STREAM_LIMIT, readiness=None):
     """Assemble a streamed Chat Completions reply; return (message, usage)."""
-    content, calls, usage = [], {}, None
-    for chunk in watched(stream, started, timing, limit):
+    content, calls, usage, stop = [], {}, None, None
+    for chunk in watched(stream, started, timing, limit, readiness):
         usage = getattr(chunk, "usage", None) or usage
         for choice in chunk.choices or []:
+            stop = getattr(choice, "finish_reason", None) or stop
             delta = choice.delta
             content.append(delta.content or "")
             for part in delta.tool_calls or []:
@@ -1230,11 +1438,11 @@ def read_stream(stream, started, timing, limit=MODEL_STREAM_LIMIT):
         SimpleNamespace(id=call["id"], function=SimpleNamespace(name=call["name"], arguments=call["arguments"]))
         for _, call in sorted(calls.items())
     ]
-    return SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None), usage
+    return SimpleNamespace(content="".join(content) or None, tool_calls=tool_calls or None, stop_reason=stop), usage
 
 
 def openai_reply(ctx, settings, messages, tools, tool_choice, read_timeout, started, timing, cache_key, stream_limit=MODEL_STREAM_LIMIT):
-    import httpx
+    import httpx2
     import openai
 
     claude = "claude" in settings["model"]
@@ -1255,11 +1463,114 @@ def openai_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if cache_key:
         # One key per packet keeps the finder's and checker's requests, which share the bundle, on the same cache.
         request["extra_body"] = {"prompt_cache_key": cache_key}
+    stream = None
     try:
         with ctx.clients[settings["slot"]].chat.completions.create(**request) as stream:
-            return read_stream(stream, started, timing, stream_limit)
-    except (httpx.TimeoutException, httpx.TransportError) as exc:
+            return read_stream(stream, started, timing, stream_limit, getattr(ctx, "readiness", None))
+    except (httpx2.TimeoutException, httpx2.TransportError, openai.APIConnectionError) as exc:
+        # OpenAI wraps transport errors during iteration too; only an opened stream uses the stalled-call retry.
+        if stream is None and isinstance(exc, openai.APIConnectionError):
+            raise
         raise StreamStalled(error_text(exc)) from exc
+
+
+def responses_input(messages):
+    """Chat Completions messages as Responses instructions and input items. An assistant turn's reasoning
+    goes back before its text and calls, so the model keeps its train of thought between turns."""
+    instructions, items = [], []
+    for message in messages:
+        role, content = message["role"], message.get("content")
+        if role == "system":
+            instructions.append(content)
+        elif role == "tool":
+            items.append({"type": "function_call_output", "call_id": message["tool_call_id"], "output": content})
+        elif role == "assistant":
+            items.extend(message.get("reasoning_items") or [])
+            if content:
+                items.append({"role": "assistant", "content": content})
+            items.extend(
+                {
+                    "type": "function_call",
+                    "call_id": call["id"],
+                    "name": call["function"]["name"],
+                    "arguments": call["function"]["arguments"],
+                }
+                for call in message.get("tool_calls") or []
+            )
+        elif content:
+            items.append({"role": "user", "content": content})
+    return "\n\n".join(instructions), items
+
+
+def responses_reply(ctx, settings, messages, tools, tool_choice, read_timeout, started, timing, cache_key, stream_limit=MODEL_STREAM_LIMIT):
+    """One streamed Responses call, returned in the Chat Completions shape the agents use."""
+    import httpx2
+    import openai
+
+    instructions, items = responses_input(messages)
+    request = {
+        "model": settings["model"],
+        "input": items,
+        # Nothing is kept on the provider; the encrypted reasoning comes back so the next turn can resend it.
+        "store": False,
+        "include": ["reasoning.encrypted_content"],
+        "stream": True,
+        "timeout": openai.Timeout(read_timeout, connect=30),
+    }
+    if instructions:
+        request["instructions"] = instructions
+    if tools:
+        request["tools"] = [{"type": "function", "strict": False, **tool["function"]} for tool in tools]
+        # "auto" and "required" pass through; only the named form takes Responses' own shape.
+        request["tool_choice"] = (
+            {"type": "function", "name": tool_choice["function"]["name"]} if isinstance(tool_choice, dict) else tool_choice
+        )
+    if settings["effort"]:
+        request["reasoning"] = {"effort": settings["effort"]}
+    if cache_key:
+        request["extra_body"] = {"prompt_cache_key": cache_key}
+    response, capped = None, False
+    stream = None
+    try:
+        with ctx.clients[settings["slot"]].responses.create(**request) as stream:
+            for event in watched(stream, started, timing, stream_limit, getattr(ctx, "readiness", None)):
+                if event.type in ("response.completed", "response.incomplete"):
+                    response = event.response
+                    # An incomplete response was cut short, by the output cap or a filter, as Claude's max_tokens stop.
+                    capped = event.type == "response.incomplete"
+                elif event.type in ("response.failed", "error"):
+                    failure = getattr(getattr(event, "response", None), "error", None) or event
+                    raise ResponseFailed(getattr(failure, "message", None) or "the provider gave no message", getattr(failure, "code", None))
+    except (httpx2.TimeoutException, httpx2.TransportError, openai.APIConnectionError) as exc:
+        if stream is None and isinstance(exc, openai.APIConnectionError):
+            raise
+        raise StreamStalled(error_text(exc)) from exc
+    if response is None:
+        raise StreamStalled("the reply stream ended before the response completed")
+    text, calls, reasoning = [], [], []
+    for item in response.output or []:
+        if item.type == "message":
+            text += [part.text for part in item.content or [] if getattr(part, "type", "") == "output_text"]
+        elif item.type == "function_call" and not capped:
+            # A call in a cut-short response may have lost the end of its arguments (see claude_reply).
+            calls.append(SimpleNamespace(id=item.call_id, function=SimpleNamespace(name=item.name, arguments=item.arguments)))
+        elif item.type == "reasoning" and getattr(item, "encrypted_content", None):
+            reasoning.append(item.model_dump(exclude_none=True))
+    prompt = usage_value(response.usage, "input_tokens")
+    output = usage_value(response.usage, "output_tokens")
+    usage = {
+        "prompt_tokens": prompt,
+        "completion_tokens": output,
+        "total_tokens": prompt + output,
+        "prompt_tokens_details": {"cached_tokens": usage_value(response.usage, "input_tokens_details", "cached_tokens")},
+        "completion_tokens_details": {"reasoning_tokens": usage_value(response.usage, "output_tokens_details", "reasoning_tokens")},
+    }
+    # An incomplete response names its cause, such as max_output_tokens; a finished one only its status.
+    stop = getattr(getattr(response, "incomplete_details", None), "reason", None) or getattr(response, "status", None)
+    message = SimpleNamespace(
+        content="".join(text) or None, tool_calls=calls or None, reasoning_items=reasoning, capped=capped, stop_reason=stop
+    )
+    return message, usage
 
 
 def claude_messages(messages):
@@ -1324,11 +1635,11 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if settings["effort"]:
         # OpenRouter passes effort to Claude unchanged only beside a thinking field. Alone, it becomes OpenRouter's
         # own reasoning setting, under which Haiku thought until the output cap on every first call.
-        request["thinking"] = {"type": "adaptive"}
+        request["thinking"] = {"type": "adaptive", "display": "summarized"}
         request["output_config"] = {"effort": settings["effort"]}
     try:
         with ctx.clients[settings["slot"]].messages.stream(**request) as stream:
-            for _ in watched(stream, started, timing, stream_limit):
+            for _ in watched(stream, started, timing, stream_limit, getattr(ctx, "readiness", None)):
                 pass
             reply = stream.get_final_message()
     except (httpx2.TimeoutException, httpx2.TransportError) as exc:
@@ -1364,7 +1675,9 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
         "prompt_tokens_details": {"cached_tokens": cached, "cache_write_tokens": written},
         "completion_tokens_details": {"reasoning_tokens": usage_value(reply.usage, "output_tokens_details", "thinking_tokens")},
     }
-    message = SimpleNamespace(content="".join(text) or None, tool_calls=calls or None, claude_blocks=blocks, capped=capped)
+    message = SimpleNamespace(
+        content="".join(text) or None, tool_calls=calls or None, claude_blocks=blocks, capped=capped, stop_reason=reply.stop_reason
+    )
     return message, usage
 
 
@@ -1375,6 +1688,10 @@ def transient_error(exc):
     """
     if isinstance(exc, StreamStalled):
         return True
+    if isinstance(exc, ResponseFailed):
+        # Any other code, such as invalid_prompt, fails the same way on every resend. A failure a gateway relays
+        # without a code is retried, like a bare APIError below.
+        return exc.code in ("", "server_error", "rate_limit_exceeded")
     import anthropic
     import openai
 
@@ -1403,27 +1720,33 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         if ctx.failures.get(role, 0) >= MAX_ROLE_FAILURES:
             raise RuntimeError(f"the {role} role failed {MAX_ROLE_FAILURES} calls in a row, so it makes no more")
     first_call = not any(message.get("role") == "assistant" for message in messages)
-    reply = claude_reply if settings["api"] == "anthropic" else openai_reply
-    # The client retries a request that fails before its stream opens. This retries one that stalls after
+    reply = {"anthropic": claude_reply, "responses": responses_reply}.get(settings["api"], openai_reply)
+    # SDK retries are disabled: this loop checks readiness before every request, including a retry. It retries one that stalls after
     # it at once, at most MODEL_MAX_RETRIES times since each stall has already used a read timeout, and
     # waits out a transient gateway error, which can arrive mid-stream with a request to resend. A role whose calls
     # give up MAX_ROLE_FAILURES times in a row stops: a dead endpoint costs no more. Attempts are not counted, so a
     # rate-limit burst across parallel calls does not trip the breaker before any of them retries.
     stalls = 0
     for attempt in range(len(RETRY_DELAYS) + 1):
+        if readiness := getattr(ctx, "readiness", None):
+            readiness(fresh=True)
         started = time.monotonic()
         timing = {}
-        if len(tools) == 1 and until:
+        if len(tools) == 1 and (settings.get("minutes") or until):
             # Offered only its submit tool, the model does all its thinking before its first byte, which over a
-            # whole bundle takes minutes, so it may stay silent for the rest of the role's time box (`minutes`), and
-            # a reply still streaming when the box ends is cut there: a Sonnet finder at high streamed thinking
-            # for 900 s past its box without finishing.
-            read_timeout = stream_limit = max(FIRST_CALL_TIMEOUT, until - started)
+            # whole bundle takes minutes, so an attempt may stay silent for the role's whole time box (`minutes`),
+            # however late in the review it starts. A role without a box (a checker with no reads) may stay silent
+            # for what is left before its deadline, at least FIRST_CALL_TIMEOUT. Meaningful stream progress
+            # refreshes that allowance. The deadline only stops new work; the workflow's step limit still bounds
+            # an in-flight reply.
+            read_timeout = stream_limit = settings["minutes"] * 60 if settings.get("minutes") else max(FIRST_CALL_TIMEOUT, until - started)
         else:
             read_timeout, stream_limit = (FIRST_CALL_TIMEOUT if first_call else MODEL_REQUEST_TIMEOUT), MODEL_STREAM_LIMIT
         try:
             message, usage = reply(ctx, settings, messages, tools, tool_choice, read_timeout, started, timing, cache_key, stream_limit)
             break
+        except ReviewWithheld:
+            raise
         except Exception as exc:
             stalled = isinstance(exc, StreamStalled)
             stalls += stalled
@@ -1457,6 +1780,7 @@ def chat(ctx, role, messages, tools, tool_choice, cache_key="", until=None, sett
         f"cache_write_tokens={usage_value(usage, 'prompt_tokens_details', 'cache_write_tokens')}; "
         f"completion_tokens={usage_value(usage, 'completion_tokens')}; "
         f"reasoning_tokens={usage_value(usage, 'completion_tokens_details', 'reasoning_tokens')}; "
+        f"stop_reason={getattr(message, 'stop_reason', None) or '-'}; "
         f"first_chunk_s={timing.get('first_chunk', 0):.1f}; elapsed_s={time.monotonic() - started:.1f}; "
         f"review_spent_usd={ctx.spent_usd:.3f}",
         flush=True,
@@ -1472,9 +1796,10 @@ def lower_effort(effort):
 
 
 def assistant_turn(message, **fields):
-    """The assistant message to keep in history, with Claude's original blocks when it sent them."""
-    blocks = getattr(message, "claude_blocks", None)
-    return {"role": "assistant", **fields, **({"claude_blocks": blocks} if blocks else {})}
+    """The assistant message to keep in history, with Claude's original blocks or the Responses reasoning
+    when the provider sent them."""
+    kept = {key: getattr(message, key, None) for key in ("claude_blocks", "reasoning_items")}
+    return {"role": "assistant", **fields, **{key: value for key, value in kept.items() if value}}
 
 
 def tool_call_key(call):
@@ -1506,6 +1831,9 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
     With keep, the name of the submit tool's list argument, the submit tool does not end the run: each call adds its
     items, and the first turn that makes no read, or the turn after a limit, ends it with every item kept. No final
     call restates them, and a limit loses only the reads not yet kept.
+
+    A reply cut off at its output cap without a tool call is sent once more at the next lower effort. A cap that
+    cannot be retried raises, or ends a keep run that has kept items with them.
     """
     settings = ctx.models[role]
     budget = settings["reads"] if budget is None else budget
@@ -1545,14 +1873,15 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             messages.append({"role": "user", "content": f"Your reads are spent and further reads are refused. Call {submit} now."})
         message = chat(ctx, role, messages, tools, choice, cache_key, until=min(deadline, box), settings=settings)
         calls = list(message.tool_calls or [])
-        if keep and (forced or all(call.function.name == submit for call in calls)):
-            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
-            with ctx.lock:
-                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
-            return {keep: kept}
+        # Ahead of the keep return, which would take a capped reply's missing call for an empty submission.
         if not calls and getattr(message, "capped", False):
             lower = lower_effort(settings["effort"])
             if lowered or not lower or time.monotonic() > min(deadline, box):
+                if kept:
+                    # Like any other limit, the cap ends a keep run with the items already kept.
+                    with ctx.lock:
+                        ctx.stats["roles"][role]["stop_cap"] += 1
+                    return {keep: kept}
                 raise RuntimeError(f"the {role} reply reached its {settings['max_tokens']}-token output cap")
             # The cap was spent on thinking, so the same call is sent once more at the next lower effort, with a
             # time box of its own: the capped call has usually spent most of the first one.
@@ -1561,6 +1890,11 @@ def run_agent(ctx, role, messages, submit_tool, deadline=None, cache_key="", bud
             box = time.monotonic() + settings["minutes"] * 60 if settings.get("minutes") else deadline
             lowered = True
             continue
+        if keep and (forced or all(call.function.name == submit for call in calls)):
+            kept += [item for call in calls if call.function.name == submit for item in as_list((call_arguments(call) or {}).get(keep))]
+            with ctx.lock:
+                ctx.stats["roles"][role][f"stop_{limits[0] if limits else 'own'}"] += 1
+            return {keep: kept}
         if not calls:
             print(f"Dottore {role} replied without a tool call: {redact_for_model(message.content or '')[:400]!r}", flush=True)
             if time.monotonic() > min(deadline, box):
@@ -1641,9 +1975,11 @@ def reviewer_system(prompts):
     )
 
 
-def finder_packet(review_target, focus_note, prior_contracts, bundle):
-    # Shared by the finder and the checker and placed before their instructions, so providers can cache it.
-    return f"{review_target} {focus_note}\n\n# Prior Dottore Repair Contracts\n{prior_contracts}\n\n{bundle}"
+def finder_packet(review_target, focus_note, prior_contracts, bundle, issues=""):
+    # Shared by the finder and the checker and placed before their instructions, so providers can cache it. Linked
+    # issues are here and not in the bundle, because the scouts that read the bundle look only for code.
+    linked = f"# Linked Issues\n{issues}\n\n" if issues else ""
+    return f"{review_target} {focus_note}\n\n# Prior Dottore Repair Contracts\n{prior_contracts}\n\n{linked}{bundle}"
 
 
 def tools_line(settings, in_view):
@@ -1852,10 +2188,15 @@ def staggered(delay, function, *args, **kwargs):
     return function(*args, **kwargs)
 
 
-def run_finders(ctx, pool):
+def run_finders(ctx):
     """Stage 1: the finder copies run over every packet concurrently. Returns the finder reports as (label, packet,
-    report). A finder failure ends the review."""
+    report). A finder failure ends the review.
+
+    Each finder gets a worker of its own (up to MAX_CONCURRENCY), not one of DOTTORE_CONCURRENCY's: a finder queued
+    behind the others starts with too little time left to think over its packet, then times out or eats the
+    checker's reserve."""
     copies = finder_count()
+    pool = ThreadPoolExecutor(max_workers=max(1, min(len(ctx.packets) * copies, MAX_CONCURRENCY)))
     finders = [
         (
             "finder" if copy == 0 else f"finder-{copy + 1}",
@@ -1881,10 +2222,8 @@ def run_finders(ctx, pool):
     ]
     try:
         return [(label, index, future.result()) for label, index, future in finders]
-    except Exception:
-        for _, _, future in finders:
-            future.cancel()
-        raise
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
 
 
 # ponytail: line-based declaration patterns, not a parser. An unnamed callback or an unusual signature
@@ -2137,6 +2476,7 @@ def same_spot(left, right):
 def merge_segments(reports):
     """Combine the finder reports without a model call."""
     merged = {key: [] for key in ("change_summary", "findings", "nitpicks", "open_questions")}
+    merged["summary_quip"] = ""
     checks = {}
     notes = []
     status_rank = {"fail": 0, "warn": 1, "unknown": 2, "pass": 3}
@@ -2144,6 +2484,7 @@ def merge_segments(reports):
     for number, (role, packet, report) in enumerate(reports):
         if number == 0 or role == "finder":
             merged["change_summary"].extend(str(item) for item in as_list(report.get("change_summary")))
+            merged["summary_quip"] = merged["summary_quip"] or " ".join(str(report.get("summary_quip") or "").split())
         for key in ("findings", "nitpicks"):
             for item in as_list(report.get(key)):
                 if not isinstance(item, dict):
@@ -2222,13 +2563,15 @@ def verification_prompt(ctx, candidates):
     path = candidates[0].path
     reads, chars = verifier_budget(ctx, candidates)
     around = candidate_code(ctx, candidates[0].packet, [(c.path, c.line, c.side) for c in candidates])
+    # A carried candidate's file may be unchanged since the last examination, so it is judged on the PR's whole diff.
+    base = ctx.pr_base if ctx.pr_base and any(c.segment == "carried" for c in candidates) else ctx.base
     return (
         f"{role_prompt(ctx, 'Checker', TOOLS=tools_line({'reads': reads, 'chars': chars}, 'the bundle and the code around each candidate are'))}"
         "\n\nFinish by calling submit_verdicts with one verdict per candidate number."
         f"\n\n# Candidates in {path}\n{json.dumps(listed, indent=2)}"
         + (f"\n\n# Code Around the Candidates\nQuoted by code from the PR head where the bundle does not already show it, with the PR's changed lines marked `+`.\n\n{around}" if around else "")
         + f"\n\n# Path Rules\n{matching_path_rules([path])}"
-        f"\n\n# Diff of {path}\n{truncate(diff_for_path(ctx.base, path), MAX_CONTEXT_FILE_CHARS) or 'Unchanged by this PR.'}"
+        f"\n\n# Diff of {path}\n{truncate(diff_for_path(base, path), MAX_CONTEXT_FILE_CHARS) or 'Unchanged by this PR.'}"
     )
 
 
@@ -2236,7 +2579,7 @@ def candidate_code(ctx, packet, places):
     """The code around each (path, line, side) place the packet's bundle does not already show, quoted the bundle's
     way: the line's window and short enclosing block, the values it reads and the same-file functions it calls.
     Questions mostly point at unchanged code the change feeds, which is where the checker used to spend its reads."""
-    shown = bundle_ranges(ctx.bundles[packet])
+    shown = bundle_ranges(ctx.bundles[packet]) if packet is not None else {}
     touched = {}
     for path, line, side in places:
         if line and side == "RIGHT" and not shown_in(shown, path, line, line):
@@ -2258,7 +2601,7 @@ def verifier_budget(ctx, candidates):
     return settings["reads"] + VERIFIER_READS_PER_EXTRA * extra, settings["chars"] + VERIFIER_CHARS_PER_EXTRA * extra
 
 
-FINDING_FIELDS = ("title", "body", "fix_hint")
+FINDING_FIELDS = ("title", "lead", "body", "fix_hint", "quip")
 
 
 def judge(ctx, candidate, verdict):
@@ -2272,7 +2615,8 @@ def judge(ctx, candidate, verdict):
     if outcome not in {"confirmed", "rejected", "uncertain"}:
         outcome = "uncertain"
     if outcome == "confirmed" and not evidence_grounded(ctx, evidence):
-        outcome = "uncertain"
+        # Withheld and counted under Verification Coverage, not published as a hypothesis that walks it back.
+        outcome = "unmatched"
         note = f"The quoted evidence did not match the code. {note}".strip()
         for item in evidence[:3]:
             print(
@@ -2288,9 +2632,13 @@ def judge(ctx, candidate, verdict):
     if severity in {"blocking", "high", "medium", "low"}:
         finding.severity = severity
     if written["title"] and written["body"]:
-        finding.title, finding.body = written["title"], written["body"]
+        finding.title, finding.body, finding.lead = written["title"], written["body"], written["lead"]
         finding.fix_hint = written["fix_hint"] or finding.fix_hint
+        # A quote written for the finder's claim does not fit the checker's rewrite of it.
+        finding.quip = ""
         finding.repair_contract = normalize_repair_contract(verdict.get("repair_contract")) or finding.repair_contract
+    # The checker's quote, rewrite or not: a carried candidate has none of its own.
+    finding.quip = written["quip"] or finding.quip
     line = verdict.get("line")
     if isinstance(line, int) and not isinstance(line, bool) and line > 0:
         try:
@@ -2320,7 +2668,8 @@ def verify_file(ctx, packet, candidates):
         "verify",
         [
             {"role": "system", "content": ctx.system},
-            {"role": "user", "content": ctx.packets[packet]},
+            # A candidate carried from the last examination has no packet when this run's diff leaves its file alone.
+            *([] if packet is None else [{"role": "user", "content": ctx.packets[packet]}]),
             {"role": "user", "content": verification_prompt(ctx, candidates)},
         ],
         SUBMIT_VERDICTS,
@@ -2350,13 +2699,16 @@ def verify_file(ctx, packet, candidates):
 
 def verify_candidates(ctx, candidates, pool):
     """Check the finder's highest-severity claims, one checker per packet and file in parallel, and sort them by
-    outcome."""
+    outcome. Also returns the chosen candidates left without a verdict. A carried candidate in no packet has packet
+    None."""
     chosen = candidates[:MAX_VERIFIED_CANDIDATES]
     groups = {}
-    for candidate in sorted(chosen, key=lambda candidate: (candidate.packet, candidate.path, candidate.line or 0)):
+    for candidate in sorted(chosen, key=lambda item: (item.packet is not None, item.packet or 0, item.path, item.line or 0)):
         groups.setdefault((candidate.packet, candidate.path), []).append(candidate)
     futures = {key: pool.submit(verify_file, ctx, key[0], group) for key, group in groups.items()}
-    counts = dict.fromkeys(("candidates", "confirmed", "rejected", "uncertain", "same_as", "unverified", "failed", "capped"), 0)
+    counts = dict.fromkeys(
+        ("candidates", "confirmed", "rejected", "uncertain", "unmatched", "same_as", "unverified", "failed", "capped"), 0
+    )
     counts["candidates"] = len(candidates)
     # Claims past the cap are the lowest-severity ones and a rerun would skip them again, so they are counted apart
     # from the chosen candidates the checker left without a verdict.
@@ -2369,12 +2721,15 @@ def verify_candidates(ctx, candidates, pool):
         except Exception as exc:
             print(f"Dottore checker failed for {key[1]}: {error_text(exc)}", flush=True)
             counts["failed"] += len(groups[key])
-    confirmed, hypotheses = [], []
+    confirmed, hypotheses, unjudged = [], [], []
     for candidate in chosen:
         if id(candidate) not in results:
+            unjudged.append(candidate)
             continue
         outcome, finding, note, evidence = results[id(candidate)]
         counts[outcome] += 1
+        if outcome == "unverified":
+            unjudged.append(candidate)
         print(
             f"Dottore candidate: {outcome}; found_by={finding.segment}; {finding.severity}; "
             f"{candidate.path}:{candidate.line}"
@@ -2387,7 +2742,7 @@ def verify_candidates(ctx, candidates, pool):
             confirmed.append({**dataclasses.asdict(finding), "verification": {"note": note, "evidence": evidence[:3]}})
         elif outcome == "uncertain":
             hypotheses.append(f"{finding.title} (`{finding.path}:{finding.line}`): {note}")
-    return confirmed, hypotheses, counts
+    return confirmed, hypotheses, counts, unjudged
 
 
 def repair_prompt(ctx, packet, threads):
@@ -2453,6 +2808,9 @@ def check_repairs(ctx, packet, threads):
                 **{key: thread[key] for key in ("thread_id", "comment_id", "id", "path", "side", "title")},
                 # An outdated thread has no line at the head; the walkthrough shows where it was opened.
                 "line": thread["line"] or thread["original_line"],
+                # Only a thread still anchored at the head can take a follow-up: an outdated one's line is an old commit's.
+                "anchored": bool(thread["line"]),
+                "ids": thread.get("ids") or [thread["id"]],
                 "verdict": outcome,
                 "note": note,
                 "evidence": evidence[:3],
@@ -2481,19 +2839,60 @@ def check_threads(ctx, threads, pool):
     return results
 
 
-def agentic_review(ctx, mode, pool, threads=()):
+def unjudged_entries(candidates):
+    """The walkthrough marker's entries for the candidates an examination left unjudged: enough of each for the next
+    one to judge it and, confirmed, publish it with its repair. A cut body ends in an ellipsis. Past
+    MAX_CARRIED_MARKER_CHARS the repair contracts and leads go, the least severe candidate's first; entries that outgrow
+    it even then are not carried, and the head stays unrecorded."""
+    entries = [
+        {
+            **{key: getattr(item, key) for key in ("severity", "path", "line", "side")},
+            "title": compact_state_text(item.title, 200),
+            "body": item.body if len(item.body) <= MAX_CARRIED_TEXT_CHARS else item.body[: MAX_CARRIED_TEXT_CHARS - 1].rstrip() + "…",
+            "fix_hint": compact_state_text(item.fix_hint, 200),
+            "lead": compact_state_text(item.lead, 200),
+            "repair_contract": compact_contract_for_state(item.repair_contract),
+        }
+        for item in candidates
+    ]
+    def size():
+        return len(json.dumps(entries, separators=(",", ":")))
+    for entry in reversed(entries):
+        if size() <= MAX_CARRIED_MARKER_CHARS:
+            break
+        # A candidate without a lead leads with its body's first sentence.
+        entry["repair_contract"], entry["lead"] = None, ""
+    if size() > MAX_CARRIED_MARKER_CHARS:
+        print(f"Dottore unjudged: {plural(len(entries), 'candidate')} need {size()} characters, over {MAX_CARRIED_MARKER_CHARS}; not carried", flush=True)
+        return []
+    return entries
+
+
+def agentic_review(ctx, mode, pool, threads=(), carried=()):
     """Scout, find, merge, then let the checker judge each candidate before it can be posted. The open threads are
-    re-judged alongside, once the scouts have filled the bundle."""
+    re-judged alongside, once the scouts have filled the bundle, and the candidates carried from the last examination
+    are judged first."""
     scout_failures, scouts = scout_bundles(ctx, pool)
     repairs = check_threads(ctx, threads, pool)
-    reports = run_finders(ctx, pool)
+    reports = run_finders(ctx)
     merged = merge_segments(reports)
     claims, severity_nitpicks, withheld = validate_review_items(
         {"findings": merged["findings"], "mode": mode}, ctx.base
     )
     merged["nitpicks"] = (merged["nitpicks"] + [dataclasses.asdict(item) for item in severity_nitpicks])[:2]
-    confirmed, hypotheses, counts = verify_candidates(ctx, claims, pool)
+    for candidate in carried:
+        candidate.packet = next((index for index, chunk in enumerate(ctx.chunks) if candidate.path in chunk), None)
+    # The claims come most severe first and the cap drops the least severe, so the carried candidates take their
+    # place by severity rather than ahead of every claim.
+    severity_rank = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+    ranked = sorted([*carried, *claims], key=lambda item: severity_rank.get(item.severity, 2))
+    confirmed, hypotheses, counts, unjudged = verify_candidates(ctx, ranked, pool)
     ctx.stats["verification"] = counts
+    if carried:
+        merged.setdefault("what_i_checked", []).append(
+            f"Took up {plural(len(carried), 'candidate')} the last examination left unjudged."
+        )
+    merged["unjudged_candidates"] = unjudged_entries(unjudged)
     open_questions = hypotheses + merged["open_questions"]
     merged["findings"] = confirmed
     merged["open_questions"] = open_questions[:MAX_OPEN_QUESTIONS]
@@ -2519,14 +2918,14 @@ def agentic_review(ctx, mode, pool, threads=()):
                 "detail": f"{plural(unresolved, 'more candidate')} could be neither confirmed nor refuted from the code, so they were withheld.",
             }
         )
-    unexamined = counts["capped"] + counts["unverified"] + counts["failed"]
+    unexamined = counts["capped"] + counts["unverified"] + counts["failed"] + counts["unmatched"]
     if unexamined:
         merged["pre_merge_checks"].append(
             {
                 "name": "Verification Coverage",
                 "status": "warn",
                 "type": "Review Limitation",
-                "detail": f"{plural(unexamined, 'candidate')} went unexamined ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error), so they were withheld.",
+                "detail": f"{plural(unexamined, 'candidate')} went unexamined or unmatched ({counts['capped']} past the {MAX_VERIFIED_CANDIDATES}-claim cap, {counts['unverified']} after the time limit or without a verdict, {counts['failed']} after a checker error, {counts['unmatched']} confirmed on evidence that did not match the code), so they were withheld.",
             }
         )
     return merged
@@ -2621,6 +3020,8 @@ def normalize_review_item(item, *, default_severity, outside_ok=False):
         segment=str(item.get("segment", "")).strip(),
         outside_diff=outside_ok and item.get("outside_diff") is True,
         packet=item.get("packet") if isinstance(item.get("packet"), int) else 0,
+        lead=" ".join(str(item.get("lead") or "").split()),
+        quip=" ".join(str(item.get("quip") or "").split()),
     )
 
 
@@ -2628,6 +3029,12 @@ def validate_review_items(review_obj, base, outside_ok=False):
     """The findings and nitpicks whose diff locations hold. With outside_ok, a confirmed finding the checker placed
     outside the changed lines keeps its place when that line exists at the head; the finder's never do."""
     allowed = touched_lines(base)
+    # Confirmed carried findings can sit on older PR changes; finder output and nitpicks stay incremental.
+    finding_lines = (
+        anchorable_lines(allowed, review_obj["base_ref"], review_obj.get("mode"))
+        if outside_ok and review_obj.get("base_ref")
+        else allowed
+    )
     findings = []
     nitpicks = []
     invalid = []
@@ -2639,6 +3046,7 @@ def validate_review_items(review_obj, base, outside_ok=False):
             invalid.append(f"Malformed finding skipped: {exc}")
             continue
         target = nitpicks if finding.severity == "nitpick" else findings
+        locations = allowed if target is nitpicks else finding_lines
         if finding.severity not in severities:
             finding.severity = "nitpick" if target is nitpicks else "medium"
         if finding.outside_diff and finding.side == "RIGHT":
@@ -2651,7 +3059,7 @@ def validate_review_items(review_obj, base, outside_ok=False):
                 continue
             target.append(finding)
             continue
-        if not finding.path or finding.path not in allowed:
+        if not finding.path or finding.path not in locations:
             invalid.append(
                 f"{finding.severity} '{finding.title or '<untitled>'}' at "
                 f"{finding.path or '<missing path>'}: not in changed files"
@@ -2670,14 +3078,14 @@ def validate_review_items(review_obj, base, outside_ok=False):
                 f"{finding.path}:{finding.line}: deleted-line findings need a full review (`/dottore full`)"
             )
             continue
-        removed = allowed[finding.path].get("LEFT", set())
+        removed = locations[finding.path].get("LEFT", set())
         if finding.side == "LEFT" and finding.line not in removed and removed:
             # A defect that only removes code is often placed on the unchanged line beside the deletion; anchor it on
             # the nearest removed line GitHub shows with it rather than withhold it.
             near = min(removed, key=lambda number: abs(number - finding.line))
             if abs(near - finding.line) <= GITHUB_CONTEXT_LINES:
                 finding.line = near
-        if finding.line not in allowed[finding.path].get(finding.side, set()):
+        if finding.line not in locations[finding.path].get(finding.side, set()):
             invalid.append(
                 f"{finding.severity} '{finding.title or '<untitled>'}' at "
                 f"{finding.path}:{finding.line}: line is not part of the change"
@@ -2726,21 +3134,57 @@ def validate_review_items(review_obj, base, outside_ok=False):
     return findings, nitpicks[:MAX_NITPICKS], invalid
 
 
-def render_finding_body(finding):
+def finding_lead(finding):
+    """The one-sentence lead; an older finding without one leads with its body's first sentence."""
+    if finding.lead:
+        return finding.lead
+    # The first paragraph up to any code fence, so a fence or a list never lands in the visible lead.
+    body = " ".join(finding.body.split("\n\n", 1)[0].split("```", 1)[0].split())
+    match = re.match(r"(.+?[.!?])(?:\s|$)", body)
+    return inline_truncate(match.group(1) if match else body, 240)
+
+
+def quote_line(text):
+    """Dottore's quote as one italic blockquote line; an asterisk inside would end the italics early."""
+    text = " ".join(str(text or "").split()).replace("*", "")
+    return f"> *{text}*" if text else ""
+
+
+def render_finding_body(finding, intro=""):
+    """The heading, the one-sentence lead, the fix and Dottore's quote stay visible; the explanation, the other
+    acceptable fixes and the proof expected are collapsed, and only they are trimmed to fit."""
     meta = severity_meta(finding.severity)
-    parts = [
-        finding_marker(finding),
-        f"### {meta['icon']} {meta['label']}: {finding.title}",
-        "",
-        f"**Location:** {location_label(finding)}",
-        "",
-        blockquote(finding.body),
-    ]
+    lead = finding_lead(finding)
+    visible = [finding_marker(finding)]
+    if intro:
+        visible += [intro, ""]
+    # threads_to_check and inline_comment_contract_entry parse the heading and the Suggested fix label.
+    visible += [f"### {meta['icon']} {meta['label']}: {finding.title}", "", lead]
     if finding.fix_hint:
-        parts.extend([""] + alert_block("TIP", [f"**Suggested fix:** {finding.fix_hint}"]))
-    # The finding is cut to leave room for the footer, so a long one still carries its next step.
-    body = inline_truncate("\n".join(parts).strip(), MAX_INLINE_COMMENT_CHARS - len(THREAD_FOOTER) - 2)
-    return f"{body}\n\n{THREAD_FOOTER}"
+        visible += ["", f"**Suggested fix:** {' '.join(finding.fix_hint.split())}"]
+    if quote_line(finding.quip):
+        visible += ["", quote_line(finding.quip)]
+    contract = finding.repair_contract or {}
+    detail = []
+    if finding.body and " ".join(finding.body.split()) != lead:
+        detail.append(finding.body)
+    others = [shape for shape in compact_list(contract.get("acceptable_fix_shapes")) if shape != finding.fix_hint]
+    if others:
+        detail.append("**Other acceptable fixes:** " + "; ".join(others))
+    proof = compact_list(contract.get("expected_proof"))
+    if proof:
+        detail.append("**Proof expected:** " + "; ".join(proof))
+    parts = ["\n".join(visible).strip()]
+    opening, closing = "<details><summary>Details</summary>\n\n", "\n\n</details>"
+    room = MAX_INLINE_COMMENT_CHARS - len(parts[0]) - len(THREAD_FOOTER) - len(opening) - len(closing) - 8
+    if detail and room > 80:
+        text = inline_truncate("\n\n".join(detail), room)
+        # A cut inside a code fence would swallow the closing tag.
+        if text.count("```") % 2:
+            text += "\n```"
+        parts.append(opening + text + closing)
+    parts.append(THREAD_FOOTER)
+    return "\n\n".join(parts)
 
 
 def finding_id(finding):
@@ -2913,26 +3357,32 @@ def merge_signal(review_obj, findings, nitpicks, pre_merge):
             "admonition": "CAUTION",
             "detail": "Dottore Review did not complete, so no model findings are available.",
         }
-    has_blocking = any(
-        severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
-        for finding in findings
+    severe = sum(
+        1 for finding in findings if severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
     )
-    has_failed_check = any(
-        status_meta(item.get("status"))["label"] == "FAIL" for item in pre_merge
-    )
-    if has_blocking or has_failed_check:
+    failed = sum(1 for item in pre_merge if status_meta(item.get("status"))["label"] == "FAIL")
+    gaps = sum(1 for item in pre_merge if warn_is_blocking_proof_gap(item))
+    owed = []
+    if findings:
+        owed.append(plural(len(findings), "defect") + (f" ({severe} blocking or high)" if severe else ""))
+    if failed:
+        owed.append(plural(failed, "failed control"))
+    if gaps:
+        owed.append(plural(gaps, "blocking proof gap"))
+    owed_detail = ", ".join(owed) + " to fix before merge."
+    if severe or failed:
         return {
             "label": "SPECIMEN UNSTABLE",
             "title": "Specimen Unstable",
             "admonition": "CAUTION",
-            "detail": "Repair blocking/high findings or failed controls before merge.",
+            "detail": owed_detail,
         }
-    if findings or any(warn_is_blocking_proof_gap(item) for item in pre_merge):
+    if findings or gaps:
         return {
             "label": "REPAIR REQUIRED",
             "title": "Repair Required",
             "admonition": "WARNING",
-            "detail": "Actionable findings or blocking proof gaps remain for this head.",
+            "detail": owed_detail,
         }
     if unexamined_candidates(review_obj):
         # Chosen candidates went unjudged (the Lab Notes count them): nothing certifies this head as viable.
@@ -2942,22 +3392,24 @@ def merge_signal(review_obj, findings, nitpicks, pre_merge):
             "admonition": "CAUTION",
             "detail": "Some candidates went unjudged, so no viable verdict is certified; rerun the review.",
         }
-    has_notes = nitpicks or any(
-        status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
+    notes = len(nitpicks) + sum(
+        1
         for item in pre_merge
+        if status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
     )
-    if has_notes:
+    if notes:
+        # Green, like a clean head: nothing below is owed, and the box must not read as a to-do.
         return {
             "label": "VIABLE, WITH NOTES",
             "title": "Viable, With Notes",
-            "admonition": "WARNING",
-            "detail": "No actionable defects were isolated, but non-blocking notes remain.",
+            "admonition": "TIP",
+            "detail": "No actionable defects. The notes are optional; nothing is required before merge.",
         }
     return {
         "label": "VIABLE",
         "title": "Viable",
         "admonition": "TIP",
-        "detail": "No actionable findings were isolated for this head.",
+        "detail": "No actionable defects for this head.",
     }
 
 
@@ -3019,13 +3471,25 @@ def location_label(finding, cell=str):
     return f"`{cell(finding.path)}:{finding.line}`" + (" (removed line)" if finding.side == "LEFT" else "")
 
 
+# Leads every repair prompt Dottore hands an agent: the findings are claims to check, not instructions.
+VERIFY_FIRST = (
+    "These findings come from an automated reviewer and can be wrong, stale or overstated.\n"
+    "Before changing any code, reproduce or trace each finding against the current code.\n"
+    "If a finding does not hold, leave that code unchanged and say why. Treat the suggested and\n"
+    "acceptable fixes as options, not requirements; prefer the smallest correct repair."
+)
+
+
 def agent_prompt_for_finding(finding):
     contract = finding.repair_contract or {}
     lines = [
         f"Task: Fix {location_label(finding)}.",
         f"Finding: {finding.title}",
+        f"What breaks: {finding_lead(finding)}",
         f"Severity: {finding.severity}",
     ]
+    if finding.fix_hint:
+        lines.append(f"Suggested fix: {' '.join(finding.fix_hint.split())}")
     if finding.severity != "nitpick":
         for key, label in (
             ("invariant", "Goal"),
@@ -3045,10 +3509,8 @@ def render_agent_prompt_details(findings, summary):
     if not findings:
         return ""
     prompt = code_block_text(
-        "\n\n".join(agent_prompt_for_finding(finding) for finding in findings)
+        "\n\n".join([VERIFY_FIRST, *(agent_prompt_for_finding(finding) for finding in findings)])
     )
-    if not prompt:
-        return ""
     return "\n".join(
         [
             "<details>",
@@ -3132,6 +3594,7 @@ def normalize_contract_state_entries(entries):
                 "title": compact_state_text(raw.get("title"), 180),
                 "fix_hint": compact_state_text(raw.get("fix_hint"), 260),
                 "repair_contract": contract,
+                **({"reply": compact_state_text(raw["reply"])} if raw.get("reply") else {}),
             }
         )
         if len(normalized) >= MAX_CONTRACT_STATE_ENTRIES:
@@ -3199,8 +3662,18 @@ def format_contract_entries_for_prompt(entries, limit=12_000):
     lines = [
         "Prior Dottore repair contracts from earlier review rounds. Judge whether the current diff satisfies each invariant before reporting adjacent defects.",
     ]
+    disposed = [entry for entry in entries if entry.get("status") == "disposed"]
+    entries = [entry for entry in entries if entry.get("status") != "disposed"] + disposed
     for index, entry in enumerate(entries, 1):
         location = f"{entry.get('path') or 'unknown'}:{entry.get('line') or '?'}"
+        if disposed and entry is disposed[0]:
+            lines.extend(
+                [
+                    "",
+                    "# Disposed by a maintainer",
+                    "A maintainer answered these threads. Do not raise them again unless new code changes the input the reply names; quote the reply if you do.",
+                ]
+            )
         lines.extend(
             [
                 "",
@@ -3212,6 +3685,8 @@ def format_contract_entries_for_prompt(entries, limit=12_000):
                 f"- Side: {entry.get('side') or 'RIGHT'}",
             ]
         )
+        if entry.get("reply"):
+            lines.append(f"- Maintainer reply: {entry['reply']}")
         if entry.get("fix_hint"):
             lines.append(f"- Suggested repair: {entry['fix_hint']}")
         contract = entry.get("repair_contract") or {}
@@ -3235,13 +3710,19 @@ def render_walkthrough(
     checked = review_obj.get("what_i_checked") or []
     pre_merge = review_obj.get("pre_merge_checks") or []
     resolved = review_obj.get("resolved_since_last_review") or []
-    # An examination that left candidates unjudged is not recorded: the commit status fails on it, the head is not
-    # discharged, and the next review examines it in full.
-    state_marker = (
-        f"<!-- dottore:last-reviewed-sha={head_sha} -->"
-        if head_sha and not has_incomplete_review_check(pre_merge) and not unexamined_candidates(review_obj)
-        else "<!-- dottore:last-reviewed-sha=unrecorded -->"
+    # An examination that judged some candidates and left others unjudged is recorded with those carried, so the next
+    # review is incremental and judges them; the commit status fails on it until then and the head is not discharged.
+    # One that failed or judged none is not recorded, and the next review examines it in full. So is one that left a
+    # removed line unjudged: its number is in the old file of this examination's diff, which the next one's may not be.
+    unjudged = review_obj.get("unjudged_candidates") or []
+    counts = review_obj.get("verification") if isinstance(review_obj.get("verification"), dict) else {}
+    judged = any(
+        isinstance(counts.get(key), int) and counts[key] > 0
+        for key in ("confirmed", "rejected", "uncertain", "unmatched", "same_as")
     )
+    carried = bool(unjudged) and judged and all(entry.get("side") == "RIGHT" for entry in unjudged)
+    recorded = head_sha and not has_incomplete_review_check(pre_merge) and (carried or not unexamined_candidates(review_obj))
+    state_marker = f"<!-- dottore:last-reviewed-sha={head_sha if recorded else 'unrecorded'} -->"
     # Every graded finding is a defect: a review thread and a hold on the verdict. The notes are the nitpicks.
     defects = [finding for finding in findings if is_defect(finding)]
     notes = [finding for finding in findings if not is_defect(finding)] + list(nitpicks)
@@ -3254,6 +3735,8 @@ def render_walkthrough(
         DOTTORE_MARKER,
         state_marker,
     ]
+    if review_obj.get("base_ref"):
+        body.append(f"<!-- dottore:base-ref={review_obj['base_ref']} -->")
     # ponytail: a head with no new diff to review is not discharged even when the last verdict was Viable;
     # carry the prior verdict forward if base merges keep withholding approval.
     signal = merge_signal(review_obj, defects, notes, pre_merge)
@@ -3261,16 +3744,25 @@ def render_walkthrough(
         body.append(DISCHARGE_MARKER)
     if contract_state_marker:
         body.append(contract_state_marker)
+    if carried and recorded:
+        raw = json.dumps(unjudged, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        body.append(f"<!-- dottore:unjudged={base64.urlsafe_b64encode(raw).decode('ascii')} -->")
     body.extend([
         render_merge_signal(review_obj, defects, notes, pre_merge, head_sha),
         "",
-        "### 🧭 Specimen Summary",
+        "### 🧭 Summary",
     ])
-    body.extend([f"- {line}" for line in summary[:2]] or ["- No specimen summary produced."])
-    body.extend(["", "### 🔎 Isolated Defects"])
+    if quote_line(review_obj.get("summary_quip")):
+        body.extend([quote_line(review_obj.get("summary_quip")), ""])
+    body.extend([f"- {line}" for line in summary[:2]] or ["- No summary produced."])
+    # No defects needs no section: the verdict box above already says so.
     if defects:
         body.extend(
             [
+                "",
+                "### 🔎 Defects",
+                quote_line(pick_for_head(DEFECTS_REMARKS, head_sha, "defects")),
+                "",
                 "| Severity | Location | Finding |",
                 "| :---: | --- | --- |",
             ]
@@ -3283,27 +3775,27 @@ def render_walkthrough(
                 f"{location_label(finding, md_cell)} | "
                 f"{md_cell(finding.title)} |"
             )
-    else:
-        if has_failed_review_check(pre_merge):
-            body.extend(
-                [
-                    "",
-                    "> [!CAUTION]",
-                    "> No model findings are available because Dottore Review failed before completing inspection.",
-                ]
-            )
-        else:
-            body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
+    elif has_failed_review_check(pre_merge):
+        body.extend(
+            [
+                "",
+                "### 🔎 Defects",
+                "",
+                "> [!CAUTION]",
+                "> No model findings are available because Dottore Review failed before completing inspection.",
+            ]
+        )
     if resolved:
-        body.extend(["", "### ✅ Repairs Confirmed"])
+        body.extend(["", "### ✅ Repairs confirmed"])
         for item in resolved[:5]:
             location = f"{item.get('path') or 'unknown'}:{item.get('line') or '?'}"
             title = item.get("title") or "Prior Dottore finding"
             body.append(f"- `{md_cell(location)}` - {md_cell(title)}")
-    body.extend(["", "### 🧹 Minor Imperfections"])
     if notes:
         body.extend(
             [
+                "",
+                "### 🧹 Optional notes",
                 "| Kind | Location | Note |",
                 "| :---: | --- | --- |",
             ]
@@ -3315,8 +3807,25 @@ def render_walkthrough(
                 f"{location_label(note, md_cell)} | "
                 f"{md_cell(note.title)} |"
             )
-    else:
-        body.append("- None recorded.")
+
+    def control_rows(items):
+        rows = ["| Status | Type | Check | Detail |", "| :---: | --- | --- | --- |"]
+        for item in items[:5]:
+            rows.append(
+                "| "
+                f"{status_badge(status_meta(item.get('status', 'unknown')))} | "
+                f"{md_cell(control_type(item))} | "
+                f"{md_cell(item.get('name', 'check'))} | "
+                f"{md_cell(item.get('detail', ''))} |"
+            )
+        return rows
+
+    # The controls that hold the verdict stay in view; the rest go in the collapsed review notes.
+    blocking = [
+        item for item in pre_merge if status_meta(item.get("status"))["label"] == "FAIL" or warn_is_blocking_proof_gap(item)
+    ]
+    if blocking:
+        body.extend(["", "### ⛔ Blocking checks", *control_rows(blocking)])
     body.extend(
         [
             "",
@@ -3326,44 +3835,31 @@ def render_walkthrough(
             "While this is ticked, Dottore pushes a repair for its open findings after each review, then examines it like"
             f" any push, and makes at most {MAX_AUTOFIX_ROUNDS} repair{'s' if MAX_AUTOFIX_ROUNDS != 1 else ''} between pushes"
             " from a person. Ticking needs write access.",
+            "",
+            "<details>",
+            "<summary>Review notes</summary>",
         ]
     )
-    if pre_merge:
-        body.extend(
-            [
-                "",
-                "### ✅ Control Checks",
-                "| Status | Type | Check | Detail |",
-                "| :---: | --- | --- | --- |",
-            ]
-        )
-        for item in pre_merge[:5]:
-            name = item.get("name", "check")
-            status = item.get("status", "unknown")
-            detail = item.get("detail", "")
-            meta = status_meta(status)
-            body.append(
-                "| "
-                f"{status_badge(meta)} | "
-                f"{md_cell(control_type(item))} | "
-                f"{md_cell(name)} | "
-                f"{md_cell(detail)} |"
-            )
+    other_controls = [item for item in pre_merge if item not in blocking]
+    if other_controls:
+        body.extend(["", "**Control checks**", "", *control_rows(other_controls)])
     if questions:
-        body.extend(["", "### ❓ Unresolved Hypotheses"])
+        body.extend(["", "**Unresolved questions**", ""])
         body.extend([f"- {line}" for line in questions[:2]])
-    body.extend(["", "### 🧪 Observations"])
+    body.extend(["", "**Observations**", ""])
     body.extend([f"- {line}" for line in checked[:3]] or ["- Bundle and diff context inspected."])
     verification = review_obj.get("verification") or {}
     if invalid_findings or verification:
-        body.extend(["", "### 📝 Lab Notes"])
+        body.extend(["", "**Lab notes**", ""])
     if verification:
         unexamined = verification.get("capped", 0) + verification.get("unverified", 0) + verification.get("failed", 0)
+        unmatched = verification.get("unmatched", 0)
         body.append(
             f"- {plural(verification.get('candidates', 0), 'candidate')} examined against the code: "
             f"{verification.get('confirmed', 0)} confirmed, {verification.get('rejected', 0)} rejected, "
             f"{verification.get('uncertain', 0)} left unresolved"
             + (f", {verification['same_as']} the same defect as another" if verification.get("same_as") else "")
+            + (f", {unmatched} confirmed on evidence that did not match the code" if unmatched else "")
             + (f", {unexamined} unexamined." if unexamined else ".")
         )
     if invalid_findings:
@@ -3375,7 +3871,9 @@ def render_walkthrough(
             ]
         )
         body.extend([f"- {note}" for note in invalid_findings[:5]])
-    # Last, for a pull request Dottore cannot push to (a fork): the same repair contracts, for an agent of your own.
+    body.extend(["", "</details>"])
+    # Last, for a pull request Dottore cannot push to (a fork without maintainer edits): the same repair contracts, for
+    # an agent of your own.
     agent_prompt = render_agent_prompt_details(defects, "🩺 Repair prompt for an agent of your own")
     if agent_prompt:
         body.extend(["", agent_prompt])
@@ -3522,19 +4020,20 @@ query($owner: String!, $name: String!, $number: Int!) {
       reviewThreads(first: 100) {
         nodes {
           id isResolved path line originalLine diffSide
-          comments(first: 50) { nodes { databaseId body author { __typename login } } }
+          comments(first: 50) { nodes { databaseId body authorAssociation author { __typename login } } }
         }
       }
     }
   }
 }
 """
+MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 RESOLVE_THREAD_MUTATION = "mutation($thread: ID!) { resolveReviewThread(input: {threadId: $thread}) { thread { id } } }"
 MAX_REPAIR_THREADS = 12
 
 
-def open_dottore_threads(pr_num, answered=False):
-    """The unresolved review threads Dottore opened that no one else has replied to, or all of them with answered."""
+def dottore_threads(pr_num):
+    """Every review thread Dottore opened, resolved or not, with the last reply a maintainer left on it."""
     # ponytail: the first 100 threads and 50 comments a thread; page reviewThreads when a PR outgrows that.
     owner, name = os.environ["GITHUB_REPOSITORY"].split("/", 1)
     gh = run_gh(
@@ -3546,51 +4045,93 @@ def open_dottore_threads(pr_num, answered=False):
     threads = []
     for node in nodes:
         comments = (node.get("comments") or {}).get("nodes") or []
-        if node.get("isResolved") or not comments:
+        if not comments:
             continue
         first = comments[0]
         author = first.get("author") or {}
         marker = FINDING_MARKER_RE.search(first.get("body") or "")
         if author.get("__typename") != "Bot" or not marker:
             continue
-        # A person who answered the thread owns its outcome.
-        if not answered and any((comment.get("author") or {}).get("login") != author.get("login") for comment in comments[1:]):
-            continue
+        # A follow-up Dottore posted in the thread is its finding now: the repair check and autofix judge the latest.
+        posted = [
+            comment
+            for comment in comments
+            if (comment.get("author") or {}).get("login") == author.get("login") and FINDING_MARKER_RE.search(comment.get("body") or "")
+        ]
+        latest = posted[-1]
+        # Only someone with write access settles a finding; a reply from anyone else does not reach the finder.
+        replies = [
+            comment
+            for comment in comments[1:]
+            if (comment.get("author") or {}).get("__typename") != "Bot" and comment.get("authorAssociation") in MAINTAINER_ASSOCIATIONS
+        ]
         threads.append(
             {
                 "thread_id": node.get("id"),
+                # Replies attach to the thread's first comment.
                 "comment_id": first.get("databaseId"),
-                "id": marker.group(1),
+                "id": FINDING_MARKER_RE.search(latest.get("body") or "").group(1),
+                "ids": [FINDING_MARKER_RE.search(comment.get("body") or "").group(1) for comment in posted],
                 "path": node.get("path") or "",
                 "line": node.get("line"),
                 "original_line": node.get("originalLine"),
                 "side": node.get("diffSide") or "RIGHT",
-                "body": first.get("body") or "",
+                "body": latest.get("body") or "",
+                "resolved": bool(node.get("isResolved")),
+                "answered": any((comment.get("author") or {}).get("login") != author.get("login") for comment in comments[1:]),
+                "reply": compact_state_text(redact_for_model(replies[-1].get("body") or "")) if replies else "",
             }
         )
     return threads
 
 
-def threads_to_check(pr_num, files, prior_contracts):
+def open_dottore_threads(pr_num, answered=False, threads=None):
+    """The unresolved review threads Dottore opened that no one else has replied to, or all of them with answered."""
+    # A person who answered the thread owns its outcome.
+    threads = dottore_threads(pr_num) if threads is None else threads
+    return [thread for thread in threads if not thread["resolved"] and (answered or not thread["answered"])]
+
+
+def dispose_contracts(entries, threads):
+    """The prior contracts less those whose thread is resolved, with those a maintainer answered marked disposed and
+    carrying the reply, so the finder stops re-judging a point a maintainer has settled."""
+    by_id = {}
+    for thread in threads:
+        # Every finding a thread holds, the first and each follow-up, settles with the thread.
+        for finding in {thread["id"], *thread.get("ids", ())}:
+            # A finding posted again keeps its open thread's state over a resolved copy.
+            if finding not in by_id or by_id[finding]["resolved"]:
+                by_id[finding] = thread
+    kept = []
+    for entry in entries:
+        thread = by_id.get(entry.get("id"))
+        # ponytail: a finding raised again after its only thread was resolved gets no new thread (the inline
+        # duplicate filter counts resolved threads' markers), so its contract is dropped the round after; repost a
+        # finding whose thread is resolved, or record which round raised it, if that case shows up.
+        if thread and thread["resolved"]:
+            continue
+        if thread and thread["reply"]:
+            entry = {**entry, "status": "disposed", "reply": thread["reply"]}
+        kept.append(entry)
+    return kept
+
+
+def threads_to_check(threads, files, prior_contracts):
     """The open Dottore threads on the files this round changed, with their finding text and repair contract."""
     # ponytail: a thread whose file this round left alone is not checked, so a repair made only in another file
     # waits for a person or a later round that touches the thread's file; check every open thread if that shows up.
-    try:
-        threads = open_dottore_threads(pr_num) if pr_num else []
-    except Exception as exc:
-        print(f"Dottore could not list the open threads: {error_text(exc)}", flush=True)
-        return []
     contracts = {entry.get("id"): entry for entry in prior_contracts}
     chosen = []
-    for thread in threads:
+    for thread in open_dottore_threads(None, threads=threads):
         if thread["path"] not in files:
             continue
-        body = thread.pop("body")
+        body = thread["body"]
         heading = re.search(r"### .*?\b(?:BLOCKING|HIGH|MEDIUM|LOW):\s*(.+)", body)
         contract = contracts.get(thread["id"]) or {}
         chosen.append(
             {
-                **thread,
+                **{key: thread[key] for key in ("thread_id", "comment_id", "id", "path", "line", "original_line", "side")},
+                "ids": thread.get("ids") or [thread["id"]],
                 "title": contract.get("title") or (heading.group(1).strip() if heading else "Prior Dottore finding"),
                 "finding": redact_for_model(FINDING_MARKER_RE.sub("", body).strip()),
                 "contract": contract.get("repair_contract"),
@@ -3601,11 +4142,83 @@ def threads_to_check(pr_num, files, prior_contracts):
     return chosen[:MAX_REPAIR_THREADS]
 
 
+def follow_up_threads(findings, repairs, file_lines):
+    """The open threads this round checked that a new defect continues: the same file and side, and within
+    FOLLOW_UP_LINES of the thread's line or the code its check quoted, or in the same enclosing block. `file_lines` gives
+    a head file's lines. A finding that is a thread's own, raised again, is not a follow-up."""
+    # ponytail: one follow-up per thread a round, so a second nearby defect opens its own thread; reply with every
+    # one if a round often raises several on one spot. Only a repaired thread takes one: a still-open thread keeps its
+    # own finding as the one its next check judges, so a nearby defect opens a thread of its own beside it.
+    own = {finding for item in repairs for finding in item.get("ids") or [item.get("id")]}
+    taken, matches = set(), []
+    for finding in findings:
+        number = finding.line
+        if finding_id(finding) in own or isinstance(number, bool) or not isinstance(number, int):
+            continue
+        for item in repairs:
+            if item.get("verdict") != "resolved" or not item.get("anchored") or not item.get("comment_id") or item.get("thread_id") in taken:
+                continue
+            if (item.get("path"), str(item.get("side") or "RIGHT").upper()) != (finding.path, finding.side):
+                continue
+            places = [item.get("line")] + [
+                evidence.get("line") for evidence in item.get("evidence") or [] if evidence.get("path") == finding.path
+            ]
+            places = [line for line in places if isinstance(line, int) and not isinstance(line, bool) and line > 0]
+            near = any(abs(line - number) <= FOLLOW_UP_LINES for line in places)
+            if not near and finding.side == "RIGHT":
+                lines = file_lines(finding.path)
+                block = enclosing_block(lines, number) if number <= len(lines) else None
+                near = bool(block) and any(
+                    (enclosing_block(lines, line) or ())[:2] == block[:2] for line in places if line <= len(lines)
+                )
+            if near:
+                taken.add(item["thread_id"])
+                matches.append(
+                    {
+                        "finding_id": finding_id(finding),
+                        "thread_id": item["thread_id"],
+                        "comment_id": item["comment_id"],
+                        "id": item.get("id"),
+                        "prior_verdict": item["verdict"],
+                        "note": item.get("note") or "",
+                    }
+                )
+                break
+    return matches
+
+
+def repaired_threads(repairs, raised, continued):
+    """The threads this round's check found repaired that it resolves. A thread holding any finding this round raised
+    again stays open, whatever its check said, as does one a follow-up continues."""
+    return [
+        item
+        for item in repairs
+        if item["verdict"] == "resolved"
+        and not raised & set(item.get("ids") or [item["id"]])
+        and item["thread_id"] not in continued
+    ]
+
+
+def follow_up_intro(item, finding, head_sha):
+    """The plain first line of a follow-up posted in the thread it continues. It names the follow-up's own line, which
+    the thread's anchor does not show, for the next repair check and autofix."""
+    note = " ".join(str(item.get("note") or "").split()).rstrip(".")
+    return (
+        f"Follow-up at `{short_ref(head_sha)}` on {location_label(finding)}: the original issue is fixed"
+        + (f" ({note})" if note else "")
+        + "; this remains:"
+    )
+
+
+FOLLOW_UP_INTRO_RE = re.compile(r"(<!-- dottore:finding=[0-9a-f]+ -->\n)Follow-up at [^\n]*\n\n")
+
+
 def resolve_repaired_threads(pr_num, repaired, head_sha):
     """Resolve each thread the checker found repaired, then reply, unless it was resolved or answered since."""
     repaired = [item for item in repaired if item.get("thread_id") and item.get("comment_id")]
     if not repaired:
         return
+    require_ready(pr_num)
     try:
         still_open = {thread["thread_id"] for thread in open_dottore_threads(pr_num)}
     except Exception as exc:
@@ -3614,13 +4227,15 @@ def resolve_repaired_threads(pr_num, repaired, head_sha):
     for item in repaired:
         if item["thread_id"] not in still_open:
             continue
-        reply = f"🎭 Hypothesis confirmed — repaired in `{short_ref(head_sha)}`: {item.get('note') or 'the defect no longer reproduces at this head.'}"
+        reply = f"🎭 Repaired in `{short_ref(head_sha)}`: {item.get('note') or 'the defect no longer reproduces at this head.'}"
         evidence = (item.get("evidence") or [{}])[0]
         if evidence.get("snippet"):
             reply += f"\n\n`{evidence.get('path')}:{evidence.get('line')}`\n```text\n{code_block_text(evidence['snippet'])}\n```"
         # Resolve first: a reply on a thread that stays open would be posted again by every later review.
         try:
             run_gh(["api", "graphql", "-f", f"query={RESOLVE_THREAD_MUTATION}", "-f", f"thread={item['thread_id']}"], check=True)
+        except ReviewWithheld:
+            raise
         except Exception as exc:
             print(f"::warning::Dottore could not resolve thread {item['thread_id']}: {error_text(exc)}", flush=True)
             continue
@@ -3631,6 +4246,8 @@ def resolve_repaired_threads(pr_num, repaired, head_sha):
                 input_text=json.dumps({"body": reply}),
                 check=True,
             )
+        except ReviewWithheld:
+            raise
         except Exception as exc:
             print(f"::warning::Dottore resolved thread {item['thread_id']} but could not reply: {error_text(exc)}", flush=True)
 
@@ -3773,6 +4390,55 @@ def discover_last_reviewed_sha(pr_num):
     return None
 
 
+def carried_candidates(pr_num, reviewed):
+    """The candidates the examination of `reviewed` left unjudged, read from the walkthrough that recorded it, with
+    their head lines followed to this head. One in a file this head no longer has is dropped: its code is gone, and a
+    renamed file is new diff to the finders. A removed line is never recorded unjudged, so it is dropped too."""
+    headers = (walkthrough_header(comment.get("body")) for comment in reversed(sorted_walkthrough_comments(pr_num)))
+    header = next((header for header in headers if reviewed in STATE_MARKER_RE.findall(header)), "")
+    encoded = UNJUDGED_RE.findall(header)
+    if not encoded:
+        return []
+    try:
+        entries = as_list(json.loads(base64.urlsafe_b64decode(encoded[-1].encode("ascii")).decode("utf-8")))
+    except Exception:
+        entries = []
+    carried = []
+    for entry in entries[:MAX_VERIFIED_CANDIDATES]:
+        try:
+            candidate = normalize_review_item(entry, default_severity="medium")
+            candidate.path = tool_path(candidate.path)
+        except (AttributeError, ValueError):
+            continue
+        if isinstance(candidate.line, bool) or not isinstance(candidate.line, int) or not candidate.title:
+            continue
+        if candidate.side != "RIGHT" or not (REPO_ROOT / candidate.path).is_file():
+            continue
+        candidate.segment = "carried"
+        candidate.line = followed_line(reviewed, candidate.path, candidate.line)
+        carried.append(candidate)
+    print(f"Dottore carried: candidates={len(carried)}; dropped={len(entries) - len(carried)}; from={reviewed[:12]}", flush=True)
+    return carried
+
+
+def followed_line(old, path, line):
+    """Where line `line` of `path` at commit `old` stands at HEAD: moved by the hunks above it, or at the start of the
+    hunk that rewrote it."""
+    shift = 0
+    diff = run_git_raw(diff_command(old, "--unified=0", paths=[path]))
+    for start, count, new_start, new_count in re.findall(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", diff, re.M):
+        start, count, new_start, new_count = int(start), int(count or 1), int(new_start), int(new_count or 1)
+        if not count:  # lines added after old line `start`
+            shift += new_count if start < line else 0
+        elif start + count <= line:
+            shift += new_count - count
+        elif start <= line:
+            return max(new_start, 1)
+        else:
+            break
+    return line + shift
+
+
 def valid_review_base_sha(candidate, head_sha):
     if not candidate or not re.fullmatch(r"[0-9a-f]{40}", candidate):
         return False
@@ -3867,6 +4533,13 @@ def missing_model_text(missing):
 
 def produce_review(args):
     pr_num = os.environ.get("PR_NUM", "")
+    readiness = ReviewReadiness(pr_num)
+    try:
+        readiness(fresh=True)
+    except ReviewWithheld as exc:
+        write_withheld_review(exc)
+        return
+    workflow_ready(True)
     missing = missing_model_setup()
     if not pr_num and missing:
         write_skipped_review("Review Skipped", missing_model_text(missing))
@@ -3876,10 +4549,13 @@ def produce_review(args):
     requested_mode = args.mode or parse_command_mode()
     base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
     ensure_local_head(head_sha, pr_num)
+    reviewed = base
     base, effective_mode = review_base_commit(base, base_ref, effective_mode)
+    # An incremental review also judges what the last examination left unjudged, new diff or not.
+    leftover = carried_candidates(pr_num, reviewed) if effective_mode == "incremental" else []
     patch_command_status_running(pr_num, head_sha, effective_mode)
     files = changed_files(base)
-    if not files and effective_mode == "incremental":
+    if not files and effective_mode == "incremental" and not leftover:
         # The last walkthrough (a base merge or a repeated /dottore changed nothing) is carried to this head.
         carried = (latest_walkthrough_comment(pr_num) or {}).get("body") or ""
         write_skipped_review(
@@ -3916,18 +4592,24 @@ def produce_review(args):
 
     chunks = chunk_changed_files(base, files)
     prompts = prompt_sections(dottore_prompt_path().read_text("utf-8"))
-    prior_contract_state = prior_review_contract_state(pr_num)
+    try:
+        pr_threads = dottore_threads(pr_num) if pr_num else []
+    except Exception as exc:
+        print(f"Dottore could not list the review threads, so prior contracts keep their state: {error_text(exc)}", flush=True)
+        pr_threads = []
+    recorded_state = prior_review_contract_state(pr_num)
+    prior_contract_state = dispose_contracts(recorded_state, pr_threads)
     prior_contract_context = (
         format_contract_entries_for_prompt(prior_contract_state)
-        if prior_contract_state
+        if recorded_state
         else prior_review_contracts_context(pr_num)
     )
-    threads = threads_to_check(pr_num, set(files), prior_contract_state)
+    threads = threads_to_check(pr_threads, set(files), prior_contract_state)
     review_target = (
         f"Review this PR. The review base is commit '{base}' on target branch '{base_ref}', "
         f"head is '{head_sha}', and mode is '{effective_mode}'."
     )
-    description = pr_description(pr_num)
+    description, issues = pr_description(pr_num)
     bundles, packets = [], []
     for index, chunk in enumerate(chunks, 1):
         bundle = build_bundle(base, chunk, description)
@@ -3937,8 +4619,9 @@ def produce_review(args):
             else "Review the full current diff."
         )
         bundles.append(bundle)
-        packets.append(finder_packet(review_target, focus_note, prior_contract_context, bundle))
+        packets.append(finder_packet(review_target, focus_note, prior_contract_context, bundle, issues))
     stats = build_stats("".join(bundles))
+    stats["review_packet_chars"] = sum(len(packet) for packet in packets)
     print(f"Dottore bundles: packets={len(bundles)}; chars={','.join(str(len(bundle)) for bundle in bundles)}", flush=True)
     allowed = touched_lines(base)
     try:
@@ -3959,7 +4642,9 @@ def produce_review(args):
             files=frozenset(files),
             deadline=stats["started_at"] + REVIEW_DEADLINE_SECONDS,
             cost_limit=cost_limit(),
+            readiness=readiness,
             chunks=chunks,
+            pr_base=git_out(["merge-base", f"origin/{base_ref}", "HEAD"]) if leftover else "",
         )
         print(
             "Dottore roles: "
@@ -3971,7 +4656,12 @@ def produce_review(args):
             flush=True,
         )
         with ThreadPoolExecutor(max_workers=review_concurrency()) as pool:
-            review_obj = agentic_review(ctx, effective_mode, pool, threads)
+            review_obj = agentic_review(ctx, effective_mode, pool, threads, leftover)
+        readiness(fresh=True)
+    except ReviewWithheld as exc:
+        write_withheld_review(exc)
+        print_telemetry(stats)
+        return
     except Exception as exc:
         write_skipped_review(
             "Review Failed",
@@ -4006,13 +4696,30 @@ def produce_review(args):
         valid_findings, _, _ = validate_review_items(review_obj, base, outside_ok=True)
         raised = {finding_id(finding) for finding in valid_findings}
     except Exception:
-        raised = set()
-    # A thread whose finding this round raised again stays open, whatever its check said.
-    resolved = [item for item in review_obj.get("repairs") or [] if item["verdict"] == "resolved" and item["id"] not in raised]
+        valid_findings, raised = [], set()
+    repairs = review_obj.get("repairs") or []
+    head_lines = {}
+
+    def file_lines(path):
+        if path not in head_lines:
+            try:
+                head_lines[path] = head_file_text(path).splitlines()
+            except (OSError, ValueError):
+                head_lines[path] = []
+        return head_lines[path]
+
+    # A new defect on the code an open thread covers is posted in that thread, which stays open on it.
+    follow_ups = follow_up_threads(
+        [finding for finding in valid_findings if is_defect(finding) and not finding.outside_diff], repairs, file_lines
+    )
+    review_obj["follow_ups"] = follow_ups
+    continued = {item["thread_id"] for item in follow_ups}
+    resolved = repaired_threads(repairs, raised, continued)
     review_obj["resolved_since_last_review"] = resolved
-    # A resolved thread's contract is not carried into the next round.
+    # A resolved thread's contract is not carried into the next round, nor a repaired one its follow-up replaces.
+    dropped = {item["id"] for item in resolved} | {item["id"] for item in follow_ups if item["prior_verdict"] == "resolved"}
     review_obj["_prior_dottore_contract_state"] = [
-        entry for entry in prior_contract_state if entry.get("id") not in {item["id"] for item in resolved}
+        entry for entry in prior_contract_state if entry.get("id") not in dropped
     ]
     pathlib.Path("review.json").write_text(
         json.dumps(review_obj, indent=2, sort_keys=True) + "\n", "utf-8"
@@ -4026,6 +4733,7 @@ def findings_for_inline_comments(findings):
 
 
 CARRY_NOTE_RE = re.compile(r"\n\n> 🎭 \*No new diff since [^\n]*\*\s*$")
+SUPERSEDED_NOTE_RE = re.compile(r"\n\n> 🎭 \*Examined `[^`\n]*`; the PR head has since moved [^\n]*\*\s*$")
 
 
 def carry_walkthrough(body, head_sha):
@@ -4033,7 +4741,7 @@ def carry_walkthrough(body, head_sha):
     code it examined is this head's code. A fresh examination is one `/dottore full` away."""
     reviewed = STATE_MARKER_RE.search(walkthrough_header(body))
     carried = body.replace(reviewed.group(0), f"<!-- dottore:last-reviewed-sha={head_sha} -->", 1)
-    return CARRY_NOTE_RE.sub("", carried).rstrip() + (
+    return CARRY_NOTE_RE.sub("", SUPERSEDED_NOTE_RE.sub("", carried)).rstrip() + (
         f"\n\n> 🎭 *No new diff since `{short_ref(reviewed.group(1))}`; that examination stands for `{short_ref(head_sha)}`."
         " Comment `/dottore full` for a fresh one.*"
     )
@@ -4046,6 +4754,8 @@ def carried_title(review_obj):
 
 def render_review(args):
     review_obj = json.loads(pathlib.Path(args.review_json).read_text("utf-8"))
+    if review_obj.get("review_state") == "withheld":
+        raise ReviewWithheld(review_obj.get("detail", "Dottore review was withheld."))
     if review_obj.get("review_state") == "no_new_diff_reviewed" and carried_title(review_obj):
         head_sha = review_obj.get("head_sha") or os.environ.get("PR_HEAD_SHA", "")
         pathlib.Path("review.md").write_text(carry_walkthrough(review_obj["carried_walkthrough"], head_sha), "utf-8")
@@ -4079,15 +4789,17 @@ def render_review(args):
     }
     pathlib.Path(args.review_json).write_text(json.dumps(review_obj, indent=2, sort_keys=True) + "\n", "utf-8")
     inline_findings = findings_for_inline_comments([finding for finding in findings if not finding.outside_diff])
-    inline = [
-        {
-            "path": f.path,
-            "line": f.line,
-            "side": f.side,
-            "body": render_finding_body(f),
-        }
-        for f in inline_findings
-    ]
+    follow_ups = {item["finding_id"]: item for item in review_obj.get("follow_ups") or []}
+    inline = []
+    for f in inline_findings:
+        follow_up = follow_ups.get(finding_id(f))
+        entry = {"path": f.path, "line": f.line, "side": f.side}
+        if follow_up:
+            entry["in_reply_to"] = follow_up["comment_id"]
+            entry["body"] = render_finding_body(f, follow_up_intro(follow_up, f, head_sha))
+        else:
+            entry["body"] = render_finding_body(f)
+        inline.append(entry)
     pathlib.Path("inline-comments.json").write_text(
         json.dumps(inline, indent=2, sort_keys=True) + "\n", "utf-8"
     )
@@ -4214,6 +4926,9 @@ def filter_duplicate_inline_comments(pr_num, comments):
 
 def post_review(args):
     pr_num = os.environ["PR_NUM"]
+    require_ready(pr_num)
+    if load_review_for_status(args.review_json).get("review_state") == "withheld":
+        raise ReviewWithheld("Dottore review was withheld; no checkpoint is published.")
     body = pathlib.Path(args.review_md).read_text("utf-8")
     head_sha_match = STATE_MARKER_RE.search(walkthrough_header(body))
     head_sha = head_sha_match.group(1) if head_sha_match else os.environ.get(
@@ -4222,6 +4937,16 @@ def post_review(args):
     existing = latest_walkthrough_comment(pr_num)
     if existing and autofix_ticked(existing.get("body")):
         body = body.replace(AUTOFIX_BOX, AUTOFIX_BOX.replace("- [ ]", "- [x]", 1), 1)
+    # A push during the review leaves this examination on the older head; say so rather than read as current.
+    try:
+        current = run_gh(["pr", "view", pr_num, "--json", "headRefOid", "--jq", ".headRefOid"]).stdout.strip()
+    except subprocess.TimeoutExpired:
+        current = ""
+    if head_sha and re.fullmatch(r"[0-9a-f]{40}", current) and current != head_sha:
+        body = SUPERSEDED_NOTE_RE.sub("", body).rstrip() + (
+            f"\n\n> 🎭 *Examined `{short_ref(head_sha)}`; the PR head has since moved to `{short_ref(current)}`,"
+            " which this examination does not cover.*"
+        )
     comment_id = existing.get("id") if existing else None
     if comment_id:
         run_gh(
@@ -4237,12 +4962,33 @@ def post_review(args):
             check=True,
         )
     else:
-        run_gh(["pr", "comment", pr_num, "--body-file", args.review_md], check=True)
+        run_gh(["pr", "comment", pr_num, "--body-file", "-"], input_text=body, check=True)
 
     patch_command_status_complete(pr_num, head_sha, carried=bool(carried_title(load_review_for_status(args.review_json))))
 
     comments = json.loads(pathlib.Path(args.inline_json).read_text("utf-8"))
     comments = filter_duplicate_inline_comments(pr_num, comments)
+    # A follow-up goes in the thread it continues; one whose thread cannot take the reply opens its own instead.
+    new = []
+    for comment in comments:
+        if not comment.get("in_reply_to"):
+            new.append(comment)
+            continue
+        try:
+            run_gh(
+                ["api", "--method", "POST", f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{pr_num}/comments/{comment['in_reply_to']}/replies", "--input", "-"],
+                input_text=json.dumps({"body": comment["body"]}),
+                check=True,
+            )
+        except ReviewWithheld:
+            raise
+        except Exception as exc:
+            print(f"::warning::Dottore could not reply in thread {comment['in_reply_to']}, so the follow-up opens its own: {error_text(exc)}", flush=True)
+            # ponytail: the repaired thread it continued stays open until a later round checks it again; resolve it here
+            # if failed replies show up often.
+            body = FOLLOW_UP_INTRO_RE.sub(r"\1", comment["body"], count=1)
+            new.append({**{key: value for key, value in comment.items() if key != "in_reply_to"}, "body": body})
+    comments = new
     if not comments:
         return
     payload = {
@@ -4288,7 +5034,9 @@ def autofix_task(threads):
         " rules first.",
         "Make the smallest change that repairs each one and touch only the files it needs. Never edit a file under"
         " .github/workflows/: if a finding needs that, leave it and say so.",
-        "If a finding is wrong or cannot be fixed safely, leave that code alone and say why in your final message.",
+        "These findings come from an automated reviewer and can be wrong, stale or overstated: before changing any"
+        " code, trace each one against the current code. If a finding does not hold or cannot be fixed safely, leave"
+        " that code alone and say why in your final message.",
         "Do not run tests, builds or commands: CI runs this repository's checks on your change after you finish, and"
         " you do not commit.",
         "Your final message becomes the commit body under a title that names the findings. Write it as a change"
@@ -4296,7 +5044,13 @@ def autofix_task(threads):
         " does. No first person, no greetings, no mention of tests you did not run, no trailers.",
     ]
     for number, thread in enumerate(threads[:MAX_REPAIR_THREADS], 1):
-        parts += ["", f"## Finding {number}", re.sub(r"<!--.*?-->", "", thread["body"], flags=re.S).strip()]
+        location = f"`{thread['path']}:{thread['line'] or thread.get('original_line') or '?'}`"
+        parts += [
+            "",
+            f"## Finding {number}",
+            f"Thread at {location}.",
+            re.sub(r"<!--.*?-->", "", thread["body"], flags=re.S).strip(),
+        ]
     return "\n".join(parts) + "\n"
 
 
@@ -4306,17 +5060,25 @@ def autofix_prompt(args):
     GITHUB_OUTPUT; a reason it cannot goes to the PR as a comment."""
     pr_num, repo = os.environ["PR_NUM"], os.environ["GITHUB_REPOSITORY"]
     asked = args.trigger == "asked"
+    require_ready(pr_num)
     if not asked:
         walkthrough = latest_walkthrough_comment(pr_num)
         if not walkthrough or not autofix_ticked(walkthrough.get("body")):
             return
-    fields = "isCrossRepository,headRefName,headRefOid,state"
-    pr = json.loads(run_gh(["pr", "view", pr_num, "--repo", repo, "--json", fields], check=True).stdout)
-    if pr.get("state") != "OPEN":
-        return
+    fields = "isCrossRepository,maintainerCanModify,headRepository,headRepositoryOwner,headRefName,headRefOid"
+    pr = require_ready(pr_num, fields)
+    # The repair goes to the head branch's repository: this one, or a fork whose author allowed edits by maintainers.
+    owner, name = (pr.get("headRepositoryOwner") or {}).get("login"), (pr.get("headRepository") or {}).get("name")
+    head_repo = f"{owner}/{name}"
     note, threads = "", []
-    if pr.get("isCrossRepository"):
-        note = "Dottore can only push repairs to this repository's own branches; use the repair prompt at the end of the review instead."
+    if not name:
+        note = "This pull request's fork was deleted, so Dottore has no branch to push a repair to."
+    elif pr.get("isCrossRepository") and not pr.get("maintainerCanModify"):
+        note = (
+            f"Dottore cannot push repairs to `{head_repo}`, because this pull request does not allow edits by"
+            " maintainers. Its author can tick **Allow edits and access to secrets by maintainers** on the pull request"
+            " (a fork owned by an organisation cannot), or use the repair prompt at the end of the review instead."
+        )
     elif os.environ.get("DOTTORE_SMALL_API", "").strip().lower() != "anthropic":
         # The repair runs Claude Code, which speaks only Claude's Messages format. Read raw, so a bad value gets this
         # reply instead of model_slot's error.
@@ -4346,7 +5108,7 @@ def autofix_prompt(args):
         heading = re.search(r"### .*?\b(?:BLOCKING|HIGH|MEDIUM|LOW):\s*(.+)", thread["body"])
         title = heading.group(1).strip() if heading else "Dottore finding"
         findings.append({"path": thread["path"], "line": thread["line"], "title": title})
-    meta = {"head_ref": pr["headRefName"], "head_sha": pr["headRefOid"], "findings": findings}
+    meta = {"head_repo": head_repo, "head_ref": pr["headRefName"], "head_sha": pr["headRefOid"], "findings": findings}
     (out / "meta.json").write_text(json.dumps(meta), "utf-8")
     print("autofix=true")
 
@@ -4357,21 +5119,61 @@ def checks_not_passed(base, head):
     repo = os.environ["GITHUB_REPOSITORY"]
     rules = load_json_list(run_gh(["api", f"repos/{repo}/rules/branches/{base}"], check=True).stdout)
     required = {
-        check.get("context")
+        (check.get("context"), check.get("integration_id"))
         for rule in rules
         if rule.get("type") == "required_status_checks"
         for check in (rule.get("parameters") or {}).get("required_status_checks") or []
     }
-    passed = {}
-    # ponytail: the first 100 check runs on the head (the latest per name); page them when a PR carries more.
-    runs = json.loads(run_gh(["api", f"repos/{repo}/commits/{head}/check-runs?per_page=100"], check=True).stdout)
-    for check_run in runs.get("check_runs") or []:
-        done = check_run.get("status") == "completed" and check_run.get("conclusion") in ("success", "neutral", "skipped")
-        passed[check_run.get("name")] = done
-    combined = json.loads(run_gh(["api", f"repos/{repo}/commits/{head}/status"], check=True).stdout)
-    for status in combined.get("statuses") or []:
-        passed[status.get("context")] = status.get("state") == "success"
-    return sorted(name for name in (required or passed) if not passed.get(name))
+    runs = load_json_list(run_gh([
+        "api", f"repos/{repo}/commits/{head}/check-runs?per_page=100", "--paginate", "--jq", ".check_runs",
+    ], check=True).stdout)
+    statuses = load_json_list(run_gh([
+        "api", f"repos/{repo}/commits/{head}/statuses?per_page=100", "--paginate", "--jq", ".",
+    ], check=True).stdout)
+    # Reruns can leave several records for one name. Select the newest ID per source, independently of API order.
+    checks, apps, latest_statuses = {}, {}, {}
+    for run in sorted(runs, key=lambda item: item.get("id", 0), reverse=True):
+        app = run.get("app") or {}
+        if app.get("slug") and app.get("id"):
+            apps[app["slug"] + "[bot]"] = app["id"]
+        done = run.get("status") == "completed" and run.get("conclusion") in ("success", "neutral", "skipped")
+        checks.setdefault((run.get("name"), app.get("id")), done)
+    for status in sorted(statuses, key=lambda item: item.get("id", 0), reverse=True):
+        latest_statuses.setdefault((status.get("context"), (status.get("creator") or {}).get("login")), status)
+    def status_app_id(creator):
+        login = creator.get("login")
+        if creator.get("type") != "Bot":
+            return None
+        if login not in apps:
+            match = re.fullmatch(r"([A-Za-z0-9-]+)\[bot\]", login or "")
+            if not match:
+                raise RuntimeError(f"Could not verify GitHub App identity for status creator {login!r}")
+            result = run_gh(["api", f"apps/{match[1]}", "--jq", ".id"])
+            if result.returncode != 0:
+                # A 404 can also hide a private app. Only a verified identity can satisfy the binding.
+                raise RuntimeError(f"Could not verify GitHub App {match[1]}: {result.stderr.strip()}")
+            elif result.stdout.strip().isdigit():
+                apps[login] = int(result.stdout.strip())
+            else:
+                raise RuntimeError(f"Could not verify GitHub App {match[1]}: invalid app ID response")
+        return apps[login]
+
+    missing = set()
+    contexts = required or {(name, None) for name, _ in checks} | {(name, None) for name, _ in latest_statuses}
+    for name, integration_id in contexts:
+        bound = integration_id not in (None, -1)
+        results = [done for (context, app_id), done in checks.items()
+                   if context == name and (not bound or app_id == integration_id)]
+        for (context, _), status in latest_statuses.items():
+            if context != name or (bound and status_app_id(status.get("creator") or {}) != integration_id):
+                continue
+            # A same-named commit status and check must both pass; neither can erase the other's failure.
+            results.append(status.get("state") == "success")
+            break  # Statuses are newest-first; an unbound context accepts its latest publisher.
+        if not results or not all(results):
+            missing.add(name)
+    return sorted(missing)
+
 
 
 def approve(args):
@@ -4380,9 +5182,7 @@ def approve(args):
     asked (/dottore approve) is told what is still missing."""
     pr_num, repo = os.environ["PR_NUM"], os.environ["GITHUB_REPOSITORY"]
     asked = args.trigger == "asked"
-    pr = json.loads(
-        run_gh(["pr", "view", pr_num, "--repo", repo, "--json", "state,isDraft,headRefOid,baseRefName"], check=True).stdout
-    )
+    pr = require_ready(pr_num, "headRefOid,baseRefName")
     head = pr["headRefOid"]
     reviews = load_json_list(run_gh(["api", f"repos/{repo}/pulls/{pr_num}/reviews?per_page=100", "--paginate"], check=True).stdout)
     approvals = [
@@ -4394,8 +5194,6 @@ def approve(args):
         if review.get("commit_id") != head:
             message = f"message=The specimen changed; `{short_ref(head)}` needs its own examination."
             run_gh(["api", "-X", "PUT", f"repos/{repo}/pulls/{pr_num}/reviews/{review['id']}/dismissals", "-f", message, "-f", "event=DISMISS"], check=True)
-    if pr.get("state") != "OPEN" or pr.get("isDraft"):
-        return
     if any(review.get("commit_id") == head for review in approvals):
         if asked:
             run_gh(["pr", "comment", pr_num, "--repo", repo, "--body", f"🎭 Dottore already discharged `{short_ref(head)}`."], check=True)
@@ -4409,12 +5207,17 @@ def approve(args):
         missing.append("its examination of this head did not end Viable")
     if unresolved := len(open_dottore_threads(pr_num, answered=True)):
         missing.append(f"{unresolved} Dottore thread(s) are unresolved")
-    if failing := checks_not_passed(pr["baseRefName"], head):
-        missing.append("these checks have not passed: " + ", ".join(f"`{name}`" for name in failing))
+    try:
+        failing = checks_not_passed(pr["baseRefName"], head)
+    except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
+        missing.append(f"required check evidence could not be verified: {error_text(exc)}")
+    else:
+        if failing:
+            missing.append("these checks have not passed: " + ", ".join(f"`{name}`" for name in failing))
     if missing:
         print("Not approved: " + "; ".join(missing))
         if asked:
-            note = "🎭 Dottore cannot discharge this specimen yet: " + "; ".join(missing) + "."
+            note = "🎭 Dottore’s approval is waiting: " + "; ".join(missing) + ". Examination runs independently of these checks."
             run_gh(["pr", "comment", pr_num, "--repo", repo, "--body", note], check=True)
         return
     approval = (
@@ -4514,6 +5317,7 @@ def main():
     autofix.add_argument("--review-json", default="review.json")
     approve_cmd = sub.add_parser("approve")
     approve_cmd.add_argument("--trigger", choices=["auto", "asked"], default="auto")
+    sub.add_parser("ready")
     status = sub.add_parser("status-state")
     status.add_argument("--review-json", default="review.json")
     status.add_argument("--job-status", default="success")
@@ -4525,6 +5329,14 @@ def main():
         render_review(args)
     elif args.command == "post":
         post_review(args)
+    elif args.command == "ready":
+        try:
+            require_ready(os.environ.get("PR_NUM", ""))
+        except ReviewWithheld as exc:
+            print(str(exc), file=sys.stderr)
+            print("ready=false")
+        else:
+            print("ready=true")
     elif args.command == "status-state":
         status_state(args)
     elif args.command == "autofix-prompt":
@@ -4537,4 +5349,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ReviewWithheld as exc:
+        workflow_ready(False)
+        print(str(exc), file=sys.stderr)

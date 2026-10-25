@@ -10,8 +10,10 @@ permissions:
   issues: read
   pull-requests: read
 
+# A title or description edit never dispatches, so it gets a group of its own: sharing the PR's group would cancel the
+# dispatch of a push made just before it. Pushes and base changes still supersede each other.
 concurrency:
-  group: dottore-review-auto-dispatch-${{ github.event.pull_request.number }}
+  group: dottore-review-auto-dispatch-${{ github.event.pull_request.number }}${{ github.event.action == 'edited' && !github.event.changes.base.ref.from && format('-edit-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +23,7 @@ jobs:
     # whose review the step below lets through: whoever asked for the repair gets the review that checks it.
     if: >
       (vars.DOTTORE_AUTO_REVIEW == 'true' || (github.event.action == 'synchronize' && github.event.sender.type == 'Bot')) &&
-      (!github.event.pull_request.draft || github.event.action == 'ready_for_review') &&
+      !github.event.pull_request.draft &&
       contains(format(',{0},', vars.DOTTORE_BASE_REFS || 'refactor,main,staging'), format(',{0},', github.event.pull_request.base.ref))
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +48,7 @@ jobs:
             echo "Dottore examines on request: comment /dottore. This push is not a Dottore repair (DOTTORE_AUTO_REVIEW is off)."
             exit 0
           fi
-          if [ "$PR_IS_DRAFT" = "true" ] && [ "$EVENT_ACTION" != "ready_for_review" ]; then
+          if [ "$PR_IS_DRAFT" != "false" ]; then
             echo "Draft specimen withheld from automatic examination."
             exit 0
           fi
@@ -62,20 +64,29 @@ jobs:
             exit 0
           fi
 
-          if [ "$EVENT_ACTION" = "ready_for_review" ]; then
-            echo "Specimen released for full examination, even if inspected while draft."
-            REVIEW_MODE=full
-          elif [ "$EVENT_ACTION" = "edited" ] && [ -n "$PREVIOUS_BASE_REF" ]; then
+          if [ "$EVENT_ACTION" = "edited" ] && [ -n "$PREVIOUS_BASE_REF" ]; then
             echo "Base ref changed from $PREVIOUS_BASE_REF to $PR_BASE_REF; dispatching a full examination against the new base."
             REVIEW_MODE=full
           else
             # Markers are read from the walkthrough's leading marker lines only; the rest is model-written text.
-            LAST_REVIEWED_SHA="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
+            REVIEW_HEADER="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
               --paginate \
-              --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("<!-- dottore:walkthrough -->")) | (.body | split("\n")) as $l | $l[:($l | map(startswith("<!-- dottore:") | not) | index(true) // length)] | .[]' \
+              --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("<!-- dottore:walkthrough -->")) | (.body | split("\n")) as $l | $l[:($l | map(startswith("<!-- dottore:") | not) | index(true) // length)] | select(any(.[]; test("^<!-- dottore:last-reviewed-sha=[0-9a-f]{40} -->$"))) | @json' \
+              | tail -n 1)"
+            LAST_REVIEWED_SHA="$(jq -r '.[]' <<< "${REVIEW_HEADER:-[]}" \
               | sed -n 's/.*<!-- dottore:last-reviewed-sha=\([0-9a-f]\{40\}\) -->.*/\1/p' \
               | tail -n 1)"
-            if [ -n "$LAST_REVIEWED_SHA" ] && [ "$LAST_REVIEWED_SHA" = "$PR_HEAD_SHA" ]; then
+            REVIEWED_BASE_REF="$(jq -r '.[]' <<< "${REVIEW_HEADER:-[]}" \
+              | sed -n 's/^<!-- dottore:base-ref=\(.*\) -->$/\1/p' \
+              | tail -n 1)"
+            if [ -n "$LAST_REVIEWED_SHA" ] && [ "$REVIEWED_BASE_REF" != "$PR_BASE_REF" ]; then
+              # A retarget made while draft never dispatched; older checkpoints also lack this identity.
+              echo "Recorded review base '${REVIEWED_BASE_REF:-unknown}' differs from $PR_BASE_REF; dispatching a full examination."
+              REVIEW_MODE=full
+              LAST_REVIEWED_SHA=""
+            # A partially judged review records its head too; let the reviewer finish its carried candidates.
+            elif [ -n "$LAST_REVIEWED_SHA" ] && [ "$LAST_REVIEWED_SHA" = "$PR_HEAD_SHA" ] && \
+              ! jq -e 'any(.[]; test("^<!-- dottore:unjudged=[A-Za-z0-9_=-]+ -->$"))' <<< "$REVIEW_HEADER" >/dev/null; then
               echo "Skipping Dottore auto dispatch because head $PR_HEAD_SHA was already reviewed."
               exit 0
             fi

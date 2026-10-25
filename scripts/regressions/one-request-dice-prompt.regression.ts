@@ -46,11 +46,11 @@ const reminder = (overrides: Partial<ReminderContext> = {}) =>
 // ── 1. The switch off, byte for byte ──
 
 const LEGACY_SPARSE_CHECK_LINE = `- [skill_check: skill="Skill Name" dc="1-20"] - request a d20 check only when uncertainty matters. Choose a fair DC (5 trivial, 10 routine under pressure, 15 hard, 20 desperate). Do NOT invent rolls, modifier, total or result: the engine supplies the die and character-sheet modifiers.`;
-const LEGACY_DICE_TAG_LINE = `- [dice: 3d8+2] - request any NdM roll with an optional flat modifier, even without a tools API. The engine rolls it, capped at 100 dice and 1000 sides per die. Never write the numbers yourself.`;
+const LEGACY_DICE_TAG_LINE = `- [dice: 3d8+2] - request any NdM roll with an optional flat modifier, even without a tools API. The engine rolls it, capped at 100 dice and 1000 sides per die. Never write the numbers yourself. Name who rolls with who="Name", as in [dice: 1d8+4 who="Mari"], so the player sees whose roll it is.`;
 const LEGACY_WAIT_LINE = `- Place unresolved roll requests before any outcome that depends on them. Describe the attempt, then stop. The engine will send the real results back for you to finish this same turn; do not guess success or failure before receiving them.`;
 const LEGACY_DICE_BLOCK = [
   `DICE:`,
-  `- roll_dice is a real die you can throw. Call it the moment you need an actual number before you can keep writing - an attack, a save, damage, a random outcome the scene then reacts to - passing the notation (for example "1d20+3") and a short reason.`,
+  `- roll_dice is a real die you can throw. Call it the moment you need an actual number before you can keep writing - an attack, a save, damage, a random outcome the scene then reacts to - passing the notation (for example "1d20+3") and a short reason that starts with who rolls (for example "Mari: Cure Wounds").`,
   `- Never invent a die result. Wait for the number the tool gives you, then narrate what it means, once, in this same turn.`,
 ].join("\n");
 

@@ -23,11 +23,18 @@ let payload: {
     max_tokens?: number;
     top_p?: number;
   },
-  replyText = '{"candidateId":"0"}';
+  replyText = '{"candidateId":"0"}',
+  broken = false;
 const server = createServer(async (req, res) => {
   let raw = "";
   for await (const chunk of req) raw += chunk;
   payload = JSON.parse(raw);
+  if (broken) {
+    res.statusCode = 400;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: { message: "fixture refuses" } }));
+    return;
+  }
   res.setHeader("Content-Type", "application/json");
   res.end(
     JSON.stringify({
@@ -133,7 +140,40 @@ try {
   const app = Fastify();
   app.decorate("db", db);
   await app.register(encounterRoutes, { prefix: "/encounter" });
+  const { logger } = await import("../../packages/server/src/lib/logger.js");
+  const warned: string[] = [];
+  const warn = logger.warn.bind(logger);
+  logger.warn = ((...args: unknown[]) => {
+    warned.push(args.map(String).join(" "));
+    return (warn as (...rest: unknown[]) => void)(...args);
+  }) as typeof logger.warn;
   try {
+    // Every refused setup is logged with its reason, from the first check on.
+    for (const [sent, status, reason] of [
+      [{ settings: {} }, 400, "Missing required fields"],
+      [{ chatId: "no-such-chat", settings: {} }, 404, "Chat not found"],
+    ] as const) {
+      warned.length = 0;
+      const refused = await app.inject({ method: "POST", url: "/encounter/init", payload: sent });
+      assert.equal(refused.statusCode, status, refused.body);
+      assert.ok(
+        warned.some((line) => line.includes("refused") && line.includes(reason)),
+        `logged: ${JSON.stringify(warned)}`,
+      );
+    }
+    // A call that throws is answered 500, logged once on the same line with what threw.
+    broken = true;
+    warned.length = 0;
+    const thrown = await app.inject({
+      method: "POST",
+      url: "/encounter/init",
+      payload: { chatId: chat.id, settings: {} },
+    });
+    broken = false;
+    assert.equal(thrown.statusCode, 500, thrown.body);
+    const init = warned.filter((line) => line.includes("[game/combat:init]"));
+    assert.equal(init.length, 1, `one line: ${JSON.stringify(init)}`);
+    assert.match(init[0]!, /refused: .*Encounter init failed: .*fixture refuses/);
     for (const pool of [{ mp: 11, maxMp: 10 }, { mp: 0, maxMp: 10 }, { mp: 10 }, { maxMp: 10 }, {}]) {
       replyText = JSON.stringify({ party: [{ name: "Hero" }], enemies: [{ name: "Caster", ...pool }] });
       const response = await app.inject({
@@ -142,11 +182,13 @@ try {
         payload: { chatId: chat.id, settings: {} },
       });
       assert.equal(payload!.temperature, 0.27, "encounter helpers inherit connection sampling");
-      assert.equal(payload!.max_tokens, 4096, "encounter helpers inherit connection output size");
+      // The fight's setup asks for at least its own budget, whatever smaller size the connection names.
+      assert.equal(payload!.max_tokens, 12000, "the fight's setup keeps room for its answer");
       assert.equal(payload!.top_p, undefined);
       const invalid = "mp" in pool && "maxMp" in pool && pool.mp! > pool.maxMp!;
       assert.equal(response.statusCode, invalid ? 502 : 200, response.body);
       if (invalid) assert.match(response.json().error, /Invalid resource pool/);
+      if (invalid) assert.ok(warned.some((line) => line.includes("refused") && line.includes("Invalid resource pool")));
     }
 
     // A ruleset that turns Game Mode's own items off (#6822): the model is not asked what the
@@ -184,6 +226,7 @@ try {
     assert.doesNotMatch(JSON.stringify(payload!.messages), /itemEffects\\": \[/);
     assert.match(JSON.stringify(payload!.messages), /says what its own items do in a fight, so give no itemEffects/);
   } finally {
+    logger.warn = warn;
     await app.close();
   }
   console.log(

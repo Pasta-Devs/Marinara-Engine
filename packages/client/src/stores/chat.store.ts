@@ -196,6 +196,10 @@ type ContinuationStream = { messageId: string; content: string; addNewline: bool
 interface ChatState {
   activeChatId: string | null;
   activeChat: Chat | null;
+  /** Only a newly created untouched chat may be discarded by its setup wizard. */
+  pendingNewChatSetups: Record<string, Chat>;
+  setPendingNewChatSetup: (chat: Chat) => void;
+  clearPendingNewChatSetup: (chatId: string) => void;
   isStreaming: boolean;
   /** The chatId that the current streaming generation belongs to. */
   streamingChatId: string | null;
@@ -378,6 +382,15 @@ export const useChatStore = create<ChatState>()(
       }
     })(),
     activeChat: null,
+    pendingNewChatSetups: {},
+    setPendingNewChatSetup: (chat) =>
+      set((state) => ({ pendingNewChatSetups: { ...state.pendingNewChatSetups, [chat.id]: chat } })),
+    clearPendingNewChatSetup: (chatId) =>
+      set((state) => {
+        const drafts = { ...state.pendingNewChatSetups };
+        delete drafts[chatId];
+        return { pendingNewChatSetups: drafts };
+      }),
     isStreaming: false,
     streamingChatId: null,
     mariPhaseByChatId: new Map(),
@@ -1071,6 +1084,7 @@ export const useChatStore = create<ChatState>()(
         mariDraftByChatId: new Map(),
         activeChatId: null,
         activeChat: null,
+        pendingNewChatSetups: {},
         isStreaming: false,
         streamingChatId: null,
         mariPhaseByChatId: new Map(),

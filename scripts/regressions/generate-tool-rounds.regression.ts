@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { GenerationStreamOutput } from "../../packages/server/src/routes/generate/generation-stream-output.js";
 import { createGenerationEventSink } from "../../packages/server/src/routes/generate/sse.js";
 import { runToolRounds, type ToolRoundsContext } from "../../packages/server/src/routes/generate/tool-rounds.js";
+import { stripTrailingToolAnnouncement } from "../../packages/server/src/services/game/gm-planning.js";
 import type { ChatMessage, ChatOptions } from "../../packages/server/src/services/llm/base-provider.js";
 
 // Pins the tool-call rounds moved out of generate.routes.ts (#7573).
@@ -204,6 +205,185 @@ const lookupCall = { id: "c1", type: "function" as const, function: { name: "loo
     assert.equal(outcome.narratorMessages.at(-1)?.content, "Prefill");
     assert.match(String(outcome.narratorMessages.at(-2)?.content), /^The engine ran a separate tool-planning pass/);
   }
+}
+
+// (f) The round after a native call starts a new paragraph, and a Game Master's announcement of the call is cut.
+const rollCall = {
+  id: "r1",
+  type: "function" as const,
+  function: { name: "roll_dice", arguments: '{"notation":"2d8+3","reason":"Brannoc: Cure Wounds"}' },
+};
+for (const chatMode of ["game", "conversation"]) {
+  const { ctx, events } = setup(
+    [
+      async (_messages, options) => {
+        await options.onToken!("Brannoc kneels in the lamplight");
+        await options.onToken!(" — let me get the number.");
+        return {
+          content: "Brannoc kneels in the lamplight — let me get the number.",
+          toolCalls: [rollCall],
+          finishReason: "tool_calls",
+        };
+      },
+      async (_messages, options) => {
+        await options.onToken!("Warmth goes out of his hands.");
+        return { content: "Warmth goes out of his hands.", toolCalls: [], finishReason: "stop" };
+      },
+    ],
+    { chatMode },
+  );
+  const outcome = await runToolRounds(ctx, "");
+  const tokens = events
+    .filter((event) => event.type === "token" || event.type === "content_replace")
+    .map((event) => (event.type === "content_replace" ? `|${String(event.data)}|` : String(event.data)))
+    .join("");
+  if (chatMode === "game") {
+    assert.equal(outcome.fullResponse, "Brannoc kneels in the lamplight\n\nWarmth goes out of his hands.");
+    assert.match(tokens, /\|Brannoc kneels in the lamplight\|\n\nWarmth goes out of his hands\.$/);
+  } else {
+    assert.equal(
+      outcome.fullResponse,
+      "Brannoc kneels in the lamplight — let me get the number.\n\nWarmth goes out of his hands.",
+    );
+    assert.equal(events.filter((event) => event.type === "content_replace").length, 0);
+  }
+}
+{
+  // The player's own impersonated line keeps every word.
+  const { ctx } = setup(
+    [
+      async () => ({ content: "I kneel. Let me roll for it.", toolCalls: [rollCall], finishReason: "tool_calls" }),
+      async () => ({ content: " It works.", toolCalls: [], finishReason: "stop" }),
+    ],
+    { chatMode: "game", impersonate: true, streaming: false },
+  );
+  assert.equal((await runToolRounds(ctx, "")).fullResponse, "I kneel. Let me roll for it. It works.");
+}
+for (const lead of ["He reads the result.", " He reads the result."]) {
+  // A round whose streamed words are taken back and written again still starts its own paragraph,
+  // and words that already start with a space get no second break.
+  const { ctx } = setup(
+    [
+      async (_messages, options) => {
+        await options.onToken!("Brannoc kneels.");
+        return { content: "Brannoc kneels.", toolCalls: [rollCall], finishReason: "tool_calls" };
+      },
+      async (_messages, options) => {
+        await options.onToken!(`${lead} [lookup]`);
+        return { content: lead, toolCalls: [{ ...rollCall, id: "r2" }], finishReason: "tool_calls" };
+      },
+      async (_messages, options) => {
+        await options.onToken!("It holds.");
+        return { content: "It holds.", toolCalls: [], finishReason: "stop" };
+      },
+    ],
+    { chatMode: "game" },
+  );
+  const separated = lead.startsWith(" ")
+    ? "Brannoc kneels. He reads the result."
+    : "Brannoc kneels.\n\nHe reads the result.";
+  assert.equal((await runToolRounds(ctx, "")).fullResponse, `${separated}\n\nIt holds.`);
+}
+for (const [prose, saved] of [
+  // A round's own look-alike stays whole; a whole announcement goes, with one break before the next round.
+  [
+    "He kneels. Time to check the cellar before the light goes.",
+    "He kneels. Time to check the cellar before the light goes.\n\nIt holds.",
+  ],
+  ["Brannoc kneels in the lamplight — time to find out.", "Brannoc kneels in the lamplight\n\nIt holds."],
+  ["Brannoc kneels — let me roll initiative.", "Brannoc kneels\n\nIt holds."],
+  ["Brannoc kneels — let me roll to see how that goes.", "Brannoc kneels\n\nIt holds."],
+  ["Brannoc kneels — let me check and see how that goes.", "Brannoc kneels\n\nIt holds."],
+  ["Brannoc kneels — let me roll the die, and see what it does.", "Brannoc kneels\n\nIt holds."],
+]) {
+  const { ctx, events } = setup(
+    [
+      async (_messages, options) => {
+        await options.onToken!(prose!);
+        return { content: prose!, toolCalls: [rollCall], finishReason: "tool_calls" };
+      },
+      async (_messages, options) => {
+        await options.onToken!("It holds.");
+        return { content: "It holds.", toolCalls: [], finishReason: "stop" };
+      },
+    ],
+    { chatMode: "game" },
+  );
+  assert.equal((await runToolRounds(ctx, "")).fullResponse, saved);
+  assert.equal(
+    events.filter((event) => event.type === "content_replace").length,
+    saved!.startsWith(prose!) ? 0 : 1,
+    prose,
+  );
+}
+for (const [before, after] of [
+  ["Brannoc kneels — let me get the number.", "Brannoc kneels"],
+  ["Brannoc kneels. Let me roll for the healing.", "Brannoc kneels."],
+  ["Brannoc kneels. Okay, now I'll check the save:", "Brannoc kneels."],
+  ["Let me roll for Cure Wounds.", ""],
+  ["Brannoc kneels. Let me roll it.", "Brannoc kneels."],
+  ["Brannoc kneels. Time to roll 2d8+3 for the healing.", "Brannoc kneels."],
+  ["The door groans — let me roll the die.", "The door groans"],
+  ["Brannoc kneels -- time to see how much it heals.", "Brannoc kneels"],
+  ["Brannoc kneels in the lamplight — time to find out.", "Brannoc kneels in the lamplight"],
+  ["The blade falls — let me see what the dice say.", "The blade falls"],
+  ["Brannoc swings. Let me roll.", "Brannoc swings."],
+  ["Brannoc kneels — let me roll initiative.", "Brannoc kneels"],
+  ["Time to roll a saving throw.", ""],
+  ["Brannoc braces. Let me roll the check.", "Brannoc braces."],
+  ["The blade bites. Time to roll damage.", "The blade bites."],
+  ["Brannoc kneels — let me check.", "Brannoc kneels"],
+  ["Brannoc kneels — let me look up.", "Brannoc kneels"],
+  ["Brannoc kneels — let me roll to see how that goes.", "Brannoc kneels"],
+  ["Brannoc kneels. Time to roll and see what the dice say.", "Brannoc kneels."],
+  ["Brannoc lunges. Let me throw and find out.", "Brannoc lunges."],
+  ["Brannoc lunges — let me roll if it hits.", "Brannoc lunges"],
+  ["He rubs his chin — let me check and see how that goes.", "He rubs his chin"],
+  ["Time to get to find out.", ""],
+  ["Brannoc steadies. Let me check the save and see how it lands.", "Brannoc steadies."],
+  ["Brannoc steadies. Let me check the save, and see how it lands.", "Brannoc steadies."],
+  ["The door groans — let me roll the die and see what it does.", "The door groans"],
+  ["The door groans — let me roll the die, and see what it does.", "The door groans"],
+  ["Brannoc kneels — time to check, and see.", "Brannoc kneels"],
+  ["The blade falls — time to get to see what the dice say.", "The blade falls"],
+  ["Brannoc steadies. Time to check his Dexterity save.", "Brannoc steadies."],
+  // Narration that only sounds like it is left alone.
+  ['Brannoc kneels. "Let me check the wound."', 'Brannoc kneels. "Let me check the wound."'],
+  ["Let me roll it, he says. Brannoc kneels.", "Let me roll it, he says. Brannoc kneels."],
+  ["She lets me get the number from the ledger.", "She lets me get the number from the ledger."],
+  ["Brannoc kneels in the lamplight", "Brannoc kneels in the lamplight"],
+  [
+    "He kneels. Time to check the cellar before the light goes.",
+    "He kneels. Time to check the cellar before the light goes.",
+  ],
+  ["She shoulders the door. Time to roll the barrels.", "She shoulders the door. Time to roll the barrels."],
+  ["He looks up. Let me see who will die tonight.", "He looks up. Let me see who will die tonight."],
+  ["He looks up. Let me roll to see who will die tonight.", "He looks up. Let me roll to see who will die tonight."],
+  [
+    "He looks up. Let me check and see who will die tonight.",
+    "He looks up. Let me check and see who will die tonight.",
+  ],
+  ["He kneels. Let me check the damage to the wall.", "He kneels. Let me check the damage to the wall."],
+  [
+    "He looks up. Let me roll the die, and see who will die tonight.",
+    "He looks up. Let me roll the die, and see who will die tonight.",
+  ],
+  ["He kneels beside the body — let me see the damage.", "He kneels beside the body — let me see the damage."],
+  [
+    "He kneels beside the body — let me see the damage he took.",
+    "He kneels beside the body — let me see the damage he took.",
+  ],
+  ["Time to check the damage.", "Time to check the damage."],
+  [
+    "He kneels. I'll check the cellar before the light goes.",
+    "He kneels. I'll check the cellar before the light goes.",
+  ],
+  [
+    "He rubs his chin. — Let me see the wound, he says, crouching.",
+    "He rubs his chin. — Let me see the wound, he says, crouching.",
+  ],
+]) {
+  assert.equal(stripTrailingToolAnnouncement(before!), after, before);
 }
 
 console.info("Generate tool-rounds regression passed.");

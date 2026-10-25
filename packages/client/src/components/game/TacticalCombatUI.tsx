@@ -1,6 +1,6 @@
 import { CombatWeatherSummary } from "./CombatWeatherSummary";
 import { CombatAiControls } from "./CombatAiControls";
-import { CreatureArtFigure, useCreatureFacings, useCreaturePack } from "./CreatureArt";
+import { CreatureArtFigure, findCreatureArtIn, useCreatureFacings, useCreaturePacks } from "./CreatureArt";
 // ──────────────────────────────────────────────
 // Game: Tactical (grid) Combat UI
 //
@@ -53,6 +53,7 @@ import { audioManager } from "../../lib/game-audio";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useTacticalCombatStart, useTacticalCombatAction } from "../../hooks/use-game";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import {
   TERRAIN_DATA,
   type TacticalTerrain,
@@ -77,7 +78,6 @@ import {
   type TacticalCoord,
   type TacticalBattlefieldBrief,
   type TacticalClass,
-  findCreatureArt,
   creatureArtVariant,
   type CreatureFacing,
   type CreaturePack,
@@ -330,6 +330,12 @@ export function TacticalCombatUI({
   const [logOpen, setLogOpen] = useState(false);
   const [fleeConfirm, setFleeConfirm] = useState(false);
   const [restartConfirm, setRestartConfirm] = useState(false);
+  // The accent holds still while this board is up (see App).
+  const setTacticalShowing = useCombatScreenStore((store) => store.setTacticalShowing);
+  useEffect(() => {
+    setTacticalShowing(true);
+    return () => setTacticalShowing(false);
+  }, [setTacticalShowing]);
 
   // Root element — the drag constraints boundary for the draggable inspect card.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -1179,7 +1185,7 @@ export function TacticalCombatUI({
     );
   }, [liveState, animUnits, stagedMove, selectedUnitId, optimisticMove]);
   // Creature art (design-game-creature-art.md): the library's creature pack, and which way each fighter faces.
-  const creaturePack = useCreaturePack();
+  const creaturePacks = useCreaturePacks();
   const facings = useCreatureFacings(
     renderUnits.map(({ unit, x, y }) => ({ id: unit.id, x, y, side: unit.side })),
     String(liveState?.seed ?? ""),
@@ -1564,7 +1570,7 @@ export function TacticalCombatUI({
               // An enemy with no picture of its own is drawn with its creature art when the pack has it.
               const creature =
                 unit.side === "enemy" && resolveSprite(unit.sprite).kind !== "url"
-                  ? findCreatureArt(creaturePack, { name: unit.name })
+                  ? findCreatureArtIn(creaturePacks, { name: unit.name })
                   : null;
               const isSel = selectedUnitId === unit.id;
               const isTarget = ui.kind === "target" && targetIds.has(unit.id);
@@ -1582,12 +1588,14 @@ export function TacticalCombatUI({
                   unit={unit}
                   hp={hp}
                   art={
-                    creature && creaturePack
+                    creature
                       ? {
-                          pack: creaturePack,
-                          creature,
-                          variant: creatureArtVariant(creature, String(liveState?.seed ?? ""), unit.id),
+                          pack: creature.pack,
+                          creature: creature.creature,
+                          variant: creatureArtVariant(creature.creature, String(liveState?.seed ?? ""), unit.id),
                           facing: facings.get(unit.id) ?? "down",
+                          // A flier is drawn in its flying art (1.352).
+                          flying: unit.movementMode === "fly",
                         }
                       : undefined
                   }
@@ -1683,7 +1691,6 @@ export function TacticalCombatUI({
       {ui.kind === "idle" && (
         <CombatAiControls
           party={liveState.units.filter((u) => u.side === "party")}
-          enemies={liveState.units.filter((u) => u.side === "enemy")}
           defaultController="manual"
           locked={!playerPhase || animating}
           onChange={(unitId, controller) => sendAction({ type: "control", unitId, controller })}
@@ -2154,7 +2161,13 @@ interface UnitTokenProps {
   ariaLabel: string;
   onClick: () => void;
   /** Its creature art, when the creature pack has it (design-game-creature-art.md). */
-  art?: { pack: CreaturePack; creature: CreaturePackCreature; variant: number; facing: CreatureFacing };
+  art?: {
+    pack: CreaturePack;
+    creature: CreaturePackCreature;
+    variant: number;
+    facing: CreatureFacing;
+    flying?: boolean;
+  };
 }
 
 function UnitToken({

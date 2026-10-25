@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BUILT_IN_GAME_COMBAT_STYLES, GAME_COMBAT_STYLE_ID_PATTERN } from "../types/game.js";
 import { GAME_INVENTORY_MAX_NEW_STACKS, GAME_INVENTORY_MAX_QUANTITY } from "../utils/game-inventory-stacks.js";
 
 // Game Mode rulesets. A ruleset is validated DATA: it parameterises one of a closed set of
@@ -82,7 +83,7 @@ export const rulesetRefSchema = z
     packageId: z.string().max(128).nullable().default(null),
     /** Where a community ruleset came from, so a recipient without it can be told where to get it. */
     source: rulesetSourceUrlSchema.optional(),
-    options: z.record(z.union([z.boolean(), z.number().finite(), z.string().max(200)])).default({}),
+    options: z.record(z.string(), z.union([z.boolean(), z.number().finite(), z.string().max(200)])).prefault({}),
   })
   .passthrough();
 
@@ -195,7 +196,7 @@ export const rulesetValueRefSchema = z
     liveTrack: sheetId.optional(),
     read: z.enum(RULESET_TRACK_READS).optional(),
     livePool: sheetId.optional(),
-    listSum: (rulesetListSumSchema as z.ZodType<RulesetListSum, z.ZodTypeDef, unknown>).optional(),
+    listSum: (rulesetListSumSchema as z.ZodType<RulesetListSum, unknown>).optional(),
     itemStat: z
       .object({
         stat: sheetId.optional(),
@@ -260,6 +261,10 @@ const roundingSchema = z.enum(["down", "up", "nearest"]);
  *  1.188, which 5e's own list outgrew, and 160 until 1.269, which its monsters' traits outgrew. */
 export const RULESET_CONDITIONS_MAX = 320;
 
+/** How long one creature trait's words may run: 400 until Capability API 1.378, which 5e's Vampire
+ *  Weaknesses and Hag Coven outgrew. */
+export const RULESET_CREATURE_TRAIT_TEXT_MAX = 1200;
+
 const hideWhenValue = z.union([z.string().max(80), z.number().finite(), z.boolean()]);
 const HIDE_WHEN_COMPARISONS = ["equals", "notEquals", "in"] as const;
 /** Off the sheet while a field holds one value, holds anything but one value, or holds one of a
@@ -282,6 +287,27 @@ const hideWhenSchema = z
   });
 
 export type RulesetHideWhen = z.infer<typeof hideWhenSchema>;
+
+/** Off the sheet while a derived value is one value, anything but it, or one of a few (Capability API
+ *  1.378), for a live text field only: nothing the sheet works out reads one, so hiding it never
+ *  changes a number. 5e's "Concentrating on" while the character knows no concentration spell. */
+const derivedHideWhenSchema = z
+  .object({
+    derived: sheetId,
+    equals: z.number().finite().optional(),
+    notEquals: z.number().finite().optional(),
+    in: z.array(z.number().finite()).min(1).max(24).optional(),
+  })
+  .strict()
+  .superRefine((hide, ctx) => {
+    if (HIDE_WHEN_COMPARISONS.filter((key) => hide[key] !== undefined).length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `hideWhen names exactly one of: ${HIDE_WHEN_COMPARISONS.join(", ")}`,
+      });
+    }
+  });
+export type RulesetDerivedHideWhen = z.infer<typeof derivedHideWhenSchema>;
 
 /** Every value a `hideWhen` compares against, whichever comparison it makes. */
 export function rulesetHideWhenValues(hide: RulesetHideWhen): Array<string | number | boolean> {
@@ -457,7 +483,7 @@ const resolutionOverrideSchema = z
     saves: z.array(sheetId).min(1).max(60).optional(),
     abilities: z.array(sheetId).min(1).max(12).optional(),
     when: rulesetValueRefSchema.optional(),
-    set: z.record(z.unknown()),
+    set: z.record(z.string(), z.unknown()),
   })
   .strict();
 export type RulesetResolutionOverride = z.infer<typeof resolutionOverrideSchema>;
@@ -526,7 +552,7 @@ const diceSumResolutionSchema = z
         faces: z.array(z.number().int().min(-100).max(1000)).min(2).max(20).optional(),
       })
       .strict()
-      .default({ count: 1, sides: 20 }),
+      .prefault({ count: 1, sides: 20 }),
     ...sheetMathShape,
     /** Open-ended (1.136): a single die showing `high` or more is rolled again and added, chained;
      *  one showing `low` or less is rolled again and taken away, and that roll chains on `high` too. */
@@ -545,7 +571,7 @@ const diceSumResolutionSchema = z
     naturals: z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
-      .default({}),
+      .prefault({}),
     difficultyLadder: diceSumLadderSchema,
   })
   .strict();
@@ -592,7 +618,7 @@ const dicePoolLadderSchema = z.array(dicePoolLadderStepSchema).min(1).max(12);
 const dicePoolResolutionSchema = z
   .object({
     kind: z.literal("dice-pool"),
-    die: z.object({ sides: poolFace }).strict().default({ sides: 10 }),
+    die: z.object({ sides: poolFace }).strict().prefault({ sides: 10 }),
     ...sheetMathShape,
     /** The sheet's number is clamped into this. A `min` of 0 lets an empty pool fail with no roll. */
     pool: z
@@ -605,7 +631,7 @@ const dicePoolResolutionSchema = z
         abilityPlusAbility: z.boolean().optional(),
       })
       .strict()
-      .default({ min: 1, max: 40 }),
+      .prefault({ min: 1, max: 40 }),
     /** The per-die success threshold. `min` below `max` lets the GM set it per check. `from` (1.137)
      *  reads it off the roller's sheet instead, held to `min`..`max`. */
     target: z
@@ -688,7 +714,7 @@ export const RULESET_HIGHEST_MAX_DICE = 20;
 const diceHighestResolutionSchema = z
   .object({
     kind: z.literal("dice-highest"),
-    die: z.object({ sides: poolFace }).strict().default({ sides: 6 }),
+    die: z.object({ sides: poolFace }).strict().prefault({ sides: 6 }),
     ...sheetMathShape,
     /** The sheet's number is clamped into this. A `min` of 0 lets a character with no rating roll. */
     pool: z
@@ -697,7 +723,7 @@ const diceHighestResolutionSchema = z
         max: z.number().int().min(1).max(RULESET_HIGHEST_MAX_DICE),
       })
       .strict()
-      .default({ min: 0, max: 10 }),
+      .prefault({ min: 0, max: 10 }),
     /** How many of the highest dice are added up. One is Blades; two is Trophy's fights. */
     keep: z.number().int().min(1).max(3).default(1),
     /** No dice at all: throw two and keep the lowest (Blades' zero rating), or fail without a roll. */
@@ -760,7 +786,7 @@ const rollAgainstResolutionSchema = z
     dice: z
       .object({ count: z.number().int().min(1).max(10), sides: z.number().int().min(2).max(1000) })
       .strict()
-      .default({ count: 1, sides: 100 }),
+      .prefault({ count: 1, sides: 100 }),
     ...sheetMathShape,
     against: z.enum(["at-most", "at-least"]).default("at-most"),
     criticalSuccess: z.array(againstCriticalSchema).min(1).max(6).optional(),
@@ -869,8 +895,7 @@ const resolutionKindsSchema = z.discriminatedUnion("kind", [
 /** Named so the definition's own type refers to it rather than spelling all three kinds out again,
  *  which would pass what the compiler will write into a declaration file. */
 export type RulesetResolutionDeclaration = z.infer<typeof resolutionKindsSchema>;
-export const rulesetResolutionSchema: z.ZodType<RulesetResolutionDeclaration, z.ZodTypeDef, unknown> =
-  resolutionKindsSchema;
+export const rulesetResolutionSchema: z.ZodType<RulesetResolutionDeclaration, unknown> = resolutionKindsSchema;
 
 /** A resolution with an override's keys laid over it (1.140), read by the resolution's own schema:
  *  the result, or the issues that schema found. A `null` in `set` takes the key away. */
@@ -920,7 +945,7 @@ const enumFieldShape = {
   type: z.literal("enum"),
   values: z.array(z.string().min(1).max(80)).min(1).max(40),
   /** Display text per value; a value without one shows as itself. */
-  valueLabels: z.record(label).optional(),
+  valueLabels: z.record(z.string(), label).optional(),
   default: z.string().max(80).optional(),
 };
 const diceFieldShape = {
@@ -953,7 +978,7 @@ export interface RulesetListRoll {
 }
 // Typed by hand: inferred, the value ref inside it makes every type holding a list column too long for
 // the compiler to write out.
-export const rulesetListRollSchema: z.ZodType<RulesetListRoll, z.ZodTypeDef, unknown> = z
+export const rulesetListRollSchema: z.ZodType<RulesetListRoll, unknown> = z
   .object({
     count: z.number().int().min(1).max(10).default(1),
     sides: z.union([z.number().int().min(2).max(100), z.object({ column: sheetId }).strict(), rulesetValueRefSchema]),
@@ -1019,7 +1044,14 @@ const skillSchema = z
   .strict();
 const saveSchema = skillSchema;
 
-const derivedBase = { id: sheetId, label, section: sheetId.optional(), hideWhen: hideWhenSchema.optional() };
+const derivedBase = {
+  id: sheetId,
+  label,
+  section: sheetId.optional(),
+  hideWhen: hideWhenSchema.optional(),
+  /** A bonus, shown with its sign on the sheet (Capability API 1.378): a spell attack of "+7". */
+  signed: z.literal(true).optional(),
+};
 /** The most derived values a sheet may have: 400 since Capability API 1.111 (240 since 1.88,
  *  120 since 1.84), which a package exceeding the corresponding older limit declares. */
 export const RULESET_DERIVED_MAX = 400;
@@ -1060,7 +1092,7 @@ export const rulesetDerivedSchema = z.discriminatedUnion("op", [
           message: "An enum table reads exactly one of: field, liveState",
         }),
       table: z
-        .record(z.number().finite())
+        .record(z.string(), z.number().finite())
         .refine((table) => Object.keys(table).length >= 1 && Object.keys(table).length <= 40, {
           message: "An enum table names from 1 to 40 values",
         }),
@@ -1175,6 +1207,21 @@ const listSchema = z
       .object({ nameColumn: sheetId, maxColumn: sheetId, rechargeColumn: sheetId.optional() })
       .strict()
       .optional(),
+    /** How a player reads the list (Capability API 1.378): the sheet's tab it shows on, the number
+     *  column its rows are split by with a heading for each value from 0 up ("Cantrips", "1st
+     *  level"), and a yes-or-no column shown as a tick ("Prepared"). Abilities a fight gives from its
+     *  rows sit under the same tab's name on the combat menu, split the same way. */
+    display: z
+      .object({
+        tab: promptSafeText(24).optional(),
+        by: z
+          .object({ column: sheetId, labels: z.array(promptSafeText(40)).min(1).max(21) })
+          .strict()
+          .optional(),
+        mark: sheetId.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -1197,8 +1244,12 @@ const livePoolSchema = z
     start: z.enum(["full", "empty"]).default("full"),
     /** Where the pool starts instead, read off the sheet (Capability API 1.158): SAN at a snapshot of
      *  POW, Fate Points at Refresh. Held to 0..max; a value that reads 0 or less starts it empty. */
-    startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     hideWhen: hideWhenSchema.optional(),
+    /** What one of it is called, and more than one, where a cost counts it (Capability API 1.378):
+     *  "1 3rd-level slot", "2 3rd-level slots". The pool's label when left out. */
+    unit: label.optional(),
+    units: label.optional(),
   })
   .strict();
 
@@ -1244,7 +1295,7 @@ const liveTrackSchema = z
     max: z.union([z.number().int(), rulesetValueRefSchema]),
     default: z.number().int().optional(),
     /** Where a plain track starts instead of `default`, read off the sheet (Capability API 1.158). */
-    startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     levels: z.array(liveTrackLevelSchema).min(1).max(RULESET_TRACK_LEVELS_MAX).optional(),
     kinds: z.array(liveTrackKindSchema).min(1).max(RULESET_TRACK_KINDS_MAX).optional(),
     /** A wound track of numbered BOXES instead of named `levels`: as many as the track's own `max`
@@ -1277,6 +1328,9 @@ const liveTrackSchema = z
     extra: z.object({ list: sheetId, countColumn: sheetId, penaltyColumn: sheetId }).strict().optional(),
     /** Printed in the sheet block even at its default, for a rating that matters every turn. */
     alwaysShow: z.boolean().optional(),
+    /** Off the sheet while it stands where it starts (Capability API 1.378), shown once play or the
+     *  Game Master moves it: 5e's penalty for coming back from the dead. Never on a wound track. */
+    showWhenSet: z.literal(true).optional(),
     /** Off the sheet while a field says so, as a pool can be. Never on a wound track, which rolls
      *  and fights read whatever the sheet shows. */
     hideWhen: hideWhenSchema.optional(),
@@ -1313,7 +1367,7 @@ const liveStateSchema = z
       .min(2)
       .max(40),
     /** Display text per value; a value without one shows as itself. */
-    valueLabels: z.record(label).optional(),
+    valueLabels: z.record(z.string(), label).optional(),
     /** Where every sheet starts, and where a rest puts it back with `to: "default"`. The first value
      *  when left out. */
     default: z.string().max(80).optional(),
@@ -1328,11 +1382,32 @@ const liveSchema = z
     pools: z.array(livePoolSchema).max(60).default([]),
     tracks: z.array(liveTrackSchema).max(30).default([]),
     text: z
-      .array(z.object({ id: sheetId, label, maxLength: z.number().int().min(1).max(500) }).strict())
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label,
+            maxLength: z.number().int().min(1).max(500),
+            /** Off the sheet while a field or a derived value says so (Capability API 1.378). */
+            hideWhen: z.union([hideWhenSchema, derivedHideWhenSchema]).optional(),
+          })
+          .strict(),
+      )
       .max(12)
       .default([]),
     conditions: z
-      .array(z.object({ id: sheetId, label, icon: artIconRef.optional() }).strict())
+      .array(
+        z
+          .object({
+            id: sheetId,
+            label,
+            icon: artIconRef.optional(),
+            /** Left out of the sheet's "Add condition" picker (Capability API 1.378): a spell's or an
+             *  item's own state, which play and commands still put on and take off. */
+            pickable: z.literal(false).optional(),
+          })
+          .strict(),
+      )
       .max(RULESET_CONDITIONS_MAX)
       .default([]),
     states: z.array(liveStateSchema).max(RULESET_LIVE_STATES_MAX).default([]),
@@ -1421,14 +1496,14 @@ export interface RulesetBuilderUpTo {
 }
 // Typed by hand: inferred, the value ref inside it makes every type holding a builder step too long for
 // the compiler to write out.
-const rulesetBuilderUpToSchema: z.ZodType<RulesetBuilderUpTo, z.ZodTypeDef, unknown> = z
+const rulesetBuilderUpToSchema: z.ZodType<RulesetBuilderUpTo, unknown> = z
   .object({ filter: sheetId, value: rulesetValueRefSchema })
   .strict();
 
 /** Counted choices and catalog quotas (Capability API 1.151). */
 const builderChoiceBase = {
   id: sheetId.optional(),
-  countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+  countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
   max: z.number().int().min(1).max(20).optional(),
   excludeChoices: z
     .array(
@@ -1503,8 +1578,8 @@ export type RulesetCreationDice = z.infer<typeof creationDiceSchema>;
 const builderStepBase = {
   id: sheetId,
   label: promptSafeText(40),
-  when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-  requiredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+  when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+  requiredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
 };
 
 /** Numeric creation ratings (Capability API 1.152). Tier maps are per target, never inferred. */
@@ -1518,7 +1593,7 @@ const builderRatingTargetSchema = z.union([
 export type RulesetBuilderRatingTarget = z.infer<typeof builderRatingTargetSchema>;
 const builderRatingBoundSchema = z.union([
   z.number().int().min(0).max(10000),
-  rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+  rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
 ]);
 const builderAllocationGroupSchema = z
   .object({
@@ -1528,7 +1603,7 @@ const builderAllocationGroupSchema = z
     base: builderRatingBoundSchema.optional(),
     min: builderRatingBoundSchema,
     max: builderRatingBoundSchema,
-    budget: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    budget: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** Dots the player puts on list rows' own ratings, counted against the budget (Capability API
      *  1.216): Exalted's Craft and Martial Arts rows paid from the 28 Ability dots. The rows are
      *  edited where the list is; the group only counts them. */
@@ -1632,7 +1707,7 @@ const builderPoolSchema = z
   .object({
     id: sheetId,
     label: promptSafeText(40),
-    budget: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+    budget: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
     creditLimit: z.number().finite().min(0).max(100000).optional(),
     caps: z
       .array(z.object({ filter: sheetId, maxCredit: z.number().finite().min(0).max(100000) }).strict())
@@ -1656,7 +1731,7 @@ const builderSpendOfferSchema = z
       .array(
         z
           .object({
-            when: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+            when: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
             cost: builderCostSchema,
           })
           .strict(),
@@ -1665,11 +1740,11 @@ const builderSpendOfferSchema = z
       .optional(),
     /** Offered only while this reads above 0 on the sheet before purchases: an occupation's own
      *  skills, a Background a tribe may take (Capability API 1.155). Saved purchases stay, inactive. */
-    when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** A floor and a ceiling read off the sheet, held inside `min` and `max`: a Credit Rating range
      *  by occupation, Dodge capped by DEX (1.155). */
-    minFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-    maxFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    minFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+    maxFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** The only ratings a purchase may end on, such as a Merit sold at 1, 3 or 5 dots (1.155). */
     allowedRatings: z.array(z.number().finite()).min(1).max(40).optional(),
     /** Raise, lower, or both from one starting value (Capability API 1.164). */
@@ -1700,7 +1775,7 @@ export interface RulesetBuilderRowsCost {
   add?: number;
   overrides?: Array<{ derived: { prefix: string; cell: string }; cost?: number; times?: number }>;
 }
-const rowsCostSchema: z.ZodType<RulesetBuilderRowsCost, z.ZodTypeDef, unknown> = z
+const rowsCostSchema: z.ZodType<RulesetBuilderRowsCost, unknown> = z
   .object({
     column: sheetId.optional(),
     times: z.number().finite().min(-1000).max(1000).optional(),
@@ -1755,7 +1830,7 @@ const builderStepSchema = z.discriminatedUnion("kind", [
         })
         .optional(),
       /** Fixed values of the catalog's filters: only entries that match are offered. */
-      filters: z.record(z.union([z.number().finite(), z.string().max(80)])).optional(),
+      filters: z.record(z.string(), z.union([z.number().finite(), z.string().max(80)])).optional(),
       /** Only entries whose `filter` names an entry picked at an earlier step (a subrace by its race). */
       within: z.object({ step: sheetId, filter: sheetId }).strict().optional(),
       /** Only entries whose number `filter` is at most `value`, read off the sheet as it stands (features
@@ -1764,7 +1839,7 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       /** How many entries the step asks for and at most takes, read off the sheet as it stands, in
        *  place of `min` and never above `max` (spells known at the character's level; Capability API
        *  1.90). Picks past it are kept but count for nothing. */
-      countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+      countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
       /** Each pick is paid out of this builder pool (Capability API 1.159): talents bought with
        *  creation XP. `cost` is a fixed price or the entry's own number filter. */
       pool: sheetId.optional(),
@@ -1782,9 +1857,7 @@ const builderStepSchema = z.discriminatedUnion("kind", [
       /** Fields of the step its badge does not wait on, such as a subclass chosen at a later level. */
       optional: z.array(sheetId).min(1).max(20).optional(),
       /** Fields shown only while their value reference reads above 0 on the sheet (1.107). */
-      shownWhen: z
-        .record(sheetId, rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>)
-        .optional(),
+      shownWhen: z.record(sheetId, rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
       /** Number fields held to a combined maximum (1.107). */
       total: z
         .object({ fields: z.array(sheetId).min(2).max(20), max: z.number().int().min(1).max(1000) })
@@ -1886,10 +1959,7 @@ const builderStepSchema = z.discriminatedUnion("kind", [
               /** The least the result may be, a number or read off the sheet (1 hit point; a potential
                *  never below the stat it grows from). */
               floor: z
-                .union([
-                  z.number().finite(),
-                  rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
-                ])
+                .union([z.number().finite(), rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>])
                 .optional(),
               /** An improvement check instead: the dice are rolled against the field, and only a result
                *  above it adds `gain` to it (CoC's EDU improvement). */
@@ -1944,9 +2014,7 @@ const builderStepSchema = z.discriminatedUnion("kind", [
           z
             .object({
               field: sheetId,
-              value: z
-                .union([sheetScalar, rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>])
-                .optional(),
+              value: z.union([sheetScalar, rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>]).optional(),
               /** What a builder pool has left, such as unspent creation XP. */
               remaining: sheetId.optional(),
             })
@@ -2069,10 +2137,7 @@ export interface RulesetSheetBuilder {
   profiles?: RulesetBuilderProfile[];
 }
 
-const builderBoundSchema = z.union([
-  z.number().finite(),
-  rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
-]);
+const builderBoundSchema = z.union([z.number().finite(), rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>]);
 /** A creation rule the builder checks and shows on one step's badge until it holds (Capability API
  *  1.155). It never blocks Next or All fields. Exactly one of `value`, `rows`, `distinct` and
  *  `approved` says what it reads. */
@@ -2084,8 +2149,8 @@ const builderConstraintSchema = z
     /** The step whose badge carries the rule. */
     step: sheetId,
     /** Checked only while this reads above 0. */
-    when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-    value: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    when: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+    value: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** A list's rows: how many there are and what one number column adds up to, over the rows
      *  `filter` keeps. */
     rows: z
@@ -2133,14 +2198,14 @@ const builderProfileSchema = z
   .object({
     id: sheetId,
     label: promptSafeText(40),
-    when: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+    when: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
     steps: z.array(sheetId).min(1).max(RULESET_BUILDER_STEPS_MAX).optional(),
-    budgets: z.record(sheetId, rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    budgets: z.record(sheetId, rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
   })
   .strict();
 export type RulesetBuilderProfile = z.infer<typeof builderProfileSchema>;
 
-const sheetBuilderSchema: z.ZodType<RulesetSheetBuilder, z.ZodTypeDef, unknown> = z
+const sheetBuilderSchema: z.ZodType<RulesetSheetBuilder, unknown> = z
   .object({
     constraints: z.array(builderConstraintSchema).min(1).max(40).optional(),
     profiles: z.array(builderProfileSchema).min(1).max(16).optional(),
@@ -2196,13 +2261,13 @@ export const rulesetSheetSchema = z
     bonusRange: z
       .object({ min: z.number().int().min(-100), max: z.number().int().max(100) })
       .strict()
-      .default({ min: -20, max: 40 }),
+      .prefault({ min: -20, max: 40 }),
     /** Up to 240 (Capability API 1.208; 160 before it): Rolemaster's ranks, potentials and totals. */
     fields: z.array(rulesetFieldSchema).max(RULESET_FIELDS_MAX).default([]),
     /** Up to 240 (Capability API 1.88; 120 from 1.84, 60 before it). */
     derived: z.array(rulesetDerivedSchema).max(RULESET_DERIVED_MAX).default([]),
     lists: z.array(listSchema).max(20).default([]),
-    live: liveSchema.default({}),
+    live: liveSchema.prefault({}),
     /** A guided character builder beside the full form (Capability API 1.86). */
     builder: sheetBuilderSchema.optional(),
     /** Permanent changes the Game Master may make (Capability API 1.142). */
@@ -2317,7 +2382,7 @@ const restSchema = z
         conditions: z.union([z.literal("all"), z.array(sheetId).max(RULESET_CONDITIONS_MAX)]).default([]),
       })
       .strict()
-      .default({}),
+      .prefault({}),
   })
   .strict();
 
@@ -2359,7 +2424,7 @@ const gmSchema = z
           .default([]),
       })
       .strict()
-      .default({}),
+      .prefault({}),
   })
   .strict();
 
@@ -2449,7 +2514,7 @@ export interface RulesetConditionHarms {
   type?: string;
   healedOnlyByRest?: true;
 }
-const conditionHarmsSchema: z.ZodType<RulesetConditionHarms, z.ZodTypeDef, unknown> = z
+const conditionHarmsSchema: z.ZodType<RulesetConditionHarms, unknown> = z
   .object({
     at: z.enum(["turn-start", "turn-end"]),
     dice: catalogDice.optional(),
@@ -2472,7 +2537,7 @@ export interface RulesetConditionTemporary {
   value?: true;
   lostWhenEnds?: true;
 }
-const conditionTemporarySchema: z.ZodType<RulesetConditionTemporary, z.ZodTypeDef, unknown> = z
+const conditionTemporarySchema: z.ZodType<RulesetConditionTemporary, unknown> = z
   .object({
     at: z.enum(["turn-start", "turn-end"]),
     dice: catalogDice.optional(),
@@ -2494,7 +2559,7 @@ export interface RulesetConditionEndHarm {
   type?: string;
   unless?: RulesetTargetIs;
 }
-const conditionEndHarmSchema: z.ZodType<RulesetConditionEndHarm, z.ZodTypeDef, unknown> = z
+const conditionEndHarmSchema: z.ZodType<RulesetConditionEndHarm, unknown> = z
   .object({
     dice: catalogDice.optional(),
     flat: z.number().int().min(0).max(1000).optional(),
@@ -2517,7 +2582,7 @@ export interface RulesetSeenThrough {
   /** Magical darkness (1.297), which a zone that `dispelsDark` ends. */
   darkness?: true;
 }
-const seenThroughSchema: z.ZodType<RulesetSeenThrough, z.ZodTypeDef, unknown> = z
+const seenThroughSchema: z.ZodType<RulesetSeenThrough, unknown> = z
   .object({
     pierced: z
       .array(sheetId)
@@ -2558,7 +2623,7 @@ export interface RulesetLightRadius {
   magical?: true;
   shade?: true;
 }
-const lightRadiusSchema: z.ZodType<RulesetLightRadius, z.ZodTypeDef, unknown> = z
+const lightRadiusSchema: z.ZodType<RulesetLightRadius, unknown> = z
   .object({
     bright: z.number().finite().min(0).max(10000),
     dim: z.number().finite().min(0).max(10000),
@@ -2582,7 +2647,7 @@ const lightRadiusSchema: z.ZodType<RulesetLightRadius, z.ZodTypeDef, unknown> = 
     message: "A shade sheds no bright light: its reach is all dim",
   });
 
-const senseRangesSchema: z.ZodType<Record<string, RulesetSenseGrant>, z.ZodTypeDef, unknown> = z.record(
+const senseRangesSchema: z.ZodType<Record<string, RulesetSenseGrant>, unknown> = z.record(
   sheetId,
   z.union([z.number().finite().gt(0).max(10000), z.object({ add: z.number().finite().gt(0).max(10000) }).strict()]),
 );
@@ -2598,16 +2663,16 @@ const uniqueIds = (max: number) =>
     .min(1)
     .max(max)
     .refine((ids) => new Set(ids).size === ids.length, { message: "Each is named once" });
-const componentIdsSchema: z.ZodType<string[], z.ZodTypeDef, unknown> = uniqueIds(6);
+const componentIdsSchema: z.ZodType<string[], unknown> = uniqueIds(6);
 export interface RulesetCombatComponent {
   id: string;
   label: string;
 }
-const combatComponentsSchema: z.ZodType<RulesetCombatComponent[], z.ZodTypeDef, unknown> = z
+const combatComponentsSchema: z.ZodType<RulesetCombatComponent[], unknown> = z
   .array(z.object({ id: sheetId, label }).strict())
   .min(1)
   .max(8);
-const zoneInsideSchema: z.ZodType<RulesetZoneInside, z.ZodTypeDef, unknown> = z
+const zoneInsideSchema: z.ZodType<RulesetZoneInside, unknown> = z
   .object({
     conditions: uniqueIds(8).optional(),
     immune: z.array(promptSafeText(40)).min(1).max(12).optional(),
@@ -2619,14 +2684,14 @@ const zoneInsideSchema: z.ZodType<RulesetZoneInside, z.ZodTypeDef, unknown> = z
 export interface RulesetForbids {
   components: string[];
 }
-const forbidsSchema: z.ZodType<RulesetForbids, z.ZodTypeDef, unknown> = z.object({ components: uniqueIds(8) }).strict();
+const forbidsSchema: z.ZodType<RulesetForbids, unknown> = z.object({ components: uniqueIds(8) }).strict();
 export interface RulesetZoneWards {
   catalogs: string[];
   maxLevel: number;
   by?: "base" | "paid";
   maxLevelPerCostStep?: number;
 }
-const zoneWardsSchema: z.ZodType<RulesetZoneWards, z.ZodTypeDef, unknown> = z
+const zoneWardsSchema: z.ZodType<RulesetZoneWards, unknown> = z
   .object({
     catalogs: uniqueIds(8),
     maxLevel: z.number().int().min(0).max(20),
@@ -2658,7 +2723,7 @@ export interface RulesetZoneSections {
   };
 }
 
-const zoneSectionsSchema: z.ZodType<RulesetZoneSections, z.ZodTypeDef, unknown> = z
+const zoneSectionsSchema: z.ZodType<RulesetZoneSections, unknown> = z
   .object({
     every: z.number().finite().gt(0),
     health: z.number().int().min(1).max(100000),
@@ -2744,7 +2809,7 @@ export interface RulesetCreatureGround {
   tell?: string;
   occupants?: "stay" | "shove";
 }
-const creatureGroundSchema: z.ZodType<RulesetCreatureGround, z.ZodTypeDef, unknown> = z
+const creatureGroundSchema: z.ZodType<RulesetCreatureGround, unknown> = z
   .object({
     terrain: z.enum(["plains", "forest", "mountain", "ruin", "water", "wall"]).optional(),
     height: z.number().int().min(0).max(3).optional(),
@@ -2767,7 +2832,7 @@ const creatureGroundSchema: z.ZodType<RulesetCreatureGround, z.ZodTypeDef, unkno
     path: ["occupants"],
   });
 
-const catalogZoneSchema: z.ZodType<RulesetCatalogZone, z.ZodTypeDef, unknown> = z
+const catalogZoneSchema: z.ZodType<RulesetCatalogZone, unknown> = z
   .object({
     /** How it looks on a fight's board (Capability API 1.333): a tile of the board's pack, `bz_` and
      *  lowercase words joined by _ (`bz_fog`, `bz_wall_of_fire`), drawn on every cell it covers. */
@@ -3177,8 +3242,7 @@ const rulesetReactionMomentBase = z
   });
 /** Named, so the schemas built around it stay short enough for the compiler to write. */
 export type RulesetReactionMomentDeclaration = z.infer<typeof rulesetReactionMomentBase>;
-const rulesetReactionMomentSchema: z.ZodType<RulesetReactionMomentDeclaration, z.ZodTypeDef, unknown> =
-  rulesetReactionMomentBase;
+const rulesetReactionMomentSchema: z.ZodType<RulesetReactionMomentDeclaration, unknown> = rulesetReactionMomentBase;
 
 /** How many SECOND amounts one blow may carry beside its first. Three, because a blow written as a
  *  list of four separate things is a blow nobody at a table could read out. */
@@ -3204,7 +3268,7 @@ export interface RulesetTargetIs {
   types?: string[];
   tags?: string[];
 }
-const targetIsSchema: z.ZodType<RulesetTargetIs, z.ZodTypeDef, unknown> = z
+const targetIsSchema: z.ZodType<RulesetTargetIs, unknown> = z
   .object({
     types: z.array(sheetId).min(1).max(20).optional(),
     tags: z.array(sheetId).min(1).max(20).optional(),
@@ -3239,7 +3303,7 @@ const catalogPlusClauseSchema = z
 function sheetBoundsSchema(key: string, never: string) {
   return z
     .object({
-      value: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+      value: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
       atLeast: z.number().finite().optional(),
       atMost: z.number().finite().optional(),
     })
@@ -3263,7 +3327,7 @@ export interface RulesetItemMatchDeclaration {
   tags?: string[];
   notTags?: string[];
 }
-const itemMatchSchema: z.ZodType<RulesetItemMatchDeclaration, z.ZodTypeDef, unknown> = z
+const itemMatchSchema: z.ZodType<RulesetItemMatchDeclaration, unknown> = z
   .object({
     names: attackNamesSchema.optional(),
     tags: z.array(sheetId).min(1).max(8).optional(),
@@ -3278,7 +3342,7 @@ const itemMatchSchema: z.ZodType<RulesetItemMatchDeclaration, z.ZodTypeDef, unkn
  *  own budget, or one of `names` (Capability API 1.242). 5e's Martial Arts bonus strike and Flurry of
  *  Blows. */
 export type RulesetAfterAttackDeclaration = true | { names?: string[]; items?: RulesetItemMatchDeclaration };
-const afterAttackSchema: z.ZodType<RulesetAfterAttackDeclaration, z.ZodTypeDef, unknown> = z.union([
+const afterAttackSchema: z.ZodType<RulesetAfterAttackDeclaration, unknown> = z.union([
   z.literal(true),
   z
     .object({
@@ -3295,9 +3359,7 @@ const afterAttackSchema: z.ZodType<RulesetAfterAttackDeclaration, z.ZodTypeDef, 
 export interface RulesetWieldingDeclaration {
   only: RulesetItemMatchDeclaration;
 }
-const wieldingSchema: z.ZodType<RulesetWieldingDeclaration, z.ZodTypeDef, unknown> = z
-  .object({ only: itemMatchSchema })
-  .strict();
+const wieldingSchema: z.ZodType<RulesetWieldingDeclaration, unknown> = z.object({ only: itemMatchSchema }).strict();
 
 /** A strike its holder may buy with `budget` once an attack's own budget is spent (Capability API
  *  1.242), as a condition's `grants.attacks` gives one: only with the attacks `names` names, in reach
@@ -3312,7 +3374,7 @@ export interface RulesetStrikeGrantDeclaration {
   when?: { value: RulesetValueRef; atLeast?: number; atMost?: number };
   wielding?: RulesetWieldingDeclaration;
 }
-const catalogStrikeGrantSchema: z.ZodType<RulesetStrikeGrantDeclaration, z.ZodTypeDef, unknown> = z
+const catalogStrikeGrantSchema: z.ZodType<RulesetStrikeGrantDeclaration, unknown> = z
   .object({
     budget: sheetId,
     names: attackNamesSchema.optional(),
@@ -3336,7 +3398,7 @@ export interface RulesetAttackRowsDeclaration {
   when?: { value: RulesetValueRef; atLeast?: number; atMost?: number };
   wielding?: RulesetWieldingDeclaration;
 }
-const catalogAttackRowsSchema: z.ZodType<RulesetAttackRowsDeclaration, z.ZodTypeDef, unknown> = z
+const catalogAttackRowsSchema: z.ZodType<RulesetAttackRowsDeclaration, unknown> = z
   .object({
     /** Rows and held weapons whose attack goes by one of these names. */
     names: attackNamesSchema.optional(),
@@ -3346,7 +3408,7 @@ const catalogAttackRowsSchema: z.ZodType<RulesetAttackRowsDeclaration, z.ZodType
     abilities: z.array(sheetId).min(1).max(6).optional(),
     die: z
       .object({
-        from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+        from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
         table: stepTableSchema,
       })
       .strict()
@@ -3466,7 +3528,7 @@ export interface RulesetHolderEnding {
   acts?: true;
   uses?: string[];
 }
-const holderEndingSchema: z.ZodType<RulesetHolderEnding, z.ZodTypeDef, unknown> = z
+const holderEndingSchema: z.ZodType<RulesetHolderEnding, unknown> = z
   .object({
     attacks: z.literal(true).optional(),
     casts: z
@@ -3548,14 +3610,14 @@ export interface RulesetCatalogRescue {
   saves?: string[];
   budget?: string;
 }
-const catalogRescueSchema: z.ZodType<RulesetCatalogRescue, z.ZodTypeDef, unknown> = z
+const catalogRescueSchema: z.ZodType<RulesetCatalogRescue, unknown> = z
   .object({
     roll: z.enum(["attacks", "saves", "checks"]),
     by: z.enum(["reroll", "success", "twenty", "die"]),
     dice: catalogDice.optional(),
     die: z
       .object({
-        from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+        from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
         table: stepTableSchema,
       })
       .strict()
@@ -3626,7 +3688,7 @@ export interface RulesetDestroysUpTo {
   when?: { value: RulesetValueRef; atLeast?: number; atMost?: number };
 }
 
-const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, z.ZodTypeDef, unknown> = z
+const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, unknown> = z
   .object({
     condition: sheetId,
     duration: catalogDurationSchema,
@@ -3743,7 +3805,7 @@ const catalogAppliesSchema: z.ZodType<RulesetCatalogApplies, z.ZodTypeDef, unkno
     /** A number read off the sheet of whoever applies it, fixed as it goes on (Capability API
      *  1.274), for the condition's `temporary` to give: 5e's Heroism, its caster's spellcasting
      *  modifier. */
-    value: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    value: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
   })
   .strict()
   .superRefine((applies, ctx) => {
@@ -3880,7 +3942,7 @@ export interface RulesetCatalogArea {
   around?: true;
   throughWalls?: true;
 }
-const catalogAreaSchema: z.ZodType<RulesetCatalogArea, z.ZodTypeDef, unknown> = z
+const catalogAreaSchema: z.ZodType<RulesetCatalogArea, unknown> = z
   .object({
     shape: z.enum(["burst", "cone", "line", "box", "wall"]),
     size: z.number().finite().gt(0),
@@ -3954,7 +4016,7 @@ export interface RulesetCatalogAlters {
   joins?: true;
 }
 
-const catalogAltersSchema: z.ZodType<RulesetCatalogAlters, z.ZodTypeDef, unknown> = z
+const catalogAltersSchema: z.ZodType<RulesetCatalogAlters, unknown> = z
   .object({
     /** The catalogs whose entries it changes: 5e's spells. */
     catalogs: z.array(sheetId).min(1).max(8),
@@ -3992,7 +4054,6 @@ const catalogTargetTypesSchema: z.ZodType<
     abilityAtLeast?: Record<string, number>;
     notImmuneTo?: string[];
   },
-  z.ZodTypeDef,
   unknown
 > = z
   .object({
@@ -4023,13 +4084,13 @@ const catalogTargetTypesSchema: z.ZodType<
 
 /** A health pool an entry shares out among its targets (Capability API 1.196). Typed by hand:
  *  written out, its inferred type is too long for the definition schema around it to emit. */
-const catalogHealthPoolSchema: z.ZodType<{ dice?: string; flat?: number }, z.ZodTypeDef, unknown> = z
+const catalogHealthPoolSchema: z.ZodType<{ dice?: string; flat?: number }, unknown> = z
   .object(catalogAmountShape)
   .strict()
   .refine((pool) => pool.dice !== undefined || pool.flat !== undefined, '"healthPool" names dice or a flat number');
 
 /** Who a health pool passes over (Capability API 1.199). Typed by hand, as the pool is. */
-const catalogHealthPoolSkipsSchema: z.ZodType<{ conditions?: string[]; unseeing?: true }, z.ZodTypeDef, unknown> = z
+const catalogHealthPoolSkipsSchema: z.ZodType<{ conditions?: string[]; unseeing?: true }, unknown> = z
   .object({
     conditions: z.array(sheetId).min(1).max(16).optional(),
     unseeing: z.literal(true).optional(),
@@ -4049,7 +4110,6 @@ const catalogCheckSchema: z.ZodType<
     explode?: number;
     double?: number;
   },
-  z.ZodTypeDef,
   unknown
 > = z
   .object({
@@ -4082,11 +4142,7 @@ const catalogCheckSchema: z.ZodType<
   });
 
 /** Conditions a cure takes off (Capability API 1.176). Typed, to keep the mechanics' type small. */
-const catalogEndsSchema: z.ZodType<
-  { conditions: string[]; count?: number; from?: RulesetTargetIs },
-  z.ZodTypeDef,
-  unknown
-> = z
+const catalogEndsSchema: z.ZodType<{ conditions: string[]; count?: number; from?: RulesetTargetIs }, unknown> = z
   .object({
     conditions: z
       .array(sheetId)
@@ -4102,7 +4158,7 @@ const catalogEndsSchema: z.ZodType<
   .strict();
 
 /** Live tracks moved by levels (Capability API 1.201). Typed, to keep the mechanics' type small. */
-const catalogTracksSchema: z.ZodType<Array<{ track: string; by: number }>, z.ZodTypeDef, unknown> = z
+const catalogTracksSchema: z.ZodType<Array<{ track: string; by: number }>, unknown> = z
   .array(
     z
       .object({
@@ -4123,11 +4179,7 @@ const catalogTracksSchema: z.ZodType<Array<{ track: string; by: number }>, z.Zod
   });
 
 /** What an entry's summons spends and how long it stays. Typed, to keep the mechanics' type small. */
-const catalogSummonsSchema: z.ZodType<
-  { budget: string; rounds: number; move?: number; reach?: number },
-  z.ZodTypeDef,
-  unknown
-> = z
+const catalogSummonsSchema: z.ZodType<{ budget: string; rounds: number; move?: number; reach?: number }, unknown> = z
   .object({
     budget: sheetId,
     rounds: z.number().int().min(1).max(100),
@@ -4142,7 +4194,7 @@ export interface RulesetDrain {
   share?: number;
   damageType?: string;
 }
-const drainSchema: z.ZodType<RulesetDrain, z.ZodTypeDef, unknown> = z
+const drainSchema: z.ZodType<RulesetDrain, unknown> = z
   .object({
     /** The share of what was dealt that comes back, rounded down: 1 when left out. */
     share: z.number().gt(0).max(1).optional(),
@@ -4161,7 +4213,7 @@ export interface RulesetReducesMax {
   lasting?: true;
 }
 /** Typed, to keep the block's and the mechanics' types small. */
-const reducesMaxSchema: z.ZodType<RulesetReducesMax, z.ZodTypeDef, unknown> = z
+const reducesMaxSchema: z.ZodType<RulesetReducesMax, unknown> = z
   .object({
     /** Its own save and the number it is rolled against (1.203); without either, every blow that
      *  lands lowers it (1.235): a vampire's Bite, a succubus's Draining Kiss. */
@@ -4199,7 +4251,7 @@ export interface RulesetTargetHolds {
   conditions?: string[];
   fromSelf?: string[];
 }
-const targetHoldsSchema: z.ZodType<RulesetTargetHolds, z.ZodTypeDef, unknown> = z
+const targetHoldsSchema: z.ZodType<RulesetTargetHolds, unknown> = z
   .object({
     conditions: z.array(sheetId).min(1).max(8).optional(),
     fromSelf: z.array(sheetId).min(1).max(8).optional(),
@@ -4224,7 +4276,7 @@ export interface RulesetTeleportRule {
  *  nobody gets a strike at them leaving. With `seen`, only a place they can see. `carries` willing
  *  creatures of their own side no bigger than they are, within `carriesWithin` (touching when left
  *  out), go along and land as near them as there is room. Only on a board. */
-const teleportSchema: z.ZodType<RulesetTeleportRule, z.ZodTypeDef, unknown> = z
+const teleportSchema: z.ZodType<RulesetTeleportRule, unknown> = z
   .object({
     distance: z.number().finite().gt(0).max(100000),
     seen: z.literal(true).optional(),
@@ -4341,7 +4393,7 @@ const catalogMechanicsObject = z
         dice: catalogDice.optional(),
         die: z
           .object({
-            from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>,
+            from: rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>,
             table: stepTableSchema,
           })
           .strict()
@@ -4520,7 +4572,7 @@ const catalogMechanicsObject = z
              *  ends what keeps it away (`checkEnds`, or a save spent an action on): 5e's Maze. */
             turns: z.literal(true).optional(),
           })
-          .strict() as z.ZodType<{ while: string; gone?: RulesetTargetIs; turns?: true }, z.ZodTypeDef, unknown>,
+          .strict() as z.ZodType<{ while: string; gone?: RulesetTargetIs; turns?: true }, unknown>,
       ])
       .optional(),
     /** Whoever it lands on who is dying stops rolling, stable (1.176): 5e's Spare the Dying. */
@@ -4835,7 +4887,6 @@ function zoneIssue(mechanics: {
 /** Typed, to keep the definition's type small. */
 const catalogMechanicsSchema: z.ZodType<
   z.infer<typeof catalogMechanicsObject>,
-  z.ZodTypeDef,
   unknown
 > = catalogMechanicsObject.superRefine((mechanics, ctx) => {
   const why = zoneIssue(mechanics);
@@ -5178,7 +5229,7 @@ export const RULESET_SCALED_MAX_COLUMNS = 4;
  *  changes; nothing recomputes it at read time, so a stored row is always the number it says. */
 const catalogScaledColumnSchema = z.object({ from: rulesetValueRefSchema, table: stepTableSchema.optional() }).strict();
 
-const catalogScaledSchema = z.record(catalogScaledColumnSchema).superRefine((scaled, ctx) => {
+const catalogScaledSchema = z.record(z.string(), catalogScaledColumnSchema).superRefine((scaled, ctx) => {
   const keys = Object.keys(scaled);
   // An empty map says nothing, and would still make the row the entry's only one for its list.
   if (keys.length === 0) {
@@ -5200,7 +5251,7 @@ const catalogScaledSchema = z.record(catalogScaledColumnSchema).superRefine((sca
 const catalogEntryRowSchema = z
   .object({
     list: sheetId,
-    values: z.record(sheetScalar),
+    values: z.record(z.string(), sheetScalar),
     /** Optional. `values` still holds what the row starts as, because a catalog is picked before
      *  anything knows which sheet it lands on. */
     scaled: catalogScaledSchema.optional(),
@@ -5382,6 +5433,9 @@ const creatureActionSchema = z
     components: componentIdsSchema.optional(),
     budget: sheetId,
     toHit: z.number().int().min(-50).max(100).optional(),
+    /** In a `symbol-pool` fight, how many of its `toHit` dice are upgraded ones (Capability API
+     *  1.382): a skill's ranks under a larger ability. */
+    upgrades: z.number().int().min(0).max(12).optional(),
     /** The amount simply lands: no roll to make. */
     autoHit: z.boolean().optional(),
     damage: creatureDamageSchema.optional(),
@@ -5912,12 +5966,12 @@ const creatureRiderSchema = z
  *  the rest of the catalog. */
 const creatureSheetSchema = z
   .object({
-    abilities: z.record(z.number().finite()).default({}),
-    skills: z.record(z.string().max(40)).default({}),
-    saves: z.record(z.string().max(40)).default({}),
-    bonuses: z.record(z.number().finite()).default({}),
-    fields: z.record(sheetScalar).default({}),
-    lists: z.record(z.array(z.record(sheetScalar)).max(500)).default({}),
+    abilities: z.record(z.string(), z.number().finite()).prefault({}),
+    skills: z.record(z.string(), z.string().max(40)).prefault({}),
+    saves: z.record(z.string(), z.string().max(40)).prefault({}),
+    bonuses: z.record(z.string(), z.number().finite()).prefault({}),
+    fields: z.record(z.string(), sheetScalar).prefault({}),
+    lists: z.record(z.string(), z.array(z.record(z.string(), sheetScalar)).max(500)).prefault({}),
   })
   .strict();
 
@@ -5972,11 +6026,11 @@ const creatureFields = {
   initiativeModifier: z.number().int().min(-50).max(100),
   /** Scores, keyed by the sheet's own ability ids. Shown to the Game Master; a later slice asks a
    *  creature for a check with them. */
-  abilities: z.record(z.number().int().min(-1000).max(1000)).optional(),
+  abilities: z.record(z.string(), z.number().int().min(-1000).max(1000)).optional(),
   /** What it adds when it saves, keyed by the sheet's own save ids. One it does not name is zero. */
-  saves: z.record(z.number().int().min(-50).max(50)).optional(),
+  saves: z.record(z.string(), z.number().int().min(-50).max(50)).optional(),
   /** What it adds in a contest, keyed by the ids of `combat.checks`. One it does not name is zero. */
-  checks: z.record(z.number().int().min(-100).max(100)).optional(),
+  checks: z.record(z.string(), z.number().int().min(-100).max(100)).optional(),
   /** Its own checks with these skills rolled twice (Capability API 1.291), only while it can see
    *  (`sight`), in one of these lights where it stands (`light`), or on one of these board tiles
    *  (`terrain`), as it says: 5e's Keen Sight `{ "skills": ["perception"], "mode": "advantage",
@@ -6045,7 +6099,7 @@ const creatureFields = {
   soak: z
     .object({
       all: z.number().int().min(0).max(100).optional(),
-      byKind: z.record(z.number().int().min(0).max(100)).optional(),
+      byKind: z.record(z.string(), z.number().int().min(0).max(100)).optional(),
     })
     .strict()
     .optional(),
@@ -6096,7 +6150,7 @@ const creatureFields = {
   /** Short lines the Game Master is shown and the Engine never resolves: a trait is fiction here,
    *  not a rule, so anything with numbers in it belongs in an action. */
   traits: z
-    .array(z.object({ name: promptSafeText(60), text: promptSafeText(400) }).strict())
+    .array(z.object({ name: promptSafeText(60), text: promptSafeText(RULESET_CREATURE_TRAIT_TEXT_MAX) }).strict())
     .max(8)
     .optional(),
   /** Points given back at the start of its own turn, spent on `signature` actions. */
@@ -6228,7 +6282,7 @@ const rulesetProposedCreatureBaseSchema = z.preprocess(
 /** A creature the Game Master invents for one fight: the plain block, or a sheet in the ruleset's terms.
  *  Named, so a schema built around it stays short enough for the compiler to write. */
 export type RulesetProposedCreature = z.infer<typeof rulesetProposedCreatureBaseSchema>;
-export const rulesetProposedCreatureSchema: z.ZodType<RulesetProposedCreature, z.ZodTypeDef, unknown> =
+export const rulesetProposedCreatureSchema: z.ZodType<RulesetProposedCreature, unknown> =
   rulesetProposedCreatureBaseSchema;
 
 /** A creature a bestiary ships: the plain block, or a `sheet` in the ruleset's own terms. With a
@@ -6279,8 +6333,7 @@ const rulesetCreatureBaseSchema = z
 
 /** Named, so the whole definition's inferred type stays short enough for the compiler to write. */
 export type RulesetCreatureDeclaration = z.infer<typeof rulesetCreatureBaseSchema>;
-export const rulesetCreatureSchema: z.ZodType<RulesetCreatureDeclaration, z.ZodTypeDef, unknown> =
-  rulesetCreatureBaseSchema;
+export const rulesetCreatureSchema: z.ZodType<RulesetCreatureDeclaration, unknown> = rulesetCreatureBaseSchema;
 
 // ── Items: the vocabulary every item of the ruleset is written in ──
 
@@ -6386,7 +6439,7 @@ const startingGearLineSchema = z
     /** Coins rolled when the gear is taken, never again (Capability API 1.157): OSE's 3d6 x 10 gold. */
     roll: catalogDice.optional(),
     /** Coins read off the holder's sheet when the gear is taken (1.157): cash by Credit Rating. */
-    countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    countFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     /** What a rolled or read amount is multiplied by (1.157). */
     times: z.number().int().min(1).max(10000).optional(),
     /** Put on as it is taken, where its slots are free: armor and a shield are worn from the start. */
@@ -6597,7 +6650,7 @@ const itemsSchema = z
         z
           .object({
             rarity: sheetId,
-            stats: z.record(z.number().finite()).optional(),
+            stats: z.record(z.string(), z.number().finite()).optional(),
             bonus: z.number().int().min(0).max(100).optional(),
           })
           .strict(),
@@ -6642,7 +6695,7 @@ const itemAttackDistanceSchema = orItemStat(z.number().finite().min(0).max(10000
  *  holder's sheet (Capability API 1.95), and in a pool fight its own per-die `target`. A weapon's attack
  *  reads it, and so does an item's use that rolls to hit. */
 // Named, so the whole definition's type stays short enough to write down (the builder's rows do the same).
-const itemToHitValueRefSchema = rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>;
+const itemToHitValueRefSchema = rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>;
 const itemToHitSchema = z
   .object({
     abilities: itemAttackAbilitiesSchema.optional(),
@@ -6684,7 +6737,7 @@ const itemAttackDamageBaseSchema = z
   .strict();
 /** One more amount on an item's blow (Capability API 1.169; named for 1.190, which gives a weapon's
  *  mode its own). */
-const itemPlusClauseSchema: z.ZodType<RulesetItemPlusClause, z.ZodTypeDef, unknown> = z
+const itemPlusClauseSchema: z.ZodType<RulesetItemPlusClause, unknown> = z
   .object({
     dice: catalogDice.optional(),
     flat: z.number().int().min(-1000).max(10000).optional(),
@@ -6761,7 +6814,7 @@ export interface RulesetItemAroundHit {
   rounds?: number;
   of?: "source";
 }
-const itemAttackModeSchema: z.ZodType<RulesetItemAttackMode, z.ZodTypeDef, unknown> = z
+const itemAttackModeSchema: z.ZodType<RulesetItemAttackMode, unknown> = z
   .object({
     id: sheetId,
     label: promptSafeText(40),
@@ -6836,7 +6889,7 @@ export interface RulesetItemAttackDamage {
   rerollUpTo?: RulesetValueRef;
   minimum?: OrItemStat<RulesetValueRef>;
 }
-const itemAttackDamageSchema: z.ZodType<RulesetItemAttackDamage, z.ZodTypeDef, unknown> = itemAttackDamageBaseSchema;
+const itemAttackDamageSchema: z.ZodType<RulesetItemAttackDamage, unknown> = itemAttackDamageBaseSchema;
 
 /** Charges its wielder may spend on a hit with the weapon (Capability API 1.273): a Staff of Power's
  *  Power Strike, a Staff of Striking's 1d6 force a charge, a Staff of Withering's 2d10 necrotic and
@@ -6855,7 +6908,7 @@ export interface RulesetItemAttackSpend {
     saveEnds?: { save: string; difficulty: number; at: "turn-end" | "turn-start" | "damaged" };
   }>;
 }
-const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, z.ZodTypeDef, unknown> = z
+const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, unknown> = z
   .object({
     label: promptSafeText(40),
     charges: z.number().int().min(1).max(100),
@@ -6913,7 +6966,7 @@ const itemAttackSpendSchema: z.ZodType<RulesetItemAttackSpend, z.ZodTypeDef, unk
 export const rulesetItemAttackSchema = z
   .object({
     budget: sheetId,
-    toHit: itemToHitSchema.default({}),
+    toHit: itemToHitSchema.prefault({}),
     damage: itemAttackDamageSchema,
     reach: itemAttackDistanceSchema.optional(),
     range: z
@@ -7114,7 +7167,7 @@ export interface RulesetItemLastCharge {
    *  of Striking's nonmagical quarterstaff. */
   becomes?: string;
 }
-const itemLastChargeSchema: z.ZodType<RulesetItemLastCharge, z.ZodTypeDef, unknown> = z
+const itemLastChargeSchema: z.ZodType<RulesetItemLastCharge, unknown> = z
   .object({
     die: z.number().int().min(2).max(100),
     atMost: z.number().int().min(1).max(100).optional(),
@@ -7177,7 +7230,7 @@ export interface RulesetItemChargeStep {
   targets?: number;
   push?: number;
 }
-const itemChargeStepSchema: z.ZodType<RulesetItemChargeStep, z.ZodTypeDef, unknown> = z
+const itemChargeStepSchema: z.ZodType<RulesetItemChargeStep, unknown> = z
   .object({
     max: z.number().int().min(1).max(20),
     amount: z.object(catalogAmountShape).strict().optional(),
@@ -7250,6 +7303,9 @@ export const rulesetItemUseSchema = catalogMechanicsObject
     /** What the menu calls it beside the item's name (Capability API 1.271), as a `moreUses` label
      *  is: a staff's first spell. */
     label: promptSafeText(60).optional(),
+    /** What the menu calls it in place of the item's name (Capability API 1.378): "Scatter ball
+     *  bearings". Its count left still shows beside it. */
+    title: promptSafeText(60).optional(),
     /** More charges its user may spend on it (Capability API 1.269), up to `max` beyond `charges`:
      *  each adds `amount` and `targets`, and counts as one step of a higher cost (a Staff of Power's
      *  spell cast at a higher level, a Staff of Striking's 1d6 force a charge). */
@@ -7359,7 +7415,7 @@ export interface RulesetItemMoreUse {
   label: string;
   use: RulesetItemUse;
 }
-const itemMoreUseSchema: z.ZodType<RulesetItemMoreUse, z.ZodTypeDef, unknown> = z
+const itemMoreUseSchema: z.ZodType<RulesetItemMoreUse, unknown> = z
   .object({ label: promptSafeText(40), use: rulesetItemUseSchema })
   .strict();
 
@@ -7369,9 +7425,9 @@ const catalogItemObjectSchema = z
     rarity: sheetId.optional(),
     tags: z.array(sheetId).max(16).optional(),
     /** Values for the declared stats, each one its stat could hold. */
-    stats: z.record(sheetScalar).optional(),
+    stats: z.record(z.string(), sheetScalar).optional(),
     /** How many of each slot the item takes while worn or held. */
-    slots: z.record(z.number().int().min(1).max(20)).optional(),
+    slots: z.record(z.string(), z.number().int().min(1).max(20)).optional(),
     /** The most one stack holds. Without it a stack holds as many as any Game Mode stack. */
     stack: z.number().int().min(1).max(GAME_INVENTORY_MAX_QUANTITY).optional(),
     cost: z
@@ -7452,6 +7508,10 @@ const catalogItemObjectSchema = z
         /** The light it sheds while switched off (Capability API 1.296), in place of its effect's:
          *  a hooded lantern with its hood down, dim light 5 feet. */
         offLight: lightRadiusSchema.optional(),
+        /** What turning it on and off is called on the menu (Capability API 1.378), in place of the
+         *  Engine's "Turn on" and the item's name: "Raise the hood", "Lower the hood". */
+        onLabel: promptSafeText(40).optional(),
+        offLabel: promptSafeText(40).optional(),
       })
       .strict()
       .optional(),
@@ -7461,7 +7521,7 @@ const catalogItemObjectSchema = z
 /** Typed by its own name (1.271): written out, the item's inferred type is too long for the
  *  definition schema around it to emit. */
 export type RulesetCatalogItem = z.infer<typeof catalogItemObjectSchema>;
-const catalogItemSchema: z.ZodType<RulesetCatalogItem, z.ZodTypeDef, unknown> = catalogItemObjectSchema;
+const catalogItemSchema: z.ZodType<RulesetCatalogItem, unknown> = catalogItemObjectSchema;
 
 /** What a catalog entry gives a character when it is picked through the guided builder (Capability API
  *  1.86), and takes back when it is unpicked. The catalog picker ignores it. */
@@ -7486,12 +7546,12 @@ export interface RulesetCatalogGrants {
       RulesetBuilderCatalogLimits & { catalog: string; filters?: Record<string, number | string>; ids?: string[] })[];
   };
 }
-const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, z.ZodTypeDef, unknown> = z
+const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, unknown> = z
   .object({
     ratings: z.array(builderRatingGrantSchema).min(1).max(120).optional(),
     abilities: z
       .object({
-        add: z.record(z.number().int().min(-20).max(20)).optional(),
+        add: z.record(z.string(), z.number().int().min(-20).max(20)).optional(),
         /** Scores of the player's choosing, `amount` each, never one twice and never one in `except`. */
         choose: z
           .array(
@@ -7533,7 +7593,7 @@ const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, z.ZodTypeDef, unknown
       .strict()
       .optional(),
     /** Field values (a class's hit die, its spellcasting ability). */
-    sets: z.record(z.union([z.number().finite(), z.string().max(200), z.boolean()])).optional(),
+    sets: z.record(z.string(), z.union([z.number().finite(), z.string().max(200), z.boolean()])).optional(),
     /** Items the character may take without carrying them from the start (Capability API 1.215): a
      *  Blades playbook's items, chosen as load when a score begins. Nothing goes in the bag. */
     itemAccess: z.array(rulesetItemRefSchema).min(1).max(48).optional(),
@@ -7551,7 +7611,7 @@ const catalogGrantsSchema: z.ZodType<RulesetCatalogGrants, z.ZodTypeDef, unknown
                 ...builderCatalogLimits,
                 catalog: sheetId,
                 count: z.number().int().min(1).max(20),
-                filters: z.record(z.union([z.number().finite(), z.string().max(80)])).optional(),
+                filters: z.record(z.string(), z.union([z.number().finite(), z.string().max(80)])).optional(),
                 ids: z.array(z.string().max(80)).min(1).max(120).optional(),
               })
               .strict(),
@@ -7572,7 +7632,7 @@ const catalogEntrySchema = z
     icon: artIconRef.optional(),
     /** Values for the catalog's declared filters: a number, one word, or a list of words. */
     filters: z
-      .record(z.union([z.number().finite(), z.string().max(80), z.array(z.string().max(80)).max(24)]))
+      .record(z.string(), z.union([z.number().finite(), z.string().max(80), z.array(z.string().max(80)).max(24)]))
       .optional(),
     /** What picking the entry writes. One entry may fill several lists: a feature plus the counter
      *  that tracks its uses is one pick, not two. */
@@ -7593,7 +7653,7 @@ const catalogEntrySchema = z
      *  (Capability API 1.99), as 5e offers a second class only when its prerequisites are met. A pick
      *  that later reads 0 counts for nothing and is kept. An entry of an `exclusive` group is read on
      *  the sheet without the step's picks of that group (1.100). */
-    offeredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+    offeredWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
   })
   .strict()
   .superRefine((entry, ctx) => {
@@ -7760,7 +7820,7 @@ const combatHealthSchema = z.union([battlePoolSchema, z.object({ track: sheetId 
 const combatDamageKindsSchema = z
   .object({
     default: sheetId,
-    byType: z.record(sheetId).optional(),
+    byType: z.record(z.string(), sheetId).optional(),
     marks: z.enum(["per-blow", "per-point"]),
     /** First matching target rule wins, before soak (Capability API 1.148). */
     remap: z
@@ -7823,6 +7883,10 @@ const combatNaturalsSchema = z
   .object({ max: z.enum(["critical", "hit", "none"]).default("none"), min: z.enum(["miss", "none"]).default("none") })
   .strict();
 
+/** The tones a budget's pip may take on the fight screen (Capability API 1.375), in the order a
+ *  budget without one takes them by its place. */
+export const RULESET_BUDGET_TONES = ["rose", "amber", "violet", "teal", "sky", "lime", "orange", "slate"] as const;
+
 /** One budget of the action economy: how many times a turn may spend that kind of thing. The first
  *  declared budget is the main one, and is what a standard action spends. */
 const combatBudgetSchema = z
@@ -7834,6 +7898,10 @@ const combatBudgetSchema = z
     /** How many a turn (or round) hands out. 0 (Capability API 1.76) is a budget only a condition's
      *  `budgets` fills, as Haste's extra action is. */
     count: z.number().int().min(0).max(10).default(1),
+    /** How the fight screen marks it (Capability API 1.375): up to two letters on its pip, and one of
+     *  the screen's tones. Without them the pip takes the label's first letter and the tone of its place. */
+    short: z.string().trim().min(1).max(2).optional(),
+    tone: z.enum(RULESET_BUDGET_TONES).optional(),
   })
   .strict();
 
@@ -7893,7 +7961,7 @@ const combatAttackSourceSchema = z
         bonus: combatColumnSchema.optional(),
       })
       .strict()
-      .default({}),
+      .prefault({}),
     damage: z
       .object({
         /** A dice column ("1d8", "2d6+1"). */
@@ -7931,10 +7999,11 @@ const combatAbilitySourceSchema = battleSkillsSchema.extend({
         column: sheetId,
         values: z
           .record(
+            z.string(),
             z
               .object({
-                toHit: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-                saveDifficulty: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+                toHit: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+                saveDifficulty: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
               })
               .strict(),
           )
@@ -7947,7 +8016,6 @@ const combatAbilitySourceSchema = battleSkillsSchema.extend({
         column: string;
         values: Record<string, { toHit?: RulesetValueRef; saveDifficulty?: RulesetValueRef }>;
       },
-      z.ZodTypeDef,
       unknown
     >
   ).optional(),
@@ -8049,7 +8117,7 @@ export interface RulesetModifierAgainst {
   actions?: string[];
   casts?: string[];
 }
-const modifierAgainstSchema: z.ZodType<RulesetModifierAgainst, z.ZodTypeDef, unknown> = z
+const modifierAgainstSchema: z.ZodType<RulesetModifierAgainst, unknown> = z
   .object({
     conditions: z.array(sheetId).min(1).max(24).optional(),
     damage: z.array(promptSafeText(40)).min(1).max(24).optional(),
@@ -8116,6 +8184,9 @@ const combatModifierSchema = z
      *  its most could make up the difference, and the condition it came from is spent (Capability
      *  API 1.249): 5e's Bardic Inspiration, Guidance and Resistance, added after seeing the roll. */
     rescue: z.literal(true).optional(),
+    /** What a card says it does, in place of the phrase the Engine composes from the rest (Capability
+     *  API 1.378): 5e's Fey Ancestry, "advantage on saves against being charmed". */
+    label: promptSafeText(120).optional(),
   })
   .strict()
   .superRefine((modifier, ctx) => {
@@ -8351,7 +8422,7 @@ const combatConditionDelaysBase = z
   .strict();
 /** Named, so the condition schema stays short enough for the compiler to write. */
 export type RulesetConditionDelays = z.infer<typeof combatConditionDelaysBase>;
-const combatConditionDelaysSchema: z.ZodType<RulesetConditionDelays, z.ZodTypeDef, unknown> = combatConditionDelaysBase;
+const combatConditionDelaysSchema: z.ZodType<RulesetConditionDelays, unknown> = combatConditionDelaysBase;
 
 /** A sense that sees where eyes cannot (1.178). */
 export interface RulesetCombatSense {
@@ -8365,7 +8436,7 @@ export interface RulesetConditionImmunityFrom {
   conditions: string[];
   from: RulesetTargetIs;
 }
-const combatSenseSchema: z.ZodType<RulesetCombatSense, z.ZodTypeDef, unknown> = z
+const combatSenseSchema: z.ZodType<RulesetCombatSense, unknown> = z
   .object({ id: sheetId, label, sheet: rulesetValueRefSchema.optional(), blind: z.literal(true).optional() })
   .strict();
 
@@ -8381,7 +8452,7 @@ export interface RulesetCombatSight {
   eyes?: string;
   darkness?: RulesetCombatDarkness;
 }
-const combatSightSchema: z.ZodType<RulesetCombatSight, z.ZodTypeDef, unknown> = z
+const combatSightSchema: z.ZodType<RulesetCombatSight, unknown> = z
   .object({
     unseenAttacks: z.literal(true).optional(),
     eyes: sheetId.optional(),
@@ -8419,7 +8490,7 @@ export interface RulesetConditionOnEnd {
   tracks?: Array<{ track: string; by: number }>;
   harm?: RulesetConditionEndHarm;
 }
-const conditionOnEndSchema: z.ZodType<RulesetConditionOnEnd, z.ZodTypeDef, unknown> = z
+const conditionOnEndSchema: z.ZodType<RulesetConditionOnEnd, unknown> = z
   .object({
     applies: z
       .array(
@@ -8465,7 +8536,7 @@ export interface RulesetBehaviorDrops {
 }
 /** What a turn may hold besides walking: breaking free, and the standard actions. */
 export const RULESET_BEHAVIOR_ONLY = ["move", "escape", ...RULESET_COMBAT_STANDARD_ACTIONS] as const;
-const conditionBehaviorSchema: z.ZodType<RulesetConditionBehavior, z.ZodTypeDef, unknown> = z
+const conditionBehaviorSchema: z.ZodType<RulesetConditionBehavior, unknown> = z
   .object({
     /** All its holder's turn may hold, besides ending it: walking (`move`, getting up included),
      *  breaking free of what holds them (`escape`), and the standard actions named. Empty, nothing:
@@ -8590,7 +8661,7 @@ export interface RulesetConditionAura {
     avert?: true;
   };
 }
-const conditionAuraSchema: z.ZodType<RulesetConditionAura, z.ZodTypeDef, unknown> = z
+const conditionAuraSchema: z.ZodType<RulesetConditionAura, unknown> = z
   .object({
     /** How far from its holder, in the ruleset's own distance, nearest cell to nearest cell. A fight
      *  with no board measures nothing, so there it reaches everybody it names. */
@@ -8707,7 +8778,7 @@ export interface RulesetConditionOnRest {
   restoredWhenCured?: true;
   save?: { save: string; difficulty: number; cures?: true };
 }
-const conditionOnRestSchema: z.ZodType<RulesetConditionOnRest, z.ZodTypeDef, unknown> = z
+const conditionOnRestSchema: z.ZodType<RulesetConditionOnRest, unknown> = z
   .object({
     rests: z
       .array(sheetId)
@@ -8746,7 +8817,7 @@ const conditionOnRestSchema: z.ZodType<RulesetConditionOnRest, z.ZodTypeDef, unk
 export interface RulesetConditionOnDamaged {
   applies: RulesetCatalogApplies[];
 }
-const conditionOnDamagedSchema: z.ZodType<RulesetConditionOnDamaged, z.ZodTypeDef, unknown> = z
+const conditionOnDamagedSchema: z.ZodType<RulesetConditionOnDamaged, unknown> = z
   .object({
     applies: z
       .array(
@@ -8774,7 +8845,6 @@ const combatConditionSchema = z
       .array(
         z.object({ conditions: z.array(sheetId).min(1).max(40), from: targetIsSchema }).strict() as z.ZodType<
           RulesetConditionImmunityFrom,
-          z.ZodTypeDef,
           unknown
         >,
       )
@@ -9302,7 +9372,7 @@ const combatContestBaseSchema = z
 
 /** Named, so the whole definition's inferred type stays short enough for the compiler to write. */
 export type RulesetCombatContestDeclaration = z.infer<typeof combatContestBaseSchema>;
-const combatContestSchema: z.ZodType<RulesetCombatContestDeclaration, z.ZodTypeDef, unknown> = combatContestBaseSchema;
+const combatContestSchema: z.ZodType<RulesetCombatContestDeclaration, unknown> = combatContestBaseSchema;
 
 /** How big a combatant is, smallest first (Capability API 1.103). A creature names one by id; a sheet
  *  reads a number off itself, 1 for the first, which is rounded and held to the list; whoever nothing
@@ -9312,7 +9382,7 @@ export interface RulesetCombatSizes {
   sheet?: RulesetValueRef;
   default?: string;
 }
-const combatSizesSchema: z.ZodType<RulesetCombatSizes, z.ZodTypeDef, unknown> = z
+const combatSizesSchema: z.ZodType<RulesetCombatSizes, unknown> = z
   .object({
     order: z
       .array(
@@ -9362,7 +9432,7 @@ const combatDyingSchema = z.discriminatedUnion("kind", [
           min: z.enum(["two-failures", "one-failure", "none"]).default("none"),
         })
         .strict()
-        .default({}),
+        .prefault({}),
       damageWhileDown: z.enum(["one-failure", "two-failures", "none"]).default("none"),
       criticalWhileDown: z.enum(["one-failure", "two-failures", "none"]).default("none"),
       /** The condition a character is in while they are down, when the sheet declares one. */
@@ -9437,6 +9507,74 @@ const combatInitiativeResourceSchema = z
   })
   .strict();
 
+/** Whom one symbol spend lands on (Capability API 1.382): either side of the attack, or the next
+ *  one of that side's allies to act. */
+const symbolSpendOnSchema = z.enum(["attacker", "target", "attacker-ally", "target-ally"]);
+
+/** One thing a symbol left over on an attack buys (Capability API 1.382): `cost` of `symbol` buys it,
+ *  up to `max` times on one roll. `by` is the side that chooses it, so an attacker's advantage is
+ *  theirs to spend and their threat their target's. The Engine and the AI pick spends without the
+ *  Game Master; what is left unspent stays on the roll for the story. */
+const combatSymbolSpendSchema = z
+  .object({
+    id: sheetId,
+    label,
+    by: z.enum(["attacker", "target"]),
+    symbol: sheetId,
+    cost: z.number().int().min(1).max(10),
+    /** Bought only on a hit, only on a miss, or on either. Harm and a critical need `hit`. */
+    when: z.enum(["hit", "miss", "any"]).default("any"),
+    max: z.number().int().min(1).max(10).default(1),
+    /** Harm added to the hit, before soak. */
+    damage: z.number().int().min(1).max(50).optional(),
+    /** The hit is a critical one: the log says so for the story, and what a critical adds is the
+     *  ruleset's other effects here. */
+    critical: z.literal(true).optional(),
+    condition: z
+      .object({ id: sheetId, on: symbolSpendOnSchema, rounds: z.number().int().min(1).max(10).optional() })
+      .strict()
+      .optional(),
+    /** A live track moved, as strain or stress is (never the health track: harm is `damage`). */
+    track: z
+      .object({ id: sheetId, by: z.number().int().min(-20).max(20), on: symbolSpendOnSchema })
+      .strict()
+      .optional(),
+    /** Dice added to the next roll whoever it lands on makes in this fight. */
+    boost: z
+      .object({ dice: z.number().int().min(1).max(6), on: symbolSpendOnSchema })
+      .strict()
+      .optional(),
+    setback: z
+      .object({ dice: z.number().int().min(1).max(6), on: symbolSpendOnSchema })
+      .strict()
+      .optional(),
+    /** What the AI weighs it at, in points of harm, in place of what it works out from the effects. */
+    worth: z.number().min(0).max(100).optional(),
+    text: promptSafeText(200).optional(),
+  })
+  .strict();
+
+const combatSymbolsSchema = z
+  .object({
+    /** Harm each net success adds to a hit: every one (`all`), or only those past the ones a hit
+     *  needs (`beyond`). */
+    damage: z
+      .object({
+        perSuccess: z.number().int().min(0).max(10).default(1),
+        counts: z.enum(["all", "beyond"]).default("all"),
+      })
+      .strict()
+      .prefault({}),
+    /** What a target takes off each hit's harm, off their sheet: `byKind` names kinds of the health
+     *  track and wins over `all` for its kind. A creature gives its own numbers. Never below none. */
+    soak: z
+      .object({ all: rulesetValueRefSchema.optional(), byKind: z.record(z.string(), rulesetValueRefSchema).optional() })
+      .strict()
+      .optional(),
+    spends: z.array(combatSymbolSpendSchema).min(1).max(16).optional(),
+  })
+  .strict();
+
 /** Optional, and absent rather than empty, for the same reason as `catalogs`: a ruleset that says
  *  nothing about combat is read exactly as it was before this block existed. A ruleset may carry
  *  both `combat` and `battle`; the bridge simply never runs for one whose fights follow its own
@@ -9446,8 +9584,11 @@ const combatObjectSchema = z
     /** The closed registry of combat kinds. Adding one is an Engine PR with regressions.
      *  `attack-vs-defense` adds dice up and compares them with a number; `dice-pool` throws the
      *  ruleset's own pools and counts successes, so every number a roll adds is dice and every number
-     *  it meets is successes, exactly as the ruleset's `dice-pool` checks read the sheet. */
-    kind: z.enum(["attack-vs-defense", "dice-pool"]),
+     *  it meets is successes, exactly as the ruleset's `dice-pool` checks read the sheet.
+     *  `symbol-pool` (Capability API 1.382) throws the ruleset's own symbol dice: a to-hit number is
+     *  the attacker's dice, a defense the difficulty dice against them, and `symbols` says what the
+     *  symbols left over buy. */
+    kind: z.enum(["attack-vs-defense", "dice-pool", "symbol-pool"]),
     health: combatHealthSchema,
     /** What an attack is rolled against: a total to reach, or under `dice-pool` the successes an
      *  attack needs, never fewer than one. */
@@ -9479,7 +9620,7 @@ const combatObjectSchema = z
         dice: combatDiceSchema,
         /** Whether a fight may roll twice and keep one. */
         advantage: z.boolean().default(false),
-        naturals: combatNaturalsSchema.default({}),
+        naturals: combatNaturalsSchema.prefault({}),
         /** What a critical hit does to the damage: roll the dice twice, or add their highest faces. */
         critical: z.enum(["double-dice", "max-dice", "none"]).default("none"),
         /** The lowest natural face of the attack die that is a critical, read off the attacker's sheet
@@ -9508,7 +9649,7 @@ const combatObjectSchema = z
           .object({
             roll: z.boolean(),
             all: rulesetValueRefSchema.optional(),
-            byKind: z.record(rulesetValueRefSchema).optional(),
+            byKind: z.record(z.string(), rulesetValueRefSchema).optional(),
           })
           .strict()
           .optional(),
@@ -9520,6 +9661,9 @@ const combatObjectSchema = z
       .strict()
       .describe("Required when kind is dice-pool, and refused when it is attack-vs-defense.")
       .optional(),
+    /** What a `symbol-pool` fight's symbols do (Capability API 1.382). Required there, and refused
+     *  under the other kinds. */
+    symbols: combatSymbolsSchema.optional(),
     /** A pool's least damage dice after soak, read off the attacker (1.146). */
     damage: z.object({ minimum: rulesetValueRefSchema.optional() }).strict().optional(),
     /** One hit above the target's number costs their next turn (1.147). */
@@ -9541,15 +9685,36 @@ const combatObjectSchema = z
          *  swim speed, a fly speed a spell or a feature grants. Nought is not moving that way. */
         movementModes: z
           .object({
-            fly: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-            swim: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-            climb: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
-            burrow: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+            fly: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+            swim: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+            climb: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
+            burrow: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
           })
           .strict()
           .optional(),
       })
       .strict(),
+    /** How the fight screen shows this system (Capability API 1.375). `defense.short` heads its
+     *  column ("AC"), and `defense.hide` drops the column where the number says nothing (a dice pool's
+     *  one success needed). `pools` names the sheet pools shown under a turn, in order; without it the
+     *  ones the turn's options spend are shown. */
+    display: z
+      .object({
+        defense: z
+          .object({ short: z.string().trim().min(1).max(6).optional(), hide: z.boolean().optional() })
+          .strict()
+          .optional(),
+        pools: z.array(sheetId).max(16).optional(),
+      })
+      .strict()
+      .optional(),
+    /** The combat styles a game on this ruleset may play (Capability API 1.379), by id: `classic`,
+     *  `tactical`, or a style a client registered. The New Game wizard and the game's settings offer
+     *  only these, and a game whose saved style is not among them plays the first one listed that the
+     *  client has (the first built-in one listed, which the list must hold, when it has none). Left
+     *  out, every style is offered. A ruleset whose rules need a board (areas, reach, cover) lists
+     *  `["tactical"]`. */
+    styles: z.array(z.string().regex(GAME_COMBAT_STYLE_ID_PATTERN)).min(1).max(8).optional(),
     /** What one cell of a board is worth in this system's own distance, and what that distance is
      *  called. Declaring it is what makes a fight positionable at all: without it every fight stays
      *  theatre of the mind, and everything below is refused. */
@@ -9625,7 +9790,7 @@ const combatObjectSchema = z
         ability: z.enum(["full", "penalty-only"]).default("full"),
         /** Read off the fighter's sheet: above 0, that fighter's off hand keeps the full ability
          *  whatever `ability` says (Capability API 1.97), as 5e's Two-Weapon Fighting style does. */
-        fullWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, z.ZodTypeDef, unknown>).optional(),
+        fullWhen: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
       })
       .strict()
       .optional(),
@@ -9765,7 +9930,7 @@ const combatObjectSchema = z
 // Named so its type is written once, not inlined into the definition schema's (which grew past
 // what the compiler will serialize).
 type RulesetCombatDeclaration = z.output<typeof combatObjectSchema>;
-const combatSchema: z.ZodType<RulesetCombatDeclaration, z.ZodTypeDef, unknown> = combatObjectSchema;
+const combatSchema: z.ZodType<RulesetCombatDeclaration, unknown> = combatObjectSchema;
 
 // ── Layers: variants a ruleset ships inside its own file ──
 
@@ -9877,7 +10042,7 @@ export interface RulesetParty {
   summary?: z.infer<typeof gmSchema>["sheetSummary"];
   text?: string;
 }
-const partySheetSchema: z.ZodType<RulesetParty, z.ZodTypeDef, unknown> = z
+const partySheetSchema: z.ZodType<RulesetParty, unknown> = z
   .object({
     label,
     fields: z.array(rulesetFieldSchema).max(160).default([]),
@@ -9897,7 +10062,8 @@ const partySheetSchema: z.ZodType<RulesetParty, z.ZodTypeDef, unknown> = z
       .object({ fields: z.array(sheetId).max(24).optional(), text: promptSafeText(400).optional() })
       .strict()
       .optional(),
-    summary: gmSchema.shape.sheetSummary.optional(),
+    // An omitted party summary uses all party fields; an explicit empty summary hides them.
+    summary: gmSchema.shape.sheetSummary.unwrap().optional(),
     text: promptSafeText(400).optional(),
   })
   .strict()
@@ -10326,8 +10492,7 @@ function rulesetValueRefIssues(
  *  Engine's own result. Everything else holds, because applying a layer does not change what the
  *  layer declared. */
 function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCtx, layersApplied = false): void {
-  const issue = (path: (string | number)[], message: string) =>
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+  const issue = (path: PropertyKey[], message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
 
   if ((RESERVED_RULESET_IDS as readonly string[]).includes(def.id)) {
     issue(["id"], `"${def.id}" is an Engine-owned ruleset id`);
@@ -11283,6 +11448,14 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     });
     checkSection(list.section, path);
     checkHideWhen(list.hideWhen, path);
+    if (list.display?.by) {
+      const by = list.columns.find((column) => column.id === list.display!.by!.column);
+      if (by?.type !== "number") issue([...path, "display", "by", "column"], "Must name a number column");
+    }
+    if (list.display?.mark) {
+      const mark = list.columns.find((column) => column.id === list.display!.mark);
+      if (mark?.type !== "boolean") issue([...path, "display", "mark"], "Must name a yes-or-no column");
+    }
     if (list.pools) {
       const typeOf = (id: string) => list.columns.find((column) => column.id === id)?.type;
       if (typeOf(list.pools.nameColumn) !== "text") issue([...path, "pools", "nameColumn"], "Must name a text column");
@@ -11362,9 +11535,18 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (!abilityIds.has(id)) issue([...path, "abilities", abilityIndex], `Unknown ability "${id}"`);
     });
   });
+  sheet.live.text.forEach((entry, index) => {
+    const path = ["sheet", "live", "text", index];
+    if (!entry.hideWhen) return;
+    if ("field" in entry.hideWhen) return checkHideWhen(entry.hideWhen, path);
+    if (!derivedIds.has(entry.hideWhen.derived))
+      issue([...path, "hideWhen", "derived"], `Unknown derived value "${entry.hideWhen.derived}"`);
+  });
   sheet.live.tracks.forEach((track, index) => {
     const path = ["sheet", "live", "tracks", index];
     checkHideWhen(track.hideWhen, path);
+    if (track.showWhenSet && (track.levels || track.boxes))
+      issue([...path, "showWhenSet"], "A wound track is read by rolls and fights, so it cannot be hidden");
     if (track.startFrom) {
       if (track.levels || track.boxes) issue([...path, "startFrom"], "A wound track starts unmarked");
       else checkRef(track.startFrom, [...path, "startFrom"], derivedIds, false);
@@ -11397,6 +11579,32 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
   });
 
   const listById = new Map(sheet.lists.map((list) => [list.id, list]));
+  // The pools the fight screen shows under a turn name the sheet's own pools, once each (1.375): a
+  // pool a list's rows make has no single value to show.
+  def.combat?.display?.pools?.forEach((id, index, named) => {
+    const path = ["combat", "display", "pools", index];
+    if (!pools.has(id)) {
+      issue(
+        path,
+        listById.get(id)?.pools
+          ? `"${id}" is a list; a pool its rows make has no single value to show`
+          : `Unknown pool "${id}"`,
+      );
+    } else if (named.indexOf(id) !== index) issue(path, `Duplicate pool "${id}"`);
+  });
+
+  // Each combat style once, and one of them built in (1.379): a client without a registered style
+  // plays the first built-in one listed, never one the list leaves out.
+  def.combat?.styles?.forEach((id, index, named) => {
+    if (named.indexOf(id) !== index) issue(["combat", "styles", index], `Duplicate combat style "${id}"`);
+  });
+  if (
+    def.combat?.styles &&
+    !def.combat.styles.some((id) => (BUILT_IN_GAME_COMBAT_STYLES as readonly string[]).includes(id))
+  ) {
+    issue(["combat", "styles"], "List classic or tactical too, for a client that has none of the other styles");
+  }
+
   def.rests.forEach((rest, restIndex) => {
     rest.restore.forEach((op, opIndex) => {
       const path = ["rests", restIndex, "restore", opIndex];
@@ -12320,19 +12528,35 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     return list;
   };
 
-  /** A health block: one declared live POOL that counts down, or one WOUND TRACK that is marked.
-   *  Returns the track id when it named one, so the rules that only make sense for a track can be
-   *  checked against it. Shared by `battle` and `combat`, which mean the same thing by health. */
+  /** A health block: one declared live POOL that counts down, one WOUND TRACK that is marked, or
+   *  one plain TRACK that fills up to its maximum (1.383). Returns the track id when it named a wound
+   *  track, so the rules that only make sense for one can be checked against it. Shared by `battle`
+   *  and `combat`, which mean the same thing by health. */
   const checkHealth = (health: { pool: string } | { track: string }, path: (string | number)[]): string | null => {
     if ("track" in health) {
       if (!tracks.has(health.track)) {
         issue([...path, "track"], `Unknown track "${health.track}"`);
         return null;
       }
-      // A plain track is a bounded integer with no levels to fill, so "out of it" would be a number
-      // the fight picked rather than one the ruleset declared.
+      // A plain track fills from its floor up to its maximum (1.383), and a full one is out of it.
+      // One that starts full puts every fresh character into their first fight already down. A
+      // start read off the sheet could be anywhere, so a health track starts at its `default` (or
+      // its floor), and that is checked against a maximum written as a number. A maximum the sheet
+      // works out is the character's own, as a pool's is: a build whose threshold comes to nothing
+      // has no health to fight with, exactly as one whose hit point maximum does.
       if (!woundTracks.has(health.track)) {
-        issue([...path, "track"], `"${health.track}" has no levels, so a fight has nothing to mark on it`);
+        const track = sheet.live.tracks.find((entry) => entry.id === health.track)!;
+        if (track.startFrom) {
+          issue(
+            [...path, "track"],
+            `"${health.track}" starts where the sheet says, so it may start full: a health track starts at its default`,
+          );
+        }
+        if (typeof track.max === "number" && track.max <= track.min) {
+          issue([...path, "track"], `"${health.track}" has no room above its floor, so it cannot be the health track`);
+        } else if (typeof track.max === "number" && track.default !== undefined && track.default >= track.max) {
+          issue([...path, "track"], `"${health.track}" starts full, so it cannot be the health track`);
+        }
         return null;
       }
       return health.track;
@@ -12410,7 +12634,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       issue(at("initiative", "plus"), "plus is added to a pool's successes, and initiative is not a pool");
     }
     if (combat.kind !== "dice-pool") {
-      if (initiative.pool) issue(at("initiative", "pool"), 'Initiative thrown as a pool is for a "dice-pool" fight');
+      // A symbol pool's initiative is its successes (1.382), so it may be thrown as a pool too.
+      if (initiative.pool && combat.kind !== "symbol-pool")
+        issue(at("initiative", "pool"), 'Initiative thrown as a pool is for a "dice-pool" or "symbol-pool" fight');
       if (initiative.resource)
         issue(at("initiative", "resource"), 'Initiative that attacks move is for a "dice-pool" fight');
     }
@@ -12456,9 +12682,114 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     // Each kind rolls with its own block and never the other's: an attack total needs attack dice,
     // and a pool fight throws the ruleset's own pools, so it has nothing to say about a total.
     // A keep-the-highest ruleset (1.138) has no fight of its own: its checks read one die, which no
-    // attack, save or damage roll of a fight is written in. Fights stay with the Game Master.
-    if (resolution.kind === "dice-highest" || resolution.kind === "symbol-pool") {
+    // attack, save or damage roll of a fight is written in. Fights stay with the Game Master. A
+    // symbol pool fights only as a `symbol-pool` fight (1.382), which throws its own dice.
+    if (resolution.kind === "dice-highest") {
       issue(at("kind"), `A ${resolution.kind} ruleset has no fight of its own, so leave combat out`);
+    }
+    const symbolic = combat.kind === "symbol-pool";
+    if (resolution.kind === "symbol-pool" && !symbolic) {
+      issue(at("kind"), 'A symbol-pool ruleset fights as a "symbol-pool" fight, which throws its own dice');
+    }
+    if (symbolic) {
+      if (resolution.kind !== "symbol-pool") {
+        issue(
+          at("kind"),
+          'A "symbol-pool" fight throws the ruleset\'s symbol dice, so resolution.kind is "symbol-pool" too',
+        );
+      }
+      if (combat.attackRoll)
+        issue(at("attackRoll"), 'A "symbol-pool" fight throws symbol dice, so it rolls no attack dice');
+      if (combat.pool)
+        issue(at("pool"), '"pool" is for a "dice-pool" fight; a "symbol-pool" fight says its own in "symbols"');
+      if (!combat.symbols) issue(at("symbols"), 'A "symbol-pool" fight says what its symbols do in "symbols"');
+    } else if (combat.symbols) issue(at("symbols"), '"symbols" is for a "symbol-pool" fight');
+    if (symbolic && combat.symbols && resolution.kind === "symbol-pool") {
+      const symbolIds = new Set(resolution.symbols.map((symbol) => symbol.id));
+      const soak = combat.symbols.soak;
+      if (soak?.all) checkRef(soak.all, at("symbols", "soak", "all"), derivedIds);
+      if (soak?.byKind) {
+        const health = combat.health;
+        const kinds =
+          "track" in health ? sheet.live.tracks.find((track) => track.id === health.track)?.kinds : undefined;
+        for (const [kind, ref] of Object.entries(soak.byKind)) {
+          checkRef(ref, at("symbols", "soak", "byKind", kind), derivedIds);
+          if (!kinds)
+            issue(at("symbols", "soak", "byKind", kind), "Soak by kind needs health to be a wound track with kinds");
+          else if (!kinds.some((entry) => entry.id === kind)) {
+            issue(at("symbols", "soak", "byKind", kind), `"${kind}" is not a kind of the health track`);
+          }
+        }
+      }
+      if (soak && !soak.all && !soak.byKind) issue(at("symbols", "soak"), "Soak soaks something: all, byKind or both");
+      const healthTrackId = "track" in combat.health ? combat.health.track : undefined;
+      unique(combat.symbols.spends ?? [], at("symbols", "spends"), "spend");
+      combat.symbols.spends?.forEach((spend, index) => {
+        const path = (...rest: (string | number)[]) => at("symbols", "spends", index, ...rest);
+        if (!symbolIds.has(spend.symbol)) issue(path("symbol"), `Unknown symbol "${spend.symbol}"`);
+        // Successes are what land a hit and what its harm counts; a spend buys with the others.
+        else if (spend.symbol === resolution.success.symbol) {
+          issue(path("symbol"), "Successes land the hit and add its harm, so a spend buys with another symbol");
+        }
+        if ((spend.damage !== undefined || spend.critical) && spend.when !== "hit") {
+          issue(path("when"), 'Harm and a critical land with a hit, so the spend is bought "when": "hit"');
+        }
+        if ((spend.damage !== undefined || spend.critical) && spend.by !== "attacker") {
+          issue(path("by"), "Harm and a critical are the attacker's to add, so the spend is theirs");
+        }
+        // One side spends a symbol, so the two never reach for the same one.
+        const other = combat.symbols!.spends!.find((one) => one.symbol === spend.symbol && one.by !== spend.by);
+        if (other) issue(path("by"), `"${spend.symbol}" is spent by the ${other.by} too; one side spends a symbol`);
+        if (spend.condition && !conditions.has(spend.condition.id)) {
+          issue(path("condition", "id"), `Unknown condition "${spend.condition.id}"`);
+        }
+        if (spend.track) {
+          const declared = sheet.live.tracks.find((track) => track.id === spend.track!.id);
+          if (!declared) issue(path("track", "id"), `Unknown track "${spend.track.id}"`);
+          else if (declared.kinds || declared.id === healthTrackId) {
+            issue(path("track", "id"), "Harm is a spend's damage; the track it moves is a plain one");
+          }
+          if (spend.track.by === 0) issue(path("track", "by"), "A track a spend moves moves by something");
+        }
+        if (
+          spend.damage === undefined &&
+          !spend.critical &&
+          !spend.condition &&
+          !spend.track &&
+          !spend.boost &&
+          !spend.setback
+        ) {
+          issue(path(), "A spend buys something: damage, critical, condition, track, boost or setback");
+        }
+        // One condition of a kind goes on one holder per throw, so no two spends reach for it.
+        const kindOf = (id: string) => {
+          const group = combat.conditions?.find((one) => one.condition === id)?.oneAtATime;
+          return group === undefined ? `condition:${id}` : `kind:${group}`;
+        };
+        const twin = spend.condition
+          ? combat.symbols!.spends!.slice(0, index).find(
+              (one) =>
+                one.condition &&
+                one.condition.on === spend.condition!.on &&
+                // Bought on the same throw: a hit's spend and a miss's never are.
+                (one.when === "any" || spend.when === "any" || one.when === spend.when) &&
+                kindOf(one.condition.id) === kindOf(spend.condition!.id),
+            )
+          : undefined;
+        if (twin) {
+          issue(
+            path("condition"),
+            `"${twin.id}" already puts that condition, or one of its kind, on the same one; one throw lands one`,
+          );
+        }
+        // A condition and a critical land once however many copies are bought, so one is all a throw buys.
+        if ((spend.condition || spend.critical) && spend.max > 1) {
+          issue(path("max"), "A condition or a critical lands once, so a spend that gives one is bought at most once");
+        }
+        if (spend.boost && !resolution.boost) issue(path("boost"), "The ruleset's symbol pool has no boost dice");
+        if (spend.setback && !resolution.setback)
+          issue(path("setback"), "The ruleset's symbol pool has no setback dice");
+      });
     }
     const pooled = combat.kind === "dice-pool";
     if (pooled) {
@@ -12467,7 +12798,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       }
       if (combat.attackRoll) issue(at("attackRoll"), 'A "dice-pool" fight throws pools, so it rolls no attack dice');
       if (!combat.pool) issue(at("pool"), 'A "dice-pool" fight says how it rolls damage in "pool"');
-    } else {
+    } else if (!symbolic) {
       if (!combat.attackRoll) issue(at("attackRoll"), 'An "attack-vs-defense" fight says what an attack rolls');
       if (combat.pool) issue(at("pool"), '"pool" is for a "dice-pool" fight');
     }
@@ -12555,8 +12886,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       checkRef(limit.max, [...path, "max"], derivedIds);
     });
     // A pool fight adds dice to a pool, so a condition's rolled number would be a number of dice
-    // nobody could throw. Said per modifier, on conditions and on levels alike.
-    if (pooled) {
+    // nobody could throw; a symbol fight's flat number is boost or setback dice (1.382). Said per
+    // modifier, on conditions and on levels alike.
+    if (pooled || symbolic) {
       const diceModifiers = (
         entries: ReadonlyArray<{ modifiers?: Array<{ to: string; dice?: string }> }> | undefined,
         key: "conditions" | "levels",
@@ -12566,7 +12898,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
             if (modifier.dice !== undefined) {
               issue(
                 at(key, index, "modifiers", modifierIndex, "dice"),
-                'A "dice-pool" fight adds dice to a pool, so a modifier gives a flat number of dice',
+                `A "${combat.kind}" fight adds dice to a pool, so a modifier gives a flat number of dice`,
               );
             }
           }),
@@ -12935,7 +13267,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
       if (entry.temporary && "track" in combat.health) {
         issue(
           [...path, "temporary"],
-          `Health is the wound track "${combat.health.track}", which carries no buffer for temporary points`,
+          `Health is the track "${combat.health.track}", which carries no buffer for temporary points`,
         );
       }
       if (entry.unseen) sightIssues(def, entry.unseen.pierced, [...path, "unseen"], issue);
@@ -13250,6 +13582,11 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           }
         }
       }
+    } else if ("track" in combat.health && combat.damageKinds && tracks.has(combat.health.track)) {
+      issue(
+        at("damageKinds"),
+        `Health is the plain track "${combat.health.track}", which fills by points and keeps no kinds: give the track levels or boxes and kinds if what KIND a wound was still matters after the blow`,
+      );
     } else if ("pool" in combat.health && combat.damageKinds) {
       // Only when health really IS a pool. `checkHealth` also answers null for a track it could not
       // read at all, and that file has already been told what is wrong with the track; telling its
@@ -13385,8 +13722,7 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
 
 /** The whole `ruleset.json` document. Strict on purpose: a ruleset this Engine only partly
  *  understands would silently change a game's arithmetic, so an unknown key refuses the file. */
-export const rulesetDefinitionSchema: z.ZodEffects<typeof rulesetDefinitionBaseSchema> =
-  rulesetDefinitionBaseSchema.superRefine(refineRulesetDefinition);
+export const rulesetDefinitionSchema = rulesetDefinitionBaseSchema.superRefine(refineRulesetDefinition);
 
 /** How long guidance may be once the layers a game turned on have been appended to it. A layer
  *  ADDS to the ruleset's own text, so the merged string routinely passes the 1500 characters one
@@ -13400,16 +13736,15 @@ export const RULESET_EFFECTIVE_GUIDANCE_MAX = 1500 + RULESET_LAYERS_MAX * (RULES
  *  id. Two relaxations, both because this document is never written back to a file. Everything
  *  else is the file's own rule, which is what makes it safe to hand a layered definition to the
  *  prompt, the resolver, the sheet editor and the battle bridge unchanged. */
-export const rulesetEffectiveDefinitionSchema: z.ZodEffects<typeof rulesetDefinitionBaseSchema> =
-  rulesetDefinitionBaseSchema
-    .extend({
-      id: z.string().max(140).regex(RULESET_REF_ID_PATTERN),
-      gm: gmSchema.extend({
-        checkGuidance: promptSafeText(RULESET_EFFECTIVE_GUIDANCE_MAX),
-        worldGuidance: promptSafeText(RULESET_EFFECTIVE_GUIDANCE_MAX).optional(),
-      }),
-    })
-    .superRefine((def, ctx) => refineRulesetDefinition(def, ctx, true));
+export const rulesetEffectiveDefinitionSchema = rulesetDefinitionBaseSchema
+  .extend({
+    id: z.string().max(140).regex(RULESET_REF_ID_PATTERN),
+    gm: gmSchema.extend({
+      checkGuidance: promptSafeText(RULESET_EFFECTIVE_GUIDANCE_MAX),
+      worldGuidance: promptSafeText(RULESET_EFFECTIVE_GUIDANCE_MAX).optional(),
+    }),
+  })
+  .superRefine((def, ctx) => refineRulesetDefinition(def, ctx, true));
 
 export type RulesetDefinition = z.infer<typeof rulesetDefinitionSchema>;
 /** One declared layer. Absent on every ruleset written before layers existed. */
@@ -13808,6 +14143,21 @@ function creatureSheetIssues(
   }
 }
 
+/** A character's build held to the same rule as a creature's sheet: every id is one the ruleset
+ *  declares and every value is one it can hold. One `path: message` line per problem. Professor Mari
+ *  checks what she writes onto a sheet with it, so she can never store what the editor would refuse. */
+export function rulesetSheetBuildIssues(definition: RulesetDefinition, build: RulesetSheetBuild): string[] {
+  const issues: string[] = [];
+  creatureSheetIssues(
+    definition,
+    build,
+    [],
+    (path, message) => issues.push(path.length > 0 ? `${path.join(".")}: ${message}` : message),
+    false,
+  );
+  return issues;
+}
+
 /** The die a `dice-pool` ruleset throws, which is the die every damage roll of its fights throws. */
 function poolDieSides(definition: RulesetDefinition): number | undefined {
   return definition.resolution.kind === "dice-pool" ? definition.resolution.die.sides : undefined;
@@ -14170,8 +14520,8 @@ function escapeDcIssues(
   const combat = definition.combat;
   if (!combat?.contests?.some((contest) => contest.from?.holding === applies.condition)) {
     add([...at, "escapeDc"], `No contest breaks free of "${applies.condition}" for an escape DC to be rolled against`);
-  } else if (combat.kind === "dice-pool") {
-    add([...at, "escapeDc"], 'A "dice-pool" fight counts successes, so it has no escape DC to meet');
+  } else if (combat.kind === "dice-pool" || combat.kind === "symbol-pool") {
+    add([...at, "escapeDc"], `A "${combat.kind}" fight counts successes, so it has no escape DC to meet`);
   }
 }
 
@@ -14320,7 +14670,11 @@ function creatureIssues(
   }
   // Soak is a pool fight's, by the health track's own kinds.
   if (creature.soak) {
-    if (combat.kind !== "dice-pool") add([...at, "soak"], 'Soak is for a "dice-pool" fight');
+    if (combat.kind === "symbol-pool") {
+      // A symbol fight takes soak off the harm (1.382), where its `symbols` says it does.
+      if (!combat.symbols?.soak)
+        add([...at, "soak"], 'This fight\'s "symbols" says nothing about soak, so there is no way to take it');
+    } else if (combat.kind !== "dice-pool") add([...at, "soak"], 'Soak is for a "dice-pool" or "symbol-pool" fight');
     // How soak is taken, thrown or off the dice, is the ruleset's to say, never the Engine's guess.
     else if (!combat.pool?.soak)
       add([...at, "soak"], 'This fight\'s "pool" says nothing about soak, so there is no way to take it');
@@ -14485,12 +14839,25 @@ function creatureIssues(
     if (action.reaction?.cancelSave && !saves.has(action.reaction.cancelSave.save))
       add([...path, "reaction", "cancelSave", "save"], `Unknown save "${action.reaction.cancelSave.save}"`);
     if (action.reaction) reactionAgainstIssues(catalogIds, action.reaction, [...path, "reaction"], add);
+    // Upgraded dice are some of a symbol fight's to-hit dice (1.382).
+    if (action.upgrades !== undefined) {
+      if (combat.kind !== "symbol-pool") add([...path, "upgrades"], 'Upgraded dice are for a "symbol-pool" fight');
+      else if (
+        definition.resolution.kind === "symbol-pool" &&
+        (definition.resolution.pool.build === "sum" || !definition.resolution.pool.upgrade)
+      ) {
+        add([...path, "upgrades"], "The ruleset's symbol pool has no upgraded dice to throw");
+      } else if (action.toHit === undefined) add([...path, "upgrades"], "Upgraded dice are some of its toHit dice");
+      else if (action.upgrades > Math.max(0, action.toHit)) {
+        add([...path, "upgrades"], `Only its ${Math.max(0, action.toHit)} toHit dice can be upgraded`);
+      }
+    }
     // A creature has no sheet to read a check off, so its own number is written down (1.116).
     if (action.reaction?.above) {
-      if (combat.kind === "dice-pool") {
+      if (combat.kind === "dice-pool" || combat.kind === "symbol-pool") {
         add(
           [...path, "reaction", "above"],
-          'A "dice-pool" fight counts successes, so it has no DC for a check to meet',
+          `A "${combat.kind}" fight counts successes, so it has no DC for a check to meet`,
         );
       }
       if (!creature.sheet && action.reaction.above.check.const === undefined) {
@@ -14817,12 +15184,13 @@ function itemHideIssues(
 ): void {
   // A pool fight adds dice to a pool, so a rolled number on an attack would be a number of dice
   // nobody could throw, as it is for a condition's.
-  if (definition.combat?.kind === "dice-pool") {
+  if (definition.combat?.kind === "dice-pool" || definition.combat?.kind === "symbol-pool") {
+    const kind = definition.combat.kind;
     effect.modifiers?.forEach((modifier, index) => {
       if (modifier.to === "attacks" && modifier.dice !== undefined) {
         add(
           [...at, "modifiers", index, "dice"],
-          'A "dice-pool" fight adds dice to a pool, so a modifier gives a flat number of dice',
+          `A "${kind}" fight adds dice to a pool, so a modifier gives a flat number of dice`,
         );
       }
     });
@@ -15024,7 +15392,8 @@ function useIssues(
     }
     value(use.gate.difficulty, "number", [...at, "gate", "difficulty"]);
   }
-  // A wound track has boxes and no buffer, as an ability's temporary points are refused there too.
+  // A track, wound or plain (1.383), carries no buffer, as an ability's temporary points are refused
+  // there too.
   const health = definition.combat?.health ?? definition.battle?.health;
   const track =
     health && "track" in health ? definition.sheet.live.tracks.find((one) => one.id === health.track) : null;
@@ -15032,8 +15401,8 @@ function useIssues(
     add([...at, "kindChoice"], "This ruleset has no creature types to choose from");
   if (use.teleport && !definition.combat?.distance)
     add([...at, "teleport"], '"teleport" is measured in cells, so the combat block declares "distance" too');
-  if (use.temporary && (track?.levels?.length || track?.boxes)) {
-    add([...at, "temporary"], `Health is the wound track "${track.id}", which carries no buffer for temporary points`);
+  if (use.temporary && track) {
+    add([...at, "temporary"], `Health is the track "${track.id}", which carries no buffer for temporary points`);
   }
   // Where the ruleset has no fight, the rest is read by nothing.
   const combat = definition.combat;
@@ -16383,19 +16752,19 @@ export function rulesetCatalogEntryIssues(
     // mark that clears itself?) a ruleset whose fights are fought on a track is refused the key.
     // Either block may point health at one: `battle` lends the Engine's own fights the sheet's
     // numbers and reads a track as the levels still clear, with no buffer either.
-    // Only a track this sheet really declares WITH levels: health pointed at a name the sheet does
-    // not have, or at a plain bounded number, is a broken file that has already been told so, and
-    // calling it a wound track here would send its author looking in the wrong place.
-    const woundTrack = (health: { pool: string } | { track: string } | undefined) => {
+    // A plain track that fills up (1.383) has no buffer either. Only a track this sheet really
+    // declares: health pointed at a name the sheet does not have is a broken file that has already
+    // been told so, and calling it a track here would send its author looking in the wrong place.
+    const healthTrack = (health: { pool: string } | { track: string } | undefined) => {
       if (!health || !("track" in health)) return null;
       const declared = definition.sheet.live.tracks.find((track) => track.id === health.track);
-      return declared?.levels?.length || declared?.boxes ? health.track : null;
+      return declared ? health.track : null;
     };
-    const trackHealth = woundTrack(definition.combat?.health) ?? woundTrack(definition.battle?.health);
+    const trackHealth = healthTrack(definition.combat?.health) ?? healthTrack(definition.battle?.health);
     if (mechanics?.temporary && trackHealth) {
       add(
         [index, "mechanics", "temporary"],
-        `Health is the wound track "${trackHealth}", which carries no buffer for temporary points`,
+        `Health is the track "${trackHealth}", which carries no buffer for temporary points`,
       );
     }
     if (mechanics?.alters) {
@@ -16611,8 +16980,8 @@ export function rulesetCatalogEntryIssues(
     }
     if (mechanics?.reaction && typeof mechanics.reaction === "object" && mechanics.reaction.above) {
       const where = [index, "mechanics", "reaction", "above"];
-      if (definition.combat?.kind === "dice-pool") {
-        add(where, 'A "dice-pool" fight counts successes, so it has no DC for a check to meet');
+      if (definition.combat?.kind === "dice-pool" || definition.combat?.kind === "symbol-pool") {
+        add(where, `A "${definition.combat.kind}" fight counts successes, so it has no DC for a check to meet`);
       }
       for (const refIssue of rulesetValueRefIssues(mechanics.reaction.above.check, names, names.derived, false)) {
         add([...where, "check", refIssue.key], refIssue.message);
@@ -16840,13 +17209,13 @@ export function parseRulesetCatalogFile(
  *  says how in `sheet.migrations`, which every read applies (`readRulesetSheetEnvelope`). */
 export const rulesetSheetBuildSchema = z
   .object({
-    abilities: z.record(z.number().finite()).default({}),
-    skills: z.record(z.string().max(40)).default({}),
-    saves: z.record(z.string().max(40)).default({}),
+    abilities: z.record(z.string(), z.number().finite()).prefault({}),
+    skills: z.record(z.string(), z.string().max(40)).prefault({}),
+    saves: z.record(z.string(), z.string().max(40)).prefault({}),
     /** Free per-skill and per-save bonuses, keyed by skill or save id. */
-    bonuses: z.record(z.number().finite()).default({}),
-    fields: z.record(sheetScalar).default({}),
-    lists: z.record(z.array(z.record(sheetScalar)).max(500)).default({}),
+    bonuses: z.record(z.string(), z.number().finite()).prefault({}),
+    fields: z.record(z.string(), sheetScalar).prefault({}),
+    lists: z.record(z.string(), z.array(z.record(z.string(), sheetScalar)).max(500)).prefault({}),
   })
   .passthrough();
 
@@ -16884,7 +17253,7 @@ function storedRulesetSheetIssue(rulesetId: string, sheet: unknown): string | nu
  *  object, the size cap), never the sheet's shape: a sheet for a ruleset this install lacks is kept
  *  dormant under its key and validated against that ruleset only once it is installed and used.
  *  Dropping it would destroy the sheet for everyone downstream of a re-export. */
-export const storedRulesetSheetsSchema = z.record(z.unknown()).superRefine((sheets, ctx) => {
+export const storedRulesetSheetsSchema = z.record(z.string(), z.unknown()).superRefine((sheets, ctx) => {
   const ids = Object.keys(sheets);
   if (ids.length > RULESET_SHEETS_MAX) {
     ctx.addIssue({

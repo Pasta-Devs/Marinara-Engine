@@ -68,6 +68,8 @@ export type ConnectionRowData = {
   audioSource?: string | null;
   audioSoundEffects?: boolean | string;
   audioMusic?: boolean | string;
+  audioGenerationSource?: string | null;
+  audioSoundEffectsModel?: string | null;
   defaultParameters?: string | null;
   /** Whether this chat Model reads images; null lets its catalog decide. */
   imageInput?: string | null;
@@ -151,7 +153,7 @@ export function ConnectionRow({
   const chatModel = isChatProvider(row.provider);
   const unavailable = account && account.state !== "ok" ? account.state : null;
   const inRandomPool = row.useForRandom === "true";
-  const canShuffle = row.provider !== "audio" && row.provider !== "decision";
+  const canShuffle = row.provider !== "audio" && row.provider !== "audio_generation" && row.provider !== "decision";
   const title = row.name?.trim() || row.model?.trim() || row.id;
   const badges = modelRoleLabels(row, t, voiceRowId);
   // Display only: which Models show stays with the star, role and settings rules (decision 30).

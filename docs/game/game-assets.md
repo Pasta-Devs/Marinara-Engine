@@ -160,26 +160,26 @@ A bar shows "All folders included" or how many folders are excluded, with a **Re
 
 ## Generated sound effects and music
 
-Game Mode can also make new sound effects and music for your scenes with ElevenLabs, an AI audio service. You need an ElevenLabs API key. Each new sound or track is a request to ElevenLabs on your account.
+Game Mode can also generate sound effects and music through a **Music & Sound Effects** connection. Choose ElevenLabs, SunoAPI, or a custom compatible server. Each new sound or track uses that provider account; bundled audio remains available without generation.
 
-First, set up an audio connection:
+First, set up a generation connection:
 
-1. Open the **Connections** panel and create a connection with the **Audio** provider.
-2. Under **Audio Source**, pick **ElevenLabs**, then paste your ElevenLabs API key.
-3. Turn on **Game sound effects**, **Game music**, or both. These switches appear only for the **ElevenLabs** source.
-4. Save the connection.
+1. Open **Connections** and create a **Music & Sound Effects** connection.
+2. Choose the service, enter its key, and select the music and sound-effect models. SunoAPI music also requires a public HTTPS callback URL; a custom server needs its endpoint paths.
+3. Turn on **Sound-effect generation**, **Music generation**, or both.
+4. Save the connection. See [provider setup and limits](../connections/providers-reference.md#music--sound-effects).
 
 Then turn it on when you create a game:
 
 1. On the **Features** step of the setup wizard, find the **Game Audio** card.
-2. Under **Audio Connection**, pick your ElevenLabs connection, or keep **Use the default audio connection**.
+2. Under **Music & Sound Effects connection**, choose your connection or keep **Use the default Music & Sound Effects connection**.
 3. Leave **Sound effects** and **Music** on, or switch off the one you do not want.
 
-You cannot turn on **Sound effects** or **Music** until the chosen connection is an ElevenLabs connection with that switch on. The card tells you when this is the case.
+Each Game toggle requires the corresponding capability enabled on the selected connection. A speech-only Audio connection is not used for generation.
 
 During play:
 
-- **Sound effects**: after GM turns, Marinara asks ElevenLabs for short sound effects that fit the scene.
+- **Sound effects**: after GM turns, Marinara asks the selected service for short sound effects that fit the scene.
 - **Music**: Marinara composes one instrumental track, about two minutes long, for each place the party visits and for each kind of fight, such as a boss fight. Each track is made only once and then reused. A new place's track starts at a later scene change, so the music does not cut in mid-scene. A fight's track fades in as soon as it is ready.
 
 Generated sounds and tracks are saved with your game assets, so the same sound is not made twice. If **Music DJ** plays music for the game, Game Mode does not generate music.
@@ -206,4 +206,4 @@ The **Open in system folder** button opens the selected asset folder in your com
 - [Music DJ: Spotify, YouTube, and Local Music](../media/music.md)
 - [Supported AI Providers](../connections/providers-reference.md)
 - [Game Mode: Getting Started](getting-started.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

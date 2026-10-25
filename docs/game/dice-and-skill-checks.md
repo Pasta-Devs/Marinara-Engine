@@ -173,7 +173,7 @@ A ruleset can roll its checks in other ways too. The Engine still throws the dic
 
 ## Finishing a rolled turn in one request
 
-By default, a turn that rolls dice costs two model requests: one for the draft, one to rewrite the outcome with the real numbers. **Finish rolled turns in one request** in **Chat Settings → Function Calling** removes the second one. It is off by default and applies only to the chat you turn it on in.
+Without it, a turn that rolls dice costs two model requests: one for the draft, one to rewrite the outcome with the real numbers. **Finish rolled turns in one request** in **Chat Settings → Function Calling** removes the second one. It is on by default; turn it off in a chat to have that chat rewrite each rolled turn with the real numbers instead.
 
 It works because the Game Master commits its writing before any number exists. It never sees a roll before it decides what happens, so it cannot steer an outcome towards the die it was handed. The engine rolls afterwards, and the engine's record is what gets saved.
 

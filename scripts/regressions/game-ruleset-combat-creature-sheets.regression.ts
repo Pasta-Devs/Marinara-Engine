@@ -39,6 +39,7 @@ import { fileURLToPath } from "node:url";
 import {
   applyRulesetCombatChoice,
   createRulesetEncounter,
+  holdRulesetSheetHealth,
   normalizeCharacterLookupName,
   parseRulesetCatalogFile,
   parseRulesetDefinition,
@@ -394,10 +395,7 @@ function started(input: {
     /creature\.sheet\.lists\.attacks\.0: Column "proficient" takes true or false/,
   );
   // Live state is the fight's to keep, not the bestiary's to write.
-  refused(
-    (creature) => (creature.sheet.live = { pools: {} }),
-    /creature\.sheet: Unrecognized key\(s\) in object: 'live'/,
-  );
+  refused((creature) => (creature.sheet.live = { pools: {} }), /creature\.sheet: Unrecognized key: "live"/);
   // And a bonus is on a skill or a save, exactly as a character's is.
   assert.equal(issuesOf(withSergeant((creature) => (creature.sheet.bonuses = { athletics: 2, str_save: 1 }))), "");
 }
@@ -1165,6 +1163,164 @@ const spellbook = parsedOrThrow(
     roadFight.adjustments.join("\n"),
     /Road Brute: Health 13 was pulled into the 3 to 8 of Stray trouble through its Toughness, and is now 8\./,
   );
+
+  // Health that does not move one for one with its field (laptop playtest 2026-10-25: 5e's health is
+  // the typed number where one is typed and its fixed values where none is, so typing 17 over nothing
+  // made a 28 into 17): the field is moved until health is in the band.
+  {
+    const typedElseFixed = parsedOrThrow(
+      variant(fiveEText, (doc) => {
+        doc.sheet.fields.push({
+          id: "hp_typed",
+          label: "Hit points by hand",
+          type: "number",
+          min: 0,
+          max: 999,
+          default: 0,
+          section: "combat",
+        });
+        // A build that moves health by itself, as a creature's own hit die does: never a reason to
+        // set anything back.
+        doc.sheet.fields.push({
+          id: "hp_build",
+          label: "Build",
+          type: "enum",
+          values: ["slight", "average"],
+          default: "average",
+          section: "combat",
+        });
+        // And a choice of method that reads no typed number at all, as 5e's "Average" does.
+        doc.sheet.fields.push({
+          id: "hp_mode",
+          label: "Hit points method",
+          type: "enum",
+          values: ["auto", "fixed"],
+          default: "auto",
+          section: "combat",
+        });
+        doc.sheet.derived.push(
+          {
+            id: "hp_mode_auto",
+            label: "Auto method",
+            op: "enumTable",
+            from: { field: "hp_mode" },
+            table: { auto: 1 },
+            default: 0,
+          },
+          {
+            id: "hp_on_raw",
+            label: "Typed",
+            op: "stepTable",
+            from: { field: "hp_typed" },
+            table: [
+              [0, 0],
+              [1, 1],
+            ],
+          },
+          {
+            id: "hp_on",
+            label: "Typed, by Auto",
+            op: "multiply",
+            of: [{ derived: "hp_on_raw" }, { derived: "hp_mode_auto" }],
+          },
+          {
+            id: "hp_off_less",
+            label: "Not typed, less one",
+            op: "multiply",
+            of: [{ derived: "hp_on" }, { const: -1 }],
+          },
+          { id: "hp_off", label: "Not typed", op: "sum", of: [{ const: 1 }, { derived: "hp_off_less" }] },
+          {
+            id: "hp_per_level",
+            label: "Per level",
+            op: "enumTable",
+            from: { field: "hp_build" },
+            table: { slight: 4, average: 7 },
+            default: 7,
+          },
+          { id: "hp_fixed", label: "Fixed", op: "multiply", of: [{ field: "level" }, { derived: "hp_per_level" }] },
+          {
+            id: "hp_typed_part",
+            label: "Typed part",
+            op: "multiply",
+            of: [{ derived: "hp_on" }, { field: "hp_typed" }],
+          },
+          {
+            id: "hp_fixed_part",
+            label: "Fixed part",
+            op: "multiply",
+            of: [{ derived: "hp_off" }, { derived: "hp_fixed" }],
+          },
+          {
+            id: "hp_method",
+            label: "By the method",
+            op: "sum",
+            of: [{ derived: "hp_typed_part" }, { derived: "hp_fixed_part" }],
+          },
+          {
+            id: "hp_typed_less",
+            label: "Typed, taken off",
+            op: "multiply",
+            of: [{ field: "hp_typed" }, { const: -1 }],
+          },
+          {
+            id: "hp_less_typed",
+            label: "Less the typed",
+            op: "sum",
+            of: [{ derived: "hp_method" }, { derived: "hp_typed_less" }],
+          },
+          {
+            id: "hp_total",
+            label: "Hit point maximum",
+            op: "sum",
+            of: [{ derived: "hp_less_typed" }, { field: "hp_typed" }],
+          },
+        );
+        doc.sheet.live.pools.find((pool: { id: string }) => pool.id === "hp").max = { derived: "hp_total" };
+      }),
+      "the 5e example, its health typed or fixed",
+    );
+    const tier = typedElseFixed.combat!.threat!.tiers.find((entry) => entry.id === "cr_3")!;
+    const fixed = rulesetSheetBuildSchema.parse({ fields: { level: 4 } });
+    const held = holdRulesetSheetHealth(typedElseFixed, fixed, tier);
+    const max = (build: RulesetSheetBuild) =>
+      readRulesetLive(typedElseFixed, build, {}).pools.find((pool) => pool.key === "hp")!.max;
+    assert.equal(max(fixed), 28, "4 levels at 7 each, nothing typed");
+    assert.equal(max(held.sheet), 45, held.adjusted.join("; "));
+    assert.match(
+      held.adjusted.join("\n"),
+      /Health 28 was pulled into the 45 to 82 of CR 3 through its Hit points by hand, and is now 45\./,
+    );
+    // Written with the method that never reads the typed number (laptop playtest 2026-10-25: a mage on
+    // 5e's "Average" stayed at 38 below 45): the method goes back to the ruleset's default, and is said.
+    const average = rulesetSheetBuildSchema.parse({ fields: { level: 4, hp_mode: "fixed" } });
+    const heldAverage = holdRulesetSheetHealth(typedElseFixed, average, tier);
+    assert.equal(max(heldAverage.sheet), 45, heldAverage.adjusted.join("; "));
+    assert.equal(heldAverage.sheet.fields.hp_mode, undefined);
+    assert.match(
+      heldAverage.adjusted.join("\n"),
+      /Health 28 was pulled into the 45 to 82 of CR 3 through its Hit points by hand with its Hit points method set back to the ruleset's default, and is now 45\./,
+    );
+    // A slight build on that method: setting the build back would land health too, but the build is the
+    // creature's own and the method is what keeps the typed number out, so only the method goes back.
+    const slight = rulesetSheetBuildSchema.parse({ fields: { level: 7, hp_mode: "fixed", hp_build: "slight" } });
+    assert.equal(max(slight), 28);
+    const heldSlight = holdRulesetSheetHealth(typedElseFixed, slight, tier);
+    assert.equal(max(heldSlight.sheet), 45, heldSlight.adjusted.join("; "));
+    assert.equal(heldSlight.sheet.fields.hp_build, "slight");
+    assert.equal(heldSlight.sheet.fields.hp_mode, undefined);
+    // A typed number that counts but runs out of room sets nothing back.
+    const roomless = parsedOrThrow(
+      variant(JSON.stringify(typedElseFixed), (doc) => {
+        doc.sheet.fields.find((one: { id: string }) => one.id === "hp_typed").max = 30;
+      }),
+      "the typed number capped at 30",
+    );
+    const capped = holdRulesetSheetHealth(roomless, fixed, tier);
+    assert.equal(capped.sheet.fields.hp_mode, undefined);
+    assert.equal(capped.sheet.fields.hp_build, undefined);
+    assert.doesNotMatch(capped.adjusted.join("\n"), /set back/);
+  }
 
   // Strikes bought by one spend wait in hand and may go to ANY striking row, so a round is one spend
   // on a light row and the rest on the heaviest. A weak dagger looks harmless struck three times, and

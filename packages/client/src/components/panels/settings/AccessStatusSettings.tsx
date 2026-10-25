@@ -4,7 +4,18 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
 import { useUIStore } from "../../../stores/ui.store";
 import { useAccessStatus, visiblePasswordlessPeers } from "../../diagnostics/use-access-warning-banner";
+import { useLoginSetupCode } from "../../../hooks/use-remote-login";
+import { LOGIN_USER_INPUT_ID, RemoteLoginSettings, SetupCodeLoginForm } from "./RemoteLoginSettings";
 import { SettingsSection } from "./SettingControls";
+
+const LINK_BUTTON_CLASS =
+  "inline-flex min-h-11 items-center text-left font-semibold text-[var(--foreground)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)]";
+
+function focusLoginForm() {
+  const input = document.getElementById(LOGIN_USER_INPUT_ID);
+  input?.scrollIntoView({ block: "center", behavior: "smooth" });
+  input?.focus({ preventScroll: true });
+}
 
 /** Matches the privileged gate's refusals, so each one names its own next step. */
 function refusalKey(error: Error) {
@@ -20,10 +31,19 @@ function refusalKey(error: Error) {
 export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
   const { t } = useTranslation();
   const { data, error } = useAccessStatus();
+  const refused = error instanceof ApiError && error.status === 403 && !data;
+  const setup = useLoginSetupCode(refused);
   if (error && !data) {
     return (
       <SettingsSection title={t("settings.accessStatus.title")} icon={<Shield size="0.875rem" />} anchorId={anchorId}>
-        <p className="text-xs text-[var(--muted-foreground)]">{t(refusalKey(error))}</p>
+        <div className="flex flex-col gap-3 text-xs">
+          {/* No login yet: another device may set it with the setup code from the server log. */}
+          {setup.data?.waiting ? (
+            <SetupCodeLoginForm docker={setup.data.docker} />
+          ) : (
+            <p className="text-[var(--muted-foreground)]">{t(refusalKey(error))}</p>
+          )}
+        </div>
       </SettingsSection>
     );
   }
@@ -43,6 +63,7 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
     ["login", setOrNot(data.basicAuth)],
     ["adminSecret", setOrNot(data.adminSecret)],
     ["allowlist", setOrNot(data.allowlist)],
+    ["authProxy", setOrNot(data.trustedAuthProxy)],
     [
       "connection",
       t(data.viaProxy ? "settings.accessStatus.connection.proxy" : "settings.accessStatus.connection.direct"),
@@ -58,7 +79,7 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
     >
       <div className="flex flex-col gap-3 text-xs">
         {open ? (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/15 p-3">
+          <div className="rounded-lg border border-[var(--marinara-chat-chrome-accent)]/40 bg-[var(--marinara-chat-chrome-accent)]/15 p-3">
             <p className="font-semibold text-[var(--foreground)]">{t("settings.accessStatus.peersIntro")}</p>
             <ul className="mt-1 flex list-disc flex-col gap-1 pl-4 text-[var(--foreground)]">
               {peers.map((peer) => (
@@ -69,20 +90,27 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
               <p className="mt-2 text-[var(--muted-foreground)]">{t("settings.accessStatus.dockerHint")}</p>
             )}
             {keptOpen.length < peers.length && (
-              <p className="mt-2 text-[var(--muted-foreground)]">{t("settings.accessStatus.nextStep")}</p>
+              <>
+                <p className="mt-2 text-[var(--muted-foreground)]">{t("settings.accessStatus.nextStep")}</p>
+                <button type="button" onClick={focusLoginForm} className={LINK_BUTTON_CLASS}>
+                  {t("settings.accessStatus.setBelow")}
+                </button>
+              </>
             )}
             {keptOpen.map((peer) => (
               <p key={peer} className="mt-2 text-[var(--muted-foreground)]">
                 {t(`settings.accessStatus.fix.${peer}`)}
               </p>
             ))}
-            <button
-              type="button"
-              onClick={() => useUIStore.getState().openModal("docs-viewer", { initialDoc: "REMOTE_ACCESS.md" })}
-              className="inline-flex min-h-11 items-center text-left font-semibold text-[var(--foreground)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
-            >
-              {t("settings.accessStatus.guide")}
-            </button>
+            {keptOpen.length > 0 && (
+              <button
+                type="button"
+                onClick={() => useUIStore.getState().openModal("docs-viewer", { initialDoc: "REMOTE_ACCESS.md" })}
+                className={LINK_BUTTON_CLASS}
+              >
+                {t("settings.accessStatus.guide")}
+              </button>
+            )}
           </div>
         ) : (
           <p className="text-[var(--muted-foreground)]">{t("settings.accessStatus.closed")}</p>
@@ -98,6 +126,7 @@ export function AccessStatusSettings({ anchorId }: { anchorId: string }) {
         <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           {t("settings.accessStatus.unknown")}
         </p>
+        <RemoteLoginSettings status={data} />
       </div>
     </SettingsSection>
   );

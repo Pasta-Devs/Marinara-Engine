@@ -42,6 +42,16 @@ import {
   type RulesetCombatPoolThrow,
 } from "./pool.js";
 import {
+  pickRulesetSymbolSpends,
+  rulesetChosenSymbolSpends,
+  rulesetCombatIsSymbol,
+  rulesetSymbolNeeded,
+  rulesetSymbolSuccessHarm,
+  throwRulesetSymbolPool,
+  type RulesetSymbolSpendPick,
+  type RulesetSymbolThrow,
+} from "./symbols.js";
+import {
   currentRulesetActor,
   refreshRulesetBudgets,
   rulesetConditionEconomy,
@@ -68,6 +78,9 @@ import {
   rulesetTargetDamageKind,
   rulesetCombatHealth,
   rulesetCombatStanding,
+  rulesetSymbolSpendHolder,
+  rulesetSymbolSpendBudget,
+  rulesetSymbolSpendStanding,
   rulesetDamageInEffect,
   rulesetCheckMode,
   rulesetInitiativeModifierNow,
@@ -143,6 +156,8 @@ import {
   RULESET_FLY_DOWN_OPTION,
   RULESET_FLY_UP_OPTION,
   rulesetRelightCells,
+  RULESET_LAND_OPTION,
+  RULESET_TAKE_OFF_OPTION,
   planRulesetCombatCost,
   rulesetChosenUsesMax,
   rulesetAlterFits,
@@ -809,10 +824,17 @@ function writeHealthLoss(
     });
     return;
   }
+  // A plain track that fills up (1.383) takes the points, held at its maximum.
+  const declared = ctx.definition.sheet.live.tracks.find((track) => track.id === health.track);
+  if (!declared?.kinds) {
+    const by = Math.floor(dealt);
+    if (by > 0) writeRulesetSheet(ctx.definition, target, { op: "track", track: health.track, by });
+    return;
+  }
   // On an indexed track a blow names the box it lands on rather than how many it fills: its damage
   // under `per-point`, the first box under `per-blow`.
   const perPoint = ctx.combat.damageKinds?.marks === "per-point" ? Math.max(1, Math.floor(dealt)) : 1;
-  const indexed = ctx.definition.sheet.live.tracks.find((track) => track.id === health.track)?.fill === "indexed";
+  const indexed = declared.fill === "indexed";
   markWound(ctx, target, {
     op: "damage",
     track: health.track,
@@ -827,8 +849,8 @@ function markWound(ctx: RulesetCombatContext, target: RulesetCombatant, op: Rule
   if (!writeRulesetSheet(ctx.definition, target, op)) ctx.overwhelmed.add(target.id);
 }
 
-/** And the other way: a pool gets the points back, a wound track has ONE mark cleared, lightest
- *  first, by the same rule the player's own sheet clears one. It names no kind, because a heal that
+/** And the other way: a pool gets the points back, as does a plain track that fills up (1.383), a
+ *  wound track has ONE mark cleared, lightest first, by the same rule the player's own sheet clears one. It names no kind, because a heal that
  *  named one would clear only that kind. */
 function writeHealthGain(
   ctx: RulesetCombatContext,
@@ -849,6 +871,11 @@ function writeHealthGain(
         magical: true,
       });
     }
+    return;
+  }
+  // A plain track that fills up (1.383) gives the points back, never below its floor.
+  if (!ctx.definition.sheet.live.tracks.find((track) => track.id === health.track)?.kinds) {
+    writeRulesetSheet(ctx.definition, target, { op: "track", track: health.track, by: -amount });
     return;
   }
   writeRulesetSheet(ctx.definition, target, {
@@ -1411,6 +1438,33 @@ function throwSave(
   if (cover > 0) ctx.events.push({ type: "cover", targetId: combatant.id, bonus: cover, save });
   const modifier = own + cover;
   const mode = rulesetSaveMode(ctx.definition, ctx.combat, combatant, save, ctx.state, against, lean);
+  if (rulesetCombatIsSymbol(ctx.combat)) {
+    // The save's number is its dice, its difficulty the dice thrown against them, and cover and
+    // what conditions add are boost or setback dice (1.382).
+    const bonuses = rollBonuses(
+      ctx,
+      rulesetConditionModifiers(ctx.definition, ctx.combat, combatant, "saves", ctx.state, save, against),
+    );
+    const thrown = throwSymbols(ctx, combatant, own, cover + bonusTotal(bonuses), mode, { difficulty });
+    const success = thrown.successes >= rulesetSymbolNeeded(ctx.definition);
+    ctx.events.push({
+      type: "save",
+      actorId: combatant.id,
+      ...(sourceId ? { sourceId } : {}),
+      save,
+      ...(mode === "normal" ? {} : { mode }),
+      rolls: thrown.rolls,
+      kept: thrown.successes,
+      modifier,
+      ...(bonuses.length > 0 ? { bonuses } : {}),
+      total: thrown.successes,
+      difficulty,
+      success,
+      pool: symbolRecord(thrown),
+    });
+    spendConditions(ctx, combatant, "own-save");
+    return success;
+  }
   if (rulesetCombatIsPool(ctx.combat)) {
     // The save's number is its pool, and its difficulty the successes it needs, never fewer than one.
     const bonuses = rollBonuses(
@@ -1532,6 +1586,25 @@ function passesGate(
     ...(mode === "normal" ? {} : { mode }),
     modifier: gate.modifier,
   };
+  if (rulesetCombatIsSymbol(ctx.combat)) {
+    // The check's number is its dice and its difficulty the dice against them (1.382).
+    const bonuses = rollBonuses(ctx, modifiers);
+    const thrown = throwSymbols(ctx, actor, gate.modifier, bonusTotal(bonuses), mode, {
+      difficulty: gate.difficulty,
+    });
+    const success = thrown.successes >= rulesetSymbolNeeded(ctx.definition);
+    ctx.events.push({
+      ...said,
+      rolls: thrown.rolls,
+      kept: thrown.successes,
+      ...(bonuses.length > 0 ? { bonuses } : {}),
+      total: thrown.successes,
+      difficulty: gate.difficulty,
+      success,
+      pool: symbolRecord(thrown),
+    });
+    return success;
+  }
   if (rulesetCombatIsPool(ctx.combat)) {
     // The check's number is its pool, and its difficulty the successes it needs: never fewer than
     // one, nor more than the ruleset's pool can count, as the Use button holds it.
@@ -1592,6 +1665,7 @@ function passesGate(
     !!rescueEntry(ctx, actor, "checks", "success") ||
     // Its d20 counted as a 20 where that makes it (1.256): Stroke of Luck.
     (!rulesetCombatIsPool(ctx.combat) &&
+      !rulesetCombatIsSymbol(ctx.combat) &&
       !!rescueEntry(ctx, actor, "checks", "twenty", () => total - kept + 20 >= gate.difficulty));
   ctx.events.push({
     ...said,
@@ -1628,6 +1702,168 @@ function poolRecord(thrown: RulesetCombatPoolThrow & { penalty: number }): Rules
     ...(thrown.penalty < 0 ? { penalty: thrown.penalty } : {}),
     ...(thrown.botch ? { botch: true } : {}),
   };
+}
+
+/** A `symbol-pool` fight's throw (1.382) for an attack, a save, a check or a side of a contest: the
+ *  thrower's own dice, what their conditions add as boost or setback dice, their wound penalty as
+ *  setback, and the boost and setback a spend left for their next roll, which this one uses up. */
+function throwSymbols(
+  ctx: RulesetCombatContext,
+  who: RulesetCombatant,
+  dice: number,
+  bonus: number,
+  mode: RulesetCombatRollMode,
+  against: { upgrades?: number; difficulty?: number } = {},
+): RulesetSymbolThrow & { penalty: number } {
+  const penalty = rulesetCombatPenalty(ctx.definition, who);
+  const waiting = who.symbolDice;
+  delete who.symbolDice;
+  return {
+    ...throwRulesetSymbolPool(ctx.definition, ctx.roll, {
+      dice,
+      ...(against.upgrades ? { upgrades: against.upgrades } : {}),
+      difficulty: Math.max(0, against.difficulty ?? 0),
+      bonus: bonus + penalty,
+      ...(waiting?.boost ? { boost: waiting.boost } : {}),
+      ...(waiting?.setback ? { setback: waiting.setback } : {}),
+      mode,
+    }),
+    penalty,
+  };
+}
+
+/** What an event says about one symbol throw. */
+function symbolRecord(thrown: RulesetSymbolThrow & { penalty: number }): RulesetCombatPoolRoll {
+  return {
+    dice: thrown.dice,
+    target: 0,
+    ...(thrown.penalty < 0 ? { penalty: thrown.penalty } : {}),
+    symbols: { ...thrown.symbols },
+    ...(thrown.upgrades ? { upgrades: thrown.upgrades } : {}),
+    difficulty: thrown.difficulty,
+    ...(thrown.boost ? { boost: thrown.boost } : {}),
+    ...(thrown.setback ? { setback: thrown.setback } : {}),
+  };
+}
+
+/** Each side buys what the symbols an attack's roll left can buy (1.382): the attacker first, with
+ *  the symbols that favour them, and then their target, with the ones that favour the target. What a
+ *  spend does to the hit itself (harm, a critical) is handed back for the blow; everything else
+ *  happens now and says so. What nobody spends stays on the roll for the story. */
+function spendSymbols(
+  ctx: RulesetCombatContext,
+  actor: RulesetCombatant,
+  target: RulesetCombatant,
+  symbols: Readonly<Record<string, number>>,
+  hit: boolean,
+  /** What a side that chose for itself (1.382) chose. The Engine picks for a side not here. */
+  chosen: NonNullable<RulesetHeldAttack["roll"]["spends"]> = {},
+): { damage: number; critical: boolean } {
+  const out = { damage: 0, critical: false };
+  const whom = (on: "attacker" | "target" | "attacker-ally" | "target-ally") =>
+    rulesetSymbolSpendHolder(ctx.state, actor, target, on);
+  const apply = (picks: RulesetSymbolSpendPick[], chooser: RulesetCombatant) => {
+    for (const { spend, times } of picks) {
+      const dice = spend.boost ?? spend.setback;
+      const diceOn = dice ? whom(dice.on) : undefined;
+      ctx.events.push({
+        type: "symbol-spend",
+        actorId: chooser.id,
+        rollerId: actor.id,
+        targetId: target.id,
+        spendId: spend.id,
+        label: spend.label,
+        symbol: spend.symbol,
+        cost: spend.cost,
+        times,
+        ...(diceOn ? { onId: diceOn.id } : {}),
+        ...(spend.boost && diceOn ? { boost: spend.boost.dice * times } : {}),
+        ...(spend.setback && diceOn ? { setback: spend.setback.dice * times } : {}),
+        ...(spend.critical ? { critical: true as const } : {}),
+      });
+      if (spend.damage) out.damage += spend.damage * times;
+      if (spend.critical) out.critical = true;
+      for (const [rule, key] of [
+        [spend.boost, "boost"],
+        [spend.setback, "setback"],
+      ] as const) {
+        const on = rule ? whom(rule.on) : undefined;
+        if (!rule || !on || on.defeated) continue;
+        const waiting = (on.symbolDice ??= {});
+        waiting[key] = (waiting[key] ?? 0) + rule.dice * times;
+      }
+      if (spend.condition) {
+        const on = whom(spend.condition.on);
+        if (on && !on.defeated) {
+          applyConditionId(
+            ctx,
+            on,
+            spend.condition.id,
+            {
+              condition: spend.condition.id,
+              duration: spend.condition.rounds ? { rounds: spend.condition.rounds } : "instant",
+            },
+            { sourceId: chooser.id },
+          );
+        }
+      }
+      if (spend.track) {
+        const on = whom(spend.track.on);
+        if (on && !on.defeated) moveTrack(ctx, chooser, on, spend.track.id, spend.track.by * times);
+      }
+    }
+  };
+  // One budget for the throw, the attacker buying first: a spend that would not land, or whose room
+  // an earlier one took, goes unbought, and its symbols stay on the roll. The forecast buys the same.
+  const budget = rulesetSymbolSpendBudget(ctx.definition, ctx.state, actor, target);
+  const pick = (by: "attacker" | "target") =>
+    chosen[by]
+      ? rulesetChosenSymbolSpends(ctx.combat, symbols, hit, by, chosen[by], budget)
+      : pickRulesetSymbolSpends(ctx.combat, symbols, hit, by, budget);
+  apply(pick("attacker"), actor);
+  if (!target.defeated) apply(pick("target"), target);
+  return out;
+}
+
+/** Which side of a symbol throw is asked what it buys (1.382), if either: one whose chooser picks
+ *  their own spends, has not been asked about this throw yet, and has something to buy. The
+ *  attacker is asked first, as their spends are bought first. Nobody is asked inside another window,
+ *  where a throw cannot be held, or once the fight is over. */
+function spendAsked(
+  ctx: RulesetCombatContext,
+  actor: RulesetCombatant,
+  target: RulesetCombatant,
+  symbols: Readonly<Record<string, number>>,
+  hit: boolean,
+  chosen: NonNullable<RulesetHeldAttack["roll"]["spends"]>,
+): "attacker" | "target" | undefined {
+  const asking = ctx.state.askSpends;
+  if (!asking?.length || (ctx.state.window && !ctx.nestHit) || hasFallingAnswer(ctx)) return undefined;
+  if (rulesetEncounterOutcome(ctx.state) !== "ongoing") return undefined;
+  const held: RulesetHeldAttack = {
+    targetId: target.id,
+    rest: [],
+    roll: {
+      mode: "normal",
+      total: 0,
+      defense: 0,
+      critical: false,
+      natural: false,
+      symbols: { ...symbols },
+      spends: chosen,
+    },
+    mine: [],
+    hurt: [],
+  };
+  for (const [by, chooser] of [
+    ["attacker", actor],
+    ["target", target],
+  ] as const) {
+    if (chosen[by] || !asking.includes(chooser.id) || chooser.defeated) continue;
+    const standing = rulesetSymbolSpendStanding(ctx.definition, ctx.state, held, actor.id, by, hit);
+    if (standing && standing.choices.length > 0) return by;
+  }
+  return undefined;
 }
 
 /** What conditions add to one roll, each rolled now: a flat number as it is, dice thrown (and taken
@@ -1792,8 +2028,8 @@ function lowerRoll(
   total: number,
   worth: (most: number, holder: RulesetCombatant) => boolean,
 ): number {
-  // A pool has no single number to take dice off.
-  if (rulesetCombatIsPool(ctx.combat)) return 0;
+  // A pool has no single number to take dice off, nor has a symbol throw.
+  if (rulesetCombatIsPool(ctx.combat) || rulesetCombatIsSymbol(ctx.combat)) return 0;
   for (const holder of ctx.state.combatants) {
     if (holder.side === roller.side || !rulesetCombatStanding(holder)) continue;
     const action = holder.actions.find((one) => {
@@ -3931,6 +4167,11 @@ function applyChoice(
     if (cell) resolveMove(ctx, walking, cell);
     else if (option.id === RULESET_FLY_UP_OPTION || option.id === RULESET_FLY_DOWN_OPTION) {
       resolveFly(ctx, walking, option);
+    } else if (option.id === RULESET_TAKE_OFF_OPTION || option.id === RULESET_LAND_OPTION) {
+      // Into the air or down onto the ground where it stands (1.354), for nothing.
+      if (option.id === RULESET_TAKE_OFF_OPTION) walking.airborne = true;
+      else delete walking.airborne;
+      ctx.events.push({ type: "lift", actorId: walking.id, up: option.id === RULESET_TAKE_OFF_OPTION });
     } else resolveStand(ctx, walking, option);
     const ended = rulesetEncounterOutcome(ctx.state);
     if (ended !== "ongoing") pushOutcome(ctx, ended);
@@ -4027,7 +4268,7 @@ function applyChoice(
   // Targets, checked against the side and the count the option itself declared, or the count the
   // pool it is paid with lets it take (1.171).
   const paidCount = choice.payWith !== undefined ? option.targetsWith?.[choice.payWith] : undefined;
-  const grow = areaGrowth(definition, actor, option.id, choice.payWith);
+  const grow = rulesetAreaGrowth(definition, actor, option.id, choice.payWith);
   // A burst centred on its user (1.282) catches whom it reaches, and is pointed at nobody.
   const around = actor.actions.find((entry) => entry.id === option.id && entry.around);
   const targets = around
@@ -4815,6 +5056,20 @@ function throwCheck(
   const mode = rulesetCheckMode(ctx.definition, ctx.combat, who, ctx.state, skill, ability, taken);
   const checkModifiers = () =>
     rulesetConditionModifiers(ctx.definition, ctx.combat, who, "checks", ctx.state, skill, undefined, ability);
+  if (rulesetCombatIsSymbol(ctx.combat)) {
+    // Each side throws its own dice and the more net successes wins (1.382).
+    const bonuses = rollBonuses(ctx, checkModifiers());
+    const thrown = throwSymbols(ctx, who, modifier, bonusTotal(bonuses), mode);
+    return {
+      check,
+      rolls: thrown.rolls,
+      modifier,
+      total: thrown.successes,
+      ...(mode === "normal" ? {} : { mode }),
+      ...(bonuses.length > 0 ? { bonuses } : {}),
+      pool: symbolRecord(thrown),
+    };
+  }
   if (rulesetCombatIsPool(ctx.combat)) {
     const bonuses = rollBonuses(ctx, checkModifiers());
     const pool = throwPool(ctx, who, modifier + bonusTotal(bonuses), mode);
@@ -4913,7 +5168,8 @@ function resolveContest(
   else if (winner === "actor" && theirs && rescueEntry(ctx, target, "checks", "success")) winner = "target";
   // Or counts its d20 as a 20, where that wins it (1.256): Stroke of Luck. A pool has no d20.
   const asTwenty = (who: RulesetCombatant, side: RulesetContestSide, wins: (total: number) => boolean) => {
-    if (side.pool || side.rolls.length === 0 || rulesetCombatIsPool(ctx.combat)) return false;
+    if (side.pool || side.rolls.length === 0 || rulesetCombatIsPool(ctx.combat) || rulesetCombatIsSymbol(ctx.combat))
+      return false;
     const kept = side.total - side.modifier - bonusTotal(side.bonuses ?? []);
     const total = side.total - kept + 20;
     if (!rescueEntry(ctx, who, "checks", "twenty", () => wins(total))) return false;
@@ -5402,6 +5658,9 @@ function applyInWindow(
 
   const option = rulesetWindowOptions(definition, state, actor.id).find((entry) => entry.id === choice.optionId);
   if (!option) return refusal(state, choice.actorId, "unknown-option", choice.optionId);
+  if (window.kind === "spend" && option.symbolSpend) {
+    return chooseSymbolSpend(definition, combat, state, actor, option.symbolSpend, roller);
+  }
   // A lair action (1.315), resolved as its maker's own turn would resolve it.
   if (window.kind === "signature" && option.lairOf) {
     return takeLairAction(definition, combat, state, window, actor, option.lairOf, choice, roller);
@@ -5437,6 +5696,41 @@ function applyInWindow(
   // it would be on a turn; the only thing the moment adds is whom it is aimed at, and whether
   // taking it calls off what the window was holding.
   return takeReaction(definition, combat, state, window, actor, choice, roller);
+}
+
+/** One choice of what a symbol throw buys (1.382): one more of a spend, asked again while there is
+ *  more to buy, or the Engine's pick for the rest, which ends the asking. Nothing is spent until the
+ *  window closes: the throw is then spent as it was chosen, exactly as the Engine's pick would be. */
+function chooseSymbolSpend(
+  definition: RulesetDefinition,
+  combat: RulesetCombat,
+  state: RulesetEncounterState,
+  actor: RulesetCombatant,
+  choice: NonNullable<RulesetCombatOption["symbolSpend"]>,
+  roller: RulesetCombatRoller,
+): RulesetCombatStep {
+  const { ctx, finish } = begin(definition, combat, state, roller);
+  const open = ctx.state.window!;
+  const held = open.resume?.kind === "action" ? open.resume.held : undefined;
+  if (open.trigger.kind !== "spend" || !held) return refusal(state, actor.id, "unknown-option", RULESET_PASS_OPTION);
+  const list = ((held.roll.spends ??= {})[open.trigger.by] ??= []);
+  const add = (spend: string, times: number) => {
+    const known = list.find((one) => one.spend === spend);
+    if (known) known.times += times;
+    else list.push({ spend, times });
+  };
+  if (choice.engine) {
+    for (const pick of choice.picks ?? []) add(pick.spend, pick.times);
+  } else if (choice.spend) {
+    add(choice.spend, 1);
+    if (rulesetWindowOptions(definition, ctx.state, actor.id).some((one) => one.symbolSpend?.spend)) {
+      noteOutcome(ctx);
+      return finish();
+    }
+  }
+  goOn(definition, combat, ctx);
+  noteOutcome(ctx);
+  return finish();
 }
 
 /** One reaction, taken at the moment it waits for. */
@@ -5678,7 +5972,7 @@ function reachesHeld(
     reach,
   };
   const above = reaction.above;
-  if (!above || rulesetCombatIsPool(ctx.combat)) {
+  if (!above || rulesetCombatIsPool(ctx.combat) || rulesetCombatIsSymbol(ctx.combat)) {
     ctx.events.push({ ...said, success: false });
     return false;
   }
@@ -6329,7 +6623,7 @@ function positionedArea(state: RulesetEncounterState, actor: RulesetCombatant, o
 }
 
 /** How many cells an area grows by for the higher cost it was paid with (1.267): Confusion. */
-function areaGrowth(
+export function rulesetAreaGrowth(
   definition: RulesetDefinition,
   actor: RulesetCombatant,
   optionId: string,
@@ -6367,8 +6661,10 @@ function resolveFly(ctx: RulesetCombatContext, actor: RulesetCombatant, option: 
   const from = rulesetLevelOf(grid, actor);
   const to = from + (option.id === RULESET_FLY_UP_OPTION ? 1 : -1);
   spendRulesetMovement(actor, cost);
-  if (to > elevationAt(grid, actor.x!, actor.y!)) actor.altitude = to;
-  else delete actor.altitude;
+  if (to > elevationAt(grid, actor.x!, actor.y!)) {
+    actor.altitude = to;
+    actor.airborne = true;
+  } else delete actor.altitude;
   ctx.events.push({ type: "flew", actorId: actor.id, from, to, cost, left: actor.movementLeft ?? 0 });
 }
 
@@ -6379,12 +6675,15 @@ function resolveFly(ctx: RulesetCombatContext, actor: RulesetCombatant, option: 
  */
 function groundFlier(ctx: RulesetCombatContext, flier: RulesetCombatant): void {
   const grid = ctx.state.board?.grid;
-  if (!grid || flier.hover || !rulesetAirborne(grid, flier)) return;
+  if (!grid || flier.hover || !(flier.airborne || rulesetAirborne(grid, flier))) return;
   const grounded =
     !rulesetCombatStanding(flier) ||
     !!rulesetProneCondition(ctx.definition, ctx.combat, flier) ||
     rulesetCombatEffects(ctx.definition, ctx.combat, flier, ctx.state).has("speed-zero");
   if (!grounded) return;
+  // Out of the air (1.354); from up above the ground, a fall too.
+  delete flier.airborne;
+  if (!rulesetAirborne(grid, flier)) return;
   const levels = rulesetLevelOf(grid, flier) - elevationAt(grid, flier.x!, flier.y!);
   // Down first, so whatever the fall itself does finds it on the ground.
   delete flier.altitude;
@@ -6575,11 +6874,14 @@ function walkOn(ctx: RulesetCombatContext, actor: RulesetCombatant, resume: Rule
     // path came from that menu, so a cliff is never on it; a saved one that has one costs a plain step.
     // With other ways of moving (1.113) the same choice the menu made, on what this walk has spent.
     // Ground a lasting area makes hard going costs what the menu priced it at (1.173).
+    const step = grid ? rulesetMoveStep(grid, at, cell, actor, spent) : null;
+    // A step only its flight takes puts it in the air (1.354).
+    if (step?.mode === "fly") actor.airborne = true;
     spent += grid
       ? rulesetSlowedStep(
           grid,
           cell,
-          rulesetMoveStep(grid, at, cell, actor, spent)?.cost ?? rulesetCellEnterCost(grid, cell.x, cell.y),
+          step?.cost ?? rulesetCellEnterCost(grid, cell.x, cell.y),
           rulesetSlowedCells(ctx.state, actor),
           at,
         )
@@ -6819,7 +7121,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
     new Set(
       areaCellsFor(state, actor, action.id, ctx.aimedAt!, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }).map((cell) => `${cell.x},${cell.y}`),
     );
   const covered = reaches ? areaOf(ctx.state) : new Set<string>();
@@ -6894,7 +7196,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       grid,
       areaCellsFor(ctx.state, actor, action.id, at, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }),
     );
     ctx.events.push({ type: "growth", actorId: actor.id, label: action.label, cells: cleared, by: "cleared" });
@@ -6903,7 +7205,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
   if (grid && at && action.area && action.ground && !resume.held) {
     const cells = areaCellsFor(ctx.state, actor, action.id, at, {
       ...(resume.also ? { also: resume.also } : {}),
-      grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+      grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
     });
     const moved = rulesetChangeGround(ctx.state, cells, action.ground, action.ground.occupants);
     ctx.events.push({
@@ -6924,7 +7226,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       grid && at
         ? areaCellsFor(ctx.state, actor, action.id, at, {
             ...(resume.also ? { also: resume.also } : {}),
-            grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+            grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
           })
         : undefined,
     );
@@ -6936,7 +7238,7 @@ function resumeAction(ctx: RulesetCombatContext, resume: RulesetActionResume): v
       [action.damage.type, ...(action.damage.plus ?? []).map((clause) => clause.type)],
       areaCellsFor(ctx.state, actor, action.id, at, {
         ...(resume.also ? { also: resume.also } : {}),
-        grow: areaGrowth(ctx.definition, actor, action.id, resume.payWith),
+        grow: rulesetAreaGrowth(ctx.definition, actor, action.id, resume.payWith),
       }),
     );
   }
@@ -7055,8 +7357,27 @@ function openHitWindow(
   hold: RulesetHitHold,
   hurt: string[],
 ): void {
-  const { label, optionId, catalog, entry, blow, ...held } = hold;
+  const { label, optionId, catalog, entry, blow, asks, hit, ...held } = hold;
   const { held: _previous, ...base } = resume;
+  // Held for somebody to choose their spends (1.382): they alone are asked, and the throw is spent
+  // as they chose once they are done.
+  if (asks) {
+    openWindow(ctx, {
+      kind: "spend",
+      trigger: {
+        kind: "spend",
+        targetIds: [held.targetId],
+        sourceId: actor.id,
+        optionId,
+        label,
+        by: asks,
+        hit: !!hit,
+      },
+      waiting: [asks === "attacker" ? actor.id : held.targetId],
+      resume: { ...base, held: { ...held, hurt } },
+    });
+    return;
+  }
   const striking = actor.actions.find((one) => one.id === optionId) ?? action;
   openWindow(ctx, {
     kind: "reaction",
@@ -8478,6 +8799,7 @@ function resolveActionBody(
   const restore = once(action.restore?.amount);
 
   const pooled = rulesetCombatIsPool(ctx.combat);
+  const symbolic = rulesetCombatIsSymbol(ctx.combat);
   // A spending attack throws the number its maker has as the blow lands, and whether anything landed
   // decides, once every target has been tried, whether the number resets or a miss costs some of it.
   const spends = style?.spends ? { number: spend ?? actor.initiative, landed: false } : null;
@@ -8514,6 +8836,8 @@ function resolveActionBody(
     let critical = false;
     // Under `dice-pool`, the successes a hit had past the ones it needed: each is one more damage die.
     let extraDice = 0;
+    // Under `symbol-pool` (1.382), what the hit's successes and its maker's spends add to its harm.
+    let symbolHarm = 0;
     // What lasted one attack, on either side of it: noted when the roll is made and spent once this
     // blow is over, landed or not, so it counts for the blow's damage as well as its roll.
     let used: { mine: RulesetTrackedCondition[]; theirs: RulesetTrackedCondition[] } | null = null;
@@ -8534,11 +8858,16 @@ function resolveActionBody(
       const roll = held.roll;
       const guarded = rulesetDefenseAgainst(ctx.definition, ctx.combat, ctx.state, target, actor, action);
       const landsAt = roll.critical ? "critical" : "hit";
-      // A pool's successes meet what the defense now asks, never fewer than one.
-      const needed = pooled ? Math.max(1, guarded.defense) : guarded.defense;
-      const outcome = roll.natural || roll.total >= needed ? landsAt : "miss";
+      // A pool's successes meet what the defense now asks, never fewer than one. A symbol throw's
+      // difficulty dice were thrown with it, so what it landed with stands.
+      const needed = symbolic ? roll.defense : pooled ? Math.max(1, guarded.defense) : guarded.defense;
+      const outcome =
+        roll.natural || (symbolic ? roll.total >= rulesetSymbolNeeded(ctx.definition) : roll.total >= needed)
+          ? landsAt
+          : "miss";
       if (pooled && outcome !== "miss") extraDice = roll.total - needed;
-      if (needed !== roll.defense || roll.lowered) {
+      // Picked up after its maker chose their spends (1.382), it was checked already.
+      if ((needed !== roll.defense || roll.lowered) && !roll.spends) {
         ctx.events.push({
           type: "recheck",
           actorId: actor.id,
@@ -8548,6 +8877,7 @@ function resolveActionBody(
           total: roll.total,
           defense: needed,
           ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 && needed === guarded.defense ? { unguarded: guarded.unguarded } : {}),
           outcome,
         });
       }
@@ -8560,6 +8890,26 @@ function resolveActionBody(
       };
       landed = outcome !== "miss";
       critical = outcome === "critical";
+      if (symbolic && roll.symbols) {
+        // Held again for whoever picks their own spends and has not yet (1.382).
+        const asks = spendAsked(ctx, actor, target, roll.symbols, landed, roll.spends ?? {});
+        if (asks) {
+          return {
+            ...held,
+            roll: { ...roll, spends: { ...roll.spends, [asks]: [] } },
+            label: action.label,
+            optionId: action.id,
+            ...(action.catalog ? { catalog: action.catalog } : {}),
+            ...(action.entry ? { entry: action.entry } : {}),
+            blow: rulesetBlowKind(ctx.state, actor, target, action),
+            asks,
+            hit: landed,
+          };
+        }
+        const bought = spendSymbols(ctx, actor, target, roll.symbols, landed, roll.spends);
+        if (landed) symbolHarm = rulesetSymbolSuccessHarm(ctx.definition, ctx.combat, roll.total) + bought.damage;
+        if (landed && bought.critical) critical = true;
+      }
     } else if (action.toHit !== undefined && !action.autoHit) {
       mode = rulesetAttackMode(ctx.definition, ctx.combat, actor, target, {
         state: ctx.state,
@@ -8573,7 +8923,108 @@ function resolveActionBody(
       if (guarded.cover > 0) {
         ctx.events.push({ type: "cover", targetId: target.id, bonus: guarded.cover, defense: guarded.defense });
       }
-      if (pooled) {
+      if (symbolic) {
+        // The to-hit number is the attacker's dice (some upgraded), the defense the difficulty dice
+        // thrown against them, and what conditions add boost or setback dice (1.382). Net successes
+        // land it; what is left over is spent, by either side, before its harm is dealt.
+        const bonuses = rollBonuses(
+          ctx,
+          rulesetConditionModifiers(
+            ctx.definition,
+            ctx.combat,
+            actor,
+            "attacks",
+            ctx.state,
+            undefined,
+            undefined,
+            action.ability,
+          ).filter(({ modifier }) => rulesetAttackModifierReaches(modifier, ctx.state, actor, target, action)),
+        );
+        const thrown = throwSymbols(ctx, actor, toHit, bonusTotal(bonuses), mode, {
+          ...(action.upgrades ? { upgrades: action.upgrades } : {}),
+          difficulty: guarded.defense,
+        });
+        const outcome = thrown.successes >= rulesetSymbolNeeded(ctx.definition) ? "hit" : "miss";
+        ctx.events.push({
+          type: "attack",
+          actorId: actor.id,
+          targetId: target.id,
+          optionId: action.id,
+          label: action.label,
+          mode,
+          rolls: thrown.rolls,
+          kept: thrown.successes,
+          modifier: toHit,
+          ...(bonuses.length > 0 ? { bonuses } : {}),
+          total: thrown.successes,
+          defense: thrown.difficulty,
+          ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          outcome,
+          pool: symbolRecord(thrown),
+        });
+        actor.flags.helped = false;
+        used = { mine: oneUseConditions(actor, "own-attack"), theirs: oneUseConditions(target, "attacked") };
+        landed = outcome === "hit";
+        if (
+          landed &&
+          (!ctx.state.window || ctx.nestHit) &&
+          !hasFallingAnswer(ctx) &&
+          rulesetEncounterOutcome(ctx.state) === "ongoing" &&
+          hitAnswers(ctx, actor, target, action).length > 0
+        ) {
+          // Asked before anything is spent, so an answer that turns the blow aside spends nothing.
+          return {
+            targetId: target.id,
+            rest: targets.slice(targets.indexOf(target) + 1).map((one) => one.id),
+            roll: {
+              mode,
+              total: thrown.successes,
+              defense: thrown.difficulty,
+              critical: false,
+              natural: false,
+              symbols: { ...thrown.symbols },
+            },
+            mine: used.mine.map((entry) => entry.condition),
+            hurt: [],
+            label: action.label,
+            optionId: action.id,
+            ...(action.catalog ? { catalog: action.catalog } : {}),
+            ...(action.entry ? { entry: action.entry } : {}),
+            blow: rulesetBlowKind(ctx.state, actor, target, action),
+          };
+        }
+        // Held for whoever picks their own spends (1.382), before anything is spent.
+        const asks = spendAsked(ctx, actor, target, thrown.symbols, landed, {});
+        if (asks) {
+          return {
+            targetId: target.id,
+            rest: targets.slice(targets.indexOf(target) + 1).map((one) => one.id),
+            roll: {
+              mode,
+              total: thrown.successes,
+              defense: thrown.difficulty,
+              critical: false,
+              natural: false,
+              symbols: { ...thrown.symbols },
+              spends: { [asks]: [] },
+            },
+            mine: used.mine.map((entry) => entry.condition),
+            hurt: [],
+            label: action.label,
+            optionId: action.id,
+            ...(action.catalog ? { catalog: action.catalog } : {}),
+            ...(action.entry ? { entry: action.entry } : {}),
+            blow: rulesetBlowKind(ctx.state, actor, target, action),
+            asks,
+            hit: landed,
+          };
+        }
+        const bought = spendSymbols(ctx, actor, target, thrown.symbols, landed);
+        if (landed) {
+          symbolHarm = rulesetSymbolSuccessHarm(ctx.definition, ctx.combat, thrown.successes) + bought.damage;
+          critical = bought.critical;
+        }
+      } else if (pooled) {
         // The to-hit number is the pool, what the attacker's conditions add is dice, and the
         // defense is the successes it needs, never fewer than one. A botch misses whatever it
         // counted, and there are no criticals: what a strong hit is worth is its extra successes.
@@ -8607,6 +9058,7 @@ function resolveActionBody(
           total: thrown.successes,
           defense: needed,
           ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 && needed === guarded.defense ? { unguarded: guarded.unguarded } : {}),
           outcome,
           pool: poolRecord(thrown),
           ...(style ? { style: style.id } : {}),
@@ -8712,7 +9164,7 @@ function resolveActionBody(
           ...(bonuses.length > 0 ? { bonuses } : {}),
           total,
           defense: guarded.defense,
-          ...(guarded.guards.length > 0 ? { guards: guarded.guards } : {}),
+          ...(guarded.guards.length > 0 ? { guards: guarded.guards, unguarded: guarded.unguarded } : {}),
           outcome,
         });
         // Help is spent by the attack it was given for, landed or not.
@@ -9080,7 +9532,10 @@ function resolveActionBody(
       const bonus = critical
         ? empowerCritical(criticalExtra(ctx, action.damage, extra, action.damage.reroll), action.damage)
         : { rolls: [], flat: 0 };
-      const thrown = rolled.total + sumOf(bonus.rolls) + bonus.flat;
+      // A symbol fight's hit adds what its successes and spends bought, and the target soaks it as a
+      // number off the whole blow (1.382), never below none.
+      const soaked = symbolic ? rulesetSoakOf(target, rulesetCombatDamageKind(ctx.combat, action.damage.type)) : 0;
+      const thrown = Math.max(0, rolled.total + sumOf(bonus.rolls) + bonus.flat + symbolHarm - soaked);
       // Never less than the weapon's floor.
       const total = Math.max(thrown, action.damage.floor ?? 0);
       land({
@@ -9088,7 +9543,7 @@ function resolveActionBody(
         label: action.label,
         ...(action.damage.type ? { damageType: action.damage.type } : {}),
         rolls: [...rolled.rolls, ...bonus.rolls],
-        flat: rolled.flat + bonus.flat,
+        flat: rolled.flat + bonus.flat + symbolHarm - soaked,
         amount: halved ? Math.floor(total / 2) : total,
         ...(total > thrown ? { floor: total } : {}),
         ...(halved ? { saved: true } : {}),
@@ -9540,6 +9995,10 @@ type RulesetHitHold = RulesetHeldAttack & {
   catalog?: string;
   entry?: string;
   blow?: RulesetBlowKind;
+  /** Held for a side to choose what its symbols buy (1.382) rather than for answers to the hit. */
+  asks?: "attacker" | "target";
+  /** Whether that throw landed. */
+  hit?: boolean;
 };
 
 // ── Between turns ──

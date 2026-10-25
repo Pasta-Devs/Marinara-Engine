@@ -28,7 +28,7 @@ const upsertBodySchema = z.object({
 
 const previewBodySchema = z.object({
   template: z.string(),
-  context: z.record(z.union([z.string(), z.number()])).optional(),
+  context: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 
 function resolvePromptOverrideRow(

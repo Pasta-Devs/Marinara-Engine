@@ -511,6 +511,15 @@ export interface CapabilityRuntimeHost {
   /** Resolve the package's current embedding configuration. Requires capability API 1.15. */
   resolveEmbeddings(): Promise<CapabilityEmbeddingHost>;
   getAgentConfig(): Promise<{ connectionId: string | null; settings: Record<string, unknown> } | null>;
+  /**
+   * Capability API 1.380. Resolve this package's per-chat reference lorebook through
+   * the Engine's normal triggers. Requires `agent-runtime` and `chat-read`.
+   * Other agents' attachments and the main reply are unaffected.
+   */
+  resolveAgentLorebookEntries?(options: {
+    chatId: string;
+    signal?: AbortSignal;
+  }): Promise<Array<{ id: string; name?: string; content: string }>>;
   isDebugAgentsEnabled(): boolean;
   json: CapabilityJsonHost;
   languageModels: CapabilityLanguageModelHost;

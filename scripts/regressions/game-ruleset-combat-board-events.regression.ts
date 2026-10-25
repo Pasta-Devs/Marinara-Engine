@@ -764,6 +764,38 @@ try {
     assert.equal(plain.fight.encounter.board?.events, undefined);
   }
 
+  // ── Features asked for that cannot all stand keep those that can, the first said first (laptop
+  //    playtest 2026-10-25: forest and mountain both laid east left a fight unstartable) ──
+  {
+    const features = [
+      { terrain: "forest", placement: "center", shape: "patch" },
+      { terrain: "wall", placement: "center", shape: "barrier" },
+    ];
+    const seeded = (battlefield: unknown) =>
+      createRulesetFight({
+        definition,
+        seed: 13,
+        party: [{ id: "ada", name: "Ada" }],
+        enemies: [{ id: "x", name: "X" }],
+        bestiary: {},
+        cards: [{ name: "Ada", rulesetSheet: { v: 1, build: defaultRulesetSheetBuild(definition) } }],
+        playerName: null,
+        live: {},
+        items: () => [],
+        partyCatalogs: {},
+        positioned: true,
+        environment: "plains",
+        battlefield,
+      } as never);
+    const both = seeded({ features });
+    assert.ok(both.ok, both.ok ? "" : (both as { error: string }).error);
+    const first = seeded({ features: [features[0]] });
+    assert.ok(first.ok);
+    const grid = (built: typeof both) =>
+      JSON.stringify((built as { fight: { encounter: RulesetEncounterState } }).fight.encounter.board?.grid.tiles);
+    assert.equal(grid(both), grid(first), "the forest stands, and the wall that cannot is left out");
+  }
+
   // ── Only cells on the board change ──
   {
     const state = fight();
@@ -783,7 +815,7 @@ try {
   }
 
   console.log(
-    "Board events: rings, sweeps, blocks and spreading growth each round; terrain, light, fog, seasons and a turning wheel; growth cut, burnt and cleared; painted, shown and gated.",
+    "Board events: rings, sweeps, blocks and spreading growth each round; terrain, light, fog, seasons and a turning wheel; growth cut, burnt and cleared; asked-for features that clash keep those that can; painted, shown and gated.",
   );
 } finally {
   rmSync(dataDir, { recursive: true, force: true });

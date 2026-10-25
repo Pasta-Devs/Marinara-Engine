@@ -225,6 +225,8 @@ Third-party extensions may contain malicious or dangerous code. Always inspect e
 
 Use an extension's export action to download a portable package. Exported and restored packages remain disabled. Restoring a revision also returns it to a disabled draft.
 
+**Settings → Addons → Extension revision history** controls how many previous code versions are kept for every Personal and External Extension. The default is **10**; choose **0–10**, with **0** disabling history. Reducing the limit asks for confirmation before permanently removing older revisions. Current extension code, approvals, enabled state, and saved extension data are preserved. Future edits and rollbacks follow the same limit, including edits made through Professor Mari.
+
 If an extension misbehaves, choose **Disable**. If the interface is unavailable, stop Marinara and set the relevant `installed_extensions` record's `enabled` value to `"false"`. Never set `approvedHash` by hand.
 
 ## Related guides

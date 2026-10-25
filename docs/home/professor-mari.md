@@ -35,6 +35,7 @@ Ask her for help with any of these:
 - Explaining a setting, a mode, or a concept before you change anything.
 - Creating or editing a character. A character is a card that gives the AI a name, personality, and voice. She can also write a card's [interactive onboarding](../characters/interactive-onboarding.md), the questions players answer to build their persona.
 - Creating or editing a persona. A persona is the identity you play as in a chat, the "you" in the story.
+- Filling in or changing a character's or persona's [ruleset sheet](../characters/colors-and-stats.md#ruleset-sheets) for an installed Game Mode ruleset: scores, training, fields, and list rows such as gear. She uses the ruleset's own names and limits, and the change is refused, with the reason, when a value does not fit the ruleset.
 - Creating or editing a lorebook. A lorebook is a set of world notes the AI pulls in when they are relevant.
 - Creating or editing a theme, an agent, a prompt preset, or a Personal Extension draft. Professor Mari is the only default extension author. Her drafts remain disabled until you inspect the sandboxed code, review any requested active Character-card or Persona permissions, and approve the exact hash in **Settings** > **Addons**.
 - Editing one part of a prompt preset in place. She can list a preset's individual sections, prompt groups, and choice variables, read any one of them in full, and add, change, or remove just that piece — for example, adding a line to a specific section — instead of only creating or replacing the whole preset.
@@ -131,6 +132,7 @@ A change that waits for you is different. A held change (in Manual mode, or a ch
 
 - A card belongs to the Professor Mari chat she made the change in. A new chat starts without the cards of other chats. Deleting a chat keeps its changes and removes its cards. A change made with the `mari` command in a terminal belongs to no chat, so its card shows in every Professor Mari chat.
 - An edit that would leave everything as it was is not saved and gets no card.
+- A step in her work list that reads **Previewed** and ends in **· not saved** was only a preview. Nothing changed and there is no card.
 - Professor Mari cannot edit or delete her own card. Marinara resets it to the built-in version on every start.
 - Characters and personas also keep their own version history inside their editors. You can restore an older version there as a second safety net.
 
@@ -171,6 +173,14 @@ Click the **Skills** button in her chat header to open the **Professor Mari skil
 - Select a Skill to edit its **Name**, **Description**, and **Instructions**, then click **Save**. Click **Delete** to remove it.
 
 When you have no Skills yet, the panel reads **No custom skills yet**.
+
+### Built-in skills
+
+Below your own Skills, under **Always on**, the panel lists the skills that ship with Marinara. Each is marked **Built-in**. They are her handbooks for characters and personas, lorebooks, onboarding, presets, themes, Personal Extensions, Home widgets, Decisions and repairing a reply. She reads one when a request needs it, so they do not take up room in every message.
+
+A built-in skill is read-only: you cannot edit, switch off or delete it, and an app update replaces it with the new version. To change how she handles something, copy its instructions into a new Skill of your own.
+
+By default, in each chat her first change to an area with a built-in skill is turned back until she has read that skill. This helps smaller and local models. Larger models usually manage without it, so you can turn it off to save them a step: open **Search and Professor Mari settings** and switch off **Read the handbook before the first write**, below **Runtime**. Only you can change this setting; Professor Mari cannot.
 
 ## Saved memories
 
@@ -251,4 +261,4 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Creating and Editing Characters](../characters/creating-and-editing-characters.md)
 - [Downloadable Agents Reference](../agents/built-in-agents.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

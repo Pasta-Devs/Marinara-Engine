@@ -29,6 +29,7 @@ import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ChatBranchGraphButton } from "./ChatBranchGraphWindow";
 
 type BranchRow = {
   id: string;
@@ -170,6 +171,7 @@ export function ChatBranchesPanel({ activeChatId, activeChatName, groupId }: Cha
 
   return (
     <div data-chat-branches className="space-y-2">
+      <ChatBranchGraphButton />
       <div>
         <input ref={importInputRef} type="file" accept=".jsonl" onChange={handleImportChat} className="hidden" />
         <div className="grid grid-cols-3 gap-1.5">

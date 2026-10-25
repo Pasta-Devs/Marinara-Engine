@@ -13,10 +13,7 @@ import {
   serializeMlxRuntimeManifestStamp,
   type RuntimeManifestAsset,
 } from "../../packages/server/src/services/sidecar/runtime-integrity-manifest.js";
-import {
-  downloadFileWithProgress,
-  retry,
-} from "../../packages/server/src/services/sidecar/sidecar-download.js";
+import { downloadFileWithProgress, retry } from "../../packages/server/src/services/sidecar/sidecar-download.js";
 import {
   dependencyAssetDigestsMatch,
   isLlamaRuntimeRecordCurrent,
@@ -67,9 +64,7 @@ assert.equal(
   "a different runtime digest must invalidate the installed stamp",
 );
 
-const dependencySample = LLAMA_CPP_RUNTIME_MANIFEST.entries.find(
-  (entry) => (entry.dependencyAssets?.length ?? 0) > 0,
-);
+const dependencySample = LLAMA_CPP_RUNTIME_MANIFEST.entries.find((entry) => (entry.dependencyAssets?.length ?? 0) > 0);
 assert.ok(dependencySample, "the runtime manifest must retain a dependency-bearing regression fixture");
 const dependencyDigests = dependencySample.dependencyAssets.map((asset) => asset.sha256);
 const dependencyRecord = {
@@ -99,7 +94,17 @@ assert.equal(
   "dependency digest order must remain part of the installed-runtime identity",
 );
 
-assertAsset(MLX_RUNTIME_MANIFEST.mlxLm.archive, MLX_RUNTIME_MANIFEST.mlxLm.revision);
+// The release sdist carries generated version metadata for a build without Git.
+// Its 208 runtime files were compared to the immutable source revision in #8079.
+const mlxSource = MLX_RUNTIME_MANIFEST.mlxLm.archive;
+assert.match(mlxSource.sha256, /^[a-f0-9]{64}$/u);
+assert.ok(mlxSource.size > 0);
+assert.match(MLX_RUNTIME_MANIFEST.mlxLm.revision, /^[a-f0-9]{40}$/u);
+assert.equal(mlxSource.name, "mlx_lm-0.32.2.tar.gz");
+const mlxSourceUrl = new URL(mlxSource.browser_download_url);
+assert.equal(mlxSourceUrl.origin, "https://files.pythonhosted.org");
+assert.match(mlxSourceUrl.pathname, /^\/packages\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f0-9]{60}\/mlx_lm-0\.32\.2\.tar\.gz$/u);
+assert.equal(MLX_RUNTIME_MANIFEST.mlxLm.packageSpec, `mlx-lm @ ${mlxSourceUrl.href}`);
 assertAsset(MLX_RUNTIME_MANIFEST.uv.archive, MLX_RUNTIME_MANIFEST.uv.version);
 const mlxRequirementsLock = readFileSync(
   fileURLToPath(new URL("../../packages/server/src/assets/mlx-runtime-requirements.lock", import.meta.url)),
@@ -110,11 +115,17 @@ assert.equal(
   "the checked-in MLX dependency lock must match its manifest digest",
 );
 const mlxRequirementsText = mlxRequirementsLock.toString("utf8");
+assert.doesNotMatch(
+  mlxRequirementsText,
+  /^\s*#.*\s-r\s+(?:[/\\]|[a-z]:[/\\])/imu,
+  "the shipped MLX lock must not include machine-specific absolute input annotations",
+);
 for (const requirementBlock of mlxRequirementsText.split(/(?=^[a-z0-9])/gimu).slice(1)) {
   assert.match(requirementBlock, /==[^\s\\]+/u, "every MLX dependency must be pinned exactly");
   assert.match(requirementBlock, /--hash=sha256:[a-f0-9]{64}/u, "every MLX dependency must carry a SHA-256");
 }
-assert.match(mlxRequirementsText, /^mlx==0\.31\.2\b/mu);
+assert.match(mlxRequirementsText, /^mlx==0\.32\.4\b/mu);
+assert.match(mlxRequirementsText, /^mlx-metal==0\.32\.4\b/mu);
 assert.match(mlxRequirementsText, /^transformers==/mu);
 const mlxStamp = serializeMlxRuntimeManifestStamp();
 assert.match(mlxStamp, new RegExp(MLX_RUNTIME_MANIFEST.mlxLm.revision, "u"));

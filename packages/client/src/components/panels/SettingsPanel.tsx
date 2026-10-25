@@ -77,6 +77,8 @@ import {
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   DEFAULT_IMAGE_STYLE_PROFILES,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+  VIDEO_PER_REPLY_MAX,
+  VIDEO_PER_REPLY_MIN,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
   VIDEO_CALL_CLIP_DURATION_MAX,
   VIDEO_CALL_CLIP_DURATION_MIN,
@@ -200,7 +202,11 @@ import { AccessStatusSettings } from "./settings/AccessStatusSettings";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
 import { FEATURE_SWITCHES_CONTROL_ID, FeatureSwitchesSettings } from "./settings/FeatureSwitchesSettings";
 import { CustomGenerationParametersSettings } from "./settings/CustomGenerationParametersSettings";
-import { ExternalExtensionsSettings, PersonalExtensionsSettings } from "./settings/PersonalExtensionsSettings";
+import {
+  ExternalExtensionsSettings,
+  ExtensionRevisionHistorySettings,
+  PersonalExtensionsSettings,
+} from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
 import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use-agents";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -714,6 +720,7 @@ const GAME_ASSET_CATEGORIES = [
 const VIDEO_PROMPT_TEMPLATE_KEYS = [
   "game.video",
   "roleplay.galleryVideoDirector",
+  "roleplay.clipDirector",
   "conversation.video",
   "conversation.callVideo.idle",
   "conversation.callVideo.talking",
@@ -2281,8 +2288,6 @@ function GeneralSettings() {
   const setMessagesPerPage = useUIStore((s) => s.setMessagesPerPage);
   const boldDialogue = useUIStore((s) => s.boldDialogue);
   const setBoldDialogue = useUIStore((s) => s.setBoldDialogue);
-  const colorInlineNames = useUIStore((s) => s.colorInlineNames);
-  const setColorInlineNames = useUIStore((s) => s.setColorInlineNames);
   const disableInlineNameGradients = useUIStore((s) => s.disableInlineNameGradients);
   const setDisableInlineNameGradients = useUIStore((s) => s.setDisableInlineNameGradients);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
@@ -2619,21 +2624,12 @@ function GeneralSettings() {
             help={localizeUi("settings.controls.loadRemoteMessageImages.help")}
           />
           <ToggleSetting
-            anchorId={getSettingsControlAnchorId("color-inline-names")}
-            label={localizeUi("settings.controls.colorInlineNames.label")}
-            checked={colorInlineNames ?? false}
-            onChange={setColorInlineNames}
-            help={localizeUi("settings.controls.colorInlineNames.help")}
+            anchorId={getSettingsControlAnchorId("disable-inline-name-gradients")}
+            label={localizeUi("settings.controls.disableInlineNameGradients.label")}
+            checked={disableInlineNameGradients ?? false}
+            onChange={setDisableInlineNameGradients}
+            help={localizeUi("settings.controls.disableInlineNameGradients.help")}
           />
-          {colorInlineNames && (
-            <ToggleSetting
-              anchorId={getSettingsControlAnchorId("disable-inline-name-gradients")}
-              label={localizeUi("settings.controls.disableInlineNameGradients.label")}
-              checked={disableInlineNameGradients ?? false}
-              onChange={setDisableInlineNameGradients}
-              help={localizeUi("settings.controls.disableInlineNameGradients.help")}
-            />
-          )}
           <div
             id={getSettingsControlAnchorId("quote-style")}
             className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--accent)]/50"
@@ -2765,6 +2761,10 @@ function OverallGenerationSettings() {
   const setQueueImageGenerationRequests = useUIStore((s) => s.setQueueImageGenerationRequests);
   const reviewImagePromptsBeforeSend = useUIStore((s) => s.reviewImagePromptsBeforeSend);
   const setReviewImagePromptsBeforeSend = useUIStore((s) => s.setReviewImagePromptsBeforeSend);
+  const saveGeneratedImagesAsWebp = useUIStore((s) => s.saveGeneratedImagesAsWebp);
+  const setSaveGeneratedImagesAsWebp = useUIStore((s) => s.setSaveGeneratedImagesAsWebp);
+  const generatedImageWebpQuality = useUIStore((s) => s.generatedImageWebpQuality);
+  const setGeneratedImageWebpQuality = useUIStore((s) => s.setGeneratedImageWebpQuality);
 
   return (
     <SettingsSection
@@ -2788,6 +2788,35 @@ function OverallGenerationSettings() {
           onChange={setReviewImagePromptsBeforeSend}
           help={localizeUi("settings.controls.reviewMediaPrompts.help")}
         />
+        <ToggleSetting
+          anchorId={getSettingsControlAnchorId("generated-image-webp")}
+          label={localizeUi("settings.controls.generatedImageWebp.label")}
+          checked={saveGeneratedImagesAsWebp}
+          onChange={setSaveGeneratedImagesAsWebp}
+          help={localizeUi("settings.controls.generatedImageWebp.help")}
+        />
+        {saveGeneratedImagesAsWebp && (
+          <label
+            id={getSettingsControlAnchorId("generated-image-webp-quality")}
+            className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs">{localizeUi("settings.controls.generatedImageWebpQuality.label")}</span>
+              <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{generatedImageWebpQuality}</span>
+              <HelpTooltip text={localizeUi("settings.controls.generatedImageWebpQuality.help")} />
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={100}
+              step={1}
+              aria-label={localizeUi("settings.controls.generatedImageWebpQuality.label")}
+              value={generatedImageWebpQuality}
+              onChange={(event) => setGeneratedImageWebpQuality(Number(event.target.value))}
+              className="w-full accent-[var(--primary)]"
+            />
+          </label>
+        )}
       </div>
     </SettingsSection>
   );
@@ -2966,6 +2995,10 @@ function VideoGenerationSettings() {
     commitSettings({ ...draft, animatedExpressionClipDurationSeconds: duration });
   };
 
+  const handleVideosPerReplyChange = (count: number) => {
+    commitSettings({ ...draft, maxCharacterVideosPerReply: count });
+  };
+
   return (
     <SettingsSection
       title={localizeUi("settings.sections.videoGeneration.title")}
@@ -3112,6 +3145,34 @@ function VideoGenerationSettings() {
               <span className="text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.noodle.stageprofileview.s")}
               </span>
+            </div>
+          </div>
+
+          <div
+            id={getSettingsControlAnchorId("video-per-reply")}
+            className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+                <HelpTooltip text={localizeUi("ui.panels.videogenerationsettings.videosPerReplyHelp")} />
+              </div>
+              <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.videogenerationsettings.videosPerReplyRange", {
+                  min: VIDEO_PER_REPLY_MIN,
+                  max: VIDEO_PER_REPLY_MAX,
+                })}
+              </div>
+            </div>
+            <div className="sm:w-28">
+              <DraftNumberInput
+                value={draft.maxCharacterVideosPerReply}
+                min={VIDEO_PER_REPLY_MIN}
+                max={VIDEO_PER_REPLY_MAX}
+                onCommit={handleVideosPerReplyChange}
+                className="w-16 min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
+                ariaLabel={localizeUi("ui.panels.videogenerationsettings.videosPerReply")}
+              />
             </div>
           </div>
         </div>
@@ -5365,6 +5426,7 @@ function AddonsSettings() {
       <SettingsIntro>
         {localizeUi("ui.panels.addonssettings.privateCustomBehaviorAndAppearanceSyncedByThisMarinara")}
       </SettingsIntro>
+      <ExtensionRevisionHistorySettings />
       <PersonalExtensionsSettings showIntro={false} />
       {extensionPolicy?.externalExtensionsEnabled && <ExternalExtensionsSettings />}
       <ThemesSettings showIntro={false} />

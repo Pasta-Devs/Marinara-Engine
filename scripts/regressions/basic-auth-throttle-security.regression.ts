@@ -4,18 +4,18 @@
 // address gets 429 with Retry-After, even for the right password, until the
 // window ends. A correct password clears the count, a browser resending one
 // saved wrong password counts once, and loopback, IP_ALLOWLIST and the local
-// proxy rules keep working as before. A browser that signed in before keeps
-// getting in with the correct password while its address is locked, so visitors
-// sharing a local proxy's address cannot lock the owner out. Its cookie is keyed
-// by a server-only secret and buys only a few more tries.
+// proxy rules keep working as before. A browser that signed in on /login keeps a
+// random session token whose hash the server stores, so visitors sharing a local
+// proxy's address cannot lock the owner out.
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import type { FastifyRequest } from "fastify";
 import {
   BASIC_AUTH_FAILURE_LIMIT,
   BASIC_AUTH_FAILURE_WINDOW_MS,
   basicAuthHook,
+  loginRoutes,
   isBasicAuthSatisfied,
 } from "../../packages/server/src/middleware/basic-auth.js";
 import { hostValidationHook } from "../../packages/server/src/middleware/host-validation.js";
@@ -63,6 +63,7 @@ app.addHook("onRequest", rateLimitHook);
 app.addHook("onRequest", basicAuthHook);
 app.get("/", async () => "<!doctype html><title>Marinara</title>");
 app.get("/api/chats", async () => [{ id: "private-chat" }]);
+await app.register(loginRoutes);
 app.get("/api/health", async (request: FastifyRequest) => ({
   status: "ok",
   ...(isBasicAuthSatisfied(request) ? { sidecars: {} } : {}),
@@ -74,6 +75,16 @@ function get(url: string, remoteAddress: string, authorization?: string, headers
     url,
     remoteAddress,
     headers: authorization ? { ...headers, authorization } : headers,
+  });
+}
+
+function signIn(remoteAddress: string, headers: Record<string, string> = HOST, password = "secret") {
+  return app.inject({
+    method: "POST",
+    url: "/login",
+    remoteAddress,
+    headers: { ...headers, "content-type": "application/x-www-form-urlencoded" },
+    payload: `user=mari&password=${encodeURIComponent(password)}`,
   });
 }
 
@@ -176,36 +187,40 @@ try {
   );
 
   // ── A browser that signed in before is not locked out by other visitors' guesses ──
-  const firstSignIn = await get("/", "203.0.113.60", RIGHT);
-  assert.equal(firstSignIn.statusCode, 200);
+  const firstSignIn = await signIn("203.0.113.60");
+  assert.equal(firstSignIn.statusCode, 303);
   const setCookie = String(firstSignIn.headers["set-cookie"] ?? "");
-  const signedInCookie = setCookie.split(";")[0];
-  assert.match(signedInCookie, /^marinara_signed_in=[\w-]+$/, "a correct password sets the signed-in cookie");
+  const signedInCookie = setCookie.split(";")[0] ?? "";
+  assert.match(signedInCookie, /^marinara_session=[\w-]+$/, "signing in on /login sets the session cookie");
   assert.match(setCookie, /; HttpOnly/);
   assert.doesNotMatch(setCookie, /; Secure/, "a plain HTTP sign-in cannot keep a Secure cookie");
+  // A cookie from before server-side sessions signs nobody in.
   const purposeKey = createHmac("sha256", Buffer.from(SERVER_KEY, "hex"))
     .update("basic-auth signed-in browser")
     .digest();
+  const oldCookie = `marinara_signed_in=${createHmac("sha256", purposeKey).update(RIGHT).digest("base64url")}`;
   assert.equal(
-    signedInCookie,
-    `marinara_signed_in=${createHmac("sha256", purposeKey).update(RIGHT).digest("base64url")}`,
-    "the cookie is keyed by the server's own secret, not by the password alone",
+    (await get("/", "203.0.113.61", undefined, { ...HOST, cookie: oldCookie })).statusCode,
+    401,
+    "an old signed-in cookie is ignored",
   );
   assert.equal(
     (await get("/", "203.0.113.60", RIGHT, { ...HOST, cookie: signedInCookie })).headers["set-cookie"],
     undefined,
-    "a browser that has the cookie is not sent it again",
+    "a browser that has a session is not given another",
   );
   const owner = { ...proxied, cookie: signedInCookie };
   assert.equal((await get("/", "127.0.0.1", RIGHT, owner)).statusCode, 200, "the owner's browser still gets in");
   assert.equal((await get("/api/chats", "127.0.0.1", RIGHT, owner)).statusCode, 200);
   assert.deepEqual((await get("/api/health", "127.0.0.1", RIGHT, owner)).json(), { status: "ok", sidecars: {} });
+  // The cookie is the browser's session: it signs in without a password, and a
+  // stale saved password sent next to it is not counted as a guess.
+  assert.equal((await get("/", "127.0.0.1", undefined, owner)).statusCode, 200, "the cookie signs the browser in");
   assert.equal(
-    (await get("/", "127.0.0.1", basic("cookie-guess"), owner)).statusCode,
-    401,
-    "the cookie does not let wrong passwords through",
+    (await get("/", "127.0.0.1", basic("stale-saved"), owner)).statusCode,
+    200,
+    "a stale password next to the cookie is ignored",
   );
-  assert.equal((await get("/", "127.0.0.1", undefined, owner)).statusCode, 401, "nor stand in for the password");
   assert.equal(
     (await get("/", "127.0.0.1", RIGHT, { ...proxied, cookie: "marinara_signed_in=made-up" })).statusCode,
     429,
@@ -219,8 +234,8 @@ try {
 
   // ── One proxied visitor signing in does not clear the others' count ──
   Date.now = () => realNow() + BASIC_AUTH_FAILURE_WINDOW_MS + 1_000;
-  const httpsSignIn = await get("/", "127.0.0.1", RIGHT, { ...proxied, "x-forwarded-proto": "https" });
-  assert.equal(httpsSignIn.statusCode, 200);
+  const httpsSignIn = await signIn("127.0.0.1", { ...proxied, "x-forwarded-proto": "https" });
+  assert.equal(httpsSignIn.statusCode, 303);
   assert.match(
     String(httpsSignIn.headers["set-cookie"]),
     /; Secure/,
@@ -248,31 +263,20 @@ try {
   );
   process.env.BASIC_AUTH_PASS = "secret";
 
-  // ── A copied cookie gets only a few tries of its own ──
-  for (let index = 0; index < BASIC_AUTH_FAILURE_LIMIT; index += 1) {
-    const response = await get("/", "127.0.0.1", basic(`copied-cookie-${index}`), owner);
-    assert.equal(response.statusCode, 401, `copied cookie: try ${index + 1} is still answered`);
-  }
-  assert.equal(
-    (await get("/", "127.0.0.1", RIGHT, owner)).statusCode,
-    429,
-    "after its own tries the cookie no longer gets past the lock",
-  );
-
-  // ── A signed-in browser's health guesses count against its own tries too ──
+  // ── A signed-in browser's health check needs no password, even while its address is locked ──
   const healthOwner = "203.0.113.70";
   const healthOwnerHeaders = { ...HOST, cookie: signedInCookie };
   await guessWrong("/", healthOwner, BASIC_AUTH_FAILURE_LIMIT, "health-owner");
-  for (let index = 0; index < BASIC_AUTH_FAILURE_LIMIT; index += 1) {
-    const response = await get("/api/health", healthOwner, basic(`health-owner-cookie-${index}`), healthOwnerHeaders);
-    assert.deepEqual(response.json(), { status: "ok" });
-  }
   assert.deepEqual(
-    (await get("/api/health", healthOwner, RIGHT, healthOwnerHeaders)).json(),
-    { status: "ok" },
-    "health guesses with the cookie use up its tries",
+    (await get("/api/health", healthOwner, undefined, healthOwnerHeaders)).json(),
+    { status: "ok", sidecars: {} },
+    "the session gets the details",
   );
-  assert.equal((await get("/", healthOwner, RIGHT, healthOwnerHeaders)).statusCode, 429);
+  assert.equal((await get("/", healthOwner, RIGHT)).statusCode, 429, "the address itself stays locked");
+  // Wrong passwords sent with health checks count too.
+  await guessWrong("/api/health", "203.0.113.80", BASIC_AUTH_FAILURE_LIMIT, "health-guess");
+  assert.equal((await get("/", "203.0.113.80", RIGHT)).statusCode, 429, "health-check guesses count");
+
   Date.now = realNow;
   process.env.IP_ALLOWLIST = "192.168.1.20";
   for (let index = 0; index < BASIC_AUTH_FAILURE_LIMIT * 2; index += 1) {
@@ -282,6 +286,35 @@ try {
     assert.equal(response.statusCode, 200, "an allowlisted address skips the password and the count");
   }
   delete process.env.IP_ALLOWLIST;
+
+  // ── Behind a proxy, each browser that opened /login has its own count ──
+  Date.now = () => realNow() + 2 * (BASIC_AUTH_FAILURE_WINDOW_MS + 1_000);
+  const preAuth = async () => {
+    const page = await app.inject({ method: "GET", url: "/login", remoteAddress: "127.0.0.1", headers: proxied });
+    assert.equal(page.statusCode, 200);
+    const cookie = String(page.headers["set-cookie"] ?? "").split(";")[0] ?? "";
+    assert.match(cookie, /^marinara_login_client=[\w-]{22}$/, "the sign-in page gives each browser its own cookie");
+    return { ...proxied, cookie };
+  };
+  const strangerA = await preAuth();
+  const deviceB = await preAuth();
+  assert.notEqual(strangerA.cookie, deviceB.cookie);
+  for (let index = 0; index < BASIC_AUTH_FAILURE_LIMIT; index += 1) {
+    assert.equal((await signIn("127.0.0.1", strangerA, `stranger-${index}`)).statusCode, 401);
+  }
+  assert.equal((await signIn("127.0.0.1", strangerA)).statusCode, 429, "the stranger stays locked");
+  assert.equal(
+    (await signIn("127.0.0.1", deviceB)).statusCode,
+    303,
+    "another browser behind the same proxy can still sign in",
+  );
+  // New cookies cannot buy unlimited guesses: all browsers behind the address share a cap of five times the limit.
+  for (let index = 0; index < BASIC_AUTH_FAILURE_LIMIT * 4; index += 1) {
+    const fresh = { ...proxied, cookie: `marinara_login_client=${randomBytes(16).toString("base64url")}` };
+    assert.equal((await signIn("127.0.0.1", fresh, `dropped-${index}`)).statusCode, 401);
+  }
+  assert.equal((await signIn("127.0.0.1", await preAuth())).statusCode, 429, "the shared cap holds");
+  assert.equal((await get("/", "127.0.0.1", undefined, owner)).statusCode, 200, "a signed-in browser still gets in");
 
   console.info("Basic Auth wrong-password throttle regressions passed.");
 } finally {

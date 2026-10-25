@@ -176,7 +176,7 @@ assert.ok(
 );
 assert.match(
   termuxLauncherSource,
-  /node \.\.\/\.\.\/scripts\/run-server\.mjs dist\/index\.js\s+MARINARA_SERVER_STATUS=\$\?[\s\S]{0,900}exit "\$MARINARA_SERVER_STATUS"/u,
+  /node \.\.\/\.\.\/scripts\/run-server\.mjs dist\/index\.js "\$\{BROWSER_ARGS\[@\]\}"\s+MARINARA_SERVER_STATUS=\$\?[\s\S]{0,900}exit "\$MARINARA_SERVER_STATUS"/u,
   "the Termux launcher must preserve the server process exit status",
 );
 assert.match(

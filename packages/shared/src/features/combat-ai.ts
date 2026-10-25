@@ -161,7 +161,49 @@ export function chooseCombatCandidate<T>(
   turn: number,
   difficulty: GameDifficulty = "normal",
 ): T {
+  return chooseRankedCombatCandidate(unit, candidates, turn, difficulty).candidate.action;
+}
+
+/** What each weighed part of a candidate added to its score, after the unit's weights: risk and cost
+ *  count against it, so theirs are negative. */
+export type CombatAiScoreParts = Partial<
+  Record<
+    "damage" | "finish" | "healing" | "support" | "setup" | "risk" | "cost" | "protection" | "coordination",
+    number
+  >
+>;
+
+/** One candidate as `rankCombatCandidates` scored it. */
+export interface RankedCombatCandidate<T> {
+  candidate: CombatAiCandidate<T>;
+  score: number;
+  parts: CombatAiScoreParts;
+}
+
+/** `chooseCombatCandidate`'s pick with how it was scored, for a log that says why it was made. Keeps
+ *  the unit's memory of its pick exactly as `chooseCombatCandidate` does. */
+export function chooseRankedCombatCandidate<T>(
+  unit: AiCombatant,
+  candidates: CombatAiCandidate<T>[],
+  turn: number,
+  difficulty: GameDifficulty = "normal",
+): RankedCombatCandidate<T> {
   if (!candidates.length) throw new Error("AI needs at least one legal action.");
+  const profile = unit.tactics!;
+  const chosen = rankCombatCandidates(unit, candidates, turn, difficulty)[0]!;
+  profile.holds = chosen.candidate.hold ? Math.min(2, (profile.holds ?? 0) + 1) : 0;
+  if (chosen.candidate.targetId) profile.targetId = chosen.candidate.targetId;
+  return chosen;
+}
+
+/** Every candidate scored the way `chooseCombatCandidate` scores it, best first, with what each part
+ *  added. Changes nothing on the unit. */
+export function rankCombatCandidates<T>(
+  unit: AiCombatant,
+  candidates: CombatAiCandidate<T>[],
+  turn: number,
+  difficulty: GameDifficulty = "normal",
+): Array<RankedCombatCandidate<T>> {
   const profile = unit.tactics!;
   const adjective = profile.adjective;
   const wounded = unit.hp / Math.max(1, unit.maxHp) < 0.35;
@@ -177,18 +219,26 @@ export function chooseCombatCandidate<T>(
     protection: adjective === "protective" ? 2 : 0,
     coordination: adjective === "coordinated" ? 1.5 : 0,
   };
-  const scores = candidates
+  return candidates
     .map((candidate, i) => {
-      let score =
-        (candidate.damage ?? 0) * weights.damage +
-        (candidate.finish ?? 0) * weights.finish +
-        (candidate.healing ?? 0) * weights.healing +
-        (candidate.support ?? 0) * weights.support +
-        (candidate.setup ?? 0) * weights.setup -
-        (candidate.risk ?? 0) * weights.risk -
-        (candidate.cost ?? 0) * weights.cost +
-        (candidate.protection ?? 0) * weights.protection +
-        (candidate.coordination ?? 0) * weights.coordination;
+      const parts: CombatAiScoreParts = {};
+      // Summed in this order, as it always was: risk and cost count against it.
+      let score = 0;
+      for (const key of [
+        "damage",
+        "finish",
+        "healing",
+        "support",
+        "setup",
+        "risk",
+        "cost",
+        "protection",
+        "coordination",
+      ] as const) {
+        const part = (candidate[key] ?? 0) * weights[key] * (key === "risk" || key === "cost" ? -1 : 1);
+        score += part;
+        if (part !== 0) parts[key] = part;
+      }
       if (adjective === "methodical" && profile.targetId !== undefined && candidate.targetId === profile.targetId)
         score += 0.35;
       if (candidate.hold && (profile.holds ?? 0) < 1) {
@@ -196,11 +246,7 @@ export function chooseCombatCandidate<T>(
         if (adjective === "cowardly" && wounded) score += 0.8;
       }
       score += combatAiScoreNoise(profile, unit.id, turn, i, difficulty);
-      return { candidate, score };
+      return { candidate, score, parts };
     })
     .sort((a, b) => b.score - a.score);
-  const chosen = scores[0]!.candidate;
-  profile.holds = chosen.hold ? Math.min(2, (profile.holds ?? 0) + 1) : 0;
-  if (chosen.targetId) profile.targetId = chosen.targetId;
-  return chosen.action;
 }

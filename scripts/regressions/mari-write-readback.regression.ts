@@ -364,10 +364,6 @@ assert.ok(
   workspaceAgentFlat.includes(`${emitterGate} ${dryRunGate} \`Command: \${engineLineText(command)}\``),
   "the mari-CLI runtime must emit the read-back gate, then the dry-run gate, immediately before its Command header",
 );
-assert.ok(
-  workspaceAgentFlat.includes(`${emitterGate} \`Command: app_data \${action}\``),
-  "the app_data runtime must emit the sentinel gate immediately before its Command header",
-);
 // Debt semantics: a self-verified mutation never pays off an earlier one.
 assert.ok(
   workspaceAgentFlat.includes(

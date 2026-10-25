@@ -26,7 +26,13 @@ export interface ProviderDefinition {
 export type ProviderBilling = "pay_per_use" | "plan" | "local" | "free_tier";
 
 /** Connections that can't answer a chat request: pictures, video, audio and decisions. */
-export const NON_CHAT_PROVIDERS: readonly APIProvider[] = ["image_generation", "video_generation", "audio", "decision"];
+export const NON_CHAT_PROVIDERS: readonly APIProvider[] = [
+  "image_generation",
+  "video_generation",
+  "audio_generation",
+  "audio",
+  "decision",
+];
 
 /** Whether a connection of this provider can answer a chat or agent request. */
 export function isChatProvider(provider: unknown): boolean {
@@ -81,6 +87,15 @@ export function localAuthProviderBaseUrl(provider: string | null | undefined): s
 }
 
 export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
+  audio_generation: {
+    id: "audio_generation",
+    name: "Music & Sound Effects",
+    defaultBaseUrl: "https://api.elevenlabs.io",
+    modelsEndpoint: "",
+    supportsStreaming: false,
+    usesAuthHeader: false,
+    apiKeyHeader: null,
+  },
   openai: {
     id: "openai",
     protocol: "openai_chat",

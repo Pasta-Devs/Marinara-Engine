@@ -33,6 +33,7 @@ import {
 } from "@marinara-engine/shared";
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { saveGamePartySheet } from "../services/game/game-party-sheet.service.js";
+import { moveGameRulesetVersion } from "../services/game/game-ruleset-version.service.js";
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { GAME_RULESETS_RATE_LIMIT } from "../middleware/rate-limit.js";
@@ -174,15 +175,31 @@ function pinnedRulesetVersion(metadata: unknown): number | null {
  *  the request here refuses an oversized body before it is buffered and parsed. */
 const IMPORT_BODY_LIMIT = RULESET_MAX_BYTES * 6 + 16_384;
 
+const gameVersionRequestSchema = z
+  .object({ chatId: z.string().min(1).max(200), version: z.number().int().min(1) })
+  .strict();
+
 const partySheetRequestSchema = z
   .object({
     chatId: z.string().min(1).max(200),
-    sheet: z.unknown(),
+    sheet: z.unknown().optional(),
     revision: z.number().int().min(0).max(1_000_000_000),
   })
   .strict();
 
 export async function gameRulesetsRoutes(app: FastifyInstance) {
+  // A game moved onto a newer stored version of its imported ruleset, from the Journal. The game's
+  // own choice, as its other settings are: not an administrative gate.
+  app.post("/game-version", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
+    const parsed = gameVersionRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Invalid request", issues: parsed.error.issues.slice(0, 10) });
+    }
+    const moved = await moveGameRulesetVersion(app.db, parsed.data);
+    if (!moved.ok) return reply.status(moved.status).send({ error: moved.error });
+    return { version: moved.version };
+  });
+
   // The party's shared sheet (1.163), saved on the revision it was opened at.
   // A party member's save, like a character sheet's: behind the server's own access, not an administrative gate.
   app.post("/party-sheet", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {

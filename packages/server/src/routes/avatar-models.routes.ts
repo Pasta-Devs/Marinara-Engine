@@ -30,6 +30,7 @@ import {
   type AvatarOwnerRef,
 } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
+import { validationDetails } from "../middleware/error-handler.js";
 import { AVATAR_FORMAT_IMPORTERS, findAvatarImporter } from "../services/avatars/formats/registry.js";
 import {
   AVATAR_IMPORT_MAX_BYTES,
@@ -150,7 +151,8 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
       if (!owner) return reply.status(400).send({ error: "Invalid character or persona" });
       const parsed = avatarConfigUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid avatar settings" });
+        const [issue] = validationDetails(parsed.error.issues);
+        return reply.status(400).send({ error: issue?.message ?? "Invalid avatar settings" });
       }
       if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
       const update = parsed.data;

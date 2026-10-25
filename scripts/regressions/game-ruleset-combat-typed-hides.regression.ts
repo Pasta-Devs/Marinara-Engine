@@ -457,13 +457,13 @@ try {
   }
   refused((doc) => {
     doc.combat.conditions.at(-1).resist = [];
-  }, /at least 1/);
+  }, /resist: Too small: expected array to have >=1 items/);
   refused((doc) => {
     doc.combat.levels.at(-1).immune = Array(31).fill("fire");
-  }, /at most 30/);
+  }, /immune: Too big: expected array to have <=30 items/);
   refused((doc) => {
     doc.combat.sheetHides = Array(9).fill(doc.combat.sheetHides[0]);
-  }, /at most 8/);
+  }, /sheetHides: Too big: expected array to have <=8 items/);
   parsed(
     document((doc) => {
       delete doc.combat.damageTypes;

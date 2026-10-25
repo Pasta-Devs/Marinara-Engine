@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 
 const root = resolve(import.meta.dirname, "../..");
 const serverRequire = createRequire(join(root, "packages/server/package.json"));
+const compiled = process.env.MARINARA_RESTART_COMPILED === "true";
 const dir = mkdtempSync(join(tmpdir(), "marinara-restart-supervisor-"));
 const probe = createServer();
 await new Promise<void>((done) => probe.listen(0, "127.0.0.1", done));
@@ -20,9 +21,10 @@ const child = spawn(
   process.execPath,
   [
     join(root, "scripts/run-server.mjs"),
-    "--import",
-    pathToFileURL(serverRequire.resolve("tsx/esm")).href,
-    join(root, "scripts/regressions/fixtures/restart-server.ts"),
+    "--report-exclude-env",
+    "--report-exclude-network",
+    ...(compiled ? [] : ["--import", pathToFileURL(serverRequire.resolve("tsx/esm")).href]),
+    join(root, "scripts/regressions/fixtures/restart-server.mjs"),
   ],
   {
     env: {

@@ -56,6 +56,10 @@ This clears pnpm's outdated install record and reinstalls the dependencies. Your
 
 If Sharp still cannot load, Engine now keeps running with image processing off: thumbnails it has already made still show, new ones show the full-size image instead, and sprite generation and the built-in background removal are unavailable. Do not replace Sharp with an unrelated version. Keep the complete error output when you report the problem.
 
+### Browser opens before startup finishes
+
+Update Marinara Engine and restart it through its launcher. The launcher now opens the browser only after the server reports that initialization is complete, including any build repair. It does not use a fixed timer. The `.env` injection message alone is not a readiness signal. If startup fails, keep the terminal error for support; no new tab should open. Set `AUTO_OPEN_BROWSER=false` if you prefer to open the app yourself.
+
 ### Blank page or JavaScript served as HTML after an update
 
 An error such as "Failed to load module script" with a `text/html` MIME type can mean the browser requested a JavaScript file that is missing from the installed build. The previous-session shutdown warning does not identify this problem, and deleting a writer lease or your data will not repair the assets.
@@ -74,7 +78,7 @@ Pick one fix:
 2. Install pnpm yourself. Run this command, then run the launcher again:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@12.15.0
 ```
 
 3. Update corepack in an administrator terminal, then run the launcher again:
@@ -90,17 +94,17 @@ Marinara v2.3.0 could start pnpm through Corepack successfully and then fail dur
 If the checkout itself cannot update, run `git pull` in the Marinara folder and start it again. As a temporary v2.3.0 workaround, install the pinned package manager globally, rerun the launcher, and then update normally:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@12.15.0
 ```
 
-### Launcher update to pnpm 10.34.5
+### Launcher package-manager handoff
 
-Marinara v2.4.1 moves its pinned package manager to pnpm 10.34.5. An existing 10.33.2 launcher can finish that one-time handoff in the same run; the refreshed launcher then selects 10.34.5 for future starts. Corepack verifies the release against the SHA-512 digest pinned in `package.json`, and the npm fallback also requests exactly 10.34.5 rather than an unpinned latest version.
+Marinara uses pnpm 12.15.0. Update Engine, then run `start.bat`, `start.sh` or `start-termux.sh` again. The launcher obtains the required version for you; an older global pnpm does not need to be replaced first. If that still fails, install the exact version with the command below and rerun the launcher.
 
 If an earlier v2.4.1 staging build already stopped with `Expected version: >=10.34.5` and `Got: 10.33.2`, run the launcher once more; that build downloaded the refreshed launcher before stopping. If the launcher still cannot obtain the pinned release automatically, install the exact version and rerun it:
 
 ```bash
-npm install -g pnpm@10.34.5
+npm install -g pnpm@12.15.0
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG during install
@@ -155,13 +159,16 @@ If you cannot access Marinara from a phone, tablet, or another computer on your 
 - Bind the server to a reachable address. The server listens on `127.0.0.1` (loopback, your own machine only) by default. The shell launchers set `HOST=0.0.0.0` for you. If you started with `pnpm start` by hand, set `HOST=0.0.0.0` in your `.env` file first.
 - Confirm both devices are on the same Wi-Fi network.
 - Confirm no firewall blocks the port. The default port is `7860`, or whatever you set as `PORT`.
-- Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless, but visitors forwarded by a reverse proxy or tunnel on the same machine need the login. Direct Tailscale traffic is trusted by default, but Tailscale Serve/Funnel and nginx's default HTTP/1.0 `proxy_pass` count as relayed and need the login. Same-host Docker bridge or gateway traffic is trusted only until you set Basic Auth or `IP_ALLOWLIST`; proxy-forwarded Docker traffic requires normal authorization unless you explicitly set `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`.
-- If you open Marinara on this computer through a custom name that maps to `127.0.0.1` in `/etc/hosts`, Marinara counts the visit as relayed. Use `localhost`, `127.0.0.1`, or the machine's hostname instead, or a `*.localhost` name such as `marinara.localhost`. Set `REQUIRE_AUTH_FOR_LOOPBACK_PROXY=false` only when the proxy itself requires a login from every visitor.
-- If the device shows **Too many wrong passwords**, wait 15 minutes, then sign in with the correct Basic Auth password. Restarting the server also lets it try again.
+- Set a login. On the blocked device, type the one-time setup code from the server log (in Docker: `docker logs <container> 2>&1 | grep "setup code"`) with a new username and password. Or set the login in **Settings → Advanced → Access** in a browser that is already signed in. On a headless server, run `ssh -L 7860:127.0.0.1:7860 user@server`, then open `http://localhost:7860` and use **Settings**. See [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended).
+- Loopback stays passwordless, but visitors forwarded by a reverse proxy or tunnel on the same machine need the login. Direct Tailscale traffic is trusted by default, but Tailscale Serve/Funnel and nginx's default HTTP/1.0 `proxy_pass` count as relayed and need the login. Same-host Docker bridge or gateway traffic is trusted only while no login (an app login or Basic Auth), `IP_ALLOWLIST`, or `TRUSTED_AUTH_PROXY` is set; proxy-forwarded Docker traffic requires normal authorization.
+- If you open Marinara on this computer through a custom name that maps to `127.0.0.1` in `/etc/hosts`, Marinara counts the visit as relayed. Use `localhost`, `127.0.0.1`, or the machine's hostname instead, or a `*.localhost` name such as `marinara.localhost`.
+- If the device shows **Too many wrong passwords**, wait 15 minutes, then sign in with the correct password. Forgot it? Run `pnpm reset-login` on the computer that runs Marinara (in Docker: `docker exec <container> node scripts/reset-login.mjs`). Restarting the server also lets it try again.
 - For privileged actions from that device (backups, data clearing, updates), set `ADMIN_SECRET` in the server `.env`. Then paste the same value into **Settings** > **Advanced** > **Admin Access** on that device and click **Save**.
 - If you use a public or reverse-proxy domain and see **Untrusted request host**, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses used by phones, LAN computers, and Tailscale peers remain accepted automatically.
 
 For the full walkthrough, see [Remote Access](REMOTE_ACCESS.md) and the [Frequently Asked Questions](FAQ.md).
+
+If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 
 ## Save blocked, or settings that do not persist
 

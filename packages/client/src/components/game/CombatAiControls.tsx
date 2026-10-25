@@ -13,14 +13,12 @@ interface Member {
 
 export function CombatAiControls({
   party,
-  enemies,
   defaultController,
   locked,
   onChange,
   className,
 }: {
   party: Member[];
-  enemies: Member[];
   defaultController: CombatController;
   locked: boolean;
   onChange: (id: string, controller: CombatController) => void;
@@ -65,13 +63,6 @@ export function CombatAiControls({
             </select>
           </label>
         ))}
-        {enemies
-          .filter((member) => member.tactics)
-          .map((member) => (
-            <p key={member.id} className="text-[var(--muted-foreground)]">
-              {describe(member)}
-            </p>
-          ))}
       </div>
     </details>
   );

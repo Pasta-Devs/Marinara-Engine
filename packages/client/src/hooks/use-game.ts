@@ -51,6 +51,7 @@ import type {
   WorldInterior,
   WorldTown,
   WorldTownVisit,
+  WorldSeason,
   WorldWalk,
 } from "@marinara-engine/shared";
 import { isJsonRecord } from "@marinara-engine/shared";
@@ -989,6 +990,8 @@ export interface OverworldState {
   locked?: Record<string, "sealed">;
   /** Sites the story keeps off the overworld until revealed. */
   hidden?: string[];
+  /** The places the story holds at a season whatever the day (1.351), by place id; none: the day's. */
+  seasons?: Record<string, WorldSeason>;
 }
 
 /** The world as the party knows it (the Journal's World tab), read again after each turn (`turnKey`), so

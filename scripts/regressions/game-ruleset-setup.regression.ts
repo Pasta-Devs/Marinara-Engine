@@ -47,6 +47,12 @@ const installed: InstalledRuleset = { packageId: "ruleset-5e-2014", definition: 
   // No sheet, or something that is not one: a blank default, never invented numbers.
   assert.deepEqual(copyRulesetSheetForGame(fiveE, undefined), createRulesetSheetEnvelope(fiveE));
   assert.deepEqual(copyRulesetSheetForGame(fiveE, "garbage"), createRulesetSheetEnvelope(fiveE));
+  // The guided builder's picks go along with the build, so the game's copy opens as built.
+  const built = { ...stored, builder: { picks: { race: ["elf"] } } };
+  const builtCopy = copyRulesetSheetForGame(fiveE, built) as typeof built;
+  assert.deepEqual(builtCopy.builder, { picks: { race: ["elf"] } });
+  builtCopy.builder.picks.race.push("dwarf");
+  assert.deepEqual(built.builder.picks.race, ["elf"], "the copy's picks are its own");
   // A sheet saved under an older sheet version is carried forward to the current one.
   assert.equal(copyRulesetSheetForGame({ ...fiveE, sheet: { ...fiveE.sheet, version: 4 } }, stored).v, 4);
 }
@@ -173,6 +179,11 @@ await app.register(gameRoutes, { prefix: "/api/game" });
 try {
   const create = (setupConfig: Record<string, unknown>) =>
     app.inject({ method: "POST", url: "/api/game/create", payload: { name: "Ruleset setup", setupConfig } });
+  const invalidParameters = await create({ ...baseConfig, generationParameters: { temperature: "hot" } });
+  assert.equal(invalidParameters.statusCode, 400, invalidParameters.body);
+  assert.deepEqual(invalidParameters.json(), {
+    error: "Invalid game setup: Invalid input: expected number, received string",
+  });
 
   // The client's version and package are not trusted: the pin is rebuilt from what is installed.
   const pinned = await create({ ...baseConfig, ruleset: { id: "5e-2014", version: 99, packageId: "someone-else" } });
@@ -352,6 +363,20 @@ try {
       assert.equal(recruited.statusCode, 200, recruited.body);
       assert.match(prompt, /Mira/, "the party's cards are shown");
       assert.doesNotMatch(prompt, /rulesetSheet/, `no sheet in the prompt: ${prompt.slice(0, 400)}`);
+      // Writing a member's card uses its selected chat alternative without changing the source.
+      await characters.update(withSheet.id, {
+        description: "BASE GAME SHEET DESCRIPTION",
+        extensions: {
+          cardFieldAlternatives: [
+            {
+              id: "sheet-description",
+              field: "description",
+              value: "ALTERNATIVE GAME SHEET DESCRIPTION",
+              chatIds: [partyChatId],
+            },
+          ],
+        },
+      } as never);
       // Writing a member's card again shows their own card and the others', none with a sheet.
       prompt = "";
       const regenerated = await app.inject({
@@ -367,6 +392,45 @@ try {
       assert.equal(regenerated.statusCode, 200, regenerated.body);
       assert.match(prompt, /Tam the Bold/, "the rest of the party is shown");
       assert.match(prompt, /existing_target_party_sheet/, "and Mira's own card");
+      assert.match(prompt, /ALTERNATIVE GAME SHEET DESCRIPTION/);
+      assert.doesNotMatch(prompt, /BASE GAME SHEET DESCRIPTION/);
+      assert.equal(
+        JSON.parse((await characters.getById(withSheet.id))!.data).description,
+        "BASE GAME SHEET DESCRIPTION",
+      );
+      assert.doesNotMatch(prompt, /rulesetSheet/, `no sheet in the prompt: ${prompt.slice(0, 400)}`);
+      const scopedPersona = await characters.createPersona(
+        "Scoped player",
+        "BASE PLAYER SHEET DESCRIPTION",
+        undefined,
+        {
+          cardFieldAlternatives: JSON.stringify([
+            {
+              id: "player-description",
+              field: "description",
+              value: "ALTERNATIVE PLAYER SHEET DESCRIPTION",
+              chatIds: [partyChatId],
+            },
+          ]),
+        },
+      );
+      assert.ok(scopedPersona);
+      await createChatsStorage(db).update(partyChatId, { personaId: scopedPersona.id });
+      prompt = "";
+      const regeneratedPersona = await app.inject({
+        method: "POST",
+        url: "/api/game/character-sheet/regenerate",
+        payload: {
+          chatId: partyChatId,
+          characterId: `persona:${scopedPersona.id}`,
+          characterName: "Scoped player",
+          connectionId: connection.id,
+        },
+      });
+      assert.equal(regeneratedPersona.statusCode, 200, regeneratedPersona.body);
+      assert.match(prompt, /ALTERNATIVE PLAYER SHEET DESCRIPTION/);
+      assert.doesNotMatch(prompt, /BASE PLAYER SHEET DESCRIPTION/);
+      assert.equal((await characters.getPersona(scopedPersona.id))!.description, "BASE PLAYER SHEET DESCRIPTION");
       assert.doesNotMatch(prompt, /rulesetSheet/, `no sheet in the prompt: ${prompt.slice(0, 400)}`);
     } finally {
       provider.closeAllConnections();

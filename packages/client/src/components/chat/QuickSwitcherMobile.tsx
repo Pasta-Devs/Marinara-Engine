@@ -101,7 +101,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
     const parsedGroups: ParsedGroup[] = [];
 
     for (const g of groupRows) {
-      let memberIds: string[] = [];
+      let memberIds: string[];
       try {
         memberIds = JSON.parse(g.personaIds);
       } catch {

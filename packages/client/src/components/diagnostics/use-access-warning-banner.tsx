@@ -1,8 +1,8 @@
 // ──────────────────────────────────────────────
 // Diagnostic: owner-only access warning banner
 // ──────────────────────────────────────────────
-// Reads /api/access/status, which answers only the owner (this computer or the
-// admin secret). Everyone else gets 403 and sees nothing. Warns on every page
+// Reads /api/access/status, which answers only the owner (this computer, a browser
+// signed in with the login, or the admin secret). Everyone else gets 403 and sees nothing. Warns on every page
 // while some visitor can open Marinara without a password.
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -16,12 +16,19 @@ export type AccessStatus = {
   loopbackOnly: boolean;
   host: string;
   basicAuth: boolean;
+  /** Where the login comes from: .env wins over the one saved in the app. */
+  loginSource: "env" | "app" | null;
+  loginUser: string | null;
   adminSecret: boolean;
   allowlist: boolean;
+  /** TRUSTED_AUTH_PROXY names a proxy that logs visitors in instead. */
+  trustedAuthProxy: boolean;
   passwordlessPeers: PasswordlessPeer[];
   /** Peers a login password would not close. */
   loginKeepsOpen: PasswordlessPeer[];
   viaProxy: boolean;
+  /** A signed-in browser elsewhere confirms login changes with the current password. */
+  needsCurrentPassword: boolean;
 };
 
 export function useAccessStatus() {
@@ -51,6 +58,7 @@ export function useAccessWarningBanner(): AppBannerCandidate | null {
     id: `access-open:${peers.join(",")}`,
     // Critical comes back next session; an internet-wide door should not stay dismissed.
     severity: peers.includes("internet") ? "critical" : "warning",
+    tone: "accent",
     title: t("ui.diagnostics.accessWarningBanner.title"),
     body: t("ui.diagnostics.accessWarningBanner.who", {
       list: new Intl.ListFormat(i18n.language).format(peers.map((peer) => t(`settings.accessStatus.peer.${peer}`))),

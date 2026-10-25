@@ -90,3 +90,12 @@ export function formatGameTime(time: GameTime): string {
 export function createInitialTime(): GameTime {
   return { day: 1, hour: 8, minute: 0 };
 }
+
+/** A game's clock as minutes from its start, as the story counts time in a place (Capability API 1.362);
+ *  undefined when the game keeps no clock. */
+export function gameClockMinutes(time: unknown): number | undefined {
+  const { day, hour, minute } = (time ?? {}) as Partial<Record<keyof GameTime, unknown>>;
+  if (typeof day !== "number" || !Number.isFinite(day)) return undefined;
+  const at = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  return Math.max(0, Math.round(day * 24 * 60 + at(hour) * 60 + at(minute)));
+}

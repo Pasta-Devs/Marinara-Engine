@@ -34,12 +34,15 @@ import { GenerationFallbackMarker } from "./GenerationFallbackMarker";
 import {
   HiddenFromAIConversationButton,
   ConversationMessageLightbox,
+  ConversationMessageEditForm,
   ConversationMessageSwipes,
   type MessageData,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
+import { SystemMessage } from "./SystemMessage";
+import { RoleplayMessagePreview } from "./ChatMessage";
 import { MessageMarkIndicators } from "./MessageMarks";
 import { ConversationMessageGrouped } from "./ConversationMessageGrouped";
 import { ConversationMessageBubble } from "./ConversationMessageBubble";
@@ -1112,35 +1115,42 @@ export const ConversationMessage = memo(function ConversationMessage({
     }
 
     return (
-      <div
-        ref={msgRef}
-        className={cn(
-          "group flex justify-center py-1",
-          multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
-        )}
-        onClick={handleMobileTap}
-      >
-        <div className="relative">
-          {!multiSelectMode && onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(message.id);
-              }}
-              className={cn(
-                "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100",
-                showActions && "opacity-100",
-              )}
-              title={localizeUi("lorebook.editor.batch.delete")}
-            >
-              <Trash2 size="0.75rem" />
-            </button>
+      <>
+        <SystemMessage
+          message={message}
+          messageRef={msgRef}
+          editing={editing}
+          copied={copied}
+          showActions={showActions || !!forceShowActions}
+          multiSelectMode={multiSelectMode}
+          isSelected={isSelected}
+          hiddenFromAI={isHiddenFromAI}
+          fontSize={chatFontSize}
+          onClick={handleMobileTap}
+          onCopy={handleCopy}
+          onEdit={onEdit ? handleStartEdit : undefined}
+          onBranch={onBranch ? () => onBranch(message.id) : undefined}
+          onToggleHiddenFromAI={
+            onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined
+          }
+          onDelete={onDelete ? () => onDelete(message.id) : undefined}
+        >
+          {editing ? (
+            <ConversationMessageEditForm
+              editRef={editRef}
+              editValue={editValue}
+              onValueChange={setEditValue}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              messageTextStyle={messageTextStyle}
+              quoteFormat={quoteFormat}
+            />
+          ) : (
+            <RoleplayMessagePreview content={displayedContent} />
           )}
-          <span className="rounded-full bg-[var(--secondary)] px-3 py-1 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
-            {message.content}
-          </span>
-        </div>
-      </div>
+        </SystemMessage>
+        {modals}
+      </>
     );
   }
 

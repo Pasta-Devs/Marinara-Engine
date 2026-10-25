@@ -4,12 +4,15 @@ import { skillCheckDiceSumToTotal, type DiceRollResult } from "@marinara-engine/
 import { cn } from "../../lib/utils";
 import { DiceGlyph, type DiceGlyphPhase, type DiceGlyphSize } from "./DiceGlyph";
 import { getFaceLabel } from "./dice-shapes";
+import { parseDiceSides, TONE_ACCENT, type Tone } from "./dice-tone";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type DiceRollMode = "chat" | "game" | "compact";
 
 interface AnimatedDiceRollProps extends DiceRollResult {
   accentColor?: string;
+  /** Tints the card by outcome when no explicit accent is given. */
+  tone?: Tone;
   mode?: DiceRollMode;
   animate?: boolean;
   onDismiss?: () => void;
@@ -27,11 +30,6 @@ interface AnimatedDiceRollProps extends DiceRollResult {
   /** What each face of the die is worth, lowest first, where it is not its own number (Fate's
    *  `[-1, 0, 1]`). Given, each die shows its worth and the breakdown adds the worths. */
   faceValues?: number[];
-}
-
-function parseDiceSides(notation: string): number {
-  const match = notation.trim().match(/^(?:\d+)?d(\d+)/i);
-  return match ? Number.parseInt(match[1]!, 10) : 0;
 }
 
 function randomFace(sides: number): number {
@@ -68,6 +66,7 @@ export function AnimatedDiceRoll({
   total,
   dc,
   accentColor,
+  tone,
   mode = "chat",
   animate = false,
   onDismiss,
@@ -78,6 +77,7 @@ export function AnimatedDiceRoll({
   threshold,
   compare,
   faceValues,
+  label,
 }: AnimatedDiceRollProps) {
   const { t: localizeUi } = useUiTranslation();
   const sides = parseDiceSides(notation);
@@ -122,7 +122,8 @@ export function AnimatedDiceRoll({
     };
   }, [rollKey, rolls, shouldAnimate, sides]);
 
-  const style = accentColor ? ({ "--dice-accent": accentColor } as CSSProperties) : undefined;
+  const resolvedAccent = accentColor ?? (tone ? TONE_ACCENT[tone] : undefined);
+  const style = resolvedAccent ? ({ "--dice-accent": resolvedAccent } as CSSProperties) : undefined;
   const modifierText = modifier !== 0 ? `${modifier > 0 ? "+" : ""}${modifier}` : "";
   // What a face adds, where the die's faces are worth other numbers.
   const worthOf = (face: number) => faceValues?.[face - 1] ?? face;
@@ -164,6 +165,8 @@ export function AnimatedDiceRoll({
           ✦
         </span>
         <span>
+          {/* Who rolled, or why, when the roll said: a party's rolls otherwise all look alike. */}
+          {label ? localizeUi("ui.dice.rolledBy", { name: label }) : ""}
           {notation}
           {dc !== undefined && (
             <>

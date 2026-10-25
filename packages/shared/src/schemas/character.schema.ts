@@ -2,6 +2,8 @@
 // Character Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { partialInput } from "../utils/zod-input.js";
+import { cardFieldAlternativesSchema } from "./card-field-alternative.schema.js";
 import { choiceDisplayModeSchema, choiceOptionSchema, choiceOptionSortSchema } from "./prompt.schema.js";
 import { storedRulesetSheetsSchema } from "./ruleset.schema.js";
 
@@ -91,7 +93,8 @@ export const characterExtensionsSchema = z
     talkativeness: z.number().min(0).max(1).default(0.5),
     fav: z.boolean().default(false),
     world: z.string().default(""),
-    depth_prompt: depthPromptSchema.default({}),
+    depth_prompt: depthPromptSchema.prefault({}),
+    cardFieldAlternatives: cardFieldAlternativesSchema.optional(),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
     /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
@@ -119,7 +122,7 @@ export const characterBookEntrySchema = z
   .object({
     keys: z.array(z.string()).default([]),
     content: z.string().default(""),
-    extensions: z.record(z.unknown()).default({}),
+    extensions: z.record(z.string(), z.unknown()).prefault({}),
     enabled: z.boolean().default(true),
     insertion_order: z.number().default(100),
     case_sensitive: z.boolean().default(false),
@@ -143,7 +146,7 @@ export const characterBookSchema = z
     scan_depth: z.number().default(2),
     token_budget: z.number().default(512),
     recursive_scanning: z.boolean().default(false),
-    extensions: z.record(z.unknown()).default({}),
+    extensions: z.record(z.string(), z.unknown()).prefault({}),
     entries: z.array(characterBookEntrySchema).default([]),
   })
   .passthrough();
@@ -151,7 +154,7 @@ export const characterBookSchema = z
 export const characterDataSchema = z
   .object({
     name: z.string().trim().min(1),
-    summary: z.string().trim().max(500).default(""),
+    summary: z.string().trim().default(""),
     description: z.string().default(""),
     personality: z.string().default(""),
     scenario: z.string().default(""),
@@ -164,7 +167,7 @@ export const characterDataSchema = z
     creator: z.string().default(""),
     character_version: z.string().default("1.0"),
     alternate_greetings: z.array(z.string()).default([]),
-    extensions: characterExtensionsSchema.default({}),
+    extensions: characterExtensionsSchema.prefault({}),
     character_book: characterBookSchema.nullable().default(null),
   })
   .passthrough();
@@ -179,17 +182,16 @@ export const createCharacterSchema = z.object({
   data: characterDataSchema,
 });
 
-const updateCharacterExtensionsSchema = characterExtensionsSchema.partial().extend({
-  // Zod 3 short-circuits these optional wrappers before applying the nested
-  // schema defaults. Revalidate this omission behavior before upgrading to Zod 4.
-  depth_prompt: depthPromptSchema.partial().optional(),
-  convoBehavior: convoBehaviorConfigSchema.partial().optional(),
+const updateCharacterExtensionsSchema = partialInput(characterExtensionsSchema).extend({
+  // Keep nested updates sparse, while supplied fields still validate normally.
+  depth_prompt: partialInput(depthPromptSchema).optional(),
+  convoBehavior: partialInput(convoBehaviorConfigSchema).optional(),
 });
 
 export const updateCharacterSchema = z.object({
-  data: characterDataSchema.partial().extend({
+  data: partialInput(characterDataSchema).extend({
     extensions: updateCharacterExtensionsSchema.optional(),
-    character_book: characterBookSchema.partial().nullable().optional(),
+    character_book: partialInput(characterBookSchema).nullable().optional(),
   }),
 });
 
@@ -200,7 +202,7 @@ export const createGroupSchema = z.object({
   characterIds: z.array(z.string()).default([]),
 });
 
-export const updateGroupSchema = createGroupSchema.partial();
+export const updateGroupSchema = partialInput(createGroupSchema);
 
 export const createPersonaGroupSchema = z.object({
   name: z.string().min(1),
@@ -208,7 +210,7 @@ export const createPersonaGroupSchema = z.object({
   personaIds: z.array(z.string()).default([]),
 });
 
-export const updatePersonaGroupSchema = createPersonaGroupSchema.partial();
+export const updatePersonaGroupSchema = partialInput(createPersonaGroupSchema);
 
 export type CreateCharacterInput = z.infer<typeof createCharacterSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>;

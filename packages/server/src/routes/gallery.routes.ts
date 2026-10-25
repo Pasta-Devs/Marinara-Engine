@@ -77,15 +77,33 @@ import {
   compactVideoPromptText,
   excerptIllustrationPromptForVideo,
   resolveGalleryVideoNarrationSummary,
+  formatRecentVideoContext,
   resolveGalleryVideoSourceExchange,
 } from "../services/video/prompt-context.js";
 import { resolveSceneVideoPrompt, SceneVideoPromptReviewError } from "../services/video/scene-video-prompt-review.js";
-import { generateConversationVideo } from "../services/generation/conversation-video-runtime.js";
+import {
+  formatVideoAppearanceDetails,
+  videoInstructionsUseAppearance,
+} from "../services/video/appearance-reference.js";
+import { writeRoleplayClipDirection } from "../services/video/roleplay-clip-writer.js";
+import {
+  generateConversationVideo,
+  namesMentionedByPart,
+  withoutQuotedSpeech,
+  loadIllustratorContextSize,
+} from "../services/generation/conversation-video-runtime.js";
 import {
   ChatVideoError,
   generateAndSaveChatVideo,
+  generateRoleplayClip,
+  resolveChatVideoSetup,
+  roleplayVideoFirstFrame,
   toVideoReferenceImage,
 } from "../services/video/chat-video-generation.js";
+import {
+  readPreferredCharacterReferenceImage,
+  readPreferredPersonaReferenceImage,
+} from "../services/image/illustrator-references.js";
 import {
   attachVideoToMessage,
   buildChatVideoAttachment,
@@ -94,10 +112,6 @@ import {
   type ChatVideoAnchor,
   serializeSceneVideo,
 } from "../services/video/chat-video-messages.js";
-import {
-  buildRoleplayVideoDirectionMessages,
-  resolveRoleplayVideoDirection,
-} from "../services/video/roleplay-video-direction.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { newId } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -428,6 +442,9 @@ function sourceGalleryImagePathForMetadata(image: ChatGalleryImageRow): string {
   return `gallery/${image.filePath.replace(/\\/g, "/")}`;
 }
 
+// Kept apart from roleplay-clip-writer's copy on purpose: these reads off this file's parseChatMetadata binding are
+// how the capability guard (capability-gm-verbs regression) knows `scenario` is the Engine's own chat-metadata key.
+// A shared helper reading it off a parameter is invisible to that sweep, which would let a package claim the key.
 function buildRoleplayVideoSettingLine(chat: ChatRow, meta: Record<string, unknown>, maxPartLength: number): string {
   const parts = [
     readTrimmedString(meta.groupScenarioText),
@@ -699,16 +716,126 @@ export async function galleryRoutes(app: FastifyInstance) {
     const names = new Set<string>();
     const { characterIds, personaIds } = await collectChatAssetParticipants(chat);
     for (const characterId of characterIds.slice(0, 8)) {
-      const character = await characters.getById(characterId);
+      const character = await characters.getById(characterId, chat.id);
       const name = getCharacterName(character, "");
       if (name) names.add(name);
     }
     for (const personaId of personaIds.slice(0, 2)) {
-      const persona = await characters.getPersona(personaId);
+      const persona = await characters.getPersona(personaId, chat.id);
       const name = getPersonaName(persona, "");
       if (name) names.add(name);
     }
     return Array.from(names).slice(0, 10);
+  }
+
+  /**
+   * Who a Roleplay clip shows, read from its prompt: chat characters and the persona named in full or by a name part
+   * no one else in the chat shares. Gives their ids (for galleries) and their appearance lines.
+   */
+  async function resolveRoleplayClipCast(
+    chat: Awaited<ReturnType<typeof chats.getById>> & {},
+    promptText: string,
+  ): Promise<{ characterIds: string[]; appearanceBlock: string | null }> {
+    const chatCharacters = [];
+    for (const id of (await collectChatAssetParticipants(chat)).characterIds) {
+      const row = await characters.getById(id, chat.id);
+      if (!row) continue;
+      const data = parseJsonRecord(row.data);
+      chatCharacters.push({
+        id,
+        name: readTrimmedString(data.name) ?? "",
+        avatarPath: row.avatarPath ?? null,
+        appearance: getCharacterAppearance(data).appearance,
+      });
+    }
+    // A character played as the user is already listed; a persona joins when the prompt names them.
+    const identity = await resolveChatUserIdentity(characters, chat);
+    const persona =
+      identity?.source === "persona"
+        ? {
+            id: identity.id,
+            name: identity.name,
+            avatarPath: identity.avatarPath,
+            appearance: identity.appearance,
+            appearanceOverride: identity.imageAppearanceOverride || null,
+          }
+        : null;
+    const members = [...chatCharacters, ...(persona ? [persona] : [])].map(({ id, name }) => ({ id, name }));
+    const mentioned = namesMentionedByPart(withoutQuotedSpeech(promptText), members);
+    const cast = await resolveIllustratorCharacterReferences({
+      charactersStore: characters,
+      chatCharacters,
+      persona,
+      requestedNames: members.filter(({ id }) => mentioned.has(id)).map(({ name }) => name),
+      promptText,
+      fallbackToChatCharacters: false,
+      includeReferenceImages: false,
+    });
+    return {
+      characterIds: cast.personaId ? [...cast.characterIds, cast.personaId] : cast.characterIds,
+      appearanceBlock: cast.appearanceBlock,
+    };
+  }
+
+  /**
+   * The Roleplay video director's prompt for a clip: written by the Prompt Model from the exchange it shows,
+   * following the video connection's Video Prompting Instructions, with the named characters' appearance lines
+   * when the chat sends appearance with videos.
+   */
+  async function writeRoleplayClipPrompt(args: {
+    chat: Awaited<ReturnType<typeof chats.getById>> & {};
+    meta: Record<string, unknown>;
+    videoConn: { videoPromptInstructions?: string | null };
+    videoRuntime: ReturnType<typeof resolveGameVideoRuntime>;
+    durationSeconds: number;
+    aspectRatio: "16:9" | "9:16";
+    sourceExchange: string;
+    referenceImagePrompt: string;
+    characterNames: string[];
+    /** The clip has no picture of this moment, so the director describes the scene (Roleplay Clip Director). */
+    withoutPicture?: boolean;
+    debugMode?: boolean;
+    signal?: AbortSignal;
+  }): Promise<string> {
+    // Instructions that speak to appearance get the people's appearance details to build in, as Illustrator clips do;
+    // otherwise the named characters' appearance lines go after the prompt.
+    const appearanceInPrompt =
+      args.meta.illustratorVideoIncludeCharacterAppearance === true &&
+      videoInstructionsUseAppearance(args.videoConn.videoPromptInstructions);
+    let promptDraft: string;
+    try {
+      // The shared writer: the video connection's Video Prompting Instructions decide the prompt's format.
+      promptDraft = await writeRoleplayClipDirection(app.db, {
+        chat: args.chat,
+        meta: args.meta,
+        setup: {
+          videoConn: args.videoConn,
+          runtime: args.videoRuntime,
+          durationSeconds: args.durationSeconds,
+          aspectRatio: args.aspectRatio,
+        },
+        sourceExchange: args.sourceExchange,
+        referenceImagePrompt: args.referenceImagePrompt,
+        characterNames: args.characterNames,
+        appearanceDetails: appearanceInPrompt
+          ? formatVideoAppearanceDetails(
+              (await resolveRoleplayClipCast(args.chat, args.sourceExchange)).appearanceBlock,
+            )
+          : undefined,
+        withoutPicture: args.withoutPicture === true,
+        debugMode: args.debugMode,
+        signal: args.signal,
+      });
+    } catch (err) {
+      if (err instanceof ChatVideoError) throw new GallerySceneVideoRequestError(err.statusCode, err.message);
+      throw err;
+    }
+    if (args.meta.illustratorVideoIncludeCharacterAppearance === true && !appearanceInPrompt) {
+      // The characters the direction names get their appearance lines, as Illustrator images do.
+      const { appearanceBlock } = await resolveRoleplayClipCast(args.chat, promptDraft);
+      if (appearanceBlock) promptDraft = `${promptDraft}\n\n${appearanceBlock}`;
+    }
+    return promptDraft;
   }
 
   async function prepareGallerySceneVideoRequest(input: GenerateSceneVideoInput, signal?: AbortSignal) {
@@ -764,110 +891,26 @@ export async function galleryRoutes(app: FastifyInstance) {
     const characterNames = await collectChatSceneCharacterNames(chat);
     let promptDraft = input.promptOverride?.trim() ?? "";
     if (!promptDraft && chat.mode === "roleplay") {
-      const defaultPromptConnection =
-        chat.connectionId && chat.connectionId !== LOCAL_SIDECAR_CONNECTION_ID
-          ? await connections.getWithKey(chat.connectionId)
-          : null;
-      let promptRuntime;
-      try {
-        promptRuntime = await resolveIllustratorPromptRuntime({
-          chatMetadata: meta,
-          defaultConnection: defaultPromptConnection,
-          defaultConnectionId: chat.connectionId,
-          connections,
-          resolveBaseUrl,
-        });
-      } catch (err) {
-        logger.warn(err, "[gallery/roleplay-video-director] Prompt Model is unavailable for chat %s", input.chatId);
-        throw new GallerySceneVideoRequestError(
-          400,
-          "Choose a text Prompt Model or main chat connection before planning a Roleplay animation.",
-        );
-      }
-      const sourceExchange = resolveGalleryVideoSourceExchange(messages, swipes, galleryImage.id);
-      const directionMessages = await buildRoleplayVideoDirectionMessages(promptOverridesStorage, {
+      // The same recent messages Illustrator reads (its context size), ending where the picture was made.
+      const { sourceMessageId } = resolveGalleryVideoSourceExchange(messages, swipes, galleryImage.id);
+      const recentContext = formatRecentVideoContext(messages, {
+        count: await loadIllustratorContextSize(app.db),
+        endMessageId: sourceMessageId,
+      });
+      promptDraft = await writeRoleplayClipPrompt({
+        chat,
+        meta,
+        videoConn,
+        videoRuntime,
         durationSeconds,
         aspectRatio,
         sourceExchange:
-          sourceExchange.content || "Animate the illustrated Roleplay scene without advancing into a new story beat.",
+          recentContext || "Animate the illustrated Roleplay scene without advancing into a new story beat.",
         referenceImagePrompt: galleryImage.prompt ?? "",
         characterNames,
-        setting: buildRoleplayVideoSettingLine(chat, meta, videoRuntime.promptLimits.artStyle),
-        videoPromptInstructions: videoConn.videoPromptInstructions,
+        debugMode: input.debugMode,
+        signal,
       });
-      const [systemMessage, userMessage] = directionMessages;
-      const debugOverrideEnabled = input.debugMode === true || isDebugAgentsEnabled();
-      logDebugOverride(
-        debugOverrideEnabled,
-        "[debug/gallery/roleplay-video-director] system:\n%s\nuser:\n%s",
-        systemMessage.content,
-        userMessage.content,
-      );
-      try {
-        const result = await promptRuntime.provider.chatComplete(directionMessages, {
-          model: promptRuntime.model,
-          ...(promptRuntime.suppressModelParameters ? {} : { temperature: 0.5, maxTokens: 1_200 }),
-          suppressModelParameters: promptRuntime.suppressModelParameters,
-          signal,
-          enableCaching: promptRuntime.enableCaching,
-          anthropicExtendedCacheTtl: promptRuntime.anthropicExtendedCacheTtl,
-        });
-        // A sentence of the connection's instructions the director copied word for word is not video-model text.
-        promptDraft = removeCopiedPromptGuidance(
-          resolveRoleplayVideoDirection(result.content, videoRuntime.promptLimits.finalPrompt),
-          [videoConn.videoPromptInstructions],
-        );
-      } catch (err) {
-        logger.warn(err, "[gallery/roleplay-video-director] Failed to plan animation for chat %s", input.chatId);
-        const message =
-          err instanceof Error && err.message.trim()
-            ? err.message.trim()
-            : "The Roleplay animation Prompt Model failed to plan this clip.";
-        throw new GallerySceneVideoRequestError(502, message);
-      }
-      if (!promptDraft) {
-        throw new GallerySceneVideoRequestError(
-          502,
-          "The Roleplay animation Prompt Model returned an empty direction.",
-        );
-      }
-      if (meta.illustratorVideoIncludeCharacterAppearance === true) {
-        // The characters the direction names get their appearance lines, as Illustrator images do.
-        const chatCharacters = [];
-        for (const id of (await collectChatAssetParticipants(chat)).characterIds) {
-          const row = await characters.getById(id);
-          if (!row) continue;
-          const data = parseJsonRecord(row.data);
-          chatCharacters.push({
-            id,
-            name: readTrimmedString(data.name) ?? "",
-            avatarPath: row.avatarPath ?? null,
-            appearance: getCharacterAppearance(data).appearance,
-          });
-        }
-        // The persona joins when the direction names them; a character played as the user is already listed.
-        const identity = await resolveChatUserIdentity(characters, chat);
-        const references = await resolveIllustratorCharacterReferences({
-          charactersStore: characters,
-          chatCharacters,
-          persona:
-            identity?.source === "persona"
-              ? {
-                  id: identity.id,
-                  name: identity.name,
-                  avatarPath: identity.avatarPath,
-                  appearance: identity.appearance,
-                  appearanceOverride: identity.imageAppearanceOverride || null,
-                }
-              : null,
-          requestedNames: [],
-          promptText: promptDraft,
-          fallbackToChatCharacters: false,
-          includeReferenceImages: false,
-        });
-        if (references.appearanceBlock) promptDraft = `${promptDraft}\n\n${references.appearanceBlock}`;
-      }
-      logDebugOverride(debugOverrideEnabled, "[debug/gallery/roleplay-video-director] final prompt:\n%s", promptDraft);
     } else if (!promptDraft) {
       promptDraft = await loadGameVideoPrompt({
         promptOverridesStorage,
@@ -1005,7 +1048,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const { characterIds, personaIds } = await collectChatAssetParticipants(chat);
     for (const characterId of characterIds) {
       if (!isSafeAssetSegment(characterId)) continue;
-      const character = await characters.getById(characterId);
+      const character = await characters.getById(characterId, chatId);
       if (!character) continue;
       const ownerName = getCharacterName(character, "Character");
       const images = await characterGallery.listByCharacterId(characterId);
@@ -1031,7 +1074,7 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     for (const personaId of personaIds) {
       if (!isSafeAssetSegment(personaId)) continue;
-      const persona = await characters.getPersona(personaId);
+      const persona = await characters.getPersona(personaId, chat.id);
       if (!persona) continue;
       const ownerName = getPersonaName(persona, "Persona");
       const images = await personaGallery.listByPersonaId(personaId);
@@ -1240,7 +1283,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
     const charInfo = [];
     for (const id of chatCharacterIds) {
-      const row = await characters.getById(id);
+      const row = await characters.getById(id, chatId);
       if (!row) continue;
       const data = parseJsonRecord(row.data);
       const { appearance, imageAppearance } = getCharacterAppearance(data);
@@ -1343,6 +1386,190 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
   });
 
+  // Roleplay /video: a clip of the latest reply (or of what the user describes) under that reply, following the
+  // chat's First frame. A new Illustrator picture is drawn by /illustrate first, so this answers needsPicture.
+  app.post<{ Params: { chatId: string } }>("/:chatId/roleplay-video", async (req, reply) => {
+    const { chatId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+    const input = z
+      .object({
+        description: z.string().trim().max(2_000).optional(),
+        debugMode: z.boolean().optional(),
+        /** Return the written prompt for review instead of making the clip. */
+        previewOnly: z.boolean().optional(),
+        /** The prompt as the user reviewed it; skips writing a new one. */
+        promptOverride: z.string().trim().max(20_000).optional(),
+      })
+      .parse(req.body ?? {});
+    const chat = await chats.getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "roleplay") return reply.status(400).send({ error: "This command is for Roleplay chats." });
+    const meta = parseChatMetadata(chat.metadata);
+    // Ends the clip's writing and making when the request goes away, as the other video routes do.
+    const signal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Roleplay video");
+    try {
+      const setup = await resolveChatVideoSetup(app.db, meta);
+      const connections = createConnectionsStorage(app.db);
+      const illustrator = await createAgentsStorage(app.db).getByType("illustrator");
+      const agentImageConnectionId = parseJsonRecord(illustrator?.settings).imageConnectionId;
+      const hasImageConnection = Boolean(
+        resolveIllustratorImageConnectionId("roleplay", meta, agentImageConnectionId) ||
+        (await connections.getDefaultForImageGeneration()),
+      );
+      const firstFrame = roleplayVideoFirstFrame(meta, hasImageConnection);
+      if (firstFrame === "picture") return { needsPicture: true };
+
+      const messages = await chats.listMessages(chatId);
+      if (!messages.some((message) => message.role === "assistant")) {
+        return reply.status(400).send({ error: "Send a message before making a video." });
+      }
+      // The same recent messages Illustrator reads (its context size), the latest reply last, as /illustrate does.
+      const exchange = formatRecentVideoContext(messages, { count: await loadIllustratorContextSize(app.db) });
+      const maxPromptLength = setup.runtime.promptLimits.finalPrompt;
+      const prompt = input.promptOverride
+        ? resolveSceneVideoPrompt({ generatedPrompt: "", promptOverride: input.promptOverride, maxPromptLength })
+        : await writeRoleplayClipPrompt({
+            chat,
+            meta,
+            videoConn: setup.videoConn,
+            videoRuntime: setup.runtime,
+            durationSeconds: setup.durationSeconds,
+            aspectRatio: setup.aspectRatio,
+            sourceExchange: [input.description ? `Requested clip: ${input.description}` : "", exchange]
+              .filter(Boolean)
+              .join("\n\n"),
+            referenceImagePrompt: "",
+            // /video never animates a picture here (that path asks for one first), so the director describes the scene.
+            withoutPicture: true,
+            characterNames: await collectChatSceneCharacterNames(chat),
+            debugMode: input.debugMode,
+            signal,
+          });
+      if (input.previewOnly) {
+        return {
+          prompt,
+          durationSeconds: setup.durationSeconds,
+          aspectRatio: setup.aspectRatio,
+          resolution: setup.runtime.resolution ?? null,
+          maxPromptLength,
+        };
+      }
+      // The Avatar first frame starts from whoever the description names first (the persona too), else from the
+      // chat's first character with a usable avatar or sprite.
+      let avatar: { base64: string; name: string } | null = null;
+      const { characterIds, personaIds } = await collectChatAssetParticipants(chat);
+      const shown = (await resolveRoleplayClipCast(chat, prompt)).characterIds;
+      if (firstFrame !== "none") {
+        const candidates: Array<{ name: string; read: () => Promise<{ base64: string } | null> }> = [];
+        for (const id of characterIds) {
+          const row = await characters.getById(id, chat.id);
+          if (!row) continue;
+          candidates.push({
+            name: readTrimmedString(parseJsonRecord(row.data).name) ?? "",
+            read: () =>
+              readPreferredCharacterReferenceImage({
+                characterId: id,
+                avatarPath: row.avatarPath ?? null,
+                characterGallery: createCharacterGalleryStorage(app.db),
+              }),
+          });
+        }
+        const persona =
+          chat.personaId && personaIds.includes(chat.personaId)
+            ? await characters.getPersona(chat.personaId, chat.id)
+            : null;
+        const people = [
+          ...candidates,
+          ...(persona
+            ? [
+                {
+                  name: persona.name,
+                  read: () =>
+                    readPreferredPersonaReferenceImage({
+                      personaId: persona.id,
+                      avatarPath: persona.avatarPath ?? null,
+                      personaGallery,
+                    }),
+                },
+              ]
+            : []),
+        ];
+        const description = input.description ?? "";
+        // Whole words only, so "Bram" doesn't match "Bramble" and "Al" doesn't match "also".
+        const wordAt = (word: string) =>
+          description
+            .toLowerCase()
+            .search(
+              new RegExp(
+                `(?<![\\p{L}\\p{N}])${word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\p{L}\\p{N}])`,
+                "u",
+              ),
+            );
+        // A unique, capitalised part of a name counts too ("Lena" for "Dr. Lena Kowalski"), as in Conversation clips.
+        const namedByPart = namesMentionedByPart(
+          withoutQuotedSpeech(description),
+          people.map((person) => ({ id: person.name, name: person.name })),
+        );
+        const named = (name: string) => {
+          if (!name) return -1;
+          const whole = wordAt(name);
+          if (whole >= 0 || !namedByPart.has(name)) return whole;
+          const parts = name
+            .split(/[^\p{L}\p{N}]+/u)
+            .filter((part) => part.length >= 2)
+            .map(wordAt)
+            .filter((index) => index >= 0);
+          return parts.length ? Math.min(...parts) : -1;
+        };
+        const namedCandidates = people
+          .filter((candidate) => named(candidate.name) >= 0)
+          .sort((left, right) => named(left.name) - named(right.name));
+        for (const candidate of [...namedCandidates, ...candidates]) {
+          const image = await candidate.read();
+          if (image) {
+            avatar = { base64: image.base64, name: candidate.name };
+            break;
+          }
+        }
+      }
+      const video = await generateRoleplayClip(app.db, {
+        chatId,
+        chatMeta: meta,
+        prompt,
+        firstFrame,
+        avatar,
+        // Filed under the people the clip shows; a clip that names no one belongs to the whole chat.
+        characterIds: shown.length ? shown : [...characterIds, ...personaIds],
+        queue: true,
+        signal,
+        debugMode: input.debugMode,
+      });
+      // Picked after generating, so a reply that arrived meanwhile gets the clip. The clip is saved by now, so a
+      // failure to find or update the reply still reports it as made, with no messageId.
+      let messageId: string | null = null;
+      try {
+        const anchor = resolveChatVideoAnchor(await chats.listMessages(chatId));
+        // Reported only when the clip really landed on the reply (it may have been deleted meanwhile).
+        if (anchor && (await attachVideoToMessage(chats, anchor, buildChatVideoAttachment(video)))) {
+          messageId = anchor.messageId;
+        }
+      } catch (attachErr) {
+        logger.warn(attachErr, "[gallery/roleplay-video] Saved video %s but could not attach it", video.id);
+      }
+      return { video, messageId };
+    } catch (err) {
+      if (
+        err instanceof ChatVideoError ||
+        err instanceof GallerySceneVideoRequestError ||
+        err instanceof SceneVideoPromptReviewError
+      ) {
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      logger.warn(err, "[gallery/roleplay-video] Roleplay video failed for chat %s", chatId);
+      return reply.status(502).send({ error: err instanceof Error ? err.message : "Video generation failed" });
+    }
+  });
+
   app.post<{ Params: { chatId: string } }>("/:chatId/selfie", async (req, reply) => {
     const { chatId } = req.params;
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
@@ -1366,7 +1593,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Selected character is not in this conversation." });
     }
 
-    const character = await characters.getById(input.characterId);
+    const character = await characters.getById(input.characterId, chatId);
     if (!character) return reply.status(404).send({ error: "Character not found" });
 
     const meta = parseChatMetadata(chat.metadata);

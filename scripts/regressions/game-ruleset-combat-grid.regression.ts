@@ -2062,8 +2062,14 @@ const cellsOf = (cells: Array<{ x: number; y: number }>) =>
     variant(fiveEText, (doc) => edit(doc.combat as Record<string, any>));
 
   // A cell has to be worth something.
-  assert.match(refusalOf(withCombat((combat) => (combat.distance.perCell = 0))), /greater than 0/);
-  assert.match(refusalOf(withCombat((combat) => (combat.distance.perCell = -5))), /greater than 0/);
+  assert.match(
+    refusalOf(withCombat((combat) => (combat.distance.perCell = 0))),
+    /combat\.distance\.perCell: Too small: expected number to be >0/,
+  );
+  assert.match(
+    refusalOf(withCombat((combat) => (combat.distance.perCell = -5))),
+    /combat\.distance\.perCell: Too small: expected number to be >0/,
+  );
 
   // Everything that is measured in cells needs a cell to measure it in.
   const measured = ["ranged", "cover", "opportunity"] as const;

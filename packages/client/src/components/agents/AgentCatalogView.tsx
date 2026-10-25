@@ -142,6 +142,7 @@ function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
   if (kind === "turn-game") return "Conversation Game";
   if (kind === "maps") return "Maps";
   if (kind === "ruleset") return "Rules";
+  if (kind === "experience") return "Experience";
   return "Agent";
 }
 
@@ -389,7 +390,7 @@ export function AgentCatalogView() {
   return (
     <div
       data-component="AgentCatalogView"
-      className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)]"
+      className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[var(--marinara-editor-bg)]"
     >
       <header className="relative z-10 flex shrink-0 items-center gap-3 border-b border-[var(--border)]/50 bg-[var(--card)]/90 px-3 py-2 backdrop-blur-md md:px-6 md:py-3">
         <button
@@ -426,11 +427,28 @@ export function AgentCatalogView() {
             <span className="max-sm:hidden">{localizeUi("ui.agents.agentcatalogview.customSources")}</span>
           </button>
         )}
+        {selected && selectedInstalled && selectedVersionComparison > 0 && (
+          <button
+            type="button"
+            className={cn(
+              "mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4",
+              !mobileDetail && "max-md:hidden",
+            )}
+            disabled={packageActionPending}
+            onClick={() => void handleInstall(selected)}
+            aria-label={localizeUi("ui.agents.agentcatalogview.updateAgent", { name: selected.manifest.name })}
+            title={localizeUi("ui.agents.agentcatalogview.updateAgent", { name: selected.manifest.name })}
+          >
+            {install.isPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Download size="0.85rem" />}
+            <span className="max-sm:hidden">{localizeUi("ui.agents.agentcatalogview.update")}</span>
+          </button>
+        )}
         <button
           type="button"
           className="mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4"
           onClick={() => void Promise.all([catalog.refetch(), installed.refetch()])}
           disabled={catalog.isFetching || installed.isFetching || packageActionPending}
+          aria-label={localizeUi("ui.noodle.noodlehome.refresh")}
         >
           <RefreshCw size="0.85rem" className={cn((catalog.isFetching || installed.isFetching) && "animate-spin")} />
           <span className="max-sm:hidden">{localizeUi("ui.noodle.noodlehome.refresh")}</span>
@@ -834,16 +852,6 @@ export function AgentCatalogView() {
                         )}
                         {localizeUi("ui.agents.agentcatalogview.uninstall")}
                       </button>
-                      {selectedVersionComparison > 0 && (
-                        <button
-                          type="button"
-                          className={DETAIL_ACTION_CLASS}
-                          disabled={packageActionPending}
-                          onClick={() => void handleInstall(selected)}
-                        >
-                          <Download size="0.9rem" /> {localizeUi("ui.agents.agentcatalogview.update")}
-                        </button>
-                      )}
                     </>
                   ) : (
                     <button

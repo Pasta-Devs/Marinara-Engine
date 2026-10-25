@@ -29,6 +29,7 @@ import { recoverGalleryImages } from "./services/storage/gallery-recovery.js";
 import { createLibraryFoldersStorage } from "./services/storage/library-folders.storage.js";
 import { migrateCharacterExtendedDescriptionsToLorebooks } from "./services/lorebook/extended-descriptions-migration.js";
 import { migrateTtsSettingsToAudioConnection } from "./services/connections/tts-audio-connection-migration.js";
+import { migrateGenerativeAudioConnections } from "./services/connections/generative-audio-connection-migration.js";
 import { migrateTripoConnectionsToApiKey } from "./services/avatars/generation/tripo-key.js";
 import { migrateLegacyDefaultAgentPrompts } from "./services/agents/default-prompt-migration.js";
 import { APP_VERSION, resetTurnGameRegistry } from "@marinara-engine/shared";
@@ -255,9 +256,23 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     app.log.warn(error, "Lorebook folder cleanup did not complete; it will retry next startup");
   }
   try {
+    const removedPresetFolderIds = await startup.phase("migrate.preset-folder-references", () =>
+      createLibraryFoldersStorage(db).pruneMissingPresetItemIds(),
+    );
+    if (removedPresetFolderIds > 0)
+      app.log.info("Removed %d missing preset ID(s) from library folders", removedPresetFolderIds);
+  } catch (error) {
+    app.log.warn(error, "Preset folder cleanup did not complete; it will retry next startup");
+  }
+  try {
     await startup.phase("migrate.tts-audio", () => migrateTtsSettingsToAudioConnection(db));
   } catch (error) {
     app.log.warn(error, "TTS audio-connection migration did not complete; it will retry next startup");
+  }
+  try {
+    await startup.phase("migrate.generative-audio", () => migrateGenerativeAudioConnections(db));
+  } catch (error) {
+    app.log.warn(error, "Generative audio-connection migration did not complete; it will retry next startup");
   }
   try {
     await startup.phase("migrate.tripo-key", () => migrateTripoConnectionsToApiKey(db));
@@ -407,6 +422,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── Health Check ──
   app.get("/api/health", { config: { rateLimit: HEALTH_RATE_LIMIT } }, async (request) => {
+    // The probe is exempt from sign-in, so a caller who could not open the app itself (this machine,
+    // a trusted network, or a signed-in browser) only learns that the server is up.
+    if (!isBasicAuthSatisfied(request) || !isAndroidLocalAuthSatisfied(request)) return { status: "ok" };
     const commit = getBuildCommit();
     let capabilityPackages: Awaited<ReturnType<typeof capabilityPackageManager.diagnostics>> | null = null;
     try {
@@ -417,15 +435,11 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
     // A slot service that throws must not take the health endpoint down with it: this
     // response is also the freeze detector's signal and an uptime check's target.
-    // The probe is exempt from sign-in, so local model file names and GPU details only go to callers who could
-    // open the app itself (this machine, a trusted network, or a signed-in browser).
     let sidecars: ReturnType<typeof buildSidecarHealthSection> | null = null;
-    if (isBasicAuthSatisfied(request) && isAndroidLocalAuthSatisfied(request)) {
-      try {
-        sidecars = buildSidecarHealthSection();
-      } catch (error) {
-        logRateLimited("warn", "health.sidecars", error, "Sidecar health diagnostics are unavailable");
-      }
+    try {
+      sidecars = buildSidecarHealthSection();
+    } catch (error) {
+      logRateLimited("warn", "health.sidecars", error, "Sidecar health diagnostics are unavailable");
     }
     return {
       status: "ok",

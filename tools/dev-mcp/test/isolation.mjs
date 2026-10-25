@@ -246,6 +246,9 @@ for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => child.kill(
     const serverDir = join(repo, "packages", "server");
     const elsewhere = join(dirname(repo), "unrelated-service");
     const launcher = join(repo, IS_WINDOWS ? "start.bat" : "start.sh");
+    // A real checkout has this file. Creating it lets realpath resolve a symlinked
+    // temp parent consistently with the existing repo (not a missing lexical path).
+    write(launcher, IS_WINDOWS ? "@exit /b 0\n" : "#!/bin/sh\nexit 0\n");
     const checks = {
       "unrelated dist/index.js is refused": !accepted([
         { pid: 999999, cmd: `node ${join(elsewhere, "dist", "index.js")}`, cwd: elsewhere },

@@ -12,7 +12,7 @@
 // container's full area. Square-in-source-pixels crops survive any source aspect
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
-import { Crop, Maximize2, RotateCcw, Trash2, X } from "lucide-react";
+import { Crop, X } from "lucide-react";
 import type { AvatarCrop, SourceRectAvatarCrop } from "@marinara-engine/shared";
 import { getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -233,28 +233,27 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
           <button
             type="button"
             onClick={() => setShowFullView(true)}
-            className="mari-editor-action mari-editor-action--compact inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
+            className="mari-editor-action mari-editor-action--compact inline-flex whitespace-nowrap gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
             title={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
           >
-            <Maximize2 size="0.625rem" /> {localizeUi("ui.ui.avatarcropwidget.fullImage")}
+            {localizeUi("ui.ui.avatarcropwidget.full")}
           </button>
           <button
             type="button"
             onClick={reset}
-            className="mari-editor-action mari-editor-action--compact inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
+            className="mari-editor-action mari-editor-action--compact inline-flex whitespace-nowrap gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
             title={localizeUi("ui.ui.avatarcropwidget.resetToCenteredMaxSquareCrop")}
           >
-            <RotateCcw size="0.625rem" /> {localizeUi("ui.characters.charactercliptrimmodal.reset")}
+            {localizeUi("ui.characters.charactercliptrimmodal.reset")}
           </button>
           {onRemove && (
             <button
               type="button"
               onClick={onRemove}
               disabled={removing}
-              className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
+              className="mari-editor-action mari-editor-action--compact mari-editor-action--accent inline-flex whitespace-nowrap gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
               title={localizeUi("ui.ui.avatarcropwidget.removeAvatar")}
             >
-              <Trash2 size="0.625rem" />{" "}
               {removing
                 ? localizeUi("ui.ui.avatarcropwidget.removing")
                 : localizeUi("settings.notifications.customSound.actions.remove")}
@@ -376,7 +375,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
           <img src={src} alt={alt} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
           <button
             onClick={() => setShowFullView(false)}
-            className="absolute right-3 top-3 rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+            className="absolute right-[max(0.75rem,var(--mari-safe-area-inset-right))] top-3 rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
           >
             <X size="1rem" />
           </button>

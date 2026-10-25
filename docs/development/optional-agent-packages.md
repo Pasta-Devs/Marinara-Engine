@@ -103,6 +103,7 @@ this page. Package builds declare matching structural types instead of importing
 | `capabilityApi`     | The Engine's `supportedCapabilityApi`, for example `{ major: 1, minor: 341 }`.                                                                                                |
 | `stores`            | The live zustand stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` and `backfill`. `chat` includes the pending spatial transition slice. |
 | `services.tts`      | The `lib/tts-service.ts` module (`ttsService`, `playWhenAvailable`, ...).                                                                                                     |
+| `services.audio`    | From capability API 1.381, the `lib/audio-service.ts` module: independent music/SFX players, the shared asset manifest and default music selection. See [Package audio](#package-audio). |
 | `services.dialogs`  | The `lib/app-dialogs.ts` module (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                             |
 | `modules`           | Library modules, keyed by bare specifier (below).                                                                                                                             |
 | `queryClient`       | The one React Query `QueryClient` the Engine renders with.                                                                                                                    |
@@ -118,10 +119,12 @@ installs them and keeps the version it has. When a member is missing anyway, the
 copy of a stateful Engine service: the `ui` and `chat` stores become read-only copies that never write, and every other
 member reports that the feature needs a newer Marinara Engine.
 
-**Host modules.** `modules[specifier]` is exactly what `import * as m from "<specifier>"` returns in the Engine's own
-build, including `default` where the library has one. The specifiers are `react`, `react/jsx-runtime`, `react-dom`,
+**Host modules.** `modules[specifier]` is a complete module namespace, including `default` where the library has one.
+`MARINARA_HOST_MODULE_IMPORTS` in the client contract maps each public slot to the dependency it imports. Most map
+to themselves. The stable `framer-motion` slot maps to `framer-motion-v13` (an exact npm alias of Motion 13.5.1),
+while the opt-in `motion/react` slot maps to the Engine's primary `framer-motion` 14 dependency. Package tooling uses this mapping for both its export inventory and TypeScript paths; public slot names need not be physical dependencies. The specifiers are `react`, `react/jsx-runtime`, `react-dom`,
 `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`,
-`react-i18next`, `framer-motion`, `tailwind-merge` and `clsx`. A package build resolves these specifiers to shims that
+`react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` and `clsx`. A package build resolves these specifiers to shims that
 read the namespace, so the package renders with the Engine's one React and shares its React Query cache and toasts.
 
 - Packages never render a `<Toaster>` and never create a `QueryClient`. A `toast` from `sonner` shows at the user's
@@ -132,10 +135,22 @@ read the namespace, so the package renders with the Engine's one React and share
 - `lucide-react`, `chess.js`, `scheduler` and `@marinara-engine/shared` are not host modules; packages bundle what they
   use of them.
 - Packages are built against these majors: `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5,
-  `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `tailwind-merge` 3 and `clsx` 2. A major
-  upgrade of one of them in the Engine (React first) breaks every package built against the old major, so it requires a
-  capability API **major**. `scripts/regressions/marinara-host-namespace.regression.ts` fails when a major in
-  `packages/client/package.json` changes and the contract does not.
+  `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `motion` 14 (the `motion/react` slot),
+  `tailwind-merge` 3 and `clsx` 2. Replacing the major behind an existing public slot requires a capability API **major**.
+  Adding a distinct slot is additive: capability API 1.377 adds `motion/react` without changing `framer-motion`.
+  `scripts/regressions/marinara-host-namespace.regression.ts` pins each slot's mapped dependency and major.
+- The Engine validates its own data with native Zod 4. Existing packages keep Zod 3 through the explicit
+  `zod-v3` compatibility dependency, both in the client `zod` slot and in package-server imports. This preserves
+  their existing records, defaults and module exports. The alias carries the reviewed bounded-collection security
+  backport in `patches/zod@3.25.76.patch`; it is not stock Zod 3. These legacy package validators retain Zod 3
+  behavior apart from that documented security repair. The core upgrade does not apply Zod 4's other validation
+  changes to them.
+- Existing installed packages keep their full Motion 13 namespace and do not need rebuilding. A package choosing
+  Motion 14 imports `motion/react` through the host shim and declares capability API 1.377 or newer. Older hosts
+  reject that declaration rather than silently substituting Motion 13. Keep each animation tree on one version:
+  `AnimatePresence`, `MotionConfig`, `LayoutGroup`, motion values and their consumers must come from the same slot.
+  The versions have distinct contexts; no context bridge is provided. Package views mount their own React roots,
+  while the host `Modal` uses CSS animations. Do not expect shared layout or presence across the version boundary.
 
 **Store fields packages read.** Published packages read these fields today. The Engine keeps each of them, and
 dropping or renaming one needs a capability API major (`MARINARA_HOST_STORE_FIELDS` pins them with `Pick<>`):
@@ -1256,6 +1271,336 @@ file does not read, when a world was made with another kit or does not fit it, o
 not the ones installed; the Experience then cannot start a game. A ruleset is never part of a map
 pack: an Experience that needs its own rules ships a separate ruleset package.
 
+#### Capability API 1.344: creature packs
+
+`mapPack.creatures` lists up to 8 `.creaturepack.json` files (each a declared asset, read and checked as
+the library reads a creature pack). In a game of the Experience, every fight draws a creature's art from
+these packs first, in their order, and then from the creature pack chosen in the library.
+
+#### Capability API 1.345: music
+
+A package's assets may be audio from 1.345: `.ogg`, `.mp3` or `.wav`, 16 MB each at most. `mapPack.music`
+names the Experience's tracks and when they play:
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+Each track is also a declared asset, and every track id named is one of `tracks`. A place in `places` is
+a place of one of the pack's worlds, by id. Out of a fight, the game plays the place's track, else the
+track of the nearest place it is inside that has one, else `default`; in a fight, `combat`. A story's
+`music` action (see [Writing Game Mode Story Scripts](../extending/writing-story-scripts.md)) cues one
+of the tracks over all of these until it hands back. With none of these, the Engine's own music plays.
+A player who has picked their own music source (the Music DJ, Spotify) hears that instead: their choice
+always wins.
+
+#### Capability API 1.346: people
+
+`mapPack.people` is a `.people.json` file (a declared asset) that dresses the named people of the pack's
+worlds. People come from the world itself, generated and named or added by hand in its edits (Pixelforge
+or the World tab), so they stand at their places like everyone else; the file says who they are:
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person` is a person id of one of the pack's worlds (`<place id>-<n>`, or `-e<n>` for one added by
+  hand), and that person must have a name there.
+- `portrait` and `expressions` (`neutral`, `happy`, `sad` and the other narration expressions) are
+  pictures among the package's assets. The portrait shows in the Journal once the game meets them, and
+  their expressions are used for the lines they speak.
+- `sprite` is a character of the pack's own (image) tiles, which they wear walking on town and place
+  maps instead of one picked for them.
+- `description`, `voice` and `lore` become a lorebook made with each new game of the Experience
+  (_Experience name_: people), active from the first turn: one entry per person, brought in by their
+  name, one per `lore` entry by its own keys, and one per entry of the file's own `lore`.
+
+#### Capability API 1.347: companions
+
+A person may be a companion: someone the party can take in, so a party that lacks healing, scouting or
+a light in the dark is never locked out of what the story asks of it.
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets` holds a sheet for each ruleset the companion can join a game of, by the ruleset's id. `v` is
+  the ruleset's sheet version the builds were written for (older ones are migrated as stored sheets are).
+- `level` names the sheet fields that hold a character's level in that ruleset, added up (a multiclass
+  sheet keeps one per class). Each build's level fields must add up to its `at`, and the builds go up.
+- A companion joins with the build for the highest level the party has reached (the lowest while the
+  party is below them all), and after each turn moves up to a higher build once the party reaches it. A
+  sheet the player raised past its build is left alone, and nothing lowers one. Their health, pools and
+  conditions are kept apart from the build, so a rise keeps them. Ship a build for each level the
+  companion should be playable at.
+- The story takes them in and lets them go with `recruit` and `dismiss` actions. The Game Master is
+  told who the companions are, where, and what they bring, and may take only them in (a
+  `[party_change]` naming anyone else is refused); the player's own library characters may still join.
+- A companion joins as any recruit does: they are in the party's list, carry their card and sheet, and
+  fight in tactical combat. In a game on a ruleset they have no sheet for, they join with a blank one.
+
+A people file with companions needs 1.347; without, 1.346. A story that recruits or dismisses someone
+needs 1.347, and each person it names must be a companion in the pack's people file.
+
+#### Capability API 1.350: checking a pack before export
+
+An authoring app (Pixelforge) can have the Engine check a whole map pack before it exports the package,
+exactly as an installed one is read, without installing it:
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` holds every JSON file the block names (kit, worlds, tiles, creature packs, people), parsed;
+`assets` lists the package's other assets (pictures, audio) by path and size. The answer is
+`{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`: `minor` is the
+Capability API minor (1.`minor`) the pack needs, and `issues` names each problem by the block's key
+(`mapPack.music.default`) or the file it is in. The manifest's own rules (declared assets, track ids,
+audio sizes) are all reported; the files' checks stop at the first problem, as an install does.
+
+#### Capability API 1.351: held seasons
+
+A world's story may hold places at a season whatever the date (`seasons`, and the `season` action: see
+[writing story scripts](../extending/writing-story-scripts.md#seasons)), and a world's battlefields may be
+painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.351. The overworld
+reads held places as `seasons` (place id to season, `*` for the whole world) from
+`GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
+keyed `"x,y"`.
+
+#### Capability API 1.355: ruleset overlays
+
+An Experience's map pack may add to the rulesets its games play, while the Experience is on: its own
+creatures, conditions and items, which are not the ruleset package's to ship.
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+Each `.overlay.json` (declared as an asset like the pack's other files) is for one ruleset, by its id. A
+ruleset imported from a file (`local/<id>`) or a repository (`<owner>/<id>`) plays the overlay for its bare
+id, unless the pack names its exact id too:
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags` join the ruleset's `combat.creatureTypes.tags`, `conditions` its `combat.conditions`,
+`sheetConditions` its `sheet.live.conditions`, `creatures` its `creatures` catalog, and each list of
+`catalogs` the catalog of that id. A game of that ruleset with the Experience on plays the ruleset with
+all of it merged in (story fights, `give`, the Game Master's own uses), and the ruleset is read again
+whole: an overlay whose entries do not fit it, or that reuses an id the ruleset has, is left out
+whole and the game plays the ruleset as it was. `POST /api/game/experience/check` merges each overlay
+into its ruleset as installed and reports what does not fit.
+
+From Capability API 1.367 an overlay may add sheet tracks too, `"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`, shaped as the ruleset's `sheet.live.tracks` and joining
+them: a track the overlay declares is shown on the sheet, moved by sheet commands, and kept for what a
+story's Held Ground or a board's light rule marks. A pack with an overlay that adds tracks needs 1.367.
+
+#### Capability API 1.357: dungeon looks and a hand map's own words
+
+An Experience's maps made by hand can be drawn in its own looks, not only the library's cave, crypt,
+temple and station sets, and told to the Game Master in its own words.
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+Each is an image tile pack (`tilePackVersion` 2) laid out as a dungeon set: `dn_floor`, `dn_wall`,
+`dn_liquid`, `dn_prop0` to `dn_prop7` (`dn_liquid` may have edge pieces, as a library set's). It must draw
+at least `dn_floor` and `dn_wall`; the rest fall back to plain colours. A hand map (`edits.maps`) whose
+`pack` is one of their ids is drawn with it, before any library pack of that id. No two may share an id.
+
+A hand map may also carry its own words for the Game Master:
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props` is one entry per prop slot, 0 to 7 (`null` for a slot left unsaid). The Game Master is then told
+the map as "A place made by hand (stubbled earth, walls of standing corn), with a ditch of rainwater in it;
+in it: a scarecrow (2), a corn-dolly shrine", in place of saying only that it was made by hand. Both need
+an Experience that declares 1.357.
+
+#### Capability API 1.359: items that cost a story number
+
+An overlay may name items whose use spends (or adds to) one of the Experience's story number flags:
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item` is `catalog/entry` of the merged ruleset (the overlay's own items count), named once. In a fight,
+using that item (the acting fighter's sheet item) is refused while the flag, with any spends not yet
+recorded, is below `atLeast`: "Jar of Someone Else's Death needs 2 Debts Settled; the party has 1." A use
+the fight takes is kept with the game, and the next story turn records it once (`spend="<id>"`, by the
+Engine), within the flag's `min` and `max`, and tells the Game Master what it cost. Each flag must be a
+number flag of one of the pack's stories. A map pack with `storyUses` needs 1.359.
+
+#### Capability API 1.360: parties beyond six, and companions who never fight
+
+A story fight's variants may be for parties above six, or open-ended (`"party": { "min": 7 }`), and a
+story condition may ask the party's size (`{ "partySize": { "is": ">=", "value": 7 } }`; see
+[writing story scripts](../extending/writing-story-scripts.md#conditions)).
+
+A companion of the people file may never fight:
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+They travel with the party and are told to the Game Master as never fighting, but are not counted in the
+party's size (for fight variants and `partySize` conditions) and are not put in its fights. A people file
+with one needs 1.360.
+
+### Capability API 1.372: GM setup values
+
+`contributions.gameSurface.setup.defaults` sets what picking the Experience in the Game wizard fills in.
+Pixelforge's Experience tab writes it. Every key is optional, and the player may still change each value:
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: at most 100 characters.
+- `genre` and `tone`: 1 to 12 names each, at most 60 characters, no commas. Joined, each list stays within 200 characters.
+- `difficulty`: `Casual`, `Normal`, `Hard` or `Brutal`.
+- `rating`: `sfw` or `nsfw`.
+- `combatStyle`: `classic` or `tactical`.
+- Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
+
+`intro` is the Game Master's intro message (1.339), with the same rules as a story script's `intro`
+(see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
+value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
+setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
+It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
+Experience off leaves the filled values as they are.
+
+### Capability API 1.373: Experience files
+
+An Experience that holds only pictures, music and data can travel as one `<id>.experience.json` file
+instead of a package zip. Players import it from the Game wizard's Experiences section with
+**Import an Experience file**; it needs no agents catalog.
+
+Its manifest has `"kind": ["experience"]` and nothing else in `kind`, needs `capabilityApi` 1.373 or newer,
+and carries no code: `entrypoints` is `{}`, `permissions` is empty, there is no `restartRequired` or
+`prepareBeforeStart`, and `contributions.slots` is exactly `["game-surface"]`. Every file in `files` is
+`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` or `.json`. The game surface draws
+nothing of its own; the Experience works through its `gameSurface` contributions (setup, maps, worlds,
+creature packs, music).
+
+The file is JSON with its keys in this order:
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` is the package manifest as above, at most 1 MB, and comes before any file.
+- `files` maps each path in the manifest's `files` to its bytes in standard base64 (padding only at its end,
+  no whitespace or line breaks inside it). Every listed file appears exactly once, and nothing else does.
+- Paths are written without escapes, so a path with a quote, a backslash, a control character or a lone surrogate is refused.
+
+Before anything is sent, the wizard reads only the start of the file, up to the end of its manifest, and
+shows a review: the name, version and description, the import size, how much of it is pictures, music and
+data, and Import and Don't Import. Import sends the file to `POST /api/capability-packages/experience-file`
+(content type `application/vnd.marinara.experience+json`). The server reads it as it arrives, writes each
+file to a temporary folder, and checks its size and `sha256` against the manifest. A file that does not
+match, a missing or extra file, a cut-off file or an older version than the one installed is refused, and
+nothing it wrote is kept.
+
+Each file must then be what its name says. Pictures pass the signature check character card imports use
+(`isAllowedImageBuffer`) and must be the type their extension names, so a page or an SVG named `.png` is
+refused. They are stored without their metadata: PNG keeps only the chunks that draw it (no `tEXt`, `zTXt`,
+`iTXt`, `eXIf` or `iCCP`), JPEG drops its APP segments but JFIF and Adobe and its comments (so EXIF
+orientation is not kept), GIF drops comments, plain text and application extensions but the loop count,
+and WebP drops its EXIF, XMP and ICC chunks. Music must be well-formed Ogg Vorbis or Opus (every page's
+checksum checked; its comments and cover art are blanked in place), MP3 (its ID3 and APE tags removed) or
+WAV (only its `fmt `, `fact` and `data` chunks kept). Data files must be UTF-8 JSON. Anything after a
+picture's or sound's end is dropped. The installed manifest records the stored files' sizes and hashes. A newer version replaces the installed one, as a catalog update does. An
+Experience file cannot replace a package of another kind with the same id.
+
+An Experience is never accepted as a package zip. An agents catalog lists one only with an artifact URL
+ending in `.experience.json`. The Engine installs that file through the same reader, checks and stripping,
+and refuses it unless its manifest is the one the catalog lists. A catalog entry that is an Experience
+(`kind` `experience`, or the `game-surface` slot) with any other artifact is refused before anything is
+downloaded, and the first-start catalog install skips Experiences. Experiences already installed keep
+working.
+
+Pixelforge 0.45.0 exports an Experience as this file, and only opens Experience files.
+
 ### Capability API 1.18: keep Experience setup in the Game wizard
 
 A `game-surface` package can declare `contributions.gameSurface.setup` with schema
@@ -1435,6 +1780,21 @@ Rules worth knowing:
   conclude exactly as for a Conversation scene.
 
 `scenes` is refused on a manifest that declares a `capabilityApi` older than 1.66.
+
+### Capability API 1.376: Home browser fullscreen
+
+A `home-browser-tab` view receives `capabilityProps.browserFullscreen`:
+
+- `active`: whether this package currently fills the Home browser content area.
+- `setActive(boolean)`: enter or leave fullscreen for this active package.
+- `enterLabel` and `exitLabel`: localized accessible labels for the toggle.
+
+This is in-app fullscreen: Home's tabs, address bar and bookmarks are hidden, while the Engine
+topbar stays available. It does not call the browser Fullscreen API or require browser fullscreen
+support. The state is temporary and resets on navigation away from the package or Home. Keep an
+exit button available on every package screen and use `aria-pressed` to reflect `active`. Prop updates
+must update the button without replacing unfinished forms. Packages depending on this control
+declare capability API 1.376 or newer; older packages can keep their existing layouts.
 
 ### Capability API 1.50: Professor Mari actions
 
@@ -1680,6 +2040,44 @@ Server packages can call `api.runtime.integrations` to use the current Engine's 
 
 Shared request/result types are exported by `@marinara-engine/shared`. Keep package-specific prompt building and orchestration in the package; call these host entrypoints for provider I/O instead of copying Engine service implementations. Pure helpers and types may still be bundled.
 
+### Package audio
+
+From capability API **1.381**, `__MARINARA_HOST__.services.audio` provides Engine-owned playback and
+asset selection. Declare that minor in the package manifest, and update the Engine alongside the package.
+Speech remains in `services.tts`; music and sound effects use `services.audio`.
+`services.tts.ttsService.speakSequence(requests, id?, options?)` accepts `options.audioConnectionId`
+from 1.381, applying that selected speech connection to every chunk while retaining each request's
+voice. Leave it undefined for the normal default, or pass `""` to explicitly use legacy TTS settings.
+An unknown, deleted, quarantined or non-speech `audioConnectionId` is ignored and normal speech
+resolution runs: the saved speech selection, then the default/fallback connection, then legacy settings.
+If the saved speech selection itself is unavailable, playback refuses rather than borrowing another
+connection. Packages that require a particular connection should validate the saved ID before playback.
+
+- `createPlayer()` returns an independent player with `unlock()`, `playMusic(tag, assets?)`,
+  `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
+  `setMuted(boolean)` and `dispose()`. Volumes range from 0 to 1. `assets` is a record keyed by tag,
+  whose entries have `{ path: string, url?: string }`; paths use the existing Game asset server, while
+  `url` can address a package-owned asset. Playback reuses the Engine's crossfade, autoplay retry and
+  SFX pool. Call `unlock()` directly in a user gesture when starting audio; browser autoplay rules still apply.
+- Keep one player for the mounted package surface and call `dispose()` on unmount. Disposal permanently
+  stops that player's audio, releases its context and gesture listeners, and makes later calls inert.
+  It does not stop Game or another package's player. Create a new player when the surface mounts again.
+- `getAssetManifest()` fetches `/api/game-assets/manifest` through the Engine API client and returns
+  `{ scannedAt, count, assets, byCategory }`. Each asset has `tag`, `category`, `subcategory`, `name`,
+  `path` and `ext`. Pass `manifest.assets` to playback; refetch after adding generated assets if needed.
+- `selectDefaultMusic(cue, manifest, { currentTag?, genre? }?)` returns an existing music tag or `null`.
+  Cues are `home`, `combat`, `boss`, `happy`, `tense`, `sad` and `bond`. It reuses the Game music scorer
+  and only the state-based library; another Game's area/tier tracks and generated package-context
+  tracks are excluded. Pass the current tag to keep fitting music stable. Choose again when the cue
+  changes, rather than on volume changes. Stock cues can share a track: this helper does not generate
+  music or promise a distinct composition for each mood.
+
+For a generated `{ tag, path }` returned by the Engine, play it with
+`player.playMusic(tag, { [tag]: { path } })`. Generation/provider selection stays server-side; packages
+must not duplicate provider requests or access saved credentials. Use the Engine's generation endpoint
+for opt-in generated music and effects, and keep generated context keys separate for each package world
+and cue. A failed or unavailable generated track can fall back to `selectDefaultMusic`.
+
 ### Capability API 1.341: host runtime services and shared server libraries
 
 A package server that bundles its own copy of an Engine service runs a second instance of it, with its own state:
@@ -1735,9 +2133,11 @@ copy splits state the Engine keeps in one place. Pure helpers and types may stil
 
 **Shared server libraries.** A package server may leave `zod`, `adm-zip`, `dotenv`, `nanoid` and `jsonrepair` out of
 its bundle and import them by name, as it already may for `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` and `undici`. Node resolves them from the package's runtime copy
-through two links, `<runtime copy>/node_modules` to `DATA_DIR/capability-packages/node_modules` to the Engine's
-`packages/server/node_modules`, so the package gets the very module instance the Engine uses. pnpm keeps only the
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` and `undici`. Node resolves them through managed links in the package's
+runtime copy to `DATA_DIR/capability-packages/node_modules`, which points to the Engine's `packages/server/node_modules`.
+Zod is the compatibility exception: a package's `zod` import resolves to the full `zod-v3` dependency, including its
+default, named, CommonJS and subpath exports. Other libraries keep the very module instance the Engine uses. The
+Engine's own `zod` imports continue to resolve to native Zod 4. pnpm keeps only the
 server's direct dependencies there, so only those names resolve; a dependency of a dependency, such as `ws`, does not.
 The Engine keeps the names above as direct production dependencies of `packages/server`, and every install keeps that
 layout: source and launcher installs, Windows (where the data link is a junction), Android and Termux, and both

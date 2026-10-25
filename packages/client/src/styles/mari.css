@@ -415,7 +415,7 @@ html[data-marinara-effects-paused="true"] .mari-topbar-status::before {
   .mari-topbar-status {
     position: absolute;
     top: 50%;
-    right: calc(max(4px, env(safe-area-inset-right)) + 4.25rem);
+    right: calc(4px + 4.25rem);
     max-width: calc(100% - 13rem);
     margin: 0;
     translate: 0 -50%;
@@ -1072,12 +1072,13 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   }
 }
 
-/* The omnibar is Mari's canonical workspace: velvet-dark, warm, and still one canvas. */
+/* The omnibar is Mari's canonical workspace: one canvas in the Home page's own colour, the same
+   card wash over the app background (each layer opaque on its own, so nesting never doubles it). */
 .mari-workspace-shell {
   --mari-workspace-gold: oklch(0.82 0.11 79);
   --mari-workspace-hoodie: oklch(0.62 0.1 252);
   --mari-workspace-blush: oklch(0.76 0.14 344);
-  background: color-mix(in srgb, var(--background) 94%, oklch(0.22 0.035 326));
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
   border-color: color-mix(in srgb, var(--mari-workspace-blush) 24%, var(--border));
 }
 
@@ -1919,7 +1920,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
 }
 
 .mari-workspace-canvas {
-  background: color-mix(in srgb, var(--background) 97%, oklch(0.2 0.025 315));
+  background: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash)) var(--background);
 }
 
 /* M6: Chats, Skills, Memories and Aware of share one surface - the canvas, one hairline on the
@@ -3150,19 +3151,28 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 1.4rem;
+  /* Two lines fit: a long step label wraps instead of ending in an ellipsis mid-word. */
+  min-height: 1.4rem;
   color: var(--foreground);
   font-size: 0.875rem;
 }
 
 .mari-work-timeline__line {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  position: static;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
   mask-image: linear-gradient(100deg, #000 38%, #0006 50%, #000 62%);
   mask-size: 280% 100%;
   animation: mari-headline-sheen 2.2s linear infinite;
+}
+
+/* Side-by-side inline-blocks may break between them, so a word's letters move to the next line as one
+   box; a word wider than the line (a path, a slug) still wraps inside its box instead of overflowing. */
+.mari-work-timeline__word {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .mari-work-timeline__char {
@@ -3337,7 +3347,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 .mari-live-work__steps li[data-status="missed"] .mari-step__glyph,
-.mari-live-work__steps li[data-status="missed"] .mari-step__verb {
+.mari-live-work__steps li[data-status="missed"] .mari-step__verb,
+.mari-live-work__steps li[data-status="previewed"] .mari-step__glyph,
+.mari-live-work__steps li[data-status="previewed"] .mari-step__verb {
   color: var(--warning);
 }
 
@@ -4090,6 +4102,19 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   margin-inline: auto;
 }
 
+/* On a sideways phone, an overlaid composer covers most of the transcript's
+   touch scroll target. Reserve its real height in the column instead. */
+@media (any-pointer: coarse) and (orientation: landscape) {
+  .mari-workspace-composer-dock {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .mari-workspace-transcript {
+    --mari-dock-h: 0px;
+  }
+}
+
 .mari-workspace-answer-strip {
   min-width: 0;
   overflow: hidden;
@@ -4167,7 +4192,8 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
    capsules. Neutral at rest; the primary colour is only the focus ring (and the semantic Plan mode/Fix chip).
    Send is neutral: grey while empty, solid foreground once there is something to send. */
 .mari-workspace-composer {
-  --mari-composer-fill: color-mix(in srgb, var(--foreground) 4%, var(--background));
+  --mari-composer-fill: linear-gradient(var(--marinara-home-page-wash), var(--marinara-home-page-wash))
+    var(--background);
   position: relative;
   display: flex;
   flex-wrap: wrap;
@@ -4184,7 +4210,6 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 [data-theme="light"] .mari-workspace-composer {
-  --mari-composer-fill: color-mix(in srgb, #fff 80%, var(--background));
   box-shadow:
     0 1px 2px rgb(0 0 0 / 0.05),
     0 0.75rem 1.5rem -1rem rgb(0 0 0 / 0.18);
@@ -4698,10 +4723,6 @@ html[data-marinara-accent-animation] .mari-message-action {
   .mari-workspace-composer__send[data-mode="stop"] {
     min-height: 2.75rem;
   }
-}
-
-[data-theme="light"] .mari-workspace-shell {
-  background: color-mix(in srgb, var(--background) 96%, oklch(0.93 0.025 73));
 }
 
 [data-component="GlobalOmnibar"]:not([data-pane="mari"]) .mari-workspace-portrait img,

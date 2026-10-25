@@ -10,7 +10,7 @@
 // the definition, so a ruleset whose only resource is an empty-start "stress" track renders as
 // completely as one with spell slots.
 import { useMemo, useState } from "react";
-import { Minus, Pencil, Plus } from "lucide-react";
+import { Check, Minus, Pencil, Plus, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -28,11 +28,14 @@ import {
   rulesetCheckSources,
   rulesetHideLines,
   rulesetSectionGroups,
+  isRulesetItemHidden,
+  isRulesetTextHidden,
   type EvaluatedRulesetSheet,
   type ResolvedRulesetLive,
   type RulesetDefinition,
   type RulesetField,
   type RulesetLayerOptions,
+  type RulesetList,
   type RulesetLiveState,
   type RulesetSheetBuild,
   type RulesetSheetEnvelope,
@@ -44,7 +47,8 @@ import { rulesetEffectPhrase } from "./RulesetItemPicker";
 import { RulesetSheetEditor } from "../rulesets/RulesetSheetEditor";
 import { stalePartySheet, useSavePartySheet } from "../../hooks/use-party-sheet";
 import { rulesetCheckValueText } from "../../lib/ruleset-resolution";
-import { rulesetPoolGroupLabel, rulesetSheetSummaryShown } from "../../lib/ruleset-sheet-view";
+import { rulesetPoolGroupLabel, rulesetSheetAttacks, rulesetSheetSummaryShown } from "../../lib/ruleset-sheet-view";
+import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 
@@ -120,6 +124,189 @@ function summaryFieldValue(
   if (typeof value === "number") return String(value);
   if (typeof value !== "string") return "";
   return field.type === "enum" ? (field.valueLabels?.[value] ?? value) : value;
+}
+
+/** A number with its sign where it is a bonus: "+7", "-1", "0". */
+function signedText(value: number, signed: boolean | undefined): string {
+  return signed && value > 0 ? `+${value}` : String(value);
+}
+
+/** How many conditions the "Add condition" search offers at once: it narrows as more is typed. */
+const CONDITION_MATCHES_SHOWN = 12;
+
+/**
+ * The conditions on the character, as chips, and the rest behind a search. A ruleset may name
+ * hundreds (every spell's and item's own state), so only what is on is drawn; a condition the
+ * ruleset keeps out of the picker (`pickable: false`) still shows while play has put it on.
+ */
+function RulesetSheetConditions({
+  definition,
+  conditions,
+  editable,
+  cardName,
+  onToggle,
+}: {
+  definition: RulesetDefinition;
+  conditions: ResolvedRulesetLive["conditions"];
+  editable: boolean;
+  cardName: string;
+  onToggle: (condition: string, active: boolean) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const [query, setQuery] = useState("");
+  const active = conditions.filter((condition) => condition.active);
+  const pickable = useMemo(() => {
+    const kept = new Set(
+      definition.sheet.live.conditions.filter((entry) => entry.pickable === false).map((entry) => entry.id),
+    );
+    return conditions.filter((condition) => !condition.active && !kept.has(condition.id));
+  }, [conditions, definition]);
+  const needle = query.trim().toLowerCase();
+  const matches = needle
+    ? pickable.filter((condition) => condition.label.toLowerCase().includes(needle)).slice(0, CONDITION_MATCHES_SHOWN)
+    : [];
+  if (!active.length && (!editable || !pickable.length)) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className={labelClass}>{localizeUi("game.ruleset.sheet.conditions")}</p>
+      {active.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {active.map((condition) => (
+            <span
+              key={condition.id}
+              className={`${chipClass} inline-flex items-center gap-1 border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]`}
+            >
+              <ArtIcon ids={rulesetConditionIcons(definition, condition.id)} className="h-4 w-4" />
+              {condition.label}
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => onToggle(condition.id, false)}
+                  aria-label={localizeUi("game.ruleset.sheet.removeConditionAria", {
+                    name: condition.label,
+                    who: cardName,
+                  })}
+                  className="-mr-1 rounded-full p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+                >
+                  <X size={10} aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          {localizeUi("game.ruleset.sheet.noConditions")}
+        </p>
+      )}
+      {editable && pickable.length > 0 && (
+        <div className="space-y-1">
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={localizeUi("game.ruleset.sheet.addCondition")}
+            aria-label={localizeUi("game.ruleset.sheet.addConditionAria", { who: cardName })}
+            className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+          />
+          {matches.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {matches.map((condition) => (
+                <button
+                  key={condition.id}
+                  type="button"
+                  onClick={() => {
+                    onToggle(condition.id, true);
+                    setQuery("");
+                  }}
+                  className={`${chipClass} border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]`}
+                >
+                  <ArtIcon
+                    ids={rulesetConditionIcons(definition, condition.id)}
+                    className="mr-1 h-4 w-4 align-[-0.2em]"
+                  />
+                  {condition.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {needle && matches.length === 0 && (
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("game.ruleset.sheet.noConditionMatch")}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A list the ruleset gives a tab of its own (1.378): its rows by name, under a heading for each
+ *  place a number column puts them in ("Cantrips", "1st level"), with a tick for a yes-or-no column. */
+function RulesetSheetListView({
+  definition,
+  list,
+  rows,
+  yes,
+}: {
+  definition: RulesetDefinition;
+  list: RulesetList;
+  rows: unknown;
+  yes: string;
+}) {
+  const display = list.display;
+  const nameColumn =
+    definition.gm.sheetSummary.lists.find((entry) => entry.list === list.id)?.nameColumn ??
+    list.pools?.nameColumn ??
+    list.columns.find((column) => column.type === "text")?.id;
+  const entries = (Array.isArray(rows) ? rows : []).flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as Record<string, unknown>;
+    const name = nameColumn ? row[nameColumn] : undefined;
+    if (typeof name !== "string" || !name.trim()) return [];
+    const place = display?.by ? row[display.by.column] : undefined;
+    return [
+      {
+        key: `${index}`,
+        name: name.trim(),
+        place: typeof place === "number" && Number.isInteger(place) ? place : undefined,
+        marked: display?.mark ? row[display.mark] === true : false,
+      },
+    ];
+  });
+  const groups = new Map<number | undefined, typeof entries>();
+  for (const entry of entries) groups.set(entry.place, [...(groups.get(entry.place) ?? []), entry]);
+  const ordered = [...groups.entries()].sort(([left], [right]) => (left ?? -1) - (right ?? -1));
+  return (
+    <div className="space-y-1.5">
+      <p className={labelClass}>{list.label}</p>
+      {entries.length === 0 && <p className="text-[0.6875rem] text-[var(--muted-foreground)]">—</p>}
+      {ordered.map(([place, group]) => (
+        <div key={place ?? "none"} className="space-y-1">
+          {place !== undefined && display?.by && (
+            <p className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
+              {display.by.labels[place] ?? String(place)}
+            </p>
+          )}
+          <ul className="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
+            {group.map((entry) => (
+              <li key={entry.key} className={`flex items-center gap-1.5 ${cardClass}`}>
+                {display?.mark && (
+                  <span
+                    className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center"
+                    title={entry.marked ? yes : undefined}
+                  >
+                    {entry.marked && <Check size={12} aria-label={yes} className="text-[var(--primary)]" />}
+                  </span>
+                )}
+                <span className="min-w-0 break-words text-xs text-[var(--foreground)]">{entry.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -339,7 +526,12 @@ export function GameRulesetSheet({
   onRest,
 }: GameRulesetSheetProps) {
   const readOnly = locked || buildOnly;
+  // In a fight on screen the sheet is read as it stands: only what play spends (points, slots,
+  // wounds) is still moved here, and the rest waits for the fight to end.
+  const inFight = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
+  const settled = readOnly || inFight;
   const { t: localizeUi } = useUiTranslation();
+  const [tab, setTab] = useState<string | null>(null);
   const [draft, setDraft] = useState<RulesetSheetEnvelope | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [restNotice, setRestNotice] = useState<string | null>(null);
@@ -365,6 +557,31 @@ export function GameRulesetSheet({
     () => rulesetHideLines(definition, checkSources, localizeUi),
     [definition, checkSources, localizeUi],
   );
+  const tabs = useMemo(
+    () => [
+      ...new Set(
+        definition.sheet.lists.flatMap((list) =>
+          list.display?.tab && !isRulesetItemHidden(list, build, definition) ? [list.display.tab] : [],
+        ),
+      ),
+    ],
+    [definition, build],
+  );
+  // A tab whose lists are all hidden now (a class changed) falls back to the Overview.
+  const shownTab = tab !== null && tabs.includes(tab) ? tab : null;
+  // A track the ruleset shows only once moved (1.378), and a note hidden by the sheet's own values.
+  const shownTracks = resolved.tracks.filter(
+    (track) =>
+      !(
+        definition.sheet.live.tracks.find((entry) => entry.id === track.id)?.showWhenSet &&
+        track.value === (track.start ?? track.min)
+      ),
+  );
+  const shownText = resolved.text.filter((entry) => {
+    const declared = definition.sheet.live.text.find((one) => one.id === entry.id);
+    return !declared || !isRulesetTextHidden(declared, build, definition, evaluated.derived);
+  });
+  const attacks = useMemo(() => rulesetSheetAttacks(definition, build, live, items), [definition, build, live, items]);
   const saveModifiers = checkSources.flatMap((source) =>
     rulesetItemEffectFacts(definition, {
       modifiers: source.modifiers?.filter((one) => one.against),
@@ -456,7 +673,7 @@ export function GameRulesetSheet({
               : definition.name}
           </p>
         </div>
-        {!locked && !draft && (
+        {!locked && !draft && !inFight && (
           <button
             type="button"
             onClick={startEditing}
@@ -507,331 +724,385 @@ export function GameRulesetSheet({
         </div>
       ) : (
         <>
-          {poolGroups.map((group) => (
-            <div key={group.id || "ungrouped"} className="space-y-1.5">
-              {group.id && <p className={labelClass}>{rulesetPoolGroupLabel(group.id)}</p>}
-              {group.pools.map((pool) => (
-                <div key={pool.key} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
-                  <span
-                    className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
-                    title={pool.label}
-                  >
-                    {pool.label}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => apply({ op: "spend", pool: pool.key, amount: 1 })}
-                      disabled={readOnly || pool.value <= 0}
-                      aria-label={localizeUi("game.ruleset.sheet.spendAria", { name: pool.label, who: cardName })}
-                      className={stepButtonClass}
-                    >
-                      <Minus size={12} aria-hidden="true" />
-                    </button>
-                    <DraftNumberInput
-                      value={pool.value}
-                      onCommit={(next) => setPoolValue(pool, next)}
-                      min={0}
-                      max={pool.max}
-                      integer
-                      disabled={readOnly}
-                      selectOnFocus
-                      ariaLabel={localizeUi("game.ruleset.sheet.valueAria", { name: pool.label, who: cardName })}
-                      className={numberInputClass}
-                    />
-                    <span className="text-xs tabular-nums text-[var(--muted-foreground)]">/{pool.max}</span>
-                    <button
-                      type="button"
-                      onClick={() => apply({ op: "restore", pool: pool.key, amount: 1 })}
-                      disabled={readOnly || pool.value >= pool.max}
-                      aria-label={localizeUi("game.ruleset.sheet.restoreAria", { name: pool.label, who: cardName })}
-                      className={stepButtonClass}
-                    >
-                      <Plus size={12} aria-hidden="true" />
-                    </button>
-                  </div>
-                  {pool.allowTemp && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                        {localizeUi("game.ruleset.sheet.temp")}
-                      </span>
-                      <DraftNumberInput
-                        value={pool.temp}
-                        onCommit={(next) =>
-                          apply({ op: "temp", pool: pool.key, amount: Math.max(0, Math.round(next)) })
-                        }
-                        min={0}
-                        integer
-                        disabled={readOnly}
-                        selectOnFocus
-                        ariaLabel={localizeUi("game.ruleset.sheet.tempAria", { name: pool.label, who: cardName })}
-                        className={numberInputClass}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-
-          {resolved.tracks.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.tracks.map((track) =>
-                track.wound ? (
-                  <WoundTrack
-                    key={track.id}
-                    track={track}
-                    wound={track.wound}
-                    cardName={cardName}
-                    readOnly={readOnly}
-                    onMark={(kind, amount, box) =>
-                      apply({ op: "damage", track: track.id, kind, amount, ...(box !== undefined ? { box } : {}) })
-                    }
-                    localizeUi={localizeUi}
-                  />
-                ) : (
-                  <div key={track.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
-                    <span
-                      className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
-                      title={track.label}
-                    >
-                      {track.label}
-                    </span>
-                    <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
-                      {localizeUi("game.ruleset.sheet.range", { min: track.min, max: track.max })}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => apply({ op: "track", track: track.id, by: -1 })}
-                        disabled={readOnly || track.value <= track.min}
-                        aria-label={localizeUi("game.ruleset.sheet.trackDownAria", {
-                          name: track.label,
-                          who: cardName,
-                        })}
-                        className={stepButtonClass}
-                      >
-                        <Minus size={12} aria-hidden="true" />
-                      </button>
-                      <span className="min-w-6 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                        {track.value}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => apply({ op: "track", track: track.id, by: 1 })}
-                        disabled={readOnly || track.value >= track.max}
-                        aria-label={localizeUi("game.ruleset.sheet.trackUpAria", { name: track.label, who: cardName })}
-                        className={stepButtonClass}
-                      >
-                        <Plus size={12} aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-
-          {resolved.text.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.text.map((entry) => (
-                <label key={entry.id} className="flex min-w-0 flex-col gap-0.5">
-                  <span className={labelClass}>{entry.label}</span>
-                  <DraftTextarea
-                    value={entry.value}
-                    onCommit={(next) => apply({ op: "note", field: entry.id, value: next })}
-                    maxLength={entry.maxLength}
-                    rows={1}
-                    disabled={readOnly}
-                    aria-label={localizeUi("game.ruleset.sheet.noteAria", { name: entry.label, who: cardName })}
-                    className="w-full min-w-0 resize-y rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-
-          {resolved.states.length > 0 && (
-            <div className="space-y-1.5">
-              {resolved.states.map((state) => (
-                <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
-                  <span className={labelClass}>{state.label}</span>
-                  <select
-                    value={state.value}
-                    onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
-                    disabled={readOnly}
-                    aria-label={localizeUi("game.ruleset.sheet.stateAria", { name: state.label, who: cardName })}
-                    className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
-                  >
-                    {state.values.map((value) => (
-                      <option key={value} value={value}>
-                        {state.valueLabels?.[value] ?? value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-          )}
-
-          {hideLines.map((line) => (
-            <p key={line} className="break-words text-xs text-[var(--muted-foreground)]">
-              {line}
-            </p>
-          ))}
-          {saveModifiers.length > 0 && (
-            <div className="space-y-1 text-xs text-[var(--muted-foreground)]">
-              {saveModifiers.map((fact, index) => (
-                <p key={index}>{rulesetEffectPhrase(fact, localizeUi)}</p>
-              ))}
-            </div>
-          )}
-          {resolved.conditions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {resolved.conditions.map((condition) => (
+          {tabs.length > 0 && (
+            <div role="tablist" className="flex flex-wrap gap-1.5">
+              {[null, ...tabs].map((one) => (
                 <button
-                  key={condition.id}
+                  key={one ?? "overview"}
                   type="button"
-                  aria-pressed={condition.active}
-                  disabled={readOnly}
-                  onClick={() => apply({ op: "condition", condition: condition.id, active: !condition.active })}
+                  role="tab"
+                  aria-selected={shownTab === one}
+                  onClick={() => setTab(one)}
                   className={`${chipClass} ${
-                    condition.active
+                    shownTab === one
                       ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]"
                       : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
                   }`}
                 >
-                  <ArtIcon
-                    ids={rulesetConditionIcons(definition, condition.id)}
-                    className="mr-1 h-4 w-4 align-[-0.2em]"
-                  />
-                  {condition.label}
+                  {one ?? localizeUi("game.ruleset.sheet.overview")}
                 </button>
               ))}
             </div>
           )}
-
-          {checkSources.flatMap((source, index) => {
-            const modifiers = source.modifiers?.filter((one) => one.to === "damage");
-            return modifiers?.length ? (
-              <p key={`damage-${index}`} className="text-xs text-[var(--muted-foreground)]">
-                {source.name}:{" "}
-                {rulesetItemEffectFacts(definition, { modifiers })
-                  .map((fact) => rulesetEffectPhrase(fact, localizeUi))
-                  .join("; ")}
-              </p>
-            ) : (
-              []
-            );
-          })}
-          {definition.rests.length > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-1.5">
-                {definition.rests.map((rest) => (
-                  <button
-                    key={rest.id}
-                    type="button"
-                    disabled={readOnly || resting}
-                    onClick={() => {
-                      if (readOnly || resting) return;
-                      if (!onRest) return apply({ op: "rest", rest: rest.id });
-                      setResting(true);
-                      void onRest(rest.id)
-                        .then((now) => {
-                          if (now !== null) setRestNotice(now);
-                        })
-                        .catch(() => undefined)
-                        .finally(() => setResting(false));
-                    }}
-                    aria-label={localizeUi("game.ruleset.sheet.restAria", { name: rest.label, who: cardName })}
-                    className={`${chipClass} border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]`}
-                  >
-                    {rest.label}
-                  </button>
-                ))}
-              </div>
-              {restNotice && (
-                <p role="status" className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                  {restNotice}
-                </p>
+          {shownTab !== null &&
+            definition.sheet.lists
+              .filter((list) => list.display?.tab === shownTab && !isRulesetItemHidden(list, build, definition))
+              .map((list) => (
+                <RulesetSheetListView
+                  key={list.id}
+                  definition={definition}
+                  list={list}
+                  rows={build.lists?.[list.id]}
+                  yes={localizeUi("game.ruleset.sheet.yes")}
+                />
+              ))}
+          {shownTab === null && (
+            <>
+              {(summaryFields.length > 0 || summaryDerived.length > 0) && (
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {summaryFields.map((field) => (
+                    <div key={field.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                      <span className={`${labelClass} truncate`} title={field.label}>
+                        {field.label}
+                      </span>
+                      <span className="truncate text-xs text-[var(--foreground)]">
+                        {summaryFieldValue(
+                          field,
+                          build,
+                          evaluated,
+                          localizeUi("game.ruleset.sheet.yes"),
+                          localizeUi("game.ruleset.sheet.no"),
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                  {summaryDerived.map((entry) => (
+                    <div key={entry.id} className={`flex min-w-0 flex-col ${cardClass}`}>
+                      <span className={`${labelClass} truncate`} title={entry.label}>
+                        {entry.label}
+                      </span>
+                      <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                        {signedText(evaluated.derived[entry.id] ?? 0, entry.signed)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Under their section headings where the ruleset gives them some; otherwise one grid, as always. */}
-          {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
-            <div
-              key={group.section ? `section:${group.section.id}` : "none"}
-              className={group.section ? "space-y-1" : undefined}
-            >
-              {group.section && <p className={labelClass}>{group.section.label}</p>}
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-                {group.entries.map((ability) => (
-                  <div
-                    key={ability.id}
-                    className={`flex min-w-0 flex-col items-center ${cardClass}`}
-                    title={ability.label}
-                  >
-                    <span className={`${labelClass} max-w-full truncate`}>{ability.short ?? ability.label}</span>
-                    <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                      {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {trained.length > 0 && (
-            <div className="space-y-1">
-              <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
-              {rulesetSectionGroups(definition, trained).map((group) => (
+              {/* Under their section headings where the ruleset gives them some; otherwise one grid, as always. */}
+              {rulesetSectionGroups(definition, definition.sheet.abilities).map((group) => (
                 <div
                   key={group.section ? `section:${group.section.id}` : "none"}
-                  className="flex flex-wrap items-center gap-1.5"
+                  className={group.section ? "space-y-1" : undefined}
                 >
-                  {group.section && <span className={labelClass}>{group.section.label}</span>}
-                  {group.entries.map((entry) => (
-                    <span
-                      key={`${entry.id}-${entry.label}`}
-                      className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
-                    >
-                      {entry.label}{" "}
-                      <span className="tabular-nums">
-                        {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                  {group.section && <p className={labelClass}>{group.section.label}</p>}
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                    {group.entries.map((ability) => (
+                      <div
+                        key={ability.id}
+                        className={`flex min-w-0 flex-col items-center ${cardClass}`}
+                        title={ability.label}
+                      >
+                        <span className={`${labelClass} max-w-full truncate`}>{ability.short ?? ability.label}</span>
+                        {/* The score a player reads off a printed sheet, and what it adds to a roll. */}
+                        <span className="text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                          {evaluated.abilityScores[ability.id] ?? ability.default}
+                        </span>
+                        <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                          {rulesetCheckValueText(definition, evaluated.abilityMods[ability.id] ?? 0, localizeUi)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {poolGroups.map((group) => (
+                <div key={group.id || "ungrouped"} className="space-y-1.5">
+                  {group.id && <p className={labelClass}>{rulesetPoolGroupLabel(group.id)}</p>}
+                  {group.pools.map((pool) => (
+                    <div key={pool.key} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                      <span
+                        className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
+                        title={pool.label}
+                      >
+                        {pool.label}
                       </span>
-                    </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => apply({ op: "spend", pool: pool.key, amount: 1 })}
+                          disabled={readOnly || pool.value <= 0}
+                          aria-label={localizeUi("game.ruleset.sheet.spendAria", { name: pool.label, who: cardName })}
+                          className={stepButtonClass}
+                        >
+                          <Minus size={12} aria-hidden="true" />
+                        </button>
+                        <DraftNumberInput
+                          value={pool.value}
+                          onCommit={(next) => setPoolValue(pool, next)}
+                          min={0}
+                          max={pool.max}
+                          integer
+                          disabled={readOnly}
+                          selectOnFocus
+                          ariaLabel={localizeUi("game.ruleset.sheet.valueAria", { name: pool.label, who: cardName })}
+                          className={numberInputClass}
+                        />
+                        <span className="text-xs tabular-nums text-[var(--muted-foreground)]">/{pool.max}</span>
+                        <button
+                          type="button"
+                          onClick={() => apply({ op: "restore", pool: pool.key, amount: 1 })}
+                          disabled={readOnly || pool.value >= pool.max}
+                          aria-label={localizeUi("game.ruleset.sheet.restoreAria", { name: pool.label, who: cardName })}
+                          className={stepButtonClass}
+                        >
+                          <Plus size={12} aria-hidden="true" />
+                        </button>
+                      </div>
+                      {pool.allowTemp && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                            {localizeUi("game.ruleset.sheet.temp")}
+                          </span>
+                          <DraftNumberInput
+                            value={pool.temp}
+                            onCommit={(next) =>
+                              apply({ op: "temp", pool: pool.key, amount: Math.max(0, Math.round(next)) })
+                            }
+                            min={0}
+                            integer
+                            disabled={readOnly}
+                            selectOnFocus
+                            ariaLabel={localizeUi("game.ruleset.sheet.tempAria", { name: pool.label, who: cardName })}
+                            className={numberInputClass}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               ))}
-            </div>
-          )}
 
-          {(summaryFields.length > 0 || summaryDerived.length > 0) && (
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {summaryFields.map((field) => (
-                <div key={field.id} className={`flex min-w-0 flex-col ${cardClass}`}>
-                  <span className={`${labelClass} truncate`}>{field.label}</span>
-                  <span className="truncate text-xs text-[var(--foreground)]">
-                    {summaryFieldValue(
-                      field,
-                      build,
-                      evaluated,
-                      localizeUi("game.ruleset.sheet.yes"),
-                      localizeUi("game.ruleset.sheet.no"),
-                    )}
-                  </span>
+              {shownTracks.length > 0 && (
+                <div className="space-y-1.5">
+                  {shownTracks.map((track) =>
+                    track.wound ? (
+                      <WoundTrack
+                        key={track.id}
+                        track={track}
+                        wound={track.wound}
+                        cardName={cardName}
+                        readOnly={readOnly}
+                        onMark={(kind, amount, box) =>
+                          apply({ op: "damage", track: track.id, kind, amount, ...(box !== undefined ? { box } : {}) })
+                        }
+                        localizeUi={localizeUi}
+                      />
+                    ) : (
+                      <div key={track.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${cardClass}`}>
+                        <span
+                          className="min-w-0 flex-1 basis-24 truncate text-xs text-[var(--foreground)]"
+                          title={track.label}
+                        >
+                          {track.label}
+                        </span>
+                        <span className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+                          {localizeUi("game.ruleset.sheet.range", { min: track.min, max: track.max })}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "track", track: track.id, by: -1 })}
+                            disabled={settled || track.value <= track.min}
+                            aria-label={localizeUi("game.ruleset.sheet.trackDownAria", {
+                              name: track.label,
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Minus size={12} aria-hidden="true" />
+                          </button>
+                          <span className="min-w-6 text-center text-xs font-semibold tabular-nums text-[var(--foreground)]">
+                            {track.value}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => apply({ op: "track", track: track.id, by: 1 })}
+                            disabled={settled || track.value >= track.max}
+                            aria-label={localizeUi("game.ruleset.sheet.trackUpAria", {
+                              name: track.label,
+                              who: cardName,
+                            })}
+                            className={stepButtonClass}
+                          >
+                            <Plus size={12} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    ),
+                  )}
                 </div>
-              ))}
-              {summaryDerived.map((entry) => (
-                <div key={entry.id} className={`flex min-w-0 flex-col ${cardClass}`}>
-                  <span className={`${labelClass} truncate`}>{entry.label}</span>
-                  <span className="text-xs font-semibold tabular-nums text-[var(--foreground)]">
-                    {evaluated.derived[entry.id] ?? 0}
-                  </span>
+              )}
+
+              {attacks.length > 0 && (
+                <div className="space-y-1">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.attacks")}</p>
+                  {attacks.map((attack) => (
+                    <div key={attack.id} className={`flex flex-wrap items-baseline gap-x-2 ${cardClass}`}>
+                      <span className="min-w-0 flex-1 basis-24 break-words text-xs font-semibold text-[var(--foreground)]">
+                        {attack.label}
+                      </span>
+                      {attack.toHit !== undefined && (
+                        <span className="shrink-0 text-xs tabular-nums text-[var(--foreground)]">
+                          {localizeUi("game.ruleset.sheet.toHit", { value: signedText(attack.toHit, true) })}
+                        </span>
+                      )}
+                      {attack.damage && (
+                        <span className="shrink-0 text-xs tabular-nums text-[var(--muted-foreground)]">
+                          {attack.damage}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              )}
+
+              <RulesetSheetConditions
+                definition={definition}
+                conditions={resolved.conditions}
+                editable={!settled}
+                cardName={cardName}
+                onToggle={(condition, active) => apply({ op: "condition", condition, active })}
+              />
+
+              {hideLines.map((line) => (
+                <p key={line} className="break-words text-xs text-[var(--muted-foreground)]">
+                  {line}
+                </p>
               ))}
-            </div>
+              {saveModifiers.length > 0 && (
+                <div className="space-y-1 text-xs text-[var(--muted-foreground)]">
+                  {saveModifiers.map((fact, index) => (
+                    <p key={index}>{rulesetEffectPhrase(fact, localizeUi)}</p>
+                  ))}
+                </div>
+              )}
+              {checkSources.flatMap((source, index) => {
+                const modifiers = source.modifiers?.filter((one) => one.to === "damage");
+                return modifiers?.length ? (
+                  <p key={`damage-${index}`} className="text-xs text-[var(--muted-foreground)]">
+                    {source.name}:{" "}
+                    {rulesetItemEffectFacts(definition, { modifiers })
+                      .map((fact) => rulesetEffectPhrase(fact, localizeUi))
+                      .join("; ")}
+                  </p>
+                ) : (
+                  []
+                );
+              })}
+
+              {shownText.length > 0 && (
+                <div className="space-y-1.5">
+                  {shownText.map((entry) => (
+                    <label key={entry.id} className="flex min-w-0 flex-col gap-0.5">
+                      <span className={labelClass}>{entry.label}</span>
+                      <DraftTextarea
+                        value={entry.value}
+                        onCommit={(next) => apply({ op: "note", field: entry.id, value: next })}
+                        maxLength={entry.maxLength}
+                        rows={1}
+                        disabled={settled}
+                        aria-label={localizeUi("game.ruleset.sheet.noteAria", { name: entry.label, who: cardName })}
+                        className="w-full min-w-0 resize-y rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {resolved.states.length > 0 && (
+                <div className="space-y-1.5">
+                  {resolved.states.map((state) => (
+                    <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
+                      <span className={labelClass}>{state.label}</span>
+                      <select
+                        value={state.value}
+                        onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
+                        disabled={settled}
+                        aria-label={localizeUi("game.ruleset.sheet.stateAria", { name: state.label, who: cardName })}
+                        className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+                      >
+                        {state.values.map((value) => (
+                          <option key={value} value={value}>
+                            {state.valueLabels?.[value] ?? value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {definition.rests.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {definition.rests.map((rest) => (
+                      <button
+                        key={rest.id}
+                        type="button"
+                        disabled={settled || resting}
+                        onClick={() => {
+                          if (settled || resting) return;
+                          if (!onRest) return apply({ op: "rest", rest: rest.id });
+                          setResting(true);
+                          void onRest(rest.id)
+                            .then((now) => {
+                              if (now !== null) setRestNotice(now);
+                            })
+                            .catch(() => undefined)
+                            .finally(() => setResting(false));
+                        }}
+                        aria-label={localizeUi("game.ruleset.sheet.restAria", { name: rest.label, who: cardName })}
+                        className={`${chipClass} border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]`}
+                      >
+                        {rest.label}
+                      </button>
+                    ))}
+                  </div>
+                  {restNotice && (
+                    <p role="status" className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {restNotice}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {trained.length > 0 && (
+                <div className="space-y-1">
+                  <p className={labelClass}>{localizeUi("game.ruleset.sheet.trained")}</p>
+                  {rulesetSectionGroups(definition, trained).map((group) => (
+                    <div
+                      key={group.section ? `section:${group.section.id}` : "none"}
+                      className="flex flex-wrap items-center gap-1.5"
+                    >
+                      {group.section && <span className={labelClass}>{group.section.label}</span>}
+                      {group.entries.map((entry) => (
+                        <span
+                          key={`${entry.id}-${entry.label}`}
+                          className="rounded-lg border border-[var(--border)] px-1.5 py-0.5 text-[0.6875rem] text-[var(--foreground)]"
+                        >
+                          {entry.label}{" "}
+                          <span className="tabular-nums">
+                            {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

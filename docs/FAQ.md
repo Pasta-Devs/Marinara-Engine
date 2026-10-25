@@ -11,7 +11,7 @@ The start scripts (`start.sh`, `start.bat`, and `start-termux.sh`) already bind 
 Follow these steps:
 
 1. Keep Marinara running on the host computer.
-2. On the host computer, set up access control: Basic Auth (a username and password) or an IP allowlist (a list of trusted device addresses). [Remote Access](REMOTE_ACCESS.md) walks through each option, including a bypass for fully trusted private networks.
+2. Set a login (a username and password): in **Settings → Advanced → Access** in a browser that is already signed in on any device (to change or remove the login, you need the current password), or on the other device with the one-time setup code from the server log (in Docker: `docker logs <container> 2>&1 | grep "setup code"`). [Remote Access](REMOTE_ACCESS.md#option-1-login-recommended) walks through it.
 3. Find the host computer's local IP address. On Windows, run this command and read the **IPv4 Address**:
 
 ```
@@ -32,9 +32,9 @@ http://192.168.1.42:7860
 
 Replace `192.168.1.42` with your own host IP address.
 
-5. Sign in if the browser asks for the Basic Auth username and password. If you see an **Access blocked** page instead, finish step 2 on the host first.
+5. Sign in with your username and password. If you see an **Access blocked** page instead, no login is set yet: type the setup code from the server log and a new username and password there. To add more devices without typing the password, use **Add a device** in **Settings → Advanced → Access**.
 
-On ordinary desktop installs, the same computer (`127.0.0.1`) does not need a password. A reverse proxy on the same computer, including nginx with its default setup, counts as a remote visitor and needs the login. APK-managed Android installs add a private localhost login so another Android app cannot impersonate Marinara, but the Android wrapper creates and uses that credential automatically. Other devices are blocked until you set up access control (Basic Auth or an IP allowlist). Each option is explained in [Remote Access](REMOTE_ACCESS.md).
+On ordinary desktop installs, the same computer (`127.0.0.1`) does not need a password. A reverse proxy on the same computer, including nginx with its default setup, counts as a remote visitor and needs the login. APK-managed Android installs add a private localhost login so another Android app cannot impersonate Marinara, but the Android wrapper creates and uses that credential automatically. Other devices are blocked until you set a login. Each option is explained in [Remote Access](REMOTE_ACCESS.md).
 
 If the two devices are not on the same network, a tool like Tailscale can help. Tailscale gives each device a stable private address. You can then connect from anywhere without exposing Marinara to the public internet. If you cannot connect, see [Troubleshooting](TROUBLESHOOTING.md).
 

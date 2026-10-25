@@ -10,6 +10,8 @@ Presets shape the prompt for **Roleplay** and **Game** chats. **Conversation** m
 
 Presets do not need an API key or account. They only describe how a prompt is built. You still need a working connection to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
+The built-in **Marinara's Universal Preset** supplies prompt text without assigning generation parameters. Its older saved sampling, reasoning, formatting, and token settings are ignored. Connection settings, chat overrides, and Engine defaults continue to apply. Create an editable copy to customize the preset.
+
 ## Opening the Preset Editor
 
 Prompt presets live in the **Prompts** section of the **Presets** panel on the left side of the app. The other sections in this panel are **Regexes** and **Functions**.

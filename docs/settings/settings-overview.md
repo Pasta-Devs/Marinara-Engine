@@ -57,7 +57,7 @@ This section is at **Settings** > **General** > **App Behavior**. It controls da
   - **Search**: offer to improve a field and search history.
   - **Quick answers**: **Quick answers in Search**, **Answer with** and **Wait after typing**.
   - **Search window** and **Professor Mari window**: each window has **Height** and **Width** settings. These groups are not shown on phones.
-  - **Professor Mari**: Ask Professor Mari from Search, permissions mode, **Runtime**, reply chips, how change cards open and Enter sends to Professor Mari.
+  - **Professor Mari**: Ask Professor Mari from Search, permissions mode, **Runtime**, **Read the handbook before the first write**, reply chips, how change cards open and Enter sends to Professor Mari.
   - **Around the app**: Mini Professor Mari visits.
   - **Appearance**: her look. Each pack shows her portrait. The one in use says **In use**. A locked pack shows your play time toward unlocking it.
 

@@ -45,6 +45,12 @@ const parse = (raw: unknown): RulesetDefinition => {
   return parsed.definition;
 };
 const definition = parse(document());
+assert.equal(definition.party!.summary, undefined, "an omitted party summary retains the all-fields fallback");
+assert.deepEqual(
+  parse({ ...document(), party: { ...document().party, summary: {} } }).party!.summary,
+  { fields: [], derived: [], lists: [] },
+  "an explicit empty summary still hides all fields",
+);
 const party = rulesetPartyDefinition(definition)!;
 const partyBuild = defaultRulesetSheetBuild(party);
 const build = defaultRulesetSheetBuild(definition);

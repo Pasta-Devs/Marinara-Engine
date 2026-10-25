@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -8,18 +8,22 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-dev-launcher-"));
-const fixtureDevPath = join(fixtureRoot, "dev.mjs");
+// dev.mjs reads the repository's .env one folder up, so it lives in scripts/ here too.
+const fixtureScriptsRoot = join(fixtureRoot, "scripts");
+mkdirSync(fixtureScriptsRoot);
+const fixtureDevPath = join(fixtureScriptsRoot, "dev.mjs");
 const fixtureCliPath = join(fixtureRoot, "fake-pnpm.mjs");
 const fixtureWorkerPath = join(fixtureRoot, "worker.mjs");
 
 copyFileSync(join(repositoryRoot, "scripts/dev.mjs"), fixtureDevPath);
-copyFileSync(join(repositoryRoot, "scripts/pnpm-runner.mjs"), join(fixtureRoot, "pnpm-runner.mjs"));
+copyFileSync(join(repositoryRoot, "scripts/pnpm-runner.mjs"), join(fixtureScriptsRoot, "pnpm-runner.mjs"));
+copyFileSync(join(repositoryRoot, "scripts/read-launcher-env.mjs"), join(fixtureScriptsRoot, "read-launcher-env.mjs"));
 writeFileSync(
-  join(fixtureRoot, "check-workspace-install.mjs"),
+  join(fixtureScriptsRoot, "check-workspace-install.mjs"),
   "export function getWorkspaceInstallProblems() { return []; }\n",
 );
 writeFileSync(
-  join(fixtureRoot, "dev-shared-build.mjs"),
+  join(fixtureScriptsRoot, "dev-shared-build.mjs"),
   'export function resolveDevSharedBuildScript() { return "build"; }\n',
 );
 writeFileSync(
@@ -120,11 +124,14 @@ function isProcessAlive(pid) {
 function launchFixture(port, name) {
   const logPath = join(fixtureRoot, `${name}.log`);
   const pidPath = join(fixtureRoot, `${name}.pids`);
+  const environment = { ...process.env, PORT: String(port) };
+  // null: leave PORT unexported, so only the fixture's .env names the port.
+  if (port === null) delete environment.PORT;
+  delete environment.MARINARA_ENV_FILE;
   const child = spawn(process.execPath, [fixtureDevPath], {
     cwd: fixtureRoot,
     env: {
-      ...process.env,
-      PORT: String(port),
+      ...environment,
       DEV_SKIP_SHARED_BUILD: "true",
       DEV_SERVER_READY_TIMEOUT_MS: "4000",
       npm_execpath: fixtureCliPath,
@@ -238,6 +245,27 @@ try {
     );
     await assertHealthEndpointUnavailable(hangupPort);
   }
+
+  // PORT only in .env: the health check must poll it and the server child must be handed it.
+  const envFilePort = await reservePort();
+  writeFileSync(
+    join(fixtureRoot, ".env"),
+    `PORT=${envFilePort}
+`,
+  );
+  const envFileRun = launchFixture(null, "env-file");
+  runs.push(envFileRun);
+  await waitUntil(async () => {
+    try {
+      const response = await fetchHealth(envFilePort);
+      return response.ok && readLines(envFileRun.logPath).some((line) => line.includes("@marinara-engine/client"));
+    } catch {
+      return false;
+    }
+  }, "Launcher did not start its server on the PORT from .env");
+  assert.ok(envFileRun.output().stdout.includes(`127.0.0.1:${envFilePort}/api/health`), envFileRun.output().stdout);
+  await stopLauncher(envFileRun);
+  rmSync(join(fixtureRoot, ".env"));
 
   const reusableServer = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "application/json" });

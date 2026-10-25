@@ -37,6 +37,12 @@ export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Experience file imports: each one streams a whole file through the package checks. */
+export const EXPERIENCE_FILE_IMPORT_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const UPDATE_CHANNEL_RATE_LIMIT = {
   max: 30,
   timeWindow: 60_000,
@@ -97,9 +103,30 @@ export const REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Revision settings can prune stored code history; bound reads and writes together. */
+export const EXTENSION_REVISION_HISTORY_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Support snapshot of storage residency and package runtimes; a person reads it a few times, not in a loop. */
 export const RUNTIME_DIAGNOSTICS_RATE_LIMIT = {
   max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/** Setting the remote login; also bounds tries of the one-time setup code. */
+export const ACCESS_LOGIN_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/**
+ * The sign-in pages (/login, /login/setup). Behind a proxy every browser shares one address, so this
+ * only caps volume; wrong passwords and codes have their own per-browser buckets in basic-auth.
+ */
+export const LOGIN_PAGE_RATE_LIMIT = {
+  max: 120,
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
@@ -170,6 +197,14 @@ export const HEALTH_RATE_LIMIT = {
 } as const satisfies MarinaraRouteRateLimit;
 
 const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
+  {
+    pattern: /^\/api\/access\/login(?:\?|$)/,
+    rule: { key: "access-login", limit: ACCESS_LOGIN_RATE_LIMIT.max, windowMs: ACCESS_LOGIN_RATE_LIMIT.timeWindow },
+  },
+  {
+    pattern: /^\/login(?:\/setup)?(?:\?|$)/,
+    rule: { key: "login-page", limit: LOGIN_PAGE_RATE_LIMIT.max, windowMs: LOGIN_PAGE_RATE_LIMIT.timeWindow },
+  },
   {
     pattern: /^\/api\/health(?:\?|$)/,
     rule: { key: "health", limit: HEALTH_RATE_LIMIT.max, windowMs: HEALTH_RATE_LIMIT.timeWindow },
@@ -253,6 +288,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       windowMs: RUNTIME_DIAGNOSTICS_RATE_LIMIT.timeWindow,
     },
   },
+  {
+    pattern: /^\/api\/personal-extensions\/revision-history\/?$/,
+    rule: {
+      key: "extension-revision-history",
+      limit: EXTENSION_REVISION_HISTORY_RATE_LIMIT.max,
+      windowMs: EXTENSION_REVISION_HISTORY_RATE_LIMIT.timeWindow,
+    },
+  },
   { pattern: /^\/api\/updates\/apply(?:\?|$)/, rule: { key: "updates-apply", limit: 5, windowMs: 60_000 } },
   {
     pattern: /^\/api\/updates\/channel(?:\?|$)/,
@@ -289,6 +332,14 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       key: "package-update-decline",
       limit: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.max,
       windowMs: PACKAGE_UPDATE_DECLINE_RATE_LIMIT.timeWindow,
+    },
+  },
+  {
+    pattern: /^\/api\/capability-packages\/experience-file(?:\?|$)/,
+    rule: {
+      key: "experience-file-import",
+      limit: EXPERIENCE_FILE_IMPORT_RATE_LIMIT.max,
+      windowMs: EXPERIENCE_FILE_IMPORT_RATE_LIMIT.timeWindow,
     },
   },
   // One-shot LLM call per user click; keep it out of the 600/min default
@@ -358,13 +409,14 @@ function sweepExpired(now: number) {
 }
 
 export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done: () => void) {
-  if (!isApiRequest(request)) return done();
   if (isE2ERateLimitDisabled) return done();
+  const rule = selectRule(request.url);
+  // Pages and assets are not throttled, except the sign-in pages that check passwords and codes.
+  if (!isApiRequest(request) && rule.key !== "login-page") return done();
 
   const now = Date.now();
   sweepExpired(now);
 
-  const rule = selectRule(request.url);
   const key = `${rule.key}:${request.ip}`;
   const bucket = buckets.get(key);
   const activeBucket = bucket && bucket.resetAt > now ? bucket : { count: 0, resetAt: now + rule.windowMs };
@@ -377,8 +429,10 @@ export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done
   reply.header("RateLimit-Reset", String(Math.ceil(activeBucket.resetAt / 1000)));
 
   if (activeBucket.count > rule.limit) {
-    reply.header("Retry-After", String(Math.ceil((activeBucket.resetAt - now) / 1000)));
-    reply.status(429).send({ error: "Too many requests" });
+    const retryAfter = Math.ceil((activeBucket.resetAt - now) / 1000);
+    reply.header("Retry-After", String(retryAfter));
+    // The body repeats the wait so forms can say "Try again in N minutes".
+    reply.status(429).send({ error: "Too many requests", retryAfter });
     return;
   }
 

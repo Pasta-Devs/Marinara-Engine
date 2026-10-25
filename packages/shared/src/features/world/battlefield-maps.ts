@@ -13,6 +13,9 @@ import type { TacticalGrid, TacticalMadeBattlefield, TacticalTerrain } from "../
 import { BOARD_PROP_ART } from "./board-pack.js";
 import type { GameWorld } from "./game-world.js";
 
+/** The seasons a board's tiles may be painted in: the world's (overworld.ts WORLD_SEASONS). */
+const BATTLEFIELD_SEASONS = ["spring", "summer", "autumn", "winter"] as const;
+
 /** The most battlefields a world has. */
 export const WORLD_BATTLEFIELDS_MAX = 32;
 
@@ -252,6 +255,16 @@ export const worldBattlefieldMapSchema = z
         message: "A light rule moves a track or puts a condition on",
       })
       .optional(),
+    /** The season each tile is in (Capability API 1.351), a row of letters each, the same shape as `rows`:
+     *  a letter `seasonKeys` names, or `.` for the season of the place it is fought at. A fight starts with
+     *  them, and the round's map events may change them. */
+    seasons: z
+      .array(z.string().regex(/^[a-z.]{1,14}$/, "A battlefield's season row is a letter or . per tile"))
+      .min(1)
+      .max(10)
+      .optional(),
+    /** What each letter of `seasons` is: `{ "a": "autumn", "w": "winter" }`. */
+    seasonKeys: z.record(z.string().regex(/^[a-z]$/u), z.enum(BATTLEFIELD_SEASONS)).optional(),
   })
   .strict();
 export type WorldBattlefieldMap = z.infer<typeof worldBattlefieldMapSchema>;
@@ -292,7 +305,48 @@ export function worldBattlefieldIssues(map: WorldBattlefieldMap): string[] {
       issues.push(`${prop.label} stands off the board`);
     }
   }
+  if (map.seasons) {
+    if (map.seasons.length !== map.rows.length || map.seasons.some((row, y) => row.length !== map.rows[y]!.length)) {
+      issues.push("Its seasons are not the shape of its tiles.");
+    }
+    const unnamed = [...new Set(map.seasons.join("").replace(/\./g, ""))].filter((key) => !map.seasonKeys?.[key]);
+    if (unnamed.length) issues.push(`Its seasons use ${unnamed.join(", ")}, which seasonKeys does not name.`);
+  }
   return issues;
+}
+
+/** The seasons a board's tiles are painted in (1.351), keyed "x,y" as a fight's `grid.seasons`; a tile
+ *  left `.` is in `here` (the season of the place it is fought at), or not in it without one. */
+export function worldBattlefieldSeasons(
+  map: Pick<WorldBattlefieldMap, "seasons" | "seasonKeys">,
+  here?: string,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  map.seasons?.forEach((row, y) =>
+    [...row].forEach((key, x) => {
+      const season = key === "." ? here : map.seasonKeys?.[key];
+      if (season) out[`${x},${y}`] = season;
+    }),
+  );
+  return out;
+}
+
+/** A painted board, made to be fought on: its tiles, and their seasons when it is painted with them
+ *  (1.351; `here` the season of the place it is fought at). */
+export function worldBattlefieldMade(map: WorldBattlefieldMap, here?: string): TacticalMadeBattlefield {
+  return {
+    id: map.id,
+    name: map.name,
+    size: map.size,
+    scene: map.scene,
+    ...(map.pack ? { pack: map.pack } : {}),
+    grid: worldBattlefieldGrid(map),
+    ...(map.props?.length ? { props: map.props.map((prop) => structuredClone(prop)) } : {}),
+    ...(map.events?.length ? { events: map.events.map((event) => structuredClone(event)) } : {}),
+    ...(map.growth ? worldBattlefieldGrowth(map.growth) : {}),
+    ...(map.lightRule ? { lightRule: structuredClone(map.lightRule) } : {}),
+    ...(map.seasons ? { seasons: worldBattlefieldSeasons(map, here) } : {}),
+  };
 }
 
 /**
@@ -329,6 +383,8 @@ export function worldBattlefieldHere(
   game: GameWorld,
   placeId: string | null | undefined,
   seed: number,
+  /** The season of the place the fight is at (1.351), for a board's tiles painted `.`. */
+  season?: string,
 ): TacticalMadeBattlefield | null {
   const maps = game.edits?.battlefields;
   if (!maps?.length) return null;
@@ -337,18 +393,7 @@ export function worldBattlefieldHere(
     const here = maps.filter((map) => map.place === at);
     if (!here.length) continue;
     const map = here[(seed >>> 0) % here.length]!;
-    return {
-      id: map.id,
-      name: map.name,
-      size: map.size,
-      scene: map.scene,
-      ...(map.pack ? { pack: map.pack } : {}),
-      grid: worldBattlefieldGrid(map),
-      ...(map.props?.length ? { props: map.props.map((prop) => structuredClone(prop)) } : {}),
-      ...(map.events?.length ? { events: map.events.map((event) => structuredClone(event)) } : {}),
-      ...(map.growth ? worldBattlefieldGrowth(map.growth) : {}),
-      ...(map.lightRule ? { lightRule: structuredClone(map.lightRule) } : {}),
-    };
+    return worldBattlefieldMade(map, season);
   }
   return null;
 }

@@ -38,6 +38,19 @@ Do not add `interactive-widget=resizes-content` to the viewport tag. On mobile P
 
 You cannot have both a glass status bar and a filled bottom. In `black` mode the status bar is a solid dark bar. `black-translucent` gives a prettier transparent top, but it makes the bottom stripe impossible to remove. This is a hard iOS limitation.
 
+## Landscape: the camera's side insets
+
+When an iPhone is turned sideways, its camera (the notch or Dynamic Island) sits at the left or right edge. With `viewport-fit=cover` the page extends under it, and iOS reports the space as `env(safe-area-inset-left)` and `env(safe-area-inset-right)`. On Dynamic Island models that is about 59px on each side, whichever way the phone is turned. Marinara's Android app (target SDK 34, not edge-to-edge) is laid out clear of the cutout, so both insets are 0 there. Other Android browsers can report non-zero insets, for example in fullscreen or edge-to-edge, and the same variables cover them.
+
+Marinara keeps out of that space the way the status-bar strip works in portrait:
+
+- `packages/client/src/styles/globals.css` reads the two insets once, into `--mari-safe-area-inset-left` and `--mari-safe-area-inset-right` on `:root`. Everything else reads these variables, never `env()` directly. `scripts/regressions/mobile-safe-area-inset.regression.ts` enforces this. Dialogs, the omnibar, full-screen editors and TopBar controls retain this protection against the camera and rounded corners.
+- On iPhone, `AppShell.tsx` identifies the camera side from `window.orientation` (or `screen.orientation.angle` when unavailable). At 90° the camera is on the left; at −90°/270° it is on the right. A `data-mari-camera-side` attribute on `<html>` lets CSS zero only the opposite **shell** inset, `--mari-shell-inset-left` or `--mari-shell-inset-right`. Unknown rotations, iPad and Android keep the system's insets.
+- In the phone shell, `.mari-app` takes its `left` and `right` from the shell variables. The body's page backing shows over the camera, the same colour as the status-bar strip in portrait, without a mirrored gutter on the opposite edge.
+- Fixed elements inside the shell are positioned against the screen, not the shell, so they keep out on their own. The phone sheets and their backdrops in `AppShell.tsx` use `MOBILE_SHELL_PANEL_X_CLASS` with the shell variables. Decorations such as the shell's stars are `absolute`, so they stay inside the shell.
+
+To check it without a phone, open a 874×402 touch viewport and set both variables to `59px` in a `:root` stylesheet rule (inline styles override the camera-side selector). On Chromium you can instead emulate the real insets with the DevTools Protocol command `Emulation.setSafeAreaInsetsOverride`. `e2e/phone-camera-side.e2e.ts` checks both rotation directions, the older and newer orientation APIs, unknown rotations, and other devices. The e2e test "a phone turned sideways keeps the app out from under its camera" checks the fallback that preserves both insets.
+
 ## How it was diagnosed
 
 The stripe was traced by coloring each layer and reopening the app. Inject the diagnostic styles into `packages/client/dist/index.html`, inside its inline `<style>` block. That file is not cached by the service worker and is always served fresh. Changes show on the next reopen with no cache clear.

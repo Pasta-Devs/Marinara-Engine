@@ -251,7 +251,7 @@ export const ttsSourceProfilesSchema = z
     pockettts: ttsSourceProfileSchema.optional(),
     xai: ttsSourceProfileSchema.optional(),
   })
-  .default({});
+  .prefault({});
 export type TTSSourceProfiles = z.infer<typeof ttsSourceProfilesSchema>;
 
 /**
@@ -277,7 +277,7 @@ export const ttsConfigSchema = ttsConfigBaseSchema.extend({
    */
   connectionId: z.string().default(""),
   /** Voices and speech settings kept separately for each Audio connection, by connection ID. */
-  connectionProfiles: z.record(z.string(), ttsConnectionProfileSchema).default({}),
+  connectionProfiles: z.record(z.string(), ttsConnectionProfileSchema).prefault({}),
 });
 
 export type TTSConfig = z.infer<typeof ttsConfigSchema>;

@@ -122,7 +122,7 @@ export function StartingGearPicker({
     setPicks({});
     setAgain(false);
   };
-  // The gear this bag took of the chosen one's kind, which taking it again replaces.
+  // The gear this bag took of the chosen one's kind, which taking this as well needs the word for.
   const replaces = chosen
     ? takenHere.find((id) => rulesetStartingGearKind(definition, id) === rulesetStartingGearKind(definition, chosen.id))
     : undefined;

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useInsertionEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -50,6 +51,7 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useAgentConfigs } from "../../hooks/use-agents";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 import { MariHold } from "./mari/MariHold";
@@ -71,7 +73,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -940,12 +942,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const setSceneOriginFocus = useUIStore((state) => state.setSceneOriginFocus);
   const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
   const showHomeBrowserAddressBar = useUIStore((state) => state.showHomeBrowserAddressBar);
-  const showHomeBrowserDesktopBookmarksOnOtherTabs = useUIStore(
-    (state) => state.showHomeBrowserDesktopBookmarksOnOtherTabs,
-  );
-  const showHomeBrowserMobileBookmarksOnOtherTabs = useUIStore(
-    (state) => state.showHomeBrowserMobileBookmarksOnOtherTabs,
-  );
+  // The phone shell's own signal, not a width breakpoint: a landscape phone is wider than `sm`
+  // but still gets compact tabs, with the URL bar and bookmark strip kept desktop-only.
+  const mobileShell = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
   const agentWidgetGroups = useMemo(() => {
     const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {
@@ -1023,6 +1022,29 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [browserPackages],
   );
   const [activeTab, setActiveTab] = useState("home");
+  const [fullscreenPackageId, setFullscreenPackageId] = useState<string | null>(null);
+  const activeBrowserPackageId = pageActive && browserPackages.some((item) => item.id === activeTab) ? activeTab : null;
+  const activeBrowserPackageIdRef = useRef(activeBrowserPackageId);
+  const browserFullscreen = activeBrowserPackageId !== null && fullscreenPackageId === activeBrowserPackageId;
+  // CapabilityElement delivers props in a child layout effect. Publish the committed identity
+  // before that delivery, while leaving abandoned renders unable to change the request guard.
+  useInsertionEffect(() => {
+    activeBrowserPackageIdRef.current = activeBrowserPackageId;
+    return () => {
+      activeBrowserPackageIdRef.current = null;
+    };
+  }, [activeBrowserPackageId]);
+  useLayoutEffect(() => {
+    setFullscreenPackageId((current) => (current === activeBrowserPackageId ? current : null));
+  }, [activeBrowserPackageId]);
+  const setBrowserFullscreen = useCallback(
+    (active: boolean) => {
+      // A retained callback cannot change the presentation of a different active package.
+      if (typeof active !== "boolean" || activeBrowserPackageIdRef.current !== activeTab) return;
+      setFullscreenPackageId(active ? activeTab : null);
+    },
+    [activeTab],
+  );
   const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [faqOpen, setFaqOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
@@ -1605,9 +1627,18 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       className="mari-chrome-token-scope relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--background)]"
       data-component="HomeBrowserHub"
     >
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-[var(--border)]/75 bg-[var(--card)]/65 shadow-2xl shadow-black/25 sm:rounded-xl">
-        <header className="mari-home-browser-chrome relative z-40 shrink-0 border-b border-[var(--marinara-topbar-border)] bg-[var(--marinara-topbar-surface)] shadow-[0_8px_28px_-26px_rgba(0,0,0,0.8)] backdrop-blur-sm">
-          <div className="flex h-10 min-w-0 items-end gap-1 border-b border-[var(--border)]/45 px-2 sm:gap-2 sm:px-3">
+      <div
+        className={cn(
+          "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
+          !browserFullscreen && "border border-[var(--border)]/75 shadow-2xl shadow-black/25 sm:rounded-xl",
+        )}
+        data-browser-fullscreen={browserFullscreen ? "" : undefined}
+      >
+        <header
+          hidden={browserFullscreen}
+          className="mari-home-browser-chrome relative z-40 shrink-0 border-b border-[var(--marinara-topbar-border)] bg-[var(--marinara-topbar-surface)] shadow-[0_8px_28px_-26px_rgba(0,0,0,0.8)] backdrop-blur-sm"
+        >
+          <div className="mari-home-browser-tab-row flex h-10 min-w-0 items-end gap-1 border-b border-[var(--border)]/45 px-2 sm:gap-2 sm:px-3">
             <div
               className="relative z-10 flex shrink-0 self-center items-center gap-2 pr-1 sm:pr-3"
               data-component="HomeBrowserHub.Brand"
@@ -1627,27 +1658,31 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
             {/* #5743: a SIBLING of the tab list, never a child - a tablist may
                 only contain tabs, and two independent reviews flagged the
-                nesting. On phone widths the wordmark above is hidden, so this
-                renders as the strip's leading control beside the Home tab. */}
-            <button
-              ref={mobileBookmarksTriggerRef}
-              type="button"
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-t-lg border border-b-0 border-transparent text-[var(--primary)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)] sm:hidden",
-                mobileBookmarksOpen && "bg-[var(--accent)]",
-                activeTab !== "home" && !showHomeBrowserMobileBookmarksOnOtherTabs && "hidden",
-              )}
-              aria-label={t("home.browser.bookmarksCompact")}
-              title={t("home.browser.bookmarksCompact")}
-              aria-expanded={mobileBookmarksOpen}
-              aria-controls="marinara-mobile-bookmarks"
-              onClick={() => setMobileBookmarksOpen((open) => !open)}
-              data-component="HomeBrowserHub.MobileBookmarksTrigger"
-            >
-              <Bookmark size="1rem" aria-hidden="true" />
-            </button>
+                nesting. In the phone shell (portrait or landscape) this is the
+                only way to the bookmarks, and only on the Home tab. */}
+            {mobileShell && activeTab === "home" ? (
+              <button
+                ref={mobileBookmarksTriggerRef}
+                type="button"
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-t-lg border border-b-0 border-transparent text-[var(--primary)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-app-accent-solid)]",
+                  mobileBookmarksOpen && "bg-[var(--accent)]",
+                )}
+                aria-label={t("home.browser.bookmarksCompact")}
+                title={t("home.browser.bookmarksCompact")}
+                aria-expanded={mobileBookmarksOpen}
+                aria-controls="marinara-mobile-bookmarks"
+                onClick={() => setMobileBookmarksOpen((open) => !open)}
+                data-component="HomeBrowserHub.MobileBookmarksTrigger"
+              >
+                <Bookmark size="1rem" aria-hidden="true" />
+              </button>
+            ) : null}
             <div
-              className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden sm:gap-1 sm:overflow-x-auto"
+              className={cn(
+                "flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden",
+                !mobileShell && "sm:gap-1",
+              )}
               role="tablist"
               aria-label={t("home.browser.tabsLabel")}
               data-component="HomeBrowserHub.TabList"
@@ -1661,15 +1696,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 aria-selected={activeTab === "home"}
                 onClick={() => selectTab("home")}
                 className={cn(
-                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
-                  activeTab === "home" ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
+                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)]",
+                  !mobileShell && "sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  activeTab === "home" ? "min-w-[6.5rem] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                   activeTab === "home"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                 )}
               >
                 <img src="/home/tab-icons/home.png" alt="" className="h-[1.125rem] w-[1.125rem] object-contain" />
-                <span className={cn("min-w-0 truncate", activeTab === "home" ? "block" : "hidden sm:block")}>
+                <span className={cn("min-w-0 truncate", activeTab === "home" || !mobileShell ? "block" : "hidden")}>
                   {t("home.browser.homeTab")}
                 </span>
               </button>
@@ -1682,8 +1718,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 aria-selected={activeTab === "professor"}
                 onClick={openProfessor}
                 className={cn(
-                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
-                  activeTab === "professor" ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
+                  "flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                  !mobileShell && "sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                  activeTab === "professor" ? "min-w-[6.5rem] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                   activeTab === "professor"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
@@ -1697,7 +1734,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                   alt=""
                   className="h-4 w-4 rounded-sm object-cover"
                 />
-                <span className={cn("min-w-0 truncate", activeTab === "professor" ? "block" : "hidden sm:block")}>
+                <span
+                  className={cn("min-w-0 truncate", activeTab === "professor" || !mobileShell ? "block" : "hidden")}
+                >
                   {t("home.browser.professorTab")}
                 </span>
               </button>
@@ -1718,15 +1757,16 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     aria-selected={tabActive}
                     onClick={() => selectTab(item.id)}
                     className={cn(
-                      "relative flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
-                      tabActive ? "flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
+                      "relative flex min-h-9 min-w-0 items-center justify-center rounded-t-lg border border-b-0 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                      !mobileShell && "sm:min-w-[6.5rem] sm:w-auto sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                      tabActive ? "min-w-[6.5rem] flex-1 gap-1 px-2" : "w-9 flex-none gap-0 px-0",
                       tabActive
                         ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                         : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
                     <BrowserPackageTabIcon packageId={item.id} version={item.version} iconPaths={tab?.iconPaths} />
-                    <span className={cn("min-w-0 truncate", tabActive ? "block" : "hidden sm:block")}>
+                    <span className={cn("min-w-0 truncate", tabActive || !mobileShell ? "block" : "hidden")}>
                       {tab?.label ?? display.name}
                     </span>
                     {hasUnreadRefresh ? (
@@ -1745,12 +1785,12 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           </div>
 
-          {showHomeBrowserAddressBar ? (
+          {showHomeBrowserAddressBar && !mobileShell ? (
             <div
-              className="mari-home-browser-address-row hidden h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:flex sm:h-10 sm:gap-2 sm:px-3"
+              className="mari-home-browser-address-row flex h-8 shrink-0 items-center gap-1.5 px-2 py-0.5 sm:h-10 sm:gap-2 sm:px-3"
               data-component="HomeBrowserHub.AddressRow"
             >
-              <div className="hidden shrink-0 items-center gap-0.5 sm:flex">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => selectTab("home")}
@@ -1805,9 +1845,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : null}
 
-          {activeTab === "home" || showHomeBrowserDesktopBookmarksOnOtherTabs ? (
+          {activeTab === "home" && !mobileShell ? (
             <nav
-              className="hidden min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:flex sm:min-h-9 sm:px-3"
+              className="flex min-h-8 items-center border-t border-[var(--border)]/45 px-2 sm:min-h-9 sm:px-3"
               aria-label={t("home.browser.bookmarksLabel")}
             >
               <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
@@ -1883,7 +1923,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           ) : null}
 
           <AnimatePresence initial={false}>
-            {mobileBookmarksOpen && (activeTab === "home" || showHomeBrowserMobileBookmarksOnOtherTabs) ? (
+            {mobileShell && mobileBookmarksOpen && activeTab === "home" ? (
               <motion.div
                 ref={mobileBookmarksRef}
                 id="marinara-mobile-bookmarks"
@@ -1891,7 +1931,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
                 transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:hidden"
+                className="absolute left-2 right-2 top-[calc(100%+0.35rem)] grid max-h-[calc(100dvh-8rem)] gap-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_96%,var(--background))] p-1.5 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.72)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_7%,transparent)] sm:right-auto sm:w-72"
                 data-component="HomeBrowserHub.MobileBookmarksMenu"
                 data-bookmarks-motion="slide"
               >
@@ -1993,6 +2033,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           tabIndex={0}
           className={cn("min-h-0 flex-1", activeTab === "professor" ? "overflow-hidden" : "overflow-y-auto")}
           data-component="HomeBrowserHub.Content"
+          data-home-package-view={activeTab !== "home" && activeTab !== "professor" ? "" : undefined}
         >
           {activeTab !== "home" && activeTab !== "professor" ? (
             <CapabilityElement
@@ -2000,8 +2041,15 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
               packageId={activeTab}
               view="browser"
               className="block h-full min-h-0 w-full"
+              onHostError={() => setFullscreenPackageId(null)}
               capabilityProps={{
                 style: { display: "block", width: "100%", height: "100%" },
+                browserFullscreen: {
+                  active: browserFullscreen,
+                  setActive: setBrowserFullscreen,
+                  enterLabel: t("home.browser.enterFullscreen"),
+                  exitLabel: t("home.browser.exitFullscreen"),
+                },
                 conversationTimeZone,
                 debugMode,
                 onClose: () => selectTab("home"),
@@ -2736,18 +2784,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
               checked={showHomeBrowserAddressBar}
               onChange={(visible) => useUIStore.getState().setShowHomeBrowserAddressBar(visible)}
               help={t("home.browser.showAddressBarHelp")}
-            />
-            <ToggleSetting
-              label={t("home.browser.showDesktopBookmarksOnOtherTabs")}
-              checked={showHomeBrowserDesktopBookmarksOnOtherTabs}
-              onChange={(visible) => useUIStore.getState().setShowHomeBrowserDesktopBookmarksOnOtherTabs(visible)}
-              help={t("home.browser.showDesktopBookmarksOnOtherTabsHelp")}
-            />
-            <ToggleSetting
-              label={t("home.browser.showMobileBookmarksOnOtherTabs")}
-              checked={showHomeBrowserMobileBookmarksOnOtherTabs}
-              onChange={(visible) => useUIStore.getState().setShowHomeBrowserMobileBookmarksOnOtherTabs(visible)}
-              help={t("home.browser.showMobileBookmarksOnOtherTabsHelp")}
             />
           </div>
         </div>

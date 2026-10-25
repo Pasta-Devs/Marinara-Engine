@@ -486,7 +486,7 @@ try {
       apply: true,
     });
     assert.equal(badRoleAdd.ok, false, "addSection rejects an unsupported role instead of coercing it to system");
-    assert.match(String(badRoleAdd.error ?? ""), /role must be one of/iu);
+    assert.match(String(badRoleAdd.error ?? ""), /"role" must be one of/u);
 
     // Choice-block get / add / update (empty-options guard) / delete.
     assert.equal(

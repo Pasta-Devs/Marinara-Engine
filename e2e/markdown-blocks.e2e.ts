@@ -86,11 +86,14 @@ for (const rendering of ["plain Markdown", "mixed HTML"] as const) {
         );
       } else {
         for (const code of [row.locator('[title="Raw code"]'), row.locator(".mari-md-codeblock")]) {
-          await expect(code.locator("br")).toHaveCount(4);
           await expect(code.locator("hr, blockquote, strong, em")).toHaveCount(0);
         }
+        await expect(row.locator('[title="Raw code"] br')).toHaveCount(4);
         await expect(row.locator('[title="Raw code"] code')).toHaveText("First> literal code---***Last");
-        await expect(row.locator(".mari-md-codeblock code")).toHaveText("First> fenced literal---***Last");
+        await expect(row.locator(".mari-md-codeblock br")).toHaveCount(0);
+        expect(await row.locator(".mari-md-codeblock code").textContent()).toBe(
+          "First\n> fenced literal\n---\n***\nLast",
+        );
         await expect(row.locator('[title="Adjacent blocks"] .mari-md-blockquote')).toHaveText("Adjacent quote.");
         await expect(row.locator('[title="Adjacent blocks"] .mari-md-rule')).toHaveCount(2);
         await expect(row.locator('[title="Adjacent headings"] .mari-md-heading')).toHaveText([

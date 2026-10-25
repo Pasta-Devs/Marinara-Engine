@@ -13,13 +13,13 @@ A ruleset can only fill in the blanks of a mechanic the Engine already knows. To
 
 - **`dice-highest`**: throw a pool and read its highest die, or add its highest few. That covers Blades in the Dark and Trophy Dark.
 - **`roll-against`**: roll at or under (or over) the sheet's number. That covers percentile skills and GURPS checks.
-- **`symbol-pool`**: build and upgrade narrative dice, then cancel opposing symbols. That covers Genesys checks.
+- **`symbol-pool`**: build and upgrade narrative dice, then cancel opposing symbols. That covers Genesys checks, and its fights since Capability API 1.382.
 
 All five are described in full under [Resolution kinds](#resolution-kinds).
 
 A mechanic that does not fit these shapes cannot be written in a ruleset file. Opposed pools are one example. Each of those needs a new resolution kind inside the Engine, which is a code contribution with tests, not a JSON file. If your system needs one, open a feature request on the Engine repository and describe the mechanic with a few worked rolls. Those worked rolls become the tests.
 
-Game Mode can resolve a fight using Marinara's own combat or your ruleset's rules. An optional `battle` block lends Marinara's combat the numbers on your character sheets: see [Battles](#battles-lending-the-sheet-to-marinaras-combat). An optional `combat` block instead defines how the ruleset resolves the fight: see [Combat](#combat-a-fight-your-own-rules-resolve). The Engine plays those rules today. The game's Combat Preference selects the Classic presentation or, when the ruleset defines distance, a Tactical battlefield.
+Game Mode can resolve a fight using Marinara's own combat or your ruleset's rules. An optional `battle` block lends Marinara's combat the numbers on your character sheets: see [Battles](#battles-lending-the-sheet-to-marinaras-combat). An optional `combat` block instead defines how the ruleset resolves the fight: see [Combat](#combat-a-fight-your-own-rules-resolve). The Engine plays those rules today. The game's Combat Preference selects the Classic presentation or, when the ruleset defines distance, a Tactical battlefield. A ruleset may limit which of these its games play with `combat.styles` (see [Which styles a game may play](#combat-a-fight-your-own-rules-resolve)).
 
 ## Quickstart
 
@@ -294,7 +294,7 @@ Genesys builds a pool from a characteristic and a skill rank, then adds opposing
 - `boost` and `setback`: optional dice added by `bonus="+N"` and `bonus="-N"`, respectively, up to each `max` (default 3, ceiling 6). Signed adjustments combine before this limit is applied. Capability API **1.150** also accepts `setback="N"` independently: `bonus="2" setback="1"` throws both sides. A negative bonus adds to `setback`, with the combined setback count held to `setback.max`; boost dice stay bounded by `boost.max`.
 - `allowOwnUpgrade`: optional, false when absent. With `true`, `upgradeOwn="N"` upgrades N more character dice to `pool.upgrade` (which must be declared), after sheet upgrades and purchased dice. When all existing dice are upgraded, each extra upgrade adds one upgraded die, still bounded by `pool.max`. This also works with `pool.build: "sum"`. Declaring this key, even as `false`, requires capabilityApi **1.150**. Attribute names use camel case, like `zeroDice`; `upgradeOwn` affects the roller and `upgrade` still affects only difficulty dice. Both `setback` and `upgradeOwn` take nonnegative integers and are ignored outside symbol pools; `upgradeOwn` is ignored unless enabled.
 - `success`: needs this many of its symbol after cancellation, one by default. Critical success and failure mark any occurrence of their named symbol, even if its added success or failure cancels. Both markers may occur together, and neither changes whether the net successes passed the check.
-- `outcomes` can read the net success count (`total`) or `net successes - needed + 1` (`margin`). Bands still decide success in their usual way; the original critical symbols remain marked. `spend` buys only extra base character dice within `pool.max`. Combat is left out, as for `dice-highest`.
+- `outcomes` can read the net success count (`total`) or `net successes - needed + 1` (`margin`). Bands still decide success in their usual way; the original critical symbols remain marked. `spend` buys only extra base character dice within `pool.max`. Its fights are a `symbol-pool` fight (Capability API 1.382, see A fight thrown in symbol dice, below); any other combat kind is refused beside it.
 - The record keeps `resolution="sum"`, with `symbols="2s 1a 1t"`, `thrown=` identifying each die, and `rolls=` holding its 1-based face. Encoded `symbolDetails` preserves labels, face symbols and both critical markers. `setback` records the independent setback dice actually added after the shared setback limit, and `upgradeOwn` records additional upgrades actually applied; ignored or zero additions are omitted. The card and summary name the net symbols, including an empty result, rather than adding face numbers. Overrides can change this kind's rules, but cannot replace `symbols` or `dice`.
 
 #### What is out of scope, and why
@@ -1203,6 +1203,23 @@ Dice spent on a rest (Capability API 1.335). A rest may say `"dice": {"pool": "h
 Rest dice over several pools (Capability API 1.337). A rest's `"dice"` may be a list, one entry per pool, each with its own `die`, `add`, `heals` and `extra`: `[{"pool": "hit_dice_d10", "die": {"const": 10}, ...}, {"pool": "hit_dice_d6", "die": {"const": 6}, ...}]`, so a fighter 1 / wizard 1 spends a d10 and a d6. `[sheet: op="rest" rest="short" dice="N" pool="hit_dice_d6"]` spends from that pool only; without `pool` the dice come from the first listed pool that has any, then the next, and too few in all is refused with nothing spent. The extra die (Song of Rest) is the first entry's that has one, rolled once for the whole spend, and it heals what the first pool spent from heals; it comes even when only a later pool pays. In a game, a rest's dice read what each character carries, so an `itemStat` in `add` or in the extra die's `add` counts: Pell's Teapot, `{"itemStat": {"stat": "song_of_rest_add", "from": "carried", "pick": "max", "default": 0}}`. A ruleset with a list here needs Capability API 1.337.
 
 Icons (Capability API 1.338). A catalog entry and a sheet condition may name their icon, `"icon": "ic_poison_cloud"`: a tile of the game's icons pack (a board pack of kind `icons`; see packages/server/src/assets/board-packs/README.md). Without one, the Engine looks for the derived name: a condition `ic_cond_<id>`, an item `ic_item_<entry id>` (or `ic_item_<name>` for one the Game Master invented), any other catalog entry `ic_<catalog id>_<entry id>` (`ic_spells_fireball`), hyphens as `_`. Without either, today's letter or text is shown. A ruleset that names an icon needs Capability API 1.338.
+
+How the fight screen shows your ruleset (Capability API 1.375). On a board, the combat pane marks each budget with a small round pip: a letter on a colour, filled while the budget is still there to spend. A budget may name both, `"short": "A"` (one or two letters) and `"tone"`, one of `rose`, `amber`, `violet`, `teal`, `sky`, `lime`, `orange` and `slate`; without them the pip takes the first letter of the budget's label and a tone by its place in the list, which gives 5e's Action, Bonus action and Reaction A, B and R in rose, amber and violet. `combat.display` says the rest: `"defense": {"short": "AC"}` heads the turn order's defense column (up to six letters; without it a short label is kept and a longer one becomes its initials, so "Armor Class" reads "AC"), and `"hide": true` leaves the column out for a ruleset whose defense is no single number worth a column. `"pools": ["slots_1", "slots_2", "ki"]` lists the sheet pools shown under the turn in hand, in that order, as dots (spell slots by level, ki). Each must be a pool `sheet.live.pools` declares, named once; a pool a list's rows make is refused. Without it the pools the party's actions spend are shown, in the order they are spent. A ruleset using `short`, `tone` or `combat.display` needs Capability API 1.375.
+
+Your own words on the sheet, the menu and the cards (Capability API 1.378). Each of these is optional, and the Engine's own wording stands wherever you leave one out:
+
+- A pool may say what one of it is called and what more than one are, `"unit": "3rd-level slot"` and `"units": "3rd-level slots"`, so a cost reads "1 3rd-level slot" or "2 3rd-level slots" and paying a spell up reads "Use 1 2nd-level slot". Without them a cost counts the pool by its label. A cost paid out of a pool named the same as the option itself (Action Surge on Action Surge's button) is not printed, since the button already says it.
+- A list may say how a player reads it, `"display": {"tab": "Spells", "by": {"column": "level", "labels": ["Cantrips", "1st level", "2nd level"]}, "mark": "prepared"}`. `tab` names the sheet tab it shows on. `by` splits its rows by a number column, one heading per value from 0 up (`labels[0]` for 0, at most 21 labels; a value past the last label is headed by its number on the sheet, and sits under the tab's name alone on the menu), and must name a number column. `mark` names a yes-or-no column shown as a tick, and must name one. Abilities a fight gives from the list's rows sit under the tab's name on the combat menu, split the same way ("Spells: Cantrips", "Spells: 1st level"), in place of the kind's own heading.
+- A live text field may be hidden, `"hideWhen"`, by a field as a pool is, or by a derived value: `{"derived": "knows_concentration", "equals": 0}` (one of `equals`, `notEquals` or `in`). Only a text field may be hidden by a derived value, since nothing the sheet works out reads one.
+- A sheet condition may say `"pickable": false`: the sheet's "Add condition" picker leaves it out, while play, commands and the Game Master still put it on and take it off. For a spell's or an item's own state.
+- A track that is not a wound track may say `"showWhenSet": true`: off the sheet while it stands where it starts, shown once play or the Game Master moves it.
+- An item toggle may name its two moves, `"toggle": {"onLabel": "Lower the hood", "offLabel": "Raise the hood"}`, which the menu says in place of "Turn on" and the item's name.
+- An item use may name itself, `"use": {"title": "Scatter ball bearings"}`, said on the menu in place of the item's name, with its count left still beside it.
+- A combat modifier may say what it does, `"label": "advantage on saves against being charmed"`, which a card prints in place of the phrase the Engine composes from the rest.
+- A derived value that is a bonus may say `"signed": true`, and the sheet shows it with its sign: a spell attack of "+7", where it would read "7".
+- A creature trait's text may run to 1200 letters, where it was 400.
+
+A ruleset using any of these, or a creature trait over 400 letters, needs Capability API 1.378.
 
 A list of lair actions for a broken concentration (Capability API 1.336). `"brokenNextLair"` may be a list of its own lair actions, each once, instead of one: `["shelves_lean_north", "shelves_lean_south"]`. Once that concentration is broken, the next lair action is one of those and no other, whatever it took the round before, and whoever runs the creature picks which. A creature the Engine runs takes the one that would catch the most of its foes; between equal ones, it weighs them as it weighs anything else. Once taken, the choice is free again. A ruleset with a list here needs Capability API 1.336.
 
@@ -2660,7 +2677,7 @@ Capability API 1.79 lets an item be risky or a fake, and a seller be dishonest.
 
 The same `use` works outside a fight (Capability API 1.60 for `restore`; the rest needs nothing new). The inventory's **Use** button, on one of your items with a `use`, and the Game Master's `[inventory: action="use" item="Poultice" who="Juno"]` both do what the item does to whoever carries it, with the Engine's dice:
 
-- A heal gives back health: the amount on a health pool, or one mark cleared on a wound track, as a heal in a fight does. `temporary` points go on a health pool, `restore` gives back its pool, and each condition it `applies` is put on, until something takes it off.
+- A heal gives back health: the amount on a health pool or a plain health track, or one mark cleared on a wound track, as a heal in a fight does. `temporary` points go on a health pool, `restore` gives back its pool, and each condition it `applies` is put on, until something takes it off.
 - A use that harms, or is aimed at the other side (`kind` `attack` or `debuff`, or `targets` `enemy`), lands on nobody: outside a fight there is nobody on the board to hit. The item is still used, and the Game Master is told what it does, to narrate.
 - It takes one off the stack or spends its charges exactly as a fight does, and one with none left, or one that takes a slot or binds and is not worn, is refused and changes nothing. The sheet and the bag are written together.
 - A `gate` is rolled first, as a check is: the ruleset's own dice with the sheet's number, the user's wound penalty and what their conditions and worn or carried items do to that check. A failed one uses the item up for nothing, and the line says so ("Ada uses Page of the vigil litany: Ward check 1 against 2, failed; it is used up for nothing. 1 left.").
@@ -2754,9 +2771,11 @@ follow your system's rules.
 The `battle` block above lends a fight the sheet's numbers while the arithmetic stays Marinara's.
 The optional `combat` block is the other thing: it says how a fight is RESOLVED by your rules. It
 parameterises a combat kind the Engine owns, exactly as `resolution` parameterises a check kind, and
-every name in it is yours. There are two kinds: `attack-vs-defense`, where dice are added up and
-compared with a number, and `dice-pool`, where a fight throws your `dice-pool` ruleset's own pools
-and counts successes (see A fight thrown in pools, below).
+every name in it is yours. There are three kinds: `attack-vs-defense`, where dice are added up and
+compared with a number, `dice-pool`, where a fight throws your `dice-pool` ruleset's own pools
+and counts successes (see A fight thrown in pools, below), and `symbol-pool`, where a fight throws
+your `symbol-pool` ruleset's narrative dice and spends what is left over (see A fight thrown in
+symbol dice, below).
 
 **A game whose ruleset declares `combat` fights by your block.** The party's numbers are read off
 their own sheets, the opponents come out of your bestiary or off your threat scale, every turn is
@@ -2830,12 +2849,18 @@ same keys for a d20 system:
 
 ### Every key
 
-- `kind`: `"attack-vs-defense"` (one side rolls dice against the other's defense; a hit does damage)
-  or `"dice-pool"` (see A fight thrown in pools). Every key below means the same under both, read
-  the way that kind reads numbers.
+- `kind`: `"attack-vs-defense"` (one side rolls dice against the other's defense; a hit does damage),
+  `"dice-pool"` (see A fight thrown in pools) or `"symbol-pool"` (see A fight thrown in symbol dice).
+  Every key below means the same under each, read the way that kind reads numbers.
 - `health`: required. What a fight takes away. Either `{ "pool": "grit" }`, a live pool it counts
   down, whose temporary buffer if it has one is what damage drains first; or `{ "track": "harm" }`,
-  a wound track it MARKS. A track needs `damageKinds` beside it, and grants no temporary points.
+  a wound track it MARKS. A wound track needs `damageKinds` beside it. Or `{ "track": "wounds" }`
+  naming a plain track (no `levels` or `boxes`) that FILLS UP from its `min` to its `max` (Capability
+  API 1.383): damage adds the points, a heal takes them off, and a track at its `max` is out of the
+  fight, as a pool at zero is. Genesys's Wounds is one, with the Wound Threshold as its `max`; a
+  system where you go down only PAST the threshold makes the `max` one more than it. A plain health
+  track starts at its `default` (not a `startFrom`), may not start at its `max`, and takes no
+  `damageKinds`. A `max` the sheet works out is each character's own, as a pool's maximum is. No track grants temporary points.
 - `defense`: required, a value reference. A field the player enters, or a derived value you compute.
 - `initiative`: required. The dice rolled once at the start, and an optional modifier reference. A
   tie goes to the higher modifier, and then to the order the fight was set up in. `"each": "round"`
@@ -3323,6 +3348,90 @@ no tears at all, may spend one point of Resolve a turn, and throw initiative aga
 **Declaring in reverse order is not built.** Some systems have everybody declare their action before
 anybody acts, slowest first. In a fight where each combatant picks one action when their turn comes,
 declaring first changes nothing any rule reads, so there is nothing for a key to say.
+
+### A fight thrown in symbol dice: `symbol-pool` (Capability API 1.382)
+
+A `symbol-pool` ruleset reads symbols rather than numbers, and its fights can too, so the Engine runs
+the whole fight without asking the Game Master what an advantage bought. `"kind": "symbol-pool"`
+needs `resolution.kind` to be `"symbol-pool"`, and it reads the sheet the way your symbol checks
+already do:
+
+- A to-hit number is the attacker's dice. Off a sheet, an attack row's number is its ability and its
+  skill's ranks together: the larger is how many dice are thrown and the smaller how many of them are
+  upgraded, as `pool.build: "larger-upgraded"` builds a check. A creature action says it as `toHit`
+  (its dice) and `upgrades` (how many of them are upgraded), which needs a pool with an `upgrade` die
+  that isn't built by `sum`.
+- `defense` is how many difficulty dice are thrown against the attacker's. A creature's `defense` is
+  its own number of them. Cover and a condition's modifier to `defense` add difficulty dice.
+- A condition's modifier to attacks, saves or checks, and the wound penalty your `penaltyFrom` names,
+  are boost dice when they help and setback dice when they hinder, so they are `flat` numbers: a rolled
+  modifier (`dice`) is refused. A roll that leans (long range, a condition's disadvantage) throws one
+  more setback die, or one more boost die when it leans the other way.
+- Net successes (your `success.needed` of them) land a blow. A save's number is its dice and its
+  difficulty the dice against them; a contest throws each side's dice and the more net successes
+  wins. Initiative may be thrown as a pool (`initiative.pool`): its net successes are the number.
+- Damage is added up as in an `attack-vs-defense` fight. Each net success adds `damage.perSuccess`
+  (one) to a hit, every success (`"counts": "all"`) or only those past the ones a hit needs
+  (`"beyond"`), and the target's soak comes off the whole blow, never below none.
+- Nothing botches and nothing doubles a damage roll. A critical is something a spend buys.
+
+What the symbols do is the `symbols` block:
+
+```json
+"symbols": {
+  "damage": { "perSuccess": 1, "counts": "all" },
+  "soak": { "all": { "derived": "soak" } },
+  "spends": [
+    { "id": "boost", "label": "Boost an ally", "by": "attacker", "symbol": "a", "cost": 1, "boost": { "dice": 1, "on": "attacker-ally" } },
+    { "id": "crit", "label": "Critical", "by": "attacker", "symbol": "a", "cost": 2, "when": "hit", "critical": true, "condition": { "id": "injured", "on": "target", "rounds": 3 } },
+    { "id": "triumph", "label": "Triumphant blow", "by": "attacker", "symbol": "t", "cost": 1, "when": "hit", "critical": true, "damage": 2 },
+    { "id": "strain", "label": "Overextend", "by": "target", "symbol": "h", "cost": 2, "track": { "id": "strain", "by": 1, "on": "attacker" } },
+    { "id": "setback", "label": "Opening", "by": "target", "symbol": "h", "cost": 1, "setback": { "dice": 1, "on": "attacker" } },
+    { "id": "despair", "label": "Weapon slips", "by": "target", "symbol": "d", "cost": 1, "condition": { "id": "disarmed", "on": "attacker" } }
+  ]
+}
+```
+
+- `soak`: what a target takes off each hit, read off their sheet. `all` is a value reference for any
+  kind of harm and `byKind` one per kind of your health track, which wins over `all` for its kind. A
+  creature gives its own as `soak: { "all": 2 }`, which needs this `soak` to be declared.
+- `spends`: up to 16 things a symbol left over on an attack's roll buys. `cost` of `symbol` buys it
+  once, and `max` (one) says how many times one roll may buy it; a spend that gives a `condition` or
+  a `critical` lands once, so its `max` stays one, and no two spends put one condition (or two of
+  one `oneAtATime` kind) on the same one on the same throw. A spend is left unbought when it would
+  do nothing: its condition would not go on (kept off, or one of its kind already held), or its track
+  has no room for a whole step that way (room an earlier spend on the same throw may have used). `by` says which side chooses it: the
+  attacker spends the symbols that favour them (advantage, triumph), the target the ones that favour
+  the target (threat, despair). One side spends a given symbol, and a spend never buys with the
+  successes, which already land the blow and add to its harm.
+- `when`: bought only on a `hit`, only on a `miss`, or on either (`any`, the default). `damage` (harm
+  added to the hit, before soak) and `critical` (the hit is a critical one, so a clause that says
+  `onCritical` lands and the log says so) need `"when": "hit"` and `"by": "attacker"`.
+- What a spend does, any of: `condition` puts one of your conditions on somebody, for `rounds` or
+  until something ends it; `track` moves a plain live track by `by` (strain, stress), never the
+  health track; `boost` and `setback` add that many dice to the next roll whoever it lands on makes
+  in this fight, which that roll uses up. `on` is `attacker`, `target`, `attacker-ally` or
+  `target-ally`; an ally is the next of that side to take a turn, and a spend whose ally there is
+  nobody to be is not bought.
+- `worth`: optional, what the AI weighs the spend at in points of harm. Without it the Engine works
+  it out from the effects: harm is its points, a condition is worth two, a die on the next roll a
+  little over half, a step of a track a half, against the other side, or for the chooser's own side
+  when it lowers a track or adds boost there. A spend worth nothing to its chooser is never bought.
+
+The Engine buys, for each side, the spends worth the most for the symbols it has, for players and
+opponents alike, and says each one in the log. A player may choose their own instead: with "Choose
+my own symbol spends" ticked on the fight screen, a throw that leaves a party member they play
+something to buy waits while they pick spends one at a time, take the Engine's pick for the rest,
+or spend nothing more. Their choice is held to the same rules as the Engine's (cost, `max`, `when`
+and what would land), and the Engine still picks for everybody else. A ruleset needs nothing for
+this. Symbols nobody spends stay on the roll for the Game Master to narrate. The menu's forecast counts every way the throw may come out: the chance to hit,
+and the harm a hit does with its successes and spends, after soak. The AI weighs each attack by
+that, with what the other side's spends would cost it taken off.
+
+**What stays with the Game Master.** A spend's cost is the ruleset's, not each weapon's, so a weapon
+with its own critical rating is written as a spend the ruleset shares; a critical's own table is the
+Game Master's to roll. Advantage on a save, a check or a contest buys nothing: only an attack's roll is
+spent. Upgrading the difficulty dice in a fight is not built.
 
 ### Minimum damage dice (Capability API 1.146)
 
@@ -3930,6 +4039,27 @@ player's game is set to the Tactical combat style. With the Classic style, or on
 `distance`, the fight is theatre of the mind exactly as it was: anybody can be pointed at anybody,
 and nothing below is read at all.
 
+**Which styles a game may play.** `combat.styles` names the combat styles a game on your ruleset may
+play, by id: `classic`, `tactical`, or a style a client registered (up to 8, each once, and at least
+one of `classic` and `tactical`). Left out,
+every style is offered, as before. A ruleset whose rules need a board (areas, reach, cover, flanking)
+says `"styles": ["tactical"]`: the New Game wizard and the game's settings then offer only Tactical,
+and so its fights always have positions. A game already saved on a style you do not list plays the
+first one you do that the client can draw (the first built-in one you list, on a client without a
+registered style you list), and a game cannot be
+made, or switched in its settings, to a style you leave out. A fight already under way keeps the
+style it began on. The list holds whether or not the combat director is on, so it also narrows
+Marinara's own Classic and Tactical battles on your ruleset. A ruleset using `styles` needs
+Capability API 1.379.
+
+```json
+"combat": {
+  "kind": "attack-vs-defense",
+  "styles": ["tactical"],
+  "distance": { "label": "feet", "perCell": 5 }
+}
+```
+
 **What the player sees.** The board is drawn, with the tactical style's own terrain. Every square is
 a button, reachable with the pointer or the arrow keys, and says what it is, who is on it and what
 the half-made choice makes of it. Walking lights up the squares the menu offered, each carrying its
@@ -3983,6 +4113,14 @@ ground it is over. While it is up:
 Flying onto ground as high as it is, or higher, lands it, as a flier on the ground flies onto a
 cliff. No new key: an Engine before 1.114 keeps
 fliers on the ground, so a package that relies on height declares 1.114.
+
+**In the air** (Capability API 1.354). On any board, whether a flier is in the air is its own: a flier
+with no walk, or with `hover`, starts in the air; one on the ground takes off with the free Take off
+move, by flying up, or by a step only its flight takes (over water, or where flying is cheaper than
+walking), and comes down with the free Land move (only one with a walk) or when it is knocked prone,
+knocked down or held to a speed of nought, unless it hovers. Fly down to the ground keeps it in the
+air at the ground's height until it lands. Its creature art is its flying art while it is in the air.
+Nothing else in the rules reads it yet.
 
 **Reach and range.** A weapon row gets them from `combat.attacks[].reach` and `.range`, each a
 column of that same list or the same number on every row:
@@ -4723,6 +4861,8 @@ Adding things needs nothing more. When a new layout moves a value somewhere else
 ```
 
 The manifest lists `ruleset.json` and each `catalogs/<id>.json` in `contributions.assets.paths` and in `files`, with each one's size and sha256. A ruleset editor such as Pixelforge makes one. **Import agents** → **Game Mode ruleset** takes the file and shows the same review as for a ruleset file, with each catalog and its number of entries. Nothing in it is compressed, so it never holds more than its own size. It is read as data and never installed as a package: it is refused, with the reason, if it holds anything else (another key, any other file, a document that is not strict base64 or not UTF-8 text), if its manifest is more than a ruleset's (any code, permissions or other contributions), if a file is not the one the manifest lists, if a `$comment` is longer than 2,000 characters or `$schema` names anything but the Engine's own schema, or if the ruleset or a catalog does not read. It is filed as `local/<its id>` like a ruleset file, at most 24 MB, with at most 12 catalog files of 2 MB each. A version is its ruleset and its catalogs together, so a changed catalog needs a higher `version` too. Ruleset packages are not accepted as zips.
+
+**Through the official agents catalog.** A ruleset published in the catalog is a ruleset package file of exactly this shape, `<id>.ruleset.json`, never a package zip (Capability API 1.374). Its manifest declares Capability API 1.374 or newer, so an older Engine is never offered it. The Engine reads it with the same reader and checks as a package file you import, holds it to the manifest the catalog lists, and installs it like any catalog package. A catalog ruleset whose artifact is a zip is refused before anything is downloaded; rulesets already installed keep working.
 
 **From a GitHub repository.** If you keep your work in a public GitHub repository, put each ruleset in a `rulesets` folder at the top of the repository, one file per ruleset:
 

@@ -368,6 +368,15 @@ function detectEntryTag(entry: STWorldInfoEntry): string {
   return bestTag;
 }
 
+export interface LorebookImportResult {
+  success: true;
+  lorebookId: string;
+  name: string;
+  category: LorebookCategory;
+  entriesImported: number;
+  reimported: boolean;
+}
+
 /**
  * Import a SillyTavern World Info JSON file.
  */
@@ -381,9 +390,10 @@ export async function importSTLorebook(
     timestampOverrides?: TimestampOverrides | null;
     existingLorebookId?: string | null;
     allowLocalImagePaths?: boolean;
+    /** Runs with the imported rows, before commit and chat-reference cleanup. */
+    beforeCommit?: (tx: DB, result: LorebookImportResult) => Promise<void>;
   },
-) {
-  const storage = createLorebooksStorage(db);
+): Promise<LorebookImportResult> {
   const wi = raw as unknown as STWorldInfo;
 
   const entryList = asEntryList(wi.entries);
@@ -394,142 +404,138 @@ export async function importSTLorebook(
       await decodeLorebookImages(entry.extensions?.marinaraImages, options?.allowLocalImagePaths),
     );
   const restoredImages = new Map<(typeof entryList)[number], Awaited<ReturnType<typeof saveDecodedLorebookImages>>>();
-  let lorebook: Record<string, unknown> | null = null;
-  const createdEntryIds: string[] = [];
-  let committed = false;
-  const existingEntryIds: string[] = [];
-  let createdLorebook = false;
   try {
     for (const entry of entryList)
       restoredImages.set(entry, await saveDecodedLorebookImages(decodedImages.get(entry)!));
-    const detectedCategory = detectCategory(entryList, wi.name);
+    const mutate = async (tx: DB) => {
+      const storage = createLorebooksStorage(tx);
+      let lorebook: Record<string, unknown> | null = null;
+      const existingEntryIds: string[] = [];
+      let createdLorebook = false;
+      const detectedCategory = detectCategory(entryList, wi.name);
 
-    const lbName = options?.namePrefix
-      ? `${options.namePrefix} — ${wi.name ?? "Lorebook"}`
-      : (wi.name ?? options?.fallbackName ?? "Imported Lorebook");
+      const lbName = options?.namePrefix
+        ? `${options.namePrefix} — ${wi.name ?? "Lorebook"}`
+        : (wi.name ?? options?.fallbackName ?? "Imported Lorebook");
 
-    const lorebookInput = {
-      name: lbName,
-      description: nonEmptyString(wi.description) ?? "Imported from SillyTavern",
-      category: detectedCategory,
-      scanDepth: asNumber(wi.scan_depth ?? wi.scanDepth, 2),
-      tokenBudget: asNumber(wi.token_budget ?? wi.tokenBudget, 2048),
-      recursiveScanning: Boolean(wi.recursive_scanning ?? wi.recursiveScanning ?? false),
-      maxRecursionDepth: asNumber(wi.max_recursion_depth ?? wi.maxRecursionDepth, 3),
-      generatedBy: "import" as const,
-      ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
-    };
-
-    const existingLorebookId = options?.existingLorebookId ?? null;
-    if (existingLorebookId) {
-      const existing = (await storage.getById(existingLorebookId)) as Record<string, unknown> | null;
-      if (existing) {
-        lorebook = existing;
-        const existingEntries = (await storage.listEntries(existingLorebookId)) as unknown as Array<{ id: string }>;
-        existingEntryIds.push(...existingEntries.map((entry) => entry.id));
-      }
-    }
-
-    if (!lorebook) {
-      lorebook = (await storage.create(lorebookInput, options?.timestampOverrides)) as Record<string, unknown> | null;
-      createdLorebook = Boolean(lorebook);
-    }
-
-    if (!lorebook) {
-      await discardImportedLorebookImages(restoredImages.values(), decodedImages.values());
-      return { error: "Failed to create lorebook" };
-    }
-
-    const lorebookId = lorebook.id as string;
-    const lorebookName = lbName;
-    let imported = 0;
-
-    for (const entry of entryList) {
-      // Resolve fields that differ between ST World Info format and V2 Character Book format
-      const rawKeys = entry.key ?? entry.keys;
-      const rawResolvedKeys = asStringArray(rawKeys);
-      const rawSecondary = entry.keysecondary ?? entry.secondary_keys;
-      const rawResolvedSecondaryKeys = asStringArray(rawSecondary);
-      const resolvedName = nonEmptyString(entry.comment, entry.name) ?? `Entry ${imported + 1}`;
-      // ST uses `disable` (inverted), V2 uses `enabled`
-      const resolvedEnabled = entry.disable != null ? !entry.disable : (entry.enabled ?? true);
-      const resolvedOrder = asNumber(entry.order ?? entry.insertion_order, 100);
-      // V2 position can be string ("before_char"/"after_char") — map to number
-      const resolvedPosition = resolvePosition(entry.position);
-      // Role can be a number (ST) or string (V2)
-      const resolvedRole = resolveLorebookEntryRole(entry.role);
-      const resolvedCaseSensitive = entry.caseSensitive ?? entry.case_sensitive ?? false;
-      const resolvedMatchWholeWords = entry.matchWholeWords ?? entry.match_whole_words ?? false;
-      const entryUsesRegex = Boolean(entry.useRegex ?? entry.regex ?? false);
-      const resolvedUseRegex =
-        entryUsesRegex || hasSlashDelimitedRegex(rawResolvedKeys) || hasSlashDelimitedRegex(rawResolvedSecondaryKeys);
-      const resolvedKeys = normalizeRegexKeys(rawResolvedKeys, {
-        useRegex: resolvedUseRegex,
-        entryUsesRegex,
-        matchWholeWords: resolvedMatchWholeWords,
-      });
-      const resolvedSecondaryKeys = normalizeRegexKeys(rawResolvedSecondaryKeys, {
-        useRegex: resolvedUseRegex,
-        entryUsesRegex,
-        matchWholeWords: resolvedMatchWholeWords,
-      });
-      const sanitizedContent = normalizeString(entry.content);
-      const sanitizedDescription = normalizeString(entry.description);
-
-      const input: CreateLorebookEntryInput = {
-        lorebookId: lorebookId,
-        name: resolvedName,
-        content: sanitizedContent,
-        images: restoredImages.get(entry) ?? [],
-        description: sanitizedDescription,
-        keys: resolvedKeys,
-        secondaryKeys: resolvedSecondaryKeys,
-        enabled: resolvedEnabled,
-        constant: entry.constant ?? false,
-        selective: entry.selective ?? false,
-        selectiveLogic: resolveSelectiveLogic(entry.selectiveLogic),
-        probability: resolveProbability(entry),
-        scanDepth: asNullableNumber(entry.scanDepth ?? entry.scan_depth),
-        matchWholeWords: resolvedMatchWholeWords,
-        caseSensitive: resolvedCaseSensitive,
-        useRegex: resolvedUseRegex,
-        position: resolvedPosition,
-        outletName: normalizeString(entry.outletName),
-        depth: asNumber(entry.depth, 4),
-        order: resolvedOrder,
-        role: resolvedRole,
-        sticky: asNullableNumber(entry.sticky),
-        cooldown: asNullableNumber(entry.cooldown),
-        delay: asNullableNumber(entry.delay),
-        ephemeral: asNullableNumber(entry.ephemeral),
-        group: entry.group ?? "",
-        groupWeight: asNullableNumber(entry.groupWeight),
-        tag: detectEntryTag(entry),
-        relationships: {},
-        dynamicState: {},
-        activationConditions: [],
-        schedule: null,
-        preventRecursion: entry.preventRecursion == null ? true : Boolean(entry.preventRecursion),
-        excludeRecursion: Boolean(entry.excludeRecursion ?? false),
-        delayUntilRecursion: Boolean(entry.delayUntilRecursion ?? false),
-        excludeFromVectorization: entry.vectorized === false ? true : entry.excludeFromVectorization === true,
-        locked: Boolean(entry.locked ?? false),
-        // Marinara's own exports carry decision activation (#6570); SillyTavern files do not.
-        ...parseLorebookDecisionActivation(entry),
+      const lorebookInput = {
+        name: lbName,
+        description: nonEmptyString(wi.description) ?? "Imported from SillyTavern",
+        category: detectedCategory,
+        scanDepth: asNumber(wi.scan_depth ?? wi.scanDepth, 2),
+        tokenBudget: asNumber(wi.token_budget ?? wi.tokenBudget, 2048),
+        recursiveScanning: Boolean(wi.recursive_scanning ?? wi.recursiveScanning ?? false),
+        maxRecursionDepth: asNumber(wi.max_recursion_depth ?? wi.maxRecursionDepth, 3),
+        generatedBy: "import" as const,
+        ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
       };
 
-      const created = (await storage.createEntry(input)) as Record<string, unknown> | null;
-      if (typeof created?.id !== "string") throw new Error("Failed to create lorebook entry");
-      createdEntryIds.push(created.id);
-      imported++;
-    }
+      const existingLorebookId = options?.existingLorebookId ?? null;
+      if (existingLorebookId) {
+        const existing = (await storage.getById(existingLorebookId)) as Record<string, unknown> | null;
+        if (existing) {
+          lorebook = existing;
+          const existingEntries = (await storage.listEntries(existingLorebookId)) as unknown as Array<{ id: string }>;
+          existingEntryIds.push(...existingEntries.map((entry) => entry.id));
+        }
+      }
 
-    if (existingLorebookId && !createdLorebook) {
-      await createChatsStorage(db).pruneLorebookChatMetadata(async (tx) => {
-        const transactionalStorage = createLorebooksStorage(tx);
-        const current = await transactionalStorage.getById(existingLorebookId);
+      if (!lorebook) {
+        lorebook = (await storage.create(lorebookInput, options?.timestampOverrides)) as Record<string, unknown> | null;
+        createdLorebook = Boolean(lorebook);
+      }
+
+      if (!lorebook) {
+        throw new Error("Failed to create lorebook");
+      }
+
+      const lorebookId = lorebook.id as string;
+      const lorebookName = lbName;
+      let imported = 0;
+
+      for (const entry of entryList) {
+        // Resolve fields that differ between ST World Info format and V2 Character Book format
+        const rawKeys = entry.key ?? entry.keys;
+        const rawResolvedKeys = asStringArray(rawKeys);
+        const rawSecondary = entry.keysecondary ?? entry.secondary_keys;
+        const rawResolvedSecondaryKeys = asStringArray(rawSecondary);
+        const resolvedName = nonEmptyString(entry.comment, entry.name) ?? `Entry ${imported + 1}`;
+        // ST uses `disable` (inverted), V2 uses `enabled`
+        const resolvedEnabled = entry.disable != null ? !entry.disable : (entry.enabled ?? true);
+        const resolvedOrder = asNumber(entry.order ?? entry.insertion_order, 100);
+        // V2 position can be string ("before_char"/"after_char") — map to number
+        const resolvedPosition = resolvePosition(entry.position);
+        // Role can be a number (ST) or string (V2)
+        const resolvedRole = resolveLorebookEntryRole(entry.role);
+        const resolvedCaseSensitive = entry.caseSensitive ?? entry.case_sensitive ?? false;
+        const resolvedMatchWholeWords = entry.matchWholeWords ?? entry.match_whole_words ?? false;
+        const entryUsesRegex = Boolean(entry.useRegex ?? entry.regex ?? false);
+        const resolvedUseRegex =
+          entryUsesRegex || hasSlashDelimitedRegex(rawResolvedKeys) || hasSlashDelimitedRegex(rawResolvedSecondaryKeys);
+        const resolvedKeys = normalizeRegexKeys(rawResolvedKeys, {
+          useRegex: resolvedUseRegex,
+          entryUsesRegex,
+          matchWholeWords: resolvedMatchWholeWords,
+        });
+        const resolvedSecondaryKeys = normalizeRegexKeys(rawResolvedSecondaryKeys, {
+          useRegex: resolvedUseRegex,
+          entryUsesRegex,
+          matchWholeWords: resolvedMatchWholeWords,
+        });
+        const sanitizedContent = normalizeString(entry.content);
+        const sanitizedDescription = normalizeString(entry.description);
+
+        const input: CreateLorebookEntryInput = {
+          lorebookId: lorebookId,
+          name: resolvedName,
+          content: sanitizedContent,
+          images: restoredImages.get(entry) ?? [],
+          description: sanitizedDescription,
+          keys: resolvedKeys,
+          secondaryKeys: resolvedSecondaryKeys,
+          enabled: resolvedEnabled,
+          constant: entry.constant ?? false,
+          selective: entry.selective ?? false,
+          selectiveLogic: resolveSelectiveLogic(entry.selectiveLogic),
+          probability: resolveProbability(entry),
+          scanDepth: asNullableNumber(entry.scanDepth ?? entry.scan_depth),
+          matchWholeWords: resolvedMatchWholeWords,
+          caseSensitive: resolvedCaseSensitive,
+          useRegex: resolvedUseRegex,
+          position: resolvedPosition,
+          outletName: normalizeString(entry.outletName),
+          depth: asNumber(entry.depth, 4),
+          order: resolvedOrder,
+          role: resolvedRole,
+          sticky: asNullableNumber(entry.sticky),
+          cooldown: asNullableNumber(entry.cooldown),
+          delay: asNullableNumber(entry.delay),
+          ephemeral: asNullableNumber(entry.ephemeral),
+          group: entry.group ?? "",
+          groupWeight: asNullableNumber(entry.groupWeight),
+          tag: detectEntryTag(entry),
+          relationships: {},
+          dynamicState: {},
+          activationConditions: [],
+          schedule: null,
+          preventRecursion: entry.preventRecursion == null ? true : Boolean(entry.preventRecursion),
+          excludeRecursion: Boolean(entry.excludeRecursion ?? false),
+          delayUntilRecursion: Boolean(entry.delayUntilRecursion ?? false),
+          excludeFromVectorization: entry.vectorized === false ? true : entry.excludeFromVectorization === true,
+          locked: Boolean(entry.locked ?? false),
+          // Marinara's own exports carry decision activation (#6570); SillyTavern files do not.
+          ...parseLorebookDecisionActivation(entry),
+        };
+
+        const created = (await storage.createEntry(input)) as Record<string, unknown> | null;
+        if (typeof created?.id !== "string") throw new Error("Failed to create lorebook entry");
+        imported++;
+      }
+
+      if (existingLorebookId && !createdLorebook) {
+        const current = await storage.getById(existingLorebookId);
         if (!current) throw new Error("Failed to update lorebook");
-        const updated = await transactionalStorage.update(existingLorebookId, {
+        const updated = await storage.update(existingLorebookId, {
           ...lorebookInput,
           characterIds: lorebookInput.characterIds
             ? [...current.characterIds, ...lorebookInput.characterIds]
@@ -539,24 +545,32 @@ export async function importSTLorebook(
         if (existingEntryIds.length > 0) {
           await tx.delete(lorebookEntries).where(inArray(lorebookEntries.id, existingEntryIds));
         }
-        return existingEntryIds;
-      });
-    }
-    // Past this point the new entries own their images; rolling them back would lose both old and new entries.
-    committed = true;
-
-    return {
-      success: true,
-      lorebookId: lorebookId,
-      name: lorebookName,
-      category: detectedCategory,
-      entriesImported: imported,
-      reimported: !!existingLorebookId,
+      }
+      const result: LorebookImportResult = {
+        success: true,
+        lorebookId,
+        name: lorebookName,
+        category: detectedCategory,
+        entriesImported: imported,
+        reimported: !!existingLorebookId,
+      };
+      await options?.beforeCommit?.(tx, result);
+      return { result, removedEntryIds: existingEntryIds };
     };
+    if (options?.existingLorebookId) {
+      let result: LorebookImportResult | undefined;
+      // Metadata queues precede the transaction; nested queue acquisition would deadlock.
+      await createChatsStorage(db).pruneLorebookChatMetadata(async (tx) => {
+        const imported = await mutate(tx);
+        result = imported.result;
+        return imported.removedEntryIds;
+      });
+      return result!;
+    }
+    return (await db.transaction(mutate)).result;
   } catch (error) {
-    if (committed) throw error;
-    if (createdLorebook && lorebook) await storage.remove(lorebook.id as string);
-    else for (const id of createdEntryIds) await storage.removeEntry(id);
+    // The transaction restored all rows/references. Files are outside the store:
+    // remove only newly written images, never reused paths owned by existing entries.
     await discardImportedLorebookImages(restoredImages.values(), decodedImages.values());
     throw error;
   }

@@ -245,7 +245,7 @@ const provider = createServer(async (req, res) => {
     res.end(
       responses
         ? `data: ${JSON.stringify({ type: "response.completed", response })}\n\n`
-        : `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n${
+        : `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: kind === "summary" ? summaryFinishReason : "stop" }] })}\n\n${
             usageLast
               ? `data: ${JSON.stringify({
                   choices: [],

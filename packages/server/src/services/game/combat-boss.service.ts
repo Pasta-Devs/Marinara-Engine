@@ -203,7 +203,8 @@ export function buildRulesetCombatBossPrompt(
                 "The target's first matching remap chooses the wound kind before soak. Events record the original and final kinds.",
             }
           : {}),
-        recentEvents: fight.events.slice(-16),
+        // The Engine's own reasons for its picks are the debug log's, not the Game Master's to read.
+        recentEvents: fight.events.filter((entry) => entry.event.type !== "reasoning").slice(-16),
       }),
     },
   ];
@@ -226,7 +227,7 @@ export async function chooseGmCombatOption(
   let personality = "";
   const characterId = meta.gameGmCharacterId ?? meta.gameSetupConfig?.gmCharacterId;
   if (typeof characterId === "string") {
-    const card = await createCharactersStorage(db).getById(characterId);
+    const card = await createCharactersStorage(db).getById(characterId, chatId);
     if (card) {
       const parsed = JSON.parse(card.data);
       const data = parsed?.data ?? parsed;

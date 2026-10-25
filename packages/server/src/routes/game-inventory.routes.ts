@@ -36,7 +36,7 @@ const startingGearRequestSchema = z
       .object({
         gear: z.string().min(1).max(64),
         choices: z.array(z.number().int().min(0).max(5)).max(8),
-        picks: z.record(z.string().regex(/^\d{1,2}(?:\.\d{1,2})?$/), z.string().min(1).max(81)).default({}),
+        picks: z.record(z.string().regex(/^\d{1,2}(?:\.\d{1,2})?$/), z.string().min(1).max(81)).prefault({}),
       })
       .strict(),
     again: z.boolean().optional(),

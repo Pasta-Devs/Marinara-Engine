@@ -91,6 +91,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "sceneBusyCharIds",
   // Lorebooks are owned by the chat, never by the profile.
   "activeLorebookIds",
+  "agentLorebookAttachments",
   // Hierarchical Maps definitions and per-chat editing choices stay with the chat.
   "spatialContext",
   "spatialContextHierarchyProfile",
@@ -171,6 +172,9 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "spatialSharedWorldLink",
   "trackerFeaturedCharacterKeys",
   "conversationSetupComplete",
+  // This chat's latest scene video and the message its last automatic video joined (the Video Run Interval anchor).
+  "sceneLastVideoId",
+  "lastAutomaticVideoMessageId",
 ] as const;
 
 /**
@@ -217,6 +221,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "forceToolCall", // Make the model call a tool
   "activeToolIds", // Tools the model may call
   "cardCssMode", // How character card styles apply
+  "colorInlineNames", // Colour character names in message text
   "scopedRegexMode", // Which scoped regex scripts run
   // Group chats
   "groupChatMode", // Merged or individual narration
@@ -264,9 +269,12 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorIncludeCharacterAppearance", // Illustrator: add card appearance
   "illustratorUseAvatarReferences", // Illustrator: send avatars as references
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
+  "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval
+  "illustratorVideoRunInterval", // Illustrator: messages between videos it makes on its own
   "sceneVideoConnectionId", // Illustrator: connection for scene videos
   "imageStyleProfileId", // Illustrator: image style
   "narrativeDirectorSecretPlotEnabled", // Director: secret plot

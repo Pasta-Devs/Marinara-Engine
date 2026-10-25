@@ -410,11 +410,11 @@ try {
     const forms: Array<[string, ReturnType<typeof parseInventoryTagBody>]> = [
       [
         ` action="add" item="Bronze Key, Health Potion"`,
-        { action: "add", items: ["Bronze Key", "Health Potion"], count: 1 },
+        { action: "add", items: ["Bronze Key", "Health Potion"], whole: "Bronze Key, Health Potion", count: 1 },
       ],
       [` add item="Bronze Key"`, { action: "add", items: ["Bronze Key"], count: 1 }],
       [` item="Bronze Key" action=add`, { action: "add", items: ["Bronze Key"], count: 1 }],
-      [` items="Bronze Key, Map"`, { action: "add", items: ["Bronze Key", "Map"], count: 1 }],
+      [` items="Bronze Key, Map"`, { action: "add", items: ["Bronze Key", "Map"], whole: "Bronze Key, Map", count: 1 }],
       [` remove item=Bronze Key`, { action: "remove", items: ["Bronze Key"], count: 1 }],
       [
         ` action=remove item=Bronze Key who=Bram qty=3`,
@@ -431,7 +431,10 @@ try {
       // Wearing and binding (#6801).
       [` equip item="Hand axe" who="Bram"`, { action: "equip", items: ["Hand axe"], count: 1, who: "Bram" }],
       [` action="unbind" item="Widow's ring"`, { action: "unbind", items: ["Widow's ring"], count: 1 }],
-      [` action="unequip" item="Coat, Bow"`, { action: "unequip", items: ["Coat", "Bow"], count: 1 }],
+      [
+        ` action="unequip" item="Coat, Bow"`,
+        { action: "unequip", items: ["Coat", "Bow"], whole: "Coat, Bow", count: 1 },
+      ],
       [` bind item="Bell"`, { action: "bind", items: ["Bell"], count: 1 }],
     ];
     for (const [body, expected] of forms) assert.deepEqual(parseInventoryTagBody(body), expected, body);

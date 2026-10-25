@@ -10,7 +10,7 @@ import type {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { eq } from "../../db/file-query.js";
-import { libraryFolders, lorebooks } from "../../db/schema/index.js";
+import { libraryFolders, lorebooks, promptPresets } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 
 type LibraryFolderRow = typeof libraryFolders.$inferSelect;
@@ -163,6 +163,29 @@ export function createLibraryFoldersStorage(db: DB) {
         if (missingIds.size === 0) return 0;
 
         await createLibraryFoldersStorage(tx).removeItemReferences("lorebooks", [...missingIds]);
+
+        return missingIds.size;
+      });
+    },
+
+    async pruneMissingPresetItemIds() {
+      return db.transaction(async (tx) => {
+        const existingIds = new Set(
+          (await tx.select({ id: promptPresets.id }).from(promptPresets)).map((preset) => preset.id),
+        );
+        const folders = await tx
+          .select({ itemIds: libraryFolders.itemIds })
+          .from(libraryFolders)
+          .where(eq(libraryFolders.scope, "presets"));
+        const missingIds = new Set<string>();
+        for (const folder of folders) {
+          for (const id of parseItemIds(folder.itemIds)) {
+            if (!existingIds.has(id)) missingIds.add(id);
+          }
+        }
+        if (missingIds.size === 0) return 0;
+
+        await createLibraryFoldersStorage(tx).removeItemReferences("presets", [...missingIds]);
 
         return missingIds.size;
       });

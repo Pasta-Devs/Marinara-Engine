@@ -186,6 +186,7 @@ export const ENGINE_OWNED_METADATA_KEY_PREFIXES = Object.freeze([
   "card",
   "character",
   "chat",
+  "color",
   "context",
   "conversation",
   "cross",

@@ -266,9 +266,9 @@ export async function embedLorebookIntoCharacter(
  * auto-activation, but they must not overwrite the V2 embedded
  * `character_book`.
  *
- * Sync errors are logged but never thrown — the user's primary mutation
- * (entry create/update/delete) has already succeeded by the time this is
- * called, and a sync failure should not surface as an HTTP error.
+ * Interactive mutations and transactional imports opt into throwOnError so
+ * a failed derived write cannot be reported as success. The default keeps
+ * explicit outcomes for Mari's existing read-back verification workflow.
  */
 /**
  * #5793: the outcome of one derived character-book write, so the mari-db
@@ -276,14 +276,18 @@ export async function embedLorebookIntoCharacter(
  * planned rows. "skipped" = nothing to write (not embedded, character gone);
  * "synced" = the derived book was written and carries the exact value to
  * assert; "failed" = the write could not be confirmed (the error stays
- * swallowed so a sync failure still never breaks the mutation itself).
+ * returned by default, or thrown when the caller requires synchronization).
  */
 export type CharacterBookSyncOutcome =
   | { status: "skipped" }
   | { status: "synced"; characterId: string; expectedBook: unknown }
   | { status: "failed"; lorebookId: string; error: string };
 
-export async function syncCharacterBookFromLorebook(db: DB, lorebookId: string): Promise<CharacterBookSyncOutcome> {
+export async function syncCharacterBookFromLorebook(
+  db: DB,
+  lorebookId: string,
+  options: { throwOnError?: boolean } = {},
+): Promise<CharacterBookSyncOutcome> {
   try {
     const lorebookStorage = createLorebooksStorage(db);
     const lorebook = (await lorebookStorage.getById(lorebookId)) as LorebookRow | null;
@@ -301,10 +305,16 @@ export async function syncCharacterBookFromLorebook(db: DB, lorebookId: string):
     const entries = (await lorebookStorage.listEntries(lorebookId)) as LoreEntryRow[];
     const nextBook = toCharacterBook(lorebook, entries);
 
-    await charactersStorage.update(characterId, { character_book: nextBook }, undefined, { skipVersionSnapshot: true });
+    const updated = await charactersStorage.update(characterId, { character_book: nextBook }, undefined, {
+      skipVersionSnapshot: true,
+    });
+    if (!updated) throw new Error("Embedded character no longer exists");
     return { status: "synced", characterId, expectedBook: nextBook };
   } catch (err) {
     logger.error(err, "Failed to sync character_book from lorebook %s", lorebookId);
+    // Interactive mutations and transactional imports must not report success over
+    // a stale embedded card. Mari's verification flow still consumes explicit outcomes.
+    if (options.throwOnError) throw new Error("Embedded lorebook synchronization failed", { cause: err });
     return { status: "failed", lorebookId, error: err instanceof Error ? err.message : String(err) };
   }
 }

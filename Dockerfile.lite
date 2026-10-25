@@ -15,13 +15,13 @@
 
 # ── Stage 1: Build ──
 # Uses wolfi-base + nodejs-24 + npm so Node ABI matches across all stages.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS builder
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:bc76fa39ddd1482dd56a761b3331e03ba8f0e093ebb525618a56d014b480da88 AS builder
 ARG BUILD_COMMIT
 ARG BUILD_BRANCH
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24 npm && \
-    npm install -g pnpm@10.34.5
+    npm install -g pnpm@12.15.0
 
 ENV MARINARA_LITE=true
 ENV VITE_MARINARA_LITE=true
@@ -33,6 +33,7 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
+COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs
 
 # Install all build dependencies. --ignore-scripts is what prevents
 # onnxruntime-node's GPU postinstall (the Lite-mode requirement); optional
@@ -58,11 +59,11 @@ RUN BUILD_COMMIT="$BUILD_COMMIT" BUILD_BRANCH="$BUILD_BRANCH" node -e 'const fs 
 
 # ── Stage 2: Production dependencies ──
 # Separate stage keeps builder cache warm while allowing aggressive dep stripping.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS deps
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:bc76fa39ddd1482dd56a761b3331e03ba8f0e093ebb525618a56d014b480da88 AS deps
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24 npm && \
-    npm install -g pnpm@10.34.5
+    npm install -g pnpm@12.15.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY patches/ patches/
@@ -96,7 +97,7 @@ RUN tar cf /tmp/node_modules.tar \
 
 # ── Stage 3: Minimal Wolfi runtime ──
 # Only the Node.js 24 binary — no npm, no build tools, no shell bloat.
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:3754b6da0e1ccdab0fe46abfdd7bbbba994b593c28149f6659fa6597f2261aeb AS production
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:bc76fa39ddd1482dd56a761b3331e03ba8f0e093ebb525618a56d014b480da88 AS production
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24-minimal && \
@@ -126,6 +127,8 @@ COPY scripts/install-backgroundremover.mjs scripts/install-backgroundremover.mjs
 # The storage downgrade escape hatch (#4708) — docs/TROUBLESHOOTING.md tells
 # Docker users to run it in a one-off container, so it must ship in the image.
 COPY scripts/protect-launcher-data.mjs scripts/protect-launcher-data.mjs
+# `docker exec <container> node scripts/reset-login.mjs` removes a forgotten app login.
+COPY scripts/reset-login.mjs scripts/read-launcher-env.mjs scripts/
 
 # User guides served by the in-app documentation viewer (/api/docs)
 COPY README.md README.md

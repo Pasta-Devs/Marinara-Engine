@@ -23,6 +23,7 @@ const ENV_KEYS = [
   "MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK",
   "REQUIRE_AUTH_FOR_DOCKER_PROXY",
   "REQUIRE_AUTH_FOR_LOOPBACK_PROXY",
+  "TRUSTED_AUTH_PROXY",
 ] as const;
 type Env = Partial<Record<(typeof ENV_KEYS)[number], string>>;
 const originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -60,18 +61,22 @@ const status = (remoteAddress: string, headers: Record<string, string> = {}) =>
 try {
   // Owner on loopback: facts only, never the values behind them. HOST edited after start
   // does not move the real bind.
-  setEnv({ ...LOGIN, HOST: "0.0.0.0", IP_ALLOWLIST: "192.168.1.0/24" });
+  setEnv({ ...LOGIN, HOST: "0.0.0.0", IP_ALLOWLIST: "192.168.1.0/24", TRUSTED_AUTH_PROXY: "192.168.1.5" });
   const owner = await status("127.0.0.1");
   assert.equal(owner.statusCode, 200);
   assert.deepEqual(owner.json(), {
     loopbackOnly: true,
     host: "127.0.0.1",
     basicAuth: true,
+    loginSource: "env",
+    loginUser: "owner",
     adminSecret: true,
     allowlist: true,
+    trustedAuthProxy: true,
     passwordlessPeers: [],
     loginKeepsOpen: [],
     viaProxy: false,
+    needsCurrentPassword: false,
   });
   for (const secret of Object.values(SECRETS)) assert.ok(!owner.body.includes(secret), "status must not leak secrets");
 
@@ -94,6 +99,13 @@ try {
   assert.equal(proxied.statusCode, 200);
   assert.deepEqual(proxied.json().passwordlessPeers, ["proxy"]);
   assert.equal(proxied.json().viaProxy, true);
+  // A LAN visitor names this server's own address; that Host alone is not a proxy.
+  const direct = await status("192.168.1.20", {
+    host: "192.168.1.10:7860",
+    "x-admin-secret": SECRETS.ADMIN_SECRET,
+  });
+  assert.equal(direct.statusCode, 200);
+  assert.equal(direct.json().viaProxy, false, "a direct LAN visitor is not shown as proxied");
 
   // A plain loopback-only native install lets nobody else in, and never lists LAN or internet kinds.
   const loopbackPeers = async (env: Env) => {
@@ -105,13 +117,28 @@ try {
   assert.deepEqual(await loopbackPeers({ BYPASS_AUTH_TAILSCALE: "true", MARINARA_DOCKER: "true" }), []);
   assert.deepEqual(await loopbackPeers({ ALLOW_UNAUTHENTICATED_REMOTE: "true" }), ["proxy"]);
   assert.deepEqual(await loopbackPeers({ REQUIRE_AUTH_FOR_LOOPBACK_PROXY: "false" }), ["proxy"]);
+  assert.deepEqual(
+    await loopbackPeers({ TRUSTED_AUTH_PROXY: "127.0.0.1" }),
+    ["proxy"],
+    "a same-host login proxy is listed",
+  );
 
   // Bound to every interface: the list follows the enforced policy for a remote device of each kind.
   const networkPeers = (env: Env, interfaces: Record<string, NetworkInterfaceInfo[]> = NO_TAILNET) => {
     setEnv(env);
-    return getPasswordlessPeers("0.0.0.0", interfaces);
+    return getPasswordlessPeers("0.0.0.0", interfaces, false, "linux");
   };
   assert.deepEqual(networkPeers({}), []);
+  assert.deepEqual(
+    networkPeers({ TRUSTED_AUTH_PROXY: "192.168.1.5" }),
+    ["proxy"],
+    "a single proxy address opens no network, but its visitors are listed",
+  );
+  assert.deepEqual(
+    networkPeers({ TRUSTED_AUTH_PROXY: "192.168.1.0/24" }),
+    ["privateNetwork"],
+    "a proxy range is listed",
+  );
   assert.deepEqual(networkPeers({ ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK: "true" }), ["privateNetwork"]);
   assert.deepEqual(networkPeers({ ALLOW_UNAUTHENTICATED_REMOTE: "true" }), ["internet", "privateNetwork", "proxy"]);
   // Direct Tailscale peers are trusted automatically once this machine is on a tailnet.
@@ -135,11 +162,21 @@ try {
     "allowlist",
   ]);
   assert.deepEqual(networkPeers({ IP_ALLOWLIST: "192.168.1.0/24", ...LOGIN }), ["allowlist"]);
+  // A broad allowlist is the open internet in practice; private, CGNAT and small public ranges are not.
+  assert.deepEqual(networkPeers({ IP_ALLOWLIST: "0.0.0.0/0" }), ["internet", "allowlist"]);
+  assert.deepEqual(networkPeers({ IP_ALLOWLIST: "::/0" }), ["internet", "allowlist"]);
+  // IPv6 entries that cover the whole IPv4-mapped block admit every IPv4 peer.
+  for (const range of ["::/64", "::ffff:0.0.0.0/80", "::ffff:0:0/96"]) {
+    assert.deepEqual(networkPeers({ IP_ALLOWLIST: range }), ["internet", "allowlist"], range);
+  }
+  for (const range of ["10.0.0.0/8", "203.0.113.0/24", "100.64.0.0/10"]) {
+    assert.deepEqual(networkPeers({ IP_ALLOWLIST: range }), ["allowlist"], range);
+  }
 
   // The remedy split: a login closes opt-in and auto-Docker peers, never allowlisted or trusted ones.
   const peersAfterLogin = (env: Env, interfaces: Record<string, NetworkInterfaceInfo[]> = NO_TAILNET) => {
     setEnv(env);
-    return getPasswordlessPeers("0.0.0.0", interfaces, true);
+    return getPasswordlessPeers("0.0.0.0", interfaces, true, "linux");
   };
   assert.deepEqual(peersAfterLogin({ ALLOW_UNAUTHENTICATED_REMOTE: "true", MARINARA_DOCKER: "true" }), []);
   assert.deepEqual(peersAfterLogin({ ALLOW_UNAUTHENTICATED_REMOTE: "true", IP_ALLOWLIST: "192.168.1.0/24" }), [

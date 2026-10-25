@@ -13,7 +13,7 @@ export const startConversationCallSchema = z.object({
   mode: conversationCallModeSchema.default("audio"),
   initiator: conversationCallInitiatorSchema.default("user"),
   initiatorCharacterId: z.string().nullable().optional().default(null),
-  metadata: z.record(z.string(), z.unknown()).optional().default({}),
+  metadata: z.record(z.string(), z.unknown()).prefault({}),
 });
 
 export const conversationCallIdParamSchema = z.object({

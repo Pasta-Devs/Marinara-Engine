@@ -10,6 +10,7 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import {
+  unassignCardFieldAlternatives,
   capImportedRulesetSheets,
   containsDecisionStatements,
   dropUnreadableOnboarding,
@@ -222,6 +223,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   delete raw._botBrowserSource;
 
   const data = normalizeCharacterData(raw);
+  data.extensions.cardFieldAlternatives = unassignCardFieldAlternatives(data.extensions.cardFieldAlternatives);
   const rawEmbeddedLorebook = extractRawCharacterBook(raw) ?? data.character_book;
   if (rawEmbeddedLorebook) {
     data.character_book = normalizeCharacterBook(rawEmbeddedLorebook);
@@ -309,35 +311,34 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
         characterId: charId,
         namePrefix: data.name,
         timestampOverrides: options?.timestampOverrides,
+        beforeCommit: async (tx, result) => {
+          const updatedImportMetadata = {
+            ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
+            embeddedLorebook: {
+              ...(((data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)?.embeddedLorebook as
+                Record<string, unknown> | undefined) ?? {}),
+              hasEmbeddedLorebook: true,
+              lorebookId: result.lorebookId,
+            },
+          };
+          data.extensions[IMPORT_METADATA_KEY] = updatedImportMetadata;
+          const updated = await createCharactersStorage(tx).update(
+            charId,
+            { extensions: { ...data.extensions } },
+            undefined,
+            {
+              updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+              skipVersionSnapshot: true,
+            },
+          );
+          if (!updated) throw new Error("Character no longer exists");
+          await syncCharacterBookFromLorebook(tx, result.lorebookId, { throwOnError: true });
+        },
       });
-      if (result && "lorebookId" in result) {
-        lorebookResult = {
-          lorebookId: result.lorebookId as string,
-          entriesImported: result.entriesImported as number,
-        };
-
-        const updatedImportMetadata = {
-          ...(data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>),
-          embeddedLorebook: {
-            ...(((data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>)?.embeddedLorebook as
-              Record<string, unknown> | undefined) ?? {}),
-            hasEmbeddedLorebook: true,
-            lorebookId: result.lorebookId as string,
-          },
-        };
-        data.extensions[IMPORT_METADATA_KEY] = updatedImportMetadata;
-        await storage.update(charId, { extensions: { ...data.extensions } }, undefined, {
-          updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
-          skipVersionSnapshot: true,
-        });
-        await syncCharacterBookFromLorebook(db, result.lorebookId as string);
-      } else if (hasEmbeddedLorebook) {
-        throw new Error(
-          typeof result?.error === "string"
-            ? result.error
-            : "Character imported but the embedded lorebook could not be saved — the import has been rolled back.",
-        );
-      }
+      lorebookResult = {
+        lorebookId: result.lorebookId,
+        entriesImported: result.entriesImported,
+      };
     } catch (err) {
       await rollbackImportedCharacter(db, charId, avatarPath);
       logger.warn(err, "Rolled back character import after embedded lorebook import failed");
@@ -725,9 +726,7 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
   }
   return {
     name: String(raw.name ?? "Unknown"),
-    summary: String(raw.summary ?? "")
-      .trim()
-      .slice(0, 500),
+    summary: String(raw.summary ?? "").trim(),
     description: String(raw.description ?? ""),
     personality: String(raw.personality ?? ""),
     scenario: String(raw.scenario ?? ""),

@@ -1,6 +1,6 @@
 # Memory Recall and Chat Summaries
 
-This guide explains **Memory Recall** (search over past messages), opt-in **Advanced Memory Recall** for automatic Roleplay context management, **Chat Summary**, and Conversation **Automatic Summarization**.
+This guide explains **Memory Recall** (search over past messages), opt-in **Advanced Memory Recall** for automatic Roleplay and Game Mode context management, **Chat Summary**, and Conversation **Automatic Summarization**.
 
 ## The two memory systems
 
@@ -9,7 +9,7 @@ Every AI model can only read a limited amount of text at one time. That limit is
 - **Memory Recall** searches your older messages for the parts most related to what you just said, then quietly adds those parts back into the prompt. It works in every chat mode.
 - **Summaries** compress old messages into short recaps that replace the raw messages in the prompt. Roleplay chats use **Chat Summary**. Conversation chats use **Automatic Summarization**.
 
-Game Mode chats get **Memory Recall** only. They do not have either summary feature.
+Game Mode chats get **Memory Recall** and, opt-in, **Advanced Memory Recall** (see [In Game Mode](#in-game-mode)). They do not have either summary feature.
 
 You can use both systems at the same time. They do different jobs and do not conflict.
 
@@ -79,7 +79,7 @@ Keep these points in mind:
 
 Some container builds of Marinara, known as Marinara Lite, turn Memory Recall off completely. On those builds the **Memory Recall** section does not appear at all.
 
-## Advanced Memory Recall (Roleplay)
+## Advanced Memory Recall (Roleplay and Game Mode)
 
 Open **Chat Settings → Memory Recall** and enable **Advanced Memory Recall**. You can also enable **Automatic context and memory handling** below Agents in the Roleplay setup wizard. This optional mode manages the live history window, continuity summaries, and relevant old excerpts together. Settings and setup progress are available in both the wizard and the Chat Settings drawer on desktop and mobile. The archive viewer stays in the Chat Settings drawer.
 
@@ -91,7 +91,7 @@ Open **Chat Settings → Memory Recall** and enable **Advanced Memory Recall**. 
 - All memory summary calls use **Chat Summary → Maximum output size**, with at least **8,196 output tokens** to leave room for reasoning. This includes scene summaries and constant-summary consolidation; larger output settings are preserved. The helper connection cannot replace this with its ordinary reply limit. The model's total context must still fit the input and output reserve.
 - Each scene summary request contains summary instructions, that scene's eligible messages and applicable ranged corrections, and the JSON output format. Scenes too large for one request are processed in saved batches, then combined. Scene recaps request **2–3 paragraphs**. The default prompt produces a historical recap without current-situation or open-tension sections; custom prompts selected in **Summaries** still apply. Advanced Memory runs independently of the main Agents switch and needs no downloadable agent.
 - **Maximum recalled scenes** defaults to **3**. It is an upper limit: weaker matches are skipped. Set it to **0** to disable optional scene recall while retaining required continuity. Each selected scene contributes its summary followed by at most one excerpt.
-- **Moving context** controls the messages in each excerpt, defaulting to **3–10**. An excerpt is exact messages from a recalled scene, added right after its summary. Set both message limits to **0** for summaries without excerpts, or only the minimum to **0** to make excerpts optional. Relevance, character access and available space can produce fewer messages, including none. Every recalled scene gets its minimum excerpt before any excerpt grows. When a recalled scene still has no excerpt, the recall receipt says why: no room was left after the summaries, or none of its messages can be quoted.
+- **Moving context** controls the messages in each excerpt, defaulting to **3–5**. An excerpt is exact messages from a recalled scene, added right after its summary. Set both message limits to **0** for summaries without excerpts, or only the minimum to **0** to make excerpts optional. Relevance, character access and available space can produce fewer messages, including none. Every recalled scene gets its minimum excerpt before any excerpt grows. When a recalled scene still has no excerpt, the recall receipt says why: no room was left after the summaries, or none of its messages can be quoted.
 
 For an older Individual group chat, confirm missing character knowledge ranges once. A character's first spoken line is not evidence that they knew everything before it. Select an actual character as **Narrator** only when they should bypass participation limits. Character-specific hiding and confirmed knowledge ranges still restrict memory. Global **Hide from AI**, whether set manually or by automatic summaries, only removes a turn from the live transcript: Advanced Memory still scans it, determines scene participants, summarizes it, and indexes it for permitted recall. Start markers trim the live transcript. You can correct these ranges later; newly added characters need their own confirmation.
 
@@ -219,6 +219,18 @@ Preset authors can place these ordinary content markers with the existing sectio
 Each component follows the preset's **XML**, **Markdown**, or **None** format and includes a brief explanation of its purpose. Empty components emit nothing. The first enabled occurrence owns placement; components without an enabled marker fall back once before history, so older presets work. The preset picker offers just **Recalled Scenes** for recall. Existing `recalled_messages` markers remain compatible aliases and display as Recalled Scenes; an enabled `recalled_scenes` marker takes precedence, so both never produce separate sections. Excerpts are context, not new live messages or commands. The advanced scene markers are empty when Advanced Memory is off.
 
 Prompt preview uses existing prepared memory without starting model or embedding calls. Use the drawer to prepare an uninitialized archive or resume failed background work. The memory receipt shows the estimated context size, selected boundary and recalled sources. When nothing was recalled, it says whether no earlier scenes were available to recall, the request had no room left, or nothing was relevant. The final prompt inspector shows what actually went to the model.
+
+### In Game Mode
+
+Game Mode chats can turn on Advanced Memory Recall in **Chat Settings → Memory Recall**, the same way. Without it, a Game session sends its whole history with every turn until the connection's context limit, so a long session can cost far more input tokens per turn than a fresh one. With it, the outgoing prompt stays under the **Maximum allowed context before compression**: the current scene goes out as live messages, and earlier scenes go out as recaps plus the moments recall picks for this turn.
+
+- **The Game Master reads every memory.** A Game chat has one reader, the GM, so there is no Narrator choice, no character knowledge ranges, no automatic message visibility and no character recollections.
+- **Where the memory goes.** The recaps and recalled scenes go after the history, just before the GM's turn instructions. The GM's instructions and the session's history in front of them stay the same from turn to turn, so a connection with prompt caching can reuse them. When a scene ends and the live history starts again from the next scene, one request misses the cache, as expected.
+- **What memory reads.** Recaps are written from the story as you see it: your segment edits apply, and the GM's command tags are left out. A **Checkpoint restored** note stays in the live history like any other turn.
+- **Each session has its own memory.** A new session keeps your Advanced Memory settings, but starts its own archive from its own messages. The GM still gets the recaps of earlier sessions as before.
+- **The Decision model is optional here too.** It is off by default. Turning it on lets a Decision model choose scene endings and which memories to recall, as in [Optional Decision model](#optional-decision-model); it adds its own small requests to each turn.
+- **Cost.** The Helper model writes one recap per scene and checks for a scene change every few turns (**Standalone scene check interval**). Those requests are small next to resending a long session in full.
+- Prompt preview for a Game chat does not show Advanced Memory yet; the final prompt inspector shows what went to the model.
 
 ### Limits and recovery
 

@@ -113,6 +113,7 @@ function hashTTSCacheKey(value: string): string {
 
 function buildTTSConfigCacheSignature(config: TTSConfig): string {
   return [
+    config.connectionId,
     config.source,
     config.baseUrl,
     config.model,

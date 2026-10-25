@@ -673,9 +673,10 @@ interface UIState {
   /** Transient: the initial cross-device settings fetch has settled. */
   settingsSyncReady: boolean;
   showHomeBrowserAddressBar: boolean;
-  showHomeBrowserDesktopBookmarksOnOtherTabs: boolean;
-  showHomeBrowserMobileBookmarksOnOtherTabs: boolean;
   sidebarOpen: boolean;
+  /** Transient: a fight on a board hides the chat list while its screen is up. `sidebarOpen` stays the
+   *  player's own choice; what is drawn is `selectSidebarShown`. Opening or closing the list clears it. */
+  sidebarHiddenForFight: boolean;
   sidebarWidth: number;
   rightPanelOpen: boolean;
   rightPanelWidth: number;
@@ -920,6 +921,8 @@ interface UIState {
   queueImageGenerationRequests: boolean;
   /** When true, generated image prompts are shown for review before supported provider calls are sent. */
   reviewImagePromptsBeforeSend: boolean;
+  saveGeneratedImagesAsWebp: boolean;
+  generatedImageWebpQuality: number;
   autoSaveGeneratedImagesToGalleries: boolean;
   imageBackgroundWidth: number;
   imageBackgroundHeight: number;
@@ -969,7 +972,10 @@ interface UIState {
   messagesPerPage: number;
   /** Bold quoted dialogue in chat messages; color highlighting can still remain when this is off */
   boldDialogue: boolean;
-  /** When true, character names and aliases are colored in chat prose using the character's nameColor. */
+  /**
+   * Retired global switch for inline name colors, now a per-chat setting (chat metadata `colorInlineNames`).
+   * Nothing writes it any more; it stays persisted so a chat that never set its own value falls back to it.
+   */
   colorInlineNames: boolean;
   /** When true, inline name coloring uses the first solid color from gradients instead of rendering the gradient. */
   disableInlineNameGradients: boolean;
@@ -1201,10 +1207,9 @@ interface UIState {
 
   // Actions
   setShowHomeBrowserAddressBar: (visible: boolean) => void;
-  setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible: boolean) => void;
-  setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  hideSidebarForFight: (hidden: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   toggleTrackerPanel: (chatId?: string | null) => void;
@@ -1357,6 +1362,8 @@ interface UIState {
   setGameAutoPlayDelay: (v: number) => void;
   setQueueImageGenerationRequests: (v: boolean) => void;
   setReviewImagePromptsBeforeSend: (v: boolean) => void;
+  setSaveGeneratedImagesAsWebp: (v: boolean) => void;
+  setGeneratedImageWebpQuality: (v: number) => void;
   setAutoSaveGeneratedImagesToGalleries: (v: boolean) => void;
   setImageBackgroundDimensions: (width: number, height: number) => void;
   setImageIllustrationDimensions: (width: number, height: number) => void;
@@ -1393,7 +1400,6 @@ interface UIState {
   setIncludePrivateNotesInExports: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
-  setColorInlineNames: (v: boolean) => void;
   setDisableInlineNameGradients: (v: boolean) => void;
   setQuoteFormat: (v: QuoteFormat) => void;
   setConvertLatexSymbols: (v: boolean) => void;
@@ -1588,8 +1594,6 @@ export function pickSyncedSettings(state: UIState) {
   return {
     libraryManualOrders: state.libraryManualOrders,
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
-    showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
-    showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
     rightPanelWidth: state.rightPanelWidth,
@@ -1637,6 +1641,8 @@ export function pickSyncedSettings(state: UIState) {
     gameAutoPlayDelay: state.gameAutoPlayDelay,
     queueImageGenerationRequests: state.queueImageGenerationRequests,
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
+    saveGeneratedImagesAsWebp: state.saveGeneratedImagesAsWebp,
+    generatedImageWebpQuality: state.generatedImageWebpQuality,
     autoSaveGeneratedImagesToGalleries: state.autoSaveGeneratedImagesToGalleries,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
@@ -1787,11 +1793,14 @@ export function pickSyncedSettings(state: UIState) {
   };
 }
 
+/** Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. */
+export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight">) {
+  return state.sidebarOpen && !state.sidebarHiddenForFight;
+}
+
 export function pickPersistedUIState(state: UIState) {
   return {
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
-    showHomeBrowserDesktopBookmarksOnOtherTabs: state.showHomeBrowserDesktopBookmarksOnOtherTabs,
-    showHomeBrowserMobileBookmarksOnOtherTabs: state.showHomeBrowserMobileBookmarksOnOtherTabs,
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
     rightPanelOpen: state.rightPanelOpen,
@@ -1894,6 +1903,8 @@ export function pickPersistedUIState(state: UIState) {
     gameAutoPlayDelay: state.gameAutoPlayDelay,
     queueImageGenerationRequests: state.queueImageGenerationRequests,
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
+    saveGeneratedImagesAsWebp: state.saveGeneratedImagesAsWebp,
+    generatedImageWebpQuality: state.generatedImageWebpQuality,
     autoSaveGeneratedImagesToGalleries: state.autoSaveGeneratedImagesToGalleries,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
@@ -2056,9 +2067,8 @@ export const useUIStore = create<UIState>()(
       return {
         settingsSyncReady: false,
         showHomeBrowserAddressBar: true,
-        showHomeBrowserDesktopBookmarksOnOtherTabs: true,
-        showHomeBrowserMobileBookmarksOnOtherTabs: true,
         sidebarOpen: true,
+        sidebarHiddenForFight: false,
         sidebarWidth: 320,
         rightPanelOpen: false,
         rightPanelWidth: 320,
@@ -2193,6 +2203,8 @@ export const useUIStore = create<UIState>()(
         gameAutoPlayDelay: 3000,
         queueImageGenerationRequests: true,
         reviewImagePromptsBeforeSend: false,
+        saveGeneratedImagesAsWebp: false,
+        generatedImageWebpQuality: 95,
         autoSaveGeneratedImagesToGalleries: true,
         imageBackgroundWidth: 1280,
         imageBackgroundHeight: 720,
@@ -2353,17 +2365,19 @@ export const useUIStore = create<UIState>()(
         toggleSidebar: () =>
           set((s) => {
             const mobile = isMobileShellViewport();
-            const sidebarOpen = !s.sidebarOpen || (mobile && s.rightPanelOpen);
+            const sidebarOpen = !selectSidebarShown(s) || (mobile && s.rightPanelOpen);
             dismissChatFloatingUiForMobilePanel(sidebarOpen);
             return {
               sidebarOpen,
+              sidebarHiddenForFight: false,
               ...(mobile && sidebarOpen ? { rightPanelOpen: false } : {}),
             };
           }),
         setSidebarOpen: (open) => {
           dismissChatFloatingUiForMobilePanel(open);
-          set({ sidebarOpen: open });
+          set({ sidebarOpen: open, sidebarHiddenForFight: false });
         },
+        hideSidebarForFight: (hidden) => set({ sidebarHiddenForFight: hidden }),
         setSidebarWidth: (width) =>
           set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
         setRightPanelWidth: (width) =>
@@ -2441,7 +2455,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
             };
           }),
         closeRightPanel: () => set({ rightPanelOpen: false }),
@@ -2453,7 +2467,7 @@ export const useUIStore = create<UIState>()(
             return {
               rightPanelOpen: true,
               rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false } : {}),
+              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
             };
           }),
 
@@ -3056,6 +3070,9 @@ export const useUIStore = create<UIState>()(
         setGameAutoPlayDelay: (v) => set({ gameAutoPlayDelay: Math.max(200, Math.min(10000, Math.round(v))) }),
         setQueueImageGenerationRequests: (v) => set({ queueImageGenerationRequests: v }),
         setReviewImagePromptsBeforeSend: (v) => set({ reviewImagePromptsBeforeSend: v }),
+        setSaveGeneratedImagesAsWebp: (v) => set({ saveGeneratedImagesAsWebp: v }),
+        setGeneratedImageWebpQuality: (v) =>
+          set({ generatedImageWebpQuality: Number.isFinite(v) ? Math.max(1, Math.min(100, Math.round(v))) : 95 }),
         setAutoSaveGeneratedImagesToGalleries: (v) => set({ autoSaveGeneratedImagesToGalleries: v }),
         setImageBackgroundDimensions: (width, height) =>
           set({
@@ -3138,7 +3155,6 @@ export const useUIStore = create<UIState>()(
         setIncludePrivateNotesInExports: (v) => set({ includePrivateNotesInExports: v }),
         setMessagesPerPage: (n) => set({ messagesPerPage: n }),
         setBoldDialogue: (v) => set({ boldDialogue: v }),
-        setColorInlineNames: (v) => set({ colorInlineNames: v }),
         setDisableInlineNameGradients: (v) => set({ disableInlineNameGradients: v }),
         setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
         setConvertLatexSymbols: (v) => set({ convertLatexSymbols: v }),
@@ -3147,10 +3163,6 @@ export const useUIStore = create<UIState>()(
           set((state) => ({ approvedRemoteImageUrls: addApprovedRemoteImageUrl(state.approvedRemoteImageUrls, href) })),
         setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
         setShowHomeBrowserAddressBar: (visible) => set({ showHomeBrowserAddressBar: visible }),
-        setShowHomeBrowserDesktopBookmarksOnOtherTabs: (visible) =>
-          set({ showHomeBrowserDesktopBookmarksOnOtherTabs: visible }),
-        setShowHomeBrowserMobileBookmarksOnOtherTabs: (visible) =>
-          set({ showHomeBrowserMobileBookmarksOnOtherTabs: visible }),
         setContinueAddsNewline: (v) => set({ continueAddsNewline: v }),
         setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
         setTTSLineVolume: (v) => set({ ttsLineVolume: Math.max(0, Math.min(100, Math.round(v))) }),
@@ -3561,14 +3573,8 @@ export const useUIStore = create<UIState>()(
             // Package settings use their defaults if browser storage is unavailable.
           }
         }
-        if (version <= 97) {
-          if (persisted.showHomeBrowserAddressBar === undefined) persisted.showHomeBrowserAddressBar = true;
-          if (persisted.showHomeBrowserDesktopBookmarksOnOtherTabs === undefined) {
-            persisted.showHomeBrowserDesktopBookmarksOnOtherTabs = true;
-          }
-          if (persisted.showHomeBrowserMobileBookmarksOnOtherTabs === undefined) {
-            persisted.showHomeBrowserMobileBookmarksOnOtherTabs = true;
-          }
+        if (version <= 97 && persisted.showHomeBrowserAddressBar === undefined) {
+          persisted.showHomeBrowserAddressBar = true;
         }
         if (version <= 96 && persisted.showCharactersInPersonaPickers === undefined) {
           persisted.showCharactersInPersonaPickers = false;

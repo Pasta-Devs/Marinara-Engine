@@ -429,6 +429,7 @@ export async function drawAvatarImageEdit(request: AvatarImageEditRequest): Prom
     height: size.height,
     referenceImage: reference.toString("base64"),
     referenceIsCanvas: true,
+    preserveProviderOutput: true,
     imageEndpointId: conn.imageEndpointId || undefined,
     comfyWorkflow: service.comfyWorkflow,
     imageDefaults: resolveConnectionImageDefaults(conn),

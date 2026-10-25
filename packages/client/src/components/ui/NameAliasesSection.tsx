@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { cn } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
 
 interface NameAliasesSectionProps {
   aliases: string[];
@@ -63,38 +61,12 @@ function NameAliasInput({ existing, onAdd }: { existing: string[]; onAdd: (alias
 
 export function NameAliasesSection({ aliases, onChange, nameColor }: NameAliasesSectionProps) {
   const { t: localizeUi } = useTranslation();
-  const colorInlineNames = useUIStore((s) => s.colorInlineNames);
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <label className="text-[0.6875rem] font-medium text-[var(--foreground)]">
-          {localizeUi("ui.characters.colorstab.nameAliases")}
-        </label>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[0.5rem] font-semibold ring-1",
-            colorInlineNames
-              ? "bg-emerald-400/15 text-emerald-500 ring-emerald-400/20"
-              : "bg-[var(--muted)] text-[var(--muted-foreground)] ring-[var(--border)]",
-          )}
-          title={
-            colorInlineNames
-              ? localizeUi("ui.characters.colorstab.nameAliasesActive")
-              : localizeUi("ui.characters.colorstab.nameAliasesInactive")
-          }
-        >
-          <span
-            className={cn(
-              "inline-block h-1.5 w-1.5 rounded-full",
-              colorInlineNames ? "bg-emerald-400" : "bg-[var(--muted-foreground)]",
-            )}
-          />
-          {colorInlineNames
-            ? localizeUi("ui.characters.colorstab.nameAliasesActive")
-            : localizeUi("ui.characters.colorstab.nameAliasesInactive")}
-        </span>
-      </div>
+      <label className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
+        {localizeUi("ui.characters.colorstab.nameAliases")}
+      </label>
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
         {localizeUi("ui.characters.colorstab.nameAliasesDescription")}
       </p>

@@ -73,6 +73,14 @@ const UI_TOOLS = ["suggestions", "plan"] as const;
 const HELD_RESULT =
   "HELD for the user's approval; NOT applied. When the user accepts, repeat exactly this call with the same input.";
 const NOTHING_HELD = "I did not make or hold any change. Ask me again if you want it made.";
+/** A reply cut at the output limit is redone in smaller steps this many times per run, then the run stops. */
+export const MAX_OUTPUT_LIMIT_REPAIRS = 2;
+const OUTPUT_LIMIT_RETRY =
+  "The reply was too long for this model's output limit, so Professor Mari is redoing it in smaller steps.";
+const OUTPUT_LIMIT_STOP =
+  "Professor Mari's replies kept hitting this model's output limit, so she stopped. Raise Max Output Tokens on the connection, or ask for a smaller piece.";
+/** About half a reply's budget in characters (~3 characters per token): room for one call with words around it. */
+const CUT_TARGET_CHARS_PER_TOKEN = 1.5;
 const HELD_WITHOUT_WORDS = "I have changes ready. Review them below and accept to apply them; nothing was applied yet.";
 
 /** The run state prompt() persists on the saved message; the pi loop writes it, prompt() copies it back. */
@@ -107,6 +115,8 @@ export type PiRunInput = {
   setRoundFlags: (flags: { manualSilentMutationBlocked: boolean; askLatchSilentMutationBlocked: boolean }) => void;
   /** Tool rounds allowed in one run; defaults to MAX_PI_TOOL_ROUNDS. Injected only by the regression. */
   maxToolRounds?: number;
+  /** The connection's output token limit, when known; the output-limit recovery quotes it. */
+  maxOutputTokens?: number;
   /** Called once the session exists, with the tools it really has active. The regression inspects the boundary here. */
   /** #5740: the understood-request record. `record` runs once per round with mutating calls; `settle` after they ran. */
   understood?: {
@@ -127,6 +137,8 @@ type Round = {
   truncated: boolean;
   /** A truncated turn whose cut-off calls included a change: the user gets a chip to continue. */
   droppedMutating: boolean;
+  /** What a turn cut at the output limit was writing (not a failed stream): it is redone in smaller steps. */
+  cut: CutReply | null;
   /** Ids of calls identical to an earlier one in the same turn; they are answered, not run. */
   duplicates: Set<string>;
   /** Provider replay data (Anthropic thinking, Gemini parts, ...) to send back with this turn's assistant message. */
@@ -188,6 +200,64 @@ ${docs}
 </text_tool_calls>`;
 }
 
+/** What a reply cut at the output limit was writing. Only names and a size: the cut-off call itself never runs. */
+export type CutReply = { kind: "call" | "thinking" | "prose"; tool?: string; action?: string; chars: number };
+
+export function describeCutReply(
+  result: Pick<ChatCompletionResult, "content" | "toolCalls">,
+  textual: boolean,
+): CutReply {
+  const content = result.content ?? "";
+  const tagAt = textual ? content.lastIndexOf("<tool_call>") : -1;
+  const openTag = tagAt >= 0 && tagAt > content.lastIndexOf("</tool_call>");
+  const native = result.toolCalls.at(-1);
+  const raw = openTag ? content.slice(tagAt) : native ? native.function.arguments : null;
+  if (raw === null) return { kind: content.trim() ? "prose" : "thinking", chars: content.length };
+  return {
+    kind: "call",
+    tool: (openTag ? undefined : native?.function.name) ?? /"name"\s*:\s*"([^"]+)"/u.exec(raw)?.[1],
+    action: /"action"\s*:\s*"([\w.]+)"/u.exec(raw)?.[1],
+    // Arguments cut before any arrived come back as "{}"; that size says nothing.
+    chars: raw.trim() === "{}" ? 0 : raw.length,
+  };
+}
+
+/** The steered repair for a cut reply. Short lines, one instruction each: small models are the ones that get cut. */
+export function outputLimitRepairPrompt(cut: CutReply, attempt: number, maxOutputTokens?: number): string {
+  const limit = maxOutputTokens ? ` (about ${maxOutputTokens} tokens)` : "";
+  const target = maxOutputTokens ? Math.round(maxOutputTokens * CUT_TARGET_CHARS_PER_TOKEN) : null;
+  const quiet =
+    "While you work, say nothing about the limit. In your final answer you may mention it in one short, light sentence.";
+  const lines = ["[Engine note, not from the user]"];
+  if (attempt > 1) lines.push("It was cut off again. Make it much smaller: one field or one item per call.");
+  if (cut.kind === "thinking") {
+    lines.push(
+      `Your last reply was cut off before you wrote anything: your thinking used up this model's output limit${limit}. Nothing ran.`,
+      "Think briefly. Pick the next single small step and do it now with one tool call, or answer in a few sentences.",
+      quiet,
+    );
+  } else if (cut.kind === "prose") {
+    lines.push(
+      `Your last answer was cut off by this model's output limit${limit}.`,
+      `Write it again, shorter${target ? `: at most ${target} characters` : ""}. If there is more to say, offer it as a follow-up.`,
+    );
+  } else {
+    const what = cut.tool ? `\`${cut.tool}\`${cut.action ? ` with action \`${cut.action}\`` : ""}` : "a tool call";
+    lines.push(
+      `Your last reply was cut off: it reached this model's output limit${limit}. Nothing from it ran or was saved.`,
+      `You were writing ${what}${cut.chars ? ` (about ${cut.chars} characters)` : ""} when it stopped.`,
+      "Do the same work again in smaller pieces:",
+      "- Send one tool call per reply.",
+      ...(target ? [`- Keep each call under about ${target} characters.`] : []),
+      "- Split a big write into several: create it with the main fields, then add the rest with updates.",
+      "- Do not redo steps that already succeeded.",
+      `- ${quiet}`,
+      "Make the first small call now.",
+    );
+  }
+  return lines.join("\n");
+}
+
 function parseArguments(raw: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(raw || "{}");
@@ -239,6 +309,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   let toolRounds = 0;
   let limitReached = false;
   let emptyRepairs = 0;
+  let outputLimitRepairs = 0;
   const maxEmptyRepairs = isLocalSidecarConnection(input.connection)
     ? MAX_PROTOCOL_REPAIR_ROUNDS_LOCAL_SIDECAR
     : MAX_PROTOCOL_REPAIR_ROUNDS;
@@ -266,6 +337,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     appendTraceStatus(trace, content);
     onEvent({ type: "status", data: { content, kind, level } });
     for (const chunk of chunkText(content)) onEvent({ type: "token", data: chunk });
+  };
+  /** Ends a run on a truncated turn: a chip to continue when a change was dropped, then the note. */
+  const stopTruncated = (current: Round, note: string) => {
+    if (current.droppedMutating) {
+      onEvent({
+        type: "suggestions",
+        data: [{ id: "authorization-accept", label: "Accept", prompt: "Continue the task.", tone: "success" }],
+      });
+    }
+    addNote(note, "output_limit", "warning");
+    stopRequested = true;
+    return "done" as const;
   };
 
   const withToolFormat = (prompt: string) => (textualTools ? `${prompt}\n\n${textualToolPrompt(tools)}` : prompt);
@@ -434,6 +517,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
             deferred: null,
             truncated,
             droppedMutating,
+            cut: isLengthFinishReason(result.finishReason)
+              ? describeCutReply({ content: result.content, toolCalls: parsedCalls }, textualTools)
+              : null,
             duplicates,
             chipRound: chipRepair === "pending",
           };
@@ -498,6 +584,25 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     emptyRepairs = 0;
+    // A turn cut at the output limit ran nothing, so no claim audit spends a repair on its half-written words: it is
+    // redone smaller, and its words are not kept. Once that budget is spent the run stops with a note. A failed stream
+    // is not a limit cut: it is audited like any turn and stops further down.
+    if (current.cut) {
+      if (outputLimitRepairs < MAX_OUTPUT_LIMIT_REPAIRS) {
+        outputLimitRepairs += 1;
+        appendTraceStatus(trace, OUTPUT_LIMIT_RETRY);
+        onEvent({ type: "status", data: { content: OUTPUT_LIMIT_RETRY, kind: "output_limit", level: "info" } });
+        return {
+          kind: "repair" as const,
+          prompt: outputLimitRepairPrompt(current.cut, outputLimitRepairs, input.maxOutputTokens),
+        };
+      }
+      if (current.text.trim()) {
+        state.assistantText = current.text.trim();
+        emitRoundText(trace, current.text, onEvent);
+      }
+      return stopTruncated(current, OUTPUT_LIMIT_STOP);
+    }
     const workspaceCalls = current.calls.filter((call) => !isUiTool(call.name));
     const hasWorkspaceCalls = workspaceCalls.length > 0;
     const mutating = workspaceCalls.filter(isMutatingWorkspaceCommand);
@@ -594,19 +699,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (current.results.length > 0 && hasWorkspaceCalls) onEvent({ type: "metadata", data: { narration: true } });
     }
     if (current.truncated) {
-      if (current.droppedMutating) {
-        onEvent({
-          type: "suggestions",
-          data: [{ id: "authorization-accept", label: "Accept", prompt: "Continue the task.", tone: "success" }],
-        });
-      }
-      addNote(
+      return stopTruncated(
+        current,
         "Professor Mari hit the model output limit. Ask her to continue and she can pick up from here.",
-        "output_limit",
-        "warning",
       );
-      stopRequested = true;
-      return "done" as const;
     }
     // Same as classic (Slice 70): an answer that ends on a question with no chips and no plan gets one chips-only round.
     if (

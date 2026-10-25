@@ -45,12 +45,19 @@ const MAX_ATTRIBUTE_LENGTH = 120;
 
 function readAttributes(body: string): Map<string, string> {
   const values = new Map<string, string>();
-  for (const attribute of readGmTagAttributes(body)) {
+  const attributes = readGmTagAttributes(body);
+  attributes.forEach((attribute, index) => {
     const key = attribute.key.trim().toLowerCase();
-    const rawValue = attribute.rawValue.trim();
-    if (!key || !rawValue) continue;
+    // An unquoted value runs to the next attribute, as an inventory tag's does, so a name whose
+    // quotes a rewrite lost (`who=Ulfgar Stonejaw op=damage`) is the whole name.
+    const quoted = /^["']/.test(attribute.rawValue);
+    const raw = quoted
+      ? attribute.rawValue
+      : body.slice(attribute.end - attribute.rawValue.length, attributes[index + 1]?.start ?? body.length);
+    const rawValue = raw.trim();
+    if (!key || !rawValue) return;
     values.set(key, rawValue.replace(/^['"]|['"]$/g, ""));
-  }
+  });
   return values;
 }
 
@@ -112,8 +119,12 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
       return { ...parsed, op: { op: "damage", track, kind, amount, ...(box !== null ? { box } : {}) } };
     }
     const pool = values.get("pool")?.trim();
-    if (!pool || amount === null) return parsed;
-    return { ...parsed, op: { op: name, pool, amount } };
+    if (amount === null) return parsed;
+    // Harm, a heal or a shield that names no pool is health's, which the sheet pass fills in from
+    // the ruleset (laptop 2026-10-25: an injury written as `op="damage" amount="1"` refused). A spend
+    // has to say what it spends.
+    if (!pool && name === "spend") return parsed;
+    return { ...parsed, op: { op: name, pool: pool ?? "", amount } };
   }
   if (name === "advance") {
     const targets = ["field", "ability", "skill", "save"].filter((key) => values.has(key));
@@ -147,7 +158,16 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
     const by = readInteger(values.get("by"));
     // Exactly one of the two, or the tag does not say what it means.
     if (!track || (to === null) === (by === null)) return parsed;
-    return { ...parsed, op: to !== null ? { op: "track", track, to } : { op: "track", track, by: by! } };
+    // `upto=` (1.364) only stops a move by some amount; beside `to=` it says nothing anyone could mean.
+    const upTo = values.has("upto") ? readInteger(values.get("upto")) : undefined;
+    if (upTo === null || (upTo !== undefined && to !== null)) return parsed;
+    return {
+      ...parsed,
+      op:
+        to !== null
+          ? { op: "track", track, to }
+          : { op: "track", track, by: by!, ...(upTo !== undefined ? { upTo } : {}) },
+    };
   }
   if (name === "condition") {
     const condition = values.get("condition")?.trim();
@@ -187,8 +207,27 @@ export function parseSheetCommandTagBody(body: string): ParsedSheetCommandTag {
 }
 
 /** The outcome summary (`now`) of a command for the whole party lists one value per member, so it
- *  gets more room than an ordinary attribute. */
-export const SHEET_COMMAND_NOW_MAX_LENGTH = 240;
+ *  gets more room than an ordinary attribute: a long rest for four casters reads every pool back. */
+export const SHEET_COMMAND_NOW_MAX_LENGTH = 600;
+
+/** A party command's entries, one per member, joined to fit the summary. Where they cannot all fit,
+ *  the last say how many more there were, so the record never reads as if a member was left out
+ *  (playtest: a long rest whose summary named three of four). `whole` (the members it was refused
+ *  for) is never cut into: only `entries` are counted off, so "and N more" can only stand for ones
+ *  it applied to. */
+export function joinSheetSummary(
+  entries: readonly string[],
+  limit = SHEET_COMMAND_NOW_MAX_LENGTH,
+  whole: readonly string[] = [],
+): string {
+  const all = [...entries, ...whole].join("; ");
+  if (all.length <= limit) return all;
+  for (let kept = entries.length - 1; kept > 0; kept--) {
+    const joined = [...entries.slice(0, kept), `and ${entries.length - kept} more`, ...whole].join("; ");
+    if (joined.length <= limit) return joined;
+  }
+  return truncateSheetSummary(all, limit);
+}
 
 /** Cut a `; `-joined summary to a limit without splitting an entry in half. */
 export function truncateSheetSummary(value: string, limit: number): string {
@@ -253,6 +292,7 @@ export function serializeSheetCommandTag(
       attribute("track", op.track);
       if (op.to !== undefined) attribute("to", op.to);
       else attribute("by", op.by ?? 0);
+      if (op.upTo !== undefined && op.to === undefined) attribute("upto", op.upTo);
     } else if (op.op === "condition") {
       attribute("condition", op.condition);
       attribute("state", op.active ? "on" : "off");

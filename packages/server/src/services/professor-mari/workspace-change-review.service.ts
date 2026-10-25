@@ -424,16 +424,34 @@ function publicApproval(record: SecurityReviewRecord): MariSensitiveFileApproval
   return approval;
 }
 
-async function runPnpmProcess(args: string[], cwd: string, env: NodeJS.ProcessEnv) {
-  return new Promise<{ ok: boolean; output: string }>((resolveRun) => {
-    const child = spawn("pnpm", args, {
-      cwd,
-      env,
-      shell: false,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+type PnpmRunner = { command: string; prefixArgs: string[] };
+
+async function runPnpmProcess(
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  runner: PnpmRunner = { command: "pnpm", prefixArgs: [] },
+  timeoutMs = INSTALL_TIMEOUT_MS,
+) {
+  const parts = [runner.command, ...runner.prefixArgs, ...args];
+  const windowsCommand = process.platform === "win32";
+  if (windowsCommand && parts.some((part) => !/^[A-Za-z0-9@._/:=+-]+$/u.test(part))) {
+    throw new Error("Unsupported character in the dependency package-manager command.");
+  }
+  return new Promise<{ ok: boolean; output: string; stdout: string }>((resolveRun) => {
+    const child = spawn(
+      windowsCommand ? (process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe") : runner.command,
+      windowsCommand ? ["/d", "/s", "/c", parts.join(" ")] : [...runner.prefixArgs, ...args],
+      {
+        cwd,
+        env,
+        shell: false,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     let output = "";
+    let stdout = "";
     let settled = false;
     let timer: NodeJS.Timeout;
     const append = (chunk: unknown) => {
@@ -443,23 +461,49 @@ async function runPnpmProcess(args: string[], cwd: string, env: NodeJS.ProcessEn
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolveRun(result);
+      resolveRun({ ...result, stdout });
     };
-    child.stdout?.on("data", append);
+    child.stdout?.on("data", (chunk) => {
+      stdout = `${stdout}${String(chunk)}`.slice(-MAX_PROCESS_OUTPUT);
+      append(chunk);
+    });
     child.stderr?.on("data", append);
     child.on("error", (error) => finish({ ok: false, output: error.message }));
     child.on("close", (code) =>
       finish({
         ok: code === 0,
-        output: [`pnpm ${args.join(" ")}`, `Exit code: ${code}`, output.trim()].filter(Boolean).join("\n"),
+        output: [parts.join(" "), `Exit code: ${code}`, output.trim()].filter(Boolean).join("\n"),
       }),
     );
     timer = setTimeout(() => {
       child.kill();
-      finish({ ok: false, output: `Dependency installation timed out after ${INSTALL_TIMEOUT_MS / 1000}s.` });
-    }, INSTALL_TIMEOUT_MS);
+      finish({ ok: false, output: `Dependency installation timed out after ${timeoutMs / 1000}s.` });
+    }, timeoutMs);
     timer.unref?.();
   });
+}
+
+async function resolveDependencyPnpmRunner(cwd: string, env: NodeJS.ProcessEnv): Promise<PnpmRunner> {
+  const manifest = JSON.parse(await readFile(join(cwd, "package.json"), "utf8")) as { packageManager?: unknown };
+  if (typeof manifest.packageManager !== "string" || !manifest.packageManager.startsWith("pnpm@")) {
+    return { command: "pnpm", prefixArgs: [] };
+  }
+  const pin = /^pnpm@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\+sha(?:224|256|384|512)\.[0-9a-fA-F]+)?$/u.exec(
+    manifest.packageManager,
+  );
+  if (!pin) throw new Error("The workspace must pin an exact pnpm version before installing dependencies.");
+  // Match the updater's pinned-manager fallbacks without reading user configs or
+  // reusing an older global pnpm's incompatible native-version handoff.
+  const candidates = [
+    { command: "corepack", prefixArgs: [manifest.packageManager], timeout: 20_000 },
+    { command: "pnpm", prefixArgs: [], timeout: 10_000 },
+    { command: "npx", prefixArgs: ["--yes", `pnpm@${pin[1]}`], timeout: 60_000 },
+  ];
+  for (const runner of candidates) {
+    const result = await runPnpmProcess(["--version"], cwd, env, runner, runner.timeout);
+    if (result.ok && result.stdout.trim() === pin[1]) return runner;
+  }
+  throw new Error(`Could not start the workspace's pinned pnpm ${pin[1]}. Enable Corepack or install that version.`);
 }
 
 async function runPnpmDependencyInstall(input: {
@@ -482,19 +526,25 @@ async function runPnpmDependencyInstall(input: {
     LANG: process.env.LANG,
     LC_ALL: process.env.LC_ALL,
     HOME: sandboxHome,
+    USERPROFILE: sandboxHome,
+    APPDATA: sandboxHome,
+    LOCALAPPDATA: sandboxHome,
     TMPDIR: sandboxHome,
     TMP: sandboxHome,
     TEMP: sandboxHome,
     XDG_CACHE_HOME: sandboxHome,
     XDG_CONFIG_HOME: sandboxHome,
     XDG_DATA_HOME: sandboxHome,
+    COREPACK_HOME: join(sandboxHome, "corepack"),
+    PNPM_HOME: join(sandboxHome, "pnpm"),
     npm_config_registry: PUBLIC_NPM_REGISTRY,
     npm_config_ignore_scripts: "true",
     npm_config_userconfig: join(sandboxHome, ".npmrc"),
   };
 
   try {
-    const resolved = await runPnpmProcess(resolveArgs, input.workspaceRoot, safeEnv);
+    const runner = await resolveDependencyPnpmRunner(input.workspaceRoot, safeEnv);
+    const resolved = await runPnpmProcess(resolveArgs, input.workspaceRoot, safeEnv, runner);
     if (!resolved.ok) return resolved;
     const resolvedLockfile = (await readOptionalText(resolve(input.workspaceRoot, "pnpm-lock.yaml"))) ?? "";
     if (!resolvedLockfile.includes(input.integrity)) {
@@ -503,12 +553,18 @@ async function runPnpmDependencyInstall(input: {
         output: `${resolved.output}\nResolved lockfile integrity did not match the approved npm registry integrity.`,
       };
     }
-    const fetched = await runPnpmProcess(["fetch", `--registry=${PUBLIC_NPM_REGISTRY}`], input.workspaceRoot, safeEnv);
+    const fetched = await runPnpmProcess(
+      ["fetch", `--registry=${PUBLIC_NPM_REGISTRY}`],
+      input.workspaceRoot,
+      safeEnv,
+      runner,
+    );
     if (!fetched.ok) return { ok: false, output: `${resolved.output}\n${fetched.output}` };
     const installed = await runPnpmProcess(
       ["install", "--offline", "--frozen-lockfile", "--ignore-scripts"],
       input.workspaceRoot,
       safeEnv,
+      runner,
     );
     return {
       ok: installed.ok,

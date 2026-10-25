@@ -239,7 +239,7 @@ function firstOf<T extends RulesetCombatEvent["type"]>(events: RulesetCombatEven
   );
   assert.match(
     refusal(withCombat((combat) => (combat.conditions[0].effects = ["hard-to-see"]))),
-    /Invalid enum value/,
+    /Invalid option: expected one of/,
     "the effects are a closed list the kind implements",
   );
   assert.match(
@@ -292,7 +292,7 @@ function firstOf<T extends RulesetCombatEvent["type"]>(events: RulesetCombatEven
     /Duplicate damage type "Fire"/,
   );
   assert.match(refusal(withCombat((combat) => (combat.standard = ["dodge", "dodge"]))), /Duplicate standard action/);
-  assert.match(refusal(withCombat((combat) => (combat.kind = "grid-tactics"))), /Invalid enum value/);
+  assert.match(refusal(withCombat((combat) => (combat.kind = "grid-tactics"))), /Invalid option: expected one of/);
   assert.match(refusal(withCombat((combat) => (combat.reach = 5))), /Unrecognized key/);
 
   // A pool that counts up cannot be what a fight takes away.
@@ -2078,7 +2078,7 @@ const labels = (definition: RulesetDefinition, state: RulesetEncounterState, id:
         (creature) => (creature.actions[0].damage.plus = [1, 2, 3, 4].map(() => ({ dice: "1d4", type: "fire" }))),
       ),
     ),
-    /at most 3 element/,
+    /damage\.plus: Too big: expected array to have <=3 items/,
   );
   assert.match(
     refusal(withEntry(emberText, (mechanics) => (mechanics.plus = [{ dice: "1d6" }]))),

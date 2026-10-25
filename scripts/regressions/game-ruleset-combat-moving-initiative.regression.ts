@@ -282,7 +282,7 @@ try {
         delete doc.combat.initiative.modifier;
         doc.combat.initiative.pool = { const: 2 };
       },
-      /Initiative thrown as a pool is for a "dice-pool" fight/,
+      /Initiative thrown as a pool is for a "dice-pool" or "symbol-pool" fight/,
       "a pool on a summed fight",
     );
     refuses(

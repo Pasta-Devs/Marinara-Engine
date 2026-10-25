@@ -57,7 +57,9 @@ const workspaceAgentSource =
   readFileSync(
     new URL("../../packages/server/src/services/professor-mari/workspace-commands.ts", import.meta.url),
     "utf8",
-  );
+  ) +
+  // The sentinel constant lives in shared since the timeline reads it too.
+  readFileSync(new URL("../../packages/shared/src/constants/mari-runtime.ts", import.meta.url), "utf8");
 const flatAgentSource = workspaceAgentSource.replace(/\s+/gu, " ");
 
 // --- #5776: bash mari CLI dry-run sentinel ---------------------------------

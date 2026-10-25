@@ -1,0 +1,22 @@
+diff --git a/dist/index.js b/dist/index.js
+index 701f7fd9a52236548468adb7839227e338215d81..e4be569b83eb1073c9537e98a4fa1d476d91b6ce 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -622,7 +622,7 @@ function Ln(n, e) {
+     vec2 r = p - uMouth.xy;
+     float s = dot(r, d) / uMouth.w, t = dot(r, n);
+     float form = uMouthState.y;                       // -1 wide "i" .. +1 round "o"
+-    float wf = mix(0.78, 0.46, clamp(form * 0.5 + 0.5, 0.0, 1.0));
++    float wf = 1.0;
+     float k = 1.0 - (s / wf) * (s / wf);
+     if (k <= 0.0) return base;
+     float line = uMouthState.z * (1.0 - s * s);
+@@ -1867,7 +1867,7 @@ async function Jn(n, e) {
+   function A(M) {
+     const R = { ...L.update(M) };
+     for (const [Q, ne] of Object.entries(P)) R[Q] = G === 1 ? ne : (R[Q] ?? 0) + (ne - (R[Q] ?? 0)) * G;
+-    L.lipOpen !== null && (R.mouthOpen = L.P.mouthOpen, (!e.preserveMouthForm || P.mouthForm === void 0) && (R.mouthForm = L.P.mouthForm));
++    L.lipOpen !== null && (P.mouthOpen === void 0 && (R.mouthOpen = L.P.mouthOpen), (!e.preserveMouthForm || P.mouthForm === void 0) && (R.mouthForm = L.P.mouthForm));
+     const W = q.apply(R, M);
+     return J = W, W;
+   }

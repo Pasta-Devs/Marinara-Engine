@@ -96,6 +96,8 @@ export interface RulesetItemEffectFact {
   };
   /** Conditions and damage labels, and magic, that narrow this save modifier (1.134). */
   against?: { names: string[]; magic?: true };
+  /** What the ruleset says the modifier does, said in place of the rest (1.378). */
+  label?: string;
   change:
     | { mode: "advantage" | "disadvantage" }
     | { value: string }
@@ -743,6 +745,11 @@ export function rulesetItemEffectFacts(
   }
   for (const modifier of effect.modifiers ?? []) {
     const to = modifier.to;
+    // In the ruleset's own words where it gives them (1.378): "advantage on saves against being charmed".
+    if (modifier.label) {
+      facts.push({ to, names: [], label: modifier.label, change: { effect: modifier.label } });
+      continue;
+    }
     const damage =
       to === "damage" || to === "damage-taken"
         ? {
@@ -826,6 +833,7 @@ export function rulesetItemEffectFacts(
 
 /** One effect fact in plain words, as the Game Master reads it: "-1 on checks (Sneak)", "+1 Brawn". */
 export function rulesetItemEffectText(fact: RulesetItemEffectFact): string {
+  if (fact.label) return fact.label;
   const change = fact.change;
   const list = fact.names
     .map((name, index) => (fact.except?.[index]?.length ? `${name} except ${fact.except[index]!.join(" ")}` : name))
@@ -1171,8 +1179,13 @@ export function rulesetItemBook(
     const key = gameInventoryNameKey(name);
     const made = inventedByName.get(key)?.at(-1);
     const coin = coinNamed(name);
+    // Or by its ref, catalog and id, which no name looks like (#8271: a buy of
+    // "equipment/rope-hempen-50-feet" refused as an unknown item). A bare id is still no name.
+    const ref = name.trim();
     return (
-      byName.get(key) ?? (made ? all.get(rulesetInventedItemRef(made.id)) : coin ? all.get(coin.coin.item) : undefined)
+      byName.get(key) ??
+      (made ? all.get(rulesetInventedItemRef(made.id)) : coin ? all.get(coin.coin.item) : undefined) ??
+      (offered.has(ref) ? all.get(ref) : undefined)
     );
   };
   /** The ruleset's own weapon of this category whose name shares the most words with `name` (a word

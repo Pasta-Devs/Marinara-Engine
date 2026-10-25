@@ -398,7 +398,9 @@ export function fillRulesetSheetChoices(
 ): { sheet: RulesetSheetBuild; adjusted: string[] } {
   const sheet = structuredClone(proposed);
   const competence = Math.max(0, COMPETENCE.indexOf(tactics.proficiency));
-  const pools = new Map(readRulesetLive(definition, sheet, {}).pools.map((pool) => [pool.key, pool.max]));
+  // Read off `proposed`, not the clone: the clone is written below, and is read only after (see
+  // `withRulesetSheetEvaluationCache`).
+  const pools = new Map(readRulesetLive(definition, proposed, {}).pools.map((pool) => [pool.key, pool.max]));
   const groups = new Map<string, string[]>();
   for (const pool of definition.sheet.live.pools) {
     if (pool.group) groups.set(pool.group, [...(groups.get(pool.group) ?? []), pool.id]);
@@ -522,19 +524,112 @@ export function holdRulesetSheetHealth(
     };
   }
   const target = Math.min(high, Math.max(low, before));
-  const sheet = structuredClone(proposed);
-  const current = resolveRulesetValueRef(definition, sheet, { field: field.id });
-  const moved = current + (target - before);
-  sheet.fields[field.id] = Math.min(field.max, Math.max(field.min, field.integer ? Math.round(moved) : moved));
-  const after = maxOf(sheet);
+  const bounded = (value: number) =>
+    Math.min(field.max, Math.max(field.min, field.integer ? Math.round(value) : value));
+  // The field moved by what health is short, then by what is still short, a few times: health need not
+  // move one for one with it (laptop playtest 2026-10-25: 5e's health is the typed number where one is
+  // typed and its fixed values where none is, so typing 5 over nothing gave 5, not 27 + 5). The typed
+  // number at the target itself is tried too, and the closest of them is kept.
+  const through = (base: RulesetSheetBuild) => {
+    const start = maxOf(base);
+    const current = resolveRulesetValueRef(definition, base, { field: field.id });
+    const tried = new Map<number, { sheet: RulesetSheetBuild; after: number }>();
+    const attempt = (value: number) => {
+      const at = bounded(value);
+      let found = tried.get(at);
+      if (!found) {
+        const sheet = structuredClone(base);
+        sheet.fields[field.id] = at;
+        found = { sheet, after: maxOf(sheet) };
+        tried.set(at, found);
+      }
+      return { at, ...found };
+    };
+    let step = attempt(current + (target - start));
+    attempt(target);
+    for (let round = 0; round < 6 && step.after !== target; round++) {
+      const next = attempt(step.at + (target - step.after));
+      if (next.at === step.at) break;
+      step = next;
+    }
+    return [...tried.values()].reduce((one, other) =>
+      Math.abs(other.after - target) < Math.abs(one.after - target) ? other : one,
+    );
+  };
+  const within = (value: number) => value >= low && value <= high;
+  let best = through(proposed);
+  let reset: Extract<RulesetField, { type: "enum" }> | undefined;
+  // A choice the sheet made that health reads, and that leaves the field out of it, is set back to the
+  // ruleset's own default when only that lets health be held (laptop playtest 2026-10-25: an invented
+  // mage written with 5e's "Average" hit points, which never reads the typed number, stayed at 38 below
+  // a band of 45 to 120). Only a choice that stops the field counting at all is one: a field that
+  // counts but runs out of room, or a choice that moves health without the field (a creature's own
+  // hit die, a class), is the sheet's to keep.
+  const counts = (base: RulesetSheetBuild) => {
+    const at = (value: number) => {
+      const sheet = structuredClone(base);
+      sheet.fields[field.id] = bounded(value);
+      return maxOf(sheet);
+    };
+    return at(field.min) !== at(field.max);
+  };
+  if (!within(best.after) && !counts(proposed)) {
+    for (const choice of healthChoices(definition, health.pool, proposed)) {
+      const base = structuredClone(proposed);
+      delete base.fields[choice.id];
+      if (!counts(base)) continue;
+      const held = through(base);
+      if (within(held.after)) {
+        best = held;
+        reset = choice;
+        break;
+      }
+    }
+  }
+  const { sheet, after } = best;
+  const back = reset ? ` with its ${reset.label} set back to the ruleset's default` : "";
   return {
     sheet,
     adjusted: [
-      after >= low && after <= high
-        ? `Health ${before} was pulled into the ${low} to ${high} of ${tier.label} through its ${field.label}, and is now ${after}.`
+      within(after)
+        ? `Health ${before} was pulled into the ${low} to ${high} of ${tier.label} through its ${field.label}${back}, and is now ${after}.`
         : `Health ${before} was moved toward the ${low} to ${high} of ${tier.label} as far as its ${field.label} goes, and is now ${after}.`,
     ],
   };
+}
+
+/** The choices a sheet made away from the ruleset's default that its health pool's maximum reads. */
+function healthChoices(
+  definition: RulesetDefinition,
+  poolId: string,
+  sheet: RulesetSheetBuild,
+): Array<Extract<RulesetField, { type: "enum" }>> {
+  const pool = definition.sheet.live.pools.find((candidate) => candidate.id === poolId);
+  const derived = new Map(definition.sheet.derived.map((entry) => [entry.id, entry]));
+  const fields = new Set<string>();
+  const seen = new Set<string>();
+  const walk = (value: unknown): void => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    for (const [key, inner] of Object.entries(value)) {
+      // Where a value is shown is not what it is.
+      if (key === "hideWhen" || key === "$comment") continue;
+      if (key === "field" && typeof inner === "string") fields.add(inner);
+      else if (key === "derived" && typeof inner === "string") {
+        if (seen.has(inner)) continue;
+        seen.add(inner);
+        walk(derived.get(inner));
+      } else walk(inner);
+    }
+  };
+  walk(pool?.max);
+  return definition.sheet.fields.filter(
+    (one): one is Extract<RulesetField, { type: "enum" }> =>
+      one.type === "enum" &&
+      fields.has(one.id) &&
+      sheet.fields[one.id] !== undefined &&
+      sheet.fields[one.id] !== (one.default ?? one.values[0]),
+  );
 }
 
 /** The pools this combatant could pay out of right now, by id, for pricing a bigger payment. */

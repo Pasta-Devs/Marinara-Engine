@@ -59,7 +59,7 @@ const rawMessageSchema = z
       )
       .max(16)
       .optional(),
-    providerMetadata: z.record(z.unknown()).optional(),
+    providerMetadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
@@ -76,8 +76,8 @@ const rawParametersSchema = z
     reasoningEffort: z.enum(["low", "medium", "high", "xhigh", "maximum"]).nullable().optional(),
     verbosity: z.enum(["low", "medium", "high"]).nullable().optional(),
     serviceTier: z.enum(["flex", "priority"]).nullable().optional(),
-    customParameters: z.record(z.unknown()).optional(),
-    enabledParameters: z.record(z.boolean()).optional(),
+    customParameters: z.record(z.string(), z.unknown()).optional(),
+    enabledParameters: z.record(z.string(), z.boolean()).optional(),
   })
   .strict();
 

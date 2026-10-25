@@ -20,7 +20,7 @@ export function stripUnknownBracketTags(text: string, keep?: (tagName: string) =
       let j = i + 1;
       while (j < text.length && /[A-Za-z0-9_]/.test(text[j]!)) j++;
       const tagName = text.slice(i + 1, j);
-      if (j > i + 1 && text[j] === ":" && (!keep || !keep(tagName))) {
+      if (j > i + 1 && text[j] === ":" && (!keep || !keep(tagName)) && !isWhisperSpeakerSlot(text, i, tagName)) {
         // Walk to balanced `]`, respecting `"`/`'` strings (and `\` escapes)
         let depth = 1;
         let inString: '"' | "'" | null = null;
@@ -63,6 +63,31 @@ export function stripUnknownBracketTags(text: string, keep?: (tagName: string) =
     i++;
   }
   return out;
+}
+
+/**
+ * `[whisper:Target]` in a speaker line (`[Name] [whisper:Target] [expression]: text`) is the line's
+ * type, not a command: only bracket groups stand before it on its line, the speaker's first, and it
+ * names only a target. Looks back over at most four bracket groups and forward over one short name,
+ * so a long run of tags is never rescanned.
+ */
+function isWhisperSpeakerSlot(text: string, start: number, tagName: string): boolean {
+  if (tagName.toLowerCase() !== "whisper") return false;
+  let at = start - 1;
+  let groups = 0;
+  for (; groups < 4; groups++) {
+    while (at >= 0 && (text[at] === " " || text[at] === "\t")) at--;
+    if (at < 0 || text[at] === "\n") break;
+    if (text[at] !== "]") return false;
+    let open = at - 1;
+    while (open >= 0 && text[open] !== "[" && text[open] !== "]" && text[open] !== "\n") open--;
+    if (open < 0 || text[open] !== "[") return false;
+    at = open - 1;
+  }
+  if (groups === 0 || (at >= 0 && text[at] !== "\n" && text[at] !== " " && text[at] !== "\t")) return false;
+  const body = text.slice(start + tagName.length + 2, start + tagName.length + 2 + 120);
+  const close = body.indexOf("]");
+  return close > 0 && !/["=[\n]/.test(body.slice(0, close));
 }
 
 /**
@@ -235,6 +260,50 @@ function normalizeInlineVnDialogueLines(source: string): string {
     );
 }
 
+const SPEAKER_TYPE_RE = /^(?:main|side|extra|action|thought|whisper(?::[^[\]]*)?)$/i;
+
+/**
+ * Puts a speaker line written slightly off the taught `[Name] [type] [expression]: text` back into
+ * that shape, so it shows as the character's line instead of raw brackets or a wrong speaker. Models
+ * drift in a few fixed ways: two types (`[main] [side]`, the first is kept), a merged slot
+ * (`[main|thinking]`), or a dash where the colon goes. A line with no type slot, or with no
+ * bracket after the speaker, is returned as it is.
+ */
+export function repairGameSpeakerLine(line: string): string {
+  let at = 0;
+  while (line[at] === " " || line[at] === "\t") at++;
+  const groups: string[] = [];
+  while (line[at] === "[" && groups.length < 6) {
+    const close = line.indexOf("]", at);
+    if (close < 0) return line;
+    const inner = line.slice(at + 1, close).trim();
+    if (!inner || inner.includes("[")) return line;
+    groups.push(inner);
+    at = close + 1;
+    while (line[at] === " " || line[at] === "\t") at++;
+  }
+  if (groups.length < 2) return line;
+  let rest: string;
+  if (line[at] === ":") rest = line.slice(at + 1);
+  else if (/^[-–—]\s/u.test(line.slice(at, at + 2))) rest = line.slice(at + 1);
+  else return line;
+  const [name, ...slots] = groups;
+  // A command tag ahead of the speaker is not a speaker; the strippers take it out first.
+  if (/^\w+\s*:/.test(name!)) return line;
+  const parts = slots.flatMap((slot) =>
+    slot.includes("|")
+      ? slot
+          .split("|")
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : [slot],
+  );
+  const type = parts.find((part) => SPEAKER_TYPE_RE.test(part));
+  if (!type) return line;
+  const expression = parts.filter((part) => !SPEAKER_TYPE_RE.test(part)).at(-1);
+  return `[${name}] [${type}]${expression ? ` [${expression}]` : ""}: ${rest.trim()}`;
+}
+
 /** Split a Game turn into the narration, dialogue and readable beats the narration screen shows. */
 export function parseGameNarrationSegments(
   message: { id: string; content: string },
@@ -277,7 +346,13 @@ export function parseGameNarrationSegments(
     }
   }
 
-  const lines = normalizeInlineVnDialogueLines(source).split(/\r?\n/);
+  // Repaired before the inline split, which would read the second slot of `[Name] [main] [side]:` as a speaker.
+  const lines = normalizeInlineVnDialogueLines(
+    source
+      .split(/\r?\n/)
+      .map((line) => repairGameSpeakerLine(line))
+      .join("\n"),
+  ).split(/\r?\n/);
   const parsed: GameNarrationTextSegment[] = [];
   // Readable placeholder regex
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
@@ -296,7 +371,7 @@ export function parseGameNarrationSegments(
   let fallbackText = "";
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
+    const line = repairGameSpeakerLine(rawLine.trim());
     if (!line) {
       if (fallbackText.trim()) {
         parsed.push({

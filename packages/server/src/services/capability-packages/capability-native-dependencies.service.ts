@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { lstat, mkdir, readFile, realpath, symlink, unlink } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, symlink, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { logger } from "../../lib/logger.js";
 
@@ -67,5 +67,30 @@ export async function linkCapabilityPackageDependencies(packageRoot: string, ser
     if (!linked || linked !== (await realpath(serverNodeModules).catch(() => null))) {
       logger.warn(error, "Could not link package runtime dependencies");
     }
+  }
+}
+
+/** Keep API-1 package validators on Zod 3; other imports retain the Engine's module instances. */
+export async function linkCapabilitySnapshotDependencies(
+  snapshotRoot: string,
+  serverNodeModules: string,
+): Promise<void> {
+  const modules = join(snapshotRoot, "node_modules");
+  const existing = await lstat(modules).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== "ENOENT") throw error;
+    return null;
+  });
+  if (existing) {
+    // Earlier verified snapshots linked directly to this Engine. Remove only that managed link itself.
+    if (!existing.isSymbolicLink() || (await realpath(modules)) !== (await realpath(serverNodeModules))) {
+      throw new Error("Snapshot dependencies are not a managed Engine link");
+    }
+    await unlink(modules);
+  }
+  await mkdir(modules, { mode: 0o700 });
+  for (const name of await readdir(serverNodeModules)) {
+    if (name.startsWith(".")) continue;
+    const target = join(serverNodeModules, name === "zod" ? "zod-v3" : name);
+    await symlink(target, join(modules, name), process.platform === "win32" ? "junction" : "dir");
   }
 }

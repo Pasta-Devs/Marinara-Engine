@@ -37,6 +37,7 @@ import type {
   RulesetHidingTraits,
 } from "./types.js";
 import type { TacticalGrid } from "../tactical-combat/types.js";
+import type { RulesetSheetItem } from "../rulesets/sheet-math.js";
 import { rulesetDroppedItems, rulesetItemOn } from "./ammo.js";
 import { rulesetStandingZones } from "./zones.js";
 
@@ -280,6 +281,16 @@ function itemLights(who: RulesetCombatant): RulesetLightRadius[] {
     const off = !!held.item.toggle && !rulesetItemOn(who, index);
     const light = off ? held.item.toggle?.offLight : (held.worn ? held.item.worn : held.item.carried)?.light;
     return light ? [light] : [];
+  });
+}
+
+/** Whether any of these held items sheds shade as its stack keeps it now (1.365), outside a fight: a
+ *  Lantern of Dusk carried lit. One with a switch counts only while it is on, unless it sheds shade off. */
+export function rulesetItemsShedShade(items: readonly RulesetSheetItem[]): boolean {
+  return items.some((held) => {
+    const off = !!held.item.toggle && held.on !== true;
+    const light = off ? held.item.toggle?.offLight : (held.worn ? held.item.worn : held.item.carried)?.light;
+    return light?.shade === true;
   });
 }
 

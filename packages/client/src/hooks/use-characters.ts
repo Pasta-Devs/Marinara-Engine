@@ -933,14 +933,25 @@ export type GreetingImageBakeResult = { url: string; file?: string; error?: stri
 export function useBakeCharacterGalleryImages(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (urls: string[]) => {
+    mutationFn: async ({
+      urls,
+      bakedImages,
+    }: {
+      urls: string[];
+      bakedImages: Array<{ url: string; file: string }>;
+    }) => {
       const results: GreetingImageBakeResult[] = [];
       for (let start = 0; start < urls.length; start += GREETING_IMAGE_BAKE_MAX_PER_REQUEST) {
         const batch = urls.slice(start, start + GREETING_IMAGE_BAKE_MAX_PER_REQUEST);
         try {
           const response = await api.post<{ results: GreetingImageBakeResult[] }>(
             `/characters/${characterId}/gallery/bake`,
-            { urls: batch },
+            {
+              urls: batch,
+              bakedImages: bakedImages
+                .filter((entry) => batch.includes(entry.url))
+                .slice(0, GREETING_IMAGE_BAKE_MAX_PER_REQUEST),
+            },
           );
           results.push(...response.results);
         } catch (error) {
@@ -1370,6 +1381,18 @@ export function useUploadPersonaAvatar() {
   return useMutation({
     mutationFn: ({ id, avatar, filename }: { id: string; avatar: string; filename?: string }) =>
       api.post<Persona>(`/characters/personas/${id}/avatar`, { avatar, filename }),
+    onSuccess: async (updatedPersona) => {
+      await syncCachedPersona(qc, updatedPersona);
+      invalidatePersonaPages(qc);
+      void invalidatePersonaVersions(qc, updatedPersona.id);
+    },
+  });
+}
+
+export function useRemovePersonaAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<Persona>(`/characters/personas/${id}/avatar`),
     onSuccess: async (updatedPersona) => {
       await syncCachedPersona(qc, updatedPersona);
       invalidatePersonaPages(qc);

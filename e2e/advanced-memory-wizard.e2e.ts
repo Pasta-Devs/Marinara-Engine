@@ -180,12 +180,17 @@ test("Roleplay wizard reuses automatic memory settings without downloaded agents
     const memory = wizard.locator('[data-component="AdvancedMemorySettings"]');
     const toggle = memory.getByRole("checkbox", { name: /Automatic context and memory handling/ });
     await expect(toggle).not.toBeChecked();
+    await expect(memory.getByText(/^Advanced Memory Recall lets you enjoy/)).toBeVisible();
     await expect(memory.getByLabel("Maximum allowed context before compression (tokens)")).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("memory-wizard-disabled.png"), animations: "disabled" });
     await memory.getByText("Automatic context and memory handling", { exact: true }).click();
     await expect.poll(async () => (await status()).settings.enabled).toBe(true);
     const context = memory.getByLabel("Maximum allowed context before compression (tokens)");
     await expect(context).toBeEnabled();
+    await expect(memory.getByLabel("Maximum messages per excerpt", { exact: true })).toHaveValue("5");
+    await expect(memory.getByLabel("Minimum messages per excerpt", { exact: true })).toHaveValue("3");
+    expect((await status()).settings.retrieveMaxMessages).toBe(5);
+    await expect(memory.getByRole("button", { name: "Prepare existing history", exact: true })).toHaveCount(0);
     await page.route(`**/api/chats/${chat.id}/advanced-memory`, async (route) => {
       if (route.request().method() !== "GET" || staleStatusCaptured) {
         await route.continue();

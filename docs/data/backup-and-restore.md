@@ -132,4 +132,4 @@ The **Backup & Export** section can show an **Existing backups** list with a del
 - [Clearing or Resetting Your Data](clearing-data.md)
 - [Upgrading Marinara Engine](../UPGRADING.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md)
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md)

@@ -52,6 +52,39 @@ export const DEFAULT_OPENROUTER_VIDEO_DEFAULTS: OpenRouterVideoDefaults = {
   resolution: "720p",
 };
 
+// Published by https://openrouter.ai/api/v1/videos/models. Other models retain their existing defaults.
+export function getOpenRouterVideoModelLimits(model: string): {
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
+  resolutions: VideoResolution[];
+  defaultResolution: VideoResolution;
+} | null {
+  if (model === "minimax/hailuo-3-max") {
+    return { minDurationSeconds: 5, maxDurationSeconds: 15, resolutions: ["480p", "768p"], defaultResolution: "768p" };
+  }
+  if (model === "bytedance/seedance-2.5") {
+    return { minDurationSeconds: 4, maxDurationSeconds: 30, resolutions: ["480p", "720p"], defaultResolution: "720p" };
+  }
+  return null;
+}
+
+export function resolveOpenRouterVideoModelDefaults(
+  model: string,
+  defaults: OpenRouterVideoDefaults,
+): OpenRouterVideoDefaults {
+  const limits = getOpenRouterVideoModelLimits(model);
+  if (!limits) {
+    return defaults.resolution === "768p"
+      ? { ...defaults, resolution: DEFAULT_OPENROUTER_VIDEO_DEFAULTS.resolution }
+      : defaults;
+  }
+  return {
+    ...defaults,
+    durationSeconds: Math.max(limits.minDurationSeconds, Math.min(limits.maxDurationSeconds, defaults.durationSeconds)),
+    resolution: limits.resolutions.includes(defaults.resolution) ? defaults.resolution : limits.defaultResolution,
+  };
+}
+
 export const DEFAULT_ATLAS_CLOUD_VIDEO_DEFAULTS: AtlasCloudVideoDefaults = {
   durationSeconds: 8,
   aspectRatio: "16:9",
@@ -133,7 +166,10 @@ export function normalizeVideoGenerationProfile(rawProfile: unknown): {
       60,
     ),
     aspectRatio: readAspectRatio(rawOpenRouter.aspectRatio, DEFAULT_OPENROUTER_VIDEO_DEFAULTS.aspectRatio),
-    resolution: readResolution(rawOpenRouter.resolution, DEFAULT_OPENROUTER_VIDEO_DEFAULTS.resolution),
+    resolution:
+      rawOpenRouter.resolution === "768p"
+        ? "768p"
+        : readResolution(rawOpenRouter.resolution, DEFAULT_OPENROUTER_VIDEO_DEFAULTS.resolution),
   };
   const rawAtlas = isRecord(raw.atlas) ? raw.atlas : rawService === "atlas" ? raw : {};
   profile.atlas = {

@@ -8,7 +8,7 @@ A few plain definitions used throughout this guide:
 
 - **CSS** is the language that controls colors, fonts, borders, and spacing on a web page.
 - **Card CSS** is CSS you embed in a character or persona card. It themes that card's messages.
-- **Card Theming** is the on-screen control that turns Card CSS on for a chat.
+- **Card Theming** controls turn Card CSS on for a chat. Find them in **Chat Settings → Characters** (or **Party** in Game).
 - A **selector** is the part of a CSS rule that picks which elements to style.
 - A **descendant selector** uses a space to mean "inside". `.a .b` matches a `.b` that sits inside an `.a`.
 - The **cascade** is the CSS system that decides which rule wins when several rules apply to the same element.
@@ -21,10 +21,10 @@ You theme a card in two places. First you add CSS to the card. Then you turn it 
 1. Open the character in the Character Editor and find the **Creator Notes** field. Personas have the same field in the Persona Editor.
 2. Paste a `<style>` block into **Creator Notes** and save the card.
 3. Open a chat with that character.
-4. Open **Chat Settings**, then the **Card Theming** section.
+4. Open **Chat Settings**, then **Characters** (or **Party** in Game).
 5. Choose **Exclusive** or **Chat**. The mode starts on **Disabled**.
 
-You should see the character's messages change right away. The **Card Theming** control only appears once an active character in that chat has CSS in its **Creator Notes**. Persona CSS alone does not make the control appear. At least one character in the chat must carry its own `<style>` block. If you do not see the control, check that your `<style>` block saved correctly.
+You should see the character's messages change right away. The **Card Theming** mode buttons (Disabled, Exclusive, Chat) only appear once an active character in that chat has CSS in its **Creator Notes**. In Roleplay chats, **Color Character Names in Text** is in **Characters**, directly below **Add from Folder** when a folder is available. Persona CSS alone does not make the buttons appear. At least one character in the chat must carry its own `<style>` block. If you do not see the buttons, check that your `<style>` block saved correctly.
 
 Here is a starter block to paste into **Creator Notes**:
 
@@ -66,7 +66,7 @@ When a character with CSS in their **Creator Notes** is active, Marinara does fo
 3. It scopes the CSS so it can only reach the chat.
 4. It injects the CSS so its scoped selectors override the app's own message styling.
 
-You pick how it is applied per chat in **Chat Settings**, then **Card Theming**. There are three modes.
+You pick how it is applied per chat in **Chat Settings → Characters** (or **Party** in Game). There are three modes.
 
 | Mode | What it does |
 | --- | --- |
@@ -210,7 +210,7 @@ The avatar is a circle by default. You can reshape and ring it with pure CSS. Th
 
 In Conversation mode, clicking an avatar opens a profile popout with the character's or persona's "about me". You can theme it with the same `[data-card-css]` scope. This popout only exists in Conversation mode. It does not exist in roleplay or game. Wrap these rules in `@chat-mode conversation` if you also ship roleplay or game CSS. Both character cards and personas can theme their own popout from their **Creator Notes**.
 
-One caveat for personas: the **Card Theming** control only appears when an active character in the chat has CSS in its **Creator Notes**. Persona-only CSS does not make the control appear. So for a persona's popout theme to work, at least one character in the chat must also carry a `<style>` block.
+One caveat for personas: the **Card Theming** mode buttons only appear when an active character in the chat has CSS in its **Creator Notes**. Persona-only CSS does not make them appear. So for a persona's popout theme to work, at least one character in the chat must also carry a `<style>` block.
 
 | Selector | What it targets |
 | --- | --- |
@@ -228,7 +228,7 @@ One caveat for personas: the **Card Theming** control only appears when an activ
 
 The popout card is the scope element. Target it with `[data-card-css].mari-about-me-popout` (no space, same element). Target its children with a descendant selector, like `[data-card-css] .mari-about-me-name`. In **Chat** mode the whole area is scoped, so you can use `.mari-about-me-name` directly.
 
-Here is a themed "about me" popout. Paste it into a character's or persona's **Creator Notes**, then enable **Card Theming** in **Chat Settings**. If you paste it into a persona, remember the caveat above. A character in the chat must also have CSS in its **Creator Notes**, or the control stays hidden.
+Here is a themed "about me" popout. Paste it into a character's or persona's **Creator Notes**, then choose a Card CSS mode in **Chat Settings → Characters** (or **Party** in Game). If you paste it into a persona, remember the caveat above. A character in the chat must also have CSS in its **Creator Notes**, or the mode buttons stay hidden.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ This is a deliberately extravagant card. It touches every documented hook, in ev
 - the avatar-click profile popout, fully themed
 - the game surface
 
-Paste it whole into **Creator Notes**, then enable **Card Theming** in **Chat Settings**. It themes messages across Roleplay and Conversation, the popout in Conversation, and the surface in Game (set the mode to **Chat** for game). Sections are split by `@chat-mode` so each mode gets exactly the hooks it has. Everything is sanitizer-safe.
+Paste it whole into **Creator Notes**, then choose a Card CSS mode in **Chat Settings → Characters** (or **Party** in Game). It themes messages across Roleplay and Conversation, the popout in Conversation, and the surface in Game (set the mode to **Chat** for game). Sections are split by `@chat-mode` so each mode gets exactly the hooks it has. Everything is sanitizer-safe.
 
 ```html
 <style>

@@ -171,8 +171,11 @@ try {
   const biggerStep = biggerCatalog.sheet.builder!.steps[0]!;
   assert.ok(biggerStep.kind === "catalog");
   assert.deepEqual(rulesetBuilderStepCount(biggerCatalog, biggerStep), { min: 40, max: 40 });
-  refused((doc) => Object.assign(doc.sheet.builder.steps[0], { min: 41, max: 40 }), /less than or equal to 40/);
-  refused((doc) => (doc.sheet.builder.steps[0].max = 41), /less than or equal to 40/);
+  refused(
+    (doc) => Object.assign(doc.sheet.builder.steps[0], { min: 41, max: 40 }),
+    /Too big: expected number to be <=40/,
+  );
+  refused((doc) => (doc.sheet.builder.steps[0].max = 41), /Too big: expected number to be <=40/);
   const manualDoc = variant((doc) => (doc.sheet.builder.steps[4].methods.manual = { min: 8, max: 15 }));
   const boundedManual = parsed(manualDoc);
   const typed: RulesetBuilderState = { method: "manual", base: { str: 100, dex: -100, con: 12 } };
@@ -729,7 +732,7 @@ try {
       ["dwarf", "half-elf"],
     );
   }
-  refused((doc) => (doc.sheet.builder.steps[4].default = "nope"), /Invalid enum value/);
+  refused((doc) => (doc.sheet.builder.steps[4].default = "nope"), /Invalid option: expected one of/);
   refused((doc) => {
     delete doc.sheet.builder.steps[4].methods.manual;
     doc.sheet.builder.steps[4].default = "manual";
@@ -1541,7 +1544,10 @@ try {
       /"xp" is not one of this step's fields/,
     );
     refused((doc) => (doc.sheet.builder.steps[3].shownWhen = { background: { field: "nope" } }), /nope/);
-    refused((doc) => (doc.sheet.builder.steps[3].total = { fields: ["level"], max: 20 }), /at least 2/);
+    refused(
+      (doc) => (doc.sheet.builder.steps[3].total = { fields: ["level"], max: 20 }),
+      /total\.fields: Too small: expected array to have >=2 items/,
+    );
     refused(
       (doc) => (doc.sheet.builder.steps[3].total = { fields: ["level", "background"], max: 20 }),
       /No number field "background"/,

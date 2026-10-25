@@ -32,7 +32,7 @@ export async function lorebookTextRoutes(app: FastifyInstance) {
       const request = readLorebookTextImportRequest(req.body);
       return await app.db.transaction(async (tx) => {
         const result = await importLorebookText(createLorebooksStorage(tx), req.params.id, request);
-        await syncCharacterBookFromLorebook(tx, req.params.id);
+        await syncCharacterBookFromLorebook(tx, req.params.id, { throwOnError: true });
         return result;
       });
     } catch (err) {

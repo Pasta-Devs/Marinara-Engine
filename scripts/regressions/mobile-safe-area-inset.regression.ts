@@ -64,9 +64,7 @@ const rawConsumers: string[] = [];
 for (const entry of readdirSync(clientSourceRoot, { recursive: true, withFileTypes: true })) {
   if (!entry.isFile() || !/\.(?:tsx?|css)$/u.test(entry.name)) continue;
   const filePath = join(entry.parentPath, entry.name);
-  const stripped = readFileSync(filePath, "utf8")
-    .replace(overrideHookPattern, "")
-    .replace(cssCommentPattern, "");
+  const stripped = readFileSync(filePath, "utf8").replace(overrideHookPattern, "").replace(cssCommentPattern, "");
   if (stripped.includes("env(safe-area-inset-bottom")) {
     rawConsumers.push(filePath.slice(repositoryRoot.length + 1));
   }
@@ -75,6 +73,54 @@ assert.deepEqual(
   rawConsumers,
   [],
   "Client code must consume the bottom safe-area inset via var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)), never raw env() (#5667)",
+);
+
+// A phone turned sideways puts its camera in the left or right inset. The fixed shell and the fixed
+// phone sheets stop short of both so nothing sits under it, and the body's page backing shows there as
+// a strip, as the status-bar strip does in portrait. env() is read once, so a test can stand in a notch.
+assert.match(
+  globalsCss,
+  /:root \{\s*--mari-safe-area-inset-left: env\(safe-area-inset-left, 0px\);\s*--mari-safe-area-inset-right: env\(safe-area-inset-right, 0px\);\s*--mari-shell-inset-left: var\(--mari-safe-area-inset-left\);\s*--mari-shell-inset-right: var\(--mari-safe-area-inset-right\);\s*\}/u,
+  "globals.css must publish the side safe-area insets once, as --mari-safe-area-inset-left/right",
+);
+const mobileShellStart = globalsCss.indexOf(
+  "@media (max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse) {",
+);
+assert.notEqual(mobileShellStart, -1, "globals.css must keep the mobile-shell media block");
+assert.match(
+  globalsCss.slice(mobileShellStart, mobileShellStart + 6000),
+  /\.mari-app \{\s*left: var\(--mari-shell-inset-left\);\s*right: var\(--mari-shell-inset-right\);\s*\}/u,
+  "The phone shell must use its camera-side insets",
+);
+assert.match(
+  appShellSource,
+  /const MOBILE_SHELL_PANEL_X_CLASS = "left-\(--mari-shell-inset-left\) right-\(--mari-shell-inset-right\)";/u,
+  "Phone sheets must take their sides from the shell insets",
+);
+assert.equal(
+  appShellSource.match(/MOBILE_SHELL_PANEL_X_CLASS,/gu)?.length,
+  5,
+  "Both backdrops and the detail, tracker and chats/settings sheets must keep out of the side insets",
+);
+assert.doesNotMatch(
+  appShellSource,
+  /mari-mobile-detail-sheet !fixed[^"]*!w-full|mari-tracker-panel !fixed[^"]*w-screen|"!fixed right-0 bottom-0 z-50 !w-full/u,
+  "A full-width phone sheet would run back under the camera",
+);
+const rawSideConsumers: string[] = [];
+const sideHookDefinition =
+  /--mari-safe-area-inset-left: env\(safe-area-inset-left, 0px\);|--mari-safe-area-inset-right: env\(safe-area-inset-right, 0px\);/gu;
+for (const entry of readdirSync(clientSourceRoot, { recursive: true, withFileTypes: true })) {
+  if (!entry.isFile() || !/\.(?:tsx?|css)$/u.test(entry.name)) continue;
+  const filePath = join(entry.parentPath, entry.name);
+  const stripped = readFileSync(filePath, "utf8").replace(sideHookDefinition, "").replace(cssCommentPattern, "");
+  if (/env\(safe-area-inset-(?:left|right)/u.test(stripped))
+    rawSideConsumers.push(filePath.slice(repositoryRoot.length + 1));
+}
+assert.deepEqual(
+  rawSideConsumers,
+  [],
+  "Client code must read the side safe-area insets via var(--mari-safe-area-inset-left/right), never raw env()",
 );
 
 console.info("Mobile safe-area inset regressions passed.");

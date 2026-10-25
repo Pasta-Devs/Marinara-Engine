@@ -11,4 +11,9 @@ export interface VideoGenerationUserSettings {
   callCustomClipDurationSeconds: number;
   /** Animated Expression Engine portrait clip duration, in seconds. */
   animatedExpressionClipDurationSeconds: number;
+  /**
+   * The most video messages Conversation characters may send on their own in one reply, one per character. A group
+   * turn is one reply, so this is what lets several characters (or a request for several clips) each send one.
+   */
+  maxCharacterVideosPerReply: number;
 }

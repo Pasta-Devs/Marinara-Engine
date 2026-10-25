@@ -48,12 +48,12 @@ import { useCharacterSummaries } from "../../hooks/use-characters";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useChatStore } from "../../stores/chat.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import { isMobileShellViewport, useUIStore, type UserStatus } from "../../stores/ui.store";
+import { isMobileShellViewport, selectSidebarShown, useUIStore, type UserStatus } from "../../stores/ui.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
-import { lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
@@ -73,7 +73,8 @@ import {
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { Modal } from "../ui/Modal";
 import { Reorder } from "framer-motion";
-import { parseChatMetadata } from "../../lib/chat-display";
+import { parseChatMetadata, getChatDisplayName } from "../../lib/chat-display";
+import { buildChatBranchRows, hasChatBranchLineage, type BranchTreeRow } from "../../lib/chat-branch-tree";
 import {
   compareChatsByActivityDesc,
   compareChatsByCreatedAtAsc,
@@ -98,6 +99,13 @@ const CharacterScheduleManagerModal = lazy(async () => ({
 }));
 
 type ChatSortOption = "custom" | "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
+
+/** One row of the list: the chat, plus its branches when the group has recorded lineage. */
+type ChatListEntry = {
+  chat: Chat;
+  branchCount: number;
+  branchRows?: BranchTreeRow<Chat>[];
+};
 const CHAT_LIST_PAGE_SIZE = 100;
 
 const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> = {
@@ -271,7 +279,7 @@ export function ChatSidebar() {
   const editorDirty = useUIStore((s) => s.editorDirty);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
-  const sidebarIsOpen = useUIStore((s) => s.sidebarOpen);
+  const sidebarIsOpen = useUIStore(selectSidebarShown);
   const sidebarNavRef = useRef<HTMLElement>(null);
   const closeSidebarFromKeyboard = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
   const sidebarKeyboard = usePanelKeyboardFocus({
@@ -308,6 +316,11 @@ export function ChatSidebar() {
     groupId: string | null;
     branchCount: number;
   } | null>(null);
+
+  // Which branch groups are open. Component-local per the client state rules: a view toggle does not
+  // earn a store field or a server round trip. ponytail: it resets on remount; upgrade path is a
+  // ui.store field if someone asks for it to stick.
+  const [expandedBranchGroups, setExpandedBranchGroups] = useState<Set<string>>(new Set());
 
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const [isRootDropTarget, setIsRootDropTarget] = useState(false);
@@ -418,13 +431,50 @@ export function ChatSidebar() {
         .map((characterId) => charLookup.get(characterId)?.name ?? "")
         .filter(Boolean);
 
+      // A branch is labelled by its own display name, but the thread name is still what someone may
+      // remember, so both match.
+      const names = [toSearchText(chat.name), toSearchText(getChatDisplayName(chat))];
       return (
-        includesTextForMatch(toSearchText(chat.name), query) ||
+        names.some((name) => includesTextForMatch(name, query)) ||
         tags.some((tag) => includesTextForMatch(tag, query)) ||
         characterNames.some((name) => includesTextForMatch(name, query))
       );
     });
   }, [modeChats, searchQuery, activeTag, charLookup]);
+
+  // ── Branch trees ──
+  // A group's branches already know their parents (metadata.branchParentChatId), so this only decides
+  // which groups get a tree. A group with no recorded lineage keeps today's single row and count:
+  // inventing a parent there would be a lie about the data.
+  const branchTreesByGroup = useMemo(() => {
+    const members = new Map<string, Chat[]>();
+    for (const chat of chats ?? []) {
+      if (!chat.groupId) continue;
+      const group = members.get(chat.groupId);
+      if (group) group.push(chat);
+      else members.set(chat.groupId, [chat]);
+    }
+    const trees = new Map<string, BranchTreeRow<Chat>[]>();
+    for (const [groupId, groupChats] of members) {
+      // Game groups are numbered sessions, not branches. Their row has to stay the session the mode
+      // resolver picks (getCurrentGameGroupRepresentative), which a lineage-rooted tree would demote
+      // to the group's eldest, so those groups keep today's single row and count.
+      if (groupChats.length < 2 || groupChats.some((member) => member.mode === "game")) continue;
+      if (!hasChatBranchLineage(groupChats)) continue;
+      // Siblings follow the list's own recency order, so a busy branch floats up inside its level.
+      trees.set(groupId, buildChatBranchRows(groupChats, compareChatsByActivityDesc));
+    }
+    return trees;
+  }, [chats]);
+
+  const toggleBranchGroup = useCallback((groupId: string) => {
+    setExpandedBranchGroups((previous) => {
+      const next = new Set(previous);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }, []);
 
   // ── Collapse chats that share a groupId into one entry ──
   const displayChats = useMemo(() => {
@@ -457,15 +507,19 @@ export function ChatSidebar() {
     });
 
     const seenGroups = new Set<string>();
-    const result: { chat: (typeof sorted)[number]; branchCount: number }[] = [];
+    const result: ChatListEntry[] = [];
 
     for (const chat of sorted) {
       if (chat.groupId) {
         if (seenGroups.has(chat.groupId)) continue;
         seenGroups.add(chat.groupId);
+        // Root the row on the group's lineage root when there is one, so the tree does not re-root
+        // itself every time a different branch is the one most recently spoken to.
+        const branchRows = branchTreesByGroup.get(chat.groupId);
         result.push({
-          chat: getCurrentGameGroupRepresentative(chat, chats ?? filtered),
+          chat: branchRows?.[0]?.chat ?? getCurrentGameGroupRepresentative(chat, chats ?? filtered),
           branchCount: totalGroupSizes.get(chat.groupId) ?? 1,
+          branchRows,
         });
       } else {
         result.push({ chat, branchCount: 1 });
@@ -473,11 +527,27 @@ export function ChatSidebar() {
     }
 
     return orderLibraryItems(result, (entry) => entry.chat.groupId ?? entry.chat.id);
-  }, [chats, filtered, sort, orderLibraryItems]);
+  }, [chats, filtered, sort, orderLibraryItems, branchTreesByGroup]);
 
   // Detect if active chat belongs to a group so its group row highlights and stays mounted.
   const activeChat = chats?.find((c) => c.id === activeChatId);
   const activeGroupId = activeChat?.groupId ?? null;
+
+  // A branch that becomes active (branch switch, notification, reload) has to be visible: open its
+  // group, or the list highlights a row that is not rendered at all. Once per activation only — a
+  // background refetch rebuilds branchTreesByGroup, and re-expanding then would reopen a group the
+  // user had just collapsed.
+  const autoExpandedBranchChatRef = useRef<string | null>(null);
+  useEffect(() => {
+    const groupId = activeChat?.groupId;
+    if (!activeChatId || !groupId) return;
+    if (autoExpandedBranchChatRef.current === activeChatId) return;
+    const branchRows = branchTreesByGroup.get(groupId);
+    if (!branchRows?.some((row) => row.chat.id === activeChatId && row.depth > 0)) return;
+    // Mark only once the branch is known to be nested, so a list that is still loading gets retried.
+    autoExpandedBranchChatRef.current = activeChatId;
+    setExpandedBranchGroups((previous) => (previous.has(groupId) ? previous : new Set(previous).add(groupId)));
+  }, [activeChatId, activeChat?.groupId, branchTreesByGroup]);
   const activeDisplayChatIndex = useMemo(
     () =>
       displayChats.findIndex(
@@ -705,9 +775,11 @@ export function ChatSidebar() {
             useChatStore.getState().setShouldOpenSettings(true);
             useChatStore.getState().setShouldOpenWizard(true);
             if (starred) {
-              void applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id }).catch(() => {
-                /* non-fatal — chat still opens with system defaults */
-              });
+              void applyChatPreset
+                .mutateAsync({ presetId: starred.id, chatId: chat.id, initialSetupProfile: starred })
+                .catch(() => {
+                  /* non-fatal — chat still opens with system defaults */
+                });
             }
           },
         },
@@ -918,11 +990,108 @@ export function ChatSidebar() {
     }
   }, [selectedChatIds, bulkExportChats, exitMultiSelect, localizeUi]);
 
+  // ── Opening a chat — the row click and the nested branch rows share one path ──
+  const openChat = useCallback(
+    async (chatId: string) => {
+      if (hasAnyDetailOpen()) {
+        if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
+          if (
+            !(await showConfirmDialog({
+              title: localizeUi("ui.layout.chatsidebar.unsavedChanges"),
+              message: localizeUi("ui.layout.chatsidebar.youHaveUnsavedChangesDiscardAndContinue"),
+              confirmLabel: localizeUi("ui.agents.agenteditor.discard"),
+              tone: "destructive",
+            }))
+          ) {
+            return;
+          }
+        }
+        closeAllDetails();
+      }
+      internalNavRef.current = true;
+      setActiveChatId(chatId);
+      if (isMobileShellViewport()) setSidebarOpen(false);
+    },
+    [hasAnyDetailOpen, editorDirty, closeAllDetails, setActiveChatId, setSidebarOpen, localizeUi],
+  );
+
   // ── Chat row renderer (shared between unfiled + folder sections) ──
-  const renderChatRow = ({ chat, branchCount }: (typeof displayChats)[number]) => {
+  // ── Deleting one chat (a chat without branches, or a single branch row) ──
+  const confirmDeleteChat = async (chatId: string, name: string) => {
+    if (
+      await showConfirmDialog({
+        title: localizeUi("ui.layout.chatsidebar.deleteChat"),
+        message: localizeUi("dialog.delete.namedPermanent", { name }),
+        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+        tone: "destructive",
+      })
+    ) {
+      deleteChat.mutate({ id: chatId, force: true });
+      if (activeChatId === chatId) setActiveChatId(null);
+    }
+  };
+
+  // ── Branch rows: one compact row per branch, each level hanging from its parent ──
+  // Rows arrive pre-order (a parent, then its whole subtree), so a row's subtree is the run of rows
+  // after it that sit deeper. Nesting stops adding indent past MAX_BRANCH_NESTING so a long chain
+  // still leaves the name readable on a phone.
+  const renderBranchLevel = (rows: BranchTreeRow<Chat>[]): React.ReactNode[] => {
+    const nodes: React.ReactNode[] = [];
+    for (let index = 0; index < rows.length;) {
+      const row = rows[index]!;
+      let end = index + 1;
+      while (end < rows.length && rows[end]!.depth > row.depth) end += 1;
+      const subtree = rows.slice(index + 1, end);
+      const name = getChatDisplayName(row.chat);
+      nodes.push(
+        <BranchRow
+          key={row.chat.id}
+          chatId={row.chat.id}
+          name={name}
+          relativeTime={
+            row.chat.lastMessageAt ? formatRelativeContact(row.chat.lastMessageAt, presenceNow.getTime()) : null
+          }
+          isActive={activeChatId === row.chat.id}
+          isSelected={selectedChatIds.has(row.chat.id)}
+          multiSelectMode={multiSelectMode}
+          unread={unreadCounts.get(row.chat.id) ?? 0}
+          isBusy={abortControllers.has(row.chat.id) || perChatTyping.has(row.chat.id)}
+          deleteLabel={localizeUi("chat.branches.deleteLabel", { name })}
+          onSelect={() => void openChat(row.chat.id)}
+          onToggleSelect={() => toggleSelectChat(row.chat.id)}
+          onDelete={() => void confirmDeleteChat(row.chat.id, name)}
+        />,
+      );
+      if (subtree.length > 0) {
+        nodes.push(
+          row.depth < MAX_BRANCH_NESTING ? (
+            // The line drops from the parent's name, so every child sits visibly right of its parent.
+            <div key={`${row.chat.id}:children`} className={BRANCH_LEVEL_CLASS}>
+              {renderBranchLevel(subtree)}
+            </div>
+          ) : (
+            <Fragment key={`${row.chat.id}:children`}>{renderBranchLevel(subtree)}</Fragment>
+          ),
+        );
+      }
+      index = end;
+    }
+    return nodes;
+  };
+
+  const renderChatRow = (entry: ChatListEntry) => {
+    const { chat, branchCount, branchRows } = entry;
     const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
+    const isBranchRoot = Boolean(branchRows && branchRows.length > 1);
     const displayName = chat.name;
-    const isActive = activeChatId === chat.id || (chat.groupId != null && chat.groupId === activeGroupId);
+    // Searching matches branch display names too, so a hit can be a branch below the fold: open the
+    // group while a filter is active, the way folder rows force themselves open for a search hit.
+    const isExpanded =
+      isBranchRoot && (chatListFilterActive || (chat.groupId != null && expandedBranchGroups.has(chat.groupId)));
+    // Collapsed, the group row stands in for whichever branch is active. Expanded, exactly one row
+    // may look current — otherwise every sibling lights up at once.
+    const isGroupActive = !isExpanded && chat.groupId != null && chat.groupId === activeGroupId;
+    const isActive = activeChatId === chat.id || isGroupActive;
     const isSelected = selectedChatIds.has(chat.id);
     const charIds = normalizeChatCharacterIds((chat as { characterIds?: unknown }).characterIds);
     const conversationStatusByCharacter = getConversationPresenceState(
@@ -943,8 +1112,15 @@ export function ChatSidebar() {
         ? formatRelativeContact(chat.lastMessageAt, presenceNow.getTime())
         : null;
 
-    const isGenerating = abortControllers.has(chat.id);
-    const typingCharacter = perChatTyping.get(chat.id);
+    // Collapsed, the row speaks for its whole group: the lineage root is not necessarily the branch
+    // that is typing, generating or unread.
+    const signalRows = !isExpanded && branchRows && branchRows.length > 1 ? branchRows : null;
+    const isGenerating = signalRows
+      ? signalRows.some((row) => abortControllers.has(row.chat.id))
+      : abortControllers.has(chat.id);
+    const typingCharacter = signalRows
+      ? signalRows.map((row) => perChatTyping.get(row.chat.id)).find(Boolean)
+      : perChatTyping.get(chat.id);
     const hasDraft = !isActive && Boolean(inputDrafts.get(chat.id)?.trim());
     // Enrichment only: notifications auto-dismiss on a timer while the unread count badge
     // persists, so the badge stays the durable signal and this just names who/what.
@@ -985,205 +1161,167 @@ export function ChatSidebar() {
         : chatBackgroundMetadataToUrl(chat.metadata?.background, BACKGROUND_THUMBNAIL_WIDTH);
 
     return (
-      <div
-        role="button"
-        tabIndex={0}
-        key={chat.groupId ?? chat.id}
-        data-chat-id={chat.id}
-        data-drag-id={chat.id}
-        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-        data-drag-kind="chat"
-        data-drag-order-id={chat.groupId ?? chat.id}
-        data-drag-folder={chat.folderId ?? ""}
-        onTouchStart={(event) => {
-          startTouchDrag(event, chat.id, {
-            sourceElement: event.currentTarget.closest<HTMLElement>("[data-chat-id]"),
-          });
-        }}
-        onMouseDown={(event) => startMouseDrag(event, chat.id)}
-        draggable
-        onDragStart={(event) => {
-          const chatIds = getDragChatIds(chat.id);
-          setDraggedChatId(chat.id);
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setData("application/x-marinara-chat-ids", JSON.stringify(chatIds));
-          event.dataTransfer.setData("application/x-marinara-chat-id", chat.id);
-          event.dataTransfer.setData("text/plain", chat.id);
-        }}
-        onDragEnd={() => {
-          setDraggedChatId(null);
-          setIsRootDropTarget(false);
-        }}
-        onClick={async () => {
-          if (suppressTouchDragClickRef.current) {
-            suppressTouchDragClickRef.current = false;
-            return;
-          }
-          if (multiSelectMode) {
-            toggleSelectChat(chat.id);
-            return;
-          }
-          if (hasAnyDetailOpen()) {
-            if (editorDirty && !hasEditorLeaveHandler(useUIStore.getState())) {
-              if (
-                !(await showConfirmDialog({
-                  title: localizeUi("ui.layout.chatsidebar.unsavedChanges"),
-                  message: localizeUi("ui.layout.chatsidebar.youHaveUnsavedChangesDiscardAndContinue"),
-                  confirmLabel: localizeUi("ui.agents.agenteditor.discard"),
-                  tone: "destructive",
-                }))
-              ) {
-                return;
-              }
+      <div key={chat.groupId ?? chat.id} className="flex flex-col">
+        <div
+          role="button"
+          tabIndex={0}
+          data-chat-id={chat.id}
+          title={displayName}
+          data-drag-id={chat.id}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+          data-drag-kind="chat"
+          data-drag-order-id={chat.groupId ?? chat.id}
+          data-drag-folder={chat.folderId ?? ""}
+          onTouchStart={(event) => {
+            startTouchDrag(event, chat.id, {
+              sourceElement: event.currentTarget.closest<HTMLElement>("[data-chat-id]"),
+            });
+          }}
+          onMouseDown={(event) => startMouseDrag(event, chat.id)}
+          draggable
+          onDragStart={(event) => {
+            const chatIds = getDragChatIds(chat.id);
+            setDraggedChatId(chat.id);
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("application/x-marinara-chat-ids", JSON.stringify(chatIds));
+            event.dataTransfer.setData("application/x-marinara-chat-id", chat.id);
+            event.dataTransfer.setData("text/plain", chat.id);
+          }}
+          onDragEnd={() => {
+            setDraggedChatId(null);
+            setIsRootDropTarget(false);
+          }}
+          onClick={async () => {
+            if (suppressTouchDragClickRef.current) {
+              suppressTouchDragClickRef.current = false;
+              return;
             }
-            closeAllDetails();
-          }
-          internalNavRef.current = true;
-          setActiveChatId(chat.id);
-          if (isMobileShellViewport()) setSidebarOpen(false);
-        }}
-        className={cn(
-          "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-all duration-150",
-          multiSelectMode && isSelected
-            ? "mari-chrome-accent-surface mari-accent-animated"
-            : isActive
-              ? "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)] shadow-sm"
-              : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
-          draggedChatId === chat.id && "opacity-50",
-        )}
-      >
-        {/* Multi-select checkbox */}
-        {multiSelectMode && (
-          <div className="mari-chrome-accent-icon mari-accent-animated shrink-0">
-            {isSelected ? (
-              <CheckSquare size="0.875rem" />
-            ) : (
-              <SquareIcon size="0.875rem" className="text-[var(--muted-foreground)]" />
-            )}
-          </div>
-        )}
-
-        {/* Chat background banner — active/hovered only, behind everything */}
-        {bannerUrl && (
-          <span
-            aria-hidden
-            className={cn(
-              "pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-200",
-              // "hover" on a touch device means the active row only — no hover event ever fires.
-              chatListBackgrounds === "always" || isActive ? "opacity-100" : "group-hover:opacity-100",
-            )}
-          >
-            {/* Muted twice over: the image is faint, and a scrim still sits on top. Keeping
-                the scrim means text contrast does not depend on how light the image is. */}
-            {/* Full-size chat background squeezed into a 40px row: keep the decode off the
-                main thread and let offscreen rows skip it entirely. */}
-            <img
-              src={bannerUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover opacity-[0.14] saturate-50"
-            />
-            <span className="absolute inset-0 bg-gradient-to-r from-[var(--sidebar-background)]/80 to-[var(--sidebar-background)]/40" />
-          </span>
-        )}
-
-        {/* Active indicator — generation is shown by the subtitle spinner instead. */}
-        {isActive && (
-          <span
-            // left-0, not -left-0.5: the row now clips (overflow-hidden, for the banner).
-            className="mari-chrome-accent-progress mari-accent-animated absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
-          />
-        )}
-
-        {/* Chat avatar(s) or mode icon fallback — with unread badge overlay */}
-        <div className="relative flex-shrink-0">
-          {(() => {
-            const avatars = charIds
-              .slice(0, 3)
-              .map((id) => {
-                const base = charLookup.get(id);
-                if (!base) return null;
-                const chatStatus = conversationStatusByCharacter.get(id);
-                return chatStatus ? { ...base, conversationStatus: chatStatus } : base;
-              })
-              .filter(Boolean) as {
-              name: string;
-              avatarUrl: string | null;
-              avatarCrop?: AvatarCrop | null;
-              conversationStatus?: string;
-            }[];
-
-            const isConvoMode = chat.mode === "conversation";
-            const statusDot = (status?: string) => {
-              if (!isConvoMode) return null;
-              return (
-                <span
-                  className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-[0.1875rem] ring-[1.5px] ring-[var(--sidebar-background)]",
-                    conversationStatusDotClass(status),
-                  )}
-                />
-              );
-            };
-            const multiAvatarStatus = avatars.reduce<ConversationPresenceStatus | undefined>((worstStatus, avatar) => {
-              const nextStatus = asConversationStatus(avatar.conversationStatus) ?? "online";
-              if (!worstStatus) return nextStatus;
-              return CONVERSATION_STATUS_PRIORITY[nextStatus] > CONVERSATION_STATUS_PRIORITY[worstStatus]
-                ? nextStatus
-                : worstStatus;
-            }, undefined);
-            if (avatars.length === 0) {
-              return (
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-lg text-xs transition-transform group-active:scale-90",
-                    "mari-chat-mode-avatar",
-                    cfg.logoModeClass,
-                    isActive && "shadow-sm",
-                  )}
-                >
-                  {cfg.icon}
-                </div>
-              );
+            if (multiSelectMode) {
+              toggleSelectChat(chat.id);
+              return;
             }
-
-            if (avatars.length === 1) {
-              const a = avatars[0]!;
-              return a.avatarUrl ? (
-                <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                  <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
-                    <img
-                      src={a.avatarUrl}
-                      alt={a.name}
-                      className="h-full w-full object-cover"
-                      style={getAvatarCropStyle(a.avatarCrop)}
-                    />
-                  </span>
-                  {statusDot(a.conversationStatus)}
-                </div>
+            await openChat(chat.id);
+          }}
+          // Enter/Space go through the click handler, so multi-select and the touch-drag guard
+          // apply to the keyboard too.
+          onKeyDown={(event) => {
+            const row = event.currentTarget;
+            activateRowFromKey(event, () => row.click());
+          }}
+          className={cn(
+            "group relative isolate flex w-full touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2.5 overflow-hidden rounded-lg px-3 py-2.5 text-left transition-all duration-150",
+            multiSelectMode && isSelected
+              ? "mari-chrome-accent-surface mari-accent-animated"
+              : isActive
+                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)] shadow-sm"
+                : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+            draggedChatId === chat.id && "opacity-50",
+          )}
+        >
+          {/* Multi-select checkbox */}
+          {multiSelectMode && (
+            <div className="mari-chrome-accent-icon mari-accent-animated shrink-0">
+              {isSelected ? (
+                <CheckSquare size="0.875rem" />
               ) : (
-                <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]">
-                    {a.name[0]}
-                  </div>
-                  {statusDot(a.conversationStatus)}
-                </div>
-              );
-            }
+                <SquareIcon size="0.875rem" className="text-[var(--muted-foreground)]" />
+              )}
+            </div>
+          )}
 
-            // Multiple characters — stacked avatars
-            return (
-              <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                {avatars.slice(0, 2).map((a, i) =>
-                  a.avatarUrl ? (
-                    <span
-                      key={i}
-                      className={cn(
-                        "absolute h-5 w-5 overflow-hidden rounded-md ring-2 ring-[var(--sidebar-background)]",
-                        i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
-                      )}
-                    >
+          {/* Chat background banner — active/hovered only, behind everything */}
+          {bannerUrl && (
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-200",
+                // "hover" on a touch device means the active row only — no hover event ever fires.
+                chatListBackgrounds === "always" || isActive ? "opacity-100" : "group-hover:opacity-100",
+              )}
+            >
+              {/* Muted twice over: the image is faint, and a scrim still sits on top. Keeping
+                the scrim means text contrast does not depend on how light the image is. */}
+              {/* Full-size chat background squeezed into a 40px row: keep the decode off the
+                main thread and let offscreen rows skip it entirely. */}
+              <img
+                src={bannerUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover opacity-[0.14] saturate-50"
+              />
+              <span className="absolute inset-0 bg-gradient-to-r from-[var(--sidebar-background)]/80 to-[var(--sidebar-background)]/40" />
+            </span>
+          )}
+
+          {/* Active indicator — generation is shown by the subtitle spinner instead. */}
+          {isActive && (
+            <span
+              // left-0, not -left-0.5: the row now clips (overflow-hidden, for the banner).
+              className="mari-chrome-accent-progress mari-accent-animated absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
+            />
+          )}
+
+          {/* Chat avatar(s) or mode icon fallback — with unread badge overlay */}
+          <div className="relative flex-shrink-0">
+            {(() => {
+              const avatars = charIds
+                .slice(0, 3)
+                .map((id) => {
+                  const base = charLookup.get(id);
+                  if (!base) return null;
+                  const chatStatus = conversationStatusByCharacter.get(id);
+                  return chatStatus ? { ...base, conversationStatus: chatStatus } : base;
+                })
+                .filter(Boolean) as {
+                name: string;
+                avatarUrl: string | null;
+                avatarCrop?: AvatarCrop | null;
+                conversationStatus?: string;
+              }[];
+
+              const isConvoMode = chat.mode === "conversation";
+              const statusDot = (status?: string) => {
+                if (!isConvoMode) return null;
+                return (
+                  <span
+                    className={cn(
+                      "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-[0.1875rem] ring-[1.5px] ring-[var(--sidebar-background)]",
+                      conversationStatusDotClass(status),
+                    )}
+                  />
+                );
+              };
+              const multiAvatarStatus = avatars.reduce<ConversationPresenceStatus | undefined>(
+                (worstStatus, avatar) => {
+                  const nextStatus = asConversationStatus(avatar.conversationStatus) ?? "online";
+                  if (!worstStatus) return nextStatus;
+                  return CONVERSATION_STATUS_PRIORITY[nextStatus] > CONVERSATION_STATUS_PRIORITY[worstStatus]
+                    ? nextStatus
+                    : worstStatus;
+                },
+                undefined,
+              );
+              if (avatars.length === 0) {
+                return (
+                  <div
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-lg text-xs transition-transform group-active:scale-90",
+                      "mari-chat-mode-avatar",
+                      cfg.logoModeClass,
+                      isActive && "shadow-sm",
+                    )}
+                  >
+                    {cfg.icon}
+                  </div>
+                );
+              }
+
+              if (avatars.length === 1) {
+                const a = avatars[0]!;
+                return a.avatarUrl ? (
+                  <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
+                    <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
                       <img
                         src={a.avatarUrl}
                         alt={a.name}
@@ -1191,114 +1329,185 @@ export function ChatSidebar() {
                         style={getAvatarCropStyle(a.avatarCrop)}
                       />
                     </span>
-                  ) : (
-                    <div
-                      key={i}
-                      className={cn(
-                        "absolute flex h-5 w-5 items-center justify-center rounded-md bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--sidebar-background)]",
-                        i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
-                      )}
-                    >
+                    {statusDot(a.conversationStatus)}
+                  </div>
+                ) : (
+                  <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]">
                       {a.name[0]}
                     </div>
-                  ),
-                )}
-                {statusDot(multiAvatarStatus)}
-              </div>
-            );
-          })()}
-
-          {/* Unread count badge */}
-          {(() => {
-            const count = unreadCounts.get(chat.id) || 0;
-            if (count === 0 || isActive) return null;
-            return (
-              <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
-                {count > 99 ? "99+" : count}
-              </span>
-            );
-          })()}
-        </div>
-
-        {/* Name */}
-        <div className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "block truncate text-sm",
-              isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
-            )}
-          >
-            {displayName}
-          </span>
-          {chat.metadata?.multiplayer && (
-            <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]">
-              {localizeUi(
-                (chat.metadata.multiplayer as { role?: string; status?: string }).role === "host"
-                  ? (chat.metadata.multiplayer as { status?: string }).status === "ended"
-                    ? "multiplayer.sidebar.stopped"
-                    : "multiplayer.sidebar.hosting"
-                  : (chat.metadata.multiplayer as { status?: string }).status === "joined"
-                    ? "multiplayer.sidebar.joined"
-                    : "multiplayer.sidebar.disconnected",
-              )}
-            </span>
-          )}
-          {subtitle && (
-            <span className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight">
-              {SubtitleIcon && (
-                <SubtitleIcon
-                  className={cn("h-2.5 w-2.5 shrink-0", SubtitleIcon === Loader2 ? "animate-spin" : "animate-pulse")}
-                />
-              )}
-              <span className="truncate">{subtitle}</span>
-            </span>
-          )}
-        </div>
-
-        {/* Last-activity time — conversation chats only */}
-        {relativeTime && (
-          <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
-        )}
-
-        {/* Branch count badge */}
-        {branchCount > 1 && (
-          <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
-            <GitBranch size="0.625rem" />
-            {branchCount}
-          </span>
-        )}
-
-        {/* Delete button */}
-        {!multiSelectMode && (
-          <button
-            aria-label={localizeUi("chat.branches.deleteLabel", { name: displayName })}
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (branchCount > 1 && chat.groupId) {
-                setDeleteTarget({
-                  chatId: chat.id,
-                  chatName: displayName,
-                  groupId: chat.groupId,
-                  branchCount,
-                });
-              } else {
-                if (
-                  await showConfirmDialog({
-                    title: localizeUi("ui.layout.chatsidebar.deleteChat"),
-                    message: localizeUi("dialog.delete.namedPermanent", { name: displayName }),
-                    confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                    tone: "destructive",
-                  })
-                ) {
-                  deleteChat.mutate({ id: chat.id, force: true });
-                  if (activeChatId === chat.id) setActiveChatId(null);
-                }
+                    {statusDot(a.conversationStatus)}
+                  </div>
+                );
               }
-            }}
-            className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100"
-          >
-            <Trash2 size="0.75rem" />
-          </button>
+
+              // Multiple characters — stacked avatars
+              return (
+                <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
+                  {avatars.slice(0, 2).map((a, i) =>
+                    a.avatarUrl ? (
+                      <span
+                        key={i}
+                        className={cn(
+                          "absolute h-5 w-5 overflow-hidden rounded-md ring-2 ring-[var(--sidebar-background)]",
+                          i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
+                        )}
+                      >
+                        <img
+                          src={a.avatarUrl}
+                          alt={a.name}
+                          className="h-full w-full object-cover"
+                          style={getAvatarCropStyle(a.avatarCrop)}
+                        />
+                      </span>
+                    ) : (
+                      <div
+                        key={i}
+                        className={cn(
+                          "absolute flex h-5 w-5 items-center justify-center rounded-md bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--sidebar-background)]",
+                          i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
+                        )}
+                      >
+                        {a.name[0]}
+                      </div>
+                    ),
+                  )}
+                  {statusDot(multiAvatarStatus)}
+                </div>
+              );
+            })()}
+
+            {/* Unread count badge */}
+            {(() => {
+              const count = signalRows
+                ? signalRows.reduce((sum, row) => sum + (unreadCounts.get(row.chat.id) ?? 0), 0)
+                : unreadCounts.get(chat.id) || 0;
+              if (count === 0 || isActive) return null;
+              return (
+                <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
+                  {count > 99 ? "99+" : count}
+                </span>
+              );
+            })()}
+          </div>
+
+          {/* Name */}
+          <div className="min-w-0 flex-1">
+            <span
+              className={cn(
+                "block truncate text-sm",
+                isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
+              )}
+            >
+              {displayName}
+            </span>
+            {chat.metadata?.multiplayer && (
+              <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]">
+                {localizeUi(
+                  (chat.metadata.multiplayer as { role?: string; status?: string }).role === "host"
+                    ? (chat.metadata.multiplayer as { status?: string }).status === "ended"
+                      ? "multiplayer.sidebar.stopped"
+                      : "multiplayer.sidebar.hosting"
+                    : (chat.metadata.multiplayer as { status?: string }).status === "joined"
+                      ? "multiplayer.sidebar.joined"
+                      : "multiplayer.sidebar.disconnected",
+                )}
+              </span>
+            )}
+            {subtitle && (
+              <span className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight">
+                {SubtitleIcon && (
+                  <SubtitleIcon
+                    className={cn("h-2.5 w-2.5 shrink-0", SubtitleIcon === Loader2 ? "animate-spin" : "animate-pulse")}
+                  />
+                )}
+                <span className="truncate">{subtitle}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Last-activity time — conversation chats only */}
+          {relativeTime && (
+            <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
+          )}
+
+          {/* Branch count badge. With recorded lineage it is also the toggle for the tree: the badge
+              is already the row's "this has branches" signal, so it opens them rather than a separate
+              chevron gutter that would cost every row in the list its width. */}
+          {isBranchRoot ? (
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              aria-label={localizeUi(
+                isExpanded ? "ui.layout.chatsidebar.collapseBranches" : "ui.layout.chatsidebar.expandBranches",
+                { name: chat.name },
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (chat.groupId) toggleBranchGroup(chat.groupId);
+              }}
+              // On touch the pseudo-element widens the tap target to ~44px without growing the pill.
+              className={cn(
+                "mari-chrome-muted-badge relative flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-active)]",
+                "after:absolute after:inset-0 after:content-[''] max-md:after:-inset-x-1 max-md:after:-inset-y-3 [@media(pointer:coarse)]:after:-inset-x-1 [@media(pointer:coarse)]:after:-inset-y-3",
+                isExpanded && "border-[var(--marinara-chat-chrome-button-border-active)]",
+              )}
+            >
+              <GitBranch size="0.625rem" />
+              {branchCount}
+              <ChevronDown
+                size="0.625rem"
+                className={cn("transition-transform duration-200 ease-out", isExpanded && "rotate-180")}
+              />
+            </button>
+          ) : (
+            branchCount > 1 && (
+              <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
+                <GitBranch size="0.625rem" />
+                {branchCount}
+              </span>
+            )
+          )}
+
+          {/* Delete button */}
+          {!multiSelectMode && (
+            <button
+              aria-label={localizeUi("chat.branches.deleteLabel", { name: displayName })}
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (branchCount > 1 && chat.groupId) {
+                  setDeleteTarget({
+                    chatId: chat.id,
+                    chatName: displayName,
+                    groupId: chat.groupId,
+                    branchCount,
+                  });
+                } else {
+                  await confirmDeleteChat(chat.id, displayName);
+                }
+              }}
+              className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100"
+            >
+              <Trash2 size="0.75rem" />
+            </button>
+          )}
+        </div>
+
+        {isBranchRoot && branchRows && (
+          // The guide line hangs from the centre of the chat's avatar (px-3 + half of the 28px
+          // avatar = 26px; one more column with the multi-select checkbox), and branch names start
+          // under the chat's name. One line per level, like a folder's children — per-row connector
+          // elbows were tried and read as noise in a sidebar this narrow.
+          <SmoothFolderContent open={isExpanded}>
+            <div
+              className={cn(
+                "flex flex-col gap-0.5 border-l border-[var(--marinara-chat-chrome-accent)]/45 mb-1 pl-4",
+                multiSelectMode ? "ml-[3.0625rem]" : "ml-[1.5625rem]",
+              )}
+            >
+              {renderBranchLevel(branchRows.slice(1))}
+            </div>
+          </SmoothFolderContent>
         )}
       </div>
     );
@@ -1770,6 +1979,118 @@ export function ChatSidebar() {
         )}
       </Modal>
     </nav>
+  );
+}
+
+/**
+ * Enter/Space activation for a `role="button"` row. Keys aimed at a button inside the row stay
+ * that button's, modified keys stay free for shortcuts, and a held key activates once (its
+ * repeats are still prevented, so a held Space does not scroll the list).
+ */
+function activateRowFromKey(event: React.KeyboardEvent<HTMLElement>, activate: () => void) {
+  if (event.target !== event.currentTarget) return;
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  if (event.repeat) return;
+  activate();
+}
+
+/** Past this depth a branch still renders, but without another step of indent. */
+const MAX_BRANCH_NESTING = 4;
+/** A nested level: its line sits under the parent branch's name (the row's px-2). */
+const BRANCH_LEVEL_CLASS = "ml-2 flex flex-col gap-0.5 border-l border-[var(--marinara-chat-chrome-accent)]/45 pl-1.5";
+
+// Every branch shares the chat's characters, so a branch row drops the avatar and keeps only what
+// tells branches apart: the name, when it was last active, and whether it needs attention. One row
+// style at every depth, so the indent alone says who belongs to whom.
+function BranchRow({
+  chatId,
+  name,
+  relativeTime,
+  isActive,
+  isSelected,
+  multiSelectMode,
+  unread,
+  isBusy,
+  deleteLabel,
+  onSelect,
+  onToggleSelect,
+  onDelete,
+}: {
+  chatId: string;
+  name: string;
+  relativeTime: string | null;
+  isActive: boolean;
+  isSelected: boolean;
+  multiSelectMode: boolean;
+  unread: number;
+  isBusy: boolean;
+  deleteLabel: string;
+  onSelect: () => void;
+  onToggleSelect: () => void;
+  onDelete: () => void;
+}) {
+  // Same click semantics as every other row: multi-select selects, otherwise it opens the chat.
+  const handleClick = multiSelectMode ? onToggleSelect : onSelect;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      data-chat-id={chatId}
+      aria-pressed={multiSelectMode ? isSelected : undefined}
+      title={name}
+      onClick={handleClick}
+      onKeyDown={(event) => activateRowFromKey(event, handleClick)}
+      className={cn(
+        "group flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-1.5 pr-3 pl-2 transition-colors max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+        multiSelectMode && isSelected
+          ? "mari-chrome-accent-surface mari-accent-animated"
+          : isActive
+            ? "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]"
+            : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+      )}
+    >
+      {multiSelectMode && (
+        <span className="mari-chrome-accent-icon mari-accent-animated shrink-0">
+          {isSelected ? (
+            <CheckSquare size="0.75rem" />
+          ) : (
+            <SquareIcon size="0.75rem" className="text-[var(--muted-foreground)]" />
+          )}
+        </span>
+      )}
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-[0.8125rem]",
+          isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
+        )}
+      >
+        {name}
+      </span>
+      {isBusy && <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin text-[var(--muted-foreground)]" />}
+      {!isActive && !multiSelectMode && unread > 0 && (
+        <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+      {relativeTime && (
+        <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
+      )}
+      {!multiSelectMode && (
+        <button
+          type="button"
+          aria-label={deleteLabel}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
+        >
+          <Trash2 size="0.75rem" />
+        </button>
+      )}
+    </div>
   );
 }
 

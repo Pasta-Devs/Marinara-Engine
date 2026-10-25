@@ -111,7 +111,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:shared
       - name: Verify Windows restart ownership and ESM loader paths
+        env:
+          MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
         run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+      - name: Retain Windows restart diagnostic evidence
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: restart-diagnostics-windows-launcher
+          path: test-results/restart-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify native console Ctrl+C finishes graceful shutdown
         # Retain the fixture's own readiness/close deadlines without the general
         # regression runner's shorter 30s whole-file cap.

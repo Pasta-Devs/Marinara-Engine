@@ -11,6 +11,7 @@ import {
   runInMediaProviderLane,
   runMediaGenerationRequest,
 } from "../image/image-generation-queue.js";
+import { runSharedGpuTurn } from "../generation/shared-gpu-turns.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
   numberedComfyReferencePlaceholder,
@@ -18,7 +19,11 @@ import {
 import { buildAtlasCloudVideoRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
 import { adaptAtlasCloudVideoRequest, fetchAtlasCloudModelSchema } from "../media/atlas-cloud-video-schema.js";
 import { generateToAPIsVideo, isToAPIsMediaUrl, ToAPIsSubmittedTaskError } from "../media/toapis-media.js";
-import { buildComfyUiLoraWorkflowReplacements } from "@marinara-engine/shared";
+import {
+  buildComfyUiLoraWorkflowReplacements,
+  getOpenRouterVideoModelLimits,
+  resolveOpenRouterVideoModelDefaults,
+} from "@marinara-engine/shared";
 
 import type {
   VideoReferenceImage,
@@ -86,7 +91,9 @@ export async function generateVideo(
 ): Promise<VideoGenerationResult> {
   // The request deadline begins when the queued task starts; queue wait time is
   // governed separately by the shared media-generation queue. The provider lane
-  // (#7662) comes first, so its waiters hold neither a connection turn nor a permit.
+  // (#7662) comes first, so its waiters hold neither a connection turn nor a permit. The shared
+  // GPU turn comes after the connection's queue and before the permit, so a clip waiting on a
+  // busy shared GPU holds no permit, and one queued behind its connection holds no GPU turn.
   // Video lanes are their own keyspace: a minutes-long video must not hold up images.
   // Only the primary attempt holds the lane and permit: the fallback connection
   // queues after both are released, so a fallback never waits on another lane
@@ -100,6 +107,7 @@ export async function generateVideo(
           connectionKey: request.connectionKey ?? `${serviceHint || source}:${baseUrl}`,
           queue: request.queue === true,
           signal: request.signal,
+          aroundPermit: (work) => runSharedGpuTurn("media", baseUrl, work, request.signal),
           task: () => generatePrimaryVideo(source, baseUrl, apiKey, serviceHint, { ...request, fallback: undefined }),
         }),
     });
@@ -408,6 +416,9 @@ function comfyUiVideoFetch(url: string | URL, init?: RequestInit, maxResponseByt
       allowLoopback: true,
       allowedProtocols: ["https:", "http:"],
     },
+    // ComfyUI may hold POST /prompt until the render finishes (a render gate), so Undici's
+    // five-minute default would fail any video whose render passes it.
+    agentOptions: { headersTimeout: VIDEO_GEN_TIMEOUT, bodyTimeout: VIDEO_GEN_TIMEOUT },
     maxResponseBytes,
     decodeCompressedResponse: true,
   });
@@ -1024,6 +1035,16 @@ async function generateOpenRouterVideo(
 ): Promise<VideoGenerationResult> {
   if (!apiKey.trim()) throw new Error("OpenRouter video generation requires an OpenRouter API key");
   const model = request.model?.trim() || DEFAULT_OPENROUTER_VIDEO_MODEL;
+  if (getOpenRouterVideoModelLimits(model) || request.resolution === "768p") {
+    request = {
+      ...request,
+      ...resolveOpenRouterVideoModelDefaults(model, {
+        durationSeconds: request.durationSeconds,
+        aspectRatio: request.aspectRatio,
+        resolution: request.resolution ?? "720p",
+      }),
+    };
+  }
   const startUrl = buildOpenRouterVideosUrl(baseUrl, "videos");
   const body: Record<string, unknown> = {
     model,
@@ -1050,6 +1071,12 @@ async function generateOpenRouterVideo(
     }
     body.frame_images = frameImages;
   }
+
+  logDebugOverride(
+    request.debugMode === true || isDebugAgentsEnabled(),
+    "[video-gen/openrouter] final request payload:\n%s",
+    JSON.stringify(body.frame_images ? { ...body, frame_images: "[redacted reference images]" } : body, null, 2),
+  );
 
   const started = await safeFetch(startUrl, {
     method: "POST",
@@ -1196,7 +1223,7 @@ async function generateNanoGptVideo(
     duration: `${Math.max(1, Math.trunc(request.durationSeconds))}s`,
     aspect_ratio: request.aspectRatio,
   };
-  if (request.resolution) body.resolution = request.resolution;
+  if (request.resolution) body.resolution = request.resolution === "768p" ? "720p" : request.resolution;
   if (request.referenceImage) body.imageDataUrl = referenceImageToDataUri(request.referenceImage);
   const debugBody = request.referenceImage ? { ...body, imageDataUrl: "[redacted reference image]" } : body;
   logDebugOverride(
@@ -1424,7 +1451,7 @@ async function generateAtlasCloudVideo(
     prompt: request.prompt,
     durationSeconds: request.durationSeconds,
     aspectRatio: request.aspectRatio,
-    resolution: request.resolution,
+    resolution: request.resolution === "768p" ? undefined : request.resolution,
     referenceImageDataUrl,
     modelOptions: request.atlasModelOptions,
   };
@@ -1865,6 +1892,15 @@ async function seedanceReferenceImageUrl(
   // the raw-URL path attempted the identical upload twice).
   const uploaded = await maybeUploadSeedanceReferenceImage(image, label, publicUpload, signal);
   if (uploaded) return uploaded;
+
+  if (!raw) {
+    throw new Error(
+      `Seedance ${label} reference has no public HTTPS URL. ` +
+        "Converted images, such as WebP illustrations prepared as PNG, require Upload Seedance reference frames temporarily " +
+        "to be enabled in this Video Generation connection, even when VIDEO_REFERENCE_PUBLIC_BASE_URL is configured. " +
+        "Alternatively, select a PNG/JPEG illustration with a publicly reachable HTTPS URL.",
+    );
+  }
 
   throw new Error(
     `Seedance image-to-video references require a publicly reachable HTTPS image URL for the ${label}. ` +

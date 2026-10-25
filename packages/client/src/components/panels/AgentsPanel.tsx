@@ -58,6 +58,7 @@ import {
   getDefaultBuiltInAgentSettings,
   getFolderImportEntries,
   isAgentConfigDeleted,
+  isAgentAvailableInChatMode,
   isRetiredBuiltInAgentId,
   isRulesetPackageFile,
   normalizeAgentPhaseForType,
@@ -77,6 +78,7 @@ import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
+  createDuplicateAgentInput,
   countSkippedAgentImportFunctions,
   createAgentFolderPackageFilename,
   createAgentFolderPackageFiles,
@@ -233,27 +235,6 @@ function createBuiltInAgentConfigRow(
 
 function getAgentLibraryDisplayName(agent: AgentConfigRow) {
   return BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.name ?? agent.name;
-}
-
-function createDuplicateAgentInput(agent: AgentConfigRow) {
-  const settings = sanitizeAgentSettingsForTransfer(parseAgentSettings(agent.settings));
-  if (typeof settings.author !== "string" || !settings.author.trim()) {
-    settings.author = "Unknown";
-  }
-  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
-
-  return {
-    type: `${agent.type}-copy`,
-    name: `${getAgentLibraryDisplayName(agent)} (Copy)`,
-    description: agent.description,
-    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
-    enabled: true,
-    connectionId: agent.connectionId,
-    imagePath: agent.imagePath,
-    promptTemplate: agent.promptTemplate,
-    settings,
-    ...(resultType ? { resultType } : {}),
-  };
 }
 
 export function AgentsPanel() {
@@ -446,13 +427,10 @@ export function AgentsPanel() {
   const agentSearchQuery = agentSearch.trim().toLowerCase();
   const agentSearchActive = agentSearchQuery.length > 0;
   const agentFilterActive = agentSearchActive || agentModeFilter !== "all";
-  const modeAllowlistByAgentType = useMemo(
-    () => new Map(availableBuiltInAgents.map((agent) => [agent.id, agent.modeAllowlist] as const)),
-    [availableBuiltInAgents],
-  );
   const matchesAgentFilters = (agent: { type: string; name: string; description: string; category: string }) => {
-    const modeAllowlist = modeAllowlistByAgentType.get(agent.type);
-    const matchesMode = agentModeFilter === "all" || !modeAllowlist?.length || modeAllowlist.includes(agentModeFilter);
+    const matchesMode =
+      agentModeFilter === "all" ||
+      (agent.category !== "app" && isAgentAvailableInChatMode(agentModeFilter, agent.type));
     const matchesSearch =
       !agentSearchQuery ||
       agent.name.toLowerCase().includes(agentSearchQuery) ||
@@ -747,6 +725,8 @@ export function AgentsPanel() {
 
   const handleDuplicateAgent = useCallback(
     async (agent: AgentConfigRow) => {
+      if (!capabilityAgentRegistryReady || builtInAgentIds.has(agent.type) || packageIdByAgentType.has(agent.type))
+        return;
       try {
         const created = await createAgent.mutateAsync(createDuplicateAgentInput(agent));
         const createdId = typeof created === "object" && created && "id" in created ? String(created.id) : null;
@@ -756,7 +736,7 @@ export function AgentsPanel() {
         toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.agentspanel.failedToCopyAgent"));
       }
     },
-    [createAgent, openAgentDetail, localizeUi],
+    [builtInAgentIds, capabilityAgentRegistryReady, createAgent, openAgentDetail, localizeUi, packageIdByAgentType],
   );
 
   const handleDeleteSelectedAgents = useCallback(async () => {
@@ -1161,7 +1141,7 @@ export function AgentsPanel() {
         imagePath: agent.imagePath || (builtInMeta ? catalogArtworkByAgentId.get(agent.type) : null) || null,
         custom,
         openAgentDetail,
-        onDuplicate: () => void handleDuplicateAgent(agent),
+        onDuplicate: custom && capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
         onImagePick: () => handlePickAgentImage(custom ? agent.id : agent.type),
         selectionMode,
         selected: selectedAgentIds.has(agent.id),
@@ -1652,7 +1632,6 @@ export function AgentsPanel() {
                     imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
                     custom: false,
                     openAgentDetail,
-                    onDuplicate: () => void handleDuplicateAgent(sourceAgent),
                     onImagePick: () => handlePickAgentImage(agent.id),
                     selectionMode,
                     selected: selectedAgentIds.has(agent.id),
@@ -1723,7 +1702,7 @@ export function AgentsPanel() {
                 imagePath: agent.imagePath ?? null,
                 custom: true,
                 openAgentDetail,
-                onDuplicate: () => void handleDuplicateAgent(agent),
+                onDuplicate: capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
                 onImagePick: () => handlePickAgentImage(agent.id),
                 selectionMode,
                 selected: selectedAgentIds.has(agent.id),
@@ -2016,7 +1995,7 @@ function renderAgentCard({
   imagePath?: string | null;
   custom: boolean;
   openAgentDetail: (id: string) => void;
-  onDuplicate: () => void;
+  onDuplicate?: () => void;
   onImagePick: () => void;
   onDelete?: () => void;
   selectionMode?: boolean;
@@ -2127,9 +2106,13 @@ function renderAgentCard({
         className={cn(
           "min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing",
           !selectionMode &&
-            (onDelete
-              ? "pr-0 max-md:pr-24 [@media(pointer:coarse)]:pr-24"
-              : "pr-0 max-md:pr-16 [@media(pointer:coarse)]:pr-16"),
+            (custom && onDuplicate
+              ? onDelete
+                ? "pr-0 max-md:pr-24 [@media(pointer:coarse)]:pr-24"
+                : "pr-0 max-md:pr-16 [@media(pointer:coarse)]:pr-16"
+              : onDelete
+                ? "pr-0 max-md:pr-16 [@media(pointer:coarse)]:pr-16"
+                : "pr-0 max-md:pr-8 [@media(pointer:coarse)]:pr-8"),
         )}
         onClick={(event) => {
           event.stopPropagation();
@@ -2152,17 +2135,19 @@ function renderAgentCard({
       {!selectionMode && (
         <div className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
           <ChatResourceActionButton payload={{ version: 1, kind: "agent", ids: [type], label: name }} />
-          <button
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.panels.agentcard.copyAgent")}
-            aria-label={localizeUi("ui.panels.agentcard.copyAgent")}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDuplicate();
-            }}
-          >
-            <Copy size="0.75rem" />
-          </button>
+          {custom && onDuplicate && (
+            <button
+              className="mari-chrome-control mari-chrome-control--small p-1.5"
+              title={localizeUi("ui.panels.agentcard.copyAgent")}
+              aria-label={localizeUi("ui.panels.agentcard.copyAgent")}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDuplicate();
+              }}
+            >
+              <Copy size="0.75rem" />
+            </button>
+          )}
           {onDelete && (
             <button
               className="mari-chrome-control mari-chrome-control--small p-1.5"

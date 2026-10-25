@@ -37,6 +37,7 @@ import {
 import { resolveAgentConnectionParameters, type AgentGenerationParameters } from "./agent-generation-parameters.js";
 import { applyTextRewriteAgentChatSettings, normalizeProseGuardianPromptTemplate } from "./prose-guardian-settings.js";
 import { applyKnowledgeAgentChatSettings } from "./knowledge-agent-settings.js";
+import { applyAgentLorebookChatSettings } from "./agent-lorebook-triggers.js";
 import { applyCustomAgentImageChatSettings } from "./custom-agent-image-settings.js";
 import { withConnectionFallbackProvider, type FallbackConnection } from "../llm/connection-fallback-provider.js";
 import type { GenerationFallbackNotifier } from "./fallback-notification.js";
@@ -195,6 +196,7 @@ export function resolveEffectiveAgentSettings(args: {
   settings = applyTextRewriteAgentChatSettings(agentType, settings, chatMetadata);
   settings = applyKnowledgeAgentChatSettings(agentType, settings, chatMetadata);
   settings = applyCustomAgentImageChatSettings(agentType, settings, chatMetadata);
+  settings = applyAgentLorebookChatSettings(agentType, settings, chatMetadata);
 
   const usesNonSpotifyMusicSource =
     agentType === "spotify" &&

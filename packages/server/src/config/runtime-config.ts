@@ -434,17 +434,22 @@ export function isUnauthenticatedPrivateNetworkAllowed() {
 /**
  * Optional override for the no-auth-lockdown private-network exemption list.
  * Comma-separated IPs / CIDRs. When set, REPLACES the built-in defaults
- * (RFC 1918, CGNAT, link-local, IPv6 ULA). When unset, defaults are used.
+ * (RFC 1918, link-local, IPv6 ULA; not CGNAT). When unset, defaults are used.
  */
 export function getTrustedPrivateNetworksOverride() {
   return normalizeEnvValue(process.env.TRUSTED_PRIVATE_NETWORKS);
+}
+
+/** Comma-separated IPs / CIDRs of forward-auth proxies that already log every visitor in. */
+export function getTrustedAuthProxy() {
+  return normalizeEnvValue(process.env.TRUSTED_AUTH_PROXY);
 }
 
 /**
  * Choose how direct Tailscale traffic may skip the IP allowlist and Basic Auth.
  *
  * Default: automatic. A Tailscale-shaped client is trusted only when its
- * connection also arrived on a local 100.64.0.0/10 address. Set the flag to
+ * connection also arrived on a 100.64.0.0/10 address of a local Tailscale interface. Set the flag to
  * true for the legacy broad range bypass, or false to disable it.
  */
 export function getTailscaleBypassMode(): "auto" | "enabled" | "disabled" {
@@ -618,10 +623,10 @@ export function getChatGenerationTimeoutMs() {
 }
 
 /**
- * Per-call timeout for agent LLM requests (trackers, HTML reformatter, …).
- * Unlike the main chat path, these are total-duration caps, so slow local
- * models need a higher value here even when streaming (#3958). Read per
- * request so .env hot reloads apply without a restart.
+ * Maximum silence before or during agent LLM requests (trackers, HTML reformatter, …).
+ * Real provider data renews the timeout, so active streams can outlive this budget.
+ * Bounded memory operations also use this value as their total operation budget.
+ * Read per request so .env hot reloads apply without a restart.
  */
 export function getAgentCallTimeoutMs() {
   return readAgentCallTimeoutMs();

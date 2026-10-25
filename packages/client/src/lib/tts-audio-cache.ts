@@ -40,6 +40,18 @@ const cachePurgeEpochs = new Map<string, number>();
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let lastPersistentPruneAt = 0;
 
+function cacheFamilyKey(key: string): string {
+  if (key.startsWith("tts-request-v1:")) {
+    try {
+      const parts: unknown = JSON.parse(key.slice("tts-request-v1:".length));
+      if (Array.isArray(parts) && typeof parts[0] === "string") return parts[0];
+    } catch {
+      // A caller's ordinary key may happen to start with the reserved prefix.
+    }
+  }
+  return key;
+}
+
 export function shouldUsePersistentTTSAudioCache(userAgent: string, platform: string, maxTouchPoints: number): boolean {
   return !isIosWebKitBrowser(userAgent, platform, maxTouchPoints);
 }
@@ -270,11 +282,14 @@ export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
   if (memoryHit) return memoryHit;
 
   const epoch = cachePurgeEpochs.get(key) ?? 0;
+  const family = cacheFamilyKey(key);
+  const familyEpoch = cachePurgeEpochs.get(family) ?? 0;
   const persisted = await getPersistentBlob(key);
-  if (persisted && epoch === (cachePurgeEpochs.get(key) ?? 0)) {
+  const current = epoch === (cachePurgeEpochs.get(key) ?? 0) && familyEpoch === (cachePurgeEpochs.get(family) ?? 0);
+  if (persisted && current) {
     rememberInMemory(key, persisted);
   }
-  return epoch === (cachePurgeEpochs.get(key) ?? 0) ? persisted : null;
+  return current ? persisted : null;
 }
 
 export async function listCachedTTSAudioMeta(): Promise<CachedTTSAudioMeta[]> {
@@ -321,19 +336,34 @@ export async function listCachedTTSAudioEntries(): Promise<CachedTTSAudioExportE
  * would leave the stale audio reachable.
  */
 export async function deleteCachedTTSAudioKeys(keys: string[]): Promise<void> {
-  const uniqueKeys = [...new Set(keys.filter((key) => key.length > 0))];
-  if (uniqueKeys.length === 0) return;
+  const requested = new Set(keys.filter((key) => key.length > 0));
+  if (requested.size === 0) return;
+  const uniqueKeys = new Set(requested);
+  for (const key of [...memoryCache.keys(), ...inFlight.keys()]) {
+    if (requested.has(cacheFamilyKey(key))) uniqueKeys.add(key);
+  }
 
-  for (const key of uniqueKeys) {
+  const purge = (key: string) => {
     cachePurgeEpochs.set(key, (cachePurgeEpochs.get(key) ?? 0) + 1);
     dropFromMemory(key);
     // Drop any generation still in flight for these keys, so the clip we are
     // deleting cannot be handed to a late joiner either.
     inFlight.delete(key);
-  }
+  };
+  for (const key of uniqueKeys) purge(key);
 
   const db = await openDb();
   if (!db) return;
+
+  const readTx = db.transaction(STORE_NAME, "readonly");
+  const persistedKeys = await requestToPromise(readTx.objectStore(STORE_NAME).getAllKeys());
+  await transactionDone(readTx);
+  for (const key of persistedKeys) {
+    if (typeof key === "string" && requested.has(cacheFamilyKey(key)) && !uniqueKeys.has(key)) {
+      uniqueKeys.add(key);
+      purge(key);
+    }
+  }
 
   const hasMeta = hasMetadataStore(db);
   const tx = db.transaction(hasMeta ? [STORE_NAME, META_STORE_NAME] : STORE_NAME, "readwrite");
@@ -350,10 +380,17 @@ export async function getOrCreateCachedTTSAudioBlob(
   key: string,
   create: () => Promise<Blob>,
   aliases: string[] = [],
+  identity?: string,
 ): Promise<Blob> {
-  const keys = [...new Set([key, ...aliases].filter(Boolean))];
-  const epochs = new Map(keys.map((cacheKey) => [cacheKey, cachePurgeEpochs.get(cacheKey) ?? 0]));
-  const isCurrent = (cacheKey: string) => epochs.get(cacheKey) === (cachePurgeEpochs.get(cacheKey) ?? 0);
+  const families = [...new Set([key, ...aliases].filter(Boolean))];
+  const keys = families.map((family) =>
+    identity === undefined ? family : `tts-request-v1:${JSON.stringify([family, identity])}`,
+  );
+  key = keys[0]!;
+  const epochs = new Map([...families, ...keys].map((cacheKey) => [cacheKey, cachePurgeEpochs.get(cacheKey) ?? 0]));
+  const isCurrent = (cacheKey: string) =>
+    epochs.get(cacheKey) === (cachePurgeEpochs.get(cacheKey) ?? 0) &&
+    families.every((family) => epochs.get(family) === (cachePurgeEpochs.get(family) ?? 0));
 
   for (const cacheKey of keys) {
     const cached = await getCachedTTSAudioBlob(cacheKey);

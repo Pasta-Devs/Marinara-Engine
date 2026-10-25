@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT` sets the address port (7860 by default). By default the launcher also lets other devices on your LAN reach the server. LAN means local area network, the network in your home or office. Marinara still blocks those devices until you set up a password or another access option. The [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md) guide shows you how.
+`PORT` sets the address port (7860 by default). By default the launcher also lets other devices on your LAN reach the server. LAN means local area network, the network in your home or office. Marinara still blocks those devices until you set up a password or another access option. The [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md) guide shows you how.
 
 ## Manual setup
 
@@ -244,5 +244,5 @@ For the full update steps, including how to back up first and how to switch rele
 
 - [Marinara Engine Installation](../INSTALLATION.md): pick the right install method for your device.
 - [Upgrading Marinara Engine](../UPGRADING.md): full update and backup steps for every platform.
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md): set up a password so other devices can reach Marinara.
+- [Remote Access: Login and IP Allowlist](../REMOTE_ACCESS.md): set up a password so other devices can reach Marinara.
 - [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md): fixes for install and startup problems.

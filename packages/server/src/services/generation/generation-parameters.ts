@@ -1,3 +1,4 @@
+import { partialInput } from "@marinara-engine/shared";
 import {
   DEFAULT_AGENT_MAX_TOKENS,
   MIN_AGENT_MAX_TOKENS,
@@ -56,7 +57,7 @@ export function resolveStoredChatOptions(
       return {};
     }
   }
-  const result = generationParametersSchema.partial().safeParse(parsed);
+  const result = partialInput(generationParametersSchema).safeParse(parsed);
   if (!result.success) return {};
   const parameters = result.data;
   const reasoningEffort = resolveProviderReasoningEffort({

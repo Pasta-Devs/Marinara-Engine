@@ -1,3 +1,4 @@
+import { partialInput } from "@marinara-engine/shared";
 import { createHash } from "node:crypto";
 import {
   ADVANCED_MEMORY_SCENE_AUDIENCE as SCENE_AUDIENCE,
@@ -59,6 +60,7 @@ import {
 import { resolveBaseUrl } from "./generation/connection-base-url.js";
 import { describeEmptyModelResponse, replyUnfinished } from "./generation/empty-response-reason.js";
 import { parseRoleplayUserCommands, roleplayWhisperOnlyMessageIds } from "./generation/roleplay-commands.js";
+import { applyAllSegmentEdits, stripGmCommandTags } from "./game/segment-edits.js";
 import {
   parseChatSummaryResult,
   resolveChatSummaryPrompt,
@@ -195,6 +197,7 @@ type Metadata = Record<string, unknown>;
 type VisibilityReader = { id: string; name: string; visibleIds: Set<string> };
 type Context = {
   chatId: string;
+  mode: string;
   connectionId: string | null;
   metadata: Metadata;
   settings: AdvancedMemorySettings;
@@ -448,6 +451,63 @@ export function advancedMemorySourceFingerprint(messages: readonly AdvancedMemor
   );
 }
 
+/**
+ * The Game Master reads a Game chat's memory as its narrator. No character card holds this id: the GM sees
+ * every scene, while the party stays the chat's characters.
+ */
+export const GAME_MASTER_MEMORY_READER_ID = "__game_master__";
+
+/**
+ * A Game chat has one reader, the GM, so the settings that divide memory among characters do not apply there.
+ * Saved values stay as they are and are only ignored.
+ */
+export function effectiveAdvancedMemorySettings(
+  mode: string,
+  settings: AdvancedMemorySettings,
+): AdvancedMemorySettings {
+  if (mode !== "game") return settings;
+  return {
+    ...settings,
+    narratorCharacterId: GAME_MASTER_MEMORY_READER_ID,
+    autoMessageVisibility: false,
+    characterRecollections: false,
+    knowledgeStarts: {},
+  };
+}
+
+/**
+ * What a Game chat's memory reads: the history the GM is sent, with the player's segment edits applied and the
+ * GM's command tags removed, so a recap describes the story the player sees. Shared with the generate route,
+ * whose source messages must match these exactly.
+ */
+export function gameAdvancedMemorySource<T extends { id: string; role: string; content: string }>(
+  messages: readonly T[],
+  metadata: Record<string, unknown>,
+): T[] {
+  const shaped = messages.map((message) => ({ ...message }));
+  applyAllSegmentEdits(shaped, metadata, [...messages]);
+  return shaped.map((message) =>
+    message.role === "assistant" || message.role === "narrator"
+      ? { ...message, content: stripGmCommandTags(message.content) }
+      : message,
+  );
+}
+
+/**
+ * A new Game session's metadata, copied from the previous session's: the Advanced Memory settings stay, its
+ * progress and its own continuity entries (which recap the previous session's messages) are left behind.
+ * Other summary entries, the player's own and a Chat Summary agent's, stay.
+ */
+export function withoutSessionAdvancedMemory(metadata: Record<string, unknown>): Record<string, unknown> {
+  const { advancedMemoryState: _state, ...rest } = metadata;
+  if (!Array.isArray(rest.summaryEntries)) return rest;
+  // Advanced Memory writes automated range and compacted entries; a Chat Summary agent's entries stay as before.
+  const summaryEntries = normalizeChatSummaryEntries(rest.summaryEntries).filter(
+    (entry) => entry.origin !== "automated" || entry.sourceMode === "agent",
+  );
+  return { ...rest, summaryEntries, summary: compileChatSummaryEntries(summaryEntries) };
+}
+
 function policyFingerprint(ctx: Context): string {
   return hash([
     ctx.individual,
@@ -583,7 +643,11 @@ export function selectAdvancedMemoryMessages(
       (view === "archive" || extra.hiddenFromAI !== true) &&
       extra.commandOnly !== true &&
       !strings(extra.hiddenFromAICharacterIds).some((id) => audienceCharacterIds.includes(id)) &&
-      (message.role === "user" || message.role === "assistant" || message.role === "narrator") &&
+      (message.role === "user" ||
+        message.role === "assistant" ||
+        message.role === "narrator" ||
+        // A Game checkpoint restore note: the GM's history keeps it, so the live window must too.
+        (message.role === "system" && typeof extra.gameStateAnchor === "string")) &&
       (message.content.trim().length > 0 ||
         (Array.isArray(extra.attachments) && extra.attachments.length > 0) ||
         keepEmptyIds.has(message.id))
@@ -1096,11 +1160,13 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
 
   async function context(chatId: string): Promise<Context> {
     const chat = await chats.getById(chatId);
-    if (!chat || chat.mode !== "roleplay") throw new Error("Advanced Memory is available only for Roleplay chats");
+    if (!chat || (chat.mode !== "roleplay" && chat.mode !== "game"))
+      throw new Error("Advanced Memory is available only for Roleplay and Game chats");
     const metadata = object(chat.metadata);
+    const stored = await chats.listMessages(chatId);
     // Reuse parsed metadata across archive records. Re-parsing every message for
     // each record's audience check freezes long chats, even for a simple toggle.
-    const messages = (await chats.listMessages(chatId)).map((message) => ({
+    const messages = (chat.mode === "game" ? gameAdvancedMemorySource(stored, metadata) : stored).map((message) => ({
       ...message,
       content: message.role === "user" ? parseRoleplayUserCommands(message.content).content : message.content,
       extra: object(message.extra),
@@ -1116,15 +1182,25 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const data = object(row?.data);
       if (typeof data.name === "string") names.set(id, data.name);
     }
+    if (chat.mode === "game") {
+      // A GM played by a character card goes by its name; the built-in GM is the Game Master.
+      const card =
+        metadata.gameGmMode === "character" && typeof metadata.gameGmCharacterId === "string"
+          ? object((await characterStore.getById(metadata.gameGmCharacterId))?.data)
+          : {};
+      names.set(GAME_MASTER_MEMORY_READER_ID, typeof card.name === "string" ? card.name : "Game Master");
+    }
     return {
       chatId,
+      mode: chat.mode,
       connectionId: chat.connectionId ?? null,
       metadata,
-      settings: normalizeAdvancedMemorySettings(metadata.advancedMemory),
+      settings: effectiveAdvancedMemorySettings(chat.mode, normalizeAdvancedMemorySettings(metadata.advancedMemory)),
       messages,
       characterIds,
       names,
-      individual: metadata.groupChatMode === "individual",
+      // A Game chat is one merged story the GM tells, never an individual group chat.
+      individual: chat.mode !== "game" && metadata.groupChatMode === "individual",
     };
   }
 
@@ -2188,6 +2264,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       chars: createCharactersStorage(db),
       characterIds,
       chatMode: "roleplay",
+      chatId: ctx.chatId,
     });
     if (!cards.length) return undefined;
     const lastUser =
@@ -3815,8 +3892,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         // initialize/reindex can resume; reading the saved archive stays available.
         const savedChat = await chats.getById(chatId);
         if (object(object(savedChat?.metadata).advancedMemoryState).paused === true) return;
-        const autoVisibility = normalizeAdvancedMemorySettings(
-          object(savedChat?.metadata).advancedMemory,
+        const autoVisibility = effectiveAdvancedMemorySettings(
+          savedChat?.mode ?? "",
+          normalizeAdvancedMemorySettings(object(savedChat?.metadata).advancedMemory),
         ).autoMessageVisibility;
         // Automatic visibility can change the sources, so its cutoff reads them after the decision.
         const cutoffContext = options.maxRequestInputTokens != null && !autoVisibility ? await context(chatId) : null;
@@ -4333,7 +4411,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
               preparationPolicyRevision({
                 ...ctx,
                 metadata: fresh,
-                settings: normalizeAdvancedMemorySettings(fresh.advancedMemory),
+                settings: effectiveAdvancedMemorySettings(
+                  ctx.mode,
+                  normalizeAdvancedMemorySettings(fresh.advancedMemory),
+                ),
               }) !== preparationPolicyRevision(ctx)
             )
               throw new Error("Chat Summaries changed during preparation; retry");
@@ -4619,7 +4700,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
             preparationPolicyRevision({
               ...ctx,
               metadata: fresh,
-              settings: normalizeAdvancedMemorySettings(fresh.advancedMemory),
+              settings: effectiveAdvancedMemorySettings(
+                ctx.mode,
+                normalizeAdvancedMemorySettings(fresh.advancedMemory),
+              ),
             }) !== preparationPolicyRevision(ctx)
           )
             throw new Error("Chat Summaries changed while being combined; retry");
@@ -5764,7 +5848,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     patch: unknown,
     { startRecollections = true, debugMode }: { startRecollections?: boolean; debugMode?: boolean } = {},
   ): Promise<AdvancedMemoryStatus> {
-    const incoming = advancedMemorySettingsSchema.partial().parse(patch);
+    const incoming = partialInput(advancedMemorySettingsSchema).parse(patch);
     const localSlot = decisionLocalSlotForId(incoming.decisionConnectionId);
     if (localSlot) {
       // The same rule as choosing the global Decision model: a local model that cannot answer is refused.
@@ -5790,16 +5874,20 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           throw new Error("The continuity summary budget must be smaller than the total context limit");
         if (incoming.enabled === false) {
           // Disabling needs no transcript scan or validation of stale references.
-          if ((await chats.getById(chatId))?.mode !== "roleplay")
-            throw new Error("Advanced Memory is available only for Roleplay chats");
+          const mode = (await chats.getById(chatId))?.mode;
+          if (mode !== "roleplay" && mode !== "game")
+            throw new Error("Advanced Memory is available only for Roleplay and Game chats");
         } else {
           const ctx = await context(chatId);
-          if (next.narratorCharacterId && !ctx.characterIds.includes(next.narratorCharacterId))
-            throw new Error("Select a narrator from this chat's characters");
-          for (const [id, anchor] of Object.entries(next.knowledgeStarts)) {
-            if (!ctx.characterIds.includes(id)) continue; // Retain removed characters' confirmed ranges for a later return.
-            if (anchor && !ctx.messages.some((message) => message.id === anchor))
-              throw new Error("A character knowledge range points to a message that no longer exists");
+          // The GM is a Game chat's only reader; a narrator or knowledge range saved there is never used.
+          if (ctx.mode !== "game") {
+            if (next.narratorCharacterId && !ctx.characterIds.includes(next.narratorCharacterId))
+              throw new Error("Select a narrator from this chat's characters");
+            for (const [id, anchor] of Object.entries(next.knowledgeStarts)) {
+              if (!ctx.characterIds.includes(id)) continue; // Retain removed characters' confirmed ranges for a later return.
+              if (anchor && !ctx.messages.some((message) => message.id === anchor))
+                throw new Error("A character knowledge range points to a message that no longer exists");
+            }
           }
         }
         // Reconcile an explicit enable on a conflicting legacy chat, while a

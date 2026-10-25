@@ -135,6 +135,12 @@ The narrator also stops receiving a character's notes when that character is dis
 
 You can also keep a note on a single message. Choose **Bookmark, pin or note** under the message and write a **Private note**. It stays private and is never sent to the model unless you turn on **Show the note to the narrator character** and pick a character. That character then receives the note next to that message, and no other character does. Sharing needs a solo chat or **Individual** group generation, because a merged group reply is written for every character at once. **Remove note** also stops sharing it.
 
+## Video clips
+
+In **Chat Settings → Agents → Roleplay Commands**, enable **Video clips** to let characters ask for a short video clip of a key moment instead of a still picture. It starts off, and needs the **Illustrator** agent in the chat and a video connection under Illustrator's **Scene Videos**.
+
+The model uses `[video: subject="the moment" motion="what moves and how the camera moves" characters="names"]`, and is told to prefer it over `[illustrate]` when the moment is about motion. What the clip starts from follows Illustrator's **First frame** setting: a new Illustrator picture of the moment, the named character's avatar or sprite, or no picture. The clip plays in the reply when it is ready. It is offered only while the **Video Run Interval** allows a clip, and it counts toward **Videos per reply** like Illustrator's own clips.
+
 ## Character interruptions
 
 In **Chat Settings → Agents → Roleplay Commands**, enable **Interruptions** to let characters cut off the latest message when a verbal or physical intervention is plausible. It starts off and does not need a downloadable agent.

@@ -57,7 +57,6 @@ import {
 import {
   AGENT_MAX_TOOL_ROUNDS,
   LOREBOOK_BACKFILL_MAX_TOOL_ROUNDS,
-  getAgentCallTimeoutMs,
   getMaxToolRounds,
   isDebugAgentsEnabled,
 } from "../../config/runtime-config.js";
@@ -87,13 +86,13 @@ import {
   resolveBeholderStateResponse,
   type BeholderPassLane,
 } from "./beholder-state.js";
+import { formatOptionalVideoOffer } from "../generation/image-prompt-instructions.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
 const EXPRESSION_AGENT_CONTEXT_CHAR_LIMIT = 1200;
 const EXPRESSION_AGENT_RESPONSE_CHAR_LIMIT = 6000;
 const DEFAULT_AGENT_TEMPERATURE = 0.7;
-const ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS = 30 * 60_000;
 const AGENT_BATCH_FALLBACK_MAX_CONCURRENT = 4;
 
 /** Strip HTML/XML-style tags (e.g. <div style="..."> <br> <speaker>) from text to save tokens. */
@@ -280,6 +279,16 @@ export function buildAgentPromptMacroContext(
     characters: characters.map(value),
     variables: {},
     agentData: context.previousOutput ? { [context.previousOutput.agentType]: value(context.previousOutput.text) } : {},
+    worldState: context.gameState
+      ? {
+          date: value(context.gameState.date),
+          time: value(context.gameState.time),
+          worldCustomFields: context.gameState.worldCustomFields?.map((field) => ({
+            ...field,
+            value: value(field.value),
+          })),
+        }
+      : null,
     lastInput: latestUserMessage ? value(latestUserMessage.content) : "",
     chatId: value(context.chatId),
     characterProfiles: context.characters.map((character) => ({
@@ -707,32 +716,6 @@ function agentBatchRequestSignature(config: AgentExecConfig): string {
   });
 }
 
-function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
-  const activeSignals = signals.filter((signal) => !signal.aborted);
-  const abortedSignal = signals.find((signal) => signal.aborted);
-  if (abortedSignal) return abortedSignal;
-  if (activeSignals.length === 1) return activeSignals[0]!;
-  if (typeof AbortSignal.any === "function") return AbortSignal.any(activeSignals);
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  for (const signal of activeSignals) {
-    signal.addEventListener("abort", abort, { once: true });
-  }
-  return controller.signal;
-}
-
-function agentCallSignal(parentSignal?: AbortSignal, agentType?: "illustrator"): AbortSignal {
-  // AGENT_CALL_TIMEOUT_MS caps the TOTAL duration of one agent LLM call, even
-  // while streaming; slow local models need a raised value (#3958). The
-  // illustrator keeps at least its generous image-generation budget.
-  const configuredMs = getAgentCallTimeoutMs();
-  const timeoutMs =
-    agentType === "illustrator" ? Math.max(ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS, configuredMs) : configuredMs;
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
-  return parentSignal ? combineAbortSignals([parentSignal, timeoutSignal]) : timeoutSignal;
-}
-
 function applyProviderMaxTokensOverride(provider: BaseLLMProvider, maxTokens: number): number {
   return provider.maxTokensOverrideValue !== null ? Math.min(maxTokens, provider.maxTokensOverrideValue) : maxTokens;
 }
@@ -964,7 +947,7 @@ export async function executeAgent(
             responseText += chunk;
           }
         : undefined,
-      signal: agentCallSignal(context.signal, config.type === "illustrator" ? "illustrator" : undefined),
+      signal: context.signal,
     });
 
     if (!responseText && result.content) responseText = result.content;
@@ -1013,7 +996,7 @@ export async function executeAgent(
               retryResponseText += chunk;
             }
           : undefined,
-        signal: agentCallSignal(context.signal, config.type === "illustrator" ? "illustrator" : undefined),
+        signal: context.signal,
       });
       totalTokens += retryResult.usage?.totalTokens ?? 0;
       if (!retryResponseText && retryResult.content) retryResponseText = retryResult.content;
@@ -1099,9 +1082,8 @@ async function executeBeholderLanePasses(args: {
 
   logger.info(`[agent] ${config.type} (${config.name}) — ${model} — ${BEHOLDER_PASS_LANES.length} passes`);
 
-  // Bounded dispatch, not Promise.all: each lane's timeout budget starts when
-  // agentCallSignal builds it, so launching all five at once would let a lane
-  // queued behind a rate limit burn its budget before the provider starts work.
+  // Keep provider dispatch bounded so queued lanes do not spend their inactivity
+  // budget waiting behind other calls.
   const settled = await settleAgentJobsWithConcurrencyLimit(
     [...BEHOLDER_PASS_LANES],
     AGENT_BATCH_FALLBACK_MAX_CONCURRENT,
@@ -1134,7 +1116,7 @@ async function executeBeholderLanePasses(args: {
               laneText += chunk;
             }
           : undefined,
-        signal: agentCallSignal(context.signal),
+        signal: context.signal,
       });
       if (!laneText && result.content) laneText = result.content;
       laneText = laneText.trim();
@@ -1215,7 +1197,7 @@ async function executeBeholderLanePasses(args: {
         cachingAtDepth: config.cachingAtDepth,
         ...args.requestOptions,
         stream: false,
-        signal: agentCallSignal(context.signal),
+        signal: context.signal,
       });
       totalTokens += repair.usage?.totalTokens ?? 0;
       const repairData = parseAgentResponse(config, (repair.content ?? "").trim()).data;
@@ -1278,11 +1260,6 @@ async function executeAgentWithTools(
   let totalTokens = 0;
   const debugAgentsEnabled = isDebugAgentsEnabled() && logger.isLevelEnabled("debug");
   const responseFormatOverride = jsonAgentResponseFormatOverride(config, model);
-  // Fresh per-call so AGENT_CALL_TIMEOUT_MS caps each LLM call, not the whole
-  // tool loop; earlier rounds must not eat a later round's budget.
-  const nextCallSignal = () =>
-    agentCallSignal(context.signal, config.type === "illustrator" ? "illustrator" : undefined);
-
   for (let round = 0; round < maxToolRounds; round++) {
     const roundStartedAt = Date.now();
     const providerMessages = prepareAgentProviderMessages(loopMessages);
@@ -1307,7 +1284,7 @@ async function executeAgentWithTools(
       // no-tools round below carries it instead.
       stream: streamResponses,
       tools: toolContext.tools,
-      signal: nextCallSignal(),
+      signal: context.signal,
     });
 
     totalTokens += result.usage?.totalTokens ?? 0;
@@ -1404,7 +1381,7 @@ async function executeAgentWithTools(
     ...requestOptions,
     ...responseFormatOverride,
     stream: streamResponses,
-    signal: nextCallSignal(),
+    signal: context.signal,
   });
   totalTokens += finalResult.usage?.totalTokens ?? 0;
   const responseText = finalResult.content?.trim() ?? "";
@@ -1646,10 +1623,7 @@ export async function executeAgentBatch(
               responseText += chunk;
             }
           : undefined,
-        signal: agentCallSignal(
-          context.signal,
-          configs.some((config) => config.type === "illustrator") ? "illustrator" : undefined,
-        ),
+        signal: context.signal,
       }),
     );
 
@@ -1783,6 +1757,8 @@ function buildBatchSystemPrompt(
     parts.push(``);
     parts.push(`<agent_task id="${escapeXmlAttribute(config.type)}" name="${escapeXmlAttribute(config.name)}">`);
     parts.push(template);
+    const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
+    if (attachedLorebook) parts.push(attachedLorebook);
     parts.push(`</agent_task>`);
   }
   parts.push(`</agents>`);
@@ -2126,8 +2102,22 @@ function buildCustomAgentVectorContextBlock(config: AgentExecConfig, context: Ag
 }
 
 function buildCustomAgentTriggeredLorebookBlock(config: AgentExecConfig, context: AgentContext): string {
-  if (config.settings.triggerLorebooksForAgentCalls !== true) return "";
-  const entries = context.triggeredLorebookEntriesByAgentId?.[config.id] ?? [];
+  const agentIds = new Set<string>();
+  if (config.settings.triggerLorebooksForAgentCalls === true || config.settings.chatLorebookAttachmentEnabled === true)
+    agentIds.add(config.id);
+  if (Array.isArray(config.settings._mergedLorebookAttachmentAgentIds)) {
+    for (const id of config.settings._mergedLorebookAttachmentAgentIds) {
+      if (typeof id === "string") agentIds.add(id);
+    }
+  }
+  const seen = new Set<string>();
+  const entries = [...agentIds]
+    .flatMap((id) => context.triggeredLorebookEntriesByAgentId?.[id] ?? [])
+    .filter((entry) => {
+      if (seen.has(entry.id)) return false;
+      seen.add(entry.id);
+      return true;
+    });
   if (entries.length === 0) return "";
   const wrapFormat = normalizeAgentContextWrapFormat(context.wrapFormat);
 
@@ -2273,7 +2263,10 @@ function buildBeholderMessages(
   const narration = narrationOverride ?? context.narrationOverride ?? beholderNarration(config, context);
   const user = buildBeholderUserMessage(context.memory._beholderState, context.persona?.name ?? null, narration);
   return [
-    { role: "system", content: template },
+    {
+      role: "system",
+      content: [template, buildCustomAgentTriggeredLorebookBlock(config, context)].filter(Boolean).join("\n\n"),
+    },
     { role: "user", content: user },
   ];
 }
@@ -2350,6 +2343,8 @@ function buildKnowledgeRetrievalAgentMessages(
   context: AgentContext,
 ): ChatMessage[] {
   const systemParts: string[] = [];
+  const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
+  if (attachedLorebook) systemParts.push(attachedLorebook);
   systemParts.push(`<role>`);
   systemParts.push(
     `You are a specialized knowledge retrieval agent. Extract relevant facts from source material; do not roleplay, continue the conversation, write dialogue, or answer as any character.`,
@@ -2575,6 +2570,8 @@ function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, co
   const turnLabel = isGame ? "game" : "roleplay";
   const musicProvider = getMusicProvider(config.settings);
   const systemParts: string[] = [];
+  const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
+  if (attachedLorebook) systemParts.push(attachedLorebook);
   const providerLabel =
     musicProvider === "custom" ? "Custom local music" : musicProvider === "youtube" ? "YouTube" : "Spotify";
   systemParts.push(`<role>`);
@@ -2653,6 +2650,8 @@ function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, co
 
 function buildExpressionAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
   const systemParts: string[] = [];
+  const attachedLorebook = buildCustomAgentTriggeredLorebookBlock(config, context);
+  if (attachedLorebook) systemParts.push(attachedLorebook);
   systemParts.push(`<role>`);
   systemParts.push(`You are a specialized expression-selection agent. Keep the request compact and return only JSON.`);
   systemParts.push(
@@ -2924,8 +2923,19 @@ function buildAgentMessages(
   // assistant. Anthropic treats a trailing assistant turn as prefill and rejects
   // some models, so add a terminal user instruction for that agent type too.
   const outputFormatBlock = options.outputFormatBlock?.trim() ?? "";
+  const generatedVideos =
+    options.includeImagePromptInstructions === true &&
+    context.memory._generatedVideos &&
+    typeof context.memory._generatedVideos === "object"
+      ? (context.memory._generatedVideos as {
+          instructions?: unknown;
+          clipsOnly?: unknown;
+          describeAppearance?: unknown;
+        })
+      : null;
   const requiresTerminalUserInstruction =
     finalParts.length > 0 ||
+    !!generatedVideos ||
     contextAgentTypes.includes("echo-chamber") ||
     !!outputFormatBlock ||
     (options.includeImagePromptInstructions === true &&
@@ -2941,6 +2951,10 @@ function buildAgentMessages(
     );
     finalParts.push(lateImagePromptInstructions);
     finalParts.push("</image_prompting_instructions>");
+  }
+  if (generatedVideos) {
+    // Generated Videos: the picture can become a short clip when the agent decides motion adds to the moment.
+    finalParts.push(`\n${formatOptionalVideoOffer(generatedVideos)}`);
   }
 
   if (requiresTerminalUserInstruction) {
@@ -3050,6 +3064,67 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
   }
 
   parts.push(`</lore>`);
+  return parts.join("\n");
+}
+
+const MAX_CURRENT_LOCATION_DESCRIPTION_CHARS = 1_500;
+
+/**
+ * The story's current Maps location for image prompts, gated by "Tracker data". The
+ * prompt writer never sees the location's reference image, and image models without
+ * reference support drop it, so the text is what sets the background (#8251).
+ */
+export function buildAgentCurrentLocationBlock(
+  context: AgentContext,
+  sources: CustomAgentContextSources = ALL_AGENT_CONTEXT_SOURCES,
+): string {
+  const location = context.currentLocation;
+  if (!sources.trackerData || !location?.path) return "";
+  const description = location.description.slice(0, MAX_CURRENT_LOCATION_DESCRIPTION_CHARS);
+  return [
+    "<current_location>",
+    "The story's current location, from the chat's map. Use it for the image's setting and background. If it contradicts the scene, the scene wins: treat it as outdated and ignore it.",
+    `Path: ${location.path}`,
+    ...(description ? [`Description: ${description}`] : []),
+    "</current_location>",
+  ].join("\n");
+}
+
+/**
+ * The reference blocks an agent's Context Sources gate: activated lorebook entries,
+ * chat summary and author notes. Shared with the manual Illustrator prompt writer so
+ * `[illustrate:]` commands see the same lore as an automatic Illustrator run (#8246).
+ */
+export function buildAgentReferenceContextBlock(
+  context: AgentContext,
+  sources: CustomAgentContextSources = ALL_AGENT_CONTEXT_SOURCES,
+): string {
+  const parts: string[] = [];
+  const wrapFormat = normalizeAgentContextWrapFormat(context.wrapFormat);
+
+  if (sources.activatedLorebookEntries && context.activatedLorebookEntries?.length) {
+    parts.push(`<activated_lorebook_context>`);
+    parts.push(`Lorebook entries activated for the main generation on this turn:`);
+    for (const entry of context.activatedLorebookEntries) {
+      parts.push(`<entry id="${escapeXml(entry.id)}" name="${escapeXml(entry.name ?? "")}">`);
+      parts.push(sanitizePromptLeaf(entry.content, wrapFormat));
+      parts.push(`</entry>`);
+    }
+    parts.push(`</activated_lorebook_context>`);
+  }
+
+  if (sources.chatSummary && context.chatSummary) {
+    parts.push(`<chat_summary>`);
+    parts.push(escapeXml(context.chatSummary));
+    parts.push(`</chat_summary>`);
+  }
+
+  if (sources.authorNotes && context.authorNotes) {
+    parts.push(`<author_notes>`);
+    parts.push(escapeXml(context.authorNotes));
+    parts.push(`</author_notes>`);
+  }
+
   return parts.join("\n");
 }
 
@@ -3187,6 +3262,11 @@ function buildAgentExtras(
     parts.push(`<current_game_state>`);
     parts.push(JSON.stringify(compactGameStateForAgentContext(context.gameState, agentTypes)));
     parts.push(`</current_game_state>`);
+  }
+
+  if (imageCapable) {
+    const currentLocation = buildAgentCurrentLocationBlock(context, sources);
+    if (currentLocation) parts.push(currentLocation);
   }
 
   if (
@@ -3407,28 +3487,8 @@ function buildAgentExtras(
     }
   }
 
-  if (sources.activatedLorebookEntries && context.activatedLorebookEntries?.length) {
-    parts.push(`<activated_lorebook_context>`);
-    parts.push(`Lorebook entries activated for the main generation on this turn:`);
-    for (const entry of context.activatedLorebookEntries) {
-      parts.push(`<entry id="${escapeXml(entry.id)}" name="${escapeXml(entry.name ?? "")}">`);
-      parts.push(sanitizePromptLeaf(entry.content, wrapFormat));
-      parts.push(`</entry>`);
-    }
-    parts.push(`</activated_lorebook_context>`);
-  }
-
-  if (sources.chatSummary && context.chatSummary) {
-    parts.push(`<chat_summary>`);
-    parts.push(escapeXml(context.chatSummary));
-    parts.push(`</chat_summary>`);
-  }
-
-  if (sources.authorNotes && context.authorNotes) {
-    parts.push(`<author_notes>`);
-    parts.push(escapeXml(context.authorNotes));
-    parts.push(`</author_notes>`);
-  }
+  const referenceContext = buildAgentReferenceContextBlock(context, sources);
+  if (referenceContext) parts.push(referenceContext);
 
   if (context.memory._sourceMaterial) {
     parts.push(`<source_material>`);

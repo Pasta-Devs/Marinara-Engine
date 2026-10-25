@@ -6,12 +6,13 @@ import {
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   parseManagedGenerationParameterDefinitions,
   withoutPresetTokenLimits,
+  isStockMarinaraUniversalPreset,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
 import { createPromptsStorage } from "../../services/storage/prompts.storage.js";
 import { createAppSettingsStorage } from "../../services/storage/app-settings.storage.js";
-import { parsePresetParameters } from "../../services/prompt/assembler.js";
+import { getPresetGenerationParameters } from "../../services/prompt/assembler.js";
 import { resolveGenerationProviderRuntime } from "../../services/generation/provider-generation-runtime.js";
 import { keepsCodexDefaultEffort } from "../../services/generation/generation-parameters.js";
 import { resolveModelAccessPolicy } from "../../services/generation/model-access-policy.js";
@@ -41,8 +42,11 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
       preset = await presets.getById(candidate.id);
       if (preset) break;
     }
-    const presetParams = parsePresetParameters(preset?.parameters ?? "{}");
-    const storedPresetParams = withoutPresetTokenLimits(parseStoredGenerationParameters(preset?.parameters) ?? {});
+    const presetParams = getPresetGenerationParameters(preset);
+    const storedPresetParams =
+      preset && isStockMarinaraUniversalPreset(preset)
+        ? {}
+        : withoutPresetTokenLimits(parseStoredGenerationParameters(preset?.parameters) ?? {});
     const policy = resolveModelAccessPolicy(connection);
     const definitions = parseManagedGenerationParameterDefinitions(
       await createAppSettingsStorage(app.db).get(CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY),

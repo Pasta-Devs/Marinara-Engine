@@ -2,7 +2,7 @@ import { promises as dns } from "node:dns";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { basename, extname, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
-import { Agent, EnvHttpProxyAgent, type Dispatcher } from "undici";
+import { Agent, Dispatcher1Wrapper, EnvHttpProxyAgent, type Dispatcher } from "undici";
 import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
@@ -61,6 +61,8 @@ export interface SafeFetchOptions extends Omit<RequestInit, "dispatcher"> {
   allowMissingContentType?: boolean;
   bufferResponse?: boolean;
   decodeCompressedResponse?: boolean;
+  /** Observe nonempty raw response chunks before buffering or decoding. */
+  onResponseData?: () => void;
   agentOptions?: Omit<AgentOptions, "connect">;
   /** Start TCP keepalive probes after this many idle milliseconds without exposing custom DNS/connect hooks. */
   keepAliveInitialDelayMs?: number;
@@ -404,6 +406,8 @@ function createDispatcher(hostname: string, options: AgentOptions): Dispatcher {
     typeof options?.connect === "object" ? options.connect.keepAliveInitialDelay : undefined;
   return new EnvHttpProxyAgent({
     ...options,
+    // Preserve CONNECT tunnels for HTTP providers rather than Undici 8's forward-proxy default.
+    proxyTunnel: true,
     ...(keepAliveInitialDelay ? { proxyTls: { keepAliveInitialDelay } } : {}),
   });
 }
@@ -463,6 +467,7 @@ async function readCappedResponse(
   maxBytes: number,
   dispatcher?: Dispatcher,
   decodeCompressedResponse = false,
+  onResponseData?: () => void,
 ): Promise<Response> {
   if (!response.body) {
     await dispatcher?.close().catch(() => undefined);
@@ -475,6 +480,7 @@ async function readCappedResponse(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (value.byteLength) onResponseData?.();
       total += value.byteLength;
       if (total > maxBytes) {
         await reader.cancel().catch(() => undefined);
@@ -518,7 +524,12 @@ function normalizeCompressedBody(body: Buffer, headers: Headers, maxBytes: numbe
   return { body, headers };
 }
 
-function capStreamingResponse(response: Response, maxBytes: number, dispatcher?: Dispatcher): Response {
+function capStreamingResponse(
+  response: Response,
+  maxBytes: number,
+  dispatcher?: Dispatcher,
+  onResponseData?: () => void,
+): Response {
   if (!response.body) {
     void dispatcher?.close().catch(() => undefined);
     return response;
@@ -539,6 +550,7 @@ function capStreamingResponse(response: Response, maxBytes: number, dispatcher?:
             return;
           }
 
+          if (value.byteLength) onResponseData?.();
           total += value.byteLength;
           if (total > maxBytes) {
             await reader.cancel().catch(() => undefined);
@@ -669,6 +681,7 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     allowMissingContentType = false,
     bufferResponse = true,
     decodeCompressedResponse = false,
+    onResponseData,
     agentOptions,
     keepAliveInitialDelayMs,
     dispatcher,
@@ -713,7 +726,8 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
       ...currentInit,
       ...(requestHeaders ? { headers: requestHeaders } : {}),
       redirect: "manual",
-      dispatcher: dispatcher ?? internalDispatcher,
+      // Node's bundled fetch still uses legacy handlers; custom dispatchers retain their caller's contract.
+      dispatcher: dispatcher ?? (internalDispatcher ? new Dispatcher1Wrapper(internalDispatcher) : undefined),
     } as unknown as RequestInit);
     if (response.status >= 300 && response.status < 400 && response.headers.has("location")) {
       if (i === redirects) throw new Error("Outbound request exceeded redirect limit");
@@ -742,8 +756,8 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     }
 
     return bufferResponse
-      ? readCappedResponse(response, maxResponseBytes, internalDispatcher, decodeCompressedResponse)
-      : capStreamingResponse(response, maxResponseBytes, internalDispatcher);
+      ? readCappedResponse(response, maxResponseBytes, internalDispatcher, decodeCompressedResponse, onResponseData)
+      : capStreamingResponse(response, maxResponseBytes, internalDispatcher, onResponseData);
   }
 
   throw new Error("Outbound request exceeded redirect limit");

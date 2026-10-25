@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { currentRoomGeneration, resolveRoomGenerationPolicy } from "../multiplayer/generation-policy.js";
 // ──────────────────────────────────────────────
 // Storage: Chats
@@ -21,6 +22,7 @@ import {
   characters,
   chats,
   messages,
+  messageTrash,
   messageSwipes,
   gameStateSnapshots,
   spatialContextSnapshots,
@@ -40,6 +42,7 @@ import {
   conversationCallSessions,
   conversationCallMessages,
   lorebookEntries,
+  promptPresets,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
@@ -54,6 +57,7 @@ import {
   getChatWindowDefaultSettingsKey,
   parseChatWindowDefault,
   type CreateChatInput,
+  type Chat,
   type CreateMessageInput,
   type RoleplayCommandActivity,
 } from "@marinara-engine/shared";
@@ -617,7 +621,7 @@ function isValidLegacySchedule(value: unknown): value is WeekSchedule {
   );
 }
 
-function parseCharacterIds(raw: unknown): string[] {
+export function parseCharacterIds(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((id): id is string => typeof id === "string" && id.length > 0);
   if (typeof raw !== "string") return [];
   try {
@@ -2139,6 +2143,56 @@ export function createChatsStorage(db: DB) {
       await cleanupDeletedChatFiles(id, galleryFilePaths);
     },
 
+    /** Compare and remove inside one transaction so messages/settings cannot race cancellation. */
+    async removeEmptySetupChat(
+      id: string,
+      initial: Pick<Chat, "id" | "createdAt" | "name" | "mode" | "connectionId" | "promptPresetId"> & {
+        metadata: Record<string, unknown>;
+      },
+    ): Promise<boolean> {
+      const galleryFilePaths = await db.transaction(async (tx) => {
+        const [chat] = await tx.select().from(chats).where(eq(chats.id, id)).limit(1);
+        if (
+          !chat ||
+          initial.id !== id ||
+          chat.createdAt !== initial.createdAt ||
+          chat.name !== initial.name ||
+          chat.mode !== initial.mode ||
+          chat.connectionId !== initial.connectionId ||
+          chat.personaId ||
+          chat.personaCharacterId ||
+          parseCharacterIds(chat.characterIds).length ||
+          chat.groupId ||
+          chat.folderId ||
+          chat.connectedChatId ||
+          chat.sortOrder ||
+          !isDeepStrictEqual(parseMetadata(chat.metadata), JSON.parse(JSON.stringify(initial.metadata)))
+        )
+          return null;
+        // The wizard auto-selects the built-in prompt preset without user input.
+        if (chat.promptPresetId !== initial.promptPresetId) {
+          if (initial.promptPresetId || !chat.promptPresetId) return null;
+          const [preset] = await tx
+            .select()
+            .from(promptPresets)
+            .where(eq(promptPresets.id, chat.promptPresetId))
+            .limit(1);
+          if (preset?.isDefault !== "true") return null;
+        }
+        // Empty means no durable content, including imported memory or restorable deleted messages.
+        if (chat.mode === "game" ? await isProtectedGameDeleteTarget(chat) : await hasGameDeletePayload(id))
+          return null;
+        for (const table of [memoryChunks, agentMemory, messageTrash]) {
+          const rows = await tx.select({ id: table.id }).from(table).where(eq(table.chatId, id)).limit(1);
+          if (rows.length) return null;
+        }
+        return removeChatDatabaseRecords(tx, id);
+      });
+      if (!galleryFilePaths) return false;
+      await cleanupDeletedChatFiles(id, galleryFilePaths);
+      return true;
+    },
+
     /** Atomically remove a marked Roleplay DM thread only while it is still empty. */
     async removeEmptyRoleplayDmChat(id: string): Promise<boolean> {
       const galleryFilePaths = await db.transaction(async (tx) => {
@@ -2225,6 +2279,31 @@ export function createChatsStorage(db: DB) {
 
     async hasGameDeletePayload(chatId: string): Promise<boolean> {
       return hasGameDeletePayload(chatId);
+    },
+
+    /** Each message's id, role and speaker for these chats, in transcript order, without its text. */
+    async listMessageOutlines(chatIds: string[]) {
+      if (chatIds.length === 0) return [];
+      return db
+        .select({
+          id: messages.id,
+          chatId: messages.chatId,
+          role: messages.role,
+          characterId: messages.characterId,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(inArray(messages.chatId, chatIds))
+        .orderBy(messages.createdAt, messages.id);
+    },
+
+    async getMessageContents(ids: string[]): Promise<Map<string, string>> {
+      if (ids.length === 0) return new Map();
+      const rows = await db
+        .select({ id: messages.id, content: messages.content })
+        .from(messages)
+        .where(inArray(messages.id, ids));
+      return new Map(rows.map((row) => [row.id, row.content]));
     },
 
     async listMessages(chatId: string) {
@@ -2975,75 +3054,37 @@ export function createChatsStorage(db: DB) {
     ): Promise<string[]> {
       if (messageIds.length === 0) return [];
       const uniqueIds = Array.from(new Set(messageIds));
-      const scopedRows: { id: string; extra: string | null }[] = [];
-      const CHUNK = 500;
-      for (let i = 0; i < uniqueIds.length; i += CHUNK) {
-        const batch = uniqueIds.slice(i, i + CHUNK);
-        const batchRows = await db
-          .select({ id: messages.id, extra: messages.extra })
-          .from(messages)
-          .where(and(eq(messages.chatId, chatId), inArray(messages.id, batch)));
-        scopedRows.push(...batchRows);
-      }
-
-      const seen = new Set<string>();
-      const flipped: string[] = [];
-      try {
-        for (const row of scopedRows) {
-          if (seen.has(row.id)) continue;
-          seen.add(row.id);
-          // State read immediately before the write — the moment-of-mutation truth
-          // that decides whether THIS call flips the message into the target state.
-          let wasHidden = false;
-          try {
-            const parsed = typeof row.extra === "string" ? JSON.parse(row.extra) : (row.extra ?? {});
-            wasHidden = (parsed as { hiddenFromAI?: unknown } | null)?.hiddenFromAI === true;
-          } catch {
-            wasHidden = false;
-          }
-          await this.updateMessageExtra(row.id, { ...extra, hiddenFromAI: hidden });
-          // Mirror what the single-message /extra route does: propagate the flag to
-          // all swipe rows so setActiveSwipe() cannot clobber it. Done for every
-          // scoped row (idempotent when already in the target state) so swipe
-          // consistency never depends on whether the main row happened to flip.
-          const swipes = await this.getSwipes(row.id);
-          for (const swipe of swipes) {
-            await this.updateSwipeExtra(row.id, swipe.index, { ...extra, hiddenFromAI: hidden });
-          }
-          if (wasHidden !== hidden) flipped.push(row.id);
-        }
-      } catch (err) {
-        // A write failed partway through. The rows we did not reach are untouched,
-        // and rows already in the target state were never flipped, so the only
-        // partial state is the `flipped` set. Undo exactly those so the call is
-        // all-or-nothing and a caller never records ownership of a half-applied
-        // batch. (db.transaction() is intentionally avoided in this store — see the
-        // bounded bulk-insert path above — so this
-        // compensating undo is the atomicity mechanism.) A clean undo preserves
-        // the original error. A failed undo is surfaced as a compound failure so
-        // callers never mistake a partially restored batch for a clean rollback.
-        const undoErrors: unknown[] = [];
-        for (const id of flipped) {
-          try {
-            await this.updateMessageExtra(id, { hiddenFromAI: !hidden });
-            const swipes = await this.getSwipes(id);
-            for (const swipe of swipes) {
-              await this.updateSwipeExtra(id, swipe.index, { hiddenFromAI: !hidden });
+      // Match ordinary message writers: acquire queues before opening the transaction.
+      // Read inside it and write directly, avoiding reentrant queue acquisition and
+      // restoring exact extras (including absent keys) if any message or swipe fails.
+      return withPatchQueues(messageExtraPatchQueues, uniqueIds, () =>
+        db.transaction(async (tx) => {
+          const flipped: string[] = [];
+          const CHUNK = 500;
+          for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+            const rows = await tx
+              .select({ id: messages.id, extra: messages.extra })
+              .from(messages)
+              .where(and(eq(messages.chatId, chatId), inArray(messages.id, uniqueIds.slice(i, i + CHUNK))));
+            for (const row of rows) {
+              const previous = parseExtraRecord(row.extra);
+              await tx
+                .update(messages)
+                .set({ extra: JSON.stringify({ ...previous, ...extra, hiddenFromAI: hidden }) })
+                .where(eq(messages.id, row.id));
+              const swipes = await tx.select().from(messageSwipes).where(eq(messageSwipes.messageId, row.id));
+              for (const swipe of swipes) {
+                await tx
+                  .update(messageSwipes)
+                  .set({ extra: JSON.stringify({ ...parseExtraRecord(swipe.extra), ...extra, hiddenFromAI: hidden }) })
+                  .where(eq(messageSwipes.id, swipe.id));
+              }
+              if ((previous.hiddenFromAI === true) !== hidden) flipped.push(row.id);
             }
-          } catch (undoErr) {
-            undoErrors.push(undoErr);
-            logger.error(undoErr, "bulkSetHiddenFromAI: failed to undo partial hide for message %s", id);
           }
-        }
-        if (undoErrors.length > 0) {
-          throw new AggregateError(
-            [err, ...undoErrors],
-            `bulkSetHiddenFromAI failed and rollback failed for ${undoErrors.length} of ${flipped.length} flipped messages`,
-          );
-        }
-        throw err;
-      }
-      return flipped;
+          return flipped;
+        }),
+      );
     },
 
     /**
