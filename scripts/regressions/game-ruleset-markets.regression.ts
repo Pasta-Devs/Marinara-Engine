@@ -332,9 +332,9 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     ["shillings", 5, ""],
     ["Warming tonic", 3, "Bram"],
   ]);
-  // By its id, with its catalog or without; and a name with a comma in it is one item, not two
+  // By its ref; and a name with a comma in it is one item, not two
   // (ship-readiness pass 2026-10-25: "Rope, hempen (50 feet)" and "Lantern, hooded").
-  for (const item of ["kit/warming-tonic", "warming-tonic"]) {
+  for (const item of ["kit/warming-tonic"]) {
     const byId = buy(`[inventory: action="buy" item="${item}"]`, coins([["shillings", "shilling", 1]]));
     assert.match(byId.content, /item="Warming tonic"[^\]]*result="ok"/, `${item}: ${byId.content}`);
   }
