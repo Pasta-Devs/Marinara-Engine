@@ -1179,8 +1179,13 @@ export function rulesetItemBook(
     const key = gameInventoryNameKey(name);
     const made = inventedByName.get(key)?.at(-1);
     const coin = coinNamed(name);
+    // Or by its ref, catalog and id, which no name looks like (#8271: a buy of
+    // "equipment/rope-hempen-50-feet" refused as an unknown item). A bare id is still no name.
+    const ref = name.trim();
     return (
-      byName.get(key) ?? (made ? all.get(rulesetInventedItemRef(made.id)) : coin ? all.get(coin.coin.item) : undefined)
+      byName.get(key) ??
+      (made ? all.get(rulesetInventedItemRef(made.id)) : coin ? all.get(coin.coin.item) : undefined) ??
+      (offered.has(ref) ? all.get(ref) : undefined)
     );
   };
   /** The ruleset's own weapon of this category whose name shares the most words with `name` (a word

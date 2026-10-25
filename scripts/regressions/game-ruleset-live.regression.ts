@@ -169,6 +169,10 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "1st-level slots", amount: 1 }).now, "1/2");
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "ki", amount: 2 }).now, "3/5");
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "Ki Points", amount: 1 }), "unknown-pool");
+  // A declared pool written the way a key is, or by its initials (#8271: "hit_points").
+  const byKey = applied(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 1 }).now;
+  for (const pool of ["hit_points", "Hit-Points", "HP"])
+    assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool, amount: 1 }).now, byKey, pool);
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 0 }), "bad-amount");
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 1.5 }), "bad-amount");
 
@@ -819,6 +823,8 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const upcast = run(`[sheet: op="use" name="Fireball" pool="3rd-level slots"]`);
   assert.match(upcast.content, /now="3rd-level slots 0\/1"/);
   assert.deepEqual(upcast.live.mira, { pools: { slots_3: { value: 0 } } });
+  // Written loosely, as a GM might, it is the same pool (#8271).
+  assert.match(run(`[sheet: op="use" name="Fireball" pool="3rd_level_slots"]`).content, /now="3rd-level slots 0\/1"/);
   // It works off a single-pool cost too, because that pool is in the group as well.
   assert.match(run(`[sheet: op="use" name="Magic Missile" pool="2nd-level slots"]`).content, /now="2nd-level slots/);
 

@@ -332,6 +332,84 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     ["shillings", 5, ""],
     ["Warming tonic", 3, "Bram"],
   ]);
+  // By its ref; and a name with a comma in it is one item, not two
+  // (#8271: "Rope, hempen (50 feet)" and "Lantern, hooded").
+  for (const item of ["kit/warming-tonic"]) {
+    const byId = buy(`[inventory: action="buy" item="${item}"]`, coins([["shillings", "shilling", 1]]));
+    assert.match(byId.content, /item="Warming tonic"[^\]]*result="ok"/, `${item}: ${byId.content}`);
+  }
+  {
+    const comma = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs)
+          for (const entry of catalog.entries ?? []) if (entry.id === "warming-tonic") entry.label = "Tonic, warming";
+      }),
+      "Gravewatch with a comma",
+    );
+    const commaBook = rulesetItemBook(comma, entriesOf(comma));
+    const commaQuote = rulesetMarketQuoter(comma, commaBook, town, () => true);
+    const tagged = '[inventory: action="buy" item="Tonic, warming"]';
+    const one = applyGameInventoryTags(
+      tagged,
+      coins([["shillings", "shilling", 1]]),
+      party,
+      undefined,
+      commaBook,
+      undefined,
+      undefined,
+      commaQuote,
+    );
+    assert.equal(readResolvedInventoryTags(one.content).length, 1, one.content);
+    assert.match(one.content, /item="Tonic, warming"[^\]]*result="ok"/, one.content);
+    // Held, it is found whole too; and a real list still splits.
+    const added = applyGameInventoryTags(
+      '[inventory: action="add" item="Tonic, warming"]',
+      [],
+      party,
+      undefined,
+      commaBook,
+    );
+    assert.deepEqual(held(added.stacks), [["Tonic, warming", 1, ""]]);
+    const two = applyGameInventoryTags(
+      '[inventory: action="add" item="Grave spade, Warming tonic"]',
+      [],
+      party,
+      undefined,
+      book,
+    );
+    assert.equal(readResolvedInventoryTags(two.content).length, 2, two.content);
+  }
+  // Two items of one label: the ref names the one it is, and the label the first (#8271).
+  {
+    const twins = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs) {
+          const entries = catalog.entries ?? [];
+          const tonic = entries.find((entry: { id: string }) => entry.id === "warming-tonic");
+          if (tonic) entries.push({ ...structuredClone(tonic), id: "warming-tonic-dear" });
+        }
+      }),
+      "Gravewatch with twin tonics",
+    );
+    const twinBook = rulesetItemBook(twins, entriesOf(twins));
+    const twinQuote = rulesetMarketQuoter(twins, twinBook, town, () => true);
+    const items = (tag: string, market?: typeof twinQuote) =>
+      applyGameInventoryTags(
+        tag,
+        coins([["shillings", "shilling", 1]]),
+        party,
+        undefined,
+        twinBook,
+        undefined,
+        undefined,
+        market,
+      ).stacks.flatMap((stack) => (stack.item?.startsWith("kit/") ? [stack.item] : []));
+    assert.deepEqual(items('[inventory: action="add" item="kit/warming-tonic-dear"]'), ["kit/warming-tonic-dear"]);
+    assert.deepEqual(items('[inventory: action="buy" item="kit/warming-tonic-dear"]', twinQuote), [
+      "kit/warming-tonic-dear",
+    ]);
+    assert.deepEqual(items('[inventory: action="buy" item="Warming tonic"]', twinQuote), ["kit/warming-tonic"]);
+  }
   // Refusals change nothing.
   const refusedWith = (tag: string, reason: string, stacks = coins([["crowns", "crown", 9]]), at = quoter()) => {
     const answered = buy(tag, stacks, at);
@@ -1050,6 +1128,18 @@ const manifest = (minor: number) => ({
     { item: "Lantern-keeper's coat", action: "sold", quantity: 1 },
     { item: "shillings", action: "acquired", quantity: 4 },
   ]);
+  // Sold by its ref, it is the coat; and a fake sold by ref is seen through as one sold by name (#8271).
+  assert.match(
+    dayTags('[inventory: action="sell" item="kit/lantern-coat"]', coats(1), dayQuoter(dayHamlet)).content,
+    /item="Lantern-keeper's coat" count="1" seller="chandler" result="ok" now="0" price="4 shillings"/,
+  );
+  const fakeCoat: GameInventoryStack[] = [{ ...coats(1)[0]!, truly: "kit/warming-tonic" }];
+  for (const item of ["Lantern-keeper's coat", "kit/lantern-coat"])
+    assert.match(
+      dayTags(`[inventory: action="sell" item="${item}"]`, fakeCoat, dayQuoter(dayHamlet)).content,
+      /revealed="Warming tonic" result="ok" now="0" price="2 pennies"/,
+      item,
+    );
   // A hamlet pays out 10 shillings a day: two coats (8), then a third is too much.
   const three = dayTags(
     '[inventory: action="sell" item="Lantern-keeper\'s coat" count="2"] [inventory: action="sell" item="Lantern-keeper\'s coat"]',
