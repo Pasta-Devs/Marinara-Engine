@@ -1068,6 +1068,63 @@ try {
     assert.equal(await encounterRulesetBrief(plainRuleset.definition, null), null);
   }
 
+  // ── One that got away comes back as it was (laptop playtest 2026-10-25: a Cult Mage that fled at
+  //    CR 3 with 32 health came back at CR 4 with 65) ──
+  {
+    const away = await newGame({ ruleset: true });
+    const fightBody = (anchor: string, enemies: unknown[]) => ({
+      chatId: away.chat.id,
+      anchor,
+      style: "ruleset",
+      party: [unit("brenna", "Brenna", "player")],
+      enemies,
+    });
+    const first = await post(
+      "/combat/start",
+      fightBody(away.anchor.id, [
+        { ...unit("mage", "Cult Mage", "enemy"), creature: "creatures/thorn-lurker" },
+        unit("hound", "Cinder Hound", "enemy"),
+      ]),
+    );
+    assert.equal(first.statusCode, 200, first.body);
+    const fought = first.json().session as DirectedCombatView;
+    const madeMax = fought.ruleset!.combatants.find((one) => one.id === "mage")!.health.max;
+    const engineStates = createGameEngineStateStorage(db);
+    const row = (await engineStates.getByChatAndMessage(away.chat.id, away.anchor.id, 0, COMBAT_DIRECTOR_NAMESPACE))!;
+    const doc = JSON.parse(row.state);
+    for (const one of doc.rulesetFight.encounter.combatants) {
+      if (one.id === "mage") Object.assign(one, { defeated: true, away: { by: "mage", label: "Fled", left: true } });
+      if (one.id === "hound") one.health.value = 1;
+    }
+    await engineStates.updateStateById(row.id, JSON.stringify(doc), undefined, away.chat.id);
+    let ended = fought;
+    const send = async (command: DirectedCommand) => {
+      const response = await post("/combat/command", {
+        chatId: away.chat.id,
+        anchor: away.anchor.id,
+        id: ended.id,
+        instanceId: ended.instanceId,
+        revision: ended.revision,
+        requestId: crypto.randomUUID(),
+        command,
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      ended = response.json().session;
+    };
+    await send({ type: "control", unitId: "brenna", controller: "ai" });
+    for (let guard = 0; guard < 40 && !ended.outcome; guard++) await send({ type: "continue" });
+    assert.equal(ended.outcome, "victory");
+    const meta = JSON.parse((await chats.getById(away.chat.id))!.metadata || "{}");
+    assert.deepEqual(Object.keys(meta.gameReturningFoes ?? {}), ["cult mage"], "only the one that got away");
+    assert.equal(meta.gameReturningFoes["cult mage"].creature, "creatures/thorn-lurker");
+    const later = await chats.createMessage({ chatId: away.chat.id, role: "assistant", content: "[state: combat]" });
+    const back = await post("/combat/start", fightBody(later.id, [unit("mage2", "Cult Mage", "enemy")]));
+    assert.equal(back.statusCode, 200, back.body);
+    const again = back.json().session as DirectedCombatView;
+    assert.equal(again.ruleset!.combatants.find((one) => one.id === "mage2")!.health.max, madeMax, "made as before");
+    assert.ok(again.ruleset!.adjustments.includes("Cult Mage is the same one that got away before."));
+  }
+
   console.log(
     "Ruleset combat director route: start, idempotency, refusal codes, the live sheet write-back, the board, an unchanged classic fight, the boss window and the blueprint prompt passed.",
   );
