@@ -52,7 +52,7 @@ export async function resolveGenerativeAudioConfig(db: DB, requestedId?: string 
     if (!candidate) {
       // A remote connection that only lacks its key is still chosen: readiness reports it unavailable.
       const lacking = await connections.unavailableReason(requestedId);
-      if (lacking.reason === "needs_key" && lacking.row) candidate = { ...lacking.row, apiKey: "" };
+      if (lacking?.reason === "needs_key" && lacking.row) candidate = { ...lacking.row, apiKey: "" };
     }
     row =
       candidate?.provider === "audio_generation"
