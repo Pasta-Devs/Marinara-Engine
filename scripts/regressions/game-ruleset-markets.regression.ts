@@ -694,6 +694,9 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
   assert.match(taught, /\[inventory: action="buy" item="Name" count="1" level="fair" seller="Seller" who="Name"\]/);
   assert.match(taught, /Levels: cheap ×0\.75, fair ×1 \(the default\), dear ×1\.5/);
   assert.match(taught, /Buying is a buy \(below\)/);
+  // A shop the block does not list is narrated as for sale nowhere (laptop playtest 2026-10-25: a
+  // village herbalist's "shelf of red-tinged vials", where no potion was sold).
+  assert.match(taught, /Describe only the sellers and wares it lists: .*never narrate one as for sale\./);
   assert.ok(taught.includes(text), "the block");
   const untaught = prompt(ember);
   assert.doesNotMatch(untaught, /\[place:|action="buy"|MARKET:/);
