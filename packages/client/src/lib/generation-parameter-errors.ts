@@ -62,7 +62,7 @@ export function formatGenerationParameterError(message: string): string {
 
   // Gemini refusing a tool call sent back without its thought signature is not a parameter anybody
   // can switch on: its "is required" read as one sent players hunting for a setting that is not there.
-  if (/\bthought[_ ]?signature\b/i.test(message)) {
+  if (/\bthought[_ ]?signature\b/i.test(message) && /\bmissing\b|\bis required\b|\bwithout\b/i.test(message)) {
     return `The model refused a tool call that was sent back without its thought signature. This is not a setting: try again, and if it keeps happening, report it with the connection's provider and model. Provider message: ${message}`;
   }
 
