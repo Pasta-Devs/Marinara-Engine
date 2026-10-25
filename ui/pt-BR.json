@@ -4609,7 +4609,7 @@
   "settings.customGenerationParameters.validation.reserved": "Esse valor é reservado por um parâmetro de geração embutido.",
   "settings.customGenerationParameters.value": "Valor",
   "settings.extensions.revisionHistory.confirmLabel": "Remover revisões antigas",
-  "settings.extensions.revisionHistory.confirmMessage": "Definir o limite do histórico como {{limit}}? As revisões antigas de todas as extensões serão removidas permanentemente. O código atual e os dados salvos das extensões serão mantidos.",
+  "settings.extensions.revisionHistory.confirmMessage": "Definir o limite do histórico como {{limit}}? Somente as revisões antigas que excederem o novo limite de cada extensão serão removidas permanentemente. O código atual e os dados salvos das extensões serão mantidos.",
   "settings.extensions.revisionHistory.confirmTitle": "Remover revisões antigas das extensões?",
   "settings.extensions.revisionHistory.description": "Escolha quantas versões anteriores do código manter para todas as extensões pessoais e externas. Defina 0 para desativar o histórico. O código atual e os dados salvos das extensões são mantidos.",
   "settings.extensions.revisionHistory.limit": "Revisões anteriores a manter",

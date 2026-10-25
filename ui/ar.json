@@ -4717,7 +4717,7 @@
   "settings.customGenerationParameters.validation.reserved": "هذه القيمة محجوزة لمعامل توليد مدمج.",
   "settings.customGenerationParameters.value": "القيمة",
   "settings.extensions.revisionHistory.confirmLabel": "إزالة الإصدارات الأقدم",
-  "settings.extensions.revisionHistory.confirmMessage": "هل تريد ضبط حد سجل الإصدارات على {{limit}}؟ ستتم إزالة الإصدارات الأقدم لكل إضافة نهائيا. سيتم الاحتفاظ بالشيفرة الحالية وبيانات الإضافات المحفوظة.",
+  "settings.extensions.revisionHistory.confirmMessage": "هل تريد ضبط حد سجل الإصدارات على {{limit}}؟ ستتم إزالة الإصدارات الأقدم التي تتجاوز الحد الجديد لكل إضافة نهائيا. سيتم الاحتفاظ بالشيفرة الحالية وبيانات الإضافات المحفوظة.",
   "settings.extensions.revisionHistory.confirmTitle": "هل تريد إزالة الإصدارات الأقدم للإضافات؟",
   "settings.extensions.revisionHistory.description": "اختر عدد الإصدارات السابقة من الشيفرة التي تريد الاحتفاظ بها لكل إضافة شخصية وخارجية. اضبط القيمة على 0 لتعطيل السجل. سيتم الاحتفاظ بالشيفرة الحالية وبيانات الإضافات المحفوظة.",
   "settings.extensions.revisionHistory.limit": "عدد الإصدارات السابقة للاحتفاظ بها",

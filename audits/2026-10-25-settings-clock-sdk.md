@@ -55,7 +55,12 @@ Completed local validation:
 - Language-owner self-review and independent cross-checks of the additional
   combat message found no actionable wording or token defect.
 
-Local CodeRabbit review is part of the PR delivery record. Hosted Dottore and
+The full 63-file local CodeRabbit review found one ambiguity in the retention
+confirmation: it could imply that all previous versions are removed. Runtime
+storage retains `revisions.slice(0, limit)`, so only versions above the new limit
+are removed. Eight translations were clarified; three already stated this
+explicitly. Tokens and native wording were revalidated, with a focused review of
+the repair recorded in the PR delivery notes. Hosted Dottore and
 application CI are configured for runtime branches, not this orphan translation
 branch; a skipped review is not recorded as a substantive examination. Manual
 in-app navigation, search and language refresh remain separate checks.

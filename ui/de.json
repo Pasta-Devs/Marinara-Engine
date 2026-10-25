@@ -4575,7 +4575,7 @@
   "settings.customGenerationParameters.validation.reserved": "Dieser Wert ist für einen eingebauten Generierungsparameter reserviert.",
   "settings.customGenerationParameters.value": "Wert",
   "settings.extensions.revisionHistory.confirmLabel": "Ältere Versionen entfernen",
-  "settings.extensions.revisionHistory.confirmMessage": "Den Verlauf auf {{limit}} frühere Versionen begrenzen? Ältere Versionen aller Erweiterungen werden endgültig entfernt. Aktueller Code und gespeicherte Erweiterungsdaten bleiben erhalten.",
+  "settings.extensions.revisionHistory.confirmMessage": "Den Verlauf auf {{limit}} frühere Versionen begrenzen? Ältere Versionen oberhalb des neuen Limits werden bei allen Erweiterungen endgültig entfernt. Aktueller Code und gespeicherte Erweiterungsdaten bleiben erhalten.",
   "settings.extensions.revisionHistory.confirmTitle": "Ältere Erweiterungsversionen entfernen?",
   "settings.extensions.revisionHistory.description": "Wähle, wie viele frühere Codeversionen für alle persönlichen und externen Erweiterungen gespeichert werden. Mit 0 deaktivierst du den Verlauf. Aktueller Code und gespeicherte Erweiterungsdaten bleiben erhalten.",
   "settings.extensions.revisionHistory.limit": "Anzahl früherer Versionen",

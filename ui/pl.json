@@ -4638,7 +4638,7 @@
   "settings.customGenerationParameters.validation.reserved": "Ta wartość jest zarezerwowana przez wbudowany parametr generowania.",
   "settings.customGenerationParameters.value": "Wartość",
   "settings.extensions.revisionHistory.confirmLabel": "Usuń starsze wersje",
-  "settings.extensions.revisionHistory.confirmMessage": "Ustawić limit historii wersji na {{limit}}? Starsze wersje wszystkich rozszerzeń zostaną trwale usunięte. Bieżący kod i zapisane dane rozszerzeń zostaną zachowane.",
+  "settings.extensions.revisionHistory.confirmMessage": "Ustawić limit historii wersji na {{limit}}? Starsze wersje każdego rozszerzenia przekraczające nowy limit zostaną trwale usunięte. Bieżący kod i zapisane dane rozszerzeń zostaną zachowane.",
   "settings.extensions.revisionHistory.confirmTitle": "Usunąć starsze wersje rozszerzeń?",
   "settings.extensions.revisionHistory.description": "Wybierz, ile poprzednich wersji kodu zachować dla wszystkich rozszerzeń osobistych i zewnętrznych. Ustaw 0, aby wyłączyć historię. Bieżący kod i zapisane dane rozszerzeń zostaną zachowane.",
   "settings.extensions.revisionHistory.limit": "Poprzednie wersje do zachowania",

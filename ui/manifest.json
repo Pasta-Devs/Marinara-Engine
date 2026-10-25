@@ -2,28 +2,28 @@
   "files": [
     {
       "path": "ar.json",
-      "sha256": "6a83c0eec93c5ce17a9643ce7d0163852830744ec18ebe608d2d3010c9bd4ec8",
-      "bytes": 969640
+      "sha256": "1e86a73d0111cc15f9b59ca4ae6ca68b5b9450d2333125d3d06559e9f76c0d1c",
+      "bytes": 969684
     },
     {
       "path": "de.json",
-      "sha256": "8a8931ab0bd6df70df82e3eb19e7d96d44c697f69f91d8809a145b2d5737d968",
-      "bytes": 1422392
+      "sha256": "31eba4ce464d00535a51362c36ea7dd6d33660d17e939086d76c468b9a561fe6",
+      "bytes": 1422422
     },
     {
       "path": "es.json",
-      "sha256": "8eb1592c0b0a17a529f5e7850b26f86912546c8b674abd38bf2bcd97ea363f19",
-      "bytes": 1430946
+      "sha256": "a3159a961695b573d01be38c537fdd2fc0d2f69cacc4c42952120b8c7c3920b9",
+      "bytes": 1430980
     },
     {
       "path": "fr.json",
-      "sha256": "7fd1911dd57e951aef1f6bdf9f228db4772de2ce5734df9f337b8c9979d0b20a",
-      "bytes": 1448445
+      "sha256": "8ab60354ac47d624877486c248dbe0cdee6033c3e0555f0c1d1a80f262558c9b",
+      "bytes": 1448481
     },
     {
       "path": "hi.json",
-      "sha256": "58e005f76475a49d4ac7185b1b35cb42c359cfa52da0c7f2a01cd61a6f739050",
-      "bytes": 2174375
+      "sha256": "5bf3a58fa4a7f3b8599bd5a884cbdccfba7a807436fb7b7385f0bee19a42c570",
+      "bytes": 2174468
     },
     {
       "path": "ja.json",
@@ -37,18 +37,18 @@
     },
     {
       "path": "pl.json",
-      "sha256": "85059e9283916a524e9e04dffe6451fa4afcf76caa8991d018bf4bf8e0e12b78",
-      "bytes": 1398110
+      "sha256": "0aebd01cb2c105e6000484ee842e19bd4a170fcfc2554900034f2a728f865548",
+      "bytes": 1398136
     },
     {
       "path": "pt-BR.json",
-      "sha256": "129c988474937585e26a2fdf1fe15e6b94950f65b27ccc91abd3f03b74eb5d27",
-      "bytes": 1411741
+      "sha256": "7e04b741fd928868aec949cf025dc6cc434d9a1666a923ae84c19e9b3445e1ca",
+      "bytes": 1411772
     },
     {
       "path": "ru.json",
-      "sha256": "83421c7210b159a1dcb923abed968086a5407df8e8a524337b33ef1b5e4902a3",
-      "bytes": 1862086
+      "sha256": "dc46b2f4152c5e19fb3ee1f28e90e3d5787504b581eae011d5bbaa52553ff59f",
+      "bytes": 1862129
     },
     {
       "path": "zh-Hans.json",

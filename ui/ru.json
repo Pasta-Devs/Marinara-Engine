@@ -4673,7 +4673,7 @@
   "settings.customGenerationParameters.validation.reserved": "Это значение зарезервировано встроенным параметром генерации.",
   "settings.customGenerationParameters.value": "Значение",
   "settings.extensions.revisionHistory.confirmLabel": "Удалить старые версии",
-  "settings.extensions.revisionHistory.confirmMessage": "Установить лимит истории версий: {{limit}}? Старые версии всех расширений будут удалены навсегда. Текущий код и сохраненные данные расширений останутся.",
+  "settings.extensions.revisionHistory.confirmMessage": "Установить лимит истории версий: {{limit}}? Старые версии каждого расширения сверх нового лимита будут удалены навсегда. Текущий код и сохраненные данные расширений останутся.",
   "settings.extensions.revisionHistory.confirmTitle": "Удалить старые версии расширений?",
   "settings.extensions.revisionHistory.description": "Выберите, сколько предыдущих версий кода хранить для всех личных и внешних расширений. Укажите 0, чтобы отключить историю. Текущий код и сохраненные данные расширений останутся.",
   "settings.extensions.revisionHistory.limit": "Количество предыдущих версий для хранения",

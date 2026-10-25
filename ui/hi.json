@@ -4669,7 +4669,7 @@
   "settings.customGenerationParameters.validation.reserved": "यह मान एक बिल्ट-इन जेनरेशन पैरामीटर के लिए आरक्षित है।",
   "settings.customGenerationParameters.value": "मान",
   "settings.extensions.revisionHistory.confirmLabel": "पुराने रिविज़न हटाएँ",
-  "settings.extensions.revisionHistory.confirmMessage": "रिविज़न हिस्ट्री की सीमा {{limit}} पर सेट करें? हर एक्सटेंशन के पुराने रिविज़न हमेशा के लिए हटा दिए जाएँगे। मौजूदा कोड और एक्सटेंशन का सेव किया गया डेटा बना रहेगा।",
+  "settings.extensions.revisionHistory.confirmMessage": "रिविज़न हिस्ट्री की सीमा {{limit}} पर सेट करें? हर एक्सटेंशन के केवल वे पुराने रिविज़न हमेशा के लिए हटाए जाएँगे जो नई सीमा में नहीं रखे जा सकते। मौजूदा कोड और एक्सटेंशन का सेव किया गया डेटा बना रहेगा।",
   "settings.extensions.revisionHistory.confirmTitle": "एक्सटेंशन के पुराने रिविज़न हटाएँ?",
   "settings.extensions.revisionHistory.description": "हर पर्सनल और बाहरी एक्सटेंशन के लिए कोड के कितने पिछले वर्ज़न रखने हैं, यह चुनें। हिस्ट्री बंद करने के लिए 0 सेट करें। मौजूदा कोड और एक्सटेंशन का सेव किया गया डेटा बना रहता है।",
   "settings.extensions.revisionHistory.limit": "रखे जाने वाले पिछले रिविज़न",
