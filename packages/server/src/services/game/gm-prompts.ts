@@ -1802,6 +1802,14 @@ export function buildGmFormatReminder(
   // nothing in it: a Game Master never told a purse is empty narrates a buy the Engine then refuses.
   const withMoney = Boolean(normalizePromptText(ctx.inventoryPurses?.[gameInventoryBagKey(undefined)]));
   const nobodyElse = withMoney ? [`Party members not listed carry nothing, coins included.`] : [];
+  // Told an item is not there, a model makes it, or the light or fire it was for, with an ability
+  // no sheet lists.
+  const sheetAbilitiesOnly =
+    ctx.ruleset && (ctx.rulesetSheetBlocks ?? []).some((block) => block.trim())
+      ? [
+          `Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one (a power with uses per day) is spent with its [sheet:] tag.`,
+        ]
+      : [];
 
   // ── Current State (closest to generation) ──
   if (T) {
@@ -2240,6 +2248,23 @@ export function buildGmFormatReminder(
           `- ${bag.holder || playerLabel}${bag.note ? ` (${bag.note})` : ""}: ${buildCompactInventoryLine(bag.items) || "nothing"}`,
       ),
       ...nobodyElse,
+      ...sheetAbilitiesOnly,
+    );
+  } else if (T && !experienceOwnsInventory && hasParty && (playerInventory.length > 0 || withMoney)) {
+    // The one bag is the whole party's: a member said to have a pack of their own made up what was in it.
+    const note = bearerFor(undefined);
+    const owner = partyDirected
+      ? { name: `PARTY PACK`, about: `the party's one shared pack`, others: `No member has` }
+      : {
+          name: `${normalizePromptText(ctx.playerName) || "Player"}'s PACK`,
+          about: `the only bag in the party`,
+          others: `Nobody else in the party has`,
+        };
+    lines.push(
+      ``,
+      `${owner.name}${note ? ` (${note})` : ""} - ${owner.about}, everything the party carries: ${buildCompactInventoryLine(playerInventory) || "nothing"}`,
+      `${owner.others} a bag, pouch or gear of their own beyond this pack and what their sheet says they wear.${withMoney ? ` Its purse is the party's only money.` : ""} An item the pack does not list does not exist: if the player reaches for one, say in the story that it isn't there, and write no tag for it.`,
+      ...sheetAbilitiesOnly,
     );
   } else if (T && !experienceOwnsInventory && (playerInventory.length > 0 || withMoney)) {
     const note = bearerFor(undefined);

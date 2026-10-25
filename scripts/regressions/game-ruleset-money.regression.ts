@@ -459,6 +459,48 @@ const withoutMarket = (doc: Record<string, any>) => {
   const lampOnly = reminder(coinless, { playerInventory: [{ name: "Lamp", quantity: 1 }], partyInventory: [] });
   assert.match(lampOnly, /\nPLAYER INVENTORY: Lamp\n/);
   assert.doesNotMatch(lampOnly, /Party members not listed/, "nor of anyone else's coins");
+  // With a party and one bag, the bag is the whole party's: nobody has a pack of their own to pull a
+  // torch out of, an item the pack does not list is not there, and its purse is the only money.
+  const potions = { playerInventory: [{ name: "Potion of Healing", quantity: 2 }], partyInventory: [] };
+  const directed = reminder(gravewatch, {
+    ...potions,
+    partyNames: ["Kesh", "Mara"],
+    playerIsParty: true,
+    inventoryPurses: { "": "Coin worth 60 pennies" },
+  });
+  assert.match(
+    directed,
+    /\nPARTY PACK \(Coin worth 60 pennies\) - the party's one shared pack, everything the party carries: Potion of Healing ×2\nNo member has a bag, pouch or gear of their own beyond this pack and what their sheet says they wear\. Its purse is the party's only money\. An item the pack does not list does not exist: if the player reaches for one, say in the story that it isn't there, and write no tag for it\./,
+  );
+  assert.doesNotMatch(directed, /PLAYER INVENTORY|Party members not listed/);
+  const ownCharacter = reminder(coinless, { ...potions, playerName: "Ada", partyNames: ["Kesh"] });
+  assert.match(
+    ownCharacter,
+    /\nAda's PACK - the only bag in the party, everything the party carries: Potion of Healing ×2\nNobody else in the party has a bag, pouch or gear of their own beyond this pack and what their sheet says they wear\. An item/,
+  );
+  assert.doesNotMatch(ownCharacter, /only money/, "no money, no purse to speak of");
+  assert.match(
+    reminder(coinless, potions),
+    /\nPLAYER INVENTORY: Potion of Healing ×2\n/,
+    "alone, the bag is as it was",
+  );
+  // With sheets shown, nobody makes light, fire or an item out of an ability the sheet does not give them.
+  const abilities =
+    /Nor can anyone do what their sheet doesn't list: no spell, breath or trick makes light, fire or an item unless the sheet has it, and a limited one \(a power with uses per day\) is spent with its \[sheet:\] tag\./;
+  assert.doesNotMatch(ownCharacter, abilities, "no sheets, nothing to hold an ability to");
+  const sheeted = { rulesetSheetBlocks: ["Kesh: HP 38/38"] };
+  assert.match(reminder(coinless, { ...potions, ...sheeted, playerName: "Ada", partyNames: ["Kesh"] }), abilities);
+  assert.match(
+    reminder(gravewatch, {
+      ...sheeted,
+      playerName: "Ada",
+      partyNames: ["Bram"],
+      playerInventory: [],
+      partyInventory: [{ holder: "Bram", items: [{ name: "cakes", quantity: 2 }] }],
+      inventoryPurses: { "": "no coins", [gameInventoryBagKey("Bram")]: "no coins" },
+    }),
+    /coins included\.\nNor can anyone do what their sheet doesn't list/,
+  );
 }
 
 // ── Layers hide coins, never rewrite them ──
