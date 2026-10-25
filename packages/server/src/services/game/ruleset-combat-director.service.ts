@@ -24,6 +24,7 @@ import {
   findRulesetCreature,
   fillRulesetSheetChoices,
   generateTacticalBattlefield,
+  validateTacticalBattlefieldBrief,
   madeTacticalBattlefield,
   foothillElevation,
   holdRulesetCombatant,
@@ -500,15 +501,39 @@ function buildRulesetBoard(
   }));
   // The same cursor the tactical style reserves for setup, from the same seed, so the two styles
   // generate the same board for the same fight.
-  const rng = deterministicRng(input.seed >>> 0, 0);
-  const generated = input.made
+  let rng = deterministicRng(input.seed >>> 0, 0);
+  const terrain = normalizeTacticalEnvironment(input.environment ?? undefined);
+  let generated = input.made
     ? madeTacticalBattlefield(input.made)
-    : generateTacticalBattlefield(
-        stands.length,
-        rng,
-        normalizeTacticalEnvironment(input.environment ?? undefined),
-        input.battlefield,
+    : generateTacticalBattlefield(stands.length, rng, terrain, input.battlefield);
+  // Features the Game Master asked for that cannot all stand together (two of different terrain
+  // laid on the same side, laptop playtest 2026-10-25) keep those that can, the first said first,
+  // rather than leaving the fight unstartable.
+  const asked = input.made ? undefined : validateTacticalBattlefieldBrief(input.battlefield);
+  if (!generated.ok && asked?.ok && asked.brief?.features?.length) {
+    const { features, ...rest } = asked.brief;
+    const kept: typeof features = [];
+    for (const feature of features) {
+      const brief = { ...rest, features: [...kept, feature] };
+      if (generateTacticalBattlefield(stands.length, deterministicRng(input.seed >>> 0, 0), terrain, brief).ok)
+        kept.push(feature);
+    }
+    rng = deterministicRng(input.seed >>> 0, 0);
+    generated = generateTacticalBattlefield(
+      stands.length,
+      rng,
+      terrain,
+      kept.length > 0 ? { ...rest, features: kept } : rest,
+    );
+    if (generated.ok)
+      logger.info(
+        "[game/combat:ruleset] Battlefield features left out so the rest could stand: %s",
+        features
+          .filter((feature) => !kept.includes(feature))
+          .map((feature) => `${feature.terrain} ${feature.placement} ${feature.shape}`)
+          .join(", "),
       );
+  }
   if (!generated.ok) return { error: generated.error };
   const { grid } = generated;
   if (
