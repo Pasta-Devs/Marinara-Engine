@@ -94,12 +94,23 @@ import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.j
 // Host-owned Experience namespace: existing branch/checkpoint/export paths preserve these rows,
 // while turn-game readers and resets already exclude the entire experience: prefix.
 export const COMBAT_DIRECTOR_NAMESPACE = "experience:marinara-engine.combat";
+/** The most rounds anything in a fight counts down from. */
+const COMBAT_DIRECTOR_MOST_ROUNDS = 100;
+/** The most power an item's effect is read at. */
+const COMBAT_DIRECTOR_MOST_POWER = 100;
 const key = z
   .string()
   .min(1)
   .max(256)
   .refine((v) => !["__proto__", "constructor", "prototype"].includes(v));
 const num = z.number().finite().min(0).max(1000000);
+/** A count of rounds carried in from the story: a potion that lasts an hour is 600 of them. More than
+ *  a fight's most is the rest of the fight, never a reason to refuse the fight. */
+const rounds = z
+  .number()
+  .int()
+  .min(0)
+  .transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_ROUNDS));
 const slots = z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100));
 const skill = z.object({
   id: key,
@@ -107,7 +118,7 @@ const skill = z.object({
   type: z.enum(["attack", "heal", "buff", "debuff"]),
   mpCost: num,
   power: num.max(20),
-  cooldown: z.number().int().min(0).max(100).optional(),
+  cooldown: rounds.optional(),
   description: z.string().max(3000).optional(),
   element: z.string().max(100).optional(),
   statusEffect: z.string().max(200).optional(),
@@ -135,14 +146,14 @@ const directedCombatantFields = z.object({
   tactics: combatTacticsSchema.optional(),
   aiHints: combatAiHintsSchema.optional(),
   controller: z.enum(["manual", "ai"]).optional(),
-  skillCooldowns: z.record(z.number().int().min(0).max(100)).optional(),
+  skillCooldowns: z.record(rounds).optional(),
   statusEffects: z
     .array(
       z.object({
         name: z.string().max(200),
         modifier: z.number().finite().min(-100000).max(100000),
         stat: z.enum(["hp", "attack", "defense", "speed"]),
-        turnsLeft: z.number().int().min(0).max(100),
+        turnsLeft: rounds,
       }),
     )
     .max(64)
@@ -175,7 +186,8 @@ const itemEffect = z.object({
   target: z.enum(["self", "ally", "enemy", "any"]),
   type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]),
   description: z.string().max(3000),
-  power: num.max(100).optional(),
+  // An item's power past the most a fight reads is that most, as a long duration is.
+  power: num.transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_POWER)).optional(),
   element: z.string().max(100).optional(),
   consumes: z.boolean().optional(),
   status: z
@@ -184,7 +196,7 @@ const itemEffect = z.object({
       emoji: z.string().max(30),
       // A status carried in from the story may have run down to 0 turns; it is applied for the
       // default length, as a missing one is.
-      duration: z.number().int().min(0).max(100),
+      duration: rounds,
       modifier: z.number().finite().min(-100000).max(100000).optional(),
       stat: z.enum(["hp", "attack", "defense", "speed"]).optional(),
     })
@@ -742,7 +754,7 @@ export async function combatDirectorRoutes(
               trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
               // 0 for a mechanic no interval drives (an hp_threshold one's `interval: 0` refused the
               // whole fight), which every reader takes as none.
-              interval: z.number().int().min(0).max(100).optional(),
+              interval: rounds.optional(),
               hpThreshold: z.number().min(0).max(100).optional(),
               counterplay: z.string().max(3000).optional(),
               effectType: z
