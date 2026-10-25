@@ -1029,7 +1029,7 @@ function findPool(pools: ResolvedRulesetLive["pools"], requested: string): PoolM
   if (rows.length === 1) return { pool: rows[0]! };
   if (rows.length > 1) return { refusal: "ambiguous-pool" };
   // Written the way a key is ("hit_points" for "Hit Points"), or shortened to its initials ("hp"):
-  // a declared pool only, and only where one alone fits (laptop 2026-10-25: a GM's damage tag on
+  // a declared pool only, and only where one alone fits (#8271: a GM's damage tag on
   // pool="hit_points" refused while the widget took it).
   const loose = (text: string) =>
     text

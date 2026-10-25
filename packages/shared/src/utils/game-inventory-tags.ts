@@ -325,16 +325,21 @@ export function applyGameInventoryTags(
 
     const who = resolveGameInventoryHolder(request.who, party, current);
     const to = request.action === "give" ? resolveGameInventoryHolder(request.to, party, current) : null;
-    // One item whose name holds a comma is that item, not a list (ship-readiness pass 2026-10-25:
-    // "Rope, hempen (50 feet)" bought as "Rope" and "hempen (50 feet)").
+    // One item whose name holds a comma is that item, not a list (#8271: "Rope, hempen (50 feet)"
+    // bought as "Rope" and "hempen (50 feet)").
     const whole = request.whole;
+    const heldWhole = whole ? gameInventoryItemsNamed(current, whole) : undefined;
     const oneItem =
       !!whole &&
       (!!rules?.itemNamed(whole) ||
         !!rules?.coinNamed?.(whole) ||
-        current.some((stack) => gameInventoryItemsNamed(current, whole).has(gameInventoryItemId(stack))));
+        current.some((stack) => heldWhole!.has(gameInventoryItemId(stack))));
     return (oneItem ? [whole!] : request.items)
-      .map((item) => {
+      .map((written) => {
+        // An item written by its ref is read by its name from here on, so a stack of it is found as
+        // a name finds it, a fake among them (#8271).
+        const byRef = rules?.itemNamed(written);
+        const item = byRef && byRef.item === written.trim() ? byRef.name : written;
         const shown = {
           action: request.action,
           item,

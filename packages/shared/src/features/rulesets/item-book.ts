@@ -1179,8 +1179,8 @@ export function rulesetItemBook(
     const key = gameInventoryNameKey(name);
     const made = inventedByName.get(key)?.at(-1);
     const coin = coinNamed(name);
-    // Or by its ref, catalog and id, which no name looks like (ship-readiness pass 2026-10-25: a buy
-    // of "equipment/rope-hempen-50-feet" refused as an unknown item). A bare id is still no name.
+    // Or by its ref, catalog and id, which no name looks like (#8271: a buy of
+    // "equipment/rope-hempen-50-feet" refused as an unknown item). A bare id is still no name.
     const ref = name.trim();
     return (
       byName.get(key) ??

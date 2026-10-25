@@ -333,7 +333,7 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     ["Warming tonic", 3, "Bram"],
   ]);
   // By its ref; and a name with a comma in it is one item, not two
-  // (ship-readiness pass 2026-10-25: "Rope, hempen (50 feet)" and "Lantern, hooded").
+  // (#8271: "Rope, hempen (50 feet)" and "Lantern, hooded").
   for (const item of ["kit/warming-tonic"]) {
     const byId = buy(`[inventory: action="buy" item="${item}"]`, coins([["shillings", "shilling", 1]]));
     assert.match(byId.content, /item="Warming tonic"[^\]]*result="ok"/, `${item}: ${byId.content}`);
@@ -1097,6 +1097,18 @@ const manifest = (minor: number) => ({
     { item: "Lantern-keeper's coat", action: "sold", quantity: 1 },
     { item: "shillings", action: "acquired", quantity: 4 },
   ]);
+  // Sold by its ref, it is the coat; and a fake sold by ref is seen through as one sold by name (#8271).
+  assert.match(
+    dayTags('[inventory: action="sell" item="kit/lantern-coat"]', coats(1), dayQuoter(dayHamlet)).content,
+    /item="Lantern-keeper's coat" count="1" seller="chandler" result="ok" now="0" price="4 shillings"/,
+  );
+  const fakeCoat: GameInventoryStack[] = [{ ...coats(1)[0]!, truly: "kit/warming-tonic" }];
+  for (const item of ["Lantern-keeper's coat", "kit/lantern-coat"])
+    assert.match(
+      dayTags(`[inventory: action="sell" item="${item}"]`, fakeCoat, dayQuoter(dayHamlet)).content,
+      /revealed="Warming tonic" result="ok" now="0" price="2 pennies"/,
+      item,
+    );
   // A hamlet pays out 10 shillings a day: two coats (8), then a third is too much.
   const three = dayTags(
     '[inventory: action="sell" item="Lantern-keeper\'s coat" count="2"] [inventory: action="sell" item="Lantern-keeper\'s coat"]',

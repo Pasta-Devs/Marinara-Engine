@@ -169,7 +169,7 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "1st-level slots", amount: 1 }).now, "1/2");
   assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool: "ki", amount: 2 }).now, "3/5");
   assert.equal(refusal(fiveE, caster, undefined, { op: "spend", pool: "Ki Points", amount: 1 }), "unknown-pool");
-  // A declared pool written the way a key is, or by its initials (laptop 2026-10-25: "hit_points").
+  // A declared pool written the way a key is, or by its initials (#8271: "hit_points").
   const byKey = applied(fiveE, caster, undefined, { op: "spend", pool: "hp", amount: 1 }).now;
   for (const pool of ["hit_points", "Hit-Points", "HP"])
     assert.equal(applied(fiveE, caster, undefined, { op: "spend", pool, amount: 1 }).now, byKey, pool);
