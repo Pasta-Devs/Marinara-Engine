@@ -163,7 +163,7 @@ L'entrée incluse n'a pas besoin de se déclencher, et elle peut être désactiv
 
 ## Macros de temps
 
-Toutes les macros de temps lisent un même instant partagé à chaque résolution : elles restent donc toujours cohérentes entre elles. Le fuseau horaire vient du navigateur.
+Les macros de temps du monde réel lisent un même instant partagé à chaque résolution : elles restent donc toujours cohérentes entre elles. Le fuseau horaire vient du navigateur.
 
 | Macro | Valeur obtenue |
 | --- | --- |
@@ -172,6 +172,13 @@ Toutes les macros de temps lisent un même instant partagé à chaque résolutio
 | `{{datetime}}` / `{{isotime}}` | Un horodatage complet avec le décalage de fuseau horaire. Les deux noms font la même chose. |
 | `{{weekday}}` | Le nom du jour de la semaine, par exemple `Monday`. |
 | `{{timezone}}` | Le nom du fuseau horaire, par exemple `Europe/Warsaw`. |
+| `{{date.world_state}}` | La date actuelle du monde suivie par World State, dans son format d'origine. |
+| `{{time.world_state}}` | L'heure actuelle du monde suivie par World State, dans son format d'origine. |
+| `{{weekday.world_state}}` | Un champ personnalisé du monde nommé Weekday ou Day of Week, un jour de la semaine écrit dans la date suivie, ou le jour de la semaine d'une date suivie valide au format `YYYY-MM-DD`. |
+
+Les macros `.world_state` fonctionnent dans les prompts et les modèles d'agents. Elles lisent la date et l'heure du monde affichées pour le tour actuel de l'histoire. Changer de swipe modifie le tour dont elles utilisent les valeurs ; régénérer utilise l'état de l'histoire dont part la réponse de remplacement. Une valeur manquante reste vide ; elle n'est jamais remplacée par la date ou l'heure actuelles du monde réel. Les calendriers fictifs conservent leur propre texte de date et d'heure. Pour un jour de semaine fictif, ajoute dans World State un champ personnalisé nommé Weekday ou Day of Week.
+
+Par exemple, `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` lit le jour de la semaine suivi au lieu du jour réel.
 
 ## Macros d'aléatoire et de dés
 

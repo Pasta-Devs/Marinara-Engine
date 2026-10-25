@@ -231,6 +231,8 @@ Cudze rozszerzenia mogą zawierać złośliwy lub niebezpieczny kod. Przejrzyj k
 
 Akcja eksportu w rozszerzeniu pobiera przenośną paczkę. Paczki wyeksportowane i przywrócone pozostają wyłączone. Przywrócenie wcześniejszej wersji też zamienia ją z powrotem w wyłączony szkic.
 
+**Settings → Addons → Extension revision history** (ustawienia → dodatki → historia wersji rozszerzeń) określa, ile poprzednich wersji kodu zachowywać dla wszystkich rozszerzeń osobistych i zewnętrznych. Domyślna wartość to **10**; wybierz **0–10**, przy czym **0** wyłącza historię. Zmniejszenie limitu wymaga potwierdzenia przed trwałym usunięciem starszych wersji. Bieżący kod rozszerzeń, zatwierdzenia, stan włączenia i zapisane dane rozszerzeń pozostają zachowane. Ten sam limit obowiązuje przy kolejnych zmianach i przywracaniu wcześniejszych wersji, także przy zmianach wprowadzanych przez Professor Mari.
+
 Jeśli rozszerzenie zachowuje się źle, wybierz **Disable** (wyłączenie). Jeśli interfejs jest niedostępny, zatrzymaj Marinara Engine i ustaw wartość `enabled` na `"false"` we właściwym wpisie `installed_extensions`. Nigdy nie ustawiaj `approvedHash` ręcznie.
 
 ## Powiązane przewodniki

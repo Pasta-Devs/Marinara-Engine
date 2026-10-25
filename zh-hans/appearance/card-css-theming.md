@@ -8,7 +8,7 @@
 
 - **CSS** 是控制网页颜色、字体、边框和间距的语言。
 - **角色卡 CSS** 指的是嵌在角色卡或用户角色卡里的 CSS，用来给这张卡的消息做主题。
-- **Card Theming**(角色卡主题) 是界面上的那个控件，负责为某个聊天开启角色卡 CSS。
+- **Card Theming**(角色卡主题) 控件负责为聊天开启角色卡 CSS，位于 **Chat Settings → Characters**(聊天设置 → 角色)，Game 中则在 **Party**(队伍)。
 - **选择器**是 CSS 规则里决定“给哪些元素设置样式”的部分。
 - **后代选择器**用空格表示“内部”。`.a .b` 匹配的是位于 `.a` 内部的 `.b`。
 - **层叠**是 CSS 用来决定多条规则同时命中一个元素时谁生效的机制。
@@ -21,10 +21,10 @@
 1. 在 Character Editor(角色编辑器) 里打开角色，找到 **Creator Notes** 输入框。用户角色在 Persona Editor(用户角色编辑器) 里有同样的输入框。
 2. 把一段 `<style>` 粘贴进 **Creator Notes**，保存角色卡。
 3. 打开与这个角色的聊天。
-4. 打开 **Chat Settings**(聊天设置)，找到 **Card Theming** 一节。
+4. 打开 **Chat Settings**(聊天设置)，进入 **Characters**（Game 中则是 **Party**）。
 5. 选择 **Exclusive** 或 **Chat**。这个模式初始为 **Disabled**。
 
-角色的消息应该立刻变样。只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 的模式按钮（Disabled、Exclusive、Chat）才会出现。Roleplay 聊天中始终显示该区域，因为它还包含 **Color Character Names in Text**(为正文中的角色名称着色)开关。光有用户角色的 CSS 不足以让按钮出现，聊天里至少要有一个角色自带 `<style>` 块。如果看不到这些按钮，先确认 `<style>` 块确实保存成功了。
+角色的消息应该立刻变样。只有当聊天里的某个活跃角色在 **Creator Notes** 中写了 CSS 时，**Card Theming** 的模式按钮（Disabled、Exclusive、Chat）才会出现。Roleplay 聊天中的 **Color Character Names in Text**(为正文中的角色名称着色)位于 **Characters**，有可用文件夹时就在 **Add from Folder**(从文件夹添加)下方。光有用户角色的 CSS 不足以让按钮出现，聊天里至少要有一个角色自带 `<style>` 块。如果看不到这些按钮，先确认 `<style>` 块确实保存成功了。
 
 下面是一段可以直接粘进 **Creator Notes** 的起步代码：
 
@@ -66,7 +66,7 @@
 3. 给 CSS 加上作用域限制，让它只能影响聊天。
 4. 注入这段 CSS，让加过作用域的选择器盖过应用自带的消息样式。
 
-具体怎么应用，由每个聊天各自在 **Chat Settings** 的 **Card Theming** 里决定，共有三种模式。
+具体怎么应用，由每个聊天各自在 **Chat Settings → Characters**（Game 中则是 **Party**）里决定，共有三种模式。
 
 | 模式 | 效果 |
 | --- | --- |
@@ -228,7 +228,7 @@ Roleplay 和 Conversation 的聊天结构是同一套骨架。下面这些元素
 
 浮层卡片就是作用域元素，要用 `[data-card-css].mari-about-me-popout` 选中它（不加空格，同一个元素）。它的子元素用后代选择器，比如 `[data-card-css] .mari-about-me-name`。在 **Chat** 模式下整个区域都在作用域内，可以直接写 `.mari-about-me-name`。
 
-下面是一个做过主题的“about me”浮层。把它粘进角色或用户角色的 **Creator Notes**，再到 **Chat Settings** 里启用 **Card Theming**。如果粘的是用户角色，别忘了上面那条注意事项：聊天里必须还有一个角色的 **Creator Notes** 里也有 CSS，否则模式按钮不会出现。
+下面是一个做过主题的“about me”浮层。把它粘进角色或用户角色的 **Creator Notes**，再到 **Chat Settings → Characters**（Game 中则是 **Party**）里选择角色卡 CSS 模式。如果粘的是用户角色，别忘了上面那条注意事项：聊天里必须还有一个角色的 **Creator Notes** 里也有 CSS，否则模式按钮不会出现。
 
 ```html
 <style>
@@ -324,7 +324,7 @@ font-family: "Courier New", Consolas, monospace;
 - 点头像弹出的个人资料浮层，全套主题
 - 游戏界面
 
-把它整段粘进 **Creator Notes**，再到 **Chat Settings** 里启用 **Card Theming**。它会给 Roleplay 和 Conversation 的消息、Conversation 的浮层以及 Game 的界面做主题（Game 需要把模式设为 **Chat**）。各部分按 `@chat-mode` 拆开，每种模式只拿到它真正有的钩子。所有写法都能通过净化器。
+把它整段粘进 **Creator Notes**，再到 **Chat Settings → Characters**（Game 中则是 **Party**）里选择角色卡 CSS 模式。它会给 Roleplay 和 Conversation 的消息、Conversation 的浮层以及 Game 的界面做主题（Game 需要把模式设为 **Chat**）。各部分按 `@chat-mode` 拆开，每种模式只拿到它真正有的钩子。所有写法都能通过净化器。
 
 ```html
 <style>

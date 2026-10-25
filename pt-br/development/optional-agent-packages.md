@@ -89,6 +89,12 @@ Um pacote só lê um membro depois de verificá-lo, por exemplo `const host = gl
 - Um pacote mantém a própria instância do i18next, criada com `i18next.createInstance()`, dentro de `<I18nextProvider>`. Ele nunca usa `initReactI18next`, `setI18n` nem `setDefaults`, que substituiriam a instância do Engine.
 - `lucide-react`, `chess.js`, `scheduler` e `@marinara-engine/shared` não são módulos do host; os pacotes embutem o que usam deles.
 - Os pacotes são compilados para estas versões major: `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `motion` 14 (o slot `motion/react`), `tailwind-merge` 3 e `clsx` 2. Substituir a versão major por trás de um slot público existente exige uma versão **major** da API de capacidades. Adicionar um slot distinto é uma mudança aditiva: a API de capacidades 1.377 adiciona `motion/react` sem alterar `framer-motion`. `scripts/regressions/marinara-host-namespace.regression.ts` fixa a dependência mapeada e a versão major de cada slot.
+- O Engine valida os próprios dados com o Zod 4 nativo. Os pacotes existentes mantêm o Zod 3 pela dependência explícita
+  de compatibilidade `zod-v3`, tanto no slot `zod` do cliente quanto nas importações do servidor do pacote. Isso preserva
+  os registros, os valores padrão e as exportações de módulos existentes. O alias inclui a correção de segurança revisada
+  para coleções limitadas de `patches/zod@3.25.76.patch`; não é o Zod 3 sem modificações. Esses validadores de pacotes legados
+  mantêm o comportamento do Zod 3, exceto por essa correção de segurança documentada. A atualização do núcleo não aplica a eles
+  as outras mudanças de validação do Zod 4.
 - Os pacotes já instalados mantêm o namespace completo do Motion 13 e não precisam ser recompilados. Um pacote que escolhe o Motion 14 importa `motion/react` pelo shim do host e declara a API de capacidades 1.377 ou mais recente. Hosts antigos rejeitam essa declaração em vez de substituir silenciosamente pelo Motion 13. Mantenha uma só versão em cada árvore de animação: `AnimatePresence`, `MotionConfig`, `LayoutGroup`, os valores do Motion e seus consumidores devem vir do mesmo slot. As versões têm contextos distintos; não há uma ponte entre os contextos. As visualizações de pacotes montam suas próprias raízes React, enquanto o `Modal` do host usa animações CSS. Não espere compartilhar layout ou presença entre versões.
 
 **Campos de store que os pacotes leem.** Os pacotes publicados leem hoje estes campos. O Engine mantém cada um deles, e remover ou renomear um exige uma versão major da API de capacidades (`MARINARA_HOST_STORE_FIELDS` os fixa com `Pick<>`):
@@ -1055,9 +1061,11 @@ cópia divide o estado que o Engine mantém em um só lugar. Tipos e auxiliares 
 
 **Bibliotecas compartilhadas do servidor.** O servidor de um pacote pode deixar `zod`, `adm-zip`, `dotenv`, `nanoid` e `jsonrepair` fora do
 bundle e importá-los pelo nome, como já pode fazer com `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` e `undici`. O Node os resolve a partir da cópia de execução do pacote
-por dois links, de `<runtime copy>/node_modules` para `DATA_DIR/capability-packages/node_modules` e daí para
-`packages/server/node_modules` do Engine, então o pacote recebe a mesma instância do módulo que o Engine usa. O pnpm mantém ali só as
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` e `undici`. O Node os resolve por links gerenciados na
+cópia de execução do pacote para `DATA_DIR/capability-packages/node_modules`, que aponta para `packages/server/node_modules` do Engine.
+O Zod é a exceção de compatibilidade: a importação de `zod` de um pacote resolve a dependência completa `zod-v3`, incluindo suas
+exportações padrão, nomeadas, CommonJS e de subcaminhos. As outras bibliotecas mantêm a mesma instância do módulo que o Engine usa.
+As importações de `zod` do próprio Engine continuam resolvendo o Zod 4 nativo. O pnpm mantém ali só as
 dependências diretas do servidor, então só esses nomes são resolvidos; uma dependência de uma dependência, como `ws`, não é resolvida.
 O Engine mantém os nomes acima como dependências diretas de produção de `packages/server`, e toda instalação mantém essa
 estrutura: instalações pelo código-fonte e pelo inicializador, Windows (onde o link de dados é uma junção), Android e Termux, e as duas

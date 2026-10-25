@@ -92,6 +92,12 @@ Der Namensraum wächst nur: Ein neues Mitglied kommt mit einer Minor-Version der
 - Ein Paket hält eine eigene i18next-Instanz aus `i18next.createInstance()` innerhalb von `<I18nextProvider>`. Es verwendet nie `initReactI18next`, `setI18n` oder `setDefaults`, denn diese würden die Instanz der Engine ersetzen.
 - `lucide-react`, `chess.js`, `scheduler` und `@marinara-engine/shared` sind keine Host-Module; Pakete bündeln, was sie davon nutzen.
 - Pakete werden gegen diese Major-Versionen gebaut: `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `motion` 14 (der Slot `motion/react`), `tailwind-merge` 3 und `clsx` 2. Die Major-Version hinter einem bestehenden öffentlichen Slot zu ersetzen, verlangt eine **Major-Version** der Capability API. Einen separaten Slot hinzuzufügen, ist eine additive Änderung: Capability API 1.377 fügt `motion/react` hinzu, ohne `framer-motion` zu ändern. `scripts/regressions/marinara-host-namespace.regression.ts` legt die zugeordnete Abhängigkeit und die Major-Version jedes Slots fest.
+- Die Engine validiert ihre eigenen Daten mit nativem Zod 4. Bestehende Pakete behalten Zod 3 über die explizite Kompatibilitätsabhängigkeit
+  `zod-v3`, sowohl im Client-Slot `zod` als auch bei Importen auf dem Paketserver. So bleiben ihre bisherigen Records,
+  Standardwerte und Modulexporte erhalten. Der Alias enthält den geprüften Sicherheits-Backport für Collections mit Größenbegrenzung
+  aus `patches/zod@3.25.76.patch`; er ist kein unverändertes Zod 3. Diese älteren Paketvalidatoren behalten das Verhalten von Zod 3
+  mit Ausnahme dieser dokumentierten Sicherheitskorrektur. Das Core-Upgrade überträgt die übrigen Validierungsänderungen
+  von Zod 4 nicht auf sie.
 - Bereits installierte Pakete behalten ihren vollständigen Motion-13-Namensraum und müssen nicht neu gebaut werden. Ein Paket, das Motion 14 wählt, importiert `motion/react` über den Host-Shim und deklariert Capability API 1.377 oder neuer. Ältere Hosts lehnen diese Deklaration ab, statt unbemerkt Motion 13 einzusetzen. Verwende innerhalb eines Animationsbaums nur eine Version: `AnimatePresence`, `MotionConfig`, `LayoutGroup`, Motion-Werte und die Komponenten, die sie verwenden, müssen aus demselben Slot stammen. Die Versionen haben getrennte Kontexte; eine Kontextbrücke wird nicht bereitgestellt. Paketansichten mounten ihre eigenen React-Roots, während das `Modal` des Hosts CSS-Animationen verwendet. Erwarte keine gemeinsamen Layout- oder Presence-Animationen über die Versionsgrenze hinweg.
 
 **Store-Felder, die Pakete lesen.** Veröffentlichte Pakete lesen heute diese Felder. Die Engine behält jedes davon, und eines zu entfernen oder umzubenennen braucht eine Major-Version der Capability API (`MARINARA_HOST_STORE_FIELDS` legt sie mit `Pick<>` fest):
@@ -1084,9 +1090,11 @@ Kopie würde den Zustand aufteilen, den die Engine an einem Ort hält. Reine Hel
 
 **Gemeinsame Server-Bibliotheken.** Ein Paketserver darf `zod`, `adm-zip`, `dotenv`, `nanoid` und `jsonrepair` aus
 seinem Bundle weglassen und per Namen importieren, wie schon bei `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` und `undici`. Node löst sie von der Laufzeitkopie des Pakets aus
-über zwei Links auf: von `<runtime copy>/node_modules` zu `DATA_DIR/capability-packages/node_modules` zu
-`packages/server/node_modules` der Engine. Das Paket erhält also dieselbe Modulinstanz, die die Engine nutzt. pnpm hält dort nur die
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` und `undici`. Node löst sie über verwaltete Links in der
+Laufzeitkopie des Pakets zu `DATA_DIR/capability-packages/node_modules` auf, das auf `packages/server/node_modules` der Engine zeigt.
+Zod ist die Kompatibilitätsausnahme: Ein `zod`-Import eines Pakets löst die vollständige Abhängigkeit `zod-v3` auf, einschließlich
+ihrer Default-, benannten, CommonJS- und Subpfad-Exporte. Andere Bibliotheken behalten dieselbe Modulinstanz wie die Engine.
+Die eigenen `zod`-Importe der Engine lösen weiterhin natives Zod 4 auf. pnpm hält dort nur die
 direkten Abhängigkeiten des Servers. Deshalb lassen sich nur diese Namen auflösen, nicht aber eine Abhängigkeit einer Abhängigkeit wie `ws`.
 Die Engine hält die oben genannten Namen als direkte Produktionsabhängigkeiten von `packages/server`, und jede Installation behält diesen
 Aufbau bei: Quellcode- und Launcher-Installationen, Windows (wo der Datenlink eine Junction ist), Android und Termux sowie beide

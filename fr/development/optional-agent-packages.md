@@ -91,6 +91,12 @@ L'espace de noms ne fait que s'agrandir : un nouveau membre arrive avec une vers
 - Un package garde sa propre instance i18next, issue de `i18next.createInstance()`, à l'intérieur de `<I18nextProvider>`. Il n'utilise jamais `initReactI18next`, `setI18n` ni `setDefaults`, qui remplaceraient l'instance du moteur.
 - `lucide-react`, `chess.js`, `scheduler` et `@marinara-engine/shared` ne sont pas des modules de l'hôte ; les packages embarquent ce qu'ils en utilisent.
 - Les packages sont construits pour ces versions majeures : `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `motion` 14 (le slot `motion/react`), `tailwind-merge` 3 et `clsx` 2. Remplacer la version majeure derrière un slot public existant exige une version **majeure** de Capability API. Ajouter un slot distinct est un changement additif : Capability API 1.377 ajoute `motion/react` sans modifier `framer-motion`. `scripts/regressions/marinara-host-namespace.regression.ts` fige la dépendance associée et la version majeure de chaque slot.
+- Le moteur valide ses propres données avec Zod 4 natif. Les packages existants conservent Zod 3 grâce à la dépendance explicite
+  de compatibilité `zod-v3`, à la fois dans l'emplacement client `zod` et dans les imports côté serveur des packages. Leurs enregistrements,
+  valeurs par défaut et exports de modules existants sont ainsi préservés. L'alias contient le correctif de sécurité contrôlé pour
+  les collections de taille bornée de `patches/zod@3.25.76.patch` ; il ne s'agit pas de Zod 3 sans modification. Ces anciens validateurs
+  de packages conservent le comportement de Zod 3, à l'exception de cette correction de sécurité documentée. La mise à niveau du cœur
+  ne leur applique pas les autres changements de validation de Zod 4.
 - Les packages déjà installés gardent tout leur espace de noms Motion 13 et n'ont pas besoin d'être reconstruits. Un package qui choisit Motion 14 importe `motion/react` via le shim de l'hôte et déclare Capability API 1.377 ou une version plus récente. Les anciens hôtes rejettent cette déclaration plutôt que de remplacer discrètement Motion 14 par Motion 13. Garde une seule version dans chaque arbre d'animation : `AnimatePresence`, `MotionConfig`, `LayoutGroup`, les valeurs Motion et leurs consommateurs doivent venir du même slot. Les versions ont des contextes distincts ; aucun pont entre contextes n'est fourni. Les vues des packages montent leurs propres racines React, tandis que le `Modal` de l'hôte utilise des animations CSS. Ne compte pas sur une mise en page ou une présence partagées entre les versions.
 
 **Champs de store que lisent les packages.** Les packages publiés lisent aujourd'hui ces champs. Le moteur les conserve tous, et en supprimer ou en renommer un demande une version majeure de Capability API (`MARINARA_HOST_STORE_FIELDS` les fige avec `Pick<>`) :
@@ -1109,9 +1115,11 @@ copie sépare un état que le moteur conserve en un seul endroit. Les types et a
 
 **Bibliothèques serveur partagées.** Le serveur d'un package peut laisser `zod`, `adm-zip`, `dotenv`, `nanoid` et `jsonrepair` hors de
 son bundle et les importer par leur nom, comme il peut déjà le faire pour `@huggingface/transformers`, `onnxruntime-node`,
-`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` et `undici`. Node les résout depuis la copie d'exécution du package
-par deux liens, de `<runtime copy>/node_modules` vers `DATA_DIR/capability-packages/node_modules`, puis vers
-`packages/server/node_modules` du moteur : le package reçoit donc l'instance même du module qu'utilise le moteur. pnpm n'y garde que les
+`onnxruntime-web`, `sharp`, `pino`, `pino-pretty` et `undici`. Node les résout par des liens gérés dans la
+copie d'exécution du package vers `DATA_DIR/capability-packages/node_modules`, qui pointe vers `packages/server/node_modules` du moteur.
+Zod constitue l'exception de compatibilité : l'import `zod` d'un package résout la dépendance `zod-v3` complète, y compris ses exports
+par défaut, nommés, CommonJS et par sous-chemin. Les autres bibliothèques conservent l'instance même du module qu'utilise le moteur.
+Les imports `zod` du moteur continuent de résoudre Zod 4 natif. pnpm n'y garde que les
 dépendances directes du serveur : seuls ces noms peuvent donc être résolus, et non une dépendance d'une dépendance, telle que `ws`.
 Le moteur conserve les noms ci-dessus comme dépendances directes de production de `packages/server`, et chaque installation garde cette
 structure : les installations depuis les sources ou par le lanceur, Windows (où le lien de données est une jonction), Android et Termux, ainsi que les deux

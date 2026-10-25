@@ -231,6 +231,8 @@ Erweiterungen von Fremdanbietern können bösartigen oder gefährlichen Code ent
 
 Über die Export-Aktion einer Erweiterung lädst du ein portables Paket herunter. Exportierte und wiederhergestellte Pakete bleiben deaktiviert. Auch wer eine frühere Fassung wiederherstellt, erhält wieder einen deaktivierten Entwurf.
 
+Unter **Settings → Addons → Extension revision history** (Einstellungen → Addons → Versionsverlauf für Erweiterungen) legst du für alle persönlichen und externen Erweiterungen fest, wie viele frühere Code-Fassungen erhalten bleiben. Der Standard ist **10**; möglich sind **0–10**, wobei **0** den Verlauf deaktiviert. Beim Senken des Limits wirst du um Bestätigung gebeten, bevor ältere Fassungen endgültig gelöscht werden. Der aktuelle Erweiterungscode, Freigaben, der Aktivierungszustand und gespeicherte Erweiterungsdaten bleiben erhalten. Künftige Änderungen und Rollbacks halten sich an dasselbe Limit, auch Änderungen durch Professor Mari.
+
 Verhält sich eine Erweiterung daneben, wähle **Disable** (deaktivieren). Ist die Oberfläche nicht erreichbar, beende Marinara und setze im passenden `installed_extensions`-Eintrag den Wert `enabled` auf `"false"`. Setze `approvedHash` niemals von Hand.
 
 ## Verwandte Anleitungen

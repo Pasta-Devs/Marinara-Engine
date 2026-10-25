@@ -8,7 +8,7 @@
 
 - **CSS**는 웹 페이지의 색, 글꼴, 테두리, 여백을 지정하는 언어입니다.
 - **Card CSS**(카드 CSS)는 캐릭터 카드나 페르소나 카드에 넣어 두는 CSS입니다. 그 카드의 메시지에 테마를 입힙니다.
-- **Card Theming**(카드 테마)은 채팅에서 Card CSS를 켜는 화면 속 컨트롤입니다.
+- **Card Theming**(카드 테마) 컨트롤은 채팅에서 Card CSS를 켭니다. **Chat Settings → Characters**(채팅 설정 → 캐릭터)에 있습니다(Game에서는 **Party**(파티)).
 - **선택자**는 CSS 규칙에서 어떤 요소에 스타일을 적용할지 고르는 부분입니다.
 - **하위 선택자**는 공백으로 "안쪽"을 나타냅니다. `.a .b`는 `.a` 안에 있는 `.b`에 적용됩니다.
 - **캐스케이드**는 한 요소에 여러 규칙이 겹칠 때 어느 규칙이 이길지 정하는 CSS의 체계입니다.
@@ -21,10 +21,10 @@
 1. Character Editor(캐릭터 편집기)에서 캐릭터를 열고 **Creator Notes** 입력란을 찾으세요. 페르소나도 Persona Editor(페르소나 편집기)에 같은 입력란이 있습니다.
 2. **Creator Notes**에 `<style>` 블록을 붙여넣고 카드를 저장하세요.
 3. 그 캐릭터와의 채팅을 여세요.
-4. **Chat Settings**(채팅 설정)를 열고 **Card Theming** 섹션으로 이동하세요.
+4. **Chat Settings**(채팅 설정)를 열고 **Characters**로 이동하세요(Game에서는 **Party**).
 5. **Exclusive**나 **Chat**을 고르세요. 처음에는 **Disabled** 상태입니다.
 
-곧바로 캐릭터의 메시지가 달라집니다. **Card Theming**의 모드 버튼(Disabled, Exclusive, Chat)은 그 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 들어 있을 때만 나타납니다. Roleplay 채팅에서는 **Color Character Names in Text**(본문의 캐릭터 이름에 색상 적용) 스위치도 포함하므로 섹션 자체는 항상 표시됩니다. 페르소나 쪽 CSS만으로는 버튼이 나타나지 않습니다. 채팅에 있는 캐릭터 중 최소 하나가 자기 `<style>` 블록을 가지고 있어야 합니다. 버튼이 보이지 않으면 `<style>` 블록이 제대로 저장됐는지 확인하세요.
+곧바로 캐릭터의 메시지가 달라집니다. **Card Theming**의 모드 버튼(Disabled, Exclusive, Chat)은 그 채팅에 참여 중인 캐릭터의 **Creator Notes**에 CSS가 들어 있을 때만 나타납니다. Roleplay 채팅에서 **Color Character Names in Text**(본문의 캐릭터 이름에 색상 적용)는 **Characters** 안에 있으며, 폴더가 있으면 **Add from Folder**(폴더에서 추가) 바로 아래에 표시됩니다. 페르소나 쪽 CSS만으로는 버튼이 나타나지 않습니다. 채팅에 있는 캐릭터 중 최소 하나가 자기 `<style>` 블록을 가지고 있어야 합니다. 버튼이 보이지 않으면 `<style>` 블록이 제대로 저장됐는지 확인하세요.
 
 **Creator Notes**에 붙여넣어 볼 수 있는 시작용 블록입니다.
 
@@ -66,7 +66,7 @@
 3. CSS의 적용 범위를 채팅 안으로 한정합니다.
 4. 범위가 한정된 선택자가 앱 자체의 메시지 스타일보다 우선하도록 CSS를 주입합니다.
 
-적용 방식은 **Chat Settings**의 **Card Theming**에서 채팅별로 고릅니다. 모드는 세 가지입니다.
+적용 방식은 **Chat Settings → Characters**(Game에서는 **Party**)에서 채팅별로 고릅니다. 모드는 세 가지입니다.
 
 | 모드 | 동작 |
 | --- | --- |
@@ -228,7 +228,7 @@ Conversation 모드에서 아바타를 클릭하면 캐릭터나 페르소나의
 
 팝아웃 카드가 곧 범위 요소입니다. `[data-card-css].mari-about-me-popout`처럼 공백 없이 같은 요소로 지정하세요. 그 안의 요소는 `[data-card-css] .mari-about-me-name`처럼 하위 선택자로 지정합니다. **Chat** 모드에서는 영역 전체가 범위이므로 `.mari-about-me-name`을 바로 써도 됩니다.
 
-"about me" 팝아웃을 꾸민 예입니다. 캐릭터나 페르소나의 **Creator Notes**에 붙여넣은 다음 **Chat Settings**에서 **Card Theming**을 켜세요. 페르소나에 붙여넣는다면 위의 주의 사항을 기억하세요. 채팅에 있는 캐릭터에도 **Creator Notes**에 CSS가 있어야 하며, 없으면 모드 버튼이 계속 숨겨져 있습니다.
+"about me" 팝아웃을 꾸민 예입니다. 캐릭터나 페르소나의 **Creator Notes**에 붙여넣은 다음 **Chat Settings → Characters**(Game에서는 **Party**)에서 Card CSS 모드를 고르세요. 페르소나에 붙여넣는다면 위의 주의 사항을 기억하세요. 채팅에 있는 캐릭터에도 **Creator Notes**에 CSS가 있어야 하며, 없으면 모드 버튼이 계속 숨겨져 있습니다.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ font-family: "Courier New", Consolas, monospace;
 - 아바타 클릭으로 열리는 프로필 팝아웃 전체
 - 게임 화면
 
-전체를 **Creator Notes**에 붙여넣은 다음 **Chat Settings**에서 **Card Theming**을 켜세요. Roleplay와 Conversation의 메시지, Conversation의 팝아웃, Game의 화면에 테마가 적용됩니다(게임에서는 모드를 **Chat**으로 설정하세요). 각 모드에 실제로 존재하는 훅만 적용되도록 `@chat-mode`로 구역을 나눠 두었습니다. 모든 내용은 검사를 통과합니다.
+전체를 **Creator Notes**에 붙여넣은 다음 **Chat Settings → Characters**(Game에서는 **Party**)에서 Card CSS 모드를 고르세요. Roleplay와 Conversation의 메시지, Conversation의 팝아웃, Game의 화면에 테마가 적용됩니다(게임에서는 모드를 **Chat**으로 설정하세요). 각 모드에 실제로 존재하는 훅만 적용되도록 `@chat-mode`로 구역을 나눠 두었습니다. 모든 내용은 검사를 통과합니다.
 
 ```html
 <style>
