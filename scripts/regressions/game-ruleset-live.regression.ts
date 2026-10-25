@@ -823,6 +823,8 @@ const fighter = buildFor({ level: 1, hp_max: 12 });
   const upcast = run(`[sheet: op="use" name="Fireball" pool="3rd-level slots"]`);
   assert.match(upcast.content, /now="3rd-level slots 0\/1"/);
   assert.deepEqual(upcast.live.mira, { pools: { slots_3: { value: 0 } } });
+  // Written loosely, as a GM might, it is the same pool (#8271).
+  assert.match(run(`[sheet: op="use" name="Fireball" pool="3rd_level_slots"]`).content, /now="3rd-level slots 0\/1"/);
   // It works off a single-pool cost too, because that pool is in the group as well.
   assert.match(run(`[sheet: op="use" name="Magic Missile" pool="2nd-level slots"]`).content, /now="2nd-level slots/);
 
