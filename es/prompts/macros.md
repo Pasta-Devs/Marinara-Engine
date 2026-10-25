@@ -163,7 +163,7 @@ Escribe los nombres y los IDs como texto plano. Las macros dentro de ellos, como
 
 ## Macros de tiempo
 
-Todas las macros de tiempo leen un mismo momento compartido por resolución, así que siempre coinciden entre sí. La zona horaria proviene de tu navegador.
+Las macros de tiempo del mundo real leen un mismo instante compartido en cada resolución, por lo que siempre coinciden entre sí. La zona horaria viene del navegador.
 
 | Macro | Se resuelve como |
 | --- | --- |
@@ -172,6 +172,13 @@ Todas las macros de tiempo leen un mismo momento compartido por resolución, as�
 | `{{datetime}}` / `{{isotime}}` | Una marca de tiempo completa con el desfase de zona horaria. Los dos nombres significan lo mismo. |
 | `{{weekday}}` | El nombre del día de la semana, como `Monday`. |
 | `{{timezone}}` | El nombre de la zona horaria, como `Europe/Warsaw`. |
+| `{{date.world_state}}` | La fecha actual del mundo registrada por World State, en su formato original. |
+| `{{time.world_state}}` | La hora actual del mundo registrada por World State, en su formato original. |
+| `{{weekday.world_state}}` | Un campo personalizado del mundo llamado Weekday o Day of Week, un día de la semana escrito en la fecha registrada o el día de la semana de una fecha registrada válida con formato `YYYY-MM-DD`. |
+
+Las macros `.world_state` funcionan en los prompts y en las plantillas de agentes. Leen la fecha y la hora del mundo que se muestran para el turno actual de la historia. Al cambiar de swipe, usan los valores del turno seleccionado; al regenerar, usan el estado de la historia desde el que parte la respuesta de reemplazo. Si falta un valor, queda vacío; nunca se sustituye por la fecha u hora actuales del mundo real. Los calendarios ficticios conservan su propio texto de fecha y hora. Para un día de la semana ficticio, añade en World State un campo personalizado llamado Weekday o Day of Week.
+
+Por ejemplo, `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` lee el día de la semana registrado en lugar del real.
 
 ## Macros aleatorias y de dados
 

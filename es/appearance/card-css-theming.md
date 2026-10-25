@@ -8,7 +8,7 @@ Unas cuantas definiciones sencillas que se usan a lo largo de esta guía:
 
 - **CSS** es el lenguaje que controla los colores, las fuentes, los bordes y el espaciado en una página web.
 - **Card CSS** es el CSS que insertas en una tarjeta de personaje o de persona. Da estilo a los mensajes de esa tarjeta.
-- **Card Theming** es el control en pantalla que activa el Card CSS para un chat.
+- Los controles de **Card Theming** activan Card CSS para un chat. Están en **Chat Settings → Characters** (Ajustes del chat → Personajes), o en **Party** (Grupo) en Game.
 - Un **selector** es la parte de una regla CSS que elige a qué elementos dar estilo.
 - Un **selector de descendiente** usa un espacio para significar "dentro de". `.a .b` coincide con un `.b` que está dentro de un `.a`.
 - La **cascada** es el sistema de CSS que decide qué regla gana cuando varias reglas se aplican al mismo elemento.
@@ -21,10 +21,10 @@ Das estilo a una tarjeta en dos lugares. Primero añades CSS a la tarjeta. Luego
 1. Abre el personaje en el Character Editor (Editor de personajes) y busca el campo **Creator Notes**. Las personas tienen el mismo campo en el Persona Editor (Editor de personas).
 2. Pega un bloque `<style>` en **Creator Notes** y guarda la tarjeta.
 3. Abre un chat con ese personaje.
-4. Abre **Chat Settings** (Ajustes del chat) y luego la sección **Card Theming**.
+4. Abre **Chat Settings** y luego **Characters** (o **Party** en Game).
 5. Elige **Exclusive** o **Chat**. El modo empieza en **Disabled**.
 
-Deberías ver cómo los mensajes del personaje cambian de inmediato. Los botones de modo de **Card Theming** (Disabled, Exclusive, Chat) solo aparecen cuando un personaje activo en ese chat tiene CSS en sus **Creator Notes**. En los chats de Roleplay, la sección siempre está presente, porque también contiene el interruptor **Color Character Names in Text** (colorear los nombres de personajes en el texto). El CSS de una persona por sí solo no hace que aparezcan los botones. Al menos un personaje del chat debe llevar su propio bloque `<style>`. Si no ves los botones, comprueba que tu bloque `<style>` se guardó correctamente.
+Deberías ver cómo los mensajes del personaje cambian de inmediato. Los botones de modo de **Card Theming** (Disabled, Exclusive, Chat) solo aparecen cuando un personaje activo en ese chat tiene CSS en sus **Creator Notes**. En los chats de Roleplay, **Color Character Names in Text** (colorear los nombres de personajes en el texto) está en **Characters**, justo debajo de **Add from Folder** (Añadir desde una carpeta) cuando hay una carpeta disponible. El CSS de una persona por sí solo no hace que aparezcan los botones. Al menos un personaje del chat debe llevar su propio bloque `<style>`. Si no ves los botones, comprueba que tu bloque `<style>` se guardó correctamente.
 
 Aquí tienes un bloque inicial para pegar en **Creator Notes**:
 
@@ -66,7 +66,7 @@ Cuando un personaje con CSS en sus **Creator Notes** está activo, Marinara hace
 3. Limita el alcance del CSS para que solo pueda llegar al chat.
 4. Inyecta el CSS de modo que sus selectores acotados anulen el estilo de mensajes de la propia app.
 
-Eliges cómo se aplica por chat en **Chat Settings** y luego en **Card Theming**. Hay tres modos.
+Eliges cómo se aplica por chat en **Chat Settings → Characters** (o **Party** en Game). Hay tres modos.
 
 | Modo | Qué hace |
 | --- | --- |
@@ -228,7 +228,7 @@ Una salvedad para las personas: los botones de modo de **Card Theming** solo apa
 
 La tarjeta del panel emergente es el elemento de alcance. Apúntalo con `[data-card-css].mari-about-me-popout` (sin espacio, mismo elemento). Apunta a sus hijos con un selector de descendiente, como `[data-card-css] .mari-about-me-name`. En el modo **Chat** toda el área está acotada, así que puedes usar `.mari-about-me-name` directamente.
 
-Aquí tienes un panel emergente "about me" con estilo. Pégalo en las **Creator Notes** de un personaje o de una persona, y luego activa **Card Theming** en **Chat Settings**. Si lo pegas en una persona, recuerda la salvedad de arriba. Un personaje del chat también debe tener CSS en sus **Creator Notes**, o los botones de modo quedan ocultos.
+Aquí tienes un panel emergente "about me" con estilo. Pégalo en las **Creator Notes** de un personaje o de una persona, y luego elige un modo de Card CSS en **Chat Settings → Characters** (o **Party** en Game). Si lo pegas en una persona, recuerda la salvedad de arriba. Un personaje del chat también debe tener CSS en sus **Creator Notes**, o los botones de modo quedan ocultos.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ Esta es una tarjeta deliberadamente extravagante. Toca cada enganche documentado
 - el panel emergente de perfil al hacer clic en el avatar, con estilo completo
 - la superficie del juego
 
-Pégala entera en **Creator Notes**, y luego activa **Card Theming** en **Chat Settings**. Da estilo a los mensajes en Roleplay y Conversation, al panel emergente en Conversation, y a la superficie en Game (pon el modo en **Chat** para el juego). Las secciones están divididas por `@chat-mode` para que cada modo reciba exactamente los enganches que tiene. Todo es seguro para el saneador.
+Pégala entera en **Creator Notes**, y luego elige un modo de Card CSS en **Chat Settings → Characters** (o **Party** en Game). Da estilo a los mensajes en Roleplay y Conversation, al panel emergente en Conversation, y a la superficie en Game (pon el modo en **Chat** para el juego). Las secciones están divididas por `@chat-mode` para que cada modo reciba exactamente los enganches que tiene. Todo es seguro para el saneador.
 
 ```html
 <style>

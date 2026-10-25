@@ -163,7 +163,7 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 
 ## 时间宏
 
-每次解析时，所有时间宏读的都是同一个时刻，因此彼此永远一致。时区取自浏览器。
+每次解析时，现实世界的时间宏读的都是同一个时刻，因此彼此永远一致。时区取自浏览器。
 
 | 宏 | 展开结果 |
 | --- | --- |
@@ -172,6 +172,13 @@ Outlet 宏可以用在 Conversation、Roleplay 或 Game Mode 的提示词小节�
 | `{{datetime}}` / `{{isotime}}` | 带时区偏移的完整时间戳。这两个名字含义完全相同。 |
 | `{{weekday}}` | 星期名，比如 `Monday`。 |
 | `{{timezone}}` | 时区名，比如 `Europe/Warsaw`。 |
+| `{{date.world_state}}` | World State 追踪的当前世界内日期，保留原始格式。 |
+| `{{time.world_state}}` | World State 追踪的当前世界内时间，保留原始格式。 |
+| `{{weekday.world_state}}` | 名为 Weekday 或 Day of Week 的世界自定义字段、追踪日期中写出的星期，或有效 `YYYY-MM-DD` 格式追踪日期对应的星期。 |
+
+`.world_state` 宏可以用于提示词和智能体模板。它们读取当前故事回合显示的世界日期和时间。切换备选回复会改变所读取的回合值；重新生成时，使用替代回复开始时的故事状态。缺失的值会变为空，不会退回到现实世界今天的日期或时间。虚构日历会保留自己的日期和时间文本。要使用虚构的星期，在 World State 中添加名为 Weekday 或 Day of Week 的自定义字段。
+
+例如，`{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` 读取的是追踪到的星期，而非现实世界的星期。
 
 ## 随机与掷骰宏
 

@@ -8,7 +8,7 @@ Quelques définitions simples, utilisées dans tout ce guide :
 
 - Le **CSS** est le langage qui règle les couleurs, les polices, les bordures et les espacements d'une page web.
 - Le **CSS de fiche** est le CSS que tu intègres dans une fiche de personnage ou de persona. Il habille les messages de cette fiche.
-- Le **Card Theming** (thème de fiche) est le réglage, à l'écran, qui active le CSS de fiche pour un chat.
+- Les commandes de **Card Theming** (thème de fiche) activent le CSS de fiche pour un chat. Elles se trouvent dans **Chat Settings → Characters** (réglages du chat → personnages), ou dans **Party** (groupe) en Game.
 - Un **sélecteur** est la partie d'une règle CSS qui désigne les éléments à styliser.
 - Un **sélecteur descendant** utilise une espace pour dire "à l'intérieur de". `.a .b` correspond à un `.b` situé dans un `.a`.
 - La **cascade** est le mécanisme CSS qui décide quelle règle l'emporte quand plusieurs règles visent le même élément.
@@ -21,10 +21,10 @@ Le thème d'une fiche se règle à deux endroits. D'abord tu ajoutes le CSS à l
 1. Ouvre le personnage dans la fenêtre **Character Editor** (éditeur de personnage) et repère le champ **Creator Notes**. Les personas ont le même champ dans la fenêtre **Persona Editor** (éditeur de persona).
 2. Colle un bloc `<style>` dans le champ **Creator Notes**, puis enregistre la fiche.
 3. Ouvre un chat avec ce personnage.
-4. Ouvre la section **Chat Settings** (réglages du chat), puis la section **Card Theming**.
+4. Ouvre **Chat Settings**, puis **Characters** (ou **Party** en Game).
 5. Choisis **Exclusive** ou **Chat**. Le mode démarre sur **Disabled**.
 
-Les messages du personnage changent aussitôt. Les boutons de mode de **Card Theming** (Disabled, Exclusive, Chat) n'apparaissent que si un personnage actif du chat a du CSS dans son champ **Creator Notes**. Dans les chats Roleplay, la section elle-même reste toujours présente, car elle contient aussi l'interrupteur **Color Character Names in Text** (colorer les noms des personnages dans le texte). Le CSS d'un persona seul ne suffit pas à faire apparaître les boutons. Il faut qu'au moins un personnage du chat porte son propre bloc `<style>`. Si les boutons restent invisibles, vérifie que le bloc `<style>` a bien été enregistré.
+Les messages du personnage changent aussitôt. Les boutons de mode de **Card Theming** (Disabled, Exclusive, Chat) n'apparaissent que si un personnage actif du chat a du CSS dans son champ **Creator Notes**. Dans les chats Roleplay, **Color Character Names in Text** (colorer les noms des personnages dans le texte) se trouve dans **Characters**, juste sous **Add from Folder** (ajouter depuis un dossier) lorsqu'un dossier est disponible. Le CSS d'un persona seul ne suffit pas à faire apparaître les boutons. Il faut qu'au moins un personnage du chat porte son propre bloc `<style>`. Si les boutons restent invisibles, vérifie que le bloc `<style>` a bien été enregistré.
 
 Voici un bloc de départ à coller dans le champ **Creator Notes** :
 
@@ -66,7 +66,7 @@ Quand un personnage avec du CSS dans son champ **Creator Notes** est actif, Mari
 3. Marinara limite la portée du CSS pour qu'il n'atteigne que le chat.
 4. Marinara insère le CSS pour que ses sélecteurs à portée limitée l'emportent sur le style de message de l'application.
 
-Le mode d'application se choisit chat par chat, dans la section **Chat Settings**, puis **Card Theming**. Il existe trois modes.
+Le mode d'application se choisit chat par chat, dans **Chat Settings → Characters** (ou **Party** en Game). Il existe trois modes.
 
 | Mode | Effet |
 | --- | --- |
@@ -228,7 +228,7 @@ Une réserve pour les personas : les boutons de mode de **Card Theming** n'appar
 
 La fiche du panneau contextuel est l'élément de portée. Vise-la avec `[data-card-css].mari-about-me-popout` (sans espace, même élément). Vise ses enfants avec un sélecteur descendant, comme `[data-card-css] .mari-about-me-name`. En mode **Chat**, toute la zone est comprise dans la portée : tu peux donc écrire `.mari-about-me-name` directement.
 
-Voici un panneau contextuel "about me" habillé. Colle-le dans le champ **Creator Notes** d'un personnage ou d'un persona, puis active **Card Theming** dans la section **Chat Settings**. Si tu le colles dans un persona, souviens-toi de la réserve ci-dessus. Un personnage du chat doit lui aussi avoir du CSS dans son champ **Creator Notes**, sinon les boutons de mode restent cachés.
+Voici un panneau contextuel "about me" habillé. Colle-le dans le champ **Creator Notes** d'un personnage ou d'un persona, puis choisis un mode de CSS de fiche dans **Chat Settings → Characters** (ou **Party** en Game). Si tu le colles dans un persona, souviens-toi de la réserve ci-dessus. Un personnage du chat doit lui aussi avoir du CSS dans son champ **Creator Notes**, sinon les boutons de mode restent cachés.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ Cette fiche est délibérément extravagante. Elle touche à chaque accroche doc
 - le panneau contextuel de profil ouvert au clic sur l'avatar, entièrement habillé
 - la surface de jeu
 
-Colle-la en entier dans le champ **Creator Notes**, puis active **Card Theming** dans la section **Chat Settings**. Elle habille les messages en Roleplay et en Conversation, le panneau contextuel en Conversation, et la surface en Game Mode (règle alors le mode sur **Chat**). Les sections sont séparées par `@chat-mode`, pour que chaque mode reçoive exactement les accroches dont il dispose. Tout passe le nettoyage sans encombre.
+Colle-la en entier dans le champ **Creator Notes**, puis choisis un mode de CSS de fiche dans **Chat Settings → Characters** (ou **Party** en Game). Elle habille les messages en Roleplay et en Conversation, le panneau contextuel en Conversation, et la surface en Game Mode (règle alors le mode sur **Chat**). Les sections sont séparées par `@chat-mode`, pour que chaque mode reçoive exactement les accroches dont il dispose. Tout passe le nettoyage sans encombre.
 
 ```html
 <style>

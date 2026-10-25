@@ -8,7 +8,7 @@ Kilka prostych definicji, które przewijają się przez cały przewodnik:
 
 - **CSS** to język, który decyduje o kolorach, krojach pisma, obramowaniach i odstępach na stronie internetowej.
 - **CSS karty** to kod CSS wpisany w kartę postaci lub persony. Nadaje styl wiadomościom tej karty.
-- **Card Theming** (stylowanie kart) to kontrolka na ekranie, która włącza CSS karty dla danego czatu.
+- **Card Theming** (stylowanie kart) włącza CSS karty dla danego czatu. Te kontrolki znajdziesz w **Chat Settings → Characters** (ustawienia czatu → postacie), a w trybie Game w **Party** (drużyna).
 - **Selektor** to ta część reguły CSS, która wybiera elementy do ostylowania.
 - **Selektor potomka** używa spacji w znaczeniu "wewnątrz". Zapis `.a .b` pasuje do elementu `.b` znajdującego się wewnątrz `.a`.
 - **Kaskada** to mechanizm CSS, który rozstrzyga, która reguła wygrywa, gdy do tego samego elementu pasuje kilka reguł.
@@ -21,10 +21,10 @@ Stylowanie karty odbywa się w dwóch miejscach. Najpierw dodaj CSS do karty. Po
 1. Otwórz postać w edytorze **Character Editor** (edytor postaci) i znajdź pole **Creator Notes**. Persony mają to samo pole w edytorze **Persona Editor** (edytor persony).
 2. Wklej blok `<style>` w pole **Creator Notes** i zapisz kartę.
 3. Otwórz czat z tą postacią.
-4. Otwórz **Chat Settings** (ustawienia czatu), a potem sekcję **Card Theming**.
+4. Otwórz **Chat Settings**, a potem **Characters** (lub **Party** w trybie Game).
 5. Wybierz **Exclusive** albo **Chat**. Na starcie tryb stoi na **Disabled**.
 
-Wiadomości postaci powinny zmienić wygląd od razu. Przyciski trybu **Card Theming** (Disabled, Exclusive, Chat) pojawiają się dopiero wtedy, gdy aktywna postać w tym czacie ma kod CSS w polu **Creator Notes**. W czatach Roleplay sama sekcja jest zawsze widoczna, ponieważ zawiera też przełącznik **Color Character Names in Text** (kolorowanie imion postaci w tekście). Sam CSS persony nie wywoła przycisków. Przynajmniej jedna postać w czacie musi mieć własny blok `<style>`. Jeśli przycisków nie widać, sprawdź, czy blok `<style>` zapisał się poprawnie.
+Wiadomości postaci powinny zmienić wygląd od razu. Przyciski trybu **Card Theming** (Disabled, Exclusive, Chat) pojawiają się dopiero wtedy, gdy aktywna postać w tym czacie ma kod CSS w polu **Creator Notes**. W czatach Roleplay przełącznik **Color Character Names in Text** (kolorowanie imion postaci w tekście) znajduje się w **Characters**, bezpośrednio pod **Add from Folder** (dodaj z folderu), gdy folder jest dostępny. Sam CSS persony nie wywoła przycisków. Przynajmniej jedna postać w czacie musi mieć własny blok `<style>`. Jeśli przycisków nie widać, sprawdź, czy blok `<style>` zapisał się poprawnie.
 
 Oto blok na początek, do wklejenia w pole **Creator Notes**:
 
@@ -66,7 +66,7 @@ Kiedy aktywna jest postać z kodem CSS w polu **Creator Notes**, Marinara robi c
 3. Ogranicza zakres kodu CSS tak, żeby sięgał tylko do czatu.
 4. Wstawia kod CSS w taki sposób, żeby jego selektory o ograniczonym zakresie miały pierwszeństwo przed własnymi stylami wiadomości w aplikacji.
 
-Sposób zastosowania wybiera się osobno dla każdego czatu w **Chat Settings**, a potem w **Card Theming**. Do wyboru są trzy tryby.
+Sposób zastosowania wybiera się osobno dla każdego czatu w **Chat Settings → Characters** (lub **Party** w trybie Game). Do wyboru są trzy tryby.
 
 | Tryb | Co robi |
 | --- | --- |
@@ -228,7 +228,7 @@ Jedno zastrzeżenie przy personach: przyciski trybu **Card Theming** pojawiają 
 
 Karta panelu jest elementem wyznaczającym zakres. Obejmiesz ją zapisem `[data-card-css].mari-about-me-popout` (bez spacji, ten sam element). Elementy w środku obejmij selektorem potomka, na przykład `[data-card-css] .mari-about-me-name`. W trybie **Chat** zakresem objęty jest cały obszar, więc można pisać wprost `.mari-about-me-name`.
 
-Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub persony, a potem włącz **Card Theming** w **Chat Settings**. Przy wklejaniu do persony pamiętaj o zastrzeżeniu powyżej. Jakaś postać w czacie też musi mieć kod CSS w polu **Creator Notes**, inaczej przyciski trybu pozostaną ukryte.
+Oto ostylowany panel "about me". Wklej go w pole **Creator Notes** postaci lub persony, a potem wybierz tryb CSS karty w **Chat Settings → Characters** (lub **Party** w trybie Game). Przy wklejaniu do persony pamiętaj o zastrzeżeniu powyżej. Jakaś postać w czacie też musi mieć kod CSS w polu **Creator Notes**, inaczej przyciski trybu pozostaną ukryte.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ To karta z rozmysłem przesadzona. Sięga po każdy udokumentowany punkt zaczepi
 - w pełni ostylowany panel profilu otwierany kliknięciem awatara
 - powierzchnię gry
 
-Wklej całość w pole **Creator Notes**, a potem włącz **Card Theming** w **Chat Settings**. Karta nadaje styl wiadomościom w trybie Roleplay i Conversation, panelowi w trybie Conversation oraz powierzchni w Game Mode (dla gry ustaw tryb **Chat**). Sekcje są rozdzielone przez `@chat-mode`, żeby każdy tryb dostał dokładnie te punkty zaczepienia, które ma. Wszystko przechodzi przez filtr oczyszczający.
+Wklej całość w pole **Creator Notes**, a potem wybierz tryb CSS karty w **Chat Settings → Characters** (lub **Party** w trybie Game). Karta nadaje styl wiadomościom w trybie Roleplay i Conversation, panelowi w trybie Conversation oraz powierzchni w Game Mode (dla gry ustaw tryb **Chat**). Sekcje są rozdzielone przez `@chat-mode`, żeby każdy tryb dostał dokładnie te punkty zaczepienia, które ma. Wszystko przechodzi przez filtr oczyszczający.
 
 ```html
 <style>

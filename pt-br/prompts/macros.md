@@ -163,7 +163,7 @@ Escreva nomes e IDs como texto simples. As macros dentro deles, como em `{{inclu
 
 ## Macros de tempo
 
-Todas as macros de tempo leem um mesmo instante compartilhado a cada resolução, então elas sempre concordam entre si. O fuso horário vem do navegador.
+As macros de tempo do mundo real leem um mesmo instante compartilhado a cada resolução, então elas sempre concordam entre si. O fuso horário vem do navegador.
 
 | Macro | Resultado |
 | --- | --- |
@@ -172,6 +172,13 @@ Todas as macros de tempo leem um mesmo instante compartilhado a cada resolução
 | `{{datetime}}` / `{{isotime}}` | Um carimbo de data e hora completo, com o deslocamento do fuso horário. Os dois nomes significam a mesma coisa. |
 | `{{weekday}}` | O nome do dia da semana, como `Monday`. |
 | `{{timezone}}` | O nome do fuso horário, como `Europe/Warsaw`. |
+| `{{date.world_state}}` | A data atual do mundo registrada pelo World State, no formato original. |
+| `{{time.world_state}}` | A hora atual do mundo registrada pelo World State, no formato original. |
+| `{{weekday.world_state}}` | Um campo personalizado do mundo chamado Weekday ou Day of Week, um dia da semana escrito na data registrada ou o dia da semana de uma data registrada válida no formato `YYYY-MM-DD`. |
+
+As macros `.world_state` funcionam em prompts e modelos de agentes. Elas leem a data e a hora do mundo exibidas para o turno atual da história. Mudar de swipe altera o turno cujos valores elas usam; regenerar usa o estado da história de onde a resposta substituta parte. Um valor ausente fica vazio; ele nunca usa a data ou a hora atuais do mundo real como alternativa. Os calendários fictícios mantêm o próprio texto de data e hora. Para um dia da semana fictício, adicione no World State um campo personalizado chamado Weekday ou Day of Week.
+
+Por exemplo, `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` lê o dia da semana registrado em vez do real.
 
 ## Macros de sorteio e dados
 

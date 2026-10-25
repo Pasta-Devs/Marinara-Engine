@@ -89,6 +89,12 @@ Pakiet odczytuje element dopiero po sprawdzeniu go, na przykład `const host = g
 - Pakiet trzyma własną instancję i18next z `i18next.createInstance()` wewnątrz `<I18nextProvider>`. Nigdy nie używa `initReactI18next`, `setI18n` ani `setDefaults`, bo zastąpiłyby one instancję silnika.
 - `lucide-react`, `chess.js`, `scheduler` i `@marinara-engine/shared` nie są modułami hosta; pakiety dołączają to, czego z nich używają.
 - Pakiety są budowane pod te wersje główne: `react` 19, `react-dom` 19, `@tanstack/react-query` 5, `zustand` 5, `sonner` 2, `zod` 3, `i18next` 26, `react-i18next` 17, `framer-motion` 13, `motion` 14 (slot `motion/react`), `tailwind-merge` 3 i `clsx` 2. Zmiana wersji głównej biblioteki udostępnianej przez istniejący publiczny slot wymaga nowej wersji **major** API możliwości. Dodanie osobnego slotu jest zmianą addytywną: API możliwości 1.377 dodaje `motion/react` bez zmieniania `framer-motion`. `scripts/regressions/marinara-host-namespace.regression.ts` przypina zależność przypisaną do każdego slotu oraz jej wersję główną.
+- Silnik sprawdza własne dane za pomocą natywnego Zod 4. Istniejące pakiety zachowują Zod 3 przez jawną
+  zależność zgodności `zod-v3`, zarówno w klienckim slocie `zod`, jak i w importach serwera pakietu. Zachowuje to
+  ich dotychczasowe rekordy, wartości domyślne i eksporty modułów. Alias zawiera sprawdzoną poprawkę bezpieczeństwa
+  ograniczającą kolekcje z `patches/zod@3.25.76.patch`; nie jest to standardowy Zod 3. Poza tą udokumentowaną poprawką
+  bezpieczeństwa starsze walidatory pakietów zachowują działanie Zod 3. Aktualizacja rdzenia nie wprowadza w nich
+  pozostałych zmian walidacji z Zod 4.
 - Już zainstalowane pakiety zachowują pełną przestrzeń nazw Motion 13 i nie wymagają ponownego builda. Pakiet wybierający Motion 14 importuje `motion/react` przez shim hosta i deklaruje API możliwości 1.377 lub nowsze. Starsze hosty odrzucają tę deklarację, zamiast po cichu podstawiać Motion 13. W każdym drzewie animacji używaj jednej wersji: `AnimatePresence`, `MotionConfig`, `LayoutGroup`, wartości Motion i ich odbiorcy muszą pochodzić z tego samego slotu. Wersje mają osobne konteksty; nie ma między nimi mostu. Widoki pakietów montują własne korzenie React, a `Modal` hosta używa animacji CSS. Nie oczekuj współdzielonego układu ani animacji obecności ponad granicą wersji.
 
 **Pola magazynów odczytywane przez pakiety.** Opublikowane pakiety odczytują dziś te pola. Silnik zachowuje każde z nich, a usunięcie któregoś albo zmiana jego nazwy wymaga nowej wersji major API możliwości (`MARINARA_HOST_STORE_FIELDS` przypina je przez `Pick<>`):
@@ -1080,9 +1086,11 @@ bo druga kopia rozdziela stan, który silnik utrzymuje w jednym miejscu. Czyste 
 
 **Współdzielone biblioteki serwera.** Serwer pakietu może nie dołączać `zod`, `adm-zip`, `dotenv`, `nanoid` i
 `jsonrepair`, a zamiast tego importować je po nazwie, tak jak już może robić z `@huggingface/transformers`,
-`onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty` i `undici`. Node odnajduje je z uruchomieniowej
-kopii pakietu przez dwa dowiązania: z `<runtime copy>/node_modules` do `DATA_DIR/capability-packages/node_modules`,
-a stamtąd do `packages/server/node_modules` silnika. Pakiet otrzymuje więc dokładnie tę samą instancję modułu co silnik.
+`onnxruntime-node`, `onnxruntime-web`, `sharp`, `pino`, `pino-pretty` i `undici`. Node rozwiązuje je przez zarządzane
+dowiązania w uruchomieniowej kopii pakietu do `DATA_DIR/capability-packages/node_modules`, który wskazuje na
+`packages/server/node_modules` silnika. Zod jest wyjątkiem zgodności: import `zod` w pakiecie rozwiązuje się na pełną
+zależność `zod-v3`, z eksportami domyślnymi, nazwanymi, CommonJS oraz eksportami podścieżek. Inne biblioteki zachowują dokładnie
+tę samą instancję modułu, której używa silnik. Własne importy `zod` silnika nadal wskazują na natywny Zod 4.
 pnpm trzyma tam tylko bezpośrednie zależności serwera, więc rozpoznawane są tylko te nazwy; zależność zależności,
 na przykład `ws`, nie jest dostępna. Silnik zachowuje wymienione nazwy jako bezpośrednie zależności produkcyjne
 `packages/server`, a każda instalacja zachowuje ten układ: instalacja ze źródeł i przez program uruchamiający,

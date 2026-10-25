@@ -163,7 +163,7 @@ Schreib Namen und IDs als reinen Text. Makros darin, etwa `{{include::{{char}}}}
 
 ## Zeit-Makros
 
-Alle Zeit-Makros lesen pro Auflösung denselben Zeitpunkt und stimmen daher immer miteinander überein. Die Zeitzone kommt aus dem Browser.
+Die Zeit-Makros für die reale Welt lesen pro Auflösung denselben Zeitpunkt und stimmen daher immer miteinander überein. Die Zeitzone kommt aus dem Browser.
 
 | Makro | Ergibt |
 | --- | --- |
@@ -172,6 +172,13 @@ Alle Zeit-Makros lesen pro Auflösung denselben Zeitpunkt und stimmen daher imme
 | `{{datetime}}` / `{{isotime}}` | Einen vollständigen Zeitstempel samt Zeitzonen-Offset. Beide Namen bedeuten dasselbe. |
 | `{{weekday}}` | Den Namen des Wochentags, etwa `Monday`. |
 | `{{timezone}}` | Den Namen der Zeitzone, etwa `Europe/Warsaw`. |
+| `{{date.world_state}}` | Das von World State erfasste aktuelle Datum der Welt, in seinem ursprünglichen Format. |
+| `{{time.world_state}}` | Die von World State erfasste aktuelle Uhrzeit der Welt, in ihrem ursprünglichen Format. |
+| `{{weekday.world_state}}` | Ein eigenes Weltfeld namens Weekday oder Day of Week, ein im erfassten Datum ausgeschriebener Wochentag oder der Wochentag eines gültigen erfassten Datums im Format `YYYY-MM-DD`. |
+
+Die `.world_state`-Makros funktionieren in Prompts und Agentenvorlagen. Sie lesen das Datum und die Uhrzeit der Welt, die für den aktuellen Erzählzug angezeigt werden. Wenn du Swipes wechselst, verwenden sie die Werte des ausgewählten Zugs; beim erneuten Generieren gilt der Erzählzustand, von dem die Ersatzantwort ausgeht. Ein fehlender Wert bleibt leer und fällt nie auf die heutige reale Uhrzeit zurück. Fiktive Kalender behalten ihren eigenen Datums- und Zeittext. Für einen fiktiven Wochentag legst du in World State ein eigenes Feld namens Weekday oder Day of Week an.
+
+Zum Beispiel liest `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` den erfassten Wochentag statt des realen.
 
 ## Zufalls- und Würfel-Makros
 

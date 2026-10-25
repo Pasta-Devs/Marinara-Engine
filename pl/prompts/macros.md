@@ -163,7 +163,7 @@ Nazwy i ID wpisuj zwykłym tekstem. Makra wewnątrz nich, takie jak `{{include::
 
 ## Makra czasu
 
-Wszystkie makra czasu czytają jeden wspólny moment na każde rozwinięcie, więc zawsze się ze sobą zgadzają. Strefa czasowa pochodzi z przeglądarki.
+Makra czasu rzeczywistego czytają jeden wspólny moment na każde rozwinięcie, więc zawsze się ze sobą zgadzają. Strefa czasowa pochodzi z przeglądarki.
 
 | Makro | Wynik |
 | --- | --- |
@@ -172,6 +172,13 @@ Wszystkie makra czasu czytają jeden wspólny moment na każde rozwinięcie, wi�
 | `{{datetime}}` / `{{isotime}}` | Pełny znacznik czasu z przesunięciem strefy czasowej. Obie nazwy znaczą to samo. |
 | `{{weekday}}` | Nazwa dnia tygodnia, na przykład `Monday`. |
 | `{{timezone}}` | Nazwa strefy czasowej, na przykład `Europe/Warsaw`. |
+| `{{date.world_state}}` | Bieżąca data w świecie opowieści śledzona przez agenta World State, zachowana w oryginalnym formacie. |
+| `{{time.world_state}}` | Bieżąca godzina w świecie opowieści śledzona przez agenta World State, zachowana w oryginalnym formacie. |
+| `{{weekday.world_state}}` | Własne pole świata o nazwie Weekday lub Day of Week, dzień tygodnia zapisany w śledzonej dacie albo dzień tygodnia odpowiadający poprawnej śledzonej dacie w formacie `YYYY-MM-DD`. |
+
+Makra `.world_state` działają w promptach i szablonach agentów. Korzystają z daty i godziny świata widocznych dla bieżącej tury opowieści. Zmiana swipe'a zmienia turę, z której pochodzą wartości; regeneracja korzysta ze stanu opowieści, od którego zaczyna się zastępcza odpowiedź. Brakująca wartość staje się pustym tekstem; nigdy nie jest zastępowana dzisiejszą datą ani rzeczywistą godziną. Fikcyjne kalendarze zachowują własny tekst daty i godziny. Aby używać fikcyjnego dnia tygodnia, dodaj w World State własne pole o nazwie Weekday lub Day of Week.
+
+Na przykład `{{#if weekday.world_state == "Monday"}}Use the weekday routine.{{/if}}` odczytuje śledzony dzień tygodnia zamiast rzeczywistego.
 
 ## Makra losowe i rzuty kością
 

@@ -231,6 +231,8 @@ Une extension tierce peut contenir du code malveillant ou dangereux. Examine tou
 
 L'action d'export d'une extension télécharge un paquet transportable. Les paquets exportés puis restaurés restent désactivés. Restaurer une révision la ramène également à l'état de brouillon désactivé.
 
+**Settings → Addons → Extension revision history** (Paramètres → Extensions → Historique des révisions des extensions) détermine combien de versions précédentes du code sont conservées pour toutes les extensions personnelles et externes. La valeur par défaut est **10** ; choisis une valeur dans la plage **0–10**, **0** désactivant l'historique. Réduire la limite demande confirmation avant la suppression définitive des anciennes révisions. Le code actuel de l'extension, les approbations, l'état d'activation et les données enregistrées de l'extension sont conservés. Les modifications et retours à une révision antérieure respectent ensuite la même limite, y compris les modifications apportées par Professor Mari.
+
 Si une extension se comporte mal, choisis **Disable** (désactiver). Si l'interface est inaccessible, arrête Marinara et passe la valeur `enabled` de l'enregistrement `installed_extensions` concerné à `"false"`. Ne définis jamais `approvedHash` à la main.
 
 ## Guides associés

@@ -231,6 +231,8 @@ Las extensiones de terceros pueden contener código malicioso o peligroso. Inspe
 
 Usa la acción de exportar de una extensión para descargar un paquete portátil. Los paquetes exportados y restaurados permanecen desactivados. Restaurar una revisión también la devuelve a un borrador desactivado.
 
+**Settings → Addons → Extension revision history** (Configuración → Complementos → Historial de revisiones de extensiones) controla cuántas versiones anteriores del código se conservan para todas las extensiones personales y externas. El valor predeterminado es **10**; el intervalo permitido es **0–10**, y **0** desactiva el historial. Al reducir el límite, se pide confirmación antes de eliminar permanentemente las revisiones antiguas. Se conservan el código actual de la extensión, las aprobaciones, el estado de activación y los datos guardados de la extensión. Las ediciones y reversiones posteriores respetan el mismo límite, incluidas las ediciones que haga Professor Mari.
+
 Si una extensión se comporta mal, elige **Disable** (Desactivar). Si la interfaz no está disponible, detén Marinara y establece el valor `enabled` del registro `installed_extensions` correspondiente en `"false"`. Nunca establezcas `approvedHash` a mano.
 
 ## Guías relacionadas

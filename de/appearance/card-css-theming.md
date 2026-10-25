@@ -8,7 +8,7 @@ Ein paar Begriffe, die in dieser Anleitung immer wieder vorkommen:
 
 - **CSS** ist die Sprache, die Farben, Schriften, Rahmen und Abstände auf einer Webseite steuert.
 - **Card CSS** ist CSS, das in einer Charakter- oder Persona-Karte steckt. Es gestaltet die Nachrichten genau dieser Karte.
-- **Card Theming** ist das Bedienelement, mit dem du Card CSS für einen Chat einschaltest.
+- Mit den **Card Theming**-Bedienelementen schaltest du Card CSS für einen Chat ein. Du findest sie unter **Chat Settings → Characters** (Chat-Einstellungen → Charaktere), in Game unter **Party** (Gruppe).
 - Ein **Selektor** ist der Teil einer CSS-Regel, der bestimmt, welche Elemente gestaltet werden.
 - Ein **Nachfahren-Selektor** nutzt ein Leerzeichen im Sinne von „innerhalb“. `.a .b` trifft ein `.b`, das in einem `.a` liegt.
 - Die **Kaskade** ist das CSS-System, das entscheidet, welche Regel gewinnt, wenn mehrere Regeln dasselbe Element betreffen.
@@ -21,10 +21,10 @@ Das Theming einer Karte passiert an zwei Stellen: Erst kommt das CSS in die Kart
 1. Öffne den Charakter im **Character Editor** (Charakter-Editor) und suche das Feld **Creator Notes**. Bei Personas liegt dasselbe Feld im **Persona Editor** (Persona-Editor).
 2. Füge einen `<style>`-Block in die **Creator Notes** ein und speichere die Karte.
 3. Öffne einen Chat mit diesem Charakter.
-4. Öffne die **Chat Settings** (Chat-Einstellungen) und dort den Bereich **Card Theming**.
+4. Öffne die **Chat Settings** und dort **Characters** (in Game **Party**).
 5. Wähle **Exclusive** oder **Chat**. Der Modus steht anfangs auf **Disabled**.
 
-Die Nachrichten des Charakters sollten sich sofort verändern. Die Modus-Schaltflächen von **Card Theming** (Disabled, Exclusive, Chat) tauchen erst auf, sobald ein aktiver Charakter in diesem Chat CSS in seinen **Creator Notes** hat. In Roleplay-Chats ist der Bereich selbst immer vorhanden, weil er auch den Schalter **Color Character Names in Text** (Charakternamen im Text einfärben) enthält. Persona-CSS allein bringt die Schaltflächen nicht zum Vorschein. Mindestens ein Charakter im Chat braucht also einen eigenen `<style>`-Block. Fehlen die Schaltflächen, prüfe zuerst, ob der `<style>`-Block wirklich gespeichert wurde.
+Die Nachrichten des Charakters sollten sich sofort verändern. Die Modus-Schaltflächen von **Card Theming** (Disabled, Exclusive, Chat) tauchen erst auf, sobald ein aktiver Charakter in diesem Chat CSS in seinen **Creator Notes** hat. In Roleplay-Chats findest du **Color Character Names in Text** (Charakternamen im Text einfärben) unter **Characters**, direkt unter **Add from Folder** (aus Ordner hinzufügen), wenn ein Ordner verfügbar ist. Persona-CSS allein bringt die Schaltflächen nicht zum Vorschein. Mindestens ein Charakter im Chat braucht also einen eigenen `<style>`-Block. Fehlen die Schaltflächen, prüfe zuerst, ob der `<style>`-Block wirklich gespeichert wurde.
 
 Dieser Startblock lässt sich direkt in die **Creator Notes** einfügen:
 
@@ -66,7 +66,7 @@ Sobald ein Charakter mit CSS in den **Creator Notes** aktiv ist, erledigt Marina
 3. Marinara grenzt den Scope (Geltungsbereich) so ein, dass das CSS nur den Chat erreicht.
 4. Marinara fügt das CSS so ein, dass die eingegrenzten Selektoren die eigene Nachrichtengestaltung der App überstimmen.
 
-Wie das Ganze angewendet wird, entscheidest du pro Chat unter **Chat Settings → Card Theming**. Es gibt drei Modi.
+Wie das Ganze angewendet wird, entscheidest du pro Chat unter **Chat Settings → Characters** (in Game **Party**). Es gibt drei Modi.
 
 | Modus | Wirkung |
 | --- | --- |
@@ -228,7 +228,7 @@ Bei Personas gibt es einen Haken: Die Modus-Schaltflächen von **Card Theming** 
 
 Die Popout-Karte ist das Scope-Element. Sprich sie mit `[data-card-css].mari-about-me-popout` an (ohne Leerzeichen, dasselbe Element). Ihre Kinder erreichst du über einen Nachfahren-Selektor, etwa `[data-card-css] .mari-about-me-name`. Im Modus **Chat** ist der gesamte Bereich eingegrenzt, dort genügt `.mari-about-me-name` direkt.
 
-Hier ein gestaltetes „about me“-Popout. Füge es in die **Creator Notes** eines Charakters oder einer Persona ein und aktiviere anschließend **Card Theming** in den **Chat Settings**. Bei einer Persona gilt der Haken von oben: Auch ein Charakter im Chat braucht CSS in seinen **Creator Notes**, sonst bleiben die Modus-Schaltflächen verborgen.
+Hier ein gestaltetes „about me“-Popout. Füge es in die **Creator Notes** eines Charakters oder einer Persona ein und wähle anschließend einen Card CSS-Modus unter **Chat Settings → Characters** (in Game **Party**). Bei einer Persona gilt der Haken von oben: Auch ein Charakter im Chat braucht CSS in seinen **Creator Notes**, sonst bleiben die Modus-Schaltflächen verborgen.
 
 ```html
 <style>
@@ -324,7 +324,7 @@ Diese Karte ist bewusst über die Stränge geschlagen. Sie fasst jeden dokumenti
 - das Profil-Popout beim Avatar-Klick, komplett gestaltet
 - die Spielfläche
 
-Füge das Ganze am Stück in die **Creator Notes** ein und aktiviere dann **Card Theming** in den **Chat Settings**. Gestaltet werden die Nachrichten in Roleplay und Conversation, das Popout in Conversation und die Fläche in Game (dafür den Modus auf **Chat** stellen). Die Abschnitte sind nach `@chat-mode` getrennt, sodass jeder Modus genau die Anker bekommt, die es dort gibt. Alles ist sanitizer-fest.
+Füge das Ganze am Stück in die **Creator Notes** ein und wähle dann einen Card CSS-Modus unter **Chat Settings → Characters** (in Game **Party**). Gestaltet werden die Nachrichten in Roleplay und Conversation, das Popout in Conversation und die Fläche in Game (dafür den Modus auf **Chat** stellen). Die Abschnitte sind nach `@chat-mode` getrennt, sodass jeder Modus genau die Anker bekommt, die es dort gibt. Alles ist sanitizer-fest.
 
 ```html
 <style>

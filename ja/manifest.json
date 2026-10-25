@@ -1,6 +1,6 @@
 {
   "language": "ja",
-  "sourceCommit": "3a7081f3223f112860e59550d863c8418849ca69",
+  "sourceCommit": "3ffae95df89001f4d5116c344687ac0dd3fe57bd",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -79,8 +79,8 @@
     },
     {
       "path": "appearance/card-css-theming.md",
-      "sha256": "d0f5508130ba3e11c3888fe8f98a3a703c2baffa9513715408ef6db387d8e7cb",
-      "bytes": 32788
+      "sha256": "c8f875b82d306589b60d30830b3816082fc8faa03e132efe73c502ad03beeaf8",
+      "bytes": 33069
     },
     {
       "path": "appearance/chat-backgrounds.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "7e2caa4883faba2960c4e459bdec6bc79d5e7eefc20afc8878b1a7becdb38454",
-      "bytes": 162959
+      "sha256": "df5511b2f8d421497e64aba0d573cc4d31c6ddc16364aa2e1d44bf8102ce92e7",
+      "bytes": 164186
     },
     {
       "path": "development/personal-extensions.md",
@@ -414,8 +414,8 @@
     },
     {
       "path": "extending/personal-extensions.md",
-      "sha256": "56858b4816d3aa12e16b8cb9c6c34cf6f1275262fbfe72bb2485d18da6db3e36",
-      "bytes": 24207
+      "sha256": "d36f6a333550b3541fdf5b336c8a447a54cff6e7621c5155c1e469083f3c8bca",
+      "bytes": 24919
     },
     {
       "path": "extending/regex-scripts.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "308ee58bbb2820f63b2a5df200087095f89e5cf58cfdec7d46dcd2fc98c52975",
-      "bytes": 30538
+      "sha256": "64d4583ed486381cdde5222d7958361b80097d7a2f9f59d1b285ffdf7cbb4c2b",
+      "bytes": 31939
     },
     {
       "path": "prompts/preset-variables.md",
