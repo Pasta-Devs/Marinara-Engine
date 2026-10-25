@@ -40,6 +40,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
+import { getOpenCodeSessionId } from "../../../utils/opencode-session.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
 import {
   applyGlmThinkingParameters,
@@ -294,6 +295,11 @@ type ResponsesUsagePayload = {
     rejected_prediction_tokens?: number;
   };
 };
+
+/** Whether an endpoint is OpenAI's own and so takes `prompt_cache_key`. */
+export function openAIPromptCacheKeyAccepted(kind: OpenAIProviderKind, baseUrl: string): boolean {
+  return kind === "openai-chatgpt" || (kind === "openai" && /^https:\/\/api\.openai\.com(\/|$)/u.test(baseUrl));
+}
 
 type OpenAIProviderKind =
   | "openai"
@@ -814,6 +820,25 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private isOpenAIChatGPTProvider(): boolean {
     return this.providerKind === "openai-chatgpt";
+  }
+
+  /**
+   * OpenAI sends a request to the machine that already holds its prefix by this key. Without one,
+   * the turns of a chat land on different machines and the ChatGPT (Codex) route reports no cached
+   * tokens at all, so every request of a chat carries the same key. Only OpenAI's own endpoints
+   * get it: a compatible endpoint may refuse a field it does not know.
+   */
+  private promptCacheKey(): string | undefined {
+    if (!openAIPromptCacheKeyAccepted(this.providerKind, this.baseUrl)) return undefined;
+    const session = getOpenCodeSessionId();
+    return session.startsWith("marinara-chat-")
+      ? `marinara-${session.slice("marinara-chat-".length, "marinara-chat-".length + 32)}`
+      : undefined;
+  }
+
+  private applyPromptCacheKey(body: Record<string, unknown>): void {
+    const key = this.promptCacheKey();
+    if (key) body.prompt_cache_key = key;
   }
 
   private chatCompletionsErrorLabel(): string {
@@ -1586,8 +1611,17 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (serviceTier) body.service_tier = serviceTier;
   }
 
-  private static extractChatCompletionsUsage(usage: ChatCompletionsUsagePayload | undefined): LLMUsage | undefined {
+  /** The provider's own usage object as it came, so a cache field the parser misses still shows. */
+  private static logRawUsage(usage: unknown, options: Pick<ChatOptions, "debugMode">): void {
+    logDebugOverride(options.debugMode === true || isDebugAgentsEnabled(), "[debug/openai] raw usage: %j", usage);
+  }
+
+  private static extractChatCompletionsUsage(
+    usage: ChatCompletionsUsagePayload | undefined,
+    options: Pick<ChatOptions, "debugMode">,
+  ): LLMUsage | undefined {
     if (!usage) return undefined;
+    OpenAIProvider.logRawUsage(usage, options);
     return {
       promptTokens: usage.prompt_tokens ?? 0,
       completionTokens: usage.completion_tokens ?? 0,
@@ -1753,6 +1787,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       model: options.model,
       messages: formatted,
     };
+    this.applyPromptCacheKey(body);
     if (effectiveStream || !suppressModelParameters) {
       body.stream = effectiveStream;
     }
@@ -1886,7 +1921,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (blocks && !reasoning && blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
       const text = blocks ? blocks.text : typeof msg?.content === "string" ? msg.content : "";
       yield prefixEcho.push(text) + prefixEcho.flush() || refusal;
-      const usage = OpenAIProvider.extractChatCompletionsUsage(json.usage as ChatCompletionsUsagePayload | undefined);
+      const usage = OpenAIProvider.extractChatCompletionsUsage(
+        json.usage as ChatCompletionsUsagePayload | undefined,
+        options,
+      );
       const finishReason = choices[0]?.finish_reason;
       return usage && finishReason ? { ...usage, finishReason } : usage;
     }
@@ -1941,7 +1979,10 @@ export class OpenAIProvider extends BaseLLMProvider {
           }
           // Capture usage from the final chunk (OpenAI sends it with stream_options)
           if (parsed.usage) {
-            streamUsage = OpenAIProvider.extractChatCompletionsUsage(parsed.usage as ChatCompletionsUsagePayload);
+            streamUsage = OpenAIProvider.extractChatCompletionsUsage(
+              parsed.usage as ChatCompletionsUsagePayload,
+              options,
+            );
           }
           if (!Array.isArray(parsed.choices)) {
             const providerMessage = OpenAIProvider.extractProviderErrorMessage(parsed);
@@ -2067,6 +2108,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       model: options.model,
       messages: formatted,
     };
+    this.applyPromptCacheKey(body);
     if (useStream || !suppressModelParameters) {
       body.stream = useStream;
     }
@@ -2214,7 +2256,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (!resolvedContent && typeof choice?.message?.refusal === "string" && choice.message.refusal) {
         resolvedContent = choice.message.refusal;
       }
-      const usage = OpenAIProvider.extractChatCompletionsUsage(json.usage as ChatCompletionsUsagePayload | undefined);
+      const usage = OpenAIProvider.extractChatCompletionsUsage(
+        json.usage as ChatCompletionsUsagePayload | undefined,
+        options,
+      );
       let toolCalls = OpenAIProvider.normalizeToolCalls(choice?.message?.tool_calls);
       if (toolCalls.length === 0 && blocks?.toolCalls.length) toolCalls = blocks.toolCalls;
       if (toolCalls.length === 0 && resolvedContent && options.tools?.length) {
@@ -2292,7 +2337,10 @@ export class OpenAIProvider extends BaseLLMProvider {
           }
 
           if (parsed.usage) {
-            streamUsage = OpenAIProvider.extractChatCompletionsUsage(parsed.usage as ChatCompletionsUsagePayload);
+            streamUsage = OpenAIProvider.extractChatCompletionsUsage(
+              parsed.usage as ChatCompletionsUsagePayload,
+              options,
+            );
           }
 
           if (!Array.isArray(parsed.choices)) {
@@ -2665,6 +2713,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       ),
       store: false, // don't persist responses on OpenAI side
     };
+    this.applyPromptCacheKey(body);
     const shouldStreamResponses =
       !this.isResponsesStreamingUnsupportedModel(options.model) && (isOpenAIChatGPT || (options.stream ?? true));
 
@@ -2758,6 +2807,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.stripUnsupportedSamplerParameters(body, options);
     }
 
+    // The request as built, tools and instructions included (a retry may still adjust it): what a
+    // provider caches is this body's prefix, so two turns' bodies are what to compare on a miss.
+    logDebugOverride(
+      options.debugMode === true || isDebugAgentsEnabled(),
+      "[debug/openai] responses request body: %j",
+      body,
+    );
     return body;
   }
 
@@ -2837,7 +2893,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.emitEncryptedReasoning(json, options);
       const text = this.extractResponsesText(json);
       if (text) yield text;
-      const usage = this.extractResponsesUsage(json);
+      const usage = this.extractResponsesUsage(json, options);
       return usage && json.status === "incomplete"
         ? {
             ...usage,
@@ -2960,7 +3016,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               // Extract usage and encrypted reasoning from the completed response
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
-                streamUsage = this.extractResponsesUsage(resp);
+                streamUsage = this.extractResponsesUsage(resp, options);
                 if (resp.status === "incomplete" && streamUsage) {
                   streamUsage = {
                     ...streamUsage,
@@ -2999,7 +3055,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               const reason = (resp?.incomplete_details as Record<string, unknown>)?.reason ?? "unknown";
               logger.warn("[OpenAI Responses] Stream ended with response.incomplete (reason=%s)", reason);
               if (resp) {
-                streamUsage = this.extractResponsesUsage(resp);
+                streamUsage = this.extractResponsesUsage(resp, options);
                 this.emitEncryptedReasoning(resp, options);
                 emittedReasoningSummary = this.emitMissingResponsesReasoningSummary(
                   resp,
@@ -3106,7 +3162,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.emitMissingResponsesReasoningSummary(json, options, "");
       // Emit encrypted reasoning items for multi-turn context
       this.emitEncryptedReasoning(json, options);
-      const result = this.parseResponsesResult(json);
+      const result = this.parseResponsesResult(json, options);
       if (useStream) {
         options.signal?.throwIfAborted();
         if (result.content && options.onToken) await options.onToken(result.content);
@@ -3288,7 +3344,7 @@ export class OpenAIProvider extends BaseLLMProvider {
             case "response.completed": {
               const resp = parsed.response as Record<string, unknown> | undefined;
               if (resp) {
-                streamUsage = this.extractResponsesUsage(resp);
+                streamUsage = this.extractResponsesUsage(resp, options);
                 const completedReasoning = this.extractEncryptedReasoningItems(resp);
                 if (completedReasoning.length) encryptedReasoning = completedReasoning;
                 this.emitEncryptedReasoning(resp, options);
@@ -3492,9 +3548,13 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /** Extract usage from a Responses API result */
-  private extractResponsesUsage(json: Record<string, unknown>): LLMUsage | undefined {
+  private extractResponsesUsage(
+    json: Record<string, unknown>,
+    options: Pick<ChatOptions, "debugMode">,
+  ): LLMUsage | undefined {
     const usage = json.usage as ResponsesUsagePayload | undefined;
     if (!usage) return undefined;
+    OpenAIProvider.logRawUsage(usage, options);
     return {
       promptTokens: usage.input_tokens ?? 0,
       completionTokens: usage.output_tokens ?? 0,
@@ -3509,9 +3569,12 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /** Parse a non-streaming Responses API result into ChatCompletionResult */
-  private parseResponsesResult(json: Record<string, unknown>): ChatCompletionResult {
+  private parseResponsesResult(
+    json: Record<string, unknown>,
+    options: Pick<ChatOptions, "debugMode">,
+  ): ChatCompletionResult {
     const text = this.extractResponsesText(json);
-    const usage = this.extractResponsesUsage(json);
+    const usage = this.extractResponsesUsage(json, options);
     const output = json.output as Array<Record<string, unknown>> | undefined;
     const encryptedReasoning = this.extractEncryptedReasoningItems(json);
 
