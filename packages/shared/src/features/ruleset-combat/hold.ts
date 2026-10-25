@@ -524,12 +524,36 @@ export function holdRulesetSheetHealth(
     };
   }
   const target = Math.min(high, Math.max(low, before));
-  const sheet = structuredClone(proposed);
-  // Off `proposed`, the same until the write below; the clone is read only after it.
   const current = resolveRulesetValueRef(definition, proposed, { field: field.id });
-  const moved = current + (target - before);
-  sheet.fields[field.id] = Math.min(field.max, Math.max(field.min, field.integer ? Math.round(moved) : moved));
-  const after = maxOf(sheet);
+  const bounded = (value: number) =>
+    Math.min(field.max, Math.max(field.min, field.integer ? Math.round(value) : value));
+  const tried = new Map<number, { sheet: RulesetSheetBuild; after: number }>();
+  const attempt = (value: number) => {
+    const at = bounded(value);
+    let found = tried.get(at);
+    if (!found) {
+      const sheet = structuredClone(proposed);
+      sheet.fields[field.id] = at;
+      found = { sheet, after: maxOf(sheet) };
+      tried.set(at, found);
+    }
+    return { at, ...found };
+  };
+  // The field moved by what health is short, then by what is still short, a few times: health need not
+  // move one for one with it (laptop playtest 2026-10-25: 5e's health is the typed number where one is
+  // typed and its fixed values where none is, so typing 5 over nothing gave 5, not 27 + 5). The typed
+  // number at the target itself is tried too, and the closest of them is kept.
+  let step = attempt(current + (target - before));
+  attempt(target);
+  for (let round = 0; round < 6 && step.after !== target; round++) {
+    const next = attempt(step.at + (target - step.after));
+    if (next.at === step.at) break;
+    step = next;
+  }
+  const best = [...tried.values()].reduce((one, other) =>
+    Math.abs(other.after - target) < Math.abs(one.after - target) ? other : one,
+  );
+  const { sheet, after } = best;
   return {
     sheet,
     adjusted: [

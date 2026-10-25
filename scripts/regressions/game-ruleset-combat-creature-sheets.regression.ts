@@ -39,6 +39,7 @@ import { fileURLToPath } from "node:url";
 import {
   applyRulesetCombatChoice,
   createRulesetEncounter,
+  holdRulesetSheetHealth,
   normalizeCharacterLookupName,
   parseRulesetCatalogFile,
   parseRulesetDefinition,
@@ -1162,6 +1163,94 @@ const spellbook = parsedOrThrow(
     roadFight.adjustments.join("\n"),
     /Road Brute: Health 13 was pulled into the 3 to 8 of Stray trouble through its Toughness, and is now 8\./,
   );
+
+  // Health that does not move one for one with its field (laptop playtest 2026-10-25: 5e's health is
+  // the typed number where one is typed and its fixed values where none is, so typing 17 over nothing
+  // made a 28 into 17): the field is moved until health is in the band.
+  {
+    const typedElseFixed = parsedOrThrow(
+      variant(fiveEText, (doc) => {
+        doc.sheet.fields.push({
+          id: "hp_typed",
+          label: "Hit points by hand",
+          type: "number",
+          min: 0,
+          max: 999,
+          default: 0,
+          section: "combat",
+        });
+        doc.sheet.derived.push(
+          {
+            id: "hp_on",
+            label: "Typed",
+            op: "stepTable",
+            from: { field: "hp_typed" },
+            table: [
+              [0, 0],
+              [1, 1],
+            ],
+          },
+          {
+            id: "hp_off_less",
+            label: "Not typed, less one",
+            op: "multiply",
+            of: [{ derived: "hp_on" }, { const: -1 }],
+          },
+          { id: "hp_off", label: "Not typed", op: "sum", of: [{ const: 1 }, { derived: "hp_off_less" }] },
+          { id: "hp_fixed", label: "Fixed", op: "multiply", of: [{ field: "level" }, { const: 7 }] },
+          {
+            id: "hp_typed_part",
+            label: "Typed part",
+            op: "multiply",
+            of: [{ derived: "hp_on" }, { field: "hp_typed" }],
+          },
+          {
+            id: "hp_fixed_part",
+            label: "Fixed part",
+            op: "multiply",
+            of: [{ derived: "hp_off" }, { derived: "hp_fixed" }],
+          },
+          {
+            id: "hp_method",
+            label: "By the method",
+            op: "sum",
+            of: [{ derived: "hp_typed_part" }, { derived: "hp_fixed_part" }],
+          },
+          {
+            id: "hp_typed_less",
+            label: "Typed, taken off",
+            op: "multiply",
+            of: [{ field: "hp_typed" }, { const: -1 }],
+          },
+          {
+            id: "hp_less_typed",
+            label: "Less the typed",
+            op: "sum",
+            of: [{ derived: "hp_method" }, { derived: "hp_typed_less" }],
+          },
+          {
+            id: "hp_total",
+            label: "Hit point maximum",
+            op: "sum",
+            of: [{ derived: "hp_less_typed" }, { field: "hp_typed" }],
+          },
+        );
+        doc.sheet.live.pools.find((pool: { id: string }) => pool.id === "hp").max = { derived: "hp_total" };
+      }),
+      "the 5e example, its health typed or fixed",
+    );
+    const tier = typedElseFixed.combat!.threat!.tiers.find((entry) => entry.id === "cr_3")!;
+    const fixed = rulesetSheetBuildSchema.parse({ fields: { level: 4 } });
+    const held = holdRulesetSheetHealth(typedElseFixed, fixed, tier);
+    const max = (build: RulesetSheetBuild) =>
+      readRulesetLive(typedElseFixed, build, {}).pools.find((pool) => pool.key === "hp")!.max;
+    assert.equal(max(fixed), 28, "4 levels at 7 each, nothing typed");
+    assert.equal(max(held.sheet), 45, held.adjusted.join("; "));
+    assert.match(
+      held.adjusted.join("\n"),
+      /Health 28 was pulled into the 45 to 82 of CR 3 through its Hit points by hand, and is now 45\./,
+    );
+  }
 
   // Strikes bought by one spend wait in hand and may go to ANY striking row, so a round is one spend
   // on a light row and the rest on the heaviest. A weak dagger looks harmless struck three times, and
