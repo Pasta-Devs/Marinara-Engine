@@ -62,7 +62,11 @@ export function ContextMenu({
   useEffect(() => {
     if (!autoFocus) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
+    const menu = ref.current;
+    (
+      menu?.querySelector<HTMLButtonElement>('button[aria-checked="true"]:not(:disabled)') ??
+      menu?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+    )?.focus({ preventScroll: true });
     return () => previous?.focus({ preventScroll: true });
   }, [autoFocus]);
 
@@ -74,7 +78,36 @@ export function ContextMenu({
     // Escape is the menu's alone: captured before React's own listeners, so the panel or dialog under the
     // menu does not close with it.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape") {
+        // Arrow keys, Home and End move between enabled items (wrapping). Enter and Space are the buttons' own.
+        const move = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[e.key];
+        const menu = ref.current;
+        const active = document.activeElement;
+        if (move === undefined || !menu || e.altKey || e.ctrlKey || e.metaKey) return;
+        // Never take keys from a text field outside the menu.
+        const typing =
+          active instanceof HTMLElement &&
+          !menu.contains(active) &&
+          active.matches("input, textarea, select, [contenteditable]");
+        if (typing) return;
+        const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+        if (buttons.length === 0) return;
+        const at = buttons.findIndex((button) => button === active);
+        const next =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? buttons.length - 1
+              : at < 0
+                ? move > 0
+                  ? 0
+                  : buttons.length - 1
+                : (at + move + buttons.length) % buttons.length;
+        e.preventDefault();
+        e.stopPropagation();
+        buttons[next].focus({ preventScroll: true });
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       onClose();
