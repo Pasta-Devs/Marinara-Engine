@@ -109,7 +109,7 @@ The format must serve rulesets nobody has written yet, many of which will be dra
 - **Every saved turn of a ruleset game writes its row**, changed or not, so the next turn, a swipe and a new session always have a row to start from. A tracker that later rebuilds the same message and swipe keeps the live state: `create` carries it over from the row it replaces unless the caller passes one.
 - **The command is the Engine's, the names are the ruleset's.** The grammar (`spend`, `restore`, `damage`, `temp`, `track`, `condition`, `note`, `rest`, with `heal` read as `restore`) is the same for every ruleset. `concentrate` from the first proposal became the general `note`, because "concentration" is one system's word. Pool, track, condition, note and rest names come from the ruleset and are matched by id or label.
 - **The saved reply is the record.** Each command is rewritten in place with `result="ok" now="…"` or `result="refused" reason="…"`. A result the model writes itself is ignored. A refused command changes nothing and is logged; the client says so once per turn.
-- **Sheets reach the Game Master late in the prompt.** The sheet blocks and the command lines are part of the per-turn format reminder, never the system prompt, because live state changes every turn and the system prompt is what a provider caches. With no ruleset the reminder is byte-identical.
+- **Sheets reach the Game Master late in the prompt.** The sheet blocks are part of the per-turn format reminder, never the system prompt, because live state changes every turn and the system prompt is what a provider caches. The command lines hold for the whole game, so they are written into the system prompt with the rest of the reminder's standing instructions. With no ruleset the reminder is byte-identical.
 - **The player edits through the same rules.** The in-game sheet applies `applyRulesetSheetOp` for every button and saves through `PATCH /chats/:id/game-state`, which bounds live state (`rulesetLiveStatesSchema`) and judges nothing else: it is the player's own game.
 - **`sheet` is reserved.** A package verb with that name is refused, and the verb-name sweep finds the taught tag in the reminder.
 - **Not done here:** party members' own turns (`/party-turn`) do not apply sheet commands; only the Game Master's reply does.
@@ -2108,7 +2108,7 @@ Each stored sheet is `{ v, build }` and is refused above 64 KB serialized.
 
 ### GM surface
 
-When the game's ruleset resolves, the per-turn format reminder (`buildGmFormatReminder`, never the system prompt):
+When the game's ruleset resolves, the format reminder (`buildGmFormatReminder`) changes as below. A game turn sends it in two parts: the guidance and commands, which hold for the whole game, go into the system prompt (`part: "stable"`), and the sheet blocks go into the per-turn part after the history (`part: "turn"`), never the system prompt:
 
 1. replaces the built-in skill-check paragraph with `gm.checkGuidance` and the difficulty ladder;
 2. adds a compact sheet block per party member inside `<character_sheets>`: ability modifiers, trained skills and saves, the `gm.sheetSummary` fields, remaining resources, tracks away from their default, notes, active conditions, and the summary lists;
