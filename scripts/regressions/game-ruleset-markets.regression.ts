@@ -379,6 +379,37 @@ const buy = (tag: string, stacks: GameInventoryStack[], market = quoter()) =>
     );
     assert.equal(readResolvedInventoryTags(two.content).length, 2, two.content);
   }
+  // Two items of one label: the ref names the one it is, and the label the first (#8271).
+  {
+    const twins = parsedOrThrow(
+      variant(gravewatchText, (doc) => {
+        for (const catalog of doc.catalogs) {
+          const entries = catalog.entries ?? [];
+          const tonic = entries.find((entry: { id: string }) => entry.id === "warming-tonic");
+          if (tonic) entries.push({ ...structuredClone(tonic), id: "warming-tonic-dear" });
+        }
+      }),
+      "Gravewatch with twin tonics",
+    );
+    const twinBook = rulesetItemBook(twins, entriesOf(twins));
+    const twinQuote = rulesetMarketQuoter(twins, twinBook, town, () => true);
+    const items = (tag: string, market?: typeof twinQuote) =>
+      applyGameInventoryTags(
+        tag,
+        coins([["shillings", "shilling", 1]]),
+        party,
+        undefined,
+        twinBook,
+        undefined,
+        undefined,
+        market,
+      ).stacks.flatMap((stack) => (stack.item?.startsWith("kit/") ? [stack.item] : []));
+    assert.deepEqual(items('[inventory: action="add" item="kit/warming-tonic-dear"]'), ["kit/warming-tonic-dear"]);
+    assert.deepEqual(items('[inventory: action="buy" item="kit/warming-tonic-dear"]', twinQuote), [
+      "kit/warming-tonic-dear",
+    ]);
+    assert.deepEqual(items('[inventory: action="buy" item="Warming tonic"]', twinQuote), ["kit/warming-tonic"]);
+  }
   // Refusals change nothing.
   const refusedWith = (tag: string, reason: string, stacks = coins([["crowns", "crown", 9]]), at = quoter()) => {
     const answered = buy(tag, stacks, at);

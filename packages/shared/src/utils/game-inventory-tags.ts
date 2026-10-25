@@ -337,9 +337,13 @@ export function applyGameInventoryTags(
     return (oneItem ? [whole!] : request.items)
       .map((written) => {
         // An item written by its ref is read by its name from here on, so a stack of it is found as
-        // a name finds it, a fake among them (#8271).
+        // a name finds it, a fake among them (#8271); unless that name finds another item first,
+        // when the ref stays as written.
         const byRef = rules?.itemNamed(written);
-        const item = byRef && byRef.item === written.trim() ? byRef.name : written;
+        const item =
+          byRef && byRef.item === written.trim() && rules?.itemNamed(byRef.name)?.item === byRef.item
+            ? byRef.name
+            : written;
         const shown = {
           action: request.action,
           item,
