@@ -562,11 +562,22 @@ export function holdRulesetSheetHealth(
   // A choice the sheet made that health reads, and that leaves the field out of it, is set back to the
   // ruleset's own default when only that lets health be held (laptop playtest 2026-10-25: an invented
   // mage written with 5e's "Average" hit points, which never reads the typed number, stayed at 38 below
-  // a band of 45 to 120).
-  if (!within(best.after)) {
+  // a band of 45 to 120). Only a choice that stops the field counting at all is one: a field that
+  // counts but runs out of room, or a choice that moves health without the field (a creature's own
+  // hit die, a class), is the sheet's to keep.
+  const counts = (base: RulesetSheetBuild) => {
+    const at = (value: number) => {
+      const sheet = structuredClone(base);
+      sheet.fields[field.id] = bounded(value);
+      return maxOf(sheet);
+    };
+    return at(field.min) !== at(field.max);
+  };
+  if (!within(best.after) && !counts(proposed)) {
     for (const choice of healthChoices(definition, health.pool, proposed)) {
       const base = structuredClone(proposed);
       delete base.fields[choice.id];
+      if (!counts(base)) continue;
       const held = through(base);
       if (within(held.after)) {
         best = held;
