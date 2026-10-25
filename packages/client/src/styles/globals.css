@@ -6433,6 +6433,152 @@ strong {
   }
 }
 
+/* Novel Mode: the transcript reads as one page. Passages lose their chat chrome and sit on a solid
+   page column (DESIGN.md Reading Surface Rule), spaced like the paragraphs inside them. Hovering or
+   focusing a passage tints it and shows its actions in the right margin, outside the text. */
+[data-roleplay-presentation="novel"] {
+  /* The page's widest text column; the page panel behind the scroller is drawn from the same value. */
+  --mari-novel-page-max: 42rem;
+  --mari-novel-page-width: min(100%, var(--mari-novel-page-max));
+  /* How far the page panel reaches past the text on each side. */
+  --mari-novel-page-bleed: 1.5rem;
+  --mari-novel-line-height: 1.7;
+}
+
+[data-roleplay-presentation="novel"] [data-chat-scroll] {
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - var(--mari-novel-page-max) / 2 - var(--mari-novel-page-bleed)),
+    var(--marinara-chat-chrome-panel-bg) calc(50% - var(--mari-novel-page-max) / 2 - var(--mari-novel-page-bleed)),
+    var(--marinara-chat-chrome-panel-bg) calc(50% + var(--mari-novel-page-max) / 2 + var(--mari-novel-page-bleed)),
+    transparent calc(50% + var(--mari-novel-page-max) / 2 + var(--mari-novel-page-bleed))
+  );
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage,
+[data-roleplay-presentation="novel"] .mari-novel-unsaved {
+  width: var(--mari-novel-page-width);
+  margin-inline: auto;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage {
+  display: block;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage .mari-roleplay-message-body {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage-text {
+  line-height: var(--mari-novel-line-height);
+  color: var(--marinara-chat-chrome-panel-text, var(--foreground));
+}
+
+/* Passages run on like one text: no gap between them, and each paragraph indented as in a printed
+   novel instead of separated by a blank line. A passage's highlight spans the whole page panel. */
+[data-roleplay-presentation="novel"] .mari-novel-passage-text {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage-text::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(-1 * var(--mari-novel-page-bleed));
+  z-index: -1;
+  transition: background-color 150ms ease;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-paragraph {
+  margin: 0;
+  text-indent: 2em;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-editor {
+  outline: none;
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-passage:hover .mari-novel-passage-text::before,
+[data-roleplay-presentation="novel"] .mari-novel-passage:focus-within .mari-novel-passage-text::before,
+[data-roleplay-presentation="novel"] .ProseMirror-focused .is-current-passage .mari-novel-passage-text::before {
+  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+[data-roleplay-presentation="novel"] .mari-novel-draft.is-empty .mari-novel-paragraph::before {
+  content: var(--mari-novel-placeholder);
+  float: left;
+  height: 0;
+  color: var(--marinara-chat-chrome-text);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* While the next passage streams in below the page, an empty draft line would sit between them. */
+[data-novel-streaming] .mari-novel-draft.is-empty {
+  display: none;
+}
+
+/* Without a margin to sit in, a passage's actions take no room until it is tapped, hovered or focused,
+   so passages keep their one-line gap. */
+@media (max-width: 1023px) {
+  [data-roleplay-presentation="novel"]
+    .mari-novel-passage:not(:hover, :focus-within, .ProseMirror-focused .is-current-passage *)
+    .mari-novel-passage-actions:not([data-shown]) {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Room below the page for the margin toolbar of a short last passage, which would otherwise be cut off. */
+  [data-roleplay-presentation="novel"] .mari-novel-draft {
+    margin-bottom: 10rem;
+  }
+
+  /* The passage's actions sit in the right margin: a zero-width second column, flush with the edge of the
+     highlight so the pointer never crosses a gap that ends the hover. They span the whole passage and stay
+     in view while it is on screen, however long it is. */
+  [data-roleplay-presentation="novel"] .mari-novel-passage .mari-roleplay-message-body {
+    display: grid;
+    grid-template-columns: 100% 0;
+    /* No row gaps: the toolbar spans rows that are mostly empty, and each gap would still add height. */
+    gap: 0 var(--mari-novel-page-bleed);
+  }
+
+  [data-roleplay-presentation="novel"] .mari-novel-passage .mari-roleplay-message-body > *,
+  [data-roleplay-presentation="novel"] .mari-novel-passage .mari-roleplay-message-body > [data-novel-chrome] > * {
+    grid-column: 1;
+  }
+
+  [data-roleplay-presentation="novel"] .mari-novel-passage .mari-roleplay-message-body .mari-novel-passage-actions {
+    position: sticky;
+    top: 0.5rem;
+    grid-column: 2;
+    /* Every row of the passage; empty rows past its content take no height. */
+    grid-row: 1 / span 12;
+    align-self: start;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    justify-self: start;
+    width: max-content;
+    /* No height of its own, or it would stretch a short passage's rows to the toolbar's height. Its
+       buttons overflow it, tiled with no gaps, so the pointer never falls between them and out of the
+       passage's hover. */
+    height: 0;
+    gap: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-roleplay-presentation="novel"] .mari-novel-passage-text::before {
+    transition: none;
+  }
+}
+
 /* Chat position Left / Right (Center has no attribute and keeps the layout above). The transcript's
    children share one box: the column plus, on each side, a row gutter and an avatar slot with its two
    gaps, so every row type keeps its column exactly where the composer is. The box sits against the

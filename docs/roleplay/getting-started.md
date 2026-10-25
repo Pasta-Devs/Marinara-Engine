@@ -12,7 +12,7 @@ Roleplay also uses helpers called agents. An agent is a small automatic task tha
 
 You do not need image generation to use Roleplay Mode. Without it, the mode still works as text-only chat. Sprite slots stay empty, the background shows a solid color, and the HUD still tracks everything. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) to set up a connection.
 
-Pick Roleplay Mode when you want an immersive scene. Pick [Conversation Mode](../conversation/getting-started.md) for plain messaging chat. Pick [Game Mode](../game/getting-started.md) for a structured role-playing game with a party, combat, and dice.
+Pick Roleplay Mode when you want an immersive scene. Pick [Conversation Mode](../conversation/getting-started.md) for plain messaging chat. Pick [Game Mode](../game/getting-started.md) for a structured role-playing game with a party, combat, and dice. To write a story on one page where the AI also writes your protagonist, start a [novel](novel-mode.md) instead.
 
 ## Starting a roleplay
 

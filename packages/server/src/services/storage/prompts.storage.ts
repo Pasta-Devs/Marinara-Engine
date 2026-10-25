@@ -17,7 +17,7 @@ import type {
 } from "@marinara-engine/shared";
 import {
   DEFAULT_GENERATION_PARAMS,
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
   resolveScopedRegexMode,
   withoutPresetTokenLimits,
 } from "@marinara-engine/shared";
@@ -128,7 +128,7 @@ export function createPromptsStorage(db: DB) {
           .limit(1);
         const existingParameters = parseGenerationParameters(existingRows[0]?.parameters);
         updateFields.parameters = JSON.stringify(
-          isStockMarinaraUniversalPreset(existingRows[0] ?? {})
+          isStockPreset(existingRows[0] ?? {})
             ? {}
             : withoutPresetTokenLimits({
                 ...DEFAULT_GENERATION_PARAMS,

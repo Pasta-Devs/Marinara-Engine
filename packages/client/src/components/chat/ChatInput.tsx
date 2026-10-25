@@ -33,7 +33,6 @@ import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } f
 import { useConnections } from "../../hooks/use-connections";
 import { characterKeys, ensureCharacterAndPersonaLists } from "../../hooks/use-characters";
 import {
-  buildGuidedGenerationInstructionMessage,
   formatTextQuotes,
   MARI_STARTER_CHIPS,
   PROFESSOR_MARI_ID,
@@ -54,6 +53,7 @@ import { isPromptPreviewMacro, prepareUserInputMessage } from "../../lib/chat-ma
 import { parseChatMetadata } from "../../lib/chat-display";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { getMessageBarRules } from "../../lib/message-bar-rules";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
@@ -207,6 +207,10 @@ interface ChatInputProps {
   combatAgentEnabled?: boolean;
   onStartEncounter?: () => void;
   interactionsLocked?: boolean;
+  /** Novel Mode: Send asks for the next passage, and typed text only steers it as guidance. */
+  novel?: boolean;
+  /** Novel Mode: saves the writer's own text at the end of the page before the next passage. */
+  onBeforeNovelSend?: () => Promise<void>;
 }
 
 export const ChatInput = memo(function ChatInput({
@@ -221,6 +225,8 @@ export const ChatInput = memo(function ChatInput({
   combatAgentEnabled,
   onStartEncounter,
   interactionsLocked = false,
+  novel = false,
+  onBeforeNovelSend,
 }: ChatInputProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -258,7 +264,10 @@ export const ChatInput = memo(function ChatInput({
   const pendingSpatialTransition = useChatStore((s) =>
     activeChatId ? (s.pendingSpatialTransitions.get(activeChatId) ?? null) : null,
   );
-  const canSubmitSpatialMove = mode === "roleplay" && pendingSpatialTransition?.status === "ready";
+  // What the bar may do here; in a novel it only steers the next passage (see message-bar-rules).
+  const barRules = getMessageBarRules(novel);
+  const canSubmitSpatialMove =
+    mode === "roleplay" && barRules.spatialMoves && pendingSpatialTransition?.status === "ready";
   const mariChips = useAgentStore((s) => s.mariChips);
   const mariChipsChatId = useAgentStore((s) => s.mariChipsChatId);
   const professorMariSuggestionsEnabled = useUIStore((s) => s.professorMariSuggestionsEnabled);
@@ -315,6 +324,7 @@ export const ChatInput = memo(function ChatInput({
   );
   const inputPlaceholder = useMemo(() => {
     if (!activeChatId) return t("chat.input.selectChat");
+    if (novel) return t(isMobileComposerViewport ? "chat.novel.guidePlaceholderMobile" : "chat.novel.guidePlaceholder");
     if (isMobileComposerViewport) {
       return t(mode === "roleplay" ? "chat.input.mobile.roleplay" : "chat.input.mobile.message");
     }
@@ -326,7 +336,7 @@ export const ChatInput = memo(function ChatInput({
       return t("chat.input.messageCharacters", { names: `@${activeCharacterNames[0]}` });
     }
     return t("chat.input.default");
-  }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode, t]);
+  }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode, novel, t]);
   const queuedResponseOrder = useMemo(
     () => new Map(responseQueue.map((characterId, index) => [characterId, index + 1])),
     [responseQueue],
@@ -368,7 +378,9 @@ export const ChatInput = memo(function ChatInput({
     return pushStoryMode;
   }, [narrativeDirectorActive, pushStoryMode]);
   const generateWithNarrativeDirector = useCallback(
-    (params: Parameters<typeof generate>[0]) => {
+    async (params: Parameters<typeof generate>[0]) => {
+      // A novel saves the writer's own text first, so it lands before the new passage and in its prompt.
+      if (novel) await onBeforeNovelSend?.();
       const directorMode = consumeNarrativeDirectorMode();
       if (!directorMode) return generate(params);
       // Re-arm the chosen mode if the push never reaches a response, so a
@@ -378,7 +390,7 @@ export const ChatInput = memo(function ChatInput({
         throw error;
       });
     },
-    [consumeNarrativeDirectorMode, generate],
+    [consumeNarrativeDirectorMode, generate, novel, onBeforeNovelSend],
   );
 
   const syncInputState = useCallback(
@@ -672,7 +684,9 @@ export const ChatInput = memo(function ChatInput({
 
   const canRetry = !isInputBusy && lastMessageRole === "user";
   const canContinue =
-    !isInputBusy && mode === "roleplay" && groupResponseOrder !== "manual" && lastMessageRole === "assistant";
+    !isInputBusy &&
+    mode === "roleplay" &&
+    (barRules.steersOnly || (groupResponseOrder !== "manual" && lastMessageRole === "assistant"));
   const pendingAttachmentReads = activeChatId ? (pendingAttachmentReadsByChat[activeChatId] ?? 0) : 0;
   const isReadingAttachments = pendingAttachmentReads > 0;
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
@@ -748,7 +762,7 @@ export const ChatInput = memo(function ChatInput({
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items || !activeChatId) return;
+      if (!items || !activeChatId || !barRules.attachments) return;
       const files: File[] = [];
       for (const item of Array.from(items)) {
         if (item.kind === "file") {
@@ -761,7 +775,7 @@ export const ChatInput = memo(function ChatInput({
         void addFiles(files);
       }
     },
-    [activeChatId, addFiles],
+    [activeChatId, addFiles, barRules],
   );
 
   const handleDrop = useCallback(
@@ -769,18 +783,21 @@ export const ChatInput = memo(function ChatInput({
       if (!isFileDrag(e.dataTransfer)) return;
       e.preventDefault();
       setIsDragging(false);
-      if (!activeChatId) return;
+      if (!activeChatId || !barRules.attachments) return;
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) void addFiles(files);
     },
-    [activeChatId, addFiles],
+    [activeChatId, addFiles, barRules],
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!isFileDrag(e.dataTransfer)) return;
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!isFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      if (barRules.attachments) setIsDragging(true);
+    },
+    [barRules],
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     // Only leave if we exit the container (not just enter a child)
@@ -814,6 +831,7 @@ export const ChatInput = memo(function ChatInput({
     return {
       chatId: activeChatId,
       mode,
+      novel,
       generate: (params) =>
         generateWithNarrativeDirector({
           ...params,
@@ -847,6 +865,7 @@ export const ChatInput = memo(function ChatInput({
   }, [
     activeChatId,
     mode,
+    novel,
     generateWithNarrativeDirector,
     createMessage,
     prepareUserMessage,
@@ -927,6 +946,16 @@ export const ChatInput = memo(function ChatInput({
 
     // If input is empty, check if we should retry or continue
     if (!hasText && !hasFiles && !canSubmitSpatialMove) {
+      // A novel always asks for its next passage, even on an empty page.
+      if (barRules.steersOnly) {
+        try {
+          await generateWithNarrativeDirector({ chatId: activeChatId, connectionId: null });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : t("chat.novel.generationFailed");
+          toast.error(msg);
+        }
+        return;
+      }
       // Manual mode: no auto-retry/continue — use the character picker instead
       if (groupResponseOrder === "manual") return;
       const queuedCharacterId = groupResponseOrder === "smart" ? responseQueue[0] : null;
@@ -979,7 +1008,7 @@ export const ChatInput = memo(function ChatInput({
     }
 
     // Check for slash command
-    const match = matchSlashCommand(normalized, { mode, availableCapabilityIds });
+    const match = matchSlashCommand(normalized, { mode, novel, availableCapabilityIds });
     if (match) {
       const ctx = buildContext();
       if (!ctx) return;
@@ -1083,6 +1112,24 @@ export const ChatInput = memo(function ChatInput({
     clearResponseQueue(activeChatId);
     setReplyDraft(activeChatId, null);
 
+    // In a novel the text steers the next passage and never becomes a message.
+    if (barRules.steersOnly) {
+      try {
+        const succeeded = await generateWithNarrativeDirector({
+          chatId: activeChatId,
+          connectionId: null,
+          generationGuide: barRules.guideInstruction(message),
+          generationGuideSource: "guide",
+        });
+        if (succeeded === false) restoreSubmittedDraft();
+      } catch (error) {
+        restoreSubmittedDraft();
+        const msg = error instanceof Error ? error.message : t("chat.novel.generationFailed");
+        toast.error(msg);
+      }
+      return;
+    }
+
     // Manual mode: only create the user message, no auto-generation
     if (groupResponseOrder === "manual") {
       try {
@@ -1141,6 +1188,7 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [
     activeChatId,
+    barRules,
     mode,
     isInputBusy,
     generateWithNarrativeDirector,
@@ -1170,13 +1218,15 @@ export const ChatInput = memo(function ChatInput({
     pendingSpatialTransition,
     availableCapabilityIds,
     localizeUi,
+    novel,
+    t,
   ]);
 
   const runQuickSlashCommand = useCallback(
     async (commandLine: string, fallbackError: string) => {
       if (!activeChatId) return;
       const submittingChatId = activeChatId;
-      const match = matchSlashCommand(commandLine, { mode, availableCapabilityIds });
+      const match = matchSlashCommand(commandLine, { mode, novel, availableCapabilityIds });
       const baseCtx = buildContext();
       if (!match || !baseCtx) return;
       const generationStatus: { succeeded?: boolean } = {};
@@ -1233,6 +1283,7 @@ export const ChatInput = memo(function ChatInput({
       }
     },
     [
+      novel,
       activeChatId,
       availableCapabilityIds,
       buildContext,
@@ -1268,7 +1319,7 @@ export const ChatInput = memo(function ChatInput({
     if (!hasText && !hasFiles) return;
 
     const normalized = formatTextQuotes(raw.trim(), quoteFormat);
-    if (shouldExecuteQuickPostAsCommand(normalized, { mode, availableCapabilityIds })) {
+    if (shouldExecuteQuickPostAsCommand(normalized, { mode, novel, availableCapabilityIds })) {
       await handleSend();
       return;
     }
@@ -1356,6 +1407,7 @@ export const ChatInput = memo(function ChatInput({
       );
     }
   }, [
+    novel,
     activeChatId,
     isInputBusy,
     isReadingAttachments,
@@ -1432,7 +1484,7 @@ export const ChatInput = memo(function ChatInput({
       if (!hasInput) return "Type a direction first.";
       return undefined;
     };
-    if (showQuickReplyPostOnly) {
+    if (showQuickReplyPostOnly && barRules.postOnly) {
       actions.push({
         id: "post-only",
         label: "Post only",
@@ -1443,7 +1495,7 @@ export const ChatInput = memo(function ChatInput({
         onSelect: handlePostOnlyButton,
       });
     }
-    if (showQuickReplyGuide) {
+    if (showQuickReplyGuide && barRules.guideReply) {
       actions.push({
         id: "guide-reply",
         label: "Guide reply",
@@ -1454,7 +1506,7 @@ export const ChatInput = memo(function ChatInput({
         onSelect: handleGuidedGenerationButton,
       });
     }
-    if (showQuickReplyImpersonate) {
+    if (showQuickReplyImpersonate && barRules.impersonate) {
       actions.push({
         id: "impersonate",
         label: "Impersonate",
@@ -1490,6 +1542,7 @@ export const ChatInput = memo(function ChatInput({
     }
     return actions;
   }, [
+    barRules,
     activeChatId,
     isInputBusy,
     inputBusyReason,
@@ -1669,7 +1722,7 @@ export const ChatInput = memo(function ChatInput({
     if (completions.length > 0 || /^\s*\//u.test(fixed)) {
       const trimmed = fixed.trim();
       if (trimmed.startsWith("/") && !trimmed.includes(" ")) {
-        const matches = getSlashCompletions(trimmed, { mode, availableCapabilityIds });
+        const matches = getSlashCompletions(trimmed, { mode, novel, availableCapabilityIds });
         setCompletions(matches);
         setSelectedCompletion(0);
       } else if (completions.length > 0) {
@@ -1711,12 +1764,12 @@ export const ChatInput = memo(function ChatInput({
       const responder = characterId ? { forCharacterId: characterId } : { smartResponse: true };
       try {
         await generateWithNarrativeDirector(
-          guideGenerations && hasInput
+          (guideGenerations || barRules.steersOnly) && hasInput
             ? {
                 chatId: activeChatId,
                 connectionId: null,
                 ...responder,
-                generationGuide: buildGuidedGenerationInstructionMessage(guideText),
+                generationGuide: barRules.guideInstruction(guideText),
                 generationGuideSource: "guide",
               }
             : { chatId: activeChatId, connectionId: null, ...responder },
@@ -1732,6 +1785,7 @@ export const ChatInput = memo(function ChatInput({
       generateWithNarrativeDirector,
       hasInput,
       guideGenerations,
+      barRules,
       responseQueue,
       removeFromResponseQueue,
     ],
@@ -2062,30 +2116,33 @@ export const ChatInput = memo(function ChatInput({
           className: isProfessorMariChat ? "mari-professor-composer" : undefined,
         })}
       >
-        {/* Attachment button */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,application/pdf,.pdf,.txt,.md,.markdown,.json,.jsonl,.csv,.log,.xml,.yaml,.yml"
-          multiple
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!activeChatId || isInputBusy}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
-            attachments.length
-              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          )}
-          title={t("chat.input.attachFiles")}
-          aria-label={t("chat.input.attachFiles")}
-        >
-          <Paperclip size="1rem" />
-        </button>
+        {barRules.attachments && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,.pdf,.txt,.md,.markdown,.json,.jsonl,.csv,.log,.xml,.yaml,.yml"
+              multiple
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!activeChatId || isInputBusy}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
+                attachments.length
+                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+              )}
+              title={t("chat.input.attachFiles")}
+              aria-label={t("chat.input.attachFiles")}
+            >
+              <Paperclip size="1rem" />
+            </button>
+          </>
+        )}
 
         {/* Quick Switchers — desktop: inline, mobile: chevron */}
         <QuickConnectionSwitcher className="hidden sm:flex" contextBudget={showContextUsage ? contextBudget : null} />

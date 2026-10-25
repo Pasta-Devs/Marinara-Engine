@@ -2,7 +2,8 @@ import {
   applyClockCommandTags,
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
-  isStockMarinaraUniversalPreset,
+  isNovelChat,
+  isStockPreset,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
 } from "@marinara-engine/shared";
@@ -617,6 +618,7 @@ import {
   resolveCharacterActivityUpdate,
   resolveBaseUrl,
   resolveGroupGenerationMode,
+  resolveGroupSpeakerColors,
   resolveGroupIndividualHistorySpeaker,
   resolveRoleplaySummaryTail,
   resolveCharacterNameMap,
@@ -1330,7 +1332,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     }
     const earlyMeta = roomGenerationMetadata(parseExtra(chat.metadata));
     // One reading per request: the restored speaker, the identity and the context all follow it (#6959).
-    const groupGenerationMode = resolveGroupGenerationMode(requestChatMode, earlyMeta.groupChatMode);
+    const groupGenerationMode = resolveGroupGenerationMode(requestChatMode, earlyMeta.groupChatMode, earlyMeta);
     let continueTargetMessage: any = null;
     if (input.continueMessageId) {
       if (input.impersonate) {
@@ -3343,7 +3345,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           baseReasoningEffort:
             presetId &&
             resolvedPreset &&
-            !isStockMarinaraUniversalPreset(resolvedPreset) &&
+            !isStockPreset(resolvedPreset) &&
             chatMode !== "conversation" &&
             chatMode !== "game"
               ? (parsePresetParameters(resolvedPreset.parameters).reasoningEffort ?? null)
@@ -4018,7 +4020,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
           presetOwnsAgentPlacement = true;
           characterAdvancedPromptsInjected = true;
-          if (!isStockMarinaraUniversalPreset(resolvedPreset)) {
+          if (!isStockPreset(resolvedPreset)) {
             temperature = assembled.parameters.temperature;
             topP = assembled.parameters.topP ?? 1;
             topK = assembled.parameters.topK ?? 0;
@@ -5890,7 +5892,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const groupResponseOrder = effectiveGroupResponseOrder;
         const groupChatMode = groupGenerationMode;
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)
-        const groupSpeakerColors = chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
+        const groupSpeakerColors = resolveGroupSpeakerColors(chatMode, isGroupChat, chatMeta);
         const groupTurnPromptEnabled = chatMeta.groupTurnPromptEnabled !== false;
         const restrictMergedResponders =
           chatMode === "conversation" &&
@@ -5902,8 +5904,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         if (isGroupChat && chatMode !== "conversation") {
           // Keep one concrete tagged assistant example while trimming redundant
-          // wrappers from older roleplay history.
-          stripSpeakerTagsExceptLastAssistant(finalMessages);
+          // wrappers from older roleplay history. A novel asks for no tags, so it keeps none.
+          stripSpeakerTagsExceptLastAssistant(finalMessages, !isNovelChat(chatMode, chatMeta));
         }
 
         if (isGroupChat) {
@@ -8901,7 +8903,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
             return postProcessMessages(messages, {
-              ...(resolvedPreset && !isStockMarinaraUniversalPreset(resolvedPreset)
+              ...(resolvedPreset && !isStockPreset(resolvedPreset)
                 ? parseStoredGenerationParameters(resolvedPreset.parameters)
                 : {}),
               ...providerRuntime.connectionParams,

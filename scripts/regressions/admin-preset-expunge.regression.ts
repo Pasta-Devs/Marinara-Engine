@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isStockMarinaraUniversalPreset } from "../../packages/shared/src/types/prompt.js";
+import { isStockMarinaraNovelPreset, isStockMarinaraUniversalPreset } from "../../packages/shared/src/types/prompt.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-admin-preset-expunge-"));
 const previousDataDir = process.env.DATA_DIR;
@@ -39,9 +39,9 @@ try {
   const presets = createPromptsStorage(db);
   const folders = createLibraryFoldersStorage(db);
 
-  async function stockSnapshot() {
-    const stockPreset = (await presets.list()).find(isStockMarinaraUniversalPreset);
-    assert.ok(stockPreset, "startup must seed the stock Universal Preset");
+  async function stockSnapshot(isStock = isStockMarinaraUniversalPreset) {
+    const stockPreset = (await presets.list()).find(isStock);
+    assert.ok(stockPreset, "startup must seed the stock preset");
     const [groups, sections, choiceBlocks] = await Promise.all([
       presets.listGroups(stockPreset.id),
       presets.listSections(stockPreset.id),
@@ -102,6 +102,7 @@ try {
 
   const scopedEditablePresetId = await createEditableFixture("scoped", true, true);
   const stockBeforeScopedExpunge = await stockSnapshot();
+  const novelBeforeScopedExpunge = await stockSnapshot(isStockMarinaraNovelPreset);
   const scopedResponse = await app.inject({
     method: "POST",
     url: "/api/admin/expunge",
@@ -109,6 +110,11 @@ try {
   });
   assert.equal(scopedResponse.statusCode, 200, "scoped preset expunge must succeed");
   const stockAfterScopedExpunge = await stockSnapshot();
+  assert.deepEqual(
+    await stockSnapshot(isStockMarinaraNovelPreset),
+    novelBeforeScopedExpunge,
+    "scoped preset expunge keeps the stock Novel Preset unchanged",
+  );
   assert.deepEqual(stockAfterScopedExpunge.groups, stockBeforeScopedExpunge.groups);
   assert.deepEqual(stockAfterScopedExpunge.sections, stockBeforeScopedExpunge.sections);
   assert.deepEqual(stockAfterScopedExpunge.choiceBlocks, stockBeforeScopedExpunge.choiceBlocks);
@@ -125,6 +131,7 @@ try {
 
   const clearAllEditablePresetId = await createEditableFixture("clear_all", false);
   const stockBeforeClearAll = await stockSnapshot();
+  const novelBeforeClearAll = await stockSnapshot(isStockMarinaraNovelPreset);
   const clearAllResponse = await app.inject({
     method: "POST",
     url: "/api/admin/clear-all",
@@ -132,6 +139,11 @@ try {
   });
   assert.equal(clearAllResponse.statusCode, 200, "clear-all compatibility route must succeed");
   const stockAfterClearAll = await stockSnapshot();
+  assert.deepEqual(
+    await stockSnapshot(isStockMarinaraNovelPreset),
+    novelBeforeClearAll,
+    "clear-all keeps the stock Novel Preset unchanged",
+  );
   assert.deepEqual(stockAfterClearAll.groups, stockBeforeClearAll.groups);
   assert.deepEqual(stockAfterClearAll.sections, stockBeforeClearAll.sections);
   assert.deepEqual(stockAfterClearAll.choiceBlocks, stockBeforeClearAll.choiceBlocks);
@@ -146,10 +158,20 @@ try {
   );
   await assertEditableFixtureDeleted(clearAllEditablePresetId);
   assert.deepEqual(
-    (await presets.list()).map((preset) => preset.id),
-    [stockBeforeClearAll.preset.id],
-    "only the stock Universal Preset may remain after clear-all",
+    (await presets.list()).map((preset) => preset.id).sort(),
+    [stockBeforeClearAll.preset.id, novelBeforeClearAll.preset.id].sort(),
+    "only the stock presets may remain after clear-all",
   );
+
+  // A user who made the Novel Preset their default keeps it through an expunge.
+  await presets.setDefault(novelBeforeClearAll.preset.id);
+  const novelDefaultResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/expunge",
+    payload: { confirm: true, scopes: ["presets"] },
+  });
+  assert.equal(novelDefaultResponse.statusCode, 200);
+  assert.equal((await presets.getDefault())?.id, novelBeforeClearAll.preset.id, "a stock default is kept");
 } finally {
   await app?.close();
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

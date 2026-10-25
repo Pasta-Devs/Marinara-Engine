@@ -135,6 +135,14 @@ function manualChunks(id: string) {
   if (/\/\.pnpm\/zod@3[^/]*\/node_modules\//u.test(id) || /\/node_modules\/zod-v3\//u.test(id))
     return "vendor-validation-legacy";
   if (/\/node_modules\/zod\//u.test(id)) return "vendor-validation";
+  // The novel editor's TipTap and ProseMirror load only with Novel Mode's lazy editor chunk. Match before
+  // "react", which @tiptap/react's path contains, would pull it into the eager React chunk.
+  if (
+    /\/node_modules\/(?:@tiptap|prosemirror-[^/]+|orderedmap|rope-sequence|w3c-keyname|fast-equals|@floating-ui)\//u.test(
+      id,
+    )
+  )
+    return "vendor-tiptap";
   if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
   if (id.includes("@tanstack")) return "vendor-tanstack";
   if (id.includes("zustand")) return "vendor-state";
@@ -281,6 +289,22 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
     },
+  },
+  // The novel editor loads lazily, so the dev server would only find TipTap when a novel opens, then
+  // re-optimize and fail that first load. Bundle it up front.
+  optimizeDeps: {
+    include: [
+      "@tiptap/core",
+      "@tiptap/extension-bold",
+      "@tiptap/extension-italic",
+      "@tiptap/extension-paragraph",
+      "@tiptap/extension-text",
+      "@tiptap/extensions",
+      "@tiptap/pm/model",
+      "@tiptap/pm/state",
+      "@tiptap/pm/view",
+      "@tiptap/react",
+    ],
   },
   server: {
     host: DEV_SERVER_HOST,

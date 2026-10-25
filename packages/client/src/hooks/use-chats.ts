@@ -98,22 +98,25 @@ function shouldRetryMessageContentUpdate(error: unknown) {
   return error instanceof TypeError;
 }
 
-async function patchMessageContent(chatId: string | null, messageId: string, content: string) {
+async function patchMessageContent(chatId: string | null, messageId: string, content: string, swipeIndex?: number) {
+  const body = swipeIndex === undefined ? { content } : { content, swipeIndex };
   try {
-    return await api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+    return await api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, body);
   } catch (error) {
     if (!shouldRetryMessageContentUpdate(error)) throw error;
     // Keep the retry inside the queued operation so a newer edit cannot be
     // persisted first and then overwritten by this older content.
     await new Promise((resolve) => setTimeout(resolve, MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS));
-    return api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+    return api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, body);
   }
 }
 
-function enqueueMessageContentUpdate(chatId: string | null, messageId: string, content: string) {
+function enqueueMessageContentUpdate(chatId: string | null, messageId: string, content: string, swipeIndex?: number) {
   const queueKey = `${chatId ?? ""}:${messageId}`;
   const previous = messageContentUpdateQueues.get(queueKey) ?? Promise.resolve();
-  const request = previous.catch(() => undefined).then(() => patchMessageContent(chatId, messageId, content));
+  const request = previous
+    .catch(() => undefined)
+    .then(() => patchMessageContent(chatId, messageId, content, swipeIndex));
   const settled = request.then(
     () => undefined,
     () => undefined,
@@ -1552,9 +1555,10 @@ export function useDeleteTrashedMessages(chatId: string | null) {
 export function useUpdateMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
-      enqueueMessageContentUpdate(chatId, messageId, content),
-    onMutate: async ({ messageId, content }) => {
+    /** `swipeIndex`: the swipe the text was written for, so it never lands on another; omitted, the active one. */
+    mutationFn: ({ messageId, content, swipeIndex }: { messageId: string; content: string; swipeIndex?: number }) =>
+      enqueueMessageContentUpdate(chatId, messageId, content, swipeIndex),
+    onMutate: async ({ messageId, content, swipeIndex }) => {
       if (!chatId) return;
       // Cancel in-flight refetches (e.g. from generation events) so they
       // don't overwrite the optimistic value with stale server data. Do not
@@ -1563,25 +1567,38 @@ export function useUpdateMessage(chatId: string | null) {
       const cancellation = qc.cancelQueries({ queryKey: chatKeys.messages(chatId) }, { revert: false });
       const previous = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
       const previousMessage = findCachedMessage(previous, messageId);
-      const revision = rememberRecentMessageContentEdit(chatId, messageId, content, previousMessage?.activeSwipeIndex);
+      const revision = rememberRecentMessageContentEdit(
+        chatId,
+        messageId,
+        content,
+        swipeIndex ?? previousMessage?.activeSwipeIndex,
+      );
       qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) => {
         if (!old?.pages) return old;
         return {
           ...old,
-          pages: old.pages.map((page) => page.map((msg) => (msg.id === messageId ? { ...msg, content } : msg))),
+          pages: old.pages.map((page) =>
+            page.map((msg) =>
+              msg.id === messageId && (swipeIndex === undefined || msg.activeSwipeIndex === swipeIndex)
+                ? { ...msg, content }
+                : msg,
+            ),
+          ),
         };
       });
       await cancellation;
       return { previous, revision };
     },
-    onSuccess: (updated, { messageId, content }, context) => {
+    onSuccess: (updated, { messageId, content, swipeIndex }, context) => {
+      // An edit for a swipe the message has since left comes back with the active swipe's text.
+      const onActiveSwipe = swipeIndex === undefined || updated?.activeSwipeIndex === swipeIndex;
       if (chatId && context) {
         confirmRecentMessageContentEdit(
           chatId,
           messageId,
           context.revision,
-          updated?.content ?? content,
-          updated?.activeSwipeIndex,
+          onActiveSwipe ? (updated?.content ?? content) : content,
+          onActiveSwipe ? updated?.activeSwipeIndex : swipeIndex,
         );
       }
     },

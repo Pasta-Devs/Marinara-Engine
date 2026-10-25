@@ -12,6 +12,7 @@ import {
   customTrackerFieldLockPrefix,
   generationParametersSchema,
   normalizeInventoryTrackerRows,
+  isNovelChat,
   normalizeGroupChatMode,
   normalizeTrackerFieldLocksForState,
   extractCharacterCardCastMembers,
@@ -1347,12 +1348,30 @@ export function shouldRunCharacterActivityAgents(options: {
 
 export type GroupGenerationMode = "merged" | "individual";
 
-/** Resolve the stored generation mode for every group-capable chat mode. */
+/**
+ * Resolve the stored generation mode for every group-capable chat mode. A novel is always Merged:
+ * one author voice writes every character, with no turns to take.
+ */
 export function resolveGroupGenerationMode(
-  _chatMode: string | null | undefined,
+  chatMode: string | null | undefined,
   configuredMode: unknown,
+  metadata?: { roleplayDisplayStyle?: unknown } | null,
 ): GroupGenerationMode {
+  if (isNovelChat(chatMode, metadata)) return "merged";
   return normalizeGroupChatMode(configuredMode);
+}
+
+/**
+ * Whether a group reply wraps each character's dialogue in <speaker> tags. Conversation groups always do.
+ * A novel never does: it is plain book prose, and a chat turned into a novel may still store the option.
+ */
+export function resolveGroupSpeakerColors(
+  chatMode: string | null | undefined,
+  isGroupChat: boolean,
+  metadata?: { groupSpeakerColors?: unknown; roleplayDisplayStyle?: unknown } | null,
+): boolean {
+  if (isNovelChat(chatMode, metadata)) return false;
+  return metadata?.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
 }
 
 export function shouldRestoreRegenerationCharacterTarget(
@@ -1655,15 +1674,17 @@ export function injectIntoOutputFormatOrLastUser(
 
 /**
  * Remove speaker wrappers from older group-chat history while preserving the
- * latest assistant turn as a concrete formatting example for the model.
+ * latest assistant turn as a concrete formatting example for the model, unless
+ * `keepLastAssistant` is false.
  */
-export function stripSpeakerTagsExceptLastAssistant(messages: SimpleMessage[]): void {
+export function stripSpeakerTagsExceptLastAssistant(messages: SimpleMessage[], keepLastAssistant = true): void {
   const lastAssistantIdx = findLastIndex(messages, "assistant");
   const speakerCloseRegex = /<\/speaker>/g;
 
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i]!;
-    if (message.role === "system" || i === lastAssistantIdx || !message.content.includes("<speaker=")) continue;
+    if (message.role === "system" || (keepLastAssistant && i === lastAssistantIdx)) continue;
+    if (!message.content.includes("<speaker=")) continue;
 
     const content = message.content
       .replace(/<speaker="[^"]*">/g, "")

@@ -28,6 +28,11 @@ export type { SpotifySourceType } from "./spotify.js";
 /** The three primary chat modes the engine supports. */
 export type ChatMode = "conversation" | "roleplay" | "game";
 
+/** Whether a chat is a Roleplay chat shown in the Novel display style. */
+export function isNovelChat(mode: unknown, metadata: { roleplayDisplayStyle?: unknown } | null | undefined): boolean {
+  return mode === "roleplay" && metadata?.roleplayDisplayStyle === "novel";
+}
+
 /** How a multi-character (group) chat is handled. */
 export type GroupChatMode = "merged" | "individual";
 
@@ -330,8 +335,11 @@ export interface ChatMetadata {
     boundaryMessageId?: string | null;
     activeSceneId?: string | null;
   };
-  /** Roleplay presentation only; omitted chats use the Appearance default. */
-  roleplayDisplayStyle?: "classic" | "visual-novel";
+  /**
+   * Roleplay presentation; omitted chats use the Appearance default. `novel` is set per chat only,
+   * never as that default.
+   */
+  roleplayDisplayStyle?: "classic" | "visual-novel" | "novel";
   /**
    * This chat's window layout on a computer (window places and sizes, pinned and locked state,
    * popped-out drawers), owned and validated by the client. Absent migrates an older chat's toolbar;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { DEFAULT_GENERATION_PARAMS } from "../../packages/shared/src/constants/defaults.js";
-import { isStockMarinaraUniversalPreset } from "../../packages/shared/src/types/prompt.js";
+import { isStockMarinaraNovelPreset, isStockMarinaraUniversalPreset } from "../../packages/shared/src/types/prompt.js";
 
 const Fastify = createRequire(new URL("../../packages/server/package.json", import.meta.url))("fastify");
 
@@ -17,6 +17,7 @@ const { createPromptsStorage } = await import("../../packages/server/src/service
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
 const { assemblePrompt, getPresetGenerationParameters } =
   await import("../../packages/server/src/services/prompt/assembler.js");
+const { promptsRoutes } = await import("../../packages/server/src/routes/prompts.routes.js");
 const { registerParameterPreviewRoute } =
   await import("../../packages/server/src/routes/generate/parameter-preview-route.js");
 const { resolveGenerationParameters } =
@@ -54,6 +55,46 @@ try {
     {},
     "stock updates cannot assign controls",
   );
+
+  // Marinara's Novel Preset is stock too: no parameters, read-only through REST, and copyable.
+  const novel = (await storage.list()).find(isStockMarinaraNovelPreset)!;
+  assert.ok(novel);
+  await storage.update(novel.id, { parameters: legacyParameters });
+  assert.deepEqual(JSON.parse((await storage.getById(novel.id))!.parameters), {}, "novel stock saves no controls");
+  assert.deepEqual(getPresetGenerationParameters({ ...novel, parameters: JSON.stringify(legacyParameters) }), {});
+  const routes = Fastify();
+  routes.decorate("db", db);
+  await routes.register(promptsRoutes, { prefix: "/api/prompts" });
+  try {
+    const sections = await storage.listSections(novel.id);
+    for (const [method, url, payload] of [
+      ["PATCH", `/api/prompts/${novel.id}`, { name: "Mine now" }],
+      ["DELETE", `/api/prompts/${novel.id}`, undefined],
+      ["POST", `/api/prompts/${novel.id}/image`, { image: "data:image/png;base64,AA==" }],
+      ["PATCH", `/api/prompts/${novel.id}/sections/${sections[0]!.id}`, { content: "changed" }],
+    ] as const) {
+      const response = await routes.inject({ method, url, ...(payload ? { payload } : {}) });
+      assert.equal(response.statusCode, 409, `${method} ${url} is refused on the novel preset`);
+      assert.match(response.json().error, /built-in preset is read-only/u);
+    }
+    assert.equal((await storage.getById(novel.id))?.name, "Marinara's Novel Preset", "the novel preset is unchanged");
+    const copyResponse = await routes.inject({ method: "POST", url: `/api/prompts/${novel.id}/duplicate` });
+    assert.ok(copyResponse.statusCode < 300, copyResponse.body);
+    const copy = copyResponse.json();
+    assert.equal(copy.name, "Marinara's Novel Preset (Copy)");
+    assert.equal(copy.systemKey, "", "the copy is a normal, editable preset");
+    assert.equal((await storage.listSections(copy.id)).length, sections.length, "the copy keeps every section");
+    const renameCopy = await routes.inject({
+      method: "PATCH",
+      url: `/api/prompts/${copy.id}`,
+      payload: { name: "Mine" },
+    });
+    assert.ok(renameCopy.statusCode < 300, renameCopy.body);
+    const deleteCopy = await routes.inject({ method: "DELETE", url: `/api/prompts/${copy.id}` });
+    assert.equal(deleteCopy.statusCode, 204);
+  } finally {
+    await routes.close();
+  }
 
   // Model a profile seeded before snapshots existed, without using the new storage guard.
   await db

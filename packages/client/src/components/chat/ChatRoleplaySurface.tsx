@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
+import { isNovelChat, normalizeSemanticSummaryRetrievalSettings } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import {
   Suspense,
@@ -21,6 +21,7 @@ import { splitRoleplayParagraphs } from "../../lib/roleplay-vn-paragraphs";
 import { ROLEPLAY_TTS_PARAGRAPH_EVENT, type RoleplayTTSParagraphDetail } from "../../lib/roleplay-vn-tts";
 import { ttsService } from "../../lib/tts-service";
 import { usePageActivity } from "../../hooks/use-page-activity";
+import type { NovelEditorHandle, NovelEditorPassage } from "./NovelEditor";
 import {
   appendContinuationMessageContent,
   isLongTermMemoryChatSummaryPromptAllowed,
@@ -107,6 +108,11 @@ const RoleplayTrackerWindow = lazy(async () => {
 const RoleplayHUD = lazy(async () => {
   const module = await import("./RoleplayHUD");
   return { default: module.RoleplayHUD };
+});
+
+const NovelEditor = lazy(async () => {
+  const module = await import("./NovelEditor");
+  return { default: module.NovelEditor };
 });
 
 const WeatherEffects = lazy(async () => {
@@ -373,6 +379,7 @@ function StreamingIndicator({
   colorInlineNames,
   expressionAvatarResolver,
   visualNovel = false,
+  novel = false,
   visualNovelParagraphIndex,
   onVisualNovelParagraphCount,
   visualNovelMediaTarget,
@@ -387,6 +394,7 @@ function StreamingIndicator({
   colorInlineNames?: boolean;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   visualNovel?: boolean;
+  novel?: boolean;
   visualNovelParagraphIndex?: number;
   onVisualNovelParagraphCount?: (count: number) => void;
   visualNovelMediaTarget?: HTMLElement | null;
@@ -402,6 +410,7 @@ function StreamingIndicator({
     <div className="animate-message-in">
       <ChatMessage
         visualNovel={visualNovel}
+        novel={novel}
         visualNovelParagraphIndex={visualNovelParagraphIndex}
         onVisualNovelParagraphCount={onVisualNovelParagraphCount}
         visualNovelMediaTarget={visualNovelMediaTarget}
@@ -778,6 +787,8 @@ type RoleplaySurfaceProps = {
   replyCheckupMessageId?: string | null;
   replyCheckup?: ReactNode;
   onSetActiveSwipe: (messageId: string, index: number) => void;
+  /** The novel editor, which ChatArea flushes before a swipe change or a regeneration. */
+  novelEditorRef: RefObject<NovelEditorHandle | null>;
   onToggleConversationStart: (
     messageId: string,
     sharedStart: boolean,
@@ -903,6 +914,7 @@ export function ChatRoleplaySurface({
   replyCheckupMessageId,
   replyCheckup,
   onSetActiveSwipe,
+  novelEditorRef,
   onToggleConversationStart,
   onToggleHiddenFromAI,
   onPeekPrompt,
@@ -1017,6 +1029,14 @@ export function ChatRoleplaySurface({
   const vnAutoPlay = useUIStore((s) => s.roleplayVnAutoPlay);
   const vnAutoPlayDelay = useUIStore((s) => s.roleplayVnAutoPlayDelay);
   const visualNovel = isRoleplay && (chatMeta.roleplayDisplayStyle ?? defaultDisplayStyle) === "visual-novel";
+  // Novel is chosen per chat only, never as the Appearance default.
+  const novel = isRoleplay && isNovelChat(chatMode, chatMeta);
+  const flushNovel = useCallback(() => novelEditorRef.current?.flush() ?? Promise.resolve(), [novelEditorRef]);
+  // The writer's own passages are not new replies, so they play no notification sound.
+  const writerPassageIdsRef = useRef(new Set<string>());
+  const rememberWriterPassage = useCallback((messageId: string) => {
+    writerPassageIdsRef.current.add(messageId);
+  }, []);
   // Undefined until the chat sets it; ChatMessage then falls back to the retired global switch.
   const colorInlineNames = typeof chatMeta.colorInlineNames === "boolean" ? chatMeta.colorInlineNames : undefined;
   const chatPosition = useUIStore((s) => s.roleplayChatPosition);
@@ -1470,7 +1490,7 @@ export function ChatRoleplaySurface({
 
       const createdAt = new Date(message.createdAt).getTime();
       const isFresh = wasPendingPostProcessing || (Number.isFinite(createdAt) && now - createdAt < FRESHNESS_MS);
-      if (isFresh && message.role === "assistant") {
+      if (isFresh && message.role === "assistant" && !writerPassageIdsRef.current.has(message.id)) {
         hasNewAssistantMessage = true;
       }
     }
@@ -1493,13 +1513,34 @@ export function ChatRoleplaySurface({
   // Keep an unsaved editor alive if its history is temporarily collapsed.
   const showHistory = !visualNovel || vnHistoryOpen;
   const showTranscript = showHistory || vnHistoryHasDraft;
-  const visibleMessages = showTranscript ? transcriptWindow.messages : [];
+  const visibleMessages = useMemo(
+    () => (showTranscript ? (transcriptWindow.messages ?? []) : []),
+    [showTranscript, transcriptWindow.messages],
+  );
   const activeChatCharacterIds = useMemo(() => {
     const inactiveIds = new Set(readStringArray(chatMeta.inactiveCharacterIds));
     const activeIds = chatCharIds.filter((id) => !inactiveIds.has(id));
     return activeIds.length > 0 ? activeIds : chatCharIds;
   }, [chatCharIds, chatMeta.inactiveCharacterIds]);
   const loadedMessageOffset = totalMessageCount - (messages?.length ?? 0);
+  // The novel editor's passages: the transcript rows it shows, by their place in it.
+  const novelPassages = useMemo<NovelEditorPassage[]>(
+    () =>
+      novel
+        ? visibleMessages.flatMap((msg, index) =>
+            isMessageHiddenFromUser(msg) ||
+            isMessageShadowedByLiveStream({
+              hasLiveStream,
+              regenerateMessageId: inlineStreamingMessageId,
+              streamedMessageId,
+              messageId: msg.id,
+            })
+              ? []
+              : [{ message: msg, index }],
+          )
+        : [],
+    [hasLiveStream, inlineStreamingMessageId, novel, streamedMessageId, visibleMessages],
+  );
   const summaryActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
     ? chatMeta.activeAgentIds.filter((agentId): agentId is string => typeof agentId === "string")
     : [];
@@ -1700,6 +1741,110 @@ export function ChatRoleplaySurface({
       }
     : {};
 
+  const renderTranscriptMessage = (i: number, novelContent?: ReactNode) => {
+    const msg = visibleMessages[i]!;
+    const sourceIndex = transcriptWindow.startIndex + i;
+    const messageDepth = (messages?.length ?? 0) - 1 - sourceIndex;
+    const messageOrderIndex = loadedMessageOffset + sourceIndex;
+    const isRegenerating = hasLiveStream && inlineStreamingMessageId === msg.id;
+    const inlineStoryboard = roleplayStoryboardByTurn.get(`${msg.id}:${msg.activeSwipeIndex ?? 0}`) ?? null;
+    const inlineStoryboardGenerating =
+      msg.id === generateRoleplayStoryboard.variables?.messageId &&
+      generateRoleplayStoryboard.isPending &&
+      (generateRoleplayStoryboard.variables?.automatic !== true ||
+        roleplayStoryboardAutoMode === "illustration" ||
+        roleplayStoryboardAutoMode === "animation");
+    return (
+      <div
+        key={msg.id}
+        className={shouldAnimateMessages ? "animate-message-in" : undefined}
+        style={
+          shouldAnimateMessages
+            ? { animationDelay: `${Math.min(i * 30, 200)}ms`, animationFillMode: "backwards" }
+            : undefined
+        }
+      >
+        {isRegenerating ? (
+          <RegeneratingMessageContent
+            msg={msg}
+            novelContent={novelContent}
+            onDelete={onDelete}
+            onRegenerate={onRegenerate}
+            onEdit={novelContent ? undefined : onEdit}
+            onSetActiveSwipe={onSetActiveSwipe}
+            onToggleConversationStart={onToggleConversationStart}
+            onToggleHiddenFromAI={onToggleHiddenFromAI}
+            onPeekPrompt={() => onPeekPrompt(msg.id)}
+            onBranch={onBranch}
+            onCloneSceneFromHere={onCloneSceneFromHere}
+            isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
+            isLastAssistantMessage={msg.id === lastAssistantMessageId}
+            characterMap={characterMap}
+            personaInfo={personaInfo}
+            chatMode={chatMode}
+            messageDepth={messageDepth}
+            messageIndex={messageOrderIndex + 1}
+            messageOrderIndex={messageOrderIndex}
+            isGrouped={isGrouped(sourceIndex)}
+            groupChatMode={groupChatMode}
+            colorInlineNames={colorInlineNames}
+            chatCharacterIds={chatCharIds}
+            mergedGroupCharacterIds={activeChatCharacterIds}
+            expressionAvatarResolver={expressionAvatarResolver}
+            multiSelectMode={multiSelectMode}
+            isSelected={selectedMessageIds.has(msg.id)}
+            onToggleSelect={onToggleSelectMessage}
+            storyboard={inlineStoryboard}
+            storyboardGenerating={inlineStoryboardGenerating}
+            memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
+            novel={novel}
+          />
+        ) : (
+          <ChatMessage
+            message={msg}
+            novel={novel}
+            novelContent={novelContent}
+            followSpeechParagraphs={visualNovel || novel}
+            isStreaming={false}
+            onDelete={onDelete}
+            onRegenerate={onRegenerate}
+            onEdit={novelContent ? undefined : onEdit}
+            failedReply={msg.id === failedReplyMessageId}
+            failedReplyReason={failedReplyReason}
+            onRetryFailedReply={onRetryFailedReply}
+            replyCheckup={msg.id === replyCheckupMessageId ? replyCheckup : undefined}
+            onSetActiveSwipe={onSetActiveSwipe}
+            onToggleConversationStart={onToggleConversationStart}
+            onToggleHiddenFromAI={onToggleHiddenFromAI}
+            onPeekPrompt={() => onPeekPrompt(msg.id)}
+            onBranch={onBranch}
+            onCloneSceneFromHere={onCloneSceneFromHere}
+            isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
+            isLastAssistantMessage={msg.id === lastAssistantMessageId}
+            characterMap={characterMap}
+            personaInfo={personaInfo}
+            chatMode={chatMode}
+            messageDepth={messageDepth}
+            messageIndex={messageOrderIndex + 1}
+            messageOrderIndex={messageOrderIndex}
+            isGrouped={isGrouped(sourceIndex)}
+            groupChatMode={groupChatMode}
+            colorInlineNames={colorInlineNames}
+            chatCharacterIds={chatCharIds}
+            mergedGroupCharacterIds={activeChatCharacterIds}
+            expressionAvatarResolver={expressionAvatarResolver}
+            multiSelectMode={multiSelectMode}
+            isSelected={selectedMessageIds.has(msg.id)}
+            onToggleSelect={onToggleSelectMessage}
+            storyboard={inlineStoryboard}
+            storyboardGenerating={inlineStoryboardGenerating}
+            memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
+          />
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       data-component="ChatArea.Roleplay"
@@ -1713,7 +1858,7 @@ export function ChatRoleplaySurface({
           ambientVisualsPaused && "mari-generation-render-paused",
         )}
         data-chat-mode="roleplay"
-        data-roleplay-presentation={visualNovel ? "visual-novel" : "classic"}
+        data-roleplay-presentation={visualNovel ? "visual-novel" : novel ? "novel" : "classic"}
         data-chat-position={sideChatPosition}
         data-roleplay-avatar-style={sideChatPosition ? roleplayAvatarStyle : undefined}
         style={
@@ -1934,116 +2079,36 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
-                {visibleMessages?.map((msg, i) => {
-                  if (isMessageHiddenFromUser(msg)) return null;
-                  if (
-                    isMessageShadowedByLiveStream({
-                      hasLiveStream,
-                      regenerateMessageId: inlineStreamingMessageId,
-                      streamedMessageId,
-                      messageId: msg.id,
-                    })
-                  ) {
-                    return null;
-                  }
-                  const sourceIndex = transcriptWindow.startIndex + i;
-                  const messageDepth = (messages?.length ?? 0) - 1 - sourceIndex;
-                  const messageOrderIndex = loadedMessageOffset + sourceIndex;
-                  const isRegenerating = hasLiveStream && inlineStreamingMessageId === msg.id;
-                  const inlineStoryboard =
-                    roleplayStoryboardByTurn.get(`${msg.id}:${msg.activeSwipeIndex ?? 0}`) ?? null;
-                  const inlineStoryboardGenerating =
-                    msg.id === generateRoleplayStoryboard.variables?.messageId &&
-                    generateRoleplayStoryboard.isPending &&
-                    (generateRoleplayStoryboard.variables?.automatic !== true ||
-                      roleplayStoryboardAutoMode === "illustration" ||
-                      roleplayStoryboardAutoMode === "animation");
-                  return (
-                    <div
-                      key={msg.id}
-                      className={shouldAnimateMessages ? "animate-message-in" : undefined}
-                      style={
-                        shouldAnimateMessages
-                          ? { animationDelay: `${Math.min(i * 30, 200)}ms`, animationFillMode: "backwards" }
-                          : undefined
+                {novel
+                  ? !isLoading && (
+                      <Suspense fallback={null}>
+                        <NovelEditor
+                          key={activeChatId}
+                          ref={novelEditorRef}
+                          chatId={activeChatId}
+                          passages={novelPassages}
+                          renderPassage={renderTranscriptMessage}
+                          onDelete={onDelete}
+                          editable={!multiSelectMode}
+                          streaming={hasLiveStream}
+                          onPassageCreated={rememberWriterPassage}
+                        />
+                      </Suspense>
+                    )
+                  : visibleMessages?.map((msg, i) => {
+                      if (isMessageHiddenFromUser(msg)) return null;
+                      if (
+                        isMessageShadowedByLiveStream({
+                          hasLiveStream,
+                          regenerateMessageId: inlineStreamingMessageId,
+                          streamedMessageId,
+                          messageId: msg.id,
+                        })
+                      ) {
+                        return null;
                       }
-                    >
-                      {isRegenerating ? (
-                        <RegeneratingMessageContent
-                          msg={msg}
-                          onDelete={onDelete}
-                          onRegenerate={onRegenerate}
-                          onEdit={onEdit}
-                          onSetActiveSwipe={onSetActiveSwipe}
-                          onToggleConversationStart={onToggleConversationStart}
-                          onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={() => onPeekPrompt(msg.id)}
-                          onBranch={onBranch}
-                          onCloneSceneFromHere={onCloneSceneFromHere}
-                          isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
-                          isLastAssistantMessage={msg.id === lastAssistantMessageId}
-                          characterMap={characterMap}
-                          personaInfo={personaInfo}
-                          chatMode={chatMode}
-                          messageDepth={messageDepth}
-                          messageIndex={messageOrderIndex + 1}
-                          messageOrderIndex={messageOrderIndex}
-                          isGrouped={isGrouped(sourceIndex)}
-                          groupChatMode={groupChatMode}
-                          colorInlineNames={colorInlineNames}
-                          chatCharacterIds={chatCharIds}
-                          mergedGroupCharacterIds={activeChatCharacterIds}
-                          expressionAvatarResolver={expressionAvatarResolver}
-                          multiSelectMode={multiSelectMode}
-                          isSelected={selectedMessageIds.has(msg.id)}
-                          onToggleSelect={onToggleSelectMessage}
-                          storyboard={inlineStoryboard}
-                          storyboardGenerating={inlineStoryboardGenerating}
-                          memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
-                        />
-                      ) : (
-                        <ChatMessage
-                          message={msg}
-                          followSpeechParagraphs={visualNovel}
-                          isStreaming={false}
-                          onDelete={onDelete}
-                          onRegenerate={onRegenerate}
-                          onEdit={onEdit}
-                          failedReply={msg.id === failedReplyMessageId}
-                          failedReplyReason={failedReplyReason}
-                          onRetryFailedReply={onRetryFailedReply}
-                          replyCheckup={msg.id === replyCheckupMessageId ? replyCheckup : undefined}
-                          onSetActiveSwipe={onSetActiveSwipe}
-                          onToggleConversationStart={onToggleConversationStart}
-                          onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={() => onPeekPrompt(msg.id)}
-                          onBranch={onBranch}
-                          onCloneSceneFromHere={onCloneSceneFromHere}
-                          isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
-                          isLastAssistantMessage={msg.id === lastAssistantMessageId}
-                          characterMap={characterMap}
-                          personaInfo={personaInfo}
-                          chatMode={chatMode}
-                          messageDepth={messageDepth}
-                          messageIndex={messageOrderIndex + 1}
-                          messageOrderIndex={messageOrderIndex}
-                          isGrouped={isGrouped(sourceIndex)}
-                          groupChatMode={groupChatMode}
-                          colorInlineNames={colorInlineNames}
-                          chatCharacterIds={chatCharIds}
-                          mergedGroupCharacterIds={activeChatCharacterIds}
-                          expressionAvatarResolver={expressionAvatarResolver}
-                          multiSelectMode={multiSelectMode}
-                          isSelected={selectedMessageIds.has(msg.id)}
-                          onToggleSelect={onToggleSelectMessage}
-                          storyboard={inlineStoryboard}
-                          storyboardGenerating={inlineStoryboardGenerating}
-                          memoryStartCharacterIds={memoryContextStarts.get(msg.id)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+                      return renderTranscriptMessage(i);
+                    })}
 
                 <TranscriptWindowControls
                   hiddenBeforeCount={transcriptWindow.hiddenBeforeCount}
@@ -2053,10 +2118,13 @@ export function ChatRoleplaySurface({
                   buttonClassName="border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
                 />
 
-                {showHistory && !isStreaming && <CyoaChoices messages={messages} />}
+                {showHistory && !isStreaming && (
+                  <CyoaChoices messages={messages} novel={novel} onBeforeNovelSend={flushNovel} />
+                )}
 
                 {showHistory && hasLiveStream && !inlineStreamingMessageId && (
                   <StreamingIndicator
+                    novel={novel}
                     activeChatId={activeChatId}
                     chatCharIds={chatCharIds}
                     mergedGroupCharacterIds={activeChatCharacterIds}
@@ -2216,7 +2284,9 @@ export function ChatRoleplaySurface({
                         )}
                       </div>
                     )}
-                    {!vnHistoryOpen && !isStreaming && <CyoaChoices messages={messages} />}
+                    {!vnHistoryOpen && !isStreaming && (
+                      <CyoaChoices messages={messages} novel={novel} onBeforeNovelSend={flushNovel} />
+                    )}
                   </div>
                 )}
                 {chatMeta.sceneStatus === "active" && (
@@ -2257,6 +2327,8 @@ export function ChatRoleplaySurface({
                   onIllustrate={onIllustrate}
                   onRoleplayVideo={onRoleplayVideo}
                   interactionsLocked={agentProcessing}
+                  novel={novel}
+                  onBeforeNovelSend={novel ? flushNovel : undefined}
                 />
               </div>
             </div>

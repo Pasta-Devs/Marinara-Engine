@@ -1575,7 +1575,7 @@ async function buildRetryAgentContext(args: {
         lastAssistant?.role === "assistant" &&
         chatMode === "roleplay" &&
         allCharacterIds.length > 1 &&
-        resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode) === "merged";
+        resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode, chatMeta) === "merged";
       const targetedSprites =
         expressionTargetIds.size > 0 && !mergedRoleplayResponse
           ? perChar.filter((sprite) => expressionTargetIds.has(sprite.characterId))

@@ -74,8 +74,8 @@ import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import {
   PROFESSOR_MARI_ID,
-  buildGuidedGenerationInstructionMessage,
   getDrawerWindowId,
+  isNovelChat,
   normalizeAvatarCrop,
   normalizeAdvancedMemorySettings,
   normalizeGroupChatMode,
@@ -85,6 +85,7 @@ import {
   type SpriteSide,
   type WeekSchedule,
 } from "@marinara-engine/shared";
+import { getMessageBarRules } from "../../lib/message-bar-rules";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
@@ -147,6 +148,7 @@ import {
   type LocalSpriteVisualSettings,
 } from "./local-sprite-visual-settings";
 import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
+import type { NovelEditorHandle } from "./NovelEditor";
 import type { AvatarFraming } from "../../features/avatars/contract";
 import { sameStageAvatars, type StageAvatarSummary } from "../../features/avatars/stage/avatar-stage-logic";
 import {
@@ -674,6 +676,19 @@ const LocalChatArea = memo(function LocalChatArea({
   const lastAppError = useUIStore((s) => s.lastAppError);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const novelEditorRef = useRef<NovelEditorHandle>(null);
+  /** Saves a novel's typing before the page moves on. False when a new passage failed to save (it keeps its text). */
+  const flushNovel = useCallback(
+    () =>
+      (novelEditorRef.current?.flush() ?? Promise.resolve()).then(
+        () => true,
+        (error: unknown) => {
+          toast.error(error instanceof Error ? error.message : localizeUi("chat.novel.saveFailed"));
+          return false;
+        },
+      ),
+    [localizeUi],
+  );
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
   const intuitiveTouchStartRef = useRef<{ x: number; y: number; target: EventTarget | null } | null>(null);
@@ -2624,6 +2639,8 @@ const LocalChatArea = memo(function LocalChatArea({
     });
   }, [messages]);
 
+  // A flag, not chatMeta, so metadata writes don't recreate handleRegenerate and re-render every message.
+  const novelChat = isNovelChat(chatMode, chatMeta);
   const handleRegenerate = useCallback(
     async (messageId: string, options?: { skipTouchConfirm?: boolean }) => {
       if (!activeChatId || isStreaming) return;
@@ -2641,6 +2658,9 @@ const LocalChatArea = memo(function LocalChatArea({
         return;
       }
       // The confirmation can outlive this chat. Never use another chat's draft as guidance.
+      if (useChatStore.getState().activeChatId !== activeChatId) return;
+      // A novel's typing is saved first, so it is in the prompt and never left on the swipe being replaced.
+      if (!(await flushNovel())) return;
       if (useChatStore.getState().activeChatId !== activeChatId) return;
       const composer = document.querySelector<HTMLTextAreaElement>("textarea[data-chat-composer]");
       const currentInput = composer?.dataset.chatId === activeChatId ? composer.value : getCurrentInputSnapshot();
@@ -2670,7 +2690,7 @@ const LocalChatArea = memo(function LocalChatArea({
                 chatId: activeChatId,
                 connectionId: null,
                 regenerateMessageId: messageId,
-                generationGuide: buildGuidedGenerationInstructionMessage(currentInput.toString()),
+                generationGuide: getMessageBarRules(novelChat).guideInstruction(currentInput.toString()),
                 generationGuideSource: "guide",
               }
             : { chatId: activeChatId, connectionId: null, regenerateMessageId: messageId },
@@ -2681,7 +2701,16 @@ const LocalChatArea = memo(function LocalChatArea({
         // Error toast is shown by the generate hook
       }
     },
-    [activeChatId, isStreaming, generate, guideGenerations, keepGuidanceAfterRegenerate, localizeUi],
+    [
+      activeChatId,
+      isStreaming,
+      generate,
+      guideGenerations,
+      keepGuidanceAfterRegenerate,
+      localizeUi,
+      flushNovel,
+      novelChat,
+    ],
   );
 
   const handleRerunTrackers = useCallback(async () => {
@@ -2708,6 +2737,10 @@ const LocalChatArea = memo(function LocalChatArea({
         const gameStateStore = useGameStateStore.getState();
         if (shouldRefreshGameStateOnSwipe && refreshChatId) gameStateStore.setRefreshingChat(refreshChatId);
         try {
+          // A novel's typing is saved to the swipe it was typed on before another one shows; a failed
+          // save keeps the current swipe, so the unsaved text is not replaced.
+          if (!(await flushNovel())) return;
+          if (swipeActionSeq.current !== actionId) return;
           const flushPatch = useGameStateStore.getState().flushPatch;
           if (flushPatch) {
             try {
@@ -2754,7 +2787,7 @@ const LocalChatArea = memo(function LocalChatArea({
         }
       })();
     },
-    [activeChatId, setActiveSwipe, refreshVisibleGameState, shouldRefreshGameStateOnSwipe, localizeUi],
+    [activeChatId, setActiveSwipe, refreshVisibleGameState, shouldRefreshGameStateOnSwipe, localizeUi, flushNovel],
   );
 
   const handleEdit = useCallback(
@@ -4156,6 +4189,7 @@ const LocalChatArea = memo(function LocalChatArea({
           replyCheckupMessageId={replyCheckup?.messageId ?? null}
           replyCheckup={replyCheckupNode}
           onSetActiveSwipe={handleSetActiveSwipe}
+          novelEditorRef={novelEditorRef}
           onToggleConversationStart={handleToggleConversationStart}
           onToggleHiddenFromAI={handleToggleHiddenFromAI}
           onPeekPrompt={handlePeekPrompt}

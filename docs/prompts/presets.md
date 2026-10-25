@@ -10,7 +10,7 @@ Presets shape the prompt for **Roleplay** and **Game** chats. **Conversation** m
 
 Presets do not need an API key or account. They only describe how a prompt is built. You still need a working connection to send the prompt. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-The built-in **Marinara's Universal Preset** supplies prompt text without assigning generation parameters. Its older saved sampling, reasoning, formatting, and token settings are ignored. Connection settings, chat overrides, and Engine defaults continue to apply. Create an editable copy to customize the preset.
+The built-in presets, **Marinara's Universal Preset** and **Marinara's Novel Preset**, supply prompt text without assigning generation parameters. Their older saved sampling, reasoning, formatting, and token settings are ignored. Connection settings, chat overrides, and Engine defaults continue to apply. Built-in presets are read-only and cannot be deleted. Create an editable copy to customize one. New chats use Marinara's Universal Preset by default; [Novel Mode](../roleplay/novel-mode.md) uses Marinara's Novel Preset.
 
 ## Opening the Preset Editor
 

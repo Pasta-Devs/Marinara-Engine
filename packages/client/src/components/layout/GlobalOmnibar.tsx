@@ -20,7 +20,12 @@ import type {
   ProfessorMariEntryPoint,
   ProfessorMariQuickSource,
 } from "@marinara-engine/shared";
-import { LOCAL_SIDECAR_CONNECTION_ID, matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
+import {
+  isNovelChat,
+  LOCAL_SIDECAR_CONNECTION_ID,
+  matchOmnibarCapabilityAgentPackageIds,
+} from "@marinara-engine/shared";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { api } from "../../lib/api-client";
 import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
 import { ChevronLeft, Search, X } from "lucide-react";
@@ -492,11 +497,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const slashAvailability = useMemo(
     () => ({
       mode: activeChat?.mode === "roleplay" || activeChat?.mode === "conversation" ? activeChat.mode : undefined,
+      novel: isNovelChat(activeChat?.mode, parseChatMetadata(activeChat?.metadata)),
       availableCapabilityIds: new Set(
         (installedCapabilities.data ?? []).filter((item) => item.status === "active").map((item) => item.id),
       ),
     }),
-    [activeChat?.mode, installedCapabilities.data],
+    [activeChat?.mode, activeChat?.metadata, installedCapabilities.data],
   );
   const slashResults = useMemo<OmnibarResult[]>(
     () => buildOmnibarSlashResults({ activeChatId, deferredQuery, slashAvailability, surface: omnibarContext.surface }),

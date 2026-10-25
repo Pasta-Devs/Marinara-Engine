@@ -57,6 +57,7 @@ try {
     }),
   );
   put("packages/server/src/db/default-preset.json", "{}\n");
+  put("packages/server/src/db/novel-preset.json", "{}\n");
   put("packages/server/src/runtime.ts", "export const ready = (raw: string) => `${raw} started`;\n");
   put("packages/server/src/index.ts", 'import { ready } from "./runtime.js";\nconsole.log(ready("fixture server"));\n');
 

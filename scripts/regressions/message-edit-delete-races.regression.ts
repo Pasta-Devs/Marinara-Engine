@@ -57,8 +57,14 @@ writeShard("messages", "c1", [
   messageRow("m-bulk", "c1", "bulk me"),
   messageRow("m-race", "c1", "race me"),
   messageRow("m-tear", "c1", "old text"),
+  { ...messageRow("m-swipes", "c1", "second telling"), activeSwipeIndex: 1 },
 ]);
-writeShard("message_swipes", "c1", [swipeRow("s-race", "m-race", "race me"), swipeRow("s-tear", "m-tear", "old text")]);
+writeShard("message_swipes", "c1", [
+  swipeRow("s-race", "m-race", "race me"),
+  swipeRow("s-tear", "m-tear", "old text"),
+  swipeRow("s-first", "m-swipes", "first telling"),
+  { ...swipeRow("s-second", "m-swipes", "second telling"), index: 1 },
+]);
 
 const db = await createFileNativeDB();
 const storage = createChatsStorage(db);
@@ -206,6 +212,29 @@ try {
       true,
       "the swipe mirror carries the edit after the final flush",
     );
+  }
+
+  // ── An edit names the swipe it was written for ──
+  // Typed on one swipe and saved after the message moved to another, the text goes to its own swipe: never
+  // over the swipe now showing, and nowhere once its swipe is gone. Edits naming no swipe keep writing the
+  // active one (above).
+  {
+    const swipeTexts = async () => (await storage.getSwipes("m-swipes")).map((swipe: any) => swipe.content);
+    const left = await storage.updateMessageContent("m-swipes", "first telling, edited", {
+      authored: true,
+      swipeIndex: 0,
+    });
+    assert.equal(left?.content, "second telling", "the message keeps showing its active swipe");
+    assert.deepEqual(await swipeTexts(), ["first telling, edited", "second telling"]);
+    const active = await storage.updateMessageContent("m-swipes", "second telling, edited", {
+      authored: true,
+      swipeIndex: 1,
+    });
+    assert.equal(active?.content, "second telling, edited");
+    assert.deepEqual(await swipeTexts(), ["first telling, edited", "second telling, edited"]);
+    assert.equal(await storage.updateMessageContent("m-swipes", "lost swipe", { swipeIndex: 4 }), null);
+    assert.deepEqual(await swipeTexts(), ["first telling, edited", "second telling, edited"]);
+    assert.equal((await storage.getMessage("m-swipes"))?.content, "second telling, edited");
   }
 } finally {
   await db._fileStore.close();

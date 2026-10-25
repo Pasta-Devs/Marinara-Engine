@@ -80,7 +80,7 @@ import { api } from "../../lib/api-client";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import {
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
   resolveScopedRegexMode,
   type ScopedRegexMode,
   type MarkerType,
@@ -425,7 +425,7 @@ export function PresetEditor() {
     );
   }
 
-  if (isStockMarinaraUniversalPreset(data.preset)) {
+  if (isStockPreset(data.preset)) {
     return (
       <div className="mari-editor-shell flex flex-1 items-center justify-center p-6">
         <div className="mari-editor-panel flex max-w-md flex-col items-center gap-3 p-5 text-center">
@@ -864,7 +864,7 @@ export function QuickPresetSectionsEditor({
     );
   }
 
-  if (isStockMarinaraUniversalPreset(data.preset)) {
+  if (isStockPreset(data.preset)) {
     return (
       <div className="mari-editor-empty flex min-h-24 flex-col items-center justify-center gap-2 px-3 py-6 text-center text-xs">
         <span>{t("ui.presets.preseteditor.stockPresetReadOnly")}</span>

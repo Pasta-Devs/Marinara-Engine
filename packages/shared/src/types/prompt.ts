@@ -9,8 +9,30 @@ export const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 export const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
 export const MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY = "marinara-universal-preset";
 
+export const MARINARA_NOVEL_PRESET_NAME = "Marinara's Novel Preset";
+export const MARINARA_NOVEL_PRESET_SYSTEM_KEY = "marinara-novel-preset";
+
+/** Every Engine-owned (stock) preset key. A key outside this list reads as a normal user preset. */
+export const STOCK_PRESET_SYSTEM_KEYS = [
+  MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
+  MARINARA_NOVEL_PRESET_SYSTEM_KEY,
+] as const;
+
+export function isStockPresetSystemKey(key: unknown): boolean {
+  return (STOCK_PRESET_SYSTEM_KEYS as readonly unknown[]).includes(key);
+}
+
+/** True for any built-in preset: read-only, undeletable and without generation parameters. */
+export function isStockPreset(preset: { systemKey?: unknown }): boolean {
+  return isStockPresetSystemKey(preset.systemKey);
+}
+
 export function isStockMarinaraUniversalPreset(preset: { systemKey?: unknown }): boolean {
   return preset.systemKey === MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY;
+}
+
+export function isStockMarinaraNovelPreset(preset: { systemKey?: unknown }): boolean {
+  return preset.systemKey === MARINARA_NOVEL_PRESET_SYSTEM_KEY;
 }
 
 /** Role for a prompt section. */

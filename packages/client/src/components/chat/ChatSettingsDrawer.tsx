@@ -138,6 +138,7 @@ import {
   DEFAULT_GAME_DICE_POOL_WINDOW as DEFAULT_DICE_POOL_WINDOW,
   advancedMemoryProblems,
   estimateTextTokens,
+  isNovelChat,
   isRoleplayCommandEnabled,
   normalizeAdvancedMemorySettings,
   normalizeGroupChatMode,
@@ -1108,7 +1109,9 @@ export function ChatSettingsDrawer({
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
   );
-  const groupChatMode = normalizeGroupChatMode(metadata.groupChatMode);
+  // A novel has one author voice for every character, so it is always Merged with no turn settings.
+  const novel = isNovelChat(chatMode, metadata);
+  const groupChatMode = novel ? "merged" : normalizeGroupChatMode(metadata.groupChatMode);
   // The dice in the title bar: one click turns the Tracker Panel on and shows it, the next turns it off.
   const trackerPanelToggleAvailable =
     isRoleplayMode && (metadata.enableAgents === true || metadata.advancedMemory?.enabled === true);
@@ -7007,58 +7010,60 @@ export function ChatSettingsDrawer({
                   : localizeUi("ui.chat.chatsettingsdrawer.configureHowMultipleCharactersInteractMergedModeCombinesAll")
               }
             >
-              {/* Mode selector */}
-              <div className="space-y-2">
-                <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.chatsettingsdrawer.mode")}
-                </label>
-                <div className="flex rounded-lg ring-1 ring-[var(--border)]">
-                  <button
-                    onClick={() => updateGroupChatModeMeta.mutate({ id: chat.id, groupChatMode: "merged" })}
-                    className={cn(
-                      "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
-                      groupChatMode === "merged"
-                        ? "bg-[var(--primary)] text-white"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                    )}
-                  >
-                    {isConversation
-                      ? localizeUi("ui.chat.chatsettingsdrawer.grouped")
-                      : localizeUi("ui.chat.chatsettingsdrawer.mergedNarrator")}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (groupChatMode === "individual") return;
-                      updateGroupChatModeMeta.mutate({
-                        id: chat.id,
-                        groupChatMode: "individual",
-                        ...(isConversation && metadata.groupResponseOrder === "manual"
-                          ? { groupResponseOrder: "sequential" as const }
-                          : {}),
-                      });
-                      if (isConversation) {
-                        toast.warning(localizeUi("ui.chat.chatsettingsdrawer.individualRepliesCanUseManyTokens"), {
-                          description: localizeUi(
-                            "ui.chat.chatsettingsdrawer.eachRespondingCharacterUsesASeparateModelRequestLarge",
-                          ),
-                          duration: 12_000,
+              {/* Mode selector (a novel is always Merged) */}
+              {!novel && (
+                <div className="space-y-2">
+                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.chatsettingsdrawer.mode")}
+                  </label>
+                  <div className="flex rounded-lg ring-1 ring-[var(--border)]">
+                    <button
+                      onClick={() => updateGroupChatModeMeta.mutate({ id: chat.id, groupChatMode: "merged" })}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
+                        groupChatMode === "merged"
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      {isConversation
+                        ? localizeUi("ui.chat.chatsettingsdrawer.grouped")
+                        : localizeUi("ui.chat.chatsettingsdrawer.mergedNarrator")}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (groupChatMode === "individual") return;
+                        updateGroupChatModeMeta.mutate({
+                          id: chat.id,
+                          groupChatMode: "individual",
+                          ...(isConversation && metadata.groupResponseOrder === "manual"
+                            ? { groupResponseOrder: "sequential" as const }
+                            : {}),
                         });
-                      }
-                    }}
-                    className={cn(
-                      "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
-                      groupChatMode === "individual"
-                        ? "bg-[var(--primary)] text-white"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                    )}
-                  >
-                    {localizeUi("ui.chat.chatsettingsdrawer.individual")}
-                  </button>
+                        if (isConversation) {
+                          toast.warning(localizeUi("ui.chat.chatsettingsdrawer.individualRepliesCanUseManyTokens"), {
+                            description: localizeUi(
+                              "ui.chat.chatsettingsdrawer.eachRespondingCharacterUsesASeparateModelRequestLarge",
+                            ),
+                            duration: 12_000,
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
+                        groupChatMode === "individual"
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      {localizeUi("ui.chat.chatsettingsdrawer.individual")}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Merged mode: speaker color option */}
-              {!isConversation && groupChatMode === "merged" && (
+              {/* Merged mode: speaker color option (a novel sets plain book paragraphs) */}
+              {!isConversation && !novel && groupChatMode === "merged" && (
                 <div className="mt-2">
                   <SettingsSwitch
                     label={localizeUi("ui.chat.chatsettingsdrawer.colorDialogues")}
@@ -10664,7 +10669,7 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          {!isConversation && !isGame && (
+          {!isConversation && !isGame && !novel && (
             <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
               <ImpersonateSection
                 presets={(presets ?? []) as Array<{ id: string; name: string }>}

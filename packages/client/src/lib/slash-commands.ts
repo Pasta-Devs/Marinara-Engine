@@ -12,7 +12,6 @@ import { isMessageHidden } from "./message-visibility";
 export { isMessageHidden } from "./message-visibility";
 import {
   SUPPORTED_MACROS,
-  buildGuidedGenerationInstructionMessage,
   buildNarratorInstructionMessage,
   isWithinDiceLimits,
   normalizeTextForMatch,
@@ -21,6 +20,7 @@ import {
   type MessageReply,
   type ParsedDiceNotation,
 } from "@marinara-engine/shared";
+import { getMessageBarRules } from "./message-bar-rules";
 
 export interface SlashCommand {
   name: string;
@@ -40,6 +40,8 @@ export interface SlashCommand {
 export interface SlashCommandContext {
   chatId: string;
   mode?: "conversation" | "roleplay";
+  /** A Roleplay chat shown as a Novel: guidance steers the next passage, which also writes {{user}}. */
+  novel?: boolean;
   /** Trigger an LLM generation (with optional user message) */
   generate: (params: {
     chatId: string;
@@ -147,6 +149,8 @@ export interface ConversationGameSlashContribution {
 
 export interface SlashCommandAvailability {
   mode?: "conversation" | "roleplay";
+  /** A Roleplay chat in the Novel display style, where there is no persona turn to impersonate. */
+  novel?: boolean;
   availableCapabilityIds?: ReadonlySet<string>;
   conversationGames?: readonly ConversationGameSlashContribution[];
 }
@@ -156,6 +160,7 @@ function isSlashCommandAvailable(command: SlashCommand, availability: SlashComma
     if (!availability.availableCapabilityIds.has(command.requiredCapabilityId)) return false;
   }
   if (command.modes && availability.mode && !command.modes.includes(availability.mode)) return false;
+  if (getMessageBarRules(availability.novel).hiddenSlashCommands.has(command.name)) return false;
   return true;
 }
 
@@ -694,6 +699,7 @@ const COMMANDS: SlashCommand[] = [
         handled: true,
         feedback: await buildSlashHelpText({
           mode: ctx.mode,
+          novel: ctx.novel,
           availableCapabilityIds: ctx.availableCapabilityIds,
           conversationGames: ctx.conversationGames,
         }),
@@ -780,7 +786,7 @@ const COMMANDS: SlashCommand[] = [
       const targetedResponse = resolveGuidedCharacterTarget(args, characters);
       if (targetedResponse) {
         const generationGuide = targetedResponse.guideText
-          ? buildGuidedGenerationInstructionMessage(targetedResponse.guideText)
+          ? getMessageBarRules(ctx.novel).guideInstruction(targetedResponse.guideText)
           : undefined;
         ctx.removeQueuedResponse?.(targetedResponse.character.id);
         await ctx.generate({
@@ -797,12 +803,21 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: formatGuidedTargetHelp(characters) };
       }
 
-      await ctx.generate({
-        chatId: ctx.chatId,
-        connectionId: null,
-        generationGuide: buildNarratorInstructionMessage(args),
-        generationGuideSource: "narrator",
-      });
+      await ctx.generate(
+        ctx.novel
+          ? {
+              chatId: ctx.chatId,
+              connectionId: null,
+              generationGuide: getMessageBarRules(ctx.novel).guideInstruction(args),
+              generationGuideSource: "guide",
+            }
+          : {
+              chatId: ctx.chatId,
+              connectionId: null,
+              generationGuide: buildNarratorInstructionMessage(args),
+              generationGuideSource: "narrator",
+            },
+      );
       return { handled: true };
     },
   },

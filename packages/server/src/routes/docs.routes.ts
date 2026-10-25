@@ -113,6 +113,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "combat-encounters.md",
     "narrative-director.md",
     "scenes.md",
+    "novel-mode.md",
   ],
   game: [
     "getting-started.md",

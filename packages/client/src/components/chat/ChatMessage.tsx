@@ -983,6 +983,10 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   /** Compact paragraph presentation; full message actions stay in the history. */
   visualNovel?: boolean;
+  /** Novel page presentation: book paragraphs with no chat chrome, actions in the margin. */
+  novel?: boolean;
+  /** The novel editor's editable text for this passage, shown in place of the message content. */
+  novelContent?: ReactNode;
   followSpeechParagraphs?: boolean;
   visualNovelSpeech?: RoleplayTTSParagraphDetail | null;
   onVisualNovelSpeechParagraph?: (index: number) => void;
@@ -1901,6 +1905,8 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming,
   visualNovel = false,
+  novel = false,
+  novelContent,
   followSpeechParagraphs = false,
   visualNovelSpeech,
   onVisualNovelSpeechParagraph,
@@ -3499,7 +3505,7 @@ export const ChatMessage = memo(function ChatMessage({
       isStreaming={!!isStreaming}
     />
   );
-  const roleplayBubbleContent = isHiddenCollapsed ? (
+  const roleplayMessageContent = isHiddenCollapsed ? (
     <HiddenFromAIMessageSummary
       roleplay={isRoleplay}
       onExpand={() => setManuallyExpandedHidden(true)}
@@ -3562,6 +3568,18 @@ export const ChatMessage = memo(function ChatMessage({
         </div>
       )}
     </>
+  );
+  // In the novel editor the passage's text stays mounted and editable; while it streams, is
+  // translated or is collapsed, the usual content shows in its place.
+  const novelContentReplaced =
+    isHiddenCollapsed || !!isStreaming || showTranslationOnly || !!translatedText || isTranslating;
+  const roleplayBubbleContent = novelContent ? (
+    <>
+      {novelContentReplaced && <NovelChrome>{roleplayMessageContent}</NovelChrome>}
+      <div hidden={novelContentReplaced}>{novelContent}</div>
+    </>
+  ) : (
+    roleplayMessageContent
   );
 
   const hasVnMediaTarget = visualNovel && !!visualNovelMediaTarget;
@@ -3763,7 +3781,8 @@ export const ChatMessage = memo(function ChatMessage({
   }
 
   // ─── System messages (shared across modes) ───
-  if (isSystem) {
+  // In a novel, system and narrator messages are passages like any other, so the editor can mount their text.
+  if (isSystem && !novelContent) {
     return (
       <SystemMessage
         message={message}
@@ -3803,7 +3822,7 @@ export const ChatMessage = memo(function ChatMessage({
   // ═══════════════════════════════════════════════
   if (isRoleplay) {
     // Narrator messages
-    if (isNarrator) {
+    if (isNarrator && !novelContent) {
       return (
         <>
           <div
@@ -3914,6 +3933,7 @@ export const ChatMessage = memo(function ChatMessage({
           className={cn(
             "mari-message mari-roleplay-message-row group mb-4 flex justify-center gap-3 px-2",
             isUser ? "mari-message-user flex-row-reverse" : "mari-message-assistant",
+            novel && "mari-novel-passage",
             useCompactRectangleAvatar && "mari-roleplay-message-row--rect-avatar",
             (hideRoleplayAvatars || showRoleplayAvatarPanel) && "mari-roleplay-message-row--wide",
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
@@ -3948,7 +3968,7 @@ export const ChatMessage = memo(function ChatMessage({
             </div>
           )}
           {/* Avatar Column */}
-          {showCompactRoleplayAvatar && (
+          {showCompactRoleplayAvatar && !novel && (
             <div
               className={cn(
                 "mari-message-avatar flex flex-col items-center flex-shrink-0 pt-1",
@@ -4037,7 +4057,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Spacer if grouped (no avatar) */}
-          {isGrouped && !hideRoleplayAvatars && (
+          {isGrouped && !hideRoleplayAvatars && !novel && (
             <div className={cn("mari-roleplay-avatar-spacer flex-shrink-0", compactAvatarSpacerClass)} />
           )}
 
@@ -4050,7 +4070,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
           >
             {/* Name + time (only if not grouped) */}
-            {!isGrouped && (
+            {!isGrouped && !novel && (
               <div className={cn("flex items-baseline gap-2 px-1", isUser && "flex-row-reverse")}>
                 {hiddenFromAIHeader}
                 <span
@@ -4095,14 +4115,18 @@ export const ChatMessage = memo(function ChatMessage({
             <div
               data-roleplay-bubble-transparent={roleplayBubbleBg === "transparent" ? "true" : undefined}
               className={cn(
-                "mari-message-bubble mari-rp-bubble mari-chat-style-surface relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
-                roleplayAvatarsScrollable && showRoleplayAvatarPanel && "mari-rp-bubble--scrollable-avatar-panel",
-                isUser
-                  ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
-                  : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
-                isGrouped && (isUser ? "rounded-tr-2xl" : "rounded-tl-2xl"),
-                isStreaming && "rpg-streaming",
-                (isConversationStart || conversationStartForCharacterIds.length > 0) && MESSAGE_CHROME_RING_CLASS,
+                novel
+                  ? "mari-message-bubble mari-novel-passage-text relative"
+                  : cn(
+                      "mari-message-bubble mari-rp-bubble mari-chat-style-surface relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
+                      roleplayAvatarsScrollable && showRoleplayAvatarPanel && "mari-rp-bubble--scrollable-avatar-panel",
+                      isUser
+                        ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
+                        : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
+                      isGrouped && (isUser ? "rounded-tr-2xl" : "rounded-tl-2xl"),
+                      isStreaming && "rpg-streaming",
+                      (isConversationStart || conversationStartForCharacterIds.length > 0) && MESSAGE_CHROME_RING_CLASS,
+                    ),
                 isHiddenFromAI && cn(MESSAGE_CHROME_RING_CLASS, "saturate-75"),
                 editing && "w-full",
               )}
@@ -4116,7 +4140,9 @@ export const ChatMessage = memo(function ChatMessage({
                 } as React.CSSProperties
               }
             >
-              {showRoleplayAvatarPanel ? (
+              {novel ? (
+                roleplayBubbleContent
+              ) : showRoleplayAvatarPanel ? (
                 <div className={cn("flex min-h-full items-stretch", isUser && "flex-row-reverse")}>
                   <div
                     className={cn(
@@ -4229,200 +4255,208 @@ export const ChatMessage = memo(function ChatMessage({
               ) : null}
             </div>
 
-            {roleplayAttachments}
+            <NovelChrome enabled={!!novelContent}>
+              {roleplayAttachments}
 
-            {!editing && !isUser && (storyboard || storyboardGenerating) ? (
-              <RoleplayStoryboardMessageMedia
-                storyboard={storyboard ?? null}
-                generating={storyboardGenerating}
-                onOpenImage={openStoryboardImageLightbox}
-              />
-            ) : null}
+              {!editing && !isUser && (storyboard || storyboardGenerating) ? (
+                <RoleplayStoryboardMessageMedia
+                  storyboard={storyboard ?? null}
+                  generating={storyboardGenerating}
+                  onOpenImage={openStoryboardImageLightbox}
+                />
+              ) : null}
 
-            {/* Swipes */}
-            {(hasSwipes || canCreateNextSwipe) && (
-              <SwipeJumpControl
-                alwaysShow={alwaysDisplaySwipeMenu && !isUser}
-                messageId={message.id}
-                activeSwipeIndex={message.activeSwipeIndex}
-                swipeCount={swipeCount}
-                onSetActiveSwipe={handleSetActiveSwipe}
-                onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
-              />
-            )}
-
-            <MessageMarkIndicators message={message} className="px-1" />
-
-            {!isUser && replyCheckup && <div className="px-1">{replyCheckup}</div>}
-
-            {isUser && failedReply && (
-              <p className="mari-send-failed" role="alert" title={failedReplyReason}>
-                <AlertTriangle size="0.8rem" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="mari-send-failed__text bg-transparent p-0 text-start"
-                  onClick={() => failedReplyReason && toast(failedReplyReason)}
-                >
-                  {localizeUi("ui.chat.chatmessage.failedReply")}
-                </button>
-                <span aria-hidden="true">·</span>
-                <button type="button" onClick={onRetryFailedReply} className="mari-link">
-                  {localizeUi("ui.chat.chatmessage.retryFailedReply")}
-                </button>
-              </p>
-            )}
-
-            {/* Hover actions (tap to toggle on mobile) */}
-            <div
-              onClickCapture={() => {
-                if (matchMedia("(pointer: coarse)").matches) setShowActions(true);
-              }}
-              className={cn(
-                "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
-                (showActions || editing) && "opacity-100",
-                showStreamingThinkingAction &&
-                  "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+              {/* Swipes (a novel shows them only on a passage with more than one version) */}
+              {(novel ? hasSwipes : hasSwipes || canCreateNextSwipe) && (
+                <SwipeJumpControl
+                  alwaysShow={alwaysDisplaySwipeMenu && !isUser}
+                  messageId={message.id}
+                  activeSwipeIndex={message.activeSwipeIndex}
+                  swipeCount={swipeCount}
+                  onSetActiveSwipe={handleSetActiveSwipe}
+                  onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
+                />
               )}
-            >
-              <ActionBtn
-                icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={handleCopy}
-                title={localizeUi("lorebook.editor.batch.copy")}
-              />
-              <ActionBtn
-                icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => translate(message.id, message.content, message.chatId)}
-                title={
-                  translatedText
-                    ? localizeUi("ui.chat.chatmessage.hideTranslation")
-                    : localizeUi("ui.chat.chatmessage.translate")
-                }
-              />
-              <ActionBtn
-                icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={startEditing}
-                title={localizeUi("ui.noodle.noodlepostcard.edit")}
-              />
-              {hasRewriteVersions && (
+
+              <MessageMarkIndicators message={message} className="px-1" />
+
+              {!isUser && replyCheckup && <div className="px-1">{replyCheckup}</div>}
+
+              {isUser && failedReply && (
+                <p className="mari-send-failed" role="alert" title={failedReplyReason}>
+                  <AlertTriangle size="0.8rem" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="mari-send-failed__text bg-transparent p-0 text-start"
+                    onClick={() => failedReplyReason && toast(failedReplyReason)}
+                  >
+                    {localizeUi("ui.chat.chatmessage.failedReply")}
+                  </button>
+                  <span aria-hidden="true">·</span>
+                  <button type="button" onClick={onRetryFailedReply} className="mari-link">
+                    {localizeUi("ui.chat.chatmessage.retryFailedReply")}
+                  </button>
+                </p>
+              )}
+
+              {/* Hover actions (tap to toggle on mobile) */}
+              <div
+                onClickCapture={() => {
+                  if (matchMedia("(pointer: coarse)").matches) setShowActions(true);
+                }}
+                data-shown={novel && showActions ? "true" : undefined}
+                className={cn(
+                  "mari-message-actions flex w-full min-w-0 flex-wrap items-center justify-between gap-1 px-1 opacity-0 transition-all [@media(pointer:fine)]:focus-within:opacity-100 group-hover:opacity-100 md:justify-start md:gap-x-2",
+                  novel && "mari-novel-passage-actions",
+                  (showActions || editing) && "opacity-100",
+                  showStreamingThinkingAction &&
+                    "opacity-100 [&>button:not([data-message-thinking-action])]:hidden [&>div]:hidden",
+                )}
+              >
                 <ActionBtn
-                  icon={
-                    switchingRewriteVersion ? (
-                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-                    ) : (
-                      <Shield size={MESSAGE_ACTION_ICON_SIZE} />
-                    )
-                  }
-                  onClick={handleToggleProseGuardianVersion}
+                  icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={handleCopy}
+                  title={localizeUi("lorebook.editor.batch.copy")}
+                />
+                <ActionBtn
+                  icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={() => translate(message.id, message.content, message.chatId)}
                   title={
-                    showingProseGuardianOriginal
-                      ? localizeUi("ui.chat.chatmessage.showRewrittenVersion")
-                      : localizeUi("ui.chat.chatmessage.showOriginalBeforeRewrite")
+                    translatedText
+                      ? localizeUi("ui.chat.chatmessage.hideTranslation")
+                      : localizeUi("ui.chat.chatmessage.translate")
                   }
-                  className={showingProseGuardianOriginal ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
-                  disabled={switchingRewriteVersion}
                 />
-              )}
-              <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
-              <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
-              {onToggleConversationStart && (
-                <ConversationStartAction
-                  messageId={message.id}
-                  sharedStart={isConversationStart}
-                  characterIds={conversationStartForCharacterIds}
-                  characters={aiVisibilityCharacters}
-                  onToggle={onToggleConversationStart}
-                  align={isUser ? "right" : "left"}
-                />
-              )}
-              {onToggleHiddenFromAI && (
-                <HideFromAIAction
-                  messageId={message.id}
-                  hiddenFromAll={isHiddenFromAllAI}
-                  hiddenCharacterIds={hiddenFromAICharacterIds}
-                  characters={isRoleplay ? aiVisibilityCharacters : []}
-                  onToggle={onToggleHiddenFromAI}
-                  align={isUser ? "right" : "left"}
-                />
-              )}
-              {isLastAssistantMessage && !isUser && (
+                {!novelContent && (
+                  <ActionBtn
+                    icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={startEditing}
+                    title={localizeUi("ui.noodle.noodlepostcard.edit")}
+                  />
+                )}
+                {hasRewriteVersions && (
+                  <ActionBtn
+                    icon={
+                      switchingRewriteVersion ? (
+                        <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                      ) : (
+                        <Shield size={MESSAGE_ACTION_ICON_SIZE} />
+                      )
+                    }
+                    onClick={handleToggleProseGuardianVersion}
+                    title={
+                      showingProseGuardianOriginal
+                        ? localizeUi("ui.chat.chatmessage.showRewrittenVersion")
+                        : localizeUi("ui.chat.chatmessage.showOriginalBeforeRewrite")
+                    }
+                    className={showingProseGuardianOriginal ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
+                    disabled={switchingRewriteVersion}
+                  />
+                )}
+                <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
+                <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
+                {onToggleConversationStart && (
+                  <ConversationStartAction
+                    messageId={message.id}
+                    sharedStart={isConversationStart}
+                    characterIds={conversationStartForCharacterIds}
+                    characters={aiVisibilityCharacters}
+                    onToggle={onToggleConversationStart}
+                    align={isUser ? "right" : "left"}
+                  />
+                )}
+                {onToggleHiddenFromAI && (
+                  <HideFromAIAction
+                    messageId={message.id}
+                    hiddenFromAll={isHiddenFromAllAI}
+                    hiddenCharacterIds={hiddenFromAICharacterIds}
+                    characters={isRoleplay ? aiVisibilityCharacters : []}
+                    onToggle={onToggleHiddenFromAI}
+                    align={isUser ? "right" : "left"}
+                  />
+                )}
+                {isLastAssistantMessage && !isUser && (
+                  <ActionBtn
+                    icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={() => onPeekPrompt?.()}
+                    title={localizeUi("ui.chat.chatmessage.peekPrompt")}
+                  />
+                )}
+                {generationReplay && (
+                  <ActionBtn
+                    icon={<ScrollText size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={() => setShowGenerationReplay(true)}
+                    title={localizeUi("ui.chat.chatmessage.storedGuidance")}
+                  />
+                )}
+                {showThinkingAction && (
+                  <ActionBtn
+                    icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={() => setShowThinking(true)}
+                    title={t(
+                      reasoningSummaryUnavailable
+                        ? "chat.message.thoughts.unavailable.view"
+                        : "chat.message.thoughts.view",
+                    )}
+                    thinkingAction
+                    buttonRef={thinkingButtonRef}
+                  />
+                )}
+                {onBranch && (
+                  <ActionBtn
+                    icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={() => onBranch(message.id)}
+                    title={localizeUi("ui.chat.chatmessage.branchFromHere")}
+                  />
+                )}
+                {onCloneSceneFromHere && (
+                  <ActionBtn
+                    icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={() => onCloneSceneFromHere(message.id)}
+                    title={localizeUi("ui.chat.chatmessage.cloneFromHere")}
+                    disabled={isCloneSceneFromHereDisabled}
+                  />
+                )}
                 <ActionBtn
-                  icon={<Search size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onPeekPrompt?.()}
-                  title={localizeUi("ui.chat.chatmessage.peekPrompt")}
+                  icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+                  onClick={() => onDelete?.(message.id)}
+                  title={localizeUi("lorebook.editor.batch.delete")}
                 />
-              )}
-              {generationReplay && (
-                <ActionBtn
-                  icon={<ScrollText size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => setShowGenerationReplay(true)}
-                  title={localizeUi("ui.chat.chatmessage.storedGuidance")}
-                />
-              )}
-              {showThinkingAction && (
-                <ActionBtn
-                  icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => setShowThinking(true)}
-                  title={t(
-                    reasoningSummaryUnavailable
-                      ? "chat.message.thoughts.unavailable.view"
-                      : "chat.message.thoughts.view",
-                  )}
-                  thinkingAction
-                  buttonRef={thinkingButtonRef}
-                />
-              )}
-              {onBranch && (
-                <ActionBtn
-                  icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onBranch(message.id)}
-                  title={localizeUi("ui.chat.chatmessage.branchFromHere")}
-                />
-              )}
-              {onCloneSceneFromHere && (
-                <ActionBtn
-                  icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={() => onCloneSceneFromHere(message.id)}
-                  title={localizeUi("ui.chat.chatmessage.cloneFromHere")}
-                  disabled={isCloneSceneFromHereDisabled}
-                />
-              )}
-              <ActionBtn
-                icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => onDelete?.(message.id)}
-                title={localizeUi("lorebook.editor.batch.delete")}
-              />
-              {roleplayTtsControls}
-            </div>
+                {roleplayTtsControls}
+              </div>
+            </NovelChrome>
           </div>
         </div>
 
-        {/* Thinking modal */}
-        {showThinking && showThinkingAction && (
-          <MessageThinkingModal
-            thinking={thinking}
-            summaryUnavailable={reasoningSummaryUnavailable}
-            onClose={() => setShowThinking(false)}
-            restoreFocusRef={thinkingButtonRef}
-          />
-        )}
-        {generationReplay && (
-          <GenerationReplayDetailsModal
-            open={showGenerationReplay}
-            replay={generationReplay}
-            onClose={() => setShowGenerationReplay(false)}
-          />
-        )}
+        <NovelChrome enabled={!!novelContent}>
+          {/* Thinking modal */}
+          {showThinking && showThinkingAction && (
+            <MessageThinkingModal
+              thinking={thinking}
+              summaryUnavailable={reasoningSummaryUnavailable}
+              onClose={() => setShowThinking(false)}
+              restoreFocusRef={thinkingButtonRef}
+            />
+          )}
+          {generationReplay && (
+            <GenerationReplayDetailsModal
+              open={showGenerationReplay}
+              replay={generationReplay}
+              onClose={() => setShowGenerationReplay(false)}
+            />
+          )}
 
-        {imageLightbox && (
-          <ChatImageLightbox
-            image={imageLightbox.image}
-            alt={imageLightbox.alt}
-            pinEnabled={imageLightbox.pinEnabled}
-            downloadEnabled={imageLightbox.downloadEnabled}
-            regenerate={imageLightbox.regenerate}
-            onClose={closeImageLightbox}
-          />
-        )}
+          {imageLightbox && (
+            <ChatImageLightbox
+              image={imageLightbox.image}
+              alt={imageLightbox.alt}
+              pinEnabled={imageLightbox.pinEnabled}
+              downloadEnabled={imageLightbox.downloadEnabled}
+              regenerate={imageLightbox.regenerate}
+              onClose={closeImageLightbox}
+            />
+          )}
+        </NovelChrome>
       </>
     );
   }
@@ -5071,6 +5105,16 @@ const GuidedRegenerateActionBtn = memo(function GuidedRegenerateActionBtn({ onCl
     />
   );
 });
+
+/** Marks message chrome inside the novel editor as React's, not editable text. */
+function NovelChrome({ enabled = true, children }: { enabled?: boolean; children: ReactNode }) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <div contentEditable={false} suppressContentEditableWarning data-novel-chrome="" className="contents">
+      {children}
+    </div>
+  );
+}
 
 function ActionBtn({
   icon,

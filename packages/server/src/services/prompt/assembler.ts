@@ -24,7 +24,7 @@ import {
   generationParametersSchema,
   resolveMacros,
   withoutPresetTokenLimits,
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
 } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
@@ -290,7 +290,7 @@ export function parsePresetParameters(
 export function getPresetGenerationParameters(
   preset: { parameters: string; systemKey?: unknown } | null | undefined,
 ): AssemblerOutput["parameters"] {
-  return preset && isStockMarinaraUniversalPreset(preset) ? {} : parsePresetParameters(preset?.parameters ?? "{}");
+  return preset && isStockPreset(preset) ? {} : parsePresetParameters(preset?.parameters ?? "{}");
 }
 
 export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOutput> {

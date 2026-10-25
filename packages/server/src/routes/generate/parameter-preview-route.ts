@@ -6,7 +6,7 @@ import {
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   parseManagedGenerationParameterDefinitions,
   withoutPresetTokenLimits,
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../../services/storage/connections.storage.js";
 import { createChatsStorage } from "../../services/storage/chats.storage.js";
@@ -44,7 +44,7 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
     }
     const presetParams = getPresetGenerationParameters(preset);
     const storedPresetParams =
-      preset && isStockMarinaraUniversalPreset(preset)
+      preset && isStockPreset(preset)
         ? {}
         : withoutPresetTokenLimits(parseStoredGenerationParameters(preset?.parameters) ?? {});
     const policy = resolveModelAccessPolicy(connection);

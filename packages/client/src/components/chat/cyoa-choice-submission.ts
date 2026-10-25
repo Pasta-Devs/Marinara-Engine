@@ -1,4 +1,5 @@
 import type { PendingSpatialTransition } from "@marinara-engine/shared";
+import { getMessageBarRules } from "../../lib/message-bar-rules";
 
 interface CyoaChoiceImpersonationOptions {
   presetId?: string | null;
@@ -12,7 +13,17 @@ export function buildCyoaChoiceSubmissionPayload(input: {
   text: string;
   pendingSpatialTransition?: PendingSpatialTransition | null;
   impersonation?: CyoaChoiceImpersonationOptions;
+  /** A novel has no message of yours: the choice only steers the next passage. */
+  novel?: boolean;
 }) {
+  if (input.novel) {
+    return {
+      chatId: input.chatId,
+      connectionId: null,
+      generationGuide: getMessageBarRules(true).guideInstruction(input.text),
+      generationGuideSource: "guide" as const,
+    };
+  }
   const promptTemplate = input.impersonation?.promptTemplate?.trim();
   return {
     chatId: input.chatId,
@@ -39,8 +50,15 @@ export function appendCyoaChoiceToDraft(draft: string, text: string) {
 
 export type CyoaChoiceAction = "add" | "impersonate" | "send";
 
-/** Which path a clicked CYOA choice takes. Adding to the message box takes priority over impersonating. */
-export function resolveCyoaChoiceAction(settings: { addToMessage: boolean; impersonate: boolean }): CyoaChoiceAction {
+/**
+ * Which path a clicked CYOA choice takes. Adding to the message box takes priority over impersonating.
+ * A novel never impersonates: there is no turn of yours, so the choice is sent as guidance instead.
+ */
+export function resolveCyoaChoiceAction(settings: {
+  addToMessage: boolean;
+  impersonate: boolean;
+  novel?: boolean;
+}): CyoaChoiceAction {
   if (settings.addToMessage) return "add";
-  return settings.impersonate ? "impersonate" : "send";
+  return settings.impersonate && getMessageBarRules(settings.novel).impersonate ? "impersonate" : "send";
 }

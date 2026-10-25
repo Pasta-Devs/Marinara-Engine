@@ -24,6 +24,8 @@ import { formatInitialGameGmConnectionError } from "../../packages/server/src/se
 import { resolveMacrosForPreview } from "../../packages/server/src/services/prompt/macro-context.js";
 import {
   isStockMarinaraUniversalPreset,
+  isStockPreset,
+  MARINARA_NOVEL_PRESET_SYSTEM_KEY,
   MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY,
 } from "../../packages/shared/src/types/prompt.js";
 import {
@@ -385,6 +387,17 @@ assert.equal(
   }),
   false,
   "editable name and author fields cannot make a user preset protected stock",
+);
+for (const systemKey of [MARINARA_UNIVERSAL_PRESET_SYSTEM_KEY, MARINARA_NOVEL_PRESET_SYSTEM_KEY]) {
+  assert.equal(isStockPreset({ systemKey }), true, `${systemKey} is a built-in preset`);
+}
+for (const systemKey of ["", "claimed", undefined]) {
+  assert.equal(isStockPreset({ systemKey }), false, `${String(systemKey)} is not a built-in preset key`);
+}
+assert.equal(
+  isStockPreset({ name: "Marinara's Novel Preset", author: "Marinara", systemKey: "" }),
+  false,
+  "a user preset named like the Novel preset is not protected stock",
 );
 
 const agentsPanelSource = readFileSync(

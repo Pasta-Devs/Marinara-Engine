@@ -10,7 +10,7 @@ import {
   parseDecisionPromptQuestionLimit,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
   resolveProviderReasoningEffort,
   resolveMacros,
   DEFAULT_CONVERSATION_PROMPT,
@@ -897,7 +897,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       mode: chatMode,
       allowEmpty: true,
     });
-    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
+    const dryRunGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode, chatMeta);
     const promptTargetCharacterId =
       typeof body.forCharacterId === "string" && characterIds.includes(body.forCharacterId)
         ? body.forCharacterId
@@ -1129,7 +1129,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       isSceneChat: false,
       chatParameters: chatMeta.chatParameters,
       baseReasoningEffort:
-        !effectivePresetId || !effectivePreset || isStockMarinaraUniversalPreset(effectivePreset)
+        !effectivePresetId || !effectivePreset || isStockPreset(effectivePreset)
           ? reasoningEffort
           : presetUsesModeParameters
             ? (parseStoredGenerationParameters(effectivePreset.parameters)?.reasoningEffort ?? reasoningEffort)
@@ -1892,7 +1892,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       finalMessages = assembled.messages;
       lorebookImageEntries = assembled.lorebookScanResult?.imageEntries ?? [];
       advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
-      if (!isStockMarinaraUniversalPreset(effectivePreset)) {
+      if (!isStockPreset(effectivePreset)) {
         temperature = assembled.parameters.temperature;
         topP = assembled.parameters.topP ?? 1;
         topK = assembled.parameters.topK ?? 0;
@@ -2390,7 +2390,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     const prepareProviderMessages = (messages: ChatMessage[]): ChatMessage[] => {
       return postProcessMessages(messages, {
-        ...(effectivePreset && !isStockMarinaraUniversalPreset(effectivePreset)
+        ...(effectivePreset && !isStockPreset(effectivePreset)
           ? parseStoredGenerationParameters(effectivePreset.parameters)
           : {}),
         ...connectionParams,

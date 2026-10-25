@@ -9,6 +9,7 @@ import { useGenerate } from "../../hooks/use-generate";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
+import { toast } from "sonner";
 import type { Message } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
@@ -27,6 +28,10 @@ const TRACKER_SAFE_MAX_WIDTH =
 
 interface Props {
   messages?: Message[];
+  /** Novel Mode: a choice steers the next passage instead of becoming your message. */
+  novel?: boolean;
+  /** Novel Mode: saves the writer's own text at the end of the page before the next passage. */
+  onBeforeNovelSend?: () => Promise<void>;
 }
 
 function normalizeChoices(choices: CyoaChoice[]) {
@@ -38,7 +43,7 @@ function normalizeChoices(choices: CyoaChoice[]) {
     .filter((choice) => choice.text.length > 0);
 }
 
-export function CyoaChoices({ messages }: Props) {
+export function CyoaChoices({ messages, novel = false, onBeforeNovelSend }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const choices = useAgentStore((s) => s.cyoaChoices);
   const choicesChatId = useAgentStore((s) => s.cyoaChoicesChatId);
@@ -173,17 +178,27 @@ export function CyoaChoices({ messages }: Props) {
     [activeChatId],
   );
 
-  const handleChoice = useCallback(
+  const chooseOnce = useCallback(
     async (text: string) => {
       if (!activeChatId || isStreaming || isEditing) return;
       const action = resolveCyoaChoiceAction({
         addToMessage: addCyoaChoicesToMessage,
         impersonate: impersonateCyoaChoices,
+        novel,
       });
       // Adding keeps the choices on screen so several can be combined into one message.
       if (action === "add") {
         handleAddToMessage(text);
         return;
+      }
+      if (novel) {
+        try {
+          await onBeforeNovelSend?.();
+        } catch (error) {
+          // The choices stay, so the writer can try again.
+          toast.error(error instanceof Error ? error.message : localizeUi("chat.novel.saveFailed"));
+          return;
+        }
       }
       if (persistedChoiceState?.messageId) {
         await updateMessageExtra.mutateAsync({
@@ -221,6 +236,7 @@ export function CyoaChoices({ messages }: Props) {
           chatId: activeChatId,
           text,
           pendingSpatialTransition: queuedSpatialTransition,
+          novel,
         }),
       );
     },
@@ -232,11 +248,29 @@ export function CyoaChoices({ messages }: Props) {
       addCyoaChoicesToMessage,
       handleAddToMessage,
       impersonateCyoaChoices,
+      novel,
+      onBeforeNovelSend,
+      localizeUi,
       persistedChoiceState?.messageId,
       clearChoicesForActiveChat,
       generate,
       updateMessageExtra,
     ],
+  );
+
+  // A second choice picked while the first is still being saved or sent would start a second passage.
+  const choosingRef = useRef(false);
+  const handleChoice = useCallback(
+    async (text: string) => {
+      if (choosingRef.current) return;
+      choosingRef.current = true;
+      try {
+        await chooseOnce(text);
+      } finally {
+        choosingRef.current = false;
+      }
+    },
+    [chooseOnce],
   );
 
   const handleReroll = useCallback(async () => {
@@ -298,8 +332,8 @@ export function CyoaChoices({ messages }: Props) {
           <Sparkles size="0.625rem" />
           <span>{localizeUi("ui.chat.cyoachoices.whatWillYouDo")}</span>
         </div>
-        {/* The send/impersonate switch does nothing while choices go to the message box. */}
-        {!addCyoaChoicesToMessage && (
+        {/* The send/impersonate switch does nothing while choices go to the message box, or in a novel. */}
+        {!addCyoaChoicesToMessage && !novel && (
           <button
             type="button"
             aria-pressed={impersonateCyoaChoices}

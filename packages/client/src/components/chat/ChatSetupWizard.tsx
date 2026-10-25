@@ -79,6 +79,7 @@ import {
   isAgentConfigDeleted,
   isBuiltInAgentRuntimeDisabled,
   isRetiredBuiltInAgentId,
+  isStockMarinaraNovelPreset,
   mergeBuiltInAgentSettings,
   normalizeAgentPhaseForType,
   normalizeIllustratorRunInterval,
@@ -2368,6 +2369,8 @@ function RoleplaySetupWizard({
     return latestChat ? readChatActiveAgentIds(latestChat) : [...activeAgentIds];
   }, [activeAgentIds, chat.id, queryClient]);
   const agentsEnabled = metadata.enableAgents === true;
+  // The preset Novel replaced (possibly none), so choosing another style in this wizard restores it.
+  const presetBeforeNovelRef = useRef<string | null | undefined>(undefined);
   const agentConfigsByType = useMemo(() => {
     const map = new Map<string, AgentConfigRow>();
     for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
@@ -2669,7 +2672,8 @@ function RoleplaySetupWizard({
       id: chat.id,
       chatParameters: customizeParameters ? generationParameters : null,
     });
-    if (metadata.multiplayerSetup !== true) {
+    // A character's greeting is a chat opener, not the first passage of a novel.
+    if (metadata.multiplayerSetup !== true && metadata.roleplayDisplayStyle !== "novel") {
       for (const charId of chatCharIds) await createInitialGreetingForCharacter(charId);
     }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
@@ -2683,10 +2687,12 @@ function RoleplaySetupWizard({
     onFinish,
     updateMeta,
     metadata.multiplayerSetup,
+    metadata.roleplayDisplayStyle,
   ]);
 
   const seedInitialGreetingsIfEmpty = useCallback(async () => {
-    if (metadata.multiplayerSetup === true) return;
+    // A character's greeting is a chat opener, not the first passage of a novel.
+    if (metadata.multiplayerSetup === true || metadata.roleplayDisplayStyle === "novel") return;
     if (chatCharIds.length === 0) return;
     try {
       const messages = await api.get<Array<Pick<Message, "role">>>(`/chats/${chat.id}/messages`);
@@ -2698,7 +2704,13 @@ function RoleplaySetupWizard({
     for (const charId of chatCharIds) {
       await createInitialGreetingForCharacter(charId);
     }
-  }, [chat.id, chatCharIds, createInitialGreetingForCharacter, metadata.multiplayerSetup]);
+  }, [
+    chat.id,
+    chatCharIds,
+    createInitialGreetingForCharacter,
+    metadata.multiplayerSetup,
+    metadata.roleplayDisplayStyle,
+  ]);
 
   const handleShortcutApply = useCallback(async () => {
     if (!shortcutPresetId) {
@@ -3048,8 +3060,8 @@ function RoleplaySetupWizard({
         <MultiplayerPrepareButton chatId={chat.id} prepared={metadata.multiplayerSetup === true} />
         <fieldset className="space-y-2">
           <legend className={WIZARD_FIELD_LABEL}>{localizeUi("chat.roleplayVn.displayStyle")}</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {(["classic", "visual-novel"] as const).map((style) => (
+          <div className="grid grid-cols-3 gap-2">
+            {(["classic", "visual-novel", "novel"] as const).map((style) => (
               <label
                 key={style}
                 className={cn(
@@ -3064,10 +3076,36 @@ function RoleplaySetupWizard({
                   name={`roleplay-display-${chat.id}`}
                   value={style}
                   checked={(metadata.roleplayDisplayStyle ?? defaultDisplayStyle) === style}
-                  onChange={() => updateMeta.mutate({ id: chat.id, roleplayDisplayStyle: style })}
+                  onChange={() => {
+                    updateMeta.mutate({ id: chat.id, roleplayDisplayStyle: style });
+                    // Novel writes with Marinara's Novel Preset; leaving Novel restores the earlier preset
+                    // unless the writer has picked another preset since.
+                    const latestPresetId =
+                      queryClient.getQueryData<Chat>(chatKeys.detail(chat.id))?.promptPresetId ??
+                      chat.promptPresetId ??
+                      null;
+                    const novelPresetId = presets?.find(isStockMarinaraNovelPreset)?.id;
+                    let promptPresetId: string | null | undefined;
+                    if (style === "novel") {
+                      if (novelPresetId && latestPresetId !== novelPresetId) {
+                        presetBeforeNovelRef.current = latestPresetId;
+                        promptPresetId = novelPresetId;
+                      }
+                    } else if (presetBeforeNovelRef.current !== undefined) {
+                      if (latestPresetId === novelPresetId) promptPresetId = presetBeforeNovelRef.current;
+                      presetBeforeNovelRef.current = undefined;
+                    }
+                    if (promptPresetId !== undefined) updateChat.mutate({ id: chat.id, promptPresetId });
+                  }}
                   className="accent-[var(--primary)]"
                 />
-                {localizeUi(style === "classic" ? "chat.roleplayVn.classic" : "chat.roleplayVn.visualNovel")}
+                {localizeUi(
+                  style === "classic"
+                    ? "chat.roleplayVn.classic"
+                    : style === "novel"
+                      ? "chat.novel.styleName"
+                      : "chat.roleplayVn.visualNovel",
+                )}
               </label>
             ))}
           </div>
@@ -3955,7 +3993,9 @@ function RoleplaySetupWizard({
           </SetupWizardShell>
         ) : (
           <SetupWizardShell
-            title={localizeUi("navigation.chatSidebar.new.roleplay")}
+            title={localizeUi(
+              metadata.roleplayDisplayStyle === "novel" ? "chat.novel.newTitle" : "navigation.chatSidebar.new.roleplay",
+            )}
             steps={STEPS}
             step={step}
             currentStep={currentStep}

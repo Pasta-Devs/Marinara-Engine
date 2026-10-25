@@ -67,7 +67,7 @@ import {
   agentLorebookAttachmentPatchesSchema,
   mergeAgentLorebookAttachments,
   DEFAULT_GENERATION_PARAMS,
-  isStockMarinaraUniversalPreset,
+  isStockPreset,
   omitChatMetadataLocalDestinations,
   rulesetAllowsCombatStyle,
   rulesetCombatStyles,
@@ -202,6 +202,8 @@ import {
   normalizePromptWrapFormat,
   parseGameStateRow,
   stripSpeakerTagsExceptLastAssistant,
+  resolveGroupSpeakerColors,
+  resolveGroupGenerationMode,
 } from "./generate/generate-route-utils.js";
 import {
   filterGameInternalAgentIds,
@@ -1766,6 +1768,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       // Store only a mode generation understands, so the drawer and the prompt never read it differently.
       incoming.groupChatMode = normalizeGroupChatMode(incoming.groupChatMode);
     }
+    // A novel is always Merged, so everything that reads the stored mode agrees with generation.
+    if (incoming.roleplayDisplayStyle === "novel") incoming.groupChatMode = "merged";
     if (incoming.conversationSchedulesEnabled === false) {
       // Chat-scoped only: drop this chat's cached copy, but leave the character
       // card alone. The schedule belongs to the character and other chats may
@@ -2887,10 +2891,20 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // Edit message content
   app.patch<{ Params: { chatId: string; messageId: string } }>("/:chatId/messages/:messageId", async (req, reply) => {
-    const { content } = req.body as { content: string };
+    const { content, swipeIndex } = req.body as { content: string; swipeIndex?: unknown };
     if (typeof content !== "string") return reply.status(400).send({ error: "content is required" });
-    const updated = await storage.updateMessageContent(req.params.messageId, content, { authored: true });
-    if (!updated) return reply.status(404).send({ error: "Message not found" });
+    // The swipe the text was written for; without it the edit goes to whichever swipe is active.
+    if (swipeIndex !== undefined && (!Number.isSafeInteger(swipeIndex) || (swipeIndex as number) < 0))
+      return reply.status(400).send({ error: "Invalid swipe index" });
+    const updated = await storage.updateMessageContent(req.params.messageId, content, {
+      authored: true,
+      swipeIndex: swipeIndex as number | undefined,
+    });
+    if (!updated) {
+      if (swipeIndex !== undefined && (await storage.getMessage(req.params.messageId)))
+        return reply.status(409).send({ error: "That swipe no longer exists." });
+      return reply.status(404).send({ error: "Message not found" });
+    }
     return updated;
   });
 
@@ -3764,10 +3778,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 isSceneChat: chatMeta.sceneStatus === "active",
                 chatParameters: chatMeta.chatParameters,
                 baseReasoningEffort:
-                  preset &&
-                  !isStockMarinaraUniversalPreset(preset) &&
-                  chatMode !== "conversation" &&
-                  chatMode !== "game"
+                  preset && !isStockPreset(preset) && chatMode !== "conversation" && chatMode !== "game"
                     ? (parsePresetParameters(preset.parameters).reasoningEffort ?? null)
                     : DEFAULT_GENERATION_PARAMS.reasoningEffort,
               })
@@ -4087,6 +4098,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             : [];
           const activePromptAgentIds = filterGameInternalAgentIds(chatMode, promptActiveAgentIds);
           const activeChatSummary = resolveRoleplayChatSummary(chatMode, chatMeta);
+          // As generation reads it: a novel's group is always merged, whatever mode is stored.
+          const groupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode, chatMeta);
 
           const assembled = await assemblePrompt({
             db: app.db,
@@ -4116,7 +4129,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             chatSummaryReaders: activeChatSummary
               ? mergedChatSummaryReaders({
                   characterIds: assistantCharacterIds,
-                  individual: normalizeGroupChatMode(chatMeta.groupChatMode) === "individual",
+                  individual: groupChatMode === "individual",
                   impersonate: false,
                   narratorCharacterId: normalizeAdvancedMemorySettings(chatMeta.advancedMemory).narratorCharacterId,
                   ...(await resolveCharacterMacroData(app.db, assistantCharacterIds, chat.id)),
@@ -4164,9 +4177,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           }
 
           // ── Inject group chat speaker tag instructions ──
-          const groupChatMode = normalizeGroupChatMode(chatMeta.groupChatMode);
-          const groupSpeakerColors =
-            chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
+          const groupSpeakerColors = resolveGroupSpeakerColors(chatMode, isGroupChat, chatMeta);
 
           if (isGroupChat && groupChatMode === "merged" && groupSpeakerColors && chatMode !== "conversation") {
             // Fetch character names for the example

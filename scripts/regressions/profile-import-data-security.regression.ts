@@ -190,7 +190,15 @@ try {
     const localStockPreset = promptPresetFixture("local-stock-preset", "Marinara's Universal Preset");
     const importedStockCopy = promptPresetFixture("imported-stock-copy", "Marinara's Universal Preset");
     const importedLocalStockPreset = { ...localStockPreset, systemKey: "" };
+    const localNovelPreset = {
+      ...promptPresetFixture("local-novel-preset", "Marinara's Novel Preset"),
+      systemKey: "marinara-novel-preset",
+    };
+    const importedNovelCopy = { ...localNovelPreset, id: "imported-novel-copy" };
+    const importedLocalNovelPreset = { ...localNovelPreset, systemKey: "" };
+    const importedUnknownKey = { ...promptPresetFixture("imported-unknown-key", "Claimed"), systemKey: "claimed" };
     await db.insert(schema.promptPresets).values(localStockPreset);
+    await db.insert(schema.promptPresets).values(localNovelPreset);
     const storedConnections = (await db.select().from(schema.apiConnections)) as Array<Record<string, unknown>>;
     const storedById = new Map(storedConnections.map((row) => [row.id, row]));
     const importedConnection = (id: string, overrides: Record<string, unknown> = {}) => {
@@ -305,7 +313,13 @@ try {
           version: 1,
           tables: {
             api_connections: importedConnections,
-            prompt_presets: [importedLocalStockPreset, importedStockCopy],
+            prompt_presets: [
+              importedLocalStockPreset,
+              importedStockCopy,
+              importedLocalNovelPreset,
+              importedNovelCopy,
+              importedUnknownKey,
+            ],
             mari_instructions: [importedInstruction],
             custom_themes: [importedTheme],
             custom_tools: [importedTool],
@@ -325,7 +339,7 @@ try {
     const preview = previewResponse.json();
     assert.equal(typeof preview.previewToken, "string", "preview must retain one reusable server-side import input");
     assert.equal(preview.imported.connections, 6);
-    assert.equal(preview.imported.presets, 2);
+    assert.equal(preview.imported.presets, 5);
     assert.equal(preview.imported.customTools, 1);
     assert.equal(preview.imported.mariInstructions, 1);
     assert.equal(preview.imported.personalExtensions, 2);
@@ -358,6 +372,21 @@ try {
       importedPresets.find((preset) => preset.id === importedStockCopy.id)?.systemKey,
       "",
       "a foreign Universal Preset copy must import as an editable, deletable preset",
+    );
+    assert.equal(
+      importedPresets.find((preset) => preset.id === localNovelPreset.id)?.systemKey,
+      "marinara-novel-preset",
+      "the local canonical Novel Preset must stay protected",
+    );
+    assert.equal(
+      importedPresets.find((preset) => preset.id === importedNovelCopy.id)?.systemKey,
+      "",
+      "a foreign Novel Preset copy must import as an editable, deletable preset",
+    );
+    assert.equal(
+      importedPresets.find((preset) => preset.id === importedUnknownKey.id)?.systemKey,
+      "",
+      "an unknown system key must not survive a profile import",
     );
     const sameIdentity = afterById.get("same-identity")!;
     assert.equal(

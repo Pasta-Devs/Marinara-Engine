@@ -74,7 +74,7 @@ import { cn } from "../../lib/utils";
 import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
-import { getFolderImportEntries, isPatternSafe, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
+import { getFolderImportEntries, isPatternSafe, isStockPreset } from "@marinara-engine/shared";
 import {
   createCustomToolFolderPackageFiles,
   importCustomToolEntries,
@@ -925,7 +925,7 @@ export function PresetsPanel() {
       const sectionCount = getSectionCount(preset);
       const wrapFormat = (preset.wrapFormat ?? "xml") as string;
       const isDefault = String(preset.isDefault) === "true";
-      const isStock = isStockMarinaraUniversalPreset(preset);
+      const isStock = isStockPreset(preset);
       const artwork = resolvePresetArtwork(preset);
       const pictureLabel = artwork
         ? localizeUi("ui.panels.presetspanel.replacePresetPicture")

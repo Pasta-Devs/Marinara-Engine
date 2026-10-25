@@ -114,6 +114,16 @@ try {
 
   // A chat variable named `reasoning` keeps the name in the previews too.
   await chats.patchMetadata(roleplay.id, { macroVariables: { reasoning: "no" } });
+  // Becoming a novel also stores the Merged group mode, so every reader of the stored mode agrees.
+  const toNovel = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${roleplay.id}/metadata`,
+    payload: { roleplayDisplayStyle: "novel", groupChatMode: "individual" },
+  });
+  assert.equal(toNovel.statusCode, 200, toNovel.body);
+  const storedMeta = (await chats.getById(roleplay.id))?.metadata;
+  const parsedMeta = typeof storedMeta === "string" ? JSON.parse(storedMeta) : storedMeta;
+  assert.equal(parsedMeta?.groupChatMode, "merged");
   const preview = await app.inject({
     method: "POST",
     url: `/api/prompts/${preset.id}/preview`,

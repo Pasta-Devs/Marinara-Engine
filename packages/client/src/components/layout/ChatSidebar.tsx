@@ -31,6 +31,7 @@ import {
   CalendarClock,
   TextSearch,
   Activity,
+  BookOpen,
 } from "lucide-react";
 import { openActivityOverview, openGlobalSearch } from "../../lib/chat-insights";
 import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
@@ -62,6 +63,7 @@ import { toast } from "sonner";
 import {
   BACKGROUND_THUMBNAIL_WIDTH,
   includesTextForMatch,
+  isNovelChat,
   normalizeAvatarCrop,
   normalizeTextForMatch,
   type AvatarCrop,
@@ -1302,7 +1304,9 @@ export function ChatSidebar() {
                 },
                 undefined,
               );
-              if (avatars.length === 0) {
+              // A novel always shows its book, characters or not, so it stands apart from roleplays.
+              const novel = isNovelChat(chat.mode, chat.metadata);
+              if (avatars.length === 0 || novel) {
                 return (
                   <div
                     className={cn(
@@ -1312,7 +1316,7 @@ export function ChatSidebar() {
                       isActive && "shadow-sm",
                     )}
                   >
-                    {cfg.icon}
+                    {novel ? <BookOpen size="0.875rem" className="mari-rgb-static-icon" /> : cfg.icon}
                   </div>
                 );
               }

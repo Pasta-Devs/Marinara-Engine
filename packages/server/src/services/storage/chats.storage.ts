@@ -2761,10 +2761,32 @@ export function createChatsStorage(db: DB) {
     /**
      * `authored`: a person typed this text in the editor, so Roleplay private tags in it become
      * commands on any message. Generated rewrites never reinterpret model text as typed tags.
+     * `swipeIndex`: the swipe the text was written for. When the message has since moved to another swipe,
+     * the text goes to that swipe alone; null when it no longer exists.
      */
-    async updateMessageContent(id: string, content: string, options: { authored?: boolean } = {}) {
+    async updateMessageContent(id: string, content: string, options: { authored?: boolean; swipeIndex?: number } = {}) {
       return withPatchQueue(messageExtraPatchQueues, id, async () => {
         const existing = await this.getMessage(id);
+        if (existing && options.swipeIndex !== undefined && options.swipeIndex !== existing.activeSwipeIndex) {
+          const swipe = (await this.getSwipes(id)).find((s: any) => s.index === options.swipeIndex);
+          if (!swipe) return null;
+          // The message and the prompt show the active swipe, so only the swipe row changes. Its whispers keep
+          // their place; tags typed here become commands only once the swipe is edited while active.
+          const swipePatch: Record<string, unknown> = { content };
+          const swipeExtra = parseExtraRecord(swipe.extra);
+          const activity = getRoleplayCommandActivity(swipeExtra);
+          if (typeof swipe.content === "string" && activity.some((item) => item.contentOffset !== undefined)) {
+            swipePatch.extra = JSON.stringify({
+              ...swipeExtra,
+              roleplayCommandActivity: reanchorRoleplayCommandActivity(swipe.content, content, activity),
+            });
+          }
+          await db
+            .update(messageSwipes)
+            .set(swipePatch)
+            .where(and(eq(messageSwipes.messageId, id), eq(messageSwipes.id, swipe.id)));
+          return existing;
+        }
         const prepare =
           existing && (existing.role === "user" || options.authored)
             ? // Only a typed whisper needs the persona, so other edits skip its lookup.
