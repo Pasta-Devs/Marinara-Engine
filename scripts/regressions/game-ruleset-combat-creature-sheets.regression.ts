@@ -1179,9 +1179,26 @@ const spellbook = parsedOrThrow(
           default: 0,
           section: "combat",
         });
+        // And a choice of method that reads no typed number at all, as 5e's "Average" does.
+        doc.sheet.fields.push({
+          id: "hp_mode",
+          label: "Hit points method",
+          type: "enum",
+          values: ["auto", "fixed"],
+          default: "auto",
+          section: "combat",
+        });
         doc.sheet.derived.push(
           {
-            id: "hp_on",
+            id: "hp_mode_auto",
+            label: "Auto method",
+            op: "enumTable",
+            from: { field: "hp_mode" },
+            table: { auto: 1 },
+            default: 0,
+          },
+          {
+            id: "hp_on_raw",
             label: "Typed",
             op: "stepTable",
             from: { field: "hp_typed" },
@@ -1189,6 +1206,12 @@ const spellbook = parsedOrThrow(
               [0, 0],
               [1, 1],
             ],
+          },
+          {
+            id: "hp_on",
+            label: "Typed, by Auto",
+            op: "multiply",
+            of: [{ derived: "hp_on_raw" }, { derived: "hp_mode_auto" }],
           },
           {
             id: "hp_off_less",
@@ -1249,6 +1272,16 @@ const spellbook = parsedOrThrow(
     assert.match(
       held.adjusted.join("\n"),
       /Health 28 was pulled into the 45 to 82 of CR 3 through its Hit points by hand, and is now 45\./,
+    );
+    // Written with the method that never reads the typed number (laptop playtest 2026-10-25: a mage on
+    // 5e's "Average" stayed at 38 below 45): the method goes back to the ruleset's default, and is said.
+    const average = rulesetSheetBuildSchema.parse({ fields: { level: 4, hp_mode: "fixed" } });
+    const heldAverage = holdRulesetSheetHealth(typedElseFixed, average, tier);
+    assert.equal(max(heldAverage.sheet), 45, heldAverage.adjusted.join("; "));
+    assert.equal(heldAverage.sheet.fields.hp_mode, undefined);
+    assert.match(
+      heldAverage.adjusted.join("\n"),
+      /Health 28 was pulled into the 45 to 82 of CR 3 through its Hit points by hand with its Hit points method set back to the ruleset's default, and is now 45\./,
     );
   }
 
