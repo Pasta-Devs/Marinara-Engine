@@ -5,7 +5,16 @@
 // narrows the blocks in place: a Connection that matches shows all its Models, and its fold still works. With no
 // Connection yet the panel only teaches the first step.
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -57,6 +66,7 @@ import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../.
 import {
   connectionGroupFolder,
   groupModelsByAccount,
+  orderAccountGroups,
   knownPrefixName,
   reorderConnectionGroups,
   sortByModelId,
@@ -96,6 +106,22 @@ type ConnectionGroupData = {
   account: ComponentProps<typeof ConnectionGroup>["account"];
   rows: ConnectionRowData[];
   visibleRows?: ConnectionRowData[];
+};
+
+const SORT_OPTIONS = [
+  ["custom", "connections.list.sortCustom"],
+  ["name-asc", "connections.list.sortNameAsc"],
+  ["name-desc", "connections.list.sortNameDesc"],
+  ["newest", "connections.list.sortNewest"],
+  ["oldest", "connections.list.sortOldest"],
+] as const satisfies readonly (readonly [ConnectionPanelSort, string])[];
+
+/** Below Tailwind's md the search keeps its width and the sort choice moves into the ⋯ menu. */
+const PHONE_QUERY = "(max-width: 767px)";
+const subscribePhone = (notify: () => void) => {
+  const query = window.matchMedia(PHONE_QUERY);
+  query.addEventListener("change", notify);
+  return () => query.removeEventListener("change", notify);
 };
 
 /** Two columns from this panel width; below it a row drills in. */
@@ -161,6 +187,7 @@ export function ConnectionsPanel() {
   const { data: folders } = useConnectionFolders();
   const chooseFolder = useFolderChooser();
   const sort = useUIStore((s) => s.connectionPanelSort);
+  const phone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches);
   const setSort = useUIStore((s) => s.setConnectionPanelSort);
   const reorderFolders = useReorderConnectionFolders();
   const reorderConnections = useReorderConnections();
@@ -366,21 +393,29 @@ export function ConnectionsPanel() {
     },
     [accountManualOrder?.ids, grouped.all, reorderConnections, setSort, sort],
   );
+  /** A computed sort becomes Custom, starting from the order on screen. */
+  const seedCustomOrder = () => {
+    const state = useUIStore.getState();
+    if (state.connectionPanelSort === "custom") return;
+    state.setLibraryManualOrder("connection", {
+      active: true,
+      ids: sortConnectionGroups(grouped.all, state.connectionPanelSort).map((group) => group.account.id),
+    });
+  };
   const accountOrder = useLibraryOrder("connection", (ids, target, edge, visibleIds) => {
+    seedCustomOrder();
     const state = useUIStore.getState();
     const raw = state.libraryManualOrders?.connection;
     const base = raw?.active
-      ? Array.from(new Set([...raw.ids, ...visibleIds, ...ids]))
-      : Array.from(new Set([...visibleIds, ...(raw?.ids ?? []), ...ids]));
+      ? Array.from(new Set([...raw.ids, ...visibleIds]))
+      : Array.from(new Set([...visibleIds, ...(raw?.ids ?? [])]));
     state.setLibraryManualOrder("connection", { active: true, ids: insertLibraryItems(base, ids, target, edge) });
     reorderAccountCards(ids, target, edge, visibleIds);
   });
-  const orderedAllGroups = useMemo(() => {
-    const sorted = sortConnectionGroups(grouped.all, sort);
-    return sort === "custom" && accountOrder.active
-      ? accountOrder.orderItems(sorted, (group) => group.account.id)
-      : sorted;
-  }, [accountOrder, grouped.all, sort]);
+  const orderedAllGroups = useMemo(
+    () => orderAccountGroups(grouped.all, sort, accountManualOrder),
+    [accountManualOrder, grouped.all, sort],
+  );
   const visibleAccountGroups = useMemo(() => {
     const visibleIds = new Set(visible.groups.map((group) => group.account.id));
     return orderedAllGroups.filter((group) => visibleIds.has(group.account.id));
@@ -407,6 +442,7 @@ export function ConnectionsPanel() {
   const dragAccount = useTouchFolderDrag({
     getDragIds: (id) => [id],
     onReorder: (ids, target, edge, visibleIds) => {
+      seedCustomOrder();
       accountOrder.reorder(ids, target, edge, visibleIds);
       reorderAccountCards(ids, target, edge, visibleIds);
     },
@@ -1031,26 +1067,28 @@ export function ConnectionsPanel() {
         label={t("connections.list.search")}
         placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
       />
-      <label className="relative flex min-h-11 items-center md:min-h-9">
-        <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
-        <select
-          value={sort}
-          onChange={(event) => setSort(event.target.value as ConnectionPanelSort)}
-          aria-label={t("ui.panels.connectionspanel.sortConnections")}
-          className="mari-chrome-field mari-chrome-sort-field h-full appearance-none py-0 ps-2 pe-7 text-xs"
-        >
-          <option value="custom">{t("connections.list.sortCustom")}</option>
-          <option value="name-asc">{t("connections.list.sortNameAsc")}</option>
-          <option value="name-desc">{t("connections.list.sortNameDesc")}</option>
-          <option value="newest">{t("connections.list.sortNewest")}</option>
-          <option value="oldest">{t("connections.list.sortOldest")}</option>
-        </select>
-        <ArrowUpDown
-          aria-hidden
-          size="0.625rem"
-          className="pointer-events-none absolute right-2 text-muted-foreground"
-        />
-      </label>
+      {!phone && (
+        <label className="relative flex min-h-9 items-center">
+          <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ConnectionPanelSort)}
+            aria-label={t("ui.panels.connectionspanel.sortConnections")}
+            className="mari-chrome-field mari-chrome-sort-field h-full appearance-none py-0 ps-2 pe-7 text-xs"
+          >
+            {SORT_OPTIONS.map(([value, key]) => (
+              <option key={value} value={value}>
+                {t(key)}
+              </option>
+            ))}
+          </select>
+          <ArrowUpDown
+            aria-hidden
+            size="0.625rem"
+            className="pointer-events-none absolute right-2 text-muted-foreground"
+          />
+        </label>
+      )}
       <button
         type="button"
         onClick={() => openModal("create-connection")}
@@ -1092,6 +1130,14 @@ export function ConnectionsPanel() {
               disabled: connectionsList.length === 0,
               onSelect: () => void exportConnections(connectionsList),
             },
+            ...(phone
+              ? SORT_OPTIONS.map(([value, key]) => ({
+                  label: t(key),
+                  icon: <ArrowUpDown size="0.75rem" />,
+                  checked: sort === value,
+                  onSelect: () => setSort(value),
+                }))
+              : []),
             {
               label: t("connections.list.foldAll"),
               icon: <ChevronsDownUp size="0.75rem" />,

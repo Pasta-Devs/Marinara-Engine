@@ -497,13 +497,28 @@ test("connection cards sort and move, and folders keep their saved drag order", 
     await clickTopbarPanel(page, "connections");
     const panel = page.locator(`[data-component="RightPanel${mobile ? "Mobile" : "Desktop"}"]`);
     const sort = panel.getByRole("combobox").last();
-    await expect(sort).toHaveValue("name-asc");
-    await sort.selectOption("name-desc");
+    // Phones keep the search full width, so the sort choice lives in the more-actions menu there.
+    const sortLabels: Record<string, RegExp> = { "name-asc": /^A.Z$/, "name-desc": /^Z.A$/, custom: /^Custom$/ };
+    const openMenu = () => panel.getByRole("button", { name: /more actions/i }).click();
+    const expectSort = async (value: string) => {
+      if (!mobile) return expect(sort).toHaveValue(value);
+      await openMenu();
+      await expect(page.getByRole("menuitemradio", { name: sortLabels[value] })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await page.keyboard.press("Escape");
+    };
+    await expectSort("name-asc");
+    if (mobile) {
+      await openMenu();
+      await page.getByRole("menuitemradio", { name: sortLabels["name-desc"] }).click();
+    } else await sort.selectOption("name-desc");
     const cards = panel.locator('[data-drag-kind="connection"]');
     await expect
       .poll(() => cards.evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.dragId)))
       .toEqual([accountIds[2], accountIds[1], accountIds[0]]);
-    await sort.selectOption("custom");
+    // Dragging in a computed sort switches to Custom, starting from the order on screen.
     const source = panel.locator(`[data-drag-id="${accountIds[2]}"]`);
     const target = panel.locator(`[data-drag-id="${accountIds[0]}"]`);
     await source.evaluate((element) => element.scrollIntoView({ block: "center" }));
@@ -527,7 +542,7 @@ test("connection cards sort and move, and folders keep their saved drag order", 
       await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height + 5);
       await page.mouse.up();
     }
-    await expect(sort).toHaveValue("custom");
+    await expectSort("custom");
     await expect
       .poll(async () => {
         const current = (await (await request.get("/api/connections")).json()) as Array<{
@@ -540,7 +555,7 @@ test("connection cards sort and move, and folders keep their saved drag order", 
           .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
           .map((row) => row.accountId);
       })
-      .toEqual([accountIds[0], accountIds[2], accountIds[1]]);
+      .toEqual([accountIds[1], accountIds[0], accountIds[2]]);
 
     await panel.getByRole("button", { name: /more actions/i }).click();
     const menu = page.locator('body > [role="menu"]').filter({ hasText: /group by folder/i });
