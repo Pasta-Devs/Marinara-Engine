@@ -96,6 +96,8 @@ import { resolveVisibleGameStateAnchor } from "./generate/generate-route-utils.j
 export const COMBAT_DIRECTOR_NAMESPACE = "experience:marinara-engine.combat";
 /** The most rounds anything in a fight counts down from. */
 const COMBAT_DIRECTOR_MOST_ROUNDS = 100;
+/** The most power an item's effect is read at. */
+const COMBAT_DIRECTOR_MOST_POWER = 100;
 const key = z
   .string()
   .min(1)
@@ -185,7 +187,7 @@ const itemEffect = z.object({
   type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]),
   description: z.string().max(3000),
   // An item's power past the most a fight reads is that most, as a long duration is.
-  power: num.transform((value) => Math.min(value, 100)).optional(),
+  power: num.transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_POWER)).optional(),
   element: z.string().max(100).optional(),
   consumes: z.boolean().optional(),
   status: z

@@ -432,6 +432,7 @@ try {
           skillCooldowns: { slam: 250 },
         },
       ],
+      mechanics: [{ ...sap, trigger: "round_interval", interval: 250, status: { ...sap.status, duration: 600 } }],
       itemEffects: [
         {
           name: "Potion of Climbing",
@@ -444,6 +445,12 @@ try {
       ],
     });
     assert.equal(started.statusCode, 200, started.body);
+    // Each is the rest of the fight: the fight's most, never more.
+    const hero = (started.json().session as DirectedCombatView).party.find((one) => one.id === "hero")!;
+    assert.deepEqual(
+      hero.statusEffects?.map((one) => [one.name, one.turnsLeft]),
+      [["Blessed", 100]],
+    );
   }
   // A line shown by a nickname is spent as the item it is, even when the nickname is another item's
   // own name: a cord the player calls "Potion" is the cord, and the real potion stays.
