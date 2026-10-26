@@ -26,7 +26,7 @@ export const connectionAccountKeys = {
   balance: (id: string, upstream = "") => [...connectionAccountKeys.all, "balance", id, upstream] as const,
 };
 
-const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
+export const FEATURE_MODELS_PATH = `/app-settings/${FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY}`;
 
 export type CatalogSearchHit = { accountId: string; provider: string; model: string; name: string };
 

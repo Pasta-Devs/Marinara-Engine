@@ -44,7 +44,7 @@ import {
   type APIProvider,
 } from "@marinara-engine/shared";
 import { useConnections, useOutsideReads, type CachedCatalogFacts } from "../../hooks/use-connections";
-import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
+import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { useChatStore } from "../../stores/chat.store";
@@ -151,6 +151,7 @@ export function ConnectionsPanel() {
   const { t } = useTranslation();
   const connectionsQuery = useConnections();
   const accountsQuery = useConnectionAccounts();
+  const { data: featureModels } = useFeatureModels();
   const { data: connections, isLoading } = connectionsQuery;
   const { data: accounts } = accountsQuery;
   const loadFailed = connectionsQuery.isError || accountsQuery.isError;
@@ -494,7 +495,11 @@ export function ConnectionsPanel() {
     });
     if (!confirmed) return;
 
-    const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[], accounts ?? []);
+    const envelope = createConnectionExportEnvelope(
+      connectionsToExport as ConnectionTransferRow[],
+      accounts ?? [],
+      featureModels ?? {},
+    );
     const saveStatus =
       connectionsToExport.length > 1
         ? await downloadZipFile(

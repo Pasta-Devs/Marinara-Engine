@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   createConnectionExportEnvelope,
   defaultsToApply,
+  featuresToApply,
   getConnectionImportPlan,
 } from "../../packages/client/src/lib/connection-transfer.js";
 
@@ -126,6 +127,32 @@ assert.deepEqual(kept.map((p) => `${p.id}:${p.flag}`).sort(), ["new0:defaultForA
 assert.deepEqual(
   getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]
     ?.flags,
+  [],
+);
+
+// Feature settings (Vision, Impersonate...) travel by the Model that holds them and fill only unset ones.
+const featEnv = JSON.parse(
+  JSON.stringify(
+    createConnectionExportEnvelope(
+      [
+        { id: "v1", name: "Vis", provider: "openai", baseUrl, model: "gpt-v" },
+        { id: "o1", name: "Other", provider: "openai", baseUrl, model: "gpt-o" },
+      ],
+      [],
+      { visionConnectionId: "v1", mariConnectionId: "v1", impersonateConnectionId: "gone" },
+    ),
+  ),
+);
+assert.equal(JSON.stringify(featEnv).includes('"v1"'), false, "raw ids must not be exported");
+const featPlan = getConnectionImportPlan(featEnv);
+assert.deepEqual(featPlan.models[0]?.features, ["mariConnectionId", "visionConnectionId"]);
+assert.deepEqual(featPlan.models[1]?.features, []);
+const featImported = featPlan.models.map((m, i) => ({ id: `n${i}`, features: m!.features }));
+assert.deepEqual(featuresToApply(featImported, null), { mariConnectionId: "n0", visionConnectionId: "n0" });
+assert.deepEqual(featuresToApply(featImported, { visionConnectionId: "mine" }), { mariConnectionId: "n0" });
+assert.deepEqual(
+  getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]
+    ?.features,
   [],
 );
 
