@@ -3214,6 +3214,7 @@ export function GameSetupWizard({
                                   value={imageConnectionId}
                                   onChange={setImageConnectionId}
                                   defaultLabel={localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
+                                  inherits="main"
                                 />
                                 {imageConnections.length === 0 && (
                                   <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
@@ -3257,6 +3258,7 @@ export function GameSetupWizard({
                                     value={videoConnectionId}
                                     onChange={setVideoConnectionId}
                                     defaultLabel={localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
+                                    inherits="main"
                                   />
                                   {videoConnections.length === 0 && (
                                     <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">

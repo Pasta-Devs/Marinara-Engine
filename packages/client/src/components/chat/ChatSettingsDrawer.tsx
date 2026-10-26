@@ -9315,6 +9315,7 @@ export function ChatSettingsDrawer({
                                   }
                                   kind="video"
                                   defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                                  inherits="main"
                                 />
                               </label>
                               {videoConnectionsList.length === 0 && (
@@ -9575,6 +9576,7 @@ export function ChatSettingsDrawer({
                               }
                               kind="image"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectImageConnection")}
+                              inherits="main"
                             />
                           </label>
                           {renderIllustratorImageStyleSelect({
@@ -9734,6 +9736,7 @@ export function ChatSettingsDrawer({
                               }
                               kind="video"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                              inherits="main"
                             />
                           </label>
                           {videoConnectionsList.length === 0 && (
@@ -10414,6 +10417,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
             <FunctionCallingSection
+              chatConnectionId={chat.connectionId}
               isGameMode={isGame}
               narratorProvider={
                 (

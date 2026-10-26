@@ -2729,7 +2729,6 @@ export function AgentEditor() {
                 }}
                 aria-label={localizeUi("ui.agents.agenteditor.connectionOverride")}
                 scope="agent"
-                inherits={sidecarIsAgentsDefault ? undefined : "agents"}
                 defaultLabel={
                   sidecarIsAgentsDefault
                     ? localizeUi("ui.agents.agenteditor.agentDefaultValue1", {
@@ -2921,6 +2920,7 @@ export function AgentEditor() {
                       markDirty();
                     }}
                     defaultLabel={localizeUi("ui.agents.agenteditor.noneSelectAConnection")}
+                    inherits="main"
                     className="rounded-xl px-3 py-2.5 text-sm"
                   />
                 </div>
