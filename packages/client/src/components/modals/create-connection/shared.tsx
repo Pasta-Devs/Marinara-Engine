@@ -114,7 +114,7 @@ export const mediaBackendOf = (service: ServiceId | null) =>
     : null;
 
 export const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
-  custom: ["chat", "local"],
+  custom: ["chat", "image", "local"],
   linkapi: ["chat", "image"],
   local_model: ["local"],
   tts: ["voice", "local"],

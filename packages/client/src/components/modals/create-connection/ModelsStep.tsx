@@ -107,6 +107,7 @@ export function ModelsStep(props: ModelsStepProps) {
           existing?.videoService ||
           (existing ? inferVideoSource(existing.model ?? "", existing.baseUrl ?? "") : "");
     if (existingSource) return existingSource;
+    if (props.service === "custom") return kind === "image" ? "openai" : undefined;
     if (props.service === "linkapi") return kind === "image" ? "openai" : undefined;
     if (props.provider && isChatProvider(props.provider)) {
       if (kind === "image") return Object.entries(IMAGE_VENDOR).find(([, vendor]) => vendor === props.provider)?.[0];
@@ -138,7 +139,8 @@ export function ModelsStep(props: ModelsStepProps) {
     const sourceDef = (kind === "image" ? IMAGE_GENERATION_SOURCES : VIDEO_GENERATION_SOURCES).find(
       (candidate) => candidate.id === source,
     );
-    const preserveAccountEndpoint = source === "comfyui" || source === "swarmui" || props.service === "linkapi";
+    const preserveAccountEndpoint =
+      source === "comfyui" || source === "swarmui" || props.service === "linkapi" || props.service === "custom";
     const siblingEndpoint = linked.find((row) => rowUsesMediaSource(row, source))?.baseUrl;
     const endpoint = preserveAccountEndpoint
       ? siblingEndpoint || target.accountBaseUrl || sourceDef?.defaultBaseUrl || ""
