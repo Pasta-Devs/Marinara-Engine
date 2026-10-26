@@ -150,6 +150,8 @@ for (const theme of ["dark", "light"] as const) {
               enableAgents: false,
               enableTools: false,
               forceToolCall: true,
+              // The native roll_dice tool runs only with one-request dice off, which is on by default.
+              gameOneRequestDice: false,
             },
           })
         ).ok(),
