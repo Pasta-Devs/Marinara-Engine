@@ -614,7 +614,7 @@ export function CreateConnectionModalContent({
       }
       const mediaBaseUrl = chatProvider
         ? chatBaseUrl
-        : media && (media.source === "comfyui" || media.source === "swarmui")
+        : media && (media.source === "comfyui" || media.source === "swarmui" || media.source === "pockettts")
           ? account.baseUrl || media.defaultBaseUrl
           : media?.defaultBaseUrl;
       const rowProvider: APIProvider = media
