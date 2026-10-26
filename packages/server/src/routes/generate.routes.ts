@@ -873,6 +873,7 @@ import { createAgentLorebookTriggerResolver } from "../services/generation/agent
 import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from "../services/game/journal.service.js";
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import { buildGmFormatReminder, buildGmSceneState, insertStableGmInstructions } from "../services/game/gm-prompts.js";
+import { gmTurnNotices } from "../services/game/gm-turn-notices.js";
 import {
   createGameRollTagRegex,
   parseRollDiceToolResult,
@@ -5718,7 +5719,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // caches together with the history behind it; only what changes turn to turn follows the
           // history. Sent whole after the history, the reminder kept everything after the system
           // prompt out of the cache.
-          const formatReminder = resolvePromptMacros(buildGmFormatReminder({ ...gmReminderArgs, part: "turn" }));
+          // An item the player names that no bag holds is said as a fact of this turn: a small model
+          // reads past the pack's general rule and hands it over anyway.
+          const turnNotices = gmTurnNotices({
+            playerMessage:
+              input.userMessage ??
+              [...chatMessages].reverse().find((message: any) => message.role === "user")?.content ??
+              "",
+            knownItems: (promptItemBook?.entries ?? []).map((entry) => entry.name),
+            heldItems: promptInventoryStacks.flatMap((stack) =>
+              stack.nickname ? [stack.name, stack.nickname] : [stack.name],
+            ),
+          });
+          const formatReminder = resolvePromptMacros(
+            buildGmFormatReminder({ ...gmReminderArgs, part: "turn", turnNotices }),
+          );
           insertStableGmInstructions(
             finalMessages,
             resolvePromptMacros(buildGmFormatReminder({ ...gmReminderArgs, part: "stable" })),
