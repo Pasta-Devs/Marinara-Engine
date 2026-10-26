@@ -201,7 +201,7 @@ export function ConnectionGroup({
   const count = t("connections.list.models", { count: visibleRows.length });
   const modelsId = `connection-models-${account.id}`;
   // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
-  const keyRejected = /\b401\b|invalid.*key|unauthori[sz]ed/i.test(testFailure ?? "");
+  const keyRejected = /\b401\b|invalid.*key|key.*invalid|unauthori[sz]ed/i.test(testFailure ?? "");
   const testLabel = keyRejected ? t("connections.accounts.lastTestFailedLabel") : t("connections.accounts.testFailed");
   const fix =
     account.state === "off"

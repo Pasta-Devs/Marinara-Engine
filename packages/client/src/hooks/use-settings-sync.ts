@@ -60,6 +60,7 @@ type ServerSettingsPayload = SyncedSettingsObject & { __updatedAt?: number };
 type ParsedSettings = Partial<SyncedSettingsObject> & Record<string, unknown>;
 
 const LOCAL_ONLY_SETTING_KEYS = [
+  "connectionTestFailures",
   "appAccentPulseMode",
   "fontSize",
   "chatFontSize",

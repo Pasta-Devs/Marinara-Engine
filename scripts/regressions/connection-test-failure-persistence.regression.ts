@@ -15,7 +15,9 @@ Object.defineProperty(globalThis, "localStorage", {
 });
 
 try {
-  const { useUIStore, pickPersistedUIState } = await import("../../packages/client/src/stores/ui.store.js");
+  const { useUIStore, pickPersistedUIState, pickSyncedSettings } =
+    await import("../../packages/client/src/stores/ui.store.js");
+  const { omitLocalOnlySettings } = await import("../../packages/client/src/hooks/use-settings-sync.js");
   const require = createRequire(new URL("../../packages/client/package.json", import.meta.url));
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
@@ -64,8 +66,33 @@ try {
       "rehydration keeps a well-formed failure map",
     );
     succeeds = true;
+    await mutation!.mutateAsync({ id: "model-1", apiKey: "unsaved-key" });
+    assert.equal(
+      useUIStore.getState().connectionTestFailures["account-1"],
+      "401: Invalid API key",
+      "successful draft cannot clear saved failure",
+    );
     await mutation!.mutateAsync("model-1");
     assert.equal(useUIStore.getState().connectionTestFailures["account-1"], undefined);
+    succeeds = false;
+    await mutation!.mutateAsync({ id: "model-1", baseUrl: "http://draft.invalid" });
+    assert.equal(
+      useUIStore.getState().connectionTestFailures["account-1"],
+      undefined,
+      "failed draft cannot mark saved account",
+    );
+    api.post = (async () => ({ success: false, message: "", latencyMs: 1, modelName: null })) as typeof api.post;
+    await mutation!.mutateAsync("model-1");
+    assert.ok(
+      useUIStore.getState().connectionTestFailures["account-1"],
+      "empty provider message still records failure",
+    );
+    assert.equal("connectionTestFailures" in pickSyncedSettings(useUIStore.getState()), false);
+    assert.equal(
+      "connectionTestFailures" in omitLocalOnlySettings({ connectionTestFailures: { other: "failure" } }),
+      false,
+    );
+    useUIStore.getState().setConnectionTestFailure("account-1", null);
     await wait(1100);
     const cleared = JSON.parse(stored.get(UI_PERSISTENCE.name)!) as {
       state: { connectionTestFailures: Record<string, string> };

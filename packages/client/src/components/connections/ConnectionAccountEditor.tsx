@@ -264,7 +264,7 @@ export function ConnectionAccountEditor({
   );
 
   const state: ConnectionAccountState = draft?.enabled ? (account?.state === "needs_key" ? "needs_key" : "ok") : "off";
-  const testFailed = !!testFailure || test.isError || (!!test.data && !test.data.success);
+  const testFailed = (!!testFailure && !accessDirty) || test.isError || (!!test.data && !test.data.success);
   const testText = test.isPending
     ? t("connections.accounts.editor.testing")
     : testFailure && !accessDirty

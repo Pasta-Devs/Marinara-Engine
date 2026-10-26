@@ -20,6 +20,7 @@ import { queryOptions, skipToken, useQueries, useQuery, useMutation, useQueryCli
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
+import { translate } from "../localization/i18n";
 import { useChatStore } from "../stores/chat.store";
 import { captureChatMetadataVersion, chatKeys, guardServerChatSnapshot } from "./use-chats";
 import { connectionAccountKeys } from "./use-connection-accounts";
@@ -286,12 +287,19 @@ const testId = (input: TestInput) => (typeof input === "string" ? input : input.
 export function useTestConnection(accountId?: string) {
   const qc = useQueryClient();
   const recordTest = (input: TestInput, message: string | null) => {
+    if (typeof input !== "string" && (input.apiKey !== undefined || input.baseUrl !== undefined)) return;
     const id = testId(input);
     const row = qc
       .getQueryData<Array<{ id: string; accountId?: string | null }>>(connectionKeys.list())
       ?.find((row) => row.id === id);
     const target = row?.accountId ?? accountId;
-    if (target) useUIStore.getState().setConnectionTestFailure(target, message);
+    if (target)
+      useUIStore
+        .getState()
+        .setConnectionTestFailure(
+          target,
+          message === null ? null : message.trim() || translate("connections.accounts.testFailed"),
+        );
   };
   return useMutation({
     mutationFn: (input: TestInput) => {
