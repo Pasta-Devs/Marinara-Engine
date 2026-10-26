@@ -232,6 +232,7 @@ export * from "./utils/image-appearance.js";
 export * from "./utils/chat-image-generation.js";
 export * from "./utils/game-art-style.js";
 export * from "./utils/thinking-tags.js";
+export * from "./utils/combat-icon.js";
 export * from "./utils/rpg-stats.js";
 export * from "./utils/lorebook-folder-tree.js";
 export * from "./utils/character-duplicates.js";

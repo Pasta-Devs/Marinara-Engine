@@ -603,6 +603,18 @@ async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise
   return readImageAsDataUrl(join(DATA_DIR, "avatars"), filename);
 }
 
+/** The byte check card-import pictures pass. A file that is not the image its name claims is
+ *  deleted, so a gallery upload never keeps one. */
+async function isValidUploadedGalleryImage(filePath: string, filename: string): Promise<boolean> {
+  const image = await validateImageAssetFile(filePath, filename);
+  if (image) {
+    await image.handle.close().catch(() => undefined);
+    return true;
+  }
+  await unlink(filePath).catch(() => undefined);
+  return false;
+}
+
 async function copyGalleryImageToAvatar(
   entityKind: "character" | "persona",
   entityId: string,
@@ -2121,6 +2133,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filePath = join(dir, filename);
 
     await pipeline(data.file, createWriteStream(filePath));
+    if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+      return reply.status(400).send({ error: "Unsupported or invalid image" });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";
@@ -3313,6 +3328,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filePath = join(dir, filename);
 
     await pipeline(data.file, createWriteStream(filePath));
+    if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+      return reply.status(400).send({ error: "Unsupported or invalid image" });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";

@@ -94,7 +94,12 @@ import { useEncounter } from "../../hooks/use-encounter";
 import { useScene } from "../../hooks/use-scene";
 import { useEncounterStore } from "../../stores/encounter.store";
 import { useTranslationStore } from "../../stores/translation.store";
-import { getChatTranslationConfig, type ChatMode, type ReplyCheckupLink } from "@marinara-engine/shared";
+import {
+  getChatTranslationConfig,
+  parseCombatIconChoice,
+  type ChatMode,
+  type ReplyCheckupLink,
+} from "@marinara-engine/shared";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import {
@@ -1268,6 +1273,7 @@ const LocalChatArea = memo(function LocalChatArea({
             comment: display.comment,
             avatarUrl: c.avatarPath ?? undefined,
             avatarCrop: display.avatarCrop ?? null,
+            combatIcon: parseCombatIconChoice(parsed.extensions?.combatIcon),
             nameColor: parsed.extensions?.nameColor || undefined,
             dialogueColor: parsed.extensions?.dialogueColor || undefined,
             description: parsed.description ?? "",
@@ -1312,6 +1318,7 @@ const LocalChatArea = memo(function LocalChatArea({
             appearance: typeof extensions.appearance === "string" ? extensions.appearance : undefined,
             avatarUrl: row.avatarPath || undefined,
             avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
+            combatIcon: parseCombatIconChoice(extensions.combatIcon),
             nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : undefined,
             dialogueColor: typeof extensions.dialogueColor === "string" ? extensions.dialogueColor : undefined,
             boxColor: typeof extensions.boxColor === "string" ? extensions.boxColor : undefined,
@@ -1340,6 +1347,7 @@ const LocalChatArea = memo(function LocalChatArea({
       appearance: persona.appearance || undefined,
       avatarUrl: persona.avatarPath || undefined,
       avatarCrop: persona.avatarCrop ?? null,
+      combatIcon: parseCombatIconChoice(persona.personaStats?.combatIcon),
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
