@@ -152,6 +152,7 @@ export function ConnectionSelect({
   title,
   className,
   addJob,
+  scope,
   disabled,
   ...aria
 }: {
@@ -179,6 +180,8 @@ export function ConnectionSelect({
   className?: string;
   /** The job this slot is, for "Add a model for this…" (the Add window names it and sets Defaults by it). */
   addJob?: AddJob;
+  /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
+  scope?: "chat" | "agent";
   disabled?: boolean;
   id?: string;
   "aria-label"?: string;
@@ -240,6 +243,13 @@ export function ConnectionSelect({
   }
 
   const { current } = choices;
+  // Empty with no custom first-option text means "follow the job's default": say whose.
+  const jobKey = FLAG_JOBS.find((job) => job.kind === kind)?.key;
+  const source = value
+    ? scope && t(`connections.select.scope.${scope}`)
+    : !defaultLabel && choices.resolved && jobKey
+      ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${jobKey}`) })
+      : null;
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
@@ -290,6 +300,7 @@ export function ConnectionSelect({
         >
           <span id={valueId} className="min-w-0 flex-1 truncate">
             {current.label}
+            {source && <span className="text-[0.625rem] text-[var(--muted-foreground)]"> · {source}</span>}
           </span>
           <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden />
         </button>
