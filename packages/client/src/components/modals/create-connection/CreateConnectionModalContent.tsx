@@ -409,7 +409,7 @@ export function CreateConnectionModalContent({
     setFinishing(true);
     let undo: (() => void) | null = null;
     try {
-      if (saveChoices && !(await applyChoices(!choosingJobs))) return;
+      if (saveChoices && !choosingJobs && !(await applyChoices())) return;
       if (saveChoices) {
         try {
           undo = await assignJob();
@@ -792,16 +792,19 @@ export function CreateConnectionModalContent({
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
   const optionalJobs = jobsForAddedKinds(picks.map((pick) => pick.kind));
   const offerJobs = !jobFor && !modelsFor && !onStartChat && optionalJobs.length > 0;
-  const finishModels = () => {
+  const finishModels = async () => {
     if (!offerJobs) {
       void close(true);
       return;
     }
-    setSelectedJobs(
-      optionalJobs.includes("main") && !hasMain && makeMainOn
-        ? ["main", ...(hasAgents ? [] : ["agents" as const])]
-        : [],
-    );
+    setFinishing(true);
+    try {
+      if (!(await applyChoices())) return;
+      setMakeMain(false);
+    } finally {
+      setFinishing(false);
+    }
+    setSelectedJobs([]);
     setChoosingJobs(true);
     requestAnimationFrame(() => headingRef.current?.focus());
   };

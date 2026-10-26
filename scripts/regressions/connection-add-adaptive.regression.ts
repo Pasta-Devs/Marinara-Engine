@@ -65,7 +65,7 @@ assert.match(data, /isAddService\(key\)/);
 assert.match(data, /missingAddJobs\(props.rows, props.featureModels, props.embeddingId\)/);
 assert.match(modal, /assignment.assign[\s\S]*?assign\(id\)[\s\S]*?assign\(previous\)/);
 assert.match(modal, /for \(const key of jobs\) await assignJob\(\{ job: key \}\)/);
-assert.match(modal, /applyChoices\(!choosingJobs\)/, "Skip must not implicitly set Main");
+assert.match(modal, /saveChoices && !choosingJobs && !\(await applyChoices\(\)\)/, "Skip must not repeat saved choices");
 assert.match(modal, /!jobFor && !modelsFor && !onStartChat/, "prefilled jobs retain direct assign-on-Done");
 assert.match(modal, /t\("connections\.add\.heading\.forJob", \{ job: jobLabel\(job\) \}\)/);
 assert.match(modal, /const totalSteps = job \? 2 : 3/);
