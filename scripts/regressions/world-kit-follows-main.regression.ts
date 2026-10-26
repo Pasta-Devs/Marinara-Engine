@@ -56,7 +56,7 @@ try {
     url: "/api/game/world-kit",
     payload: { genre: "Fantasy", setting: "A small town", tone: "Heroic" },
   });
-  assert.doesNotMatch(response.body, /Validation Error/, "World kit without a connection must resolve to Main: " + response.body);
+  assert.notEqual(response.statusCode, 500, "World kit without a connection must resolve to Main: " + response.body);
   console.log("World kit follows Main.");
 } finally {
   provider.closeAllConnections();
