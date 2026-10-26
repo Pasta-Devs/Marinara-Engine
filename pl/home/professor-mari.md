@@ -37,6 +37,7 @@ Poproś ją o pomoc przy dowolnej z tych rzeczy:
 - Wyjaśnienie ustawienia, trybu albo pojęcia, zanim cokolwiek zmienisz.
 - Utworzenie lub edycja postaci. Postać to karta, która nadaje AI imię, osobowość i sposób mówienia. Asystentka potrafi też napisać onboarding karty, czyli pytania, na które odpowiadają gracze, żeby zbudować swoją personę. Opisuje go przewodnik [Interaktywny onboarding](../characters/interactive-onboarding.md).
 - Utworzenie lub edycja persony. Persona to postać, w którą się wcielasz w czacie, czyli "ty" w opowieści.
+- Wypełnienie lub zmiana [arkusza zestawu zasad](../characters/colors-and-stats.md#ruleset-sheets) postaci albo persony dla zainstalowanego zestawu zasad Game Mode: wartości cech, wyszkolenia, pól i wierszy list, takich jak wyposażenie. Asystentka używa nazw i ograniczeń samego zestawu zasad, a zmiana z wartością, która do niego nie pasuje, zostaje odrzucona z podaniem przyczyny.
 - Utworzenie lub edycja lorebooka. Lorebook to zbiór faktów o twoim świecie, które AI wciąga do rozmowy, kiedy pasują do sytuacji.
 - Utworzenie lub edycja motywu, agenta, presetu promptu albo szkicu rozszerzenia Personal Extension. Professor Mari jest jedyną domyślną autorką rozszerzeń. Jej szkice pozostają wyłączone, dopóki nie sprawdzisz kodu w piaskownicy i nie przejrzysz wymaganych uprawnień do aktywnej karty postaci lub persony. Na koniec zatwierdź dokładny skrót w **Settings** (Ustawienia) > **Addons**.
 - Edycja jednego fragmentu presetu promptu na miejscu. Asystentka wypisuje pojedyncze sekcje presetu, grupy promptów i zmienne wyboru, a każdą z nich czyta w całości. Potem dodaje, zmienia albo usuwa sam ten fragment, na przykład dopisuje jedną linię do wybranej sekcji. Nie musi tworzyć ani podmieniać całego presetu.
@@ -133,6 +134,7 @@ Inaczej jest ze zmianą, która czeka na ciebie. Wstrzymana zmiana (w trybie Man
 
 - Karta należy do czatu z Professor Mari, w którym asystentka dokonała zmiany. Nowy czat zaczyna się bez kart z innych czatów. Usunięcie czatu zachowuje jego zmiany i usuwa jego karty. Zmiana wykonana poleceniem `mari` w terminalu nie należy do żadnego czatu, więc jej karta pojawia się we wszystkich czatach z Professor Mari.
 - Edycja, która niczego by nie zmieniła, nie jest zapisywana i nie otrzymuje karty.
+- Krok na liście jej pracy oznaczony jako **Previewed** (wyświetlono podgląd) i zakończony **· not saved** (nie zapisano) był tylko podglądem. Nic się nie zmieniło i nie ma karty.
 - Professor Mari nie może edytować ani usuwać własnej karty postaci. Przy każdym uruchomieniu aplikacja Marinara przywraca jej wbudowaną wersję.
 - Postacie i persony trzymają też własną historię wersji w swoich edytorach. Starszą wersję da się przywrócić właśnie tam, jako drugie zabezpieczenie.
 
@@ -173,6 +175,14 @@ Kliknij przycisk **Skills** w nagłówku jej czatu, żeby otworzyć panel **Prof
 - Wybrać Skill i zmienić pola **Name**, **Description** oraz **Instructions**, a potem kliknąć przycisk **Save**. Przycisk **Delete** go usuwa.
 
 Kiedy nie ma jeszcze żadnych własnych dokumentów Skill, panel pokazuje napis **No custom skills yet**.
+
+### Wbudowane umiejętności
+
+Pod własnymi dokumentami Skill, w sekcji **Always on** (zawsze włączone), panel wymienia umiejętności dostarczane z aplikacją Marinara Engine. Każda ma oznaczenie **Built-in** (wbudowana). To jej podręczniki dotyczące postaci i person, lorebooków, onboardingu, presetów, motywów, rozszerzeń Personal Extensions, widgetów ekranu głównego, decyzji i naprawiania odpowiedzi. Asystentka czyta odpowiedni podręcznik, gdy wymaga tego prośba, więc nie zajmują miejsca w każdej wiadomości.
+
+Wbudowana umiejętność jest tylko do odczytu: nie możesz jej edytować, wyłączyć ani usunąć, a aktualizacja aplikacji zastępuje ją nową wersją. Aby zmienić sposób obsługi danej sprawy, skopiuj jej instrukcje do nowego, własnego dokumentu Skill.
+
+Domyślnie w każdym czacie pierwsza zmiana w obszarze z wbudowaną umiejętnością jest odrzucana, dopóki asystentka nie przeczyta tej umiejętności. Pomaga to mniejszym i lokalnym modelom. Większe modele zwykle radzą sobie bez tego, więc możesz oszczędzić im ten krok: otwórz **Search and Professor Mari settings** i wyłącz **Read the handbook before the first write** (przeczytanie podręcznika przed pierwszym zapisem) pod **Runtime**. Tylko ty możesz zmienić to ustawienie; Professor Mari nie może tego zrobić.
 
 ## Zapisane wspomnienia
 

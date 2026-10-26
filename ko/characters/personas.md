@@ -148,6 +148,8 @@ Marinara는 현재 페르소나 이름과 다른 카드 필드를 참고 자료�
 - **Enable Persona Stats**(페르소나 능력치 활성화)는 허기, 기력, 기분 같은 상태 막대를 켭니다. 처음 켜면 Satiety, Energy, Hygiene, Mood 막대가 각각 100 중 100으로 준비됩니다. **Persona Stats** 에이전트가 이야기 전개에 따라 이 값을 조정합니다.
 - **Enable RPG Attributes**(RPG 속성 활성화)는 RPG 방식의 풀과 속성을 켭니다. 처음 켜면 HP와 MP 풀이 각각 100 중 100으로, STR, DEX, CON, INT, WIS, CHA 속성이 각각 10으로 준비됩니다. 이 값은 Combat과 Game Mode에서, 그리고 Roleplay나 Game Mode의 선택적 굴림에서 페르소나 카드와 함께 전송됩니다. 트래커 에이전트는 이 값을 갱신하지 않습니다.
 
+**Game Mode Icon** 블록은 Game Mode 전투에서 페르소나 토큰에 표시할 이미지를 정합니다. 아바타, 페르소나 갤러리의 이미지, 이름의 머리글자 중에서 고를 수 있습니다. [Game Mode 아이콘](colors-and-stats.md#game-mode-icon)을 참고하세요.
+
 Game Mode 규칙 집합이 설치되어 있거나, 이제는 없는 규칙 집합의 시트를 페르소나가 아직 가지고 있으면 이 두 블록 아래에 **Ruleset sheets**(룰셋 시트) 블록이 나타납니다. 이 블록에는 규칙 집합마다 페르소나의 시작 빌드가 들어 있으며, 그 규칙 집합으로 새 게임을 시작하면 이 빌드를 복사합니다. [규칙 집합 시트](colors-and-stats.md#ruleset-sheets)를 참고하세요.
 
 여기서 정한 값은 새 채팅에서 시작할 때의 기본값입니다. Persona Stats 에이전트를 활성화하면 페르소나 상태 막대는 자동으로 갱신될 수 있지만, 페르소나의 RPG 풀과 속성은 에이전트가 관리하지 않습니다. 전체 설명은 [캐릭터 색상과 RPG 스탯](colors-and-stats.md)을 참고하세요.

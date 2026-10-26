@@ -177,7 +177,7 @@ Un ensemble de règles peut aussi lancer ses tests d'autres façons. Le moteur l
 
 ## Terminer un tour avec des dés en une seule requête
 
-Par défaut, un tour avec des jets coûte deux requêtes au modèle : une pour le brouillon, une pour réécrire l'issue avec les vrais nombres. **Finish rolled turns in one request** (Terminer les tours avec des dés en une requête), dans **Chat Settings → Function Calling**, supprime la seconde. L'option est désactivée par défaut et ne concerne que le chat où tu l'actives.
+Sans cette option, un tour avec des jets coûte deux requêtes au modèle : une pour le brouillon, une pour réécrire l'issue avec les vrais nombres. **Finish rolled turns in one request** (Terminer les tours avec des dés en une requête), dans **Chat Settings → Function Calling**, supprime la seconde. L'option est activée par défaut ; désactive-la dans un chat pour que ce chat réécrive chaque tour avec des jets en utilisant les vrais nombres.
 
 Cela fonctionne parce que le Game Master fixe son texte avant qu'un nombre existe. Il ne voit aucun jet avant de décider ce qui arrive, donc il ne peut pas orienter l'issue vers le dé reçu. Le moteur lance ensuite les dés et c'est son résultat qui est enregistré.
 

@@ -13,13 +13,13 @@
 
 - **`dice-highest`**：掷一个骰池并读取其中最高的一颗，或把最高的几颗相加。适用于 Blades in the Dark 和 Trophy Dark。
 - **`roll-against`**：掷出不超过（或不低于）人物卡数值的结果。适用于百分制技能和 GURPS 检定。
-- **`symbol-pool`**：组建并升级叙事骰，再抵消对立的符号。适用于 Genesys 检定。
+- **`symbol-pool`**：组建并升级叙事骰，再抵消对立的符号。适用于 Genesys 检定，Capability API 1.382 起也适用于其战斗。
 
 五种类型都在[结算类型](#resolution-kinds)中完整说明。
 
 不符合这些形式的机制无法写进规则集文件，对抗骰池就是一例。每种这样的机制都需要 Engine 内新增结算类型，也就是带测试的代码贡献，而非 JSON 文件。若系统需要，请在 Engine 仓库提出功能请求，用几个演算完整的掷骰例子说明机制。这些例子会成为测试。
 
-Game Mode 可用 Marinara 自身战斗或规则集规则结算战斗。可选的 `battle` 块将人物卡数值提供给 Marinara 战斗，见[战斗桥接](#battles-lending-the-sheet-to-marinaras-combat)。可选的 `combat` 块则定义规则集如何自行结算，见[独立规则战斗](#combat-a-fight-your-own-rules-resolve)。Engine 目前已能执行这些规则。游戏的 Combat Preference 选择 Classic 呈现，或在规则集定义距离时选择 Tactical 战场。
+Game Mode 可用 Marinara 自身战斗或规则集规则结算战斗。可选的 `battle` 块将人物卡数值提供给 Marinara 战斗，见[战斗桥接](#battles-lending-the-sheet-to-marinaras-combat)。可选的 `combat` 块则定义规则集如何自行结算，见[独立规则战斗](#combat-a-fight-your-own-rules-resolve)。Engine 目前已能执行这些规则。游戏的 Combat Preference 选择 Classic 呈现，或在规则集定义距离时选择 Tactical 战场。规则集可以用 `combat.styles` 限定其游戏可用的战斗样式（见[游戏可以使用哪些样式](#combat-a-fight-your-own-rules-resolve)）。
 
 ## 快速开始
 
@@ -296,7 +296,7 @@ Genesys 先用一项特征值和一项技能等级组建骰池，再加入对立
 - `boost` 和 `setback`：可选，分别由 `bonus="+N"` 和 `bonus="-N"` 加入的骰子，各自最多 `max` 颗（默认 3，上限 6）。带正负号的调整先合并，再应用这个上限。Capability API **1.150** 还接受独立的 `setback="N"`：`bonus="2" setback="1"` 会同时掷两边。负的加值计入 `setback`，合并后的挫折骰数量限制在 `setback.max` 之内；增益骰仍受 `boost.max` 约束。
 - `allowOwnUpgrade`：可选，缺省时为 false。设为 `true` 时，`upgradeOwn="N"` 在人物卡升级和购买的骰子之后，再把 N 颗角色骰升级为 `pool.upgrade`(必须已声明)。现有骰子全部升级后，每次额外升级会增加一颗升级骰，仍受 `pool.max` 约束。这也适用于 `pool.build: "sum"`。声明这个键，即使值为 `false`，也要求 capabilityApi **1.150**。标签参数名使用驼峰式，如 `zeroDice`；`upgradeOwn` 影响掷骰者，`upgrade` 仍只影响难度骰。`setback` 和 `upgradeOwn` 都接受非负整数，在符号骰池之外会被忽略；未启用时 `upgradeOwn` 也会被忽略。
 - `success`：抵消后需要多少个该符号，默认为一个。大成功和大失败标记会在其指定符号出现时标出，即使它额外计入的成功或失败被抵消了也一样。两种标记可以同时出现，且都不改变净成功数是否通过检定。
-- `outcomes` 可以读取净成功数（`total`），或 `net successes - needed + 1`(`margin`)。结果档仍按通常方式决定成败；原本的大成功和大失败符号仍会被标记。`spend` 只能在 `pool.max` 之内购买额外的基础角色骰。与 `dice-highest` 一样，不支持战斗。
+- `outcomes` 可以读取净成功数（`total`），或 `net successes - needed + 1`(`margin`)。结果档仍按通常方式决定成败；原本的大成功和大失败符号仍会被标记。`spend` 只能在 `pool.max` 之内购买额外的基础角色骰。它的战斗使用 `symbol-pool` 类型（Capability API 1.382，见下文“以符号骰进行的战斗”）；不能搭配任何其他战斗类型。
 - 记录保留 `resolution="sum"`，并带有 `symbols="2s 1a 1t"`、标识每颗骰子的 `thrown=`，以及保存其从 1 开始的骰面序号的 `rolls=`。编码后的 `symbolDetails` 保留标签、骰面符号以及大成功和大失败两种标记。`setback` 记录在共用挫折骰上限之后实际加入的独立挫折骰，`upgradeOwn` 记录实际应用的额外升级；被忽略或为零的增量不记录。骰子卡和摘要会写出净符号（包括空结果），而不是把骰面数字相加。覆盖可以改变这一类型的规则，但不能替换 `symbols` 或 `dice`。
 
 #### 范围之外的机制及原因
@@ -1124,6 +1124,23 @@ Held Ground 与收割（Capability API 1.323）。战斗可以在 Held Ground �
 跨多个池的休息骰（Capability API 1.337）。休息的 `"dice"` 可以是一个列表，每个池一项，各自有 `die`、`add`、`heals` 和 `extra`：`[{"pool": "hit_dice_d10", "die": {"const": 10}, ...}, {"pool": "hit_dice_d6", "die": {"const": 6}, ...}]`，因此 fighter 1 / wizard 1 会花费一颗 d10 和一颗 d6。`[sheet: op="rest" rest="short" dice="N" pool="hit_dice_d6"]` 只从该池花费；不带 `pool` 时，骰子来自列出的第一个还有骰子的池，然后是下一个，总数不够时会被拒绝，且什么也不花费。额外骰子（Song of Rest）取第一个带有它的项，整次花费只掷一次，治疗对象与首个花费骰子之池的治疗对象相同；即使只有后面的池支付，它也会出现。在游戏中，休息骰会读取每个角色携带的东西，因此 `add` 或额外骰子的 `add` 中的 `itemStat` 会计入：Pell's Teapot，`{"itemStat": {"stat": "song_of_rest_add", "from": "carried", "pick": "max", "default": 0}}`。在这里使用列表的规则集需要 Capability API 1.337。
 
 图标（Capability API 1.338）。目录条目和人物卡状态可以指定其图标，`"icon": "ic_poison_cloud"`：游戏图标包（类型为 `icons` 的棋盘包；见 packages/server/src/assets/board-packs/README.md）中的一个地块。没有指定时，Engine 会查找推导出的名称：状态为 `ic_cond_<id>`，物品为 `ic_item_<entry id>`(Game Master 自创的物品为 `ic_item_<name>`)，其他目录条目为 `ic_<catalog id>_<entry id>`(`ic_spells_fireball`)，连字符写作 `_`。两者都没有时，显示现在的字母或文字。指定了图标的规则集需要 Capability API 1.338。
+
+战斗画面如何显示规则集（Capability API 1.375）。使用棋盘时，战斗面板用一个小圆点表示每种额度：彩色底上的字母，额度尚可花费时填满。额度可以同时指定这两项：`"short": "A"`(一到两个字母) 和 `"tone"`，后者为 `rose`、`amber`、`violet`、`teal`、`sky`、`lime`、`orange` 和 `slate` 之一；省略时，圆点采用额度标签的首字母，并按列表位置选色，因此 5e 的 Action、Bonus action 和 Reaction 分别显示为玫红的 A、琥珀色的 B 和紫色的 R。`combat.display` 规定其余显示方式：`"defense": {"short": "AC"}` 指定行动顺序中防御列的标题（最多六个字母；省略时，短标签原样保留，较长标签则取首字母缩写，因此“Armor Class”显示为“AC”）；`"hide": true` 则为防御无法用单一数字表示、不值得单列的规则集隐藏该列。`"pools": ["slots_1", "slots_2", "ki"]` 按顺序列出当前回合下方以圆点显示的人物卡资源池（按等级排列的法术位、气）。每项必须是 `sheet.live.pools` 声明的池，且只出现一次；由列表行创建的池会被拒绝。省略时，按队伍行动花费资源池的顺序显示它们。使用 `short`、`tone` 或 `combat.display` 的规则集需要 Capability API 1.375。
+
+人物卡、菜单和卡片上的自定义措辞（Capability API 1.378）。以下每项均可选，省略时保留 Engine 自身的措辞：
+
+- 资源池可以指定单个和多个资源的名称：`"unit": "3rd-level slot"` 和 `"units": "3rd-level slots"`，让费用显示为“1 3rd-level slot”或“2 3rd-level slots”，升环支付则显示为“Use 1 2nd-level slot”。省略时，费用按池的标签计数。若付费资源池与选项本身同名（Action Surge 按钮上的 Action Surge），就不显示费用，因为按钮已经写了它。
+- 列表可以指定玩家看到的组织方式：`"display": {"tab": "Spells", "by": {"column": "level", "labels": ["Cantrips", "1st level", "2nd level"]}, "mark": "prepared"}`。`tab` 指定它所在的人物卡选项卡名称。`by` 按数字列分组，每个从 0 开始的值各有一个标题（`labels[0]` 对应 0，最多 21 个标签；超出最后标签的值，在人物卡上以数字为标题，在菜单上则只归入选项卡名称下），且必须指定数字列。`mark` 指定以勾选标记显示的是非列，且必须指定这样的列。战斗从列表行提供的能力，在战斗菜单中归入选项卡名称下，并按同样方式分组（“Spells: Cantrips”、“Spells: 1st level”），代替该类型自身的标题。
+- 实时文本字段可以像池一样按字段通过 `"hideWhen"` 隐藏，也可以按派生值隐藏：`{"derived": "knows_concentration", "equals": 0}`(使用 `equals`、`notEquals` 或 `in` 之一)。只有文本字段能按派生值隐藏，因为人物卡的任何计算都不读取文本字段。
+- 人物卡状态可以写 `"pickable": false`：人物卡的“Add condition”选择器不列出它，但游玩、命令和 Game Master 仍可施加和移除它。适合某个法术或物品自身的状态。
+- 非伤势轨道可以写 `"showWhenSet": true`：仍处于初始位置时不显示在人物卡上，游玩或 Game Master 改变它之后才显示。
+- 物品开关可以为两种操作命名：`"toggle": {"onLabel": "Lower the hood", "offLabel": "Raise the hood"}`，菜单用它们代替“Turn on”和物品名称。
+- 物品的使用可以为自己命名：`"use": {"title": "Scatter ball bearings"}`，菜单用它代替物品名称，旁边仍显示数量。
+- 战斗调整值可以说明自己的效果：`"label": "advantage on saves against being charmed"`，卡片用它代替 Engine 根据其余内容组合的短语。
+- 表示加值的派生值可以写 `"signed": true`，让人物卡带符号显示它：法术攻击显示为“+7”，而不是“7”。
+- 生物特性的文本可以长达 1200 个字符，之前为 400 个。
+
+使用以上任一项，或生物特性超过 400 个字符的规则集，需要 Capability API 1.378。
 
 专注被打断时的巢穴动作列表（Capability API 1.336）。`"brokenNextLair"` 可以是它自己的巢穴动作的列表，每个只出现一次，而不只是一个：`["shelves_lean_north", "shelves_lean_south"]`。一旦该专注被打断，下一个巢穴动作就是其中之一，不会是别的，无论上一轮进行的是什么，由操控该生物的人选择哪一个。由 Engine 操控的生物会选择能卷入最多敌人的那一个；同样好的选项之间，按它评估其他任何东西的方式权衡。进行之后，选择再次恢复自由。在这里使用列表的规则集需要 Capability API 1.336。
 
@@ -2277,7 +2294,7 @@ Capability API 1.79 允许物品有风险或是赝品，也允许卖家不诚实
 
 同一个 `use` 在战斗外也有效（`restore` 需要 Capability API 1.60；其余不需要新的声明）。对带 `use` 的物品，物品栏的 **Use** 按钮和 Game Master 的 `[inventory: action="use" item="Poultice" who="Juno"]` 都会用 Engine 的骰子，对携带者产生该物品的效果：
 
-- 治疗恢复生命：在生命池上恢复其数量，在伤势轨道上清除一个标记，与战斗中的治疗相同。`temporary` 点数加到生命池上，`restore` 恢复其池，它 `applies` 的每个状态都会施加，直到被某种东西移除。
+- 治疗恢复生命：在生命池或普通生命轨道上恢复其数量，在伤势轨道上清除一个标记，与战斗中的治疗相同。`temporary` 点数加到生命池上，`restore` 恢复其池，它 `applies` 的每个状态都会施加，直到被某种东西移除。
 - 造成伤害或瞄准对方阵营的使用（`kind` 为 `attack` 或 `debuff`，或 `targets` 为 `enemy`）不会作用于任何人：战斗外棋盘上没有可以打的人。物品仍会被使用，Game Master 会被告知它的作用，以便叙述。
 - 它与战斗中完全一样，从那一叠中减去一件或消耗其充能；已经用完的物品，或占用槽位、需要绑定却未穿戴的物品，会被拒绝且不作任何更改。人物卡和背包会一起写入。
 - `gate` 像检定一样先掷：使用规则集自己的骰子和人物卡的数字，以及使用者的伤势惩罚、其状态和穿戴或携带物品对该检定的作用。失败时物品白白用掉，那一行会说明（“Ada uses Page of the vigil litany: Ward check 1 against 2, failed; it is used up for nothing. 1 left.”）。
@@ -2332,7 +2349,7 @@ Capability API 1.79 允许物品有风险或是赝品，也允许卖家不诚实
 
 ## 战斗：由你自己的规则结算
 
-上面的 `battle` 块将人物卡数值借给战斗，计算方式仍属于 Marinara。可选的 `combat` 块则是另一回事：它说明如何用你的规则结算战斗。它为 Engine 所拥有的一种战斗类型提供参数，正如 `resolution` 为检定类型提供参数一样，其中每个名称都由你决定。共有两种类型：`attack-vs-defense` 把骰子相加后与一个数字比较；`dice-pool` 则让战斗掷出 `dice-pool` 规则集自己的骰池并计算成功数（见下文“以骰池进行的战斗”）。
+上面的 `battle` 块将人物卡数值借给战斗，计算方式仍属于 Marinara。可选的 `combat` 块则是另一回事：它说明如何用你的规则结算战斗。它为 Engine 所拥有的一种战斗类型提供参数，正如 `resolution` 为检定类型提供参数一样，其中每个名称都由你决定。共有三种类型：`attack-vs-defense` 把骰子相加后与一个数字比较；`dice-pool` 让战斗掷出 `dice-pool` 规则集自己的骰池并计算成功数（见下文“以骰池进行的战斗”）；`symbol-pool` 则让战斗掷出 `symbol-pool` 规则集的叙事骰，并消费剩余的符号（见下文“以符号骰进行的战斗”）。
 
 **规则集声明了 `combat` 的游戏，会按你的块进行战斗。** 队伍数值取自各自的人物卡；敌人来自你的生物图鉴或威胁尺度；每个回合都按你的骰子结算；角色消耗或损失的任何内容都立即写回人物卡，因此中途关闭标签页也不会丢失。战斗画面使用你的措辞：菜单中是你的攻击和能力，使用你的行动额度和状态，日志展示实际算式。尚未实现的内容列在“尚未支持”中。
 
@@ -2400,8 +2417,8 @@ Capability API 1.79 允许物品有风险或是赝品，也允许卖家不诚实
 
 ### 各个键
 
-- `kind`：`"attack-vs-defense"`(一方投骰对抗另一方的防御，命中则造成伤害) 或 `"dice-pool"`(见“以骰池进行的战斗”)。下面每个键在两种类型下含义相同，只是按该类型读取数字的方式来读。
-- `health`：必填。战斗扣除的对象。可以是 `{ "pool": "grit" }`，表示向下扣减的实时池；若有临时缓冲，伤害先扣缓冲。也可以是 `{ "track": "harm" }`，表示需要标记的伤势轨道。轨道必须同时指定 `damageKinds`，且不提供临时点数。
+- `kind`：`"attack-vs-defense"`(一方投骰对抗另一方的防御，命中则造成伤害)、`"dice-pool"`(见“以骰池进行的战斗”) 或 `"symbol-pool"`(见“以符号骰进行的战斗”)。下面每个键在各类型下含义相同，只是按该类型读取数字的方式来读。
+- `health`：必填。战斗扣除的对象。可以是 `{ "pool": "grit" }`，表示向下扣减的实时池；若有临时缓冲，伤害先扣缓冲。也可以是 `{ "track": "harm" }`，表示需要标记的伤势轨道。伤势轨道必须同时指定 `damageKinds`。还可以用 `{ "track": "wounds" }` 指定从 `min` 向上填到 `max` 的普通轨道（没有 `levels` 或 `boxes`；Capability API 1.383）：伤害增加点数，治疗扣除点数；轨道达到 `max` 就退出战斗，与池降到零相同。Genesys 的 Wounds(伤势) 就是一例，以 Wound Threshold(伤势阈值) 为 `max`；如果系统规定超过阈值才倒下，就将 `max` 设为阈值加一。普通生命轨道从其 `default` 开始（不用 `startFrom`），不能从 `max` 开始，也不接受 `damageKinds`。人物卡计算出的 `max` 属于每个角色自己，与池的最大值一样。任何轨道都不提供临时点数。
 - `defense`：必填的值引用。可以是玩家输入的字段，或由你计算的派生值。
 - `initiative`：必填。开始时投一次的骰子，以及可选的调整值引用。同值时调整值较高者优先，再按战斗建立时的顺序排列。`"each": "round"` 在每个新轮次开始时让所有人重新投先攻，使用当时的调整值（因此读取伤势轨道的调整值在受伤后会更慢），该轮从新顺序中的第一位开始。Capability API 1.47。`dice-pool` 战斗可以改为以骰池投先攻：`pool`(值引用) 是骰子数量，其成功数加上 `plus` 就是先攻数字，此时旁边不能有 `dice` 或 `modifier`。`resource` 需要 `pool`，它会保留这个数字并允许攻击改变它（见下文“会被攻击改变的先攻”）。Capability API 1.48。
 - `attackRoll`：在 `attack-vs-defense` 下必填，在 `dice-pool` 下会被拒绝，因为后者掷的是结算规则自己的骰池。指定骰子、是否投两次取其一(`advantage`)、单骰最大与最小点数的效果(`naturals.max`：`critical`、`hit` 或 `none`；`naturals.min`：`miss` 或 `none`)，以及重击对伤害的影响(`critical`：`double-dice` 再投一次伤害骰，`max-dice` 加一次最高骰面，`none` 则是普通命中)。特殊骰面和检定一样，需要单颗骰子。战斗内的豁免也投相同的骰子。`criticalFrom` 扩大重击点数：它是从攻击者人物卡读取的值，即算作重击的最低自然点数，例如对于人物卡写着 19 的 5e Champion，写 `{ "field": "critical_from" }`。它受骰子最高面的约束，低于 2 的值表示完全没有范围（只有最高面，就像该字段保持为 0 的角色），并且需要单颗骰子且 `naturals.max` 设为 `critical`。Capability API 1.81。
@@ -2597,6 +2614,44 @@ Brave 使用 `conditions: ["frightened"]`。Magic Resistance 使用不带 `saves
 Gravewatch 就是这样写的：它的守望者掷一个评级加一个专业技能，用 Sinew 吸收冲击伤，完全不吸收撕裂伤，每回合可以消耗一点 Resolve，并且每轮重新投先攻。
 
 **逆序声明没有实现。** 有些系统要求所有人在任何人行动之前先声明行动，最慢的人先声明。在每个参战者轮到时才选一个行动的战斗中，先声明不会改变任何规则读取的内容，因此没有需要用键表达的东西。
+
+### 以符号骰进行的战斗：`symbol-pool`(Capability API 1.382)
+
+`symbol-pool` 规则集读取符号而非数字，它的战斗也可以如此，因此 Engine 能运行整场战斗，无须询问 Game Master 一个优势符号换来了什么。`"kind": "symbol-pool"` 要求 `resolution.kind` 为 `"symbol-pool"`，并以符号检定已有的方式读取人物卡：
+
+- 命中数字就是攻击者的骰子。在人物卡上，攻击行的数字由属性和技能等级共同决定：较大者为掷骰数量，较小者为其中升级的数量，与 `pool.build: "larger-upgraded"` 组建检定的方式相同。生物行动用 `toHit`(骰子数量) 和 `upgrades`(其中升级的数量) 表示，这需要池带有 `upgrade` 骰，且不能用 `sum` 组建。
+- `defense` 是用来对抗攻击者骰子的难度骰数量。生物的 `defense` 是其自身的难度骰数量。掩护和状态对 `defense` 的调整值都会增加难度骰。
+- 状态对攻击、豁免或检定的调整值，以及 `penaltyFrom` 指定的伤势惩罚，有利时是增益骰，不利时是挫折骰，因此都用 `flat` 数字：掷骰得出的调整值（`dice`）会被拒绝。偏向一方的掷骰（远射程、状态的劣势）多掷一颗挫折骰，偏向另一方时则多掷一颗增益骰。
+- 净成功数达到 `success.needed` 就命中。豁免的数字是其骰子数量，难度是对抗它们的骰子数量；对抗掷出双方各自的骰子，净成功更多的一方获胜。先攻可以用骰池投掷（`initiative.pool`），净成功数就是其数字。
+- 伤害与 `attack-vs-defense` 战斗一样求和。每个净成功为命中增加 `damage.perSuccess`(默认为一点) 伤害，可以计入所有成功（`"counts": "all"`），也可以只计超出命中所需的成功（`"beyond"`）；目标的吸收从整次打击中扣除，但不会扣到零以下。
+- 没有大失败，也不会让伤害掷骰翻倍。重击由消费符号获得。
+
+符号的作用由 `symbols` 块规定：
+
+```json
+"symbols": {
+  "damage": { "perSuccess": 1, "counts": "all" },
+  "soak": { "all": { "derived": "soak" } },
+  "spends": [
+    { "id": "boost", "label": "Boost an ally", "by": "attacker", "symbol": "a", "cost": 1, "boost": { "dice": 1, "on": "attacker-ally" } },
+    { "id": "crit", "label": "Critical", "by": "attacker", "symbol": "a", "cost": 2, "when": "hit", "critical": true, "condition": { "id": "injured", "on": "target", "rounds": 3 } },
+    { "id": "triumph", "label": "Triumphant blow", "by": "attacker", "symbol": "t", "cost": 1, "when": "hit", "critical": true, "damage": 2 },
+    { "id": "strain", "label": "Overextend", "by": "target", "symbol": "h", "cost": 2, "track": { "id": "strain", "by": 1, "on": "attacker" } },
+    { "id": "setback", "label": "Opening", "by": "target", "symbol": "h", "cost": 1, "setback": { "dice": 1, "on": "attacker" } },
+    { "id": "despair", "label": "Weapon slips", "by": "target", "symbol": "d", "cost": 1, "condition": { "id": "disarmed", "on": "attacker" } }
+  ]
+}
+```
+
+- `soak`：目标从每次命中中减去多少，从其人物卡读取。`all` 是适用于任何伤害种类的值引用，`byKind` 则为生命轨道的每种伤害各给一个，对其种类优先于 `all`。生物用 `soak: { "all": 2 }` 给出自己的数字，这需要在此声明 `soak`。
+- `spends`：最多 16 种可用攻击掷骰剩余符号购买的效果。花费 `cost` 个 `symbol` 购买一次，`max`(默认为一) 指定一次掷骰最多购买几次；施加 `condition` 或造成 `critical` 的消费只生效一次，因此其 `max` 保持为一，同一次掷骰中，任何两项消费都不能对同一个人施加同一个状态（或同一 `oneAtATime` 类别的两个状态）。若消费不会产生作用，就不购买：状态无法施加（被阻止，或已持有同类状态），或轨道没有足够空间向该方向移动完整一步（空间可能已被同一次掷骰中更早的消费用掉）。`by` 指定由哪一方选择：攻击者花费有利于自己的符号（优势、胜利），目标花费有利于目标的符号（威胁、绝望）。一种符号由一方花费，消费绝不使用成功符号，因为成功已经用于命中并增加伤害。
+- `when`：只在 `hit` 时、只在 `miss` 时，或两者都可（`any`，默认）购买。`damage`(吸收之前加入命中的伤害) 和 `critical`(该次命中成为重击，因此带 `onCritical` 的子项生效，日志也会说明) 要求 `"when": "hit"` 和 `"by": "attacker"`。
+- 消费可以产生以下任意效果：`condition` 对某人施加你的某个状态，持续 `rounds` 轮或直到某种东西结束它；`track` 将普通实时轨道改变 `by`(如紧张、压力)，绝不能是生命轨道；`boost` 和 `setback` 为受影响者在本场战斗的下一次掷骰增加相应数量的骰子，并由那次掷骰用掉。`on` 为 `attacker`、`target`、`attacker-ally` 或 `target-ally`；盟友指该阵营中下一个行动的人，没有符合条件的盟友时，就不购买该消费。
+- `worth`：可选，AI 以伤害点数衡量的消费价值。省略时，Engine 按效果计算：伤害按点数，一个状态值两点，下一次掷骰的一颗骰子值略多于半点，轨道的一步值半点；这些效果作用于对方阵营，降低轨道或增加增益骰时也可作用于选择者自己的阵营。对选择者毫无价值的消费绝不会被购买。
+
+Engine 为双方用已有符号购买价值最高的消费，对玩家和对手一视同仁，并在日志中逐项说明。玩家也可以自己选择：在战斗画面勾选 Choose my own symbol spends(自行选择符号消费) 后，若一次掷骰让玩家操控的队员有可购买的效果，战斗就会等待，玩家可以逐项选择消费、让 Engine 选择剩余部分，或不再消费。玩家的选择遵循与 Engine 相同的规则（费用、`max`、`when` 和实际能生效的内容），Engine 仍为其他所有人选择。规则集无须为此添加任何内容。没人花费的符号留在掷骰结果中，供 Game Master 叙述。菜单的预测计入掷骰的所有可能结果：命中几率，以及计入成功和消费、扣除吸收之后一次命中造成的伤害。AI 据此衡量每次攻击，并扣除对方消费会让自己付出的代价。
+
+**仍由 Game Master 处理的内容。** 消费的费用属于规则集，而非每把武器，因此武器自身的重击评级要写成规则集共用的消费；重击自身的表仍由 Game Master 掷骰。豁免、检定或对抗上的优势不能用来购买任何东西：只有攻击掷骰的符号可以花费。战斗中升级难度骰的机制尚未实现。
 
 ### 最低伤害骰（Capability API 1.146）
 
@@ -2929,6 +2984,16 @@ Ember Roads 只声明其中一行，没有其他内容，这正说明其余部�
 
 **是否使用棋盘。** 两个条件必须同时满足：你的块声明了 `distance`，且玩家游戏设置为 Tactical 战斗样式。使用 Classic 样式或规则集未声明 `distance` 时，战斗与以前一样靠想象进行：任何人都可以指向任何人，完全不读取下面的内容。
 
+**游戏可以使用哪些样式。** `combat.styles` 按 ID 指定使用该规则集的游戏可用的战斗样式：`classic`、`tactical`，或客户端注册的样式（最多 8 种，每种一次，且至少包含 `classic` 和 `tactical` 之一）。省略时，与以前一样提供所有样式。规则需要棋盘（范围、触及、掩护、夹击）的规则集写 `"styles": ["tactical"]`：新游戏向导和游戏设置就只提供 Tactical，因此战斗始终带有位置。已经保存的游戏若使用未列出的样式，就改用列表中客户端能绘制的第一个样式（客户端没有注册列表中的自定义样式时，取列出的第一个内置样式）；创建游戏或在设置中切换样式时，都不能选择未列出的样式。已经开始的战斗保留开始时的样式。无论战斗导演是否开启，该列表都生效，因此它也会限制使用该规则集时 Marinara 自身的 Classic 和 Tactical 战斗。使用 `styles` 的规则集需要 Capability API 1.379。
+
+```json
+"combat": {
+  "kind": "attack-vs-defense",
+  "styles": ["tactical"],
+  "distance": { "label": "feet", "perCell": 5 }
+}
+```
+
 **玩家看到什么。** 棋盘会绘出 Tactical 样式自身的地形。每格都是可用指针或方向键访问的按钮，说明它是什么、谁在上面，以及尚未完成的选择如何影响它。行走时会点亮菜单提供的格子，每格以你自己的单位标出费用，绘出到达路径，并将路径中有人会出手攻击的格子标为琥珀色，在棋盘下方列出攻击者。需要目标的选项会在棋盘和列表中同时高亮可选对象。带 `area` 的选项瞄准格子，指针下的格子会说明将卷入谁，包括友军。剩余移动额度显示在行动额度旁边，也使用你的单位。画面不自行测量任何内容：每个格子、费用、路径、目标和瞄准位置都由服务器发送。
 
 **移动。** 每回合的移动额度，队友取 `economy.movement`，生物取自己的 `speed`，除以 `perCell` 后向下取整；但只要还能移动，就至少为一格。额度在持有者自己的回合开始时补满，可在行动前、行动间和行动后使用：走动、攻击、再走动。踏入一格费用为 1，崎岖地面则更高。八个方向的费用相同，因为这正是所面向的桌面网格玩法。可以经过友军，但不能停在任何人的格子上；敌人视作墙；不能进入实体障碍，也不能从两个实体格之间斜切墙角。
@@ -2952,6 +3017,8 @@ Ember Roads 只声明其中一行，没有其他内容，这正说明其余部�
 - 被击倒、被撞倒在地或被限制到零速度时，它会按 `falling` 的规定坠落到下方地面，除非它有 `hover`。
 
 飞到与其高度相同或更高的地面上就会降落，就像地面上的飞行者飞上悬崖一样。没有新键：1.114 之前的 Engine 会让飞行者留在地面上，因此依赖高度的包要声明 1.114。
+
+**在空中**（Capability API 1.354）。在任何棋盘上，飞行者是否处于空中都单独记录：不能行走或带 `hover` 的飞行者从空中开始；在地面上的飞行者可通过免费的 Take off(起飞) 操作、向上飞行，或迈出只有飞行才能迈出的一步（水面上，或飞行比行走便宜的地方）起飞，通过免费的 Land(降落) 操作（仅能行走的飞行者可用）降落；若没有悬停能力，被撞倒在地、被击倒或被限制到零速度时也会落地。Fly down(向下飞行) 到地面高度后，在降落之前仍处于空中。在空中时，其生物美术使用飞行美术。目前其他规则都不读取这一状态。
 
 **触及与射程。** 武器行从 `combat.attacks[].reach` 和 `.range` 获取它们，各自可以是同一列表中的列，或对每行相同的数值：
 
@@ -3435,6 +3502,8 @@ burst, size 2, aimed at X        cone, size 3, aimed right      line, size 3, ai
 ```
 
 清单在 `contributions.assets.paths` 和 `files` 中列出 `ruleset.json` 和每个 `catalogs/<id>.json`，并附上各自的大小和 sha256。Pixelforge 等规则集编辑器可以生成这样的文件。**Import agents** → **Game Mode ruleset** 接受该文件，并显示与规则集文件相同的审核内容，包括每个目录及其条目数。其中没有任何内容是压缩的，因此它包含的内容绝不会超过其自身大小。它作为数据读取，从不作为包安装：如果它包含其他任何东西（其他键、其他任何文件、不是严格 base64 或不是 UTF-8 文本的文档），如果其清单超出规则集所需（任何代码、权限或其他贡献），如果某个文件不是清单所列的那个，如果某个 `$comment` 超过 2,000 个字符，或 `$schema` 指向 Engine 自身结构以外的任何东西，或者规则集或某个目录无法读取，它都会被拒绝并说明原因。它像规则集文件一样归为 `local/<its id>`，最大 24 MB，最多 12 个目录文件，每个 2 MB。一个版本就是其规则集与目录的整体，因此目录发生变化也需要提高 `version`。规则集包不接受 zip 格式。
+
+**通过官方智能体目录。** 发布在目录中的规则集必须是完全采用上述格式的规则集包文件 `<id>.ruleset.json`，绝不能是包 zip 文件（Capability API 1.374）。其清单声明 Capability API 1.374 或更新版本，因此旧版 Engine 不会看到它。Engine 使用与导入包文件相同的读取器和检查来读取它，核对它是否符合目录列出的清单，并像其他目录包一样安装。目录规则集的下载文件若为 zip，会在任何下载开始前被拒绝；已安装的规则集继续工作。
 
 **通过 GitHub 仓库。** 如果将作品保存在公开 GitHub 仓库，请把每个规则集放在仓库顶层的 `rulesets` 文件夹中，每个规则集一个文件：
 

@@ -40,7 +40,7 @@ describe el archivo en sí, para quien construya paquetes de otra forma.
 
 | Campo | Qué es |
 | --- | --- |
-| `creaturePackVersion` | Siempre `1`. |
+| `creaturePackVersion` | `1`, o `2` para un paquete con imágenes de vuelo (Capability API 1.352). |
 | `id` | Letras minúsculas, dígitos, `_` y `-`. La biblioteca guarda un paquete importado como `local/<id>`. |
 | `name`, `author` | Se muestran en la biblioteca. `author` es opcional. |
 | `version` | Un número entero. Una versión nunca se reescribe: para cambiar un paquete, sube su versión. Volver a importar el mismo archivo no cambia nada. |
@@ -65,6 +65,15 @@ lee de la cabecera de la imagen y rechaza un paquete cuyas hojas indiquen otra c
 | `w`, `h` | El tamaño de un fotograma en celdas, de 1 a 6 cada uno. |
 | `frames` | `1` para una criatura quieta, `3` para una que camina (paso, de pie, paso). |
 | `variants` | Sus **aspectos**, de 1 a 8, cada uno con el lugar de la hoja donde empieza su bloque: `sheet` y la celda superior izquierda `x`, `y`. |
+| `fly` | Opcional, necesita `creaturePackVersion` 2: sus bloques de **vuelo**, con la estructura de un bloque de caminata (tres fotogramas de ancho y las cuatro orientaciones hacia abajo), colocados como `variants`. Uno para todos los aspectos, o uno por aspecto en el mismo orden. |
+
+### Vuelo
+
+Una criatura con `fly` se dibuja desde su bloque de vuelo, reproduciendo los fotogramas 0, 1, 2, 1,
+mientras se muestra en el aire en una pelea: tiene velocidad de vuelo pero no de caminata, flota, está
+elevada sobre el suelo o voló en este turno (un paso que solo permite su vuelo, como sobre el agua).
+En los demás casos se dibuja desde su aspecto como antes. Un paquete de mapas de Experience cuyos
+paquetes de criaturas tengan imágenes de vuelo necesita Capability API 1.352.
 
 ### Qué nombra `match`
 

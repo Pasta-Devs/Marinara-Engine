@@ -1,17 +1,16 @@
 # Gałęzie czatu
 
-Z tego przewodnika dowiesz się, czym jest gałąź czatu w aplikacji Marinara Engine i jak ją utworzyć. Znajdziesz tu też opis przełączania, zmiany nazwy, usuwania, eksportu i importu gałęzi. Dzięki gałęzi da się sprawdzić inny przebieg czatu bez utraty oryginału.
+Z tego przewodnika dowiesz się, czym jest gałąź czatu w aplikacji Marinara Engine i jak ją utworzyć. Znajdziesz tu też opis przełączania, wyświetlania grafu gałęzi, zmiany nazwy, usuwania, eksportu i importu gałęzi. Dzięki gałęzi da się sprawdzić inny przebieg czatu bez utraty oryginału.
 
 ## Czym jest gałąź
 
 Gałąź to kopia czatu ze wspólną historią do wybranego miejsca. Gałęzie służą do sprawdzania innego kierunku fabuły, a oryginalny czat zostaje nietknięty.
 
-Wszystkie gałęzie tego samego czatu są zgrupowane razem. Na liście czatów czat z więcej niż jedną gałęzią zajmuje jeden wiersz. Obok niego widać małą liczbę gałęzi. Gałęzie otwiera się i przełącza w sekcji **Chat Branches** (gałęzie czatu) w **Chat Settings** – opis poniżej.
+Wszystkie gałęzie tego samego czatu są zgrupowane razem. Na liście czatów czat zachowuje swój wiersz i pokazuje liczbę gałęzi. Gdy co najmniej jedna gałąź w grupie ma zapisane, z którego czatu w tej grupie powstała, kliknięcie tej liczby rozwija pod nim gałęzie; gałąź o nieznanym źródle znajduje się bezpośrednio pod czatem. Sesje Game to numerowane sesje, więc grupa Game zawsze zajmuje jeden wiersz. Każda gałąź pokazuje nazwę wyświetlaną i czas ostatniej aktywności. Gałąź utworzona z gałęzi jest zagnieżdżona pod nią, więc gałęzie gałęzi tworzą drzewo. Możesz przejść prosto do gałęzi z listy albo użyć sekcji **Chat Branches** (gałęzie czatu) w **Chat Settings** do zmiany nazwy, usuwania, eksportu i importu – opis poniżej.
 
 Każda gałąź może mieć własną nazwę wyświetlaną, więc da się je opisać na przykład jako "przyjazne zakończenie" i "mroczne zakończenie". Ta nazwa wyświetlana jest niezależna od nazwy samego czatu.
 
-
-Pochodzenie gałęzi zapisuje bezpośredni czat źródłowy i wiadomość rozwidlenia. Zachowuje ID źródłowej wiadomości i jej kopii, dzięki czemu integracje rozpoznają granicę mimo nowych ID kopii. Gałąź utworzona z gałęzi wskazuje ją jako bezpośredniego rodzica, nie pierwotny czat główny. Starsze gałęzie i zaimportowane gałęzie równoległe zachowują nazwę, ale nie mają znanego pochodzenia.
+Pochodzenie gałęzi zapisuje bezpośredni czat źródłowy i wiadomość rozwidlenia. Zachowuje ID źródłowej wiadomości i jej kopii, dzięki czemu integracje rozpoznają granicę mimo nowych ID kopii. Gałąź utworzona z gałęzi wskazuje ją jako bezpośredniego rodzica, nie pierwotny czat główny. Starsze gałęzie i zaimportowane gałęzie równoległe zachowują nazwę, ale nie mają znanego pochodzenia: grupa bez znanego pochodzenia zachowuje jeden wiersz na liście czatów, a jej gałęzie nadal otwiera się w sekcji **Chat Branches**.
 
 ## Przycisk **Branch from here**
 
@@ -44,6 +43,24 @@ Sekcja wypisuje wszystkie gałęzie bieżącego czatu, a oglądana w danej chwil
 ### Przełączanie na inną gałąź
 
 Kliknij dowolny wiersz gałęzi, żeby ją otworzyć. Widok czatu przechodzi na wybraną gałąź.
+
+### Wyświetlanie grafu gałęzi
+
+Graf gałęzi pokazuje, w którym miejscu każda gałąź się oddzieliła, czego nie widać na liście.
+
+1. Otwórz sekcję **Chat Branches**.
+2. Kliknij przycisk **Branch graph** (graf gałęzi), długi przycisk nad przyciskami eksportu. Kliknij go ponownie, aby zamknąć graf.
+
+Graf otwiera się we własnym oknie, które można przenosić i skalować. Na telefonie otwiera się jako wysuwany panel. Graf wypełnia okno: w większym oknie zwija mniej odcinków, a przy zapasie miejsca powiększa się i rozsuwa elementy. Nieco zbyt szeroki graf pomniejsza się do rozmiaru okna, ale nie poniżej trzech czwartych pierwotnego rozmiaru; przy większej szerokości przewija się w poziomie. Wiersze dzielą między siebie wysokość okna i przewijają się, gdy czatów jest zbyt wiele, by się zmieściły.
+
+- Każdy czat w grupie ma jeden wiersz, w tej samej kolejności drzewa co lista czatów. Wiadomości biegną od lewej do prawej, po jednej kropce na wiadomość. Szare kropki to twoje wiadomości, kropki w kolorze akcentu to odpowiedzi postaci, a puste kółka to wiadomości narratora lub systemowe.
+- Gałąź rysuje tylko własne wiadomości. Linia łączy ją z wiadomością, od której powstała, więc widać dokładne miejsce rozwidlenia.
+- Starsze gałęzie i gałęzie, których czat źródłowy usunięto, nie mają zapisanego punktu rozwidlenia. Przerywana linia łączy je z czatem na górze, a legenda pokazuje **Fork not recorded** (nie zapisano rozwidlenia).
+- Długie odcinki bez pobliskiego rozwidlenia zwijają się do znacznika **··· N ···**, gdzie N to liczba ukrytych wiadomości. Kliknij go, aby pokazać te wiadomości, lub użyj **Expand all** (rozwiń wszystko), aby rozwinąć każdy odcinek. **Collapse long runs** (zwiń długie odcinki) zwija je ponownie.
+- Punkty rozwidleń i ostatnia wiadomość każdej gałęzi mają obwódkę. Najedź na obwódkę, dotknij jej lub ustaw na niej fokus klawiaturą, aby zobaczyć numer wiadomości, jej autora i początek tekstu.
+- Kliknij nazwę lub wiersz gałęzi, aby do niej przejść. Oglądana gałąź jest wyróżniona, a graf otwiera się przewinięty do jej ostatniej wiadomości.
+
+Graf aktualizuje się po utworzeniu gałęzi, zmianie nazwy lub usunięciu czatu oraz krótko po pojawieniu się nowych wiadomości.
 
 ### Zmiana nazwy gałęzi
 

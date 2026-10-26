@@ -186,8 +186,8 @@ Game Mode wysyła do AI trzy różne rodzaje zapytań. Ich znajomość pomaga zr
 Na pasku wpisywania, obok przycisku dołączania plików, jest mały przycisk z dymkiem. Jego podpowiedź brzmi **Choose who to address**. Ten przycisk decyduje o tym, do kogo trafia wiadomość, i ma trzy stany.
 
 - Domyślnie wiadomość trafia do sceny. To zwykłe działanie w grze albo kwestia dialogowa. Postać GM i drużyna odpowiadają w ramach historii.
-- Opcja **Talk to Party** dodaje znacznik `[To the party]` i kieruje wypowiedź wprost do towarzyszy. Użyj jej do rozmów taktycznych w stylu "What should we do here?". Ta opcja pojawia się tylko wtedy, gdy drużyna nie jest pusta.
-- Opcja **Talk to GM** dodaje znacznik `[To the GM]` i zwraca się do postaci GM poza rolą. Użyj jej do pytań w rodzaju "Does my character know about the temple?" albo do próśb o zmianę tempa.
+- Opcja **Talk to Party** dodaje znacznik `[To the party]` i kieruje wypowiedź wprost do towarzyszy. Użyj jej do rozmów taktycznych w stylu "Co powinniśmy tu zrobić?". Ta opcja pojawia się tylko wtedy, gdy drużyna nie jest pusta.
+- Opcja **Talk to GM** dodaje znacznik `[To the GM]` i zwraca się do postaci GM poza rolą. Użyj jej do pytań w rodzaju "Czy moja postać wie o świątyni?" albo do próśb o zmianę tempa.
 
 Aktywny tryb ma w menu znacznik **On**. Aby wyłączyć opcję **Talk to Party** albo **Talk to GM**, kliknij tę samą pozycję menu jeszcze raz. Wiadomości wracają wtedy do sceny.
 
@@ -203,7 +203,7 @@ Ustawienie **Game tool connection** (połączenie dla narzędzi gry) ma domyśln
 
 Połączenia subskrypcyjne Claude i Grok nie obsługują natywnych wywołań narzędzi. Odpowiednie kontrolki wyjaśniają to i są wyłączone, dopóki nie wybierzesz obsługiwanego połączenia narzędzi gry. Polecenia tekstowe i znaczniki kości nadal działają. Jeśli osobnego połączenia brakuje lub zapytanie do niego się nie powiedzie, tura zgłasza błąd zamiast po cichu kontynuować narrację bez żądanej pracy narzędzi.
 
-**Finish rolled turns in one request** (kończenie tur z rzutami jednym żądaniem) zmienia drugi opisany wyżej rodzaj wywołania. Tura z rzutem zwykle kosztuje dwa żądania: szkic i przepisanie wyniku z rzeczywistymi liczbami. Po włączeniu GM pisze wynik w ciemno, a silnik uzupełnia liczby później, więc wystarcza jedno żądanie. Domyślnie opcja jest wyłączona. Dwa przypadki nadal dodają żądanie: wywołanie narzędzia kości przy włączonym **Enable Tool Use** oraz osobne **Game tool connection**, które zawsze wysyła własne żądanie planowania. Zobacz [Game Mode: kości i testy umiejętności](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request).
+**Finish rolled turns in one request** (kończenie tur z rzutami jednym żądaniem) zmienia drugi opisany wyżej rodzaj wywołania. Bez tej opcji tura z rzutem kosztuje dwa żądania: szkic i przepisanie wyniku z rzeczywistymi liczbami. Po włączeniu GM pisze wynik w ciemno, a silnik uzupełnia liczby później, więc wystarcza jedno żądanie. Domyślnie opcja jest włączona. Dwa przypadki nadal dodają żądanie: wywołanie narzędzia kości przy włączonym **Enable Tool Use** oraz osobne **Game tool connection**, które zawsze wysyła własne żądanie planowania. Zobacz [Game Mode: kości i testy umiejętności](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request).
 
 Jeśli lokalne modele współdzielą ograniczoną pamięć GPU, otwórz **Chat Settings → Agents** i włącz **Run Game tasks one at a time** (wykonuj zadania Game pojedynczo). Narracja, agenci i multimedia sceny czekają na siebie w obrębie tego czatu Game. Opcja jest domyślnie wyłączona i nie rezerwuje GPU względem innych czatów ani aplikacji. Obecne przyciski anulowania pozostają dostępne podczas pracy i oczekiwania.
 
@@ -283,7 +283,7 @@ Więcej objawów i sposobów naprawy znajdziesz w przewodniku [Rozwiązywanie pr
 
 ### Postać GM opowiada pogodnie mimo wybranego mrocznego tonu
 
-Część modeli trzyma radosny ton niezależnie od ustawień. Są dwa wyjścia. Dopisz wyraźną instrukcję w polu preferencji w kreatorze, na przykład "keep narration grim, do not soften failures". Albo przełącz się na model, którego domyślny głos pasuje do wybranego tonu.
+Część modeli trzyma radosny ton niezależnie od ustawień. Są dwa wyjścia. Dopisz wyraźną instrukcję w polu preferencji w kreatorze, na przykład "utrzymuj ponury ton narracji, nie łagodź porażek". Albo przełącz się na model, którego domyślny głos pasuje do wybranego tonu.
 
 ## Powiązane przewodniki
 

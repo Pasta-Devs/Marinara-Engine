@@ -59,6 +59,18 @@ Der erste Block heißt **Persona Status Bars** (Statusleisten der Persona) und w
 
 Der zweite Block heißt **RPG Attributes** und wird über **Enable RPG Attributes** (RPG-Attribute aktivieren) eingeschaltet. Er funktioniert wie bei einer Charakterkarte: Die Persona bekommt **Pools** (Start: HP und MP mit 100 von 100) und **Attributes** (Start: STR, DEX, CON, INT, WIS und CHA mit 10).
 
+<a id="game-mode-icon"></a>
+
+### Symbol für Game Mode
+
+Beide **Stats**-Tabs haben einen Block **Game Mode Icon** (Symbol für Game Mode). Er legt fest, welches Bild auf dem runden Token dieses Charakters oder dieser Persona bei einem Kampf in Game Mode auf dem Spielfeld erscheint. Das kleine Token neben den Optionen zeigt, was auf dem Spielfeld zu sehen sein wird.
+
+- **Avatar** (der Standard) verwendet den Avatar. Ohne Avatar zeigt das Token die Initialen.
+- **Custom image** (eigenes Bild) verwendet ein Bild aus der Galerie der Karte. Wähle eines der angezeigten Galeriebilder oder lade ein neues hoch, das der Galerie hinzugefügt wird. Dafür muss die Karte zuvor einmal gespeichert worden sein.
+- **Initials** (Initialen) zeigt immer die Initialen, auch wenn ein Avatar vorhanden ist.
+
+Dasselbe Bild erscheint für diesen Charakter auch in den anderen Kampfstilen. Wenn du das ausgewählte Bild aus der Galerie löschst, weist der Block darauf hin. Wähle ein anderes oder wechsle zurück zu **Avatar**.
+
 <a id="ruleset-sheets"></a>
 
 ### Regelsatzbögen
@@ -68,6 +80,8 @@ Ist ein Game Mode-Regelsatz installiert, etwa 5e (SRD 5.1), bekommen beide **Sta
 1. Klapp den Eintrag auf und klick auf **Add a sheet** (Bogen hinzufügen). Du bekommst einen leeren Bogen, in dem jeder Wert auf dem Standard des Regelsatzes steht.
 2. Füll ihn aus. Der Aufbau kommt vom Regelsatz selbst: Attributswerte mit ihren Modifikatoren, nach Abschnitten gruppierte Felder, Listen wie Angriffe und Zauber sowie Fertigkeiten und Rettungswürfe mit je einer Ausbildungsstufe und einem Zusatzbonus. Berechnete Werte wie ein Übungsbonus oder die passive Wahrnehmung aktualisieren sich beim Tippen und lassen sich nicht bearbeiten.
 3. Speichere Charakter oder Persona wie gewohnt.
+
+Du kannst auch Professor Mari bitten, einen Bogen auszufüllen oder zu ändern, etwa: „Gib Rook einen Brawn-Wert von 2 und füge Rooks Ausrüstung ein Brecheisen hinzu.“ Sie schreibt nur den Bogen dieses Regelsatzes, hält jeden Wert innerhalb seiner Grenzen und zeigt die Änderung auf einer Änderungskarte.
 
 Ein Bogen hier ist die **Startkonfiguration** des Charakters für diesen Regelsatz. Ein neues Spiel mit dem Regelsatz übernimmt eine Kopie davon. Änderungen im Spiel bleiben in diesem Spiel und gelangen nie zurück auf die Karte.
 

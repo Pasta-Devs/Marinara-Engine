@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "f258e40d3a41e7b049620d8e0637ecc892a31256",
+  "sourceCommit": "7a81756e3b2c5e92a244a3ec0163fb70c660e7f5",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "7494b4bd5703e63ff82169ec447513f03e66ac4f12c4bcd1d7ae182cdd98ead6",
-      "bytes": 65516
+      "sha256": "38de5ed66ce8023d67f7746976d0bba7d97ac31a490879801b05e5b8ff2376ad",
+      "bytes": 68167
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -109,8 +109,8 @@
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "f9a933cbd7ae36679ef47efa38eb537191a70dfd6937a5e9b1777095b1d50af0",
-      "bytes": 10769
+      "sha256": "e726e7faca69242b8138b3f525fed559dea23ebc5b4d28cc2212afe4c1412dfc",
+      "bytes": 12100
     },
     {
       "path": "characters/creating-and-editing-characters.md",
@@ -139,8 +139,8 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "4583cf2bba913020308e000bdb2875b9b12cf2c5598519ac3e1bd2df609e3a3f",
-      "bytes": 21365
+      "sha256": "e4b52d777f50e7195c33eec3382f8b3155245e0b4c9364d91cd7d3032060dc63",
+      "bytes": 21633
     },
     {
       "path": "characters/sprites.md",
@@ -149,8 +149,8 @@
     },
     {
       "path": "chats/branches.md",
-      "sha256": "48405ce8b61906f4c4c2f2b0a90f37b18ea2a32348c701e6624cd57122a5246c",
-      "bytes": 7835
+      "sha256": "9d16608bf4ea0b1d1f879215744130a3111cec2df2e5bc6d7ede4287c5d9a49d",
+      "bytes": 11147
     },
     {
       "path": "chats/chat-settings.md",
@@ -359,8 +359,8 @@
     },
     {
       "path": "development/game-rulesets-and-sheets-implementation.md",
-      "sha256": "1cfeebf28b9d31c535c7f161805c617e6f70225a273113a0780aca171b8f514f",
-      "bytes": 263387
+      "sha256": "43ebcd676512a8f09d464fa773f0fc08e4d04d7fa26ba40f4f774bd75bb50fd0",
+      "bytes": 263724
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "e7e418e55b3940ddb0216b14cc27f66c80df62ac5e1de743513cee553c04b386",
-      "bytes": 150952
+      "sha256": "08615a60d76d897606468137e874be0b333c15d1943c208a3c803fa8e3acfd5e",
+      "bytes": 173448
     },
     {
       "path": "development/personal-extensions.md",
@@ -424,8 +424,8 @@
     },
     {
       "path": "extending/writing-creature-packs.md",
-      "sha256": "49957eeb523c16b41f492a03dfa072e28f252b253ce1f9025cbd4cd57e482f2d",
-      "bytes": 6384
+      "sha256": "e4d302d55405a260402571edbd98463a9c5f4dcc2580f75acc2c3d06fef42e07",
+      "bytes": 7246
     },
     {
       "path": "extending/writing-personal-extensions.md",
@@ -434,13 +434,13 @@
     },
     {
       "path": "extending/writing-rulesets.md",
-      "sha256": "80330620cf83abbc7e3489b28847b0ab731f3f86100d79ba6308222aac8a91b9",
-      "bytes": 581427
+      "sha256": "73e0ab0454378b4c59b7f0f104bfd49bbabe63c589506e105bdb7e147d830567",
+      "bytes": 598845
     },
     {
       "path": "extending/writing-story-scripts.md",
-      "sha256": "0114395ca082fc033aad403d7add2cb39d8c07987b3555a42aa8d1761849d170",
-      "bytes": 13749
+      "sha256": "8111c622a2b3c00f7bb8b74414dd44ca269f5d3bb7948604a913987cc8d0e09d",
+      "bytes": 36103
     },
     {
       "path": "game/combat.md",
@@ -449,8 +449,8 @@
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "dff3382c97ec66826d8e91b3ca45b61417613ba46310192f8a55ea96f1e17c19",
-      "bytes": 27762
+      "sha256": "8ed3ead20bb2f5bafcefb79f5c2ceb1cc203dc2d6c2478c8152b8b057b5c79d6",
+      "bytes": 27838
     },
     {
       "path": "game/game-assets.md",
@@ -459,8 +459,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "73eaedf80a477a6a11e6f515aa9053ed0a62b9f42ab49f26c1e64d6119662a3e",
-      "bytes": 46956
+      "sha256": "28c3e56babbd85aab20912a6f928327b559a175dd6d99fb1847e291e3175b448",
+      "bytes": 46961
     },
     {
       "path": "game/hud-widgets.md",
@@ -479,8 +479,8 @@
     },
     {
       "path": "game/party-and-npcs.md",
-      "sha256": "c37c1d05b3fdbf8db4df374ffd3ad6f58622f9d37ba865c695a34914dd07b607",
-      "bytes": 31344
+      "sha256": "04f3cefdf95d7fa84ac6070948b856824b723bfabd4f7b64ffdff87b91312229",
+      "bytes": 31793
     },
     {
       "path": "game/sessions-and-saves.md",
@@ -499,8 +499,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "ff681aded96d5e7bb50d2f5482791df511760ff6c09372c6c5d85858e12c489a",
-      "bytes": 34999
+      "sha256": "d6951d6cc40581e74c8921f752366c9c1fb295f08a1ef8ee67a7062914f616fa",
+      "bytes": 36803
     },
     {
       "path": "home/tutorial.md",

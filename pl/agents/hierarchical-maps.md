@@ -440,8 +440,8 @@ Bezpośrednie przejście skraca taką drogę do jednego kroku.
 O automatycznych zmianach mapy decyduje ostatnia wiadomość użytkownika:
 
 - Bezpośredni ruch drużyny w czasie teraźniejszym albo w trybie rozkazującym
-  ustala dotarcie na miejsce. Zdania "We go to the Kitchen" oraz "She moves into
-  the outdoor section; we follow her" mogą przenieść fabułę do pasujących
+  ustala dotarcie na miejsce. Zdania "Idziemy do kuchni" oraz "Ona wychodzi
+  na zewnątrz; podążamy za nią" mogą przenieść fabułę do pasujących
   znanych lokalizacji.
 - Wyraźne dotarcie do ważnego, nazwanego i trwałego miejsca, do którego da się
   wrócić, albo odkrycie takiego miejsca może dodać je do świata. Zdanie "We
@@ -813,7 +813,7 @@ Automatyczny ruch wymaga tego, żeby ostatnia wiadomość użytkownika wprost
 ustaliła dotarcie drużyny na miejsce, a model wysłał poprawną ukrytą dyrektywę
 pakietu. Sama narracja AI, zamiar, dyskusja, nieudana podróż, ruch samych postaci
 NPC i miejsca przejściowe nie przesuwają znacznika. Spróbuj wprost, na przykład
-"We go to the Kitchen." Kiedy kolejna tura ma przenieść fabułę na pewno, użyj
+"Idziemy do kuchni." Kiedy kolejna tura ma przenieść fabułę na pewno, użyj
 przycisku **Set destination**.
 
 ### Bieżąca lokalizacja zmieniła się po ponownym otwarciu czatu

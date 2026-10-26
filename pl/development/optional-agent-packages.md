@@ -697,6 +697,236 @@ Pakiet `game-surface` konfigurowany w kreatorze Game (`gameSurface.setup`, 1.18)
 
 Engine odczytuje pliki zweryfikowaną ścieżką zasobów (deklarowany rozmiar najwyżej 8 MB na plik, hash sprawdzany ponownie) i sprawdza je tak samo jak pliki do udostępniania. Pakiet jest odrzucany w całości, z podaniem powodu, gdy któregoś pliku nie da się odczytać, gdy świat powstał na innym zestawie realiów albo do niego nie pasuje lub gdy bajty pliku nie są tymi zainstalowanymi; Experience nie może wtedy rozpocząć gry. Zestaw zasad nigdy nie jest częścią pakietu map: Experience, które potrzebuje własnych zasad, dostarcza osobny pakiet zestawu zasad.
 
+#### Capability API 1.344: pakiety stworzeń
+
+`mapPack.creatures` wymienia do 8 plików `.creaturepack.json` (każdy to zadeklarowany zasób, odczytywany i sprawdzany tak, jak biblioteka odczytuje pakiet stworzeń). W grze danego Experience każda walka szuka grafiki stworzenia najpierw w tych pakietach, w ich kolejności, a następnie w pakiecie stworzeń wybranym w bibliotece.
+
+#### Capability API 1.345: muzyka
+
+Od 1.345 zasoby pakietu mogą zawierać dźwięk: `.ogg`, `.mp3` lub `.wav`, każdy do 16 MB. `mapPack.music` określa utwory Experience i momenty ich odtwarzania:
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+Każdy utwór jest też zadeklarowanym zasobem, a każdy wskazany identyfikator utworu należy do `tracks`. Miejsce w `places` to miejsce jednego ze światów pakietu, wskazane identyfikatorem. Poza walką gra odtwarza utwór miejsca, w przeciwnym razie utwór najbliższego miejsca, w którego obrębie się znajduje i które ma utwór, a w dalszej kolejności `default`; podczas walki – `combat`. Akcja `music` fabuły (zobacz [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md)) włącza jeden z utworów z pierwszeństwem przed wszystkimi tymi ustawieniami, dopóki nie odda im sterowania. Jeśli żadne z nich nie obowiązuje, gra własna muzyka Engine. Gracz, który wybrał własne źródło muzyki (Music DJ, Spotify), słyszy je zamiast niej: jego wybór zawsze wygrywa.
+
+#### Capability API 1.346: ludzie
+
+`mapPack.people` to plik `.people.json` (zadeklarowany zasób), który nadaje wygląd nazwanym osobom ze światów pakietu. Ludzie pochodzą z samego świata, wygenerowani i nazwani albo dodani ręcznie w jego zmianach (w narzędziu Pixelforge lub zakładce World), więc stoją w swoich miejscach jak wszyscy inni; plik określa, kim są:
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person` to identyfikator osoby z jednego ze światów pakietu (`<place id>-<n>` albo `-e<n>` dla osoby dodanej ręcznie), a osoba ta musi mieć w nim imię.
+- `portrait` i `expressions` (`neutral`, `happy`, `sad` i pozostałe wyrazy twarzy narracji) to obrazy wśród zasobów pakietu. Portret pojawia się w zakładce Journal, gdy gra spotka tę osobę, a jej wyrazy twarzy są używane przy wypowiadanych przez nią kwestiach.
+- `sprite` to postać z własnych (graficznych) kafelków pakietu, używana podczas chodzenia po mapach miast i miejsc zamiast postaci dobieranej automatycznie.
+- `description`, `voice` i `lore` stają się lorebookiem tworzonym przy każdej nowej grze Experience (_nazwa Experience_: ludzie), aktywnym od pierwszej tury: jeden wpis na osobę, przywoływany jej imieniem, jeden na wpis `lore` według jego własnych słów kluczowych i jeden na wpis własnego `lore` pliku.
+
+#### Capability API 1.347: towarzysze
+
+Osoba może być towarzyszem: kimś, kogo drużyna może przyjąć, aby brak leczenia, zwiadu czy światła w ciemności nigdy nie uniemożliwiał jej zrobienia tego, czego wymaga fabuła.
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets` zawiera arkusz dla każdego zestawu zasad, w którym towarzysz może dołączyć do gry, według identyfikatora zestawu. `v` to wersja arkusza zestawu zasad, dla której napisano konfiguracje (starsze są migrowane tak jak zapisane arkusze).
+- `level` wskazuje pola arkusza zawierające poziom postaci w tym zestawie zasad, sumowane ze sobą (arkusz wieloklasowy ma po jednym na klasę). Pola poziomu każdej konfiguracji muszą sumować się do jej `at`, a konfiguracje muszą być uporządkowane rosnąco.
+- Towarzysz dołącza z konfiguracją dla najwyższego poziomu osiągniętego przez drużynę (z najniższą, gdy drużyna jest poniżej wszystkich), a po każdej turze przechodzi do wyższej konfiguracji, gdy drużyna osiągnie jej poziom. Arkusz rozwinięty przez gracza powyżej swojej konfiguracji pozostaje nietknięty i nic go nie obniża. Zdrowie, pule i stany są przechowywane osobno, więc awans je zachowuje. Dostarcz konfigurację dla każdego poziomu, na którym towarzysz ma być grywalny.
+- Fabuła przyjmuje ich i odprawia akcjami `recruit` oraz `dismiss`. Mistrz Gry dostaje informacje, kim są towarzysze, gdzie przebywają i co wnoszą, i może przyjąć tylko ich (`[party_change]` wskazujące kogokolwiek innego jest odrzucane); własne postacie gracza z biblioteki nadal mogą dołączać.
+- Towarzysz dołącza jak każda zwerbowana postać: znajduje się na liście drużyny, ma kartę i arkusz oraz walczy w walce taktycznej. W grze z zestawem zasad, dla którego nie ma arkusza, dołącza z pustym.
+
+Plik ludzi z towarzyszami wymaga 1.347; bez nich – 1.346. Fabuła przyjmująca lub odprawiająca kogoś wymaga 1.347, a każda wskazana osoba musi być towarzyszem w pliku ludzi pakietu.
+
+#### Capability API 1.350: sprawdzanie pakietu przed eksportem
+
+Aplikacja do tworzenia treści (Pixelforge) może poprosić Engine o sprawdzenie całego pakietu map przed eksportem pakietu, dokładnie tak, jak odczytywany jest pakiet zainstalowany, bez jego instalowania:
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` zawiera każdy plik JSON wskazany przez blok (zestaw realiów, światy, kafelki, pakiety stworzeń, ludzi), już sparsowany; `assets` wymienia pozostałe zasoby pakietu (obrazy, dźwięk) według ścieżki i rozmiaru. Odpowiedź to `{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`: `minor` to wymagana przez pakiet wersja podrzędna Capability API (1.`minor`), a `issues` wskazuje każdy problem kluczem bloku (`mapPack.music.default`) albo plikiem, w którym występuje. Wszystkie problemy z regułami samego manifestu (zadeklarowane zasoby, identyfikatory utworów, rozmiary dźwięku) są zgłaszane; sprawdzanie plików zatrzymuje się na pierwszym problemie, tak jak przy instalacji.
+
+#### Capability API 1.351: utrzymywane pory roku
+
+Fabuła świata może utrzymywać w miejscach porę roku niezależnie od daty (`seasons` i akcja `season`: zobacz [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md#seasons)), a pola bitwy świata mogą mieć namalowane pory roku (wiersze `seasons` i `seasonKeys`). Pakiet map z którymkolwiek z tych elementów wymaga 1.351. Mapa świata odczytuje takie miejsca jako `seasons` (identyfikator miejsca na porę roku, `*` dla całego świata) z `GET /api/game/:chatId/overworld`; gotowe pole bitwy zawiera początkowe pory roku kafelków jako `seasons`, z kluczami `"x,y"`.
+
+#### Capability API 1.355: nakładki zestawów zasad
+
+Pakiet map Experience może rozszerzać zestawy zasad jego gier, dopóki Experience jest włączone: o własne stworzenia, stany i przedmioty, których dostarczanie nie należy do pakietu zestawu zasad.
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+Każdy plik `.overlay.json` (zadeklarowany jako zasób, tak jak inne pliki pakietu) dotyczy jednego zestawu zasad, wskazanego identyfikatorem. Zestaw zasad zaimportowany z pliku (`local/<id>`) albo repozytorium (`<owner>/<id>`) używa nakładki dla swojego identyfikatora bez prefiksu, chyba że pakiet wskazuje też jego dokładny identyfikator:
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags` dołącza do `combat.creatureTypes.tags` zestawu zasad, `conditions` do jego `combat.conditions`, `sheetConditions` do jego `sheet.live.conditions`, `creatures` do jego katalogu `creatures`, a każda lista z `catalogs` do katalogu o danym identyfikatorze. Gra z tym zestawem zasad i włączonym Experience używa zestawu z całą tą scaloną zawartością (walki fabuły, `give`, własne użycia Mistrza Gry), a zestaw zasad jest ponownie odczytywany w całości: nakładka, której wpisy do niego nie pasują albo która ponownie używa jego identyfikatora, jest pomijana w całości, a gra używa zestawu w dotychczasowej postaci. `POST /api/game/experience/check` scala każdą nakładkę z jej zainstalowanym zestawem zasad i zgłasza to, co nie pasuje.
+
+Od Capability API 1.367 nakładka może dodawać też tory arkusza, `"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`, o strukturze `sheet.live.tracks` zestawu zasad, do których dołączają: tor zadeklarowany przez nakładkę jest pokazywany na arkuszu, przesuwany poleceniami arkusza i zachowywany dla znamion nakładanych przez Held Ground fabuły albo zasadę światła planszy. Pakiet z nakładką dodającą tory wymaga 1.367.
+
+#### Capability API 1.357: wygląd lochów i własny opis ręcznej mapy
+
+Ręcznie wykonane mapy Experience mogą mieć własny wygląd, nie tylko zestawy jaskini, krypty, świątyni i stacji z biblioteki, a Mistrz Gry może dostawać ich własne opisy.
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+Każdy to graficzny zestaw kafelków (`tilePackVersion` 2) o układzie zestawu lochu: `dn_floor`, `dn_wall`, `dn_liquid`, od `dn_prop0` do `dn_prop7` (`dn_liquid` może mieć elementy krawędziowe, jak zestaw z biblioteki). Musi rysować co najmniej `dn_floor` i `dn_wall`; pozostałe elementy używają zastępczo jednolitych kolorów. Ręczna mapa (`edits.maps`), której `pack` wskazuje jeden z ich identyfikatorów, jest rysowana z jego użyciem, z pierwszeństwem przed pakietem biblioteki o tym identyfikatorze. Dwa zestawy nie mogą mieć tego samego identyfikatora.
+
+Ręczna mapa może też zawierać własny opis dla Mistrza Gry:
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props` to jeden wpis na miejsce obiektu, od 0 do 7 (`null` dla nieopisanego miejsca). Mistrz Gry dostaje wtedy opis mapy jako "Ręcznie wykonane miejsce (ziemia ze ścierniskiem, ściany ze stojącej kukurydzy), z rowem deszczówki; w nim: strach na wróble (2), kapliczka kukurydzianej lalki", zamiast samej informacji, że wykonano ją ręcznie. Obie funkcje wymagają Experience deklarującego 1.357.
+
+#### Capability API 1.359: przedmioty zużywające liczbę fabuły
+
+Nakładka może wskazywać przedmioty, których użycie zużywa jedną z flag liczbowych fabuły Experience (albo ją zwiększa):
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item` to `catalog/entry` scalonego zestawu zasad (wliczając własne przedmioty nakładki), wskazany jeden raz. Podczas walki użycie tego przedmiotu (przedmiotu z arkusza działającej postaci) jest odrzucane, gdy flaga, z uwzględnieniem niezapisanych jeszcze wydatków, jest poniżej `atLeast`: "Jar of Someone Else's Death wymaga 2 Debts Settled; drużyna ma 1." Użycie przyjęte przez walkę jest zachowywane w grze, a następna tura fabuły zapisuje je jeden raz (`spend="<id>"`, przez Engine), w granicach `min` i `max` flagi, i mówi Mistrzowi Gry, ile kosztowało. Każda flaga musi być flagą liczbową jednej z fabuł pakietu. Pakiet map ze `storyUses` wymaga 1.359.
+
+#### Capability API 1.360: drużyny powyżej sześciu osób i towarzysze, którzy nigdy nie walczą
+
+Warianty walki fabuły mogą dotyczyć drużyn większych niż sześcioosobowe albo nie mieć górnej granicy (`"party": { "min": 7 }`), a warunek fabuły może pytać o liczebność drużyny (`{ "partySize": { "is": ">=", "value": 7 } }`; zobacz [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md#conditions)).
+
+Towarzysz z pliku ludzi może nigdy nie walczyć:
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+Podróżuje z drużyną i jest opisywany Mistrzowi Gry jako nigdy niewalczący, ale nie liczy się do liczebności drużyny (dla wariantów walk i warunków `partySize`) i nie trafia do jej walk. Plik ludzi zawierający taką postać wymaga 1.360.
+
+### Capability API 1.372: wartości konfiguracji GM
+
+`contributions.gameSurface.setup.defaults` określa, czym wybór Experience w kreatorze Game wypełnia pola. Zapisuje je zakładka Experience narzędzia Pixelforge. Każdy klucz jest opcjonalny, a gracz nadal może zmienić każdą wartość:
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: najwyżej 100 znaków.
+- `genre` i `tone`: po 1 do 12 nazw, każda do 60 znaków, bez przecinków. Po połączeniu każda lista mieści się w 200 znakach.
+- `difficulty`: `Casual`, `Normal`, `Hard` lub `Brutal`.
+- `rating`: `sfw` lub `nsfw`.
+- `combatStyle`: `classic` lub `tactical`.
+- Limity tekstu: `setting` 4 000 znaków, `language` 100, `playerGoals` i `preferences` 2 000, `gameSpecialInstructions` 2 000, `artStylePrompt` 500.
+
+`intro` to wiadomość otwierająca Mistrza Gry (1.339), z takimi samymi zasadami jak `intro` skryptu fabuły (zobacz [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md#the-intro-message)). To jedyna blokowana wartość. Zablokowana wiadomość otwierająca jest w kreatorze tylko do odczytu, a gra zaczyna się od niej niezależnie od tego, co wyśle konfiguracja. Gra zachowuje wiadomość w postaci z początku gry (`chat.metadata.gameExperienceIntro`). Jest ona odczytywana przed własnym `intro` fabuły. Import pliku konfiguracji zachowuje własne wartości, a wyłączenie Experience pozostawia wypełnione wartości bez zmian.
+
+### Capability API 1.373: pliki Experience
+
+Experience zawierające wyłącznie obrazy, muzykę i dane może być przenoszone jako jeden plik `<id>.experience.json` zamiast archiwum zip pakietu. Gracze importują go w sekcji Experiences kreatora Game przyciskiem **Import an Experience file** (import pliku Experience); nie wymaga on katalogu agentów.
+
+Manifest ma `"kind": ["experience"]` i nic więcej w `kind`, wymaga `capabilityApi` 1.373 lub nowszego i nie zawiera kodu: `entrypoints` to `{}`, `permissions` jest puste, nie ma `restartRequired` ani `prepareBeforeStart`, a `contributions.slots` to dokładnie `["game-surface"]`. Każdy plik w `files` ma rozszerzenie `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` lub `.json`. Powierzchnia gry nie rysuje niczego własnego; Experience działa przez swoje wkłady `gameSurface` (konfigurację, mapy, światy, pakiety stworzeń, muzykę).
+
+Plik to JSON z kluczami w tej kolejności:
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` to opisany powyżej manifest pakietu, najwyżej 1 MB, i znajduje się przed wszystkimi plikami.
+- `files` przypisuje każdej ścieżce z `files` manifestu jej bajty w standardowym base64 (dopełnienie tylko na końcu, bez białych znaków ani znaków nowej linii wewnątrz). Każdy wymieniony plik występuje dokładnie raz i nie ma żadnych innych.
+- Ścieżki są zapisane bez sekwencji ucieczki, więc ścieżka z cudzysłowem, ukośnikiem odwrotnym, znakiem sterującym albo samotnym surogatem jest odrzucana.
+
+Zanim cokolwiek zostanie wysłane, kreator odczytuje tylko początek pliku, do końca manifestu, i pokazuje przegląd: nazwę, wersję i opis, rozmiar importu, udział obrazów, muzyki i danych oraz przyciski Import i Don't Import. Import wysyła plik do `POST /api/capability-packages/experience-file` (typ zawartości `application/vnd.marinara.experience+json`). Serwer odczytuje go w miarę napływania, zapisuje każdy plik do folderu tymczasowego i sprawdza rozmiar oraz `sha256` względem manifestu. Niedopasowany plik, brakujący lub dodatkowy plik, ucięty plik albo wersja starsza niż zainstalowana są odrzucane, a nic z zapisanego nie zostaje zachowane.
+
+Każdy plik musi następnie być tym, na co wskazuje nazwa. Obrazy przechodzą kontrolę sygnatury używaną przy imporcie kart postaci (`isAllowedImageBuffer`) i muszą mieć typ wskazany przez rozszerzenie, więc strona albo SVG nazwane `.png` są odrzucane. Są przechowywane bez metadanych: PNG zachowuje tylko fragmenty służące do rysowania (bez `tEXt`, `zTXt`, `iTXt`, `eXIf` ani `iCCP`); JPEG usuwa segmenty APP poza JFIF i Adobe oraz komentarze (więc orientacja EXIF nie zostaje zachowana); GIF usuwa komentarze, zwykły tekst i rozszerzenia aplikacji poza liczbą powtórzeń; WebP usuwa fragmenty EXIF, XMP i ICC. Muzyka musi być poprawnym plikiem Ogg Vorbis lub Opus (sprawdzana jest suma kontrolna każdej strony; komentarze i okładka są zerowane w miejscu), MP3 (z usuniętymi tagami ID3 i APE) albo WAV (zachowane są tylko fragmenty `fmt `, `fact` i `data`). Pliki danych muszą być plikami JSON w UTF-8. Wszystko po końcu obrazu lub dźwięku jest odrzucane. Zainstalowany manifest zapisuje rozmiary i hashe przechowywanych plików. Nowsza wersja zastępuje zainstalowaną, tak jak aktualizacja katalogu. Plik Experience nie może zastąpić pakietu innego rodzaju o tym samym identyfikatorze.
+
+Experience nigdy nie jest przyjmowane jako archiwum zip pakietu. Katalog agentów wymienia je tylko z adresem URL artefaktu kończącym się na `.experience.json`. Engine instaluje ten plik przez ten sam czytnik, kontrole i usuwanie metadanych i odrzuca go, jeśli jego manifest nie jest tym wymienionym w katalogu. Wpis katalogu będący Experience (`kind` równe `experience` albo slot `game-surface`) z dowolnym innym artefaktem jest odrzucany przed pobraniem czegokolwiek, a instalacja katalogu przy pierwszym uruchomieniu pomija Experiences. Zainstalowane już Experiences nadal działają.
+
+Pixelforge 0.45.0 eksportuje Experience jako taki plik i otwiera tylko pliki Experience.
+
 ### Capability API 1.18: konfiguracja Experience w kreatorze Game
 
 Pakiet `game-surface` może zadeklarować `contributions.gameSurface.setup` przy schemacie w wersji 2 i Capability API 1.18. Engine zachowuje siedem zwykłych kroków konfiguracji, w tym **Party** (Drużyna), cele, modele i lorebooki. Experiences są dostępne tylko przy nowych grach; ponowne otwarcie konfiguracji istniejącej gry zachowuje jej Experience i konfigurację pakietu. Pakiety bez tej deklaracji zachowują dawny dialog konfiguracji.
@@ -810,6 +1040,22 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 - `enterLabel` i `exitLabel`: zlokalizowane etykiety dostępności przełącznika.
 
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
+
+<a id="capability-api-1387-read-a-chats-summaries"></a>
+
+### Capability API 1.387: odczyt podsumowań czatu
+
+`persistence.listChatSummaries(chatId)` zwraca podsumowania przechowywane przez silnik dla danego czatu, więc pakiet nie musi ich odczytywać z metadanych czatu. Wymaga uprawnienia `chat-read`, tak jak `listMessages`, i zwraca kopie:
+
+- `day` i `week`: podsumowania trybu Conversation według daty (`"DD.MM.YYYY"`, tydzień według daty jego poniedziałku), każde w postaci `{ summary, keyDetails }`.
+- `rolling`: wpisy podsumowania narastającego w kolejności czatu, również wyłączone (sprawdź `enabled`). Czat zawierający tylko starsze pojedyncze podsumowanie zwraca je jako jeden wpis z `origin: "legacy"`, z datą ostatniej aktualizacji czatu.
+- `gameSessions`: podsumowanie każdej poprzedniej sesji gry w trybie Game. Każdy wpis jest kompletny: brakujące pole tekstowe jest odczytywane jako `""`, brakująca lista jako `[]`, starsza lista `revelations` dołącza do `keyDiscoveries`, a brakujące `sessionNumber` przyjmuje pozycję wpisu (od 1). Wpis bez daty otrzymuje czas ostatniej aktualizacji czatu.
+
+Dla czatu bez podsumowań lub nieznalezionego zwracane są puste wartości. Starsze wersje silnika nie mają tej metody: sprawdź, czy istnieje, albo zadeklaruj wersję 1.387.
+
+```ts
+const { day, week, rolling, gameSessions } = (await api.runtime.persistence.listChatSummaries?.(chatId)) ?? {};
+```
 
 <a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 

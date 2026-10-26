@@ -1,16 +1,16 @@
 # Ramas de chat
 
-Esta guía explica las ramas de chat en Marinara Engine: qué es una rama y cómo crear una. También cubre cómo cambiar entre ramas, renombrarlas, eliminarlas, exportarlas e importarlas. Una rama te deja probar un camino distinto en un chat sin perder el original.
+Esta guía explica las ramas de chat en Marinara Engine: qué es una rama y cómo crear una. También cubre cómo cambiar entre ramas, ver el gráfico de ramas, renombrarlas, eliminarlas, exportarlas e importarlas. Una rama te deja probar un camino distinto en un chat sin perder el original.
 
 ## Qué es una rama
 
 Una rama es una copia de un chat que comparte el historial hasta un punto que tú eliges. Usas las ramas para explorar una dirección distinta mientras mantienes a salvo el chat original.
 
-Todas las ramas del mismo chat se agrupan juntas. En la lista de chats, un chat con más de una rama aparece como una sola fila. Junto a él aparece un pequeño contador de ramas. Abres y cambias entre sus ramas desde la sección **Chat Branches** (Ramas de chat) de **Chat Settings** (ver más abajo).
+Todas las ramas del mismo chat se agrupan juntas. En la lista de chats, el chat conserva su fila y muestra un contador de ramas. En cuanto al menos una rama del grupo registra de cuál de los chats del grupo se creó, hacer clic en ese contador despliega las ramas debajo; una rama cuyo origen se desconoce aparece directamente debajo del chat. Las sesiones de Game son sesiones numeradas en lugar de ramas, así que un grupo de Game siempre conserva una sola fila. Cada rama muestra su nombre para mostrar y cuándo estuvo activa por última vez. Una rama creada a partir de otra se anida debajo de ella, así que las ramas de ramas se ven como un árbol en lugar de una lista plana. Puedes cambiar directamente a una rama desde la lista, o usar la sección **Chat Branches** (Ramas de chat) de **Chat Settings** (ver más abajo) para renombrarlas, eliminarlas, exportarlas o importarlas.
 
 Cada rama puede tener su propio nombre para mostrar, así puedes etiquetarlas como "final amistoso" y "final oscuro". Este nombre para mostrar es distinto del nombre del chat subyacente.
 
-El linaje de una rama registra el chat de origen inmediato y el mensaje donde se creó la rama. Se conservan tanto el ID del mensaje de origen como el de su copia; así las integraciones pueden identificar el límite de la rama aunque los mensajes copiados reciban IDs nuevos. Si ramificas una rama, se registra esa rama como padre inmediato, no la raíz original. Las ramas antiguas y las hermanas importadas conservan su nombre para mostrar, pero no tienen un linaje conocido.
+El linaje de una rama registra el chat de origen inmediato y el mensaje donde se creó la rama. Se conservan tanto el ID del mensaje de origen como el de su copia; así las integraciones pueden identificar el límite de la rama aunque los mensajes copiados reciban IDs nuevos. Si ramificas una rama, se registra esa rama como padre inmediato, no la raíz original. Las ramas antiguas y las hermanas importadas conservan su nombre para mostrar, pero no tienen un linaje conocido: un grupo sin linaje conocido conserva una sola fila en la lista de chats, y sus ramas siguen siendo accesibles desde la sección **Chat Branches**.
 
 ## Ramificar desde aquí
 
@@ -43,6 +43,24 @@ La sección lista todas las ramas del chat actual y muestra primero la que está
 ### Cambiar a otra rama
 
 Haz clic en una fila para abrir esa rama. La vista del chat cambia a la rama que elegiste.
+
+### Ver el gráfico de ramas
+
+El gráfico de ramas muestra dónde se separó cada rama, algo que la lista no puede mostrar.
+
+1. Abre la sección **Chat Branches**.
+2. Haz clic en el botón **Branch graph** (Gráfico de ramas), el botón largo que está encima de los botones de exportación. Haz clic otra vez para cerrar el gráfico.
+
+El gráfico se abre en una ventana propia que puedes mover y redimensionar. En un teléfono, se abre como un panel. El gráfico ocupa toda la ventana: una ventana más grande pliega menos tramos, y un gráfico al que le sobra espacio se amplía y se extiende. Un gráfico un poco más ancho de lo necesario se reduce para caber, hasta tres cuartos de su tamaño, y a partir de ahí se desplaza horizontalmente. Las filas se reparten la altura de la ventana y se desplazan cuando hay demasiados chats para caber.
+
+- Cada chat del grupo tiene una fila, en el mismo orden de árbol que la lista de chats. Los mensajes van de izquierda a derecha, un punto por mensaje. Los puntos grises son tus mensajes, los puntos del color de acento son respuestas de personajes y los círculos huecos son mensajes del narrador o del sistema.
+- Una rama solo dibuja sus propios mensajes. Una línea la une al mensaje a partir del cual se creó, así que puedes ver exactamente dónde se separó.
+- Las ramas antiguas y las ramas cuyo chat de origen se eliminó no tienen un punto de ramificación registrado. Se dibujan desde el chat superior con una línea discontinua, y la leyenda muestra **Fork not recorded** (Punto de ramificación no registrado).
+- Los tramos largos sin una ramificación cercana se pliegan en un marcador **··· N ···**, donde N es el número de mensajes ocultos. Haz clic en él para mostrar esos mensajes, o usa **Expand all** (Expandir todo) para desplegar todos los tramos. **Collapse long runs** (Plegar tramos largos) vuelve a plegarlos.
+- Los puntos de ramificación y el último mensaje de cada rama tienen un círculo. Pasa el cursor sobre un círculo, tócalo o enfócalo con el teclado para ver el número del mensaje, quién lo escribió y el inicio de su texto.
+- Haz clic en el nombre o la fila de una rama para cambiar a ella. La rama que estás viendo aparece resaltada, y el gráfico se abre desplazado hasta su último mensaje.
+
+El gráfico se actualiza cuando creas una rama, renombras o eliminas un chat, y poco después de que lleguen mensajes nuevos.
 
 ### Renombrar una rama
 

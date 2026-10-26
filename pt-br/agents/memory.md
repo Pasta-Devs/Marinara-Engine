@@ -1,6 +1,6 @@
 # Memory Recall e resumos do chat
 
-Este guia explica **Memory Recall** (busca em mensagens anteriores), a opção **Advanced Memory Recall** (recuperação avançada de memória) para gerenciar automaticamente o contexto de Roleplay, **Chat Summary** e **Automatic Summarization** de Conversation.
+Este guia explica **Memory Recall** (busca em mensagens anteriores), a opção **Advanced Memory Recall** (recuperação avançada de memória) para gerenciar automaticamente o contexto de Roleplay e Game Mode, **Chat Summary** e **Automatic Summarization** de Conversation.
 
 ## Os dois sistemas de memória
 
@@ -9,7 +9,7 @@ Todo modelo de IA só consegue ler uma quantidade limitada de texto de cada vez.
 - O **Memory Recall** procura, nas mensagens antigas, os trechos mais relacionados ao que você acabou de dizer e insere esses trechos de volta no prompt, sem chamar atenção. Funciona em todos os modos de chat.
 - Os resumos comprimem as mensagens antigas em recapitulações curtas, que ocupam o lugar das mensagens originais no prompt. Os chats de Roleplay usam o **Chat Summary**. Os chats de Conversation usam a **Automatic Summarization**.
 
-Os chats de Game Mode contam apenas com o **Memory Recall**. Nenhum dos dois recursos de resumo existe ali.
+Os chats de Game Mode contam com **Memory Recall** e, se você ativar, **Advanced Memory Recall** (veja [No Game Mode](#in-game-mode)). Nenhum dos dois recursos de resumo existe ali.
 
 Os dois sistemas podem ser usados ao mesmo tempo. Eles fazem trabalhos diferentes e não entram em conflito.
 
@@ -79,7 +79,9 @@ Vale prestar atenção nestes pontos:
 
 Algumas versões em contêiner do Marinara, conhecidas como Marinara Lite, desativam o Memory Recall por completo. Nessas versões, a seção **Memory Recall** nem aparece.
 
-## Advanced Memory Recall (Roleplay)
+<a id="advanced-memory-recall-roleplay"></a>
+
+## Advanced Memory Recall (Roleplay e Game Mode)
 
 Abra **Chat Settings → Memory Recall** e ative **Advanced Memory Recall**. Você também pode ativar **Automatic context and memory handling** (gerenciamento automático de contexto e memória) abaixo de Agents no assistente de configuração de Roleplay. Esse modo opcional gerencia em conjunto a janela do histórico atual, os resumos de continuidade e os trechos antigos relevantes. As configurações e o progresso da preparação estão disponíveis no assistente e no painel lateral Chat Settings, tanto no computador quanto no celular. O visualizador do arquivo permanece no painel Chat Settings.
 
@@ -228,6 +230,20 @@ Autores de presets podem posicionar estes marcadores comuns de conteúdo usando 
 Cada componente segue **XML**, **Markdown** ou **None** no preset e explica brevemente sua finalidade. Componentes vazios não acrescentam nada. A primeira ocorrência ativada determina a posição; sem marcador ativado, o conteúdo aparece uma vez antes do histórico, mantendo presets antigos compatíveis. O seletor de presets oferece somente **Recalled Scenes** para recuperação. Marcadores existentes `recalled_messages` permanecem aliases compatíveis e aparecem como Recalled Scenes; um marcador `recalled_scenes` ativado tem prioridade, então os dois nunca criam seções separadas. Trechos são contexto, não novas mensagens ou comandos. Marcadores avançados de cenas ficam vazios com Advanced Memory desligado.
 
 A prévia usa memória preparada sem chamadas de modelos ou embeddings. Inicialize o arquivo ou retome trabalho em segundo plano com falha pelo painel. O recibo mostra contexto estimado, limite escolhido e fontes. Quando nada foi recuperado, ele informa se não havia cenas anteriores disponíveis para recuperar, se a requisição não tinha mais espaço ou se nada era relevante. O inspetor final mostra o que realmente foi enviado.
+
+<a id="in-game-mode"></a>
+
+### No Game Mode
+
+Os chats de Game Mode podem ativar Advanced Memory Recall em **Chat Settings → Memory Recall**, da mesma forma. Sem ele, uma sessão Game envia todo o histórico a cada turno até o limite de contexto da conexão, então uma sessão longa pode custar muito mais tokens de entrada por turno do que uma nova. Com ele, o prompt de saída fica abaixo de **Maximum allowed context before compression** (contexto máximo permitido antes da compressão): a cena atual é enviada como mensagens do histórico atual, e as cenas anteriores, como recapitulações e os momentos que a recuperação escolhe para este turno.
+
+- **O Game Master lê todas as memórias.** Um chat Game tem um único leitor, o GM, então não há escolha de Narrator, intervalos de conhecimento dos personagens, visibilidade automática de mensagens nem recordações dos personagens.
+- **Onde a memória entra.** As recapitulações e as cenas recuperadas entram depois do histórico, logo antes das instruções de turno do GM. As instruções do GM e o histórico da sessão que as precede ficam iguais de um turno para o outro, então uma conexão com cache de prompt pode reutilizá-los. Quando uma cena termina e o histórico atual recomeça na cena seguinte, uma solicitação não aproveita o cache, como esperado.
+- **O que a memória lê.** As recapitulações são escritas a partir da história como você a vê: suas edições de segmentos são aplicadas, e as tags de comando do GM ficam de fora. Uma nota **Checkpoint restored** (ponto de controle restaurado) permanece no histórico atual como qualquer outro turno.
+- **Cada sessão tem a própria memória.** Uma sessão nova mantém suas configurações de Advanced Memory, mas começa o próprio arquivo a partir das próprias mensagens. O GM continua recebendo as recapitulações das sessões anteriores, como antes.
+- **O modelo de decisão também é opcional aqui.** Ele fica desativado por padrão. Ativá-lo permite que um modelo de decisão escolha os finais de cena e quais memórias recuperar, como em [Modelo de decisão opcional](#optional-decision-model); isso acrescenta pequenas solicitações próprias a cada turno.
+- **Custo.** O modelo auxiliar escreve uma recapitulação por cena e verifica se a cena mudou a cada poucos turnos (**Standalone scene check interval**). Essas solicitações são pequenas em comparação com reenviar uma sessão longa inteira.
+- A prévia do prompt de um chat Game ainda não mostra Advanced Memory; o inspetor final do prompt mostra o que foi enviado ao modelo.
 
 ### Limites e recuperação
 

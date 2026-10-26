@@ -140,6 +140,8 @@ Gdy postać GM dodaje postać NPC, która ma dokładnie takie samo imię jak jed
 
 Żeby pożegnać towarzysza samodzielnie, użyj przycisku **X** przy jego portrecie w oknie **Character Profiles**, jak opisano wyżej. Własnej persony w ten sposób nie usuniesz.
 
+Experience może dostarczać własnych towarzyszy: mieszkańców swojego świata, którzy mogą do ciebie dołączyć, każdy z gotowym arkuszem postaci dla zasad danej gry. Opowieść może sprowadzić taką postać albo ją odesłać, a Game Master może werbować tylko tych towarzyszy (twoje postacie z biblioteki nadal mogą dołączyć). Towarzysz dołącza na najwyższym poziomie w twojej drużynie i awansuje wraz z nią.
+
 ## Panel Adventure Journal
 
 Panel **Adventure Journal** to bieżąca kronika kampanii. Powstaje z zapisanych zdarzeń gry, a nie z tekstu pisanego przez AI, więc trzyma się faktów.

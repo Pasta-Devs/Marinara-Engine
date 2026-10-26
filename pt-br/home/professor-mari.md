@@ -37,6 +37,7 @@ Peça ajuda a ela em qualquer um destes casos:
 - Explicar uma configuração, um modo ou um conceito antes de você mudar qualquer coisa.
 - Criar ou editar um personagem. O personagem é um card que dá nome, personalidade e voz à IA. Ela também pode escrever o [onboarding interativo](../characters/interactive-onboarding.md) de um card, as perguntas que os jogadores respondem para montar a persona deles.
 - Criar ou editar uma persona. A persona é a identidade que você interpreta no chat, o "você" da história.
+- Preencher ou alterar a [ficha de conjunto de regras](../characters/colors-and-stats.md#ruleset-sheets) de um personagem ou de uma persona para um conjunto de Game Mode instalado: valores de atributo, treinamento, campos e linhas de listas, como equipamento. Ela usa os nomes e limites do próprio conjunto, e a alteração é recusada, com o motivo, quando um valor não cabe nele.
 - Criar ou editar um lorebook. O lorebook é um conjunto de anotações do seu mundo que a IA usa quando fazem sentido.
 - Criar ou editar um tema, um agente, um preset de prompt ou um rascunho de Personal Extension. Professor Mari é a única autora de extensões que já vem no aplicativo. Os rascunhos dela ficam desativados até você inspecionar o código em ambiente isolado (sandbox), revisar as permissões ativas de card de personagem ou de persona que forem pedidas e aprovar o hash exato em **Settings** > **Addons**.
 - Editar uma parte específica de um preset de prompt, sem mexer no resto. Ela lista as seções, os grupos de prompt e as variáveis de escolha do preset, lê qualquer um desses itens por inteiro e acrescenta, altera ou remove só aquele pedaço. É possível, por exemplo, acrescentar uma linha em uma seção específica, em vez de só criar ou substituir o preset inteiro.
@@ -133,6 +134,7 @@ Uma mudança que espera por você é diferente. Uma mudança retida (no modo Man
 
 - O card pertence ao chat da Professor Mari em que ela fez a alteração. Um chat novo começa sem os cards dos outros chats. Excluir um chat mantém suas alterações e remove seus cards. Uma alteração feita com o comando `mari` no terminal não pertence a nenhum chat, por isso seu card aparece em todos os chats da Professor Mari.
 - Uma edição que deixaria tudo igual não é salva e não recebe card.
+- Uma etapa na lista de trabalho dela que mostra **Previewed** (pré-visualizada) e termina em **· not saved** (· não salva) foi apenas uma prévia. Nada mudou e não há card.
 - Professor Mari não pode editar nem excluir o próprio card de personagem. Marinara o redefine para a versão integrada a cada inicialização.
 - Personagens e personas também guardam o próprio histórico de versões dentro dos editores. Ali você restaura uma versão antiga, como uma segunda rede de proteção.
 
@@ -173,6 +175,16 @@ Clique no botão **Skills** no cabeçalho do chat dela para abrir o painel **Pro
 - Selecionar uma Skill para editar os campos **Name**, **Description** e **Instructions** e clicar em **Save**. Clique em **Delete** para excluir a Skill.
 
 Enquanto não houver nenhuma Skill, o painel mostra **No custom skills yet**.
+
+<a id="built-in-skills"></a>
+
+### Skills integradas
+
+Abaixo das suas Skills, em **Always on** (sempre ativas), o painel lista as skills que vêm no Marinara. Cada uma tem a marca **Built-in** (integrada). São os guias dela para personagens e personas, lorebooks, onboarding, presets, temas, Personal Extensions, widgets da tela inicial, Decisions e reparo de respostas. Ela lê uma quando o pedido exige, então elas não ocupam espaço em toda mensagem.
+
+Uma skill integrada é somente leitura: você não pode editá-la, desativá-la nem excluí-la, e uma atualização do aplicativo a substitui pela versão nova. Para mudar como ela trata alguma coisa, copie as instruções para uma nova Skill sua.
+
+Por padrão, em cada chat, a primeira alteração dela em uma área com uma skill integrada é recusada até que ela leia essa skill. Isso ajuda modelos menores e locais. Modelos maiores normalmente conseguem trabalhar sem essa exigência, então você pode desativá-la para poupar uma etapa: abra **Search and Professor Mari settings** e desligue **Read the handbook before the first write** (ler o guia antes da primeira alteração), abaixo de **Runtime**. Só você pode mudar essa configuração; a Professor Mari não pode.
 
 ## Lembranças salvas
 

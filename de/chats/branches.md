@@ -1,16 +1,16 @@
 # Chat-Verzweigungen
 
-In dieser Anleitung erfährst du, was eine Verzweigung in Marinara Engine ist und wie du eine anlegst. Dazu kommen Wechseln, Umbenennen, Löschen, Exportieren und Importieren. Mit einer Verzweigung probierst du einen anderen Weg im Chat aus, ohne das Original zu verlieren.
+In dieser Anleitung erfährst du, was eine Verzweigung in Marinara Engine ist und wie du eine anlegst. Dazu kommen Wechseln, der Verzweigungsgraph, Umbenennen, Löschen, Exportieren und Importieren. Mit einer Verzweigung probierst du einen anderen Weg im Chat aus, ohne das Original zu verlieren.
 
 ## Was eine Verzweigung ist
 
 Eine Verzweigung ist eine Kopie des Chats, die den Verlauf bis zu einem bestimmten Punkt mitbringt. So erkundest du eine andere Richtung, während der ursprüngliche Chat unangetastet bleibt.
 
-Alle Verzweigungen eines Chats gehören zusammen. In der Chatliste erscheint ein Chat mit mehreren Verzweigungen deshalb nur als eine Zeile. Daneben steht eine kleine Zahl mit der Anzahl der Verzweigungen. Öffnen und wechseln kannst du sie im Abschnitt **Chat Branches** (Chat-Verzweigungen) der **Chat Settings** – mehr dazu weiter unten.
+Alle Verzweigungen eines Chats gehören zusammen. In der Chatliste behält der Chat seine Zeile und zeigt die Anzahl seiner Verzweigungen. Sobald bei mindestens einer Verzweigung der Gruppe festgehalten ist, aus welchem Chat der Gruppe sie entstanden ist, klappt ein Klick auf diese Zahl die Verzweigungen darunter auf. Eine Verzweigung mit unbekannter Herkunft steht direkt unter dem Chat. Game-Sitzungen sind nummerierte Sitzungen und keine Verzweigungen, deshalb behält eine Game-Gruppe immer ihre einzelne Zeile. Jede Verzweigung zeigt ihren Anzeigenamen und wann sie zuletzt aktiv war. Die Verzweigung einer Verzweigung ist unter dieser eingerückt, sodass sie als Baum statt als flache Liste erscheinen. Du kannst direkt aus der Liste zu einer Verzweigung wechseln oder im Abschnitt **Chat Branches** (Chat-Verzweigungen) der **Chat Settings** Verzweigungen umbenennen, löschen, exportieren oder importieren – mehr dazu weiter unten.
 
 Jede Verzweigung bekommt einen eigenen Anzeigenamen. Nenn sie zum Beispiel „freundliches Ende“ und „düsteres Ende“. Dieser Anzeigename ist unabhängig vom Namen des dahinterliegenden Chats.
 
-Die Herkunft einer Verzweigung hält den unmittelbaren Quellchat und die Nachricht fest, an der sie entstand. Sowohl die ursprüngliche Nachrichten-ID als auch die ID ihrer Kopie bleiben erhalten. Integrationen können dadurch die Grenze erkennen, obwohl kopierte Nachrichten neue IDs bekommen. Die Verzweigung einer Verzweigung nennt diese als unmittelbaren Elternchat, nicht den ursprünglichen Stammchat. Ältere Verzweigungen und importierte Geschwister behalten ihren Anzeigenamen, haben aber keine bekannte Herkunft.
+Die Herkunft einer Verzweigung hält den unmittelbaren Quellchat und die Nachricht fest, an der sie entstand. Sowohl die ursprüngliche Nachrichten-ID als auch die ID ihrer Kopie bleiben erhalten. Integrationen können dadurch die Grenze erkennen, obwohl kopierte Nachrichten neue IDs bekommen. Die Verzweigung einer Verzweigung nennt diese als unmittelbaren Elternchat, nicht den ursprünglichen Stammchat. Ältere Verzweigungen und importierte Geschwister behalten ihren Anzeigenamen, haben aber keine bekannte Herkunft: Eine Gruppe ohne bekannte Herkunft behält ihre einzelne Zeile in der Chatliste, und ihre Verzweigungen erreichst du weiterhin über den Abschnitt **Chat Branches**.
 
 ## Die Schaltfläche „Branch from here“
 
@@ -43,6 +43,24 @@ Der Abschnitt listet alle Verzweigungen des aktuellen Chats auf, die gerade geö
 ### Zu einer anderen Verzweigung wechseln
 
 Klick auf eine beliebige Verzweigungs-Zeile, um sie zu öffnen. Die Chatansicht springt zur gewählten Verzweigung.
+
+### Den Verzweigungsgraphen ansehen
+
+Der Verzweigungsgraph zeigt, wo jede Verzweigung abgezweigt ist. Das kann die Liste nicht darstellen.
+
+1. Öffne den Abschnitt **Chat Branches**.
+2. Klick auf **Branch graph** (Verzweigungsgraph), die lange Schaltfläche über den Export-Schaltflächen. Ein erneuter Klick schließt den Graphen.
+
+Der Graph öffnet sich in einem eigenen Fenster, das du verschieben und in der Größe ändern kannst. Auf dem Handy öffnet er sich als Panel. Der Graph füllt das Fenster: Ein größeres Fenster klappt weniger Abschnitte zusammen; hat der Graph Platz übrig, vergrößert er sich und rückt auseinander. Ein etwas zu breiter Graph verkleinert sich bis auf drei Viertel seiner Größe, um hineinzupassen. Reicht das nicht, lässt er sich seitlich scrollen. Die Zeilen teilen sich die Fensterhöhe und lassen sich scrollen, wenn nicht alle Chats hineinpassen.
+
+- Jeder Chat der Gruppe bekommt eine Zeile, in derselben Baumreihenfolge wie in der Chatliste. Nachrichten laufen von links nach rechts, ein Punkt pro Nachricht. Graue Punkte sind deine Nachrichten, Punkte in Akzentfarbe sind Charakterantworten und hohle Ringe sind Erzähler- oder Systemnachrichten.
+- Eine Verzweigung zeichnet nur ihre eigenen Nachrichten. Eine Linie verbindet sie mit der Nachricht, von der sie abgezweigt wurde, sodass du den Verzweigungspunkt genau erkennst.
+- Ältere Verzweigungen und solche, deren Quellchat gelöscht wurde, haben keinen gespeicherten Verzweigungspunkt. Eine gestrichelte Linie verbindet sie mit dem obersten Chat, und in der Legende steht **Fork not recorded**.
+- Lange Abschnitte ohne Verzweigungspunkt in der Nähe werden zu einer Markierung **··· N ···** zusammengeklappt. N ist die Anzahl der verborgenen Nachrichten. Klick darauf, um sie anzuzeigen, oder nutze **Expand all** (alle aufklappen), um jeden Abschnitt aufzuklappen. **Collapse long runs** (lange Abschnitte zusammenklappen) klappt sie wieder zusammen.
+- Verzweigungspunkte und die neueste Nachricht jeder Verzweigung haben einen Ring. Zeig mit der Maus darauf, tipp ihn an oder fokussiere ihn mit der Tastatur, um die Nachrichtennummer, den Verfasser und den Textanfang zu sehen.
+- Klick auf den Namen oder die Zeile einer Verzweigung, um zu ihr zu wechseln. Die geöffnete Verzweigung ist hervorgehoben, und beim Öffnen ist der Graph zu ihrer neuesten Nachricht gescrollt.
+
+Der Graph aktualisiert sich, wenn du einen Chat verzweigst, umbenennst oder löschst, und kurz nach dem Eintreffen neuer Nachrichten.
 
 ### Eine Verzweigung umbenennen
 

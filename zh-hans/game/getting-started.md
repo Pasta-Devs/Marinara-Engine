@@ -203,7 +203,7 @@ Game 聊天通过工具查询世界书时，即使开启了 **Enable Tool Use**�
 
 Claude 和 Grok 订阅连接不支持原生工具调用。相关控件会说明原因，并在选中受支持的 Game 工具连接前保持禁用。文本命令和骰子标签仍可使用。如果独立连接不存在或请求失败，该回合会报告失败，不会悄悄略过请求的工具工作后继续叙述。
 
-**Finish rolled turns in one request**(用一次请求完成掷骰回合) 改变上面的第二类调用。掷骰回合通常需要两次请求：先草稿，再按真实数字重写。启用后，Game Master 盲写结果，引擎随后填入数值，因此只需一次请求。默认关闭。仍有两种情况会额外请求：**Enable Tool Use** 启用时调用骰子工具，以及始终发起自身规划请求的独立 **Game tool connection**。参见 [Game Mode：骰子与技能检定](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request)。
+**Finish rolled turns in one request**(用一次请求完成掷骰回合) 改变上面的第二类调用。不开启时，掷骰回合需要两次请求：先草稿，再按真实数字重写。启用后，Game Master 盲写结果，引擎随后填入数值，因此只需一次请求。默认开启。仍有两种情况会额外请求：**Enable Tool Use** 启用时调用骰子工具，以及始终发起自身规划请求的独立 **Game tool connection**。参见 [Game Mode：骰子与技能检定](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request)。
 
 如果本地模型共享的 GPU 显存有限，打开 **Chat Settings → Agents** 并启用 **Run Game tasks one at a time**(逐个执行 Game 任务)。在该 Game 聊天内，旁白、智能体和场景媒体会互相等待完成。此选项默认关闭，也不会阻止其他聊天或应用使用 GPU。执行或等待时，现有的取消操作仍然可用。
 

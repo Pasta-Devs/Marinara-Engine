@@ -109,7 +109,7 @@
 - **규칙 집합 게임의 모든 저장 턴은 변경 여부와 관계없이 행을 씁니다.** 다음 턴, 스와이프, 새 세션에 항상 출발할 행이 있도록 합니다. 나중에 같은 메시지와 스와이프를 재구성하는 추적기도 실시간 상태를 보존합니다. 호출자가 값을 전달하지 않으면 `create`는 교체할 행에서 가져옵니다.
 - **명령은 Engine의 것이고, 이름은 규칙 집합의 것입니다.** 문법(`spend`, `restore`, `damage`, `temp`, `track`, `condition`, `note`, `rest`, 그리고 `restore`로 읽는 `heal`)은 모든 규칙 집합에 같습니다. 첫 제안의 `concentrate`는 일반적인 `note`가 되었습니다. '집중'은 한 시스템의 용어이기 때문입니다. 풀, 트랙, 상태, 메모, 휴식 이름은 규칙 집합에서 오고 ID나 라벨로 맞춥니다.
 - **저장된 답변이 기록입니다.** 각 명령은 그 자리에서 `result="ok" now="…"` 또는 `result="refused" reason="…"`로 다시 씁니다. 모델이 직접 쓴 결과는 무시합니다. 거부된 명령은 아무것도 바꾸지 않고 로그에 남으며, 클라이언트는 턴마다 한 번 알립니다.
-- **시트는 프롬프트 뒤쪽에서 Game Master에게 전달됩니다.** 시트 블록과 명령 줄은 매 턴 형식 리마인더의 일부이며 시스템 프롬프트에는 넣지 않습니다. 실시간 상태는 매 턴 바뀌고 제공자가 캐시하는 것은 시스템 프롬프트이기 때문입니다. 규칙 집합이 없으면 리마인더는 바이트 단위로 같습니다.
+- **시트는 프롬프트 뒤쪽에서 Game Master에게 전달됩니다.** 시트 블록은 매 턴 형식 리마인더의 일부이며 시스템 프롬프트에는 넣지 않습니다. 실시간 상태는 매 턴 바뀌고 제공자가 캐시하는 것은 시스템 프롬프트이기 때문입니다. 명령 줄은 게임 내내 유효하므로 리마인더의 나머지 상시 지침과 함께 시스템 프롬프트에 넣습니다. 규칙 집합이 없으면 리마인더는 바이트 단위로 같습니다.
 - **플레이어도 같은 규칙으로 편집합니다.** 게임 내 시트는 모든 버튼에 `applyRulesetSheetOp`를 적용하고 `PATCH /chats/:id/game-state`로 저장합니다. 이 경로는 실시간 상태 한도를 검사하며(`rulesetLiveStatesSchema`) 다른 것은 판단하지 않습니다. 플레이어 자신의 게임이기 때문입니다.
 - **`sheet`는 예약되어 있습니다.** 같은 이름의 패키지 동사는 거부하며, 동사 이름 검사가 리마인더에서 가르치는 태그를 찾습니다.
 - **여기서는 미구현:** 파티원 자신의 턴(`/party-turn`)에는 시트 명령을 적용하지 않습니다. Game Master 답변에만 적용합니다.
@@ -539,7 +539,8 @@ C4b는 화면에 보이는 보드입니다. C4a가 해결한 내용을 그리며
 - **장전 상태는 묶음에.** `GameInventoryStack.loaded`는 아이템 하나짜리 묶음에만 유지되며(착용한 묶음은 항상 그렇습니다), `RulesetSheetItem.loaded`로 읽고, 이 값이 없는 무기는 가득 장전된 상태입니다. 묶음을 합치면 이 값은 사라집니다(묶음 타입에 대한 `ponytail:` 한계).
 - **회수.** `pushOutcome`은 `victory`에서만 회수합니다. 도주한 전투는 여기에 이르지 않고(디렉터가 끝냄), 패배한 전투에는 전장이 남지 않습니다. 비율은 쏠 때마다 묶음별로 합산해 마지막에 한 번 내림하며, 분수의 합에 대해 아주 작은 허용 오차를 둡니다.
 - **되돌려 쓰기.** `RulesetSheetItem.stack`은 인벤토리 묶음의 ID, 아이템 참조, 보유자를 담습니다. 디렉터의 `save()`는 전투를 저장된 상태와 비교해(`rulesetFightItemChanges`) 변경을 묶음 ID별로(`applyRulesetFightItemChanges`) `applyGameInventoryChangeHeld`를 통해 파티의 실시간 시트와 같은 트랜잭션에서 기록하며, 일지 항목("used", 돌아온 것에는 "acquired")도 남깁니다. 비운 뒤 이긴 전투가 되돌려 주는 묶음은 자체 ID로 다시 만듭니다. 사라졌거나, 모자라거나, 그 ID로 다른 아이템을 가진 묶음은 클래식 소비처럼 그 단계를 거부합니다.
-- **보이는 것과 알리는 것.** 아이템 정보에 `ammo`(태그의 라벨, 공격당 수, 회수)와 `clip`(최댓값, 재장전 예산의 라벨)이 추가됩니다. Game Master의 줄은 `ammunition Arrow (1 an attack, 50% picked up after a won fight)` 또는 `holds 1, reload (Act)`로 끝납니다. 메뉴는 선택지 옆에 `3 to shoot` 또는 `0 of 1 loaded`를 표시하고, Reload 그룹이 무기 이름을 대며, 로그는 `shot`, `reload`, `recovered`를 출력합니다.
+- **보이는 것과 알리는 것.** 아이템 정보에 `ammo`(태그의 라벨, 공격당 수, 회수)와 `clip`(최댓값, 재장전 예산의 라벨)이 추가됩니다. Game Master의 줄은 `ammunition Arrow (1 an attack, 50%
+  picked up after a won fight)` 또는 `holds 1, reload (Act)`로 끝납니다. 메뉴는 선택지 옆에 `3 to shoot` 또는 `0 of 1 loaded`를 표시하고, Reload 그룹이 무기 이름을 대며, 로그는 `shot`, `reload`, `recovered`를 출력합니다.
 - **예제.** Ember Roads의 화살은 새 `arrow` 태그를 달고, 사냥용 활이 이를 쏘며 절반을 회수합니다. Gravewatch에는 `shot` 태그, `powder` 분류, 경비 권총(탄창 1발, act로 재장전), 탄환과 화약이 추가됩니다.
 - **검증:** `scripts/regressions/game-ruleset-ammo.regression.ts`(가져오기와 게이트, 한 묶음과 두 묶음에서 쏘기, 메뉴에서 빠지고 거부되는 빈 무기, 이긴 전투 뒤에는 회수하고 진 전투 뒤에는 회수하지 않음, 탄창 소비, 가방에서 또는 무료로 재장전, 수치에서 읽는 탄창, 제거와 다시 만든 묶음을 포함한 묶음 ID별 되돌려 쓰기, 아이템 하나짜리 묶음의 장전 수, 정보와 로그), 이전 게이트나 예제를 고정하는 레인, `e2e/game-ruleset-ammo.e2e.ts`로 입증했으며, 의도적으로 만든 결함 61개를 모두 잡았습니다(그중 하나인 디렉터의 기록은 e2e가 잡음).
 
@@ -552,7 +553,9 @@ C4b는 화면에 보이는 보드입니다. C4a가 해결한 내용을 그리며
 - **보조 손.** `combat.offHand`(`budget`, `ability` `full` 또는 `penalty-only`)와 아이템의 `attack.offHand`입니다. 착용한 보조 손 무기가 있으면 주 공격은 `pairs`(그 아이템 인덱스)를 담고, 보조 손 예산의 두 번째 행동 `offhand:<index>`는 `offHandOf`를 담습니다. 이는 규칙 집합이 허용하는 피해 능력치로 하는 타격 한 번입니다(`strikes` 없음). 턴에 `pairs` 공격을 하면 `flags.offHand`가 설정되고 다음 턴이 시작될 때 다른 플래그와 함께 지워지며, `rulesetActionAvailable`은 다른 무기로 공격한 뒤에만 보조 손 공격을 제공합니다. `rulesetOpportunityAttack`은 이를 절대 고르지 않습니다. 선택지는 `offHand`를 담고, 클라이언트는 "<weapon>, off hand"라고 이름 붙입니다.
 - **하한.** `attack.floor`(숫자 또는 숫자 수치)는 행동의 `damage.floor`입니다. 풀 타격의 흡수 뒤 첫 피해량, 또는 합산 타격의 피해는 내성으로 절반이 되기 전, 그리고 저항이 적용되기 전에 이 값까지 올라갑니다. 값을 올렸을 때 피해 이벤트는 `floor`를 담고 로그가 그렇게 알립니다. 소비 타격의 경로는 이를 읽지 않습니다.
 - **명중 시.** `attack.onHit` 항목(`condition`, `atLeast`, `rounds`)은 타격 뒤, 가한 피해(흡수와 저항 뒤)가 `atLeast`에 도달했을 때 `applyConditionId`로 `rounds` 동안 또는 시계 없이 적용합니다. 면역은 다른 상태처럼 읽습니다.
-- **보이는 것과 알리는 것.** 아이템 정보에 `modes`, `offHand`(예산의 라벨), `floor`, `onHit`(상태의 라벨)이 추가됩니다. Game Master의 줄은 `modes Volley (2 shots, -2 to hit, up to 2 targets)`, `off hand (Quick)`, `at least 1 on a hit before resistance`, 또는 `Marked for 2 rounds when a hit deals 2 or more`로 끝나며, 아이템 세부 정보도 현지화된 줄로 같은 내용을 보여 줍니다.
+- **보이는 것과 알리는 것.** 아이템 정보에 `modes`, `offHand`(예산의 라벨), `floor`, `onHit`(상태의 라벨)이 추가됩니다. Game Master의 줄은 `modes Volley (2 shots, -2 to hit, up to
+  2 targets)`, `off hand (Quick)`, `at least 1 on a hit before resistance`, 또는 `Marked for 2
+  rounds when a hit deals 2 or more`로 끝나며, 아이템 세부 정보도 현지화된 줄로 같은 내용을 보여 줍니다.
 - **예제.** Ember Roads의 사냥용 활에 일제 사격이 추가됩니다. Gravewatch는 빠른 예산에 `combat.offHand`를 추가합니다. 은 관못은 피해를 2 이상 준 대상을 두 라운드 동안 표시하는 보조 손 무기이고, 무덤 삽은 명중하면 최소 1의 피해를 줍니다.
 - **검증:** `scripts/regressions/game-ruleset-weapon-modes.regression.ts`(가져오기와 게이트, 두 명과 한 명에게 하는 일제 사격, 거부되거나 제공되지 않는 모드, 풀 모드의 목표, 다른 무기 뒤에는 되고 삽 뒤나 단독으로는 안 되는 보조 손, 지나가는 상대에게는 절대 쓰지 않음, `penalty-only`, 풀 전투와 합산 전투와 저항 아래에서의 하한, 수치에 도달했을 때와 못 미칠 때의 명중 시 상태, 지속과 저항, 디렉터의 명령, 모드를 고르는 Engine 선택기, 정보와 로그), 이전 게이트·예제·Game Master의 줄을 고정하는 레인, `e2e/game-ruleset-weapon-modes.e2e.ts`로 입증했으며, 의도적으로 만든 결함 60개를 모두 잡았습니다(그중 클라이언트의 모드 단계와 명령에 있는 두 개는 e2e가 잡음).
 
@@ -729,7 +732,8 @@ PR이 닫는 두 이슈, #6651과 #6657의 작은 항목을 위한 Capability AP
 
 - **실시간 읽기.** 새 값 참조 키 두 개, `liveTrack`(`read`: `value`, `filled`, `remaining`, 부상 트랙이면 `penalty`)과 `livePool`(남은 양, 목록 행의 풀은 절대 아님)입니다. **이슈와 의도적으로 다르게 이름 지었습니다.** 이슈는 `{ "track": … }`과 `{ "pool": … }`을 제안했지만, 전투 블록이 체력과 에너지에 이미 정확히 그 형태를 쓰므로 설치 게이트도 읽는 쪽도 둘을 구분할 수 없었습니다. "live"는 최댓값에 이를 쓸 수 없는 이유도 말해 줍니다. 숨겨진 풀이나 트랙은 0을 읽습니다.
 - **쓸 수 없는 곳.** 실시간 상태가 존재하기 전에 계산하는 모든 것입니다. 풀이나 트랙의 최댓값, 숙련 보너스, 카탈로그의 비례 열이나 비례 계산입니다. 직접, 파생 값을 통해(전이적으로. 파생 값은 위에 있는 것만 읽으므로 한 번 훑으면 찾음), 그리고 실시간 값이 상한을 두는 기술이나 내성을 통해서도 거부합니다.
-- **평가.** `evaluateRulesetSheet(definition, build, live?)`는 해석된 실시간 상태를 구조적 타입으로 받으므로 sheet-math가 live-state를 가져오는 일은 없습니다(live-state가 sheet-math를 가져옴). 실시간 상태가 없으면 실시간 읽기는 0이며, 형식이 실시간 읽기를 거부하는 곳에서만 옳습니다. live-state의 `evaluateRulesetSheetLive(definition, build, stored?)`는 먼저 실시간 상태를 해석하며(그 최댓값은 이를 되읽을 수 없음), 판정 컨텍스트, Game Master의 시트 블록, 게임의 시트 화면, 전투의 전투원, 편집기가 이를 씁니다. 저장된 것이 없으면 선언된 기본값을 읽습니다. 평가된 시트는 실시간 값을 담으므로, 나중에 이를 기준으로 해석하는 참조(`adjust`, 소비의 `perCheck`, 전투의 방어)도 같은 스냅샷을 읽습니다.
+- **평가.** `evaluateRulesetSheet(definition, build, live?)`는 해석된 실시간 상태를 구조적 타입으로 받으므로 sheet-math가 live-state를 가져오는 일은 없습니다(live-state가 sheet-math를 가져옴). 실시간 상태가 없으면 실시간 읽기는 0이며, 형식이 실시간 읽기를 거부하는 곳에서만 옳습니다. live-state의 `evaluateRulesetSheetLive(definition, build,
+stored?)`는 먼저 실시간 상태를 해석하며(그 최댓값은 이를 되읽을 수 없음), 판정 컨텍스트, Game Master의 시트 블록, 게임의 시트 화면, 전투의 전투원, 편집기가 이를 씁니다. 저장된 것이 없으면 선언된 기본값을 읽습니다. 평가된 시트는 실시간 값을 담으므로, 나중에 이를 기준으로 해석하는 참조(`adjust`, 소비의 `perCheck`, 전투의 방어)도 같은 스냅샷을 읽습니다.
 - **상한.** 기술이나 내성의 `cap`입니다. `skillMods`/`saveMods`는 제한된 숫자를, `skillCaps`/`saveCaps`는 제한 전 숫자를 보관하므로 `with=` 교체는 제한 전 숫자에서 시작해 다시 제한됩니다. 상한은 기술이나 내성을 읽지 않으며, 그것이 읽는 파생 값까지의 어떤 파생 값도 마찬가지입니다(숙련 보너스의 규칙). 그래서 평가는 위에서 아래로 한 번 훑는 것으로 끝납니다.
 - **목록 합계.** `listSum: { list, column, onlyWhen? }`는 불리언이 표시한 행에 걸친 숫자 열입니다. 빈 칸은 열의 기본값이며, 숨겨진 목록은 아무것도 더하지 않습니다. 빌드 전용이므로 최댓값이 이를 읽을 수 있습니다. 카탈로그의 비례 열은 직접이든 무엇을 통해서든 읽을 수 없습니다. 목록에는 같은 재계산이 다시 쓰는 비례 칸이 있을 수 있고 카탈로그 파일은 하나씩 검사하므로, 더 좁은 규칙으로는 그 사이의 모든 순환을 볼 수 없습니다.
 - **더 넓은 hideWhen.** `equals`, `notEquals`, `in` 중 정확히 하나이며, 각 값은 필드와 대조해 검사합니다. 레이어는 이들이 비교하는 값을 제거할 수 없습니다.
@@ -825,7 +829,7 @@ type RulesetRef = {
 
 ### GM 인터페이스
 
-게임의 규칙 집합을 해석할 수 있으면 턴별 형식 안내(`buildGmFormatReminder`, 시스템 프롬프트는 아님)가 다음 작업을 수행합니다.
+게임의 규칙 집합을 해석할 수 있으면 형식 안내(`buildGmFormatReminder`)가 아래와 같이 바뀝니다. 게임 턴에서는 이를 두 부분으로 나누어 보냅니다. 게임 내내 유효한 지침과 명령은 시스템 프롬프트에 넣고(`part: "stable"`), 시트 블록은 기록 뒤의 턴별 부분에 넣으며(`part: "turn"`) 시스템 프롬프트에는 넣지 않습니다.
 
 1. 내장 기술 판정 문단을 `gm.checkGuidance`와 난도 단계로 대체합니다.
 2. `<character_sheets>` 안에 파티원별 간결한 시트 블록을 추가합니다. 능력치 수정치, 훈련된 기술과 내성 굴림, `gm.sheetSummary` 필드, 남은 자원, 기본값에서 벗어난 트랙, 메모, 활성 상태 이상, 요약 목록을 포함합니다.

@@ -698,6 +698,236 @@ Gameウィザードでセットアップする`game-surface`パッケージ(`gam
 
 Engineは、検証済みのアセットの経路(宣言サイズはそれぞれ最大8 MB、ハッシュを再確認)を通してファイルを読み、共有ファイルと同じ方法で検査します。ファイルが読み取れない場合、世界が別のキットで作られていたりキットに合わなかったりする場合、またはバイト列がインストールされたものと一致しない場合は、理由とともにパック全体が拒否されます。その場合、Experienceはゲームを開始できません。ルールセットがマップパックの一部になることはありません。独自のルールが必要なExperienceは、別のルールセットのパッケージを同梱します。
 
+#### Capability API 1.344: クリーチャーパック
+
+`mapPack.creatures`には最大8個の`.creaturepack.json`ファイルを列挙します。それぞれ宣言済みのアセットで、ライブラリーがクリーチャーパックを読むときと同じ方法で読み取り、検査します。Experienceのゲームでは、すべての戦闘で、まずこの順にパックからクリーチャーのアートを探し、その後でライブラリーで選んだクリーチャーパックから探します。
+
+#### Capability API 1.345: 音楽
+
+1.345以降、パッケージのアセットに音声を含められます。`.ogg`、`.mp3`、`.wav`に対応し、それぞれ最大16 MBです。`mapPack.music`でExperienceの曲と再生タイミングを指定します。
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+各曲も宣言済みのアセットで、指定する曲IDはすべて`tracks`のいずれかです。`places`の場所は、パックの世界のいずれかにある場所をIDで指定します。戦闘外では、その場所の曲、なければその場所を含む最も近い場所の曲、それもなければ`default`を再生します。戦闘中は`combat`です。ストーリーの`music`アクション([Game Modeのストーリースクリプトの作成](../extending/writing-story-scripts.md)を参照)は、音楽を戻すまでこれらすべてに優先して曲を流します。どれもなければEngine自身の音楽を再生します。プレイヤーが自分で音楽ソース(Music DJ、Spotify)を選んでいる場合は、そちらが流れます。プレイヤーの選択は常に優先されます。
+
+#### Capability API 1.346: 人物
+
+`mapPack.people`は、パックの世界の名前付きの人物を装う`.people.json`ファイル(宣言済みアセット)です。人物は世界そのものから来ます。生成されて名前が付いた人物か、編集(PixelforgeまたはWorldタブ)で手動追加した人物なので、ほかの人物と同じようにその場所に立っています。このファイルは、その人物が何者かを指定します。
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person`は、パックの世界のいずれかの人物IDです(`<place id>-<n>`、手動追加なら`-e<n>`)。その世界で名前を持つ人物でなければなりません。
+- `portrait`と`expressions`(`neutral`、`happy`、`sad`などのナレーションの表情)は、パッケージのアセットに含まれる画像です。ゲームでその人物に会うとJournalにポートレートが表示され、せりふには表情が使われます。
+- `sprite`は、パック自身の画像タイルにあるキャラクターです。その人物用に選ばれたものに代えて、町や場所のマップを歩くときに使います。
+- `description`、`voice`、`lore`は、Experienceの新規ゲームごとに作るロアブック(_Experience名_: 人物)になります。最初のターンから有効です。人物ごとに名前で取り込むエントリー、`lore`ごとに独自のキーで取り込むエントリー、ファイル自身の`lore`の各エントリーを作ります。
+
+#### Capability API 1.347: 仲間
+
+人物は、パーティーが迎え入れられる仲間にもできます。回復、偵察、暗闇の灯りが足りないパーティーでも、ストーリーが求めることを進められなくならないためです。
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets`には、仲間が参加できるゲームのルールセットごとのシートを、そのルールセットのIDで格納します。`v`はビルドの作成対象となったルールセットのシートバージョンです(古いものは保存済みシートと同じ方法で移行します)。
+- `level`は、そのルールセットでキャラクターのレベルを保持するシートフィールドを指定し、その値を合計します(マルチクラスのシートはクラスごとに1つ持ちます)。各ビルドのレベルフィールドの合計は`at`と一致し、ビルドは昇順に並べます。
+- 仲間は、パーティーの到達した最高レベルに対応するビルドで加入します(パーティーがすべてのビルドを下回る場合は最も低いもの)。各ターン後、パーティーが上位のビルドのレベルに達すると引き上げます。プレイヤーがビルドより先に引き上げたシートはそのままにし、引き下げることはありません。体力、プール、状態はビルドとは別に保持するため、引き上げても維持されます。仲間がプレイ可能であるべき各レベルのビルドを同梱してください。
+- ストーリーは`recruit`と`dismiss`アクションで加入と離脱を行います。Game Masterには仲間が誰か、どこにいるか、何をもたらすかが伝えられ、その仲間だけを加入させられます(それ以外を指定する`[party_change]`は拒否されます)。プレイヤー自身のライブラリーのキャラクターは引き続き加入できます。
+- 仲間はほかの加入者と同じように、パーティーの一覧に入り、カードとシートを持ち、戦術戦闘に参加します。対応するシートがないルールセットのゲームでは、空のシートで加入します。
+
+仲間を含む人物ファイルには1.347、含まなければ1.346が必要です。誰かを加入または離脱させるストーリーには1.347が必要で、指定する各人物はパックの人物ファイルで仲間でなければなりません。
+
+#### Capability API 1.350: 書き出し前のパック検査
+
+制作アプリ(Pixelforge)は、パッケージを書き出す前に、インストールせずにEngineへマップパック全体の検査を依頼できます。インストール済みのパックを読む場合とまったく同じ検査です。
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files`には、ブロックが指定するすべてのJSONファイル(キット、世界、タイル、クリーチャーパック、人物)を解析済みの形で格納します。`assets`には、パッケージのほかのアセット(画像、音声)をパスとサイズで列挙します。応答は`{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`です。`minor`はパックが必要とするCapability APIのマイナーバージョン(1.`minor`)で、`issues`は各問題をブロックのキー(`mapPack.music.default`)かファイル名で示します。マニフェスト自身のルール(宣言済みアセット、曲ID、音声サイズ)の問題はすべて報告します。各ファイルの検査は、インストール時と同じく最初の問題で止まります。
+
+#### Capability API 1.351: 季節の固定
+
+世界のストーリーは、日付にかかわらず場所をある季節に固定でき(`seasons`と`season`アクション。[ストーリースクリプトの作成](../extending/writing-story-scripts.md#seasons)を参照)、世界の戦場にも季節を描けます(`seasons`行と`seasonKeys`)。いずれかを含むマップパックには1.351が必要です。オーバーワールドは、固定された場所を`GET /api/game/:chatId/overworld`の`seasons`(場所IDから季節への対応、`*`は世界全体)から読みます。作られた戦場は、タイルの開始時の季節を、`"x,y"`をキーとする`seasons`で保持します。
+
+#### Capability API 1.355: ルールセットのオーバーレイ
+
+Experienceのマップパックは、Experienceがオンの間、ゲームが使うルールセットに追加できます。ルールセットパッケージが提供するものではない、独自のクリーチャー、状態、アイテムです。
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+各`.overlay.json`は、パックのほかのファイルと同様にアセットとして宣言し、IDで指定した1つのルールセットを対象にします。ファイル(`local/<id>`)やリポジトリー(`<owner>/<id>`)からインポートしたルールセットは、パックが完全なIDも指定していない限り、裸のIDに対応するオーバーレイを使います。
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags`はルールセットの`combat.creatureTypes.tags`、`conditions`は`combat.conditions`、`sheetConditions`は`sheet.live.conditions`、`creatures`は`creatures`カタログへ加わり、`catalogs`の各リストはそのIDのカタログへ加わります。そのルールセットでExperienceがオンのゲームは、すべてを統合したルールセットで動きます(ストーリーの戦闘、`give`、Game Master自身の使用も含みます)。ルールセット全体を再び読み取り、エントリーが合わないか、既存のIDを再利用するオーバーレイは全体を除外し、元のルールセットでプレイします。`POST /api/game/experience/check`は、各オーバーレイをインストール済みのルールセットへ統合し、合わないものを報告します。
+
+Capability API 1.367以降、オーバーレイはシートのトラックも追加できます。`"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`はルールセットの`sheet.live.tracks`と同じ形で、そこへ加わります。オーバーレイが宣言するトラックはシートに表示され、シートコマンドで動かし、ストーリーのHeld Groundや盤面の光ルールが付ける印を保持します。トラックを追加するオーバーレイを含むパックには1.367が必要です。
+
+#### Capability API 1.357: ダンジョンの見た目と手作業のマップ独自の言葉
+
+Experienceの手作業のマップは、ライブラリーの洞窟、地下墓地、神殿、ステーションのセットだけでなく、独自の見た目で描き、独自の言葉でGame Masterへ伝えられます。
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+それぞれ、ダンジョンセットの配置を持つ画像タイルパック(`tilePackVersion` 2)です。`dn_floor`、`dn_wall`、`dn_liquid`、`dn_prop0`から`dn_prop7`を使います(`dn_liquid`にはライブラリーのセットと同じように縁のパーツを持たせられます)。少なくとも`dn_floor`と`dn_wall`は描く必要があり、残りは単色へフォールバックします。手作業のマップ(`edits.maps`)の`pack`がこれらのIDのいずれかなら、同じIDのライブラリーのパックより先に使って描きます。同じIDを2つのパックで共有することはできません。
+
+手作業のマップには、Game Masterへ伝える独自の言葉も持たせられます。
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props`は小道具スロット0から7ごとのエントリーで、説明しないスロットは`null`です。Game Masterには、単に手作業で作られたと伝える代わりに、「手作業で作られた場所(刈り株の残る地面、立ったトウモロコシの壁)で、雨水のたまる溝があり、中にはかかし(2)、トウモロコシ人形の祠がある」と伝えます。どちらも1.357を宣言するExperienceが必要です。
+
+#### Capability API 1.359: ストーリーの数値を消費するアイテム
+
+オーバーレイは、使用時にExperienceのストーリーの数値フラグの1つを消費(または加算)するアイテムを指定できます。
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item`は統合済みルールセットの`catalog/entry`で(オーバーレイ自身のアイテムも含みます)、1回だけ指定します。戦闘では、そのアイテム(行動する戦闘参加者のシートのアイテム)を使おうとしても、未記録の消費を反映したフラグが`atLeast`未満なら拒否されます。「Jar of Someone Else's DeathにはDebts Settledが2必要ですが、パーティーは1しか持っていません」という形です。戦闘で実行した使用はゲームに保持し、次のストーリーのターンで、フラグの`min`と`max`の範囲内で1回だけ記録し(Engineによる`spend="<id>"`)、何を消費したかをGame Masterへ伝えます。各フラグは、パックのストーリーのいずれかの数値フラグでなければなりません。`storyUses`を含むマップパックには1.359が必要です。
+
+#### Capability API 1.360: 6人を超えるパーティーと戦闘に参加しない仲間
+
+ストーリーの戦闘のバリアントは、6人を超えるパーティー用や、上限なし(`"party": { "min": 7 }`)にできます。ストーリーの条件もパーティーの人数を判定できます(`{ "partySize": { "is": ">=", "value": 7 } }`。[ストーリースクリプトの作成](../extending/writing-story-scripts.md#conditions)を参照)。
+
+人物ファイルの仲間は、戦闘に一切参加しない設定にもできます。
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+パーティーと同行し、Game Masterには戦わない仲間として伝えられますが、パーティーの人数(戦闘のバリアントと`partySize`条件用)には数えられず、戦闘にも配置されません。このような仲間を含む人物ファイルには1.360が必要です。
+
+### Capability API 1.372: GM設定値
+
+`contributions.gameSurface.setup.defaults`は、GameウィザードでExperienceを選ぶと入力される値を設定します。PixelforgeのExperienceタブが書き込みます。すべてのキーは任意で、プレイヤーは各値を引き続き変更できます。
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: 最大100文字です。
+- `genre`と`tone`: それぞれ1から12個の名前で、各60文字まで、カンマは使えません。結合した各リストは200文字以内に収めます。
+- `difficulty`: `Casual`、`Normal`、`Hard`、`Brutal`です。
+- `rating`: `sfw`か`nsfw`です。
+- `combatStyle`: `classic`か`tactical`です。
+- テキストの上限: `setting`は4,000文字、`language`は100文字、`playerGoals`と`preferences`は2,000文字、`gameSpecialInstructions`は2,000文字、`artStylePrompt`は500文字です。
+
+`intro`はGame Masterの導入メッセージ(1.339)で、ストーリースクリプトの`intro`と同じルールです([ストーリースクリプトの作成](../extending/writing-story-scripts.md#the-intro-message)を参照)。固定されるのはこの値だけです。固定された導入はウィザードで読み取り専用になり、設定から何が送られてもその内容でゲームが始まります。ゲームは開始時の導入を保持します(`chat.metadata.gameExperienceIntro`)。ストーリー自身の`intro`より先に読みます。設定ファイルをインポートした場合は、そのファイル自身の値を保ちます。Experienceをオフにしても、入力された値はそのままです。
+
+### Capability API 1.373: Experienceファイル
+
+画像、音楽、データだけを含むExperienceは、パッケージのzipの代わりに、1つの`<id>.experience.json`ファイルで配布できます。プレイヤーはGameウィザードのExperiencesセクションの**Import an Experience file**(Experienceファイルをインポート)から読み込めます。エージェントカタログは不要です。
+
+マニフェストの`kind`は`"kind": ["experience"]`だけで、`capabilityApi` 1.373以降が必要です。コードは含めません。`entrypoints`は`{}`、`permissions`は空で、`restartRequired`も`prepareBeforeStart`もなく、`contributions.slots`は正確に`["game-surface"]`です。`files`のすべてのファイルは`.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`、`.ogg`、`.mp3`、`.wav`、`.json`のいずれかです。ゲーム画面は独自のものを描画せず、Experienceは`gameSurface`の提供機能(設定、マップ、世界、クリーチャーパック、音楽)を通して動作します。
+
+ファイルはJSONで、キーを次の順序で並べます。
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest`は上記のパッケージマニフェストで、最大1 MBです。すべてのファイルより前に置きます。
+- `files`は、マニフェストの`files`内の各パスを、標準base64のバイト列へ対応付けます(パディングは末尾だけで、内部に空白や改行は使えません)。列挙した各ファイルを正確に1回ずつ含め、それ以外は含めません。
+- パスはエスケープなしで書きます。そのため、引用符、バックスラッシュ、制御文字、単独のサロゲートを含むパスは拒否されます。
+
+何かを送信する前に、ウィザードはファイルの先頭からマニフェストの終わりまでだけを読み、確認画面を表示します。名前、バージョン、説明、インポートのサイズと画像・音楽・データの内訳、**Import**(インポート)と**Don't Import**(インポートしない)を示します。インポートはファイルを`POST /api/capability-packages/experience-file`へ送ります(コンテンツタイプは`application/vnd.marinara.experience+json`)。サーバーは届いたデータを順に読み、各ファイルを一時フォルダーへ書き、サイズと`sha256`をマニフェストと照合します。不一致、欠落、余分なファイル、途中で切れたファイル、インストール済みより古いバージョンは拒否し、書き込んだものは何も残しません。
+
+続いて、各ファイルは名前どおりの内容でなければなりません。画像はキャラクターカードのインポートと同じシグネチャ検査(`isAllowedImageBuffer`)を通し、拡張子が示す種類である必要があります。そのため、`.png`という名前のページやSVGは拒否されます。メタデータを除いて保存します。PNGは描画に使うチャンクだけを残します(`tEXt`、`zTXt`、`iTXt`、`eXIf`、`iCCP`は除去)。JPEGはJFIFとAdobe以外のAPPセグメントおよびコメントを削除します(そのためEXIFの向き情報は保持されません)。GIFはループ回数以外のアプリケーション拡張、コメント、プレーンテキストを削除し、WebPはEXIF、XMP、ICCチャンクを削除します。音楽は正しい形式のOgg VorbisかOpus(各ページのチェックサムを検査し、コメントとカバーアートをその場で空にする)、MP3(ID3とAPEタグを除去)、WAV(`fmt `、`fact`、`data`チャンクだけを保持)のいずれかでなければなりません。データファイルはUTF-8のJSONでなければなりません。画像や音声の終端より後のものはすべて削除します。インストール済みのマニフェストは、保存されたファイルのサイズとハッシュを記録します。カタログの更新と同じく、新しいバージョンはインストール済みのものを置き換えます。Experienceファイルは、同じIDの別の種類のパッケージを置き換えられません。
+
+Experienceはパッケージのzipとしては一切受け付けません。エージェントカタログに載せるには、アーティファクトURLの末尾が`.experience.json`である必要があります。Engineは同じ読み取り、検査、除去処理でそのファイルをインストールし、マニフェストがカタログの記載と一致しなければ拒否します。Experienceのカタログエントリー(`kind`が`experience`、または`game-surface`スロット)でそれ以外のアーティファクトを使うものは、何もダウンロードする前に拒否し、初回起動時のカタログインストールではExperienceをスキップします。インストール済みのExperienceは引き続き動作します。
+
+Pixelforge 0.45.0はExperienceをこのファイル形式で書き出し、開くのもExperienceファイルだけです。
+
 ### Capability API 1.18: Gameウィザード内でのExperience設定
 
 `game-surface`パッケージは、スキーマバージョン2とCapability API 1.18で`contributions.gameSurface.setup`を宣言できます。Engineは、**Party**(パーティー)、目標、モデル、ロアブックを含む通常の7つの設定ステップを維持します。Experiencesを選べるのは新規ゲームだけです。既存ゲームの設定を開き直した場合、そのExperienceとパッケージ設定は保持されます。この宣言がないパッケージは、従来の設定ダイアログを引き続き使用します。
@@ -811,6 +1041,22 @@ export async function activate({ api }) {
 - `enterLabel`と`exitLabel`: 切り替えボタン用のローカライズされたアクセシブルなラベル。
 
 これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
+
+<a id="capability-api-1387-read-a-chats-summaries"></a>
+
+### Capability API 1.387: チャットの要約の読み取り
+
+`persistence.listChatSummaries(chatId)`は、Engineがチャット用に保持している要約を返します。パッケージ側でチャットのメタデータから要約を取り出す必要はありません。`listMessages`と同じく`chat-read`権限が必要で、コピーを返します。
+
+- `day`と`week`: 日付別のConversationの要約です(`"DD.MM.YYYY"`、週はその月曜日の日付)。それぞれ`{ summary, keyDetails }`の形式です。
+- `rolling`: ローリング要約のエントリーをチャット内の順序で返します。無効なものも含まれます(`enabled`を確認してください)。古い単一の要約しかないチャットでは、それを`origin: "legacy"`の1件のエントリーとして読み取り、チャットの最終更新日時を日付に使います。
+- `gameSessions`: Gameの過去の各セッションの要約です。すべてのエントリーは完全な形になります。欠けているテキストフィールドは`""`、リストは`[]`として読み取り、古い`revelations`リストは`keyDiscoveries`に統合します。`sessionNumber`がない場合はエントリーの位置(1から)を使い、日付がない場合はチャットの最終更新日時を使います。
+
+要約がないチャットや、見つからないチャットには空の値を返します。古いEngineにはこのメソッドがないため、存在を確認するか、1.387を宣言してください。
+
+```ts
+const { day, week, rolling, gameSessions } = (await api.runtime.persistence.listChatSummaries?.(chatId)) ?? {};
+```
 
 <a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 

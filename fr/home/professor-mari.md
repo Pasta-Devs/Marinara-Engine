@@ -37,6 +37,7 @@ Demande-lui de l'aide pour tout ceci :
 - Expliquer un réglage, un mode ou un concept avant que tu ne changes quoi que ce soit.
 - Créer ou modifier un personnage. Un personnage est une fiche qui donne à l'IA un nom, une personnalité et une voix. Elle peut aussi écrire l'[accueil interactif](../characters/interactive-onboarding.md) d'une fiche, c'est-à-dire les questions auxquelles les joueurs répondent pour construire leur persona.
 - Créer ou modifier un persona. Le persona est l'identité que tu incarnes dans un chat, le "toi" de l'histoire.
+- Remplir ou modifier la [fiche d'ensemble de règles](../characters/colors-and-stats.md#ruleset-sheets) d'un personnage ou d'un persona pour un ensemble de règles de Game Mode installé : valeurs, entraînement, champs et lignes de liste comme l'équipement. Elle utilise les noms et limites de l'ensemble de règles lui-même, et la modification est refusée, avec la raison, quand une valeur ne respecte pas cet ensemble de règles.
 - Créer ou modifier un lorebook. Un lorebook est un recueil de notes sur ton univers, que l'IA reprend quand elles sont pertinentes.
 - Créer ou modifier un thème, un agent, un preset de prompt ou un brouillon de Personal Extension. Professor Mari est la seule autrice d'extension par défaut. Ses brouillons restent désactivés tant que tu n'as pas donné ton accord. Inspecte le code en bac à sable, puis examine les permissions actives demandées sur les fiches de personnage ou les personas. Approuve enfin le hash exact dans **Settings** > **Addons**.
 - Modifier une seule partie d'un preset de prompt, sur place. Elle sait lister les sections, les groupes de prompt et les variables de choix d'un preset, puis lire n'importe lequel d'entre eux en entier. Elle ajoute, change ou retire ce seul morceau, par exemple une ligne dans une section précise, au lieu de créer ou de remplacer le preset entier.
@@ -133,6 +134,7 @@ Une modification qui t'attend fonctionne autrement. Une modification retenue (en
 
 - Un encart appartient au chat Professor Mari dans lequel elle a effectué la modification. Un nouveau chat démarre sans les encarts des autres chats. Supprimer un chat conserve ses modifications et retire ses encarts. Une modification effectuée avec la commande `mari` dans un terminal n'appartient à aucun chat : son encart apparaît donc dans tous les chats Professor Mari.
 - Une modification qui laisserait tout à l'identique n'est pas enregistrée et ne reçoit aucun encart.
+- Une étape de sa liste de travail qui affiche **Previewed** et se termine par **· not saved** n'était qu'un aperçu. Rien n'a changé et aucun encart n'est créé.
 - Professor Mari ne peut ni modifier ni supprimer sa propre fiche de personnage. Marinara la rétablit à sa version intégrée à chaque démarrage.
 - Les personnages et les personas gardent aussi leur propre historique de versions dans leurs éditeurs. Tu peux y restaurer une version plus ancienne : c'est un deuxième filet de sécurité.
 
@@ -151,9 +153,9 @@ Professor Mari peut écrire des **Activation questions** (questions d'activation
 
 Si aucun Decision model n'est sélectionné, elle n'ajoute pas de dépendances Decision aux créations et modifications ordinaires. Le contenu Decision existant reste intact lors de modifications sans rapport. Si tu demandes explicitement ce contenu, elle explique le repli pertinent et demande une fois dans ce chat Professor Mari s'il faut continuer. Son registre persiste à la réouverture du chat et dans les conversations dépassant sa fenêtre récente. Une question sans réponse ou un refus ne vaut pas autorisation.
 
-Tu peux lui dire : **"Stop reminding me to set up a Decision model."** Elle arrête dans le chat actuel et peut enregistrer cette préférence comme Memory. Utilise **Turn on** (activer) pour l'appliquer aussi aux futurs chats. Désactiver ou supprimer cette Memory retire la préférence permanente. Supprimer les rappels de configuration ne l'invite pas à ajouter Decisions aux demandes ordinaires.
+Tu peux lui dire : **"Arrête de me rappeler de configurer un modèle de décision."** Elle arrête dans le chat actuel et peut enregistrer cette préférence comme Memory. Utilise **Turn on** (activer) pour l'appliquer aussi aux futurs chats. Désactiver ou supprimer cette Memory retire la préférence permanente. Supprimer les rappels de configuration ne l'invite pas à ajouter Decisions aux demandes ordinaires.
 
-Avec un modèle sélectionné, elle suit tes Memories et Skills pertinentes activées. Sans préférence de création dans celles-ci, elle demande si tu veux utiliser Decisions et mémoriser ta réponse. Tu peux accepter, refuser ou autoriser uniquement la tâche actuelle. Une Skill expliquant simplement la syntaxe ne vaut pas autorisation. Une demande directe comme "add Decision activation to this entry" autorise déjà cette tâche.
+Avec un modèle sélectionné, elle suit tes Memories et Skills pertinentes activées. Sans préférence de création dans celles-ci, elle demande si tu veux utiliser Decisions et mémoriser ta réponse. Tu peux accepter, refuser ou autoriser uniquement la tâche actuelle. Une Skill expliquant simplement la syntaxe ne vaut pas autorisation. Une demande directe comme "ajoute une activation Decision à cette entrée" autorise déjà cette tâche.
 
 Par défaut, elle en fait un usage limité avec un contrôle temporel adapté : **Sticky** ou **Cooldown** pour les entrées de lorebook, **Trigger Cadence** pour l'activation d'agents et `sticky`, `cooldown` ou `every` dans les conditions de prompt. Sticky et Cooldown réduisent les vérifications répétées après une activation positive ; ils ne les empêchent pas tant qu'un énoncé répond non. `every` saute les vérifications entre les tours prévus et y vaut non ; il ne convient donc pas toujours aux événements fugaces.
 
@@ -173,6 +175,14 @@ Clique sur le bouton **Skills** dans l'en-tête de son chat pour ouvrir le panne
 - Sélectionner une Skill pour modifier les champs **Name** (nom), **Description** et **Instructions**, puis cliquer sur **Save** (enregistrer). Clique sur **Delete** pour l'effacer.
 
 Tant que tu n'as aucune Skill, le panneau affiche **No custom skills yet**.
+
+### Skills intégrées
+
+Sous tes propres Skills, dans **Always on** (toujours actif), le panneau liste les Skills fournies avec Marinara. Chacune porte la mention **Built-in**. Ce sont ses manuels pour les personnages et les personas, les lorebooks, l'accueil interactif, les presets, les thèmes, les Personal Extensions, les widgets de l'accueil, Decisions et la réparation d'une réponse. Elle en lit une quand une demande le nécessite : elles n'occupent donc pas de place dans chaque message.
+
+Une Skill intégrée est en lecture seule : tu ne peux ni la modifier, ni la désactiver, ni la supprimer, et une mise à jour de l'application la remplace par sa nouvelle version. Pour changer sa façon de traiter un sujet, copie les instructions de cette Skill dans une nouvelle Skill à toi.
+
+Par défaut, dans chaque chat, sa première modification dans un domaine couvert par une Skill intégrée est refusée tant qu'elle n'a pas lu cette Skill. Cela aide les petits modèles et les modèles locaux. Les grands modèles s'en sortent généralement sans cette obligation : tu peux donc la désactiver pour leur épargner une étape. Ouvre **Search and Professor Mari settings** et désactive **Read the handbook before the first write** (lire le manuel avant la première écriture), sous **Runtime**. Toi seul peux changer ce réglage ; Professor Mari ne le peut pas.
 
 ## Les souvenirs enregistrés
 

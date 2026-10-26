@@ -177,7 +177,7 @@ Un conjunto también puede tirar sus pruebas de otras formas. El motor sigue tir
 
 ## Terminar un turno con dados en una sola solicitud
 
-De forma predeterminada, un turno con tiradas cuesta dos solicitudes al modelo: una para el borrador y otra para reescribir el desenlace con las cifras reales. **Finish rolled turns in one request** (Terminar los turnos con dados en una sola solicitud), en **Chat Settings → Function Calling**, elimina la segunda. Está desactivado de forma predeterminada y solo afecta al chat donde lo activas.
+Sin esta opción, un turno con tiradas cuesta dos solicitudes al modelo: una para el borrador y otra para reescribir el desenlace con las cifras reales. **Finish rolled turns in one request** (Terminar los turnos con dados en una sola solicitud), en **Chat Settings → Function Calling**, elimina la segunda. Está activado de forma predeterminada; desactívalo en un chat para que ese chat reescriba cada turno con tiradas usando las cifras reales.
 
 Funciona porque el Game Master fija su texto antes de que exista ningún número. No ve la tirada antes de decidir qué ocurre, así que no puede orientar el desenlace hacia el dado recibido. El motor tira después y se guarda su registro.
 
@@ -205,7 +205,7 @@ Debajo hay otra opción, **Let the Game Master see one die of each size** (Dejar
 
 Al activarla, el motor tira un dado de cada tamaño estándar antes del turno y muestra el siguiente valor de cada uno al GM, para que pueda gastar uno y narrar lo que significa en la misma pasada.
 
-**Este es el coste de esa decisión; conviene leerlo con atención.** El GM ve el número antes de decidir qué probar y con qué dificultad. Puede orientar los resultados de formas que las opciones a ciegas no permiten: elegir una dificultad que supere el dado recibido o evitar pedir una prueba mientras tenga un número malo. El motor no puede saber si la dificultad encaja con la ficción, por lo que tampoco puede detectar esto. Un jugador que no sabe que el GM vio los dados interpretará una sesión sospechosamente heroica como buena suerte.
+**Este es el coste de esa decisión; conviene leerlo con atención.** El GM ve el número antes de decidir qué probar y con qué dificultad. Puede orientar los resultados de formas que las opciones a ciegas no permiten: elegir una dificultad que el dado recibido pueda superar o evitar pedir una prueba mientras tenga un número malo. El motor no puede saber si la dificultad encaja con la ficción, por lo que tampoco puede detectar esto. Un jugador que no sabe que el GM vio los dados interpretará una sesión sospechosamente heroica como buena suerte.
 
 El motor sí impone lo siguiente, sin depender de la cooperación del GM:
 

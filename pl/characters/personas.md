@@ -148,6 +148,8 @@ Zakładka **Stats** dzieli się na dwa osobne bloki. Oba zasilają ekranowy pase
 - **Enable Persona Stats** włącza paski stanu dla potrzeb takich jak głód, energia i nastrój. Przy pierwszym włączeniu dostajesz startowe paski Satiety, Energy, Hygiene i Mood, każdy z wartością 100 na 100. Wartościami tymi steruje w miarę rozwoju historii agent **Persona Stats**.
 - **Enable RPG Attributes** włącza statystyki w stylu RPG: pule (Pools) i atrybuty (Attributes). Przy pierwszym włączeniu dostajesz startowe pule HP i MP z wartością 100 na 100 oraz startowe atrybuty STR, DEX, CON, INT, WIS i CHA, każdy z wartością 10. Te wartości są wysyłane razem z kartą persony na potrzeby walki (Combat) i trybu Game Mode oraz opcjonalnych rzutów w trybie Roleplay lub Game Mode. Agenci trackerów ich nie aktualizują.
 
+Blok **Game Mode Icon** (ikona trybu Game Mode) ustawia obraz na tokenie persony podczas walki w trybie Game Mode: awatar, obraz z galerii persony lub inicjały. Zobacz [Ikona trybu Game Mode](colors-and-stats.md#game-mode-icon).
+
 Gdy jest zainstalowany zestaw zasad Game Mode lub persona nadal przechowuje jego arkusz, pod obiema sekcjami pojawia się **Ruleset sheets** (arkusze zestawów zasad). To konfiguracja początkowa persony dla każdego zestawu, kopiowana do nowej gry. Zobacz [Arkusze zestawów zasad](colors-and-stats.md#ruleset-sheets).
 
 Ustawione tu wartości są domyślnymi wartościami startowymi dla nowych czatów. Paski stanu persony (Persona Status Bars) mogą aktualizować się automatycznie, gdy włączony jest agent Persona Stats; pule i atrybuty RPG persony nie są zarządzane przez agentów. Pełne wyjaśnienie zawiera przewodnik [Kolory postaci i statystyki RPG](colors-and-stats.md).

@@ -34,7 +34,7 @@ Pakiet to jeden plik JSON (`.creatures.json`). Najłatwiej utworzyć go w zakła
 
 | Pole | Znaczenie |
 | --- | --- |
-| `creaturePackVersion` | Zawsze `1`. |
+| `creaturePackVersion` | `1` albo `2` dla pakietu z grafiką latania (Capability API 1.352). |
 | `id` | Małe litery, cyfry, `_` i `-`. Biblioteka zapisuje zaimportowany pakiet pod `local/<id>`. |
 | `name`, `author` | Wyświetlane w bibliotece. `author` jest opcjonalne. |
 | `version` | Liczba całkowita. Raz zapisanej wersji nigdy się nie nadpisuje: aby zmienić pakiet, podnieś jego wersję. Ponowny import tego samego pliku niczego nie zmienia. |
@@ -56,6 +56,11 @@ Wartość `png` arkusza musi być **adresem data URL** obrazu PNG: `data:image/p
 | `w`, `h` | Rozmiar jednej klatki w polach, każdy od 1 do 6. |
 | `frames` | `1` dla nieruchomego stworzenia, `3` dla chodzącego (krok, postawa, krok). |
 | `variants` | Jego **warianty wyglądu**, od 1 do 8, każdy wskazujący, gdzie na arkuszu zaczyna się jego blok: `sheet` oraz lewe górne pole `x`, `y`. |
+| `fly` | Opcjonalne, wymaga `creaturePackVersion` 2: bloki **latania**, ułożone jak blok chodzenia (trzy klatki w poziomie, cztery kierunki w pionie), rozmieszczone jak `variants`. Jeden dla wszystkich wariantów wyglądu albo po jednym na wariant, w tej samej kolejności. |
+
+### Latanie
+
+Stworzenie z `fly` jest rysowane z bloku latania, z klatkami odtwarzanymi w kolejności 0, 1, 2, 1, gdy w walce jest pokazywane w powietrzu: ma prędkość lotu i nie chodzi, zawisa, znajduje się nad ziemią albo leciało w tej turze (wykonało krok możliwy tylko dzięki lotowi, na przykład nad wodą). W pozostałych przypadkach jest rysowane ze swojego wariantu wyglądu jak wcześniej. Pakiet map Experience, którego pakiety stworzeń mają grafikę latania, wymaga Capability API 1.352.
 
 ### Co wskazuje `match`
 

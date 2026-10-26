@@ -177,7 +177,7 @@ Um conjunto de regras também pode rolar os testes de outras formas. O motor con
 
 ## Terminar um turno com dados em uma só solicitação
 
-Por padrão, um turno com rolagens custa duas solicitações ao modelo: uma para o rascunho e outra para reescrever o desfecho com os números reais. **Finish rolled turns in one request** (Terminar turnos com dados em uma solicitação), em **Chat Settings → Function Calling**, elimina a segunda. A opção fica desativada por padrão e só vale para o chat em que você a ativa.
+Sem essa opção, um turno com rolagens custa duas solicitações ao modelo: uma para o rascunho e outra para reescrever o desfecho com os números reais. **Finish rolled turns in one request** (terminar turnos com dados em uma solicitação), em **Chat Settings → Function Calling**, elimina a segunda. A opção fica ativada por padrão; desative-a em um chat para que ele reescreva cada turno com rolagens usando os números reais.
 
 Isso funciona porque o Game Master fixa seu texto antes de qualquer número existir. Ele não vê a rolagem antes de decidir o que acontece, então não pode direcionar o desfecho para o dado recebido. O motor rola depois, e é seu registro que fica salvo.
 

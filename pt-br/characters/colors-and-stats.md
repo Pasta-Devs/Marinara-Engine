@@ -59,6 +59,18 @@ O primeiro bloco é **Persona Status Bars** (barras de status da persona), ativa
 
 O segundo bloco é **RPG Attributes** (atributos de RPG), ativado pela opção **Enable RPG Attributes**. Funciona igual a um card de personagem. Ele dá à sua persona as seções **Pools** (começando com HP e MP em 100 de 100) e **Attributes** (começando com STR, DEX, CON, INT, WIS e CHA em 10).
 
+<a id="game-mode-icon"></a>
+
+### Ícone de Game Mode
+
+As duas abas **Stats** têm um bloco **Game Mode Icon** (ícone de Game Mode). Ele define a imagem no token redondo do personagem ou da persona no tabuleiro durante um combate em Game Mode. O pequeno token ao lado das opções mostra o que aparecerá no tabuleiro.
+
+- **Avatar** (avatar, opção padrão) usa o avatar. Sem avatar, o token mostra as iniciais.
+- **Custom image** (imagem personalizada) usa uma imagem da própria galeria do card. Escolha uma das imagens exibidas ou envie uma nova, que será adicionada à galeria. É preciso salvar o card pelo menos uma vez antes de usar essa opção.
+- **Initials** (iniciais) sempre mostra as iniciais, mesmo quando há um avatar.
+
+A mesma imagem aparece para esse personagem nos outros estilos de combate. Se você excluir a imagem escolhida da galeria, o bloco avisa; escolha outra ou volte para **Avatar**.
+
 <a id="ruleset-sheets"></a>
 
 ### Fichas de conjuntos de regras
@@ -68,6 +80,8 @@ Quando um conjunto de regras de Game Mode está instalado, como 5e (SRD 5.1), as
 1. Abra a entrada e clique em **Add a sheet** (adicionar uma ficha). Você recebe uma ficha em branco, com todos os valores no padrão do conjunto.
 2. Preencha a ficha. O layout vem do próprio conjunto: valores de atributo com os modificadores, campos agrupados por seção, listas como ataques e magias, e as perícias e salvaguardas, cada uma com um nível de treinamento e um bônus extra. Valores calculados, como o bônus de proficiência ou a Percepção passiva, se atualizam enquanto você digita e não podem ser editados.
 3. Salve o personagem ou a persona normalmente.
+
+Você também pode pedir à Professor Mari que preencha ou altere uma ficha, por exemplo "dê a Rook um Brawn de 2 e acrescente um pé de cabra ao equipamento de Rook". Ela escreve apenas na ficha daquele conjunto, mantém todos os valores dentro dos limites dele e mostra a alteração em um card de mudança.
 
 Uma ficha aqui é a **configuração inicial** desse personagem para aquele conjunto. Uma nova partida com o conjunto leva uma cópia. As mudanças feitas dentro de uma partida ficam nessa partida e nunca voltam para o card.
 

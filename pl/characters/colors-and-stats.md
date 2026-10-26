@@ -59,6 +59,18 @@ Pierwszy blok to **Persona Status Bars**, włączany przełącznikiem **Enable P
 
 Drugi blok to **RPG Attributes**, włączany przełącznikiem **Enable RPG Attributes**. Działa tak samo jak w karcie postaci. Daje personie sekcję **Pools** (na starcie HP i MP na poziomie 100 ze 100) oraz sekcję **Attributes** (na starcie STR, DEX, CON, INT, WIS i CHA o wartości 10).
 
+<a id="game-mode-icon"></a>
+
+### Ikona trybu Game Mode
+
+Obie zakładki **Stats** mają blok **Game Mode Icon** (ikona trybu Game Mode). Ustawia on obraz na okrągłym tokenie postaci lub persony na planszy podczas walki w trybie Game Mode. Mały token obok opcji pokazuje, co pojawi się na planszy.
+
+- **Avatar** (awatar, opcja domyślna) używa awatara. Gdy go nie ma, token pokazuje inicjały.
+- **Custom image** (własny obraz) używa obrazu z galerii danej karty. Wybierz jeden z wyświetlonych obrazów galerii lub prześlij nowy, który zostanie do niej dodany. Aby skorzystać z tej opcji, trzeba najpierw zapisać kartę co najmniej raz.
+- **Initials** (inicjały) zawsze pokazuje inicjały, nawet gdy jest dostępny awatar.
+
+Ten sam obraz pojawia się dla tej postaci także w innych stylach walki. Jeśli usuniesz wybrany obraz z galerii, blok o tym poinformuje; wybierz inny lub wróć do **Avatar**.
+
 <a id="ruleset-sheets"></a>
 
 ### Arkusze zestawów zasad
@@ -68,6 +80,8 @@ Po instalacji zestawu zasad Game Mode, np. 5e (SRD 5.1), obie zakładki **Stats*
 1. Otwórz wpis i kliknij **Add a sheet** (dodaj arkusz). Dostaniesz pusty arkusz, w którym każda wartość ma ustawienie domyślne zestawu zasad.
 2. Wypełnij go. Układ pochodzi z samego zestawu zasad: wartości cech z ich modyfikatorami, pola pogrupowane w sekcje, listy takie jak ataki i zaklęcia oraz umiejętności i rzuty obronne, każde z poziomem wyszkolenia i dodatkową premią. Wartości obliczane, np. premia biegłości lub pasywna Percepcja, aktualizują się podczas pisania i nie podlegają bezpośredniej edycji.
 3. Zapisz postać lub personę jak zwykle.
+
+Możesz też poprosić asystentkę Professor Mari o wypełnienie lub zmianę arkusza, na przykład "ustaw postaci Rook wartość Brawn na 2 i dodaj łom do jej ekwipunku". Zapisuje tylko arkusz tego zestawu zasad, pilnuje jego ograniczeń dla każdej wartości i pokazuje zmianę na karcie zmiany.
 
 Arkusz w tym miejscu to **początkowa konfiguracja** tej postaci dla danego zestawu zasad. Nowa gra na tym zestawie zasad bierze jego kopię. Zmiany wprowadzone w grze zostają w tej grze i nigdy nie wracają na kartę.
 

@@ -171,8 +171,10 @@ Marinara는 실행 중에도 `.env` 파일을 지켜봅니다. 변경 사항을 
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | 로그인을 설정하지 않았을 때 사설 네트워크에서 비밀번호 없이 접근하도록 되돌립니다. `100.64.0.0/10` 범위(통신사급 NAT)는 포함되지 않습니다. 인터넷 서비스 사업자가 서로 관계없는 고객끼리 공유하기 때문입니다. 신뢰할 수 있는 경우에만 `TRUSTED_PRIVATE_NETWORKS`에 추가하세요(기본 범위를 대체하므로 LAN 범위는 남겨 두세요). |
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | 공개 인터넷을 포함한 모든 주소에서 비밀번호 없이 접근하도록 허용합니다. 권장하지 않습니다. |
 | `TRUSTED_PRIVATE_NETWORKS` | 내장 기본값 | 기본 사설 네트워크 범위를 대체합니다. 계속 쓰고 싶은 기본값은 직접 포함해야 합니다. |
-| `BYPASS_AUTH_TAILSCALE` | 자동 | 비워 두면 직접 연결된 Tailscale 소켓의 양 끝이 모두 tailnet 주소를 쓰고 요청에 전달 헤더가 없을 때만 신뢰합니다(Tailscale Serve와 Funnel은 로그인이 필요합니다). 예전처럼 `100.64.0.0/10` 전체를 우회하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
+| `BYPASS_AUTH_TAILSCALE` | 자동 | 비워 두면 기기가 이 컴퓨터의 Tailscale 주소로 직접 연결할 때만 로그인을 건너뜁니다. Tailscale Serve, Funnel 또는 다른 프록시를 통한 연결에는 여전히 로그인이 필요합니다. 예전처럼 `100.64.0.0/10` 전체를 우회하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
 | `BYPASS_AUTH_DOCKER` | 자동 | 비워 두면 감지된 컨테이너 인터페이스와 그 인터페이스의 정확한 게이트웨이만 신뢰하며, 그것도 로그인(`.env` 또는 앱), `IP_ALLOWLIST` 또는 유효한 `TRUSTED_AUTH_PROXY`가 설정되지 않은 동안에만 신뢰합니다. 예전 구성이나 사용자 지정 네트워크와 호환하려면 `true`, 일반 접근 제어를 요구하려면 `false`로 설정하세요. |
+| `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `true` | 프록시가 전달하는 Docker 트래픽(전달 헤더, 다른 컴퓨터를 가리키는 Host 또는 HTTP/1.0)에 일반 로그인과 허용 목록 검사를 요구합니다. 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 `false`로 설정하세요. |
+| `REQUIRE_AUTH_FOR_LOOPBACK_PROXY` | `true` | 같은 컴퓨터의 리버스 프록시나 터널이 전달하는 요청을 원격 방문자로 취급합니다. nginx의 기본 `proxy_pass` 같은 HTTP/1.0 요청도 포함됩니다. 프록시 자체가 모든 방문자에게 로그인을 요구할 때만 `false`로 설정하세요. |
 | `TRUSTED_AUTH_PROXY` | 비어 있음 | 모든 방문자를 로그인시키는 forward-auth 프록시(tinyauth, Authelia, Authentik, oauth2-proxy)의 IP나 CIDR 범위입니다. 이 주소에서 온 요청은 로그인과 `IP_ALLOWLIST`를 건너뜁니다. 전달 헤더는 인정하지 않습니다. 프록시가 모든 경로를 보호해야 하며, Marinara에 프록시를 우회해 닿을 수 없어야 합니다. [로그인 프록시](REMOTE_ACCESS.md#login-proxies-forward-auth)를 참고하세요. |
 | `TRUSTED_HOSTS` | 비어 있음 | Marinara가 응답해도 되는 공개 호스트명이나 리버스 프록시 호스트명을 추가합니다. 직접 IP, localhost, `.local`, `.home.arpa`, 점이 없는 LAN 이름은 자동으로 동작합니다. |
 | `SSL_CERT` | 비어 있음 | TLS 인증서 파일 경로. `SSL_KEY`와 함께 설정하면 HTTPS를 직접 제공합니다. |

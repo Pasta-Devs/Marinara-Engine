@@ -177,7 +177,7 @@ Zestaw zasad może też rozstrzygać testy na inne sposoby. Kośćmi nadal rzuca
 
 ## Kończenie tury z rzutami jednym żądaniem
 
-Domyślnie tura z rzutem kosztuje dwa żądania do modelu: jedno na szkic i drugie na przepisanie wyniku z prawdziwymi liczbami. **Finish rolled turns in one request** (kończenie tur z rzutami jednym żądaniem) w **Chat Settings → Function Calling** usuwa drugie. Domyślnie jest wyłączone i dotyczy tylko czatu, w którym je włączysz.
+Bez tej opcji tura z rzutem kosztuje dwa żądania do modelu: jedno na szkic i drugie na przepisanie wyniku z prawdziwymi liczbami. **Finish rolled turns in one request** (kończenie tur z rzutami jednym żądaniem) w **Chat Settings → Function Calling** usuwa drugie. Domyślnie opcja jest włączona; wyłącz ją w danym czacie, aby zamiast tego każda tura z rzutem była w nim przepisywana z prawdziwymi liczbami.
 
 GM ustala tekst, zanim powstanie jakakolwiek liczba. Nie widzi rzutu przed wyborem zdarzeń, więc nie może dopasować wyniku do otrzymanej kości. Silnik rzuca później i zapisuje własny wynik.
 

@@ -709,6 +709,236 @@ Ein `game-surface`-Paket, das über den Game-Assistenten eingerichtet wird (`gam
 
 Die Engine liest die Dateien über den verifizierten Asset-Weg (deklarierte Größe jeweils höchstens 8 MB, Hash erneut geprüft) und prüft sie so, wie sie Austauschdateien prüft. Ein Paket wird als Ganzes abgelehnt, mit Angabe des Grunds, wenn sich eine Datei nicht lesen lässt, wenn eine Welt mit einem anderen Kit erstellt wurde oder nicht dazu passt oder wenn ihre Bytes nicht die installierten sind; die Experience kann dann kein Spiel starten. Ein Regelsatz ist nie Teil eines Kartenpakets: Eine Experience, die eigene Regeln braucht, liefert ein separates Regelsatz-Paket mit.
 
+#### Capability API 1.344: Kreaturenpakete
+
+`mapPack.creatures` listet bis zu 8 `.creaturepack.json`-Dateien auf (jeweils ein deklariertes Asset, gelesen und geprüft wie ein Kreaturenpaket in der Bibliothek). In einem Spiel der Experience verwendet jeder Kampf die Grafik einer Kreatur zuerst aus diesen Paketen in ihrer Reihenfolge und danach aus dem in der Bibliothek ausgewählten Kreaturenpaket.
+
+#### Capability API 1.345: Musik
+
+Die Assets eines Pakets dürfen ab 1.345 Audiodateien sein: `.ogg`, `.mp3` oder `.wav`, jeweils höchstens 16 MB. `mapPack.music` benennt die Titel der Experience und wann sie abgespielt werden:
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+Jeder Titel ist zugleich ein deklariertes Asset, und jede genannte Titel-ID gehört zu `tracks`. Ein Ort in `places` ist über seine ID ein Ort einer der Welten des Pakets. Außerhalb eines Kampfes spielt das Spiel den Titel des Ortes, andernfalls den des nächstgelegenen übergeordneten Ortes mit eigenem Titel, andernfalls `default`; in einem Kampf `combat`. Die `music`-Aktion einer Story (siehe [Story-Skripte für Game Mode schreiben](../extending/writing-story-scripts.md)) spielt einen Titel mit Vorrang vor allen diesen ab, bis sie die Wiedergabe wieder freigibt. Ohne eine dieser Vorgaben spielt die eigene Musik der Engine. Ein Spieler, der eine eigene Musikquelle gewählt hat (Music DJ, Spotify), hört stattdessen diese: Seine Wahl hat immer Vorrang.
+
+#### Capability API 1.346: Personen
+
+`mapPack.people` ist eine `.people.json`-Datei (ein deklariertes Asset), die die benannten Personen der Welten des Pakets ausstattet. Die Personen stammen aus der Welt selbst, generiert und benannt oder von Hand über ihre Änderungen hinzugefügt (Pixelforge oder der Tab **World** (Welt)). Sie stehen also wie alle anderen an ihren Orten; die Datei sagt, wer sie sind:
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person` ist die Personen-ID einer der Welten des Pakets (`<place id>-<n>` oder `-e<n>` für eine von Hand hinzugefügte Person), und diese Person muss dort einen Namen haben.
+- `portrait` und `expressions` (`neutral`, `happy`, `sad` und die anderen Gesichtsausdrücke der Erzählung) sind Bilder aus den Assets des Pakets. Das Porträt erscheint im Journal, sobald die Person im Spiel angetroffen wird; ihre Ausdrücke werden für ihre gesprochenen Zeilen verwendet.
+- `sprite` ist ein Charakter aus den eigenen (Bild-)Tiles des Pakets, den die Person beim Gehen auf Stadt- und Ortskarten anstelle eines für sie ausgewählten Sprites trägt.
+- `description`, `voice` und `lore` werden zu einem Lorebook, das mit jedem neuen Spiel der Experience angelegt wird (mit dem Titel „_Name der Experience_: people“) und ab dem ersten Zug aktiv ist: ein Eintrag pro Person, durch ihren Namen eingebracht, einer pro `lore`-Eintrag über dessen eigene Schlüsselwörter und einer pro Eintrag der eigenen `lore` der Datei.
+
+#### Capability API 1.347: Begleiter
+
+Eine Person kann ein Begleiter sein: jemand, den die Gruppe aufnehmen kann, damit eine Gruppe ohne Heilung, Aufklärung oder Licht im Dunkeln nie von dem ausgeschlossen ist, was die Story von ihr verlangt.
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets` enthält für jeden Regelsatz, in dessen Spiel der Begleiter eintreten kann, einen Bogen unter der Regelsatz-ID. `v` ist die Bogenversion des Regelsatzes, für die die Aufbauten geschrieben wurden (ältere werden wie gespeicherte Bögen migriert).
+- `level` benennt die Bogenfelder, die zusammengezählt die Charakterstufe in diesem Regelsatz ergeben (ein Mehrklassenbogen hat eines pro Klasse). Die Stufenfelder jedes Aufbaus müssen zusammen sein `at` ergeben, und die Aufbauten steigen auf.
+- Ein Begleiter tritt mit dem Aufbau für die höchste erreichte Gruppenstufe bei (mit dem niedrigsten, solange die Gruppe unter allen liegt). Nach jedem Zug steigt er zu einem höheren Aufbau auf, sobald die Gruppe ihn erreicht. Ein Bogen, den der Spieler über seinen Aufbau hinaus angehoben hat, bleibt unverändert, und nichts senkt einen ab. Gesundheit, Pools und Zustände bleiben vom Aufbau getrennt und werden deshalb bei einem Aufstieg bewahrt. Liefere einen Aufbau für jede Stufe mit, auf der der Begleiter spielbar sein soll.
+- Die Story nimmt sie mit den Aktionen `recruit` und `dismiss` auf und entlässt sie. Der Game Master erfährt, wer die Begleiter sind, wo sie sind und was sie mitbringen. Er darf nur sie aufnehmen (ein `[party_change]`, das jemand anderen nennt, wird abgelehnt); eigene Bibliothekscharaktere des Spielers dürfen weiterhin beitreten.
+- Ein Begleiter tritt wie jeder Rekrut bei: Er steht in der Gruppenliste, bringt seine Karte und seinen Bogen mit und kämpft im taktischen Kampf. In einem Spiel mit einem Regelsatz, für den er keinen Bogen hat, tritt er mit einem leeren bei.
+
+Eine Personendatei mit Begleitern braucht 1.347; ohne Begleiter 1.346. Eine Story, die jemanden rekrutiert oder entlässt, braucht 1.347, und jede darin genannte Person muss ein Begleiter in der Personendatei des Pakets sein.
+
+#### Capability API 1.350: ein Paket vor dem Export prüfen
+
+Eine Autoren-App (Pixelforge) kann die Engine ein ganzes Kartenpaket vor dem Paketexport genau so prüfen lassen, wie ein installiertes gelesen wird, ohne es zu installieren:
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` enthält jede vom Block benannte JSON-Datei (Kit, Welten, Tiles, Kreaturenpakete, Personen) in geparster Form; `assets` listet die übrigen Assets des Pakets (Bilder, Audio) nach Pfad und Größe auf. Die Antwort ist `{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`: `minor` ist die Minor-Version der Capability API (1.`minor`), die das Paket braucht. `issues` benennt jedes Problem über den Schlüssel des Blocks (`mapPack.music.default`) oder die Datei, in der es liegt. Alle eigenen Regeln des Manifests (deklarierte Assets, Titel-IDs, Audiogrößen) werden gemeldet; die Dateiprüfungen stoppen wie bei einer Installation beim ersten Problem.
+
+#### Capability API 1.351: festgehaltene Jahreszeiten
+
+Die Story einer Welt kann Orte unabhängig vom Datum in einer Jahreszeit festhalten (`seasons` und die Aktion `season`: siehe [Story-Skripte schreiben](../extending/writing-story-scripts.md#seasons)), und die Schlachtfelder einer Welt können mit Jahreszeiten bemalt werden (`seasons`-Zeilen und `seasonKeys`). Ein Kartenpaket mit einem von beiden braucht 1.351. Die Oberwelt liest festgehaltene Orte als `seasons` (Orts-ID zu Jahreszeit, `*` für die ganze Welt) aus `GET /api/game/:chatId/overworld`; ein erstelltes Schlachtfeld führt die Anfangsjahreszeiten seiner Tiles als `seasons`, mit Schlüsseln im Format `"x,y"`.
+
+#### Capability API 1.355: Regelsatz-Overlays
+
+Das Kartenpaket einer Experience darf die Regelsätze ihrer Spiele ergänzen, solange die Experience eingeschaltet ist: mit eigenen Kreaturen, Zuständen und Gegenständen, die nicht zum Lieferumfang des Regelsatz-Pakets gehören.
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+Jede `.overlay.json` (wie die anderen Dateien des Pakets als Asset deklariert) gilt über dessen ID für einen Regelsatz. Ein aus einer Datei (`local/<id>`) oder einem Repository (`<owner>/<id>`) importierter Regelsatz spielt das Overlay für seine reine ID, sofern das Paket nicht auch seine genaue ID nennt:
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags` ergänzen `combat.creatureTypes.tags` des Regelsatzes, `conditions` sein `combat.conditions`, `sheetConditions` sein `sheet.live.conditions`, `creatures` seinen Katalog `creatures` und jede Liste aus `catalogs` den Katalog dieser ID. Ein Spiel dieses Regelsatzes mit eingeschalteter Experience spielt mit dem vollständig zusammengeführten Regelsatz (Story-Kämpfe, `give`, eigene Verwendungen des Game Master), und der Regelsatz wird noch einmal als Ganzes gelesen: Ein Overlay, dessen Einträge nicht hineinpassen oder das eine vorhandene ID wiederverwendet, wird vollständig weggelassen, und das Spiel spielt den unveränderten Regelsatz. `POST /api/game/experience/check` führt jedes Overlay mit seinem installierten Regelsatz zusammen und meldet, was nicht passt.
+
+Ab Capability API 1.367 darf ein Overlay auch Bogenleisten ergänzen: `"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`, im Format von `sheet.live.tracks` des Regelsatzes und als Ergänzung dazu. Eine vom Overlay deklarierte Leiste erscheint auf dem Bogen, wird durch Bogenbefehle verschoben und für die Markierungen durch Held Ground einer Story oder durch die Lichtregel eines Spielfelds aufbewahrt. Ein Paket mit einem Overlay, das Leisten ergänzt, braucht 1.367.
+
+#### Capability API 1.357: Dungeon-Looks und eigene Worte einer handgefertigten Karte
+
+Von Hand erstellte Karten einer Experience können in ihren eigenen Looks gezeichnet werden, nicht nur in den Höhlen-, Krypten-, Tempel- und Stations-Sets der Bibliothek, und dem Game Master in ihren eigenen Worten mitgeteilt werden.
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+Jedes ist ein Bild-Tile-Pack (`tilePackVersion` 2), angeordnet als Dungeon-Set: `dn_floor`, `dn_wall`, `dn_liquid`, `dn_prop0` bis `dn_prop7` (`dn_liquid` darf wie bei einem Bibliotheks-Set Randstücke haben). Mindestens `dn_floor` und `dn_wall` müssen gezeichnet werden; der Rest fällt auf einfache Farben zurück. Eine handgefertigte Karte (`edits.maps`), deren `pack` eine ihrer IDs ist, wird damit gezeichnet, mit Vorrang vor jedem Bibliothekspaket dieser ID. Keine zwei dürfen dieselbe ID haben.
+
+Eine handgefertigte Karte darf auch eigene Worte für den Game Master enthalten:
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props` enthält einen Eintrag pro Requisitenplatz, 0 bis 7 (`null` für einen unbenannten Platz). Der Game Master erfährt dann die Karte als „Ein von Hand erstellter Ort (stoppelige Erde, Wände aus stehendem Mais), mit einem Regenwassergraben darin; darin: eine Vogelscheuche (2), ein Schrein aus Maispuppen“, statt nur zu erfahren, dass sie von Hand erstellt wurde. Beides braucht eine Experience, die 1.357 deklariert.
+
+#### Capability API 1.359: Gegenstände, die eine Story-Zahl kosten
+
+Ein Overlay darf Gegenstände benennen, deren Benutzung Punkte von einem der Story-Zahlen-Flags der Experience abzieht (oder dazuaddiert):
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item` ist ein einmal benanntes `catalog/entry` des zusammengeführten Regelsatzes (eigene Gegenstände des Overlays zählen mit). In einem Kampf wird die Benutzung dieses Gegenstands (des Bogengegenstands des handelnden Kämpfers) abgelehnt, solange das Flag einschließlich noch nicht aufgezeichneter Ausgaben unter `atLeast` liegt: „Jar of Someone Else's Death braucht 2 Debts Settled; die Gruppe hat 1.“ Eine vom Kampf angenommene Benutzung wird mit dem Spiel aufbewahrt. Der nächste Story-Zug zeichnet sie einmal auf (`spend="<id>"`, durch die Engine), innerhalb von `min` und `max` des Flags, und teilt dem Game Master die Kosten mit. Jedes Flag muss ein Zahlen-Flag einer der Storys des Pakets sein. Ein Kartenpaket mit `storyUses` braucht 1.359.
+
+#### Capability API 1.360: Gruppen über sechs und Begleiter, die nie kämpfen
+
+Die Varianten eines Story-Kampfes dürfen für Gruppen über sechs oder ohne Obergrenze gelten (`"party": { "min": 7 }`), und eine Story-Bedingung darf nach der Gruppengröße fragen (`{ "partySize": { "is": ">=", "value": 7 } }`; siehe [Story-Skripte schreiben](../extending/writing-story-scripts.md#conditions)).
+
+Ein Begleiter der Personendatei darf niemals kämpfen:
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+Er reist mit der Gruppe und wird dem Game Master als niemals kämpfend mitgeteilt, zählt aber nicht zur Gruppengröße (für Kampfvarianten und `partySize`-Bedingungen) und wird nicht in ihre Kämpfe aufgenommen. Eine Personendatei mit einem solchen Begleiter braucht 1.360.
+
+### Capability API 1.372: GM-Einrichtungswerte
+
+`contributions.gameSurface.setup.defaults` legt fest, was die Auswahl der Experience im Game-Assistenten ausfüllt. Der Tab **Experience** von Pixelforge schreibt diese Werte. Jeder Schlüssel ist optional, und der Spieler darf weiterhin jeden Wert ändern:
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: höchstens 100 Zeichen.
+- `genre` und `tone`: jeweils 1 bis 12 Namen, höchstens 60 Zeichen, keine Kommas. Zusammengefügt bleibt jede Liste innerhalb von 200 Zeichen.
+- `difficulty`: `Casual`, `Normal`, `Hard` oder `Brutal`.
+- `rating`: `sfw` oder `nsfw`.
+- `combatStyle`: `classic` oder `tactical`.
+- Textgrenzen: `setting` 4.000 Zeichen, `language` 100, `playerGoals` und `preferences` 2.000, `gameSpecialInstructions` 2.000, `artStylePrompt` 500.
+
+`intro` ist die Intro-Nachricht des Game Master (1.339), mit denselben Regeln wie das `intro` eines Story-Skripts (siehe [Story-Skripte schreiben](../extending/writing-story-scripts.md#the-intro-message)). Es ist der einzige Wert, der gesperrt wird. Ein gesperrtes Intro wird im Assistenten schreibgeschützt angezeigt, und das Spiel beginnt damit, unabhängig davon, was die Einrichtung sendet. Das Spiel behält das Intro so, wie es bei Spielbeginn war (`chat.metadata.gameExperienceIntro`). Es wird vor dem eigenen `intro` der Story gelesen. Ein Import einer Einrichtungsdatei behält seine eigenen Werte, und das Ausschalten der Experience lässt die ausgefüllten Werte unverändert.
+
+### Capability API 1.373: Experience-Dateien
+
+Eine Experience, die nur Bilder, Musik und Daten enthält, kann als einzelne `<id>.experience.json`-Datei statt als Paket-ZIP weitergegeben werden. Spieler importieren sie im Bereich Experiences des Game-Assistenten über **Import an Experience file** (Experience-Datei importieren); sie braucht keinen Agenten-Katalog.
+
+Ihr Manifest hat `"kind": ["experience"]` und sonst nichts in `kind`, braucht `capabilityApi` 1.373 oder neuer und enthält keinen Code: `entrypoints` ist `{}`, `permissions` ist leer, es gibt weder `restartRequired` noch `prepareBeforeStart`, und `contributions.slots` ist genau `["game-surface"]`. Jede Datei in `files` ist `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav` oder `.json`. Die Game-Oberfläche zeichnet nichts Eigenes; die Experience wirkt über ihre `gameSurface`-Beiträge (Einrichtung, Karten, Welten, Kreaturenpakete, Musik).
+
+Die Datei ist JSON mit ihren Schlüsseln in dieser Reihenfolge:
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` ist das Paketmanifest wie oben, höchstens 1 MB groß, und steht vor jeder Datei.
+- `files` ordnet jedem Pfad in `files` des Manifests seine Bytes in Standard-Base64 zu (Füllzeichen nur am Ende, keine Leerzeichen oder Zeilenumbrüche darin). Jede aufgeführte Datei erscheint genau einmal und nichts anderes.
+- Pfade werden ohne Escape-Sequenzen geschrieben. Ein Pfad mit Anführungszeichen, Rückwärtsschrägstrich, Steuerzeichen oder einzelnem Surrogat wird deshalb abgelehnt.
+
+Bevor etwas gesendet wird, liest der Assistent nur den Anfang der Datei bis zum Ende ihres Manifests und zeigt eine Prüfung an: Name, Version und Beschreibung, Importgröße, wie viel davon Bilder, Musik und Daten sind sowie **Import** (Importieren) und **Don't Import** (nicht importieren). Der Import sendet die Datei an `POST /api/capability-packages/experience-file` (Inhaltstyp `application/vnd.marinara.experience+json`). Der Server liest sie während des Empfangs, schreibt jede Datei in einen temporären Ordner und prüft ihre Größe und `sha256` gegen das Manifest. Eine nicht passende, fehlende, zusätzliche oder abgeschnittene Datei oder eine ältere Version als die installierte wird abgelehnt, und nichts Geschriebenes wird behalten.
+
+Jede Datei muss dann dem entsprechen, was ihr Name sagt. Bilder durchlaufen die Signaturprüfung für Charakterkartenimporte (`isAllowedImageBuffer`) und müssen den durch ihre Erweiterung benannten Typ haben; eine als `.png` benannte Seite oder SVG-Datei wird deshalb abgelehnt. Sie werden ohne Metadaten gespeichert: PNG behält nur die zum Zeichnen nötigen Chunks (kein `tEXt`, `zTXt`, `iTXt`, `eXIf` oder `iCCP`), JPEG entfernt seine APP-Segmente außer JFIF und Adobe sowie seine Kommentare (die EXIF-Ausrichtung bleibt also nicht erhalten), GIF entfernt Kommentare, Klartext- und Anwendungserweiterungen außer dem Wiederholungszähler, und WebP entfernt seine EXIF-, XMP- und ICC-Chunks. Musik muss wohlgeformtes Ogg Vorbis oder Opus sein (Prüfsumme jeder Seite geprüft; Kommentare und Coverbilder werden an Ort und Stelle geleert), MP3 (ID3- und APE-Tags entfernt) oder WAV (nur die Chunks `fmt `, `fact` und `data` behalten). Datendateien müssen UTF-8-JSON sein. Alles nach dem Ende eines Bildes oder Tons wird entfernt. Das installierte Manifest zeichnet Größen und Hashes der gespeicherten Dateien auf. Eine neuere Version ersetzt wie ein Katalog-Update die installierte. Eine Experience-Datei kann kein Paket anderer Art mit derselben ID ersetzen.
+
+Eine Experience wird nie als Paket-ZIP angenommen. Ein Agenten-Katalog listet sie nur mit einer Artefakt-URL, die auf `.experience.json` endet. Die Engine installiert diese Datei über denselben Leser mit denselben Prüfungen und Bereinigungen und lehnt sie ab, sofern ihr Manifest nicht dem im Katalog aufgeführten entspricht. Ein Katalogeintrag, der eine Experience ist (`kind` `experience` oder der Slot `game-surface`) und ein anderes Artefakt hat, wird vor jedem Download abgelehnt. Die Kataloginstallation beim ersten Start überspringt Experiences. Bereits installierte Experiences funktionieren weiter.
+
+Pixelforge 0.45.0 exportiert eine Experience als diese Datei und öffnet ausschließlich Experience-Dateien.
+
 ### Capability API 1.18: Experience-Einrichtung im Game-Assistenten
 
 Ein `game-surface`-Paket kann mit Schemaversion 2 und Capability API 1.18 `contributions.gameSurface.setup` deklarieren. Die Engine behält ihre üblichen sieben Einrichtungsschritte bei, einschließlich **Party** (Gruppe), Zielen, Modellen und Lorebooks. Experiences werden nur für neue Spiele angeboten; beim erneuten Öffnen der Einrichtung eines bestehenden Spiels bleiben dessen Experience und Paketkonfiguration erhalten. Pakete ohne diese Deklaration behalten ihren bisherigen Einrichtungsdialog.
@@ -822,6 +1052,22 @@ Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscre
 - `enterLabel` und `exitLabel`: lokalisierte barrierefreie Beschriftungen für den Schalter.
 
 Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
+
+<a id="capability-api-1387-read-a-chats-summaries"></a>
+
+### Capability API 1.387: Zusammenfassungen eines Chats lesen
+
+`persistence.listChatSummaries(chatId)` liefert die Zusammenfassungen, die die Engine für einen Chat aufbewahrt. Ein Paket muss sie dadurch nicht aus den Metadaten des Chats auslesen. Die Methode braucht wie `listMessages` die Berechtigung `chat-read` und liefert Kopien:
+
+- `day` und `week`: Conversation-Zusammenfassungen nach Datum (`"DD.MM.YYYY"`, eine Woche nach ihrem Montag), jeweils als `{ summary, keyDetails }`.
+- `rolling`: die Einträge der fortlaufenden Zusammenfassung in der Reihenfolge des Chats, einschließlich deaktivierter Einträge (prüfe `enabled`). Hat ein Chat nur die ältere einzelne Zusammenfassung, wird sie als ein Eintrag mit `origin: "legacy"` gelesen, datiert auf den Zeitpunkt der letzten Aktualisierung des Chats.
+- `gameSessions`: die Zusammenfassung jeder bisherigen Sitzung eines Spiels. Jeder Eintrag ist vollständig: Ein fehlendes Textfeld wird als `""` gelesen, eine fehlende Liste als `[]`, eine ältere Liste `revelations` wird mit `keyDiscoveries` zusammengeführt, und ein fehlendes `sessionNumber` entspricht der Position des Eintrags (ab 1). Ein Eintrag ohne Datum erhält den Zeitpunkt der letzten Aktualisierung des Chats.
+
+Für einen Chat ohne Zusammenfassungen oder einen nicht gefundenen Chat werden leere Werte zurückgegeben. Ältere Engines haben diese Methode nicht: Prüfe, ob sie existiert, oder deklariere 1.387.
+
+```ts
+const { day, week, rolling, gameSessions } = (await api.runtime.persistence.listChatSummaries?.(chatId)) ?? {};
+```
 
 <a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 

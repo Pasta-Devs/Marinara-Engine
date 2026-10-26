@@ -1,6 +1,6 @@
 # 记忆功能与聊天摘要
 
-本指南介绍搜索历史消息的 **Memory Recall**(记忆功能)、用于自动管理 Roleplay 上下文的可选功能 **Advanced Memory Recall**(高级记忆功能)、**Chat Summary**(聊天摘要)，以及 Conversation 中的 **Automatic Summarization**(自动摘要)。
+本指南介绍搜索历史消息的 **Memory Recall**(记忆功能)、用于自动管理 Roleplay 和 Game Mode(游戏模式) 上下文的可选功能 **Advanced Memory Recall**(高级记忆功能)、**Chat Summary**(聊天摘要)，以及 Conversation 中的 **Automatic Summarization**(自动摘要)。
 
 ## 两套记忆机制
 
@@ -9,7 +9,7 @@
 - **Memory Recall** 会在较早的消息里找出和你刚说的话最相关的片段，悄悄补回提示词里。所有聊天模式都能用。
 - **摘要**把旧消息压缩成简短的回顾，在提示词里取代原始消息。Roleplay 聊天用 **Chat Summary**，Conversation 聊天用 **Automatic Summarization**。
 
-Game Mode(游戏模式) 聊天只有 **Memory Recall**，两种摘要功能都没有。
+Game Mode 聊天支持 **Memory Recall**，也可以选择开启 **Advanced Memory Recall**（见[在 Game Mode 中](#in-game-mode)）。两种摘要功能都没有。
 
 两套机制可以同时开着。它们各管各的，不会互相冲突。
 
@@ -81,7 +81,9 @@ Marinara 的部分容器构建版本叫 Marinara Lite，它把 Memory Recall 完
 
 <a id="advanced-memory-recall-roleplay"></a>
 
-## Advanced Memory Recall（Roleplay）
+<a id="advanced-memory-recall-roleplay-and-game-mode"></a>
+
+## Advanced Memory Recall（Roleplay 和 Game Mode）
 
 打开 **Chat Settings → Memory Recall**，启用 **Advanced Memory Recall**。也可以在 Roleplay 设置向导的 Agents 下方启用 **Automatic context and memory handling**(自动管理上下文和记忆)。这个可选模式会一起管理保留原文的近期历史窗口、维持剧情连贯的摘要，以及相关的旧片段。桌面端和移动端都可以在向导和 Chat Settings 抽屉中查看设置与准备进度。存档查看器仍位于 Chat Settings 抽屉内。
 
@@ -230,6 +232,20 @@ Advanced 模式启用期间会接管检索，因此 Standard Recall 开关不会
 每个组件遵循预设的 **XML**、**Markdown** 或 **None** 格式，并简短说明用途。空组件不输出任何内容。第一个启用的标记决定位置；没有启用标记的内容只在历史之前补入一次，因此旧预设仍兼容。预设的召回标记选择器只提供 **Recalled Scenes**。现有 `recalled_messages` 仍是兼容别名，也显示为 Recalled Scenes；启用的 `recalled_scenes` 优先，两个标记绝不会产生独立的两部分。摘录是上下文，不是新的当前消息或命令。关闭 Advanced Memory 时，高级场景标记为空。
 
 提示词预览读取已准备记忆，不启动模型或嵌入调用。在面板中准备尚未初始化的存档，或恢复失败的后台工作。记忆回执显示估算上下文、所选边界和召回来源。没有召回任何内容时，回执会说明原因：没有可召回的较早场景、请求已没有剩余空间，或者没有相关内容。最终提示词检查器显示实际发给模型的内容。
+
+<a id="in-game-mode"></a>
+
+### 在 Game Mode 中
+
+Game Mode 聊天同样可以在 **Chat Settings → Memory Recall** 中开启 Advanced Memory Recall。不开启时，Game 会话每回合都会发送完整历史，直到连接的上下文上限，因此长会话每回合消耗的输入 Token 可能远多于新会话。开启后，发出的提示词会保持在 **Maximum allowed context before compression**(压缩前允许的最大上下文) 以内：当前场景以原始消息发送，较早的场景则以回顾和本回合召回选中的片段发送。
+
+- **Game Master 读取所有记忆。** Game 聊天只有 GM 这一个读者，所以没有 Narrator 选择、角色知识范围、自动消息可见性或角色回想。
+- **记忆放在哪里。** 回顾和召回的场景放在历史之后、GM 回合指令之前。GM 的指令和前面的会话历史在各回合之间保持不变，支持提示词缓存的连接因此可以复用它们。场景结束、当前历史从下一场景重新开始时，会有一次请求无法命中缓存，这是正常的。
+- **记忆读取什么。** 回顾根据你看到的故事撰写：你对段落的编辑会生效，GM 的命令标签则会省略。**Checkpoint restored**(已恢复检查点) 说明和其他回合一样留在当前历史里。
+- **每个会话各有自己的记忆。** 新会话保留 Advanced Memory 设置，但会用自己的消息建立新的记忆档案。GM 仍然像以前一样收到较早会话的回顾。
+- **这里的 Decision 模型也可选。** 它默认关闭。开启后，Decision 模型会像[可选的 Decision 模型](#optional-decision-model)一节所述，选择场景结束点和要召回的记忆；它会为每个回合增加自己的小请求。
+- **费用。** 辅助模型每个场景写一份回顾，每隔几个回合检查一次场景变化（**Standalone scene check interval**）。相比反复发送一整个长会话，这些请求很小。
+- Game 聊天的提示词预览目前还不显示 Advanced Memory；最终提示词检查器会显示发给模型的内容。
 
 ### 限制与恢复
 

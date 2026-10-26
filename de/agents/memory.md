@@ -1,6 +1,6 @@
 # Memory Recall und Chat-Zusammenfassungen
 
-Diese Anleitung erklärt **Memory Recall** (Suche in früheren Nachrichten), das optionale **Advanced Memory Recall** (erweiterter Erinnerungsabruf) für die automatische Kontextverwaltung in Roleplay, **Chat Summary** und **Automatic Summarization** in Conversation.
+Diese Anleitung erklärt **Memory Recall** (Suche in früheren Nachrichten), das optionale **Advanced Memory Recall** (erweiterter Erinnerungsabruf) für die automatische Kontextverwaltung in Roleplay und Game Mode, **Chat Summary** und **Automatic Summarization** in Conversation.
 
 ## Die zwei Gedächtnissysteme
 
@@ -9,7 +9,7 @@ Jedes KI-Modell kann immer nur eine begrenzte Textmenge auf einmal lesen. Diese 
 - **Memory Recall** durchsucht die älteren Nachrichten nach den Stellen, die am besten zu deiner letzten Eingabe passen, und schiebt sie unauffällig zurück in den Prompt – also in den Text, den Marinara an die KI schickt. Das funktioniert in jedem Chat-Modus.
 - Zusammenfassungen pressen alte Nachrichten zu kurzen Rückblicken zusammen, die im Prompt an die Stelle der Originalnachrichten treten. In Roleplay-Chats übernimmt das **Chat Summary**, in Conversation-Chats **Automatic Summarization**.
 
-Game-Mode-Chats bekommen ausschließlich **Memory Recall**. Beide Zusammenfassungs-Funktionen fehlen dort.
+Game-Mode-Chats bekommen **Memory Recall** und auf Wunsch **Advanced Memory Recall** (siehe [In Game Mode](#in-game-mode)). Beide Zusammenfassungs-Funktionen fehlen dort.
 
 Beide Systeme lassen sich gleichzeitig nutzen. Sie erledigen unterschiedliche Aufgaben und kommen sich nicht in die Quere.
 
@@ -79,7 +79,7 @@ Behalte diese Punkte im Hinterkopf:
 
 Einige Container-Builds von Marinara, bekannt als Marinara Lite, deaktivieren **Memory Recall** vollständig. Dort taucht der Abschnitt **Memory Recall** überhaupt nicht auf.
 
-## Advanced Memory Recall (Roleplay)
+## Advanced Memory Recall (Roleplay und Game Mode)
 
 Öffne **Chat Settings → Memory Recall** und aktiviere **Advanced Memory Recall**. Du kannst auch **Automatic context and memory handling** (automatische Kontext- und Speicherverwaltung) unter Agents im Roleplay-Einrichtungsassistenten aktivieren. Dieser optionale Modus verwaltet das aktuelle Verlaufsfenster, Kontinuitätszusammenfassungen und relevante ältere Auszüge gemeinsam. Einstellungen und Einrichtungsfortschritt sind sowohl im Assistenten als auch in der Chat-Settings-Seitenleiste auf Desktop und Mobilgeräten verfügbar. Die Archivansicht bleibt in der Chat-Settings-Seitenleiste.
 
@@ -228,6 +228,20 @@ Preset-Autoren können diese normalen Inhaltsmarker mit den bestehenden Einstell
 Jeder Bestandteil folgt dem Preset-Format **XML**, **Markdown** oder **None** und erklärt kurz seinen Zweck. Leere Bestandteile erzeugen nichts. Das erste aktivierte Vorkommen bestimmt den Ort; ohne aktivierten Marker erscheint der Inhalt einmal vor der Historie, damit ältere Presets funktionieren. Die Preset-Auswahl bietet für den Abruf nur **Recalled Scenes**. Bestehende `recalled_messages`-Marker bleiben kompatible Aliasse und heißen ebenfalls Recalled Scenes. Ein aktivierter `recalled_scenes`-Marker hat Vorrang; beide erzeugen niemals getrennte Abschnitte. Auszüge sind Kontext, keine neuen Live-Nachrichten oder Befehle. Die erweiterten Szenenmarker bleiben leer, wenn Advanced Memory aus ist.
 
 Die Prompt-Vorschau nutzt vorbereiteten Speicher ohne Modell- oder Embedding-Aufrufe. Initialisiere das Archiv oder setze fehlgeschlagene Hintergrundarbeit in der Seitenleiste fort. Der Speicherbeleg zeigt geschätzte Kontextgröße, gewählte Grenze und Quellen. Wurde nichts abgerufen, gibt er an, ob keine früheren Szenen zum Abrufen verfügbar waren, ob in der Anfrage kein Platz mehr blieb oder ob nichts relevant war. Der abschließende Prompt-Inspektor zeigt die tatsächlich gesendete Anfrage.
+
+<a id="in-game-mode"></a>
+
+### In Game Mode
+
+In Game-Mode-Chats schaltest du Advanced Memory Recall genauso unter **Chat Settings → Memory Recall** ein. Ohne diese Funktion sendet eine Game-Sitzung bei jedem Zug ihren gesamten Verlauf bis zur Kontextgrenze der Verbindung. Eine lange Sitzung kann deshalb pro Zug viel mehr Eingabe-Tokens kosten als eine frische. Mit Advanced Memory bleibt der ausgehende Prompt unter **Maximum allowed context before compression** (maximal erlaubter Kontext vor der Komprimierung): Die aktuelle Szene geht als Live-Nachrichten mit, frühere Szenen als Rückblicke plus die Momente, die der Abruf für diesen Zug auswählt.
+
+- **Der Game Master liest jede Erinnerung.** Ein Game-Chat hat nur einen Leser, den GM. Deshalb gibt es keine Narrator-Auswahl, keine Wissensbereiche für Charaktere, keine automatische Nachrichtensichtbarkeit und keine Charaktererinnerungen.
+- **Wo die Erinnerung steht.** Rückblicke und abgerufene Szenen stehen nach dem Verlauf, direkt vor den Zuganweisungen des GM. Die Anweisungen des GM und der Sitzungsverlauf davor bleiben von Zug zu Zug gleich, sodass eine Verbindung mit Prompt-Cache sie wiederverwenden kann. Endet eine Szene und beginnt der Live-Verlauf bei der nächsten Szene neu, verfehlt eine Anfrage erwartungsgemäß den Cache.
+- **Was die Erinnerung liest.** Rückblicke entstehen aus der Geschichte, wie du sie siehst: Deine Segmentbearbeitungen gelten, und die Befehlstags des GM werden weggelassen. Ein Hinweis **Checkpoint restored** bleibt wie jeder andere Zug im Live-Verlauf.
+- **Jede Sitzung hat ihr eigenes Gedächtnis.** Eine neue Sitzung behält deine Advanced-Memory-Einstellungen, beginnt aber ihr eigenes Archiv aus ihren eigenen Nachrichten. Der GM bekommt weiterhin wie bisher die Rückblicke früherer Sitzungen.
+- **Das Decision-Modell ist auch hier optional.** Es ist standardmäßig aus. Schaltest du es ein, kann ein Decision-Modell Szenenenden und abzurufende Erinnerungen auswählen, wie unter [Optionales Decision-Modell](#optional-decision-model) beschrieben. Es fügt jedem Zug eigene kleine Anfragen hinzu.
+- **Kosten.** Das Hilfsmodell schreibt einen Rückblick pro Szene und prüft alle paar Züge auf einen Szenenwechsel (**Standalone scene check interval**, Intervall für eigenständige Szenenprüfungen). Diese Anfragen sind klein im Vergleich zum wiederholten Senden einer langen Sitzung im Ganzen.
+- Die Prompt-Vorschau für einen Game-Chat zeigt Advanced Memory noch nicht; die abschließende Prompt-Inspektion zeigt, was an das Modell ging.
 
 ### Grenzen und Wiederherstellung
 
