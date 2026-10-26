@@ -9141,7 +9141,7 @@
   "ui.chat.slash.usage.as": "/as [name] [message (optional)]",
   "ui.chat.slash.usage.emote": "/emote [expression (optional)] | /emote \"[name]\" [expression (optional)]",
   "ui.chat.slash.usage.goto": "/goto [number]",
-  "ui.chat.slash.usage.guided": "/guided [direction] | /guided respond for [name] [direction (optional)]",
+  "ui.chat.slash.usage.guided": "/guided [direction] | /guided respond as [name] [direction (optional)]",
   "ui.chat.slash.usage.hide": "/hide [range] [name (optional)]",
   "ui.chat.slash.usage.illustrate": "/illustrate [range=N|range=N-M (optional)] [prompt (optional)]",
   "ui.chat.slash.usage.impersonate": "/impersonate [direction (optional)]",

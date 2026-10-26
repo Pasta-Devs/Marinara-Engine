@@ -187,7 +187,7 @@ function buildStatusCommandHelp(characters: Array<{ id: string; name: string }>)
 
 function formatGuidedTargetHelp(characters: Array<{ name: string }>): string {
   const available = formatAvailableCharacterList(characters);
-  return `Use /guided respond for <character> <direction>${available ? `\nAvailable: ${available}` : ""}`;
+  return `Use /guided respond as <character> <direction>${available ? `\nAvailable: ${available}` : ""}`;
 }
 
 function trimGuideSeparator(value: string): string {
@@ -772,8 +772,9 @@ const COMMANDS: SlashCommand[] = [
   {
     name: "guided",
     aliases: ["narrator", "narrate", "nar"],
-    description: "Steer the narrative — the AI will narrate events in the direction you describe",
-    usage: "/guided [direction] | /guided respond for [name] [direction (optional)]",
+    description:
+      'Steer the narrative — the AI will narrate events in the direction you describe. Add "respond as" or "reply as" a character name to steer one character.',
+    usage: "/guided [direction] | /guided respond as [name] [direction (optional)]",
     async execute(args, ctx) {
       if (!args.trim()) return { handled: true, feedback: "Usage: /guided <direction to steer the narrative>" };
       const characters = ctx.characters ?? [];
