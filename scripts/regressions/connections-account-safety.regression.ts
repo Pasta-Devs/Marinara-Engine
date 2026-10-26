@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import ts from "typescript";
+import { NON_CHAT_PROVIDERS } from "../../packages/shared/src/constants/providers.js";
 import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
 import { connectionsRoutes } from "../../packages/server/src/routes/connections.routes.js";
 import { errorHandler } from "../../packages/server/src/middleware/error-handler.js";
@@ -128,6 +129,16 @@ try {
     payload: { name: "Setup", provider: "custom" },
   });
   assert.ok([200, 201].includes(placeholder.statusCode), placeholder.body);
+  for (const provider of NON_CHAT_PROVIDERS) {
+    for (const model of [undefined, "", "   "]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/connections",
+        payload: { name: "Container", provider, model, audioGenerationSource: "elevenlabs" },
+      });
+      assert.ok([200, 201].includes(response.statusCode), `${provider}: ${response.body}`);
+    }
+  }
 } finally {
   await app.close();
   await rm(directory, { recursive: true, force: true });

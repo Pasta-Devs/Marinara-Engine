@@ -43,6 +43,7 @@ import {
   inferVideoSource,
   hasPlanUsageWindows,
   isLocalAuthProvider,
+  isChatProvider,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
@@ -621,8 +622,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
   app.post("/", async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
-    // Omitted model IDs are setup placeholders. An explicitly supplied ID must be usable.
-    if (body && Object.hasOwn(body, "model") && (typeof body.model !== "string" || !body.model.trim())) {
+    // Chat rows need a usable explicit model ID; container providers and setup placeholders can omit it.
+    if (
+      body &&
+      isChatProvider(body.provider) &&
+      Object.hasOwn(body, "model") &&
+      (typeof body.model !== "string" || !body.model.trim())
+    ) {
       return reply.status(400).send({ error: "A connection record must include a non-empty model ID." });
     }
     const input = createConnectionSchema.parse(req.body);

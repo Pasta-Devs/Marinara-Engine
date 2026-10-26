@@ -11,6 +11,7 @@ import {
   parsePinnedModels,
   resolveOpenAIImageQuality,
   PROVIDERS,
+  isChatProvider,
   type APIProvider,
   type ImageGenerationQuality,
   createConnectionAccountSchema,
@@ -220,7 +221,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
   const name = asString(value.name).trim();
   if (!provider || !name) return null;
   const model = asString(value.model).trim();
-  if (!model) return null;
+  if (isChatProvider(provider) && !model) return null;
 
   const decisionSource =
     provider === "decision" && DECISION_SOURCES.includes(value.decisionSource as DecisionSource)
