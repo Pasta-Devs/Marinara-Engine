@@ -16,6 +16,25 @@ import { ModelRow } from "./ModelRow";
 export const isUnset = (tile: DefaultsTile, notSet: string) =>
   !!tile.setup || (tile.muted && !tile.source && tile.value === notSet);
 
+/** A job's tile: dashed while it has no Model, a tinted well once it has one. The Add window draws it too. */
+export function JobTile({ unset, className, children }: { unset: boolean; className?: string; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      data-defaults-empty-tile={unset || undefined}
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
+        unset
+          ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
+          : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function JobRow({
   tile,
   hint,
@@ -54,20 +73,7 @@ export function JobRow({
         aria-describedby={hint ? hintId : undefined}
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
         className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
-        tile={
-          <span
-            aria-hidden
-            data-defaults-empty-tile={unset || undefined}
-            className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
-              unset
-                ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
-                : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
-            )}
-          >
-            {tile.icon}
-          </span>
-        }
+        tile={<JobTile unset={!!unset}>{tile.icon}</JobTile>}
         title={tile.title}
         wrapTitle
         details={

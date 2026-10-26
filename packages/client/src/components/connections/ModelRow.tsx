@@ -3,7 +3,14 @@
 // picker, the Defaults box and the chat switcher. Name, kind, roles, status, cost and retirement all draw here;
 // callers only choose the density and the end control (⋯, ›, ✓ and star). ModelTile is a saved Model's tile.
 // ──────────────────────────────────────────────
-import { useId, type ButtonHTMLAttributes, type HTMLAttributes, type MouseEvent, type ReactNode } from "react";
+import {
+  useId,
+  type ComponentProps,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { AudioLines, Film, ImageIcon, KeyRound, Power, Scale, UserCog, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -287,11 +294,13 @@ export function ModelTile({
   account,
   model,
   dim,
+  size = "row",
 }: {
   row?: ConnectionModelRow & Parameters<typeof mediaService>[0] & { baseUrl?: string | null };
   account?: Pick<ConnectionAccountListItem, "provider" | "baseUrl" | "name"> | null;
   model?: string | null;
   dim?: boolean;
+  size?: ComponentProps<typeof ProviderIcon>["size"];
 }) {
   return (
     <ProviderIcon
@@ -302,7 +311,7 @@ export function ModelTile({
       name={account?.name ?? row?.name ?? undefined}
       icon={row?.icon}
       imagePath={row?.imagePath}
-      size="row"
+      size={size}
       dim={dim}
     />
   );
