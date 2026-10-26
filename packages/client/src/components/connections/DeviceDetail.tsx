@@ -96,11 +96,12 @@ function formatRuntimeVariantLabel(variant: string | null): string | null {
 
 const QUANT_LABEL: Record<SidecarQuantization, string> = { q4_k_m: "Q4", q8_0: "Q8" };
 
-export type EngineTone = "ok" | "warn" | "off";
+export type EngineTone = "ok" | "warn" | "off" | "error";
 export const TONE_DOT: Record<EngineTone, string> = {
   ok: "bg-emerald-400",
   warn: "bg-amber-500",
   off: "bg-[var(--muted-foreground)]",
+  error: "bg-[var(--marinara-app-accent-static)]",
 };
 
 /** A coloured dot and one word, the state on a row or a hero. */
@@ -110,6 +111,7 @@ export function StateWord({ tone, label }: { tone: EngineTone; label: string }) 
       className={cn(
         "inline-flex shrink-0 items-center gap-1",
         tone === "warn" && "text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]",
+        tone === "error" && "text-[var(--marinara-app-accent-static)]",
       )}
     >
       <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />

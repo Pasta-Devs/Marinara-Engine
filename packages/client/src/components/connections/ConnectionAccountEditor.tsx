@@ -122,7 +122,8 @@ export function ConnectionAccountEditor({
   const { data: rawRows } = useConnections();
   const update = useUpdateConnectionAccount();
   const remove = useDeleteConnectionAccount();
-  const test = useTestConnection();
+  const test = useTestConnection(accountId);
+  const testFailure = useUIStore((state) => state.connectionTestFailures[accountId]);
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
   const account = accounts?.find((entry) => entry.id === accountId) ?? null;
   const models = sortByModelId(
@@ -263,20 +264,22 @@ export function ConnectionAccountEditor({
   );
 
   const state: ConnectionAccountState = draft?.enabled ? (account?.state === "needs_key" ? "needs_key" : "ok") : "off";
-  const testFailed = test.isError || (!!test.data && !test.data.success);
+  const testFailed = !!testFailure || test.isError || (!!test.data && !test.data.success);
   const testText = test.isPending
     ? t("connections.accounts.editor.testing")
-    : test.data?.success
-      ? t("connections.accounts.editor.testOk", { latency: test.data.latencyMs })
-      : test.data
-        ? test.data.message
-        : test.isError
-          ? t("connections.accounts.testFailed")
-          : !testRow
-            ? t("connections.accounts.addModelFirst")
-            : accessDirty
-              ? t("connections.accounts.editor.testUsesDraft")
-              : "";
+    : testFailure
+      ? t("connections.accounts.lastTestFailed", { reason: testFailure })
+      : test.data?.success
+        ? t("connections.accounts.editor.testOk", { latency: test.data.latencyMs })
+        : test.data
+          ? test.data.message
+          : test.isError
+            ? t("connections.accounts.testFailed")
+            : !testRow
+              ? t("connections.accounts.addModelFirst")
+              : accessDirty
+                ? t("connections.accounts.editor.testUsesDraft")
+                : "";
 
   const tile = account && (
     <ProviderIcon
@@ -404,7 +407,7 @@ export function ConnectionAccountEditor({
               className={cn(
                 "min-w-0 flex-1 break-words text-[0.6875rem]",
                 testFailed
-                  ? "text-[color-mix(in_srgb,var(--color-amber-500)_78%,var(--foreground)_22%)]"
+                  ? "text-[var(--marinara-app-accent-static)]"
                   : test.data?.success
                     ? "text-emerald-500"
                     : "text-[var(--muted-foreground)]",

@@ -283,7 +283,16 @@ function recordConnectionFailure(id: string, action: string, error: unknown) {
 type TestInput = string | { id: string; apiKey?: string; baseUrl?: string };
 const testId = (input: TestInput) => (typeof input === "string" ? input : input.id);
 
-export function useTestConnection() {
+export function useTestConnection(accountId?: string) {
+  const qc = useQueryClient();
+  const recordTest = (input: TestInput, message: string | null) => {
+    const id = testId(input);
+    const row = qc
+      .getQueryData<Array<{ id: string; accountId?: string | null }>>(connectionKeys.list())
+      ?.find((row) => row.id === id);
+    const target = accountId ?? row?.accountId;
+    if (target) useUIStore.getState().setConnectionTestFailure(target, message);
+  };
   return useMutation({
     mutationFn: (input: TestInput) => {
       const { id, ...draft } = typeof input === "string" ? { id: input } : input;
@@ -292,12 +301,16 @@ export function useTestConnection() {
         ...draft,
       });
     },
-    onError: (error, input) => recordConnectionFailure(testId(input), "Test connection", error),
+    onError: (error, input) => {
+      recordTest(input, error instanceof Error ? error.message : String(error));
+      recordConnectionFailure(testId(input), "Test connection", error);
+    },
     // A failed check still answers 200 with `success: false`.
-    onSuccess: (result, input) =>
-      result.success
-        ? useUIStore.getState().setLastAppError(null)
-        : recordConnectionFailure(testId(input), "Test connection", result.message),
+    onSuccess: (result, input) => {
+      recordTest(input, result.success ? null : result.message);
+      if (result.success) useUIStore.getState().setLastAppError(null);
+      else recordConnectionFailure(testId(input), "Test connection", result.message);
+    },
   });
 }
 

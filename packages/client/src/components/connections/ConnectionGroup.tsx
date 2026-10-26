@@ -112,7 +112,8 @@ export function ConnectionGroup({
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const chooseFolder = useFolderChooser();
-  const test = useTestConnection();
+  const test = useTestConnection(account.id);
+  const testFailure = useUIStore((state) => state.connectionTestFailures[account.id]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   // Cost badges read this Connection's saved model list (one request per card, answered from the server's copy).
   const [catalog] = useCachedCatalogFacts([rows.map((row) => row.id)]);
@@ -200,20 +201,34 @@ export function ConnectionGroup({
   const count = t("connections.list.models", { count: visibleRows.length });
   const modelsId = `connection-models-${account.id}`;
   // One status word: Ready is plain text; Needs key and Off are the word itself as the fix.
+  const keyRejected = /\b401\b|invalid.*key|unauthori[sz]ed/i.test(testFailure ?? "");
+  const testLabel = keyRejected ? t("connections.accounts.lastTestFailedLabel") : t("connections.accounts.testFailed");
   const fix =
-    account.state === "needs_key"
+    account.state === "off"
       ? {
           label: state,
-          aria: t("connections.list.addKeyFor", { name: account.name }),
-          run: editAccount,
+          aria: t("connections.list.turnOn", { name: account.name }),
+          run: () => updateAccount.mutate({ id: account.id, enabled: true }),
         }
-      : account.state === "off"
+      : testFailure && keyRejected
         ? {
-            label: state,
-            aria: t("connections.list.turnOn", { name: account.name }),
-            run: () => updateAccount.mutate({ id: account.id, enabled: true }),
+            label: t("connections.accounts.replaceKey"),
+            aria: t("connections.accounts.replaceKeyFor", { name: account.name }),
+            run: replaceKey,
           }
-        : null;
+        : testFailure
+          ? {
+              label: t("connections.accounts.testAgain"),
+              aria: t("connections.accounts.testAgainFor", { name: account.name }),
+              run: runTest,
+            }
+          : account.state === "needs_key"
+            ? {
+                label: state,
+                aria: t("connections.list.addKeyFor", { name: account.name }),
+                run: editAccount,
+              }
+            : null;
   return (
     <div
       {...dragBindings}
@@ -229,10 +244,11 @@ export function ConnectionGroup({
         account={account}
         rows={rows}
         count={count}
-        state={fix ? undefined : account.state}
-        stateLabel={state}
+        state={testFailure ? "needs_key" : fix ? undefined : account.state}
+        stateLabel={testFailure ? testLabel : state}
         billing={account.billing}
         balance={balance}
+        hint={testFailure ? t("connections.accounts.lastTestFailed", { reason: testFailure }) : undefined}
         tile={tile}
         onPictureClick={onPictureClick}
         data-connections-row={`account:${account.id}`}
@@ -244,11 +260,11 @@ export function ConnectionGroup({
         aria-expanded={open}
         aria-controls={modelsId}
         aria-label={
-          account.state === "ok"
+          account.state === "ok" && !testFailure
             ? [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", ")
             : t("connections.list.rowLabel", {
                 name: [heading, accountLabel, endpoint, count, balance].filter(Boolean).join(", "),
-                state,
+                state: testFailure ? testLabel : state,
               })
         }
         end={

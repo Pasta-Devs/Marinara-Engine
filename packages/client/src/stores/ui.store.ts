@@ -774,6 +774,9 @@ interface UIState {
   regexDetailId: string | null;
   /** The primary field currently focused in an open editor, for Mari omnibar handoff. Transient, never persisted. */
   activeEditorField: { id: string; label: string } | null;
+  /** Last failed account Test in this browser; only a successful Test clears it. */
+  connectionTestFailures: Record<string, string>;
+  setConnectionTestFailure: (accountId: string, message: string | null) => void;
   /**
    * The most recent recoverable app failure, so the omnibar can answer "fix this".
    * `retry` is a serializable target the omnibar maps to a real action, never a
@@ -1814,6 +1817,7 @@ export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebar
 
 export function pickPersistedUIState(state: UIState) {
   return {
+    connectionTestFailures: state.connectionTestFailures,
     showHomeBrowserAddressBar: state.showHomeBrowserAddressBar,
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
@@ -2105,6 +2109,14 @@ export const useUIStore = create<UIState>()(
         trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
         settingsTab: "general",
         activeEditorField: null,
+        connectionTestFailures: {},
+        setConnectionTestFailure: (accountId, message) =>
+          set((state) => {
+            const failures = { ...state.connectionTestFailures };
+            if (message === null) delete failures[accountId];
+            else failures[accountId] = message;
+            return { connectionTestFailures: failures };
+          }),
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,

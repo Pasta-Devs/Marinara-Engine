@@ -13,7 +13,7 @@ import { StateWord, type EngineTone } from "./DeviceDetail";
 import { FOCUS, menuAt, type MenuAt } from "./ModelRow";
 import { ProviderIcon } from "./ProviderIcon";
 
-const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "warn" };
+const STATE_TONE: Record<ConnectionAccountState, EngineTone> = { ok: "ok", off: "off", needs_key: "error" };
 
 /**
  * The one service row. With `onClick` the row is a button, without it a plain heading.
