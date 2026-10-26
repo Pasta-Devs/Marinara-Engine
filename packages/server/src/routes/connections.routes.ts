@@ -88,6 +88,7 @@ import {
   extensionFromImageMime,
   isAllowedImageBuffer,
   normalizeLoopbackUrl,
+  requestHeadersWithDefaultUserAgent,
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -939,7 +940,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.provider === "image_generation" && imageSource === "horde" ? hordeHeaders(conn.apiKey) : headers;
       debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
       const res = await safeFetch(testUrl, {
-        headers: testHeaders,
+        headers: requestHeadersWithDefaultUserAgent(testHeaders),
         policy: localUrlPolicyForProvider(conn.provider, imageSource),
         maxResponseBytes: 2 * 1024 * 1024,
         decodeCompressedResponse: true,
@@ -1519,7 +1520,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           : `${baseUrl}${provider?.modelsEndpoint || "/models"}`;
 
       const res = await safeFetch(modelsUrl, {
-        headers,
+        headers: requestHeadersWithDefaultUserAgent(headers),
         policy: {
           allowLocal: isProviderLocalUrlsEnabled(),
           allowLoopback: true,

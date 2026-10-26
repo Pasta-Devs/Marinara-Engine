@@ -5,7 +5,7 @@ import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib"
 import { Agent, Dispatcher1Wrapper, EnvHttpProxyAgent, type Dispatcher } from "undici";
 import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
 import { logger } from "../lib/logger.js";
-import { CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
+import { APP_VERSION, CSRF_HEADER, CSRF_HEADER_VALUE } from "@marinara-engine/shared";
 import { requestHeadersWithOpenRouterAttribution } from "./openrouter-attribution.js";
 import { getOpenCodeSessionId, isOpenCodeApiUrl, requestHeadersWithOpenCodeSession } from "./opencode-session.js";
 
@@ -638,6 +638,15 @@ export function requestHeadersWithIdentityEncoding(headersInit: RequestInit["hea
   const headers = new Headers(headersInit);
   if (!headers.has("accept-encoding")) {
     headers.set("accept-encoding", "identity");
+  }
+  return headers;
+}
+
+/** Node's fetch sends `User-Agent: node`, which some provider edges (e.g. Featherless) reject with 404. */
+export function requestHeadersWithDefaultUserAgent(headersInit: RequestInit["headers"] | undefined): Headers {
+  const headers = new Headers(headersInit);
+  if (!headers.has("user-agent")) {
+    headers.set("user-agent", `MarinaraEngine/${APP_VERSION}`);
   }
   return headers;
 }

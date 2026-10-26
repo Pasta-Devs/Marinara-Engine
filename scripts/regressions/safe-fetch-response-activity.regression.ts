@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { safeFetch } from "../../packages/server/src/utils/security.js";
+import { APP_VERSION } from "../../packages/shared/src/constants/defaults.js";
+import { llmFetch } from "../../packages/server/src/services/llm/base-provider.js";
+import { requestHeadersWithDefaultUserAgent, safeFetch } from "../../packages/server/src/utils/security.js";
 
 const pendingResponses = new Map<string, (response: ServerResponse) => void>();
 const server = createServer((request, response) => {
@@ -11,6 +13,11 @@ const server = createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/event-stream", "x-fixture": "raw-data" });
     response.flushHeaders();
     waiting(response);
+    return;
+  }
+  if (request.url === "/user-agent") {
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end(request.headers["user-agent"] ?? "");
     return;
   }
   if (request.url === "/empty") {
@@ -125,6 +132,31 @@ try {
     );
     assert.equal(rejectedCalls, 0, "a rejected content type must not enter the body readers");
   }
+  const defaultUserAgent = `MarinaraEngine/${APP_VERSION}`;
+  const sentUserAgent = async (fetched: Promise<Response>) => (await fetched).text();
+  assert.equal(
+    await sentUserAgent(llmFetch(`${origin}/user-agent`, { bufferResponse: true })),
+    defaultUserAgent,
+    "provider requests must not present Node's default user agent",
+  );
+  assert.equal(
+    await sentUserAgent(
+      safeFetch(`${origin}/user-agent`, {
+        policy,
+        headers: requestHeadersWithDefaultUserAgent({ Authorization: "Bearer x" }),
+        bufferResponse: true,
+      }),
+    ),
+    defaultUserAgent,
+    "discovery requests must send the default user agent",
+  );
+  assert.equal(
+    await sentUserAgent(
+      llmFetch(`${origin}/user-agent`, { headers: { "User-Agent": "custom/1" }, bufferResponse: true }),
+    ),
+    "custom/1",
+    "a caller-supplied user agent must be preserved",
+  );
   console.info(
     "Safe fetch reports raw response activity in buffered and streaming modes without changing body guards.",
   );
