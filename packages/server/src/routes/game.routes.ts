@@ -2301,7 +2301,7 @@ const stateTransitionSchema = z.object({
 });
 
 const worldKitWriteSchema = z.object({
-  connectionId: z.string().min(1),
+  connectionId: z.string().min(1).optional(),
   genre: z.string().min(1).max(200),
   // As long as a game's own setting may be (`gameSetupConfigSchema`), so a setting the game accepts
   // is never refused here.
@@ -2314,7 +2314,7 @@ const worldKitWriteSchema = z.object({
 });
 
 const worldBriefWriteSchema = z.object({
-  connectionId: z.string().min(1),
+  connectionId: z.string().min(1).optional(),
   kit: worldKitSchema,
   genre: z.string().min(1).max(200),
   setting: z.string().min(1),
@@ -10207,7 +10207,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
    */
   const askWorldModel = async <T>(args: {
     reply: FastifyReply;
-    connectionId: string;
+    connectionId?: string;
     debugMode?: boolean;
     /** The route, for the log: "world-kit". */
     route: string;
