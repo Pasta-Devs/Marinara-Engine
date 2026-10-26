@@ -45,7 +45,7 @@ export type PersonaInfo = {
   scenario?: string;
   avatarUrl?: string;
   avatarCrop?: AvatarCrop | null;
-  /** The card's Tactical Combat Icon choice; missing means the avatar. */
+  /** The card's Game Mode Icon choice; missing means the avatar. */
   combatIcon?: CombatIconChoice | null;
   nameColor?: string;
   dialogueColor?: string;

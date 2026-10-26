@@ -702,7 +702,7 @@ type GamePartyMemberInfo = {
   name: string;
   avatarUrl: string | null;
   avatarCrop?: AvatarCrop | null;
-  /** The card's Tactical Combat Icon choice; missing means the avatar. */
+  /** The card's Game Mode Icon choice; missing means the avatar. */
   combatIcon?: CombatIconChoice | null;
   nameColor?: string;
   dialogueColor?: string;
@@ -1156,7 +1156,7 @@ export function generatedPartyMemberToCombatant(
   };
 }
 
-/** The picture a party member's fight token draws (their Tactical Combat Icon), or undefined for initials. */
+/** The picture a party member's fight token draws (their Game Mode Icon), or undefined for initials. */
 function combatTokenSprite(member: GamePartyMemberInfo | null | undefined): string | undefined {
   return member ? (resolveCombatIconUrl(member.combatIcon, member.avatarUrl) ?? undefined) : undefined;
 }

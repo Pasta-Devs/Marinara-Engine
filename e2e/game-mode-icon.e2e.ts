@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture";
 
-// The Tactical Combat Icon on the character and persona Stats tabs: what a card's fight token
+// The Game Mode Icon on the character and persona Stats tabs: what a card's fight token
 // shows. The avatar by default, a gallery picture, or the initials.
 const pixel = readFileSync(new URL("../packages/client/public/icon-512.png", import.meta.url));
 const avatar = `data:image/png;base64,${pixel.toString("base64")}`;
@@ -24,7 +24,7 @@ async function characterIcon(request: APIRequestContext, id: string): Promise<un
   return (data.extensions as Record<string, unknown>).combatIcon ?? null;
 }
 
-test("A character picks its Tactical Combat Icon: initials, then an uploaded picture", async ({ page, request }) => {
+test("A character picks its Game Mode Icon: initials, then an uploaded picture", async ({ page, request }) => {
   const name = `Icon ${Date.now().toString(36)} Knight`;
   const created = await request.post("/api/characters", { data: { data: { name } } });
   expect(created.ok()).toBeTruthy();
@@ -41,7 +41,7 @@ test("A character picks its Tactical Combat Icon: initials, then an uploaded pic
       useUIStore.getState().openCharacterDetail(id);
     }, character.id);
     const editor = page.locator(".mari-editor-shell");
-    const section = editor.getByTestId("tactical-combat-icon");
+    const section = editor.getByTestId("game-mode-icon");
     await section.scrollIntoViewIfNeeded();
     const token = section.getByRole("img", { name: `${name}'s combat token` });
     // No choice yet: the avatar.
@@ -80,7 +80,7 @@ test("A character picks its Tactical Combat Icon: initials, then an uploaded pic
   }
 });
 
-test("A persona keeps its Tactical Combat Icon in its stats", async ({ page, request }) => {
+test("A persona keeps its Game Mode Icon in its stats", async ({ page, request }) => {
   const name = `Icon Wanderer ${Date.now().toString(36)}`;
   const created = await request.post("/api/characters/personas", { data: { name } });
   expect(created.ok()).toBeTruthy();
@@ -94,7 +94,7 @@ test("A persona keeps its Tactical Combat Icon in its stats", async ({ page, req
       useUIStore.getState().openPersonaDetail(id);
     }, persona.id);
     const editor = page.locator(".mari-editor-shell");
-    const section = editor.getByTestId("tactical-combat-icon");
+    const section = editor.getByTestId("game-mode-icon");
     await section.scrollIntoViewIfNeeded();
     await expect(section.getByText("There is no avatar yet, so the token shows the initials.")).toBeVisible();
     await section.getByRole("radio", { name: "Initials", exact: true }).click();
@@ -133,7 +133,7 @@ test("Gallery uploads refuse a file that is not the image it claims", async ({ r
   }
 });
 
-test("A party token draws the card's Tactical Combat Icon over its avatar", async ({ page }) => {
+test("A party token draws the card's Game Mode Icon over its avatar", async ({ page }) => {
   await page.goto("/");
   const sprites = await page.evaluate(async () => {
     const module = (await import("/src/components/game/GameSurface.tsx" as string)) as unknown as {

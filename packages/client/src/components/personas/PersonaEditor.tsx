@@ -90,7 +90,7 @@ import { dataImageUrlToFile } from "../../lib/data-image-file";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
-import { PersonaCombatIconSection } from "../characters/TacticalCombatIconSection";
+import { PersonaCombatIconSection } from "../characters/GameModeIconSection";
 import { ColorPicker } from "../ui/ColorPicker";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";

@@ -57,9 +57,9 @@ The first block is **Persona Status Bars**, turned on with **Enable Persona Stat
 
 The second block is **RPG Attributes**, turned on with **Enable RPG Attributes**. This works like a character card. It gives your persona **Pools** (starting with HP and MP at 100 out of 100) and **Attributes** (starting with STR, DEX, CON, INT, WIS, and CHA at 10).
 
-### Tactical Combat Icon
+### Game Mode Icon
 
-Both **Stats** tabs have a **Tactical Combat Icon** block. It sets the picture on this character's or persona's round token on the board in a Game Mode fight. The small token beside the choices shows what the board will draw.
+Both **Stats** tabs have a **Game Mode Icon** block. It sets the picture on this character's or persona's round token on the board in a Game Mode fight. The small token beside the choices shows what the board will draw.
 
 - **Avatar** (the default) uses the avatar. With no avatar, the token shows the initials.
 - **Custom image** uses a picture from the card's own gallery. Pick one of the gallery pictures shown, or upload a new one, which is added to the gallery. The card has to be saved once before you can use this.

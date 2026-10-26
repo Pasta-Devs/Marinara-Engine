@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Fight token picture (Tactical Combat Icon)
+// Fight token picture (Game Mode Icon)
 // ──────────────────────────────────────────────
 import type { CombatIconChoice } from "../types/character.js";
 

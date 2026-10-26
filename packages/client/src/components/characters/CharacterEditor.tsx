@@ -72,7 +72,7 @@ import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lo
 import { useConnections } from "../../hooks/use-connections";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
-import { CharacterCombatIconSection } from "./TacticalCombatIconSection";
+import { CharacterCombatIconSection } from "./GameModeIconSection";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";

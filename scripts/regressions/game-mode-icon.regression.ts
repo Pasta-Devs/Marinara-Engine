@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { parseCombatIconChoice, resolveCombatIconUrl } from "../../packages/shared/src/utils/combat-icon.js";
 
-// The Tactical Combat Icon picks what a fight token draws: the avatar (the default), a picture
+// The Game Mode Icon picks what a fight token draws: the avatar (the default), a picture
 // from the card's own gallery, or the initials.
 const avatar = "/api/avatars/file/character-abc-1.png";
 const galleryUrl = "/api/characters/abc/gallery/file/img_1.png";
@@ -45,4 +45,4 @@ assert.equal(parseCombatIconChoice([]), null);
 // Extra keys on a stored choice are dropped.
 assert.deepEqual(parseCombatIconChoice({ source: "initials", url: galleryUrl }), { source: "initials" });
 
-console.log("tactical-combat-icon regression passed");
+console.log("game-mode-icon regression passed");

@@ -1,4 +1,4 @@
-// The "Tactical Combat Icon" block of the character and persona Stats tabs: what the card's token
+// The "Game Mode Icon" block of the character and persona Stats tabs: what the card's token
 // shows on a fight board. The avatar by default, a picture from the card's own gallery (uploaded
 // here or already there), or the initials. A token with no picture always falls back to initials.
 import { useState } from "react";
@@ -35,7 +35,7 @@ export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId ?? "");
   return (
-    <TacticalCombatIconSection
+    <GameModeIconSection
       key={characterId ?? "new"}
       {...props}
       images={images}
@@ -52,7 +52,7 @@ export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & {
   const { data: images, isLoading } = usePersonaGalleryImages(personaId);
   const upload = useUploadPersonaGalleryImage(personaId ?? "");
   return (
-    <TacticalCombatIconSection
+    <GameModeIconSection
       key={personaId ?? "new"}
       {...props}
       images={images}
@@ -64,7 +64,7 @@ export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & {
   );
 }
 
-function TacticalCombatIconSection({
+function GameModeIconSection({
   name,
   avatarUrl,
   value,
@@ -126,7 +126,7 @@ function TacticalCombatIconSection({
   ];
 
   return (
-    <div className="space-y-3 border-t border-[var(--border)] pt-6" data-testid="tactical-combat-icon">
+    <div className="space-y-3 border-t border-[var(--border)] pt-6" data-testid="game-mode-icon">
       <div>
         <h3 className="text-sm font-semibold">{t("ui.characters.combatIcon.title")}</h3>
         <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{t("ui.characters.combatIcon.subtitle")}</p>
