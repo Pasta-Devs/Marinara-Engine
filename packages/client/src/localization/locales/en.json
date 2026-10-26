@@ -1110,7 +1110,7 @@
   "chat.summary.automatic.updateInterval_other": "Updates after {{count}} user messages.",
   "chat.summary.backfill.batchProgress": "{{completed}}/{{total}} batches",
   "chat.summary.backfill.rangeProgress": "Summarizing messages {{start}}–{{end}} ({{completed}}/{{total}})",
-  "chat.summary.connection.agentDefaultFallback": "Agent default (falls back to chat connection)",
+  "chat.summary.connection.agentDefaultFallback": "Agent default or chat model",
   "chat.summary.connection.agentDefaultNamed": "Agent default ({{name}})",
   "chat.summary.deleteEntriesConfirmation_one": "Delete {{count}} selected summary? This will change the summary context sent to the model.",
   "chat.summary.deleteEntriesConfirmation_other": "Delete {{count}} selected summaries? This will change the summary context sent to the model.",
