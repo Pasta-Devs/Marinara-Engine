@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // ConnectionAccountEditor — picture, name, address, key, models and shared limits for one Connection
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ChevronRight, Loader2, Trash2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -58,6 +58,7 @@ function SecretField({
   onChange,
   help,
   autoFocus,
+  inputRef,
 }: {
   label: string;
   saved: boolean;
@@ -67,6 +68,7 @@ function SecretField({
   onChange: (value: string | null) => void;
   help?: string;
   autoFocus?: boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useTranslation();
   const masked = saved && value === null;
@@ -91,6 +93,7 @@ function SecretField({
           </span>
         ) : (
           <input
+            ref={inputRef}
             type="password"
             autoComplete="off"
             autoFocus={autoFocus}
@@ -143,6 +146,7 @@ export function ConnectionAccountEditor({
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const apiKeyInputRef = useRef<HTMLInputElement>(null);
   const [more, setMore] = useState(false);
   const [pictureAt, setPictureAt] = useState<MenuAt | null>(null);
   const closePicture = useCallback(() => setPictureAt(null), []);
@@ -160,6 +164,14 @@ export function ConnectionAccountEditor({
     });
     if (!account.hasApiKey || replaceKey) setApiKey("");
   }, [account, draft, replaceKey]);
+
+  useEffect(() => {
+    if (!replaceKey || !account) return;
+    const input = apiKeyInputRef.current;
+    if (!input) return;
+    input.scrollIntoView({ block: "center" });
+    input.focus({ preventScroll: true });
+  }, [account, replaceKey]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -386,6 +398,7 @@ export function ConnectionAccountEditor({
             }}
             help={t("connections.accounts.editor.keySaved")}
             autoFocus={account.state === "needs_key" || replaceKey}
+            inputRef={apiKeyInputRef}
           />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

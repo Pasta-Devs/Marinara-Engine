@@ -813,6 +813,14 @@ export function ConversationInput({
       } else {
         replaceAttachments([]);
       }
+      if (activeChatId && window.matchMedia?.("(pointer: fine)").matches) {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (active === document.body || active === document.documentElement) {
+            textareaRef.current?.focus({ preventScroll: true });
+          }
+        });
+      }
     }
   }, [activeChatId, setInputDraft, clearInputDraft, syncInputState, replaceAttachments]);
 
