@@ -1,9 +1,5 @@
 import { localAuthProviderBaseUrl } from "@marinara-engine/shared";
-import {
-  readChatFollowsMain,
-  readChatModelOverride,
-  resolveChatConnectionOrFallback,
-} from "../generation/connection-resolution.js";
+import { readChatModelOverride, resolveChatConnectionOrFallback } from "../generation/connection-resolution.js";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
 
 /** The chat whose Model is the default: its id, or the chat row (then its per-chat catalog pick applies). */
@@ -29,7 +25,7 @@ export async function resolveGameConnection(
     id = pool[Math.floor(Math.random() * pool.length)].id;
   }
   // A chat set to "Use default" has no Model of its own and answers through Main.
-  if (!id && chat && typeof chat === "object" && readChatFollowsMain(chat)) {
+  if (!id) {
     const main = await resolveChatConnectionOrFallback(connections, null, undefined, null, true);
     if (main) id = main.id;
   }
