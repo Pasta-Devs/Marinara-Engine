@@ -620,6 +620,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
   });
 
   app.post("/", async (req, reply) => {
+    const body = req.body as Record<string, unknown> | null;
+    // Omitted model IDs are setup placeholders. An explicitly supplied ID must be usable.
+    if (body && Object.hasOwn(body, "model") && (typeof body.model !== "string" || !body.model.trim())) {
+      return reply.status(400).send({ error: "A connection record must include a non-empty model ID." });
+    }
     const input = createConnectionSchema.parse(req.body);
     const validationError = nanoGptVideoConnectionError(input) || (await generativeAudioConnectionError(input));
     if (validationError) return reply.status(400).send({ error: validationError });
