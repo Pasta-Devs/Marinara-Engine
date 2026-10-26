@@ -290,7 +290,7 @@ export function useTestConnection(accountId?: string) {
     const row = qc
       .getQueryData<Array<{ id: string; accountId?: string | null }>>(connectionKeys.list())
       ?.find((row) => row.id === id);
-    const target = accountId ?? row?.accountId;
+    const target = row?.accountId ?? accountId;
     if (target) useUIStore.getState().setConnectionTestFailure(target, message);
   };
   return useMutation({

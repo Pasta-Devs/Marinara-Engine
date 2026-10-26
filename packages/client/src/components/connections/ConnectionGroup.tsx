@@ -216,17 +216,17 @@ export function ConnectionGroup({
             aria: t("connections.accounts.replaceKeyFor", { name: account.name }),
             run: replaceKey,
           }
-        : testFailure
+        : account.state === "needs_key"
           ? {
-              label: t("connections.accounts.testAgain"),
-              aria: t("connections.accounts.testAgainFor", { name: account.name }),
-              run: runTest,
+              label: state,
+              aria: t("connections.list.addKeyFor", { name: account.name }),
+              run: editAccount,
             }
-          : account.state === "needs_key"
+          : testFailure
             ? {
-                label: state,
-                aria: t("connections.list.addKeyFor", { name: account.name }),
-                run: editAccount,
+                label: t("connections.accounts.testAgain"),
+                aria: t("connections.accounts.testAgainFor", { name: account.name }),
+                run: runTest,
               }
             : null;
   return (

@@ -321,6 +321,7 @@ function shouldFlushUiStorageImmediately(previousValue: string | null, nextValue
   const previous = readImmediateUiStorageSnapshot(previousValue);
   const next = readImmediateUiStorageSnapshot(nextValue);
   return (
+    previousValue === null ||
     previous.customCursorEnabled !== next.customCursorEnabled ||
     previous.chatSettingsMoveTipDismissed !== next.chatSettingsMoveTipDismissed ||
     previous.chatWindowIntroDismissed !== next.chatWindowIntroDismissed ||
@@ -4206,6 +4207,14 @@ export const useUIStore = create<UIState>()(
           mariUnlockedPackIds: Array.isArray(persisted.mariUnlockedPackIds)
             ? persisted.mariUnlockedPackIds.filter((id): id is string => typeof id === "string")
             : [],
+          connectionTestFailures:
+            persisted.connectionTestFailures && typeof persisted.connectionTestFailures === "object"
+              ? Object.fromEntries(
+                  Object.entries(persisted.connectionTestFailures).filter(
+                    (entry): entry is [string, string] => typeof entry[1] === "string",
+                  ),
+                )
+              : {},
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),

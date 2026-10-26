@@ -267,7 +267,7 @@ export function ConnectionAccountEditor({
   const testFailed = !!testFailure || test.isError || (!!test.data && !test.data.success);
   const testText = test.isPending
     ? t("connections.accounts.editor.testing")
-    : testFailure
+    : testFailure && !accessDirty
       ? t("connections.accounts.lastTestFailed", { reason: testFailure })
       : test.data?.success
         ? t("connections.accounts.editor.testOk", { latency: test.data.latencyMs })

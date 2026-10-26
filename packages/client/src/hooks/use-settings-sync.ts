@@ -406,7 +406,12 @@ export function useSettingsSync() {
                 lastPushed = "";
                 pushNow();
               } else {
-                useUIStore.setState(parsed.settings);
+                // Test failures belong to this browser. Never let the shared
+                // settings blob replace them during cross-device hydration.
+                useUIStore.setState({
+                  ...parsed.settings,
+                  connectionTestFailures: useUIStore.getState().connectionTestFailures,
+                });
                 lastPushed = serialize();
                 if (serverUpdatedAt !== null) writeLocalUpdatedAt(serverUpdatedAt);
                 if (hadLocalOnlySettings || hadMissingSyncedSettings || staleSyncedShape) {

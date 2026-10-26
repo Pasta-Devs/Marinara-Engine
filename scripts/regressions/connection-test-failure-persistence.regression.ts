@@ -58,6 +58,11 @@ try {
       "401: Invalid API key",
       "failure survives reload",
     );
+    assert.deepEqual(
+      useUIStore.getState().connectionTestFailures,
+      { "account-1": "401: Invalid API key" },
+      "rehydration keeps a well-formed failure map",
+    );
     succeeds = true;
     await mutation!.mutateAsync("model-1");
     assert.equal(useUIStore.getState().connectionTestFailures["account-1"], undefined);
