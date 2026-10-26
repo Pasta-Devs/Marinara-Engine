@@ -2429,9 +2429,8 @@ function GameSurfaceComponent({
     chatMeta.gameSessionStatus !== "concluded";
   const makeWorldRequest = useMemo(() => {
     const setup = chatMeta.gameSetupConfig as GameSetupConfig | undefined;
-    if (!chat.connectionId) return null;
     return {
-      connectionId: chat.connectionId,
+      connectionId: chat.connectionId ?? undefined,
       genre: setup?.genre || "Fantasy",
       setting: setup?.setting || "A world of its own",
       tone: setup?.tone || "Heroic",

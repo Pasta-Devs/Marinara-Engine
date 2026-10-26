@@ -39,7 +39,7 @@ import { useWorldLibrary } from "../../hooks/use-world-library";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
 
 export interface WorldKitWriteRequest {
-  connectionId: string;
+  connectionId?: string;
   genre: string;
   setting: string;
   tone: string;

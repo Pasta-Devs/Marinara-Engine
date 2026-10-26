@@ -1557,7 +1557,10 @@ function ConversationQuickSetup({
   const visibleAvailable = available.slice(0, characterPickerLimit);
   const hasMoreAvailable = available.length > visibleAvailable.length;
 
-  const hasConnection = !!chat.connectionId;
+  // A chat without its own Model follows Main, so it can start whenever a Main exists.
+  const hasConnection =
+    !!chat.connectionId ||
+    connectionOptions.some((option) => isConnectionFlagTrue((option as { isDefault?: unknown }).isDefault));
   const hasCharacters = chatCharIds.length > 0;
   const goBack = useCallback(() => {
     setStep((value) => Math.max(0, value - 1));
