@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronDown, ChevronRight, Eye, EyeOff, ExternalLink } from "lucide-react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { PROVIDERS, withKeyTail, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import { ServiceRow } from "../../connections/ServiceRow";
@@ -82,6 +82,16 @@ export function AccessStep(props: AccessStepProps) {
     : props.service === LINKAPI_SERVICE
       ? LINKAPI.keyUrl
       : props.def?.keyUrl;
+
+  const { setMoreOpen } = props;
+  useEffect(() => {
+    if (failure !== "key") return;
+    if (!props.moreOpen) {
+      setMoreOpen(true);
+      return;
+    }
+    document.getElementById("add-connection-key")?.focus();
+  }, [failure, props.moreOpen, setMoreOpen]);
 
   const keyField = (optional: boolean) => (
     <div className="flex flex-col gap-1">
@@ -256,10 +266,15 @@ export function AccessStep(props: AccessStepProps) {
                       ))}
                     </div>
                   )}
-                  <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
+                  {failure !== "key" && (
+                    <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                      {t("connections.add.noKeyNeeded")}
+                    </p>
+                  )}
                 </div>
               )}
               {props.requiresAccessKey && keyField(false)}
+              {props.isLocal && failure === "key" && keyField(true)}
               {props.keyless && (
                 <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>
               )}
@@ -316,7 +331,13 @@ export function AccessStep(props: AccessStepProps) {
                         <p className="mt-1 text-xs text-[var(--muted-foreground)]">
                           {failure === "plan" && props.provider && LOGIN_COMMANDS[props.provider]
                             ? t("connections.add.loginHint", { command: LOGIN_COMMANDS[props.provider] })
-                            : t(props.isLocal ? "connections.add.retryLocal" : "connections.add.retryKey")}
+                            : t(
+                                failure === "key"
+                                  ? "connections.add.retryKey"
+                                  : props.isLocal
+                                    ? "connections.add.retryLocal"
+                                    : "connections.add.retryKey",
+                              )}
                         </p>
                       </>
                     )}
@@ -340,7 +361,7 @@ export function AccessStep(props: AccessStepProps) {
                   </button>
                   <SmoothFolderContent open={props.moreOpen}>
                     <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
-                      {props.isLocal && keyField(true)}
+                      {props.isLocal && failure !== "key" && keyField(true)}
                       <label className="flex flex-col gap-1">
                         <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
                         <input

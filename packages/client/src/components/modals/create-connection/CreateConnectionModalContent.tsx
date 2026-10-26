@@ -369,7 +369,7 @@ export function CreateConnectionModalContent({
     const id = assignedPick.connectionId;
     if (assignment.assign) {
       const { assign, previous = null } = assignment;
-      assign(id);
+      await Promise.resolve(assign(id));
       return () => assign(previous);
     }
     if (assignedJob === "embeddings") {
@@ -532,10 +532,16 @@ export function CreateConnectionModalContent({
   });
 
   /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
-  const saveAndTest = async () => {
+  const saveAndTest = async (continueAnyway = false) => {
     if (!provider) return;
+    let current = target;
+    const discardFreshAccount = async () => {
+      if (!current?.fresh) return;
+      await deleteRow.mutateAsync(current.connectionId).catch(() => undefined);
+      await deleteAccount.mutateAsync(current.accountId).catch(() => undefined);
+      setTarget(null);
+    };
     try {
-      let current = target;
       if (current) {
         await updateAccount.mutateAsync({ id: current.accountId, ...accountFields() });
       } else {
@@ -564,17 +570,20 @@ export function CreateConnectionModalContent({
         setStep(3);
         return;
       }
-      const result = await testConnection.mutateAsync(current.connectionId);
+      const result = continueAnyway ? { success: true } : await testConnection.mutateAsync(current.connectionId);
       setTested(result);
-      // "Test and continue" is one press: a passing test opens the models.
-      if (result.success) {
-        const available: AddableKind[] = service
-          ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
-          : ["chat"];
-        setSetupKind(startKind(available));
-        setStep(3);
+      if (!result.success) {
+        await discardFreshAccount();
+        return;
       }
+      // "Test and continue" is one press: a passing test opens the models.
+      const available: AddableKind[] = service
+        ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
+        : ["chat"];
+      setSetupKind(startKind(available));
+      setStep(3);
     } catch (error) {
+      await discardFreshAccount();
       setTested({ success: false, message: errorText(error) });
     }
   };
@@ -944,10 +953,11 @@ export function CreateConnectionModalContent({
       </button>
     ) : (
       <div className="flex items-center gap-3">
-        {failure && isLocal && target && (
+        {failure && isLocal && (
           <button
             type="button"
-            onClick={() => setStep(3)}
+            onClick={() => void saveAndTest(true)}
+            disabled={busy}
             className="min-h-11 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] md:min-h-0"
           >
             {t("connections.add.continueAnyway")}
