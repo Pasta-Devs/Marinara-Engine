@@ -38,6 +38,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const [connectionId, setConnectionId] = useState<string>("");
+  const [connectionChosen, setConnectionChosen] = useState(false);
 
   const connectionRows = useMemo(
     () =>
@@ -59,7 +60,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
     setConnectionId((current) => current || preferred.id);
   }, [connectionRows]);
 
-  const createWith = async (connectionId: string) => {
+  const createWith = async (connectionId?: string) => {
     const presets = chatPresetsData ?? [];
     const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
     const starred = presetMode
@@ -87,7 +88,12 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
           store.setShouldOpenWizard(true);
           if (starred) {
             void applyChatPreset
-              .mutateAsync({ presetId: starred.id, chatId: chat.id, initialSetupProfile: starred, connectionId })
+              .mutateAsync({
+                presetId: starred.id,
+                chatId: chat.id,
+                initialSetupProfile: starred,
+                connectionId,
+              })
               .catch(() => {
                 /* non-fatal — chat still opens with system defaults */
               });
@@ -98,7 +104,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   };
 
   const handleCreate = () => {
-    if (connectionId) void createWith(connectionId).catch(() => {});
+    if (connectionId) void createWith(connectionChosen ? connectionId : undefined).catch(() => {});
   };
 
   // With no connection yet, the Add window opens at once and ends with "Start chatting". It stays the
@@ -147,7 +153,10 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                 <ConnectionSelect
                   value={connectionId || null}
                   disabled={createChat.isPending}
-                  onChange={(id) => setConnectionId(id ?? "")}
+                  onChange={(id) => {
+                    setConnectionId(id ?? "");
+                    setConnectionChosen(true);
+                  }}
                   defaultLabel={localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}
                 />
               </div>

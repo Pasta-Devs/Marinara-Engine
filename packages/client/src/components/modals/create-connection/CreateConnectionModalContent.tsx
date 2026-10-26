@@ -90,7 +90,7 @@ export interface CreateConnectionModalProps {
   /** Opened by the empty new-chat gate: the last screen offers "Start chatting" for this mode. */
   newChatMode?: ChatMode;
   /** Creates the chat with the chosen Model; the gate closes everything when it is done. */
-  onStartChat?: (connectionId: string) => Promise<void>;
+  onStartChat?: (connectionId?: string) => Promise<void>;
   /** Add for a job: step 1 starts filtered to it, and Done sets the new Model for it (with Undo). */
   forJob?: AddFor;
 }
@@ -711,7 +711,7 @@ export function CreateConnectionModalContent({
     setFinishing(true);
     try {
       if (!(await applyChoices())) return;
-      await onStartChat(firstPick.connectionId);
+      await onStartChat(makeMainOn ? undefined : firstPick.connectionId);
     } catch {
       // useCreateChat already shows the error toast; the window stays open so the user can try again.
     } finally {
