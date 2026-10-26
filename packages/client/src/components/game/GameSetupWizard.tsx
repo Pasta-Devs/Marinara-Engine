@@ -3296,25 +3296,14 @@ export function GameSetupWizard({
                         >
                           {localizeUi("connections.audioGeneration.connection")}
                         </label>
-                        <select
+                        <ConnectionSelect
                           id={`${activeChatId}:game-audio-connection`}
-                          value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : ""}
-                          onChange={(e) => setAudioConnectionId(e.target.value || null)}
+                          value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : null}
+                          onChange={setAudioConnectionId}
+                          kind="audio"
+                          defaultLabel={localizeUi("connections.audioGeneration.defaultChoice")}
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                        >
-                          <option value="">{localizeUi("connections.audioGeneration.defaultChoice")}</option>
-                          {audioConnectionId && !resolvedAudioConnection && (
-                            <option value={audioConnectionId}>
-                              {localizeUi("connections.audioGeneration.unavailableSelection")}
-                            </option>
-                          )}
-                          {audioConnections.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                              {c.model ? localizeUi("ui.game.gamesetupwizard.value1", { value1: c.model }) : ""}
-                            </option>
-                          ))}
-                        </select>
+                        />
                         {audioConnections.length === 0 && (
                           <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
                             {localizeUi("connections.audioGeneration.setupEmpty")}

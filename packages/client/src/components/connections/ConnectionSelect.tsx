@@ -20,6 +20,7 @@ const ConnectionPicker = lazy(() => import("./ConnectionPicker").then((m) => ({ 
 export type ConnectionSelectKind = ConnectionPickerKind;
 
 export type ConnectionChoiceRow = ConnectionModelRow & { profileImportReviewRequired?: unknown };
+export type ConnectionChoiceFilter = (row: ConnectionModelRow) => boolean;
 
 export const choiceLabel = (row: ConnectionModelRow) => row.name?.trim() || row.model?.trim() || row.id;
 
@@ -41,7 +42,7 @@ export function useConnectionChoices({
   includeLocalSidecar: boolean;
   extraOptions: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
-  rowFilter?: (row: ConnectionModelRow) => boolean;
+  rowFilter?: ConnectionChoiceFilter;
 }) {
   const { t } = useTranslation();
   const connections = useConnections();
@@ -166,7 +167,7 @@ export function ConnectionSelect({
   /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
-  rowFilter?: (row: ConnectionModelRow) => boolean;
+  rowFilter?: ConnectionChoiceFilter;
   /**
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
    * opens the same picker. `native`: a native select, for callers that need one.
@@ -215,12 +216,14 @@ export function ConnectionSelect({
           className,
         )}
       >
-        <option value="">{choices.defaultText}</option>
-        {extraOptions.map((extra) => (
-          <option key={extra.value} value={extra.value}>
-            {extra.label}
-          </option>
-        ))}
+        {!extraOptions.some((extra) => extra.value === "") && <option value="">{choices.defaultText}</option>}
+        {extraOptions
+          .filter((extra) => extra.value !== "")
+          .map((extra) => (
+            <option key={extra.value} value={extra.value}>
+              {extra.label}
+            </option>
+          ))}
         {choices.missing && (
           <option value={value!}>{choices.loading ? value : t("connections.select.missing", { id: value })}</option>
         )}

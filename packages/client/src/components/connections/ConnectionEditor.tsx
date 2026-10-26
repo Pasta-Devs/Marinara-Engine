@@ -15,6 +15,7 @@ import {
   isLanguageGenerationConnection,
 } from "../../lib/connection-filters";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
+import { ConnectionSelect } from "./ConnectionSelect";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
 import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 // ──────────────────────────────────────────────
@@ -3765,31 +3766,20 @@ export function ConnectionEditor({
                           <span className="text-xs font-medium text-[var(--muted-foreground)]">
                             {localizeUi("ui.connections.connectioneditor.captioningConnection")}
                           </span>
-                          <select
-                            value={localImageCaptioningConnectionId}
-                            onChange={(event) => {
-                              setLocalImageCaptioningConnectionId(event.target.value);
+                          <ConnectionSelect
+                            kind="chat"
+                            value={localImageCaptioningConnectionId || null}
+                            onChange={(value) => {
+                              setLocalImageCaptioningConnectionId(value ?? "");
                               markDirty();
                             }}
+                            defaultLabel={localizeUi("ui.connections.connectioneditor.useThisConnection")}
+                            extraOptions={[
+                              { value: "", label: localizeUi("ui.connections.connectioneditor.useThisConnection") },
+                            ]}
+                            rowFilter={(row) => row.id !== connectionDetailId && isChatProvider(row.provider)}
                             className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                          >
-                            <option value="">{localizeUi("ui.connections.connectioneditor.useThisConnection")}</option>
-                            {((allConnections ?? []) as Record<string, unknown>[])
-                              .filter(
-                                (connection) =>
-                                  connection.id !== connectionDetailId && isChatProvider(connection.provider),
-                              )
-                              .map((connection) => (
-                                <option key={connection.id as string} value={connection.id as string}>
-                                  {connection.name as string}
-                                  {connection.model
-                                    ? localizeUi("ui.connections.connectioneditor.value1", {
-                                        value1: connection.model,
-                                      })
-                                    : ""}
-                                </option>
-                              ))}
-                          </select>
+                          />
                           <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                             {localizeUi(
                               "ui.connections.connectioneditor.chooseADifferentVisionCapableConnectionWhenThisModelCannotSeeImages",

@@ -12,6 +12,7 @@ import { AgentSettingsCard } from "./AgentSettingsControls";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { cn } from "../../lib/utils";
 import { normalizeRollOutcomeToneMode } from "../dice/dice-tone";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 
 export function RoleplayCommandsSettings({
   chat,
@@ -219,7 +220,7 @@ export function RoleplayCommandsSettings({
                 <label htmlFor={`${chat.id}:command-sound-connection`} className="font-medium">
                   {t("roleplay.commands.sound.connection")}
                 </label>
-                <select
+                <ConnectionSelect
                   id={`${chat.id}:command-sound-connection`}
                   aria-describedby={`${chat.id}:command-sound-description`}
                   value={
@@ -227,28 +228,13 @@ export function RoleplayCommandsSettings({
                       matchesAudioGenerationConnectionId(connection, metadata.roleplaySoundConnectionId),
                     )?.id ??
                     metadata.roleplaySoundConnectionId ??
-                    ""
+                    null
                   }
-                  onChange={(event) =>
-                    update.mutate({ id: chat.id, roleplaySoundConnectionId: event.target.value || null })
-                  }
+                  onChange={(value) => update.mutate({ id: chat.id, roleplaySoundConnectionId: value })}
+                  kind="audio"
+                  defaultLabel={t("roleplay.commands.sound.defaultConnection")}
                   className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
-                >
-                  <option value="">{t("roleplay.commands.sound.defaultConnection")}</option>
-                  {metadata.roleplaySoundConnectionId &&
-                    !audioConnections.some((connection) =>
-                      matchesAudioGenerationConnectionId(connection, metadata.roleplaySoundConnectionId),
-                    ) && (
-                      <option value={metadata.roleplaySoundConnectionId}>
-                        {t("connections.audioGeneration.unavailableSelection")}
-                      </option>
-                    )}
-                  {audioConnections.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name}
-                    </option>
-                  ))}
-                </select>
+                />
                 <span
                   id={`${chat.id}:command-sound-description`}
                   className="text-[0.6875rem] text-[var(--muted-foreground)]"
