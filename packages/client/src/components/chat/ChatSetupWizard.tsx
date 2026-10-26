@@ -45,7 +45,7 @@ import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
-import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
+import { appendLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
 import { resolveConversationSelfieSetup } from "../../lib/conversation-selfie-setup";
 import {
   captureChatWizardDefaults,
@@ -252,6 +252,15 @@ type ConnectionSetupOption = {
   defaultParameters?: unknown;
   defaultForAgents?: boolean | string;
 };
+
+/** The empty Connection choice: the chat follows Main, so name the Model that currently is Main. */
+function followMainLabel(
+  options: Array<{ name: string; isDefault?: unknown }>,
+  t: (key: string, values?: Record<string, unknown>) => string,
+) {
+  const main = options.find((option) => isConnectionFlagTrue(option.isDefault));
+  return main ? t("connections.switcher.followMainWith", { model: main.name }) : t("ui.game.gamesurfacecomponent.none");
+}
 
 function parseCharacterFolderIds(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -1662,7 +1671,7 @@ function ConversationQuickSetup({
           value={selectedConnectionId || null}
           aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
           onChange={setConnection}
-          defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+          defaultLabel={followMainLabel(connectionOptions, localizeUi)}
           extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
         />
         {connectionOptions.length === 0 && (
@@ -3098,7 +3107,7 @@ function RoleplaySetupWizard({
             value={chat.connectionId || null}
             aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
             onChange={setConnection}
-            defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+            defaultLabel={followMainLabel(connectionOptions, localizeUi)}
             extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
           />
         </div>
