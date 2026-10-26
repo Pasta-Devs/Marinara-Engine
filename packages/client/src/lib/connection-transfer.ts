@@ -18,6 +18,32 @@ import {
   type CreateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import type { CreateConnectionPayload } from "../hooks/use-connections";
+import { FLAG_JOBS, matchesKind } from "./connection-jobs";
+import { isConnectionFlagTrue } from "./connection-filters";
+
+const JOB_FLAGS = ["isDefault", "defaultForAgents", "fallbackForMain", "fallbackForAgents"] as const;
+type JobFlag = (typeof JOB_FLAGS)[number];
+
+/**
+ * Imported Models that should take over a job, only where no existing Model holds it yet:
+ * an import never silently replaces a Main or Agents pick the user already made.
+ */
+export function defaultsToApply(
+  imported: ReadonlyArray<{ id: string; provider: string; flags: readonly JobFlag[] }>,
+  rows: ReadonlyArray<Record<string, unknown> & { id: string; provider: string }>,
+) {
+  const picks = new Map<string, { id: string; flag: JobFlag; job: string }>();
+  for (const job of FLAG_JOBS) {
+    for (const flag of [job.flag, job.fallback]) {
+      const taken = rows.some(
+        (row) => matchesKind(row, job.kind) && isConnectionFlagTrue(row[flag]) && !imported.some((i) => i.id === row.id),
+      );
+      const pick = imported.find((i) => matchesKind(i, job.kind) && i.flags.includes(flag));
+      if (!taken && pick) picks.set(`${pick.id}:${flag}`, { id: pick.id, flag, job: job.key });
+    }
+  }
+  return [...picks.values()];
+}
 
 export type ConnectionTransferRow = {
   name?: unknown;
@@ -128,6 +154,8 @@ export type ConnectionImportPayload = {
   connection: CreateConnectionPayload;
   defaultParameters: Record<string, unknown> | null;
   hasDefaultParameters: boolean;
+  /** Defaults the file's Model held (Main, Agents, their fallbacks); not applied on create. */
+  flags: JobFlag[];
 };
 
 export const CONNECTION_EXPORT_WARNING =
@@ -303,6 +331,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
     },
     defaultParameters,
     hasDefaultParameters: Object.prototype.hasOwnProperty.call(value, "defaultParameters"),
+    flags: JOB_FLAGS.filter((flag) => asBoolean(value[flag])),
   };
 }
 

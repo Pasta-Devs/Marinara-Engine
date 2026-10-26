@@ -5,10 +5,18 @@ import { useRef, useState } from "react";
 import { CheckCircle, Download, FileJson, Loader2, XCircle } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { useQueryClient } from "@tanstack/react-query";
-import { connectionKeys, useCreateConnection, useSaveConnectionDefaults } from "../../hooks/use-connections";
+import {
+  connectionKeys,
+  connectionListQuery,
+  useCreateConnection,
+  useSaveConnectionDefaults,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
 import { connectionAccountKeys, useCreateConnectionAccount } from "../../hooks/use-connection-accounts";
-import { getConnectionImportPlan, type ConnectionImportPayload } from "../../lib/connection-transfer";
+import { defaultsToApply, getConnectionImportPlan, type ConnectionImportPayload } from "../../lib/connection-transfer";
 import { api } from "../../lib/api-client";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { JOB, jobLabelKey } from "../../lib/connection-jobs";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -23,6 +31,8 @@ export function ImportConnectionModal({ open, onClose }: Props) {
   const createConnection = useCreateConnection();
   const saveConnectionDefaults = useSaveConnectionDefaults();
   const createAccount = useCreateConnectionAccount();
+  const updateConnection = useUpdateConnection();
+  const importedRef = useRef<Array<{ id: string; provider: string; flags: ConnectionImportPayload["flags"] }>>([]);
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
@@ -40,6 +50,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
       accountId ? { ...normalized.connection, accountId } : normalized.connection,
     );
     const connectionId = (result as { id?: string } | null)?.id ?? null;
+    if (connectionId) importedRef.current.push({ id: connectionId, provider: normalized.connection.provider, flags: normalized.flags });
     if (connectionId && normalized.hasDefaultParameters) {
       try {
         await saveConnectionDefaults.mutateAsync({ id: connectionId, params: normalized.defaultParameters });
@@ -54,6 +65,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setStatus("loading");
+    importedRef.current = [];
     setResults([]);
 
     const nextResults: Array<{ filename: string; success: boolean; message: string }> = [];
@@ -145,6 +157,21 @@ export function ImportConnectionModal({ open, onClose }: Props) {
     }
 
     // Deleted placeholders and rolled-back entries change no cache on their own.
+    // Defaults travel with the file but only fill jobs that have no Model yet.
+    const rows = (await queryClient.fetchQuery(connectionListQuery)) as Array<Record<string, unknown> & { id: string; provider: string }>;
+    const picks = defaultsToApply(importedRef.current, rows);
+    if (
+      picks.length > 0 &&
+      (await showConfirmDialog({
+        title: localizeUi("connections.transfer.defaultsTitle"),
+        message: localizeUi("connections.transfer.defaultsMessage", {
+          jobs: [...new Set(picks.map((pick) => localizeUi(jobLabelKey(JOB[pick.job as keyof typeof JOB]))))].join(", "),
+        }),
+        confirmLabel: localizeUi("connections.transfer.defaultsApply"),
+      }))
+    ) {
+      for (const pick of picks) await updateConnection.mutateAsync({ id: pick.id, [pick.flag]: true }).catch(() => undefined);
+    }
     void queryClient.invalidateQueries({ queryKey: connectionKeys.all });
     void queryClient.invalidateQueries({ queryKey: connectionAccountKeys.all });
     setResults(nextResults);
