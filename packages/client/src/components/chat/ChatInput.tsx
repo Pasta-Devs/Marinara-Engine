@@ -30,6 +30,7 @@ import { useCommitSpatialOwnerTurn } from "../../hooks/use-spatial-context";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../hooks/use-chats";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useConnections } from "../../hooks/use-connections";
 import { characterKeys, ensureCharacterAndPersonaLists } from "../../hooks/use-characters";
 import {
@@ -1031,9 +1032,15 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
 
-    // Check if the chat has a connection configured
+    // A chat without its own connection follows Main; only block when there is no Main either.
     const chat = useChatStore.getState().activeChat;
-    if (chat && !chat.connectionId) {
+    if (
+      chat &&
+      !chat.connectionId &&
+      !(contextConnections as Array<{ isDefault?: unknown }>).some((connection) =>
+        isConnectionFlagTrue(connection.isDefault),
+      )
+    ) {
       toast.error(localizeUi("ui.chat.chatinput.itLooksLikeYouHavenTConnectedAnyModel"));
       return;
     }
@@ -1140,6 +1147,7 @@ export const ChatInput = memo(function ChatInput({
       console.error("Send failed:", error);
     }
   }, [
+    contextConnections,
     activeChatId,
     mode,
     isInputBusy,
