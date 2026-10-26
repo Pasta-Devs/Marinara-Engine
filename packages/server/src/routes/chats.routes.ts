@@ -1397,7 +1397,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
     }
     const body = req.body as Record<string, unknown>;
-    const chat = await storage.create(
+    let chat = await storage.create(
       input,
       normalizeTimestampOverrides({
         createdAt: body.createdAt,
@@ -1405,6 +1405,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       }),
     );
     if (!chat) return chat;
+    // No Model picked: the chat follows Main. Without this flag generation treats the empty id as a deleted Model.
+    if (!input.connectionId) {
+      await storage.patchMetadata(chat.id, { [CHAT_FOLLOWS_MAIN_KEY]: true });
+      chat = (await storage.getById(chat.id)) ?? chat;
+    }
 
     try {
       await seedNewRoleplayChatTrackerDefaults(app, chat, input.characterIds);

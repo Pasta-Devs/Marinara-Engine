@@ -58,6 +58,20 @@ try {
   });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().connectionId, null, "A new chat follows Main until a model is picked");
+  const { readChatFollowsMain, resolveChatConnectionOrFallback } =
+    await import("../../packages/server/src/services/generation/connection-resolution.js");
+  const created = (await chats.getById(response.json().id))!;
+  assert.equal(readChatFollowsMain(created), true, "A new chat is marked as following Main");
+  const notices: unknown[] = [];
+  const resolved = await resolveChatConnectionOrFallback(
+    createConnectionsStorage(db),
+    created.connectionId,
+    async (notice) => void notices.push(notice),
+    null,
+    readChatFollowsMain(created),
+  );
+  assert.equal(resolved?.id, connection.id);
+  assert.equal(notices.length, 0, "Following Main must not announce a deleted Model");
   console.log("New chats are created without an explicit connection.");
 } finally {
   provider.closeAllConnections();
