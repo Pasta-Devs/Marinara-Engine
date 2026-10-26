@@ -24,6 +24,7 @@ interface FunctionCallingSectionProps {
   narratorProvider?: string;
   connections: Array<{ id: string; name: string; model?: string; provider?: string }>;
   toolConnectionId: string;
+  chatConnectionId?: string | null;
   onToolConnectionChange: (id: string | null) => void;
   gameLorebookSearch: boolean;
   onGameLorebookSearchChange: (enabled: boolean) => void;
@@ -63,6 +64,7 @@ export function FunctionCallingSection({
   narratorProvider,
   connections,
   toolConnectionId,
+  chatConnectionId,
   onToolConnectionChange,
   gameLorebookSearch,
   onGameLorebookSearchChange,
@@ -125,6 +127,7 @@ export function FunctionCallingSection({
                 value={toolConnectionId || null}
                 onChange={onToolConnectionChange}
                 defaultLabel={localizeUi("chat.settings.tools.sameConnection")}
+                inherits={{ connectionId: chatConnectionId ?? null }}
                 rowFilter={(row) => supportsNativeToolCalls(row.provider)}
               />
             </label>

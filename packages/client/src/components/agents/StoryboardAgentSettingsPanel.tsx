@@ -721,6 +721,7 @@ export function StoryboardAgentSettingsPanel({
                 value={settings.videoConnectionId ?? null}
                 onChange={(id) => update({ videoConnectionId: id })}
                 defaultLabel={localizeUi("ui.agents.storyboard.useGameVideoConnection")}
+                inherits="main"
                 className="rounded-xl px-3 py-2.5 text-sm"
               />
             </label>

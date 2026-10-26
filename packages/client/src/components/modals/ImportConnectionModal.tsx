@@ -5,10 +5,29 @@ import { useRef, useState } from "react";
 import { CheckCircle, Download, FileJson, Loader2, XCircle } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { useQueryClient } from "@tanstack/react-query";
-import { connectionKeys, useCreateConnection, useSaveConnectionDefaults } from "../../hooks/use-connections";
-import { connectionAccountKeys, useCreateConnectionAccount } from "../../hooks/use-connection-accounts";
-import { getConnectionImportPlan, type ConnectionImportPayload } from "../../lib/connection-transfer";
+import {
+  connectionKeys,
+  connectionListQuery,
+  useCreateConnection,
+  useSaveConnectionDefaults,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
+import type { FeatureModelConnections } from "@marinara-engine/shared";
+import {
+  connectionAccountKeys,
+  FEATURE_MODELS_PATH,
+  useCreateConnectionAccount,
+  useSetFeatureModels,
+} from "../../hooks/use-connection-accounts";
+import {
+  defaultsToApply,
+  featuresToApply,
+  getConnectionImportPlan,
+  type ConnectionImportPayload,
+} from "../../lib/connection-transfer";
 import { api } from "../../lib/api-client";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -23,6 +42,16 @@ export function ImportConnectionModal({ open, onClose }: Props) {
   const createConnection = useCreateConnection();
   const saveConnectionDefaults = useSaveConnectionDefaults();
   const createAccount = useCreateConnectionAccount();
+  const updateConnection = useUpdateConnection();
+  const setFeatureModels = useSetFeatureModels();
+  const importedRef = useRef<
+    Array<{
+      id: string;
+      provider: string;
+      flags: ConnectionImportPayload["flags"];
+      features: ConnectionImportPayload["features"];
+    }>
+  >([]);
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
@@ -40,6 +69,13 @@ export function ImportConnectionModal({ open, onClose }: Props) {
       accountId ? { ...normalized.connection, accountId } : normalized.connection,
     );
     const connectionId = (result as { id?: string } | null)?.id ?? null;
+    if (connectionId)
+      importedRef.current.push({
+        id: connectionId,
+        provider: normalized.connection.provider,
+        flags: normalized.flags,
+        features: normalized.features,
+      });
     if (connectionId && normalized.hasDefaultParameters) {
       try {
         await saveConnectionDefaults.mutateAsync({ id: connectionId, params: normalized.defaultParameters });
@@ -54,6 +90,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setStatus("loading");
+    importedRef.current = [];
     setResults([]);
 
     const nextResults: Array<{ filename: string; success: boolean; message: string }> = [];
@@ -145,6 +182,29 @@ export function ImportConnectionModal({ open, onClose }: Props) {
     }
 
     // Deleted placeholders and rolled-back entries change no cache on their own.
+    // Defaults travel with the file but only fill jobs that have no Model yet.
+    const rows = (await queryClient.fetchQuery(connectionListQuery)) as Array<
+      Record<string, unknown> & { id: string; provider: string }
+    >;
+    const picks = defaultsToApply(importedRef.current, rows);
+    const current = await api.get<FeatureModelConnections | null>(FEATURE_MODELS_PATH).catch(() => null);
+    const featurePicks = featuresToApply(importedRef.current, current);
+    const jobNames = [
+      ...picks.map((pick) => JOB[pick.job as keyof typeof JOB]),
+      ...JOBS.filter((job) => job.feature && job.feature in featurePicks),
+    ].map((job) => localizeUi(jobLabelKey(job)));
+    if (
+      jobNames.length > 0 &&
+      (await showConfirmDialog({
+        title: localizeUi("connections.transfer.defaultsTitle"),
+        message: localizeUi("connections.transfer.defaultsMessage", { jobs: [...new Set(jobNames)].join(", ") }),
+        confirmLabel: localizeUi("connections.transfer.defaultsApply"),
+      }))
+    ) {
+      for (const pick of picks)
+        await updateConnection.mutateAsync({ id: pick.id, [pick.flag]: true }).catch(() => undefined);
+      if (Object.keys(featurePicks).length > 0) await setFeatureModels.mutateAsync(featurePicks).catch(() => undefined);
+    }
     void queryClient.invalidateQueries({ queryKey: connectionKeys.all });
     void queryClient.invalidateQueries({ queryKey: connectionAccountKeys.all });
     setResults(nextResults);

@@ -2920,6 +2920,7 @@ export function AgentEditor() {
                       markDirty();
                     }}
                     defaultLabel={localizeUi("ui.agents.agenteditor.noneSelectAConnection")}
+                    inherits="main"
                     className="rounded-xl px-3 py-2.5 text-sm"
                   />
                 </div>

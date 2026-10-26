@@ -18,6 +18,56 @@ import {
   type CreateConnectionAccountInput,
 } from "@marinara-engine/shared";
 import type { CreateConnectionPayload } from "../hooks/use-connections";
+import { FLAG_JOBS, matchesKind } from "./connection-jobs";
+import { isConnectionFlagTrue } from "./connection-filters";
+
+const JOB_FLAGS = ["isDefault", "defaultForAgents", "fallbackForMain", "fallbackForAgents"] as const;
+type JobFlag = (typeof JOB_FLAGS)[number];
+
+/** The feature settings that hold a Model id; they travel as a list on the Model's own row. */
+export const FEATURE_KEYS = [
+  "impersonateConnectionId",
+  "mariConnectionId",
+  "omnibarAsideConnectionId",
+  "visionConnectionId",
+] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+type FeatureSettings = Partial<Record<FeatureKey, string | null>>;
+
+/** Imported Models that take over a feature setting, only where it is unset. */
+export function featuresToApply(
+  imported: ReadonlyArray<{ id: string; features: readonly FeatureKey[] }>,
+  current: FeatureSettings | null | undefined,
+) {
+  const picks: Partial<Record<FeatureKey, string>> = {};
+  for (const key of FEATURE_KEYS) {
+    const pick = imported.find((i) => i.features.includes(key));
+    if (pick && !current?.[key]) picks[key] = pick.id;
+  }
+  return picks;
+}
+
+/**
+ * Imported Models that should take over a job, only where no existing Model holds it yet:
+ * an import never silently replaces a Main or Agents pick the user already made.
+ */
+export function defaultsToApply(
+  imported: ReadonlyArray<{ id: string; provider: string; flags: readonly JobFlag[] }>,
+  rows: ReadonlyArray<Record<string, unknown> & { id: string; provider: string }>,
+) {
+  const picks = new Map<string, { id: string; flag: JobFlag; job: string }>();
+  for (const job of FLAG_JOBS) {
+    for (const flag of [job.flag, job.fallback]) {
+      const taken = rows.some(
+        (row) =>
+          matchesKind(row, job.kind) && isConnectionFlagTrue(row[flag]) && !imported.some((i) => i.id === row.id),
+      );
+      const pick = imported.find((i) => matchesKind(i, job.kind) && i.flags.includes(flag));
+      if (!taken && pick) picks.set(`${pick.id}:${flag}`, { id: pick.id, flag, job: job.key });
+    }
+  }
+  return [...picks.values()];
+}
 
 export type ConnectionTransferRow = {
   name?: unknown;
@@ -93,6 +143,7 @@ export type SafeConnectionExport = {
   useForRandom: boolean;
   defaultForAgents: boolean;
   fallbackForAgents: boolean;
+  features?: FeatureKey[];
   embeddingModel: string;
   embeddingBaseUrl: string;
   embeddingConnectionId: string | null;
@@ -128,6 +179,10 @@ export type ConnectionImportPayload = {
   connection: CreateConnectionPayload;
   defaultParameters: Record<string, unknown> | null;
   hasDefaultParameters: boolean;
+  /** Defaults the file's Model held (Main, Agents, their fallbacks); not applied on create. */
+  flags: JobFlag[];
+  /** Feature settings (Impersonate, Professor Mari, quick chat, Vision) the file's Model held. */
+  features: FeatureKey[];
 };
 
 export const CONNECTION_EXPORT_WARNING =
@@ -138,8 +193,14 @@ const MAX_PARALLEL_JOBS = 16;
 export function createConnectionExportEnvelope(
   connections: ConnectionTransferRow[],
   accounts: readonly ConnectionTransferAccount[] = [],
+  features: FeatureSettings = {},
 ) {
   const accountIds = new Set(accounts.map((account) => account.id));
+  const serialize = (row: ConnectionTransferRow) => {
+    const id = (row as { id?: unknown }).id;
+    const held = FEATURE_KEYS.filter((key) => typeof id === "string" && features[key] === id);
+    return { ...serializeConnectionForExport(row), ...(held.length > 0 && { features: held }) };
+  };
   return {
     kind: "marinara.connections",
     version: 2,
@@ -150,12 +211,12 @@ export function createConnectionExportEnvelope(
         ...serializeAccountForExport(account),
         models: connections
           .filter((row) => typeof row.accountId === "string" && row.accountId === account.id)
-          .map(serializeConnectionForExport),
+          .map(serialize),
       })),
     }),
     connections: connections
       .filter((row) => typeof row.accountId !== "string" || !accountIds.has(row.accountId))
-      .map(serializeConnectionForExport),
+      .map(serialize),
   };
 }
 
@@ -303,6 +364,8 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
     },
     defaultParameters,
     hasDefaultParameters: Object.prototype.hasOwnProperty.call(value, "defaultParameters"),
+    flags: JOB_FLAGS.filter((flag) => asBoolean(value[flag])),
+    features: FEATURE_KEYS.filter((key) => Array.isArray(value.features) && value.features.includes(key)),
   };
 }
 

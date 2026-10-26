@@ -2212,6 +2212,7 @@ export function ChatSettingsDrawer({
         onChange={(connectionId) => updateIllustratorPromptConnection(connectionId ?? "")}
         includeLocalSidecar={!isGame && sidecarModelDownloaded}
         defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+        inherits="agents"
       />
       <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.choosesTheTextModelThatWritesIllustratorSelfiePrompts")}
@@ -2238,6 +2239,7 @@ export function ChatSettingsDrawer({
         onChange={(connectionId) => updateIllustratorImageConnection(connectionId ?? "")}
         kind="image"
         defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+        inherits="agents"
       />
       <AgentDefaultStatus
         overridden={illustratorImageConnectionId.length > 0}
@@ -5238,6 +5240,7 @@ export function ChatSettingsDrawer({
                       onChange={(connectionId) => updateCustomAgentImageConnection(agent.id, connectionId ?? "")}
                       kind="image"
                       defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
+                      inherits="agents"
                     />
                     <AgentDefaultStatus
                       overridden={agentImageConnectionId.length > 0}
@@ -7571,6 +7574,7 @@ export function ChatSettingsDrawer({
                               kind="video"
                               addJob="video"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
+                              inherits="main"
                             />
                           </label>
                           <label className="flex flex-col gap-1">
@@ -8460,6 +8464,7 @@ export function ChatSettingsDrawer({
                         onChange={(connectionId) =>
                           updateMeta.mutate({ id: chat.id, gameSceneConnectionId: connectionId })
                         }
+                        inherits={{ connectionId: chat.connectionId ?? null }}
                         // Lite has no sidecar; an empty scene connection falls back to the chat's own.
                         defaultLabel={
                           import.meta.env.VITE_MARINARA_LITE === "true"
@@ -9310,6 +9315,7 @@ export function ChatSettingsDrawer({
                                   }
                                   kind="video"
                                   defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                                  inherits="main"
                                 />
                               </label>
                               {videoConnectionsList.length === 0 && (
@@ -9570,6 +9576,7 @@ export function ChatSettingsDrawer({
                               }
                               kind="image"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectImageConnection")}
+                              inherits="main"
                             />
                           </label>
                           {renderIllustratorImageStyleSelect({
@@ -9729,6 +9736,7 @@ export function ChatSettingsDrawer({
                               }
                               kind="video"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectVideoConnection")}
+                              inherits="main"
                             />
                           </label>
                           {videoConnectionsList.length === 0 && (
@@ -10308,6 +10316,7 @@ export function ChatSettingsDrawer({
                       onChange={(connectionId) => updateMeta.mutate({ id: chat.id, summaryConnectionId: connectionId })}
                       includeLocalSidecar={!isGame && sidecarModelDownloaded}
                       defaultLabel={localizeUi("chat.summary.connection.agentDefaultFallback")}
+                      inherits="agents"
                       aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
                     />
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -10408,6 +10417,7 @@ export function ChatSettingsDrawer({
 
           <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
             <FunctionCallingSection
+              chatConnectionId={chat.connectionId}
               isGameMode={isGame}
               narratorProvider={
                 (

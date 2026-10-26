@@ -12483,6 +12483,7 @@ function GameSurfaceComponent({
                   disabled={isStreaming || startGame.isPending || updateChat.isPending}
                   onChange={(id) => handleStartScreenConnectionChange(id ?? "")}
                   defaultLabel={localizeUi("ui.game.gamesurfacecomponent.none")}
+                  inherits="main"
                   extraOptions={[{ value: "random", label: localizeUi("ui.game.gamesurfacecomponent.random") }]}
                 />
               </label>

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
   createConnectionExportEnvelope,
+  defaultsToApply,
+  featuresToApply,
   getConnectionImportPlan,
 } from "../../packages/client/src/lib/connection-transfer.js";
 
@@ -97,5 +99,61 @@ for (const file of [
   assert.equal(oldPlan.models[0]?.connection.apiKey, "");
 }
 assert.deepEqual(getConnectionImportPlan({ version: 1, connections: [{ name: "No provider" }] }).models, [null]);
+
+// Defaults travel as row flags and refill only jobs with no Model yet.
+const flagged = getConnectionImportPlan({
+  connections: [
+    { name: "A", provider: "openai", model: "a", isDefault: true, defaultForAgents: true },
+    { name: "Img", provider: "image_generation", model: "i", defaultForAgents: true },
+  ],
+});
+assert.deepEqual(flagged.models[0]?.flags, ["isDefault", "defaultForAgents"]);
+const imported = flagged.models.map((m, i) => ({ id: `new${i}`, provider: m!.connection.provider, flags: m!.flags }));
+const applied = defaultsToApply(imported, [
+  { id: "new0", provider: "openai" },
+  { id: "new1", provider: "image_generation" },
+]);
+assert.deepEqual(applied.map((p) => `${p.id}:${p.flag}`).sort(), [
+  "new0:defaultForAgents",
+  "new0:isDefault",
+  "new1:defaultForAgents",
+]);
+const kept = defaultsToApply(imported, [
+  { id: "old", provider: "openai", isDefault: true },
+  { id: "new0", provider: "openai" },
+  { id: "new1", provider: "image_generation" },
+]);
+assert.deepEqual(kept.map((p) => `${p.id}:${p.flag}`).sort(), ["new0:defaultForAgents", "new1:defaultForAgents"]);
+assert.deepEqual(
+  getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]
+    ?.flags,
+  [],
+);
+
+// Feature settings (Vision, Impersonate...) travel by the Model that holds them and fill only unset ones.
+const featEnv = JSON.parse(
+  JSON.stringify(
+    createConnectionExportEnvelope(
+      [
+        { id: "v1", name: "Vis", provider: "openai", baseUrl, model: "gpt-v" },
+        { id: "o1", name: "Other", provider: "openai", baseUrl, model: "gpt-o" },
+      ],
+      [],
+      { visionConnectionId: "v1", mariConnectionId: "v1", impersonateConnectionId: "gone" },
+    ),
+  ),
+);
+assert.equal(JSON.stringify(featEnv).includes('"v1"'), false, "raw ids must not be exported");
+const featPlan = getConnectionImportPlan(featEnv);
+assert.deepEqual(featPlan.models[0]?.features, ["mariConnectionId", "visionConnectionId"]);
+assert.deepEqual(featPlan.models[1]?.features, []);
+const featImported = featPlan.models.map((m, i) => ({ id: `n${i}`, features: m!.features }));
+assert.deepEqual(featuresToApply(featImported, null), { mariConnectionId: "n0", visionConnectionId: "n0" });
+assert.deepEqual(featuresToApply(featImported, { visionConnectionId: "mine" }), { mariConnectionId: "n0" });
+assert.deepEqual(
+  getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]
+    ?.features,
+  [],
+);
 
 console.log("connection transfer regression passed");

@@ -24,6 +24,29 @@ export type ConnectionChoiceFilter = (row: ConnectionModelRow) => boolean;
 
 export const choiceLabel = (row: ConnectionModelRow) => row.name?.trim() || row.model?.trim() || row.id;
 
+/** What an empty choice falls back to: Main, the agents' default, or one Connection (`null` = Main). */
+export type InheritsFrom = "main" | "agents" | { connectionId: string | null };
+
+export function resolveInherited<R extends { id: string }>(
+  inherits: InheritsFrom,
+  rows: readonly R[],
+  allRows: readonly R[] | undefined,
+  main: R | null,
+): R | null {
+  if (inherits === "main") return main;
+  if (inherits === "agents")
+    return rows.find((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents)) ?? main;
+  const id = inherits.connectionId;
+  return id === null ? main : (rows.find((row) => row.id === id) ?? allRows?.find((row) => row.id === id) ?? null);
+}
+
+/** "Same as chat" plus the Model it resolves to: "Same as chat (→ Claude Sonnet)". */
+export const inheritLabel = (
+  label: string,
+  model: string,
+  t: (key: string, values: Record<string, string>) => string,
+) => t("connections.select.inheritWith", { label, model });
+
 /**
  * The Models one slot offers, grouped by Connection, with their states and the texts of "Default" and the
  * current value. ConnectionSelect and ConnectionPicker share it.
@@ -35,6 +58,7 @@ export function useConnectionChoices({
   includeLocalSidecar,
   extraOptions,
   rowFilter,
+  inherits,
 }: {
   kind: ConnectionSelectKind;
   value: string | null;
@@ -43,6 +67,8 @@ export function useConnectionChoices({
   extraOptions: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
   rowFilter?: ConnectionChoiceFilter;
+  /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
+  inherits?: InheritsFrom;
 }) {
   const { t } = useTranslation();
   const connections = useConnections();
@@ -74,14 +100,20 @@ export function useConnectionChoices({
     return { rows, groups, standalone, resolved, resolvedAccount, accountOf };
   }, [accounts, kind, rawRows, rowFilter, value]);
 
+  const inheritedRow =
+    inherits === undefined
+      ? undefined
+      : resolveInherited(inherits, view.rows, rawRows as ConnectionChoiceRow[] | undefined, view.resolved);
   const defaultText =
-    defaultLabel ??
-    (view.resolved
-      ? t("connections.select.defaultResolved", {
-          model: view.resolved.model || choiceLabel(view.resolved),
-          connection: view.resolvedAccount?.name ?? view.resolved.name ?? "",
-        })
-      : t("connections.select.default"));
+    defaultLabel !== undefined && inheritedRow
+      ? inheritLabel(defaultLabel, choiceLabel(inheritedRow), t)
+      : (defaultLabel ??
+        (view.resolved
+          ? t("connections.select.defaultResolved", {
+              model: view.resolved.model || choiceLabel(view.resolved),
+              connection: view.resolvedAccount?.name ?? view.resolved.name ?? "",
+            })
+          : t("connections.select.default")));
 
   // The on-device Local Model answers chat-shaped helper calls only.
   const local = includeLocalSidecar && kind === "chat";
@@ -148,6 +180,7 @@ export function ConnectionSelect({
   includeLocalSidecar = false,
   extraOptions = [],
   rowFilter,
+  inherits,
   variant = "picker",
   label: rowLabel,
   title,
@@ -169,6 +202,8 @@ export function ConnectionSelect({
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
   rowFilter?: ConnectionChoiceFilter;
+  /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
+  inherits?: InheritsFrom;
   /**
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
    * opens the same picker. `native`: a native select, for callers that need one.
@@ -192,7 +227,15 @@ export function ConnectionSelect({
   const [opened, setOpened] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
-  const choices = useConnectionChoices({ kind, value, defaultLabel, includeLocalSidecar, extraOptions, rowFilter });
+  const choices = useConnectionChoices({
+    kind,
+    value,
+    defaultLabel,
+    includeLocalSidecar,
+    extraOptions,
+    rowFilter,
+    inherits,
+  });
   // "Add a model for this…" sets the new Model through the latest onChange, and its Undo through the one after it.
   const onChangeRef = useRef(onChange);
   useEffect(() => {
