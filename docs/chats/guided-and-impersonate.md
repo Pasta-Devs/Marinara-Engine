@@ -22,10 +22,10 @@ For example, this direction pushes the next reply toward a confession:
 
 The command has short aliases. You can type `/narrator`, `/narrate`, or `/nar` instead of `/guided`.
 
-In a group chat you can aim the direction at one character. Type `/guided respond for <character> <direction>`. Replace `<character>` with the character name and `<direction>` with your instruction. For example:
+In a group chat you can aim the direction at one character. Type `/guided respond as <character> <direction>`. Replace `<character>` with the character name and `<direction>` with your instruction. `reply as` and `respond for` also work. For example:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Guided regenerate
