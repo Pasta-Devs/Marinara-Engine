@@ -4588,6 +4588,7 @@
   "home.footer.artBy": "Art and logo by",
   "home.footer.createdBy": "Created by",
   "home.footer.partneredWith": "Partnered with",
+  "home.connectModel.cta": "Connect a model to start chatting",
   "home.hero.description": "Create a new chat with one of the buttons below or wander through your existing ones and other tools that make Marinara yours.",
   "home.hero.eyebrow": "Marinara Engine v{{version}}",
   "home.hero.openLibrary": "Character library",
