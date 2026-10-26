@@ -52,6 +52,7 @@ import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
+import { ApiError } from "../../lib/api-client";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -115,6 +116,10 @@ function sortRows(rows: readonly PickerRow[], sort: ModelSort): readonly PickerR
 }
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
+const modelListErrorMessage = (error: unknown, t: (key: string) => string) =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403)
+    ? t("connections.add.error.key")
+    : errorMessage(error);
 
 export function ConnectionModelPicker({
   connection,
@@ -725,7 +730,7 @@ export function ConnectionModelPicker({
                   <div role="status" className="px-3 pb-1 text-[0.6875rem] leading-snug text-foreground/60">
                     <p>{t("connections.modelPicker.loadFailed")}</p>
                     <p className="mt-0.5 break-words text-[0.625rem] text-foreground/45">
-                      {errorMessage(modelList.error)}
+                      {modelListErrorMessage(modelList.error, t)}
                     </p>
                   </div>
                 )}
