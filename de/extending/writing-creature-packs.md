@@ -34,7 +34,7 @@ Ein Paket ist eine einzelne JSON-Datei (`.creatures.json`). Am einfachsten erste
 
 | Feld | Bedeutung |
 | --- | --- |
-| `creaturePackVersion` | Immer `1`. |
+| `creaturePackVersion` | `1` oder `2` für ein Paket mit Fluggrafiken (Capability API 1.352). |
 | `id` | Kleinbuchstaben, Ziffern, `_` und `-`. Die Bibliothek legt ein importiertes Paket unter `local/<id>` ab. |
 | `name`, `author` | Werden in der Bibliothek angezeigt. `author` ist optional. |
 | `version` | Eine ganze Zahl. Eine Version wird nie überschrieben: Um ein Paket zu ändern, erhöhst du seine Version. Ein erneuter Import derselben Datei ändert nichts. |
@@ -56,6 +56,11 @@ Das Feld `png` eines Sprite-Sheets muss eine PNG-**Daten-URL** sein: `data:image
 | `w`, `h` | Die Größe eines Einzelbilds in Zellen, jeweils 1 bis 6. |
 | `frames` | `1` für eine stillstehende Kreatur, `3` für eine laufende (Schritt, Stand, Schritt). |
 | `variants` | Ihre **Looks**, 1 bis 8. Jeder gibt an, wo sein Block auf einem Sheet beginnt: `sheet` und die obere linke Zelle `x`, `y`. |
+| `fly` | Optional, braucht `creaturePackVersion` 2: die **Flugblöcke**, angeordnet wie ein Laufblock (drei Einzelbilder nebeneinander, die vier Blickrichtungen untereinander), platziert wie `variants`. Einer für alle Looks oder einer pro Look in derselben Reihenfolge. |
+
+### Fliegen
+
+Eine Kreatur mit `fly` wird aus ihrem Flugblock mit der Einzelbildfolge 0, 1, 2, 1 gezeichnet, solange sie im Kampf in der Luft dargestellt wird: Sie hat eine Fluggeschwindigkeit und keine Gehgeschwindigkeit, sie schwebt, sie befindet sich über dem Boden oder sie ist in diesem Zug geflogen (ein Schritt, den nur ihr Flug ermöglicht, etwa über Wasser). Andernfalls wird sie wie bisher aus ihrem Look gezeichnet. Ein Experience-Kartenpaket, dessen Kreaturenpakete Fluggrafiken haben, braucht Capability API 1.352.
 
 ### Was `match` benennt
 

@@ -59,6 +59,18 @@ El primer bloque es **Persona Status Bars** (Barras de estado de la persona), qu
 
 El segundo bloque es **RPG Attributes** (Atributos RPG), que se activa con **Enable RPG Attributes** (Activar atributos RPG). Funciona como una tarjeta de personaje. Le da a tu persona **Pools** (que empiezan con HP y MP en 100 de 100) y **Attributes** (que empiezan con STR, DEX, CON, INT, WIS y CHA en 10).
 
+<a id="game-mode-icon"></a>
+
+### Icono de Game Mode
+
+Ambas pestañas **Stats** tienen un bloque **Game Mode Icon** (Icono de Game Mode). Define la imagen de la ficha redonda de este personaje o persona en el tablero durante un combate de Game Mode. La ficha pequeña junto a las opciones muestra lo que se dibujará en el tablero.
+
+- **Avatar** (la opción predeterminada) usa el avatar. Si no hay avatar, la ficha muestra las iniciales.
+- **Custom image** (Imagen personalizada) usa una imagen de la galería de la propia tarjeta. Elige una de las imágenes de la galería que se muestran o sube una nueva, que se añadirá a la galería. La tarjeta debe haberse guardado una vez antes de poder usar esta opción.
+- **Initials** (Iniciales) muestra siempre las iniciales, incluso cuando hay un avatar.
+
+La misma imagen se muestra para este personaje también en los demás estilos de combate. Si borras la imagen elegida de la galería, el bloque lo indica; elige otra o vuelve a **Avatar**.
+
 <a id="ruleset-sheets"></a>
 
 ### Fichas de conjuntos de reglas
@@ -68,6 +80,8 @@ Cuando hay instalado un conjunto de reglas de Game Mode, como 5e (SRD 5.1), amba
 1. Abre la entrada y haz clic en **Add a sheet** (Añadir una ficha). Obtienes una ficha en blanco con cada valor en el predeterminado del conjunto de reglas.
 2. Rellénala. El diseño lo define el propio conjunto de reglas: puntuaciones de características con sus modificadores, campos agrupados por sección, listas como ataques y conjuros, y las habilidades y salvaciones, cada una con un nivel de entrenamiento y una bonificación adicional. Los valores calculados, como una bonificación por competencia o la Percepción pasiva, se actualizan mientras escribes y no se pueden editar.
 3. Guarda el personaje o la persona como de costumbre.
+
+También puedes pedirle a Professor Mari que rellene o cambie una ficha, por ejemplo "dale a Rook un Brawn de 2 y añade una palanca a su equipo". Solo escribe la ficha de ese conjunto de reglas, mantiene todos los valores dentro de los límites del conjunto y muestra el cambio en una tarjeta de cambios.
 
 Una ficha aquí es la **configuración inicial** de ese personaje para ese conjunto de reglas. Una partida nueva con ese conjunto de reglas toma una copia. Los cambios hechos dentro de una partida se quedan en esa partida y nunca vuelven a la tarjeta.
 

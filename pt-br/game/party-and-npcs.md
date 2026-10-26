@@ -32,7 +32,7 @@ Abra **Character Profiles** e clique ou toque no retrato do personagem. A ficha 
 - **Inventory** (inventário): os itens que o personagem carrega.
 - **Traits** (traços): outros campos personalizados.
 
-Em um personagem novo, pode aparecer a mensagem "Character data will populate as the story progresses". A ficha se completa conforme você joga.
+Em um personagem novo, pode aparecer a mensagem "Character data will populate as the story progresses." A ficha se completa conforme você joga.
 
 ### Regenerar a ficha com IA
 
@@ -139,6 +139,8 @@ O Game Master controla quem está na equipe conforme a história avança. Não e
 Quando o GM adiciona um NPC que tem exatamente o mesmo nome de um dos seus cards de personagem, ou um nome que vários dos seus cards compartilham, uma janela pergunta qual deles entra na equipe. Ela mostra o nome, o título e o avatar de cada card. Escolha um card ou a opção **Keep the game's own** (manter o do próprio jogo) com o nome do NPC, como **Keep the game's own Emma**, para trazer o personagem que o jogo criou. Fechar a janela tem o mesmo efeito. Um card com um nome apenas parecido, como **Samantha** para um NPC chamado Sam, nunca é adicionado.
 
 Para dispensar um companheiro por conta própria, use o **X** ao lado do retrato dele em **Character Profiles**, como descrito acima. A sua própria persona não pode ser removida desse jeito.
+
+Uma Experience pode trazer os próprios companheiros: pessoas do mundo dela que podem se juntar a você, cada uma com uma ficha pronta para as regras do jogo. A história pode trazer um deles ou mandá-lo embora, e o Game Master só pode recrutar esses companheiros (os personagens da sua própria biblioteca ainda podem entrar). Um companheiro entra no nível mais alto da equipe e sobe de nível conforme a equipe sobe.
 
 ## O Adventure Journal
 

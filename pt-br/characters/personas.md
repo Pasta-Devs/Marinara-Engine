@@ -148,6 +148,8 @@ A aba **Stats** tem dois blocos separados. Os dois alimentam o painel de status 
 - O botão **Enable Persona Stats** liga as barras de status para necessidades como fome, energia e humor. Ao ativar do zero, você recebe as barras iniciais Satiety, Energy, Hygiene e Mood, cada uma em 100 de 100. O agente **Persona Stats** ajusta esses valores conforme a história avança.
 - O botão **Enable RPG Attributes** liga os Pools e os atributos no estilo RPG. Ao ativar do zero, você recebe os Pools iniciais HP e MP em 100 de 100 e os atributos iniciais STR, DEX, CON, INT, WIS e CHA, cada um em 10. Esses valores são enviados com o card da persona para o combate e o Game Mode, e para as rolagens opcionais no Roleplay ou no Game Mode. Os agentes de tracker não os atualizam.
 
+Um bloco **Game Mode Icon** (ícone de Game Mode) define a imagem no token da sua persona durante um combate em Game Mode: o avatar, uma imagem da galeria da persona ou as iniciais. Veja [Ícone de Game Mode](colors-and-stats.md#game-mode-icon).
+
 Quando há um conjunto de regras de Game Mode instalado, ou a persona ainda guarda uma ficha de um conjunto que você não tem mais, um bloco **Ruleset sheets** (fichas de conjuntos de regras) aparece abaixo desses dois. Ele guarda a configuração inicial da sua persona para cada conjunto de regras, que uma partida nova com esse conjunto copia. Veja [Fichas de conjuntos de regras](colors-and-stats.md#ruleset-sheets).
 
 Os valores definidos aqui são o ponto de partida dos chats novos. As barras de status da persona podem se atualizar sozinhas quando o agente Persona Stats está ativado; os Pools e os atributos de RPG da persona não são gerenciados por agentes. Para a explicação completa, veja [Cores do personagem e status de RPG](colors-and-stats.md).

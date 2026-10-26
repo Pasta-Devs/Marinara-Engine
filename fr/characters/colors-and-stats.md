@@ -59,6 +59,18 @@ Le premier bloc, **Persona Status Bars** (barres d'état du persona), s'active a
 
 Le second bloc, **RPG Attributes**, s'active avec **Enable RPG Attributes**. Il fonctionne comme sur une fiche de personnage. Il donne au persona des **Pools** (HP et MP à 100 sur 100 au départ) et des **Attributes** (STR, DEX, CON, INT, WIS et CHA à 10 au départ).
 
+<a id="game-mode-icon"></a>
+
+### Icône de Game Mode
+
+Les deux onglets **Stats** ont un bloc **Game Mode Icon** (icône de Game Mode). Il définit l'image du pion rond de ce personnage ou de ce persona sur le plateau lors d'un combat en Game Mode. Le petit pion à côté des options montre ce qui sera affiché sur le plateau.
+
+- **Avatar** : l'option par défaut utilise l'avatar. Sans avatar, le pion affiche les initiales.
+- **Custom image** : utilise une image de la galerie de la fiche elle-même. Choisis l'une des images de galerie affichées ou téléverse une nouvelle image, qui sera ajoutée à la galerie. La fiche doit avoir été enregistrée une fois avant de pouvoir utiliser cette option.
+- **Initials** : affiche toujours les initiales, même quand il y a un avatar.
+
+La même image s'affiche aussi pour ce personnage dans les autres styles de combat. Si tu supprimes l'image choisie de la galerie, le bloc le signale ; choisis-en une autre ou reviens à **Avatar**.
+
 <a id="ruleset-sheets"></a>
 
 ### Fiches d'ensembles de règles
@@ -68,6 +80,8 @@ Quand un ensemble de règles de Game Mode est installé, comme 5e (SRD 5.1), les
 1. Déplie l'entrée et clique sur **Add a sheet** (ajouter une fiche). Tu obtiens une fiche vierge dont chaque valeur est celle par défaut de l'ensemble de règles.
 2. Remplis-la. La disposition vient de l'ensemble de règles lui-même : les valeurs de caractéristiques avec leurs modificateurs, les champs regroupés par section, les listes comme les attaques et les sorts, et les compétences et sauvegardes, chacune avec un niveau d'entraînement et un bonus supplémentaire. Les valeurs calculées, comme un bonus de maîtrise ou la Perception passive, se mettent à jour pendant la saisie et ne sont pas modifiables.
 3. Enregistre le personnage ou le persona comme d'habitude.
+
+Tu peux aussi demander à Professor Mari de remplir ou de modifier une fiche, par exemple "donne à Rook une valeur de Brawn de 2 et ajoute un pied-de-biche à son équipement". Elle écrit uniquement la fiche de cet ensemble de règles, respecte ses limites pour chaque valeur et affiche la modification dans un encart de modification.
 
 Une fiche ici est la **configuration de départ** de ce personnage pour cet ensemble de règles. Une nouvelle partie sur cet ensemble de règles en prend une copie. Les changements faits pendant une partie restent dans cette partie et ne reviennent jamais sur la fiche de personnage.
 

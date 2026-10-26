@@ -34,7 +34,7 @@ Um pacote é um único arquivo JSON (`.creatures.json`). O jeito mais fácil de 
 
 | Campo | O que é |
 | --- | --- |
-| `creaturePackVersion` | Sempre `1`. |
+| `creaturePackVersion` | `1`, ou `2` para um pacote com arte de voo (Capability API 1.352). |
 | `id` | Letras minúsculas, dígitos, `_` e `-`. A biblioteca guarda um pacote importado sob `local/<id>`. |
 | `name`, `author` | Exibidos na biblioteca. `author` é opcional. |
 | `version` | Um número inteiro. Uma versão nunca é reescrita: para mudar um pacote, aumente a versão dele. Importar o mesmo arquivo de novo não muda nada. |
@@ -56,6 +56,11 @@ O `png` de uma folha (a imagem que reúne os quadros) precisa ser uma **data URL
 | `w`, `h` | O tamanho de um quadro em casas, de 1 a 6 cada. |
 | `frames` | `1` para uma criatura parada, `3` para uma que anda (passo, parada, passo). |
 | `variants` | As **aparências** dela, de 1 a 8, cada uma indicando onde o seu bloco começa numa folha: `sheet` e a casa superior esquerda `x`, `y`. |
+| `fly` | Opcional, exige `creaturePackVersion` 2: os blocos de **voo**, dispostos como um bloco de caminhada (três quadros na horizontal, as quatro direções na vertical), posicionados como `variants`. Um para todas as aparências, ou um por aparência na mesma ordem. |
+
+### Voo
+
+Uma criatura com `fly` é desenhada a partir do bloco de voo, com os quadros reproduzidos na ordem 0, 1, 2, 1, enquanto aparece no ar numa luta: ela tem velocidade de voo e nenhuma de caminhada, paira, está acima do chão ou voou neste turno (um passo que só o voo permite, como sobre a água). Caso contrário, é desenhada a partir da sua aparência como antes. Um pacote de mapas de Experience cujos pacotes de criaturas tenham arte de voo exige Capability API 1.352.
 
 ### O que `match` nomeia
 

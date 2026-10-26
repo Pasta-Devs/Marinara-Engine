@@ -140,6 +140,8 @@ Fügt der GM einen NPC hinzu, der genau so heißt wie eine deiner Charakterkarte
 
 Willst du selbst einen Gefährten ziehen lassen, nutz wie oben beschrieben das **X** neben seinem Porträt in **Character Profiles**. Die eigene Persona lässt sich so nicht entfernen.
 
+Eine Experience kann eigene Gefährten mitbringen: Charaktere aus ihrer Welt, die sich dir anschließen können, jeweils mit einem fertigen Bogen für die Regeln des Spiels. Die Story kann einen von ihnen aufnehmen oder wegschicken, und der Game Master kann nur diese Gefährten rekrutieren (Charaktere aus deiner eigenen Bibliothek können weiterhin beitreten). Ein Gefährte tritt auf der höchsten Stufe deiner Party bei und steigt mit ihr auf.
+
 ## Das Adventure Journal
 
 Das Adventure Journal (Abenteuer-Tagebuch) protokolliert die Kampagne fortlaufend. Es entsteht aus gespeicherten Spielereignissen und stammt nicht von der KI – deshalb bleibt es sachlich.

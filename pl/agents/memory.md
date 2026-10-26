@@ -1,6 +1,6 @@
 # Memory Recall i podsumowania czatu
 
-Ten przewodnik opisuje **Memory Recall** (wyszukiwanie w dawnych wiadomościach), opcjonalną funkcję **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) do automatycznego zarządzania kontekstem Roleplay, **Chat Summary** oraz **Automatic Summarization** w trybie Conversation.
+Ten przewodnik opisuje **Memory Recall** (wyszukiwanie w dawnych wiadomościach), opcjonalną funkcję **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) do automatycznego zarządzania kontekstem w trybach Roleplay i Game Mode, **Chat Summary** oraz **Automatic Summarization** w trybie Conversation.
 
 ## Dwa systemy pamięci
 
@@ -9,7 +9,7 @@ Każdy model AI czyta naraz tylko ograniczoną ilość tekstu. Ten limit nazywa 
 - **Memory Recall** przeszukuje starsze wiadomości pod kątem fragmentów najbliższych temu, co właśnie zostało napisane, a potem po cichu dokłada je z powrotem do promptu. Działa we wszystkich trybach czatu.
 - Podsumowania ściskają stare wiadomości w krótkie streszczenia, które zastępują w prompcie surowe wiadomości. Czaty Roleplay korzystają z panelu **Chat Summary**. Czaty Conversation korzystają z sekcji **Automatic Summarization**.
 
-Czaty Game Mode dostają wyłącznie sekcję **Memory Recall**. Żadnej z funkcji podsumowań tam nie ma.
+Czaty w trybie Game Mode mają **Memory Recall** oraz opcjonalnie **Advanced Memory Recall** (zobacz [W trybie Game Mode](#in-game-mode)). Żadnej z funkcji podsumowań tam nie ma.
 
 Obu systemów można używać jednocześnie. Robią co innego i nie wchodzą sobie w drogę.
 
@@ -79,7 +79,7 @@ Warto pamiętać o kilku rzeczach:
 
 Niektóre kontenerowe wersje aplikacji Marinara Engine, znane jako Marinara Lite, wyłączają sekcję **Memory Recall** całkowicie. Na tych wersjach sekcja **Memory Recall** w ogóle się nie pojawia.
 
-## Advanced Memory Recall (Roleplay)
+## Advanced Memory Recall (Roleplay i Game Mode)
 
 Otwórz **Chat Settings → Memory Recall** i włącz **Advanced Memory Recall**. Możesz też włączyć **Automatic context and memory handling** (automatyczna obsługa kontekstu i pamięci) pod sekcją Agents w kreatorze konfiguracji Roleplay. Ten opcjonalny tryb wspólnie zarządza oknem bieżącej historii, podsumowaniami ciągłości i istotnymi starszymi fragmentami. Ustawienia i postęp przygotowania są dostępne zarówno w kreatorze, jak i w panelu bocznym Chat Settings na komputerze i telefonie. Przeglądarka archiwum pozostaje w panelu bocznym Chat Settings.
 
@@ -228,6 +228,20 @@ Autorzy presetów mogą rozmieszczać te zwykłe znaczniki treści za pomocą is
 Każdy element używa formatu presetu **XML**, **Markdown** lub **None** i krótko wyjaśnia swoje przeznaczenie. Puste elementy niczego nie dodają. Pierwsze włączone wystąpienie wyznacza położenie; elementy bez włączonego znacznika trafiają raz przed historię, więc starsze presety działają. Wybór znaczników w presecie oferuje dla przywoływania tylko **Recalled Scenes** (przywołane sceny). Istniejące znaczniki `recalled_messages` pozostają zgodnymi aliasami i są wyświetlane jako Recalled Scenes. Włączony `recalled_scenes` ma pierwszeństwo; znaczniki nigdy nie tworzą osobnych sekcji. Fragmenty są kontekstem, nie nowymi bieżącymi wiadomościami ani poleceniami. Zaawansowane znaczniki scen pozostają puste, gdy Advanced Memory jest wyłączone.
 
 Podgląd promptu używa przygotowanej pamięci bez wywołań modeli i embeddingów. W panelu przygotuj niezainicjowane archiwum lub wznów nieudane zadanie w tle. Raport pamięci pokazuje szacowany rozmiar kontekstu, wybraną granicę i przywołane źródła. Gdy nic nie zostało przywołane, raport podaje, czy nie było wcześniejszych scen do przywołania, czy w żądaniu zabrakło miejsca, czy też nic nie okazało się istotne. Inspektor końcowego promptu pokazuje treść faktycznie wysłaną do modelu.
+
+<a id="in-game-mode"></a>
+
+### W trybie Game Mode
+
+W czatach w trybie Game Mode możesz tak samo włączyć Advanced Memory Recall w **Chat Settings → Memory Recall**. Bez tej funkcji sesja Game wysyła w każdej turze całą swoją historię, aż do limitu kontekstu połączenia, więc długa sesja może zużywać znacznie więcej tokenów wejściowych na turę niż nowa. Po włączeniu wysyłany prompt mieści się w limicie **Maximum allowed context before compression**: bieżąca scena trafia do niego jako wiadomości, a wcześniejsze sceny jako podsumowania i fragmenty wybrane do przywołania w tej turze.
+
+- **Game Master czyta wszystkie wspomnienia.** Czat Game ma jednego odbiorcę, postać GM, więc nie ma wyboru narratora, zakresów wiedzy postaci, automatycznej widoczności wiadomości ani osobistych wspomnień postaci.
+- **Gdzie trafia pamięć.** Podsumowania i przywołane sceny trafiają za historię, tuż przed instrukcjami tury dla postaci GM. Instrukcje GM i poprzedzająca je historia sesji pozostają takie same między turami, więc połączenie z pamięcią podręczną promptów może je wykorzystać ponownie. Gdy scena się kończy, a bieżąca historia zaczyna się od kolejnej sceny, jedno żądanie zgodnie z oczekiwaniem nie korzysta z pamięci podręcznej.
+- **Co czyta pamięć.** Podsumowania powstają z opowieści w postaci, którą widzisz: uwzględniają twoje zmiany segmentów i pomijają znaczniki poleceń GM. Informacja **Checkpoint restored** (przywrócono punkt kontrolny) pozostaje w bieżącej historii jak każda inna tura.
+- **Każda sesja ma własną pamięć.** Nowa sesja zachowuje ustawienia Advanced Memory, ale tworzy osobne archiwum z własnych wiadomości. GM nadal dostaje podsumowania wcześniejszych sesji tak jak dotąd.
+- **Model decyzyjny jest opcjonalny również tutaj.** Domyślnie jest wyłączony. Po włączeniu model decyzyjny wybiera końce scen i wspomnienia do przywołania, tak jak w sekcji [Opcjonalny model decyzyjny](#optional-decision-model); dodaje własne, niewielkie żądania do każdej tury.
+- **Koszt.** Model pomocniczy pisze jedno podsumowanie na scenę i co kilka tur sprawdza, czy scena się zmieniła (**Standalone scene check interval**). Te żądania są niewielkie w porównaniu z ponownym wysyłaniem całej długiej sesji.
+- Podgląd promptu czatu Game nie pokazuje jeszcze Advanced Memory; końcowy inspektor promptu pokazuje to, co trafiło do modelu.
 
 ### Ograniczenia i odzyskiwanie
 

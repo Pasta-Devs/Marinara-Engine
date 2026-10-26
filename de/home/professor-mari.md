@@ -37,6 +37,7 @@ Bei all dem kannst du sie um Hilfe bitten:
 - Eine Einstellung, einen Modus oder ein Konzept erklären, bevor du irgendetwas änderst.
 - Einen Charakter anlegen oder bearbeiten. Ein Charakter ist eine Karte, die der KI einen Namen, eine Persönlichkeit und eine Stimme gibt. Sie kann auch das [interaktive Onboarding](../characters/interactive-onboarding.md) einer Karte schreiben, also die Fragen, die Spieler beantworten, um ihre Persona aufzubauen.
 - Eine Persona anlegen oder bearbeiten. Die Persona ist die Identität, die du im Chat spielst – das „Ich“ in der Geschichte.
+- Den [Regelsatzbogen](../characters/colors-and-stats.md#ruleset-sheets) eines Charakters oder einer Persona für einen installierten Game-Mode-Regelsatz ausfüllen oder ändern: Werte, Ausbildungsstufen, Felder und Listenzeilen wie Ausrüstung. Sie nutzt die Namen und Grenzen des Regelsatzes selbst. Passt ein Wert nicht zum Regelsatz, wird die Änderung mit Begründung abgelehnt.
 - Ein Lorebook anlegen oder bearbeiten. Ein Lorebook ist eine Sammlung von Weltwissen, die die KI heranzieht, sobald sie zum Thema passt.
 - Ein Theme, einen Agenten, ein Prompt-Preset oder einen Entwurf für eine **Personal Extension** (persönliche Erweiterung) anlegen oder bearbeiten. Professor Mari ist die einzige Erweiterungs-Autorin im Standard-Umfang. Ihre Entwürfe bleiben deaktiviert, bis du den Code in der Sandbox geprüft, alle angeforderten aktiven Berechtigungen für Charakterkarten oder Personas durchgesehen und den exakten Hash unter **Settings** > **Addons** freigegeben hast.
 - Einen einzelnen Teil eines Prompt-Presets an Ort und Stelle bearbeiten. Sie listet die einzelnen Abschnitte, Prompt-Gruppen und Auswahlvariablen eines Presets auf und zeigt dir jedes dieser Elemente auf Wunsch vollständig an. Ergänzen, ändern oder entfernen kann sie dann genau dieses eine Stück – etwa eine zusätzliche Zeile in einem bestimmten Abschnitt. Sie muss also nicht das ganze Preset neu anlegen oder ersetzen.
@@ -133,6 +134,7 @@ Anders ist es bei einer Änderung, die auf dich wartet. Eine zurückgehaltene Ä
 
 - Eine Karte gehört zu dem Professor-Mari-Chat, in dem sie die Änderung vorgenommen hat. Ein neuer Chat beginnt ohne Karten anderer Chats. Wenn du einen Chat löschst, bleiben seine Änderungen erhalten, seine Karten werden entfernt. Eine Änderung über den Terminalbefehl `mari` gehört zu keinem Chat; ihre Karte erscheint deshalb in jedem Professor-Mari-Chat.
 - Eine Bearbeitung, die nichts ändern würde, wird nicht gespeichert und erhält keine Karte.
+- Ein Schritt in ihrer Arbeitsliste mit dem Status **Previewed**, der mit **· not saved** endet, war nur eine Vorschau. Es wurde nichts geändert, und es gibt keine Karte.
 - Professor Mari kann ihre eigene Charakterkarte weder bearbeiten noch löschen. Marinara setzt sie bei jedem Start auf die integrierte Fassung zurück.
 - Charaktere und Personas führen zusätzlich in ihren Editoren eine eigene Versionshistorie. Dort lässt sich als zweites Sicherheitsnetz eine ältere Fassung wiederherstellen.
 
@@ -173,6 +175,14 @@ Klick auf die Schaltfläche **Skills** in ihrer Chat-Kopfzeile, um das Panel **P
 - Einen Skill auswählen und **Name**, **Description** und **Instructions** bearbeiten, dann auf **Save** (speichern) klicken. Über **Delete** verschwindet er wieder.
 
 Solange es noch keine Skills gibt, steht im Panel **No custom skills yet** („noch keine eigenen Skills“).
+
+### Integrierte Skills
+
+Unter deinen eigenen Skills listet das Panel unter **Always on** (immer aktiv) die Skills auf, die Marinara mitliefert. Jeder ist mit **Built-in** gekennzeichnet. Das sind ihre Handbücher für Charaktere und Personas, Lorebooks, Onboarding, Presets, Themes, Personal Extensions, Home-Widgets, Decisions und das Reparieren einer Antwort. Sie liest eines, wenn eine Anfrage es erfordert, sodass die Handbücher nicht in jeder Nachricht Platz belegen.
+
+Ein integrierter Skill ist schreibgeschützt: Du kannst ihn weder bearbeiten noch ausschalten oder löschen, und ein App-Update ersetzt ihn durch die neue Fassung. Um zu ändern, wie sie etwas angeht, kopiere seine Anweisungen in einen neuen eigenen Skill.
+
+Standardmäßig wird in jedem Chat ihre erste Änderung in einem Bereich mit integriertem Skill zurückgewiesen, bis sie diesen Skill gelesen hat. Das hilft kleineren und lokalen Modellen. Größere Modelle kommen meist ohne diese Vorgabe zurecht. Um ihnen einen Schritt zu sparen, öffne **Search and Professor Mari settings** und schalte **Read the handbook before the first write** (Handbuch vor der ersten Änderung lesen) unter **Runtime** aus. Nur du kannst diese Einstellung ändern, Professor Mari nicht.
 
 ## Gespeicherte Erinnerungen
 

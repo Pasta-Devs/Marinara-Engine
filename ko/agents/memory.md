@@ -1,6 +1,6 @@
 # Memory Recall과 채팅 요약
 
-이 가이드는 지난 메시지를 검색하는 **Memory Recall**(기억 회상), Roleplay 컨텍스트를 자동으로 관리하는 선택 기능 **Advanced Memory Recall**(고급 기억 회상), **Chat Summary**(채팅 요약), Conversation의 **Automatic Summarization**(자동 요약)을 설명합니다.
+이 가이드는 지난 메시지를 검색하는 **Memory Recall**(기억 회상), Roleplay와 Game Mode 컨텍스트를 자동으로 관리하는 선택 기능 **Advanced Memory Recall**(고급 기억 회상), **Chat Summary**(채팅 요약), Conversation의 **Automatic Summarization**(자동 요약)을 설명합니다.
 
 ## 두 가지 기억 기능
 
@@ -9,7 +9,7 @@ AI 모델은 한 번에 정해진 분량의 글만 읽을 수 있습니다. 이 
 - **Memory Recall**은 방금 입력한 내용과 가장 관련이 깊은 부분을 지난 메시지에서 찾아내 프롬프트에 조용히 되돌려 놓습니다. 모든 채팅 모드에서 작동합니다.
 - 요약은 오래된 메시지를 짧은 줄거리로 압축해서 프롬프트에 원본 메시지 대신 넣습니다. Roleplay 채팅은 **Chat Summary**를, Conversation 채팅은 **Automatic Summarization**을 사용합니다.
 
-Game Mode 채팅에서는 **Memory Recall**만 쓸 수 있습니다. 두 요약 기능은 모두 없습니다.
+Game Mode 채팅에서는 **Memory Recall**과 선택 사항인 **Advanced Memory Recall**을 쓸 수 있습니다([Game Mode에서 사용하기](#in-game-mode) 참고). 두 요약 기능은 모두 없습니다.
 
 두 기능은 함께 켜 두어도 됩니다. 하는 일이 서로 달라서 충돌하지 않습니다.
 
@@ -81,7 +81,7 @@ Marinara Lite라고 부르는 일부 컨테이너 빌드에서는 Memory Recall�
 
 <a id="advanced-memory-recall-roleplay"></a>
 
-## Advanced Memory Recall(Roleplay)
+## Advanced Memory Recall(Roleplay와 Game Mode)
 
 **Chat Settings → Memory Recall**을 열고 **Advanced Memory Recall**를 켜세요. Roleplay 설정 마법사의 Agents 아래에서도 **Automatic context and memory handling**(자동 컨텍스트 및 기억 관리)를 켤 수 있습니다. 이 선택적 모드는 원문으로 유지하는 기록 범위, 연속성 요약, 관련된 과거 발췌를 함께 관리합니다. 데스크톱과 모바일 모두 마법사와 Chat Settings 서랍에서 설정과 준비 진행 상황을 확인할 수 있습니다. 보관함 뷰어는 Chat Settings 서랍 안에 표시됩니다.
 
@@ -230,6 +230,20 @@ Advanced 모드가 켜져 있는 동안은 이 모드가 검색을 담당하므�
 각 구성 요소는 프리셋의 **XML**, **Markdown**, **None** 형식을 따르고 목적을 짧게 설명합니다. 빈 구성 요소는 아무것도 출력하지 않습니다. 처음 활성화된 마커가 위치를 정하고, 활성 마커가 없으면 기록 앞에 한 번만 추가되어 기존 프리셋도 작동합니다. 프리셋의 회상 마커 선택에는 **Recalled Scenes**만 있습니다. 기존 `recalled_messages`는 호환 별칭으로 남고 Recalled Scenes로 표시됩니다. 활성 `recalled_scenes`가 우선하며 두 개의 별도 섹션을 만들지 않습니다. 발췌는 컨텍스트이며 새 현재 메시지나 명령이 아닙니다. Advanced Memory가 꺼져 있으면 고급 장면 마커는 비어 있습니다.
 
 프롬프트 미리보기는 모델이나 임베딩 호출 없이 준비된 메모리를 사용합니다. 패널에서 아카이브를 초기 준비하거나 실패한 백그라운드 작업을 재개하세요. 메모리 내역은 추정 컨텍스트, 경계와 출처를 표시합니다. 아무것도 회상하지 않았으면 회상할 이전 장면이 없었는지, 요청에 남은 공간이 없었는지, 관련된 내용이 없었는지 알려 줍니다. 최종 검사기는 실제 전송 내용을 보여 줍니다.
+
+<a id="in-game-mode"></a>
+
+### Game Mode에서 사용하기
+
+Game Mode 채팅도 같은 방식으로 **Chat Settings → Memory Recall**에서 Advanced Memory Recall을 켤 수 있습니다. 이 기능이 없으면 Game 세션은 연결의 컨텍스트 한도에 이를 때까지 매 턴 전체 기록을 보내므로, 긴 세션은 새 세션보다 턴마다 입력 토큰이 훨씬 많이 들 수 있습니다. 이 기능을 켜면 송신 프롬프트는 **Maximum allowed context before compression** 아래로 유지됩니다. 현재 장면은 원본 메시지로 보내고, 이전 장면은 요약과 이번 턴에 회상이 고른 순간으로 보냅니다.
+
+- **게임 마스터가 모든 기억을 읽습니다.** Game 채팅에서 읽는 주체는 GM 하나이므로 Narrator 선택, 캐릭터 지식 범위, 자동 메시지 가시성, 캐릭터 회고가 없습니다.
+- **기억이 들어가는 위치.** 요약과 회상된 장면은 기록 뒤, GM의 턴 지침 바로 앞에 들어갑니다. GM의 지침과 그 앞에 있는 세션 기록은 턴이 바뀌어도 그대로 유지되므로, 프롬프트 캐싱을 지원하는 연결은 이를 재사용할 수 있습니다. 장면이 끝나고 현재 기록이 다음 장면부터 다시 시작될 때는 예상대로 요청 한 번이 캐시를 사용하지 못합니다.
+- **기억이 읽는 내용.** 요약은 화면에 보이는 이야기로 작성합니다. 직접 편집한 구간이 반영되고, GM의 명령 태그는 제외됩니다. **Checkpoint restored** 메모는 다른 턴과 마찬가지로 현재 기록에 남습니다.
+- **세션마다 기억이 따로 있습니다.** 새 세션은 Advanced Memory 설정을 유지하지만, 자체 메시지로 새 보관함을 시작합니다. GM은 이전과 같이 앞선 세션의 요약도 계속 받습니다.
+- **여기서도 Decision 모델은 선택 사항입니다.** 기본값은 꺼짐입니다. 켜면 [선택 사항인 Decision 모델](#optional-decision-model)에서와 같이 Decision 모델이 장면의 종료 지점과 회상할 기억을 고릅니다. 턴마다 자체적인 작은 요청이 추가됩니다.
+- **비용.** Helper model은 장면마다 요약 하나를 쓰고 몇 턴마다 장면 변화를 검사합니다(**Standalone scene check interval**). 이 요청은 긴 세션 전체를 다시 보내는 것에 비하면 작습니다.
+- Game 채팅의 프롬프트 미리보기에는 아직 Advanced Memory가 표시되지 않습니다. 최종 프롬프트 검사기에서 모델에 보낸 내용을 확인할 수 있습니다.
 
 ### 한계와 복구
 

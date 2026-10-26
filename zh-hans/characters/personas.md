@@ -148,6 +148,8 @@ Marinara 会把当前用户角色名称和其他角色卡字段作为参考，�
 - **Enable Persona Stats**(启用用户角色属性) 会开启饥饿、精力、心情这类需求的状态条。第一次启用时会得到 Satiety、Energy、Hygiene 和 Mood 四条初始状态条，数值都是 100，满值 100。**Persona Stats** 智能体会随着剧情推进调整这些数值。
 - **Enable RPG Attributes**(启用 RPG 属性值) 会开启 RPG 式的 Pools 和 Attributes。第一次启用时会得到 HP 和 MP 两个初始 Pools，数值都是 100，满值 100，以及 STR、DEX、CON、INT、WIS、CHA 六项初始 Attributes，数值都是 10。这些数值会随用户角色卡一起发送，用于 Combat 和 Game Mode，以及 Roleplay 或 Game Mode 中的可选掷骰。追踪器智能体不会更新它们。
 
+**Game Mode Icon**(游戏模式图标) 区块设置用户角色在 Game Mode 战斗中棋子所用的图片：头像、用户角色图库里的图片或姓名首字母。见 [Game Mode 图标](colors-and-stats.md#game-mode-icon)。
+
 安装了 Game Mode 规则集，或者用户角色仍保存着你已经没有的规则集的人物卡时，这两部分下方会出现 **Ruleset sheets**(规则集人物卡) 区块。它保存你的用户角色在每个规则集下的初始配置，使用该规则集的新游戏会复制一份。见[规则集人物卡](colors-and-stats.md#ruleset-sheets)。
 
 这里设置的数值是新聊天的起始默认值。启用 Persona Stats 智能体后，Persona Status Bars 可以自动更新；用户角色的 RPG Pools 和 Attributes 不由智能体管理。完整说明见[角色颜色与 RPG 属性](colors-and-stats.md)。

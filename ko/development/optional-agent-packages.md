@@ -699,6 +699,236 @@ Game 마법사로 설정하는 `game-surface` 패키지(`gameSurface.setup`, 1.1
 
 Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기 최대 8 MB, 해시 재확인), 공유 파일을 검사하는 방식 그대로 검사합니다. 파일을 읽을 수 없거나, 월드가 다른 키트로 만들어졌거나 키트에 맞지 않거나, 바이트가 설치된 것과 다르면 팩 전체를 이유와 함께 거부합니다. 그러면 그 Experience로는 게임을 시작할 수 없습니다. 규칙 집합은 지도 팩에 절대 들어가지 않습니다. 자체 규칙이 필요한 Experience는 별도의 규칙 집합 패키지를 배포합니다.
 
+#### Capability API 1.344: 생물 팩
+
+`mapPack.creatures`는 `.creaturepack.json` 파일을 최대 8개 나열합니다(각각 선언된 에셋이며, 라이브러리가 생물 팩을 읽듯 읽고 검사합니다). 이 Experience의 게임에서는 모든 전투가 이 팩들을 나열된 순서대로 먼저 찾아 생물의 그림을 고르고, 그다음 라이브러리에서 선택한 생물 팩을 찾습니다.
+
+#### Capability API 1.345: 음악
+
+1.345부터 패키지 에셋에 오디오를 넣을 수 있습니다. `.ogg`, `.mp3`, `.wav`이며 파일마다 최대 16 MB입니다. `mapPack.music`은 Experience의 트랙과 재생 시점을 지정합니다.
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+각 트랙도 선언된 에셋이며, 지정한 모든 트랙 ID는 `tracks` 중 하나여야 합니다. `places`의 장소는 팩의 월드 중 하나에 있는 장소를 ID로 지정합니다. 전투 밖에서는 해당 장소의 트랙, 없으면 파티가 속한 가장 가까운 상위 장소의 트랙, 그것도 없으면 `default`를 재생합니다. 전투 중에는 `combat`을 재생합니다. 스토리의 `music` 동작([Game Mode 스토리 스크립트 작성하기](../extending/writing-story-scripts.md) 참고)은 이 모든 음악보다 우선해 트랙 하나를 재생하며, 제어를 돌려줄 때까지 유지됩니다. 해당 설정이 모두 없으면 Engine 자체 음악을 재생합니다. 플레이어가 직접 음악 소스(Music DJ, Spotify)를 골랐다면 그것을 듣습니다. 플레이어의 선택이 항상 우선합니다.
+
+#### Capability API 1.346: 인물
+
+`mapPack.people`은 팩의 월드에서 이름을 가진 인물의 모습을 정하는 `.people.json` 파일(선언된 에셋)입니다. 인물은 월드 자체에서 생성되어 이름을 얻거나 직접 편집(Pixelforge나 World 탭)으로 추가된 인물이므로 다른 인물처럼 자신의 장소에 서 있습니다. 이 파일은 인물이 누구인지 설명합니다.
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person`은 팩의 월드 중 하나에 있는 인물 ID입니다(`<place id>-<n>`, 직접 추가한 인물은 `-e<n>`). 해당 인물은 그 월드에서 이름을 가지고 있어야 합니다.
+- `portrait`와 `expressions`(`neutral`, `happy`, `sad`와 다른 내레이션 표정)는 패키지 에셋 중 그림입니다. 게임에서 인물을 만나면 초상화가 Journal에 표시되며, 그 인물의 대사에는 표정을 사용합니다.
+- `sprite`는 팩 자체의 이미지 타일에 있는 캐릭터이며, 마을과 장소 지도를 걸을 때 임의로 골라 준 모습 대신 사용합니다.
+- `description`, `voice`, `lore`는 이 Experience로 새 게임을 만들 때 함께 만드는 로어북(_Experience 이름_: 인물)이 되며 첫 턴부터 활성화됩니다. 인물마다 이름으로 불러오는 항목 하나, `lore` 항목마다 자체 키로 불러오는 항목 하나, 파일 자체의 `lore` 항목마다 하나씩 만듭니다.
+
+#### Capability API 1.347: 동료
+
+인물은 파티가 받아들일 수 있는 동료가 될 수 있습니다. 따라서 파티에 치유, 정찰, 어둠 속의 빛이 없다는 이유로 스토리가 요구하는 일을 할 수 없게 되지는 않습니다.
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets`는 동료가 합류할 수 있는 게임의 규칙 집합마다 해당 ID를 키로 시트를 담습니다. `v`는 빌드를 작성한 규칙 집합의 시트 버전입니다(이전 버전은 저장된 시트처럼 마이그레이션합니다).
+- `level`은 그 규칙 집합에서 캐릭터 레벨을 담는 시트 필드를 지정하며, 값을 합산합니다(다중 클래스 시트는 클래스마다 하나씩 보관). 각 빌드의 레벨 필드 합계는 `at`와 같아야 하며 빌드는 오름차순입니다.
+- 동료는 파티가 도달한 최고 레벨에 맞는 빌드로 합류하며(파티가 모든 빌드보다 낮으면 가장 낮은 것), 매 턴 뒤 파티가 더 높은 빌드의 레벨에 도달하면 그 빌드로 올라갑니다. 플레이어가 빌드보다 높게 올린 시트는 그대로 두며 어떤 시트도 낮추지 않습니다. 체력, 풀, 상태는 빌드와 따로 보관하므로 상승해도 유지됩니다. 동료가 플레이할 수 있어야 하는 레벨마다 빌드를 배포하세요.
+- 스토리는 `recruit`와 `dismiss` 동작으로 동료를 받아들이고 내보냅니다. Game Master는 동료가 누구인지, 어디에 있고 무엇을 제공하는지 전달받으며 해당 인물만 영입할 수 있습니다(다른 인물을 지칭하는 `[party_change]`는 거부). 플레이어 자체 라이브러리의 캐릭터는 여전히 합류할 수 있습니다.
+- 동료는 다른 영입 인물처럼 합류합니다. 파티 목록에 들어가고 카드와 시트를 가지며 전술 전투에 참여합니다. 해당 규칙 집합용 시트가 없는 게임에서는 빈 시트로 합류합니다.
+
+동료가 있는 인물 파일에는 1.347이 필요하며, 없으면 1.346이 필요합니다. 누군가를 영입하거나 내보내는 스토리에는 1.347이 필요하며, 지정한 모든 인물은 팩의 인물 파일에서 동료여야 합니다.
+
+#### Capability API 1.350: 내보내기 전 팩 검사
+
+저작 앱(Pixelforge)은 패키지를 내보내기 전에 설치 없이 지도 팩 전체를 Engine으로 검사할 수 있습니다. 설치된 팩을 읽는 것과 정확히 같은 방식입니다.
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files`에는 해당 블록이 지정한 모든 JSON 파일(키트, 월드, 타일, 생물 팩, 인물)을 파싱한 결과를 담습니다. `assets`에는 패키지의 나머지 에셋(그림, 오디오)을 경로와 크기로 나열합니다. 응답은 `{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`입니다. `minor`는 팩에 필요한 Capability API 마이너 버전(1.`minor`)이며, `issues`는 각 문제를 블록의 키(`mapPack.music.default`)나 해당 파일로 지정합니다. 매니페스트 자체의 규칙(선언된 에셋, 트랙 ID, 오디오 크기)은 모두 보고하며, 파일 검사는 설치할 때처럼 첫 문제에서 멈춥니다.
+
+#### Capability API 1.351: 계절 고정
+
+월드의 스토리는 날짜와 무관하게 장소를 특정 계절로 고정할 수 있으며(`seasons`와 `season` 동작: [스토리 스크립트 작성하기](../extending/writing-story-scripts.md#seasons) 참고), 월드의 전장에도 계절을 칠할 수 있습니다(`seasons` 행과 `seasonKeys`). 어느 쪽이든 지도 팩에 있으면 1.351이 필요합니다. 오버월드는 `GET /api/game/:chatId/overworld`에서 고정된 장소를 `seasons`로 읽습니다(장소 ID에서 계절로의 매핑이며 월드 전체는 `*`). 만들어진 전장은 타일의 시작 계절을 `"x,y"`를 키로 하는 `seasons`에 담습니다.
+
+#### Capability API 1.355: 규칙 집합 오버레이
+
+Experience의 지도 팩은 Experience가 켜져 있는 동안 게임이 사용하는 규칙 집합에 자체 생물, 상태, 아이템을 추가할 수 있습니다. 이는 규칙 집합 패키지가 배포할 내용이 아닙니다.
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+각 `.overlay.json`(팩의 다른 파일처럼 에셋으로 선언)은 ID로 지정한 규칙 집합 하나에 대응합니다. 파일(`local/<id>`)이나 저장소(`<owner>/<id>`)에서 가져온 규칙 집합은, 팩이 정확한 전체 ID도 지정하지 않은 한 접두사 없는 ID에 해당하는 오버레이로 플레이합니다.
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags`는 규칙 집합의 `combat.creatureTypes.tags`에, `conditions`는 `combat.conditions`에, `sheetConditions`는 `sheet.live.conditions`에, `creatures`는 `creatures` 카탈로그에, `catalogs`의 각 목록은 해당 ID의 카탈로그에 합쳐집니다. Experience를 켠 해당 규칙 집합 게임은 모든 내용을 병합한 규칙 집합으로 플레이합니다(스토리 전투, `give`, Game Master 자체 사용). 규칙 집합 전체를 다시 읽으므로 맞지 않는 항목이 있거나 규칙 집합의 ID를 재사용하는 오버레이는 통째로 제외하고 원래 규칙 집합으로 플레이합니다. `POST /api/game/experience/check`는 각 오버레이를 설치된 규칙 집합에 병합하여 맞지 않는 것을 보고합니다.
+
+Capability API 1.367부터 오버레이는 시트 트랙도 추가할 수 있습니다. `"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`처럼 규칙 집합의 `sheet.live.tracks`와 같은 형식으로 작성해 합칩니다. 오버레이가 선언한 트랙은 시트에 표시되고 시트 명령으로 움직이며, 스토리의 Held Ground나 보드의 빛 규칙이 남기는 표식을 보관합니다. 트랙을 추가하는 오버레이가 있는 팩에는 1.367이 필요합니다.
+
+#### Capability API 1.357: 던전 외형과 직접 만든 지도의 표현
+
+Experience에서 직접 만든 지도는 라이브러리의 동굴, 지하 묘지, 사원, 정거장 세트뿐 아니라 자체 외형으로 그릴 수 있으며, 자체 표현으로 Game Master에게 설명할 수 있습니다.
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+각 파일은 던전 세트로 배치한 이미지 타일 팩(`tilePackVersion` 2)입니다. `dn_floor`, `dn_wall`, `dn_liquid`, `dn_prop0`~`dn_prop7`로 이루어지며(`dn_liquid`에는 라이브러리 세트처럼 가장자리 조각을 둘 수 있음), 적어도 `dn_floor`와 `dn_wall`은 그려야 합니다. 나머지는 단색으로 대체됩니다. 직접 만든 지도(`edits.maps`)의 `pack`이 이 팩의 ID 중 하나이면 같은 ID의 라이브러리 팩보다 먼저 사용합니다. 둘이 같은 ID를 가질 수는 없습니다.
+
+직접 만든 지도에는 Game Master에게 전달할 자체 표현도 넣을 수 있습니다.
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props`는 소품 슬롯 0~7마다 항목 하나입니다(표현하지 않는 슬롯은 `null`). 그러면 Game Master는 지도가 직접 만들어졌다는 말만 듣는 대신 "직접 만든 장소(그루터기가 남은 땅, 서 있는 옥수수로 된 벽)에 빗물이 고인 도랑이 있으며, 그 안에는 허수아비(2개), 옥수수 인형 제단이 있습니다"라는 설명을 받습니다. 두 기능 모두 Experience가 1.357을 선언해야 합니다.
+
+#### Capability API 1.359: 스토리 숫자를 소비하는 아이템
+
+오버레이는 사용 시 Experience의 스토리 숫자 플래그 하나를 소비하거나 더하는 아이템을 지정할 수 있습니다.
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item`은 병합된 규칙 집합의 `catalog/entry`이며(오버레이 자체 아이템 포함), 한 번만 지정합니다. 전투에서 이 아이템(행동하는 전투원의 시트 아이템)을 사용할 때 아직 기록되지 않은 소비까지 반영한 플래그 값이 `atLeast`보다 작으면 거부합니다. "다른 이의 죽음이 든 병에는 청산한 빚 2가 필요하지만 파티는 1을 가지고 있습니다"와 같은 이유를 표시합니다. 전투가 받아들인 사용은 게임과 함께 보관하고 다음 스토리 턴에서 플래그의 `min`과 `max` 안에서 한 번 기록하며(Engine이 `spend="<id>"`로 기록), 비용을 Game Master에게 알립니다. 각 플래그는 팩의 스토리 중 하나에 있는 숫자 플래그여야 합니다. `storyUses`가 있는 지도 팩에는 1.359가 필요합니다.
+
+#### Capability API 1.360: 6명을 넘는 파티와 전투하지 않는 동료
+
+스토리 전투의 변형은 6명을 넘는 파티용이거나 상한이 없을 수 있으며(`"party": { "min": 7 }`), 스토리 조건으로 파티 규모를 확인할 수 있습니다(`{ "partySize": { "is": ">=", "value": 7 } }`. [스토리 스크립트 작성하기](../extending/writing-story-scripts.md#conditions) 참고).
+
+인물 파일의 동료를 전투에 전혀 참여하지 않게 할 수 있습니다.
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+이 동료는 파티와 함께 이동하며 Game Master에게 전투하지 않는 인물로 전달됩니다. 하지만 파티 규모(전투 변형과 `partySize` 조건)에 세지 않고 전투에도 넣지 않습니다. 이런 동료가 있는 인물 파일에는 1.360이 필요합니다.
+
+### Capability API 1.372: GM 설정 값
+
+`contributions.gameSurface.setup.defaults`는 Game 마법사에서 Experience를 선택하면 채워지는 값을 정합니다. Pixelforge의 Experience 탭이 이를 기록합니다. 모든 키는 선택 사항이며 플레이어는 여전히 각 값을 바꿀 수 있습니다.
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`: 최대 100자입니다.
+- `genre`와 `tone`: 각각 이름 1~12개이며 이름마다 최대 60자이고 쉼표를 넣을 수 없습니다. 합쳤을 때 각 목록은 200자 이내여야 합니다.
+- `difficulty`: `Casual`, `Normal`, `Hard`, `Brutal` 중 하나입니다.
+- `rating`: `sfw` 또는 `nsfw`입니다.
+- `combatStyle`: `classic` 또는 `tactical`입니다.
+- 텍스트 제한: `setting` 4,000자, `language` 100자, `playerGoals`와 `preferences` 2,000자, `gameSpecialInstructions` 2,000자, `artStylePrompt` 500자입니다.
+
+`intro`는 Game Master의 도입 메시지(1.339)이며 스토리 스크립트의 `intro`와 같은 규칙을 따릅니다([스토리 스크립트 작성하기](../extending/writing-story-scripts.md#the-intro-message) 참고). 잠기는 값은 이것뿐입니다. 잠긴 도입 메시지는 마법사에서 읽기 전용으로 표시되고 설정에서 무엇을 보내든 이 메시지로 게임을 시작합니다. 게임은 시작 당시의 도입 메시지를 보관합니다(`chat.metadata.gameExperienceIntro`). 스토리 자체의 `intro`보다 먼저 읽습니다. 설정 파일을 가져오면 파일 자체의 값을 유지하고, Experience를 꺼도 채워진 값은 그대로 둡니다.
+
+### Capability API 1.373: Experience 파일
+
+그림, 음악, 데이터만 담는 Experience는 패키지 zip 대신 `<id>.experience.json` 파일 하나로 전달할 수 있습니다. 플레이어는 Game 마법사의 Experiences 구역에서 **Import an Experience file**로 가져오며, 에이전트 카탈로그는 필요하지 않습니다.
+
+매니페스트의 `kind`는 `"kind": ["experience"]`만 담고, `capabilityApi` 1.373 이상이 필요하며 코드를 담지 않습니다. `entrypoints`는 `{}`, `permissions`는 빈 값이고, `restartRequired`나 `prepareBeforeStart`는 없으며 `contributions.slots`는 정확히 `["game-surface"]`입니다. `files`의 모든 파일은 `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ogg`, `.mp3`, `.wav`, `.json` 중 하나입니다. 게임 화면은 자체적으로 아무것도 그리지 않으며, Experience는 `gameSurface` 기여(설정, 지도, 월드, 생물 팩, 음악)를 통해 동작합니다.
+
+파일은 다음 순서의 키를 가진 JSON입니다.
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest`는 위에서 설명한 패키지 매니페스트이며 최대 1 MB로, 모든 파일보다 앞에 옵니다.
+- `files`는 매니페스트의 `files`에 있는 각 경로를 표준 base64로 인코딩한 바이트에 매핑합니다(패딩은 끝에만 있으며 안에 공백이나 줄바꿈은 없음). 나열된 모든 파일이 정확히 한 번씩 나타나고 그 밖의 파일은 없어야 합니다.
+- 경로는 이스케이프 없이 쓰므로 따옴표, 역슬래시, 제어 문자, 짝이 없는 서로게이트가 있는 경로는 거부합니다.
+
+무엇이든 보내기 전에 마법사는 파일 시작부터 매니페스트 끝까지만 읽고 검토 화면을 보여 줍니다. 이름, 버전, 설명, 가져오기 크기, 그중 그림·음악·데이터의 비중, Import와 Don't Import가 표시됩니다. 가져오기는 파일을 `POST /api/capability-packages/experience-file`로 보냅니다(콘텐츠 타입 `application/vnd.marinara.experience+json`). 서버는 수신하면서 파일을 읽고 각 파일을 임시 폴더에 쓴 뒤 크기와 `sha256`을 매니페스트와 대조합니다. 일치하지 않는 파일, 누락되거나 추가된 파일, 중간에 잘린 파일, 설치된 것보다 이전 버전이면 거부하고 기록한 것은 아무것도 보관하지 않습니다.
+
+각 파일은 이름이 나타내는 형식이어야 합니다. 그림은 캐릭터 카드 가져오기에 사용하는 시그니처 검사(`isAllowedImageBuffer`)를 통과해야 하며 확장자가 나타내는 타입이어야 하므로, `.png`라는 이름의 페이지나 SVG는 거부합니다. 그림은 메타데이터를 제거하고 저장합니다. PNG는 그리는 데 필요한 청크만 남깁니다(`tEXt`, `zTXt`, `iTXt`, `eXIf`, `iCCP` 제외). JPEG는 JFIF와 Adobe를 제외한 APP 세그먼트 및 주석을 제거합니다(따라서 EXIF 방향은 유지하지 않음). GIF는 반복 횟수를 제외한 주석, 일반 텍스트, 애플리케이션 확장을 제거하고 WebP는 EXIF, XMP, ICC 청크를 제거합니다. 음악은 올바른 형식의 Ogg Vorbis나 Opus(모든 페이지의 체크섬 검사, 주석과 표지 그림은 제자리에서 비움), MP3(ID3와 APE 태그 제거), WAV(`fmt `, `fact`, `data` 청크만 유지)여야 합니다. 데이터 파일은 UTF-8 JSON이어야 합니다. 그림이나 소리의 끝 이후 내용은 제거합니다. 설치된 매니페스트에는 저장된 파일의 크기와 해시를 기록합니다. 카탈로그 업데이트처럼 새 버전이 설치된 버전을 교체합니다. Experience 파일은 ID가 같아도 다른 종류의 패키지를 교체할 수 없습니다.
+
+Experience는 패키지 zip으로는 절대 받아들이지 않습니다. 에이전트 카탈로그에는 아티팩트 URL이 `.experience.json`으로 끝나는 경우에만 나열합니다. Engine은 같은 판독기, 검사, 제거 과정을 통해 파일을 설치하며, 매니페스트가 카탈로그에 나열된 것과 다르면 거부합니다. Experience인 카탈로그 항목(`kind`가 `experience`이거나 `game-surface` 슬롯)은 다른 형식의 아티팩트를 사용하면 다운로드 전에 거부하고, 첫 시작 시 카탈로그 설치는 Experience를 건너뜁니다. 이미 설치된 Experience는 계속 동작합니다.
+
+Pixelforge 0.45.0은 Experience를 이 파일로 내보내며 Experience 파일만 엽니다.
+
 ### Capability API 1.18: Game 마법사 안에서 Experience 설정
 
 `game-surface` 패키지는 스키마 버전 2와 Capability API 1.18에서 `contributions.gameSurface.setup`을 선언할 수 있습니다. Engine은 **Party**(파티), 목표, 모델, 로어북을 포함한 기존 7단계 설정을 유지합니다. 새 게임에서만 Experiences를 제공합니다. 기존 게임의 설정을 다시 열면 해당 Experience와 패키지 설정을 유지합니다. 이 선언이 없는 패키지는 기존 설정 대화상자를 사용합니다.
@@ -812,6 +1042,22 @@ export async function activate({ api }) {
 - `enterLabel`과 `exitLabel`: 토글에 사용할 현지화된 접근성 레이블입니다.
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
+
+<a id="capability-api-1387-read-a-chats-summaries"></a>
+
+### Capability API 1.387: 채팅 요약 읽기
+
+`persistence.listChatSummaries(chatId)`는 Engine이 채팅에 보관하는 요약을 반환하므로, 패키지가 요약을 얻으려고 채팅 메타데이터를 파싱할 필요가 없습니다. `listMessages`와 마찬가지로 `chat-read` 권한이 필요하며 복사본을 반환합니다.
+
+- `day`와 `week`: 날짜별 Conversation 요약입니다(`"DD.MM.YYYY"`, 주는 해당 주 월요일 기준). 각각 `{ summary, keyDetails }` 형식입니다.
+- `rolling`: 채팅 순서대로 정렬된 누적 요약 항목이며, 비활성화된 항목도 포함됩니다(`enabled`를 확인하세요). 이전 방식의 단일 요약만 있는 채팅은 `origin: "legacy"`가 붙은 항목 하나로 읽히며, 날짜는 채팅의 마지막 업데이트 시각입니다.
+- `gameSessions`: Game의 이전 세션별 요약입니다. 모든 항목이 완전한 형태로 반환됩니다. 누락된 텍스트 필드는 `""`, 누락된 목록은 `[]`로 읽히고, 이전 방식의 `revelations` 목록은 `keyDiscoveries`에 합쳐집니다. `sessionNumber`가 없으면 항목의 위치를 사용합니다(1부터 시작). 날짜가 없는 항목은 채팅의 마지막 업데이트 시각을 사용합니다.
+
+요약이 없거나 찾을 수 없는 채팅에는 빈 값이 반환됩니다. 이전 Engine에는 이 메서드가 없으므로 존재 여부를 확인하거나 1.387을 선언하세요.
+
+```ts
+const { day, week, rolling, gameSessions } = (await api.runtime.persistence.listChatSummaries?.(chatId)) ?? {};
+```
 
 <a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 

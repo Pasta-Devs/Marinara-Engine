@@ -177,7 +177,7 @@ Ein Regelsatz kann seine Proben auch auf andere Arten würfeln. Die Engine wirft
 
 ## Einen gewürfelten Zug mit einer Anfrage abschließen
 
-Ein Zug mit Würfelwurf kostet standardmäßig zwei Modellanfragen: eine für den Entwurf und eine zum Umschreiben mit den tatsächlichen Zahlen. **Finish rolled turns in one request** (gewürfelte Züge mit einer Anfrage abschließen) unter **Chat Settings → Function Calling** entfernt die zweite. Die Option ist standardmäßig aus und gilt nur für den Chat, in dem du sie aktivierst.
+Ohne diese Option kostet ein Zug mit Würfelwurf zwei Modellanfragen: eine für den Entwurf und eine zum Umschreiben mit den tatsächlichen Zahlen. **Finish rolled turns in one request** (gewürfelte Züge mit einer Anfrage abschließen) unter **Chat Settings → Function Calling** entfernt die zweite. Die Option ist standardmäßig an. Schalte sie in einem Chat aus, damit dort stattdessen jeder gewürfelte Zug mit den tatsächlichen Zahlen neu geschrieben wird.
 
 Der Game Master legt dabei seinen Text fest, bevor irgendeine Zahl vorliegt. Er sieht keinen Wurf, bevor er über den Ausgang entscheidet, und kann den Ausgang deshalb nicht an einen erhaltenen Würfelwert anpassen. Die Engine würfelt anschließend; ihr Protokoll wird gespeichert.
 

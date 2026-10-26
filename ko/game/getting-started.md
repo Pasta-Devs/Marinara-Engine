@@ -203,7 +203,7 @@ Game 채팅에서 도구로 로어북을 검색하려면 **Enable Tool Use**가 
 
 Claude와 Grok 구독 연결은 네이티브 도구 호출을 지원하지 않습니다. 관련 컨트롤에 설명이 표시되며 지원되는 Game 도구 연결을 선택할 때까지 비활성화됩니다. 텍스트 명령과 주사위 태그는 계속 작동합니다. 별도 연결이 없거나 요청에 실패하면 요청한 도구 작업을 조용히 생략하고 서술하는 대신 해당 턴에 실패를 알립니다.
 
-**Finish rolled turns in one request**(굴림 턴을 한 요청으로 완료)는 위의 두 번째 호출을 바꿉니다. 보통 주사위를 굴리는 턴은 초안과 실제 숫자로 다시 쓰기에 두 요청이 필요합니다. 켜면 Game Master가 결과를 미리 보지 않고 쓰고 엔진이 나중에 숫자를 채워 한 요청으로 끝납니다. 기본값은 꺼짐입니다. 다만 **Enable Tool Use**가 켜진 상태의 주사위 도구 호출과, 항상 자체 계획 요청을 하는 별도 **Game tool connection**은 여전히 추가 요청을 만듭니다. [Game Mode: 주사위와 기술 판정](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request)을 참고하세요.
+**Finish rolled turns in one request**(굴림 턴을 한 요청으로 완료)는 위의 두 번째 호출을 바꿉니다. 이 설정을 끄면 주사위를 굴리는 턴은 초안과 실제 숫자로 다시 쓰기에 두 요청이 필요합니다. 켜면 Game Master가 결과를 미리 보지 않고 쓰고 엔진이 나중에 숫자를 채워 한 요청으로 끝납니다. 기본값은 켜짐입니다. 다만 **Enable Tool Use**가 켜진 상태의 주사위 도구 호출과, 항상 자체 계획 요청을 하는 별도 **Game tool connection**은 여전히 추가 요청을 만듭니다. [Game Mode: 주사위와 기술 판정](dice-and-skill-checks.md#finishing-a-rolled-turn-in-one-request)을 참고하세요.
 
 로컬 모델이 제한된 GPU 메모리를 공유한다면 **Chat Settings → Agents**를 열고 **Run Game tasks one at a time**(Game 작업을 하나씩 실행)을 켜세요. 해당 Game 채팅 안에서 서술, 에이전트, 장면 미디어가 서로의 완료를 기다립니다. 이 옵션은 처음에는 꺼져 있으며, 다른 채팅이나 애플리케이션에 대해 GPU를 독점 예약하지 않습니다. 기존 취소 기능은 실행 중과 대기 중에도 사용할 수 있습니다.
 

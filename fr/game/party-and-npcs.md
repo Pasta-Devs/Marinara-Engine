@@ -140,6 +140,8 @@ Quand le GM ajoute un PNJ qui porte exactement le même nom que l'une de tes fic
 
 Pour te séparer d'un compagnon toi-même, utilise le bouton **X** à côté de son portrait dans **Character Profiles**, comme décrit plus haut. Ton propre persona ne peut pas être retiré de cette façon.
 
+Une Experience peut apporter ses propres compagnons : des habitants de son monde qui peuvent te rejoindre, chacun avec une fiche prête à l'emploi pour les règles de la partie. L'histoire peut en faire venir un ou le faire partir, et le Game Master ne peut recruter que ces compagnons (les personnages de ta propre bibliothèque peuvent toujours te rejoindre). Un compagnon arrive au niveau le plus élevé de ton équipe et monte de niveau avec elle.
+
 ## L'Adventure Journal
 
 L'Adventure Journal tient le registre de ta campagne. Il se construit à partir des événements de jeu enregistrés, et non de textes écrits par l'IA : il reste donc factuel.

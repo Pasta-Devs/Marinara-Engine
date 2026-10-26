@@ -96,7 +96,7 @@ W swojej turze wybierasz z menu jedną akcję. Do dyspozycji jest sześć:
 
 - **Attack**: zwykły atak wymierzony w jednego przeciwnika.
 - **Skills**: użycie zdolności specjalnej. Umiejętności mogą kosztować MP. Jedne leczą sojusznika, inne ranią wroga, a jeszcze inne nakładają wzmocnienie albo osłabienie.
-- **Special**: wpisanie dowolnej akcji własnymi słowami i kliknięcie przycisku **Ask GM**. Na przykład: "I kick sand into the Ruin Guard's cracked lens." O wyniku decyduje GM.
+- **Special**: wpisanie dowolnej akcji własnymi słowami i kliknięcie przycisku **Ask GM**. Na przykład: "Kopię piasek w pękniętą soczewkę Strażnika Ruin." O wyniku decyduje GM.
 - **Defend**: podniesienie Defense do końca rundy, żeby otrzymywać mniejsze obrażenia.
 - **Items**: użycie przedmiotu z torby. Opcja **Full inventory** (pełny ekwipunek) otwiera stąd pełną listę przedmiotów. W grze z zestawem zasad przedmioty zestawu działają tak, jak mówi zestaw: ile leczą albo ranią i jakie stany nakładają. Przedmiot z ładunkami jest oferowany, dopóki zostało mu użycie, a przedmiot, który najpierw wymaga testu, ma ten test rzucany przy użyciu: po porażce zostaje zużyty na nic. Przedmiot, któremu zestaw nie daje żadnego zastosowania, nie jest oferowany. Pozostałe przedmioty działają tak, jak ocenił Game Master na początku walki, chyba że zestaw wyłącza własne przedmioty trybu Game Mode.
 - **Flee**: natychmiastowa ucieczka. Ucieczka od razu kończy walkę.

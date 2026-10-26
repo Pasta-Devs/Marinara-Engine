@@ -140,6 +140,8 @@ Cuando el GM agrega un NPC que tiene exactamente el mismo nombre que una de tus 
 
 Para soltar a un compañero tú mismo, usa la **X** junto a su retrato en **Character Profiles**, como se describió arriba. No puedes quitar tu propia persona de esta manera.
 
+Una Experience puede traer sus propios compañeros: personas de su mundo que pueden unirse a ti, cada una con una ficha ya preparada para las reglas de la partida. La historia puede incorporar a uno o hacer que se vaya, y el Game Master solo puede reclutar a esos compañeros (los personajes de tu propia biblioteca todavía pueden unirse). Un compañero se une al nivel más alto de tu grupo y sube de nivel a medida que lo hace el grupo.
+
 ## El Adventure Journal
 
 El Adventure Journal (Diario de aventura) es un registro continuo de tu campaña. Se construye a partir de eventos guardados del juego, no lo escribe la IA, así que se mantiene fiel a los hechos.

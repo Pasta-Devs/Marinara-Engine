@@ -41,7 +41,7 @@ Cette page décrit le fichier lui-même, pour qui construit ses packs autrement.
 
 | Champ | Ce que c'est |
 | --- | --- |
-| `creaturePackVersion` | Toujours `1`. |
+| `creaturePackVersion` | `1`, ou `2` pour un pack avec des illustrations de vol (Capability API 1.352). |
 | `id` | Lettres minuscules, chiffres, `_` et `-`. La bibliothèque range un pack importé sous `local/<id>`. |
 | `name`, `author` | Affichés dans la bibliothèque. `author` est facultatif. |
 | `version` | Un nombre entier. Une version n'est jamais réécrite : pour modifier un pack, augmente sa version. Importer de nouveau le même fichier ne change rien. |
@@ -67,6 +67,16 @@ indiquent autre chose.
 | `w`, `h` | La taille d'une image d'animation en cases, de 1 à 6 chacune. |
 | `frames` | `1` pour une créature immobile, `3` pour une créature qui marche (pas, repos, pas). |
 | `variants` | Ses **apparences**, de 1 à 8, chacune indiquant où commence son bloc sur une planche : `sheet` et la case en haut à gauche, `x`, `y`. |
+| `fly` | Facultatif, nécessite `creaturePackVersion` 2 : ses blocs de **vol**, disposés comme un bloc de marche (trois images d'animation en largeur, les quatre orientations en hauteur), placés comme `variants`. Un pour toutes les apparences, ou un par apparence dans le même ordre. |
+
+### Vol
+
+Une créature dotée de `fly` est dessinée à partir de son bloc de vol, avec ses images d'animation jouées
+dans l'ordre 0, 1, 2, 1, lorsqu'elle est représentée en l'air dans un combat : elle a une vitesse de vol
+sans vitesse de marche, elle fait du vol stationnaire, elle est au-dessus du sol, ou elle a volé pendant
+ce tour (un pas que seul son vol permet, par exemple au-dessus de l'eau). Sinon, elle est dessinée à
+partir de son apparence habituelle. Un pack de carte d'Experience dont les packs de créatures ont des
+illustrations de vol nécessite Capability API 1.352.
 
 ### Ce que désigne `match`
 

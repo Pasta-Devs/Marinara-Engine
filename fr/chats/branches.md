@@ -1,16 +1,16 @@
 # Branches de chat
 
-Ce guide explique les branches de chat dans Marinara Engine : ce qu'est une branche et comment en créer une. Il montre aussi comment changer de branche, la renommer, la supprimer, l'exporter et l'importer. Une branche permet d'essayer un autre chemin dans un chat (une conversation enregistrée) sans perdre l'original.
+Ce guide explique les branches de chat dans Marinara Engine : ce qu'est une branche et comment en créer une. Il montre aussi comment changer de branche, afficher le graphe des branches, la renommer, la supprimer, l'exporter et l'importer. Une branche permet d'essayer un autre chemin dans un chat (une conversation enregistrée) sans perdre l'original.
 
 ## Ce qu'est une branche
 
 Une branche est une copie d'un chat qui partage l'historique jusqu'à un point que tu choisis. Les branches servent à explorer une autre direction sans toucher au chat d'origine.
 
-Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, un chat qui a plusieurs branches n'occupe qu'une seule ligne. Un petit compteur de branches s'affiche à côté. Pour ouvrir ses branches et passer de l'une à l'autre, utilise la section **Chat Branches** (branches du chat) de **Chat Settings**, décrit plus bas.
+Toutes les branches d'un même chat sont regroupées. Dans la liste des chats, le chat garde sa ligne et affiche un compteur de branches. Dès qu'au moins une branche du groupe enregistre le chat du groupe dont elle provient, cliquer sur ce compteur déplie les branches en dessous ; une branche dont la source est inconnue se place directement sous le chat. Les sessions Game sont des sessions numérotées plutôt que des branches : un groupe Game garde donc toujours une seule ligne. Chaque branche affiche son nom et la date de sa dernière activité. Une branche créée à partir d'une autre s'imbrique sous celle-ci : les branches de branches forment ainsi un arbre plutôt qu'une liste à plat. Tu peux passer directement à une branche depuis la liste, ou utiliser la section **Chat Branches** (branches du chat) de **Chat Settings** (voir plus bas) pour les renommer, les supprimer, les exporter ou les importer.
 
 Chaque branche peut avoir son propre nom d'affichage : tu peux ainsi les étiqueter "fin amicale" et "fin sombre". Ce nom d'affichage est indépendant du nom du chat sous-jacent.
 
-La filiation d'une branche enregistre le chat source immédiat et le message où la branche a été créée. L'identifiant du message source et celui de sa copie sont conservés ; les intégrations peuvent ainsi identifier la limite de la branche, même si les messages copiés reçoivent de nouveaux identifiants. Créer une branche d'une branche enregistre cette dernière comme parent immédiat, et non la racine d'origine. Les anciennes branches et les branches sœurs importées conservent leur nom d'affichage, mais leur filiation est inconnue.
+La filiation d'une branche enregistre le chat source immédiat et le message où la branche a été créée. L'identifiant du message source et celui de sa copie sont conservés ; les intégrations peuvent ainsi identifier la limite de la branche, même si les messages copiés reçoivent de nouveaux identifiants. Créer une branche d'une branche enregistre cette dernière comme parent immédiat, et non la racine d'origine. Les anciennes branches et les branches sœurs importées conservent leur nom d'affichage, mais leur filiation est inconnue : un groupe sans filiation connue garde une seule ligne dans la liste des chats, et ses branches restent accessibles depuis la section **Chat Branches**.
 
 ## Créer une branche avec **Branch from here**
 
@@ -43,6 +43,24 @@ La section liste toutes les branches du chat actuel, en affichant d'abord celle 
 ### Passer à une autre branche
 
 Clique sur la ligne d'une branche pour l'ouvrir. La vue du chat passe à la branche choisie.
+
+### Voir le graphe des branches
+
+Le graphe des branches montre où chaque branche s'est séparée, ce que la liste ne peut pas montrer.
+
+1. Ouvre la section **Chat Branches**.
+2. Clique sur le bouton **Branch graph** (graphe des branches), le long bouton au-dessus des boutons d'export. Clique de nouveau dessus pour fermer le graphe.
+
+Le graphe s'ouvre dans sa propre fenêtre, que tu peux déplacer et redimensionner. Sur téléphone, il s'ouvre dans un panneau. Le graphe remplit la fenêtre : une fenêtre plus grande replie moins de portions, et un graphe qui a de la place zoome et s'étale. Un graphe un peu trop large se réduit pour tenir, jusqu'aux trois quarts de sa taille, puis défile horizontalement au-delà. Les lignes se partagent la hauteur de la fenêtre et défilent quand les chats sont trop nombreux pour tenir.
+
+- Chaque chat du groupe a une ligne, dans le même ordre arborescent que la liste des chats. Les messages vont de gauche à droite, un point par message. Les points gris sont tes messages, les points de la couleur d'accent sont les réponses des personnages, et les cercles vides sont les messages du narrateur ou du système.
+- Une branche n'affiche que ses propres messages. Une ligne la relie au message dont elle est issue : tu vois donc exactement où elle s'est séparée.
+- Les anciennes branches et celles dont le chat source a été supprimé n'ont pas de point de séparation enregistré. Elles sont reliées au chat du haut par une ligne en pointillés, et la légende affiche **Fork not recorded**.
+- Les longues portions sans séparation à proximité se replient en un marqueur **··· N ···**, où N est le nombre de messages masqués. Clique dessus pour afficher ces messages, ou utilise **Expand all** (tout déplier) pour déplier toutes les portions. **Collapse long runs** (replier les longues portions) les replie de nouveau.
+- Les points de séparation et le dernier message de chaque branche portent un anneau. Survole un anneau, touche-le ou sélectionne-le au clavier pour voir le numéro du message, son auteur et le début de son texte.
+- Clique sur le nom ou la ligne d'une branche pour y passer. La branche que tu consultes est mise en évidence, et le graphe s'ouvre en affichant son dernier message.
+
+Le graphe s'actualise quand tu crées, renommes ou supprimes un chat, et peu après l'arrivée de nouveaux messages.
 
 ### Renommer une branche
 

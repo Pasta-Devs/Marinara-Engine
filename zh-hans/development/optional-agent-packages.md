@@ -676,6 +676,236 @@ Engine 托管两个虚拟形象智能体：`2d-avatars`(PNGTuber 立绘和网格
 
 Engine 通过经过验证的资源路径读取这些文件（每个文件声明的大小最多 8 MB，并重新检查哈希），并像检查共享文件一样检查它们。只要有一个文件读不了、某个世界是用另一个设定包生成的或与设定包不符，或者文件字节不是已安装的那些，整个地图包就会被拒绝，并说明原因；这时这个 Experience 就无法开始游戏。规则集绝不会是地图包的一部分：需要自己规则的 Experience 要单独发布一个规则集包。
 
+#### Capability API 1.344：生物包
+
+`mapPack.creatures` 列出最多 8 个 `.creaturepack.json` 文件（每个都是已声明资源，读取和检查方式与库读取生物包相同）。在该 Experience 的游戏中，每场战斗都会先按顺序从这些包中查找生物美术图，再从库中选定的生物包查找。
+
+#### Capability API 1.345：音乐
+
+从 1.345 起，包资源可以是音频：`.ogg`、`.mp3` 或 `.wav`，每个最多 16 MB。`mapPack.music` 指定 Experience 的曲目及其播放时机：
+
+```json
+"music": {
+  "tracks": [
+    { "id": "valley", "path": "music/valley.ogg", "title": "The Held Valley" },
+    { "id": "town", "path": "music/thrushwick.ogg" },
+    { "id": "fight", "path": "music/fight.ogg" }
+  ],
+  "default": "valley",
+  "combat": "fight",
+  "places": [{ "place": "p3", "track": "town" }]
+}
+```
+
+每首曲目也都是已声明资源，所有指定的曲目 ID 都必须属于 `tracks`。`places` 中的地点按 ID 指定，必须属于包中的某个世界。战斗之外，游戏播放该地点的曲目；没有则取包含该地点且设有曲目的最近一层地点，再没有则取 `default`；战斗中播放 `combat`。故事的 `music` 动作（见[编写 Game Mode 故事脚本](../extending/writing-story-scripts.md)）会用指定曲目覆盖以上所有选择，直到交还控制。以上均未设置时，播放 Engine 自己的音乐。玩家若选择了自己的音乐来源（Music DJ、Spotify），则播放该来源：玩家的选择始终优先。
+
+#### Capability API 1.346：人物
+
+`mapPack.people` 是一个 `.people.json` 文件（已声明资源），为包中各世界的具名人物补充形象和内容。人物来自世界本身，可能由生成器生成并命名，也可能通过手动编辑加入（Pixelforge 或 World 选项卡），因此像其他人一样站在各自地点；这个文件说明他们是谁：
+
+```json
+{
+  "peopleVersion": 1,
+  "people": [
+    {
+      "person": "p3-e1",
+      "portrait": "people/maud.png",
+      "expressions": { "happy": "people/maud-happy.png", "angry": "people/maud-angry.png" },
+      "sprite": "maud-walk",
+      "description": "Keeper of Thrushwick's bells, older than she lets on.",
+      "voice": "Slow, warm, and fond of proverbs about weather.",
+      "lore": [{ "keys": ["bells", "bell tower"], "content": "The bells have rung the year out for 200 years." }]
+    }
+  ],
+  "lore": [{ "name": "The Held Autumn", "keys": ["autumn", "harvest"], "content": "The year has not turned." }]
+}
+```
+
+- `person` 是包中某个世界的人物 ID(`<place id>-<n>`，手动添加的则为 `-e<n>`)，该人物必须在世界中有名字。
+- `portrait` 和 `expressions`(`neutral`、`happy`、`sad` 及其他旁白表情) 是包资源中的图片。游戏遇到该人物后，头像会显示在 Journal(冒险日志) 中，其台词会使用对应表情。
+- `sprite` 是包自身的图像图块中的角色，供其在城镇和地点地图上行走时使用，替代自动分配的形象。
+- `description`、`voice` 和 `lore` 会成为每个 Experience 新游戏创建的世界书（_Experience 名称_：人物），从第一回合起生效：每个人物一条，由其名字引入；每条 `lore` 按自己的关键词引入；文件自身的 `lore` 也每项一条。
+
+#### Capability API 1.347：同伴
+
+人物可以成为同伴，供队伍招募，因此即使队伍缺少治疗、侦察或黑暗中的光源，也不会无法完成故事要求的事。
+
+```json
+{
+  "person": "p3-4",
+  "portrait": "people/hob.png",
+  "companion": {
+    "role": "Healing and herb lore",
+    "sheets": {
+      "5e-2014": {
+        "v": 1,
+        "level": ["level"],
+        "builds": [
+          { "at": 1, "build": { "abilities": { "wis": 16 }, "fields": { "level": 1, "class": "Cleric" } } },
+          { "at": 3, "build": { "abilities": { "wis": 16 }, "fields": { "level": 3, "class": "Cleric" } } }
+        ]
+      }
+    }
+  }
+}
+```
+
+- `sheets` 按规则集 ID 保存同伴可以加入的每种规则集游戏的人物卡。`v` 是这些构建所针对的人物卡版本（旧版本像已存储的人物卡一样迁移）。
+- `level` 指定该规则集中保存角色等级的人物卡字段，取它们的和（多职业人物卡每个职业一个字段）。每个构建的等级字段之和必须等于其 `at`，构建按等级递增。
+- 同伴加入时使用队伍已达到的最高等级所对应的构建（队伍低于所有构建时，取最低的），之后每回合结束时，只要队伍达到了更高构建的等级，就向上升级。玩家已将人物卡提升到构建之上的，保持原样，绝不降级。生命值、资源池和状态与构建分开保存，因此升级会保留它们。应为同伴需要可玩的每个等级提供一个构建。
+- 故事通过 `recruit` 和 `dismiss` 动作招募和遣散他们。Game Master 会获知有哪些同伴、在哪里、能提供什么，也只能招募这些人（指名其他人的 `[party_change]` 会被拒绝）；玩家自己库中的角色仍可加入。
+- 同伴像其他招募的角色一样加入：进入队伍列表，携带自己的角色卡和人物卡，并参与战术战斗。在他们没有对应人物卡的规则集游戏中，加入时使用空白人物卡。
+
+带同伴的人物文件需要 1.347；不带则需要 1.346。招募或遣散人物的故事需要 1.347，且所指名的每个人物都必须是包的人物文件中的同伴。
+
+#### Capability API 1.350：导出前检查地图包
+
+编写工具（Pixelforge）可以在导出包之前，让 Engine 按读取已安装地图包的相同方式检查整个地图包，无需安装：
+
+```
+POST /api/game/experience/check
+{ "mapPack": { ...the manifest's gameSurface.mapPack block },
+  "files": { "map/valley.worldkit.json": { ...parsed JSON }, ... },
+  "assets": [{ "path": "people/maud.png", "bytes": 48213 }, { "path": "music/valley.ogg", "bytes": 3100000 }] }
+```
+
+`files` 包含该块指定的所有 JSON 文件（设定包、世界、图块、生物包、人物），内容为已解析的 JSON；`assets` 按路径和大小列出包的其他资源（图片、音频）。返回值为 `{ "ok": true | false, "minor": <n>, "issues": [{ "path": "...", "message": "..." }] }`：`minor` 是地图包需要的 Capability API 次版本（1.`minor`），`issues` 按块中的键（`mapPack.music.default`）或所在文件列出每个问题。清单自身的规则（已声明资源、曲目 ID、音频大小）会全部报告；文件检查则和安装时一样，在第一个问题处停止。
+
+#### Capability API 1.351：固定季节
+
+世界的故事可以无视日期，将地点固定在某个季节（`seasons` 和 `season` 动作，见[编写故事脚本](../extending/writing-story-scripts.md#seasons)），世界的战场也可以绘制季节（`seasons` 行和 `seasonKeys`）。带有任一种的地图包都需要 1.351。大地图通过 `GET /api/game/:chatId/overworld` 的 `seasons` 读取被固定的地点（地点 ID 映射到季节，`*` 表示整个世界）；制作的战场则在 `seasons` 中携带地块的初始季节，以 `"x,y"` 为键。
+
+#### Capability API 1.355：规则集叠加层
+
+Experience 的地图包可以在该 Experience 启用期间，给游戏所用规则集追加内容：它自己的生物、状态和物品，这些不应由规则集包提供。
+
+```json
+"mapPack": { "kit": "...", "rulesets": [{ "ruleset": "5e-2014", "overlay": "rules/5e.overlay.json" },
+                                        { "ruleset": "dnd5e", "overlay": "rules/dnd5e.overlay.json" }] }
+```
+
+每个 `.overlay.json`(和地图包的其他文件一样声明为资源) 按 ID 对应一个规则集。从文件（`local/<id>`）或仓库（`<owner>/<id>`）导入的规则集使用其裸 ID 对应的叠加层，除非地图包也指定了其完整 ID：
+
+```json
+{ "overlayVersion": 1,
+  "creatureTags": [{ "id": "unreaped", "label": "Unreaped" }],
+  "conditions": [{ "condition": "owed_frost_held", "effects": ["own-attacks-disadvantage"] }],
+  "sheetConditions": [{ "id": "owed_frost_held", "label": "Held by the Frost" }],
+  "creatures": [{ "id": "the-owed", "label": "The Owed", "creature": { ... } }],
+  "catalogs": { "magic_items": [{ "id": "lantern-of-dusk", ... }] } }
+```
+
+`creatureTags` 加入规则集的 `combat.creatureTypes.tags`，`conditions` 加入 `combat.conditions`，`sheetConditions` 加入 `sheet.live.conditions`，`creatures` 加入 `creatures` 目录，`catalogs` 的每个列表加入相应 ID 的目录。启用 Experience 的该规则集游戏会将这些内容全部合并后使用（故事战斗、`give`、Game Master 自己的使用都包括在内），并重新完整验证规则集：若叠加层的条目不符合规则集，或复用了已有 ID，则丢弃整个叠加层，游戏继续使用原规则集。`POST /api/game/experience/check` 将每个叠加层与已安装的相应规则集合并，并报告不符合之处。
+
+从 Capability API 1.367 起，叠加层也可以添加人物卡轨道：`"tracks": [{ "id": "owing", "label":
+"Owing", "min": 0, "max": 20, "default": 0 }]`，结构与规则集的 `sheet.live.tracks` 相同，并加入其中。叠加层声明的轨道会显示在人物卡上，由人物卡命令推进，并保存故事 Held Ground 或棋盘光照规则留下的标记。带有添加轨道的叠加层的地图包需要 1.367。
+
+#### Capability API 1.357：地下城外观与手绘地图自己的描述
+
+Experience 的手绘地图可以采用自己的外观，不限于库中的洞穴、地穴、神殿和空间站套装，也可以用自己的描述告知 Game Master。
+
+```json
+"mapPack": { "kit": "...", "dungeons": ["looks/corn-maze.tilepack.json", "looks/snowfield.tilepack.json"] }
+```
+
+每项都是按地下城套装布局的图像图块包（`tilePackVersion` 2）：`dn_floor`、`dn_wall`、`dn_liquid`、`dn_prop0` 到 `dn_prop7`(`dn_liquid` 可以和库中的套装一样带边缘块)。至少必须绘制 `dn_floor` 和 `dn_wall`；其余回退为纯色。手绘地图（`edits.maps`）的 `pack` 若是其中一个 ID，就会优先使用它，而非库中同 ID 的包。包之间的 ID 不得重复。
+
+手绘地图也可以带给 Game Master 的自定义描述：
+
+```json
+"words": { "floor": "stubbled earth", "wall": "walls of standing corn", "liquid": "a ditch of rainwater",
+           "props": ["a scarecrow", null, "a corn-dolly shrine"] }
+```
+
+`props` 每项对应一个物件槽位，0 到 7（未描述的槽位用 `null`）。Game Master 随后会获知：“一个手工制作的地点（留着茬的土地、直立玉米构成的墙），里面有一道雨水沟；其中有：稻草人（2 个）、玉米皮偶神龛”，而非仅获知它是手绘的。两项功能都需要 Experience 声明 1.357。
+
+#### Capability API 1.359：消耗故事数值的物品
+
+叠加层可以指定一些物品，其使用会消耗（或增加）Experience 的某个故事数值型标志：
+
+```json
+{
+  "overlayVersion": 1,
+  "storyUses": [{ "item": "magic_items/jar-of-someone-elses-death", "flag": "debts_settled", "add": -2, "atLeast": 2 }]
+}
+```
+
+`item` 是合并后规则集中的 `catalog/entry`(叠加层自己的物品也算)，每个只能指定一次。在战斗中，如果标志值（计入尚未记录的消耗）低于 `atLeast`，就会拒绝使用该物品（行动者人物卡上的物品）：“Jar of Someone Else's Death 需要 2 点 Debts Settled；队伍只有 1 点。”战斗接受的使用会随游戏保存，下一次故事回合由 Engine 记录一次（`spend="<id>"`），受标志的 `min` 和 `max` 限制，并告知 Game Master 消耗了什么。每个标志都必须是地图包某个故事中的数值型标志。带 `storyUses` 的地图包需要 1.359。
+
+#### Capability API 1.360：超过六人的队伍，以及永不参战的同伴
+
+故事战斗的变体可以面向超过六人的队伍，或不设上限（`"party": { "min": 7 }`），故事条件也可以检查队伍人数（`{ "partySize": { "is": ">=", "value": 7 } }`；见[编写故事脚本](../extending/writing-story-scripts.md#conditions)）。
+
+人物文件中的同伴可以永不参战：
+
+```json
+{ "person": "p3-7", "companion": { "role": "Keeps the ledger", "noncombatant": true, "sheets": { ... } } }
+```
+
+他们随队旅行，Game Master 会获知他们永不参战，但他们不计入队伍人数（用于战斗变体和 `partySize` 条件），也不会被放入战斗。包含这类同伴的人物文件需要 1.360。
+
+### Capability API 1.372：GM 设置值
+
+`contributions.gameSurface.setup.defaults` 指定在 Game 向导中选取 Experience 时填入哪些内容。Pixelforge 的 Experience 选项卡会写入它。所有键都可选，玩家仍可修改每个值：
+
+```json
+"setup": {
+  "defaults": {
+    "name": "The Held Autumn",
+    "genre": ["Fantasy"],
+    "setting": "Sallowmarch, a valley where nothing has died for forty years.",
+    "tone": ["Whimsical", "Dark"],
+    "difficulty": "Normal",
+    "rating": "sfw",
+    "language": "English",
+    "combatStyle": "tactical",
+    "playerGoals": "Find out why the year will not turn.",
+    "preferences": "Quiet dread over gore.",
+    "gameSpecialInstructions": "Keep the valley's names.",
+    "artStylePrompt": "Muted autumn watercolour.",
+    "intro": { "mode": "defined", "text": "The leaves have not fallen in nine years.", "locked": true }
+  }
+}
+```
+
+- `name`：最多 100 个字符。
+- `genre` 和 `tone`：各有 1 到 12 个名称，每个最多 60 个字符，不含逗号。各列表拼接后不超过 200 个字符。
+- `difficulty`：`Casual`、`Normal`、`Hard` 或 `Brutal`。
+- `rating`：`sfw` 或 `nsfw`。
+- `combatStyle`：`classic` 或 `tactical`。
+- 文本上限：`setting` 4,000 个字符，`language` 100 个，`playerGoals` 和 `preferences` 2,000 个，`gameSpecialInstructions` 2,000 个，`artStylePrompt` 500 个。
+
+`intro` 是 Game Master 的开场消息（1.339），规则与故事脚本的 `intro` 相同（见[编写故事脚本](../extending/writing-story-scripts.md#the-intro-message)）。只有这个值可以锁定。锁定的开场消息在向导中只读，无论设置提交什么，游戏都会用它开场。游戏保留开始时的开场消息（`chat.metadata.gameExperienceIntro`）。它优先于故事自身的 `intro`。导入设置文件时保留文件自己的值，关闭 Experience 也不会清空已填入的值。
+
+### Capability API 1.373：Experience 文件
+
+仅包含图片、音乐和数据的 Experience 可以通过一个 `<id>.experience.json` 文件分享，无需包 zip。玩家从 Game 向导的 Experiences 区块通过 **Import an Experience file**(导入 Experience 文件) 导入，无需智能体目录。
+
+其清单的 `kind` 为 `"kind": ["experience"]`，不含其他类型，需要 `capabilityApi` 1.373 或更新版本，且不携带代码：`entrypoints` 是 `{}`，`permissions` 为空，没有 `restartRequired` 或 `prepareBeforeStart`，`contributions.slots` 恰好为 `["game-surface"]`。`files` 中每个文件都是 `.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`、`.ogg`、`.mp3`、`.wav` 或 `.json`。游戏界面不绘制自己的内容；Experience 通过其 `gameSurface` 贡献项工作（设置、地图、世界、生物包、音乐）。
+
+文件是 JSON，键按以下顺序排列：
+
+```json
+{"format":"marinara-experience","version":1,
+"manifest":{ ... },
+"files":{
+"art/portrait.png":"iVBORw0KGgo...",
+"music/theme.ogg":"T2dnUwAC..."
+}}
+```
+
+- `manifest` 是上述包清单，最多 1 MB，排在所有文件之前。
+- `files` 将清单 `files` 中的每条路径映射到其标准 base64 字节（填充仅在末尾，内部没有空白或换行）。列出的每个文件恰好出现一次，不得有其他文件。
+- 路径不使用转义，因此含引号、反斜杠、控制字符或孤立代理项的路径会被拒绝。
+
+发送任何内容之前，向导只读取文件开头，直到清单结束，并展示审查信息：名称、版本和说明、导入大小、图片、音乐和数据各占多少，以及 Import(导入) 和 Don't Import(不导入)。Import 将文件发送到 `POST /api/capability-packages/experience-file`(内容类型为 `application/vnd.marinara.experience+json`)。服务器边接收边读取，将每个文件写入临时文件夹，并对照清单检查大小和 `sha256`。不匹配、缺失、多余、被截断或版本比已安装版本更旧的文件都会被拒绝，写入的内容全部不保留。
+
+每个文件的实际类型还必须符合名称。图片通过角色卡导入使用的签名检查（`isAllowedImageBuffer`），且必须与扩展名指定的类型相同，因此命名为 `.png` 的网页或 SVG 会被拒绝。图片存储时会移除元数据：PNG 仅保留绘制所需的数据块（移除 `tEXt`、`zTXt`、`iTXt`、`eXIf` 和 `iCCP`）；JPEG 移除除 JFIF 和 Adobe 之外的 APP 段及注释（因此不保留 EXIF 方向）；GIF 移除注释、纯文本和应用扩展，但保留循环次数；WebP 移除 EXIF、XMP 和 ICC 数据块。音乐必须是格式正确的 Ogg Vorbis 或 Opus（检查每页校验和，原位清空注释和封面）、MP3（移除 ID3 和 APE 标签）或 WAV（仅保留 `fmt `、`fact` 和 `data` 数据块）。数据文件必须是 UTF-8 JSON。图片或音频结束之后的任何内容都会被丢弃。安装后的清单记录存储文件的大小和哈希。较新版本会像目录更新一样替换已安装版本。Experience 文件不能替换同 ID 的其他类型包。
+
+Experience 绝不以包 zip 的形式被接受。智能体目录只有在产物 URL 以 `.experience.json` 结尾时才会列出它。Engine 通过相同的读取器、检查和元数据移除流程安装该文件；文件清单与目录列出的不一致则拒绝。若某个 Experience 目录条目（`kind` 为 `experience`，或有 `game-surface` 槽位）使用其他产物，则在下载任何内容之前就拒绝，首次启动时的目录安装也会跳过 Experience。已安装的 Experience 继续可用。
+
+Pixelforge 0.45.0 将 Experience 导出为这种文件，也只打开 Experience 文件。
+
 ### Capability API 1.18：在 Game 向导中保留 Experience 设置
 
 `game-surface` 包可以使用架构版本 2 和 Capability API 1.18 声明 `contributions.gameSurface.setup`。Engine 保留通常的七个设置步骤，包括 Party、目标、模型和世界书。只有新游戏提供 Experiences；重新打开已有游戏的设置会保留其 Experience 和包配置。没有此声明的包继续使用原有的设置对话框。
@@ -789,6 +1019,22 @@ export async function activate({ api }) {
 - `enterLabel` 和 `exitLabel`：切换按钮使用的本地化无障碍标签。
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
+
+<a id="capability-api-1387-read-a-chats-summaries"></a>
+
+### Capability API 1.387：读取聊天摘要
+
+`persistence.listChatSummaries(chatId)` 返回引擎为聊天保存的摘要，安装包无需再从聊天元数据里解析摘要。与 `listMessages` 一样，它需要 `chat-read` 权限，并返回副本：
+
+- `day` 和 `week`：按日期组织的 Conversation 摘要（`"DD.MM.YYYY"`，每周用周一的日期标识），每条都是 `{ summary, keyDetails }`。
+- `rolling`：按聊天顺序排列的滚动摘要条目，包括已禁用的条目（检查 `enabled`）。如果聊天只有旧版单条摘要，会将其作为一条带 `origin: "legacy"` 的条目读取，日期使用聊天最后更新的时间。
+- `gameSessions`：Game 游戏中每次过往会话的摘要。每条都会补齐：缺失的文本字段读作 `""`，缺失的列表读作 `[]`，旧版 `revelations` 列表并入 `keyDiscoveries`，缺失的 `sessionNumber` 使用条目的位置（从 1 开始）。没有日期的条目使用聊天最后更新的时间。
+
+聊天没有摘要或找不到聊天时，返回空值。旧版引擎没有这个方法：先检查它是否存在，或声明版本 1.387。
+
+```ts
+const { day, week, rolling, gameSessions } = (await api.runtime.persistence.listChatSummaries?.(chatId)) ?? {};
+```
 
 <a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 

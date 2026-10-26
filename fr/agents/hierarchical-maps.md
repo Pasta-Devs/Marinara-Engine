@@ -482,12 +482,12 @@ Le dernier message de l'utilisateur fait autorité pour les changements
 automatiques de carte :
 
 - Un déplacement direct de l'équipe suivie par l'histoire, au présent ou à
-  l'impératif, établit l'arrivée. "We go to the Kitchen" ou "She moves into the
-  outdoor section; we follow her" peuvent mener vers les lieux connus
+  l'impératif, établit l'arrivée. "Nous allons à la cuisine" ou "Elle va dans la
+  partie extérieure ; nous la suivons" peuvent mener vers les lieux connus
   correspondants.
 - L'arrivée explicite dans un lieu marquant, nommé, durable et où l'on peut
-  revenir, ou sa découverte, peut l'ajouter au monde. "We discover a hidden
-  room" peut créer ce lieu et y entrer.
+  revenir, ou sa découverte, peut l'ajouter au monde. "Nous découvrons une pièce
+  cachée" peut créer ce lieu et y entrer.
 - La réponse visible peut en raconter la conséquence, mais la narration de l'IA
   seule n'autorise jamais un déplacement ni un nouveau lieu.
 - Les intentions futures, les voyages ratés ou inachevés, les simples mentions,
@@ -598,8 +598,8 @@ cohérents d'une image à l'autre.
 Le pipeline d'images ajoute cette instruction quand une référence de lieu
 éligible est jointe :
 
-> Location handling: an attached location reference image is available. Use it
-> to set the scene location.
+> Gestion du lieu : une image de référence du lieu est jointe. Utilise-la
+> pour définir le lieu de la scène.
 
 Chaque fournisseur a ses propres limites d'images de référence. Les références
 demandées explicitement et les références de personnage peuvent réduire le
@@ -930,7 +930,7 @@ Le déplacement automatique exige que le dernier message de l'utilisateur
 modèle produise une directive Maps cachée valide. La narration de l'IA seule,
 une intention, une discussion, un voyage raté, un déplacement de PNJ seul ou un
 lieu de passage ne déplacent pas le marqueur. Essaie une formule directe, par
-exemple "We go to the Kitchen." Utilise **Set destination** pour un déplacement
+exemple "Nous allons à la cuisine." Utilise **Set destination** pour un déplacement
 certain au tour suivant.
 
 ### Le lieu actuel a changé après la réouverture du chat

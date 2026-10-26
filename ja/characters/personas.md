@@ -148,6 +148,8 @@ Marinaraは現在のペルソナ名とほかのカード項目を参考にしま
 - **Enable Persona Stats**(ペルソナのステータスを有効化)は、空腹、体力、気分といった状態のバーをオンにします。新しく有効にすると、Satiety、Energy、Hygiene、Moodの4つのバーが最大100のうち100の状態で用意されます。値は物語の進行に合わせて**Persona Stats**エージェントが調整します。
 - **Enable RPG Attributes**(RPG能力値を有効化)は、RPG風のPoolsとAttributesをオンにします。新しく有効にすると、HPとMPのPoolsが最大100のうち100、STR、DEX、CON、INT、WIS、CHAのAttributesがいずれも10で用意されます。これらの値は、戦闘とGame Modeのため、またRoleplayやGame Modeでの任意のダイスロールのために、ペルソナカードといっしょに送られます。トラッカーエージェントがこれらを更新することはありません。
 
+**Game Mode Icon**(Game Modeのアイコン)ブロックでは、Game Modeの戦闘でペルソナのトークンに表示する画像を設定します。アバター、ペルソナのギャラリーの画像、イニシャルから選べます。[Game Modeのアイコン](colors-and-stats.md#game-mode-icon)を参照してください。
+
 Game Modeのルールセットがインストールされているか、そのシートがペルソナに残っていると、両セクションの下に**Ruleset sheets**(ルールセットのシート)のブロックが表示されます。ここには、ルールセットごとのペルソナの開始時の構成が入り、そのルールセットで新しいゲームを始めるとコピーされます。[ルールセットのシート](colors-and-stats.md#ruleset-sheets)を参照してください。
 
 ここで設定した値は、新しいチャットの開始時のデフォルトです。Persona Statsエージェントを有効にすると、Persona Status Barsは自動で更新されます。ペルソナのRPGのPoolsとAttributesは、エージェントが管理するものではありません。詳しい説明は[キャラクターの色とRPGステータス](colors-and-stats.md)を参照してください。
