@@ -61,6 +61,16 @@ Una simulación de vida. Vives en un pueblo pequeño con el reloj en marcha: tie
 - **Ajustes clave**: instálala desde **Agents → Download Agents**, reinicia Marinara Engine cuando se te pida y luego abre **Home → Life Sim**. Necesita una conexión de texto. Una conexión de imagen es opcional: sin ella, los lugares muestran tarjetas ilustradas en lugar de fondos generados. Los extras opcionales, llamados módulos, permanecen desactivados salvo que los actives para una vida; el módulo **Adult** (Adultos) te pide confirmar que eres mayor de edad.
 - **Guía completa**: [guía del paquete Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+Un libro que escribes junto con el modelo. Configura la historia, el reparto y los lorebooks en una barra lateral, deja las instrucciones de autor en una nota adhesiva y el modelo escribirá el siguiente capítulo cada vez que se lo pidas. Las páginas parecen un libro abierto o un lector de libros electrónicos. Puedes hacer clic en cualquier parte del texto para cambiarlo o empezar el primer capítulo por tu cuenta.
+
+- **Integración**: App; se abre en su propia pestaña **Story Writer** de **Home**.
+- **Dónde funciona**: Home.
+- **Disponibilidad**: necesita una versión de Marinara Engine posterior a **v2.5.1** (la próxima versión o una compilación actual de staging). Los Engines anteriores no lo ofrecen en **Download Agents**.
+- **Ajustes principales**: instálalo desde **Agents → Download Agents**, reinicia Marinara Engine cuando se te indique y abre **Home → Story Writer**. Elige una conexión de texto en la barra lateral. Cada historia se guarda en tu servidor de Marinara Engine; puedes empezar otras, volver a las anteriores y descargarlas como Markdown o texto sin formato.
+- **Guía completa**: [Guía del paquete Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Writer agents
 
 Los Writer agents dan forma a la historia o a la prosa. O bien añaden orientación antes de la respuesta, o bien limpian la respuesta después.

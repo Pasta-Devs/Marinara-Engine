@@ -61,6 +61,16 @@ Eine Lebenssimulation. Du lebst in einer Kleinstadt, in der die Uhr läuft: Du m
 - **Wichtige Einstellungen**: Installiere sie über **Agents → Download Agents**, starte Marinara Engine neu, wenn du dazu aufgefordert wirst, und öffne dann **Home → Life Sim**. Sie braucht eine Textverbindung. Eine Bildverbindung ist optional: Ohne sie zeigen Orte illustrierte Karten statt generierter Hintergründe. Optionale Extras, sogenannte Module, bleiben aus, bis du sie für ein Leben einschaltest; beim Modul **Adult** (Erwachsene) musst du bestätigen, dass du volljährig bist.
 - **Vollständige Anleitung**: [Modern-Life-Sim-Paketanleitung](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+Ein Buch, das du gemeinsam mit dem Modell schreibst. Richte Geschichte, Besetzung und Lorebooks in einer Seitenleiste ein und hinterlasse die Anweisungen auf einem Haftzettel. Auf Wunsch schreibt das Modell das nächste Kapitel. Die Seiten sehen wie ein offenes Buch oder ein E-Book-Reader aus. Du kannst jede Textstelle anklicken und ändern oder das erste Kapitel selbst beginnen.
+
+- **Integration**: App; öffnet eine eigene Registerkarte **Story Writer** in **Home**.
+- **Wo es funktioniert**: Home.
+- **Verfügbarkeit**: benötigt eine neuere Version von Marinara Engine als **v2.5.1** (die nächste Veröffentlichung oder einen aktuellen Staging-Build). Ältere Engines bieten das Paket unter **Download Agents** nicht an.
+- **Wichtige Einstellungen**: Installiere es unter **Agents → Download Agents**, starte Marinara Engine nach Aufforderung neu und öffne **Home → Story Writer**. Wähle in der Seitenleiste eine Textverbindung. Jede Geschichte wird auf deinem Server mit Marinara Engine gespeichert. Du kannst neue beginnen, zu früheren zurückkehren und sie als Markdown oder Klartext herunterladen.
+- **Vollständige Anleitung**: [Anleitung zum Paket Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Writer-Agenten
 
 Writer-Agenten formen die Geschichte oder den Schreibstil. Entweder geben sie vor der Antwort eine Richtung vor, oder sie räumen die fertige Antwort auf.

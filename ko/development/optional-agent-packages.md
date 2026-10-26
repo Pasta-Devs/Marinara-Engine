@@ -75,6 +75,7 @@ globalThis.__MARINARA_HOST__ = {
 | `services.tts` | `lib/tts-service.ts` 모듈(`ttsService`, `playWhenAvailable`, ...)입니다. |
 | `services.audio` | Capability API 1.381부터 제공하는 `lib/audio-service.ts` 모듈입니다. 독립적인 음악/효과음 플레이어, 공유 에셋 매니페스트, 기본 음악 선택을 제공합니다. [패키지 오디오](#package-audio)를 참고하세요. |
 | `services.dialogs` | `lib/app-dialogs.ts` 모듈(`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`)입니다. |
+| `services.imageDownloads` | Capability API 1.385부터 갤러리의 기존 도우미 함수 `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave`, `savePreparedImageToDevice`를 제공합니다. |
 | `modules` | 베어 지정자를 키로 하는 라이브러리 모듈입니다(아래 참고). |
 | `queryClient` | Engine이 렌더링에 쓰는 단 하나의 React Query `QueryClient`입니다. |
 | `components.Modal` | 오버레이 순서, Escape 키와 뒤로 가기 버튼 처리를 갖춘 Engine의 `Modal`입니다. |
@@ -83,6 +84,9 @@ globalThis.__MARINARA_HOST__ = {
 
 패키지는 멤버를 확인한 뒤에만 읽습니다. 예를 들면
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`처럼 확인합니다.
+
+이미지를 다운로드할 때는 `shouldUseIosImageShare()`로 갤러리와 같은 플랫폼 정책을 따르세요. iPhone에서는 저장 동작 전에 `prepareImageSave(url, filename)`로 이미지를 준비한 다음, 그 동작에서 직접 `savePreparedImageToDevice(prepared)`를 호출하세요. 공유 취소는 오류 표시 없이 처리하며, 공유 실패를 WebKit 다운로드 미리보기로 대체하지 않습니다. 다른 플랫폼은 `downloadUrlToDevice`를 사용합니다. 이 함수들은 Engine 서버가 Docker에서 실행되더라도 클라이언트 기기에 저장합니다.
+
 네임스페이스는 늘어나기만 합니다. 새 멤버는 Capability API 마이너 버전과 함께 추가되며, 그 멤버가 필요한 패키지는 해당 마이너 버전을 요구합니다. 네임스페이스에 맞춰 빌드한 패키지는 네임스페이스를 추가한 Capability API 버전을 요구하므로, 오래된 Engine은 이런 패키지를 설치하지 않고 이미 있는 버전을 유지합니다. 그래도 멤버가 없으면, 패키지는 상태를 가진 Engine 서비스의 번들 사본으로 절대 대체하지 않습니다. `ui`와 `chat` 스토어는 절대 쓰지 않는 읽기 전용 사본이 되고, 나머지 멤버는 모두 이 기능에 더 새로운 Marinara Engine이 필요하다고 알립니다.
 
 **호스트 모듈.** `modules[specifier]`는 완전한 모듈 네임스페이스이며, 라이브러리에 `default`가 있으면 그것도 포함합니다. 클라이언트 계약의 `MARINARA_HOST_MODULE_IMPORTS`는 각 공개 슬롯을 해당 슬롯이 가져오는 의존성에 매핑합니다. 대부분은 같은 이름으로 매핑됩니다. 안정적인 `framer-motion` 슬롯은 `framer-motion-v13`(Motion 13.5.1을 정확히 지정한 npm 별칭)에 매핑되며, 선택적으로 사용하는 `motion/react` 슬롯은 Engine의 기본 `framer-motion` 14 의존성에 매핑됩니다. 패키지 도구는 내보내기 목록과 TypeScript 경로 모두에 이 매핑을 사용합니다. 공개 슬롯 이름이 실제 의존성 이름일 필요는 없습니다. 지정자는 `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge`, `clsx`입니다. 패키지 빌드는 이 지정자를 네임스페이스를 읽는 shim으로 연결하므로, 패키지는 Engine의 단 하나뿐인 React로 렌더링하고 Engine의 React Query 캐시와 토스트를 공유합니다.
@@ -808,6 +812,26 @@ export async function activate({ api }) {
 - `enterLabel`과 `exitLabel`: 토글에 사용할 현지화된 접근성 레이블입니다.
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
+
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
+
+### Capability API 1.386: 연결 열기와 패키지의 원시 텍스트 생성
+
+브라우저 뷰는 `openConnection(connectionId)`를 받습니다. 저장된 해당 연결의 편집기를 열므로, 연결 선택 기능이 있는 패키지는 자체 제공자 설정 대신 **Edit connection**(연결 편집)을 제공할 수 있습니다. 편집기를 닫으면 Home이 패키지 탭으로 돌아옵니다. 채팅 열기처럼 다른 경로로 나가면 돌아오지 않습니다. 데스크톱에서는 편집기가 열린 동안 Home과 패키지 뷰가 마운트 해제되므로 입력한 내용을 먼저 저장하세요. 이전 Engine에는 이 함수가 없으므로 버튼을 표시하기 전에 `openConnection`이 있는지 확인하세요.
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+브라우저 패키지는 별도의 서버 부분 없이도 저장된 연결로 텍스트를 생성할 수 있습니다. 호스트 API 클라이언트를 통해 `POST /api/generate/raw`를 호출하면 CSRF 및 관리자 헤더가 추가됩니다.
+
+- `connectionId`: 저장된 연결입니다. 저장된 매개변수가 적용되며, `parameters`(`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`)가 필드별로 덮어씁니다.
+- `messages`: `{ role: "system" | "user" | "assistant", content }` 형식의 메시지 1~200개입니다. 같은 역할의 연속 메시지는 합쳐지며, Engine 자체 생성과 마찬가지로 프롬프트가 모델 컨텍스트에 맞게 조정됩니다.
+- `streaming`: `true`이면 서버 전송 이벤트로 응답합니다. 그렇지 않으면 `{ content, runId }` 또는 `{ aborted: true, runId }`를 반환합니다.
+- `runId`: 실행 식별자입니다. `{ runId }`를 포함한 `POST /api/generate/raw/abort`로 실행을 중단할 수 있으며, 요청을 닫아도 중단됩니다.
+- `debugMode`(1.386): 브라우저 뷰의 `debugMode`를 전달하세요. 값이 true이거나 서버가 `DEBUG_AGENTS`로 실행되면 제공자에게 보낸 최종 메시지와 응답을 서버 로그에 기록합니다. 본문을 엄격하게 검증하므로 이전 Engine은 이 필드를 거부합니다. 1.386을 선언한 패키지에서 값이 true일 때만 보내세요.
+
+이벤트는 `raw_started`(`{ runId }`), `token`(다음 텍스트 조각), `result`(`{ content }`, 전체 텍스트), `aborted`, `error`(메시지), Engine의 대체 연결이 응답했을 때의 `fallback_used`, 그리고 항상 마지막인 `done`입니다.
 
 <a id="capability-api-150-professor-mari-actions"></a>
 

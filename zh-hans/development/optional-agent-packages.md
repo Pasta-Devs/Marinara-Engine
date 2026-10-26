@@ -59,13 +59,18 @@ globalThis.__MARINARA_HOST__ = {
 | `services.tts` | `lib/tts-service.ts` 模块（`ttsService`、`playWhenAvailable` 等）。 |
 | `services.audio` | 从 Capability API 1.381 起提供的 `lib/audio-service.ts` 模块：独立的音乐/音效播放器、共享素材清单和默认音乐选择。见[包音频](#package-audio)。 |
 | `services.dialogs` | `lib/app-dialogs.ts` 模块（`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`）。 |
+| `services.imageDownloads` | 从 Capability API 1.385 起提供图库现有的 `downloadUrlToDevice`、`shouldUseIosImageShare`、`prepareImageSave` 和 `savePreparedImageToDevice` 辅助函数。 |
 | `modules` | 库模块，以裸模块说明符为键（见下文）。 |
 | `queryClient` | Engine 渲染时使用的那一个 React Query `QueryClient`。 |
 | `components.Modal` | Engine 的 `Modal`，带有它的覆盖层顺序、Escape 键和返回键处理。 |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 模块。 |
 | `api` | `lib/api-client.ts` 模块（`api`、`ApiError`、`getApiErrorMessage` 等）。 |
 
-包只有先检查过某个成员，才会读取它，例如 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`。命名空间只增不减：新成员会随一个 Capability API 次版本号一起加入，需要它的包就要求这个次版本号。为命名空间构建的包要求引入它的那个 Capability API 版本，所以旧版 Engine 永远不会安装它们，而是保留已有的版本。如果某个成员仍然缺失，包也绝不会回退到自己打包的有状态 Engine 服务副本：`ui` 和 `chat` store 会变成从不写入的只读副本，其他所有成员则提示该功能需要更新版本的 Marinara Engine。
+包只有先检查过某个成员，才会读取它，例如 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`。
+
+下载图片时，使用 `shouldUseIosImageShare()` 遵循图库的平台策略。在 iPhone 上，先在用户执行保存手势之前用 `prepareImageSave(url, filename)` 准备图片，再从该手势直接调用 `savePreparedImageToDevice(prepared)`。取消分享时不会显示错误；分享失败也不会改用 WebKit 下载预览。其他平台使用 `downloadUrlToDevice`。即使 Engine 服务器在 Docker 中运行，这些函数也会把图片保存到客户端设备。
+
+命名空间只增不减：新成员会随一个 Capability API 次版本号一起加入，需要它的包就要求这个次版本号。为命名空间构建的包要求引入它的那个 Capability API 版本，所以旧版 Engine 永远不会安装它们，而是保留已有的版本。如果某个成员仍然缺失，包也绝不会回退到自己打包的有状态 Engine 服务副本：`ui` 和 `chat` store 会变成从不写入的只读副本，其他所有成员则提示该功能需要更新版本的 Marinara Engine。
 
 **宿主模块。** `modules[specifier]` 是完整的模块命名空间，库有 `default` 时也包括它。客户端契约中的 `MARINARA_HOST_MODULE_IMPORTS` 把每个公开槽位映射到它导入的依赖。大多数槽位映射到同名依赖。稳定的 `framer-motion` 槽位映射到 `framer-motion-v13`（精确指定 Motion 13.5.1 的 npm 别名），可选的 `motion/react` 槽位则映射到 Engine 的主要依赖 `framer-motion` 14。包工具在导出清单和 TypeScript 路径中都使用这个映射；公开槽位名称不一定是实际依赖的名称。这些说明符是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`motion/react`、`tailwind-merge` 和 `clsx`。包构建会把这些说明符解析为读取命名空间的垫片（shim），所以包用 Engine 唯一的那份 React 渲染，并共享它的 React Query 缓存和 toast 提示。
 
@@ -784,6 +789,26 @@ export async function activate({ api }) {
 - `enterLabel` 和 `exitLabel`：切换按钮使用的本地化无障碍标签。
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
+
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
+
+### Capability API 1.386：打开连接，以及从安装包生成原始文本
+
+浏览器视图会收到 `openConnection(connectionId)`。它会打开指定已保存连接的编辑器，因此，提供连接选择功能的安装包可以使用 **Edit connection**(编辑连接)，无需自行实现提供商设置。关闭编辑器后，Home 会返回安装包的标签页；如果通过其他方式离开，例如打开聊天，就不会返回。桌面布局会在编辑器打开期间卸载 Home 和安装包视图，因此要先保存用户输入的内容。旧版 Engine 没有此函数，显示按钮前应先检查 `openConnection` 是否存在。
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+浏览器安装包也可以直接通过已保存的连接生成文本，无需自己的服务器部分：使用宿主 API 客户端调用 `POST /api/generate/raw`，客户端会添加 CSRF 和管理员请求头。
+
+- `connectionId`：已保存的连接。默认使用该连接保存的参数；`parameters`（`temperature`、`maxTokens`、`maxContext`、`topP`、`topK`、`minP`、`frequencyPenalty`、`presencePenalty`、`reasoningEffort`、`verbosity`、`serviceTier`、`customParameters`、`enabledParameters`）会逐字段覆盖它们。
+- `messages`：1 到 200 条 `{ role: "system" | "user" | "assistant", content }` 消息。相邻且角色相同的消息会合并，提示词会像 Engine 自身的生成请求一样调整到模型上下文可容纳的范围。
+- `streaming`：设为 `true` 时通过服务器发送事件返回结果；否则返回 `{ content, runId }` 或 `{ aborted: true, runId }`。
+- `runId`：此次运行的标识。使用 `{ runId }` 调用 `POST /api/generate/raw/abort` 可停止运行，关闭请求也会停止运行。
+- `debugMode`（1.386）：传入浏览器视图的 `debugMode`。其值为 true，或服务器启用了 `DEBUG_AGENTS` 时，服务器会记录最终发送给提供商的消息和回复。请求正文采用严格校验，旧版 Engine 会拒绝该字段；只有声明了 1.386 的安装包才能在值为 true 时发送它。
+
+事件包括 `raw_started`（`{ runId }`）、`token`（下一段文本）、`result`（`{ content }`，完整文本）、`aborted`、`error`（错误消息）、由 Engine 备用连接作答时的 `fallback_used`，以及始终位于最后的 `done`。
 
 <a id="capability-api-150-professor-mari-actions"></a>
 

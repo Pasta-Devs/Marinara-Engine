@@ -63,6 +63,16 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 - **主要设置**：从 **Agents → Download Agents** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Life Sim**。它需要一个文本连接。图像连接是可选的：没有的话，地点会显示插画卡片，而不是生成的背景。名为“模块”的可选扩展默认关闭，只有你为某段人生开启时才会启用；**Adult** 模块会要求你确认自己已经成年。
 - **完整指南**：[Modern Life Sim 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md)。
 
+### Story Writer
+
+一本和模型共同创作的书。在侧栏设置故事、角色和世界书，把作者指令留在便签上，每次提出请求，模型就会续写下一章。页面看起来像摊开的书或电子书阅读器；可以点击正文的任意位置修改，也可以自己开始写第一章。
+
+- **集成方式**：App；在 **Home** 的独立 **Story Writer** 标签页中打开。
+- **适用位置**：Home。
+- **可用条件**：需要比 **v2.5.1** 更新的 Marinara Engine（下一个正式版本或当前 staging 构建）。旧版 Engine 不会在 **Download Agents** 中提供此安装包。
+- **主要设置**：从 **Agents → Download Agents** 安装，按提示重启 Marinara Engine，再打开 **Home → Story Writer**，从侧栏选择文本连接。每个故事都保存在你的 Marinara Engine 服务器上。可以开始新故事、返回旧故事，也可以下载为 Markdown 或纯文本。
+- **完整指南**：[Story Writer 安装包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md)。
+
 ## 写作类智能体
 
 写作类智能体负责塑造故事和文笔。它们要么在回复之前补充写作指引，要么在回复之后做润色。

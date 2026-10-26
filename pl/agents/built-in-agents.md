@@ -63,6 +63,16 @@ Symulacja życia. Żyjesz w małym miasteczku według zegara: trzeba znaleźć i
 - **Najważniejsze ustawienia**: zainstaluj ją przez **Agents → Download Agents**, uruchom aplikację ponownie, gdy pojawi się prośba, a potem otwórz **Home → Life Sim**. Wymaga połączenia tekstowego. Połączenie obrazowe jest opcjonalne: bez niego miejsca pokazują ilustrowane karty zamiast generowanych teł. Opcjonalne moduły pozostają wyłączone, dopóki nie włączysz ich dla danego życia; moduł **Adult** (dla dorosłych) prosi o potwierdzenie pełnoletności.
 - **Pełny przewodnik**: [Przewodnik pakietu Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+Książka, którą piszesz wspólnie z modelem. Ustaw fabułę, obsadę i lorebooki na pasku bocznym, zostaw instrukcje autorskie na karteczce, a model napisze kolejny rozdział, gdy o to poprosisz. Strony przypominają otwartą książkę albo czytnik e-booków. Możesz kliknąć dowolne miejsce w tekście, żeby je zmienić, albo samodzielnie zacząć pierwszy rozdział.
+
+- **Integracja**: aplikacja; otwiera się we własnej zakładce **Story Writer** w **Home**.
+- **Gdzie działa**: Home.
+- **Dostępność**: wymaga aplikacji Marinara Engine w wersji nowszej niż **v2.5.1** (następnego wydania albo aktualnej wersji staging). Starsze wersje silnika nie pokazują tego pakietu w **Download Agents**.
+- **Najważniejsze ustawienia**: zainstaluj go przez **Agents → Download Agents**, uruchom aplikację Marinara Engine ponownie, gdy pojawi się prośba, a potem otwórz **Home → Story Writer** i wybierz połączenie tekstowe na pasku bocznym. Każda historia jest zapisywana na twoim serwerze Marinara Engine. Możesz zaczynać nowe historie, wracać do wcześniejszych i pobierać je jako Markdown albo zwykły tekst.
+- **Pełny przewodnik**: [Przewodnik pakietu Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Agenci piszący
 
 Agenci piszący kształtują fabułę albo sam tekst. Dodają wskazówki przed odpowiedzią lub porządkują odpowiedź po jej wygenerowaniu.
