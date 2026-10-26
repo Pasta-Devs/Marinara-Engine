@@ -16,4 +16,9 @@ assert.doesNotMatch(
   /if \(!chat\.connectionId\) return null/,
   "The game world request must be built for a chat that follows Main",
 );
+assert.doesNotMatch(
+  read("modals/ImportConnectionModal.tsx"),
+  /if \(!model\) \{ throw/,
+  "An import row without a model counts as failed; it must not delete the whole account",
+);
 console.log("Client gates follow Main.");

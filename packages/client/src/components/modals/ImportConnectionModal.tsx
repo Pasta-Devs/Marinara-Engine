@@ -89,7 +89,8 @@ export function ImportConnectionModal({ open, onClose }: Props) {
             let added = 0;
             for (const model of entry.models) {
               if (!model) {
-                throw new Error(`Account ${entry.account.name} has a model without an ID.`);
+                failed += 1;
+                continue;
               }
               const connectionId = await importModel(model, accountId);
               if (connectionId) createdIds.push(connectionId);
@@ -108,7 +109,8 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
         for (const model of plan.models) {
           if (!model) {
-            throw new Error("A connection record has no model ID.");
+            failed += 1;
+            continue;
           }
           try {
             await importModel(model);

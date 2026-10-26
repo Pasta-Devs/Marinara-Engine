@@ -3,6 +3,7 @@
 // active chat have stored (memory, tracker state, custom
 // outputs), manually or via AI-assisted selection rewrites.
 // ──────────────────────────────────────────────
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -559,7 +560,8 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
     }
     const agentDefault = connectionOptions.find((c) => c.defaultForAgents === true || c.defaultForAgents === "true");
     const chatConnection = connectionOptions.find((c) => c.id === chat.connectionId);
-    return (agentDefault ?? chatConnection ?? connectionOptions[0])?.id ?? "";
+    const main = connectionOptions.find((c) => isConnectionFlagTrue(c.isDefault));
+    return (agentDefault ?? chatConnection ?? main ?? connectionOptions[0])?.id ?? "";
   }, [chat.connectionId, connectionOptions, rewriteConnectionId]);
 
   const handleBlockDirtyChange = useCallback((blockId: string, dirty: boolean) => {
