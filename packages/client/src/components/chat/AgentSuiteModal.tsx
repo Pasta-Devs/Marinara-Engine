@@ -560,7 +560,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
     }
     const agentDefault = connectionOptions.find((c) => c.defaultForAgents === true || c.defaultForAgents === "true");
     const chatConnection = connectionOptions.find((c) => c.id === chat.connectionId);
-    const main = connectionOptions.find((c) => isConnectionFlagTrue(c.isDefault));
+    const main = connectionOptions.find((c) => isConnectionFlagTrue((c as { isDefault?: unknown }).isDefault));
     return (agentDefault ?? chatConnection ?? main ?? connectionOptions[0])?.id ?? "";
   }, [chat.connectionId, connectionOptions, rewriteConnectionId]);
 
