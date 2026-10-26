@@ -19,7 +19,7 @@ const services = read("../../packages/client/src/components/modals/create-connec
 const models = read("../../packages/client/src/components/modals/create-connection/ModelsStep.tsx");
 
 assert.match(picker, /assign: \(id\) => onChangeRef\.current\(id\)/);
-assert.match(modal, /if \(assignment\.assign\) \{[\s\S]*?assign\(id\);/);
+assert.match(modal, /if \(assignment\.assign\) \{[\s\S]*?await Promise\.resolve\(assign\(id\)\);/);
 assert.match(
   modal,
   /const discardFreshAccount = async \(\) => \{[\s\S]*?deleteRow\.mutateAsync\(current\.connectionId\)/,
