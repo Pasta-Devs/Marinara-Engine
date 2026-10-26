@@ -12,6 +12,7 @@ process.env.FILE_STORAGE_DIR = join(directory, "storage");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createConnectionSchema } = await import("../../packages/shared/src/schemas/connection.schema.js");
+const { APP_VERSION } = await import("../../packages/shared/src/constants/defaults.js");
 const { MAX_MODEL_ID_LENGTH, MAX_PINNED_MODELS, parsePinnedModels } =
   await import("../../packages/shared/src/types/connection.js");
 const { sanitizeProfileTableRows, quarantineProfileApiConnectionRow } =
@@ -24,6 +25,7 @@ const { default: Fastify } = await import("../../packages/server/node_modules/fa
 const SECRET = "fixture-secret-key-7098";
 const NEW_SECRET = "fixture-rotated-key-7098";
 let modelCalls = 0;
+const modelRequests: Array<{ path: string; authorization: string | undefined; userAgent: string | undefined }> = [];
 let failModels = false;
 /** Runs once while the provider is answering /models, before the answer is sent. */
 let duringModels: (() => Promise<void>) | null = null;
@@ -41,6 +43,17 @@ let catalog = [
 const provider = createServer(async (req, res) => {
   if (req.url === "/v1/models") {
     modelCalls++;
+    modelRequests.push({
+      path: req.url,
+      authorization: req.headers.authorization,
+      userAgent: req.headers["user-agent"],
+    });
+    // #8353: some Custom providers hide the catalog from an unidentified client.
+    if (req.headers["user-agent"] !== `MarinaraEngine/${APP_VERSION}`) {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("Gone");
+      return;
+    }
     const hook = duringModels;
     duringModels = null;
     await hook?.();
@@ -102,6 +115,11 @@ try {
   const first = await get(`/connections/${legacy.id}/models`);
   assert.equal(first.statusCode, 200, first.body);
   assert.equal(modelCalls, 1);
+  assert.deepEqual(modelRequests[0], {
+    path: "/v1/models",
+    authorization: `Bearer ${SECRET}`,
+    userAgent: `MarinaraEngine/${APP_VERSION}`,
+  });
   const firstBody = first.json() as { fetchedAt: string; models: Array<Record<string, unknown>> };
   assert.ok(!Number.isNaN(Date.parse(firstBody.fetchedAt)), "the saved list records when it was fetched");
   assert.deepEqual(
@@ -309,6 +327,18 @@ try {
   // A deleted connection has no model list.
   await app.inject({ method: "DELETE", url: `/connections/${copy.id}` });
   assert.equal((await get(`/connections/${copy.id}/models`)).statusCode, 404);
+
+  // Test Connection uses the same catalog and must identify itself too, even with a saved model list.
+  const callsBeforeTest = modelCalls;
+  const tested = await app.inject({ method: "POST", url: `/connections/${legacy.id}/test` });
+  assert.equal(tested.statusCode, 200, tested.body);
+  assert.equal(tested.json().success, true, tested.body);
+  assert.equal(modelCalls, callsBeforeTest + 1, "Test Connection checks the provider instead of the saved list");
+  assert.deepEqual(modelRequests.at(-1), {
+    path: "/v1/models",
+    authorization: `Bearer ${SECRET}`,
+    userAgent: `MarinaraEngine/${APP_VERSION}`,
+  });
 
   console.info(
     "Connection model lists are saved with their fetch time, reused, refreshed and kept apart from secrets.",

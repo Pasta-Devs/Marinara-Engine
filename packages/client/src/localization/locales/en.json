@@ -3616,6 +3616,7 @@
   "home.browser.showAddressBar": "Show URL bar",
   "home.browser.showAddressBarHelp": "Show the URL bar in the Home browser header on desktop.",
   "home.browser.stagingVersion": "v{{version}} (STAGING)",
+  "home.browser.tabMenu": "Show all experiences",
   "home.browser.tabsLabel": "Home destinations",
   "home.browser.version": "v{{version}}",
   "home.browser.widgets": "Widgets",

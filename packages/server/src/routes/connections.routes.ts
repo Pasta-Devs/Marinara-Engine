@@ -19,6 +19,7 @@ import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
+  APP_VERSION,
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   CODEX_IMAGE_MODEL,
@@ -828,7 +829,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
           modelName: null,
         };
       }
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
       }
@@ -1136,7 +1140,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "No base URL configured" });
       }
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
       }
