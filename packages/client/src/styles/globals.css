@@ -1550,39 +1550,6 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
-/* The blue rail: a straight strip on the well's left edge, so every list of models reads as Connections. The
-   Defaults box is blue already and the upgrade note lists no models; both keep none. */
-.mari-connection-group:not(.mari-connection-defaults-box, [data-connections-upgrade-note]) .mari-connection-model-well {
-  position: relative;
-}
-.mari-connection-group:not(.mari-connection-defaults-box, [data-connections-upgrade-note])
-  .mari-connection-model-well::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 2px;
-  background: var(--mari-connection-ink);
-  opacity: 0.7;
-  pointer-events: none;
-}
-/* After adding, the new card's rail flashes once. */
-.mari-connection-flash .mari-connection-model-well::before {
-  animation: mari-connection-rail-flash 1s ease-out 1;
-}
-@keyframes mari-connection-rail-flash {
-  30% {
-    opacity: 1;
-    width: 4px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  @keyframes mari-connection-rail-flash {
-    30% {
-      opacity: 1;
-    }
-  }
-}
 .mari-connection-model-section-head {
   background: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
@@ -1929,21 +1896,7 @@
     height: 2.75rem;
   }
 }
-/* Add window: Recommended tiles wear the wells' straight blue start rail; "Show all N" reads in connection ink. */
-.mari-add-tile-rail {
-  position: relative;
-  overflow: hidden;
-}
-.mari-add-tile-rail::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 2px;
-  background: var(--mari-connection-ink);
-  opacity: 0.7;
-  pointer-events: none;
-}
+/* Add window: "Show all N" reads in connection ink. */
 .mari-connection-btn--ghost.mari-add-show-all {
   color: var(--mari-connection-ink);
 }

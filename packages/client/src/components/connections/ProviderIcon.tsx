@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // ProviderIcon — a service's tile: its bundled brand icon (decision 34c), else an icon or its initials
 // ──────────────────────────────────────────────
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import {
   AudioLines,
   Music,
@@ -325,6 +325,15 @@ export function ProviderIcon({
       ) : (
         initialOf(PROVIDERS[provider as APIProvider]?.name ?? name)
       )}
+    </span>
+  );
+}
+
+/** A plain glyph (a job, a plus) in the same frame as a service tile, so no icon in a list stands bare. */
+export function IconTile({ children, size = "md" }: { children: ReactNode; size?: keyof typeof SIZES }) {
+  return (
+    <span aria-hidden className={cn("mari-provider-icon flex shrink-0 items-center justify-center", SIZES[size].box)}>
+      {children}
     </span>
   );
 }

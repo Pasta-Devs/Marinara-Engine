@@ -142,12 +142,6 @@ export function ServiceRow({
           className,
         )}
       >
-        {current && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--mari-panel-gradient-start)]"
-          />
-        )}
         {onPictureClick && (
           <button
             type="button"

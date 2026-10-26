@@ -161,15 +161,6 @@ const runsKey = (choice: ChatModelChoice, rows: readonly SwitcherRow[]) => {
 const ROW_CLASS =
   "relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 [@media(pointer:coarse)]:min-h-11";
 
-function AccentBar() {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[var(--marinara-chat-chrome-accent)]"
-    />
-  );
-}
-
 /**
  * The chat hosts' pick (decision 26): a saved Model or a catalog model for this chat only. The pick never edits a
  * saved Model; the toast offers Undo and "Make it my Main model", which saves a catalog pick to the library first.
@@ -983,7 +974,6 @@ export function ConnectionSwitcherBody({
         }}
         className={cn(ROW_CLASS, active && "bg-foreground/[0.07] font-semibold")}
       >
-        {active && <AccentBar />}
         {mainRow ? (
           <ProviderIcon
             provider={mainRow.provider ?? "custom"}
@@ -1021,7 +1011,6 @@ export function ConnectionSwitcherBody({
       )}
       className={cn(ROW_CLASS, shuffle.active && "bg-foreground/[0.07] font-semibold")}
     >
-      {shuffle.active && <AccentBar />}
       <Shuffle size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{t("connections.switcher.shuffle")}</span>
       {shuffle.active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}

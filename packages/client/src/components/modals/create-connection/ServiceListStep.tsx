@@ -4,6 +4,7 @@ import type { ConnectionAccountListItem } from "@marinara-engine/shared";
 import { ListHeading, ListSearch, ListStatus } from "../../connections/ListFrame";
 import { ServiceRow } from "../../connections/ServiceRow";
 import { ModelRow, ModelTile } from "../../connections/ModelRow";
+import { IconTile } from "../../connections/ProviderIcon";
 import { JOB, jobHintKey } from "../../../lib/connection-jobs";
 import type { AddJob } from "../../../lib/add-connection";
 import type { ModelEntry, ModelKind } from "../../../lib/add-model-search";
@@ -190,7 +191,11 @@ export function ServiceListStep(props: ServiceListStepProps) {
                   title={jobLabel(key)}
                   subtitle={t(jobHintKey(JOB[key]))}
                   wrapTitle
-                  tile={<Icon size="1.125rem" aria-hidden className="m-2 shrink-0" />}
+                  tile={
+                    <IconTile>
+                      <Icon size="1.125rem" aria-hidden />
+                    </IconTile>
+                  }
                   data-add-connection-job-choice={key}
                   onClick={() => chooseJob(key)}
                   trailing={<span className="mari-connection-pill shrink-0">{t("connections.add.setUp")}</span>}
@@ -271,7 +276,11 @@ export function ServiceListStep(props: ServiceListStepProps) {
             <ModelRow
               title={t("connections.add.chooseService")}
               subtitle={t("connections.add.chooseServiceHint")}
-              tile={<Plus size="1.125rem" aria-hidden className="m-2 shrink-0" />}
+              tile={
+                <IconTile>
+                  <Plus size="1.125rem" aria-hidden />
+                </IconTile>
+              }
               data-add-connection-browse
               onClick={() => setPick("provider")}
               trailing={<ChevronRight size="1rem" aria-hidden />}

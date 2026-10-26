@@ -11,6 +11,7 @@ import {
   type APIProvider,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
+import { IconTile } from "../../connections/ProviderIcon";
 import { StarText } from "../../connections/StarText";
 import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import {
@@ -407,7 +408,7 @@ export function CreateConnectionModalContent({
     return null;
   };
 
-  // After adding, the window closes and the panel shows the new card with one flash of its rail.
+  // After adding, the window closes and the panel scrolls to the new card.
   const close = async (saveChoices = false, jobs: AddJob[] = []) => {
     setFinishing(true);
     let undo: (() => void) | null = null;
@@ -1131,7 +1132,9 @@ export function CreateConnectionModalContent({
                         }}
                         className={checkClass}
                       />
-                      <Icon size="1rem" aria-hidden />
+                      <IconTile size="sm">
+                        <Icon size="0.75rem" aria-hidden />
+                      </IconTile>
                       <span>{jobLabel(key)}</span>
                       {index === 0 && (
                         <span className="mari-connection-pill">{t("connections.add.useFor.recommended")}</span>
