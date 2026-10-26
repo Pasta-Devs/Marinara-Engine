@@ -5,6 +5,8 @@
  * over (2026-10-26 eval: Gemini Flash-Lite went from 0 to 4 clean replies of 6).
  */
 
+import { gameInventoryNameStem } from "@marinara-engine/shared";
+
 /** The most missing items one notice names. */
 const MAX_MISSING_NAMED = 8;
 
@@ -14,7 +16,7 @@ function escapeRegExp(text: string): string {
 
 /** Whether `text` names `name` as a whole word, singular or plural, ignoring case. */
 function namesItem(text: string, name: string): boolean {
-  const base = name.trim().replace(/s$/i, "").replace(/e$/i, "");
+  const base = gameInventoryNameStem(name);
   if (base.length < 3) return false;
   return new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(base)}(?:e?s|e)?(?![\\p{L}\\p{N}])`, "iu").test(text);
 }
@@ -37,7 +39,11 @@ export function gmTurnNotices(input: {
       namesItem(input.playerMessage, name) &&
       !input.heldItems.some((held) => namesItem(held, name) || namesItem(name, held)),
   );
-  // A longer name that holds a shorter one ("Torch" in "Everburning Torch") is said once, as the shorter.
-  const said = missing.filter((name) => !missing.some((other) => other !== name && namesItem(name, other)));
+  // A longer name that holds a shorter one ("Torch" in "Everburning Torch") is said once, as the shorter;
+  // two that name each other ("Torch" and "Torches") once, as the first the book lists.
+  const said = missing.filter(
+    (name, index) =>
+      !missing.some((other, at) => at !== index && namesItem(name, other) && (at < index || !namesItem(other, name))),
+  );
   return said.length ? [`Nobody in the party carries: ${said.slice(0, MAX_MISSING_NAMED).join(", ")}.`] : [];
 }

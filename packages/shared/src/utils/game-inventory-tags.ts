@@ -202,8 +202,9 @@ function outcomeOf(result: GameInventoryOpResult | undefined): InventoryTagOutco
     : { ok: false, reason: result.reason };
 }
 
-/** An item's name as an add and a later give in one reply are matched by: case and plural aside. */
-function inventoryItemKey(name: string): string {
+/** An item's name with case and a plural ending aside ("Torches" and "torch" are "torch"): how an add
+ *  and a later give in one reply, or a player's words and the item book, are matched. */
+export function gameInventoryNameStem(name: string): string {
   return name.trim().toLowerCase().replace(/s$/, "").replace(/e$/, "");
 }
 
@@ -341,9 +342,9 @@ export function applyGameInventoryTags(
       const handsOn =
         other && (other.action === "give" || other.action === "remove" || (other.action === "add" && other.to));
       if (!handsOn || inventoryBagKey(other.who) !== inventoryBagKey(request.who)) continue;
-      for (const item of other.items) later.add(inventoryItemKey(item));
+      for (const item of other.items) later.add(gameInventoryNameStem(item));
     }
-    const made = new Set(request.items.map(inventoryItemKey).filter((item) => later.has(item)));
+    const made = new Set(request.items.map(gameInventoryNameStem).filter((item) => later.has(item)));
     if (made.size > 0) conjured.set(index, made);
   });
 
@@ -398,7 +399,7 @@ export function applyGameInventoryTags(
           ...(request.to ? { to: request.to } : {}),
         };
         if (!who.ok) return serializeInventoryTag(shown, { ok: false, reason: who.reason });
-        if (request.action === "add" && conjured.get(tagIndex)?.has(inventoryItemKey(item))) {
+        if (request.action === "add" && conjured.get(tagIndex)?.has(gameInventoryNameStem(item))) {
           return serializeInventoryTag(shown, { ok: false, reason: "no-source" });
         }
         if (request.action === "add") {

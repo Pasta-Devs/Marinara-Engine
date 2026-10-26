@@ -63,6 +63,14 @@ assert.deepEqual(
   }),
   ["Nobody in the party carries: Candles, Rope."],
 );
+// Two book entries that name each other are said once, as the first listed.
+assert.deepEqual(
+  gmTurnNotices({ playerMessage: "Pass me a torch.", knownItems: ["Torch", "Torches", "TORCH"], heldItems: [] }),
+  ["Nobody in the party carries: Torch."],
+);
+assert.deepEqual(gmTurnNotices({ playerMessage: "I put on my cap.", knownItems: ["Cap", "Cape"], heldItems: [] }), [
+  "Nobody in the party carries: Cap.",
+]);
 // A word inside another word is not the item ("torchlight" names no Torch).
 assert.deepEqual(gmTurnNotices({ playerMessage: "By torchlight we read.", knownItems: known, heldItems: [] }), []);
 assert.deepEqual(gmTurnNotices({ playerMessage: "   ", knownItems: known, heldItems: [] }), []);
