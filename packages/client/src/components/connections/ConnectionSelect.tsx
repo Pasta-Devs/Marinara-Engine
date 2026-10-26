@@ -20,6 +20,7 @@ const ConnectionPicker = lazy(() => import("./ConnectionPicker").then((m) => ({ 
 export type ConnectionSelectKind = ConnectionPickerKind;
 
 export type ConnectionChoiceRow = ConnectionModelRow & { profileImportReviewRequired?: unknown };
+export type ConnectionChoiceFilter = (row: ConnectionModelRow) => boolean;
 
 export const choiceLabel = (row: ConnectionModelRow) => row.name?.trim() || row.model?.trim() || row.id;
 
@@ -41,7 +42,7 @@ export function useConnectionChoices({
   includeLocalSidecar: boolean;
   extraOptions: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
-  rowFilter?: (row: ConnectionModelRow) => boolean;
+  rowFilter?: ConnectionChoiceFilter;
 }) {
   const { t } = useTranslation();
   const connections = useConnections();
@@ -152,6 +153,7 @@ export function ConnectionSelect({
   title,
   className,
   addJob,
+  scope,
   disabled,
   ...aria
 }: {
@@ -166,7 +168,7 @@ export function ConnectionSelect({
   /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
   extraOptions?: ReadonlyArray<{ value: string; label: string }>;
   /** Hides Models this slot cannot use; the current value stays listed. */
-  rowFilter?: (row: ConnectionModelRow) => boolean;
+  rowFilter?: ConnectionChoiceFilter;
   /**
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
    * opens the same picker. `native`: a native select, for callers that need one.
@@ -179,6 +181,8 @@ export function ConnectionSelect({
   className?: string;
   /** The job this slot is, for "Add a model for this…" (the Add window names it and sets Defaults by it). */
   addJob?: AddJob;
+  /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
+  scope?: "chat" | "agent";
   disabled?: boolean;
   id?: string;
   "aria-label"?: string;
@@ -215,12 +219,14 @@ export function ConnectionSelect({
           className,
         )}
       >
-        <option value="">{choices.defaultText}</option>
-        {extraOptions.map((extra) => (
-          <option key={extra.value} value={extra.value}>
-            {extra.label}
-          </option>
-        ))}
+        {!extraOptions.some((extra) => extra.value === "") && <option value="">{choices.defaultText}</option>}
+        {extraOptions
+          .filter((extra) => extra.value !== "")
+          .map((extra) => (
+            <option key={extra.value} value={extra.value}>
+              {extra.label}
+            </option>
+          ))}
         {choices.missing && (
           <option value={value!}>{choices.loading ? value : t("connections.select.missing", { id: value })}</option>
         )}
@@ -240,6 +246,13 @@ export function ConnectionSelect({
   }
 
   const { current } = choices;
+  // Empty with no custom first-option text means "follow the job's default": say whose.
+  const jobKey = FLAG_JOBS.find((job) => job.kind === kind)?.key;
+  const source = value
+    ? scope && t(`connections.select.scope.${scope}`)
+    : !defaultLabel && choices.resolved && jobKey
+      ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${jobKey}`) })
+      : null;
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
@@ -290,6 +303,7 @@ export function ConnectionSelect({
         >
           <span id={valueId} className="min-w-0 flex-1 truncate">
             {current.label}
+            {source && <span className="text-[0.625rem] text-[var(--muted-foreground)]"> · {source}</span>}
           </span>
           <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden />
         </button>
