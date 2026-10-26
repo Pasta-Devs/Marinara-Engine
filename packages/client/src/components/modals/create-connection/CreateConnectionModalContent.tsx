@@ -95,6 +95,9 @@ export interface CreateConnectionModalProps {
   forJob?: AddFor;
 }
 
+/** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
+const withHttpScheme = (url: string) => (url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? `http://${url}` : url);
+
 export function CreateConnectionModalContent({
   open,
   onClose,
@@ -526,7 +529,8 @@ export function CreateConnectionModalContent({
           }
         : {}),
     apiKey: keyless ? "" : apiKey.trim(),
-    baseUrl: baseUrl.trim() || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
+    baseUrl:
+      withHttpScheme(baseUrl.trim()) || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
     maxRequestsPerMinute: maxRpm ? Math.min(600, Math.max(1, Math.trunc(Number(maxRpm)))) : null,
     maxParallelJobs: maxJobs ? Math.min(16, Math.max(1, Math.trunc(Number(maxJobs)))) : null,
   });

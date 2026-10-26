@@ -14,4 +14,9 @@ const line = modal.split("\n").find((l) => l.includes("const mediaBaseUrl ="));
 assert.ok(line, "mediaBaseUrl line missing");
 const expr = modal.slice(modal.indexOf("const mediaBaseUrl ="), modal.indexOf("const rowProvider"));
 assert.match(expr, /pockettts[\s\S]*account\.baseUrl/, "PocketTTS must keep the typed address");
+assert.match(
+  modal.replace(/\s+/g, " "),
+  /withHttpScheme\( ?baseUrl\.trim\(\) ?\)/,
+  "A typed address without a scheme must get one",
+);
 console.log("Typed PocketTTS address is kept.");
