@@ -1314,6 +1314,29 @@ export async function connectionsRoutes(app: FastifyInstance) {
         };
       }
 
+      // Arli AI lists its image checkpoints at the host root, not under the /v1 chat API its base URL points at
+      // (the documented /v1/models/image-models answers 404). Caption models are not image generators.
+      if (conn.provider === "image_generation" && imageSource === "arli") {
+        const res = await safeFetch(`${new URL(baseUrl).origin}/sdapi/v1/sd-models`, {
+          headers: { ...headers, Authorization: `Bearer ${conn.apiKey}` },
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 5 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        if (!res.ok) {
+          return reply.status(502).send({
+            error: `Arli AI returned ${res.status}: ${sanitizeProviderBody(await res.text())}`,
+          });
+        }
+        const arliModels = (await res.json()) as Array<{ title?: string; model_name?: string; modelType?: string }>;
+        return {
+          models: arliModels
+            .filter((m) => m.modelType !== "caption")
+            .map((m) => ({ id: m.model_name ?? m.title ?? "", name: m.title ?? m.model_name ?? "" }))
+            .filter((m) => m.id),
+        };
+      }
+
       // AUTOMATIC1111 / SD Web UI: fetch models from /sdapi/v1/sd-models
       if (conn.provider === "image_generation" && imageSource === "automatic1111") {
         const res = await safeFetch(`${baseUrl}/sdapi/v1/sd-models`, {
