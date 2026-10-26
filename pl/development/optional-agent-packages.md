@@ -75,13 +75,18 @@ Ta właściwość nie jest zapisywalna ani konfigurowalna, a przestrzeń nazw or
 | `services.tts` | Moduł `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
 | `services.audio` | Od wersji 1.381 API możliwości moduł `lib/audio-service.ts`: niezależne odtwarzacze muzyki/efektów, współdzielony manifest zasobów i domyślny wybór muzyki. Zobacz [Dźwięk pakietu](#package-audio). |
 | `services.dialogs` | Moduł `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
+| `services.imageDownloads` | Od Capability API 1.385: istniejące funkcje galerii `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` i `savePreparedImageToDevice`. |
 | `modules` | Moduły bibliotek według samego specyfikatora (poniżej). |
 | `queryClient` | Jedyny `QueryClient` React Query, z którym renderuje się silnik. |
 | `components.Modal` | `Modal` silnika, z jego kolejnością nakładek oraz obsługą klawisza Escape i przycisku Wstecz. |
 | `data.emojiCatalog` | Moduł `lib/emoji-catalog.generated.ts`. |
 | `api` | Moduł `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
-Pakiet odczytuje element dopiero po sprawdzeniu go, na przykład `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`. Przestrzeń nazw tylko się rozrasta: nowy element pojawia się razem z nową wersją minor API możliwości, a pakiet, który go potrzebuje, wymaga tej wersji minor. Pakiety zbudowane pod przestrzeń nazw wymagają wersji API możliwości, która ją dodała, więc starszy silnik nigdy ich nie instaluje i zachowuje wersję, którą ma. Jeśli element mimo to nie istnieje, pakiet nigdy nie wraca do dołączonej kopii stanowej usługi silnika: magazyny `ui` i `chat` stają się kopiami tylko do odczytu, które nigdy niczego nie zapisują, a każdy inny element zgłasza, że funkcja wymaga nowszej wersji aplikacji Marinara Engine.
+Pakiet odczytuje element dopiero po sprawdzeniu go, na przykład `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
+
+Do pobierania obrazów używaj `shouldUseIosImageShare()`, żeby stosować te same zasady dla platform co galeria. Na iPhonie przygotuj obraz przez `prepareImageSave(url, filename)` przed gestem zapisu, a potem wywołaj `savePreparedImageToDevice(prepared)` bezpośrednio z tego gestu. Anulowanie udostępniania nie wyświetla błędu, a nieudane udostępnienie nie jest zastępowane podglądem pobierania WebKit. Pozostałe platformy używają `downloadUrlToDevice`. Te funkcje zapisują obrazy na urządzeniu klienta, także wtedy, gdy serwer Marinara Engine działa w Dockerze.
+
+Przestrzeń nazw tylko się rozrasta: nowy element pojawia się razem z nową wersją minor API możliwości, a pakiet, który go potrzebuje, wymaga tej wersji minor. Pakiety zbudowane pod przestrzeń nazw wymagają wersji API możliwości, która ją dodała, więc starszy silnik nigdy ich nie instaluje i zachowuje wersję, którą ma. Jeśli element mimo to nie istnieje, pakiet nigdy nie wraca do dołączonej kopii stanowej usługi silnika: magazyny `ui` i `chat` stają się kopiami tylko do odczytu, które nigdy niczego nie zapisują, a każdy inny element zgłasza, że funkcja wymaga nowszej wersji aplikacji Marinara Engine.
 
 **Moduły hosta.** `modules[specifier]` to pełna przestrzeń nazw modułu, łącznie z `default`, jeśli biblioteka go ma. `MARINARA_HOST_MODULE_IMPORTS` w kontrakcie klienta przypisuje każdemu publicznemu slotowi importowaną przez niego zależność. Większość zachowuje tę samą nazwę. Stabilny slot `framer-motion` jest przypisany do `framer-motion-v13` (aliasu npm wskazującego dokładnie Motion 13.5.1), a opcjonalny slot `motion/react` do głównej zależności silnika, `framer-motion` 14. Narzędzia pakietów używają tego mapowania zarówno do listy eksportów, jak i ścieżek TypeScript; nazwy publicznych slotów nie muszą być nazwami rzeczywistych zależności. Specyfikatory to `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` i `clsx`. Build pakietu rozwiązuje te specyfikatory na shimy, które czytają przestrzeń nazw, więc pakiet renderuje się z jedyną instancją React w silniku i współdzieli jego pamięć podręczną React Query oraz toasty.
 
@@ -807,6 +812,24 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.386: otwieranie połączenia i surowa generacja z pakietów
+
+Widok przeglądarki otrzymuje `openConnection(connectionId)`. Funkcja otwiera edytor wskazanego zapisanego połączenia. Pakiet z wyborem połączenia może więc udostępnić **Edit connection** (edytuj połączenie) zamiast własnych ustawień dostawcy. Po zamknięciu edytora Home wraca do zakładki pakietu; po wyjściu inną drogą, na przykład przez otwarcie czatu, nie wraca. W układzie na komputerze Home i widok pakietu są odmontowywane na czas otwarcia edytora: najpierw zapisz wpisane treści. Starsze wersje silnika nie mają tej funkcji, więc przed pokazaniem przycisku sprawdź, czy istnieje `openConnection`.
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+Pakiet przeglądarkowy może też generować tekst z użyciem zapisanego połączenia bez własnej części serwerowej: przez `POST /api/generate/raw` w kliencie API hosta, który dodaje nagłówki CSRF i administratora.
+
+- `connectionId`: zapisane połączenie. Obowiązują jego parametry; `parameters` (`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`) nadpisuje je pojedynczymi polami.
+- `messages`: od 1 do 200 wiadomości `{ role: "system" | "user" | "assistant", content }`. Sąsiadujące wiadomości z tą samą rolą są łączone, a prompt jest dopasowywany do kontekstu modelu jak przy generacji w samym silniku.
+- `streaming`: `true` zwraca zdarzenia wysyłane przez serwer; w przeciwnym razie odpowiedź to `{ content, runId }` albo `{ aborted: true, runId }`.
+- `runId`: twój identyfikator generacji. `POST /api/generate/raw/abort` z `{ runId }` zatrzymuje ją, podobnie jak zamknięcie żądania.
+- `debugMode` (1.386): przekaż `debugMode` z widoku przeglądarki. Gdy ma wartość true albo serwer działa z `DEBUG_AGENTS`, serwer zapisuje w logu ostateczne wiadomości wysłane do dostawcy i odpowiedź. Treść żądania jest sprawdzana ściśle, więc starszy silnik odrzuci to pole: wysyłaj je tylko z wartością true, z pakietu deklarującego 1.386.
+
+Zdarzenia to `raw_started` (`{ runId }`), `token` (kolejny fragment tekstu), `result` (`{ content }`, cały tekst), `aborted`, `error` (komunikat), `fallback_used`, gdy odpowiedziało połączenie zapasowe silnika, oraz `done`, zawsze na końcu.
 
 ### Capability API 1.50: akcje dla Professor Mari
 

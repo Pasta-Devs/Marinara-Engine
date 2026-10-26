@@ -63,6 +63,16 @@ Appsは、**Home**に専用のタブを持つパッケージです。チャッ�
 - **主な設定**: **Agents → Download Agents**からインストールし、案内が表示されたらMarinara Engineを再起動してから、**Home → Life Sim**を開きます。テキスト接続が必要です。画像接続は任意で、ない場合は生成した背景の代わりにイラストのカードで場所を表示します。モジュールと呼ばれる追加要素は、人生ごとにオンにしない限りオフのままです。**Adult**(成人向け)モジュールでは、成人であることの確認を求められます。
 - **詳しいガイド**: [Modern Life Simパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md)。
 
+### Story Writer
+
+モデルと一緒に書く本です。サイドバーで物語、登場人物、ロアブックを設定し、付箋に執筆指示を残すと、依頼するたびにモデルが次の章を書きます。ページは開いた本や電子書籍リーダーのように表示され、本文のどこでもクリックして編集できます。最初の章を自分で書き始めることもできます。
+
+- **連携**: App。**Home**内の専用の**Story Writer**タブで開きます。
+- **対応する場所**: Home。
+- **利用条件**: **v2.5.1**より新しいMarinara Engine(次のリリースまたは現在のstagingビルド)が必要です。古いEngineでは**Download Agents**に表示されません。
+- **主な設定**: **Agents → Download Agents**からインストールし、指示に従ってMarinara Engineを再起動してから、**Home → Story Writer**を開き、サイドバーでテキスト接続を選びます。物語はそれぞれMarinara Engineサーバーに保存されます。新しい物語の作成、過去の物語の再開、Markdownまたはプレーンテキストでのダウンロードができます。
+- **詳しいガイド**: [Story Writerパッケージガイド](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md)。
+
 ## 執筆エージェント
 
 **Writer Agents**は物語や文章そのものを整えます。返信の前に方向づけを加えるか、返信の後に文章を整えるかのどちらかです。

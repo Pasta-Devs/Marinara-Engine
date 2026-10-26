@@ -76,6 +76,7 @@ Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum s
 | `services.tts` | Das Modul `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
 | `services.audio` | Ab Capability API 1.381 das Modul `lib/audio-service.ts`: unabhängige Player für Musik und Soundeffekte, das gemeinsame Asset-Manifest und die Standardmusikauswahl. Siehe [Audio in Paketen](#package-audio). |
 | `services.dialogs` | Das Modul `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
+| `services.imageDownloads` | Ab Capability API 1.385: die vorhandenen Galerie-Hilfsfunktionen `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` und `savePreparedImageToDevice`. |
 | `modules` | Bibliotheksmodule mit dem Bare Specifier als Schlüssel (siehe unten). |
 | `queryClient` | Der eine `QueryClient` von React Query, mit dem die Engine rendert. |
 | `components.Modal` | Das `Modal` der Engine, mit seiner Overlay-Reihenfolge und seiner Behandlung von Escape und Zurück-Taste. |
@@ -84,6 +85,9 @@ Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum s
 
 Ein Paket liest ein Mitglied erst nach einer Prüfung, zum Beispiel
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
+
+Verwende für Bilddownloads `shouldUseIosImageShare()`, damit dieselben Plattformregeln wie in der Galerie gelten. Bereite das Bild auf dem iPhone vor der Speichergeste mit `prepareImageSave(url, filename)` vor und rufe `savePreparedImageToDevice(prepared)` direkt aus dieser Geste auf. Ein abgebrochener Teilen-Vorgang bleibt ohne Fehlermeldung; ein fehlgeschlagener Vorgang wird nicht durch eine WebKit-Downloadvorschau ersetzt. Andere Plattformen verwenden `downloadUrlToDevice`. Diese Hilfsfunktionen speichern auf dem Gerät des Clients, auch wenn der Engine-Server in Docker läuft.
+
 Der Namensraum wächst nur: Ein neues Mitglied kommt mit einer Minor-Version der Capability API, und ein Paket, das es braucht, verlangt diese Minor-Version. Pakete, die für den Namensraum gebaut sind, verlangen die Version der Capability API, die ihn eingeführt hat. Eine ältere Engine installiert sie also nie und behält die Paketversion, die sie bereits hat. Fehlt ein Mitglied trotzdem, greift das Paket nie auf eine mitgebündelte Kopie eines zustandsbehafteten Engine-Dienstes zurück: Die Stores `ui` und `chat` werden zu schreibgeschützten Kopien, die nie schreiben, und jedes andere Mitglied meldet, dass die Funktion eine neuere Version von Marinara Engine braucht.
 
 **Host-Module.** `modules[specifier]` ist ein vollständiger Modulnamensraum, einschließlich `default`, sofern die Bibliothek eines hat. `MARINARA_HOST_MODULE_IMPORTS` im Client-Vertrag ordnet jedem öffentlichen Slot die Abhängigkeit zu, die er importiert. Meist stimmen beide Namen überein. Der stabile Slot `framer-motion` ist `framer-motion-v13` zugeordnet (ein exakter npm-Alias für Motion 13.5.1), während der optionale Slot `motion/react` der primären Abhängigkeit `framer-motion` 14 der Engine zugeordnet ist. Die Paketwerkzeuge verwenden diese Zuordnung sowohl für die Exportliste als auch für die TypeScript-Pfade; öffentliche Slot-Namen müssen keine tatsächlichen Abhängigkeiten sein. Die Specifier sind `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` und `clsx`. Ein Paket-Build löst diese Specifier zu Shims auf, die den Namensraum lesen. So rendert das Paket mit dem einen React der Engine und teilt deren React-Query-Cache und Toasts.
@@ -820,6 +824,24 @@ Eine Ansicht vom Typ `home-browser-tab` erhält `capabilityProps.browserFullscre
 Das ist Vollbild innerhalb der App: Tabs, Adressleiste und Lesezeichen von Home werden ausgeblendet, während die Engine-Topbar verfügbar bleibt. Die Browser-Fullscreen-API wird nicht aufgerufen; eine Vollbildunterstützung des Browsers ist nicht nötig. Der Zustand ist vorübergehend und wird zurückgesetzt, sobald du das Paket oder Home verlässt. Halte auf jedem Paketbildschirm eine Schaltfläche zum Verlassen bereit und bilde `active` über `aria-pressed` ab. Prop-Änderungen müssen die Schaltfläche aktualisieren, ohne unfertige Formulare zu ersetzen. Pakete, die diese Steuerung brauchen, deklarieren Capability API 1.376 oder neuer; ältere Pakete können ihre vorhandenen Layouts behalten.
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.386: Verbindungen öffnen und direkte Textgenerierung für Pakete
+
+Die Browseransicht erhält `openConnection(connectionId)`. Damit öffnet sie den Verbindungseditor für diese gespeicherte Verbindung. Ein Paket mit Verbindungsauswahl kann so **Edit connection** (Verbindung bearbeiten) anbieten, statt eigene Anbietereinstellungen zu bauen. Beim Schließen des Editors kehrt Home zur Registerkarte des Pakets zurück; beim Verlassen auf anderem Weg, etwa durch Öffnen eines Chats, nicht. Im Desktop-Layout werden Home und die Paketansicht währenddessen ausgehängt: Speichere vorher die Eingaben. Prüfe vor dem Anzeigen der Schaltfläche, ob `openConnection` vorhanden ist; ältere Engines bieten die Funktion nicht.
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+Ein Browserpaket kann auch ohne eigenen Serverteil mit einer gespeicherten Verbindung Text erzeugen: über `POST /api/generate/raw` im API-Client des Hosts, der die CSRF- und Admin-Header ergänzt.
+
+- `connectionId`: die gespeicherte Verbindung. Ihre Parameter gelten; `parameters` (`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`) überschreibt sie feldweise.
+- `messages`: 1 bis 200 Nachrichten der Form `{ role: "system" | "user" | "assistant", content }`. Aufeinanderfolgende Nachrichten derselben Rolle werden zusammengeführt; der Prompt wird wie bei Engine-eigenen Generierungen an den Modellkontext angepasst.
+- `streaming`: `true` liefert Server-Sent Events; andernfalls lautet die Antwort `{ content, runId }` oder `{ aborted: true, runId }`.
+- `runId`: deine Kennung für den Lauf. `POST /api/generate/raw/abort` mit `{ runId }` beendet ihn, ebenso das Schließen der Anfrage.
+- `debugMode` (1.386): Übergib `debugMode` aus der Browseransicht. Ist es true oder läuft der Server mit `DEBUG_AGENTS`, protokolliert er die endgültigen Nachrichten an den Anbieter und die Antwort. Der Anfrageinhalt wird strikt geprüft; ältere Engines lehnen das Feld ab. Sende es daher nur bei true aus einem Paket, das 1.386 deklariert.
+
+Die Ereignisse sind `raw_started` (`{ runId }`), `token` (das nächste Textstück), `result` (`{ content }`, der vollständige Text), `aborted`, `error` (die Meldung), `fallback_used`, wenn stattdessen die Ausweichverbindung der Engine geantwortet hat, und `done`, immer zuletzt.
 
 ### Capability API 1.50: Aktionen für Professor Mari
 

@@ -61,6 +61,16 @@ Une simulation de vie. Tu vis dans une petite ville au rythme de l'horloge, avec
 - **Réglages clés** : installe-la depuis **Agents → Download Agents**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Life Sim**. Elle a besoin d'une connexion de texte. Une connexion d'images est facultative : sans elle, les lieux affichent des cartes illustrées au lieu d'arrière-plans générés. Des options facultatives appelées modules restent désactivées tant que tu ne les actives pas pour une vie ; le module **Adult** (adulte) te demande de confirmer que tu es majeur.
 - **Guide complet** : [guide du package Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et les lorebooks dans une barre latérale, laisse tes consignes d'auteur sur une note adhésive et le modèle écrit le chapitre suivant à ta demande. Les pages ressemblent à un livre ouvert ou à une liseuse. Tu peux cliquer n'importe où dans le texte pour le modifier, ou commencer toi-même le premier chapitre.
+
+- **Intégration** : App ; s'ouvre dans son propre onglet **Story Writer** de **Home**.
+- **Où il fonctionne** : Home.
+- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciens Engines ne le proposent pas dans **Download Agents**.
+- **Réglages principaux** : installe-le depuis **Agents → Download Agents**, redémarre Marinara Engine quand il te le demande, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans la barre latérale. Chaque histoire est enregistrée sur ton serveur Marinara Engine. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
+- **Guide complet** : [Guide du paquet Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Writer Agents
 
 Les Writer Agents façonnent l'histoire ou le style. Soit ils ajoutent des consignes avant la réponse, soit ils nettoient la réponse après coup.

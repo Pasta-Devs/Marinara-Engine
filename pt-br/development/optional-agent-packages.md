@@ -75,13 +75,18 @@ A propriedade não é gravável nem configurável, e o namespace e os objetos `s
 | `services.tts` | O módulo `lib/tts-service.ts` (`ttsService`, `playWhenAvailable`, ...). |
 | `services.audio` | A partir da Capability API 1.381, o módulo `lib/audio-service.ts`: players independentes de música/efeitos sonoros, o manifesto de recursos compartilhado e a seleção de música padrão. Veja [Áudio de pacotes](#package-audio). |
 | `services.dialogs` | O módulo `lib/app-dialogs.ts` (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`). |
+| `services.imageDownloads` | A partir da Capability API 1.385, as funções existentes da galeria `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` e `savePreparedImageToDevice`. |
 | `modules` | Módulos de bibliotecas, indexados pelo especificador simples (veja abaixo). |
 | `queryClient` | O único `QueryClient` do React Query com que o Engine renderiza. |
 | `components.Modal` | O `Modal` do Engine, com a ordem de sobreposição e o tratamento da tecla Escape e do botão de voltar. |
 | `data.emojiCatalog` | O módulo `lib/emoji-catalog.generated.ts`. |
 | `api` | O módulo `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
-Um pacote só lê um membro depois de verificá-lo, por exemplo `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`. O namespace só cresce: um membro novo chega com uma versão minor da API de capacidades, e um pacote que precisa dele exige essa minor. Os pacotes feitos para o namespace exigem a versão da API de capacidades que o acrescentou, então um Engine mais antigo nunca os instala e mantém a versão que já tem instalada. Quando um membro falta mesmo assim, o pacote nunca recorre a uma cópia embutida de um serviço do Engine que guarda estado: os stores `ui` e `chat` viram cópias somente leitura que nunca gravam, e todos os outros membros informam que o recurso precisa de um Marinara Engine mais novo.
+Um pacote só lê um membro depois de verificá-lo, por exemplo `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
+
+Para baixar imagens, use `shouldUseIosImageShare()` e siga a mesma política de plataforma da galeria. No iPhone, prepare a imagem com `prepareImageSave(url, filename)` antes do gesto de salvar e chame `savePreparedImageToDevice(prepared)` diretamente nesse gesto. O cancelamento do compartilhamento é silencioso, e uma falha não é substituída pela prévia de download do WebKit. As outras plataformas usam `downloadUrlToDevice`. Essas funções salvam no dispositivo do cliente, mesmo quando o servidor do Engine roda no Docker.
+
+O namespace só cresce: um membro novo chega com uma versão minor da API de capacidades, e um pacote que precisa dele exige essa minor. Os pacotes feitos para o namespace exigem a versão da API de capacidades que o acrescentou, então um Engine mais antigo nunca os instala e mantém a versão que já tem instalada. Quando um membro falta mesmo assim, o pacote nunca recorre a uma cópia embutida de um serviço do Engine que guarda estado: os stores `ui` e `chat` viram cópias somente leitura que nunca gravam, e todos os outros membros informam que o recurso precisa de um Marinara Engine mais novo.
 
 **Módulos do host.** `modules[specifier]` é um namespace de módulo completo, inclusive `default` quando a biblioteca tem um. `MARINARA_HOST_MODULE_IMPORTS`, no contrato do cliente, mapeia cada slot público para a dependência que ele importa. A maioria mantém o mesmo nome. O slot estável `framer-motion` é mapeado para `framer-motion-v13` (um alias npm fixado exatamente no Motion 13.5.1), enquanto o slot opcional `motion/react` é mapeado para a dependência principal `framer-motion` 14 do Engine. As ferramentas de pacotes usam esse mapeamento tanto para o inventário de exports quanto para os caminhos do TypeScript; nomes de slots públicos não precisam ser dependências físicas. Os especificadores são `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` e `clsx`. O build de um pacote resolve esses especificadores para shims que leem o namespace, então o pacote renderiza com o único React do Engine e compartilha o cache do React Query e os toasts dele.
 
@@ -816,6 +821,24 @@ Uma visualização `home-browser-tab` recebe `capabilityProps.browserFullscreen`
 É uma tela cheia dentro do aplicativo: as abas, a barra de endereços e os favoritos de Home ficam ocultos, enquanto a barra superior do Engine continua disponível. Ela não chama a API Fullscreen do navegador nem exige suporte a tela cheia no navegador. O estado é temporário e é redefinido ao sair do pacote ou de Home. Mantenha um botão de saída em todas as telas do pacote e use `aria-pressed` para representar `active`. Atualizações das propriedades devem atualizar o botão sem substituir formulários inacabados. Pacotes que dependem desse controle declaram Capability API 1.376 ou mais recente; os antigos podem manter seus layouts atuais.
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.386: abrir uma conexão e gerar texto bruto em pacotes
+
+A visualização do navegador recebe `openConnection(connectionId)`. Ela abre o editor na conexão salva, permitindo que um pacote com seletor de conexão ofereça **Edit connection** (editar conexão) em vez de configurações próprias de provedor. Ao fechar o editor, Home volta à aba do pacote; ao sair por outro caminho, como abrir um chat, isso não acontece. No layout de computador, Home e a visualização do pacote são desmontados enquanto o editor está aberto: salve primeiro o que o usuário digitou. Engines anteriores não têm essa função; confira se `openConnection` existe antes de mostrar o botão.
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+Um pacote de navegador também pode gerar texto com uma conexão salva, sem ter uma parte de servidor própria: use `POST /api/generate/raw` pelo cliente de API do host, que adiciona os cabeçalhos CSRF e de administrador.
+
+- `connectionId`: a conexão salva. Seus parâmetros são aplicados, e `parameters` (`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`) os substitui campo a campo.
+- `messages`: de 1 a 200 mensagens `{ role: "system" | "user" | "assistant", content }`. Mensagens consecutivas do mesmo papel são combinadas e o prompt é ajustado ao contexto do modelo, como nas gerações do próprio Engine.
+- `streaming`: `true` responde com eventos enviados pelo servidor; caso contrário, a resposta é `{ content, runId }` ou `{ aborted: true, runId }`.
+- `runId`: seu identificador da execução. `POST /api/generate/raw/abort` com `{ runId }` a interrompe, assim como fechar a requisição.
+- `debugMode` (1.386): passe o `debugMode` da visualização do navegador. Se for true, ou se o servidor estiver rodando com `DEBUG_AGENTS`, o servidor registra as mensagens finais enviadas ao provedor e a resposta. O corpo é estrito e um Engine anterior rejeita esse campo: envie-o apenas quando for true, de um pacote que declare 1.386.
+
+Os eventos são `raw_started` (`{ runId }`), `token` (o próximo trecho de texto), `result` (`{ content }`, o texto inteiro), `aborted`, `error` (a mensagem), `fallback_used` quando a conexão de reserva do Engine respondeu, e `done`, sempre por último.
 
 ### Capability API 1.50: ações do Professor Mari
 

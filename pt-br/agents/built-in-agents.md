@@ -61,6 +61,16 @@ Uma simulação de vida. Você vive em uma cidadezinha com o relógio correndo, 
 - **Configurações principais**: instale em **Agents → Download Agents**, reinicie o Marinara Engine quando solicitado e depois abra **Home → Life Sim**. Ele precisa de uma conexão de texto. Uma conexão de imagem é opcional: sem ela, os lugares mostram cartões ilustrados em vez de planos de fundo gerados. Extras opcionais chamados módulos ficam desligados, a menos que você os ative para uma vida; o módulo **Adult** (adulto) pede que você confirme que é maior de idade.
 - **Guia completo**: [guia do pacote Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+Um livro que você escreve junto com o modelo. Configure a história, o elenco e os lorebooks em uma barra lateral, deixe as instruções de autor em uma nota adesiva e o modelo escreverá o próximo capítulo sempre que você pedir. As páginas parecem um livro aberto ou um leitor de livros digitais. Você pode clicar em qualquer parte do texto para alterá-la ou começar o primeiro capítulo por conta própria.
+
+- **Integração**: App; abre na própria aba **Story Writer** em **Home**.
+- **Onde funciona**: Home.
+- **Disponibilidade**: precisa de uma versão do Marinara Engine mais recente que **v2.5.1** (a próxima versão ou uma compilação atual de staging). Engines anteriores não o oferecem em **Download Agents**.
+- **Configurações principais**: instale em **Agents → Download Agents**, reinicie o Marinara Engine quando solicitado, abra **Home → Story Writer** e escolha uma conexão de texto na barra lateral. Cada história é salva no seu servidor do Marinara Engine; você pode começar novas, voltar às anteriores e baixá-las em Markdown ou texto simples.
+- **Guia completo**: [Guia do pacote Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Writer agents
 
 Os agentes de escrita moldam a história ou o texto. Eles acrescentam orientações antes da resposta ou dão um polimento na resposta depois de pronta.

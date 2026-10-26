@@ -75,13 +75,18 @@ globalThis.__MARINARA_HOST__ = {
 | `services.tts` | `lib/tts-service.ts`モジュール(`ttsService`、`playWhenAvailable`、...)。 |
 | `services.audio` | Capability API 1.381以降の`lib/audio-service.ts`モジュール。独立した音楽と効果音のプレイヤー、共有アセットマニフェスト、デフォルトの音楽選択を提供します。[パッケージの音声](#package-audio)を参照してください。 |
 | `services.dialogs` | `lib/app-dialogs.ts`モジュール(`showAlertDialog`、`showConfirmDialog`、`showPromptDialog`、`showChoiceDialog`)。 |
+| `services.imageDownloads` | Capability API 1.385以降では、ギャラリーの既存の補助関数`downloadUrlToDevice`、`shouldUseIosImageShare`、`prepareImageSave`、`savePreparedImageToDevice`を提供します。 |
 | `modules` | ライブラリーのモジュール。bare specifier(パスを含まないモジュール名)をキーにします(後述)。 |
 | `queryClient` | Engineが描画に使う唯一のReact Queryの`QueryClient`。 |
 | `components.Modal` | Engineの`Modal`。重なり順、Escapeキー、戻るボタンの処理を含みます。 |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts`モジュール。 |
 | `api` | `lib/api-client.ts`モジュール(`api`、`ApiError`、`getApiErrorMessage`、...)。 |
 
-パッケージは、メンバーを確認してから読み取ります。たとえば`const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`のようにします。名前空間は増える一方です。新しいメンバーはCapability APIのマイナーバージョンとともに追加され、それを必要とするパッケージはそのマイナーバージョンを要求します。名前空間向けにビルドしたパッケージは、名前空間を追加したCapability APIのバージョンを要求するので、古いEngineはそれをインストールせず、今あるバージョンを使い続けます。それでもメンバーが欠けている場合、パッケージは状態を持つEngineのサービスを、同梱のコピーで代用することはありません。`ui`と`chat`のストアは書き込みをしない読み取り専用のコピーになり、それ以外のメンバーはすべて、その機能には新しいMarinara Engineが必要だと報告します。
+パッケージは、メンバーを確認してから読み取ります。たとえば`const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`のようにします。
+
+画像のダウンロードには`shouldUseIosImageShare()`を使い、ギャラリーと同じプラットフォーム方針に従います。iPhoneでは保存操作の前に`prepareImageSave(url, filename)`で画像を準備し、その操作から直接`savePreparedImageToDevice(prepared)`を呼び出します。共有のキャンセルはエラー表示を出さずに処理し、共有に失敗してもWebKitのダウンロードプレビューへ切り替えません。他のプラットフォームでは`downloadUrlToDevice`を使います。これらの関数は、EngineサーバーがDockerで動いていてもクライアント端末に保存します。
+
+名前空間は増える一方です。新しいメンバーはCapability APIのマイナーバージョンとともに追加され、それを必要とするパッケージはそのマイナーバージョンを要求します。名前空間向けにビルドしたパッケージは、名前空間を追加したCapability APIのバージョンを要求するので、古いEngineはそれをインストールせず、今あるバージョンを使い続けます。それでもメンバーが欠けている場合、パッケージは状態を持つEngineのサービスを、同梱のコピーで代用することはありません。`ui`と`chat`のストアは書き込みをしない読み取り専用のコピーになり、それ以外のメンバーはすべて、その機能には新しいMarinara Engineが必要だと報告します。
 
 **ホストのモジュール。** `modules[specifier]`は完全なモジュール名前空間で、ライブラリーに`default`があればそれも含みます。クライアント契約の`MARINARA_HOST_MODULE_IMPORTS`は、各公開スロットを、そのスロットがインポートする依存関係に対応付けます。ほとんどは同じ名前に対応します。安定した`framer-motion`スロットは`framer-motion-v13`(Motion 13.5.1の正確なnpmエイリアス)に対応し、任意で選べる`motion/react`スロットはEngineの主要な依存関係である`framer-motion` 14に対応します。パッケージのツールは、エクスポート一覧とTypeScriptのパスの両方にこの対応付けを使います。公開スロット名が実際の依存関係名である必要はありません。指定子は`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`motion/react`、`tailwind-merge`、`clsx`です。パッケージのビルドはこれらの指定子を、名前空間を読むシム(shim)に解決します。そのため、パッケージはEngineの唯一のReactで描画され、EngineのReact Queryのキャッシュとトーストを共有します。
 
@@ -808,6 +813,24 @@ export async function activate({ api }) {
 これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.386: 接続の編集とパッケージからの生のテキスト生成
+
+ブラウザービューには`openConnection(connectionId)`が渡されます。指定した保存済み接続のエディターを開くため、接続を選べるパッケージは独自のプロバイダー設定の代わりに**Edit connection**(接続を編集)を用意できます。エディターを閉じると、Homeはパッケージのタブに戻ります。チャットを開くなど、別の方法で離れた場合は戻りません。デスクトップではエディターを開いている間、Homeとパッケージビューがアンマウントされるため、入力内容を先に保存してください。古いEngineにはこの関数がないので、ボタンの表示前に`openConnection`の存在を確認します。
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+ブラウザーパッケージは、独自のサーバー部分を持たずに保存済み接続でテキストを生成することもできます。ホストのAPIクライアント経由で`POST /api/generate/raw`を呼び出すと、CSRFと管理者のヘッダーが付与されます。
+
+- `connectionId`: 保存済み接続です。保存されたパラメーターが適用され、`parameters`(`temperature`、`maxTokens`、`maxContext`、`topP`、`topK`、`minP`、`frequencyPenalty`、`presencePenalty`、`reasoningEffort`、`verbosity`、`serviceTier`、`customParameters`、`enabledParameters`)で項目ごとに上書きできます。
+- `messages`: `{ role: "system" | "user" | "assistant", content }`形式のメッセージを1から200件渡します。同じロールが続く場合は結合され、Engine自身の生成と同様にモデルのコンテキストに収まるようプロンプトが調整されます。
+- `streaming`: `true`ではサーバー送信イベントで応答します。それ以外では`{ content, runId }`または`{ aborted: true, runId }`を返します。
+- `runId`: 実行を識別するIDです。`{ runId }`を指定した`POST /api/generate/raw/abort`で停止でき、リクエストを閉じても停止します。
+- `debugMode`(1.386): ブラウザービューの`debugMode`を渡します。trueの場合、またはサーバーを`DEBUG_AGENTS`付きで実行している場合、プロバイダーに送った最終メッセージと応答がログに記録されます。リクエスト本文は厳密に検証され、古いEngineはこのフィールドを拒否します。1.386を宣言したパッケージから、trueの場合にだけ送ってください。
+
+イベントは`raw_started`(`{ runId }`)、`token`(次のテキスト断片)、`result`(`{ content }`、全文)、`aborted`、`error`(メッセージ)、Engineの代替接続が応答した場合の`fallback_used`、そして必ず最後の`done`です。
 
 ### Capability API 1.50: Professor Mariのアクション
 

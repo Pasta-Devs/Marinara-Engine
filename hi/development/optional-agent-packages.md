@@ -74,13 +74,18 @@ globalThis.__MARINARA_HOST__ = {
 | `services.tts` | `lib/tts-service.ts` मॉड्यूल (`ttsService`, `playWhenAvailable`, ...) |
 | `services.audio` | Capability API 1.381 से `lib/audio-service.ts` मॉड्यूल: स्वतंत्र संगीत/SFX प्लेयर, साझा एसेट मैनिफ़ेस्ट और डिफ़ॉल्ट संगीत का चुनाव। [पैकेज का ऑडियो](#package-audio) देखें। |
 | `services.dialogs` | `lib/app-dialogs.ts` मॉड्यूल (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`) |
+| `services.imageDownloads` | Capability API 1.385 से, गैलरी के मौजूदा `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` और `savePreparedImageToDevice` सहायक फ़ंक्शन। |
 | `modules` | लाइब्रेरी मॉड्यूल, बेयर स्पेसिफ़ायर के हिसाब से (नीचे देखें) |
 | `queryClient` | वही एक React Query `QueryClient` जिसके साथ Engine रेंडर करता है |
 | `components.Modal` | Engine का `Modal`, उसके ओवरले क्रम, Escape और बैक बटन की हैंडलिंग के साथ |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` मॉड्यूल |
 | `api` | `lib/api-client.ts` मॉड्यूल (`api`, `ApiError`, `getApiErrorMessage`, ...) |
 
-पैकेज किसी सदस्य को जाँचने के बाद ही पढ़ता है, मिसाल के तौर पर `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`। नेमस्पेस सिर्फ़ बढ़ता है: नया सदस्य कैपेबिलिटी API के एक माइनर वर्ज़न के साथ आता है, और जिस पैकेज को उसकी ज़रूरत है, वह वही माइनर वर्ज़न माँगता है। नेमस्पेस के लिए बने पैकेज कैपेबिलिटी API का वह वर्ज़न माँगते हैं जिसमें नेमस्पेस जोड़ा गया था, इसलिए पुराना Engine उन्हें कभी इंस्टॉल नहीं करता और अपने पास मौजूद वर्ज़न ही रखता है। फिर भी कोई सदस्य गायब हो, तो पैकेज कभी स्टेट रखने वाली Engine सेवा की बंडल की हुई कॉपी पर नहीं लौटता: `ui` और `chat` स्टोर सिर्फ़ पढ़ने वाली कॉपी बन जाते हैं जो कभी कुछ नहीं लिखतीं, और बाकी हर सदस्य बताता है कि इस फ़ीचर के लिए नया Marinara Engine चाहिए।
+पैकेज किसी सदस्य को जाँचने के बाद ही पढ़ता है, मिसाल के तौर पर `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`।
+
+इमेज डाउनलोड के लिए `shouldUseIosImageShare()` से गैलरी की प्लेटफ़ॉर्म नीति अपनाएँ। iPhone पर सेव करने के जेस्चर से पहले `prepareImageSave(url, filename)` से इमेज तैयार करें, फिर उसी जेस्चर से सीधे `savePreparedImageToDevice(prepared)` कॉल करें। शेयर करना रद्द करने पर कोई त्रुटि नहीं दिखती और शेयर विफल होने पर उसकी जगह WebKit डाउनलोड प्रीव्यू नहीं खुलता। दूसरे प्लेटफ़ॉर्म `downloadUrlToDevice` इस्तेमाल करते हैं। ये सहायक फ़ंक्शन क्लाइंट डिवाइस पर सेव करते हैं, भले ही Engine सर्वर Docker में चल रहा हो।
+
+नेमस्पेस सिर्फ़ बढ़ता है: नया सदस्य कैपेबिलिटी API के एक माइनर वर्ज़न के साथ आता है, और जिस पैकेज को उसकी ज़रूरत है, वह वही माइनर वर्ज़न माँगता है। नेमस्पेस के लिए बने पैकेज कैपेबिलिटी API का वह वर्ज़न माँगते हैं जिसमें नेमस्पेस जोड़ा गया था, इसलिए पुराना Engine उन्हें कभी इंस्टॉल नहीं करता और अपने पास मौजूद वर्ज़न ही रखता है। फिर भी कोई सदस्य गायब हो, तो पैकेज कभी स्टेट रखने वाली Engine सेवा की बंडल की हुई कॉपी पर नहीं लौटता: `ui` और `chat` स्टोर सिर्फ़ पढ़ने वाली कॉपी बन जाते हैं जो कभी कुछ नहीं लिखतीं, और बाकी हर सदस्य बताता है कि इस फ़ीचर के लिए नया Marinara Engine चाहिए।
 
 **होस्ट मॉड्यूल।** `modules[specifier]` एक पूरा मॉड्यूल नेमस्पेस है, और जिस लाइब्रेरी में `default` है, उसमें वह भी शामिल है। क्लाइंट कॉन्ट्रैक्ट में `MARINARA_HOST_MODULE_IMPORTS` हर सार्वजनिक स्लॉट को उस डिपेंडेंसी से मैप करता है जिसे वह इंपोर्ट करता है। ज़्यादातर के दोनों नाम एक ही हैं। स्थिर `framer-motion` स्लॉट `framer-motion-v13` से मैप होता है (Motion 13.5.1 का एक सटीक npm alias), जबकि वैकल्पिक `motion/react` स्लॉट Engine की मुख्य `framer-motion` 14 डिपेंडेंसी से मैप होता है। पैकेज टूलिंग एक्सपोर्ट सूची और TypeScript पाथ, दोनों के लिए इसी मैपिंग का इस्तेमाल करती है; सार्वजनिक स्लॉट के नाम वास्तविक डिपेंडेंसी के नाम होना ज़रूरी नहीं है। स्पेसिफ़ायर ये हैं: `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` और `clsx`। पैकेज बिल्ड इन स्पेसिफ़ायर को ऐसे शिम पर रिज़ॉल्व करता है जो नेमस्पेस पढ़ते हैं, इसलिए पैकेज Engine के उसी एक React से रेंडर होता है और उसका React Query कैश और टोस्ट साझा करता है।
 
@@ -811,6 +816,24 @@ export async function activate({ api }) {
 यह ऐप के अंदर का फ़ुलस्क्रीन है: Home के टैब, एड्रेस बार और बुकमार्क छिप जाते हैं, जबकि Engine का टॉपबार उपलब्ध रहता है। यह ब्राउज़र के Fullscreen API को कॉल नहीं करता और ब्राउज़र में फ़ुलस्क्रीन सपोर्ट ज़रूरी नहीं है। यह स्थिति अस्थायी है और पैकेज या Home से बाहर जाने पर रीसेट हो जाती है। पैकेज की हर स्क्रीन पर बाहर निकलने का बटन रखें और `active` की स्थिति दिखाने के लिए `aria-pressed` इस्तेमाल करें। प्रॉप बदलने पर बटन अपडेट होना चाहिए, अधूरे फ़ॉर्म नहीं बदलने चाहिए। इस कंट्रोल पर निर्भर पैकेज Capability API 1.376 या नया घोषित करते हैं; पुराने पैकेज अपना मौजूदा लेआउट रख सकते हैं।
 
 <a id="capability-api-150-professor-mari-actions"></a>
+
+### Capability API 1.386: कनेक्शन खोलना और पैकेज से रॉ टेक्स्ट जनरेशन
+
+ब्राउज़र व्यू को `openConnection(connectionId)` मिलता है। यह सहेजे गए कनेक्शन का एडिटर खोलता है। इसलिए कनेक्शन चुनने वाला पैकेज अपने प्रोवाइडर सेटिंग्स बनाने के बजाय **Edit connection** (कनेक्शन बदलें) दे सकता है। एडिटर बंद करने पर Home पैकेज के टैब पर लौटता है; किसी दूसरे रास्ते से निकलने पर, जैसे चैट खोलने पर, ऐसा नहीं होता। डेस्कटॉप लेआउट में एडिटर खुला रहने तक Home और पैकेज व्यू अनमाउंट होते हैं: पहले उपयोगकर्ता का टाइप किया हुआ टेक्स्ट सेव करें। पुराने Engine में यह फ़ंक्शन नहीं है; बटन दिखाने से पहले जाँचें कि `openConnection` मौजूद है।
+
+```ts
+if (typeof props.openConnection === "function") props.openConnection(connectionId);
+```
+
+ब्राउज़र पैकेज अपना सर्वर भाग बनाए बिना भी सहेजे गए कनेक्शन से टेक्स्ट जनरेट कर सकता है: होस्ट के API क्लाइंट से `POST /api/generate/raw` भेजें। क्लाइंट CSRF और एडमिन हेडर जोड़ता है।
+
+- `connectionId`: सहेजा गया कनेक्शन। उसके सेव किए गए पैरामीटर लागू होते हैं; `parameters` (`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`) उन्हें एक-एक फ़ील्ड के आधार पर बदलता है।
+- `messages`: 1 से 200 `{ role: "system" | "user" | "assistant", content }` संदेश। एक ही रोल वाले लगातार संदेश जोड़े जाते हैं और प्रॉम्प्ट को मॉडल के कॉन्टेक्स्ट में समायोजित किया जाता है, जैसे Engine के अपने जनरेशन में होता है।
+- `streaming`: `true` होने पर सर्वर से भेजे गए इवेंट मिलते हैं; अन्यथा उत्तर `{ content, runId }` या `{ aborted: true, runId }` होता है।
+- `runId`: रन के लिए आपका पहचानकर्ता। `{ runId }` के साथ `POST /api/generate/raw/abort` उसे रोकता है; रिक्वेस्ट बंद करने से भी वह रुकता है।
+- `debugMode` (1.386): ब्राउज़र व्यू का `debugMode` भेजें। इसके true होने पर, या सर्वर के `DEBUG_AGENTS` के साथ चलने पर, सर्वर प्रोवाइडर को भेजे गए अंतिम संदेश और उत्तर लॉग करता है। बॉडी का सत्यापन सख्त है, इसलिए पुराना Engine यह फ़ील्ड अस्वीकार करता है: इसे केवल true होने पर, 1.386 घोषित करने वाले पैकेज से भेजें।
+
+इवेंट हैं: `raw_started` (`{ runId }`), `token` (टेक्स्ट का अगला हिस्सा), `result` (`{ content }`, पूरा टेक्स्ट), `aborted`, `error` (संदेश), Engine के फ़ॉलबैक कनेक्शन से उत्तर आने पर `fallback_used`, और `done`, जो हमेशा अंत में आता है।
 
 ### Capability API 1.50: Professor Mari की कार्रवाइयाँ
 

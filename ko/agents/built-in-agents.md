@@ -61,6 +61,16 @@ Apps는 **Home**(홈)에 전용 탭이 있는 패키지입니다. 채팅에 추�
 - **주요 설정**: **Agents → Download Agents**에서 설치하고 안내가 나오면 Marinara Engine을 다시 시작한 다음 **Home → Life Sim**을 여세요. 텍스트 연결이 필요합니다. 이미지 연결은 선택 사항이며, 없으면 장소에 생성된 배경 대신 일러스트 카드가 표시됩니다. 모듈이라는 선택형 추가 기능은 인생마다 직접 켜지 않으면 꺼져 있습니다. **Adult** 모듈은 성인인지 확인해 달라고 요청합니다.
 - **전체 가이드**: [Modern Life Sim 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
+### Story Writer
+
+모델과 함께 쓰는 책입니다. 사이드바에서 이야기, 등장인물과 로어북을 설정하고 접착 메모에 작가 지침을 남기면 요청할 때마다 모델이 다음 장을 씁니다. 페이지는 펼친 책이나 전자책 리더처럼 보이며, 텍스트의 어느 곳이든 클릭해 수정하거나 첫 장을 직접 시작할 수 있습니다.
+
+- **통합**: App. **Home**의 전용 **Story Writer** 탭에서 열립니다.
+- **사용 위치**: Home.
+- **사용 조건**: **v2.5.1**보다 새로운 Marinara Engine(다음 릴리스 또는 현재 staging 빌드)이 필요합니다. 이전 Engine에서는 **Download Agents**에 표시되지 않습니다.
+- **주요 설정**: **Agents → Download Agents**에서 설치하고 안내에 따라 Marinara Engine을 다시 시작한 다음, **Home → Story Writer**를 열고 사이드바에서 텍스트 연결을 선택하세요. 각 이야기는 Marinara Engine 서버에 저장됩니다. 새 이야기를 시작하고 이전 이야기로 돌아가거나 Markdown 또는 일반 텍스트로 다운로드할 수 있습니다.
+- **전체 가이드**: [Story Writer 패키지 가이드](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
+
 ## Writer 에이전트
 
 Writer 에이전트는 이야기나 문장을 다듬습니다. 답변 생성 전에 방향을 잡아 주거나, 생성된 답변을 뒤에서 손봅니다.
