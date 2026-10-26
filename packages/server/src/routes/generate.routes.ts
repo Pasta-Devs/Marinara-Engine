@@ -3035,9 +3035,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       if (allCharacterIds.length > 0 && characterIds.length === 0 && chatMode !== "game") {
         throw new Error("All characters in this chat are disabled. Enable at least one character before generating.");
       }
-      if (chatMode === "conversation" && characterIds.length === 0 && !input.impersonate) {
-        throw new Error("This chat has no character. Add a character before sending a message.");
-      }
 
       // The trigger menu can ask Smart for one turn without mutating the saved group order.
       const savedGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
