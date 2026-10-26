@@ -426,7 +426,7 @@ export async function deleteAccountModels(models: Array<{ id: string }>) {
 }
 
 /**
- * The delete question for a Connection, asked before anything is deleted: it names its Models and what uses them.
+ * The delete question for a Connection, asked before anything is deleted: it names its model count and what uses them.
  * True means: delete the Models, then the Connection.
  */
 export async function confirmAccountDelete(
@@ -435,7 +435,6 @@ export async function confirmAccountDelete(
   t: TFunction,
 ): Promise<boolean> {
   const ids = models.map((row) => row.id);
-  const modelNames = models.map((row) => row.name?.trim() || row.model || row.id);
   return showConfirmDialog({
     title: t("connections.accounts.editor.delete"),
     message: models.length
@@ -443,9 +442,7 @@ export async function confirmAccountDelete(
           t("connections.accounts.editor.deleteWithModels", {
             name,
             count: models.length,
-            models: listNames(modelNames, t),
           }),
-          t("connections.accounts.editor.deleteKeepHint"),
           ...(await usageLines(ids, new Set(ids), t)),
         ].join("\n")
       : t("connections.accounts.editor.deleteConfirm", { name }),
