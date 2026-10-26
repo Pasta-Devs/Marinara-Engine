@@ -85,7 +85,7 @@ La propriété n'est ni accessible en écriture ni configurable, et l'espace de 
 Un package ne lit un membre qu'après l'avoir vérifié, par exemple
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
 
-Pour télécharger des images, utilise `shouldUseIosImageShare()` afin de suivre les règles de la galerie pour chaque plateforme. Sur iPhone, prépare l'image avec `prepareImageSave(url, filename)` avant le geste d'enregistrement, puis appelle `savePreparedImageToDevice(prepared)` directement depuis ce geste. L'annulation du partage reste silencieuse et un échec n'est pas remplacé par un aperçu de téléchargement WebKit. Les autres plateformes utilisent `downloadUrlToDevice`. Ces fonctions enregistrent les images sur l'appareil du client, même si le serveur Engine s'exécute dans Docker.
+Pour télécharger des images, utilise `shouldUseIosImageShare()` afin de suivre les règles de la galerie pour chaque plateforme. Sur iPhone, prépare l'image avec `prepareImageSave(url, filename)` avant le geste d'enregistrement, puis appelle `savePreparedImageToDevice(prepared)` directement depuis ce geste. L'annulation du partage reste silencieuse et un échec n'est pas remplacé par un aperçu de téléchargement WebKit. Les autres plateformes utilisent `downloadUrlToDevice`. Ces fonctions enregistrent les images sur l'appareil du client, même si le serveur du moteur s'exécute dans Docker.
 
 L'espace de noms ne fait que s'agrandir : un nouveau membre arrive avec une version mineure de Capability API, et un package qui en a besoin exige cette version mineure. Les packages construits pour l'espace de noms exigent la version de Capability API qui l'a ajouté : un moteur plus ancien ne les installe donc jamais et garde la version qu'il a. Si un membre manque malgré tout, le package ne se rabat jamais sur une copie embarquée d'un service du moteur qui a un état : les stores `ui` et `chat` deviennent des copies en lecture seule qui n'écrivent jamais, et chaque autre membre signale que la fonctionnalité demande une version plus récente de Marinara Engine.
 
@@ -848,11 +848,11 @@ Une vue `home-browser-tab` reçoit `capabilityProps.browserFullscreen` :
 
 Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse et les favoris de Home sont masqués, tandis que la barre supérieure d'Engine reste disponible. Il n'appelle pas l'API Fullscreen du navigateur et ne nécessite pas sa prise en charge. Cet état est temporaire et se réinitialise quand on quitte le paquet ou Home. Garde un bouton de sortie sur chaque écran du paquet et utilise `aria-pressed` pour refléter `active`. Les mises à jour des propriétés doivent actualiser le bouton sans remplacer les formulaires inachevés. Les paquets qui dépendent de cette commande déclarent Capability API 1.376 ou une version ultérieure ; les anciens peuvent garder leurs dispositions actuelles.
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386 : ouvrir une connexion et générer du texte brut depuis un paquet
 
-La vue du navigateur reçoit `openConnection(connectionId)`. Cette fonction ouvre l'éditeur sur la connexion enregistrée. Un paquet qui permet de choisir une connexion peut ainsi proposer **Edit connection** (modifier la connexion) au lieu de ses propres réglages de fournisseur. Quand l'éditeur se ferme, Home revient à l'onglet du paquet ; si tu le quittes autrement, par exemple en ouvrant un chat, ce retour n'a pas lieu. Sur ordinateur, Home et la vue du paquet sont démontés pendant l'ouverture de l'éditeur : enregistre d'abord les saisies. Les anciens Engines n'ont pas cette fonction : vérifie que `openConnection` existe avant d'afficher le bouton.
+La vue du navigateur reçoit `openConnection(connectionId)`. Cette fonction ouvre l'éditeur sur la connexion enregistrée. Un paquet qui permet de choisir une connexion peut ainsi proposer **Edit connection** (modifier la connexion) au lieu de ses propres réglages de fournisseur. Quand l'éditeur se ferme, Home revient à l'onglet du paquet ; si tu le quittes autrement, par exemple en ouvrant un chat, ce retour n'a pas lieu. Sur ordinateur, Home et la vue du paquet sont démontés pendant l'ouverture de l'éditeur : enregistre d'abord les saisies. Les anciennes versions du moteur n'ont pas cette fonction : vérifie que `openConnection` existe avant d'afficher le bouton.
 
 ```ts
 if (typeof props.openConnection === "function") props.openConnection(connectionId);
@@ -861,12 +861,14 @@ if (typeof props.openConnection === "function") props.openConnection(connectionI
 Un paquet de navigateur peut aussi générer du texte avec une connexion enregistrée sans avoir sa propre partie serveur : appelle `POST /api/generate/raw` par le client d'API de l'hôte, qui ajoute les en-têtes CSRF et d'administration.
 
 - `connectionId` : la connexion enregistrée. Ses paramètres s'appliquent ; `parameters` (`temperature`, `maxTokens`, `maxContext`, `topP`, `topK`, `minP`, `frequencyPenalty`, `presencePenalty`, `reasoningEffort`, `verbosity`, `serviceTier`, `customParameters`, `enabledParameters`) les remplace champ par champ.
-- `messages` : de 1 à 200 messages `{ role: "system" | "user" | "assistant", content }`. Les messages consécutifs d'un même rôle sont réunis et le prompt est ajusté au contexte du modèle, comme pour les générations propres à Engine.
+- `messages` : de 1 à 200 messages `{ role: "system" | "user" | "assistant", content }`. Les messages consécutifs d'un même rôle sont réunis et le prompt est ajusté au contexte du modèle, comme pour les générations du moteur.
 - `streaming` : `true` renvoie des événements envoyés par le serveur ; sinon, la réponse est `{ content, runId }` ou `{ aborted: true, runId }`.
 - `runId` : ton identifiant d'exécution. `POST /api/generate/raw/abort` avec `{ runId }` l'arrête, tout comme la fermeture de la requête.
-- `debugMode` (1.386) : transmets le `debugMode` de la vue du navigateur. S'il vaut true, ou si le serveur fonctionne avec `DEBUG_AGENTS`, le serveur consigne les messages finaux envoyés au fournisseur et sa réponse. Le corps est strict et un ancien Engine refuse ce champ : envoie-le seulement quand il vaut true, depuis un paquet qui déclare 1.386.
+- `debugMode` (1.386) : transmets le `debugMode` de la vue du navigateur. S'il vaut true, ou si le serveur fonctionne avec `DEBUG_AGENTS`, le serveur consigne les messages finaux envoyés au fournisseur et sa réponse. Le corps est strict et une ancienne version du moteur refuse ce champ : envoie-le seulement quand il vaut true, depuis un paquet qui déclare 1.386.
 
 Les événements sont `raw_started` (`{ runId }`), `token` (le fragment de texte suivant), `result` (`{ content }`, le texte entier), `aborted`, `error` (le message), `fallback_used` quand la connexion de secours d'Engine a répondu, et `done`, toujours en dernier.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50 : actions de Professor Mari
 

@@ -67,7 +67,7 @@ Ein Buch, das du gemeinsam mit dem Modell schreibst. Richte Geschichte, Besetzun
 
 - **Integration**: App; öffnet eine eigene Registerkarte **Story Writer** in **Home**.
 - **Wo es funktioniert**: Home.
-- **Verfügbarkeit**: benötigt eine neuere Marinara Engine als **v2.5.1** (die nächste Veröffentlichung oder einen aktuellen Staging-Build). Ältere Engines bieten das Paket unter **Download Agents** nicht an.
+- **Verfügbarkeit**: benötigt eine neuere Version von Marinara Engine als **v2.5.1** (die nächste Veröffentlichung oder einen aktuellen Staging-Build). Ältere Engines bieten das Paket unter **Download Agents** nicht an.
 - **Wichtige Einstellungen**: Installiere es unter **Agents → Download Agents**, starte Marinara Engine nach Aufforderung neu und öffne **Home → Story Writer**. Wähle in der Seitenleiste eine Textverbindung. Jede Geschichte wird auf deinem Server mit Marinara Engine gespeichert. Du kannst neue beginnen, zu früheren zurückkehren und sie als Markdown oder Klartext herunterladen.
 - **Vollständige Anleitung**: [Anleitung zum Paket Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 

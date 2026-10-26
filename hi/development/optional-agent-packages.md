@@ -815,7 +815,7 @@ export async function activate({ api }) {
 
 यह ऐप के अंदर का फ़ुलस्क्रीन है: Home के टैब, एड्रेस बार और बुकमार्क छिप जाते हैं, जबकि Engine का टॉपबार उपलब्ध रहता है। यह ब्राउज़र के Fullscreen API को कॉल नहीं करता और ब्राउज़र में फ़ुलस्क्रीन सपोर्ट ज़रूरी नहीं है। यह स्थिति अस्थायी है और पैकेज या Home से बाहर जाने पर रीसेट हो जाती है। पैकेज की हर स्क्रीन पर बाहर निकलने का बटन रखें और `active` की स्थिति दिखाने के लिए `aria-pressed` इस्तेमाल करें। प्रॉप बदलने पर बटन अपडेट होना चाहिए, अधूरे फ़ॉर्म नहीं बदलने चाहिए। इस कंट्रोल पर निर्भर पैकेज Capability API 1.376 या नया घोषित करते हैं; पुराने पैकेज अपना मौजूदा लेआउट रख सकते हैं।
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386: कनेक्शन खोलना और पैकेज से रॉ टेक्स्ट जनरेशन
 
@@ -834,6 +834,8 @@ if (typeof props.openConnection === "function") props.openConnection(connectionI
 - `debugMode` (1.386): ब्राउज़र व्यू का `debugMode` भेजें। इसके true होने पर, या सर्वर के `DEBUG_AGENTS` के साथ चलने पर, सर्वर प्रोवाइडर को भेजे गए अंतिम संदेश और उत्तर लॉग करता है। बॉडी का सत्यापन सख्त है, इसलिए पुराना Engine यह फ़ील्ड अस्वीकार करता है: इसे केवल true होने पर, 1.386 घोषित करने वाले पैकेज से भेजें।
 
 इवेंट हैं: `raw_started` (`{ runId }`), `token` (टेक्स्ट का अगला हिस्सा), `result` (`{ content }`, पूरा टेक्स्ट), `aborted`, `error` (संदेश), Engine के फ़ॉलबैक कनेक्शन से उत्तर आने पर `fallback_used`, और `done`, जो हमेशा अंत में आता है।
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mari की कार्रवाइयाँ
 

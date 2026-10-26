@@ -67,7 +67,7 @@ Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et 
 
 - **Intégration** : App ; s'ouvre dans son propre onglet **Story Writer** de **Home**.
 - **Où il fonctionne** : Home.
-- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciens Engines ne le proposent pas dans **Download Agents**.
+- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciennes versions du moteur ne le proposent pas dans **Download Agents**.
 - **Réglages principaux** : installe-le depuis **Agents → Download Agents**, redémarre Marinara Engine quand il te le demande, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans la barre latérale. Chaque histoire est enregistrée sur ton serveur Marinara Engine. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
 - **Guide complet** : [Guide du paquet Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 

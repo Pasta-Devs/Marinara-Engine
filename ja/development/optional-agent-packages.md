@@ -812,7 +812,7 @@ export async function activate({ api }) {
 
 これはアプリ内の全画面表示です。Homeのタブ、アドレスバー、ブックマークは非表示になりますが、Engineのトップバーは使えます。ブラウザーのFullscreen APIは呼び出さず、ブラウザーの全画面対応も必要ありません。状態は一時的で、パッケージまたはHomeから移動するとリセットされます。パッケージのすべての画面に終了ボタンを用意し、`aria-pressed`で`active`を示してください。プロパティー更新では、入力途中のフォームを置き換えずにボタンを更新する必要があります。この操作に依存するパッケージはCapability API 1.376以降を宣言します。古いパッケージは既存のレイアウトを維持できます。
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386: 接続の編集とパッケージからの生のテキスト生成
 
@@ -831,6 +831,8 @@ if (typeof props.openConnection === "function") props.openConnection(connectionI
 - `debugMode`(1.386): ブラウザービューの`debugMode`を渡します。trueの場合、またはサーバーを`DEBUG_AGENTS`付きで実行している場合、プロバイダーに送った最終メッセージと応答がログに記録されます。リクエスト本文は厳密に検証され、古いEngineはこのフィールドを拒否します。1.386を宣言したパッケージから、trueの場合にだけ送ってください。
 
 イベントは`raw_started`(`{ runId }`)、`token`(次のテキスト断片)、`result`(`{ content }`、全文)、`aborted`、`error`(メッセージ)、Engineの代替接続が応答した場合の`fallback_used`、そして必ず最後の`done`です。
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mariのアクション
 

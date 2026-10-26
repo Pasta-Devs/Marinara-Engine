@@ -811,7 +811,7 @@ Widok `home-browser-tab` otrzymuje `capabilityProps.browserFullscreen`:
 
 To pełny ekran wewnątrz aplikacji: karty, pasek adresu i zakładki Home są ukryte, a górny pasek silnika pozostaje dostępny. Nie wywołuje to przeglądarkowego Fullscreen API ani nie wymaga obsługi pełnego ekranu przez przeglądarkę. Stan jest tymczasowy i resetuje się po opuszczeniu pakietu lub Home. Na każdym ekranie pakietu zapewnij przycisk wyjścia i odzwierciedlaj `active` przez `aria-pressed`. Zmiany właściwości muszą aktualizować przycisk bez zastępowania niedokończonych formularzy. Pakiety zależne od tej kontrolki deklarują Capability API 1.376 lub nowsze; starsze pakiety mogą zachować dotychczasowy układ.
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386: otwieranie połączenia i surowa generacja z pakietów
 
@@ -830,6 +830,8 @@ Pakiet przeglądarkowy może też generować tekst z użyciem zapisanego połąc
 - `debugMode` (1.386): przekaż `debugMode` z widoku przeglądarki. Gdy ma wartość true albo serwer działa z `DEBUG_AGENTS`, serwer zapisuje w logu ostateczne wiadomości wysłane do dostawcy i odpowiedź. Treść żądania jest sprawdzana ściśle, więc starszy silnik odrzuci to pole: wysyłaj je tylko z wartością true, z pakietu deklarującego 1.386.
 
 Zdarzenia to `raw_started` (`{ runId }`), `token` (kolejny fragment tekstu), `result` (`{ content }`, cały tekst), `aborted`, `error` (komunikat), `fallback_used`, gdy odpowiedziało połączenie zapasowe silnika, oraz `done`, zawsze na końcu.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: akcje dla Professor Mari
 

@@ -821,7 +821,7 @@ Una vista `home-browser-tab` recibe `capabilityProps.browserFullscreen`:
 
 Es pantalla completa dentro de la aplicación: se ocultan las pestañas, la barra de direcciones y los marcadores de Home, mientras que la barra superior de Engine sigue disponible. No llama a la API Fullscreen del navegador ni requiere que el navegador la admita. El estado es temporal y se reinicia al salir del paquete o de Home. Mantén un botón para salir en todas las pantallas del paquete y usa `aria-pressed` para reflejar `active`. Los cambios de propiedades deben actualizar el botón sin sustituir los formularios sin terminar. Los paquetes que dependan de este control declaran Capability API 1.376 o posterior; los anteriores pueden mantener sus diseños actuales.
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386: abrir una conexión y generar texto en bruto desde paquetes
 
@@ -840,6 +840,8 @@ Un paquete de navegador también puede generar texto con una conexión guardada 
 - `debugMode` (1.386): pasa el `debugMode` de la vista del navegador. Si es true o el servidor se ejecuta con `DEBUG_AGENTS`, registra los mensajes finales enviados al proveedor y la respuesta. El cuerpo es estricto y los Engines anteriores rechazan el campo: envíalo solo cuando sea true, desde un paquete que declare 1.386.
 
 Los eventos son `raw_started` (`{ runId }`), `token` (el siguiente fragmento de texto), `result` (`{ content }`, el texto completo), `aborted`, `error` (el mensaje), `fallback_used` cuando respondió la conexión de respaldo de Engine, y `done`, siempre al final.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: acciones de Professor Mari
 

@@ -813,7 +813,7 @@ export async function activate({ api }) {
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386: 연결 열기와 패키지의 원시 텍스트 생성
 
@@ -832,6 +832,8 @@ if (typeof props.openConnection === "function") props.openConnection(connectionI
 - `debugMode`(1.386): 브라우저 뷰의 `debugMode`를 전달하세요. 값이 true이거나 서버가 `DEBUG_AGENTS`로 실행되면 제공자에게 보낸 최종 메시지와 응답을 서버 로그에 기록합니다. 본문을 엄격하게 검증하므로 이전 Engine은 이 필드를 거부합니다. 1.386을 선언한 패키지에서 값이 true일 때만 보내세요.
 
 이벤트는 `raw_started`(`{ runId }`), `token`(다음 텍스트 조각), `result`(`{ content }`, 전체 텍스트), `aborted`, `error`(메시지), Engine의 대체 연결이 응답했을 때의 `fallback_used`, 그리고 항상 마지막인 `done`입니다.
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50: Professor Mari 동작
 

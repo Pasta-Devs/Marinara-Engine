@@ -790,7 +790,7 @@ export async function activate({ api }) {
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
 
-<a id="capability-api-150-professor-mari-actions"></a>
+<a id="capability-api-1386-open-a-connection-and-raw-generation-for-packages"></a>
 
 ### Capability API 1.386：打开连接，以及从安装包生成原始文本
 
@@ -809,6 +809,8 @@ if (typeof props.openConnection === "function") props.openConnection(connectionI
 - `debugMode`（1.386）：传入浏览器视图的 `debugMode`。其值为 true，或服务器启用了 `DEBUG_AGENTS` 时，服务器会记录最终发送给提供商的消息和回复。请求正文采用严格校验，旧版 Engine 会拒绝该字段；只有声明了 1.386 的安装包才能在值为 true 时发送它。
 
 事件包括 `raw_started`（`{ runId }`）、`token`（下一段文本）、`result`（`{ content }`，完整文本）、`aborted`、`error`（错误消息）、由 Engine 备用连接作答时的 `fallback_used`，以及始终位于最后的 `done`。
+
+<a id="capability-api-150-professor-mari-actions"></a>
 
 ### Capability API 1.50：Professor Mari 操作
 

@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "b96e8d74504e5418c29aa816f475b6c66426c2f3d46004cb9593b745a8198765",
-      "bytes": 43347
+      "sha256": "f17e78138cad88ce8d3fcdf2747c8de15ee2336b3e3b3d47dcc27b2be239ceca",
+      "bytes": 43360
     },
     {
       "path": "agents/custom-agents.md",
@@ -399,8 +399,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "b6f0e096d0661a9f64e7c6c182747f5d2fb3b4c8c085acd7daa73bf2e0c4445e",
-      "bytes": 162925
+      "sha256": "000e56f538e7cfb4c5faf0a6877bd2e339edbbf3455a32d5e1e99d0062e1816c",
+      "bytes": 163031
     },
     {
       "path": "development/personal-extensions.md",
