@@ -12893,7 +12893,7 @@ test("installed Home destinations appear as browser tabs without returning to th
     }
   }
   expect(errors).toEqual([]);
-  // An uncapped package catalog must still let the user reach the final tab.
+  // An uncapped package catalog folds into the tab menu instead of scrolling, and still reaches the final tab.
   await page.route("**/api/capability-packages/destination-*/client?*", (route) => {
     const id = new URL(route.request().url()).pathname.split("/")[3];
     return route.fulfill({
@@ -12924,7 +12924,9 @@ test("installed Home destinations appear as browser tabs without returning to th
     }),
   );
   await page.reload();
-  await expect(tabList.getByRole("tab")).toHaveCount(42);
+  const tabMenuTrigger = page.getByRole("button", { name: "Show all experiences" });
+  await expect(tabMenuTrigger).toBeVisible();
+  await expect(tabList.getByRole("tab")).toHaveCount(1);
   for (const size of mobile
     ? [
         { width: 390, height: 844 },
@@ -12932,11 +12934,16 @@ test("installed Home destinations appear as browser tabs without returning to th
       ]
     : [page.viewportSize()!]) {
     await page.setViewportSize(size);
-    expect(await tabList.evaluate((rail) => rail.scrollWidth > rail.clientWidth)).toBe(true);
-    await expect(tabList).toHaveCSS("overflow-x", "auto");
+    await expect(tabMenuTrigger).toBeVisible();
+    expect(await tabList.evaluate((rail) => rail.scrollWidth <= rail.clientWidth + 1)).toBe(true);
+    await tabMenuTrigger.click();
+    const tabMenu = page.locator('[data-component="HomeBrowserHub.TabMenu"]');
+    await expect(tabMenu.getByRole("button")).toHaveCount(41);
+    const lastEntry = tabMenu.getByRole("button", { name: "Destination 39", exact: true });
+    await lastEntry.scrollIntoViewIfNeeded();
+    await lastEntry.click();
+    await expect(tabMenu).toHaveCount(0);
     const lastTab = tabList.getByRole("tab", { name: "Destination 39", exact: true });
-    await lastTab.scrollIntoViewIfNeeded();
-    await lastTab.click();
     await expect(lastTab).toHaveAttribute("aria-selected", "true");
     await expect(lastTab.locator(":scope > span.truncate")).toBeVisible();
     const rail = (await tabList.boundingBox())!;

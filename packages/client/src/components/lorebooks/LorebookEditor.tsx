@@ -26,6 +26,7 @@ import {
   useLorebooks,
   useUpdateLorebook,
   useLorebookEntries,
+  useEntriesAcrossLorebooks,
   useCreateLorebookEntry,
   useDeleteLorebook,
   useBulkDeleteLorebookEntries,
@@ -164,6 +165,30 @@ function appendNewTags(existingTags: string[], rawInput: string) {
   }
 
   return additions.length > 0 ? [...existingTags, ...additions] : existingTags;
+}
+
+function getKeywordPreviewMatches(entries: LorebookEntry[], text: string) {
+  const result = new Map<string, "matched" | "constant">();
+  if (!text.trim()) return result;
+  for (const entry of entries) {
+    if (!entry.enabled) continue;
+    if (entry.constant) {
+      result.set(entry.id, "constant");
+      continue;
+    }
+    const opts = {
+      useRegex: entry.useRegex,
+      matchWholeWords: entry.matchWholeWords,
+      caseSensitive: entry.caseSensitive,
+    };
+    const { matched } = testPrimaryKeys(entry.keys, text, opts);
+    if (!matched) continue;
+    if (entry.selective && entry.secondaryKeys.length > 0) {
+      if (!testSecondaryKeys(entry.secondaryKeys, text, entry.selectiveLogic, opts)) continue;
+    }
+    result.set(entry.id, "matched");
+  }
+  return result;
 }
 
 // ── Types ──
@@ -426,7 +451,8 @@ export function LorebookEditor() {
   const activeOwnerChatId = activeChat?.mode === "roleplay" || activeChat?.mode === "game" ? activeChat.id : null;
   const spatialBacklinksQuery = useSpatialContext(activeOwnerChatId);
   const { data: rawLorebook, isLoading, isError } = useLorebook(lorebookId);
-  const { data: rawLorebooks } = useLorebooks();
+  const lorebooksQuery = useLorebooks();
+  const { data: rawLorebooks } = lorebooksQuery;
   const { data: rawEntries } = useLorebookEntries(lorebookId);
   const { data: rawFolders } = useLorebookFolders(lorebookId);
   const { data: rawCharacters } = useCharacters();
@@ -546,10 +572,44 @@ export function LorebookEditor() {
   const [keywordPreviewOpen, setKeywordPreviewOpen] = useState(false);
   const [keywordPreviewText, setKeywordPreviewText] = useState("");
   const [keywordPreviewDebounced, setKeywordPreviewDebounced] = useState("");
+  const [includeOtherLorebooks, setIncludeOtherLorebooks] = useState(false);
   useEffect(() => {
     const handle = window.setTimeout(() => setKeywordPreviewDebounced(keywordPreviewText), 150);
     return () => window.clearTimeout(handle);
   }, [keywordPreviewText]);
+  const otherPreviewRequested = keywordPreviewOpen && includeOtherLorebooks && keywordPreviewText.trim().length > 0;
+  const otherPreviewTextReady =
+    otherPreviewRequested &&
+    keywordPreviewText === keywordPreviewDebounced &&
+    keywordPreviewDebounced.trim().length > 0;
+  const otherLorebooks = useMemo(() => lorebooks.filter((book) => book.id !== lorebookId), [lorebooks, lorebookId]);
+  const otherLorebookIds = useMemo(
+    () => (otherPreviewTextReady && lorebooksQuery.isSuccess ? otherLorebooks.map((book) => book.id) : []),
+    [otherPreviewTextReady, lorebooksQuery.isSuccess, otherLorebooks],
+  );
+  const otherEntriesQuery = useEntriesAcrossLorebooks(otherLorebookIds);
+  const otherPreviewLoading =
+    !otherPreviewTextReady ||
+    lorebooksQuery.isPending ||
+    lorebooksQuery.isFetching ||
+    otherEntriesQuery.isFetching ||
+    (!otherEntriesQuery.isError && otherEntriesQuery.entries === undefined);
+  const otherPreviewError = lorebooksQuery.isError || otherEntriesQuery.isError;
+  const otherPreviewResults = useMemo(() => {
+    if (!otherPreviewTextReady || otherPreviewLoading || otherPreviewError || !otherEntriesQuery.entries) return [];
+    const bookNames = new Map(otherLorebooks.map((book) => [book.id, book.name]));
+    const matches = getKeywordPreviewMatches(otherEntriesQuery.entries, keywordPreviewDebounced);
+    return otherEntriesQuery.entries
+      .filter((entry) => bookNames.has(entry.lorebookId) && matches.has(entry.id))
+      .map((entry) => ({ entry, lorebookName: bookNames.get(entry.lorebookId)!, verdict: matches.get(entry.id)! }));
+  }, [
+    otherPreviewTextReady,
+    otherPreviewLoading,
+    otherPreviewError,
+    otherEntriesQuery.entries,
+    otherLorebooks,
+    keywordPreviewDebounced,
+  ]);
   // Full scanner test result; while shown, row highlights follow it instead of the instant preview.
   const [scanTestMatches, setScanTestMatches] = useState<Map<string, LorebookScanPreviewMatch> | null>(null);
   const activationStatsEnabled = useFeatureEnabled("usageAndActivationStats");
@@ -846,30 +906,10 @@ export function LorebookEditor() {
   // filters, semantic embeddings, recursive scan, group selection).
   // Logic mirrors packages/server/src/services/lorebook/keyword-scanner.ts —
   // both sides import the same shared helpers so the preview cannot drift.
-  const previewMatches = useMemo(() => {
-    const result = new Map<string, "matched" | "constant">();
-    const text = keywordPreviewDebounced;
-    if (!text.trim()) return result;
-    for (const entry of entries) {
-      if (!entry.enabled) continue;
-      if (entry.constant) {
-        result.set(entry.id, "constant");
-        continue;
-      }
-      const opts = {
-        useRegex: entry.useRegex,
-        matchWholeWords: entry.matchWholeWords,
-        caseSensitive: entry.caseSensitive,
-      };
-      const { matched } = testPrimaryKeys(entry.keys, text, opts);
-      if (!matched) continue;
-      if (entry.selective && entry.secondaryKeys.length > 0) {
-        if (!testSecondaryKeys(entry.secondaryKeys, text, entry.selectiveLogic, opts)) continue;
-      }
-      result.set(entry.id, "matched");
-    }
-    return result;
-  }, [entries, keywordPreviewDebounced]);
+  const previewMatches = useMemo(
+    () => getKeywordPreviewMatches(entries, keywordPreviewDebounced),
+    [entries, keywordPreviewDebounced],
+  );
 
   const effectivePreviewMatches = scanTestMatches ?? previewMatches;
   const previewActive = keywordPreviewDebounced.trim().length > 0 || scanTestMatches !== null;
@@ -2723,6 +2763,88 @@ export function LorebookEditor() {
                                 count: entries.filter((entry) => entry.enabled).length,
                               })}
                         </p>
+                      )}
+                      <SettingsSwitch
+                        label={localizeUi("lorebook.editor.keywordTest.includeOtherLorebooks")}
+                        description={localizeUi("lorebook.editor.keywordTest.includeOtherLorebooksHint")}
+                        checked={includeOtherLorebooks}
+                        onChange={setIncludeOtherLorebooks}
+                        className="min-h-11"
+                        labelClassName="text-xs"
+                      />
+                      {otherPreviewRequested && (
+                        <section
+                          aria-label={localizeUi("lorebook.editor.keywordTest.otherMatches")}
+                          aria-busy={otherPreviewLoading}
+                          className="space-y-2 border-t border-[var(--marinara-editor-divider)] pt-2"
+                        >
+                          {otherPreviewLoading ? (
+                            <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                              {localizeUi("lorebook.editor.keywordTest.loadingOtherLorebooks")}
+                            </p>
+                          ) : otherPreviewError ? (
+                            <div className="space-y-1">
+                              <p role="alert" className="text-xs text-[var(--destructive)]">
+                                {localizeUi("lorebook.editor.keywordTest.otherLorebooksError")}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void Promise.all([lorebooksQuery.refetch(), otherEntriesQuery.refetch()])
+                                }
+                                className="min-h-11 rounded-lg px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+                              >
+                                {localizeUi("lorebook.editor.keywordTest.retryOtherLorebooks")}
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <p role="status" className="text-xs text-[var(--muted-foreground)]">
+                                {otherPreviewResults.length === 0
+                                  ? localizeUi("lorebook.editor.keywordTest.noOtherMatches")
+                                  : localizeUi("lorebook.editor.keywordTest.otherMatchCount", {
+                                      count: otherPreviewResults.length,
+                                    })}
+                              </p>
+                              {otherPreviewResults.length > 0 && (
+                                <ul
+                                  tabIndex={0}
+                                  className="max-h-64 space-y-2 overflow-y-auto text-xs focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+                                >
+                                  {otherPreviewResults.map(({ entry, lorebookName, verdict }) => (
+                                    <li key={`${entry.lorebookId}:${entry.id}`} className="space-y-0.5 break-words">
+                                      <p className="font-medium">
+                                        {entry.name || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
+                                      </p>
+                                      <p className="text-[var(--muted-foreground)]">
+                                        {localizeUi("lorebook.editor.keywordTest.sourceLorebook", {
+                                          name: lorebookName,
+                                        })}
+                                      </p>
+                                      {verdict === "constant" && (
+                                        <p>{localizeUi("ui.lorebooks.lorebookentryrow.alwaysActive")}</p>
+                                      )}
+                                      {entry.keys.length > 0 && (
+                                        <p className="text-[var(--muted-foreground)]">
+                                          {localizeUi("lorebook.editor.keywordTest.primaryKeys", {
+                                            keys: entry.keys.join(", "),
+                                          })}
+                                        </p>
+                                      )}
+                                      {entry.selective && entry.secondaryKeys.length > 0 && (
+                                        <p className="text-[var(--muted-foreground)]">
+                                          {localizeUi("lorebook.editor.keywordTest.secondaryKeys", {
+                                            keys: entry.secondaryKeys.join(", "),
+                                          })}
+                                        </p>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </>
+                          )}
+                        </section>
                       )}
                       {lorebookId && (
                         <LorebookScanTest

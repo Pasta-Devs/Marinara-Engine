@@ -8651,7 +8651,8 @@ html[data-marinara-reduced-effects="true"] .mari-window {
   }
 
   .mari-home-browser-tab-row [role="tab"],
-  [data-component="HomeBrowserHub.MobileBookmarksTrigger"] {
+  [data-component="HomeBrowserHub.MobileBookmarksTrigger"],
+  [data-component="HomeBrowserHub.TabMenuTrigger"] {
     min-height: 1.875rem;
     height: 1.875rem;
   }
