@@ -4,7 +4,9 @@ import type { ConnectionAccountListItem } from "@marinara-engine/shared";
 import { ListHeading, ListSearch, ListStatus } from "../../connections/ListFrame";
 import { ServiceRow } from "../../connections/ServiceRow";
 import { ModelRow, ModelTile } from "../../connections/ModelRow";
-import { IconTile } from "../../connections/ProviderIcon";
+import { JobTile } from "../../connections/JobRow";
+import { getConnectionIdentity } from "../../../lib/connection-identity";
+import { IconTile, ProviderIcon } from "../../connections/ProviderIcon";
 import { JOB, jobHintKey } from "../../../lib/connection-jobs";
 import type { AddJob } from "../../../lib/add-connection";
 import type { ModelEntry, ModelKind } from "../../../lib/add-model-search";
@@ -21,6 +23,12 @@ import {
   type ServiceGroupDefinition,
   type ServiceId,
 } from "./shared";
+
+/** Every list row shares one inset and height, and every tile is 40px, so the labels, tiles and titles line up. */
+// Rows keep a hover pad that bleeds 0.5rem outside the content edge, so tiles and labels share that edge.
+const ROW = "-mx-2 ps-2 md:min-h-14";
+const MODEL_ROW = { className: "-mx-2" };
+const TILE = "h-10 w-10 rounded-xl [&_svg]:size-5";
 
 type ServiceListStepProps = {
   firstRun: boolean | null;
@@ -113,6 +121,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
   });
   const serviceRow = (key: ServiceId) => (
     <ServiceRow
+      className={ROW}
       key={key}
       account={{ name: serviceName(key), provider: key }}
       rows={[]}
@@ -141,7 +150,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div
-        className="flex flex-col gap-3 p-4"
+        className="flex flex-col gap-3 px-3 py-4"
         data-add-connection-path={job ? "job" : firstRun ? "first-run" : pick === "provider" ? "services" : "existing"}
       >
         {firstRun && !job && <FirstRunIntro text={t("connections.add.intro")} />}
@@ -182,19 +191,20 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && listJobs.length > 0 && (
           <section data-add-connection-section="missing-jobs">
-            <ListHeading>{t("connections.add.section.missingJobs")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.missingJobs")}</ListHeading>
             {listJobs.map((key) => {
               const Icon = JOB[key].icon;
               return (
                 <ModelRow
+                  rowProps={MODEL_ROW}
                   key={key}
                   title={jobLabel(key)}
                   subtitle={t(jobHintKey(JOB[key]))}
                   wrapTitle
                   tile={
-                    <IconTile>
-                      <Icon size="1.125rem" aria-hidden />
-                    </IconTile>
+                    <JobTile unset className={TILE}>
+                      <Icon aria-hidden />
+                    </JobTile>
                   }
                   data-add-connection-job-choice={key}
                   onClick={() => chooseJob(key)}
@@ -206,14 +216,26 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && ownAccounts.length > 0 && (
           <section data-add-connection-section="your-services">
-            <ListHeading>{t("connections.add.section.yourServices")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.yourServices")}</ListHeading>
             {ownAccounts.map((account) => {
               const children = rows.filter((row) => row.accountId === account.id);
               return (
                 <ServiceRow
+                  className={ROW}
                   key={account.id}
                   account={account}
                   rows={children}
+                  tile={
+                    <ProviderIcon
+                      provider={account.provider}
+                      baseUrl={account.baseUrl}
+                      name={account.name}
+                      icon={account.icon}
+                      imagePath={account.imagePath}
+                      service={getConnectionIdentity(account, children).service}
+                      size="add"
+                    />
+                  }
                   count={t("connections.add.accountModels", {
                     count: children.filter((row) => row.model?.trim()).length,
                   })}
@@ -230,17 +252,18 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {listModels.length > 0 && (
           <section data-add-connection-section="model">
-            <ListHeading>{t("connections.add.section.model")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.model")}</ListHeading>
             {listModels.flatMap((entry) => {
               const { mine, services } = routesOf(entry);
               return [
                 ...mine.map(([accountId, model]) => (
                   <ModelRow
+                    rowProps={MODEL_ROW}
                     key={`${entry.key}:${accountId}`}
                     title={entry.name}
                     kind={entry.kind}
                     subtitle={accounts?.find((account) => account.id === accountId)?.name}
-                    tile={<ModelTile model={model} />}
+                    tile={<ModelTile model={model} size="add" />}
                     data-add-model={entry.key}
                     data-add-model-account={accountId}
                     onClick={() => {
@@ -252,11 +275,12 @@ export function ServiceListStep(props: ServiceListStepProps) {
                 )),
                 ...services.map(({ service: key, model }) => (
                   <ModelRow
+                    rowProps={MODEL_ROW}
                     key={`${entry.key}:${key}`}
                     title={entry.name}
                     kind={entry.kind}
                     subtitle={serviceName(key)}
-                    tile={<ModelTile model={model} />}
+                    tile={<ModelTile model={model} size="add" />}
                     data-add-model={entry.key}
                     data-add-model-service={key}
                     onClick={() => {
@@ -272,12 +296,13 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && !searching && (
           <section data-add-connection-section="new-service">
-            <ListHeading>{t("connections.add.section.newService")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.newService")}</ListHeading>
             <ModelRow
+              rowProps={MODEL_ROW}
               title={t("connections.add.chooseService")}
               subtitle={t("connections.add.chooseServiceHint")}
               tile={
-                <IconTile>
+                <IconTile size="add">
                   <Plus size="1.125rem" aria-hidden />
                 </IconTile>
               }
@@ -289,7 +314,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {groups.map((group) => (
           <section key={group.id} data-add-connection-group={group.id}>
-            <ListHeading>
+            <ListHeading className="px-0">
               {t(`connections.add.${group.id === "popular" ? "popular" : `group.${group.id}`}`)}
             </ListHeading>
             {group.services.map(serviceRow)}

@@ -882,7 +882,12 @@ export function CreateConnectionModalContent({
                     ? "connections.add.sub.voice"
                     : modelsFor?.chat
                       ? "connections.add.sub.modelsChat"
-                      : "connections.add.sub.models",
+                      : modelsFor
+                        ? "connections.add.sub.modelsAdd"
+                        : job
+                          ? "connections.add.sub.modelsJob"
+                          : "connections.add.sub.models",
+              { job: job ? jobLabel(job) : "" },
             )
           : "";
   const stepNumber = job ? Math.max(1, step - 1) : step;
@@ -1055,7 +1060,7 @@ export function CreateConnectionModalContent({
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-md:px-4">
+        <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
           <div className="flex items-center gap-2">
             {goBack && (
               <button
@@ -1113,7 +1118,7 @@ export function CreateConnectionModalContent({
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
           {choosingJobs && (
             <div
-              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4"
+              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-4"
               data-add-connection-path="assignment"
             >
               <div role="group" aria-label={t("connections.add.useFor.heading")} className="flex flex-col gap-1">
@@ -1266,7 +1271,7 @@ export function CreateConnectionModalContent({
             data-add-connection-choices
             role="group"
             aria-label={t("connections.add.readyChoices")}
-            className="flex shrink-0 flex-wrap items-center gap-x-4 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 max-md:px-3"
+            className="flex shrink-0 flex-wrap items-center gap-x-4 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3"
           >
             {chatTarget && (
               <label className={optionClass}>
@@ -1312,7 +1317,7 @@ export function CreateConnectionModalContent({
           </div>
         )}
 
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-md:px-4">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
           <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
           {footerRight}
         </div>

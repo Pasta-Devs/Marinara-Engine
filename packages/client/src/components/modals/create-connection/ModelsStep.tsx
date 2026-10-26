@@ -323,7 +323,7 @@ export function ModelsStep(props: ModelsStepProps) {
         <div
           role="group"
           aria-label={t("connections.add.kindFilter")}
-          className="flex shrink-0 flex-wrap gap-1.5 px-5 pt-3 max-md:px-4"
+          className="flex shrink-0 flex-wrap gap-1.5 px-3 pt-3"
         >
           {props.availableKinds.map((kind) => {
             const Icon = KIND_ICONS[kind];
