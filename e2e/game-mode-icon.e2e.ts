@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture";
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 // The Game Mode Icon on the character and persona Stats tabs: what a card's fight token
 // shows. The avatar by default, a gallery picture, or the initials.
@@ -173,4 +174,28 @@ test("A party token draws the card's Game Mode Icon over its avatar", async ({ p
     image: "/api/characters/c1/gallery/file/i1.png",
     offsite: "/api/avatars/file/mika.png",
   });
+});
+
+test("A token whose picture no longer loads shows its fallback instead of a broken image", async ({ page }) => {
+  await page.goto("/");
+  await prepareViteFixtureDependencies(page);
+  await page.evaluate(async () => {
+    const { TokenPicture } = await import("/src/components/game/TokenPicture.tsx" as string);
+    const dependencyUrl = window.__viteFixtureDependencyUrl;
+    const { default: React } = await import(dependencyUrl("react"));
+    const { default: ReactDOM } = await import(dependencyUrl("react-dom_client"));
+    const container = document.createElement("div");
+    container.id = "token-fixture";
+    document.body.append(container);
+    ReactDOM.createRoot(container).render(
+      React.createElement(TokenPicture, {
+        src: "/api/characters/missing/gallery/file/deleted.png",
+        alt: "Mika",
+        fallback: React.createElement("span", { "data-testid": "token-fallback" }, "MI"),
+      }),
+    );
+  });
+  const token = page.locator("#token-fixture");
+  await expect(token.getByTestId("token-fallback")).toHaveText("MI");
+  await expect(token.locator("img")).toHaveCount(0);
 });

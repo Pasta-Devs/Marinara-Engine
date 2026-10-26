@@ -98,6 +98,7 @@ import {
   tileShadow,
   heightWash,
 } from "../../lib/tactical-board-look";
+import { TokenPicture } from "./TokenPicture";
 
 // ── Props ──
 
@@ -2243,7 +2244,12 @@ function UnitToken({
           // The token is 0.9 of a cell: its art is drawn at the creature's own size, standing on the cell.
           <CreatureArtFigure {...art} cellFraction={1 / 0.9} label={unit.name} />
         ) : sprite.kind === "url" ? (
-          <img src={sprite.value} alt={unit.name} className="h-full w-full rounded-full object-cover" />
+          <TokenPicture
+            src={sprite.value}
+            alt={unit.name}
+            className="h-full w-full rounded-full object-cover"
+            fallback={<span className="text-[min(3vw,0.9rem)] font-black text-white/90">{initialsOf(unit.name)}</span>}
+          />
         ) : sprite.kind === "emoji" ? (
           <span className="text-[min(4vw,1.5rem)] leading-none">{sprite.value}</span>
         ) : (

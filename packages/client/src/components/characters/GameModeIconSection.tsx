@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { parseCombatIconChoice, resolveCombatIconUrl, type CombatIconChoice } from "@marinara-engine/shared";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  characterKeys,
   useCharacterGalleryImages,
   usePersonaGalleryImages,
   useUploadCharacterGalleryImage,
@@ -30,10 +32,18 @@ type OwnerProps = {
   onChange: (choice: CombatIconChoice | undefined) => void;
 };
 
+/** The gallery list with a just-uploaded picture in it, so the picker never calls it missing while
+ *  the refetch is on its way (or if the refetch fails). */
+function withUploadedImage<T extends { id: string }>(current: T[] | undefined, image: T): T[] | undefined {
+  if (!current || current.some((entry) => entry.id === image.id)) return current;
+  return [image, ...current];
+}
+
 /** The block for a character card, whose pictures live in the character's gallery. */
 export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps & { characterId: string | null }) {
   const { data: images, isLoading } = useCharacterGalleryImages(characterId);
   const upload = useUploadCharacterGalleryImage(characterId ?? "");
+  const queryClient = useQueryClient();
   return (
     <GameModeIconSection
       key={characterId ?? "new"}
@@ -42,7 +52,15 @@ export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps
       imagesLoading={isLoading}
       canUseGallery={!!characterId}
       uploading={upload.isPending}
-      onUpload={async (file) => (await upload.mutateAsync([file]))[0]}
+      onUpload={async (file) => {
+        const image = (await upload.mutateAsync([file]))[0];
+        if (image && characterId) {
+          queryClient.setQueryData(characterKeys.gallery(characterId), (current: typeof images) =>
+            withUploadedImage(current, image),
+          );
+        }
+        return image;
+      }}
     />
   );
 }
@@ -51,6 +69,7 @@ export function CharacterCombatIconSection({ characterId, ...props }: OwnerProps
 export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & { personaId: string | null }) {
   const { data: images, isLoading } = usePersonaGalleryImages(personaId);
   const upload = useUploadPersonaGalleryImage(personaId ?? "");
+  const queryClient = useQueryClient();
   return (
     <GameModeIconSection
       key={personaId ?? "new"}
@@ -59,7 +78,15 @@ export function PersonaCombatIconSection({ personaId, ...props }: OwnerProps & {
       imagesLoading={isLoading}
       canUseGallery={!!personaId}
       uploading={upload.isPending}
-      onUpload={async (file) => (await upload.mutateAsync([file]))[0]}
+      onUpload={async (file) => {
+        const image = (await upload.mutateAsync([file]))[0];
+        if (image && personaId) {
+          queryClient.setQueryData(characterKeys.personaGallery(personaId), (current: typeof images) =>
+            withUploadedImage(current, image),
+          );
+        }
+        return image;
+      }}
     />
   );
 }

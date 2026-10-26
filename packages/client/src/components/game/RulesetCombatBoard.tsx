@@ -60,6 +60,7 @@ import { ArtIcon } from "./ArtIcon";
 import { cn } from "../../lib/utils";
 import { rulesetHealthTone } from "./RulesetTurnOrder";
 import { useMatchMedia } from "../../hooks/use-match-media";
+import { TokenPicture } from "./TokenPicture";
 
 export interface RulesetCombatBoardProps {
   /** A view that carries a grid. Without one the caller keeps the Classic stage. */
@@ -91,6 +92,17 @@ export interface RulesetCombatBoardProps {
   /** Whose token the pointer or the keyboard is on, so the pane can open their details. */
   onHover?: (id: string | null) => void;
   className?: string;
+}
+
+/** Sized by the token itself, so the letters stay inside it however small the squares are; a token
+ *  too small for two keeps the first. */
+function TokenInitials({ name }: { name: string }) {
+  return (
+    <span className="text-[38cqw] font-black leading-none text-white/90">
+      <span className="hidden @min-[24px]:inline">{initialsOf(name)}</span>
+      <span className="@min-[24px]:hidden">{initialsOf(name).slice(0, 1)}</span>
+    </span>
+  );
 }
 
 export function RulesetCombatBoard({
@@ -735,20 +747,16 @@ export function RulesetCombatBoard({
                       label={combatant.name}
                     />
                   ) : sprite.kind === "url" ? (
-                    <img
+                    <TokenPicture
                       src={sprite.value}
                       alt=""
                       className={cn("h-full w-full object-cover", party ? "rounded-full" : "rounded-[24%]")}
+                      fallback={<TokenInitials name={combatant.name} />}
                     />
                   ) : sprite.kind === "emoji" ? (
                     <span className="text-[min(4vw,1.5rem)] leading-none">{sprite.value}</span>
                   ) : (
-                    // Sized by the token itself, so the letters stay inside it however small the
-                    // squares are; a token too small for two keeps the first.
-                    <span className="text-[38cqw] font-black leading-none text-white/90">
-                      <span className="hidden @min-[24px]:inline">{initialsOf(combatant.name)}</span>
-                      <span className="@min-[24px]:hidden">{initialsOf(combatant.name).slice(0, 1)}</span>
-                    </span>
+                    <TokenInitials name={combatant.name} />
                   )}
                   {(combatant.defeated || combatant.down) && (
                     <Skull className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 text-[var(--destructive)] drop-shadow" />
