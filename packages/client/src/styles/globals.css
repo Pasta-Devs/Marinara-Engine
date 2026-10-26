@@ -1550,11 +1550,12 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
+/* Proxy "via" headings wear the Defaults box blue. */
 .mari-connection-model-section-head {
-  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
 }
 .mari-connection-model-section-head:hover {
-  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  background: color-mix(in srgb, var(--mari-panel-gradient-start) 16%, transparent);
 }
 .mari-connection-model-slot + .mari-connection-model-slot,
 .mari-connection-model-section-head + .mari-connection-model-slot {
