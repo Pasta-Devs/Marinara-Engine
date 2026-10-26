@@ -3718,6 +3718,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const roleplayDisplayStyle = useUIStore((s) => s.roleplayDisplayStyle);
   const setRoleplayDisplayStyle = useUIStore((s) => s.setRoleplayDisplayStyle);
   const roleplayChatPosition = useUIStore((s) => s.roleplayChatPosition);
+  const roleplayChatWidthPercent = useUIStore((s) => s.roleplayChatWidthPercent);
+  const setRoleplayChatWidthPercent = useUIStore((s) => s.setRoleplayChatWidthPercent);
   const setRoleplayChatPosition = useUIStore((s) => s.setRoleplayChatPosition);
   const roleplayVnPortraitScale = useUIStore((s) => s.roleplayVnPortraitScale);
   const setRoleplayVnPortraitScale = useUIStore((s) => s.setRoleplayVnPortraitScale);
@@ -4897,6 +4899,39 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     );
                   })}
                 </div>
+              </div>
+              <div id={getSettingsControlAnchorId("roleplay-chat-width")} className="grid scroll-mt-3 gap-2">
+                <ToggleSetting
+                  label={localizeUi("settings.controls.roleplayChatWidth.enabled")}
+                  help={localizeUi("settings.controls.roleplayChatWidth.help")}
+                  checked={roleplayChatWidthPercent !== null}
+                  onChange={(enabled) => setRoleplayChatWidthPercent(enabled ? 75 : null)}
+                />
+                {roleplayChatWidthPercent !== null && (
+                  <div className="grid gap-1 text-xs">
+                    <label htmlFor="roleplay-chat-width-percent">
+                      {localizeUi("settings.controls.roleplayChatWidth.label")}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="roleplay-chat-width-percent"
+                        type="range"
+                        min={40}
+                        max={100}
+                        step={1}
+                        value={roleplayChatWidthPercent}
+                        onChange={(event) => setRoleplayChatWidthPercent(Number(event.target.value))}
+                        className="min-w-0 flex-1 accent-[var(--primary)]"
+                      />
+                      <output
+                        htmlFor="roleplay-chat-width-percent"
+                        className="w-12 text-right tabular-nums text-[var(--muted-foreground)]"
+                      >
+                        {roleplayChatWidthPercent}%
+                      </output>
+                    </div>
+                  </div>
+                )}
               </div>
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("roleplay-vn-display")}

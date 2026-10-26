@@ -1105,10 +1105,19 @@ async function generateOpenRouterVideo(
   }
   const startRecord = asRecord(startJson);
   const jobId = readString(startRecord.id);
-  const pollingUrl =
+  const pollingReference =
     readString(startRecord.polling_url) ?? (jobId ? buildOpenRouterVideosUrl(baseUrl, `videos/${jobId}`) : null);
-  if (!jobId || !pollingUrl) {
+  if (!jobId || !pollingReference) {
     throw new Error("OpenRouter video generation response did not include a job id");
+  }
+  let pollingUrl: URL;
+  try {
+    pollingUrl = new URL(pollingReference, startUrl);
+  } catch {
+    throw new Error("OpenRouter video generation returned an invalid polling URL");
+  }
+  if (pollingUrl.origin !== new URL(startUrl).origin || pollingUrl.username || pollingUrl.password) {
+    throw new Error("OpenRouter video polling URL must use the configured API origin without credentials");
   }
 
   while (true) {
@@ -1140,7 +1149,7 @@ async function generateOpenRouterVideo(
     const status = readString(pollRecord.status)?.toLowerCase();
     if (status === "completed") {
       const url = readFirstString(pollRecord.unsigned_urls) ?? buildOpenRouterContentUrl(baseUrl, jobId);
-      return downloadOpenRouterVideo(url, apiKey, request.signal);
+      return downloadOpenRouterVideo(url, apiKey, request.signal, startUrl);
     }
     if (status === "failed" || status === "cancelled" || status === "expired") {
       const error = readString(pollRecord.error);
@@ -1684,12 +1693,22 @@ async function downloadOpenRouterVideo(
   url: string,
   apiKey: string,
   signal: AbortSignal | undefined,
+  apiUrl: string,
 ): Promise<VideoGenerationResult> {
-  const res = await safeFetch(url, {
+  let target: URL;
+  try {
+    target = new URL(url, apiUrl);
+  } catch {
+    throw new Error("OpenRouter video generation returned an invalid content URL");
+  }
+  if (target.username || target.password) {
+    throw new Error("OpenRouter video content URL must not contain credentials");
+  }
+  const res = await safeFetch(target, {
     method: "GET",
     headers: {
       Accept: "video/mp4,video/*;q=0.9,*/*;q=0.1",
-      Authorization: `Bearer ${apiKey}`,
+      ...(target.origin === new URL(apiUrl).origin ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
     signal,
     policy: {

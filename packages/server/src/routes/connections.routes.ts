@@ -20,6 +20,7 @@ import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import {
+  APP_VERSION,
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
   CODEX_IMAGE_MODEL,
@@ -103,6 +104,7 @@ import {
   extensionFromImageMime,
   isAllowedImageBuffer,
   normalizeLoopbackUrl,
+  requestHeadersWithDefaultUserAgent,
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -897,7 +899,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
           modelName: null,
         };
       }
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
       }
@@ -1008,7 +1013,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
             : headers;
       debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
       const res = await safeFetch(testUrl, {
-        headers: testHeaders,
+        headers: requestHeadersWithDefaultUserAgent(testHeaders),
         policy: localUrlPolicyForProvider(conn.provider, imageSource),
         maxResponseBytes: 2 * 1024 * 1024,
         decodeCompressedResponse: true,
@@ -1211,7 +1216,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "No base URL configured" });
       }
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      };
       if (provider?.usesAuthHeader) {
         headers["Authorization"] = `Bearer ${conn.apiKey}`;
       }
@@ -1378,6 +1386,29 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return {
           models: names.map((name: string) => ({ id: name, name })),
           loras: loras.map((name: string) => ({ id: name, name })),
+        };
+      }
+
+      // Arli AI lists its image checkpoints at the host root, not under the /v1 chat API its base URL points at
+      // (the documented /v1/models/image-models answers 404). Caption models are not image generators.
+      if (conn.provider === "image_generation" && imageSource === "arli") {
+        const res = await safeFetch(`${new URL(baseUrl).origin}/sdapi/v1/sd-models`, {
+          headers: { ...headers, Authorization: `Bearer ${conn.apiKey}` },
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 5 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        if (!res.ok) {
+          return reply.status(502).send({
+            error: `Arli AI returned ${res.status}: ${sanitizeProviderBody(await res.text())}`,
+          });
+        }
+        const arliModels = (await res.json()) as Array<{ title?: string; model_name?: string; modelType?: string }>;
+        return {
+          models: arliModels
+            .filter((m) => m.modelType !== "caption")
+            .map((m) => ({ id: m.model_name ?? m.title ?? "", name: m.title ?? m.model_name ?? "" }))
+            .filter((m) => m.id),
         };
       }
 
@@ -1587,7 +1618,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           : `${baseUrl}${provider?.modelsEndpoint || "/models"}`;
 
       const res = await safeFetch(modelsUrl, {
-        headers,
+        headers: requestHeadersWithDefaultUserAgent(headers),
         policy: {
           allowLocal: isProviderLocalUrlsEnabled(),
           allowLoopback: true,

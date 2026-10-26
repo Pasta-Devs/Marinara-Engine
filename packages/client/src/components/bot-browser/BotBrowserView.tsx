@@ -2395,139 +2395,142 @@ export function BotBrowserView() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* ═══ Tag Sidebar ═══ */}
-        {showTagPanel && (
-          <div className="flex w-[260px] flex-shrink-0 flex-col border-r border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/80">
-            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2">
-              <span className="mari-chrome-text-strong flex items-center gap-1.5 text-xs font-semibold">
-                <Tag size="0.75rem" /> {localizeUi("ui.characters.metadatatab.tags")}
-              </span>
-              <div className="flex items-center gap-1">
-                {(includeTags.length > 0 || excludeTags.length > 0) && (
-                  <button
-                    onClick={clearAllTags}
-                    className="mari-chrome-control mari-chrome-control--danger min-h-0 px-1.5 py-0.5 text-[0.6rem]"
-                  >
-                    {localizeUi("lorebook.editor.batch.clear")}
-                  </button>
-                )}
+        <div
+          key={sourceId}
+          className={cn(
+            "w-[260px] flex-shrink-0 flex-col border-r border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/80",
+            showTagPanel ? "flex" : "hidden",
+          )}
+        >
+          <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2">
+            <span className="mari-chrome-text-strong flex items-center gap-1.5 text-xs font-semibold">
+              <Tag size="0.75rem" /> {localizeUi("ui.characters.metadatatab.tags")}
+            </span>
+            <div className="flex items-center gap-1">
+              {(includeTags.length > 0 || excludeTags.length > 0) && (
                 <button
-                  onClick={() => setShowTagPanel(false)}
-                  className="mari-chrome-control mari-chrome-control--small min-h-0 p-0.5"
+                  onClick={clearAllTags}
+                  className="mari-chrome-control mari-chrome-control--danger min-h-0 px-1.5 py-0.5 text-[0.6rem]"
                 >
-                  <X size="0.75rem" />
+                  {localizeUi("lorebook.editor.batch.clear")}
                 </button>
-              </div>
-            </div>
-            <div className="px-3 py-2">
-              <input
-                type="text"
-                value={tagSearch}
-                onChange={(e) => setTagSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomTag();
-                  }
-                }}
-                placeholder={localizeUi("ui.botBrowser.botbrowserview.searchTags")}
-                className="mari-chrome-field mari-chrome-field--compact w-full px-2.5 py-1.5 text-xs"
-              />
-            </div>
-            {(includeTags.length > 0 || excludeTags.length > 0) && (
-              <div className="flex flex-wrap gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 pb-2">
-                {includeTags.map((tag) => (
-                  <span
-                    key={`inc-${tag}`}
-                    onClick={() => toggleIncludeTag(tag)}
-                    className="cursor-pointer rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-emerald-400 ring-1 ring-emerald-500/30 transition-colors hover:bg-emerald-500/30"
-                  >
-                    + {tag}
-                  </span>
-                ))}
-                {excludeTags.map((tag) => (
-                  <span
-                    key={`exc-${tag}`}
-                    onClick={() => toggleExcludeTag(tag)}
-                    className="cursor-pointer rounded-full bg-red-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-red-400 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/30"
-                  >
-                    − {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto px-1 py-1">
-              {canAddCustomTag && (
-                <div className="mx-1 mb-1 flex flex-col gap-1">
-                  <button
-                    onClick={addCustomTag}
-                    className="flex w-full items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
-                  >
-                    {localizeUi("ui.characters.dialoguetab.add")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
-                    {localizeUi("ui.botBrowser.botbrowserview.asFilter")}
-                  </button>
-                  <button
-                    onClick={() => {
-                      const custom = tagSearch.trim().toLowerCase();
-                      if (custom.length >= 2 && !excludeTags.includes(custom)) {
-                        setExcludeTags((prev) => [...prev, custom]);
-                        setIncludeTags((prev) => prev.filter((t) => t !== custom));
-                        setTagSearch("");
-                        setPage(1);
-                      }
-                    }}
-                    className="flex w-full items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
-                  >
-                    {localizeUi("ui.botBrowser.botbrowserview.block")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
-                    {localizeUi("ui.botBrowser.botbrowserview.fromResults")}
-                  </button>
-                </div>
               )}
-              {filteredTags.length === 0 && !canAddCustomTag ? (
-                <div className="px-2 py-4 text-center text-[0.65rem] italic text-[var(--muted-foreground)]">
-                  {availableTags.length === 0
-                    ? localizeUi("ui.botBrowser.botbrowserview.tagsWillAppearAfterSearching")
-                    : localizeUi("ui.botBrowser.botbrowserview.noTagsMatchFilter")}
-                </div>
-              ) : (
-                filteredTags.map((tag) => {
-                  const isIncluded = includeTags.includes(tag);
-                  const isExcluded = excludeTags.includes(tag);
-                  return (
-                    <div
-                      key={tag}
-                      className="mari-chrome-text flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
-                    >
-                      <button
-                        onClick={() => toggleIncludeTag(tag)}
-                        className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
-                          isIncluded
-                            ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                            : "border-[var(--border)] hover:border-emerald-500/50",
-                        )}
-                      >
-                        {isIncluded && "✓"}
-                      </button>
-                      <span className="min-w-0 flex-1 truncate">{tag}</span>
-                      <button
-                        onClick={() => toggleExcludeTag(tag)}
-                        className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
-                          isExcluded
-                            ? "border-red-500 bg-red-500/20 text-red-400"
-                            : "border-red-500/30 text-red-400/40 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10",
-                        )}
-                      >
-                        −
-                      </button>
-                    </div>
-                  );
-                })
-              )}
+              <button
+                onClick={() => setShowTagPanel(false)}
+                className="mari-chrome-control mari-chrome-control--small min-h-0 p-0.5"
+              >
+                <X size="0.75rem" />
+              </button>
             </div>
           </div>
-        )}
-
+          <div className="px-3 py-2">
+            <input
+              type="text"
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomTag();
+                }
+              }}
+              placeholder={localizeUi("ui.botBrowser.botbrowserview.searchTags")}
+              className="mari-chrome-field mari-chrome-field--compact w-full px-2.5 py-1.5 text-xs"
+            />
+          </div>
+          {(includeTags.length > 0 || excludeTags.length > 0) && (
+            <div className="flex flex-wrap gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 pb-2">
+              {includeTags.map((tag) => (
+                <span
+                  key={`inc-${tag}`}
+                  onClick={() => toggleIncludeTag(tag)}
+                  className="cursor-pointer rounded-full bg-emerald-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-emerald-400 ring-1 ring-emerald-500/30 transition-colors hover:bg-emerald-500/30"
+                >
+                  + {tag}
+                </span>
+              ))}
+              {excludeTags.map((tag) => (
+                <span
+                  key={`exc-${tag}`}
+                  onClick={() => toggleExcludeTag(tag)}
+                  className="cursor-pointer rounded-full bg-red-500/20 px-2 py-0.5 text-[0.6rem] font-medium text-red-400 ring-1 ring-red-500/30 transition-colors hover:bg-red-500/30"
+                >
+                  − {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto px-1 py-1">
+            {canAddCustomTag && (
+              <div className="mx-1 mb-1 flex flex-col gap-1">
+                <button
+                  onClick={addCustomTag}
+                  className="flex w-full items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                >
+                  {localizeUi("ui.characters.dialoguetab.add")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
+                  {localizeUi("ui.botBrowser.botbrowserview.asFilter")}
+                </button>
+                <button
+                  onClick={() => {
+                    const custom = tagSearch.trim().toLowerCase();
+                    if (custom.length >= 2 && !excludeTags.includes(custom)) {
+                      setExcludeTags((prev) => [...prev, custom]);
+                      setIncludeTags((prev) => prev.filter((t) => t !== custom));
+                      setTagSearch("");
+                      setPage(1);
+                    }
+                  }}
+                  className="flex w-full items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                >
+                  {localizeUi("ui.botBrowser.botbrowserview.block")} <strong>{tagSearch.trim().toLowerCase()}</strong>{" "}
+                  {localizeUi("ui.botBrowser.botbrowserview.fromResults")}
+                </button>
+              </div>
+            )}
+            {filteredTags.length === 0 && !canAddCustomTag ? (
+              <div className="px-2 py-4 text-center text-[0.65rem] italic text-[var(--muted-foreground)]">
+                {availableTags.length === 0
+                  ? localizeUi("ui.botBrowser.botbrowserview.tagsWillAppearAfterSearching")
+                  : localizeUi("ui.botBrowser.botbrowserview.noTagsMatchFilter")}
+              </div>
+            ) : (
+              filteredTags.map((tag) => {
+                const isIncluded = includeTags.includes(tag);
+                const isExcluded = excludeTags.includes(tag);
+                return (
+                  <div
+                    key={tag}
+                    className="mari-chrome-text flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
+                  >
+                    <button
+                      onClick={() => toggleIncludeTag(tag)}
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
+                        isIncluded
+                          ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                          : "border-[var(--border)] hover:border-emerald-500/50",
+                      )}
+                    >
+                      {isIncluded && "✓"}
+                    </button>
+                    <span className="min-w-0 flex-1 truncate">{tag}</span>
+                    <button
+                      onClick={() => toggleExcludeTag(tag)}
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[0.5rem] transition-all",
+                        isExcluded
+                          ? "border-red-500 bg-red-500/20 text-red-400"
+                          : "border-red-500/30 text-red-400/40 hover:border-red-500/60 hover:text-red-400 hover:bg-red-500/10",
+                      )}
+                    >
+                      −
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
         {/* ═══ Main area ═══ */}
         <div ref={mainScrollRef} className="flex-1 overflow-y-auto p-4">
           {provider.unavailable ? (

@@ -56,6 +56,8 @@ async function requestCloseDetails() {
   // A regex editor opened from a character's scoped-regex manager has a real
   // one-step return path; `closeRegexDetail` walks it back to that character.
   if (current.regexDetailId && current.regexDetailReturn) current.closeRegexDetail();
+  // A connection editor a Home package opened (capability API 1.386) closes back to that package's tab.
+  else if (current.connectionDetailId && current.connectionDetailReturnTab) current.closeConnectionDetail();
   else current.closeAllDetails();
 }
 

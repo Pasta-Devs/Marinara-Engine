@@ -1482,7 +1482,9 @@ const capabilityPackageManifestBaseSchema = z
 //        `battle.health` naming a track with neither levels nor boxes): Genesys's Wounds, read as the
 //        room left above its value, damage adding points and a heal taking them off.
 // 1.384: animate a saved Global Gallery image through a saved video connection, without exposing its credentials.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 384 } as const);
+// 1.385: package clients save images through the Engine gallery's existing platform-aware helpers.
+// 1.386: the Home browser view's openConnection(connectionId), and /api/generate/raw's debugMode prompt logging.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 386 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

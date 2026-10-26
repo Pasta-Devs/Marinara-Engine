@@ -8,7 +8,12 @@ import {
   getEmbeddingRequestTimeoutMs,
   isProviderLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
-import { requestHeadersWithIdentityEncoding, safeFetch, type SafeFetchOptions } from "../../utils/security.js";
+import {
+  requestHeadersWithDefaultUserAgent,
+  requestHeadersWithIdentityEncoding,
+  safeFetch,
+  type SafeFetchOptions,
+} from "../../utils/security.js";
 import { estimateTextTokens, sliceTextToTokenBudget, type GenerationParameterSendKey } from "@marinara-engine/shared";
 
 /** For models that reject assistant prefill but can continue an existing reply from history. */
@@ -116,7 +121,7 @@ export function llmFetch(
   const requestTimeoutMs = requestScope?.timeoutMs;
   return safeFetch(url, {
     ...(init ?? {}),
-    headers: requestHeadersWithIdentityEncoding(init?.headers),
+    headers: requestHeadersWithIdentityEncoding(requestHeadersWithDefaultUserAgent(init?.headers)),
     policy: {
       allowLocal: isProviderLocalUrlsEnabled(),
       allowLoopback: true,

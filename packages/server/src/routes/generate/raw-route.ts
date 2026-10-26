@@ -27,12 +27,13 @@ import {
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
 import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
-import { logger } from "../../lib/logger.js";
 import {
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
 } from "../../services/generation/image-captioning-runtime.js";
 import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logDebugOverride, logger } from "../../lib/logger.js";
 import { sendSseEvent, startSseKeepalive, startSseReply } from "./sse.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import {
@@ -89,6 +90,8 @@ const rawGenerateBodySchema = z
     streaming: z.boolean().optional(),
     returnPrompt: z.boolean().optional(),
     runId: z.string().trim().min(1).max(200).optional(),
+    // Capability API 1.386: log the final prompt and the response, as UI debug mode does for Engine generations.
+    debugMode: z.boolean().optional(),
   })
   .strict();
 
@@ -318,15 +321,40 @@ export async function registerRawRoute(app: FastifyInstance) {
       });
     }
 
-    const abortController = new AbortController();
     const runId = body.runId || randomUUID();
+    const debugOverride = body.debugMode === true || isDebugAgentsEnabled();
+    // Checked before building the log text: a raw prompt can be megabytes, and is usually not logged.
+    const debugLogged = debugOverride || logger.isLevelEnabled("debug");
+    if (debugLogged) {
+      logDebugOverride(
+        debugOverride,
+        "[debug/raw] prompt for %s (%s / %s):\n%s",
+        runId,
+        conn.provider,
+        conn.model,
+        JSON.stringify(
+          providerMessages.map((message) => ({ role: message.role, content: message.content })),
+          null,
+          2,
+        ),
+      );
+    }
+    const logResponse = (content: string) => {
+      if (debugLogged) logDebugOverride(debugOverride, "[debug/raw] response for %s:\n%s", runId, content);
+    };
+
+    const abortController = new AbortController();
     activeRawRuns.set(runId, { abortController, connectionId: body.connectionId });
 
+    // The reply, not the request: the request stream has already closed once the body was read, so a listener on it
+    // never hears the client leave, and the provider would keep generating for nobody.
+    let completed = false;
     const onClose = () => {
+      if (completed) return;
       abortController.abort();
       activeRawRuns.delete(runId);
     };
-    req.raw.on("close", onClose);
+    reply.raw.on("close", onClose);
 
     const runOptions = {
       model: conn.model,
@@ -377,7 +405,9 @@ export async function registerRawRoute(app: FastifyInstance) {
           full += result.content;
           await sendTokenTextChunked(result.content);
         }
-        sendSseEvent(reply, { type: "result", data: { content: full || result.content || "" } });
+        const content = full || result.content || "";
+        logResponse(content);
+        sendSseEvent(reply, { type: "result", data: { content } });
         sendSseEvent(reply, { type: "done", data: "" });
       } catch (err) {
         if (abortController.signal.aborted || isAbortError(err)) {
@@ -388,7 +418,8 @@ export async function registerRawRoute(app: FastifyInstance) {
         }
         sendSseEvent(reply, { type: "done", data: "" });
       } finally {
-        req.raw.off("close", onClose);
+        completed = true;
+        reply.raw.off("close", onClose);
         activeRawRuns.delete(runId);
         stopKeepalive();
         reply.raw.end();
@@ -399,10 +430,9 @@ export async function registerRawRoute(app: FastifyInstance) {
     reply.header("x-raw-runid", runId);
     try {
       const result = await provider.chatComplete(providerMessages, runOptions);
-      return reply.send({
-        content: (result.content ?? "").trimEnd(),
-        runId,
-      });
+      const content = (result.content ?? "").trimEnd();
+      logResponse(content);
+      return reply.send({ content, runId });
     } catch (err) {
       if (abortController.signal.aborted || isAbortError(err)) {
         return reply.send({ aborted: true, runId });
@@ -410,7 +440,8 @@ export async function registerRawRoute(app: FastifyInstance) {
       logger.error(err, "[raw] Generation failed");
       return reply.status(500).send({ error: err instanceof Error ? err.message : "Raw generation failed", runId });
     } finally {
-      req.raw.off("close", onClose);
+      completed = true;
+      reply.raw.off("close", onClose);
       activeRawRuns.delete(runId);
     }
   });

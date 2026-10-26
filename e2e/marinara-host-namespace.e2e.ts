@@ -85,7 +85,12 @@ test.describe("The host namespace agent packages use", () => {
         version: number;
         capabilityApi: { major: number; minor: number };
         stores: Record<string, unknown>;
-        services: { tts: Record<string, unknown>; dialogs: Record<string, unknown>; audio: Record<string, unknown> };
+        services: {
+          tts: Record<string, unknown>;
+          dialogs: Record<string, unknown>;
+          audio: Record<string, unknown>;
+          imageDownloads: Record<string, unknown>;
+        };
         modules: Record<string, Record<string, unknown>>;
         queryClient: { getQueryCache(): { getAll(): unknown[] } };
         components: { Modal: unknown };
@@ -107,7 +112,7 @@ test.describe("The host namespace agent packages use", () => {
           "backfill.store.ts",
         ].map((file) => load<Record<string, unknown>>(`/src/stores/${file}`)),
       );
-      const [queryClientModule, tts, dialogs, api, emojiCatalog, modal, audio] = await Promise.all([
+      const [queryClientModule, tts, dialogs, api, emojiCatalog, modal, audio, imageDownloads] = await Promise.all([
         load<{ queryClient: unknown }>("/src/lib/query-client.ts"),
         load<Record<string, unknown>>("/src/lib/tts-service.ts"),
         load<Record<string, unknown>>("/src/lib/app-dialogs.ts"),
@@ -115,6 +120,7 @@ test.describe("The host namespace agent packages use", () => {
         load<Record<string, unknown>>("/src/lib/emoji-catalog.generated.ts"),
         load<{ Modal: unknown }>("/src/components/ui/Modal.tsx"),
         load<Record<string, unknown>>("/src/lib/audio-service.ts"),
+        load<Record<string, unknown>>("/src/lib/file-download.ts"),
       ]);
       const descriptor = Object.getOwnPropertyDescriptor(globalThis, "__MARINARA_HOST__");
       try {
@@ -147,6 +153,11 @@ test.describe("The host namespace agent packages use", () => {
           audio:
             host.services.audio.createPlayer === audio.createPlayer &&
             host.services.audio.selectDefaultMusic === audio.selectDefaultMusic,
+          imageDownloads:
+            Object.keys(host.services.imageDownloads).length === 4 &&
+            ["downloadUrlToDevice", "prepareImageSave", "savePreparedImageToDevice", "shouldUseIosImageShare"].every(
+              (name) => host.services.imageDownloads[name] === imageDownloads[name],
+            ),
           api: host.api.api === api.api && host.api.ApiError === api.ApiError,
           emojiCatalog: host.data.emojiCatalog.EMOJI_CATEGORIES === emojiCatalog.EMOJI_CATEGORIES,
           Modal: host.components.Modal === modal.Modal,
@@ -172,7 +183,15 @@ test.describe("The host namespace agent packages use", () => {
         },
         property: { writable: descriptor?.writable, configurable: descriptor?.configurable },
         unchanged: (globalThis as { __MARINARA_HOST__?: unknown }).__MARINARA_HOST__ === host,
-        frozen: [host, host.stores, host.services, host.modules, host.components, host.data].every(Object.isFrozen),
+        frozen: [
+          host,
+          host.stores,
+          host.services,
+          host.services.imageDownloads,
+          host.modules,
+          host.components,
+          host.data,
+        ].every(Object.isFrozen),
       };
     });
 
@@ -220,7 +239,15 @@ test.describe("The host namespace agent packages use", () => {
         gameState: true,
         backfill: true,
       },
-      hostModules: { tts: true, dialogs: true, audio: true, api: true, emojiCatalog: true, Modal: true },
+      hostModules: {
+        tts: true,
+        dialogs: true,
+        audio: true,
+        imageDownloads: true,
+        api: true,
+        emojiCatalog: true,
+        Modal: true,
+      },
       appQueryClient: true,
       samples: {
         react: "function",

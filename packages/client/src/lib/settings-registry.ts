@@ -1321,6 +1321,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Slider",
   },
   {
+    id: "roleplay-chat-width",
+    sectionId: "roleplay-messages",
+    labelKey: "settings.controls.roleplayChatWidth.label",
+    label: "Chat area width",
+    description:
+      "Set text width while leaving room for avatars and Tracker Panel, or turn this off to restore the default.",
+    descriptionKey: "settings.controls.roleplayChatWidth.help",
+    aliases: ["roleplay", "text", "width", "resize", "reading", "column", "percentage"],
+    kind: "Slider",
+  },
+  {
     id: "roleplay-chat-position",
     sectionId: "roleplay-messages",
     labelKey: "settings.controls.roleplayChatPosition.label",

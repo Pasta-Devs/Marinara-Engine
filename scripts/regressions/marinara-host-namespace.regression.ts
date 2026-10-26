@@ -77,12 +77,17 @@ const typesMatch: [
   Equal<keyof MarinaraHostV1, (typeof MEMBERS)[number]>,
   Equal<keyof MarinaraHostV1["stores"], (typeof MARINARA_HOST_STORE_NAMES)[number]>,
   Equal<keyof MarinaraHostV1["modules"], MarinaraHostModuleSpecifier>,
-  Equal<keyof MarinaraHostV1["services"], "tts" | "dialogs" | "audio">,
+  Equal<keyof MarinaraHostV1["services"], "tts" | "dialogs" | "audio" | "imageDownloads">,
   Equal<keyof MarinaraHostV1["components"], "Modal">,
   Equal<keyof MarinaraHostV1["data"], "emojiCatalog">,
   Equal<keyof MarinaraHostStoreFields, (typeof MARINARA_HOST_STORE_NAMES)[number]>,
 ] = [true, true, true, true, true, true, true];
 assert.ok(typesMatch.every(Boolean));
+const imageDownloadTypesMatch: Equal<
+  keyof MarinaraHostV1["services"]["imageDownloads"],
+  "downloadUrlToDevice" | "prepareImageSave" | "savePreparedImageToDevice" | "shouldUseIosImageShare"
+> = true;
+assert.ok(imageDownloadTypesMatch);
 // Each Pick<> in MarinaraHostStoreFields fails this compile when a store drops a field packages read.
 const pinnedFields: { [K in keyof MarinaraHostStoreFields]: Array<keyof MarinaraHostStoreFields[K]> } = {
   ui: [...MARINARA_HOST_STORE_FIELDS.ui],

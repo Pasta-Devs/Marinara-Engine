@@ -1022,6 +1022,7 @@ export function ChatRoleplaySurface({
   const chatPosition = useUIStore((s) => s.roleplayChatPosition);
   const roleplayAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
+  const roleplayChatWidthPercent = useUIStore((s) => s.roleplayChatWidthPercent);
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   // Left and Right apply on wide screens only (see globals.css); a narrow chat pane keeps the centred column.
   const sideChatPosition = chatPosition === "left" || chatPosition === "right" ? chatPosition : undefined;
@@ -1240,6 +1241,12 @@ export function ChatRoleplaySurface({
       }
       const scrollElement = scrollRef.current;
       if (!scrollElement) return;
+      scrollElement
+        .closest<HTMLElement>('[data-chat-mode="roleplay"]')
+        ?.style.setProperty(
+          "--mari-roleplay-scrollbar-width",
+          `${scrollElement.offsetWidth - scrollElement.clientWidth}px`,
+        );
       const historyBox = scrollElement.parentElement;
       if (historyBox) {
         historyBox.style.top = visualNovel && vnHistoryOpen ? `${top + 8}px` : "";
@@ -1261,6 +1268,7 @@ export function ChatRoleplaySurface({
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
+    if (scrollRef.current) observer.observe(scrollRef.current);
     if (topChromeRef.current) observer.observe(topChromeRef.current);
     if (inputChromeRef.current) observer.observe(inputChromeRef.current);
     return () => observer.disconnect();
@@ -1268,6 +1276,7 @@ export function ChatRoleplaySurface({
     activeChatId,
     centerCompact,
     phoneLayout,
+    roleplayChatWidthPercent,
     chatMeta.enableAgents,
     chatMeta.sceneStatus,
     combatAgentEnabled,
@@ -1715,10 +1724,18 @@ export function ChatRoleplaySurface({
         data-chat-mode="roleplay"
         data-roleplay-presentation={visualNovel ? "visual-novel" : "classic"}
         data-chat-position={sideChatPosition}
+        data-roleplay-custom-width={roleplayChatWidthPercent !== null || undefined}
         data-roleplay-avatar-style={sideChatPosition ? roleplayAvatarStyle : undefined}
         style={
           {
             isolation: "isolate",
+            ...(roleplayChatWidthPercent !== null && {
+              "--mari-roleplay-custom-column-width": `${roleplayChatWidthPercent}cqw`,
+              "--mari-roleplay-custom-avatar-room":
+                roleplayAvatarStyle === "none"
+                  ? "0rem"
+                  : `calc(${(roleplayAvatarStyle === "rectangles" ? 2.75 : 2.5) * roleplayAvatarScale}rem + 1.5rem)`,
+            }),
             // The compact pane keeps the transcript's narrow padding (px-3) at every width.
             ...(centerCompact && { "--mari-roleplay-transcript-gutter": "0.75rem" }),
             ...(sideChatPosition && {

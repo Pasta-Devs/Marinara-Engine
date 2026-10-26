@@ -6692,7 +6692,10 @@ strong {
   /* 100cqw is the chat pane (CenterContent is a container). A docked Tracker Panel needs room on each
      side of the column (AppShell sets it), so a pane too narrow for both narrows the column instead of
      squeezing the panel to a sliver. */
-  --mari-roleplay-message-column-width: min(58rem, 100cqw - 2 * var(--tracker-panel-column-room, 0px));
+  --mari-roleplay-message-column-width: min(
+    var(--mari-roleplay-custom-column-width, 58rem),
+    100cqw - 2 * var(--tracker-panel-column-room, 0px)
+  );
   --mari-roleplay-row-gutter: clamp(0.25rem, 1.5vw, 1.5rem);
 }
 
@@ -6775,6 +6778,17 @@ strong {
 }
 
 @media (min-width: 768px) {
+  /* A full-width custom column leaves the same gutters and avatar tracks beside every row and the composer. */
+  [data-chat-mode="roleplay"][data-roleplay-custom-width="true"] {
+    --mari-roleplay-message-column-width: min(
+      var(--mari-roleplay-custom-column-width),
+      100cqw - 2 * var(--tracker-panel-column-room, 0px),
+      100cqw - var(--mari-chat-position-clearance, 0px) - 2 * var(--mari-roleplay-transcript-gutter) - 2 *
+        var(--mari-roleplay-row-gutter) - 2 * var(--mari-roleplay-custom-avatar-room) -
+        var(--mari-roleplay-scrollbar-width, 0px)
+    );
+  }
+
   [data-chat-mode="roleplay"] .mari-roleplay-input-column > .mari-chat-input {
     padding-left: 0;
     padding-right: 0;
@@ -9032,7 +9046,8 @@ html[data-marinara-reduced-effects="true"] .mari-window {
   }
 
   .mari-home-browser-tab-row [role="tab"],
-  [data-component="HomeBrowserHub.MobileBookmarksTrigger"] {
+  [data-component="HomeBrowserHub.MobileBookmarksTrigger"],
+  [data-component="HomeBrowserHub.TabMenuTrigger"] {
     min-height: 1.875rem;
     height: 1.875rem;
   }

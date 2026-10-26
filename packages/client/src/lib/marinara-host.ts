@@ -36,6 +36,12 @@ import * as audio from "./audio-service";
 import * as dialogs from "./app-dialogs";
 import * as emojiCatalog from "./emoji-catalog.generated";
 import {
+  downloadUrlToDevice,
+  prepareImageSave,
+  savePreparedImageToDevice,
+  shouldUseIosImageShare,
+} from "./file-download";
+import {
   MARINARA_HOST_MODULE_SPECIFIERS,
   MARINARA_HOST_STORE_NAMES,
   MARINARA_HOST_VERSION,
@@ -91,7 +97,17 @@ function defineMarinaraHost(): MarinaraHostV1 {
     version: MARINARA_HOST_VERSION,
     capabilityApi: supportedCapabilityApi,
     stores,
-    services: Object.freeze({ tts, dialogs, audio }),
+    services: Object.freeze({
+      tts,
+      dialogs,
+      audio,
+      imageDownloads: Object.freeze({
+        downloadUrlToDevice,
+        prepareImageSave,
+        savePreparedImageToDevice,
+        shouldUseIosImageShare,
+      }),
+    }),
     modules,
     queryClient,
     components: Object.freeze({ Modal }),

@@ -41,6 +41,7 @@ import {
   normalizeConversationBackgroundImageOpacity,
   normalizeMariWindowHeightRem,
   normalizeMariWindowWidthRem,
+  normalizeRoleplayChatWidthPercent,
   normalizeOmnibarWindowWidthRem,
   normalizeOmnibarWindowHeightRem,
   pickSyncedSettings,
@@ -76,6 +77,9 @@ export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings 
     sanitized.conversationBackgroundImageOpacity = normalizeConversationBackgroundImageOpacity(
       sanitized.conversationBackgroundImageOpacity,
     );
+  }
+  if ("roleplayChatWidthPercent" in sanitized) {
+    sanitized.roleplayChatWidthPercent = normalizeRoleplayChatWidthPercent(sanitized.roleplayChatWidthPercent);
   }
   if ("mariWindowHeightRem" in sanitized) {
     sanitized.mariWindowHeightRem = normalizeMariWindowHeightRem(sanitized.mariWindowHeightRem);

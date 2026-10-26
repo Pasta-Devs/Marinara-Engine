@@ -202,6 +202,17 @@ function outcomeOf(result: GameInventoryOpResult | undefined): InventoryTagOutco
     : { ok: false, reason: result.reason };
 }
 
+/** An item's name with case and a plural ending aside ("Torches" and "torch" are "torch"): how an add
+ *  and a later give in one reply, or a player's words and the item book, are matched. */
+export function gameInventoryNameStem(name: string): string {
+  return name.trim().toLowerCase().replace(/s$/, "").replace(/e$/, "");
+}
+
+/** A bag as tags in one reply name it; nobody named is the same bag each time. */
+function inventoryBagKey(name: string | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
 /**
  * Every tag in the reply, in order, each on the stacks the one before it left. A `result` the Game
  * Master wrote itself is ignored, as it is on a sheet command: it only ever asks, and the Engine
@@ -315,13 +326,38 @@ export function applyGameInventoryTags(
     return { outcome: { ok: true, count: done, now }, ...(revealed ? { revealed } : {}) };
   };
 
+  // An add the same reply then gives or removes from the same bag made the item out of nothing to have
+  // it to hand over (2026-10-26 eval: told no torch exists, a model adds one and gives it on). Those
+  // items of those adds, by tag index, are refused as having no source; one written with a `source` or
+  // `from` says where it came from and stands.
+  const conjured = new Map<number, Set<string>>();
+  const requests = [...content.matchAll(createInventoryTagRegex())].map((match) => ({
+    request: parseInventoryTagBody(match[1] ?? ""),
+    sourced: /\b(?:source|from)\s*=/i.test(match[1] ?? ""),
+  }));
+  requests.forEach(({ request, sourced }, index) => {
+    if (request?.action !== "add" || request.to || sourced) return;
+    const later = new Set<string>();
+    for (const { request: other } of requests.slice(index + 1)) {
+      const handsOn =
+        other && (other.action === "give" || other.action === "remove" || (other.action === "add" && other.to));
+      if (!handsOn || inventoryBagKey(other.who) !== inventoryBagKey(request.who)) continue;
+      for (const item of other.items) later.add(gameInventoryNameStem(item));
+    }
+    const made = new Set(request.items.map(gameInventoryNameStem).filter((item) => later.has(item)));
+    if (made.size > 0) conjured.set(index, made);
+  });
+
   const next = content.replace(createInventoryTagRegex(), (_whole, body: string) => {
     tags += 1;
+    const tagIndex = tags - 1;
     // Past the cap a tag is answered as refused rather than left as written, so a result the Game
     // Master wrote itself can never read as something that happened.
     if (tags > MAX_INVENTORY_TAGS) return refuseTagBody(body, "too-many");
-    const request = parseInventoryTagBody(body);
-    if (!request) return serializeInventoryTag({ raw: body.trim() }, { ok: false, reason: "unreadable" });
+    const parsed = parseInventoryTagBody(body);
+    if (!parsed) return serializeInventoryTag({ raw: body.trim() }, { ok: false, reason: "unreadable" });
+    // An add that names who it goes to hands on what `who` holds: it is a give.
+    const request = parsed.action === "add" && parsed.to ? { ...parsed, action: "give" as const } : parsed;
 
     const who = resolveGameInventoryHolder(request.who, party, current);
     const to = request.action === "give" ? resolveGameInventoryHolder(request.to, party, current) : null;
@@ -363,6 +399,9 @@ export function applyGameInventoryTags(
           ...(request.to ? { to: request.to } : {}),
         };
         if (!who.ok) return serializeInventoryTag(shown, { ok: false, reason: who.reason });
+        if (request.action === "add" && conjured.get(tagIndex)?.has(gameInventoryNameStem(item))) {
+          return serializeInventoryTag(shown, { ok: false, reason: "no-source" });
+        }
         if (request.action === "add") {
           // A proposal first makes the item of the ruleset it describes, or finds the one of that name
           // already made, and the answer says what the Engine changed. Without a ruleset to invent in,
