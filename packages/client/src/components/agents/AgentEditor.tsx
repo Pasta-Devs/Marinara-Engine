@@ -2729,6 +2729,7 @@ export function AgentEditor() {
                 }}
                 aria-label={localizeUi("ui.agents.agenteditor.connectionOverride")}
                 scope="agent"
+                inherits={sidecarIsAgentsDefault ? undefined : "agents"}
                 defaultLabel={
                   sidecarIsAgentsDefault
                     ? localizeUi("ui.agents.agenteditor.agentDefaultValue1", {

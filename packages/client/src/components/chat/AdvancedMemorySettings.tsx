@@ -440,6 +440,7 @@ export function AdvancedMemorySettings({
                 value={settings.helperConnectionId ?? null}
                 onChange={(helperConnectionId) => save({ helperConnectionId })}
                 defaultLabel={t("chat.advancedMemory.defaultAgentConnection")}
+                inherits="agents"
                 className={fieldClass}
               />
             </fieldset>

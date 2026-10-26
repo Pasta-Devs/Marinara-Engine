@@ -2570,6 +2570,7 @@
   "connections.select.default": "Default",
   "connections.select.defaultResolved": "Default (→ {{model}} · {{connection}})",
   "connections.select.fromDefaults": "From Defaults · {{job}}",
+  "connections.select.inheritWith": "{{label}} (→ {{model}})",
   "connections.select.labelWithValue": "{{label}}: {{value}}",
   "connections.select.localModel": "Built-in model (on this device)",
   "connections.select.missing": "Missing: {{id}}",
