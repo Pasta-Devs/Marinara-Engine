@@ -13,8 +13,9 @@ const transfer = read("lib/connection-transfer.ts");
 assert.match(modal, /isZipFile\(file\)/);
 assert.match(modal, /readTextFilesFromZip\(file\)/);
 assert.match(modal, /accept="\.json,\.jsonl,\.zip/);
-assert.match(modal, /has a model without an ID/);
-assert.match(modal, /has no model ID/);
+assert.doesNotMatch(modal, /has a model without an ID/, "A row without a model must not abort the account");
+assert.doesNotMatch(modal, /has no model ID/, "A row without a model counts as failed and the import goes on");
+assert.match(modal, /if \(!model\) \{\s*failed \+= 1;\s*continue;/);
 assert.match(transfer, /const model = asString\(value\.model\)\.trim\(\);/);
 assert.match(transfer, /if \(isChatProvider\(provider\) && !model\) return null;/);
 for (const provider of NON_CHAT_PROVIDERS) {
