@@ -149,8 +149,8 @@ export function AccessStep(props: AccessStepProps) {
   if (props.device) {
     return (
       <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
-        <div className="mx-auto max-w-xl">
-          <div className="flex flex-col gap-4 p-4 md:p-5">
+        <div className="max-w-xl">
+          <div className="flex flex-col gap-4 px-3 py-4">
             <div className={cn("flex items-start gap-3", props.device !== "local_model" && "hidden")}>
               <ServiceTile service={props.device} />
               <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
@@ -178,8 +178,8 @@ export function AccessStep(props: AccessStepProps) {
 
   return (
     <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
-      <div className="mx-auto max-w-xl">
-        <div className="flex flex-col gap-4 p-4 md:p-5">
+      <div className="max-w-xl">
+        <div className="flex flex-col gap-4 px-3 py-4">
           <div className="flex items-center gap-3">
             <ServiceTile service={props.service ?? props.provider} />
             <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">

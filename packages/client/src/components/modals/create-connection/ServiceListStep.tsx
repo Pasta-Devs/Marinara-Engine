@@ -25,8 +25,9 @@ import {
 } from "./shared";
 
 /** Every list row shares one inset and height, and every tile is 40px, so the labels, tiles and titles line up. */
-// [&+p]: the hint line under a service row keeps its 3.25rem text start plus the 0.5rem inset.
-const ROW = "ps-2 md:min-h-14 [&+p]:ms-[3.75rem]";
+// Rows keep a hover pad that bleeds 0.5rem outside the content edge, so tiles and labels share that edge.
+const ROW = "-mx-2 ps-2 md:min-h-14";
+const MODEL_ROW = { className: "-mx-2" };
 const TILE = "h-10 w-10 rounded-xl [&_svg]:size-5";
 
 type ServiceListStepProps = {
@@ -149,13 +150,13 @@ export function ServiceListStep(props: ServiceListStepProps) {
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div
-        className="flex flex-col gap-3 p-4"
+        className="flex flex-col gap-3 px-3 py-4"
         data-add-connection-path={job ? "job" : firstRun ? "first-run" : pick === "provider" ? "services" : "existing"}
       >
         {firstRun && !job && <FirstRunIntro text={t("connections.add.intro")} />}
         <ListSearch value={query} onChange={setQuery} label={searchLabel} placeholder={searchLabel} />
         {!job && (pick === "provider" || searching) && (
-          <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5 px-2">
+          <div role="group" aria-label={t("connections.add.kindFilter")} className="flex flex-wrap gap-1.5">
             {[null, ...CHIP_KINDS].map((kind) => {
               const Icon = kind ? KIND_ICONS[kind] : null;
               return (
@@ -175,7 +176,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
           </div>
         )}
         {job && (
-          <div className="flex items-center gap-2 px-2" data-add-connection-job={job}>
+          <div className="flex items-center gap-2" data-add-connection-job={job}>
             <span className="text-xs font-medium">{t("connections.add.forJob", { job: jobLabel(job) })}</span>
             <button
               type="button"
@@ -190,11 +191,12 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && listJobs.length > 0 && (
           <section data-add-connection-section="missing-jobs">
-            <ListHeading className="px-2">{t("connections.add.section.missingJobs")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.missingJobs")}</ListHeading>
             {listJobs.map((key) => {
               const Icon = JOB[key].icon;
               return (
                 <ModelRow
+                  rowProps={MODEL_ROW}
                   key={key}
                   title={jobLabel(key)}
                   subtitle={t(jobHintKey(JOB[key]))}
@@ -214,7 +216,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && ownAccounts.length > 0 && (
           <section data-add-connection-section="your-services">
-            <ListHeading className="px-2">{t("connections.add.section.yourServices")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.yourServices")}</ListHeading>
             {ownAccounts.map((account) => {
               const children = rows.filter((row) => row.accountId === account.id);
               return (
@@ -250,12 +252,13 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {listModels.length > 0 && (
           <section data-add-connection-section="model">
-            <ListHeading className="px-2">{t("connections.add.section.model")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.model")}</ListHeading>
             {listModels.flatMap((entry) => {
               const { mine, services } = routesOf(entry);
               return [
                 ...mine.map(([accountId, model]) => (
                   <ModelRow
+                    rowProps={MODEL_ROW}
                     key={`${entry.key}:${accountId}`}
                     title={entry.name}
                     kind={entry.kind}
@@ -272,6 +275,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
                 )),
                 ...services.map(({ service: key, model }) => (
                   <ModelRow
+                    rowProps={MODEL_ROW}
                     key={`${entry.key}:${key}`}
                     title={entry.name}
                     kind={entry.kind}
@@ -292,8 +296,9 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {home && !searching && (
           <section data-add-connection-section="new-service">
-            <ListHeading className="px-2">{t("connections.add.section.newService")}</ListHeading>
+            <ListHeading className="px-0">{t("connections.add.section.newService")}</ListHeading>
             <ModelRow
+              rowProps={MODEL_ROW}
               title={t("connections.add.chooseService")}
               subtitle={t("connections.add.chooseServiceHint")}
               tile={
@@ -309,7 +314,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
         )}
         {groups.map((group) => (
           <section key={group.id} data-add-connection-group={group.id}>
-            <ListHeading className="px-2">
+            <ListHeading className="px-0">
               {t(`connections.add.${group.id === "popular" ? "popular" : `group.${group.id}`}`)}
             </ListHeading>
             {group.services.map(serviceRow)}

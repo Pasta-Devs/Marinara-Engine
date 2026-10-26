@@ -453,7 +453,7 @@ export function ConnectionModelPicker({
         rowProps={{
           "data-model-row": true,
           "data-model-id": row.id,
-          className: "rounded-lg",
+          className: cn("rounded-lg", addMode && "-mx-2"),
           ...(addMode ? { onMouseEnter: () => setDetailId(row.id), onFocus: () => setDetailId(row.id) } : {}),
         }}
         data-model-option
@@ -615,11 +615,11 @@ export function ConnectionModelPicker({
         <p className="px-3 pb-3 text-[0.6875rem] text-foreground/60">{t("connections.modelPicker.reviewFirst")}</p>
       ) : (
         <>
-          {/* The Add window's step title sits at its header edge (px-5, px-4 on phones); the search lines up with it. */}
+          {/* The Add window's step title sits at its header edge (px-3, the modal title's edge); the search lines up with it. */}
           <ListFrame
             className="flex-1"
             search={
-              <div className={cn("flex min-w-0 items-center gap-1.5 pb-1.5", addMode ? "px-5 max-md:px-4" : "px-3")}>
+              <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1.5">
                 <ListSearch
                   className="flex-1"
                   inputRef={searchRef}
@@ -657,12 +657,12 @@ export function ConnectionModelPicker({
             header={
               <>
                 {addMode && updated && (
-                  <p data-model-updated className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+                  <p data-model-updated className="px-3 pb-1.5 text-[0.625rem] text-foreground/50">
                     {t("connections.modelPicker.updated", { when: updated })}
                   </p>
                 )}
                 {addMode && costLegend && (
-                  <p data-model-cost-legend className="px-5 pb-1.5 text-[0.625rem] text-foreground/50 max-md:px-4">
+                  <p data-model-cost-legend className="px-3 pb-1.5 text-[0.625rem] text-foreground/50">
                     {costLegend}
                   </p>
                 )}
@@ -733,7 +733,7 @@ export function ConnectionModelPicker({
             }
             option="[data-model-option]"
             listRef={listRef}
-            listClassName="px-1.5 pb-1.5"
+            listClassName={addMode ? "px-3 pb-1.5" : "px-1.5 pb-1.5"}
             data-model-list
             status={status}
             aside={
@@ -794,7 +794,7 @@ export function ConnectionModelPicker({
 
             {recommendedRows.length > 0 && (
               <section aria-label={t("connections.add.recommended")} data-model-section="recommended">
-                <ListHeading>{t("connections.add.recommended")}</ListHeading>
+                <ListHeading className={addMode ? "px-0" : undefined}>{t("connections.add.recommended")}</ListHeading>
                 {recommendedRows.map((row) => renderRow(row, false, "recommended"))}
               </section>
             )}
@@ -805,7 +805,7 @@ export function ConnectionModelPicker({
                 data-model-section="favorites"
                 className={cn(recommendedRows.length > 0 && "mt-2")}
               >
-                <ListHeading>
+                <ListHeading className={addMode ? "px-0" : undefined}>
                   {t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
                 </ListHeading>
                 {pinnedRows.map((row) => renderRow(row, true))}
@@ -818,7 +818,9 @@ export function ConnectionModelPicker({
                 data-model-section="all"
                 className={cn((pinnedRows.length > 0 || recommendedRows.length > 0) && "mt-2")}
               >
-                <ListHeading>{t("connections.modelPicker.allModels")}</ListHeading>
+                <ListHeading className={addMode ? "px-0" : undefined}>
+                  {t("connections.modelPicker.allModels")}
+                </ListHeading>
                 {/* A sorted list stays in one run; maker groups would break the order. */}
                 {(sort === "list"
                   ? subgroupByUpstream(otherRows.map((row) => ({ ...row, model: row.id })))
