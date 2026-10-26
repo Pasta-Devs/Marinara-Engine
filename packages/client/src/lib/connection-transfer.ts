@@ -219,6 +219,8 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
   const provider = asProvider(value.provider);
   const name = asString(value.name).trim();
   if (!provider || !name) return null;
+  const model = asString(value.model).trim();
+  if (!model) return null;
 
   const decisionSource =
     provider === "decision" && DECISION_SOURCES.includes(value.decisionSource as DecisionSource)
@@ -236,7 +238,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       provider,
       apiKey: "",
       baseUrl: asString(value.baseUrl),
-      model: asString(value.model),
+      model,
       pinnedModels: parsePinnedModels(value.pinnedModels),
       maxContext: asPositiveInteger(value.maxContext, 128000),
       isDefault: false,

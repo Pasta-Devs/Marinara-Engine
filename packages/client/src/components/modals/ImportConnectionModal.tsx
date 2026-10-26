@@ -9,6 +9,7 @@ import { connectionKeys, useCreateConnection, useSaveConnectionDefaults } from "
 import { connectionAccountKeys, useCreateConnectionAccount } from "../../hooks/use-connection-accounts";
 import { getConnectionImportPlan, type ConnectionImportPayload } from "../../lib/connection-transfer";
 import { api } from "../../lib/api-client";
+import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface Props {
@@ -59,7 +60,12 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
     for (const file of files) {
       try {
-        const parsed = JSON.parse(await file.text()) as unknown;
+        const texts = isZipFile(file)
+          ? await readTextFilesFromZip(file)
+          : [{ path: file.name, text: await file.text() }];
+        const jsonFile = texts.find((entry) => entry.path.toLowerCase().endsWith(".json"));
+        if (!jsonFile) throw new Error("The ZIP file does not contain a JSON connection export.");
+        const parsed = JSON.parse(jsonFile.text) as unknown;
         const plan = getConnectionImportPlan(parsed);
         if (plan.accounts.length === 0 && plan.models.length === 0) {
           throw new Error(localizeUi("connections.transfer.noData"));
@@ -83,8 +89,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
             let added = 0;
             for (const model of entry.models) {
               if (!model) {
-                failed += 1;
-                continue;
+                throw new Error(`Account ${entry.account.name} has a model without an ID.`);
               }
               const connectionId = await importModel(model, accountId);
               if (connectionId) createdIds.push(connectionId);
@@ -103,8 +108,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
         for (const model of plan.models) {
           if (!model) {
-            failed += 1;
-            continue;
+            throw new Error("A connection record has no model ID.");
           }
           try {
             await importModel(model);
@@ -193,7 +197,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept=".json,application/json"
+          accept=".json,.jsonl,.zip,application/json,application/zip"
           multiple
           className="hidden"
           onChange={(event) => {

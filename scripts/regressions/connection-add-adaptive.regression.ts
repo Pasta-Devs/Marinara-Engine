@@ -10,6 +10,7 @@ const read = (name: string) => readFileSync(new URL(`../../packages/client/src/$
 const list = read("components/modals/create-connection/ServiceListStep.tsx");
 const data = read("components/modals/create-connection/useServiceListData.ts");
 const modal = read("components/modals/create-connection/CreateConnectionModalContent.tsx");
+const models = read("components/modals/create-connection/ModelsStep.tsx");
 const english = JSON.parse(read("localization/locales/en.json"));
 
 assert.deepEqual(jobsForAddedKinds(["image"]), ["images"]);
@@ -71,6 +72,7 @@ assert.match(modal, /const totalSteps = job \? 2 : 3/);
 assert.match(modal, /optionalJobs\.map\(\(key, index\) =>/);
 assert.match(modal, /index === 0 && \(\s*<span[^>]*>\{t\("connections\.add\.useFor\.recommended"\)\}/);
 assert.doesNotMatch(modal, /key === "main" && !hasMain && \(/);
+assert.match(models, /props\.inPlace[\s\S]*accountId: undefined/);
 for (const key of [
   "connections.add.useFor.heading",
   "connections.add.useFor.skip",

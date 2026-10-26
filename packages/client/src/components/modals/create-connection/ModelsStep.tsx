@@ -408,7 +408,13 @@ export function ModelsStep(props: ModelsStepProps) {
         <ConnectionModelPicker
           className="h-full"
           // From a chat's quick switch the check marks what that chat runs, and a tap chooses for it.
-          connection={props.chat ? { ...props.pickerRow, model: props.chat.currentModel } : props.pickerRow}
+          connection={
+            props.chat
+              ? { ...props.pickerRow, model: props.chat.currentModel }
+              : props.inPlace
+                ? { ...props.pickerRow, accountId: undefined }
+                : props.pickerRow
+          }
           onChoose={
             props.chat
               ? async (choice) => {
