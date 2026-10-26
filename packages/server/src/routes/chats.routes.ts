@@ -1397,12 +1397,6 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Selected character identity is invalid or unavailable." });
     }
     const body = req.body as Record<string, unknown>;
-    // No connection picked (no starred preset): seed the user's default so the
-    // setup wizard shows what generation would fall back to anyway.
-    if (!input.connectionId) {
-      const defaultConnectionId = (await createConnectionsStorage(app.db).getDefault())?.id;
-      if (defaultConnectionId) input.connectionId = defaultConnectionId;
-    }
     const chat = await storage.create(
       input,
       normalizeTimestampOverrides({
