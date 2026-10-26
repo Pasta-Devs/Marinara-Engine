@@ -40,6 +40,36 @@ try {
     resolveBaseUrl: (connection) => connection.baseUrl ?? "",
   });
   assert.ok(summary.ok, "A summary for a chat without a Model must use Main");
+
+  const own = await connections.create({
+    name: "Own model",
+    provider: "custom",
+    baseUrl: "http://127.0.0.1:2/v1",
+    apiKey: "k",
+    model: "own",
+  });
+  assert.ok(own);
+  const ownSummary = await resolveChatSummaryConnection({
+    chatConnectionId: own.id,
+    chatMetadata: {},
+    connections,
+    resolveBaseUrl: (connection) => connection.baseUrl ?? "",
+  });
+  assert.ok(
+    ownSummary.ok && ownSummary.connectionId === own.id,
+    "A chat with its own Model summarises with it, not Main",
+  );
+
+  const { resolveIllustratorPromptRuntime } =
+    await import("../../packages/server/src/services/generation/illustrator-prompt-runtime.js");
+  const illustrator = await resolveIllustratorPromptRuntime({
+    chatMetadata: {},
+    defaultConnection: null,
+    defaultConnectionId: null,
+    connections,
+    resolveBaseUrl: (connection) => connection.baseUrl ?? "",
+  });
+  assert.equal(illustrator.connectionId, main.id, "Selfie prompts for a chat that follows Main use Main");
   console.log("Unset chats resolve to Main.");
 } finally {
   await closeDB();

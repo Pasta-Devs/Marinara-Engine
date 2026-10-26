@@ -1984,7 +1984,11 @@ export async function resolveRetryAgents(args: {
     let connId =
       typeof chat.connectionId === "string" && chat.connectionId.trim()
         ? chat.connectionId.trim()
-        : gameSceneConnectionId || setupSceneConnectionId || defaultAgentConn?.id || null;
+        : gameSceneConnectionId ||
+          setupSceneConnectionId ||
+          defaultAgentConn?.id ||
+          (await conns.getDefault())?.id ||
+          null;
 
     if (!connId) {
       return {

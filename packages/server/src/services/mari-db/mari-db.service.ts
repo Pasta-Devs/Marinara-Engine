@@ -8341,9 +8341,10 @@ export class MariDbService {
         "Token Budget": (row as unknown as Lorebook).tokenBudget,
       }));
 
+    const connectionsStorage = createConnectionsStorage(this.db);
     const storedConnection = chat.connectionId
-      ? await createConnectionsStorage(this.db).getById(chat.connectionId)
-      : null;
+      ? await connectionsStorage.getById(chat.connectionId)
+      : await connectionsStorage.getDefault();
     const connection = storedConnection ? applyChatModelOverride(storedConnection, readChatModelOverride(chat)) : null;
     const presetCandidates = buildGenerationPromptPresetCandidates({
       chatMode: chat.mode,
