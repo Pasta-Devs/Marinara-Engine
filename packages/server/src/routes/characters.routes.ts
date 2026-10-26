@@ -73,7 +73,7 @@ import {
 } from "../services/conversation/call-character-videos.service.js";
 import { removeSavedVideoFromDisk } from "../services/video/video-generation.js";
 import { writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
   createJsonSlot,
@@ -606,12 +606,15 @@ async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise
 /** The byte check card-import pictures pass. A file that is not the image its name claims is
  *  deleted, so a gallery upload never keeps one. */
 async function isValidUploadedGalleryImage(filePath: string, filename: string): Promise<boolean> {
-  const image = await validateImageAssetFile(filePath, filename);
+  const galleryRoot = resolve(DATA_DIR, "gallery");
+  const storedPath = resolve(filePath);
+  if (!storedPath.startsWith(galleryRoot + sep)) return false;
+  const image = await validateImageAssetFile(storedPath, filename);
   if (image) {
     await image.handle.close().catch(() => undefined);
     return true;
   }
-  await unlink(filePath).catch(() => undefined);
+  await unlink(storedPath).catch(() => undefined);
   return false;
 }
 
