@@ -190,6 +190,12 @@ export async function resolveConversationPresenceRuntime(args: {
       .map((character) => character.displayName);
     if (sceneNames.length) args.writeSse({ type: "offline", reason: "scene_busy", characters: sceneNames });
     if (offlineNames.length) args.writeSse({ type: "offline", characters: offlineNames });
+    // A user message nobody can answer: say so instead of ending the stream silently.
+    if (convoCharInfo.length === 0 && args.chatMessages.at(-1)?.role === "user")
+      args.writeSse({
+        type: "error",
+        data: "This chat has no character. Add a character before sending a message.",
+      });
     args.writeSse({ type: "done" });
     args.endSse();
     return buildPresenceResult({

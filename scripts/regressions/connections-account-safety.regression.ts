@@ -15,6 +15,7 @@ const picker = read("../../packages/client/src/components/connections/Connection
 const access = read("../../packages/client/src/components/modals/create-connection/AccessStep.tsx");
 const backup = read("../../packages/server/src/routes/backup.routes.ts");
 const connections = read("../../packages/server/src/routes/connections.routes.ts");
+const presence = read("../../packages/server/src/routes/generate/conversation-presence-runtime.ts");
 const generation = read("../../packages/server/src/routes/generate.routes.ts");
 const services = read("../../packages/client/src/components/modals/create-connection/shared.tsx");
 const models = read("../../packages/client/src/components/modals/create-connection/ModelsStep.tsx");
@@ -30,7 +31,7 @@ assert.doesNotMatch(backup, /Profile connection records must include a non-empty
 assert.match(connections, /Object\.hasOwn\(body, "model"\)[\s\S]*?non-empty model ID/);
 assert.match(services, /custom: \["chat", "image", "local"\]/);
 assert.match(models, /props\.service === "custom"[\s\S]*?kind === "image"/);
-assert.match(generation, /This chat has no character\. Add a character before sending a message\./);
+assert.match(presence, /This chat has no character\. Add a character before sending a message\./);
 
 // Run the actual modal handler with mutation doubles: failed results and thrown tests
 // remove only the fresh account; retry and Continue anyway create a usable target again.
