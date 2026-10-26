@@ -1631,7 +1631,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       });
       if (!res.ok) {
         const body = await res.text();
-        return reply.status(res.status).send({
+        return reply.status(res.status === 401 || res.status === 403 ? res.status : 502).send({
           error: `Provider returned ${res.status}: ${sanitizeProviderBody(body)}`,
         });
       }
