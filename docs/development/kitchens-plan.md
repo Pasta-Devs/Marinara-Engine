@@ -11,7 +11,7 @@ share a world, a cast, selected agents, and agent storage. It groups and shares;
 it does not hide. Characters, lorebooks, personas, and connections stay global
 and visible everywhere.
 
-Name: **Kitchen / Kitchens** in UI and code. "Workspace" is taken by
+Name: **Kitchen / Kitchens** in the UI (see Naming for code). "Workspace" is taken by
 `professor-mari-workspace`, and "Kitchen" matches "Marinara's Kitchen".
 
 ## Naming
@@ -34,6 +34,7 @@ Name: **Kitchen / Kitchens** in UI and code. "Workspace" is taken by
 | Folders | Stay separate. Folders arrange the sidebar; a chat can have a folder and a Kitchen. |
 | World | Lorebooks, map and world state, default persona and connection, a character cast, selected agents. |
 | Membership | A chat is in zero or one Kitchen (`kitchenId`). Chats with no Kitchen behave exactly as today. |
+| Memory | Characters remember the scenes they were in. Opt-in per Kitchen. See "Memory between chats". |
 
 ## Where Kitchens live in the UI
 
@@ -72,6 +73,43 @@ Today each install has one Noodle and one Slurp universe:
 
 Plan: add a nullable `kitchenId` namespace to these tables and to the document store API; `null` is the default Kitchen, so existing data needs no migration beyond the column. The runtime passes the active chat's Kitchen to the package. Engine owns the namespace and the API contract; Noodle, Slurp, and LTM adopt it in Marinara-Agents (separate PRs there).
 
+## Memory between chats
+
+**Rule:** characters remember the scenes they were in. Each chat in a Kitchen gets a short list of the newest scenes its characters experienced in other chats. The Kitchen page shows all of it, and you can remove any item.
+
+Example (Kim Possible Kitchen): chats "Mission: Lair raid" (Kim, Ron, Drakken, Shego), "Possible family group" (Kim, Mom, Dad, Jim, Tim), "Drakken & Shego" (Drakken, Shego).
+
+- Ron knows the lair raid in every chat, because he was there. Nothing to link.
+- Drakken knows only what he saw at the raid, not what Kim told her family.
+- Mom learns about the raid only when Kim tells her in the family chat. That telling is a new scene, and Mom was present.
+
+| Part | Rule |
+| --- | --- |
+| Switch | Kitchen setting "Share memories between chats", off by default. Turning it on enables Advanced Memory scene summaries for the Kitchen's chats (asked once per Kitchen). |
+| Unit | One Advanced Memory scene, with the characters present (`audienceCharacterIds`). |
+| Who receives it | A chat receives a scene from another chat in the same Kitchen when at least one of its characters was present. |
+| Prompt | A short block "Elsewhere in <Kitchen>" with the newest few scenes (about 5), one line each, with the source chat. |
+| Control | Kitchen page Memory section: per chat, the scenes it receives and their source. [×] hides a scene for that chat only. |
+| Persona | Persona setting "Counts as a witness", default on (you play a character, it remembers). A narrator persona turns it off. |
+| Hearsay | No feature. Telling someone is a new scene that they witnessed. |
+| Lorebook Keeper | Never writes into a Kitchen lorebook automatically. Kitchen lorebooks are canon; automatic writes would leak secrets to every chat. |
+
+Prompt block example:
+
+```text
+Elsewhere in Kim Possible (what the characters here experienced):
+- Kim & Ron: Lair raid — stopped Drakken's hairdryer ray, Ron lost his pants. (Mission: Lair raid)
+- Kim: Mom's birthday is Saturday; Jim and Tim plan a rocket cake. (Possible family group)
+```
+
+Not in V1:
+
+- Older scenes drop off the list. Recall of older relevant scenes from other chats comes later.
+- LTM and Memory Nag keep working per chat; they can adopt the Kitchen later.
+- Timeline and flashbacks (which scene happened first across chats).
+
+Engine-only work; no package changes. Wire prompt logging for the new block (`DEBUG_AGENTS`, `logDebugOverride`) and cover it with `pnpm regression:prompt`.
+
 ## Current state (what we build on)
 
 - `Chat` has `folderId`, `groupId`, `connectedChatId` (`packages/shared/src/types/chat.ts`). None share state.
@@ -94,11 +132,14 @@ interface Kitchen {
   characterIds: string[];        // cast
   lorebookIds: string[];         // world
   agentIds: string[];            // selected agents
+  shareMemories: boolean;        // "Share memories between chats"
+  hiddenScenes: Record<string, string[]>; // chatId -> scene ids hidden by [×]
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
 // Chat gains: kitchenId: string | null
+// Persona gains: countsAsWitness: boolean (default true)
 ```
 
 New table `kitchens`, new table `kitchen_agent_memory`
@@ -120,11 +161,12 @@ Everything is live: Kitchen settings apply to every Kitchen chat at resolve time
 
 0. **Link chats (no shared behavior).** `kitchens` table shaped like `api_connection_folders` (id, name, color, sortOrder), CRUD via `registerFolderCrudRoutes`; nullable `kitchenId` on chats through the existing chat update; sidebar scope picker (create/rename/delete Kitchen) + mode-tab filter + badge; "Kitchen" select in the chat settings drawer. Delete Kitchen = unset `kitchenId`, never delete chats. No Kitchen page, no generation or prompt change. Likely no `STORAGE_VERSION` bump (folder tables were added without one); confirm. Regression: deleting a Kitchen keeps its chats with `kitchenId = null`. PR text: cross-mode grouping is useful alone (folders are per mode) and is the base for later slices.
 1. **Kitchen page + Kitchen lorebooks.** Kitchen page (open button in the scope row), Kitchen lorebook scope (extend `LorebookScope` with Kitchen ids), drag and drop from the sidebars into the Kitchen page.
-2. **Defaults and cast.** Kitchen persona, connection, and cast resolve live for Kitchen chats.
-3. **Agents and Kitchen agent memory.** Kitchen agents join the agent resolution; `kitchen_agent_memory` table, capability API access, debug logging.
-4. **Kitchen-scoped package storage.** `kitchenId` namespace on Noodle/Slurp tables and the document store API (Engine). Adoption in Noodle, Slurp, LTM (Marinara-Agents).
-5. **Shared map and world state.** Kitchen-level spatial and game-state snapshots.
-6. **Intro tutorial.** Mari in her kitchen shows her drawers (left and right sidebars), then zooms out to differently themed kitchens. Reuse the existing tutorial system.
+2. **Kitchen memories.** "Share memories between chats" setting, "Elsewhere in <Kitchen>" prompt block, Kitchen page Memory section with [×], persona "Counts as a witness". Regression: a chat receives only scenes one of its characters witnessed.
+3. **Defaults and cast.** Kitchen persona, connection, and cast resolve live for Kitchen chats.
+4. **Agents and Kitchen agent memory.** Kitchen agents join the agent resolution; `kitchen_agent_memory` table, capability API access, debug logging.
+5. **Kitchen-scoped package storage.** `kitchenId` namespace on Noodle/Slurp tables and the document store API (Engine). Adoption in Noodle, Slurp, LTM (Marinara-Agents).
+6. **Shared map and world state.** Kitchen-level spatial and game-state snapshots.
+7. **Intro tutorial.** Mari in her kitchen shows her drawers (left and right sidebars), then zooms out to differently themed kitchens. Reuse the existing tutorial system.
 
 Each slice is its own PR against `staging`, with a CHANGELOG entry, localization keys, and one regression proof.
 
@@ -143,4 +185,6 @@ Each slice is its own PR against `staging`, with a CHANGELOG entry, localization
 - Export/backup: include Kitchens in backup now (yes, via the table) — Kitchen export/import later.
 - Multiplayer: does a Kitchen travel with a shared multiplayer chat? Assume no for V1.
 - Sidebar scope label: keep "All chats", or call the default scope "Mari's Kitchen" to match the default storage namespace?
-- LTM (Long-Term Memory) storage: confirm where it stores data before slice 4.
+- LTM (Long-Term Memory) storage: confirm where it stores data before slice 5.
+- Memory: timeline and flashbacks across chats; recall of older scenes from other chats.
+- Memory: does [×] also stop a scene from coming back through later recall?
