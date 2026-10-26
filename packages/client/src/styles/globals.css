@@ -1550,12 +1550,19 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
-/* Proxy "via" headings wear the Defaults box blue. */
+/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and proxy wells. */
+:root {
+  --mari-connection-blue: #38bdf8;
+}
+/* Proxy wells: rows get a light blue tint, the "via" heading a stronger one. */
+.mari-connection-model-well:has(> .mari-connection-model-section-head) {
+  background: color-mix(in srgb, var(--mari-connection-blue) 7%, transparent);
+}
 .mari-connection-model-section-head {
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  background: color-mix(in srgb, var(--mari-connection-blue) 14%, transparent);
 }
 .mari-connection-model-section-head:hover {
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 16%, transparent);
+  background: color-mix(in srgb, var(--mari-connection-blue) 20%, transparent);
 }
 .mari-connection-model-slot + .mari-connection-model-slot,
 .mari-connection-model-section-head + .mari-connection-model-slot {
@@ -1563,7 +1570,7 @@
 }
 /* The Defaults box is the one blue box: the same box as a card, in a flat connection-blue tint. */
 .mari-connection-group.mari-connection-defaults-box {
-  background-color: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  background-color: color-mix(in srgb, var(--mari-connection-blue) 10%, transparent);
 }
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
 .mari-connection-empty {
@@ -1575,7 +1582,7 @@
   transition: background-color 150ms ease;
 }
 .mari-connection-defaults-job--open {
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
+  background: color-mix(in srgb, var(--mari-connection-blue) 10%, transparent);
 }
 /* Folded: one line of chips, a job icon and its model; a dashed chip is a job with nothing chosen. */
 .mari-connection-defaults-chip {
@@ -1587,7 +1594,7 @@
   padding: 0 0.625rem;
   border: 1px solid transparent;
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, var(--card));
+  background: color-mix(in srgb, var(--mari-connection-blue) 10%, var(--card));
   color: var(--foreground);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1598,7 +1605,7 @@
   color: var(--mari-connection-ink);
 }
 .mari-connection-defaults-chip:hover {
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 18%, var(--card));
+  background: color-mix(in srgb, var(--mari-connection-blue) 18%, var(--card));
 }
 .mari-connection-defaults-chip--unset {
   border: 1px dashed color-mix(in srgb, var(--foreground) 25%, transparent);
