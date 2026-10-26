@@ -1631,7 +1631,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       });
       if (!res.ok) {
         const body = await res.text();
-        return reply.status(502).send({
+        return reply.status(res.status).send({
           error: `Provider returned ${res.status}: ${sanitizeProviderBody(body)}`,
         });
       }
@@ -1724,7 +1724,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (saved) return withCosts(conn, saved);
     }
     const discovered = await discoverConnectionModels(conn, reply);
-    if ((discovered as unknown) === reply) return reply;
+    // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.
+    if (reply.sent || !discovered) return reply;
     const { builtIn, ...result } = discovered as Exclude<typeof discovered, FastifyReply>;
     if (!savesList || builtIn) return withCosts(conn, result);
     const saved = await storage.saveModelListIfUnchanged(conn, result.models);
