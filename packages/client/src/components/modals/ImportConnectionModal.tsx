@@ -50,7 +50,8 @@ export function ImportConnectionModal({ open, onClose }: Props) {
       accountId ? { ...normalized.connection, accountId } : normalized.connection,
     );
     const connectionId = (result as { id?: string } | null)?.id ?? null;
-    if (connectionId) importedRef.current.push({ id: connectionId, provider: normalized.connection.provider, flags: normalized.flags });
+    if (connectionId)
+      importedRef.current.push({ id: connectionId, provider: normalized.connection.provider, flags: normalized.flags });
     if (connectionId && normalized.hasDefaultParameters) {
       try {
         await saveConnectionDefaults.mutateAsync({ id: connectionId, params: normalized.defaultParameters });
@@ -158,19 +159,24 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
     // Deleted placeholders and rolled-back entries change no cache on their own.
     // Defaults travel with the file but only fill jobs that have no Model yet.
-    const rows = (await queryClient.fetchQuery(connectionListQuery)) as Array<Record<string, unknown> & { id: string; provider: string }>;
+    const rows = (await queryClient.fetchQuery(connectionListQuery)) as Array<
+      Record<string, unknown> & { id: string; provider: string }
+    >;
     const picks = defaultsToApply(importedRef.current, rows);
     if (
       picks.length > 0 &&
       (await showConfirmDialog({
         title: localizeUi("connections.transfer.defaultsTitle"),
         message: localizeUi("connections.transfer.defaultsMessage", {
-          jobs: [...new Set(picks.map((pick) => localizeUi(jobLabelKey(JOB[pick.job as keyof typeof JOB]))))].join(", "),
+          jobs: [...new Set(picks.map((pick) => localizeUi(jobLabelKey(JOB[pick.job as keyof typeof JOB]))))].join(
+            ", ",
+          ),
         }),
         confirmLabel: localizeUi("connections.transfer.defaultsApply"),
       }))
     ) {
-      for (const pick of picks) await updateConnection.mutateAsync({ id: pick.id, [pick.flag]: true }).catch(() => undefined);
+      for (const pick of picks)
+        await updateConnection.mutateAsync({ id: pick.id, [pick.flag]: true }).catch(() => undefined);
     }
     void queryClient.invalidateQueries({ queryKey: connectionKeys.all });
     void queryClient.invalidateQueries({ queryKey: connectionAccountKeys.all });

@@ -108,14 +108,25 @@ const flagged = getConnectionImportPlan({
 });
 assert.deepEqual(flagged.models[0]?.flags, ["isDefault", "defaultForAgents"]);
 const imported = flagged.models.map((m, i) => ({ id: `new${i}`, provider: m!.connection.provider, flags: m!.flags }));
-const applied = defaultsToApply(imported, [{ id: "new0", provider: "openai" }, { id: "new1", provider: "image_generation" }]);
-assert.deepEqual(applied.map((p) => `${p.id}:${p.flag}`).sort(), ["new0:defaultForAgents", "new0:isDefault", "new1:defaultForAgents"]);
+const applied = defaultsToApply(imported, [
+  { id: "new0", provider: "openai" },
+  { id: "new1", provider: "image_generation" },
+]);
+assert.deepEqual(applied.map((p) => `${p.id}:${p.flag}`).sort(), [
+  "new0:defaultForAgents",
+  "new0:isDefault",
+  "new1:defaultForAgents",
+]);
 const kept = defaultsToApply(imported, [
   { id: "old", provider: "openai", isDefault: true },
   { id: "new0", provider: "openai" },
   { id: "new1", provider: "image_generation" },
 ]);
 assert.deepEqual(kept.map((p) => `${p.id}:${p.flag}`).sort(), ["new0:defaultForAgents", "new1:defaultForAgents"]);
-assert.deepEqual(getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]?.flags, []);
+assert.deepEqual(
+  getConnectionImportPlan({ version: 1, connections: [{ name: "Old", provider: "openai", model: "m" }] }).models[0]
+    ?.flags,
+  [],
+);
 
 console.log("connection transfer regression passed");

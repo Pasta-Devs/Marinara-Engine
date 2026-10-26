@@ -36,7 +36,8 @@ export function defaultsToApply(
   for (const job of FLAG_JOBS) {
     for (const flag of [job.flag, job.fallback]) {
       const taken = rows.some(
-        (row) => matchesKind(row, job.kind) && isConnectionFlagTrue(row[flag]) && !imported.some((i) => i.id === row.id),
+        (row) =>
+          matchesKind(row, job.kind) && isConnectionFlagTrue(row[flag]) && !imported.some((i) => i.id === row.id),
       );
       const pick = imported.find((i) => matchesKind(i, job.kind) && i.flags.includes(flag));
       if (!taken && pick) picks.set(`${pick.id}:${flag}`, { id: pick.id, flag, job: job.key });
