@@ -985,6 +985,7 @@ class SidecarModelService {
       modelRepo: null,
       quantization: null,
       customModelRepo: null,
+      useAsMainDefault: false,
     };
     this.saveConfig();
     this.status = "not_downloaded";

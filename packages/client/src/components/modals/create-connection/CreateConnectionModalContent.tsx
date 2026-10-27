@@ -393,16 +393,19 @@ export function CreateConnectionModalContent({
         return () => void selectDecision.mutateAsync(null).catch(() => {});
       }
       const field = assignedJob === "main" ? "useAsMainDefault" : "useAsAgentsDefault";
+      const before = sidecar.config;
       await sidecar.updateConfig(
         assignedJob === "agents" ? { [field]: true, useForTrackers: true } : { [field]: true },
       );
-      if (assignedJob === "main") {
-        const row = chatRows.find((candidate) =>
-          isConnectionFlagTrue((candidate as Record<string, unknown>).isDefault),
-        );
-        if (row) await updateRow.mutateAsync({ id: row.id, isDefault: false });
-      }
-      return () => void useSidecarStore.getState().updateConfig({ [field]: false });
+      const previousMain =
+        assignedJob === "main"
+          ? chatRows.find((candidate) => isConnectionFlagTrue((candidate as Record<string, unknown>).isDefault))
+          : undefined;
+      if (previousMain) await updateRow.mutateAsync({ id: previousMain.id, isDefault: false });
+      return () => {
+        void useSidecarStore.getState().updateConfig({ [field]: before[field], useForTrackers: before.useForTrackers });
+        if (previousMain) void updateRow.mutateAsync({ id: previousMain.id, isDefault: true }).catch(() => {});
+      };
     }
     if (assignedJob === "embeddings") {
       const previous = embeddingDefault.data?.connectionId ?? null;
