@@ -467,7 +467,12 @@ export function ConnectionModelPicker({
         onClick={() => void pick(row)}
         className="rounded-lg disabled:cursor-wait"
         tile={
-          <ProviderIcon provider={provider || "custom"} model={row.id} name={connection.name ?? undefined} size="row" />
+          <ProviderIcon
+            provider={provider || "custom"}
+            model={row.id}
+            name={connection.name ?? undefined}
+            size="model"
+          />
         }
         title={label}
         tooltip={[label, row.id, meta].filter(Boolean).join("\n")}
@@ -754,7 +759,7 @@ export function ConnectionModelPicker({
                       provider={provider || "custom"}
                       model={detailRow.id}
                       name={connection.name ?? undefined}
-                      size="row"
+                      size="model"
                     />
                     <div className="min-w-0">
                       <p className="break-words text-sm font-semibold text-foreground">

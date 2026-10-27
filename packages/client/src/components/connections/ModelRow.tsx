@@ -210,8 +210,8 @@ export function ModelRow({
           [button["aria-label"] ? copyId : null, button["aria-describedby"]].filter(Boolean).join(" ") || undefined
         }
         className={cn(
-          // Text starts 3.25rem in: tile 0.5rem in and 2rem wide, then 0.75rem, with or without the picture button.
-          "mari-connection-model-choice flex min-h-14 min-w-0 flex-1 items-center gap-3 py-1.5 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed max-md:min-h-11 max-md:py-1",
+          // Text starts 3.625rem in: tile 0.5rem in and 2.375rem wide, then 0.75rem, with or without the picture
+          "mari-connection-model-choice flex min-h-[3.75rem] min-w-0 flex-1 items-center gap-3 py-2 ps-2 text-left focus-visible:ring-inset disabled:cursor-not-allowed max-md:min-h-11 max-md:py-1",
           FOCUS,
           className,
         )}
@@ -222,7 +222,7 @@ export function ModelRow({
           <span
             data-model-title
             className={cn(
-              "block min-w-0 text-[0.8125rem] font-semibold leading-5",
+              "block min-w-0 text-[0.8125rem] font-medium leading-5",
               wrapTitle ? "break-words" : "truncate",
               dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
@@ -272,8 +272,8 @@ export function ModelRow({
             costs, each on its text line; a row with one text line and no cost keeps the role centred. */}
         {!badgesBelow && (badge || cost) && (
           <span data-connection-badges className="flex shrink-0 flex-col items-end">
-            <span className={cn("flex items-center", (line2 || cost) && "min-h-5")}>{badge}</span>
-            {(line2 || cost) && (
+            <span className={cn("flex items-center", cost && "min-h-5")}>{badge}</span>
+            {cost && (
               <span className="mt-0.5 flex min-h-[1.125rem] items-center">
                 <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
               </span>
@@ -294,7 +294,7 @@ export function ModelTile({
   account,
   model,
   dim,
-  size = "row",
+  size = "model",
 }: {
   row?: ConnectionModelRow & Parameters<typeof mediaService>[0] & { baseUrl?: string | null };
   account?: Pick<ConnectionAccountListItem, "provider" | "baseUrl" | "name"> | null;

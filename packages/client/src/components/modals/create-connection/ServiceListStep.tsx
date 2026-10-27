@@ -26,7 +26,7 @@ import {
 
 /** Every list row shares one inset and height, and every tile is 40px, so the labels, tiles and titles line up. */
 // Rows keep a hover pad that bleeds 0.5rem outside the content edge, so tiles and labels share that edge.
-const ROW = "-mx-2 ps-2 md:min-h-14";
+const ROW = "-mx-2 ps-2 md:min-h-[3.75rem] [&_strong]:font-medium";
 const MODEL_ROW = { className: "-mx-2" };
 const TILE = "h-10 w-10 rounded-xl [&_svg]:size-5";
 

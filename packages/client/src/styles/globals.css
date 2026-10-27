@@ -1550,14 +1550,11 @@
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
 }
-/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and proxy wells. */
+/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and the "via" headings. */
 :root {
   --mari-connection-blue: #38bdf8;
 }
-/* Proxy wells: rows get a light blue tint, the "via" heading a stronger one. */
-.mari-connection-model-well:has(> .mari-connection-model-section-head) {
-  background: color-mix(in srgb, var(--mari-connection-blue) 7%, transparent);
-}
+/* Proxy wells keep the plain well background; only the "via" heading is tinted. */
 .mari-connection-model-section-head {
   background: color-mix(in srgb, var(--mari-connection-blue) 14%, transparent);
 }

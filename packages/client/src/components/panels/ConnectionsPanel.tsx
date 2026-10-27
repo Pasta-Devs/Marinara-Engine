@@ -738,7 +738,7 @@ export function ConnectionsPanel() {
               <div key={key} className="mari-connection-model-slot min-w-0">
                 <ModelRow
                   data-connections-row={key}
-                  tile={<ProviderIcon provider={engine.item} size="row" />}
+                  tile={<ProviderIcon provider={engine.item} size="model" />}
                   title={engine.name}
                   subtitle={engine.detail}
                   roles={engine.item === "local-model" ? localModelUsedBy : []}
