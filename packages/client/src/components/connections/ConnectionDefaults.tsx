@@ -51,7 +51,7 @@ import { DecisionDefaultControl } from "./DecisionDefaultControl";
 import { SMALL_ACTION } from "./DeviceDetail";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { ModelRow } from "./ModelRow";
-import { isUnset, JobRow } from "./JobRow";
+import { isUnset, JobRow, JobTile } from "./JobRow";
 import { HelpTooltip } from "../ui/HelpTooltip";
 
 function JobIcon({ job }: { job: JobKey }) {
@@ -768,14 +768,11 @@ export function ConnectionDefaultsBox({
                   }}
                   aria-expanded={showUnused}
                   aria-controls={showUnused ? "connections-defaults-all" : undefined}
-                  className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
+                  className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2"
                   tile={
-                    <span
-                      aria-hidden
-                      className="mari-panel-gradient--connections flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]"
-                    >
-                      <LayoutGrid size="1rem" />
-                    </span>
+                    <JobTile unset={false}>
+                      <LayoutGrid />
+                    </JobTile>
                   }
                   title={t("connections.defaults.allJobs")}
                   details={
