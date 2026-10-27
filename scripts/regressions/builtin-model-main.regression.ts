@@ -12,9 +12,8 @@ process.env.LOG_LEVEL = "silent";
 
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
-const { resolveChatConnectionOrFallback } = await import(
-  "../../packages/server/src/services/generation/connection-resolution.js"
-);
+const { resolveChatConnectionOrFallback } =
+  await import("../../packages/server/src/services/generation/connection-resolution.js");
 const { sidecarModelService } = await import("../../packages/server/src/services/sidecar/sidecar-model.service.js");
 const { LOCAL_SIDECAR_CONNECTION_ID } = await import("../../packages/shared/src/index.js");
 

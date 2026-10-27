@@ -29,6 +29,7 @@ export function BuiltInModelCard({ onOpenDevice }: { onOpenDevice: (item: Device
   const setUp = () => openAddConnection({ category: "device", item: "local-model" });
   const open = () => (local.setUp ? onOpenDevice("local-model") : setUp());
   const uses = [
+    config.useAsMainDefault && t("connections.builtin.card.main"),
     config.useAsAgentsDefault && t("connections.builtin.card.agents"),
     config.useForTrackers && t("connections.builtin.card.trackers"),
   ]

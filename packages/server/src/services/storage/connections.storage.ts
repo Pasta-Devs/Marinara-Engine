@@ -488,14 +488,14 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async getById(id: string) {
-    if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
+      if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
       const rows = await db.select().from(apiConnections).where(eq(apiConnections.id, id));
       return rows[0] ?? null;
     },
 
     /** Get connection with decrypted API key (for internal use only). */
     async getWithKey(id: string) {
-    if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
+      if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
       const conn = await this.getById(id);
       if (!conn || conn.profileImportReviewRequired === "true" || (await isBlockedByAccount(db, conn))) return null;
       return withKey(conn);
@@ -529,8 +529,8 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async getDefault() {
-    // The built-in model is not a row: when it is Main, every Main fallback resolves to it.
-    if (sidecarModelService.getConfig().useAsMainDefault) return createLocalSidecarGenerationConnection() as never;
+      // The built-in model is not a row: when it is Main, every Main fallback resolves to it.
+      if (sidecarModelService.getConfig().useAsMainDefault) return createLocalSidecarGenerationConnection() as never;
       const rows = await db
         .select()
         .from(apiConnections)
@@ -843,7 +843,7 @@ export function createConnectionsStorage(db: DB) {
       await db.transaction(async (tx) => {
         // If this is set as default, unset others.
         if (input.isDefault && takesMainDefaults(input.provider)) {
-        clearSidecarAsMain();
+          clearSidecarAsMain();
           await tx.update(apiConnections).set({ isDefault: "false" });
           values.fallbackForMain = "false";
         }
@@ -957,7 +957,7 @@ export function createConnectionsStorage(db: DB) {
         updateFields.accountId = null;
       }
       const shouldClearDefault = data.isDefault === true;
-    if (shouldClearDefault) clearSidecarAsMain();
+      if (shouldClearDefault) clearSidecarAsMain();
       const shouldClearMainFallback = effectiveProviderCategory === "language" && data.fallbackForMain === true;
       const shouldClearAgentDefaults =
         data.defaultForAgents === true ||

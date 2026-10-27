@@ -6,6 +6,7 @@ import { cn } from "../../../lib/utils";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../../stores/sidecar.store";
 import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
 import { ModelDownloadModal } from "../ModelDownloadModal";
+import { PRIMARY_CLASS } from "./shared";
 
 const gb = (bytes: number) => (bytes / 1024 ** 3).toFixed(1);
 
@@ -82,7 +83,7 @@ export function BuiltInModelSetup() {
             type="button"
             onClick={() => void download()}
             disabled={!recommended}
-            className="mari-chrome-accent-surface flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+            className={cn(PRIMARY_CLASS, "min-h-11 w-full justify-center disabled:opacity-50")}
           >
             <Download size="0.875rem" aria-hidden />
             {t("connections.builtin.download")}
