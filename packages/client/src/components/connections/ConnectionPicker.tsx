@@ -5,6 +5,8 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { AlertTriangle, Check, Cpu, House, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { openAddConnection } from "../../lib/add-connection";
+import { useSidecarStore } from "../../stores/sidecar.store";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { ProviderIcon } from "./ProviderIcon";
@@ -66,6 +68,7 @@ export function ConnectionPicker({
   onAdd?: () => void;
 }) {
   const { t } = useTranslation();
+  const builtInReady = useSidecarStore((state) => state.modelDownloaded);
   const choices = useConnectionChoices({
     kind,
     value,
@@ -330,7 +333,11 @@ export function ConnectionPicker({
           <div className="mt-1 border-t border-foreground/10 pt-1">
             {option("local", {
               selected: value === LOCAL_SIDECAR_CONNECTION_ID,
-              onPick: () => pick(LOCAL_SIDECAR_CONNECTION_ID),
+              onPick: () => {
+                pick(LOCAL_SIDECAR_CONNECTION_ID);
+                if (!builtInReady) openAddConnection({ category: "device", item: "local-model" });
+              },
+              hint: t(builtInReady ? "connections.builtin.warning" : "connections.builtin.notDownloadedSetUp"),
               icon: (
                 <span className={ICON_BOX}>
                   <Cpu size="0.875rem" aria-hidden />

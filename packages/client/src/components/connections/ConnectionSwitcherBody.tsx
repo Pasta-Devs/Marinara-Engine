@@ -59,7 +59,7 @@ import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
-import { openAddModels } from "../../lib/add-connection";
+import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import { StarText } from "./StarText";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
@@ -520,6 +520,9 @@ export function ConnectionSwitcherBody({
     setBusy(true);
     try {
       if (!isNow(entry) && !sameChoice(entry.choice, current)) await onApply(entry.choice);
+      if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
+        openAddConnection({ category: "device", item: "local-model" });
+      }
       onDone();
     } catch (error) {
       toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) }));
@@ -608,10 +611,13 @@ export function ConnectionSwitcherBody({
     ) : null;
 
   // Now: what the host runs, or the Main model it follows. Pressing it keeps that state.
+  const builtInReady = useSidecarStore((state) => state.modelDownloaded);
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
     title: t("connections.switcher.localModel"),
-    subtitle: localModelHint ?? t("connections.switcher.localModelHint"),
+    subtitle:
+      localModelHint ??
+      t(builtInReady ? "connections.switcher.localModelHint" : "connections.builtin.notDownloadedSetUp"),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =

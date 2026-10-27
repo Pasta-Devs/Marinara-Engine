@@ -162,7 +162,7 @@ export function AccessStep(props: AccessStepProps) {
               </div>
             </div>
             {props.device === "local_model" && <BuiltInModelSetup />}
-					{props.device === "tts" && <TTSConfigCard defaultExpanded />}
+            {props.device === "tts" && <TTSConfigCard defaultExpanded />}
             {props.device === "stt" && <SpeechToTextCard defaultExpanded />}
             {props.device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
           </div>

@@ -107,6 +107,17 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
   const sidecarName = createLocalSidecarConnectionOption(sidecarModelDisplayName).name;
+  // A job that points at the built-in model before it is downloaded shows the same fix as the Decision row.
+  const builtInDownloaded = useSidecarStore((s) => s.modelDownloaded);
+  const builtInWarning = builtInDownloaded
+    ? null
+    : {
+        text: t("connections.defaults.warning.notDownloaded", { model: sidecarName }),
+        fix: {
+          label: t("connections.defaults.setUp"),
+          run: () => openAddConnection({ category: "device", item: "local-model" }),
+        },
+      };
 
   /** The name the user gave the Model, with its Connection as the muted second line. */
   const describe = (row: ConnectionRowData) => {
@@ -169,7 +180,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
       warning: null,
     };
-    if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName };
+    if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName, warning: builtInWarning };
     // The TTS card names a row that is gone: the server then fails (tts.routes.ts), it does not use the default.
     if (role.key === "voice" && voiceRowOf(connectionsList, tts?.connectionId).missing) {
       const flagged = voiceRowOf(connectionsList).row;
@@ -238,7 +249,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     muted: true,
     warning: null,
   };
-  if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID) Object.assign(embeddings, { value: sidecarName, muted: false });
+  if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID)
+    Object.assign(embeddings, { value: sidecarName, muted: false, warning: builtInWarning });
   else if (embeddingRow) {
     const account = embeddingRow.accountId ? accountById.get(embeddingRow.accountId) : undefined;
     Object.assign(embeddings, {
@@ -304,11 +316,11 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     if (!value) {
       // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents
       // default, then Main; Impersonate the chat's model, which is Main in a new chat; Image reading nothing.
-      if (job.follows === "sidecar") return { ...tile, value: sidecarName, muted: true };
+      if (job.follows === "sidecar") return { ...tile, value: sidecarName, muted: true, warning: builtInWarning };
       const from =
         job.follows === "agents"
           ? sidecarAsAgentsDefault
-            ? { value: sidecarName, hint: fromRole("agents"), muted: true }
+            ? { value: sidecarName, hint: fromRole("agents"), muted: true, warning: builtInWarning }
             : (inherited(agentsRow, "agents") ?? inherited(mainRow, "main"))
           : job.follows === "main"
             ? inherited(mainRow, "main")
@@ -316,7 +328,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${job.feature}`), muted: true }) };
     }
     if (extra) return { ...tile, value: t(extra.key) };
-    if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName };
+    if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName, warning: builtInWarning };
     // A blocked model names who answers instead, as the server falls back: Impersonate uses the chat's model,
     // which is Main in a new chat; Image reading has no fallback; the rest use the agents default, then Main.
     if (row)
@@ -436,7 +448,6 @@ export function ConnectionDefaultsBox({
   const followVoiceJob = useFollowVoiceJob();
   const showPaidAgentConnectionWarning = useUIStore((s) => s.showPaidAgentConnectionWarning);
   const setShowPaidAgentConnectionWarning = useUIStore((s) => s.setShowPaidAgentConnectionWarning);
-  const sidecarModelDownloaded = useSidecarStore((s) => s.modelDownloaded);
   const sidecarAsAgentsDefault = useSidecarStore((s) => s.config.useAsAgentsDefault);
   const updateSidecarConfig = useSidecarStore((s) => s.updateConfig);
   const featureModels = useFeatureModels();
@@ -450,7 +461,7 @@ export function ConnectionDefaultsBox({
 
   const lite = import.meta.env.VITE_MARINARA_LITE === "true";
   // Keep the option visible while the flag is set, so a stale sidecar default can be cleared here.
-  const offerLocalSidecar = !lite && (sidecarModelDownloaded || sidecarAsAgentsDefault);
+  const offerLocalSidecar = !lite;
 
   const setRole = (
     field: (typeof FLAG_JOBS)[number]["flag" | "fallback"],

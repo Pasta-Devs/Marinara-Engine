@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { DecisionLocalSlot, DecisionModelOption, DecisionThinkingMode } from "@marinara-engine/shared";
@@ -18,7 +18,9 @@ import {
 } from "../../hooks/use-decision-model";
 import { useTestConnection } from "../../hooks/use-connections";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
+import { openAddConnection } from "../../lib/add-connection";
 import { useUIStore } from "../../stores/ui.store";
+import { ConnectionSelect } from "./ConnectionSelect";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
 function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
@@ -94,7 +96,7 @@ export function DecisionDefaultControl() {
   const entries = options.data?.options ?? [];
   const selected = entries.find((entry) => entry.selected) ?? null;
   const locals = entries.filter((entry) => entry.group === "local");
-  const connections = entries.filter((entry) => entry.group === "connection");
+  const needsBuiltIn = entries.some((entry) => entry.slot === "primary" && entry.unavailable === "no_model");
   const busy = select.isPending || testSlot.isPending || testConnection.isPending;
 
   const reasonFor = (entry: DecisionModelOption) => decisionUnavailableReason(t, entry);
@@ -147,27 +149,25 @@ export function DecisionDefaultControl() {
     });
   };
 
-  const option = (entry: DecisionModelOption) => decisionModelOption(t, entry);
-
   return (
     <div className="space-y-2 py-3">
       <label htmlFor="decision-default" className="block text-xs font-medium">
         {t("connections.decision.defaultLabel")}
       </label>
       <div className="flex gap-2">
-        <select
+        <ConnectionSelect
           id="decision-default"
-          value={selected?.id ?? ""}
+          kind="decision"
+          value={selected?.id ?? null}
+          onChange={(id) => void change(id ?? "")}
+          defaultLabel={t("connections.decision.none")}
+          extraOptions={locals
+            .filter((entry) => !entry.unavailable)
+            .map((entry) => ({ value: entry.id, label: entry.label }))}
           disabled={busy || options.isPending}
-          onChange={(event) => void change(event.target.value)}
-          className="min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
-        >
-          <option value="">{t("connections.decision.none")}</option>
-          <optgroup label={t("connections.decision.localGroup")}>{locals.map(option)}</optgroup>
-          {connections.length > 0 && (
-            <optgroup label={t("connections.decision.connectionGroup")}>{connections.map(option)}</optgroup>
-          )}
-        </select>
+          title={t("connections.decision.defaultLabel")}
+          className="min-w-0 flex-1"
+        />
         <button
           type="button"
           disabled={!selected || busy}
@@ -182,6 +182,16 @@ export function DecisionDefaultControl() {
         </button>
       </div>
       <p className="text-xs text-[var(--muted-foreground)]">{t("connections.decision.defaultHelp")}</p>
+      {needsBuiltIn && (
+        <button
+          type="button"
+          onClick={() => openAddConnection({ category: "device", item: "local-model" })}
+          className="mari-connection-btn self-start"
+        >
+          <Download size="0.75rem" aria-hidden />
+          {t("connections.builtin.setUp")}
+        </button>
+      )}
 
       {/* Only with a model chosen: with None there is nothing to ask, and the chat
           model already picks who speaks. */}

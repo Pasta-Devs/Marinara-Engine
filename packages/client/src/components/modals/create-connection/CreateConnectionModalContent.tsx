@@ -941,10 +941,10 @@ export function CreateConnectionModalContent({
     );
   } else if (step === 2) {
     footerRight = device ? (
-				<button type="button" onClick={onClose} className={PRIMARY_CLASS}>
-					{t("connections.add.done")}
-				</button>
-			) : choosing ? null : tested?.success ? (
+      <button type="button" onClick={onClose} className={PRIMARY_CLASS}>
+        {t("connections.add.done")}
+      </button>
+    ) : choosing ? null : tested?.success ? (
       <button type="button" onClick={() => setStep(3)} className={PRIMARY_CLASS}>
         {t("connections.add.continue")}
       </button>
