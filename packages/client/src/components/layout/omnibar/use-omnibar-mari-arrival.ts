@@ -33,7 +33,6 @@ type OmnibarMariArrivalInput = {
   gameSetupStep: string | null;
   lastAppError: ReturnType<typeof useUIStore.getState>["lastAppError"];
   lorebooks: ReturnType<typeof useLorebooks>["data"];
-  mariEnabled: boolean;
   omnibarContext: ReturnType<typeof createOmnibarContext>;
   openAgentId: string | null;
   personas: ReturnType<typeof usePersonas>["data"];
@@ -58,7 +57,6 @@ export function useOmnibarMariArrival({
   gameSetupStep,
   lastAppError,
   lorebooks,
-  mariEnabled,
   omnibarContext,
   openAgentId,
   personas,
@@ -75,9 +73,7 @@ export function useOmnibarMariArrival({
   // M9: what Mari says when she opens on this screen. Built here, where the omnibar context already is,
   // so every door (⌘J, the pull, Home, ⌘K) shows the same thing. Names, counts and times only (R22).
   const arrivalChat = activeChat && activeChat.id === activeChatId ? activeChat : null;
-  const arrivalMessageCount = useChatMessageCount(
-    mariEnabled && omnibarContext.surface === "chat" ? (arrivalChat?.id ?? null) : null,
-  );
+  const arrivalMessageCount = useChatMessageCount(omnibarContext.surface === "chat" ? (arrivalChat?.id ?? null) : null);
   const mariArrival = useMemo(() => {
     const metadata = arrivalChat ? parseChatMetadata(arrivalChat.metadata) : null;
     // ponytail: the newest reply and the active-entries count come from what is already cached; the

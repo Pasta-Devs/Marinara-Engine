@@ -216,6 +216,59 @@ try {
         await assertDirectFields();
       }
 
+      // Every persona text field clears with "", alone or beside another field; name never does.
+      const seedAbout = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { aboutMe: "Seeded bio.", comment: "Seeded comment." },
+        apply: true,
+      });
+      assert.equal(seedAbout.ok, true);
+      const besideName = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { name: "Direct Fields Renamed", aboutMe: "" },
+        apply: true,
+      });
+      assert.equal(besideName.ok, true, JSON.stringify(besideName));
+      assert.match(JSON.stringify(besideName), /verified/, "read-back verifies the cleared aboutMe");
+      const afterBeside = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterBeside.aboutMe, "");
+      assert.equal(afterBeside.name, "Direct Fields Renamed");
+      const loneClear = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        aboutMe: "Bio again.",
+        comment: "   ",
+        apply: true,
+      });
+      assert.equal(loneClear.ok, true);
+      const afterLone = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterLone.aboutMe, "Bio again.");
+      assert.equal(afterLone.comment, "", "whitespace-only clears");
+      const aloneEmpty = await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        aboutMe: "",
+        apply: true,
+      });
+      assert.equal(aloneEmpty.ok, true, "a lone empty aboutMe counts as a patch field");
+      const afterAlone = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterAlone.aboutMe, "");
+      await mari.executeAction({
+        action: "persona.update",
+        personaId: "direct-fields-persona",
+        patch: { name: "", description: "Still applied." },
+        apply: true,
+      });
+      const afterName = (await mari.executeAction({ action: "persona.get", personaId: "direct-fields-persona" }))
+        .output as Record<string, unknown>;
+      assert.equal(afterName.name, "Direct Fields Renamed", 'name: "" is not applied');
+      expectedFields.description = "Still applied.";
+
       const cliCreate = await mari.executeCli({
         argv: ["personas", "create", "--id", "cli-persona", "--name", "CLI Persona", "--apply"],
       });

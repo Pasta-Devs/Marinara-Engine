@@ -1219,7 +1219,11 @@ assert.equal(parseOmnibarScope("plain question").query, "plain question");
 
 // The list and Mari are the only panes. A session persisted with a removed one
 // falls back to the list rather than resurrecting a surface that no longer exists.
-assert.equal(normalizeCommandCenterSessionState({ pane: "mari" }).pane, "mari");
+assert.equal(
+  normalizeCommandCenterSessionState({ pane: "mari" }).pane,
+  "mari",
+  "a Mari session stays on the Mari pane instead of falling through to search results",
+);
 assert.equal(normalizeCommandCenterSessionState({ pane: "browse" }).pane, "results");
 assert.equal(normalizeCommandCenterSessionState({ pane: "quick" }).pane, "results");
 assert.equal(normalizeCommandCenterSessionState({ pane: "detail" }).pane, "results");
@@ -1616,7 +1620,6 @@ assert.ok(!("mariDetailId" in mariSession));
     ],
     getFaqSearchText: (item) => `${item.question} ${item.answer}`,
     localize: identity,
-    mariEnabled: false,
     omnibarContext: {
       surface: "home",
       surfaceResultIds: [],
@@ -1670,7 +1673,6 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.doesNotMatch(resultsSource, /commandCenter\.approval\./u, "no change-row copy is left in the builders");
   const held = { id: "h1", kind: "approval", diffPreview: [], affectedTables: { characters: 1 }, affectedRows: 1 };
   const row = buildOmnibarContinueResult({
-    mariEnabled: true,
     t,
     workspaceStatus: { active: false, pendingApprovals: [held] as never },
   });
@@ -1689,7 +1691,7 @@ assert.ok(!("mariDetailId" in mariSession));
 
 // UX-01: typing her name first opens her; the row is the same door as Ctrl+J.
 {
-  const searchInput = (deferredQuery: string, mariOn = true) => ({
+  const searchInput = (deferredQuery: string) => ({
     chatControls: [],
     contextLabels: {},
     controls: [],
@@ -1699,7 +1701,6 @@ assert.ok(!("mariDetailId" in mariSession));
     faqItems: [],
     getFaqSearchText: () => "",
     localize: (text: string) => text,
-    mariEnabled: mariOn,
     omnibarContext: {
       surface: "home",
       surfaceResultIds: [],
@@ -1726,11 +1727,6 @@ assert.ok(!("mariDetailId" in mariSession));
   );
   assert.equal(presented.groups[0]?.id, "top-hit");
   assert.equal(presented.results[0]?.id, "open-professor-mari", "UX-01: Open Mari is the Top hit");
-  assert.equal(
-    buildOmnibarSearchResults(searchInput("mari", false)).some((result) => result.id === "open-professor-mari"),
-    false,
-    "UX-01: no Open Mari row while Mari is off",
-  );
   assert.notEqual(
     buildOmnibarSearchResults(searchInput("mari appearance"))[0]?.id,
     "open-professor-mari",
@@ -1751,7 +1747,6 @@ assert.ok(!("mariDetailId" in mariSession));
     faqItems: [],
     getFaqSearchText: () => "",
     localize: identity,
-    mariEnabled: true,
     omnibarContext: {
       surface: "home",
       surfaceResultIds: [],
@@ -1790,7 +1785,6 @@ assert.ok(!("mariDetailId" in mariSession));
     faqItems: [],
     getFaqSearchText: () => "",
     localize: identity,
-    mariEnabled: true,
     omnibarContext: {
       surface: "home",
       surfaceResultIds: [],
@@ -1902,7 +1896,6 @@ assert.ok(!("mariDetailId" in mariSession));
     },
     lorebookById: new Map(),
     lorebooks: [],
-    mariEnabled: false,
     omnibarSuggestionsEnabled: true,
     openAgentId: null,
     openCharacterId: null,
@@ -2277,13 +2270,12 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(again.opens, false, "a cancelled pull stays cancelled");
 
   // Target: left half search, right half Mari, a 28 px dead zone around the middle.
-  assert.equal(pullTarget(null, 100, 390, true), "search");
-  assert.equal(pullTarget(null, 300, 390, true), "mari");
-  assert.equal(pullTarget("search", 215, 390, true), "search", "inside the dead zone the side holds");
-  assert.equal(pullTarget("search", 224, 390, true), "mari", "past it the side switches");
-  assert.equal(pullTarget("mari", 175, 390, true), "mari");
-  assert.equal(pullTarget("mari", 166, 390, true), "search");
-  assert.equal(pullTarget(null, 300, 390, false), "search", "without Mari the whole bar is search");
+  assert.equal(pullTarget(null, 100, 390), "search");
+  assert.equal(pullTarget(null, 300, 390), "mari");
+  assert.equal(pullTarget("search", 215, 390), "search", "inside the dead zone the side holds");
+  assert.equal(pullTarget("search", 224, 390), "mari", "past it the side switches");
+  assert.equal(pullTarget("mari", 175, 390), "mari");
+  assert.equal(pullTarget("mari", 166, 390), "search");
 
   // The circle sits above the fingertip and never above the bar edge.
   const early = pullCircleTarget(20, 0.1);
@@ -2429,7 +2421,6 @@ assert.ok(!("mariDetailId" in mariSession));
     characterNameById: new Map<string, string>(),
     connectionById: new Map(),
     lorebooks: undefined,
-    mariEnabled: false,
     omnibarSuggestionsEnabled: false,
     openAgentId: null,
     openCharacterId: null,
@@ -2477,7 +2468,6 @@ assert.ok(!("mariDetailId" in mariSession));
     characterNameById: new Map<string, string>(),
     connectionById: new Map(),
     lorebooks: undefined,
-    mariEnabled: false,
     omnibarSuggestionsEnabled: false,
     openAgentId: null,
     openCharacterId: null,
@@ -2578,7 +2568,6 @@ assert.ok(!("mariDetailId" in mariSession));
     connectionById: new Map(),
     lastAppError: null,
     lorebooks: undefined,
-    mariEnabled: false,
     omnibarSuggestionsEnabled: false,
     openAgentId: null,
     openCharacterId: null,
@@ -2803,16 +2792,10 @@ assert.ok(!("mariDetailId" in mariSession));
     assert.ok(!(id in OMNIBAR_SETTINGS_TOGGLE_BINDINGS), `"${id}" must not be bound (risky per K5)`);
   }
 
-  // F6: "Ask Professor Mari from Search" and "Context suggestions" must show up as exactly one row (the
-  // registry row, flipped in place), not also as the old hand-built duplicate.
-  assert.ok("ask-mari" in OMNIBAR_SETTINGS_TOGGLE_BINDINGS, "ask-mari should be bound so its row flips in place");
+  // F6: Context suggestions must show up as one registry row, not as a hand-built duplicate.
   assert.ok(
     "omnibar-suggestions" in OMNIBAR_SETTINGS_TOGGLE_BINDINGS,
     "omnibar-suggestions should be bound so its row flips in place",
-  );
-  assert.ok(
-    !controlResults.some((row) => row.id === "control:commandCenterMariEnabled"),
-    "the hand-built Ask Mari row must be gone now that the registry row is bound",
   );
   assert.ok(
     !controlResults.some((row) => row.id === "control:omnibarSuggestionsEnabled"),
@@ -2943,7 +2926,6 @@ assert.ok(!("mariDetailId" in mariSession));
     connectionById: new Map(),
     lastAppError: null,
     lorebooks: undefined,
-    mariEnabled: true,
     omnibarSuggestionsEnabled: true,
     openAgentId: "cfg-1",
     openCharacterId: null,
@@ -4125,7 +4107,6 @@ assert.ok(!("mariDetailId" in mariSession));
   } as never;
   assert.equal(
     buildOmnibarContinueResult({
-      mariEnabled: true,
       t: ((_key: string, fallback: string) => fallback) as never,
       workspaceStatus: appliedOnly,
     }),
@@ -4261,15 +4242,12 @@ console.info("Command Center regression checks passed.");
   assert.equal(pick({ mariRow: null, pendingApprovals: 3 })?.now, "fix", "approvals without her row fall through");
   assert.equal(mari.now, undefined, "picking never mutates the source row");
 
-  // Try rows: fixed order, a used kind never returns, a hard stop after 15 opens, none when switched off.
+  // Try rows: fixed order, a used kind never returns, and a hard stop after 15 opens.
   const fresh = readOmnibarTryState(null);
-  const on = { enabled: true, mariEnabled: true };
+  const on = { enabled: true };
   assert.deepEqual(visibleOmnibarTryKinds(fresh, on), ["search", "command", "mari"]);
   assert.deepEqual(visibleOmnibarTryKinds({ used: { search: 1 }, opens: 0 }, on), ["command", "mari"]);
-  assert.deepEqual(visibleOmnibarTryKinds({ used: {}, opens: 0 }, { ...on, mariEnabled: false }), [
-    "search",
-    "command",
-  ]);
+  assert.deepEqual(visibleOmnibarTryKinds({ used: {}, opens: 0 }, on), ["search", "command", "mari"]);
   assert.deepEqual(visibleOmnibarTryKinds({ used: {}, opens: OMNIBAR_TRY_MAX_OPENS - 1 }, on).length, 3);
   assert.deepEqual(visibleOmnibarTryKinds({ used: {}, opens: OMNIBAR_TRY_MAX_OPENS }, on), [], "stop rule");
   assert.deepEqual(visibleOmnibarTryKinds(fresh, { ...on, enabled: false }), [], "suggestions off");
@@ -4462,7 +4440,7 @@ console.info("Command Center regression checks passed.");
       t,
     }),
     ...buildOmnibarMariChatResults({ deferredQuery: "plan", mariChats: [{ id: "m1", name: "Plan the heist" }], t }),
-    buildOmnibarContinueResult({ mariEnabled: true, t, workspaceStatus: { active: true, pendingApprovals: [] } })!,
+    buildOmnibarContinueResult({ t, workspaceStatus: { active: true, pendingApprovals: [] } })!,
     ...buildOmnibarSlashResults({
       activeChatId: "tavern",
       deferredQuery: "/",

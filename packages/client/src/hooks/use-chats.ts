@@ -22,6 +22,7 @@ import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
 import { shouldRefetchMessagesOnReconnect } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
+import { notifyTTSUserMessageReady } from "../lib/tts-autoplay";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { isMessageHidden } from "../lib/message-visibility";
 import { copyLocalSpriteVisualSettings } from "../components/chat/local-sprite-visual-settings";
@@ -464,11 +465,10 @@ export function useChatMessageSearchSource(chatId: string | null, enabled: boole
  * Professor Mari's own conversations. They are ordinary chats behind an internal
  * marker, so they are absent from the normal chat list and need their own read.
  */
-export function useProfessorMariChats(enabled: boolean) {
+export function useProfessorMariChats() {
   return useQuery({
     queryKey: chatKeys.professorMari(),
     queryFn: ({ signal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
-    enabled,
     staleTime: 30_000,
   });
 }
@@ -1437,7 +1437,7 @@ export function useCreateMessage(chatId: string | null) {
       characterId?: string | null;
       extra?: Record<string, unknown>;
     }) => api.post<Message>(`/chats/${chatId}/messages`, data),
-    onSuccess: () => {
+    onSuccess: (message) => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         // Peek windows (sidebar hover, secret-plot panel) cache the same rows
@@ -1446,6 +1446,7 @@ export function useCreateMessage(chatId: string | null) {
         qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
         qc.invalidateQueries({ queryKey: chatKeys.list() });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        notifyTTSUserMessageReady(chatId, message);
       }
     },
   });

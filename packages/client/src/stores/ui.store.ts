@@ -1010,8 +1010,6 @@ interface UIState {
   chibiProfessorMariEnabled: boolean;
   /** When true, Professor Mari shows generated suggestion chips and guided-plan options. */
   professorMariSuggestionsEnabled: boolean;
-  /** When true, the Command Center (omnibar) surfaces Professor Mari's LLM-backed assistance. */
-  commandCenterMariEnabled: boolean;
   /** When true, the omnibar adds proactive context and edit suggestions. */
   omnibarSuggestionsEnabled: boolean;
   /** When true, achievements appear on Home and announce unlocks. Backend tracking stays silent either way. */
@@ -1426,7 +1424,6 @@ interface UIState {
   setTTSLineVolume: (v: number) => void;
   setChibiProfessorMariEnabled: (v: boolean) => void;
   setProfessorMariSuggestionsEnabled: (v: boolean) => void;
-  setCommandCenterMariEnabled: (v: boolean) => void;
   setOmnibarSuggestionsEnabled: (v: boolean) => void;
   setAchievementsEnabled: (v: boolean) => void;
   setSeasonalThemesDisabled: (v: boolean) => void;
@@ -1711,7 +1708,6 @@ export function pickSyncedSettings(state: UIState) {
     ttsLineVolume: state.ttsLineVolume,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
     professorMariSuggestionsEnabled: state.professorMariSuggestionsEnabled,
-    commandCenterMariEnabled: state.commandCenterMariEnabled,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
@@ -1976,7 +1972,6 @@ export function pickPersistedUIState(state: UIState) {
     ttsLineVolume: state.ttsLineVolume,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
     professorMariSuggestionsEnabled: state.professorMariSuggestionsEnabled,
-    commandCenterMariEnabled: state.commandCenterMariEnabled,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     achievementsEnabled: state.achievementsEnabled,
     seasonalThemesDisabled: state.seasonalThemesDisabled,
@@ -2287,7 +2282,6 @@ export const useUIStore = create<UIState>()(
         ttsLineVolume: 50,
         chibiProfessorMariEnabled: true,
         professorMariSuggestionsEnabled: true,
-        commandCenterMariEnabled: true,
         omnibarSuggestionsEnabled: true,
         achievementsEnabled: true,
         seasonalThemesDisabled: false,
@@ -3211,7 +3205,6 @@ export const useUIStore = create<UIState>()(
         setTTSLineVolume: (v) => set({ ttsLineVolume: Math.max(0, Math.min(100, Math.round(v))) }),
         setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
         setProfessorMariSuggestionsEnabled: (v) => set({ professorMariSuggestionsEnabled: v }),
-        setCommandCenterMariEnabled: (v) => set({ commandCenterMariEnabled: v }),
         setOmnibarSuggestionsEnabled: (v) => set({ omnibarSuggestionsEnabled: v }),
         setAchievementsEnabled: (v) => set({ achievementsEnabled: v }),
         // Switching seasonal themes back on also undoes a "Turn it off" from this year's greeting.
@@ -4147,10 +4140,6 @@ export const useUIStore = create<UIState>()(
         if (version <= 88 && persisted.reduceAmbientEffects === undefined) {
           persisted.reduceAmbientEffects = false;
         }
-        // v94 -> v95: Command Center Mari LLM assistance defaults on for existing users.
-        if (version <= 94 && persisted.commandCenterMariEnabled === undefined) {
-          persisted.commandCenterMariEnabled = true;
-        }
         // v94 -> v95: existing custom positions stay untouched; the exact legacy
         // default is the only reliable indication that the widget was never moved.
         if (
@@ -4170,11 +4159,11 @@ export const useUIStore = create<UIState>()(
         }
         // v101 -> v102: the Home navigator and its setting are gone; its commands moved to the omnibar.
         delete persisted.professorMariNavigationEnabled;
+        delete persisted.commandCenterMariEnabled;
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
         persisted.reduceAmbientEffects = persisted.reduceAmbientEffects === true;
         persisted.professorMariSuggestionsEnabled = persisted.professorMariSuggestionsEnabled !== false;
-        persisted.commandCenterMariEnabled = persisted.commandCenterMariEnabled !== false;
         persisted.omnibarSuggestionsEnabled = persisted.omnibarSuggestionsEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.includePrivateNotesInExports = persisted.includePrivateNotesInExports === true;

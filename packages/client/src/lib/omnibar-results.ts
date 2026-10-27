@@ -222,7 +222,6 @@ export type OmnibarSearchResultsInput = {
   /** Passed in so this module never pulls the FAQ component into its graph. */
   getFaqSearchText: (item: HomeFaqItem, localize: (englishText: string) => string) => string;
   localize: (englishText: string) => string;
-  mariEnabled: boolean;
   /**
    * R6 (slice 65): false when no language connection and no local model exist (a fresh install).
    * Mari cannot answer then, so her row is only promoted on a dead end, never above docs or FAQ rows.
@@ -280,7 +279,6 @@ export type OmnibarContextResultsInput = {
     | null
     | undefined;
   lorebooks: Lorebook[] | undefined;
-  mariEnabled: boolean;
   omnibarSuggestionsEnabled: boolean;
   openAgentId: string | null | undefined;
   openCharacterId: string | null | undefined;
@@ -327,7 +325,6 @@ export type OmnibarRemovalSuggestionsInput = {
 };
 
 export type OmnibarContinueResultInput = {
-  mariEnabled: boolean;
   t: OmnibarTranslate;
   workspaceStatus:
     { active?: boolean; pendingApprovals: readonly Parameters<typeof isMariReviewWaiting>[0][] } | undefined;
@@ -667,7 +664,6 @@ export function buildOmnibarSearchResults({
   frecencyEntries = [],
   getFaqSearchText,
   localize,
-  mariEnabled,
   mariHasModel = true,
   now = Date.now(),
   omnibarContext,
@@ -736,22 +732,21 @@ export function buildOmnibarSearchResults({
   // frecency boost - "never moves Mari's row" means never decides it either.
   // bestMatchScore/directResult/clearDirect are computed from the pre-boost
   // scores below; the boost is applied only afterwards, to final ordering.
-  // UX-01: typing her name opens her, as Ctrl+J does. Without this row "mari" only found settings rows.
-  const openMariRows: OmnibarResult[] =
-    mariEnabled && OPEN_MARI_QUERIES.has(normalizeTextForMatch(trimmedQuery))
-      ? [
-          {
-            id: "open-professor-mari",
-            title: t("commandCenter.openMari", "Open Prof. Mari"),
-            category: "professor",
-            // The presenter otherwise picks a Top hit by title prefix ("Mari changed…", "Ask Professor Mari from Search").
-            group: "top-hit",
-            score: 1000,
-            kind: "action",
-            icon: "professor",
-          },
-        ]
-      : [];
+  // UX-01: typing her name opens her, as Ctrl+J does.
+  const openMariRows: OmnibarResult[] = OPEN_MARI_QUERIES.has(normalizeTextForMatch(trimmedQuery))
+    ? [
+        {
+          id: "open-professor-mari",
+          title: t("commandCenter.openMari", "Open Prof. Mari"),
+          category: "professor",
+          // The presenter otherwise picks a Top hit by title prefix.
+          group: "top-hit",
+          score: 1000,
+          kind: "action",
+          icon: "professor",
+        },
+      ]
+    : [];
   const preBoostResults = [
     ...openMariRows,
     ...searchOmnibar(query, {
@@ -761,7 +756,6 @@ export function buildOmnibarSearchResults({
       contextLabels,
     }),
   ]
-    .filter((result) => mariEnabled || result.id !== "ask-professor-mari")
     // A control's values were never part of the set this ranking was tuned on.
     // Damp them so they surface on a deliberate "gpt" and never crowd a real hit.
     .map((result) =>
@@ -1247,7 +1241,6 @@ export function buildOmnibarContextResults({
   connectionById,
   lastAppError,
   lorebooks,
-  mariEnabled,
   omnibarSuggestionsEnabled,
   openAgentId,
   openCharacterId,
@@ -1380,7 +1373,7 @@ export function buildOmnibarContextResults({
     }
     // After the "Editing" rows: the first context row is what an unpinned Mari handoff focuses,
     // and the editor resource must travel with the field.
-    if (omnibarSuggestionsEnabled && mariEnabled && activeEditorField) {
+    if (omnibarSuggestionsEnabled && activeEditorField) {
       push({
         id: "suggestion:edit-focused-field",
         title: t("commandCenter.suggestions.editFocusedField", "Improve {{field}} with Prof. Mari", {
@@ -1775,12 +1768,10 @@ export function resolveOmnibarUnderstoodLine(
 }
 
 export function buildOmnibarContinueResult({
-  mariEnabled,
   t,
   workspaceStatus,
   mariFinished,
 }: OmnibarContinueResultInput): OmnibarResult | null {
-  if (!mariEnabled) return null;
   const status = workspaceStatus;
   const hasPendingApprovals = countBlockingReviews(status?.pendingApprovals ?? []) > 0;
   if (!hasPendingApprovals && !status?.active && !mariFinished) return null;

@@ -57,6 +57,16 @@ The first block is **Persona Status Bars**, turned on with **Enable Persona Stat
 
 The second block is **RPG Attributes**, turned on with **Enable RPG Attributes**. This works like a character card. It gives your persona **Pools** (starting with HP and MP at 100 out of 100) and **Attributes** (starting with STR, DEX, CON, INT, WIS, and CHA at 10).
 
+### Game Mode Icon
+
+Both **Stats** tabs have a **Game Mode Icon** block. It sets the picture on this character's or persona's round token on the board in a Game Mode fight. The small token beside the choices shows what the board will draw.
+
+- **Avatar** (the default) uses the avatar. With no avatar, the token shows the initials.
+- **Custom image** uses a picture from the card's own gallery. Pick one of the gallery pictures shown, or upload a new one, which is added to the gallery. The card has to be saved once before you can use this.
+- **Initials** always shows the initials, even when there is an avatar.
+
+The same picture shows for this character in the other fight styles too. If you delete the chosen picture from the gallery, the block says so; pick another or switch back to **Avatar**.
+
 ### Ruleset sheets
 
 When a Game Mode ruleset is installed, such as 5e (SRD 5.1), both **Stats** tabs gain a **Ruleset sheets** block below the sections above. It has one collapsible entry per installed ruleset. The block also appears when a card still holds a sheet for a ruleset you no longer have.

@@ -40,6 +40,11 @@ try {
       notices(bothInKeys).join("\n"),
       /selective is on but secondaryKeys is empty, so selectiveLogic does nothing/,
     );
+    // The usual cause on an imported book is a leftover flag, so the notice offers the turn-off too.
+    assert.match(
+      notices(bothInKeys).join("\n"),
+      /If one keyword is enough \(common on imported books\), set selective: false\./,
+    );
 
     // Run 2: keys as objects saved "[object Object]" twice. Refuse, naming the field and the shape.
     const objectKeys = await add({

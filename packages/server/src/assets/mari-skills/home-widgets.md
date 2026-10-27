@@ -1,6 +1,6 @@
 ---
 name: Home widgets
-description: Read before creating, editing or reviewing a Home widget: its four fields and limits, why a create is a dry run without apply, how ids are generated, and why an edit can fail on a stale catalog.
+description: Read before creating, editing or reviewing a Home widget, or when a widget edit fails.
 ---
 
 # Home widgets

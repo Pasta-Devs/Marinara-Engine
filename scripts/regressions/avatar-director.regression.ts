@@ -830,6 +830,73 @@ const scene = (id: string, names: string[]) => {
   return { scened, texts, talking, last, play, type, ready, start, end };
 };
 
+// Sent-persona speech shares the ready event, but only generated replies own the character's text animation.
+for (const streaming of [false, true]) {
+  useUIStore.setState({ enableStreaming: streaming });
+  for (const role of ["user", "system"]) {
+    const id = `director-nonreply-${role}-${streaming}`;
+    useChatStore.setState({ activeChatId: id, streamingCharacterId: null });
+    const group = scene(id, ["Alice"]);
+    group.start();
+    await group.play(32);
+    const messageId = `${id}-message`;
+    window.dispatchEvent(
+      new CustomEvent(TTS_AUTOPLAY_MESSAGE_READY_EVENT, {
+        detail: { chatId: id, message: { id: messageId, role, content: 'Alice beams. "A wonderful afternoon."' } },
+      }),
+    );
+    await group.play(800);
+    assert.equal(group.talking.alice, 0, "a non-reply ready event never makes the character mouth its dialogue");
+    assert.deepEqual(group.texts, [], "a non-reply ready event never classifies the sender's text as a reply");
+    expressionPick(messageId, "angry");
+    await group.play(32);
+    assert.equal(group.last.alice!.label, null, "a non-reply ready event never claims the reply's expression picks");
+    group.end();
+    group.scened.dispose();
+  }
+}
+
+// Filtering user text does not filter the assigned persona's actual audio or generated narrator/character replies.
+useUIStore.setState({ enableStreaming: false });
+for (const role of ["assistant", "narrator"]) {
+  const id = `director-generated-ready-${role}`;
+  useChatStore.setState({ activeChatId: id });
+  const group = scene(id, ["Alice", "Sam"]);
+  group.scened.setParticipants([
+    { owner: { ownerType: "character", ownerId: "alice" }, name: "Alice" },
+    { owner: { ownerType: "persona", ownerId: "sam" }, name: "Sam" },
+  ]);
+  group.start();
+  window.dispatchEvent(
+    new CustomEvent(TTS_AUTOPLAY_MESSAGE_READY_EVENT, {
+      detail: {
+        chatId: id,
+        message: { id: `${id}-reply`, role, content: 'Alice beams. "A wonderful afternoon."', characterId: "alice" },
+      },
+    }),
+  );
+  group.end();
+  await group.play(800);
+  assert.ok(group.talking.alice! > 0, "generated assistant/narrator ready events still animate their character");
+  window.dispatchEvent(
+    new CustomEvent(TTS_AUTOPLAY_VOICE_EVENT, {
+      detail: { chatId: id, messageId: `${id}-user`, readingId: `${id}-persona`, pending: true },
+    }),
+  );
+  group.scened.setAudioSource("sam", { ownerId: "sam", level: () => 0.8, isPlaying: () => true });
+  await group.play(160);
+  assert.ok(group.last.sam!.mouthOpen > 0.7, "assigned persona audio still drives that persona's lips");
+  assert.equal(group.last.alice!.mouthOpen, 0, "the persona's voice never drives the character's lips");
+  group.scened.setAudioSource("sam", null);
+  window.dispatchEvent(
+    new CustomEvent(TTS_AUTOPLAY_VOICE_EVENT, {
+      detail: { chatId: id, messageId: `${id}-user`, readingId: `${id}-persona`, pending: false },
+    }),
+  );
+  group.scened.dispose();
+}
+useUIStore.setState({ enableStreaming: true });
+
 // Moving to the next Individual member ends the previous member's text animation, including when their
 // response text happens to match. An unrecognized streaming character must not borrow another avatar.
 {

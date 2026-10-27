@@ -1,6 +1,14 @@
 import type { CapabilityAchievementHost } from "./achievement.js";
 import type { CapabilityIntegrationHost } from "./generation-integration.js";
-import type { ChatMode, ConversationPresenceStatus, MessageRole } from "./chat.js";
+import type {
+  ChatMode,
+  ChatSummaryEntry,
+  ConversationPresenceStatus,
+  DaySummaryEntry,
+  MessageRole,
+  WeekSummaryEntry,
+} from "./chat.js";
+import type { SessionSummary } from "./game.js";
 import type { SpatialContextSnapshot, SpatialSnapshotSource } from "./spatial-context.js";
 
 export type CapabilityRuntimeLogArgument = unknown;
@@ -376,6 +384,18 @@ export interface CapabilityGameStateRecord {
   presentCharacterIds: string[];
 }
 
+/** Capability API 1.387: a chat's stored summaries, as the Engine reads them from the chat. Read-only copies. */
+export interface CapabilityChatSummaries {
+  /** Conversation day summaries by day ("DD.MM.YYYY"). */
+  day: Record<string, DaySummaryEntry>;
+  /** Conversation week summaries by Monday ("DD.MM.YYYY"). */
+  week: Record<string, WeekSummaryEntry>;
+  /** Rolling summary entries in the chat's order, disabled ones included; a legacy summary reads as one entry. */
+  rolling: ChatSummaryEntry[];
+  /** Game: the summary of each previous session. */
+  gameSessions: SessionSummary[];
+}
+
 export type CapabilityRoleplayEventAudience = "public" | "user-only" | { characterIds: string[] };
 
 export interface CapabilityRoleplayEventInput {
@@ -401,6 +421,12 @@ export interface CapabilityPersistenceSession {
   listMessages(chatId: string): Promise<CapabilityMessageRecord[]>;
   /** Read-only. Optional so packages feature-detect and degrade on older Engines. */
   getGameState?(chatId: string): Promise<CapabilityGameStateRecord | null>;
+  /**
+   * Capability API 1.387. Read-only: the chat's day, week, rolling and Game session summaries, all empty for a chat
+   * without them or one that is not found. Requires `chat-read`, like `listMessages`. Optional so packages
+   * feature-detect and degrade on older Engines.
+   */
+  listChatSummaries?(chatId: string): Promise<CapabilityChatSummaries>;
   appendRoleplayEvent?(input: CapabilityRoleplayEventInput): Promise<CapabilityRoleplayEventRecord | null>;
   listExistingLorebookEntryIds(entryIds: string[]): Promise<string[]>;
   createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput): Promise<CapabilityMessageRecord>;

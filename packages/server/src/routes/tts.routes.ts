@@ -16,6 +16,8 @@ import {
   resolveTtsRequestTimeoutMs,
   TTS_SETTINGS_KEY,
   TTS_API_KEY_MASK,
+  elevenLabsModelSupportsSpeed,
+  normalizeElevenLabsTtsModelId,
   ttsRoleplaySpeakerExtractorResponseSchema,
   type TTSSource,
   type TTSConfig,
@@ -60,6 +62,7 @@ const ELEVENLABS_DEFAULT_VOICES: VoiceOption[] = [
   { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", category: "ElevenLabs default" },
 ];
 const ELEVENLABS_FALLBACK_MODELS = [
+  "eleven_v4",
   "eleven_v3",
   "eleven_multilingual_v2",
   "eleven_flash_v2_5",
@@ -88,11 +91,6 @@ const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }>
 const TTS_SOURCES: readonly TTSSource[] = ["openai", "elevenlabs", "pockettts", "xai"];
 
 const ELEVENLABS_NON_TTS_MODELS = new Set(["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]);
-const ELEVENLABS_TTS_MODEL_ALIASES: Record<string, string> = {
-  tts_v3: "eleven_v3",
-  elevenlabs_v3: "eleven_v3",
-  elevenlabs_tts_v3: "eleven_v3",
-};
 const NANOGPT_TTS_MODEL_ALIASES: Record<string, string> = {
   eleven_v3: "Elevenlabs-V3",
   "elevenlabs-v3": "Elevenlabs-V3",
@@ -734,11 +732,6 @@ function clearPocketTtsApiModeCache(cfg: TTSConfig): void {
   pocketTtsApiModeCache.delete(configuredBaseUrl(cfg));
 }
 
-function normalizeElevenLabsTtsModelId(model: string) {
-  const trimmed = model.trim();
-  return ELEVENLABS_TTS_MODEL_ALIASES[trimmed.toLowerCase()] ?? trimmed;
-}
-
 function normalizeNanoGptTtsModelId(model: string) {
   const trimmed = model.trim();
   return NANOGPT_TTS_MODEL_ALIASES[trimmed.toLowerCase()] ?? trimmed;
@@ -750,10 +743,6 @@ function clampElevenLabsSpeed(speed: number) {
 
 function clampXaiSpeed(speed: number) {
   return Math.min(1.5, Math.max(0.7, Number.isFinite(speed) ? speed : 1));
-}
-
-function elevenLabsModelSupportsSpeed(model: string) {
-  return model.trim().toLowerCase() !== "eleven_v3";
 }
 
 function isNanoGptElevenLabsModel(model: string) {
@@ -1540,7 +1529,7 @@ export async function ttsRoutes(app: FastifyInstance) {
     if (cfg.source === "elevenlabs" && ELEVENLABS_NON_TTS_MODELS.has(normalizedModel)) {
       return reply.status(400).send({
         error: `ElevenLabs model "${model}" cannot generate text-to-speech`,
-        detail: `That model is for Text to Voice / voice design. Use "eleven_v3" for Eleven v3 speech, or "eleven_multilingual_v2", "eleven_flash_v2_5", or "eleven_turbo_v2_5" for regular TTS.`,
+        detail: `That model is for Text to Voice / voice design. Use "eleven_v4" for Eleven v4 speech, "eleven_v3" for Eleven v3, or "eleven_multilingual_v2", "eleven_flash_v2_5", or "eleven_turbo_v2_5" for regular TTS.`,
       });
     }
 

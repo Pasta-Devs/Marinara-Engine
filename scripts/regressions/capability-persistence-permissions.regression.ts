@@ -93,6 +93,7 @@ try {
     (h) => h.getChat(chat.id),
     (h) => h.listMessages(chat.id),
     (h) => h.getGameState!(chat.id),
+    (h) => h.listChatSummaries!(chat.id),
     (h) => h.spatialSnapshots.getById(snapshot.id),
     (h) => h.spatialSnapshots.getByAnchor(chat.id, "", 0),
     (h) => h.spatialSnapshots.getByCommand(chat.id, "command"),
@@ -136,6 +137,88 @@ try {
     (h) => h.spatialSnapshots.replaceBootstrap(snapshot),
     (h) => h.spatialSnapshots.replaceAtAnchor(snapshot),
   ];
+  // listChatSummaries hands back a chat's stored summaries (the permission gate is in `reads` above).
+  assert.deepEqual(await trusted.listChatSummaries!(chat.id), { day: {}, week: {}, rolling: [], gameSessions: [] });
+  const rolling = {
+    id: "summary-1",
+    kind: "rolling",
+    origin: "manual",
+    title: "Manual summary",
+    content: "They met at the harbor.",
+    enabled: false,
+    sourceMode: "last",
+    tokenEstimate: 6,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  const session = {
+    sessionNumber: 1,
+    summary: "The party left town.",
+    resumePoint: "At the gate.",
+    partyDynamics: "",
+    partyState: "",
+    keyDiscoveries: ["A map"],
+    characterMoments: [],
+    littleDetails: [],
+    statsSnapshot: {},
+    npcUpdates: [],
+    timestamp,
+  };
+  const summarized = (await createChatsStorage(db).create({
+    name: "Summaries proof",
+    mode: "conversation",
+    characterIds: [],
+    promptPresetId: null,
+  }))!;
+  await createChatsStorage(db).patchMetadata(summarized.id, {
+    daySummaries: { "01.02.2026": { summary: "A quiet day.", keyDetails: ["Tea"] }, "02.02.2026": "malformed" },
+    weekSummaries: { "26.01.2026": { summary: "A week of rain.", keyDetails: [] } },
+    summaryEntries: [rolling],
+    gamePreviousSessionSummaries: [session],
+  });
+  assert.deepEqual(await trusted.listChatSummaries!(summarized.id), {
+    day: { "01.02.2026": { summary: "A quiet day.", keyDetails: ["Tea"] } },
+    week: { "26.01.2026": { summary: "A week of rain.", keyDetails: [] } },
+    rolling: [rolling],
+    gameSessions: [session],
+  });
+  // The older single summary reads as a legacy entry dated with the chat's own update time, not the read time.
+  await createChatsStorage(db).patchMetadata(summarized.id, { summaryEntries: [], summary: "They met at the harbor." });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const [legacy] = (await trusted.listChatSummaries!(summarized.id)).rolling;
+  assert.equal(legacy?.origin, "legacy");
+  assert.equal(legacy?.createdAt, (await createChatsStorage(db).getById(summarized.id))?.updatedAt);
+  // Stored game sessions can lack fields (older ones hold `revelations`); each one reads back complete and stable.
+  await createChatsStorage(db).patchMetadata(summarized.id, {
+    gamePreviousSessionSummaries: [
+      { sessionNumber: 3, summary: "Partial.", revelations: ["A rumor"] },
+      { summary: "Unnumbered.", keyDiscoveries: ["Map"], revelations: ["Map", "Gate"], statsSnapshot: "bad" },
+    ],
+  });
+  const stamp = (await createChatsStorage(db).getById(summarized.id))?.updatedAt;
+  const complete = { resumePoint: "", partyDynamics: "", partyState: "", characterMoments: [], littleDetails: [] };
+  const sessions = (await trusted.listChatSummaries!(summarized.id)).gameSessions;
+  assert.deepEqual(sessions, [
+    {
+      ...complete,
+      sessionNumber: 3,
+      summary: "Partial.",
+      keyDiscoveries: ["A rumor"],
+      statsSnapshot: {},
+      npcUpdates: [],
+      timestamp: stamp,
+    },
+    {
+      ...complete,
+      sessionNumber: 2,
+      summary: "Unnumbered.",
+      keyDiscoveries: ["Map", "Gate"],
+      statsSnapshot: {},
+      npcUpdates: [],
+      timestamp: stamp,
+    },
+  ]);
+  assert.deepEqual((await trusted.listChatSummaries!(summarized.id)).gameSessions, sessions);
   for (const item of packages) {
     // Actual registry read, digest verification, runtime snapshot, module import,
     // activation and service registration; no runtime or persistence mocks.

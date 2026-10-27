@@ -12180,7 +12180,7 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
     await expect(modelSelect.locator("option")).toHaveCount(3);
     await expect(modelSelect.locator('option[value="eleven_v3"]')).toHaveText("Eleven v3 (eleven_v3)");
 
-    const allCharactersVoicePicker = ttsCard.getByRole("button", { name: "All Characters Voice" });
+    const allCharactersVoicePicker = ttsCard.getByRole("button", { name: "Shared Voice" });
     await allCharactersVoicePicker.click();
     const voiceList = page.getByTestId("tts-voice-options");
     await expect(voiceList.getByRole("option")).toHaveCount(49);
@@ -12198,9 +12198,9 @@ test("ElevenLabs keeps models visible and exposes scrollable account voices in e
     await ttsCard.getByRole("combobox", { name: "Voice Option" }).selectOption("per-character");
     const refreshButton = ttsCard.getByRole("button", { name: "Refresh", exact: true });
     await expect(refreshButton).toBeVisible();
-    await ttsCard.getByRole("button", { name: "Add character voice" }).click();
+    await ttsCard.getByRole("button", { name: "Add voice" }).click();
 
-    const characterPicker = ttsCard.getByRole("button", { name: "Select character" });
+    const characterPicker = ttsCard.getByRole("button", { name: "Select character or persona" });
     await characterPicker.click();
     const characterList = page.getByTestId("tts-character-options");
     await expect(characterList).toBeVisible();

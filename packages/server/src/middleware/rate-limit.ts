@@ -14,6 +14,7 @@ declare module "fastify" {
 
 type Bucket = {
   count: number;
+  /** On the monotonic clock (monotonicNow), not the wall clock. */
   resetAt: number;
 };
 
@@ -382,6 +383,11 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
 
 const buckets = new Map<string, Bucket>();
 let lastSweepAt = 0;
+/**
+ * Windows run on a monotonic clock: a wall clock set back (NTP, a resumed VM, a time-zone fix) would otherwise leave
+ * every bucket counting down to a reset hours away, locking all clients out for that long.
+ */
+const monotonicNow = () => performance.now();
 const isE2ERateLimitDisabled = process.env.MARINARA_E2E_DISABLE_RATE_LIMIT === "true";
 
 function selectRule(url: string): RateLimitRule {
@@ -414,7 +420,7 @@ export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done
   // Pages and assets are not throttled, except the sign-in pages that check passwords and codes.
   if (!isApiRequest(request) && rule.key !== "login-page") return done();
 
-  const now = Date.now();
+  const now = monotonicNow();
   sweepExpired(now);
 
   const key = `${rule.key}:${request.ip}`;
@@ -426,7 +432,7 @@ export function rateLimitHook(request: FastifyRequest, reply: FastifyReply, done
   const remaining = Math.max(0, rule.limit - activeBucket.count);
   reply.header("RateLimit-Limit", String(rule.limit));
   reply.header("RateLimit-Remaining", String(remaining));
-  reply.header("RateLimit-Reset", String(Math.ceil(activeBucket.resetAt / 1000)));
+  reply.header("RateLimit-Reset", String(Math.ceil((Date.now() + activeBucket.resetAt - now) / 1000)));
 
   if (activeBucket.count > rule.limit) {
     const retryAfter = Math.ceil((activeBucket.resetAt - now) / 1000);

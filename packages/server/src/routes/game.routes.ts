@@ -1444,14 +1444,14 @@ function gameDynamicImagePromptKindLabel(kind: GameDynamicImagePromptKind): stri
   }
 }
 
-function compactDynamicPromptText(value: unknown, maxLength: number): string {
+function compactDynamicPromptText(value: unknown, maxLength?: number): string {
   if (typeof value !== "string") return "";
-  return value
+  const clean = value
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\s+$/gm, "")
-    .trim()
-    .slice(0, maxLength);
+    .trim();
+  return maxLength === undefined ? clean : clean.slice(0, maxLength);
 }
 
 function compactDynamicPromptLine(value: unknown, maxLength = 500): string {
@@ -1466,7 +1466,7 @@ function dynamicPromptBlock(tag: string, lines: string[]): string {
   return clean.length ? `<${tag}>\n${clean.join("\n")}\n</${tag}>` : "";
 }
 
-function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: number): string | null {
+export function sanitizeDynamicGameImagePromptResponse(raw: string): string | null {
   const stripped = raw
     .trim()
     .replace(/^```(?:json|text)?/i, "")
@@ -1483,9 +1483,9 @@ function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: numb
       parsedObject = true;
       const record = parsed as Record<string, unknown>;
       candidate =
-        compactDynamicPromptText(record.prompt, maxCharacters) ||
-        compactDynamicPromptText(record.positivePrompt, maxCharacters) ||
-        compactDynamicPromptText(record.imagePrompt, maxCharacters);
+        compactDynamicPromptText(record.prompt) ||
+        compactDynamicPromptText(record.positivePrompt) ||
+        compactDynamicPromptText(record.imagePrompt);
     }
   } catch {
     const promptMatch = stripped.match(
@@ -1496,12 +1496,12 @@ function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: numb
 
   if (parsedObject && !candidate) return null;
 
-  candidate = compactDynamicPromptText(candidate || stripped, maxCharacters)
+  candidate = compactDynamicPromptText(candidate || stripped)
     .replace(/^(?:positive\s+prompt|prompt|image\s+prompt)\s*:\s*/i, "")
     .trim();
 
   if (candidate.length < 20) return null;
-  return candidate.slice(0, maxCharacters).trim() || null;
+  return candidate;
 }
 
 export async function buildDynamicGameImagePromptMessages(args: {
@@ -1582,7 +1582,6 @@ export async function buildDynamicGameImagePromptMessages(args: {
           latestTurnBlock
             ? "Treat the latest GM turn as the primary source for the visible environment. Use the draft prompt only as supporting context, and keep the result background-only."
             : "",
-          `Maximum length: ${args.request.maxCharacters} characters.`,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -1744,7 +1743,7 @@ async function createDynamicGameImagePromptGenerator(args: {
       const extraction = extractLeadingThinkingBlocks(result.content || "", parameters?.customThinkingTags);
       const raw = extraction.content.trim();
       args.debugLog?.("[debug/game/dynamic-image-prompt] raw response kind=%s:\n%s", request.kind, raw);
-      const prompt = sanitizeDynamicGameImagePromptResponse(raw, request.maxCharacters);
+      const prompt = sanitizeDynamicGameImagePromptResponse(raw);
       if (prompt) {
         args.debugLog?.(
           "[debug/game/dynamic-image-prompt] selected prompt kind=%s chars=%d:\n%s",

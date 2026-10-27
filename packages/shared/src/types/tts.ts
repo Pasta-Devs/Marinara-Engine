@@ -319,6 +319,25 @@ export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile 
 export const TTS_SETTINGS_KEY = "tts";
 export const TTS_API_KEY_MASK = "••••••";
 
+const ELEVENLABS_TTS_MODEL_ALIASES: Record<string, string> = {
+  tts_v3: "eleven_v3",
+  elevenlabs_v3: "eleven_v3",
+  elevenlabs_tts_v3: "eleven_v3",
+};
+
+export function normalizeElevenLabsTtsModelId(model: string): string {
+  const trimmed = model.trim();
+  const key = trimmed.toLowerCase();
+  return Object.hasOwn(ELEVENLABS_TTS_MODEL_ALIASES, key) ? ELEVENLABS_TTS_MODEL_ALIASES[key]! : trimmed;
+}
+
+// Eleven v3 and v4 have no speed setting, so speech requests leave it out and the slider is off.
+const ELEVENLABS_MODELS_WITHOUT_SPEED = new Set(["eleven_v3", "eleven_v4", "eleven_v4_turbo"]);
+
+export function elevenLabsModelSupportsSpeed(model: string): boolean {
+  return !ELEVENLABS_MODELS_WITHOUT_SPEED.has(normalizeElevenLabsTtsModelId(model).toLowerCase());
+}
+
 export const ttsRoleplaySpeakerSegmentSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("narration"),

@@ -35,6 +35,7 @@ import { createCapabilityDecisionHost } from "./capability-decision.service.js";
 import { createCapabilityIntegrationHost } from "./capability-integrations.service.js";
 import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
 import {
+  CapabilityHostDependencyError,
   linkCapabilityNativeDependencies,
   linkCapabilityPackageDependencies,
   linkCapabilitySnapshotDependencies,
@@ -325,16 +326,22 @@ class CapabilityModuleRuntime {
         await writeFile(output, data, { flag: "wx", mode: 0o400 });
       }
       await writeFile(join(root, "manifest.json"), JSON.stringify(installed.manifest), { flag: "wx", mode: 0o400 });
-      const nodeModules = join(DATA_DIR, "capability-packages", "node_modules");
-      if (existsSync(nodeModules) && !existsSync(join(root, "node_modules"))) {
-        await linkCapabilitySnapshotDependencies(root, nodeModules);
+      if (!existsSync(join(root, "node_modules"))) {
+        await linkCapabilitySnapshotDependencies(
+          root,
+          resolve(dirname(fileURLToPath(import.meta.url)), "../../../node_modules"),
+        );
       }
       return {
         entrypoint: join(root, verified.entrypoint),
         cleanup: () => removeRuntimeSnapshot(root),
       };
     } catch (error) {
-      await removeRuntimeSnapshot(root);
+      try {
+        await removeRuntimeSnapshot(root);
+      } catch (cleanupError) {
+        logger.warn(cleanupError, "Could not remove failed package runtime snapshot %s", root);
+      }
       throw error;
     }
   }
@@ -479,7 +486,15 @@ class CapabilityModuleRuntime {
       logger.info("Activated and verified capability package %s@%s", installed.id, installed.version);
     } catch (error) {
       const hostLifecycleError = isHostLifecycleActivationError(error);
-      if (hostLifecycleError) {
+      const hostDependencyError = error instanceof CapabilityHostDependencyError;
+      if (hostDependencyError) {
+        logger.warn(
+          error,
+          "Capability package %s@%s could not load Engine dependencies; its version is unchanged and activation will be retried on the next start",
+          installed.id,
+          installed.version,
+        );
+      } else if (hostLifecycleError) {
         // Not the package's fault and retried on the next start: one warning instead of an error.
         logger.warn(
           error,
@@ -506,8 +521,8 @@ class CapabilityModuleRuntime {
       } catch (cleanupError) {
         logger.warn(cleanupError, "Capability package %s cleanup failed after activation error", installed.id);
       }
-      if (hostLifecycleError) {
-        // Keep the installed version and status so the next boot activates it normally.
+      if (hostLifecycleError || hostDependencyError) {
+        // A host failure cannot be repaired by changing package versions. Retry the requested version next start.
         if (throwOnFailure) throw error;
         return;
       }

@@ -767,7 +767,7 @@ test("shared Game setup waits for characters before mounting the wizard", async 
   });
   await page.route("**/api/characters", async (route) => {
     await charactersReady;
-    return route.fulfill({ json: [{ id: "guide_123", name: "Guide" }] });
+    return route.fulfill({ json: [{ id: "guide_123", data: JSON.stringify({ name: "Guide" }) }] });
   });
   await page.route("**/GameSetupWizard.tsx*", (route) =>
     route.fulfill({

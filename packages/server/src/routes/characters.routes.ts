@@ -73,7 +73,7 @@ import {
 } from "../services/conversation/call-character-videos.service.js";
 import { removeSavedVideoFromDisk } from "../services/video/video-generation.js";
 import { writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
   createJsonSlot,
@@ -601,6 +601,21 @@ async function readAvatarDataUrl(avatarPath: string | null | undefined): Promise
   const filename = avatarPath.split("?")[0]!.split("/").pop();
   if (!filename) return null;
   return readImageAsDataUrl(join(DATA_DIR, "avatars"), filename);
+}
+
+/** The byte check card-import pictures pass. A file that is not the image its name claims is
+ *  deleted, so a gallery upload never keeps one. */
+async function isValidUploadedGalleryImage(filePath: string, filename: string): Promise<boolean> {
+  const galleryRoot = resolve(DATA_DIR, "gallery");
+  const storedPath = resolve(filePath);
+  if (!storedPath.startsWith(galleryRoot + sep)) return false;
+  const image = await validateImageAssetFile(storedPath, filename);
+  if (image) {
+    await image.handle.close().catch(() => undefined);
+    return true;
+  }
+  await unlink(storedPath).catch(() => undefined);
+  return false;
 }
 
 async function copyGalleryImageToAvatar(
@@ -2121,6 +2136,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filePath = join(dir, filename);
 
     await pipeline(data.file, createWriteStream(filePath));
+    if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+      return reply.status(400).send({ error: "Unsupported or invalid image" });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";
@@ -3313,6 +3331,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filePath = join(dir, filename);
 
     await pipeline(data.file, createWriteStream(filePath));
+    if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+      return reply.status(400).send({ error: "Unsupported or invalid image" });
+    }
 
     const fields = data.fields as Record<string, { value?: string } | undefined>;
     const prompt = fields?.prompt?.value ?? "";

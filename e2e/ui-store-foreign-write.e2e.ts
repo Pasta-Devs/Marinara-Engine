@@ -58,7 +58,6 @@ const DROPPED_BY_V74_COPY = [
   "colorInlineNames",
   "disableInlineNameGradients",
   "continueAddsNewline",
-  "commandCenterMariEnabled",
   "omnibarSuggestionsEnabled",
   "seasonalThemesDisabled",
   "seasonalGreetingYears",

@@ -350,6 +350,18 @@ function runtimeBlockReason(installed: InstalledCapabilityPackage): string | nul
   );
 }
 
+function isLegacyValidatorActivationFailure(installed: InstalledCapabilityPackage): boolean {
+  if (installed.manifest.schemaVersion === 2 && installed.manifest.capabilityApi.major !== 1) return false;
+  // ponytail: old registries have messages, not typed causes. Keep these migration matches exact;
+  // replace them with activation error codes when the registry records those causes.
+  const message = installed.error ?? installed.readinessError;
+  return (
+    typeof message === "string" &&
+    (/^[A-Za-z_$][\w$]*\.innerType is not a function$/.test(message) ||
+      message === "Cannot read properties of undefined (reading 'curve')")
+  );
+}
+
 function assertNotDowngrade(
   current: Pick<InstalledCapabilityPackage, "id" | "version"> | undefined,
   nextVersion: string,
@@ -6343,16 +6355,38 @@ export function getCapabilityAgentDetailDefinitionIssue(
     : `Agent detail contribution ${agentId} must identify a feature or host agent from this package`;
 }
 
+/** The names an official entry's artifact may be published under: a ruleset's as its ruleset package file and an
+ *  Experience's as its Experience file, each first, else `<id>-<version>.zip`. A zip of either stays a name the
+ *  catalog may list (the install refuses it, saying why), so an official catalog that still lists one keeps loading. */
+function officialArtifactNames(entry: CapabilityCatalogPackage): string[] {
+  const base = `${entry.manifest.id}-${entry.manifest.version}`;
+  const { kind } = entry.manifest;
+  // The same kinds the install takes as files: a ruleset as its ruleset file, an Experience as its file.
+  return [
+    ...(kind.includes("ruleset") ? [`${base}${RULESET_PACKAGE_FILE_EXTENSION}`] : []),
+    ...(kind.includes("experience") ? [`${base}${EXPERIENCE_FILE_EXTENSION}`] : []),
+    `${base}.zip`,
+  ];
+}
+
+/** Which of its canonical names an official entry's artifact URL is under, on main or the catalog's branch. */
+function officialArtifactName(entry: CapabilityCatalogPackage, branch: OfficialAgentBranch): string | null {
+  return (
+    officialArtifactNames(entry).find(
+      (name) =>
+        entry.artifact.url === `${officialArtifactRoot("main")}/${name}` ||
+        entry.artifact.url === `${officialArtifactRoot(branch)}/${name}`,
+    ) ?? null
+  );
+}
+
 export function getCapabilityPackageArtifactSourceIssue(
   entry: CapabilityCatalogPackage,
   catalogUrl = CATALOG_URL,
 ): string | null {
   const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
   if (!branch) return null;
-  const artifactName = `${entry.manifest.id}-${entry.manifest.version}.zip`;
-  const stableUrl = `${officialArtifactRoot("main")}/${artifactName}`;
-  const channelUrl = `${officialArtifactRoot(branch)}/${artifactName}`;
-  return entry.artifact.url === stableUrl || entry.artifact.url === channelUrl
+  return officialArtifactName(entry, branch)
     ? null
     : `Official package ${entry.manifest.id} must use its canonical Marinara-Agents artifact URL`;
 }
@@ -6367,7 +6401,8 @@ function getOfficialAgentBranchFromCatalogUrl(catalogUrl: string): OfficialAgent
 export function resolveCapabilityPackageArtifactUrl(entry: CapabilityCatalogPackage, catalogUrl = CATALOG_URL): string {
   const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
   if (!branch) return entry.artifact.url;
-  return `${officialArtifactRoot(branch)}/${entry.manifest.id}-${entry.manifest.version}.zip`;
+  // On the catalog's own branch, under the name it is published as.
+  return `${officialArtifactRoot(branch)}/${officialArtifactName(entry, branch) ?? officialArtifactNames(entry)[0]}`;
 }
 
 export function resolveCapabilityPackageIconUrl(
@@ -7219,7 +7254,11 @@ export const capabilityPackageManager = {
   async runtimePackages() {
     const registry = await readRegistry();
     return registry.packages
-      .filter((installed) => installed.status !== "error" && installed.manifest.entrypoints.server)
+      .filter(
+        (installed) =>
+          installed.manifest.entrypoints.server &&
+          (installed.status !== "error" || isLegacyValidatorActivationFailure(installed)),
+      )
       .map((installed) => ({
         installed,
         serverEntrypoint: inside(

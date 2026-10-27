@@ -92,11 +92,13 @@ const Fastify = serverRequire("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { capabilityModuleRuntime } =
   await import("../../packages/server/src/services/capability-packages/capability-module-runtime.service.js");
+const { capabilityPackageManager } =
+  await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
 const { getCapabilityService } =
   await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
 const { linkCapabilityPackageDependencies } =
   await import("../../packages/server/src/services/capability-packages/capability-native-dependencies.service.js");
-const { linkCapabilitySnapshotDependencies } =
+const { CapabilityHostDependencyError, linkCapabilitySnapshotDependencies } =
   await import("../../packages/server/src/services/capability-packages/capability-native-dependencies.service.js");
 const { errorHandler } = await import("../../packages/server/src/middleware/error-handler.js");
 
@@ -109,33 +111,41 @@ type ProbeService = {
 };
 
 const timestamp = new Date().toISOString();
-function fixturePackage(id: string, source: string, permissions: string[] = []) {
+function fixturePackage(
+  id: string,
+  source: string,
+  permissions: string[] = [],
+  bundled: Record<string, string> = {},
+  version = "1.0.0",
+) {
+  const payloads = { "server.mjs": source, ...bundled };
   const manifest = {
     schemaVersion: 1,
     id,
     name: id,
-    version: "1.0.0",
+    version,
     description: "Local server externals proof",
     engine: { min: "2.3.0", maxExclusive: "3.0.0" },
     kind: ["agent"],
     entrypoints: { server: "server.mjs" },
     permissions,
     restartRequired: false,
-    files: [
-      {
-        path: "server.mjs",
-        bytes: Buffer.byteLength(source),
-        sha256: createHash("sha256").update(source).digest("hex"),
-      },
-    ],
+    files: Object.entries(payloads).map(([path, content]) => ({
+      path,
+      bytes: Buffer.byteLength(content),
+      sha256: createHash("sha256").update(content).digest("hex"),
+    })),
   };
-  const root = join(dir, "capability-packages", "versions", id, "1.0.0");
+  const root = join(dir, "capability-packages", "versions", id, version);
   mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, "server.mjs"), source);
+  for (const [path, content] of Object.entries(payloads)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), content);
+  }
   writeFileSync(join(root, "manifest.json"), JSON.stringify(manifest));
   return {
     id,
-    version: "1.0.0",
+    version,
     manifest,
     installedAt: timestamp,
     status: "active",
@@ -176,11 +186,65 @@ export async function activate(context) {
   });
 }
 `;
+const quarantinedMarker = join(dir, "unrelated-error-executed");
+const tamperedMarker = join(dir, "tampered-error-executed");
+function failedFixture(id: string, source: string, error: string) {
+  return { ...fixturePackage(id, source), status: "error", readiness: "error", error, readinessError: error };
+}
 const packages = [
   fixturePackage("externals-probe", probeSource, ["routes"]),
   fixturePackage("externals-transitive", `import "ws";\nexport function activate() {}\n`),
+  fixturePackage(
+    "externals-authored",
+    `import { value } from "authored-runtime-fixture";
+export function activate(context) { return context.api.registerService("externals-authored", value); }`,
+    [],
+    {
+      "node_modules/authored-runtime-fixture/package.json": JSON.stringify({
+        name: "authored-runtime-fixture",
+        version: "1.0.0",
+        type: "module",
+        exports: "./index.js",
+      }),
+      "node_modules/authored-runtime-fixture/index.js": "export const value = 42;",
+    },
+  ),
+  failedFixture(
+    "externals-recover-inner",
+    `import {z} from "zod";
+const schema = z.object({value:z.string()}).superRefine(()=>{});
+export function activate(context) {
+  const inner = schema.innerType();
+  return context.api.registerService("externals-recover-inner", {parse:(input)=>inner.parse(input)});
+}`,
+    "At.innerType is not a function",
+  ),
+  failedFixture(
+    "externals-recover-curve",
+    `import {z} from "zod";
+const settings = z.object({commission:z.object({message:z.object({curve:z.string().default("smooth")}).default({})}).default({})}).parse({});
+const curve = settings.commission.message.curve;
+export function activate(context) { return context.api.registerService("externals-recover-curve", {curve}); }`,
+    "Cannot read properties of undefined (reading 'curve')",
+  ),
+  failedFixture(
+    "externals-error-quarantined",
+    `import {writeFileSync} from "node:fs";
+writeFileSync(${JSON.stringify(quarantinedMarker)}, "executed");
+export function activate(context) { return context.api.registerService("externals-error-quarantined", true); }`,
+    "Unrelated package startup failure",
+  ),
+  failedFixture(
+    "externals-recover-tampered",
+    `import {writeFileSync} from "node:fs";
+writeFileSync(${JSON.stringify(tamperedMarker)}, "executed");
+export function activate(context) { return context.api.registerService("externals-recover-tampered", true); }`,
+    "At.innerType is not a function",
+  ),
 ];
 writeFileSync(join(dir, "capability-packages", "installed.json"), JSON.stringify({ schemaVersion: 1, packages }));
+const tamperedEntry = join(dir, "capability-packages", "versions", "externals-recover-tampered", "1.0.0", "server.mjs");
+writeFileSync(tamperedEntry, `${readFileSync(tamperedEntry, "utf8")}\n// Different from the installed artifact.\n`);
 
 const link = join(dir, "capability-packages", "node_modules");
 const linkType = process.platform === "win32" ? "junction" : "dir";
@@ -251,6 +315,11 @@ try {
   assert.ok(existsSync(join(oldZod, "index.js")), "relinking removes only the link, never what it pointed to");
   await capabilityModuleRuntime.deactivatePackage("externals-probe");
 
+  const authored = await capabilityModuleRuntime.activatePackage(app, "externals-authored");
+  assert.equal(authored.readiness, "ready", "declared bundled dependencies still activate");
+  assert.equal(getCapabilityService("externals-authored"), 42, "the package keeps its own bundled dependency");
+  await capabilityModuleRuntime.deactivatePackage("externals-authored");
+
   // ── A transitive dependency of the Engine never resolves for a package ──
   await assert.rejects(
     () => capabilityModuleRuntime.activatePackage(app, "externals-transitive"),
@@ -263,6 +332,44 @@ try {
   symlinkSync(serverNodeModules, join(stale, "node_modules"), linkType);
   await capabilityModuleRuntime.start(app);
   assert.equal(existsSync(stale), false, "old direct-Engine runtime links are not reused after an upgrade");
+  const recovered = getCapabilityService<{ parse: (input: unknown) => unknown }>("externals-recover-inner");
+  const curve = getCapabilityService<{ curve: string }>("externals-recover-curve");
+  const startupStates = (await capabilityPackageManager.installed()).filter((item) =>
+    [
+      "externals-recover-inner",
+      "externals-recover-curve",
+      "externals-error-quarantined",
+      "externals-recover-tampered",
+    ].includes(item.id),
+  );
+  assert.equal(existsSync(quarantinedMarker), false, "unrelated persisted failures are never imported");
+  assert.equal(existsSync(tamperedMarker), false, "a known old error never bypasses artifact verification");
+  assert.equal(getCapabilityService("externals-error-quarantined"), null);
+  assert.equal(getCapabilityService("externals-recover-tampered"), null);
+  console.info(
+    "Startup recovery states:",
+    startupStates.map(({ id, status, readiness, error }) => ({ id, status, readiness, error })),
+  );
+  assert.deepEqual(
+    [Boolean(recovered), Boolean(curve)],
+    [true, true],
+    "startup retries both persisted legacy-Zod failures with the corrected dependency mapping",
+  );
+  assert.deepEqual(recovered!.parse({ value: "ready" }), { value: "ready" });
+  assert.equal(curve!.curve, "smooth", "legacy nested defaults are usable after startup recovery");
+  for (const id of ["externals-recover-inner", "externals-recover-curve"]) {
+    const installed = startupStates.find((item) => item.id === id)!;
+    assert.equal(installed.status, "active");
+    assert.equal(installed.readiness, "ready");
+    assert.equal(installed.error, null);
+  }
+  const quarantined = startupStates.find((item) => item.id === "externals-error-quarantined")!;
+  assert.equal(quarantined.status, "error");
+  assert.equal(quarantined.error, "Unrelated package startup failure");
+  const tampered = startupStates.find((item) => item.id === "externals-recover-tampered")!;
+  assert.equal(tampered.status, "error");
+  assert.equal(tampered.readiness, "error");
+  assert.match(tampered.error ?? "", /integrity verification/);
   const upgraded = getCapabilityService<ProbeService>("externals-probe");
   assert.ok(upgraded);
   assert.deepEqual(upgraded.compat.partial, {});
@@ -317,6 +424,80 @@ try {
   const before = lstatSync(join(freshRoot, "node_modules")).ino;
   await linkCapabilityPackageDependencies(freshRoot, serverNodeModules);
   assert.equal(lstatSync(join(freshRoot, "node_modules")).ino, before);
+
+  // A host install problem must not roll an otherwise valid package back or quarantine it.
+  const fakeServer = join(dir, "dependency-repair", "engine", "packages", "server");
+  const fakeModules = join(dir, "dependency-repair", "engine", "node_modules");
+  const fakeSnapshots = join(dir, "dependency-repair", "external-data");
+  mkdirSync(fakeServer, { recursive: true });
+  mkdirSync(fakeModules, { recursive: true });
+  mkdirSync(fakeSnapshots, { recursive: true });
+  writeFileSync(join(fakeServer, "package.json"), JSON.stringify({ dependencies: { zod: "4", "zod-v3": "3" } }));
+  symlinkSync(realpathSync(join(serverNodeModules, "zod")), join(fakeModules, "zod"), linkType);
+  const retryId = "externals-host-retry";
+  const previous = fixturePackage(
+    retryId,
+    'export function activate(context) { return context.api.registerService("externals-host-retry", {version:"1.0.0"}); }',
+  );
+  const current = fixturePackage(
+    retryId,
+    `import {linkCapabilitySnapshotDependencies} from ${JSON.stringify(new URL("../../packages/server/src/services/capability-packages/capability-native-dependencies.service.ts", import.meta.url).href)};
+import {mkdtemp,rm} from "node:fs/promises";
+import {createRequire} from "node:module";
+import {join} from "node:path";
+export async function activate(context) {
+  const snapshot = await mkdtemp(join(${JSON.stringify(fakeSnapshots)}, "snapshot-"));
+  try {
+    await linkCapabilitySnapshotDependencies(snapshot, ${JSON.stringify(join(fakeServer, "node_modules"))});
+    const {z} = createRequire(join(snapshot, "probe.cjs"))("zod");
+    const parsed = z.object({}).superRefine(()=>{}).innerType().parse({});
+    return context.api.registerService("externals-host-retry", {version:"2.0.0", parsed});
+  } finally { await rm(snapshot, {recursive:true,force:true}); }
+}`,
+    [],
+    {},
+    "2.0.0",
+  );
+  const registryPath = join(dir, "capability-packages", "installed.json");
+  const registry = JSON.parse(readFileSync(registryPath, "utf8"));
+  registry.packages.push({ ...current, previousVersion: previous.version, previousManifest: previous.manifest });
+  writeFileSync(registryPath, JSON.stringify(registry));
+  let activationError: unknown;
+  try {
+    await capabilityModuleRuntime.activatePackage(app, retryId);
+  } catch (error) {
+    activationError = error;
+  }
+  const retained = (await capabilityPackageManager.installed()).find((item) => item.id === retryId)!;
+  console.info("Host dependency failure state:", {
+    version: retained.version,
+    previousVersion: retained.previousVersion,
+    status: retained.status,
+    error: activationError instanceof Error ? activationError.message : activationError,
+  });
+  assert.equal(
+    retained.version,
+    "2.0.0",
+    "a host dependency fault never rolls the package back to its previous version",
+  );
+  assert.equal(retained.previousVersion, previous.version);
+  assert.deepEqual(retained.previousManifest, previous.manifest);
+  assert.notEqual(retained.status, "error", "host dependency faults are not saved as terminal package faults");
+  assert.notEqual(retained.readiness, "error");
+  assert.equal(retained.error, null);
+  assert(activationError instanceof CapabilityHostDependencyError, "activation preserves the typed host failure");
+  assert.equal(getCapabilityService(retryId), null, "neither the failed version nor a rollback is activated");
+
+  symlinkSync(realpathSync(join(serverNodeModules, "zod-v3")), join(fakeModules, "zod-v3"), linkType);
+  const repaired = await capabilityModuleRuntime.activatePackage(app, retryId);
+  assert.equal(repaired.version, "2.0.0");
+  assert.equal(repaired.status, "active");
+  assert.equal(repaired.readiness, "ready");
+  assert.equal(repaired.error, null);
+  assert.equal(repaired.previousVersion, previous.version);
+  assert.deepEqual(repaired.previousManifest, previous.manifest);
+  assert.deepEqual(getCapabilityService(retryId), { version: "2.0.0", parsed: {} });
+  assert(existsSync(join(dir, "capability-packages", "versions", retryId, previous.version, "server.mjs")));
 } finally {
   await capabilityModuleRuntime.stop();
   await app.close();

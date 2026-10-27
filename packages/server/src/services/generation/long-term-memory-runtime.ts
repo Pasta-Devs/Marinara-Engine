@@ -36,6 +36,11 @@ function runtimeService() {
   return getCapabilityService<LongTermMemoryRuntimeService>(SERVICE_KEY);
 }
 
+/** A chat can still list the package after it is uninstalled; built-in recall then stays in charge. */
+export function longTermMemoryRuntimeAvailable(): boolean {
+  return runtimeService() !== null;
+}
+
 async function embeddingConfiguration(db: DB): Promise<string | null> {
   const config = await createAgentsStorage(db).getByType("long-term-memory");
   if (!config && !runtimeService()) return null;

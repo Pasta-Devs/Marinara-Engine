@@ -267,16 +267,6 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Button group",
   },
   {
-    id: "ask-mari",
-    sectionId: "omnibar",
-    labelKey: "omnibar.settings.mari.label",
-    label: "Ask Professor Mari from Search",
-    description: "Open her from the Search field, the pull-down or Ctrl/Command+J.",
-    descriptionKey: "omnibar.settings.mari.description",
-    aliases: ["professor mari", "mari assistance", "assistant", "ctrl j"],
-    kind: "Toggle",
-  },
-  {
     id: "professor-mari-suggestions",
     sectionId: "omnibar",
     labelKey: "settings.controls.professorMariSuggestions.label",

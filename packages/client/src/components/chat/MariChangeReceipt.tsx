@@ -3,7 +3,7 @@
 // name, what changed in words, the changed fields (folded: one key field; opened: every field), her reason,
 // and Undo while the undo copy lasts. No Keep: an applied change is already saved, and Undo is the way back.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { AlertTriangle, Check, ChevronDown, ExternalLink, Undo2 } from "lucide-react";
 import {
@@ -477,6 +477,9 @@ export function MariChangeReceipt({
   const { t, i18n } = useUiTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const [openRecords, setOpenRecords] = useState<ReadonlySet<number>>(() => new Set());
+  const [dragX, setDragX] = useState(0);
+  const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
+  const swiped = useRef(false);
   const pendingIds = new Set(controls?.pending.keys() ?? []);
   const states = results.map((result) => mariReceiptState(result, pendingIds, controls?.answered));
   const ids = results.flatMap(mariReceiptReviewIds);
@@ -493,6 +496,13 @@ export function MariChangeReceipt({
         ? "undone"
         : "kept";
   const multi = results.length > 1;
+  const swipeable = state === "open" && !(controls?.busy ?? false);
+  useEffect(() => {
+    // The handlers detach while the card is closed or busy; drop any half-finished drag.
+    if (swipeable) return;
+    drag.current = null;
+    setDragX(0);
+  }, [swipeable]);
   if (!multi && results[0]!.status === "failed") {
     return (
       <FailedReceipt
@@ -519,6 +529,64 @@ export function MariChangeReceipt({
       [...approvals].sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt)),
       false,
     );
+  // Mail-style swipe on an open card, beside the buttons: left closes Undo, right undoes.
+  const swipe =
+    state === "open" && !busy
+      ? {
+          onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+            swiped.current = false;
+            if (event.button === 0 && event.isPrimary && !drag.current?.moved)
+              drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+          },
+          onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+            const start = drag.current;
+            if (!start || start.id !== event.pointerId) return;
+            if (event.buttons === 0) {
+              // Released outside the card: disarm the swipe.
+              drag.current = null;
+              setDragX(0);
+              return;
+            }
+            const dx = event.clientX - start.x;
+            if (!start.moved) {
+              if (Math.abs(dx) < 8) return;
+              if (Math.abs(event.clientY - start.y) > Math.abs(dx)) {
+                drag.current = null;
+                return;
+              }
+              start.moved = true;
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }
+            setDragX(dx);
+          },
+          onPointerUp: (event: React.PointerEvent<HTMLElement>) => {
+            const start = drag.current;
+            if (!start || start.id !== event.pointerId) return;
+            drag.current = null;
+            if (!start.moved) {
+              setDragX(0);
+              return;
+            }
+            swiped.current = true;
+            setDragX(0);
+            const dx = event.clientX - start.x;
+            if (Math.abs(dx) < event.currentTarget.offsetWidth / 3) return;
+            if (dx < 0) controls?.onAnswer(pending, true);
+            else undoAll(pending);
+          },
+          onPointerCancel: () => {
+            drag.current = null;
+            setDragX(0);
+          },
+          // A swipe that ends on a button must not also press it.
+          onClickCapture: (event: React.MouseEvent) => {
+            if (!swiped.current) return;
+            swiped.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          },
+        }
+      : undefined;
   const toggle = (index: number) =>
     setOpenRecords((current) => {
       const next = new Set(current);
@@ -537,6 +605,13 @@ export function MariChangeReceipt({
       )}
       data-state={state}
       data-multi={multi || undefined}
+      data-dragging={(swipe && dragX !== 0) || undefined}
+      style={
+        swipe && dragX
+          ? { transform: `translateX(${dragX}px)`, opacity: Math.max(0.4, 1 - Math.abs(dragX) / 400) }
+          : undefined
+      }
+      {...swipe}
       aria-label={
         multi
           ? t("ui.chat.marichangereceipt.labelMany", { count: results.length })

@@ -37,6 +37,7 @@ import {
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import {
+  notifyTTSUserMessageReady,
   TTS_AUTOPLAY_MESSAGE_READY_EVENT,
   type TTSAutoplayMessage,
   type TTSAutoplayMessageReadyDetail,
@@ -1069,6 +1070,9 @@ function shouldRefreshGameStateAfterGeneration(qc: QueryClient, chatId: string) 
 const pendingVisibleGameStateRefreshes = new Map<string, Promise<void>>();
 const PASSIVE_STREAM_SETTLE_POLL_MS = 1_500;
 const PASSIVE_STREAM_SETTLE_MAX_WAIT_MS = 30 * 60_000;
+/** How long a stream may go without an event before the server is asked whether it is still working on the turn. */
+const STREAM_STALL_CHECK_MS = 60_000;
+const STREAM_STALL_POLL_MS = 10_000;
 const STREAM_TYPEWRITER_PREBUFFER_MS = 320;
 
 function wait(ms: number, signal?: AbortSignal) {
@@ -1508,6 +1512,11 @@ export function useGenerate() {
         expectedPersistedRole === "assistant"
           ? assistantMessagesBeforeGeneration
           : snapshotMessagesByRole(qc, params.chatId, expectedPersistedRole);
+      /** The reply this run left in the refetched chat: a new or changed assistant row, or the impersonated turn. */
+      const recoveredReply = () =>
+        expectedPersistedRole === "assistant"
+          ? latestChangedAssistantMessage(qc, params.chatId, assistantMessagesBeforeGeneration)
+          : latestNewMessageByRole(qc, params.chatId, expectedPersistedRole, expectedMessagesBeforeGeneration);
       if (params.regenerateMessageId) {
         forgetRecentMessageContentEdit(params.chatId, params.regenerateMessageId);
       }
@@ -1912,6 +1921,42 @@ export function useGenerate() {
         );
       };
 
+      // The server can finish or fail without this stream hearing about it (a proxy holding the socket open, a failure
+      // after the last event). Keepalives hide that from the socket watchdog, so after a quiet spell ask the server
+      // whether it is still working on the turn, and stop waiting when it is not. Only the stream is cancelled, through
+      // its own controller, so the server-side run is never aborted from here.
+      const streamController = new AbortController();
+      const forwardStreamAbort = () => streamController.abort(abortController.signal.reason);
+      if (abortController.signal.aborted) forwardStreamAbort();
+      else abortController.signal.addEventListener("abort", forwardStreamAbort, { once: true });
+      let lastStreamEventAt = Date.now();
+      let streamStalled = false;
+      let stallCheckPending = false;
+      const stallWatchdog = setInterval(() => {
+        if (sawDoneEvent || replyErrorSeen || streamController.signal.aborted || stallCheckPending) return;
+        if (Date.now() - lastStreamEventAt < STREAM_STALL_CHECK_MS) return;
+        stallCheckPending = true;
+        api
+          .get<{ active: boolean }>(`/generate/status/${encodeURIComponent(params.chatId)}`, {
+            signal: requestTimeoutSignal(15_000),
+          })
+          .then((status) => {
+            if (sawDoneEvent || streamController.signal.aborted) return;
+            if (status.active) {
+              lastStreamEventAt = Date.now();
+              return;
+            }
+            streamStalled = true;
+            streamController.abort();
+          })
+          .catch(() => {
+            // Unreachable server: the socket watchdog and the next check decide.
+          })
+          .finally(() => {
+            stallCheckPending = false;
+          });
+      }, STREAM_STALL_POLL_MS);
+
       try {
         const {
           userStatus,
@@ -1947,12 +1992,13 @@ export function useGenerate() {
             musicPlayerSource,
             streaming: transportStreaming,
           },
-          abortController.signal,
+          streamController.signal,
           // Backgrounded tabs can leave the stream socket half-open; treat a
           // resume as a disconnect so the passive-recovery path refetches the
           // reply the server finished while we were away instead of hanging.
           { disconnectOnResume: true },
         )) {
+          lastStreamEventAt = Date.now();
           switch (event.type) {
             case "advanced_memory_status": {
               const data = event.data as { chatId?: string; job?: AdvancedMemoryJob } | undefined;
@@ -2721,6 +2767,7 @@ export function useGenerate() {
             case "message_saved": {
               flushLeadingSpeakerPrefix();
               const savedMessage = event.data as Message;
+              if (params.userMessage?.trim()) notifyTTSUserMessageReady(params.chatId, savedMessage);
               // An earlier part of a reply split at a scene break (#7481). It joins the chat above the live
               // reply, which goes on with the rest and keeps the stream, so nothing shows twice.
               const remainingContent = typeof event.remainingContent === "string" ? event.remainingContent : null;
@@ -3365,8 +3412,24 @@ export function useGenerate() {
         // Flush everything instantly on error so user sees what arrived
         flushLeadingSpeakerPrefix();
         flushTypewriterBuffer();
+        // A run the server already left without a word to this stream: read what it saved. A saved reply means only
+        // the final events were lost; without one the turn failed and falls through to the error path below, so the
+        // generating state ends and Retry shows.
+        if (streamStalled && !abortController.signal.aborted) {
+          const refreshed = await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
+            fetchEvenIfInactive: true,
+          });
+          const saved = refreshed ? recoveredReply() : null;
+          if (saved) {
+            persistedMessages.set(saved.id, saved);
+            passiveStreamRecovered = true;
+            passiveStreamSettled = true;
+            passiveRecoveryDurableMessage = saved;
+            return true;
+          }
+        }
         // Abort is intentional — don't log or toast
-        if (isAbortError(error)) {
+        if (isAbortError(error) && !streamStalled) {
           const recovered = await recoverSpatialTransitionByCommand();
           if (recovered) {
             const stepwiseRouteRemainsQueued = shouldKeepPendingSpatialTransition(recovered.travel);
@@ -3411,6 +3474,19 @@ export function useGenerate() {
               toast.info(
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
               );
+            } else if (
+              isGameGeneration &&
+              !params.impersonate &&
+              assistantMessagesBeforeGeneration.cacheWasLoaded &&
+              recoveryRefetchSucceeded &&
+              !recoveredReply()
+            ) {
+              // A game turn always ends in a Game Master message, so a run that settled without one failed: say so
+              // and offer Retry rather than leave the player with nothing, and hand an unsaved turn back to the input.
+              replyErrorSeen = true;
+              setGenerateReplyError(showError(translate("generation.stoppedWithoutReply")), params.chatId, qc);
+              window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
+              return await confirmDurableSubmittedUserTurn();
             }
           }
           return abortController.signal.aborted
@@ -3466,7 +3542,11 @@ export function useGenerate() {
             }
           }
         }
-        const msg = error instanceof Error ? error.message : "Generation failed";
+        const msg = streamStalled
+          ? translate("generation.stoppedWithoutReply")
+          : error instanceof Error
+            ? error.message
+            : "Generation failed";
         replyErrorSeen = true;
         setGenerateReplyError(
           showError(msg, chatModeForGeneration === "game" ? undefined : { duration: 6000 }),
@@ -3476,6 +3556,8 @@ export function useGenerate() {
         window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
         return await confirmDurableSubmittedUserTurn();
       } finally {
+        clearInterval(stallWatchdog);
+        abortController.signal.removeEventListener("abort", forwardStreamAbort);
         // Stream has terminated (done, error, abort, or unexpected throw) —
         // guarantee the Mari indicator clears even if the end SSE never arrived.
         clearMariPhaseForThisChat();

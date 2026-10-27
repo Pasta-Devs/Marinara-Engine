@@ -105,6 +105,8 @@ import { useTTSConfig } from "../../hooks/use-tts";
 import {
   buildTTSVoiceRequests,
   findTTSCharacterIdBySpeakerName,
+  getTTSPersonaVoice,
+  resolveTTSMessagePersona,
   withTTSVoiceRequestCacheKeys,
 } from "../../lib/tts-dialogue";
 import { DIALOGUE_QUOTE_PATTERN_SOURCE, HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
@@ -2134,16 +2136,21 @@ export const ChatMessage = memo(function ChatMessage({
   // TTS
   const { data: ttsConfig } = useTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
-  const ttsSpeakerName =
-    message.role === "narrator"
+  const ttsPersona = useMemo(() => resolveTTSMessagePersona(message, personaInfo), [message, personaInfo]);
+  const mappedUserPersona = message.role === "user" && ttsConfig && getTTSPersonaVoice(ttsConfig, ttsPersona);
+  const ttsFallbackId =
+    message.role === "user" ? (mappedUserPersona ? ttsPersona?.id : undefined) : message.characterId;
+  const ttsSpeakerName = mappedUserPersona
+    ? ttsPersona?.name
+    : message.role === "narrator"
       ? "Narrator"
       : message.characterId
         ? characterMap?.get(message.characterId)?.name
         : undefined;
   // Same lookup as autoplay in ChatArea, so replaying a message uses the voice it autoplayed with.
   const resolveTTSCharacterId = useCallback(
-    (speaker?: string | null) => (characterMap ? findTTSCharacterIdBySpeakerName(speaker, characterMap) : null),
-    [characterMap],
+    (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
   );
   const ttsVoiceRequests = useMemo(() => {
     if (!ttsConfig) return [];
@@ -2151,8 +2158,9 @@ export const ChatMessage = memo(function ChatMessage({
       message.content,
       ttsConfig,
       ttsSpeakerName,
-      message.characterId,
+      ttsFallbackId,
       resolveTTSCharacterId,
+      message.role === "user" && !mappedUserPersona ? undefined : ttsPersona,
     );
     return withTTSVoiceRequestCacheKeys(
       visualNovel || followSpeechParagraphs
@@ -2162,12 +2170,15 @@ export const ChatMessage = memo(function ChatMessage({
       message.id,
     );
   }, [
-    message.characterId,
     message.content,
     message.id,
     resolveTTSCharacterId,
     ttsConfig,
     ttsSpeakerName,
+    ttsFallbackId,
+    ttsPersona,
+    mappedUserPersona,
+    message.role,
     visualNovel,
     followSpeechParagraphs,
   ]);

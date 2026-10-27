@@ -1,6 +1,6 @@
 ---
 name: Interactive onboarding
-description: Writing, editing, reviewing or debugging a character's interactive onboarding: the persona template, persona questions, character questions, and conditions.
+description: Read before writing, editing, reviewing or debugging a character's interactive onboarding: its persona template and questions.
 ---
 
 # Interactive onboarding
@@ -153,6 +153,7 @@ next send can reveal the next group.
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Onboarding not saved, the block doesn't match the shape:`    | A value has the wrong JSON type: `enabled`, `allowCustom` and `multiSelect` are booleans; `variables`, `cardVariables` and `options` are arrays; the five fields are strings.                                                                            |
 | `Unknown onboarding key(s): …`                                | You sent a key that is not `enabled`, `description`, `personality`, `backstory`, `appearance`, `scenario`, `variables`, `cardVariables`. Typos are rejected, not ignored.                                                                                |
+| `The block is nested one level too deep`                      | The error follows `Unknown onboarding key(s): onboarding` (or `patch`, `data`). Send the fields (`enabled`, `variables`, …) directly as the `onboarding` argument, not inside another object.                                                            |
 | `… has unknown key(s): …`                                     | A question or option key is misspelled (for example `allowcustom`). Question keys: `variableName` (`name`), `question`, `options`, `allowCustom`, `multiSelect`, `separator`, `displayMode`, `optionSort`. Option keys: `label`, `value`, `description`. |
 | `A question has no variableName`                              | Fill it in.                                                                                                                                                                                                                                              |
 | `"X" is not a valid variableName`                             | Use letters, digits and `_`, starting with a letter or `_`. No spaces or hyphens.                                                                                                                                                                        |

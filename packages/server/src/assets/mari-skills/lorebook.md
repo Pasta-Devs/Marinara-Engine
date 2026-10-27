@@ -1,6 +1,6 @@
 ---
 name: Lorebook authoring
-description: Creating, editing, reviewing or debugging a lorebook or its entries: the book and entry fields, keys and selective logic, groups, probability and timing, activation, entry folders, library folders, and why an entry fires too often or never.
+description: Read before creating, editing, reviewing or debugging a lorebook or its entries, or when an entry fires too often or never.
 ---
 
 # Lorebook authoring

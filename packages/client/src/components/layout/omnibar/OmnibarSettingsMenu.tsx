@@ -535,8 +535,6 @@ export function OmnibarSettingsSheet({
     },
   });
 
-  const mariEnabled = useUIStore((state) => state.commandCenterMariEnabled);
-  const setMariEnabled = useUIStore((state) => state.setCommandCenterMariEnabled);
   const suggestionsEnabled = useUIStore((state) => state.omnibarSuggestionsEnabled);
   const setSuggestionsEnabled = useUIStore((state) => state.setOmnibarSuggestionsEnabled);
   const asideEnabled = useUIStore((state) => state.omnibarAsideEnabled);
@@ -784,16 +782,6 @@ export function OmnibarSettingsSheet({
         </Section>
 
         <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
-          <SettingRow
-            controlId="ask-mari"
-            label={t("omnibar.settings.mari.label", "Ask Professor Mari from Search")}
-            description={t(
-              "omnibar.settings.mari.description",
-              "Open her from the Search field, the pull-down or Ctrl/Command+J.",
-            )}
-            checked={mariEnabled}
-            onChange={setMariEnabled}
-          />
           <PermissionsModeRow />
           <RuntimeRow />
           <SkillGateRow />

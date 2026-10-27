@@ -1,6 +1,6 @@
 ---
 name: Personal Extensions
-description: Read before drafting, editing or reviewing a personal extension — its manifest and contributions, the capabilities it may declare, and the code hash the user reviews.
+description: Read before drafting, editing or reviewing a personal extension.
 ---
 
 # Personal Extensions

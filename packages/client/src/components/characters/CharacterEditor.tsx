@@ -72,6 +72,7 @@ import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lo
 import { useConnections } from "../../hooks/use-connections";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
+import { CharacterCombatIconSection } from "./GameModeIconSection";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
@@ -1469,7 +1470,13 @@ export function CharacterEditor() {
               )}
             </LazyEditorSection>
             <section data-editor-section="stats">
-              <StatsTab formData={formData} updateExtension={updateExtension} onDraftChange={markDirty} />
+              <StatsTab
+                formData={formData}
+                updateExtension={updateExtension}
+                onDraftChange={markDirty}
+                characterId={characterId}
+                avatarUrl={avatarPreview}
+              />
             </section>
             <section data-editor-section="advanced">
               <AdvancedTab
@@ -6245,10 +6252,14 @@ function StatsTab({
   formData,
   updateExtension,
   onDraftChange,
+  characterId,
+  avatarUrl,
 }: {
   formData: CharacterData;
   updateExtension: (key: string, value: unknown) => void;
   onDraftChange: () => void;
+  characterId: string | null;
+  avatarUrl: string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const stats: RPGStatsConfig = (formData.extensions.rpgStats as RPGStatsConfig) ?? DEFAULT_RPG_STATS;
@@ -6537,6 +6548,14 @@ function StatsTab({
           </div>
         )}
       </div>
+
+      <CharacterCombatIconSection
+        characterId={characterId}
+        name={formData.name}
+        avatarUrl={avatarUrl}
+        value={formData.extensions.combatIcon}
+        onChange={(choice) => updateExtension("combatIcon", choice ?? null)}
+      />
 
       <RulesetSheetsSection
         sheets={formData.extensions.rulesetSheets as Record<string, unknown> | undefined}

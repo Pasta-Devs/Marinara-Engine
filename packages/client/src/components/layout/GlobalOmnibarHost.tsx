@@ -103,7 +103,7 @@ export function GlobalOmnibar() {
       void GlobalOmnibarDialog.preload()
         .then(() => import("./GlobalOmnibar"))
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
-        .then((module) => (useUIStore.getState().commandCenterMariEnabled ? module.OmnibarMariPane.preload() : null))
+        .then((module) => module.OmnibarMariPane.preload())
         .catch(() => undefined);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(preload, { timeout: 5_000 });
@@ -152,9 +152,8 @@ export function GlobalOmnibar() {
         if (ui.omnibarOpen && dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
         event.preventDefault();
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && ui.commandCenterMariEnabled) {
-        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). While the
-        // omnibar is open its dialog owns ⌘J (back to search, or into Mari).
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen) {
+        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8).
         event.preventDefault();
         requestProfessorMariOpen();
       } else if (

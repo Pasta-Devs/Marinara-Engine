@@ -158,8 +158,47 @@ try {
     }
   }
 
-  // #7419: the tracker's outfit gets its own line, which every style profile keeps, even the
-  // tag profiles that shorten portrait prompts. It used to be a "wearing ..." clause they dropped.
+  // #8396: details from the reported tracker appearance must survive every style profile.
+  const reportedNpc = {
+    name: "Yunyun Lian",
+    appearance: "5’2”, fluffy pink bunny ears, light pink hair, blue eyes, curvy figure.",
+    outfit: "Knight Corps uniform",
+  };
+  for (const profile of DEFAULT_IMAGE_STYLE_PROFILES) {
+    const compiled = compileImagePrompt({
+      kind: "portrait",
+      prompt: buildTrackerPortraitPrompt(reportedNpc, true),
+      styleProfiles: { defaultProfileId: profile.id, profiles: DEFAULT_IMAGE_STYLE_PROFILES },
+      styleProfileId: profile.id,
+    });
+    for (const detail of ["5’2”", "fluffy pink bunny ears", "light pink hair", "blue eyes", "curvy figure"]) {
+      assert.ok(compiled.prompt.includes(detail), `${profile.id}: missing reported detail ${detail}`);
+    }
+    assert.ok(compiled.prompt.includes(reportedNpc.outfit), `${profile.id}: missing the outfit`);
+  }
+  const longNpc = {
+    name: "Long Portrait",
+    appearance: `${Array.from({ length: 700 }, (_, i) => `distinctive embroidered marking ${i}`).join(", ")}, opal antlers`,
+    outfit: `${Array.from({ length: 80 }, (_, i) => `layer ${i} has its own geometric stitching`).join(". ")}. Brass anklets`,
+  };
+  const longPortrait = buildTrackerPortraitPrompt(longNpc, true);
+  assert.ok(longNpc.appearance.length > 20_000, "exercise the former tracker request field limit too");
+  assert.ok(longPortrait.includes(longNpc.appearance), "the complete appearance survives prompt assembly");
+  assert.ok(longPortrait.includes(longNpc.outfit), "the complete outfit survives prompt assembly");
+  assert.ok(longPortrait.includes("Brass anklets"), "the last outfit detail survives prompt assembly");
+  for (const profile of DEFAULT_IMAGE_STYLE_PROFILES) {
+    const compiled = compileImagePrompt({
+      kind: "portrait",
+      prompt: longPortrait,
+      styleProfiles: { defaultProfileId: profile.id, profiles: DEFAULT_IMAGE_STYLE_PROFILES },
+      styleProfileId: profile.id,
+    });
+    for (const detail of ["marking 0", "marking 350", "marking 699", "opal antlers", "layer 79", "Brass anklets"]) {
+      assert.ok(compiled.prompt.includes(detail), `${profile.id}: missing long-prompt detail ${detail}`);
+    }
+  }
+
+  // #7419: the tracker's outfit is included only when requested, for every style profile.
   const npc = {
     name: "Brannoc",
     appearance: "Short man with a messy brown beard and grey eyes.",
@@ -172,7 +211,7 @@ try {
   assert.equal(buildTrackerPortraitPrompt({ ...npc, outfit: "  " }, true), lookOnly, "a blank outfit adds nothing");
   // Tracker fields are raw model output; a list instead of text must not stop the portrait.
   assert.equal(buildTrackerPortraitPrompt({ ...npc, outfit: ["red tunic"] }, true), lookOnly, "a non-text outfit");
-  // An outfit of several sentences stays one labeled line, or tag profiles keep only its first sentence.
+  // Every sentence of a layered outfit survives style compilation.
   const layeredOutfit = buildTrackerPortraitPrompt(
     { ...npc, outfit: "Barefoot. Loose linen trousers and a sleeveless grey vest!" },
     true,
@@ -205,6 +244,25 @@ try {
     phase: "post_processing",
     settings: { imageConnectionId: connection.id },
   });
+  for (const profile of DEFAULT_IMAGE_STYLE_PROFILES) {
+    await chats.patchMetadata(trackerChat.id, { imageStyleProfileId: profile.id });
+    for (const character of [reportedNpc, longNpc]) {
+      const generated = await app.inject({
+        method: "POST",
+        url: portraitUrl,
+        payload: { ...character, includeOutfit: true },
+      });
+      assert.equal(generated.statusCode, 200, `${profile.id}: ${generated.body}`);
+      const sent = imagePrompts.at(-1)!;
+      for (const field of [character.appearance, character.outfit]) {
+        // Tag grammar replaces terminal sentence punctuation with its list separator.
+        assert.ok(
+          sent.includes(field.replace(/[.!?]+$/u, "")),
+          `${profile.id}: the provider receives the complete tracker field`,
+        );
+      }
+    }
+  }
   for (const includeOutfit of [false, true]) {
     const callsBefore = imagePrompts.length;
     const generated = await app.inject({ method: "POST", url: portraitUrl, payload: { ...npc, includeOutfit } });

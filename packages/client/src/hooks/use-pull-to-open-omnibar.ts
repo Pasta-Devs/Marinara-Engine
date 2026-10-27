@@ -237,7 +237,6 @@ export function usePullToOpenOmnibar({
     width: 0,
     height: 0,
     side: null as PullTarget | null,
-    mariEnabled: true,
     mode: "idle" as "idle" | "pull" | "snap" | "land",
     detached: false,
     remX: 0,
@@ -650,7 +649,6 @@ export function usePullToOpenOmnibar({
       g.fingerX = x;
       g.calm = useUIStore.getState().reduceAmbientEffects;
       g.follow = null;
-      g.mariEnabled = useUIStore.getState().commandCenterMariEnabled;
       if (reduceMotion) {
         setLabelOnly(true);
         setShown(true);
@@ -664,11 +662,11 @@ export function usePullToOpenOmnibar({
       mv.base.jump(PULL_CIRCLE_MIN + 14);
       mv.x.jump(x);
       mv.y.jump(0);
-      mv.side.set(pullTarget(null, x, g.width, g.mariEnabled) === "mari" ? 1 : 0);
+      mv.side.set(pullTarget(null, x, g.width) === "mari" ? 1 : 0);
       mv.glow.set(0);
       go(mv.glow, GLOW_REST, GLOW);
       for (const el of [els.glass, els.rim, els.shadow, els.tag, els.morph]) el?.classList.remove("mari-pull-fadeout");
-      setTarget(pullTarget(null, x, g.width, g.mariEnabled));
+      setTarget(pullTarget(null, x, g.width));
       setArmed(false);
       setShown(true);
       schedulePaint();
@@ -737,7 +735,7 @@ export function usePullToOpenOmnibar({
 
       // The finger steers; the side is chosen once the pull is under way.
       if (pull >= PULL_SIDE_FROM || step === "armed") {
-        const next = pullTarget(g.side, x, g.width, g.mariEnabled);
+        const next = pullTarget(g.side, x, g.width);
         if (g.side && next !== g.side) navigator.vibrate?.(6);
         if (next !== g.side) setTarget(next);
         g.side = next;
@@ -759,7 +757,7 @@ export function usePullToOpenOmnibar({
           chip.style.setProperty("--mari-pull-progress", String(clamp01(pull)));
         }
         if (armedNow) {
-          const side = g.side ?? pullTarget(null, x, g.width, g.mariEnabled);
+          const side = g.side ?? pullTarget(null, x, g.width);
           g.recognizer = null;
           hide();
           if (!pullBlocked()) onOpen(side);
@@ -786,7 +784,7 @@ export function usePullToOpenOmnibar({
           go(mv.show, clamp01((circle.radius - 16) / 10) * clamp01((f.pull - PULL_SIDE_FROM) / 0.2), SHOW);
           go(mv.base, pullSheetBase(circle.radius, f.pull, g.width), BASE);
           if (g.side) go(mv.side, g.side === "mari" ? 1 : 0, SIDE);
-          else mv.side.set(pullTarget(null, f.x, g.width, g.mariEnabled) === "mari" ? 1 : 0);
+          else mv.side.set(pullTarget(null, f.x, g.width) === "mari" ? 1 : 0);
           if (!f.armed) go(mv.glow, GLOW_REST + GLOW_PULL * clamp01(f.pull), GLOW);
         });
       }
@@ -809,7 +807,7 @@ export function usePullToOpenOmnibar({
         snapBack();
         return;
       }
-      const side = g.side ?? pullTarget(null, clamp(event.clientX, 0, g.width), g.width, g.mariEnabled);
+      const side = g.side ?? pullTarget(null, clamp(event.clientX, 0, g.width), g.width);
       if (reduceMotion) {
         // A flick under reduced motion: open straight away.
         g.recognizer = null;

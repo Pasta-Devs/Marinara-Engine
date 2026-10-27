@@ -1,9 +1,13 @@
+import { stripEngineResultBlocks } from "@marinara-engine/shared";
+import { parseMessageExtraRecord } from "./chat-message-extra";
+
 export type TTSAutoplayMessage = {
   id: string;
   role: string;
   content: string;
   characterId?: string | null;
   activeSwipeIndex?: number | null;
+  extra?: unknown;
 };
 
 export const TTS_AUTOPLAY_MESSAGE_READY_EVENT = "marinara:tts-autoplay-message-ready";
@@ -14,6 +18,23 @@ export type TTSAutoplayMessageReadyDetail = {
   /** The parts before `message` of a reply split at scene breaks (#7481), read first and in order. */
   earlierMessages?: TTSAutoplayMessage[];
 };
+
+export function isTTSUserMessageReady(message: TTSAutoplayMessage, mode?: string): boolean {
+  return (
+    message.role === "user" &&
+    Boolean(message.content.trim()) &&
+    parseMessageExtraRecord(message.extra).hiddenFromUser !== true &&
+    (mode !== "game" || stripEngineResultBlocks(message.content) === message.content)
+  );
+}
+
+/** Only a newly committed visible user row is eligible, never a history refresh. */
+export function notifyTTSUserMessageReady(chatId: string, message: TTSAutoplayMessage): void {
+  if (!isTTSUserMessageReady(message)) return;
+  window.dispatchEvent(
+    new CustomEvent<TTSAutoplayMessageReadyDetail>(TTS_AUTOPLAY_MESSAGE_READY_EVENT, { detail: { chatId, message } }),
+  );
+}
 
 /** Auto-play is reading a reply (`pending: true`, sent before the voice loads) or has stopped reading it (`pending:
  *  false`, sent however it ended: played, failed, had no lines, was stopped or superseded). Avatars wait for it. */

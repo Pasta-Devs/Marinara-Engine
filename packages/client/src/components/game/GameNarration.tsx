@@ -76,12 +76,15 @@ import { estimateGameSessionHistoryTokens } from "../../lib/game-session-history
 import { createMessageMacroResolver, findCharacterByName } from "../../lib/chat-macros";
 import { animateTextHtml } from "./AnimatedText";
 import { ttsService } from "../../lib/tts-service";
+import { TTS_AUTOPLAY_VOICE_EVENT, type TTSAutoplayVoiceDetail } from "../../lib/tts-autoplay";
 import { getOrCreateCachedTTSAudioBlob } from "../../lib/tts-audio-cache";
 import {
   findTTSCharacterIdBySpeakerName,
+  getTTSPersonaVoice,
   resolveTTSNarratorVoice,
   resolveTTSVoiceForSpeaker,
   splitTTSChunks,
+  type TTSVoicePersona,
 } from "../../lib/tts-dialogue";
 import {
   buildGameTranslationSource,
@@ -878,6 +881,7 @@ function findNpcVoiceHint(speaker: string | null | undefined, gameNpcs: GameNpc[
 
 type GameSegmentVoiceOptions = {
   playerSpeakerNames?: ReadonlySet<string>;
+  persona?: TTSVoicePersona | null;
 };
 
 function normalizeGameVoiceSpeakerName(value: string | null | undefined): string {
@@ -909,11 +913,17 @@ function isGameVoicePlayerTaggedNarration(
   return isGameVoicePlayerSpeaker(speakerMatch[1], playerSpeakerNames);
 }
 
-function shouldSkipGameVoiceSegment(segment: NarrationSegment, options: GameSegmentVoiceOptions): boolean {
+function shouldSkipGameVoiceSegment(
+  segment: NarrationSegment,
+  options: GameSegmentVoiceOptions,
+  config: TTSConfig,
+): boolean {
   if (segment.sourceRole === "user" || segment.sourceRole === "system") return true;
   if (segment.partyType === "thought") return true;
-  if (isGameVoicePlayerSpeaker(segment.speaker, options.playerSpeakerNames)) return true;
-  return segment.type === "narration" && isGameVoicePlayerTaggedNarration(segment.content, options.playerSpeakerNames);
+  const playerSpeaker =
+    isGameVoicePlayerSpeaker(segment.speaker, options.playerSpeakerNames) ||
+    (segment.type === "narration" && isGameVoicePlayerTaggedNarration(segment.content, options.playerSpeakerNames));
+  return playerSpeaker && !getTTSPersonaVoice(config, options.persona);
 }
 
 function getGameSegmentVoiceRequest(
@@ -922,23 +932,23 @@ function getGameSegmentVoiceRequest(
   gameNpcs: GameNpc[] = [],
   options: GameSegmentVoiceOptions = {},
 ): GameSegmentVoiceRequest | null {
-  if (shouldSkipGameVoiceSegment(segment, options)) return null;
+  if (shouldSkipGameVoiceSegment(segment, options, config)) return null;
   if (segment.type !== "dialogue" && segment.type !== "narration") return null;
 
-  if (segment.type === "dialogue") {
+  const playerSpeaker =
+    isGameVoicePlayerSpeaker(segment.speaker, options.playerSpeakerNames) ||
+    (segment.type === "narration" && isGameVoicePlayerTaggedNarration(segment.content, options.playerSpeakerNames));
+  if (segment.type === "dialogue" || playerSpeaker) {
     const chunks = splitTTSChunks(segment.content, config);
     if (chunks.length === 0) return null;
     const tone = resolveGameSegmentTtsEmotion(segment);
-    const voice = resolveTTSVoiceForSpeaker(
-      config,
-      segment.speaker,
-      undefined,
-      findNpcVoiceHint(segment.speaker, gameNpcs),
-    );
+    const voice = playerSpeaker
+      ? getTTSPersonaVoice(config, options.persona)
+      : resolveTTSVoiceForSpeaker(config, segment.speaker, undefined, findNpcVoiceHint(segment.speaker, gameNpcs));
     if (config.source === "elevenlabs" && !voice) return null;
     return {
       chunks,
-      speaker: segment.speaker,
+      speaker: playerSpeaker ? options.persona?.name || segment.speaker : segment.speaker,
       tone,
       voice,
     };
@@ -2366,7 +2376,27 @@ export function GameNarration({
   const gameVoiceEnabled = Boolean(ttsConfig?.enabled && ttsConfig.autoplayGame);
   const gameVoiceConfigSignature = useMemo(() => buildVoiceConfigSignature(ttsConfig), [ttsConfig]);
   const normalizedGameVoiceVolume = Math.max(0, Math.min(1, gameVoiceVolume));
-  const gameVoicePlaybackBlocked = voicePlaybackBlocked ?? autoPlayBlocked;
+  const [pendingPersonaReadings, setPendingPersonaReadings] = useState<Set<string>>(() => new Set());
+  const voiceChatId = latestAssistant?.chatId ?? messages[0]?.chatId;
+  useEffect(() => {
+    setPendingPersonaReadings(new Set());
+    const onReading = (event: Event) => {
+      const detail = (event as CustomEvent<TTSAutoplayVoiceDetail>).detail;
+      if (!detail || detail.chatId !== voiceChatId) return;
+      setPendingPersonaReadings((current) => {
+        const next = new Set(current);
+        if (detail.pending) next.add(detail.readingId);
+        else next.delete(detail.readingId);
+        return next;
+      });
+    };
+    window.addEventListener(TTS_AUTOPLAY_VOICE_EVENT, onReading);
+    return () => {
+      window.removeEventListener(TTS_AUTOPLAY_VOICE_EVENT, onReading);
+    };
+  }, [voiceChatId]);
+  const gameVoiceExternallyBlocked = voicePlaybackBlocked ?? autoPlayBlocked;
+  const gameVoicePlaybackBlocked = gameVoiceExternallyBlocked || pendingPersonaReadings.size > 0;
 
   const cacheGameVoiceEntry = useCallback(
     (key: string, entry: GameSegmentVoiceEntry) => {
@@ -2478,7 +2508,7 @@ export function GameNarration({
             element: audio,
             blob,
             chatId: latestAssistant?.chatId ?? null,
-            characterId: findTTSCharacterIdBySpeakerName(entry.speaker, activeCharacterEntries),
+            characterId: findTTSCharacterIdBySpeakerName(entry.speaker, activeCharacterEntries, personaInfo),
             text: entry.chunks[urlIndex] ?? "",
           });
 
@@ -2533,6 +2563,7 @@ export function GameNarration({
       activeCharacterEntries,
       latestAssistant?.chatId,
       normalizedGameVoiceVolume,
+      personaInfo,
       queueLogScrollTopRestore,
       stopGameVoicePlayback,
     ],
@@ -2647,12 +2678,13 @@ export function GameNarration({
       const requests: GameSegmentVoiceRequest[] = [];
       const baseRequest = getGameSegmentVoiceRequest(segment, ttsConfig, gameNpcs, {
         playerSpeakerNames: playerVoiceSpeakerNames,
+        persona: personaInfo,
       });
       if (baseRequest) requests.push(baseRequest);
 
       return requests;
     },
-    [gameNpcs, playerVoiceSpeakerNames, ttsConfig],
+    [gameNpcs, personaInfo, playerVoiceSpeakerNames, ttsConfig],
   );
 
   const getVoiceRequestForSideLine = useCallback(
@@ -2672,10 +2704,11 @@ export function GameNarration({
       };
       const request = getGameSegmentVoiceRequest(sideSegment, ttsConfig, gameNpcs, {
         playerSpeakerNames: playerVoiceSpeakerNames,
+        persona: personaInfo,
       });
       return request ? [request] : [];
     },
-    [gameNpcs, playerVoiceSpeakerNames, ttsConfig],
+    [gameNpcs, personaInfo, playerVoiceSpeakerNames, ttsConfig],
   );
 
   const getVoiceKeyForSegment = useCallback(
@@ -3665,10 +3698,16 @@ export function GameNarration({
   useEffect(() => {
     if (gameVoiceEnabled && !isStreaming && !scenePreparing && !directionsActive && !gameVoicePlaybackBlocked) return;
     if (isStreaming || scenePreparing || directionsActive || gameVoicePlaybackBlocked) {
-      lastAutoPlayedVoiceKeyRef.current = null;
+      if (isStreaming || scenePreparing || directionsActive || gameVoiceExternallyBlocked) {
+        lastAutoPlayedVoiceKeyRef.current = null;
+        autoPlayedSideVoiceKeysRef.current.clear();
+      } else if (gameVoiceAudioRef.current && !gameVoiceAudioRef.current.ended) {
+        // Persona speech only restarts the Game line it actually interrupted.
+        if (lastAutoPlayedVoiceKeyRef.current === gameVoicePlayingKey) lastAutoPlayedVoiceKeyRef.current = null;
+        if (gameVoicePlayingKey) autoPlayedSideVoiceKeysRef.current.delete(gameVoicePlayingKey);
+      }
       autoPlayInFlightVoiceKeyRef.current = null;
       autoPlayInFlightSideVoiceKeysRef.current.clear();
-      autoPlayedSideVoiceKeysRef.current.clear();
       sideVoiceAutoPlayFailuresRef.current.clear();
       clearSideVoiceAutoPlayRetry();
     }
@@ -3677,7 +3716,9 @@ export function GameNarration({
     clearSideVoiceAutoPlayRetry,
     directionsActive,
     gameVoiceEnabled,
+    gameVoiceExternallyBlocked,
     gameVoicePlaybackBlocked,
+    gameVoicePlayingKey,
     isStreaming,
     scenePreparing,
     stopGameVoicePlayback,

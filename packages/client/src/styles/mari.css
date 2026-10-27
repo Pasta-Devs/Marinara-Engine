@@ -3425,6 +3425,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   font-size: 0.8125rem;
 }
 
+/* Open cards swipe sideways (left closes Undo, right undoes); vertical scroll stays native. */
+.mari-receipt[data-state="open"] {
+  touch-action: pan-y;
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+}
+.mari-receipt[data-dragging] {
+  transition: none;
+  user-select: none;
+}
+
 .mari-receipt:is([data-state="undone"], [data-state="old"], [data-state="closed"], [data-state="saved"]) {
   border-color: var(--mari-hairline);
 }

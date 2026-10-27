@@ -90,6 +90,7 @@ import { dataImageUrlToFile } from "../../lib/data-image-file";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
+import { PersonaCombatIconSection } from "../characters/GameModeIconSection";
 import { ColorPicker } from "../ui/ColorPicker";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
@@ -2257,7 +2258,12 @@ export function PersonaEditor() {
               <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
             </section>
             <section data-editor-section="stats">
-              <PersonaStatsTab formData={formData} updateField={updateField} />
+              <PersonaStatsTab
+                formData={formData}
+                updateField={updateField}
+                personaId={personaId}
+                avatarUrl={avatarPreview}
+              />
             </section>
           </div>
         </div>
@@ -3281,9 +3287,13 @@ function createNewRpgPool(existing: readonly RPGStatPool[]): RPGStatPool {
 function PersonaStatsTab({
   formData,
   updateField,
+  personaId,
+  avatarUrl,
 }: {
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+  personaId: string | null;
+  avatarUrl: string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
   // Form state keeps personaStats decoded (hydrated from the projected Persona);
@@ -3592,6 +3602,17 @@ function PersonaStatsTab({
           </>
         )}
       </div>
+
+      <PersonaCombatIconSection
+        personaId={personaId}
+        name={formData.name}
+        avatarUrl={avatarUrl}
+        value={parsed.combatIcon}
+        onChange={(combatIcon) => {
+          const { combatIcon: _previous, ...rest } = parsed;
+          save(combatIcon ? { ...rest, combatIcon } : rest);
+        }}
+      />
 
       <RulesetSheetsSection
         sheets={parsed.rulesetSheets}

@@ -126,7 +126,10 @@ const mutationOutput = (sentinel: string) =>
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const decision = claim();
     assert.equal(decision.kind, "repair");
-    assert.match((decision as { prompt: string }).prompt, /no mutating command succeeded in this run/u);
+    assert.match(
+      (decision as { prompt: string }).prompt,
+      /no mutating command succeeded since your last checked reply \(anything applied before it still stands\)/u,
+    );
   }
   const stopped = claim();
   assert.equal(stopped.kind, "stop");

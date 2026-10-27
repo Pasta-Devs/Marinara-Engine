@@ -73,6 +73,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { TokenPicture } from "./TokenPicture";
 
 // `combatant.sprite` is populated either from a real avatar URL (player party,
 // from the character sheet's `avatarUrl`) or from the encounter LLM, which is
@@ -423,8 +424,18 @@ function CombatantSpriteVisual({
   emojiClassName?: string;
 }) {
   const spriteKind = resolveSpriteKind(combatant.sprite);
+  // No picture of their own: their pixel bust from the portraits pack (1.338), else their initial.
+  const portrait = (
+    <ArtIcon
+      kind="portraits"
+      ids={[artPortraitFor(combatant.name)]}
+      label={combatant.name}
+      className={imageClassName}
+      fallback={<span className={textClassName}>{combatant.name.charAt(0).toUpperCase()}</span>}
+    />
+  );
   if (spriteKind.kind === "url") {
-    return <img src={spriteKind.value} alt={combatant.name} className={imageClassName} />;
+    return <TokenPicture src={spriteKind.value} alt={combatant.name} className={imageClassName} fallback={portrait} />;
   }
 
   if (spriteKind.kind === "emoji") {
@@ -435,16 +446,7 @@ function CombatantSpriteVisual({
     );
   }
 
-  // No picture of their own: their pixel bust from the portraits pack (1.338), else their initial.
-  return (
-    <ArtIcon
-      kind="portraits"
-      ids={[artPortraitFor(combatant.name)]}
-      label={combatant.name}
-      className={imageClassName}
-      fallback={<span className={textClassName}>{combatant.name.charAt(0).toUpperCase()}</span>}
-    />
-  );
+  return portrait;
 }
 
 interface GameCombatUIProps {

@@ -2,7 +2,7 @@
 // User Persona Types
 // ──────────────────────────────────────────────
 import type { CardFieldAlternative } from "../schemas/card-field-alternative.schema.js";
-import type { ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
+import type { CombatIconChoice, ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
 import type { AvatarCrop } from "./avatar-crop.js";
 
 /** A user persona (the player's character/identity). */
@@ -131,6 +131,8 @@ export interface PersonaStatsConfig {
   bars: PersonaStatBar[];
   /** Optional Game mode RPG stats stored alongside the persona status bars. */
   rpgStats?: RPGStatsConfig;
+  /** The picture on the persona's fight token. Missing means the avatar. */
+  combatIcon?: CombatIconChoice;
   /** Starting builds for Game Mode rulesets, keyed by ruleset id. A game copies the one it needs. */
   rulesetSheets?: Record<string, unknown>;
 }

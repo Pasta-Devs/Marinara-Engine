@@ -41,7 +41,6 @@ type OmnibarEmptyStateInput = {
   lastAppError: ReturnType<typeof useUIStore.getState>["lastAppError"];
   lorebooks: ReturnType<typeof useLorebooks>["data"];
   mariChats: ReturnType<typeof useProfessorMariChats>["data"];
-  mariEnabled: boolean;
   mariFinished: boolean;
   mariHasModel: boolean;
   mariWorkspaceStatus: ReturnType<typeof useProfessorMariWorkspaceStatus>["data"];
@@ -67,7 +66,6 @@ export function useOmnibarEmptyState({
   lastAppError,
   lorebooks,
   mariChats,
-  mariEnabled,
   mariFinished,
   mariHasModel,
   mariWorkspaceStatus,
@@ -125,8 +123,8 @@ export function useOmnibarEmptyState({
   // vanishes under the pointer; the open itself counts toward the stop rule.
   const [tryState, setTryState] = useState(() => readOmnibarTryState());
   const tryKinds = useMemo(
-    () => visibleOmnibarTryKinds(tryState, { enabled: omnibarSuggestionsEnabled, mariEnabled }),
-    [mariEnabled, omnibarSuggestionsEnabled, tryState],
+    () => visibleOmnibarTryKinds(tryState, { enabled: omnibarSuggestionsEnabled }),
+    [omnibarSuggestionsEnabled, tryState],
   );
   const tryShownOnOpenRef = useRef(tryKinds.length > 0);
   useEffect(() => {
@@ -198,7 +196,7 @@ export function useOmnibarEmptyState({
     const lastFixRowId = mariFixRowId(lastAppError);
     return pickOmnibarNowResult({
       mariRow: continueResult,
-      pendingApprovals: mariEnabled ? countBlockingReviews(mariWorkspaceStatus?.pendingApprovals ?? []) : 0,
+      pendingApprovals: countBlockingReviews(mariWorkspaceStatus?.pendingApprovals ?? []),
       mariActive: mariWorkspaceStatus?.active === true,
       mariFinished,
       fixRow: (lastFixRowId && contextResults.find((row) => row.id === lastFixRowId)) || null,
@@ -210,7 +208,6 @@ export function useOmnibarEmptyState({
     continueResult,
     deferredQuery,
     lastAppError,
-    mariEnabled,
     mariFinished,
     mariWorkspaceStatus,
     queryScope,
@@ -222,9 +219,7 @@ export function useOmnibarEmptyState({
     const rows: OmnibarResult[] = [];
     if (recentChatResults[0]) rows.push({ ...recentChatResults[0], group: "continue" });
     const lastActive = (chat: Chat) => chat.lastMessageAt ?? chat.updatedAt;
-    const lastMari = mariEnabled
-      ? [...(mariChats ?? [])].sort((a, b) => lastActive(b).localeCompare(lastActive(a)))[0]
-      : undefined;
+    const lastMari = [...(mariChats ?? [])].sort((a, b) => lastActive(b).localeCompare(lastActive(a)))[0];
     if (lastMari) {
       rows.push({
         id: `mari-chat:${lastMari.id}`,
@@ -248,17 +243,6 @@ export function useOmnibarEmptyState({
     // Without its inline switch: on a card, Enter opens the record, it never flips it.
     if (edited) rows.push({ ...edited, group: "continue", control: undefined });
     return rows;
-  }, [
-    allLocalResults,
-    characters,
-    deferredQuery,
-    lorebooks,
-    mariChats,
-    mariEnabled,
-    personas,
-    queryScope,
-    recentChatResults,
-    t,
-  ]);
+  }, [allLocalResults, characters, deferredQuery, lorebooks, mariChats, personas, queryScope, recentChatResults, t]);
   return { recentChatResults, frecentIdleResults, tryResults, nowResult, setupTryRow, continueResults, markTry };
 }

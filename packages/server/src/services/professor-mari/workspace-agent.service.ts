@@ -639,7 +639,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      'Read or change live app data through structured actions, without shell commands. Use this for chats, characters, character folders, personas, lorebooks, lorebook entries, entry folders inside a lorebook, Lorebooks-panel library folders, themes, Personal Extension drafts, agents, prompt presets, and safe data-only Home widgets. lorebook.entries returns one page of entry summaries as { items, total, offset, nextOffset }; when nextOffset is not null, call it again with offset: nextOffset to read the rest. Call lorebook.getEntry with entryId to read one complete entry body. Single-item reads (e.g. character.get) are size-bounded: oversized fields come back elided with a note naming each one — re-read any elided field in full by passing field="<path>" (e.g. field="data.alternate_greetings[0]"), optionally with offset to page through a long value.',
+      'Read or change live app data through structured actions, without shell commands. lorebook.entries returns one page of entry previews as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset. lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
     parameters: {
       type: "object",
       properties: {
@@ -1178,9 +1178,12 @@ export function formatMariReadTruncation(truncation: MariDbReadTruncation | unde
   return lines.length > 0 ? lines.join("\n") : null;
 }
 
+// Deep enough for card JSON (data.extensions.<plugin>.<field> is four); past it a record is shown whole.
+const CHANGED_FIELDS_MAX_DEPTH = 8;
+
 /**
- * A preview row that has both sides keeps only what differs (two levels deep, so a card's `data`
- * fields count one by one). A one-word card edit echoed the whole card twice, ~16k chars of
+ * A preview row that has both sides keeps only what differs, recursing through nested records (a card's `data` fields, and
+ * `data.extensions` keys, count one by one). A one-word card edit echoed the whole card twice, ~16k chars of
  * "nothing to see here" around the line that said nothing was saved. Inserts and deletes stay whole.
  */
 function changedFieldsOnly(item: unknown): unknown {
@@ -1191,7 +1194,7 @@ function changedFieldsOnly(item: unknown): unknown {
       if (JSON.stringify(before[key]) === JSON.stringify(after[key])) continue;
       const left = before[key];
       const right = after[key];
-      if (depth < 1 && isRecord(left) && isRecord(right)) {
+      if (depth < CHANGED_FIELDS_MAX_DEPTH && isRecord(left) && isRecord(right)) {
         const inner = diff(left, right, depth + 1);
         out.before[key] = inner.before;
         out.after[key] = inner.after;
@@ -1208,7 +1211,10 @@ function changedFieldsOnly(item: unknown): unknown {
 
 // Exported for the read-back regression: the lane proves the serialized
 // result carries the '"readBack": { "status": "verified"' marker end to end.
-export function compactMutationResult(result: MariDbCommandResult): MariDbCommandResult | Record<string, unknown> {
+export function compactMutationResult(
+  result: MariDbCommandResult,
+  options: { dropCommand?: boolean } = {},
+): MariDbCommandResult | Record<string, unknown> {
   if (!isRecord(result) || !isRecord(result.summary)) return result;
   const summary = result.summary as Record<string, unknown>;
   const preview = Array.isArray(summary.preview) ? summary.preview : [];
@@ -1246,7 +1252,14 @@ export function compactMutationResult(result: MariDbCommandResult): MariDbComman
     // read this JSON at all - it trusts only the engine-written sentinel at
     // position zero of the command output.
     readBack: result.readBack,
-    command: typeof result.command === "string" ? compactTraceText(result.command, 500) : result.command,
+    // validation rides up here for the same reason: the message tells her to read validation.notices, and a long
+    // preview used to cut them off when they sat after the summary.
+    validation: result.validation,
+    // app_data passes dropCommand: its command string is "app_data <action> <whole input JSON>", a third copy of
+    // what the call already carried. A `mari` CLI command line is the call itself, so it stays.
+    ...(options.dropCommand
+      ? {}
+      : { command: typeof result.command === "string" ? compactTraceText(result.command, 500) : result.command }),
     summary: {
       matchedRows: summary.matchedRows,
       affectedRows: summary.affectedRows,
@@ -1258,8 +1271,12 @@ export function compactMutationResult(result: MariDbCommandResult): MariDbComman
       preview: preview.slice(0, 5).map(changedFieldsOnly),
       truncated: summary.truncated === true || preview.length > 5,
     },
-    validation: result.validation,
-    approval: result.approval,
+    // An applied write's review is the change card's undo window, not a wait. Its raw `status: "pending"` read to
+    // Mari as "waiting for the user's Accept", so she told users a saved change was still pending. Engine consumers
+    // (receipts, keep/undo) read the raw result, never this view.
+    ...(saved && result.approval?.status === "pending"
+      ? { changeCard: { undoUntil: result.approval.expiresAt } }
+      : { approval: result.approval }),
     journalPath: result.journalPath,
     error: result.error,
   };
@@ -1925,15 +1942,26 @@ function escapeWorkspaceXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function formatCommandResultForPrompt(results: WorkspaceCommandResult[]): string {
+// echoInput:false (pi runtime): the native tool call already carries the arguments, so the <input> block is a duplicate.
+export function formatCommandResultForPrompt(
+  results: WorkspaceCommandResult[],
+  options: { echoInput?: boolean } = {},
+): string {
+  const echoInput = options.echoInput !== false;
   const blocks = results.map((result) => {
-    const input = escapeWorkspaceXml(JSON.stringify(result.input, null, 2));
     const output = escapeWorkspaceXml(result.output);
-    return `<workspace_command_result name="${result.name}" success="${result.success ? "true" : "false"}">
-<input>
-${input}
+    const action =
+      !echoInput && isRecord(result.input) && typeof result.input.action === "string"
+        ? ` action="${escapeWorkspaceXml(result.input.action).replace(/"/g, "&quot;")}"`
+        : "";
+    const inputBlock = echoInput
+      ? `<input>
+${escapeWorkspaceXml(JSON.stringify(result.input, null, 2))}
 </input>
-<output>
+`
+      : "";
+    return `<workspace_command_result name="${result.name}"${action} success="${result.success ? "true" : "false"}">
+${inputBlock}<output>
 ${output}
 </output>
 </workspace_command_result>`;
@@ -4569,7 +4597,6 @@ export class ProfessorMariWorkspaceService {
             : workspaceCommandProtocolPrompt(mariMaxOutputTokens(connection)),
         contextKind: "prompt",
       },
-      { role: "system", content: workspaceInfo, contextKind: "prompt" },
     ];
     if (skillsPrompt) messages.push({ role: "system", content: skillsPrompt, contextKind: "prompt" });
     if (instructionsPrompt) messages.push({ role: "system", content: instructionsPrompt, contextKind: "prompt" });
@@ -4604,6 +4631,9 @@ export class ProfessorMariWorkspaceService {
         contextKind: "prompt",
       });
     }
+    // #8375: last of the prompt blocks. It carries currentTime and this turn's message id, so anything after it
+    // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
+    messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
     // Same captioning as chats: the Model's own switch, else Automatic with the Image reading default.
     let imageCaptioning: ImageCaptioningRuntime | null = null;

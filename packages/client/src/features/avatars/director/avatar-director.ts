@@ -1011,7 +1011,12 @@ export function createAvatarDirector(options: AvatarDirectorOptions, hooks: Avat
   if (typeof window !== "undefined") {
     const onMessageReady = (event: Event) => {
       const detail = (event as CustomEvent<TTSAutoplayMessageReadyDetail>).detail;
-      if (detail?.chatId !== chatId || mode !== "roleplay") return;
+      if (
+        detail?.chatId !== chatId ||
+        mode !== "roleplay" ||
+        (detail.message.role !== "assistant" && detail.message.role !== "narrator")
+      )
+        return;
       const parts = [...(detail.earlierMessages ?? []), detail.message];
       for (const part of parts) replyMessageIds.add(part.id);
       // Streaming: the typewriter may still be showing the reply. It ends when the generation does.

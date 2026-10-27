@@ -279,9 +279,9 @@ export function normalizeImageStyleProfile(raw: unknown): ImageStyleProfile | nu
       fallback?.baseStyle ?? "custom",
     ),
     promptMode: readEnum(raw.promptMode, ["natural", "tagged", "danbooru", "hybrid"], fallback?.promptMode ?? "hybrid"),
-    styleText: readString(raw.styleText, fallback?.styleText ?? "").slice(0, 2000),
-    positiveTags: readString(raw.positiveTags, fallback?.positiveTags ?? "").slice(0, 4000),
-    negativeTags: readString(raw.negativeTags, fallback?.negativeTags ?? "").slice(0, 4000),
+    styleText: readString(raw.styleText, fallback?.styleText ?? ""),
+    positiveTags: readString(raw.positiveTags, fallback?.positiveTags ?? ""),
+    negativeTags: readString(raw.negativeTags, fallback?.negativeTags ?? ""),
     subjectTags: normalizeSubjectTags(subjectTags, fallback?.subjectTags),
     rules: normalizeRules(raw.rules, fallback?.rules ?? DEFAULT_RULES),
     builtIn: !!fallback,
@@ -327,7 +327,7 @@ function normalizeSubjectTags(
 ): Partial<Record<ImagePromptKind, string>> {
   const result: Partial<Record<ImagePromptKind, string>> = {};
   for (const kind of ["portrait", "selfie", "background", "illustration", "sprite", "avatar"] as const) {
-    result[kind] = readString(raw[kind], fallback[kind] ?? "").slice(0, 1000);
+    result[kind] = readString(raw[kind], fallback[kind] ?? "");
   }
   return result;
 }

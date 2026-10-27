@@ -1,6 +1,6 @@
 ---
 name: Reply diagnosis and repair
-description: Diagnosing a bad reply with chat.diagnose — cut off, empty, oddly short, or a character who forgets or ignores their card — reading its findings, texts and fixes, then repairing one with chat.updateMessage as a new swipe.
+description: Read before diagnosing or repairing a bad reply: cut off, empty, oddly short, or a character who forgets or ignores their card.
 ---
 
 # Reply diagnosis and repair

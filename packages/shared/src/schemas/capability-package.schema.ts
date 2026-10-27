@@ -1484,7 +1484,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.384: animate a saved Global Gallery image through a saved video connection, without exposing its credentials.
 // 1.385: package clients save images through the Engine gallery's existing platform-aware helpers.
 // 1.386: the Home browser view's openConnection(connectionId), and /api/generate/raw's debugMode prompt logging.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 386 } as const);
+// 1.387: `persistence.listChatSummaries(chatId)`: a chat's day, week, rolling and Game session summaries. Requires
+//        `chat-read`, like `listMessages`.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 387 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -73,6 +73,8 @@ try {
   let maxToolRounds: number | undefined;
   let sessionSeen: { active: string[]; closed: boolean } | null = null;
 
+  // An extra system message the real prompt builder appends after its own, like an attached file's text.
+  let extraInjection: string | null = null;
   const makeService = (stubPromptBuilder: boolean) => {
     const made = new ProfessorMariWorkspaceService({ db } as never);
     made.setEnabled(true, workspaceDir);
@@ -97,7 +99,12 @@ try {
       resolvePermissionsMode: async () => ({ mode, defaultMode: mode, source: "chat" }),
       buildPromptMessages: async (...args: unknown[]) => {
         runtimeSeen.push(args[4]);
-        if (!stubPromptBuilder) return originalBuild(...args);
+        if (!stubPromptBuilder) {
+          const built = (await originalBuild(...args)) as { messages: Array<Record<string, unknown>> };
+          if (extraInjection)
+            built.messages.push({ role: "system", content: extraInjection, contextKind: "injection" });
+          return built;
+        }
         return {
           messages: [
             { role: "system", content: "You are Professor Mari (regression).", contextKind: "prompt" },
@@ -1435,6 +1442,19 @@ try {
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);
     assert.doesNotMatch(system, /workspace_command_protocol/u);
+    // #8375: the per-turn lines (currentTime, this turn's message id) come after every stable block, so a new chat
+    // or a new turn re-sends only them uncached.
+    const contextAt = system.indexOf("<workspace_context>");
+    assert.ok(contextAt > system.indexOf("</workspace_tools>"), "workspace_context follows the tool rules");
+    assert.ok(
+      contextAt > system.indexOf("</professor_mari_custom_skills>"),
+      "workspace_context follows the skill index",
+    );
+    assert.match(
+      system.slice(contextAt),
+      /<\/workspace_context>(?:\n\n<cwd>\n[^\n]*\n<\/cwd>)?$/u,
+      "only pi's own <cwd> line comes after workspace_context",
+    );
     const history = requests[0]!.messages.filter((message) => message.role !== "system");
     assert.deepEqual(
       history.map((message) => [message.role, message.content]),
@@ -1445,6 +1465,24 @@ try {
       ],
     );
     assert.deepEqual(runtimeSeen, ["pi"]);
+
+    // #8375: without native tool calls, the text tool block also stays before the per-turn lines, even when a
+    // later injection (here a fake attached file) quotes the tag.
+    provider = "claude_subscription";
+    const quoted = "<attached_file>\nnotes:\n\n<workspace_context>\nquoted, not real\n</attached_file>";
+    extraInjection = quoted;
+    const textual = await start("unused", [reply("Textual real prompt answer.")], "pi", realService, chat.id);
+    await textual.done;
+    extraInjection = null;
+    provider = "custom";
+    const textualSystem = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
+    assert.match(
+      textualSystem,
+      /<\/text_tool_calls>\n\n<workspace_context>\nworkspaceRoot: /u,
+      "text_tool_calls sits right before the real workspace_context",
+    );
+    assert.ok(textualSystem.includes(quoted), "the quoted tag in the injection is left whole");
+    assert.equal(textualSystem.split("<text_tool_calls>").length, 2, "one text tool block");
   }
 
   console.log("Professor Mari pi runtime regression passed.");

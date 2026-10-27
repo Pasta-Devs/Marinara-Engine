@@ -10,6 +10,7 @@ import { normalizeSpriteExpressionKey } from "../../packages/client/src/lib/spri
 import {
   buildTTSVoiceRequests,
   extractDialogueUtterances,
+  getTTSPersonaVoice,
   resolveTTSNarratorVoice,
   resolveTTSVoiceForSpeaker,
   splitTTSChunks,
@@ -56,6 +57,7 @@ const dependencies = {
   normalizeTextForMatch,
   normalizeSpriteExpressionKey,
   splitTTSChunks,
+  getTTSPersonaVoice,
   resolveTTSNarratorVoice,
   resolveTTSVoiceForSpeaker,
   ttsService,
@@ -101,7 +103,7 @@ const game = new Function(
     segment: NarrationSegment,
     config: TTSConfig,
     npcs?: GameNpc[],
-    options?: { playerSpeakerNames?: ReadonlySet<string> },
+    options?: { playerSpeakerNames?: ReadonlySet<string>; persona?: { id?: string; name: string } | null },
   ) => VoiceRequest | null;
   jobs: (key: string, requests: VoiceRequest[], config: TTSConfig) => VoiceJob[];
   generate: (job: VoiceJob, controller: AbortController) => Promise<Blob>;
@@ -203,6 +205,153 @@ for (const segment of [
 ] satisfies NarrationSegment[]) {
   assert.equal(game.request(segment, config, [], options), null, "Game voice exclusions still apply");
 }
+
+const personaVoiceConfig: TTSConfig = {
+  ...config,
+  voiceMode: "per-character",
+  voiceAssignments: [{ characterId: "mari-persona-id", characterName: "Mari", voice: "mari-persona-voice" }],
+};
+const personaOptions = {
+  ...options,
+  persona: { id: "mari-persona-id", name: "Mari" },
+};
+for (const speaker of ["Mari", "You", "Player"]) {
+  const request = game.request({ ...main, speaker }, personaVoiceConfig, [], personaOptions);
+  assert.ok(request, "generated Game dialogue for an explicitly voiced persona must be spoken");
+  assert.equal(request.voice, "mari-persona-voice");
+  assert.deepEqual(request.chunks, [main.content]);
+}
+for (const segment of [
+  { ...main, speaker: "Mari", sourceRole: "user" },
+  { ...main, speaker: "Mari", sourceRole: "system" },
+  { ...main, speaker: "Mari", partyType: "thought" },
+] satisfies NarrationSegment[]) {
+  assert.equal(
+    game.request(segment, personaVoiceConfig, [], personaOptions),
+    null,
+    "Game prefetch keeps committed user, system and thought lines quiet even when the persona is assigned",
+  );
+}
+for (const current of [
+  { ...personaVoiceConfig, voiceMode: "single" as const },
+  { ...personaVoiceConfig, voiceAssignments: [] },
+]) {
+  for (const sourceRole of ["assistant", "user"] as const) {
+    assert.equal(
+      game.request({ ...main, sourceRole, speaker: "Mari" }, current, [], personaOptions),
+      null,
+      "an unassigned or inactive persona never uses the global voice",
+    );
+  }
+}
+assert.equal(
+  game.request({ ...main, speaker: "Mari" }, personaVoiceConfig, [], {
+    ...personaOptions,
+    persona: { id: "unassigned-persona-id", name: "Mari" },
+  }),
+  null,
+  "Game cannot borrow a different persona's matching-name assignment",
+);
+assert.equal(game.request(main, personaVoiceConfig, [], personaOptions)?.voice, config.voice);
+assert.equal(
+  game.request(
+    { ...main, type: "narration", content: "The room grows quiet." },
+    { ...personaVoiceConfig, narratorVoiceEnabled: true, narratorVoice: "game-narrator-voice" },
+    [],
+    personaOptions,
+  )?.voice,
+  "game-narrator-voice",
+  "Game narration keeps its dedicated voice alongside the assigned persona",
+);
+
+// Execute the component's actual blocking effect with finished and interrupted playback state.
+function mentionsIdentifier(node: ts.Node, name: string): boolean {
+  if (ts.isIdentifier(node) && node.text === name) return true;
+  return ts.forEachChild(node, (child) => (mentionsIdentifier(child, name) ? true : undefined)) === true;
+}
+const voiceBlockingEffects: Array<ts.ArrowFunction | ts.FunctionExpression> = [];
+function findVoiceBlockingEffect(node: ts.Node): void {
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "useEffect") {
+    const callback = node.arguments[0];
+    if (
+      callback &&
+      (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) &&
+      mentionsIdentifier(callback, "gameVoicePlaybackBlocked") &&
+      mentionsIdentifier(callback, "stopGameVoicePlayback")
+    )
+      voiceBlockingEffects.push(callback);
+  }
+  ts.forEachChild(node, findVoiceBlockingEffect);
+}
+findVoiceBlockingEffect(narration);
+const voiceBlockingEffect = voiceBlockingEffects[0];
+assert.ok(voiceBlockingEffect);
+const blockingEffectCode = ts.transpileModule(`(${voiceBlockingEffect.getText(narration)})();`, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022 },
+}).outputText;
+function runVoiceBlockingEffect(overrides: Record<string, unknown> = {}) {
+  const calls = { stopped: 0, retryCleared: 0 };
+  const state = {
+    gameVoiceEnabled: true,
+    isStreaming: false,
+    scenePreparing: false,
+    directionsActive: false,
+    gameVoicePlaybackBlocked: true,
+    gameVoiceExternallyBlocked: false,
+    gameVoicePlayingKey: null,
+    gameVoiceAudioRef: { current: null },
+    lastAutoPlayedVoiceKeyRef: { current: "finished-main" },
+    autoPlayedSideVoiceKeysRef: { current: new Set(["finished-side", "interrupted-side"]) },
+    autoPlayInFlightVoiceKeyRef: { current: "queued-main" },
+    autoPlayInFlightSideVoiceKeysRef: { current: new Set(["queued-side"]) },
+    sideVoiceAutoPlayFailuresRef: { current: new Set(["failed-side"]) },
+    clearSideVoiceAutoPlayRetry: () => calls.retryCleared++,
+    stopGameVoicePlayback: () => calls.stopped++,
+    ...overrides,
+  };
+  new Function(...Object.keys(state), blockingEffectCode)(...Object.values(state));
+  return { ...state, calls };
+}
+for (const overrides of [
+  {},
+  { gameVoicePlayingKey: "finished-main" },
+  { gameVoicePlayingKey: "finished-main", gameVoiceAudioRef: { current: { ended: true } } },
+]) {
+  const finished = runVoiceBlockingEffect(overrides);
+  assert.equal(
+    finished.lastAutoPlayedVoiceKeyRef.current,
+    "finished-main",
+    "persona speech cannot replay a finished main line",
+  );
+  assert.deepEqual([...finished.autoPlayedSideVoiceKeysRef.current], ["finished-side", "interrupted-side"]);
+  assert.equal(
+    finished.autoPlayInFlightVoiceKeyRef.current,
+    null,
+    "a blocked launch can retry after the persona finishes",
+  );
+  assert.equal(finished.autoPlayInFlightSideVoiceKeysRef.current.size, 0);
+  assert.equal(finished.calls.stopped, 1, "persona speech still stops any pending Game playback");
+}
+const interruptedMain = runVoiceBlockingEffect({
+  gameVoicePlayingKey: "finished-main",
+  gameVoiceAudioRef: { current: { ended: false } },
+});
+assert.equal(interruptedMain.lastAutoPlayedVoiceKeyRef.current, null, "an actually interrupted main line can restart");
+assert.equal(interruptedMain.autoPlayedSideVoiceKeysRef.current.size, 2, "finished side lines remain finished");
+const interruptedSide = runVoiceBlockingEffect({
+  gameVoicePlayingKey: "interrupted-side",
+  gameVoiceAudioRef: { current: { ended: false } },
+});
+assert.equal(interruptedSide.lastAutoPlayedVoiceKeyRef.current, "finished-main");
+assert.deepEqual([...interruptedSide.autoPlayedSideVoiceKeysRef.current], ["finished-side"]);
+for (const flag of ["isStreaming", "scenePreparing", "directionsActive", "gameVoiceExternallyBlocked"]) {
+  const legacy = runVoiceBlockingEffect({ [flag]: true });
+  assert.equal(legacy.lastAutoPlayedVoiceKeyRef.current, null, `${flag} retains the original reset`);
+  assert.equal(legacy.autoPlayedSideVoiceKeysRef.current.size, 0);
+}
+const unblocked = runVoiceBlockingEffect({ gameVoicePlaybackBlocked: false });
+assert.equal(unblocked.calls.stopped, 0);
+assert.equal(unblocked.lastAutoPlayedVoiceKeyRef.current, "finished-main");
 
 const jobs = game.jobs("turn-voice", [mainRequest, sideRequest], config);
 assert.deepEqual(

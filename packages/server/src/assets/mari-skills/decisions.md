@@ -1,6 +1,6 @@
 ---
 name: Decisions
-description: Read before writing or debugging a decision or decision-choice conditional in a preset section, lorebook entry, character depth prompt or agent activation setting: permission to author it, the exact macro forms, timing and priority, option criteria, size caps, and why a branch never fires.
+description: Read before writing or debugging a decision or decision-choice conditional in a preset section, lorebook entry, character depth prompt or agent activation setting, or when a branch never fires.
 ---
 
 # Decisions

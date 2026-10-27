@@ -45,7 +45,6 @@ export function cleanGeneratedReply(
         .replace(/\n{3,}/g, "\n\n")
         .trim();
       changed = true;
-      logger.info(`[generate] Extracted ${oocMessages.length} OOC message(s) for conversation ${o.connectedChatId}`);
     }
   }
 
@@ -169,6 +168,23 @@ export function cleanGeneratedReply(
     if (fullResponse !== beforeRoleplayWhitespace) {
       changed = true;
     }
+  }
+
+  // Keep an OOC-only answer visible: an empty reply is discarded before linked-chat
+  // posting runs. Check after speaker/ending cleanup, which can remove the last prose.
+  if (!fullResponse.trim() && oocMessages.length > 0) {
+    // Reuse cleanup once without extraction so recovered text still obeys the speaker gate.
+    const recovered = cleanGeneratedReply(oocMessages.join("\n\n"), { ...o, connectedChatId: null });
+    if ("dropped" in recovered || !recovered.text.trim()) return recovered;
+    fullResponse = recovered.text;
+    logger.warn(
+      { chatId: o.chatId, connectedChatId: o.connectedChatId, oocCount: oocMessages.length },
+      "[generate] Kept OOC-only reply visible in roleplay after post-processing removed all prose",
+    );
+    oocMessages.length = 0;
+    changed = true;
+  } else if (oocMessages.length > 0) {
+    logger.info("[generate] Extracted %d OOC message(s) for conversation %s", oocMessages.length, o.connectedChatId);
   }
 
   return { text: fullResponse, changed, oocMessages };

@@ -110,6 +110,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:shared
+      - name: Verify package dependencies across Windows junction layouts
+        run: node scripts/run-regressions.mjs --filter capability-hoisted-dependencies --concurrency 1
+      - name: Verify the installed-package server compatibility contract
+        run: node scripts/run-regressions.mjs --filter capability-server-externals --concurrency 1
       - name: Verify Windows restart ownership and ESM loader paths
         env:
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics

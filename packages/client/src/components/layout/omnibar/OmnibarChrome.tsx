@@ -182,7 +182,6 @@ export function OmnibarEmpty() {
 /** Keyboard hints and the settings button under the search list. */
 export function OmnibarFooter({
   inlineSuffix,
-  mariEnabled,
   pane,
   activeResult,
   mariSends,
@@ -193,7 +192,6 @@ export function OmnibarFooter({
   openSettings,
 }: {
   inlineSuffix: string;
-  mariEnabled: boolean;
   pane: OmnibarPane;
   activeResult: RankedOmnibarResult | undefined;
   mariSends: (result: OmnibarResult | null) => boolean;
@@ -213,7 +211,7 @@ export function OmnibarFooter({
         <span>{t("commandCenter.keyboard.move", "Arrow keys move")}</span>
         {inlineSuffix ? (
           <span>{t("commandCenter.keyboard.complete", "⇥ Complete")}</span>
-        ) : mariEnabled && pane === "results" && activeResult ? (
+        ) : pane === "results" && activeResult ? (
           // Says whether ⌘↵ sends: "Ask" sends what you typed, "Continue" opens her or carries the quick answer.
           <span>
             {mariSends(activeResult) && !(asideSettled && activeResult.id === "ask-professor-mari")
@@ -232,13 +230,11 @@ export function OmnibarFooter({
         ) : null}
       </span>
       <span className="flex min-w-0 items-center gap-3">
-        {mariEnabled ? (
-          <span className="hidden sm:inline">
-            {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Prof. Mari", {
-              mod: formatShortcutKey("Mod"),
-            })}
-          </span>
-        ) : null}
+        <span className="hidden sm:inline">
+          {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Prof. Mari", {
+            mod: formatShortcutKey("Mod"),
+          })}
+        </span>
         {!idle ? <span className="hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span> : null}
         <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} />
       </span>

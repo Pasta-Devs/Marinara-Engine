@@ -107,12 +107,12 @@ function normalizeAspectRatio(value: unknown): ManualIllustratorPromptPlan["aspe
 
 export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustratorPromptPlan | null {
   const record = parseRecord(value);
-  const prompt = readTrimmedString(record.prompt ?? record.imagePrompt ?? record.description).slice(0, 7_000);
+  const prompt = readTrimmedString(record.prompt ?? record.imagePrompt ?? record.description);
   if (!prompt) return null;
   return {
     prompt,
-    negativePrompt: readTrimmedString(record.negativePrompt ?? record.negative_prompt).slice(0, 5_000),
-    style: readTrimmedString(record.style ?? record.artStyle).slice(0, 1_000),
+    negativePrompt: readTrimmedString(record.negativePrompt ?? record.negative_prompt),
+    style: readTrimmedString(record.style ?? record.artStyle),
     characters: normalizeCharacterNames(record.characters ?? record.visibleCharacters),
     aspectRatio: normalizeAspectRatio(record.aspectRatio ?? record.aspect_ratio),
     reason: readTrimmedString(record.reason).slice(0, 500),

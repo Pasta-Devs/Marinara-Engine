@@ -61,6 +61,8 @@ export interface CharacterExtensions {
   nameAliases?: string[];
   /** Marinara Engine: RPG stats toggle + custom attributes */
   rpgStats?: RPGStatsConfig;
+  /** Marinara Engine: the picture on this character's fight token. Missing means the avatar. */
+  combatIcon?: CombatIconChoice;
   /** Marinara Engine: starting builds for Game Mode rulesets, keyed by ruleset id. A game copies
    *  the one it needs; a sheet for a ruleset that is not installed is kept dormant. */
   rulesetSheets?: Record<string, unknown>;
@@ -188,6 +190,10 @@ export interface RPGStatsConfig {
   /** HP-like bars such as HP, MP, EP, Sanity, etc. */
   pools?: RPGStatPool[];
 }
+
+/** What a fight token shows: the avatar, a picture from the owner's gallery, or the initials. */
+export type CombatIconChoice =
+  { source: "avatar" } | { source: "initials" } | { source: "image"; imageId: string; url: string };
 
 /** A character-profile default for a text-valued Character Tracker field. */
 export interface CharacterTrackerCustomFieldDefault {

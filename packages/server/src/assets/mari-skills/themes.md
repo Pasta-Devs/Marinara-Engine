@@ -1,6 +1,6 @@
 ---
 name: Themes and CSS
-description: Read before creating, editing, activating or reviewing a custom CSS theme, writing its CSS, or explaining what it restyles, what the app strips and how activation works.
+description: Read before creating, editing, activating or reviewing a custom CSS theme, or explaining what it restyles.
 ---
 
 # Themes and CSS

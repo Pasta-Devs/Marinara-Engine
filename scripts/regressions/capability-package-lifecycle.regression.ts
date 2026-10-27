@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 386 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 387 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,11 +140,11 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.386/,
+    /requires capability API 2\.0; this Engine supports 1\.387/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 386 },
+    capabilityApi: { major: 1, minor: 387 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentMinorManifest), null);
   assert.equal(
@@ -206,6 +206,7 @@ try {
     [384, "saved gallery image animation"],
     [385, "shared gallery image saving"],
     [386, "Home browser openConnection and raw generation debug logging"],
+    [387, "chat summaries"],
   ];
   for (const [minor, label] of supportedMinors) {
     assert.equal(
@@ -218,11 +219,11 @@ try {
   }
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 387 },
+    capabilityApi: { major: 1, minor: 388 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.387; this Engine supports 1\.386/,
+    /requires capability API 1\.388; this Engine supports 1\.387/,
   );
   const startupManifest = {
     ...currentMinorManifest,
