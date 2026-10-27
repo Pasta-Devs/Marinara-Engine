@@ -611,6 +611,7 @@ class SidecarModelService {
         SidecarConfig,
         | "useForTrackers"
         | "useAsAgentsDefault"
+        | "useAsMainDefault"
         | "useForGameScene"
         | "contextSize"
         | "maxTokens"

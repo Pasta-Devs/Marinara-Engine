@@ -42,6 +42,9 @@ import {
 } from "./connection-accounts.storage.js";
 import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connection-rate-limit-registry.js";
 import { logger } from "../../lib/logger.js";
+import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
+import { createLocalSidecarGenerationConnection } from "../generation/local-sidecar-generation-connection.js";
+import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 
 type ConnectionDefaultCategory =
   "image_generation" | "video_generation" | "audio_generation" | "audio" | "decision" | "language";
@@ -434,6 +437,11 @@ export function withoutSavedModels<T extends Record<string, unknown>>(row: T): O
   return rest;
 }
 
+/** A connection row set as Main replaces the built-in model as Main. */
+function clearSidecarAsMain() {
+  if (sidecarModelService.getConfig().useAsMainDefault) sidecarModelService.updateConfig({ useAsMainDefault: false });
+}
+
 export function createConnectionsStorage(db: DB) {
   /** Decrypt for use, and keep the throttle and shared-account budget registries in sync with the row. */
   const withKey = async <
@@ -480,12 +488,14 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async getById(id: string) {
+    if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
       const rows = await db.select().from(apiConnections).where(eq(apiConnections.id, id));
       return rows[0] ?? null;
     },
 
     /** Get connection with decrypted API key (for internal use only). */
     async getWithKey(id: string) {
+    if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
       const conn = await this.getById(id);
       if (!conn || conn.profileImportReviewRequired === "true" || (await isBlockedByAccount(db, conn))) return null;
       return withKey(conn);
@@ -519,6 +529,8 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async getDefault() {
+    // The built-in model is not a row: when it is Main, every Main fallback resolves to it.
+    if (sidecarModelService.getConfig().useAsMainDefault) return createLocalSidecarGenerationConnection() as never;
       const rows = await db
         .select()
         .from(apiConnections)
@@ -831,6 +843,7 @@ export function createConnectionsStorage(db: DB) {
       await db.transaction(async (tx) => {
         // If this is set as default, unset others.
         if (input.isDefault && takesMainDefaults(input.provider)) {
+        clearSidecarAsMain();
           await tx.update(apiConnections).set({ isDefault: "false" });
           values.fallbackForMain = "false";
         }
@@ -944,6 +957,7 @@ export function createConnectionsStorage(db: DB) {
         updateFields.accountId = null;
       }
       const shouldClearDefault = data.isDefault === true;
+    if (shouldClearDefault) clearSidecarAsMain();
       const shouldClearMainFallback = effectiveProviderCategory === "language" && data.fallbackForMain === true;
       const shouldClearAgentDefaults =
         data.defaultForAgents === true ||
