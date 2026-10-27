@@ -465,7 +465,7 @@ export function ConnectionModelPicker({
         aria-current={current ? "true" : undefined}
         disabled={saving}
         onClick={() => void pick(row)}
-        className="rounded-lg disabled:cursor-wait"
+        className={cn("rounded-lg disabled:cursor-wait", addMode && "max-md:ps-2 max-md:gap-3")}
         tile={
           <ProviderIcon
             provider={provider || "custom"}

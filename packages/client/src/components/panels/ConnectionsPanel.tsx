@@ -1230,7 +1230,7 @@ export function ConnectionsPanel() {
   return (
     <div
       ref={rootRef}
-      className="mari-connection-scope flex min-h-full flex-col gap-2 p-3"
+      className="mari-connection-scope flex min-h-full flex-col gap-2 p-3 max-md:p-1.5"
       data-connections-panel={wide ? "wide" : "narrow"}
     >
       {body}

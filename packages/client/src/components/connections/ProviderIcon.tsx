@@ -230,7 +230,7 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
 const SIZES = {
   sm: { box: "h-6 w-6 rounded-[0.375rem] text-[0.5625rem]", icon: "0.75rem" },
   /** The model row tile in the Connections panel and the pickers (2.375rem). */
-  model: { box: "h-[2.375rem] w-[2.375rem] rounded-[0.5rem] text-xs", icon: "1.125rem" },
+  model: { box: "h-[2.375rem] w-[2.375rem] rounded-[0.5rem] text-xs max-md:h-8 max-md:w-8", icon: "1.125rem" },
   /** A compact tile (32px) for lists in other panels. */
   row: { box: "h-8 w-8 rounded-[0.5rem] text-xs", icon: "1rem" },
   md: { box: "h-9 w-9 rounded-xl text-xs", icon: "1rem" },

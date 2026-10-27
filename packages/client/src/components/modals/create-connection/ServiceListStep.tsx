@@ -28,7 +28,9 @@ import {
 // Rows keep a hover pad that bleeds 0.5rem outside the content edge, so tiles and labels share that edge.
 const ROW = "-mx-2 ps-2 md:min-h-[3.75rem] [&_strong]:font-medium";
 const MODEL_ROW = { className: "-mx-2" };
-const TILE = "h-10 w-10 rounded-xl [&_svg]:size-5";
+// On phones ModelRow tightens its inset; the Add window keeps the shared edge and the service rows' text column.
+const MODEL_BTN = "max-md:ps-2 max-md:gap-3";
+const TILE = "h-10 w-10 rounded-xl max-md:h-10 max-md:w-10 [&_svg]:size-5 max-md:[&_svg]:size-5";
 
 type ServiceListStepProps = {
   firstRun: boolean | null;
@@ -197,6 +199,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
               return (
                 <ModelRow
                   rowProps={MODEL_ROW}
+                  className={MODEL_BTN}
                   key={key}
                   title={jobLabel(key)}
                   subtitle={t(jobHintKey(JOB[key]))}
@@ -259,6 +262,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
                 ...mine.map(([accountId, model]) => (
                   <ModelRow
                     rowProps={MODEL_ROW}
+                    className={MODEL_BTN}
                     key={`${entry.key}:${accountId}`}
                     title={entry.name}
                     kind={entry.kind}
@@ -276,6 +280,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
                 ...services.map(({ service: key, model }) => (
                   <ModelRow
                     rowProps={MODEL_ROW}
+                    className={MODEL_BTN}
                     key={`${entry.key}:${key}`}
                     title={entry.name}
                     kind={entry.kind}
@@ -299,6 +304,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
             <ListHeading className="px-0">{t("connections.add.section.newService")}</ListHeading>
             <ModelRow
               rowProps={MODEL_ROW}
+              className={MODEL_BTN}
               title={t("connections.add.chooseService")}
               subtitle={t("connections.add.chooseServiceHint")}
               tile={
