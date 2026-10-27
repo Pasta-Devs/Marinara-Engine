@@ -488,7 +488,6 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async getById(id: string) {
-      if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarGenerationConnection() as never;
       const rows = await db.select().from(apiConnections).where(eq(apiConnections.id, id));
       return rows[0] ?? null;
     },

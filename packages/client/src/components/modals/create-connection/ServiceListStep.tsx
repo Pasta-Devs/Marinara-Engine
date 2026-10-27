@@ -152,7 +152,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
     !kindFilter &&
     pick !== "provider" &&
     listJobs.length > 0 &&
-    allServices.includes("local_model");
+    import.meta.env.VITE_MARINARA_LITE !== "true";
   const home = !firstRun && !job && !kindFilter && pick !== "provider";
 
   return (
