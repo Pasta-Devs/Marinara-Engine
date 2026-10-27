@@ -169,7 +169,7 @@ export const SELF_HOSTED = new Set([
 /** One tile per provider. Services sort A–Z and show 4 until "Show all"; "Other" folds. */
 export type ServiceGroupDefinition = { id: string; services: ServiceId[]; sorted?: boolean; folded?: boolean };
 export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
-  { id: "start", services: [LINKAPI_SERVICE, "openrouter", "nanogpt"] },
+  { id: "start", services: ["local_model", LINKAPI_SERVICE, "openrouter", "nanogpt"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   {
     id: "vendors",
@@ -184,12 +184,15 @@ export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
     id: "address",
     services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
   },
-  { id: "device", services: ["local_model", "tts", "stt"] },
+  { id: "device", services: ["tts", "stt"] },
   { id: "other", folded: true, services: [DECISION_BUILTIN] },
 ];
 export const VENDORS_SHOWN = 4;
 /** Old names people still search for. */
-export const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = { openai_chatgpt: "codex" };
+export const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = {
+  openai_chatgpt: "codex",
+  local_model: "local built-in built in sidecar llama gguf offline free device no account",
+};
 export const KIND_ICONS = {
   chat: MessageSquare,
   image: ImageIcon,

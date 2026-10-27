@@ -5,6 +5,7 @@ import { PROVIDERS, withKeyTail, type APIProvider, type ConnectionAccountListIte
 import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import { ServiceRow } from "../../connections/ServiceRow";
 import { BrandMark } from "../../connections/ProviderIcon";
+import { BuiltInModelSetup } from "./BuiltInModelSetup";
 import { LocalWhisper } from "../../connections/DeviceDetail";
 import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
 import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
@@ -160,11 +161,7 @@ export function AccessStep(props: AccessStepProps) {
                 </p>
               </div>
             </div>
-            {props.device === "local_model" && (
-              <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-                {t("connections.add.localModelInfo")}
-              </p>
-            )}
+            {props.device === "local_model" && <BuiltInModelSetup />}
             {props.device === "tts" && <TTSConfigCard defaultExpanded />}
             {props.device === "stt" && <SpeechToTextCard defaultExpanded />}
             {props.device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}

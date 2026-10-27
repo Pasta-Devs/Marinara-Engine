@@ -6,7 +6,7 @@
 // sidecar runtime.
 // ──────────────────────────────────────────────
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -40,6 +40,8 @@ import { api } from "../../lib/api-client.js";
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Render the content in place (inside the Add window) instead of in its own dialog. */
+  embedded?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -162,7 +164,11 @@ function ResponseBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ModelDownloadModal({ open, onClose }: Props) {
+function EmbeddedShell({ children }: ComponentProps<typeof Modal>) {
+  return <div className="flex flex-col gap-5">{children}</div>;
+}
+
+export function ModelDownloadModal({ open, onClose, embedded }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const {
     status,
@@ -219,6 +225,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const [topKInput, setTopKInput] = useState(String(config.topK));
   const [maxParallelJobsInput, setMaxParallelJobsInput] = useState(String(config.maxParallelJobs));
   const [embeddingBatchSizeInput, setEmbeddingBatchSizeInput] = useState(String(config.embeddingBatchSize));
+  const Shell = embedded ? EmbeddedShell : Modal;
   const modalScrollRef = useRef<HTMLDivElement>(null);
   const previousScrollLayoutRef = useRef({ showSetupProgress: false, showRuntimeSettings: false });
 
@@ -539,7 +546,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   };
 
   return (
-    <Modal
+    <Shell
       open={open}
       onClose={onClose}
       title={localizeUi("ui.modals.modeldownloadmodal.localAiModel")}
@@ -1582,6 +1589,6 @@ export function ModelDownloadModal({ open, onClose }: Props) {
           </div>
         )}
       </div>
-    </Modal>
+    </Shell>
   );
 }

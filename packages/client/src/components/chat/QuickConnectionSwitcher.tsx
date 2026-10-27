@@ -9,7 +9,6 @@ import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
-import { useSidecarStore } from "../../stores/sidecar.store";
 import { cn } from "../../lib/utils";
 import { isQuickPickerShortcut } from "../../lib/keyboard-shortcuts";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
@@ -45,7 +44,6 @@ export function QuickConnectionSwitcher({
     if (open && !modelsEnabled && document.activeElement === document.body) btnRef.current?.focus();
   }, [open, modelsEnabled]);
   const effective = useEffectiveChatModel(activeChatId);
-  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
   const chatMode = (chat as unknown as { mode?: string } | null | undefined)?.mode;
@@ -196,7 +194,7 @@ export function QuickConnectionSwitcher({
               recent={chatPick.recent}
               onApply={chatPick.apply}
               onDone={close}
-              showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
+              showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
               shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
               followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
               listHeader={

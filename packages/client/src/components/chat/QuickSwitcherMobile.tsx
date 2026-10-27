@@ -14,7 +14,6 @@ import { useCharacters, usePersonas, usePersonaGroups, useCharacterGroups } from
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
-import { useSidecarStore } from "../../stores/sidecar.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { buildCharacterIdentityGroups, type CharacterIdentityChoice } from "../../lib/character-identity-groups";
@@ -63,7 +62,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   useEffect(() => {
     if (open && !modelsEnabled && document.activeElement === document.body) btnRef.current?.focus();
   }, [open, modelsEnabled]);
-  const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
   const activePersonaId = chat?.personaId ?? null;
@@ -434,7 +432,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 recent={chatPick.recent}
                 onApply={chatPick.apply}
                 onDone={closeMenu}
-                showLocalModel={chatMode !== "game" && sidecarModelDownloaded}
+                showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
                 shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
                 followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
                 listHeader={

@@ -147,6 +147,14 @@ export function ServiceListStep(props: ServiceListStepProps) {
     ...listGroups.map((group) => ({ ...group, services: group.services.filter((key) => !popular.includes(key)) })),
   ].filter((group) => group.services.length > 0);
   const groups = firstRun && !job ? firstGroups : listGroups;
+  // Before the long list of missing jobs: the one choice that needs no account. It is not repeated below.
+  const builtInOffer =
+    !firstRun &&
+    !job &&
+    !kindFilter &&
+    pick !== "provider" &&
+    listJobs.length > 0 &&
+    import.meta.env.VITE_MARINARA_LITE !== "true";
   const home = !firstRun && !job && !kindFilter && pick !== "provider";
 
   return (
@@ -190,6 +198,12 @@ export function ServiceListStep(props: ServiceListStepProps) {
               <X size="0.875rem" aria-hidden />
             </button>
           </div>
+        )}
+        {builtInOffer && (
+          <section data-add-connection-section="built-in-offer">
+            <ListHeading className="px-0">{t("connections.add.section.noAccount")}</ListHeading>
+            {serviceRow("local_model")}
+          </section>
         )}
         {home && listJobs.length > 0 && (
           <section data-add-connection-section="missing-jobs">
@@ -323,7 +337,7 @@ export function ServiceListStep(props: ServiceListStepProps) {
             <ListHeading className="px-0">
               {t(`connections.add.${group.id === "popular" ? "popular" : `group.${group.id}`}`)}
             </ListHeading>
-            {group.services.map(serviceRow)}
+            {group.services.filter((key) => !(builtInOffer && key === "local_model")).map(serviceRow)}
           </section>
         ))}
         {searching &&

@@ -266,7 +266,10 @@ export async function resolveAvatarVisionConnection(
   const agentDefault = await connections.getDefaultForAgents();
   if (agentDefault && isLanguageConnection(agentDefault)) return agentDefault;
   const fallback = await connections.getDefault();
-  const conn = fallback && isLanguageConnection(fallback) ? await connections.getWithKey(fallback.id) : null;
+  const conn =
+    fallback && fallback.id !== LOCAL_SIDECAR_CONNECTION_ID && isLanguageConnection(fallback)
+      ? await connections.getWithKey(fallback.id)
+      : null;
   if (!conn) throw refuse();
   return conn;
 }

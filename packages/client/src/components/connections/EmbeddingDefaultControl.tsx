@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Download } from "lucide-react";
+import { openAddConnection } from "../../lib/add-connection";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useDefaultEmbeddingConnection, useSetDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { createLocalSidecarConnectionOption } from "../../lib/connection-filters";
@@ -86,6 +88,16 @@ export function EmbeddingDefaultControl({ connections }: { connections: Embeddin
         ))}
       </select>
       <p className="text-xs text-[var(--muted-foreground)]">{t("connections.embeddingDefault.help")}</p>
+      {!showSidecar && import.meta.env.VITE_MARINARA_LITE !== "true" && (
+        <button
+          type="button"
+          onClick={() => openAddConnection({ category: "device", item: "local-model" })}
+          className="mari-connection-btn self-start"
+        >
+          <Download size="0.75rem" aria-hidden />
+          {t("connections.builtin.setUp")}
+        </button>
+      )}
       <p className="text-xs text-[var(--muted-foreground)]">{t("connections.embeddingDefault.revectorize")}</p>
       {ownCount > 0 && (
         <p className="text-xs text-[var(--muted-foreground)]">

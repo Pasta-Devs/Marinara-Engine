@@ -34,8 +34,10 @@ import {
 } from "../../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../../hooks/use-chats";
 import { useChatStore } from "../../../stores/chat.store";
-import { useSidecarStore } from "../../../stores/sidecar.store";
 import { useUIStore } from "../../../stores/ui.store";
+import { useSidecarStore } from "../../../stores/sidecar.store";
+import { useSelectDecisionModel } from "../../../hooks/use-decision-model";
+import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useDeviceSetup } from "../../../hooks/use-device-setup";
 import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../../lib/add-connection";
 import { JOB, jobAddKind, jobLabelKey, matchesKind } from "../../../lib/connection-jobs";
@@ -99,6 +101,8 @@ export interface CreateConnectionModalProps {
 /** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
 const withHttpScheme = (url: string) => (url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? `http://${url}` : url);
 
+const BUILT_IN_JOBS: AddJob[] = ["agents", "quick", "mari", "decision", "embeddings", "main"];
+
 export function CreateConnectionModalContent({
   open,
   onClose,
@@ -125,6 +129,8 @@ export function CreateConnectionModalContent({
   const setEmbeddingDefault = useSetDefaultEmbeddingConnection();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const deviceSetup = useDeviceSetup();
+  const selectDecision = useSelectDecisionModel();
+  const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const followVoiceJob = useFollowVoiceJob();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
@@ -375,6 +381,31 @@ export function CreateConnectionModalContent({
       const { assign, previous = null } = assignment;
       await Promise.resolve(assign(id));
       return () => assign(previous);
+    }
+    if (
+      id === LOCAL_SIDECAR_CONNECTION_ID &&
+      (assignedJob === "main" || assignedJob === "agents" || assignedJob === "decision")
+    ) {
+      // The built-in model is not a row: Main, Agents and Decision are sidecar settings, not row flags.
+      const sidecar = useSidecarStore.getState();
+      if (assignedJob === "decision") {
+        await selectDecision.mutateAsync("primary");
+        return () => void selectDecision.mutateAsync(null).catch(() => {});
+      }
+      const field = assignedJob === "main" ? "useAsMainDefault" : "useAsAgentsDefault";
+      const before = sidecar.config;
+      await sidecar.updateConfig(
+        assignedJob === "agents" ? { [field]: true, useForTrackers: true } : { [field]: true },
+      );
+      const previousMain =
+        assignedJob === "main"
+          ? chatRows.find((candidate) => isConnectionFlagTrue((candidate as Record<string, unknown>).isDefault))
+          : undefined;
+      if (previousMain) await updateRow.mutateAsync({ id: previousMain.id, isDefault: false });
+      return () => {
+        void useSidecarStore.getState().updateConfig({ [field]: before[field], useForTrackers: before.useForTrackers });
+        if (previousMain) void updateRow.mutateAsync({ id: previousMain.id, isDefault: true }).catch(() => {});
+      };
     }
     if (assignedJob === "embeddings") {
       const previous = embeddingDefault.data?.connectionId ?? null;
@@ -795,8 +826,21 @@ export function CreateConnectionModalContent({
   const isJobKind = setupKind === "decision" || setupKind === "voice";
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
-  const optionalJobs = jobsForAddedKinds(picks.map((pick) => pick.kind));
+  // The built-in model does the jobs a small local model can do; the rest need a real model.
+  const optionalJobs = picks.some((pick) => pick.connectionId === LOCAL_SIDECAR_CONNECTION_ID)
+    ? BUILT_IN_JOBS
+    : jobsForAddedKinds(picks.map((pick) => pick.kind));
   const offerJobs = !jobFor && !modelsFor && !onStartChat && optionalJobs.length > 0;
+  // The built-in model has no model rows to pick: it goes straight to "Use it for…".
+  const continueBuiltIn = () => {
+    setPicks([
+      { connectionId: LOCAL_SIDECAR_CONNECTION_ID, modelId: LOCAL_SIDECAR_CONNECTION_ID, kind: "chat" },
+      { connectionId: LOCAL_SIDECAR_CONNECTION_ID, modelId: LOCAL_SIDECAR_CONNECTION_ID, kind: "decision" },
+    ]);
+    setSelectedJobs(["agents", "quick"]);
+    setStep(3);
+    setChoosingJobs(true);
+  };
   const finishModels = async () => {
     if (!offerJobs) {
       void close(true);
@@ -942,22 +986,13 @@ export function CreateConnectionModalContent({
     );
   } else if (step === 2) {
     footerRight = device ? (
-      device === "local_model" ? (
-        <button
-          type="button"
-          data-add-connection-device-open
-          onClick={() => useSidecarStore.getState().setShowDownloadModal(true)}
-          className={PRIMARY_CLASS}
-        >
-          {t(
-            device && deviceSetup[DEVICE_ITEMS[device]].setUp
-              ? "connections.add.localModelOpen"
-              : "connections.add.localModelDownload",
-          )}
+      device === "local_model" && builtInReady ? (
+        <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
+          {t("connections.add.continue")}
         </button>
       ) : (
-        <button type="button" onClick={onClose} className={PRIMARY_CLASS}>
-          {t("connections.add.done")}
+        <button type="button" onClick={onClose} className={SECONDARY_CLASS}>
+          {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
         </button>
       )
     ) : choosing ? null : tested?.success ? (

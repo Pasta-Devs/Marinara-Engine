@@ -80,6 +80,7 @@ import { ModelRow, mediaService } from "../connections/ModelRow";
 import { ConnectionGroup, GROUP_SURFACE, hostOf } from "../connections/ConnectionGroup";
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
+import { BuiltInModelCard } from "../connections/BuiltInModelCard";
 import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
@@ -683,8 +684,9 @@ export function ConnectionsPanel() {
   // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
   const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
   const deviceTitle = t("connections.accounts.section.device");
-  const [onlyEngine] = visible.engines;
-  const deviceGroup = visible.engines.length > 0 && (
+  const deviceEngines = visible.engines.filter((engine) => engine.item !== "local-model");
+  const [onlyEngine] = deviceEngines;
+  const deviceGroup = deviceEngines.length > 0 && (
     <div
       role="group"
       aria-label={deviceTitle}
@@ -707,9 +709,9 @@ export function ConnectionsPanel() {
               {deviceTitle}
             </strong>
             <span className="mt-0.5 block min-w-0 truncate text-xs text-[var(--muted-foreground)]">
-              {(visible.engines.length === 1
+              {(deviceEngines.length === 1
                 ? [onlyEngine.name, onlyEngine.state]
-                : visible.engines.map((engine) => engine.name)
+                : deviceEngines.map((engine) => engine.name)
               ).join(" · ")}
             </span>
           </span>
@@ -732,7 +734,7 @@ export function ConnectionsPanel() {
       </div>
       {deviceOpen && (
         <div id="connection-device-engines" className="mari-connection-model-well min-w-0">
-          {visible.engines.map((engine) => {
+          {deviceEngines.map((engine) => {
             const key = `device:${engine.item}`;
             return (
               <div key={key} className="mari-connection-model-slot min-w-0">
@@ -931,6 +933,7 @@ export function ConnectionsPanel() {
             </section>
           )}
           {defaultsBox}
+          <BuiltInModelCard onOpenDevice={openDevice} />
           {deviceGroup}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
