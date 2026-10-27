@@ -190,8 +190,8 @@ export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
 export const VENDORS_SHOWN = 4;
 /** Old names people still search for. */
 export const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = {
-	openai_chatgpt: "codex",
-	local_model: "local built-in built in sidecar llama gguf offline free device no account",
+  openai_chatgpt: "codex",
+  local_model: "local built-in built in sidecar llama gguf offline free device no account",
 };
 export const KIND_ICONS = {
   chat: MessageSquare,
