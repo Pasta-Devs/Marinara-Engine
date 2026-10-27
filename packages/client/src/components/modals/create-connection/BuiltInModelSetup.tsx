@@ -35,11 +35,11 @@ export function BuiltInModelSetup() {
 
   return (
     <div className="mt-3 flex flex-col gap-3" data-add-connection-builtin>
-      <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-        {recommended
-          ? t("connections.builtin.facts", { size: gb(recommended.sizeBytes), ram: gb(recommended.ramBytes) })
-          : t("connections.add.hint.local_model")}
-      </p>
+      {recommended && (
+        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {t("connections.builtin.size", { size: gb(recommended.sizeBytes), ram: gb(recommended.ramBytes) })}
+        </p>
+      )}
       <p className="flex items-center gap-1.5 text-xs text-[var(--warning)]">
         <AlertTriangle size="0.875rem" className="shrink-0" aria-hidden />
         {t("connections.builtin.warning")}

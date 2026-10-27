@@ -155,19 +155,20 @@ export function DecisionDefaultControl() {
         {t("connections.decision.defaultLabel")}
       </label>
       <div className="flex gap-2">
-        <ConnectionSelect
-          id="decision-default"
-          kind="decision"
-          value={selected?.id ?? null}
-          onChange={(id) => void change(id ?? "")}
-          defaultLabel={t("connections.decision.none")}
-          extraOptions={locals
-            .filter((entry) => !entry.unavailable)
-            .map((entry) => ({ value: entry.id, label: entry.label }))}
-          disabled={busy || options.isPending}
-          title={t("connections.decision.defaultLabel")}
-          className="min-w-0 flex-1"
-        />
+        <div className="min-w-0 flex-1">
+          <ConnectionSelect
+            id="decision-default"
+            kind="decision"
+            value={selected?.id ?? null}
+            onChange={(id) => void change(id ?? "")}
+            defaultLabel={t("connections.decision.none")}
+            extraOptions={locals
+              .filter((entry) => !entry.unavailable)
+              .map((entry) => ({ value: entry.id, label: entry.label }))}
+            disabled={busy || options.isPending}
+            title={t("connections.decision.defaultLabel")}
+          />
+        </div>
         <button
           type="button"
           disabled={!selected || busy}

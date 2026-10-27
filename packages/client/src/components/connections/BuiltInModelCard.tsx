@@ -6,7 +6,6 @@ import { openAddConnection } from "../../lib/add-connection";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { ContextMenu } from "../ui/ContextMenu";
 import { ROW_BUTTON } from "./ConnectionRow";
-import { SMALL_ACTION } from "./DeviceDetail";
 import { menuAt, type MenuAt } from "./ModelRow";
 import { ServiceRow } from "./ServiceRow";
 import { cn } from "../../lib/utils";
@@ -61,9 +60,14 @@ export function BuiltInModelCard({ onOpenDevice }: { onOpenDevice: (item: Device
         end={
           <>
             {!local.setUp && !downloading && (
-              <button type="button" onClick={setUp} className={cn(SMALL_ACTION, "shrink-0")}>
-                <Download size="0.75rem" aria-hidden />
-                {t("connections.builtin.card.download")}
+              <button
+                type="button"
+                onClick={setUp}
+                className={cn(ROW_BUTTON, "text-[var(--marinara-app-accent-static)]")}
+                title={t("connections.builtin.card.download")}
+                aria-label={t("connections.builtin.card.download")}
+              >
+                <Download size="1rem" aria-hidden />
               </button>
             )}
             <button
