@@ -125,7 +125,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 className={cn(
                   // The tinted top strip of its upstream's well: no tile, so it never reads as a model row. The
                   // 0.875rem mark is centred in the rows' tile column; role badges sit at the end.
-                  "mari-connection-model-section-head flex min-h-9 w-full min-w-0 items-center gap-2 ps-[1.0625rem] pe-2 text-left text-xs font-semibold text-[var(--foreground)]",
+                  "mari-connection-model-section-head flex min-h-9 w-full min-w-0 items-center gap-2 ps-[1.0625rem] pe-2 max-md:ps-[0.8125rem] text-left text-xs font-semibold text-[var(--foreground)]",
                   ROW_FOCUS,
                 )}
               >
@@ -168,7 +168,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
             )}
             {/* NanoGPT plan badges need the user's yes once: the server then reads NanoGPT's public list. */}
             {upstream === "nanogpt" && outsideReads.value === null && showCostBadges && (
-              <div className="mari-connection-model-slot flex min-h-9 min-w-0 items-center ps-[3.625rem] pe-2">
+              <div className="mari-connection-model-slot flex min-h-9 min-w-0 items-center ps-[3.625rem] pe-2 max-md:ps-[2.75rem]">
                 <button type="button" onClick={() => void outsideReads.ask()} className="mari-connection-btn">
                   {t("connections.nanogptPlan.show")}
                 </button>

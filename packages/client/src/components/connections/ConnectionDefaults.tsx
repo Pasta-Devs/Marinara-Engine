@@ -409,7 +409,7 @@ function DefaultsJob({
         </div>
       )}
       {open && job.controls && (
-        <div id={controlsId} className="mb-2 ml-[3.375rem] mt-0.5 flex flex-col gap-0.5">
+        <div id={controlsId} className="mb-2 ml-[3.375rem] max-md:ml-[2.75rem] mt-0.5 flex flex-col gap-0.5">
           {job.controls}
         </div>
       )}
@@ -768,7 +768,7 @@ export function ConnectionDefaultsBox({
                   }}
                   aria-expanded={showUnused}
                   aria-controls={showUnused ? "connections-defaults-all" : undefined}
-                  className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2"
+                  className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
                   tile={
                     <JobTile unset={false}>
                       <LayoutGrid />

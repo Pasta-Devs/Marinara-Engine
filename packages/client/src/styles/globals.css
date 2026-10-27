@@ -1519,6 +1519,13 @@
   background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
 }
 
+/* Phones: a thin card edge, so the rows get the width. */
+@media (width < 48rem) {
+  .mari-connection-group {
+    padding: 0.25rem;
+  }
+}
+
 /* Bundled marks use the theme's foreground; uploaded model pictures keep their own colours. */
 .mari-provider-icon {
   background: color-mix(in srgb, var(--sidebar) 94%, var(--foreground));
@@ -1549,6 +1556,12 @@
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--background) 45%, transparent);
+}
+
+@media (width < 48rem) {
+  .mari-connection-model-well {
+    border-radius: 0.75rem;
+  }
 }
 /* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and the "via" headings. */
 :root {

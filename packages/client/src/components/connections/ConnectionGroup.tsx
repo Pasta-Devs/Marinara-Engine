@@ -380,7 +380,7 @@ export function ConnectionGroup({
           connectionId={firstRow.id}
           showFiveHour={usage.showUsageFiveHour}
           showWeekly={usage.showUsageWeekly}
-          className="ps-[3.625rem] pe-2 pb-1.5"
+          className="ps-[3.625rem] pe-2 max-md:ps-[2.75rem] pb-1.5"
         />
       )}
       {picked && (
