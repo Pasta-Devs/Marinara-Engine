@@ -23,7 +23,7 @@ export function JobTile({ unset, className, children }: { unset: boolean; classN
       aria-hidden
       data-defaults-empty-tile={unset || undefined}
       className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
+        "flex h-[2.375rem] w-[2.375rem] shrink-0 items-center justify-center rounded-lg [&_svg]:size-[1.125rem]",
         unset
           ? "border border-dashed border-foreground/25 text-[var(--muted-foreground)]"
           : "mari-panel-gradient--connections bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]",
@@ -72,7 +72,7 @@ export function JobRow({
         {...button}
         aria-describedby={hint ? hintId : undefined}
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
-        className="min-h-12 gap-2 py-1.5 pe-2 ps-2"
+        className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2"
         tile={<JobTile unset={!!unset}>{tile.icon}</JobTile>}
         title={tile.title}
         wrapTitle
@@ -98,7 +98,7 @@ export function JobRow({
         }
       />
       {hint && (
-        <p id={hintId} className="mb-1 ml-12 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+        <p id={hintId} className="mb-1 ml-[3.375rem] text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
           {hint}
         </p>
       )}

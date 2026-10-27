@@ -409,7 +409,7 @@ function DefaultsJob({
         </div>
       )}
       {open && job.controls && (
-        <div id={controlsId} className="mb-2 ml-12 mt-0.5 flex flex-col gap-0.5">
+        <div id={controlsId} className="mb-2 ml-[3.375rem] mt-0.5 flex flex-col gap-0.5">
           {job.controls}
         </div>
       )}

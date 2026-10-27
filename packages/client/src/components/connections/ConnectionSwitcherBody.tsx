@@ -802,7 +802,7 @@ export function ConnectionSwitcherBody({
               <Search size="0.875rem" aria-hidden />
             </span>
           ) : local ? (
-            <ProviderIcon provider="local_model" size="row" dim={!!unavailable} />
+            <ProviderIcon provider="local_model" size="model" dim={!!unavailable} />
           ) : (
             <ModelTile row={entry.row} account={group?.account} model={entry.model} dim={!!unavailable} />
           )
