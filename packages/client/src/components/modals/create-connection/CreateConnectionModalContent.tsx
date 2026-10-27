@@ -34,7 +34,6 @@ import {
 } from "../../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../../hooks/use-chats";
 import { useChatStore } from "../../../stores/chat.store";
-import { useSidecarStore } from "../../../stores/sidecar.store";
 import { useUIStore } from "../../../stores/ui.store";
 import { useDeviceSetup } from "../../../hooks/use-device-setup";
 import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../../lib/add-connection";
@@ -942,25 +941,10 @@ export function CreateConnectionModalContent({
     );
   } else if (step === 2) {
     footerRight = device ? (
-      device === "local_model" ? (
-        <button
-          type="button"
-          data-add-connection-device-open
-          onClick={() => useSidecarStore.getState().setShowDownloadModal(true)}
-          className={PRIMARY_CLASS}
-        >
-          {t(
-            device && deviceSetup[DEVICE_ITEMS[device]].setUp
-              ? "connections.add.localModelOpen"
-              : "connections.add.localModelDownload",
-          )}
-        </button>
-      ) : (
-        <button type="button" onClick={onClose} className={PRIMARY_CLASS}>
-          {t("connections.add.done")}
-        </button>
-      )
-    ) : choosing ? null : tested?.success ? (
+				<button type="button" onClick={onClose} className={PRIMARY_CLASS}>
+					{t("connections.add.done")}
+				</button>
+			) : choosing ? null : tested?.success ? (
       <button type="button" onClick={() => setStep(3)} className={PRIMARY_CLASS}>
         {t("connections.add.continue")}
       </button>
