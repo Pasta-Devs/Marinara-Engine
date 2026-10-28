@@ -5836,12 +5836,12 @@ function SpritesTab({
 
         {/* Upload new expression */}
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h4 className="text-xs font-semibold flex items-center gap-1.5">
+          <div className="flex flex-col gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
+            <h4 className="text-xs font-semibold flex shrink-0 items-center gap-1.5 whitespace-nowrap">
               <Upload size="0.8125rem" className="text-[var(--primary)]" />
               {localizeUi("ui.characters.spritestab.addSprite")}
             </h4>
-            <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <div className="flex flex-wrap items-center gap-2 @lg:justify-end">
               <button
                 type="button"
                 onClick={() => setSpriteGenOpen(true)}
@@ -6068,13 +6068,13 @@ function SpritesTab({
         )}
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="shimmer aspect-[3/4] rounded-xl" />
             ))}
           </div>
         ) : visibleSprites.length ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
             {visibleSprites.map((sprite) => (
               <div
                 key={sprite.expression}
@@ -6089,7 +6089,7 @@ function SpritesTab({
                 >
                   <img
                     src={sprite.url}
-                    alt={sprite.expression}
+                    alt={sprite.label ?? sprite.expression}
                     loading="lazy"
                     className="h-full w-full object-contain"
                   />
@@ -6104,12 +6104,12 @@ function SpritesTab({
                   >
                     {displayExpression(sprite.expression)}
                     {library.folderId === "all" && (
-                      <span className="mt-1 block text-xs font-normal text-[var(--muted-foreground)]">
+                      <span className="mt-1 block text-xs font-normal normal-case text-[var(--muted-foreground)]">
                         {sprite.folderName ?? localizeUi("sprites.library.unfiled")}
                       </span>
                     )}
                   </span>
-                  <div className="flex flex-wrap gap-1 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity">
+                  <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 rounded-lg bg-[var(--card)] p-1 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:static max-md:opacity-100 pointer-coarse:static pointer-coarse:opacity-100">
                     <button
                       type="button"
                       onClick={() => setFramingSprite(sprite)}

@@ -5674,6 +5674,7 @@
   "sprites.library.selected_one": "{{count}} selected",
   "sprites.library.selected_other": "{{count}} selected",
   "sprites.library.selectSprite": "Select {{name}}",
+  "sprites.library.selectSpriteInFolder": "Select {{name}} in {{folder}}",
   "sprites.library.unfiled": "Unfiled",
   "tts.assignments.noMatchingSpeakers": "No characters or personas match that search.",
   "tts.assignments.personaOption": "{{name}} (Persona)",
