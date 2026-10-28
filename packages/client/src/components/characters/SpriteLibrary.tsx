@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Folder, FolderPlus, Search, Star, Trash2 } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Folder, FolderPlus, Pencil, Search, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
@@ -9,7 +9,7 @@ import { cn } from "../../lib/utils";
 
 const control =
   "min-h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
-const button = `${control} inline-flex items-center justify-center gap-1.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-50`;
+const button = "mari-editor-action min-h-11 px-3 md:min-h-9";
 
 export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
   const query = useSpriteCatalog(ownerId);
@@ -17,6 +17,12 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
   const [folderId, setFolderId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  useEffect(() => {
+    setSelected((current) => {
+      const next = current.filter((expression) => sprites.some((sprite) => sprite.expression === expression));
+      return next.length === current.length ? current : next;
+    });
+  }, [sprites]);
   const folders = query.data?.folders ?? [];
   const counts = new Map<string, number>([["all", sprites.length]]);
   for (const sprite of sprites) {
@@ -66,9 +72,23 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
 
 type Library = ReturnType<typeof useSpriteLibrary>;
 
-export function SpriteLibraryShell({ library, children }: { library: Library; children: ReactNode }) {
+export function SpriteLibraryShell({
+  library,
+  children,
+  toolbar,
+  selectionActions,
+  busy = false,
+}: {
+  library: Library;
+  children: ReactNode;
+  toolbar?: ReactNode;
+  selectionActions?: ReactNode;
+  busy?: boolean;
+}) {
   const { t } = useTranslation();
+  const detailsId = useId();
   const [creating, setCreating] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [moveTo, setMoveTo] = useState("unfiled");
   const current = library.folders.find((folder) => folder.id === library.folderId);
@@ -76,8 +96,10 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
   const label = (key: string) => t(`sprites.library.${key}`);
   const choices = [{ id: "all", name: label("all") }, { id: "unfiled", name: label("unfiled") }, ...library.folders];
   const title = choices.find((choice) => choice.id === library.folderId)?.name ?? label("missingFolder");
+  const defaultName = choices.find((choice) => choice.id === defaultId)?.name ?? label("unfiled");
   return (
-    <div className="@container min-w-0" data-sprite-library>
+    <div className="@container min-w-0 space-y-4" data-sprite-library>
+      {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
       <div className="grid min-w-0 gap-5 @xl:grid-cols-[10rem_minmax(0,1fr)]">
         <aside className="min-w-0 space-y-3" aria-label={label("folders")}>
           <div className="flex items-center justify-between gap-2">
@@ -86,6 +108,8 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
               type="button"
               className={button}
               aria-label={label("newFolder")}
+              aria-expanded={creating}
+              disabled={busy}
               onClick={() => setCreating(!creating)}
             >
               <FolderPlus size={16} />
@@ -94,6 +118,7 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
           <select
             className={`${control} w-full @xl:hidden`}
             value={library.folderId}
+            disabled={busy}
             aria-label={label("browseFolder")}
             onChange={(event) => library.chooseFolder(event.target.value)}
           >
@@ -108,10 +133,11 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
               <button
                 type="button"
                 key={choice.id}
+                disabled={busy}
                 onClick={() => library.chooseFolder(choice.id)}
                 aria-pressed={choice.id === library.folderId}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                  "flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors disabled:opacity-50 md:min-h-9",
                   choice.id === library.folderId
                     ? "bg-[var(--primary)]/15 text-[var(--foreground)]"
                     : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
@@ -155,86 +181,111 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
               <button className={`${button} w-full`} disabled={library.mutation.isPending}>
                 {label("create")}
               </button>
+              <button type="button" className={`${button} w-full`} onClick={() => setCreating(false)}>
+                {label("cancel")}
+              </button>
             </form>
           )}
           {current && (
-            <details className="space-y-2 text-xs" key={current.id}>
-              <summary className="cursor-pointer py-2 text-[var(--muted-foreground)]">{label("folderDetails")}</summary>
-              <form
-                className="space-y-2 pt-2"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const form = new FormData(event.currentTarget);
-                  await library.mutate("patch", `folders/${current.id}`, {
-                    name: form.get("name"),
-                    description: form.get("description"),
-                  });
-                }}
-              >
-                <label className="block space-y-1">
-                  <span>{label("folderName")}</span>
-                  <input
-                    name="name"
-                    className={`${control} w-full`}
-                    defaultValue={current.name}
-                    maxLength={100}
-                    required
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span>{label("description")}</span>
-                  <textarea
-                    name="description"
-                    className={`${control} w-full`}
-                    defaultValue={current.description}
-                    maxLength={500}
-                    rows={3}
-                  />
-                </label>
-                <button className={`${button} w-full`} disabled={library.mutation.isPending}>
-                  {label("saveFolder")}
-                </button>
-              </form>
+            <div className="space-y-2 text-xs" key={current.id}>
               <button
                 type="button"
-                className={`${button} w-full text-[var(--destructive)]`}
-                disabled={library.mutation.isPending}
-                onClick={async () => {
-                  if (
-                    !(await showConfirmDialog({
-                      title: label("removeFolder"),
-                      message: label("removeFolderMessage"),
-                      confirmLabel: label("removeFolder"),
-                      tone: "destructive",
-                    }))
-                  )
-                    return;
-                  if (await library.mutate("delete", `folders/${current.id}`)) library.chooseFolder("unfiled");
-                }}
+                className={`${button} w-full`}
+                aria-expanded={editingFolder === current.id}
+                aria-controls={detailsId}
+                disabled={busy}
+                onClick={() => setEditingFolder(editingFolder === current.id ? null : current.id)}
               >
-                <Trash2 size={14} />
-                {label("removeFolder")}
+                <Pencil size={14} />
+                {label("folderDetails")}
               </button>
-            </details>
+              {editingFolder === current.id && (
+                <div id={detailsId}>
+                  <form
+                    className="space-y-2 pt-2"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      const form = new FormData(event.currentTarget);
+                      const result = await library.mutate("patch", `folders/${current.id}`, {
+                        name: form.get("name"),
+                        description: form.get("description"),
+                      });
+                      if (result) setEditingFolder(null);
+                    }}
+                  >
+                    <label className="block space-y-1">
+                      <span>{label("folderName")}</span>
+                      <input
+                        name="name"
+                        className={`${control} w-full`}
+                        defaultValue={current.name}
+                        maxLength={100}
+                        required
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span>{label("description")}</span>
+                      <textarea
+                        name="description"
+                        className={`${control} w-full`}
+                        defaultValue={current.description}
+                        maxLength={500}
+                        rows={3}
+                      />
+                    </label>
+                    <button className={`${button} w-full`} disabled={library.mutation.isPending}>
+                      {label("saveFolder")}
+                    </button>
+                  </form>
+                  <button
+                    type="button"
+                    className={`${button} mari-editor-action--danger mt-2 w-full`}
+                    disabled={library.mutation.isPending}
+                    onClick={async () => {
+                      if (
+                        !(await showConfirmDialog({
+                          title: label("removeFolder"),
+                          message: label("removeFolderMessage"),
+                          confirmLabel: label("removeFolder"),
+                          tone: "destructive",
+                        }))
+                      )
+                        return;
+                      if (await library.mutate("delete", `folders/${current.id}`)) library.chooseFolder("unfiled");
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    {label("removeFolder")}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </aside>
         <div className="@container min-w-0 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h4 className="break-words text-base font-semibold">{title}</h4>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                {current?.description || label("browseHint")}
+              {current?.description && (
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">{current.description}</p>
+              )}
+              <p
+                className="mt-1 inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]"
+                data-sprite-default
+              >
+                <Star size={12} className="shrink-0" />
+                {t("sprites.library.chatDefault", { name: defaultName })}
               </p>
             </div>
-            {library.folderId !== "all" && (
+            {library.folderId !== "all" && defaultId !== library.folderId && (
               <button
                 type="button"
                 className={button}
-                disabled={library.mutation.isPending || defaultId === library.folderId}
+                disabled={library.mutation.isPending || busy}
                 onClick={() => void library.mutate("patch", "catalog", { defaultFolderId: library.uploadFolderId })}
               >
                 <Star size={14} />
-                {defaultId === library.folderId ? label("defaultForChats") : label("makeDefault")}
+                {label("makeDefault")}
               </button>
             )}
           </div>
@@ -257,10 +308,16 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
               {label("loadError")}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2 text-xs",
+              library.selected.length > 0 && "rounded-xl bg-[var(--secondary)] p-3",
+            )}
+          >
             <label className="inline-flex min-h-11 items-center gap-2 md:min-h-8">
               <input
                 type="checkbox"
+                disabled={busy || library.visible.length === 0}
                 checked={
                   library.visible.length > 0 &&
                   library.visible.every((sprite) => library.selected.includes(sprite.expression))
@@ -269,7 +326,7 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
                   library.setSelected(event.target.checked ? library.visible.map((sprite) => sprite.expression) : [])
                 }
               />
-              {t("sprites.library.count", { count: library.visible.length })}
+              {t("sprites.library.selectAll", { count: library.visible.length })}
             </label>
             {library.selected.length > 0 && (
               <>
@@ -278,6 +335,7 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
                   className={control}
                   aria-label={label("destination")}
                   value={moveTo}
+                  disabled={busy || library.mutation.isPending}
                   onChange={(event) => setMoveTo(event.target.value)}
                 >
                   <option value="unfiled">{label("unfiled")}</option>
@@ -290,7 +348,7 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
                 <button
                   type="button"
                   className={button}
-                  disabled={library.mutation.isPending}
+                  disabled={library.mutation.isPending || busy}
                   onClick={async () => {
                     if (
                       await library.mutate("post", "move", {
@@ -303,6 +361,16 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
                 >
                   {label("move")}
                 </button>
+                {selectionActions}
+                <button
+                  type="button"
+                  className={button}
+                  disabled={busy}
+                  onClick={() => library.setSelected([])}
+                  aria-label={label("clearSelection")}
+                >
+                  <X size={14} />
+                </button>
               </>
             )}
           </div>
@@ -313,12 +381,21 @@ export function SpriteLibraryShell({ library, children }: { library: Library; ch
   );
 }
 
-export function SpriteSelection({ library, sprite }: { library: Library; sprite: SpriteInfo }) {
+export function SpriteSelection({
+  library,
+  sprite,
+  disabled = false,
+}: {
+  library: Library;
+  sprite: SpriteInfo;
+  disabled?: boolean;
+}) {
   const { t } = useTranslation();
   return (
-    <label className="absolute left-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--card)]/90">
+    <label className="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--card)]/90 md:h-9 md:w-9">
       <input
         type="checkbox"
+        disabled={disabled}
         checked={library.selected.includes(sprite.expression)}
         onChange={() => library.toggle(sprite.expression)}
         aria-label={t("sprites.library.selectSpriteInFolder", {
