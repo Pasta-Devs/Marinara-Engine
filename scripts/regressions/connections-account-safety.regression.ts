@@ -75,6 +75,10 @@ const context = {
   service: "custom",
   startKind: () => "chat",
   setSetupKind: () => {},
+  finishAdded: async () => {
+    calls.push("done");
+  },
+  newChatMode: undefined,
   setStep: () => {
     calls.push("models");
   },
@@ -91,11 +95,11 @@ for (const testResult of [{ success: false }, new Error("network")]) {
 }
 calls.length = 0;
 await createHandler(context)(true);
-assert.deepEqual(calls, ["create", "models"]);
+assert.deepEqual(calls, ["create", "done"]);
 calls.length = 0;
 result = { success: true };
 await createHandler(context)();
-assert.deepEqual(calls, ["create", "test", "models"]);
+assert.deepEqual(calls, ["create", "test", "done"]);
 calls.length = 0;
 result = { success: false };
 await createHandler({ ...context, target: { accountId: "existing", connectionId: "row", fresh: false } })();

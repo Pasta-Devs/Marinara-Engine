@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Check, ChevronDown, ChevronRight, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { PROVIDERS, withKeyTail, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
-import type { ConnectionRowData } from "../../connections/ConnectionRow";
-import { ServiceRow } from "../../connections/ServiceRow";
+import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { BrandMark } from "../../connections/ProviderIcon";
 import { BuiltInModelSetup } from "./BuiltInModelSetup";
 import { LocalWhisper } from "../../connections/DeviceDetail";
@@ -34,16 +32,9 @@ export interface AccessStepProps {
   provider: APIProvider | null;
   service: ServiceId | null;
   device: DeviceService | null;
-  deviceSetUp: boolean;
   selectedMedia: MediaBackend | null;
   def: ProviderDefinition | null;
-  choosing: boolean;
-  connectedAccounts: ConnectionAccountListItem[];
-  accountRows: (accountId: string) => ConnectionRowData[];
   closeBlocked: boolean;
-  showModelsOf: (accountId: string) => Promise<void>;
-  connectSecond: () => void;
-  second: boolean;
   keyless: boolean;
   isLocal: boolean;
   isMedia: boolean;
@@ -64,8 +55,6 @@ export interface AccessStepProps {
   setMaxRpm: (value: string) => void;
   maxJobs: string;
   setMaxJobs: (value: string) => void;
-  existing?: ConnectionAccountListItem;
-  secondaryClass: string;
   serviceHint: (service: ServiceId) => string;
   serviceName: (service: ServiceId) => string;
   modelCount?: number;
@@ -112,7 +101,7 @@ export function AccessStep(props: AccessStepProps) {
           autoComplete="off"
           spellCheck={false}
           autoCapitalize="off"
-          aria-describedby={props.tested ? "add-connection-key-help add-connection-result" : "add-connection-key-help"}
+          aria-describedby={props.tested ? "add-connection-result" : "add-connection-key-help"}
           className={cn(inputClass, "min-w-0 flex-1 font-mono")}
         />
         <button
@@ -121,14 +110,11 @@ export function AccessStep(props: AccessStepProps) {
           aria-pressed={props.showKey}
           aria-label={t("connections.add.showKey")}
           title={t("connections.add.showKey")}
-          className="mari-connection-btn mari-connection-btn--icon"
+          className="mari-chrome-control mari-chrome-control--compact"
         >
           {props.showKey ? <EyeOff size="0.875rem" aria-hidden /> : <Eye size="0.875rem" aria-hidden />}
         </button>
       </div>
-      <p id="add-connection-key-help" className="text-[0.6875rem] text-[var(--muted-foreground)]">
-        {t("connections.add.keySaved")}
-      </p>
       {keyUrl && !optional && (
         <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem]">
           <a
@@ -156,9 +142,6 @@ export function AccessStep(props: AccessStepProps) {
               <ServiceTile service={props.device} />
               <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
                 <p>{t(`connections.add.hint.${props.device}`)}</p>
-                <p data-add-connection-device-state className="mt-1 text-[0.6875rem]">
-                  {t(props.deviceSetUp ? "connections.add.deviceReady" : "connections.add.deviceNotSetUp")}
-                </p>
               </div>
             </div>
             {props.device === "local_model" && <BuiltInModelSetup />}
@@ -181,246 +164,186 @@ export function AccessStep(props: AccessStepProps) {
             <ServiceTile service={props.service ?? props.provider} />
             <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
               <p>{props.service ? props.serviceHint(props.service) : t(`connections.add.hint.${props.provider}`)}</p>
-              {props.def?.billing && !props.choosing && (
-                <p className="mt-0.5 text-[0.6875rem]">{t(`connections.add.billingInfo.${props.def.billing}`)}</p>
-              )}
             </div>
           </div>
-          {props.choosing ? (
-            <div data-add-connection-existing className="flex flex-col gap-3">
-              <ul className="flex flex-col gap-2">
-                {props.connectedAccounts.map((account) => (
-                  <li key={account.id} className="mari-connection-group">
-                    <ServiceRow
-                      account={account}
-                      rows={props.accountRows(account.id)}
-                      count={t("connections.list.models", { count: props.accountRows(account.id).length })}
-                      state={account.state}
-                      stateLabel={t(`connections.accounts.state.${account.state}`)}
-                      billing={account.billing}
-                      data-add-connection-existing-account={account.id}
-                      onClick={() => void props.showModelsOf(account.id)}
-                      disabled={props.closeBlocked}
-                      trailing={
-                        <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
+          {props.isLocal && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-connection-url" className={labelClass}>
+                {t("connections.add.serverAddress")}
+              </label>
+              <input
+                id="add-connection-url"
+                ref={props.keyRef}
+                value={props.baseUrl}
+                onChange={(event) => {
+                  props.setBaseUrl(event.target.value);
+                  props.resetTest();
+                }}
+                placeholder={props.selectedMedia ? undefined : LOCAL_PRESETS[0]!.url}
+                inputMode="url"
+                spellCheck={false}
+                autoCapitalize="off"
+                aria-describedby={props.tested ? "add-connection-result" : undefined}
+                className={cn(inputClass, "font-mono")}
+              />
+              {!props.selectedMedia && (
+                <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
+                  {LOCAL_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        props.setBaseUrl(preset.url);
+                        props.resetTest();
+                      }}
+                      aria-pressed={props.baseUrl.trim() === preset.url}
+                      className="mari-connection-chip gap-1"
+                    >
+                      <BrandMark of={preset.label} className="h-3 w-3" />
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {failure !== "key" && (
+                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
+              )}
+            </div>
+          )}
+          {props.requiresAccessKey && keyField(false)}
+          {props.isLocal && failure === "key" && keyField(true)}
+          {props.tested && (
+            <div
+              id="add-connection-result"
+              role="status"
+              data-add-connection-result={props.tested.success ? "ok" : "failed"}
+              className={cn(
+                "flex items-start gap-3 rounded-xl border p-3",
+                props.tested.success
+                  ? "border-emerald-500/30 bg-emerald-500/5"
+                  : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                  props.tested.success
+                    ? "bg-emerald-500/15 text-emerald-500"
+                    : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
+                )}
+              >
+                {props.tested.success ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
+              </span>
+              <div className="min-w-0 flex-1">
+                {props.tested.success ? (
+                  <p className="text-sm font-medium">
+                    {props.modelCount === undefined
+                      ? t("connections.add.connected")
+                      : t("connections.add.connectedModels", { count: props.modelCount })}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">
+                      {t(`connections.add.error.${failure ?? "other"}`, {
+                        host:
+                          hostOf(
+                            props.baseUrl.trim() ||
+                              props.selectedMedia?.defaultBaseUrl ||
+                              props.def?.defaultBaseUrl ||
+                              "",
+                          ) || props.serviceName(props.service ?? props.provider!),
+                      })}
+                    </p>
+                    {props.tested.message && (
+                      <p className="mt-1 break-words font-mono text-[0.625rem] text-[var(--muted-foreground)]">
+                        {props.tested.message}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                      {failure === "plan" && props.provider && LOGIN_COMMANDS[props.provider]
+                        ? t("connections.add.loginHint", { command: LOGIN_COMMANDS[props.provider] })
+                        : t(
+                            failure === "key"
+                              ? "connections.add.retryKey"
+                              : props.isLocal
+                                ? "connections.add.retryLocal"
+                                : "connections.add.retryKey",
+                          )}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {(!props.isMedia || props.selectedMedia) && (
+            <>
               <button
                 type="button"
-                data-add-connection-make-new
-                onClick={props.connectSecond}
-                className={cn(props.secondaryClass, "self-start")}
+                onClick={() => props.setMoreOpen((value) => !value)}
+                aria-expanded={props.moreOpen}
+                aria-controls="add-connection-more"
+                className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
               >
-                {t("connections.add.makeNew")}
+                <ChevronDown size="0.75rem" className={cn("transition-transform", props.moreOpen && "rotate-180")} />
+                {t("connections.add.moreOptions")}
               </button>
-            </div>
-          ) : (
-            <>
-              {props.second && !props.keyless && (
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {t(props.isLocal ? "connections.add.secondServer" : "connections.add.secondKey")}
-                </p>
-              )}
-              {props.isLocal && (
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="add-connection-url" className={labelClass}>
-                    {t("connections.add.serverAddress")}
+              <SmoothFolderContent open={props.moreOpen}>
+                <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
+                  {props.isLocal && failure !== "key" && keyField(true)}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
+                    <input
+                      value={props.name}
+                      onChange={(event) => props.setName(event.target.value)}
+                      placeholder={props.def?.name}
+                      className={inputClass}
+                    />
                   </label>
-                  <input
-                    id="add-connection-url"
-                    ref={props.keyRef}
-                    value={props.baseUrl}
-                    onChange={(event) => {
-                      props.setBaseUrl(event.target.value);
-                      props.resetTest();
-                    }}
-                    placeholder={props.selectedMedia ? undefined : LOCAL_PRESETS[0]!.url}
-                    inputMode="url"
-                    spellCheck={false}
-                    autoCapitalize="off"
-                    aria-describedby={props.tested ? "add-connection-result" : undefined}
-                    className={cn(inputClass, "font-mono")}
-                  />
-                  {!props.selectedMedia && (
-                    <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
-                      {LOCAL_PRESETS.map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => {
-                            props.setBaseUrl(preset.url);
-                            props.resetTest();
-                          }}
-                          aria-pressed={props.baseUrl.trim() === preset.url}
-                          className="mari-connection-chip gap-1"
-                        >
-                          <BrandMark of={preset.label} className="h-3 w-3" />
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
+                  {!props.isLocal && (!props.keyless || props.selectedMedia) && (
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
+                      <input
+                        value={props.baseUrl}
+                        onChange={(event) => {
+                          props.setBaseUrl(event.target.value);
+                          props.resetTest();
+                        }}
+                        placeholder={props.selectedMedia?.defaultBaseUrl ?? props.def?.defaultBaseUrl}
+                        inputMode="url"
+                        className={cn(inputClass, "font-mono")}
+                      />
+                    </label>
                   )}
-                  {failure !== "key" && (
-                    <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {t("connections.add.noKeyNeeded")}
-                    </p>
-                  )}
-                </div>
-              )}
-              {props.requiresAccessKey && keyField(false)}
-              {props.isLocal && failure === "key" && keyField(true)}
-              {props.keyless && (
-                <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.keyless")}</p>
-              )}
-              {props.isMedia && (
-                <p className="text-xs text-[var(--muted-foreground)]">{t("connections.add.mediaNext")}</p>
-              )}
-              {props.tested && (
-                <div
-                  id="add-connection-result"
-                  role="status"
-                  data-add-connection-result={props.tested.success ? "ok" : "failed"}
-                  className={cn(
-                    "flex items-start gap-3 rounded-xl border p-3",
-                    props.tested.success
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : "border-[var(--destructive)]/40 bg-[var(--destructive)]/5",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                      props.tested.success
-                        ? "bg-emerald-500/15 text-emerald-500"
-                        : "bg-[var(--destructive)]/15 text-[var(--destructive)]",
-                    )}
-                  >
-                    {props.tested.success ? <Check size="1rem" aria-hidden /> : <AlertCircle size="1rem" aria-hidden />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {props.tested.success ? (
-                      <p className="text-sm font-medium">
-                        {props.modelCount === undefined
-                          ? t("connections.add.connected")
-                          : t("connections.add.connectedModels", { count: props.modelCount })}
-                      </p>
-                    ) : (
-                      <>
-                        <p className="text-sm font-medium">
-                          {t(`connections.add.error.${failure ?? "other"}`, {
-                            host:
-                              hostOf(
-                                props.baseUrl.trim() ||
-                                  props.selectedMedia?.defaultBaseUrl ||
-                                  props.def?.defaultBaseUrl ||
-                                  "",
-                              ) || props.serviceName(props.service ?? props.provider!),
-                          })}
-                        </p>
-                        {props.tested.message && (
-                          <p className="mt-1 break-words font-mono text-[0.625rem] text-[var(--muted-foreground)]">
-                            {props.tested.message}
-                          </p>
-                        )}
-                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                          {failure === "plan" && props.provider && LOGIN_COMMANDS[props.provider]
-                            ? t("connections.add.loginHint", { command: LOGIN_COMMANDS[props.provider] })
-                            : t(
-                                failure === "key"
-                                  ? "connections.add.retryKey"
-                                  : props.isLocal
-                                    ? "connections.add.retryLocal"
-                                    : "connections.add.retryKey",
-                              )}
-                        </p>
-                      </>
-                    )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.maxRequestsPerMinute")}
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={props.maxRpm}
+                        onChange={(event) => props.setMaxRpm(event.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.maxParallelJobs")}
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={16}
+                        value={props.maxJobs}
+                        onChange={(event) => props.setMaxJobs(event.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
                   </div>
                 </div>
-              )}
-              {(!props.isMedia || props.selectedMedia) && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => props.setMoreOpen((value) => !value)}
-                    aria-expanded={props.moreOpen}
-                    aria-controls="add-connection-more"
-                    className="flex min-h-11 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
-                  >
-                    <ChevronDown
-                      size="0.75rem"
-                      className={cn("transition-transform", props.moreOpen && "rotate-180")}
-                    />
-                    {t("connections.add.moreOptions")}
-                  </button>
-                  <SmoothFolderContent open={props.moreOpen}>
-                    <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
-                      {props.isLocal && failure !== "key" && keyField(true)}
-                      <label className="flex flex-col gap-1">
-                        <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
-                        <input
-                          value={props.name}
-                          onChange={(event) => props.setName(event.target.value)}
-                          placeholder={
-                            !props.isLocal && props.existing
-                              ? withKeyTail(props.def?.name ?? "", props.apiKey)
-                              : props.def?.name
-                          }
-                          className={inputClass}
-                        />
-                      </label>
-                      {!props.isLocal && (!props.keyless || props.selectedMedia) && (
-                        <label className="flex flex-col gap-1">
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {t("connections.add.endpoint")}
-                          </span>
-                          <input
-                            value={props.baseUrl}
-                            onChange={(event) => {
-                              props.setBaseUrl(event.target.value);
-                              props.resetTest();
-                            }}
-                            placeholder={props.selectedMedia?.defaultBaseUrl ?? props.def?.defaultBaseUrl}
-                            inputMode="url"
-                            className={cn(inputClass, "font-mono")}
-                          />
-                        </label>
-                      )}
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="flex flex-col gap-1">
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {t("connections.add.maxRequestsPerMinute")}
-                          </span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={600}
-                            value={props.maxRpm}
-                            onChange={(event) => props.setMaxRpm(event.target.value)}
-                            className={inputClass}
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1">
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            {t("connections.add.maxParallelJobs")}
-                          </span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={16}
-                            value={props.maxJobs}
-                            onChange={(event) => props.setMaxJobs(event.target.value)}
-                            className={inputClass}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </SmoothFolderContent>
-                </>
-              )}
+              </SmoothFolderContent>
             </>
           )}
         </div>

@@ -11,12 +11,10 @@ import {
   type APIProvider,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
-import { IconTile } from "../../connections/ProviderIcon";
-import { StarText } from "../../connections/StarText";
-import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import {
   useCreateConnection,
   useConnectionModels,
+  useCountConnectionModels,
   useConnections,
   useDefaultEmbeddingConnection,
   useDeleteConnection,
@@ -38,7 +36,6 @@ import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
 import { useSelectDecisionModel } from "../../../hooks/use-decision-model";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
-import { useDeviceSetup } from "../../../hooks/use-device-setup";
 import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../../lib/add-connection";
 import { JOB, jobAddKind, jobLabelKey, matchesKind } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
@@ -47,17 +44,13 @@ import { DecisionModelModal } from "../DecisionModelModal";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
 import { ServiceListStep } from "./ServiceListStep";
-import { useServiceListData } from "./useServiceListData";
 import { starAnchorOf } from "../../../hooks/use-model-star";
 import { isConnectionFlagTrue } from "../../../lib/connection-filters";
-import { jobsForAddedKinds } from "../../../lib/connection-add-adaptive";
 import { cn } from "../../../lib/utils";
 import {
   DECISION_BUILTIN,
-  DEVICE_ITEMS,
   JOB_PROVIDER,
   KEY_TAIL,
-  KIND_ICONS,
   LINKAPI,
   LINKAPI_SERVICE,
   NO_RECOMMENDED,
@@ -68,7 +61,6 @@ import {
   isDevice,
   jobSourceOf,
   NETWORK_ERROR,
-  jobKindsOf,
   kindsOf,
   mediaBackendOf,
   type AddableKind,
@@ -101,8 +93,6 @@ export interface CreateConnectionModalProps {
 /** A pasted "127.0.0.1:7999" is a valid address to the user; the server needs the scheme. */
 const withHttpScheme = (url: string) => (url && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? `http://${url}` : url);
 
-const BUILT_IN_JOBS: AddJob[] = ["agents", "quick", "mari", "decision", "embeddings", "main"];
-
 export function CreateConnectionModalContent({
   open,
   onClose,
@@ -128,8 +118,8 @@ export function CreateConnectionModalContent({
   const embeddingDefault = useDefaultEmbeddingConnection();
   const setEmbeddingDefault = useSetDefaultEmbeddingConnection();
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const deviceSetup = useDeviceSetup();
   const selectDecision = useSelectDecisionModel();
+  const countModels = useCountConnectionModels();
   const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
   const followVoiceJob = useFollowVoiceJob();
 
@@ -174,25 +164,23 @@ export function CreateConnectionModalContent({
   const runJobTestAction = useRef<() => Promise<void>>(async () => {});
   const [query, setQuery] = useState("");
   // Existing users open their services; the browse row opens the complete service list.
-  const [pick, setPick] = useState<"job" | "model" | "provider" | null>(null);
   // The job this window adds for (a job picker, "For a job…"); Done sets the new Model for it.
-  const [jobFor, setJobFor] = useState<AddFor | null>(forJob ?? null);
+  const jobFor = forJob ?? null;
   const job = jobFor?.job ?? null;
   // The kind chip in step 1; step 3 starts on the same kind.
-  const [kindFilter, setKindFilter] = useState<ChipKind | null>(
-    forJob ? (forJob.job ? (jobAddKind(forJob.job) ?? null) : (forJob.kind ?? null)) : null,
-  );
+  const kindFilter: ChipKind | null = forJob
+    ? forJob.job
+      ? (jobAddKind(forJob.job) ?? null)
+      : (forJob.kind ?? null)
+    : null;
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   // A service that is already connected: the user chose to connect a second account of it.
-  const [second, setSecond] = useState(false);
   // Step 3's footer; null = "Make Main" is on when there is no Main model yet.
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
   const [useInChat, setUseInChat] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [choosingJobs, setChoosingJobs] = useState(false);
-  const [selectedJobs, setSelectedJobs] = useState<AddJob[]>([]);
   // Set once from the first loaded list: first run means no connection rows exist.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -247,7 +235,7 @@ export function CreateConnectionModalContent({
     const fine = window.matchMedia?.("(pointer: fine)").matches;
     if (step === 2 && fine && keyRef.current) keyRef.current.focus();
     else if (step !== 3 || !fine) headingRef.current?.focus();
-  }, [step, provider, pick, job]);
+  }, [step, provider, job]);
 
   const serviceName = (key: ServiceId) => {
     const media = mediaBackendOf(key);
@@ -270,45 +258,6 @@ export function CreateConnectionModalContent({
       : errorText(error);
   const serviceHint = (key: ServiceId) =>
     mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key.replace(":", "_")}`);
-  const kindItems = (key: ServiceId) =>
-    kindsOf(key).flatMap((kind) =>
-      // A chat service's decision and voice jobs show only when that job is searched for.
-      kind in KIND_ICONS && (kind === kindFilter || !jobKindsOf(key).includes(kind))
-        ? [{ kind: kind as ChipKind, label: t(`connections.add.kind.${kind}`) }]
-        : [],
-    );
-
-  // Throw away the empty Model of a Connection that was created but never got a Model picked.
-  const discard = async () => {
-    if (!target) return;
-    try {
-      if (picks.length > 0) {
-        // A kind looked at but left without a model leaves an empty placeholder behind.
-        const picked = new Set(picks.map((pick) => pick.connectionId));
-        for (const id of target.ownedPlaceholderIds ?? []) {
-          const row = allRows.find((candidate) => candidate.id === id);
-          if (picked.has(id)) {
-            // A model tapped after a passed test gives way to the one that passed.
-            const passed = passedJob.current[id];
-            if (passed && row && row.model !== passed.model) await updateRow.mutateAsync({ id, ...passed });
-            continue;
-          }
-          // A decision or voice Model stays only after its test passed (runJobTest records the pick).
-          if (row?.model?.trim() && row.provider !== "decision" && row.provider !== "audio") continue;
-          await deleteRow.mutateAsync(id);
-        }
-      } else if (target.fresh && !mediaSaved) {
-        for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
-          await deleteRow.mutateAsync(row.id);
-        }
-        await deleteAccount.mutateAsync(target.accountId);
-      } else {
-        for (const id of target.ownedPlaceholderIds ?? []) await deleteRow.mutateAsync(id);
-      }
-    } catch {
-      /* the Connection stays; the user can delete it in the panel */
-    }
-  };
 
   // Done applies the footer's choices. With no Main model yet the first model added becomes Main (its box starts
   // on); next to a Main model "Set as Main" acts at once instead.
@@ -353,21 +302,39 @@ export function CreateConnectionModalContent({
     }
   };
 
-  const jobLabel = (key: AddJob) => t(jobLabelKey(JOB[key]));
-  const chooseJob = (key: AddJob) => {
-    setQuery("");
-    const device = JOB[key].device;
-    if (device) {
-      void chooseService(device);
-      return;
+  // Throw away the empty Model of a Connection that was created but never got a Model picked.
+  const discard = async () => {
+    if (!target) return;
+    try {
+      if (picks.length > 0) {
+        // A kind looked at but left without a model leaves an empty placeholder behind.
+        const picked = new Set(picks.map((pick) => pick.connectionId));
+        for (const id of target.ownedPlaceholderIds ?? []) {
+          const row = allRows.find((candidate) => candidate.id === id);
+          if (picked.has(id)) {
+            // A model tapped after a passed test gives way to the one that passed.
+            const passed = passedJob.current[id];
+            if (passed && row && row.model !== passed.model) await updateRow.mutateAsync({ id, ...passed });
+            continue;
+          }
+          // A decision or voice Model stays only after its test passed (runJobTest records the pick).
+          if (row?.model?.trim() && row.provider !== "decision" && row.provider !== "audio") continue;
+          await deleteRow.mutateAsync(id);
+        }
+      } else if (target.fresh && !mediaSaved) {
+        for (const row of allRows.filter((row) => row.accountId === target.accountId)) {
+          await deleteRow.mutateAsync(row.id);
+        }
+        await deleteAccount.mutateAsync(target.accountId);
+      } else {
+        for (const id of target.ownedPlaceholderIds ?? []) await deleteRow.mutateAsync(id);
+      }
+    } catch {
+      /* the Connection stays; the user can delete it in the panel */
     }
-    setJobFor({ job: key });
-    setKindFilter(jobAddKind(key) ?? null);
   };
-  const clearJob = () => {
-    setJobFor(null);
-    setKindFilter(null);
-  };
+
+  const jobLabel = (key: AddJob) => t(jobLabelKey(JOB[key]));
   // Adding for a job: the first new Model of the job's kind is set for it; the result undoes that.
   const jobKind = job ? jobAddKind(job) : jobFor?.kind;
   const jobPick = jobFor && jobKind ? picks.find((pick) => pick.kind === jobKind) : undefined;
@@ -444,7 +411,7 @@ export function CreateConnectionModalContent({
     setFinishing(true);
     let undo: (() => void) | null = null;
     try {
-      if (saveChoices && !choosingJobs && !(await applyChoices())) return;
+      if (saveChoices && !(await applyChoices())) return;
       if (saveChoices) {
         try {
           undo = await assignJob();
@@ -485,7 +452,6 @@ export function CreateConnectionModalContent({
     setMaxRpm("");
     setMaxJobs("");
     setMoreOpen(false);
-    setSecond(false);
     setSetupKind(null);
     setMediaRowId(null);
     setMediaSaved(false);
@@ -552,20 +518,28 @@ export function CreateConnectionModalContent({
     ...(name.trim() || autoName
       ? { name: name.trim() || autoName }
       : // The server would name a voice or decision Connection "Audio" / "Decision"; it is named for its service.
-        selectedMedia?.job && service
-        ? {
-            name:
-              connectedAccounts.length > 0 && apiKey.trim()
-                ? withKeyTail(serviceName(service), apiKey)
-                : serviceName(service),
-          }
-        : {}),
+        {}),
     apiKey: keyless ? "" : apiKey.trim(),
     baseUrl:
       withHttpScheme(baseUrl.trim()) || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
     maxRequestsPerMinute: maxRpm ? Math.min(600, Math.max(1, Math.trunc(Number(maxRpm)))) : null,
     maxParallelJobs: maxJobs ? Math.min(16, Math.max(1, Math.trunc(Number(maxJobs)))) : null,
   });
+
+  /** The window closes on the place the user came from; the toast says what arrived. */
+  const finishAdded = async (account: Target) => {
+    setFinishing(true);
+    const count = await countModels(account.connectionId);
+    const label = serviceName(service ?? provider!);
+    toast.success(
+      count === null
+        ? t("connections.add.added", { name: label })
+        : t("connections.add.addedCount", { name: label, count }),
+    );
+    flashConnectionCard(account.accountId);
+    resetFields();
+    onClose();
+  };
 
   /** Creates the Connection with its empty first Model (or updates it on a retry), tests it, and on success goes on. */
   const saveAndTest = async (continueAnyway = false) => {
@@ -598,12 +572,18 @@ export function CreateConnectionModalContent({
         };
         setTarget(current);
       }
-      if (isMedia) {
-        const mediaKinds = selectedMedia
-          ? (kindsOf(selectedMedia.id).filter((kind) => kind !== "local") as AddableKind[])
-          : ([provider === "video_generation" ? "video" : "image"] as AddableKind[]);
-        setSetupKind(startKind(mediaKinds));
-        setStep(3);
+      if (isMedia && selectedMedia) {
+        // The image or video service is the account's first row, so it is set up here.
+        await updateRow.mutateAsync({
+          id: current.placeholderId!,
+          provider: selectedMedia.image ? "image_generation" : "video_generation",
+          name: selectedMedia.name,
+          baseUrl: current.accountBaseUrl || selectedMedia.defaultBaseUrl,
+          ...(selectedMedia.image
+            ? { imageGenerationSource: selectedMedia.source, imageService: selectedMedia.source }
+            : { videoGenerationSource: selectedMedia.source, videoService: selectedMedia.source }),
+        });
+        await finishAdded(current);
         return;
       }
       const result = continueAnyway ? { success: true } : await testConnection.mutateAsync(current.connectionId);
@@ -616,8 +596,12 @@ export function CreateConnectionModalContent({
       const available: AddableKind[] = service
         ? kindsOf(service).filter((kind): kind is AddableKind => kind !== "local")
         : ["chat"];
-      setSetupKind(startKind(available));
-      setStep(3);
+      if (newChatMode) {
+        setSetupKind(startKind(available));
+        setStep(3);
+        return;
+      }
+      await finishAdded(current);
     } catch (error) {
       await discardFreshAccount();
       setTested({ success: false, message: errorText(error) });
@@ -756,43 +740,15 @@ export function CreateConnectionModalContent({
   };
 
   // ── Step 1: the service list ──
-  const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
-  const { connectedAccounts, badgesFor, searching, routesOf, listJobs, listModels, listGroups } = useServiceListData({
-    firstRun,
-    service,
-    target,
-    accounts,
-    rows: allRows,
-    accountRows,
-    kindFilter,
-    query,
-    pick,
-    step,
-    job,
-    newChatMode,
-    deviceAvailable: (key) => deviceSetup[DEVICE_ITEMS[key as DeviceService]].available,
-    deviceSetUp: (key) => deviceSetup[DEVICE_ITEMS[key as DeviceService]].setUp,
-    serviceName,
-    serviceHint,
-    kindItems,
-    jobLabel,
-    featureModels: featureModels.data,
-    embeddingId: embeddingDefault.data?.connectionId,
-  });
   // ── Step 2: access for the chosen service ──
-  const existing = connectedAccounts[0];
   // Already connected: the user picks one of those connections or makes a new one before any field shows.
-  const choosing = connectedAccounts.length > 0 && !target && !second;
   const failure = tested && !tested.success && provider ? failureReason(provider, tested.message ?? "") : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
-  const connectDisabled = busy || choosing || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
+  const connectDisabled = busy || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
   const resetTest = () => setTested(null);
-  const connectSecond = () => {
-    setSecond(true);
-    if (window.matchMedia?.("(pointer: fine)").matches) requestAnimationFrame(() => keyRef.current?.focus());
-  };
 
   // ── Step 3: star models ──
+  const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
   const chat = modelsFor?.chat;
   const targetRows = target ? accountRows(target.accountId) : [];
   const availableKinds = (() => {
@@ -827,164 +783,31 @@ export function CreateConnectionModalContent({
   // A chat service lists its own models for the job; the old Decision and Audio services keep theirs.
   const jobPicker = isJobKind && !!pickerRow && !!mediaRow && isChatProvider(pickerRow.provider ?? "");
   // The built-in model does the jobs a small local model can do; the rest need a real model.
-  const optionalJobs = picks.some((pick) => pick.connectionId === LOCAL_SIDECAR_CONNECTION_ID)
-    ? BUILT_IN_JOBS
-    : jobsForAddedKinds(picks.map((pick) => pick.kind));
-  const offerJobs = !jobFor && !modelsFor && !onStartChat && optionalJobs.length > 0;
-  // The built-in model has no model rows to pick: it goes straight to "Use it for…".
+  // The built-in model's own setup is the whole job.
   const continueBuiltIn = () => {
-    setPicks([
-      { connectionId: LOCAL_SIDECAR_CONNECTION_ID, modelId: LOCAL_SIDECAR_CONNECTION_ID, kind: "chat" },
-      { connectionId: LOCAL_SIDECAR_CONNECTION_ID, modelId: LOCAL_SIDECAR_CONNECTION_ID, kind: "decision" },
-    ]);
-    setSelectedJobs(["agents", "quick"]);
-    setStep(3);
-    setChoosingJobs(true);
+    toast.success(t("connections.add.added", { name: serviceName("local_model") }));
+    onClose();
   };
-  const finishModels = async () => {
-    if (!offerJobs) {
-      void close(true);
-      return;
-    }
-    setFinishing(true);
-    try {
-      if (!(await applyChoices())) return;
-      setMakeMain(false);
-    } finally {
-      setFinishing(false);
-    }
-    setSelectedJobs([]);
-    setChoosingJobs(true);
-    requestAnimationFrame(() => headingRef.current?.focus());
-  };
+  const finishModels = () => void close(true);
 
-  // ── Header: Back, the step's heading and "Step n of N" ──
-  const heading = choosingJobs
-    ? t("connections.add.useFor.heading")
-    : step === 1
-      ? t(
-          job
-            ? t("connections.add.heading.forJob", { job: jobLabel(job) })
-            : firstRun
-              ? "connections.add.heading.firstRun"
-              : pick === "model"
-                ? "connections.add.heading.forModel"
-                : pick === "provider"
-                  ? "connections.add.heading.forProvider"
-                  : "connections.add.heading.service",
-        )
-      : step === 2
-        ? device
-          ? t("connections.add.heading.device", { service: serviceName(device) })
-          : choosing
-            ? t("connections.add.heading.useExisting", { service: serviceName(service ?? provider!) })
-            : isMedia || keyless
-              ? t("connections.add.heading.connect", { service: serviceName(service ?? provider!) })
-              : isLocal
-                ? t("connections.add.heading.local")
-                : t("connections.add.heading.key", { service: serviceName(service ?? provider!) })
-        : step === 3
-          ? t("connections.add.heading.addModels", { name: targetName })
-          : "";
-  const subtitle = choosingJobs
-    ? t("connections.add.useFor.body")
-    : step === 1
-      ? newChatMode
-        ? t("connections.add.sub.gate", { mode: t(`connections.add.mode.${newChatMode}`) })
-        : job
-          ? t("connections.add.sub.job", { job: jobLabel(job) })
-          : firstRun
-            ? t("connections.add.sub.firstRun")
-            : t(
-                pick === "model"
-                  ? "connections.add.subtitle.forModel"
-                  : pick === "provider"
-                    ? "connections.add.subtitle.forProvider"
-                    : "connections.add.subtitle.pick",
-              )
-      : step === 2
-        ? t(
-            device
-              ? "connections.add.sub.device"
-              : choosing
-                ? "connections.add.sub.useExisting"
-                : isMedia
-                  ? "connections.add.sub.media"
-                  : keyless
-                    ? "connections.add.sub.plan"
-                    : isLocal
-                      ? "connections.add.sub.local"
-                      : "connections.add.sub.key",
-          )
-        : step === 3
-          ? t(
-              setupKind === "image" || setupKind === "video"
-                ? "connections.add.sub.mediaModels"
-                : setupKind === "decision"
-                  ? "connections.add.sub.decision"
-                  : setupKind === "voice"
-                    ? "connections.add.sub.voice"
-                    : modelsFor?.chat
-                      ? "connections.add.sub.modelsChat"
-                      : modelsFor
-                        ? "connections.add.sub.modelsAdd"
-                        : job
-                          ? "connections.add.sub.modelsJob"
-                          : "connections.add.sub.models",
-              { job: job ? jobLabel(job) : "" },
-            )
-          : "";
-  const stepNumber = job ? Math.max(1, step - 1) : step;
-  // A prefilled job skips service selection, so its progress has two steps.
-  const totalSteps = job ? 2 : 3;
-  const goBack = choosingJobs
-    ? () => setChoosingJobs(false)
-    : step === 1 && (pick || job)
-      ? () => {
-          if (job) clearJob();
-          else setPick(null);
-          setQuery("");
-          setKindFilter(null);
-        }
-      : step === 2
-        ? backToList
-        : step === 3 && !modelsFor && picks.length === 0
-          ? target?.fresh
-            ? () => setStep(2)
-            : backToList
-          : null;
+  const heading =
+    step === 3
+      ? t("connections.add.heading.addModels", { name: targetName })
+      : step === 1
+        ? t("connections.add.heading.forProvider")
+        : serviceName(service ?? provider!);
+  const goBack =
+    step === 2
+      ? backToList
+      : step === 3 && !modelsFor && picks.length === 0
+        ? target?.fresh
+          ? () => setStep(2)
+          : backToList
+        : null;
 
-  // ── Footer: one primary per step ──
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
-  if (choosingJobs) {
-    footerLeft = (
-      <button
-        type="button"
-        data-add-connection-skip-jobs
-        onClick={() => void close(true)}
-        disabled={finishing}
-        className={SECONDARY_CLASS}
-      >
-        {t("connections.add.useFor.skip")}
-      </button>
-    );
-    footerRight = (
-      <button
-        type="button"
-        data-add-connection-assign-jobs
-        onClick={() => void close(true, selectedJobs)}
-        disabled={finishing}
-        className={PRIMARY_CLASS}
-      >
-        {t("connections.add.done")}
-      </button>
-    );
-  } else if (step === 1) {
-    footerLeft = (
-      <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.footer.service")}</p>
-    );
-  } else if (step === 2) {
+  if (step === 2) {
     footerRight = device ? (
       device === "local_model" && builtInReady ? (
         <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
@@ -995,10 +818,6 @@ export function CreateConnectionModalContent({
           {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
         </button>
       )
-    ) : choosing ? null : tested?.success ? (
-      <button type="button" onClick={() => setStep(3)} className={PRIMARY_CLASS}>
-        {t("connections.add.continue")}
-      </button>
     ) : (
       <div className="flex items-center gap-3">
         {failure && isLocal && (
@@ -1066,7 +885,7 @@ export function CreateConnectionModalContent({
           className={PRIMARY_CLASS}
         >
           {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-          {t(offerJobs ? "connections.add.continue" : "connections.add.done")}
+          {t("connections.add.done")}
         </button>
       );
   }
@@ -1106,131 +925,35 @@ export function CreateConnectionModalContent({
                 disabled={closeBlocked}
                 aria-label={t("connections.add.back")}
                 title={t("connections.add.back")}
-                className="mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon -ms-2"
+                className="mari-chrome-control mari-chrome-control--compact -ms-2"
               >
                 <ChevronLeft size="1rem" aria-hidden />
               </button>
             )}
-            <h3
-              ref={headingRef}
-              tabIndex={-1}
-              aria-describedby={modelsFor ? undefined : "add-connection-step-count"}
-              className="min-w-0 flex-1 text-sm font-semibold outline-none"
-            >
+            <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
               {heading}
             </h3>
-            {!modelsFor && (
-              <span
-                id="add-connection-step-count"
-                className="shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]"
-              >
-                {t("connections.add.stepOf", { step: stepNumber, total: totalSteps })}
-              </span>
-            )}
           </div>
-          {!modelsFor && !job && (
-            <div aria-hidden className="mt-2 flex gap-1">
-              {Array.from({ length: totalSteps }, (_, index) => (
-                <span
-                  key={index}
-                  className={cn(
-                    "h-[3px] flex-1 rounded-full",
-                    index < stepNumber
-                      ? "bg-[var(--marinara-chat-chrome-accent)]"
-                      : "bg-[var(--marinara-chat-chrome-panel-divider)]",
-                  )}
-                />
-              ))}
-            </div>
-          )}
-          {subtitle && (
-            <p className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <StarText text={subtitle} />
-            </p>
-          )}
         </div>
 
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
-          {choosingJobs && (
-            <div
-              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-4"
-              data-add-connection-path="assignment"
-            >
-              <div role="group" aria-label={t("connections.add.useFor.heading")} className="flex flex-col gap-1">
-                {optionalJobs.map((key, index) => {
-                  const Icon = JOB[key].icon;
-                  return (
-                    <label key={key} className={optionClass}>
-                      <input
-                        type="checkbox"
-                        data-add-connection-assign-job={key}
-                        checked={selectedJobs.includes(key)}
-                        onChange={(event) => {
-                          setSelectedJobs((current) =>
-                            event.target.checked ? [...current, key] : current.filter((job) => job !== key),
-                          );
-                        }}
-                        className={checkClass}
-                      />
-                      <IconTile size="sm">
-                        <Icon size="0.75rem" aria-hidden />
-                      </IconTile>
-                      <span>{jobLabel(key)}</span>
-                      {index === 0 && (
-                        <span className="mari-connection-pill">{t("connections.add.useFor.recommended")}</span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {!choosingJobs && step === 1 && (
+          {step === 1 && (
             <ServiceListStep
-              firstRun={firstRun}
-              pick={pick}
-              setPick={setPick}
               query={query}
               setQuery={setQuery}
-              rows={allRows as ConnectionRowData[]}
-              chooseJob={chooseJob}
-              kindFilter={kindFilter}
-              setKindFilter={setKindFilter}
-              job={job}
-              jobLabel={jobLabel}
-              clearJob={clearJob}
-              listJobs={listJobs}
-              listModels={listModels}
-              listGroups={listGroups}
-              routesOf={routesOf}
-              accounts={accounts}
-              setWant={setWant}
-              showModelsOf={showModelsOf}
               chooseService={chooseService}
-              setDecisionOpen={setDecisionOpen}
               serviceName={serviceName}
               serviceHint={serviceHint}
-              kindItems={kindItems}
-              badgesFor={badgesFor}
-              service={service}
-              searching={searching}
             />
           )}
-          {!choosingJobs && step === 2 && (
+          {step === 2 && (
             <AccessStep
               provider={provider}
               service={service}
               device={device}
-              deviceSetUp={device ? deviceSetup[DEVICE_ITEMS[device]].setUp : false}
               selectedMedia={selectedMedia}
               def={def}
-              choosing={choosing}
-              connectedAccounts={connectedAccounts}
-              accountRows={(accountId) => accountRows(accountId) as ConnectionRowData[]}
               closeBlocked={closeBlocked}
-              showModelsOf={showModelsOf}
-              connectSecond={connectSecond}
-              second={second}
               keyless={keyless}
               isLocal={isLocal}
               isMedia={isMedia}
@@ -1251,8 +974,6 @@ export function CreateConnectionModalContent({
               setMaxRpm={setMaxRpm}
               maxJobs={maxJobs}
               setMaxJobs={setMaxJobs}
-              existing={existing}
-              secondaryClass={SECONDARY_CLASS}
               serviceHint={serviceHint}
               serviceName={serviceName}
               modelCount={modelCount}
@@ -1260,7 +981,7 @@ export function CreateConnectionModalContent({
             />
           )}
 
-          {!choosingJobs && (
+          {
             <ModelsStep
               step={step}
               service={service}
@@ -1298,10 +1019,10 @@ export function CreateConnectionModalContent({
               onClose={onClose}
               recommended={recommended}
             />
-          )}
+          }
         </div>
 
-        {!choosingJobs && step === 3 && firstPick && !chat && (
+        {step === 3 && firstPick && !chat && (
           <div
             data-add-connection-choices
             role="group"

@@ -1,17 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import {
   isAddService,
   jobsForAddedKinds,
   missingAddJobs,
 } from "../../packages/client/src/lib/connection-add-adaptive.js";
 
-const read = (name: string) => readFileSync(new URL(`../../packages/client/src/${name}`, import.meta.url), "utf8");
-const list = read("components/modals/create-connection/ServiceListStep.tsx");
-const data = read("components/modals/create-connection/useServiceListData.ts");
-const modal = read("components/modals/create-connection/CreateConnectionModalContent.tsx");
-const models = read("components/modals/create-connection/ModelsStep.tsx");
-const english = JSON.parse(read("localization/locales/en.json"));
 
 assert.deepEqual(jobsForAddedKinds(["image"]), ["images"]);
 assert.deepEqual(jobsForAddedKinds(["voice"]), ["voice"]);
@@ -56,28 +49,4 @@ assert.deepEqual(missingAddJobs([{ provider: "image_generation" }], undefined), 
   "vision",
 ]);
 
-assert(!list.includes("data-add-connection-question"), "the old question-card entry must be gone");
-assert(!list.includes("<ServiceCard"));
-for (const component of ["ServiceRow", "ModelRow", "ListSearch", "ListHeading"]) assert(list.includes(`<${component}`));
-for (const section of ["missing-jobs", "your-services", "new-service"]) assert(list.includes(`section="${section}"`));
-assert.match(list, /data-add-connection-account=[\s\S]*?showModelsOf\(account.id\)/);
-assert.match(data, /isAddService\(key\)/);
-assert.match(data, /missingAddJobs\(props.rows, props.featureModels, props.embeddingId\)/);
-assert.match(modal, /assignment.assign[\s\S]*?assign\(id\)[\s\S]*?assign\(previous\)/);
-assert.match(modal, /for \(const key of jobs\) await assignJob\(\{ job: key \}\)/);
-assert.match(modal, /saveChoices && !choosingJobs && !\(await applyChoices\(\)\)/, "Skip must not repeat saved choices");
-assert.match(modal, /!jobFor && !modelsFor && !onStartChat/, "prefilled jobs retain direct assign-on-Done");
-assert.match(modal, /t\("connections\.add\.heading\.forJob", \{ job: jobLabel\(job\) \}\)/);
-assert.match(modal, /const totalSteps = job \? 2 : 3/);
-assert.match(modal, /optionalJobs\.map\(\(key, index\) =>/);
-assert.match(modal, /index === 0 && \(\s*<span[^>]*>\{t\("connections\.add\.useFor\.recommended"\)\}/);
-assert.doesNotMatch(modal, /key === "main" && !hasMain && \(/);
-assert.match(models, /props\.inPlace[\s\S]*accountId: undefined/);
-for (const key of [
-  "connections.add.useFor.heading",
-  "connections.add.useFor.skip",
-  "connections.add.setUp",
-  "connections.add.section.yourServices",
-])
-  assert.equal(typeof english[key], "string");
 console.log("connection-add-adaptive regression passed");

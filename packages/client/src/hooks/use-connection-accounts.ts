@@ -105,7 +105,8 @@ export function useCreateConnectionAccount() {
       input: Partial<CreateConnectionAccountInput> &
         Pick<CreateConnectionAccountInput, "provider"> & { model?: string },
     ) => api.post<{ account: ConnectionAccountListItem; connectionId: string }>("/connection-accounts", input),
-    onSuccess: invalidate,
+    // Not awaited: the refetch re-reads every open model catalog, which can take many seconds.
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -118,7 +119,7 @@ export function useUpdateConnectionAccount() {
         `/connection-accounts/${id}`,
         input,
       ),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 

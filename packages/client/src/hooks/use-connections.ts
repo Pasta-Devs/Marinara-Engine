@@ -574,6 +574,20 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
   });
 }
 
+/** How many models a provider offers, read once right after it is added. */
+export function useCountConnectionModels() {
+  const qc = useQueryClient();
+  return (id: string) =>
+    qc
+      .fetchQuery({
+        queryKey: connectionKeys.models(id),
+        queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+        staleTime: MODEL_LIST_TTL,
+      })
+      .then((list) => list.models.length)
+      .catch(() => null);
+}
+
 /** Fetch the provider's list again and replace the saved one. */
 export function useRefreshConnectionModels() {
   const qc = useQueryClient();
