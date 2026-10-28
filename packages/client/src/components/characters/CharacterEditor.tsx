@@ -1362,9 +1362,7 @@ export function CharacterEditor() {
       <div className="mari-editor-body">
         {/* Tab Content */}
         <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
-          <div
-            className={cn("mari-editor-content-inner", activeTab === "sprites" && "mari-editor-content-inner--wide")}
-          >
+          <div className="mari-editor-content-inner">
             {characterId && mariChipField && (
               <div className="mb-3 flex justify-end">
                 <MariContextChip

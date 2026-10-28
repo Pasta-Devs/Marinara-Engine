@@ -17,12 +17,6 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
   const [folderId, setFolderId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  useEffect(() => {
-    setSelected((current) => {
-      const next = current.filter((expression) => sprites.some((sprite) => sprite.expression === expression));
-      return next.length === current.length ? current : next;
-    });
-  }, [sprites]);
   const folders = query.data?.folders ?? [];
   const counts = new Map<string, number>([["all", sprites.length]]);
   for (const sprite of sprites) {
@@ -36,6 +30,12 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
+  useEffect(() => {
+    setSelected((current) => {
+      const next = current.filter((expression) => visible.some((sprite) => sprite.expression === expression));
+      return next.length === current.length ? current : next;
+    });
+  }, [visible]);
   async function mutate(method: "post" | "patch" | "delete", path: string, body?: unknown) {
     try {
       return await mutation.mutateAsync({ method, path, body });
@@ -53,7 +53,7 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
     folderId,
     search,
     setSearch,
-    selected,
+    selected: selected.filter((expression) => visible.some((sprite) => sprite.expression === expression)),
     setSelected,
     visible,
     mutate,

@@ -62,6 +62,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
     const section = page.locator('[data-editor-section="sprites"]');
     const library = section.locator("[data-sprite-library]");
+    const folderPicker = library.getByRole("combobox", { name: "Browse sprite folders", exact: true });
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
     await expect(section.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
@@ -73,6 +74,13 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
+    if (await folderPicker.isVisible()) await folderPicker.selectOption(front);
+    else
+      await library
+        .locator("nav")
+        .getByRole("button", { name: /^Front/ })
+        .click();
+    await library.getByRole("checkbox", { name: "Select idle in Front", exact: true }).check();
     await library.getByRole("button", { name: "Preview idle", exact: true }).click();
     const details = page.getByRole("dialog").last();
     await expect(details.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
@@ -118,6 +126,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(singleDelete.getByRole("button", { name: /Delete (these|selected|all)/i })).toHaveCount(0);
     await singleDelete.getByRole("button", { name: "Cancel", exact: true }).click();
     expect((await catalog()).sprites).toHaveLength(4);
+    await expect(library.getByRole("button", { name: "Delete selected", exact: true })).toHaveCount(0);
+    if (await folderPicker.isVisible()) await folderPicker.selectOption("all");
+    else
+      await library
+        .locator("nav")
+        .getByRole("button", { name: /^All sprites/ })
+        .click();
+    await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
 
     // Every bulk action uses the same explicit selection, not the whole visible grid.
     const select = library.getByRole("checkbox", { name: /^Select .* in / });
@@ -162,7 +178,6 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       ),
     ).toHaveLength(2);
     expect(saved.defaultFolderId).toBe(front);
-    const folderPicker = library.getByRole("combobox", { name: "Browse sprite folders", exact: true });
     if (await folderPicker.isVisible()) await folderPicker.selectOption(front);
     else
       await library
