@@ -183,6 +183,7 @@ export function ConnectionSelect({
   variant = "picker",
   label: rowLabel,
   title,
+  job,
   className,
   scope,
   disabled,
@@ -210,6 +211,8 @@ export function ConnectionSelect({
   /** Left side of the `menu` row (icon and role name). */
   label?: ReactNode;
   /** The picker window's title. */
+  /** The job this slot is, for the window title: "Model for <job>". */
+  job?: string;
   title?: string;
   className?: string;
   /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
@@ -223,7 +226,7 @@ export function ConnectionSelect({
   const [opened, setOpened] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
-  const jobName = String(rowLabel ?? aria["aria-label"] ?? title ?? "").replace(/\s+model$/i, "");
+  const jobName = String(job ?? rowLabel ?? aria["aria-label"] ?? title ?? "").replace(/\s+model$/i, "");
   const choices = useConnectionChoices({
     kind,
     value,
@@ -353,8 +356,8 @@ export function ConnectionSelect({
           <ModelPicker
             open={open}
             onClose={() => setOpen(false)}
-            title={t("connections.picker.modelFor", { job: jobName })}
-            jobName={jobName}
+            title={jobName ? t("connections.picker.modelFor", { job: jobName }) : t("connections.switcher.chooseModel")}
+            jobName={jobName || t("connections.picker.model")}
             kind={kind}
             value={value}
             onChange={(next) => next !== (value || null) && onChange(next)}

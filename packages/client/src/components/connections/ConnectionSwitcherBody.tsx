@@ -25,6 +25,7 @@ import {
   usageAtLimit,
   useCachedCatalogFacts,
   useConnections,
+  useCountConnectionModels,
   useUpdateConnection,
   type CachedModelFacts,
   type SubscriptionUsage,
@@ -161,6 +162,9 @@ const runsKey = (choice: ChatModelChoice, rows: readonly SwitcherRow[]) => {
   const row = rows.find((candidate) => candidate.id === choice.connectionId);
   return `${row?.accountId ?? choice.connectionId}\n${choice.model ?? row?.model ?? ""}`;
 };
+
+/** A provider with at most this many models lists them all in place. */
+const INLINE_CATALOG = 20;
 
 const ROW_CLASS =
   "relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 [@media(pointer:coarse)]:min-h-11";
@@ -493,9 +497,12 @@ export function ConnectionSwitcherBody({
       ).map((group, index) => [group.account.id, index]),
     );
     return [
-      // Connections with only image or voice Models have nothing to pick here.
+      // A provider with no saved model still lists its catalog; one with only image or voice Models has nothing to pick here.
       ...byAccount
-        .filter((group) => group.rows.length > 0)
+        .filter(
+          (group) =>
+            group.rows.length > 0 || (kind === "chat" && rows.some((row) => row.accountId === group.account.id)),
+        )
         .sort((a, b) =>
           a.account.id === firstAccountId
             ? -1
@@ -513,7 +520,7 @@ export function ConnectionSwitcherBody({
         .map((row) => ({ key: row.id, account: null, name: rowLabel(row), rows: [row] }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     ];
-  }, [accountManualOrder, accounts, connectionsRaw, rows, sort, firstAccountId]);
+  }, [accountManualOrder, accounts, connectionsRaw, rows, sort, firstAccountId, kind]);
   const groupOfRow = useMemo(() => {
     const map = new Map<string, SwitcherGroup>();
     for (const group of groups) for (const row of group.rows) map.set(row.id, group);
@@ -525,7 +532,15 @@ export function ConnectionSwitcherBody({
   );
 
   // Cost badges from the catalogs already cached for each Connection; nothing is fetched for them.
-  const catalogs = useCachedCatalogFacts(catalogBrowse ? groups.map((group) => group.rows.map((row) => row.id)) : []);
+  const catalogs = useCachedCatalogFacts(
+    catalogBrowse
+      ? groups.map((group) =>
+          group.rows.length > 0 || !group.account
+            ? group.rows.map((row) => row.id)
+            : [rows.find((row) => row.accountId === group.account!.id)?.id ?? ""].filter(Boolean),
+        )
+      : [],
+  );
   const catalogOf = (group: SwitcherGroup | undefined) => (group ? catalogs[groups.indexOf(group)] : undefined);
 
   const mainRow = rows.find((row) => isConnectionFlagTrue(row.isDefault));
@@ -539,8 +554,12 @@ export function ConnectionSwitcherBody({
       : undefined;
   // A catalog pick runs on the Model the chat already uses when it is in that Connection, else on its first one.
   const anchorOf = useCallback(
-    (group: SwitcherGroup) => group.rows.find((row) => row.id === nowRow?.id) ?? group.rows[0]!,
-    [nowRow?.id],
+    (group: SwitcherGroup) =>
+      group.rows.find((row) => row.id === nowRow?.id) ??
+      group.rows[0] ??
+      // An account with no saved model still has its hidden catalog row.
+      (rows.find((row) => row.accountId === group.account?.id) as SwitcherRow),
+    [nowRow?.id, rows],
   );
 
   useEffect(() => {
@@ -964,34 +983,55 @@ export function ConnectionSwitcherBody({
             renderEntry({ ...entry, subtitle: modelIdLabel(entry.model, upstream) }, { star: "all" })
           }
           footer={
-            // Favorites first; every other model of this Connection is one visible row away, not a header word.
-            !unavailable &&
-            catalogBrowse && (
-              <button
-                type="button"
-                data-switcher-browse={group.key}
-                onClick={() => browse(group)}
-                aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
-                className={cn(
-                  ROW_CLASS,
-                  "mari-connection-model-well min-h-11 gap-3 ps-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                )}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
-                  <Layers size="0.875rem" />
-                </span>
-                <span className="min-w-0 flex-1 truncate">
-                  {catalogOf(group)?.count
-                    ? t("connections.switcher.allModelsCount", { count: catalogOf(group)!.count })
-                    : t("connections.switcher.allModels")}
-                </span>
-                <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
-              </button>
+            // A small catalog lists inline; a big one is one visible row away, not a header word.
+            !unavailable && catalogBrowse && inlineCatalog(group).length > 0 ? (
+              <div data-switcher-inline={group.key}>
+                {inlineCatalog(group).map((entry) => renderEntry(entry, { star: "all" }))}
+              </div>
+            ) : (
+              !unavailable &&
+              catalogBrowse && (
+                <button
+                  type="button"
+                  data-switcher-browse={group.key}
+                  onClick={() => browse(group)}
+                  aria-label={t("connections.switcher.browseConnection", { connection: group.name })}
+                  className={cn(
+                    ROW_CLASS,
+                    "mari-connection-model-well min-h-11 gap-3 ps-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
+                    <Layers size="0.875rem" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {catalogOf(group)?.count
+                      ? t("connections.switcher.allModelsCount", { count: catalogOf(group)!.count })
+                      : t("connections.switcher.allModels")}
+                  </span>
+                  <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
+                </button>
+              )
             )
           }
         />
       </section>
     );
+  };
+
+  // The catalogs are read once, so a small one can list in place (the server caches them; a failure just leaves the Browse row).
+  const loadCatalog = useCountConnectionModels();
+  useEffect(() => {
+    if (layout !== "steps" || !catalogBrowse) return;
+    for (const group of groups) if (group.account && group.account.state === "ok") void loadCatalog(anchorOf(group).id);
+  }, [layout, catalogBrowse, groups, anchorOf, loadCatalog]);
+
+  // A catalog of up to INLINE_CATALOG models lists under its provider; the saved ones are already listed.
+  const inlineCatalog = (group: SwitcherGroup): Entry[] => {
+    const ids = new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set]));
+    if (ids.size === 0 || ids.size > INLINE_CATALOG || !group.account) return [];
+    const saved = new Set(listed.find((item) => item.group === group)?.entries.map((entry) => entry.model) ?? []);
+    return [...ids].filter((id) => !saved.has(id)).map((id) => entryFor(group, anchorOf(group), id, id));
   };
 
   // Group by folder: each folder's saved Models, then the ones in none; a row names its Connection.
@@ -1203,7 +1243,9 @@ export function ConnectionSwitcherBody({
 
   const nothing = groups.length === 0 && !showLocalModel;
   const nowLabel = followDefault
-    ? t(followDefault.active ? "connections.switcher.nowFollowsMain" : "connections.switcher.nowThisChat")
+    ? followDefault.label
+      ? t("connections.switcher.now")
+      : t(followDefault.active ? "connections.switcher.nowFollowsMain" : "connections.switcher.nowThisChat")
     : t("connections.switcher.now");
   // Now stays in sight while the list scrolls; the host's opaque surface colour backs it.
   const nowSection = (nowEntry || followDefault?.active) && (
@@ -1345,7 +1387,7 @@ export function ConnectionSwitcherBody({
     );
 
   // One footer line; the composer menu keeps the picker's own line.
-  const footer = layout !== "container" && (
+  const footer = layout !== "container" && pickerFooter !== "" && (
     <p className="shrink-0 border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
       <StarText text={pickerFooter ?? t("connections.switcher.appliesToChatStars")} />
     </p>

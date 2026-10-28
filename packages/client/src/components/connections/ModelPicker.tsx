@@ -80,6 +80,9 @@ export function ModelPicker({
   // `accountId|model` → what the Decision test said; a model being tried or turned down shows it on its row.
   const [tried, setTried] = useState<Record<string, { label: string; state: "off" | "needs_key" }>>({});
   const known = useRef<Set<string> | null>(null);
+  // Undo runs later, so it must reach the host's latest setter, not the one this render saw.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const [firstAccountId, setFirstAccountId] = useState<string | null>(null);
 
   // A provider added from this window comes back as the first group.
@@ -107,12 +110,12 @@ export function ModelPicker({
     return row?.name || row?.model || id || defaultText;
   };
 
-  const commit = (next: string | null) => {
+  const commit = (next: string | null, label?: string) => {
     const previous = value;
     onChange(next);
-    toast.success(t("connections.picker.nowUses", { job: jobName, model: nameOf(next) }), {
+    toast.success(t("connections.picker.nowUses", { job: jobName, model: label ?? nameOf(next) }), {
       duration: 8000,
-      action: { label: t("connections.switcher.undo"), onClick: () => onChange(previous) },
+      action: { label: t("connections.switcher.undo"), onClick: () => onChangeRef.current(previous) },
     });
   };
 
@@ -134,7 +137,7 @@ export function ModelPicker({
       id = saved.connectionId;
     }
     if (id === value) return;
-    commit(id);
+    commit(id, choice.name ?? choice.model);
   };
 
   // Decision: the model is tried before it is assigned; a rejected one stays unassigned and says why.
@@ -175,16 +178,14 @@ export function ModelPicker({
       if (!result.success || noLogprobs) {
         if (!existing) await deleteRow.mutateAsync(id);
         mark({
-          label: noLogprobs
-            ? t("connections.decision.logprobsMissing")
-            : decisionConnectionTestMessage(t, result).message,
+          label: noLogprobs ? t("connections.decision.noLogprobs") : decisionConnectionTestMessage(t, result).message,
           state: "needs_key",
         });
         return false;
       }
       rememberDecisionPass(key);
       mark(null);
-      commit(id);
+      commit(id, choice.name ?? model);
     } catch {
       if (!existing && id) await deleteRow.mutateAsync(id).catch(() => undefined);
       mark({ label: t("connections.decision.errors.network"), state: "needs_key" });
@@ -255,6 +256,7 @@ export function ModelPicker({
             if (value !== extra.value) commit(extra.value);
           },
         }))}
+        pickerFooter=""
         onAdd={onAdd}
         firstAccountId={firstAccountId}
         autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}

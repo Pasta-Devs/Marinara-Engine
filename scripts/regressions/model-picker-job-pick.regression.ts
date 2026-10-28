@@ -29,6 +29,7 @@ const { apply } = make({
   rows,
   defaultText: "Main",
   onChange: (next: string | null) => changes.push(next),
+  onChangeRef: { current: (next: string | null) => changes.push(next) },
   t: (key: string, values?: { job: string; model: string }) => `${key}:${values?.job}:${values?.model}`,
   toast: {
     success: (message: string, options?: { action?: { onClick: () => void } }) =>

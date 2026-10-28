@@ -7,19 +7,7 @@ import {
   MARI_PERMISSIONS_MODES,
 } from "@marinara-engine/shared";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  LucideIcon,
-  ArrowDown,
-  Sparkles,
-  X,
-  Link,
-  ChevronDown,
-  Check,
-  Plus,
-  ArrowUp,
-  Square,
-  RotateCcw,
-} from "lucide-react";
+import { LucideIcon, ArrowDown, Sparkles, X, Link, ChevronDown, Check, ArrowUp, Square, RotateCcw } from "lucide-react";
 import type { ChatModelChoice, MariPermissionsMode, Message } from "@marinara-engine/shared";
 import { RefObject, Dispatch, SetStateAction, ChangeEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -274,7 +262,7 @@ export function MariComposer({
   };
   const connectionBody = (
     <ConnectionSwitcherBody
-      layout="container"
+      layout="steps"
       current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
       onApply={applyMariPick}
       onDone={() => {
@@ -286,25 +274,21 @@ export function MariComposer({
       localModelHint={localizeUi(
         sidecarNativeToolCalls ? "ui.chat.homeprofessormarichat.nativeTools" : "ui.chat.homeprofessormarichat.toolsOff",
       )}
-      pickerFooter={localizeUi("connections.switcher.appliesToMari")}
+      pickerFooter=""
       listHeader={
-        phone ? undefined : <p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>
+        phone ? undefined : (
+          <p className="mari-composer-menu__head">
+            {t("connections.picker.modelFor", { job: t("connections.picker.jobMari") })}
+          </p>
+        )
       }
-      empty={
-        <MariRow
-          slot={<Plus aria-hidden="true" />}
-          title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
-          onClick={() => {
-            setConnectionMenuOpen(false);
-            openAddConnection({ job: "mari" });
-          }}
-        />
-      }
-      listClassName="mari-connection-picker__list"
-      modelsClassName="mari-connection-picker__models"
+      onAdd={() => {
+        setConnectionMenuOpen(false);
+        openAddConnection({ job: "mari" });
+      }}
       listFooter={
         <div className="px-3 py-2">
-          <MariConnectionGuidance compact={phone} />
+          <MariConnectionGuidance compact />
         </div>
       }
     />
@@ -509,7 +493,7 @@ export function MariComposer({
                     setConnectionMenuOpen(false);
                     connectionButtonRef.current?.focus();
                   }}
-                  title={localizeUi("navigation.topbar.connections")}
+                  title={t("connections.picker.modelFor", { job: t("connections.picker.jobMari") })}
                   opaque
                   panelClassName="max-sm:h-[calc(100dvh-1.5rem)]"
                   contentClassName="flex flex-col overflow-hidden !p-0"

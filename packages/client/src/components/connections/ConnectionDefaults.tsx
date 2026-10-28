@@ -565,6 +565,7 @@ export function ConnectionDefaultsBox({
           }}
           defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
           includeLocalSidecar={(isAgents || isMain) && offerLocalSidecar}
+          job={title}
           aria-label={t("connections.defaults.defaultFor", { role: title })}
         />
         <ConnectionSelect
@@ -574,6 +575,7 @@ export function ConnectionDefaultsBox({
           value={fallback?.id ?? null}
           onChange={(id) => setRole(role.fallback, fallback, id)}
           defaultLabel={t("connections.defaults.none")}
+          job={title}
           aria-label={t("connections.defaults.fallbackFor", { role: title })}
         />
         {isAgents && (
@@ -645,6 +647,7 @@ export function ConnectionDefaultsBox({
             includeLocalSidecar={!lite && job.key !== "vision"}
             rowFilter={job.key === "vision" ? mayReadImages : undefined}
             className={cn(!features && "opacity-60")}
+            job={t(jobLabelKey(job))}
             aria-label={t(jobLabelKey(job))}
           />
         ),

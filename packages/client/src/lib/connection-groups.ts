@@ -110,8 +110,9 @@ export function groupModelsByAccount<R extends ConnectionModelRow>(
     const group = groups.get((lender ? lender.accountId : row.accountId) ?? "");
     // A chat row with no model is the account's catalog anchor, not a model of its own.
     const anchor = isChatProvider(row.provider ?? "") && !row.model?.trim();
-    if (group && !anchor) group.rows.push(row);
-    else standalone.push(row);
+    if (group) {
+      if (!anchor) group.rows.push(row);
+    } else standalone.push(row);
   }
   return { groups: [...groups.values()], standalone };
 }
