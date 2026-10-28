@@ -162,6 +162,22 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       ),
     ).toHaveLength(2);
     expect(saved.defaultFolderId).toBe(front);
+    const folderPicker = library.getByRole("combobox", { name: "Browse sprite folders", exact: true });
+    if (await folderPicker.isVisible()) await folderPicker.selectOption(front);
+    else
+      await library
+        .locator("nav")
+        .getByRole("button", { name: /^Front/ })
+        .click();
+    await library.getByRole("button", { name: "Folder details", exact: true }).click();
+    const longName = "x".repeat(100);
+    await library.getByRole("textbox", { name: "Folder name", exact: true }).fill(longName);
+    await library.getByRole("button", { name: "Save folder", exact: true }).click();
+    await expect(library.locator("[data-sprite-default]")).toContainText(longName);
+    const defaultRow = await library.locator("[data-sprite-default]").boundingBox();
+    expect(defaultRow).not.toBeNull();
+    expect(defaultRow!.x + defaultRow!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
     expect(errors).toEqual([]);
   } finally {
     releaseFrameSave();

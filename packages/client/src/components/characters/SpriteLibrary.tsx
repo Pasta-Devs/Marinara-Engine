@@ -275,18 +275,20 @@ export function SpriteLibraryShell({
             <div className="min-w-0">
               <h4 className="hidden break-words text-base font-semibold @xl/sprite-library:block">{title}</h4>
               {current?.description && (
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">{current.description}</p>
+                <p className="mt-1 break-words text-xs text-[var(--muted-foreground)]">{current.description}</p>
               )}
               <p
-                className="mt-1 inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]"
+                className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[var(--muted-foreground)]"
                 data-sprite-default
               >
                 <Star size={12} className="shrink-0" />
-                {library.query.isPending
-                  ? label("loadingFolders")
-                  : library.query.data
-                    ? t("sprites.library.chatDefault", { name: defaultName })
-                    : label("loadError")}
+                <span className="min-w-0 break-words">
+                  {library.query.isPending
+                    ? label("loadingFolders")
+                    : library.query.data
+                      ? t("sprites.library.chatDefault", { name: defaultName })
+                      : label("loadError")}
+                </span>
               </p>
             </div>
             {library.folderId !== "all" && defaultId !== library.folderId && (
