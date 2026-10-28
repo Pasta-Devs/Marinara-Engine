@@ -398,6 +398,7 @@ export function ConnectionSwitcherBody({
   extras,
   onAdd,
   firstAccountId,
+  modelFilter,
   knownGood,
   rowState,
 }: {
@@ -436,6 +437,8 @@ export function ConnectionSwitcherBody({
   };
   /** A pick that is being tried or was turned down, shown on its row. */
   rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
+  /** Lists only the catalog models this accepts (Embeddings); a provider with none is left out. */
+  modelFilter?: (model: string) => boolean;
   /** A provider just added: its group comes first. */
   firstAccountId?: string | null;
   listHeader?: ReactNode;
@@ -759,7 +762,8 @@ export function ConnectionSwitcherBody({
     const added = byRank(
       (catalog.data ?? []).flatMap((hit) => {
         const group = groupByAccount.get(hit.accountId);
-        if (!group || group.rows.some((row) => row.model === hit.model)) return [];
+        if (!group || group.rows.some((row) => row.model === hit.model) || (modelFilter && !modelFilter(hit.model)))
+          return [];
         const model = { id: hit.model, name: hit.name };
         return [
           {
@@ -974,6 +978,7 @@ export function ConnectionSwitcherBody({
         <div key={group.key}>{shown.map((entry) => renderEntry(entry, { star: "all" }))}</div>
       ) : null;
     }
+    if (modelFilter && shown.length === 0 && inlineCatalog(group).length === 0) return null;
     const unavailable = unavailableOf(group);
     return (
       <section
@@ -1009,7 +1014,8 @@ export function ConnectionSwitcherBody({
               </div>
             ) : (
               !unavailable &&
-              catalogBrowse && (
+              catalogBrowse &&
+              !modelFilter && (
                 <button
                   type="button"
                   data-switcher-browse={group.key}
@@ -1048,9 +1054,10 @@ export function ConnectionSwitcherBody({
   // A catalog of up to INLINE_CATALOG models lists under its provider; the saved ones are already listed.
   const inlineCatalog = (group: SwitcherGroup): Entry[] => {
     const ids = new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set]));
-    if (ids.size === 0 || ids.size > INLINE_CATALOG || !group.account) return [];
+    const wanted = modelFilter ? [...ids].filter(modelFilter) : [...ids];
+    if (wanted.length === 0 || wanted.length > INLINE_CATALOG || !group.account) return [];
     const saved = new Set(listed.find((item) => item.group === group)?.entries.map((entry) => entry.model) ?? []);
-    return [...ids].filter((id) => !saved.has(id)).map((id) => entryFor(group, anchorOf(group), id, id));
+    return wanted.filter((id) => !saved.has(id)).map((id) => entryFor(group, anchorOf(group), id, id));
   };
 
   // Group by folder: each folder's saved Models, then the ones in none; a row names its Connection.

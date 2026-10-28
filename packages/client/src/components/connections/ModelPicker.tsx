@@ -11,7 +11,9 @@ import {
   useCreateConnection,
   useDeleteConnection,
   useTestConnection,
+  useUpdateConnection,
 } from "../../hooks/use-connections";
+import { api } from "../../lib/api-client";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
@@ -19,6 +21,9 @@ import { openAddConnection } from "../../lib/add-connection";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 
 type Extra = { value: string; label: string };
+
+/** The catalogs do not mark embedding models, so the id decides ("text-embedding-3-small", "bge-m3-embed"…). */
+const isEmbeddingModel = (model: string) => /embed/i.test(model);
 
 export function ModelPicker({
   open,
@@ -33,6 +38,7 @@ export function ModelPicker({
   includeLocalSidecar,
   extraOptions,
   rowFilter,
+  embedding = false,
   restoreFocusRef,
 }: {
   open: boolean;
@@ -50,6 +56,8 @@ export function ModelPicker({
   includeLocalSidecar: boolean;
   extraOptions: ReadonlyArray<Extra>;
   rowFilter?: (row: ConnectionModelRow) => boolean;
+  /** Embeddings: lists the catalog's embedding models and tries a pick with one tiny embedding call. */
+  embedding?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const { t } = useTranslation();
@@ -58,6 +66,7 @@ export function ModelPicker({
   const { data: accounts } = useConnectionAccounts();
   const decision = kind === "decision";
   const createRow = useCreateConnection();
+  const updateRow = useUpdateConnection();
   const deleteRow = useDeleteConnection();
   const testRow = useTestConnection();
   const decisionOptions = useDecisionOptions(decision && open);
@@ -182,6 +191,52 @@ export function ModelPicker({
     }
   };
 
+  // Embeddings: the row keeps the embedding model; a pick that cannot embed leaves the old value in place.
+  const applyEmbedding = async (choice: ChatModelChoice) => {
+    type EmbeddingRow = {
+      id: string;
+      accountId?: string | null;
+      model?: string | null;
+      embeddingModel?: string | null;
+    };
+    const all = rows as EmbeddingRow[] | undefined;
+    const row = all?.find((item) => item.id === choice.connectionId);
+    const model = choice.model ?? row?.embeddingModel ?? row?.model;
+    if (!row || !model) return false;
+    const key = row.accountId ? `${row.accountId}|${model}` : model;
+    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+      setTried((tries) => {
+        const { [key]: _drop, ...rest } = tries;
+        return next ? { ...rest, [key]: next } : rest;
+      });
+    mark({ label: t("connections.decision.testing"), state: "off" });
+    let id = row.id;
+    let before: string | null = row.embeddingModel ?? null;
+    try {
+      if (choice.model && row.accountId) {
+        const saved = await pickModel.mutateAsync({
+          accountId: row.accountId,
+          model: choice.model,
+          ...(choice.name ? { name: choice.name } : {}),
+        });
+        id = saved.connectionId;
+        before = all?.find((item) => item.id === id)?.embeddingModel ?? null;
+      }
+      await updateRow.mutateAsync({ id, embeddingModel: model });
+      const result = await api.post<{ success: boolean; message: string }>(`/connections/${id}/test-embedding`, {});
+      if (!result.success) {
+        await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
+        mark({ label: result.message || t("connections.embeddingDefault.failed"), state: "needs_key" });
+        return false;
+      }
+      mark(null);
+      commit(id, choice.name ?? model);
+    } catch {
+      mark({ label: t("connections.embeddingDefault.failed"), state: "needs_key" });
+      return false;
+    }
+  };
+
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
     openAddConnection();
@@ -203,11 +258,11 @@ export function ModelPicker({
         layout="steps"
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
-        catalogBrowse={(kind === "chat" || decision) && !rowFilter}
+        catalogBrowse={decision || embedding || (kind === "chat" && !rowFilter)}
         current={
           !decision && value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null
         }
-        onApply={decision ? applyDecision : apply}
+        onApply={decision ? applyDecision : embedding ? applyEmbedding : apply}
         onDone={onClose}
         showLocalModel={includeLocalSidecar}
         followDefault={
@@ -230,7 +285,7 @@ export function ModelPicker({
               }
             : undefined
         }
-        rowState={decision ? (accountId, model) => tried[`${accountId}|${model}`] ?? null : undefined}
+        rowState={decision || embedding ? (accountId, model) => tried[`${accountId}|${model}`] ?? null : undefined}
         extras={[
           ...extraOptions,
           ...(decision
@@ -245,6 +300,7 @@ export function ModelPicker({
             if (value !== extra.value) commit(extra.value);
           },
         }))}
+        modelFilter={embedding ? isEmbeddingModel : undefined}
         pickerFooter=""
         onAdd={onAdd}
         firstAccountId={firstAccountId}

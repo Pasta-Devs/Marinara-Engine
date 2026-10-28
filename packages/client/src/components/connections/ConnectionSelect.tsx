@@ -186,6 +186,7 @@ export function ConnectionSelect({
   job,
   className,
   scope,
+  embedding,
   disabled,
   ...aria
 }: {
@@ -217,6 +218,8 @@ export function ConnectionSelect({
   className?: string;
   /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
   scope?: "chat" | "agent";
+  /** Embeddings: lists the catalog's embedding models and tries a pick. */
+  embedding?: boolean;
   disabled?: boolean;
   id?: string;
   "aria-label"?: string;
@@ -359,6 +362,7 @@ export function ConnectionSelect({
             title={jobName ? t("connections.picker.modelFor", { job: jobName }) : t("connections.switcher.chooseModel")}
             jobName={jobName || t("connections.picker.model")}
             kind={kind}
+            embedding={embedding}
             value={value}
             onChange={(next) => next !== (value || null) && onChange(next)}
             defaultText={choices.defaultText}

@@ -2190,6 +2190,7 @@
   "connections.editor.tab.generation": "Generation",
   "connections.editor.tab.limits": "Limits",
   "connections.editor.tab.model": "Basics",
+  "connections.embeddingDefault.failed": "Couldn't embed text",
   "connections.embeddingDefault.label": "Embeddings",
   "connections.embeddingDefault.none": "Marinara's own search",
   "connections.embeddingDefault.ownSettings_one": "{{count}} connection uses its own embedding settings instead.",
