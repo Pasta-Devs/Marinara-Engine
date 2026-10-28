@@ -91,6 +91,7 @@ import type {
   MariWorkspacePromptEvent,
   MariUnderstoodRequest,
   MariWorkspaceLatestRun,
+  MariWorkspaceSkillDetail,
   MariWorkspaceStatus,
   MariWorkspaceToolName,
   MariWorkspaceTraceItem,
@@ -115,6 +116,8 @@ import {
   workspacePathAccessPolicy,
 } from "./workspace-change-review.service.js";
 import { WorkspaceCommands } from "./workspace-commands.js";
+import { activeHandbookIds, parseHandbookTurn, renderActiveHandbooksPrompt } from "./sticky-handbooks.js";
+import { mariWorkspaceSessionId } from "./mari-session.js";
 import { createAssistantMessage, saveAssistantMessageExtra, saveRunStart } from "./workspace-message-store.js";
 import {
   newRoundReviewState,
@@ -1979,7 +1982,7 @@ function formatContinuityResult(result: WorkspaceCommandResult, index: number): 
   // #7827: a handbook is 10-15k chars, so the record-read cap kept half of it cut mid-sentence and took half
   // of the latest turn's 16k budget from the record she was editing. Carry the fact of the read instead.
   if (result.success && typeof action === "string" && action.toLowerCase() === "skill.get") {
-    return `${index + 1}. ${result.name} succeeded input=${input}\nSkill text is not carried into later turns: call skill.get again before you follow it.`;
+    return `${index + 1}. ${result.name} succeeded input=${input}\nSkill text is not repeated here: while you keep working on its surface it stays in <active_handbooks>; if it is not there, call skill.get again before you follow it.`;
   }
   const recordRead = result.success && typeof action === "string" && CONTINUITY_RECORD_READ_RE.test(action);
   const output = compactTraceText(result.output, recordRead ? 8000 : 1000);
@@ -4542,7 +4545,8 @@ export class ProfessorMariWorkspaceService {
     heldMessageId: string | null;
   }> {
     const chatStorage = createChatsStorage(this.app.db);
-    const history = (await chatStorage.listMessages(chatId)).slice(-MAX_HISTORY_MESSAGES);
+    const allMessages = await chatStorage.listMessages(chatId);
+    const history = allMessages.slice(-MAX_HISTORY_MESSAGES);
     // #5725 Manual mode: arm silent command frames only when Mari's last
     // persisted turn was a deferral (the user's new message answers it). The
     // deferral is a flag on the message's extra - persisted content is only
@@ -4559,7 +4563,23 @@ export class ProfessorMariWorkspaceService {
         )
       : [];
     const continuityPrompt = buildRecentWorkspaceContinuityPrompt(history);
-    const skillsPrompt = await this.buildSkillsPrompt();
+    const { prompt: skillsPrompt, skills } = await this.buildSkillsPrompt();
+    // #8391: from every turn, not the history window, so a handbook she kept using doesn't fall out with old rows.
+    const activeIds = activeHandbookIds(
+      allMessages
+        .filter((row) => row.role === "assistant")
+        .map((row) => parseHandbookTurn(parseExtra(row.extra).mariHandbooks)),
+    );
+    const activeHandbooks = activeIds.flatMap((id) => {
+      const skill = skills.find((candidate) => candidate.id === id && candidate.enabled !== false);
+      return skill ? [skill] : [];
+    });
+    const activeHandbooksPrompt = renderActiveHandbooksPrompt(activeHandbooks);
+    // Only a handbook whose text is in this prompt passes the gate this turn; a dropped one is asked for again.
+    this.commands.armSkillGate(
+      mariWorkspaceSessionId(chatId),
+      activeHandbooks.filter((skill) => skill.content.trim()).map((skill) => skill.id),
+    );
     const instructionsPrompt = await this.buildInstructionsPrompt();
     const attachedContextPrompt = await this.buildAttachedContextPrompt(chatId);
     let embeddingModelConfigured = false;
@@ -4605,6 +4625,8 @@ export class ProfessorMariWorkspaceService {
     // further restrict, never loosen - the block says so).
     const permissionsModePrompt = mariPermissionsModePrompt(permissionsMode);
     if (permissionsModePrompt) messages.push({ role: "system", content: permissionsModePrompt, contextKind: "prompt" });
+    // #8391: after the stable blocks, since it changes as handbooks come and go; before #8375's last block.
+    if (activeHandbooksPrompt) messages.push({ role: "system", content: activeHandbooksPrompt, contextKind: "prompt" });
     // #5740 read-back (maintainer call): Mari sees the record she herself
     // reported for the latest mutating round in THIS chat, so "why did you
     // treat that as permission?" gets an answer grounded in the actual record
@@ -4783,13 +4805,14 @@ export class ProfessorMariWorkspaceService {
   // Skills are index-and-fetch like memories (#4851): a single 200k-char skill used to
   // be injected in full on every round. Small ones stay inlined; the rest are fetched
   // with app_data skill.get. Rendering lives in a pure, regression-tested helper.
-  private async buildSkillsPrompt(): Promise<string | null> {
+  // Also returns the skills, so #8391's active handbooks come from the same read.
+  private async buildSkillsPrompt(): Promise<{ prompt: string | null; skills: MariWorkspaceSkillDetail[] }> {
     try {
       const response = await getProfessorMariWorkspaceSkillsService().list();
-      return renderMariSkillsPrompt(response.skills, response.diagnostics);
+      return { prompt: renderMariSkillsPrompt(response.skills, response.diagnostics), skills: response.skills };
     } catch (err) {
       logger.warn(err, "Professor Mari: failed to read workspace skills");
-      return null;
+      return { prompt: null, skills: [] };
     }
   }
 

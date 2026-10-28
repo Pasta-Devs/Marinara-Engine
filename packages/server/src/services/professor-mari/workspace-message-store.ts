@@ -11,6 +11,7 @@ import type {
   ProfessorMariAskContext,
 } from "@marinara-engine/shared";
 import type { createChatsStorage } from "../storage/chats.storage.js";
+import { handbookTurnFromResults } from "./sticky-handbooks.js";
 import {
   buildWorkspaceContinuitySnapshot,
   sanitizeTraceForStorage,
@@ -93,6 +94,8 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
     commandResults: run.commandResults,
   });
   if (continuity) extraUpdate.mariWorkspaceContinuity = continuity;
+  // #8391: what this turn did with handbooks, so the next turn knows which ones to keep in context.
+  extraUpdate.mariHandbooks = handbookTurnFromResults(run.commandResults, run.endedWithDeferral ? run.heldCalls : []);
   extraUpdate.generationInfo = {
     provider: run.connection.provider,
     model: run.connection.model,

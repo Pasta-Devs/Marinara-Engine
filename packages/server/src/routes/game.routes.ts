@@ -15,6 +15,7 @@ import {
   readImageAppearanceOverride,
   buildChatImageGenerationRecord,
   type ChatImageGenerationRecord,
+  type MacroContext,
 } from "@marinara-engine/shared";
 import {
   checkStoryScript,
@@ -53,6 +54,7 @@ import { buildGameDataEditPatch, sameGameDataValue } from "../services/game/game
 // Routes: Game Mode
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
+import type { DB } from "../db/connection.js";
 import { validationDetails } from "../middleware/error-handler.js";
 import { createHash, randomInt, randomUUID } from "crypto";
 import { existsSync, readFileSync } from "fs";
@@ -166,6 +168,10 @@ import { normalizeNextSessionCampaignPlan, normalizeNextSessionNpcs } from "../s
 import { normalizeCharacterLookupName } from "../services/game/name-normalization.js";
 import {
   buildPromptMacroContext,
+  normalizeChatMacroVariables,
+  resolveCharacterMacroData,
+  resolveMacrosForPreview,
+  scopePromptMacroContextToCharacter,
   resolveMacrosWithVariableSnapshot,
   setLorebookEntryCounts,
 } from "../services/prompt/index.js";
@@ -695,10 +701,66 @@ function readStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean) : [];
 }
 
+type IllustrationAppearanceResolver = (appearance: string, characterId?: string) => Promise<string>;
+
+/** Resolve selected image text in its owner's chat scope without persisting macro writes. */
+function createIllustrationAppearanceResolver(args: {
+  db: DB;
+  chat: { id: string; characterIds?: unknown; personaId?: string | null };
+  meta: Record<string, unknown>;
+  setupConfig: Record<string, unknown> | null;
+  worldState?: MacroContext["worldState"];
+}): IllustrationAppearanceResolver {
+  const characters = createCharactersStorage(args.db);
+  const partyIds = getStoryboardLibraryCharacterIds(
+    args.meta,
+    args.setupConfig,
+    parseChatCharacterIds(args.chat.characterIds),
+  );
+  const personaId = args.chat.personaId || readTrimmedString(args.setupConfig?.personaId);
+  let personaPromise: ReturnType<typeof characters.getPersona> | undefined;
+  return async (appearance, characterId) => {
+    if (!appearance.includes("{{")) return appearance;
+    personaPromise ??= personaId ? characters.getPersona(personaId, args.chat.id) : Promise.resolve(null);
+    const persona = await personaPromise;
+    const owner = characterId
+      ? (await resolveCharacterMacroData(args.db, [characterId], args.chat.id)).profilesById.get(characterId)
+      : undefined;
+    // A removed or unreadable card must not borrow the first party member's fields.
+    if (characterId && !owner) return "";
+    // ponytail: macro-heavy libraries rebuild party context per card; cache those reads if profiling requires it.
+    const macroContext = await buildPromptMacroContext({
+      db: args.db,
+      chatId: args.chat.id,
+      worldState: args.worldState,
+      characterIds: partyIds,
+      personaName: persona?.name ?? "User",
+      personaDescription: persona?.description ?? "",
+      personaFields: {
+        example: persona?.mes_example ?? "",
+        personality: persona?.personality ?? "",
+        backstory: persona?.backstory ?? "",
+        appearance: persona?.appearance ?? "",
+        scenario: persona?.scenario ?? "",
+      },
+      localVariables: normalizeChatMacroVariables(args.meta.macroVariables),
+      macroSources: [
+        appearance,
+        ...Object.values(owner ?? {}).filter((value): value is string => typeof value === "string"),
+      ],
+    });
+    return resolveMacrosForPreview(
+      appearance,
+      owner ? { ...scopePromptMacroContextToCharacter(macroContext, owner), characterProfiles: [owner] } : macroContext,
+    );
+  };
+}
+
 async function addCharacterRowIllustrationAssets(
   maps: IllustrationCharacterAssetMaps,
   character: { id: string; data: string; avatarPath?: string | null },
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<string | null> {
   try {
     const parsed = JSON.parse(character.data) as Record<string, unknown> & { name?: string };
@@ -731,7 +793,10 @@ async function addCharacterRowIllustrationAssets(
       addReferenceOwner(maps, character.avatarPath, { kind: "character", id: character.id, source: "avatar" });
     }
 
-    const appearanceText = extractCharacterAppearanceText(parsed);
+    const selectedAppearance = extractCharacterAppearanceText(parsed);
+    const appearanceText = resolveAppearance
+      ? await resolveAppearance(selectedAppearance, character.id)
+      : selectedAppearance;
     if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
     return name;
   } catch {
@@ -743,12 +808,13 @@ async function addCharacterRowsIllustrationAssets(
   maps: IllustrationCharacterAssetMaps,
   characters: Array<{ id: string; data: string; avatarPath?: string | null }>,
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<void> {
   let nextIndex = 0;
   const runWorker = async () => {
     while (nextIndex < characters.length) {
       const character = characters[nextIndex++];
-      if (character) await addCharacterRowIllustrationAssets(maps, character, characterGallery);
+      if (character) await addCharacterRowIllustrationAssets(maps, character, characterGallery, resolveAppearance);
     }
   };
   const workerCount = Math.min(GAME_ASSET_REFERENCE_LOOKUP_CONCURRENCY, characters.length);
@@ -772,6 +838,7 @@ export async function addPersonaIllustrationAssets(
     | null
     | undefined,
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>,
+  resolveAppearance?: IllustrationAppearanceResolver,
 ): Promise<string | null> {
   const name = typeof persona?.name === "string" && persona.name.trim() ? persona.name.trim() : null;
   if (!persona || !name) return null;
@@ -801,13 +868,14 @@ export async function addPersonaIllustrationAssets(
   // #7053: the persona row carries the image-prompt override as TOP-LEVEL text
   // columns (no extensions bag), so feed them through the shared helper. Without
   // this the override reached conversation image prompts but not Game mode.
-  const appearanceText = readImageAppearanceOverride(
+  const selectedAppearance = readImageAppearanceOverride(
     {
       imageAppearanceEnabled: persona.imageAppearanceEnabled === "true",
       imageAppearance: persona.imageAppearance,
     },
     normalizeIllustratorAppearance(persona.appearance),
   );
+  const appearanceText = resolveAppearance ? await resolveAppearance(selectedAppearance ?? "") : selectedAppearance;
   if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
   return name;
 }
@@ -826,12 +894,13 @@ export async function addChatPersonaIllustrationAssets(args: {
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>;
   chat: { id?: string; personaId?: string | null } | null | undefined;
   setupConfig: Record<string, unknown> | null | undefined;
+  resolveAppearance?: IllustrationAppearanceResolver;
 }): Promise<string | null> {
   const personaId = args.chat?.personaId || readTrimmedString(args.setupConfig?.personaId);
   if (!personaId) return null;
   try {
     const persona = await args.characters.getPersona(personaId, args.chat?.id);
-    return await addPersonaIllustrationAssets(args.maps, persona, args.personaGallery);
+    return await addPersonaIllustrationAssets(args.maps, persona, args.personaGallery, args.resolveAppearance);
   } catch {
     // An unresolvable persona must not break illustration generation.
     return null;
@@ -868,8 +937,9 @@ function storyboardTrackedNpcsFromState(latestState: unknown): Array<Record<stri
 }
 
 async function buildStoryboardCharacterContext(args: {
+  db: DB;
   characters: ReturnType<typeof createCharactersStorage>;
-  chat: { id?: string; characterIds?: unknown; personaId?: string | null };
+  chat: { id: string; characterIds?: unknown; personaId?: string | null };
   meta: Record<string, unknown>;
   setupConfig: Record<string, unknown> | null;
   latestState: unknown;
@@ -877,6 +947,10 @@ async function buildStoryboardCharacterContext(args: {
   personaGallery: ReturnType<typeof createPersonaGalleryStorage>;
 }): Promise<StoryboardCharacterContext> {
   const maps = emptyIllustrationCharacterAssetMaps();
+  const resolveAppearance = createIllustrationAppearanceResolver({
+    ...args,
+    worldState: args.latestState == null ? null : asStoryboardRecord(args.latestState),
+  });
   const allowedCharacterNames: string[] = [];
   const seenAllowedNames = new Set<string>();
   const chatCharacterIds = parseChatCharacterIds(args.chat.characterIds);
@@ -887,7 +961,7 @@ async function buildStoryboardCharacterContext(args: {
     try {
       const character = await args.characters.getById(id, args.chat.id);
       if (!character) continue;
-      const name = await addCharacterRowIllustrationAssets(maps, character, args.characterGallery);
+      const name = await addCharacterRowIllustrationAssets(maps, character, args.characterGallery, resolveAppearance);
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
     } catch {
       /* skip unresolvable game character */
@@ -898,7 +972,7 @@ async function buildStoryboardCharacterContext(args: {
   if (personaId) {
     try {
       const persona = await args.characters.getPersona(personaId, args.chat?.id);
-      const name = await addPersonaIllustrationAssets(maps, persona, args.personaGallery);
+      const name = await addPersonaIllustrationAssets(maps, persona, args.personaGallery, resolveAppearance);
       personaName = name;
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
     } catch {
@@ -14574,6 +14648,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           .catch(() => null));
       const charStore = createCharactersStorage(app.db);
       const storyboardCharacterContext = await buildStoryboardCharacterContext({
+        db: app.db,
         characters: charStore,
         characterGallery,
         personaGallery,
@@ -15865,7 +15940,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         const charStore = createCharactersStorage(app.db);
         const allChars = await charStore.list();
         const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
-        await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+        const resolveAppearance = createIllustrationAppearanceResolver({
+          db: app.db,
+          chat,
+          meta,
+          setupConfig: setupCfg,
+          worldState: latestImageState,
+        });
+        await addCharacterRowsIllustrationAssets(
+          illustrationCharacterAssets,
+          allChars,
+          characterGallery,
+          resolveAppearance,
+        );
         // #7053: the preview route previews the same prompt the real route sends,
         // so it must resolve the persona identically or the preview understates
         // the appearance a frame will actually carry.
@@ -15875,6 +15962,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           personaGallery,
           chat,
           setupConfig: setupCfg,
+          resolveAppearance,
         });
         const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
           illustrationCharacterAssets;
@@ -16298,7 +16386,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           const charStore = createCharactersStorage(app.db);
           const allChars = await charStore.list();
           const illustrationCharacterAssets = emptyIllustrationCharacterAssetMaps();
-          await addCharacterRowsIllustrationAssets(illustrationCharacterAssets, allChars, characterGallery);
+          const resolveAppearance = createIllustrationAppearanceResolver({
+            db: app.db,
+            chat,
+            meta,
+            setupConfig: setupCfg,
+            worldState: latestImageState,
+          });
+          await addCharacterRowsIllustrationAssets(
+            illustrationCharacterAssets,
+            allChars,
+            characterGallery,
+            resolveAppearance,
+          );
           // #7053: the chat persona is a visible participant like any character,
           // but only character rows were loaded here, so the persona never reached
           // `charDescriptionByName` and produced no appearance line at all.
@@ -16308,6 +16408,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             personaGallery,
             chat,
             setupConfig: setupCfg,
+            resolveAppearance,
           });
           const { charReferenceByName, charReferenceSourceByName, charAvatarByName, charDescriptionByName } =
             illustrationCharacterAssets;
