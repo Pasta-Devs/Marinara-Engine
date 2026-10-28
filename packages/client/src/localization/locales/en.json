@@ -1795,7 +1795,7 @@
   "connections.add.testContinue": "Test and continue",
   "connections.add.testDecision": "Test decision",
   "connections.add.testVoice": "Test voice",
-  "connections.add.title": "Add connection",
+  "connections.add.title": "Add provider",
   "connections.add.tryAgain": "Try again",
   "connections.add.useCustom": "Use any OpenAI-compatible address",
   "connections.add.useInChat": "Use {{model}} in this chat",
