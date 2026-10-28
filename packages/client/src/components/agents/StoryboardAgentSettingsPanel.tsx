@@ -703,6 +703,7 @@ export function StoryboardAgentSettingsPanel({
               {localizeUi("ui.agents.storyboard.imageConnection")}
             </span>
             <ConnectionSelect
+              job={localizeUi("connections.picker.job.storyboardImages")}
               kind="image"
               value={settings.imageConnectionId ?? null}
               onChange={(id) => update({ imageConnectionId: id })}
@@ -717,6 +718,7 @@ export function StoryboardAgentSettingsPanel({
                 {localizeUi("ui.agents.storyboard.videoConnection")}
               </span>
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.storyboardVideo")}
                 kind="video"
                 value={settings.videoConnectionId ?? null}
                 onChange={(id) => update({ videoConnectionId: id })}

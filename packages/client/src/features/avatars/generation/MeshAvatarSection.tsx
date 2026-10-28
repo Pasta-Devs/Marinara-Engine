@@ -87,6 +87,7 @@ export function MeshAvatarSection({
           {t("avatars.generation.visionConnection")}
           <fieldset disabled={busy} className="min-w-0">
             <ConnectionSelect
+              job={t("connections.picker.job.avatarMesh")}
               value={visionConnectionId}
               onChange={setVisionConnectionId}
               rowFilter={mayReadImages}

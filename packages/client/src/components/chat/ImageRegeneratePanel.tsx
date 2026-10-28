@@ -175,6 +175,7 @@ function ImageRegenerateForm({
       <label className="flex flex-col gap-1">
         <span className={LABEL_CLASS}>{localizeUi("ui.chat.imageregeneratepanel.connection")}</span>
         <ConnectionSelect
+          job={localizeUi("connections.picker.job.imageRegeneration")}
           kind="image"
           value={connectionId || null}
           onChange={(nextId) => setConnectionId(nextId ?? "")}

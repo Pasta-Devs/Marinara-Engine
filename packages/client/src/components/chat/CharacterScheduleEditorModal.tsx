@@ -896,6 +896,7 @@ export function CharacterScheduleEditorModal({
               {localizeUi("ui.chat.characterscheduleeditormodal.generationConnection")}
             </span>
             <ConnectionSelect
+              job={localizeUi("connections.picker.job.schedule")}
               value={selectedConnection || (connectionId === "random" && hasRandomPool) ? connectionId : null}
               onChange={setGenerationConnectionId}
               defaultLabel={localizeUi("ui.chat.characterscheduleeditormodal.chooseConnection")}

@@ -84,6 +84,7 @@ export function CustomEmojiSelectionSettings() {
       {draftPrefs.mode === "tool-call" && (
         <div className="mb-2">
           <ConnectionSelect
+            job={localizeUi("connections.picker.job.emoji")}
             value={draftPrefs.toolConnectionId ?? null}
             onChange={(toolConnectionId) => savePrefs({ toolConnectionId })}
             defaultLabel={localizeUi("ui.chat.customemojiselectionsettings.selectAConnection")}

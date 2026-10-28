@@ -12519,6 +12519,7 @@ function GameSurfaceComponent({
                   {localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}
                 </span>
                 <ConnectionSelect
+                  job={t("connections.picker.job.gameMaster")}
                   value={chat.connectionId || null}
                   disabled={isStreaming || startGame.isPending || updateChat.isPending}
                   onChange={(id) => handleStartScreenConnectionChange(id ?? "")}

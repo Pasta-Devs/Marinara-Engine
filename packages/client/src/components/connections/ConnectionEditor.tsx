@@ -3767,6 +3767,7 @@ export function ConnectionEditor({
                             {localizeUi("ui.connections.connectioneditor.captioningConnection")}
                           </span>
                           <ConnectionSelect
+                            job={t("connections.picker.job.captioning")}
                             kind="chat"
                             value={localImageCaptioningConnectionId || null}
                             onChange={(value) => {

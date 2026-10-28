@@ -2185,6 +2185,7 @@ export function ChatSummaryPanel({
             </div>
             <fieldset disabled={updateMeta.isPending} className="min-w-0">
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.summary")}
                 value={selectedSummaryConnectionId || null}
                 onChange={handleSummaryConnectionChange}
                 defaultLabel={defaultConnectionLabel}

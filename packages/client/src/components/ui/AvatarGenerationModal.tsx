@@ -237,6 +237,7 @@ export function AvatarGenerationModal({
                   </p>
                 ) : (
                   <ConnectionSelect
+                    job={localizeUi("connections.picker.job.avatarImages")}
                     kind="image"
                     value={effectiveConnectionId}
                     onChange={setConnectionId}

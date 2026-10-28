@@ -62,7 +62,6 @@ import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
 import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
-import { modelIdLabel } from "../../lib/connection-identity";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import { StarText } from "./StarText";
@@ -788,6 +787,18 @@ export function ConnectionSwitcherBody({
     }
     return { saved, extra: added };
   }, [anchorOf, catalog.data, currentGroup, deferredQuery, groupByAccount, groupOfRow, groups, rows, t]);
+  // Starred models of every provider, above the provider groups.
+  const starredEntries = useMemo(
+    () =>
+      listed.flatMap((item) => {
+        const stars = item.group.account ? starsOfRows(item.group.rows) : new Set<string>();
+        return item.entries.filter((entry) => !!entry.model && stars.has(entry.model) && !isNow(entry));
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isNow reads the host's current pick, which `nowRow` and `current` already track
+    [listed, current, nowRow],
+  );
+  const starredKeys = useMemo(() => new Set(starredEntries.map((entry) => entry.key)), [starredEntries]);
+
   // Models known to suit the slot come first, across every provider's cached catalog.
   const knownEntries = useMemo(() => {
     if (!knownGood) return [] as Entry[];
@@ -807,7 +818,6 @@ export function ConnectionSwitcherBody({
 
   const searchEntries = useMemo(() => [...savedHits, ...extraHits], [extraHits, savedHits]);
   const savedCount = savedHits.length;
-  const hasCatalogHits = extraHits.some((entry) => !entry.key.startsWith("use:"));
   const searching = deferredQuery.length > 0;
 
   useEffect(() => setHighlight(0), [deferredQuery]);
@@ -831,13 +841,20 @@ export function ConnectionSwitcherBody({
   };
 
   const renderEntry = (
-    entry: Entry,
+    rawEntry: Entry,
     {
       index,
       now = false,
       star = "unstarred",
     }: { index?: number; now?: boolean; star?: "all" | "unstarred" | "none" } = {},
   ) => {
+    // The provider's own name when it has one; the id is the second line only when two rows would look the same.
+    const catalogFacts = rawEntry.group ? catalogOf(rawEntry.group) : undefined;
+    const niceName =
+      rawEntry.model && rawEntry.title === rawEntry.model ? catalogFacts?.nameOf(rawEntry.model) : undefined;
+    const entry: Entry = { ...rawEntry, ...(niceName ? { title: niceName } : {}) };
+    const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
+    if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
     const group = entry.group;
@@ -950,7 +967,7 @@ export function ConnectionSwitcherBody({
   };
 
   const renderGroup = ({ group, entries }: { group: SwitcherGroup; entries: Entry[] }) => {
-    const shown = entries.filter((entry) => !isNow(entry));
+    const shown = entries.filter((entry) => !isNow(entry) && !starredKeys.has(entry.key));
     // A standalone Model has no Connection to browse: it is its own line.
     if (!group.account) {
       return shown.length > 0 ? (
@@ -967,9 +984,13 @@ export function ConnectionSwitcherBody({
       >
         <ServiceRow
           data-connection-group={group.key}
-          account={group.account}
+          account={{ ...group.account, baseUrl: null }}
           rows={group.rows}
-          count={shown.length ? t("connections.list.models", { count: shown.length }) : undefined}
+          count={
+            (catalogOf(group)?.count ?? shown.length)
+              ? t("connections.list.models", { count: catalogOf(group)?.count ?? shown.length })
+              : undefined
+          }
           state={group.account.state}
           stateLabel={t(accountStateLabel(group.account))}
           density="sm"
@@ -979,9 +1000,7 @@ export function ConnectionSwitcherBody({
           provider={group.account.provider}
           rows={shown}
           getKey={(entry) => entry.key}
-          renderRow={(entry, upstream) =>
-            renderEntry({ ...entry, subtitle: modelIdLabel(entry.model, upstream) }, { star: "all" })
-          }
+          renderRow={(entry) => renderEntry({ ...entry, subtitle: entry.model ?? "" }, { star: "all" })}
           footer={
             // A small catalog lists inline; a big one is one visible row away, not a header word.
             !unavailable && catalogBrowse && inlineCatalog(group).length > 0 ? (
@@ -1314,7 +1333,7 @@ export function ConnectionSwitcherBody({
         ) : searching ? (
           <div data-switcher-results>
             {searchEntries.slice(0, savedCount).map((entry, index) => renderEntry(entry, { index, star: "all" }))}
-            {hasCatalogHits && <ListHeading>{t("connections.switcher.notStarred")}</ListHeading>}
+
             {searchEntries
               .slice(savedCount)
               .map((entry, index) => renderEntry(entry, { index: savedCount + index, star: "all" }))}
@@ -1329,6 +1348,12 @@ export function ConnectionSwitcherBody({
             {nowSection}
             {followDefault && !followDefault.active && followRow(false)}
             {extraRows}
+            {starredEntries.length > 0 && (
+              <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
+                <ListHeading>{t("connections.switcher.starred")}</ListHeading>
+                {starredEntries.map((entry) => renderEntry(entry, { star: "all" }))}
+              </section>
+            )}
             {knownEntries.length > 0 && (
               <section data-switcher-section="known" aria-label={knownGood!.label}>
                 <ListHeading>{knownGood!.label}</ListHeading>
@@ -1387,9 +1412,9 @@ export function ConnectionSwitcherBody({
     );
 
   // One footer line; the composer menu keeps the picker's own line.
-  const footer = layout !== "container" && pickerFooter !== "" && (
+  const footer = layout !== "container" && !!pickerFooter && (
     <p className="shrink-0 border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-      <StarText text={pickerFooter ?? t("connections.switcher.appliesToChatStars")} />
+      <StarText text={pickerFooter} />
     </p>
   );
 

@@ -956,7 +956,6 @@ interface UIState {
   showTimestamps: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
-  quickSwitcherShowModels: boolean;
   showContextUsage: boolean;
   showMessageNumbers: boolean;
   /** When false, the "older messages not sent" note is left out of the reply line (the checkup still lists it). */
@@ -1393,7 +1392,6 @@ interface UIState {
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
-  setQuickSwitcherShowModels: (v: boolean) => void;
   setShowContextUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
   setShowHistoryTrimNotice: (v: boolean) => void;
@@ -1678,7 +1676,6 @@ export function pickSyncedSettings(state: UIState) {
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
-    quickSwitcherShowModels: state.quickSwitcherShowModels,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
     showHistoryTrimNotice: state.showHistoryTrimNotice,
@@ -1942,7 +1939,6 @@ export function pickPersistedUIState(state: UIState) {
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
-    quickSwitcherShowModels: state.quickSwitcherShowModels,
     showContextUsage: state.showContextUsage,
     showMessageNumbers: state.showMessageNumbers,
     showHistoryTrimNotice: state.showHistoryTrimNotice,
@@ -2252,7 +2248,6 @@ export const useUIStore = create<UIState>()(
         showTimestamps: false,
         showModelName: false,
         showTokenUsage: false,
-        quickSwitcherShowModels: true,
         showContextUsage: true,
         showMessageNumbers: false,
         showHistoryTrimNotice: true,
@@ -3150,7 +3145,6 @@ export const useUIStore = create<UIState>()(
         setShowTimestamps: (v) => set({ showTimestamps: v }),
         setShowModelName: (v) => set({ showModelName: v }),
         setShowTokenUsage: (v) => set({ showTokenUsage: v }),
-        setQuickSwitcherShowModels: (v) => set({ quickSwitcherShowModels: v }),
         setShowContextUsage: (v) => set({ showContextUsage: v }),
         setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
         setShowHistoryTrimNotice: (v) => set({ showHistoryTrimNotice: v }),

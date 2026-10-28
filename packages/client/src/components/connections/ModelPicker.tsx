@@ -20,22 +20,6 @@ import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 
 type Extra = { value: string; label: string };
 
-const PASSED_KEY = "marinara-decision-passed";
-const readDecisionPasses = (): Set<string> => {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(PASSED_KEY) ?? "[]") as string[]);
-  } catch {
-    return new Set();
-  }
-};
-const rememberDecisionPass = (key: string) => {
-  try {
-    localStorage.setItem(PASSED_KEY, JSON.stringify([...readDecisionPasses().add(key)]));
-  } catch {
-    /* a private window keeps nothing; the catalog's own flag still marks models */
-  }
-};
-
 export function ModelPicker({
   open,
   onClose,
@@ -77,6 +61,12 @@ export function ModelPicker({
   const deleteRow = useDeleteConnection();
   const testRow = useTestConnection();
   const decisionOptions = useDecisionOptions(decision && open);
+  // A Decision row exists only for a model that passed its test, so the saved rows are the memory.
+  const decisionRows = new Set(
+    ((rows ?? []) as Array<{ provider?: string; accountId?: string | null; model?: string | null }>)
+      .filter((row) => row.provider === "decision")
+      .map((row) => `${row.accountId}|${row.model}`),
+  );
   // `accountId|model` → what the Decision test said; a model being tried or turned down shows it on its row.
   const [tried, setTried] = useState<Record<string, { label: string; state: "off" | "needs_key" }>>({});
   const known = useRef<Set<string> | null>(null);
@@ -183,7 +173,6 @@ export function ModelPicker({
         });
         return false;
       }
-      rememberDecisionPass(key);
       mark(null);
       commit(id, choice.name ?? model);
     } catch {
@@ -237,7 +226,7 @@ export function ModelPicker({
             ? {
                 label: t("connections.decision.knownGood"),
                 test: (accountId, model, facts) =>
-                  !!facts?.capabilities?.logprobs || readDecisionPasses().has(`${accountId}|${model}`),
+                  !!facts?.capabilities?.logprobs || decisionRows.has(`${accountId}|${model}`),
               }
             : undefined
         }

@@ -196,6 +196,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             <label className="flex flex-col gap-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] md:max-w-sm">
               {t("avatars.generation.imageConnection")}
               <ConnectionSelect
+                job={t("connections.picker.job.avatarImages")}
                 kind="image"
                 value={imageConnectionId}
                 onChange={setChosenImageConnectionId}

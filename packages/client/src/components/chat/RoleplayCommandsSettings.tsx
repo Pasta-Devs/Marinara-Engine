@@ -221,6 +221,7 @@ export function RoleplayCommandsSettings({
                   {t("roleplay.commands.sound.connection")}
                 </label>
                 <ConnectionSelect
+                  job={t("connections.picker.job.roleplaySounds")}
                   id={`${chat.id}:command-sound-connection`}
                   aria-describedby={`${chat.id}:command-sound-description`}
                   value={

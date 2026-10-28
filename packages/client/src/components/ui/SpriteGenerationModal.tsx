@@ -2137,6 +2137,7 @@ export function SpriteGenerationModal({
                 </p>
               ) : (
                 <ConnectionSelect
+                  job={localizeUi("connections.picker.job.sprites")}
                   kind={animatedExpressionMode ? "video" : "image"}
                   value={effectiveConnectionId}
                   onChange={animatedExpressionMode ? setVideoConnectionId : setConnectionId}

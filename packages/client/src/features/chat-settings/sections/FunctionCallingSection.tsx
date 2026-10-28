@@ -124,6 +124,7 @@ export function FunctionCallingSection({
             <label className="flex flex-col gap-1 px-1 text-xs">
               {localizeUi("chat.settings.tools.connection")}
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.functionCalling")}
                 value={toolConnectionId || null}
                 onChange={onToolConnectionChange}
                 defaultLabel={localizeUi("chat.settings.tools.sameConnection")}

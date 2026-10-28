@@ -437,6 +437,7 @@ export function AdvancedMemorySettings({
             <span>{t("chat.advancedMemory.helperModel")}</span>
             <fieldset disabled={disabled} className="min-w-0">
               <ConnectionSelect
+                job={t("connections.picker.job.memoryHelper")}
                 value={settings.helperConnectionId ?? null}
                 onChange={(helperConnectionId) => save({ helperConnectionId })}
                 defaultLabel={t("chat.advancedMemory.defaultAgentConnection")}

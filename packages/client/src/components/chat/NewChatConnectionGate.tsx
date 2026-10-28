@@ -151,6 +151,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   {localizeUi("ui.chat.conversationquicksetup.connection")}
                 </label>
                 <ConnectionSelect
+                  job={localizeUi("connections.picker.job.thisChat")}
                   value={connectionId || null}
                   disabled={createChat.isPending}
                   onChange={(id) => {

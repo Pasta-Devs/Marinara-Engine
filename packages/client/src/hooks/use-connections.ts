@@ -409,20 +409,28 @@ export type CachedCatalogFacts = {
   count?: number;
   /** The cached catalogs' model ids, one set per catalog (the Add window's model search reads them). */
   idSets: ReadonlyArray<ReadonlySet<string>>;
+  /** The provider's own name for a model, when it differs from the id. */
+  nameOf: (modelId: string | null | undefined) => string | undefined;
   /** The cached catalogs' facts, one map per catalog. */
   factSets: ReadonlyArray<ReadonlyMap<string, CachedModelFacts>>;
 };
 
-type CatalogIndex = { byId: Map<string, CachedModelFacts>; ids: Set<string>; showPaid: boolean };
+type CatalogIndex = {
+  byId: Map<string, CachedModelFacts>;
+  ids: Set<string>;
+  names: Map<string, string>;
+  showPaid: boolean;
+};
 const catalogIndexes = new WeakMap<ConnectionModelList, CatalogIndex>();
 
 /** One catalog's facts, indexed once per fetched list. */
 function indexCatalog(list: ConnectionModelList): CatalogIndex {
   let index = catalogIndexes.get(list);
   if (index) return index;
-  index = { byId: new Map(), ids: new Set(), showPaid: false };
+  index = { byId: new Map(), ids: new Set(), names: new Map(), showPaid: false };
   for (const model of list.models ?? []) {
     index.ids.add(model.id);
+    if (model.name && model.name !== model.id) index.names.set(model.id, model.name);
     if (model.cost === "included" || model.cost?.startsWith("multiplier:")) index.showPaid = true;
     if (
       model.cost ||
@@ -496,6 +504,14 @@ export function useCachedCatalogFacts(groups: ReadonlyArray<readonly string[]>):
       showPaid: indexes.some((index) => index.showPaid),
       count: indexes.length ? new Set(indexes.flatMap((index) => [...index.ids])).size : undefined,
       idSets: indexes.map((index) => index.ids),
+      nameOf: (modelId) => {
+        if (!modelId) return undefined;
+        for (const index of indexes) {
+          const name = index.names.get(modelId);
+          if (name) return name;
+        }
+        return undefined;
+      },
       factSets: indexes.map((index) => index.byId),
     };
   });

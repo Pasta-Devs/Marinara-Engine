@@ -62,6 +62,7 @@ export function EmbeddingDefaultControl({ connections }: { connections: Embeddin
         {t("connections.embeddingDefault.label")}
       </label>
       <ConnectionSelect
+        job={t("connections.picker.job.embeddings")}
         id="embedding-default"
         kind="chat"
         value={selectedId || null}

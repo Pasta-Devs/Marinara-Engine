@@ -104,6 +104,7 @@ export function TranslationSection({ chatId, metadata, onMetadataChange }: Trans
                 />
               </label>
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.translation")}
                 aria-label={localizeUi("ui.chatSettings.connectionsection.connection")}
                 scope="chat"
                 value={(metadata.translationConnectionId as string | undefined) || null}

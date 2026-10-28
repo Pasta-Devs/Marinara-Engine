@@ -656,6 +656,7 @@ export function OmnibarSettingsSheet({
               </span>
             </label>
             <ConnectionSelect
+              job={t("connections.picker.job.search")}
               id={connectionSelectId}
               value={asideConnectionId}
               disabled={!asideEnabled}

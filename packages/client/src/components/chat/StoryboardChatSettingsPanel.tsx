@@ -671,6 +671,7 @@ function RoleplayStoryboardChatSettingsPanel({
     <label className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
       <ConnectionSelect
+        job={label}
         value={readString(value) || null}
         onChange={(connectionId) => onUpdate({ [metadataKey]: connectionId })}
         kind={kind}

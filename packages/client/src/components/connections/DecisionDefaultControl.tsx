@@ -157,6 +157,7 @@ export function DecisionDefaultControl() {
       <div className="flex gap-2">
         <div className="min-w-0 flex-1">
           <ConnectionSelect
+            job={t("connections.picker.job.decision")}
             id="decision-default"
             kind="decision"
             value={selected?.id ?? null}

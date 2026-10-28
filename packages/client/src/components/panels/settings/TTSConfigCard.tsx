@@ -2329,6 +2329,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
               help={localizeUi("ui.panels.ttsconfigcard.speakerExtractorConnectionHelp")}
             >
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.speakerDetection")}
                 value={roleplaySpeakerExtractorConnectionId || null}
                 onChange={(id) => {
                   const connectionId = id ?? "";

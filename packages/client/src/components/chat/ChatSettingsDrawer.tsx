@@ -2208,6 +2208,7 @@ export function ChatSettingsDrawer({
         {localizeUi("ui.chat.chatsettingsdrawer.promptModel")}
       </span>
       <ConnectionSelect
+        job={t("connections.picker.job.illustratorPrompts")}
         value={illustratorPromptConnectionId || null}
         onChange={(connectionId) => updateIllustratorPromptConnection(connectionId ?? "")}
         includeLocalSidecar={!isGame && sidecarModelDownloaded}
@@ -2235,6 +2236,7 @@ export function ChatSettingsDrawer({
         {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
       </span>
       <ConnectionSelect
+        job={t("connections.picker.job.images")}
         value={illustratorImageConnectionId || null}
         onChange={(connectionId) => updateIllustratorImageConnection(connectionId ?? "")}
         kind="image"
@@ -5235,6 +5237,7 @@ export function ChatSettingsDrawer({
                       {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                     </span>
                     <ConnectionSelect
+                      job={t("connections.picker.job.images")}
                       aria-label={localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                       value={agentImageConnectionId || null}
                       onChange={(connectionId) => updateCustomAgentImageConnection(agent.id, connectionId ?? "")}
@@ -7472,6 +7475,7 @@ export function ChatSettingsDrawer({
                                 {localizeUi("ui.chat.chatsettingsdrawer.selfieConnection")}
                               </span>
                               <ConnectionSelect
+                                job={t("connections.picker.job.selfies")}
                                 value={selfieConnectionId || null}
                                 onChange={(connectionId) =>
                                   updateMeta.mutate({ id: chat.id, imageGenConnectionId: connectionId })
@@ -7567,6 +7571,7 @@ export function ChatSettingsDrawer({
                               {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                             </span>
                             <ConnectionSelect
+                              job={t("connections.picker.job.video")}
                               value={(metadata.sceneVideoConnectionId as string) || null}
                               onChange={(connectionId) =>
                                 updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
@@ -8459,6 +8464,7 @@ export function ChatSettingsDrawer({
                   {isGame && metadata.enableAgents && (
                     <div className="mt-1.5 px-3">
                       <ConnectionSelect
+                        job={t("connections.picker.job.sceneEffects")}
                         value={(metadata.gameSceneConnectionId as string) || null}
                         onChange={(connectionId) =>
                           updateMeta.mutate({ id: chat.id, gameSceneConnectionId: connectionId })
@@ -9308,6 +9314,7 @@ export function ChatSettingsDrawer({
                                   {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                                 </span>
                                 <ConnectionSelect
+                                  job={t("connections.picker.job.video")}
                                   value={(metadata.sceneVideoConnectionId as string) || null}
                                   onChange={(connectionId) =>
                                     updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
@@ -9569,6 +9576,7 @@ export function ChatSettingsDrawer({
                               {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
                             </span>
                             <ConnectionSelect
+                              job={t("connections.picker.job.images")}
                               value={(metadata.gameImageConnectionId as string) || null}
                               onChange={(connectionId) =>
                                 updateMeta.mutate({ id: chat.id, gameImageConnectionId: connectionId })
@@ -9729,6 +9737,7 @@ export function ChatSettingsDrawer({
                               {localizeUi("ui.chat.chatsettingsdrawer.videoConnection")}
                             </span>
                             <ConnectionSelect
+                              job={t("connections.picker.job.video")}
                               value={(metadata.gameVideoConnectionId as string) || null}
                               onChange={(connectionId) =>
                                 updateMeta.mutate({ id: chat.id, gameVideoConnectionId: connectionId })
@@ -10311,6 +10320,7 @@ export function ChatSettingsDrawer({
                       {localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}
                     </span>
                     <ConnectionSelect
+                      job={t("connections.picker.job.summary")}
                       value={conversationSummaryConnectionId || null}
                       onChange={(connectionId) => updateMeta.mutate({ id: chat.id, summaryConnectionId: connectionId })}
                       includeLocalSidecar={!isGame && sidecarModelDownloaded}

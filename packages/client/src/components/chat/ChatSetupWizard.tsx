@@ -1671,6 +1671,7 @@ function ConversationQuickSetup({
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.conversationquicksetup.connection")}</label>
         <ConnectionSelect
+          job={localizeUi("connections.picker.job.thisChat")}
           value={selectedConnectionId || null}
           aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}
           onChange={setConnection}
@@ -3106,6 +3107,7 @@ function RoleplaySetupWizard({
             {localizeUi("ui.chat.conversationquicksetup.connection")}
           </label>
           <ConnectionSelect
+            job={localizeUi("connections.picker.job.thisChat")}
             id={roleplayConnectionSelectId}
             value={chat.connectionId || null}
             aria-label={localizeUi("ui.chat.conversationquicksetup.connection")}

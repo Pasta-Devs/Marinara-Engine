@@ -82,6 +82,7 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
                 />
               </div>
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.impersonate")}
                 value={connectionId || null}
                 onChange={setConnectionId}
                 defaultLabel={localizeUi("ui.chatSettings.impersonatesection.useChatDefault")}

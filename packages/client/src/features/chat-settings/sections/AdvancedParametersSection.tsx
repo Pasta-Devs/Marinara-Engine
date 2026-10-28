@@ -354,6 +354,7 @@ export function AdvancedParametersSection({
               {localizeUi("ui.chatSettings.advancedparameterssection.captioningConnection")}
             </span>
             <ConnectionSelect
+              job={localizeUi("connections.picker.job.imageReading")}
               value={selectedCaptioningConnectionId || null}
               onChange={(connectionId) => onImageCaptioningChange({ imageCaptioningConnectionId: connectionId })}
               defaultLabel={

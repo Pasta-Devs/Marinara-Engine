@@ -1988,6 +1988,7 @@ export function GameSetupWizard({
                         {localizeUi("ui.game.gamesetupwizard.connection")}
                       </label>
                       <ConnectionSelect
+                        job={localizeUi("connections.picker.job.gameMaster")}
                         value={gmConnectionId}
                         onChange={setGmConnectionId}
                         defaultLabel={localizeUi("ui.game.gamesetupwizard.selectAConnection")}
@@ -2053,6 +2054,7 @@ export function GameSetupWizard({
                         </span>
                       </label>
                       <ConnectionSelect
+                        job={localizeUi("connections.picker.job.sceneEffects")}
                         value={sceneModelValue === "local" ? LOCAL_SIDECAR_CONNECTION_ID : sceneConnectionId}
                         onChange={(id) => {
                           if (id === LOCAL_SIDECAR_CONNECTION_ID) {
@@ -3210,6 +3212,7 @@ export function GameSetupWizard({
                                   {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                                 </label>
                                 <ConnectionSelect
+                                  job={localizeUi("connections.picker.job.gameImages")}
                                   kind="image"
                                   value={imageConnectionId}
                                   onChange={setImageConnectionId}
@@ -3254,6 +3257,7 @@ export function GameSetupWizard({
                                     {localizeUi("ui.game.gamesetupwizard.videoGenerationConnection")}
                                   </label>
                                   <ConnectionSelect
+                                    job={localizeUi("connections.picker.job.gameVideo")}
                                     kind="video"
                                     value={videoConnectionId}
                                     onChange={setVideoConnectionId}
@@ -3299,6 +3303,7 @@ export function GameSetupWizard({
                           {localizeUi("connections.audioGeneration.connection")}
                         </label>
                         <ConnectionSelect
+                          job={localizeUi("connections.picker.job.gameAudio")}
                           id={`${activeChatId}:game-audio-connection`}
                           value={audioConnectionId ? (resolvedAudioConnection?.id ?? audioConnectionId) : null}
                           onChange={setAudioConnectionId}

@@ -106,6 +106,7 @@ export function CallClipGenerationModal({
         <label className="grid gap-1.5 text-xs font-semibold text-[var(--foreground)]">
           {localizeUi("ui.ui.callclipgenerationmodal.videoGenerationConnection")}
           <ConnectionSelect
+            job={localizeUi("connections.picker.job.callClips")}
             kind="video"
             value={effectiveConnectionId}
             onChange={setConnectionId}

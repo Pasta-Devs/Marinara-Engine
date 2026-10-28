@@ -2722,6 +2722,7 @@ export function AgentEditor() {
               help={localizeUi("ui.agents.agenteditor.useADifferentAiConnectionForThisAgentFor")}
             >
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.agent")}
                 value={localConnectionId || null}
                 onChange={(value) => {
                   setLocalConnectionId(value ?? "");
@@ -2788,6 +2789,7 @@ export function AgentEditor() {
               help={localizeUi("ui.agents.agenteditor.theConnectionUsedToGenerateImagesThisShouldPoint")}
             >
               <ConnectionSelect
+                job={localizeUi("connections.picker.job.agentImages")}
                 kind="image"
                 value={localImageConnectionId || null}
                 onChange={(id) => {
@@ -2913,6 +2915,7 @@ export function AgentEditor() {
                     {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                   </label>
                   <ConnectionSelect
+                    job={localizeUi("connections.picker.job.agentImages")}
                     kind="image"
                     value={localImageConnectionId || null}
                     onChange={(id) => {
