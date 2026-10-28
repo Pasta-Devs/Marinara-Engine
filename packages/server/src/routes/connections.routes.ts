@@ -439,6 +439,14 @@ export function buildConnectionTestCatalogUrl(
   return `${normalizedBaseUrl}${modelsEndpoint}`;
 }
 
+/** These catalogs are public, so `/models` accepts any key; the key is checked on an endpoint that needs it. */
+export function buildKeyCheck(provider: string, baseUrl: string): { url: string; method: string } | null {
+  const base = baseUrl.replace(/\/+$/, "");
+  if (provider === "openrouter") return { url: `${base}/key`, method: "GET" };
+  if (provider === "nanogpt") return { url: `${new URL(base).origin}/api/check-balance`, method: "POST" };
+  return null;
+}
+
 function normalizeConnectionTestBaseUrl(baseUrl: string, provider: string): string {
   if (provider === "google") return normalizeGoogleGenerativeLanguageBaseUrl(baseUrl);
   if (provider !== "image_generation") return baseUrl.replace(/\/+$/, "");
@@ -1012,8 +1020,12 @@ export async function connectionsRoutes(app: FastifyInstance) {
             ? ttsCatalogHeaders(conn.audioSource ?? "elevenlabs", conn.apiKey)
             : headers;
       debugLog("[connections/test] provider=%s model=%s catalogUrl=%s", conn.provider, conn.model ?? "", testUrl);
-      const res = await safeFetch(testUrl, {
-        headers: requestHeadersWithDefaultUserAgent(testHeaders),
+      const keyCheck = buildKeyCheck(conn.provider, baseUrl);
+      const res = await safeFetch(keyCheck?.url ?? testUrl, {
+        method: keyCheck?.method,
+        headers: requestHeadersWithDefaultUserAgent(
+          keyCheck ? { ...testHeaders, "x-api-key": conn.apiKey ?? "" } : testHeaders,
+        ),
         policy: localUrlPolicyForProvider(conn.provider, imageSource),
         maxResponseBytes: 2 * 1024 * 1024,
         decodeCompressedResponse: true,
