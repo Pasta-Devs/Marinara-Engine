@@ -9,6 +9,8 @@ import {
   isLocalAuthProvider,
   withKeyTail,
   type APIProvider,
+  AUDIO_SOURCE_OPTIONS,
+  type DecisionSource,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
 import {
@@ -16,9 +18,7 @@ import {
   useConnectionModels,
   useCountConnectionModels,
   useConnections,
-  useDefaultEmbeddingConnection,
   useDeleteConnection,
-  useSetDefaultEmbeddingConnection,
   useTestConnection,
   useUpdateConnection,
 } from "../../../hooks/use-connections";
@@ -26,20 +26,16 @@ import {
   useConnectionAccounts,
   useCreateConnectionAccount,
   useDeleteConnectionAccount,
-  useFeatureModels,
-  useSetFeatureModels,
   useUpdateConnectionAccount,
 } from "../../../hooks/use-connection-accounts";
 import { useSetChatModel } from "../../../hooks/use-chats";
 import { useChatStore } from "../../../stores/chat.store";
 import { useUIStore } from "../../../stores/ui.store";
 import { useSidecarStore } from "../../../stores/sidecar.store";
-import { useSelectDecisionModel } from "../../../hooks/use-decision-model";
-import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
-import { flashConnectionCard, type AddFor, type AddJob, type ModelsFor } from "../../../lib/add-connection";
-import { JOB, jobAddKind, jobLabelKey, matchesKind } from "../../../lib/connection-jobs";
+import {} from "@marinara-engine/shared";
+import { flashConnectionCard, type AddFor, type ModelsFor } from "../../../lib/add-connection";
+import { jobAddKind } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
-import { useFollowVoiceJob } from "../../../hooks/use-tts";
 import { DecisionModelModal } from "../DecisionModelModal";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
@@ -113,15 +109,9 @@ export function CreateConnectionModalContent({
   const testConnection = useTestConnection();
   const createRow = useCreateConnection();
   const setChatModel = useSetChatModel();
-  const featureModels = useFeatureModels();
-  const setFeatureModels = useSetFeatureModels();
-  const embeddingDefault = useDefaultEmbeddingConnection();
-  const setEmbeddingDefault = useSetDefaultEmbeddingConnection();
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const selectDecision = useSelectDecisionModel();
   const countModels = useCountConnectionModels();
   const builtInReady = useSidecarStore((state) => state.modelDownloaded && state.inferenceReady);
-  const followVoiceJob = useFollowVoiceJob();
 
   // Old image/video deep links now land on real backend discovery instead of a generic credential form.
   const startingService =
@@ -176,6 +166,8 @@ export function CreateConnectionModalContent({
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  // A local server picked from its own tile names the form.
+  const [presetName, setPresetName] = useState<string | null>(null);
   // A service that is already connected: the user chose to connect a second account of it.
   // Step 3's footer; null = "Make Main" is on when there is no Main model yet.
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
@@ -256,8 +248,6 @@ export function CreateConnectionModalContent({
     NETWORK_ERROR.test(errorText(error))
       ? t("connections.add.error.unreachable", { host: serviceName(service ?? provider ?? "custom") })
       : errorText(error);
-  const serviceHint = (key: ServiceId) =>
-    mediaBackendOf(key)?.description ?? t(`connections.add.hint.${key.replace(":", "_")}`);
 
   // Done applies the footer's choices. With no Main model yet the first model added becomes Main (its box starts
   // on); next to a Main model "Set as Main" acts at once instead.
@@ -334,107 +324,17 @@ export function CreateConnectionModalContent({
     }
   };
 
-  const jobLabel = (key: AddJob) => t(jobLabelKey(JOB[key]));
-  // Adding for a job: the first new Model of the job's kind is set for it; the result undoes that.
-  const jobKind = job ? jobAddKind(job) : jobFor?.kind;
-  const jobPick = jobFor && jobKind ? picks.find((pick) => pick.kind === jobKind) : undefined;
-  const assignJob = async (assignment: AddFor | null = jobFor): Promise<(() => void) | null> => {
-    const assignedJob = assignment?.job;
-    const assignedKind = assignedJob ? jobAddKind(assignedJob) : assignment?.kind;
-    const assignedPick = picks.find((pick) => pick.kind === assignedKind);
-    if (!assignedPick || !assignment) return null;
-    const id = assignedPick.connectionId;
-    if (assignment.assign) {
-      const { assign, previous = null } = assignment;
-      await Promise.resolve(assign(id));
-      return () => assign(previous);
-    }
-    if (
-      id === LOCAL_SIDECAR_CONNECTION_ID &&
-      (assignedJob === "main" || assignedJob === "agents" || assignedJob === "decision")
-    ) {
-      // The built-in model is not a row: Main, Agents and Decision are sidecar settings, not row flags.
-      const sidecar = useSidecarStore.getState();
-      if (assignedJob === "decision") {
-        await selectDecision.mutateAsync("primary");
-        return () => void selectDecision.mutateAsync(null).catch(() => {});
-      }
-      const field = assignedJob === "main" ? "useAsMainDefault" : "useAsAgentsDefault";
-      const before = sidecar.config;
-      await sidecar.updateConfig(
-        assignedJob === "agents" ? { [field]: true, useForTrackers: true } : { [field]: true },
-      );
-      const previousMain =
-        assignedJob === "main"
-          ? chatRows.find((candidate) => isConnectionFlagTrue((candidate as Record<string, unknown>).isDefault))
-          : undefined;
-      if (previousMain) await updateRow.mutateAsync({ id: previousMain.id, isDefault: false });
-      return () => {
-        void useSidecarStore.getState().updateConfig({ [field]: before[field], useForTrackers: before.useForTrackers });
-        if (previousMain) void updateRow.mutateAsync({ id: previousMain.id, isDefault: true }).catch(() => {});
-      };
-    }
-    if (assignedJob === "embeddings") {
-      const previous = embeddingDefault.data?.connectionId ?? null;
-      await setEmbeddingDefault.mutateAsync(id);
-      return () => void setEmbeddingDefault.mutateAsync(previous).catch(() => {});
-    }
-    const entry = assignedJob ? JOB[assignedJob] : undefined;
-    const flag = entry?.flag;
-    // Only a Connection of the job's kind takes its flag: a chat service's voice Model is not the Audio default.
-    const target = allRows.find((row) => row.id === id);
-    if (flag && target && matchesKind(target, entry.kind!)) {
-      const previous = allRows.find(
-        (row) =>
-          row.id !== id &&
-          matchesKind(row, entry.kind!) &&
-          isConnectionFlagTrue((row as Record<string, unknown>)[flag]),
-      )?.id;
-      await updateRow.mutateAsync({ id, [flag]: true });
-      const undoVoice = assignedJob === "voice" ? await followVoiceJob(id).catch(() => null) : null;
-      return () => {
-        undoVoice?.();
-        void updateRow.mutateAsync(previous ? { id: previous, [flag]: true } : { id, [flag]: false }).catch(() => {});
-      };
-    }
-    const feature = entry?.feature;
-    if (feature) {
-      const previous = featureModels.data?.[feature] ?? null;
-      await setFeatureModels.mutateAsync({ [feature]: id });
-      return () => void setFeatureModels.mutateAsync({ [feature]: previous }).catch(() => {});
-    }
-    return null;
-  };
-
   // After adding, the window closes and the panel scrolls to the new card.
-  const close = async (saveChoices = false, jobs: AddJob[] = []) => {
+  const close = async (saveChoices = false) => {
     setFinishing(true);
-    let undo: (() => void) | null = null;
     try {
       if (saveChoices && !(await applyChoices())) return;
-      if (saveChoices) {
-        try {
-          undo = await assignJob();
-          for (const key of jobs) await assignJob({ job: key });
-        } catch (error) {
-          toast.error(t("connections.switcher.defaultFailed", { error: errorText(error) }));
-        }
-      }
       await discard();
     } finally {
       setFinishing(false);
     }
     onClose();
     if (target && (picks.length > 0 || mediaSaved)) flashConnectionCard(target.accountId);
-    if (undo && jobPick) {
-      const model = modelName(jobPick.modelId);
-      toast.success(
-        job
-          ? t("connections.add.assigned", { model, job: jobLabel(job) })
-          : t("connections.add.assignedHere", { model }),
-        { duration: 8000, action: { label: t("connections.star.undo"), onClick: undo } },
-      );
-    }
   };
 
   const requestClose = () => {
@@ -452,6 +352,7 @@ export function CreateConnectionModalContent({
     setMaxRpm("");
     setMaxJobs("");
     setMoreOpen(false);
+    setPresetName(null);
     setSetupKind(null);
     setMediaRowId(null);
     setMediaSaved(false);
@@ -499,6 +400,12 @@ export function CreateConnectionModalContent({
     setStep(2);
   };
 
+  const choosePreset = async (preset: { label: string; url: string }) => {
+    await chooseService("custom");
+    setBaseUrl(preset.url);
+    setPresetName(preset.label);
+  };
+
   const backToList = async () => {
     await discard();
     resetFields();
@@ -518,7 +425,9 @@ export function CreateConnectionModalContent({
     ...(name.trim() || autoName
       ? { name: name.trim() || autoName }
       : // The server would name a voice or decision Connection "Audio" / "Decision"; it is named for its service.
-        {}),
+        selectedMedia?.job && service
+        ? { name: serviceName(service) }
+        : {}),
     apiKey: keyless ? "" : apiKey.trim(),
     baseUrl:
       withHttpScheme(baseUrl.trim()) || selectedMedia?.defaultBaseUrl || (keyless ? "" : (def?.defaultBaseUrl ?? "")),
@@ -530,7 +439,7 @@ export function CreateConnectionModalContent({
   const finishAdded = async (account: Target) => {
     setFinishing(true);
     const count = await countModels(account.connectionId);
-    const label = serviceName(service ?? provider!);
+    const label = presetName ?? serviceName(service ?? provider!);
     toast.success(
       count === null
         ? t("connections.add.added", { name: label })
@@ -573,15 +482,29 @@ export function CreateConnectionModalContent({
         setTarget(current);
       }
       if (isMedia && selectedMedia) {
-        // The image or video service is the account's first row, so it is set up here.
+        // The service is the account's first row, so it is set up here.
+        const { job, source } = selectedMedia;
+        const preset = AUDIO_SOURCE_OPTIONS.find((option) => option.id === source);
         await updateRow.mutateAsync({
           id: current.placeholderId!,
-          provider: selectedMedia.image ? "image_generation" : "video_generation",
-          name: selectedMedia.name,
+          name: selectedMedia.name || current.autoName || serviceName(selectedMedia.id),
           baseUrl: current.accountBaseUrl || selectedMedia.defaultBaseUrl,
-          ...(selectedMedia.image
-            ? { imageGenerationSource: selectedMedia.source, imageService: selectedMedia.source }
-            : { videoGenerationSource: selectedMedia.source, videoService: selectedMedia.source }),
+          ...(job === "decision"
+            ? { provider: JOB_PROVIDER.decision, decisionSource: source as DecisionSource }
+            : job === "voice"
+              ? {
+                  provider: JOB_PROVIDER.voice,
+                  audioSource: source,
+                  ...(preset
+                    ? {
+                        model: preset.defaultModel,
+                        ...(preset.defaultVoice ? { audioVoice: preset.defaultVoice } : {}),
+                      }
+                    : {}),
+                }
+              : selectedMedia.image
+                ? { provider: "image_generation", imageGenerationSource: source, imageService: source }
+                : { provider: "video_generation", videoGenerationSource: source, videoService: source }),
         });
         await finishAdded(current);
         return;
@@ -795,7 +718,7 @@ export function CreateConnectionModalContent({
       ? t("connections.add.heading.addModels", { name: targetName })
       : step === 1
         ? t("connections.add.heading.forProvider")
-        : serviceName(service ?? provider!);
+        : (presetName ?? serviceName(service ?? provider!));
   const goBack =
     step === 2
       ? backToList
@@ -838,9 +761,7 @@ export function CreateConnectionModalContent({
           className={PRIMARY_CLASS}
         >
           {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-          {t(
-            isMedia ? "connections.add.connect" : failure ? "connections.add.tryAgain" : "connections.add.testContinue",
-          )}
+          {t(failure ? "connections.add.tryAgain" : "connections.add.connect")}
         </button>
       </div>
     );
@@ -914,36 +835,38 @@ export function CreateConnectionModalContent({
       contentClassName="flex flex-col overflow-hidden! p-0!"
     >
       <div data-add-connection-step={step} className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
-          <div className="flex items-center gap-2">
-            {goBack && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!closeBlocked) void goBack();
-                }}
-                disabled={closeBlocked}
-                aria-label={t("connections.add.back")}
-                title={t("connections.add.back")}
-                className="mari-chrome-control mari-chrome-control--compact -ms-2"
-              >
-                <ChevronLeft size="1rem" aria-hidden />
-              </button>
-            )}
-            <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
-              {heading}
-            </h3>
+        {step !== 1 && (
+          <div className="shrink-0 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
+            <div className="flex items-center gap-2">
+              {goBack && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!closeBlocked) void goBack();
+                  }}
+                  disabled={closeBlocked}
+                  aria-label={t("connections.add.back")}
+                  title={t("connections.add.back")}
+                  className="mari-chrome-control mari-chrome-control--compact -ms-2"
+                >
+                  <ChevronLeft size="1rem" aria-hidden />
+                </button>
+              )}
+              <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
+                {heading}
+              </h3>
+            </div>
           </div>
-        </div>
-
+        )}
         <div key={String(step)} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
           {step === 1 && (
             <ServiceListStep
               query={query}
               setQuery={setQuery}
               chooseService={chooseService}
+              choosePreset={choosePreset}
+              openDecisionServer={() => setDecisionOpen(true)}
               serviceName={serviceName}
-              serviceHint={serviceHint}
             />
           )}
           {step === 2 && (
@@ -974,7 +897,6 @@ export function CreateConnectionModalContent({
               setMaxRpm={setMaxRpm}
               maxJobs={maxJobs}
               setMaxJobs={setMaxJobs}
-              serviceHint={serviceHint}
               serviceName={serviceName}
               modelCount={modelCount}
               keyRef={keyRef}

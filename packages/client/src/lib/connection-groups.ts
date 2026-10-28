@@ -2,7 +2,7 @@
 // Connection groups: pure helpers that arrange saved Models (api_connections rows)
 // under their Connection (account) for the switcher, the panel and ConnectionSelect.
 // ──────────────────────────────────────────────
-import { PROVIDERS, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
+import { PROVIDERS, isChatProvider, type APIProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import { isConnectionFlagTrue } from "./connection-filters";
 import { sortBasicPanelItems, type BasicPanelSort } from "./panel-sort";
 
@@ -108,7 +108,9 @@ export function groupModelsByAccount<R extends ConnectionModelRow>(
   for (const row of rows) {
     const lender = row.credentialsFromConnectionId ? byId.get(row.credentialsFromConnectionId) : undefined;
     const group = groups.get((lender ? lender.accountId : row.accountId) ?? "");
-    if (group) group.rows.push(row);
+    // A chat row with no model is the account's catalog anchor, not a model of its own.
+    const anchor = isChatProvider(row.provider ?? "") && !row.model?.trim();
+    if (group && !anchor) group.rows.push(row);
     else standalone.push(row);
   }
   return { groups: [...groups.values()], standalone };

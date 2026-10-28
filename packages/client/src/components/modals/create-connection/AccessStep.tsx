@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronDown, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
-import { BrandMark } from "../../connections/ProviderIcon";
 import { BuiltInModelSetup } from "./BuiltInModelSetup";
 import { LocalWhisper } from "../../connections/DeviceDetail";
 import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
@@ -19,7 +18,6 @@ import {
   MEDIA_KEY_URLS,
   LINKAPI,
   LINKAPI_SERVICE,
-  ServiceTile,
   failureReason,
   hostOf,
   inputClass,
@@ -55,7 +53,6 @@ export interface AccessStepProps {
   setMaxRpm: (value: string) => void;
   maxJobs: string;
   setMaxJobs: (value: string) => void;
-  serviceHint: (service: ServiceId) => string;
   serviceName: (service: ServiceId) => string;
   modelCount?: number;
   keyRef: RefObject<HTMLInputElement | null>;
@@ -73,15 +70,9 @@ export function AccessStep(props: AccessStepProps) {
       ? LINKAPI.keyUrl
       : props.def?.keyUrl;
 
-  const { setMoreOpen } = props;
   useEffect(() => {
-    if (failure !== "key") return;
-    if (!props.moreOpen) {
-      setMoreOpen(true);
-      return;
-    }
-    document.getElementById("add-connection-key")?.focus();
-  }, [failure, props.moreOpen, setMoreOpen]);
+    if (failure === "key") document.getElementById("add-connection-key")?.focus();
+  }, [failure]);
 
   const keyField = (optional: boolean) => (
     <div className="flex flex-col gap-1">
@@ -138,12 +129,6 @@ export function AccessStep(props: AccessStepProps) {
       <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
         <div className="max-w-xl">
           <div className="flex flex-col gap-4 px-3 py-4">
-            <div className={cn("flex items-start gap-3", props.device !== "local_model" && "hidden")}>
-              <ServiceTile service={props.device} />
-              <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
-                <p>{t(`connections.add.hint.${props.device}`)}</p>
-              </div>
-            </div>
             {props.device === "local_model" && <BuiltInModelSetup />}
             {props.device === "tts" && <TTSConfigCard defaultExpanded />}
             {props.device === "stt" && <SpeechToTextCard defaultExpanded />}
@@ -160,12 +145,6 @@ export function AccessStep(props: AccessStepProps) {
     <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div className="max-w-xl">
         <div className="flex flex-col gap-4 px-3 py-4">
-          <div className="flex items-center gap-3">
-            <ServiceTile service={props.service ?? props.provider} />
-            <div className="min-w-0 flex-1 text-xs leading-snug text-[var(--muted-foreground)]">
-              <p>{props.service ? props.serviceHint(props.service) : t(`connections.add.hint.${props.provider}`)}</p>
-            </div>
-          </div>
           {props.isLocal && (
             <div className="flex flex-col gap-1">
               <label htmlFor="add-connection-url" className={labelClass}>
@@ -186,28 +165,6 @@ export function AccessStep(props: AccessStepProps) {
                 aria-describedby={props.tested ? "add-connection-result" : undefined}
                 className={cn(inputClass, "font-mono")}
               />
-              {!props.selectedMedia && (
-                <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label={t("connections.add.presets")}>
-                  {LOCAL_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        props.setBaseUrl(preset.url);
-                        props.resetTest();
-                      }}
-                      aria-pressed={props.baseUrl.trim() === preset.url}
-                      className="mari-connection-chip gap-1"
-                    >
-                      <BrandMark of={preset.label} className="h-3 w-3" />
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {failure !== "key" && (
-                <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("connections.add.noKeyNeeded")}</p>
-              )}
             </div>
           )}
           {props.requiresAccessKey && keyField(false)}
@@ -259,17 +216,11 @@ export function AccessStep(props: AccessStepProps) {
                         {props.tested.message}
                       </p>
                     )}
-                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                      {failure === "plan" && props.provider && LOGIN_COMMANDS[props.provider]
-                        ? t("connections.add.loginHint", { command: LOGIN_COMMANDS[props.provider] })
-                        : t(
-                            failure === "key"
-                              ? "connections.add.retryKey"
-                              : props.isLocal
-                                ? "connections.add.retryLocal"
-                                : "connections.add.retryKey",
-                          )}
-                    </p>
+                    {failure === "plan" && props.provider && LOGIN_COMMANDS[props.provider] && (
+                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                        {t("connections.add.loginHint", { command: LOGIN_COMMANDS[props.provider] })}
+                      </p>
+                    )}
                   </>
                 )}
               </div>

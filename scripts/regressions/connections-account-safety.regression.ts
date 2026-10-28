@@ -21,12 +21,11 @@ const services = read("../../packages/client/src/components/modals/create-connec
 const models = read("../../packages/client/src/components/modals/create-connection/ModelsStep.tsx");
 
 assert.match(picker, /assign: \(id\) => onChangeRef\.current\(id\)/);
-assert.match(modal, /if \(assignment\.assign\) \{[\s\S]*?await Promise\.resolve\(assign\(id\)\);/);
 assert.match(
   modal,
   /const discardFreshAccount = async \(\) => \{[\s\S]*?deleteRow\.mutateAsync\(current\.connectionId\)/,
 );
-assert.match(access, /failure === "key"[\s\S]*?connections\.add\.retryKey/);
+assert.match(access, /failure === "key"[\s\S]*?add-connection-key/);
 assert.doesNotMatch(backup, /Profile connection records must include a non-empty model ID/);
 assert.match(connections, /Object\.hasOwn\(body, "model"\)[\s\S]*?non-empty model ID/);
 assert.match(services, /custom: \["chat", "image", "local"\]/);
