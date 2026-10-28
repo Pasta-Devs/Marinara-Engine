@@ -4,7 +4,7 @@ import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0KsAAAAASUVORK5CYII=",
+  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAMCAYAAABfnvydAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAFklEQVQYlWPo6en5jw8zjCr4T6dwAACTCf0hFZvtCQAAAABJRU5ErkJggg==",
   "base64",
 );
 
@@ -19,6 +19,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   const path = `/api/sprites/${owner.id}`;
   const catalog = async () => (await request.get(`${path}/catalog`)).json();
   const errors: string[] = [];
+  let releaseFrameSave = () => {};
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     for (const name of ["Front", "Alternate"])
@@ -76,6 +77,33 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const details = page.getByRole("dialog").last();
     await expect(details.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
     await expect(details.getByRole("button", { name: "Frame", exact: true })).toBeVisible();
+    // Delay a real save response: Escape and the editor's own X must not expose
+    // replacement/deletion while that save is pending.
+    let frameSaveStarted = () => {};
+    const frameStarted = new Promise<void>((resolve) => {
+      frameSaveStarted = resolve;
+    });
+    const frameGate = new Promise<void>((resolve) => {
+      releaseFrameSave = resolve;
+    });
+    await page.route(`**${path}`, async (route) => {
+      if (route.request().method() !== "POST" || Object.hasOwn(route.request().postDataJSON(), "folderId"))
+        return route.continue();
+      const response = await route.fetch();
+      frameSaveStarted();
+      await frameGate;
+      await route.fulfill({ response });
+    });
+    await details.getByRole("button", { name: "Frame", exact: true }).click();
+    await details.getByRole("button", { name: "Apply Frame", exact: true }).click();
+    await frameStarted;
+    await expect(details.getByRole("button", { name: "Close frame editor", exact: true })).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(details.getByRole("button", { name: "Apply Frame", exact: true })).toBeVisible();
+    await expect(details.getByRole("button", { name: "Apply Frame", exact: true })).toBeDisabled();
+    releaseFrameSave();
+    await expect(details.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
+    await page.unroute(`**${path}`);
     await details.getByRole("combobox", { name: "Folder", exact: true }).selectOption(alternate);
     await expect
       .poll(
@@ -136,6 +164,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     expect(saved.defaultFolderId).toBe(front);
     expect(errors).toEqual([]);
   } finally {
+    releaseFrameSave();
     const removed = await cleanup.delete(`/api/characters/${owner.id}`);
     expect(removed.ok()).toBeTruthy();
     await cleanup.dispose();

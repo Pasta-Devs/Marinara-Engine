@@ -5462,7 +5462,8 @@ function SpritesTab({
   const visibleSprites = library.visible;
   const selectedSprites = visibleSprites.filter((sprite) => library.selected.includes(sprite.expression));
   const detailSprite = allSprites.find((sprite) => sprite.expression === detailsExpression) ?? null;
-  const spriteBusy = uploading || !!folderProgress || cleaningSprites || !!deletingSprites;
+  const spriteBusy =
+    uploading || !!folderProgress || cleaningSprites || !!deletingSprites || savingFrame || savingWandCleanup;
   const spriteActionClass = "mari-editor-action min-h-[44px]! px-3 md:min-h-9!";
   const addPanelId = useId();
   const cleanupPanelId = useId();
@@ -6219,13 +6220,11 @@ function SpritesTab({
           title={
             framingSprite
               ? localizeUi("ui.characters.spritestab.frame")
-              : wandCleanupSprite
-                ? localizeUi("ui.characters.spritestab.cleanBackgrounds")
-                : detailSprite
-                  ? displayExpression(detailSprite.expression)
-                  : localizeUi("sprites.library.preview")
+              : detailSprite
+                ? displayExpression(detailSprite.expression)
+                : localizeUi("sprites.library.preview")
           }
-          width={framingSprite || wandCleanupSprite ? "max-w-4xl" : "max-w-3xl"}
+          width={framingSprite ? "max-w-4xl" : "max-w-3xl"}
           closeDisabled={savingFrame || savingWandCleanup || uploading}
           panelClassName="mari-editor-shell mari-editor-legacy-bridge"
         >
@@ -6236,15 +6235,9 @@ function SpritesTab({
                 label={displayExpression(framingSprite.expression)}
                 applying={savingFrame}
                 onApply={handleApplySpriteFrame}
-                onClose={() => setFramingSprite(null)}
-              />
-            ) : wandCleanupSprite ? (
-              <SpriteWandCleanupEditor
-                imageUrl={wandCleanupSprite.url}
-                label={displayExpression(wandCleanupSprite.expression)}
-                applying={savingWandCleanup}
-                onApply={handleApplyWandCleanup}
-                onClose={() => setWandCleanupSprite(null)}
+                onClose={() => {
+                  if (!savingFrame) setFramingSprite(null);
+                }}
               />
             ) : (
               <div className="grid gap-5 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -6269,7 +6262,7 @@ function SpritesTab({
                     <select
                       className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm"
                       value={detailSprite.folderId ?? "unfiled"}
-                      disabled={library.mutation.isPending || uploading}
+                      disabled={library.mutation.isPending || spriteBusy}
                       onChange={(event) =>
                         void library.mutate("post", "move", {
                           expressions: [detailSprite.expression],
@@ -6289,7 +6282,7 @@ function SpritesTab({
                     <button
                       type="button"
                       className={spriteActionClass}
-                      disabled={uploading}
+                      disabled={spriteBusy || library.mutation.isPending}
                       onClick={() => void handleRenameSprite(detailSprite)}
                     >
                       <Pencil size={14} />
@@ -6298,7 +6291,7 @@ function SpritesTab({
                     <button
                       type="button"
                       className={spriteActionClass}
-                      disabled={uploading}
+                      disabled={spriteBusy || library.mutation.isPending}
                       onClick={() => startUpload(detailSprite.expression, true)}
                     >
                       <Upload size={14} />
@@ -6307,7 +6300,7 @@ function SpritesTab({
                     <button
                       type="button"
                       className={spriteActionClass}
-                      disabled={uploading}
+                      disabled={spriteBusy || library.mutation.isPending}
                       onClick={() => setFramingSprite(detailSprite)}
                     >
                       <Crop size={14} />
@@ -6316,8 +6309,11 @@ function SpritesTab({
                     <button
                       type="button"
                       className={spriteActionClass}
-                      disabled={uploading}
-                      onClick={() => setWandCleanupSprite(detailSprite)}
+                      disabled={spriteBusy || library.mutation.isPending}
+                      onClick={() => {
+                        setWandCleanupSprite(detailSprite);
+                        setDetailsExpression(null);
+                      }}
                     >
                       <Eraser size={14} />
                       {localizeUi("ui.characters.spritestab.cleanBackgrounds")}
@@ -6325,7 +6321,7 @@ function SpritesTab({
                     <button
                       type="button"
                       className={spriteActionClass}
-                      disabled={uploading}
+                      disabled={spriteBusy || library.mutation.isPending}
                       onClick={() => void downloadSpriteFile(detailSprite)}
                     >
                       <ImageDown size={14} />
@@ -6336,7 +6332,7 @@ function SpritesTab({
                     <button
                       type="button"
                       className={cn(spriteActionClass, "mari-editor-action--danger")}
-                      disabled={uploading}
+                      disabled={spriteBusy || library.mutation.isPending}
                       onClick={() => {
                         setDetailsExpression(null);
                         setDeleteSpriteRequest(detailSprite);
@@ -6350,6 +6346,18 @@ function SpritesTab({
               </div>
             ))}
         </Modal>
+
+        {wandCleanupSprite && (
+          <SpriteWandCleanupEditor
+            imageUrl={wandCleanupSprite.url}
+            label={displayExpression(wandCleanupSprite.expression)}
+            applying={savingWandCleanup}
+            onApply={handleApplyWandCleanup}
+            onClose={() => {
+              if (!savingWandCleanup) setWandCleanupSprite(null);
+            }}
+          />
+        )}
 
         {deleteSpriteRequest && (
           <Modal

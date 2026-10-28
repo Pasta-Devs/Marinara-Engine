@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Crop, Loader2, RotateCcw, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -84,11 +84,21 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
   const [frame, setFrame] = useState<SpriteFrameAdjustments>(DEFAULT_FRAME_ADJUSTMENTS);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const applyVersion = useRef(0);
+  const busy = applying || preparing;
+  useEffect(
+    () => () => {
+      applyVersion.current++;
+    },
+    [imageUrl],
+  );
 
   useEffect(() => {
     setFrame(DEFAULT_FRAME_ADJUSTMENTS);
     setPreviewUrl(null);
     setError(null);
+    setPreparing(false);
   }, [imageUrl]);
 
   useEffect(() => {
@@ -131,13 +141,20 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
   }, []);
 
   const handleApply = useCallback(async () => {
+    if (applying || preparing) return;
+    const version = ++applyVersion.current;
+    setPreparing(true);
     setError(null);
     try {
-      await onApply(await cropSpriteDataUrl(imageUrl, frame));
+      const image = await cropSpriteDataUrl(imageUrl, frame);
+      // Leaving the editor cancels a crop that has not reached the save yet.
+      if (version === applyVersion.current) await onApply(image);
     } catch (err: any) {
-      setError(err?.message || "Failed to frame sprite");
+      if (version === applyVersion.current) setError(err?.message || "Failed to frame sprite");
+    } finally {
+      if (version === applyVersion.current) setPreparing(false);
     }
-  }, [frame, imageUrl, onApply]);
+  }, [applying, preparing, frame, imageUrl, onApply]);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
@@ -156,6 +173,7 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
             <button
               type="button"
               onClick={onClose}
+              disabled={busy}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               aria-label={localizeUi("ui.ui.spriteframeeditor.closeFrameEditor")}
               title={localizeUi("capabilities.actions.close")}
@@ -170,6 +188,7 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
                 <span className="w-12 shrink-0 text-[var(--foreground)]">{controlLabel}</span>
                 <input
                   type="range"
+                  disabled={busy}
                   min={0}
                   max={MAX_SINGLE_EDGE_CROP}
                   step={0.5}
@@ -190,6 +209,7 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
             <button
               type="button"
               onClick={() => setFrame(DEFAULT_FRAME_ADJUSTMENTS)}
+              disabled={busy}
               className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)]"
             >
               <RotateCcw size="0.75rem" />
@@ -198,10 +218,10 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
             <button
               type="button"
               onClick={() => void handleApply()}
-              disabled={applying}
+              disabled={busy}
               className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-50"
             >
-              {applying ? <Loader2 size="0.75rem" className="animate-spin" /> : <Crop size="0.75rem" />}
+              {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Crop size="0.75rem" />}
               {localizeUi("ui.ui.spriteframeeditor.applyFrame")}
             </button>
           </div>
