@@ -2644,8 +2644,6 @@
   "connections.switcher.browse": "Browse",
   "connections.switcher.browseAll": "Browse all models",
   "connections.switcher.browseConnection": "Browse {{connection}} models",
-  "connections.switcher.chipFollowsMain": "· Main",
-  "connections.switcher.chipThisChat": "· this chat",
   "connections.switcher.chooseModel": "Choose a model",
   "connections.switcher.connections": "Connections",
   "connections.switcher.defaultFailed": "Couldn't make it the default: {{error}}",

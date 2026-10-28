@@ -500,12 +500,6 @@ export function MariComposer({
               }
             >
               <Link aria-hidden="true" />
-              <span>
-                {effectiveConnection
-                  ? effectiveConnection.name || effectiveConnection.id
-                  : localizeUi("ui.chat.homeprofessormarichat.selectConnection")}
-              </span>
-              <ChevronDown aria-hidden="true" />
             </button>
             {connectionMenuOpen &&
               (phone ? (

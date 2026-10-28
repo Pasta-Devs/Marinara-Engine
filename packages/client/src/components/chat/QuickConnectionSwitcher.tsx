@@ -6,7 +6,7 @@
 import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, X } from "lucide-react";
+import { Link, X } from "lucide-react";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
@@ -16,12 +16,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
 import { ContextBudgetGauge, ContextBudgetIndicator } from "./ContextBudgetIndicator";
-import {
-  ConnectionSwitcherBody,
-  EffectiveModelIcon,
-  useChatModelPick,
-  useEffectiveChatModel,
-} from "../connections/ConnectionSwitcherBody";
+import { ConnectionSwitcherBody, useChatModelPick, useEffectiveChatModel } from "../connections/ConnectionSwitcherBody";
 
 export function QuickConnectionSwitcher({
   className,
@@ -225,39 +220,22 @@ export function QuickConnectionSwitcher({
         aria-label={localizeUi("chat.settings.connectionModel.buttonLabel", { model: chipName })}
         title={chipName}
         className={cn(
-          "flex h-8 min-w-0 max-w-[11rem] items-center gap-1 rounded-full border pl-px pr-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 lg:max-w-[16rem] [@media(pointer:coarse)]:h-11",
+          "flex h-8 w-8 items-center justify-center rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
           open
-            ? "border-foreground/25 bg-foreground/10 text-foreground/85"
-            : "border-foreground/10 text-foreground/65 hover:bg-foreground/10 hover:text-foreground/85",
+            ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+            : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
           className,
         )}
       >
-        <span className="relative flex h-[1.875rem] w-[1.875rem] shrink-0 items-center justify-center">
+        <span className="relative flex h-[1.875rem] w-[1.875rem] items-center justify-center">
           {contextBudget && <ContextBudgetGauge percentage={contextBudget.percentage} />}
-          <EffectiveModelIcon
-            effective={effective}
-            // Inside the context ring the tile shrinks so the ring stays readable.
-            className={contextBudget ? "!h-[1.125rem] !w-[1.125rem] !rounded-md" : undefined}
-          />
+          <Link size="1rem" />
         </span>
-        <span className="min-w-0 truncate font-medium">{chipName}</span>
-        {effective?.kind === "model" && !unavailable && (
-          <span className="hidden shrink-0 text-foreground/45 lg:inline">
-            {localizeUi(
-              effective.followsMain ? "connections.switcher.chipFollowsMain" : "connections.switcher.chipThisChat",
-            )}
-          </span>
-        )}
         {unavailable && (
           <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-px text-[0.5625rem] leading-4">
             {unavailable}
           </span>
         )}
-        <ChevronDown
-          size="0.75rem"
-          className={cn("shrink-0 text-foreground/45 transition-transform", open && "rotate-180")}
-          aria-hidden
-        />
       </button>
       {menu}
     </>
