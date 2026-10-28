@@ -207,9 +207,19 @@ function formatProviderErrorBody(body: string): string {
 }
 
 function isOpenAICompatibleProvider(provider: string): boolean {
-  return ["openai", "openrouter", "nanogpt", "xai", "mistral", "custom", "cohere", "arli", "zai", "deepseek"].includes(
-    provider,
-  );
+  return [
+    "openai",
+    "openrouter",
+    "nanogpt",
+    "xai",
+    "mistral",
+    "custom",
+    "cohere",
+    "arli",
+    "zai",
+    "deepseek",
+    "obscurify",
+  ].includes(provider);
 }
 
 function usesResponsesEndpointForTestMessage(provider: string, model: string): boolean {

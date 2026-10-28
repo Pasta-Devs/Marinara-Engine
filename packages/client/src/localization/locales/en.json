@@ -1742,6 +1742,7 @@
   "connections.mediaSources.fal.configured": "fal.ai connection configured. Use Test Image to verify your key and generate an image using credits.",
   "connections.mediaSources.fal.imageDescription": "Generate images with FLUX and other fal.ai text-to-image models.",
   "connections.mediaSources.fal.testHelp": "checks the configuration without making a paid generation request.",
+  "connections.mediaSources.obscurify.apiKeyLink": "Get your Obscurify.ai API key",
   "connections.mediaSources.spicyapi.apiKeyLink": "Get your SpicyAPI key",
   "connections.mediaSources.spicyapi.imageDescription": "Generate images with SpicyAPI's uncensored image models.",
   "connections.mediaSources.swarmui.authHelp": "If this SwarmUI server requires an account, paste a Swarm Auth Token into the API Key field. Leave it empty for an unauthenticated local server.",

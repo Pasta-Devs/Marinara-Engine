@@ -223,6 +223,15 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: true,
     apiKeyHeader: null,
   },
+  obscurify: {
+    id: "obscurify",
+    name: "Obscurify.ai",
+    defaultBaseUrl: "https://obscurify.ai/v1",
+    modelsEndpoint: "/models",
+    supportsStreaming: true,
+    usesAuthHeader: true,
+    apiKeyHeader: null,
+  },
   custom: {
     id: "custom",
     name: "Custom (OAI-Compatible)",

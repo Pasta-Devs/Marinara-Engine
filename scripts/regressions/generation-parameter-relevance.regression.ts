@@ -310,6 +310,12 @@ try {
       make: registry("deepseek", `${base}/v1`),
     },
     {
+      provider: "obscurify",
+      baseUrl: `${base}/v1`,
+      models: ["z-ai/glm-5.3", "deepseek/deepseek-v4-flash", "unknown-obscurify"],
+      make: registry("obscurify", `${base}/v1`),
+    },
+    {
       provider: "custom",
       baseUrl: `${base}/v1`,
       models: ["llama-3.3-70b", "gpt-5.5", "glm-4.6", "claude-opus-5", "gemini-3.8-flash"],

@@ -372,6 +372,7 @@ type OpenAIProviderKind =
   | "arli"
   | "zai"
   | "deepseek"
+  | "obscurify"
   | "custom"
   | "openai-chatgpt"
   | "local-sidecar";
@@ -922,6 +923,8 @@ export class OpenAIProvider extends BaseLLMProvider {
         return "Z.AI API";
       case "deepseek":
         return "DeepSeek API";
+      case "obscurify":
+        return "Obscurify.ai API";
       case "local-sidecar":
         return "Local sidecar OpenAI-compatible endpoint";
       case "openai-chatgpt":

@@ -816,12 +816,17 @@ export function ConnectionEditor() {
                               label: t("connections.mediaSources.deepseek.apiKeyLink"),
                               url: "https://platform.deepseek.com/api_keys",
                             }
-                          : localProvider === "image_generation" && selectedImageService === "spicyapi"
+                          : localProvider === "obscurify"
                             ? {
-                                label: t("connections.mediaSources.spicyapi.apiKeyLink"),
-                                url: "https://spicyapi.ai/console/keys",
+                                label: t("connections.mediaSources.obscurify.apiKeyLink"),
+                                url: "https://obscurify.ai/account",
                               }
-                            : API_KEY_LINKS[localProvider];
+                            : localProvider === "image_generation" && selectedImageService === "spicyapi"
+                              ? {
+                                  label: t("connections.mediaSources.spicyapi.apiKeyLink"),
+                                  url: "https://spicyapi.ai/console/keys",
+                                }
+                              : API_KEY_LINKS[localProvider];
 
   const apiKeyLink =
     localProvider === "audio_generation" && localAudioGenerationSource === "sunoapi"

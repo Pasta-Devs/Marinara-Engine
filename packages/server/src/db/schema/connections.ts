@@ -23,6 +23,7 @@ export const apiConnections = fileTable("api_connections", {
       "arli",
       "zai",
       "deepseek",
+      "obscurify",
       "custom",
       "image_generation",
       "video_generation",

@@ -133,6 +133,7 @@ try {
     "arli",
     "zai",
     "deepseek",
+    "obscurify",
     "custom",
     "cohere",
   ] as const) {

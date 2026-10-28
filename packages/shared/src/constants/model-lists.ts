@@ -1327,6 +1327,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   arli: [], // Arli AI — models fetched dynamically via the /models endpoint
   zai: ZAI_MODELS,
   deepseek: DEEPSEEK_MODELS,
+  obscurify: [], // Obscurify.ai — models fetched dynamically via the /models endpoint
   // Seed OAI-compatible endpoints with the OpenAI catalog; remote /models still merge on top.
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,

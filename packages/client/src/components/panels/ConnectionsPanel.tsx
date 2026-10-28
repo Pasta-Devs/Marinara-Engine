@@ -134,6 +134,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   arli: CONNECTION_ICON_COLORS,
   zai: CONNECTION_ICON_COLORS,
   deepseek: CONNECTION_ICON_COLORS,
+  obscurify: CONNECTION_ICON_COLORS,
   custom: CONNECTION_ICON_COLORS,
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
