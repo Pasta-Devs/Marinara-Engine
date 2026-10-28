@@ -5,7 +5,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CapabilityClientUi, ConnectionPickerKind, ConnectionPickerResult } from "@marinara-engine/shared";
 
-type PickerModule = typeof import("../components/connections/ConnectionPicker");
+type PickerModule = typeof import("../components/connections/ModelPicker");
 
 const KINDS: readonly ConnectionPickerKind[] = ["chat", "image", "video", "audio", "decision", "all"];
 const MAX_ID = 200;
@@ -21,7 +21,7 @@ interface PickerRequest {
   defaultLabel?: string;
   includeDefault: boolean;
   includeLocalSidecar: boolean;
-  Picker: PickerModule["ConnectionPicker"] | null;
+  Picker: PickerModule["ModelPicker"] | null;
 }
 
 function text(input: unknown, max: number): string | undefined {
@@ -102,8 +102,8 @@ export function useCapabilityConnectionPicker(scopeKey: string): { ui: Capabilit
         return new Promise<ConnectionPickerResult>((resolve) => {
           pending.current = { id, resolve };
           setRequest({ id, ...normalized, Picker: null });
-          import("../components/connections/ConnectionPicker").then(
-            ({ ConnectionPicker }) => setRequest((r) => (r && r.id === id ? { ...r, Picker: ConnectionPicker } : r)),
+          import("../components/connections/ModelPicker").then(
+            ({ ModelPicker }) => setRequest((r) => (r && r.id === id ? { ...r, Picker: ModelPicker } : r)),
             () => settle(id, CANCELLED),
           );
         });
@@ -118,12 +118,14 @@ export function useCapabilityConnectionPicker(scopeKey: string): { ui: Capabilit
       <Picker
         key={request.id}
         open
-        value={request.value}
-        kind={request.kind}
-        title={request.title}
-        defaultLabel={request.defaultLabel}
-        includeDefault={request.includeDefault}
-        includeLocalSidecar={request.includeLocalSidecar}
+        value={request.value ?? null}
+        kind={request.kind ?? "chat"}
+        title={request.title ?? ""}
+        jobName={request.title ?? ""}
+        defaultText={request.defaultLabel ?? ""}
+        includeDefault={request.includeDefault ?? true}
+        includeLocalSidecar={request.includeLocalSidecar ?? false}
+        extraOptions={[]}
         restoreFocusRef={scope.opener}
         onClose={() => settle(request.id, CANCELLED)}
         onChange={(value) =>

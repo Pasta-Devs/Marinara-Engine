@@ -1,4 +1,5 @@
 import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
+import { openAddConnection } from "../../lib/add-connection";
 // ──────────────────────────────────────────────
 // Quick Switcher Mobile — single chevron opens
 // a tabbed menu with Connections + Personas
@@ -320,6 +321,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
 
             {tab === "connections" && (
               <ConnectionSwitcherBody
+                onAdd={() => openAddConnection()}
                 layout="steps"
                 catalogBrowse={modelsEnabled}
                 current={chatPick.current}

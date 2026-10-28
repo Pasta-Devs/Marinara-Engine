@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openAddConnection } from "../../../lib/add-connection";
 import { AlertTriangle, ChevronDown, Plug } from "lucide-react";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
@@ -177,6 +178,7 @@ export function ConnectionSection({
               className="mt-2 flex h-[min(28rem,65dvh)] flex-col overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-foreground/10 [--mari-chat-existing-bg:var(--card)]"
             >
               <ConnectionSwitcherBody
+                onAdd={() => openAddConnection()}
                 layout="steps"
                 current={chatPick.current}
                 recent={chatPick.recent}

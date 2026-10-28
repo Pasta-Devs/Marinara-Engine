@@ -4,6 +4,7 @@
 // it opens the shared one-column chooser. A pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsToggle";
+import { openAddConnection } from "../../lib/add-connection";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link, X } from "lucide-react";
@@ -183,6 +184,7 @@ export function QuickConnectionSwitcher({
               </button>
             </div>
             <ConnectionSwitcherBody
+              onAdd={() => openAddConnection()}
               layout="steps"
               catalogBrowse={modelsEnabled}
               current={chatPick.current}

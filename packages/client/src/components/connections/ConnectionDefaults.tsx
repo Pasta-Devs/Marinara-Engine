@@ -565,7 +565,6 @@ export function ConnectionDefaultsBox({
           }}
           defaultLabel={isAgents ? t("connections.defaults.agentsFollowChat") : t("connections.defaults.none")}
           includeLocalSidecar={(isAgents || isMain) && offerLocalSidecar}
-          addJob={key}
           aria-label={t("connections.defaults.defaultFor", { role: title })}
         />
         <ConnectionSelect
@@ -645,7 +644,6 @@ export function ConnectionDefaultsBox({
             extraOptions={FEATURE_EXTRA_OPTIONS[job.key]?.map((extra) => ({ value: extra.value, label: t(extra.key) }))}
             includeLocalSidecar={!lite && job.key !== "vision"}
             rowFilter={job.key === "vision" ? mayReadImages : undefined}
-            addJob={job.add === false ? undefined : job.key}
             className={cn(!features && "opacity-60")}
             aria-label={t(jobLabelKey(job))}
           />

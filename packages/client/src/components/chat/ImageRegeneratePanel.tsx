@@ -176,7 +176,6 @@ function ImageRegenerateForm({
         <span className={LABEL_CLASS}>{localizeUi("ui.chat.imageregeneratepanel.connection")}</span>
         <ConnectionSelect
           kind="image"
-          addJob="images"
           value={connectionId || null}
           onChange={(nextId) => setConnectionId(nextId ?? "")}
           defaultLabel={localizeUi("ui.chat.imageregeneratepanel.chatConnection")}

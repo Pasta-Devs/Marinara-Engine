@@ -7,7 +7,7 @@
 // saves a model, and removing it can remove the saved Model (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, ChevronRight, Cpu, House, Layers, Search, Shuffle, Star } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Cpu, House, Layers, Plus, Search, Shuffle, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   readChatModelOverride,
   readChatRecentModels,
   type ChatModelChoice,
+  type ConnectionPickerKind,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import {
@@ -27,6 +28,7 @@ import {
   useUpdateConnection,
   type SubscriptionUsage,
 } from "../../hooks/use-connections";
+import { matchesKind } from "../../lib/connection-jobs";
 import { useChat, useChats, useSetChatModel } from "../../hooks/use-chats";
 import {
   useCatalogSearch,
@@ -53,6 +55,7 @@ import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
 import { ServiceRow } from "./ServiceRow";
 import { sortPanelFolders } from "../../lib/panel-sort";
+import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { ConnectionModelList } from "./ConnectionModelList";
 import { modelRoleLabels } from "./ModelRow";
 import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
@@ -386,6 +389,11 @@ export function ConnectionSwitcherBody({
   listClassName,
   modelsClassName,
   catalogBrowse = true,
+  kind = "chat",
+  rowFilter,
+  extras,
+  onAdd,
+  firstAccountId,
 }: {
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
@@ -406,7 +414,17 @@ export function ConnectionSwitcherBody({
   /** The chat's random-pool mode; absent where there is none (Professor Mari). */
   shuffle?: { active: boolean; onToggle: () => void };
   /** Follow Main: the host follows the Main model; absent where there is no such state (Professor Mari). */
-  followDefault?: { active: boolean; onSelect: () => Promise<void> };
+  followDefault?: { active: boolean; onSelect: () => Promise<void>; label?: string };
+  /** The slot's saved Model kind; without it the picker lists chat Models. */
+  kind?: ConnectionPickerKind;
+  /** Hides saved Models the slot cannot use (the current one stays). */
+  rowFilter?: (row: ConnectionModelRow) => boolean;
+  /** Plain values that are not Models, such as "random", listed under Follow. */
+  extras?: ReadonlyArray<{ value: string; label: string; active: boolean; onSelect: () => Promise<void> }>;
+  /** Last row: adds a provider; the host reopens or keeps this picker. */
+  onAdd?: () => void;
+  /** A provider just added: its group comes first. */
+  firstAccountId?: string | null;
   listHeader?: ReactNode;
   /** Below the list, inside its column. */
   listFooter?: ReactNode;
@@ -446,13 +464,14 @@ export function ConnectionSwitcherBody({
   const searchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const rows = useMemo(
-    () =>
-      filterLanguageGenerationConnections((connectionsRaw ?? []) as SwitcherRow[]).filter(
-        (row) => !hiddenIds.has(row.id),
-      ),
-    [connectionsRaw, hiddenIds],
-  );
+  const rows = useMemo(() => {
+    const all = (connectionsRaw ?? []) as SwitcherRow[];
+    const ofKind =
+      kind === "chat" ? filterLanguageGenerationConnections(all) : all.filter((row) => matchesKind(row, kind));
+    return ofKind.filter(
+      (row) => !hiddenIds.has(row.id) && (!rowFilter || row.id === current?.connectionId || rowFilter(row)),
+    );
+  }, [connectionsRaw, hiddenIds, kind, rowFilter, current?.connectionId]);
   const groups = useMemo<SwitcherGroup[]>(() => {
     const { groups: byAccount, standalone } = groupModelsByAccount(rows, accounts ?? []);
     // The panel orders accounts by all their Models; the language filter only trims the rows shown.
@@ -467,7 +486,13 @@ export function ConnectionSwitcherBody({
       // Connections with only image or voice Models have nothing to pick here.
       ...byAccount
         .filter((group) => group.rows.length > 0)
-        .sort((a, b) => (accountRank.get(a.account.id) ?? Infinity) - (accountRank.get(b.account.id) ?? Infinity))
+        .sort((a, b) =>
+          a.account.id === firstAccountId
+            ? -1
+            : b.account.id === firstAccountId
+              ? 1
+              : (accountRank.get(a.account.id) ?? Infinity) - (accountRank.get(b.account.id) ?? Infinity),
+        )
         .map((group) => ({
           key: group.account.id,
           account: group.account,
@@ -478,7 +503,7 @@ export function ConnectionSwitcherBody({
         .map((row) => ({ key: row.id, account: null, name: rowLabel(row), rows: [row] }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     ];
-  }, [accountManualOrder, accounts, connectionsRaw, rows, sort]);
+  }, [accountManualOrder, accounts, connectionsRaw, rows, sort, firstAccountId]);
   const groupOfRow = useMemo(() => {
     const map = new Map<string, SwitcherGroup>();
     for (const group of groups) for (const row of group.rows) map.set(row.id, group);
@@ -993,16 +1018,47 @@ export function ConnectionSwitcherBody({
           <House size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
         )}
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate">{t("connections.switcher.followMain")}</span>
-          <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-            {mainRow
-              ? t("connections.switcher.followMainHint", { model: rowLabel(mainRow) })
-              : t("connections.switcher.noMain")}
-          </span>
+          <span className="truncate">{followDefault.label ?? t("connections.switcher.followMain")}</span>
+          {!followDefault.label && (
+            <span className="truncate text-[0.625rem] font-normal text-foreground/50">
+              {mainRow
+                ? t("connections.switcher.followMainHint", { model: rowLabel(mainRow) })
+                : t("connections.switcher.noMain")}
+            </span>
+          )}
         </span>
         {active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
       </button>
     );
+
+  const extraRows = (extras ?? []).map((extra) => (
+    <button
+      key={extra.value}
+      type="button"
+      data-switcher-extra={extra.value}
+      aria-current={extra.active ? "true" : undefined}
+      disabled={busy}
+      onClick={() => {
+        if (extra.active) return onDone();
+        setBusy(true);
+        void extra
+          .onSelect()
+          .then(onDone)
+          .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
+          .finally(() => setBusy(false));
+      }}
+      className={cn(ROW_CLASS, extra.active && "bg-foreground/[0.07] font-semibold")}
+    >
+      <span className="min-w-0 flex-1 truncate">{extra.label}</span>
+      {extra.active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
+    </button>
+  ));
+  const addRow = onAdd && (
+    <button type="button" data-switcher-add onClick={onAdd} className={ROW_CLASS}>
+      <Plus size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
+      <span className="min-w-0 flex-1 truncate">{t("connections.switcher.addProvider")}</span>
+    </button>
+  );
 
   const shuffleRow = shuffle && (
     <button
@@ -1189,6 +1245,7 @@ export function ConnectionSwitcherBody({
           <>
             {nowSection}
             {followDefault && !followDefault.active && followRow(false)}
+            {extraRows}
             {recent.length > 0 && (
               <section data-switcher-section="recent" aria-label={t("connections.switcher.recent")}>
                 <ListHeading>{t("connections.switcher.recent")}</ListHeading>
@@ -1205,6 +1262,7 @@ export function ConnectionSwitcherBody({
           </>
         )}
       </ListFrame>
+      {addRow && <div className="shrink-0 px-1 pb-1">{addRow}</div>}
       {listFooter}
     </div>
   );

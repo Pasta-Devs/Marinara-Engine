@@ -362,7 +362,6 @@ export function AdvancedParametersSection({
                   : localizeUi("ui.chatSettings.advancedparameterssection.selectACaptioningConnection")
               }
               rowFilter={mayReadImages}
-              addJob="vision"
             />
           </label>
         )}

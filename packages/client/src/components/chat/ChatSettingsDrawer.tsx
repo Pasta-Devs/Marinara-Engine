@@ -7572,7 +7572,6 @@ export function ChatSettingsDrawer({
                                 updateMeta.mutate({ id: chat.id, sceneVideoConnectionId: connectionId })
                               }
                               kind="video"
-                              addJob="video"
                               defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.defaultVideoConnection")}
                               inherits="main"
                             />

@@ -90,7 +90,6 @@ export function MeshAvatarSection({
               value={visionConnectionId}
               onChange={setVisionConnectionId}
               rowFilter={mayReadImages}
-              addJob="vision"
               defaultLabel={t("avatars.generation.visionConnectionAgent")}
             />
           </fieldset>

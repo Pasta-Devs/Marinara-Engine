@@ -10,12 +10,11 @@ import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
-import { openAddConnection, type AddJob } from "../../lib/add-connection";
-import { ADD_KIND, FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
+import { FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 
 // The window loads on first open, so a screen of compact fields does not pull it into startup.
-const ConnectionPicker = lazy(() => import("./ConnectionPicker").then((m) => ({ default: m.ConnectionPicker })));
+const ModelPicker = lazy(() => import("./ModelPicker").then((m) => ({ default: m.ModelPicker })));
 
 export type ConnectionSelectKind = ConnectionPickerKind;
 
@@ -185,7 +184,6 @@ export function ConnectionSelect({
   label: rowLabel,
   title,
   className,
-  addJob,
   scope,
   disabled,
   ...aria
@@ -214,8 +212,6 @@ export function ConnectionSelect({
   /** The picker window's title. */
   title?: string;
   className?: string;
-  /** The job this slot is, for "Add a model for this…" (the Add window names it and sets Defaults by it). */
-  addJob?: AddJob;
   /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
   scope?: "chat" | "agent";
   disabled?: boolean;
@@ -227,6 +223,7 @@ export function ConnectionSelect({
   const [opened, setOpened] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
+  const jobName = String(rowLabel ?? aria["aria-label"] ?? title ?? "").replace(/\s+model$/i, "");
   const choices = useConnectionChoices({
     kind,
     value,
@@ -353,27 +350,20 @@ export function ConnectionSelect({
       )}
       {opened && (
         <Suspense fallback={null}>
-          <ConnectionPicker
+          <ModelPicker
             open={open}
             onClose={() => setOpen(false)}
-            value={value}
-            // Re-picking the current value stores nothing.
-            onChange={(next) => next !== (value || null) && onChange(next)}
+            title={t("connections.picker.modelFor", { job: jobName })}
+            jobName={jobName}
             kind={kind}
-            defaultLabel={choices.defaultText}
+            value={value}
+            onChange={(next) => next !== (value || null) && onChange(next)}
+            defaultText={choices.defaultText}
+            includeDefault
             includeLocalSidecar={includeLocalSidecar}
             extraOptions={extraOptions}
             rowFilter={rowFilter}
-            title={title}
             restoreFocusRef={triggerRef}
-            onAdd={() =>
-              openAddConnection({
-                job: addJob,
-                kind: ADD_KIND[kind],
-                assign: (id) => onChangeRef.current(id),
-                previous: value,
-              })
-            }
           />
         </Suspense>
       )}
