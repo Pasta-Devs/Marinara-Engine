@@ -13643,7 +13643,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       playerName,
       gameActiveState,
       partyArcs: (meta.gamePartyArcs as PartyArc[]) || undefined,
-      characterSprites: listPartySprites(partyIdNamePairs),
+      characterSprites: listPartySprites(partyIdNamePairs, meta),
     });
 
     // Build user prompt with context

@@ -8,6 +8,14 @@ import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import {
+  listSpriteCatalog,
+  activeOwnerSprites,
+  readSpriteCatalog,
+  writeSpriteCatalog,
+  withSpriteCatalogLock,
+} from "../sprites/sprite-catalog.js";
+import { randomUUID } from "node:crypto";
 import { newId, now } from "../../utils/id-generator.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
@@ -957,15 +965,10 @@ export class MariImagesService {
         return typeof row.imagePath === "string" ? row.imagePath : null;
       }
       case "sprite": {
-        const dir = join(SPRITES_DIR, target.ownerId);
-        if (!existsSync(dir)) return null;
-        const entries = await readdir(dir);
-        const match = entries.find(
-          (entry) =>
-            entry.slice(0, -extname(entry).length) === target.expression &&
-            IMAGE_EXTS.has(extname(entry).toLowerCase()),
-        );
-        return match ? `/api/sprites/${encodeURIComponent(target.ownerId)}/file/${encodeURIComponent(match)}` : null;
+        const match =
+          activeOwnerSprites(target.ownerId).find((sprite) => sprite.label === target.expression) ??
+          listSpriteCatalog(target.ownerId).sprites.find((sprite) => sprite.expression === target.expression);
+        return match?.url ?? null;
       }
       case "background":
         return target.filename ? `/api/backgrounds/file/${encodeURIComponent(target.filename)}` : null;
@@ -1146,16 +1149,28 @@ export class MariImagesService {
     const characters = createCharactersStorage(this.db);
     const owner = (await characters.getById(ownerId)) ?? (await characters.getPersona(ownerId));
     if (!owner) throw new Error(`Character/persona not found for sprite owner: ${ownerId}`);
-    const dir = join(SPRITES_DIR, ownerId);
-    await mkdir(dir, { recursive: true });
-    const filename = `${expression}.${source.ext}`;
-    const path = assertInsideDir(dir, join(dir, filename));
-    await writeFile(path, source.buffer);
-    return {
-      expression,
-      filename,
-      url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Date.now()}`,
-    };
+    return withSpriteCatalogLock(ownerId, async () => {
+      const catalog = readSpriteCatalog(ownerId);
+      const sprites = listSpriteCatalog(ownerId).sprites;
+      const match = sprites.find(
+        (sprite) => sprite.label === expression && sprite.folderId === catalog.defaultFolderId,
+      );
+      const handle =
+        match?.expression ??
+        (sprites.some((sprite) => sprite.expression === expression)
+          ? `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`
+          : expression);
+      const dir = join(SPRITES_DIR, ownerId);
+      await mkdir(dir, { recursive: true });
+      const filename = `${handle}.${source.ext}`;
+      await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
+      catalog.sprites = {
+        ...catalog.sprites,
+        [handle]: { id: match?.id ?? randomUUID(), label: expression, folderId: catalog.defaultFolderId },
+      };
+      await writeSpriteCatalog(ownerId, catalog);
+      return listSpriteCatalog(ownerId).sprites.find((sprite) => sprite.expression === handle)!;
+    });
   }
 
   private async assignBackground(source: ResolvedImage, target: Extract<ImageTarget, { type: "background" }>) {
@@ -1400,19 +1415,25 @@ export class MariImagesService {
           flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
         );
         if (!ownerId) throw new Error("sprite list requires --character <id>, --persona <id>, or --owner <id>");
-        const dir = join(SPRITES_DIR, ownerId);
-        const files = existsSync(dir)
-          ? (await readdir(dir)).filter((entry) => IMAGE_EXTS.has(extname(entry).toLowerCase()))
-          : [];
+        const catalog = listSpriteCatalog(ownerId);
         return {
           ok: true,
           mode: "read",
           command: context.command,
-          output: files.slice(0, limit).map((filename) => ({
-            expression: filename.slice(0, -extname(filename).length),
-            filename,
-            url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}`,
-          })),
+          output: catalog.sprites.slice(0, limit),
+        };
+      }
+      case "sprite-folders": {
+        const ownerId = normalizeId(
+          flagString(flags, "character", "character-id", "persona", "persona-id", "owner", "owner-id", "id"),
+        );
+        if (!ownerId) throw new Error("sprite-folders requires an owner ID");
+        const catalog = listSpriteCatalog(ownerId);
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: { folders: catalog.folders, defaultFolderId: catalog.defaultFolderId },
         };
       }
       case "chat-gallery":

@@ -52,6 +52,17 @@ export function takeEmbeddedMarinaraSprites(raw: Record<string, unknown>): unkno
   return sprites;
 }
 
+function takeEmbeddedSpriteCatalog(raw: Record<string, unknown>): unknown {
+  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+  const extensions = cardData.extensions as Record<string, unknown> | undefined;
+  if (!extensions || typeof extensions !== "object") return undefined;
+  const marinara = extensions.marinara as Record<string, unknown> | undefined;
+  if (!marinara || typeof marinara !== "object") return undefined;
+  const catalog = marinara.spriteCatalog;
+  delete marinara.spriteCatalog;
+  return catalog;
+}
+
 function ensureAvatarDir() {
   if (!existsSync(AVATAR_DIR)) {
     mkdirSync(AVATAR_DIR, { recursive: true });
@@ -213,6 +224,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
   const tagImportMode = options?.tagImportMode ?? "all";
   const embeddedMarinaraSprites = takeEmbeddedMarinaraSprites(raw);
+  const embeddedSpriteCatalog = takeEmbeddedSpriteCatalog(raw);
 
   // Extract avatar data URL if present (from PNG import)
   const avatarDataUrl = raw._avatarDataUrl as string | null;
@@ -375,7 +387,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 
   if (charId && embeddedMarinaraSprites !== undefined) {
     try {
-      await restoreSprites(embeddedMarinaraSprites, charId);
+      await restoreSprites(embeddedMarinaraSprites, charId, embeddedSpriteCatalog);
     } catch (err) {
       logger.warn(err, "Skipped optional embedded sprite restore for %s", charId);
     }

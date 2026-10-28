@@ -499,6 +499,8 @@ export interface ChatMetadata {
   spriteCharacterIds?: string[];
   /** Which sprite file families the roleplay Expression Engine may display. */
   spriteDisplayModes?: Array<"expressions" | "full-body">;
+  /** Per owner folder override; absent inherits the card default, null selects Unfiled. */
+  spriteFolderOverrides?: Record<string, string | null>;
   /** Only show roleplay sprites returned by the latest completed Expression Engine result. Off by default. */
   expressionOnlyActiveSprites?: boolean;
   /** Preferred sidebar / default layout side for chat sprites. */

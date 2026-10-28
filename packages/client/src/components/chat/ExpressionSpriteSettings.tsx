@@ -1,4 +1,5 @@
 import { Image } from "lucide-react";
+import { SpriteFolderChatPicker } from "../characters/SpriteLibrary";
 import { useTranslation } from "react-i18next";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -140,7 +141,7 @@ export function ExpressionSpriteSettings({
           {owners.map((owner) => (
             <div
               key={`${owner.kind}:${owner.id}`}
-              className="flex items-center gap-2.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+              className="flex flex-wrap items-center gap-2.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
             >
               <button
                 type="button"
@@ -190,6 +191,7 @@ export function ExpressionSpriteSettings({
               </button>
 
               <SpriteToggleButton active={owner.active} onToggle={() => onToggleOwner(owner.id)} />
+              <SpriteFolderChatPicker chatId={chatId} ownerId={owner.id} />
             </div>
           ))}
         </div>

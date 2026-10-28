@@ -28,6 +28,7 @@ try {
   assert.equal(empty.statusCode, 200);
   assert.deepEqual(empty.json(), []);
   const spriteDir = join(process.env.DATA_DIR, "sprites", "valid-character");
+  mkdirSync(spriteDir, { recursive: true });
   writeFileSync(join(spriteDir, "happy.png"), "sprite fixture");
   writeFileSync(join(spriteDir, "notes.txt"), "not a sprite");
   const listed = await app.inject({ method: "GET", url: "/api/sprites/valid-character" });

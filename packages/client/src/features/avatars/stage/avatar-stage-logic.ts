@@ -169,6 +169,7 @@ export function applyAvatarFeatures(
 }
 
 export interface AvatarSpriteRef {
+  label?: string;
   expression: string;
   url: string;
 }
@@ -186,7 +187,7 @@ export function resolveAvatarImage(
   }
   const label = normalizeSpriteExpressionKey(ref.label);
   if (!label || !sprites?.length) return null;
-  const matches = sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.expression) === label);
+  const matches = sprites.filter((sprite) => normalizeSpriteExpressionKey(sprite.label ?? sprite.expression) === label);
   const expressionSprite = matches.find((sprite) => !/^full[_\s-]/iu.test(sprite.expression));
   return (expressionSprite ?? matches[0])?.url ?? null;
 }

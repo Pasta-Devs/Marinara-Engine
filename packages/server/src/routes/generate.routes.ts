@@ -509,6 +509,7 @@ import {
 } from "../services/agents/agent-executor.js";
 import { matchCustomAgentActivation } from "./generate/agent-activation.js";
 import { listCharacterSprites } from "../services/game/sprite.service.js";
+import { getSpriteFolderOverride } from "@marinara-engine/shared";
 import {
   generateIllustratorSceneBackground,
   illustratorBackgroundGenerationEnabled,
@@ -6597,7 +6598,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             }> = [];
             for (const char of agentContext.characters) {
               if (restrictToSelectedSprites && !selectedSpriteIds.has(char.id)) continue;
-              const sprites = listCharacterSprites(char.id);
+              const sprites = listCharacterSprites(char.id, getSpriteFolderOverride(chatMeta, char.id));
               if (!sprites) continue;
               const spriteCharacter = buildAvailableSpriteCharacter(char.id, char.name, sprites, spriteDisplayModes);
               if (spriteCharacter) perChar.push(spriteCharacter);
@@ -6613,7 +6614,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               includePersonaSprite &&
               !perChar.some((entry) => entry.characterId === userIdentityId)
             ) {
-              const sprites = listCharacterSprites(userIdentityId);
+              const sprites = listCharacterSprites(userIdentityId, getSpriteFolderOverride(chatMeta, userIdentityId));
               if (sprites) {
                 const spritePersona = buildAvailableSpriteCharacter(
                   userIdentityId,

@@ -30,6 +30,10 @@ export type AvailableSpriteCharacter = {
   characterName: string;
   expressions: string[];
   expressionChoices?: string[];
+  expressionAliases?: Record<string, string>;
+  folderName?: string | null;
+  folderNames?: string[];
+  folderDescription?: string;
 };
 
 export type SpriteExpressionEntry = {
@@ -90,7 +94,15 @@ export function normalizeSpriteDisplayModes(value: unknown): SpriteDisplayMode[]
 export function buildAvailableSpriteCharacter(
   characterId: string,
   characterName: string,
-  sprites: { expressions: string[]; fullBody: string[]; automaticFullBody: string[] },
+  sprites: {
+    expressions: string[];
+    fullBody: string[];
+    automaticFullBody: string[];
+    expressionAliases?: Record<string, string>;
+    folderName?: string | null;
+    folderNames?: string[];
+    folderDescription?: string;
+  },
   displayModes: readonly SpriteDisplayMode[],
 ): AvailableSpriteCharacter | null {
   const expressions = uniqueStrings([
@@ -103,7 +115,13 @@ export function buildAvailableSpriteCharacter(
     characterId,
     characterName,
     expressions,
-    expressionChoices: buildSpriteExpressionChoices(expressions),
+    expressionChoices: buildSpriteExpressionChoices(
+      expressions.map((expression) => sprites.expressionAliases?.[expression] ?? expression),
+    ),
+    expressionAliases: sprites.expressionAliases,
+    folderName: sprites.folderName,
+    folderNames: sprites.folderNames,
+    folderDescription: sprites.folderDescription,
   };
 }
 
@@ -212,9 +230,23 @@ function resolveCharacter(
   return null;
 }
 
-function resolveExpression(expression: string, availableExpressions: string[]): string | null {
+function resolveExpression(
+  expression: string,
+  availableExpressions: string[],
+  aliases?: Record<string, string>,
+): string | null {
   const trimmed = expression.trim();
   if (!trimmed) return null;
+  if (aliases) {
+    const choices = availableExpressions.filter((entry) => {
+      const alias = aliases[entry] ?? entry;
+      return (
+        normalizeExpressionToken(alias) === normalizeExpressionToken(trimmed) ||
+        alias.toLowerCase().startsWith(`${trimmed.toLowerCase()}_`)
+      );
+    });
+    if (choices.length) return pickRandomExpression(choices);
+  }
 
   const lower = trimmed.toLowerCase();
 
@@ -332,7 +364,7 @@ export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>
       });
     }
 
-    const expression = resolveExpression(entry.expression, character.expressions);
+    const expression = resolveExpression(entry.expression, character.expressions, character.expressionAliases);
     if (!expression) {
       warnings.push({
         message: `Expression agent chose "${entry.expression}" for ${character.characterName} which doesn't exist — removing`,

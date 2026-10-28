@@ -3142,13 +3142,22 @@ function buildAvailableSpritesBlock(context: AgentContext): string {
     characterName: string;
     expressions: string[];
     expressionChoices?: string[];
+    folderName?: string | null;
+    folderNames?: string[];
+    folderDescription?: string;
   }>;
   const personaId = typeof context.memory._personaId === "string" ? context.memory._personaId : "";
   const parts: string[] = [`<available_sprites>`];
   for (const char of sprites) {
     const choices = char.expressionChoices?.length ? char.expressionChoices : char.expressions;
     const label = char.characterId === personaId ? " [active user persona]" : "";
-    parts.push(`${char.characterName} (${char.characterId})${label}: ${choices.join(", ")}`);
+    const folder = char.folderName ? ` [sprite folder: ${char.folderName}]` : "";
+    parts.push(`${char.characterName} (${char.characterId})${label}${folder}: ${choices.join(", ")}`);
+    if (char.folderDescription) parts.push(`Current folder description: ${char.folderDescription}`);
+    if (char.folderNames?.length)
+      parts.push(
+        `Folders for discovery: ${char.folderNames.join(", ")}. Choose only the expressions listed for the current folder.`,
+      );
   }
   parts.push(`</available_sprites>`);
   return parts.join("\n");

@@ -1,3 +1,4 @@
+import { restoreSpriteCatalog } from "../sprites/sprite-catalog.js";
 import {
   decodeLorebookImages,
   saveDecodedLorebookImages,
@@ -159,13 +160,16 @@ function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specif
 // by writing each one under data/sprites/<id>/. Filenames are sanitized to
 // just an expression stem + an extension matching the actual image bytes, so
 // a malicious export can't traverse out of the sprites dir.
-export async function restoreSprites(sprites: unknown, id: string): Promise<void> {
+export async function restoreSprites(sprites: unknown, id: string, catalog?: unknown): Promise<void> {
   if (sprites === undefined || sprites === null) return;
   if (!Array.isArray(sprites)) {
     logger.warn("Skipped invalid sprite collection for %s", id);
     return;
   }
-  if (sprites.length === 0) return;
+  if (sprites.length === 0) {
+    await restoreSpriteCatalog(id, catalog, new Map());
+    return;
+  }
   if (sprites.length > MAX_EMBEDDED_SPRITE_COUNT) {
     logger.warn("Skipped %d embedded sprites for %s; limit is %d", sprites.length, id, MAX_EMBEDDED_SPRITE_COUNT);
     return;
@@ -199,6 +203,7 @@ export async function restoreSprites(sprites: unknown, id: string): Promise<void
   // whose stems sanitize to the same string (e.g. "happy!" and "happy?" both
   // collapsing to "happy_") don't silently overwrite each other.
   const usedNames = new Set<string>();
+  const restored = new Map<string, string>();
   for (const { decoded, index, rawName } of prepared) {
     const stem =
       rawName
@@ -218,10 +223,12 @@ export async function restoreSprites(sprites: unknown, id: string): Promise<void
     try {
       const filepath = assertInsideDir(dir, join(dir, safeName));
       await writeFile(filepath, decoded.buffer);
+      restored.set(rawName.replace(/\.[^.]+$/, ""), safeName.replace(/\.[^.]+$/, ""));
     } catch (err) {
       logger.warn(err, "Failed to restore sprite %d for %s", index, id);
     }
   }
+  await restoreSpriteCatalog(id, catalog, restored);
 }
 
 // Restore gallery images embedded as
@@ -465,6 +472,7 @@ async function importCharacter(data: unknown, db: DB) {
     metadata?: unknown;
     avatar?: unknown;
     sprites?: unknown;
+    spriteCatalog?: unknown;
     gallery?: unknown;
   };
   const charData = isJsonRecord(d?.data) ? { ...d.data } : undefined;
@@ -541,7 +549,7 @@ async function importCharacter(data: unknown, db: DB) {
         throw error;
       }
     }
-    await restoreSprites(d.sprites, result.id);
+    await restoreSprites(d.sprites, result.id, d.spriteCatalog);
     const characterSheetImageId = await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
     if (characterSheetImageId) {
       await storage.update(
@@ -699,7 +707,7 @@ async function importPersona(data: unknown, db: DB) {
       logger.warn(err, "Skipped optional persona avatar restore for %s; persona row is already imported", result.id);
     }
     try {
-      await restoreSprites(d.sprites, result.id);
+      await restoreSprites(d.sprites, result.id, d.spriteCatalog);
     } catch (err) {
       logger.warn(err, "Skipped optional persona sprite restore for %s; persona row is already imported", result.id);
     }

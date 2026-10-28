@@ -9,7 +9,9 @@ const RASTER_SPRITE = /\.(?:png|jpe?g|webp|avif|gif)$/iu;
 
 /** The sprites an avatar can be made from: raster faces, never a talk or blink picture of another face. */
 export function avatarSourceSprites(sprites: readonly SpriteInfo[] | undefined): SpriteInfo[] {
-  return (sprites ?? []).filter((sprite) => RASTER_SPRITE.test(sprite.filename) && !isSpriteVariant(sprite.expression));
+  return (sprites ?? []).filter(
+    (sprite) => RASTER_SPRITE.test(sprite.filename) && !isSpriteVariant(sprite.label ?? sprite.expression),
+  );
 }
 
 export function SpritePicker({
@@ -50,7 +52,7 @@ export function SpritePicker({
               draggable={false}
             />
             <span className="w-full truncate text-center text-[var(--foreground)]">
-              {sprite.expression.replace(/_/gu, " ")}
+              {(sprite.label ?? sprite.expression).replace(/_/gu, " ")}
             </span>
             {isSelected && (
               <span className="absolute right-1 top-1 rounded-full bg-[var(--primary)] p-0.5 text-[var(--primary-foreground)]">

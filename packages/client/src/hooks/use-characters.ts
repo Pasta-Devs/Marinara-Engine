@@ -11,7 +11,14 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
-import { chatKeys } from "./use-chats";
+import { chatKeys, useChat } from "./use-chats";
+import { useChatStore } from "../stores/chat.store";
+import {
+  selectSpriteFolder,
+  spriteCatalogSchema,
+  normalizeSpriteExpressionLabel,
+  type CharacterSpriteCatalog,
+} from "@marinara-engine/shared";
 import type { ChatGalleryIndex } from "../lib/card-asset-links";
 import { useUIStore } from "../stores/ui.store";
 import {
@@ -448,6 +455,11 @@ export interface SpriteInfo {
   expression: string;
   filename: string;
   url: string;
+  id?: string;
+  label?: string;
+  folderId?: string | null;
+  folderName?: string | null;
+  active?: boolean;
 }
 
 export type SpriteCleanupEngine = "auto" | "backgroundremover" | "builtin";
@@ -557,11 +569,115 @@ export function useSpriteCapabilities() {
   });
 }
 
-export function useCharacterSprites(characterId: string | null) {
+export function useCharacterSprites(
+  characterId: string | null,
+  options: { all?: boolean; chatId?: string | null } = {},
+) {
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const { data: chat } = useChat(options.all ? null : options.chatId === undefined ? activeChatId : options.chatId);
+  const overrides = chat?.metadata.spriteFolderOverrides;
+  const folderId =
+    characterId && overrides && Object.hasOwn(overrides, characterId) ? overrides[characterId] : undefined;
   return useQuery({
     queryKey: spriteKeys.list(characterId ?? ""),
     queryFn: () => api.get<SpriteInfo[]>(`/sprites/${characterId}`),
     enabled: !!characterId,
+    select: (sprites) => (options.all ? sprites : selectSpriteFolder(sprites, folderId)),
+  });
+}
+
+export function useSpriteCatalog(characterId: string | null) {
+  return useQuery({
+    queryKey: [...spriteKeys.list(characterId ?? ""), "catalog"],
+    queryFn: () => api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`),
+    enabled: !!characterId,
+  });
+}
+
+export function useMutateSpriteCatalog(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ method, path, body }: { method: "post" | "patch" | "delete"; path: string; body?: unknown }) =>
+      api[method]<CharacterSpriteCatalog>(`/sprites/${characterId}/${path}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: spriteKeys.list(characterId) });
+    },
+  });
+}
+
+export function useImportSpriteFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      characterId,
+      files,
+      folderId,
+      preserveFolders,
+      fullBody,
+      onProgress,
+    }: {
+      characterId: string;
+      files: File[];
+      folderId: string | null;
+      preserveFolders: boolean;
+      fullBody: boolean;
+      onProgress: (progress: { done: number; total: number }) => void;
+    }) => {
+      const manifestFile = files.find((file) => file.name === "catalog.json");
+      const manifest = manifestFile ? spriteCatalogSchema.parse(JSON.parse(await manifestFile.text())) : null;
+      let catalog = await api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`);
+      const wasEmpty = catalog.sprites.length === 0;
+      const importedFolders = new Map<string, string>();
+      async function getFolder(name: string, description = "") {
+        const existing = catalog.folders.find((folder) => folder.name.toLowerCase() === name.toLowerCase());
+        if (existing) return existing.id;
+        catalog = await api.post<CharacterSpriteCatalog>(`/sprites/${characterId}/folders`, { name, description });
+        return catalog.folders.find((folder) => folder.name === name)!.id;
+      }
+      if (manifest && preserveFolders)
+        for (const folder of manifest.folders)
+          importedFolders.set(folder.id, await getFolder(folder.name, folder.description));
+      const images = files.filter((file) => /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu.test(file.name));
+      let imported = 0,
+        failed = 0;
+      onProgress({ done: 0, total: images.length });
+      for (const [index, file] of images.entries()) {
+        try {
+          const handle = file.name.replace(/\.[^.]+$/u, "");
+          const metadata = manifest && Object.hasOwn(manifest.sprites, handle) ? manifest.sprites[handle] : undefined;
+          let destination = folderId;
+          if (preserveFolders) {
+            if (metadata) destination = metadata.folderId ? (importedFolders.get(metadata.folderId) ?? null) : null;
+            else {
+              const parts = file.webkitRelativePath.split("/").slice(0, -1);
+              if (parts.length) destination = await getFolder(parts.join(" / ").slice(0, 100));
+            }
+          }
+          const image = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          await api.post(`/sprites/${characterId}`, {
+            expression: metadata?.label ?? normalizeSpriteExpressionLabel(handle, { fullBody }),
+            image,
+            folderId: destination,
+          });
+          imported++;
+        } catch {
+          failed++;
+        }
+        onProgress({ done: index + 1, total: images.length });
+      }
+      if (wasEmpty && manifest && preserveFolders)
+        await api.patch(`/sprites/${characterId}/catalog`, {
+          defaultFolderId: manifest.defaultFolderId ? (importedFolders.get(manifest.defaultFolderId) ?? null) : null,
+        });
+      return { imported, failed };
+    },
+    onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
+    onError: (_error, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
   });
 }
 
@@ -590,7 +706,7 @@ export function useCharacterSpritePreviews(characterIds: string[]) {
   return useMemo(() => {
     const previews = new Map<string, SpriteInfo[]>();
     uniqueIds.forEach((characterId, index) => {
-      previews.set(characterId, queries[index]?.data ?? []);
+      previews.set(characterId, selectSpriteFolder(queries[index]?.data ?? []));
     });
     return previews;
   }, [queries, uniqueIds]);
@@ -599,8 +715,22 @@ export function useCharacterSpritePreviews(characterIds: string[]) {
 export function useUploadSprite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ characterId, expression, image }: { characterId: string; expression: string; image: string }) =>
-      api.post<SpriteInfo>(`/sprites/${characterId}`, { expression, image }),
+    mutationFn: ({
+      characterId,
+      expression,
+      image,
+      folderId,
+    }: {
+      characterId: string;
+      expression: string;
+      image: string;
+      folderId?: string | null;
+    }) =>
+      api.post<SpriteInfo>(`/sprites/${characterId}`, {
+        expression,
+        image,
+        ...(folderId !== undefined ? { folderId } : {}),
+      }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: spriteKeys.list(variables.characterId) });
     },

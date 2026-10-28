@@ -12,9 +12,9 @@ import {
 } from "@marinara-engine/shared";
 import AdmZip from "adm-zip";
 import { execFile } from "child_process";
-import { existsSync, mkdirSync, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
+import { existsSync, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
 import { randomUUID } from "crypto";
-import { writeFile, mkdir, unlink, copyFile, rm, readFile, mkdtemp, rename } from "fs/promises";
+import { writeFile, mkdir, unlink, copyFile, rm, readFile, mkdtemp } from "fs/promises";
 import { tmpdir } from "os";
 import { delimiter, dirname, extname, isAbsolute, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
@@ -35,25 +35,13 @@ import { getSharp } from "../services/image/sharp-runtime.js";
 import type { DB } from "../db/connection.js";
 import { logDebugOverride, logger } from "../lib/logger.js";
 import { SPRITE_RENAME_RATE_LIMIT } from "../middleware/rate-limit.js";
-
-const spriteRenameQueues = new Map<string, Promise<void>>();
-
-async function withSpriteRenameLock<T>(characterId: string, operation: () => Promise<T>): Promise<T> {
-  const previous = spriteRenameQueues.get(characterId) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const queuedTail = previous.then(() => current);
-  spriteRenameQueues.set(characterId, queuedTail);
-  await previous;
-  try {
-    return await operation();
-  } finally {
-    release();
-    if (spriteRenameQueues.get(characterId) === queuedTail) spriteRenameQueues.delete(characterId);
-  }
-}
+import { z } from "zod";
+import {
+  listSpriteCatalog,
+  readSpriteCatalog,
+  writeSpriteCatalog,
+  withSpriteCatalogLock,
+} from "../services/sprites/sprite-catalog.js";
 
 async function getSpriteCapabilities() {
   try {
@@ -279,12 +267,6 @@ function spritePromptReviewId(kind: "sheet" | "expression", spriteType: string |
 
 function animatedSpritePromptReviewId(expression: string): string {
   return spritePromptReviewId("expression", "animated-portrait", expression);
-}
-
-function ensureDir(dir: string) {
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
 }
 
 export function resolveSpriteNativeTransparency(model: string | undefined, requested: boolean): boolean {
@@ -911,25 +893,7 @@ function isSafeBackupId(value: unknown): value is string {
 }
 
 function listSpriteInfos(characterId: string) {
-  const dir = join(SPRITES_ROOT, characterId);
-  ensureDir(dir);
-
-  try {
-    return readdirSync(dir)
-      .filter((f) => SPRITE_FILE_RE.test(f))
-      .map((f) => {
-        const ext = extname(f);
-        const expression = f.slice(0, -ext.length);
-        const mtime = statSync(join(dir, f)).mtimeMs;
-        return {
-          expression,
-          filename: f,
-          url: `/api/sprites/${characterId}/file/${encodeURIComponent(f)}?v=${Math.floor(mtime)}`,
-        };
-      });
-  } catch {
-    return [];
-  }
+  return listSpriteCatalog(characterId).sprites;
 }
 
 function buildFullBodyExpressionSheetPrompt({
@@ -1411,6 +1375,107 @@ async function buildIndividualFullBodyExpressionRequest({
 }
 
 export async function spritesRoutes(app: FastifyInstance) {
+  const ownerParams = z.object({
+    characterId: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine((id) => !id.includes("..") && !/[/\\\u0000]/u.test(id)),
+  });
+  const folderInput = z.object({
+    name: z.string().trim().min(1).max(100),
+    description: z.string().max(500).default(""),
+  });
+  app.get<{ Params: { characterId: string } }>("/:characterId/catalog", async (req, reply) => {
+    if (!ownerParams.safeParse(req.params).success) return reply.code(400).send({ error: "Invalid sprite owner" });
+    return listSpriteCatalog(req.params.characterId);
+  });
+  app.post<{ Params: { characterId: string } }>("/:characterId/folders", async (req, reply) => {
+    const body = folderInput.safeParse(req.body);
+    if (!ownerParams.safeParse(req.params).success || !body.success)
+      return reply.code(400).send({ error: "Invalid sprite folder" });
+    return withSpriteCatalogLock(req.params.characterId, async () => {
+      const catalog = readSpriteCatalog(req.params.characterId);
+      if (catalog.folders.some((folder) => folder.name.toLowerCase() === body.data.name.toLowerCase()))
+        return reply.code(409).send({ error: "A folder with that name already exists" });
+      catalog.folders.push({ id: randomUUID(), ...body.data });
+      await writeSpriteCatalog(req.params.characterId, catalog);
+      return listSpriteCatalog(req.params.characterId);
+    });
+  });
+  app.patch<{ Params: { characterId: string; folderId: string } }>(
+    "/:characterId/folders/:folderId",
+    async (req, reply) => {
+      const body = folderInput.safeParse(req.body);
+      if (!ownerParams.safeParse(req.params).success || !body.success)
+        return reply.code(400).send({ error: "Invalid sprite folder" });
+      return withSpriteCatalogLock(req.params.characterId, async () => {
+        const catalog = readSpriteCatalog(req.params.characterId);
+        const folder = catalog.folders.find((entry) => entry.id === req.params.folderId);
+        if (!folder) return reply.code(404).send({ error: "Sprite folder not found" });
+        if (
+          catalog.folders.some(
+            (entry) => entry.id !== folder.id && entry.name.toLowerCase() === body.data.name.toLowerCase(),
+          )
+        )
+          return reply.code(409).send({ error: "A folder with that name already exists" });
+        Object.assign(folder, body.data);
+        await writeSpriteCatalog(req.params.characterId, catalog);
+        return listSpriteCatalog(req.params.characterId);
+      });
+    },
+  );
+  app.delete<{ Params: { characterId: string; folderId: string } }>(
+    "/:characterId/folders/:folderId",
+    async (req, reply) => {
+      if (!ownerParams.safeParse(req.params).success) return reply.code(400).send({ error: "Invalid sprite owner" });
+      return withSpriteCatalogLock(req.params.characterId, async () => {
+        const catalog = readSpriteCatalog(req.params.characterId);
+        if (!catalog.folders.some((folder) => folder.id === req.params.folderId))
+          return reply.code(404).send({ error: "Sprite folder not found" });
+        catalog.folders = catalog.folders.filter((folder) => folder.id !== req.params.folderId);
+        for (const sprite of Object.values(catalog.sprites))
+          if (sprite.folderId === req.params.folderId) sprite.folderId = null;
+        if (catalog.defaultFolderId === req.params.folderId) catalog.defaultFolderId = null;
+        await writeSpriteCatalog(req.params.characterId, catalog);
+        return listSpriteCatalog(req.params.characterId);
+      });
+    },
+  );
+  app.patch<{ Params: { characterId: string } }>("/:characterId/catalog", async (req, reply) => {
+    const body = z.object({ defaultFolderId: z.string().uuid().nullable() }).safeParse(req.body);
+    if (!ownerParams.safeParse(req.params).success || !body.success)
+      return reply.code(400).send({ error: "Invalid default folder" });
+    return withSpriteCatalogLock(req.params.characterId, async () => {
+      const catalog = readSpriteCatalog(req.params.characterId);
+      if (body.data.defaultFolderId && !catalog.folders.some((folder) => folder.id === body.data.defaultFolderId))
+        return reply.code(404).send({ error: "Sprite folder not found" });
+      catalog.defaultFolderId = body.data.defaultFolderId;
+      await writeSpriteCatalog(req.params.characterId, catalog);
+      return listSpriteCatalog(req.params.characterId);
+    });
+  });
+  app.post<{ Params: { characterId: string } }>("/:characterId/move", async (req, reply) => {
+    const body = z
+      .object({ expressions: z.array(z.string()).min(1).max(5000), folderId: z.string().uuid().nullable() })
+      .safeParse(req.body);
+    if (!ownerParams.safeParse(req.params).success || !body.success)
+      return reply.code(400).send({ error: "Invalid sprite move" });
+    return withSpriteCatalogLock(req.params.characterId, async () => {
+      const catalog = readSpriteCatalog(req.params.characterId);
+      const sprites = listSpriteInfos(req.params.characterId);
+      if (body.data.folderId && !catalog.folders.some((folder) => folder.id === body.data.folderId))
+        return reply.code(404).send({ error: "Sprite folder not found" });
+      if (body.data.expressions.some((expression) => !sprites.some((sprite) => sprite.expression === expression)))
+        return reply.code(404).send({ error: "Sprite not found" });
+      for (const expression of body.data.expressions) {
+        const sprite = sprites.find((entry) => entry.expression === expression)!;
+        catalog.sprites[expression] = { id: sprite.id, label: sprite.label, folderId: body.data.folderId };
+      }
+      await writeSpriteCatalog(req.params.characterId, catalog);
+      return listSpriteCatalog(req.params.characterId);
+    });
+  });
   app.get("/capabilities", async () => ({
     ...(await getSpriteCapabilities()),
     backgroundRemover: getBackgroundRemoverStatus(),
@@ -1466,9 +1531,25 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     const folderName = sanitizeSpriteExportName(body.folderName, `sprites-${characterId}`);
     const zip = new AdmZip();
-    for (const filename of targets) {
-      zip.addFile(`${folderName}/${filename}`, readFileSync(join(dir, filename)));
+    const catalog = listSpriteCatalog(characterId);
+    const metadata = readSpriteCatalog(characterId);
+    const selected = catalog.sprites.filter((sprite) => targets.includes(sprite.filename));
+    for (const sprite of selected) {
+      const folder = sprite.folderName ? sanitizeSpriteExportName(sprite.folderName, sprite.folderId!) : "Unfiled";
+      zip.addFile(`${folderName}/${folder}/${sprite.filename}`, readFileSync(join(dir, sprite.filename)));
     }
+    metadata.sprites = Object.fromEntries(
+      selected.map((sprite) => [sprite.expression, { id: sprite.id, label: sprite.label, folderId: sprite.folderId }]),
+    );
+    if (selected.length !== catalog.sprites.length) {
+      metadata.folders = metadata.folders.filter((folder) => selected.some((sprite) => sprite.folderId === folder.id));
+      if (!selected.some((sprite) => sprite.folderId === metadata.defaultFolderId)) {
+        metadata.defaultFolderId = selected.every((sprite) => sprite.folderId === selected[0]?.folderId)
+          ? (selected[0]?.folderId ?? null)
+          : null;
+      }
+    }
+    zip.addFile(`${folderName}/catalog.json`, Buffer.from(JSON.stringify(metadata, null, 2)));
 
     return reply
       .header("Content-Type", "application/zip")
@@ -1481,53 +1562,67 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Upload a sprite image for a given expression.
    * Body: { expression: string, image: string (base64 data URL) }
    */
-  app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) => {
-    const { characterId } = req.params;
+  app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) =>
+    withSpriteCatalogLock(req.params.characterId, async () => {
+      const { characterId } = req.params;
 
-    // Prevent path traversal
-    if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
-      return reply.status(400).send({ error: "Invalid character ID" });
-    }
-
-    const body = req.body as { expression?: string; image?: string };
-
-    if (!body.expression?.trim()) {
-      return reply.status(400).send({ error: "Expression label is required" });
-    }
-    if (!body.image) {
-      return reply.status(400).send({ error: "No image data provided" });
-    }
-
-    const expression = normalizeSpriteExpression(body.expression);
-    if (!expression) {
-      return reply.status(400).send({ error: "Expression label must include at least one letter or number" });
-    }
-
-    // Parse base64
-    let base64 = body.image;
-    let ext = "png";
-    if (base64.startsWith("data:")) {
-      const match = base64.match(/^data:image\/([\w+]+);base64,/);
-      if (match?.[1]) {
-        ext = match[1].replace("+xml", "");
-        base64 = base64.slice(base64.indexOf(",") + 1);
+      // Prevent path traversal
+      if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
+        return reply.status(400).send({ error: "Invalid character ID" });
       }
-    }
 
-    const dir = join(SPRITES_ROOT, characterId);
-    await mkdir(dir, { recursive: true });
+      const body = req.body as { expression?: string; image?: string; folderId?: string | null };
 
-    const filename = `${expression}.${ext}`;
-    const filepath = join(dir, filename);
-    await writeFile(filepath, Buffer.from(base64, "base64"));
+      if (!body.expression?.trim()) {
+        return reply.status(400).send({ error: "Expression label is required" });
+      }
+      if (!body.image) {
+        return reply.status(400).send({ error: "No image data provided" });
+      }
 
-    const mtime = statSync(filepath).mtimeMs;
-    return {
-      expression,
-      filename,
-      url: `/api/sprites/${characterId}/file/${encodeURIComponent(filename)}?v=${Math.floor(mtime)}`,
-    };
-  });
+      let expression = normalizeSpriteExpression(body.expression);
+      if (!expression) {
+        return reply.status(400).send({ error: "Expression label must include at least one letter or number" });
+      }
+
+      // Parse base64
+      let base64 = body.image;
+      let ext = "png";
+      if (base64.startsWith("data:")) {
+        const match = base64.match(/^data:image\/([\w+]+);base64,/);
+        if (match?.[1]) {
+          ext = match[1].replace("+xml", "");
+          base64 = base64.slice(base64.indexOf(",") + 1);
+        }
+      }
+
+      const dir = join(SPRITES_ROOT, characterId);
+      await mkdir(dir, { recursive: true });
+
+      const catalog = readSpriteCatalog(characterId);
+      const current = listSpriteInfos(characterId);
+      const label = expression;
+      if (Object.hasOwn(body, "folderId")) {
+        if (body.folderId !== null && !catalog.folders.some((folder) => folder.id === body.folderId))
+          return reply.code(400).send({ error: "Invalid destination folder" });
+        if (current.some((sprite) => sprite.label === label && sprite.folderId === body.folderId))
+          return reply.code(409).send({ error: "An expression with that name already exists in this folder" });
+        if (current.some((sprite) => sprite.expression === expression))
+          expression = `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+      }
+      const filename = `${expression}.${ext}`;
+      const filepath = join(dir, filename);
+      await writeFile(filepath, Buffer.from(base64, "base64"));
+      const previous = current.find((sprite) => sprite.expression === expression);
+      catalog.sprites[expression] = {
+        id: previous?.id ?? randomUUID(),
+        label: previous?.label ?? label,
+        folderId: previous?.folderId ?? body.folderId ?? null,
+      };
+      await writeSpriteCatalog(characterId, catalog);
+      return listSpriteInfos(characterId).find((sprite) => sprite.expression === expression);
+    }),
+  );
 
   /**
    * POST /api/sprites/pixelize
@@ -1787,7 +1882,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     "/:characterId/:expression",
     { config: { rateLimit: SPRITE_RENAME_RATE_LIMIT } },
     async (req, reply) =>
-      withSpriteRenameLock(req.params.characterId, async () => {
+      withSpriteCatalogLock(req.params.characterId, async () => {
         const { characterId, expression } = req.params;
         if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
           return reply.status(400).send({ error: "Invalid character ID" });
@@ -1815,24 +1910,24 @@ export async function spritesRoutes(app: FastifyInstance) {
         });
         if (!source) return reply.status(404).send({ error: "Expression not found" });
 
-        const extension = extname(source);
-        const target = `${nextExpression}${extension}`;
-        const hasNameCollision = files.some((filename) => {
-          if (!SPRITE_FILE_RE.test(filename)) return false;
-          const filenameExpression = filename.slice(0, -extname(filename).length);
-          return filename !== source && filenameExpression.toLowerCase() === nextExpression.toLowerCase();
-        });
+        const catalog = readSpriteCatalog(characterId);
+        const sprites = listSpriteInfos(characterId);
+        const sprite = sprites.find((entry) => entry.expression === expression)!;
+        if (nextExpression.startsWith("full_") !== expression.startsWith("full_"))
+          return reply.code(400).send({ error: "Keep the sprite category when renaming" });
+        const hasNameCollision = sprites.some(
+          (entry) =>
+            entry.expression !== expression &&
+            entry.folderId === sprite.folderId &&
+            entry.label.toLowerCase() === nextExpression.toLowerCase(),
+        );
         if (hasNameCollision) {
           return reply.status(409).send({ error: "An expression with that name already exists" });
         }
 
-        if (target !== source) await rename(join(dir, source), join(dir, target));
-        const mtime = statSync(join(dir, target)).mtimeMs;
-        return {
-          expression: nextExpression,
-          filename: target,
-          url: `/api/sprites/${characterId}/file/${encodeURIComponent(target)}?v=${Math.floor(mtime)}`,
-        };
+        catalog.sprites[expression] = { id: sprite.id, label: nextExpression, folderId: sprite.folderId };
+        await writeSpriteCatalog(characterId, catalog);
+        return listSpriteInfos(characterId).find((entry) => entry.expression === expression);
       }),
   );
 

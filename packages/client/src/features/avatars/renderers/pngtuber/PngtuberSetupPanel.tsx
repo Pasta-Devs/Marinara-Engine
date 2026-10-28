@@ -69,7 +69,7 @@ function keepUserBindings<M extends Partial<Record<string, AvatarExpressionBindi
 
 export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanelProps) {
   const { t } = useTranslation();
-  const sprites = useCharacterSprites(owner.ownerId);
+  const sprites = useCharacterSprites(owner.ownerId, { chatId: null });
   const { save, importFile, remove } = useAvatarModelActions(owner, onChanged);
   const fileInput = useRef<HTMLInputElement>(null);
   const [warnings, setWarnings] = useState<string[]>([]);

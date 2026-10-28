@@ -443,7 +443,7 @@ export async function injectGameGmPromptRuntime(args: {
       const tier = getMoraleTier(morale);
       return formatMoraleContext({ value: morale, tier });
     })(),
-    characterSprites: listPartySprites(partyIdNamePairs),
+    characterSprites: listPartySprites(partyIdNamePairs, args.chatMetadata),
     language: (setupConfig?.language as string) || undefined,
     gameSystemPrompt: resolveGameGmPromptTemplate(args.chatMetadata, setupConfig),
     gameSpecialInstructions:

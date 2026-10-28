@@ -2,6 +2,7 @@ import { normalizeSpriteExpressionKey as normalizeUnicodeSpriteExpressionKey } f
 
 export type SpriteExpressionLike = {
   expression: string;
+  label?: string;
 };
 
 const EXPRESSION_FALLBACKS: Record<string, string[]> = {
@@ -93,9 +94,11 @@ export function resolveSpriteExpression<T extends SpriteExpressionLike>(
   if (available.length === 0) return null;
 
   const requested = normalizeSpriteExpressionKey(expression ?? "");
+  const exactHandle = available.find((sprite) => sprite.expression === expression);
+  if (exactHandle) return exactHandle;
   const keyed = available.map((sprite) => ({
     sprite,
-    key: normalizeSpriteExpressionKey(sprite.expression),
+    key: normalizeSpriteExpressionKey(sprite.label ?? sprite.expression),
   }));
 
   if (requested) {

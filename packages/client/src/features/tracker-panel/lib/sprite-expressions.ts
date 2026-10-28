@@ -1,5 +1,6 @@
 import type { PresentCharacter } from "@marinara-engine/shared";
 import type { SpriteInfo } from "../../../hooks/use-characters";
+import { resolveSpriteExpression } from "../../../lib/sprite-expression-match";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();
@@ -36,18 +37,5 @@ export function getCharacterExpressionHint(character: PresentCharacter, spriteEx
 export function resolveSpriteUrl(sprites: SpriteInfo[] | undefined, expression: string) {
   const spriteList = (sprites ?? []).filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   if (spriteList.length === 0) return null;
-  const exprLower = expression.toLowerCase();
-  const exact = spriteList.find((sprite) => sprite.expression.toLowerCase() === exprLower);
-  if (exact) return exact.url;
-  const partial = spriteList.find((sprite) => {
-    const stored = sprite.expression.trim().toLowerCase();
-    if (!stored) return false;
-    return stored.includes(exprLower) || exprLower.includes(stored);
-  });
-  if (partial) return partial.url;
-  const neutral = spriteList.find((sprite) => {
-    const stored = sprite.expression.toLowerCase();
-    return stored === "neutral" || stored === "default" || stored === "idle";
-  });
-  return neutral?.url ?? spriteList[0]?.url ?? null;
+  return (resolveSpriteExpression(spriteList, expression) ?? spriteList[0])?.url ?? null;
 }

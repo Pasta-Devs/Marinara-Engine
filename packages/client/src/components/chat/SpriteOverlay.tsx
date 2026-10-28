@@ -460,7 +460,10 @@ function CharacterSprite({
     const fullBodyBaseExpression = (value: string) => (value.startsWith("full_") ? value.slice(5) : value);
     const findMatchingSprite = (predicate: (spriteExpression: string) => boolean) => {
       for (const spriteList of spritePools) {
-        const match = spriteList.find((sprite) => predicate(sprite.expression.toLowerCase()));
+        const match = spriteList.find(
+          (sprite) =>
+            predicate(sprite.expression.toLowerCase()) || predicate((sprite.label ?? sprite.expression).toLowerCase()),
+        );
         if (match) return match.url;
       }
       return null;

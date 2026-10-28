@@ -26,6 +26,7 @@ interface SpriteGenerationModalProps {
   onClose: () => void;
   /** Entity ID — character or persona */
   entityId: string;
+  folderId?: string | null;
   /** Optional initial mode shown when opening */
   initialSpriteType?: "expressions" | "full-body";
   /** Existing portrait sprites that full-body generation can mirror */
@@ -588,6 +589,7 @@ export function SpriteGenerationModal({
   open,
   onClose,
   entityId,
+  folderId,
   initialSpriteType = "expressions",
   existingExpressionSprites = [],
   defaultAppearance,
@@ -1954,6 +1956,7 @@ export function SpriteGenerationModal({
           api.post(`/sprites/${entityId}`, {
             expression,
             image: cell.dataUrl,
+            ...(folderId !== undefined ? { folderId } : {}),
           }),
         ),
       );
@@ -2005,7 +2008,7 @@ export function SpriteGenerationModal({
     } finally {
       setSaving(false);
     }
-  }, [cells, entityId, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
+  }, [cells, entityId, folderId, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
 
   const handleReset = useCallback(() => {
     setStep(0);
