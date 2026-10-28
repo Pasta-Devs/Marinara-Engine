@@ -1947,7 +1947,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const model = typeof conn.embeddingModel === "string" ? conn.embeddingModel.trim() : "";
     if (!model) return { success: false, message: "No embedding model set.", latencyMs: 0 };
     const { PROVIDERS } = await import("@marinara-engine/shared");
-    const baseUrl = (conn.baseUrl || PROVIDERS[conn.provider as keyof typeof PROVIDERS]?.defaultBaseUrl || "").replace(/\/+$/, "");
+    const baseUrl = (conn.baseUrl || PROVIDERS[conn.provider as keyof typeof PROVIDERS]?.defaultBaseUrl || "").replace(
+      /\/+$/,
+      "",
+    );
     const provider = createLLMProvider(
       conn.provider,
       baseUrl,
@@ -1964,11 +1967,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
     try {
       const vectors = await provider.embed(["Marinara embedding test"], model);
       const size = vectors[0]?.length ?? 0;
-      if (size === 0) return { success: false, message: "The model returned no vector.", latencyMs: Date.now() - start };
+      if (size === 0)
+        return { success: false, message: "The model returned no vector.", latencyMs: Date.now() - start };
       return { success: true, message: `${size} dimensions`, latencyMs: Date.now() - start };
     } catch (err) {
       logger.warn(err, "[connections/test-embedding] failed for %s", conn.id);
-      return { success: false, message: err instanceof Error ? err.message : "Unknown error", latencyMs: Date.now() - start };
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : "Unknown error",
+        latencyMs: Date.now() - start,
+      };
     }
   });
 

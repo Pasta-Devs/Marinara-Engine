@@ -23,6 +23,9 @@ import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 type Extra = { value: string; label: string };
 
 /** The catalogs do not mark embedding models, so the id decides ("text-embedding-3-small", "bge-m3-embed"…). */
+/** A reason that fits on a row. */
+const short = (text: string) => (text.length > 38 ? `${text.slice(0, 36)}…` : text);
+
 const isEmbeddingModel = (model: string) => /embed/i.test(model);
 
 export function ModelPicker({
@@ -177,7 +180,9 @@ export function ModelPicker({
       if (!result.success || noLogprobs) {
         if (!existing) await deleteRow.mutateAsync(id);
         mark({
-          label: noLogprobs ? t("connections.decision.noLogprobs") : decisionConnectionTestMessage(t, result).message,
+          label: noLogprobs
+            ? t("connections.decision.noLogprobs")
+            : short(decisionConnectionTestMessage(t, result).message),
           state: "needs_key",
         });
         return false;
@@ -226,7 +231,7 @@ export function ModelPicker({
       const result = await api.post<{ success: boolean; message: string }>(`/connections/${id}/test-embedding`, {});
       if (!result.success) {
         await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
-        mark({ label: result.message || t("connections.embeddingDefault.failed"), state: "needs_key" });
+        mark({ label: short(result.message) || t("connections.embeddingDefault.failed"), state: "needs_key" });
         return false;
       }
       mark(null);
@@ -269,6 +274,7 @@ export function ModelPicker({
           includeDefault
             ? {
                 active: !value,
+                own: kind !== "chat" || decision || embedding,
                 label: defaultText,
                 onSelect: async () => {
                   if (value) commit(null);

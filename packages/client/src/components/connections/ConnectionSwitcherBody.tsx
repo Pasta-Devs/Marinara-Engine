@@ -421,7 +421,12 @@ export function ConnectionSwitcherBody({
   /** The chat's random-pool mode; absent where there is none (Professor Mari). */
   shuffle?: { active: boolean; onToggle: () => void };
   /** Follow Main: the host follows the Main model; absent where there is no such state (Professor Mari). */
-  followDefault?: { active: boolean; onSelect: () => Promise<void>; label?: string };
+  followDefault?: {
+    active: boolean;
+    onSelect: () => Promise<void>;
+    label?: string;
+    /** The unset state is its own row, not the Main model. */ own?: boolean;
+  };
   /** The slot's saved Model kind; without it the picker lists chat Models. */
   kind?: ConnectionPickerKind;
   /** Hides saved Models the slot cannot use (the current one stays). */
@@ -548,7 +553,7 @@ export function ConnectionSwitcherBody({
   const mainRow = rows.find((row) => isConnectionFlagTrue(row.isDefault));
   const currentId = current?.connectionId ?? null;
   const currentRow = currentId ? rows.find((row) => row.id === currentId) : undefined;
-  const nowRow = currentRow ?? (followDefault?.active ? mainRow : undefined);
+  const nowRow = currentRow ?? (followDefault?.active && !followDefault.own ? mainRow : undefined);
   const currentGroup = nowRow ? groupOfRow.get(nowRow.id) : undefined;
   const browsingGroup =
     layout === "steps" && catalogBrowse
@@ -681,7 +686,7 @@ export function ConnectionSwitcherBody({
       ? localEntry
       : currentRow && current
         ? entryOfRow(currentRow, currentGroup, current.model ? current : undefined)
-        : followDefault?.active && mainRow
+        : followDefault?.active && !followDefault.own && mainRow
           ? entryOfRow(mainRow, groupOfRow.get(mainRow.id))
           : null;
   const nowRuns = nowEntry && nowEntry !== localEntry ? runsKey(nowEntry.choice, rows) : null;
@@ -1260,7 +1265,7 @@ export function ConnectionSwitcherBody({
       model:
         anchor === currentRow
           ? (current?.model ?? anchor.model)
-          : followDefault?.active && mainRow && group.rows.some((row) => row.id === mainRow.id)
+          : followDefault?.active && !followDefault.own && mainRow && group.rows.some((row) => row.id === mainRow.id)
             ? mainRow.model
             : null,
     };
@@ -1327,7 +1332,7 @@ export function ConnectionSwitcherBody({
     <div data-switcher-list className={cn("flex min-h-0 flex-col", layout === "steps" && "flex-1", listClassName)}>
       {listHeader}
       <ListFrame
-        className="flex-1"
+        className="min-h-0 flex-1"
         search={!shuffle?.active && !nothing && searchBox}
         listClassName="relative px-1 pb-1"
       >
@@ -1383,7 +1388,7 @@ export function ConnectionSwitcherBody({
           </>
         )}
       </ListFrame>
-      {addRow && <div className="shrink-0 px-1 pb-1">{addRow}</div>}
+      {addRow && <div className="shrink-0 border-t border-foreground/10 px-1 py-1">{addRow}</div>}
       {listFooter}
     </div>
   );
