@@ -278,7 +278,7 @@ export function ConnectionPicker({
       title={title ?? t("connections.switcher.chooseModel")}
       width="max-w-md"
       opaque
-      panelClassName="connection-picker-dialog mari-connection-scope"
+      panelClassName="connection-picker-dialog mari-connection-scope max-sm:h-[calc(100dvh-1.5rem)]"
       closeButtonClassName="!min-h-11 !min-w-11"
       initialFocusRef={finePointer ? searchRef : undefined}
       restoreFocusRef={restoreFocusRef}

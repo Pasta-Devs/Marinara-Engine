@@ -4777,3 +4777,23 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
     opacity: 1;
   }
 }
+
+/* The connection menu on phones lives in a Modal sheet: it needs its own container for the narrow list-only layout above, and fills the sheet. */
+.mari-connection-picker-sheet {
+  container-type: inline-size;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.mari-connection-picker-sheet .mari-connection-picker {
+  height: 100%;
+  width: 100%;
+}
+
+@media (pointer: coarse) {
+  .mari-composer-menu__trigger {
+    min-height: 2.75rem;
+  }
+}

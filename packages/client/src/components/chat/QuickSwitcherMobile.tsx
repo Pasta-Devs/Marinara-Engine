@@ -8,8 +8,8 @@ import { QuickSwitcherModelsToggle } from "../connections/QuickSwitcherModelsTog
 // place; a pick applies to this chat only.
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Search, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Search } from "lucide-react";
+import { Modal } from "../ui/Modal";
 import { useCharacters, usePersonas, usePersonaGroups, useCharacterGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
@@ -47,7 +47,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [search, setSearch] = useState("");
   /** The Connections tab shows a Connection's models as its second step. */
   const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const showCharacterIdentities = useUIStore((state) => state.showCharactersInPersonaPickers);
   const { data: rawPersonas } = usePersonas();
@@ -186,40 +185,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   );
 
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        btnRef.current &&
-        !btnRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    // Escape closes the menu wherever focus is: Safari does not focus a tapped or clicked button.
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Escape while an input method is composing cancels the composition, not the menu.
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
-      // Touch browsers may leave focus on the page after Browse, outside the chooser's key handler.
-      const back = menuRef.current?.querySelector<HTMLButtonElement>("[data-switcher-back]");
-      if (back) {
-        event.preventDefault();
-        back.click();
-        return;
-      }
-      setOpen(false);
-      btnRef.current?.focus();
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  useEffect(() => {
     if (!open || tab !== "personas" || (!showCharacterIdentities && !activeCharacterId && !normalizedSearch)) return;
     setShowCharacterGroups(true);
     setExpandedCharacterGroups((current) => {
@@ -228,55 +193,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       return next;
     });
   }, [activeCharacterId, normalizedSearch, open, showCharacterIdentities, tab, visibleCharacterGroups]);
-
-  const [pos, setPos] = useState<{
-    left: number;
-    width: number;
-    maxHeight: number;
-    top?: number;
-    bottom?: number;
-  } | null>(null);
-  useEffect(() => {
-    if (!open || !btnRef.current) return;
-    const update = () => {
-      const buttonEl = btnRef.current;
-      if (!buttonEl) return;
-      const inputBox = buttonEl.closest(".marinara-chat-input-shell") as HTMLElement | null;
-      const anchor = inputBox?.getBoundingClientRect() ?? buttonEl.getBoundingClientRect();
-      const width = Math.min(inputBox?.getBoundingClientRect().width ?? 300, window.innerWidth - 16);
-      const left = Math.max(8, Math.min(inputBox?.getBoundingClientRect().left ?? 8, window.innerWidth - width - 8));
-      const spaceAbove = Math.max(0, anchor.top - 12);
-      const spaceBelow = Math.max(0, window.innerHeight - anchor.bottom - 12);
-      const openAbove = spaceAbove >= spaceBelow;
-      const anchoredSpace = openAbove ? spaceAbove : spaceBelow;
-      const useViewportFallback = anchoredSpace < 160;
-      // The chooser and a Connection's catalog have a search box and a list, so the menu may use the room above.
-      const maxHeight = Math.min(560, useViewportFallback ? window.innerHeight - 16 : anchoredSpace);
-      setPos({
-        left,
-        // Anchor by `bottom` when opening upwards so short content stays
-        // attached to the input shell instead of floating at full maxHeight.
-        ...(useViewportFallback
-          ? { top: 8 }
-          : openAbove
-            ? { bottom: Math.max(8, window.innerHeight - anchor.top + 4) }
-            : { top: Math.max(8, anchor.bottom + 4) }),
-        width,
-        maxHeight,
-      });
-    };
-    requestAnimationFrame(update);
-    const timer = setTimeout(update, 50);
-    window.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("scroll", update);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("scroll", update);
-    };
-  }, [open, tab, expandedGroups, expandedCharacterGroups, showCharacterGroups]);
 
   if (!activeChatId) return null;
 
@@ -346,32 +262,18 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
         </span>
       </button>
 
-      {open &&
-        createPortal(
-          <div
-            ref={menuRef}
-            role="dialog"
-            aria-label={localizeUi(tab === "connections" ? "connections.switcher.title" : "navigation.topbar.personas")}
-            data-chat-floating-panel
-            data-quick-switcher-mobile-menu
-            className={cn(
-              "mari-chat-style-surface fixed z-[9999] flex min-w-0 flex-col overflow-hidden rounded-xl border border-foreground/10 shadow-2xl",
-              chatMode === "roleplay"
-                ? "bg-[var(--card)] [--mari-chat-existing-bg:var(--card)]"
-                : "bg-[var(--background)] [--mari-chat-existing-bg:var(--background)]",
-            )}
-            style={
-              pos
-                ? {
-                    left: pos.left,
-                    ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
-                    width: pos.width,
-                    maxHeight: pos.maxHeight,
-                    height: tab === "connections" ? pos.maxHeight : undefined,
-                  }
-                : { visibility: "hidden" as const }
-            }
-          >
+      {open && (
+        <Modal
+          open
+          onClose={closeMenu}
+          title={localizeUi("ui.chat.quickswitchermobile.quickSwitcher")}
+          opaque
+          chatFloatingPanel
+          restoreFocusRef={btnRef}
+          panelClassName="max-sm:h-[calc(100dvh-1.5rem)]"
+          contentClassName="flex flex-col overflow-hidden !p-0"
+        >
+          <div data-quick-switcher-mobile-menu className="flex min-h-0 flex-1 flex-col">
             <div className="flex border-b border-foreground/10">
               <button
                 onClick={() => setTab("connections")}
@@ -396,14 +298,6 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
               >
                 <CircleUser size="0.75rem" />
                 {localizeUi("navigation.topbar.personas")}
-              </button>
-              <button
-                type="button"
-                onClick={closeMenu}
-                aria-label={localizeUi("common.close")}
-                className="flex h-11 w-11 shrink-0 items-center justify-center text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-foreground/25"
-              >
-                <X size="1rem" aria-hidden />
               </button>
             </div>
             {tab === "connections" && (
@@ -643,9 +537,9 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 </>
               )}
             </div>
-          </div>,
-          document.body,
-        )}
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

@@ -30,6 +30,8 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { openAddConnection } from "../../../lib/add-connection";
 import { InlineGhostText } from "../../ui/InlineGhostText";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
+import { Modal } from "../../ui/Modal";
+import { useMatchMedia } from "../../../hooks/use-match-media";
 import { usePickModel, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { useConnections } from "../../../hooks/use-connections";
 import { MariRow } from "../mari-primitives";
@@ -263,6 +265,51 @@ export function MariComposer({
       )}
     </>
   );
+  // Phones open the same full-height Modal sheet as the ConnectionPicker; wider screens keep the popover.
+  const phone = useMatchMedia("(max-width: 39.99rem)");
+  // Enter in the model search must not send the message: the menu sits inside the composer form.
+  const connectionMenuKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
+    onConnectionMenuKeyDown(event);
+  };
+  const connectionBody = (
+    <ConnectionSwitcherBody
+      layout="container"
+      current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
+      onApply={applyMariPick}
+      onDone={() => {
+        setConnectionMenuOpen(false);
+        connectionButtonRef.current?.focus();
+      }}
+      autoFocusSearch
+      showLocalModel={connectionOptions.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID)}
+      localModelHint={localizeUi(
+        sidecarNativeToolCalls ? "ui.chat.homeprofessormarichat.nativeTools" : "ui.chat.homeprofessormarichat.toolsOff",
+      )}
+      pickerFooter={localizeUi("connections.switcher.appliesToMari")}
+      listHeader={
+        phone ? undefined : <p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>
+      }
+      empty={
+        <MariRow
+          slot={<Plus aria-hidden="true" />}
+          title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
+          onClick={() => {
+            setConnectionMenuOpen(false);
+            openAddConnection({ job: "mari" });
+          }}
+        />
+      }
+      listClassName="mari-connection-picker__list"
+      modelsClassName="mari-connection-picker__models"
+      listFooter={
+        <div className="px-3 py-2">
+          <MariConnectionGuidance compact={phone} />
+        </div>
+      }
+    />
+  );
+
   return (
     <form
       ref={attachComposerDock}
@@ -460,53 +507,36 @@ export function MariComposer({
               </span>
               <ChevronDown aria-hidden="true" />
             </button>
-            {connectionMenuOpen && (
-              <div
-                ref={connectionMenuRef}
-                className="mari-composer-menu__popover mari-connection-picker"
-                onKeyDown={(event) => {
-                  // Enter in the model search must not send the message: the menu sits inside the composer form.
-                  if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
-                  onConnectionMenuKeyDown(event);
-                }}
-              >
-                <ConnectionSwitcherBody
-                  layout="container"
-                  current={effectiveConnectionId ? { connectionId: effectiveConnectionId } : null}
-                  onApply={applyMariPick}
-                  onDone={() => {
+            {connectionMenuOpen &&
+              (phone ? (
+                <Modal
+                  open
+                  onClose={() => {
                     setConnectionMenuOpen(false);
                     connectionButtonRef.current?.focus();
                   }}
-                  autoFocusSearch
-                  showLocalModel={connectionOptions.some((connection) => connection.id === LOCAL_SIDECAR_CONNECTION_ID)}
-                  localModelHint={localizeUi(
-                    sidecarNativeToolCalls
-                      ? "ui.chat.homeprofessormarichat.nativeTools"
-                      : "ui.chat.homeprofessormarichat.toolsOff",
-                  )}
-                  pickerFooter={localizeUi("connections.switcher.appliesToMari")}
-                  listHeader={<p className="mari-composer-menu__head">{localizeUi("navigation.topbar.connections")}</p>}
-                  empty={
-                    <MariRow
-                      slot={<Plus aria-hidden="true" />}
-                      title={localizeUi("ui.chat.homeprofessormarichat.addAConnection")}
-                      onClick={() => {
-                        setConnectionMenuOpen(false);
-                        openAddConnection({ job: "mari" });
-                      }}
-                    />
-                  }
-                  listClassName="mari-connection-picker__list"
-                  modelsClassName="mari-connection-picker__models"
-                  listFooter={
-                    <div className="px-3 py-2">
-                      <MariConnectionGuidance />
-                    </div>
-                  }
-                />
-              </div>
-            )}
+                  title={localizeUi("navigation.topbar.connections")}
+                  opaque
+                  panelClassName="max-sm:h-[calc(100dvh-1.5rem)]"
+                  contentClassName="flex flex-col overflow-hidden !p-0"
+                >
+                  <div
+                    ref={connectionMenuRef}
+                    className="mari-connection-picker-sheet"
+                    onKeyDown={connectionMenuKeyDown}
+                  >
+                    <div className="mari-connection-picker">{connectionBody}</div>
+                  </div>
+                </Modal>
+              ) : (
+                <div
+                  ref={connectionMenuRef}
+                  className="mari-composer-menu__popover mari-connection-picker"
+                  onKeyDown={connectionMenuKeyDown}
+                >
+                  {connectionBody}
+                </div>
+              ))}
           </div>
           <div className="mari-composer-menu">
             <button
