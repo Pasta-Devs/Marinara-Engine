@@ -152,7 +152,7 @@ export function ConnectionModelPicker({
    */
   applyPick?: (connectionId: string, modelId: string) => Promise<void>;
   /** Per-chat pick (decision 26): hands the model with its catalog limits to the host; nothing is saved. */
-  onChoose?: (choice: ChatModelChoice) => Promise<void>;
+  onChoose?: (choice: ChatModelChoice) => Promise<void | false>;
   /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
   accountName?: string | null;
   /** Replaces the footer line, for hosts where a pick does not touch a chat; null hides it (the host shows one). */
@@ -351,11 +351,14 @@ export function ConnectionModelPicker({
       // In add mode a star adds the model even where a tap only chooses it for the chat.
       if (onChoose && !viaStar) {
         const fields = connectionFieldsForModelPick(provider, row);
-        await onChoose({
-          connectionId: connection.id,
-          ...fields,
-          ...(row.name && row.name !== row.id ? { name: row.name } : {}),
-        });
+        if (
+          (await onChoose({
+            connectionId: connection.id,
+            ...fields,
+            ...(row.name && row.name !== row.id ? { name: row.name } : {}),
+          })) === false
+        )
+          return;
         setSearch("");
         onPicked?.(row.id);
         return;

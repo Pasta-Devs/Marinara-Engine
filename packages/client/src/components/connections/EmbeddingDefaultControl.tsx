@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
+import { ConnectionSelect } from "./ConnectionSelect";
 import { openAddConnection } from "../../lib/add-connection";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useDefaultEmbeddingConnection, useSetDefaultEmbeddingConnection } from "../../hooks/use-connections";
-import { createLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { useSidecarStore } from "../../stores/sidecar.store";
 
 type EmbeddingConnectionRow = {
@@ -38,16 +38,10 @@ export function EmbeddingDefaultControl({ connections }: { connections: Embeddin
   const current = useDefaultEmbeddingConnection();
   const select = useSetDefaultEmbeddingConnection();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-  const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const [failed, setFailed] = useState(false);
 
   const selectedId = current.data?.connectionId ?? "";
   const embedders = connections.filter((connection) => trimmed(connection.embeddingModel));
-  // Kept in the list while selected, so a source that stopped qualifying still shows its name.
-  const selectedRow =
-    selectedId && selectedId !== LOCAL_SIDECAR_CONNECTION_ID && !embedders.some((c) => c.id === selectedId)
-      ? connections.find((connection) => connection.id === selectedId)
-      : undefined;
   const showSidecar =
     import.meta.env.VITE_MARINARA_LITE !== "true" &&
     (sidecarModelDownloaded || selectedId === LOCAL_SIDECAR_CONNECTION_ID);
@@ -67,27 +61,17 @@ export function EmbeddingDefaultControl({ connections }: { connections: Embeddin
       <label htmlFor="embedding-default" className="block text-xs font-medium">
         {t("connections.embeddingDefault.label")}
       </label>
-      <select
+      <ConnectionSelect
         id="embedding-default"
-        value={selectedId}
+        kind="chat"
+        value={selectedId || null}
+        onChange={(id) => void change(id ?? "")}
+        defaultLabel={t("connections.embeddingDefault.none")}
+        includeLocalSidecar={showSidecar}
+        rowFilter={(row) => embedders.some((candidate) => candidate.id === row.id)}
         disabled={select.isPending || current.isPending}
-        onChange={(event) => void change(event.target.value)}
-        className="w-full min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
-      >
-        <option value="">{t("connections.embeddingDefault.none")}</option>
-        {showSidecar && (
-          <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-            {createLocalSidecarConnectionOption(sidecarModelDisplayName).name}
-          </option>
-        )}
-        {selectedRow && <option value={selectedRow.id}>{selectedRow.name}</option>}
-        {embedders.map((connection) => (
-          <option key={connection.id} value={connection.id}>
-            {connection.name} ({trimmed(connection.embeddingModel)})
-          </option>
-        ))}
-      </select>
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.embeddingDefault.help")}</p>
+        aria-label={t("connections.embeddingDefault.label")}
+      />
       {!showSidecar && import.meta.env.VITE_MARINARA_LITE !== "true" && (
         <button
           type="button"

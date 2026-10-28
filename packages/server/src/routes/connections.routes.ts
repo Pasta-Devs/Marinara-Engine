@@ -2333,7 +2333,9 @@ export function readOpenRouterModelCapabilities(
     if (key) keys.add(key);
   }
   // An empty or missing list says nothing; it must not hide every control.
-  return keys.size > 0 ? { supportedParameters: [...keys] } : undefined;
+  // `logprobs` is no generation setting, so it is read from the same list on its own.
+  const logprobs = fields.includes("logprobs");
+  return keys.size > 0 || logprobs ? { supportedParameters: [...keys], ...(logprobs ? { logprobs } : {}) } : undefined;
 }
 
 /**

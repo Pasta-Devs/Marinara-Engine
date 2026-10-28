@@ -169,20 +169,21 @@ export function DecisionDefaultControl() {
             title={t("connections.decision.defaultLabel")}
           />
         </div>
-        <button
-          type="button"
-          disabled={!selected || busy}
-          onClick={runTest}
-          className="rounded-lg px-3 py-2 text-xs ring-1 ring-[var(--border)] disabled:opacity-50"
-        >
-          {t(
-            testSlot.isPending || testConnection.isPending
-              ? "connections.decision.testing"
-              : "connections.decision.test",
-          )}
-        </button>
+        {selected?.slot && (
+          <button
+            type="button"
+            disabled={!selected || busy}
+            onClick={runTest}
+            className="rounded-lg px-3 py-2 text-xs ring-1 ring-[var(--border)] disabled:opacity-50"
+          >
+            {t(
+              testSlot.isPending || testConnection.isPending
+                ? "connections.decision.testing"
+                : "connections.decision.test",
+            )}
+          </button>
+        )}
       </div>
-      <p className="text-xs text-[var(--muted-foreground)]">{t("connections.decision.defaultHelp")}</p>
       {needsBuiltIn && (
         <button
           type="button"

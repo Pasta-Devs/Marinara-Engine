@@ -65,6 +65,8 @@ export interface ModelParameterCapabilities {
   samplingRejected?: boolean;
   /** Whether the model accepts a verbosity setting, and the provider's default, when the provider reports it. */
   verbosity?: { supported: boolean; default?: string };
+  /** The provider lists log-probabilities for this model, which the Decision model needs. */
+  logprobs?: boolean;
   /** The exact settings the provider lists for this model (OpenRouter). Settings missing from it are ignored upstream. */
   supportedParameters?: GenerationParameterKey[];
 }

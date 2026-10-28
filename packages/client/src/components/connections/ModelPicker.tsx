@@ -6,12 +6,35 @@ import { toast } from "sonner";
 import { type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
-import { useConnections } from "../../hooks/use-connections";
+import {
+  useConnections,
+  useCreateConnection,
+  useDeleteConnection,
+  useTestConnection,
+} from "../../hooks/use-connections";
+import { useDecisionOptions } from "../../hooks/use-decision-model";
+import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 
 type Extra = { value: string; label: string };
+
+const PASSED_KEY = "marinara-decision-passed";
+const readDecisionPasses = (): Set<string> => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(PASSED_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+};
+const rememberDecisionPass = (key: string) => {
+  try {
+    localStorage.setItem(PASSED_KEY, JSON.stringify([...readDecisionPasses().add(key)]));
+  } catch {
+    /* a private window keeps nothing; the catalog's own flag still marks models */
+  }
+};
 
 export function ModelPicker({
   open,
@@ -49,6 +72,13 @@ export function ModelPicker({
   const pickModel = usePickModel();
   const { data: rows } = useConnections();
   const { data: accounts } = useConnectionAccounts();
+  const decision = kind === "decision";
+  const createRow = useCreateConnection();
+  const deleteRow = useDeleteConnection();
+  const testRow = useTestConnection();
+  const decisionOptions = useDecisionOptions(decision && open);
+  // `accountId|model` → what the Decision test said; a model being tried or turned down shows it on its row.
+  const [tried, setTried] = useState<Record<string, { label: string; state: "off" | "needs_key" }>>({});
   const known = useRef<Set<string> | null>(null);
   const [firstAccountId, setFirstAccountId] = useState<string | null>(null);
 
@@ -107,6 +137,61 @@ export function ModelPicker({
     commit(id);
   };
 
+  // Decision: the model is tried before it is assigned; a rejected one stays unassigned and says why.
+  const applyDecision = async (choice: ChatModelChoice) => {
+    const anchor = (rows as Array<{ id: string; accountId?: string | null; model?: string | null }> | undefined)?.find(
+      (row) => row.id === choice.connectionId,
+    );
+    const account = accounts?.find((item) => item.id === anchor?.accountId);
+    const model = choice.model ?? anchor?.model;
+    if (!account || !model) return false;
+    const key = `${account.id}|${model}`;
+    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+      setTried((all) => {
+        const { [key]: _drop, ...rest } = all;
+        return next ? { ...rest, [key]: next } : rest;
+      });
+    mark({ label: t("connections.decision.testing"), state: "off" });
+    const existing = (
+      rows as Array<{ id: string; provider?: string; accountId?: string | null; model?: string | null }> | undefined
+    )?.find((row) => row.provider === "decision" && row.accountId === account.id && row.model === model);
+    let id = existing?.id;
+    try {
+      if (!id) {
+        const created = (await createRow.mutateAsync({
+          name: model,
+          provider: "decision",
+          apiKey: "",
+          baseUrl: account.baseUrl ?? "",
+          accountId: account.id,
+          decisionSource: "openai_compatible",
+          model,
+        })) as { id?: string };
+        id = created.id;
+      }
+      if (!id) throw new Error("no row");
+      const result = await testRow.mutateAsync(id);
+      const noLogprobs = result.success && result.logprobs === false;
+      if (!result.success || noLogprobs) {
+        if (!existing) await deleteRow.mutateAsync(id);
+        mark({
+          label: noLogprobs
+            ? t("connections.decision.logprobsMissing")
+            : decisionConnectionTestMessage(t, result).message,
+          state: "needs_key",
+        });
+        return false;
+      }
+      rememberDecisionPass(key);
+      mark(null);
+      commit(id);
+    } catch {
+      if (!existing && id) await deleteRow.mutateAsync(id).catch(() => undefined);
+      mark({ label: t("connections.decision.errors.network"), state: "needs_key" });
+      return false;
+    }
+  };
+
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
     openAddConnection();
@@ -126,11 +211,13 @@ export function ModelPicker({
     >
       <ConnectionSwitcherBody
         layout="steps"
-        kind={kind}
+        kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
-        catalogBrowse={kind === "chat" && !rowFilter}
-        current={value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null}
-        onApply={apply}
+        catalogBrowse={(kind === "chat" || decision) && !rowFilter}
+        current={
+          !decision && value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null
+        }
+        onApply={decision ? applyDecision : apply}
         onDone={onClose}
         showLocalModel={includeLocalSidecar}
         followDefault={
@@ -144,7 +231,24 @@ export function ModelPicker({
               }
             : undefined
         }
-        extras={extraOptions.map((extra) => ({
+        knownGood={
+          decision
+            ? {
+                label: t("connections.decision.knownGood"),
+                test: (accountId, model, facts) =>
+                  !!facts?.capabilities?.logprobs || readDecisionPasses().has(`${accountId}|${model}`),
+              }
+            : undefined
+        }
+        rowState={decision ? (accountId, model) => tried[`${accountId}|${model}`] ?? null : undefined}
+        extras={[
+          ...extraOptions,
+          ...(decision
+            ? (decisionOptions.data?.options ?? [])
+                .filter((option) => option.group === "connection" && !option.unavailable)
+                .map((option) => ({ value: option.id, label: option.label }))
+            : []),
+        ].map((extra) => ({
           ...extra,
           active: value === extra.value,
           onSelect: async () => {

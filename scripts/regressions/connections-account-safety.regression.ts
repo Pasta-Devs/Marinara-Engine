@@ -20,7 +20,6 @@ const generation = read("../../packages/server/src/routes/generate.routes.ts");
 const services = read("../../packages/client/src/components/modals/create-connection/shared.tsx");
 const models = read("../../packages/client/src/components/modals/create-connection/ModelsStep.tsx");
 
-assert.match(picker, /assign: \(id\) => onChangeRef\.current\(id\)/);
 assert.match(
   modal,
   /const discardFreshAccount = async \(\) => \{[\s\S]*?deleteRow\.mutateAsync\(current\.connectionId\)/,

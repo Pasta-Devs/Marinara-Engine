@@ -26,6 +26,7 @@ import {
   useCachedCatalogFacts,
   useConnections,
   useUpdateConnection,
+  type CachedModelFacts,
   type SubscriptionUsage,
 } from "../../hooks/use-connections";
 import { matchesKind } from "../../lib/connection-jobs";
@@ -394,13 +395,15 @@ export function ConnectionSwitcherBody({
   extras,
   onAdd,
   firstAccountId,
+  knownGood,
+  rowState,
 }: {
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
   /** The host's last choices; without them Recent lists the Models other chats used last. */
   recent?: readonly ChatModelChoice[];
   /** Points the host (chat or Professor Mari) at the choice. */
-  onApply: (choice: ChatModelChoice) => Promise<void>;
+  onApply: (choice: ChatModelChoice) => Promise<void | false>;
   /** Closes the host menu; every pick ends with it. */
   onDone: () => void;
   /**
@@ -423,6 +426,13 @@ export function ConnectionSwitcherBody({
   extras?: ReadonlyArray<{ value: string; label: string; active: boolean; onSelect: () => Promise<void> }>;
   /** Last row: adds a provider; the host reopens or keeps this picker. */
   onAdd?: () => void;
+  /** Marks models known to suit the slot with a check and lists them first (Decision). */
+  knownGood?: {
+    label: string;
+    test: (accountId: string, model: string, facts: CachedModelFacts | undefined) => boolean;
+  };
+  /** A pick that is being tried or was turned down, shown on its row. */
+  rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
   /** A provider just added: its group comes first. */
   firstAccountId?: string | null;
   listHeader?: ReactNode;
@@ -544,7 +554,7 @@ export function ConnectionSwitcherBody({
     if (entry.group && unavailableOf(entry.group)) return fix(entry.group);
     setBusy(true);
     try {
-      if (!isNow(entry) && !sameChoice(entry.choice, current)) await onApply(entry.choice);
+      if (!isNow(entry) && !sameChoice(entry.choice, current) && (await onApply(entry.choice)) === false) return;
       if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
         openAddConnection({ category: "device", item: "local-model" });
       }
@@ -759,6 +769,23 @@ export function ConnectionSwitcherBody({
     }
     return { saved, extra: added };
   }, [anchorOf, catalog.data, currentGroup, deferredQuery, groupByAccount, groupOfRow, groups, rows, t]);
+  // Models known to suit the slot come first, across every provider's cached catalog.
+  const knownEntries = useMemo(() => {
+    if (!knownGood) return [] as Entry[];
+    const out: Entry[] = [];
+    for (const group of groups) {
+      if (!group.account) continue;
+      const catalog = catalogOf(group);
+      for (const facts of catalog?.factSets ?? []) {
+        for (const [model, modelFacts] of facts) {
+          if (knownGood.test(group.account.id, model, modelFacts))
+            out.push(entryFor(group, anchorOf(group), model, model));
+        }
+      }
+    }
+    return out.slice(0, 30);
+  }, [knownGood, groups, catalogs, anchorOf]);
+
   const searchEntries = useMemo(() => [...savedHits, ...extraHits], [extraHits, savedHits]);
   const savedCount = savedHits.length;
   const hasCatalogHits = extraHits.some((entry) => !entry.key.startsWith("use:"));
@@ -803,6 +830,12 @@ export function ConnectionSwitcherBody({
     const stateLabel = unavailable ? t(accountStateLabel({ state: unavailable })) : null;
     const local = entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
     const typed = entry.key.startsWith("use:");
+    const rowStateOf = entry.model && group?.account ? rowState?.(group.account.id, entry.model) : null;
+    const isKnown =
+      !!knownGood &&
+      !!entry.model &&
+      !!group?.account &&
+      knownGood.test(group.account.id, entry.model, catalogOf(group)?.of(entry.model));
     const catalog = catalogOf(group);
     const facts = catalog?.of(entry.model);
     return (
@@ -842,18 +875,26 @@ export function ConnectionSwitcherBody({
         subtitle={entry.subtitle}
         roles={roleLabels}
         status={
-          stateLabel
-            ? { label: stateLabel, state: unavailable ?? undefined }
-            : limitReached(group, facts?.cost)
-              ? { label: t("connections.switcher.limitReached"), state: "limit" }
-              : null
+          rowStateOf
+            ? { label: rowStateOf.label, state: rowStateOf.state }
+            : stateLabel
+              ? { label: stateLabel, state: unavailable ?? undefined }
+              : limitReached(group, facts?.cost)
+                ? { label: t("connections.switcher.limitReached"), state: "limit" }
+                : null
         }
         customized={custom}
         facts={facts}
         showPaid={catalog?.showPaid}
         current={isCurrent}
         dim={!!unavailable}
-        trailing={isCurrent && <Check size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
+        trailing={
+          isCurrent ? (
+            <Check size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />
+          ) : isKnown ? (
+            <Check size="0.75rem" aria-label={knownGood!.label} className="shrink-0 text-foreground/35" />
+          ) : null
+        }
         end={
           <>
             {now && unavailable && group && fixButton(group)}
@@ -877,7 +918,7 @@ export function ConnectionSwitcherBody({
       connectionId: anchor.id,
       chat: {
         currentModel: anchor === currentRow ? (current?.model ?? anchor.model ?? null) : null,
-        onChoose: (choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice)),
+        onChoose: (choice) => (sameChoice(choice, current) ? Promise.resolve() : onApply(choice).then(() => undefined)),
       },
     });
   };
@@ -1246,6 +1287,12 @@ export function ConnectionSwitcherBody({
             {nowSection}
             {followDefault && !followDefault.active && followRow(false)}
             {extraRows}
+            {knownEntries.length > 0 && (
+              <section data-switcher-section="known" aria-label={knownGood!.label}>
+                <ListHeading>{knownGood!.label}</ListHeading>
+                {knownEntries.map((entry) => renderEntry(entry))}
+              </section>
+            )}
             {recent.length > 0 && (
               <section data-switcher-section="recent" aria-label={t("connections.switcher.recent")}>
                 <ListHeading>{t("connections.switcher.recent")}</ListHeading>
