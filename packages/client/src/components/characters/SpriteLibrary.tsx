@@ -99,7 +99,7 @@ export function SpriteLibraryShell({
   const defaultName = choices.find((choice) => choice.id === defaultId)?.name ?? label("unfiled");
   return (
     <div
-      className="@container/sprite-library min-w-0 space-y-4"
+      className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
       data-sprite-library
       aria-busy={library.query.isPending}
     >

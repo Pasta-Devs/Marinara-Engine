@@ -6226,7 +6226,7 @@ function SpritesTab({
           }
           width={framingSprite ? "max-w-4xl" : "max-w-3xl"}
           closeDisabled={savingFrame || savingWandCleanup || uploading}
-          panelClassName="mari-editor-shell mari-editor-legacy-bridge"
+          panelClassName="mari-editor-shell mari-editor-legacy-bridge [overflow-wrap:anywhere]"
         >
           {detailSprite &&
             (framingSprite ? (
