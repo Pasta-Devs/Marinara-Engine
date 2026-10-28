@@ -8,8 +8,8 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 
 const control =
-  "min-h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
-const button = "mari-editor-action min-h-11 px-3 md:min-h-9";
+  "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
+const button = "mari-editor-action min-h-[44px]! min-w-[44px]! px-3 md:min-h-9! md:min-w-9!";
 
 export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
   const query = useSpriteCatalog(ownerId);
@@ -98,36 +98,44 @@ export function SpriteLibraryShell({
   const title = choices.find((choice) => choice.id === library.folderId)?.name ?? label("missingFolder");
   const defaultName = choices.find((choice) => choice.id === defaultId)?.name ?? label("unfiled");
   return (
-    <div className="@container min-w-0 space-y-4" data-sprite-library>
+    <div
+      className="@container/sprite-library min-w-0 space-y-4"
+      data-sprite-library
+      aria-busy={library.query.isPending}
+    >
       {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
       <div className="grid min-w-0 gap-5 @xl:grid-cols-[10rem_minmax(0,1fr)]">
         <aside className="min-w-0 space-y-3" aria-label={label("folders")}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-[var(--muted-foreground)]">{label("folders")}</span>
+            <span className="hidden text-xs font-semibold text-[var(--muted-foreground)] @xl:block">
+              {label("folders")}
+            </span>
+            <select
+              className={`${control} min-w-0 flex-1 @xl:hidden`}
+              value={library.folderId}
+              disabled={busy || library.query.isPending}
+              aria-label={label("browseFolder")}
+              onChange={(event) => library.chooseFolder(event.target.value)}
+            >
+              {choices.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.id === defaultId
+                    ? t("sprites.library.defaultFolderName", { name: choice.name })
+                    : choice.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               className={button}
               aria-label={label("newFolder")}
               aria-expanded={creating}
-              disabled={busy}
+              disabled={busy || library.query.isPending}
               onClick={() => setCreating(!creating)}
             >
               <FolderPlus size={16} />
             </button>
           </div>
-          <select
-            className={`${control} w-full @xl:hidden`}
-            value={library.folderId}
-            disabled={busy}
-            aria-label={label("browseFolder")}
-            onChange={(event) => library.chooseFolder(event.target.value)}
-          >
-            {choices.map((choice) => (
-              <option key={choice.id} value={choice.id}>
-                {choice.id === defaultId ? t("sprites.library.defaultFolderName", { name: choice.name }) : choice.name}
-              </option>
-            ))}
-          </select>
           <nav className="hidden space-y-1 @xl:block" aria-label={label("browseFolder")}>
             {choices.map((choice) => (
               <button
@@ -265,7 +273,7 @@ export function SpriteLibraryShell({
         <div className="@container min-w-0 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h4 className="break-words text-base font-semibold">{title}</h4>
+              <h4 className="hidden break-words text-base font-semibold @xl/sprite-library:block">{title}</h4>
               {current?.description && (
                 <p className="mt-1 text-xs text-[var(--muted-foreground)]">{current.description}</p>
               )}
@@ -274,7 +282,11 @@ export function SpriteLibraryShell({
                 data-sprite-default
               >
                 <Star size={12} className="shrink-0" />
-                {t("sprites.library.chatDefault", { name: defaultName })}
+                {library.query.isPending
+                  ? label("loadingFolders")
+                  : library.query.data
+                    ? t("sprites.library.chatDefault", { name: defaultName })
+                    : label("loadError")}
               </p>
             </div>
             {library.folderId !== "all" && defaultId !== library.folderId && (
@@ -392,7 +404,7 @@ export function SpriteSelection({
 }) {
   const { t } = useTranslation();
   return (
-    <label className="absolute left-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--card)]/90 md:h-9 md:w-9">
+    <label className="absolute left-2 top-2 z-10 flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-[var(--card)]/90 md:h-9 md:w-9">
       <input
         type="checkbox"
         disabled={disabled}

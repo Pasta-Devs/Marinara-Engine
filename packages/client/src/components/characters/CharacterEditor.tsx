@@ -3969,7 +3969,7 @@ function CharacterSheetSection({
         </div>
         <button
           type="button"
-          className="mari-editor-action min-h-11 shrink-0 px-3 md:min-h-9"
+          className="mari-editor-action min-h-[44px]! shrink-0 px-3 md:min-h-9!"
           aria-expanded={expanded}
           aria-controls={referenceId}
           onClick={() => setExpanded(!expanded)}
@@ -5463,7 +5463,7 @@ function SpritesTab({
   const selectedSprites = visibleSprites.filter((sprite) => library.selected.includes(sprite.expression));
   const detailSprite = allSprites.find((sprite) => sprite.expression === detailsExpression) ?? null;
   const spriteBusy = uploading || !!folderProgress || cleaningSprites || !!deletingSprites;
-  const spriteActionClass = "mari-editor-action min-h-11 px-3 md:min-h-9";
+  const spriteActionClass = "mari-editor-action min-h-[44px]! px-3 md:min-h-9!";
   const addPanelId = useId();
   const cleanupPanelId = useId();
   useEffect(() => {
@@ -5506,7 +5506,7 @@ function SpritesTab({
           }}
           aria-pressed={category === tab.id}
           className={cn(
-            "min-h-11 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 md:min-h-9",
+            "min-h-[44px] rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 md:min-h-9",
             category === tab.id
               ? "bg-[var(--primary)]/15 text-[var(--primary)]"
               : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -6030,7 +6030,7 @@ function SpritesTab({
             </div>
             <ImageUploadDropzone
               multiple
-            disabled={spriteBusy}
+              disabled={spriteBusy}
               label={localizeUi("sprites.library.uploadImages")}
               pending={!!folderProgress || uploading}
               pendingLabel={localizeUi("ui.characters.charactersheet.uploading")}

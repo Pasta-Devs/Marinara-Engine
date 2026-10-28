@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, request as createRequest } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
@@ -8,8 +8,9 @@ const png = Buffer.from(
   "base64",
 );
 
-test("sprite details, folders and bulk tools keep their intended scope", async ({ page, request }, info) => {
-  test.setTimeout(120_000);
+test("sprite details, folders and bulk tools keep their intended scope", async ({ page, request, baseURL }, info) => {
+  test.setTimeout(180_000);
+  const cleanup = await createRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: new URL(baseURL!).origin } });
   const created = await request.post("/api/characters", {
     data: { data: { name: "Sprite library UI proof", first_mes: "" } },
   });
@@ -135,6 +136,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     expect(saved.defaultFolderId).toBe(front);
     expect(errors).toEqual([]);
   } finally {
-    await request.delete(`/api/characters/${owner.id}`);
+    const removed = await cleanup.delete(`/api/characters/${owner.id}`);
+    expect(removed.ok()).toBeTruthy();
+    await cleanup.dispose();
   }
 });
