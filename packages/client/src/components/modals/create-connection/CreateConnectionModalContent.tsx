@@ -748,7 +748,7 @@ export function CreateConnectionModalContent({
             type="button"
             onClick={() => void saveAndTest(true)}
             disabled={busy}
-            className="min-h-11 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] md:min-h-0"
+            className="mari-chrome-control mari-chrome-control--small"
           >
             {t("connections.add.continueAnyway")}
           </button>
@@ -978,7 +978,6 @@ export function CreateConnectionModalContent({
                 />
                 <span className="min-w-0">
                   {t("connections.add.makeMain", { model: firstName })}
-                  <span className="text-xs text-[var(--muted-foreground)]"> · {t("connections.add.makeMainHint")}</span>
                 </span>
               </label>
             ) : (
@@ -987,7 +986,7 @@ export function CreateConnectionModalContent({
                 data-add-connection-set-main
                 onClick={() => void setAsMain()}
                 disabled={updateRow.isPending}
-                className="min-h-11 px-2 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] disabled:opacity-50"
+                className="mari-chrome-control mari-chrome-control--small"
               >
                 {t("connections.add.setAsMain", { model: firstName })}
               </button>

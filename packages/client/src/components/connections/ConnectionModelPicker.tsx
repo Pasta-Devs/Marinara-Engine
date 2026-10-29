@@ -129,7 +129,6 @@ export function ConnectionModelPicker({
   applyPick,
   onChoose,
   accountName,
-  footer,
   className,
   recommended,
   addMode = false,
@@ -155,8 +154,6 @@ export function ConnectionModelPicker({
   onChoose?: (choice: ChatModelChoice) => Promise<void | false>;
   /** The Connection's name, shown in the header with `applyPick` or `onChoose`. */
   accountName?: string | null;
-  /** Replaces the footer line, for hosts where a pick does not touch a chat; null hides it (the host shows one). */
-  footer?: string | null;
   className?: string;
   /** Good first picks shown above Starred (Add connection, vendors with a known list). */
   recommended?: readonly PickerRow[];
@@ -317,9 +314,9 @@ export function ConnectionModelPicker({
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
   const typedId = search.trim();
-  const { exactId, enterTarget, enterUsesTyped } = useMemo(() => {
+  const { exactId, enterTarget } = useMemo(() => {
     const typed = typedId.toLowerCase();
-    if (!typed) return { exactId: null, enterTarget: null, enterUsesTyped: false };
+    if (!typed) return { exactId: null, enterTarget: null };
     const allRows = [...recommendedAll, ...pinnedAll, ...othersAll];
     const rows = allRows.filter(inFilter);
     const byId = allRows.find((row) => row.id.toLowerCase() === typed) ?? null;
@@ -330,7 +327,7 @@ export function ConnectionModelPicker({
       (byName.length === 1 ? byName[0]! : null) ??
       (matches.length === 1 ? matches[0]! : null) ??
       (matches.length === 0 && !filtering ? { id: typedId, name: typedId } : null);
-    return { exactId: byId, enterTarget: target, enterUsesTyped: matches.length === 0 && !filtering };
+    return { exactId: byId, enterTarget: target };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
   }, [costFilter, only, othersAll, pinnedAll, recommendedAll, typedId, upstream]);
   // The typed text can always be used as it is from its own row; Enter uses it only when nothing matches.
@@ -796,11 +793,6 @@ export function ConnectionModelPicker({
                   <span className="truncate text-xs font-medium text-foreground/90">
                     {t("connections.modelPicker.useTyped", { model: typedId })}
                   </span>
-                  <span className="text-[0.625rem] text-foreground/50">
-                    {t(
-                      enterUsesTyped ? "connections.modelPicker.useTypedHint" : "connections.modelPicker.useTypedAsIs",
-                    )}
-                  </span>
                 </button>
               </div>
             )}
@@ -858,19 +850,6 @@ export function ConnectionModelPicker({
               </p>
             )}
           </ListFrame>
-
-          {footer !== null && (
-            <p className="border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-              {footer ??
-                t(
-                  onChoose
-                    ? "connections.switcher.appliesToChat"
-                    : applyPick
-                      ? "connections.accounts.addModelFooter"
-                      : "connections.modelPicker.footer",
-                )}
-            </p>
-          )}
         </>
       )}
     </div>

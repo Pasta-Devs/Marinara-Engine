@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Check, ChevronDown, Download, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, Download, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../../stores/sidecar.store";
@@ -41,10 +41,6 @@ export function BuiltInModelSetup() {
           {t("connections.builtin.size", { size: gb(recommended.sizeBytes), ram: gb(recommended.ramBytes) })}
         </p>
       )}
-      <p className="flex items-center gap-1.5 text-xs text-[var(--warning)]">
-        <AlertTriangle size="0.875rem" className="shrink-0" aria-hidden />
-        {t("connections.builtin.warning")}
-      </p>
       {modelDownloaded && inferenceReady && !busy ? (
         <p className="flex items-center gap-2 text-sm font-medium text-emerald-500">
           <Check size="1rem" aria-hidden />
@@ -97,7 +93,7 @@ export function BuiltInModelSetup() {
         type="button"
         onClick={() => setAdvanced((open) => !open)}
         aria-expanded={advanced}
-        className="flex min-h-11 items-center gap-1.5 self-start rounded-lg text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] md:min-h-9"
+        className="mari-chrome-control mari-chrome-control--small self-start"
       >
         <ChevronDown
           size="0.75rem"

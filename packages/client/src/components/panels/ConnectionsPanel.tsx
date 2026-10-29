@@ -787,9 +787,6 @@ export function ConnectionsPanel() {
             <CloudOff size="1rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-[var(--foreground)]">{t("connections.list.loadFailed")}</p>
-              <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                {t("connections.list.loadFailedHelp")}
-              </p>
             </div>
           </div>
           <button
@@ -812,7 +809,7 @@ export function ConnectionsPanel() {
         </div>
       ) : noConnections ? (
         <>
-          {/* One task, three steps, the same Add as the header row. */}
+          {/* One task: the same Add as the header row. */}
           <section aria-labelledby="connections-empty-title" className="mari-connection-empty flex flex-col gap-3 p-4">
             <span
               aria-hidden
@@ -824,14 +821,7 @@ export function ConnectionsPanel() {
               <h3 id="connections-empty-title" className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
                 {t("connections.list.emptyTitle")}
               </h3>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("connections.list.emptyHelp")}</p>
             </div>
-            <ol className="flex list-decimal flex-col gap-1 pl-5 text-xs text-[var(--muted-foreground)]">
-              <li>{t("connections.list.emptyStep1")}</li>
-              <li>{t("connections.list.emptyStep2")}</li>
-              <li>{t("connections.list.emptyStep3")}</li>
-            </ol>
-            <p className="text-xs text-[var(--muted-foreground)]">{t("connections.list.emptyNoKey")}</p>
             <button
               type="button"
               onClick={() => openModal("create-connection")}
@@ -841,19 +831,13 @@ export function ConnectionsPanel() {
               {t("connections.list.addConnection")}
             </button>
           </section>
-          <p className="px-1 text-xs text-[var(--muted-foreground)]">
-            {t("connections.list.haveBackup")}{" "}
-            <button
+          <button
               type="button"
               onClick={() => openModal("import-connection")}
-              className={cn(
-                "min-h-11 rounded text-[var(--primary)] underline underline-offset-2 md:min-h-0 [@media(pointer:coarse)]:min-h-11",
-                FOCUS,
-              )}
+              className="mari-chrome-control w-full"
             >
               {t("connections.list.importConnections")}
             </button>
-          </p>
           {!linkApiBannerDismissed && (
             <div className="mt-1 flex flex-col gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3">
               <p className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">

@@ -3355,7 +3355,6 @@ export function ConnectionEditor({
                 accountName={linkedAccount?.name}
                 builtInModels={providerModels}
                 onChoose={async (choice) => selectModel(choice)}
-                footer={null}
               />
               {!!selectedModelInfo?.context && (
                 <p className="mt-2 flex flex-wrap gap-x-4 text-[0.6875rem] text-[var(--muted-foreground)]">

@@ -95,8 +95,6 @@ export function ConnectionSection({
             : "chat.settings.connectionModel.chosenForChat",
           { connection: effective.connectionName },
         )
-      : effective?.kind === "local"
-        ? localizeUi("connections.switcher.localModelHint")
         : effective?.kind === "random"
           ? localizeUi("chat.settings.connectionModel.shuffleDetail")
           : localizeUi("connections.switcher.noMain");

@@ -401,7 +401,6 @@ export function ConnectionSwitcherBody({
   listFooter,
   empty,
   autoFocusSearch = false,
-  pickerFooter,
   className,
   listClassName,
   modelsClassName,
@@ -472,7 +471,6 @@ export function ConnectionSwitcherBody({
   empty?: ReactNode;
   /** Focus the search box on devices with a mouse (a phone keyboard would cover the list). */
   autoFocusSearch?: boolean;
-  pickerFooter?: string;
   className?: string;
   listClassName?: string;
   modelsClassName?: string;
@@ -697,8 +695,7 @@ export function ConnectionSwitcherBody({
     key: LOCAL_SIDECAR_CONNECTION_ID,
     title: t("connections.switcher.localModel"),
     subtitle:
-      localModelHint ??
-      t(builtInReady ? "connections.switcher.localModelHint" : "connections.builtin.notDownloadedSetUp"),
+      localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =
@@ -1173,9 +1170,7 @@ export function ConnectionSwitcherBody({
           <span className="truncate">{followDefault.label ?? t("connections.switcher.followMain")}</span>
           {!followDefault.label && (
             <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-              {mainRow
-                ? t("connections.switcher.followMainHint", { model: rowLabel(mainRow) })
-                : t("connections.switcher.noMain")}
+              {mainRow ? rowLabel(mainRow) : t("connections.switcher.noMain")}
             </span>
           )}
         </span>
@@ -1364,7 +1359,6 @@ export function ConnectionSwitcherBody({
         connection={pickerConnectionOf(browsingGroup)}
         onChoose={onChoose}
         accountName={browsingGroup.name}
-        footer={null}
         autoFocusSearch
         onPicked={onDone}
       />
@@ -1446,7 +1440,6 @@ export function ConnectionSwitcherBody({
             connection={pickerConnectionOf(pickerGroup)}
             onChoose={onChoose}
             accountName={pickerGroup.name}
-            footer={pickerFooter}
             onPicked={onDone}
           />
         ) : (
@@ -1464,13 +1457,6 @@ export function ConnectionSwitcherBody({
       </div>
     );
 
-  // One footer line; the composer menu keeps the picker's own line.
-  const footer = layout !== "container" && !!pickerFooter && (
-    <p className="shrink-0 border-t border-foreground/10 px-3 py-2 text-[0.625rem] text-foreground/50">
-      <StarText text={pickerFooter} />
-    </p>
-  );
-
   if (layout === "steps") {
     return (
       <div
@@ -1486,7 +1472,6 @@ export function ConnectionSwitcherBody({
         className={cn("mari-connection-scope flex min-h-0 min-w-0 flex-1 flex-col", className)}
       >
         {list}
-        {footer}
       </div>
     );
   }

@@ -320,7 +320,6 @@ function ModelPickerSlot({
           },
         }))}
         modelFilter={embedding ? isEmbeddingModel : undefined}
-        pickerFooter=""
         onAdd={onAdd}
         firstAccountId={firstAccountId}
         autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}

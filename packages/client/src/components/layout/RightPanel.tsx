@@ -77,7 +77,6 @@ const PANEL_CONFIG: Record<string, PanelConfig> = {
     title: "Connections",
     icon: <Link size="0.875rem" />,
     gradient: "from-sky-400 to-blue-500",
-    helpKey: "navigation.sidebarHelp.connections",
   },
   agents: {
     title: "Agents",

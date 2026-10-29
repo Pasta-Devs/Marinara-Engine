@@ -274,7 +274,6 @@ export function MariComposer({
       localModelHint={localizeUi(
         sidecarNativeToolCalls ? "ui.chat.homeprofessormarichat.nativeTools" : "ui.chat.homeprofessormarichat.toolsOff",
       )}
-      pickerFooter=""
       listHeader={
         phone ? undefined : (
           <p className="mari-composer-menu__head">
