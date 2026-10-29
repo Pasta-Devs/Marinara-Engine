@@ -2362,7 +2362,7 @@ function PersonaSpritesTab({
         ? s.expression.startsWith("full_")
         : !s.expression.startsWith("full_"),
   );
-  const library = useSpriteLibrary(personaId, categorySprites);
+  const library = useSpriteLibrary(personaId, categorySprites, category === "full-body" ? "full-body" : "expressions");
   const visibleSprites = library.visible;
   const portraitExpressionSprites = allSprites.filter(
     (sprite) =>
@@ -2973,6 +2973,7 @@ function PersonaSpritesTab({
           </div>
         ) : visibleSprites.length || library.folders.length ? (
           <SpriteFolderGrid
+            key={category}
             library={library}
             renderSprite={(sprite) => (
               <div

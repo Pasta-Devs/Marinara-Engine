@@ -1383,6 +1383,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       .refine((id) => !id.includes("..") && !/[/\\\u0000]/u.test(id)),
   });
   const folderInput = z.object({
+    category: z.enum(["expressions", "full-body"]).optional(),
     name: z.string().trim().min(1).max(100),
     description: z.string().max(500).default(""),
   });
@@ -1396,9 +1397,15 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid sprite folder" });
     return withSpriteCatalogLock(req.params.characterId, async () => {
       const catalog = readSpriteCatalog(req.params.characterId);
-      if (catalog.folders.some((folder) => folder.name.toLowerCase() === body.data.name.toLowerCase()))
+      if (
+        catalog.folders.some(
+          (folder) =>
+            folder.name.toLowerCase() === body.data.name.toLowerCase() &&
+            folder.category === (body.data.category ?? "expressions"),
+        )
+      )
         return reply.code(409).send({ error: "A folder with that name already exists" });
-      catalog.folders.push({ id: randomUUID(), ...body.data });
+      catalog.folders.push({ id: randomUUID(), ...body.data, category: body.data.category ?? "expressions" });
       await writeSpriteCatalog(req.params.characterId, catalog);
       return listSpriteCatalog(req.params.characterId);
     });
@@ -1415,10 +1422,15 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (!folder) return reply.code(404).send({ error: "Sprite folder not found" });
         if (
           catalog.folders.some(
-            (entry) => entry.id !== folder.id && entry.name.toLowerCase() === body.data.name.toLowerCase(),
+            (entry) =>
+              entry.id !== folder.id &&
+              entry.category === folder.category &&
+              entry.name.toLowerCase() === body.data.name.toLowerCase(),
           )
         )
           return reply.code(409).send({ error: "A folder with that name already exists" });
+        if (body.data.category && body.data.category !== folder.category)
+          return reply.code(400).send({ error: "A folder cannot change sprite type" });
         Object.assign(folder, body.data);
         await writeSpriteCatalog(req.params.characterId, catalog);
         return listSpriteCatalog(req.params.characterId);
@@ -1468,6 +1480,14 @@ export async function spritesRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: "Sprite folder not found" });
       if (body.data.expressions.some((expression) => !sprites.some((sprite) => sprite.expression === expression)))
         return reply.code(404).send({ error: "Sprite not found" });
+      const destination = catalog.folders.find((folder) => folder.id === body.data.folderId);
+      if (
+        destination &&
+        body.data.expressions.some(
+          (handle) => (handle.startsWith("full_") ? "full-body" : "expressions") !== destination.category,
+        )
+      )
+        return reply.code(400).send({ error: "Sprites and destination folder must have the same type" });
       for (const expression of body.data.expressions) {
         const sprite = sprites.find((entry) => entry.expression === expression)!;
         catalog.sprites[expression] = { id: sprite.id, label: sprite.label, folderId: body.data.folderId };
@@ -1605,6 +1625,9 @@ export async function spritesRoutes(app: FastifyInstance) {
       if (Object.hasOwn(body, "folderId")) {
         if (body.folderId !== null && !catalog.folders.some((folder) => folder.id === body.folderId))
           return reply.code(400).send({ error: "Invalid destination folder" });
+        const destination = catalog.folders.find((folder) => folder.id === body.folderId);
+        if (destination && destination.category !== (label.startsWith("full_") ? "full-body" : "expressions"))
+          return reply.code(400).send({ error: "Sprite and destination folder must have the same type" });
         if (current.some((sprite) => sprite.label === label && sprite.folderId === body.folderId))
           return reply.code(409).send({ error: "An expression with that name already exists in this folder" });
         if (current.some((sprite) => sprite.expression === expression))

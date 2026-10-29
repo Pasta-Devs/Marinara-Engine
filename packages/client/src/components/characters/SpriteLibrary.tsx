@@ -10,13 +10,17 @@ const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
 const button = "mari-editor-action min-h-[44px]! min-w-[44px]! px-3 md:min-h-9! md:min-w-9!";
 
-export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
+export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], category: "expressions" | "full-body") {
   const query = useSpriteCatalog(ownerId);
   const mutation = useMutateSpriteCatalog(ownerId);
   const [folderId, setFolderId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const folders = query.data?.folders ?? [];
+  const folders = (query.data?.folders ?? []).filter((folder) => folder.category === category);
+  useEffect(() => {
+    setSelected([]);
+    setSearch("");
+  }, [category]);
   const counts = new Map<string, number>([["all", sprites.length]]);
   for (const sprite of sprites) {
     const folder = sprite.folderId ?? "unfiled";
@@ -35,7 +39,11 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[]) {
   }, [visible]);
   async function mutate(method: "post" | "patch" | "delete", path: string, body?: unknown) {
     try {
-      return await mutation.mutateAsync({ method, path, body });
+      return await mutation.mutateAsync({
+        method,
+        path,
+        body: path === "folders" && method === "post" ? { ...(body as object), category } : body,
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
       return undefined;

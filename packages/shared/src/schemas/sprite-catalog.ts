@@ -4,6 +4,7 @@ export const spriteFolderSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(100),
   description: z.string().max(500).default(""),
+  category: z.enum(["expressions", "full-body"]).optional(),
 });
 
 export const spriteMetadataSchema = z.object({
@@ -14,7 +15,7 @@ export const spriteMetadataSchema = z.object({
 
 export const spriteCatalogSchema = z.object({
   version: z.literal(1),
-  folders: z.array(spriteFolderSchema).max(200),
+  folders: z.array(spriteFolderSchema).max(400),
   defaultFolderId: z.string().uuid().nullable(),
   sprites: z.record(z.string(), spriteMetadataSchema),
 });

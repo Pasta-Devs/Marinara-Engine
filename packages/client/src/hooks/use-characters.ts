@@ -620,15 +620,33 @@ export function useImportSpriteFolder() {
       let catalog = await api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`);
       const wasEmpty = catalog.sprites.length === 0;
       const importedFolders = new Map<string, string>();
-      async function getFolder(name: string, description = "") {
-        const existing = catalog.folders.find((folder) => folder.name.toLowerCase() === name.toLowerCase());
+      async function getFolder(
+        name: string,
+        description = "",
+        category: "expressions" | "full-body" = fullBody ? "full-body" : "expressions",
+      ) {
+        const existing = catalog.folders.find(
+          (folder) => folder.name.toLowerCase() === name.toLowerCase() && folder.category === category,
+        );
         if (existing) return existing.id;
-        catalog = await api.post<CharacterSpriteCatalog>(`/sprites/${characterId}/folders`, { name, description });
-        return catalog.folders.find((folder) => folder.name === name)!.id;
+        catalog = await api.post<CharacterSpriteCatalog>(`/sprites/${characterId}/folders`, {
+          name,
+          description,
+          category,
+        });
+        return catalog.folders.find((folder) => folder.name === name && folder.category === category)!.id;
       }
       if (manifest && preserveFolders)
         for (const folder of manifest.folders)
-          importedFolders.set(folder.id, await getFolder(folder.name, folder.description));
+          if (folder.category)
+            importedFolders.set(
+              folder.id,
+              await getFolder(
+                folder.name,
+                folder.description,
+                folder.category ?? (fullBody ? "full-body" : "expressions"),
+              ),
+            );
       const images = files.filter((file) => /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu.test(file.name));
       let imported = 0,
         failed = 0;
@@ -639,8 +657,16 @@ export function useImportSpriteFolder() {
           const metadata = manifest && Object.hasOwn(manifest.sprites, handle) ? manifest.sprites[handle] : undefined;
           let destination = folderId;
           if (preserveFolders) {
-            if (metadata) destination = metadata.folderId ? (importedFolders.get(metadata.folderId) ?? null) : null;
-            else {
+            if (metadata) {
+              const sourceFolder = manifest?.folders.find((folder) => folder.id === metadata.folderId);
+              destination = sourceFolder
+                ? await getFolder(
+                    sourceFolder.name,
+                    sourceFolder.description,
+                    metadata.label.startsWith("full_") ? "full-body" : "expressions",
+                  )
+                : null;
+            } else {
               const parts = file.webkitRelativePath.split("/").slice(0, -1);
               if (parts.length) destination = await getFolder(parts.join(" / ").slice(0, 100));
             }

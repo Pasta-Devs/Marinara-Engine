@@ -37,12 +37,16 @@ try {
   assert.equal(legacy.active, true);
 
   const frontResponse = (
-    await request("POST", `${base}/folders`, { name: "Front view", description: "Facing the audience" })
+    await request("POST", `${base}/folders`, {
+      name: "Front view",
+      description: "Facing the audience",
+      category: "full-body",
+    })
   ).json();
   const front = frontResponse.folders[0].id;
-  const sideResponse = (await request("POST", `${base}/folders`, { name: "Side view" })).json();
+  const sideResponse = (await request("POST", `${base}/folders`, { name: "Side view", category: "full-body" })).json();
   const side = sideResponse.folders[1].id;
-  await request("POST", `${base}/folders`, { name: "front VIEW" }, 409);
+  await request("POST", `${base}/folders`, { name: "front VIEW", category: "full-body" }, 409);
   await request("POST", `${base}/move`, { expressions: [legacy.expression], folderId: front });
   assert.equal(listSpriteCatalog(owner).sprites[0]!.id, legacy.id, "moving keeps the asset identity");
   assert.equal(readFileSync(join(sourceDir, legacy.filename)).toString("base64"), png.split(",")[1]);
@@ -53,6 +57,12 @@ try {
   assert.notEqual(original.expression, alternate.expression, "equal labels in different folders never overwrite");
   assert.equal(alternate.label, "full_happy");
   await request("POST", base, { expression: "full_happy", image: png, folderId: front }, 409);
+  const expressionFolder = (await request("POST", base + "/folders", { name: "Front view", category: "expressions" }))
+    .json()
+    .folders.find((folder: { category: string }) => folder.category === "expressions");
+  await request("POST", base + "/move", { expressions: [legacy.expression], folderId: expressionFolder.id }, 400);
+  await request("POST", base, { expression: "smile", image: png, folderId: front }, 400);
+
   assert.equal(activeOwnerSprites(owner).length, 3, "all folders remain available despite the saved default");
   assert.ok(listSpriteCatalog(owner).sprites.every((sprite) => sprite.active));
   assert.equal(readPreferredFullBodySpriteBase64(owner)?.expression, "full_neutral");
@@ -91,7 +101,7 @@ try {
   const images = listSpriteCatalog(owner).sprites.map((sprite) => ({ filename: sprite.filename, data: png }));
   await restoreSprites(images, "restored-owner", readSpriteCatalog(owner));
   const restored = listSpriteCatalog("restored-owner");
-  assert.equal(restored.folders.length, 2);
+  assert.equal(restored.folders.length, 3);
   assert.equal(restored.defaultFolderId, front);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.folderId, side);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.label, "full_delighted");
@@ -116,7 +126,30 @@ try {
     request("POST", `${base}/folders`, { name: "Outfit A" }),
     request("POST", `${base}/folders`, { name: "Outfit B" }),
   ]);
-  assert.equal(listSpriteCatalog(owner).folders.length, 3);
+  assert.equal(listSpriteCatalog(owner).folders.length, 4);
+
+  const legacyOwner = "legacy-mixed";
+  const legacyDirectory = join(process.env.DATA_DIR!, "sprites", legacyOwner);
+  mkdirSync(legacyDirectory, { recursive: true });
+  writeFileSync(join(legacyDirectory, "happy.png"), Buffer.from(png.split(",")[1]!, "base64"));
+  writeFileSync(join(legacyDirectory, "full_happy.png"), Buffer.from(png.split(",")[1]!, "base64"));
+  writeFileSync(
+    join(legacyDirectory, "catalog.json"),
+    JSON.stringify({
+      version: 1,
+      folders: [{ id: front, name: "Mixed", description: "" }],
+      defaultFolderId: front,
+      sprites: {
+        happy: { id: "face", label: "happy", folderId: front },
+        full_happy: { id: "body", label: "full_happy", folderId: front },
+      },
+    }),
+  );
+  const split = listSpriteCatalog(legacyOwner);
+  assert.equal(split.folders.length, 2);
+  assert.equal(split.sprites.length, 2);
+  assert.notEqual(split.sprites[0]!.folderId, split.sprites[1]!.folderId);
+  assert.deepEqual(listSpriteCatalog(legacyOwner), split);
   writeFileSync(join(sourceDir, "constructor.png"), "legacy name");
   assert.equal(
     listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === "constructor")?.label,

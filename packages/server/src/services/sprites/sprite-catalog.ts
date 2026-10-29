@@ -15,6 +15,36 @@ export function spriteDirectory(ownerId: string): string {
   return directory;
 }
 
+/** Upgrade legacy character-wide folders without changing or deleting image assets. */
+function separateSpriteFolders(catalog: SpriteCatalog): SpriteCatalog {
+  for (const folder of [...catalog.folders]) {
+    if (folder.category) continue;
+    const members = Object.entries(catalog.sprites).filter(([, sprite]) => sprite.folderId === folder.id);
+    const hasFullBody = members.some(([handle]) => handle.startsWith("full_"));
+    const hasExpressions = members.some(([handle]) => !handle.startsWith("full_"));
+    folder.category = hasFullBody && !hasExpressions ? "full-body" : "expressions";
+    if (hasFullBody && hasExpressions) {
+      const hex = createHash("sha256")
+        .update(folder.id + "/full-body")
+        .digest("hex");
+      const id =
+        hex.slice(0, 8) +
+        "-" +
+        hex.slice(8, 12) +
+        "-4" +
+        hex.slice(13, 16) +
+        "-8" +
+        hex.slice(17, 20) +
+        "-" +
+        hex.slice(20, 32);
+      if (catalog.folders.some((existing) => existing.id === id)) throw Error("Conflicting legacy folder identity");
+      catalog.folders.push({ ...folder, id, category: "full-body" });
+      for (const [handle, sprite] of members) if (handle.startsWith("full_")) sprite.folderId = id;
+    }
+  }
+  return catalog;
+}
+
 export function readSpriteCatalog(ownerId: string): SpriteCatalog {
   const file = join(spriteDirectory(ownerId), "catalog.json");
   if (!existsSync(file)) return { version: 1, folders: [], defaultFolderId: null, sprites: {} };
@@ -27,11 +57,11 @@ export function readSpriteCatalog(ownerId: string): SpriteCatalog {
   if (Object.values(catalog.sprites).some((sprite) => sprite.folderId && !ids.has(sprite.folderId))) {
     throw Error("Invalid sprite membership");
   }
-  return catalog;
+  return separateSpriteFolders(catalog);
 }
 
 export async function writeSpriteCatalog(ownerId: string, value: SpriteCatalog): Promise<void> {
-  const catalog = spriteCatalogSchema.parse(value);
+  const catalog = separateSpriteFolders(spriteCatalogSchema.parse(value));
   const directory = spriteDirectory(ownerId);
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `catalog-${randomUUID()}.tmp`);
@@ -104,7 +134,10 @@ export async function restoreSpriteCatalog(
       if (!metadata || (metadata.folderId && !folderIds.has(metadata.folderId))) return [];
       const sprite = existing.find((entry) => entry.expression === expression);
       if (!sprite || metadata.label.startsWith("full_") !== expression.startsWith("full_")) return [];
-      return [[expression, { ...metadata, id: sprite.id }]];
+      const folder = imported.folders.find((entry) => entry.id === metadata.folderId);
+      const wrongType =
+        folder?.category && folder.category !== (expression.startsWith("full_") ? "full-body" : "expressions");
+      return [[expression, { ...metadata, id: sprite.id, folderId: wrongType ? null : metadata.folderId }]];
     }),
   );
   await writeSpriteCatalog(ownerId, { ...imported, sprites });

@@ -23,7 +23,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     for (const name of ["Front", "Alternate"])
-      expect((await request.post(`${path}/folders`, { data: { name } })).ok()).toBeTruthy();
+      expect((await request.post(`${path}/folders`, { data: { name, category: "full-body" } })).ok()).toBeTruthy();
+    const expressionCatalog = await request.post(path + "/folders", {
+      data: { name: "Front", category: "expressions" },
+    });
+    expect(expressionCatalog.ok()).toBeTruthy();
+    const expressionFront = (await expressionCatalog.json()).folders.find(
+      (folder: { name: string; category: string }) => folder.name === "Front" && folder.category === "expressions",
+    ).id;
     const folders = (await catalog()).folders;
     const front = folders.find((folder: { name: string }) => folder.name === "Front").id;
     const alternate = folders.find((folder: { name: string }) => folder.name === "Alternate").id;
@@ -31,7 +38,11 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       expect(
         (
           await request.post(path, {
-            data: { expression, image: `data:image/png;base64,${png.toString("base64")}`, folderId: front },
+            data: {
+              expression,
+              image: `data:image/png;base64,${png.toString("base64")}`,
+              folderId: expression.startsWith("full_") ? front : expressionFront,
+            },
           })
         ).ok(),
       ).toBeTruthy();
@@ -86,6 +97,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(0);
     await frontSection.getByRole("button", { name: "Front", exact: true }).click();
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(3);
+    await expect
+      .poll(() =>
+        section.evaluate((element) => {
+          const container = element.closest(".mari-editor-content")!;
+          return Math.abs(element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16);
+        }),
+      )
+      .toBeLessThan(4);
     if (info.project.name === "desktop") {
       await frontSection
         .getByRole("button", { name: "Preview idle", exact: true })
@@ -210,12 +229,28 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     ).toHaveLength(2);
     expect(saved.defaultFolderId).toBe(front);
 
-    await frontSection.getByRole("button", { name: "Folder details", exact: true }).click();
+    await expect(frontSection).toHaveCount(0);
+    const expressionSection = library.locator(`[data-sprite-folder="${expressionFront}"]`);
+    await expressionSection.getByRole("button", { name: "Folder details", exact: true }).click();
     const longName = "x".repeat(100);
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill(longName);
     await library.getByRole("button", { name: "Save folder", exact: true }).click();
     await expect(library.getByRole("button", { name: "Use by default", exact: true })).toHaveCount(0);
     expect(await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
+    await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await expect(library.getByRole("button", { name: "Front", exact: true })).toBeVisible();
+    for (const id of [alternate, front]) {
+      const folder = library.locator('[data-sprite-folder="' + id + '"]');
+      await folder.getByRole("button", { name: "Folder details", exact: true }).click();
+      await folder.getByRole("button", { name: "Remove folder", exact: true }).click();
+      await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
+      await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+      await expect(expressionSection).toBeVisible();
+      await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
+      await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    }
+    await expect(library.locator("[data-sprite-folder]")).toHaveCount(0);
+    await expect(library.locator("[data-sprite-loose] [data-sprite-card]")).toHaveCount(1);
     expect(errors).toEqual([]);
   } finally {
     releaseFrameSave();

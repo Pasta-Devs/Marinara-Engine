@@ -5448,7 +5448,11 @@ function SpritesTab({
         ? s.expression.startsWith("full_")
         : !s.expression.startsWith("full_"),
   );
-  const library = useSpriteLibrary(characterId, categorySprites);
+  const library = useSpriteLibrary(
+    characterId,
+    categorySprites,
+    category === "full-body" ? "full-body" : "expressions",
+  );
   const visibleSprites = library.visible;
   const selectedSprites = visibleSprites.filter((sprite) => library.selected.includes(sprite.expression));
   const detailSprite = allSprites.find((sprite) => sprite.expression === detailsExpression) ?? null;
@@ -6146,6 +6150,7 @@ function SpritesTab({
           </div>
         ) : visibleSprites.length || library.folders.length ? (
           <SpriteFolderGrid
+            key={category}
             library={library}
             busy={spriteBusy}
             renderSprite={(sprite) => (
