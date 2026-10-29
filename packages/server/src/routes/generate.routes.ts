@@ -15025,7 +15025,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       error: `No image model is set for ${
                         imagePromptAgent?.name?.trim() ||
                         (result.agentType === "illustrator" ? "the Illustrator agent" : "this image agent")
-                      } or as the Images default in the Connections sidebar.`,
+                      } or as the Images default in the Connections sidebar. Pick one there or in the agent's settings.`,
                     },
                   });
                 }

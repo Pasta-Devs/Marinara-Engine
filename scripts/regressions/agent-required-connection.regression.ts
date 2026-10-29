@@ -2,11 +2,28 @@
 // image-triggering custom agents are inferred, and every other agent needs nothing extra.
 import assert from "node:assert/strict";
 
-const { agentRequiredConnection, replaceBuiltInAgentDefinitions } = await import("../../packages/shared/dist/index.js");
+const { agentRequiredConnection, packagedAgentDefinitionsSchema, replaceBuiltInAgentDefinitions } =
+  await import("../../packages/shared/dist/index.js");
 
-const manifest = { phase: "post_processing", enabledByDefault: true, category: "utility", description: "Fixture" } as const;
+const manifest = {
+  phase: "post_processing",
+  enabledByDefault: true,
+  category: "utility",
+  description: "Fixture",
+} as const;
+// A downloaded package declares it in agents.json, which goes through the strict package schema.
+const [filmMaker] = packagedAgentDefinitionsSchema.parse([
+  {
+    ...manifest,
+    category: "misc",
+    id: "film-maker",
+    name: "Film maker",
+    defaultPromptTemplate: "Fixture",
+    requiresConnection: "video",
+  },
+]);
 replaceBuiltInAgentDefinitions([
-  { ...manifest, id: "film-maker", name: "Film maker", requiresConnection: "video" },
+  filmMaker!,
   { ...manifest, id: "illustrator", name: "Illustrator" },
   { ...manifest, id: "echo-chamber", name: "Echo Chamber" },
 ]);

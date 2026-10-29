@@ -4483,7 +4483,8 @@ async function applyRetryResultEffects(args: {
                 agentName: illustratorFailureName,
                 retryTarget: "illustration",
                 code: "image_connection_missing",
-                error: "No image model is set for this agent or as the Images default in the Connections sidebar.",
+                error:
+                  "No image model is set for this agent or as the Images default in the Connections sidebar. Pick one there or in the agent's settings.",
               },
             });
           }

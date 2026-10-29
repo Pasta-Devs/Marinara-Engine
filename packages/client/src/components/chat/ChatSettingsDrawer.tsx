@@ -5135,7 +5135,7 @@ export function ChatSettingsDrawer({
                     </span>
                     <NeedsModelChip
                       kind={imageCapable ? "image" : null}
-                      own={agentImageConnectionId}
+                      own={agentImageConnectionId || agentModelNeed(agent.id, agentConfig?.settings)?.own}
                       className="mt-1"
                     />
                   </div>
