@@ -41,7 +41,7 @@ Diese Makros ziehen Namen und Kartenfelder der sprechenden Person und des antwor
 | `{{21-character-card-ID}}` | Name eines anderen Charakters. Ersetze den Platzhaltertext durch die genaue 21-stellige ID dieser Karte, um ihren Kartenkontext abzurufen. |
 | `{{persona-21-character-card-ID}}` | Platzhalter-Syntax für den Namen einer anderen Persona. Ersetze den Text nach `persona-` durch die exakte 21-stellige ID dieser Karte, um ihren Kartenkontext abzurufen. |
 | `{{charNamePhonetic}}` | Das Feld Phonetic des Charakters, oder `{{char}}`, wenn es leer ist. |
-| `{{characters}}` | Alle Charaktere im Chat, durch Kommas getrennt. |
+| `{{characters}}` | Alle Charaktere im Chat, einschließlich inaktiver Charaktere, durch Kommas getrennt. Dieses Makro fügt dem Prompt nur Namen hinzu, keine Karten inaktiver Charaktere. |
 | `{{group}}` | Alle anderen aktiven Charaktere im Gruppenchat, ohne den gerade Antwortenden. Die Persona zählt nicht zu dieser Charakterliste. |
 | `{{persona}}` | Description, Personality, Backstory, Appearance und Scenario deiner Persona, durch Zeilenumbrüche getrennt. |
 | `{{personaDescription}}` | Das Feld Description deiner Persona. |

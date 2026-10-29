@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "f5372eda0c6c179f3d8fff500b8b2df5b8dbf2f0",
+  "sourceCommit": "4cd60a732d852e3c8eb2815a8a2606b5d493c2ea",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -134,13 +134,13 @@
     },
     {
       "path": "characters/library-organization.md",
-      "sha256": "74ed51d7be4e9eea732a8289f0a8fa88e7e25f35f0eb4dd360b1bb65ef177cc9",
-      "bytes": 8941
+      "sha256": "3c0367a87dad3d6c47a5c7f41f7287c2c10b5895aaa4609846058b18398f9aed",
+      "bytes": 9485
     },
     {
       "path": "characters/personas.md",
-      "sha256": "d9320863062acc37348b68d87a9b48a354b03d9f83282fc91536c02bfa2acec0",
-      "bytes": 20542
+      "sha256": "04811ba9ba803ffa256ff873aa42f901adba0745087dff4baf6df6e1da717665",
+      "bytes": 20905
     },
     {
       "path": "characters/sprites.md",
@@ -189,8 +189,8 @@
     },
     {
       "path": "chats/peek-prompt.md",
-      "sha256": "99adcce28bd559562fe650e9430c961669b73afaea5bdd0697dee2f2f7bec4b0",
-      "bytes": 10111
+      "sha256": "d424e6adc6b454ade5836aac261899f312e6b7de12c86e46f0759f24d8f656d2",
+      "bytes": 11026
     },
     {
       "path": "chats/sending-and-streaming.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "ddf5f1bb97747ed6d91990ccc09e9185a52a734ac29fc890ac8ead829570a35c",
-      "bytes": 26368
+      "sha256": "080482b8607efccd3c3415dfba3febdf6474e92556591a50204975fe7f268970",
+      "bytes": 26465
     },
     {
       "path": "prompts/preset-variables.md",

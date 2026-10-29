@@ -25,7 +25,7 @@ Diese Bedienelemente stehen bereit:
 - **New** (Neu) erstellt eine Persona.
 - **Import** (Importieren) öffnet das Fenster **Import Persona**.
 - **Select** (Auswählen) schaltet die Mehrfachauswahl ein, sodass du mehrere Personas auf einmal bearbeiten kannst.
-- Das Suchfeld mit dem Platzhaltertext **Search personas** (Personas durchsuchen) durchsucht Name, Beschreibung, Kommentar und Tags.
+- Das Suchfeld mit dem Platzhaltertext **Search personas/tags** (Personas/Tags durchsuchen) durchsucht Name, Beschreibung, Kommentar und Tags. Gib `male genshin` oder `male,genshin` ein, um Personas mit beiden exakten Tags zu finden; setze Tags aus mehreren Wörtern in Anführungszeichen, etwa `male "Modern AU"`. Gewöhnliche Namens- und Phrasensuchen funktionieren weiterhin. Die ganzseitige **Persona Library** (Persona-Bibliothek) unterstützt dieselbe Suche.
 - Das Sortier-Dropdown-Menü bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** und **Tokens** (geschätzte Prompt-Größe). **Manual order** behält die Reihenfolge bei, die du festlegst: Zieh eine Zeile nach oben oder unten oder drück auf einer fokussierten Zeile Alt+Pfeil nach oben oder Alt+Pfeil nach unten. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen.
 - **New Folder** (Neuer Ordner) legt einen Ordner an, um Personas zu sortieren.
 - Der Chip **Tags** klappt die Tag-Liste zum Filtern auf.

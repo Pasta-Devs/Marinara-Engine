@@ -22,6 +22,14 @@ Der Rest des Fensters ist der Prompt selbst, aufgeteilt in ausklappbare Abschnit
 
 Willst du den ganzen Prompt woanders verwenden, klick oben im Fenster auf die Kopier-Schaltfläche neben der Schaltfläche zum Schließen. Sie kopiert jeden Abschnitt und jede Chat-Nachricht als reinen Text, in der Reihenfolge, in der sie gesendet wurden, auch Abschnitte, die du nicht aufgeklappt hast. Jede Nachricht beginnt mit einer Zeile, die ihre Rolle nennt, etwa `[system]`, `[user]` oder `[assistant]`. Bei einer exakt gespeicherten Anfrage kopiert sie diese gespeicherte Anfrage so, wie sie gesendet wurde. Das Kopieren schickt nichts an das Modell und ändert den Prompt nicht.
 
+## Text im Prompt suchen
+
+Nutze das sichtbare Feld **Find** (Suchen) oben in **Assembled Prompt** am Computer, auf dem Tablet oder auf dem Smartphone. Mit einer Tastatur drückst du im Anzeigefenster Ctrl+F oder Cmd+F, um das Feld zu fokussieren.
+
+Die Suche gleicht Text wörtlich und ohne Unterscheidung zwischen Groß- und Kleinschreibung im gesamten Prompt ab, auch in zugeklappten Abschnitten und im Chatverlauf. Treffer werden hervorgehoben, und der Zähler zeigt den aktuellen Treffer und die Gesamtzahl an. Mit den Pfeilschaltflächen nach oben und unten oder mit Enter und Shift+Enter im Feld wechselst du zwischen den Treffern. An beiden Enden springt die Suche zum jeweils anderen Ende.
+
+Solange Text im Feld **Find** steht, zeigt das Fenster den vollständigen Nachrichtentext. Leere das Feld, um zu den ausklappbaren Abschnitten zurückzukehren. Die Suche bearbeitet den Prompt nicht und ändert auch nicht, was die Kopier-Schaltfläche kopiert.
+
 ## Peek Prompt öffnen
 
 Es gibt zwei Wege zum Fenster.

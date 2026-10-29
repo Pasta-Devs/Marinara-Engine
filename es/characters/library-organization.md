@@ -20,9 +20,11 @@ Si tienes muchos personajes, aparece un botón **Load more** en la parte inferio
 
 ## Búsqueda
 
-Escribe en el cuadro de búsqueda de la parte superior del panel para filtrar la lista. El texto de marcador de posición dice **Search characters or -tag:"tag name"** (Busca personajes o -tag:"nombre de etiqueta").
+Escribe en el cuadro de búsqueda de la parte superior del panel para filtrar la lista. El texto de marcador de posición dice **Search characters/tags** (Buscar personajes/etiquetas).
 
 El texto simple coincide con el nombre, el título, la descripción y las etiquetas de un personaje. Por ejemplo, si escribes `knight` se muestran todos los personajes con "knight" en cualquiera de esos campos.
+
+Para buscar varias etiquetas juntas, sepáralas con espacios o comas: `male genshin` o `male,genshin` encuentra tarjetas con ambas etiquetas exactas. Pon entre comillas una etiqueta que contenga espacios o comas, como en `male "Modern AU"`. La búsqueda no distingue mayúsculas y minúsculas. Las búsquedas normales de frases siguen funcionando, así que una tarjeta también puede coincidir con la frase completa en su nombre o texto. Esta búsqueda también funciona en **Character Library** (Biblioteca de personajes) a página completa y para las personas.
 
 También puedes excluir personajes que tengan cierta etiqueta. Pon un signo menos delante de la etiqueta:
 

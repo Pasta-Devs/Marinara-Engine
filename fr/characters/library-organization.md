@@ -20,9 +20,11 @@ Si tu as beaucoup de personnages, un bouton **Load more** apparaît en bas. Cliq
 
 ## Recherche
 
-Saisis du texte dans le champ de recherche en haut du panneau pour filtrer la liste. Le texte indicatif affiche **Search characters or -tag:"tag name"**.
+Saisis du texte dans le champ de recherche en haut du panneau pour filtrer la liste. Le texte indicatif affiche **Search characters/tags** (Rechercher des personnages/tags).
 
 Le texte simple est comparé au nom, au titre, à la description et aux tags d'un personnage. Par exemple, en tapant `knight`, tu vois tous les personnages dont l'un de ces champs contient "knight".
+
+Pour rechercher plusieurs tags ensemble, sépare-les par des espaces ou des virgules : `male genshin` ou `male,genshin` trouve les fiches portant ces deux tags exacts. Mets entre guillemets un tag contenant des espaces ou des virgules, comme dans `male "Modern AU"`. La recherche ne distingue pas les majuscules des minuscules. Les recherches de phrases habituelles fonctionnent toujours : une fiche peut donc aussi correspondre à la phrase complète dans son nom ou son texte. Cette recherche fonctionne aussi dans **Character Library** (bibliothèque de personnages) en pleine page et pour les personas.
 
 Autre option : exclure les personnages porteurs d'un tag donné. Place un signe moins devant le tag :
 

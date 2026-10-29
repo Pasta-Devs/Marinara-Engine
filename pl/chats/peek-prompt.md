@@ -22,6 +22,14 @@ Reszta okna to sam prompt, podzielony na zwijane sekcje. Każda sekcja ma etykie
 
 Żeby przenieść cały prompt gdzie indziej, kliknij przycisk kopiowania obok przycisku zamykania u góry okna. Kopiuje on każdą sekcję i wiadomość czatu jako zwykły tekst, w kolejności wysłania, łącznie z sekcjami, których nie otwarto. Każda wiadomość zaczyna się od linii z nazwą jej roli, na przykład `[system]`, `[user]` albo `[assistant]`. Przy zapisanym dosłownym zapytaniu kopiowane jest to zapytanie w takiej postaci, w jakiej je wysłano. Kopiowanie niczego nie wysyła do modelu ani nie zmienia promptu.
 
+## Wyszukiwanie tekstu w prompcie
+
+Użyj widocznego pola **Find** (znajdź) na górze okna **Assembled Prompt** na komputerze, tablecie lub telefonie. Jeśli korzystasz z klawiatury, naciśnij Ctrl+F lub Cmd+F wewnątrz podglądu, żeby przenieść fokus do tego pola.
+
+Wyszukiwanie znajduje dosłowny tekst bez rozróżniania wielkości liter w całym prompcie, także w zwiniętych sekcjach i historii czatu. Dopasowania są podświetlane, a licznik pokazuje bieżące dopasowanie i ich łączną liczbę. Użyj przycisków w górę i w dół albo klawiszy Enter i Shift+Enter w tym polu, żeby przechodzić między dopasowaniami. Po dotarciu do któregokolwiek końca przechodzisz na drugi koniec.
+
+Gdy pole **Find** zawiera tekst, podgląd pokazuje pełny tekst wiadomości. Wyczyść pole, żeby wrócić do zwijanych sekcji. Wyszukiwanie nie zmienia promptu ani treści kopiowanej przez przycisk kopiowania.
+
 ## Otwieranie funkcji Peek Prompt
 
 To okno da się otworzyć na dwa sposoby.

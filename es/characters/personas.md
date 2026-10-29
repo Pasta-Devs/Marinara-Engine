@@ -25,7 +25,7 @@ El panel te ofrece estos controles:
 - **New** (Nuevo) crea una persona.
 - **Import** (Importar) abre la ventana **Import Persona**.
 - **Select** (Seleccionar) activa el modo de selección múltiple para que puedas actuar sobre muchas personas a la vez.
-- El cuadro de búsqueda, con el texto de ejemplo **Search personas** (Buscar personas), coincide con el nombre, la descripción, el comentario y las etiquetas.
+- El cuadro de búsqueda, con el texto de ejemplo **Search personas/tags** (Buscar personas/etiquetas), coincide con el nombre, la descripción, el comentario y las etiquetas. Escribe `male genshin` o `male,genshin` para encontrar personas con ambas etiquetas exactas; pon entre comillas las etiquetas de varias palabras, como en `male "Modern AU"`. Las búsquedas normales de nombres y frases siguen funcionando. **Persona Library** (Biblioteca de personas) a página completa admite la misma búsqueda.
 - El menú desplegable de orden ofrece **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** (Más recientes), **Oldest** (Más antiguas) y **Tokens** (tamaño estimado del prompt). **Manual order** conserva el orden que tú fijes: arrastra una fila hacia arriba o hacia abajo, o pulsa Alt+Arriba o Alt+Abajo en una fila con el foco. En una pantalla táctil, mantén pulsada una fila para tomarla.
 - **New Folder** (Nueva carpeta) crea una carpeta para organizar personas.
 - El chip **Tags** (Etiquetas) despliega la lista de etiquetas para filtrar.

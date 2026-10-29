@@ -22,6 +22,14 @@ O resto da janela é o prompt em si, dividido em seções que abrem e fecham. Ca
 
 Para levar o prompt inteiro para outro lugar, clique no botão de copiar ao lado do botão de fechar, no topo da janela. Ele copia todas as seções e mensagens do chat como texto simples, na ordem em que foram enviadas, inclusive as seções que você não abriu. Cada mensagem começa com uma linha que indica o papel dela, como `[system]`, `[user]` ou `[assistant]`. Em uma requisição salva exata, ele copia essa requisição salva do jeito que foi enviada. Copiar não envia nada ao modelo nem muda o prompt.
 
+## Buscar texto no prompt
+
+Use o campo visível **Find** (Buscar) no topo de **Assembled Prompt**, no computador, tablet ou celular. Com um teclado, pressione Ctrl+F ou Cmd+F dentro do visualizador para colocar o foco no campo.
+
+A busca encontra texto literal sem diferenciar maiúsculas de minúsculas em todo o prompt, incluindo as seções fechadas e o histórico do chat. As correspondências ficam destacadas, e o contador mostra a correspondência atual e o total. Use os botões para cima e para baixo, ou Enter e Shift+Enter no campo, para navegar entre elas. Ao chegar a qualquer uma das pontas, a navegação continua pela ponta oposta.
+
+Enquanto o campo **Find** contém texto, o visualizador mostra o texto completo das mensagens. Limpe o campo para voltar às seções recolhíveis. A busca não edita o prompt nem muda o que o botão de copiar copia.
+
 ## Como abrir o Peek Prompt
 
 Há duas formas de abrir o visualizador.

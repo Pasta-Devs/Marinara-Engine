@@ -20,9 +20,11 @@ Bei vielen Charakteren taucht unten die Schaltfläche **Load more** (Mehr laden)
 
 ## Suche
 
-Tippe in das Suchfeld oben im Panel, um die Liste zu filtern. Der Platzhaltertext lautet **Search characters or -tag:"tag name"**.
+Tippe in das Suchfeld oben im Panel, um die Liste zu filtern. Der Platzhaltertext lautet **Search characters/tags** (Charaktere/Tags durchsuchen).
 
 Einfacher Text wird mit Name, Titel, Beschreibung und Tags eines Charakters abgeglichen. Tippst du zum Beispiel `knight`, erscheint jeder Charakter, bei dem „knight“ in einem dieser Felder steht.
+
+Um mehrere Tags zusammen abzugleichen, trenne sie durch Leerzeichen oder Kommas: `male genshin` oder `male,genshin` findet Karten mit beiden exakten Tags. Setze ein Tag mit Leerzeichen oder Kommas in Anführungszeichen, etwa `male "Modern AU"`. Groß- und Kleinschreibung spielen keine Rolle. Gewöhnliche Phrasensuchen funktionieren weiterhin, eine Karte kann also auch durch die vollständige Phrase in ihrem Namen oder Text passen. Diese Suche funktioniert auch in der ganzseitigen **Character Library** (Charakter-Bibliothek) und für Personas.
 
 Möglich ist außerdem, Charaktere mit einem bestimmten Tag auszuschließen. Setz dafür ein Minuszeichen vor das Tag:
 

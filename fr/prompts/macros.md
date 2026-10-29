@@ -41,7 +41,7 @@ Ces macros récupèrent les noms et les champs de fiche de celui qui parle et du
 | `{{21-character-card-ID}}` | Nom d'un autre personnage. Remplace le texte indicatif par l'identifiant exact de 21 caractères de sa fiche pour l'inclure dans le contexte. |
 | `{{persona-21-character-card-ID}}` | Syntaxe indicative pour le nom d'un autre persona. Remplace le texte après `persona-` par l'ID exact de 21 caractères de cette fiche afin d'en récupérer le contexte. |
 | `{{charNamePhonetic}}` | Le champ Phonetic name du personnage, ou `{{char}}` s'il est vide. |
-| `{{characters}}` | Tous les personnages du chat, séparés par des virgules. |
+| `{{characters}}` | Tous les personnages du chat, y compris les personnages inactifs, séparés par des virgules. Cette macro ajoute uniquement les noms ; elle n'ajoute pas les fiches des personnages inactifs au prompt. |
 | `{{group}}` | Tous les autres personnages actifs du chat de groupe, sauf celui qui répond. Le persona ne figure pas dans cette liste de personnages. |
 | `{{persona}}` | Les champs Description, Personality, Backstory, Appearance et Scenario du persona, séparés par des retours à la ligne. |
 | `{{personaDescription}}` | Le champ Description du persona. |

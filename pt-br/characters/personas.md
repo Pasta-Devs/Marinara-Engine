@@ -25,7 +25,7 @@ O painel traz estes controles:
 - O botão **New** (novo) cria uma persona.
 - O botão **Import** (importar) abre a janela **Import Persona**.
 - O botão **Select** (selecionar) liga o modo de seleção em massa, para agir sobre várias personas de uma vez.
-- A caixa de busca, com o texto de exemplo **Search personas**, procura no nome, na descrição, no comentário e nas tags.
+- A caixa de busca, com o texto de exemplo **Search personas/tags** (Buscar personas/tags), procura no nome, na descrição, no comentário e nas tags. Digite `male genshin` ou `male,genshin` para encontrar personas com as duas tags exatas; coloque tags com várias palavras entre aspas, como em `male "Modern AU"`. A busca comum por nomes e frases continua funcionando. A **Persona Library** (Biblioteca de personas) em página inteira oferece a mesma busca.
 - O menu suspenso de ordenação oferece **Manual order** (ordem manual), **A-Z**, **Z-A**, **Newest**, **Oldest** e **Tokens** (tamanho estimado do prompt). **Manual order** mantém a ordem que você definiu: arraste uma linha para cima ou para baixo, ou aperte Alt+Up ou Alt+Down em uma linha selecionada. Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la.
 - O botão **New Folder** (nova pasta) cria uma pasta para organizar as personas.
 - A etiqueta **Tags** expande a lista de tags para filtrar.
