@@ -116,15 +116,15 @@ Pi 适用于所有连接，包括本地模型。如果 Professor Mari 在 Pi 下
 
 点击标着 **Attach** 的回形针按钮，会打开一个分为三个部分的菜单：
 
-- **Attach**：**Attach files or photos**、**Add chat history**(把你过去的一段聊天分享给她) 和 **View attached context**。
+- **Attach**：**Attach files or photos**(附加文件或照片)、**Add chat history** 和 **View attached context**。**Add chat history** 可以把你过去的一段聊天分享给她。
 - **Reference**：**Link with @** 会在输入框里输入 `@`，并打开下面介绍的链接列表。
-- **Mari**：**New chat**、**Chat history**、**Skills**、**Memories**、**Model**(模型) 和 **Permissions**。有改动在等你处理时，**Pending approvals** 才会出现在这里。
+- **Mari**：**New chat**(新建聊天)、**Chat history**、**Skills**、**Memories**(记忆)、**Model**(模型) 和 **Permissions**。有改动在等你处理时，**Pending approvals** 才会出现在这里。
 
 同样的命令也可以用 `/` 输入，详见[用 / 输入命令](#commands-with-)。
 
 ## 附加文件
 
-在回形针菜单里选择 **Attach files or photos**(附加文件或照片)，或输入 `/attach`，就能给消息加上文件。
+在回形针菜单里选择 **Attach files or photos**，或输入 `/attach`，就能给消息加上文件。
 
 她接受图片、PDF 文件，以及 `.txt`、`.md`、`.json`、`.csv`、`.log` 这类常见文本文件。单个文件最大 20 MB。发送之前，附加的文件会以小卡片的形式显示在输入框上方，随时可以删掉。
 
@@ -132,11 +132,11 @@ Pi 适用于所有连接，包括本地模型。如果 Professor Mari 在 Pi 下
 
 ## 用 @ 链接内容
 
-在输入框里输入 `@`，就能把你资料库里的某样东西指给她，她不用再自己去找。输入时会弹出一个列表，分为 **Characters**(角色)、**Personas**(用户角色)、**Lorebooks**(世界书)、**Presets**(预设)、**Skills**、**Memories**、**Chats**、**Agents**(智能体) 和 **Docs** 九组。继续输入可以缩小范围；名字里有空格也不必加引号（`@Alice in Wonderland`）。
+在输入框里输入 `@`，就能把你资料库里的某样东西指给她，她不用再自己去找。输入时会弹出一个列表，分为 **Characters**(角色)、**Personas**(用户角色)、**Lorebooks**(世界书)、**Presets**(预设)、**Skills**、**Memories**、**Chats**(聊天)、**Agents**(智能体) 和 **Docs** 九组。继续输入可以缩小范围；名字里有空格也不必加引号（`@Alice in Wonderland`）。
 
 - 用方向键移动，按 **Enter** 或 **Tab** 选择，按 **Escape** 关闭列表。在世界书上按右方向键会显示它的 **Entries**(条目)，这样就能只链接其中一条；按左方向键返回。
 - 当她的窗口停靠在某个编辑器旁边时，第一行 **Open beside me** 会链接该编辑器里当前打开的内容。
-- 在角色编辑器旁边时，**Open beside me** 这一行带有 ›，也可以按 ArrowRight，它会列出该编辑器的 **Fields**(字段)；在 `@` 后继续输入，则会直接列出匹配的字段。选择其中一个（`@scen` → Scenario）会切换她所处理的字段，效果和在打开她之前先点进该字段一样。它会替换她上下文行里的字段小标签，编辑器也会滚动到该字段。字段不是链接，所以消息里不会留下 `@` 文本。**Onboarding**(交互式引导) 是整个引导块对应的一个字段：当它是她的字段时，每条消息都会附带 `character.onboarding.get` 返回的内容（问题、存在的问题和示例用户角色），所以她是从已保存的原样引导块开始的。
+- 在角色编辑器旁边时，**Open beside me** 这一行带有 ›，也可以按 ArrowRight，它会列出该编辑器的 **Fields**(字段)；在 `@` 后继续输入，则会直接列出匹配的字段。选择其中一个（`@scen` → Scenario）会切换她所处理的字段，效果和在打开她之前先点进该字段一样。它会替换她上下文行里的字段小标签，编辑器也会滚动到该字段。字段不是链接，所以消息里不会留下 `@` 文本。**Onboarding**(交互式引导) 是整个引导块对应的一个字段：当它是她的字段时，每条消息都会附带 `character.onboarding.get` 返回的内容（提问、存在的问题和示例用户角色），所以她是从已保存的原样引导块开始的。
 - 选中的名字会在消息里高亮，并作为小标签显示在输入框上方。编辑或删除该名字，链接也会随之消失；小标签上的 **×** 会移除链接，但保留你的文字。
 - 在普通文本中，按 **Tab** 可以补全她用灰色建议的名字。再按一次 **Tab**，它就会变成链接。
 
@@ -248,7 +248,7 @@ Professor Mari 可以记住你长期不变的偏好，省得每次聊天都重�
 给她一条记忆有两种方式：
 
 - **直接告诉她。** 比如说“记住，我的世界书条目一律用角色的名字和外号做关键词”。她会存下来，并给出一张改动卡片，上面是这条记忆的确切措辞。她保存的记忆初始处于**禁用**（关闭）状态，所以在你打开它之前不会改变任何行为。卡片上提供 **Turn on**，可以立刻启用它。
-- **自己添加。** 点击她聊天窗口标题栏里的 **Memories**(记忆) 按钮，打开 **Memories** 面板，在那里可以新建、编辑、删除记忆，也可以逐条启用或禁用。还可以 **Upload** 一个 `.md` 或文本文件，把里面的内容变成一条记忆。
+- **自己添加。** 点击她聊天窗口标题栏里的 **Memories** 按钮，打开 **Memories** 面板，在那里可以新建、编辑、删除记忆，也可以逐条启用或禁用。还可以 **Upload** 一个 `.md` 或文本文件，把里面的内容变成一条记忆。
 
 只有**你**开口要求时，她才会保存或修改记忆，绝不会因为读到的东西（某个角色、某本世界书或者某个文件）这么说就照做。
 
@@ -264,9 +264,9 @@ Professor Mari 可以记住你长期不变的偏好，省得每次聊天都重�
 
 Professor Mari 有一套自己的聊天，不会混进你平时的聊天列表。
 
-点击她标题栏里的 **Chats**(聊天) 按钮，打开保存下来的 Professor Mari 聊天。列表为空时，面板上有一句说明：“New chat keeps this one here.”用 **Search Prof. Mari chats**(搜索 Professor Mari 聊天) 可以查找某条聊天。点击某条保存的聊天，可以打开、重命名或删除。
+点击她标题栏里的 **Chats** 按钮，打开保存下来的 Professor Mari 聊天。列表为空时，面板上有一句说明：“New chat keeps this one here.”用 **Search Prof. Mari chats**(搜索 Professor Mari 聊天) 可以查找某条聊天。点击某条保存的聊天，可以打开、重命名或删除。
 
-点击 **New chat**(新建聊天) 按钮，就能和她开一段全新的聊天。它会先把当前聊天存进 **Chats** 列表。在输入框里输入 `/new`(或 `/restart`) 效果完全一样。界面会提示“Professor Mari's previous chat was saved.”
+点击 **New chat** 按钮，就能和她开一段全新的聊天。它会先把当前聊天存进 **Chats** 列表。在输入框里输入 `/new`(或 `/restart`) 效果完全一样。界面会提示“Professor Mari's previous chat was saved.”
 
 她干活期间，发送按钮会变成 **Stop**(停止) 按钮，点它可以取消当前任务。
 
