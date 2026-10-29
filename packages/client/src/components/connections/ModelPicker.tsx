@@ -302,7 +302,13 @@ function ModelPickerSlot({
           ...(decision
             ? (decisionOptions.data?.options ?? [])
                 .filter((option) => option.group === "connection" && !option.unavailable)
-                .map((option) => ({ value: option.id, label: option.label }))
+                .map((option) => ({
+                  value: option.id,
+                  label:
+                    (rows as Array<{ id: string; model?: string | null }> | undefined)
+                      ?.find((row) => row.id === option.id)
+                      ?.model?.trim() || option.label,
+                }))
             : []),
         ].map((extra) => ({
           ...extra,

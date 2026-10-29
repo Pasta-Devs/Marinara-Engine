@@ -77,7 +77,7 @@ export function JobRow({
         title={tile.title}
         wrapTitle
         details={
-          <>
+          <span className="flex min-w-0 flex-col">
             <span
               className={cn(
                 "min-w-0 truncate text-xs",
@@ -93,7 +93,7 @@ export function JobRow({
                 {t("connections.defaults.ifItFails", { model: tile.fallback })}
               </span>
             )}
-          </>
+          </span>
         }
         facts={facts}
         showPaid={catalog?.showPaid}

@@ -577,7 +577,7 @@ function DefaultsJobRow({
           type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label={t("connections.defaults.settingsFor", { role: title })}
-          className="absolute end-9 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)] max-md:end-7"
+          className="absolute right-9 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)] max-md:right-7"
         >
           <SlidersHorizontal size="0.875rem" />
         </button>
