@@ -13,7 +13,12 @@ import {
   isRetiredBuiltInAgentId,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
-import { useMayReadImages, useDefaultEmbeddingConnection, useUpdateConnection } from "../../hooks/use-connections";
+import {
+  useConnections,
+  useMayReadImages,
+  useDefaultEmbeddingConnection,
+  useUpdateConnection,
+} from "../../hooks/use-connections";
 import {
   useConnectionAccounts,
   useFeatureModels,
@@ -616,6 +621,23 @@ function DefaultsJobRow({
         </Modal>
       )}
     </div>
+  );
+}
+
+/** One job's "Model for" window on its own, for a "Set up" outside the Jobs box. Null for jobs without a row picker. */
+export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => void }) {
+  const { t } = useTranslation();
+  const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
+  const model = useJobModels(connectionsList)(job);
+  if (!model) return null;
+  return (
+    <ConnectionSelect
+      variant="controlled"
+      open
+      onOpenChange={(open) => !open && onClose()}
+      job={t(jobLabelKey(job))}
+      {...model}
+    />
   );
 }
 

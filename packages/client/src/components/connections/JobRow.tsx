@@ -5,6 +5,7 @@
 // window's "For a job" list both draw it, so the status text lives only here.
 // ──────────────────────────────────────────────
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
@@ -12,7 +13,21 @@ import type { DefaultsTile } from "./ConnectionDefaults";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { viaName } from "../../lib/connection-groups";
 import { ModelRow, ModelTile } from "./ModelRow";
-import { WarningChip } from "./NeedsModelChip";
+
+/** The amber warning chip. NeedsModelChip draws it too. */
+export function WarningChip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500",
+        className,
+      )}
+    >
+      <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
+      <span className="whitespace-nowrap">{children}</span>
+    </span>
+  );
+}
 
 /** A job with no Model chosen, or whose engine is not set up: a dashed tile and a warning-tone line. */
 export const isUnset = (tile: DefaultsTile, notSet: string) =>

@@ -43,7 +43,6 @@ import {
   type TTSAutoplayMessageReadyDetail,
 } from "../lib/tts-autoplay";
 import { translate } from "../localization/i18n";
-import { openAddConnection } from "../lib/add-connection";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT, notifyAdvancedMemoryFailure } from "./use-advanced-memory";
@@ -159,10 +158,13 @@ function setAgentFailureError(failures: AgentFailure[], force = false) {
 function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void, code?: unknown) {
   const hasIllustratorFailure = failures.some((failure) => failure.agentType === "illustrator");
   setAgentFailureError(failures);
-  // A missing image Model fails again on retry, so the toast offers to set one up instead.
+  // A missing image Model fails again on retry, so the toast opens the Connections sidebar, whose Jobs box sets Images.
   const action =
     code === "image_connection_missing"
-      ? { label: translate("connections.defaults.setUp"), onClick: () => openAddConnection({ job: "images" }) }
+      ? {
+          label: translate("connections.defaults.setUp"),
+          onClick: () => useUIStore.getState().openRightPanel("connections"),
+        }
       : hasIllustratorFailure && onRetry
         ? { label: "Try again", onClick: () => onRetry() }
         : null;
