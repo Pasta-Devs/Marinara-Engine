@@ -1,4 +1,4 @@
-import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection } from "../characters/SpriteLibrary";
+import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection, SpriteFolderGrid } from "../characters/SpriteLibrary";
 import { useImportSpriteFolder } from "../../hooks/use-characters";
 // ──────────────────────────────────────────────
 // Persona Editor — Full-page detail view
@@ -2971,9 +2971,10 @@ function PersonaSpritesTab({
               <div key={i} className="shimmer aspect-[3/4] rounded-xl" />
             ))}
           </div>
-        ) : visibleSprites.length ? (
-          <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
-            {visibleSprites.map((sprite) => (
+        ) : visibleSprites.length || library.folders.length ? (
+          <SpriteFolderGrid
+            library={library}
+            renderSprite={(sprite) => (
               <div
                 key={sprite.expression}
                 className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
@@ -3001,11 +3002,6 @@ function PersonaSpritesTab({
                     title={displayExpression(sprite.expression)}
                   >
                     {displayExpression(sprite.expression)}
-                    {library.folderId === "all" && sprite.folderName && (
-                      <span className="mt-1 block text-xs font-normal normal-case text-[var(--muted-foreground)]">
-                        {sprite.folderName}
-                      </span>
-                    )}
                   </span>
                   <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 rounded-lg bg-[var(--card)] p-1 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:static max-md:opacity-100 pointer-coarse:static pointer-coarse:opacity-100">
                     <button
@@ -3043,8 +3039,8 @@ function PersonaSpritesTab({
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
             <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />

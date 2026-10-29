@@ -1,5 +1,5 @@
 import { useImportSpriteFolder } from "../../hooks/use-characters";
-import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection } from "./SpriteLibrary";
+import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection, SpriteFolderGrid } from "./SpriteLibrary";
 // ──────────────────────────────────────────────
 // Character Editor — Full-page detail view
 // Replaces the chat area when editing a character.
@@ -6144,9 +6144,11 @@ function SpritesTab({
               <div key={i} className="shimmer aspect-[3/4] rounded-xl" />
             ))}
           </div>
-        ) : visibleSprites.length ? (
-          <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
-            {visibleSprites.map((sprite) => (
+        ) : visibleSprites.length || library.folders.length ? (
+          <SpriteFolderGrid
+            library={library}
+            busy={spriteBusy}
+            renderSprite={(sprite) => (
               <div
                 key={sprite.expression}
                 data-sprite-card
@@ -6176,16 +6178,11 @@ function SpritesTab({
                   </div>
                   <span className="block break-words p-3 text-xs font-medium capitalize">
                     {displayExpression(sprite.expression)}
-                    {library.folderId === "all" && sprite.folderName && (
-                      <span className="mt-1 block font-normal normal-case text-[var(--muted-foreground)]">
-                        {sprite.folderName}
-                      </span>
-                    )}
                   </span>
                 </button>
               </div>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
             <Image size="1.75rem" className="text-[var(--muted-foreground)]/40" />
