@@ -289,8 +289,7 @@ export type TestResult = { success: boolean; message?: string };
 
 export const inputClass = "mari-chrome-field h-11 w-full px-3 text-xs md:h-9";
 export const labelClass = "text-xs font-medium text-[var(--muted-foreground)]";
-export const PRIMARY_CLASS =
-  "flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50 md:min-h-9";
+export const PRIMARY_CLASS = "mari-chrome-control mari-chrome-control--primary px-4";
 export const SECONDARY_CLASS = "mari-chrome-control";
 export const BADGE_CLASS = "mari-connection-pill";
 export const MUTED_BADGE_CLASS = "mari-chrome-muted-badge px-1.5 py-0.5 text-[0.5625rem]";
