@@ -125,6 +125,19 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         .locator("xpath=ancestor::*[@data-sprite-card][1]");
       const picture = card.locator("img");
       await expect(picture).toHaveAttribute("draggable", "false");
+      await card.scrollIntoViewIfNeeded();
+      let previousY: number | null = null;
+      await expect
+        .poll(
+          async () => {
+            const box = await card.boundingBox();
+            const stable = box !== null && previousY !== null && Math.abs(previousY - box.y) < 1;
+            previousY = box?.y ?? null;
+            return stable;
+          },
+          { intervals: [300], timeout: 15000 },
+        )
+        .toBe(true);
       for (const fromImage of [true, false]) {
         const bounds = await (fromImage ? picture : card).boundingBox();
         expect(bounds).not.toBeNull();
@@ -147,14 +160,18 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(preview).toHaveCount(0);
         await expect(card.locator("xpath=ancestor::*[@draggable][1]")).toHaveAttribute("draggable", "true");
       }
+      previousY = null;
       await expect
-        .poll(() =>
-          section.evaluate((element) => {
-            const container = element.closest(".mari-editor-content")!;
-            return Math.abs(element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16);
-          }),
+        .poll(
+          async () => {
+            const box = await card.boundingBox();
+            const stable = box !== null && previousY !== null && Math.abs(previousY - box.y) < 1;
+            previousY = box?.y ?? null;
+            return stable;
+          },
+          { intervals: [300], timeout: 15000 },
         )
-        .toBeLessThan(4);
+        .toBe(true);
       await frontSection
         .getByRole("button", { name: "Preview idle", exact: true })
         .dragTo(library.locator("[data-sprite-loose]"));

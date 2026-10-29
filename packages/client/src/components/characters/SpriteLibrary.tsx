@@ -284,6 +284,37 @@ export function SpriteFolderGrid({
             preview.dataset.spriteDragPreview = "";
             preview.setAttribute("aria-hidden", "true");
             preview.inert = true;
+            const sourceStyle = getComputedStyle(source);
+            for (const property of sourceStyle) {
+              if (property.startsWith("--"))
+                preview.style.setProperty(property, sourceStyle.getPropertyValue(property));
+            }
+            const originals = [source, ...source.querySelectorAll<HTMLElement | SVGElement>("*")];
+            const copies = [preview, ...preview.querySelectorAll<HTMLElement | SVGElement>("*")];
+            const visualProperties = [
+              "color",
+              "background-color",
+              "background-image",
+              "border-top-color",
+              "border-right-color",
+              "border-bottom-color",
+              "border-left-color",
+              "box-shadow",
+              "opacity",
+              "filter",
+              "font-family",
+              "font-size",
+              "font-weight",
+              "line-height",
+              "letter-spacing",
+            ];
+            originals.forEach((original, index) => {
+              const style = getComputedStyle(original);
+              const copy = copies[index];
+              if (!copy) return;
+              for (const property of visualProperties)
+                copy.style.setProperty(property, style.getPropertyValue(property));
+            });
             Object.assign(preview.style, {
               position: "fixed",
               left: `${bounds.left}px`,
@@ -294,6 +325,8 @@ export function SpriteFolderGrid({
               zIndex: "2147483647",
               opacity: "1",
               margin: "0",
+              backgroundColor: sourceStyle.getPropertyValue("--background").trim(),
+              borderRadius: source.firstElementChild ? getComputedStyle(source.firstElementChild).borderRadius : "",
             });
             document.body.appendChild(preview);
             dragPreview.current = preview;
