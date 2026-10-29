@@ -269,7 +269,7 @@ function TestResult({ result: testMessageResult }: { result: SidecarTestMessageR
 }
 
 function EmbeddedShell({ children }: ComponentProps<typeof Modal>) {
-  return <div className="flex min-h-full flex-col">{children}</div>;
+  return <div className="flex flex-1 flex-col">{children}</div>;
 }
 
 export function ModelDownloadModal({ open, onClose, embedded }: Props) {
@@ -1551,7 +1551,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
       contentRef={modalScrollRef}
       contentClassName="p-0"
     >
-      <div className="mari-connection-scope flex min-h-full flex-col" data-builtin-model={view}>
+      <div className="mari-connection-scope flex min-h-full flex-1 flex-col" data-builtin-model={view}>
         <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
           {subTitle && (
             <div className="-ms-1.5 flex items-center gap-1.5">

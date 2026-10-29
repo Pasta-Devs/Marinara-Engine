@@ -130,7 +130,7 @@ export function AccessStep(props: AccessStepProps) {
 
   if (props.device === "local_model")
     return (
-      <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
+      <section className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain">
         <ModelDownloadModal embedded open onClose={props.onBuiltInDone} />
       </section>
     );
