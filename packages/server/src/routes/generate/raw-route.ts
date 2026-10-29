@@ -31,6 +31,7 @@ import {
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
 } from "../../services/generation/image-captioning-runtime.js";
+import { visionCaptionSettings } from "../../services/generation/job-fallback.js";
 import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logDebugOverride, logger } from "../../lib/logger.js";
@@ -270,7 +271,7 @@ export async function registerRawRoute(app: FastifyInstance) {
           chatMeta: {},
           fallbackConnectionId: body.connectionId,
           connections,
-          visionConnectionId: (await readFeatureModelConnections(app.db)).visionConnectionId,
+          ...visionCaptionSettings(await readFeatureModelConnections(app.db)),
         }),
     );
 

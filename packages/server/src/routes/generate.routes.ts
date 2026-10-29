@@ -961,6 +961,7 @@ import {
   readChatModelOverride,
   resolveChatConnectionOrFallback,
 } from "../services/generation/connection-resolution.js";
+import { readJobFallback, visionCaptionSettings } from "../services/generation/job-fallback.js";
 import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import {
   GAME_MODE_AUTO_ATTACH_TOOL_NAMES,
@@ -1743,7 +1744,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       releaseActiveGeneration();
       return rejectGenerationOutput(reply, 400, { error: "No base URL configured for this connection" });
     }
-    const mainFallbackConnection = await connections.getFallbackForMain().catch(releaseActiveGenerationAndRethrow);
+    // Impersonate's own "If it fails" Model answers first; unset, the Main fallback does.
+    const impersonateFallbackConnection = impersonateConnectionOverride
+      ? await readJobFallback(
+          connections,
+          await readFeatureModelConnections(app.db).catch(releaseActiveGenerationAndRethrow),
+          "impersonateFallbackConnectionId",
+          impersonateConnectionOverride,
+        ).catch(releaseActiveGenerationAndRethrow)
+      : null;
+    const mainFallbackConnection =
+      impersonateFallbackConnection ??
+      (await connections.getFallbackForMain().catch(releaseActiveGenerationAndRethrow));
     const mainFallbackBaseUrl = mainFallbackConnection ? resolveBaseUrl(mainFallbackConnection) : "";
     let chatMeta = roomGenerationMetadata(parseExtra(chat.metadata));
     const requestTimeZone = normalizePromptTimeZone(input.userTimeZone);
@@ -1776,7 +1788,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       chatMeta,
       fallbackConnectionId: connId,
       connections,
-      visionConnectionId: (await readFeatureModelConnections(app.db).catch(() => null))?.visionConnectionId ?? null,
+      ...visionCaptionSettings(await readFeatureModelConnections(app.db).catch(() => null)),
     };
     const imageCaptioningRuntime: ImageCaptioningRuntime = await resolveImageCaptioningRuntime(imageCaptioningArgs);
     let memoryRecallEmbeddingSource: Awaited<ReturnType<typeof resolveMemoryRecallEmbeddingSource>> | null = null;

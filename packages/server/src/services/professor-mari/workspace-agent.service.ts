@@ -49,6 +49,8 @@ import { apiConnections } from "../../db/schema/index.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
+import { readJobFallback, visionCaptionSettings } from "../generation/job-fallback.js";
+import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import { tryParseJsonRecord } from "../../lib/json-repair.js";
 import {
   formatCapabilityAgentGroundingLines,
@@ -145,7 +147,7 @@ export type WorkspaceConnection = Pick<
   | "enableCaching"
   | "anthropicExtendedCacheTtl"
   | "cachingAtDepth"
-> & { provider: string; isLocalSidecar?: boolean };
+> & { provider: string; isLocalSidecar?: boolean; jobFallback?: WorkspaceConnection | null };
 export type PromptEventSink = (event: MariWorkspacePromptEvent) => void;
 type ProfessorMariPromptAttachment = PromptAttachment;
 export type WorkspaceCommandCall = {
@@ -1444,6 +1446,21 @@ function connectionSummary(connection: WorkspaceConnection | null): MariWorkspac
 
 function createProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   if (isLocalSidecarConnection(connection)) return getLocalSidecarProvider();
+  const primary = createBaseProviderForConnection(connection);
+  const fallback = connection.jobFallback;
+  if (!fallback) return primary;
+  return withConnectionFallbackProvider({
+    primary,
+    primaryConnectionId: connection.id,
+    primaryConnectionName: connection.name,
+    fallbackConnection: fallback,
+    fallbackBaseUrl: resolveBaseUrl(fallback),
+    category: "feature",
+    onFallback: notifyGenerationFallback,
+  });
+}
+
+function createBaseProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   return createLLMProvider(
     connection.provider,
     resolveBaseUrl(connection),
@@ -3799,7 +3816,7 @@ export class ProfessorMariWorkspaceService {
             chatMeta: {},
             fallbackConnectionId: connection.id,
             connections: createConnectionsStorage(this.app.db),
-            visionConnectionId: (await readFeatureModelConnections(this.app.db)).visionConnectionId,
+            ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
       );
@@ -4671,7 +4688,7 @@ export class ProfessorMariWorkspaceService {
           chatMeta: {},
           fallbackConnectionId: connection.id,
           connections: createConnectionsStorage(this.app.db),
-          visionConnectionId: (await readFeatureModelConnections(this.app.db)).visionConnectionId,
+          ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
         });
       }
       const resolved = await resolvePromptAttachmentInputs({
@@ -4980,7 +4997,23 @@ export class ProfessorMariWorkspaceService {
    * so a Model blocked by its account is skipped and the throttle registry stays in sync; a skipped
    * chosen Model is reported, so the user sees which Model answers instead.
    */
+  /** The Model that answers, with the feature's "If it fails" Model attached when one is set. */
   private async resolveConnection(
+    connectionId?: string | null,
+    feature: "mari" | "aside" = "mari",
+  ): Promise<WorkspaceConnection | null> {
+    const connection = await this.resolvePrimaryConnection(connectionId, feature);
+    if (!connection || isLocalSidecarConnection(connection)) return connection;
+    const jobFallback = await readJobFallback(
+      createConnectionsStorage(this.app.db),
+      await readFeatureModelConnections(this.app.db),
+      feature === "aside" ? "omnibarAsideFallbackConnectionId" : "mariFallbackConnectionId",
+      connection.id,
+    );
+    return jobFallback ? { ...connection, jobFallback } : connection;
+  }
+
+  private async resolvePrimaryConnection(
     connectionId?: string | null,
     feature: "mari" | "aside" = "mari",
   ): Promise<WorkspaceConnection | null> {

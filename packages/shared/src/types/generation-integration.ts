@@ -198,7 +198,7 @@ export interface ContextFitSummary {
   replyBudgetTo: number;
 }
 
-export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video";
+export type GenerationFallbackCategory = "main" | "agents" | "illustrator" | "video" | "feature";
 
 /** Why the chat's own Model did not answer, so the fallback did. */
 export type GenerationFallbackUnavailableReason = "off" | "needs_key" | "review" | "deleted";
@@ -461,7 +461,7 @@ export interface CapabilityConnectionFallbackOptions {
   primaryConnectionName?: string | null;
   fallbackConnection: FallbackConnection | null | undefined;
   fallbackBaseUrl: string;
-  category: "main" | "agents";
+  category: "main" | "agents" | "feature";
   onFallback?: GenerationFallbackNotifier;
   onProviderUsed?: (origin: GenerationProviderOrigin) => void;
   admissionMode?: ConnectionAdmissionMode;

@@ -10,6 +10,11 @@ export const featureModelConnectionsSchema = z.object({
   impersonateConnectionId: z.string().min(1).nullable(),
   /** Reads images for chat Models that cannot (Image reading default). */
   visionConnectionId: z.string().min(1).nullable(),
+  /** "If it fails": the Model a feature uses when its own Model's call fails. */
+  mariFallbackConnectionId: z.string().min(1).nullable(),
+  omnibarAsideFallbackConnectionId: z.string().min(1).nullable(),
+  impersonateFallbackConnectionId: z.string().min(1).nullable(),
+  visionFallbackConnectionId: z.string().min(1).nullable(),
 });
 
 export type FeatureModelConnections = z.infer<typeof featureModelConnectionsSchema>;

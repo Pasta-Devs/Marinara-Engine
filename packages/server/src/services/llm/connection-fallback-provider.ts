@@ -189,7 +189,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
     private readonly primary: BaseLLMProvider,
     private readonly fallback: BaseLLMProvider,
     private readonly connection: FallbackConnection,
-    private readonly category: "main" | "agents",
+    private readonly category: "main" | "agents" | "feature",
     private readonly onFallback?: GenerationFallbackNotifier,
     /** Reports the one logical attempt's outcome once the primary-plus-fallback chain settles. */
     private readonly settleAttempt?: (outcome: "completed" | "failed") => Promise<void>,

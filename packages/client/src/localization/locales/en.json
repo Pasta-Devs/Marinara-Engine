@@ -4354,6 +4354,7 @@
   "game.worldKit.setup.writingFor": "Writing… {{seconds}} s",
   "game.worldKit.setup.year": "A year is called",
   "generation.fallback.category.agents": "Agents",
+  "generation.fallback.category.feature": "Helper",
   "generation.fallback.category.illustrator": "Illustrator",
   "generation.fallback.category.main": "Main",
   "generation.fallback.category.video": "Videos",

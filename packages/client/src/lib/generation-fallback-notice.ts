@@ -70,6 +70,8 @@ function categoryLabel(category: unknown): string {
       return translate("generation.fallback.category.illustrator");
     case "video":
       return translate("generation.fallback.category.video");
+    case "feature":
+      return translate("generation.fallback.category.feature");
     default:
       return translate("generation.fallback.category.main");
   }

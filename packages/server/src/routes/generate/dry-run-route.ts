@@ -207,6 +207,7 @@ import {
   readChatModelOverride,
   resolveChatConnectionOrFallback,
 } from "../../services/generation/connection-resolution.js";
+import { visionCaptionSettings } from "../../services/generation/job-fallback.js";
 import { readFeatureModelConnections } from "../../services/storage/feature-model-connections.js";
 import {
   DISABLED_IMAGE_CAPTIONING,
@@ -875,7 +876,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       chatMeta,
       fallbackConnectionId: connId ?? null,
       connections,
-      visionConnectionId: (await readFeatureModelConnections(app.db)).visionConnectionId,
+      ...visionCaptionSettings(await readFeatureModelConnections(app.db)),
     };
     const imageCaptioning = chatMessages.some(
       (m: any) => extractImageAttachmentDataUrls(parseExtra(m.extra).attachments as PromptAttachment[]).length,

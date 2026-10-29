@@ -117,6 +117,8 @@ type ImageCaptioningArgs = {
   };
   /** The engine-wide Image reading default: it reads images for chat Models that cannot. */
   visionConnectionId?: string | null;
+  /** The Image reading Model's "If it fails" Model; unset, the agents fallback answers. */
+  visionFallbackConnectionId?: string | null;
   /** Admission mode of the work this captioning run feeds. */
   admissionMode?: ConnectionAdmissionMode;
 };
@@ -241,7 +243,9 @@ async function captioningWith(
     logger.warn("[image-captioning] Captioning connection %s has no base URL", captionConnectionId);
     return unavailableImageCaptioning("the captioning connection has no base URL");
   }
-  const fallbackConnection = await connections.getFallbackForAgents();
+  const fallbackConnection =
+    (args.visionFallbackConnectionId && (await connections.getWithKey(args.visionFallbackConnectionId))) ||
+    (await connections.getFallbackForAgents());
   const captionProvider = withConnectionFallbackProvider({
     primary: createLLMProvider(
       captionConnection.provider,
