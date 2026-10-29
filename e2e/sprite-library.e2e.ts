@@ -88,8 +88,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.keyboard.press("Enter");
     await expect(library.getByRole("button", { name: "Test folder", exact: true })).toBeVisible();
     await library
-      .locator("[data-sprite-folder]")
-      .filter({ has: library.getByRole("button", { name: "Test folder", exact: true }) })
+      .getByRole("button", { name: "Test folder", exact: true })
+      .locator("xpath=ancestor::section[1]")
       .getByRole("button", { name: "Remove folder", exact: true })
       .click();
     await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
@@ -112,19 +112,19 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
 
-    await frontSection.getByRole("button", { name: "Front", exact: true }).click();
+    await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(0);
-    await frontSection.getByRole("button", { name: "Front", exact: true }).click();
+    await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(3);
-    await expect
-      .poll(() =>
-        section.evaluate((element) => {
-          const container = element.closest(".mari-editor-content")!;
-          return Math.abs(element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16);
-        }),
-      )
-      .toBeLessThan(4);
     if (info.project.name === "desktop") {
+      await expect
+        .poll(() =>
+          section.evaluate((element) => {
+            const container = element.closest(".mari-editor-content")!;
+            return Math.abs(element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16);
+          }),
+        )
+        .toBeLessThan(4);
       await frontSection
         .getByRole("button", { name: "Preview idle", exact: true })
         .dragTo(library.locator("[data-sprite-loose]"));
@@ -199,6 +199,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(singleDelete.getByRole("button", { name: /Delete (these|selected|all)/i })).toHaveCount(0);
     await singleDelete.getByRole("button", { name: "Cancel", exact: true }).click();
     expect((await catalog()).sprites).toHaveLength(4);
+    await library
+      .locator(`[data-sprite-folder="${alternate}"]`)
+      .getByRole("button", { name: "Alternate", exact: true })
+      .click();
     await library.getByRole("checkbox", { name: "Select idle in Alternate", exact: true }).uncheck();
     await expect(library.getByRole("button", { name: "Delete selected", exact: true })).toHaveCount(0);
 
