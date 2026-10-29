@@ -24,9 +24,11 @@ Defina cada cor pelo campo de cor ou digite um valor:
 
 - **Name Display Color**: a cor do nome. Este campo também aceita um gradiente CSS. Um gradiente é uma transição suave entre cores. Exemplo de valor: `linear-gradient(90deg, #f59e0b, #ef4444)`.
 - **Dialogue Highlight Color**: a cor do texto que está entre aspas de diálogo. Exemplo de valor: `#ffd700`.
-- **Message Box Color**: a cor de fundo do balão de mensagem do chat. Uma cor semitransparente dá o melhor resultado. Exemplo de valor: `rgba(0, 0, 0, 0.5)`.
+- **Message Box Color**: a cor de fundo do balão de mensagem do chat Roleplay. Exemplo de valor: `#123456`.
 
-Uma cor semitransparente deixa parte do plano de fundo aparecer através do balão. O formato `rgba` é vermelho, verde, azul e um valor alfa que vai de 0 (transparente) a 1 (sólido).
+Ajuste a transparência em **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Configurações → Aparência → Roleplay → Opacidade do plano de fundo das mensagens Roleplay). Esse controle deslizante substitui a transparência salva nas cores de fundo de personagens, personas e presets aplicados, incluindo as cores extraídas de avatares. Os valores de cor salvos permanecem inalterados. As cores do nome e do diálogo não são afetadas.
+
+Os pontos de personalização explícitos do plano de fundo dos temas personalizados e o Card CSS ainda podem substituir o estilo nativo dos balões do aplicativo.
 
 <a id="where-your-colors-show"></a>
 

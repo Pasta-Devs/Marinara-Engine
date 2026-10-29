@@ -24,9 +24,11 @@ Stell jede Farbe über das Farbfeld ein oder tippe einen Wert ein:
 
 - **Name Display Color** (Namensfarbe): die Farbe des Namens. Dieses Feld akzeptiert auch einen CSS-Verlauf. Ein Verlauf ist ein weicher Übergang zwischen Farben. Beispielwert: `linear-gradient(90deg, #f59e0b, #ef4444)`.
 - **Dialogue Highlight Color** (Hervorhebung für Dialoge): die Farbe für Text innerhalb von Dialog-Anführungszeichen. Beispielwert: `#ffd700`.
-- **Message Box Color** (Farbe der Nachrichtenbox): die Hintergrundfarbe der Sprechblase im Chat. Am besten wirkt eine halbtransparente Farbe. Beispielwert: `rgba(0, 0, 0, 0.5)`.
+- **Message Box Color** (Farbe der Nachrichtenbox): die Hintergrundfarbe der Sprechblase im Roleplay-Chat. Beispielwert: `#123456`.
 
-Eine halbtransparente Farbe lässt den Hintergrund teilweise durch die Sprechblase scheinen. Das Format `rgba` steht für Rot, Grün, Blau und einen Alpha-Wert von 0 (durchsichtig) bis 1 (deckend).
+Stell die Transparenz unter **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Einstellungen → Darstellung → Roleplay → Deckkraft des Hintergrunds von Roleplay-Nachrichten) ein. Dieser Schieberegler ersetzt die Transparenz, die in den Hintergrundfarben von Charakteren, Personas und angewendeten Presets gespeichert ist, einschließlich der aus Avataren übernommenen Farben. Deine gespeicherten Farbwerte bleiben unverändert. Namens- und Dialogfarben sind davon nicht betroffen.
+
+Explizite Hintergrund-Hooks benutzerdefinierter Themes und Card CSS können die app-eigene Gestaltung der Sprechblasen weiterhin überschreiben.
 
 <a id="where-your-colors-show"></a>
 

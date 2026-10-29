@@ -24,9 +24,11 @@
 
 - **Name Display Color**(名字显示颜色)：名字的颜色。这个输入框还支持 CSS 渐变，也就是几种颜色之间的平滑过渡。示例值：`linear-gradient(90deg, #f59e0b, #ef4444)`。
 - **Dialogue Highlight Color**(对话高亮颜色)：对话引号内文字的颜色。示例值：`#ffd700`。
-- **Message Box Color**(消息框颜色)：聊天消息气泡的背景色。用半透明颜色效果最好。示例值：`rgba(0, 0, 0, 0.5)`。
+- **Message Box Color**(消息框颜色)：Roleplay 聊天消息气泡的背景色。示例值：`#123456`。
 
-半透明颜色会让背景从气泡里透出来一部分。`rgba` 格式依次是红、绿、蓝和一个 alpha 值，alpha 从 0(完全透明) 到 1(完全不透明)。
+透明度通过 **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity**(设置 → 外观 → Roleplay → Roleplay 消息背景不透明度) 设置。这个滑块的设置会取代角色、用户角色和已应用预设的背景色中保存的透明度，头像提取的颜色也包括在内。保存的颜色值本身不变。名字颜色和对话颜色不受影响。
+
+自定义主题里显式指定背景的钩子和角色卡 CSS 仍然可以覆盖应用自带的气泡样式。
 
 <a id="where-your-colors-show"></a>
 
