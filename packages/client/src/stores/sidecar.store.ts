@@ -28,7 +28,7 @@ import { consumeSidecarDownloadStream } from "../lib/sidecar-download-stream.js"
 export const GEMMA_RESTART_MESSAGE =
   "Gemma downloaded. Completely restart Marinara Engine before using the local model.";
 
-interface SidecarTestMessageResult {
+export interface SidecarTestMessageResult {
   success: boolean;
   response: string;
   messageContent?: string;

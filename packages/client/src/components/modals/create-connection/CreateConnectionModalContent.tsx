@@ -820,8 +820,8 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    // The key step fits its content; the lists keep the tall frame.
-    step === 2 ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
+    // The key step fits its content; the lists and the built-in model keep the tall frame.
+    step === 2 && device !== "local_model" ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -903,6 +903,7 @@ export function CreateConnectionModalContent({
               serviceName={serviceName}
               modelCount={modelCount}
               keyRef={keyRef}
+              onBuiltInDone={builtInReady ? continueBuiltIn : onClose}
             />
           )}
 
@@ -995,10 +996,13 @@ export function CreateConnectionModalContent({
           </div>
         )}
 
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
-          <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
-          {footerRight}
-        </div>
+        {/* The built-in model window brings its own footer. */}
+        {!(step === 2 && device === "local_model") && (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
+            <div className="flex min-w-0 items-center gap-2">{footerLeft}</div>
+            {footerRight}
+          </div>
+        )}
       </div>
       {/* The decision sidecar is its own model and process; its experimental installer opens from "Other". */}
       <DecisionModelModal open={decisionOpen} onClose={() => setDecisionOpen(false)} />

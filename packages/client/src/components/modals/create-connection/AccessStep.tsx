@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronDown, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
-import { BuiltInModelSetup } from "./BuiltInModelSetup";
+import { ModelDownloadModal } from "../ModelDownloadModal";
 import { LocalWhisper } from "../../connections/DeviceDetail";
 import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
 import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
@@ -56,6 +56,8 @@ export interface AccessStepProps {
   serviceName: (service: ServiceId) => string;
   modelCount?: number;
   keyRef: RefObject<HTMLInputElement | null>;
+  /** Built-in model: its window has its own footer; this closes it. */
+  onBuiltInDone: () => void;
 }
 
 export function AccessStep(props: AccessStepProps) {
@@ -126,12 +128,17 @@ export function AccessStep(props: AccessStepProps) {
     </div>
   );
 
+  if (props.device === "local_model")
+    return (
+      <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
+        <ModelDownloadModal embedded open onClose={props.onBuiltInDone} />
+      </section>
+    );
   if (props.device) {
     return (
       <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
         <div className="max-w-xl">
           <div className="flex flex-col gap-4 px-3 py-4">
-            {props.device === "local_model" && <BuiltInModelSetup />}
             {props.device === "tts" && <TTSConfigCard defaultExpanded />}
             {props.device === "stt" && <SpeechToTextCard defaultExpanded />}
             {props.device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
