@@ -13,7 +13,6 @@ import {
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { JOB } from "../../../lib/connection-jobs";
 import { buildOfflineModelIndex, type ModelKind } from "../../../lib/add-model-search";
-import { cn } from "../../../lib/utils";
 import type { DeviceItem } from "../../../hooks/use-device-setup";
 
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
@@ -354,28 +353,5 @@ export function ServiceTile({ service }: { service: ServiceId }) {
       service={media?.source}
       size="add"
     />
-  );
-}
-
-/** First run only: the What's New hero band, low and static. */
-export function FirstRunIntro({ text, className }: { text: string; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "relative flex items-end gap-3 overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 pt-2",
-        className,
-      )}
-    >
-      <div
-        aria-hidden
-        className="absolute left-12 top-1/2 h-24 w-40 -translate-y-1/2 rounded-full bg-[var(--marinara-chat-chrome-accent)] opacity-10 blur-3xl"
-      />
-      <img
-        src="/illustrations/professor-mari-whats-new.webp"
-        alt=""
-        className="relative h-24 w-auto shrink-0 object-contain object-bottom md:h-28"
-      />
-      <p className="relative self-center pb-2 text-xs leading-relaxed text-[var(--foreground)]">{text}</p>
-    </div>
   );
 }

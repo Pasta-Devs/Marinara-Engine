@@ -174,8 +174,6 @@ export function CreateConnectionModalContent({
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
   const [useInChat, setUseInChat] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  // Set once from the first loaded list: first run means no connection rows exist.
-  const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
@@ -183,10 +181,6 @@ export function CreateConnectionModalContent({
   const chatRows = allRows.filter((row) => isChatProvider(row.provider ?? ""));
   const hasMain = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).isDefault));
   const hasAgents = chatRows.some((row) => isConnectionFlagTrue((row as Record<string, unknown>).defaultForAgents));
-  useEffect(() => {
-    if (firstRun !== null || !rows) return;
-    setFirstRun(!modelsFor && (rows as ConnectionRowLite[]).length === 0);
-  }, [firstRun, modelsFor, rows]);
 
   const selectedMedia = mediaBackendOf(service);
   const def = provider ? PROVIDERS[provider] : null;
