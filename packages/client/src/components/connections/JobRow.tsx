@@ -100,9 +100,9 @@ export function JobRow({
         trailing={
           <>
             {tile.warning && (
-              <span className="inline-flex min-w-0 max-w-[9rem] shrink items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500">
                 <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
-                <span className="truncate">{tile.warning.text}</span>
+                <span className="whitespace-nowrap">{tile.warning.short ?? tile.warning.text}</span>
               </span>
             )}
             {trailing}

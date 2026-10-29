@@ -20,6 +20,7 @@ import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
+import { ProviderIcon } from "./ProviderIcon";
 
 type Extra = { value: string; label: string };
 
@@ -304,6 +305,7 @@ function ModelPickerSlot({
                 .filter((option) => option.group === "connection" && !option.unavailable)
                 .map((option) => ({
                   value: option.id,
+                  icon: <ProviderIcon provider="custom" size="sm" />,
                   label:
                     (rows as Array<{ id: string; model?: string | null }> | undefined)
                       ?.find((row) => row.id === option.id)

@@ -7,7 +7,19 @@
 // saves a model, and removing it can remove the saved Model (decision 30).
 // ──────────────────────────────────────────────
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, ChevronRight, Cpu, House, Layers, Plus, Search, Shuffle, Star } from "lucide-react";
+import {
+  Check,
+  CircleSlash,
+  ChevronLeft,
+  ChevronRight,
+  Cpu,
+  House,
+  Layers,
+  Plus,
+  Search,
+  Shuffle,
+  Star,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -432,7 +444,13 @@ export function ConnectionSwitcherBody({
   /** Hides saved Models the slot cannot use (the current one stays). */
   rowFilter?: (row: ConnectionModelRow) => boolean;
   /** Plain values that are not Models, such as "random", listed under Follow. */
-  extras?: ReadonlyArray<{ value: string; label: string; active: boolean; onSelect: () => Promise<void> }>;
+  extras?: ReadonlyArray<{
+    value: string;
+    label: string;
+    icon?: ReactNode;
+    active: boolean;
+    onSelect: () => Promise<void>;
+  }>;
   /** Last row: adds a provider; the host reopens or keeps this picker. */
   onAdd?: () => void;
   /** Marks models known to suit the slot with a check and lists them first (Decision). */
@@ -1120,7 +1138,9 @@ export function ConnectionSwitcherBody({
         }}
         className={cn(ROW_CLASS, active && "bg-foreground/[0.07] font-semibold")}
       >
-        {mainRow ? (
+        {followDefault.label && followDefault.label !== t("connections.defaults.followsMain") ? (
+          <CircleSlash size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
+        ) : mainRow ? (
           <ProviderIcon
             provider={mainRow.provider ?? "custom"}
             model={mainRow.model}
@@ -1164,6 +1184,7 @@ export function ConnectionSwitcherBody({
       }}
       className={cn(ROW_CLASS, extra.active && "bg-foreground/[0.07] font-semibold")}
     >
+      {extra.icon}
       <span className="min-w-0 flex-1 truncate">{extra.label}</span>
       {extra.active && <Check size="0.75rem" className="shrink-0 text-[var(--marinara-chat-chrome-accent)]" />}
     </button>

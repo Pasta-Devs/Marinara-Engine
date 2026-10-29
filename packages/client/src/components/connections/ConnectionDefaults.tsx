@@ -63,7 +63,7 @@ const FEATURE_EXTRA_OPTIONS: Partial<Record<JobKey, Array<{ value: string; key: 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
 
-type Warning = { text: string; fix?: { label: string; run: () => void } };
+type Warning = { text: string; short?: string; fix?: { label: string; run: () => void } };
 
 export type DefaultsTile = {
   key: JobKey;
@@ -110,6 +110,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     ? null
     : {
         text: t("connections.defaults.warning.notDownloaded", { model: sidecarName }),
+        short: t("connections.defaults.notDownloadedShort"),
         fix: {
           label: t("connections.defaults.setUp"),
           run: () => openAddConnection({ category: "device", item: "local-model" }),
@@ -127,6 +128,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     if (account.state === "off") {
       return {
         text: t("connections.defaults.warning.off", { connection: account.name }),
+        short: t("connections.defaults.warning.offShort"),
         fix: {
           label: t("connections.defaults.fix.turnOn"),
           run: () => updateAccount.mutate({ id: account.id, enabled: true }),
@@ -135,6 +137,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     }
     return {
       text: t("connections.defaults.warning.needsKey", { connection: account.name }),
+      short: t("connections.defaults.warning.needsKeyShort"),
       fix: {
         label: t("connections.defaults.fix.addKey"),
         run: () => openModal("connection-account", { accountId: account.id }),
@@ -194,6 +197,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         muted: true,
         warning: {
           text: t("connections.defaults.warning.voiceMissing"),
+          short: t("connections.defaults.warning.missingShort"),
           fix: {
             label: flagged
               ? t("connections.defaults.fix.useModel", { model: describe(flagged).value })
@@ -217,6 +221,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
           (ttsOff && !makesEffects
             ? {
                 text: t("connections.defaults.warning.ttsOff"),
+                short: t("connections.defaults.warning.offShort"),
                 fix: {
                   label: t("connections.defaults.fix.turnOn"),
                   run: () => updateTTS.mutate({ ...tts, enabled: true }),
@@ -240,7 +245,10 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       ...tile,
       value: t("connections.defaults.notSet"),
       muted: true,
-      warning: role.key === "main" ? { text: t("connections.defaults.warning.noMain") } : null,
+      warning:
+        role.key === "main"
+          ? { text: t("connections.defaults.warning.noMain"), short: t("connections.defaults.warning.noMainShort") }
+          : null,
     };
   });
 
@@ -266,7 +274,10 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   } else if (embeddingId) {
     Object.assign(embeddings, {
       value: t("connections.defaults.missing"),
-      warning: { text: t("connections.defaults.warning.missing") },
+      warning: {
+        text: t("connections.defaults.warning.missing"),
+        short: t("connections.defaults.warning.missingShort"),
+      },
     });
   }
 
@@ -282,13 +293,17 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     warning: decisionNeedsLocal
       ? {
           text: t("connections.defaults.warning.notDownloaded", { model: decisionSelected.label }),
+          short: t("connections.defaults.notDownloadedShort"),
           fix: {
             label: t("connections.defaults.setUp"),
             run: () => openAddConnection({ category: "device", item: "local-model" }),
           },
         }
       : decisionSelected?.unavailable
-        ? { text: t("connections.defaults.warning.unavailable") }
+        ? {
+            text: t("connections.defaults.warning.unavailable"),
+            short: t("connections.defaults.warning.unavailableShort"),
+          }
         : null,
     ...(decisionNeedsLocal
       ? { setup: { item: "local-model" as const, text: t("connections.defaults.notDownloadedShort") } }
@@ -354,7 +369,10 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     return {
       ...tile,
       value: t("connections.defaults.missing"),
-      warning: { text: t("connections.defaults.warning.missing") },
+      warning: {
+        text: t("connections.defaults.warning.missing"),
+        short: t("connections.defaults.warning.missingShort"),
+      },
     };
   });
 
