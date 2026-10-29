@@ -116,7 +116,7 @@ Pi는 로컬 모델을 포함한 모든 연결에서 작동합니다. Pi에서 P
 
 **Attach**라고 표시된 클립 버튼을 클릭하면 세 구역으로 나뉜 메뉴가 열립니다.
 
-- **Attach**: **Attach files or photos**, **Add chat history**(지난 채팅을 Professor Mari와 공유), **View attached context**가 있습니다.
+- **Attach**: **Attach files or photos**(파일 또는 사진 첨부), **Add chat history**, **View attached context**가 있습니다. **Add chat history**로 지난 채팅을 Professor Mari와 공유할 수 있습니다.
 - **Reference**: 메시지 상자에 `@` 문자를 입력하고 아래에서 설명하는 링크 목록을 여는 **Link with @**입니다.
 - **Mari**: **New chat**, **Chat history**, **Skills**, **Memories**, **Model**(모델), **Permissions**가 있습니다. **Pending approvals**는 변경이 승인을 기다리는 동안에만 여기에 나타납니다.
 
@@ -124,7 +124,7 @@ Pi는 로컬 모델을 포함한 모든 연결에서 작동합니다. Pi에서 P
 
 ## 파일 첨부하기
 
-클립 메뉴에서 **Attach files or photos**(파일 또는 사진 첨부)를 고르거나 `/attach`를 입력하면 메시지에 파일을 붙일 수 있습니다.
+클립 메뉴에서 **Attach files or photos**를 고르거나 `/attach`를 입력하면 메시지에 파일을 붙일 수 있습니다.
 
 이미지, PDF 파일, 그리고 `.txt`, `.md`, `.json`, `.csv`, `.log` 같은 흔한 텍스트 파일을 받습니다. 파일 하나당 최대 20 MB입니다. 첨부한 파일은 보내기 전까지 메시지 상자 위에 칩으로 표시되고, 거기에서 뺄 수 있습니다.
 
