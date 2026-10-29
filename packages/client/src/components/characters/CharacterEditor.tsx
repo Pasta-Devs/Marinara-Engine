@@ -5923,15 +5923,6 @@ function SpritesTab({
             <button
               type="button"
               className={spriteActionClass}
-              disabled={exporting || spriteBusy}
-              onClick={() => void handleExportSprites(selectedSprites, "visible")}
-            >
-              <ImageDown size={14} />
-              {localizeUi("sprites.library.exportSelected")}
-            </button>
-            <button
-              type="button"
-              className={spriteActionClass}
               disabled={spriteBusy || backgroundCleanupUnavailable}
               title={backgroundCleanupUnavailable ? backgroundCleanupReason : undefined}
               aria-expanded={cleanupOpen}

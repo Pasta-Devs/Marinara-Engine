@@ -98,7 +98,6 @@ export function SpriteLibraryShell({
 }) {
   const { t } = useTranslation();
   const label = (key: string) => t(`sprites.library.${key}`);
-  const [moveTo, setMoveTo] = useState("unfiled");
   return (
     <div
       className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
@@ -162,63 +161,19 @@ export function SpriteLibraryShell({
             library.selected.length > 0 && "rounded-xl bg-[var(--secondary)] p-3",
           )}
         >
-          <label className="inline-flex min-h-11 items-center gap-2 md:min-h-8">
-            <input
-              type="checkbox"
-              disabled={busy || library.visible.length === 0}
-              checked={
-                library.visible.length > 0 &&
-                library.visible.every((sprite) => library.selected.includes(sprite.expression))
-              }
-              onChange={(event) =>
-                library.setSelected(event.target.checked ? library.visible.map((sprite) => sprite.expression) : [])
-              }
-            />
+          <button
+            type="button"
+            className={button}
+            disabled={busy || library.visible.length === 0}
+            onClick={() => library.setSelected(library.visible.map((sprite) => sprite.expression))}
+          >
+            <CheckSquare size={14} />
             {t("sprites.library.selectAll", { count: library.visible.length })}
-          </label>
+          </button>
           {library.selected.length > 0 && (
             <>
               <span aria-live="polite">{t("sprites.library.selected", { count: library.selected.length })}</span>
-              <select
-                className={control}
-                aria-label={label("destination")}
-                value={moveTo}
-                disabled={busy || library.mutation.isPending}
-                onChange={(event) => setMoveTo(event.target.value)}
-              >
-                <option value="unfiled">{label("unfiled")}</option>
-                {library.folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className={button}
-                disabled={library.mutation.isPending || busy}
-                onClick={async () => {
-                  if (
-                    await library.mutate("post", "move", {
-                      expressions: library.selected,
-                      folderId: moveTo === "unfiled" ? null : moveTo,
-                    })
-                  )
-                    library.setSelected([]);
-                }}
-              >
-                {label("move")}
-              </button>
               {selectionActions}
-              <button
-                type="button"
-                className={button}
-                disabled={busy}
-                onClick={() => library.setSelected([])}
-                aria-label={label("clearSelection")}
-              >
-                <X size={14} />
-              </button>
             </>
           )}
         </div>
@@ -291,6 +246,7 @@ export function SpriteFolderGrid({
       {sprites.map((sprite) => (
         <div
           key={sprite.expression}
+          data-sprite-expression={sprite.expression}
           draggable={!disabled}
           className={cn(draggedExpressions.includes(sprite.expression) && "opacity-50")}
           onDragStart={(e) => {
@@ -300,6 +256,7 @@ export function SpriteFolderGrid({
             }
             e.dataTransfer.effectAllowed = "move";
             const source = e.currentTarget;
+            const expressions = library.selected.includes(sprite.expression) ? library.selected : [sprite.expression];
             const bounds = source.getBoundingClientRect();
             dragOffset.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
             dragPreview.current?.remove();
@@ -338,6 +295,27 @@ export function SpriteFolderGrid({
               for (const property of visualProperties)
                 copy.style.setProperty(property, style.getPropertyValue(property));
             });
+            const otherSources = Array.from(
+              source.closest("[data-sprite-library]")?.querySelectorAll<HTMLElement>("[data-sprite-expression]") ?? [],
+            ).filter((element) => element !== source && expressions.includes(element.dataset.spriteExpression ?? ""));
+            otherSources.forEach((other, index) => {
+              const copy = other.cloneNode(true) as HTMLElement;
+              const nodes = [other, ...other.querySelectorAll<HTMLElement | SVGElement>("*")];
+              const clones = [copy, ...copy.querySelectorAll<HTMLElement | SVGElement>("*")];
+              nodes.forEach((node, i) => {
+                const style = getComputedStyle(node);
+                for (const property of visualProperties)
+                  clones[i]?.style.setProperty(property, style.getPropertyValue(property));
+              });
+              Object.assign(copy.style, {
+                position: "absolute",
+                left: `${((index + 1) % 4) * (bounds.width + 8)}px`,
+                top: `${Math.floor((index + 1) / 4) * (bounds.height + 8)}px`,
+                width: `${bounds.width}px`,
+                opacity: "1",
+              });
+              preview.appendChild(copy);
+            });
             Object.assign(preview.style, {
               position: "fixed",
               left: `${bounds.left}px`,
@@ -357,7 +335,6 @@ export function SpriteFolderGrid({
             transparent.width = 1;
             transparent.height = 1;
             e.dataTransfer.setDragImage(transparent, 0, 0);
-            const expressions = library.selected.includes(sprite.expression) ? library.selected : [sprite.expression];
             e.dataTransfer.setData(
               dragType,
               JSON.stringify({

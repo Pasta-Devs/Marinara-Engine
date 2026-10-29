@@ -204,7 +204,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }
     await expect(library.getByRole("checkbox", { name: /^Select/ })).toHaveCount(0);
     await library.getByRole("button", { name: "Select", exact: true }).click();
-    await expect(library.getByRole("checkbox", { name: /^Select all/ })).toBeVisible();
+    await expect(library.getByRole("button", { name: /^Select all/ })).toBeVisible();
     await library.getByRole("checkbox", { name: "Select idle in Front", exact: true }).check();
     await library.getByRole("button", { name: "Preview idle", exact: true }).click();
     const details = page.getByRole("dialog").last();
@@ -271,13 +271,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       .getByRole("region", { name: "Clean Backgrounds" })
       .getByRole("button", { name: "Cancel", exact: true })
       .click();
-    const exported = page.waitForRequest(
-      (outgoing) => outgoing.url().endsWith(`${path}/export`) && outgoing.method() === "POST",
-    );
-    const download = page.waitForEvent("download");
-    await library.getByRole("button", { name: "Export selected", exact: true }).click();
-    expect((await exported).postDataJSON().expressions).toHaveLength(2);
-    expect(await (await download).failure()).toBeNull();
+    await expect(library.getByRole("button", { name: "Export selected", exact: true })).toHaveCount(0);
     await library.getByRole("button", { name: "Delete selected", exact: true }).click();
     const bulkDelete = page.getByRole("dialog").last();
     await expect(bulkDelete.getByText("Delete 2 selected sprites?", { exact: true })).toBeVisible();
