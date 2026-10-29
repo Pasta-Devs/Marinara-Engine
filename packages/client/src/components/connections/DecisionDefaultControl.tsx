@@ -221,9 +221,7 @@ export function DecisionDefaultControl({
             }}
             className="mt-0.5 accent-[var(--primary)]"
           />
-          <span>
-            {t("connections.decision.smartOrder")}
-          </span>
+          <span>{t("connections.decision.smartOrder")}</span>
         </label>
       )}
 

@@ -693,8 +693,7 @@ export function ConnectionSwitcherBody({
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
     title: t("connections.switcher.localModel"),
-    subtitle:
-      localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
+    subtitle: localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =
@@ -1320,7 +1319,7 @@ export function ConnectionSwitcherBody({
       aria-label={nowLabel}
       className={cn(
         "mb-1 border-b border-foreground/10 pb-1",
-        layout === "steps" && "sticky top-0 z-[1] bg-[var(--mari-chat-existing-bg,var(--background))]",
+        layout === "steps" && "sticky top-0 z-[1] bg-[var(--mari-modal-opaque-bg,var(--background))]",
       )}
     >
       <ListHeading>{nowLabel}</ListHeading>

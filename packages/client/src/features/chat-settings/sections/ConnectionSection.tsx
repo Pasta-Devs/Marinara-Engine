@@ -95,9 +95,9 @@ export function ConnectionSection({
             : "chat.settings.connectionModel.chosenForChat",
           { connection: effective.connectionName },
         )
-        : effective?.kind === "random"
-          ? localizeUi("chat.settings.connectionModel.shuffleDetail")
-          : localizeUi("connections.switcher.noMain");
+      : effective?.kind === "random"
+        ? localizeUi("chat.settings.connectionModel.shuffleDetail")
+        : localizeUi("connections.switcher.noMain");
   const unavailable = effective?.unavailable ? localizeUi(`connections.accounts.state.${effective.unavailable}`) : null;
 
   return (

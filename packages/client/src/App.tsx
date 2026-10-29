@@ -1372,7 +1372,7 @@ export function App() {
           toastOptions={{
             style: {
               fontFamily: "var(--font-y2k)",
-            background: "var(--card)",
+              background: "var(--card)",
               border: "1px solid var(--marinara-chat-chrome-panel-border)",
               color: "var(--foreground)",
               userSelect: "text",

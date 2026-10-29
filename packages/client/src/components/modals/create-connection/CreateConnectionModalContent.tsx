@@ -976,9 +976,7 @@ export function CreateConnectionModalContent({
                   className={checkClass}
                   data-add-connection-make-main
                 />
-                <span className="min-w-0">
-                  {t("connections.add.makeMain", { model: firstName })}
-                </span>
+                <span className="min-w-0">{t("connections.add.makeMain", { model: firstName })}</span>
               </label>
             ) : (
               <button

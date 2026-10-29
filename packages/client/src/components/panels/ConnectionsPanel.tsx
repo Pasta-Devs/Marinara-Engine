@@ -808,13 +808,9 @@ export function ConnectionsPanel() {
               {t("connections.list.addConnection")}
             </button>
           </section>
-          <button
-              type="button"
-              onClick={() => openModal("import-connection")}
-              className="mari-chrome-control w-full"
-            >
-              {t("connections.list.importConnections")}
-            </button>
+          <button type="button" onClick={() => openModal("import-connection")} className="mari-chrome-control w-full">
+            {t("connections.list.importConnections")}
+          </button>
           {!linkApiBannerDismissed && (
             <div className="mt-1 flex flex-col gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3">
               <p className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">

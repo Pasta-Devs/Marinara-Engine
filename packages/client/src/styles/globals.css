@@ -1731,7 +1731,11 @@
 /* Tokens, not properties: the shared gradient-mode rules read these. The static accent, because neutral modals re-point --primary. */
 .mari-connection-scope .mari-chrome-control--primary {
   --marinara-chat-chrome-button-bg: var(--marinara-app-accent-static, var(--primary));
-  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--marinara-app-accent-static, var(--primary)) 88%, var(--foreground));
+  --marinara-chat-chrome-button-bg-hover: color-mix(
+    in srgb,
+    var(--marinara-app-accent-static, var(--primary)) 88%,
+    var(--foreground)
+  );
   --marinara-chat-chrome-button-bg-active: var(--marinara-app-accent-static, var(--primary));
   --marinara-chat-chrome-button-border: transparent;
   --marinara-chat-chrome-button-border-hover: transparent;

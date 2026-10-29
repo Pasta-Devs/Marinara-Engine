@@ -530,11 +530,7 @@ function AgentsSettings() {
   };
   return (
     <div className="flex flex-col gap-3 p-4">
-      <ToggleSetting
-        label={t("connections.defaults.paidWarning")}
-        checked={showPaid}
-        onChange={setShowPaid}
-      />
+      <ToggleSetting label={t("connections.defaults.paidWarning")} checked={showPaid} onChange={setShowPaid} />
       <button
         type="button"
         onClick={() => void reset()}

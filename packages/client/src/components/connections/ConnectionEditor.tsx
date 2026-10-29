@@ -1957,7 +1957,6 @@ export function ConnectionEditor({
         )}
       </div>
 
-
       {/* Connection test result */}
       {testResult && (
         <TestResultCard
@@ -2310,9 +2309,7 @@ export function ConnectionEditor({
           <EditorSection id="model" tabbed={tabbed}>
             {/* ── Model Name ── */}
 
-            <FieldGroup
-              label={localizeUi("connections.editor.name")}
-            >
+            <FieldGroup label={localizeUi("connections.editor.name")}>
               <input
                 value={localName}
                 onChange={(e) => {
@@ -2363,9 +2360,7 @@ export function ConnectionEditor({
                 )}
               </div>
             ) : (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.provider")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.provider")}>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {(Object.entries(PROVIDERS) as [APIProvider, typeof providerDef][]).map(([key, info]) => (
                     <button
@@ -2636,9 +2631,7 @@ export function ConnectionEditor({
               <>
                 {/* ── API Key ── */}
                 {!accountLinked && (
-                  <FieldGroup
-                    label={localizeUi("ui.connections.connectioneditor.apiKey")}
-                  >
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.apiKey")}>
                     <input
                       disabled={isDecisionProvider && !!localCredentialsFrom}
                       value={localApiKey}
@@ -2674,9 +2667,7 @@ export function ConnectionEditor({
                   // A fragment's children are not direct children of the parent's
                   // space-y-6, so this block carries its own vertical rhythm.
                   <div className="space-y-6">
-                    <FieldGroup
-                      label={localizeUi("ui.connections.connectioneditor.managementToken")}
-                    >
+                    <FieldGroup label={localizeUi("ui.connections.connectioneditor.managementToken")}>
                       <input
                         value={localManagementToken}
                         onChange={(e) => {
@@ -2717,9 +2708,7 @@ export function ConnectionEditor({
 
                 {/* ── Base URL ── */}
                 {(!accountLinked || hasOwnEndpoint) && (
-                  <FieldGroup
-                    label={localizeUi("ui.connections.connectioneditor.baseUrl")}
-                  >
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.baseUrl")}>
                     <input
                       disabled={isDecisionProvider && localDecisionSource === "openrouter"}
                       value={localBaseUrl}
@@ -2784,9 +2773,7 @@ export function ConnectionEditor({
 
             {/* ── Image Service (only for image_generation provider) ── */}
             {!accountLinked && localProvider === "image_generation" && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.service")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.service")}>
                 <div className="grid grid-cols-2 gap-1.5">
                   {imageSources.map((src) => {
                     const isActive = selectedImageService === src.id;
@@ -2886,9 +2873,7 @@ export function ConnectionEditor({
             )}
 
             {!accountLinked && localProvider === "video_generation" && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.videoService")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoService")}>
                 <div className="grid grid-cols-2 gap-1.5">
                   {videoSources.map((src) => {
                     const isActive = selectedVideoProvider === src.id;
@@ -2960,9 +2945,7 @@ export function ConnectionEditor({
 
             {/* ── Audio Source (only for audio provider) ── */}
             {isAudioProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.audioSource")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.audioSource")}>
                 <div className="grid grid-cols-2 gap-1.5">
                   {AUDIO_SOURCE_OPTIONS.filter((src) => src.id === localAudioSource).map((src) => (
                     <LockedService
@@ -3054,10 +3037,7 @@ export function ConnectionEditor({
 
             {/* ── Generative audio source (only for audio_generation provider) ── */}
             {isGenerativeAudioProvider && (
-              <FieldGroup
-                label={t("connections.audioGeneration.source")}
-
-              >
+              <FieldGroup label={t("connections.audioGeneration.source")}>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                   {GENERATIVE_AUDIO_SOURCES.map((source) => (
                     <button
@@ -3261,9 +3241,7 @@ export function ConnectionEditor({
 
             {/* ── Image reading ── */}
             {isChatProvider(localProvider) && (
-              <FieldGroup
-                label={t("connections.editor.imageInput.label")}
-              >
+              <FieldGroup label={t("connections.editor.imageInput.label")}>
                 <select
                   value={localImageInput}
                   aria-label={t("connections.editor.imageInput.label")}
@@ -3282,9 +3260,7 @@ export function ConnectionEditor({
 
             {/* ── RunPod Endpoint ID ── */}
             {localProvider === "image_generation" && selectedImageService === "runpod_comfyui" && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.runpodEndpointId")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.runpodEndpointId")}>
                 <input
                   type="text"
                   value={localImageEndpointId}
@@ -3399,9 +3375,7 @@ export function ConnectionEditor({
             )}
 
             {localProvider === "image_generation" && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.imagePromptingInstructions")}>
                 <textarea
                   value={localImagePromptInstructions}
                   maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
@@ -3416,9 +3390,7 @@ export function ConnectionEditor({
             )}
 
             {isVideoGenerationProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.videoPromptingInstructions")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.videoPromptingInstructions")}>
                 <textarea
                   value={localVideoPromptInstructions}
                   maxLength={MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH}
@@ -3433,9 +3405,7 @@ export function ConnectionEditor({
             )}
 
             {supportsGptImageQuality && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}>
                 <select
                   value={effectiveImageGenerationQuality}
                   onChange={(event) => {
@@ -3522,35 +3492,31 @@ export function ConnectionEditor({
             )}
 
             {!isMediaGenerationProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}
-                >
-                  <div className="flex items-center gap-3">
-                    <DraftNumberInput
-                      value={localMaxContext}
-                      min={1}
-                      selectOnFocus
-                      onCommit={(nextValue) => {
-                        setLocalMaxContext(nextValue);
-                        markDirty();
-                      }}
-                      className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
-                    />
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
-                    </span>
-                  </div>
-                </FieldGroup>
-              )}
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxContextWindow")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    value={localMaxContext}
+                    min={1}
+                    selectOnFocus
+                    onCommit={(nextValue) => {
+                      setLocalMaxContext(nextValue);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
+                  />
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {formatContext(localMaxContext)} {localizeUi("ui.connections.connectioneditor.tokens")}
+                  </span>
+                </div>
+              </FieldGroup>
+            )}
             {tabbed && testSection}
           </EditorSection>
 
           <EditorSection id="generation" tabbed={tabbed}>
             {/* ── Prompt Preset Override ── */}
             {!isMediaGenerationProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
                 <select
                   value={localPromptPresetId}
                   onChange={(e) => {
@@ -3571,9 +3537,7 @@ export function ConnectionEditor({
 
             {/* ── Default Chat Parameters ── */}
             {!isMediaGenerationProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.defaultChatParameters")}>
                 <SettingsSwitch
                   label={localizeUi("ui.connections.connectioneditor.useCustomDefaultsForThisConnection")}
                   checked={localDefaultParametersEnabled}
@@ -3659,9 +3623,7 @@ export function ConnectionEditor({
 
             {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
             {(localProvider === "anthropic" || localProvider === "openrouter") && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.promptCaching")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
                 <SettingsSwitch
                   label={localizeUi("ui.connections.connectioneditor.enablePromptCaching")}
                   checked={localEnableCaching}
@@ -3720,9 +3682,7 @@ export function ConnectionEditor({
             )}
 
             {isVideoGenerationProvider && selectedVideoDefaultsService === "seedance" && localVideoDefaults && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.seedanceReferences")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.seedanceReferences")}>
                 <div className="mx-2 mt-2 space-y-2 rounded-lg border border-[var(--border)] p-2">
                   <SettingsSwitch
                     label={localizeUi("ui.connections.connectioneditor.uploadSeedanceReferenceFramesTemporarily")}
@@ -3799,9 +3759,7 @@ export function ConnectionEditor({
 
             {/* ── Claude (Subscription) — Fast Mode toggle ── */}
             {isClaudeSubscriptionProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.fastMode")}
-              >
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.fastMode")}>
                 <SettingsSwitch
                   label={
                     <span className="font-medium text-[var(--foreground)]">
@@ -3854,13 +3812,9 @@ export function ConnectionEditor({
 
           <EditorSection id="generation" tabbed={tabbed}>
             <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-              
-
               {/* ── Max Output Tokens Override ── */}
               {!isMediaGenerationProvider && !isLocalAuthProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}
-                >
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}>
                   <div className="flex items-center gap-3">
                     <DraftNumberInput
                       value={localMaxTokensOverride ?? 0}
@@ -3886,9 +3840,7 @@ export function ConnectionEditor({
             <div className="grid gap-6 empty:hidden sm:grid-cols-2">
               {/* ── Agent Parallel Jobs ── */}
               {!isMediaGenerationProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}
-                >
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
                   <div className="flex items-center gap-3">
                     <DraftNumberInput
                       value={localMaxParallelJobs}
@@ -3914,9 +3866,7 @@ export function ConnectionEditor({
 
               {/* ── Rate Limit (requests per minute) ── */}
               {!isMediaGenerationProvider && (
-                <FieldGroup
-                  label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
-                >
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
                   <div className="flex items-center gap-3">
                     <DraftNumberInput
                       value={localMaxRequestsPerMinute ?? 0}
@@ -3950,127 +3900,125 @@ export function ConnectionEditor({
               aria-expanded={moreOpen}
               className="mari-chrome-control mari-chrome-control--small text-xs self-start"
             >
-              <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", moreOpen && "rotate-180")} />
+              <ChevronDown
+                size="0.75rem"
+                aria-hidden
+                className={cn("transition-transform", moreOpen && "rotate-180")}
+              />
               {t("connections.editor.more")}
             </button>
             {moreOpen && (
               <div className="space-y-6">
-            {canTreatAsLocalEndpoint && !accountLinked && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}
-              >
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
-                  checked={localTreatAsLocalEndpoint}
-                  onChange={(checked) => {
-                    setLocalTreatAsLocalEndpoint(checked);
-                    markDirty();
-                  }}
-                />
-              </FieldGroup>
-            )}
-
-            {/* ── OpenRouter Provider Preference ── */}
-            {localProvider === "openrouter" && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.preferredProvider")}
-              >
-                <input
-                  value={localOpenrouterProvider}
-                  onChange={(e) => {
-                    setLocalOpenrouterProvider(e.target.value);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                  placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
-                />
-              </FieldGroup>
-            )}
-
-            {/* ── Embedding Model (for lorebook vectorization) ── */}
-            {!isMediaGenerationProvider && (
-              <FieldGroup
-                label={localizeUi("ui.connections.connectioneditor.semanticSearchEmbeddings")}
-              >
-                {supportsDirectEmbeddingConfig ? (
-                  <>
-                    <input
-                      value={localEmbeddingModel}
-                      onChange={(e) => {
-                        setLocalEmbeddingModel(e.target.value);
+                {canTreatAsLocalEndpoint && !accountLinked && (
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
+                    <SettingsSwitch
+                      label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
+                      checked={localTreatAsLocalEndpoint}
+                      onChange={(checked) => {
+                        setLocalTreatAsLocalEndpoint(checked);
                         markDirty();
                       }}
-                      className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
-                      placeholder={localizeUi("ui.connections.connectioneditor.eGTextEmbedding3Small")}
                     />
+                  </FieldGroup>
+                )}
 
-                    {/* Embedding Base URL Override */}
+                {/* ── OpenRouter Provider Preference ── */}
+                {localProvider === "openrouter" && (
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
+                    <input
+                      value={localOpenrouterProvider}
+                      onChange={(e) => {
+                        setLocalOpenrouterProvider(e.target.value);
+                        markDirty();
+                      }}
+                      className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                      placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
+                    />
+                  </FieldGroup>
+                )}
+
+                {/* ── Embedding Model (for lorebook vectorization) ── */}
+                {!isMediaGenerationProvider && (
+                  <FieldGroup label={localizeUi("ui.connections.connectioneditor.semanticSearchEmbeddings")}>
+                    {supportsDirectEmbeddingConfig ? (
+                      <>
+                        <input
+                          value={localEmbeddingModel}
+                          onChange={(e) => {
+                            setLocalEmbeddingModel(e.target.value);
+                            markDirty();
+                          }}
+                          className="mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9"
+                          placeholder={localizeUi("ui.connections.connectioneditor.eGTextEmbedding3Small")}
+                        />
+
+                        {/* Embedding Base URL Override */}
+                        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                          <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+                            {localizeUi("ui.connections.connectioneditor.embeddingEndpointUrl")}
+                          </label>
+                          <input
+                            value={localEmbeddingBaseUrl}
+                            onChange={(e) => {
+                              setLocalEmbeddingBaseUrl(e.target.value);
+                              markDirty();
+                            }}
+                            className={cn(
+                              "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
+                              embeddingBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                            )}
+                            placeholder={localizeUi("ui.connections.connectioneditor.eGHttpLocalhost5002V1")}
+                          />
+                          {embeddingBaseUrlValidation.error && (
+                            <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">
+                              {embeddingBaseUrlValidation.error}
+                            </p>
+                          )}
+                          {!embeddingBaseUrlValidation.error &&
+                            embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim() && (
+                              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                                {localizeUi("ui.connections.connectioneditor.willSaveAs")}{" "}
+                                {embeddingBaseUrlValidation.value}
+                              </p>
+                            )}
+                        </div>
+                      </>
+                    ) : null}
+
+                    {/* Embedding Connection Override */}
                     <div className="mt-3 pt-3 border-t border-[var(--border)]">
                       <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
-                        {localizeUi("ui.connections.connectioneditor.embeddingEndpointUrl")}
+                        {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
                       </label>
-                      <input
-                        value={localEmbeddingBaseUrl}
+                      <select
+                        value={localEmbeddingConnectionId}
                         onChange={(e) => {
-                          setLocalEmbeddingBaseUrl(e.target.value);
+                          setLocalEmbeddingConnectionId(e.target.value);
                           markDirty();
                         }}
-                        className={cn(
-                          "mari-chrome-field h-11 w-full px-3 font-mono text-xs md:h-9",
-                          embeddingBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                        className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                      >
+                        <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
+                        {import.meta.env.VITE_MARINARA_LITE !== "true" && (
+                          <option value={LOCAL_SIDECAR_CONNECTION_ID}>
+                            {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
+                          </option>
                         )}
-                        placeholder={localizeUi("ui.connections.connectioneditor.eGHttpLocalhost5002V1")}
-                      />
-                      {embeddingBaseUrlValidation.error && (
-                        <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">
-                          {embeddingBaseUrlValidation.error}
-                        </p>
-                      )}
-                      {!embeddingBaseUrlValidation.error &&
-                        embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim() && (
-                          <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                            {localizeUi("ui.connections.connectioneditor.willSaveAs")}{" "}
-                            {embeddingBaseUrlValidation.value}
-                          </p>
-                        )}
+                        {((allConnections ?? []) as Record<string, unknown>[])
+                          .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
+                          .map((c) => (
+                            <option key={c.id as string} value={c.id as string}>
+                              {c.name as string}
+                              {c.embeddingModel
+                                ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
+                                : ""}
+                            </option>
+                          ))}
+                      </select>
                     </div>
-                  </>
-                ) : null}
-
-                {/* Embedding Connection Override */}
-                <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                  <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
-                    {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
-                  </label>
-                  <select
-                    value={localEmbeddingConnectionId}
-                    onChange={(e) => {
-                      setLocalEmbeddingConnectionId(e.target.value);
-                      markDirty();
-                    }}
-                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                  >
-                    <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
-                    {import.meta.env.VITE_MARINARA_LITE !== "true" && (
-                      <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                        {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
-                      </option>
-                    )}
-                    {((allConnections ?? []) as Record<string, unknown>[])
-                      .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
-                      .map((c) => (
-                        <option key={c.id as string} value={c.id as string}>
-                          {c.name as string}
-                          {c.embeddingModel
-                            ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
-                            : ""}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </FieldGroup>
-            )}
-          </div>
+                  </FieldGroup>
+                )}
+              </div>
             )}
           </EditorSection>
 
@@ -4249,9 +4197,7 @@ function ImageGenerationDefaultsPanel({
   };
 
   return (
-    <FieldGroup
-      label={localizeUi("ui.connections.imagegenerationdefaultspanel.localImageDefaults")}
-    >
+    <FieldGroup label={localizeUi("ui.connections.imagegenerationdefaultspanel.localImageDefaults")}>
       <div className="rounded-xl border border-[var(--border)]">
         <button
           type="button"
@@ -4797,9 +4743,7 @@ function VideoGenerationDefaultsPanel({
   };
 
   return (
-    <FieldGroup
-      label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}
-    >
+    <FieldGroup label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}>
       <div className="rounded-xl border border-[var(--border)]">
         <button
           type="button"

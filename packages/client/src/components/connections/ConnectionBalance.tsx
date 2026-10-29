@@ -385,17 +385,8 @@ function UsageKeySheet({
             aria-label={t("connections.usage.sheetTitle", { service })}
             className="flex flex-col gap-2"
           >
-            {candidates.map((other) =>
-              option(
-                other.id,
-                t("connections.usage.useConnection", { service }),
-              ),
-            )}
-            {option(
-              "paste",
-              t("connections.usage.pasteKey"),
-              choice === "paste" && keyField,
-            )}
+            {candidates.map((other) => option(other.id, t("connections.usage.useConnection", { service })))}
+            {option("paste", t("connections.usage.pasteKey"), choice === "paste" && keyField)}
           </div>
         ) : (
           <>
