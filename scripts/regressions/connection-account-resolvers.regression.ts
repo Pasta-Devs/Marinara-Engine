@@ -190,6 +190,10 @@ try {
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: null,
     visionConnectionId: null,
+    mariFallbackConnectionId: null,
+    omnibarAsideFallbackConnectionId: null,
+    impersonateFallbackConnectionId: null,
+    visionFallbackConnectionId: null,
   });
   const stale = await putFeatureModels({
     mariConnectionId: "no-such-model",
@@ -201,6 +205,10 @@ try {
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
     visionConnectionId: null,
+    mariFallbackConnectionId: null,
+    omnibarAsideFallbackConnectionId: null,
+    impersonateFallbackConnectionId: null,
+    visionFallbackConnectionId: null,
   });
   // This bare app has no error handler, so a schema failure is a 500 here and a 400 in the server.
   assert.notEqual((await putFeatureModels({ mariConnectionId: "" })).statusCode, 200, "empty ids are rejected");
@@ -211,6 +219,10 @@ try {
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
     visionConnectionId: null,
+    mariFallbackConnectionId: null,
+    omnibarAsideFallbackConnectionId: null,
+    impersonateFallbackConnectionId: null,
+    visionFallbackConnectionId: null,
   };
   assert.deepEqual(merged.json(), chosen, "one field changes, the others stay");
   assert.deepEqual(await getFeatureModels(), chosen);
@@ -257,6 +269,10 @@ try {
     omnibarAsideConnectionId: LOCAL_SIDECAR_CONNECTION_ID,
     impersonateConnectionId: primary.connectionId,
     visionConnectionId: null,
+    mariFallbackConnectionId: null,
+    omnibarAsideFallbackConnectionId: null,
+    impersonateFallbackConnectionId: null,
+    visionFallbackConnectionId: null,
   });
   await connections.remove(primary.connectionId);
   assert.equal((await getFeatureModels()).impersonateConnectionId, null);
