@@ -1,97 +1,93 @@
 # Connecting to an AI Provider
 
-This guide shows you how to connect Marinara Engine to an AI provider so your characters can reply. You will add a connection, paste an API key, choose models, and test that it works.
+This guide shows you how to connect Marinara Engine to an AI provider so your characters can reply. You add an account, paste its key, and pick the model that answers your chats.
 
-## What a connection is
+## Accounts and models
 
-A connection is one API key, account, or endpoint for an AI service. It stores the service, the API key or login, the endpoint (the web address of the service), its limits, and an on/off switch. The models you save are grouped under the connection, and each saved model keeps its own settings. If you use two keys for the same service, you have two connections.
+An **account** is one key, sign-in, or address for an AI provider. It stores the provider, the key, the address, and its limits. If you use two keys for the same provider, you have two accounts.
 
-An API key is a secret code from your AI provider. It works like a password. It lets Marinara talk to the AI service and use your account there. Marinara stores your key encrypted, and it is never included when you export a connection.
+A **model** is one AI model you saved from an account, such as GPT or Claude. Each saved model keeps its own settings. Models sit under their account in the **Connections** panel.
 
-Marinara Engine does not come with a ready-made connection or a free starter key. A fresh install has zero connections. You must create at least one connection before you can start a chat.
+An API key is a secret code from your AI provider. It works like a password. Marinara stores your key on the computer that runs Marinara, and it is never included when you export.
 
-## Opening the Connections panel
+Marinara Engine does not come with a ready-made account or a free starter key. You must add at least one account before you can start a chat. The **Built-in model** under **On your computer** is the one exception: it runs on your own computer without an account (see [Local Model Setup](local-model.md)).
 
-You manage connections in the **Connections** panel on the right side of the app.
+## The Connections panel
 
-If you have no connections yet and you try to start a chat, Marinara opens the **Add connection** window at once. When you finish, **Start chatting** creates the chat with the model you picked.
+You manage accounts in the **Connections** panel on the right side of the app. From top to bottom it shows:
 
-At the top of the panel is the **Defaults** row. Its page sets your **Main** model, a **Fallback**, and the models for other jobs such as decisions, embeddings, and images. Below it are your connections, in the groups **Chat**, **Images & voice**, and **On this device**. Click a connection to see its models (see [Organizing Connections](organizing-connections.md)).
+- **Search models and accounts**, which filters the list as you type.
+- **Add**, which opens the **Add account** window, and **More actions** (three dots), which has **Import account**, **Export all accounts**, sorting, folding, and grouping.
+- The **Jobs** box. It says which model does each job, such as **Main** for chat replies or **Images** for pictures. See [Choosing the model for each job](#choosing-the-model-for-each-job).
+- Your accounts, each with its saved models under it. See [Organizing Connections](organizing-connections.md).
 
-Two buttons sit above the list:
+## Adding an account
 
-- **Add connection** opens the **Add connection** window.
-- **Import** loads connections from a file.
+1. In the **Connections** panel, click **Add**. The **Add account** window lists providers under **Popular**, **Subscriptions**, **On your computer**, and **All providers**. Type in **Search providers** to find one.
+2. Click a provider, such as **OpenAI**, **Anthropic**, or **OpenRouter**.
+3. Paste the key into **API key**. **Where do I find my key?** opens the provider's key page. The eye button shows or hides the key. **More options** has the optional **Name**, the **Address**, **Requests per minute**, and **Parallel jobs**.
+4. Click **Connect**. Marinara tests the key. When it works, the window closes, a message says how many models the account offers, and the panel scrolls to the new account. When it fails, the window shows why and **Try again**. Servers on your computer also offer **Continue anyway**.
 
-The **More actions** button (three dots) opens a menu with **Export all connections**.
+Adding an account does not choose a model. Pick the model for each job in the **Jobs** box next.
 
-## Creating a connection
+If you leave **Name** empty, Marinara names the account after the provider. A second account for the same provider without a typed name gets the last 4 characters of its key, for example `OpenAI · …a1b2`. A name you type is never changed.
 
-Follow these steps to add your first connection.
+You usually do not need to touch **Address**. Marinara fills it in for known providers. Change it only for a proxy or a server on your computer.
 
-1. In the **Connections** panel, click **Add connection**. The window shows one screen at a time, with a step count and a **Back** button. On a phone it fills the screen.
-2. Choose a service, such as **OpenAI**, **Anthropic**, or **OpenRouter**. Search by its name or what it provides, such as chat or images. If the service is already connected, choose **Add models to it** or **Connect a second account**.
-3. Enter the service's key, sign in, or enter your local server's **Server address**. The eye button shows or hides a key. **More options** contains the optional name and advanced connection settings. Click **Test and continue**. A successful test opens the model list. A failed test shows its reason and **Try again**; local servers also offer **Continue anyway**.
-4. Choose models to star. Clicking a model or its star saves it under the connection. Clicking its star again removes the star. If a model is missing from the catalog, type its exact ID. Click **Continue** to review the models you added.
-5. On the ready screen, choose whether to **use the first model in this chat** or **make it your Main model**. These are separate choices. Making it Main is selected initially only when you have no Main model. **Done**, **Add another connection**, or **Start chatting** applies the choices. Closing the window leaves the starred models saved without applying these choices.
+Some providers use a sign-in on your computer instead of a key. They are under **Subscriptions** and have no key field. See [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md). To connect a model running on your own computer, see [Connecting a Local or Self-Hosted Model](local-self-hosted.md). For every supported provider and where to get each key, see [Supported AI Providers](providers-reference.md).
 
-If you leave the **Name** empty, Marinara names the connection after the service. When you add a second connection for the same service without typing a name, the automatic name gets the last 4 characters of the key, for example `OpenAI · …a1b2`. A name you type is never changed.
+### Starting a chat with no account
 
-If you pick a service that you already connected, step 1 marks it **Already connected**. Choose **Add models to it** to open its model list, or add a second key as a new connection.
+If you start a chat before you have a model, Marinara opens the **Add account** window first. After **Connect**, it shows the provider's models. Click one, then click **Start chatting**. The footer can also make that model your **Main** model.
 
-### On this device
+## Choosing the model for each job
 
-The **On this device** group in step 1 has the parts that are built into Marinara: **Local Model**, **Text to Speech**, and **Speech to Text** (only when the **Calls** agent is installed). They need no account. A part that you already set up shows **Already set up**. **Local Model** opens the Local Model download (see [Local Model Setup](local-model.md)). **Text to Speech** and **Speech to Text** show their settings in the window, and changes save at once.
+The **Jobs** box lists every job a model can do, in four groups:
 
-### Adding models later
+- **Chat**: **Main** writes replies in your chats. **Agents** runs the helper agents. **Impersonate** writes as you.
+- **Omnibar**: **Professor Mari** and **Quick answers**.
+- **Pictures & sound**: **Images**, **Video**, and **Voice (Text to Speech)**.
+- **Behind the scenes**: **Decision**, **Embeddings**, and **Image reading**.
 
-To add models to a connection that you already have, click **⋯** on its row in the panel and **Add model**, or click **Add model** in its editor. This opens the same model list as step 3, for that connection only. Click a model or its star to add it, click the star again to remove it (see [Favorites](organizing-connections.md#favorites-and-moving-models)), and click **Done** to close.
+Each row shows the model doing that job and its provider, or what the job does without one, such as **Follows Main** or **Off**. A job that needs a model shows **Choose a model**.
 
-**Browse all models** in the chat input's **Connections** menu opens the same list. There, a click on a model uses it in this chat only, and a click on its star adds it to the connection.
+Click a row to open **Model for** that job. It shows the model doing the job under **Now**, your **Starred** models, and then your saved models by account. **All models** under an account opens its full catalog. Type in **Search all models or paste a model ID** to search every catalog at once. Click any model to give it the job; you do not have to save it first. **If it fails** at the top of the window picks a second model that answers when the first one fails. **Add account** at the bottom opens the Add window.
 
-Later, you can change the model for one chat without opening the editor: use the **Connections** menu in the chat input or the **Model** field in **Chat Settings → Connection**. See [Quick switch](organizing-connections.md#shuffle-and-quick-switch).
+Click **Jobs** to fold the box down to its header.
 
-You usually do not need to touch the **Endpoint** field. Marinara fills it in for known services. Only change it if you use a proxy or a local server.
+### When a feature needs a model
 
-For the list of every supported provider, its default settings, and where to get each key, see [Supported AI Providers](providers-reference.md).
+An agent or feature that cannot work without a kind of model says so with a **Needs an image model** label (or video, audio, decision, or chat). It shows on the agent's card in the **Agents** panel, in **Chat Settings**, in the agent editor, and in the image and video windows. Click **Set up** next to it to open **Model for** that job, where you can pick a model or click **Add account**. The label goes away once the job has a model. When a reply fails because no image model is set, the message's **Set up** opens the **Connections** panel.
 
-Some services use a local login instead of an API key. For those, there is no key field. See [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md).
+## Testing an account
 
-To connect a model running on your own computer, see [Connecting a Local or Self-Hosted Model](local-self-hosted.md).
+**Connect** already tests the key. To test it again later, open the account's **⋯** menu in the panel and click **Test**. The account editor (**Edit account**) has **Test account**, which checks the key and address as you typed them, before you save.
 
-## Testing your connection
+## Choosing a model for one chat
 
-**Test and continue** in the Add flow already checks the connection. You can test it again later with **Test** on the connection's card. To test a saved model, open it from its connection in the panel. The bottom of the model editor has a **Connection Tests** card. Use it to confirm your setup works before you chat.
+A new chat uses your **Main** model. To give one chat a different model, open the **Connections** menu in the chat input, or the **Model** field in **Chat Settings → Connection**. Both open **Model for this chat**:
 
-1. Click **Test Connection**. This checks your API key against the provider. On success you see a green **Connection Test: Success** line with the response time.
-2. Click **Send Test Message**. This sends the word "hi" to the model you picked and shows the reply. On success you see a green **Test Message: Success** line with the model's answer below it.
+- **Now** shows the model the chat uses. **This chat only** means the chat has its own pick; **follows Main** means it uses Main.
+- **Recent** and **Starred** list your models by account.
+- **Search models or paste an ID…** searches every catalog. **Browse** opens one account's full list.
+- **Follow Main** clears the chat's own pick. **Shuffle** picks a different model each time.
 
-The **Send Test Message** button stays disabled until you pick a model. If a test fails, the line turns red and shows the error. That message usually tells you what to fix, such as a wrong key or an unknown model.
-
-## Choosing a model for a chat
-
-A new chat uses your **Main** model from **Defaults** in the **Connections** panel. To give one chat a different model, use either of these:
-
-- Open the **Connections** menu in the chat input, then pick a model.
-- Open **Chat Settings**, find the **Connection** section, and open the **Model** field to pick a model.
-
-A pick there changes only that chat. Both places open the same chooser: the current model stays at the top, followed by recent and starred models. **Browse** opens a connection's catalog. **Follow Main** clears the chat's own pick. **Shuffle** picks a different model each time from your pool. In Game Mode the field is labeled **GM / Party Model**.
-
-When you create a brand-new chat and have no connection saved, the **Add connection** window opens first. Add a connection and pick a model, then click **Start chatting**.
+A pick changes only that chat. The message after a pick offers **Make it my Main model** and **Undo**. In Game Mode the field is labeled **GM / Party Model**.
 
 ## Common errors
 
 If a test or a message fails, check these first:
 
-- A wrong or expired **API key**. Open the connection with its **Edit** button, paste the key again, then click **Save**. A connection that has no key shows **Needs key**.
-- No model chosen. **Send Test Message** stays disabled until you select a **Model**. A connection with no models shows **No models yet**.
-- A key from the wrong service. Each service needs its own key.
-- A blocked or unreachable **Endpoint**. Leave it empty to use the provider default, unless you run a local or proxy server.
+- A wrong or expired key. Open the account's **⋯** menu, click **Replace key**, and paste the key again. An account without a key shows **Needs key**.
+- An account that is off. It shows **Off**; click **Turn on** in its **⋯** menu.
+- A key from the wrong provider. Each provider needs its own key.
+- A blocked or unreachable **Address**. Leave it empty to use the provider's own, unless you use a proxy or a server on your computer.
 
-For more fixes to connection and generation errors, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+For more fixes, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 
+- [Organizing Connections](organizing-connections.md)
 - [Supported AI Providers](providers-reference.md)
 - [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md)
 - [Connecting a Local or Self-Hosted Model](local-self-hosted.md)

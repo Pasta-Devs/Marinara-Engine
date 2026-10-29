@@ -126,7 +126,7 @@ The **Connection** section picks which AI model answers in this chat. A connecti
 
 The **Model** field shows the effective model and whether this chat follows **Main** or has its own choice. Click it to open the same chooser as the model button in the chat input. The current model stays at the top, with recent and starred models below. Search across models and connections, or use **Browse** to open one connection's catalog. A pick changes only this chat.
 
-**Follow Main** clears the chat's own choice. **Shuffle** chooses a different model for each reply from your pool. If a connection needs a key or is off, its model leads to the repair action. Stars save models to your list without changing the chat. See [Shuffle and quick switch](../connections/organizing-connections.md#shuffle-and-quick-switch) for details.
+**Follow Main** clears the chat's own choice. **Shuffle** chooses a different model for each reply from your pool. If a connection needs a key or is off, its model leads to the repair action. Stars save models to your list without changing the chat. See [Shuffle](../connections/organizing-connections.md#shuffle) for details.
 
 To learn how to create a connection in the first place, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
