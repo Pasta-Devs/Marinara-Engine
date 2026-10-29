@@ -1,8 +1,9 @@
 import { useEffect, useId, useState, type DragEvent, type ReactNode } from "react";
-import { Folder, FolderOpen, FolderPlus, Pencil, Search, Trash2, X } from "lucide-react";
+import { Folder, FolderOpen, FolderPlus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 
@@ -92,9 +93,7 @@ export function SpriteLibraryShell({
 }) {
   const { t } = useTranslation();
   const label = (key: string) => t(`sprites.library.${key}`);
-  const [creating, setCreating] = useState(false),
-    [name, setName] = useState(""),
-    [moveTo, setMoveTo] = useState("unfiled");
+  const [moveTo, setMoveTo] = useState("unfiled");
   return (
     <div
       className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
@@ -120,45 +119,19 @@ export function SpriteLibraryShell({
         <button
           type="button"
           className={button}
-          disabled={busy || library.query.isPending}
-          aria-expanded={creating}
-          onClick={() => setCreating(!creating)}
+          disabled={busy || library.query.isPending || library.mutation.isPending}
+          onClick={() => {
+            const names = new Set(library.folders.map((folder) => folder.name.toLowerCase()));
+            let name = "unnamed";
+            let index = 2;
+            while (names.has(name)) name = `unnamed ${index++}`;
+            void library.mutate("post", "folders", { name });
+          }}
         >
           <FolderPlus size={16} />
           {label("newFolder")}
         </button>
       </div>
-      {creating && (
-        <form
-          className="space-y-2"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const result = await library.mutate("post", "folders", { name });
-            if (result) {
-              setName("");
-              setCreating(false);
-            }
-          }}
-        >
-          <label className="block space-y-1 text-xs">
-            <span>{label("folderName")}</span>
-            <input
-              className={`${control} w-full`}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={100}
-              required
-            />
-          </label>
-          <button className={`${button} w-full`} disabled={busy || library.mutation.isPending}>
-            {label("create")}
-          </button>
-          <button type="button" className={`${button} w-full`} onClick={() => setCreating(false)}>
-            {label("cancel")}
-          </button>
-        </form>
-      )}
-
       {library.query.isError && (
         <p role="alert" className="text-sm text-[var(--destructive)]">
           {label("loadError")}
@@ -367,10 +340,20 @@ function SpriteInlineFolder({
 }) {
   const { t } = useTranslation();
   const label = (key: string) => t(`sprites.library.${key}`);
-  const [open, setOpen] = useState(true),
-    [editingFolder, setEditingFolder] = useState<string | null>(null);
-  const detailsId = useId(),
-    contentId = useId();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(current.name);
+  const gesture = useFolderRenameGesture();
+  const contentId = useId();
+  const beginRename = () => {
+    setDraft(current.name);
+    setEditing(true);
+  };
+  const rename = () => {
+    const name = draft.trim();
+    setEditing(false);
+    if (name && name !== current.name) void library.mutate("patch", "folders/" + current.id, { name });
+  };
   const expanded = open || Boolean(library.search);
   return (
     <section
@@ -381,78 +364,69 @@ function SpriteInlineFolder({
         highlighted && "ring-2 ring-[var(--primary)]",
       )}
     >
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold"
+      <div className="group relative flex items-center gap-2">
+        <div
+          role="button"
+          tabIndex={0}
           aria-label={current.name}
           aria-expanded={expanded}
           aria-controls={contentId}
-          disabled={Boolean(library.search)}
-          onClick={() => setOpen(!open)}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold"
+          onClick={(event) => {
+            if (!editing && !library.search)
+              gesture(current.id, event, { onSingleClick: () => setOpen(!open), onRename: beginRename });
+          }}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget || editing || library.search) return;
+            handleFolderRenameKeyDown(event, { onSingleClick: () => setOpen(!open), onRename: beginRename });
+          }}
         >
           {expanded ? <FolderOpen size={16} /> : <Folder size={16} />}
-          <span className="min-w-0 flex-1 break-words">{current.name}</span>
+          {editing ? (
+            <input
+              autoFocus
+              aria-label={label("folderName")}
+              className="min-w-0 flex-1 rounded bg-transparent px-1 outline-none ring-1 ring-[var(--border)]"
+              maxLength={100}
+              value={draft}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setEditing(false);
+                }
+              }}
+              onBlur={rename}
+            />
+          ) : (
+            <span className="min-w-0 flex-1 break-words">{current.name}</span>
+          )}
           <span className="text-xs font-normal text-[var(--muted-foreground)]">
             {library.counts.get(current.id) ?? 0}
           </span>
-          <span className="text-xs font-normal">{label(expanded ? "collapse" : "expand")}</span>
-        </button>
+        </div>
         <button
           type="button"
-          className={button}
-          aria-label={label("folderDetails")}
-          aria-expanded={editingFolder === current.id}
+          className="mari-editor-action mari-editor-action--danger min-h-11! min-w-11! opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100"
+          aria-label={label("removeFolder")}
           disabled={busy}
-          onClick={() => setEditingFolder(editingFolder ? null : current.id)}
+          onClick={async () => {
+            if (
+              await showConfirmDialog({
+                title: label("removeFolder"),
+                message: label("removeFolderMessage"),
+                confirmLabel: label("removeFolder"),
+                tone: "destructive",
+              })
+            )
+              await library.mutate("delete", "folders/" + current.id);
+          }}
         >
-          <Pencil size={14} />
+          <Trash2 size={14} />
         </button>
       </div>
-      {editingFolder === current.id && (
-        <div id={detailsId}>
-          <form
-            className="space-y-2 pt-2"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const result = await library.mutate("patch", `folders/${current.id}`, {
-                name: form.get("name"),
-              });
-              if (result) setEditingFolder(null);
-            }}
-          >
-            <label className="block space-y-1">
-              <span>{label("folderName")}</span>
-              <input name="name" className={`${control} w-full`} defaultValue={current.name} maxLength={100} required />
-            </label>
-            <button className={`${button} w-full`} disabled={busy || library.mutation.isPending}>
-              {label("saveFolder")}
-            </button>
-          </form>
-          <button
-            type="button"
-            className={`${button} mari-editor-action--danger mt-2 w-full`}
-            disabled={busy || library.mutation.isPending}
-            onClick={async () => {
-              if (
-                !(await showConfirmDialog({
-                  title: label("removeFolder"),
-                  message: label("removeFolderMessage"),
-                  confirmLabel: label("removeFolder"),
-                  tone: "destructive",
-                }))
-              )
-                return;
-              await library.mutate("delete", `folders/${current.id}`);
-            }}
-          >
-            <Trash2 size={14} />
-            {label("removeFolder")}
-          </button>
-        </div>
-      )}
-
       {expanded && (
         <div id={contentId}>
           {children}

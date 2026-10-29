@@ -75,6 +75,25 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await library.getByRole("button", { name: "New folder", exact: true }).click();
+    const unnamed = library.getByRole("button", { name: "unnamed", exact: true });
+    await expect(unnamed).toHaveAttribute("aria-expanded", "false");
+    await unnamed.focus();
+    await page.keyboard.press("F2");
+    await library.getByRole("textbox", { name: "Folder name", exact: true }).fill("Test folder");
+    await page.keyboard.press("Enter");
+    await expect(library.getByRole("button", { name: "Test folder", exact: true })).toBeVisible();
+    await library
+      .locator("[data-sprite-folder]")
+      .filter({ has: library.getByRole("button", { name: "Test folder", exact: true }) })
+      .getByRole("button", { name: "Remove folder", exact: true })
+      .click();
+    await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
+    await frontSection.getByRole("button", { name: "Front", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
     await expect(section.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
       "aria-expanded",
@@ -210,6 +229,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
 
     // Upload images is a real multi-file picker, with the current type and destination.
     await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+    await library
+      .locator(`[data-sprite-folder="${expressionFront}"]`)
+      .getByRole("button", { name: "Front", exact: true })
+      .click();
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
     const picker = page.waitForEvent("filechooser");
     await library.getByRole("button", { name: "Upload images", exact: true }).click();
@@ -231,21 +254,27 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
 
     await expect(frontSection).toHaveCount(0);
     const expressionSection = library.locator(`[data-sprite-folder="${expressionFront}"]`);
-    await expressionSection.getByRole("button", { name: "Folder details", exact: true }).click();
+    await expressionSection.getByRole("button", { name: "Front", exact: true }).focus();
+    await page.keyboard.press("F2");
     const longName = "x".repeat(100);
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill(longName);
-    await library.getByRole("button", { name: "Save folder", exact: true }).click();
+    await page.keyboard.press("Enter");
+    await expect(expressionSection.getByRole("button", { name: longName, exact: true })).toBeVisible();
     await expect(library.getByRole("button", { name: "Use by default", exact: true })).toHaveCount(0);
     expect(await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
     await expect(library.getByRole("button", { name: "Front", exact: true })).toBeVisible();
     for (const id of [alternate, front]) {
       const folder = library.locator('[data-sprite-folder="' + id + '"]');
-      await folder.getByRole("button", { name: "Folder details", exact: true }).click();
       await folder.getByRole("button", { name: "Remove folder", exact: true }).click();
       await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
       await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
       await expect(expressionSection).toBeVisible();
+      await expect(expressionSection.getByRole("button", { name: longName, exact: true })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      await expressionSection.getByRole("button", { name: longName, exact: true }).click();
       await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
       await section.getByRole("button", { name: "Full-body", exact: true }).click();
     }
