@@ -112,13 +112,70 @@ Pi funktioniert mit jeder Verbindung, auch mit dem lokalen Modell. Verhält sich
 
 Öffne die **Search and Professor Mari settings** und scroll zu **Appearance** (Aussehen). Wähl ein Aussehen für sie, etwa **Basic**, **Prof. Mari loves Dottore** oder **Safari Prof. Mari**. Ihr neues Aussehen erscheint in ihrem Chat, in der Suche, auf Home und in der oberen Leiste. Manche Looks werden erst nach genug Spielzeit freigeschaltet. Ein gesperrter Look zeigt, wie viele Stunden du bisher gespielt hast.
 
+## Das Büroklammer-Menü
+
+Klick auf die Büroklammer-Schaltfläche mit der Beschriftung **Attach** (anhängen), um ein Menü mit drei Abschnitten zu öffnen:
+
+- **Attach**: **Attach files or photos** (Dateien oder Fotos anhängen), **Add chat history** (Chatverlauf hinzufügen; damit teilst du einen deiner früheren Chats mit ihr) und **View attached context** (angehängten Kontext ansehen).
+- **Reference**: **Link with @** (mit @ verknüpfen) tippt `@` in das Nachrichtenfeld und öffnet die weiter unten beschriebene Liste zum Verknüpfen.
+- **Mari**: **New chat** (neuer Chat), **Chat history**, **Skills**, **Memories** (Erinnerungen), **Model** (Modell) und **Permissions**. **Pending approvals** (ausstehende Freigaben) erscheint hier, solange eine Änderung auf dich wartet.
+
+Dieselben Befehle kannst du auch mit `/` tippen, wie unter [Befehle mit /](#commands-with-) beschrieben.
+
 ## Dateien anhängen
 
-Klick auf die Büroklammer-Schaltfläche mit der Beschriftung **Attach files** (Dateien anhängen), um deiner Nachricht eine Datei beizulegen.
+Wähl im Büroklammer-Menü **Attach files or photos** oder tipp `/attach`, um deiner Nachricht eine Datei beizulegen.
 
 Sie nimmt Bilder, PDF-Dateien und gängige Textdateien wie `.txt`, `.md`, `.json`, `.csv` und `.log` an. Jede Datei darf bis zu 20 MB groß sein. Angehängte Dateien erscheinen vor dem Absenden als entfernbare Chips über dem Nachrichtenfeld.
 
 Damit sie ein Bild lesen kann, muss das Modell der gewählten Verbindung Bilder als Eingabe unterstützen.
+
+## Dinge mit @ verknüpfen
+
+Tipp `@` in das Nachrichtenfeld, um sie auf etwas in deiner Bibliothek zu verweisen, damit sie nicht danach suchen muss. Beim Tippen öffnet sich eine Liste, gruppiert nach **Characters** (Charaktere), **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** (Agenten) und **Docs**. Weitertippen grenzt sie ein; Namen mit Leerzeichen brauchen keine Anführungszeichen (`@Alice in Wonderland`).
+
+- Mit den Pfeiltasten bewegst du dich durch die Liste, mit **Enter** oder **Tab** wählst du aus, mit **Escape** schließt du sie. Bei einem Lorebook zeigt der Pfeil nach rechts seine **Entries** (Einträge), damit du einen einzelnen Eintrag verknüpfen kannst; der Pfeil nach links geht zurück.
+- Sitzt ihr Fenster neben einem Editor, verknüpft die erste Zeile, **Open beside me** (neben mir öffnen), das, was dieser Editor gerade geöffnet hat.
+- Neben dem Charakter-Editor hat die Zeile **Open beside me** ein › (oder drück ArrowRight), das die **Fields** (Felder) dieses Editors auflistet; tippst du nach `@` weiter, erscheinen direkt die passenden. Wählst du eines aus (`@scen` → Scenario), wechselt das Feld, an dem sie arbeitet – genauso, als hättest du hineingeklickt, bevor du sie öffnest. Es ersetzt den Feld-Chip in ihrer Kontextzeile, und der Editor scrollt zu diesem Feld. Ein Feld ist keine Verknüpfung, deshalb bleibt kein `@`-Text in deiner Nachricht stehen. **Onboarding** ist ein einziges Feld für den ganzen Block: Solange es ihr Feld ist, schickt jede Nachricht mit, was `character.onboarding.get` zurückgibt (die Fragen, eventuelle Probleme und eine Beispiel-Persona), sodass sie vom Block ausgeht, wie er gespeichert ist.
+- Ein gewählter Name wird in deiner Nachricht hervorgehoben und erscheint als Chip über dem Nachrichtenfeld. Bearbeitest oder löschst du den Namen, verschwindet die Verknüpfung mit ihm; das **×** am Chip entfernt die Verknüpfung, lässt aber deinen Text stehen.
+- In normalem Text vervollständigt **Tab** einen Namen, den sie grau vorschlägt. Drück **Tab** ein zweites Mal, um ihn in eine Verknüpfung zu verwandeln.
+
+Was jede Verknüpfung mitschickt:
+
+| Verknüpfung | Was sie bekommt |
+| --- | --- |
+| Charakter, Persona, Preset | Das ganze Objekt, so wie sie es selbst lesen würde |
+| Lorebook | Seine Einstellungen und die Liste seiner Einträge (verknüpfe einen Eintrag für den vollen Text) |
+| Lorebook-Eintrag | Den Eintrag und das Lorebook, zu dem er gehört |
+| Skill | Die Anweisungen deines eigenen Skills. Ein integrierter Skill öffnet sich stattdessen als ihr Handbuch für diese Nachricht. Verknüpfst du den Onboarding-Skill mit einem Charakter, bekommt sie außerdem den Onboarding-Block dieses Charakters |
+| Erinnerung | Der volle Text der Erinnerung, auch wenn sie ausgeschaltet ist. Erinnerungen mit **Persistent** stehen nicht in der Liste, weil sie sie ohnehin immer hat |
+| Chat | Die Details des Chats und seine 30 neuesten Nachrichten |
+| Agent | Die Einstellungen des Agenten |
+| Dokumentationsseite | Die ganze Seite aus dieser Dokumentation |
+
+Eine Verknüpfung wird **einmal** gesendet, und zwar mit der Nachricht, in der du sie setzt. In späteren Zügen sieht sie nur einen einzeiligen Hinweis, dass du sie verknüpft hast, und liest sie bei Bedarf noch einmal. Eine Nachricht trägt bis zu 8 Verknüpfungen. Summieren sie sich auf mehr als etwa ein Viertel des Kontexts deiner Verbindung (höchstens 60.000 Zeichen), werden die letzten nicht gesendet; stattdessen bekommt sie einen Hinweis und kann sie selbst lesen.
+
+Verknüpfte Objekte gelten als Information, nie als Anweisung: Eine Charakterkarte oder ein Lorebook-Eintrag kann ihr nicht sagen, was sie tun soll.
+
+<a id="commands-with-"></a>
+
+## Befehle mit /
+
+Tipp `/` am Zeilenanfang, um ihre Befehle aufzulisten. Tipp weiter, um zu filtern, und drück dann **Enter**, um einen auszuführen. Das getippte `/word` wird aus deiner Nachricht entfernt.
+
+| Befehl | Was er tut |
+| --- | --- |
+| `/new` | Startet einen neuen Chat; der aktuelle wird in **Chats** gespeichert (`/restart` funktioniert ebenfalls) |
+| `/history` | Öffnet deine früheren Chats mit ihr |
+| `/skills` | Öffnet das Panel **Skills** |
+| `/memories` | Öffnet das Panel **Memories** |
+| `/context` | Zeigt, was an diesen Chat angehängt ist |
+| `/attach` | Wählt Dateien oder Fotos zum Senden aus |
+| `/model` | Wählt die Verbindung, die sie nutzt |
+| `/permissions` | Legt fest, was sie ändern darf |
+| `/approvals` | Öffnet Änderungen, die auf dich warten (nur solange eine aussteht) |
+
+Die Liste mit `/` zeigt auch deine **Skills** und **Memories**. Wählst du eines davon aus, wird es verknüpft, genau wie bei `@`.
 
 ## Ihre Änderungen prüfen
 
@@ -191,7 +248,7 @@ Professor Mari merkt sich deine dauerhaften Vorlieben, damit du sie nicht in jed
 Eine Erinnerung bekommt sie auf zwei Wegen:
 
 - **Sag es ihr.** Zum Beispiel: „Merk dir, dass ich Lorebook-Einträge immer über den Namen des Charakters und seinen Spitznamen auslöse.“ Sie speichert das und zeigt dir eine Änderungskarte mit dem genauen Wortlaut. Eine so gespeicherte Erinnerung ist zunächst **deaktiviert** (aus) und ändert nichts, bis du sie einschaltest. Mit **Turn on** auf der Karte schaltest du sie sofort ein.
-- **Leg sie selbst an.** Klick auf die Schaltfläche **Memories** (Erinnerungen) in ihrer Chat-Kopfzeile, um das Panel **Memories** zu öffnen. Dort legst du Erinnerungen an, bearbeitest sie, schaltest sie ein oder aus und löschst sie. Über **Upload** wird außerdem der Inhalt einer `.md`- oder Textdatei zu einer Erinnerung.
+- **Leg sie selbst an.** Klick auf die Schaltfläche **Memories** in ihrer Chat-Kopfzeile, um das Panel **Memories** zu öffnen. Dort legst du Erinnerungen an, bearbeitest sie, schaltest sie ein oder aus und löschst sie. Über **Upload** wird außerdem der Inhalt einer `.md`- oder Textdatei zu einer Erinnerung.
 
 Sie speichert oder ändert eine Erinnerung nur, wenn **du** sie darum bittest – nie, weil etwas Gelesenes es ihr aufträgt: ein Charakter, ein Lorebook oder eine Datei.
 
@@ -209,7 +266,7 @@ Professor Mari führt ihre eigenen, getrennten Chats. In deiner normalen Chatlis
 
 Klick auf die Schaltfläche **Chats** in ihrer Kopfzeile, um die gespeicherten Chats mit Professor Mari zu öffnen. Ist die Liste leer, weist das Panel darauf hin: „New chat keeps this one here.“ Mit **Search Prof. Mari chats** (Prof.-Mari-Chats durchsuchen) findest du einen bestimmten. Ein Klick auf einen gespeicherten Chat öffnet ihn; umbenennen und löschen geht ebenfalls.
 
-Klick auf die Schaltfläche **New chat** (neuer Chat), um einen frischen Chat mit ihr zu beginnen. Sie speichert den aktuellen Chat zuerst in der Liste **Chats**. Dasselbe erreichst du mit `/restart` im Nachrichtenfeld. Du siehst die Meldung „Professor Mari's previous chat was saved.“
+Klick auf die Schaltfläche **New chat**, um einen frischen Chat mit ihr zu beginnen. Sie speichert den aktuellen Chat zuerst in der Liste **Chats**. Dasselbe erreichst du mit `/new` (oder `/restart`) im Nachrichtenfeld. Du siehst die Meldung „Professor Mari's previous chat was saved.“
 
 Während sie arbeitet, wird die Senden-Schaltfläche zu einer Schaltfläche **Stop**. Ein Klick darauf bricht die laufende Aufgabe ab.
 

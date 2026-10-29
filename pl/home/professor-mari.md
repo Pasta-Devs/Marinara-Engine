@@ -112,13 +112,70 @@ Pi działa z każdym połączeniem, także z modelem lokalnym. Jeśli Professor 
 
 Otwórz **Search and Professor Mari settings** i przewiń do sekcji **Appearance** (wygląd). Wybierz jej wygląd, na przykład **Basic** (podstawowy), **Prof. Mari loves Dottore** albo **Safari Prof. Mari**. Nowy wygląd pokazuje się w jej czacie, w wyszukiwarce Search, na ekranie głównym i na górnym pasku. Niektóre wyglądy odblokowują się po odpowiednio długim czasie gry. Zablokowany wygląd pokazuje, ile godzin gry masz już za sobą.
 
+## Menu spinacza
+
+Kliknij przycisk spinacza, opisany jako **Attach** (dołączanie), żeby otworzyć menu z trzema sekcjami:
+
+- **Attach**: **Attach files or photos** (dołączenie plików lub zdjęć), **Add chat history** (dodanie historii czatu; udostępnia asystentce jeden z twoich wcześniejszych czatów) i **View attached context** (podgląd dołączonego kontekstu).
+- **Reference**: **Link with @** (powiązanie przez @) wpisuje `@` w polu wiadomości i otwiera listę powiązań opisaną niżej.
+- **Mari**: **New chat** (nowy czat), **Chat history**, **Skills**, **Memories** (wspomnienia), **Model** (model) i **Permissions**. **Pending approvals** (oczekujące zatwierdzenia) pojawia się tutaj, dopóki jakaś zmiana czeka na ciebie.
+
+Te same polecenia można wpisać za pomocą `/`, jak opisano w sekcji [Polecenia z /](#commands-with-).
+
 ## Dołączanie plików
 
-Kliknij przycisk spinacza, opisany jako **Attach files** (dołączenie plików), żeby dodać plik do wiadomości.
+Wybierz w menu spinacza **Attach files or photos** albo wpisz `/attach`, żeby dodać plik do wiadomości.
 
 Asystentka przyjmuje obrazy, pliki PDF i popularne pliki tekstowe, takie jak `.txt`, `.md`, `.json`, `.csv` i `.log`. Każdy plik może mieć do 20 MB. Dołączone pliki pokazują się jako kafelki nad polem wiadomości i przed wysłaniem da się je usunąć.
 
 Żeby asystentka odczytała obraz, model wybranego połączenia musi obsługiwać obrazy na wejściu.
+
+## Wiązanie elementów przez @
+
+Wpisz `@` w polu wiadomości, żeby wskazać asystentce coś z twojej biblioteki, tak by nie musiała tego szukać. W trakcie pisania otwiera się lista, pogrupowana na **Characters** (postacie), **Personas** (persony), **Lorebooks** (lorebooki), **Presets** (presety), **Skills**, **Memories**, **Chats** (czaty), **Agents** (agenci) i **Docs**. Dalsze pisanie zawęża listę; nazwy ze spacjami nie wymagają cudzysłowu (`@Alice in Wonderland`).
+
+- Strzałkami poruszasz się po liście, **Enter** albo **Tab** wybiera pozycję, a **Escape** zamyka listę. Przy lorebooku strzałka w prawo pokazuje jego **Entries** (wpisy), żeby można było powiązać pojedynczy wpis; strzałka w lewo cofa.
+- Gdy jej okno stoi obok edytora, pierwszy wiersz, **Open beside me** (otwórz obok mnie), wiąże to, co ten edytor ma otwarte.
+- Obok edytora postaci wiersz **Open beside me** ma znak › (albo naciśnij ArrowRight), który wyświetla **Fields** (pola) tego edytora, a wpisanie czegoś po `@` od razu pokazuje pasujące. Wybranie jednego (`@scen` → Scenario) przełącza pole, nad którym pracuje asystentka, tak samo jak kliknięcie w nie przed otwarciem jej okna. Zastępuje ono kafelek pola w jej wierszu kontekstu, a edytor przewija się do tego pola. Pole nie jest powiązaniem, więc w wiadomości nie zostaje żaden tekst z `@`. **Onboarding** to jedno pole na cały blok: dopóki jest to jej pole, każda wiadomość wysyła to, co zwraca `character.onboarding.get` (pytania, ewentualne problemy i przykładową personę), dzięki czemu asystentka zaczyna od bloku w takiej postaci, w jakiej jest zapisany.
+- Wybrana nazwa jest podświetlona w wiadomości i pojawia się jako kafelek nad polem wiadomości. Jeśli zmienisz lub usuniesz nazwę, powiązanie znika razem z nią; **×** na kafelku usuwa powiązanie, ale zostawia tekst.
+- W zwykłym tekście **Tab** uzupełnia nazwę, którą asystentka podpowiada szarym kolorem. Naciśnij **Tab** drugi raz, żeby zamienić ją w powiązanie.
+
+Co wysyła każde powiązanie:
+
+| Powiązanie | Co dostaje asystentka |
+| --- | --- |
+| Postać, persona, preset | Cały element, tak jak asystentka przeczytałaby go sama |
+| Lorebook | Jego ustawienia i lista jego wpisów (powiąż wpis, żeby dostać pełny tekst) |
+| Wpis lorebooka | Wpis oraz lorebook, do którego należy |
+| Skill | Instrukcje twojego własnego dokumentu Skill. Wbudowany Skill otwiera się zamiast tego jako jej podręcznik na potrzeby tej wiadomości. Jeśli powiążesz Skill do onboardingu z postacią, asystentka dostaje też blok onboardingu tej postaci |
+| Wspomnienie | Pełna treść wspomnienia, także gdy jest wyłączone. Trwałe wspomnienia nie są na liście, bo asystentka zawsze je ma |
+| Czat | Szczegóły czatu i jego 30 najnowszych wiadomości |
+| Agent | Ustawienia agenta |
+| Strona dokumentacji | Cała strona z tej dokumentacji |
+
+Powiązanie jest wysyłane **jednorazowo**, razem z wiadomością, w której je dodajesz. W kolejnych turach asystentka widzi tylko jednolinijkową notatkę, że element został powiązany, i czyta go ponownie, jeśli go potrzebuje. Jedna wiadomość może zawierać do 8 powiązań. Jeśli razem zajmują więcej niż mniej więcej jedną czwartą kontekstu twojego połączenia (najwyżej 60 000 znaków), ostatnie nie są wysyłane; asystentka dostaje zamiast nich notatkę i może je przeczytać sama.
+
+Powiązane elementy są traktowane jako informacje, nigdy jako instrukcje: karta postaci ani wpis lorebooka nie może jej polecić, co ma robić.
+
+<a id="commands-with-"></a>
+
+## Polecenia z /
+
+Wpisz `/` na początku wiersza, żeby wyświetlić jej polecenia. Pisz dalej, żeby filtrować, a potem naciśnij **Enter**, żeby uruchomić wybrane. Wpisane `/word` jest usuwane z wiadomości.
+
+| Polecenie | Co robi |
+| --- | --- |
+| `/new` | Zaczyna nowy czat; bieżący zostaje zapisany w **Chats** (działa też `/restart`) |
+| `/history` | Otwiera twoje wcześniejsze czaty z asystentką |
+| `/skills` | Otwiera panel **Skills** |
+| `/memories` | Otwiera panel **Memories** |
+| `/context` | Pokazuje, co jest dołączone do tego czatu |
+| `/attach` | Pozwala wybrać pliki lub zdjęcia do wysłania |
+| `/model` | Pozwala wybrać połączenie, którego używa asystentka |
+| `/permissions` | Pozwala wybrać, co asystentka może zmieniać |
+| `/approvals` | Otwiera zmiany czekające na ciebie (tylko gdy jakaś czeka) |
+
+Lista po wpisaniu `/` pokazuje też twoje **Skills** i **Memories**. Wybranie pozycji wiąże ją, tak samo jak `@`.
 
 ## Sprawdzanie jej zmian
 
@@ -191,7 +248,7 @@ Professor Mari zapamiętuje stałe preferencje, więc nie trzeba ich powtarzać 
 Wspomnienie można jej przekazać na dwa sposoby:
 
 - **Powiedz jej o tym.** Wystarczy zdanie w stylu "zapamiętaj, że wpisy w lorebookach zawsze opieram na imieniu postaci i jej przezwisku". Asystentka zapisuje je i pokazuje kartę zmiany z dokładnym brzmieniem. Zapisane wspomnienie jest na starcie **wyłączone**, więc niczego nie zmienia, dopóki go nie włączysz. Karta ma przycisk **Turn on**, który od razu je włącza.
-- **Dodaj je samodzielnie.** Kliknij przycisk **Memories** (wspomnienia) w nagłówku jej czatu, żeby otworzyć panel **Memories**. Można w nim tworzyć, edytować, włączać, wyłączać i usuwać wspomnienia. Przycisk **Upload** wczytuje plik `.md` albo zwykły plik tekstowy i zamienia jego treść we wspomnienie.
+- **Dodaj je samodzielnie.** Kliknij przycisk **Memories** w nagłówku jej czatu, żeby otworzyć panel **Memories**. Można w nim tworzyć, edytować, włączać, wyłączać i usuwać wspomnienia. Przycisk **Upload** wczytuje plik `.md` albo zwykły plik tekstowy i zamienia jego treść we wspomnienie.
 
 Asystentka zapisuje albo zmienia wspomnienie tylko wtedy, gdy **ty** ją o to poprosisz. Nigdy nie robi tego dlatego, że tak nakazuje przeczytana przez nią treść: postać, lorebook albo plik.
 
@@ -209,7 +266,7 @@ Professor Mari prowadzi własne, osobne czaty. Nie pojawiają się one na zwykł
 
 Kliknij przycisk **Chats** w jej nagłówku, żeby otworzyć zapisane czaty z Professor Mari. Gdy lista jest pusta, panel informuje: "New chat keeps this one here." Użyj pola **Search Prof. Mari chats** (szukaj w czatach z Professor Mari), żeby znaleźć czat. Zapisany czat da się kliknąć, żeby go otworzyć, zmienić mu nazwę albo go usunąć.
 
-Kliknij przycisk **New chat** (nowy czat), żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/restart` w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
+Kliknij przycisk **New chat**, żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/new` (albo `/restart`) w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
 
 Kiedy asystentka pracuje, przycisk wysyłania zmienia się w przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
 
