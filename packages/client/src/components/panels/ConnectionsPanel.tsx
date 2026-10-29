@@ -14,7 +14,6 @@ import {
   ChevronsUpDown,
   CloudOff,
   Download,
-  ExternalLink,
   HardDrive,
   Link,
   MoreHorizontal,
@@ -82,6 +81,7 @@ import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/Connecti
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { BrandMark, ProviderIcon } from "../connections/ProviderIcon";
+import { ServiceTile, type ServiceId } from "../modals/create-connection/shared";
 import { openAddConnection } from "../../lib/add-connection";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
@@ -106,6 +106,12 @@ const SORT_OPTIONS = [
 
 /** Two columns from this panel width; below it a row drills in. */
 const WIDE_PANEL_PX = 768;
+/** First run: the providers a new user is most likely to know, each one tap from its key step. */
+const FIRST_RUN_SERVICES = ["nanogpt", "openrouter", "openai", "anthropic", "google", "local_model"] as const;
+const FIRST_RUN_TAGS: Partial<Record<ServiceId, string>> = {
+  openrouter: "connections.add.tag.free",
+  local_model: "connections.add.tag.offline",
+};
 /** The fold id the On this device card keeps among the folded Connections. */
 const DEVICE_FOLD_ID = "device";
 
@@ -786,63 +792,76 @@ export function ConnectionsPanel() {
         </div>
       ) : noConnections ? (
         <>
-          {/* One task: the same Add as the header row. */}
+          {/* First run: one question, the providers people already know, one tap to the key step. */}
           <section aria-labelledby="connections-empty-title" className="mari-connection-empty flex flex-col gap-3 p-4">
-            <span
-              aria-hidden
-              className="mari-panel-gradient-surface mari-panel-gradient--connections flex h-10 w-10 items-center justify-center rounded-xl"
-            >
-              <Link size="1.125rem" />
-            </span>
-            <div>
-              <h3 id="connections-empty-title" className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
-                {t("connections.list.emptyTitle")}
-              </h3>
+            <h3 id="connections-empty-title" className="text-[0.9375rem] font-semibold text-[var(--foreground)]">
+              {t("connections.list.emptyTitle")}
+            </h3>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+              {FIRST_RUN_SERVICES.map((service) => (
+                <button
+                  key={service}
+                  type="button"
+                  data-add-connection-service={service}
+                  onClick={() => openModal("create-connection", { service })}
+                  className="flex min-h-[3.25rem] min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)]"
+                >
+                  <ServiceTile service={service} />
+                  <span className="flex min-w-0 flex-col">
+                    <strong className="text-[0.8125rem] font-medium [overflow-wrap:anywhere]">
+                      {service === "local_model" ? t("connections.add.device.local_model") : PROVIDERS[service].name}
+                    </strong>
+                    {FIRST_RUN_TAGS[service] && (
+                      <span className="text-[0.6875rem] text-[color-mix(in_srgb,var(--color-emerald-500)_80%,var(--foreground)_20%)]">
+                        {t(FIRST_RUN_TAGS[service])}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={() => openModal("create-connection")}
-              className="mari-chrome-control mari-chrome-control--primary w-full"
-            >
-              <Plus size="0.875rem" />
-              {t("connections.list.addConnection")}
-            </button>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => openModal("create-connection")}
+                className="flex min-h-9 items-center gap-1 text-[0.8125rem] font-medium text-[var(--foreground)] underline-offset-2 hover:underline max-md:min-h-11"
+              >
+                {t("connections.list.allProviders")}
+                <ChevronRight size="0.875rem" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => openModal("import-connection")}
+                className="min-h-9 text-xs text-[var(--muted-foreground)] underline underline-offset-2 hover:text-[var(--foreground)] max-md:min-h-11"
+              >
+                {t("connections.list.importConnections")}
+              </button>
+            </div>
           </section>
-          <button type="button" onClick={() => openModal("import-connection")} className="mari-chrome-control w-full">
-            {t("connections.list.importConnections")}
-          </button>
           {!linkApiBannerDismissed && (
-            <div className="mt-1 flex flex-col gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3">
-              <p className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
-                <BrandMark of="linkapi" color className="h-6 w-6" />
-                <span>
-                  {t("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
-                  <a
-                    href="https://linkapi.ai/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-[var(--mari-connection-ink)] underline underline-offset-2"
-                  >
-                    {t("ui.panels.connectionspanel.linkapi")}
-                  </a>
-                  !
-                </span>
-              </p>
-              <div className="grid min-w-0 grid-cols-2 gap-2">
+            <div className="relative mt-1 flex items-start gap-2 rounded-xl bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-3 pe-10 text-xs text-[var(--muted-foreground)]">
+              <BrandMark of="linkapi" color className="h-6 w-6 shrink-0" />
+              <p>
+                {t("ui.panels.connectionspanel.lookingToTryNewModelsFromATrustedProvider")}{" "}
                 <a
                   href="https://linkapi.ai/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mari-chrome-control w-full"
+                  className="font-medium text-[var(--mari-connection-ink)] underline underline-offset-2"
                 >
-                  <ExternalLink size="0.75rem" className="shrink-0" />
-                  <span>{t("ui.panels.connectionspanel.visitLinkapi")}</span>
+                  {t("ui.panels.connectionspanel.linkapi")}
                 </a>
-                <button type="button" onClick={dismissLinkApiBanner} className="mari-chrome-control w-full">
-                  <X size="0.75rem" className="shrink-0" />
-                  <span>{t("ui.panels.connectionspanel.dismissPermanently")}</span>
-                </button>
-              </div>
+                !
+              </p>
+              <button
+                type="button"
+                onClick={dismissLinkApiBanner}
+                aria-label={t("ui.panels.connectionspanel.dismissPermanently")}
+                title={t("ui.panels.connectionspanel.dismissPermanently")}
+                className={cn(ROW_BUTTON, "absolute right-1.5 top-1.5")}
+              >
+                <X size="0.875rem" aria-hidden />
+              </button>
             </div>
           )}
         </>
@@ -1014,7 +1033,7 @@ export function ConnectionsPanel() {
           const rect = event.currentTarget.getBoundingClientRect();
           setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
         }}
-        className="mari-chrome-control mari-chrome-control--icon"
+        className="mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet"
         title={t("connections.accounts.header.more")}
         aria-label={t("connections.accounts.header.more")}
         aria-haspopup="menu"

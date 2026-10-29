@@ -74,6 +74,8 @@ export type DefaultsTile = {
   hint?: string;
   /** The fallback Model's name, when the job has one. */
   fallback?: string;
+  /** The fallback Model, for its picture. */
+  fallbackSource?: ConnectionRowData;
   /** An unset job reads quieter than a chosen one. */
   muted?: boolean;
   warning: Warning | null;
@@ -184,6 +186,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     const tile = {
       ...jobTile(role.key),
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
+      fallbackSource: fallbackRow ?? undefined,
       warning: null,
     };
     if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName, warning: builtInWarning };
@@ -337,6 +340,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       ...jobTile(job.key),
       warning: null,
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
+      fallbackSource: fallbackRow ?? undefined,
     };
     if (!value) {
       // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents
@@ -629,10 +633,12 @@ export function ConnectionDefaultsBox({
   const folded = useUIStore((s) => s.connectionsCollapsed.includes(DEFAULTS_FOLD_ID));
   const toggleFold = useUIStore((s) => s.toggleConnectionCollapsed);
   const groups = [...new Set(JOBS.map((job) => job.group))];
+  const main = tiles.find((tile) => tile.key === "main");
+  const mainModel = main?.source && !main.muted ? main.value : null;
   return (
     <section
       aria-labelledby="connections-defaults-title"
-      className="mari-connection-group mari-connection-defaults-box"
+      className={cn("mari-connection-group mari-connection-defaults-box", folded && "!py-1")}
     >
       <button
         type="button"
@@ -640,7 +646,11 @@ export function ConnectionDefaultsBox({
         onClick={() => toggleFold(DEFAULTS_FOLD_ID)}
         aria-expanded={!folded}
         aria-controls={folded ? undefined : "connections-defaults"}
-        className={cn("relative flex min-h-11 w-full min-w-0 items-center gap-1.5 px-1.5 py-1 text-start", FOCUS)}
+        className={cn(
+          "relative flex w-full min-w-0 items-center gap-1.5 px-1.5 text-start",
+          folded ? "min-h-10 py-0" : "min-h-11 py-1",
+          FOCUS,
+        )}
       >
         <span
           id="connections-defaults-title"
@@ -648,6 +658,10 @@ export function ConnectionDefaultsBox({
         >
           {t("connections.defaults.title")}
         </span>
+        {/* Closed, the bar still says which Model chats use. */}
+        {folded && mainModel && (
+          <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">{mainModel}</span>
+        )}
         <ChevronDown
           size="1rem"
           className={cn(

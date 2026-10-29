@@ -216,3 +216,10 @@ export function roleBadges(row: ConnectionModelRow): RoleBadge[] {
 export function accountStateLabel(account: Pick<ConnectionAccountListItem, "state">): string {
   return `connections.accounts.state.${account.state}`;
 }
+
+/** The upstream a gateway (custom) Connection routes a model to, as a name ("NanoGPT"); null for any other kind. */
+export function viaName(provider: string | null | undefined, modelId: string | null | undefined): string | null {
+  if (provider !== "custom") return null;
+  const prefix = upstreamOf(modelId);
+  return (prefix && knownPrefixName(prefix)) || null;
+}

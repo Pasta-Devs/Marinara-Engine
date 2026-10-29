@@ -65,6 +65,7 @@ import {
   orderAccountGroups,
   recentModels,
   roleBadges,
+  viaName,
 } from "../../lib/connection-groups";
 import { cn } from "../../lib/utils";
 import { modelBrand, ProviderIcon } from "./ProviderIcon";
@@ -409,10 +410,13 @@ export function ConnectionSwitcherBody({
   extras,
   onAdd,
   firstAccountId,
+  ownRole,
   modelFilter,
   knownGood,
   rowState,
 }: {
+  /** The job this picker sets ("Agents"): rows leave that role pill out, since the title names it. */
+  ownRole?: string;
   /** What the host uses: a Model, or a catalog model on one ("random" while Shuffle is on). */
   current: ChatModelChoice | null;
   /** The host's last choices; without them Recent lists the Models other chats used last. */
@@ -870,7 +874,14 @@ export function ConnectionSwitcherBody({
       index,
       now = false,
       star = "unstarred",
-    }: { index?: number; now?: boolean; star?: "all" | "unstarred" | "none" } = {},
+      away = false,
+    }: {
+      index?: number;
+      now?: boolean;
+      star?: "all" | "unstarred" | "none";
+      /** Shown outside its provider's list (Now, Starred, Recent): line 2 names the provider, and the upstream it goes via. */
+      away?: boolean;
+    } = {},
   ) => {
     // The provider's own name when it has one; the id is the second line only when two rows would look the same.
     const catalogFacts = rawEntry.group ? catalogOf(rawEntry.group) : undefined;
@@ -879,11 +890,18 @@ export function ConnectionSwitcherBody({
     const entry: Entry = { ...rawEntry, ...(niceName ? { title: niceName } : {}) };
     const sameTitle = rawEntry.group?.rows.some((row) => row.model !== entry.model && rowLabel(row) === entry.title);
     if (entry.subtitle === entry.model && !sameTitle) entry.subtitle = "";
+    if (away && rawEntry.group?.account) {
+      const via = viaName(rawEntry.group.account.provider, entry.model);
+      entry.subtitle = [rawEntry.group.name, via && t("connections.accounts.section.via", { service: via })]
+        .filter(Boolean)
+        .join(" · ");
+    }
     const isCurrent = now || isNow(entry) || sameChoice(entry.choice, current);
     const highlighted = index !== undefined && index === highlight;
     const group = entry.group;
     const unavailable = unavailableOf(group);
-    const roleLabels = entry.row ? modelRoleLabels(entry.row, t, voiceRowId) : [];
+    // The job this picker is for is in its title already; its pill would only repeat it.
+    const roleLabels = entry.row ? modelRoleLabels(entry.row, t, voiceRowId).filter((role) => role !== ownRole) : [];
     const starred = group?.account && entry.model ? starsOf(group).has(entry.model) : false;
     const custom = !!entry.row?.ownSettings && !starred && roleLabels.length === 0;
     const showStar = !!group?.account && !!entry.model && (star === "all" || (star === "unstarred" && !starred));
@@ -968,7 +986,12 @@ export function ConnectionSwitcherBody({
                   onDone();
                   openConnectionDetail(entry.row!.id);
                 }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/35 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/70 focus-visible:ring-1 focus-visible:ring-foreground/25"
+                className={cn(
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/35 outline-none transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground/70 focus-visible:ring-1 focus-visible:ring-foreground/25",
+                  // Shown on hover, unless the model has settings of its own; touch screens always show it.
+                  !entry.row.ownSettings &&
+                    "opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-md:opacity-100",
+                )}
               >
                 <SlidersHorizontal size="0.875rem" aria-hidden />
               </button>
@@ -1323,7 +1346,7 @@ export function ConnectionSwitcherBody({
       )}
     >
       <ListHeading>{nowLabel}</ListHeading>
-      {nowEntry ? renderEntry(nowEntry, { now: true }) : followRow(true)}
+      {nowEntry ? renderEntry(nowEntry, { now: true, away: true }) : followRow(true)}
     </section>
   );
 
@@ -1396,19 +1419,19 @@ export function ConnectionSwitcherBody({
             {starredEntries.length > 0 && (
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
                 <ListHeading>{t("connections.switcher.starred")}</ListHeading>
-                {starredEntries.map((entry) => renderEntry(entry, { star: "all" }))}
+                {starredEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
               </section>
             )}
             {knownEntries.length > 0 && (
               <section data-switcher-section="known" aria-label={knownGood!.label}>
                 <ListHeading>{knownGood!.label}</ListHeading>
-                {knownEntries.map((entry) => renderEntry(entry))}
+                {knownEntries.map((entry) => renderEntry(entry, { away: true }))}
               </section>
             )}
             {recent.length > 0 && (
               <section data-switcher-section="recent" aria-label={t("connections.switcher.recent")}>
                 <ListHeading>{t("connections.switcher.recent")}</ListHeading>
-                {recent.map((entry) => renderEntry(entry))}
+                {recent.map((entry) => renderEntry(entry, { away: true }))}
               </section>
             )}
             {byFolder ? folderSections() : listed.map(renderGroup)}

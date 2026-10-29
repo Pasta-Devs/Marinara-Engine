@@ -266,6 +266,7 @@ function ModelPickerSlot({
     >
       {header}
       <ConnectionSwitcherBody
+        ownRole={jobName}
         layout="steps"
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
@@ -385,7 +386,7 @@ export function ModelPicker({
               onClick={() => setSlot(entry.key)}
               className={cn(
                 "flex min-h-11 min-w-0 flex-col items-start justify-center rounded-lg px-3 py-1 text-left transition-colors",
-                slot === entry.key ? "bg-[var(--sidebar-accent)]" : "hover:bg-[var(--sidebar-accent)]/40",
+                slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
               )}
             >
               <span className="text-[0.625rem] text-[var(--muted-foreground)]">{entry.label}</span>

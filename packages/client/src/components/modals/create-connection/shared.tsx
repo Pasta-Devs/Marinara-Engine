@@ -166,26 +166,31 @@ export const SELF_HOSTED = new Set([
   "pockettts",
   "custom",
 ]);
-/** One tile per provider. Services sort A–Z and show 4 until "Show all"; "Other" folds. */
-export type ServiceGroupDefinition = { id: string; services: ServiceId[]; sorted?: boolean; folded?: boolean };
+/** The Add window's sections, in order. Known names first; "All providers" sorts A–Z. */
+export type ServiceGroupDefinition = {
+  id: "popular" | "plan" | "local" | "all";
+  services: ServiceId[];
+  sorted?: boolean;
+};
 export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
-  { id: "start", services: ["local_model", LINKAPI_SERVICE, "openrouter", "nanogpt"] },
+  { id: "popular", services: [LINKAPI_SERVICE, "nanogpt", "openrouter", "openai", "anthropic", "google"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   {
-    id: "vendors",
-    sorted: true,
-    services: [
-      ...(["anthropic", "google", "openai", "xai", "mistral", "cohere", "deepseek", "zai", "arli"] as const),
-      "google_vertex",
-      ...MEDIA_BACKENDS.filter((backend) => !SELF_HOSTED.has(backend.source)).map((backend) => backend.id),
-    ],
+    id: "local",
+    services: ["local_model", ...MEDIA_BACKENDS.filter((b) => SELF_HOSTED.has(b.source)).map((b) => b.id), "custom"],
   },
   {
-    id: "address",
-    services: ["custom", ...MEDIA_BACKENDS.filter((backend) => SELF_HOSTED.has(backend.source)).map((b) => b.id)],
+    id: "all",
+    sorted: true,
+    services: [
+      ...(["xai", "mistral", "cohere", "deepseek", "zai", "arli"] as const),
+      "google_vertex",
+      ...MEDIA_BACKENDS.filter((backend) => !SELF_HOSTED.has(backend.source)).map((backend) => backend.id),
+      "tts",
+      "stt",
+      DECISION_BUILTIN,
+    ],
   },
-  { id: "device", services: ["tts", "stt"] },
-  { id: "other", services: [DECISION_BUILTIN] },
 ];
 export const VENDORS_SHOWN = 4;
 /** Old names people still search for. */

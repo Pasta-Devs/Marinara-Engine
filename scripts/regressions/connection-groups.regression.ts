@@ -11,6 +11,7 @@ import {
   roleBadges,
   subgroupByUpstream,
   upstreamOf,
+  viaName,
 } from "../../packages/client/src/lib/connection-groups.js";
 
 const account = (id: string) => ({ id, name: id, state: "ok" }) as never;
@@ -159,6 +160,12 @@ assert.deepEqual(
   ).map((group) => group.account.id),
   ["b", "a"],
 );
+
+// viaName: only a gateway (custom) Connection routes "via" a known upstream.
+assert.equal(viaName("custom", "nanogpt/zai-org/glm-5.2"), "NanoGPT");
+assert.equal(viaName("nanogpt", "deepseek/deepseek-v3.2"), null);
+assert.equal(viaName("custom", "acme-lab/model"), null);
+assert.equal(viaName("custom", "gpt-5.5"), null);
 
 assert.equal(accountStateLabel({ state: "needs_key" }), "connections.accounts.state.needs_key");
 console.log("connection-groups regression passed");

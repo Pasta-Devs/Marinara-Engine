@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
-// JobRow — one job as one row: a job tile, its name, and on line 2 the Model it uses
-// ("model · connection"), its fallback, or what still needs doing. The Defaults box and the
-// Add window's "For a job" list both draw it, so the status text lives only here.
+// JobRow — one job as one row. With a Model: the Model's own brand tile, the job as a small grey label,
+// the Model's name with its provider (and "via" upstream) in grey, and a quiet "If it fails" line.
+// Without one: the job tile, its name, and what still needs doing. The Defaults box and the Add
+// window's "For a job" list both draw it, so the status text lives only here.
 // ──────────────────────────────────────────────
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
@@ -10,7 +11,8 @@ import { useCachedCatalogFacts, useConnections } from "../../hooks/use-connectio
 import { cn } from "../../lib/utils";
 import type { DefaultsTile } from "./ConnectionDefaults";
 import type { ConnectionRowData } from "./ConnectionRow";
-import { ModelRow } from "./ModelRow";
+import { viaName } from "../../lib/connection-groups";
+import { ModelRow, ModelTile } from "./ModelRow";
 
 /** A job with no Model chosen, or whose engine is not set up: a dashed tile and a warning-tone line. */
 export const isUnset = (tile: DefaultsTile, notSet: string) =>
@@ -65,6 +67,12 @@ export function JobRow({
   ]);
   const facts = catalog?.of(source?.model);
   const unset = isUnset(tile, t("connections.defaults.notSet"));
+  // A real Model of its own (not "Follows Main", not a device engine): the row shows that Model.
+  const chosen = !unset && !tile.muted && !tile.device && source ? source : null;
+  const via = chosen ? viaName(chosen.provider, chosen.model) : null;
+  const provider = [tile.hint, via && t("connections.accounts.section.via", { service: via })]
+    .filter(Boolean)
+    .join(" · ");
   const hintId = useId();
   return (
     <>
@@ -73,27 +81,34 @@ export function JobRow({
         aria-describedby={hint ? hintId : undefined}
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
         className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
-        tile={<JobTile unset={!!unset}>{tile.icon}</JobTile>}
-        title={tile.title}
+        tile={chosen ? <ModelTile row={chosen} model={chosen.model} /> : <JobTile unset={!!unset}>{tile.icon}</JobTile>}
+        label={chosen ? tile.title : undefined}
+        title={chosen ? tile.value : tile.title}
+        titleNote={chosen ? provider : undefined}
+        tooltip={chosen ? `${tile.title}: ${tile.value}` : undefined}
         wrapTitle
         details={
-          <span className="flex min-w-0 flex-col">
+          chosen ? (
+            tile.fallback && (
+              <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                <span className="whitespace-nowrap">{t("connections.defaults.ifItFailsLabel")}</span>
+                {tile.fallbackSource && (
+                  <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
+                )}
+                <span className="min-w-0 truncate">{tile.fallback}</span>
+              </span>
+            )
+          ) : (
             <span
               className={cn(
                 "min-w-0 truncate text-xs",
                 unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
-                tile.muted && !unset && "italic",
               )}
             >
               {tile.setup?.text ??
                 (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
             </span>
-            {tile.fallback && (
-              <span className="block min-w-0 truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                {t("connections.defaults.ifItFails", { model: tile.fallback })}
-              </span>
-            )}
-          </span>
+          )
         }
         facts={facts}
         showPaid={catalog?.showPaid}

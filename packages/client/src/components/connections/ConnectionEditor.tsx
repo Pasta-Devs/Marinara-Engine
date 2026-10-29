@@ -9,11 +9,7 @@ import {
   type DecisionSource,
   isChatProvider,
 } from "@marinara-engine/shared";
-import {
-  isConnectionFlagFalse,
-  isConnectionFlagTrue,
-  isLanguageGenerationConnection,
-} from "../../lib/connection-filters";
+import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib/connection-filters";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
@@ -2342,22 +2338,12 @@ export function ConnectionEditor({
                     <button
                       type="button"
                       onClick={() => openModal("connection-account", { accountId })}
-                      className="mari-chrome-control shrink-0"
+                      className="mari-chrome-control mari-chrome-control--small shrink-0 whitespace-nowrap px-3"
                     >
                       {t("connections.editor.editConnection")}
                     </button>
                   }
                 />
-                {isConnectionFlagTrue(conn?.isDefault) && (
-                  <span className="block ps-[3.25rem] pt-1 text-xs text-[var(--muted-foreground)]">
-                    {t("connections.defaults.role.main")}
-                  </span>
-                )}
-                {localDefaultForAgents && isChatProvider(localProvider) && (
-                  <span className="block ps-[3.25rem] pt-1 text-xs text-[var(--muted-foreground)]">
-                    {t("connections.editor.roleAgentsDefault")}
-                  </span>
-                )}
               </div>
             ) : (
               <FieldGroup label={localizeUi("ui.connections.connectioneditor.provider")}>

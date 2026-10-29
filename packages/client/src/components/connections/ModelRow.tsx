@@ -73,12 +73,14 @@ type DataAttributes = { [key: `data-${string}`]: string | boolean | undefined };
 
 /**
  * The one model row: line 1 tile, name, one role badge and "+N"; line 2 the kind pill (not for chat), the model id
- * and the custom-settings glyph, with the cost badge under the role badge. `trailing` sits inside the row button (› or ✓); `end` holds sibling controls
+ * and the custom-settings glyph; the cost badge sits next to the role badge. `trailing` sits inside the row button (› or ✓); `end` holds sibling controls
  * (⋯, star, fix), so no button nests in another. `onPictureClick` turns the tile into its own button.
  */
 export function ModelRow({
   tile,
   title,
+  label,
+  titleNote,
   tooltip,
   wrapTitle = false,
   subtitle,
@@ -105,6 +107,10 @@ export function ModelRow({
   DataAttributes & {
     tile: ReactNode;
     title: string;
+    /** A small grey label above the name, such as the job a job row stands for. */
+    label?: string;
+    /** Grey text right after the name, on the same line, such as the provider in a job row. */
+    titleNote?: string | null;
     /** The name's tooltip; the name by default. */
     tooltip?: string;
     /** Wraps a long name onto a second line instead of cutting it off (job names). */
@@ -116,7 +122,7 @@ export function ModelRow({
     roles?: readonly string[];
     /** How many role names show before the rest fold into "+N". */
     roleSlots?: 1 | 2;
-    /** The role and cost badges on a third line under the text instead of a column at the row end (folder view). */
+    /** The role and cost badges on a third line under the text instead of at the row end (folder view). */
     badgesBelow?: boolean;
     /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
     status?: { label: string; state?: string } | null;
@@ -184,7 +190,7 @@ export function ModelRow({
     <div
       {...rowProps}
       className={cn(
-        "mari-connection-model group relative flex min-w-0 items-center gap-1 pe-1 transition-colors hover:bg-foreground/[0.04]",
+        "mari-connection-model group group/row relative flex min-w-0 items-center gap-1 pe-1 transition-colors hover:bg-foreground/[0.04]",
         current && "bg-foreground/[0.06]",
         rowProps?.className,
       )}
@@ -216,16 +222,27 @@ export function ModelRow({
         {lead}
         {!onPictureClick && tile}
         <span id={copyId} data-connection-model-copy className="min-w-0 flex-1">
+          {label && (
+            <span className="block text-[0.6875rem] font-semibold leading-4 text-[var(--muted-foreground)]">
+              {label}
+            </span>
+          )}
           <span
             data-model-title
             className={cn(
               "block min-w-0 text-[0.8125rem] font-medium leading-5",
-              wrapTitle ? "break-words" : "truncate",
+              wrapTitle ? "break-words" : "line-clamp-2 [overflow-wrap:anywhere]",
               dim ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]",
             )}
             title={tooltip ?? title}
           >
             {title}
+            {titleNote && (
+              <>
+                {" "}
+                <span className="inline-block max-w-full text-[0.6875rem] font-normal text-[var(--muted-foreground)]">{titleNote}</span>
+              </>
+            )}
           </span>
           {line2 && (
             // A retiring hint that does not fit next to the id wraps to its own line, so a narrow row keeps the id readable.
@@ -265,13 +282,12 @@ export function ModelRow({
             </span>
           )}
         </span>
-        {/* Badges: one column at the row end. Line 1 says what the model does (role or status), line 2 what it
-            costs, each on its text line; a row with one text line and no cost keeps the role centred. */}
+        {/* Badges: one row at the row end, centred: what the model does (role or status), then its cost. */}
         {!badgesBelow && (badge || cost) && (
-          <span data-connection-badges className="flex shrink-0 flex-col items-end">
-            <span className={cn("flex items-center", cost && "min-h-5")}>{badge}</span>
+          <span data-connection-badges className="flex shrink-0 items-center gap-1">
+            {badge}
             {cost && (
-              <span className="mt-0.5 flex min-h-[1.125rem] items-center">
+              <span className="flex items-center">
                 <CostBadge cost={cost} showPaid={showPaid} pricing={pricing} />
               </span>
             )}

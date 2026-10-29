@@ -1717,12 +1717,12 @@
   --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
   --ring: var(--mari-connection-ring);
 }
-/* The editor's main action (Save) wears the theme accent, like every primary. */
+/* The editor's main action (Save) wears the connection-blue gradient, like every primary here. */
 .mari-connection-scope .mari-editor-action--primary,
 [data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
   border-color: transparent;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  color: var(--mari-panel-gradient-text);
 }
 .mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
   filter: brightness(1.06);
@@ -1733,22 +1733,26 @@
   box-shadow: none;
 }
 
-/* The one primary per screen wears the theme accent; touch gets the 44px target. */
-/* Tokens, not properties: the shared gradient-mode rules read these. The static accent, because neutral modals re-point --primary. */
+/* The one primary per screen wears the connection-blue gradient; touch gets the 44px target.
+ * Tokens, not properties: the shared gradient-mode rules read these. */
 .mari-connection-scope .mari-chrome-control--primary {
-  --marinara-chat-chrome-button-bg: var(--marinara-app-accent-static, var(--primary));
-  --marinara-chat-chrome-button-bg-hover: color-mix(
-    in srgb,
-    var(--marinara-app-accent-static, var(--primary)) 88%,
-    var(--foreground)
+  --marinara-chat-chrome-button-bg: linear-gradient(
+    135deg,
+    var(--mari-panel-gradient-start),
+    var(--mari-panel-gradient-end)
   );
-  --marinara-chat-chrome-button-bg-active: var(--marinara-app-accent-static, var(--primary));
+  --marinara-chat-chrome-button-bg-hover: var(--marinara-chat-chrome-button-bg);
+  --marinara-chat-chrome-button-bg-active: var(--marinara-chat-chrome-button-bg);
   --marinara-chat-chrome-button-border: transparent;
   --marinara-chat-chrome-button-border-hover: transparent;
-  --marinara-chat-chrome-button-text: var(--primary-foreground);
-  --marinara-chat-chrome-button-text-hover: var(--primary-foreground);
-  --marinara-chat-chrome-button-text-active: var(--primary-foreground);
+  --marinara-chat-chrome-button-text: var(--mari-panel-gradient-text);
+  --marinara-chat-chrome-button-text-hover: var(--mari-panel-gradient-text);
+  --marinara-chat-chrome-button-text-active: var(--mari-panel-gradient-text);
 }
+.mari-connection-scope .mari-chrome-control--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
 .mari-connection-scope .mari-chrome-control {
   font-size: 0.875rem;
 }
@@ -1798,13 +1802,41 @@
 }
 
 /* Filter chip (the catalog's provider filter); selected = a soft blue tint, no outline. */
+/* Connection editor tabs (Model / Generation): one calm segmented control, not separate small pills. */
+.mari-connection-scope .mari-editor-navigation-tabs {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+.mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab {
+  min-height: 1.875rem;
+  padding-inline: 0.875rem;
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted-foreground);
+}
+.mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab[data-active="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+@media (pointer: coarse) {
+  .mari-connection-scope .mari-editor-navigation-tabs .mari-editor-tab {
+    min-height: 2.5rem;
+  }
+}
+
 .mari-connection-chip {
   display: inline-flex;
   height: 1.75rem;
   flex-shrink: 0;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
+  border: 1px solid transparent;
   padding-inline: 0.625rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
@@ -1819,7 +1851,6 @@
 .mari-connection-chip[aria-pressed="true"] {
   background: var(--mari-connection-tint);
   color: var(--mari-connection-ink);
-  box-shadow: inset 0 0 0 1px var(--mari-connection-ring);
 }
 @media (max-width: 47.9375rem), (pointer: coarse) {
   .mari-connection-chip {

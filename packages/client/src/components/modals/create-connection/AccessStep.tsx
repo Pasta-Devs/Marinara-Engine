@@ -74,6 +74,7 @@ export function AccessStep(props: AccessStepProps) {
     if (failure === "key") document.getElementById("add-connection-key")?.focus();
   }, [failure]);
 
+  const keyName = props.service ? props.serviceName(props.service) : props.def?.name;
   const keyField = (optional: boolean) => (
     <div className="flex flex-col gap-1">
       <label htmlFor="add-connection-key" className={labelClass}>
@@ -93,6 +94,7 @@ export function AccessStep(props: AccessStepProps) {
           spellCheck={false}
           autoCapitalize="off"
           aria-describedby={props.tested ? "add-connection-result" : "add-connection-key-help"}
+          placeholder={keyName && !optional ? t("connections.add.keyPlaceholder", { name: keyName }) : undefined}
           className={cn(inputClass, "min-w-0 flex-1 font-mono")}
         />
         <button

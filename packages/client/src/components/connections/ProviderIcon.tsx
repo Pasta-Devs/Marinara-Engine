@@ -228,6 +228,8 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
 
 // The small tiles keep a fixed radius: a theme's large --radius turns them into blobs.
 const SIZES = {
+  /** The tiny tile inside a line of text, such as a job's "If it fails" model. */
+  xs: { box: "h-3.5 w-3.5 rounded-[0.25rem] text-[0.5rem]", icon: "0.5625rem" },
   sm: { box: "h-6 w-6 rounded-[0.375rem] text-[0.5625rem]", icon: "0.75rem" },
   /** The model row tile in the Connections panel and the pickers (2.375rem). */
   model: { box: "h-[2.375rem] w-[2.375rem] rounded-[0.5rem] text-xs max-md:h-8 max-md:w-8", icon: "1.125rem" },

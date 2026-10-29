@@ -59,6 +59,7 @@ import {
   NETWORK_ERROR,
   kindsOf,
   mediaBackendOf,
+  ServiceTile,
   type AddableKind,
   type ChipKind,
   type ConnectionRowLite,
@@ -819,7 +820,8 @@ export function CreateConnectionModalContent({
   // and the search field stays under the caret when typing switches to the tall results.
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-    "sm:h-[min(90dvh,44rem)]",
+    // The key step fits its content; the lists keep the tall frame.
+    step === 2 ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -827,7 +829,7 @@ export function CreateConnectionModalContent({
       open={open}
       onClose={requestClose}
       title={t(modelsFor ? "connections.accounts.addModel" : "connections.add.title")}
-      width="max-w-3xl lg:max-w-4xl"
+      width={step === 2 ? "max-w-xl" : "max-w-3xl lg:max-w-4xl"}
       mobileFullscreen
       opaque
       closeDisabled={closeBlocked}
@@ -852,6 +854,7 @@ export function CreateConnectionModalContent({
                   <ChevronLeft size="1rem" aria-hidden />
                 </button>
               )}
+              {step === 2 && service && <ServiceTile service={service} />}
               <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
                 {heading}
               </h3>
