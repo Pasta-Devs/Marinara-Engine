@@ -150,8 +150,17 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         )
         .toBeNull();
       // Restore this test fixture through the API before the shared editing checks.
-      await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } });
-      await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+      expect(
+        (await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } })).ok(),
+      ).toBeTruthy();
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
+        timeout: 45000,
+      });
+      if (await sections.isVisible()) {
+        await sections.click();
+        await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+      } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
       await section.getByRole("button", { name: "Full-body", exact: true }).click();
       await frontSection.getByRole("button", { name: "Front", exact: true }).click();
       await session.detach();
