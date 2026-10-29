@@ -115,7 +115,7 @@ export function AccessStep(props: AccessStepProps) {
             href={keyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center gap-1 font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)] md:min-h-0"
+            className="inline-flex min-h-11 max-md:-my-3.5 items-center gap-1 font-medium text-[var(--foreground)] underline decoration-[var(--muted-foreground)] underline-offset-2 hover:decoration-[var(--foreground)] md:min-h-0"
           >
             {t("connections.add.getKey")}
             <ExternalLink size="0.6875rem" aria-hidden />

@@ -144,7 +144,7 @@ test("guided ComfyUI setup adds distinct image and video models without changing
       const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
       openAddConnection();
     });
-    const serviceDialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    const serviceDialog = page.getByRole("dialog", { name: "Add account", exact: true });
     await serviceDialog.locator('[data-add-connection-service="media:comfyui"]').click();
     await expect(
       serviceDialog.getByRole("heading", { name: "Use an existing ComfyUI connection?", exact: true }),
@@ -336,7 +336,7 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
       openAddConnection();
     });
 
-    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
     await dialog.locator('[data-add-connection-service="media:comfyui"]').click();
     const connectSecond = dialog.getByRole("button", { name: "Make a new connection", exact: true });
     if (await connectSecond.isVisible()) await connectSecond.click();
@@ -479,7 +479,7 @@ test("switching kinds keeps a fresh connection's chat catalog available", async 
       const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
       openAddConnection({ provider: "openai" });
     });
-    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
     const second = dialog.getByRole("button", { name: "Make a new connection", exact: true });
     if (await second.isVisible()) await second.click();
     await dialog.getByLabel("API key", { exact: true }).fill("fixture-not-real");
@@ -564,7 +564,7 @@ test("a vendor connection set up for images can open its chat catalog without re
       const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
       openAddConnection({ provider: "openai" });
     });
-    const dialog = page.getByRole("dialog", { name: "Add connection", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Add account", exact: true });
     await dialog.locator(`[data-add-connection-existing-account="${image.accountId}"]`).click();
     await dialog.locator('[data-add-connection-capability="chat"]').click();
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
