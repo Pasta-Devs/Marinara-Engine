@@ -267,7 +267,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("button", { name: "Clean Backgrounds", exact: true }).click();
     await expect(library.getByRole("slider", { name: "Cleanup strength", exact: true })).toBeVisible();
     await expect(library.getByRole("button", { name: "Clean 2 sprites", exact: true })).toBeVisible();
-    await library.getByRole("button", { name: "Cancel", exact: true }).click();
+    await library
+      .getByRole("region", { name: "Clean Backgrounds" })
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
     const exported = page.waitForRequest(
       (outgoing) => outgoing.url().endsWith(`${path}/export`) && outgoing.method() === "POST",
     );
