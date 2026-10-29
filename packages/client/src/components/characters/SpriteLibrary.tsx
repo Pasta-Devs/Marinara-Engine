@@ -269,7 +269,6 @@ export function SpriteLibraryShell({
               {current?.description && (
                 <p className="mt-1 break-words text-xs text-[var(--muted-foreground)]">{current.description}</p>
               )}
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{label("allAvailable")}</p>
             </div>
           </div>
           <label className="flex items-center gap-2">

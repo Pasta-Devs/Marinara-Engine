@@ -77,7 +77,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
     await expect(section.getByRole("checkbox", { name: /Use as reference image/ })).toBeDisabled();
     await section.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toBeVisible();
+    await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
