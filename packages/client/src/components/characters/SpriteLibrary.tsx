@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Folder, FolderOpen, FolderPlus, Search, Trash2, X } from "lucide-react";
+import { ChevronRight, FolderPlus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
@@ -378,22 +379,26 @@ export function SpriteFolderGrid({
       {library.search && library.visible.length === 0 && (
         <p className="py-6 text-center text-sm text-[var(--muted-foreground)]">{t("sprites.library.noMatches")}</p>
       )}
-      {library.folders
-        .slice()
-        .reverse()
-        .filter((folder) => !library.search || library.visible.some((sprite) => sprite.folderId === folder.id))
-        .map((folder) => (
-          <SpriteInlineFolder
-            key={folder.id}
-            library={library}
-            current={folder}
-            busy={disabled}
-            highlighted={target === folder.id}
-            zone={zone(folder.id)}
-          >
-            {grid(library.visible.filter((sprite) => sprite.folderId === folder.id))}
-          </SpriteInlineFolder>
-        ))}
+      {library.folders.length > 0 && (
+        <div className="space-y-1">
+          {library.folders
+            .slice()
+            .reverse()
+            .filter((folder) => !library.search || library.visible.some((sprite) => sprite.folderId === folder.id))
+            .map((folder) => (
+              <SpriteInlineFolder
+                key={folder.id}
+                library={library}
+                current={folder}
+                busy={disabled}
+                highlighted={target === folder.id}
+                zone={zone(folder.id)}
+              >
+                {grid(library.visible.filter((sprite) => sprite.folderId === folder.id))}
+              </SpriteInlineFolder>
+            ))}
+        </div>
+      )}
       <div
         {...zone(null)}
         data-sprite-loose
@@ -445,18 +450,19 @@ function SpriteInlineFolder({
       {...zone}
       data-sprite-folder={current.id}
       className={cn(
-        "min-w-0 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3",
-        highlighted && "ring-2 ring-[var(--primary)]",
+        "min-w-0 rounded-lg transition-colors",
+        highlighted &&
+          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
       )}
     >
-      <div className="group relative flex items-center gap-2">
+      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 md:min-h-9">
         <div
           role="button"
           tabIndex={0}
           aria-label={current.name}
           aria-expanded={expanded}
           aria-controls={contentId}
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold"
+          className="flex min-h-9 min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-medium"
           onClick={(event) => {
             if (!editing && !library.search)
               gesture(current.id, event, { onSingleClick: () => setOpen(!open), onRename: beginRename });
@@ -466,7 +472,13 @@ function SpriteInlineFolder({
             handleFolderRenameKeyDown(event, { onSingleClick: () => setOpen(!open), onRename: beginRename });
           }}
         >
-          {expanded ? <FolderOpen size={16} /> : <Folder size={16} />}
+          <ChevronRight
+            size="0.75rem"
+            className={cn(
+              "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none",
+              expanded && "rotate-90",
+            )}
+          />
           {editing ? (
             <input
               autoFocus
@@ -488,13 +500,13 @@ function SpriteInlineFolder({
           ) : (
             <span className="min-w-0 flex-1 break-words">{current.name}</span>
           )}
-          <span className="text-xs font-normal text-[var(--muted-foreground)]">
-            {library.counts.get(current.id) ?? 0}
-          </span>
+          {(library.counts.get(current.id) ?? 0) > 0 && (
+            <span className="mari-chrome-text-muted text-[0.625rem] font-normal">{library.counts.get(current.id)}</span>
+          )}
         </div>
         <button
           type="button"
-          className="mari-editor-action mari-editor-action--danger min-h-11! min-w-11! opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100"
+          className="min-h-11 min-w-11 shrink-0 rounded-md p-2 text-[var(--muted-foreground)] opacity-0 transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100 md:min-h-7 md:min-w-7 [@media(pointer:coarse)]:opacity-100"
           aria-label={label("removeFolder")}
           disabled={busy}
           onClick={async () => {
@@ -509,17 +521,17 @@ function SpriteInlineFolder({
               await library.mutate("delete", "folders/" + current.id);
           }}
         >
-          <Trash2 size={14} />
+          <Trash2 size="0.75rem" />
         </button>
       </div>
-      {expanded && (
+      <SmoothFolderContent open={expanded} className="pl-3" innerClassName="pt-3">
         <div id={contentId}>
           {children}
           {!library.counts.get(current.id) && (
             <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{label("emptyFolder")}</p>
           )}
         </div>
-      )}
+      </SmoothFolderContent>
     </section>
   );
 }

@@ -116,7 +116,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     // A picture opens neutral details, and moving that picture does not change the chat default.
 
     await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
-    await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(0);
+    await expect(frontSection.getByRole("button", { name: /^Preview / })).toHaveCount(0);
     await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(3);
     if (info.project.name === "desktop") {
