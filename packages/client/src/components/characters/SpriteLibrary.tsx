@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { ChevronRight, FolderPlus, Search, Trash2, X } from "lucide-react";
+import { CheckSquare, ChevronRight, FolderPlus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
@@ -18,9 +18,11 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
   const [folderId, setFolderId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [selecting, setSelecting] = useState(false);
   const folders = (query.data?.folders ?? []).filter((folder) => folder.category === category);
   useEffect(() => {
     setSelected([]);
+    setSelecting(false);
     setSearch("");
   }, [category]);
   const counts = new Map<string, number>([["all", sprites.length]]);
@@ -62,6 +64,8 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
     setSearch,
     selected: selected.filter((expression) => visible.some((sprite) => sprite.expression === expression)),
     setSelected,
+    selecting,
+    setSelecting,
     visible,
     mutate,
     uploadFolderId: folderId === "all" || folderId === "unfiled" ? null : folderId,
@@ -102,8 +106,8 @@ export function SpriteLibraryShell({
       aria-busy={library.query.isPending}
     >
       {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
-      <div className="flex items-center gap-3">
-        <label className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex min-w-40 flex-1 items-center gap-2">
           <Search size={16} />
           <span className="sr-only">{label("search")}</span>
           <input
@@ -117,6 +121,19 @@ export function SpriteLibraryShell({
             }}
           />
         </label>
+        <button
+          type="button"
+          className={button}
+          disabled={busy || (!library.selecting && library.visible.length === 0)}
+          aria-pressed={library.selecting}
+          onClick={() => {
+            library.setSelecting(!library.selecting);
+            library.setSelected([]);
+          }}
+        >
+          {library.selecting ? <X size={16} /> : <CheckSquare size={16} />}
+          {library.selecting ? label("cancel") : t("settings.common.select")}
+        </button>
         <button
           type="button"
           className={button}
@@ -138,72 +155,74 @@ export function SpriteLibraryShell({
           {label("loadError")}
         </p>
       )}
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-2 text-xs",
-          library.selected.length > 0 && "rounded-xl bg-[var(--secondary)] p-3",
-        )}
-      >
-        <label className="inline-flex min-h-11 items-center gap-2 md:min-h-8">
-          <input
-            type="checkbox"
-            disabled={busy || library.visible.length === 0}
-            checked={
-              library.visible.length > 0 &&
-              library.visible.every((sprite) => library.selected.includes(sprite.expression))
-            }
-            onChange={(event) =>
-              library.setSelected(event.target.checked ? library.visible.map((sprite) => sprite.expression) : [])
-            }
-          />
-          {t("sprites.library.selectAll", { count: library.visible.length })}
-        </label>
-        {library.selected.length > 0 && (
-          <>
-            <span aria-live="polite">{t("sprites.library.selected", { count: library.selected.length })}</span>
-            <select
-              className={control}
-              aria-label={label("destination")}
-              value={moveTo}
-              disabled={busy || library.mutation.isPending}
-              onChange={(event) => setMoveTo(event.target.value)}
-            >
-              <option value="unfiled">{label("unfiled")}</option>
-              {library.folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className={button}
-              disabled={library.mutation.isPending || busy}
-              onClick={async () => {
-                if (
-                  await library.mutate("post", "move", {
-                    expressions: library.selected,
-                    folderId: moveTo === "unfiled" ? null : moveTo,
-                  })
-                )
-                  library.setSelected([]);
-              }}
-            >
-              {label("move")}
-            </button>
-            {selectionActions}
-            <button
-              type="button"
-              className={button}
-              disabled={busy}
-              onClick={() => library.setSelected([])}
-              aria-label={label("clearSelection")}
-            >
-              <X size={14} />
-            </button>
-          </>
-        )}
-      </div>
+      {library.selecting && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-2 text-xs",
+            library.selected.length > 0 && "rounded-xl bg-[var(--secondary)] p-3",
+          )}
+        >
+          <label className="inline-flex min-h-11 items-center gap-2 md:min-h-8">
+            <input
+              type="checkbox"
+              disabled={busy || library.visible.length === 0}
+              checked={
+                library.visible.length > 0 &&
+                library.visible.every((sprite) => library.selected.includes(sprite.expression))
+              }
+              onChange={(event) =>
+                library.setSelected(event.target.checked ? library.visible.map((sprite) => sprite.expression) : [])
+              }
+            />
+            {t("sprites.library.selectAll", { count: library.visible.length })}
+          </label>
+          {library.selected.length > 0 && (
+            <>
+              <span aria-live="polite">{t("sprites.library.selected", { count: library.selected.length })}</span>
+              <select
+                className={control}
+                aria-label={label("destination")}
+                value={moveTo}
+                disabled={busy || library.mutation.isPending}
+                onChange={(event) => setMoveTo(event.target.value)}
+              >
+                <option value="unfiled">{label("unfiled")}</option>
+                {library.folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={button}
+                disabled={library.mutation.isPending || busy}
+                onClick={async () => {
+                  if (
+                    await library.mutate("post", "move", {
+                      expressions: library.selected,
+                      folderId: moveTo === "unfiled" ? null : moveTo,
+                    })
+                  )
+                    library.setSelected([]);
+                }}
+              >
+                {label("move")}
+              </button>
+              {selectionActions}
+              <button
+                type="button"
+                className={button}
+                disabled={busy}
+                onClick={() => library.setSelected([])}
+                aria-label={label("clearSelection")}
+              >
+                <X size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {children}
     </div>
@@ -455,7 +474,7 @@ function SpriteInlineFolder({
           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
       )}
     >
-      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 md:min-h-9">
+      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 md:min-h-9">
         <div
           role="button"
           tabIndex={0}
@@ -545,6 +564,7 @@ export function SpriteSelection({
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
+  if (!library.selecting) return null;
   return (
     <label className="absolute left-2 top-2 z-10 flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-[var(--card)]/90 md:h-9 md:w-9">
       <input
