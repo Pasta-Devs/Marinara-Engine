@@ -82,6 +82,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("button", { name: "New folder", exact: true }).click();
     const unnamed = library.getByRole("button", { name: "unnamed", exact: true });
     await expect(unnamed).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      library.locator("[data-sprite-folder]").first().getByRole("button", { name: "unnamed", exact: true }),
+    ).toBeVisible();
     await unnamed.focus();
     await page.keyboard.press("F2");
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill("Test folder");
@@ -117,6 +120,33 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.locator("[data-sprite-card]")).toHaveCount(3);
     if (info.project.name === "desktop") {
+      const card = frontSection
+        .getByRole("button", { name: "Preview idle", exact: true })
+        .locator("xpath=ancestor::*[@data-sprite-card][1]");
+      const picture = card.locator("img");
+      await expect(picture).toHaveAttribute("draggable", "false");
+      for (const fromImage of [true, false]) {
+        const bounds = await (fromImage ? picture : card).boundingBox();
+        expect(bounds).not.toBeNull();
+        const x = fromImage ? bounds!.x + bounds!.width / 2 : bounds!.x + 2;
+        const y = fromImage ? bounds!.y + bounds!.height / 2 : bounds!.y + bounds!.height - 3;
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x + 25, y + 8, { steps: 5 });
+        const preview = page.locator("[data-sprite-drag-preview]");
+        await expect(preview).toBeVisible();
+        expect(await preview.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+        await expect(preview.locator("[data-sprite-card]")).toBeVisible();
+        await page.screenshot({
+          path: info.outputPath(fromImage ? "drag-image.png" : "drag-border.png"),
+          animations: "disabled",
+        });
+        await expect(card).toBeVisible();
+        expect(await card.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+        await page.mouse.up();
+        await expect(preview).toHaveCount(0);
+        await expect(card.locator("xpath=ancestor::*[@draggable][1]")).toHaveAttribute("draggable", "true");
+      }
       await expect
         .poll(() =>
           section.evaluate((element) => {

@@ -6178,6 +6178,7 @@ function SpritesTab({
                       src={sprite.url}
                       alt={sprite.label ?? sprite.expression}
                       loading="lazy"
+                      draggable={false}
                       className="h-full w-full object-contain"
                     />
                   </div>

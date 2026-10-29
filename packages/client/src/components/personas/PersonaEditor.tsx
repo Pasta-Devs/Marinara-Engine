@@ -2991,6 +2991,7 @@ function PersonaSpritesTab({
                     src={sprite.url}
                     alt={sprite.label ?? sprite.expression}
                     loading="lazy"
+                    draggable={false}
                     className="h-full w-full object-contain"
                   />
                   <span className="pointer-events-none absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--card)]/90 text-[var(--primary)] opacity-0 shadow-lg ring-1 ring-[var(--border)] transition-opacity group-hover/preview:opacity-100 max-md:opacity-100">

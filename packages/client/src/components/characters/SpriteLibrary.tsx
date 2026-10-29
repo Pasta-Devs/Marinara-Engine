@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Folder, FolderOpen, FolderPlus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -220,6 +220,21 @@ export function SpriteFolderGrid({
 }) {
   const { t } = useTranslation();
   const [target, setTarget] = useState<string | null | undefined>();
+  const dragPreview = useRef<HTMLElement | null>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const movePreview = (event: globalThis.DragEvent) => {
+      if (!dragPreview.current || (!event.clientX && !event.clientY)) return;
+      dragPreview.current.style.left = `${event.clientX - dragOffset.current.x}px`;
+      dragPreview.current.style.top = `${event.clientY - dragOffset.current.y}px`;
+    };
+    window.addEventListener("dragover", movePreview, true);
+    return () => {
+      window.removeEventListener("dragover", movePreview, true);
+      dragPreview.current?.remove();
+      dragPreview.current = null;
+    };
+  }, []);
   const disabled = busy || library.mutation.isPending || !library.query.data;
   function accepts(e: DragEvent) {
     return !disabled && e.dataTransfer.types.includes(dragType);
@@ -227,6 +242,8 @@ export function SpriteFolderGrid({
   async function drop(e: DragEvent, folderId: string | null) {
     e.preventDefault();
     e.stopPropagation();
+    dragPreview.current?.remove();
+    dragPreview.current = null;
     setTarget(undefined);
     if (disabled) return;
     try {
@@ -259,6 +276,31 @@ export function SpriteFolderGrid({
               return;
             }
             e.dataTransfer.effectAllowed = "move";
+            const source = e.currentTarget;
+            const bounds = source.getBoundingClientRect();
+            dragOffset.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
+            dragPreview.current?.remove();
+            const preview = source.cloneNode(true) as HTMLElement;
+            preview.dataset.spriteDragPreview = "";
+            preview.setAttribute("aria-hidden", "true");
+            preview.inert = true;
+            Object.assign(preview.style, {
+              position: "fixed",
+              left: `${bounds.left}px`,
+              top: `${bounds.top}px`,
+              width: `${bounds.width}px`,
+              height: `${bounds.height}px`,
+              pointerEvents: "none",
+              zIndex: "2147483647",
+              opacity: "1",
+              margin: "0",
+            });
+            document.body.appendChild(preview);
+            dragPreview.current = preview;
+            const transparent = document.createElement("canvas");
+            transparent.width = 1;
+            transparent.height = 1;
+            e.dataTransfer.setDragImage(transparent, 0, 0);
             e.dataTransfer.setData(
               dragType,
               JSON.stringify({
@@ -268,6 +310,8 @@ export function SpriteFolderGrid({
             );
           }}
           onDragEnd={() => {
+            dragPreview.current?.remove();
+            dragPreview.current = null;
             setTarget(undefined);
           }}
         >
@@ -295,18 +339,9 @@ export function SpriteFolderGrid({
       {library.search && library.visible.length === 0 && (
         <p className="py-6 text-center text-sm text-[var(--muted-foreground)]">{t("sprites.library.noMatches")}</p>
       )}
-      <div
-        {...zone(null)}
-        data-sprite-loose
-        aria-label={t("sprites.library.loose")}
-        className={cn("min-h-12 rounded-xl", target === null && "ring-2 ring-[var(--primary)]")}
-      >
-        {grid(library.visible.filter((sprite) => !sprite.folderId))}
-        {library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
-          <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
-        )}
-      </div>
       {library.folders
+        .slice()
+        .reverse()
         .filter((folder) => !library.search || library.visible.some((sprite) => sprite.folderId === folder.id))
         .map((folder) => (
           <SpriteInlineFolder
@@ -320,6 +355,17 @@ export function SpriteFolderGrid({
             {grid(library.visible.filter((sprite) => sprite.folderId === folder.id))}
           </SpriteInlineFolder>
         ))}
+      <div
+        {...zone(null)}
+        data-sprite-loose
+        aria-label={t("sprites.library.loose")}
+        className={cn("min-h-12 rounded-xl", target === null && "ring-2 ring-[var(--primary)]")}
+      >
+        {grid(library.visible.filter((sprite) => !sprite.folderId))}
+        {library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
+          <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
+        )}
+      </div>
     </div>
   );
 }
