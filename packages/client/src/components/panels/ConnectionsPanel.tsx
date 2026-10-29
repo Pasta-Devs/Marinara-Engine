@@ -835,7 +835,7 @@ export function ConnectionsPanel() {
             <button
               type="button"
               onClick={() => openModal("create-connection")}
-              className="mari-connection-btn mari-connection-btn--primary w-full"
+              className="mari-chrome-control mari-chrome-control--primary w-full"
             >
               <Plus size="0.875rem" />
               {t("connections.list.addConnection")}
@@ -876,12 +876,12 @@ export function ConnectionsPanel() {
                   href="https://linkapi.ai/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mari-connection-btn w-full"
+                  className="mari-chrome-control w-full"
                 >
                   <ExternalLink size="0.75rem" className="shrink-0" />
                   <span>{t("ui.panels.connectionspanel.visitLinkapi")}</span>
                 </a>
-                <button type="button" onClick={dismissLinkApiBanner} className="mari-connection-btn w-full">
+                <button type="button" onClick={dismissLinkApiBanner} className="mari-chrome-control w-full">
                   <X size="0.75rem" className="shrink-0" />
                   <span>{t("ui.panels.connectionspanel.dismissPermanently")}</span>
                 </button>
@@ -1086,7 +1086,7 @@ export function ConnectionsPanel() {
       <button
         type="button"
         onClick={() => openModal("create-connection")}
-        className="mari-connection-btn mari-connection-btn--primary"
+        className="mari-chrome-control mari-chrome-control--primary"
         aria-label={t("connections.list.addConnection")}
       >
         <Plus size="0.8125rem" aria-hidden />
@@ -1098,7 +1098,7 @@ export function ConnectionsPanel() {
           const rect = event.currentTarget.getBoundingClientRect();
           setHeaderMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
         }}
-        className="mari-connection-btn mari-connection-btn--icon"
+        className="mari-chrome-control mari-chrome-control--icon"
         title={t("connections.accounts.header.more")}
         aria-label={t("connections.accounts.header.more")}
         aria-haspopup="menu"

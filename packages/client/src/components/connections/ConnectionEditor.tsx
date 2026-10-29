@@ -1902,7 +1902,7 @@ export function ConnectionEditor({
       <div className="flex gap-2">
         {/* A chat Model of a Connection is tested on its card; only a Model with its own endpoint tests here. */}
         {(!accountLinked || hasOwnEndpoint) && (
-          <button onClick={handleTestConnection} disabled={testConnection.isPending} className="mari-connection-btn">
+          <button onClick={handleTestConnection} disabled={testConnection.isPending} className="mari-chrome-control">
             {testConnection.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
             ) : (
@@ -1915,7 +1915,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestMessage}
             disabled={testMessage.isPending || !canSendTestMessage}
-            className="mari-connection-btn"
+            className="mari-chrome-control"
           >
             {testMessage.isPending ? (
               <Loader2 size="0.8125rem" className="animate-spin" />
@@ -1929,7 +1929,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestImage}
             disabled={testImageGeneration.isPending}
-            className="mari-connection-btn"
+            className="mari-chrome-control"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestImageGeneration") : undefined}
           >
             {testImageGeneration.isPending ? (
@@ -1944,7 +1944,7 @@ export function ConnectionEditor({
           <button
             onClick={handleTestVideo}
             disabled={testVideoGeneration.isPending}
-            className="mari-connection-btn"
+            className="mari-chrome-control"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestVideoGeneration") : undefined}
           >
             {testVideoGeneration.isPending ? (
@@ -1959,7 +1959,7 @@ export function ConnectionEditor({
           <button
             onClick={handleDiagnoseClaudeSubscription}
             disabled={diagnoseClaudeSubscription.isPending || !localModel}
-            className="mari-connection-btn"
+            className="mari-chrome-control"
             title={localizeUi("ui.connections.connectioneditor.verifyWhichModelTheSdkActuallyBillsAgainstCatches")}
           >
             {diagnoseClaudeSubscription.isPending ? (
@@ -2402,7 +2402,7 @@ export function ConnectionEditor({
                     <button
                       type="button"
                       onClick={() => openModal("connection-account", { accountId })}
-                      className="mari-connection-btn shrink-0"
+                      className="mari-chrome-control shrink-0"
                     >
                       {t("connections.editor.editConnection")}
                     </button>
@@ -3336,7 +3336,7 @@ export function ConnectionEditor({
                   type="button"
                   aria-pressed={!localModel}
                   onClick={() => selectModel({ model: "" })}
-                  className="mari-connection-btn mb-2"
+                  className="mari-chrome-control mb-2"
                 >
                   {!localModel && <Check aria-hidden="true" />}
                   {localizeUi("ui.connections.connectioneditor.useGrokCliDefault")}

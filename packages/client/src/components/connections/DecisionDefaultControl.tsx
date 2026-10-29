@@ -199,7 +199,7 @@ export function DecisionDefaultControl({
         <button
           type="button"
           onClick={() => openAddConnection({ category: "device", item: "local-model" })}
-          className="mari-connection-btn self-start"
+          className="mari-chrome-control self-start"
         >
           <Download size="0.75rem" aria-hidden />
           {t("connections.builtin.setUp")}

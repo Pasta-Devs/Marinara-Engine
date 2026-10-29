@@ -657,7 +657,7 @@ export function ConnectionModelPicker({
                   disabled={refresh.isPending || modelList.isFetching}
                   aria-label={t("connections.modelPicker.refresh")}
                   title={t("connections.modelPicker.refresh")}
-                  className="mari-connection-btn mari-connection-btn--icon"
+                  className="mari-chrome-control mari-chrome-control--icon"
                 >
                   <RefreshCw
                     size="0.875rem"

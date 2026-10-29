@@ -290,7 +290,7 @@ function LettersForm({ initial, onSave }: { initial: string; onSave: (text: stri
       <span id="picture-menu-letters-hint" className="min-w-0 flex-1 text-[0.6875rem] text-[var(--muted-foreground)]">
         {t("connections.picture.lettersHint")}
       </span>
-      <button type="submit" disabled={!valid} className="mari-connection-btn mari-connection-btn--primary">
+      <button type="submit" disabled={!valid} className="mari-chrome-control mari-chrome-control--primary">
         {t("connections.picture.saveLetters")}
       </button>
     </form>

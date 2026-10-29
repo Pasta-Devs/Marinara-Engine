@@ -637,7 +637,7 @@ export function ConnectionSwitcherBody({
         group.account?.state === "off" ? "connections.switcher.fixTurnOn" : "connections.switcher.fixAddKey",
         { connection: group.name },
       )}
-      className="mari-connection-btn"
+      className="mari-chrome-control"
     >
       {fixLabel(group)}
     </button>

@@ -50,7 +50,7 @@ import { ProviderIcon } from "./ProviderIcon";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
-export const SMALL_ACTION = "mari-connection-btn";
+export const SMALL_ACTION = "mari-chrome-control";
 /** The facts and models card of a detail page, coloured from the Connections panel tokens. */
 export const DETAIL_CARD_CLASS =
   "mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
@@ -562,7 +562,7 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           type="button"
           onClick={handleDownloadNow}
           disabled={isDownloading}
-          className="mari-connection-btn mari-connection-btn--primary w-full"
+          className="mari-chrome-control mari-chrome-control--primary w-full"
         >
           {isDownloading ? localizeUi("connections.device.downloading") : localizeUi("connections.device.downloadNow")}
         </button>

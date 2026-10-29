@@ -419,7 +419,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         setInspectedRepo(repo);
                         inspect.mutate({ repoId: repo }, { onError: report });
                       }}
-                      className="mari-connection-btn"
+                      className="mari-chrome-control"
                     >
                       {localizeUi(
                         inspect.isPending
@@ -467,7 +467,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                         type="button"
                         disabled={!inspect.data.preflight.installable || busy}
                         onClick={() => void handleInstallRepo()}
-                        className="mari-connection-btn mt-2 w-full"
+                        className="mari-chrome-control mt-2 w-full"
                       >
                         {localizeUi("ui.modals.decisionmodelmodal.installPasted")}
                       </button>
@@ -513,7 +513,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
                     }
                   }
                 }}
-                className="mari-connection-btn"
+                className="mari-chrome-control"
               >
                 <Trash2 size="0.75rem" />
                 {localizeUi("ui.modals.decisionmodelmodal.remove")}
@@ -523,7 +523,7 @@ export function DecisionModelModal({ open, onClose }: Props) {
         )}
 
         {nothingRuns && (
-          <button type="button" onClick={openDecisionConnection} className="mari-connection-btn">
+          <button type="button" onClick={openDecisionConnection} className="mari-chrome-control">
             <Link2 size="0.75rem" />
             {localizeUi("ui.modals.decisionmodelmodal.setUpDecisionConnection")}
           </button>

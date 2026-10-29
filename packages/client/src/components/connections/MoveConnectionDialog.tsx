@@ -225,7 +225,7 @@ function ModelStep({
           onClick={onBack}
           aria-label={t("connections.add.back")}
           title={t("connections.add.back")}
-          className="mari-connection-btn mari-connection-btn--ghost mari-connection-btn--icon -ms-2"
+          className="mari-chrome-control mari-chrome-control--icon -ms-2"
         >
           <ChevronLeft size="1rem" aria-hidden />
         </button>
@@ -253,7 +253,7 @@ function ModelStep({
                 data-move-catalog-retry
                 onClick={() => plan.refetch()}
                 disabled={plan.isFetching}
-                className="mari-connection-btn mari-connection-btn--ghost shrink-0"
+                className="mari-chrome-control shrink-0"
               >
                 {t("connections.picker.retry")}
               </button>
@@ -285,7 +285,7 @@ function ModelStep({
               !search.isFetching && (
                 <div role="alert" className="mb-2 flex items-center gap-2 text-[0.6875rem]">
                   <span className="min-w-0 flex-1 text-foreground/60">{t("connections.move.searchFailed")}</span>
-                  <button type="button" onClick={() => void search.refetch()} className="mari-connection-btn">
+                  <button type="button" onClick={() => void search.refetch()} className="mari-chrome-control">
                     <RefreshCw size="0.75rem" aria-hidden />
                     {t("connections.picker.retry")}
                   </button>
@@ -361,7 +361,7 @@ function ModelStep({
           // A stale list can offer a same-service Connection here; that move needs no model.
           disabled={busy || (kind === "cross" ? !choice : kind !== "same")}
           onClick={() => onMove(target, kind === "cross" ? choice : undefined)}
-          className="mari-connection-btn mari-connection-btn--primary"
+          className="mari-chrome-control mari-chrome-control--primary"
         >
           {t("connections.move.confirm")}
         </button>

@@ -451,14 +451,14 @@ function UsageKeySheet({
               {t("connections.usage.remove")}
             </button>
           )}
-          <button type="button" onClick={onClose} disabled={busy} className="mari-connection-btn">
+          <button type="button" onClick={onClose} disabled={busy} className="mari-chrome-control">
             {t("connections.accounts.editor.cancel")}
           </button>
           <button
             type="button"
             onClick={() => void save()}
             disabled={busy || !canSave}
-            className="mari-connection-btn mari-connection-btn--primary"
+            className="mari-chrome-control mari-chrome-control--primary"
           >
             {t("connections.usage.showUsage")}
           </button>

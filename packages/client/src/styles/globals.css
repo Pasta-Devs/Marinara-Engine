@@ -1689,11 +1689,11 @@
 [data-marinara-accent-animation] .mari-connection-scope {
   --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
   --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
-  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
   --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
   --marinara-chat-chrome-button-bg-active: var(--mari-connection-tint);
-  --marinara-chat-chrome-button-border: transparent;
-  --marinara-chat-chrome-button-border-hover: transparent;
+  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 28%, transparent);
   --marinara-chat-chrome-button-border-active: transparent;
   --marinara-chat-chrome-button-text: var(--foreground);
   --marinara-chat-chrome-button-text-hover: var(--foreground);
@@ -1709,15 +1709,14 @@
   --marinara-editor-focus-ring: var(--mari-connection-ring);
   --marinara-editor-border: color-mix(in srgb, var(--foreground) 10%, transparent);
   --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --primary: var(--mari-connection-ink);
   --ring: var(--mari-connection-ring);
 }
-/* The editor's main action (Save) wears the connection blue, as the Add window's primary does. */
+/* The editor's main action (Save) wears the theme accent, like every primary. */
 .mari-connection-scope .mari-editor-action--primary,
 [data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
   border-color: transparent;
-  background: linear-gradient(135deg, #38bdf8, #3b82f6);
-  color: #f0f9ff;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 .mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
   filter: brightness(1.06);
@@ -1728,76 +1727,17 @@
   box-shadow: none;
 }
 
-/* Connection buttons: one height (2.25rem, 2.75rem on touch), one radius, one icon size. Quiet by default. */
-.mari-connection-btn {
-  display: inline-flex;
-  flex-shrink: 0;
-  min-height: 2.25rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  border: 0;
-  border-radius: 0.625rem;
-  padding: 0 0.75rem;
-  background: color-mix(in srgb, var(--foreground) 6%, transparent);
-  color: var(--foreground);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1rem;
-  white-space: nowrap;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    filter 150ms ease,
-    transform 120ms ease;
-}
-.mari-connection-btn svg {
-  width: 0.875rem;
-  height: 0.875rem;
-  flex-shrink: 0;
-}
-.mari-connection-btn:hover {
-  background: color-mix(in srgb, var(--foreground) 10%, transparent);
-}
-.mari-connection-btn:active {
-  transform: scale(0.96);
-}
-.mari-connection-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--mari-connection-ring, color-mix(in srgb, #38bdf8 55%, transparent));
-}
-.mari-connection-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-  transform: none;
-}
-/* The one primary per surface: the connection-blue gradient. */
-.mari-connection-btn--primary,
-.mari-connection-btn--primary:hover {
-  background: linear-gradient(135deg, #38bdf8, #3b82f6);
-  color: #f0f9ff;
-}
-.mari-connection-btn--primary:hover {
-  filter: brightness(1.06);
-}
-/* Icon-only and in-row controls (⋯, back): no fill until hovered. */
-.mari-connection-btn--ghost {
-  background: transparent;
-  color: var(--muted-foreground);
-}
-.mari-connection-btn--ghost:hover {
-  background: color-mix(in srgb, var(--foreground) 6%, transparent);
-  color: var(--foreground);
-}
-.mari-connection-btn--icon {
-  width: 2.25rem;
-  padding: 0;
+/* The one primary per screen wears the theme accent; touch gets the 44px target. */
+.mari-connection-scope .mari-chrome-control--primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 @media (max-width: 47.9375rem), (pointer: coarse) {
-  .mari-connection-btn {
+  .mari-connection-scope .mari-chrome-control {
     min-height: 2.75rem;
   }
-  .mari-connection-btn--icon {
+  .mari-connection-scope .mari-chrome-control--icon {
     width: 2.75rem;
   }
 }
@@ -1845,6 +1785,7 @@
   flex-shrink: 0;
   align-items: center;
   border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent);
   padding-inline: 0.625rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
@@ -1866,11 +1807,6 @@
     height: 2.75rem;
   }
 }
-/* Add window: "Show all N" reads in connection ink. */
-.mari-connection-btn--ghost.mari-add-show-all {
-  color: var(--mari-connection-ink);
-}
-
 .mari-panel-gradient--agents {
   --mari-panel-gradient-start: #a78bfa;
   --mari-panel-gradient-end: #a855f7;
