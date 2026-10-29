@@ -70,7 +70,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       "false",
     );
     await expect(library.getByRole("slider")).toHaveCount(0);
-    await expect(library.getByText("Default folder for chats: Front", { exact: true })).toBeVisible();
+    await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
@@ -188,10 +188,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const longName = "x".repeat(100);
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill(longName);
     await library.getByRole("button", { name: "Save folder", exact: true }).click();
-    await expect(library.locator("[data-sprite-default]")).toContainText(longName);
-    const defaultRow = await library.locator("[data-sprite-default]").boundingBox();
-    expect(defaultRow).not.toBeNull();
-    expect(defaultRow!.x + defaultRow!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    await expect(library.getByRole("button", { name: "Use by default", exact: true })).toHaveCount(0);
     expect(await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
     expect(errors).toEqual([]);
   } finally {

@@ -1152,9 +1152,7 @@ export class MariImagesService {
     return withSpriteCatalogLock(ownerId, async () => {
       const catalog = readSpriteCatalog(ownerId);
       const sprites = listSpriteCatalog(ownerId).sprites;
-      const match = sprites.find(
-        (sprite) => sprite.label === expression && sprite.folderId === catalog.defaultFolderId,
-      );
+      const match = sprites.find((sprite) => sprite.label === expression);
       const handle =
         match?.expression ??
         (sprites.some((sprite) => sprite.expression === expression)
@@ -1166,7 +1164,7 @@ export class MariImagesService {
       await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
       catalog.sprites = {
         ...catalog.sprites,
-        [handle]: { id: match?.id ?? randomUUID(), label: expression, folderId: catalog.defaultFolderId },
+        [handle]: { id: match?.id ?? randomUUID(), label: expression, folderId: match?.folderId ?? null },
       };
       await writeSpriteCatalog(ownerId, catalog);
       return listSpriteCatalog(ownerId).sprites.find((sprite) => sprite.expression === handle)!;

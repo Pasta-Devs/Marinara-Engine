@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from "fs";
-import { getSpriteFolderOverride } from "@marinara-engine/shared";
 import { join, extname } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { activeOwnerSprites, listSpriteCatalog } from "../sprites/sprite-catalog.js";
@@ -90,10 +89,7 @@ export function buildSpriteExpressionChoices(expressions: string[]): string[] {
  * List available sprite expressions for a character by reading their sprites directory.
  * Returns expression names (without extension) split into portrait and full-body.
  */
-export function listCharacterSprites(
-  characterId: string,
-  folderId?: string | null,
-): {
+export function listCharacterSprites(characterId: string): {
   expressions: string[];
   fullBody: string[];
   automaticFullBody: string[];
@@ -102,7 +98,7 @@ export function listCharacterSprites(
   folderNames: string[];
   folderDescription: string;
 } | null {
-  const files = activeOwnerSprites(characterId, folderId);
+  const files = activeOwnerSprites(characterId);
   const expressions: string[] = [];
   const fullBody: string[] = [];
   const automaticFullBody: string[] = [];
@@ -133,12 +129,8 @@ export function listCharacterSprites(
     automaticFullBody,
     expressionAliases,
     folderNames: catalog.folders.map((folder) => folder.name),
-    folderDescription:
-      catalog.folders.find((folder) => folder.id === (folderId === undefined ? catalog.defaultFolderId : folderId))
-        ?.description ?? "",
-    folderName:
-      catalog.folders.find((folder) => folder.id === (folderId === undefined ? catalog.defaultFolderId : folderId))
-        ?.name ?? null,
+    folderDescription: "",
+    folderName: null,
   };
 }
 
@@ -187,11 +179,11 @@ export function readPreferredFullBodySpriteBase64(
  */
 export function listPartySprites(
   characters: Array<{ id: string; name: string }>,
-  metadata?: unknown,
+  _metadata?: unknown,
 ): CharacterSpriteInfo[] {
   const result: CharacterSpriteInfo[] = [];
   for (const char of characters) {
-    const sprites = listCharacterSprites(char.id, getSpriteFolderOverride(metadata, char.id));
+    const sprites = listCharacterSprites(char.id);
     if (sprites) {
       result.push({
         name: char.name,

@@ -2,12 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import {
-  spriteCatalogSchema,
-  selectSpriteFolder,
-  type SpriteCatalog,
-  type CharacterSpriteCatalog,
-} from "@marinara-engine/shared";
+import { spriteCatalogSchema, type SpriteCatalog, type CharacterSpriteCatalog } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 
 const IMAGE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu;
@@ -76,15 +71,16 @@ export function listSpriteCatalog(ownerId: string): CharacterSpriteCatalog {
             filename,
             url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Math.floor(statSync(join(directory, filename)).mtimeMs)}`,
             folderName: catalog.folders.find((folder) => folder.id === metadata.folderId)?.name ?? null,
-            active: metadata.folderId === catalog.defaultFolderId,
+            active: true,
           };
         })
     : [];
   return { folders: catalog.folders, defaultFolderId: catalog.defaultFolderId, sprites };
 }
 
-export function activeOwnerSprites(ownerId: string, folderId?: string | null) {
-  return selectSpriteFolder(listSpriteCatalog(ownerId).sprites, folderId);
+export function activeOwnerSprites(ownerId: string) {
+  // Folders organize the library; every sprite remains available at runtime.
+  return listSpriteCatalog(ownerId).sprites;
 }
 
 /** Import only memberships whose image was successfully restored; never accept filesystem paths from metadata. */

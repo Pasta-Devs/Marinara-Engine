@@ -1,9 +1,8 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { Folder, FolderPlus, Pencil, Search, Star, Trash2, X } from "lucide-react";
+import { Folder, FolderPlus, Pencil, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
-import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 
@@ -92,11 +91,9 @@ export function SpriteLibraryShell({
   const [name, setName] = useState("");
   const [moveTo, setMoveTo] = useState("unfiled");
   const current = library.folders.find((folder) => folder.id === library.folderId);
-  const defaultId = library.query.data?.defaultFolderId ?? "unfiled";
   const label = (key: string) => t(`sprites.library.${key}`);
   const choices = [{ id: "all", name: label("all") }, { id: "unfiled", name: label("unfiled") }, ...library.folders];
   const title = choices.find((choice) => choice.id === library.folderId)?.name ?? label("missingFolder");
-  const defaultName = choices.find((choice) => choice.id === defaultId)?.name ?? label("unfiled");
   return (
     <div
       className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
@@ -119,9 +116,7 @@ export function SpriteLibraryShell({
             >
               {choices.map((choice) => (
                 <option key={choice.id} value={choice.id}>
-                  {choice.id === defaultId
-                    ? t("sprites.library.defaultFolderName", { name: choice.name })
-                    : choice.name}
+                  {choice.name}
                 </option>
               ))}
             </select>
@@ -156,9 +151,6 @@ export function SpriteLibraryShell({
                 <span className="text-[var(--muted-foreground)] tabular-nums">
                   {library.counts.get(choice.id) ?? 0}
                 </span>
-                {choice.id === defaultId && (
-                  <Star size={12} aria-label={label("default")} className="shrink-0 text-[var(--primary)]" />
-                )}
               </button>
             ))}
           </nav>
@@ -277,31 +269,8 @@ export function SpriteLibraryShell({
               {current?.description && (
                 <p className="mt-1 break-words text-xs text-[var(--muted-foreground)]">{current.description}</p>
               )}
-              <p
-                className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[var(--muted-foreground)]"
-                data-sprite-default
-              >
-                <Star size={12} className="shrink-0" />
-                <span className="min-w-0 break-words">
-                  {library.query.isPending
-                    ? label("loadingFolders")
-                    : library.query.data
-                      ? t("sprites.library.chatDefault", { name: defaultName })
-                      : label("loadError")}
-                </span>
-              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{label("allAvailable")}</p>
             </div>
-            {library.folderId !== "all" && defaultId !== library.folderId && (
-              <button
-                type="button"
-                className={button}
-                disabled={library.mutation.isPending || busy}
-                onClick={() => void library.mutate("patch", "catalog", { defaultFolderId: library.uploadFolderId })}
-              >
-                <Star size={14} />
-                {label("makeDefault")}
-              </button>
-            )}
           </div>
           <label className="flex items-center gap-2">
             <Search size={16} className="shrink-0 text-[var(--muted-foreground)]" />
@@ -417,55 +386,6 @@ export function SpriteSelection({
           folder: sprite.folderName ?? t("sprites.library.unfiled"),
         })}
       />
-    </label>
-  );
-}
-
-export function SpriteFolderChatPicker({ chatId, ownerId }: { chatId: string; ownerId: string }) {
-  const { t } = useTranslation();
-  const { data: catalog } = useSpriteCatalog(ownerId);
-  const { data: chat } = useChat(chatId);
-  const update = useUpdateChatMetadata();
-  const overrides = chat?.metadata.spriteFolderOverrides ?? {};
-  const selected = Object.hasOwn(overrides, ownerId) ? (overrides[ownerId] ?? "unfiled") : "inherit";
-  if (!catalog || (!catalog.folders.length && !Object.hasOwn(overrides, ownerId))) return null;
-  return (
-    <label className="w-full min-w-0 sm:w-36">
-      <span className="sr-only">{t("sprites.library.chatFolder")}</span>
-      <select
-        className={`${control} w-full`}
-        aria-label={t("sprites.library.chatFolder")}
-        value={selected}
-        disabled={update.isPending}
-        onChange={(event) => {
-          const next = { ...overrides };
-          if (event.target.value === "inherit") delete next[ownerId];
-          else next[ownerId] = event.target.value === "unfiled" ? null : event.target.value;
-          update.mutate(
-            { id: chatId, spriteFolderOverrides: next },
-            { onError: (error) => toast.error(error.message) },
-          );
-        }}
-      >
-        <option value="inherit">
-          {t("sprites.library.inheritDefault", {
-            name:
-              catalog.folders.find((folder) => folder.id === catalog.defaultFolderId)?.name ??
-              t("sprites.library.unfiled"),
-          })}
-        </option>
-        <option value="unfiled">{t("sprites.library.unfiled")}</option>
-        {catalog.folders.map((folder) => (
-          <option key={folder.id} value={folder.id}>
-            {folder.name}
-          </option>
-        ))}
-        {selected !== "inherit" &&
-          selected !== "unfiled" &&
-          !catalog.folders.some((folder) => folder.id === selected) && (
-            <option value={selected}>{t("sprites.library.missingFolder")}</option>
-          )}
-      </select>
     </label>
   );
 }

@@ -46,7 +46,6 @@ import {
 } from "../../services/generation/agent-generation-parameters.js";
 import { and, eq } from "../../db/file-query.js";
 import { listCharacterSprites } from "../../services/game/sprite.service.js";
-import { getSpriteFolderOverride } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   AGENT_PHASE_MAX_CONCURRENT_GROUPS,
@@ -1537,7 +1536,7 @@ async function buildRetryAgentContext(args: {
       }> = [];
       for (const char of agentContext.characters) {
         if (restrictToSelectedSprites && !selectedSpriteIds.has(char.id)) continue;
-        const sprites = listCharacterSprites(char.id, getSpriteFolderOverride(chatMeta, char.id));
+        const sprites = listCharacterSprites(char.id);
         if (!sprites) continue;
         const spriteCharacter = buildAvailableSpriteCharacter(char.id, char.name, sprites, spriteDisplayModes);
         if (spriteCharacter) perChar.push(spriteCharacter);
@@ -1554,10 +1553,7 @@ async function buildRetryAgentContext(args: {
         includePersonaSprite &&
         !perChar.some((entry) => entry.characterId === personaContext.identityId)
       ) {
-        const sprites = listCharacterSprites(
-          personaContext.identityId,
-          getSpriteFolderOverride(chatMeta, personaContext.identityId),
-        );
+        const sprites = listCharacterSprites(personaContext.identityId);
         if (sprites) {
           const spritePersona = buildAvailableSpriteCharacter(
             personaContext.identityId,

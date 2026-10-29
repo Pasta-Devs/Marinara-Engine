@@ -37,20 +37,3 @@ export interface CharacterSpriteCatalog {
   defaultFolderId: string | null;
   sprites: CatalogSprite[];
 }
-
-export function getSpriteFolderOverride(metadata: unknown, ownerId: string): string | null | undefined {
-  if (!metadata || typeof metadata !== "object") return undefined;
-  const overrides = (metadata as Record<string, unknown>).spriteFolderOverrides;
-  if (!overrides || typeof overrides !== "object" || !Object.hasOwn(overrides, ownerId)) return undefined;
-  const value = (overrides as Record<string, unknown>)[ownerId];
-  return value === null || typeof value === "string" ? value : undefined;
-}
-
-export function selectSpriteFolder<T extends { folderId?: string | null; active?: boolean }>(
-  sprites: readonly T[],
-  folderId?: string | null,
-): T[] {
-  return sprites.filter((sprite) =>
-    folderId === undefined ? sprite.active !== false : (sprite.folderId ?? null) === folderId,
-  );
-}

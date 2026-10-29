@@ -3155,9 +3155,7 @@ function buildAvailableSpritesBlock(context: AgentContext): string {
     parts.push(`${char.characterName} (${char.characterId})${label}${folder}: ${choices.join(", ")}`);
     if (char.folderDescription) parts.push(`Current folder description: ${char.folderDescription}`);
     if (char.folderNames?.length)
-      parts.push(
-        `Folders for discovery: ${char.folderNames.join(", ")}. Choose only the expressions listed for the current folder.`,
-      );
+      parts.push(`Organizational folders: ${char.folderNames.join(", ")}. Expressions from all folders are available.`);
   }
   parts.push(`</available_sprites>`);
   return parts.join("\n");

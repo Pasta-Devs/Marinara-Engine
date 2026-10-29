@@ -11,10 +11,8 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
-import { chatKeys, useChat } from "./use-chats";
-import { useChatStore } from "../stores/chat.store";
+import { chatKeys } from "./use-chats";
 import {
-  selectSpriteFolder,
   spriteCatalogSchema,
   normalizeSpriteExpressionLabel,
   type CharacterSpriteCatalog,
@@ -571,18 +569,12 @@ export function useSpriteCapabilities() {
 
 export function useCharacterSprites(
   characterId: string | null,
-  options: { all?: boolean; chatId?: string | null } = {},
+  _options: { all?: boolean; chatId?: string | null } = {},
 ) {
-  const activeChatId = useChatStore((state) => state.activeChatId);
-  const { data: chat } = useChat(options.all ? null : options.chatId === undefined ? activeChatId : options.chatId);
-  const overrides = chat?.metadata.spriteFolderOverrides;
-  const folderId =
-    characterId && overrides && Object.hasOwn(overrides, characterId) ? overrides[characterId] : undefined;
   return useQuery({
     queryKey: spriteKeys.list(characterId ?? ""),
     queryFn: () => api.get<SpriteInfo[]>(`/sprites/${characterId}`),
     enabled: !!characterId,
-    select: (sprites) => (options.all ? sprites : selectSpriteFolder(sprites, folderId)),
   });
 }
 
@@ -706,7 +698,7 @@ export function useCharacterSpritePreviews(characterIds: string[]) {
   return useMemo(() => {
     const previews = new Map<string, SpriteInfo[]>();
     uniqueIds.forEach((characterId, index) => {
-      previews.set(characterId, selectSpriteFolder(queries[index]?.data ?? []));
+      previews.set(characterId, queries[index]?.data ?? []);
     });
     return previews;
   }, [queries, uniqueIds]);
