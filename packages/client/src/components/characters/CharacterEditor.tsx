@@ -5923,7 +5923,7 @@ function SpritesTab({
             <button
               type="button"
               className={spriteActionClass}
-              disabled={spriteBusy || backgroundCleanupUnavailable}
+              disabled={spriteBusy || backgroundCleanupUnavailable || selectedSprites.length === 0}
               title={backgroundCleanupUnavailable ? backgroundCleanupReason : undefined}
               aria-expanded={cleanupOpen}
               aria-controls={cleanupPanelId}
@@ -5935,7 +5935,7 @@ function SpritesTab({
             <button
               type="button"
               className={cn(spriteActionClass, "mari-editor-action--danger")}
-              disabled={spriteBusy}
+              disabled={spriteBusy || selectedSprites.length === 0}
               onClick={() => void handleDeleteSelectedSprites()}
             >
               <Trash2 size={14} />

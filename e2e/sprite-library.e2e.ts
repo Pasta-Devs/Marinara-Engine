@@ -204,7 +204,31 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }
     await expect(library.getByRole("checkbox", { name: /^Select/ })).toHaveCount(0);
     await library.getByRole("button", { name: "Select", exact: true }).click();
-    await expect(library.getByRole("button", { name: /^Select all/ })).toBeVisible();
+    const selectAll = library.getByRole("button", { name: "Select all sprites", exact: true });
+    const deselectAll = library.getByRole("button", { name: "Deselect all sprites", exact: true });
+    const cleanupAction = library.getByRole("button", { name: "Clean Backgrounds", exact: true });
+    const deleteAction = library.getByRole("button", { name: "Delete selected", exact: true });
+    await expect(selectAll).toBeVisible();
+    await expect(cleanupAction).toBeDisabled();
+    await expect(deleteAction).toBeDisabled();
+    const actionPositions = await Promise.all(
+      [selectAll, cleanupAction, deleteAction].map((action) => action.boundingBox()),
+    );
+    await selectAll.click();
+    await expect(deselectAll).toBeVisible();
+    const selectedPositions = await Promise.all(
+      [deselectAll, cleanupAction, deleteAction].map((action) => action.boundingBox()),
+    );
+    for (let i = 1; i < actionPositions.length; i++) {
+      expect(selectedPositions[i]?.x).toBe(actionPositions[i]?.x);
+      expect(selectedPositions[i]?.y).toBe(actionPositions[i]?.y);
+    }
+    await deselectAll.click();
+    await expect(selectAll).toBeVisible();
+    for (const checkbox of await library.getByRole("checkbox", { name: /^Select .* in / }).all())
+      await checkbox.check();
+    await expect(deselectAll).toBeVisible();
+    await deselectAll.click();
     await library.getByRole("checkbox", { name: "Select idle in Front", exact: true }).check();
     await library.getByRole("button", { name: "Preview idle", exact: true }).click();
     const details = page.getByRole("dialog").last();
@@ -256,7 +280,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       .getByRole("button", { name: "Alternate", exact: true })
       .click();
     await library.getByRole("checkbox", { name: "Select idle in Alternate", exact: true }).uncheck();
-    await expect(library.getByRole("button", { name: "Delete selected", exact: true })).toHaveCount(0);
+    await expect(deleteAction).toBeDisabled();
 
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
 
@@ -295,7 +319,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await bulkDelete.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(1);
     expect((await catalog()).sprites).toHaveLength(2);
-    await expect(library.getByRole("button", { name: "Delete selected", exact: true })).toHaveCount(0);
+    await expect(deleteAction).toBeDisabled();
 
     await library.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(library.getByRole("checkbox", { name: /^Select/ })).toHaveCount(0);

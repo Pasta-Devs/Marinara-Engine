@@ -98,6 +98,8 @@ export function SpriteLibraryShell({
 }) {
   const { t } = useTranslation();
   const label = (key: string) => t(`sprites.library.${key}`);
+  const allSelected =
+    library.visible.length > 0 && library.visible.every((sprite) => library.selected.includes(sprite.expression));
   return (
     <div
       className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
@@ -155,27 +157,20 @@ export function SpriteLibraryShell({
         </p>
       )}
       {library.selecting && (
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-2 text-xs",
-            library.selected.length > 0 && "rounded-xl bg-[var(--secondary)] p-3",
-          )}
-        >
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             type="button"
-            className={button}
+            className={cn(button, "w-44")}
             disabled={busy || library.visible.length === 0}
-            onClick={() => library.setSelected(library.visible.map((sprite) => sprite.expression))}
+            onClick={() => library.setSelected(allSelected ? [] : library.visible.map((sprite) => sprite.expression))}
           >
             <CheckSquare size={14} />
-            {t("sprites.library.selectAll", { count: library.visible.length })}
+            {label(allSelected ? "deselectAllSprites" : "selectAllSprites")}
           </button>
-          {library.selected.length > 0 && (
-            <>
-              <span aria-live="polite">{t("sprites.library.selected", { count: library.selected.length })}</span>
-              {selectionActions}
-            </>
-          )}
+          {selectionActions}
+          <span className="ml-auto" aria-live="polite">
+            {library.selected.length > 0 && t("sprites.library.selected", { count: library.selected.length })}
+          </span>
         </div>
       )}
 
