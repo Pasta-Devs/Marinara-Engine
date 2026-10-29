@@ -7,6 +7,7 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 
 const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
@@ -104,6 +105,7 @@ export function SpriteLibraryShell({
     <div
       className="@container/sprite-library min-w-0 space-y-4 [overflow-wrap:anywhere]"
       data-sprite-library
+      data-sprite-owner={library.ownerId}
       aria-busy={library.query.isPending}
     >
       {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
@@ -193,6 +195,43 @@ export function SpriteFolderGrid({
   const [draggedExpressions, setDraggedExpressions] = useState<string[]>([]);
   const dragPreview = useRef<HTMLElement | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const [touchDragging, setTouchDragging] = useState(false);
+  const suppressClick = useRef(false);
+  const disabled = busy || library.mutation.isPending || !library.query.data;
+  const { startTouchDrag } = useTouchFolderDrag({
+    getDragIds: (expression) => (library.selected.includes(expression) ? library.selected : [expression]),
+    onActivate: (expression) => {
+      suppressClick.current = true;
+      setTouchDragging(true);
+      setDraggedExpressions(library.selected.includes(expression) ? library.selected : [expression]);
+    },
+    onDrop: (_expression, x, y, expressions) => {
+      const hit = document.elementFromPoint(x, y);
+      const folder = hit?.closest<HTMLElement>("[data-sprite-folder]");
+      const root = hit?.closest("[data-sprite-loose]");
+      if (
+        !disabled &&
+        (folder || root) &&
+        hit?.closest("[data-sprite-library]")?.getAttribute("data-sprite-owner") === library.ownerId
+      ) {
+        const folderId = folder?.dataset.spriteFolder ?? null;
+        if (!folderId || library.folders.some((item) => item.id === folderId))
+          void library.mutate("post", "move", { expressions, folderId });
+      }
+      setDraggedExpressions([]);
+      setTouchDragging(false);
+      window.setTimeout(() => {
+        suppressClick.current = false;
+      }, 0);
+    },
+    onCancel: () => {
+      setDraggedExpressions([]);
+      setTouchDragging(false);
+      window.setTimeout(() => {
+        suppressClick.current = false;
+      }, 0);
+    },
+  });
   useEffect(() => {
     const movePreview = (event: globalThis.DragEvent) => {
       if (!dragPreview.current || (!event.clientX && !event.clientY)) return;
@@ -206,7 +245,6 @@ export function SpriteFolderGrid({
       dragPreview.current = null;
     };
   }, []);
-  const disabled = busy || library.mutation.isPending || !library.query.data;
   function accepts(e: DragEvent) {
     return !disabled && e.dataTransfer.types.includes(dragType);
   }
@@ -242,6 +280,18 @@ export function SpriteFolderGrid({
         <div
           key={sprite.expression}
           data-sprite-expression={sprite.expression}
+          data-drag-kind="sprite"
+          data-drag-id={sprite.expression}
+          onTouchStart={(event) => {
+            if (!disabled && window.matchMedia("(max-width: 767px)").matches)
+              startTouchDrag(event, sprite.expression, { sourceElement: event.currentTarget });
+          }}
+          onClickCapture={(event) => {
+            if (suppressClick.current) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
           draggable={!disabled}
           className={cn(draggedExpressions.includes(sprite.expression) && "opacity-50")}
           onDragStart={(e) => {
@@ -393,11 +443,22 @@ export function SpriteFolderGrid({
       <div
         {...zone(null)}
         data-sprite-loose
+        data-sprite-folder-root
         aria-label={t("sprites.library.loose")}
-        className={cn("min-h-12 rounded-xl", target === null && "ring-2 ring-[var(--primary)]")}
+        className={cn(
+          "min-h-12 rounded-xl",
+          target === null && "ring-2 ring-[var(--primary)]",
+          touchDragging &&
+            "min-h-16 border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-1",
+        )}
       >
+        {touchDragging && (
+          <div className="pointer-events-none px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]">
+            {t("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
+          </div>
+        )}
         {grid(library.visible.filter((sprite) => !sprite.folderId))}
-        {library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
+        {!touchDragging && library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
           <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
         )}
       </div>
@@ -440,6 +501,7 @@ function SpriteInlineFolder({
     <section
       {...zone}
       data-sprite-folder={current.id}
+      data-sprite-folder-id={current.id}
       className={cn(
         "min-w-0 rounded-lg transition-colors",
         highlighted &&
@@ -515,7 +577,11 @@ function SpriteInlineFolder({
           <Trash2 size="0.75rem" />
         </button>
       </div>
-      <SmoothFolderContent open={expanded} className="pl-3" innerClassName="pt-3">
+      <SmoothFolderContent
+        open={expanded}
+        className="pl-3 max-md:rounded-b-lg max-md:bg-[var(--marinara-chat-chrome-highlight-bg)]"
+        innerClassName="pt-3 max-md:pr-3 max-md:pb-3"
+      >
         <div id={contentId}>
           {children}
           {!library.counts.get(current.id) && (

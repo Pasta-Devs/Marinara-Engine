@@ -2984,6 +2984,7 @@ function PersonaSpritesTab({
                 <button
                   type="button"
                   onClick={() => setWandCleanupSprite(sprite)}
+                  data-drag-surface
                   className="group/preview relative block aspect-[3/4] w-full bg-[var(--secondary)]"
                   title={localizeUi("ui.personas.personaspritestab.openWandCleanup")}
                 >

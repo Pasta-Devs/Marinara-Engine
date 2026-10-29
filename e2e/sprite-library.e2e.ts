@@ -117,6 +117,45 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
+    if (info.project.name === "phone") {
+      const card = frontSection.getByRole("button", { name: "Preview idle", exact: true });
+      await card.scrollIntoViewIfNeeded();
+      const box = await card.boundingBox();
+      expect(box).not.toBeNull();
+      const session = await page.context().newCDPSession(page);
+      const x = box!.x + box!.width / 2;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x, y: box!.y + box!.height / 2 }],
+      });
+      await expect(frontSection.locator('[data-drag-source="true"]')).toHaveCount(1);
+      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toBeVisible();
+      const loose = library.locator("[data-sprite-loose]");
+      for (let i = 0; i < 20; i++) {
+        const root = await loose.boundingBox();
+        if (root && root.y < 740) break;
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 810 }] });
+        await page.waitForTimeout(150);
+      }
+      const root = await loose.boundingBox();
+      expect(root).not.toBeNull();
+      const y = Math.max(20, Math.min(780, root!.y + 25));
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect
+        .poll(
+          async () =>
+            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
+              .folderId,
+        )
+        .toBeNull();
+      // Restore this test fixture through the API before the shared editing checks.
+      await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } });
+      await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+      await section.getByRole("button", { name: "Full-body", exact: true }).click();
+      await frontSection.getByRole("button", { name: "Front", exact: true }).click();
+      await session.detach();
+    }
 
     await frontSection.getByRole("button", { name: "Front", exact: true }).press("Enter");
     await expect(frontSection.getByRole("button", { name: /^Preview / })).toHaveCount(0);

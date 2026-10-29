@@ -6166,6 +6166,7 @@ function SpritesTab({
                   aria-label={localizeUi("sprites.library.previewSprite", {
                     name: displayExpression(sprite.expression),
                   })}
+                  data-drag-surface
                   onClick={() => setDetailsExpression(sprite.expression)}
                 >
                   <div className="aspect-[3/4] w-full bg-[var(--secondary)]">
