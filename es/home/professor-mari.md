@@ -118,7 +118,7 @@ Haz clic en el botón del clip, etiquetado **Attach** (Adjuntar), para abrir un 
 
 - **Attach**: **Attach files or photos** (Adjuntar archivos o fotos), **Add chat history** (Añadir historial de chat; sirve para compartir con ella uno de tus chats anteriores) y **View attached context** (Ver contexto adjunto).
 - **Reference**: **Link with @** (Vincular con @) escribe `@` en el cuadro de mensaje y abre la lista de vínculos que se describe más abajo.
-- **Mari**: **New chat**, **Chat history**, **Skills**, **Memories**, **Model** (Modelo) y **Permissions**. **Pending approvals** (Aprobaciones pendientes) aparece aquí mientras un cambio espera tu decisión.
+- **Mari**: **New chat** (Chat nuevo), **Chat history**, **Skills**, **Memories** (Memorias), **Model** (Modelo) y **Permissions**. **Pending approvals** (Aprobaciones pendientes) aparece aquí mientras un cambio espera tu decisión.
 
 Los mismos comandos se pueden escribir con `/`, como se describe en [Comandos con /](#commands-with-).
 
@@ -148,10 +148,10 @@ Qué envía cada vínculo:
 | Lorebook | Sus ajustes y la lista de sus entradas (vincula una entrada para ver su texto completo) |
 | Entrada de lorebook | La entrada, más el lorebook al que pertenece |
 | Skill | Las instrucciones de tu propio Skill. En su lugar, un Skill integrado se abre como su manual para ese mensaje. Si vinculas el Skill de onboarding con un personaje, ella también recibe el bloque de onboarding de ese personaje |
-| Memory | El texto completo de la memoria, incluso si está desactivada. Las memorias **Persistent** no aparecen en la lista, porque ella siempre las tiene |
+| Memoria | El texto completo de la memoria, incluso si está desactivada. Las memorias persistentes no aparecen en la lista, porque ella siempre las tiene |
 | Chat | Los detalles del chat y sus 30 mensajes más recientes |
-| Agent | Los ajustes del agente |
-| Doc | La página completa de esta documentación |
+| Agente | Los ajustes del agente |
+| Página de la documentación | La página completa de esta documentación |
 
 Un vínculo se envía **una vez**, con el mensaje en el que lo añades. En los turnos siguientes ella solo ve una nota de una línea que dice que lo vinculaste, y lo vuelve a leer si lo necesita. Un mensaje admite hasta 8 vínculos. Si suman más de aproximadamente un cuarto del contexto de tu conexión (60.000 caracteres como máximo), los últimos no se envían; en su lugar ella recibe una nota y puede leerlos por sí misma.
 
@@ -248,7 +248,7 @@ Professor Mari puede recordar tus preferencias fijas para que no tengas que repe
 Hay dos formas de darle una memoria:
 
 - **Díselo.** Escribe algo como "recuerda que siempre pongo como palabra clave de las entradas de lorebook el nombre del personaje y su apodo". Ella la guarda y te muestra una tarjeta de cambios con el texto exacto. Una memoria que ella guarda empieza **desactivada**, así que no cambia nada hasta que tú la activas. La tarjeta ofrece **Turn on** para activarla de inmediato.
-- **Agrégala tú.** Haz clic en el botón **Memories** (Memorias) en la cabecera de su chat para abrir el panel **Memories**, donde puedes crear, editar, activar o desactivar, y eliminar tus memorias. También puedes usar **Upload** con un archivo `.md` o de texto para convertir su contenido en una memoria.
+- **Agrégala tú.** Haz clic en el botón **Memories** en la cabecera de su chat para abrir el panel **Memories**, donde puedes crear, editar, activar o desactivar, y eliminar tus memorias. También puedes usar **Upload** con un archivo `.md` o de texto para convertir su contenido en una memoria.
 
 Ella solo guarda o cambia una memoria cuando **tú** se lo pides, nunca porque algo que leyó (un personaje, un lorebook o un archivo) se lo haya dicho.
 
@@ -266,7 +266,7 @@ Professor Mari conserva sus propios chats separados. No aparecen en tu lista de 
 
 Haz clic en el botón **Chats** en su cabecera para abrir tus chats guardados de Professor Mari. Cuando la lista está vacía, el panel indica: "New chat keeps this one here." Usa **Search Prof. Mari chats** (Buscar en los chats de Professor Mari) para encontrar uno. Puedes hacer clic en un chat guardado para abrirlo, cambiarle el nombre o eliminarlo.
 
-Haz clic en el botón **New chat** (Chat nuevo) para empezar una conversación nueva con ella. Primero guarda tu chat actual en la lista **Chats**. También puedes escribir `/new` (o `/restart`) en el cuadro de mensaje para hacer lo mismo. Ves el mensaje "Professor Mari's previous chat was saved."
+Haz clic en el botón **New chat** para empezar una conversación nueva con ella. Primero guarda tu chat actual en la lista **Chats**. También puedes escribir `/new` (o `/restart`) en el cuadro de mensaje para hacer lo mismo. Ves el mensaje "Professor Mari's previous chat was saved."
 
 Mientras ella trabaja, el botón de enviar se convierte en un botón **Stop** (Detener). Haz clic en él para cancelar la tarea actual.
 
