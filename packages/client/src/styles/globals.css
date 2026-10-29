@@ -1739,6 +1739,9 @@
   --marinara-chat-chrome-button-text-hover: var(--primary-foreground);
   --marinara-chat-chrome-button-text-active: var(--primary-foreground);
 }
+.mari-connection-scope .mari-chrome-control {
+  font-size: 0.875rem;
+}
 @media (max-width: 47.9375rem), (pointer: coarse) {
   .mari-connection-scope .mari-chrome-control {
     min-height: 2.75rem;

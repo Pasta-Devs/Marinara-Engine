@@ -3653,11 +3653,7 @@ export function ConnectionEditor({
                       )}
                     </div>
                   </div>
-                ) : (
-                  <p className="rounded-xl border border-[var(--border)] px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.thisConnectionIsUsingTheModeDefaultsFromConversation")}
-                  </p>
-                )}
+                ) : null}
               </FieldGroup>
             )}
 
@@ -3952,7 +3948,7 @@ export function ConnectionEditor({
               type="button"
               onClick={() => setMoreOpen((open) => !open)}
               aria-expanded={moreOpen}
-              className="mari-chrome-control mari-chrome-control--small self-start"
+              className="mari-chrome-control mari-chrome-control--small text-xs self-start"
             >
               <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", moreOpen && "rotate-180")} />
               {t("connections.editor.more")}

@@ -233,7 +233,7 @@ export function AccessStep(props: AccessStepProps) {
                 onClick={() => props.setMoreOpen((value) => !value)}
                 aria-expanded={props.moreOpen}
                 aria-controls="add-connection-more"
-                className="mari-chrome-control mari-chrome-control--small self-start"
+                className="mari-chrome-control mari-chrome-control--small text-xs self-start"
               >
                 <ChevronDown size="0.75rem" className={cn("transition-transform", props.moreOpen && "rotate-180")} />
                 {t("connections.add.moreOptions")}

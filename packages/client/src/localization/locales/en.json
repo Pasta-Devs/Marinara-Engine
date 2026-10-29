@@ -10560,7 +10560,6 @@
   "ui.connections.connectioneditor.theClaudeAgentSdkRunsA": "The Claude Agent SDK runs a",
   "ui.connections.connectioneditor.theEndpointExecutesTheWorkflowYouSupplyUse": "— the endpoint executes the workflow you supply. Use",
   "ui.connections.connectioneditor.thereIsNoFasterOpus47VariantFor": "There is no faster Opus 4.7 variant for the SDK to route to, so this toggle is a no-op when Opus 4.7 is the selected model.",
-  "ui.connections.connectioneditor.thisConnectionIsUsingTheModeDefaultsFromConversation": "This provider is using the mode defaults from conversation, roleplay, and game setup.",
   "ui.connections.connectioneditor.thisIsUsuallyCausedByClaudeCodeBeingIn": ". This is usually caused by Claude Code being in",
   "ui.connections.connectioneditor.tokens": "tokens",
   "ui.connections.connectioneditor.treatAsLocalCustomEndpoint": "Treat as local/custom endpoint",

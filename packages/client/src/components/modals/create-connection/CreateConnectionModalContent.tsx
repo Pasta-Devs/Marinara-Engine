@@ -748,7 +748,7 @@ export function CreateConnectionModalContent({
             type="button"
             onClick={() => void saveAndTest(true)}
             disabled={busy}
-            className="mari-chrome-control mari-chrome-control--small"
+            className="mari-chrome-control mari-chrome-control--small text-xs"
           >
             {t("connections.add.continueAnyway")}
           </button>
@@ -986,7 +986,7 @@ export function CreateConnectionModalContent({
                 data-add-connection-set-main
                 onClick={() => void setAsMain()}
                 disabled={updateRow.isPending}
-                className="mari-chrome-control mari-chrome-control--small"
+                className="mari-chrome-control mari-chrome-control--small text-xs"
               >
                 {t("connections.add.setAsMain", { model: firstName })}
               </button>
