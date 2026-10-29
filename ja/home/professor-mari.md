@@ -116,7 +116,7 @@ Piはローカルモデルを含むすべての接続で使えます。PiでProf
 
 **Attach**と表示されたクリップのボタンをクリックすると、3つのセクションからなるメニューが開きます。
 
-- **Attach**: **Attach files or photos**、**Add chat history**(過去のチャットをProfessor Mariと共有)、**View attached context**。
+- **Attach**: **Attach files or photos**(ファイルや写真の添付)、**Add chat history**、**View attached context**。**Add chat history**では、過去のチャットをProfessor Mariと共有できます。
 - **Reference**: **Link with @**は、メッセージ欄に`@`を入力し、後述のリンク一覧を開きます。
 - **Mari**: **New chat**(新しいチャット)、**Chat history**、**Skills**、**Memories**、**Model**(モデル)、**Permissions**。**Pending approvals**は、変更が承認を待っている間だけここに表示されます。
 
@@ -165,7 +165,7 @@ Piはローカルモデルを含むすべての接続で使えます。PiでProf
 
 | コマンド | 内容 |
 | --- | --- |
-| `/new` | 新しいチャットを始める。現在のチャットは**Chats**に保存される(`/restart`でも可) |
+| `/new` | 新しいチャットを始める。現在のチャットは**Chats**(チャット)に保存される(`/restart`でも可) |
 | `/history` | Professor Mariとの過去のチャットを開く |
 | `/skills` | **Skills**パネルを開く |
 | `/memories` | **Memories**パネルを開く |
