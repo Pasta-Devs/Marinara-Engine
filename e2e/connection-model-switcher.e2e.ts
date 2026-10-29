@@ -187,7 +187,7 @@ async function closeMenu(page: Page) {
   await expect(page.locator("[data-quick-connection-menu], [data-quick-switcher-mobile-menu]")).toHaveCount(0);
 }
 
-const modelRow = (picker: Locator, section: "favorites" | "all", id: string) =>
+const modelRow = (picker: Locator, section: "starred" | "all", id: string) =>
   picker.locator(`[data-model-section="${section}"] [data-model-row][data-model-id="${id}"]`);
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -270,17 +270,17 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
       await expect(picker.locator("[data-model-option]").first()).toBeFocused();
     }
 
-    // Starring moves a model into Favorites; the star names its model, and it saves the model.
-    await picker.getByRole("button", { name: "Favorite Beta", exact: true }).click();
-    await expect(modelRow(picker, "favorites", "vendor/beta")).toBeVisible();
+    // Starring moves a model into Starred; the star names its model, and it saves the model.
+    await picker.getByRole("button", { name: "Star Beta", exact: true }).click();
+    await expect(modelRow(picker, "starred", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/beta")).toHaveCount(0);
-    await expect(picker.getByRole("button", { name: "Favorite Beta", exact: true })).toHaveAttribute(
+    await expect(picker.getByRole("button", { name: "Star Beta", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(picker.getByRole("button", { name: "Favorite Beta", exact: true })).toHaveAttribute(
+    await expect(picker.getByRole("button", { name: "Star Beta", exact: true })).toHaveAttribute(
       "title",
-      "Remove Beta from favorites",
+      "Unstar Beta",
     );
     await expect.poll(async () => (await connectionRow(request, main.id))?.pinnedModels).toBe('["vendor/beta"]');
     await expect
@@ -292,7 +292,7 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
     await page.reload();
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
     picker = await openModels(page, testInfo, mainAccount);
-    await expect(modelRow(picker, "favorites", "vendor/beta")).toBeVisible();
+    await expect(modelRow(picker, "starred", "vendor/beta")).toBeVisible();
     await expect(modelRow(picker, "all", "vendor/gamma")).toBeVisible();
     expect(provider.state.calls).toBe(2);
 
@@ -495,7 +495,7 @@ test("the Connections menu lists, stars, picks, refreshes and types models witho
       })
       .toBe(true);
     // Stars belong to a Connection: Beta was starred on the first one, not on this one.
-    await expect(modelRow(settingsPicker, "favorites", "vendor/beta")).toHaveCount(0);
+    await expect(modelRow(settingsPicker, "starred", "vendor/beta")).toHaveCount(0);
     await settingsPicker.locator('[data-model-row][data-model-id="vendor/alpha"] [data-model-option]').click();
     await expect(settingsPicker).toHaveCount(0);
     await expect(field.locator("button[aria-expanded]")).toContainText("Alpha");
@@ -562,8 +562,8 @@ test("the models menu reads in light theme too (#7098)", async ({ page, request 
     await expect(page.locator("[data-chat-composer]").first()).toBeVisible();
     const groupKey = ((await connectionRow(request, main.id))?.accountId as string) ?? main.id;
     const picker = await openModels(page, testInfo, groupKey);
-    await picker.getByRole("button", { name: "Favorite Gamma", exact: true }).click();
-    await expect(modelRow(picker, "favorites", "vendor/gamma")).toBeVisible();
+    await picker.getByRole("button", { name: "Star Gamma", exact: true }).click();
+    await expect(modelRow(picker, "starred", "vendor/gamma")).toBeVisible();
     await expectNoHorizontalScroll(page);
     await capture(page, testInfo, isPhone(testInfo) ? "mobile-models-step-light" : "desktop-models-menu-light");
   } finally {

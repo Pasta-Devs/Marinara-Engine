@@ -221,7 +221,7 @@ export function ConnectionRow({
       : []),
     // Every saved Model has a star, so the list shows none; a Model kept without one can get it back here.
     ...(onToggleStar && !starred
-      ? [{ label: t("connections.accounts.row.favourite"), icon: <Star size="0.75rem" />, onSelect: onToggleStar }]
+      ? [{ label: t("connections.accounts.row.star"), icon: <Star size="0.75rem" />, onSelect: onToggleStar }]
       : []),
     { label: t("connections.row.editModel"), icon: <Pencil size="0.75rem" />, onSelect: openEditor },
     ...(onMove && moveTargets?.length

@@ -158,7 +158,7 @@ export function ConnectionModelPicker({
   /** Replaces the footer line, for hosts where a pick does not touch a chat; null hides it (the host shows one). */
   footer?: string | null;
   className?: string;
-  /** Good first picks shown above Favorites (Add connection, vendors with a known list). */
+  /** Good first picks shown above Starred (Add connection, vendors with a known list). */
   recommended?: readonly PickerRow[];
   /**
    * The big Add model screen (decision 30/32): a pick also stars the model and a star adds it; rows show their
@@ -341,7 +341,7 @@ export function ConnectionModelPicker({
     if (!addMode || pinnedIds.includes(row.id)) return;
     setPinned.mutate(
       { id: connection.id, model: row.id, pinned: true },
-      { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
+      { onError: (error) => toast.error(t("connections.star.failed", { error: errorMessage(error) })) },
     );
   };
 
@@ -414,7 +414,7 @@ export function ConnectionModelPicker({
     if (!connection.accountId) {
       setPinned.mutate(
         { id: connection.id, model: row.id, pinned: starred },
-        { onError: (error) => toast.error(t("connections.favorite.failed", { error: errorMessage(error) })) },
+        { onError: (error) => toast.error(t("connections.star.failed", { error: errorMessage(error) })) },
       );
       return;
     }
@@ -436,9 +436,9 @@ export function ConnectionModelPicker({
     }
   };
 
-  const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "favorites" : "all") => {
+  const renderRow = (row: PickerRow, pinned: boolean, section = pinned ? "starred" : "all") => {
     const current = row.id === currentModel || !!addedIds?.includes(row.id);
-    // Adding: a model added here shows a filled star, even before its favorite is saved.
+    // Adding: a model added here shows a filled star, even before its star is saved.
     const starred = pinned || (addMode && !onChoose && !!addedIds?.includes(row.id));
     const label = row.name || row.id;
     const reasoning = row.capabilities?.adaptiveThinking || !!row.capabilities?.effortLevels?.length;
@@ -449,7 +449,7 @@ export function ConnectionModelPicker({
     ]
       .filter(Boolean)
       .join(" · ");
-    // Adding: the end button says "Added" (a check), never ★ or "favorite"; one word for one thing. An image or
+    // Adding: the end button says "Added" (a check), never ★ or "starred"; one word for one thing. An image or
     // video row being set up has no account here, but its pick is still an add.
     const adding = addMode && (!!connection.accountId || !!onPicked);
     // A badge on a narrow row leaves the id no room: the facts move to the tooltip there.
@@ -504,7 +504,7 @@ export function ConnectionModelPicker({
         }
         end={
           <>
-            {/* A Model outside a Connection has nowhere to save a favorite; an old star there can still be removed. */}
+            {/* A Model outside a Connection has nowhere to save a star; an old star there can still be removed. */}
             {adding ? (
               <button
                 type="button"
@@ -531,9 +531,9 @@ export function ConnectionModelPicker({
                   type="button"
                   data-model-star
                   aria-pressed={starred}
-                  // A toggle keeps one name; aria-pressed says whether it is a favorite.
-                  aria-label={t("connections.favorite.toggle", { model: label })}
-                  title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: label })}
+                  // A toggle keeps one name; aria-pressed says whether it is starred.
+                  aria-label={t("connections.star.toggle", { model: label })}
+                  title={t(starred ? "connections.star.remove" : "connections.star.add", { model: label })}
                   onClick={() => toggleStar(row, !starred)}
                   className={cn(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
@@ -814,12 +814,12 @@ export function ConnectionModelPicker({
 
             {pinnedRows.length > 0 && (
               <section
-                aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
-                data-model-section="favorites"
+                aria-label={t(addMode ? "connections.modelPicker.added" : "connections.switcher.starred")}
+                data-model-section="starred"
                 className={cn(recommendedRows.length > 0 && "mt-2")}
               >
                 <ListHeading className={addMode ? "px-0" : undefined}>
-                  {t(addMode ? "connections.modelPicker.added" : "connections.switcher.favourites")}
+                  {t(addMode ? "connections.modelPicker.added" : "connections.switcher.starred")}
                 </ListHeading>
                 {pinnedRows.map((row) => renderRow(row, true))}
               </section>

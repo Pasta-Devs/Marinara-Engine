@@ -18,6 +18,7 @@ import {
   Plus,
   Search,
   Shuffle,
+  SlidersHorizontal,
   Star,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -485,6 +486,7 @@ export function ConnectionSwitcherBody({
   const { data: chats } = useChats();
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const openModal = useUIStore((state) => state.openModal);
+  const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
   // The Connections panel's "Group by" choice applies here too.
   const sort = useUIStore((state) => state.connectionPanelSort);
   const accountManualOrder = useUIStore((state) => state.libraryManualOrders?.connection);
@@ -663,7 +665,7 @@ export function ConnectionSwitcherBody({
       const connectionId = await modelStar.star(target);
       if (pick && connectionId) await onApply({ connectionId });
     } catch (error) {
-      toast.error(t("connections.favorite.failed", { error: errorMessage(error) }));
+      toast.error(t("connections.star.failed", { error: errorMessage(error) }));
     } finally {
       setBusy(false);
     }
@@ -676,9 +678,9 @@ export function ConnectionSwitcherBody({
         data-switcher-star={model}
         disabled={busy}
         aria-pressed={starred}
-        // A toggle keeps one name; aria-pressed says whether it is a favorite.
-        aria-label={t("connections.favorite.toggle", { model: title })}
-        title={t(starred ? "connections.favorite.remove" : "connections.favorite.add", { model: title })}
+        // A toggle keeps one name; aria-pressed says whether it is starred.
+        aria-label={t("connections.star.toggle", { model: title })}
+        title={t(starred ? "connections.star.remove" : "connections.star.add", { model: title })}
         onClick={() => void toggleStar(group, model, starred, title)}
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25",
@@ -961,6 +963,21 @@ export function ConnectionSwitcherBody({
         end={
           <>
             {now && unavailable && group && fixButton(group)}
+            {starred && entry.row && (
+              <button
+                type="button"
+                data-switcher-settings={entry.model}
+                aria-label={t("connections.star.settings", { model: entry.title })}
+                title={t("connections.star.settings", { model: entry.title })}
+                onClick={() => {
+                  onDone();
+                  openConnectionDetail(entry.row!.id);
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/35 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground/70 focus-visible:ring-1 focus-visible:ring-foreground/25"
+              >
+                <SlidersHorizontal size="0.875rem" aria-hidden />
+              </button>
+            )}
             {showStar && starButton(group!, entry.model!, entry.title, starred)}
           </>
         }
