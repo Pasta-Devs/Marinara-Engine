@@ -5964,10 +5964,14 @@ function SpritesTab({
             onClose={() => setExportAnchor(null)}
             items={[
               {
-                label: localizeUi("sprites.library.exportView"),
+                label: localizeUi(
+                  category === "full-body"
+                    ? "ui.characters.spritestab.fullBodyOnly"
+                    : "ui.characters.spritestab.expressionsOnly",
+                ),
                 icon: <ImageDown size={14} />,
-                disabled: !visibleSprites.length,
-                onSelect: () => void handleExportSprites(visibleSprites, "visible"),
+                disabled: !categorySprites.length,
+                onSelect: () => void handleExportSprites(categorySprites, "visible"),
               },
               {
                 label: localizeUi("ui.characters.spritestab.allSprites"),

@@ -75,6 +75,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await library.getByRole("button", { name: "Export", exact: true }).click();
+    await expect(page.getByRole("menuitem", { name: "Full-body only", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -327,6 +330,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
 
     // Upload images is a real multi-file picker, with the current type and destination.
     await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+    await library.getByRole("button", { name: "Export", exact: true }).click();
+    await expect(page.getByRole("menuitem", { name: "Expressions only", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await library
       .locator(`[data-sprite-folder="${expressionFront}"]`)
       .getByRole("button", { name: "Front", exact: true })
