@@ -77,7 +77,6 @@ import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
-import { StarText } from "./StarText";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";

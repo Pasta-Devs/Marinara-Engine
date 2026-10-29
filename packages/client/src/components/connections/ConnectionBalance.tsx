@@ -4,14 +4,13 @@
 // itself, then each "via X" upstream it routes to (a linked Connection of X, or a usage-only key for X).
 // ──────────────────────────────────────────────
 import { useEffect, useState, type ReactNode } from "react";
-import { Lock, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
   supportsSubscriptionUsageWidget,
   takesBalanceToken,
-  UPSTREAM_BALANCE_TARGETS,
   upstreamBalanceSource,
   type ConnectionAccountListItem,
   type ConnectionBalance,
@@ -298,7 +297,6 @@ function UsageKeySheet({
   const [key, setKey] = useState("");
   const [userId, setUserId] = useState(account.balanceUserId);
   const linkApiSelf = !upstream && takesBalanceToken(account);
-  const host = upstream ? UPSTREAM_BALANCE_TARGETS[upstream]?.host : null;
   const busy = setUsageKey.isPending || update.isPending;
   const saved = upstream ? !!entry : account.hasManagementToken;
   const canSave = choice !== "paste" || !!key.trim() || (linkApiSelf && userId !== account.balanceUserId);

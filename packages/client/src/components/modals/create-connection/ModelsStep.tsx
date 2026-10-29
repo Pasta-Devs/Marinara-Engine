@@ -360,7 +360,6 @@ export function ModelsStep(props: ModelsStepProps) {
           addedIds={props.addedIds}
           addMode
           onUnstar={unstar}
-          footer={null}
           autoFocusSearch
         />
       )}
@@ -375,7 +374,6 @@ export function ModelsStep(props: ModelsStepProps) {
               accountName={props.targetName}
               onChoose={chooseJobModel}
               only={props.setupKind === "voice" ? isSpeechModel : undefined}
-              footer={null}
               autoFocusSearch
             />
           )}
@@ -433,7 +431,6 @@ export function ModelsStep(props: ModelsStepProps) {
           addedIds={props.addedIds}
           addMode
           onUnstar={unstar}
-          footer={null}
           autoFocusSearch
         />
       )}

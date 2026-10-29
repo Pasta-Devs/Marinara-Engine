@@ -2154,10 +2154,8 @@
   "connections.editor.modelNameHelp": "Only you see this name. It shows in menus, such as “Claude Sonnet — RP”.",
   "connections.editor.name": "Name",
   "connections.editor.roleAgentsDefault": "Default for agents",
-  "connections.editor.tab.advanced": "Advanced",
   "connections.editor.tab.generation": "Generation",
-  "connections.editor.tab.limits": "Limits",
-  "connections.editor.tab.model": "Basics",
+  "connections.editor.tab.model": "Model",
   "connections.embeddingDefault.failed": "Couldn't embed text",
   "connections.embeddingDefault.label": "Embeddings",
   "connections.embeddingDefault.none": "Marinara's own search",
@@ -16113,5 +16111,6 @@
   "window.controls.pinHint": "Keep this window open when you click elsewhere.",
   "window.controls.resize": "Resize window with the arrow keys",
   "window.controls.unlockHint": "Let this window move and resize, and its button move again.",
-  "window.controls.unpinHint": "Let this window close when you click elsewhere."
+  "window.controls.unpinHint": "Let this window close when you click elsewhere.",
+  "connections.editor.more": "More"
 }
