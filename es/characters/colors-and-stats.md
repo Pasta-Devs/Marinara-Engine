@@ -24,9 +24,11 @@ Define cada color con el campo de color, o escribe un valor:
 
 - **Name Display Color** (Color del nombre): el color del nombre. Este campo también admite un gradiente CSS. Un gradiente es una mezcla suave entre colores. Valor de ejemplo: `linear-gradient(90deg, #f59e0b, #ef4444)`.
 - **Dialogue Highlight Color** (Color de resalte del diálogo): el color del texto dentro de las comillas de diálogo. Valor de ejemplo: `#ffd700`.
-- **Message Box Color** (Color del cuadro del mensaje): el color de fondo de la burbuja de mensaje del chat. Usa un color semitransparente para el mejor resultado. Valor de ejemplo: `rgba(0, 0, 0, 0.5)`.
+- **Message Box Color** (Color del cuadro del mensaje): el color de fondo de la burbuja de mensaje del chat de Roleplay. Valor de ejemplo: `#123456`.
 
-Un color semitransparente deja ver parte del fondo a través de la burbuja. El formato `rgba` es rojo, verde, azul y un valor alfa que va de 0 (transparente) a 1 (sólido).
+Ajusta la transparencia desde **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Configuración → Apariencia → Roleplay → Opacidad del fondo de los mensajes de Roleplay). Este control deslizante reemplaza la transparencia guardada en los colores de fondo de personajes, personas y presets (ajustes guardados) aplicados, incluidos los colores extraídos de avatares. Tus valores de color guardados se mantienen sin cambios. Los colores del nombre y del diálogo no se ven afectados.
+
+Los puntos de personalización explícitos del fondo de los temas personalizados y Card CSS pueden seguir anulando el estilo nativo de las burbujas de la app.
 
 <a id="where-your-colors-show"></a>
 

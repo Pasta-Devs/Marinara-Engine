@@ -24,9 +24,11 @@ Règle chaque couleur avec le champ de couleur, ou saisis une valeur :
 
 - **Name Display Color** : la couleur du nom. Ce champ accepte aussi un dégradé CSS. Un dégradé est un fondu progressif entre plusieurs couleurs. Exemple de valeur : `linear-gradient(90deg, #f59e0b, #ef4444)`.
 - **Dialogue Highlight Color** : la couleur du texte placé entre guillemets de dialogue. Exemple de valeur : `#ffd700`.
-- **Message Box Color** : la couleur de fond de la bulle de message dans le chat. Une couleur semi-transparente donne le meilleur rendu. Exemple de valeur : `rgba(0, 0, 0, 0.5)`.
+- **Message Box Color** : la couleur de fond de la bulle de message dans le chat Roleplay. Exemple de valeur : `#123456`.
 
-Une couleur semi-transparente laisse voir une partie de l'arrière-plan à travers la bulle. Le format `rgba` correspond au rouge, au vert, au bleu, puis à une valeur alpha allant de 0 (transparent) à 1 (opaque).
+Règle la transparence dans **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Paramètres → Apparence → Roleplay → Opacité de l'arrière-plan des messages Roleplay). Ce curseur remplace la transparence enregistrée dans les couleurs de fond des personnages, des personas et des presets appliqués, y compris les couleurs extraites des avatars. Tes valeurs de couleur enregistrées restent inchangées. Les couleurs du nom et des dialogues ne sont pas affectées.
+
+Les points d'accroche explicites de l'arrière-plan des thèmes personnalisés et le CSS de fiche peuvent toujours prendre le pas sur le style natif des bulles de l'application.
 
 <a id="where-your-colors-show"></a>
 

@@ -26,7 +26,7 @@ Każdy kolor ustaw w polu wyboru koloru albo wpisz wartość:
 - **Dialogue Highlight Color**: kolor tekstu w cudzysłowach dialogowych. Przykładowa wartość: `#ffd700`.
 - **Message Box Color**: kolor tła dymka wiadomości na czacie Roleplay. Przykładowa wartość: `#123456`.
 
-Przezroczystość ustaw w **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (Ustawienia → Wygląd → Roleplay → nieprzezroczystość tła wiadomości Roleplay). Ten suwak zastępuje przezroczystość zapisaną w kolorach tła postaci, persony i zastosowanego presetu, w tym w kolorach pobranych z awatarów. Zapisane wartości kolorów pozostają bez zmian. Ustawienie nie wpływa na kolor imienia ani dialogu.
+Przezroczystość ustaw w **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity** (ustawienia → wygląd → Roleplay → nieprzezroczystość tła wiadomości w trybie Roleplay). Ten suwak zastępuje przezroczystość zapisaną w kolorach tła postaci, persony i zastosowanego presetu, w tym w kolorach pobranych z awatarów. Zapisane wartości kolorów pozostają bez zmian. Ustawienie nie wpływa na kolor imienia ani dialogu.
 
 Jawnie ustawione punkty zaczepienia tła w niestandardowym motywie oraz CSS karty nadal mogą nadpisywać standardowy styl dymków aplikacji.
 
