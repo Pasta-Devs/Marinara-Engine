@@ -118,7 +118,7 @@ Kliknij przycisk spinacza, opisany jako **Attach** (dołączanie), żeby otworzy
 
 - **Attach**: **Attach files or photos** (dołączenie plików lub zdjęć), **Add chat history** (dodanie historii czatu; udostępnia asystentce jeden z twoich wcześniejszych czatów) i **View attached context** (podgląd dołączonego kontekstu).
 - **Reference**: **Link with @** (powiązanie przez @) wpisuje `@` w polu wiadomości i otwiera listę powiązań opisaną niżej.
-- **Mari**: **New chat**, **Chat history**, **Skills**, **Memories**, **Model** (model) i **Permissions**. **Pending approvals** (oczekujące zatwierdzenia) pojawia się tutaj, dopóki jakaś zmiana czeka na ciebie.
+- **Mari**: **New chat** (nowy czat), **Chat history**, **Skills**, **Memories** (wspomnienia), **Model** (model) i **Permissions**. **Pending approvals** (oczekujące zatwierdzenia) pojawia się tutaj, dopóki jakaś zmiana czeka na ciebie.
 
 Te same polecenia można wpisać za pomocą `/`, jak opisano w sekcji [Polecenia z /](#commands-with-).
 
@@ -148,10 +148,10 @@ Co wysyła każde powiązanie:
 | Lorebook | Jego ustawienia i lista jego wpisów (powiąż wpis, żeby dostać pełny tekst) |
 | Wpis lorebooka | Wpis oraz lorebook, do którego należy |
 | Skill | Instrukcje twojego własnego dokumentu Skill. Wbudowany Skill otwiera się zamiast tego jako jej podręcznik na potrzeby tej wiadomości. Jeśli powiążesz Skill do onboardingu z postacią, asystentka dostaje też blok onboardingu tej postaci |
-| Memory | Pełna treść wspomnienia, także gdy jest wyłączone. Wspomnienia **Persistent** nie są na liście, bo asystentka zawsze je ma |
-| Chat | Szczegóły czatu i jego 30 najnowszych wiadomości |
+| Wspomnienie | Pełna treść wspomnienia, także gdy jest wyłączone. Trwałe wspomnienia nie są na liście, bo asystentka zawsze je ma |
+| Czat | Szczegóły czatu i jego 30 najnowszych wiadomości |
 | Agent | Ustawienia agenta |
-| Doc | Cała strona z tej dokumentacji |
+| Strona dokumentacji | Cała strona z tej dokumentacji |
 
 Powiązanie jest wysyłane **jednorazowo**, razem z wiadomością, w której je dodajesz. W kolejnych turach asystentka widzi tylko jednolinijkową notatkę, że element został powiązany, i czyta go ponownie, jeśli go potrzebuje. Jedna wiadomość może zawierać do 8 powiązań. Jeśli razem zajmują więcej niż mniej więcej jedną czwartą kontekstu twojego połączenia (najwyżej 60 000 znaków), ostatnie nie są wysyłane; asystentka dostaje zamiast nich notatkę i może je przeczytać sama.
 
@@ -175,7 +175,7 @@ Wpisz `/` na początku wiersza, żeby wyświetlić jej polecenia. Pisz dalej, ż
 | `/permissions` | Pozwala wybrać, co asystentka może zmieniać |
 | `/approvals` | Otwiera zmiany czekające na ciebie (tylko gdy jakaś czeka) |
 
-Lista po wpisaniu `/` pokazuje też twoje **Skills** i **Memories**. Wybranie pozycji powiązuje ją, tak samo jak `@`.
+Lista po wpisaniu `/` pokazuje też twoje **Skills** i **Memories**. Wybranie pozycji wiąże ją, tak samo jak `@`.
 
 ## Sprawdzanie jej zmian
 
@@ -248,7 +248,7 @@ Professor Mari zapamiętuje stałe preferencje, więc nie trzeba ich powtarzać 
 Wspomnienie można jej przekazać na dwa sposoby:
 
 - **Powiedz jej o tym.** Wystarczy zdanie w stylu "zapamiętaj, że wpisy w lorebookach zawsze opieram na imieniu postaci i jej przezwisku". Asystentka zapisuje je i pokazuje kartę zmiany z dokładnym brzmieniem. Zapisane wspomnienie jest na starcie **wyłączone**, więc niczego nie zmienia, dopóki go nie włączysz. Karta ma przycisk **Turn on**, który od razu je włącza.
-- **Dodaj je samodzielnie.** Kliknij przycisk **Memories** (wspomnienia) w nagłówku jej czatu, żeby otworzyć panel **Memories**. Można w nim tworzyć, edytować, włączać, wyłączać i usuwać wspomnienia. Przycisk **Upload** wczytuje plik `.md` albo zwykły plik tekstowy i zamienia jego treść we wspomnienie.
+- **Dodaj je samodzielnie.** Kliknij przycisk **Memories** w nagłówku jej czatu, żeby otworzyć panel **Memories**. Można w nim tworzyć, edytować, włączać, wyłączać i usuwać wspomnienia. Przycisk **Upload** wczytuje plik `.md` albo zwykły plik tekstowy i zamienia jego treść we wspomnienie.
 
 Asystentka zapisuje albo zmienia wspomnienie tylko wtedy, gdy **ty** ją o to poprosisz. Nigdy nie robi tego dlatego, że tak nakazuje przeczytana przez nią treść: postać, lorebook albo plik.
 
@@ -266,7 +266,7 @@ Professor Mari prowadzi własne, osobne czaty. Nie pojawiają się one na zwykł
 
 Kliknij przycisk **Chats** w jej nagłówku, żeby otworzyć zapisane czaty z Professor Mari. Gdy lista jest pusta, panel informuje: "New chat keeps this one here." Użyj pola **Search Prof. Mari chats** (szukaj w czatach z Professor Mari), żeby znaleźć czat. Zapisany czat da się kliknąć, żeby go otworzyć, zmienić mu nazwę albo go usunąć.
 
-Kliknij przycisk **New chat** (nowy czat), żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/new` (albo `/restart`) w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
+Kliknij przycisk **New chat**, żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/new` (albo `/restart`) w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
 
 Kiedy asystentka pracuje, przycisk wysyłania zmienia się w przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
 
