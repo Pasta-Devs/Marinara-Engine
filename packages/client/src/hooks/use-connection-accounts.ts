@@ -88,7 +88,7 @@ export function useSetUsageKey() {
   });
 }
 
-/** Account edits write through to Model rows, so both key families reload. */
+/** Account edits write through to Model rows, so both key families reload. Callers never wait for the refetch: it re-reads every open model catalog, which can take many seconds. */
 function useInvalidateConnections() {
   const qc = useQueryClient();
   return () =>
@@ -127,7 +127,7 @@ export function useDeleteConnectionAccount() {
   const invalidate = useInvalidateConnections();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/connection-accounts/${id}`),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -137,7 +137,7 @@ export function useDuplicateConnectionAccount() {
   return useMutation({
     mutationFn: (id: string) =>
       api.post<{ account: ConnectionAccountListItem }>(`/connection-accounts/${id}/duplicate`),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -147,7 +147,7 @@ export function useSplitModel() {
   return useMutation({
     mutationFn: ({ accountId, ...body }: { accountId: string; connectionId: string; name: string }) =>
       api.post<{ account: ConnectionAccountListItem }>(`/connection-accounts/${accountId}/split`, body),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -165,7 +165,7 @@ export function usePickModel() {
       maxContext?: number;
       maxTokensOverride?: number;
     }) => api.post<{ connectionId: string }>(`/connection-accounts/${accountId}/for-model`, body),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -239,7 +239,7 @@ export function useUnstarModel() {
         `/connection-accounts/${accountId}/models/${connectionId}/unstar`,
         {},
       ),
-    onSuccess: invalidate,
+    onSuccess: () => void invalidate(),
   });
 }
 
@@ -251,6 +251,6 @@ export function useRemoveUnstarredModel() {
   return useMutation({
     mutationFn: ({ accountId, connectionId }: { accountId: string; connectionId: string }) =>
       api.delete(`/connection-accounts/${accountId}/models/${connectionId}`),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
