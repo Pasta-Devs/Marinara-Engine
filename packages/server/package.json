@@ -45,7 +45,7 @@
   },
   "optionalDependencies": {
     "onnxruntime-node": "1.30.0",
-    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+    "onnxruntime-web": "1.31.0-dev.20260918-bc8e7ed75",
     "sharp": "^0.35.5"
   },
   "devDependencies": {
