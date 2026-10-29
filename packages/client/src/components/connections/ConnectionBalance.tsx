@@ -382,13 +382,6 @@ function UsageKeySheet({
       panelClassName="mari-connection-scope"
     >
       <div data-usage-key-sheet className="flex flex-col gap-3">
-        <p className="text-xs text-[var(--muted-foreground)]">
-          {upstream
-            ? t("connections.usage.sheetIntro", { proxy: account.name, service })
-            : linkApiSelf
-              ? t("connections.balance.linkapiTokenHelp")
-              : t("connections.accounts.editor.managementTokenHelp")}
-        </p>
         {upstream ? (
           <div
             role="radiogroup"
@@ -425,21 +418,10 @@ function UsageKeySheet({
                   maxLength={20}
                   className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
                 />
-                <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-                  {t("connections.balance.linkapiUserIdHelp")}
-                </span>
               </label>
             )}
           </>
         )}
-        <p className="flex items-start gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <Lock size="0.75rem" className="mt-0.5 shrink-0" aria-hidden />
-          <span>
-            {host
-              ? t("connections.usage.sentOnlyTo", { host, proxy: account.name, service })
-              : t("connections.usage.keysNote")}
-          </span>
-        </p>
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
           {saved && (
             <button
@@ -550,12 +532,6 @@ export function ConnectionUsageSection({
         <div className="-mx-1.5">
           <ToggleSetting label={t("connections.usage.showOnCard")} checked={showOnCard} onChange={onShowOnCard} />
         </div>
-      )}
-      {upstreams.length > 0 && (
-        <p className="flex items-start gap-2 px-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <Lock size="0.75rem" className="mt-0.5 shrink-0" aria-hidden />
-          <span>{t("connections.usage.keysNote")}</span>
-        </p>
       )}
       {sheet && (
         <UsageKeySheet account={account} upstream={sheet.upstream} accounts={accounts} onClose={() => setSheet(null)} />

@@ -515,9 +515,6 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           <AlertTriangle size="0.875rem" className="shrink-0" />
           {localizeUi("connections.device.notForRoleplay")}
         </div>
-        <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-          {localizeUi("connections.device.notForRoleplayHelp")}
-        </p>
       </div>
 
       {isDownloaded ? (
@@ -530,9 +527,6 @@ function LocalModelDetail({ onOpenDefaults }: { onOpenDefaults: () => void }) {
           >
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium">{localizeUi("connections.device.useForAllTrackers")}</div>
-              <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                {localizeUi("connections.device.useForAllTrackersHelp")}
-              </div>
             </div>
             {assigningTrackers ? (
               <BrainCircuit size="0.875rem" className="animate-pulse text-[var(--muted-foreground)]" />

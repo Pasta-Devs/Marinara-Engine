@@ -534,14 +534,12 @@ function AgentsSettings() {
         label={t("connections.defaults.paidWarning")}
         checked={showPaid}
         onChange={setShowPaid}
-        help={t("connections.defaults.paidWarningHelp")}
       />
       <button
         type="button"
         onClick={() => void reset()}
         disabled={resetting || toReset.length === 0}
         className={cn(SMALL_ACTION, "w-fit")}
-        title={t("connections.defaults.resetAgentsHelp")}
       >
         {resetting ? <Loader2 size="0.75rem" className="animate-spin" /> : t("connections.defaults.resetAgents")}
       </button>

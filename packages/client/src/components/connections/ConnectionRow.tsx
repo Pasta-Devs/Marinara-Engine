@@ -197,7 +197,6 @@ export function ConnectionRow({
       ? [
           {
             label: t("connections.row.useInChat"),
-            hint: t("connections.row.useInChatHint"),
             icon: <Check size="0.75rem" />,
             onSelect: onUseInChat,
           },

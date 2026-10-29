@@ -433,7 +433,6 @@ export function ConnectionAccountEditor({
           <div className="-mx-1.5 border-y border-[var(--border)]/60 py-1">
             <ToggleSetting
               label={t("connections.accounts.editor.enabled")}
-              help={t("connections.accounts.editor.enabledHelp")}
               checked={draft.enabled}
               onChange={(checked) => set("enabled", checked)}
             />
@@ -501,15 +500,11 @@ export function ConnectionAccountEditor({
               <span>
                 <span className="font-medium text-[var(--foreground)]">
                   {t("connections.accounts.editor.moreOptions")}
-                </span>{" "}
-                · {t("connections.accounts.editor.moreOptionsHint")}
+                </span>
               </span>
             </button>
             <SmoothFolderContent open={more}>
               <section id="connection-account-more" data-account-advanced className="flex flex-col gap-3 pb-1 pt-2">
-                <p className="text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-                  {t("connections.accounts.editor.capsHelp")}
-                </p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
                   {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
