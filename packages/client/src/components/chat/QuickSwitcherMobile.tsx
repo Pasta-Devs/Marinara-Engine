@@ -280,7 +280,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                 )}
               >
                 <Link size="0.75rem" />
-                {localizeUi("navigation.topbar.connections")}
+                {localizeUi("navigation.quickSwitcher.models")}
               </button>
               <button
                 onClick={() => setTab("personas")}

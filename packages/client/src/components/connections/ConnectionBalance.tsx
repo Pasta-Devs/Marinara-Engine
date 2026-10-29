@@ -330,7 +330,7 @@ function UsageKeySheet({
         : update.mutateAsync({ id: account.id, managementToken: "" }),
     );
 
-  const option = (id: string, label: string, help: string, extra?: ReactNode) => (
+  const option = (id: string, label: string, extra?: ReactNode) => (
     <label
       key={id}
       className={cn(
@@ -349,7 +349,6 @@ function UsageKeySheet({
       />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold text-[var(--foreground)]">{label}</span>
-        <span className="mt-0.5 block text-[0.6875rem] text-[var(--muted-foreground)]">{help}</span>
         {extra}
       </span>
     </label>
@@ -390,13 +389,11 @@ function UsageKeySheet({
               option(
                 other.id,
                 t("connections.usage.useConnection", { service }),
-                t("connections.usage.useConnectionHelp", { name: other.name }),
               ),
             )}
             {option(
               "paste",
               t("connections.usage.pasteKey"),
-              t(`connections.usage.keyHelp.${upstream}`),
               choice === "paste" && keyField,
             )}
           </div>

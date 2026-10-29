@@ -2023,9 +2023,9 @@
   "connections.delete.chats": "Chats: {{names}}",
   "connections.delete.models": "Models: {{names}}",
   "connections.delete.more": "{{names}} and {{count}} more",
-  "connections.delete.setting.embedding": "default embedding model",
-  "connections.delete.setting.features": "feature models",
-  "connections.delete.settings": "Settings: {{names}}",
+  "connections.delete.setting.embedding": "Embeddings",
+  "connections.delete.setting.features": "Features",
+  "connections.delete.settings": "Jobs: {{names}}",
   "connections.delete.usedBy": "Used by:",
   "connections.detail.edit": "Edit",
   "connections.device.changeInDefaults": "Change in Defaults",
@@ -16112,5 +16112,6 @@
   "window.controls.resize": "Resize window with the arrow keys",
   "window.controls.unlockHint": "Let this window move and resize, and its button move again.",
   "window.controls.unpinHint": "Let this window close when you click elsewhere.",
-  "connections.editor.more": "More"
+  "connections.editor.more": "More",
+  "navigation.quickSwitcher.models": "Models"
 }

@@ -1371,7 +1371,8 @@ export function App() {
           visibleToasts={TOAST_VISIBLE_LIMIT}
           toastOptions={{
             style: {
-              background: "var(--card)",
+              fontFamily: "inherit",
+            background: "var(--card)",
               border: "1px solid var(--marinara-chat-chrome-panel-border)",
               color: "var(--foreground)",
               userSelect: "text",

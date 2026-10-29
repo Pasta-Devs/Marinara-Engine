@@ -127,7 +127,6 @@ export function MoveConnectionDialog({
         <ModelStep row={row} target={target} busy={move.isPending} onBack={() => setTarget(null)} onMove={run} />
       ) : (
         <div data-move-targets className="flex flex-col gap-3">
-          <p className="text-xs text-[var(--muted-foreground)]">{t("connections.move.pickHint", { model: title })}</p>
           {same.length > 0 && (
             <ul className="flex flex-col gap-2">{same.map((account) => targetRow(account, () => run(account)))}</ul>
           )}
@@ -151,9 +150,6 @@ export function MoveConnectionDialog({
             >
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-semibold">{t("connections.move.newConnection")}</span>
-                <span className="text-[var(--muted-foreground)]">
-                  {t("connections.move.newConnectionHint", { name: splitFrom.name })}
-                </span>
               </span>
               <ChevronRight size="1rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden />
             </button>

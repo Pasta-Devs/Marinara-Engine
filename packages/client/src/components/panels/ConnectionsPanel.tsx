@@ -26,9 +26,6 @@ import {
   ListFilter,
   Folder,
   Layers,
-  Sparkles,
-  Split,
-  MousePointerClick,
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -91,7 +88,6 @@ import { PanelSection } from "../ui/PanelSection";
 import { ContextMenu } from "../ui/ContextMenu";
 import { PictureMenu } from "../connections/PictureMenu";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
-import { StarText } from "../connections/StarText";
 import type { ConnectionPanelSort } from "../../stores/ui.store";
 
 type ConnectionGroupData = {
@@ -163,8 +159,6 @@ export function ConnectionsPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
-  const upgradeNoteDismissed = useUIStore((s) => s.connectionsUpgradeNoteDismissed);
-  const dismissUpgradeNote = useUIStore((s) => s.dismissConnectionsUpgradeNote);
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
@@ -213,23 +207,6 @@ export function ConnectionsPanel() {
   );
   const engines = useDeviceEngines();
   const localModelUsedBy = useLocalModelUsedBy();
-  // ponytail: "had connections before" = a Connection created well after one of its Models, which only the upgrade
-  // grouping does (a Model saved without a Connection is linked in the same moment). A Model moved into a much
-  // newer Connection also counts; a server flag if that ever matters.
-  const upgradedFromModels = useMemo(
-    () =>
-      !!accounts?.some((account) =>
-        connectionsList.some(
-          (row) =>
-            row.accountId === account.id &&
-            !!row.createdAt &&
-            Date.parse(account.createdAt) - Date.parse(row.createdAt) > 60_000,
-        ),
-      ),
-    [accounts, connectionsList],
-  );
-  // Folders show under ⋯ › Group by › Folder; the upgrade note says where they went.
-  const hadFolders = connectionsList.some((row) => !!row.folderId);
   const grouped = useMemo(() => {
     const { groups, standalone } = groupModelsByAccount(connectionsList, accounts ?? []);
     const sorted = sortConnectionGroups(groups, sort);
@@ -875,47 +852,6 @@ export function ConnectionsPanel() {
         </>
       ) : (
         <>
-          {(upgradedFromModels || hadFolders) && !upgradeNoteDismissed && (
-            // The same box and well as a connection card: a heading, then one short line per change.
-            <section role="note" data-connections-upgrade-note className="mari-connection-group">
-              <div className="flex items-center gap-2 ps-2 pb-2">
-                <span
-                  aria-hidden
-                  className="mari-panel-gradient--connections flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--mari-connection-tint)] text-[var(--mari-connection-ink)]"
-                >
-                  <Sparkles size="0.875rem" />
-                </span>
-                <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{t("connections.upgradeNote.title")}</h3>
-                <button
-                  type="button"
-                  onClick={dismissUpgradeNote}
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-foreground/[0.06] hover:text-[var(--foreground)]",
-                    FOCUS,
-                  )}
-                  aria-label={t("connections.upgradeNote.dismiss")}
-                  title={t("connections.upgradeNote.dismiss")}
-                >
-                  <X size="0.875rem" />
-                </button>
-              </div>
-              <ul className="mari-connection-model-well text-xs text-[var(--muted-foreground)]">
-                {(
-                  [
-                    [Layers, t("connections.upgradeNote.grouped")],
-                    [Split, t("connections.upgradeNote.split")],
-                    ...(hadFolders ? ([[Folder, t("connections.upgradeNote.folders")]] as const) : []),
-                    [MousePointerClick, <StarText key="picks" text={t("connections.upgradeNote.picks")} />],
-                  ] as const
-                ).map(([Icon, text], index) => (
-                  <li key={index} className="mari-connection-model-slot flex items-start gap-3 px-3 py-2.5">
-                    <Icon size="0.875rem" aria-hidden className="mt-px shrink-0 text-[var(--mari-connection-ink)]" />
-                    <span className="min-w-0 flex-1 leading-snug">{text}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           {defaultsBox}
           <BuiltInModelCard onOpenDevice={openDevice} />
           {deviceGroup}

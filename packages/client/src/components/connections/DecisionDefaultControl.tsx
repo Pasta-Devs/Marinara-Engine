@@ -223,9 +223,6 @@ export function DecisionDefaultControl({
           />
           <span>
             {t("connections.decision.smartOrder")}
-            <span className="mt-0.5 block text-[0.625rem] text-[var(--muted-foreground)]">
-              {t("connections.decision.smartOrderHelp")}
-            </span>
           </span>
         </label>
       )}
@@ -250,9 +247,6 @@ export function DecisionDefaultControl({
             }}
             className="w-24 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-sm ring-1 ring-[var(--border)]"
           />
-          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-            {t("connections.decision.questionLimitHelp", { defaultLimit: questionLimit.data?.defaultLimit ?? 32 })}
-          </p>
         </div>
       )}
 
@@ -339,7 +333,6 @@ function LocalSlotControls({
           </option>
         ))}
       </select>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">{t("connections.decision.thinkingHelp")}</p>
 
       {entry.answerStyle !== "unknown" && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">
