@@ -340,7 +340,6 @@ test("a fresh ComfyUI connection can finish as video without leaving its image p
     await dialog.locator('[data-add-connection-service="media:comfyui"]').click();
     const connectSecond = dialog.getByRole("button", { name: "Make a new connection", exact: true });
     if (await connectSecond.isVisible()) await connectSecond.click();
-    await dialog.getByRole("button", { name: "More options", exact: true }).click();
     await dialog.getByLabel("Address", { exact: true }).fill(endpoint);
 
     const accountCreatedResponse = page.waitForResponse(

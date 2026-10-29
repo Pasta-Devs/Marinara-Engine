@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Check, ChevronDown, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { AlertCircle, Check, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { ModelDownloadModal } from "../ModelDownloadModal";
 import { LocalWhisper } from "../../connections/DeviceDetail";
-import { SmoothFolderContent } from "../../ui/SmoothFolderContent";
 import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../../panels/settings/TTSConfigCard";
 import { cn } from "../../../lib/utils";
@@ -32,6 +31,8 @@ export interface AccessStepProps {
   device: DeviceService | null;
   selectedMedia: MediaBackend | null;
   def: ProviderDefinition | null;
+  /** A local server preset's name, used when the Name field is left empty. */
+  presetName: string | null;
   closeBlocked: boolean;
   keyless: boolean;
   isLocal: boolean;
@@ -45,8 +46,6 @@ export interface AccessStepProps {
   setBaseUrl: (value: string) => void;
   resetTest: () => void;
   tested: TestResult | null;
-  moreOpen: boolean;
-  setMoreOpen: Dispatch<SetStateAction<boolean>>;
   name: string;
   setName: (value: string) => void;
   maxRpm: string;
@@ -236,75 +235,59 @@ export function AccessStep(props: AccessStepProps) {
             </div>
           )}
           {(!props.isMedia || props.selectedMedia) && (
-            <>
-              <button
-                type="button"
-                onClick={() => props.setMoreOpen((value) => !value)}
-                aria-expanded={props.moreOpen}
-                aria-controls="add-connection-more"
-                className="mari-chrome-control mari-chrome-control--small text-xs self-start"
-              >
-                <ChevronDown size="0.75rem" className={cn("transition-transform", props.moreOpen && "rotate-180")} />
-                {t("connections.add.moreOptions")}
-              </button>
-              <SmoothFolderContent open={props.moreOpen}>
-                <div id="add-connection-more" className="flex flex-col gap-2 pb-1">
-                  {props.isLocal && failure !== "key" && keyField(true)}
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
-                    <input
-                      value={props.name}
-                      onChange={(event) => props.setName(event.target.value)}
-                      placeholder={props.def?.name}
-                      className={inputClass}
-                    />
-                  </label>
-                  {!props.isLocal && (!props.keyless || props.selectedMedia) && (
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
-                      <input
-                        value={props.baseUrl}
-                        onChange={(event) => {
-                          props.setBaseUrl(event.target.value);
-                          props.resetTest();
-                        }}
-                        placeholder={props.selectedMedia?.defaultBaseUrl ?? props.def?.defaultBaseUrl}
-                        inputMode="url"
-                        className={cn(inputClass, "font-mono")}
-                      />
-                    </label>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {t("connections.add.maxRequestsPerMinute")}
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={600}
-                        value={props.maxRpm}
-                        onChange={(event) => props.setMaxRpm(event.target.value)}
-                        className={inputClass}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {t("connections.add.maxParallelJobs")}
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={16}
-                        value={props.maxJobs}
-                        onChange={(event) => props.setMaxJobs(event.target.value)}
-                        className={inputClass}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </SmoothFolderContent>
-            </>
+            <div className="flex flex-col gap-2">
+              {props.isLocal && failure !== "key" && keyField(true)}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.name")}</span>
+                <input
+                  value={props.name}
+                  onChange={(event) => props.setName(event.target.value)}
+                  placeholder={props.presetName ?? props.def?.name}
+                  className={inputClass}
+                />
+              </label>
+              {!props.isLocal && (!props.keyless || props.selectedMedia) && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.endpoint")}</span>
+                  <input
+                    value={props.baseUrl}
+                    onChange={(event) => {
+                      props.setBaseUrl(event.target.value);
+                      props.resetTest();
+                    }}
+                    placeholder={props.selectedMedia?.defaultBaseUrl ?? props.def?.defaultBaseUrl}
+                    inputMode="url"
+                    className={cn(inputClass, "font-mono")}
+                  />
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {t("connections.add.maxRequestsPerMinute")}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={600}
+                    value={props.maxRpm}
+                    onChange={(event) => props.setMaxRpm(event.target.value)}
+                    className={inputClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--muted-foreground)]">{t("connections.add.maxParallelJobs")}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={16}
+                    value={props.maxJobs}
+                    onChange={(event) => props.setMaxJobs(event.target.value)}
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+            </div>
           )}
         </div>
       </div>

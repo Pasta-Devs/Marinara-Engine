@@ -166,7 +166,6 @@ export function CreateConnectionModalContent({
     : null;
   // A model chosen in step 1's search: step 3 starts on its kind and picks it once the list loads.
   const [want, setWant] = useState<{ model: string; kind: ModelKind } | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
   // A local server picked from its own tile names the form.
   const [presetName, setPresetName] = useState<string | null>(null);
   // A service that is already connected: the user chose to connect a second account of it.
@@ -346,7 +345,6 @@ export function CreateConnectionModalContent({
     setBaseUrl("");
     setMaxRpm("");
     setMaxJobs("");
-    setMoreOpen(false);
     setPresetName(null);
     setSetupKind(null);
     setMediaRowId(null);
@@ -848,7 +846,9 @@ export function CreateConnectionModalContent({
                   <ChevronLeft size="1rem" aria-hidden />
                 </button>
               )}
-              {step === 2 && service && <ServiceTile service={service} />}
+              {step === 2 && service && (
+                <ServiceTile service={service} baseUrl={baseUrl} name={presetName ?? undefined} />
+              )}
               <h3 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold outline-none">
                 {heading}
               </h3>
@@ -873,6 +873,7 @@ export function CreateConnectionModalContent({
               device={device}
               selectedMedia={selectedMedia}
               def={def}
+              presetName={presetName}
               closeBlocked={closeBlocked}
               keyless={keyless}
               isLocal={isLocal}
@@ -886,8 +887,6 @@ export function CreateConnectionModalContent({
               setBaseUrl={setBaseUrl}
               resetTest={resetTest}
               tested={tested}
-              moreOpen={moreOpen}
-              setMoreOpen={setMoreOpen}
               name={name}
               setName={setName}
               maxRpm={maxRpm}

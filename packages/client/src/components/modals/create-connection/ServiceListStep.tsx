@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
 import { ListSearch, ListStatus } from "../../connections/ListFrame";
-import { BrandMark } from "../../connections/ProviderIcon";
 import {
   DECISION_BUILTIN,
   LOCAL_PRESETS,
@@ -9,6 +8,7 @@ import {
   SECONDARY_CLASS,
   SELF_HOSTED,
   SERVICE_GROUPS,
+  kindsOf,
   ServiceTile,
   mediaBackendOf,
   type ServiceId,
@@ -23,6 +23,9 @@ const GOOD_NEWS = new Set<ServiceId>([
   "grok_subscription",
 ]);
 
+const SECTIONS = ["chat", "image", "voice", "decision"] as const;
+type Section = (typeof SECTIONS)[number];
+
 const TILE =
   "flex min-h-14 w-full items-center gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)]";
 
@@ -35,7 +38,7 @@ interface ServiceListStepProps {
   serviceName: (service: ServiceId) => string;
 }
 
-/** Step 1: every place models come from, in sections: popular, subscriptions, on your computer, all. */
+/** Step 1: every place models come from, in sections by what they give: chat, images and video, voice, decisions. */
 export function ServiceListStep({
   query,
   setQuery,
@@ -55,12 +58,19 @@ export function ServiceListStep({
     if (key === "openai_chatgpt" || key === "claude_subscription" || key === "grok_subscription")
       return t("connections.add.tag.signIn");
     if (key === "tts" || key === "stt") return t("connections.add.tag.device");
-    if (key === "custom" || (media && SELF_HOSTED.has(media.source))) return t("connections.add.tag.address");
+    if (media && SELF_HOSTED.has(media.source)) return t("connections.add.tag.selfHosted");
     return null;
   };
+  // Sections say what you get.
+  const sectionOf = (key: ServiceId): Section => {
+    if (key === "stt") return "voice";
+    const kinds = kindsOf(key);
+    return SECTIONS.find((s) => kinds.includes(s) || (s === "image" && kinds.includes("video"))) ?? "chat";
+  };
   type Tile = { id: string; name: string; tag: string | null; icon: React.ReactNode; open: () => void; good?: boolean };
-  const sections = SERVICE_GROUPS.map((group) => {
-    const tiles: Tile[] = [];
+  const sections = SECTIONS.map((id) => ({ id, tiles: [] as Tile[] }));
+  for (const group of SERVICE_GROUPS) {
+    const tiles: (Tile & { section: Section })[] = [];
     for (const key of group.services) {
       const name = serviceName(key);
       if (matches(name, key))
@@ -71,6 +81,7 @@ export function ServiceListStep({
           good: GOOD_NEWS.has(key),
           icon: <ServiceTile service={key} />,
           open: () => (key === DECISION_BUILTIN ? openDecisionServer() : void chooseService(key)),
+          section: sectionOf(key),
         });
       // The common local servers follow the built-in model, as their own tiles.
       if (key === "local_model")
@@ -79,14 +90,18 @@ export function ServiceListStep({
             tiles.push({
               id: preset.label,
               name: preset.label,
-              tag: t("connections.add.tag.address"),
-              icon: <BrandMark of={preset.label} className="h-6 w-6" />,
+              tag: t("connections.add.tag.selfHosted"),
+              icon: <ServiceTile service="custom" baseUrl={preset.url} name={preset.label} />,
               open: () => void choosePreset(preset),
+              section: "chat",
             });
     }
     if (group.sorted) tiles.sort((a, b) => a.name.localeCompare(b.name));
-    return { id: group.id, tiles };
-  }).filter((section) => section.tiles.length > 0);
+    for (const tile of tiles) sections.find((s) => s.id === tile.section)?.tiles.push(tile);
+  }
+  // Chat keeps the curated order; the smaller sections read best A–Z.
+  for (const section of sections) if (section.id !== "chat") section.tiles.sort((a, b) => a.name.localeCompare(b.name));
+  const shown = sections.filter((section) => section.tiles.length > 0);
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
@@ -97,7 +112,7 @@ export function ServiceListStep({
           label={t("connections.add.searchProviders")}
           placeholder={t("connections.add.searchProviders")}
         />
-        {sections.map((section) => (
+        {shown.map((section) => (
           <section key={section.id} aria-labelledby={`add-group-${section.id}`} className="flex flex-col gap-2">
             <h3
               id={`add-group-${section.id}`}
@@ -135,7 +150,7 @@ export function ServiceListStep({
             </div>
           </section>
         ))}
-        {sections.length === 0 && (
+        {shown.length === 0 && (
           <div data-add-connection-no-match className="flex flex-col items-center gap-2 py-4 text-center">
             <ListStatus>{t("connections.add.noMatch", { query: query.trim() })}</ListStatus>
             <button type="button" onClick={() => void chooseService("custom")} className={SECONDARY_CLASS}>

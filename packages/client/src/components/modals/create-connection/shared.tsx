@@ -339,11 +339,12 @@ export function failureReason(
 }
 
 /** The service tile: its white brand mark on the brand colour (decision 34c), else an icon or the initials. */
-export function ServiceTile({ service }: { service: ServiceId }) {
+export function ServiceTile({ service, baseUrl, name }: { service: ServiceId; baseUrl?: string; name?: string }) {
   const media = mediaBackendOf(service);
   // A custom address: its brand comes from the URL.
   if (service === LINKAPI_SERVICE)
     return <ProviderIcon provider="custom" baseUrl={LINKAPI.baseUrl} name={LINKAPI.name} size="add" />;
+  if (service === "custom") return <ProviderIcon provider="custom" baseUrl={baseUrl} name={name} size="add" />;
   if (service === DECISION_BUILTIN) return <ProviderIcon provider="decision" size="add" />;
   return (
     <ProviderIcon
