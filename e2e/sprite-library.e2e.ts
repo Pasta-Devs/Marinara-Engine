@@ -264,6 +264,23 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const select = library.getByRole("checkbox", { name: /^Select .* in / });
     await select.nth(0).check();
     await select.nth(1).check();
+    if (info.project.name === "desktop") {
+      const selectedCards = library.locator("[data-sprite-expression]").filter({ has: page.locator("input:checked") });
+      await expect(selectedCards).toHaveCount(2);
+      const box = await selectedCards.first().boundingBox();
+      expect(box).not.toBeNull();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box!.x + box!.width / 2 + 30, box!.y + box!.height / 2 + 10, { steps: 5 });
+      const preview = page.locator("[data-sprite-drag-preview]");
+      await expect(preview.locator("[data-sprite-card]")).toHaveCount(2);
+      await expect(selectedCards.nth(0)).toHaveCSS("opacity", "0.5");
+      await expect(selectedCards.nth(1)).toHaveCSS("opacity", "0.5");
+      await page.keyboard.press("Escape");
+      await expect(preview).toHaveCount(0);
+      await expect(selectedCards.nth(0)).toHaveCSS("opacity", "1");
+      await expect(selectedCards.nth(1)).toHaveCSS("opacity", "1");
+    }
     await library.getByRole("button", { name: "Clean Backgrounds", exact: true }).click();
     await expect(library.getByRole("slider", { name: "Cleanup strength", exact: true })).toBeVisible();
     await expect(library.getByRole("button", { name: "Clean 2 sprites", exact: true })).toBeVisible();
