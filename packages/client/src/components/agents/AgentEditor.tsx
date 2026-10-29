@@ -19,6 +19,7 @@ import {
   type AgentConfigRow,
 } from "../../hooks/use-agents";
 import { useConnections } from "../../hooks/use-connections";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
 import {
@@ -2808,6 +2809,7 @@ export function AgentEditor() {
                 }
                 className="rounded-xl px-3 py-2.5 text-sm"
               />
+              <NeedsModelChip kind="image" own={localImageConnectionId} className="mt-1.5" />
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {localizeUi(
                   isIllustratorAgent

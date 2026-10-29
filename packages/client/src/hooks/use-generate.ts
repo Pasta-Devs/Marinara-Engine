@@ -43,6 +43,7 @@ import {
   type TTSAutoplayMessageReadyDetail,
 } from "../lib/tts-autoplay";
 import { translate } from "../localization/i18n";
+import { openAddConnection } from "../lib/add-connection";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT, notifyAdvancedMemoryFailure } from "./use-advanced-memory";
@@ -155,20 +156,17 @@ function setAgentFailureError(failures: AgentFailure[], force = false) {
   });
 }
 
-function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) {
+function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void, code?: unknown) {
   const hasIllustratorFailure = failures.some((failure) => failure.agentType === "illustrator");
   setAgentFailureError(failures);
-  showError(
-    formatAgentFailuresToast(failures),
-    hasIllustratorFailure && onRetry
-      ? {
-          action: {
-            label: "Try again",
-            onClick: () => onRetry(),
-          },
-        }
-      : undefined,
-  );
+  // A missing image Model fails again on retry, so the toast offers to set one up instead.
+  const action =
+    code === "image_connection_missing"
+      ? { label: translate("connections.defaults.setUp"), onClick: () => openAddConnection({ job: "images" }) }
+      : hasIllustratorFailure && onRetry
+        ? { label: "Try again", onClick: () => onRetry() }
+        : null;
+  showError(formatAgentFailuresToast(failures), action ? { action } : undefined);
 }
 
 const shownAgentWarnings = new Set<string>();
@@ -3130,6 +3128,7 @@ export function useGenerate() {
                 agentName?: string | null;
                 error: string;
                 retryTarget?: unknown;
+                code?: unknown;
               };
               if (errData.agentType === "illustrator" && errData.retryTarget !== "background") {
                 illustrationSettled = true;
@@ -3146,13 +3145,17 @@ export function useGenerate() {
               // this" error it just set (L2) — tracked apart from replyErrorSeen so a
               // successful completion can replace a stale "Generate reply" row with this.
               agentFailuresThisRun = mergeAgentFailures(agentFailuresThisRun, [failure]);
-              showAgentFailuresError([failure], () => {
-                void retryAgentsRef.current?.(
-                  params.chatId,
-                  [failure.agentType],
-                  withIllustratorFailureTargets(undefined, [failure]),
-                );
-              });
+              showAgentFailuresError(
+                [failure],
+                () => {
+                  void retryAgentsRef.current?.(
+                    params.chatId,
+                    [failure.agentType],
+                    withIllustratorFailureTargets(undefined, [failure]),
+                  );
+                },
+                errData.code,
+              );
               break;
             }
 
@@ -4291,19 +4294,24 @@ export function useGenerate() {
                 agentName?: string | null;
                 error: string;
                 retryTarget?: unknown;
+                code?: unknown;
               };
               hasError = true;
               const failure = toAgentFailure(errData);
               const mergedFailures = mergeAgentFailures(failedRetryFailures, [failure]);
               failedRetryFailures.splice(0, failedRetryFailures.length, ...mergedFailures);
               setFailedAgentFailures(failedRetryFailures, chatId);
-              showAgentFailuresError([failure], () => {
-                void retryAgentsRef.current?.(
-                  chatId,
-                  [failure.agentType],
-                  withIllustratorFailureTargets(options, [failure]),
-                );
-              });
+              showAgentFailuresError(
+                [failure],
+                () => {
+                  void retryAgentsRef.current?.(
+                    chatId,
+                    [failure.agentType],
+                    withIllustratorFailureTargets(options, [failure]),
+                  );
+                },
+                errData.code,
+              );
               break;
             }
             case "error": {

@@ -193,6 +193,7 @@ import { useCharacters, usePersonas, useCharacterGroups, type SpriteInfo } from 
 import { lorebookKeys, useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
+import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useKnowledgeSources, useUploadKnowledgeSource } from "../../hooks/use-knowledge-sources";
 import { useGenerate } from "../../hooks/use-generate";
@@ -2246,6 +2247,10 @@ export function ChatSettingsDrawer({
       <AgentDefaultStatus
         overridden={illustratorImageConnectionId.length > 0}
         onReset={() => updateIllustratorImageConnection("")}
+      />
+      <NeedsModelChip
+        kind="image"
+        own={illustratorImageConnectionId || agentModelNeed("illustrator", illustratorConfig?.settings)?.own}
       />
     </div>
   );
@@ -5128,6 +5133,11 @@ export function ChatSettingsDrawer({
                     <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
                       {agent.description}
                     </span>
+                    <NeedsModelChip
+                      kind={imageCapable ? "image" : null}
+                      own={agentImageConnectionId}
+                      className="mt-1"
+                    />
                   </div>
                   <button
                     onClick={() => {
@@ -7607,13 +7617,7 @@ export function ChatSettingsDrawer({
                               ))}
                             </select>
                           </label>
-                          {videoConnectionsList.length === 0 && (
-                            <p className="text-[0.625rem] text-[var(--marinara-app-accent-static)]">
-                              {localizeUi(
-                                "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                              )}
-                            </p>
-                          )}
+                          {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                           <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                             {localizeUi("ui.chat.chatsettingsdrawer.videoMessagesHelp")}
                           </p>
@@ -9324,13 +9328,7 @@ export function ChatSettingsDrawer({
                                   inherits="main"
                                 />
                               </label>
-                              {videoConnectionsList.length === 0 && (
-                                <p className="text-[0.625rem] text-amber-700 dark:text-amber-400/80">
-                                  {localizeUi(
-                                    "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                                  )}
-                                </p>
-                              )}
+                              {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                               <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                                 {localizeUi(
                                   "ui.chat.chatsettingsdrawer.galleryVideoAndImageAnimateUseThisConnectionWith",
@@ -9747,13 +9745,7 @@ export function ChatSettingsDrawer({
                               inherits="main"
                             />
                           </label>
-                          {videoConnectionsList.length === 0 && (
-                            <p className="text-[0.625rem] text-amber-700 dark:text-amber-400/80">
-                              {localizeUi(
-                                "ui.chat.chatsettingsdrawer.noVideoGenerationConnectionsFoundAddOneInSettings",
-                              )}
-                            </p>
-                          )}
+                          {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                           <GamePromptTemplateSelect
                             label={localizeUi("ui.chat.chatsettingsdrawer.gameVideoPrompt")}
                             description={localizeUi("ui.chat.chatsettingsdrawer.usedForGameSceneVideos")}
@@ -10675,6 +10667,10 @@ export function ChatSettingsDrawer({
                   <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
                     {agentAddPreview.agent.description || "No description available."}
                   </p>
+                  {(() => {
+                    const need = agentModelNeed(agentAddPreview.agent.id, agentAddPreview.config?.settings);
+                    return need && <NeedsModelChip kind={need.kind} own={need.own} className="mt-2" />;
+                  })()}
                 </div>
               </div>
             </div>

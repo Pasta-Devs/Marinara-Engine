@@ -15021,10 +15021,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       agentType: result.agentType,
                       agentName: imagePromptAgent?.name ?? "Illustrator",
                       retryTarget: "illustration",
-                      error: `No image generation connection is set on ${
+                      code: "image_connection_missing",
+                      error: `No image model is set for ${
                         imagePromptAgent?.name?.trim() ||
                         (result.agentType === "illustrator" ? "the Illustrator agent" : "this image agent")
-                      } or under Settings → Connections → Defaults → Images. Choose one there, or assign one directly in Settings → Agents.`,
+                      } or as the Images default in the Connections sidebar.`,
                     },
                   });
                 }

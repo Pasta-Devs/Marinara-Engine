@@ -240,7 +240,9 @@ export function ModelRow({
             {titleNote && (
               <>
                 {" "}
-                <span className="inline-block max-w-full text-[0.6875rem] font-normal text-[var(--muted-foreground)]">{titleNote}</span>
+                <span className="inline-block max-w-full text-[0.6875rem] font-normal text-[var(--muted-foreground)]">
+                  {titleNote}
+                </span>
               </>
             )}
           </span>

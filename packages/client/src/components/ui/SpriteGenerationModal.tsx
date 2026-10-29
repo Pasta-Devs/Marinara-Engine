@@ -6,6 +6,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
 import { Modal } from "./Modal";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
@@ -2130,11 +2131,7 @@ export function SpriteGenerationModal({
                   : localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
               </label>
               {activeGenerationConnections.length === 0 ? (
-                <p className="text-xs text-[var(--destructive)]">
-                  {animatedExpressionMode
-                    ? localizeUi("ui.ui.spritegenerationmodal.noVideoGenerationConnectionsFound")
-                    : localizeUi("ui.ui.spritegenerationmodal.noImageGenerationConnectionsFound")}
-                </p>
+                <NeedsModelChip kind={animatedExpressionMode ? "video" : "image"} />
               ) : (
                 <ConnectionSelect
                   job={localizeUi("connections.picker.job.sprites")}

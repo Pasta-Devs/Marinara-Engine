@@ -108,6 +108,7 @@ import { AgentModeFilter, type AgentModeFilterValue } from "../agents/AgentModeF
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TilePack } from "@marinara-engine/shared";
+import { NeedsModelChip, agentModelNeed } from "../connections/NeedsModelChip";
 import { ApiError, api } from "../../lib/api-client";
 import { downloadJsonFile } from "../../lib/download-json";
 import {
@@ -1140,6 +1141,7 @@ export function AgentsPanel() {
         category,
         imagePath: agent.imagePath || (builtInMeta ? catalogArtworkByAgentId.get(agent.type) : null) || null,
         custom,
+        needs: agentModelNeed(agent.type, agent.settings),
         openAgentDetail,
         onDuplicate: custom && capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
         onImagePick: () => handlePickAgentImage(custom ? agent.id : agent.type),
@@ -1631,6 +1633,7 @@ export function AgentsPanel() {
                     category: agent.category,
                     imagePath: sourceAgent.imagePath || catalogArtworkByAgentId.get(agent.id) || null,
                     custom: false,
+                    needs: agentModelNeed(agent.id, sourceAgent.settings),
                     openAgentDetail,
                     onImagePick: () => handlePickAgentImage(agent.id),
                     selectionMode,
@@ -1701,6 +1704,7 @@ export function AgentsPanel() {
                 category: "custom",
                 imagePath: agent.imagePath ?? null,
                 custom: true,
+                needs: agentModelNeed(agent.type, agent.settings),
                 openAgentDetail,
                 onDuplicate: capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
                 onImagePick: () => handlePickAgentImage(agent.id),
@@ -1985,6 +1989,7 @@ function renderAgentCard({
   nativeDragEnabled = true,
   touchSafeDragMode = false,
   suppressClickRef,
+  needs,
 }: {
   localizeUi: TFunction;
   id: string;
@@ -2008,6 +2013,8 @@ function renderAgentCard({
   nativeDragEnabled?: boolean;
   touchSafeDragMode?: boolean;
   suppressClickRef?: { current: boolean };
+  /** A Model the agent cannot run without; the card shows the chip while none is set. */
+  needs?: ReturnType<typeof agentModelNeed>;
 }) {
   const iconClasses = cn(
     "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
@@ -2101,10 +2108,9 @@ function renderAgentCard({
           </span>
         )}
       </button>
-      <button
-        data-drag-surface
+      <div
         className={cn(
-          "min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing",
+          "flex min-w-0 flex-1 flex-col",
           !selectionMode &&
             (custom && onDuplicate
               ? onDelete
@@ -2114,24 +2120,30 @@ function renderAgentCard({
                 ? "pr-0 max-md:pr-16 [@media(pointer:coarse)]:pr-16"
                 : "pr-0 max-md:pr-8 [@media(pointer:coarse)]:pr-8"),
         )}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (suppressClickRef?.current) return;
-          if (selectionMode && onToggleSelected) {
-            onToggleSelected();
-            return;
-          }
-          openAgentDetail(custom ? id : type);
-        }}
       >
-        <div className="truncate text-sm font-medium">{name}</div>
-        <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
-          {description || localizeUi("ui.panels.agentcard.noDescription")}
-        </div>
-        <div className="mt-1 text-[0.5625rem] uppercase text-[var(--muted-foreground)]/80">
-          {custom ? localizeUi("ui.panels.agentcard.custom") : category}
-        </div>
-      </button>
+        <button
+          data-drag-surface
+          className="min-w-0 cursor-grab text-left active:cursor-grabbing"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (suppressClickRef?.current) return;
+            if (selectionMode && onToggleSelected) {
+              onToggleSelected();
+              return;
+            }
+            openAgentDetail(custom ? id : type);
+          }}
+        >
+          <div className="truncate text-sm font-medium">{name}</div>
+          <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
+            {description || localizeUi("ui.panels.agentcard.noDescription")}
+          </div>
+          <div className="mt-1 text-[0.5625rem] uppercase text-[var(--muted-foreground)]/80">
+            {custom ? localizeUi("ui.panels.agentcard.custom") : category}
+          </div>
+        </button>
+        {needs && !selectionMode && <NeedsModelChip kind={needs.kind} own={needs.own} className="mt-1" />}
+      </div>
       {!selectionMode && (
         <div className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
           <ChatResourceActionButton payload={{ version: 1, kind: "agent", ids: [type], label: name }} />

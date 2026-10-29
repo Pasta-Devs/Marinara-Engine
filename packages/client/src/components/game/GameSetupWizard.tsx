@@ -96,6 +96,7 @@ import {
   normalizeGameHudWidgets,
 } from "./GameWidgetSetupEditor";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useDefaultPreset, usePresets } from "../../hooks/use-presets";
 import { useCharacterGroups, usePersonas } from "../../hooks/use-characters";
@@ -2039,11 +2040,7 @@ export function GameSetupWizard({
                           </div>
                         )}
                       </div>
-                      {languageConnections.length === 0 && (
-                        <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          {localizeUi("ui.game.gamesetupwizard.noConnectionsConfiguredAddOneInSettingsConnections")}
-                        </p>
-                      )}
+                      {languageConnections.length === 0 && <NeedsModelChip kind="chat" className="mt-1" />}
                     </div>
 
                     <div>
@@ -3219,13 +3216,7 @@ export function GameSetupWizard({
                                   defaultLabel={localizeUi("ui.game.gamesetupwizard.selectImageConnection")}
                                   inherits="main"
                                 />
-                                {imageConnections.length === 0 && (
-                                  <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                    {localizeUi(
-                                      "ui.game.gamesetupwizard.noImageGenerationConnectionsFoundAddOneInSettings",
-                                    )}
-                                  </p>
-                                )}
+                                {imageConnections.length === 0 && <NeedsModelChip kind="image" className="mt-1" />}
                                 <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                   {localizeUi(
                                     "ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsAndSceneIllustrations",
@@ -3264,13 +3255,7 @@ export function GameSetupWizard({
                                     defaultLabel={localizeUi("ui.game.gamesetupwizard.noSceneVideoConnection")}
                                     inherits="main"
                                   />
-                                  {videoConnections.length === 0 && (
-                                    <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">
-                                      {localizeUi(
-                                        "ui.game.gamesetupwizard.noVideoGenerationConnectionsFoundAddOneInSettings",
-                                      )}
-                                    </p>
-                                  )}
+                                  {videoConnections.length === 0 && <NeedsModelChip kind="video" className="mt-1" />}
                                   <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">
                                     {localizeUi("ui.game.gamesetupwizard.usedForManualSceneVideos")}
                                   </p>

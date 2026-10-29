@@ -4482,8 +4482,8 @@ async function applyRetryResultEffects(args: {
                 agentType: result.agentType,
                 agentName: illustratorFailureName,
                 retryTarget: "illustration",
-                error:
-                  "No image generation connection is set on this agent or under Settings -> Connections -> Defaults -> Images. Choose one there, or assign one in the agent's settings.",
+                code: "image_connection_missing",
+                error: "No image model is set for this agent or as the Images default in the Connections sidebar.",
               },
             });
           }

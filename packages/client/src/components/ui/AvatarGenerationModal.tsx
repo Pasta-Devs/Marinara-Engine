@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -232,9 +233,7 @@ export function AvatarGenerationModal({
                   {localizeUi("ui.agents.agenteditor.imageGenerationConnection")}
                 </span>
                 {imageConnections.length === 0 ? (
-                  <p className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--destructive)]">
-                    {localizeUi("ui.ui.avatargenerationmodal.noImageGenerationConnectionsFound")}
-                  </p>
+                  <NeedsModelChip kind="image" className="flex" />
                 ) : (
                   <ConnectionSelect
                     job={localizeUi("connections.picker.job.avatarImages")}
