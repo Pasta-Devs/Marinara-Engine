@@ -112,13 +112,70 @@ Pi fonctionne avec toutes les connexions, y compris le modèle local. Si Profess
 
 Ouvre **Search and Professor Mari settings** et fais défiler jusqu'à **Appearance** (apparence). Choisis une apparence pour elle, par exemple **Basic**, **Prof. Mari loves Dottore** ou **Safari Prof. Mari**. Sa nouvelle apparence s'affiche dans son chat, dans Search, sur l'accueil et dans la barre supérieure. Certaines apparences se débloquent après un certain temps de jeu. Une apparence verrouillée indique combien d'heures tu as joué jusqu'ici.
 
+## Le menu du trombone
+
+Clique sur le bouton trombone, intitulé **Attach** (joindre), pour ouvrir un menu en trois sections :
+
+- **Attach** : **Attach files or photos** (joindre des fichiers ou des photos), **Add chat history** (ajouter l'historique d'un chat – tu partages avec elle l'un de tes chats passés) et **View attached context** (voir le contexte joint).
+- **Reference** : **Link with @** (lier avec @) saisit `@` dans le champ de message et ouvre la liste de liens décrite plus bas.
+- **Mari** : **New chat**, **Chat history**, **Skills**, **Memories**, **Model** (modèle) et **Permissions**. **Pending approvals** (approbations en attente) s'affiche ici tant qu'une modification attend ta décision.
+
+Les mêmes commandes se saisissent aussi avec `/`, comme décrit dans [Commandes avec /](#commands-with-).
+
 ## Joindre des fichiers
 
-Clique sur le bouton trombone, intitulé **Attach files** (joindre des fichiers), pour ajouter un fichier à ton message.
+Choisis **Attach files or photos** dans le menu du trombone, ou saisis `/attach`, pour ajouter un fichier à ton message.
 
 Elle accepte les images, les fichiers PDF et les fichiers texte courants comme `.txt`, `.md`, `.json`, `.csv` et `.log`. Chaque fichier peut peser jusqu'à 20 Mo. Avant l'envoi, les fichiers joints apparaissent sous forme de pastilles supprimables au-dessus du champ de message.
 
 Pour qu'elle puisse lire une image, le modèle de la connexion choisie doit prendre en charge les images en entrée.
+
+## Lier des éléments avec @
+
+Saisis `@` dans le champ de message pour lui indiquer un élément de ta bibliothèque, afin qu'elle n'ait pas à le chercher. Une liste s'ouvre pendant que tu écris, regroupée en **Characters** (personnages), **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** (agents) et **Docs**. Continuer à écrire réduit la liste ; les noms avec des espaces n'ont pas besoin de guillemets (`@Alice in Wonderland`).
+
+- Utilise les flèches pour te déplacer, **Enter** ou **Tab** pour choisir et **Escape** pour fermer la liste. Sur un lorebook, la flèche droite affiche ses **Entries** (entrées) pour que tu puisses lier une seule entrée ; la flèche gauche revient en arrière.
+- Quand sa fenêtre se trouve à côté d'un éditeur, la première ligne, **Open beside me** (ouvrir à côté de moi), lie ce que cet éditeur a d'ouvert.
+- À côté de l'éditeur de personnage, la ligne **Open beside me** a un › (ou appuie sur ArrowRight) qui liste les **Fields** (champs) de cet éditeur, et écrire quelque chose après `@` liste directement ceux qui correspondent. En choisir un (`@scen` → Scenario) change le champ sur lequel elle travaille, comme si tu avais cliqué dedans avant de l'ouvrir. Il remplace la pastille de champ dans sa ligne de contexte, et l'éditeur défile jusqu'à ce champ. Un champ n'est pas un lien : aucun texte `@` ne reste dans ton message. **Onboarding** est un seul champ pour tout le bloc : tant que c'est son champ, chaque message envoie ce que renvoie `character.onboarding.get` (les questions, les éventuels problèmes et un exemple de persona), si bien qu'elle part du bloc tel qu'il est enregistré.
+- Un nom choisi est mis en évidence dans ton message et s'affiche sous forme de pastille au-dessus du champ de message. Si tu modifies ou supprimes le nom, le lien disparaît avec lui ; le **×** de la pastille retire le lien mais garde ton texte.
+- Dans un texte ordinaire, **Tab** complète un nom qu'elle suggère en gris. Appuie une seconde fois sur **Tab** pour le transformer en lien.
+
+Ce qu'envoie chaque lien :
+
+| Lien | Ce qu'elle reçoit |
+| --- | --- |
+| Personnage, persona, preset | L'élément entier, tel qu'elle le lirait elle-même |
+| Lorebook | Ses réglages et la liste de ses entrées (lie une entrée pour en obtenir le texte complet) |
+| Entrée de lorebook | L'entrée, plus le lorebook auquel elle appartient |
+| Skill | Les instructions de ta propre Skill. Une Skill intégrée s'ouvre à la place comme son manuel pour ce message. Si tu lies la Skill d'accueil interactif avec un personnage, elle reçoit aussi le bloc d'accueil interactif de ce personnage |
+| Memory | Le texte complet du souvenir, même désactivé. Les souvenirs **Persistent** ne sont pas listés, puisqu'elle les a toujours |
+| Chat | Les détails du chat et ses 30 derniers messages |
+| Agent | Les réglages de l'agent |
+| Doc | La page entière de cette documentation |
+
+Un lien est envoyé **une seule fois**, avec le message dans lequel tu l'ajoutes. Aux tours suivants, elle ne voit qu'une note d'une ligne indiquant que tu l'as lié, et le relit si besoin. Un message porte jusqu'à 8 liens. S'ils dépassent environ un quart du contexte de ta connexion (60 000 caractères au maximum), les derniers ne sont pas envoyés : elle reçoit à la place une note et peut les lire elle-même.
+
+Les éléments liés sont traités comme de l'information, jamais comme des instructions : une fiche de personnage ou une entrée de lorebook ne peut pas lui dire quoi faire.
+
+<a id="commands-with-"></a>
+
+## Commandes avec /
+
+Saisis `/` au début d'une ligne pour lister ses commandes. Continue d'écrire pour filtrer, puis appuie sur **Enter** pour en lancer une. Le `/word` que tu as saisi est retiré de ton message.
+
+| Commande | Ce qu'elle fait |
+| --- | --- |
+| `/new` | Démarre un nouveau chat ; le chat en cours est enregistré dans **Chats** (`/restart` fonctionne aussi) |
+| `/history` | Ouvre tes chats passés avec elle |
+| `/skills` | Ouvre le panneau **Skills** |
+| `/memories` | Ouvre le panneau **Memories** |
+| `/context` | Affiche ce qui est joint à ce chat |
+| `/attach` | Choisit des fichiers ou des photos à envoyer |
+| `/model` | Choisit la connexion qu'elle utilise |
+| `/permissions` | Choisit ce qu'elle a le droit de modifier |
+| `/approvals` | Ouvre les modifications qui attendent ta décision (seulement tant qu'une est en attente) |
+
+La liste de `/` affiche aussi tes **Skills** et tes **Memories**. Choisir l'un d'eux le lie, comme avec `@`.
 
 ## Réviser ses modifications
 
@@ -209,7 +266,7 @@ Professor Mari garde ses propres chats, à part. Ils n'apparaissent pas dans ta 
 
 Clique sur le bouton **Chats** dans son en-tête pour ouvrir tes chats Professor Mari enregistrés. Quand la liste est vide, le panneau précise : "New chat keeps this one here." Utilise **Search Prof. Mari chats** (rechercher dans les chats de Prof. Mari) pour en trouver un. Clique sur un chat enregistré pour l'ouvrir, le renommer ou le supprimer.
 
-Clique sur le bouton **New chat** (nouveau chat) pour commencer une nouvelle conversation avec elle. Il enregistre d'abord le chat en cours dans la liste **Chats**. Autre option : saisir `/restart` dans le champ de message, avec le même effet. Le message "Professor Mari's previous chat was saved." s'affiche.
+Clique sur le bouton **New chat** (nouveau chat) pour commencer une nouvelle conversation avec elle. Il enregistre d'abord le chat en cours dans la liste **Chats**. Autre option : saisir `/new` (ou `/restart`) dans le champ de message, avec le même effet. Le message "Professor Mari's previous chat was saved." s'affiche.
 
 Pendant qu'elle travaille, le bouton d'envoi devient un bouton **Stop** (arrêter). Clique dessus pour annuler la tâche en cours.
 
