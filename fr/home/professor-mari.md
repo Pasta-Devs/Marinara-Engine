@@ -118,7 +118,7 @@ Clique sur le bouton trombone, intitulé **Attach** (joindre), pour ouvrir un me
 
 - **Attach** : **Attach files or photos** (joindre des fichiers ou des photos), **Add chat history** (ajouter l'historique d'un chat – tu partages avec elle l'un de tes chats passés) et **View attached context** (voir le contexte joint).
 - **Reference** : **Link with @** (lier avec @) saisit `@` dans le champ de message et ouvre la liste de liens décrite plus bas.
-- **Mari** : **New chat**, **Chat history**, **Skills**, **Memories**, **Model** (modèle) et **Permissions**. **Pending approvals** (approbations en attente) s'affiche ici tant qu'une modification attend ta décision.
+- **Mari** : **New chat** (nouveau chat), **Chat history**, **Skills**, **Memories** (souvenirs), **Model** (modèle) et **Permissions**. **Pending approvals** (approbations en attente) s'affiche ici tant qu'une modification attend ta décision.
 
 Les mêmes commandes se saisissent aussi avec `/`, comme décrit dans [Commandes avec /](#commands-with-).
 
@@ -136,7 +136,7 @@ Saisis `@` dans le champ de message pour lui indiquer un élément de ta bibliot
 
 - Utilise les flèches pour te déplacer, **Enter** ou **Tab** pour choisir et **Escape** pour fermer la liste. Sur un lorebook, la flèche droite affiche ses **Entries** (entrées) pour que tu puisses lier une seule entrée ; la flèche gauche revient en arrière.
 - Quand sa fenêtre se trouve à côté d'un éditeur, la première ligne, **Open beside me** (ouvrir à côté de moi), lie ce que cet éditeur a d'ouvert.
-- À côté de l'éditeur de personnage, la ligne **Open beside me** a un › (ou appuie sur ArrowRight) qui liste les **Fields** (champs) de cet éditeur, et écrire quelque chose après `@` liste directement ceux qui correspondent. En choisir un (`@scen` → Scenario) change le champ sur lequel elle travaille, comme si tu avais cliqué dedans avant de l'ouvrir. Il remplace la pastille de champ dans sa ligne de contexte, et l'éditeur défile jusqu'à ce champ. Un champ n'est pas un lien : aucun texte `@` ne reste dans ton message. **Onboarding** est un seul champ pour tout le bloc : tant que c'est son champ, chaque message envoie ce que renvoie `character.onboarding.get` (les questions, les éventuels problèmes et un exemple de persona), si bien qu'elle part du bloc tel qu'il est enregistré.
+- À côté de l'éditeur de personnage, la ligne **Open beside me** a un › (ou appuie sur ArrowRight) qui liste les **Fields** (champs) de cet éditeur, et écrire quelque chose après `@` liste directement ceux qui correspondent. En choisir un (`@scen` → Scenario) change le champ sur lequel elle travaille, comme si tu avais cliqué dedans avant de l'ouvrir. Il remplace la pastille de champ dans sa ligne de contexte, et l'éditeur défile jusqu'à ce champ. Un champ n'est pas un lien : aucun texte `@` ne reste dans ton message. **Onboarding** (accueil) est un seul champ pour tout le bloc : tant que c'est son champ, chaque message envoie ce que renvoie `character.onboarding.get` (les questions, les éventuels problèmes et un exemple de persona), si bien qu'elle part du bloc tel qu'il est enregistré.
 - Un nom choisi est mis en évidence dans ton message et s'affiche sous forme de pastille au-dessus du champ de message. Si tu modifies ou supprimes le nom, le lien disparaît avec lui ; le **×** de la pastille retire le lien mais garde ton texte.
 - Dans un texte ordinaire, **Tab** complète un nom qu'elle suggère en gris. Appuie une seconde fois sur **Tab** pour le transformer en lien.
 
@@ -148,10 +148,10 @@ Ce qu'envoie chaque lien :
 | Lorebook | Ses réglages et la liste de ses entrées (lie une entrée pour en obtenir le texte complet) |
 | Entrée de lorebook | L'entrée, plus le lorebook auquel elle appartient |
 | Skill | Les instructions de ta propre Skill. Une Skill intégrée s'ouvre à la place comme son manuel pour ce message. Si tu lies la Skill d'accueil interactif avec un personnage, elle reçoit aussi le bloc d'accueil interactif de ce personnage |
-| Memory | Le texte complet du souvenir, même désactivé. Les souvenirs **Persistent** ne sont pas listés, puisqu'elle les a toujours |
+| Souvenir | Le texte complet du souvenir, même désactivé. Les souvenirs **Persistent** ne sont pas listés, puisqu'elle les a toujours |
 | Chat | Les détails du chat et ses 30 derniers messages |
 | Agent | Les réglages de l'agent |
-| Doc | La page entière de cette documentation |
+| Page de documentation | La page entière de cette documentation |
 
 Un lien est envoyé **une seule fois**, avec le message dans lequel tu l'ajoutes. Aux tours suivants, elle ne voit qu'une note d'une ligne indiquant que tu l'as lié, et le relit si besoin. Un message porte jusqu'à 8 liens. S'ils dépassent environ un quart du contexte de ta connexion (60 000 caractères au maximum), les derniers ne sont pas envoyés : elle reçoit à la place une note et peut les lire elle-même.
 
@@ -248,7 +248,7 @@ Professor Mari peut retenir tes préférences durables, pour t'éviter de les r�
 Il y a deux façons de lui donner un souvenir :
 
 - **Dis-le-lui.** Écris par exemple "retiens que mes entrées de lorebook ont toujours pour clés le nom du personnage et son surnom". Elle l'enregistre et affiche un encart de modification avec la formulation exacte. Un souvenir qu'elle enregistre démarre **désactivé** : il ne change rien tant que tu ne l'as pas activé. L'encart propose **Turn on** pour l'activer tout de suite.
-- **Ajoute-le toi-même.** Clique sur le bouton **Memories** (souvenirs) dans l'en-tête de son chat pour ouvrir le panneau **Memories**. Tu peux y créer, modifier, activer, désactiver et supprimer tes souvenirs. Autre option : téléverser un fichier `.md` ou texte avec **Upload**, pour transformer son contenu en souvenir.
+- **Ajoute-le toi-même.** Clique sur le bouton **Memories** dans l'en-tête de son chat pour ouvrir le panneau **Memories**. Tu peux y créer, modifier, activer, désactiver et supprimer tes souvenirs. Autre option : téléverser un fichier `.md` ou texte avec **Upload**, pour transformer son contenu en souvenir.
 
 Elle n'enregistre et ne modifie un souvenir que si **toi** tu le lui demandes, jamais parce qu'un contenu qu'elle a lu (un personnage, un lorebook, un fichier) le lui a dit.
 
@@ -266,7 +266,7 @@ Professor Mari garde ses propres chats, à part. Ils n'apparaissent pas dans ta 
 
 Clique sur le bouton **Chats** dans son en-tête pour ouvrir tes chats Professor Mari enregistrés. Quand la liste est vide, le panneau précise : "New chat keeps this one here." Utilise **Search Prof. Mari chats** (rechercher dans les chats de Prof. Mari) pour en trouver un. Clique sur un chat enregistré pour l'ouvrir, le renommer ou le supprimer.
 
-Clique sur le bouton **New chat** (nouveau chat) pour commencer une nouvelle conversation avec elle. Il enregistre d'abord le chat en cours dans la liste **Chats**. Autre option : saisir `/new` (ou `/restart`) dans le champ de message, avec le même effet. Le message "Professor Mari's previous chat was saved." s'affiche.
+Clique sur le bouton **New chat** pour commencer une nouvelle conversation avec elle. Il enregistre d'abord le chat en cours dans la liste **Chats**. Autre option : saisir `/new` (ou `/restart`) dans le champ de message, avec le même effet. Le message "Professor Mari's previous chat was saved." s'affiche.
 
 Pendant qu'elle travaille, le bouton d'envoi devient un bouton **Stop** (arrêter). Clique dessus pour annuler la tâche en cours.
 
