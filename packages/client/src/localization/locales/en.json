@@ -6862,7 +6862,7 @@
   "ui.characters.charactersheet.uploadFailed": "Failed to upload the character sheet.",
   "ui.characters.charactersheet.uploading": "Uploading character sheet…",
   "ui.characters.charactersheet.useAsReference": "Use as reference image",
-  "ui.characters.charactersheet.useAsReferenceDescription": "Prefer this sheet for character likeness references after saving. When off or unavailable, use the avatar.",
+  "ui.characters.charactersheet.useAsReferenceDescription": "Prefer this character sheet wherever Marinara Engine sends character likeness references.",
   "ui.characters.charactersubject.removeValue1": "Remove {{value1}}",
   "ui.characters.characterversionhistorypanel.changed": "changed",
   "ui.characters.characterversionhistorypanel.compareValue1": "Compare {{value1}}",
