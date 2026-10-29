@@ -77,22 +77,34 @@ export function JobRow({
         title={tile.title}
         wrapTitle
         details={
-          <span
-            className={cn(
-              "min-w-0 truncate text-xs",
-              unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
-              tile.muted && !unset && "italic",
+          <>
+            <span
+              className={cn(
+                "min-w-0 truncate text-xs",
+                unset ? "font-medium text-[var(--warning)]" : "text-[var(--muted-foreground)]",
+                tile.muted && !unset && "italic",
+              )}
+            >
+              {tile.setup?.text ??
+                (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
+            </span>
+            {tile.fallback && (
+              <span className="block min-w-0 truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                {t("connections.defaults.ifItFails", { model: tile.fallback })}
+              </span>
             )}
-          >
-            {tile.setup?.text ??
-              (unset ? t("connections.defaults.chooseModel") : [tile.value, tile.hint].filter(Boolean).join(" · "))}
-          </span>
+          </>
         }
         facts={facts}
         showPaid={catalog?.showPaid}
         trailing={
           <>
-            {tile.warning && <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />}
+            {tile.warning && (
+              <span className="inline-flex min-w-0 max-w-[9rem] shrink items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500">
+                <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
+                <span className="truncate">{tile.warning.text}</span>
+              </span>
+            )}
             {trailing}
           </>
         }

@@ -60,7 +60,16 @@ export function decisionModelOption(t: TFunction, entry: DecisionModelOption) {
  * who read that activation questions work with their own local model needs to see why
  * the entry is not selectable, not to wonder where it went.
  */
-export function DecisionDefaultControl() {
+/** `settings` = the rest of the Decision job (test, thinking, order); without it, only the Model picker. */
+export function DecisionDefaultControl({
+  open = false,
+  onOpenChange,
+  settings = false,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  settings?: boolean;
+}) {
   const { t } = useTranslation();
   const options = useDecisionOptions();
   const select = useSelectDecisionModel();
@@ -149,27 +158,28 @@ export function DecisionDefaultControl() {
     });
   };
 
+  if (!settings) {
+    return (
+      <ConnectionSelect
+        variant="controlled"
+        open={open}
+        onOpenChange={onOpenChange}
+        job={t("connections.picker.job.decision")}
+        kind="decision"
+        value={selected?.id ?? null}
+        onChange={(id) => void change(id ?? "")}
+        defaultLabel={t("connections.decision.none")}
+        extraOptions={locals
+          .filter((entry) => !entry.unavailable)
+          .map((entry) => ({ value: entry.id, label: entry.label }))}
+        disabled={busy || options.isPending}
+        title={t("connections.decision.defaultLabel")}
+      />
+    );
+  }
   return (
     <div className="space-y-2 py-3">
-      <label htmlFor="decision-default" className="block text-xs font-medium">
-        {t("connections.decision.defaultLabel")}
-      </label>
       <div className="flex gap-2">
-        <div className="min-w-0 flex-1">
-          <ConnectionSelect
-            job={t("connections.picker.job.decision")}
-            id="decision-default"
-            kind="decision"
-            value={selected?.id ?? null}
-            onChange={(id) => void change(id ?? "")}
-            defaultLabel={t("connections.decision.none")}
-            extraOptions={locals
-              .filter((entry) => !entry.unavailable)
-              .map((entry) => ({ value: entry.id, label: entry.label }))}
-            disabled={busy || options.isPending}
-            title={t("connections.decision.defaultLabel")}
-          />
-        </div>
         {selected?.slot && (
           <button
             type="button"

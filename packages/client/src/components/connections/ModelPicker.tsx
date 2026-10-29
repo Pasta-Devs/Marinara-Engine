@@ -1,9 +1,10 @@
 // ModelPicker — the one window that picks a Model for a job (Main, Agents, a feature field…).
 // The body is the chat switcher's, so every picker lists, stars and searches alike; only the title differs.
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
+import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import {
@@ -28,7 +29,7 @@ const short = (text: string) => (text.length > 38 ? `${text.slice(0, 36)}…` : 
 
 const isEmbeddingModel = (model: string) => /embed/i.test(model);
 
-export function ModelPicker({
+function ModelPickerSlot({
   open,
   onClose,
   title,
@@ -43,6 +44,7 @@ export function ModelPicker({
   rowFilter,
   embedding = false,
   restoreFocusRef,
+  header,
 }: {
   open: boolean;
   onClose: () => void;
@@ -62,6 +64,8 @@ export function ModelPicker({
   /** Embeddings: lists the catalog's embedding models and tries a pick with one tiny embedding call. */
   embedding?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
+  /** Above the list: the slot switch of a job with an "If it fails" Model. */
+  header?: ReactNode;
 }) {
   const { t } = useTranslation();
   const pickModel = usePickModel();
@@ -259,6 +263,7 @@ export function ModelPicker({
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
     >
+      {header}
       <ConnectionSwitcherBody
         layout="steps"
         kind={decision ? "chat" : kind}
@@ -314,5 +319,74 @@ export function ModelPicker({
         className="flex min-h-0 flex-1 flex-col"
       />
     </Modal>
+  );
+}
+
+type PickerProps = Parameters<typeof ModelPickerSlot>[0];
+
+/** The job's picker. With an "If it fails" Model, two rows on top choose which of the two the list sets. */
+export function ModelPicker({
+  fallback,
+  ...props
+}: Omit<PickerProps, "header"> & { fallback?: { value: string | null; onChange: (value: string | null) => void } }) {
+  const { t } = useTranslation();
+  const { data: rows } = useConnections();
+  const [slot, setSlot] = useState<"model" | "fallback">("model");
+  useEffect(() => {
+    if (!props.open) setSlot("model");
+  }, [props.open]);
+  if (!fallback) return <ModelPickerSlot {...props} />;
+  const nameOf = (id: string | null, empty: string) => {
+    if (!id) return empty;
+    if (id === LOCAL_SIDECAR_CONNECTION_ID) return t("connections.select.localModel");
+    const row = (rows as Array<{ id: string; name?: string | null; model?: string | null }> | undefined)?.find(
+      (item) => item.id === id,
+    );
+    return row?.name?.trim() || row?.model?.trim() || empty;
+  };
+  const noFallback = t("connections.picker.noFallback");
+  const slots = [
+    { key: "model" as const, label: t("connections.picker.slotModel"), value: nameOf(props.value, props.defaultText) },
+    {
+      key: "fallback" as const,
+      label: t("connections.picker.slotFallback"),
+      value: nameOf(fallback.value, noFallback),
+    },
+  ];
+  return (
+    <ModelPickerSlot
+      {...props}
+      {...(slot === "fallback"
+        ? {
+            value: fallback.value,
+            onChange: fallback.onChange,
+            jobName: t("connections.picker.fallbackJob", { job: props.jobName }),
+            defaultText: noFallback,
+            includeDefault: true,
+            includeLocalSidecar: false,
+            extraOptions: [],
+          }
+        : {})}
+      header={
+        <div role="tablist" className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-[var(--border)]/40 p-2">
+          {slots.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              role="tab"
+              aria-selected={slot === entry.key}
+              onClick={() => setSlot(entry.key)}
+              className={cn(
+                "flex min-h-11 min-w-0 flex-col items-start justify-center rounded-lg px-3 py-1 text-left transition-colors",
+                slot === entry.key ? "bg-[var(--sidebar-accent)]" : "hover:bg-[var(--sidebar-accent)]/40",
+              )}
+            >
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">{entry.label}</span>
+              <span className="w-full truncate text-xs font-medium">{entry.value}</span>
+            </button>
+          ))}
+        </div>
+      }
+    />
   );
 }

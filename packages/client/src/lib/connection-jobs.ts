@@ -23,7 +23,7 @@ import type { AddKind } from "./add-connection";
 import { isConnectionFlagTrue } from "./connection-filters";
 import type { ConnectionModelRow } from "./connection-groups";
 
-type Job = {
+export type Job = {
   key: string;
   icon: LucideIcon;
   /** The heading it sits under behind the Defaults box's "All jobs". */
@@ -38,6 +38,8 @@ type Job = {
   fallback?: "fallbackForMain" | "fallbackForAgents";
   /** Set in the feature-model setting instead of a row flag. */
   feature?: keyof FeatureModelConnections;
+  /** Where its "If it fails" Model is kept, for a feature-set job. */
+  fallbackFeature?: keyof FeatureModelConnections;
   /** What answers while the feature is unset. */
   follows?: "agents" | "main" | "sidecar" | "off";
   /** A device service (Dictation) set up on its own screen. */
@@ -73,16 +75,26 @@ const JOB_LIST = [
     group: "chat",
     kind: "chat",
     feature: "impersonateConnectionId",
+    fallbackFeature: "impersonateFallbackConnectionId",
     follows: "main",
     add: false,
   },
-  { key: "mari", icon: GraduationCap, group: "omnibar", kind: "chat", feature: "mariConnectionId", follows: "agents" },
+  {
+    key: "mari",
+    icon: GraduationCap,
+    group: "omnibar",
+    kind: "chat",
+    feature: "mariConnectionId",
+    fallbackFeature: "mariFallbackConnectionId",
+    follows: "agents",
+  },
   {
     key: "quick",
     icon: MessageCircleQuestion,
     group: "omnibar",
     kind: "chat",
     feature: "omnibarAsideConnectionId",
+    fallbackFeature: "omnibarAsideFallbackConnectionId",
     follows: "sidecar",
     add: false,
   },
@@ -109,7 +121,15 @@ const JOB_LIST = [
   { key: "stt", icon: Mic, group: "media", device: "stt", add: "search", terms: "stt whisper" },
   { key: "decision", icon: BrainCircuit, group: "background", kind: "decision", flag: "defaultForAgents" },
   { key: "embeddings", icon: Database, group: "background", kind: "chat" },
-  { key: "vision", icon: Eye, group: "background", kind: "chat", feature: "visionConnectionId", follows: "off" },
+  {
+    key: "vision",
+    icon: Eye,
+    group: "background",
+    kind: "chat",
+    feature: "visionConnectionId",
+    fallbackFeature: "visionFallbackConnectionId",
+    follows: "off",
+  },
 ] as const satisfies readonly Job[];
 
 export type JobKey = (typeof JOB_LIST)[number]["key"];
@@ -118,9 +138,6 @@ export const JOB = Object.fromEntries(JOBS.map((job) => [job.key, job])) as Reco
 
 export const jobLabelKey = (job: Job) =>
   job.feature ? `connections.defaults.feature.${job.feature}` : `connections.defaults.role.${job.key}`;
-/** One plain line that says what the job does. */
-export const jobHintKey = (job: Job) => `connections.defaults.about.${job.feature ?? job.key}`;
-
 /** The provider of each non-chat kind. */
 export const KIND_PROVIDER = {
   image: "image_generation",

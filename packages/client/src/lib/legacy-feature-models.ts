@@ -14,6 +14,10 @@ export function stageLegacyFeatureModels(persisted: Record<string, unknown>, ver
     omnibarAsideConnectionId: str(persisted.omnibarAsideConnectionId),
     impersonateConnectionId: str(persisted.impersonateConnectionId),
     visionConnectionId: null,
+    mariFallbackConnectionId: null,
+    omnibarAsideFallbackConnectionId: null,
+    impersonateFallbackConnectionId: null,
+    visionFallbackConnectionId: null,
   };
   delete persisted.mariConnectionId;
   delete persisted.omnibarAsideConnectionId;

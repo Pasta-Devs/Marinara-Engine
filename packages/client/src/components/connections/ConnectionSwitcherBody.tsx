@@ -983,8 +983,11 @@ export function ConnectionSwitcherBody({
         <div key={group.key}>{shown.map((entry) => renderEntry(entry, { star: "all" }))}</div>
       ) : null;
     }
-    if (modelFilter && shown.length === 0 && inlineCatalog(group).length === 0) return null;
     const unavailable = unavailableOf(group);
+    // A provider with nothing to pick and nothing to fix is not a section.
+    if (shown.length === 0 && !unavailable && !catalogOf(group)?.count && inlineCatalog(group).length === 0)
+      return null;
+    if (modelFilter && shown.length === 0 && inlineCatalog(group).length === 0) return null;
     return (
       <section
         key={group.key}

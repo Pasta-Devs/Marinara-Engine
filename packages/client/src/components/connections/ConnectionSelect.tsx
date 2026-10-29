@@ -188,6 +188,10 @@ export function ConnectionSelect({
   scope,
   embedding,
   disabled,
+  open: controlledOpen,
+  onOpenChange,
+  fallback,
+  required,
   ...aria
 }: {
   /** A Model id, or `null` for "Default". */
@@ -208,7 +212,7 @@ export function ConnectionSelect({
    * `picker` (default): a field that opens the searchable picker. `menu`: a Settings-style label/value row that
    * opens the same picker. `native`: a native select, for callers that need one.
    */
-  variant?: "picker" | "native" | "menu";
+  variant?: "picker" | "native" | "menu" | "controlled";
   /** Left side of the `menu` row (icon and role name). */
   label?: ReactNode;
   /** The picker window's title. */
@@ -221,12 +225,21 @@ export function ConnectionSelect({
   /** Embeddings: lists the catalog's embedding models and tries a pick. */
   embedding?: boolean;
   disabled?: boolean;
+  /** `controlled` shows no field: the caller's own row opens the picker through `open`. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** The job's "If it fails" slot inside the picker. */
+  fallback?: { value: string | null; onChange: (value: string | null) => void };
+  /** The job always has a Model: no "follow the default" row. */
+  required?: boolean;
   id?: string;
   "aria-label"?: string;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
   const [opened, setOpened] = useState(false);
+  const open = controlledOpen ?? openState;
+  const setOpen = (next: boolean) => (onOpenChange ? onOpenChange(next) : setOpenState(next));
   const triggerRef = useRef<HTMLButtonElement>(null);
   const valueId = useId();
   const jobName = String(job ?? rowLabel ?? aria["aria-label"] ?? title ?? "").replace(/\s+model$/i, "");
@@ -320,7 +333,7 @@ export function ConnectionSelect({
 
   return (
     <>
-      {variant === "menu" ? (
+      {variant === "controlled" ? null : variant === "menu" ? (
         <button
           {...trigger}
           className={cn(
@@ -354,7 +367,7 @@ export function ConnectionSelect({
           <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden />
         </button>
       )}
-      {opened && (
+      {(opened || open) && (
         <Suspense fallback={null}>
           <ModelPicker
             open={open}
@@ -366,7 +379,8 @@ export function ConnectionSelect({
             value={value}
             onChange={(next) => next !== (value || null) && onChange(next)}
             defaultText={choices.defaultText}
-            includeDefault
+            includeDefault={!required}
+            fallback={fallback}
             includeLocalSidecar={includeLocalSidecar}
             extraOptions={extraOptions}
             rowFilter={rowFilter}
