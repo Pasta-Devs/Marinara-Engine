@@ -52,17 +52,14 @@ export const MEDIA_KIND: Record<string, "image" | "video" | "audio"> = Object.fr
   (["image", "video", "audio"] as const).map((kind) => [KIND_PROVIDER[kind], kind]),
 );
 /**
- * A Model's role labels: the name of each job it does, then "Fallback" when it is one. Voice follows the row Text to
- * speech really uses (`useVoiceRowId`), not the audio flag alone.
+ * A Model's role labels: the name of each job it does. Fallback slots are left out; the job row names its own. Voice
+ * follows the row Text to speech really uses (`useVoiceRowId`), not the audio flag alone.
  */
 export function modelRoleLabels(row: ConnectionModelRow, t: TFunction, voiceRowId: string | null): string[] {
   const jobs = rowJobs(row);
   const does = (job: (typeof jobs)[number]) =>
     job.key === "voice" ? row.id === voiceRowId : isConnectionFlagTrue(row[job.flag]);
-  return [
-    ...jobs.filter(does).map((job) => t(jobLabelKey(job))),
-    ...(jobs.some((job) => isConnectionFlagTrue(row[job.fallback])) ? [t("connections.switcher.role.fallback")] : []),
-  ];
+  return jobs.filter(does).map((job) => t(jobLabelKey(job)));
 }
 
 const KIND_PILL: Record<Exclude<ModelKind, "chat">, { icon: LucideIcon; label: string }> = {

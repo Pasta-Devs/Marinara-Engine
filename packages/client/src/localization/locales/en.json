@@ -2484,7 +2484,6 @@
   "connections.switcher.picked": "This chat now uses {{model}}",
   "connections.switcher.pickFailed": "Couldn't switch the model: {{error}}",
   "connections.switcher.recent": "Recent",
-  "connections.switcher.role.fallback": "If it fails",
   "connections.switcher.role.random": "Shuffle",
   "connections.switcher.searching": "Searching all models…",
   "connections.switcher.searchLabel": "Search all models or paste a model ID",

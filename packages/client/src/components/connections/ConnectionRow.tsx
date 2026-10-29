@@ -92,7 +92,7 @@ export type ConnectionRowData = {
 export const isMediaRow = (row: Pick<ConnectionRowData, "provider">) => row.provider in MEDIA_KIND;
 
 /** The ⋯ beside a row or card heading: the shared quiet icon button. */
-export const ROW_BUTTON = "mari-chrome-control mari-chrome-control--icon";
+export const ROW_BUTTON = "mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet";
 
 /** The menus are portalled, but React events still bubble to the row; keep them off its click. */
 const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();

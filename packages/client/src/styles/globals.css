@@ -1310,6 +1310,12 @@
   padding: 0;
 }
 
+/* Row and card-heading buttons: no fill until hover or focus, so lists stay calm. */
+.mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
+  background: transparent;
+  border-color: transparent;
+}
+
 /* One-of-N choice card: title, description and optional preview stacked on the left.
    Idle titles keep the body text colour so they stay readable; hover and aria-pressed tint them. */
 .mari-chrome-control--card {
