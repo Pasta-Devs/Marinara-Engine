@@ -238,7 +238,6 @@ export function SpriteFolderGrid({
   busy?: boolean;
 }) {
   const { t } = useTranslation();
-  const [dragging, setDragging] = useState(false);
   const [target, setTarget] = useState<string | null | undefined>();
   const disabled = busy || library.mutation.isPending || !library.query.data;
   function accepts(e: DragEvent) {
@@ -248,7 +247,6 @@ export function SpriteFolderGrid({
     e.preventDefault();
     e.stopPropagation();
     setTarget(undefined);
-    setDragging(false);
     if (disabled) return;
     try {
       const payload = JSON.parse(e.dataTransfer.getData(dragType));
@@ -287,10 +285,8 @@ export function SpriteFolderGrid({
                 expressions: library.selected.includes(sprite.expression) ? library.selected : [sprite.expression],
               }),
             );
-            setDragging(true);
           }}
           onDragEnd={() => {
-            setDragging(false);
             setTarget(undefined);
           }}
         >
@@ -325,7 +321,7 @@ export function SpriteFolderGrid({
         className={cn("min-h-12 rounded-xl", target === null && "ring-2 ring-[var(--primary)]")}
       >
         {grid(library.visible.filter((sprite) => !sprite.folderId))}
-        {library.folders.length > 0 && (dragging || !library.visible.some((sprite) => !sprite.folderId)) && (
+        {library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
           <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
         )}
       </div>

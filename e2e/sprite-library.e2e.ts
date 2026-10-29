@@ -97,6 +97,12 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
               .folderId,
         )
         .toBeNull();
+      await expect(
+        library
+          .locator("[data-sprite-loose]")
+          .getByRole("button", { name: "Preview idle", exact: true })
+          .locator("xpath=ancestor::*[@draggable][1]"),
+      ).toHaveAttribute("draggable", "true");
       await library
         .locator("[data-sprite-loose]")
         .getByRole("button", { name: "Preview idle", exact: true })
