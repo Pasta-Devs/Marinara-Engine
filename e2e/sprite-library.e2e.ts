@@ -155,10 +155,12 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           animations: "disabled",
         });
         await expect(card).toBeVisible();
-        expect(await card.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
+        const original = card.locator("xpath=ancestor::*[@draggable][1]");
+        await expect(original).toHaveCSS("opacity", "0.5");
         await page.mouse.up();
         await expect(preview).toHaveCount(0);
-        await expect(card.locator("xpath=ancestor::*[@draggable][1]")).toHaveAttribute("draggable", "true");
+        await expect(original).toHaveCSS("opacity", "1");
+        await expect(original).toHaveAttribute("draggable", "true");
       }
       previousY = null;
       await expect

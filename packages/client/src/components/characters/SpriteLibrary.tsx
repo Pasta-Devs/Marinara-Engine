@@ -220,6 +220,7 @@ export function SpriteFolderGrid({
 }) {
   const { t } = useTranslation();
   const [target, setTarget] = useState<string | null | undefined>();
+  const [draggedExpressions, setDraggedExpressions] = useState<string[]>([]);
   const dragPreview = useRef<HTMLElement | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   useEffect(() => {
@@ -244,6 +245,7 @@ export function SpriteFolderGrid({
     e.stopPropagation();
     dragPreview.current?.remove();
     dragPreview.current = null;
+    setDraggedExpressions([]);
     setTarget(undefined);
     if (disabled) return;
     try {
@@ -270,6 +272,7 @@ export function SpriteFolderGrid({
         <div
           key={sprite.expression}
           draggable={!disabled}
+          className={cn(draggedExpressions.includes(sprite.expression) && "opacity-50")}
           onDragStart={(e) => {
             if (disabled) {
               e.preventDefault();
@@ -334,17 +337,20 @@ export function SpriteFolderGrid({
             transparent.width = 1;
             transparent.height = 1;
             e.dataTransfer.setDragImage(transparent, 0, 0);
+            const expressions = library.selected.includes(sprite.expression) ? library.selected : [sprite.expression];
             e.dataTransfer.setData(
               dragType,
               JSON.stringify({
                 ownerId: library.ownerId,
-                expressions: library.selected.includes(sprite.expression) ? library.selected : [sprite.expression],
+                expressions,
               }),
             );
+            setDraggedExpressions(expressions);
           }}
           onDragEnd={() => {
             dragPreview.current?.remove();
             dragPreview.current = null;
+            setDraggedExpressions([]);
             setTarget(undefined);
           }}
         >
