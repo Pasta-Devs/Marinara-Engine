@@ -41,7 +41,7 @@
 | `{{21-character-card-ID}}` | 其他角色的姓名。将占位文字替换为该卡准确的 21 字符 ID，即可把卡片加入上下文。 |
 | `{{persona-21-character-card-ID}}` | 引用另一个用户角色名字的占位写法。把 `persona-` 后面的内容换成那张卡精确的 21 位 ID，即可带入卡片上下文。 |
 | `{{charNamePhonetic}}` | 角色的 Phonetic 名称；留空时等同 `{{char}}`。 |
-| `{{characters}}` | 聊天里的所有角色，用逗号连接。 |
+| `{{characters}}` | 聊天里的所有角色，包括禁用的角色，用逗号连接。这个宏只添加名称，不会把禁用角色的角色卡加入提示词。 |
 | `{{group}}` | 群聊里除当前回复者之外的所有启用角色。用户角色不算在这份角色名单里。 |
 | `{{persona}}` | 用户角色的 Description、Personality、Backstory、Appearance 和 Scenario，用换行连接。 |
 | `{{personaDescription}}` | 用户角色的 Description 字段。 |

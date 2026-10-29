@@ -41,7 +41,7 @@
 | `{{21-character-card-ID}}` | 다른 캐릭터의 이름입니다. 자리 표시자 텍스트를 해당 카드의 정확한 21자 ID로 바꾸면 카드를 컨텍스트에 포함합니다. |
 | `{{persona-21-character-card-ID}}` | 다른 페르소나 이름을 참조하는 자리 표시 구문입니다. 카드 컨텍스트를 가져오려면 `persona-` 뒤를 해당 카드의 정확한 21자 ID로 바꾸세요. |
 | `{{charNamePhonetic}}` | 캐릭터의 Phonetic 이름. 비어 있으면 `{{char}}`입니다. |
-| `{{characters}}` | 채팅에 있는 모든 캐릭터를 쉼표로 이어 붙입니다. |
+| `{{characters}}` | 비활성화한 캐릭터를 포함해 채팅에 있는 모든 캐릭터를 쉼표로 이어 붙입니다. 이 매크로는 이름만 추가하며, 비활성화한 캐릭터 카드를 프롬프트에 추가하지 않습니다. |
 | `{{group}}` | 그룹 채팅에서 지금 응답 중인 캐릭터를 뺀 나머지 활성 캐릭터 전부. 페르소나는 이 캐릭터 명단에 포함되지 않습니다. |
 | `{{persona}}` | 페르소나의 Description, Personality, Backstory, Appearance, Scenario를 줄바꿈으로 이어 붙입니다. |
 | `{{personaDescription}}` | 페르소나의 Description 필드. |

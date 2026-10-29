@@ -20,9 +20,11 @@ Przy dużej liczbie postaci na dole pojawia się przycisk **Load more** (wczytan
 
 ## Wyszukiwanie
 
-Wpisz tekst w pole wyszukiwania na górze panelu, żeby przefiltrować listę. Tekst zastępczy brzmi **Search characters or -tag:"tag name"**.
+Wpisz tekst w pole wyszukiwania na górze panelu, żeby przefiltrować listę. Tekst zastępczy brzmi **Search characters/tags** (szukaj postaci/tagów).
 
 Zwykły tekst porównywany jest z nazwą postaci, tytułem, opisem i tagami. Po wpisaniu `knight` zobaczysz każdą postać, która ma "knight" w którymkolwiek z tych pól.
+
+Aby wyszukać kilka tagów naraz, rozdziel je spacjami lub przecinkami: `male genshin` albo `male,genshin` znajduje karty z oboma dokładnymi tagami. Tag zawierający spacje lub przecinki ujmij w cudzysłów, na przykład `male "Modern AU"`. Wyszukiwanie nie rozróżnia wielkości liter. Zwykłe wyszukiwanie fraz nadal działa, więc karta może też pasować dzięki pełnej frazie w nazwie lub tekście. Ten sam sposób wyszukiwania działa w **Character Library** (bibliotece postaci) otwieranej na całej stronie i dla person.
 
 Da się też ukryć postacie z określonym tagiem. Postaw przed tagiem znak minus:
 

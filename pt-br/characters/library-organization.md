@@ -20,9 +20,11 @@ Quando há muitos personagens, um botão **Load more** (carregar mais) aparece n
 
 ## Busca
 
-Digite na caixa de busca no topo do painel para filtrar a lista. O texto de exemplo do campo é **Search characters or -tag:"tag name"**.
+Digite na caixa de busca no topo do painel para filtrar a lista. O texto de exemplo do campo é **Search characters/tags** (Buscar personagens/tags).
 
 O texto simples é comparado com o nome, o título, a descrição e as tags do personagem. Ao digitar `knight`, por exemplo, você vê todos os personagens com "knight" em qualquer um desses campos.
+
+Para buscar várias tags juntas, separe-as com espaços ou vírgulas: `male genshin` ou `male,genshin` encontra cards com as duas tags exatas. Coloque entre aspas uma tag que contenha espaços ou vírgulas, como em `male "Modern AU"`. A busca não diferencia maiúsculas de minúsculas. A busca comum por frases continua funcionando, então um card também pode corresponder à frase completa no nome ou no texto. Essa busca também funciona na **Character Library** (Biblioteca de personagens) em página inteira e para personas.
 
 Também é possível esconder os personagens que têm uma tag específica. Coloque um sinal de menos antes da tag:
 

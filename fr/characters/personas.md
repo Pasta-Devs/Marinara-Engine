@@ -25,7 +25,7 @@ Le panneau propose les contrôles suivants :
 - Le bouton **New** (nouveau) crée un persona.
 - Le bouton **Import** (importer) ouvre la fenêtre **Import Persona**.
 - Le bouton **Select** (sélectionner) active le mode sélection multiple, pour agir sur plusieurs personas à la fois.
-- Le champ de recherche, dont le texte indicatif est **Search personas**, cherche dans le nom, la description, le commentaire et les tags.
+- Le champ de recherche, dont le texte indicatif est **Search personas/tags** (Rechercher des personas/tags), cherche dans le nom, la description, le commentaire et les tags. Saisis `male genshin` ou `male,genshin` pour trouver des personas portant ces deux tags exacts ; mets les tags de plusieurs mots entre guillemets, comme dans `male "Modern AU"`. Les recherches habituelles de noms et de phrases fonctionnent toujours. **Persona Library** (bibliothèque de personas) en pleine page propose la même recherche.
 - Le menu déroulant de tri propose **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** et **Tokens** (taille estimée du prompt). **Manual order** garde l'ordre que tu as défini : fais glisser une ligne vers le haut ou vers le bas, ou appuie sur Alt+Up ou Alt+Down sur une ligne sélectionnée. Sur écran tactile, appuie longuement sur une ligne pour la saisir.
 - Le bouton **New Folder** (nouveau dossier) crée un dossier pour organiser les personas.
 - La pastille **Tags** déploie la liste des tags pour filtrer.

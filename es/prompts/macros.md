@@ -41,7 +41,7 @@ Estas macros traen los nombres y los campos de la tarjeta de la persona que habl
 | `{{21-character-card-ID}}` | Nombre de otro personaje. Reemplaza el texto del marcador por el ID exacto de 21 caracteres de su tarjeta para incluirla en el contexto. |
 | `{{persona-21-character-card-ID}}` | Sintaxis de marcador de posición para el nombre de otra persona. Reemplaza el texto después de `persona-` por el ID exacto de 21 caracteres de esa tarjeta para incluir el contexto de su tarjeta. |
 | `{{charNamePhonetic}}` | El nombre Phonetic del personaje, o `{{char}}` cuando está vacío. |
-| `{{characters}}` | Todos los personajes del chat, unidos por comas. |
+| `{{characters}}` | Todos los personajes del chat, incluidos los inactivos, unidos por comas. Esta macro solo agrega nombres; no agrega al prompt las tarjetas de personajes inactivos. |
 | `{{group}}` | Todos los demás personajes activos del chat grupal, excluyendo al que responde en ese momento. La persona no forma parte de esta lista de personajes. |
 | `{{persona}}` | Los campos Description, Personality, Backstory, Appearance y Scenario de tu persona, unidos por saltos de línea. |
 | `{{personaDescription}}` | El campo Description de tu persona. |

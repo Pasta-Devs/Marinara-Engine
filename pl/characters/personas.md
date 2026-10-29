@@ -25,7 +25,7 @@ Panel udostępnia takie kontrolki:
 - **New** (nowa) tworzy personę.
 - **Import** (import) otwiera okno **Import Persona**.
 - **Select** (zaznaczanie) włącza tryb zaznaczania zbiorczego, dzięki czemu da się działać na wielu personach naraz.
-- Pole wyszukiwania z tekstem zastępczym **Search personas** przeszukuje nazwę, opis, komentarz i tagi.
+- Pole wyszukiwania z tekstem zastępczym **Search personas/tags** (szukaj person/tagów) przeszukuje nazwę, opis, komentarz i tagi. Wpisz `male genshin` albo `male,genshin`, żeby znaleźć persony z oboma dokładnymi tagami; tagi złożone z kilku słów ujmij w cudzysłów, na przykład `male "Modern AU"`. Zwykłe wyszukiwanie nazw i fraz nadal działa. **Persona Library** (biblioteka person) otwierana na całej stronie obsługuje ten sam sposób wyszukiwania.
 - Lista rozwijana sortowania oferuje **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest**, **Oldest** oraz **Tokens** (szacowany rozmiar promptu). **Manual order** zachowuje ustawioną przez ciebie kolejność: przeciągnij wiersz w górę lub w dół albo naciśnij Alt+strzałka w górę lub Alt+strzałka w dół na wierszu, który ma fokus. Na ekranie dotykowym naciśnij i przytrzymaj wiersz, żeby go podnieść.
 - **New Folder** (nowy folder) tworzy folder do porządkowania person.
 - Kafelek **Tags** rozwija listę tagów do filtrowania.

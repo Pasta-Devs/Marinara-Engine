@@ -22,6 +22,14 @@ Le reste de la fenêtre, c'est le prompt lui-même, découpé en sections replia
 
 Pour emporter tout le prompt ailleurs, clique sur le bouton de copie à côté du bouton de fermeture, en haut de la fenêtre. Il copie chaque section et chaque message du chat en texte brut, dans l'ordre d'envoi, y compris les sections que tu n'as pas ouvertes. Chaque message commence par une ligne qui nomme son rôle, comme `[system]`, `[user]` ou `[assistant]`. Pour une requête exacte enregistrée, il copie cette requête telle qu'elle a été envoyée. La copie n'envoie rien au modèle et ne modifie pas le prompt.
 
+## Rechercher du texte dans le prompt
+
+Utilise le champ visible **Find** (Rechercher) en haut de **Assembled Prompt**, sur ordinateur, tablette ou téléphone. Au clavier, appuie sur Ctrl+F ou Cmd+F dans le visualiseur pour placer le curseur dans le champ.
+
+La recherche trouve le texte littéral sans distinguer les majuscules des minuscules dans tout le prompt, y compris les sections fermées et l'historique du chat. Les occurrences sont surlignées et le compteur indique l'occurrence actuelle et le total. Utilise les boutons haut et bas, ou Enter et Shift+Enter dans le champ, pour passer d'une occurrence à l'autre. À chaque extrémité, la navigation reprend à l'extrémité opposée.
+
+Tant que le champ **Find** contient du texte, le visualiseur affiche le texte complet des messages. Vide le champ pour revenir aux sections repliables. La recherche ne modifie ni le prompt ni le contenu copié par le bouton de copie.
+
 ## Ouvrir Peek Prompt
 
 Il existe deux façons d'ouvrir la fenêtre.

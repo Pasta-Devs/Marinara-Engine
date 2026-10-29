@@ -41,7 +41,7 @@ Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej pos
 | `{{21-character-card-ID}}` | Nazwa innej postaci. Zastąp tekst zastępczy dokładnym 21-znakowym ID karty, aby dodać ją do kontekstu. |
 | `{{persona-21-character-card-ID}}` | Zapis zastępczy dla nazwy innej persony. Tekst po `persona-` zastąp dokładnym 21-znakowym ID jej karty, aby pobrać kontekst z tej karty. |
 | `{{charNamePhonetic}}` | Pole Phonetic name postaci, a przy pustym polu `{{char}}`. |
-| `{{characters}}` | Wszystkie postacie w czacie, oddzielone przecinkami. |
+| `{{characters}}` | Wszystkie postacie w czacie, także nieaktywne, oddzielone przecinkami. To makro dodaje tylko nazwy; nie dodaje do promptu kart nieaktywnych postaci. |
 | `{{group}}` | Wszystkie pozostałe aktywne postacie w czacie grupowym, bez postaci właśnie odpowiadającej. Persona nie należy do tej listy postaci. |
 | `{{persona}}` | Pola Description, Personality, Backstory, Appearance i Scenario twojej persony, połączone znakami nowej linii. |
 | `{{personaDescription}}` | Pole Description twojej persony. |
