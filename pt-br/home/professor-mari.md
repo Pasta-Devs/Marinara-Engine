@@ -112,13 +112,70 @@ O Pi funciona com todas as conexões, inclusive o modelo local. Se a Professor M
 
 Abra **Search and Professor Mari settings** e role até **Appearance** (aparência). Escolha um visual para ela, como **Basic**, **Prof. Mari loves Dottore** ou **Safari Prof. Mari**. O visual novo aparece no chat dela, na busca, na tela inicial e na barra superior. Alguns visuais são desbloqueados depois de tempo suficiente de jogo. Um visual bloqueado mostra quantas horas você já jogou até agora.
 
+## O menu do clipe de papel
+
+Clique no botão do clipe de papel, chamado **Attach** (anexar), para abrir um menu com três seções:
+
+- **Attach**: **Attach files or photos** (anexar arquivos ou fotos), **Add chat history** (adicionar histórico de chat; serve para compartilhar com ela um dos seus chats anteriores) e **View attached context** (ver contexto anexado).
+- **Reference**: **Link with @** (vincular com @) digita `@` na caixa de mensagem e abre a lista de vínculos descrita mais abaixo.
+- **Mari**: **New chat**, **Chat history**, **Skills**, **Memories**, **Model** (modelo) e **Permissions**. **Pending approvals** (aprovações pendentes) aparece aqui enquanto uma mudança espera por você.
+
+Os mesmos comandos podem ser digitados com `/`, como descrito em [Comandos com /](#commands-with-).
+
 ## Anexar arquivos
 
-Clique no botão do clipe de papel, chamado **Attach files** (anexar arquivos), para adicionar um arquivo à mensagem.
+Escolha **Attach files or photos** no menu do clipe de papel, ou digite `/attach`, para adicionar um arquivo à mensagem.
 
 Ela aceita imagens, arquivos PDF e arquivos de texto comuns, como `.txt`, `.md`, `.json`, `.csv` e `.log`. Cada arquivo pode ter até 20 MB. Os arquivos anexados aparecem acima da caixa de mensagem antes do envio e podem ser removidos.
 
 Para ela conseguir ler uma imagem, o modelo da conexão escolhida precisa aceitar imagens na entrada.
+
+## Vincular itens com @
+
+Digite `@` na caixa de mensagem para apontar para ela algo da sua biblioteca, sem que ela precise procurar. Uma lista se abre enquanto você digita, agrupada em **Characters** (personagens), **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** (agentes) e **Docs**. Continuar digitando reduz a lista; nomes com espaços não precisam de aspas (`@Alice in Wonderland`).
+
+- Use as setas para se mover, **Enter** ou **Tab** para escolher e **Escape** para fechar a lista. Em um lorebook, a seta para a direita mostra as **Entries** (entradas) dele, para você vincular uma única entrada; a seta para a esquerda volta.
+- Quando a janela dela está ao lado de um editor, a primeira linha, **Open beside me** (abrir ao meu lado), vincula o que esse editor tem aberto.
+- Ao lado do editor de personagem, a linha **Open beside me** tem um › (ou pressione ArrowRight) que lista os **Fields** (campos) desse editor, e digitar algo depois de `@` lista direto os que combinam. Escolher um (`@scen` → Scenario) troca o campo em que ela trabalha, igual a clicar nele antes de abri-la. Ele substitui o chip do campo na linha de contexto dela, e o editor rola até esse campo. Um campo não é um vínculo, então nenhum texto com `@` fica na sua mensagem. **Onboarding** é um único campo para o bloco inteiro: enquanto for o campo dela, cada mensagem envia o que `character.onboarding.get` devolve (as perguntas, eventuais problemas e uma persona de exemplo), para ela partir do bloco como está salvo.
+- Um nome escolhido fica destacado na mensagem e aparece como um chip acima da caixa de mensagem. Se você editar ou apagar o nome, o vínculo some junto; o **×** do chip remove o vínculo, mas mantém o seu texto.
+- Em texto comum, **Tab** completa um nome que ela sugere em cinza. Pressione **Tab** uma segunda vez para transformá-lo em vínculo.
+
+O que cada vínculo envia:
+
+| Vínculo | O que ela recebe |
+| --- | --- |
+| Personagem, persona, preset | O item inteiro, como ela mesma o leria |
+| Lorebook | As configurações dele e a lista das entradas (vincule uma entrada para ter o texto completo) |
+| Entrada de lorebook | A entrada, mais o lorebook a que ela pertence |
+| Skill | As instruções da sua própria Skill. Uma skill integrada abre, no lugar disso, como o guia dela para aquela mensagem. Se você vincular a skill de onboarding com um personagem, ela também recebe o bloco de onboarding desse personagem |
+| Memory | O texto completo da lembrança, mesmo desativada. As lembranças **Persistent** não aparecem na lista, porque ela sempre as tem |
+| Chat | Os detalhes do chat e as 30 mensagens mais recentes |
+| Agent | As configurações do agente |
+| Doc | A página inteira desta documentação |
+
+Um vínculo é enviado **uma única vez**, com a mensagem em que você o adiciona. Nos turnos seguintes, ela só vê uma nota de uma linha dizendo que você o vinculou, e o lê de novo se precisar. Uma mensagem leva até 8 vínculos. Se eles somarem mais de cerca de um quarto do contexto da sua conexão (no máximo 60.000 caracteres), os últimos não são enviados; no lugar deles, ela recebe uma nota e pode lê-los por conta própria.
+
+Itens vinculados são tratados como informação, nunca como instruções: um card de personagem ou uma entrada de lorebook não pode dizer a ela o que fazer.
+
+<a id="commands-with-"></a>
+
+## Comandos com /
+
+Digite `/` no início de uma linha para listar os comandos dela. Continue digitando para filtrar e depois pressione **Enter** para executar um. O `/word` que você digitou é removido da mensagem.
+
+| Comando | O que faz |
+| --- | --- |
+| `/new` | Inicia um chat novo; o atual é salvo em **Chats** (`/restart` também funciona) |
+| `/history` | Abre os seus chats anteriores com ela |
+| `/skills` | Abre o painel **Skills** |
+| `/memories` | Abre o painel **Memories** |
+| `/context` | Mostra o que está anexado a este chat |
+| `/attach` | Escolhe arquivos ou fotos para enviar |
+| `/model` | Escolhe a conexão que ela usa |
+| `/permissions` | Escolhe o que ela pode alterar |
+| `/approvals` | Abre as mudanças que esperam por você (só enquanto houver uma pendente) |
+
+A lista de `/` também mostra as suas **Skills** e **Memories**. Escolher um item o vincula, igual ao `@`.
 
 ## Revisar as mudanças dela
 
@@ -211,7 +268,7 @@ Professor Mari guarda os chats dela em separado. Eles não aparecem na sua lista
 
 Clique no botão **Chats** no cabeçalho dela para abrir os chats salvos da Professor Mari. Quando a lista está vazia, o painel avisa: "New chat keeps this one here." Use **Search Prof. Mari chats** (buscar nos chats da Professor Mari) para encontrar um. Clique em um chat salvo para abri-lo, renomeá-lo ou excluí-lo.
 
-Clique no botão **New chat** (chat novo) para iniciar uma conversa nova com ela. Antes disso, ele salva o chat atual na lista **Chats**. Você também pode digitar `/restart` na caixa de mensagem para fazer o mesmo. Aparece a mensagem "Professor Mari's previous chat was saved."
+Clique no botão **New chat** (chat novo) para iniciar uma conversa nova com ela. Antes disso, ele salva o chat atual na lista **Chats**. Você também pode digitar `/new` (ou `/restart`) na caixa de mensagem para fazer o mesmo. Aparece a mensagem "Professor Mari's previous chat was saved."
 
 Enquanto ela trabalha, o botão de enviar vira um botão **Stop** (parar). Clique nele para cancelar a tarefa atual.
 
