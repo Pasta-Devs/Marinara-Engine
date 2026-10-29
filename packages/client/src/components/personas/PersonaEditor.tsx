@@ -3001,9 +3001,9 @@ function PersonaSpritesTab({
                     title={displayExpression(sprite.expression)}
                   >
                     {displayExpression(sprite.expression)}
-                    {library.folderId === "all" && (
+                    {library.folderId === "all" && sprite.folderName && (
                       <span className="mt-1 block text-xs font-normal normal-case text-[var(--muted-foreground)]">
-                        {sprite.folderName ?? localizeUi("sprites.library.unfiled")}
+                        {sprite.folderName}
                       </span>
                     )}
                   </span>

@@ -70,6 +70,13 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       "false",
     );
     await expect(library.getByRole("slider")).toHaveCount(0);
+    await expect(library.getByRole("button", { name: /^Unfiled/ })).toHaveCount(0);
+    await expect(folderPicker.locator('option[value="unfiled"]')).toHaveCount(0);
+    await section.getByRole("button", { name: "Manage", exact: true }).click();
+    await expect(section.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
+    await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
+    await expect(section.getByRole("checkbox", { name: /Use as reference image/ })).toBeDisabled();
+    await section.getByRole("button", { name: "Close", exact: true }).click();
     await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 

@@ -3958,11 +3958,9 @@ function CharacterSheetSection({
           <Image size={20} className="shrink-0 text-[var(--muted-foreground)]" />
         )}
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">{localizeUi("sprites.library.referenceImage")}</h3>
+          <h3 className="text-sm font-semibold">{localizeUi("ui.characters.charactersheet.title")}</h3>
           <p className="text-xs text-[var(--muted-foreground)]">
-            {localizeUi(
-              selectedImage && useAsReference ? "sprites.library.referenceSheet" : "sprites.library.referenceAvatar",
-            )}
+            {localizeUi("ui.characters.charactersheet.description")}
           </p>
         </div>
         <button
@@ -4036,12 +4034,6 @@ function CharacterSheetSection({
               labelPosition="start"
               className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
             />
-
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-              {selectedImage && useAsReference
-                ? localizeUi("ui.characters.charactersheet.activeStatus")
-                : localizeUi("ui.characters.charactersheet.avatarFallbackStatus")}
-            </p>
 
             {(selectedImage || selectionMissing) && (
               <button
@@ -6184,9 +6176,9 @@ function SpritesTab({
                   </div>
                   <span className="block break-words p-3 text-xs font-medium capitalize">
                     {displayExpression(sprite.expression)}
-                    {library.folderId === "all" && (
+                    {library.folderId === "all" && sprite.folderName && (
                       <span className="mt-1 block font-normal normal-case text-[var(--muted-foreground)]">
-                        {sprite.folderName ?? localizeUi("sprites.library.unfiled")}
+                        {sprite.folderName}
                       </span>
                     )}
                   </span>

@@ -92,7 +92,7 @@ export function SpriteLibraryShell({
   const [moveTo, setMoveTo] = useState("unfiled");
   const current = library.folders.find((folder) => folder.id === library.folderId);
   const label = (key: string) => t(`sprites.library.${key}`);
-  const choices = [{ id: "all", name: label("all") }, { id: "unfiled", name: label("unfiled") }, ...library.folders];
+  const choices = [{ id: "all", name: label("all") }, ...library.folders];
   const title = choices.find((choice) => choice.id === library.folderId)?.name ?? label("missingFolder");
   return (
     <div
@@ -251,7 +251,7 @@ export function SpriteLibraryShell({
                         }))
                       )
                         return;
-                      if (await library.mutate("delete", `folders/${current.id}`)) library.chooseFolder("unfiled");
+                      if (await library.mutate("delete", `folders/${current.id}`)) library.chooseFolder("all");
                     }}
                   >
                     <Trash2 size={14} />
