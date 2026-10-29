@@ -8,10 +8,11 @@ import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID, type ConnectionPickerKind } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
-import { groupModelsByAccount, type ConnectionModelRow } from "../../lib/connection-groups";
+import { groupModelsByAccount, viaName, type ConnectionModelRow } from "../../lib/connection-groups";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
+import { ModelTile } from "./ModelRow";
 
 // The window loads on first open, so a screen of compact fields does not pull it into startup.
 const ModelPicker = lazy(() => import("./ModelPicker").then((m) => ({ default: m.ModelPicker })));
@@ -146,6 +147,8 @@ export function useConnectionChoices({
         ? { label: extra.label, hint: "" }
         : row
           ? {
+              row,
+              account: rowState?.account,
               label: choiceLabel(row),
               hint: [rowState?.account?.name ?? t("connections.select.standalone"), rowState?.suffix]
                 .filter(Boolean)
@@ -312,6 +315,11 @@ export function ConnectionSelect({
     : !defaultLabel && choices.resolved && jobKey
       ? t("connections.select.fromDefaults", { job: t(`connections.defaults.role.${jobKey}`) })
       : null;
+  // A chosen Model reads as it does in the Jobs box: picture, name, account and upstream.
+  const via = current.row ? viaName(current.row.provider, current.row.model) : null;
+  const note = current.row
+    ? [current.hint, via && t("connections.accounts.section.via", { service: via })].filter(Boolean).join(" · ")
+    : "";
   const trigger = {
     ref: triggerRef,
     type: "button" as const,
@@ -360,9 +368,15 @@ export function ConnectionSelect({
             className,
           )}
         >
+          {current.row && <ModelTile row={current.row} account={current.account} size="xs" />}
           <span id={valueId} className="min-w-0 flex-1 truncate">
             {current.label}
-            {source && <span className="text-[0.625rem] text-[var(--muted-foreground)]"> · {source}</span>}
+            {(note || source) && (
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {" · "}
+                {[note, source].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </span>
           <ChevronDown size="0.75rem" className="shrink-0 opacity-60" aria-hidden />
         </button>

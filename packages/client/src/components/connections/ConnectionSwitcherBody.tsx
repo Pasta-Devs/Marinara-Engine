@@ -1154,7 +1154,18 @@ export function ConnectionSwitcherBody({
     });
   };
 
-  // Follow Main: names the model the chat would follow. In Now while it does, else offered under it.
+  // Follow Main: names the model the chat would follow, with its account and upstream like every other row.
+  // In Now while it does, else offered under it.
+  const mainVia = mainRow ? viaName(mainRow.provider, mainRow.model) : null;
+  const mainLine = mainRow
+    ? [
+        rowLabel(mainRow),
+        groupOfRow.get(mainRow.id)?.name,
+        mainVia && t("connections.accounts.section.via", { service: mainVia }),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
   const followRow = (active: boolean) =>
     followDefault && (
       <button
@@ -1176,14 +1187,7 @@ export function ConnectionSwitcherBody({
         {followDefault.label && followDefault.label !== t("connections.defaults.followsMain") ? (
           <CircleSlash size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
         ) : mainRow ? (
-          <ProviderIcon
-            provider={mainRow.provider ?? "custom"}
-            model={mainRow.model}
-            name={groupOfRow.get(mainRow.id)?.name}
-            icon={mainRow.icon}
-            imagePath={mainRow.imagePath}
-            size="sm"
-          />
+          <ModelTile row={mainRow} account={groupOfRow.get(mainRow.id)?.account} size="sm" />
         ) : (
           <House size="0.875rem" className="mx-[0.3125rem] shrink-0 text-foreground/55" aria-hidden />
         )}
@@ -1191,7 +1195,7 @@ export function ConnectionSwitcherBody({
           <span className="truncate">{followDefault.label ?? t("connections.switcher.followMain")}</span>
           {!followDefault.label && (
             <span className="truncate text-[0.625rem] font-normal text-foreground/50">
-              {mainRow ? rowLabel(mainRow) : t("connections.switcher.noMain")}
+              {mainRow ? mainLine : t("connections.switcher.noMain")}
             </span>
           )}
         </span>

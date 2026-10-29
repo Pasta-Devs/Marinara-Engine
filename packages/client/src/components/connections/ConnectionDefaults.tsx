@@ -81,6 +81,8 @@ export type DefaultsTile = {
   fallback?: string;
   /** The fallback Model, for its picture. */
   fallbackSource?: ConnectionRowData;
+  /** The fallback Model's account. */
+  fallbackHint?: string;
   /** An unset job reads quieter than a chosen one. */
   muted?: boolean;
   warning: Warning | null;
@@ -192,6 +194,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       ...jobTile(role.key),
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
       fallbackSource: fallbackRow ?? undefined,
+      fallbackHint: fallbackRow ? describe(fallbackRow).hint : undefined,
       warning: null,
     };
     if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName, warning: builtInWarning };
@@ -346,6 +349,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       warning: null,
       fallback: fallbackRow ? describe(fallbackRow).value : undefined,
       fallbackSource: fallbackRow ?? undefined,
+      fallbackHint: fallbackRow ? describe(fallbackRow).hint : undefined,
     };
     if (!value) {
       // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents

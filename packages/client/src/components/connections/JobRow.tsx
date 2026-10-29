@@ -88,6 +88,13 @@ export function JobRow({
   const provider = [tile.hint, via && t("connections.accounts.section.via", { service: via })]
     .filter(Boolean)
     .join(" · ");
+  const fallbackVia = tile.fallbackSource ? viaName(tile.fallbackSource.provider, tile.fallbackSource.model) : null;
+  const fallbackNote = [
+    tile.fallbackHint,
+    fallbackVia && t("connections.accounts.section.via", { service: fallbackVia }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const hintId = useId();
   return (
     <>
@@ -110,7 +117,10 @@ export function JobRow({
                 {tile.fallbackSource && (
                   <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
                 )}
-                <span className="min-w-0 truncate">{tile.fallback}</span>
+                <span className="min-w-0 truncate">
+                  {tile.fallback}
+                  {fallbackNote && <span> · {fallbackNote}</span>}
+                </span>
               </span>
             )
           ) : (
