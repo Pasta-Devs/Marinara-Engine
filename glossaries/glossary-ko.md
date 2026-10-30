@@ -666,3 +666,18 @@ These are translation choices, not a new native-reader review.
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Mari question card, queued messages, to-do list and Automate active characters (2026-10-31)
+
+Glosses are the shipped `ui/ko.json` strings: **Send now**(지금 보내기), **Queue for later**(나중에 보내도록 대기열에 추가), **Sends when she finishes**(작업이 끝나면 전송됩니다), **Submit**(제출), **Plan from before your last message**(마지막 메시지 이전의 계획), **Automate active characters**(활성 캐릭터 자동화). **Held**(보류 중) is the head of the `mari.queue.held` tooltip. **2 of 5** is glossed (5개 중 2개) after the shipped count format. **Still working** and **X** run unglossed. **Send**(전송) and **Off**(꺼짐) reuse the existing pack glosses; **Roleplay Commands**(Roleplay 명령) and **Narrator**(내레이터) likewise.
+
+| English | Translation |
+| --- | --- |
+| question card (Professor Mari) | 질문 카드 |
+| waiting message / queue | 대기 중인 메시지 / 대기열 |
+| her to-do list | 할 일 목록, heading `Professor Mari의 할 일 목록` after the shipped label |
+| pins (Automate active characters) | 고정 / 고정 아이콘 (run-in lead **고정.**) |
+| name aliases (Character Tracker) | 별칭 (coined; `ko.json` has no alias string) |
+| link text for the setting | 활성 캐릭터 자동화 |
+
+§A-2 applies to the new labels: **Held**(보류 중)이, **Submit**(제출)을, **Send now**(지금 보내기)는, **Decision model**로. In prose the concept stays `Decision 모델`. A label already glossed later in the same file (**Decision model**, **Available variables**, **Also gate agents...** in some files) stays bare at an earlier new mention. These are translation choices, not a new native-reader review.

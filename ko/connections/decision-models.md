@@ -16,6 +16,7 @@ Decision 모델은 한 종류의 질문에 답합니다. 채팅의 최근 메시
 - **[프롬프트 판정문](../prompts/conditional-prompts.md#asking-the-decision-model)**은 채팅이나 에이전트 프롬프트를 준비할 때 텍스트를 선택합니다. 답이 없으면 아니요로 처리하므로 단순 판정 블록은 `{{else}}` 분기가 있으면 그 분기를 사용합니다.
 - **[로어북 Decision 필드](../lorebooks/entries.md#decision-activation)**는 채팅의 로어북 스캔 중 Require나 Trigger를 확인합니다. 답이 없으면 Require는 새 항목을 통과시키지 못하고 Trigger는 활성화 경로를 추가하지 않습니다. 기존 Sticky 유지와 Trigger 항목의 일반 활성화 경로는 계속 적용됩니다.
 - **[Smart 응답 순서](../chats/group-chats.md#response-order-individual-only)**는 켜져 있을 때 그룹 채팅의 다음 발언자를 평가합니다. 답이 없으면 Smart 순서가 원래의 AI 호출을 사용합니다.
+- **[활성 캐릭터 자동화](../chats/group-chats.md#automate-active-characters-merged-only)**는 **Decision model**로 설정되어 있으면 Merged Roleplay 그룹에서 각 답변 전에 장면에 누가 있는지 묻습니다. 모든 캐릭터에 대해 답이 없으면 Character Tracker의 마지막 장면을 사용하거나 목록을 그대로 둡니다.
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)**은 Roleplay의 장면 경계와 기억 선택에 별도로 선택한 로컬 모델이나 판단 연결을 사용할 수 있습니다. 해당 채팅의 Advanced Memory 설정에서 **Use Decision model**을 켜세요. 요약은 보조 모델이 작성합니다. 판단에 실패하면 일반 회상이나 장면 검사를 사용합니다.
 
 활성화 질문은 에이전트의 실행 여부를 제어하고, 프롬프트 안의 판정문은 실행 중인 에이전트에 전달할 내용을 제어합니다. 예/아니요 프롬프트 조건에는 `{{#if decision:"..."}}`을, 여러 답 중 선택에는 `{{#if decision_choice:"..." == "..."}}`을 사용하세요.
@@ -28,7 +29,9 @@ Decision 모델은 한 종류의 질문에 답합니다. 채팅의 최근 메시
 
 **Smart 응답 순서는 캐릭터 명단도 보냅니다.** 각 후보의 이름과, 있으면 상태, 활동, 발언 빈도를 포함하며 성격을 최대 300자까지 보냅니다. 성격이 비어 있으면 설명을 사용합니다. 호스팅된 Decision 제공자는 최근 메시지와 이 명단을 함께 받습니다.
 
-- 프롬프트와 로어북 항목의 판정문, Smart 응답 순서는 최근 메시지 5개를 읽습니다. 이 수는 고정입니다.
+**활성 캐릭터 자동화도 캐릭터 명단을 보냅니다.** 각 캐릭터의 이름과 설명을 최대 300자까지 포함하며, 설명이 비어 있으면 성격을 사용합니다. 출연진이 커서 들어가지 않으면 100자로 줄이거나 이름만 보냅니다. 여기에 Character Tracker가 마지막으로 장면에서 본 이름도 함께 보냅니다. 이름만으로도 최근 메시지를 넣을 공간이 모자라면 모델에 묻지 않고 Character Tracker가 대신합니다. 호스팅된 Decision 제공자는 최근 메시지와 이 명단을 함께 받습니다. Merged 그룹의 답변은 한 번의 답변이 모든 캐릭터의 목소리를 내므로 "the narrator"라는 라벨이 붙습니다.
+
+- 프롬프트와 로어북 항목의 판정문, Smart 응답 순서, 활성 캐릭터 자동화는 최근 메시지 5개를 읽습니다. 이 수는 고정입니다.
 - 활성화 질문은 에이전트의 **Scan Depth**(스캔 깊이)를 사용하며 기본값은 5입니다.
 - 각 메시지에는 발언자의 이름을 붙입니다. AI에 숨긴 메시지는 제외합니다.
 - 후처리 에이전트의 활성화 질문이나 프롬프트 판정문처럼 답글 뒤에 확인하는 항목은 방금 작성한 답글도 읽습니다.
@@ -220,6 +223,7 @@ NVIDIA GPU가 여러 개면 **GPU** 메뉴에서 모델을 올릴 카드를 고�
 - **활성화 질문이 있는 에이전트가 매 턴 실행됨.** Decision 모델이 설정되지 않았거나 답하지 않아 질문이 없는 것처럼 실행됩니다. **Test**를 확인하세요.
 - **프롬프트 판정 분기가 나타나지 않음.** [판정 분기가 나타나지 않을 때](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears)를 참고하세요.
 - **Smart 응답 순서가 원래 AI 호출을 계속 사용함.** 스위치가 꺼져 있거나 해당 턴에 Decision 모델이 답하지 않았습니다.
+- **활성 캐릭터 자동화가 Character Tracker를 따라감.** 해당 턴에 Decision 모델이 모든 캐릭터에 대해 답하지 않았거나, 먼저 추론하는 모델인데 **Also gate agents that run before the reply**가 꺼져 있거나, 출연진이 이름만으로도 모델 입력에 들어가지 않을 만큼 커서 모델에 묻지 않았습니다.
 - **생성 중 Decision 점수와 출력을 보려면** Debug Mode를 켜거나 로그 수준을 debug로 설정하세요. 프롬프트 결정 로그에는 임계값, 결과, 응답이 재사용되거나 시간 규칙에 의해 유지되었는지가 포함됩니다. [로그 수준](../CONFIGURATION.md#logging-levels)을 참고하세요.
 - **답변을 생성하지 않고 직접 작성한 문을 테스트하려면** **Peek Prompt → Decision diagnostics → Test decisions**(Peek Prompt → Decision 진단 → Decision 테스트)를 여세요. 입력 미리보기는 모델을 호출하지 않습니다. 명시적 테스트는 선택한 모델을 호출하며 호스팅 비용이 발생할 수 있습니다. [Decision 문 테스트하기](../chats/peek-prompt.md#testing-decision-statements)를 참고하세요.
 
