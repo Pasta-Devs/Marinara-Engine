@@ -8,7 +8,31 @@ import {
 } from "@marinara-engine/shared";
 
 import { isWorkspaceTraceItem } from "../../../lib/mari-referenced-resources";
+import { isLookStep } from "../../../lib/mari-work-timeline";
 import { toMessageExtra } from "./mari-chat-helpers";
+
+/**
+ * Slice 72: a failed step she did not work around (a write, a command) fails the run; a missed read does not.
+ * A failed write she retried and finished later in the run (`later`: same call on the same record) is worked around too.
+ */
+export function isHardStepFailure(tool: WorkspaceToolCall, later: readonly WorkspaceToolCall[] = []) {
+  if (tool.status !== "error" || isLookStep(inferToolPresentation(tool).title)) return false;
+  const key = writeKey(tool);
+  return !later.some((step) => step.status === "done" && writeKey(step) === key);
+}
+
+/** One write on one record: app_data by action and target ids, any other tool by its title and detail. */
+function writeKey(tool: WorkspaceToolCall) {
+  const input = asRecord(tool.input);
+  if (typeof input?.action === "string") {
+    const ids = Object.entries(input)
+      .filter(([key, value]) => /^(id|.+Id)$/.test(key) && typeof value === "string")
+      .sort(([a], [b]) => a.localeCompare(b));
+    return JSON.stringify([tool.name, input.action.trim().toLowerCase(), ids]);
+  }
+  const { title, detail } = inferToolPresentation(tool);
+  return JSON.stringify([tool.name, title, detail]);
+}
 
 export type WorkspaceToolCall = {
   id: string;

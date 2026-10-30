@@ -46,6 +46,7 @@ import {
   inferToolPresentation,
   asRecord,
   formatToolName,
+  isHardStepFailure,
   previewValue,
 } from "./mari-tool-presentation";
 import { buildMariReplyLinks, CompactMarkdown, MariReasoningPanel, MariFace } from "./MariReplyContent";
@@ -320,11 +321,6 @@ function describeStep(
   };
 }
 
-/** Slice 72: a failed step she did not work around (a write, a command) fails the run; a missed read does not. */
-export function isHardStepFailure(tool: WorkspaceToolCall) {
-  return tool.status === "error" && !isLookStep(inferToolPresentation(tool).title);
-}
-
 export function MariWorkTimeline({
   items,
   character,
@@ -397,8 +393,10 @@ export function MariWorkTimeline({
     active && lastChangeMs ? Math.max(0, Math.floor((Date.now() - lastChangeMs) / 1_000)) : elapsedSeconds;
   // A finished run that failed, or still holds a failed step, is not a success, whatever the last step was.
   // Slice 72: a read she could not do and worked around is amber on its step; it does not fail the run.
-  const failed = !active && (runFailed || toolItems.some(({ tool }) => isHardStepFailure(tool)));
-  const missedTools = toolItems.filter(({ tool }) => tool.status === "error" && !isHardStepFailure(tool));
+  const runTools = toolItems.map(({ tool }) => tool);
+  const hardFailure = (tool: WorkspaceToolCall) => isHardStepFailure(tool, runTools.slice(runTools.indexOf(tool) + 1));
+  const failed = !active && (runFailed || runTools.some(hardFailure));
+  const missedTools = toolItems.filter(({ tool }) => tool.status === "error" && !hardFailure(tool));
   // The running step is the live line itself, so it is not also a row in the list.
   const shownItems = active ? items.filter((item) => item.type !== "tool" || item.tool.status !== "running") : items;
   // M5a: what came before her first step, her steps as phases (all open while she runs, R13), then
@@ -604,7 +602,7 @@ export function MariWorkTimeline({
   const renderPhase = (phase: (typeof phases)[number]) => {
     const PhaseIcon = PHASE_ICONS[phase.kind];
     const phaseTools = phase.items.filter((item): item is WorkspaceToolItem => item.type === "tool");
-    const phaseMissed = phaseTools.filter(({ tool }) => tool.status === "error" && !isHardStepFailure(tool));
+    const phaseMissed = phaseTools.filter(({ tool }) => tool.status === "error" && !hardFailure(tool));
     const status = (
       <>
         {phaseMissed.length > 0 ? <span className="mari-phase__missed">{missedLabel(phaseMissed)}</span> : null}

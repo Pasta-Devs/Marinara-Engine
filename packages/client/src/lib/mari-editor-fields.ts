@@ -288,6 +288,10 @@ export type MariFieldReview =
       keep: () => boolean;
       /** Decline the whole change and ask her to propose it again without this field. */
       decline: (fieldId: string) => boolean;
+      /** Every held call only rewrites text fields an editor shows, so Edit can take the whole change over. */
+      editorTextOnly: boolean;
+      /** The user took over every field with Edit and saved their own text: the held change `key` is answered, nothing is sent. */
+      settle: (key: string) => Promise<boolean>;
     }
   | {
       mode: "kept";
@@ -297,6 +301,47 @@ export type MariFieldReview =
       undoUntil: string | null;
       undo: () => void;
     };
+
+/**
+ * The user took over every field of her held change with Edit and saved their own text: it answers her change.
+ * `before` is each taken-over field's text at Edit; a field still unsaved, or saved back to that text, keeps it waiting.
+ */
+export function heldChangeSettledByUser(
+  review: { fields: readonly MariReviewField[]; editorTextOnly: boolean },
+  here: (entityId: string) => boolean,
+  before: Readonly<Record<string, string>>,
+  unsaved: (fieldId: string) => boolean,
+  current: (fieldId: string) => string,
+) {
+  const takenOver = Object.keys(before);
+  return (
+    review.editorTextOnly &&
+    review.fields.every((field) => here(field.entityId) && takenOver.includes(field.fieldId)) &&
+    takenOver.every((fieldId) => !unsaved(fieldId) && current(fieldId) !== before[fieldId])
+  );
+}
+
+/** Every held call is an update whose patch is only text fields an editor shows (see `heldEditorFields`). */
+export function heldCallsAreEditorText(heldCalls: unknown) {
+  return (
+    Array.isArray(heldCalls) &&
+    heldCalls.length > 0 &&
+    heldCalls.every((raw) => {
+      const call = asRecord(raw);
+      const update = mariUpdateCall(call?.name, call?.arguments);
+      if (!update) return false;
+      // Keys the server writes for this kind; ids, the action and wrappers map to no field.
+      const written = Object.entries(update.patch).flatMap(([key, value]) => {
+        const fieldId = mariPatchFieldId(update.kind, key);
+        return fieldId ? [{ fieldId, value }] : [];
+      });
+      return (
+        written.length > 0 &&
+        written.every(({ fieldId, value }) => typeof value === "string" && reviewRank(update.kind, fieldId) >= 0)
+      );
+    })
+  );
+}
 
 /** The text fields a held turn's raw calls (`mariHeldCalls`) would write, full values, editor
  * order. The card's `mariHeldChanges` cut values to 400 characters, so the diff reads these. */

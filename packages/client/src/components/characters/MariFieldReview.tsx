@@ -8,6 +8,7 @@ import { ArrowDown, Check, Pencil, Undo2 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { fieldLabel } from "../../lib/mari-edit-diff";
+import { heldChangeSettledByUser } from "../../lib/mari-editor-fields";
 import { mariFieldLabel } from "../../hooks/use-mari-editor-fields";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
 import { MariFieldWriting } from "./MariFieldWriting";
@@ -58,7 +59,11 @@ export function useMariFieldReview({
   const review = useUIStore((state) => state.mariFieldReview);
   // A kept change already listed when the editor opened is old news: leaving ends its line.
   const [staleKeptKey] = useState(() => (review?.mode === "kept" ? review.key : null));
-  const [edited, setEdited] = useState<{ key: string; ids: string[] }>({ key: "", ids: [] });
+  const [edited, setEdited] = useState<{ key: string; ids: string[]; before: Record<string, string> }>({
+    key: "",
+    ids: [],
+    before: {},
+  });
   // The held change answered here (Keep or Not this one) until her reply ends; `declined` names
   // the declined field. A reply that leaves the same change waiting (a failed send) shows it again.
   const [answered, setAnswered] = useState<{
@@ -100,6 +105,19 @@ export function useMariFieldReview({
     useUIStore.getState().setMariFieldWaitingCount(waitingCount);
     return () => useUIStore.getState().setMariFieldWaitingCount(0);
   }, [waitingCount]);
+  // Edit, then the user's own Save, of every field she held answers her held change; nothing is sent.
+  const settling = useRef<string | null>(null);
+  useEffect(() => {
+    if (!waitingReview || answeredHere || keeping.current || settling.current === waitingReview.key) return;
+    const here = (id: string) => id === entityId || !!memberIds?.has(id);
+    const before = edited.key === waitingReview.key ? edited.before : {};
+    if (!heldChangeSettledByUser(waitingReview, here, before, touched, current)) return;
+    const { key } = waitingReview;
+    settling.current = key;
+    void waitingReview.settle(key).then((done) => {
+      if (!done && settling.current === key) settling.current = null;
+    });
+  });
   const keptIds =
     keptReview && !(undoUntil <= Date.now())
       ? keptReview.fields
@@ -150,10 +168,16 @@ export function useMariFieldReview({
           },
           edit: (fieldId, text) => {
             if (!waitingReview) return;
-            setEdited((prev) => ({
-              key: waitingReview.key,
-              ids: [...(prev.key === waitingReview.key ? prev.ids : []), fieldId],
-            }));
+            // The field's text before Edit: only a saved value that differs from it answers her change.
+            const before = current(fieldId);
+            setEdited((prev) => {
+              const same = prev.key === waitingReview.key;
+              return {
+                key: waitingReview.key,
+                ids: [...(same ? prev.ids : []), fieldId],
+                before: { [fieldId]: before, ...(same ? prev.before : {}) },
+              };
+            });
             edit(fieldId, text);
           },
           current,
