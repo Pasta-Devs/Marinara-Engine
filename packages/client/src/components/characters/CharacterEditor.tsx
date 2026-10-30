@@ -5988,35 +5988,26 @@ function SpritesTab({
             className="space-y-3 rounded-xl border border-[var(--border)] p-4"
             aria-label={localizeUi("sprites.library.addSprites")}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {localizeUi("sprites.library.addTo", {
-                  name:
-                    library.folders.find((folder) => folder.id === library.uploadFolderId)?.name ??
-                    localizeUi("sprites.library.unfiled"),
-                })}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={spriteActionClass}
-                  disabled={spriteBusy}
-                  onClick={() => folderInputRef.current?.click()}
-                >
-                  <FolderOpen size={14} />
-                  {localizeUi("sprites.library.importFolder")}
-                </button>
-                <button
-                  type="button"
-                  className={spriteActionClass}
-                  disabled={spriteGenerationUnavailable || spriteBusy}
-                  title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
-                  onClick={() => setSpriteGenOpen(true)}
-                >
-                  <Wand2 size={14} />
-                  {localizeUi("ui.characters.spritestab.generateSprite")}
-                </button>
-              </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className={spriteActionClass}
+                disabled={spriteBusy}
+                onClick={() => folderInputRef.current?.click()}
+              >
+                <FolderOpen size={14} />
+                {localizeUi("sprites.library.importFolder")}
+              </button>
+              <button
+                type="button"
+                className={spriteActionClass}
+                disabled={spriteGenerationUnavailable || spriteBusy}
+                title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
+                onClick={() => setSpriteGenOpen(true)}
+              >
+                <Wand2 size={14} />
+                {localizeUi("ui.characters.spritestab.generateSprite")}
+              </button>
             </div>
             <ImageUploadDropzone
               multiple
@@ -6028,7 +6019,6 @@ function SpritesTab({
               onFilesSelected={(files) => void handleImageFiles(files)}
               icon={<Upload size={16} />}
             />
-            <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("sprites.library.filenameHint")}</p>
             {spriteGenerationUnavailable && (
               <p className="text-xs text-[var(--muted-foreground)]">{spriteGenerationReason}</p>
             )}

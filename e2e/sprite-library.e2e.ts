@@ -93,12 +93,73 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill("Test folder");
     await page.keyboard.press("Enter");
     await expect(library.getByRole("button", { name: "Test folder", exact: true })).toBeVisible();
+    const testSection = library
+      .getByRole("button", { name: "Test folder", exact: true })
+      .locator("xpath=ancestor::section[1]");
+    const testFolderId = await testSection.getAttribute("data-sprite-folder");
+    const folderOrder = () =>
+      library
+        .locator("[data-sprite-folder]")
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-sprite-folder")));
+    await frontSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    const from = (await frontSection.boundingBox())!;
+    const to = (await testSection.boundingBox())!;
+    if (info.project.name === "phone") {
+      const touch = await page.context().newCDPSession(page);
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: from.x + 60, y: from.y + 20 }],
+      });
+      await expect(frontSection).toHaveAttribute("data-drag-source", "true");
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: to.x + 60, y: to.y + 8 }] });
+      await expect(testSection).toHaveAttribute("data-drag-insert", "before");
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await touch.detach();
+    } else {
+      await page.mouse.move(from.x + 60, from.y + 20);
+      await page.mouse.down();
+      await page.mouse.move(to.x + 60, to.y + 8, { steps: 10 });
+      await expect(frontSection).toHaveAttribute("data-drag-source", "true");
+      await expect(testSection).toHaveAttribute("data-drag-insert", "before");
+      await page.mouse.up();
+    }
+    await expect.poll(folderOrder).toEqual([front, testFolderId, alternate]);
+    await expect
+      .poll(async () =>
+        (await catalog()).folders
+          .filter((folder: { category: string }) => folder.category === "full-body")
+          .map((folder: { id: string }) => folder.id)
+          .reverse(),
+      )
+      .toEqual([front, testFolderId, alternate]);
+    expect(
+      (await catalog()).folders
+        .filter((folder: { category: string }) => folder.category === "expressions")
+        .map((folder: { id: string }) => folder.id),
+    ).toEqual([expressionFront]);
+    await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await frontSection.getByRole("button", { name: "Front", exact: true }).focus();
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect.poll(folderOrder).toEqual([testFolderId, front, alternate]);
     await library
       .getByRole("button", { name: "Test folder", exact: true })
       .locator("xpath=ancestor::section[1]")
       .getByRole("button", { name: "Remove folder", exact: true })
       .click();
     await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
+    await expect.poll(folderOrder).toEqual([front, alternate]);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible();
+    if (await sections.isVisible()) {
+      await sections.click();
+      await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+    } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+    await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await expect.poll(folderOrder).toEqual([front, alternate]);
     await frontSection.getByRole("button", { name: "Front", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
     await expect(section.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
@@ -113,6 +174,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
     await expect(section.getByRole("checkbox", { name: /Use as reference image/ })).toBeDisabled();
     await section.getByRole("button", { name: "Close", exact: true }).click();
+    await library.getByRole("button", { name: "Add sprites", exact: true }).click();
+    await expect(library.getByText(/^Adding to:/)).toHaveCount(0);
+    await expect(
+      library.getByText("Filenames become sprite names. Open a sprite to rename it or change its folder.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await library.getByRole("button", { name: "Close", exact: true }).click();
     await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
 

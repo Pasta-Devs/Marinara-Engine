@@ -8,6 +8,8 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
+import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { insertLibraryItems } from "../../lib/library-order";
 
 const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
@@ -56,6 +58,7 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
   }
   return {
     ownerId,
+    category,
     query,
     mutation,
     folders,
@@ -202,6 +205,18 @@ export function SpriteFolderGrid({
   const suppressClick = useRef(false);
   const touchInput = useRef(false);
   const disabled = busy || library.mutation.isPending || !library.query.data;
+  const folders = library.folders.slice().reverse();
+  const folderDrag = useLibraryFolderDrag(`sprite-${library.ownerId}-${library.category}`, (ids, target, edge) => {
+    if (disabled) return;
+    const orderedIds = insertLibraryItems(
+      folders.map((folder) => folder.id),
+      ids,
+      target,
+      edge,
+    );
+    if (orderedIds.every((id, index) => id === folders[index]?.id)) return;
+    void library.mutate("post", "folders/reorder", { category: library.category, orderedIds });
+  });
   const { startTouchDrag } = useTouchFolderDrag({
     getDragIds: (expression) => (library.selected.includes(expression) ? library.selected : [expression]),
     onActivate: (expression) => {
@@ -437,9 +452,7 @@ export function SpriteFolderGrid({
       )}
       {library.folders.length > 0 && (
         <div className="space-y-1">
-          {library.folders
-            .slice()
-            .reverse()
+          {folders
             .filter((folder) => !library.search || library.visible.some((sprite) => sprite.folderId === folder.id))
             .map((folder) => (
               <SpriteInlineFolder
@@ -449,6 +462,7 @@ export function SpriteFolderGrid({
                 busy={disabled}
                 highlighted={target === folder.id}
                 zone={zone(folder.id)}
+                folderDragBindings={folderDrag.bind(folder.id)}
               >
                 {grid(library.visible.filter((sprite) => sprite.folderId === folder.id))}
               </SpriteInlineFolder>
@@ -486,6 +500,7 @@ function SpriteInlineFolder({
   busy,
   highlighted,
   zone,
+  folderDragBindings,
   children,
 }: {
   library: Library;
@@ -493,6 +508,7 @@ function SpriteInlineFolder({
   busy: boolean;
   highlighted: boolean;
   zone: { onDragOver: (e: DragEvent) => void; onDragLeave: (e: DragEvent) => void; onDrop: (e: DragEvent) => void };
+  folderDragBindings: ReturnType<ReturnType<typeof useLibraryFolderDrag>["bind"]>;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -514,11 +530,14 @@ function SpriteInlineFolder({
   const expanded = open || Boolean(library.search);
   return (
     <section
+      {...folderDragBindings}
+      onMouseDown={busy || editing ? undefined : folderDragBindings.onMouseDown}
+      onTouchStart={busy || editing ? undefined : folderDragBindings.onTouchStart}
       {...zone}
       data-sprite-folder={current.id}
       data-sprite-folder-id={current.id}
       className={cn(
-        "min-w-0 rounded-lg transition-colors",
+        "min-w-0 rounded-lg transition-colors max-md:touch-pan-y",
         highlighted &&
           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
       )}
@@ -530,6 +549,7 @@ function SpriteInlineFolder({
           aria-label={current.name}
           aria-expanded={expanded}
           aria-controls={contentId}
+          data-drag-surface
           className="flex min-h-9 min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-medium"
           onClick={(event) => {
             if (!editing && !library.search)

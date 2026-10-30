@@ -1410,6 +1410,36 @@ export async function spritesRoutes(app: FastifyInstance) {
       return listSpriteCatalog(req.params.characterId);
     });
   });
+  app.post<{ Params: { characterId: string } }>("/:characterId/folders/reorder", async (req, reply) => {
+    const body = z
+      .object({ category: z.enum(["expressions", "full-body"]), orderedIds: z.array(z.string().uuid()).max(400) })
+      .safeParse(req.body);
+    if (!ownerParams.safeParse(req.params).success || !body.success)
+      return reply.code(400).send({ error: "Invalid sprite folder order" });
+    return withSpriteCatalogLock(req.params.characterId, async () => {
+      const catalog = readSpriteCatalog(req.params.characterId);
+      const folders = catalog.folders.filter((folder) => folder.category === body.data.category);
+      const ids = new Set(body.data.orderedIds);
+      if (
+        ids.size !== body.data.orderedIds.length ||
+        ids.size !== folders.length ||
+        folders.some((folder) => !ids.has(folder.id))
+      )
+        return reply.code(409).send({ error: "Sprite folders changed; refresh before reordering" });
+      const byId = new Map(folders.map((folder) => [folder.id, folder]));
+      // The editor displays this array in reverse, keeping newly appended folders first.
+      const reordered = body.data.orderedIds
+        .slice()
+        .reverse()
+        .map((id) => byId.get(id)!);
+      let index = 0;
+      catalog.folders = catalog.folders.map((folder) =>
+        folder.category === body.data.category ? reordered[index++]! : folder,
+      );
+      await writeSpriteCatalog(req.params.characterId, catalog);
+      return listSpriteCatalog(req.params.characterId);
+    });
+  });
   app.patch<{ Params: { characterId: string; folderId: string } }>(
     "/:characterId/folders/:folderId",
     async (req, reply) => {

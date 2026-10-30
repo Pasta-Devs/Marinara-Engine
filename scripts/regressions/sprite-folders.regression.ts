@@ -63,6 +63,52 @@ try {
   await request("POST", base + "/move", { expressions: [legacy.expression], folderId: expressionFolder.id }, 400);
   await request("POST", base, { expression: "smile", image: png, folderId: front }, 400);
 
+  const beforeOrder = listSpriteCatalog(owner);
+  const reordered = (
+    await request("POST", base + "/folders/reorder", {
+      category: "full-body",
+      orderedIds: [front, side],
+    })
+  ).json();
+  assert.deepEqual(
+    reordered.folders
+      .filter((folder: { category: string }) => folder.category === "full-body")
+      .map((folder: { id: string }) => folder.id),
+    [side, front],
+  );
+  assert.deepEqual(
+    reordered.sprites,
+    beforeOrder.sprites,
+    "reordering changes neither membership nor runtime availability",
+  );
+  assert.deepEqual(
+    reordered.folders.filter((folder: { category: string }) => folder.category === "expressions"),
+    [expressionFolder],
+  );
+  assert.equal(reordered.defaultFolderId, front);
+  assert.deepEqual(readSpriteCatalog(owner).folders, reordered.folders, "folder order is persisted");
+  for (const orderedIds of [
+    [front],
+    [front, front],
+    [front, expressionFolder.id],
+    [front, "00000000-0000-4000-8000-000000000000"],
+  ]) {
+    await request("POST", base + "/folders/reorder", { category: "full-body", orderedIds }, 409);
+    assert.deepEqual(
+      listSpriteCatalog(owner),
+      reordered,
+      "invalid or stale orders never partially overwrite a catalog",
+    );
+  }
+  await request("POST", base + "/folders/reorder", { category: "full-body", orderedIds: ["invalid"] }, 400);
+  await request("POST", base + "/folders/reorder", { orderedIds: [front, side] }, 400);
+  await request(
+    "POST",
+    "/api/sprites/..%2Fescape/folders/reorder",
+    { category: "full-body", orderedIds: [front, side] },
+    400,
+  );
+
   assert.equal(activeOwnerSprites(owner).length, 3, "all folders remain available despite the saved default");
   assert.ok(listSpriteCatalog(owner).sprites.every((sprite) => sprite.active));
   assert.equal(readPreferredFullBodySpriteBase64(owner)?.expression, "full_neutral");
@@ -102,6 +148,11 @@ try {
   await restoreSprites(images, "restored-owner", readSpriteCatalog(owner));
   const restored = listSpriteCatalog("restored-owner");
   assert.equal(restored.folders.length, 3);
+  assert.deepEqual(
+    restored.folders,
+    readSpriteCatalog(owner).folders,
+    "exports and restores retain custom folder order",
+  );
   assert.equal(restored.defaultFolderId, front);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.folderId, side);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.label, "full_delighted");
