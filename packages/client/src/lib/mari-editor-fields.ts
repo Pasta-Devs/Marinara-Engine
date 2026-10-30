@@ -30,7 +30,7 @@ export function editorFieldId(path: string): string {
 
 // List and block fields: the focused input is one tag, greeting or onboarding question, not the field's
 // content. The server reads the onboarding block itself (`character.onboarding.get`).
-const LIST_FIELD_IDS = new Set(["tags", "alternate_greetings", "extensions.onboarding"]);
+const LIST_FIELD_IDS = new Set(["tags", "alternate_greetings", "extensions.onboarding", "keys", "secondaryKeys"]);
 
 /** Capture the focused field's current text and selected text for a Prof. Mari handoff; null for list fields. */
 export function mariFieldDraft(
@@ -39,7 +39,7 @@ export function mariFieldDraft(
   selectionStart: number | null,
   selectionEnd: number | null,
 ): { fieldId: string; value: string; selection?: string } | null {
-  if (LIST_FIELD_IDS.has(fieldId)) return null;
+  if (LIST_FIELD_IDS.has(fieldId.replace(/^entries\.[^.]+\./, ""))) return null;
   const selection =
     selectionStart !== null && selectionEnd !== null && selectionEnd > selectionStart
       ? value.slice(selectionStart, selectionEnd)
@@ -66,7 +66,7 @@ const MARI_EDITOR_KINDS = {
   character: {
     action: "character.update",
     table: "characters",
-    idArg: "characterId",
+    idArgs: ["id", "characterId"],
     // The wrappers the server reads a patch from, besides the top level (normalizeCharacterActionData).
     wrappers: ["character", "card", "data", "patch"],
     fieldIds: new Set([
@@ -113,7 +113,7 @@ const MARI_EDITOR_KINDS = {
   persona: {
     action: "persona.update",
     table: "personas",
-    idArg: "personaId",
+    idArgs: ["id", "personaId"],
     wrappers: ["persona", "data", "patch"],
     fieldIds: new Set([
       "name",
@@ -151,6 +151,26 @@ const MARI_EDITOR_KINDS = {
       "mes_example",
     ],
   },
+  lorebook: {
+    action: "lorebook.update",
+    table: "lorebooks",
+    idArgs: ["id", "lorebookId"],
+    wrappers: ["patch", "data", "lorebook"],
+    fieldIds: new Set(["name", "description", "tags"]),
+    aliases: {} as Record<string, string>,
+    reviewOrder: ["description"],
+  },
+  // Entry fields anchor as `entries.<entryId>.<key>` in the lorebook editor (`mariFieldPath`).
+  lorebookEntry: {
+    action: "lorebook.updateentry",
+    table: "lorebook_entries",
+    // The server reads `entryId` first here.
+    idArgs: ["entryId", "id"],
+    wrappers: ["patch", "data", "entry"],
+    fieldIds: new Set(["name", "description", "keys", "secondaryKeys", "content"]),
+    aliases: {} as Record<string, string>,
+    reviewOrder: ["description", "content"],
+  },
 };
 
 export type MariEditorKind = keyof typeof MARI_EDITOR_KINDS;
@@ -173,6 +193,11 @@ export function mariEditorKindForTable(table: unknown): MariEditorKind | null {
   );
 }
 
+/** A record's field as its editor's `data-mari-field` id: a lorebook entry's sit under `entries.<entryId>.`. */
+export function mariFieldPath(kind: MariEditorKind, entityId: string, path: string): string {
+  return kind === "lorebookEntry" ? `entries.${entityId}.${editorFieldId(path)}` : path;
+}
+
 /** A change-card path whose field the kind's editor anchors (itself or its parent field). */
 export function hasMariField(path: string, kind: MariEditorKind = "character"): boolean {
   const parts = editorFieldId(path).split(".");
@@ -186,7 +211,8 @@ export function appDataAction(action: unknown): string {
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/g, "")
-    .replace(/^(character|persona)s\./, "$1.");
+    .replace(/^(character|persona|lorebook)s\./, "$1.")
+    .replace(/^lorebook\.entr(?:y|ies)\.update$/, "lorebook.updateentry");
 }
 
 /** An update patch key (`firstMes`, `backstory`) as its editor field id, or null for other keys. */
@@ -208,9 +234,9 @@ function mariUpdateCall(name: unknown, input: unknown) {
   if (!args || name !== "app_data") return null;
   const kind = mariEditorKindForAction(args.action);
   if (!kind) return null;
-  // The server reads `id` first.
-  const entityId = args.id ?? args[MARI_EDITOR_KINDS[kind].idArg];
-  if (typeof entityId !== "string" || !entityId) return null;
+  // The first id argument the server reads, in its order.
+  const entityId = MARI_EDITOR_KINDS[kind].idArgs.map((key) => args[key]).find((id) => typeof id === "string" && id);
+  if (typeof entityId !== "string") return null;
   return { kind, entityId, patch: patchValues(args, MARI_EDITOR_KINDS[kind].wrappers) };
 }
 
@@ -220,7 +246,7 @@ export function mariWorkingFieldFromTool(name: string, input: unknown): { entity
   if (!call) return null;
   for (const key of Object.keys(call.patch)) {
     const path = mariPatchFieldId(call.kind, key);
-    if (path) return { entityId: call.entityId, path };
+    if (path) return { entityId: call.entityId, path: mariFieldPath(call.kind, call.entityId, path) };
   }
   return null;
 }
@@ -284,10 +310,11 @@ export function heldEditorFields(heldCalls: unknown): Array<MariReviewField & { 
       const fieldId = mariPatchFieldId(update.kind, key);
       const rank = fieldId ? reviewRank(update.kind, fieldId) : -1;
       if (!fieldId || typeof value !== "string" || rank < 0) continue;
-      const known = fields.findIndex((field) => field.entityId === update.entityId && field.fieldId === fieldId);
+      const path = mariFieldPath(update.kind, update.entityId, fieldId);
+      const known = fields.findIndex((field) => field.entityId === update.entityId && field.fieldId === path);
       // A later call to the same field wins, as it would when the calls run in order.
       if (known >= 0) fields.splice(known, 1);
-      fields.push({ entityId: update.entityId, fieldId, value, rank });
+      fields.push({ entityId: update.entityId, fieldId: path, value, rank });
     }
   }
   return fields.sort((a, b) => a.rank - b.rank).map(({ rank: _rank, ...field }) => field);
@@ -304,24 +331,46 @@ export function keptEditorFields(
     reviewIds?: string[];
     undoUntil?: string;
   }>,
-  pendingIds: ReadonlySet<string>,
+  pending: ReadonlyArray<{
+    id: string;
+    diffPreview?: ReadonlyArray<{ table: string; id: string; action: string; before?: unknown; after?: unknown }>;
+  }>,
 ): { reviewIds: string[]; fields: MariReviewField[]; undoUntil: string | null } {
+  const pendingById = new Map(pending.map((review) => [review.id, review]));
   const reviewIds: string[] = [];
   const fields: Array<MariReviewField & { rank: number }> = [];
   const deadlines: string[] = [];
   for (const result of results) {
     const ids = (result.reviewIds?.length ? result.reviewIds : result.reviewId ? [result.reviewId] : []).filter((id) =>
-      pendingIds.has(id),
+      pendingById.has(id),
     );
     const kind = result.resource.kind;
     if (!isMariEditorKind(kind) || result.status !== "updated" || ids.length === 0) continue;
     reviewIds.push(...ids);
     if (result.undoUntil) deadlines.push(result.undoUntil);
-    for (const changed of result.changedFields) {
-      const fieldId = editorFieldId(changed);
-      const rank = reviewRank(kind, fieldId);
-      if (rank < 0 || fields.some((field) => field.fieldId === fieldId)) continue;
-      fields.push({ entityId: result.resource.id, fieldId, rank });
+    // A lorebook result names only the book, also for an entry edit: its reviews' rows name the records.
+    const records =
+      kind === "lorebook"
+        ? ids.flatMap((id) =>
+            (pendingById.get(id)?.diffPreview ?? []).flatMap((change) => {
+              const rowKind = change.action === "update" ? mariEditorKindForTable(change.table) : null;
+              const before = asRecord(change.before) ?? {};
+              const after = asRecord(change.after) ?? {};
+              const changed = Object.keys(after).filter(
+                (key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]),
+              );
+              return rowKind ? [{ kind: rowKind, entityId: change.id, changed }] : [];
+            }),
+          )
+        : [{ kind, entityId: result.resource.id, changed: result.changedFields }];
+    for (const record of records) {
+      for (const changed of record.changed) {
+        const fieldId = editorFieldId(changed);
+        const rank = reviewRank(record.kind, fieldId);
+        const path = mariFieldPath(record.kind, record.entityId, fieldId);
+        if (rank < 0 || fields.some((field) => field.entityId === record.entityId && field.fieldId === path)) continue;
+        fields.push({ entityId: record.entityId, fieldId: path, rank });
+      }
     }
   }
   fields.sort((a, b) => a.rank - b.rank);
