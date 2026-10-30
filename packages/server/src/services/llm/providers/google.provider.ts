@@ -670,7 +670,7 @@ export class GoogleProvider extends BaseLLMProvider {
   }
 
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
-    if (!options.tools?.length) return super.chatComplete(messages, options);
+    if (!options.tools?.length || options.forceTextualToolCalls) return super.chatComplete(messages, options);
     const suppressModelParameters = this.shouldSuppressModelParameters(options);
 
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);

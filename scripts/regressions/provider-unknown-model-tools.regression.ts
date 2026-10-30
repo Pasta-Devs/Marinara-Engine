@@ -113,9 +113,9 @@ try {
           // chat() returns text only, but must still preserve the requested protocol.
         }
         assert.ok(requests.at(-1)!.body.tools?.length, "chat() must preserve tools too");
-        await provider.chatComplete(messages, { model, tools, forceTextualToolCalls: true, stream: false });
-        assert.equal(requests.at(-1)!.body.tools, undefined, "Textual tool mode must not send native tools");
       }
+      await provider.chatComplete(messages, { model, tools, forceTextualToolCalls: true, stream: false });
+      assert.equal(requests.at(-1)!.body.tools, undefined, "Textual tool mode must not send native tools");
       rejectTools = true;
       await assert.rejects(
         provider.chatComplete(messages, { model, tools, stream: false }),
