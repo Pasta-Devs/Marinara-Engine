@@ -121,10 +121,11 @@ Sandboxed Browser Extensions receive one frozen global named `marinara`:
 | `context.subscribe(listener)`                                | Receive context changes; returns an unsubscribe function             |
 | `ui.registerContribution(options)`                           | Add a safe button, Extensions-menu item, or Marinara-rendered panel  |
 | `ui.showWindow(options)`                                     | Open a constrained iframe window                                     |
+| `dice.registerFormat(options)`                               | Teach `/roll` a notation; Marinara throws the dice it names          |
 | `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval` | Managed timers removed when the extension stops                      |
 | `onCleanup(callback)`                                        | Register additional cleanup logic                                    |
 
-Use [Marinara-rendered panels](personal-extensions.md#add-a-marinara-rendered-panel) for normal UI and [active chat context](personal-extensions.md#use-active-chat-context) for chat-aware behavior. Extension state belongs in `marinara.storage`, not browser storage.
+Use [Marinara-rendered panels](personal-extensions.md#add-a-marinara-rendered-panel) for normal UI, [active chat context](personal-extensions.md#use-active-chat-context) for chat-aware behavior, and [dice formats](personal-extensions.md#add-a-dice-format) for custom `/roll` notation. Extension state belongs in `marinara.storage`, not browser storage.
 
 `showWindow({ title, elements, onEvent, onClose })` returns a handle with `update({ title?, elements? })` and `close()`. Package CSS styles these sandboxed iframe windows; host-rendered contributions always use Marinara's own theme and controls.
 

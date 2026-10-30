@@ -246,7 +246,8 @@ import {
   type ActiveLorebookView,
 } from "../../lib/chat-lorebooks";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
-import { getChatCharacterIds } from "../../lib/chat-macros";
+import { getChatCharacterIds, resolveGreetingPreview } from "../../lib/chat-macros";
+import { cardAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import {
   getAgentRunIntervalMeta,
@@ -3000,13 +3001,33 @@ export function ChatSettingsDrawer({
   }, [spriteLayoutSubjects]);
 
   // ── First message confirm state ──
-  const [firstMesConfirm, setFirstMesConfirm] = useState<{
+  type FirstMesConfirm = {
     charId: string;
     charName: string;
     dialogueColor?: string;
     greetings: CharacterGreeting[];
     selectedIndex: number;
+  };
+  const [firstMesConfirm, setFirstMesConfirm] = useState<FirstMesConfirm | null>(null);
+  // A card just added to this chat. Its questions (if it has any) come before its
+  // greeting, so the greeting waits here until the chat reports the card and the
+  // answers the server seeded for it.
+  const [pendingAddedCard, setPendingAddedCard] = useState<{
+    charId: string;
+    greeting: FirstMesConfirm | null;
   } | null>(null);
+  // The player's answers to this card's questions, read live from the chat so the
+  // dialog shows what was just saved once the chat refreshes. Marked in the previews.
+  const greetingAnswerValues = useMemo(
+    () =>
+      firstMesConfirm
+        ? cardAnswerValues(
+            onboardingByCharacterId.get(firstMesConfirm.charId)?.onboarding.cardVariables ?? [],
+            chatMacroVariables,
+          )
+        : [],
+    [chatMacroVariables, firstMesConfirm, onboardingByCharacterId],
+  );
   const greetingDialogRef = useRef<HTMLDivElement | null>(null);
   useDialogFocusScope(firstMesConfirm !== null, greetingDialogRef);
 
@@ -3136,6 +3157,7 @@ export function ChatSettingsDrawer({
         },
       );
       clearRemovedCharacterMetadata(charId);
+      setPendingAddedCard((pending) => (pending?.charId === charId ? null : pending));
     } else {
       current.push(charId);
       updateChat.mutate(
@@ -3148,15 +3170,14 @@ export function ChatSettingsDrawer({
             const char = characters.find((c) => c.id === charId);
             if (!char) return;
             const { greetings, dialogueColor } = readCharacterGreetings(char.data);
-            if (greetings.length > 0) {
-              setFirstMesConfirm({
-                charId,
-                charName: charName(char),
-                dialogueColor,
-                greetings,
-                selectedIndex: 0,
-              });
-            }
+            // The card's questions (if any) open first; the effect below then shows the greeting.
+            setPendingAddedCard({
+              charId,
+              greeting:
+                greetings.length > 0
+                  ? { charId, charName: charName(char), dialogueColor, greetings, selectedIndex: 0 }
+                  : null,
+            });
           },
         },
       );
@@ -4113,7 +4134,32 @@ export function ChatSettingsDrawer({
   }, [onboardingQuestionsCharacterId, onboardingQuestionsTarget]);
   useEffect(() => {
     setOnboardingQuestionsCharacterId(null);
+    setPendingAddedCard(null);
   }, [chat.id]);
+  // A card added to this chat: wait until the chat itself lists it. That is when
+  // `chat` carries both the new roster and the answers the server seeded for the
+  // card, so the questions window opens on them (it reads them once, on mount) and
+  // the stale-id effect above doesn't close it for a card it can't see yet. The
+  // card list is already loaded here (the card was picked from it), so whether it
+  // has questions is known without waiting on anything else.
+  useEffect(() => {
+    if (!pendingAddedCard || !chatCharIds.includes(pendingAddedCard.charId)) return;
+    if (onboardingCardQuestionsById.has(pendingAddedCard.charId)) {
+      setOnboardingQuestionsCharacterId(pendingAddedCard.charId);
+      return;
+    }
+    if (pendingAddedCard.greeting) setFirstMesConfirm(pendingAddedCard.greeting);
+    setPendingAddedCard(null);
+  }, [chatCharIds, onboardingCardQuestionsById, pendingAddedCard]);
+  // The questions window is done (saved or backed out): the added card's greeting is next.
+  const continueAddedCardGreeting = useCallback(
+    (charId: string | null) => {
+      if (!pendingAddedCard || pendingAddedCard.charId !== charId) return;
+      if (pendingAddedCard.greeting) setFirstMesConfirm(pendingAddedCard.greeting);
+      setPendingAddedCard(null);
+    },
+    [pendingAddedCard],
+  );
   /**
    * Save the answers from an isolated character-questions window (#7797). The
    * merge is the wizard's own, so untouched questions carry their default value
@@ -4132,10 +4178,15 @@ export function ChatSettingsDrawer({
           return;
         }
       }
+      continueAddedCardGreeting(onboardingQuestionsCharacterId);
       setOnboardingQuestionsCharacterId(null);
     },
-    [chat.id, localizeUi, updateMeta],
+    [chat.id, continueAddedCardGreeting, localizeUi, onboardingQuestionsCharacterId, updateMeta],
   );
+  const handleOnboardingQuestionsBack = useCallback(() => {
+    continueAddedCardGreeting(onboardingQuestionsCharacterId);
+    setOnboardingQuestionsCharacterId(null);
+  }, [continueAddedCardGreeting, onboardingQuestionsCharacterId]);
   const [pendingToolIds, setPendingToolIds] = useState<string[]>([]);
   const [charSearch, setCharSearch] = useState("");
   const [lbSearch, setLbSearch] = useState("");
@@ -10719,7 +10770,7 @@ export function ChatSettingsDrawer({
           initialAnswers={chatMacroVariables}
           withPersona={false}
           chatFloatingPanel
-          onBack={() => setOnboardingQuestionsCharacterId(null)}
+          onBack={handleOnboardingQuestionsBack}
           onCreated={handleOnboardingAnswersSaved}
         />
       )}
@@ -11091,6 +11142,20 @@ export function ChatSettingsDrawer({
               <div className="mt-3 max-h-[min(50dvh,22rem)] space-y-2 overflow-y-auto pr-1">
                 {firstMesConfirm.greetings.map((greeting, index) => {
                   const selected = index === firstMesConfirm.selectedIndex;
+                  const greetingCard = characters.find((c) => c.id === firstMesConfirm.charId);
+                  // Resolved before the cut, so the cut can't split a {{tag}}.
+                  const preview = greetingCard
+                    ? resolveGreetingPreview(greeting.text, {
+                        character: greetingCard,
+                        chat,
+                        characters,
+                        personas,
+                        chatVariables: chatMacroVariables,
+                      })
+                    : {
+                        text: greeting.text.slice(0, 500),
+                        cut: greeting.text.length > 500,
+                      };
                   return (
                     <button
                       key={`${greeting.alternateIndex ?? "first"}:${greeting.text.slice(0, 32)}`}
@@ -11125,15 +11190,15 @@ export function ChatSettingsDrawer({
                       </span>
                       <RoleplayMessagePreview
                         content={
-                          greeting.text.length > 500
-                            ? localizeUi("ui.chat.chatsettingsdrawer.value1_30f5501", {
-                                value1: greeting.text.slice(0, 500),
-                              })
-                            : greeting.text
+                          preview.cut
+                            ? localizeUi("ui.chat.chatsettingsdrawer.value1_30f5501", { value1: preview.text })
+                            : preview.text
                         }
                         dialogueColor={firstMesConfirm.dialogueColor}
                         className="mt-1 text-[0.6875rem] leading-relaxed"
                         selfCharacterId={firstMesConfirm.charId}
+                        answerValues={greetingAnswerValues}
+                        answerTemplate={greeting.text}
                       />
                     </button>
                   );

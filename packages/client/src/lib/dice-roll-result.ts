@@ -1,6 +1,7 @@
 import {
   getRoleplayCommandActivity,
   getRoleplayCommandContentOffset,
+  isDiceRollSymbols,
   isKeptDice,
   type DiceRollResult,
 } from "@marinara-engine/shared";
@@ -20,6 +21,7 @@ export function isDiceRollResult(value: unknown): value is DiceRollResult {
     Number.isFinite(candidate.modifier) &&
     Number.isFinite(candidate.total) &&
     (candidate.kept === undefined || isKeptDice(candidate.kept, candidate.rolls.length)) &&
+    isDiceRollSymbols(candidate, candidate.rolls.length) &&
     (candidate.dc === undefined || Number.isSafeInteger(candidate.dc)) &&
     (candidate.success === undefined || typeof candidate.success === "boolean")
   );

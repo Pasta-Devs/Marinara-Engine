@@ -18,15 +18,7 @@ import {
   typeOf,
   type OrganizerEntry,
 } from "./organizer-model";
-import {
-  AgentAction,
-  AgentIcon,
-  AgentRow,
-  MenuButton,
-  SECONDARY_ACTION,
-  StoreBanner,
-  useOrganizer,
-} from "./OrganizerParts";
+import { AgentAction, AgentIcon, AgentRow, SECONDARY_ACTION, StoreBanner, useOrganizer } from "./OrganizerParts";
 
 const HOW_TO_STEPS = [1, 2, 3] as const;
 
@@ -160,7 +152,6 @@ export function AgentPage({
                 {localizeUi("ui.agents.organizer.settings")}
               </button>
             )}
-            <MenuButton entry={entry} className="h-10 w-10" />
           </div>
         </header>
         {checkReason !== null && (

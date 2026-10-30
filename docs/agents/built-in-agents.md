@@ -167,6 +167,8 @@ A single card that describes several people, such as a scenario card with a cast
 
 When a recurring character returns after leaving the scene, Character Tracker reuses their latest saved stats and custom fields for continuity. Characters backed by cards also receive their configured RPG pools and attributes as grounding. Single-character card entries retain the card's avatar and crop. Members of a multi-character card use their own portraits through the same library, saved-avatar, or optional portrait-generation path as NPCs; they do not inherit the shared card portrait.
 
+In a Merged Roleplay group, its present characters can also set which character cards are active for the next reply. See [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
+
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default) and an optional **Auto-Generate NPC Avatars** setting with its own image connection picker. Under it, **Include the outfit in portraits** is on by default, so new portraits show the outfit the tracker noted as well as the look. Turn it off to draw portraits from the look alone.

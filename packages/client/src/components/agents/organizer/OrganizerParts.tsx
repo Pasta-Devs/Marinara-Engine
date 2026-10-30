@@ -93,7 +93,13 @@ export function AgentAction({
     return (
       <button
         type="button"
-        className={cn(light ? LIGHT_ACTION : PRIMARY_ACTION, sizing, "font-semibold")}
+        className={cn(
+          light
+            ? LIGHT_ACTION
+            : cn(PRIMARY_ACTION, "bg-[var(--primary)]! text-[var(--primary-foreground)]! hover:opacity-90"),
+          sizing,
+          "font-semibold",
+        )}
         disabled={pending}
         onClick={(event) => {
           stop(event);
@@ -160,6 +166,7 @@ export function AgentRow({
   meta,
   side,
   withMenu = false,
+  action,
   children,
 }: {
   entry: OrganizerEntry;
@@ -168,6 +175,8 @@ export function AgentRow({
   /** Extra column before the action (wide screens only). */
   side?: ReactNode;
   withMenu?: boolean;
+  /** Replaces the Get/Update/Open button, e.g. with a running update's state. */
+  action?: ReactNode;
   children?: ReactNode;
 }) {
   const { go } = useOrganizer();
@@ -190,7 +199,7 @@ export function AgentRow({
           </span>
           {side && <span className="hidden shrink-0 text-xs text-[var(--muted-foreground)] lg:block">{side}</span>}
         </button>
-        <AgentAction entry={entry} />
+        {action ?? <AgentAction entry={entry} />}
         {withMenu && <MenuButton entry={entry} />}
       </div>
       {children}

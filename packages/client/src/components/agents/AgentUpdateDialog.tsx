@@ -53,7 +53,7 @@ export function AgentUpdateDialog({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const catalog = useCapabilityCatalog();
-  const [expanded, setExpanded] = useState<string | null>(updates.length === 1 ? (updates[0]?.id ?? null) : null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const entryById = new Map((catalog.data?.packages ?? []).map((entry) => [entry.manifest.id, entry]));
   const anyHighlighted = updates.some((update) => update.releaseHighlight);
   const running = phase === "running";
@@ -150,42 +150,16 @@ export function AgentUpdateDialog({
                       onChange={() => onToggle(update.id)}
                       className="mt-1 h-5 w-5 shrink-0 accent-[var(--primary)]"
                     />
-                  ) : result?.status === "running" ? (
-                    <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-                      <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />
-                      {localizeUi("ui.agents.agentupdatedialog.updating")}
-                    </span>
-                  ) : result?.status === "updated" ? (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500">
-                      <Check size="0.85rem" aria-hidden="true" />
-                      {localizeUi("ui.agents.agentupdatedialog.updated")}
-                    </span>
-                  ) : result?.status === "failed" ? (
-                    <span className="text-xs font-semibold text-red-500">
-                      {localizeUi("ui.agents.agentupdatedialog.failed")}
-                    </span>
                   ) : skipped ? (
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {localizeUi("ui.agents.agentupdatedialog.skipped")}
                     </span>
                   ) : (
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      {localizeUi("ui.agents.agentupdatedialog.waiting")}
-                    </span>
+                    <AgentUpdateStatus result={result} />
                   )}
                 </div>
                 {result?.status === "failed" && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
-                    <p className="min-w-0 flex-1 text-xs text-red-500">{result.error}</p>
-                    <button
-                      type="button"
-                      disabled={running}
-                      onClick={() => onRetry(update.id)}
-                      className="mari-chrome-control h-7 shrink-0 px-2.5 text-xs font-semibold"
-                    >
-                      {localizeUi("ui.agents.agentupdatedialog.retry")}
-                    </button>
-                  </div>
+                  <AgentUpdateFailure error={result.error} disabled={running} onRetry={() => onRetry(update.id)} />
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-[46px] [&>button]:whitespace-nowrap">
                   {notes.length > 0 ? (
@@ -276,5 +250,60 @@ export function AgentUpdateDialog({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** One update's state in a run; no result yet means it is still queued. */
+export function AgentUpdateStatus({ result }: { result: AgentUpdateResult | undefined }) {
+  const { t: localizeUi } = useUiTranslation();
+  if (result?.status === "running") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+        <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />
+        {localizeUi("ui.agents.agentupdatedialog.updating")}
+      </span>
+    );
+  }
+  if (result?.status === "updated") {
+    return (
+      <span className="flex items-center gap-1 text-xs font-semibold text-emerald-500">
+        <Check size="0.85rem" aria-hidden="true" />
+        {localizeUi("ui.agents.agentupdatedialog.updated")}
+      </span>
+    );
+  }
+  if (result?.status === "failed") {
+    return (
+      <span className="text-xs font-semibold text-red-500">{localizeUi("ui.agents.agentupdatedialog.failed")}</span>
+    );
+  }
+  return (
+    <span className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.agents.agentupdatedialog.waiting")}</span>
+  );
+}
+
+/** A failed update's error with a Retry button. */
+export function AgentUpdateFailure({
+  error,
+  disabled,
+  onRetry,
+}: {
+  error: string;
+  disabled: boolean;
+  onRetry: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  return (
+    <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
+      <p className="min-w-0 flex-1 text-xs text-red-500">{error}</p>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onRetry}
+        className="mari-chrome-control h-7 shrink-0 px-2.5 text-xs font-semibold"
+      >
+        {localizeUi("ui.agents.agentupdatedialog.retry")}
+      </button>
+    </div>
   );
 }

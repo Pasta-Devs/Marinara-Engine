@@ -288,7 +288,8 @@ export async function injectGameGmPromptRuntime(args: {
       participant.persona.description,
     ];
     appendGameCardDetails(parts, gameCardByName.get(normalizeTextForMatch(name)));
-    partyNames.push(name);
+    // Never among the ones the Game Master "also plays" (laptop room playtest 2026-10-30: told so, it
+    // gave a seated guest's Guest Hero lines of their own).
     partyIdNamePairs.push({ id: participant.id, name });
     partyCards.push({ name, card: parts.join("\n") });
   }

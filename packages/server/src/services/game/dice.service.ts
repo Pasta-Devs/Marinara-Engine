@@ -23,10 +23,12 @@ import {
   parsePoolSlotName,
   parseSkillCheckTagBody,
   readGmTagAttributes,
+  isDiceRollSymbols,
   rollParsedDice,
   serializeResolvedSkillCheckTag,
   serializeSparseSkillCheckTag,
   type DiceRollResult,
+  type RulesetResolutionDeclaration,
   type GameDicePoolConsumption,
   type GameDicePoolSlotName,
   type ParsedDiceNotation,
@@ -36,6 +38,8 @@ import {
 import { logger } from "../../lib/logger.js";
 import { logPoolDcFit, pooledSizeForNotation, type GameDicePoolSession } from "./dice-pool.service.js";
 import { SKILL_CHECK_MAX_DC, SKILL_CHECK_MIN_DC } from "./skill-check-resolution.service.js";
+import { loadRulesetRegistry, resolveGameRuleset } from "./ruleset-registry.service.js";
+import type { DB } from "../../db/connection.js";
 
 export { isDiceNotation, isDicePoolNotation } from "@marinara-engine/shared";
 
@@ -65,6 +69,22 @@ export function rollDice(notation: string): DiceRollResult {
   }
 
   return rollParsedDice(clampParsedDiceToLimits(parsed));
+}
+
+/**
+ * The resolution of a game's pinned ruleset when it throws symbol dice, so a roll that names those
+ * dice (`2 ability 1 difficulty`) can be read. Null for a game without one, or whose ruleset is
+ * missing or of another kind.
+ */
+export async function symbolDiceResolution(
+  metadata: Record<string, unknown> | null | undefined,
+  db?: DB,
+): Promise<RulesetResolutionDeclaration | null> {
+  if (!metadata || metadata.gameRuleset == null) return null;
+  const pinned = resolveGameRuleset(metadata, await loadRulesetRegistry(db));
+  return pinned.status === "ok" && pinned.definition.resolution.kind === "symbol-pool"
+    ? pinned.definition.resolution
+    : null;
 }
 
 /**
@@ -98,6 +118,15 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
   // A fresh tool result names its roller in `reason`; a saved roll read back (a continued turn) in `label`.
   const named = typeof payload.label === "string" ? payload.label : payload.reason;
   const label = typeof named === "string" ? cleanRollLabel(named) : "";
+  // A roll of a ruleset's named symbol dice carries its symbols, all four fields or none.
+  const symbolFields = {
+    thrown: payload.thrown,
+    symbolFaces: payload.symbolFaces,
+    symbols: payload.symbols,
+    symbolLabels: payload.symbolLabels,
+  } as Pick<DiceRollResult, "thrown" | "symbolFaces" | "symbols" | "symbolLabels">;
+  if (!isDiceRollSymbols(symbolFields, rolls.length)) return null;
+  const success = payload.success;
 
   return {
     notation,
@@ -107,6 +136,8 @@ export function parseRollDiceToolResult(raw: string): DiceRollResult | null {
     ...(kept !== undefined ? { kept } : {}),
     ...(dc !== undefined ? { dc } : {}),
     ...(label ? { label } : {}),
+    ...(symbolFields.thrown ? symbolFields : {}),
+    ...(symbolFields.thrown && typeof success === "boolean" ? { success } : {}),
   };
 }
 

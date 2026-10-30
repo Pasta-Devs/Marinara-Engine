@@ -531,7 +531,7 @@ try {
     updatedAt: "",
   };
   const worker = browserWorkerSource(uiExtension);
-  assert.match(worker, /version:\s*5/u, "Worker must advertise context-capable API version 5");
+  assert.match(worker, /version:\s*6/u, "Worker must advertise dice-format-capable API version 6");
   assert.match(worker, /capabilities:\s*Object\.freeze/u, "Worker must expose its approved capabilities");
   assert.match(worker, /context:\s*Object\.freeze\(\{\s*get:/u);
   assert.match(worker, /"context-update"/u, "Worker must receive bounded context snapshots");

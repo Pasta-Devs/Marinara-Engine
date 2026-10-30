@@ -12,6 +12,7 @@ import {
   PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
   PERSONAL_EXTENSION_CONTRIBUTION_POSITIONS,
   PERSONAL_EXTENSION_CONTRIBUTION_SURFACES,
+  PERSONAL_EXTENSION_DICE_LIMITS,
   PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   PERSONAL_EXTENSION_UI_ELEMENT_KINDS,
   PERSONAL_EXTENSION_UI_LIMITS,
@@ -225,11 +226,13 @@ export function browserWorkerSource(extension: PersonalExtension) {
     elementKinds: PERSONAL_EXTENSION_UI_ELEMENT_KINDS,
     limits: PERSONAL_EXTENSION_UI_LIMITS,
   });
+  const diceLimits = JSON.stringify(PERSONAL_EXTENSION_DICE_LIMITS);
   return `
 (() => {
   "use strict";
   const extension = ${identity};
   const contributionContract = ${contributionContract};
+  const diceLimits = ${diceLimits};
   const send = self.postMessage.bind(self);
   const cleanupFns = [];
   let requestId = 0;
@@ -659,9 +662,120 @@ export function browserWorkerSource(extension: PersonalExtension) {
       },
     });
   };
+  // Dice formats: the extension reads its own notation and names the dice to throw. Marinara
+  // throws them with its own roller and hands the faces back to \`read\`, so an extension can say
+  // what a roll means but never what it rolled.
+  const diceFormats = new Map();
+  const diceRequests = new Map();
+  const MAX_DICE_REQUESTS = 16;
+  const diceErrorText = (error) => (error instanceof Error ? error.message : String(error)).slice(0, diceLimits.textLength);
+  const isDieSides = (value) =>
+    Number.isSafeInteger(value) && value >= diceLimits.minSides && value <= diceLimits.maxSides;
+  const registerDiceFormat = (options) => {
+    if (!options || typeof options !== "object") throw new Error("dice format options are required");
+    const id = contributionId(options.id);
+    if (diceFormats.has(id)) throw new Error("dice format id is already registered");
+    if (diceFormats.size >= diceLimits.formatsPerExtension) throw new Error("too many dice formats");
+    if (typeof options.parse !== "function" || typeof options.read !== "function") {
+      throw new Error("dice formats need parse and read functions");
+    }
+    const descriptor = {
+      id,
+      label: contributionText(options.label, contributionContract.limits.labelLength, true),
+      description: contributionText(options.description, contributionContract.limits.descriptionLength, false),
+    };
+    diceFormats.set(id, { parse: options.parse, read: options.read });
+    send({ type: "dice-format-register", format: descriptor });
+    return Object.freeze({
+      id,
+      remove: () => {
+        if (!diceFormats.delete(id)) return;
+        send({ type: "dice-format-remove", formatId: id });
+      },
+    });
+  };
+  const parseDiceRequest = (message) => {
+    const format = diceFormats.get(message.formatId);
+    const reply = (result) => send({ type: "dice-parse-result", requestId: message.requestId, ...result });
+    if (!format || typeof message.notation !== "string" || message.notation.length > diceLimits.notationLength) {
+      reply({ ok: false, error: "unknown dice format" });
+      return;
+    }
+    const notation = message.notation;
+    Promise.resolve()
+      .then(() => format.parse(notation))
+      .then((plan) => {
+        if (plan == null) {
+          reply({ ok: true, dice: null });
+          return;
+        }
+        const dice = Array.isArray(plan.dice) ? [...plan.dice] : null;
+        if (!dice || dice.length < 1 || dice.length > diceLimits.dice || !dice.every(isDieSides)) {
+          throw new Error(
+            "parse must return null or { dice: [sides, ...] } with 1-" + diceLimits.dice + " dice of " +
+              diceLimits.minSides + "-" + diceLimits.maxSides + " sides",
+          );
+        }
+        if (diceRequests.size >= MAX_DICE_REQUESTS) diceRequests.delete(diceRequests.keys().next().value);
+        diceRequests.set(message.requestId, { format, notation, dice, plan });
+        reply({ ok: true, dice });
+      })
+      .catch((error) => {
+        log("error", ["Dice format " + message.formatId + " could not read " + JSON.stringify(notation), diceErrorText(error)]);
+        reply({ ok: false, error: diceErrorText(error) });
+      });
+  };
+  const readDiceRequest = (message) => {
+    const request = diceRequests.get(message.requestId);
+    diceRequests.delete(message.requestId);
+    const reply = (result) => send({ type: "dice-read-result", requestId: message.requestId, ...result });
+    const rolls = Array.isArray(message.rolls) ? [...message.rolls] : null;
+    if (
+      !request ||
+      !rolls ||
+      rolls.length !== request.dice.length ||
+      !rolls.every((face, index) => Number.isSafeInteger(face) && face >= 1 && face <= request.dice[index])
+    ) {
+      reply({ ok: false, error: "unknown dice roll" });
+      return;
+    }
+    Promise.resolve()
+      .then(() =>
+        request.format.read(
+          Object.freeze({
+            notation: request.notation,
+            dice: Object.freeze(request.dice),
+            rolls: Object.freeze(rolls),
+            plan: request.plan,
+          }),
+        ),
+      )
+      .then((result) => {
+        if (!result || typeof result !== "object" || typeof result.total !== "number" || !Number.isFinite(result.total)) {
+          throw new Error("read must return { total: number, text?, kept? }");
+        }
+        if (result.text != null && (typeof result.text !== "string" || result.text.length > diceLimits.textLength)) {
+          throw new Error("read text must be a string of at most " + diceLimits.textLength + " characters");
+        }
+        const kept = result.kept == null ? undefined : Array.isArray(result.kept) ? [...result.kept] : null;
+        if (
+          kept === null ||
+          (kept &&
+            (kept.length > rolls.length ||
+              !kept.every((place, index) => Number.isSafeInteger(place) && place >= 0 && place < rolls.length && (index === 0 || place > kept[index - 1]))))
+        ) {
+          throw new Error("read kept must list places of thrown dice in ascending order");
+        }
+        reply({ ok: true, total: result.total, text: result.text ?? undefined, kept });
+      })
+      .catch((error) => {
+        log("error", ["Dice format could not read the roll for " + JSON.stringify(request.notation), diceErrorText(error)]);
+        reply({ ok: false, error: diceErrorText(error) });
+      });
+  };
   const marinara = Object.freeze({
     runtime: "client",
-    version: 5,
+    version: 6,
     estimateTextTokens: ${getSerializedTextTokenEstimator()},
     extensionId: extension.id,
     extensionName: extension.name,
@@ -690,6 +804,9 @@ export function browserWorkerSource(extension: PersonalExtension) {
     ui: Object.freeze({
       showWindow,
       registerContribution,
+    }),
+    dice: Object.freeze({
+      registerFormat: registerDiceFormat,
     }),
     setTimeout: managedTimeout,
     setInterval: managedInterval,
@@ -761,7 +878,16 @@ export function browserWorkerSource(extension: PersonalExtension) {
           .catch((error) => log("error", [error instanceof Error ? error.message : String(error)]));
       }
     }
+    if (message?.type === "dice-parse" && typeof message.requestId === "string") {
+      parseDiceRequest(message);
+    }
+    if (message?.type === "dice-read" && typeof message.requestId === "string") {
+      readDiceRequest(message);
+    }
     if (message?.type === "stop") {
+      for (const id of diceFormats.keys()) send({ type: "dice-format-remove", formatId: id });
+      diceFormats.clear();
+      diceRequests.clear();
       for (const id of uiContributions.keys()) {
         send({ type: "ui-contribution-remove", contributionId: id });
       }
@@ -1085,6 +1211,15 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
       });
       return;
     }
+    if (
+      message?.type === "dice-format-register" ||
+      message?.type === "dice-format-remove" ||
+      message?.type === "dice-parse-result" ||
+      message?.type === "dice-read-result"
+    ) {
+      post({ ...message, contentHash: extension.contentHash });
+      return;
+    }
     if (message?.type === "storage" || message?.type === "log" || message?.type === "ready" || message?.type === "error") {
       post(message);
     }
@@ -1120,6 +1255,9 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
       worker.postMessage({ type: "context-update", context: message.context });
     }
     if (message.type === "ui-contribution-activate" || message.type === "ui-contribution-event") {
+      worker.postMessage(message);
+    }
+    if ((message.type === "dice-parse" || message.type === "dice-read") && message.contentHash === extension.contentHash) {
       worker.postMessage(message);
     }
     if (message.type === "ui-theme" && message.theme && typeof message.theme === "object") {
