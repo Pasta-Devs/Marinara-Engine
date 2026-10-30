@@ -259,6 +259,35 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
     const looseArea = library.locator("[data-sprite-loose]");
     const looseRestingColor = await looseArea.evaluate((element) => getComputedStyle(element).backgroundColor);
+    const looseHint = looseArea.locator("[data-sprite-loose-hint]");
+    const hintAppearance = () =>
+      looseHint.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        const root = element.parentElement!.getBoundingClientRect();
+        return {
+          text: element.textContent?.trim(),
+          font: style.font,
+          color: style.color,
+          align: style.textAlign,
+          padding: style.padding,
+          x: box.x - root.x,
+          y: box.y - root.y,
+          width: box.width,
+          height: box.height,
+        };
+      });
+    await page.evaluate(() => document.fonts.ready);
+    const restingHintAppearance = await hintAppearance();
+    const expectAlignedGrids = async () => {
+      const looseTile = looseArea.locator("[data-sprite-expression]").first();
+      await expect(looseTile).toBeVisible();
+      const filed = (await frontSection.locator("[data-sprite-expression]").first().boundingBox())!;
+      const loose = (await looseTile.boundingBox())!;
+      expect(Math.abs(filed.x - loose.x)).toBeLessThan(0.5);
+      expect(Math.abs(filed.width - loose.width)).toBeLessThan(0.5);
+      await page.screenshot({ path: info.outputPath("folder-loose-alignment.png"), animations: "disabled" });
+    };
 
     // A picture opens neutral details, and moving that picture does not change the chat default.
     if (info.project.name === "phone") {
@@ -331,7 +360,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         touchPoints: [{ x, y: box!.y + box!.height / 2 }],
       });
       await expect(frontSection.locator('[data-drag-source="true"]')).toHaveCount(1);
-      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toBeVisible();
+      await expect(library.getByText("Drop sprites here to move them out of a folder.", { exact: true })).toBeVisible();
+      expect(await hintAppearance()).toEqual(restingHintAppearance);
       const loose = library.locator("[data-sprite-loose]");
       await expect(loose).toHaveCSS("border-top-style", "dashed");
       await expect
@@ -355,6 +385,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
               .folderId,
         )
         .toBeNull();
+      await expectAlignedGrids();
       await frontSection.getByRole("button", { name: "Front", exact: true }).click();
       await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
         "aria-expanded",
@@ -375,8 +406,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         touchPoints: [{ x: looseBox.x + looseBox.width / 2, y: looseBox.y + looseBox.height / 2 }],
       });
       await expect(looseTile).toHaveAttribute("data-drag-source", "true");
-      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toHaveCount(0);
-      await expect(loose).toHaveCSS("outline-style", "dashed");
+      await expect(library.getByText("Drop sprites here to move them out of a folder.", { exact: true })).toHaveCount(
+        0,
+      );
+      await expect(loose).toHaveCSS("border-top-style", "dashed");
       await expect
         .poll(() => loose.evaluate((element) => getComputedStyle(element).backgroundColor))
         .not.toBe(looseRestingColor);
@@ -469,7 +502,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         expect(await preview.evaluate((element) => getComputedStyle(element).opacity)).toBe("1");
         await expect(preview.locator("[data-sprite-card]")).toBeVisible();
         await expect(looseArea).toHaveCSS("border-top-style", "dashed");
-        await expect(library.getByText("Drop here to move out of folder", { exact: true })).toBeVisible();
+        await expect(
+          library.getByText("Drop sprites here to move them out of a folder.", { exact: true }),
+        ).toBeVisible();
+        expect(await hintAppearance()).toEqual(restingHintAppearance);
         await expect
           .poll(() => looseArea.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe(looseRestingColor);
@@ -516,6 +552,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           .getByRole("button", { name: "Preview idle", exact: true })
           .locator("xpath=ancestor::*[@draggable][1]"),
       ).toHaveAttribute("draggable", "true");
+      await expectAlignedGrids();
       const looseTile = looseArea.locator('[data-sprite-expression="full_idle"]');
       await looseTile.scrollIntoViewIfNeeded();
       await page.waitForTimeout(500);
@@ -527,11 +564,13 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         steps: 5,
       });
       await expect(page.locator("[data-sprite-drag-preview]")).toBeVisible();
-      await expect(looseArea).toHaveCSS("outline-style", "dashed");
+      await expect(looseArea).toHaveCSS("border-top-style", "dashed");
       await expect
         .poll(() => looseArea.evaluate((element) => getComputedStyle(element).backgroundColor))
         .not.toBe(looseRestingColor);
-      await expect(library.getByText("Drop here to move out of folder", { exact: true })).toHaveCount(0);
+      await expect(library.getByText("Drop sprites here to move them out of a folder.", { exact: true })).toHaveCount(
+        0,
+      );
       expect((await looseArea.boundingBox())!.height).toBeCloseTo(looseBefore.height, 1);
       await page.screenshot({ path: info.outputPath("loose-area-highlight-desktop.png"), animations: "disabled" });
       await page.keyboard.press("Escape");

@@ -475,23 +475,24 @@ export function SpriteFolderGrid({
         data-sprite-folder-root
         aria-label={t("sprites.library.loose")}
         className={cn(
-          "min-h-12 rounded-xl transition-colors",
-          spriteDragging && "bg-[var(--marinara-chat-chrome-highlight-bg)]",
+          "min-h-12 rounded-xl border border-transparent transition-colors",
           spriteDragging &&
-            !showMoveOutTarget &&
-            "outline outline-1 -outline-offset-1 outline-dashed outline-[var(--marinara-chat-chrome-button-border-active)]",
-          showMoveOutTarget &&
-            "min-h-16 border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-1",
+            "border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)]",
         )}
       >
-        {showMoveOutTarget && (
-          <div className="pointer-events-none px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]">
-            {t("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
-          </div>
+        {(showMoveOutTarget ||
+          (!spriteDragging && library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId))) && (
+          <p
+            data-sprite-loose-hint
+            className="pointer-events-none p-3 text-center text-xs text-[var(--muted-foreground)]"
+          >
+            {t("sprites.library.dropLoose")}
+          </p>
         )}
-        {grid(library.visible.filter((sprite) => !sprite.folderId))}
-        {!spriteDragging && library.folders.length > 0 && !library.visible.some((sprite) => !sprite.folderId) && (
-          <p className="p-3 text-center text-xs text-[var(--muted-foreground)]">{t("sprites.library.dropLoose")}</p>
+        {library.visible.some((sprite) => !sprite.folderId) && (
+          <div className={cn("p-3", showMoveOutTarget && "pt-0")}>
+            {grid(library.visible.filter((sprite) => !sprite.folderId))}
+          </div>
         )}
       </div>
     </div>
@@ -551,7 +552,7 @@ function SpriteInlineFolder({
       <div
         className={cn(
           "group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-has-[[data-sprite-folder][data-drag-source=true]]/sprite-library:hover:bg-[var(--sidebar)] group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9",
-          expanded && "max-md:rounded-b-none",
+          expanded && "rounded-b-none",
         )}
       >
         <div
@@ -626,10 +627,10 @@ function SpriteInlineFolder({
       <SmoothFolderContent
         open={expanded}
         className={cn(
-          "pl-3 max-md:rounded-b-lg max-md:bg-[var(--marinara-chat-chrome-highlight-bg)]",
-          expanded && "max-md:border max-md:border-t-0 max-md:border-[var(--marinara-editor-border)]",
+          "rounded-b-lg bg-[var(--marinara-chat-chrome-highlight-bg)]",
+          expanded && "border border-t-0 border-[var(--marinara-editor-border)]",
         )}
-        innerClassName="pt-3 max-md:pr-3 max-md:pb-3"
+        innerClassName="p-3"
       >
         <div id={contentId}>
           {children}
