@@ -58,112 +58,191 @@ export function findMariField(root: ParentNode, path: string): HTMLElement | nul
   return null;
 }
 
-// `character.update` patch keys the server accepts (normalizeCharacterActionData) that are not plain card keys.
-const CHARACTER_PATCH_ALIASES: Record<string, string> = {
-  first_message: "first_mes",
-  greeting: "first_mes",
-  backstory: "extensions.backstory",
-  appearance: "extensions.appearance",
+// Prof. Mari's editors, one entry per record kind. A kind lists the app_data action that edits it,
+// the change-card table, the id argument, its editor's `data-mari-field` ids, the patch keys the
+// server accepts under another name (snake_case key -> field id), and the text fields in-field
+// review shows, in editor order. Lorebook and preset join with one entry each.
+const MARI_EDITOR_KINDS = {
+  character: {
+    action: "character.update",
+    table: "characters",
+    idArg: "characterId",
+    // The wrappers the server reads a patch from, besides the top level (normalizeCharacterActionData).
+    wrappers: ["character", "card", "data", "patch"],
+    fieldIds: new Set([
+      "name",
+      "summary",
+      "description",
+      "personality",
+      "scenario",
+      "first_mes",
+      "mes_example",
+      "creator_notes",
+      "system_prompt",
+      "post_history_instructions",
+      "character_version",
+      "alternate_greetings",
+      "tags",
+      "creator",
+      "extensions.backstory",
+      "extensions.appearance",
+      "extensions.depth_prompt",
+      "extensions.onboarding",
+    ]),
+    // `character.update` keys that are not plain card keys (normalizeCharacterActionData).
+    aliases: {
+      first_message: "first_mes",
+      greeting: "first_mes",
+      backstory: "extensions.backstory",
+      appearance: "extensions.appearance",
+    } as Record<string, string>,
+    reviewOrder: [
+      "creator_notes",
+      "summary",
+      "description",
+      "personality",
+      "extensions.backstory",
+      "extensions.appearance",
+      "scenario",
+      "first_mes",
+      "mes_example",
+      "system_prompt",
+      "post_history_instructions",
+    ],
+  },
+  persona: {
+    action: "persona.update",
+    table: "personas",
+    idArg: "personaId",
+    wrappers: ["persona", "data", "patch"],
+    fieldIds: new Set([
+      "name",
+      "comment",
+      "phoneticName",
+      "creator",
+      "tags",
+      "creatorNotes",
+      "summary",
+      "description",
+      "personality",
+      "backstory",
+      "appearance",
+      "imageAppearance",
+      "scenario",
+      "mes_example",
+    ]),
+    // `persona.update` columns are camelCase; a snake_case key names the same column.
+    aliases: {
+      phonetic_name: "phoneticName",
+      creator_notes: "creatorNotes",
+      image_appearance: "imageAppearance",
+    } as Record<string, string>,
+    reviewOrder: [
+      "creatorNotes",
+      "summary",
+      "description",
+      "personality",
+      "backstory",
+      "appearance",
+      // ponytail: no in-field review for imageAppearance; its field is not rendered while its toggle
+      // is off, so a review there could never show. Her card still lists it; add it back with a
+      // toggle-aware review list if users ask.
+      "scenario",
+      "mes_example",
+    ],
+  },
 };
-// The Character editor's `data-mari-field` ids.
-const CHARACTER_FIELD_IDS = new Set([
-  "name",
-  "summary",
-  "description",
-  "personality",
-  "scenario",
-  "first_mes",
-  "mes_example",
-  "creator_notes",
-  "system_prompt",
-  "post_history_instructions",
-  "character_version",
-  "alternate_greetings",
-  "tags",
-  "creator",
-  "extensions.backstory",
-  "extensions.appearance",
-  "extensions.depth_prompt",
-  "extensions.onboarding",
-]);
 
-/** A change-card path whose field the Character editor anchors (itself or its parent field). */
-export function hasMariField(path: string): boolean {
-  const parts = editorFieldId(path).split(".");
-  return parts.some((_, end) => CHARACTER_FIELD_IDS.has(parts.slice(0, end + 1).join(".")));
+export type MariEditorKind = keyof typeof MARI_EDITOR_KINDS;
+
+export const isMariEditorKind = (kind: unknown): kind is MariEditorKind =>
+  typeof kind === "string" && Object.hasOwn(MARI_EDITOR_KINDS, kind);
+
+/** The editor kind an app_data action edits (`character.update` -> character), or null. */
+export function mariEditorKindForAction(action: unknown): MariEditorKind | null {
+  const name = appDataAction(action);
+  return (
+    (Object.keys(MARI_EDITOR_KINDS) as MariEditorKind[]).find((kind) => MARI_EDITOR_KINDS[kind].action === name) ?? null
+  );
 }
 
-/** The server's app_data action aliases (normalizeAppDataActionName): `Characters_Update` -> `character.update`. */
+/** The editor kind of a change-card table (`personas` -> persona), or null. */
+export function mariEditorKindForTable(table: unknown): MariEditorKind | null {
+  return (
+    (Object.keys(MARI_EDITOR_KINDS) as MariEditorKind[]).find((kind) => MARI_EDITOR_KINDS[kind].table === table) ?? null
+  );
+}
+
+/** A change-card path whose field the kind's editor anchors (itself or its parent field). */
+export function hasMariField(path: string, kind: MariEditorKind = "character"): boolean {
+  const parts = editorFieldId(path).split(".");
+  return parts.some((_, end) => MARI_EDITOR_KINDS[kind].fieldIds.has(parts.slice(0, end + 1).join(".")));
+}
+
+/** The server's app_data action aliases (normalizeAppDataActionName): `Characters.Update` -> `character.update`. */
 export function appDataAction(action: unknown): string {
   if (typeof action !== "string") return "";
   return action
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/g, "")
-    .replace(/^characters\./, "character.");
+    .replace(/^(character|persona)s\./, "$1.");
 }
 
-/** A `character.update` patch key (`firstMes`, `backstory`) as its editor field id, or null for other keys. */
-export function characterPatchFieldId(key: string): string | null {
+/** An update patch key (`firstMes`, `backstory`) as its editor field id, or null for other keys. */
+export function mariPatchFieldId(kind: MariEditorKind, key: string): string | null {
+  const { aliases, fieldIds } = MARI_EDITOR_KINDS[kind];
+  if (fieldIds.has(key)) return key;
   const snake = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-  const id = CHARACTER_PATCH_ALIASES[snake] ?? snake;
-  return CHARACTER_FIELD_IDS.has(id) ? id : null;
+  const id = aliases[snake] ?? snake;
+  return fieldIds.has(id) ? id : null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-/** The character field a running `app_data` step writes, from its tool input. */
-export function mariWorkingFieldFromTool(name: string, input: unknown): { characterId: string; path: string } | null {
+/** The record an update app_data call edits, with the patch it sends; null for other calls. */
+function mariUpdateCall(name: unknown, input: unknown) {
   const args = asRecord(input);
-  if (!args || name !== "app_data" || appDataAction(args.action) !== "character.update") return null;
-  const characterId = args.characterId ?? args.id;
-  if (typeof characterId !== "string" || !characterId) return null;
-  for (const key of Object.keys(characterPatchValues(args))) {
-    const path = characterPatchFieldId(key);
-    if (path) return { characterId, path };
+  if (!args || name !== "app_data") return null;
+  const kind = mariEditorKindForAction(args.action);
+  if (!kind) return null;
+  // The server reads `id` first.
+  const entityId = args.id ?? args[MARI_EDITOR_KINDS[kind].idArg];
+  if (typeof entityId !== "string" || !entityId) return null;
+  return { kind, entityId, patch: patchValues(args, MARI_EDITOR_KINDS[kind].wrappers) };
+}
+
+/** The editor field a running `app_data` step writes, from its tool input. */
+export function mariWorkingFieldFromTool(name: string, input: unknown): { entityId: string; path: string } | null {
+  const call = mariUpdateCall(name, input);
+  if (!call) return null;
+  for (const key of Object.keys(call.patch)) {
+    const path = mariPatchFieldId(call.kind, key);
+    if (path) return { entityId: call.entityId, path };
   }
   return null;
 }
 
-/** The patch a `character.update` sends. The server reads fields top-level or inside one of
- * these wrappers; an `extensions` object counts as `extensions.<key>` fields. */
-function characterPatchValues(args: Record<string, unknown>): Record<string, unknown> {
-  const fields: Record<string, unknown> = {
-    ...args,
-    ...asRecord(args.character),
-    ...asRecord(args.card),
-    ...asRecord(args.data),
-    ...asRecord(args.patch),
-  };
+/** The patch an update sends. The server reads fields top-level or inside the kind's
+ * wrappers; an `extensions` object counts as `extensions.<key>` fields. */
+function patchValues(args: Record<string, unknown>, wrappers: readonly string[]): Record<string, unknown> {
+  const fields: Record<string, unknown> = { ...args };
+  for (const wrapper of wrappers) Object.assign(fields, asRecord(args[wrapper]));
   for (const [key, value] of Object.entries(asRecord(fields.extensions) ?? {})) fields[`extensions.${key}`] = value;
   return fields;
 }
 
-/** Text fields the in-field review shows, in editor order (Metadata, Card, Dialogue, Advanced). */
-export const MARI_REVIEW_FIELD_ORDER = [
-  "creator_notes",
-  "summary",
-  "description",
-  "personality",
-  "extensions.backstory",
-  "extensions.appearance",
-  "scenario",
-  "first_mes",
-  "mes_example",
-  "system_prompt",
-  "post_history_instructions",
-] as const;
-
-const reviewRank = (fieldId: string) => (MARI_REVIEW_FIELD_ORDER as readonly string[]).indexOf(fieldId);
+const reviewRank = (kind: MariEditorKind, fieldId: string) =>
+  (MARI_EDITOR_KINDS[kind].reviewOrder as readonly string[]).indexOf(fieldId);
 
 export interface MariReviewField {
-  characterId: string;
+  entityId: string;
   fieldId: string;
 }
 
-/** Her change to a character as the editor shows it in the fields: waiting for Keep, or kept
+/** Her change to a record as its editor shows it in the fields: waiting for Keep, or kept
  * with Undo. Her open chat publishes it and owns the replies. */
 export type MariFieldReview =
   /** She is working on a reply. */
@@ -172,7 +251,7 @@ export type MariFieldReview =
       mode: "waiting";
       /** The held message id. */
       key: string;
-      /** Text fields she proposes, full values, in editor order. */
+      /** Text fields she proposes, full values, editor order. */
       fields: Array<MariReviewField & { value: string }>;
       /** Fields the whole change sets, for "Keep all N". */
       total: number;
@@ -194,30 +273,29 @@ export type MariFieldReview =
 
 /** The text fields a held turn's raw calls (`mariHeldCalls`) would write, full values, editor
  * order. The card's `mariHeldChanges` cut values to 400 characters, so the diff reads these. */
-export function heldCharacterFields(heldCalls: unknown): Array<MariReviewField & { value: string }> {
+export function heldEditorFields(heldCalls: unknown): Array<MariReviewField & { value: string }> {
   if (!Array.isArray(heldCalls)) return [];
-  const fields: Array<MariReviewField & { value: string }> = [];
+  const fields: Array<MariReviewField & { value: string; rank: number }> = [];
   for (const raw of heldCalls) {
     const call = asRecord(raw);
-    const args = asRecord(call?.arguments);
-    if (call?.name !== "app_data" || !args || appDataAction(args.action) !== "character.update") continue;
-    const characterId = args.characterId ?? args.id;
-    if (typeof characterId !== "string" || !characterId) continue;
-    for (const [key, value] of Object.entries(characterPatchValues(args))) {
-      const fieldId = characterPatchFieldId(key);
-      if (!fieldId || typeof value !== "string" || reviewRank(fieldId) < 0) continue;
-      const known = fields.findIndex((field) => field.characterId === characterId && field.fieldId === fieldId);
+    const update = mariUpdateCall(call?.name, call?.arguments);
+    if (!update) continue;
+    for (const [key, value] of Object.entries(update.patch)) {
+      const fieldId = mariPatchFieldId(update.kind, key);
+      const rank = fieldId ? reviewRank(update.kind, fieldId) : -1;
+      if (!fieldId || typeof value !== "string" || rank < 0) continue;
+      const known = fields.findIndex((field) => field.entityId === update.entityId && field.fieldId === fieldId);
       // A later call to the same field wins, as it would when the calls run in order.
       if (known >= 0) fields.splice(known, 1);
-      fields.push({ characterId, fieldId, value });
+      fields.push({ entityId: update.entityId, fieldId, value, rank });
     }
   }
-  return fields.sort((a, b) => reviewRank(a.fieldId) - reviewRank(b.fieldId));
+  return fields.sort((a, b) => a.rank - b.rank).map(({ rank: _rank, ...field }) => field);
 }
 
-/** The text fields of an applied character change that can still be undone (a review of it is
+/** The text fields of an applied change that can still be undone (a review of it is
  * still pending), from her turn's action results. */
-export function keptCharacterFields(
+export function keptEditorFields(
   results: ReadonlyArray<{
     resource: { kind: string; id: string };
     status: string;
@@ -229,37 +307,43 @@ export function keptCharacterFields(
   pendingIds: ReadonlySet<string>,
 ): { reviewIds: string[]; fields: MariReviewField[]; undoUntil: string | null } {
   const reviewIds: string[] = [];
-  const fields: MariReviewField[] = [];
+  const fields: Array<MariReviewField & { rank: number }> = [];
   const deadlines: string[] = [];
   for (const result of results) {
     const ids = (result.reviewIds?.length ? result.reviewIds : result.reviewId ? [result.reviewId] : []).filter((id) =>
       pendingIds.has(id),
     );
-    if (result.resource.kind !== "character" || result.status !== "updated" || ids.length === 0) continue;
+    const kind = result.resource.kind;
+    if (!isMariEditorKind(kind) || result.status !== "updated" || ids.length === 0) continue;
     reviewIds.push(...ids);
     if (result.undoUntil) deadlines.push(result.undoUntil);
     for (const changed of result.changedFields) {
       const fieldId = editorFieldId(changed);
-      if (reviewRank(fieldId) < 0 || fields.some((field) => field.fieldId === fieldId)) continue;
-      fields.push({ characterId: result.resource.id, fieldId });
+      const rank = reviewRank(kind, fieldId);
+      if (rank < 0 || fields.some((field) => field.fieldId === fieldId)) continue;
+      fields.push({ entityId: result.resource.id, fieldId, rank });
     }
   }
-  fields.sort((a, b) => reviewRank(a.fieldId) - reviewRank(b.fieldId));
-  return { reviewIds, fields, undoUntil: deadlines.sort()[0] ?? null };
+  fields.sort((a, b) => a.rank - b.rank);
+  return {
+    reviewIds,
+    fields: fields.map(({ rank: _rank, ...field }) => field),
+    undoUntil: deadlines.sort()[0] ?? null,
+  };
 }
 
-/** A field's value in a character card (`description`, `extensions.backstory`), as text. */
-export function characterFieldValue(data: unknown, fieldId: string): string {
+/** A field's value in an editor form (`description`, `extensions.backstory`), as text. */
+export function formFieldValue(data: unknown, fieldId: string): string {
   let value: unknown = data;
   for (const part of fieldId.split(".")) value = asRecord(value)?.[part];
   return typeof value === "string" ? value : "";
 }
 
-export function withCharacterFieldValue<T>(data: T, fieldId: string, value: unknown): T {
+export function withFormFieldValue<T>(data: T, fieldId: string, value: unknown): T {
   const [head, ...rest] = fieldId.split(".");
   const record = asRecord(data) ?? {};
   return {
     ...record,
-    [head!]: rest.length ? withCharacterFieldValue(record[head!], rest.join("."), value) : value,
+    [head!]: rest.length ? withFormFieldValue(record[head!], rest.join("."), value) : value,
   } as T;
 }

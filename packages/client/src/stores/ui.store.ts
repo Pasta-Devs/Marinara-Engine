@@ -806,9 +806,9 @@ interface UIState {
   mariFieldDraft: { fieldId: string; value: string; selection?: string } | null;
   /** Prof. Mari asks the open editor to show this field: scroll to it and pulse it once. Transient. */
   /** `scroll: false` pulses the field in place (companion hover). */
-  mariRevealField: { characterId: string; path: string; scroll?: boolean } | null;
+  mariRevealField: { entityId: string; path: string; scroll?: boolean } | null;
   /** The editor field a running Prof. Mari step is writing, for its working glow. Transient. */
-  mariWorkingField: { characterId: string; path: string } | null;
+  mariWorkingField: { entityId: string; path: string } | null;
   /** Her change to a character as the editor shows it in the fields: waiting for Keep, or kept
    * with Undo. Published by her open chat, which owns the replies. Transient. */
   mariFieldReview: MariFieldReview | null;
@@ -1273,9 +1273,9 @@ interface UIState {
   setSettingsTab: (tab: string) => void;
   setActiveEditorField: (field: { id: string; label: string } | null) => void;
   setMariFieldDraft: (draft: UIState["mariFieldDraft"]) => void;
-  revealMariField: (characterId: string, path: string, options?: { scroll?: boolean }) => void;
+  revealMariField: (entityId: string, path: string, options?: { scroll?: boolean }) => void;
   clearMariRevealField: () => void;
-  setMariWorkingField: (field: { characterId: string; path: string } | null) => void;
+  setMariWorkingField: (field: { entityId: string; path: string } | null) => void;
   setMariFieldReview: (review: MariFieldReview | null) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
   setSettingsTargetControlId: (controlId: string | null) => void;
@@ -2536,7 +2536,7 @@ export const useUIStore = create<UIState>()(
         setSettingsTab: (tab) => set({ settingsTab: tab }),
         setActiveEditorField: (field) => set({ activeEditorField: field }),
         setMariFieldDraft: (draft) => set({ mariFieldDraft: draft }),
-        revealMariField: (characterId, path, options) => set({ mariRevealField: { characterId, path, ...options } }),
+        revealMariField: (entityId, path, options) => set({ mariRevealField: { entityId, path, ...options } }),
         clearMariRevealField: () => set({ mariRevealField: null }),
         setMariWorkingField: (field) => set({ mariWorkingField: field }),
         setMariFieldReview: (review) => set({ mariFieldReview: review }),
@@ -2627,7 +2627,7 @@ export const useUIStore = create<UIState>()(
               characterDetailId: id,
               characterDetailInitialTab: options?.initialTab ?? null,
               // In the same patch as the navigation, so a refused editor leave drops it too.
-              mariRevealField: options?.revealField ? { characterId: id, path: options.revealField } : null,
+              mariRevealField: options?.revealField ? { entityId: id, path: options.revealField } : null,
               lorebookDetailId: null,
               presetDetailId: null,
               connectionDetailId: null,

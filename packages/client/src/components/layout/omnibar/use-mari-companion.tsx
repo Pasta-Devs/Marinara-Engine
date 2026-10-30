@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useMatchMedia } from "../../../hooks/use-match-media";
+import { isMariEditorOpen } from "../../../hooks/use-mari-editor-fields";
 import {
   MARI_COMPANION_WIDTH_MAX_REM,
   MARI_COMPANION_WIDTH_MIN_REM,
@@ -33,9 +34,9 @@ let peekSheet: (() => void) | null = null;
 export function revealWaitingField(): boolean {
   const ui = useUIStore.getState();
   const field = ui.mariFieldReview?.mode === "waiting" ? ui.mariFieldReview.fields[0] : undefined;
-  if (!peekSheet || !field || ui.characterDetailId !== field.characterId) return false;
+  if (!peekSheet || !field || !isMariEditorOpen(field.entityId)) return false;
   peekSheet();
-  ui.revealMariField(field.characterId, field.fieldId);
+  ui.revealMariField(field.entityId, field.fieldId);
   return true;
 }
 
