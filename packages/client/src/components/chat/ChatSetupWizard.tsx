@@ -130,6 +130,7 @@ import { AdvancedMemorySettings } from "./AdvancedMemorySettings";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
+import { ChatProfileBuilder } from "./ChatProfileBuilder";
 
 // ─── Step definitions ─────────────────────────
 
@@ -298,6 +299,7 @@ const WIZARD_PANEL_CLASS = cn(
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
+const NEW_PROFILE_OPTION = "__new-profile__";
 const WIZARD_INPUT_CLASS =
   "w-full min-w-0 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
 const WIZARD_NUMBER_INPUT_CLASS =
@@ -2250,6 +2252,7 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  const [profileBuilder, setProfileBuilder] = useState<"edit" | "new" | null>(null);
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -2282,6 +2285,7 @@ function RoleplaySetupWizard({
   const activeChatMode = ((chat as unknown as { mode?: ChatMode }).mode ?? "roleplay") as ChatMode;
   const { data: chatPresetsData } = useChatPresets(chatPresetMode);
   const chatPresetList = useMemo(() => (chatPresetsData ?? []) as ChatPreset[], [chatPresetsData]);
+  const shortcutPreset = chatPresetList.find((preset) => preset.id === shortcutPresetId) ?? null;
   const applyChatPreset = useApplyChatPreset();
 
   const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
@@ -3894,21 +3898,47 @@ function RoleplaySetupWizard({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("chat.settingsProfile.label")}</label>
-        <select
-          value={shortcutPresetId}
-          onChange={(event) => setShortcutPresetId(event.target.value)}
-          aria-label={localizeUi("chat.settingsProfile.label")}
-          className={WIZARD_INPUT_CLASS}
-        >
-          {chatPresetList.length === 0 && (
-            <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+        <div className="flex items-center gap-2">
+          <select
+            value={shortcutPresetId}
+            onChange={(event) => {
+              if (event.target.value === NEW_PROFILE_OPTION) setProfileBuilder("new");
+              else setShortcutPresetId(event.target.value);
+            }}
+            aria-label={localizeUi("chat.settingsProfile.label")}
+            className={WIZARD_INPUT_CLASS}
+          >
+            {chatPresetList.length === 0 && (
+              <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+            )}
+            {chatPresetList.length > 0 && (
+              <option value={NEW_PROFILE_OPTION}>{localizeUi("chat.settingsProfile.builder.newOption")}</option>
+            )}
+            {chatPresetList.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
+              </option>
+            ))}
+          </select>
+          {shortcutPreset && !shortcutPreset.isDefault && (
+            <button
+              type="button"
+              onClick={() => setProfileBuilder("edit")}
+              title={localizeUi("chat.settingsProfile.builder.editHint")}
+              className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              {localizeUi("chat.settingsProfile.builder.edit")}
+            </button>
           )}
-          {chatPresetList.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
-            </option>
-          ))}
-        </select>
+        </div>
+        <ChatProfileBuilder
+          open={profileBuilder !== null}
+          onClose={() => setProfileBuilder(null)}
+          mode={chatPresetMode}
+          profile={profileBuilder === "edit" ? shortcutPreset : null}
+          saveOnly
+          onSaved={(saved) => setShortcutPresetId(saved.id)}
+        />
       </div>
 
       <div className="space-y-1.5">

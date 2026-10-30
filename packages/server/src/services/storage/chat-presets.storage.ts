@@ -209,8 +209,7 @@ function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): C
 }
 
 export function createChatPresetsStorage(db: DB) {
-  const personaExists = async (id: string) =>
-    (await db.select().from(personas).where(eq(personas.id, id))).length > 0;
+  const personaExists = async (id: string) => (await db.select().from(personas).where(eq(personas.id, id))).length > 0;
   const storage = {
     async list() {
       const rows = (await db
