@@ -245,7 +245,12 @@ export function AgentCatalogView() {
     if (page.kind !== "updates" || query) go({ kind: "updates" });
     setUpdateRun((current) =>
       retry && current
-        ? { ...current, running: true }
+        ? {
+            ...current,
+            // A retry installs the live catalog entry, so the row shows that version too.
+            rows: current.rows.map((row) => rows.find((next) => next.manifest.id === row.manifest.id) ?? row),
+            running: true,
+          }
         : {
             rows,
             from: Object.fromEntries(
