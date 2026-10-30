@@ -4101,20 +4101,12 @@ export class ProfessorMariWorkspaceService {
       // The Accept button sends the chip prompt verbatim: apply the stored held calls here, no model request.
       // More calls than the card showed go to the model as before: the user never saw them all.
       const declinedFields = args.context?.declinedFields ?? [];
-      if (
-        declinedFields.length > 0 &&
-        manualApprovalArmed &&
-        heldMessageId !== null &&
-        heldCalls.length > MAX_HELD_CHANGES_SHOWN &&
-        promptText.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt
-      ) {
-        throw new Error("This change is too large to accept without the fields you declined. Reject it and ask again.");
-      }
       const acceptedCalls =
         manualApprovalArmed &&
         heldMessageId !== null &&
         heldCalls.length > 0 &&
-        heldCalls.length <= MAX_HELD_CHANGES_SHOWN &&
+        // Fields the user declined were reviewed in the editor, so the call count no longer matters.
+        (heldCalls.length <= MAX_HELD_CHANGES_SHOWN || declinedFields.length > 0) &&
         promptText.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt
           ? withoutDeclinedMariFields(heldCalls, declinedFields)
           : null;
