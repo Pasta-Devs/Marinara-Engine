@@ -1163,7 +1163,10 @@ export function HomeProfessorMariChat({
   const pendingWriteSeqRef = useRef(0);
   const queuedSinceSendRef = useRef<string[]>([]);
   // The newest message id when a send saved the editor first ("" for none); null when the last send did not.
-  const presavedAfterRef = useRef<string | null>(null);
+  const presavedAfterRef = useRef<{ chatId: string | null; after: string } | null>(null);
+  useEffect(() => {
+    presavedAfterRef.current = null;
+  }, [chatId]);
   const showPendingMessages = useCallback((forChatId: string, pendingMessages: MariPendingMessageSummary[]) => {
     pendingWriteSeqRef.current += 1;
     setWorkspaceStatus((current) => current && { ...current, pendingMessages, pendingMessagesChatId: forChatId });
@@ -2497,9 +2500,19 @@ export function HomeProfessorMariChat({
     // A failed save shows the editor's own error toast and keeps the message in the composer.
     // ponytail: queued sends (sent while she is busy) skip this pre-save; run it when the queue drains if needed.
     setSending(true);
+    // Cleared before the save wait: a second Enter during it would send this text again.
+    const clearedDraft = overrideText === undefined;
+    const clearedAttachments = clearedDraft && !overrideRecovery;
+    if (clearedDraft) setDraft("");
+    if (clearedAttachments) setAttachments([]);
     const presave = appliesWithoutReview(permissionsMode) ? await useUIStore.getState().mariEditorSave?.() : undefined;
-    if (presave === "failed") return setSending(false);
-    presavedAfterRef.current = presave === "saved" ? (lastLoadedMessage?.id ?? "") : null;
+    if (presave === "failed") {
+      if (clearedDraft) setDraft((current) => [text, current].filter((part) => part.trim()).join("\n\n"));
+      if (clearedAttachments) setAttachments((current) => [...submittedAttachments, ...current]);
+      if (clearedDraft) composerReferences.restoreReferences(submittedReferences);
+      return setSending(false);
+    }
+    presavedAfterRef.current = presave === "saved" ? { chatId, after: lastLoadedMessage?.id ?? "" } : null;
     // R14: a new message or a retry answers the failure at once: no red while she starts again.
     setRecovery(null);
     // D1: the appended arrival is local UI only — it never lingers once the user is really sending.
@@ -2524,10 +2537,6 @@ export function HomeProfessorMariChat({
     queuedSinceSendRef.current = [];
     // Cleared before the first wait: the box stays open during a send, so a second Enter here would queue this text
     // again, and clearing it later would wipe what you typed since. A retry or a chip sends its own text.
-    if (overrideText === undefined) {
-      setDraft("");
-      if (!overrideRecovery) setAttachments([]);
-    }
     try {
       const chat = await ensureProfessorMariChat(effectiveConnectionId);
       runChatId = chat.id;
@@ -2587,6 +2596,7 @@ export function HomeProfessorMariChat({
           queuedSinceSendIds: queuedSinceSendRef.current,
           // She finished and took the next one on the same reply: her answer comes in, your next message follows.
           onQueueNext: async (next) => {
+            presavedAfterRef.current = null;
             queuedMessageId = next.id;
             runningText = next.text;
             runningContext = null;
@@ -3057,7 +3067,10 @@ export function HomeProfessorMariChat({
       fields: kept.fields,
       undoUntil: kept.undoUntil,
       undo: () => actions().undo(kept.reviewIds),
-      savedUnsaved: keptAfterPresave(presavedAfterRef.current, message.id),
+      savedUnsaved:
+        presavedAfterRef.current !== null &&
+        presavedAfterRef.current.chatId === chatId &&
+        keptAfterPresave(presavedAfterRef.current.after, message.id),
     });
   }, [
     isBusy,
