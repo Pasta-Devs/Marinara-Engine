@@ -41,8 +41,10 @@ export function buildChatBranchRows<T extends BranchTreeChat>(
   const byId = new Map(chats.map((chat) => [chat.id, chat]));
   const sortSiblings = (siblings: readonly T[]) => [...siblings].sort(compareSiblings ?? byCreationAsc);
 
-  // Only a parent inside this group is lineage. A self-reference is nonsense, and a pointer at a
-  // deleted or imported-elsewhere chat says nothing about order, so both fall back to "no parent".
+  // Only a parent inside this group can place a chat at a level. A self-reference is nonsense, and a
+  // pointer at a deleted or imported-elsewhere chat names no row here, so both fall back to "no
+  // parent" for ordering. The chat is still a recorded branch, though, which is why
+  // hasChatBranchLineage below does count such a pointer.
   const parentOf = new Map<string, string>();
   for (const chat of chats) {
     const parentId = readParentChatId(chat);

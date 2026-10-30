@@ -104,6 +104,15 @@ assert.equal(new Set(messyRows.map((row) => row.chat.id)).size, messyRows.length
 const afterMiddleDeleted = nested.filter((row) => row.id !== "b1");
 assert.deepEqual(shape(buildChatBranchRows(afterMiddleDeleted)), ["root:0", "b1-1:1", "b1-1-1:2", "b2:1"]);
 
+// Every survivor pointing at a deleted chat still renders, but the real top is gone: the oldest
+// survivor becomes the top row and the rest hang at depth 1 under it. Nothing may be dropped, and
+// this is the only hierarchy the data allows, so the fallback is pinned rather than assumed.
+const allOrphaned = [
+  chat("sib-old", "deleted-source", "2026-10-01T00:00:00.000Z"),
+  chat("sib-new", "deleted-source", "2026-10-02T00:00:00.000Z"),
+];
+assert.deepEqual(shape(buildChatBranchRows(allOrphaned)), ["sib-old:0", "sib-new:1"]);
+
 // A recorded pointer that names a deleted chat is still lineage. Imported and copied chats have the
 // pointer stripped, so a pointer with no chat behind it can only mean the source was deleted; hiding
 // its descendants would lose them from the list for no reason the data supports.
@@ -111,6 +120,7 @@ assert.equal(hasChatBranchLineage(nested), true);
 assert.equal(hasChatBranchLineage(afterMiddleDeleted), true);
 assert.equal(hasChatBranchLineage([chat("a", "deleted"), chat("b")]), true);
 assert.equal(hasChatBranchLineage([chat("a", "deleted-1"), chat("b", "deleted-2")]), true);
+assert.equal(hasChatBranchLineage(allOrphaned), true);
 
 // Legacy branch sets, a lone chat and a self-reference still get no tree: nothing records a lineage
 // there, and legacy sets and Game sessions stay on the list's single-row behaviour rather than being
