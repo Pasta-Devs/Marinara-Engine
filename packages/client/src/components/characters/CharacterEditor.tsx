@@ -79,7 +79,7 @@ import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
 import { rebaseForm } from "../../lib/form-rebase";
-import { characterFieldValue, withCharacterFieldValue } from "../../lib/mari-editor-fields";
+import { formFieldValue, withFormFieldValue } from "../../lib/mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "./MariFieldReview";
 import { mergeEmbeddedCharacterCardFields } from "../../lib/character-import";
 import { parsePngCharacterCard } from "../../lib/png-parser";
@@ -676,17 +676,16 @@ export function CharacterEditor() {
     takenOverRef.current = null;
   }, [characterId]);
   const mariReview = useMariFieldReview({
-    characterId,
-    current: (fieldId) => characterFieldValue(formData, fieldId),
-    touched: (fieldId) =>
-      dirty && characterFieldValue(formData, fieldId) !== characterFieldValue(loadedDataRef.current, fieldId),
-    edit: (fieldId, text) => updateFormData((prev) => withCharacterFieldValue(prev, fieldId, text)),
+    entityId: characterId,
+    current: (fieldId) => formFieldValue(formData, fieldId),
+    touched: (fieldId) => dirty && formFieldValue(formData, fieldId) !== formFieldValue(loadedDataRef.current, fieldId),
+    edit: (fieldId, text) => updateFormData((prev) => withFormFieldValue(prev, fieldId, text)),
     beforeKeep: async (takenOver) => {
       takenOverRef.current = characterId
         ? {
             characterId,
             values: Object.fromEntries(
-              takenOver.map((fieldId) => [fieldId, characterFieldValue(formDataRef.current, fieldId)]),
+              takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
             ),
           }
         : null;
@@ -700,6 +699,7 @@ export function CharacterEditor() {
     },
   });
   const handledKeptRef = useRef(mariReview.review?.mode === "kept" ? mariReview.review.key : null);
+  const reviewModeRef = useRef(mariReview.review?.mode);
   const restoreTakenOver = useEffectEvent(async () => {
     const taken = takenOverRef.current;
     takenOverRef.current = null;
@@ -714,16 +714,22 @@ export function CharacterEditor() {
       return;
     }
     let merged = rebaseForm(loadedDataRef.current ?? server, formDataRef.current ?? server, server).merged;
-    for (const [fieldId, text] of Object.entries(mine)) merged = withCharacterFieldValue(merged, fieldId, text);
+    for (const [fieldId, text] of Object.entries(mine)) merged = withFormFieldValue(merged, fieldId, text);
     loadedDataRef.current = server;
     toast.dismiss(`character-rebase-${characterId}`);
     updateFormData(() => merged);
   });
   useEffect(() => {
     const review = mariReview.review;
+    const wasBusy = reviewModeRef.current === "busy";
+    reviewModeRef.current = review?.mode;
+    // Her apply failed and the change waits again: the text captured for that Keep is stale.
+    const taken = takenOverRef.current;
+    if (wasBusy && review?.mode === "waiting" && review.fields.some((field) => field.entityId === taken?.characterId))
+      takenOverRef.current = null;
     if (review?.mode !== "kept" || handledKeptRef.current === review.key) return;
     handledKeptRef.current = review.key;
-    if (review.fields.some((field) => field.characterId === characterId)) void restoreTakenOver();
+    if (review.fields.some((field) => field.entityId === characterId)) void restoreTakenOver();
   }, [mariReview.review, characterId]);
 
   const handleGeneratedCharacterSheet = useCallback(

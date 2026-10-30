@@ -11,7 +11,7 @@ import { fieldLabel } from "../../lib/mari-edit-diff";
 import { TextBody, undoLabel } from "../chat/MariChangeReceipt";
 
 interface MariFieldReviewValue {
-  characterId: string;
+  entityId: string;
   /** Fields still under review here, editor order. */
   waiting: Array<{ fieldId: string; value: string }>;
   total: number;
@@ -34,14 +34,14 @@ export const MariFieldReviewProvider = MariFieldReviewContext.Provider;
 
 /** The editor's review state. `edit` puts her text into the form as the user's unsaved edit. */
 export function useMariFieldReview({
-  characterId,
+  entityId,
   current,
   touched,
   edit,
   beforeKeep,
   keepDropped,
 }: {
-  characterId: string | null;
+  entityId: string | null;
   current: (fieldId: string) => string;
   touched: (fieldId: string) => boolean;
   edit: (fieldId: string, value: string) => void;
@@ -58,7 +58,7 @@ export function useMariFieldReview({
   // the declined field. A reply that leaves the same change waiting (a failed send) shows it again.
   const [answered, setAnswered] = useState<{
     key: string;
-    characterId: string;
+    entityId: string;
     declined: string | null;
     busy?: boolean;
   } | null>(null);
@@ -81,17 +81,15 @@ export function useMariFieldReview({
   }, [undoUntil]);
 
   const editedIds = waitingReview && edited.key === waitingReview.key ? edited.ids : [];
-  const answeredHere = answered?.characterId === characterId ? answered : null;
+  const answeredHere = answered?.entityId === entityId ? answered : null;
   const waiting =
     (answeredHere?.key === waitingReview?.key ? null : waitingReview)?.fields
-      .filter((field) => field.characterId === characterId && !editedIds.includes(field.fieldId))
+      .filter((field) => field.entityId === entityId && !editedIds.includes(field.fieldId))
       .map(({ fieldId, value }) => ({ fieldId, value })) ?? [];
   const keptIds =
     keptReview && !(undoUntil <= Date.now())
       ? keptReview.fields
-          .filter(
-            (field) => field.characterId === characterId && !dismissed.includes(`${keptReview.key}:${field.fieldId}`),
-          )
+          .filter((field) => field.entityId === entityId && !dismissed.includes(`${keptReview.key}:${field.fieldId}`))
           .map((field) => field.fieldId)
       : [];
   const declinedField = answeredHere?.declined ?? null;
@@ -102,9 +100,9 @@ export function useMariFieldReview({
   if (savedFor === "pending" && keptReview) setSavedFor(keptReview.key);
 
   const value: MariFieldReviewValue | null =
-    characterId && (waiting.length > 0 || keptIds.length > 0 || declinedField)
+    entityId && (waiting.length > 0 || keptIds.length > 0 || declinedField)
       ? {
-          characterId,
+          entityId,
           waiting,
           total: waitingReview?.total ?? 0,
           others: waitingReview?.others ?? 0,
@@ -122,7 +120,7 @@ export function useMariFieldReview({
                 return false;
               }
               setSavedFor(saved === "saved" ? "pending" : null);
-              setAnswered({ key, characterId, declined: null });
+              setAnswered({ key, entityId, declined: null });
               return true;
             } finally {
               keeping.current = false;
@@ -130,7 +128,7 @@ export function useMariFieldReview({
           },
           decline: (fieldId) => {
             if (!waitingReview) return;
-            if (waitingReview.decline(fieldId)) setAnswered({ key: waitingReview.key, characterId, declined: fieldId });
+            if (waitingReview.decline(fieldId)) setAnswered({ key: waitingReview.key, entityId, declined: fieldId });
           },
           edit: (fieldId, text) => {
             if (!waitingReview) return;
@@ -202,7 +200,7 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
   const touched = review.touched(fieldId);
   const next = () => {
     const target = review.waiting[(index + 1) % count]!.fieldId;
-    useUIStore.getState().revealMariField(review.characterId, target);
+    useUIStore.getState().revealMariField(review.entityId, target);
     focusSoon(`[data-mari-review="${CSS.escape(target)}"]`);
   };
   // The box unmounts after an answer; focus goes back to the field.

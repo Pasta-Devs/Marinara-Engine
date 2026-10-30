@@ -127,7 +127,13 @@ import {
   transcriptScrollAction,
 } from "../../lib/professor-mari-transcript-scroll";
 import { resolveProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";
-import { heldCharacterFields, keptCharacterFields, mariFieldDraft, mariFieldText } from "../../lib/mari-editor-fields";
+import {
+  heldEditorFields,
+  isMariEditorKind,
+  keptEditorFields,
+  mariFieldDraft,
+  mariFieldText,
+} from "../../lib/mari-editor-fields";
 import { fieldLabel } from "../../lib/mari-edit-diff";
 import { rafThrottle } from "../../lib/raf-throttle";
 import {
@@ -2631,7 +2637,7 @@ export function HomeProfessorMariChat({
     setHandoffContext((current) =>
       withEditorField(current, editorResource, { ...field, ...(captured ? { draft: { value: captured.value } } : {}) }),
     );
-    if (editorResource?.kind === "character") ui.revealMariField(editorResource.id, field.id);
+    if (editorResource && isMariEditorKind(editorResource.kind)) ui.revealMariField(editorResource.id, field.id);
   };
   const composerReferences = useMariComposerReferences({
     draft,
@@ -2770,7 +2776,7 @@ export function HomeProfessorMariChat({
     if (!message || message.role !== "assistant") return publish(null);
     const actions = () => fieldReviewActions.current!;
     if (pendingDeferredMutations) {
-      const fields = heldCharacterFields(lastLoadedMessageExtra?.mariHeldCalls);
+      const fields = heldEditorFields(lastLoadedMessageExtra?.mariHeldCalls);
       const total =
         lastLoadedMessageExtra?.mariHeldChanges?.reduce((sum, change) => sum + (change.fields?.length ?? 0), 0) ||
         fields.length;
@@ -2781,14 +2787,14 @@ export function HomeProfessorMariChat({
           fields,
           total,
           others: (lastLoadedMessageExtra?.mariHeldChanges ?? []).filter(
-            (change) => !fields.some((field) => field.characterId === change.id),
+            (change) => !fields.some((field) => field.entityId === change.id),
           ).length,
           keep: () => actions().keep(),
           decline: (fieldId) => actions().decline(fieldId),
         });
       }
     }
-    const kept = keptCharacterFields(latestActionResults, new Set(pendingChangeReviews.map(({ id }) => id)));
+    const kept = keptEditorFields(latestActionResults, new Set(pendingChangeReviews.map(({ id }) => id)));
     if (kept.fields.length === 0) return publish(null);
     publish({
       mode: "kept",

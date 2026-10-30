@@ -9,6 +9,7 @@ import {
   useLayoutEffect,
   useRef,
   useCallback,
+  useEffectEvent,
   useMemo,
   type ChangeEvent,
   type ReactNode,
@@ -81,6 +82,8 @@ import {
   Pencil,
   Check,
   MessageCircleQuestion,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
@@ -133,6 +136,9 @@ import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { formFieldValue } from "../../lib/mari-editor-fields";
+import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
+import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
@@ -1326,7 +1332,7 @@ export function PersonaEditor() {
   const personaId = useUIStore((s) => s.personaDetailId);
   const personaInitialTab = useUIStore((s) => s.personaDetailInitialTab) as TabId | null;
   const closeDetail = useUIStore((s) => s.closePersonaDetail);
-  const { data: allPersonas, isLoading } = usePersonas();
+  const { data: allPersonas, isLoading, refetch: refetchPersonas } = usePersonas();
   const createCharacter = useCreateCharacter();
   const updatePersona = useUpdatePersona();
   const uploadCharacterAvatar = useUploadAvatar();
@@ -1348,7 +1354,7 @@ export function PersonaEditor() {
   // what asynchronous save/upload continuations read, so reconciliation never
   // depends on a render having happened; the state is what re-renders the UI.
   const [formData, setFormDataState] = useState<PersonaFormData | null>(null);
-  const { contentRef, scrollToSection } = useEditorSections(
+  const { contentRef, scrollToSection, scrollToElement } = useEditorSections(
     personaId,
     !!formData,
     personaInitialTab ?? "metadata",
@@ -1941,6 +1947,73 @@ export function PersonaEditor() {
 
   useEditorLeaveSave(`personaDetailId:${personaId}`, dirty, handleSave, mutationBusy);
 
+  // Prof. Mari and the persona's fields, as in the Character editor: focused field, reveal and
+  // working glow, the companion panel or sheet, and her change reviewed in the fields.
+  const editorReady = !isLoading && !!formData;
+  const { workingOffscreen, revealWorkingField } = useMariEditorFields(
+    contentRef,
+    personaId,
+    editorReady,
+    scrollToElement,
+  );
+  useMariCompanionEditor(contentRef, editorReady);
+  // Her change lands on a saved persona and Undo restores that saved text. Fields the user took over
+  // with Edit get the user's text back after her change lands, unsaved, for the user's own Save.
+  const takenOverRef = useRef<{ personaId: string; values: Record<string, string> } | null>(null);
+  useEffect(() => {
+    takenOverRef.current = null;
+  }, [personaId]);
+  const mariReview = useMariFieldReview({
+    entityId: personaId,
+    current: (fieldId) => formFieldValue(formData, fieldId),
+    touched: (fieldId) => dirty && formFieldValue(formData, fieldId) !== formFieldValue(baselineForm, fieldId),
+    edit: (fieldId, text) => updateField(fieldId as keyof PersonaFormData, text as never),
+    beforeKeep: async (takenOver) => {
+      takenOverRef.current = personaId
+        ? {
+            personaId,
+            values: Object.fromEntries(
+              takenOver.map((fieldId) => [fieldId, formFieldValue(formDataRef.current, fieldId)]),
+            ),
+          }
+        : null;
+      const draft = formDataRef.current;
+      const baseline = baselineFormRef.current;
+      if (!draft || !baseline || personaFieldsDifferingFromBaseline(draft, baseline).length === 0) return "clean";
+      if (await handleSave()) return "saved";
+      takenOverRef.current = null;
+      return "failed";
+    },
+    keepDropped: () => {
+      takenOverRef.current = null;
+    },
+  });
+  const handledKeptRef = useRef(mariReview.review?.mode === "kept" ? mariReview.review.key : null);
+  const reviewModeRef = useRef(mariReview.review?.mode);
+  const restoreTakenOver = useEffectEvent(async () => {
+    const taken = takenOverRef.current;
+    takenOverRef.current = null;
+    const mine = taken?.personaId === personaId ? taken.values : {};
+    if (!personaId || Object.keys(mine).length === 0) return;
+    const session = editorSessionRef.current;
+    const fresh = (await refetchPersonas()).data?.find((persona) => persona.id === personaId);
+    if (!fresh || !isCurrentEditorSession(session)) return;
+    adoptAuthoritativePersona(fresh);
+    for (const [fieldId, text] of Object.entries(mine)) updateField(fieldId as keyof PersonaFormData, text as never);
+  });
+  useEffect(() => {
+    const review = mariReview.review;
+    const wasBusy = reviewModeRef.current === "busy";
+    reviewModeRef.current = review?.mode;
+    // Her apply failed and the change waits again: the text captured for that Keep is stale.
+    const taken = takenOverRef.current;
+    if (wasBusy && review?.mode === "waiting" && review.fields.some((field) => field.entityId === taken?.personaId))
+      takenOverRef.current = null;
+    if (review?.mode !== "kept" || handledKeptRef.current === review.key) return;
+    handledKeptRef.current = review.key;
+    if (review.fields.some((field) => field.entityId === personaId)) void restoreTakenOver();
+  }, [mariReview.review, personaId]);
+
   if (isLoading || !formData) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -2135,6 +2208,7 @@ export function PersonaEditor() {
                 value={formData.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 className="mari-editor-title-input"
+                data-mari-field="name"
                 placeholder={localizeUi("ui.personas.personaeditor.personaName")}
                 size={Math.max(1, Math.min(formData.name.length || 12, 80))}
               />
@@ -2189,85 +2263,103 @@ export function PersonaEditor() {
       </div>
 
       {/* ── Body ── */}
-      <div className="mari-editor-body">
+      <div className="mari-editor-body relative">
+        {workingOffscreen && (
+          <button
+            type="button"
+            className="mari-topbar-status mari-field-chip"
+            data-state="working"
+            data-edge={workingOffscreen}
+            onClick={revealWorkingField}
+          >
+            {workingOffscreen === "above" ? (
+              <ArrowUp size="0.75rem" aria-hidden="true" />
+            ) : (
+              <ArrowDown size="0.75rem" aria-hidden="true" />
+            )}
+            {localizeUi("ui.characters.charactereditor.mariIsHere")}
+          </button>
+        )}
         {/* Tab Content */}
-        <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
-          <div className="mari-editor-content-inner">
-            <section data-editor-section="metadata">
-              <PersonaMetadataTab
-                personaId={personaId}
-                formData={formData}
-                updateField={updateField}
-                avatarPreview={avatarPreview}
-                onSelectAvatar={() => {
-                  if (!mutationBusy) fileInputRef.current?.click();
-                }}
-                onRemoveAvatar={() => void handleAvatarRemove()}
-                onGenerateAvatar={() => {
-                  if (!mutationBusy) setAvatarGeneratorOpen(true);
-                }}
-                imageGenerationAvailable={imageGenerationAvailable}
-                avatarUploading={avatarUploading}
-                avatarRemoving={
-                  mutationKind === "remove-avatar" && removeAvatar.isPending && removeAvatar.variables === personaId
-                }
-                hasUnsavedChanges={dirty}
-                avatarMutationBusy={mutationBusy}
-              />
-            </section>
-            <section data-editor-section="card">
-              <PersonaCardTab formData={formData} updateField={updateField} />
-            </section>
-            <section data-editor-section="convo">
-              <PersonaConvoTab
-                key={personaId ?? "new-persona"}
-                personaId={personaId}
-                formData={formData}
-                updateField={updateField}
-              />
-            </section>
-            <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
-              {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
-            </LazyEditorSection>
-            <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
-              {personaId && (
-                <PersonaSpritesTab
+        <MariFieldReviewProvider value={mariReview.value}>
+          <div ref={contentRef} className="mari-editor-content @max-5xl:p-4">
+            <div className="mari-editor-content-inner">
+              <section data-editor-section="metadata">
+                <PersonaMetadataTab
                   personaId={personaId}
-                  personaName={formData.name}
-                  defaultAppearance={formData.appearance || formData.description}
-                  defaultAvatarUrl={avatarPreview}
-                  characterSheetImageId={formData.characterSheetImageId}
-                  useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
+                  formData={formData}
                   updateField={updateField}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  avatarPreview={avatarPreview}
+                  onSelectAvatar={() => {
+                    if (!mutationBusy) fileInputRef.current?.click();
+                  }}
+                  onRemoveAvatar={() => void handleAvatarRemove()}
+                  onGenerateAvatar={() => {
+                    if (!mutationBusy) setAvatarGeneratorOpen(true);
+                  }}
+                  imageGenerationAvailable={imageGenerationAvailable}
+                  avatarUploading={avatarUploading}
+                  avatarRemoving={
+                    mutationKind === "remove-avatar" && removeAvatar.isPending && removeAvatar.variables === personaId
+                  }
+                  hasUnsavedChanges={dirty}
+                  avatarMutationBusy={mutationBusy}
                 />
-              )}
-            </LazyEditorSection>
-            <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
-              {personaId && (
-                <PersonaGalleryTab
+              </section>
+              <section data-editor-section="card">
+                <PersonaCardTab formData={formData} updateField={updateField} />
+              </section>
+              <section data-editor-section="convo">
+                <PersonaConvoTab
+                  key={personaId ?? "new-persona"}
                   personaId={personaId}
-                  personaName={formData.name}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                  editorBusy={mutationBusy}
-                  galleryAvatarPending={mutationKind === "gallery-avatar"}
-                  onSetAvatar={handleSetGalleryAvatar}
+                  formData={formData}
+                  updateField={updateField}
                 />
-              )}
-            </LazyEditorSection>
-            <section data-editor-section="colors">
-              <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
-            </section>
-            <section data-editor-section="stats">
-              <PersonaStatsTab
-                formData={formData}
-                updateField={updateField}
-                personaId={personaId}
-                avatarUrl={avatarPreview}
-              />
-            </section>
+              </section>
+              <LazyEditorSection key={`lorebook:${personaId}`} id="lorebook">
+                {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
+              </LazyEditorSection>
+              <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
+                {personaId && (
+                  <PersonaSpritesTab
+                    personaId={personaId}
+                    personaName={formData.name}
+                    defaultAppearance={formData.appearance || formData.description}
+                    defaultAvatarUrl={avatarPreview}
+                    characterSheetImageId={formData.characterSheetImageId}
+                    useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
+                    updateField={updateField}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  />
+                )}
+              </LazyEditorSection>
+              <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
+                {personaId && (
+                  <PersonaGalleryTab
+                    personaId={personaId}
+                    personaName={formData.name}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    editorBusy={mutationBusy}
+                    galleryAvatarPending={mutationKind === "gallery-avatar"}
+                    onSetAvatar={handleSetGalleryAvatar}
+                  />
+                )}
+              </LazyEditorSection>
+              <section data-editor-section="colors">
+                <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
+              </section>
+              <section data-editor-section="stats">
+                <PersonaStatsTab
+                  formData={formData}
+                  updateField={updateField}
+                  personaId={personaId}
+                  avatarUrl={avatarPreview}
+                />
+              </section>
+            </div>
           </div>
-        </div>
+        </MariFieldReviewProvider>
       </div>
     </div>
   );
@@ -3752,7 +3844,7 @@ function PersonaMetadataTab({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className="space-y-1.5 sm:col-span-2" data-mari-field="name">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personastatstab.name")}{" "}
             <HelpTooltip
@@ -3766,7 +3858,7 @@ function PersonaMetadataTab({
             placeholder={localizeUi("ui.personas.personaeditor.personaName")}
           />
         </label>
-        <label className="space-y-1.5 sm:col-span-2">
+        <label className="space-y-1.5 sm:col-span-2" data-mari-field="comment">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.titleComment")}{" "}
             <HelpTooltip text={localizeUi("ui.personas.personametadatatab.aShortNoteShownUnderThePersonaNameIn")} />
@@ -3778,7 +3870,7 @@ function PersonaMetadataTab({
             placeholder={localizeUi("ui.personas.personametadatatab.modernAuVersion")}
           />
         </label>
-        <label className="space-y-1.5">
+        <label className="space-y-1.5" data-mari-field="phoneticName">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.phoneticName")}{" "}
             <HelpTooltip
@@ -3794,7 +3886,7 @@ function PersonaMetadataTab({
             placeholder={formData.name}
           />
         </label>
-        <label className="space-y-1.5">
+        <label className="space-y-1.5" data-mari-field="creator">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.creator")}{" "}
             <HelpTooltip
@@ -3849,7 +3941,7 @@ function PersonaMetadataTab({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2" data-mari-field="tags">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.personas.personametadatatab.tags")}{" "}
@@ -3906,22 +3998,24 @@ function PersonaMetadataTab({
         </div>
       </div>
 
-      <div className="block space-y-1.5">
+      <div className="block space-y-1.5" data-mari-field="creatorNotes">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
           {localizeUi("ui.personas.personametadatatab.creatorNotes")}{" "}
           <HelpTooltip
             text={localizeUi("ui.personas.personametadatatab.privateNotesAboutThisPersonaTipsForUseKnown")}
           />
         </span>
-        <MacroTextarea
-          value={formData.creatorNotes}
-          onChange={(value) => updateField("creatorNotes", value)}
-          rows={4}
-          title={localizeUi("ui.personas.personametadatatab.creatorNotes")}
-          showMarkdownPreview
-          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-          placeholder={localizeUi("ui.personas.personametadatatab.notesAboutThisPersonaIntendedUseTipsForBest")}
-        />
+        <MariFieldReview field="creatorNotes">
+          <MacroTextarea
+            value={formData.creatorNotes}
+            onChange={(value) => updateField("creatorNotes", value)}
+            rows={4}
+            title={localizeUi("ui.personas.personametadatatab.creatorNotes")}
+            showMarkdownPreview
+            className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder={localizeUi("ui.personas.personametadatatab.notesAboutThisPersonaIntendedUseTipsForBest")}
+          />
+        </MariFieldReview>
       </div>
     </div>
   );
@@ -4570,6 +4664,7 @@ function PersonaCardTab({
       <div className="space-y-10">
         <EditorSectionAnchor id="persona-card-summary">
           <TextareaTab
+            mariField="summary"
             title={localizeUi("ui.characters.summary.label")}
             subtitle={localizeUi("ui.cardFields.personaSummaryHelp")}
             value={formData.summary}
@@ -4590,6 +4685,7 @@ function PersonaCardTab({
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-personality">
           <TextareaTab
+            mariField="personality"
             title={localizeUi("chat.settings.inlineEditor.fields.personality")}
             subtitle={localizeUi("ui.personas.personacardtab.yourPersonalityTraitsTemperamentAndBehavioralPatterns")}
             helpText={PERSONA_PERSONALITY_HELP}
@@ -4605,6 +4701,7 @@ function PersonaCardTab({
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-backstory">
           <TextareaTab
+            mariField="backstory"
             title={localizeUi("chat.settings.inlineEditor.fields.backstory")}
             subtitle={localizeUi("ui.personas.personacardtab.yourCharacterSHistoryOriginStoryAndFormativeLife")}
             helpText={PERSONA_BACKSTORY_HELP}
@@ -4620,6 +4717,7 @@ function PersonaCardTab({
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-appearance">
           <TextareaTab
+            mariField="appearance"
             title={localizeUi("chat.settings.inlineEditor.fields.appearance")}
             subtitle={localizeUi(
               "ui.personas.personacardtab.physicalDescriptionHeightBuildHairEyesClothingDistinguishingFeatures",
@@ -4653,6 +4751,7 @@ function PersonaCardTab({
           {formData.imageAppearanceEnabled && (
             <div className="mt-3">
               <TextareaTab
+                mariField="imageAppearance"
                 title={localizeUi("ui.characters.charactercardtab.imageAppearanceToggle")}
                 subtitle={localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle")}
                 value={formData.imageAppearance}
@@ -4665,6 +4764,7 @@ function PersonaCardTab({
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-scenario">
           <TextareaTab
+            mariField="scenario"
             title={localizeUi("chat.settings.inlineEditor.fields.scenario")}
             subtitle={localizeUi("ui.personas.personacardtab.yourDefaultSituationOrContextWithinRoleplays")}
             helpText={PERSONA_SCENARIO_HELP}
@@ -4682,6 +4782,7 @@ function PersonaCardTab({
         </EditorSectionAnchor>
         <EditorSectionAnchor id="persona-card-dialogue">
           <TextareaTab
+            mariField="mes_example"
             title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
             subtitle={localizeUi("ui.cardFields.personaDialogueHelp")}
             value={formData.mes_example}
@@ -4726,7 +4827,7 @@ function DescriptionTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-editor-panel space-y-3 p-3">
+    <div className="mari-editor-panel space-y-3 p-3" data-mari-field="description">
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title={localizeUi("chat.settings.inlineEditor.fields.description")}
@@ -4735,23 +4836,25 @@ function DescriptionTab({
         />
         {actions}
       </div>
-      <MacroTextarea
-        value={formData.description}
-        onChange={(value) => updateField("description", value)}
-        placeholder={
-          localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory") +
-          " " +
-          localizeUi("ui.cardFields.seedPlaceholder")
-        }
-        rows={12}
-        title={localizeUi("chat.settings.inlineEditor.fields.description")}
-        ariaLabel={localizeUi("chat.settings.inlineEditor.fields.description")}
-        showMarkdownPreview
-        className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
-      />
-      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
-        {formatEstimatedTokens(estimateTextTokens(formData.description), localizeUi)}
-      </p>
+      <MariFieldReview field="description">
+        <MacroTextarea
+          value={formData.description}
+          onChange={(value) => updateField("description", value)}
+          placeholder={
+            localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory") +
+            " " +
+            localizeUi("ui.cardFields.seedPlaceholder")
+          }
+          rows={12}
+          title={localizeUi("chat.settings.inlineEditor.fields.description")}
+          ariaLabel={localizeUi("chat.settings.inlineEditor.fields.description")}
+          showMarkdownPreview
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+        />
+        <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+          {formatEstimatedTokens(estimateTextTokens(formData.description), localizeUi)}
+        </p>
+      </MariFieldReview>
       {footer}
     </div>
   );
@@ -4789,9 +4892,12 @@ function TextareaTab({
   helpText,
   actions,
   footer,
+  mariField,
 }: {
   actions?: ReactNode;
   footer?: ReactNode;
+  /** The field id Prof. Mari knows this field by (see lib/mari-editor-fields). */
+  mariField: string;
   title: string;
   subtitle: string;
   helpText?: ReactNode;
@@ -4802,24 +4908,26 @@ function TextareaTab({
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-editor-panel space-y-3 p-3">
+    <div className="mari-editor-panel space-y-3 p-3" data-mari-field={mariField}>
       <div className="flex items-start justify-between gap-3">
         <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
         {actions}
       </div>
-      <MacroTextarea
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        rows={rows}
-        title={title}
-        ariaLabel={title}
-        showMarkdownPreview
-        className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
-      />
-      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
-        {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
-      </p>
+      <MariFieldReview field={mariField}>
+        <MacroTextarea
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={rows}
+          title={title}
+          ariaLabel={title}
+          showMarkdownPreview
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+        />
+        <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+          {formatEstimatedTokens(estimateTextTokens(value), localizeUi)}
+        </p>
+      </MariFieldReview>
       {footer}
     </div>
   );

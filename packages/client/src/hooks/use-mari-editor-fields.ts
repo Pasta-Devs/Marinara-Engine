@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useUIStore } from "../stores/ui.store";
 import { fieldLabel } from "../lib/mari-edit-diff";
-import { findMariField, mariFieldDraft } from "../lib/mari-editor-fields";
+import { findMariField, mariFieldDraft, type MariEditorKind } from "../lib/mari-editor-fields";
 import { confirmEditorLeave } from "../lib/editor-leave";
 
 /**
@@ -45,7 +45,7 @@ export function useMariEditorFields(
 
   useEffect(() => {
     const root = contentRef.current;
-    if (!root || !ready || !reveal || reveal.characterId !== entityId) return;
+    if (!root || !ready || !reveal || reveal.entityId !== entityId) return;
     useUIStore.getState().clearMariRevealField();
     const field = findMariField(root, reveal.path);
     if (!field) return;
@@ -60,7 +60,7 @@ export function useMariEditorFields(
 
   useEffect(() => {
     const root = contentRef.current;
-    const field = root && ready && working?.characterId === entityId ? findMariField(root, working.path) : null;
+    const field = root && ready && working?.entityId === entityId ? findMariField(root, working.path) : null;
     if (!root || !field) return;
     field.dataset.mariGlow = "";
     const observer = new IntersectionObserver(
@@ -103,16 +103,47 @@ export function useMariCompanionEditor(contentRef: RefObject<HTMLElement | null>
   }, [contentRef, ready]);
 }
 
-/** Opens a character, at one field when given (`data.first_mes` or `first_mes`). False when the user stays. */
-export function openCharacterAtField(characterId: string, path: string | undefined, leavePrompt: string): boolean {
+type UIState = ReturnType<typeof useUIStore.getState>;
+
+// Which record each editor kind has open, and how to open it at a field.
+const EDITOR_DETAIL: Record<
+  MariEditorKind,
+  { openId: (ui: UIState) => string | null; open: (ui: UIState, id: string, path?: string) => void }
+> = {
+  character: {
+    openId: (ui) => ui.characterDetailId,
+    open: (ui, id, path) => ui.openCharacterDetail(id, path ? { revealField: path } : undefined),
+  },
+  persona: {
+    openId: (ui) => ui.personaDetailId,
+    open: (ui, id, path) => {
+      ui.openPersonaDetail(id);
+      if (path) ui.revealMariField(id, path);
+    },
+  },
+};
+
+/** True when an editor shows this record. */
+export function isMariEditorOpen(entityId: string): boolean {
+  const ui = useUIStore.getState();
+  return Object.values(EDITOR_DETAIL).some(({ openId }) => openId(ui) === entityId);
+}
+
+/** Opens a record's editor, at one field when given (`data.first_mes` or `first_mes`). False when the user stays. */
+export function openEditorAtField(
+  kind: MariEditorKind,
+  entityId: string,
+  path: string | undefined,
+  leavePrompt: string,
+): boolean {
   const ui = useUIStore.getState();
   // Already open: nothing is left, so no leave prompt.
-  if (ui.characterDetailId === characterId) {
-    if (path) ui.revealMariField(characterId, path);
+  if (EDITOR_DETAIL[kind].openId(ui) === entityId) {
+    if (path) ui.revealMariField(entityId, path);
     return true;
   }
   if (!confirmEditorLeave(ui, leavePrompt)) return false;
-  ui.openCharacterDetail(characterId, path ? { revealField: path } : undefined);
+  EDITOR_DETAIL[kind].open(ui, entityId, path);
   return true;
 }
 
