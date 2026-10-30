@@ -53,7 +53,7 @@ export function AgentUpdateDialog({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const catalog = useCapabilityCatalog();
-  const [expanded, setExpanded] = useState<string | null>(updates.length === 1 ? (updates[0]?.id ?? null) : null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const entryById = new Map((catalog.data?.packages ?? []).map((entry) => [entry.manifest.id, entry]));
   const anyHighlighted = updates.some((update) => update.releaseHighlight);
   const running = phase === "running";
