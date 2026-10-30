@@ -3074,6 +3074,7 @@ export function HomeProfessorMariChat({
     });
   }, [
     isBusy,
+    chatId,
     lastLoadedMessage,
     lastLoadedMessageExtra,
     pendingDeferredMutations,
