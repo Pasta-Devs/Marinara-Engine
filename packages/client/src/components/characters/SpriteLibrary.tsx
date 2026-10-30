@@ -109,13 +109,16 @@ export function SpriteLibraryShell({
       aria-busy={library.query.isPending}
     >
       {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex min-w-40 flex-1 items-center gap-2">
-          <Search size={16} />
+      <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
+        <label className="relative col-span-2 min-w-0 md:flex md:min-w-40 md:flex-1 md:items-center md:gap-2">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 md:static md:translate-y-0"
+          />
           <span className="sr-only">{label("search")}</span>
           <input
             type="search"
-            className={`${control} min-w-0 flex-1`}
+            className={`${control} w-full min-w-0 pl-9 md:w-auto md:flex-1 md:pl-3`}
             placeholder={label("search")}
             value={library.search}
             onChange={(e) => {
@@ -159,18 +162,18 @@ export function SpriteLibraryShell({
         </p>
       )}
       {library.selecting && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="grid grid-cols-2 items-stretch gap-2 text-xs md:flex md:flex-wrap md:items-center">
           <button
             type="button"
-            className={cn(button, "w-44")}
+            className={cn(button, "col-span-2 w-full md:w-44")}
             disabled={busy || library.visible.length === 0}
             onClick={() => library.setSelected(allSelected ? [] : library.visible.map((sprite) => sprite.expression))}
           >
             <CheckSquare size={14} />
             {label(allSelected ? "deselectAllSprites" : "selectAllSprites")}
           </button>
-          {selectionActions}
-          <span className="ml-auto" aria-live="polite">
+          <div className="contents max-md:[&>button]:w-full">{selectionActions}</div>
+          <span className="ml-auto min-h-4 text-right max-md:col-span-2 md:min-h-0" aria-live="polite">
             {library.selected.length > 0 && t("sprites.library.selected", { count: library.selected.length })}
           </span>
         </div>

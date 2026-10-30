@@ -5484,7 +5484,7 @@ function SpritesTab({
   const backgroundCleanupReason = spriteCapabilities?.reason ?? "Background cleanup is unavailable on this platform.";
 
   const categoryTabs = (
-    <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
+    <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)] max-md:w-full max-md:[&>button]:min-w-0 max-md:[&>button]:flex-1">
       {[
         { id: "expressions" as const, label: localizeUi("sprites.library.expressions") },
         { id: "full-body" as const, label: localizeUi("sprites.library.fullBody") },
@@ -5889,7 +5889,7 @@ function SpritesTab({
         toolbar={
           <>
             {categoryTabs}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 max-md:grid max-md:w-full max-md:grid-cols-2">
               <button
                 type="button"
                 className={spriteActionClass}
