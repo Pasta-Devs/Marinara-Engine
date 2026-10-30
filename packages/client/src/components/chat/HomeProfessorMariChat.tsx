@@ -1163,9 +1163,9 @@ export function HomeProfessorMariChat({
   const pendingWriteSeqRef = useRef(0);
   const queuedSinceSendRef = useRef<string[]>([]);
   // The newest message id when a send saved the editor first ("" for none); null when the last send did not.
-  const presavedAfterRef = useRef<{ chatId: string | null; after: string } | null>(null);
+  const presavedAfterRef = useRef<{ chatId: string; after: string } | null>(null);
   useEffect(() => {
-    presavedAfterRef.current = null;
+    if (presavedAfterRef.current?.chatId !== chatId) presavedAfterRef.current = null;
   }, [chatId]);
   const showPendingMessages = useCallback((forChatId: string, pendingMessages: MariPendingMessageSummary[]) => {
     pendingWriteSeqRef.current += 1;
@@ -2512,7 +2512,8 @@ export function HomeProfessorMariChat({
       if (clearedDraft) composerReferences.restoreReferences(submittedReferences);
       return setSending(false);
     }
-    presavedAfterRef.current = presave === "saved" ? { chatId, after: lastLoadedMessage?.id ?? "" } : null;
+    const presavedAfter = presave === "saved" ? (lastLoadedMessage?.id ?? "") : null;
+    presavedAfterRef.current = null;
     // R14: a new message or a retry answers the failure at once: no red while she starts again.
     setRecovery(null);
     // D1: the appended arrival is local UI only — it never lingers once the user is really sending.
@@ -2540,6 +2541,7 @@ export function HomeProfessorMariChat({
     try {
       const chat = await ensureProfessorMariChat(effectiveConnectionId);
       runChatId = chat.id;
+      if (presavedAfter !== null) presavedAfterRef.current = { chatId: chat.id, after: presavedAfter };
       // The thread was still loading when you sent: ask the server, or a failed send cannot tell it was never saved.
       if (lastSavedUserId === undefined && loadedMessagesChatId !== chat.id) {
         lastSavedUserId = (await fetchMariThreadMessages(chat.id).catch(() => [] as Message[])).findLast(
