@@ -75,6 +75,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
+    await expect(frontSection).toBeVisible();
+    // Let section navigation settle before opening a menu that closes on page scroll.
+    await library.getByRole("button", { name: "Export", exact: true }).scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     await library.getByRole("button", { name: "Export", exact: true }).click();
     await expect(page.getByRole("menuitem", { name: "Full-body only", exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -126,6 +130,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }
     await expect(page.locator('body > [data-drag-kind][aria-hidden="true"]')).toHaveCount(0);
     await expect.poll(folderOrder).toEqual([testFolderId, alternate, front]);
+    await page.evaluate(() => window.getSelection()?.removeAllRanges());
     await testHeader.click();
     await expect(testHeader).toHaveAttribute("aria-expanded", "false");
     await frontSection.scrollIntoViewIfNeeded();
@@ -139,7 +144,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         touchPoints: [{ x: from.x + 60, y: from.y + 20 }],
       });
       await expect(frontSection).toHaveAttribute("data-drag-source", "true");
-      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: to.x + 60, y: to.y + 8 }] });
+      // Pickup can autoscroll near the viewport edge; locate the destination after the hold.
+      const destination = (await testHeader.boundingBox())!;
+      const touchTarget = { x: destination.x + 60, y: destination.y + 8 };
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: touchTarget.x, y: (from.y + 20 + touchTarget.y) / 2 }],
+      });
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchTarget] });
       await expect(testSection).toHaveAttribute("data-drag-insert", "before");
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await touch.detach();
@@ -375,6 +387,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(card).toBeVisible();
         const original = card.locator("xpath=ancestor::*[@draggable][1]");
         await expect(original).toHaveCSS("opacity", "0.5");
+        // This checks the preview only; releasing beyond a tile's lower border could move it into the next folder.
+        await page.keyboard.press("Escape");
         await page.mouse.up();
         await expect(preview).toHaveCount(0);
         await expect(original).toHaveCSS("opacity", "1");
