@@ -713,7 +713,7 @@ export function ConnectionSwitcherBody({
   // even when another saved Model under the same Connection has the same provider model id.
   const matchesNow = (choice: ChatModelChoice) =>
     sameChoice(choice, current) ||
-    (!!followDefault?.active && choice.connectionId === mainRow?.id && !choice.model) ||
+    (!!followDefault?.active && !followDefault.own && choice.connectionId === mainRow?.id && !choice.model) ||
     (!!choice.model && !!nowRuns && runsKey(choice, rows) === nowRuns);
   const isNow = (entry: Entry) => matchesNow(entry.choice);
 

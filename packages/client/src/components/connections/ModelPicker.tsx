@@ -44,6 +44,7 @@ function ModelPickerSlot({
   extraOptions,
   rowFilter,
   embedding = false,
+  unsetIsOwn = false,
   restoreFocusRef,
   header,
 }: {
@@ -64,6 +65,8 @@ function ModelPickerSlot({
   rowFilter?: (row: ConnectionModelRow) => boolean;
   /** Embeddings: lists the catalog's embedding models and tries a pick with one tiny embedding call. */
   embedding?: boolean;
+  /** An empty value is its own "nothing" row, not "follows Main" (the "If it fails" slot). */
+  unsetIsOwn?: boolean;
   restoreFocusRef?: RefObject<HTMLElement | null>;
   /** Above the list: the slot switch of a job with an "If it fails" Model. */
   header?: ReactNode;
@@ -281,7 +284,7 @@ function ModelPickerSlot({
           includeDefault
             ? {
                 active: !value,
-                own: kind !== "chat" || decision || embedding,
+                own: kind !== "chat" || decision || embedding || unsetIsOwn,
                 label: defaultText,
                 onSelect: async () => {
                   if (value) commit(null);
@@ -371,6 +374,7 @@ export function ModelPicker({
             jobName: t("connections.picker.fallbackJob", { job: props.jobName }),
             defaultText: noFallback,
             includeDefault: true,
+            unsetIsOwn: true,
             includeLocalSidecar: false,
             extraOptions: [],
           }
