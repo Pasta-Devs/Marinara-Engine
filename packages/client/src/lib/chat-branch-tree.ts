@@ -95,18 +95,23 @@ export function buildChatBranchRows<T extends BranchTreeChat>(
 }
 
 /**
- * Whether this group has a parent pointer a tree can hang from. Groups without one — branch sets made
- * before lineage was recorded, or Game sessions that are siblings rather than branches — keep the
- * list's single-row behaviour, because drawing a hierarchy the data does not describe would be a lie
- * about someone's chats.
+ * Whether this group has a recorded parent pointer a tree can hang from. Groups without one — branch
+ * sets made before lineage was recorded, or Game sessions that are siblings rather than branches —
+ * keep the list's single-row behaviour, because drawing a hierarchy the data does not describe would
+ * be a lie about someone's chats.
+ *
+ * A pointer that names a chat outside the group still counts. Importing, copying and restoring a chat
+ * strip `branchParentChatId`, so a pointer with no chat behind it means the source was deleted, not
+ * that lineage is unknown. Deleting a middle branch must not retire the branches below it: the
+ * descendants are still branches of this group, and the builder hangs the orphan under the surviving
+ * top chat.
  */
 export function hasChatBranchLineage<T extends BranchTreeChat>(groupChats: readonly T[]): boolean {
   const chats = groupChats.filter((chat): chat is T => Boolean(chat?.id));
   if (chats.length < 2) return false;
-  const ids = new Set(chats.map((chat) => chat.id));
   return chats.some((chat) => {
     const parentId = readParentChatId(chat);
-    return Boolean(parentId) && parentId !== chat.id && ids.has(parentId!);
+    return Boolean(parentId) && parentId !== chat.id;
   });
 }
 
