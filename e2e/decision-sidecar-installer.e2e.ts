@@ -40,9 +40,9 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   });
 
   // Add connection → Other: the installer has its own tile, reachable before anything is set up.
-  await page.getByRole("button", { name: "Add account", exact: true }).filter({ visible: true }).first().click();
+  // With no accounts yet, the panel's empty state opens the same Add window.
+  await page.getByRole("button", { name: "All providers", exact: true }).click();
   const addDialog = page.getByRole("dialog", { name: "Add account", exact: true });
-  await addDialog.getByRole("button", { name: /^Other/ }).click();
   // Not conditional: the decision sidecar is its own model and its own process, so
   // this must be reachable whether or not a chat model has been downloaded. Skipping
   // here would hide exactly the regression that put it behind one.
@@ -50,8 +50,9 @@ test("the decision installer warns, gates the model choice behind Enable, and ju
   await expect(openInstaller).toBeVisible();
   await openInstaller.click();
 
-  const dialog = page.getByRole("dialog", { name: "Built-in decision model", exact: true });
-  await expect(dialog).toBeVisible();
+  // It opens as step 2 of the same window, not as a second window on top.
+  const dialog = addDialog;
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   // The warning is always visible, above anything that could start a download.
   await expect(dialog.getByText("Experimental. Most people do not need this.")).toBeVisible();
   await screenshot("decision-installer-dark");

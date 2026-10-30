@@ -36,7 +36,6 @@ import {} from "@marinara-engine/shared";
 import { flashConnectionCard, type AddFor, type ModelsFor } from "../../../lib/add-connection";
 import { jobAddKind } from "../../../lib/connection-jobs";
 import type { ModelKind } from "../../../lib/add-model-search";
-import { DecisionModelModal } from "../DecisionModelModal";
 import { AccessStep } from "./AccessStep";
 import { ModelsStep } from "./ModelsStep";
 import { ServiceListStep } from "./ServiceListStep";
@@ -132,7 +131,6 @@ export function CreateConnectionModalContent({
         : null,
   );
   const [device, setDevice] = useState<DeviceService | null>(startDevice);
-  const [decisionOpen, setDecisionOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(modelsFor ? 3 : startingService ? 2 : 1);
   const [target, setTarget] = useState<Target | null>(null);
   const [name, setName] = useState("");
@@ -380,7 +378,7 @@ export function CreateConnectionModalContent({
     const media = mediaBackendOf(key);
     setService(key);
     setProvider(
-      isDevice(key)
+      isDevice(key) || key === DECISION_BUILTIN
         ? null
         : media
           ? media.job
@@ -744,40 +742,45 @@ export function CreateConnectionModalContent({
   let footerLeft: ReactNode = null;
   let footerRight: ReactNode = null;
   if (step === 2) {
-    footerRight = device ? (
-      device === "local_model" && builtInReady ? (
-        <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
-          {t("connections.add.continue")}
-        </button>
-      ) : (
-        <button type="button" onClick={onClose} className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}>
-          {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
-        </button>
-      )
-    ) : (
-      <div className="flex items-center gap-3">
-        {failure && isLocal && (
+    footerRight =
+      device || service === DECISION_BUILTIN ? (
+        device === "local_model" && builtInReady ? (
+          <button type="button" onClick={continueBuiltIn} className={PRIMARY_CLASS}>
+            {t("connections.add.continue")}
+          </button>
+        ) : (
           <button
             type="button"
-            onClick={() => void saveAndTest(true)}
-            disabled={busy}
-            className="mari-chrome-control mari-chrome-control--small text-xs"
+            onClick={onClose}
+            className={device === "local_model" ? SECONDARY_CLASS : PRIMARY_CLASS}
           >
-            {t("connections.add.continueAnyway")}
+            {device === "local_model" ? t("connections.add.close") : t("connections.add.done")}
           </button>
-        )}
-        <button
-          type="button"
-          data-add-connection-connect
-          onClick={() => void saveAndTest()}
-          disabled={connectDisabled}
-          className={PRIMARY_CLASS}
-        >
-          {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
-          {t(failure ? "connections.add.tryAgain" : "connections.add.connect")}
-        </button>
-      </div>
-    );
+        )
+      ) : (
+        <div className="flex items-center gap-3">
+          {failure && isLocal && (
+            <button
+              type="button"
+              onClick={() => void saveAndTest(true)}
+              disabled={busy}
+              className="mari-chrome-control mari-chrome-control--small text-xs"
+            >
+              {t("connections.add.continueAnyway")}
+            </button>
+          )}
+          <button
+            type="button"
+            data-add-connection-connect
+            onClick={() => void saveAndTest()}
+            disabled={connectDisabled}
+            className={PRIMARY_CLASS}
+          >
+            {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+            {t(failure ? "connections.add.tryAgain" : "connections.add.connect")}
+          </button>
+        </div>
+      );
   } else if (step === 3 && setupKind) {
     footerLeft = picks.length > 0 && (
       <p role="status" className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
@@ -833,7 +836,7 @@ export function CreateConnectionModalContent({
   const panelClass = cn(
     "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
     // The key step fits its content; the lists and the built-in model keep the tall frame.
-    step === 2 && device !== "local_model" ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
+    step === 2 && device !== "local_model" && service !== DECISION_BUILTIN ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
   );
 
   return (
@@ -882,7 +885,7 @@ export function CreateConnectionModalContent({
               setQuery={setQuery}
               chooseService={chooseService}
               choosePreset={choosePreset}
-              openDecisionServer={() => setDecisionOpen(true)}
+              openDecisionServer={() => void chooseService(DECISION_BUILTIN)}
               serviceName={serviceName}
             />
           )}
@@ -916,7 +919,7 @@ export function CreateConnectionModalContent({
               serviceName={serviceName}
               modelCount={modelCount}
               keyRef={keyRef}
-              onBuiltInDone={builtInReady ? continueBuiltIn : onClose}
+              onBuiltInDone={device === "local_model" && builtInReady ? continueBuiltIn : onClose}
             />
           )}
 
@@ -1017,8 +1020,6 @@ export function CreateConnectionModalContent({
           </div>
         )}
       </div>
-      {/* The decision sidecar is its own model and process; its experimental installer opens from "Other". */}
-      <DecisionModelModal open={decisionOpen} onClose={() => setDecisionOpen(false)} />
     </Modal>
   );
 }

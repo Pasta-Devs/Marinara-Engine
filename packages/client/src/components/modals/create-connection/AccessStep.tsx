@@ -4,6 +4,7 @@ import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "r
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { ModelDownloadModal } from "../ModelDownloadModal";
 import { LocalWhisper } from "../../connections/DeviceDetail";
+import { DecisionModelModal } from "../DecisionModelModal";
 import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../../panels/settings/TTSConfigCard";
 import { cn } from "../../../lib/utils";
@@ -18,6 +19,7 @@ import {
   SELF_HOSTED,
   LINKAPI,
   LINKAPI_SERVICE,
+  DECISION_BUILTIN,
   failureReason,
   hostOf,
   inputClass,
@@ -146,6 +148,12 @@ export function AccessStep(props: AccessStepProps) {
     return (
       <section className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain">
         <ModelDownloadModal embedded open onClose={props.onBuiltInDone} />
+      </section>
+    );
+  if (props.service === DECISION_BUILTIN)
+    return (
+      <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
+        <DecisionModelModal embedded open onClose={props.onBuiltInDone} />
       </section>
     );
   if (props.device) {
