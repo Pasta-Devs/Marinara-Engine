@@ -823,9 +823,18 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const importDirectory = info.outputPath("folder-import");
     mkdirSync(importDirectory, { recursive: true });
     writeFileSync(`${importDirectory}/grin.png`, png);
+    writeFileSync(`${importDirectory}/reject.png`, png);
     writeFileSync(`${importDirectory}/catalog.json`, "{broken");
+    await page.route(`**${path}`, (route) =>
+      route.request().method() === "POST" && route.request().postDataJSON().expression === "reject"
+        ? route.fulfill({ status: 409, json: { error: "Fixture import failure" } })
+        : route.continue(),
+    );
     await library.locator("input[webkitdirectory]").setInputFiles(importDirectory);
-    await expect(page.getByText("Folder information could not be read.", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("1 sprite could not be imported. Folder information could not be read.", { exact: true }),
+    ).toBeVisible();
+    await page.unroute(`**${path}`);
     expect((await catalog()).sprites.some((sprite: { label: string }) => sprite.label === "grin")).toBeTruthy();
     expect(errors).toEqual([]);
   } catch (error) {

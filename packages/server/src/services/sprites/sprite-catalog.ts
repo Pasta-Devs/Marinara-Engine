@@ -62,6 +62,8 @@ export function readSpriteCatalog(ownerId: string): SpriteCatalog {
 }
 
 export function readOptionalSpriteCatalog(ownerId: string): SpriteCatalog {
+  // Directory checks must not be swallowed by the metadata fallback.
+  spriteDirectory(ownerId);
   try {
     return readSpriteCatalog(ownerId);
   } catch (err) {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,10 +8,14 @@ const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-sprite-list-security-")
 process.env.DATA_DIR = join(fixtureRoot, "data");
 const requireFromServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const app = requireFromServer("fastify")();
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 
 try {
   const { spritesRoutes } = await import("../../packages/server/src/routes/sprites.routes.ts");
+  const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
+  app.decorate("db", await getDB());
   await app.register(spritesRoutes, { prefix: "/api/sprites" });
+  await app.register(charactersRoutes, { prefix: "/api/characters" });
 
   const outside = join(fixtureRoot, "outside");
   mkdirSync(outside);
@@ -58,7 +62,32 @@ try {
   });
   assert.equal(mutation.statusCode, 500, "mutations must refuse to overwrite damaged metadata");
   assert.equal(readFileSync(brokenCatalog, "utf8"), "{broken");
+
+  const linked = await app.inject({
+    method: "POST",
+    url: "/api/characters",
+    payload: { data: { name: "Linked sprite proof" } },
+  });
+  assert.equal(linked.statusCode, 200);
+  const linkedOwner = linked.json().id;
+  writeFileSync(
+    join(outside, "private-name.png"),
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aU1cAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  );
+  symlinkSync(
+    outside,
+    join(process.env.DATA_DIR, "sprites", linkedOwner),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  for (const suffix of ["export?format=native", "export-png"]) {
+    const response = await app.inject({ method: "GET", url: `/api/characters/${linkedOwner}/${suffix}` });
+    assert.equal(response.statusCode, 500, "export must refuse a linked owner directory");
+  }
 } finally {
   await app.close();
+  await closeDB();
   rmSync(fixtureRoot, { recursive: true, force: true });
 }

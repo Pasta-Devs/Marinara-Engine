@@ -2467,11 +2467,13 @@ function PersonaSpritesTab({
         onProgress: setFolderProgress,
       });
       toast.success(localizeUi("sprites.library.importResult", { count: result.imported }), {
-        description: result.failed
-          ? localizeUi("sprites.library.importFailed", { count: result.failed })
-          : result.catalogIgnored
-            ? localizeUi("sprites.library.catalogIgnored")
-            : undefined,
+        description:
+          [
+            result.failed && localizeUi("sprites.library.importFailed", { count: result.failed }),
+            result.catalogIgnored && localizeUi("sprites.library.catalogIgnored"),
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined,
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));

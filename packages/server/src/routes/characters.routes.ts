@@ -102,7 +102,7 @@ import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { cardFieldGenerationSchema, generateCardField } from "../services/generation/card-field-generation.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { embeddedSpriteSizesAreWithinLimits, MAX_EMBEDDED_SPRITE_COUNT } from "../services/import/marinara.importer.js";
-import { readOptionalSpriteCatalog } from "../services/sprites/sprite-catalog.js";
+import { readOptionalSpriteCatalog, spriteDirectory } from "../services/sprites/sprite-catalog.js";
 import {
   clearEmbeddedLorebookFromCharacter,
   embedLorebookIntoCharacter,
@@ -653,7 +653,7 @@ async function readSpritesForId(
   id: string,
   enforcePortableLimits = false,
 ): Promise<Array<{ filename: string; data: string }> | null> {
-  const dir = join(DATA_DIR, "sprites", id);
+  const dir = spriteDirectory(id);
   if (!existsSync(dir)) return [];
   let entries: string[];
   try {
@@ -723,8 +723,9 @@ async function* galleryExportEntries(
 // Read each sprite in data/sprites/<id>/ as it is written; import restores the
 // same expression set under a new id.
 async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: string; data: string }> {
-  const dir = join(DATA_DIR, "sprites", id);
-  if (!id || !existsSync(dir)) return;
+  if (!id) return;
+  const dir = spriteDirectory(id);
+  if (!existsSync(dir)) return;
   let entries: string[];
   try {
     entries = await readdir(dir);
