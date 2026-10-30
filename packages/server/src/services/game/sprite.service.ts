@@ -107,12 +107,12 @@ export function listCharacterSprites(characterId: string): {
 
   for (const f of files) {
     const name = f.expression;
-    if (name.startsWith("full_")) fullBodyAliases[name.slice(5)] = f.label.replace(/^full_/u, "");
+    if (name.startsWith("full_")) fullBodyAliases[name.slice(5)] = f.label.replace(/^full_/iu, "");
     else expressionAliases[name] = f.label;
     if (name.startsWith("full_")) {
       const stripped = name.slice(5);
       if (stripped) {
-        if (AUTOMATIC_FULL_BODY_POSES.has(f.label.slice(5).toLowerCase())) {
+        if (AUTOMATIC_FULL_BODY_POSES.has(fullBodyAliases[stripped]!.toLowerCase())) {
           automaticFullBody.push(stripped);
         } else {
           fullBody.push(stripped);
@@ -158,7 +158,7 @@ export function readPreferredFullBodySpriteBase64(
 
     const preferred =
       FULL_BODY_REFERENCE_PRIORITY.map((expression) =>
-        fullBodyFiles.find((entry) => entry.label.toLowerCase() === expression),
+        fullBodyFiles.find((entry) => entry.label.replace(/^full_/iu, "").toLowerCase() === expression.slice(5)),
       ).find((entry) => entry !== undefined) ??
       fullBodyFiles.sort((a, b) => a.expression.localeCompare(b.expression))[0];
 

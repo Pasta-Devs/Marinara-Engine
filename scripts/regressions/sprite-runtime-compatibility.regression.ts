@@ -8,7 +8,8 @@ const directory = mkdtempSync(join(tmpdir(), "marinara-sprite-compatibility-"));
 process.env.DATA_DIR = directory;
 const random = Math.random;
 try {
-  const { listCharacterSprites } = await import("../../packages/server/src/services/game/sprite.service.js");
+  const { listCharacterSprites, readPreferredFullBodySpriteBase64 } =
+    await import("../../packages/server/src/services/game/sprite.service.js");
   const { buildAvailableSpriteCharacter, validateSpriteExpressionEntries, completeRequiredSpriteExpressionEntries } =
     await import("../../packages/server/src/routes/generate/expression-agent-utils.js");
   const { writeSpriteCatalog, listSpriteCatalog } =
@@ -183,6 +184,15 @@ try {
       );
     }
   }
+  writeFileSync(join(familyDirectory, "full_idle.png"), "fixture");
+  await writeSpriteCatalog(familyOwner, {
+    version: 1,
+    folders: [],
+    sprites: { full_idle: { label: "idle", folderId: null } },
+  });
+  assert(listCharacterSprites(familyOwner)!.automaticFullBody.includes("idle"));
+  assert.equal(readPreferredFullBodySpriteBase64(familyOwner)?.expression, "full_idle");
+
   const crossedBodies = [
     { expression: "full_cheer", label: "full_happy" },
     { expression: "full_happy", label: "full_furious" },

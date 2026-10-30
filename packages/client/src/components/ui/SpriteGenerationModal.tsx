@@ -1954,6 +1954,8 @@ export function SpriteGenerationModal({
           api.post(`/sprites/${entityId}`, {
             expression,
             image: cell.dataUrl,
+            folderId: null,
+            replaceExisting: true,
           }),
         ),
       );

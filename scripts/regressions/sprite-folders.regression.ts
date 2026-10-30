@@ -152,6 +152,14 @@ try {
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.folderId, side);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.label, "full_delighted");
 
+  for (const embedded of [[], [{ filename: "happy.png", data: png }]]) {
+    const importOwner = `invalid-catalog-${embedded.length}`;
+    await restoreSprites(embedded, importOwner, { version: 1, folders: [{ id: "invalid" }], sprites: {} });
+    const imported = listSpriteCatalog(importOwner);
+    assert.equal(imported.sprites.length, embedded.length, "bad optional metadata cannot abort sprite restoration");
+    assert.deepEqual(imported.folders, []);
+  }
+
   await request("PATCH", `${base}/folders/${front}`, { name: "Front", description: "Main view" });
   assert.equal(
     listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === legacy.expression)?.folderName,

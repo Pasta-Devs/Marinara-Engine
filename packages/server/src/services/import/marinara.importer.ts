@@ -161,13 +161,20 @@ function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specif
 // just an expression stem + an extension matching the actual image bytes, so
 // a malicious export can't traverse out of the sprites dir.
 export async function restoreSprites(sprites: unknown, id: string, catalog?: unknown): Promise<void> {
+  const restoreCatalog = async (restored: ReadonlyMap<string, string>) => {
+    try {
+      await restoreSpriteCatalog(id, catalog, restored);
+    } catch (err) {
+      logger.warn(err, "Could not restore optional sprite catalog for %s", id);
+    }
+  };
   if (sprites === undefined || sprites === null) return;
   if (!Array.isArray(sprites)) {
     logger.warn("Skipped invalid sprite collection for %s", id);
     return;
   }
   if (sprites.length === 0) {
-    await restoreSpriteCatalog(id, catalog, new Map());
+    await restoreCatalog(new Map());
     return;
   }
   if (sprites.length > MAX_EMBEDDED_SPRITE_COUNT) {
@@ -228,7 +235,7 @@ export async function restoreSprites(sprites: unknown, id: string, catalog?: unk
       logger.warn(err, "Failed to restore sprite %d for %s", index, id);
     }
   }
-  await restoreSpriteCatalog(id, catalog, restored);
+  await restoreCatalog(restored);
 }
 
 // Restore gallery images embedded as

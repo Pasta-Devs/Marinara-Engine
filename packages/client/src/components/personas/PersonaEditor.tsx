@@ -2436,6 +2436,8 @@ function PersonaSpritesTab({
         });
         setNewExpression("");
         pendingExpressionRef.current = "";
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error));
       } finally {
         setUploading(false);
       }
@@ -2464,7 +2466,9 @@ function PersonaSpritesTab({
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
-      toast.success(localizeUi("sprites.library.importResult", result));
+      toast.success(localizeUi("sprites.library.importResult", { count: result.imported }), {
+        description: result.failed ? localizeUi("sprites.library.importFailed", { count: result.failed }) : undefined,
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     } finally {

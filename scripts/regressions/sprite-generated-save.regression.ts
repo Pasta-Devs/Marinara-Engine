@@ -75,6 +75,21 @@ try {
   assert.equal(newLoose.folderId, null);
   assert.deepEqual(readFileSync(join(files, original.filename)), originalBytes);
 
+  const oldName = await request("POST", base, { expression: "curious", image, folderId: null });
+  await request("PATCH", `${base}/${oldName.expression}`, { expression: "amused" });
+  const generated = await request("POST", base, {
+    expression: "curious",
+    image: nextImage,
+    folderId: null,
+    replaceExisting: true,
+  });
+  assert.notEqual(generated.expression, oldName.expression, "generation cannot overwrite a renamed image");
+  assert.deepEqual(readFileSync(join(files, oldName.filename)), originalBytes);
+  assert.equal(
+    listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === oldName.expression)?.label,
+    "amused",
+  );
+
   const jpeg = await sharp(originalBytes).jpeg().toBuffer();
   for (const scoped of [true, false]) {
     const expression = scoped ? "full_neutral" : "full_idle";
