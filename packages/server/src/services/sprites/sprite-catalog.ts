@@ -4,6 +4,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { spriteCatalogSchema, type SpriteCatalog, type CharacterSpriteCatalog } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { logger } from "../../lib/logger.js";
 
 const IMAGE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu;
 const queues = new Map<string, Promise<unknown>>();
@@ -60,6 +61,15 @@ export function readSpriteCatalog(ownerId: string): SpriteCatalog {
   return separateSpriteFolders(catalog);
 }
 
+export function readOptionalSpriteCatalog(ownerId: string): SpriteCatalog {
+  try {
+    return readSpriteCatalog(ownerId);
+  } catch (err) {
+    logger.warn(err, "Unreadable sprite catalog for %s; listing images without folder metadata", ownerId);
+    return { version: 1, folders: [], sprites: {} };
+  }
+}
+
 export async function writeSpriteCatalog(ownerId: string, value: SpriteCatalog): Promise<void> {
   const catalog = separateSpriteFolders(spriteCatalogSchema.parse(value));
   const directory = spriteDirectory(ownerId);
@@ -83,7 +93,7 @@ export async function withSpriteCatalogLock<T>(ownerId: string, action: () => Pr
 
 export function listSpriteCatalog(ownerId: string): CharacterSpriteCatalog {
   const directory = spriteDirectory(ownerId);
-  const catalog = readSpriteCatalog(ownerId);
+  const catalog = readOptionalSpriteCatalog(ownerId);
   const sprites = existsSync(directory)
     ? readdirSync(directory)
         .filter((filename) => IMAGE.test(filename) && lstatSync(join(directory, filename)).isFile())

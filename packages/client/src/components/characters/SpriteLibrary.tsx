@@ -140,9 +140,10 @@ export function SpriteLibraryShell({
           disabled={busy || library.query.isPending || library.mutation.isPending}
           onClick={() => {
             const names = new Set(library.folders.map((folder) => folder.name.toLowerCase()));
-            let name = "unnamed";
+            const baseName = label("unnamedFolder");
+            let name = baseName;
             let index = 2;
-            while (names.has(name)) name = `unnamed ${index++}`;
+            while (names.has(name.toLowerCase())) name = `${baseName} ${index++}`;
             void library.mutate("post", "folders", { name });
           }}
         >
@@ -151,7 +152,7 @@ export function SpriteLibraryShell({
         </button>
       </div>
       {library.query.isError && (
-        <p role="alert" className="text-sm text-[var(--destructive)]">
+        <p role="alert" className="text-sm text-[var(--marinara-app-accent-static)]">
           {label("loadError")}
         </p>
       )}

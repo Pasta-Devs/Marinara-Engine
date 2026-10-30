@@ -102,7 +102,7 @@ import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { cardFieldGenerationSchema, generateCardField } from "../services/generation/card-field-generation.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { embeddedSpriteSizesAreWithinLimits, MAX_EMBEDDED_SPRITE_COUNT } from "../services/import/marinara.importer.js";
-import { readSpriteCatalog } from "../services/sprites/sprite-catalog.js";
+import { readOptionalSpriteCatalog } from "../services/sprites/sprite-catalog.js";
 import {
   clearEmbeddedLorebookFromCharacter,
   embedLorebookIntoCharacter,
@@ -793,7 +793,7 @@ async function buildNativeCharacterExport(
         spec: "chara_card_v2",
         spec_version: "2.0",
         data: portableData,
-        spriteCatalog: readSpriteCatalog(char.id),
+        spriteCatalog: readOptionalSpriteCatalog(char.id),
         // avatar, sprites and gallery are streamed here, in that order.
         [slot]: 0,
         metadata: {
@@ -877,7 +877,7 @@ async function buildNativePersonaExport(
       exportedAt: new Date().toISOString(),
       data: {
         ...personaData,
-        spriteCatalog: personaId ? readSpriteCatalog(personaId) : undefined,
+        spriteCatalog: personaId ? readOptionalSpriteCatalog(personaId) : undefined,
         // avatar, sprites and gallery are streamed here, in that order.
         [slot]: 0,
         metadata: {
@@ -2548,7 +2548,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
     const v2Envelope = buildCompatibleCharacterExport(charData, sprites, {
       keepOnboarding: true,
-      spriteCatalog: readSpriteCatalog(char.id),
+      spriteCatalog: readOptionalSpriteCatalog(char.id),
     });
     const charaBase64 = Buffer.from(JSON.stringify(v2Envelope), "utf-8").toString("base64");
 

@@ -1,5 +1,5 @@
 import { expect, test, request as createRequest, type CDPSession } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 async function dispatchTouch(
@@ -819,6 +819,14 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }
     await expect(library.locator("[data-sprite-folder]")).toHaveCount(0);
     await expect(library.locator("[data-sprite-loose] [data-sprite-card]")).toHaveCount(1);
+    await section.getByRole("button", { name: "Facial Expressions", exact: true }).click();
+    const importDirectory = info.outputPath("folder-import");
+    mkdirSync(importDirectory, { recursive: true });
+    writeFileSync(`${importDirectory}/grin.png`, png);
+    writeFileSync(`${importDirectory}/catalog.json`, "{broken");
+    await library.locator("input[webkitdirectory]").setInputFiles(importDirectory);
+    await expect(page.getByText("Folder information could not be read.", { exact: true })).toBeVisible();
+    expect((await catalog()).sprites.some((sprite: { label: string }) => sprite.label === "grin")).toBeTruthy();
     expect(errors).toEqual([]);
   } catch (error) {
     const fixtureState = await page
@@ -839,8 +847,11 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     throw error;
   } finally {
     releaseFrameSave();
-    const removed = await cleanup.delete(`/api/characters/${owner.id}`);
-    expect(removed.ok()).toBeTruthy();
-    await cleanup.dispose();
+    try {
+      const removed = await cleanup.delete(`/api/characters/${owner.id}`).catch(() => null);
+      expect.soft(removed?.ok(), "test character cleanup").toBeTruthy();
+    } finally {
+      await cleanup.dispose();
+    }
   }
 });

@@ -611,7 +611,12 @@ export function useImportSpriteFolder() {
       onProgress: (progress: { done: number; total: number }) => void;
     }) => {
       const manifestFile = files.find((file) => file.name === "catalog.json");
-      const manifest = manifestFile ? spriteCatalogSchema.parse(JSON.parse(await manifestFile.text())) : null;
+      const manifest = manifestFile
+        ? await manifestFile
+            .text()
+            .then((text) => spriteCatalogSchema.parse(JSON.parse(text)))
+            .catch(() => null)
+        : null;
       let catalog = await api.get<CharacterSpriteCatalog>(`/sprites/${characterId}/catalog`);
       async function getFolder(
         name: string,
@@ -667,7 +672,7 @@ export function useImportSpriteFolder() {
         }
         onProgress({ done: index + 1, total: images.length });
       }
-      return { imported, failed };
+      return { imported, failed, catalogIgnored: Boolean(manifestFile && !manifest) };
     },
     onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),
     onError: (_error, input) => qc.invalidateQueries({ queryKey: spriteKeys.list(input.characterId) }),

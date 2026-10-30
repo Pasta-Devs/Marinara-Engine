@@ -40,6 +40,7 @@ import { z } from "zod";
 import {
   listSpriteCatalog,
   readSpriteCatalog,
+  readOptionalSpriteCatalog,
   writeSpriteCatalog,
   withSpriteCatalogLock,
 } from "../services/sprites/sprite-catalog.js";
@@ -1569,7 +1570,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const folderName = sanitizeSpriteExportName(body.folderName, `sprites-${characterId}`);
     const zip = new AdmZip();
     const catalog = listSpriteCatalog(characterId);
-    const metadata = readSpriteCatalog(characterId);
+    const metadata = readOptionalSpriteCatalog(characterId);
     const selected = catalog.sprites.filter((sprite) => targets.includes(sprite.filename));
     for (const sprite of selected) {
       const folder = sprite.folderName ? sanitizeSpriteExportName(sprite.folderName, sprite.folderId!) : "Unfiled";
@@ -1594,14 +1595,10 @@ export async function spritesRoutes(app: FastifyInstance) {
    * Upload a sprite image for a given expression.
    * Body: { expression: string, image: string (base64 data URL), folderId?: string | null, replaceExisting?: boolean }
    */
-  app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) =>
-    withSpriteCatalogLock(req.params.characterId, async () => {
+  app.post<{ Params: { characterId: string } }>("/:characterId", async (req, reply) => {
+    if (!ownerParams.safeParse(req.params).success) return reply.status(400).send({ error: "Invalid character ID" });
+    return withSpriteCatalogLock(req.params.characterId, async () => {
       const { characterId } = req.params;
-
-      // Prevent path traversal
-      if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
-        return reply.status(400).send({ error: "Invalid character ID" });
-      }
 
       const body = req.body as {
         expression?: string;
@@ -1668,8 +1665,8 @@ export async function spritesRoutes(app: FastifyInstance) {
       };
       await writeSpriteCatalog(characterId, catalog);
       return listSpriteInfos(characterId).find((sprite) => sprite.expression === expression);
-    }),
-  );
+    });
+  });
 
   /**
    * POST /api/sprites/pixelize
@@ -1928,12 +1925,10 @@ export async function spritesRoutes(app: FastifyInstance) {
   app.patch<{ Params: { characterId: string; expression: string } }>(
     "/:characterId/:expression",
     { config: { rateLimit: SPRITE_RENAME_RATE_LIMIT } },
-    async (req, reply) =>
-      withSpriteCatalogLock(req.params.characterId, async () => {
+    async (req, reply) => {
+      if (!ownerParams.safeParse(req.params).success) return reply.status(400).send({ error: "Invalid character ID" });
+      return withSpriteCatalogLock(req.params.characterId, async () => {
         const { characterId, expression } = req.params;
-        if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
-          return reply.status(400).send({ error: "Invalid character ID" });
-        }
 
         const body = req.body;
         const nextExpression =
@@ -1975,7 +1970,8 @@ export async function spritesRoutes(app: FastifyInstance) {
         catalog.sprites[expression] = { label: nextExpression, folderId: sprite.folderId };
         await writeSpriteCatalog(characterId, catalog);
         return listSpriteInfos(characterId).find((entry) => entry.expression === expression);
-      }),
+      });
+    },
   );
 
   /**
