@@ -27,7 +27,7 @@ async function rows(request: APIRequestContext) {
   return (await (await request.get("/api/connections")).json()) as MediaRow[];
 }
 
-async function openAddModels(page: Page, accountId: string, kind?: "image" | "video") {
+async function openAddModels(page: Page, accountId: string, kind?: "chat" | "image" | "video") {
   await page.evaluate(
     async ({ accountId, kind }) => {
       const { openAddModels } = await import("/src/lib/add-connection.ts" as string);
@@ -560,7 +560,7 @@ test("a vendor connection set up for images can open its chat catalog without re
       APP_VERSION,
     );
     await page.goto("/");
-    await openAddModels(page, image.accountId, "chat");
+    await openAddModels(page, image.accountId!, "chat");
     const dialog = page.getByRole("dialog", { name: "Add model", exact: true });
     await expect(dialog.locator('[data-add-connection-capability="chat"]')).toHaveAttribute("aria-pressed", "true");
     await expect(dialog.locator('[data-model-id="gpt-fixture"]')).toBeVisible();
