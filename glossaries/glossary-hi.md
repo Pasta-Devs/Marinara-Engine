@@ -813,3 +813,9 @@ These are translation choices, not a new native-reader review.
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Mari question card, queued messages, to-do list and Automate active characters (2026-10-31)
+
+- A **question card** under Mari's reply is **सवाल कार्ड**. A message waiting for her is **इंतज़ार कर रहा संदेश**; a held message is **रोका गया संदेश**. Her to-do list is **टू-डू लिस्ट** (लिस्ट, per §6).
+- Glosses from the shipped `ui/hi.json` strings: **Send now** (अभी भेजें), **Queue for later** (बाद के लिए कतार में डालें), **Sends when she finishes** (उनके खत्म करने पर भेजा जाएगा), **Plan from before your last message** (आपके आखिरी संदेश से पहले की योजना), **Automate active characters** (सक्रिय कैरेक्टर अपने आप तय करें). **Held** is glossed (रोका गया), the first clause of the shipped `mari.queue.held` tooltip. **2 of 5** is glossed (5 में से 2), the shipped count format.
+- **Still working**, **Stop**, **Submit** and **X** run unglossed. In `chats/group-chats.md` the pin, the accent colour and the tracker's name aliases are **पिन**, **Accent Color** and **उपनाम**.
