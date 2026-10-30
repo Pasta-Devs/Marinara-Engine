@@ -12,6 +12,7 @@ import {
   mariWorkingFieldFromTool,
   mariFieldDraft,
   appDataAction,
+  rebaseUntouchedKeys,
   mariEditorKindForAction,
   mariEditorKindForTable,
   mariFieldPath,
@@ -338,3 +339,15 @@ assert.deepEqual(
 );
 
 console.log("mari-editor-fields regression passed");
+
+// Agent Save rebases `settings` (stored whole) onto her newer record: keys the user left alone take
+// her value, keys the user changed keep the user's value, and a key she removed goes.
+assert.deepEqual(
+  rebaseUntouchedKeys(
+    { runInterval: 3, contextSize: 8, maxTokens: 100, keep: 1 },
+    { runInterval: 3, contextSize: 4, maxTokens: 100, keep: 1 },
+    { runInterval: 3, contextSize: 4, maxTokens: 100 },
+    { runInterval: 5, contextSize: 6 },
+  ),
+  { runInterval: 5, contextSize: 8, keep: 1 },
+);

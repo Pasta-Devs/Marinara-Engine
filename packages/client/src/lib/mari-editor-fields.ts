@@ -417,3 +417,20 @@ export function withFormFieldValue<T>(data: T, fieldId: string, value: unknown):
     [head!]: rest.length ? withFormFieldValue(record[head!], rest.join("."), value) : value,
   } as T;
 }
+
+/** For a record stored whole (an agent's `settings`): a key the user left alone takes the record's newer value. */
+export function rebaseUntouchedKeys(
+  sent: Record<string, unknown>,
+  sentAtLoad: Record<string, unknown>,
+  before: Record<string, unknown>,
+  now: Record<string, unknown>,
+): Record<string, unknown> {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const out = { ...sent };
+  for (const key of new Set([...Object.keys(before), ...Object.keys(now)])) {
+    if (same(before[key], now[key]) || !same(sent[key], sentAtLoad[key])) continue;
+    if (now[key] === undefined) delete out[key];
+    else out[key] = now[key];
+  }
+  return out;
+}
