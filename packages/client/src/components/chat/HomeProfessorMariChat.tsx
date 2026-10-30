@@ -1544,6 +1544,25 @@ export function HomeProfessorMariChat({
       () => undefined,
     );
   }, [workspaceTimelineActive, chatId, loadMessages, sending]);
+  // A window that joined the run late gets no checkpoint event, so a Send now row leaving the list is its cue.
+  const waitingSteerIds =
+    workspaceStatus?.pendingMessagesChatId === chatId
+      ? (workspaceStatus?.pendingMessages ?? [])
+          .filter((message) => message.steer)
+          .map((message) => message.id)
+          .join(",")
+      : "";
+  const waitingSteerIdsRef = useRef(waitingSteerIds);
+  useEffect(() => {
+    const before = waitingSteerIdsRef.current ? waitingSteerIdsRef.current.split(",") : [];
+    waitingSteerIdsRef.current = waitingSteerIds;
+    const left = before.some((id) => !waitingSteerIds.split(",").includes(id));
+    // A send in flight has the live stream and its own reload.
+    if (!left || !chatId || sending || !workspaceTimelineActive) return;
+    void loadMessages(chatId, { restoreFocus: false, shouldApply: () => activeChatIdRef.current === chatId }).catch(
+      () => undefined,
+    );
+  }, [waitingSteerIds, chatId, loadMessages, sending, workspaceTimelineActive]);
   const emptyStateReady =
     omnibarMode && messages.length === 0 && !isBusy && chatId !== null && loadedMessagesChatId === chatId;
   // D1: an arrival door (⌘J, the pull, the drag, Home's "Ask Professor Mari") opened into a chat that
@@ -2414,6 +2433,8 @@ export function HomeProfessorMariChat({
       reuseSavedMessage?: boolean;
     },
     overrideContext?: ProfessorMariAskContext | null,
+    /** Ctrl+Enter or the send menu: wait until she finishes instead of going in at her next step. */
+    queueLater = false,
   ) => {
     const text = (overrideText ?? draft).trim();
     const submittedAttachments = overrideRecovery?.attachments ?? attachments;
@@ -2465,9 +2486,13 @@ export function HomeProfessorMariChat({
             attachments: submittedAttachments,
             references: submittedReferences.length > 0 ? submittedReferences : undefined,
             context: submittedContext ?? undefined,
+            steer: queueLater ? undefined : true,
           },
         );
         sendIds.push(addedId);
+        // The server decides whether it can go now: only it knows what the run started with.
+        if (!queueLater && pending.some((message) => message.id === addedId && !message.steer))
+          toast(t("mari.queue.textOnly"));
         showPendingMessages(chatId, pending);
       } catch (error) {
         returnToComposer();
@@ -2604,6 +2629,27 @@ export function HomeProfessorMariChat({
                 },
             );
           },
+          // Her reply so far and your message are saved rows now, so a failure from here on has nothing to give back.
+          onCheckpoint: async ({ ids, userMessageId }) => {
+            queuedMessageId = undefined;
+            // The same run, so the same subject: a failure from here on must not lose it from the composer or Retry.
+            runningContext = persistentResourceContext(runningContext);
+            runningAttachments = [];
+            runningReferences = [];
+            localMessageId = undefined;
+            lastSavedUserId = userMessageId;
+            const loaded = await loadMessages(chat.id, { restoreFocus: false }).catch(() => undefined);
+            runningText = loaded?.find((message) => message.id === userMessageId)?.content ?? runningText;
+            setTurnStartMessageId(userMessageId);
+            pendingWriteSeqRef.current += 1;
+            setWorkspaceStatus(
+              (current) =>
+                current && {
+                  ...current,
+                  pendingMessages: current.pendingMessages?.filter((message) => !ids.includes(message.id)),
+                },
+            );
+          },
         },
       );
       // No answer at all is a failure like any other: the same red state and card, not a toast that leaves.
@@ -2662,6 +2708,18 @@ export function HomeProfessorMariChat({
       showPendingMessages(chatId, pending);
     } catch (error) {
       toast.error(t("mari.queue.removeFailed"), { description: describeProfessorMariError(error) });
+    }
+  };
+  const sendPendingNow = async (id: string) => {
+    if (!chatId) return;
+    try {
+      const { pending } = await api.post<{ pending: MariPendingMessageSummary[] }>(
+        `/professor-mari/workspace/pending/${chatId}/${id}/steer`,
+        {},
+      );
+      showPendingMessages(chatId, pending);
+    } catch (error) {
+      toast.error(t("mari.queue.sendNowFailed"), { description: describeProfessorMariError(error) });
     }
   };
   const sendHeldMessage = (message: MariPendingMessageSummary) => {
@@ -3696,6 +3754,7 @@ export function HomeProfessorMariChat({
                           pendingMessages={pendingMessages ?? []}
                           onRemovePendingMessage={(id) => void removePendingMessage(id)}
                           onSendHeldMessage={sendHeldMessage}
+                          onSendPendingNow={(id) => void sendPendingNow(id)}
                           workspaceStatus={workspaceStatus}
                           refreshWorkspaceStatus={refreshWorkspaceStatus}
                           acceptDraftCompletion={acceptDraftCompletion}

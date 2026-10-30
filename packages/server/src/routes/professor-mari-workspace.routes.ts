@@ -34,6 +34,7 @@ import {
   MariPendingStoreError,
   removePending,
   restorePending,
+  promotePendingToSteer,
   takeNextPending,
   takePending,
 } from "../services/professor-mari/workspace-pending-store.js";
@@ -185,13 +186,15 @@ export const professorMariPromptSchema = z.object({
 });
 
 // A message queued while she works: the prompt's own shapes for what it carries.
-const pendingCreateSchema = professorMariPromptSchema.pick({
-  chatId: true,
-  message: true,
-  attachments: true,
-  references: true,
-  context: true,
-});
+const pendingCreateSchema = professorMariPromptSchema
+  .pick({
+    chatId: true,
+    message: true,
+    attachments: true,
+    references: true,
+    context: true,
+  })
+  .extend({ steer: z.boolean().optional() });
 
 const abortSchema = z.object({
   // Stop from the composer names its chat: that chat's queue comes back to the user instead of staying held.
@@ -405,11 +408,28 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
         attachments: input.attachments,
         references: input.references,
         context: input.context,
+        steer: input.steer && (await getProfessorMariWorkspaceService(app).canSteerNow(input.chatId, input.context)),
       });
     } catch (err) {
       return sendPendingError(reply, err);
     }
     return { addedId: added.id, pending: await listPendingSummaries(input.chatId) };
+  });
+
+  // Send now on a row that is already waiting.
+  app.post<{ Params: { chatId: string; id: string } }>("/pending/:chatId/:id/steer", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    try {
+      const row = (await listPendingSummaries(req.params.chatId)).find((message) => message.id === req.params.id);
+      const promoted =
+        !!row &&
+        (await getProfessorMariWorkspaceService(app).canSteerNow(req.params.chatId, row.context)) &&
+        (await promotePendingToSteer(req.params.chatId, req.params.id));
+      if (!promoted) return reply.status(409).send({ error: "That message can't go now. Send it from the queue." });
+      return { pending: await listPendingSummaries(req.params.chatId) };
+    } catch (err) {
+      return sendPendingError(reply, err);
+    }
   });
 
   app.delete<{ Params: { chatId: string; id: string } }>("/pending/:chatId/:id", async (req, reply) => {
