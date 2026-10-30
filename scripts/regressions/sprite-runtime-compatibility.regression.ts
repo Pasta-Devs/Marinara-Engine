@@ -147,6 +147,12 @@ try {
       assert.equal(result.expressions.length, 1, JSON.stringify(result.warnings));
       const handle = result.expressions[0]!.expression!;
       assert.equal(
+        validateSpriteExpressionEntries(result.expressions, [combined], { resolvedHandles: true }).expressions[0]
+          ?.expression,
+        handle,
+        "persisting finalized entries cannot reinterpret labels or reroll variants",
+      );
+      assert.equal(
         resolveSpriteDisplayExpression(listSpriteCatalog(familyOwner).sprites, handle, [family])?.expression,
         expected,
         `combined choice ${label} resolves to its concrete ${family} image`,

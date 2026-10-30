@@ -13185,7 +13185,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             }
 
-            // Validate expression agent results — reject hallucinated expressions and unknown characters
+            // These entries were finalized before SSE. Check their concrete handles
+            // without interpreting labels or rerolling variants a second time.
             if (result.success && result.type === "sprite_change" && result.data && typeof result.data === "object") {
               const spriteData = result.data as {
                 expressions?: Array<{
@@ -13198,7 +13199,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const availableSprites = agentContext.memory._availableSprites as
                 Array<{ characterId: string; characterName: string; expressions: string[] }> | undefined;
               if (Array.isArray(spriteData.expressions)) {
-                const validation = validateSpriteExpressionEntries(spriteData.expressions, availableSprites);
+                const validation = validateSpriteExpressionEntries(spriteData.expressions, availableSprites, {
+                  resolvedHandles: true,
+                });
                 let validatedExpressions = validation.expressions as typeof spriteData.expressions;
                 for (const warning of validation.warnings) {
                   logger.warn("[generate] %s", warning.message);

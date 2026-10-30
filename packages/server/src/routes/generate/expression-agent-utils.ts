@@ -360,6 +360,7 @@ export function completeRequiredSpriteExpressionEntries<T extends SpriteExpressi
 export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>(
   expressions: T[] | undefined,
   availableSprites: AvailableSpriteCharacter[] | undefined,
+  options: { resolvedHandles?: boolean } = {},
 ): ExpressionValidationResult<T> {
   const warnings: ExpressionValidationWarning[] = [];
   if (!Array.isArray(expressions) || !Array.isArray(availableSprites)) {
@@ -395,7 +396,10 @@ export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>
       });
     }
 
-    const expression = resolveExpression(entry.expression, character.expressions, character.expressionAliases);
+    const requestedHandle = entry.expression.trim().toLowerCase();
+    const expression = options.resolvedHandles
+      ? (character.expressions.find((handle) => handle.toLowerCase() === requestedHandle) ?? null)
+      : resolveExpression(entry.expression, character.expressions, character.expressionAliases);
     if (!expression) {
       warnings.push({
         message: `Expression agent chose "${entry.expression}" for ${character.characterName} which doesn't exist — removing`,

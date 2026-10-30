@@ -49,6 +49,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }
     expect((await request.patch(`${path}/catalog`, { data: { defaultFolderId: front } })).ok()).toBeTruthy();
     await isolateSyncedUISettings(page);
+    // This spec covers the Engine's sprite library, independent of installed
+    // third-party client modules and their reload/recovery lifecycle.
+    await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
     await seedUIState(page, {
       hasCompletedOnboarding: true,
       characterDetailId: owner.id,
