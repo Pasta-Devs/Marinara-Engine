@@ -1757,9 +1757,13 @@ export function AgentEditor() {
             payload.phase === normalizeAgentPhaseForType(dbConfig.type, dbConfig.phase)
           )
             delete patch.phase;
+          // A stored id the form cannot show (deleted or sidecar) is stale: Save clears it.
+          const storedConnection = normalizeTextConnectionOverride(dbConfig.connectionId) || null;
+          const staleConnection = !!dbConfig.connectionId && !storedConnection;
           if (
+            !staleConnection &&
             payload.connectionId === loadedSave.payload.connectionId &&
-            payload.connectionId === (normalizeTextConnectionOverride(dbConfig.connectionId) || null)
+            payload.connectionId === storedConnection
           )
             delete patch.connectionId;
           patch.settings = rebaseUntouchedKeys(
