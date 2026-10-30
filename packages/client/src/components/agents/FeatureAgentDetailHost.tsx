@@ -48,12 +48,15 @@ export function FeatureAgentDetailHost({
     Boolean(installedPackage?.manifest.entrypoints.client) && contributedAgentIds.includes(agent.id);
 
   const catalog = useCapabilityCatalog();
-  const storeEntry = catalog.data?.packages.find((entry) => entry.manifest.id === (installedPackage?.id ?? agent.id));
+  const storeEntry = catalog.data?.packages.find(
+    (entry) => entry.manifest.id === (installedPackage?.id ?? agent.packageId),
+  );
   // Capability API 1.390: a package can let the Engine draw this header and put its own buttons in it.
   const engineHeader =
     hasDetailContribution && installedPackage?.manifest.contributions?.agentDetail?.header === "engine";
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const meta = [agent.author, installedPackage && `v${installedPackage.version}`].filter(Boolean).join(" · ");
+  const showActiveToggle = Boolean(activeChatSupported && onEnabledForChatChange);
   const header = (compact: boolean) => (
     <AgentDetailHeader
       storeEntry={storeEntry}
@@ -66,28 +69,30 @@ export function FeatureAgentDetailHost({
       }
       meta={meta || undefined}
       actions={
-        <>
-          {activeChatSupported && onEnabledForChatChange && (
-            <CommandCenterToggle
-              checked={enabledForChat}
-              label={localizeUi("ui.agents.featureagentdetailhost.activeToggle")}
-              onCheckedChange={(enabled) => void onEnabledForChatChange(enabled)}
-            />
-          )}
-          {/* The package's own header buttons render here (portal target). */}
-          {engineHeader && <div ref={setHeaderSlot} className="contents" />}
-          {installedPackage && (
-            <button
-              type="button"
-              onClick={onManagePackage}
-              aria-label={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
-              title={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
-              className="mari-editor-action inline-flex"
-            >
-              <Settings2 size="1rem" />
-            </button>
-          )}
-        </>
+        showActiveToggle || engineHeader || installedPackage ? (
+          <>
+            {showActiveToggle && (
+              <CommandCenterToggle
+                checked={enabledForChat}
+                label={localizeUi("ui.agents.featureagentdetailhost.activeToggle")}
+                onCheckedChange={(enabled) => void onEnabledForChatChange?.(enabled)}
+              />
+            )}
+            {/* The package's own header buttons render here (portal target). */}
+            {engineHeader && <div ref={setHeaderSlot} className="contents" />}
+            {installedPackage && (
+              <button
+                type="button"
+                onClick={onManagePackage}
+                aria-label={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
+                title={localizeUi("ui.agents.featureagentdetailhost.managePackage")}
+                className="mari-editor-action inline-flex"
+              >
+                <Settings2 size="1rem" />
+              </button>
+            )}
+          </>
+        ) : undefined
       }
     />
   );
