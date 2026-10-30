@@ -88,6 +88,8 @@ export type DefaultsTile = {
   warning: Warning | null;
   /** The chosen Model, for its picture. */
   source?: ConnectionRowData;
+  /** The job this one follows ("Follows Main"): `value` and `source` are the Model it really runs. */
+  follows?: string;
   /** The engine this job needs is not set up: the tile leads to its set-up screen. */
   setup?: { item: DeviceItem; text: string };
   /** A device job opens its engine's page instead of pickers. */
@@ -112,7 +114,10 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
 
   const accountById = useMemo(() => new Map((accounts ?? []).map((account) => [account.id, account])), [accounts]);
   const mainIsBuiltIn = useSidecarStore((s) => s.config.useAsMainDefault);
-  const sidecarName = createLocalSidecarConnectionOption(sidecarModelDisplayName).name;
+  const sidecarRow: ConnectionRowData = createLocalSidecarConnectionOption(sidecarModelDisplayName);
+  const sidecarName = sidecarRow.name;
+  /** The built-in model as a Model of its own, so its row has a picture and a name like any other. */
+  const sidecarModel = { value: sidecarName, source: sidecarRow };
   // A job that points at the built-in model before it is downloaded shows the same fix as the Decision row.
   const builtInDownloaded = useSidecarStore((s) => s.modelDownloaded);
   const builtInWarning = builtInDownloaded
@@ -161,17 +166,16 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       : connectionsList.find((row) => matchesKind(row, role.kind) && isConnectionFlagTrue(row[role.flag]))) ?? null;
   const mainRow = primaryOf(FLAG_JOBS.find((role) => role.key === "main")!);
   const agentsRow = primaryOf(FLAG_JOBS.find((role) => role.key === "agents")!);
-  /** An unset job shows the model that really runs; line 2 names the job it comes from, then the Connection. */
-  const followsValue = (from: JobKey) => ({
-    value: t(from === "agents" ? "connections.defaults.followsAgents" : "connections.defaults.followsMain"),
-    muted: true,
-  });
-  const inherited = (row: ConnectionRowData | null, from: JobKey) =>
-    from === "main" && mainIsBuiltIn
-      ? { value: sidecarName, muted: true, warning: builtInWarning }
-      : row
-        ? followsValue(from)
-        : null;
+  /** An unset job shows the model that really runs, like any row; "Follows Main/Agents" is the row's state. */
+  const followsText = (from: JobKey) =>
+    t(from === "agents" ? "connections.defaults.followsAgents" : "connections.defaults.followsMain");
+  /** The followed job has no model: the plain "Follows ..." line. */
+  const followsValue = (from: JobKey) => ({ value: followsText(from), muted: true });
+  const inherited = (row: ConnectionRowData | null, from: JobKey) => {
+    const model =
+      from === "main" && mainIsBuiltIn ? { ...sidecarModel, warning: builtInWarning } : row ? describe(row) : null;
+    return model && { ...model, follows: followsText(from) };
+  };
 
   const accountOf = (row: ConnectionRowData) => (row.accountId ? accountById.get(row.accountId) : undefined);
   const usable = (row: ConnectionRowData | null | undefined) => !!row && (accountOf(row)?.state ?? "ok") === "ok";
@@ -197,8 +201,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       fallbackHint: fallbackRow ? describe(fallbackRow).hint : undefined,
       warning: null,
     };
-    if (isAgents && sidecarAsAgentsDefault) return { ...tile, value: sidecarName, warning: builtInWarning };
-    if (role.key === "main" && mainIsBuiltIn) return { ...tile, value: sidecarName, warning: builtInWarning };
+    if (isAgents && sidecarAsAgentsDefault) return { ...tile, ...sidecarModel, warning: builtInWarning };
+    if (role.key === "main" && mainIsBuiltIn) return { ...tile, ...sidecarModel, warning: builtInWarning };
     // The TTS card names a row that is gone: the server then fails (tts.routes.ts), it does not use the default.
     if (role.key === "voice" && voiceRowOf(connectionsList, tts?.connectionId).missing) {
       const flagged = voiceRowOf(connectionsList).row;
@@ -273,12 +277,14 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     warning: null,
   };
   if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID)
-    Object.assign(embeddings, { value: sidecarName, muted: false, warning: builtInWarning });
+    Object.assign(embeddings, { ...sidecarModel, muted: false, warning: builtInWarning });
   else if (embeddingRow) {
     const account = embeddingRow.accountId ? accountById.get(embeddingRow.accountId) : undefined;
     Object.assign(embeddings, {
       value: embeddingRow.embeddingModel?.trim() || embeddingRow.name,
       hint: account?.name ?? embeddingRow.name,
+      // The row draws the embedding model, not the chat model the same Model also saves.
+      source: { ...embeddingRow, model: embeddingRow.embeddingModel?.trim() || embeddingRow.model },
       muted: false,
       warning: accountWarning(account),
     });
@@ -297,10 +303,20 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const decisionNeedsLocal =
     decisionSelected?.slot === "primary" &&
     (decisionSelected.unavailable === "no_model" || decisionSelected.unavailable === "not_installed");
+  const decisionRow =
+    decisionSelected?.group === "connection"
+      ? connectionsList.find((row) => row.id === decisionSelected.id)
+      : undefined;
   const decision: DefaultsTile = {
     ...jobTile("decision"),
-    value: decisionSelected?.label ?? t("connections.defaults.off"),
-    muted: !decisionSelected,
+    ...(decisionRow
+      ? { ...describe(decisionRow), value: decisionSelected!.label }
+      : decisionSelected
+        ? {
+            value: decisionSelected.label,
+            source: { ...sidecarRow, id: decisionSelected.id, name: decisionSelected.label },
+          }
+        : { value: t("connections.defaults.off"), muted: true }),
     warning: decisionNeedsLocal
       ? {
           text: t("connections.defaults.warning.notDownloaded", { model: decisionSelected.label }),
@@ -354,11 +370,11 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     if (!value) {
       // What the server runs when unset: Quick answers use the built-in model; Prof. Mari the agents
       // default, then Main; Impersonate the chat's model, which is Main in a new chat; Image reading nothing.
-      if (job.follows === "sidecar") return { ...tile, value: sidecarName, muted: true, warning: builtInWarning };
+      if (job.follows === "sidecar") return { ...tile, ...sidecarModel, warning: builtInWarning };
       const from =
         job.follows === "agents"
           ? sidecarAsAgentsDefault
-            ? { value: sidecarName, muted: true, warning: builtInWarning }
+            ? { ...sidecarModel, follows: followsText("agents"), warning: builtInWarning }
             : (inherited(agentsRow, "agents") ?? inherited(mainRow, "main"))
           : job.follows === "main"
             ? inherited(mainRow, "main")
@@ -366,7 +382,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       return { ...tile, ...(from ?? { value: t(`connections.defaults.featureDefault.${job.feature}`), muted: true }) };
     }
     if (extra) return { ...tile, value: t(extra.key) };
-    if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, value: sidecarName, warning: builtInWarning };
+    if (value === LOCAL_SIDECAR_CONNECTION_ID) return { ...tile, ...sidecarModel, warning: builtInWarning };
     // A blocked model names who answers instead, as the server falls back: Impersonate uses the chat's model,
     // which is Main in a new chat; Image reading has no fallback; the rest use the agents default, then Main.
     if (row)
@@ -590,7 +606,10 @@ function DefaultsJobRow({
         data-defaults-tile={job.key}
         onClick={onClick}
         aria-haspopup={tile.device ? undefined : "dialog"}
-        aria-label={t("connections.defaults.jobLabel", { role: tile.title, value: tile.value })}
+        aria-label={t("connections.defaults.jobLabel", {
+          role: tile.title,
+          value: [tile.follows, tile.value].filter(Boolean).join(" · "),
+        })}
         trailing={
           <>
             {hasSettings && <span aria-hidden className="w-8 shrink-0" />}

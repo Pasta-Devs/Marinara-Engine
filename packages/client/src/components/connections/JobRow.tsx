@@ -84,17 +84,15 @@ export function JobRow({
   const unset = isUnset(tile, t("connections.defaults.notSet"));
   // A real Model of its own (not "Follows Main", not a device engine): the row shows that Model.
   const chosen = !unset && !tile.muted && !tile.device && source ? source : null;
-  const via = chosen ? viaName(chosen.provider, chosen.model) : null;
-  const provider = [tile.hint, via && t("connections.accounts.section.via", { service: via })]
-    .filter(Boolean)
-    .join(" · ");
-  const fallbackVia = tile.fallbackSource ? viaName(tile.fallbackSource.provider, tile.fallbackSource.model) : null;
-  const fallbackNote = [
-    tile.fallbackHint,
-    fallbackVia && t("connections.accounts.section.via", { service: fallbackVia }),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  // "account · via X", the same after the name in the row and in its "If it fails" line.
+  const noteOf = (account: string | undefined, model: ConnectionRowData | undefined) => {
+    const via = model ? viaName(model.provider, model.model) : null;
+    return [account, via && t("connections.accounts.section.via", { service: via })].filter(Boolean).join(" · ");
+  };
+  const provider = chosen ? noteOf(tile.hint, chosen) : "";
+  const fallbackNote = noteOf(tile.fallbackHint, tile.fallbackSource);
+  // What the row is: the job, and the job it follows when it has no Model of its own.
+  const label = [tile.title, tile.follows].filter(Boolean).join(" · ");
   const hintId = useId();
   return (
     <>
@@ -104,10 +102,10 @@ export function JobRow({
         rowProps={{ className: cn("mari-connection-defaults-job pe-0", className) }}
         className="min-h-[3.75rem] gap-2 py-2 pe-2 ps-2 max-md:pe-1 max-md:ps-1"
         tile={chosen ? <ModelTile row={chosen} model={chosen.model} /> : <JobTile unset={!!unset}>{tile.icon}</JobTile>}
-        label={chosen ? tile.title : undefined}
+        label={chosen ? label : undefined}
         title={chosen ? tile.value : tile.title}
         titleNote={chosen ? provider : undefined}
-        tooltip={chosen ? `${tile.title}: ${tile.value}` : undefined}
+        tooltip={chosen ? `${label}: ${tile.value}` : undefined}
         wrapTitle
         details={
           chosen ? (
@@ -118,8 +116,8 @@ export function JobRow({
                   <ModelTile row={tile.fallbackSource} model={tile.fallbackSource.model} size="xs" />
                 )}
                 <span className="min-w-0 truncate">
-                  {tile.fallback}
-                  {fallbackNote && <span> · {fallbackNote}</span>}
+                  <span className="font-medium">{tile.fallback}</span>
+                  {fallbackNote && <> {fallbackNote}</>}
                 </span>
               </span>
             )
