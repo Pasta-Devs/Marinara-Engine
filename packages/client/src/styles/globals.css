@@ -1836,7 +1836,7 @@
   flex-shrink: 0;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
   padding-inline: 0.625rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
@@ -3542,8 +3542,8 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
 
   .mari-editor-action {
-    min-height: 2rem;
-    min-width: 2rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     border-radius: 0.625rem;
     padding: 0.375rem;
   }

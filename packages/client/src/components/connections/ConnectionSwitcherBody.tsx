@@ -1100,11 +1100,7 @@ export function ConnectionSwitcherBody({
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
                     <Layers size="0.875rem" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate">
-                    {catalogOf(group)?.count
-                      ? t("connections.switcher.allModelsCount", { count: catalogOf(group)!.count })
-                      : t("connections.switcher.allModels")}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{t("connections.switcher.allModels")}</span>
                   <ChevronRight size="0.875rem" aria-hidden className="shrink-0" />
                 </button>
               )

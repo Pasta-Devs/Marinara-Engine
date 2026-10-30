@@ -2523,7 +2523,6 @@
   "connections.switcher.addFromCatalog": "Add more models",
   "connections.switcher.addProvider": "Add account",
   "connections.switcher.allModels": "All models",
-  "connections.switcher.allModelsCount": "All models ({{count}})",
   "connections.switcher.appliesToMari": "Applies to Professor Mari",
   "connections.switcher.back": "Back to your models",
   "connections.switcher.browse": "Browse",
