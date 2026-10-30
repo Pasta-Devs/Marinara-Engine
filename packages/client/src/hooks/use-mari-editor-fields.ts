@@ -6,6 +6,7 @@ import { findMariField, mariFieldDraft, mariFieldPath, type MariEditorKind } fro
 import { confirmEditorLeave } from "../lib/editor-leave";
 import { queryClient } from "../lib/query-client";
 import { lorebookKeys } from "./use-lorebooks";
+import { agentKeys, type AgentConfigRow } from "./use-agents";
 
 /**
  * Prof. Mari and the `[data-mari-field]` fields of one editor scroll root: reports the focused field,
@@ -163,6 +164,25 @@ const EDITOR_DETAIL: Record<
   },
   lorebook: LOREBOOK_DETAIL,
   lorebookEntry: { ...LOREBOOK_DETAIL, recordId: entryLorebookId },
+  preset: {
+    openId: (ui) => ui.presetDetailId,
+    open: (ui, id, _entityId, path) => {
+      ui.openPresetDetail(id);
+      if (path) ui.revealMariField(id, path);
+    },
+  },
+  agent: {
+    // The agent editor opens by agent type or config id; her changes name the config id.
+    openId: (ui) => {
+      const open = ui.agentDetailId;
+      const configs = queryClient.getQueryData<AgentConfigRow[]>(agentKeys.all);
+      return configs?.find((config) => config.type === open || config.id === open)?.id ?? open;
+    },
+    open: (ui, id, _entityId, path) => {
+      ui.openAgentDetail(id);
+      if (path) ui.revealMariField(id, path);
+    },
+  },
 };
 
 function editorRecordId(kind: MariEditorKind, entityId: string): string | null {

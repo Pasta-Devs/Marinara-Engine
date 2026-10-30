@@ -312,4 +312,29 @@ assert.deepEqual(
   },
 );
 
+// Slice 7c: the Preset and Agent editors. Their own fields only; prompt sections have their own action.
+assert.equal(appDataAction("promptPresets.update"), "preset.update");
+assert.equal(appDataAction("Agents.Update"), "agent.update");
+assert.equal(mariEditorKindForAction("promptPreset.update"), "preset");
+assert.equal(mariEditorKindForAction("agent.update"), "agent");
+assert.equal(mariEditorKindForAction("preset.updateSection"), null, "a prompt section is its own record");
+assert.equal(mariEditorKindForTable("prompt_presets"), "preset");
+assert.equal(mariEditorKindForTable("agent_configs"), "agent");
+assert.equal(mariPatchFieldId("preset", "game_prompt"), "gamePrompt");
+assert.equal(mariPatchFieldId("agent", "prompt"), "promptTemplate");
+assert.equal(hasMariField("conversationPrompt", "preset"), true);
+assert.equal(hasMariField("settings", "agent"), false);
+assert.deepEqual(
+  mariWorkingFieldFromTool("app_data", {
+    action: "agent.update",
+    agentId: "a1",
+    agent: { promptTemplate: "Be brief." },
+  }),
+  { entityId: "a1", path: "promptTemplate" },
+);
+assert.deepEqual(
+  mariWorkingFieldFromTool("app_data", { action: "preset.update", presetId: "p1", patch: { description: "x" } }),
+  { entityId: "p1", path: "description" },
+);
+
 console.log("mari-editor-fields regression passed");

@@ -4,10 +4,12 @@ import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-dec
 // Full-Page Agent Editor
 // Click an agent → opens this editor
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
+import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
+import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { HostDeviceFileManagerError } from "../../lib/host-device";
@@ -687,7 +689,7 @@ export function AgentEditor() {
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
 
-  const { data: agentConfigs } = useAgentConfigs();
+  const { data: agentConfigs, refetch: refetchAgentConfigs } = useAgentConfigs();
   const { data: connections } = useConnections();
   const { data: customToolsRaw } = useCustomTools();
   const { data: customToolCapabilities } = useCustomToolCapabilities();
@@ -1883,6 +1885,93 @@ export function AgentEditor() {
 
   const markDirty = useCallback(() => setDirty(true), []);
 
+  // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
+  // without a saved config has no record for her to change.
+  const mariContentRef = useRef<HTMLDivElement>(null);
+  const agentRecordId = dbConfig?.id ?? null;
+  const scrollToMariField = useCallback(
+    (field: HTMLElement) => field.scrollIntoView({ block: "center", behavior: "smooth" }),
+    [],
+  );
+  useMariEditorFields(mariContentRef, agentRecordId, !!dbConfig, scrollToMariField);
+  useMariCompanionEditor(mariContentRef, !!dbConfig);
+  const mariFieldText = (fieldId: string): string =>
+    ({ name: localName, description: localDescription, promptTemplate: localPrompt })[fieldId] ?? "";
+  const editMariField = (fieldId: string, text: string) => {
+    const set = { name: setLocalName, description: setLocalDescription, promptTemplate: setLocalPrompt }[fieldId];
+    if (!set) return;
+    set(text);
+    markDirty();
+  };
+  // Fields the user took over with Edit get the user's text back after her change lands, unsaved.
+  const takenOverRef = useRef<{ agentId: string; values: Record<string, string> } | null>(null);
+  const pendingTakenRef = useRef<Record<string, string> | null>(null);
+  const [restoreTick, setRestoreTick] = useState(0);
+  useEffect(() => {
+    takenOverRef.current = null;
+    pendingTakenRef.current = null;
+  }, [agentRecordId]);
+  const mariReview = useMariFieldReview({
+    entityId: agentRecordId,
+    current: mariFieldText,
+    touched: (fieldId) => {
+      if (!dirty || !dbConfig) return false;
+      const saved: Record<string, unknown> = {
+        name: dbConfig.name,
+        description: dbConfig.description,
+        promptTemplate: dbConfig.promptTemplate || "",
+      };
+      return mariFieldText(fieldId) !== saved[fieldId];
+    },
+    edit: editMariField,
+    beforeKeep: async (takenOver) => {
+      takenOverRef.current =
+        agentRecordId && takenOver.length > 0
+          ? { agentId: agentRecordId, values: Object.fromEntries(takenOver.map((id) => [id, mariFieldText(id)])) }
+          : null;
+      if (!dirty) return "clean";
+      if (await handleSave()) return "saved";
+      takenOverRef.current = null;
+      return "failed";
+    },
+    keepDropped: () => {
+      takenOverRef.current = null;
+    },
+  });
+  const handledKeptRef = useRef(mariReview.review?.mode === "kept" ? mariReview.review.key : null);
+  const reviewModeRef = useRef(mariReview.review?.mode);
+  const restoreTakenOver = useEffectEvent(async () => {
+    const taken = takenOverRef.current;
+    takenOverRef.current = null;
+    if (!taken || taken.agentId !== agentRecordId) return;
+    await refetchAgentConfigs();
+    if (useUIStore.getState().agentDetailId === null) return;
+    // A changed record re-runs the load effect, which resets the form: the effect below puts the
+    // user's text back after it, in the render that holds the fresh record.
+    pendingTakenRef.current = taken.values;
+    setRestoreTick((tick) => tick + 1);
+  });
+  const applyPendingTaken = useEffectEvent(() => {
+    const values = pendingTakenRef.current;
+    pendingTakenRef.current = null;
+    for (const [fieldId, text] of Object.entries(values ?? {})) editMariField(fieldId, text);
+  });
+  // Declared after the load effect, so for the same record change it runs after the form reset.
+  useEffect(() => {
+    applyPendingTaken();
+  }, [dbConfig, restoreTick]);
+  useEffect(() => {
+    const review = mariReview.review;
+    const wasBusy = reviewModeRef.current === "busy";
+    reviewModeRef.current = review?.mode;
+    const mine = (field: { entityId: string }) => field.entityId === agentRecordId;
+    // Her apply failed and the change waits again: the text captured for that Keep is stale.
+    if (wasBusy && review?.mode === "waiting" && review.fields.some(mine)) takenOverRef.current = null;
+    if (review?.mode !== "kept" || handledKeptRef.current === review.key) return;
+    handledKeptRef.current = review.key;
+    if (review.fields.some(mine)) void restoreTakenOver();
+  }, [mariReview.review, agentRecordId]);
+
   const handleMusicProviderChange = useCallback(
     (provider: MusicProvider) => {
       setLocalMusicProvider(provider);
@@ -2117,6 +2206,7 @@ export function AgentEditor() {
         onBack={handleClose}
         title={
           <input
+            data-mari-field="name"
             value={localName}
             onChange={(e) => {
               setLocalName(e.target.value);
@@ -2236,6 +2326,7 @@ export function AgentEditor() {
 
       {/* ── Body ── */}
       <div
+        ref={mariContentRef}
         className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
         onScroll={(e) => {
           // Two thresholds so the header height change cannot toggle it back at once.
@@ -2271,21 +2362,26 @@ export function AgentEditor() {
             help={localizeUi("ui.agents.agenteditor.aShortSummaryOfWhatThisAgentDoesPlus")}
           >
             <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
-              <label className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5" data-mari-field="description">
                 <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("chat.settings.inlineEditor.fields.description")}
                 </span>
-                <input
-                  value={localDescription}
-                  onChange={(e) => {
-                    setLocalDescription(e.target.value);
-                    markDirty();
-                  }}
-                  onFocus={reportField("description", localizeUi("chat.settings.inlineEditor.fields.description"))}
-                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                  placeholder={localizeUi("ui.agents.agenteditor.whatDoesThisAgentDo")}
-                />
-              </label>
+                <MariFieldReviewProvider value={mariReview.value}>
+                  <MariFieldReview field="description">
+                    <input
+                      value={localDescription}
+                      aria-label={localizeUi("chat.settings.inlineEditor.fields.description")}
+                      onChange={(e) => {
+                        setLocalDescription(e.target.value);
+                        markDirty();
+                      }}
+                      onFocus={reportField("description", localizeUi("chat.settings.inlineEditor.fields.description"))}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      placeholder={localizeUi("ui.agents.agenteditor.whatDoesThisAgentDo")}
+                    />
+                  </MariFieldReview>
+                </MariFieldReviewProvider>
+              </div>
               <label className="flex min-w-0 flex-col gap-1.5">
                 <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("ui.agents.agenteditor.author")}
@@ -4521,24 +4617,30 @@ export function AgentEditor() {
                   </span>
                 </div>
               ) : (
-                <MacroTextarea
-                  showTokenCount
-                  value={localPrompt}
-                  tokenCountFooter={promptTemplateHelp}
-                  onChange={(value) => {
-                    setLocalPrompt(value);
-                    markDirty();
-                  }}
-                  onFocus={reportField("promptTemplate", localizeUi("ui.agents.agenteditor.promptTemplate"))}
-                  rows={16}
-                  title={localizeUi("ui.agents.agenteditor.promptTemplate")}
-                  placeholder={
-                    isCustomAgent || isNewCustomAgent
-                      ? customPromptPlaceholder
-                      : localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")
-                  }
-                  className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
-                />
+                <div data-mari-field="promptTemplate">
+                  <MariFieldReviewProvider value={mariReview.value}>
+                    <MariFieldReview field="promptTemplate">
+                      <MacroTextarea
+                        showTokenCount
+                        value={localPrompt}
+                        tokenCountFooter={promptTemplateHelp}
+                        onChange={(value) => {
+                          setLocalPrompt(value);
+                          markDirty();
+                        }}
+                        onFocus={reportField("promptTemplate", localizeUi("ui.agents.agenteditor.promptTemplate"))}
+                        rows={16}
+                        title={localizeUi("ui.agents.agenteditor.promptTemplate")}
+                        placeholder={
+                          isCustomAgent || isNewCustomAgent
+                            ? customPromptPlaceholder
+                            : localizeUi("ui.agents.agenteditor.writeTheSystemPromptForThisAgent")
+                        }
+                        className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
+                      />
+                    </MariFieldReview>
+                  </MariFieldReviewProvider>
+                </div>
               )}
 
               <div className="mt-4 space-y-2">

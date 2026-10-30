@@ -224,7 +224,7 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
     focusSoon(`[data-mari-review="${CSS.escape(target)}"]`);
   };
   // The box unmounts after an answer; focus goes back to the field.
-  const focusField = () => focusSoon(`[data-mari-field="${CSS.escape(fieldId)}"] textarea`);
+  const focusField = () => focusSoon(`[data-mari-field="${CSS.escape(fieldId)}"] :is(textarea, input)`);
   const keep = () => void review.keep().then((done) => done && focusField());
   const decline = () => {
     review.decline(fieldId);
@@ -232,7 +232,7 @@ function ReviewBox({ review, index, autoFocus }: { review: MariFieldReviewValue;
   };
   const edit = () => {
     review.edit(fieldId, value);
-    focusSoon(`[data-mari-field="${CSS.escape(fieldId)}"] textarea`);
+    focusSoon(`[data-mari-field="${CSS.escape(fieldId)}"] :is(textarea, input)`);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {

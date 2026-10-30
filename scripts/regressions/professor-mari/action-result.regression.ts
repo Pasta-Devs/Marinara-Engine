@@ -47,6 +47,7 @@ for (const [table, kind] of [
   ["personas", "persona"],
   ["lorebooks", "lorebook"],
   ["prompt_presets", "preset"],
+  ["agent_configs", "agent"],
 ] as const) {
   const actionResult = buildMariWorkspaceActionResult(`${kind}.update`, result(table, "update"));
   assert.equal(actionResult?.resource.kind, kind);
