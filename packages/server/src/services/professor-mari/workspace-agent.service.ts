@@ -68,6 +68,7 @@ import {
   isChatProvider,
   isMariPermissionsMode,
   MARI_AUTHORIZATION_ACCEPT_CHIP,
+  withoutDeclinedMariFields,
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
@@ -3976,7 +3977,7 @@ export class ProfessorMariWorkspaceService {
         heldCalls.length > 0 &&
         heldCalls.length <= MAX_HELD_CHANGES_SHOWN &&
         promptText.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt
-          ? heldCalls
+          ? withoutDeclinedMariFields(heldCalls, args.context?.declinedFields ?? [])
           : null;
       if (acceptedCalls && heldMessageId !== null) {
         // Single use: a second Accept for the same held message (two tabs) must not apply the calls again.

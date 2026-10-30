@@ -817,6 +817,8 @@ interface UIState {
   mariFieldReview: MariFieldReview | null;
   /** Fields of her held change that wait in the open character editor. Transient. */
   mariFieldWaitingCount: number;
+  /** Fields of the held change (by its message id) the user declined; every Accept sends them. Transient. */
+  mariFieldDeclined: { key: string; fields: Array<{ entityId: string; fieldId: string }> };
   /**
    * The most recent recoverable app failure, so the omnibar can answer "fix this".
    * `retry` is a serializable target the omnibar maps to a real action, never a
@@ -1284,6 +1286,7 @@ interface UIState {
   setMariFieldStream: (fields: Record<string, Record<string, string>> | null) => void;
   setMariFieldReview: (review: MariFieldReview | null) => void;
   setMariFieldWaitingCount: (count: number) => void;
+  setMariFieldDeclined: (declined: { key: string; fields: Array<{ entityId: string; fieldId: string }> }) => void;
   setLastAppError: (error: UIState["lastAppError"]) => void;
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
@@ -2156,6 +2159,7 @@ export const useUIStore = create<UIState>()(
         mariFieldStream: null,
         mariFieldReview: null,
         mariFieldWaitingCount: 0,
+        mariFieldDeclined: { key: "", fields: [] },
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
@@ -2551,6 +2555,7 @@ export const useUIStore = create<UIState>()(
         setMariFieldStream: (fields) => set({ mariFieldStream: fields }),
         setMariFieldReview: (review) => set({ mariFieldReview: review }),
         setMariFieldWaitingCount: (count) => set({ mariFieldWaitingCount: count }),
+        setMariFieldDeclined: (declined) => set({ mariFieldDeclined: declined }),
         setLastAppError: (error) => set({ lastAppError: error }),
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),

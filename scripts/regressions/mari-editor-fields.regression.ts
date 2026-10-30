@@ -15,6 +15,7 @@ import {
   mariEditorKindForAction,
   mariEditorKindForTable,
   mariFieldPath,
+  declinedForHeldChange,
 } from "../../packages/client/src/lib/mari-editor-fields.js";
 
 // Change-card paths come from the row's `data` column.
@@ -311,5 +312,44 @@ assert.deepEqual(
     undoUntil: null,
   },
 );
+
+// Every Accept path (field, card, chip) reads the declined ids of the change that waits now, and no other.
+{
+  const waiting = { mode: "waiting", key: "m1" } as Parameters<typeof declinedForHeldChange>[0];
+  assert.deepEqual(declinedForHeldChange(waiting, { key: "m1", fields: [{ entityId: "c1", fieldId: "first_mes" }] }), [
+    { entityId: "c1", fieldId: "first_mes" },
+  ]);
+  assert.deepEqual(
+    declinedForHeldChange(waiting, { key: "m0", fields: [{ entityId: "c1", fieldId: "first_mes" }] }),
+    [],
+  );
+  assert.deepEqual(
+    declinedForHeldChange({ mode: "busy" }, { key: "m1", fields: [{ entityId: "c1", fieldId: "first_mes" }] }),
+    [],
+  );
+  assert.deepEqual(declinedForHeldChange(null, { key: "m1", fields: [{ entityId: "c1", fieldId: "first_mes" }] }), []);
+}
+
+// Not this one: a declined field leaves its held call, the rest still applies.
+{
+  const { withoutDeclinedMariFields } = await import("../../packages/shared/src/utils/mari-editor-fields.js");
+  const call = (args: Record<string, unknown>) => ({ name: "app_data", arguments: args });
+  const held = [
+    call({ action: "character.update", id: "c1", apply: true, patch: { description: "D", firstMes: "F" } }),
+    call({ action: "character.update", id: "c1", apply: true, backstory: "B" }),
+    call({ action: "character.update", id: "c2", apply: true, patch: { firstMes: "G" } }),
+    call({ action: "lorebook.updateentry", entryId: "e1", patch: { content: "C" } }),
+  ];
+  const field = (entityId: string, fieldId: string) => ({ entityId, fieldId });
+  const kept = withoutDeclinedMariFields(held, [field("c1", "first_mes"), field("c1", "extensions.backstory")]);
+  assert.equal(kept.length, 3);
+  assert.deepEqual(kept[0]!.arguments.patch, { description: "D" });
+  // The same field of another record, and another record's call, stay.
+  assert.equal(kept[1], held[2]);
+  assert.equal(kept[2], held[3]);
+  assert.deepEqual(withoutDeclinedMariFields(held, []), held);
+  assert.equal(withoutDeclinedMariFields(held, [field("c1", "description"), field("c1", "first_mes")]).length, 3);
+  assert.equal(withoutDeclinedMariFields(held, [field("e1", "entries.e1.content")]).length, 3);
+}
 
 console.log("mari-editor-fields regression passed");

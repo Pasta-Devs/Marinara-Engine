@@ -4177,7 +4177,7 @@
   "mari.diff.removedLine": "Removed:",
   "mari.errors.beforeAnswer": "The request failed before Professor Mari could answer.",
   "mari.fieldReview.conflict": "You changed this field. Keep replaces your text.",
-  "mari.fieldReview.declined": "Not this one. Prof. Mari will try again without {{field}}.",
+  "mari.fieldReview.declined": "Not this one. {{field}} keeps its old text.",
   "mari.fieldReview.edit": "Edit",
   "mari.fieldReview.edited": "Edited by Prof. Mari",
   "mari.fieldReview.keep": "Keep",

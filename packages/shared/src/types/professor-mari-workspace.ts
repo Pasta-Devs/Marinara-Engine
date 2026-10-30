@@ -103,6 +103,8 @@ export interface ProfessorMariAskContext {
   fieldId?: string;
   /** Current focused-field text, including unsaved edits and an optional selection. */
   fieldDraft?: { value: string; selection?: string };
+  /** Accept only: fields of a held change the user declined; Accept applies the rest. */
+  declinedFields?: Array<{ entityId: string; fieldId: string }>;
   error?: { message: string; code?: string };
   action?: string;
   commandCenterResultId?: string;
