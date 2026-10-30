@@ -782,11 +782,11 @@ export function AgentCatalogView() {
             </aside>
           )}
 
-          <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
+          <main ref={mainRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             <div className={cn("space-y-2 border-b border-[var(--border)]/50 p-3 md:hidden", !showAside && "hidden")}>
               {searchField}
               <AgentModeFilter value={modeFilter} onChange={setModeFilter} />
-              <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
+              <div className="flex flex-wrap gap-1.5 pb-0.5">
                 {[
                   ...navItems.map((item) => ({
                     target: item.page as OrganizerPage,
