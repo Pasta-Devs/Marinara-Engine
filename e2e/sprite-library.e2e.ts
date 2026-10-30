@@ -14,7 +14,8 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   baseURL,
   browserName,
 }, info) => {
-  test.setTimeout(180_000);
+  // WebKit's native scrolling/stability checks make this full editing flow slower on Windows.
+  test.setTimeout(browserName === "webkit" ? 300_000 : 180_000);
   const desktop = !info.project.use.isMobile;
   const touchChromium = Boolean(info.project.use.isMobile) && browserName === "chromium";
   if (browserName === "webkit")
