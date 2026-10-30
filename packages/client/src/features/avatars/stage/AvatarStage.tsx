@@ -250,7 +250,7 @@ export function AvatarStage({
             avatar={avatar}
             savedConfig={configQueries[position]?.data}
             spriteSetup={spriteSetupFor(sprites)}
-            sprites={avatar.kind === "vrm" ? undefined : (sprites ?? null)}
+            sprites={avatar.kind === "vrm" || avatar.kind === "mmd" ? undefined : (sprites ?? null)}
             placementKey={key}
             placement={placement}
             count={shown.length}

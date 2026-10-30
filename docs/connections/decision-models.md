@@ -14,6 +14,7 @@ Its answers control Marinara's behavior; they are not posted as replies in the c
 - **[Prompt statements](../prompts/conditional-prompts.md#asking-the-decision-model)** choose text when preparing a chat or agent prompt. With no answer, the decision reads as no, so a simple decision block uses its `{{else}}` branch, if present.
 - **[Lorebook Decision fields](../lorebooks/entries.md#decision-activation)** check Require or Trigger during the chat's lorebook scan. With no answer, Require cannot admit a new entry and Trigger adds no activation route. Existing Sticky holds and ordinary Trigger-entry activation routes still apply.
 - **[Smart response order](../chats/group-chats.md#response-order-individual-only)** scores who should speak next in a group chat, if enabled. With no answer, Smart order makes its usual AI call.
+- **[Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only)** asks who is in the scene before each reply in a Merged Roleplay group, if set to **Decision model**. With no answer for every character, it uses the Character Tracker's last scene, or keeps the list.
 
 - **[Advanced Memory Recall](../agents/memory.md#optional-decision-model)** can use a separately selected local model or Decision connection for Roleplay scene boundaries and memory selection. Enable **Use Decision model** in that chat's Advanced Memory settings. Summaries still use the Helper model. Failed decisions fall back to ordinary recall or scene checks.
 
@@ -25,7 +26,9 @@ For activation questions and prompt/lorebook statements, the model receives the 
 
 **Smart response order also sends a character roster.** It includes each candidate's name, status, activity and talkativeness when available, plus up to 300 characters of personality or, if that is empty, description. A hosted Decision provider receives this roster as well as the recent messages.
 
-- Decision statements in prompts and lorebook entries, and Smart response order, read the last 5 messages. This number is fixed.
+**Automate active characters also sends a character roster.** It includes each character's name and up to 300 characters of description or, if that is empty, personality, cut to 100 characters or names alone when a big cast would not fit, plus the names the Character Tracker last saw in the scene. If even names alone leave too little room for the recent messages, the model is not asked and the Character Tracker stands in. A hosted Decision provider receives this roster as well as the recent messages. Replies in a Merged group are labeled "the narrator", since one reply voices everyone.
+
+- Decision statements in prompts and lorebook entries, Smart response order and Automate active characters read the last 5 messages. This number is fixed.
 - Activation questions read the agent's **Scan Depth**, 5 by default.
 - Each message is labeled with its speaker's name. Messages hidden from the AI are left out.
 - Anything checked after the reply, such as a post-processing agent's activation question or a statement in its prompt, also sees the reply just written.
@@ -203,6 +206,7 @@ For concrete wording examples and a way to test them on your own chats, see [Wri
 - **An agent with an activation question runs on every turn.** No Decision model is set, or it is not answering, so the agent runs as if it had no question. Check **Test**.
 - **A decision branch in a prompt never appears.** See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **Smart response order still makes its usual AI call.** The switch is off, or the Decision model did not answer on that turn.
+- **Automate active characters follows the Character Tracker instead.** The Decision model did not answer for every character on that turn, it thinks first and **Also gate agents that run before the reply** is off, or the cast is too big to fit the model's input even by name alone, so it was not asked.
 - **To see decision scores and outputs during generation,** enable Debug Mode or set the log level to debug. Prompt-decision logs include thresholds, outcomes, and whether answers were reused or held by timing. See [Logging levels](../CONFIGURATION.md#logging-levels).
 - **To test your own statements without generating a reply,** open **Peek Prompt → Decision diagnostics → Test decisions**. Input previews are passive; explicit tests call the selected model and can incur hosted charges. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
 

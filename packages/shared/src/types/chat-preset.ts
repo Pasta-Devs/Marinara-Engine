@@ -147,6 +147,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "advancedMemoryState",
   "macroVariables",
   "inactiveCharacterIds",
+  "autoActiveCharacterPins",
   "intentCooldowns",
   "autonomousDailyBudget",
   "conversationCharacterStatuses",
@@ -229,6 +230,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "groupTurnPromptEnabled", // Tell each character it is their turn
   "groupSpeakerColors", // Colour speaker names
   "groupSpeakerNamesInHistory", // Speaker names in the history
+  "autoActiveCharacters", // Who keeps the active characters current
   // Conversation features
   "crossChatAwareness", // Characters remember their other chats
   "autonomousMessages", // Characters message on their own

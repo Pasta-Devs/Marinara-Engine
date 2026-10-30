@@ -158,6 +158,38 @@ export const MARI_APPEARANCE_PACKS: readonly MariAppearancePack[] = [
     poses: packPoses("raccoon"),
     season: "halloween",
   },
+  {
+    id: "party",
+    label: "Party Prof. Mari",
+    description: "A sparkly sweater, a paper party hat and a red cup.",
+    portraits: {
+      idle: sprite("party/portrait-idle.webp"),
+      blink: sprite("party/portrait-blink.webp"),
+      shrug: sprite("party/portrait-shrug.webp"),
+      drag: sprite("party/portrait-drag.webp"),
+      hover: sprite("party/portrait-hover.webp"),
+      pullHeads: sprite("party/pull-heads.webp"),
+    },
+    stories: packStories("party"),
+    poses: packPoses("party"),
+    season: "newyearseve",
+  },
+  {
+    id: "hungover",
+    label: "Hungover Prof. Mari",
+    description: "Slept in her clothes. Needs water.",
+    portraits: {
+      idle: sprite("hungover/portrait-idle.webp"),
+      blink: sprite("hungover/portrait-blink.webp"),
+      shrug: sprite("hungover/portrait-shrug.webp"),
+      drag: sprite("hungover/portrait-drag.webp"),
+      hover: sprite("hungover/portrait-hover.webp"),
+      pullHeads: sprite("hungover/pull-heads.webp"),
+    },
+    stories: packStories("hungover"),
+    poses: packPoses("hungover"),
+    season: "newyearsday",
+  },
 ];
 
 /**
@@ -254,7 +286,9 @@ export function activeSeasonalMariPack(seasonalThemeId: SeasonalThemeId | null):
 
 /** One key per window per year, so opting out this year does not opt out next year. */
 export function mariSeasonKey(pack: MariAppearancePack, now: Date = new Date()): string {
-  return `${pack.id}-${now.getFullYear()}`;
+  // Same rule as `seasonYear` (seasonal-themes.ts), inlined: this file takes only type imports so plain Node can load it.
+  const year = pack.season === "newyearseve" && now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  return `${pack.id}-${year}`;
 }
 
 /**

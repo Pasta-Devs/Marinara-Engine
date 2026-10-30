@@ -50,6 +50,8 @@ import {
   smartOrderState,
   type SmartOrderCandidate,
 } from "../services/generation/smart-group-decision.js";
+import { SCENE_PRESENCE_TRANSCRIPT_DEPTH } from "../services/generation/scene-presence-decision.js";
+import { decideSceneCharacters } from "../services/generation/scene-presence.service.js";
 import {
   activationQuestionSettings,
   bypassActivationQuestion,
@@ -621,6 +623,7 @@ import {
   resolveGroupGenerationMode,
   resolveGroupIndividualHistorySpeaker,
   resolveRoleplaySummaryTail,
+  resolveCharacterIdentityMap,
   resolveCharacterNameMap,
   resolveChatSpeakerNames,
   resolvePromptCharacterIdsForTarget,
@@ -3006,6 +3009,102 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               allCharacterIds.length,
             );
           }
+        }
+      }
+
+      // ── Automated active characters (Merged Roleplay groups) ──
+      // Keeps the active list equal to who is in the scene. A custom "Choose active chat
+      // characters" agent owns the choice when the chat has one. Every failure keeps the list.
+      const autoActiveMode = chatMeta.autoActiveCharacters;
+      if (
+        (autoActiveMode === "decision" || autoActiveMode === "tracker") &&
+        chatMode === "roleplay" &&
+        groupGenerationMode === "merged" &&
+        allCharacterIds.length > 1 &&
+        // Any activity agent on this chat owns the list, even on a turn its cadence or keywords skip.
+        !characterActivityAgentConfigs.some((config) => perChatAgentSet.has(config.type)) &&
+        !input.continueMessageId &&
+        !input.impersonate
+      ) {
+        try {
+          const snapshot = (await rawSelectedGameStateSnapshotPromise) as Record<string, unknown> | null;
+          const { inactiveIds: nextInactiveIds, source } = await decideSceneCharacters({
+            mode: autoActiveMode,
+            chatId: input.chatId,
+            candidateIds: allCharacterIds,
+            trackedPresentCharacters: parseJsonField<unknown[]>(snapshot?.presentCharacters, []),
+            loadIdentities: async () =>
+              [...(await resolveCharacterIdentityMap(allCharacterIds, (id) => chars.getById(id, input.chatId)))].map(
+                ([id, identity]) => ({ id, ...identity }),
+              ),
+            currentInactiveIds: Array.isArray(chatMeta.inactiveCharacterIds) ? chatMeta.inactiveCharacterIds : [],
+            pinnedIds: Array.isArray(chatMeta.autoActiveCharacterPins) ? chatMeta.autoActiveCharacterPins : [],
+            narratorId:
+              typeof chatMeta.roleplayCommandNarratorId === "string" &&
+              allCharacterIds.includes(chatMeta.roleplayCommandNarratorId)
+                ? chatMeta.roleplayCommandNarratorId
+                : null,
+            getBackend: () =>
+              resolveDecisionBackend(
+                {
+                  getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
+                  getThinkingPreGeneration: async () =>
+                    (await appSettings.get(DECISION_SETTINGS_KEYS.thinkingPreGeneration)) === "true",
+                  getDefaultConnection: () => connections.getDefaultForDecision(),
+                  getConnectionWithKey: (id) => connections.getWithKey(id),
+                  debugMode: requestDebug,
+                },
+                generationSignal,
+              ),
+            loadCandidates: async () =>
+              (
+                await loadCharacterPromptInfo({
+                  chars,
+                  characterIds: allCharacterIds,
+                  chatMode,
+                  chatId: input.chatId,
+                })
+              ).map((character) => ({
+                id: character.id,
+                name: character.name,
+                about: character.description || character.personality || undefined,
+              })),
+            // Merged replies are saved under the first character's id, so naming them by that
+            // id would tell the model that character spoke and is present. They're the narrator's.
+            buildTranscript: () =>
+              chatMessages
+                .filter((message: any) => message.role === "user" || message.role === "assistant")
+                .slice(-SCENE_PRESENCE_TRANSCRIPT_DEPTH)
+                .map((message: any) => ({
+                  role: message.role as string,
+                  name: message.role === "user" ? personaName : "the narrator",
+                  content: roleplayAgentText(
+                    conversationPromptHistoryContent(message, chatMode),
+                    message,
+                    agentWhisperNames,
+                  ),
+                })),
+          });
+          if (generationSignal.aborted) throw new Error("Generation aborted");
+          if (nextInactiveIds) {
+            const updatedChat = await chats.patchMetadata(
+              input.chatId,
+              (current) => ({ ...current, inactiveCharacterIds: nextInactiveIds }),
+              { touchUpdatedAt: false },
+            );
+            if (updatedChat) chatMeta = roomGenerationMetadata(parseExtra(updatedChat.metadata));
+            characterIds = resolveActiveCharacterIds(allCharacterIds, chatMeta, { mode: chatMode, allowEmpty: true });
+            sendSseEvent(reply, { type: "metadata_patch", data: { inactiveCharacterIds: nextInactiveIds } });
+            logger.info(
+              "[auto-active] %s set %d of %d chat character(s) active",
+              source,
+              characterIds.length,
+              allCharacterIds.length,
+            );
+          }
+        } catch (error) {
+          if (generationSignal.aborted) throw error;
+          logger.warn({ err: error, chatId: input.chatId }, "[auto-active] Could not update active characters");
         }
       }
 
@@ -6189,6 +6288,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           gameState,
           currentLocation: agentCurrentLocationFromProjection(ownerSpatialProjection),
           characters: charInfo,
+          chatCharacters: allCharacterIds.flatMap((id) => {
+            const profile = historyMacroProfilesById.get(id);
+            return profile ? [{ id, name: profile.name, active: characterIds.includes(id) }] : [];
+          }),
           characterTrackerHistory: characterTrackerHistory as unknown as AgentContext["characterTrackerHistory"],
           persona:
             personaName !== "User"

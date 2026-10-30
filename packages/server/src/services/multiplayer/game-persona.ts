@@ -99,11 +99,27 @@ export async function validateRoomPersonaChange(db: DB, chatId: string, change: 
 }
 
 /** A newly admitted human must not take over a generated NPC's sheet, live state or possessions. */
+/** A human card whose player is no longer seated in the room (the host removed them). */
+function removedPlayerCard(card: Record<string, unknown>, participants: readonly Record<string, unknown>[]) {
+  const owner = card.multiplayerParticipantId;
+  return typeof owner === "string" && !!owner && !participants.some((participant) => participant.id === owner);
+}
+
 export async function validateNewRoomHumanGameName(db: DB, chatId: string, name: string): Promise<void> {
   const current = await readGamePersonaState(db, chatId);
   if (!current) return;
-  const { metadata, cards, state } = current;
+  const { metadata, cards, state, participants } = current;
   const key = nameKey(name);
+  const named = cards.filter((card) => nameKey(card.name) === key);
+  // A removed player's hero (laptop room playtest 2026-10-30: they could never rejoin): its card,
+  // sheet and bag stay theirs to take back, whenever the host approves the one asking for it.
+  if (
+    key &&
+    named.length === 1 &&
+    removedPlayerCard(named[0]!, participants) &&
+    ![...records(metadata.gameNpcs), ...records(metadata.gamePartyArcs)].some((row) => nameKey(row.name) === key)
+  )
+    return;
   if (
     !key ||
     Object.hasOwn(state?.rulesetLive ?? {}, key) ||
@@ -136,7 +152,9 @@ export async function ensureRoomHumanGameCards(
     );
     if (
       matches.length > 1 ||
-      (matches[0]?.multiplayerParticipantId && matches[0].multiplayerParticipantId !== participant.id)
+      (matches[0]?.multiplayerParticipantId &&
+        matches[0].multiplayerParticipantId !== participant.id &&
+        !removedPlayerCard(matches[0], room.participants as unknown as Record<string, unknown>[]))
     )
       throw new RoomPersonaConflictError();
     const existing = matches[0];

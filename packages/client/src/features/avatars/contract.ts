@@ -75,6 +75,7 @@ const AVATAR_RENDERER_MODULES: Readonly<Record<AvatarKind, () => Promise<AvatarR
   pngtuber: () => import("./renderers/pngtuber/pngtuber-renderer"),
   "mesh-avatar": () => import("./renderers/mesh-avatar/mesh-avatar-renderer"),
   vrm: () => import("./renderers/vrm/vrm-renderer"),
+  mmd: () => import("./renderers/mmd/mmd-renderer"),
 };
 
 /** Loads a kind's renderer chunk on first use and creates a renderer. */
@@ -184,6 +185,7 @@ export const AVATAR_KIND_SETUP_PANELS: Readonly<
     import("./renderers/mesh-avatar/MeshAvatarSetupPanel").then((m) => ({ default: m.MeshAvatarSetupPanel })),
   ),
   vrm: lazy(() => import("./renderers/vrm/VrmSetupPanel").then((m) => ({ default: m.VrmSetupPanel }))),
+  mmd: lazy(() => import("./renderers/mmd/MmdSetupPanel").then((m) => ({ default: m.MmdSetupPanel }))),
 };
 
 /** One-click generation from a sprite (2D agent page only). */

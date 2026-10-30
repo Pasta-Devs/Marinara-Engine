@@ -8,7 +8,7 @@ Selfies are a Conversation Mode feature. A character can send a generated pictur
 
 Selfies use image generation. Each selfie your character sends uses one image generation request from the connection you pick. Because of this, selfies are turned off until you set them up.
 
-Selfies are supplied by the optional **Illustrator** package. Install Illustrator from **Agents → Download Agents** before setting them up.
+Selfies are supplied by the optional **Illustrator** package. Install Illustrator from **Agents → Agent Organizer** before setting them up.
 
 ## Turning selfies on
 

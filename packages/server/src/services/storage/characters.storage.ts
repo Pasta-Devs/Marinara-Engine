@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Characters, Personas & Groups
 // ──────────────────────────────────────────────
-import { and, asc, desc, eq, inArray, like, ne, or } from "../../db/file-query.js";
+import { and, asc, desc, eq, inArray, jsonStringArrayContainsAll, like, ne, or } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
   characters,
@@ -17,6 +17,7 @@ import {
 import { newId, now } from "../../utils/id-generator.js";
 import {
   PROFESSOR_MARI_ID,
+  parseCardTagSearchTerms,
   applyCharacterCardFieldAlternatives,
   applyPersonaCardFieldAlternatives,
   cardEntityBelongsToChat,
@@ -444,7 +445,15 @@ export function createCharactersStorage(db: DB) {
       const clauses = [];
       if (!options.includeBuiltIn) clauses.push(ne(characters.id, PROFESSOR_MARI_ID));
       const pattern = likePattern(options.search);
-      if (pattern) clauses.push(or(like(characters.data, pattern), like(characters.comment, pattern)));
+      if (pattern) {
+        clauses.push(
+          or(
+            like(characters.data, pattern),
+            like(characters.comment, pattern),
+            jsonStringArrayContainsAll(characters.data, parseCardTagSearchTerms(options.search ?? ""), "tags"),
+          ),
+        );
+      }
       const whereClause = clauses.length > 0 ? and(...clauses) : undefined;
       const favoriteFilter =
         options.favoriteFilter === "favorites" || options.favoriteFilter === "non-favorites"
@@ -966,6 +975,7 @@ export function createCharactersStorage(db: DB) {
             like(personas.appearance, pattern),
             like(personas.mes_example, pattern),
             like(personas.tags, pattern),
+            jsonStringArrayContainsAll(personas.tags, parseCardTagSearchTerms(options.search ?? "")),
           )
         : undefined;
       const rows = await (whereClause

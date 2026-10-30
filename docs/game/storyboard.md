@@ -20,7 +20,7 @@ Both modes save keyframe images to the Gallery's **Images** tab and clips to its
 ## Install the Agent
 
 1. Open the **Agents** panel from the Sparkles icon.
-2. Select **Download Agents**.
+2. Select **Agent Organizer**.
 3. Open **Storyboard** and select **Install**.
 4. Open a Roleplay or Game chat, then open **Chat Settings > Agents**.
 5. Turn on **Enable Agents**, then turn on **Enable Storyboards** in the Storyboard card.
@@ -317,7 +317,7 @@ The older settings are migration data, not a second Storyboard implementation. C
 
 ### Storyboard is missing from Chat Settings
 
-- Install **Storyboard** from **Agents > Download Agents**.
+- Install **Storyboard** from **Agents > Agent Organizer**.
 - Use a Roleplay or Game chat; Conversation is not supported.
 - Confirm the package version is compatible with the installed Engine version.
 

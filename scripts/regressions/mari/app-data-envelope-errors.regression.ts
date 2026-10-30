@@ -30,7 +30,7 @@ try {
   const lorebookId = ((await mariDb.executeAction({ action: "lorebook.list" })) as { output: Array<{ id: string }> })
     .output[0]!.id;
 
-  // One chat per call site: the gate runs once per chat.
+  // One chat per call site: the gate runs once per turn, and nothing here starts a new turn (#8391 re-arms it).
   let n = 0;
   const commandsFor = (chatId: string | null, acceptedHeldCalls = false) => {
     const commands = new WorkspaceCommands({ db } as never, () => ({

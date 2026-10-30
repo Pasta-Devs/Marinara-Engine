@@ -1,6 +1,6 @@
 # Downloadable Agents Reference
 
-This guide lists official first-party packages available through **Agents → Download Agents**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first. Entries marked **staging only** are available to Engine staging users; stable users see them after their package is promoted.
+This guide lists official first-party packages available through **Agents → Agent Organizer**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first. Entries marked **staging only** are available to Engine staging users; stable users see them after their package is promoted.
 
 ## How to read this reference
 
@@ -28,7 +28,7 @@ Adds the optional local Noodle public timeline. It opens in a dedicated Home tab
 
 - **Integration**: Feature package; it contributes the Home tab, local routes, generation and media flows, and background schedulers.
 - **Where it works**: Home, with optional context carried in from Conversation, Roleplay, and Game chats.
-- **Key settings**: install it from **Agents → Download Agents** and restart Marinara Engine when prompted. Inside Noodle, you can configure invited accounts, text and image connections, timeline refreshes, random users, and chat carryover.
+- **Key settings**: install it from **Agents → Agent Organizer** and restart Marinara Engine when prompted. Inside Noodle, you can configure invited accounts, text and image connections, timeline refreshes, random users, and chat carryover.
 - **Data lifecycle**: uninstalling removes the Home tab and stops package routes and schedulers after restart while preserving existing Noodle data for a later reinstall.
 - **Full guide**: [Noodle: The In-App Social Timeline](../noodle/overview.md).
 
@@ -38,7 +38,7 @@ A private social app for your characters. Turn characters and personas into Crea
 
 - **Integration**: App; it opens in its own **Slurp** tab in **Home**.
 - **Where it works**: Home.
-- **Key settings**: install it from **Agents → Download Agents**, restart Marinara Engine when prompted, then open **Home → Slurp**. To let a chat's characters remember their recent Slurp posts and messages, turn on **Include Slurp activity** in that chat's **Chat Settings**, under **Connected Chats**. Carryover must also be on for that chat mode in Slurp's settings. **Slurp Settings → Autopurge** removes old Slurp media to save space; it is off by default.
+- **Key settings**: install it from **Agents → Agent Organizer**, restart Marinara Engine when prompted, then open **Home → Slurp**. To let a chat's characters remember their recent Slurp posts and messages, turn on **Include Slurp activity** in that chat's **Chat Settings**, under **Connected Chats**. Carryover must also be on for that chat mode in Slurp's settings. **Slurp Settings → Autopurge** removes old Slurp media to save space; it is off by default.
 - **Older names**: older catalogs list it as **Slurp Remastered**, next to the retired **Slurp Legacy** package. Slurp Legacy gets no more updates.
 - **Full guide**: [Slurp package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md).
 
@@ -48,7 +48,7 @@ A complete gacha game. Describe a world and Gacha Forge builds the rest: banners
 
 - **Integration**: App; it opens in its own **Gacha Forge** tab in **Home**.
 - **Where it works**: Home.
-- **Key settings**: install it from **Agents → Download Agents**, restart Marinara Engine when prompted, then open **Home → Gacha Forge**. Uninstalling removes the tab after a restart.
+- **Key settings**: install it from **Agents → Agent Organizer**, restart Marinara Engine when prompted, then open **Home → Gacha Forge**. Uninstalling removes the tab after a restart.
 - **Full guide**: [Gacha Forge package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md).
 
 ### Modern Life Sim
@@ -58,7 +58,7 @@ A life simulation. You live in a small town on a clock, with a job to find and k
 - **Integration**: App; it opens in its own **Life Sim** tab in **Home**.
 - **Where it works**: Home.
 - **Availability**: **Staging only**, requiring Engine **2.4.4+** (below 4.0.0). It is an alpha. If an update changes something an older save depends on, Life Sim tells you when you open that save, and you can start a new life or continue at your own risk.
-- **Key settings**: install it from **Agents → Download Agents**, restart Marinara Engine when prompted, then open **Home → Life Sim**. It needs a text connection. An image connection is optional: without one, places show illustrated cards instead of generated backgrounds. Optional extras called modules stay off unless you switch them on for a life; the **Adult** module asks you to confirm that you are an adult.
+- **Key settings**: install it from **Agents → Agent Organizer**, restart Marinara Engine when prompted, then open **Home → Life Sim**. It needs a text connection. An image connection is optional: without one, places show illustrated cards instead of generated backgrounds. Optional extras called modules stay off unless you switch them on for a life; the **Adult** module asks you to confirm that you are an adult.
 - **Full guide**: [Modern Life Sim package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
 ### Story Writer
@@ -67,8 +67,8 @@ A book you write together with the model. Set up the story, its cast and its lor
 
 - **Integration**: App; it opens in its own **Story Writer** tab in **Home**.
 - **Where it works**: Home.
-- **Availability**: needs a Marinara Engine newer than **v2.5.1** (the next release, or a current staging build). Older Engines do not offer it in **Download Agents**.
-- **Key settings**: install it from **Agents → Download Agents**, restart Marinara Engine when prompted, then open **Home → Story Writer** and pick a text connection in its sidebar. Every story is saved on your Marinara Engine server, and you can start new ones, return to old ones, and download them as Markdown or plain text.
+- **Availability**: needs a Marinara Engine newer than **v2.5.1** (the next release, or a current staging build). Older Engines do not offer it in **Agent Organizer**.
+- **Key settings**: install it from **Agents → Agent Organizer**, restart Marinara Engine when prompted, then open **Home → Story Writer** and pick a text connection in its sidebar. Every story is saved on your Marinara Engine server, and you can start new ones, return to old ones, and download them as Markdown or plain text.
 - **Full guide**: [Story Writer package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
 ## Writer agents
@@ -167,6 +167,8 @@ A single card that describes several people, such as a scenario card with a cast
 
 When a recurring character returns after leaving the scene, Character Tracker reuses their latest saved stats and custom fields for continuity. Characters backed by cards also receive their configured RPG pools and attributes as grounding. Single-character card entries retain the card's avatar and crop. Members of a multi-character card use their own portraits through the same library, saved-avatar, or optional portrait-generation path as NPCs; they do not inherit the shared card portrait.
 
+In a Merged Roleplay group, its present characters can also set which character cards are active for the next reply. See [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
+
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default) and an optional **Auto-Generate NPC Avatars** setting with its own image connection picker. Under it, **Include the outfit in portraits** is on by default, so new portraits show the outfit the tracker noted as well as the look. Turn it off to draw portraits from the look alone.
@@ -216,7 +218,7 @@ Manages the active persona's inventory, equipment slots, item quantities and sto
 - **Phase**: Post-Processing, with inventory context supplied to later replies.
 - **Where it works**: Roleplay; tracks the active persona, not party members or NPCs.
 - **Availability**: requires Engine **2.4.6+**.
-- **Install and activate**: install **Quartermaster** from **Agents → Download Agents** and restart when prompted. In each Roleplay chat, enable agents in **Chat Settings → Agents**, add Quartermaster under **Tracker Agents**, and choose its model connection. Open the dock from the launcher above the Tracker Panel.
+- **Install and activate**: install **Quartermaster** from **Agents → Agent Organizer** and restart when prompted. In each Roleplay chat, enable agents in **Chat Settings → Agents**, add Quartermaster under **Tracker Agents**, and choose its model connection. Open the dock from the launcher above the Tracker Panel.
 - **Key controls**: equip and store items, save outfits, restore inventory or revert recent tracker changes, and export/import a chat's setup. Image generation uses a separately configured image connection. The appearance macro and replacing the persona's avatar are optional; see the [Quartermaster package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md) before enabling them.
 
 ### Relationship Tracker
@@ -226,7 +228,7 @@ Maintains an editable relationship web for the character cards assigned to a Rol
 - **Phase**: Post-Processing, with relationship context supplied to later replies.
 - **Where it works**: Roleplay group chats.
 - **Availability**: requires Engine **2.4.4+** (below 4.0.0).
-- **Install and activate**: install **Relationship Tracker** from **Agents → Download Agents** and restart when prompted. In each Roleplay chat, enable agents in **Chat Settings → Agents**, add it under **Tracker Agents**, and choose its model connection. The web appears in the Tracker Panel. Select **All relationships** or **Scene-only relationships** there once to initialize the chat before editing or updating relationships.
+- **Install and activate**: install **Relationship Tracker** from **Agents → Agent Organizer** and restart when prompted. In each Roleplay chat, enable agents in **Chat Settings → Agents**, add it under **Tracker Agents**, and choose its model connection. The web appears in the Tracker Panel. Select **All relationships** or **Scene-only relationships** there once to initialize the chat before editing or updating relationships.
 - **Key controls**: **All relationships** or **Scene-only relationships** for prompt context, **Update from History** for a bounded recent-message scan, and manual editing, locking, and **Resume automatic updates**. **Context Size** (default 5 messages), **Presence lookback** (default 15), and the history scan's message count are separate controls. Hover or keyboard-focus a line to read it; on touch or pen, press the line. See the [Relationship Tracker package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md).
 
 ### Memory Nag
@@ -344,7 +346,7 @@ Shows your characters and personas as animated 2D avatars that blink, talk, and 
 
 - **Integration**: Agent package; the Engine runs it and draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: in **Download Agents** for every install. It needs Marinara Engine 2.5.1 or newer.
+- **Availability**: in **Agent Organizer** for every install. It needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**. The agent also carries the prompts used to make blink and talk pictures and a mesh avatar from one of your sprites.
 - **Compatibility**: Engine `2.5.0` through before `4.0.0`, with Capability API 1.73. The package uses `agent-runtime`, `chat-read`, `storage`, and `ui` permissions and does not require a restart.
 - **Full guide**: [2D and 3D Avatars](avatars.md).
@@ -355,7 +357,7 @@ Shows your characters and personas as animated 3D models that blink, talk, and c
 
 - **Integration**: Agent package; the Engine runs it and draws the avatars. It sends no extra requests to your AI connections while you chat.
 - **Where it works**: Roleplay and Game, for characters and personas.
-- **Availability**: in **Download Agents** for every install. It needs Marinara Engine 2.5.1 or newer.
+- **Availability**: in **Agent Organizer** for every install. It needs Marinara Engine 2.5.1 or newer.
 - **Key settings**: set up each avatar on the agent's page in **Agents**.
 - **Compatibility**: Engine `2.5.0` through before `4.0.0`, with Capability API 1.73. The package uses `agent-runtime`, `chat-read`, `storage`, and `ui` permissions and does not require a restart.
 - **Full guide**: [2D and 3D Avatars](avatars.md).

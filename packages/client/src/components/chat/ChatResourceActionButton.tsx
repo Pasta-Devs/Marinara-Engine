@@ -1,4 +1,4 @@
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { requestChatResourceAssignment, type ChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { resolveChatResourceDropAction } from "../../lib/chat-resource-drop-capabilities";
@@ -10,11 +10,13 @@ export function ChatResourceActionButton({
   className,
   iconClassName,
   size = "small",
+  icon: Icon = MessageSquarePlus,
 }: {
   payload: ChatResourceDragPayload;
   className?: string;
   iconClassName?: string;
   size?: "small" | "row";
+  icon?: LucideIcon;
 }) {
   const { t } = useTranslation();
   const chat = useChatStore((state) => state.activeChat);
@@ -34,7 +36,7 @@ export function ChatResourceActionButton({
       title={label}
       aria-label={label}
     >
-      <MessageSquarePlus size="0.75rem" className={iconClassName} />
+      <Icon size="0.75rem" className={iconClassName} />
     </button>
   );
 }

@@ -589,7 +589,7 @@ events and spatial snapshots. `chat-read` gates chat, message, game-state and sp
 The same checks apply inside persistence transactions and chat locks; a write permission does not
 implicitly grant read permission. Engine-owned persistence calls remain trusted.
 
-The Download Agents detail view shows the installed version's declared permissions after installation.
+The Agent Organizer detail view shows the installed version's declared permissions after installation.
 When the catalog version requests different permissions, it shows those separately. Installing or
 updating code still requires the existing approval bound to that exact version and checksum; model
 commands do not request separate approval on every turn.
@@ -770,7 +770,7 @@ The base keeps the package manager, catalog client, generic agent pipeline contr
 
 The official catalog is a schema-validated, versioned JSON document fetched over HTTPS. Each release entry includes immutable artifact URLs, SHA-256 digests, byte sizes, engine compatibility, permissions, and whether its runtime requires a restart.
 
-Updates need the user's consent: apart from one-time migrations that keep an upgraded install's former built-ins (see [Compatibility migration](#compatibility-migration)), startup never downloads or installs a package. `GET /api/capability-packages/updates/pending` lists each installed official package whose catalog version is newer and compatible with the running Engine and capability API, leaving out a version the user already declined. The client shows them in one **Agent updates available** prompt. **Update all** installs each through the normal installation pipeline, pinned to the offered version and artifact SHA-256. **Not now** records the declined versions in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), so that version is not offered again, while a newer one is. **Update** stays available in **Download Agents** either way. Failures are isolated per package. Existing files and registry state remain usable when the catalog is offline or verification fails, and server-runtime readiness failures use the previous-version rollback path.
+Updates need the user's consent: apart from one-time migrations that keep an upgraded install's former built-ins (see [Compatibility migration](#compatibility-migration)), startup never downloads or installs a package. `GET /api/capability-packages/updates/pending` lists each installed official package whose catalog version is newer and compatible with the running Engine and capability API, leaving out a version the user already declined. The client shows them in one **Agent updates available** prompt. The prompt installs each selected update through the normal installation pipeline, pinned to the offered version and artifact SHA-256. Updates the user leaves unselected are declined the same way as **Not now**. **Not now** records the declined versions in `DATA_DIR/capability-packages/update-decisions-v1.json` (`POST /api/capability-packages/updates/decline`), so that version is not offered again, while a newer one is. **Update** stays available in **Agent Organizer** either way. Failures are isolated per package. Existing files and registry state remain usable when the catalog is offline or verification fails, and server-runtime readiness failures use the previous-version rollback path.
 
 Release notes are published as `notes.json` beside the `catalog.json` they describe, never inside a catalog entry or a manifest: an older Engine drops a catalog entry with a key it does not know. Each pending update carries, as `releaseNotes`, the notes of every version after the installed one up to the offered one, newest first, and `releaseHighlight` is true when any of them is marked as a change the user will notice. Notes are plain text and are never rendered as Markdown or HTML.
 
@@ -826,9 +826,9 @@ Every uninstall requires confirmation. Affected chats fall back to their ordinar
 
 ## Catalog interface
 
-The Agents panel contains a `Download Agents` control matching the `Download` button in the Characters and Personas panels, which opens the Card Browser. It opens a full-screen responsive library with search, package kinds, compatibility information, install/update state, permissions, storage cost, documentation, and uninstall controls.
+The Agents panel contains an `Agent Organizer` control matching the `Download` button in the Characters and Personas panels, which opens the Card Browser. It opens a full-screen responsive library with search, package kinds, compatibility information, install/update state, permissions, storage cost, documentation, and uninstall controls.
 
-Desktop uses a browse list with an adjacent detail region. Mobile uses one pane with explicit back navigation and touch-sized actions. Empty, offline, incompatible, corrupt-download, interrupted-install, update, rollback, and restart-required states are first-class.
+Desktop shows a sidebar with search, mode filter and sections next to the store pages. Mobile shows search, mode filter and section chips above the page; an agent page replaces the list, with explicit back navigation and touch-sized actions. Empty, offline, incompatible, corrupt-download, interrupted-install, update, rollback, and restart-required states are first-class.
 
 ## Extraction gate
 
@@ -1787,6 +1787,48 @@ exit button available on every package screen and use `aria-pressed` to reflect 
 must update the button without replacing unfinished forms. Packages depending on this control
 declare capability API 1.376 or newer; older packages can keep their existing layouts.
 
+### Capability API 1.390: the Engine draws an agent page header
+
+A package with `contributions.agentDetail` can set `"header": "engine"`. The Engine then draws the
+same header as on every other agent page: Back, the store banner and logo, the name, the Active
+toggle for the open chat and Manage package. The `detail` view gets two extra props:
+`engineHeader: true` and `headerSlot`, an element in the header actions. Hide your own header when
+`engineHeader` is set, and render extra header buttons (for example "Add memories" or help) into
+`headerSlot`, with a React portal or `appendChild`. `headerSlot` is `null` on the first render, so
+wait for the next props update. Without the flag, the package keeps the full page as before.
+Declare capability API 1.390 when you set it.
+
+### Capability API 1.389: hide or show messages from the AI
+
+`persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides messages of one chat from the AI,
+or shows them again, as the Engine's summary does with **Hide summarised messages**. It needs the
+`chat-write` permission and changes the message and every swipe. A chat that is not found rejects.
+
+- Ids that are not messages of this chat are ignored.
+- A message whose visibility the user set by hand is never changed.
+- It resolves the ids whose flag this call changed. A message that was already hidden (by the summary,
+  for example) is not returned, so record the returned ids and show only those again later.
+
+Older Engines do not have the method: check that it exists, or declare 1.389.
+
+```ts
+const hidden = (await api.runtime.persistence.setMessagesHiddenFromAI?.(chatId, messageIds, true)) ?? [];
+```
+
+### Capability API 1.388: a service only the Engine can read
+
+Every service a package registers is readable by every other package through `runtime.services.get(key)`. A
+service meant for the Engine alone, such as a runtime the Engine calls during generation, takes a third argument:
+
+```ts
+api.registerService("my-package:runtime", service, { hostOnly: true });
+```
+
+The Engine's own lookup still returns it. `runtime.services.get` returns `null` for it to every package, the owner
+included. Releasing the service clears the flag, so the key can be registered again without it. An Engine older than
+1.388 ignores the argument, so the service stays readable there; do not rely on `hostOnly` for secrecy on older
+Engines.
+
 ### Capability API 1.387: read a chat's summaries
 
 `persistence.listChatSummaries(chatId)` returns the summaries the Engine keeps for a chat, so a package
@@ -2136,7 +2178,8 @@ servers take a few libraries from the Engine instead of bundling them. Every new
 
 - `runtime.services.get(key)` returns a service a package registered with `api.registerService`, or `null` while it is
   absent or during a shared-room generation. It reads the Engine's own registry, so every package sees it.
-  `agent-runtime:` and `mari-actions:` keys always return `null`; only the Engine reads those.
+  `agent-runtime:` and `mari-actions:` keys always return `null`; only the Engine reads those. So does a service
+  registered with `hostOnly` (Capability API 1.388), for every package including its owner.
 - `runtime.commands.parse(content)`, `strip(content)` and `instructions()` read conversation commands with the
   Engine's grammar and every package's registered tags.
 - `runtime.logger.isLevelEnabled(level)` says whether the Engine logger writes that level now.

@@ -37,6 +37,7 @@ const KIND_LABEL_KEYS: Record<AvatarKind, { name: string; help: string }> = {
   pngtuber: { name: "avatars.setup.kind.pngtuber", help: "avatars.setup.kind.pngtuberHelp" },
   "mesh-avatar": { name: "avatars.setup.kind.meshAvatar", help: "avatars.setup.kind.meshAvatarHelp" },
   vrm: { name: "avatars.setup.kind.vrm", help: "avatars.setup.kind.vrmHelp" },
+  mmd: { name: "avatars.setup.kind.mmd", help: "avatars.setup.kind.mmdHelp" },
 };
 
 const FEATURE_KEYS: ReadonlyArray<readonly [keyof AvatarFeatureFlags, string, string]> = [

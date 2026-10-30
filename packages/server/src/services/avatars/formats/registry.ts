@@ -7,11 +7,13 @@ import type { AvatarFormatImporter, AvatarKind } from "@marinara-engine/shared";
 import { mavatarImporter } from "./mavatar.js";
 import { pngtuberImporter } from "./pngtuber.js";
 import { vrmImporter } from "./vrm.js";
+import { mmdImporter } from "./mmd.js";
 
 export const AVATAR_FORMAT_IMPORTERS: readonly AvatarFormatImporter[] = [
   pngtuberImporter,
   mavatarImporter,
   vrmImporter,
+  mmdImporter,
 ];
 
 /** The importer that claims a file, optionally limited to one kind, or null. */

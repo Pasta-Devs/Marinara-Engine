@@ -48,7 +48,9 @@ Lower down the same tab there is a second list, **Character Questions**. Its que
 {{char}} treats {{relationshipToUser}} with open warmth.
 ```
 
-Those five fields are the ones the model reads, so they are the ones a character answer can reach.
+Those five fields are the ones the model reads, so they are the ones a character answer can reach. A greeting can use a character question's `{{name}}` too, and shows the player's answer.
+
+A greeting can also use a persona question's `{{name}}`, such as `Ah, so you are a {{class}}`. It fills in only when the player creates that persona in the new chat wizard, in the first message and its alternate greetings. With an existing persona or Quick Start the tag shows as written, and the Character Editor warns you about that. Click into a greeting and its **Available variables** list both kinds of question, labelled.
 
 The answers are stored as chat variables, so the card reads a different value in every chat and never has to be edited. A card question is asked whenever the card is in the chat, whether or not the player creates a persona. The window shows an **About you** section only when one is being made.
 
@@ -97,6 +99,8 @@ Both paths also work after setup, from **Chat Settings**:
 
 - The **Persona** picker in a Roleplay chat lists **Create your persona** for every card in the chat that offers one. Use it when you skipped the wizard or want a new persona later.
 - The onboarding marker next to a character in **Characters** reopens that card's character questions on their own. It opens on the answers the chat already holds, so saving one change leaves the others as they were; saving again also restores an answer you deleted from Chat Variables. Other cards' answers are not touched — except a name two cards share, which is one value, so both cards read the new answer.
+
+Adding a card with character questions to a running Roleplay chat, from **Chat Settings** or by dropping it on the chat, asks its questions first. It then offers its greeting, with your answers filled in and marked.
 
 ## Sharing cards with onboarding
 

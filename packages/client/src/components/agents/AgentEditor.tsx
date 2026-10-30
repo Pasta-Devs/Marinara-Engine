@@ -18,8 +18,10 @@ import {
   useCreateAgent,
   type AgentConfigRow,
 } from "../../hooks/use-agents";
+import { useCapabilityAgentRegistry, useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { useConnections } from "../../hooks/use-connections";
 import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
+import { AgentDetailHeader } from "./AgentDetailHeader";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -28,7 +30,6 @@ import {
 } from "../../hooks/use-custom-tools";
 import {
   Activity,
-  ArrowLeft,
   Save,
   Sparkles,
   Check,
@@ -749,6 +750,15 @@ export function AgentEditor() {
   // Custom agent = DB entry with no matching built-in
   const isCustomAgent = !builtIn && !!dbConfig;
   const isNewCustomAgent = agentDetailId === "__new__";
+  // Downloaded agents show their store logo and banner, like their Organizer page.
+  const { data: capabilityAgents } = useCapabilityAgentRegistry();
+  const capabilityCatalog = useCapabilityCatalog();
+  const storeEntry = useMemo(() => {
+    const type = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
+    const packageId = capabilityAgents?.find((agent) => agent.id === type)?.packageId;
+    return packageId ? capabilityCatalog.data?.packages.find((entry) => entry.manifest.id === packageId) : undefined;
+  }, [agentDetailId, builtIn, capabilityAgents, capabilityCatalog.data, dbConfig]);
+  const hasBanner = Boolean(storeEntry?.store?.bannerSmallUrl ?? storeEntry?.store?.bannerUrl);
   const customRunIntervalMeta =
     isCustomAgent || isNewCustomAgent
       ? getAgentRunIntervalMeta(isNewCustomAgent ? "__new__" : (dbConfig?.type ?? agentDetailId ?? ""), false)
@@ -896,6 +906,9 @@ export function AgentEditor() {
   useEffect(() => () => setActiveEditorField(null), [agentDetailId, setActiveEditorField]);
   const reportField = (id: string, label: string) => () => setActiveEditorField({ id, label });
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [headerCompact, setHeaderCompact] = useState(false);
+  const compact = hasBanner && headerCompact;
+  const headerRef = useRef<HTMLDivElement>(null);
   const [showCustomAgentNotice, setShowCustomAgentNotice] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -2096,72 +2109,70 @@ export function AgentEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header">
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={localizeUi("ui.agents.agenteditor.backToAgents")}
-          className="mari-editor-action inline-flex"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
-        <div className="mari-editor-icon-tile">
-          <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-        </div>
-        <input
-          value={localName}
-          onChange={(e) => {
-            setLocalName(e.target.value);
-            markDirty();
-          }}
-          onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
-          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
-          placeholder={localizeUi("ui.agents.agenteditor.agentName")}
-        />
-        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
-          {saveError && (
-            <span className="mari-editor-status mr-2 text-red-400">
-              <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
-            </span>
-          )}
-          {savedFlash && !dirty && (
-            <span className="mari-editor-status mr-2 text-emerald-400">
-              <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-            </span>
-          )}
-          {dirty && !saveError && (
-            <span className="mari-editor-status mr-2 text-amber-400">
-              {localizeUi("ui.agents.agenteditor.unsaved")}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            disabled={isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-          >
-            <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <button
-            onClick={handleExportAgent}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("ui.agents.agenteditor.exportAgent")}
-            aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
-          >
-            <Upload size="0.9375rem" />
-          </button>
-          {isCustomAgent && dbConfig && (
+      {/* Downloaded agents: the store banner is the header, with Back and actions on top and logo and name below. */}
+      <AgentDetailHeader
+        headerRef={headerRef}
+        storeEntry={storeEntry}
+        compact={compact}
+        onBack={handleClose}
+        title={
+          <input
+            value={localName}
+            onChange={(e) => {
+              setLocalName(e.target.value);
+              markDirty();
+            }}
+            onFocus={reportField("name", localizeUi("ui.agents.agenteditor.nameField"))}
+            className="mari-editor-title-input min-w-0 placeholder:text-[var(--marinara-editor-muted)]"
+            placeholder={localizeUi("ui.agents.agenteditor.agentName")}
+          />
+        }
+        actions={
+          <>
+            {saveError && (
+              <span className="mari-editor-status mr-2 text-red-400">
+                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
+              </span>
+            )}
+            {savedFlash && !dirty && (
+              <span className="mari-editor-status mr-2 text-emerald-400">
+                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+              </span>
+            )}
+            {dirty && !saveError && (
+              <span className="mari-editor-status mr-2 text-amber-400">
+                {localizeUi("ui.agents.agenteditor.unsaved")}
+              </span>
+            )}
             <button
-              onClick={handleDelete}
-              className="mari-editor-action inline-flex"
-              title={localizeUi("ui.agents.agenteditor.deleteAgent")}
-              aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              onClick={handleSave}
+              aria-label={localizeUi("ui.noodle.noodlehome.save")}
+              disabled={isPending}
+              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
             >
-              <Trash2 size="0.9375rem" />
+              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
             </button>
-          )}
-        </div>
-      </div>
+            <button
+              onClick={handleExportAgent}
+              className="mari-editor-action inline-flex"
+              title={localizeUi("ui.agents.agenteditor.exportAgent")}
+              aria-label={localizeUi("ui.agents.agenteditor.exportAgent")}
+            >
+              <Upload size="0.9375rem" />
+            </button>
+            {isCustomAgent && dbConfig && (
+              <button
+                onClick={handleDelete}
+                className="mari-editor-action inline-flex"
+                title={localizeUi("ui.agents.agenteditor.deleteAgent")}
+                aria-label={localizeUi("ui.agents.agenteditor.deleteAgent")}
+              >
+                <Trash2 size="0.9375rem" />
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Unsaved warning */}
       {showUnsavedWarning && (
@@ -2224,7 +2235,17 @@ export function AgentEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4">
+      <div
+        className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4"
+        onScroll={(e) => {
+          // Two thresholds so the header height change cannot toggle it back at once.
+          const el = e.currentTarget;
+          // Collapse only if the body still overflows past the expand threshold once the header shrinks to 72px.
+          const shrink = Math.max(0, (headerRef.current?.offsetHeight ?? 72) - 72);
+          if (el.scrollTop > 48 && el.scrollHeight - el.clientHeight - shrink > 8) setHeaderCompact(true);
+          else if (el.scrollTop < 4) setHeaderCompact(false);
+        }}
+      >
         <div className="mari-editor-content-inner mari-editor-content-inner--wide w-full min-w-0 max-w-full space-y-6">
           {isNewCustomAgent && showCustomAgentNotice && (
             <div

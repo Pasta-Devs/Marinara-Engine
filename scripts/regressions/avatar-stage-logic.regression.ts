@@ -227,7 +227,7 @@ assert.equal(
 
 // ── The setup page and the stage share the 2D lane's sprite rule ──
 assert.deepEqual(avatarAgentKinds("2d-avatars"), ["pngtuber", "mesh-avatar"]);
-assert.deepEqual(avatarAgentKinds("3d-avatars"), ["vrm"]);
+assert.deepEqual(avatarAgentKinds("3d-avatars"), ["vrm", "mmd"]);
 const fromSprites = buildPngtuberLayersFromSprites(
   ["neutral", "neutral_talk", "happy", "happy_talk", "crying", "full_idle"].map((expression) => ({ expression })),
 );

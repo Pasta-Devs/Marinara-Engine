@@ -4,6 +4,8 @@
 @import "./themes/chat-widgets.css";
 @import "./themes/chat-widget-surfaces.css";
 @import "./themes/seasonal-halloween.css";
+@import "./themes/seasonal-newyearseve.css";
+@import "./themes/seasonal-newyearsday.css";
 
 /* World state & tracker widgets: equal flex sizing on mobile */
 @media (max-width: 767px) {
@@ -1541,7 +1543,9 @@
 }
 
 /* Resource sections keep their identifying palettes when the app accent changes. */
-.mari-panel-gradient--characters {
+.mari-panel-gradient--characters,
+.mari-field-review-line,
+[data-mari-field][data-mari-focus] {
   --mari-panel-gradient-start: #f472b6;
   --mari-panel-gradient-end: #f43f5e;
   --mari-panel-gradient-text: #fff7fb;

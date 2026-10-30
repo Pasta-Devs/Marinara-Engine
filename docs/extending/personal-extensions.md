@@ -154,6 +154,41 @@ Character snapshots contain only `id`, `name`, `description`, `personality`, `sc
 
 Marinara never sends messages, creator notes, system prompts, post-history instructions, comments, avatar paths, full Character or Persona libraries, undeclared fields, chat metadata, database handles, network access, or mutation operations. Context updates remain bound to the approved code hash and are delivered when the active chat, its Character list, or its selected Persona changes.
 
+### Add a dice format
+
+Browser Extension API version 6 lets an extension teach `/roll` a notation of its own, such as a narrative dice pool. The extension reads the notation and names the dice to throw; Marinara throws them with its own secure roller and hands the faces back. An extension can say what a roll means, never what it rolled.
+
+```js
+const SYMBOLS = { boost: [0, 0, 1, 1, 2, 1], setback: [0, 0, -1, -1, 0, 0] };
+
+const format = marinara.dice.registerFormat({
+  id: "narrative",
+  label: "Narrative dice",
+  // Return null for notation this format does not read.
+  parse(notation) {
+    const terms = [...notation.matchAll(/(\d+)\s*(boost|setback)/g)];
+    if (!terms.length) return null;
+    const kinds = terms.flatMap(([, count, kind]) => Array(Number(count)).fill(kind));
+    return { dice: kinds.map(() => 6), kinds };
+  },
+  // rolls[i] is the face Marinara threw for dice[i]; plan is what parse returned.
+  read({ notation, dice, rolls, plan }) {
+    const net = rolls.reduce((sum, face, i) => sum + SYMBOLS[plan.kinds[i]][face - 1], 0);
+    return { total: net, text: net > 0 ? `${net} success` : "failure" };
+  },
+});
+marinara.onCleanup(() => format.remove());
+```
+
+`/roll 2 boost 1 setback` then posts the faces, the total and the extension's text, labelled with the format's name. Plain notation such as `2d6` or `4d6kh3` always rolls as before and never reaches an extension. Other notation goes to each registered format in turn, and the first whose `parse` returns dice rolls it.
+
+- `parse(notation)` returns `null` or `{ dice: [sides, ...] }` with 1-100 dice of 2-1000 sides. Anything else on the object stays in the sandbox and is passed back to `read` as `plan`.
+- `read(...)` returns `{ total, text?, kept? }`: a finite number, at most 200 characters of plain text, and optionally the places of the dice that counted, in ascending order. `/roll` strikes the rest through.
+- Each extension can register 4 formats. Notation is at most 100 characters. `parse` and `read` may be async, but each must answer within 2 seconds.
+- The text is shown as plain text: links, images, formatting and HTML are escaped.
+
+Dice formats cover `/roll` in the browser. The Game Master's `roll_dice` tool and other server-side rolls keep the built-in notation and ruleset dice. Check `typeof marinara.dice?.registerFormat === "function"` before calling it on older Engines.
+
 ### Legacy and full page extensions
 
 Weather controllers, prompt editors, and other substantial workflows are valid contribution use cases. Their safe ports can use a menu or top-bar launcher plus progressively updated panels. Existing packages that inject DOM overlays, query Marinara CSS selectors, traverse React internals, or call same-origin `/api` routes cannot be imported unchanged into the safe runtime.

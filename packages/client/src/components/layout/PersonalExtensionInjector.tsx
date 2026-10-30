@@ -21,6 +21,13 @@ import {
   removePersonalExtensionContributions,
   setPersonalExtensionContributionDispatcher,
 } from "../../lib/personal-extension-contributions";
+import {
+  registerPersonalExtensionDiceFormat,
+  removePersonalExtensionDiceFormat,
+  removePersonalExtensionDiceFormats,
+  resolvePersonalExtensionDiceResponse,
+  setPersonalExtensionDiceDispatcher,
+} from "../../lib/personal-extension-dice-formats";
 import { fetchForPersonalExtension } from "../../lib/personal-extension-traffic";
 import { translate } from "../../localization/i18n";
 import { useChatStore } from "../../stores/chat.store";
@@ -83,13 +90,19 @@ type SandboxMessage = {
     | "ui-resize"
     | "ui-contribution-register"
     | "ui-contribution-update"
-    | "ui-contribution-remove";
+    | "ui-contribution-remove"
+    | "dice-format-register"
+    | "dice-format-remove"
+    | "dice-parse-result"
+    | "dice-read-result";
   contentHash?: string;
   requestId?: string;
   action?: "get" | "patch" | "delete";
   payload?: unknown;
   contribution?: unknown;
   contributionId?: unknown;
+  format?: unknown;
+  formatId?: unknown;
   level?: "debug" | "info" | "warn" | "error";
   args?: unknown[];
   message?: string;
@@ -249,6 +262,7 @@ async function cleanupExtension(id: string) {
   const active = activeExtensions.get(id);
   activeExtensions.delete(id);
   removePersonalExtensionContributions(id);
+  removePersonalExtensionDiceFormats(id);
   if (active) {
     active.iframe.contentWindow?.postMessage({ channel: "marinara-personal-extension", type: "stop" }, "*");
     active.iframe.remove();
@@ -483,6 +497,21 @@ export function PersonalExtensionInjector() {
         removePersonalExtensionContribution(active.extension.id, active.contentHash, message.contributionId);
         return;
       }
+      if (message.type === "dice-format-register" && message.contentHash === active.contentHash) {
+        registerPersonalExtensionDiceFormat(active.extension, message.format);
+        return;
+      }
+      if (message.type === "dice-format-remove" && message.contentHash === active.contentHash) {
+        removePersonalExtensionDiceFormat(active.extension.id, active.contentHash, message.formatId);
+        return;
+      }
+      if (
+        (message.type === "dice-parse-result" || message.type === "dice-read-result") &&
+        message.contentHash === active.contentHash
+      ) {
+        resolvePersonalExtensionDiceResponse(active.extension, active.contentHash, message);
+        return;
+      }
       if (message.type === "storage") {
         void handleStorage(active, message);
         return;
@@ -643,6 +672,9 @@ export function PersonalExtensionInjector() {
       iframe.addEventListener("load", () => void postSandboxContext(nextActive), { once: true });
       document.body.appendChild(iframe);
       setPersonalExtensionContributionDispatcher(extension, (message) => {
+        iframe.contentWindow?.postMessage({ channel: "marinara-personal-extension", ...message }, "*");
+      });
+      setPersonalExtensionDiceDispatcher(extension, (message) => {
         iframe.contentWindow?.postMessage({ channel: "marinara-personal-extension", ...message }, "*");
       });
     }

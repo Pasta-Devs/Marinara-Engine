@@ -1,4 +1,9 @@
-import { includesTextForMatch, normalizeTextForMatch } from "@marinara-engine/shared";
+import {
+  includesTextForMatch,
+  matchesAllCardSearchTags,
+  normalizeTextForMatch,
+  parseCardTagSearchTerms,
+} from "@marinara-engine/shared";
 
 export type CardLibrarySearchQuery = {
   text: string;
@@ -54,6 +59,7 @@ export function matchesCardLibrarySearch(document: CardLibrarySearchDocument, qu
   const tagSet = new Set(tags.map((tag) => normalizeTextForMatch(tag)));
   if (query.excludedTags.some((tag) => tagSet.has(tag))) return false;
   if (!query.text) return true;
+  if (matchesAllCardSearchTags(tags, parseCardTagSearchTerms(query.text))) return true;
 
   return [
     document.name,

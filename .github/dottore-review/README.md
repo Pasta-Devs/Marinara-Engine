@@ -71,6 +71,8 @@ A review posts:
   then, folded, his review notes (the other control checks, open questions, observations and lab notes) and a repair
   prompt for an agent of your own, which opens by telling the agent to verify each finding before changing code. The last
   reviewed head and the open repair contracts ride in HTML comments inside it, so the next review knows where it left off.
+  An incremental review sees only the commits since that head, so it keeps the summary it finds and adds a
+  `Since <head>:` line of its own beneath it, the last three kept; a full review writes the summary afresh.
 - **A review thread per confirmed defect**, at its line: the severity and title, one plain sentence on what breaks, the
   suggested fix, one quote in his voice, and, folded under Details, the full explanation, the other acceptable fixes
   and the proof expected (only that fold is trimmed when a finding runs long). A footer names the two ways it gets

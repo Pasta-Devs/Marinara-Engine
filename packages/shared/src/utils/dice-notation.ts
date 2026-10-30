@@ -3,13 +3,18 @@
 //
 // The tool executor, the /roll service, the GM
 // skill-check tag and the client slash roller all
-// parse through this module. Display-only parsers
-// keep their own: the {{roll}} macro, the dice
-// card's, and the narration badge formatter's.
+// parse through this module; the {{roll}} macro and
+// the narration badge read the same grammar (the
+// macro keeps its own looser count and face limits).
+// The dice card keeps its own display-only reader.
 // Before this module existed, those four command
 // readers each carried their own regex, and they
 // disagreed: bare "d20" was legal in three of them
 // and an error in the fourth.
+//
+// It also holds the one roller shape (`DieRoller`),
+// so the code that reads a roll never chooses where
+// its dice come from.
 // ──────────────────────────────────────────────
 
 import type { DiceRollResult } from "../types/game.js";
@@ -20,6 +25,13 @@ import type { DiceRollResult } from "../types/game.js";
  */
 export const DICE_NOTATION_REGEX = /^(\d+)?d(\d+)([+-]\d+)?$/i;
 
+/**
+ * The same notation as a pattern source with no groups, for a reader that finds
+ * dice inside longer text (the narration badge's `[dice: 2d6+3 = 11]`) rather
+ * than parsing a whole string. Build with the `i` flag.
+ */
+export const DICE_NOTATION_PATTERN = String.raw`\d*d\d+(?:[+-]\d+)?`;
+
 /** Most dice one notation may throw. */
 export const MAX_DICE_COUNT = 100;
 /** Most faces a die may have. */
@@ -28,7 +40,7 @@ export const MAX_DICE_SIDES = 1000;
 export interface ParsedDiceNotation {
   /** The notation as written, trimmed. */
   notation: string;
-  /** The NdM half, lowercased and without the modifier — "d20", "2d6". */
+  /** The dice half, lowercased and without the modifier — "d20", "2d6", or a pool's "4d6kh3". */
   dice: string;
   /** Number of dice to throw (at least 1). */
   count: number;
@@ -36,6 +48,16 @@ export interface ParsedDiceNotation {
   sides: number;
   /** Flat modifier; 0 when the notation carried none. */
   modifier: number;
+  /** Which dice count toward the total (`4d6kh3`, `2d20kl1`, `4d6dl1`), read only by
+   *  `parseDicePool`. Absent, every die counts. */
+  keep?: DiceKeep;
+}
+
+/** The dice of a pool that count: the highest or lowest `count` of them. A drop is the keep of the
+ *  rest (`4d6dl1` keeps the highest 3), so a rolled pool only ever reads one rule. */
+export interface DiceKeep {
+  highest: boolean;
+  count: number;
 }
 
 /**
@@ -103,9 +125,44 @@ export function parseDiceNotation(value: string): ParsedDiceNotation | null {
   };
 }
 
+/** NdM with a keep or drop, then the modifier: `4d6kh3`, `2d20kl1`, `4d6dl1+2`. `k` alone keeps the
+ *  highest, as most tabletop rollers read it. */
+const DICE_POOL_REGEX = /^(\d*d\d+)(kh|kl|dh|dl|k)(\d+)([+-]\d+)?$/i;
+
+/**
+ * Parse a dice pool: NdM, or NdM that keeps or drops some of its dice before the modifier is added.
+ *
+ * The plain rollers (`/roll`, composer dice, the `roll_dice` tool, multiplayer `/roll`) read this;
+ * readers that only ever take NdM (sheets, the GM's tags) keep `parseDiceNotation`. A keep must
+ * leave at least one die and at most every die (`2d20kh3` and `4d6dl4` are refused); everything
+ * else is held to `parseDiceNotation`'s rules.
+ */
+export function parseDicePool(value: string): ParsedDiceNotation | null {
+  const notation = value.trim();
+  const match = notation.match(DICE_POOL_REGEX);
+  if (!match) return parseDiceNotation(notation);
+  const base = parseDiceNotation(`${match[1]}${match[4] ?? ""}`);
+  const named = Number.parseInt(match[3]!, 10);
+  if (!base || !Number.isSafeInteger(named)) return null;
+  const rule = match[2]!.toLowerCase();
+  const count = rule.startsWith("d") ? base.count - named : named;
+  if (count < 1 || count > base.count) return null;
+  return {
+    ...base,
+    notation,
+    dice: `${base.dice}${rule}${match[3]}`.toLowerCase(),
+    keep: { highest: rule === "k" || rule === "kh" || rule === "dl", count },
+  };
+}
+
 /** Whether the text is dice notation this engine can roll. */
 export function isDiceNotation(value: string): boolean {
   return parseDiceNotation(value) !== null;
+}
+
+/** Whether the text is a dice pool the plain rollers can roll (NdM, or NdM with a keep or drop). */
+export function isDicePoolNotation(value: string): boolean {
+  return parseDicePool(value) !== null;
 }
 
 /** Whether a parsed notation sits inside the shared count and face ceilings. */
@@ -143,26 +200,95 @@ export function clampParsedDiceToLimits(parsed: ParsedDiceNotation): ParsedDiceN
   // reading its leading `d` keeps bare `d5000` bare rather than promoting it to
   // `1d1000` — and a bare notation is one die, which is never the piece that
   // clamps. The modifier is outside both ceilings and carries its own sign back.
-  const dice = `${parsed.dice.startsWith("d") ? "" : count}d${sides}`;
+  // A pool's keep is held to the dice that are left, and written as the keep it now is.
+  const keep = parsed.keep ? { highest: parsed.keep.highest, count: Math.min(parsed.keep.count, count) } : undefined;
+  const dice = `${parsed.dice.startsWith("d") ? "" : count}d${sides}${keep ? `${keep.highest ? "kh" : "kl"}${keep.count}` : ""}`;
   const modifierText = parsed.modifier === 0 ? "" : `${parsed.modifier > 0 ? "+" : ""}${parsed.modifier}`;
-  return { notation: `${dice}${modifierText}`, dice, count, sides, modifier: parsed.modifier };
+  return {
+    notation: `${dice}${modifierText}`,
+    dice,
+    count,
+    sides,
+    modifier: parsed.modifier,
+    ...(keep ? { keep } : {}),
+  };
 }
 
 /**
- * Throw the dice a parsed notation asks for.
+ * One die of `sides` faces, 1..sides inclusive.
  *
- * Unseeded `Math.random()`, exactly as each call site rolled before this module
- * existed — consolidating the grammar deliberately did not touch the RNG.
+ * Every roller in the engine has this shape, so a caller decides where its dice
+ * come from and the code that reads a roll does not: player-facing rolls use
+ * `rollDieSecurely`, and a ruleset fight passes its seeded stream so it can be
+ * replayed.
  */
-export function rollParsedDice(parsed: ParsedDiceNotation): DiceRollResult {
+export type DieRoller = (sides: number) => number;
+
+/** Most faces `rollDieSecurely` can draw evenly from one 32-bit value. */
+const SECURE_DIE_RANGE = 0x1_0000_0000;
+
+/**
+ * Throw one fair die from the platform's cryptographic RNG.
+ *
+ * Web Crypto's `getRandomValues`, so the browser and the server roll the same
+ * way. A draw past the last whole multiple of `sides` is thrown again rather
+ * than wrapped, so no face comes up more often than another.
+ */
+export const rollDieSecurely: DieRoller = (sides) => {
+  if (!Number.isInteger(sides) || sides < 1 || sides > SECURE_DIE_RANGE) {
+    throw new RangeError(`A die needs at least one whole face, received ${String(sides)}`);
+  }
+  const limit = SECURE_DIE_RANGE - (SECURE_DIE_RANGE % sides);
+  const draw = new Uint32Array(1);
+  do globalThis.crypto.getRandomValues(draw);
+  while (draw[0]! >= limit);
+  return (draw[0]! % sides) + 1;
+};
+
+/** Throw the dice a parsed notation asks for, one `roll(sides)` per die. A pool that keeps some
+ *  (`4d6kh3`) reports every face and the places of the kept ones, and totals only those. */
+export function rollParsedDice(parsed: ParsedDiceNotation, roll: DieRoller = rollDieSecurely): DiceRollResult {
   const rolls: number[] = [];
   for (let index = 0; index < parsed.count; index += 1) {
-    rolls.push(Math.floor(Math.random() * parsed.sides) + 1);
+    rolls.push(roll(parsed.sides));
   }
+  const kept = parsed.keep ? keptDice(rolls, parsed.keep) : undefined;
+  const counted = kept ? kept.map((index) => rolls[index]!) : rolls;
   return {
     notation: parsed.notation,
     rolls,
     modifier: parsed.modifier,
-    total: rolls.reduce((sum, roll) => sum + roll, 0) + parsed.modifier,
+    total: counted.reduce((sum, face) => sum + face, 0) + parsed.modifier,
+    ...(kept ? { kept } : {}),
   };
+}
+
+/** A rolled pool's faces as text, each die that did not count struck through: `6, 5, ~~1~~, 4`. */
+export function formatKeptRolls(rolls: readonly number[], kept?: readonly number[]): string {
+  return rolls.map((face, index) => (!kept || kept.includes(index) ? String(face) : `~~${face}~~`)).join(", ");
+}
+
+/** Whether a stored `kept` reads as places in a roll of `length` dice: whole, in range, ascending, none twice. */
+export function isKeptDice(value: unknown, length: number): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (index, place) =>
+        Number.isSafeInteger(index) &&
+        index >= 0 &&
+        index < length &&
+        (place === 0 || index > (value[place - 1] as number)),
+    )
+  );
+}
+
+/** The places, in throw order, of the dice a keep counts. Every face stays as it fell; a tie goes
+ *  to the die thrown first. */
+export function keptDice(rolls: readonly number[], keep: DiceKeep): number[] {
+  return rolls
+    .map((face, index) => ({ face, index }))
+    .sort((a, b) => (keep.highest ? b.face - a.face : a.face - b.face) || a.index - b.index)
+    .slice(0, keep.count)
+    .map(({ index }) => index)
+    .sort((a, b) => a - b);
 }

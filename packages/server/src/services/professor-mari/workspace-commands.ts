@@ -156,6 +156,22 @@ function actionSkillNeeded(action: string, seen: Set<string>): string | undefine
   return skillForAction(action);
 }
 
+/**
+ * Every handbook an app_data call works on, for #8391's sticky handbooks: a successful call keeps these
+ * active. It over-includes on purpose (character.update counts for both character handbooks, a link for
+ * both sides), the same set the gate accepts for that call.
+ */
+export function handbooksForAction(action: string, args: Record<string, unknown> = {}): string[] {
+  const key = normalizeAppDataActionName(action);
+  const ids = new Set<string>();
+  const skillId = skillForAction(action);
+  if (skillId) ids.add(skillId);
+  if (key === "character.update") CHARACTER_UPDATE_SKILLS.forEach((id) => ids.add(id));
+  if (LINK_ACTIONS.has(key)) LINK_SKILLS.forEach((id) => ids.add(id));
+  if (DECISION_CONTENT.test(JSON.stringify(args))) ids.add("builtin-decisions");
+  return [...ids];
+}
+
 export function skillHintForFailedAction(action: string): string | null {
   const skillId = action ? skillForAction(action) : undefined;
   if (!skillId) return null;
@@ -196,8 +212,8 @@ function missingApplyMessage(action: string, args: Record<string, unknown>): str
 /**
  * The failure hint never fires on a write that succeeds wrongly (a live 12b saved both words of an AND
  * entry as primary keys, no skill read). So the first write, or preview, on a handbook surface in a
- * chat is refused once until its skill is read. `seen` holds the skills read or already gated in this
- * chat; a gated skill passes next time, so a disabled or unreadable skill cannot lock the surface.
+ * turn is refused once until its skill is read. `seen` holds the skills read or already gated, and
+ * each turn starts it from the handbooks still in <active_handbooks> (#8391); a gated skill passes next time, so a disabled or unreadable skill cannot lock the surface.
  */
 export function skillGateRefusal(
   action: string,
@@ -215,7 +231,7 @@ export function skillGateRefusal(
   ].find((id): id is string => id !== undefined && !seen.has(id));
   if (!skillId) return null;
   seen.add(skillId);
-  return `Nothing was saved: read skill \`${skillId}\` first with app_data {"action":"skill.get","id":"${skillId}"}, then send this ${action} again. Its handbook names the fields and the silent traps on this surface; this check runs once per chat.`;
+  return `Nothing was saved: read skill \`${skillId}\` first with app_data {"action":"skill.get","id":"${skillId}"}, then send this ${action} again. Its handbook names the fields and the silent traps on this surface; this check runs once per turn.`;
 }
 
 export class WorkspaceCommands {
@@ -227,6 +243,11 @@ export class WorkspaceCommands {
   private workspaceMutationTail: Promise<void> = Promise.resolve();
   /** Handbook skills read (or gated once) per Mari chat session; see skillGateRefusal. */
   private readonly skillsSeenBySession = new Map<string, Set<string>>();
+
+  /** #8391: start a turn's gate from the handbooks she still has in context, so a dropped one is asked for again. */
+  armSkillGate(sessionId: string, activeIds: Iterable<string>) {
+    this.skillsSeenBySession.set(sessionId, new Set(activeIds));
+  }
 
   constructor(
     private readonly app: FastifyInstance,

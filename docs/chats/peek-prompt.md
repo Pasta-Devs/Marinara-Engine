@@ -22,6 +22,14 @@ The rest of the window is the prompt itself, split into collapsible sections. Ea
 
 To take the whole prompt somewhere else, click the copy button next to the close button at the top of the window. It copies every section and chat message as plain text, in the order they were sent, including sections you have not opened. Each message starts with a line naming its role, such as `[system]`, `[user]` or `[assistant]`. For an exact saved request, it copies that saved request as it was sent. Copying does not send anything to the model or change the prompt.
 
+## Finding text in the prompt
+
+Use the visible **Find** field at the top of **Assembled Prompt** on desktop, tablet, or phone. On a keyboard, press Ctrl+F or Cmd+F inside the viewer to focus the field.
+
+Find matches literal text without regard to letter case across the full prompt, including closed sections and chat history. Matches are highlighted, and the counter shows the current match and total. Use the up and down buttons, or Enter and Shift+Enter in the field, to move between matches. Navigation wraps at either end.
+
+While Find contains text, the viewer shows the complete message text. Clear the field to return to collapsible sections. Searching does not edit the prompt or change what the copy button copies.
+
 ## Opening Peek Prompt
 
 There are two ways to open the viewer.

@@ -29,7 +29,11 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { dirname, join, resolve, sep } from "node:path";
 import { hostname, networkInterfaces, uptime } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { STORAGE_MIGRATION_NOTICE_SETTINGS_KEY, type StorageMigrationNotice } from "@marinara-engine/shared";
+import {
+  matchesAllCardSearchTags,
+  STORAGE_MIGRATION_NOTICE_SETTINGS_KEY,
+  type StorageMigrationNotice,
+} from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import {
   getFileStorageDir,
@@ -361,7 +365,9 @@ type InsertValuesBuilder = Executable<void> & {
 // Exported so regressions can pin behavior against the CURRENT version
 // without chasing literals on every bump. Must equal root storage-format.json
 // (the launcher-format-guard regression pins the pairing).
-export const STORAGE_VERSION = 7;
+// Format 8 protects MMD avatar configurations: released format-7 builds reject the new kind and
+// could overwrite that owner's avatar.json. Existing rows and avatar files need no conversion.
+export const STORAGE_VERSION = 8;
 export const STORAGE_WRITER_LEASE_FILENAME = ".writer-lease";
 export const STORAGE_WRITER_OWNER_FILENAME = "owner.json";
 export const STORAGE_WRITER_LIVENESS_FILENAME = "live.sock";
@@ -2459,6 +2465,23 @@ function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   if (condition.kind === "file-json-flags-not-true") {
     const record = parseJsonRecord(resolveValue(condition.value, ctx));
     return condition.flags.every((flag) => record[flag] !== true);
+  }
+  if (condition.kind === "file-json-string-array-contains-all") {
+    let value = resolveValue(condition.value, ctx);
+    if (typeof value === "string") {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        return false;
+      }
+    }
+    if (condition.property !== undefined) {
+      value =
+        value && typeof value === "object" && !Array.isArray(value)
+          ? (value as Record<string, unknown>)[condition.property]
+          : undefined;
+    }
+    return matchesAllCardSearchTags(value, condition.terms);
   }
 
   const left = resolveValue(condition.left, ctx);

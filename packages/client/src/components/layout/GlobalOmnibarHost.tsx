@@ -9,6 +9,7 @@ import {
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
 import { isShortcutsHelpKey, isTypingTarget } from "../../lib/keyboard-shortcuts";
+import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
 import {
@@ -151,10 +152,12 @@ export function GlobalOmnibar() {
         const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
         if (ui.omnibarOpen && dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
         event.preventDefault();
+        if (!ui.omnibarOpen) captureMariFieldDraft();
         setOpen(!ui.omnibarOpen);
       } else if (isAskMariShortcut(event) && !ui.omnibarOpen) {
         // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8).
         event.preventDefault();
+        captureMariFieldDraft();
         requestProfessorMariOpen();
       } else if (
         isShortcutsHelpKey(event) &&

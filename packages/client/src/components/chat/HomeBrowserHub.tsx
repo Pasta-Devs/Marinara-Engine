@@ -87,6 +87,7 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
+import { capabilityPackageAssetUrl } from "../../lib/capability-package-assets";
 
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 // Outside homeBrowserTabId's `marinara-home-tab-` namespace, so no package id can produce them.
@@ -241,14 +242,6 @@ function rememberSeenNoodleRefreshMarker(marker: string) {
   } catch {
     /* Local storage is optional; the badge still clears for the current mount. */
   }
-}
-
-function capabilityPackageAssetUrl(packageId: string, version: string, assetPath: string): string {
-  const encodedPath = assetPath
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  return `/api/capability-packages/${encodeURIComponent(packageId)}/assets/${encodedPath}?v=${encodeURIComponent(version)}`;
 }
 
 function BrowserPackageTabIcon({
@@ -921,8 +914,12 @@ function ShortcutIcon({ tone, children }: { tone: string; children: ReactNode })
 }
 
 export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProps) {
-  const { id: mariPackId, poses: mariPoses, portraits: mariPortraits } = useMariAppearancePack();
-  const mariRaccoon = mariPackId === "raccoon";
+  const {
+    id: mariPackId,
+    season: mariPackSeason,
+    poses: mariPoses,
+    portraits: mariPortraits,
+  } = useMariAppearancePack();
   const { t, i18n } = useTranslation();
   const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
     queryKey: ["update-channel"],
@@ -2431,8 +2428,10 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             className="mt-1 line-clamp-6 min-w-0 text-[clamp(0.56rem,2.4cqw,0.75rem)] leading-[1.3] text-[var(--muted-foreground)] sm:mt-1.5 sm:line-clamp-7"
                             data-home-professor-description
                           >
-                            {mariRaccoon
-                              ? t("home.professorMari.raccoon.widgetDescription")
+                            {mariPackSeason
+                              ? t(`home.professorMari.${mariPackId}.widgetDescription`, {
+                                  mod: formatShortcutKey("Mod"),
+                                })
                               : t("home.professorMari.widgetDescription", { mod: formatShortcutKey("Mod") })}
                           </p>
                           <button
@@ -2444,8 +2443,10 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}
                             {t("home.professorMari.ask")}
                           </button>
-                          {mariRaccoon ? (
-                            <p className="mari-home-professor-greeting">{t("home.professorMari.raccoon.greeting")}</p>
+                          {mariPackSeason ? (
+                            <p className="mari-home-professor-greeting">
+                              {t(`home.professorMari.${mariPackId}.greeting`)}
+                            </p>
                           ) : null}
                         </div>
                         {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall

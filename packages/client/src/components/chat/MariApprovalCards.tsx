@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Crosshair,
   FileText,
   Loader2,
   Minus,
@@ -30,6 +31,8 @@ import { MariCard, MariRow } from "./mari-primitives";
 import { MariPromptPreviewModal, type MariPromptRenderSide } from "./MariPromptPreviewModal";
 import { TranscriptRow } from "./MariTranscriptRow";
 import { Field } from "./MariChangeReceipt";
+import { appDataAction, characterPatchFieldId } from "../../lib/mari-editor-fields";
+import { openCharacterAtField } from "../../hooks/use-mari-editor-fields";
 
 /**
  * Professor Mari's approval gates and the summaries they are built from.
@@ -377,6 +380,12 @@ export function MariHeldChangeCard({
           ? localizeUi(`mari.needsYou.held.${kind}`, { name })
           : localizeUi("mari.needsYou.held.generic");
   const labels = fields.map(({ key }) => fieldLabel(key));
+  const only = held?.length === 1 ? held[0] : null;
+  const characterId = only?.id && appDataAction(only.action) === "character.update" ? only.id : null;
+  const openAtField = (path: string) => {
+    if (!characterId || !openCharacterAtField(characterId, path, localizeUi("commandCenter.dirtyEditor"))) return;
+    useUIStore.getState().setOmnibarOpen(false);
+  };
   // Folded: one key field. A new record's name is already the title, so its first other field shows.
   const peek = Math.max(
     0,
@@ -417,6 +426,19 @@ export function MariHeldChangeCard({
                 (open || index === peek) && (
                   <Field key={field.key} label={labels[index]!}>
                     <div className="mari-receipt__box">{field.value}</div>
+                    {characterId && characterPatchFieldId(field.key) ? (
+                      <button
+                        type="button"
+                        onClick={() => openAtField(characterPatchFieldId(field.key)!)}
+                        aria-label={localizeUi("ui.chat.mariediteasyviewer.openAtFieldNamed", {
+                          field: labels[index]!,
+                        })}
+                        className="mari-link"
+                      >
+                        <Crosshair size="0.75rem" aria-hidden="true" />
+                        {localizeUi("ui.chat.mariediteasyviewer.openAtField")}
+                      </button>
+                    ) : null}
                   </Field>
                 ),
             )}

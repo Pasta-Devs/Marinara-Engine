@@ -627,7 +627,11 @@ export function MariWorkTimeline({
             <ChevronRight size="0.7rem" className="mari-disclosure__chevron shrink-0" aria-hidden="true" />
           </summary>
           <div className="mari-phase__body">
-            {phase.caption ? <p className="mari-phase__caption">{phase.caption}</p> : null}
+            {phase.caption ? (
+              <div className="mari-phase__caption">
+                <CompactMarkdown content={phase.caption} />
+              </div>
+            ) : null}
             {rest.map(renderBlock)}
             {technicalDetails(only)}
           </div>
@@ -675,7 +679,11 @@ export function MariWorkTimeline({
           <ChevronRight size="0.7rem" className="mari-disclosure__chevron shrink-0" aria-hidden="true" />
         </summary>
         <div className="mari-phase__body">
-          {phase.caption ? <p className="mari-phase__caption">{phase.caption}</p> : null}
+          {phase.caption ? (
+            <div className="mari-phase__caption">
+              <CompactMarkdown content={phase.caption} />
+            </div>
+          ) : null}
           {buildWorkTimelineBlocks(phase.items).map(renderBlock)}
         </div>
       </details>

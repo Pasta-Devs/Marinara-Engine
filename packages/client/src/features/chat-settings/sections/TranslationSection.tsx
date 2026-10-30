@@ -1,7 +1,9 @@
 import { Languages, RotateCcw, Save } from "lucide-react";
+import { useRef, useState } from "react";
 import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, estimateTextTokens } from "@marinara-engine/shared";
 import { formatEstimatedTokens } from "../../../lib/character-token-count";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
+import { DraftTextarea } from "../../../components/ui/DraftTextarea";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import type { ChatConnectionOption } from "./ConnectionSection";
@@ -9,6 +11,13 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 import { toast } from "sonner";
 import { useSaveTranslatorDefaults, useTranslatorDefaults } from "../../../hooks/use-translator-defaults";
+import { useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { trackChatMetadataSave } from "../../../lib/chat-metadata-save-barrier";
+
+const PROMPT_KEYS = ["translationInputPrompt", "translationOutputPrompt"] as const;
+type PromptKey = (typeof PROMPT_KEYS)[number];
+type PromptCommit = { value: string | null; completion: Promise<unknown>; pending: boolean; failed: boolean };
+type PromptCommitState = { chatId: string; fields: Partial<Record<PromptKey, PromptCommit>> };
 
 interface TranslationSectionProps {
   chatId: string;
@@ -21,14 +30,54 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
   const { t: localizeUi } = useUiTranslation();
   const { data: hasSavedDefaults } = useTranslatorDefaults();
   const saveDefaults = useSaveTranslatorDefaults();
-  const saveTranslatorDefaults = (sourceChatId: string | null) => {
-    saveDefaults.mutate(sourceChatId, {
-      onSuccess: () =>
-        toast.success(
-          localizeUi(sourceChatId ? "chat.translation.defaults.saved" : "chat.translation.defaults.forgotten"),
-        ),
-      onError: () => toast.error(localizeUi("chat.translation.defaults.failed")),
-    });
+  // Queue the whole prompt mutation below; nesting its API queue would deadlock.
+  const updatePromptMeta = useUpdateChatMetadata();
+  const promptCommits = useRef<PromptCommitState | null>(null);
+  const [, setCommitRevision] = useState(0);
+  const [savingAction, setSavingAction] = useState<"save" | "forget" | null>(null);
+  const queuePromptCommit = (ownerId: string, key: PromptKey, value: string | null) => {
+    // Register before onMutate can yield; keep each field's failure until it is retried or edited.
+    const completion = trackChatMetadataSave(ownerId, () =>
+      updatePromptMeta.mutateAsync({ id: ownerId, [key]: value }),
+    );
+    const commit = { value, completion, pending: true, failed: false };
+    const owner: PromptCommitState =
+      promptCommits.current?.chatId === ownerId ? promptCommits.current : { chatId: ownerId, fields: {} };
+    owner.fields[key] = commit;
+    promptCommits.current = owner;
+    setCommitRevision((revision) => revision + 1);
+    void completion
+      .catch(() => {
+        commit.failed = true;
+      })
+      .finally(() => {
+        commit.pending = false;
+        setCommitRevision((revision) => revision + 1);
+      });
+    return commit;
+  };
+  const saveTranslatorDefaults = async (sourceChatId: string | null) => {
+    setSavingAction(sourceChatId ? "save" : "forget");
+    try {
+      const commits = promptCommits.current;
+      if (sourceChatId && commits?.chatId === sourceChatId) {
+        await Promise.all(
+          PROMPT_KEYS.map((key) => {
+            const commit = commits.fields[key];
+            // Only an explicit Save retries a known failure, once per field for this action.
+            return commit?.failed ? queuePromptCommit(sourceChatId, key, commit.value).completion : commit?.completion;
+          }),
+        );
+      }
+      await saveDefaults.mutateAsync(sourceChatId);
+      toast.success(
+        localizeUi(sourceChatId ? "chat.translation.defaults.saved" : "chat.translation.defaults.forgotten"),
+      );
+    } catch {
+      toast.error(localizeUi("chat.translation.defaults.failed"));
+    } finally {
+      setSavingAction(null);
+    }
   };
   const provider = (metadata.translationProvider as string | undefined) ?? "google";
   const legacyTargetLanguage = (metadata.translationTargetLang as string | undefined) ?? "en";
@@ -36,7 +85,9 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
   const outputTargetLanguage = (metadata.translationOutputTargetLang as string | undefined) ?? legacyTargetLanguage;
   const legacyPrompt = typeof metadata.translationPrompt === "string" ? metadata.translationPrompt : "";
 
-  const readDirectionalPrompt = (key: "translationInputPrompt" | "translationOutputPrompt") => {
+  const readDirectionalPrompt = (key: PromptKey) => {
+    const commit = promptCommits.current?.chatId === chatId ? promptCommits.current.fields[key] : undefined;
+    if (commit?.pending || commit?.failed) return commit.value ?? "";
     const value = metadata[key];
     if (value === null) return "";
     const stored = typeof value === "string" ? value : legacyPrompt;
@@ -45,9 +96,9 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
   const inputPrompt = readDirectionalPrompt("translationInputPrompt");
   const outputPrompt = readDirectionalPrompt("translationOutputPrompt");
 
-  const updatePrompt = (key: "translationInputPrompt" | "translationOutputPrompt", value: string) => {
+  const updatePrompt = (key: PromptKey, value: string) => {
     const nextPrompt = !value.trim() || value.trim() === DEFAULT_TRANSLATION_SYSTEM_PROMPT.trim() ? null : value;
-    onMetadataChange({ [key]: nextPrompt });
+    queuePromptCommit(chatId, key, nextPrompt);
   };
 
   return (
@@ -119,16 +170,18 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
             </div>
 
             <TranslationPromptField
+              key={`${chatId}:input`}
               label={localizeUi("ui.chatSettings.translationsection.outgoingMessagePrompt")}
               customPrompt={inputPrompt}
               onChange={(value) => updatePrompt("translationInputPrompt", value)}
-              onRestore={() => onMetadataChange({ translationInputPrompt: null })}
+              onRestore={() => updatePrompt("translationInputPrompt", "")}
             />
             <TranslationPromptField
+              key={`${chatId}:output`}
               label={localizeUi("ui.chatSettings.translationsection.incomingResponsePrompt")}
               customPrompt={outputPrompt}
               onChange={(value) => updatePrompt("translationOutputPrompt", value)}
-              onRestore={() => onMetadataChange({ translationOutputPrompt: null })}
+              onRestore={() => updatePrompt("translationOutputPrompt", "")}
             />
           </>
         )}
@@ -202,19 +255,19 @@ export function TranslationSection({ chatId, metadata, textConnections, onMetada
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={saveDefaults.isPending}
+              disabled={savingAction !== null}
               onClick={() => saveTranslatorDefaults(chatId)}
               className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
             >
               <Save size="0.875rem" aria-hidden="true" />
-              {saveDefaults.isPending && saveDefaults.variables
+              {savingAction === "save"
                 ? localizeUi("editor.save.saving")
                 : localizeUi("chat.translation.defaults.save")}
             </button>
             {hasSavedDefaults && (
               <button
                 type="button"
-                disabled={saveDefaults.isPending}
+                disabled={savingAction !== null}
                 onClick={() => saveTranslatorDefaults(null)}
                 className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
               >
@@ -287,6 +340,7 @@ function TranslationPromptField({
   onRestore: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const [liveDraft, setLiveDraft] = useState<string | null>(null);
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
@@ -311,14 +365,20 @@ function TranslationPromptField({
           </button>
         )}
       </div>
-      <textarea
+      <DraftTextarea
         value={customPrompt || DEFAULT_TRANSLATION_SYSTEM_PROMPT}
-        onChange={(event) => onChange(event.target.value)}
+        onCommit={onChange}
+        onFocus={(event) => setLiveDraft(event.currentTarget.value)}
+        onInput={(event) => setLiveDraft(event.currentTarget.value)}
+        onBlur={() => setLiveDraft(null)}
         rows={5}
         className="min-h-28 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-xs leading-relaxed outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
       />
       <p className="mt-0.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
-        {formatEstimatedTokens(estimateTextTokens(customPrompt || DEFAULT_TRANSLATION_SYSTEM_PROMPT), localizeUi)}
+        {formatEstimatedTokens(
+          estimateTextTokens(liveDraft ?? (customPrompt || DEFAULT_TRANSLATION_SYSTEM_PROMPT)),
+          localizeUi,
+        )}
       </p>
     </div>
   );

@@ -2,12 +2,14 @@
 // Macro Engine — {{user}}, {{char}}, {{date}}, etc.
 // ──────────────────────────────────────────────
 
+import { rollParsedDice } from "./dice-notation.js";
+
 export interface MacroContext {
   user: string;
   userPhonetic?: string;
   char: string;
   charPhonetic?: string;
-  /** Character names in the current prompt scope (used by {{characters}}) */
+  /** Full chat character roster, including inactive members (used by {{characters}}). */
   characters: string[];
   /** Full active chat character roster (used by {{group}} when the prompt is scoped to one responder) */
   groupCharacters?: string[];
@@ -620,7 +622,7 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     syntax: "{{random::A@2::B@0.5}}",
     description: "Weighted random choice; weights are relative and may be decimals",
   },
-  { category: "Random", syntax: "{{roll:XdY}}", description: "Dice roll total such as 2d6" },
+  { category: "Random", syntax: "{{roll:XdY}}", description: "Dice roll total such as 2d6, d20 or 1d8+3" },
   { category: "Variables", syntax: "{{getvar::name}}", description: "Read a dynamic variable" },
   { category: "Variables", syntax: "{{setvar::name::value}}", description: "Set a dynamic variable" },
   { category: "Variables", syntax: "{{addvar::name::value}}", description: "Append to a dynamic variable" },
@@ -2331,7 +2333,7 @@ function planConditionOperand(
   if (/^-?\d+(?:\.\d+)?$/u.test(token)) return token;
   const key = normalizeConditionKey(token);
   if (!PLAN_FIXED_OPERAND_NAMES.has(key)) return null;
-  const group = (ctx.characterProfiles?.length ?? 0) > 1 || ctx.characters.length > 1;
+  const group = (ctx.characterProfiles?.length ?? ctx.characters.length) > 1;
   if (group && PLAN_PER_CHARACTER_OPERAND_NAMES.has(key)) return null;
   return resolveConditionalOperand(raw, ctx, options);
 }
@@ -3274,7 +3276,7 @@ export function expandLorebookIncludes(
  *  - {{random:X:Y}} — random number X-Y
  *  - {{random::A::B::C}} — random choice from A, B, C
  *  - {{random::A@2::B@0.5}} — weighted random choice; weights are relative
- *  - {{roll:XdY}} — dice roll (e.g. {{roll:2d6}})
+ *  - {{roll:XdY}} — dice roll (e.g. {{roll:2d6}}, {{roll:d20}}, {{roll:1d8+3}})
  *  - {{getvar::name}} — read a dynamic variable
  *  - {{setvar::name::value}} — set a variable
  *  - {{addvar::name::value}} — append to a variable
@@ -3502,15 +3504,20 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     return String(randomInteger(options, original, lo, hi));
   });
 
-  // ── Dice rolls: {{roll:2d6}} ──
-  result = result.replace(/\{\{roll:(\d+)d(\d+)\}\}/gi, (original, count, sides) => {
+  // ── Dice rolls: {{roll:2d6}}, {{roll:d20}}, {{roll:1d8+3}}: the shared NdM grammar, the macro's own (looser) limits ──
+  result = result.replace(/\{\{roll:(\d*)d(\d+)([+-]\d+)?\}\}/gi, (original, count, sides, modifierText) => {
     if (!consumeMacroExpansion(options)) return original;
-    const n = Math.min(parseInt(count, 10), MAX_DICE_COUNT);
+    const n = Math.min(parseInt(count || "1", 10), MAX_DICE_COUNT);
     const s = Math.min(parseInt(sides, 10), MAX_DICE_SIDES);
     if (n < 1 || s < 1) return "0";
-    let total = 0;
-    for (let i = 0; i < n; i++) total += randomInteger(options, `${original}:${i}`, 1, s);
-    return String(total);
+    const modifier = modifierText ? parseInt(modifierText, 10) : 0;
+    // Printed only when every total the dice can make is exact, as parseDiceNotation holds them;
+    // dice only add, so the high end is the one that can leave the safe integers.
+    if (!Number.isSafeInteger(modifier) || !Number.isSafeInteger(modifier + n * s)) return original;
+    // Each die keeps its own seed key, so a seeded chat rolls the same faces it always did.
+    let die = 0;
+    const roll = (faces: number) => randomInteger(options, `${original}:${die++}`, 1, faces);
+    return String(rollParsedDice({ notation: original, dice: `${n}d${s}`, count: n, sides: s, modifier }, roll).total);
   });
 
   // ── Variable operations — resolve left-to-right so lorebook entries can set values for later entries. ──

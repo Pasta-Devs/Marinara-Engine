@@ -51,7 +51,7 @@ This section is at **Settings** > **General** > **App Behavior**. It controls da
 - **Hide chat Help button**: off by default. When on, the **Help** button disappears from Conversation, Roleplay, and Game chats.
 - **Show Android status bar**: off by default, and works only in the Marinara Engine Android app. When on, the time, battery level, and notification icons stay visible above Marinara.
 - **Achievements**: on by default. When on, the Home screen shows the **Achievements** bookmark and unlock notices. The optional **Achievements** widget appears if you added it to your Home layout. When off, tracking stays silent. See [Achievements](../home/achievements.md).
-- **Music Player**: on by default. When on, the compact Music Player is shown. It needs the **Music DJ** agent from **Agents** > **Download Agents**, and the switch stays greyed out until you install it. See [Music](../media/music.md).
+- **Music Player**: on by default. When on, the compact Music Player is shown. It needs the **Music DJ** agent from **Agents** > **Agent Organizer**, and the switch stays greyed out until you install it. See [Music](../media/music.md).
 - **Search and Professor Mari settings**: select **Open** to go to their settings page. Every Search and Professor Mari setting lives there, in these groups:
 
   - **Search**: offer to improve a field and search history.

@@ -64,7 +64,7 @@ A disabled character stays in the member list but is left out of every reply. Th
 
 There is one safety fallback. If you disable every character in the chat, Marinara treats all of them as active again. This prevents a reply with zero characters.
 
-This on and off state is saved per chat. It does not change the character anywhere else in the app.
+This on and off state is saved per chat. It does not change the character anywhere else in the app. In a Roleplay group in Merged mode, [Automate active characters](#automate-active-characters-merged-only) can set it for you.
 
 ## Who speaks: Roleplay mode
 
@@ -80,6 +80,28 @@ The **Mode** setting is a two-button toggle.
 ### Color Dialogues (Merged only)
 
 When **Mode** is **Merged (Narrator)**, you can turn on **Color Dialogues**. It is off by default. When on, each character's lines are shown in that character's own colors. Those colors come from the **Colors** tab of the Character Editor. That tab sets the name color, dialogue color, and box color. See the character editing guide for how to set those.
+
+### Automate active characters (Merged only)
+
+In Merged mode every active character's card is in the prompt on every reply, so a big cast either fills the context or means flipping eyes by hand as characters come and go. When **Mode** is **Merged (Narrator)**, **Automate active characters** can flip them for you. It has three options and is **Off** by default.
+
+- **Off**: you choose who's active with the eye toggles.
+- **Decision model**: before each reply, your [Decision model](../connections/decision-models.md) is asked one yes/no question per character: is this character in the scene the reply continues, or entering it? Being mentioned or remembered does not count, so a character who is only talked about stays off. Characters judged present are turned on and the rest are turned off.
+- **Character Tracker**: the [Character Tracker](../agents/built-in-agents.md#character-tracker)'s present characters from the last reply set who's active. It needs no extra model call, but it runs one turn behind: a character who walks in this turn is turned on for the next one.
+
+The hint under the setting says when something is missing: no Decision model chosen, the Character Tracker off in this chat, or a tracker that runs manually, which changes the list only after you run it.
+
+A few rules keep the chat working:
+
+- **Pins.** While automation is on, each row in the **Characters** list shows a pin to the left of its eye. Click it to pin the character as they are now, on or off; automation then leaves them alone. Toggling an eye by hand pins that character too, so the next reply does not undo your choice. A pinned row's pin shows in your accent color; click it again to unpin. Turning automation **Off** clears every pin.
+- **The narrator stays active.** The appointed **Narrator** from **Roleplay Commands** is never turned off.
+- **No answer keeps the list.** In **Decision model** mode, if the model gives no answer for every character, the Character Tracker's last scene is used instead, when there is one. A model that thinks first does not answer before the reply unless **Also gate agents that run before the reply** is on, so the tracker stands in. So does a cast too big to fit the Decision model's input even by name alone, which is not asked at all. If neither has an answer, the list stays as it is.
+- **Nobody active is not an option.** A result that would turn everyone off is ignored.
+- **A Character Activity agent wins.** A chat with a custom agent using the **Character Activity** result type keeps that agent in charge, and automation does nothing.
+
+The Character Tracker writes its own name for each character it sees. A character is matched to their card by that card's id, then by name, then by the card's name aliases from the **Colors** tab of the Character Editor, so a card that walked in while turned off is still found. A tracker list that names none of the chat's characters, such as a scene of extras only, keeps the current list.
+
+Automation runs before every reply, swipe and regenerate. It skips **Continue** and impersonation. The setting is saved into settings profiles; pins belong to the one chat.
 
 ### Response Order (Individual only)
 
@@ -116,12 +138,13 @@ One note for reuse: the **Scenario Override** text is tied to this one chat. It 
 |---|---|---|
 | **Mode** (**Merged (Narrator)** / **Individual**) | Group Chat section | Merged (Narrator) |
 | **Color Dialogues** | Group Chat section, Merged mode | Off |
+| **Automate active characters** (Off / Decision model / Character Tracker) | Group Chat section, Merged mode | Off |
 | **Response Order** (Sequential / Smart / Manual) | Group Chat section, Individual mode | Sequential |
 | **Add Turn To Prompt** | Group Chat section, Individual mode | On |
 | **Name Prefix History** | Group Chat section, Individual mode | Off |
 | **Scenario Override** | Group Chat section | Empty (off) |
 
-Most of these settings are saved into settings profiles, so you can reuse them. The one exception is **Scenario Override**, which stays with the single chat.
+Most of these settings are saved into settings profiles, so you can reuse them. The one exception is **Scenario Override**, which stays with the single chat. Automation pins also stay with the chat.
 
 ## Who speaks: Conversation mode
 

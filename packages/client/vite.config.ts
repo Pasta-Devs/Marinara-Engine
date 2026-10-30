@@ -112,10 +112,19 @@ function manualChunks(id: string) {
   id = id.slice(id.search(/\/(?:\.pnpm|node_modules)\//u));
 
   // Avatar renderer libraries load only with an avatar renderer's lazy chunk (features/avatars), never in
-  // vendor-misc, which the entry imports. three's core build is its own chunk to stay under the budget.
+  // vendor-misc, which the entry imports. Source entries keep classic and NodeMaterial renderers on one
+  // core identity while allowing the modern renderer to split below the unchanged per-chunk budget.
+  if (/\/node_modules\/three\/src\/nodes\//u.test(id)) return "vendor-three-nodes";
+  if (/\/node_modules\/three\/src\/materials\/nodes\//u.test(id)) return "vendor-three-node-materials";
+  if (/\/node_modules\/three\/src\/renderers\/webgpu\//u.test(id)) return "vendor-three-webgpu";
+  if (/\/node_modules\/three\/src\/renderers\/webgl-fallback\//u.test(id)) return "vendor-three-webgl2";
+  if (/\/node_modules\/three\/src\/renderers\/common\//u.test(id)) return "vendor-three-renderer";
+  if (/\/node_modules\/three\/src\/(?:renderers|extras\/PMREMGenerator)/u.test(id)) return "vendor-three-webgl";
+  if (/\/node_modules\/three\/src\//u.test(id)) return "vendor-three-core";
   if (/\/node_modules\/three\/build\/three\.core\./u.test(id)) return "vendor-three-core";
   if (/\/node_modules\/three\//u.test(id)) return "vendor-three";
   if (/\/node_modules\/@pixiv\//u.test(id)) return "vendor-three-vrm";
+  if (/\/node_modules\/(?:@takahirox\/three-mmd|mmd-parser)\//u.test(id)) return "vendor-three-mmd";
   if (/\/node_modules\/(?:mesh-avatar|fflate)\//u.test(id)) return "vendor-mesh-avatar";
 
   // Keep dynamically selected Lucide glyphs in small alphabetical chunks
@@ -278,9 +287,17 @@ export default defineConfig({
       : pwaStub(),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "./src"),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(import.meta.dirname, "./src") },
+      ...[
+        ["three", "Three.js"],
+        ["three/webgpu", "Three.WebGPU.js"],
+        ["three/tsl", "Three.TSL.js"],
+      ].map(([name, file]) => ({
+        find: new RegExp(`^${name}$`, "u"),
+        replacement: path.resolve(import.meta.dirname, `./node_modules/three/src/${file}`),
+      })),
+    ],
   },
   server: {
     host: DEV_SERVER_HOST,

@@ -25,7 +25,7 @@ The panel gives you these controls:
 - **New** creates a persona.
 - **Import** opens the **Import Persona** window.
 - **Select** turns on bulk-selection mode so you can act on many personas at once.
-- The search box, with placeholder **Search personas**, matches name, description, comment, and tags.
+- The search box, with placeholder **Search personas/tags**, matches name, description, comment, and tags. Enter `male genshin` or `male,genshin` to find personas with both exact tags; quote multiword tags, such as `male "Modern AU"`. Ordinary name and phrase searches still work. The full-page Persona Library supports the same search.
 - The sort dropdown offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, and **Tokens** (estimated prompt size). **Manual order** keeps the order you set: drag a row up or down, or press Alt+Up or Alt+Down on a focused row. On a touch screen, press and hold a row to pick it up.
 - **New Folder** creates a folder to organize personas.
 - A **Tags** chip expands the tag list for filtering.

@@ -347,6 +347,22 @@ export async function unshardLauncherStorage({
   const pick = await readLauncherEnv(root, env);
   if (probeServer) await assertNoRunningServer(pick);
   const storageDir = await resolveLauncherStorageDir({ root, env });
+  // Unsharding only converts chat files. Format 8 also protects MMD avatar settings that older
+  // builds cannot read; lowering its manifest would bypass the downgrade guard without converting them.
+  let knownFormat = false;
+  for (const filename of ["manifest.json", "manifest.json.bak"]) {
+    let version;
+    try {
+      version = JSON.parse(await readFile(resolve(storageDir, filename), "utf8"))?.version;
+    } catch {
+      continue;
+    }
+    if (Number.isSafeInteger(version) && version >= 1) knownFormat = true;
+    if (typeof version === "number" && version >= 8)
+      throw new Error(
+        `Storage format ${version} contains data this command cannot convert. Restore a full pre-upgrade backup to use an older build. Nothing has been changed.`,
+      );
+  }
   const tablesDir = resolve(storageDir, "tables");
   const unshardSentinel = resolve(tablesDir, UNSHARD_SENTINEL);
   const resumingCrashedUnshard = await pathExists(unshardSentinel);
@@ -426,6 +442,20 @@ export async function unshardLauncherStorage({
       // set it aside (never deleted) before the shards win.
       preserveMonolith: monolithExists,
     });
+  }
+
+  if (!knownFormat) {
+    if (plans.some((plan) => plan.shardDir))
+      throw new Error(
+        "Cannot establish the storage format from either manifest. Restore the matching manifest from a verified backup or restore a full pre-upgrade backup. Nothing has been changed.",
+      );
+    return {
+      storageDir,
+      results: ["No shard files to convert; storage was left unchanged."],
+      warnings,
+      manifestRewritten: false,
+      unchanged: true,
+    };
   }
 
   // Every read succeeded — now write. The sentinel stays on disk until the
@@ -687,6 +717,7 @@ async function main() {
     const result = await unshardLauncherStorage();
     for (const warning of result.warnings) console.warn(`  [WARN] ${warning}`);
     for (const line of result.results) console.log(`  [OK] ${line}`);
+    if (result.unchanged) return;
     if (result.manifestRewritten) {
       console.log(`  [OK] Storage at ${result.storageDir} is back on the monolith layout (format 2); older versions can read it again.`);
     } else {

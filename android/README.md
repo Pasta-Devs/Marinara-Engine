@@ -133,6 +133,8 @@ Older APKs retain the manual `/android-login` fallback, using `cat ~/.marinara-e
 
 The `mari` CLI continues to work automatically because the Termux launcher passes the same secret to it; direct local CLI runs also fall back to this private secret file. LAN access and manual installations remain governed by the normal Marinara authentication settings.
 
+If the APK cannot open the local server after an update, install the latest APK and tap **Install / Start Marinara** again. This restores its private localhost credential; do not reset the remote login to fix a local 401 or 503. If another device cannot sign in to this Termux server, open Termux and run `cd "$HOME/Marinara-Engine" && pnpm reset-login`. This removes the app's remote login and signs out browsers, but does not change the APK's private credential. If the command fails, remove `.remote-login.json` and `.remote-sessions.json` from `packages/server/data` (or your configured `DATA_DIR`). Change a login set with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in the project `.env` there instead. See [Remote Access](../docs/REMOTE_ACCESS.md#locked-out-after-updating).
+
 To skip the update check and start the already-installed local copy, run `./start-termux.sh --skip-update`.
 To skip automatic Engine updates on every launch, add `AUTO_UPDATE_ENABLED=false` to the project `.env`; the launcher still checks for a newer published release and prints its download link when one is available, while manual update controls remain available.
 

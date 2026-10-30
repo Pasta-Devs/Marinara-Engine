@@ -6,6 +6,7 @@ import { z } from "zod";
 import { partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
+import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
@@ -73,6 +74,7 @@ import {
   rulesetCombatStyles,
 } from "@marinara-engine/shared";
 import type {
+  Chat,
   CharacterData,
   CharacterOnboarding,
   ChatMemoryChunk,
@@ -996,10 +998,34 @@ export async function chatsRoutes(app: FastifyInstance) {
   };
 
   // List all chats
-  app.get("/", async () => {
+  app.get("/", async (req, reply) => {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
+    const response = chats
+      .filter((chat) => !shouldHideProfessorMariChat(chat))
+      .map((chat) => {
+        // List only public fields; stored embeddings and write counters belong to the database/export.
+        const normalized = normalizeChatForResponse(chat);
+        return {
+          id: normalized.id,
+          name: normalized.name,
+          mode: normalized.mode,
+          characterIds: normalized.characterIds,
+          groupId: normalized.groupId,
+          personaId: normalized.personaId,
+          personaCharacterId: normalized.personaCharacterId,
+          promptPresetId: normalized.promptPresetId,
+          connectionId: normalized.connectionId,
+          connectedChatId: normalized.connectedChatId,
+          folderId: normalized.folderId,
+          sortOrder: normalized.sortOrder,
+          lastMessageAt: normalized.lastMessageAt,
+          createdAt: normalized.createdAt,
+          updatedAt: normalized.updatedAt,
+          metadata: normalized.metadata,
+        } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
+      });
+    return prepareJsonResponse(req, reply, response);
   });
 
   // Bounded Home data. This deliberately returns one short visible-message

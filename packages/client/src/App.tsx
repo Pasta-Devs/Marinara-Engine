@@ -504,6 +504,7 @@ export function App() {
   const chatWidgetApplyFont = useUIStore((s) => s.chatWidgetApplyFont);
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
+  const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -1163,6 +1164,8 @@ export function App() {
   }, [chatWidgetButtonSize]);
 
   useEffect(() => {
+    // Root-authored gradient variables resolve their alpha here before inheritance.
+    document.documentElement.style.setProperty("--mari-rp-bubble-opacity", String(chatFontOpacity / 100));
     const colors = getChatWidgetColorStyle({
       border: chatWidgetBorderColor,
       background: chatWidgetBackgroundColor,
@@ -1176,7 +1179,7 @@ export function App() {
       if (value) document.documentElement.style.setProperty(property, value);
       else document.documentElement.style.removeProperty(property);
     }
-  }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor]);
+  }, [chatWidgetBorderColor, chatWidgetBackgroundColor, chatWidgetTextColor, chatFontOpacity]);
 
   useEffect(() => {
     const root = document.documentElement;

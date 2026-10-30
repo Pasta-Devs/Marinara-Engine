@@ -50,6 +50,7 @@ import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
 import { CardFieldWand } from "../characters/CardFieldWand";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
+import { withCssPaintAlpha } from "../../lib/css-colors";
 import {
   ArrowLeft,
   Save,
@@ -3148,6 +3149,7 @@ function PersonaColorsTab({
   avatarUrl: string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const chatFontOpacity = useUIStore((state) => state.chatFontOpacity);
   const [extracting, setExtracting] = useState(false);
 
   const handleExtract = async () => {
@@ -3230,9 +3232,10 @@ function PersonaColorsTab({
             </span>
             <div
               className="rounded-2xl rounded-tr-sm px-4 py-3 text-[0.8125rem] leading-[1.8] backdrop-blur-md ring-1 ring-white/10"
+              data-roleplay-color-preview
               style={
                 formData.boxColor
-                  ? { backgroundColor: formData.boxColor }
+                  ? { backgroundColor: withCssPaintAlpha(formData.boxColor, String(chatFontOpacity / 100)) }
                   : { backgroundColor: "rgba(255, 255, 255, 0.12)" }
               }
             >
@@ -3273,7 +3276,7 @@ function PersonaColorsTab({
         value={formData.boxColor}
         onChange={(v) => updateField("boxColor", v)}
         label={localizeUi("ui.personas.personacolorstab.messageBoxColor")}
-        helpText="Background color for your persona's chat message bubbles. Use a semi-transparent color for best results (e.g. rgba)."
+        helpText={localizeUi("ui.colors.messageBoxHelp")}
       />
     </div>
   );
@@ -4307,7 +4310,7 @@ function PersonaVersionHistoryPanel({
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-2.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
           <History size="0.75rem" />
           {localizeUi("ui.personas.personaversionhistorypanel.versionHistory")}

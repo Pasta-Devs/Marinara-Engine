@@ -24,7 +24,7 @@ You need:
 2. The editable `ltx-director-simple` workflow, or an equivalent LTX 2.3 image-to-video graph that completes successfully inside ComfyUI.
 3. Its `ltx-director-simple-api` API-format export for the Marinara connection.
 4. A Marinara image-generation connection for the first-frame illustrations.
-5. The **Storyboard** Agent installed from **Agents > Download Agents** and activated for the Game under **Chat Settings > Agents**.
+5. The **Storyboard** Agent installed from **Agents > Agent Organizer** and activated for the Game under **Chat Settings > Agents**.
 
 The editable ComfyUI workflow and its API export are different files. Open `ltx-director-simple` in ComfyUI, install every missing custom node reported by ComfyUI Manager, and test the graph there. Import `ltx-director-simple-api` into the Marinara connection. After every node or model change, export the graph again in API format and replace the JSON stored on the connection. Do not paste the normal visual-editor workflow into Marinara.
 

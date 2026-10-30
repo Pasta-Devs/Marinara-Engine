@@ -3,11 +3,23 @@ import {
   clampParsedDiceToLimits,
   isDiceNotation as sharedIsDiceNotation,
   isWithinDiceLimits,
+  formatKeptRolls,
+  isDicePoolNotation,
+  isKeptDice,
+  keptDice,
   parseDiceNotation,
+  parseDicePool,
+  rollDieSecurely,
+  rollParsedDice,
   MAX_DICE_COUNT,
   MAX_DICE_SIDES,
 } from "../../packages/shared/dist/index.js";
-import { isDiceNotation, rollDice } from "../../packages/server/src/services/game/dice.service.js";
+import {
+  isDiceNotation,
+  isRollableDiceNotation,
+  parseRollDiceToolResult,
+  rollDice,
+} from "../../packages/server/src/services/game/dice.service.js";
 import { executeToolCalls } from "../../packages/server/src/services/tools/tool-executor.js";
 import { parseGmTags } from "../../packages/client/src/lib/game-tag-parser.js";
 import { matchSlashCommand, type SlashCommandContext } from "../../packages/client/src/lib/slash-commands.js";
@@ -42,7 +54,13 @@ const CASES: NotationCase[] = [
   { notation: "2D6", grammar: true, tool: "rolled", tagRolls: [3, 4], tagLabel: true },
   { notation: " 2d6 ", grammar: true, tool: "rolled", tagRolls: [3, 4], tagLabel: true },
   { notation: "1d020", grammar: true, tool: "rolled", tagRolls: [12], tagLabel: true },
-  { notation: "100d1000", grammar: true, tool: "rolled", tagRolls: Array.from({ length: 100 }, () => 7), tagLabel: true },
+  {
+    notation: "100d1000",
+    grammar: true,
+    tool: "rolled",
+    tagRolls: Array.from({ length: 100 }, () => 7),
+    tagLabel: true,
+  },
   // Modifiers are part of the grammar, but a dice *label* names dice only —
   // the modifier belongs in modifier=, so the tag refuses one.
   { notation: "2d6+3", grammar: true, tool: "rolled", tagRolls: [3, 4], tagLabel: false },
@@ -99,7 +117,10 @@ assert.deepEqual(
 );
 const bare = parseDiceNotation("d20");
 assert.ok(bare);
-assert.deepEqual({ dice: bare.dice, count: bare.count, modifier: bare.modifier }, { dice: "d20", count: 1, modifier: 0 });
+assert.deepEqual(
+  { dice: bare.dice, count: bare.count, modifier: bare.modifier },
+  { dice: "d20", count: 1, modifier: 0 },
+);
 
 // ── Entry 2: the /roll service ──
 
@@ -120,13 +141,14 @@ for (const testCase of CASES) {
   // for character. A clamped one reports the dice it threw instead — see the
   // sweep below for that half.
   if (isWithinDiceLimits(parsed)) {
-    assert.equal(rolled.notation, testCase.notation.trim(), `an unclamped /roll echoes its input: ${testCase.notation}`);
+    assert.equal(
+      rolled.notation,
+      testCase.notation.trim(),
+      `an unclamped /roll echoes its input: ${testCase.notation}`,
+    );
   }
   assert.equal(rolled.modifier, parsed.modifier);
-  assert.equal(
-    rolled.total,
-    rolled.rolls.reduce((sum, roll) => sum + roll, 0) + parsed.modifier,
-  );
+  assert.equal(rolled.total, rolled.rolls.reduce((sum, roll) => sum + roll, 0) + parsed.modifier);
   for (const roll of rolled.rolls) {
     assert.ok(roll >= 1 && roll <= Math.min(parsed.sides, MAX_DICE_SIDES), `die out of range for ${testCase.notation}`);
   }
@@ -244,7 +266,10 @@ for (const testCase of CASES) {
   assert.ok(Array.isArray(result.rolls));
   assert.equal((result.rolls as number[]).length, parsed.count);
   assert.equal(result.modifier, parsed.modifier);
-  assert.equal(result.sum, (result.rolls as number[]).reduce((sum, roll) => sum + roll, 0));
+  assert.equal(
+    result.sum,
+    (result.rolls as number[]).reduce((sum, roll) => sum + roll, 0),
+  );
   assert.equal(result.total, (result.sum as number) + parsed.modifier);
   assert.match(String(result.display), /^🎲 /);
 }
@@ -306,7 +331,12 @@ assert.equal(
   undefined,
 );
 assert.equal(parseDiceLabel(`1d${MAX_DICE_SIDES + 1}`, [MAX_DICE_SIDES + 1])?.resolvedResult, undefined);
-assert.ok(parseDiceLabel(`${MAX_DICE_COUNT}d20`, Array.from({ length: MAX_DICE_COUNT }, () => 7))?.resolvedResult);
+assert.ok(
+  parseDiceLabel(
+    `${MAX_DICE_COUNT}d20`,
+    Array.from({ length: MAX_DICE_COUNT }, () => 7),
+  )?.resolvedResult,
+);
 
 // The same grammar reads a rolls="..." value that is notation rather than
 // numbers, and keeps labelling it with the NdM half only.
@@ -622,6 +652,110 @@ for (const testCase of MODIFIER_CASES) {
     rolled.rolls.reduce((sum, roll) => sum + BigInt(roll), BigInt(rolled.modifier)),
     `/roll's total matches the arithmetic truth: ${testCase.note}`,
   );
+}
+
+// The roller is the caller's. A passed roller is thrown once per die, in order,
+// with the notation's faces, and its faces are what the result reports; with no
+// roller the shared secure die lands every die on a real face.
+{
+  const parsed = parseDiceNotation("3d6+2")!;
+  const asked: number[] = [];
+  const faces = [6, 1, 4];
+  const rolled = rollParsedDice(parsed, (sides) => {
+    asked.push(sides);
+    return faces[asked.length - 1]!;
+  });
+  assert.deepEqual(asked, [6, 6, 6], "a passed roller is asked once per die, for the notation's faces");
+  assert.deepEqual(rolled.rolls, faces, "a passed roller's faces are the roll");
+  assert.equal(rolled.total, 13, "the total adds the modifier to the passed roller's faces");
+
+  const seen = new Set<number>();
+  for (let index = 0; index < 2000; index += 1) {
+    const face = rollDieSecurely(20);
+    assert.ok(Number.isInteger(face) && face >= 1 && face <= 20, "the secure roller throws a real d20 face");
+    seen.add(face);
+  }
+  assert.equal(seen.size, 20, "the secure roller reaches every face of a d20");
+  assert.equal(rollDieSecurely(1), 1, "a one-faced die always shows 1");
+  assert.throws(() => rollDieSecurely(0), RangeError, "a die with no faces is refused");
+  assert.throws(() => rollDieSecurely(2.5), RangeError, "a die with part of a face is refused");
+  for (const roll of rollParsedDice(parseDiceNotation("10d4")!).rolls) {
+    assert.ok(roll >= 1 && roll <= 4, "rolling without a roller still uses real faces");
+  }
+}
+
+// A pool keeps or drops some of its dice (#8489): every face stays as it fell, the kept places are
+// reported, and only those count. The plain rollers read it; the NdM-only grammar still refuses it.
+{
+  const pool = (text: string) => parseDicePool(text);
+  assert.deepEqual(pool("4d6kh3")?.keep, { highest: true, count: 3 });
+  assert.deepEqual(pool("4d6k3")?.keep, { highest: true, count: 3 }, "a bare k keeps the highest");
+  assert.deepEqual(pool("2d20kl1")?.keep, { highest: false, count: 1 });
+  assert.deepEqual(pool("4d6dl1")?.keep, { highest: true, count: 3 }, "dropping the lowest keeps the rest");
+  assert.deepEqual(pool("4d6dh1")?.keep, { highest: false, count: 3 });
+  assert.equal(pool("4d6kh3+2")?.modifier, 2);
+  assert.equal(pool("4D6KH3")?.dice, "4d6kh3");
+  assert.equal(pool("2d6+1")?.keep, undefined, "plain NdM reads exactly as parseDiceNotation does");
+  assert.deepEqual(pool("2d6+1"), parseDiceNotation("2d6+1"));
+  for (const refused of ["2d20kh3", "4d6kh0", "4d6dl4", "4d6dh9", "4d6kh", "4d6x3", "4d6kh3kl1"]) {
+    assert.equal(pool(refused), null, `${refused} is not a pool this engine rolls`);
+  }
+  assert.equal(parseDiceNotation("4d6kh3"), null, "readers that take only NdM still refuse a keep");
+
+  assert.deepEqual(keptDice([3, 6, 1, 6], { highest: true, count: 3 }), [0, 1, 3]);
+  assert.deepEqual(keptDice([4, 4, 4], { highest: true, count: 1 }), [0], "a tie goes to the die thrown first");
+  assert.deepEqual(keptDice([2, 9, 2], { highest: false, count: 1 }), [0]);
+
+  const faces = [3, 6, 1, 5];
+  const rolled = rollParsedDice(pool("4d6kh3+2")!, () => faces.shift()!);
+  assert.deepEqual(rolled.rolls, [3, 6, 1, 5], "every face is reported as it fell");
+  assert.deepEqual(rolled.kept, [0, 1, 3]);
+  assert.equal(rolled.total, 16, "only the kept dice and the modifier count");
+  assert.equal(rollParsedDice(parseDiceNotation("2d6")!, () => 4).kept, undefined);
+  assert.equal(formatKeptRolls([3, 6, 1, 5], [0, 1, 3]), "3, 6, ~~1~~, 5");
+  assert.equal(formatKeptRolls([3, 6]), "3, 6");
+
+  assert.equal(isKeptDice([0, 2], 3), true);
+  for (const bad of [[2, 0], [0, 0], [3], [-1], [0.5], "0", null]) {
+    assert.equal(isKeptDice(bad, 3), false, `${JSON.stringify(bad)} is not a set of kept places`);
+  }
+
+  const clamped = clampParsedDiceToLimits(pool("500d6kh400")!);
+  assert.deepEqual(clamped.keep, { highest: true, count: 100 }, "a clamped pool keeps no more dice than it throws");
+  assert.equal(clamped.notation, "100d6kh100");
+
+  // The roll_dice tool, the composer roller and /roll all throw it the same way.
+  const tool = await rollThroughTool("4d6kh3");
+  const toolRolls = tool.rolls as number[];
+  const toolKept = tool.kept as number[];
+  assert.equal(toolRolls.length, 4);
+  assert.deepEqual(toolKept, keptDice(toolRolls, { highest: true, count: 3 }));
+  const keptSum = toolKept.reduce((sum, index) => sum + toolRolls[index]!, 0);
+  assert.equal(tool.sum, keptSum, "the tool's sum is the kept dice");
+  assert.equal(tool.total, keptSum);
+  assert.deepEqual(parseRollDiceToolResult(JSON.stringify(tool))?.kept, toolKept, "the dice card reads the kept dice");
+  assert.equal(parseRollDiceToolResult(JSON.stringify({ ...tool, kept: [9] })), null);
+
+  const composer = rollDice("4d6dl1");
+  assert.equal(composer.kept?.length, 3);
+  assert.throws(() => rollDice("150d6dl1"), /out of range/, "a pool past the ceilings is refused, not trimmed");
+  assert.equal(isDicePoolNotation("4d6kh3"), true, "the composer route's notation check reads pools");
+  assert.equal(isDicePoolNotation("4d6kh0"), false);
+  assert.equal(isRollableDiceNotation("4d6kh3"), true, "the composer route takes a pool");
+  for (const oversized of ["500d6kh3", "101d6kh3", "2d1001kl1", "500d6dl1"]) {
+    assert.equal(isRollableDiceNotation(oversized), false, `the composer route refuses ${oversized} up front`);
+  }
+  assert.equal(isRollableDiceNotation("500d6"), true, "plain NdM past the ceilings is still clamped");
+  assert.equal(rollDice("500d6").rolls.length, 100);
+
+  const slash = await rollThroughSlashCommand("4d6kh3");
+  const slashRolled = slashDiceRollResult(slash.posted) as SlashDiceRollResult & { kept?: number[] };
+  assert.equal(slashRolled.kept?.length, 3);
+  assert.equal(
+    slashRolled.total,
+    slashRolled.kept!.reduce((sum, index) => sum + slashRolled.rolls[index]!, 0),
+  );
+  assert.match(slash.posted!.content, /~~\d+~~/, "/roll strikes the dropped die through");
 }
 
 process.stdout.write("Dice notation regression passed.\n");

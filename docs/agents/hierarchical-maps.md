@@ -82,7 +82,7 @@ to chat** in the library attach the chat to the canonical shared world.
 
 ## Quick start
 
-1. Open **Agents**, click **Download Agents**, and install **World Maps**.
+1. Open **Agents**, click **Agent Organizer**, and install **World Maps**.
 2. Restart Marinara when prompted. The package contains server code.
 3. Open a Roleplay or Game chat.
 4. Open the dedicated **World Maps** globe when your Engine provides it, or use

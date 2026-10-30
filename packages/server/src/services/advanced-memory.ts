@@ -2655,6 +2655,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     if (everySection && audience.length === 1 && audience[0] === ctx.settings.narratorCharacterId)
       text = flattenCharacterConditions(text);
     const names = (audience.length ? audience : ctx.characterIds).map((id) => ctx.names.get(id) ?? "Character");
+    const rosterNames = ctx.characterIds.map((id) => ctx.names.get(id) ?? "Character");
+    const inactiveIds = new Set(ctx.mode === "game" ? [] : strings(ctx.metadata.inactiveCharacterIds));
     // Narrator privilege needs the narrator as the only reader, even in a merged chat with one character (#7237).
     const char = audience.find((id) => id !== ctx.settings.narratorCharacterId);
     const user = String(
@@ -2673,8 +2675,10 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         {
           user,
           char,
-          characters: names,
-          groupCharacters: ctx.characterIds.map((id) => ctx.names.get(id) ?? "Character"),
+          characters: rosterNames,
+          groupCharacters: ctx.characterIds
+            .filter((id) => !inactiveIds.has(id))
+            .map((id) => ctx.names.get(id) ?? "Character"),
           variables: {},
           localVariables: normalizeChatMacroVariables(ctx.metadata.macroVariables),
           chatId: ctx.chatId,

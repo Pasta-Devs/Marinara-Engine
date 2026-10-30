@@ -24,9 +24,11 @@ Set each color with the color field, or type a value:
 
 - **Name Display Color**: the color of the name. This field also supports a CSS gradient. A gradient is a smooth blend between colors. Example value: `linear-gradient(90deg, #f59e0b, #ef4444)`.
 - **Dialogue Highlight Color**: the color for text inside dialogue quotation marks. Example value: `#ffd700`.
-- **Message Box Color**: the background color of the chat message bubble. Use a semi-transparent color for the best result. Example value: `rgba(0, 0, 0, 0.5)`.
+- **Message Box Color**: the background color of the Roleplay chat message bubble. Example value: `#123456`.
 
-A semi-transparent color lets some of the background show through the bubble. The `rgba` format is red, green, blue, and an alpha value from 0 (see-through) to 1 (solid).
+Set transparency with **Settings → Appearance → Roleplay → Roleplay Messages Background Opacity**. This slider replaces the transparency saved in character, persona, and applied preset background colors, including colors extracted from avatars. Your saved color values are kept unchanged. Name and dialogue colors are not affected.
+
+Explicit custom-theme background hooks and card CSS can still override the app's native bubble styling.
 
 ## Where your colors show
 

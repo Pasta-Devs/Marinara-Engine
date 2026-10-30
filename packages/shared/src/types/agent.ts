@@ -421,7 +421,7 @@ export interface AgentContext {
     avatarCrop?: unknown;
     rpgStats?: import("./character.js").RPGStatsConfig;
   }>;
-  /** Every character attached to the chat, with only the data needed for activity routing. */
+  /** Full names-only chat roster for macros and activity routing; card fields stay in active characters. */
   chatCharacters?: Array<{
     id: string;
     name: string;

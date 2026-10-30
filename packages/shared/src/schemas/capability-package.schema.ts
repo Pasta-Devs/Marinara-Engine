@@ -380,6 +380,13 @@ const capabilityPackageManifestBaseSchema = z
               )
               .min(1)
               .max(32),
+            /**
+             * Capability API 1.390. `"engine"`: the Engine draws the page header (Back, store banner
+             * and logo, name, author and version, Active, Manage package). The package's
+             * `view="detail"` gets `engineHeader: true` and a `headerSlot` element to portal its own
+             * header buttons into. Leave it out to draw the whole page, header included, as before.
+             */
+            header: z.literal("engine").optional(),
           })
           .strict()
           .optional(),
@@ -1486,7 +1493,13 @@ const capabilityPackageManifestBaseSchema = z
 // 1.386: the Home browser view's openConnection(connectionId), and /api/generate/raw's debugMode prompt logging.
 // 1.387: `persistence.listChatSummaries(chatId)`: a chat's day, week, rolling and Game session summaries. Requires
 //        `chat-read`, like `listMessages`.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 387 } as const);
+// 1.388: `api.registerService(key, service, { hostOnly: true })` keeps a service out of `runtime.services.get`, so only
+//        the Engine reads it.
+// 1.389: `persistence.setMessagesHiddenFromAI(chatId, messageIds, hidden)` hides or shows a chat's messages from the
+//        AI and resolves the ids it changed. Requires `chat-write`; skips messages the user set by hand.
+// 1.390: `contributions.agentDetail.header: "engine"`: the Engine draws an agent page's header and
+//        passes the package's detail view `engineHeader: true` and a `headerSlot` for its buttons.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 390 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -2099,9 +2112,62 @@ export type CapabilityCatalog = z.infer<typeof capabilityCatalogSchema>;
  *  its own entries. The Engine assigns it from the source URL and nowhere else,
  *  so a value arriving on the wire is rejected by the strict entry schema and
  *  can never reach a consumer. */
-export type StampedCapabilityCatalogPackage = CapabilityCatalogPackage & { preview?: true };
+export type StampedCapabilityCatalogPackage = CapabilityCatalogPackage & {
+  preview?: true;
+  store?: CapabilityStoreListing;
+};
+
+/** Agent Organizer sections, in display order. */
+export const CAPABILITY_STORE_SECTIONS = [
+  "apps",
+  "games",
+  "writing",
+  "memory",
+  "trackers",
+  "adventure",
+  "media",
+  "alive",
+] as const;
+export type CapabilityStoreSection = (typeof CAPABILITY_STORE_SECTIONS)[number];
+
+/**
+ * One package's entry in the `store.json` sidecar beside a catalog.json. Paths are
+ * relative to the sidecar URL. Unknown keys are dropped (not rejected), so the Agents
+ * repo can add fields without breaking Engines that predate them. Untrusted remote data.
+ */
+export const capabilityStoreEntrySchema = z.object({
+  section: z.enum(CAPABILITY_STORE_SECTIONS),
+  tagline: z.string().trim().min(1).max(120),
+  featured: z.number().int().positive().max(1000).optional(),
+  iconPath: z.string().min(1).max(512).optional(),
+  bannerPath: z.string().min(1).max(512).optional(),
+  bannerSmallPath: z.string().min(1).max(512).optional(),
+  previews: z.array(z.string().min(1).max(512)).max(4).optional(),
+});
+
+/** A starter kit: a named set of packages the Organizer installs together. */
+export const capabilityStoreKitSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(80),
+  tagline: z.string().trim().max(160).default(""),
+  packages: z.array(z.string().min(1).max(80)).min(1).max(20),
+});
+export type CapabilityStoreKit = z.infer<typeof capabilityStoreKitSchema>;
+
+/** Store data as the Engine serves it: image paths resolved to absolute URLs. */
+export interface CapabilityStoreListing {
+  section: CapabilityStoreSection;
+  tagline: string;
+  featured?: number;
+  iconUrl?: string;
+  bannerUrl?: string;
+  bannerSmallUrl?: string;
+  previewUrls?: string[];
+}
 export type StampedCapabilityCatalog = Omit<CapabilityCatalog, "packages"> & {
   packages: StampedCapabilityCatalogPackage[];
+  /** Starter kits from the published store sidecar; packages not in the catalog are dropped. */
+  kits?: CapabilityStoreKit[];
 };
 export type InstalledCapabilityPackage = z.infer<typeof installedCapabilityPackageSchema>;
 export type PackagedAgentDefinition = z.infer<typeof packagedAgentDefinitionSchema>;

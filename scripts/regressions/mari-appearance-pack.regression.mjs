@@ -10,12 +10,13 @@ import {
   MARI_SPRITE_VERSION,
   MARI_STORY_STATES,
   mariAssetUrls,
+  mariSeasonKey,
   resolveMariAppearancePack,
   resolveMariRestStory,
   selectMariWorkAnimation,
   visibleMariAppearancePacks,
 } from "../../packages/client/src/lib/mari-work-animations.ts";
-import { SEASONAL_THEMES, seasonalThemeFor } from "../../packages/client/src/lib/seasonal-themes.ts";
+import { SEASONAL_THEMES, seasonalThemeFor, seasonYear } from "../../packages/client/src/lib/seasonal-themes.ts";
 
 const pack = getMariAppearancePack("basic");
 assert.equal(new Set(MARI_APPEARANCE_PACKS.map(({ id }) => id)).size, MARI_APPEARANCE_PACKS.length);
@@ -49,7 +50,9 @@ for (const appearance of MARI_APPEARANCE_PACKS) {
     assert.ok(url.startsWith(`/sprites/mari/${appearance.id}/`), `${url} must stay inside its pack folder`);
     assert.ok(url.endsWith(`?v=${MARI_SPRITE_VERSION}`), `${url} must carry the sprite version`);
   }
-  for (const pose of MARI_POSES) assert.ok(readFileSync(publicFile(appearance.poses[pose])).length);
+  for (const pose of MARI_POSES) {
+      assert.ok(readFileSync(publicFile(appearance.poses[pose])).length);
+  }
   const prefetch = mariAssetUrls(appearance, 2);
   const preload = mariAssetUrls(appearance, 1);
   assert.deepEqual(
@@ -74,9 +77,7 @@ const require = createRequire(new URL("../../packages/server/package.json", impo
 const sharp = require("sharp");
 for (const appearance of MARI_APPEARANCE_PACKS) {
   assert.equal(getMariAppearancePack(appearance.id), appearance, "registered packs must resolve without fallback");
-  for (const url of Object.values(appearance.portraits)) {
-    assert.ok(readFileSync(publicFile(url)).length);
-  }
+  for (const url of Object.values(appearance.portraits)) assert.ok(readFileSync(publicFile(url)).length);
   // P5: the Home Mari widget draws the greet pose at exactly 1x with fixed 106x192 width/height.
   const greet = await sharp(fileURLToPath(publicFile(appearance.poses.greet))).metadata();
   assert.deepEqual([greet.width, greet.height], [106, 192], `${appearance.id} greet pose must stay 106x192`);
@@ -146,6 +147,21 @@ const listed = (now, changed) => visibleMariAppearancePacks(worn(now, changed)).
 const at = (iso) => new Date(iso);
 const day = (iso) => at(`${iso}T12:00:00`);
 assert.equal(getMariAppearancePack("raccoon").season, "halloween", "the raccoon pack belongs to Halloween");
+for (const [id, season] of [
+  ["party", "newyearseve"],
+  ["hungover", "newyearsday"],
+]) {
+  const appearance = getMariAppearancePack(id);
+  assert.equal(appearance.season, season, `${id} belongs to ${season}`);
+  assert.ok(MARI_APPEARANCE_PACKS.includes(appearance), `${id} is listed`);
+  for (const url of [
+    ...Object.values(appearance.portraits),
+    ...Object.values(appearance.stories).map(({ src }) => src),
+    ...Object.values(appearance.poses),
+  ]) {
+    assert.ok(url.startsWith(`/sprites/mari/${id}/`), `${id} points to its own folder`);
+  }
+}
 // Minute by minute at both ends, and hour by hour around them, the costume is on exactly when the theme is.
 const halloween = SEASONAL_THEMES.find(({ id }) => id === "halloween");
 const moments = ["2026-10-29T23:59:00", "2026-10-30T00:00:00", "2026-11-01T11:59:00", "2026-11-01T12:00:00"].map(at);
@@ -194,3 +210,9 @@ assert.ok(!listed(day("2026-03-05"), previewOff).includes("raccoon"));
 console.info(
   "Mari appearance pack: fallback, lifecycle outcomes, activity selection, per-pack isolation, loading tiers and all sprite assets passed.",
 );
+
+// The party runs past midnight: its opt-out key keeps the December year, the same year the theme uses.
+const afterMidnight = new Date(2027, 0, 1, 1, 0);
+assert.equal(mariSeasonKey(getMariAppearancePack("party"), afterMidnight), `party-${seasonYear("newyearseve", afterMidnight)}`);
+assert.equal(mariSeasonKey(getMariAppearancePack("party"), afterMidnight), "party-2026");
+assert.equal(mariSeasonKey(getMariAppearancePack("hungover"), afterMidnight), "hungover-2027");

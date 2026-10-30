@@ -39,7 +39,7 @@ Ask her for help with any of these:
 - Creating or editing a lorebook. A lorebook is a set of world notes the AI pulls in when they are relevant.
 - Creating or editing a theme, an agent, a prompt preset, or a Personal Extension draft. Professor Mari is the only default extension author. Her drafts remain disabled until you inspect the sandboxed code, review any requested active Character-card or Persona permissions, and approve the exact hash in **Settings** > **Addons**.
 - Editing one part of a prompt preset in place. She can list a preset's individual sections, prompt groups, and choice variables, read any one of them in full, and add, change, or remove just that piece — for example, adding a line to a specific section — instead of only creating or replacing the whole preset.
-- Comparing all 33 official downloadable agents and feature packages, explaining which modes they support, and advising which ones fit a user's goal. She distinguishes catalog availability from what is actually installed, directs users to **Agents → Download Agents** when needed, and knows that package sources and the complete catalog are available in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
+- Comparing all 33 official downloadable agents and feature packages, explaining which modes they support, and advising which ones fit a user's goal. She distinguishes catalog availability from what is actually installed, directs users to **Agents → Agent Organizer** when needed, and knows that package sources and the complete catalog are available in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents).
 - Generating or assigning images, such as avatars, sprites, and backgrounds. A sprite is a character image, like a portrait or a full body pose, shown during a chat.
 - Looking up public Fandom wiki pages to help you research a character or world.
 - Following quick-reply suggestion chips above the chat input, color-coded by entity type, through a multi-step creation or edit.
@@ -64,7 +64,7 @@ On an empty Professor Mari chat, starter chips such as **Create a Character**, *
 
 Guided flows ask one focused question at a time instead of presenting a long form all at once.
 
-For a complete create or edit request, Professor Mari can return a bounded guided plan. Each step has a small set of suggestions. Selecting one fills the current draft and advances the plan locally. Your text remains in the draft when you change a suggestion. The plan belongs to the current Professor Mari chat, so switching chats, restarting, stopping a run, or completing the plan clears stale steps. Malformed or excessive suggestions are discarded, and the chips are disabled while Professor Mari is working.
+When a request leaves real decisions open, Professor Mari can stop and ask on a question card under her reply: up to four questions, one at a time, each with a few options, her recommended one marked. Some questions take several answers. Pick an option or type your own, then press **Submit**: your answers go as your next message, so nothing is hidden and you can see what she was told. Her turn ends when she asks, and nothing she proposed alongside the question runs until you answer. You can also ignore the card and type in the message box; your next message answers it.
 
 Suggestions are available only in Professor Mari chats. Other characters do not receive Professor Mari's chips.
 
@@ -110,13 +110,68 @@ Pi works with every connection, including the local model. If Professor Mari beh
 
 Open **Search and Professor Mari settings** and scroll to **Appearance**. Pick a look for her, such as **Basic**, **Prof. Mari loves Dottore** or **Safari Prof. Mari**. Her new look shows in her chat, Search, Home and the top bar. Some looks unlock after enough play time. A locked look shows how many hours you have played so far.
 
+## The paperclip menu
+
+Click the paperclip button, labeled **Attach**, to open a menu with three sections:
+
+- **Attach**: **Attach files or photos**, **Add chat history** (share one of your past chats with her) and **View attached context**.
+- **Reference**: **Link with @** types `@` in the message box and opens the link list described below.
+- **Mari**: **New chat**, **Chat history**, **Skills**, **Memories**, **Model** and **Permissions**. **Pending approvals** shows here while a change waits for you.
+
+The same commands can be typed with `/`, as described in [Commands with /](#commands-with-).
+
 ## Attaching files
 
-Click the paperclip button, labeled **Attach files**, to add a file to your message.
+Choose **Attach files or photos** in the paperclip menu, or type `/attach`, to add a file to your message.
 
-She accepts images, PDF files, and common text files such as `.txt`, `.md`, `.json`, `.csv`, and `.log`. Each file can be up to 20 MB. Attached files show as removable chips above the message box before you send.
+She accepts images, PDF files, and common text files such as `.txt`, `.md`, `.json`, `.csv`, and `.log`. Each file can be up to 20 MB. Attached files show as removable chips above the message box before you send. You can also paste a screenshot or a copied file straight into the message box, with **Ctrl+V** or your phone's paste.
 
 To have her read an image, your selected connection's model must support image input.
+
+## Linking things with @
+
+Type `@` in the message box to point her at something in your library, so she does not have to search for it. A list opens as you type, grouped into **Characters**, **Personas**, **Lorebooks**, **Presets**, **Skills**, **Memories**, **Chats**, **Agents** and **Docs**. Typing narrows it; names with spaces need no quotes (`@Alice in Wonderland`).
+
+- Use the arrow keys to move, **Enter** or **Tab** to pick and **Escape** to close the list. On a lorebook, the right arrow shows its **Entries** so you can link one entry; the left arrow goes back.
+- When her window sits beside an editor, the first row, **Open beside me**, links what that editor has open.
+- Beside the character editor, the **Open beside me** row has a › (or press ArrowRight) that lists that editor's **Fields**, and typing after `@` lists the matching ones directly. Picking one (`@scen` → Scenario) switches the field she works on, the same as clicking into it before you open her. It replaces the field chip in her context row, and the editor scrolls to that field. A field is not a link, so no `@` text stays in your message. **Onboarding** is one field for the whole block: while it is her field, each message sends what `character.onboarding.get` returns (the questions, any problems, and a sample persona), so she starts from the block as it is saved.
+- A picked name is highlighted in your message and shows as a chip above the message box. Edit or delete the name and the link goes with it; the chip's **×** removes the link but keeps your text.
+- In ordinary text, **Tab** completes a name she suggests in grey. A small **Tab to link** hint then shows after it: press **Tab** again, or click the hint, to turn the name into a link. On a touch screen, tap the grey name to complete it, then tap **Tap to link** (**Tab or tap to link** on a touch laptop).
+
+What each link sends:
+
+| Link                       | What she gets                                                                                                                                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Character, persona, preset | The whole item, as she would read it herself                                                                                                                                                   |
+| Lorebook                   | Its settings and the list of its entries (link an entry for its full text)                                                                                                                     |
+| Lorebook entry             | The entry, plus which lorebook it belongs to                                                                                                                                                   |
+| Skill                      | Your own skill's instructions. A built-in skill opens as her handbook for that message instead. Link the onboarding skill with a character and she also gets that character's onboarding block |
+| Memory                     | The memory's full text, even when it is switched off. Persistent memories are not listed, since she always has them                                                                            |
+| Chat                       | The chat's details and its newest 30 messages                                                                                                                                                  |
+| Agent                      | The agent's settings                                                                                                                                                                           |
+| Doc                        | The whole page from this documentation                                                                                                                                                         |
+
+A link is sent **once**, with the message you link it in. On later turns she only sees a one-line note that you linked it, and reads it again if she needs it. One message carries up to 8 links. If they add up to more than about a quarter of your connection's context (60,000 characters at most), the last ones are not sent; she gets a note instead and can read them herself.
+
+Linked items are treated as information, never as instructions: a character card or lorebook entry cannot tell her what to do.
+
+## Commands with /
+
+Type `/` at the start of a line to list her commands. Keep typing to filter, then press **Enter** to run one. The `/word` you typed is removed from your message.
+
+| Command        | What it does                                                                    |
+| -------------- | ------------------------------------------------------------------------------- |
+| `/new`         | Start a new chat; the current one is saved in **Chats** (`/restart` also works) |
+| `/history`     | Open your past chats with her                                                   |
+| `/skills`      | Open the **Skills** panel                                                       |
+| `/memories`    | Open the **Memories** panel                                                     |
+| `/context`     | See what is attached to this chat                                               |
+| `/attach`      | Pick files or photos to send                                                    |
+| `/model`       | Choose the connection she uses                                                  |
+| `/permissions` | Choose what she may change                                                      |
+| `/approvals`   | Open changes waiting for you (only while one is pending)                        |
+
+The `/` list also shows your **Skills** and **Memories**. Picking one links it, just like `@`.
 
 ## Reviewing her changes
 
@@ -207,7 +262,7 @@ Professor Mari keeps her own separate chats. They do not appear in your normal c
 
 Click the **Chats** button in her header to open your saved Professor Mari chats. When the list is empty, the panel notes: "New chat keeps this one here." Use **Search Prof. Mari chats** to find one. You can click a saved chat to open it, rename it, or delete it.
 
-Click the **New chat** button to start a fresh conversation with her. It first saves your current chat into the **Chats** list. You can also type `/restart` in the message box to do the same thing. You see the message "Professor Mari's previous chat was saved."
+Click the **New chat** button to start a fresh conversation with her. It first saves your current chat into the **Chats** list. You can also type `/new` (or `/restart`) in the message box to do the same thing. You see the message "Professor Mari's previous chat was saved."
 
 While she is working, the send button turns into a **Stop** button. Click it to cancel the current task.
 
@@ -239,7 +294,7 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 - Creating new content is usually safe, since nothing gets overwritten. Editing existing content deserves more care.
 - A reviewed dependency is third-party code with the same runtime access as the Marinara code that imports it. Check the package name, exact version, purpose, and integrity shown in the approval card.
 - For edits, name the exact item and the exact field you want changed. A request like "rewrite this whole character" is riskier than "make Luna's greeting shorter, keep her personality the same."
-- For multi-step creation, use the suggestion chips to answer one focused question at a time instead of trying to provide every field at once.
+- For multi-step creation, answer her question card or use the suggestion chips instead of trying to provide every field at once.
 - If she says she finished a task but the app does not show it, trust the app. Finish the task yourself from the matching panel.
 - If you reach Marinara from another device instead of the same computer, her editing actions need remote access set up. See the remote access guide.
 

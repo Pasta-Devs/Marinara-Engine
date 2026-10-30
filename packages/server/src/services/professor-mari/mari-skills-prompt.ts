@@ -24,11 +24,11 @@ const DEFAULT_MAX_INDEX_CHARS = 8_000;
 const DEFAULT_MAX_INLINE_SKILL_CHARS = 1_500;
 const DEFAULT_MAX_INLINE_TOTAL_CHARS = 6_000;
 
-function flattenLine(value: string): string {
+export function flattenLine(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function escapeXmlAttribute(value: string): string {
+export function escapeXmlAttribute(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 

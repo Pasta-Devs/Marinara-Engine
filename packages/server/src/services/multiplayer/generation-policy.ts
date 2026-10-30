@@ -11,7 +11,14 @@ export interface GenerationRoomContext {
   signal?: AbortSignal;
 }
 
-type Participant = { id: string; displayName: string; persona: { name: string; description: string }; isHost: boolean };
+type Participant = {
+  id: string;
+  displayName: string;
+  persona: { name: string; description: string };
+  isHost: boolean;
+  /** The game card bound to them, when it goes by another name than their persona. */
+  character?: string;
+};
 export interface RoomGenerationPolicy extends GenerationRoomContext {
   chatId: string;
   characterIds: readonly string[];
@@ -70,6 +77,14 @@ export function resolveRoomGenerationPolicy(
     : [];
   if (!participants.length || participants.filter((participant) => participant.isHost).length !== 1)
     throw new Error("The room's approved roster is invalid.");
+  // In a game each player plays the card bound to them, which the Game Master must not voice either
+  // (laptop room playtest 2026-10-30: the GM spoke for a guest's "Guest Hero" in the opening).
+  const cards = Array.isArray(metadata.gameCharacterCards) ? metadata.gameCharacterCards.map(record) : [];
+  for (const [index, participant] of participants.entries()) {
+    const bound = cards.find((card) => card.multiplayerParticipantId === participant.id);
+    const name = typeof bound?.name === "string" ? bound.name.trim().slice(0, 80) : "";
+    if (name && name !== participant.persona.name) participants[index] = { ...participant, character: name };
+  }
   const characters: RoomGenerationPolicy["characters"] = Array.isArray(room.characters)
     ? room.characters.flatMap((value) => {
         const character = record(value);
@@ -208,8 +223,15 @@ export function roomRosterPrompt(): string | null {
     "Each participant controls only their own persona. Never invent actions or dialogue for any human-controlled persona. AI characters and the GM remain separate from these human players. The existing user macro does not change ownership when another participant speaks. In Game mode, name the acting persona with who= on every skill check or sheet/inventory command; never substitute one participant's stats or possessions for another's.",
     ...room.participants.map(
       (participant) =>
-        `${participant.displayName} controls ${participant.persona.name}${participant.isHost ? " (host)" : ""}:\n${participant.persona.description}`,
+        `${participant.displayName} controls ${participant.persona.name}${
+          participant.character ? ` and plays the game character ${participant.character}` : ""
+        }${participant.isHost ? " (host)" : ""}:\n${participant.persona.description}`,
     ),
+    `Played by these people, never by you: ${room.participants
+      .flatMap((participant) => [participant.persona.name, ...(participant.character ? [participant.character] : [])])
+      .join(
+        ", ",
+      )}. Never write a line of dialogue labelled with one of these names, nor decide what they do or think: say only what their own player wrote they do, and end there.`,
     "[End shared room human participants]",
     "[Approved AI roles]",
     "AI characters speak and act as their own characters. An approved GM narrates the shared scene, manages the situation and adjudicates declared actions in this mode, without taking over human personas. Follow the approved role of the current speaker.",

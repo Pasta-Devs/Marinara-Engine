@@ -41,7 +41,7 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{21-character-card-ID}}` | Name of another character. Replace the placeholder text with that card's exact 21-character ID to pull the card into context. |
 | `{{persona-21-character-card-ID}}` | Name of another persona. Replace the placeholder text after `persona-` with that card's exact 21-character ID to pull the card into context. |
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
-| `{{characters}}` | Every character in the chat, joined by commas. |
+| `{{characters}}` | Every character in the chat, including inactive characters, joined by commas. This macro adds names only; it does not add inactive character cards to the prompt. |
 | `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
 | `{{persona}}` | Your persona's Description, Personality, Backstory, Appearance, and Scenario, joined by new lines. |
 | `{{personaDescription}}` | Your persona's Description field. |
@@ -188,7 +188,7 @@ These macros add chance to your prompts. Use the random macro (`{{random}}`) for
 | `{{random:X:Y}}` | A random whole number between X and Y, both included. |
 | `{{random::A::B::C}}` | Picks one option at random, then resolves macros only inside the chosen option. |
 | `{{random::A@2::B@0.5}}` | A weighted random choice. See the weighting rules below. |
-| `{{roll:XdY}}` | A dice roll total. For example, `{{roll:2d6}}` rolls two six-sided dice and adds them. |
+| `{{roll:XdY}}` | A dice roll total. For example, `{{roll:2d6}}` rolls two six-sided dice and adds them. `{{roll:d20}}` rolls one die, and `{{roll:1d8+3}}` adds 3 to the roll. |
 
 Here is a simple random choice you can copy:
 

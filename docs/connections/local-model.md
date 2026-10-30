@@ -163,7 +163,7 @@ Selecting it for a chat starts the local server on demand, even when both helper
 
 The **Local Speech Model** is an optional Calls download for offline microphone transcription. It powers Conversation calls when you choose to transcribe your voice on your own machine. It is a Whisper model, a speech-to-text model that turns your spoken words into text.
 
-First install **Calls** from **Agents > Download Agents**. You can then manage Whisper from the **Local Model** card in Connections, under the **Local Speech Model** heading. The heading and download controls stay hidden when Calls is not installed.
+First install **Calls** from **Agents > Agent Organizer**. You can then manage Whisper from the **Local Model** card in Connections, under the **Local Speech Model** heading. The heading and download controls stay hidden when Calls is not installed.
 
 Two choices are offered:
 

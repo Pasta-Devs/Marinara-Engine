@@ -140,7 +140,7 @@ Sometimes the server is running but the browser shows a blank page, or the app l
 
 ## Downloadable agent problems
 
-If **Agents → Download Agents** says the catalog is unavailable, the machine running the Marinara server—not only the browser—must be able to reach the official [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over GitHub HTTPS. Installed agents continue to work offline at their current version. Restore the server connection, then click **Refresh** or **Try again** to browse the catalog and check for updates.
+If **Agents → Agent Organizer** says the catalog is unavailable, the machine running the Marinara server—not only the browser—must be able to reach the official [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over GitHub HTTPS. Installed agents continue to work offline at their current version. Restore the server connection, then click **Refresh** or **Try again** to browse the catalog and check for updates.
 
 If an installed map or call does not appear, close Marinara Engine completely and start it again. Those route-bearing packages remain in **Restart required** state until the next process start. Conversation games are different: current Engine builds hot-activate them immediately. Refresh the catalog if installation failed, then confirm the game shows as ready; adding it under a chat's **Commands** settings is only necessary when you want characters to initiate it themselves, not for the game's manual slash command.
 
@@ -150,7 +150,7 @@ If `data/capability-runtime-snapshots` or `data/capability-packages/versions` ha
 
 Package downloads are rejected when their checksum, declared file list, Engine version range, or archive paths do not match the official catalog. Update Marinara Engine first, refresh the catalog, and retry. Do not manually extract an artifact into the data directory.
 
-Agent updates are never applied at startup. When a newer compatible version is available, Marinara asks whether to apply it. Choose **No** to keep the installed version; the **Update** button remains available in **Agents → Download Agents**. A failed update also leaves the installed version registered, and a newly updated server runtime that fails its startup self-check rolls back to the previous version.
+Agent updates are never applied at startup. When a newer compatible version is available, Marinara asks whether to apply it. Choose **Not now** to keep the installed version; the **Update** button remains available in **Agents → Agent Organizer**. A failed update also leaves the installed version registered, and a newly updated server runtime that fails its startup self-check rolls back to the previous version.
 
 ## Accessing Marinara from another device
 
@@ -280,7 +280,7 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 
 Game Mode Storyboards turn a completed GM narration into keyframe images and optional clips. Roleplay Storyboards combine completed exchanges and display the result inline after the assistant response.
 
-- Confirm **Storyboard** is installed from **Agents** > **Download Agents**, then turn on **Enable Agents** and **Enable Storyboards** for the chat.
+- Confirm **Storyboard** is installed from **Agents** > **Agent Organizer**, then turn on **Enable Agents** and **Enable Storyboards** for the chat.
 - For a manual scene video, open **Chat Settings** > **Gallery**, generate or upload an image, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
 - For automatic Game Mode Storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
 - In Roleplay, add the **Storyboard** Agent to the chat. Choose **Still images** or **Animations**, set **Messages per episode**, and select the Storyboard image connection. **Manual only** runs from **Create storyboard** in the **Gallery** section of **Chat Settings** instead.
@@ -303,7 +303,7 @@ If starting a game fails because the model returned broken JSON, Marinara opens 
 
 - If characters do not speak during a call, Text to Speech is not set up. Open **Connections** > **Text to Speech**, enable it, choose a source, enter your key, pick a voice, and save. A character with no voice appears as text only.
 - If speech stops with **No audio after 60 s**, your voice server is slower than Marinara waits. A local server on a laptop often is. Raise **Request timeout (seconds)** in **Connections** > **Text to Speech**, or in the audio connection the message names. See [Request timeout](media/tts-setup.md#request-timeout).
-- If the microphone is not working, you may need the local speech model. Install **Calls** from **Agents > Download Agents**, then open **Connections** > **Local Model**, expand the card, find **Local Speech Model**, choose a Whisper model, and click **Download Whisper**. Firefox in particular needs this because it lacks browser speech recognition. Uninstalling Calls deletes its Whisper models to reclaim disk space. You can also use your own speech-to-text server from the **Speech to Text** card in **Connections**; see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
+- If the microphone is not working, you may need the local speech model. Install **Calls** from **Agents > Agent Organizer**, then open **Connections** > **Local Model**, expand the card, find **Local Speech Model**, choose a Whisper model, and click **Download Whisper**. Firefox in particular needs this because it lacks browser speech recognition. Uninstalling Calls deletes its Whisper models to reclaim disk space. You can also use your own speech-to-text server from the **Speech to Text** card in **Connections**; see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - On a Lite build, the message **Local Whisper is disabled in Lite mode** means that small build cannot run the local speech model. Use a full Marinara install instead.
 
 ### Music DJ Spotify login fails on a remote or network install
@@ -348,7 +348,9 @@ Newer versions of Marinara store each chat's data (messages, swipes, memories, i
 
 Marinara refuses obvious downgrades on its own: the launcher skips an auto-update that would land on an incompatible version, and the in-app updater blocks it with an error that points here.
 
-To downgrade anyway:
+If your data has reached storage format 8 (MMD avatar support), restore a full backup made before that upgrade to use a format-7 or older build. The command below only converts older chat-file layouts; it cannot convert MMD avatar settings. Do not change the format number by hand.
+
+For data that has not reached format 8, to convert the older chat-file layout:
 
 1. Stop the Marinara server.
 2. From the Marinara folder, run:

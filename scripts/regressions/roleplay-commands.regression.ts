@@ -827,7 +827,18 @@ const executeRoll = async (args: Record<string, unknown>) => {
   assert.ok(result);
   return { ...result, payload: JSON.parse(result.result) };
 };
+// Every plain die now comes from the shared secure roller (crypto.getRandomValues, #8489), so a
+// pinned Math.random() no longer pins the dice. Pin the secure draw as well; the return undoes it.
+const pinSecureDraws = (draw: number) => {
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    value: <T extends ArrayBufferView>(array: T) => ((array as unknown as Uint32Array).fill(draw), array),
+    configurable: true,
+    writable: true,
+  });
+  return () => Reflect.deleteProperty(globalThis.crypto, "getRandomValues");
+};
 const random = Math.random;
+const unpinSecureDraws = pinSecureDraws(0);
 try {
   Math.random = () => 0;
   for (const [modifier, dc, total, success] of [
@@ -886,6 +897,7 @@ try {
   }
 } finally {
   Math.random = random;
+  unpinSecureDraws();
 }
 // #7481: with Advanced Memory, a new Roleplay reply is saved as one message per scene or POV break.
 assert.deepEqual(

@@ -795,6 +795,24 @@ export function createCapabilityPersistenceHost(db: DB, permissions?: readonly s
         return row ? [mapMessage(row)] : [];
       });
     },
+    async setMessagesHiddenFromAI(chatId, messageIds, hidden) {
+      assertPermission("chat-write");
+      if (!(await hostChats().getById(chatId))) throw new Error(`Chat ${chatId} was not found.`);
+      // An automatic writer leaves a message the user hid or showed by hand alone, like Advanced Memory (#7192).
+      // ponytail: read outside the patch queues, so a hand-set choice made during this call can be overwritten; a
+      // skip-manual option inside bulkSetHiddenFromAI's transaction closes it.
+      const manual = new Set(
+        (await hostChats().listMessages(chatId))
+          .filter((message) => parseExtra(message.extra).visibilityManual === true)
+          .map((message) => message.id),
+      );
+      // No extra fields: a package never marks a message's visibility as the user's choice.
+      return hostChats().bulkSetHiddenFromAI(
+        chatId,
+        messageIds.filter((id) => !manual.has(id)),
+        hidden,
+      );
+    },
     async createChatNote(sourceChatId, targetChatId, content, anchorMessageId) {
       assertPermission("chat-write");
       await hostChats().createNote(sourceChatId, targetChatId, content, anchorMessageId);

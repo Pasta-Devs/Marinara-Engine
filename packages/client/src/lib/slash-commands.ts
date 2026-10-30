@@ -9,6 +9,7 @@ import { useGalleryStore } from "../stores/gallery.store";
 import { toast } from "sonner";
 import { startSceneWithPromptPreferences } from "./scene-generation";
 import { isMessageHidden } from "./message-visibility";
+import { rollWithPersonalExtensionDiceFormats } from "./personal-extension-dice-formats";
 export { isMessageHidden } from "./message-visibility";
 import {
   SUPPORTED_MACROS,
@@ -16,7 +17,8 @@ import {
   buildNarratorInstructionMessage,
   isWithinDiceLimits,
   normalizeTextForMatch,
-  parseDiceNotation,
+  formatKeptRolls,
+  parseDicePool,
   rollParsedDice,
   type MessageReply,
   type ParsedDiceNotation,
@@ -258,12 +260,29 @@ async function translateSlash(key: string, options?: Record<string, unknown>): P
 // ── Dice roller ────────────────
 
 function parseDice(notation: string): ParsedDiceNotation | null {
-  const parsed = parseDiceNotation(notation);
+  const parsed = parseDicePool(notation);
   // Same caps the server dice route enforces. Without them "/roll 99999999d6"
   // spins the render thread, and "0d6" rolls nothing at all (the shared grammar
   // already refuses a count below one).
   if (!parsed || !isWithinDiceLimits(parsed)) return null;
   return parsed;
+}
+
+/** Extension text as one plain line in a chat message: no links, images, markup or HTML. */
+function plainDiceText(text: string): string {
+  return text.replace(/\s+/g, " ").replace(/[\\`*_{}[\]()#+\-.!<>|~]/g, "\\$&");
+}
+
+/** `/roll` with notation the shared grammar does not read: ask the formats extensions registered. */
+async function rollExtensionDice(notation: string, ctx: SlashCommandContext): Promise<SlashCommandResult | null> {
+  const rolled = await rollWithPersonalExtensionDiceFormats(notation);
+  if (!rolled) return null;
+  const meaning = rolled.text ? ` · ${plainDiceText(rolled.text)}` : "";
+  await ctx.createMessage({
+    role: "narrator",
+    content: `🎲 **${notation}** → **${rolled.total}** [${formatKeptRolls(rolled.rolls, rolled.kept)}]${meaning} _(${plainDiceText(rolled.formatLabel)})_`,
+  });
+  return { handled: true };
 }
 
 // ── Reminder parser ────────────────
@@ -703,21 +722,28 @@ const COMMANDS: SlashCommand[] = [
   {
     name: "roll",
     aliases: ["r", "dice"],
-    description: "Roll dice (e.g. 2d6, 1d20+5)",
+    description: "Roll dice (e.g. 2d6, 1d20+5, 4d6kh3)",
     usage: "/roll [dice (optional)]",
     local: true,
     async execute(args, ctx) {
       const notation = args.trim() || "1d20";
       const parsed = parseDice(notation);
-      if (!parsed) return { handled: true, feedback: `Invalid dice notation: ${notation}` };
-      const { rolls, total: sum } = rollParsedDice(parsed);
+      if (!parsed) {
+        // Only notation the shared grammar cannot read goes to extensions; an oversized 500d6 stays refused.
+        const extensionRoll = parseDicePool(notation) ? null : await rollExtensionDice(notation, ctx);
+        return extensionRoll ?? { handled: true, feedback: `Invalid dice notation: ${notation}` };
+      }
+      const { rolls, total: sum, kept } = rollParsedDice(parsed);
       const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
-      const detail = parsed.count > 1 ? ` [${rolls.join(", ")}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
+      const detail =
+        parsed.count > 1 ? ` [${formatKeptRolls(rolls, kept)}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
       const text = `🎲 **${notation}** → **${sum}**${detail}`;
       await ctx.createMessage({
         role: "narrator",
         content: text,
-        extra: { diceRollResult: { notation, rolls, modifier: parsed.modifier, total: sum } },
+        extra: {
+          diceRollResult: { notation, rolls, modifier: parsed.modifier, total: sum, ...(kept ? { kept } : {}) },
+        },
       });
       return { handled: true };
     },

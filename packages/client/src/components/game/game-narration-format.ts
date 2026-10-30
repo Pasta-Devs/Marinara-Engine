@@ -1,8 +1,14 @@
 import DOMPurify from "dompurify";
-import { stripSheetCommandTags, stripClockCommandTags } from "@marinara-engine/shared";
+import { DICE_NOTATION_PATTERN, stripSheetCommandTags, stripClockCommandTags } from "@marinara-engine/shared";
 import { escapeStandaloneGameNarrationAngleLines } from "../../lib/game-tag-parser";
 import { HTML_SAFE_DIALOGUE_QUOTE_PATTERN_SOURCE } from "../../lib/dialogue-quotes";
 import { translate } from "../../localization/i18n";
+
+/** A `[dice: 2d6+3 = 11]` record, its notation read with the shared dice grammar. */
+const DICE_RECORD_PATTERN = new RegExp(
+  String.raw`\[dice:\s*(${DICE_NOTATION_PATTERN})\s*=\s*(-?\d+)(?:\s*\([^)\]]*\))?((?:\s+\w+="[^"\]]*")*)\s*\]`,
+  "gi",
+);
 
 function commandBadge(className: string, label: string, detail?: string): string {
   return `<span class="inline-flex max-w-full flex-wrap items-center gap-1 rounded px-1.5 py-0.5 text-xs ${className}">${label}${
@@ -45,18 +51,15 @@ export function formatNarration(content: string, boldDialogue = true): string {
         cleaned ? `\n${cleaned}` : ""
       }`;
     })
-    .replace(
-      /\[dice:\s*((?:\d+)?d\d+(?:[+-]\d+)?)\s*=\s*(-?\d+)(?:\s*\([^)\]]*\))?((?:\s+\w+="[^"\]]*")*)\s*\]/gi,
-      (_match, notation: string, total: string, rawAttrs: string) => {
-        // Who rolled, when the record names them.
-        const who = parseCommandAttributes(rawAttrs ?? "").who;
-        return commandBadge(
-          "bg-white/10 text-white/60 font-mono",
-          "🎲",
-          `${who ? `${who}: ` : ""}${notation} → ${total}`,
-        );
-      },
-    )
+    .replace(DICE_RECORD_PATTERN, (_match, notation: string, total: string, rawAttrs: string) => {
+      // Who rolled, when the record names them.
+      const who = parseCommandAttributes(rawAttrs ?? "").who;
+      return commandBadge(
+        "bg-white/10 text-white/60 font-mono",
+        "🎲",
+        `${who ? `${who}: ` : ""}${notation} → ${total}`,
+      );
+    })
     .replace(/\[qte_bonus:\s*(-?\d+)\]/gi, (_match, bonus: string) =>
       commandBadge("bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20", "⏱ QTE Bonus", formatSignedNumber(bonus)),
     )

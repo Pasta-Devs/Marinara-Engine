@@ -1046,6 +1046,17 @@ test("Leave in an old joined chat only ends the session that chat owns", async (
   });
   await mountControls(page, info, "guest");
   await page.getByRole("button", { name: "Leave", exact: true }).first().click();
+  // Leaving a live room asks first; the fixture mounts no dialog host, so answer it directly.
+  const answer = (value: boolean) =>
+    page.evaluate(
+      async (value) => (await import("/src/lib/app-dialogs.ts" as string)).resolveActiveDialog(value),
+      value,
+    );
+  await answer(false);
+  await expect(page.locator("#fixture")).not.toHaveAttribute("data-active-chat", "none");
+  expect(deletes).toEqual([]);
+  await page.getByRole("button", { name: "Leave", exact: true }).first().click();
+  await answer(true);
   await expect(page.locator("#fixture")).toHaveAttribute("data-active-chat", "none");
   await expect.poll(() => deletes.length).toBeGreaterThan(0);
   expect(new Set(deletes)).toEqual(new Set(["/api/multiplayer/guest?chatId=stopped_room_chat"]));

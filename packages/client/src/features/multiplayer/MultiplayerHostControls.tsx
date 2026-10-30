@@ -7,7 +7,7 @@ import { multiplayerActionError, useMultiplayerHost, useMultiplayerMutation } fr
 import { characterKeys } from "../../hooks/use-characters";
 import { ChatSettingsSection } from "../chat-settings/ChatSettingsSection";
 import { copyToClipboard } from "../../lib/utils";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
 
@@ -178,7 +178,22 @@ export function MultiplayerHostControls({
                 type="button"
                 className={MULTIPLAYER_BUTTON_CLASS}
                 disabled={action.isPending}
-                onClick={() => action.mutate({ type: "approve", requestId: request.id })}
+                onClick={() =>
+                  action.mutate(
+                    { type: "approve", requestId: request.id },
+                    {
+                      // Said where the host is looking (laptop room playtest 2026-10-30: a silent 400).
+                      onError: (error) =>
+                        void showAlertDialog({
+                          title: t("multiplayer.host.approve"),
+                          message:
+                            multiplayerActionError(error) === "identity-conflict"
+                              ? t("multiplayer.host.approveConflict", { name: request.persona.name })
+                              : t("multiplayer.actionFailed"),
+                        }),
+                    },
+                  )
+                }
               >
                 {t("multiplayer.host.approve")}
               </button>

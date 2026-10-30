@@ -100,6 +100,8 @@ export interface ProfessorMariAskContext {
   field?: string;
   /** Stable editor field identifier; `field` remains the human-readable compatibility label. */
   fieldId?: string;
+  /** Current focused-field text, including unsaved edits and an optional selection. */
+  fieldDraft?: { value: string; selection?: string };
   error?: { message: string; code?: string };
   action?: string;
   commandCenterResultId?: string;
@@ -654,6 +656,105 @@ export function sanitizeMariGuidedPlan(
   return steps;
 }
 
+/** One choice on a question card. At most one option per question is `recommended`. */
+export interface MariQuestionOption {
+  label: string;
+  detail?: string;
+  recommended?: boolean;
+}
+
+/** One question on the card Mari's `ask` tool shows. The user can always type their own answer instead. */
+export interface MariQuestion {
+  id: string;
+  question: string;
+  options: MariQuestionOption[];
+  multiple?: boolean;
+}
+
+const MARI_QUESTION_MAX = 4;
+const MARI_QUESTION_OPTION_MIN = 2;
+const MARI_QUESTION_OPTION_MAX = 4;
+const QUESTION_TEXT_KEYS = ["question", "text", "prompt", "header"];
+const QUESTION_OPTION_LABEL_KEYS = ["label", "title", "text", "value", "name"];
+
+function sanitizeMariQuestionOptions(raw: unknown): MariQuestionOption[] {
+  if (!Array.isArray(raw)) return [];
+  const options: MariQuestionOption[] = [];
+  const labels = new Set<string>();
+  let recommendedTaken = false;
+  for (const entry of raw) {
+    const record: Record<string, unknown> =
+      typeof entry === "string"
+        ? { label: entry }
+        : entry && typeof entry === "object" && !Array.isArray(entry)
+          ? (entry as Record<string, unknown>)
+          : {};
+    const rawLabel = firstStringField(record, QUESTION_OPTION_LABEL_KEYS);
+    const label = rawLabel ? truncateMariChipText(rawLabel, 60) : "";
+    if (!label || labels.has(label)) continue;
+    labels.add(label);
+    const option: MariQuestionOption = { label };
+    const rawDetail = firstStringField(record, CHIP_DETAIL_KEYS);
+    if (rawDetail) {
+      const detail = rawDetail.replace(/\s+/g, " ").trim();
+      option.detail =
+        detail.length > MARI_CHIP_DETAIL_MAX ? `${detail.slice(0, MARI_CHIP_DETAIL_MAX - 1).trimEnd()}…` : detail;
+    }
+    if (record.recommended === true && !recommendedTaken) {
+      option.recommended = true;
+      recommendedTaken = true;
+    }
+    options.push(option);
+    if (options.length >= MARI_QUESTION_OPTION_MAX) break;
+  }
+  return options;
+}
+
+/** Same tolerant-parsing philosophy as sanitizeMariSuggestionChips. Takes the list, or `{ questions: [...] }`. */
+export function sanitizeMariQuestions(raw: unknown): MariQuestion[] {
+  const list = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>).questions : raw;
+  if (!Array.isArray(list)) return [];
+  const questions: MariQuestion[] = [];
+  const texts = new Set<string>();
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    const rawText = firstStringField(record, QUESTION_TEXT_KEYS);
+    const question = rawText ? truncateMariChipText(rawText, 200) : "";
+    if (!question || texts.has(question)) continue;
+    const options = sanitizeMariQuestionOptions(record.options ?? record.choices ?? record.answers);
+    if (options.length < MARI_QUESTION_OPTION_MIN) continue;
+    texts.add(question);
+    questions.push({
+      id: `question-${questions.length + 1}`,
+      question,
+      options,
+      ...(record.multiple === true || record.multiSelect === true ? { multiple: true } : {}),
+    });
+    if (questions.length >= MARI_QUESTION_MAX) break;
+  }
+  return questions;
+}
+
+/** The questions as plain lines: a wordless card's saved text, and what she remembers having asked. */
+export function mariQuestionsAsText(questions: readonly MariQuestion[]): string {
+  return questions.map((question) => question.question).join("\n");
+}
+
+/** The answer message a submitted card sends. It repeats each question, because history keeps only her words. */
+export function formatMariQuestionAnswers(
+  questions: readonly MariQuestion[],
+  answers: Readonly<Record<string, readonly string[]>>,
+): string {
+  return questions
+    .map((question) => {
+      const picked = (answers[question.id] ?? []).map((answer) => answer.trim()).filter(Boolean);
+      return picked.length > 0 ? `${question.question} → ${picked.join(", ")}` : null;
+    })
+    .filter((line): line is string => line !== null)
+    .join("\n");
+}
+
 export interface MariWorkspaceToolTrace {
   id: string;
   name: string;
@@ -1006,6 +1107,10 @@ export type MariWorkspacePromptEvent =
   // Her words as the model writes them, before the round is parsed and audited. Provisional: never
   // saved, never the answer; `data` is the full visible text so far (replace, not append); `null` ends the round's draft. The audited text still arrives as `token`.
   | { type: "draft"; data: string | null }
+  // A character field's text while she writes an `app_data` `character.update` (classic runtime
+  // only). `field` is the patch key as written; `text` is appended, or replaces with `restart`.
+  // `null` ends the round's text once its command was applied or held.
+  | { type: "edit_delta"; data: { characterId: string; field: string; text: string; restart?: true } | null }
   | {
       type: "status";
       data:
@@ -1033,6 +1138,5 @@ export type MariWorkspacePromptEvent =
       data: Record<string, unknown> & { actionResult?: MariWorkspaceActionResult; narration?: boolean };
     }
   | { type: "suggestions"; data: MariSuggestionChip[] }
-  | { type: "plan"; data: MariGuidedPlanStep[] }
   | { type: "done"; data?: unknown }
   | { type: "error"; data: string };

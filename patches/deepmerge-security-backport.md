@@ -1,0 +1,11 @@
+# Temporary deepmerge 4.3.1 security backport
+
+This is the unchanged [pnpm security patch](https://github.com/pnpm/pnpm/blob/63c0b8eede90d9658c5395a47890c24c18ca711e/.config/pnpm/patches/deepmerge%404.3.1.patch) for [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4), derived from [upstream PR #274](https://github.com/TehShrike/deepmerge/pull/274). No patched upstream release exists. Package identity remains `deepmerge@4.3.1`.
+
+Both the target-copy and source-copy loops reject `__proto__` by name before assigning to the new object. This closes the returned-object prototype poisoning paths for null-prototype targets, null/primitive placeholders, and targets carrying their own `__proto__` key. The patch covers `index.js`, the package's `dist/cjs.js` entrypoint, and `dist/umd.js`. Ordinary `constructor` and `prototype` data retain their previous behavior; those names do not invoke the prototype setter.
+
+The current dependency belongs to client build tooling: `vite-plugin-pwa` → `workbox-build` → `@rollup/plugin-node-resolve` → `deepmerge`. The resolver only merges its static defaults today. The package-level exploit reproduces; an application attack path has not been demonstrated.
+
+`node scripts/regressions/deepmerge-security-backport.regression.mjs` resolves deepmerge through that installed consumer chain. It exercises the CJS and UMD builds against poisoned target/source shapes, checks ordinary cloning/merging and negative controls, and verifies both guarded loops in all three installed files. The source `index.js` requires an upstream development dependency absent from the published dependency graph, so it is inspected rather than imported. The regression also pins the exact reviewed patch SHA-256, workspace registration, frozen-lock hash, every consumer resolution, and the two explicitly guarded advisory exceptions shared with Zod. An unpatched installation fails the same behavioral proof before its policy checks.
+
+The narrow audit exemption acknowledges this source backport; it does not claim upstream 4.3.1 is fixed. Replace the patch and remove the exemption when a compatible patched release or an upstream consumer removes this dependency. Reassess both if the advisory changes.

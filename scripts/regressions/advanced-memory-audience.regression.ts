@@ -653,6 +653,21 @@ try {
       budgetTokens: 12000,
       readOnly: true,
     });
+  // #8438: a summary reader keeps the full names roster without gaining another reader's knowledge.
+  const rosterRecord = groupScenes.find((record) => record.sceneId === maukieOnly)!;
+  await memory.updateRecord(group.id, rosterRecord.id, {
+    content: `${rosterRecord.content} ROSTER: {{characters}}. ACTIVE: {{group}}.`,
+  });
+  await chats.patchMetadata(group.id, { inactiveCharacterIds: ["pantalone"] });
+  const rosterRecall = await groupRecall(["maukie"]);
+  assert.match(
+    `${rosterRecall.chatSummary}\n${rosterRecall.recalledScenes}`,
+    /ROSTER: Maukie, Pantalone, Narrator\. ACTIVE: Narrator\./u,
+  );
+  const otherReader = await groupRecall(["pantalone"]);
+  assert.doesNotMatch(`${otherReader.chatSummary}\n${otherReader.recalledScenes}`, /ROSTER:/u);
+  await memory.updateRecord(group.id, rosterRecord.id, { content: rosterRecord.content });
+  await chats.patchMetadata(group.id, { inactiveCharacterIds: [] });
   const sharedSceneExcerpt =
     /remembered the compass\. \[Known only to Maukie: MAUKIE_PRIVATE\]\n\nExcerpt:\nMessages #3–#4;[^\n]*\n#3 User: [^\n]*\n#4 Pantalone: Pantalone accepts the compass promise\.$/u;
   const marked = (prepared: { chatSummary: string | null; recalledScenes: string | null }) =>

@@ -10,7 +10,6 @@ import {
   characterExtensionsSchema,
   canBuildPersona,
   dropUnreadableOnboarding,
-  findUnresolvedCardVariableUses,
   formatTextQuotes,
   getCardVariableChipNames,
   getNextCardVariable,
@@ -637,25 +636,6 @@ assert.deepEqual(
   ),
   [],
   "the persona list keeps its player exemption, so the card rule did not leak into it",
-);
-
-// ── The deferred greeting limitation is detectable ──
-// A greeting is shown from the client's own macro context, which does not read
-// chat variables, so a card variable there renders literally for now (see PR).
-assert.deepEqual(
-  [...findUnresolvedCardVariableUses(card, ["Hello, {{relationshipToUser}}.", "No tags here."])],
-  ["relationshipToUser"],
-  "a card variable used in a greeting is found, so the author can be warned",
-);
-assert.deepEqual(
-  [...findUnresolvedCardVariableUses(card, ["{{somethingElse}}", "{{mood}}"])],
-  ["mood"],
-  "only names that are actually card variables are reported",
-);
-assert.deepEqual(
-  [...findUnresolvedCardVariableUses(onboarding({}), ["{{anything}}"])],
-  [],
-  "no card questions, nothing to report",
 );
 
 // ── Default seeding for chats that never ask the questions (#7434, S3) ──

@@ -48,7 +48,6 @@ import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import {
@@ -129,7 +128,6 @@ export function PersonasPanel() {
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const folderDrag = useLibraryFolderDrag("persona");
   const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const deletePersona = useDeletePersona();
   const duplicatePersona = useDuplicatePersona();
   const updatePersona = useUpdatePersona();
@@ -645,7 +643,7 @@ export function PersonasPanel() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={localize("Search personas")}
+            placeholder={localizeUi("search.panels.personasAndTags")}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>

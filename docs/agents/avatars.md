@@ -1,16 +1,16 @@
 # 2D and 3D Avatars
 
-Two downloadable agents give your characters and personas an animated avatar that reacts while a reply streams in. **2D Avatars** shows PNGTuber-style sprites or mesh avatars, and **3D Avatars** shows VRM models. Faces follow the reply, and mouths move with the text or with text-to-speech.
+Two downloadable agents give your characters and personas an animated avatar that reacts while a reply streams in. **2D Avatars** shows PNGTuber-style sprites or mesh avatars, and **3D Avatars** shows VRM and MMD PMX models. Faces follow the reply, and mouths move with the text or with text-to-speech.
 
 Live2D models are not supported. Live2D's licence needs a separate agreement with Live2D even for free open-source apps, and its runtime cannot be shipped with Marinara Engine.
 
 ## Downloading the agents
 
-Both agents are in **Download Agents** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer.
+Both agents are in **Agent Organizer** for every install, under the **Roleplay** and **Game** filters. They need Marinara Engine 2.5.1 or newer.
 
 **2D Avatars** and **3D Avatars** are separate downloads, so you can install only the one you want. Both work for characters and personas in Roleplay and Game chats.
 
-1. Open **Agents → Download Agents** and install **2D Avatars**, **3D Avatars**, or both. Neither needs a restart.
+1. Open **Agents → Agent Organizer** and install **2D Avatars**, **3D Avatars**, or both. Neither needs a restart.
 2. Set up each avatar on the agent's page in **Agents**. See [Setting up an avatar](#setting-up-an-avatar).
 3. In a Roleplay or Game chat, open **Chat Settings → Agents → Misc Agents** and add the agent.
 
@@ -21,7 +21,7 @@ The agents send no extra requests to your AI connections while you chat. They ne
 Avatars are set up on each agent's own page. Open **Agents**, open **2D Avatars** or **3D Avatars**, and use the **Avatars** section near the top.
 
 1. In **Character or persona**, choose who gets the avatar. Names marked "(has an avatar)" already have one saved.
-2. In **Avatar type**, choose the kind to set up. 2D Avatars offers **PNGTuber sprites** and **Mesh avatar**. 3D Avatars offers **VRM model**.
+2. In **Avatar type**, choose the kind to set up. 2D Avatars offers **PNGTuber sprites** and **Mesh avatar**. 3D Avatars offers **VRM model** and **MMD PMX model**.
 3. Set it up in that type's own section below the switches: use your sprites or import a file, choose the face for each feeling, or remove it. See [2D avatars](#2d-avatars-pngtuber-sprites-and-mesh-avatars) and [3D avatars](#3d-avatars-vrm-models).
 4. Use **Preview** to see it. **Try a face** switches feelings and **Talk** moves the mouth. When there is nothing to show yet, the preview shows an example avatar.
 
@@ -98,6 +98,18 @@ Some files can't be used, and the import says why:
 - **Incomplete models.** A model whose skeleton is missing bones VRM needs or points to parts that aren't in the file, or that points to files outside itself, is refused.
 
 There is no size limit beyond the app's usual upload limit, but large models take longer to load, especially on phones.
+
+## MMD avatars: PMX models and VMD motions
+
+On the **3D Avatars** page, choose **MMD PMX model** under **Avatar type**. Select **Import PMX or ZIP** and choose a ZIP with one PMX model and its pictures. Keep the model's folders and filenames in the ZIP, including Japanese names. A model that needs no pictures can be imported as a `.pmx` on its own. Missing pictures, unsafe paths and damaged files are refused before replacing your saved model.
+
+Under **Faces and mouth shapes**, choose the model's face for each feeling, mouth shape and blink. Common English and Japanese names are matched for you; check the preview and correct the guesses. A model without suitable faces can still show and move its body. Setup lists the first 256 expression names and warns if there are more. Faces already chosen still work, and other expressions can still play in a motion.
+
+Under **VMD motion**, optionally add a `.vmd` made for that model. It plays while **Idle motion** is on, and the faces you chose still follow the chat. Reduced motion stops the animation but keeps chat faces and lip sync. Without a VMD, the model sways gently. Replacing a PMX removes its old VMD; add a motion for the new model again. Removing an MMD model deletes its pictures and motion too, leaving other avatar types intact.
+
+**Supported files.** PMX 2.0 and compatible PMX 2.1 models work, with PNG, JPEG, BMP and TGA pictures, including `.sph` and `.spa` files. Some newer PMX 2.1 features are not supported, and the import says why. PMD models, VPD poses and camera or light motion are not supported. Physics is not simulated, so hair and clothes may look different from MikuMikuDance. Models with more than 256 picture paths, very long paths, pictures that need too much memory or overly complicated rigs are refused. Check the result with your own model, especially on a phone.
+
+Your browser must support WebGL2. MMD avatars use the same pause, frame-rate and framing controls as the other avatars. Models and pictures load only from your Engine. Follow the model and motion authors' licenses and usage terms before using or sharing them. Importing or playing an MMD avatar sends nothing to an AI provider.
 
 ## Get a 3D model
 

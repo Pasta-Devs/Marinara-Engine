@@ -702,6 +702,7 @@ function macosReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, sandboxTe
     "/private/var/run",
     "/dev",
     "/opt/homebrew",
+    "/opt/local",
     "/usr/local",
     dirname(process.execPath),
     ...pathRoots,

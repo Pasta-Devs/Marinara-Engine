@@ -473,6 +473,15 @@ function scoreText(query: string, values: readonly string[]) {
   }, -1);
 }
 
+/**
+ * The omnibar's match score for a raw query against a title and its aliases: 100 and up is a literal
+ * match, below 100 a typo or initials, -1 none. Professor Mari's `@` and `/` pickers rank with it too.
+ */
+export function scoreOmnibarText(query: string, values: readonly string[]) {
+  const normalized = normalizeProfessorMariNavigationQuery(query);
+  return normalized ? scoreText(normalized, values) : -1;
+}
+
 export type OmnibarAddTarget = {
   /** The entity text with any trailing chat reference removed. Unchanged when there was none. */
   entityQuery: string;

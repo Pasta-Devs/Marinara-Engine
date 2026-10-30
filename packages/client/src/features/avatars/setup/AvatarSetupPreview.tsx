@@ -61,7 +61,7 @@ export function AvatarSetupPreview({
   const demo = !ownAvatar && kind === "pngtuber";
   const previewOwner = ownAvatar && owner ? owner : DEMO_AVATAR_OWNER;
   const previewConfig = ownAvatar ? config : demo ? DEMO_AVATAR_CONFIG : null;
-  const needsSprites = ownAvatar && kind !== "vrm";
+  const needsSprites = ownAvatar && kind !== "vrm" && kind !== "mmd";
   // A talking head's extra feelings that have a face of their own.
   const pngtuber = kind === "pngtuber" ? previewConfig?.kinds.pngtuber : undefined;
   const feelings = useMemo(

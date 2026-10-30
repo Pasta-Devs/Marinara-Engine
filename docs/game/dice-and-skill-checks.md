@@ -67,6 +67,12 @@ Some more examples you can type:
 
 There are two hard limits. You can roll at most 100 dice at once, and each die can have at most 1000 sides. If you ask for more, the app trims your request down to those limits instead of refusing it, and the result card shows the trimmed notation, so typing `500d6` gives you a `100d6` card for the hundred dice it actually rolled. If your text is not valid dice notation, meaning `NdM` or a bare `dM` like `d20`, the roll fails and you get an error that names the expected format.
 
+### Symbol dice by name
+
+In a game whose ruleset throws symbol dice (a `symbol-pool` ruleset, such as a Genesys-style system), the custom field also takes those dice by name. Give a count and the die's name for each kind, for example `2 ability 1 proficiency vs 2 difficulty`. Names can be the die's id or its label in any case, and you can separate them with spaces, commas, `+` or `vs`.
+
+The card shows each die with the symbols on its face, then the symbols left after they cancel and whether that is a success. The tag added to your message carries the same, for example `[dice: 2 ability vs 1 difficulty = 1 Success, 1 Advantage; success]`. A roll can name up to 40 dice. When the Game Master rolls with its dice tool, it can use these names too. Plain `NdM` notation still rolls as above in every game.
+
 ## Skill checks
 
 A skill check tests whether you succeed at something risky, such as sneaking, spotting a clue, or convincing an NPC. You do not start a skill check yourself. The Game Master calls for one inside its narration. The app then turns it into an animated d20 roll with a result banner.

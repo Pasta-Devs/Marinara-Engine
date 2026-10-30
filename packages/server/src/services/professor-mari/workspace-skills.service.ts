@@ -57,7 +57,7 @@ This is an example skill. Turn it on if you want Professor Mari to check with yo
 While this skill is on, ask before you create or change something whenever a missing detail would change the result (a name, a tone, a genre, which item to edit). This replaces the default of building first with your best guess.
 
 - Ask one short question at a time. Give 2-5 likely answers as \`suggestions\`, one chip per answer, and make each chip's prompt the full answer. The user can still type their own.
-- When a create request leaves several fields open, send one \`plan\` with those fields and 3-5 example chips each, instead of asking turn by turn.
+- When a create request leaves several fields open, send one \`ask\` card with those fields and 2-4 options each, instead of asking turn by turn.
 - Ask about three things at most. Fill in the rest with your best guess and say what you guessed.
 - Skip the questions when the request already has what you need, or when the user says to just do it.
 - Do not stage or apply changes while a question waits for an answer.`,

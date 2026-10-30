@@ -27,7 +27,8 @@ Object.defineProperty(globalThis, "localStorage", {
 try {
   const { useUIStore, pickPersistedUIState, pickSyncedSettings } =
     await import("../../packages/client/src/stores/ui.store.js");
-  const { mergeUndatedSyncedSettings } = await import("../../packages/client/src/hooks/use-settings-sync.js");
+  const { mergeUndatedSyncedSettings, omitLocalOnlySettings } =
+    await import("../../packages/client/src/hooks/use-settings-sync.js");
 
   const state = useUIStore.getState();
   assert.equal(state.mariConnectionId, "mari-connection", "the v103 migration reads Mari's old browser key once");
@@ -52,6 +53,22 @@ try {
     "a server Quick answer model wins over the default",
   );
   assert.equal(fresh.mariConnectionId, "server-mari-connection", "a server Mari connection wins over the default");
+
+  useUIStore.getState().setMariCompanionDocked(false);
+  useUIStore.getState().setMariCompanionWidthRem(29.5);
+  const companionSettings = pickSyncedSettings(useUIStore.getState());
+  assert.equal(companionSettings.mariCompanionDocked, false, "an undocked preference syncs");
+  assert.equal(companionSettings.mariCompanionWidthRem, 29.5, "the resized companion width syncs");
+  assert.ok(!("mariCompanionRoot" in companionSettings), "the editor DOM root stays local");
+  assert.equal(
+    omitLocalOnlySettings({ mariCompanionWidthRem: 100 }).mariCompanionWidthRem,
+    32,
+    "incoming companion widths stay within the supported bounds",
+  );
+  assert.ok(
+    !("mariCompanionWidthRem" in omitLocalOnlySettings({})),
+    "older server settings do not reset the local companion width",
+  );
 
   // The old key is only read by the migration, so a later write does not depend on it.
   useUIStore.getState().setMariConnectionId("new-mari-connection");

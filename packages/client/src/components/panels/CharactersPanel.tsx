@@ -51,6 +51,7 @@ import {
   Star,
   MessageCircle,
   Bot,
+  UserPlus,
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
 import {
@@ -126,6 +127,24 @@ function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
   } catch {
     return { ...char, parsed: { name: "Unknown", description: "" } };
   }
+}
+
+/** Passive marker on a character's avatar: the card has interactive onboarding (same icon as Chat Settings). */
+function OnboardingMarker({ label, small }: { label: string; small?: boolean }) {
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      title={label}
+      data-character-onboarding-indicator
+      className={cn(
+        "absolute -bottom-1 -right-1 flex items-center justify-center rounded-md bg-[var(--background)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--border)]",
+        small ? "h-3.5 w-3.5" : "h-4 w-4",
+      )}
+    >
+      <UserPlus size={small ? "0.5625rem" : "0.625rem"} />
+    </div>
+  );
 }
 
 function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
@@ -880,7 +899,7 @@ export function CharactersPanel() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search.panels.characters")}
+            placeholder={t("search.panels.charactersAndTags")}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>
@@ -1302,6 +1321,9 @@ export function CharactersPanel() {
                             </div>
                           )}
                         </div>
+                        {fullMember?.hasOnboarding && (
+                          <OnboardingMarker small label={localizeUi("ui.characters.onboarding.hasOnboarding")} />
+                        )}
                         {member.isFavorite && (
                           <div
                             aria-hidden="true"
@@ -1652,6 +1674,9 @@ export function CharactersPanel() {
                   </div>
                 ) : (
                   <User size="1rem" />
+                )}
+                {char.hasOnboarding && (
+                  <OnboardingMarker label={localizeUi("ui.characters.onboarding.hasOnboarding")} />
                 )}
                 {isFavorite && (
                   <div

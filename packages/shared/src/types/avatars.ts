@@ -417,7 +417,7 @@ export function mapSpriteExpressionToAvatarFeeling(label: string | null | undefi
 
 // ── Kinds and owners ──
 
-export const AVATAR_KINDS = ["pngtuber", "mesh-avatar", "vrm"] as const;
+export const AVATAR_KINDS = ["pngtuber", "mesh-avatar", "vrm", "mmd"] as const;
 export type AvatarKind = (typeof AVATAR_KINDS)[number];
 
 /** The agent that has to be installed and on in a chat for each kind to show. */
@@ -425,6 +425,7 @@ export const AVATAR_KIND_AGENT: Readonly<Record<AvatarKind, AvatarAgentId>> = Ob
   pngtuber: AVATAR_2D_AGENT_ID,
   "mesh-avatar": AVATAR_2D_AGENT_ID,
   vrm: AVATAR_3D_AGENT_ID,
+  mmd: AVATAR_3D_AGENT_ID,
 });
 
 export const AVATAR_OWNER_TYPES = ["character", "persona"] as const;
@@ -517,7 +518,7 @@ export const AVATAR_CONFIG_VERSION = 1;
  *  Check paths with isAvatarFilePath(); the pattern alone does not refuse device names. */
 export type AvatarFilePath = string;
 export const AVATAR_FILE_PATH_PATTERN =
-  /^(?:pngtuber|mesh-avatar|vrm)\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/u;
+  /^(?:pngtuber|mesh-avatar|vrm|mmd)\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$/u;
 /** CON, PRN, AUX, NUL, COM0-9 and LPT0-9 name devices on Windows, with or without an extension. */
 const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/iu;
 
@@ -629,7 +630,26 @@ export interface AvatarKindDataMap {
   pngtuber: PngtuberAvatarData;
   "mesh-avatar": MeshAvatarData;
   vrm: VrmAvatarData;
+  mmd: MmdAvatarData;
 }
+
+export interface MmdAvatarData {
+  /** Imported PMX; UTF-8 text is normalized to UTF-16 for the MMD runtime. */
+  file: AvatarFilePath;
+  /** Exact PMX texture references mapped to checked, flat stored files. Never fetch the references directly. */
+  texturePaths: Record<string, AvatarFilePath>;
+  expressionMap: AvatarExpressionMap;
+  expressionNames?: string[];
+  /** Optional VMD with bone/morph names belonging to this model. */
+  idleAnimation?: AvatarFilePath | null;
+}
+
+/** Setup metadata stays small; the model and its native motion morphs are not trimmed. */
+export const AVATAR_MMD_METADATA_LIMITS = Object.freeze({
+  expressionNames: 256,
+  textures: 256,
+  textureReferenceChars: 512,
+});
 
 export interface AvatarFeatureFlags {
   /** Move the mouth with the reply text, or with the voice when text-to-speech plays. */
@@ -698,6 +718,7 @@ export const AVATAR_IMPORT_EXTENSIONS: Readonly<Record<AvatarKind, readonly stri
   pngtuber: [".save"],
   "mesh-avatar": [".mavatar"],
   vrm: [".vrm", ".vrma"],
+  mmd: [".pmx", ".vmd", ".zip"],
 });
 
 /** Response of `POST /api/avatar-models/:ownerType/:ownerId/import`. */

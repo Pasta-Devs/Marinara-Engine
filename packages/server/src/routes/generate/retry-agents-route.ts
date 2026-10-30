@@ -1343,6 +1343,10 @@ async function buildRetryAgentContext(args: {
     gameState: null,
     currentLocation: agentCurrentLocationFromProjection(retryOwnerSpatialProjection),
     characters: charInfo,
+    chatCharacters: allCharacterIds.flatMap((id) => {
+      const profile = historyMacroProfilesById.get(id);
+      return profile ? [{ id, name: profile.name, active: characterIds.includes(id) }] : [];
+    }),
     characterTrackerHistory: characterTrackerHistory as unknown as AgentContext["characterTrackerHistory"],
     persona: buildRetryAgentPersona(
       {

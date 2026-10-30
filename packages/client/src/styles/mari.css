@@ -387,6 +387,103 @@ html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
   color: var(--mari-pill-a);
 }
 
+/* Companion slice 2: the pill again as an editor-edge chip, "Prof. Mari is here", when the field her
+   step writes is scrolled out of view. Click shows the field. */
+/* Doubled class: beats the phone placement of the top-bar pill further down. */
+.mari-topbar-status.mari-field-chip {
+  position: absolute;
+  z-index: 5;
+  top: auto;
+  right: auto;
+  left: 50%;
+  max-width: calc(100% - 2rem);
+  margin: 0;
+  translate: -50% 0;
+  cursor: pointer;
+}
+
+.mari-topbar-status.mari-field-chip[data-edge="above"] {
+  top: 0.5rem;
+}
+
+.mari-topbar-status.mari-field-chip[data-edge="below"] {
+  bottom: max(0.75rem, var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)));
+}
+
+/* Her mark on an editor field: a faint cyan edge while her step writes it, one pulse when she shows
+   it. Opacity only, no colour transitions; static with reduced motion. Decorative, so no ARIA.
+   Always relative, so the mark never changes the field's layout mid-run. */
+[data-mari-field] {
+  position: relative;
+}
+
+[data-mari-field][data-mari-glow]::after,
+[data-mari-field][data-mari-pulse]::before,
+[data-mari-field][data-mari-focus]::before {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
+  border-radius: 0.875rem;
+  pointer-events: none;
+}
+
+/* The field her companion composer points at: a thin, static edge in the character gradient
+   (colours from .mari-panel-gradient--characters). The reveal pulse takes ::before over while it runs. */
+[data-mari-field][data-mari-focus]:not([data-mari-pulse])::before {
+  padding: 1px;
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.55;
+}
+
+[data-mari-field][data-mari-glow]::after {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mari-logo-cyan) 40%, transparent),
+    0 0 0.875rem color-mix(in srgb, var(--mari-logo-cyan) 25%, transparent);
+  opacity: 0.6;
+  animation: mari-field-waver 2.4s ease-in-out infinite alternate;
+}
+
+[data-mari-field][data-mari-pulse]::before {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--mari-logo-cyan) 80%, transparent),
+    0 0 1.25rem color-mix(in srgb, var(--mari-logo-cyan) 40%, transparent);
+  opacity: 0;
+  animation: mari-field-pulse 1.1s ease-out;
+}
+
+@keyframes mari-field-waver {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
+@keyframes mari-field-pulse {
+  25% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mari-field][data-mari-glow]::after {
+    animation: none;
+  }
+
+  [data-mari-field][data-mari-pulse]::before {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
 @keyframes mari-pill-waver {
   from {
     opacity: 0.2;
@@ -1645,6 +1742,19 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   color: var(--muted-foreground);
   font-size: var(--mari-card-fact);
   font-weight: 500;
+}
+
+.mari-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mari-field__head .mari-link {
+  min-height: 1.5rem;
+  padding: 0.125rem 0.375rem;
+  font-size: var(--mari-card-fact);
 }
 
 .mari-field__text {
@@ -3002,12 +3112,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding-inline-start: 1.375rem;
 }
 
-/* Slice 72: her words for the round that opened the phase, as its caption above its steps. */
+/* Slice 72: her words from the phase's rounds, as its caption above its steps. */
 .mari-phase__caption {
   margin: -0.15rem 0 0.1rem calc(-1.375rem + 1.3rem);
   color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
   font-size: 0.75rem;
   font-style: italic;
+}
+
+/* Her words render as markdown, which brings the answer's size and color with it. */
+.mari-phase__caption .mari-message-content {
+  font-size: inherit;
+  color: inherit;
 }
 
 /* The faces of what a look phase read, overlapping on its line. */
@@ -3425,6 +3541,18 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   font-size: 0.8125rem;
 }
 
+/* Open cards swipe sideways (left closes Undo, right undoes); vertical scroll stays native. */
+.mari-receipt[data-state="open"] {
+  touch-action: pan-y;
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+}
+.mari-receipt[data-dragging] {
+  transition: none;
+  user-select: none;
+}
+
 .mari-receipt:is([data-state="undone"], [data-state="old"], [data-state="closed"], [data-state="saved"]) {
   border-color: var(--mari-hairline);
 }
@@ -3616,14 +3744,16 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 /* Old words struck and muted on a faint red; new words underlined on a faint green: two marks, not colour only. */
-.mari-receipt del {
+.mari-receipt del,
+.mari-field-review del {
   border-radius: 2px;
   background: color-mix(in srgb, var(--destructive) 12%, transparent);
   color: var(--muted-foreground);
   text-decoration: line-through 1px;
 }
 
-.mari-receipt ins {
+.mari-receipt ins,
+.mari-field-review ins {
   border-radius: 2px;
   background: color-mix(in srgb, var(--mari-ins-line) 18%, transparent);
   text-decoration: underline 1px var(--mari-ins-line);
@@ -3682,6 +3812,161 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   background: color-mix(in srgb, var(--foreground) 4%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 6%, transparent);
   padding: 0.5rem 0.6rem;
+}
+
+/* Slice 5: her change waiting in the editor field itself. The field's own box, her card's two
+   diff marks; a faint static ring in her "waiting" gold. No motion. */
+.mari-field-review {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--mari-workspace-gold) 35%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mari-workspace-gold) 7%, transparent);
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  outline: none;
+}
+
+.mari-field-review:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.mari-field-review__strip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.mari-field-review__strip img,
+.mari-field-review-line img {
+  width: 1.25rem;
+  height: 1.25rem;
+  image-rendering: pixelated;
+  object-fit: cover;
+  object-position: top;
+}
+
+.mari-field-review__strip b {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.mari-field-review__count {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.mari-field-review__text {
+  padding: 0.55rem 0.75rem 0.75rem;
+}
+
+/* Slice 8: her text while she writes it. Provisional: a faint opacity waver on the line only. */
+.mari-field-review--writing .mari-field-review__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mari-field-review--writing .mari-field-review__strip span {
+  animation: mari-field-waver 1.6s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-field-review--writing .mari-field-review__strip span {
+    animation: none;
+  }
+}
+
+/* The diff is the field's text here, not a quoted box. */
+.mari-field-review__text .mari-receipt__box {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.mari-field-review__text .mari-receipt__box--old {
+  padding: 0.35rem 0.55rem;
+  background: color-mix(in srgb, var(--destructive) 5%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--destructive) 45%, transparent);
+}
+
+.mari-field-review__conflict,
+.mari-field-review__note {
+  margin: 0 0.75rem 0.55rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.mari-field-review__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--mari-divider);
+}
+
+.mari-field-review__spacer {
+  flex: 1;
+}
+
+/* Narrow phones: Edit / Next on their own row, the two answers share the next one. */
+@media (max-width: 26.25rem) {
+  .mari-field-review__spacer {
+    flex-basis: 100%;
+  }
+
+  .mari-field-review__bar .mari-btn {
+    flex: 1;
+  }
+}
+
+.mari-field-review__bar svg,
+.mari-field-review-line svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* Her line under a field she changed: one calm band in the character gradient (colours from
+   .mari-panel-gradient--characters, see globals.css) so it reads as hers. */
+.mari-field-review-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-block: 0.5rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--mari-panel-gradient-start) 28%, transparent);
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mari-panel-gradient-start) 9%, transparent),
+    color-mix(in srgb, var(--mari-panel-gradient-end) 5%, transparent)
+  );
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.mari-field-review-line img {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+@media (pointer: coarse) {
+  .mari-field-review__bar .mari-btn,
+  .mari-field-review-line .mari-btn,
+  .mari-field-review__bar .mari-link {
+    min-height: 2.75rem;
+    padding-inline: 0.9rem;
+    font-size: 0.875rem;
+  }
 }
 
 .mari-receipt__entry-name {
@@ -3839,6 +4124,53 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 /* ---- foot: Why, then the state in words and at most one main action ---- */
+.mari-question__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mari-question__recommended {
+  flex-shrink: 0;
+  border: 1px solid var(--mari-divider);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  color: var(--primary);
+  font-size: var(--mari-card-fact, 0.75rem);
+  font-weight: 500;
+}
+
+.mari-question__other {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  border: 0;
+  border-top: 1px solid var(--mari-divider);
+  background: transparent;
+  padding: 0.35rem var(--mari-card-pad-inline);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.mari-question__other::placeholder {
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+/* Touch: the composer's text size, so iOS does not zoom into the field. */
+@media (pointer: coarse) {
+  .mari-question__other {
+    font-size: var(--mari-composer-text);
+  }
+}
+
+.mari-question .mari-receipt__actions:first-child {
+  margin-inline-start: 0;
+}
+
+.mari-question__other:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
 .mari-receipt__foot {
   display: flex;
   min-height: 3rem;
@@ -4327,6 +4659,29 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   line-height: 1.5;
 }
 
+/* Marks behind the draft. Paint only: no padding, margin, border or font change, or the marks would
+   drift from the textarea's glyphs. The spread box-shadow fakes a little padding without moving text. */
+.mari-composer-mark {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 0.25rem;
+}
+
+.mari-composer-mark--reference {
+  background: color-mix(in srgb, var(--marinara-app-accent-solid) 18%, transparent);
+  box-shadow: 0 0 0 0.125rem color-mix(in srgb, var(--marinara-app-accent-solid) 18%, transparent);
+}
+
+.mari-composer-mark--pending {
+  text-decoration: underline dotted color-mix(in srgb, var(--marinara-app-accent-solid) 70%, transparent) 1px;
+  text-underline-offset: 0.2em;
+}
+
+.mari-composer-mark--unresolved {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  box-shadow: 0 0 0 0.125rem color-mix(in srgb, var(--warning) 20%, transparent);
+}
+
 .mari-workspace-composer__input {
   display: block;
   width: 100%;
@@ -4343,6 +4698,15 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 
 .mari-workspace-composer__input::placeholder {
   color: color-mix(in srgb, var(--muted-foreground) 85%, transparent);
+}
+
+/* The docked panel can be narrow, so her hint stays on one line. Chromium draws no ellipsis in a
+   textarea, so the end fades there instead. */
+[data-mari-companion="panel"] .mari-workspace-composer__input:placeholder-shown {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
 }
 
 .mari-workspace-composer__input:disabled {
@@ -4556,6 +4920,48 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 .mari-composer-menu__popover .mari-row[data-mode="bypass"] .mari-row__slot {
   background: color-mix(in srgb, var(--destructive) 12%, transparent);
   color: var(--destructive);
+}
+
+/* The `@` picker spans the composer (a phone, or her 24rem companion pane): one column, one row per record. */
+.mari-reference-picker {
+  right: 0;
+  left: 0;
+  width: auto;
+  max-height: min(18rem, calc(100dvh - 12rem));
+}
+
+.mari-reference-picker .mari-composer-menu__head {
+  padding-block-start: 0.5rem;
+}
+
+.mari-reference-picker__drill {
+  display: grid;
+  width: 2.75rem;
+  min-height: 2.625rem;
+  flex: none;
+  place-items: center;
+  align-self: stretch;
+  border-radius: var(--mari-composer-inner-radius);
+  color: var(--muted-foreground);
+}
+
+.mari-reference-picker__drill:hover {
+  background: var(--mari-hover);
+  color: var(--foreground);
+}
+
+.mari-reference-picker__drill > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* A linked record's chip carries the accent its mark in the draft has. */
+.mari-workspace-composer .mari-workspace-context-chip[data-reference] {
+  background: color-mix(in srgb, var(--marinara-app-accent-solid) 18%, transparent);
+}
+
+.mari-workspace-composer .mari-workspace-context-chip[data-reference] > svg {
+  color: var(--marinara-app-accent-solid);
 }
 
 .mari-composer-menu__divider {
@@ -4828,5 +5234,201 @@ html[data-marinara-effects-paused="true"] .mari-workspace-portrait img {
   92%,
   93% {
     opacity: 1;
+  }
+}
+
+/* Slice 4: Prof. Mari as a companion panel beside an open editor (desktop). A solid floating
+   panel fixed at the left, 12px below the editor header; never a layout column. Placement vars
+   come from useMariCompanionPlacement. */
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="panel"] > .mari-companion-panel {
+  position: fixed;
+  top: var(--mari-companion-top, 7.5rem);
+  bottom: var(--mari-companion-bottom, 0.75rem);
+  left: var(--mari-companion-left, 0.75rem);
+  width: var(--mari-companion-width, 24rem);
+  height: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 1.5rem 3.75rem -0.75rem rgb(0 0 0 / 0.55);
+  pointer-events: auto;
+}
+
+.mari-companion-resize {
+  position: absolute;
+  inset-block: 1.5rem;
+  /* Physical: the panel is always at the left; the logical form compiles to :dir() rules. */
+  right: 0;
+  z-index: 60;
+  width: 0.6rem;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.mari-companion-resize::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(50% - 1px);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.mari-companion-resize:hover::after,
+.mari-companion-resize:focus-visible::after,
+.mari-companion-resize[data-dragging]::after {
+  opacity: 1;
+}
+
+.mari-companion-resize:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-companion-resize::after {
+    transition: none;
+  }
+}
+
+/* Slice 6: below 1024px, with an editor open, Prof. Mari is a bottom sheet under it:
+   peek (title + status), half, full. Her chat stays mounted in every shape. */
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"] > .mari-companion-panel {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  height: 50dvh;
+  padding-bottom: var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom));
+  border-radius: 1rem 1rem 0 0;
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 -0.75rem 2.5rem -0.75rem rgb(0 0 0 / 0.5);
+  pointer-events: auto;
+}
+
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"][data-mari-sheet-snap="full"]
+  > .mari-companion-panel {
+  height: calc(100dvh - 3.5rem - env(safe-area-inset-top));
+}
+
+/* Peek also while an editor field has the keyboard, so the sheet never covers that field. */
+[data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"][data-mari-sheet-snap="peek"]
+  > .mari-companion-panel,
+html[data-mari-software-keyboard-open]
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
+  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus)) {
+  height: auto;
+}
+
+[data-mari-companion="sheet"][data-mari-sheet-snap="peek"] > .mari-companion-panel > :not(.mari-sheet-handle, header),
+[data-mari-companion="sheet"][data-mari-sheet-snap="peek"] > .mari-companion-panel .mari-omnibar-header-row,
+html[data-mari-software-keyboard-open]
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
+  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus))
+  > :not(.mari-sheet-handle, header),
+html[data-mari-software-keyboard-open]
+  [data-component="GlobalOmnibar"][data-pane="mari"][data-mari-companion="sheet"]
+  > .mari-companion-panel:not(:has(.mari-workspace-composer__input:focus))
+  .mari-omnibar-header-row {
+  display: none;
+}
+
+[data-mari-companion="sheet"] > .mari-companion-panel > header {
+  padding-top: 0;
+}
+
+/* Composer only while she has the keyboard: it rides right above it. */
+html[data-mari-software-keyboard-open]
+  [data-mari-companion="sheet"]
+  > .mari-companion-panel:has(.mari-workspace-composer__input:focus) {
+  top: calc(var(--mari-visual-viewport-offset-top, 0px) + var(--mari-visual-viewport-height, 100dvh));
+  bottom: auto;
+  height: auto;
+  padding-bottom: 0;
+  translate: 0 -100%;
+}
+
+html[data-mari-software-keyboard-open]
+  [data-mari-companion="sheet"]
+  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  :is(.mari-omnibar-header-row, [data-component="HomeProfessorMariChat.Transcript"], .mari-workspace-glow-band) {
+  display: none;
+}
+
+html[data-mari-software-keyboard-open]
+  [data-mari-companion="sheet"]
+  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  > header {
+  display: none;
+}
+
+html[data-mari-software-keyboard-open]
+  [data-mari-companion="sheet"]
+  > .mari-companion-panel:has(.mari-workspace-composer__input:focus)
+  .mari-workspace-composer-dock {
+  position: static;
+}
+
+[data-mari-sheet-host]::after {
+  content: "";
+  display: block;
+  height: var(--mari-sheet-pad, 0);
+}
+
+.mari-sheet-handle {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  height: 1.5rem;
+  touch-action: none;
+  cursor: grab;
+}
+
+.mari-sheet-handle::after {
+  content: "";
+  position: absolute;
+  top: 0.625rem;
+  left: 50%;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin-left: -1.25rem;
+  border-radius: 1rem;
+  background: var(--muted-foreground);
+  opacity: 0.4;
+  transition: opacity 150ms ease;
+}
+
+.mari-sheet-handle:hover::after,
+.mari-sheet-handle:focus-visible::after {
+  opacity: 0.8;
+}
+
+.mari-sheet-handle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-mari-companion="sheet"] > .mari-companion-panel {
+    animation: mari-sheet-in 200ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-sheet-handle::after {
+    transition: none;
+  }
+}
+
+@keyframes mari-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
   }
 }

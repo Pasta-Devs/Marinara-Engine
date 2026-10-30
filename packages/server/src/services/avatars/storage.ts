@@ -169,6 +169,12 @@ export function avatarKindFilePaths<K extends AvatarKind>(kind: K, data: AvatarK
     );
   }
   if (kind === "mesh-avatar") return [(data as AvatarKindDataMap["mesh-avatar"]).file];
+  if (kind === "mmd") {
+    const mmd = data as AvatarKindDataMap["mmd"];
+    return [
+      ...new Set([mmd.file, ...Object.values(mmd.texturePaths), ...(mmd.idleAnimation ? [mmd.idleAnimation] : [])]),
+    ];
+  }
   const vrm = data as AvatarKindDataMap["vrm"];
   return vrm.idleAnimation ? [vrm.file, vrm.idleAnimation] : [vrm.file];
 }
@@ -329,17 +335,20 @@ export async function listAvatarOwners(): Promise<AvatarOwnerSummary[]> {
  *  when none is set, and remove files of that kind the new data no longer names. */
 export async function saveExtractedAvatar(
   owner: AvatarOwnerRef,
-  extracted: AvatarExtractedImport,
+  extraction: AvatarExtractedImport | (() => Promise<AvatarExtractedImport>),
 ): Promise<AvatarImportResult> {
   const checked = checkedOwner(owner);
-  const { kind } = extracted;
-  if (!AVATAR_KINDS.includes(kind)) throw new AvatarStorageError(400, "Unknown avatar kind.");
-  for (const file of extracted.files) {
-    if (!isAvatarFilePath(file.path) || !file.path.startsWith(`${kind}/`)) {
-      throw new AvatarStorageError(400, `${kind} files live in ${kind}/.`);
-    }
-  }
   return withOwnerLock(checked, async () => {
+    // Importers can read a stored model when attaching motion. Keep that read and its eventual save
+    // in the same existing owner transaction, so a concurrent model/face edit cannot be overwritten.
+    const extracted = typeof extraction === "function" ? await extraction() : extraction;
+    const { kind } = extracted;
+    if (!AVATAR_KINDS.includes(kind)) throw new AvatarStorageError(400, "Unknown avatar kind.");
+    for (const file of extracted.files) {
+      if (!isAvatarFilePath(file.path) || !file.path.startsWith(`${kind}/`)) {
+        throw new AvatarStorageError(400, `${kind} files live in ${kind}/.`);
+      }
+    }
     const current = await readConfigUnlocked(checked);
     const now = new Date().toISOString();
     const base = current ?? createAvatarConfig(checked, now);

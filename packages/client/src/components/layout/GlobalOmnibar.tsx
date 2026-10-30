@@ -23,7 +23,7 @@ import type {
 import { LOCAL_SIDECAR_CONNECTION_ID, matchOmnibarCapabilityAgentPackageIds } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { MARI_QUICK_CONNECTION, marisConnectionFor } from "../../lib/omnibar-aside-text";
-import { ChevronLeft, Search, X } from "lucide-react";
+import { ChevronLeft, PanelBottom, PanelLeft, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
@@ -104,7 +104,10 @@ import {
 } from "../../lib/omnibar-scope";
 import { reconcileActiveResultId } from "../../lib/omnibar-row-state";
 import { omnibarCompletionActions, type OmnibarCompletionAction } from "../../lib/omnibar-completion-actions";
-import { buildProfessorMariCommandCenterContext } from "../../lib/professor-mari-command-center-context";
+import {
+  buildProfessorMariCommandCenterContext,
+  RESOURCE_KIND_BY_CATEGORY,
+} from "../../lib/professor-mari-command-center-context";
 import {
   consumeProfessorMariOpenRequest,
   peekProfessorMariOpenRequest,
@@ -115,7 +118,8 @@ import type { ProfessorMariNavigationTarget } from "../../lib/professor-mari-nav
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { isPullHandoffPending, takePullHandoff } from "../../lib/pull-to-open";
 import { measureOmnibarFirstResultPaint } from "../../lib/omnibar-open-timing";
-import { hasEditorLeaveHandler } from "../../lib/editor-leave";
+import { confirmEditorLeave } from "../../lib/editor-leave";
+import { captureMariFieldDraft, openCharacterAtField } from "../../hooks/use-mari-editor-fields";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
@@ -154,6 +158,7 @@ import {
 } from "./omnibar/OmnibarChrome";
 import { buildOmnibarPreviewActions } from "./omnibar/omnibar-preview-actions";
 import { createOmnibarKeyHandlers } from "./omnibar/omnibar-keyboard";
+import { MariCompanionResizeHandle, MariSheetHandle, useMariCompanion } from "./omnibar/use-mari-companion";
 import { useOmnibarEntityRows } from "./omnibar/use-omnibar-entity-rows";
 import { useOmnibarMessageSearch } from "./omnibar/use-omnibar-message-search";
 import { useOmnibarScreenContext } from "./omnibar/use-omnibar-screen-context";
@@ -912,6 +917,16 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           ? "character-chat"
           : "command-center";
   // R22: the wizard step is a label only; nothing typed into the wizard is sent.
+  // The open editor as a Mari context resource, so her pending context can follow an editor switch.
+  const openEditor = omnibarContext.surface === "editor" ? omnibarContext.openResource : undefined;
+  const openEditorId = openEditor?.id;
+  const openEditorKind = openEditor ? RESOURCE_KIND_BY_CATEGORY[openEditor.kind] : undefined;
+  // Same row (and so the same "Editing X" label) the ask context builds its resource from.
+  const openEditorLabel = openEditor ? contextResults.find((row) => row.id === openEditor.resultId)?.title : undefined;
+  const editorResource = useMemo(
+    () => (openEditorId && openEditorKind ? { kind: openEditorKind, id: openEditorId, label: openEditorLabel } : null),
+    [openEditorId, openEditorKind, openEditorLabel],
+  );
   const asideResourceLabel = gameSetupStep
     ? gameSetupStep
     : omnibarContext.openResource
@@ -919,7 +934,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       : omnibarContext.surface === "chat" && activeChat?.id === activeChatId
         ? activeChat.name
         : agentCatalogOpen
-          ? t("omnibar.aside.downloadAgents", "Download Agents")
+          ? t("omnibar.aside.downloadAgents", "Agent Organizer")
           : null;
   const asideState = useOmnibarAside({
     connectionId: asideAnswerConnectionId,
@@ -947,6 +962,37 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // Quick and Mari both own the whole dialog. Leaving the search input mounted
   // under them let one keystroke re-enter `results` and abort a running answer.
   const mariSurface = pane === "mari";
+  // Slice 4: next to an open editor (desktop) she is a non-modal companion panel, same tree.
+  const {
+    available: companionAvailable,
+    active: companion,
+    desktop: companionDesktop,
+    shape: companionShape,
+    snap: sheetSnap,
+    setSnap: setSheetSnap,
+    ...companionSize
+  } = useMariCompanion(mariSurface, dialogRef);
+  const dockLabel = companionDesktop
+    ? t("omnibar.companion.dock", "Keep Prof. Mari beside the editor")
+    : t("omnibar.companion.dockSheet", "Keep Prof. Mari below the editor");
+  const lastCompanionRef = useRef(companion);
+  useLayoutEffect(() => {
+    if (lastCompanionRef.current === companion) return;
+    lastCompanionRef.current = companion;
+    const dialog = dialogRef.current;
+    // Now modal (toggle, or the viewport shrank): focus must not stay behind the backdrop.
+    if (!companion && dialog && !dialog.contains(document.activeElement)) {
+      dialog.querySelector<HTMLElement>("textarea, input, button")?.focus();
+    }
+    if (reduceMotion) return;
+    dialogRef.current?.animate(
+      [
+        { opacity: 0.4, transform: "scale(0.985)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 200, easing: "ease-out" },
+    );
+  }, [companion, reduceMotion]);
   // K6: fire once per open, the first time the results pane actually paints
   // (opening straight into Mari's pane has no results list to time).
   useLayoutEffect(() => {
@@ -1081,7 +1127,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       inputRef.current?.focus();
       if (initialQueryRef.current) inputRef.current?.select();
     });
-    return () => restoreRef.current?.focus();
+    const panel = panelRef.current;
+    return () => {
+      // Companion mode is not modal: if the user moved on to another field, leave focus there.
+      const active = document.activeElement;
+      if (!active || active === document.body || panel?.contains(active)) restoreRef.current?.focus();
+    };
   }, []);
 
   useEffect(() => {
@@ -1156,6 +1207,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     chatPendingForMariRef.current = context && !context.activeChat && activeChatId ? activeChatId : null;
     if (context) {
       setMariContext(context);
+      // One handoff per capture: a later Mari door in this session must not resend old text as current.
+      if (context.fieldDraft) useUIStore.getState().setMariFieldDraft(null);
       // The handoff lives in session state, not component state, so a task that
       // Mari finishes while the omnibar is shut is still waiting on reopen.
       setSessionValue("mariHandoff", {
@@ -1210,16 +1263,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     window.addEventListener(PROFESSOR_MARI_OPEN_EVENT, openRequestedProfessorMari);
     return () => window.removeEventListener(PROFESSOR_MARI_OPEN_EVENT, openRequestedProfessorMari);
   }, []);
-  /**
-   * Guards every path that leaves an open editor, so no route skips the prompt.
-   * An editor with a leave handler saves itself on the way out (the store routes
-   * the leave through it), so only editors without one need the prompt; the
-   * chat sidebar applies the same rule.
-   */
-  const confirmLeaveEditor = () =>
-    !ui().editorDirty ||
-    hasEditorLeaveHandler(ui()) ||
-    window.confirm(t("commandCenter.dirtyEditor", "You have unsaved changes. Leave this editor?"));
+  // The chat sidebar applies the same rule.
+  const leavePrompt = () => t("commandCenter.dirtyEditor", "You have unsaved changes. Leave this editor?");
+  const confirmLeaveEditor = () => confirmEditorLeave(ui(), leavePrompt());
   const navigate = (target: ProfessorMariNavigationTarget) => {
     // Q2: a setting that lives in this omnibar opens its settings view here, so the omnibar stays
     // open and nothing is left behind (no editor-leave prompt, no close).
@@ -1481,7 +1527,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // M18: ⌘J asks Mari about this screen; with her already open it goes back to the search. The host
   // opens the omnibar for it while it is shut; from here on this listener owns the shortcut.
   const toggleMariPane = useEffectEvent(() => {
-    if (pane === "mari") leaveDetail();
+    // Beside an editor ⌘J keeps her there: refresh the screen context (focused field) and go to her composer.
+    if (pane === "mari" && companion) {
+      captureMariFieldDraft();
+      openProfessorMari(null, { arrival: true });
+      requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>("textarea")?.focus());
+    } else if (pane === "mari") leaveDetail();
     else openProfessorMari(null, { arrival: !isQuestionShaped(query) });
   });
   useEffect(() => {
@@ -1500,7 +1551,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // the dialog never hears Escape. From the page, Escape still goes back from her window.
   const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
     if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
-    if (document.activeElement !== document.body || pane !== "mari") return;
+    // Companion mode: Escape closes her only from inside her panel (closeCompanionOnEscape).
+    if (document.activeElement !== document.body || pane !== "mari" || companion) return;
     event.preventDefault();
     leaveDetail();
   });
@@ -1524,6 +1576,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // an id, so "focus id equals Fix row id" can also be true for a plain fallback focus (A5/N6).
     const fix = Boolean(options.fix);
     const source = fix ? ("chat-error" as const) : gameSetupStep ? ("game-setup" as const) : undefined;
+    // Read live: the companion's Cmd+J captures and hands off in the same keydown.
+    const fieldDraft = useUIStore.getState().mariFieldDraft;
     return buildProfessorMariCommandCenterContext(message, focusResult, [], focusResult?.id, {
       activeChat: openChat ? { id: openChat.id, label: openChat.name, mode: openChat.mode } : undefined,
       settingsLocation:
@@ -1532,6 +1586,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
           : undefined,
       field: gameSetupStep ?? activeEditorField?.label,
       fieldId: gameSetupStep ? undefined : activeEditorField?.id,
+      fieldDraft:
+        !gameSetupStep && fieldDraft?.fieldId === activeEditorField?.id ? (fieldDraft ?? undefined) : undefined,
       // Only the deliberate "fix this" handoff actually needs lastAppError's text; every other
       // Mari call (R22) must not carry it along just because an unrelated error happens to be live.
       error: fix && lastAppError ? { message: lastAppError.message, code: lastAppError.code } : undefined,
@@ -1656,10 +1712,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     const resource = action.resource;
     if (!resource) return;
     if (resource.kind === "character") {
-      if (!confirmLeaveEditor()) return;
-      ui().openCharacterDetail(resource.id, {
-        ...(action.kind === "open-field" ? { initialTab: action.field === "Greeting" ? "convo" : "card" } : {}),
-      });
+      const fieldId = action.kind === "open-field" ? action.fieldId : undefined;
+      if (!openCharacterAtField(resource.id, fieldId, leavePrompt())) return;
       onClose();
       return;
     }
@@ -1893,6 +1947,14 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       </Suspense>
     ) : null;
 
+  const setCompanionDocked = useUIStore((state) => state.setMariCompanionDocked);
+  // Companion mode is not a dialog: no focus trap, and Escape closes her only from inside her panel.
+  const closeCompanionOnEscape = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
   const { onInputKeyDown, trapFocus } = createOmnibarKeyHandlers({
     panelRef,
     listRef,
@@ -1933,7 +1995,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       data-over-dialog={overDialog ? "true" : undefined}
       data-pane={pane}
       data-mode={pane === "mari" ? "work" : "find"}
-      className="fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-black/55 backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:pt-[var(--omnibar-top)] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))] sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))]"
+      data-mari-companion={companionShape ?? undefined}
+      data-mari-sheet-snap={companionShape === "sheet" ? sheetSnap : undefined}
+      className={
+        companion
+          ? "pointer-events-none fixed inset-0 z-(--mari-layer-omnibar)"
+          : "fixed inset-0 z-(--mari-layer-omnibar) flex items-start justify-center bg-black/55 backdrop-blur-sm motion-safe:transition-[padding] motion-safe:duration-300 sm:pt-[var(--omnibar-top)] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))] sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))]"
+      }
       // An empty bar sits lower, near the middle, so the hint field below it has
       // room; it rides back up as soon as results need the space.
       style={{ "--omnibar-top": idle && !mariSurface ? "26vh" : "10vh" } as React.CSSProperties}
@@ -1941,14 +2009,21 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.12, ease: "easeOut" }}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-      onKeyDown={trapFocus}
+      onKeyDown={companion ? closeCompanionOnEscape : trapFocus}
     >
       {/* Slice 73: the height transition is the desktop dialog's. On a phone the panel is the full screen, and
           animating it let every keyboard close leave her composer up to ~200 px above the bottom for 300 ms. */}
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="global-omnibar-title"
+        role={companion ? "complementary" : "dialog"}
+        aria-modal={companion ? undefined : "true"}
+        aria-labelledby={companion ? undefined : "global-omnibar-title"}
+        aria-label={
+          companionShape === "sheet"
+            ? t("omnibar.companion.sheetLabel", "Professor Mari, below the editor")
+            : companion
+              ? t("omnibar.companion.label", "Professor Mari, beside the editor")
+              : undefined
+        }
         ref={dialogRef}
         data-component="GlobalOmnibar.Panel"
         style={
@@ -1960,20 +2035,28 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             "--omnibar-window-height": `${omnibarWindowHeightRem ?? 0}rem`,
           } as React.CSSProperties
         }
-        className={`relative isolate flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--card)] shadow-2xl ${fromPull ? "" : "motion-safe:animate-omnibar-in"} ${pane === "mari" ? "sm:max-w-[max(44rem,min(var(--mari-window-width),92vw))]" : "sm:max-w-[max(44rem,min(var(--omnibar-window-width),92vw))]"} sm:rounded-2xl sm:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)] sm:ring-1 sm:ring-[var(--border)]/60 sm:motion-safe:transition-[height,max-height,max-width] sm:motion-safe:duration-300 sm:motion-safe:ease-out motion-reduce:transition-none ${
-          pane === "mari"
-            ? "mari-workspace-shell sm:h-[min(var(--mari-window-height),var(--mari-window-viewport-height))] sm:max-h-[min(var(--mari-window-height),var(--mari-window-viewport-height))]"
-            : omnibarWindowHeightRem !== null
-              ? "sm:h-[min(var(--omnibar-window-height),88dvh)] sm:max-h-[min(var(--omnibar-window-height),88dvh)]"
-              : idle && !settingsOpen
-                ? "sm:h-auto sm:max-h-none"
-                : "sm:h-[min(36rem,68dvh)] sm:max-h-[min(36rem,68dvh)]"
-        }`}
+        className={
+          companion
+            ? "mari-companion-panel mari-workspace-shell isolate flex flex-col overflow-hidden bg-[var(--card)]"
+            : `relative isolate flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--card)] shadow-2xl ${fromPull ? "" : "motion-safe:animate-omnibar-in"} ${pane === "mari" ? "sm:max-w-[max(44rem,min(var(--mari-window-width),92vw))]" : "sm:max-w-[max(44rem,min(var(--omnibar-window-width),92vw))]"} sm:rounded-2xl sm:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)] sm:ring-1 sm:ring-[var(--border)]/60 sm:motion-safe:transition-[height,max-height,max-width] sm:motion-safe:duration-300 sm:motion-safe:ease-out motion-reduce:transition-none ${
+                pane === "mari"
+                  ? "mari-workspace-shell sm:h-[min(var(--mari-window-height),var(--mari-window-viewport-height))] sm:max-h-[min(var(--mari-window-height),var(--mari-window-viewport-height))]"
+                  : omnibarWindowHeightRem !== null
+                    ? "sm:h-[min(var(--omnibar-window-height),88dvh)] sm:max-h-[min(var(--omnibar-window-height),88dvh)]"
+                    : idle && !settingsOpen
+                      ? "sm:h-auto sm:max-h-none"
+                      : "sm:h-[min(36rem,68dvh)] sm:max-h-[min(36rem,68dvh)]"
+              }`
+        }
       >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-44 bg-[radial-gradient(120%_100%_at_12%_0%,oklch(0.72_0.16_255/0.12),transparent_60%),radial-gradient(120%_100%_at_88%_0%,oklch(0.73_0.21_345/0.11),transparent_60%)]"
         />
+        {companionShape === "panel" ? <MariCompanionResizeHandle panelRef={dialogRef} {...companionSize} /> : null}
+        {companionShape === "sheet" ? (
+          <MariSheetHandle panelRef={dialogRef} snap={sheetSnap} setSnap={setSheetSnap} />
+        ) : null}
         <h2 id="global-omnibar-title" className="sr-only">
           {mariSurface ? t("commandCenter.workTitle", "Professor Mari") : t("omnibar.title", "Search Marinara")}
         </h2>
@@ -2118,6 +2201,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             ) : null}
             {/* R11: while a phone keyboard is open her destinations fold into a menu here (one-line header). */}
             {mariSurface ? <span ref={setMariMenuSlot} className="mari-omnibar-header-compact-menu" /> : null}
+            {companionAvailable ? (
+              <button
+                type="button"
+                onClick={() => setCompanionDocked(!companion)}
+                aria-pressed={companion}
+                aria-label={dockLabel}
+                title={dockLabel}
+                className={cn("omnibar-settings-menu__trigger", companion && "omnibar-settings-menu__trigger--open")}
+              >
+                {companionDesktop ? <PanelLeft size={14} /> : <PanelBottom size={14} />}
+              </button>
+            ) : null}
             {mariSurface ? <OmnibarSettingsButton open={settingsOpen} onOpen={() => openSettings()} /> : null}
             <button
               type="button"
@@ -2195,6 +2290,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 undefined,
                 { fix: true },
               )}
+              editorResource={editorResource}
+              editorCompanion={companion}
             />
           </Suspense>
         ) : null}

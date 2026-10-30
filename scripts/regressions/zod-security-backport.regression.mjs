@@ -132,7 +132,7 @@ for (const [name, file, specifier, legacy, mini] of [
     }
   }
 }
-// The single advisory exception is valid only for this exact source backport and resolution.
+// Each advisory exception has its own installed-source backport and resolution guard.
 const workspace = readFileSync(new URL("../../pnpm-workspace.yaml", import.meta.url), "utf8");
 const lock = readFileSync(new URL("../../pnpm-lock.yaml", import.meta.url), "utf8");
 const section = (text, key) => {
@@ -146,8 +146,8 @@ const section = (text, key) => {
 };
 assert.deepEqual(
   section(workspace, "audit").map((line) => line.trim()),
-  ["ignore:", "- GHSA-mrhx-c7xc-m3w5"],
-  "Only the backported advisory may be exempted",
+  ["ignore:", "- GHSA-mrhx-c7xc-m3w5", "- GHSA-gcqx-w48m-w2h4"],
+  "Only the independently guarded Zod and deepmerge backports may be exempted",
 );
 assert.deepEqual(
   section(workspace, "patchedDependencies")
