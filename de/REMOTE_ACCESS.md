@@ -146,6 +146,8 @@ Einige Schalter heben die Sperre für ein vertrauenswürdiges privates Netzwerk 
 
 Standardmäßig vertraut Marinara einem Gerät, das sich direkt über dein Tailscale-Netzwerk verbindet. Es vertraut außerdem dem eigenen Host eines Docker-Containers. Eine Anmeldung, eine IP-Allowlist oder `TRUSTED_AUTH_PROXY` beendet das automatische Docker-Vertrauen, sodass dann jedes Gerät seine Anmeldung oder seinen Platz auf der Allowlist braucht. Die Schalter, die das ändern, stehen unter [Zugriffskontrolle](CONFIGURATION.md#access-control).
 
+Docker Desktop, OrbStack und rootless Docker zeigen jedes Gerät, das einen veröffentlichten Port nutzt, unter der Adresse des Docker-Gateways. Wenn du den Port auf allen Schnittstellen veröffentlichst (`-p 7860:7860`) und keine Anmeldung setzt, kommt jeder in deinem Netzwerk hinein. Lass den Port auf `127.0.0.1` oder richte zuerst eine Anmeldung ein. Das Serverprotokoll warnt beim Start davor.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## Reverse-Proxys und Tunnel auf demselben Rechner

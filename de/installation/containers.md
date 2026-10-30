@@ -21,6 +21,8 @@ Die offiziellen Marinara-Images liegen unter `ghcr.io/pasta-devs/marinara-engine
 
 Im Wurzelverzeichnis des Projekts liegt eine fertige `docker-compose.yml`. Compose liest diese Datei und startet den Container für dich. Das ist der empfohlene Weg, Marinara zu betreiben.
 
+Docker vertraut dem Container-Gateway. Unter Docker Desktop, OrbStack und rootless Docker kommt jedes Gerät, das einen veröffentlichten Port erreicht, von diesem Gateway. Ohne Anmeldung lässt ein auf allen Schnittstellen veröffentlichter Port daher jedes Gerät hinein. Richte die Anmeldung ein, bevor du `127.0.0.1:` entfernst. Siehe [Ausnahme für Tailscale und Docker](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+
 1. Besorg dir eine Kopie des Repositorys. Falls du Marinara Engine schon ausgecheckt hast, öffne ein Terminal in diesem Ordner. Falls nicht, klone es zuerst:
 
 ```bash

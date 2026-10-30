@@ -146,6 +146,8 @@ IP_ALLOWLIST_ENABLED=false
 
 기본적으로 Marinara는 내 Tailscale 네트워크에서 직접 연결하는 기기를 신뢰합니다. Docker 컨테이너 자신의 호스트도 신뢰합니다. 로그인, IP 허용 목록 또는 `TRUSTED_AUTH_PROXY`를 설정하면 Docker 자동 신뢰가 중단되므로, 그때부터는 모든 기기가 로그인하거나 허용 목록에 있어야 합니다. 이를 바꾸는 플래그는 [접근 제어](CONFIGURATION.md#access-control)를 참고하세요.
 
+Docker Desktop, OrbStack, rootless Docker에서는 공개한 포트를 쓰는 모든 기기가 Docker 게이트웨이 주소에서 접속한 것으로 보입니다. 포트를 모든 인터페이스에 공개하고(`-p 7860:7860`) 로그인을 설정하지 않으면 네트워크의 누구나 들어올 수 있습니다. 포트를 `127.0.0.1`에 두거나 먼저 로그인을 설정하세요. 서버 로그는 시작할 때 이를 경고합니다.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## 같은 컴퓨터의 리버스 프록시와 터널

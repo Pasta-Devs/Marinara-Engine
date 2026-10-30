@@ -144,6 +144,8 @@ Algumas chaves removem o bloqueio de uma rede privada confiável. Elas servem pa
 
 Por padrão, Marinara confia em um dispositivo que se conecta diretamente pela sua rede Tailscale. Ela também confia no próprio host de um contêiner Docker. Um login, uma lista de IPs permitidos ou `TRUSTED_AUTH_PROXY` interrompe a confiança automática no Docker, então todo dispositivo passa a precisar do seu login ou do seu lugar na lista. Para as chaves que mudam isso, veja [Controle de acesso](CONFIGURATION.md#access-control).
 
+O Docker Desktop, o OrbStack e o Docker sem root mostram todo dispositivo que usa uma porta publicada no endereço do gateway do Docker. Se você publicar a porta em todas as interfaces (`-p 7860:7860`) e não definir um login, qualquer pessoa na sua rede entra. Mantenha a porta em `127.0.0.1` ou defina um login primeiro. O log do servidor avisa sobre isso na inicialização.
+
 <a id="reverse-proxies-and-tunnels-on-the-same-computer"></a>
 
 ## Proxies reversos e túneis no mesmo computador

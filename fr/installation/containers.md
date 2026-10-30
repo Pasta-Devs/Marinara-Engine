@@ -21,6 +21,8 @@ Les images officielles de Marinara sont publiées sur `ghcr.io/pasta-devs/marina
 
 Le dépôt contient un fichier `docker-compose.yml` prêt à l'emploi, à la racine du projet. Compose lit ce fichier et démarre le conteneur à ta place. C'est la méthode recommandée pour faire tourner Marinara.
 
+Docker fait confiance à la passerelle du conteneur. Avec Docker Desktop, OrbStack et Docker sans root (rootless), chaque appareil qui atteint un port publié arrive depuis cette passerelle, donc sans connexion, un port publié sur toutes les interfaces les laisse entrer. Définis la connexion avant de retirer `127.0.0.1:`. Voir [Contournement Tailscale et Docker](../REMOTE_ACCESS.md#tailscale-and-docker-bypass).
+
 1. Récupère une copie du dépôt. Si tu as déjà une copie locale de Marinara Engine, ouvre un terminal dans ce dossier. Sinon, clone-le d'abord :
 
 ```bash
