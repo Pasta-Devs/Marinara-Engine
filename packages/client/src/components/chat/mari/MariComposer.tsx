@@ -70,6 +70,7 @@ import {
 import { MariReferencePicker, type MariReferencePickerProps } from "./MariReferencePicker";
 import { MariRuntimeRecovery } from "./MariRuntimeRecovery";
 import { CompactMarkdown, ProfessorMariAttachmentPreviews } from "./MariReplyContent";
+import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 
 /** R11 (composer v5): her composer dock: the question strip, context chips, the field, attach, connection and mode menus, and Send/Stop. */
 type MariComposerProps = {
@@ -256,21 +257,21 @@ export function MariComposer({
   // Send's small menu, for phones and anyone who hasn't learned the keys. It only exists while she works.
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement | null>(null);
+  const sendMenuPopoverRef = useRef<HTMLDivElement | null>(null);
   const sendMenuVisible = sendMenuOpen && workspaceTimelineActive && canSubmitMessage;
+  // Inside the omnibar, Escape closes this menu and not the dialog behind it.
+  const handleSendMenuKeyDown = useInDialogFocusScope(
+    sendMenuPopoverRef,
+    () => setSendMenuOpen(false),
+    sendMenuVisible,
+  );
   useEffect(() => {
     if (!sendMenuVisible) return;
     const handlePointerDown = (event: MouseEvent) => {
       if (!sendMenuRef.current?.contains(event.target as Node)) setSendMenuOpen(false);
     };
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setSendMenuOpen(false);
-    };
     document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [sendMenuVisible]);
   // Where the caret sits in the draft, so a live `@` / `/` token can be found.
   const [caret, setCaret] = useState(draft.length);
@@ -831,7 +832,7 @@ export function MariComposer({
               <ChevronDown aria-hidden="true" />
             </button>
             {sendMenuVisible ? (
-              <div className="mari-composer-menu__popover">
+              <div ref={sendMenuPopoverRef} onKeyDown={handleSendMenuKeyDown} className="mari-composer-menu__popover">
                 <MariRow
                   slot={<ArrowUp aria-hidden="true" />}
                   title={t("mari.queue.sendNow")}
