@@ -64,7 +64,7 @@ Wyłączona postać zostaje na liście uczestników, ale nie bierze udziału w �
 
 Jest jeden bezpiecznik. Jeśli wyłączysz wszystkie postacie w czacie, Marinara traktuje je z powrotem jako aktywne. Dzięki temu nie powstaje odpowiedź bez żadnej postaci.
 
-Stan włączenia i wyłączenia zapisuje się osobno dla każdego czatu. Nigdzie indziej w aplikacji nic się przy tym nie zmienia.
+Stan włączenia i wyłączenia zapisuje się osobno dla każdego czatu. Nigdzie indziej w aplikacji nic się przy tym nie zmienia. W grupie Roleplay w trybie Merged może go ustawiać za ciebie [Automate active characters](#automate-active-characters-merged-only).
 
 ## Kto zabiera głos: tryb Roleplay
 
@@ -81,6 +81,30 @@ Ustawienie **Mode** to przełącznik z dwoma przyciskami.
 
 Kiedy ustawienie **Mode** stoi na **Merged (Narrator)**, można włączyć **Color Dialogues** (kolorowe dialogi). Domyślnie jest wyłączone. Po włączeniu kwestie każdej postaci wyświetlają się w jej własnych kolorach. Kolory pochodzą z zakładki **Colors** w edytorze postaci. Ta zakładka ustawia kolor imienia, kolor dialogu i kolor ramki. Sposób ich ustawienia opisuje przewodnik o edycji postaci.
 
+<a id="automate-active-characters-merged-only"></a>
+
+### **Automate active characters** (tylko przy **Merged**)
+
+W trybie Merged karta każdej aktywnej postaci trafia do promptu przy każdej odpowiedzi, więc duża obsada albo zapełnia kontekst, albo wymusza ręczne przełączanie oczu, gdy postacie przychodzą i odchodzą. Kiedy ustawienie **Mode** stoi na **Merged (Narrator)**, **Automate active characters** (automatyzowanie aktywnych postaci) może je przełączać za ciebie. Ma trzy opcje i domyślnie jest ustawione na **Off**.
+
+- **Off**: aktywne postacie wybierasz przełącznikami z okiem.
+- **Decision model** (model decyzyjny): przed każdą odpowiedzią twój [Decision model](../connections/decision-models.md) dostaje po jednym pytaniu tak/nie o każdą postać: czy ta postać jest w scenie, którą odpowiedź kontynuuje, albo do niej wchodzi? Wzmianka lub wspomnienie się nie liczy, więc postać, o której się tylko mówi, zostaje wyłączona. Postacie uznane za obecne są włączane, a pozostałe wyłączane.
+- **Character Tracker**: o tym, kto jest aktywny, decydują obecne postacie z ostatniej odpowiedzi według [Character Tracker](../agents/built-in-agents.md#character-tracker). Nie wymaga to dodatkowego wywołania modelu, ale działa z jedną turą opóźnienia: postać, która wchodzi w tej turze, zostaje włączona dopiero na następną.
+
+Podpowiedź pod ustawieniem mówi, kiedy czegoś brakuje: nie wybrano Decision model, Character Tracker jest wyłączony w tym czacie albo tracker działa ręcznie, co zmienia listę dopiero po jego uruchomieniu.
+
+Kilka reguł sprawia, że czat działa poprawnie:
+
+- **Przypięcia.** Gdy automatyzacja jest włączona, każdy wiersz listy **Characters** pokazuje pinezkę na lewo od oka. Kliknij ją, żeby przypiąć postać w obecnym stanie, włączoną lub wyłączoną; automatyzacja zostawia ją wtedy w spokoju. Ręczne przełączenie oka też przypina postać, żeby następna odpowiedź nie cofnęła twojego wyboru. Pinezka przypiętego wiersza ma kolor akcentu; kliknij ją ponownie, żeby odpiąć. Przełączenie automatyzacji na **Off** usuwa wszystkie przypięcia.
+- **Narrator pozostaje aktywny.** Wyznaczony **Narrator** (narrator) z **Roleplay Commands** (komendy Roleplay) nigdy nie jest wyłączany.
+- **Brak odpowiedzi zostawia listę.** W trybie **Decision model**, jeśli model nie odpowie dla każdej postaci, używana jest zamiast tego ostatnia scena Character Tracker, o ile istnieje. Model, który najpierw myśli, nie odpowiada przed odpowiedzią, chyba że włączone jest **Also gate agents that run before the reply** (sprawdzaj także agentów działających przed odpowiedzią), więc zastępuje go tracker. Tak samo jest przy obsadzie zbyt dużej, by zmieściła się w danych wejściowych Decision model nawet po samych imionach – wtedy model nie jest w ogóle pytany. Jeśli żadne z nich nie ma odpowiedzi, lista zostaje taka, jaka jest.
+- **Nikt aktywny to nie opcja.** Wynik, który wyłączyłby wszystkich, jest ignorowany.
+- **Agent Character Activity ma pierwszeństwo.** Czat z własnym agentem używającym typu wyniku **Character Activity** zostawia ten agent za sterami, a automatyzacja nic nie robi.
+
+Character Tracker zapisuje własną nazwę każdej postaci, którą widzi. Postać jest dopasowywana do swojej karty najpierw po identyfikatorze karty, potem po imieniu, a potem po aliasach imienia karty z zakładki **Colors** w edytorze postaci, więc karta, która weszła, będąc wyłączoną, i tak zostaje znaleziona. Lista trackera, która nie wymienia żadnej postaci z czatu, na przykład scena z samymi statystami, zachowuje bieżącą listę.
+
+Automatyzacja działa przed każdą odpowiedzią, swipe'em i regeneracją. Pomija **Continue** i impersonację. Ustawienie zapisuje się w profilach ustawień; przypięcia należą do jednego czatu.
+
 <a id="response-order-individual-only"></a>
 
 ### **Response Order** (tylko przy **Individual**)
@@ -90,7 +114,7 @@ Kiedy ustawienie **Mode** stoi na **Individual**, pojawia się ustawienie **Resp
 - **Sequential** jest domyślne. Każda postać odpowiada po kolei, zgodnie z listą **Characters**. Zmień kolejność uczestników, a zmienisz kolejność tur.
 - **Smart** wykonuje krótkie, ukryte zapytanie do AI i na tej podstawie decyduje, która postać albo które postacie mają się odezwać jako następne. Czyta ostatnie wiadomości i opisy postaci, a zwykle wskazuje jedną osobę. Wzmianka w stylu `@Alice` w twojej wiadomości unieważnia ten wybór.
 
-  Jeśli wybierzesz **Decision model** (model decyzyjny; zobacz [Modele decyzyjne](../connections/decision-models.md)), możesz włączyć pod nim **Also use it to pick who speaks in Smart response order** (wybieraj nim także mówiącego w kolejności Smart). Kolejność Smart prosi wtedy o osobny wynik tak/nie dla każdego kandydata. Pytania współdzielą pięć ostatnich wiadomości i listę kandydatów z imionami, statusem, aktywnością, rozmownością oraz krótkim fragmentem osobowości lub opisu. Zdalny dostawca też otrzymuje tę listę; zobacz [Co widzi model](../connections/decision-models.md#what-the-model-sees).
+  Jeśli wybierzesz **Decision model**, możesz włączyć pod nim **Also use it to pick who speaks in Smart response order** (wybieraj nim także mówiącego w kolejności Smart). Kolejność Smart prosi wtedy o osobny wynik tak/nie dla każdego kandydata. Pytania współdzielą pięć ostatnich wiadomości i listę kandydatów z imionami, statusem, aktywnością, rozmownością oraz krótkim fragmentem osobowości lub opisu. Zdalny dostawca też otrzymuje tę listę; zobacz [Co widzi model](../connections/decision-models.md#what-the-model-sees).
 
   Te wyniki mogą przyjść szybciej niż pełna odpowiedź AI, ale szybkość i koszt zależą od modelu i liczby kandydatów. W trybie Roleplay Marinara wybiera najbardziej prawdopodobnego mówiącego. W Conversation odpowiada każdy, kto ma powód, w kolejności prawdopodobieństwa. Postać, która właśnie mówiła, czeka, jeśli ktoś inny ma powód odpowiedzieć. Gdy model decyzyjny nie odpowie, Smart wykonuje zwykłe wywołanie AI.
 - **Manual** wyłącza wszystkie automatyczne odpowiedzi. Wtedy samodzielnie wskazujesz mówiącego listą **Trigger Response** na pasku wiadomości.
@@ -118,12 +142,13 @@ Jedna uwaga o wielokrotnym użyciu: tekst z pola **Scenario Override** należy d
 |---|---|---|
 | **Mode** (**Merged (Narrator)** / **Individual**) | sekcja Group Chat | Merged (Narrator) |
 | **Color Dialogues** | sekcja Group Chat, tryb Merged | Off |
+| **Automate active characters** (Off / Decision model / Character Tracker) | sekcja Group Chat, tryb Merged | Off |
 | **Response Order** (Sequential / Smart / Manual) | sekcja Group Chat, tryb Individual | Sequential |
 | **Add Turn To Prompt** | sekcja Group Chat, tryb Individual | On |
 | **Name Prefix History** | sekcja Group Chat, tryb Individual | Off |
 | **Scenario Override** | sekcja Group Chat | puste (wyłączone) |
 
-Większość tych ustawień zapisuje się w profilach ustawień, więc da się ich używać wielokrotnie. Wyjątkiem jest **Scenario Override**, które zostaje przy jednym czacie.
+Większość tych ustawień zapisuje się w profilach ustawień, więc da się ich używać wielokrotnie. Wyjątkiem jest **Scenario Override**, które zostaje przy jednym czacie. Przypięcia automatyzacji też zostają przy czacie.
 
 ## Kto zabiera głos: tryb Conversation
 

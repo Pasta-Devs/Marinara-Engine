@@ -52,6 +52,8 @@ Niżej na tej samej zakładce jest druga lista, **Character Questions** (pytania
 
 Te pięć pól czyta model, więc tylko do nich może dotrzeć odpowiedź na pytanie o postać.
 
+Powitanie może też użyć `{{name}}` pytania o personę, na przykład `Ah, so you are a {{class}}`. Wypełnia się ono tylko wtedy, gdy gracz tworzy tę personę w kreatorze nowego czatu, w pierwszej wiadomości i jej alternatywnych powitaniach. Przy istniejącej personie albo w Quick Start tag pokazuje się tak, jak został napisany, a edytor postaci ostrzega o tym. Kliknij powitanie, a jego lista **Available variables** (dostępne zmienne) pokaże oba rodzaje pytań, z etykietami.
+
 Odpowiedzi są przechowywane jako zmienne czatu, dlatego karta w każdym czacie czyta inną wartość i nigdy nie trzeba jej edytować. Pytanie karty jest zadawane zawsze, gdy karta jest w czacie, niezależnie od tego, czy gracz tworzy personę. Okno pokazuje sekcję **About you** (o tobie) tylko wtedy, gdy powstaje persona.
 
 Autor powinien znać trzy rzeczy:
@@ -70,7 +72,7 @@ Class: {{class}}
 Role: {{player}} is a {{class}} sworn to {{faction}}.
 ```
 
-Po kliknięciu w pole pod nim pojawia się lista **Available variables** (dostępne zmienne). Kliknij zmienną, żeby wstawić ją w miejscu kursora.
+Po kliknięciu w pole pod nim pojawia się lista **Available variables**. Kliknij zmienną, żeby wstawić ją w miejscu kursora.
 
 Użyj `{{#if}}`, żeby pokazać tekst tylko przy niektórych odpowiedziach:
 
@@ -99,6 +101,8 @@ Obie ścieżki działają też po zakończeniu konfiguracji, z panelu **Chat Set
 
 - Okno wyboru persony w sekcji **Persona** w czacie Roleplay pokazuje wiersz **Create your persona** dla każdej karty w czacie, która go oferuje. Skorzystaj z niego, gdy kreator został pominięty albo gdy później potrzebujesz nowej persony.
 - Znacznik onboardingu obok postaci w sekcji **Characters** (postacie) ponownie otwiera same pytania o postać z tej karty. Okno zaczyna od odpowiedzi, które czat już ma, więc zapisanie jednej zmiany zostawia pozostałe bez zmian; ponowny zapis przywraca też odpowiedź usuniętą z sekcji Chat Variables. Odpowiedzi innych kart pozostają nietknięte – z wyjątkiem nazwy wspólnej dla dwóch kart, która ma jedną wartość, więc obie karty czytają nową odpowiedź.
+
+Dodanie karty z pytaniami o postać do trwającego czatu Roleplay, z **Chat Settings** albo przez upuszczenie jej na czat, najpierw zadaje jej pytania. Potem proponuje jej powitanie, z wypełnionymi i oznaczonymi twoimi odpowiedziami.
 
 ## Udostępnianie kart z onboardingiem
 

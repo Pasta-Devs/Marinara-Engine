@@ -10,7 +10,7 @@ Professor Mari mieszka na ekranie głównym. Ekran główny to widok, który poj
 
 Poszukaj widgetu **Professor Mari** z jej pikselowym obrazkiem, a potem kliknij **Ask Professor Mari** (zapytaj Professor Mari), żeby otworzyć pełne okno czatu. Otwiera je też zakładka **Professor** u góry ekranu głównego. Jej okno otwiera się wewnątrz wyszukiwarki Search, więc możesz do niej dotrzeć z każdego ekranu: wpisz coś w polu Search i wybierz **Ask Prof. Mari** (zapytaj Professor Mari), naciśnij Ctrl+J (Cmd+J na Macu) albo na telefonie pociągnij w dół od górnego paska. Linia stanu w nagłówku jej okna pokazuje **Ready to help**, kiedy asystentka czeka, albo **Working on it...**, kiedy pracuje.
 
-Rozmawiasz z nią zwykłym językiem. Wpisz wiadomość w polu, a potem naciśnij Enter, żeby ją wysłać. Shift i Enter razem dodają nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), Enter doda nową linię, a wiadomość wyśle Ctrl+Enter (Cmd+Enter na Macu).
+Rozmawiasz z nią zwykłym językiem. Wpisz wiadomość w polu, a potem naciśnij Enter, żeby ją wysłać. Shift i Enter razem dodają nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), Enter doda nową linię, a wiadomość wyśle Ctrl+Enter (Cmd+Enter na Macu). Kiedy asystentka pracuje, klawisze robią trochę więcej, jak opisano w sekcji [Wysyłanie wiadomości, gdy asystentka pracuje](#sending-messages-while-she-works).
 
 Wysłanie pierwszej wiadomości odblokowuje osiągnięcie **Hello World**.
 
@@ -66,7 +66,7 @@ W pustym czacie z Professor Mari pojawiają się kafelki startowe, takie jak **C
 
 Prowadzone kroki to jedno konkretne pytanie naraz, zamiast długiego formularza podanego od razu w całości.
 
-Przy pełnej prośbie o utworzenie lub edycję Professor Mari może zwrócić prowadzony plan o ograniczonej liczbie kroków. Każdy krok ma niewielki zestaw podpowiedzi. Wybranie jednej z nich wypełnia bieżący szkic i lokalnie przesuwa plan do następnego kroku. Po zmianie podpowiedzi twój tekst zostaje w szkicu. Plan należy do bieżącego czatu z Professor Mari, więc przełączenie czatu, restart, zatrzymanie zadania albo ukończenie planu usuwa nieaktualne kroki. Wadliwe albo nadmiarowe podpowiedzi są odrzucane, a kafelki są nieaktywne, kiedy Professor Mari pracuje.
+Kiedy prośba zostawia otwarte prawdziwe decyzje, Professor Mari może się zatrzymać i zapytać na karcie pytań pod swoją odpowiedzią: maksymalnie cztery pytania, jedno po drugim, każde z kilkoma opcjami, a jej polecana opcja jest oznaczona. Na niektóre pytania można udzielić kilku odpowiedzi. Wybierz opcję albo wpisz własną odpowiedź, a potem naciśnij **Submit** (wyślij): twoje odpowiedzi trafiają do asystentki jako twoja następna wiadomość, więc nic nie jest ukryte i widzisz, co jej powiedziano. Jej tura kończy się, gdy zadaje pytanie, a nic z tego, co zaproponowała razem z pytaniem, nie zostanie wykonane, dopóki nie odpowiesz. Możesz też zignorować kartę i napisać w polu wiadomości; twoja następna wiadomość jest wtedy odpowiedzią.
 
 Podpowiedzi są dostępne tylko w czatach z Professor Mari. Inne postacie nie dostają kafelków Professor Mari.
 
@@ -126,7 +126,7 @@ Te same polecenia można wpisać za pomocą `/`, jak opisano w sekcji [Polecenia
 
 Wybierz w menu spinacza **Attach files or photos** albo wpisz `/attach`, żeby dodać plik do wiadomości.
 
-Asystentka przyjmuje obrazy, pliki PDF i popularne pliki tekstowe, takie jak `.txt`, `.md`, `.json`, `.csv` i `.log`. Każdy plik może mieć do 20 MB. Dołączone pliki pokazują się jako kafelki nad polem wiadomości i przed wysłaniem da się je usunąć.
+Asystentka przyjmuje obrazy, pliki PDF i popularne pliki tekstowe, takie jak `.txt`, `.md`, `.json`, `.csv` i `.log`. Każdy plik może mieć do 20 MB. Dołączone pliki pokazują się jako kafelki nad polem wiadomości i przed wysłaniem da się je usunąć. Zrzut ekranu albo skopiowany plik możesz też wkleić prosto w pole wiadomości, skrótem **Ctrl+V** lub wklejaniem na telefonie.
 
 Żeby asystentka odczytała obraz, model wybranego połączenia musi obsługiwać obrazy na wejściu.
 
@@ -268,7 +268,43 @@ Kliknij przycisk **Chats** w jej nagłówku, żeby otworzyć zapisane czaty z Pr
 
 Kliknij przycisk **New chat**, żeby zacząć z nią czat od zera. Najpierw zapisuje on bieżący czat na liście **Chats**. To samo robi wpisanie `/new` (albo `/restart`) w polu wiadomości. Widać wtedy komunikat "Professor Mari's previous chat was saved."
 
-Kiedy asystentka pracuje, przycisk wysyłania zmienia się w przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
+Kiedy asystentka pracuje, obok przycisku wysyłania pojawia się przycisk **Stop**. Kliknięcie go anuluje bieżące zadanie.
+
+<a id="sending-messages-while-she-works"></a>
+
+### Wysyłanie wiadomości, gdy asystentka pracuje
+
+Pole wiadomości zostaje otwarte, kiedy asystentka pracuje, a ty decydujesz, kiedy twoja wiadomość do niej dotrze:
+
+- **Send now** (wyślij teraz) trafia do niej przy następnym kroku, bez jej zatrzymywania. Dotychczasowa odpowiedź zostaje zapisana, twoja wiadomość pojawia się pod nią, a asystentka pracuje dalej, mając na uwadze twoją wiadomość. Tak poprawiasz ją w trakcie zadania i zachowujesz pracę, którą już wykonała.
+- **Queue for later** (dodaj do kolejki na później) czeka na liście nad polem, z oznaczeniem **Sends when she finishes** (zostanie wysłana, gdy skończy). Kiedy asystentka skończy bez błędów, bierze oczekujące wiadomości po jednej, po kolei.
+
+| | Send now | Queue for later |
+|---|---|---|
+| **Enter sends** włączone (domyślnie) | Enter | Ctrl+Enter |
+| **Enter sends** wyłączone | Ctrl+Enter | Ctrl+Shift+Enter |
+
+Na Macu zamiast Ctrl używaj Cmd. Shift+Enter zawsze dodaje nową linię. Mała strzałka obok przycisku wysyłania oferuje oba wybory, co przydaje się na telefonie.
+
+Send now służy tylko do samego tekstu, w ramach zadania, które asystentka już wykonuje. Wiadomość z plikami, powiązaniami `@` albo polem przekazanym jej od ciebie trafia zamiast tego do kolejki, podobnie jak wiadomość na inny temat albo wysłana po zmianie trybu uprawnień. Krótka informacja ci o tym mówi. Oczekująca wiadomość bez tych cech ma własny przycisk **Send now**. Kliknij **X** przy wiadomości, żeby ją usunąć. W czacie może czekać do 20 wiadomości.
+
+Jeśli asystentka wykonała już kilka kroków, ale jeszcze nic nie powiedziała, kiedy dociera twoja wiadomość, jej kroki zostają zachowane, z przygaszoną linią **Still working**. Send now nie może dać jej więcej kroków, niż pozwala jedno zadanie. Jeśli osiągnęła limit albo zatrzymała się, żeby cię o coś zapytać, twoja wiadomość zostaje na liście.
+
+Oczekujące wiadomości nie wysyłają się same w tych przypadkach:
+
+- **Naciskasz Stop.** Wracają do pola wiadomości, więc możesz je edytować albo wysłać ponownie.
+- **Asystentka czeka na ciebie**, na zatwierdzenie albo odpowiedź na pytanie. Pokazują **Held** (wstrzymana) z przyciskiem **Send** (wyślij).
+- **Zadanie się nie powiodło albo aplikacja została uruchomiona ponownie.** Też pokazują **Held**. Nic nie przepada.
+
+Wstrzymana wiadomość zostaje wstrzymana, dopóki jej nie wyślesz albo nie usuniesz. **Send** wysyła tylko tę jedną, a wpisanie nowej wiadomości nie zwalnia pozostałych.
+
+`/restart` i `/title` nic nie robią, kiedy asystentka pracuje, i zostają w polu, aż skończy.
+
+<a id="her-to-do-list"></a>
+
+### Jej lista zadań
+
+Przy dłuższej pracy asystentka prowadzi dla siebie krótką listę kroków. Stoi ona pod jej najnowszą wiadomością z licznikiem, takim jak **2 of 5** (2 z 5); krok, nad którym pracuje, się kręci, dopóki trwa praca, a ukończone kroki są przekreślone. Nie możesz jej edytować. Dzięki niej widać, na jakim etapie jest asystentka, a ona aktualizuje ją na bieżąco. Gdy napiszesz coś po odpowiedzi, która zapisała listę, lista robi się przygaszona i nosi napis **Plan from before your last message** (plan sprzed twojej ostatniej wiadomości). Znika po jej następnej odpowiedzi, która jej nie rusza.
 
 ## Wychodzenie z jej okna
 
@@ -298,7 +334,7 @@ Professor Mari to asystentka, a nie pełna dokumentacja. Pamiętaj o tych ograni
 - Tworzenie nowych treści jest zwykle bezpieczne, bo nic nie zostaje nadpisane. Edycja istniejących treści wymaga większej ostrożności.
 - Zatwierdzona zależność to kod z zewnątrz, który w trakcie działania ma taki sam dostęp jak importujący go kod aplikacji Marinara Engine. Sprawdź nazwę pakietu, dokładną wersję, przeznaczenie i sumę kontrolną pokazane na karcie zatwierdzenia.
 - Przy edycji podaj dokładnie element i dokładnie pole do zmiany. Prośba w stylu "przepisz całą tę postać" jest bardziej ryzykowna niż "skróć powitanie Luny, zostaw jej osobowość bez zmian".
-- Przy wieloetapowym tworzeniu odpowiadaj na jedno konkretne pytanie naraz, korzystając z kafelków z podpowiedziami, zamiast podawać wszystkie pola za jednym razem.
+- Przy wieloetapowym tworzeniu odpowiadaj na jej kartę pytań albo korzystaj z kafelków z podpowiedziami, zamiast podawać wszystkie pola za jednym razem.
 - Jeśli asystentka twierdzi, że skończyła zadanie, a aplikacja tego nie pokazuje, zaufaj aplikacji. Dokończ zadanie samodzielnie w odpowiednim panelu.
 - Jeśli aplikacja Marinara Engine jest otwierana z innego urządzenia, a nie z tego samego komputera, jej działania edycyjne wymagają skonfigurowanego dostępu zdalnego. Zajrzyj do przewodnika o dostępie zdalnym.
 
