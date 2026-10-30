@@ -116,7 +116,22 @@ export function useMariFieldReview({
     if (!waitingReview || answeredHere || keeping.current || settling.current === waitingReview.key) return;
     const here = (id: string) => id === entityId || !!memberIds?.has(id);
     const before = edited.key === waitingReview.key ? edited.before : {};
-    if (!heldChangeSettledByUser(waitingReview, here, before, touched, current)) return;
+    if (
+      !heldChangeSettledByUser(
+        {
+          ...waitingReview,
+          fields: waitingReview.fields.filter(
+            (field) =>
+              !declinedFields.some((item) => item.entityId === field.entityId && item.fieldId === field.fieldId),
+          ),
+        },
+        here,
+        before,
+        touched,
+        current,
+      )
+    )
+      return;
     const { key } = waitingReview;
     settling.current = key;
     void waitingReview.settle(key).then((done) => {

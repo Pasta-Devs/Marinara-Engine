@@ -16,6 +16,7 @@ import {
   mariEditorKindForTable,
   mariFieldPath,
   declinedForHeldChange,
+  heldChangeSettledByUser,
 } from "../../packages/client/src/lib/mari-editor-fields.js";
 
 // Change-card paths come from the row's `data` column.
@@ -388,5 +389,17 @@ assert.deepEqual(
     ["description", "D"],
   ],
 );
+
+// Nothing taken over never settles a held change.
+{
+  const none = heldChangeSettledByUser(
+    { fields: [], editorTextOnly: true },
+    () => true,
+    {},
+    () => false,
+    () => "x",
+  );
+  assert.equal(none, false);
+}
 
 console.log("mari-editor-fields regression passed");

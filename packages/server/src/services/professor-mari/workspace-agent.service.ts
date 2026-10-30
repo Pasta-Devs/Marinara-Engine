@@ -4098,15 +4098,29 @@ export class ProfessorMariWorkspaceService {
 
       // The Accept button sends the chip prompt verbatim: apply the stored held calls here, no model request.
       // More calls than the card showed go to the model as before: the user never saw them all.
+      const declinedFields = args.context?.declinedFields ?? [];
+      if (
+        declinedFields.length > 0 &&
+        manualApprovalArmed &&
+        heldMessageId !== null &&
+        heldCalls.length > MAX_HELD_CHANGES_SHOWN &&
+        promptText.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt
+      ) {
+        throw new Error("This change is too large to accept without the fields you declined. Reject it and ask again.");
+      }
       const acceptedCalls =
         manualApprovalArmed &&
         heldMessageId !== null &&
         heldCalls.length > 0 &&
         heldCalls.length <= MAX_HELD_CHANGES_SHOWN &&
         promptText.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt
-          ? withoutDeclinedMariFields(heldCalls, args.context?.declinedFields ?? [])
+          ? withoutDeclinedMariFields(heldCalls, declinedFields)
           : null;
-      if (acceptedCalls && heldMessageId !== null) {
+      if (acceptedCalls && acceptedCalls.length === 0) {
+        assistantText = "Nothing was applied: you declined every field of this change.";
+        appendTraceStatus(workspaceTrace, assistantText);
+        for (const chunk of chunkText(assistantText)) args.onEvent({ type: "token", data: chunk });
+      } else if (acceptedCalls && heldMessageId !== null) {
         // Single use: a second Accept for the same held message (two tabs) must not apply the calls again.
         // ponytail: in-memory set, one id per Accept, lost on restart. Upgrade path: a flag on the message extra.
         if (this.acceptedHeldMessageIds.has(heldMessageId)) throw new Error("This change was already accepted.");

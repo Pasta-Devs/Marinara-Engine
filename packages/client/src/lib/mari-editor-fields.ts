@@ -155,6 +155,7 @@ export function heldChangeSettledByUser(
   const takenOver = Object.keys(before);
   return (
     review.editorTextOnly &&
+    takenOver.length > 0 &&
     review.fields.every((field) => here(field.entityId) && takenOver.includes(field.fieldId)) &&
     takenOver.every((fieldId) => !unsaved(fieldId) && current(fieldId) !== before[fieldId])
   );
