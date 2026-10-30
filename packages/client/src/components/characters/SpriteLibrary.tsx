@@ -548,7 +548,12 @@ function SpriteInlineFolder({
       data-drag-target={highlighted ? "inside" : undefined}
       className="group/sprite-folder min-w-0 rounded-lg transition-colors max-md:touch-pan-y"
     >
-      <div className="group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-has-[[data-sprite-folder][data-drag-source=true]]/sprite-library:hover:bg-[var(--sidebar)] group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9">
+      <div
+        className={cn(
+          "group relative flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--sidebar)] px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40 group-has-[[data-sprite-folder][data-drag-source=true]]/sprite-library:hover:bg-[var(--sidebar)] group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)] group-data-[drag-target=inside]/sprite-folder:bg-[var(--marinara-chat-chrome-highlight-bg)] group-data-[drag-target=inside]/sprite-folder:text-[var(--marinara-chat-chrome-button-text-active)] md:min-h-9",
+          expanded && "max-md:rounded-b-none",
+        )}
+      >
         <div
           role="button"
           tabIndex={0}
@@ -620,7 +625,11 @@ function SpriteInlineFolder({
       </div>
       <SmoothFolderContent
         open={expanded}
-        className="pl-3 max-md:rounded-b-lg max-md:bg-[var(--marinara-chat-chrome-highlight-bg)]"
+        className={cn(
+          "pl-3 max-md:rounded-b-lg max-md:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+          expanded &&
+            "max-md:border max-md:border-t-0 max-md:border-[var(--border)] max-md:group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)]",
+        )}
         innerClassName="pt-3 max-md:pr-3 max-md:pb-3"
       >
         <div id={contentId}>
