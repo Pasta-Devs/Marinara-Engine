@@ -200,13 +200,15 @@ O botão mostra **Refreshing…** enquanto trabalha, e depois o aplicativo recar
 
 As atualizações são sempre seguras, mas nem sempre é possível voltar diretamente. As versões novas do Marinara armazenam as mensagens de chat em um formato mais recente no disco, que uma versão anterior ao formato dos dados não consegue ler. Para proteger o histórico, o inicializador ignora atualizações automáticas que levariam a uma versão incompatível e o atualizador do aplicativo se recusa a aplicá-las.
 
-Se você precisar de uma versão anterior mesmo assim, um comando de conversão coloca primeiro os dados no formato antigo. Consulte [Os chats não mostram mensagens depois de trocar para uma versão anterior](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) para ver as etapas.
+Dados atualizados para o formato de armazenamento 8, que adiciona avatares MMD, não podem ser abertos por versões para o formato 7 ou anterior. Para voltar a uma dessas versões, pare o Marinara e restaure um backup completo feito antes dessa atualização. O comando de conversão de arquivos de chat não pode converter as configurações de avatares MMD. Não mude o número do formato manualmente.
+
+Para dados antigos que ainda não chegaram ao formato 8, um comando de conversão pode colocar os arquivos de chat de volta na estrutura antiga. Consulte [Os chats não mostram mensagens depois de trocar para uma versão anterior](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) para ver as etapas.
 
 <a id="going-back-to-250"></a>
 
 ### Voltar para a 2.5.0
 
-A versão 2.5.0 usa o mesmo formato de armazenamento das versões seguintes, então voltar para ela não é bloqueado e ela abre os chats normalmente. Mas ela não conhece os dados que os recursos mais novos acrescentaram: algumas configurações de conexão, os detalhes usados para gerar de novo as imagens do chat e partes dos checkpoints de jogo, dos relógios de conjuntos de regras e dos vídeos de cena. Quando a 2.5.0 salva um chat ou uma conexão, por exemplo quando você envia uma mensagem, joga um turno de jogo, gera uma imagem ou muda uma conexão, ela descarta esses dados mais novos do chat ou da conexão inteira. Atualizar de novo não os traz de volta.
+A versão 2.5.0 não consegue abrir dados atualizados para o formato 8; use um backup anterior à atualização. Com dados antigos no formato 7, ela ainda pode abrir seus chats, mas não conhece os dados acrescentados pelos recursos mais novos: algumas configurações de conexão, os detalhes usados para gerar de novo as imagens do chat e partes dos checkpoints de jogo, dos relógios de conjuntos de regras e dos vídeos de cena. Quando a 2.5.0 salva um chat ou uma conexão, por exemplo quando você envia uma mensagem, joga um turno de jogo, gera uma imagem ou muda uma conexão, ela descarta esses dados mais novos do chat ou da conexão inteira. Atualizar de novo não os traz de volta.
 
 Para poder voltar exatamente ao ponto em que estava, faça um backup antes de atualizar. Veja [Faça um backup antes](#back-up-first) e [Fazer backup e restaurar Marinara](data/backup-and-restore.md).
 

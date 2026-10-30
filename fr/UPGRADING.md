@@ -202,13 +202,15 @@ Le bouton affiche **Refreshing…** pendant le traitement, puis l'application se
 
 Les mises à niveau sont toujours sûres, mais revenir directement en arrière n'est pas toujours possible. Les versions récentes de Marinara stockent les messages dans un format sur disque plus récent, et une version plus ancienne que le format de tes données ne peut pas le lire. Pour protéger ton historique de chat, le lanceur ignore les mises à jour automatiques vers une version incompatible et le programme de mise à jour intégré refuse de les appliquer.
 
-Si tu as tout de même besoin d'une ancienne version, une conversion en une seule commande remet d'abord tes données dans l'ancien format. Consulte [Les chats n'affichent aucun message après un retour à une ancienne version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) pour suivre les étapes.
+Les données mises à niveau vers le format de stockage 8, qui ajoute les avatars MMD, ne peuvent pas être ouvertes par les versions utilisant le format 7 ou un format antérieur. Pour revenir à l'une de ces versions, arrête Marinara et restaure une sauvegarde complète faite avant cette mise à niveau. La commande de conversion des fichiers de chat ne peut pas convertir les réglages des avatars MMD. Ne change pas le numéro de format à la main.
+
+Pour les anciennes données qui n'ont pas atteint le format 8, une conversion en une seule commande peut remettre les fichiers de chat dans leur ancienne organisation. Consulte [Les chats n'affichent aucun message après un retour à une ancienne version](TROUBLESHOOTING.md#chats-show-no-messages-after-switching-to-an-older-version) pour suivre les étapes.
 
 <a id="going-back-to-250"></a>
 
 ### Revenir à la version 2.5.0
 
-La version 2.5.0 utilise le même format de stockage que les versions suivantes : y revenir n'est donc pas bloqué, et elle ouvre tes chats normalement. Elle ne connaît pas, en revanche, les données ajoutées par les fonctionnalités plus récentes : certains réglages de connexion, les informations servant à régénérer les images du chat, et une partie des points de contrôle de jeu, des horloges d'ensemble de règles et des vidéos de scène. Quand la version 2.5.0 enregistre un chat ou une connexion, par exemple quand tu envoies un message, joues un tour de jeu, crées une image ou modifies une connexion, elle supprime ces données récentes de tout le chat ou de toute la connexion. Une nouvelle mise à jour ne les fait pas revenir.
+La version 2.5.0 ne peut pas ouvrir les données mises à niveau vers le format 8 ; utilise une sauvegarde antérieure à cette mise à niveau. Avec les anciennes données au format 7, elle peut toujours ouvrir tes chats, mais ne connaît pas les données ajoutées par les fonctionnalités plus récentes : certains réglages de connexion, les informations servant à régénérer les images du chat, et une partie des points de contrôle de jeu, des horloges d'ensemble de règles et des vidéos de scène. Quand la version 2.5.0 enregistre un chat ou une connexion, par exemple quand tu envoies un message, joues un tour de jeu, crées une image ou modifies une connexion, elle supprime ces données récentes de tout le chat ou de toute la connexion. Une nouvelle mise à jour ne les fait pas revenir.
 
 Pour pouvoir revenir exactement là où tu en étais, fais une sauvegarde avant de mettre à jour. Voir [Fais d'abord une sauvegarde](#back-up-first) et [Sauvegarder et restaurer Marinara](data/backup-and-restore.md).
 

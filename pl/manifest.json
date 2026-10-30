@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "0ffea55f0676",
+  "sourceCommit": "b0331450d98bf2483a1763efd039407b4deddad8",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "d96586793b7d746520726a97f35d8817cfa2f4b941c461496eaf4a62613cf6fd",
-      "bytes": 61750
+      "sha256": "9e4271bc3c92accc7e2c6cfe4583d75c50af15fa4950d4f47a2c861eaeb0f8ff",
+      "bytes": 62187
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "9e573550fd6d058817e78cacac1398b24a26ee7603795fba0230417effd26ae2",
-      "bytes": 18899
+      "sha256": "85dbe266611e04c4e1f38e3b0d52f3dfb3488decea20f34e1c31674cc37ba8bc",
+      "bytes": 19330
     },
     {
       "path": "agents/agents-overview.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "cc0193a632a1966a6d16161e4371885804c95099f42388b6b61fc73227e79ea3",
-      "bytes": 46909
+      "sha256": "a0a0f7779aa078d602ff9fc4c8fdb58af18c7ba1381bcbe19ea9f6438142884f",
+      "bytes": 49589
     },
     {
       "path": "agents/built-in-agents.md",
