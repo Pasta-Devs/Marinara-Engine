@@ -20,7 +20,7 @@ Beide Modi legen die Keyframe-Bilder im Tab **Images** der Gallery ab und die Cl
 ## Den Agenten installieren
 
 1. Öffne über das Sparkles-Symbol das Panel **Agents** (Agenten).
-2. Wähle **Download Agents** (Agenten herunterladen).
+2. Wähle **Agent Organizer** (Agentenverwaltung).
 3. Öffne **Storyboard** und klick auf **Install** (Installieren).
 4. Öffne einen Roleplay- oder Game-Chat und geh dort zu **Chat Settings > Agents** (Chat-Einstellungen).
 5. Aktiviere **Enable Agents** (Agenten aktivieren) und danach **Enable Storyboards** in der Karte Storyboard.
@@ -317,7 +317,7 @@ Die alten Einstellungen sind reine Migrationsdaten, keine zweite Storyboard-Umse
 
 ### Storyboard fehlt in den Chat Settings
 
-- Installiere **Storyboard** über **Agents > Download Agents**.
+- Installiere **Storyboard** über **Agents > Agent Organizer (Agentenverwaltung)**.
 - Nutze einen Roleplay- oder Game-Chat; Conversation wird nicht unterstützt.
 - Prüf, ob die Paketversion zur installierten Engine-Version passt.
 

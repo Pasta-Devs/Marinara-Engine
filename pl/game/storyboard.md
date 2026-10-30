@@ -20,7 +20,7 @@ Oba tryby zapisują obrazy klatek kluczowych w zakładce **Images** (Obrazy) pan
 ## Instalacja agenta
 
 1. Kliknij ikonę Sparkles, żeby otworzyć panel **Agents** (Agenci).
-2. Wybierz zakładkę **Download Agents**.
+2. Wybierz zakładkę **Agent Organizer (organizowanie agentów)**.
 3. Otwórz pakiet **Storyboard** i kliknij przycisk **Install**.
 4. Otwórz czat w trybie Roleplay albo Game Mode, a potem panel ustawień czatu: **Chat Settings > Agents**.
 5. Włącz opcję **Enable Agents**, a potem opcję **Enable Storyboards** na karcie agenta Storyboard.
@@ -317,7 +317,7 @@ Stare ustawienia to dane z migracji, a nie druga implementacja storyboardów. Bi
 
 ### Brak agenta Storyboard w panelu Chat Settings
 
-- Zainstaluj pakiet **Storyboard** w **Agents > Download Agents**.
+- Zainstaluj pakiet **Storyboard** w **Agents > Agent Organizer (organizowanie agentów)**.
 - Użyj czatu w trybie Roleplay albo Game Mode; tryb Conversation nie jest obsługiwany.
 - Sprawdź, czy wersja pakietu pasuje do zainstalowanej wersji aplikacji Marinara Engine.
 

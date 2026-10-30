@@ -163,7 +163,7 @@ Elegirlo para un chat inicia el servidor local bajo demanda, incluso cuando ambo
 
 El **Local Speech Model** es una descarga opcional de Calls para la transcripción del micrófono sin conexión. Impulsa las llamadas de Conversation cuando eliges transcribir tu voz en tu propia máquina. Es un modelo Whisper, un modelo de voz a texto que convierte tus palabras habladas en texto.
 
-Primero instala **Calls** desde **Agents > Download Agents**. Luego puedes gestionar Whisper desde la tarjeta **Local Model** en Connections, bajo el encabezado **Local Speech Model**. El encabezado y los controles de descarga permanecen ocultos cuando Calls no está instalado.
+Primero instala **Calls** desde **Agents > Agent Organizer (Organizador de agentes)**. Luego puedes gestionar Whisper desde la tarjeta **Local Model** en Connections, bajo el encabezado **Local Speech Model**. El encabezado y los controles de descarga permanecen ocultos cuando Calls no está instalado.
 
 Se ofrecen dos opciones:
 

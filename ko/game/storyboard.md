@@ -20,7 +20,7 @@
 ## 에이전트 설치
 
 1. Sparkles 아이콘에서 **Agents**(에이전트) 패널을 여세요.
-2. **Download Agents**(에이전트 다운로드)를 선택하세요.
+2. **Agent Organizer** (에이전트 관리)를 선택하세요.
 3. **Storyboard**를 열고 **Install**(설치)을 선택하세요.
 4. Roleplay 채팅이나 Game 채팅을 열고 **Chat Settings > Agents**(채팅 설정 > 에이전트)로 이동하세요.
 5. **Enable Agents**(에이전트 활성화)를 켠 다음, Storyboard 카드에서 **Enable Storyboards**(스토리보드 활성화)를 켜세요.
@@ -317,7 +317,7 @@ Storyboard는 이제 다운로드해서 쓰는 에이전트지만, 기존 Game �
 
 ### Chat Settings에 Storyboard가 보이지 않을 때
 
-- **Agents > Download Agents**에서 **Storyboard**를 설치하세요.
+- **Agents > Agent Organizer (에이전트 관리)**에서 **Storyboard**를 설치하세요.
 - Roleplay 채팅이나 Game 채팅에서 쓰세요. Conversation은 지원하지 않습니다.
 - 패키지 버전이 설치된 엔진 버전과 호환되는지 확인하세요.
 

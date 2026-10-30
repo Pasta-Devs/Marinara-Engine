@@ -99,8 +99,7 @@ compartilhado oficial.
 
 ## Início rápido
 
-1. Abra a página **Agents** (Agentes), clique em **Download Agents** (baixar
-   agentes) e instale o **World Maps**.
+1. Abra a página **Agents** (Agentes), clique em **Agent Organizer** (organizador de agentes) e instale o **World Maps**.
 2. Reinicie Marinara quando o aviso aparecer. O pacote contém código de servidor.
 3. Abra um chat de Roleplay ou Game.
 4. Abra o globo dedicado do **World Maps**, quando o Engine oferecer esse botão,
@@ -124,7 +123,7 @@ for ativada e salva.
 ## Instalar e ativar o pacote
 
 Abra a página **Agents** pela aba Sparkles na barra lateral direita. Clique em
-**Download Agents**, selecione **World Maps** e clique em **Install**. Se
+**Agent Organizer (organizador de agentes)**, selecione **World Maps** e clique em **Install**. Se
 o catálogo depois oferecer **Update**, instale essa atualização também. Siga o
 aviso de reinício antes de usar o pacote.
 

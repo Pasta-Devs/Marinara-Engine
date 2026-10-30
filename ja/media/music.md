@@ -4,7 +4,7 @@
 
 ## Music DJとは
 
-**Music DJ**は、あとからダウンロードして追加するエージェントです。エージェントとは、チャットの裏側で自動的に動く助っ人のことです。設定を始める前に、**Agents**(エージェント)を開いて**Download Agents**(エージェントのダウンロード)を選び、**Music DJ**をインストールします。返信が届くたびに、Music DJがシーンの雰囲気を読み取り、それに合った背景音楽を流します。
+**Music DJ**は、あとからダウンロードして追加するエージェントです。エージェントとは、チャットの裏側で自動的に動く助っ人のことです。設定を始める前に、**Agents**(エージェント)を開いて**Agent Organizer** (エージェント管理)を選び、**Music DJ**をインストールします。返信が届くたびに、Music DJがシーンの雰囲気を読み取り、それに合った背景音楽を流します。
 
 **Music DJ**は3つのソースから音楽を再生できます。
 
@@ -106,7 +106,7 @@ Game Assetsの外にあるフォルダーから再生するには、サーバー
 
 **Music Player**は、デスクトップでは上部バーの小さなバッジとして、モバイルではドラッグできる浮動ウィジェットとして表示されます。設定で表示と非表示を切り替えられます。
 
-**Settings**(設定)を開き、**General**(全般)タブの**App Behavior**(アプリの動作)セクションを探します。**Music Player**のトグルをオンまたはオフにします。説明文は「Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.」です。このトグルは常に使えて、デフォルトではオンです。Music DJをインストールしていない状態でオンにすると、デスクトップでもモバイルでもプレイヤーの表示が**Download Music DJ Agent to configure**に変わり、**Download Agents**ボタンが表示されます。
+**Settings**(設定)を開き、**General**(全般)タブの**App Behavior**(アプリの動作)セクションを探します。**Music Player**のトグルをオンまたはオフにします。説明文は「Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.」です。このトグルは常に使えて、デフォルトではオンです。Music DJをインストールしていない状態でオンにすると、デスクトップでもモバイルでもプレイヤーの表示が**Download Music DJ Agent to configure**に変わり、**Agent Organizer (エージェント管理)**ボタンが表示されます。
 
 新しいプロファイルでは、表示されるソースは最初**YouTube**になっています。ソースは次の3つの方法で変更できます。
 

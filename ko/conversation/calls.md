@@ -4,7 +4,7 @@
 
 통화는 Conversation 모드에만 있습니다. Roleplay와 Game 채팅에는 통화 화면이 없습니다.
 
-Calls는 선택 설치하는 에이전트 패키지입니다. 아래 설정을 따라가기 전에 **Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 **Calls**를 설치하고, 카탈로그가 요청하면 Marinara를 재시작하세요.
+Calls는 선택 설치하는 에이전트 패키지입니다. 아래 설정을 따라가기 전에 **Agents → Agent Organizer (에이전트 관리)**에서 **Calls**를 설치하고, 카탈로그가 요청하면 Marinara를 재시작하세요.
 
 ## 통화란
 
@@ -93,7 +93,7 @@ Local Whisper가 내 언어나 억양을 잘 알아듣지 못한다면, 녹음�
 
 Marinara와 같은 컴퓨터에 있는 서버는 그대로 동작합니다. 집 네트워크의 다른 컴퓨터에 있는 서버는 서버 `.env` 파일에 `STT_LOCAL_URLS_ENABLED=true`를 설정하지 않으면 거부됩니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
 
-이 기능을 지원하는 Calls 버전이 필요합니다. 스위치를 켠 뒤에도 통화가 계속 Local Whisper를 쓴다면 **Agents → Download Agents**에서 Calls를 업데이트하세요.
+이 기능을 지원하는 Calls 버전이 필요합니다. 스위치를 켠 뒤에도 통화가 계속 Local Whisper를 쓴다면 **Agents → Agent Organizer (에이전트 관리)**에서 Calls를 업데이트하세요.
 
 ## 채팅에서 통화 켜기
 

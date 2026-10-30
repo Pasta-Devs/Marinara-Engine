@@ -1,6 +1,6 @@
 # Référence des agents téléchargeables
 
-Ce guide présente les packages officiels proposés par Marinara dans **Agents → Download Agents** (télécharger des agents), classés par catégorie. Une installation neuve de Marinara Engine ne contient aucun agent. Les sources des packages, les manifestes, les artefacts et le catalogue lisible par une machine sont publiés dans [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Pour chaque agent, tu trouves ici ce qu'il fait, à quel moment il s'exécute ou comment il s'intègre, les modes de chat qui l'acceptent et ses principaux réglages. Pour l'installation et l'activation, commence par lire la [Agents : des aides IA pour tes chats](agents-overview.md). Les entrées marquées **staging only** (staging uniquement) sont accessibles avec Engine sur staging ; elles apparaissent dans le canal stable après la publication du package dans ce canal.
+Ce guide présente les packages officiels proposés par Marinara dans **Agents → Agent Organizer (organisateur d’agents)** , classés par catégorie. Une installation neuve de Marinara Engine ne contient aucun agent. Les sources des packages, les manifestes, les artefacts et le catalogue lisible par une machine sont publiés dans [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Pour chaque agent, tu trouves ici ce qu'il fait, à quel moment il s'exécute ou comment il s'intègre, les modes de chat qui l'acceptent et ses principaux réglages. Pour l'installation et l'activation, commence par lire la [Agents : des aides IA pour tes chats](agents-overview.md). Les entrées marquées **staging only** (staging uniquement) sont accessibles avec Engine sur staging ; elles apparaissent dans le canal stable après la publication du package dans ce canal.
 
 ## Comment lire cette référence
 
@@ -28,7 +28,7 @@ Ajoute le fil public local facultatif de Noodle. Il s'ouvre dans un onglet Home 
 
 - **Intégration** : pack de fonctionnalités ; il apporte l'onglet Home, les routes locales, les flux de génération et de médias, ainsi que les planificateurs en arrière-plan.
 - **Modes compatibles** : Home, avec du contexte facultatif provenant des chats Conversation, Roleplay et Game.
-- **Réglages principaux** : installe-le depuis **Agents → Download Agents**, puis redémarre Marinara Engine lorsque cela t'est demandé. Dans Noodle, tu peux configurer les comptes invités, les connexions de texte et d'image, les actualisations du fil, les utilisateurs aléatoires et le transfert de contexte vers les chats.
+- **Réglages principaux** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, puis redémarre Marinara Engine lorsque cela t'est demandé. Dans Noodle, tu peux configurer les comptes invités, les connexions de texte et d'image, les actualisations du fil, les utilisateurs aléatoires et le transfert de contexte vers les chats.
 - **Cycle de vie des données** : la désinstallation retire l'onglet Home et arrête les routes et planificateurs du paquet après redémarrage, en conservant les données Noodle existantes pour une réinstallation ultérieure.
 - **Guide complet** : [Noodle : le fil social intégré](../noodle/overview.md).
 
@@ -38,7 +38,7 @@ Une application sociale privée pour tes personnages. Transforme tes personnages
 
 - **Intégration** : App ; elle s'ouvre dans son propre onglet **Slurp**, dans **Home**.
 - **Où ça marche** : Home.
-- **Réglages clés** : installe-la depuis **Agents → Download Agents**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Slurp**. Pour que les personnages d'un chat se souviennent de leurs posts et messages Slurp récents, active **Include Slurp activity** (inclure l'activité Slurp) dans les **Chat Settings** de ce chat, sous **Connected Chats** (chats connectés). Le transfert de contexte doit aussi être activé pour ce mode de chat dans les réglages de Slurp. **Slurp Settings → Autopurge** (réglages de Slurp → purge automatique) supprime les anciens médias Slurp pour libérer de la place ; il est désactivé par défaut.
+- **Réglages clés** : installe-la depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Slurp**. Pour que les personnages d'un chat se souviennent de leurs posts et messages Slurp récents, active **Include Slurp activity** (inclure l'activité Slurp) dans les **Chat Settings** de ce chat, sous **Connected Chats** (chats connectés). Le transfert de contexte doit aussi être activé pour ce mode de chat dans les réglages de Slurp. **Slurp Settings → Autopurge** (réglages de Slurp → purge automatique) supprime les anciens médias Slurp pour libérer de la place ; il est désactivé par défaut.
 - **Anciens noms** : les anciens catalogues l'affichent sous le nom **Slurp Remastered**, à côté du package retiré **Slurp Legacy**. Slurp Legacy ne reçoit plus de mises à jour.
 - **Guide complet** : [guide du package Slurp](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md).
 
@@ -48,7 +48,7 @@ Un jeu gacha complet. Décris un monde et Gacha Forge construit le reste : des b
 
 - **Intégration** : App ; il s'ouvre dans son propre onglet **Gacha Forge**, dans **Home**.
 - **Où ça marche** : Home.
-- **Réglages clés** : installe-le depuis **Agents → Download Agents**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Gacha Forge**. La désinstallation retire l'onglet après un redémarrage.
+- **Réglages clés** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Gacha Forge**. La désinstallation retire l'onglet après un redémarrage.
 - **Guide complet** : [guide du package Gacha Forge](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md).
 
 ### Modern Life Sim
@@ -58,7 +58,7 @@ Une simulation de vie. Tu vis dans une petite ville au rythme de l'horloge, avec
 - **Intégration** : App ; elle s'ouvre dans son propre onglet **Life Sim**, dans **Home**.
 - **Où ça marche** : Home.
 - **Disponibilité** : **Staging only**, avec Engine **2.4.4+** (< 4.0.0). C'est une version alpha. Si une mise à jour modifie un élément dont dépend une ancienne sauvegarde, Life Sim te prévient à l'ouverture de cette sauvegarde, et tu peux commencer une nouvelle vie ou continuer à tes risques et périls.
-- **Réglages clés** : installe-la depuis **Agents → Download Agents**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Life Sim**. Elle a besoin d'une connexion de texte. Une connexion d'images est facultative : sans elle, les lieux affichent des cartes illustrées au lieu d'arrière-plans générés. Des options facultatives appelées modules restent désactivées tant que tu ne les actives pas pour une vie ; le module **Adult** (adulte) te demande de confirmer que tu es majeur.
+- **Réglages clés** : installe-la depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine lorsque cela t'est demandé, puis ouvre **Home → Life Sim**. Elle a besoin d'une connexion de texte. Une connexion d'images est facultative : sans elle, les lieux affichent des cartes illustrées au lieu d'arrière-plans générés. Des options facultatives appelées modules restent désactivées tant que tu ne les actives pas pour une vie ; le module **Adult** (adulte) te demande de confirmer que tu es majeur.
 - **Guide complet** : [guide du package Modern Life Sim](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md).
 
 ### Story Writer
@@ -67,8 +67,8 @@ Un livre que tu écris avec le modèle. Prépare l'histoire, les personnages et 
 
 - **Intégration** : App ; s'ouvre dans son propre onglet **Story Writer** de **Home**.
 - **Où il fonctionne** : Home.
-- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciennes versions du moteur ne le proposent pas dans **Download Agents**.
-- **Réglages principaux** : installe-le depuis **Agents → Download Agents**, redémarre Marinara Engine quand il te le demande, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans la barre latérale. Chaque histoire est enregistrée sur ton serveur Marinara Engine. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
+- **Disponibilité** : nécessite une version de Marinara Engine plus récente que **v2.5.1** (la prochaine version ou une version staging actuelle). Les anciennes versions du moteur ne le proposent pas dans **Agent Organizer (organisateur d’agents)**.
+- **Réglages principaux** : installe-le depuis **Agents → Agent Organizer (organisateur d’agents)**, redémarre Marinara Engine quand il te le demande, puis ouvre **Home → Story Writer** et choisis une connexion de texte dans la barre latérale. Chaque histoire est enregistrée sur ton serveur Marinara Engine. Tu peux en commencer de nouvelles, reprendre les anciennes et les télécharger en Markdown ou en texte brut.
 - **Guide complet** : [Guide du paquet Story Writer](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
 ## Writer Agents
@@ -216,7 +216,7 @@ Gère l'inventaire de la persona active, les emplacements d'équipement, les qua
 - **Phase** : Post-Processing, avec le contexte de l'inventaire transmis aux réponses suivantes.
 - **Modes compatibles** : Roleplay ; suit la persona active, pas les membres du groupe ni les PNJ.
 - **Disponibilité** : nécessite Engine **2.4.6+**.
-- **Installation et activation** : installe **Quartermaster** depuis **Agents → Download Agents** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents** (réglages du chat → agents), ajoute Quartermaster dans **Tracker Agents** (agents de suivi) et choisis sa connexion au modèle. Ouvre le panneau flottant avec le bouton au-dessus du Tracker Panel.
+- **Installation et activation** : installe **Quartermaster** depuis **Agents → Agent Organizer (organisateur d’agents)** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents** (réglages du chat → agents), ajoute Quartermaster dans **Tracker Agents** (agents de suivi) et choisis sa connexion au modèle. Ouvre le panneau flottant avec le bouton au-dessus du Tracker Panel.
 - **Principaux contrôles** : équiper et ranger des objets, enregistrer des tenues, restaurer l'inventaire ou annuler les derniers changements du suivi, et exporter/importer la configuration du chat. La génération d'images utilise une connexion d'images configurée séparément. La macro d'apparence et le remplacement de l'avatar de la persona sont facultatifs ; consulte le [guide du package Quartermaster](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md) avant de les activer.
 
 ### Relationship Tracker
@@ -226,7 +226,7 @@ Maintient un réseau de relations modifiable pour les cartes de personnage d'un 
 - **Phase** : Post-Processing, avec le contexte des relations transmis aux réponses suivantes.
 - **Modes compatibles** : chats Roleplay de groupe.
 - **Disponibilité** : nécessite Engine **2.4.4+** (< 4.0.0).
-- **Installation et activation** : installe **Relationship Tracker** depuis **Agents → Download Agents** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents**, ajoute-le dans **Tracker Agents** et choisis sa connexion au modèle. Le réseau apparaît dans le Tracker Panel. Sélectionne une fois **All relationships** (toutes les relations) ou **Scene-only relationships** (relations de la scène uniquement) pour initialiser le chat avant de modifier ou d'actualiser les relations.
+- **Installation et activation** : installe **Relationship Tracker** depuis **Agents → Agent Organizer (organisateur d’agents)** et redémarre quand l'application le demande. Dans chaque chat Roleplay, active les agents dans **Chat Settings → Agents**, ajoute-le dans **Tracker Agents** et choisis sa connexion au modèle. Le réseau apparaît dans le Tracker Panel. Sélectionne une fois **All relationships** (toutes les relations) ou **Scene-only relationships** (relations de la scène uniquement) pour initialiser le chat avant de modifier ou d'actualiser les relations.
 - **Principaux contrôles** : **All relationships** ou **Scene-only relationships** pour le contexte du prompt, **Update from History** (actualiser depuis l'historique) pour analyser un nombre limité de messages récents, ainsi que la modification manuelle, le verrouillage et **Resume automatic updates** (reprendre les mises à jour automatiques). **Context Size** (taille du contexte ; 5 messages par défaut), **Presence lookback** (historique de présence ; 15 par défaut) et le nombre de messages à analyser dans l'historique sont des réglages distincts. Survole une ligne ou place le focus du clavier dessus pour la lire ; sur écran tactile ou avec un stylet, appuie dessus. Consulte le [guide du package Relationship Tracker](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md).
 
 ### Memory Nag
@@ -344,7 +344,7 @@ Affiche tes personnages et tes personas sous forme d'avatars 2D animés qui clig
 
 - **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : dans **Download Agents** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
+- **Disponibilité** : dans **Agent Organizer (organisateur d’agents)** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
 - **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**. L'agent fournit aussi les prompts qui servent à créer les images de clignement et de parole, ainsi qu'un avatar mesh, à partir d'un de tes sprites.
 - **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).
@@ -355,7 +355,7 @@ Affiche tes personnages et tes personas sous forme de modèles 3D animés qui cl
 
 - **Intégration** : package d'agent ; le moteur l'exécute et dessine les avatars. Il n'envoie aucune requête supplémentaire à tes connexions d'IA pendant que tu discutes.
 - **Où ça marche** : Roleplay et Game, pour les personnages et les personas.
-- **Disponibilité** : dans **Download Agents** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
+- **Disponibilité** : dans **Agent Organizer (organisateur d’agents)** pour toutes les installations. Nécessite Marinara Engine 2.5.1 ou une version ultérieure.
 - **Réglages clés** : configure chaque avatar sur la page de l'agent, dans **Agents**.
 - **Compatibilité** : moteur `2.5.0` jusqu'à, mais sans inclure, `4.0.0`, avec la Capability API 1.73. Le package utilise les permissions `agent-runtime`, `chat-read`, `storage` et `ui`, et ne demande aucun redémarrage.
 - **Guide complet** : [Avatars 2D et 3D](avatars.md).

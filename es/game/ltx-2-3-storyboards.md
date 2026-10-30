@@ -24,7 +24,7 @@ Necesitas:
 2. El flujo de trabajo editable `ltx-director-simple`, o un grafo equivalente de imagen a video de LTX 2.3 que se complete correctamente dentro de ComfyUI.
 3. Su exportación en formato API `ltx-director-simple-api` para la conexión de Marinara.
 4. Una conexión de generación de imágenes de Marinara para las ilustraciones de primer fotograma.
-5. El agente **Storyboard** instalado desde **Agents > Download Agents** (Agentes > Descargar agentes) y activado para el Game en **Chat Settings > Agents**.
+5. El agente **Storyboard** instalado desde **Agents > Agent Organizer (Organizador de agentes)** (Agentes > Descargar agentes) y activado para el Game en **Chat Settings > Agents**.
 
 El flujo de trabajo editable de ComfyUI y su exportación en formato API son archivos distintos. Abre `ltx-director-simple` en ComfyUI, instala cada nodo personalizado que falte según ComfyUI Manager y prueba el grafo ahí. Importa `ltx-director-simple-api` en la conexión de Marinara. Después de cada cambio de nodo o modelo, vuelve a exportar el grafo en formato API y reemplaza el JSON guardado en la conexión. No pegues el flujo de trabajo normal del editor visual en Marinara.
 

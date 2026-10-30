@@ -6,11 +6,11 @@ Live2Dのモデルには対応していません。Live2Dのライセンスで�
 
 ## エージェントのダウンロード
 
-どのインストールでも、両方のエージェントを**Download Agents**(エージェントのダウンロード)の**Roleplay**(ロールプレイ)と**Game**(ゲーム)のフィルターから入手できます。Marinara Engine 2.5.1以降が必要です。
+どのインストールでも、両方のエージェントを**Agent Organizer** (エージェント管理)の**Roleplay**(ロールプレイ)と**Game**(ゲーム)のフィルターから入手できます。Marinara Engine 2.5.1以降が必要です。
 
 **2D Avatars**と**3D Avatars**は別々のダウンロードなので、必要なほうだけをインストールできます。どちらも、RoleplayとGameのチャットでキャラクターとペルソナに使えます。
 
-1. **Agents → Download Agents**を開き、**2D Avatars**か**3D Avatars**、または両方をインストールします。どちらも再起動は不要です。
+1. **Agents → Agent Organizer (エージェント管理)**を開き、**2D Avatars**か**3D Avatars**、または両方をインストールします。どちらも再起動は不要です。
 2. **Agents**(エージェント)にあるそのエージェントのページで、アバターを1つずつ設定します。[アバターの設定](#setting-up-an-avatar)を参照してください。
 3. RoleplayまたはGameのチャットで**Chat Settings → Agents → Misc Agents**(チャット設定 → エージェント → その他のエージェント)を開き、エージェントを追加します。
 

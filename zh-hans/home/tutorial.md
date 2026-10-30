@@ -20,7 +20,7 @@
 4. **Lorebooks** 高亮 **Lorebooks**(世界书) 面板按钮，里面存放额外的世界设定和角色细节。
 5. **Presets** 高亮 **Presets**(预设) 面板按钮，它决定提示词怎么拼装。提示词就是 Marinara Engine 发给 AI 的那段文字。
 6. **Connections** 高亮 **Connections** 面板按钮。卡片上写明，开始聊天前第一件要设置的就是连接。
-7. **Agents** 高亮 **Agents**(智能体) 面板按钮，智能体能在聊天之上再加一层帮手。卡片会指引你到 **Download Agents**(下载智能体) 安装它们。
+7. **Agents** 高亮 **Agents**(智能体) 面板按钮，智能体能在聊天之上再加一层帮手。卡片会指引你到 **Agent Organizer** (智能体管理器) 安装它们。
 8. **Settings** 高亮 **Settings** 面板按钮，并打开 **Settings** 的 **General** 选项卡。
 9. **Chats** 高亮侧边栏开关，并打开聊天侧边栏，聊天都放在那里。
 10. **Conversation Mode** 高亮聊天侧边栏里的 Conversation(对话模式) 选项卡。选项卡本身显示为 **CONVO**。

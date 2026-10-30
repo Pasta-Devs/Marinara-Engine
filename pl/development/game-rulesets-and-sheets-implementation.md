@@ -884,7 +884,7 @@ Bez lorebooka zasad w v1. Blok instrukcji i karty wystarczają zdolnym modelom, 
 
 | Ścieżka | Jak | Zastosowanie |
 | --- | --- | --- |
-| Oficjalny katalog | PR pakietu do Marinara-Agents; instalacja jednym kliknięciem z **Download Agents** | Popularne systemy z jasną licencją |
+| Oficjalny katalog | PR pakietu do Marinara-Agents; instalacja jednym kliknięciem z **Agent Organizer (organizowanie agentów)** | Popularne systemy z jasną licencją |
 | Własne repozytorium | Istniejąca ścieżka własnych repozytoriów agentów czyta też `rulesets/*.json`. Użytkownik raz dodaje URL GitHub autora, sprawdza podgląd i tak samo otrzymuje aktualizacje | Autor z kilkoma systemami; repozytorium zgłaszającego już ma taką strukturę |
 | Pojedynczy plik | **Import ruleset** przyjmuje jeden `ruleset.json` | Lokalne iteracje lub przekazanie pliku znajomemu |
 

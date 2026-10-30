@@ -8,7 +8,7 @@ Les selfies sont une fonctionnalité du mode Conversation. Un personnage peut en
 
 Les selfies reposent sur la génération d'images. Chaque selfie qu'un personnage envoie consomme une requête de génération d'images auprès de la connexion que tu choisis. C'est pourquoi les selfies restent désactivés tant que tu ne les as pas réglés.
 
-Les selfies proviennent du paquet optionnel **Illustrator**. Installe Illustrator depuis **Agents → Download Agents** avant de passer aux réglages.
+Les selfies proviennent du paquet optionnel **Illustrator**. Installe Illustrator depuis **Agents → Agent Organizer (organisateur d’agents)** avant de passer aux réglages.
 
 ## Activer les selfies
 

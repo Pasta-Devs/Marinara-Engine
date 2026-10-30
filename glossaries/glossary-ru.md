@@ -327,7 +327,7 @@ More in-pack examples:
 | Label | Gloss | Where |
 |---|---|---|
 | `**Agents**` | (агенты) | `agents/agents-overview.md:3` |
-| `**Download Agents**` | (скачать агентов) | `agents/agents-overview.md:25` |
+| `**Agent Organizer**` | (организатор агентов) | `agents/agents-overview.md:25` |
 | `**Review Agent Outputs**` | (проверять результаты агентов) | `agents/agents-overview.md:49` |
 | `**Debug mode**` | (режим отладки) | `agents/agents-overview.md:76` |
 | `**Release Channel**` | (канал выпусков) | `UPGRADING.md:128` |
@@ -729,3 +729,8 @@ Precedent from the #7763 mirror (`media/tts-setup.md`) against `staging` `5ae55e
 - **Enable emotion indicators** is glossed (включить пометки эмоций).
 
 These are documented translation choices from this sync, not an independent native-reader review.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

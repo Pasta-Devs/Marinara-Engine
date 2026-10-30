@@ -156,7 +156,7 @@ docs deliberately do *not* mirror it (see §8, tooling traps).
      occurrences across 7 files.
    - `→` **inside a single bold span**, the usual form for multi-level
      Settings paths: `**Settings → Advanced → Danger Zone**`
-     (`TROUBLESHOOTING.md:386`), `**Agents → Download Agents**`
+     (`TROUBLESHOOTING.md:386`), `**Agents → Agent Organizer**`
      (`CONFIGURATION.md:20`), `**Chat Settings → Agents → Tracker Agents**`
      (`agents/built-in-agents.md:123`) — **66** occurrences across 21 files.
 
@@ -815,3 +815,8 @@ Precedents from the release catch-up against Engine `staging` `dcae41337`:
   „Medienformatierungsanfragen in Warteschlange einreihen“ mistranslates
   *generation*; do not copy it into the docs. The UI string is left for a separate
   correction.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

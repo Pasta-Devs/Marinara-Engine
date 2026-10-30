@@ -1,6 +1,6 @@
 # 可下载智能体参考
 
-本指南按分类列出通过 **Agents → Download Agents**(智能体 → 下载智能体) 可以获取的官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。 标记为 **staging only**(仅 staging) 的条目供 Engine staging 用户使用；包发布到稳定渠道后，稳定版用户也会看到这些条目。
+本指南按分类列出通过 **Agents → Agent Organizer(智能体管理器)** 可以获取的官方第一方包。全新安装的 Marinara Engine 并不自带智能体。这些包的源码、清单、构建产物和机器可读目录都发布在 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)。下面每个条目都会说明这个智能体做什么、什么时候运行或以什么方式集成、哪些聊天模式可以用它，以及主要设置。安装和启用的步骤请先看[智能体](agents-overview.md)。 标记为 **staging only**(仅 staging) 的条目供 Engine staging 用户使用；包发布到稳定渠道后，稳定版用户也会看到这些条目。
 
 ## 如何阅读本参考
 
@@ -30,7 +30,7 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 
 - **集成方式**：功能包；提供 Home 标签页、本地路由、生成与媒体流程以及后台调度器。
 - **适用位置**：Home，可选择带入 Conversation、Roleplay 和 Game 聊天中的上下文。
-- **主要设置**：从 **Agents → Download Agents** 安装，并在提示时重启 Marinara Engine。在 Noodle 中可配置受邀账号、文本与图像连接、时间线刷新、随机用户和聊天内容延续。
+- **主要设置**：从 **Agents → Agent Organizer(智能体管理器)** 安装，并在提示时重启 Marinara Engine。在 Noodle 中可配置受邀账号、文本与图像连接、时间线刷新、随机用户和聊天内容延续。
 - **数据生命周期**：卸载会移除 Home 标签页，并在重启后停止包路由和调度器，同时保留现有 Noodle 数据供将来重装。
 - **完整指南**：[Noodle：应用内社交时间线](../noodle/overview.md)。
 
@@ -40,7 +40,7 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 
 - **集成方式**：应用；在 **Home** 中自己的 **Slurp** 标签页里打开。
 - **适用范围**：Home。
-- **主要设置**：从 **Agents → Download Agents** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Slurp**。想让某个聊天里的角色记住自己最近的 Slurp 帖子和私信，就在该聊天的 **Chat Settings** 中，到 **Connected Chats**(关联聊天) 下开启 **Include Slurp activity**(包含 Slurp 动态)。同时还要在 Slurp 的设置里为该聊天模式开启内容延续。**Slurp Settings → Autopurge** 会删除旧的 Slurp 媒体以节省空间，默认关闭。
+- **主要设置**：从 **Agents → Agent Organizer(智能体管理器)** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Slurp**。想让某个聊天里的角色记住自己最近的 Slurp 帖子和私信，就在该聊天的 **Chat Settings** 中，到 **Connected Chats**(关联聊天) 下开启 **Include Slurp activity**(包含 Slurp 动态)。同时还要在 Slurp 的设置里为该聊天模式开启内容延续。**Slurp Settings → Autopurge** 会删除旧的 Slurp 媒体以节省空间，默认关闭。
 - **旧名称**：旧版目录里它叫 **Slurp Remastered**，旁边是已停用的 **Slurp Legacy** 包。Slurp Legacy 不再更新。
 - **完整指南**：[Slurp 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/slurp2/README.md)。
 
@@ -50,7 +50,7 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 
 - **集成方式**：应用；在 **Home** 中自己的 **Gacha Forge** 标签页里打开。
 - **适用范围**：Home。
-- **主要设置**：从 **Agents → Download Agents** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Gacha Forge**。卸载后，该标签页会在重启后移除。
+- **主要设置**：从 **Agents → Agent Organizer(智能体管理器)** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Gacha Forge**。卸载后，该标签页会在重启后移除。
 - **完整指南**：[Gacha Forge 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/gacha-forge/README.md)。
 
 ### Modern Life Sim
@@ -60,7 +60,7 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 - **集成方式**：应用；在 **Home** 中自己的 **Life Sim** 标签页里打开。
 - **适用范围**：Home。
 - **可用渠道**：**Staging only**(仅 staging)，需要 Engine **2.4.4+** (< 4.0.0)。目前是 alpha 版。如果某次更新改动了旧存档依赖的内容，打开那个存档时 Life Sim 会提示你，你可以开始新的人生，也可以自担风险继续游玩。
-- **主要设置**：从 **Agents → Download Agents** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Life Sim**。它需要一个文本连接。图像连接是可选的：没有的话，地点会显示插画卡片，而不是生成的背景。名为“模块”的可选扩展默认关闭，只有你为某段人生开启时才会启用；**Adult** 模块会要求你确认自己已经成年。
+- **主要设置**：从 **Agents → Agent Organizer(智能体管理器)** 安装，在提示时重启 Marinara Engine，然后打开 **Home → Life Sim**。它需要一个文本连接。图像连接是可选的：没有的话，地点会显示插画卡片，而不是生成的背景。名为“模块”的可选扩展默认关闭，只有你为某段人生开启时才会启用；**Adult** 模块会要求你确认自己已经成年。
 - **完整指南**：[Modern Life Sim 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/modern-life-sim/README.md)。
 
 ### Story Writer
@@ -69,8 +69,8 @@ Marinara 在 **Agents** 面板里把智能体分成 **Apps**(应用类)、**Writ
 
 - **集成方式**：App；在 **Home** 的独立 **Story Writer** 标签页中打开。
 - **适用位置**：Home。
-- **可用条件**：需要比 **v2.5.1** 更新的 Marinara Engine（下一个正式版本或当前 staging 构建）。旧版 Engine 不会在 **Download Agents** 中提供此安装包。
-- **主要设置**：从 **Agents → Download Agents** 安装，按提示重启 Marinara Engine，再打开 **Home → Story Writer**，从侧栏选择文本连接。每个故事都保存在你的 Marinara Engine 服务器上。可以开始新故事、返回旧故事，也可以下载为 Markdown 或纯文本。
+- **可用条件**：需要比 **v2.5.1** 更新的 Marinara Engine（下一个正式版本或当前 staging 构建）。旧版 Engine 不会在 **Agent Organizer(智能体管理器)** 中提供此安装包。
+- **主要设置**：从 **Agents → Agent Organizer(智能体管理器)** 安装，按提示重启 Marinara Engine，再打开 **Home → Story Writer**，从侧栏选择文本连接。每个故事都保存在你的 Marinara Engine 服务器上。可以开始新故事、返回旧故事，也可以下载为 Markdown 或纯文本。
 - **完整指南**：[Story Writer 安装包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md)。
 
 ## 写作类智能体
@@ -218,7 +218,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Post-Processing，并为后续回复提供物品栏上下文。
 - **适用模式**：Roleplay；跟踪当前人设，不跟踪队友或 NPC。
 - **可用渠道**：需要 Engine **2.4.6+**。
-- **安装与启用**：从 **Agents → Download Agents** 安装 **Quartermaster**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents**(聊天设置 → 智能体) 启用智能体，再将 Quartermaster 添加到 **Tracker Agents**(跟踪智能体)，并选择模型连接。使用 Tracker Panel 上方的启动按钮打开浮动面板。
+- **安装与启用**：从 **Agents → Agent Organizer(智能体管理器)** 安装 **Quartermaster**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents**(聊天设置 → 智能体) 启用智能体，再将 Quartermaster 添加到 **Tracker Agents**(跟踪智能体)，并选择模型连接。使用 Tracker Panel 上方的启动按钮打开浮动面板。
 - **主要操作**：装备和存放物品、保存服装搭配、恢复物品栏或撤销最近的跟踪器更改，以及导出/导入聊天配置。图片生成使用单独配置的图片连接。外观宏和替换人设头像是可选功能；启用前先查看 [Quartermaster 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/quartermaster/README.md)。
 
 ### Relationship Tracker
@@ -228,7 +228,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 - **阶段**：Post-Processing，并为后续回复提供关系上下文。
 - **适用模式**：Roleplay 群聊。
 - **可用渠道**：需要 Engine **2.4.4+** (< 4.0.0)。
-- **安装与启用**：从 **Agents → Download Agents** 安装 **Relationship Tracker**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents** 启用智能体，再将它添加到 **Tracker Agents**，并选择模型连接。关系网显示在 Tracker Panel 中。编辑或更新关系前，先在那里选择一次 **All relationships**(所有关系) 或 **Scene-only relationships**(仅场景内关系)，完成聊天初始化。
+- **安装与启用**：从 **Agents → Agent Organizer(智能体管理器)** 安装 **Relationship Tracker**，按提示重启。在每个 Roleplay 聊天中，先在 **Chat Settings → Agents** 启用智能体，再将它添加到 **Tracker Agents**，并选择模型连接。关系网显示在 Tracker Panel 中。编辑或更新关系前，先在那里选择一次 **All relationships**(所有关系) 或 **Scene-only relationships**(仅场景内关系)，完成聊天初始化。
 - **主要操作**：用 **All relationships** 或 **Scene-only relationships** 选择提示词上下文，用 **Update from History**(从历史更新) 扫描指定数量的最近消息，也可手动编辑、锁定或使用 **Resume automatic updates**(恢复自动更新)。**Context Size**(上下文大小，默认 5 条消息)、**Presence lookback**(出场回溯范围，默认 15 条) 和历史扫描的消息数量是不同的设置。将指针悬停在线上或用键盘聚焦，即可读取内容；触屏或触控笔用户可按下该连线。参阅 [Relationship Tracker 包指南](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/relationship-tracker/README.md)。
 
 ### Memory Nag
@@ -346,7 +346,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **集成方式**：智能体包；由 Engine 运行它并绘制虚拟形象。聊天时它不会向你的 AI 连接发送额外请求。
 - **适用范围**：Roleplay 和 Game，适用于角色和用户角色。
-- **可用渠道**： 所有安装都能在 **Download Agents** 中找到。需要 Marinara Engine 2.5.1 或更新版本。
+- **可用渠道**： 所有安装都能在 **Agent Organizer(智能体管理器)** 中找到。需要 Marinara Engine 2.5.1 或更新版本。
 - **主要设置**：在 **Agents** 里该智能体的页面上设置每个虚拟形象。这个智能体还带有提示词，用来根据你的某张立绘生成眨眼和说话图片以及网格虚拟形象。
 - **兼容性**：Engine `2.5.0` 起，`4.0.0` 之前，需要 Capability API 1.73。这个包使用 `agent-runtime`、`chat-read`、`storage` 和 `ui` 权限，不需要重启。
 - **完整指南**：[2D 和 3D 虚拟形象](avatars.md)。
@@ -357,7 +357,7 @@ Knowledge Retrieval 的省钱替代方案。它不做摘要，而是读取世界
 
 - **集成方式**：智能体包；由 Engine 运行它并绘制虚拟形象。聊天时它不会向你的 AI 连接发送额外请求。
 - **适用范围**：Roleplay 和 Game，适用于角色和用户角色。
-- **可用渠道**： 所有安装都能在 **Download Agents** 中找到。需要 Marinara Engine 2.5.1 或更新版本。
+- **可用渠道**： 所有安装都能在 **Agent Organizer(智能体管理器)** 中找到。需要 Marinara Engine 2.5.1 或更新版本。
 - **主要设置**：在 **Agents** 里该智能体的页面上设置每个虚拟形象。
 - **兼容性**：Engine `2.5.0` 起，`4.0.0` 之前，需要 Capability API 1.73。这个包使用 `agent-runtime`、`chat-read`、`storage` 和 `ui` 权限，不需要重启。
 - **完整指南**：[2D 和 3D 虚拟形象](avatars.md)。

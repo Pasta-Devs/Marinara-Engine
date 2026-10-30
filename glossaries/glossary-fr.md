@@ -256,7 +256,7 @@ convention, and that is intentional.
 | 5.4 | **Exception: a gloss that is itself a proper UI area keeps its capital**: `**Settings** (Paramètres)`. | [pack] | `FAQ.md:119` |
 | 5.5 | **Gloss once per file, on first use**; later occurrences of the same label in that file are bare. The scope is the *file*, not the pack — `**Update**` is glossed independently in `CONFIGURATION.md:24` and `FAQ.md:115`. | [pack] + PR #4191 | as cited |
 | 5.6 | **Navigation paths are glossed as a whole path**, separator included: `**Settings → Advanced → Danger Zone** (Paramètres → Avancé → Zone de danger)`. | [pack] | `CONFIGURATION.md:31` |
-| 5.7 | **The path separator is copied from the English source, not normalised.** Both occur — 47 spaced ` → ` and 73 spaced ` > ` separators inside or between bold spans; match whichever the source line uses. Two shapes are both attested: the whole path in one bold span (`**Agents > Download Agents**`) and one bold span per segment (`**Settings** > **Advanced** > **Danger Zone**`); copy the source's shape too. | [pack] | `CONFIGURATION.md:20` (`**Agents → Download Agents**`) vs `FAQ.md:175` (`**Agents > Download Agents**`); split form at `extending/personal-extensions.md:180` |
+| 5.7 | **The path separator is copied from the English source, not normalised.** Both occur — 47 spaced ` → ` and 73 spaced ` > ` separators inside or between bold spans; match whichever the source line uses. Two shapes are both attested: the whole path in one bold span (`**Agents > Agent Organizer**`) and one bold span per segment (`**Settings** > **Advanced** > **Danger Zone**`); copy the source's shape too. | [pack] | `CONFIGURATION.md:20` (`**Agents → Agent Organizer**`) vs `FAQ.md:175` (`**Agents > Agent Organizer**`); split form at `extending/personal-extensions.md:180` |
 | 5.8 | **Status strings and error banners are bold English with no parenthetical gloss** — the surrounding French sentence carries the meaning. This is a different class from navigation labels. | [pack] | `TROUBLESHOOTING.md:132` **A generation is already in progress for this chat**; `:164` **Embedding unavailable**; `:330` **Server unreachable**, **Unreachable (request timed out)** |
 | 5.9 | **Quoted app strings (tooltips, transient states) go in straight double quotes, un-glossed**, in-line in the French sentence. | [pack] | `TROUBLESHOOTING.md:129` `(l'infobulle indique "This parameter is sent to the model")`; `:330` `"Opening chat..."` |
 | 5.10 | **Option values inside a control keep their English name and take a French explanation after a colon**, not a parenthetical gloss. | [pack] | `UPGRADING.md:130` "- **Latest Stable** : suit les versions taguées `vX.Y.Z`." |
@@ -480,3 +480,8 @@ Precedent from the #7763 sync (`media/tts-setup.md`):
 
 - **Roleplay speaker extractor** is glossed *(identification des locuteurs en Roleplay)*.
 - **Enable emotion indicators** is glossed *(activer les indications d'émotion)*.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

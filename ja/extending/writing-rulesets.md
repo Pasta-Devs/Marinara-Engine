@@ -3528,7 +3528,7 @@ your-repository/
 
 制限は2つです。リポジトリの`rulesets`直下に置けるJSONファイルは最大32個で、超えるリポジトリは拒否されます。`local/`はファイルからインポートするルールセット用に予約しているため、`local`というアカウント名ではルールセットを公開できません。
 
-**公式カタログで。** 広く遊ばれ、ライセンスが明確なシステムは、**Download Agents**(エージェントをダウンロード)を通じて全員へ提供できます。[Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)リポジトリへのプルリクエストで行います。構成はそこの`ruleset-5e-2014`パッケージを参考にしてください。
+**公式カタログで。** 広く遊ばれ、ライセンスが明確なシステムは、**Agent Organizer (エージェント管理)**(エージェントをダウンロード)を通じて全員へ提供できます。[Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents)リポジトリへのプルリクエストで行います。構成はそこの`ruleset-5e-2014`パッケージを参考にしてください。
 
 ## ライセンス
 

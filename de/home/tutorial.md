@@ -20,7 +20,7 @@ Die Tour hat 18 Schritte. Hier stehen sie der Reihe nach, mit dem genauen Titel 
 4. **Lorebooks** Hebt die Panel-Schaltfläche **Lorebooks** hervor. Lorebooks sind Sammlungen von Weltwissen und enthalten zusätzliche Details zur Welt und zu den Charakteren.
 5. **Presets** Hebt die Panel-Schaltfläche **Presets** hervor. Presets sind gespeicherte Prompt-Vorlagen und steuern, wie der Prompt aufgebaut wird – also der Text, den Marinara an die KI schickt.
 6. **Connections** Hebt die Panel-Schaltfläche **Connections** hervor. Laut Karte ist eine Verbindung das Erste, was vor dem Chatten eingerichtet werden muss.
-7. **Agents** Hebt die Panel-Schaltfläche **Agents** (Agenten) hervor. Agenten kommen als zusätzliche Unterstützung zu deinen Chats dazu. Die Karte verweist dich auf **Download Agents** (Agenten herunterladen), um sie zu installieren.
+7. **Agents** Hebt die Panel-Schaltfläche **Agents** (Agenten) hervor. Agenten kommen als zusätzliche Unterstützung zu deinen Chats dazu. Die Karte verweist dich auf **Agent Organizer** (Agentenverwaltung), um sie zu installieren.
 8. **Settings** Hebt die Panel-Schaltfläche **Settings** hervor und öffnet **Settings** auf dem Tab **General**.
 9. **Chats** Hebt den Schalter für die Seitenleiste hervor und öffnet die Chat-Seitenleiste mit deinen Chats.
 10. **Conversation Mode** Hebt den Conversation-Tab in der Chat-Seitenleiste hervor. Der Tab selbst heißt **CONVO**.

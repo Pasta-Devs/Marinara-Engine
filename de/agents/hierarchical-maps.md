@@ -60,7 +60,7 @@ Kopieren ist kein Verknüpfen. **Use template**, **Add to chat** und **Independe
 
 ## Schnellstart
 
-1. Öffne **Agents** (Agenten), klick auf **Download Agents** (Agenten herunterladen) und installiere **World Maps**.
+1. Öffne **Agents** (Agenten), klick auf **Agent Organizer** (Agentenverwaltung) und installiere **World Maps**.
 2. Starte Marinara neu, wenn du dazu aufgefordert wirst. Das Paket enthält Servercode.
 3. Öffne einen Roleplay- oder Game-Chat.
 4. Öffne das eigene Globus-Symbol für **World Maps**, falls deine Engine es anbietet, oder geh über **Agents → World Maps**, und aktiviere Maps für den aktuellen Chat. Möglich ist das auch im Abschnitt **Chat Settings → Agents** dieses Chats.
@@ -73,7 +73,7 @@ Wendest du eine Vorlage, einen KI-Entwurf oder eine importierte Datei an, änder
 
 ## Das Paket installieren und aktivieren
 
-Öffne **Agents** über den Tab mit den Funkeln in der rechten Seitenleiste. Klick auf **Download Agents**, wähl **World Maps** und klick auf **Install** (Installieren). Bietet der Katalog danach ein **Update** an, installiere das ebenfalls. Folge der Aufforderung zum Neustart, bevor du das Paket nutzt.
+Öffne **Agents** über den Tab mit den Funkeln in der rechten Seitenleiste. Klick auf **Agent Organizer (Agentenverwaltung)**, wähl **World Maps** und klick auf **Install** (Installieren). Bietet der Katalog danach ein **Update** an, installiere das ebenfalls. Folge der Aufforderung zum Neustart, bevor du das Paket nutzt.
 
 Die Seite von World Maps nennt die installierte Paketversion und den Bereitschaftsstatus, öffnet die kontoweite Weltkarten-Bibliothek, benennt den gerade angesteuerten Chat und zeigt dessen Kartenstatus. Installiert ist das Paket damit verfügbar – aktiv ist es deshalb noch nicht in jedem Chat.
 

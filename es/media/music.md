@@ -4,7 +4,7 @@ Esta guía explica cómo reproducir música de fondo en Marinara Engine con **Mu
 
 ## Qué es Music DJ
 
-**Music DJ** es un agente descargable opcional. Un agente es un ayudante que se ejecuta de forma automática en segundo plano dentro de un chat. Abre **Agents** (Agentes), elige **Download Agents** (Descargar agentes) e instala **Music DJ** antes de configurarlo. Después de cada respuesta, Music DJ puede leer el ambiente de la escena y reproducir música de fondo acorde.
+**Music DJ** es un agente descargable opcional. Un agente es un ayudante que se ejecuta de forma automática en segundo plano dentro de un chat. Abre **Agents** (Agentes), elige **Agent Organizer** (Organizador de agentes) e instala **Music DJ** antes de configurarlo. Después de cada respuesta, Music DJ puede leer el ambiente de la escena y reproducir música de fondo acorde.
 
 **Music DJ** puede reproducir música desde tres fuentes:
 
@@ -106,7 +106,7 @@ Reproducir desde una carpeta fuera de Game Assets requiere acceso local en el se
 
 El **Music Player** aparece como una pequeña etiqueta en la barra superior en escritorio, o como un widget flotante arrastrable en móvil. Puedes ocultarlo o mostrarlo con un ajuste.
 
-Abre **Settings** (Configuración), ve a la pestaña **General** y busca la sección **App Behavior**. Activa o desactiva **Music Player**. El texto de ayuda dice "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Este interruptor siempre está disponible y está activado de forma predeterminada. Si está activado sin Music DJ instalado, el reproductor de escritorio o móvil muestra en su lugar **Download Music DJ Agent to configure** y ofrece un botón **Download Agents**.
+Abre **Settings** (Configuración), ve a la pestaña **General** y busca la sección **App Behavior**. Activa o desactiva **Music Player**. El texto de ayuda dice "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Este interruptor siempre está disponible y está activado de forma predeterminada. Si está activado sin Music DJ instalado, el reproductor de escritorio o móvil muestra en su lugar **Download Music DJ Agent to configure** y ofrece un botón **Agent Organizer (Organizador de agentes)**.
 
 En un perfil nuevo la fuente visible empieza como **YouTube**. Puedes cambiar la fuente de tres maneras:
 

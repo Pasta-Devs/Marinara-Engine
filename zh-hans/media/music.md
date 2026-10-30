@@ -4,7 +4,7 @@
 
 ## Music DJ 是什么
 
-**Music DJ** 是一个可选的下载型智能体。智能体是在聊天后台自动运行的小帮手。设置之前，先打开 **Agents**(智能体)，选择 **Download Agents**(下载智能体)，把 **Music DJ** 装上。装好之后，它会在每条回复结束时读出场景的情绪，播放相配的背景音乐。
+**Music DJ** 是一个可选的下载型智能体。智能体是在聊天后台自动运行的小帮手。设置之前，先打开 **Agents**(智能体)，选择 **Agent Organizer** (智能体管理器)，把 **Music DJ** 装上。装好之后，它会在每条回复结束时读出场景的情绪，播放相配的背景音乐。
 
 **Music DJ** 可以从三种来源播放音乐：
 
@@ -106,7 +106,7 @@ Roleplay 和 Game 聊天的设置里显示的是同一个已选来源。如果�
 
 **Music Player** 在电脑上是顶栏里的一个小胶囊，在手机上是可以拖动的浮动小组件。它可以通过设置隐藏或显示。
 
-打开 **Settings**(设置)，切到 **General**(常规) 选项卡，找到 **App Behavior**(应用行为) 一节，开启或关闭 **Music Player**。说明文字是“Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.”这个开关始终可用，默认开启。如果开着却没装 Music DJ，电脑和手机上的播放器位置会显示 **Download Music DJ Agent to configure**，并给出一个 **Download Agents** 按钮。
+打开 **Settings**(设置)，切到 **General**(常规) 选项卡，找到 **App Behavior**(应用行为) 一节，开启或关闭 **Music Player**。说明文字是“Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings.”这个开关始终可用，默认开启。如果开着却没装 Music DJ，电脑和手机上的播放器位置会显示 **Download Music DJ Agent to configure**，并给出一个 **Agent Organizer(智能体管理器)** 按钮。
 
 全新的配置里，默认显示的来源是 **YouTube**。换来源有三种方式：
 

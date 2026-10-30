@@ -127,7 +127,7 @@ AI 생성에서 알아 둘 점이 두 가지 있습니다.
 
 ### Roleplay Mode
 
-**Roleplay Mode**에서는 선택 사항인 **Expression Engine**(표정 엔진) 에이전트가 스프라이트 표시를 담당합니다. **Agents → Download Agents**에서 다운로드한 다음 채팅에 추가하세요. 이 에이전트는 메시지마다 분위기를 읽고 어울리는 표정 스프라이트를 고릅니다. 자세한 내용은 [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 확인하세요.
+**Roleplay Mode**에서는 선택 사항인 **Expression Engine**(표정 엔진) 에이전트가 스프라이트 표시를 담당합니다. **Agents → Agent Organizer (에이전트 관리)**에서 다운로드한 다음 채팅에 추가하세요. 이 에이전트는 메시지마다 분위기를 읽고 어울리는 표정 스프라이트를 고릅니다. 자세한 내용은 [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 확인하세요.
 
 Roleplay 채팅에서 스프라이트가 나타나려면 다음 조건이 모두 충족되어야 합니다.
 

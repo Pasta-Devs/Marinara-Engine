@@ -146,7 +146,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ## 다운로드 에이전트 문제
 
-**Agents → Download Agents**(에이전트 → 에이전트 다운로드)에서 카탈로그를 사용할 수 없다고 나오면, 브라우저뿐 아니라 Marinara 서버가 돌아가는 컴퓨터도 GitHub HTTPS로 공식 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 카탈로그에 접근할 수 있어야 합니다. 이미 설치한 에이전트는 오프라인에서도 현재 버전 그대로 동작합니다. 서버의 연결을 되살린 다음 **Refresh**(새로고침)나 **Try again**(재시도)을 클릭하면 카탈로그를 둘러보고 업데이트를 확인할 수 있습니다.
+**Agents → Agent Organizer (에이전트 관리)**에서 카탈로그를 사용할 수 없다고 나오면, 브라우저뿐 아니라 Marinara 서버가 돌아가는 컴퓨터도 GitHub HTTPS로 공식 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 카탈로그에 접근할 수 있어야 합니다. 이미 설치한 에이전트는 오프라인에서도 현재 버전 그대로 동작합니다. 서버의 연결을 되살린 다음 **Refresh**(새로고침)나 **Try again**(재시도)을 클릭하면 카탈로그를 둘러보고 업데이트를 확인할 수 있습니다.
 
 설치한 지도나 통화 기능이 보이지 않으면 Marinara Engine을 완전히 종료했다가 다시 실행하세요. 경로를 추가하는 이런 패키지는 다음 프로세스 시작 전까지 **Restart required** 상태로 남습니다. Conversation 게임은 다릅니다. 현재 Engine 빌드는 설치 즉시 활성화합니다. 설치가 실패했다면 카탈로그를 새로고침한 뒤 게임이 준비 상태로 표시되는지 확인하세요. 채팅의 **Commands**(명령어) 설정에 게임을 추가하는 것은 캐릭터가 스스로 게임을 시작하게 하고 싶을 때만 필요하며, 슬래시 명령어로 직접 실행할 때는 필요하지 않습니다.
 
@@ -156,7 +156,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 패키지의 체크섬, 선언된 파일 목록, Engine 버전 범위, 아카이브 경로가 공식 카탈로그와 다르면 다운로드를 거부합니다. 먼저 Marinara Engine을 업데이트하고 카탈로그를 새로고침한 뒤 다시 시도하세요. 데이터 폴더에 아티팩트를 직접 풀어 넣지 마세요.
 
-에이전트 업데이트는 시작할 때 자동으로 적용되지 않습니다. 호환되는 최신 버전이 있으면 Marinara가 적용할지 묻습니다. **No**를 선택하면 설치된 버전이 그대로 유지되고, **Update** 버튼은 **Agents → Download Agents**에 계속 남아 있습니다. 업데이트가 실패해도 설치된 버전은 등록된 상태로 남고, 새로 업데이트한 서버 런타임이 시작 시 자체 점검에 실패하면 이전 버전으로 되돌아갑니다.
+에이전트 업데이트는 시작할 때 자동으로 적용되지 않습니다. 호환되는 최신 버전이 있으면 Marinara가 적용할지 묻습니다. **No**를 선택하면 설치된 버전이 그대로 유지되고, **Update** 버튼은 **Agents → Agent Organizer (에이전트 관리)**에 계속 남아 있습니다. 업데이트가 실패해도 설치된 버전은 등록된 상태로 남고, 새로 업데이트한 서버 런타임이 시작 시 자체 점검에 실패하면 이전 버전으로 되돌아갑니다.
 
 ## 다른 기기에서 Marinara에 접근하기
 
@@ -288,7 +288,7 @@ pnpm backgroundremover:install
 
 Game Mode Storyboards는 완성된 GM 서술을 키프레임 이미지와 선택 사항인 클립으로 만들어 줍니다. Roleplay Storyboards는 주고받은 메시지를 묶어 어시스턴트 응답 뒤에 결과를 바로 보여 줍니다.
 
-- **Agents** > **Download Agents**에서 **Storyboard**를 설치했는지 확인한 다음, 해당 채팅에서 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켜세요.
+- **Agents** > **Agent Organizer (에이전트 관리)**에서 **Storyboard**를 설치했는지 확인한 다음, 해당 채팅에서 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켜세요.
 - 장면 동영상을 직접 만들려면 **Chat Settings**(채팅 설정) > **Gallery**(갤러리)를 열고 이미지를 생성하거나 업로드한 다음 그 이미지의 **Video**(비디오) 또는 **Animate** 동작을 쓰세요. **Gallery**는 **Images**(이미지)와 **Videos**(동영상)를 탭으로 나누므로 **Videos** 탭을 확인하세요.
 - Game Mode Storyboards를 자동으로 쓰려면 **Chat Settings** > **Agents**(에이전트) > **Storyboards**(스토리보드)를 열고 **Automatic Storyboard Illustrations**(자동 스토리보드 일러스트)가 켜져 있는지 확인하세요. 클립까지 원한다면 **Automatic Storyboard Animations**(자동 스토리보드 애니메이션)도 켜세요.
 - Roleplay에서는 채팅에 **Storyboard** 에이전트를 추가하세요. **Still images**(정지 이미지)나 **Animations**(애니메이션)를 고르고 **Messages per episode**(에피소드당 메시지 수)를 설정한 다음 스토리보드용 이미지 연결을 선택하세요. **Manual only**로 두면 **Chat Settings**의 **Gallery** 섹션에 있는 **Create storyboard**(스토리보드 만들기)에서 직접 실행합니다.
@@ -311,7 +311,7 @@ Game Mode Storyboards는 완성된 GM 서술을 키프레임 이미지와 선택
 
 - 통화 중에 캐릭터가 말하지 않으면 Text to Speech가 설정되지 않은 것입니다. **Connections** > **Text to Speech**(음성 합성)를 열어 켜고, 소스를 고르고, 키를 입력하고, 목소리를 고른 다음 저장하세요. 목소리가 없는 캐릭터는 텍스트로만 나옵니다.
 - 음성이 **No audio after 60 s**와 함께 멈춘다면 음성 서버가 Marinara가 기다리는 시간보다 느린 것입니다. 노트북에서 돌리는 로컬 서버는 흔히 그렇습니다. **Connections** > **Text to Speech**에서, 또는 메시지에 나온 오디오 연결에서 **Request timeout (seconds)**(요청 타임아웃, 초 단위)를 늘리세요. [요청 타임아웃](media/tts-setup.md#request-timeout)을 참고하세요.
-- 마이크가 동작하지 않으면 로컬 음성 모델이 필요할 수 있습니다. **Agents > Download Agents**에서 **Calls**를 설치한 다음 **Connections** > **Local Model**을 열고 카드를 펼쳐 **Local Speech Model**(로컬 음성 모델)을 찾아 Whisper 모델을 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. 특히 Firefox는 브라우저 음성 인식 기능이 없어서 이 과정이 필요합니다. Calls를 제거하면 디스크 공간 확보를 위해 Whisper 모델도 함께 삭제됩니다. **Connections**의 **Speech to Text**(음성 인식) 카드에서 직접 운영하는 음성 인식 서버를 쓸 수도 있습니다. [원하는 음성 인식 서버 사용하기](conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
+- 마이크가 동작하지 않으면 로컬 음성 모델이 필요할 수 있습니다. **Agents > Agent Organizer (에이전트 관리)**에서 **Calls**를 설치한 다음 **Connections** > **Local Model**을 열고 카드를 펼쳐 **Local Speech Model**(로컬 음성 모델)을 찾아 Whisper 모델을 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. 특히 Firefox는 브라우저 음성 인식 기능이 없어서 이 과정이 필요합니다. Calls를 제거하면 디스크 공간 확보를 위해 Whisper 모델도 함께 삭제됩니다. **Connections**의 **Speech to Text**(음성 인식) 카드에서 직접 운영하는 음성 인식 서버를 쓸 수도 있습니다. [원하는 음성 인식 서버 사용하기](conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
 - Lite 빌드에서 **Local Whisper is disabled in Lite mode** 메시지가 나오면, 그 경량 빌드로는 로컬 음성 모델을 돌릴 수 없다는 뜻입니다. 대신 일반 Marinara 설치본을 쓰세요.
 
 ### 원격이나 네트워크 설치 환경에서 Music DJ의 Spotify 로그인이 실패할 때

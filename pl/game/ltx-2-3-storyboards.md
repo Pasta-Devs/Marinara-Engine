@@ -24,7 +24,7 @@ Potrzebne są:
 2. Edytowalny workflow `ltx-director-simple` albo równoważny graf LTX 2.3 obraz-do-wideo, który poprawnie kończy pracę w ComfyUI.
 3. Eksport tego samego grafu w formacie API, czyli `ltx-director-simple-api`, przeznaczony dla połączenia w aplikacji Marinara Engine.
 4. Połączenie generowania obrazów w aplikacji Marinara Engine, które tworzy ilustracje pierwszej klatki.
-5. Agent **Storyboard** zainstalowany z **Agents > Download Agents** i włączony w grze w panelu **Chat Settings > Agents** (ustawienia czatu).
+5. Agent **Storyboard** zainstalowany z **Agents > Agent Organizer (organizowanie agentów)** i włączony w grze w panelu **Chat Settings > Agents** (ustawienia czatu).
 
 Edytowalny workflow ComfyUI i jego eksport API to dwa różne pliki. Otwórz `ltx-director-simple` w ComfyUI, zainstaluj każdy brakujący węzeł zgłoszony przez ComfyUI Manager i przetestuj graf na miejscu. Do połączenia w aplikacji Marinara Engine zaimportuj `ltx-director-simple-api`. Po każdej zmianie węzła lub modelu wyeksportuj graf ponownie w formacie API i podmień plik JSON zapisany w połączeniu. Nie wklejaj do aplikacji Marinara Engine zwykłego workflow z edytora wizualnego.
 

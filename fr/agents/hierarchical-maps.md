@@ -87,7 +87,7 @@ dans la bibliothèque rattachent le chat au monde partagé canonique.
 
 ## Démarrage rapide
 
-1. Ouvre la page **Agents**, clique sur **Download Agents** (télécharger des agents) et installe **World Maps**.
+1. Ouvre la page **Agents**, clique sur **Agent Organizer** (organisateur d’agents) et installe **World Maps**.
 2. Redémarre Marinara quand l'application te le demande. Le package contient du code serveur.
 3. Ouvre un chat Roleplay ou Game.
 4. Ouvre le globe **World Maps** dédié si ta version de Marinara Engine le
@@ -113,7 +113,7 @@ hiérarchie n'est pas activée et enregistrée.
 ## Installer et activer le package
 
 Ouvre **Agents** depuis l'onglet **Sparkles** de la barre latérale de droite.
-Clique sur **Download Agents**, sélectionne **World Maps** et clique sur
+Clique sur **Agent Organizer (organisateur d’agents)**, sélectionne **World Maps** et clique sur
 **Install** (installer). Si le catalogue propose ensuite **Update** (mettre à
 jour), installe cette mise à jour aussi. Effectue le redémarrage demandé avant
 d'utiliser le package.

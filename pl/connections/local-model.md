@@ -163,7 +163,7 @@ Wybór modelu do czatu uruchamia lokalny serwer na żądanie, nawet gdy oba prze
 
 **Local Speech Model** to opcjonalny plik do pobrania dla agenta Calls, odpowiadający za transkrypcję z mikrofonu bez internetu. Napędza rozmowy w trybie Conversation, kiedy głos ma być zamieniany na tekst na twoim komputerze. To model Whisper, czyli model zamieniający wypowiadane słowa na tekst.
 
-Najpierw zainstaluj **Calls** z sekcji **Agents > Download Agents**. Potem możesz zarządzać modelem Whisper z karty **Local Model** w panelu Connections, pod nagłówkiem **Local Speech Model**. Ten nagłówek i przyciski pobierania pozostają ukryte, dopóki Calls nie jest zainstalowany.
+Najpierw zainstaluj **Calls** z sekcji **Agents > Agent Organizer (organizowanie agentów)**. Potem możesz zarządzać modelem Whisper z karty **Local Model** w panelu Connections, pod nagłówkiem **Local Speech Model**. Ten nagłówek i przyciski pobierania pozostają ukryte, dopóki Calls nie jest zainstalowany.
 
 Do wyboru są dwie opcje:
 

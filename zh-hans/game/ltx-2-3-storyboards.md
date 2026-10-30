@@ -24,7 +24,7 @@ GM narration
 2. 可编辑的 `ltx-director-simple` 工作流，或者任何一张能在 ComfyUI 里完整跑通的等价 LTX 2.3 图生视频流程图。
 3. 它的 API 格式导出文件 `ltx-director-simple-api`，用于 Marinara 连接。
 4. 一个用来出首帧插图的 Marinara 图像生成连接。
-5. **Storyboard** 智能体，从 **Agents > Download Agents** 安装，并在 **Chat Settings > Agents** 里为这局游戏启用。
+5. **Storyboard** 智能体，从 **Agents > Agent Organizer(智能体管理器)** 安装，并在 **Chat Settings > Agents** 里为这局游戏启用。
 
 可编辑的 ComfyUI 工作流和它的 API 导出是两个不同的文件。先在 ComfyUI 里打开 `ltx-director-simple`，把 ComfyUI Manager 报出来的缺失自定义节点全部装上，并在 ComfyUI 里测通这张图。然后把 `ltx-director-simple-api` 导入 Marinara 连接。之后每改一次节点或模型，都要重新按 API 格式导出，并替换连接里保存的 JSON。不要把普通的可视化编辑器工作流粘贴进 Marinara。
 

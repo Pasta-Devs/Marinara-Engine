@@ -8,7 +8,7 @@ Selfie to funkcja trybu Conversation. Postać może wysłać wygenerowane zdjęc
 
 Selfie korzystają z generowania obrazów. Każde selfie wysłane przez postać zużywa jedno żądanie generowania obrazu w wybranym połączeniu. Dlatego selfie pozostają wyłączone, dopóki nie zostaną skonfigurowane.
 
-Selfie dostarcza opcjonalny pakiet **Illustrator**. Zainstaluj pakiet Illustrator przez **Agents → Download Agents** (pobranie agentów), zanim przejdziesz do konfiguracji.
+Selfie dostarcza opcjonalny pakiet **Illustrator**. Zainstaluj pakiet Illustrator przez **Agents → Agent Organizer (organizowanie agentów)** , zanim przejdziesz do konfiguracji.
 
 ## Włączanie selfie
 

@@ -130,11 +130,11 @@ Marinara 자체는 무료이고 사용 중인 컴퓨터에서 실행됩니다. �
 
 ## 에이전트란 무엇인가요?
 
-**에이전트**는 채팅이 진행되는 동안 한 가지 일을 맡아 처리하는 선택형 AI 기능입니다. 현재 장면 추적, 글의 품질 감시, 지도나 통화 추가, Conversation 테이블 게임 진행 등이 그 예입니다. 새로 설치한 상태에는 선택형 에이전트가 하나도 없습니다. **Agents**(에이전트) 패널을 열고 **Download Agents**(에이전트 다운로드)를 클릭한 뒤 항목 설명을 읽고 설치하세요. 그런 다음 **Chat Settings**에서 채팅마다 호환되는 에이전트를 활성화하세요. 설치한 공식 패키지에 호환되는 업데이트가 나오면 Marinara가 다운로드하기 전에 확인하며, 패키지가 릴리스 노트를 게시했다면 업데이트마다 바뀐 내용도 보여 줍니다. 점이 찍힌 버전은 게시자가 눈에 띄는 변경이라고 표시한 버전입니다. **No**를 고르면 현재 버전이 유지되고, Download Agents에 **Update**가 남아 나중에 쓸 수 있습니다. 호스트가 오프라인이거나 검증에 실패하면 설치된 버전이 그대로 동작합니다. 카탈로그에서 패키지를 통째로 제거할 수도 있습니다. [에이전트](agents/agents-overview.md)와 공개 [Marinara-Agents 저장소](https://github.com/Pasta-Devs/Marinara-Agents)를 참고하세요.
+**에이전트**는 채팅이 진행되는 동안 한 가지 일을 맡아 처리하는 선택형 AI 기능입니다. 현재 장면 추적, 글의 품질 감시, 지도나 통화 추가, Conversation 테이블 게임 진행 등이 그 예입니다. 새로 설치한 상태에는 선택형 에이전트가 하나도 없습니다. **Agents**(에이전트) 패널을 열고 **Agent Organizer** (에이전트 관리)를 클릭한 뒤 항목 설명을 읽고 설치하세요. 그런 다음 **Chat Settings**에서 채팅마다 호환되는 에이전트를 활성화하세요. 설치한 공식 패키지에 호환되는 업데이트가 나오면 Marinara가 다운로드하기 전에 확인하며, 패키지가 릴리스 노트를 게시했다면 업데이트마다 바뀐 내용도 보여 줍니다. 점이 찍힌 버전은 게시자가 눈에 띄는 변경이라고 표시한 버전입니다. **No**를 고르면 현재 버전이 유지되고, Agent Organizer (에이전트 관리)에 **Update**가 남아 나중에 쓸 수 있습니다. 호스트가 오프라인이거나 검증에 실패하면 설치된 버전이 그대로 동작합니다. 카탈로그에서 패키지를 통째로 제거할 수도 있습니다. [에이전트](agents/agents-overview.md)와 공개 [Marinara-Agents 저장소](https://github.com/Pasta-Devs/Marinara-Agents)를 참고하세요.
 
 ## Noodle은 어떻게 설정하나요?
 
-Noodle은 Marinara에 들어 있는, 캐릭터들이 쓰는 가상의 로컬 소셜 네트워크입니다. 먼저 **Agents** → **Download Agents**를 열어 **Noodle**을 설치하고, 안내가 나오면 Marinara를 다시 시작하세요. **Home**(홈) → **Noodle**을 열고 그 안의 **Settings**(설정)로 들어가세요. 캐릭터나 캐릭터 폴더를 초대하고, **Refresh**(새로고침) 아래에서 생성에 쓸 연결을 고른 다음, **Refresh now**(지금 새로고침)를 선택해 첫 활동을 생성하세요. 자동 새로고침 시각, 이미지 생성, 무작위 사용자, 채팅으로 이어 가기도 설정할 수 있습니다.
+Noodle은 Marinara에 들어 있는, 캐릭터들이 쓰는 가상의 로컬 소셜 네트워크입니다. 먼저 **Agents** → **Agent Organizer (에이전트 관리)**를 열어 **Noodle**을 설치하고, 안내가 나오면 Marinara를 다시 시작하세요. **Home**(홈) → **Noodle**을 열고 그 안의 **Settings**(설정)로 들어가세요. 캐릭터나 캐릭터 폴더를 초대하고, **Refresh**(새로고침) 아래에서 생성에 쓸 연결을 고른 다음, **Refresh now**(지금 새로고침)를 선택해 첫 활동을 생성하세요. 자동 새로고침 시각, 이미지 생성, 무작위 사용자, 채팅으로 이어 가기도 설정할 수 있습니다.
 
 전체 안내는 [Noodle: 앱 안의 소셜 타임라인](noodle/overview.md)과 [Noodle 설정과 채팅 반영](noodle/settings.md)을 참고하세요.
 
@@ -192,7 +192,7 @@ Professor Mari는 평범한 Marinara 소스 파일도 편집할 수 있습니다
 
 다운로드해서 쓰는 **Storyboard** 에이전트는 완성된 이야기 텍스트를 순서가 정해진 키프레임 이미지로 바꾸고, 키프레임마다 짧은 클립으로 움직이게 만들 수도 있습니다. **Game Mode**에서는 완료된 게임 마스터(GM) 서술 턴 하나를 스토리보드로 엮어 플로팅 뷰어나 게임 배경에 프레임을 보여 줍니다. **Roleplay**에서는 새로 오간 대화를 모아 본문 안에 에피소드로 엮습니다.
 
-Game Mode에서 쓰려면 **Agents > Download Agents**에서 **Storyboard**를 설치하세요. 게임을 열고 **Chat Settings > Agents**로 이동해 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켠 다음, 해당 게임이나 전역 Storyboard 설정에서 이미지 연결을 지정하세요. GM 서술 턴을 하나 끝낸 뒤 **Chat Settings > Gallery**(채팅 설정 > 갤러리)를 열고 **Create storyboard**(스토리보드 만들기)를 클릭하세요. 뷰어를 다시 열 때는 **View storyboard**(스토리보드 보기)를 쓰세요.
+Game Mode에서 쓰려면 **Agents > Agent Organizer (에이전트 관리)**에서 **Storyboard**를 설치하세요. 게임을 열고 **Chat Settings > Agents**로 이동해 **Enable Agents**(에이전트 활성화)와 **Enable Storyboards**(스토리보드 활성화)를 켠 다음, 해당 게임이나 전역 Storyboard 설정에서 이미지 연결을 지정하세요. GM 서술 턴을 하나 끝낸 뒤 **Chat Settings > Gallery**(채팅 설정 > 갤러리)를 열고 **Create storyboard**(스토리보드 만들기)를 클릭하세요. 뷰어를 다시 열 때는 **View storyboard**(스토리보드 보기)를 쓰세요.
 
 Game 스토리보드를 자동으로 만들려면 **Automatic Storyboard Illustrations**(자동 스토리보드 일러스트)를 켜세요. 클립까지 원한다면 **Automatic Storyboard Animations**(자동 스토리보드 애니메이션)도 켜고 Video Generation 연결을 고르세요. 새 게임 마법사의 **Storyboard Optimized**(스토리보드 최적화) 연출은 GM 서술 방식만 다듬을 뿐, 에이전트를 설치하거나 활성화하지는 않습니다. Game과 Roleplay의 설정, 프롬프트, 뷰어, 마이그레이션 동작, 문제 해결은 [스토리보드 에이전트 가이드](game/storyboard.md)를 참고하세요.
 
@@ -200,7 +200,7 @@ Game 스토리보드를 자동으로 만들려면 **Automatic Storyboard Illustr
 
 네, **Conversation** 모드에서 됩니다. 음성 통화와 영상 통화는 Conversation 전용 기능입니다. 캐릭터의 목소리를 들으려면 먼저 **Connections** 패널에서 **Text to Speech**(음성 합성)를 설정하세요.
 
-마이크로 말을 걸고 싶은데 브라우저 자체 음성 인식이 미덥지 않다면, 먼저 **Agents > Download Agents**에서 **Calls**를 설치하세요. 그다음 **Connections** 패널을 열고 **Local Model** 카드를 펼친 뒤 **Local Speech Model**(로컬 음성 모델)에서 **Whisper Tiny (Multilingual)** 또는 **Whisper Base (Multilingual)**를 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. Calls를 제거하면 함께 다운로드한 Whisper 파일도 지워져 디스크 공간을 되찾습니다. 통화 설정 전체는 [Conversation 음성 통화와 영상 통화](conversation/calls.md)를 참고하세요.
+마이크로 말을 걸고 싶은데 브라우저 자체 음성 인식이 미덥지 않다면, 먼저 **Agents > Agent Organizer (에이전트 관리)**에서 **Calls**를 설치하세요. 그다음 **Connections** 패널을 열고 **Local Model** 카드를 펼친 뒤 **Local Speech Model**(로컬 음성 모델)에서 **Whisper Tiny (Multilingual)** 또는 **Whisper Base (Multilingual)**를 고르고 **Download Whisper**(Whisper 다운로드)를 클릭하세요. Calls를 제거하면 함께 다운로드한 Whisper 파일도 지워져 디스크 공간을 되찾습니다. 통화 설정 전체는 [Conversation 음성 통화와 영상 통화](conversation/calls.md)를 참고하세요.
 
 ## Marinara로 이미지를 만들 수 있나요?
 

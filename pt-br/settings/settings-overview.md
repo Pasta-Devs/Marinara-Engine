@@ -51,7 +51,7 @@ Esta seção fica em **Settings** > **General** > **App Behavior**. Ela controla
 - **Hide chat Help button** (esconder o botão de ajuda do chat): desativado por padrão. Quando está ativo, o botão **Help** (ajuda) some dos chats de Conversation, Roleplay e Game.
 - **Show Android status bar** (mostrar a barra de status do Android): desativado por padrão, e só funciona no aplicativo Android do Marinara Engine. Quando está ativo, a hora, o nível da bateria e os ícones de notificação continuam visíveis acima do Marinara.
 - **Achievements**: ativado por padrão. Quando está ativo, a tela inicial mostra o favorito **Achievements** e os avisos de conquista desbloqueada. O widget opcional **Achievements** aparece se você o adicionou ao layout da tela inicial. Quando está desativado, o acompanhamento continua em silêncio. Veja [Conquistas](../home/achievements.md).
-- **Music Player**: ativado por padrão. Quando está ativo, o player de música compacto aparece. Ele precisa do agente **Music DJ**, de **Agents** > **Download Agents**, e o botão fica esmaecido até você instalá-lo. Veja [Música](../media/music.md).
+- **Music Player**: ativado por padrão. Quando está ativo, o player de música compacto aparece. Ele precisa do agente **Music DJ**, de **Agents** > **Agent Organizer (organizador de agentes)**, e o botão fica esmaecido até você instalá-lo. Veja [Música](../media/music.md).
 - **Search and Professor Mari settings**: selecione **Open** (abrir) para ir à página dessas configurações. Todas as configurações da busca e da Professor Mari ficam ali, nestes grupos:
 
   - **Search** (busca): oferecer melhorias para um campo e histórico de buscas.

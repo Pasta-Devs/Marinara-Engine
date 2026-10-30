@@ -146,7 +146,7 @@ O botão **Refresh App** limpa o service worker do navegador (um script em segun
 
 ## Problemas com agentes para download
 
-Se **Agents → Download Agents** avisar que o catálogo está indisponível, verifique a conexão da máquina que roda o servidor Marinara, e não apenas a do navegador: ela precisa alcançar o catálogo oficial [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) por HTTPS no GitHub. Os agentes já instalados continuam funcionando offline, na versão atual. Restabeleça a conexão do servidor e clique em **Refresh** ou **Try again** para navegar pelo catálogo e procurar atualizações.
+Se **Agents → Agent Organizer (organizador de agentes)** avisar que o catálogo está indisponível, verifique a conexão da máquina que roda o servidor Marinara, e não apenas a do navegador: ela precisa alcançar o catálogo oficial [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) por HTTPS no GitHub. Os agentes já instalados continuam funcionando offline, na versão atual. Restabeleça a conexão do servidor e clique em **Refresh** ou **Try again** para navegar pelo catálogo e procurar atualizações.
 
 Se um mapa ou uma chamada recém-instalada não aparecer, feche Marinara Engine por completo e inicie de novo. Esses pacotes trazem rotas próprias e ficam no estado **Restart required** até o próximo início do processo. Com os jogos do Conversation Mode é diferente: as versões atuais do Engine os ativam na hora. Atualize o catálogo se a instalação falhar e confirme que o jogo aparece como pronto. Adicioná-lo nas configurações de **Commands** de um chat só é necessário quando você quer que os personagens iniciem o jogo por conta própria, não para o comando de barra manual.
 
@@ -156,7 +156,7 @@ Se a pasta `data/capability-runtime-snapshots` ou `data/capability-packages/vers
 
 Marinara recusa o download de um pacote quando a soma de verificação, a lista de arquivos declarada, a faixa de versões do Engine ou os caminhos do arquivo compactado não batem com o catálogo oficial. Atualize Marinara Engine primeiro, atualize o catálogo e tente de novo. Nunca extraia um pacote manualmente dentro da pasta de dados.
 
-Atualizações de agentes nunca são aplicadas na inicialização. Quando existe uma versão mais nova e compatível, Marinara pergunta se você quer aplicá-la. Escolha **No** para ficar com a versão instalada; o botão **Update** continua disponível em **Agents → Download Agents**. Uma atualização que falha também mantém a versão instalada registrada, e um servidor recém-atualizado que não passa na autoverificação de inicialização volta para a versão anterior.
+Atualizações de agentes nunca são aplicadas na inicialização. Quando existe uma versão mais nova e compatível, Marinara pergunta se você quer aplicá-la. Escolha **No** para ficar com a versão instalada; o botão **Update** continua disponível em **Agents → Agent Organizer (organizador de agentes)**. Uma atualização que falha também mantém a versão instalada registrada, e um servidor recém-atualizado que não passa na autoverificação de inicialização volta para a versão anterior.
 
 ## Acessar o Marinara a partir de outro dispositivo
 
@@ -288,7 +288,7 @@ Depois reinicie Marinara e clique em **Reapply Cleanup** na janela de geração 
 
 Os storyboards do Game Mode transformam uma narração concluída do GM em imagens de quadro-chave e, se você quiser, em pequenos vídeos. Os storyboards do Roleplay reúnem trocas de mensagens já concluídas e mostram o resultado logo abaixo da resposta do assistente.
 
-- Confirme que o agente **Storyboard** foi instalado em **Agents** > **Download Agents** e depois ative **Enable Agents** e **Enable Storyboards** para o chat.
+- Confirme que o agente **Storyboard** foi instalado em **Agents** > **Agent Organizer (organizador de agentes)** e depois ative **Enable Agents** e **Enable Storyboards** para o chat.
 - Para um vídeo de cena manual, abra **Chat Settings > Gallery** e gere ou envie uma imagem e depois use a ação **Video** ou **Animate** dessa imagem. A **Gallery** separa **Images** e **Videos** em abas, então confira a aba **Videos**.
 - Para os storyboards automáticos do Game Mode, abra **Chat Settings** > **Agents** > **Storyboards** e confirme que a opção **Automatic Storyboard Illustrations** está ligada. Ligue também **Automatic Storyboard Animations** se quiser os vídeos.
 - No Roleplay, adicione o agente **Storyboard** ao chat. Escolha **Still images** ou **Animations**, defina o campo **Messages per episode** e selecione a conexão de imagem do Storyboard. A opção **Manual only** roda pelo botão **Create storyboard** na seção **Gallery** de **Chat Settings**.
@@ -311,7 +311,7 @@ Se o início de um jogo falha porque o modelo devolveu um JSON quebrado, Marinar
 
 - Se os personagens não falam durante uma chamada, o Text to Speech (conversão de texto em voz) não está configurado. Abra **Connections** > **Text to Speech**, ative o recurso, escolha uma fonte, informe a chave, escolha uma voz e salve. Um personagem sem voz aparece só em texto.
 - Se a fala para com **No audio after 60 s** (nenhum áudio após 60 s), o seu servidor de voz é mais lento do que o tempo que Marinara espera. Um servidor local em um notebook costuma ser. Aumente **Request timeout (seconds)** (tempo limite da requisição, em segundos) em **Connections** > **Text to Speech** ou na conexão de áudio que a mensagem indicar. Veja [Tempo limite da requisição](media/tts-setup.md#request-timeout).
-- Se o microfone não funciona, talvez você precise do modelo de fala local. Instale **Calls** em **Agents > Download Agents**, depois abra **Connections** > **Local Model**, expanda o card, encontre **Local Speech Model**, escolha um modelo Whisper e clique em **Download Whisper**. O Firefox, em especial, precisa disso, porque não tem reconhecimento de fala no navegador. Desinstalar o Calls exclui os modelos Whisper dele para liberar espaço em disco. Você também pode usar o seu próprio servidor de conversão de fala em texto pelo card **Speech to Text** em **Connections**; veja [Use seu próprio servidor de conversão de fala em texto](conversation/calls.md#use-your-own-speech-to-text-server).
+- Se o microfone não funciona, talvez você precise do modelo de fala local. Instale **Calls** em **Agents > Agent Organizer (organizador de agentes)**, depois abra **Connections** > **Local Model**, expanda o card, encontre **Local Speech Model**, escolha um modelo Whisper e clique em **Download Whisper**. O Firefox, em especial, precisa disso, porque não tem reconhecimento de fala no navegador. Desinstalar o Calls exclui os modelos Whisper dele para liberar espaço em disco. Você também pode usar o seu próprio servidor de conversão de fala em texto pelo card **Speech to Text** em **Connections**; veja [Use seu próprio servidor de conversão de fala em texto](conversation/calls.md#use-your-own-speech-to-text-server).
 - Em uma versão Lite, a mensagem **Local Whisper is disabled in Lite mode** indica que essa versão reduzida não roda o modelo de fala local. Prefira uma instalação completa do Marinara.
 
 ### O login do Spotify no Music DJ falha em uma instalação remota ou de rede

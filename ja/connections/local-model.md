@@ -164,7 +164,7 @@ Game Modeでは、シーンの処理をLocal Modelに任せることもできま
 
 **Local Speech Model**は、オフラインでマイクの音声を文字起こしするための、Calls用の追加ダウンロードです。Conversationの通話で、自分の声を手元のコンピューターで文字起こしすると決めたときに動きます。中身はWhisperモデル、つまり話した言葉をテキストに変換する音声認識モデルです。
 
-まず**Agents > Download Agents**から**Calls**をインストールします。その後、Connectionsの**Local Model**カードにある**Local Speech Model**の見出しからWhisperを管理できます。Callsが入っていない間は、この見出しとダウンロードの操作は表示しません。
+まず**Agents > Agent Organizer (エージェント管理)**から**Calls**をインストールします。その後、Connectionsの**Local Model**カードにある**Local Speech Model**の見出しからWhisperを管理できます。Callsが入っていない間は、この見出しとダウンロードの操作は表示しません。
 
 選択肢は2つです。
 

@@ -17,11 +17,11 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 
 其余绝大部分内容，比如 AI 服务商密钥、角色和聊天选项，都在应用里设置，不在这里。要添加 AI 服务商，见[连接 AI 服务商](connections/connecting-to-a-provider.md)。
 
-可选的官方智能体同样在应用里管理。打开 **Agents → Download Agents**(下载智能体) 即可安装或卸载。Marinara 会自动挑选 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录中与当前 Engine 大版本对应的分支。
+可选的官方智能体同样在应用里管理。打开 **Agents → Agent Organizer(智能体管理器)** 即可安装或卸载。Marinara 会自动挑选 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录中与当前 Engine 大版本对应的分支。
 
 包的生命周期与存放位置：
 
-- **更新：** Marinara 会检查已安装的官方包有没有兼容的新版本，每次下载前都会先确认。选择 **No** 就保留当前版本，之后仍可在 Download Agents 里手动执行 **Update**。全新安装在挑选包之前一直是空的。
+- **更新：** Marinara 会检查已安装的官方包有没有兼容的新版本，每次下载前都会先确认。选择 **No** 就保留当前版本，之后仍可在 Agent Organizer(智能体管理器) 里手动执行 **Update**。全新安装在挑选包之前一直是空的。
 - **平台：** 桌面端、Docker 和 Termux 托管的 Android 安装行为完全一致。iOS 和其他浏览器客户端使用各自 Marinara 宿主服务器上已安装的包。
 - **持久化：** 包存放在 `DATA_DIR/capability-packages` 下。Docker 卷、自定义数据文件夹、备份和常规更新都会保留它们。
 - **磁盘占用：** Marinara 会为每个包保留当前版本和上一个版本，这样更新失败时还能回滚。更旧的版本和 `DATA_DIR/capability-runtime-snapshots` 里的临时副本会自动删除。包数据永远不会被删除。
@@ -33,11 +33,11 @@ Marinara Engine 开箱即用，不配置也能跑。只有少数几件事才需�
 
 外部智能体文件、文件夹和自定义仓库默认是锁住的。要放开，打开 **Settings → Advanced → Danger Zone**(设置 → 高级 → 危险区域) 并启用 **Allow custom Agent imports**(允许导入自定义智能体)。和 External Extensions 不同，这道由你自己控制的开关不需要配环境变量。开关打开之前，导入控件一直是灰的。
 
-每次导入都会先展示该智能体请求的权限，然后才存下来。权限必须逐项明确批准；打包的函数和工具选择不会一并导入；生成的 CSS 会经过净化；执行结果的动作也会和已批准的权限集合逐一核对。把开关关掉，外部导入的智能体就不再运行。在 Marinara 里自己创建的智能体，以及通过 **Download Agents** 安装的官方包，不受这道开关影响，照常可用。
+每次导入都会先展示该智能体请求的权限，然后才存下来。权限必须逐项明确批准；打包的函数和工具选择不会一并导入；生成的 CSS 会经过净化；执行结果的动作也会和已批准的权限集合逐一核对。把开关关掉，外部导入的智能体就不再运行。在 Marinara 里自己创建的智能体，以及通过 **Agent Organizer(智能体管理器)** 安装的官方包，不受这道开关影响，照常可用。
 
 ### 自定义智能体仓库
 
-自定义仓库默认禁用，因为里面的提示词和工具选择属于未经审核的第三方内容。设置 `ENABLE_CUSTOM_AGENT_REPOS=true`，在 Danger Zone 里启用 **Allow custom Agent imports**，然后打开 **Agents → Download Agents → Custom Sources**(自定义来源) 预览一个公开的 GitHub 仓库。添加来源，以及之后应用任何内容变更，都需要明确确认。同步是手动的，Marinara 不会克隆仓库，也不会在后台轮询。
+自定义仓库默认禁用，因为里面的提示词和工具选择属于未经审核的第三方内容。设置 `ENABLE_CUSTOM_AGENT_REPOS=true`，在 Danger Zone 里启用 **Allow custom Agent imports**，然后打开 **Agents → Agent Organizer(智能体管理器) → Custom Sources**(自定义来源) 预览一个公开的 GitHub 仓库。添加来源，以及之后应用任何内容变更，都需要明确确认。同步是手动的，Marinara 不会克隆仓库，也不会在后台轮询。
 
 仓库可以发布智能体、Game Mode 规则集，或两者都发布，但至少要有其中一种。
 

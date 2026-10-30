@@ -258,7 +258,7 @@ Zum Exportieren klickst du im Editor oben in der Leiste auf die Schaltfläche **
 
 Für mehrere Agenten auf einmal nutzt du **Select agents** (Agenten auswählen) im Panel **Agents**, markierst die gewünschten Agenten und exportierst die Gruppe.
 
-Der Import externer Agenten ist standardmäßig gesperrt. Öffne zuerst **Settings → Advanced → Danger Zone** und aktiviere **Allow custom Agent imports** (Import eigener Agenten erlauben). Für diesen Schalter ist keine Änderung an der `.env` nötig. Er betrifft nur Agenten aus Dateien, Ordnern oder eigenen Repositories: Agenten, die du in Marinara anlegst, und offizielle Agenten aus **Download Agents** bleiben ganz normal verfügbar.
+Der Import externer Agenten ist standardmäßig gesperrt. Öffne zuerst **Settings → Advanced → Danger Zone** und aktiviere **Allow custom Agent imports** (Import eigener Agenten erlauben). Für diesen Schalter ist keine Änderung an der `.env` nötig. Er betrifft nur Agenten aus Dateien, Ordnern oder eigenen Repositories: Agenten, die du in Marinara anlegst, und offizielle Agenten aus **Agent Organizer (Agentenverwaltung)** bleiben ganz normal verfügbar.
 
 Zum Importieren öffnest du das Panel **Agents** und klickst auf **Import agents** (Agenten importieren) für eine einzelne Datei oder auf **Import agent folder** (Agent-Ordner importieren) für einen ganzen Ordner. Marinara zeigt eine Berechtigungsprüfung, bevor irgendetwas gespeichert wird. Bestätige nur die Fähigkeiten, die der Agent wirklich braucht; nicht angehakte Fähigkeiten bleiben gesperrt. Jeder Datei-Import bekommt eine neue eigene Identität und kann deshalb keinen kuratierten Agenten mit demselben internen Typ ersetzen.
 

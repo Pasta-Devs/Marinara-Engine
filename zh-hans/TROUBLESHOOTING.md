@@ -146,7 +146,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ## 可下载智能体的问题
 
-如果 **Agents → Download Agents**(下载智能体) 提示目录不可用，说明运行 Marinara 服务器的那台机器（不只是浏览器）必须能通过 GitHub HTTPS 访问官方的 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录。已经装好的智能体在离线状态下仍按当前版本正常工作。恢复服务器的网络连接后，点击 **Refresh** 或 **Try again** 就能浏览目录并检查更新。
+如果 **Agents → Agent Organizer(智能体管理器)** 提示目录不可用，说明运行 Marinara 服务器的那台机器（不只是浏览器）必须能通过 GitHub HTTPS 访问官方的 [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 目录。已经装好的智能体在离线状态下仍按当前版本正常工作。恢复服务器的网络连接后，点击 **Refresh** 或 **Try again** 就能浏览目录并检查更新。
 
 如果装好的地图或通话没有出现，把 Marinara Engine 完全关掉再启动。这类带路由的包会一直处于 **Restart required** 状态，直到进程下一次启动。Conversation 游戏则不一样：当前版本的 Engine 会立即热激活它们。安装失败就刷新目录，然后确认游戏显示为就绪状态；只有想让角色自己发起游戏时，才需要在聊天的 **Commands**(命令) 设置里添加它，手动用斜杠命令并不需要。
 
@@ -156,7 +156,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 只要包的校验和、声明的文件列表、Engine 版本范围或压缩包内路径与官方目录对不上，下载就会被拒绝。先更新 Marinara Engine，刷新目录，再重试。不要手动把产物解压进数据目录。
 
-智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **No** 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Download Agents** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
+智能体更新绝不会在启动时自动应用。有更新的兼容版本时，Marinara 会先问要不要应用。选 **No** 就保持已安装的版本，**Update** 按钮会一直留在 **Agents → Agent Organizer(智能体管理器)** 里。更新失败同样会保留已注册的已安装版本；如果新更新的服务器运行时启动自检没通过，会自动回滚到上一个版本。
 
 ## 从其他设备访问 Marinara
 
@@ -288,7 +288,7 @@ pnpm backgroundremover:install
 
 Game Mode 分镜会把一段完整的 GM 叙述变成关键帧图像和可选的短片。Roleplay 分镜则会把完整的往来对话合起来，在 Assistant 回复之后内嵌显示结果。
 
-- 确认已经从 **Agents** > **Download Agents** 装好 **Storyboard**，然后为这个聊天开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)。
+- 确认已经从 **Agents** > **Agent Organizer(智能体管理器)** 装好 **Storyboard**，然后为这个聊天开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)。
 - 手动做场景视频时，先打开 **Chat Settings** > **Gallery**(图库)，生成或上传一张图像，再用它的 **Video** 或 **Animate** 操作。**Gallery** 把 **Images** 和 **Videos** 分成了两个选项卡，记得看 **Videos** 选项卡。
 - 想自动生成 Game Mode 分镜，打开 **Chat Settings** > **Agents**(智能体) > **Storyboards**，确认 **Automatic Storyboard Illustrations** 已开启。也想要短片的话，把 **Automatic Storyboard Animations** 一起打开。
 - 在 Roleplay 里，把 **Storyboard** 智能体加进聊天。选择 **Still images** 或 **Animations**，设置 **Messages per episode**，再选好分镜用的图像连接。选 **Manual only** 则改为从 **Chat Settings** 的 **Gallery** 区域里点击 **Create storyboard** 手动运行。
@@ -311,7 +311,7 @@ Game Mode 分镜会把一段完整的 GM 叙述变成关键帧图像和可选的
 
 - 如果通话中角色不出声，说明语音合成还没配好。打开 **Connections** > **Text to Speech**，启用它，选择来源，填入密钥，挑一个音色并保存。没有配音色的角色只会以文字形式出现。
 - 如果语音播放停下并提示 **No audio after 60 s**，说明你的语音服务器比 Marinara 愿意等待的时间更慢，笔记本上的本地服务器经常如此。在 **Connections** > **Text to Speech** 里，或者在提示中点名的音频连接里，调高 **Request timeout (seconds)**(请求超时，单位为秒)。见[请求超时](media/tts-setup.md#request-timeout)。
-- 如果麦克风不工作，可能需要本地语音模型。从 **Agents > Download Agents** 安装 **Calls**，然后打开 **Connections** > **Local Model**，展开卡片，找到 **Local Speech Model**，选一个 Whisper 模型，点击 **Download Whisper**。Firefox 尤其需要这一步，因为它没有浏览器语音识别。卸载 Calls 会一并删掉它的 Whisper 模型以腾出磁盘空间。你也可以在 **Connections** 的 **Speech to Text**(语音识别) 卡片里使用自己的语音转文字服务器，见[使用自己的语音转文字服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
+- 如果麦克风不工作，可能需要本地语音模型。从 **Agents > Agent Organizer(智能体管理器)** 安装 **Calls**，然后打开 **Connections** > **Local Model**，展开卡片，找到 **Local Speech Model**，选一个 Whisper 模型，点击 **Download Whisper**。Firefox 尤其需要这一步，因为它没有浏览器语音识别。卸载 Calls 会一并删掉它的 Whisper 模型以腾出磁盘空间。你也可以在 **Connections** 的 **Speech to Text**(语音识别) 卡片里使用自己的语音转文字服务器，见[使用自己的语音转文字服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
 - 在 Lite 版本上，提示 **Local Whisper is disabled in Lite mode** 表示这个精简版跑不了本地语音模型。改用完整版的 Marinara。
 
 ### 远程或局域网安装时 Music DJ 的 Spotify 登录失败

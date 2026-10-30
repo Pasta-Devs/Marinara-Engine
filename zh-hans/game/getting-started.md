@@ -20,7 +20,7 @@ Game Mode 是 Marinara 的聊天模式之一，另外两种是 Conversation(对�
 
 - **图像生成。** Game Mode 有一套带背景和角色画面的视觉布局。要把画面填满，就需要一个图像生成连接。向导里的 **Visual Generation**(视觉生成) 默认关闭，得自己打开。不开也能正常玩，故事、状态追踪和战斗都在，只是视觉区域是空的。
 - **跑场景效果的本地模型。** Marinara 可以在自己的机器上跑一个小模型，界面上叫 **Local Model (Gemma)**。它负责背景和音乐建议，不产生额外费用，也是向导里的默认选项。见[本地模型设置](../connections/local-model.md)。
-- **Storyboard 智能体。** 从 **Agents > Download Agents** 安装，想要静态或动态分镜时，再到 **Chat Settings > Agents** 里为建好的游戏启用它。
+- **Storyboard 智能体。** 从 **Agents > Agent Organizer(智能体管理器)** 安装，想要静态或动态分镜时，再到 **Chat Settings > Agents** 里为建好的游戏启用它。
 - **视频生成连接。** 只有要做场景视频或动态分镜时才需要。
 - **音乐。** **Music DJ** 智能体可以播放游戏音乐，需要 Spotify 或者一个本地音乐文件夹，默认关闭。
 
@@ -70,7 +70,7 @@ Overworld RPG 仍在完善中。在它准备好之前，它的卡片是灰色的
 
 有些规则集提供 **layers**(层)：Low magic 或 Hard winter 这类具名变体，以开关形式显示在规则集下方，每个都附一行说明其作用。一个层可以让难度更严苛、缩小人物卡上的某项选择、把一些现成条目从人物卡编辑器的选择列表中去掉，并给 Game Master 额外的指令，包括它在设置阶段构建世界时的指令。有些层彼此排斥，向导会禁用你不能再选的那个。游戏开始后层就固定下来，和规则集本身完全一样；人物卡上已经在用、但被某个层去掉的内容会保留。
 
-规则集有两个来源。官方规则集从 **Download Agents** 安装，在那里标为 **Rules**。社区规则集从文件或作者的 GitHub 仓库导入，并按来源归档，例如 `local/ember-roads` 或 `alice/v20`。导入使用的开关和导入智能体相同，即 **Allow custom Agent imports**(允许导入自定义智能体)。这个开关关闭时，导入的规则集不会出现在新游戏中，已经在用的游戏照常运行。使用导入规则集的游戏始终按创建时的确切版本来玩。想自己编写，见[编写 Game Mode 规则集](../extending/writing-rulesets.md)。
+规则集有两个来源。官方规则集从 **Agent Organizer(智能体管理器)** 安装，在那里标为 **Rules**。社区规则集从文件或作者的 GitHub 仓库导入，并按来源归档，例如 `local/ember-roads` 或 `alice/v20`。导入使用的开关和导入智能体相同，即 **Allow custom Agent imports**(允许导入自定义智能体)。这个开关关闭时，导入的规则集不会出现在新游戏中，已经在用的游戏照常运行。使用导入规则集的游戏始终按创建时的确切版本来玩。想自己编写，见[编写 Game Mode 规则集](../extending/writing-rulesets.md)。
 
 选好规则集之后，**Party** 步骤会在选择器下方列出你的用户角色和队伍成员，并标明谁 **Has a sheet**(已有人物卡)、谁 **Starts on a blank sheet**(从空白人物卡开始)。人物卡在角色或用户角色编辑器的 **Stats**(属性) 下添加（见[规则集人物卡](../characters/colors-and-stats.md#ruleset-sheets)）。生成世界时，游戏会复制每张人物卡。你在游戏里做的任何改动都不会写回角色或用户角色。没有人物卡的成员会得到一张空白人物卡，所有数值都是规则集的默认值；世界生成绝不会编造数值。
 

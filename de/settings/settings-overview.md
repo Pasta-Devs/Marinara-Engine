@@ -51,7 +51,7 @@ Diesen Abschnitt findest du unter **Settings** > **General** > **App Behavior**.
 - **Hide chat Help button**: standardmäßig aus. Ist der Schalter an, verschwindet die Schaltfläche **Help** (Hilfe) aus Conversation-, Roleplay- und Game-Chats.
 - **Show Android status bar**: standardmäßig aus und nur in der Android-App von Marinara Engine wirksam. Ist der Schalter an, bleiben Uhrzeit, Akkustand und Benachrichtigungssymbole über Marinara sichtbar.
 - **Achievements**: standardmäßig an. Ist der Schalter an, zeigt der Home-Bildschirm das Lesezeichen **Achievements** und meldet freigeschaltete Errungenschaften. Das optionale Widget **Achievements** erscheint, wenn du es deinem Home-Layout hinzugefügt hast. Aus bleibt die Zählung im Hintergrund still. Siehe [Errungenschaften](../home/achievements.md).
-- **Music Player**: standardmäßig an. Ist der Schalter an, erscheint der kompakte Music Player. Er braucht den Agenten **Music DJ** aus **Agents** > **Download Agents**, und der Schalter bleibt ausgegraut, bis du ihn installierst. Siehe [Musik](../media/music.md).
+- **Music Player**: standardmäßig an. Ist der Schalter an, erscheint der kompakte Music Player. Er braucht den Agenten **Music DJ** aus **Agents** > **Agent Organizer (Agentenverwaltung)**, und der Schalter bleibt ausgegraut, bis du ihn installierst. Siehe [Musik](../media/music.md).
 - **Search and Professor Mari settings**: Wähle **Open** (Öffnen), um zu ihrer Einstellungsseite zu wechseln. Dort liegen alle Einstellungen für Suche und Professor Mari, aufgeteilt in diese Gruppen:
 
   - **Search**: das Angebot, ein Feld zu verbessern, und der Suchverlauf.

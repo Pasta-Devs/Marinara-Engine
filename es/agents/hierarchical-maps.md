@@ -60,7 +60,7 @@ Copiar no es vincular. **Use template**, **Add to chat** e **Independent copy** 
 
 ## Inicio rápido
 
-1. Abre **Agents** (Agentes), haz clic en **Download Agents** e instala **World Maps**.
+1. Abre **Agents** (Agentes), haz clic en **Agent Organizer (Organizador de agentes)** e instala **World Maps**.
 2. Reinicia Marinara cuando se te pida. El paquete contiene código de servidor.
 3. Abre un chat de Roleplay o de Game.
 4. Abre el globo terráqueo dedicado de **World Maps** si tu Engine lo ofrece, o usa **Agents → World Maps**, y actívalo para el chat actual. También puedes activarlo desde la sección **Chat Settings → Agents** (Ajustes del chat → Agentes) de ese chat.
@@ -73,7 +73,7 @@ Aplicar una plantilla, un borrador de IA o un archivo importado solo cambia la c
 
 ## Instalar y activar el paquete
 
-Abre **Agents** desde la pestaña Sparkles de la barra lateral derecha. Haz clic en **Download Agents**, selecciona **World Maps** y haz clic en **Install**. Si a continuación el catálogo ofrece **Update**, instálalo también. Sigue el aviso de reinicio antes de usar el paquete.
+Abre **Agents** desde la pestaña Sparkles de la barra lateral derecha. Haz clic en **Agent Organizer (Organizador de agentes)**, selecciona **World Maps** y haz clic en **Install**. Si a continuación el catálogo ofrece **Update**, instálalo también. Sigue el aviso de reinicio antes de usar el paquete.
 
 La página de World Maps informa de la versión del paquete instalado y de si está listo, ofrece la biblioteca de mapas de mundo de toda la cuenta, nombra el chat de destino actual y muestra el estado del mapa de ese chat. Instalar el paquete lo deja disponible, pero no lo activa en todos los chats.
 

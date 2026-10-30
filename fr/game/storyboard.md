@@ -20,7 +20,7 @@ Dans les deux modes, Marinara enregistre les images-clés dans l'onglet **Images
 ## Installer l'agent
 
 1. Ouvre le panneau **Agents** depuis l'icône en forme d'étincelles.
-2. Choisis **Download Agents** (télécharger des agents).
+2. Choisis **Agent Organizer** (organisateur d’agents).
 3. Ouvre **Storyboard**, puis choisis **Install**.
 4. Ouvre un chat Roleplay ou Game, puis va dans **Chat Settings > Agents** (réglages du chat).
 5. Active **Enable Agents**, puis **Enable Storyboards** dans le bloc **Storyboard**.
@@ -317,7 +317,7 @@ Ces anciens réglages sont des données de migration, pas une seconde implément
 
 ### Storyboard n'apparaît pas dans Chat Settings
 
-- Installe **Storyboard** depuis **Agents > Download Agents**.
+- Installe **Storyboard** depuis **Agents > Agent Organizer (organisateur d’agents)**.
 - Utilise un chat Roleplay ou Game : le mode Conversation n'est pas pris en charge.
 - Vérifie que la version du package est compatible avec la version installée du moteur.
 

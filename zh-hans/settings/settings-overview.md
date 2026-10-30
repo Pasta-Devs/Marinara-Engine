@@ -51,7 +51,7 @@
 - **Hide chat Help button**(隐藏聊天帮助按钮)：默认关闭。开启后，Conversation、Roleplay 和 Game 聊天里的 **Help**(帮助) 按钮会消失。
 - **Show Android status bar**(显示 Android 状态栏)：默认关闭，只在 Marinara Engine 的 Android 应用里起作用。开启后，时间、电量和通知图标会一直显示在 Marinara 上方。
 - **Achievements**(成就)：默认开启。开启时，主页会显示 **Achievements** 书签和解锁提示。如果你把可选的 **Achievements** 小组件加入了主页布局，它也会显示。关闭后，成就仍在后台记录，只是不再提示。见[成就](../home/achievements.md)。
-- **Music Player**(音乐播放器)：默认开启。开启时会显示紧凑的音乐播放器。它需要从 **Agents** > **Download Agents** 安装 **Music DJ** 智能体，安装之前这个开关会一直是灰色的。见[音乐](../media/music.md)。
+- **Music Player**(音乐播放器)：默认开启。开启时会显示紧凑的音乐播放器。它需要从 **Agents** > **Agent Organizer(智能体管理器)** 安装 **Music DJ** 智能体，安装之前这个开关会一直是灰色的。见[音乐](../media/music.md)。
 - **Search and Professor Mari settings**(Search 与 Professor Mari 设置)：选择 **Open**(打开) 进入它们的设置页面。所有 Search(搜索栏) 和 Professor Mari 的设置都在那里，分成这几组：
 
   - **Search**(搜索)：提议改进字段和搜索历史。

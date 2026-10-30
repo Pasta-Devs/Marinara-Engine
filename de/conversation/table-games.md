@@ -6,7 +6,7 @@ In dieser Anleitung erfährst du, wie du die sechs optionalen Tischspiel-Pakete 
 
 Tischspiele sind kleine Brett- und Kartenspiele, die direkt in einem Chat im Conversation Mode laufen. Marinara Engine gibt die Karten aus oder baut das Spielfeld auf und achtet auf jede Regel. Jeder Charakter am Tisch erzählt seine eigenen Züge im Rollenspiel-Ton. Während des Spiels erscheint ein lebendes Spielfeld über dem Nachrichtenfeld.
 
-Installiere jedes gewünschte Spiel über **Agents → Download Agents**. Es steht sofort bereit, ganz ohne Neustart von Marinara. Ein nicht installiertes Spiel taucht in der Spieleauswahl nicht auf, sein Slash-Befehl funktioniert nicht, und seine Einstellung für Charakter-Befehle bleibt ausgeblendet.
+Installiere jedes gewünschte Spiel über **Agents → Agent Organizer (Agentenverwaltung)**. Es steht sofort bereit, ganz ohne Neustart von Marinara. Ein nicht installiertes Spiel taucht in der Spieleauswahl nicht auf, sein Slash-Befehl funktioniert nicht, und seine Einstellung für Charakter-Befehle bleibt ausgeblendet.
 
 Zwei Dinge sind wichtig:
 

@@ -298,9 +298,9 @@ no-space rule but are not glosses (`appearance/appearance-settings.md:56`, `chat
    | `→` | 118 | 63 | 27 | 28 — arrows inside a gloss paren (`(에이전트 → 에이전트 다운로드)`) and 2nd-and-later arrows in a multi-segment run |
    | ` > ` | 94 | 31 | 50 | 13 — **9 CSS child selectors**, not paths; 4 are 2nd-and-later separators in a multi-segment run |
 
-   Examples: `**Agents → Download Agents**(에이전트 → 에이전트 다운로드)` (`agents/built-in-agents.md:3`,
+   Examples: `**Agents → Agent Organizer**(에이전트 → 에이전트 오거나이저)` (`agents/built-in-agents.md:3`,
    one bold run); `**Settings**(설정) → **General**(일반) → **Documentation Language**`
-   (`UPGRADING.md:13`, separate labels); `**Agents > Download Agents**` (`FAQ.md:175`, one bold run);
+   (`UPGRADING.md:13`, separate labels); `**Agents > Agent Organizer**` (`FAQ.md:175`, one bold run);
    `**Settings**(설정) > **Addons**(애드온)` (`extending/personal-extensions.md:3`, separate labels);
    `**Settings > General > App Behavior > Language**(설정 > 일반 > 앱 동작 > 언어)`
    (`development/localization.md:9`, a four-segment run). The 9 non-path ` > ` hits are
@@ -661,3 +661,8 @@ Cycle precedent for #7605 (`agents/memory.md`: the new Character recollections s
 | knowledge start | 지식 범위가 시작되기 전, following the file's 지식 범위 for "knowledge range" |
 
 These are translation choices, not a new native-reader review.
+
+
+## Agent Organizer
+
+Use the English UI label **Agent Organizer** for the renamed official agent store.

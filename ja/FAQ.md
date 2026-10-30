@@ -130,11 +130,11 @@ APIキーを1つずつ入力し直す必要があります。フルバックア�
 
 ## エージェントとは?
 
-**エージェント**は、チャット中に動いて決まった役割をこなす、任意のAIの補助機能です。たとえば今のシーンを追跡する、文章の質を見張る、マップや通話を追加する、Conversationでテーブルゲームを進行する、といったものがあります。インストール直後の状態では、任意のエージェントは1つも入っていません。**Agents**(エージェント)パネルを開き、**Download Agents**(エージェントのダウンロード)をクリックし、項目の説明を読んでからインストールします。そのあと、**Chat Settings**でチャットごとに対応するエージェントを有効にします。インストール済みの公式パッケージに対応するアップデートが出たときは、Marinaraがダウンロードの前に確認し、パッケージがリリースノートを公開している場合は、各アップデートの変更点を一覧で表示します。配信元が使っていて気づく変更だと示したバージョンには、点が付きます。**No**を選ぶと今のバージョンのまま残り、Download Agentsに**Update**が表示され続けるので、あとからでもアップデートできます。配信元がオフラインのときや検証に失敗したときは、インストール済みのバージョンがそのまま動きます。カタログからはパッケージの完全な削除もできます。[エージェント](agents/agents-overview.md)と、公開されている[Marinara-Agentsリポジトリー](https://github.com/Pasta-Devs/Marinara-Agents)を参照してください。
+**エージェント**は、チャット中に動いて決まった役割をこなす、任意のAIの補助機能です。たとえば今のシーンを追跡する、文章の質を見張る、マップや通話を追加する、Conversationでテーブルゲームを進行する、といったものがあります。インストール直後の状態では、任意のエージェントは1つも入っていません。**Agents**(エージェント)パネルを開き、**Agent Organizer** (エージェント管理)をクリックし、項目の説明を読んでからインストールします。そのあと、**Chat Settings**でチャットごとに対応するエージェントを有効にします。インストール済みの公式パッケージに対応するアップデートが出たときは、Marinaraがダウンロードの前に確認し、パッケージがリリースノートを公開している場合は、各アップデートの変更点を一覧で表示します。配信元が使っていて気づく変更だと示したバージョンには、点が付きます。**No**を選ぶと今のバージョンのまま残り、Agent Organizer (エージェント管理)に**Update**が表示され続けるので、あとからでもアップデートできます。配信元がオフラインのときや検証に失敗したときは、インストール済みのバージョンがそのまま動きます。カタログからはパッケージの完全な削除もできます。[エージェント](agents/agents-overview.md)と、公開されている[Marinara-Agentsリポジトリー](https://github.com/Pasta-Devs/Marinara-Agents)を参照してください。
 
 ## Noodleを設定するには?
 
-Noodleは、キャラクターのためにMarinaraが用意した、ローカルで動く架空のソーシャルネットワークです。まず**Agents** → **Download Agents**(エージェント → エージェントのダウンロード)を開いて**Noodle**をインストールし、求められたらMarinaraを再起動します。**Home** → **Noodle**を開き、その**Settings**(設定)を開きます。キャラクターかキャラクターのフォルダーを招待し、**Refresh**(更新)で生成に使う接続を選んでから、**Refresh now**(今すぐ更新)を選ぶと最初の投稿が生成されます。自動で更新する時刻、画像生成、ランダムなユーザー、チャットへの引き継ぎも設定できます。
+Noodleは、キャラクターのためにMarinaraが用意した、ローカルで動く架空のソーシャルネットワークです。まず**Agents** → **Agent Organizer** (エージェント管理)を開いて**Noodle**をインストールし、求められたらMarinaraを再起動します。**Home** → **Noodle**を開き、その**Settings**(設定)を開きます。キャラクターかキャラクターのフォルダーを招待し、**Refresh**(更新)で生成に使う接続を選んでから、**Refresh now**(今すぐ更新)を選ぶと最初の投稿が生成されます。自動で更新する時刻、画像生成、ランダムなユーザー、チャットへの引き継ぎも設定できます。
 
 詳しくは[Noodle: アプリ内のソーシャルタイムライン](noodle/overview.md)と[Noodleの設定とチャットへの引き継ぎ](noodle/settings.md)を参照してください。
 
@@ -192,7 +192,7 @@ Professor MariはMarinaraの通常のソースファイルなら編集できま�
 
 ダウンロードして使う**Storyboard**エージェントは、できあがった物語の文章を、順番に並んだキーフレーム画像に変えます。各キーフレームを短いクリップとして動かすこともできます。**Game Mode**では、終了したゲームマスター(GM)の語り1ターン分を絵コンテにして、フローティングのビューアーかGameの背景にキーフレームを表示します。**Roleplay**では、新しくそろったやり取りをまとめ、チャット内のエピソードとして表示します。
 
-Game Modeで使うには、**Agents > Download Agents**から**Storyboard**をインストールします。Gameを開いて**Chat Settings > Agents**に移動し、**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにして、Game側かStoryboardの全体設定で画像生成の接続を指定します。GMの語りが1ターン分終わったら、**Chat Settings > Gallery**(チャット設定 > ギャラリー)を開いて**Create storyboard**(絵コンテの作成)をクリックします。ビューアーを開き直すときは**View storyboard**(絵コンテの表示)を使います。
+Game Modeで使うには、**Agents > Agent Organizer (エージェント管理)**から**Storyboard**をインストールします。Gameを開いて**Chat Settings > Agents**に移動し、**Enable Agents**(エージェントを有効にする)と**Enable Storyboards**(絵コンテを有効にする)をオンにして、Game側かStoryboardの全体設定で画像生成の接続を指定します。GMの語りが1ターン分終わったら、**Chat Settings > Gallery**(チャット設定 > ギャラリー)を開いて**Create storyboard**(絵コンテの作成)をクリックします。ビューアーを開き直すときは**View storyboard**(絵コンテの表示)を使います。
 
 Gameの絵コンテを自動で作るには、**Automatic Storyboard Illustrations**をオンにします。クリップも欲しいときは、**Automatic Storyboard Animations**もオンにして、Video Generationの接続を選びます。新規Gameの設定ウィザードにある**Storyboard Optimized**の演出は、GMの語り方を整えるだけです。エージェントのインストールや有効化は行いません。GameとRoleplayの設定、プロンプト、ビューアー、移行時の動作、トラブル対処については、[Storyboardエージェントガイド](game/storyboard.md)を参照してください。
 
@@ -200,7 +200,7 @@ Gameの絵コンテを自動で作るには、**Automatic Storyboard Illustratio
 
 はい。**Conversation**モードで使えます。音声通話とビデオ通話はConversation専用の機能です。キャラクターの声を聞くには、まず**Connections**パネルで**Text to Speech**を設定します。
 
-マイクで話しかけたいのに、ブラウザー内蔵の音声認識がうまく働かない場合は、まず**Agents > Download Agents**から**Calls**をインストールします。次に**Connections**パネルを開き、**Local Model**カードを広げ、**Local Speech Model**で**Whisper Tiny (Multilingual)**か**Whisper Base (Multilingual)**を選び、**Download Whisper**をクリックします。Callsをアンインストールすると、ダウンロードしたWhisperのデータも削除され、ディスクの空き容量が戻ります。通話の設定の詳細は[Conversationの音声通話とビデオ通話](conversation/calls.md)を参照してください。
+マイクで話しかけたいのに、ブラウザー内蔵の音声認識がうまく働かない場合は、まず**Agents > Agent Organizer (エージェント管理)**から**Calls**をインストールします。次に**Connections**パネルを開き、**Local Model**カードを広げ、**Local Speech Model**で**Whisper Tiny (Multilingual)**か**Whisper Base (Multilingual)**を選び、**Download Whisper**をクリックします。Callsをアンインストールすると、ダウンロードしたWhisperのデータも削除され、ディスクの空き容量が戻ります。通話の設定の詳細は[Conversationの音声通話とビデオ通話](conversation/calls.md)を参照してください。
 
 ## Marinaraは画像を生成できますか?
 

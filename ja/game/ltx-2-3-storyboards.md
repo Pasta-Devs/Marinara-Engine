@@ -24,7 +24,7 @@ GM narration
 2. 編集可能な`ltx-director-simple`ワークフロー、またはComfyUI内で最後まで完走する同等のLTX 2.3 image-to-videoグラフ。
 3. Marinaraの接続用に書き出した、API形式の`ltx-director-simple-api`。
 4. 最初のフレームの挿絵を作るためのMarinaraの画像生成接続。
-5. **Agents > Download Agents**からインストールし、**Chat Settings > Agents**でゲームに対して有効にした**Storyboard**エージェント。
+5. **Agents > Agent Organizer (エージェント管理)**からインストールし、**Chat Settings > Agents**でゲームに対して有効にした**Storyboard**エージェント。
 
 編集可能なComfyUIワークフローと、そのAPI書き出しは別々のファイルです。ComfyUIで`ltx-director-simple`を開き、ComfyUI Managerが不足を報告したカスタムノードをすべてインストールしてから、その場でグラフを試します。Marinaraの接続には`ltx-director-simple-api`を読み込みます。ノードやモデルを変更したときは、そのつどAPI形式で書き出し直し、接続に保存されているJSONを置き換えてください。通常のビジュアルエディター用ワークフローをMarinaraに貼り付けてはいけません。
 

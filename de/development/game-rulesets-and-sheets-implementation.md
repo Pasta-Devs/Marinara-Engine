@@ -884,7 +884,7 @@ Kein Regel-Lorebook in v1. Der Anleitungsblock zusammen mit dem Bogenblock genü
 
 | Weg | Vorgehen | Geeignet für |
 | --- | --- | --- |
-| Offizieller Katalog | Ein Paket per PR zu Marinara-Agents beitragen; Installation mit einem Klick über **Download Agents** | Weit verbreitete Systeme mit eindeutiger Lizenzlage |
+| Offizieller Katalog | Ein Paket per PR zu Marinara-Agents beitragen; Installation mit einem Klick über **Agent Organizer (Agentenverwaltung)** | Weit verbreitete Systeme mit eindeutiger Lizenzlage |
 | Eigenes Repository | Der bestehende Weg für eigene Agent-Repositories liest auch `rulesets/*.json`. Ein Nutzer fügt einmal die GitHub-URL des Autors hinzu, prüft die Vorschau und erhält spätere Updates auf demselben Weg | Einen Autor mit mehreren Systemen; das Repository des Anfragenden ist bereits so aufgebaut |
 | Einzelne Datei | **Import ruleset** akzeptiert eine `ruleset.json` | Lokales Ausprobieren oder die Weitergabe einer Datei an einen Freund |
 

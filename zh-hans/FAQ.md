@@ -130,11 +130,11 @@ Marinara 本身免费，而且跑在自己的电脑上。花的钱是所选 AI �
 
 ## 智能体是什么？
 
-**agent**(智能体) 是聊天过程中运行的可选 AI 帮手，各自负责一件具体的事。比如追踪当前场景、盯着文笔质量、加地图或通话、跑 Conversation 里的桌游。全新安装的 Marinara 不带任何可选智能体。打开 **Agents**(智能体) 面板，点 **Download Agents**(下载智能体)，看清楚某一项的说明再安装。装好后在 **Chat Settings** 里给每个聊天分别启用兼容的智能体。已装的官方包有兼容的新版本时，Marinara 会先问一句再下载；如果包发布了更新说明，还会列出每次更新改了什么。圆点标记的是发布者标明“你会注意到变化”的版本。选 **No** 就保留当前版本，Download Agents 里的 **Update** 按钮仍然留着，随时可以再更新。主机离线或者校验没通过时，已安装的版本照常能用。这个目录也支持把整个包彻底卸载。见[智能体](agents/agents-overview.md)和公开的 [Marinara-Agents 仓库](https://github.com/Pasta-Devs/Marinara-Agents)。
+**agent**(智能体) 是聊天过程中运行的可选 AI 帮手，各自负责一件具体的事。比如追踪当前场景、盯着文笔质量、加地图或通话、跑 Conversation 里的桌游。全新安装的 Marinara 不带任何可选智能体。打开 **Agents**(智能体) 面板，点 **Agent Organizer** (智能体管理器)，看清楚某一项的说明再安装。装好后在 **Chat Settings** 里给每个聊天分别启用兼容的智能体。已装的官方包有兼容的新版本时，Marinara 会先问一句再下载；如果包发布了更新说明，还会列出每次更新改了什么。圆点标记的是发布者标明“你会注意到变化”的版本。选 **No** 就保留当前版本，Agent Organizer(智能体管理器) 里的 **Update** 按钮仍然留着，随时可以再更新。主机离线或者校验没通过时，已安装的版本照常能用。这个目录也支持把整个包彻底卸载。见[智能体](agents/agents-overview.md)和公开的 [Marinara-Agents 仓库](https://github.com/Pasta-Devs/Marinara-Agents)。
 
 ## Noodle 怎么配置？
 
-Noodle 是 Marinara 内置的本地虚构社交网络，专给自己的角色用。先打开 **Agents** → **Download Agents** 安装 **Noodle**，按提示重启 Marinara。然后打开 **Home**(主页) → **Noodle**，进它的 **Settings**(设置)。邀请角色或者角色文件夹，在 **Refresh**(刷新) 下面选一个用来生成内容的连接，然后点 **Refresh now**(立即刷新) 生成第一批动态。还可以设置自动刷新时间、图像生成、随机用户，以及把内容延续到自己的聊天里。
+Noodle 是 Marinara 内置的本地虚构社交网络，专给自己的角色用。先打开 **Agents** → **Agent Organizer(智能体管理器)** 安装 **Noodle**，按提示重启 Marinara。然后打开 **Home**(主页) → **Noodle**，进它的 **Settings**(设置)。邀请角色或者角色文件夹，在 **Refresh**(刷新) 下面选一个用来生成内容的连接，然后点 **Refresh now**(立即刷新) 生成第一批动态。还可以设置自动刷新时间、图像生成、随机用户，以及把内容延续到自己的聊天里。
 
 完整说明见 [Noodle：应用内的社交时间线](noodle/overview.md)和 [Noodle 设置与聊天延续](noodle/settings.md)。
 
@@ -192,7 +192,7 @@ Professor Mari 也能修改 Marinara 的普通源码文件。依赖文件、启�
 
 可下载的 **Storyboard**(分镜) 智能体把写完的剧情文字变成一串有先后顺序的关键帧图像，还能把每一帧做成一小段动画片段。在 **Game Mode** 里，它为一轮已完成的 GM 叙述生成分镜，画面显示在浮动查看器里，也可以直接当作游戏背景。在 **Roleplay** 里，它把新完成的几轮往来合成一段内嵌的小剧集。
 
-想在 Game Mode 里用它，先从 **Agents > Download Agents** 安装 **Storyboard**。打开游戏，进 **Chat Settings > Agents**，开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)，再在这局游戏里或 Storyboard 的全局设置里选好一个图像连接。跑完一轮 GM 叙述，打开 **Chat Settings > Gallery**(聊天设置 → 图库) 点 **Create storyboard**(创建分镜)。想重新打开查看器就点 **View storyboard**(查看分镜)。
+想在 Game Mode 里用它，先从 **Agents > Agent Organizer(智能体管理器)** 安装 **Storyboard**。打开游戏，进 **Chat Settings > Agents**，开启 **Enable Agents**(启用智能体) 和 **Enable Storyboards**(启用分镜)，再在这局游戏里或 Storyboard 的全局设置里选好一个图像连接。跑完一轮 GM 叙述，打开 **Chat Settings > Gallery**(聊天设置 → 图库) 点 **Create storyboard**(创建分镜)。想重新打开查看器就点 **View storyboard**(查看分镜)。
 
 想让游戏里的分镜自动生成，开启 **Automatic Storyboard Illustrations**(自动分镜插图)。还想要动画片段，就再开启 **Automatic Storyboard Animations**(自动分镜动画)，并选好一个视频生成连接。新建游戏向导里的 **Storyboard Optimized**(分镜优化) 呈现方式只影响 GM 叙述的写法，既不会安装也不会启用这个智能体。Game 和 Roleplay 两边的配置、提示词、查看器、迁移行为和排查方法，都写在 [Storyboard 智能体指南](game/storyboard.md)里。
 
@@ -200,7 +200,7 @@ Professor Mari 也能修改 Marinara 的普通源码文件。依赖文件、启�
 
 能，在 **Conversation** 模式里。语音和视频通话是 Conversation 独有的功能。想听角色开口说话，先在 **Connections** 面板里配好 **Text to Speech**(语音合成)。
 
-如果想用麦克风跟角色对话，而浏览器自带的语音识别又不太靠谱，先从 **Agents > Download Agents** 里安装 **Calls**(通话)。然后打开 **Connections** 面板，展开 **Local Model** 卡片，找到 **Local Speech Model**(本地语音模型)，选 **Whisper Tiny (Multilingual)** 或 **Whisper Base (Multilingual)**，点 **Download Whisper**(下载 Whisper)。卸载 Calls 时，它下载的 Whisper 模型也会一并删掉，把磁盘空间腾出来。完整的通话配置见[通话](conversation/calls.md)。
+如果想用麦克风跟角色对话，而浏览器自带的语音识别又不太靠谱，先从 **Agents > Agent Organizer(智能体管理器)** 里安装 **Calls**(通话)。然后打开 **Connections** 面板，展开 **Local Model** 卡片，找到 **Local Speech Model**(本地语音模型)，选 **Whisper Tiny (Multilingual)** 或 **Whisper Base (Multilingual)**，点 **Download Whisper**(下载 Whisper)。卸载 Calls 时，它下载的 Whisper 模型也会一并删掉，把磁盘空间腾出来。完整的通话配置见[通话](conversation/calls.md)。
 
 ## Marinara 能生成图像吗？
 

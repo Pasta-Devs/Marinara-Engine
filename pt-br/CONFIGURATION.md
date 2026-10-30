@@ -17,11 +17,11 @@ Talvez você precise editar a configuração para:
 
 Quase todo o resto, como as chaves de API dos provedores de IA, os personagens e as opções de chat, fica dentro do aplicativo, não aqui. Para adicionar um provedor de IA, veja [Conectando a um provedor de IA](connections/connecting-to-a-provider.md).
 
-Os agentes oficiais opcionais também são gerenciados dentro do aplicativo. Abra **Agents → Download Agents** (baixar agentes) para instalar ou desinstalar. Marinara escolhe sozinho a trilha do catálogo [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) que corresponde à versão principal do Engine.
+Os agentes oficiais opcionais também são gerenciados dentro do aplicativo. Abra **Agents → Agent Organizer (organizador de agentes)**  para instalar ou desinstalar. Marinara escolhe sozinho a trilha do catálogo [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) que corresponde à versão principal do Engine.
 
 Ciclo de vida e armazenamento dos pacotes:
 
-- **Atualizações:** Marinara verifica se os pacotes oficiais já instalados têm atualizações compatíveis e pergunta antes de baixar cada versão nova. Ao escolher **No**, a versão atual continua em uso e a ação manual **Update** permanece disponível em Download Agents. Uma instalação nova fica vazia até você escolher os pacotes.
+- **Atualizações:** Marinara verifica se os pacotes oficiais já instalados têm atualizações compatíveis e pergunta antes de baixar cada versão nova. Ao escolher **No**, a versão atual continua em uso e a ação manual **Update** permanece disponível em Agent Organizer (organizador de agentes). Uma instalação nova fica vazia até você escolher os pacotes.
 - **Plataformas:** o comportamento é o mesmo no computador, no Docker e no Android com Termux. No iOS e em outros clientes de navegador, valem os pacotes instalados no servidor Marinara que os hospeda.
 - **Persistência:** os pacotes ficam em `DATA_DIR/capability-packages`. Volumes do Docker, pastas de dados personalizadas, backups e atualizações normais preservam esses arquivos.
 - **Uso de disco:** Marinara mantém a versão atual de cada pacote e a anterior, para que uma atualização que falhe possa voltar atrás. As versões mais antigas e as cópias temporárias em `DATA_DIR/capability-runtime-snapshots` são excluídas automaticamente. Os dados dos pacotes nunca são excluídos.
@@ -33,11 +33,11 @@ Agentes personalizados podem ativar **Previous output** (saída anterior) em **C
 
 Arquivos, pastas e repositórios personalizados de agentes vêm bloqueados por padrão. Para liberar, abra **Settings → Advanced → Danger Zone** (Configurações → Avançado → Zona de perigo) e ative a opção **Allow custom Agent imports**. Diferente das extensões externas, essa trava é controlada pelo usuário e não depende de variável de ambiente. Os controles de importação ficam desativados até você ativá-la.
 
-Toda importação mostra as capacidades solicitadas pelo agente antes de salvar qualquer coisa. As permissões precisam ser aprovadas de forma explícita, funções embutidas e seleções de ferramentas não são importadas, o CSS gerado passa por sanitização e as ações de resultado são conferidas com base no conjunto de capacidades aprovado. Ao desligar a trava, os agentes importados de fora param de rodar. Os agentes personalizados criados dentro do Marinara e os pacotes oficiais instalados por **Download Agents** continuam funcionando e não dependem dessa trava.
+Toda importação mostra as capacidades solicitadas pelo agente antes de salvar qualquer coisa. As permissões precisam ser aprovadas de forma explícita, funções embutidas e seleções de ferramentas não são importadas, o CSS gerado passa por sanitização e as ações de resultado são conferidas com base no conjunto de capacidades aprovado. Ao desligar a trava, os agentes importados de fora param de rodar. Os agentes personalizados criados dentro do Marinara e os pacotes oficiais instalados por **Agent Organizer (organizador de agentes)** continuam funcionando e não dependem dessa trava.
 
 ### Repositórios de agentes personalizados
 
-Os repositórios personalizados vêm desativados por padrão, porque os prompts e as ferramentas deles são conteúdo de terceiros sem revisão. Defina `ENABLE_CUSTOM_AGENT_REPOS=true`, ative a opção **Allow custom Agent imports** na Danger Zone e abra **Agents → Download Agents → Custom Sources** para pré-visualizar um repositório público do GitHub. Adicionar uma fonte e aplicar qualquer mudança de conteúdo posterior exigem confirmação explícita. A sincronização é manual: Marinara não clona repositórios nem os consulta em segundo plano.
+Os repositórios personalizados vêm desativados por padrão, porque os prompts e as ferramentas deles são conteúdo de terceiros sem revisão. Defina `ENABLE_CUSTOM_AGENT_REPOS=true`, ative a opção **Allow custom Agent imports** na Danger Zone e abra **Agents → Agent Organizer (organizador de agentes) → Custom Sources** para pré-visualizar um repositório público do GitHub. Adicionar uma fonte e aplicar qualquer mudança de conteúdo posterior exigem confirmação explícita. A sincronização é manual: Marinara não clona repositórios nem os consulta em segundo plano.
 
 Um repositório pode publicar agentes, conjuntos de regras de Game Mode ou ambos; pelo menos um tipo é necessário.
 

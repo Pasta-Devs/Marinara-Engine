@@ -127,7 +127,7 @@ Wgranie sprite'ów to dopiero połowa pracy. Trzeba jeszcze zdecydować, kiedy i
 
 ### Roleplay Mode
 
-W trybie **Roleplay Mode** wyświetlaniem sprite'ów steruje opcjonalny agent **Expression Engine**. Pobierz go z sekcji **Agents → Download Agents**, a potem dodaj do czatu. Agent odczytuje nastrój każdej wiadomości i dobiera pasujący sprite z wyrazem twarzy. Szczegóły opisuje [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
+W trybie **Roleplay Mode** wyświetlaniem sprite'ów steruje opcjonalny agent **Expression Engine**. Pobierz go z sekcji **Agents → Agent Organizer (organizowanie agentów)**, a potem dodaj do czatu. Agent odczytuje nastrój każdej wiadomości i dobiera pasujący sprite z wyrazem twarzy. Szczegóły opisuje [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
 
 Żeby sprite'y pojawiły się w czacie Roleplay, muszą być spełnione wszystkie poniższe warunki:
 

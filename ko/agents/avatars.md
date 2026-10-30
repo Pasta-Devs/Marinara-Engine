@@ -6,11 +6,11 @@ Live2D 모델은 지원하지 않습니다. Live2D 라이선스는 무료 오픈
 
 ## 에이전트 다운로드하기
 
-모든 설치에서 **Download Agents**(에이전트 다운로드)의 **Roleplay**(롤플레이)와 **Game**(게임) 필터 아래에 두 에이전트가 표시됩니다. Marinara Engine 2.5.1 이상이 필요합니다.
+모든 설치에서 **Agent Organizer** (에이전트 관리)의 **Roleplay**(롤플레이)와 **Game**(게임) 필터 아래에 두 에이전트가 표시됩니다. Marinara Engine 2.5.1 이상이 필요합니다.
 
 **2D Avatars**와 **3D Avatars**는 따로 다운로드하므로 원하는 것만 설치할 수 있습니다. 둘 다 Roleplay와 Game 채팅에서 캐릭터와 페르소나에게 쓸 수 있습니다.
 
-1. **Agents → Download Agents**(에이전트 → 에이전트 다운로드)를 열고 **2D Avatars**나 **3D Avatars**, 또는 둘 다 설치하세요. 어느 쪽도 재시작이 필요하지 않습니다.
+1. **Agents → Agent Organizer (에이전트 관리)**를 열고 **2D Avatars**나 **3D Avatars**, 또는 둘 다 설치하세요. 어느 쪽도 재시작이 필요하지 않습니다.
 2. **Agents**에서 해당 에이전트의 페이지를 열고 아바타를 하나씩 설정하세요. [아바타 설정하기](#setting-up-an-avatar)를 참고하세요.
 3. Roleplay나 Game 채팅에서 **Chat Settings → Agents → Misc Agents**(채팅 설정 → 에이전트 → 기타 에이전트)를 열고 에이전트를 추가하세요.
 

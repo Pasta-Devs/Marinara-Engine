@@ -60,7 +60,7 @@ World Maps 1.3.1 提供：
 
 ## 快速上手
 
-1. 打开 **Agents**(智能体)，点击 **Download Agents**(下载智能体)，安装 **World Maps**。
+1. 打开 **Agents**(智能体)，点击 **Agent Organizer** (智能体管理器)，安装 **World Maps**。
 2. 出现提示时重启 Marinara。这个包包含服务器端代码。
 3. 打开一个 Roleplay 或 Game 聊天。
 4. 如果 Engine 提供了专门的 **World Maps** 地球仪按钮就点它，否则走 **Agents → World Maps**，为当前聊天启用它。也可以在该聊天的 **Chat Settings → Agents**(聊天设置 → 智能体) 区域里启用。
@@ -73,7 +73,7 @@ World Maps 1.3.1 提供：
 
 ## 安装并启用这个包
 
-从右侧边栏的 Sparkles 选项卡打开 **Agents**。点击 **Download Agents**，选中 **World Maps**，点击 **Install**。如果目录里接着出现 **Update**，也一并装上。使用之前，按照提示重启。
+从右侧边栏的 Sparkles 选项卡打开 **Agents**。点击 **Agent Organizer(智能体管理器)**，选中 **World Maps**，点击 **Install**。如果目录里接着出现 **Update**，也一并装上。使用之前，按照提示重启。
 
 World Maps 页面会显示已安装的包版本和就绪状态，提供账号级的世界地图资源库，标明当前指向的是哪个聊天，并显示那个聊天的地图状态。装好这个包只是让它可用，并不会在每个聊天里都启用。
 

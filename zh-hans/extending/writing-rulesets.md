@@ -3519,7 +3519,7 @@ your-repository/
 
 有两项限制。仓库的 `rulesets` 目录下最多直接存放 32 个 JSON 文件，超过则拒绝该仓库。名为 `local` 的账号不能发布规则集，因为 `local/` 保留给从文件导入的规则集。
 
-**进入官方目录。** 广泛游玩且授权明确的系统，可以通过 **Download Agents**(下载智能体) 提供给所有人。这需要向 [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 仓库提交拉取请求。布局请参考其中的 `ruleset-5e-2014` 包。
+**进入官方目录。** 广泛游玩且授权明确的系统，可以通过 **Agent Organizer** (智能体管理器) 提供给所有人。这需要向 [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) 仓库提交拉取请求。布局请参考其中的 `ruleset-5e-2014` 包。
 
 ## 授权许可
 

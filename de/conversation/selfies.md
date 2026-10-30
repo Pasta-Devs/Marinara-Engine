@@ -8,7 +8,7 @@ Selfies gehören zum Conversation Mode. Ein Charakter kann mitten im normalen Ch
 
 Selfies brauchen Bildgenerierung. Jedes Selfie kostet eine Bildgenerierungs-Anfrage bei der Verbindung, die du auswählst. Deshalb sind Selfies so lange deaktiviert, bis du sie einrichtest.
 
-Selfies kommen aus dem optionalen Paket **Illustrator**. Installiere Illustrator über **Agents → Download Agents** (Agenten herunterladen), bevor du sie einrichtest.
+Selfies kommen aus dem optionalen Paket **Illustrator**. Installiere Illustrator über **Agents → Agent Organizer (Agentenverwaltung)** , bevor du sie einrichtest.
 
 ## Selfies aktivieren
 

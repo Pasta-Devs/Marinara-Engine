@@ -105,13 +105,13 @@ Schreibt dir ein Charakter in einem Chat, den du gerade nicht offen hast, taucht
 
 Charaktere können dir Selfies schicken, also KI-generierte Fotos von sich selbst. Anders als die Szenenbilder in Roleplay und Game Mode gehört ein Selfie immer zu genau einem Charakter.
 
-Für Selfies installierst du **Illustrator** über **Agents → Download Agents**. Öffne danach das **Chat Settings**-Panel, geh zu **Agents → Illustrator Settings** und leg eine **Selfie Connection** fest. Eine Selfie-Verbindung ist ein Anbieter für Bildgenerierung. Jedes Selfie kostet einen Aufruf der Bildgenerierung.
+Für Selfies installierst du **Illustrator** über **Agents → Agent Organizer (Agentenverwaltung)**. Öffne danach das **Chat Settings**-Panel, geh zu **Agents → Illustrator Settings** und leg eine **Selfie Connection** fest. Eine Selfie-Verbindung ist ein Anbieter für Bildgenerierung. Jedes Selfie kostet einen Aufruf der Bildgenerierung.
 
 Die komplette Einrichtung mit Stil, Auflösung und der Schaltfläche für manuelle Anfragen beschreibt [Selfies](selfies.md).
 
 ## Tischspiele
 
-Conversation Mode kennt sechs optionale Tischspiel-Pakete: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** und **Rock-Paper-Scissors**. Installiere die gewünschten Spiele über **Agents → Download Agents**. Die App teilt aus, achtet auf die Regeln und lässt jeden Charakter seine Züge in der eigenen Rolle erzählen. Tischspiele laufen ausschließlich in Conversation-Chats.
+Conversation Mode kennt sechs optionale Tischspiel-Pakete: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** und **Rock-Paper-Scissors**. Installiere die gewünschten Spiele über **Agents → Agent Organizer (Agentenverwaltung)**. Die App teilt aus, achtet auf die Regeln und lässt jeden Charakter seine Züge in der eigenen Rolle erzählen. Tischspiele laufen ausschließlich in Conversation-Chats.
 
 Eine Partie startest du auf drei Wegen:
 

@@ -4,7 +4,7 @@ Ce guide explique comment diffuser de la musique d'arrière-plan dans Marinara E
 
 ## Ce qu'est Music DJ
 
-**Music DJ** est un agent téléchargeable, facultatif. Un agent est un petit programme qui tourne automatiquement en arrière-plan d'un chat. Ouvre le panneau **Agents**, sélectionne **Download Agents** (télécharger des agents) et installe **Music DJ** avant de le configurer. Après chaque réponse, Music DJ peut lire l'ambiance de la scène et lancer une musique d'arrière-plan assortie.
+**Music DJ** est un agent téléchargeable, facultatif. Un agent est un petit programme qui tourne automatiquement en arrière-plan d'un chat. Ouvre le panneau **Agents**, sélectionne **Agent Organizer** (organisateur d’agents) et installe **Music DJ** avant de le configurer. Après chaque réponse, Music DJ peut lire l'ambiance de la scène et lancer une musique d'arrière-plan assortie.
 
 **Music DJ** puise sa musique à trois sources :
 
@@ -106,7 +106,7 @@ La lecture depuis un dossier hors Game Assets exige un accès local au serveur. 
 
 Le **Music Player** apparaît sous la forme d'une petite pastille dans la barre supérieure sur ordinateur, ou d'un widget flottant déplaçable sur mobile. Un réglage permet de l'afficher ou de le masquer.
 
-Ouvre **Settings** (Paramètres), va dans l'onglet **General** et repère la section **App Behavior**. Active ou désactive l'interrupteur **Music Player**. Le texte d'aide indique "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Cet interrupteur est toujours disponible et activé par défaut. S'il est activé sans que Music DJ soit installé, le lecteur affiche à la place **Download Music DJ Agent to configure**, avec un bouton **Download Agents**.
+Ouvre **Settings** (Paramètres), va dans l'onglet **General** et repère la section **App Behavior**. Active ou désactive l'interrupteur **Music Player**. Le texte d'aide indique "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings." Cet interrupteur est toujours disponible et activé par défaut. S'il est activé sans que Music DJ soit installé, le lecteur affiche à la place **Download Music DJ Agent to configure**, avec un bouton **Agent Organizer (organisateur d’agents)**.
 
 Sur un profil neuf, la source visible au départ est **YouTube**. Trois façons de la changer :
 

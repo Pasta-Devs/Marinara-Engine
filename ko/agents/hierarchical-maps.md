@@ -80,7 +80,7 @@ world**와 라이브러리의 **Link to chat**은 채팅을 정본 공유 세계
 
 ## 빠르게 시작하기
 
-1. **Agents**(에이전트)를 열고 **Download Agents**(에이전트 다운로드)를 클릭한 뒤
+1. **Agents**(에이전트)를 열고 **Agent Organizer** (에이전트 관리)를 클릭한 뒤
    **World Maps**를 설치하세요.
 2. 안내가 나오면 Marinara를 다시 시작하세요. 이 패키지에는 서버 코드가 들어
    있습니다.
@@ -103,7 +103,7 @@ world**와 라이브러리의 **Link to chat**은 채팅을 정본 공유 세계
 
 ## 패키지 설치와 활성화
 
-오른쪽 사이드바의 Sparkles 탭에서 **Agents**를 여세요. **Download Agents**를
+오른쪽 사이드바의 Sparkles 탭에서 **Agents**를 여세요. **Agent Organizer (에이전트 관리)**를
 클릭하고 **World Maps**를 선택한 뒤 **Install**(설치)을 클릭하세요. 이어서 목록에
 **Update**(업데이트)가 보이면 그것도 설치하세요. 패키지를 쓰기 전에 다시 시작하라는 안내를 따르세요.
 

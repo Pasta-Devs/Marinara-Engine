@@ -4,7 +4,7 @@ In dieser Anleitung erfährst du, wie Anrufe in Conversation funktionieren, wie 
 
 Anrufe gibt es ausschließlich im Conversation Mode. Roleplay- und Game-Chats haben keinen Anrufbildschirm.
 
-Calls ist ein optionales Agent-Paket. Installiere **Calls** über **Agents → Download Agents** (Agenten herunterladen), bevor du die Einrichtung unten durchgehst, und starte Marinara neu, sobald der Katalog dich dazu auffordert.
+Calls ist ein optionales Agent-Paket. Installiere **Calls** über **Agents → Agent Organizer (Agentenverwaltung)** , bevor du die Einrichtung unten durchgehst, und starte Marinara neu, sobald der Katalog dich dazu auffordert.
 
 ## Was ein Anruf ist
 
@@ -93,7 +93,7 @@ Solange der Schalter an ist, schickt **Mic recording + Local Whisper** deine Spr
 
 Ein Server auf demselben Rechner wie Marinara funktioniert ohne Weiteres. Ein Server auf einem anderen Rechner in deinem Heimnetz wird abgelehnt, solange du nicht `STT_LOCAL_URLS_ENABLED=true` in der `.env`-Datei von Marinara setzt. Siehe [Referenz zur Server-Konfiguration](../CONFIGURATION.md).
 
-Dafür brauchst du eine Calls-Version, die diese Funktion unterstützt. Nutzen Anrufe nach dem Einschalten weiterhin Local Whisper, aktualisiere Calls über **Agents → Download Agents**.
+Dafür brauchst du eine Calls-Version, die diese Funktion unterstützt. Nutzen Anrufe nach dem Einschalten weiterhin Local Whisper, aktualisiere Calls über **Agents → Agent Organizer (Agentenverwaltung)**.
 
 ## Anrufe für einen Chat aktivieren
 

@@ -4,7 +4,7 @@
 
 ## Music DJ란
 
-**Music DJ**는 원할 때 다운로드해 쓰는 에이전트입니다. 에이전트는 채팅 뒤에서 자동으로 실행되는 작은 AI 기능입니다. 설정하기 전에 **Agents**(에이전트)를 열고 **Download Agents**(에이전트 다운로드)를 선택해 **Music DJ**를 설치하세요. Music DJ는 답변이 나올 때마다 장면의 분위기를 읽고 어울리는 배경 음악을 재생할 수 있습니다.
+**Music DJ**는 원할 때 다운로드해 쓰는 에이전트입니다. 에이전트는 채팅 뒤에서 자동으로 실행되는 작은 AI 기능입니다. 설정하기 전에 **Agents**(에이전트)를 열고 **Agent Organizer** (에이전트 관리)를 선택해 **Music DJ**를 설치하세요. Music DJ는 답변이 나올 때마다 장면의 분위기를 읽고 어울리는 배경 음악을 재생할 수 있습니다.
 
 **Music DJ**는 세 가지 소스에서 음악을 재생할 수 있습니다.
 
@@ -106,7 +106,7 @@ Game Assets 밖의 폴더에서 재생하려면 서버에 로컬 접근 권한�
 
 **Music Player**는 데스크톱에서는 상단 바의 작은 배지로, 모바일에서는 끌어서 옮길 수 있는 떠 있는 위젯으로 나타납니다. 설정에서 숨기거나 표시할 수 있습니다.
 
-**Settings**(설정)를 열고 **General**(일반) 탭에서 **App Behavior**(앱 동작) 섹션을 찾으세요. **Music Player** 토글을 켜거나 끄면 됩니다. 도움말에는 "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings."라고 적혀 있습니다. 이 토글은 항상 쓸 수 있고 기본값은 켜짐입니다. Music DJ를 설치하지 않은 상태에서 켜면 데스크톱과 모바일 플레이어 자리에 **Download Music DJ Agent to configure**라는 문구와 **Download Agents** 버튼이 표시됩니다.
+**Settings**(설정)를 열고 **General**(일반) 탭에서 **App Behavior**(앱 동작) 섹션을 찾으세요. **Music Player** 토글을 켜거나 끄면 됩니다. 도움말에는 "Shows the compact Music Player. Switch between Spotify, YouTube, and Custom from the player itself or the Music DJ agent settings."라고 적혀 있습니다. 이 토글은 항상 쓸 수 있고 기본값은 켜짐입니다. Music DJ를 설치하지 않은 상태에서 켜면 데스크톱과 모바일 플레이어 자리에 **Download Music DJ Agent to configure**라는 문구와 **Agent Organizer (에이전트 관리)** 버튼이 표시됩니다.
 
 새로 만든 프로필에서는 표시되는 소스가 **YouTube**로 시작합니다. 소스는 세 가지 방법으로 바꿀 수 있습니다.
 

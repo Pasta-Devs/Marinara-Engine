@@ -20,7 +20,7 @@ La visite compte 18 étapes. Les voici dans l'ordre, avec le titre exact de chaq
 4. **Lorebooks** Met en évidence le bouton du panneau **Lorebooks**, qui regroupe des détails supplémentaires sur l'univers et les personnages.
 5. **Presets** Met en évidence le bouton du panneau **Presets**, qui règle la façon dont le prompt est construit.
 6. **Connections** Met en évidence le bouton du panneau **Connections**. La carte précise que les connexions sont la première chose à configurer avant de discuter.
-7. **Agents** Met en évidence le bouton du panneau **Agents**, qui ajoute des aides IA à tes chats. La carte t'oriente vers **Download Agents** (télécharger des agents) pour les installer.
+7. **Agents** Met en évidence le bouton du panneau **Agents**, qui ajoute des aides IA à tes chats. La carte t'oriente vers **Agent Organizer** (organisateur d’agents) pour les installer.
 8. **Settings** Met en évidence le bouton du panneau **Settings** et ouvre **Settings** sur l'onglet **General**.
 9. **Chats** Met en évidence l'interrupteur de la barre latérale et ouvre la barre latérale des chats, là où vivent tes chats.
 10. **Conversation Mode** Met en évidence l'onglet de conversation dans la barre latérale des chats. L'onglet lui-même s'intitule **CONVO**.

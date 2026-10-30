@@ -6,7 +6,7 @@ Ten przewodnik opisuje sześć opcjonalnych pakietów z grami stołowymi, w któ
 
 Gry stołowe to niewielkie gry, które działają bezpośrednio w czacie w trybie Conversation. Marinara Engine rozdaje karty albo ustawia planszę i pilnuje wszystkich zasad za ciebie. Każda posadzona przy stole postać opisuje swoje ruchy zgodnie ze swoim charakterem. Na czas gry nad polem wiadomości pojawia się aktywna plansza.
 
-Każdą grę, na którą masz ochotę, zainstaluj z sekcji **Agents → Download Agents**. Jest dostępna od razu, bez ponownego uruchamiania aplikacji Marinara Engine. Niezainstalowana gra nie pojawia się na liście gier, jej komenda slash nie działa, a ustawienie komendy postaci pozostaje ukryte.
+Każdą grę, na którą masz ochotę, zainstaluj z sekcji **Agents → Agent Organizer (organizowanie agentów)**. Jest dostępna od razu, bez ponownego uruchamiania aplikacji Marinara Engine. Niezainstalowana gra nie pojawia się na liście gier, jej komenda slash nie działa, a ustawienie komendy postaci pozostaje ukryte.
 
 Dwie rzeczy warto zapamiętać:
 

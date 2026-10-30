@@ -4,7 +4,7 @@ Ten przewodnik wyjaśnia, jak działają rozmowy w trybie Conversation w aplikac
 
 Rozmowy istnieją wyłącznie w trybie Conversation. Czaty w trybie Roleplay i Game Mode nie mają ekranu rozmowy.
 
-Calls to opcjonalny pakiet agenta. Zanim wykonasz poniższą konfigurację, zainstaluj pakiet **Calls** z sekcji **Agents → Download Agents** (pobieranie agentów), a potem uruchom ponownie aplikację Marinara Engine, kiedy katalog o to poprosi.
+Calls to opcjonalny pakiet agenta. Zanim wykonasz poniższą konfigurację, zainstaluj pakiet **Calls** z sekcji **Agents → Agent Organizer (organizowanie agentów)** , a potem uruchom ponownie aplikację Marinara Engine, kiedy katalog o to poprosi.
 
 ## Na czym polega rozmowa
 
@@ -93,7 +93,7 @@ Dopóki przełącznik jest włączony, tryb **Mic recording + Local Whisper** wy
 
 Serwer na tym samym komputerze, na którym działa Marinara, nie wymaga dodatkowych ustawień. Serwer na innym komputerze w sieci domowej zostaje odrzucony, chyba że ustawisz `STT_LOCAL_URLS_ENABLED=true` w pliku `.env` serwera. Zobacz [Konfiguracja serwera](../CONFIGURATION.md).
 
-Wymaga to wersji pakietu Calls, która obsługuje tę funkcję. Jeśli po włączeniu przełącznika rozmowy nadal korzystają z modelu Local Whisper, zaktualizuj pakiet Calls w sekcji **Agents → Download Agents**.
+Wymaga to wersji pakietu Calls, która obsługuje tę funkcję. Jeśli po włączeniu przełącznika rozmowy nadal korzystają z modelu Local Whisper, zaktualizuj pakiet Calls w sekcji **Agents → Agent Organizer (organizowanie agentów)**.
 
 ## Włączanie rozmów dla czatu
 

@@ -20,7 +20,7 @@
 ## 安装智能体
 
 1. 点击闪光图标打开 **Agents**(智能体) 面板。
-2. 选择 **Download Agents**(下载智能体)。
+2. 选择 **Agent Organizer** (智能体管理器)。
 3. 打开 **Storyboard**，选择 **Install**。
 4. 打开一个 Roleplay 或 Game 聊天，然后打开 **Chat Settings > Agents**(聊天设置 > 智能体)。
 5. 开启 **Enable Agents**，再在 Storyboard 卡片里开启 **Enable Storyboards**。
@@ -317,7 +317,7 @@ Standard 和 Storyboard Optimized 两种呈现方式都可以配合 Storyboard �
 
 ### Chat Settings 里找不到 Storyboard
 
-- 在 **Agents > Download Agents** 里安装 **Storyboard**。
+- 在 **Agents > Agent Organizer(智能体管理器)** 里安装 **Storyboard**。
 - 用 Roleplay 或 Game 聊天，Conversation 不支持分镜。
 - 确认这个包的版本和已装的 Engine 版本兼容。
 

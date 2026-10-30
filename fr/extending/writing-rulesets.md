@@ -3524,7 +3524,7 @@ Un utilisateur ajoute ton dépôt une seule fois via la liste des dépôts d'age
 
 Deux limites s'appliquent. Un dépôt peut contenir au maximum 32 fichiers JSON directement dans `rulesets` ; au-delà, il est refusé. Un compte nommé `local` ne peut publier d'ensembles de règles, car `local/` est réservé à ceux importés depuis un fichier.
 
-**Dans le catalogue officiel.** Un système largement joué, dont les licences sont claires, peut être proposé à tous via **Download Agents** (télécharger des agents). Cela passe par une pull request au dépôt [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulte le package `ruleset-5e-2014` pour sa structure.
+**Dans le catalogue officiel.** Un système largement joué, dont les licences sont claires, peut être proposé à tous via **Agent Organizer** (organisateur d’agents). Cela passe par une pull request au dépôt [Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Consulte le package `ruleset-5e-2014` pour sa structure.
 
 ## Licences
 
