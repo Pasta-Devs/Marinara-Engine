@@ -64,7 +64,7 @@ Game Mode 里没有 **Characters** 这一节，它的队伍在别的地方管理
 
 这里有一道保险：如果把聊天里所有角色都禁用了，Marinara 会重新把他们全部当作启用状态，免得生成一条没有任何角色的回复。
 
-启用和禁用的状态按聊天单独保存，不会影响这个角色在应用其他地方的表现。
+启用和禁用的状态按聊天单独保存，不会影响这个角色在应用其他地方的表现。在 Merged 模式的 Roleplay 群聊里，可以由[自动管理活跃角色](#automate-active-characters-merged-only)替你设置。
 
 ## 谁来发言：Roleplay 模式
 
@@ -80,6 +80,30 @@ Game Mode 里没有 **Characters** 这一节，它的队伍在别的地方管理
 ### Color Dialogues(仅 Merged 模式)
 
 **Mode** 为 **Merged (Narrator)** 时，可以开启 **Color Dialogues**(对白配色)，默认关闭。开启后，每个角色的台词按各自的配色显示。配色来自 Character Editor 的 **Colors**(颜色) 选项卡，那里设置名字颜色、对白颜色和文本框颜色。具体设置方法见角色编辑指南。
+
+<a id="automate-active-characters-merged-only"></a>
+
+### Automate active characters(仅 Merged 模式)
+
+在 Merged 模式下，每个活跃角色的卡片在每次回复时都会进入提示词，所以角色一多，要么撑满上下文，要么就得在角色来来去去时手动拨眼睛开关。当 **Mode** 为 **Merged (Narrator)** 时，**Automate active characters**(自动管理活跃角色) 可以替你拨。它有三个选项，默认是 **Off**(关闭)。
+
+- **Off**：由你用眼睛开关选择谁活跃。
+- **Decision model**：每次回复前，你的 [Decision 模型](../connections/decision-models.md)会为每个角色回答一个是/否问题：这个角色是否在本次回复所延续的场景中，或正要进入场景？被提到或被回忆起不算，所以只是被谈论的角色仍保持关闭。被判定在场的角色会开启，其余的关闭。
+- **Character Tracker**：由 [Character Tracker](../agents/built-in-agents.md#character-tracker) 在上一条回复中记录的在场角色决定谁活跃。它不需要额外的模型调用，但会晚一轮生效：这一轮才进场的角色，要到下一轮才会开启。
+
+设置下方的提示会说明缺了什么：没有选择 Decision 模型、此聊天里的 Character Tracker 处于关闭状态，或者 tracker 为手动运行（这样列表只会在你运行它之后才改变）。
+
+有几条规则让聊天保持正常：
+
+- **固定。** 自动化开启时，**Characters** 列表里每一行在眼睛左边都会显示一个图钉。点它可以把该角色固定在当前状态（开或关），之后自动化就不再动他。手动拨眼睛也会固定该角色，所以下一条回复不会推翻你的选择。已固定那一行的图钉以你的强调色显示；再点一次可取消固定。把自动化切到 **Off** 会清除所有固定。
+- **旁白保持活跃。** 在 **Roleplay Commands**(Roleplay 命令) 里指定的 **Narrator**(旁白) 永远不会被关闭。
+- **没有答案就保留列表。** 在 **Decision model** 模式下，如果模型没有给出每个角色的答案，就改用 Character Tracker 的最近一个场景（如果有的话）。先思考的模型，除非开启了 **Also gate agents that run before the reply**(也判定回复前运行的智能体)，否则不会在回复之前给出答案，所以由 tracker 顶上。角色阵容大到连只放名字也塞不进 Decision 模型的输入时也一样，这时根本不会去问它。如果两者都没有答案，列表保持原样。
+- **不允许没有人活跃。** 会让所有人都关闭的结果会被忽略。
+- **Character Activity 智能体优先。** 聊天里如果有自定义智能体使用 **Character Activity** 结果类型，就由该智能体继续负责，自动化什么也不做。
+
+Character Tracker 会按自己的叫法为它看到的每个角色写名字。角色先按该卡片的 id 匹配到卡片，再按名字，最后按 Character Editor 的 **Colors** 选项卡里卡片的名字别名，所以在关闭状态下走进场景的卡片也能被找到。如果 tracker 的列表里没有聊天中任何一个角色的名字，例如只有群众演员的场景，就保留当前列表。
+
+自动化在每次回复、备选回复和重新生成之前运行。它会跳过 **Continue** 和 impersonate。该设置会存进设置方案；固定只属于单个聊天。
 
 <a id="response-order-individual-only"></a>
 
@@ -119,12 +143,13 @@ Game Mode 里没有 **Characters** 这一节，它的队伍在别的地方管理
 |---|---|---|
 | **Mode**(**Merged (Narrator)** / **Individual**) | Group Chat 分区 | Merged (Narrator) |
 | **Color Dialogues** | Group Chat 分区，Merged 模式 | Off |
+| **Automate active characters**(Off / Decision model / Character Tracker) | Group Chat 分区，Merged 模式 | Off |
 | **Response Order**(Sequential / Smart / Manual) | Group Chat 分区，Individual 模式 | Sequential |
 | **Add Turn To Prompt** | Group Chat 分区，Individual 模式 | On |
 | **Name Prefix History** | Group Chat 分区，Individual 模式 | Off |
 | **Scenario Override** | Group Chat 分区 | 留空（关闭） |
 
-这些设置大多会存进设置方案，可以反复使用。唯一的例外是 **Scenario Override**，它只留在单个聊天里。
+这些设置大多会存进设置方案，可以反复使用。唯一的例外是 **Scenario Override**，它只留在单个聊天里。自动化的固定也留在聊天里。
 
 ## 谁来发言：Conversation 模式
 

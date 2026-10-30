@@ -684,3 +684,17 @@ These are translation choices, not a new native-reader review.
 ## Agent Organizer
 
 Use the English UI label **Agent Organizer** for the renamed official agent store.
+
+## Mari question card, queued messages, to-do list and Automate active characters (2026-10-31)
+
+| English label or term | Gloss / rendering | Note |
+| --- | --- | --- |
+| Send now / Queue for later | 立即发送 / 加入队列稍后发送 | From `mari.queue.sendNow` and `mari.queue.later` in `ui/zh-Hans.json`. Glossed once, in the first bullet of the new section. |
+| Sends when she finishes / Held / Still working / Plan from before your last message / 2 of 5 | no gloss | Status strings, left bare under §5.2.d. |
+| Automate active characters | 自动管理活跃角色 | From `autoActiveCharacters.label`. The link text in prose is the same phrase. |
+| question card | 问题卡片 | The Submit button keeps the pack's **Submit**(提交). |
+| to-do list | 待办清单 | Heading 她的待办清单, with the pack's 她 instead of the app's Mari 教授. |
+| pin (Automate active characters) | 固定 / 图钉 | The run-in **固定。** names the rule; 图钉 is the pin icon beside the eye. |
+| name aliases (Colors tab) | 名字别名 | |
+
+Reused: **Off**(关闭), **Narrator**(旁白), **Roleplay Commands**(Roleplay 命令), **Stop**(停止), **Send**(发送), **Also gate agents that run before the reply**(也判定回复前运行的智能体). **Decision model** stays bare in the new group-chats section because the file glosses it later, and prose says Decision 模型. These are translation choices, not a new native-reader review.
