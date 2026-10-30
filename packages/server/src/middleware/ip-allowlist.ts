@@ -703,7 +703,7 @@ export type PasswordlessPeer = "internet" | "privateNetwork" | "allowlist" | "ta
 /** Startup warning for Docker gateway trust: the server cannot see how the host publishes the port. */
 export function dockerTrustWarning(peers: PasswordlessPeer[]): string | null {
   return peers.includes("docker")
-    ? "[access] Docker trusts the container gateway, so anyone who reaches the published port gets in without a login. Keep the port on 127.0.0.1 (the default Compose setup) or set a login before you publish it to your network."
+    ? "[access] Marinara trusts the Docker gateway without a login. On Docker Desktop, OrbStack and rootless Docker, every device that reaches a published port arrives from that gateway. Keep the port on 127.0.0.1 (the default Compose setup) or set a login before you publish it to your network."
     : null;
 }
 
