@@ -1215,6 +1215,10 @@ Une vue `home-browser-tab` reçoit `capabilityProps.browserFullscreen` :
 
 Il s'agit d'un plein écran dans l'application : les onglets, la barre d'adresse et les favoris de Home sont masqués, tandis que la barre supérieure d'Engine reste disponible. Il n'appelle pas l'API Fullscreen du navigateur et ne nécessite pas sa prise en charge. Cet état est temporaire et se réinitialise quand on quitte le paquet ou Home. Garde un bouton de sortie sur chaque écran du paquet et utilise `aria-pressed` pour refléter `active`. Les mises à jour des propriétés doivent actualiser le bouton sans remplacer les formulaires inachevés. Les paquets qui dépendent de cette commande déclarent Capability API 1.376 ou une version ultérieure ; les anciens peuvent garder leurs dispositions actuelles.
 
+### Capability API 1.390 : le moteur dessine l'en-tête d'une page d'agent
+
+Un package avec `contributions.agentDetail` peut définir `"header": "engine"`. Le moteur dessine alors le même en-tête que sur toutes les autres pages d'agent : Retour, la bannière et le logo de la boutique, le nom, le bouton Active pour le chat ouvert et Gérer le package. La vue `detail` reçoit deux props supplémentaires : `engineHeader: true` et `headerSlot`, un élément dans les actions de l'en-tête. Masque ton propre en-tête lorsque `engineHeader` est défini et affiche les boutons supplémentaires de l'en-tête (par exemple « Ajouter des souvenirs » ou l'aide) dans `headerSlot`, avec un portail React ou `appendChild`. `headerSlot` vaut `null` au premier rendu ; attends donc la prochaine mise à jour des props. Sans le flag, le package conserve la page complète comme avant. Déclare Capability API 1.390 lorsque tu le définis.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387 : lire les résumés d'un chat

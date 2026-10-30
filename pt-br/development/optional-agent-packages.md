@@ -1051,6 +1051,10 @@ Uma visualização `home-browser-tab` recebe `capabilityProps.browserFullscreen`
 
 É uma tela cheia dentro do aplicativo: as abas, a barra de endereços e os favoritos de Home ficam ocultos, enquanto a barra superior do Engine continua disponível. Ela não chama a API Fullscreen do navegador nem exige suporte a tela cheia no navegador. O estado é temporário e é redefinido ao sair do pacote ou de Home. Mantenha um botão de saída em todas as telas do pacote e use `aria-pressed` para representar `active`. Atualizações das propriedades devem atualizar o botão sem substituir formulários inacabados. Pacotes que dependem desse controle declaram Capability API 1.376 ou mais recente; os antigos podem manter seus layouts atuais.
 
+### Capability API 1.390: o Engine desenha o cabeçalho da página de um agente
+
+Um pacote com `contributions.agentDetail` pode definir `"header": "engine"`. Então, o Engine desenha o mesmo cabeçalho que aparece em todas as outras páginas de agentes: Voltar, o banner e o logotipo da loja, o nome, a alternância Active do chat aberto e Gerenciar pacote. A visualização `detail` recebe duas propriedades extras: `engineHeader: true` e `headerSlot`, um elemento nas ações do cabeçalho. Oculte seu próprio cabeçalho quando `engineHeader` estiver definido e renderize os botões extras do cabeçalho (por exemplo, “Adicionar memórias” ou ajuda) em `headerSlot` com um portal React ou `appendChild`. `headerSlot` é `null` na primeira renderização, então aguarde a próxima atualização das propriedades. Sem a flag, o pacote mantém a página inteira como antes. Declare Capability API 1.390 ao defini-la.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: ler os resumos de um chat

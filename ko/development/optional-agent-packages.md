@@ -1043,6 +1043,10 @@ export async function activate({ api }) {
 
 앱 내부 전체 화면입니다. Home의 탭, 주소 표시줄과 북마크는 숨겨지지만 Engine 상단 바는 계속 사용할 수 있습니다. 브라우저 Fullscreen API를 호출하지 않으며 브라우저의 전체 화면 지원도 필요하지 않습니다. 상태는 일시적이며 패키지나 Home을 벗어나면 초기화됩니다. 패키지의 모든 화면에 나가기 버튼을 제공하고 `aria-pressed`로 `active`를 나타내세요. 속성 업데이트 시 작성 중인 양식을 교체하지 않고 버튼만 업데이트해야 합니다. 이 컨트롤에 의존하는 패키지는 Capability API 1.376 이상을 선언하며, 이전 패키지는 기존 레이아웃을 유지할 수 있습니다.
 
+### Capability API 1.390: Engine이 에이전트 페이지 헤더를 그립니다
+
+`contributions.agentDetail`이 있는 패키지는 `"header": "engine"`을 설정할 수 있습니다. 그러면 Engine이 다른 모든 에이전트 페이지와 같은 헤더를 그립니다. 뒤로 가기, 스토어 배너와 로고, 이름, 열린 채팅의 Active 토글, 패키지 관리가 포함됩니다. `detail` 뷰는 두 가지 추가 프롭을 받습니다. `engineHeader: true`와 헤더 작업 영역의 요소인 `headerSlot`입니다. `engineHeader`가 설정되면 자체 헤더를 숨기고, 헤더의 추가 버튼(예: “기억 추가” 또는 도움말)은 React 포털이나 `appendChild`로 `headerSlot`에 렌더링하세요. 첫 렌더링에서 `headerSlot`은 `null`이므로 다음 프롭 업데이트를 기다리세요. 이 플래그가 없으면 패키지는 이전처럼 전체 페이지를 유지합니다. 설정할 때 Capability API 1.390을 선언하세요.
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387: 채팅 요약 읽기

@@ -1020,6 +1020,10 @@ export async function activate({ api }) {
 
 这是应用内全屏：Home 的标签页、地址栏和书签会隐藏，但 Engine 顶栏仍可使用。它不会调用浏览器的 Fullscreen API，也不要求浏览器支持全屏。该状态是临时的，离开安装包或 Home 后会重置。安装包的每个页面都应提供退出按钮，并用 `aria-pressed` 反映 `active`。属性更新必须更新按钮，不能替换尚未填写完的表单。依赖此控件的安装包应声明 Capability API 1.376 或更高版本；旧安装包可以保留现有布局。
 
+### Capability API 1.390：Engine 绘制智能体页面标题栏
+
+带有 `contributions.agentDetail` 的安装包可以设置 `"header": "engine"`。此时，Engine 会绘制与其他智能体页面相同的标题栏：返回按钮、商店横幅和徽标、名称、当前打开聊天的 Active 开关，以及管理安装包的操作。`detail` 视图会收到两个额外属性：`engineHeader: true` 和 `headerSlot`，后者是标题栏操作区域中的一个元素。设置了 `engineHeader` 时，请隐藏自己的标题栏，并通过 React portal 或 `appendChild` 将额外的标题栏按钮（例如“添加记忆”或帮助）渲染到 `headerSlot` 中。首次渲染时，`headerSlot` 为 `null`，因此请等待下一次属性更新。没有此标记时，安装包仍像以前一样保留整个页面。设置此项时，请声明 Capability API 1.390。
+
 <a id="capability-api-1387-read-a-chats-summaries"></a>
 
 ### Capability API 1.387：读取聊天摘要
