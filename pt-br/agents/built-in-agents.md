@@ -167,6 +167,8 @@ Uma única ficha que descreve várias pessoas, como uma ficha de cenário com um
 
 Quando um personagem recorrente volta depois de sair da cena, Character Tracker reutiliza as últimas estatísticas e os campos personalizados salvos para manter a continuidade. Personagens vinculados a fichas também recebem suas reservas e seus atributos RPG configurados como referência. Entradas de fichas com um único personagem mantêm o avatar e o recorte da ficha. Membros de uma ficha com vários personagens usam seus próprios retratos pela mesma biblioteca, pelos avatares salvos ou pela geração opcional de retratos dos NPCs; eles não herdam o retrato compartilhado da ficha.
 
+Em um grupo de Roleplay no modo Merged, os personagens presentes dele também podem definir quais fichas de personagem ficam ativas na próxima resposta. Veja [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only).
+
 - **Fase**: Post-Processing.
 - **Onde funciona**: Roleplay.
 - **Configurações principais**: **Add as Prompt Section** (ativado por padrão) e a configuração opcional **Auto-Generate NPC Avatars**, com seletor próprio de conexão de imagem. Abaixo dela, a opção **Include the outfit in portraits** (incluir a roupa nos retratos) vem ativada por padrão, então os novos retratos mostram a roupa que o tracker registrou, além da aparência. Desative-a para desenhar os retratos só a partir da aparência.

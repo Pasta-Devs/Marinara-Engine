@@ -52,6 +52,8 @@ Mais abaixo, na mesma aba, há uma segunda lista, **Character Questions** (pergu
 
 Esses cinco campos são os que o modelo lê, então são os únicos que uma resposta de personagem consegue alcançar.
 
+Uma saudação também pode usar o `{{name}}` de uma pergunta de persona, como `Ah, so you are a {{class}}`. Ele só é preenchido quando o jogador cria essa persona no assistente de configuração de novo chat, na primeira mensagem e nas saudações alternativas dela. Com uma persona existente ou com o Quick Start, a tag aparece como foi escrita, e o Character Editor avisa disso. Clique em uma saudação e a lista **Available variables** (variáveis disponíveis) dela mostra os dois tipos de pergunta, com rótulo.
+
 As respostas são guardadas como variáveis do chat, então o card lê um valor diferente em cada chat e nunca precisa ser editado. Uma pergunta do card é feita sempre que o card está no chat, quer o jogador crie uma persona, quer não. A janela mostra uma seção **About you** (sobre você) apenas quando uma persona está sendo criada.
 
 Há três coisas que o autor deve saber:
@@ -70,7 +72,7 @@ Class: {{class}}
 Role: {{player}} is a {{class}} sworn to {{faction}}.
 ```
 
-Quando você clica em um campo, as **Available variables** (variáveis disponíveis) dele aparecem logo abaixo. Clique em uma para inseri-la onde está o cursor.
+Quando você clica em um campo, as **Available variables** dele aparecem logo abaixo. Clique em uma para inseri-la onde está o cursor.
 
 Use `{{#if}}` para mostrar um texto só para algumas respostas:
 
@@ -99,6 +101,8 @@ Os dois caminhos também funcionam depois da configuração, em **Chat Settings*
 
 - O seletor **Persona** de um chat de Roleplay lista **Create your persona** para cada card do chat que oferece essa opção. Use quando tiver pulado o assistente ou quiser uma persona nova mais tarde.
 - O marcador de onboarding ao lado de um personagem em **Characters** (personagens) reabre só as perguntas do personagem daquele card. Ele abre com as respostas que o chat já guarda, então salvar uma mudança mantém as outras como estavam; salvar de novo também restaura uma resposta que você excluiu de Chat Variables (variáveis do chat). As respostas dos outros cards não são alteradas – exceto um nome que dois cards compartilham, que é um único valor, então os dois cards leem a nova resposta.
+
+Adicionar um card com perguntas de personagem a um chat de Roleplay em andamento, por **Chat Settings** ou soltando o card sobre o chat, faz as perguntas dele primeiro. Depois, a saudação é oferecida, com as suas respostas preenchidas e destacadas.
 
 ## Compartilhar cards com onboarding
 
