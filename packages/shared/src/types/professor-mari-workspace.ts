@@ -758,6 +758,8 @@ export interface MariTodoItem {
 }
 
 export const MARI_TODO_MAX_ITEMS = 12;
+/** An unfinished list goes into her prompt on every run, so one long step can't grow it without limit. */
+export const MARI_TODO_MAX_CONTENT_CHARS = 200;
 
 /** Tolerant like the chip sanitizers: junk entries drop, an unknown status is pending, and only the first in_progress stays. */
 export function sanitizeMariTodos(raw: unknown): MariTodoItem[] {
@@ -767,7 +769,8 @@ export function sanitizeMariTodos(raw: unknown): MariTodoItem[] {
   for (const entry of raw) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     const record = entry as Record<string, unknown>;
-    const content = typeof record.content === "string" ? record.content.trim() : "";
+    const content =
+      typeof record.content === "string" ? record.content.trim().slice(0, MARI_TODO_MAX_CONTENT_CHARS).trim() : "";
     if (!content) continue;
     let status: MariTodoStatus =
       record.status === "in_progress" || record.status === "completed" ? record.status : "pending";

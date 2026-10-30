@@ -9,6 +9,7 @@ import type { ChatCompletionResult, ChatMessage } from "../../../packages/server
 import { chooseMariTodos } from "../../../packages/client/src/components/chat/mari/mari-tool-presentation.js";
 import {
   latestMariTodos,
+  MARI_TODO_MAX_CONTENT_CHARS,
   MARI_TODO_MAX_ITEMS,
   sanitizeMariTodos,
   type MariTodoItem,
@@ -56,6 +57,11 @@ assert.equal(
   sanitizeMariTodos(Array.from({ length: 20 }, (_, index) => ({ content: `step ${index}`, status: "pending" }))).length,
   12,
   "capped at 12",
+);
+assert.equal(
+  sanitizeMariTodos([{ content: "x".repeat(MARI_TODO_MAX_CONTENT_CHARS + 50), status: "pending" }])[0]?.content.length,
+  MARI_TODO_MAX_CONTENT_CHARS,
+  "one step can't grow without limit",
 );
 
 // ── Which list counts ──────────────────────────────────────────────────────────────────────────────
