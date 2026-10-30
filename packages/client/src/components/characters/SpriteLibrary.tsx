@@ -627,8 +627,7 @@ function SpriteInlineFolder({
         open={expanded}
         className={cn(
           "pl-3 max-md:rounded-b-lg max-md:bg-[var(--marinara-chat-chrome-highlight-bg)]",
-          expanded &&
-            "max-md:border max-md:border-t-0 max-md:border-[var(--border)] max-md:group-data-[drag-target=inside]/sprite-folder:border-[var(--marinara-chat-chrome-button-border-active)]",
+          expanded && "max-md:border max-md:border-t-0 max-md:border-[var(--marinara-editor-border)]",
         )}
         innerClassName="pt-3 max-md:pr-3 max-md:pb-3"
       >
