@@ -107,7 +107,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-sprite-folder")));
     const testHeader = testSection.getByRole("button", { name: "Test folder", exact: true });
     await testHeader.click();
-    const emptyText = testSection.getByText("Drop sprites here.", { exact: true });
+    const emptyText = testSection.getByText("Drop sprites here to move them into this folder.", { exact: true });
     await expect(emptyText).toBeVisible();
     await expect(library.getByText(/or use Move selected/)).toHaveCount(0);
     await emptyText.scrollIntoViewIfNeeded();
@@ -624,9 +624,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const select = library.getByRole("checkbox", { name: /^Select .* in / });
     await select.nth(0).check();
     await select.nth(1).check();
+    const selectedCards = library.locator("[data-sprite-expression]").filter({ has: page.locator("input:checked") });
+    await expect(selectedCards).toHaveCount(2);
     if (info.project.name === "desktop") {
-      const selectedCards = library.locator("[data-sprite-expression]").filter({ has: page.locator("input:checked") });
-      await expect(selectedCards).toHaveCount(2);
       const box = await selectedCards.first().boundingBox();
       expect(box).not.toBeNull();
       await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -640,6 +640,49 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await expect(preview).toHaveCount(0);
       await expect(selectedCards.nth(0)).toHaveCSS("opacity", "1");
       await expect(selectedCards.nth(1)).toHaveCSS("opacity", "1");
+    } else {
+      const handles = await selectedCards.evaluateAll((tiles) =>
+        tiles.map((tile) => tile.getAttribute("data-sprite-expression")),
+      );
+      await selectedCards.first().scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
+      const bounds = (await selectedCards.first().boundingBox())!;
+      const session = await page.context().newCDPSession(page);
+      const x = bounds.x + bounds.width / 2;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x, y: bounds.y + bounds.height / 2 }],
+      });
+      const preview = page.locator('body > [data-drag-kind="sprite"][aria-hidden="true"]');
+      await expect(preview.locator("[data-drag-stack-count]")).toHaveText("2");
+      await expect(selectedCards.nth(0)).toHaveCSS("opacity", "0.5");
+      await expect(selectedCards.nth(1)).toHaveCSS("opacity", "0.5");
+      const destination = library
+        .locator(`[data-sprite-folder="${alternate}"]`)
+        .getByRole("button", { name: "Alternate", exact: true });
+      for (let i = 0; i < 20; i++) {
+        const target = await destination.boundingBox();
+        if (target && target.y < 740) break;
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 810 }] });
+        await page.waitForTimeout(150);
+      }
+      const target = (await destination.boundingBox())!;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: target.x + 40, y: target.y + target.height / 2 }],
+      });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect
+        .poll(
+          async () =>
+            (await catalog()).sprites.filter(
+              (sprite: { expression: string; folderId: string }) =>
+                handles.includes(sprite.expression) && sprite.folderId === alternate,
+            ).length,
+        )
+        .toBe(2);
+      await expect(preview).toHaveCount(0);
+      await session.detach();
     }
     await library.getByRole("button", { name: "Clean Backgrounds", exact: true }).click();
     await expect(library.getByRole("slider", { name: "Cleanup strength", exact: true })).toBeVisible();

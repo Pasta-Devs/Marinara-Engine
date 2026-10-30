@@ -12,6 +12,26 @@ try {
   const { buildAvailableSpriteCharacter, validateSpriteExpressionEntries, completeRequiredSpriteExpressionEntries } =
     await import("../../packages/server/src/routes/generate/expression-agent-utils.js");
   const { writeSpriteCatalog } = await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+  const { resolveSpriteUrl } =
+    await import("../../packages/client/src/features/tracker-panel/lib/sprite-expressions.js");
+  const trackerSprites = ["fneutral", "fhappy"].map((expression) => ({
+    expression,
+    filename: `${expression}.png`,
+    url: `/${expression}`,
+  }));
+  assert.equal(resolveSpriteUrl(trackerSprites, "happy"), "/fhappy", "tracker keeps legacy prefix matches");
+  assert.equal(resolveSpriteUrl(trackerSprites, "FHAPPY"), "/fhappy", "saved handles remain case insensitive");
+  const renamedTrackerSprites = trackerSprites.map((sprite) => ({
+    ...sprite,
+    label: sprite.expression === "fhappy" ? "delighted" : "neutral",
+  }));
+  assert.equal(resolveSpriteUrl(renamedTrackerSprites, "delighted"), "/fhappy", "tracker follows renamed labels");
+  assert.equal(
+    resolveSpriteUrl(renamedTrackerSprites, "fhappy"),
+    "/fhappy",
+    "saved handles keep their original picture",
+  );
+  assert.equal(resolveSpriteUrl(renamedTrackerSprites, "unavailable"), "/fneutral", "neutral fallback is retained");
   const owner = "compatibility";
   const sprites = join(directory, "sprites", owner);
   mkdirSync(sprites, { recursive: true });
