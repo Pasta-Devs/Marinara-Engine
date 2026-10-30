@@ -458,6 +458,9 @@ export interface DiceRollResult {
   modifier: number;
   /** Final total */
   total: number;
+  /** The places in `rolls` of the dice that counted, when the roll kept some (`4d6kh3`). Absent,
+   *  every die counted. */
+  kept?: number[];
   /** Optional difficulty class declared before the roll. */
   dc?: number;
   /** The server's verdict against `dc`. Absent when the roll had no DC. */

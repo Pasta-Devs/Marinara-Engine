@@ -73,6 +73,7 @@ export function AnimatedDiceRoll({
   hero,
   highlightValue,
   highlightIndices,
+  kept,
   resolution = "sum",
   threshold,
   compare,
@@ -127,8 +128,11 @@ export function AnimatedDiceRoll({
   const modifierText = modifier !== 0 ? `${modifier > 0 ? "+" : ""}${modifier}` : "";
   // What a face adds, where the die's faces are worth other numbers.
   const worthOf = (face: number) => faceValues?.[face - 1] ?? face;
+  // A pool that kept some of its dice (`4d6kh3`) adds only those, and dims the rest.
+  const counted = kept ? kept.map((index) => rolls[index]!) : rolls;
+  const emphasizedIndices = highlightIndices ?? kept;
   const sumsToTotal =
-    resolution === "sum" && skillCheckDiceSumToTotal({ rolls: rolls.map(worthOf), modifier, total, resolution });
+    resolution === "sum" && skillCheckDiceSumToTotal({ rolls: counted.map(worthOf), modifier, total, resolution });
   // A face's worth as text, where the die's faces are not their own numbers: Fate's dice read -, blank, +.
   const faceText = (face: number): string | undefined => {
     const worth = faceValues?.[face - 1];
@@ -184,8 +188,8 @@ export function AnimatedDiceRoll({
         {rolls.map((roll, index) => {
           const shown = displayValues[index] ?? roll;
           const emphasized =
-            highlightIndices !== undefined
-              ? highlightIndices.includes(index)
+            emphasizedIndices !== undefined
+              ? emphasizedIndices.includes(index)
               : countedFrom == null
                 ? highlightValue == null || roll === highlightValue
                 : compare === "below"
@@ -232,7 +236,7 @@ export function AnimatedDiceRoll({
               makes correct results look like broken arithmetic. */}
           {sumsToTotal ? (
             <>
-              {rolls.map(worthOf).join(" + ")}
+              {counted.map(worthOf).join(" + ")}
               {modifierText && ` ${modifierText}`}
             </>
           ) : (

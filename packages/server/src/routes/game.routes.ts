@@ -150,7 +150,7 @@ import {
   type ChatMessage,
   type ChatOptions,
 } from "../services/llm/base-provider.js";
-import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
+import { isRollableDiceNotation, rollDice } from "../services/game/dice.service.js";
 import { jsonishLooksTruncated, parseGameJsonish } from "../services/game/jsonish.js";
 import {
   formatInitialGameGmConnectionError,
@@ -2364,7 +2364,7 @@ const removePartyMemberSchema = z.object({
 const diceRollSchema = z.object({
   /** The game it is rolled for; a sheet editor outside any game (a rolled list column) has none. */
   chatId: z.string().min(1).optional(),
-  notation: z.string().min(1).max(50).refine(isDiceNotation, "Invalid dice notation"),
+  notation: z.string().min(1).max(50).refine(isRollableDiceNotation, "Invalid dice notation"),
   context: z.string().max(500).optional(),
 });
 

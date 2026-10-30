@@ -115,6 +115,8 @@ The `/roll` command reads dice notation. This rolls two six-sided dice:
 
 You can add a modifier, like `/roll 1d20+5`. If you type `/roll` with nothing after it, Marinara rolls `1d20`.
 
+To keep only some of the dice, add `kh` (keep highest) or `kl` (keep lowest) and a number: `/roll 4d6kh3` rolls four dice and adds the highest three, and `/roll 2d20kl1` keeps the lower of two. `dl` and `dh` drop the lowest or highest instead, as in `/roll 4d6dl1`. The dice that don't count are still shown, dimmed.
+
 A sprite is a piece of character art that shows an expression. The `/emote` command switches which one is shown. Type `/emote` alone to see the available expressions, or name one to switch to it:
 
 ```

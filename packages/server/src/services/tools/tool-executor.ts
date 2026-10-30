@@ -31,7 +31,8 @@ import {
   isWithinDiceLimits,
   MAX_DICE_COUNT,
   MAX_DICE_SIDES,
-  parseDiceNotation,
+  formatKeptRolls,
+  parseDicePool,
   rollParsedDice,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
 } from "@marinara-engine/shared";
@@ -565,9 +566,9 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const notation = String(args.notation ?? "1d6");
   const reason = String(args.reason ?? "");
 
-  let parsed = parseDiceNotation(notation);
+  let parsed = parseDicePool(notation);
   if (!parsed) {
-    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2" };
+    return { error: `Invalid dice notation: ${notation}`, hint: "Use format like 2d6, d20+5, 3d8-2, 4d6kh3" };
   }
 
   // Arguments were schema-validated before Roleplay added the assigned attribute bonus.
@@ -575,7 +576,7 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
   const dc = args.dc as number | undefined;
   if (situationalModifier) {
     const combined = parsed.modifier + situationalModifier;
-    parsed = parseDiceNotation(`${parsed.dice}${combined > 0 ? "+" : ""}${combined || ""}`);
+    parsed = parseDicePool(`${parsed.dice}${combined > 0 ? "+" : ""}${combined || ""}`);
     if (!parsed) return { error: "The adjusted roll exceeds the supported numeric range." };
   }
 
@@ -585,23 +586,25 @@ function rollDice(args: Record<string, unknown>): Record<string, unknown> {
     return { error: `Dice values out of range (1-${MAX_DICE_COUNT} dice, 2-${MAX_DICE_SIDES} sides)` };
   }
 
-  const { rolls, modifier, total } = rollParsedDice(parsed);
+  const { rolls, modifier, total, kept } = rollParsedDice(parsed);
   // Sum the dice directly rather than re-deriving it as total - modifier. The
   // two agree now that the grammar refuses any notation whose range of totals
   // could leave the exact integers, so this is not a workaround for drift — it
   // is what the field means, and it keeps meaning it without leaning on that
   // guarantee holding forever.
-  const sum = rolls.reduce((a, b) => a + b, 0);
+  // A pool that keeps some dice sums only those.
+  const sum = (kept ? kept.map((index) => rolls[index]!) : rolls).reduce((a, b) => a + b, 0);
 
   return {
     notation: parsed.notation,
     rolls,
+    ...(kept ? { kept } : {}),
     sum,
     modifier,
     total,
     reason,
     ...(dc !== undefined ? { dc, success: total >= dc } : {}),
-    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${rolls.join(", ")}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**${dc !== undefined ? ` (DC ${dc})` : ""}`,
+    display: `🎲 ${parsed.notation}${reason ? ` (${reason})` : ""}: [${formatKeptRolls(rolls, kept)}]${modifier ? ` ${modifier > 0 ? "+" : ""}${modifier}` : ""} = **${total}**${dc !== undefined ? ` (DC ${dc})` : ""}`,
   };
 }
 

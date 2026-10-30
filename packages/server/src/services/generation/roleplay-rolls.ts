@@ -1,7 +1,7 @@
 import {
   isRoleplayCommandAllowed,
   isRoleplayCommandEnabled,
-  parseDiceNotation,
+  parseDicePool,
   type LLMToolDefinition,
   type RoleplayCommandActivity,
   type RPGStatsConfig,
@@ -31,7 +31,7 @@ export function prepareRoleplayRoll(
   if (requested && matches.length !== 1) throw new Error(`The roll must name one chat participant: ${requested}`);
   const character = matches[0];
   const attribute = typeof args.attribute === "string" ? args.attribute.trim() : "";
-  const parsed = typeof args.notation === "string" ? parseDiceNotation(args.notation) : null;
+  const parsed = typeof args.notation === "string" ? parseDicePool(args.notation) : null;
   if (!parsed || !character) return args;
   const stats = character.rpgStats;
   let bonus = 0;
@@ -48,7 +48,7 @@ export function prepareRoleplayRoll(
   }
   const modifier = parsed.modifier + bonus;
   const notation = bonus ? `${parsed.dice}${modifier > 0 ? "+" : ""}${modifier || ""}` : parsed.notation;
-  if (!parseDiceNotation(notation)) throw new Error("The attribute-adjusted roll exceeds the supported numeric range.");
+  if (!parseDicePool(notation)) throw new Error("The attribute-adjusted roll exceeds the supported numeric range.");
   return {
     ...args,
     character: character.name,
