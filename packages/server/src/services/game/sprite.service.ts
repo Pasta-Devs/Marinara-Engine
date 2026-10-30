@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join, extname } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { activeOwnerSprites, listSpriteCatalog } from "../sprites/sprite-catalog.js";
+import { listSpriteCatalog } from "../sprites/sprite-catalog.js";
 
 const SPRITE_REFERENCE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"]);
 const FULL_BODY_REFERENCE_PRIORITY = ["full_neutral", "full_idle", "full_default"];
@@ -97,11 +97,8 @@ export function listCharacterSprites(characterId: string): {
   automaticFullBody: string[];
   expressionAliases: Record<string, string>;
   fullBodyAliases: Record<string, string>;
-  folderName: string | null;
-  folderNames: string[];
-  folderDescription: string;
 } | null {
-  const files = activeOwnerSprites(characterId);
+  const files = listSpriteCatalog(characterId).sprites;
   const expressions: string[] = [];
   const fullBody: string[] = [];
   const automaticFullBody: string[] = [];
@@ -127,16 +124,12 @@ export function listCharacterSprites(characterId: string): {
   }
 
   if (expressions.length === 0 && fullBody.length === 0 && automaticFullBody.length === 0) return null;
-  const catalog = listSpriteCatalog(characterId);
   return {
     expressions,
     fullBody,
     automaticFullBody,
     expressionAliases,
     fullBodyAliases,
-    folderNames: catalog.folders.map((folder) => folder.name),
-    folderDescription: "",
-    folderName: null,
   };
 }
 
@@ -157,8 +150,8 @@ export function readPreferredFullBodySpriteBase64(
   if (!existsSync(dir)) return null;
 
   try {
-    const fullBodyFiles = activeOwnerSprites(characterId)
-      .filter((sprite) => SPRITE_REFERENCE_EXTS.has(extname(sprite.filename).toLowerCase()))
+    const fullBodyFiles = listSpriteCatalog(characterId)
+      .sprites.filter((sprite) => SPRITE_REFERENCE_EXTS.has(extname(sprite.filename).toLowerCase()))
       .filter((entry) => entry.expression.toLowerCase().startsWith("full_"));
 
     if (fullBodyFiles.length === 0) return null;
@@ -183,10 +176,7 @@ export function readPreferredFullBodySpriteBase64(
 /**
  * List sprites for multiple characters, returning a map of name → sprite info.
  */
-export function listPartySprites(
-  characters: Array<{ id: string; name: string }>,
-  _metadata?: unknown,
-): CharacterSpriteInfo[] {
+export function listPartySprites(characters: Array<{ id: string; name: string }>): CharacterSpriteInfo[] {
   const result: CharacterSpriteInfo[] = [];
   for (const char of characters) {
     const sprites = listCharacterSprites(char.id);

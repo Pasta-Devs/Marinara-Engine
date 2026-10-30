@@ -5615,7 +5615,7 @@ function SpritesTab({
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
 
-  const { data: sprites, isLoading } = useCharacterSprites(characterId, { all: true });
+  const { data: sprites, isLoading } = useCharacterSprites(characterId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages(true);
   const conversationCallsInstalled = installedCapabilities.some(
@@ -5678,12 +5678,11 @@ function SpritesTab({
     if (library.selected.length === 0) setCleanupOpen(false);
   }, [library.selected.length]);
   const portraitExpressionSprites = allSprites.filter(
-    (sprite) =>
-      !sprite.expression.toLowerCase().startsWith("full_") && (sprite.folderId ?? null) === library.uploadFolderId,
+    (sprite) => !sprite.expression.toLowerCase().startsWith("full_") && (sprite.folderId ?? null) === null,
   );
   const existingExpressions = new Set(
     categorySprites
-      .filter((sprite) => (sprite.folderId ?? null) === library.uploadFolderId)
+      .filter((sprite) => (sprite.folderId ?? null) === null)
       .map((sprite) =>
         category === "full-body"
           ? (sprite.label ?? sprite.expression).replace(/^full_/, "")
@@ -5753,7 +5752,7 @@ function SpritesTab({
           characterId,
           expression,
           image: reader.result as string,
-          ...(!pendingReplaceRef.current ? { folderId: library.uploadFolderId } : {}),
+          ...(!pendingReplaceRef.current ? { folderId: null } : {}),
         });
         pendingExpressionRef.current = "";
       } catch (error) {
@@ -5786,8 +5785,8 @@ function SpritesTab({
       const result = await importFolder.mutateAsync({
         characterId,
         files,
-        folderId: library.uploadFolderId,
-        preserveFolders: preserveFolders && library.folderId === "all",
+        folderId: null,
+        preserveFolders,
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
@@ -6596,7 +6595,6 @@ function SpritesTab({
           open={spriteGenOpen}
           onClose={() => setSpriteGenOpen(false)}
           entityId={characterId}
-          folderId={library.uploadFolderId}
           initialSpriteType={category === "full-body" ? "full-body" : "expressions"}
           existingExpressionSprites={portraitExpressionSprites}
           defaultAppearance={defaultAppearance}

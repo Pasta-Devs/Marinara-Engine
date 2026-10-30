@@ -8,7 +8,6 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { activeOwnerSprites } from "../../sprites/sprite-catalog.js";
 import {
   AVATAR_2D_AGENT_ID,
   AVATAR_PROMPT_TEMPLATE_IDS,
@@ -170,9 +169,9 @@ export function listAvatarSourceSprites(ownerId: string, { all = false } = {}): 
   const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, ownerId));
   if (!existsSync(dir)) return [];
   const extensions = all ? SPRITE_EXTENSIONS : SPRITE_SOURCE_EXTENSIONS;
-  return activeOwnerSprites(ownerId)
-    .filter((sprite) => extensions.has(extname(sprite.filename).toLowerCase()))
-    .map((sprite) => sprite.expression)
+  return readdirSync(dir)
+    .filter((name) => extensions.has(extname(name).toLowerCase()))
+    .map((name) => name.slice(0, -extname(name).length))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 }

@@ -140,7 +140,7 @@ export function ExpressionSpriteSettings({
           {owners.map((owner) => (
             <div
               key={`${owner.kind}:${owner.id}`}
-              className="flex flex-wrap items-center gap-2.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+              className="flex items-center gap-2.5 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
             >
               <button
                 type="button"

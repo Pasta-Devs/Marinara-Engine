@@ -168,8 +168,7 @@ try {
   const spriteFolderId = randomUUID();
   const spriteCatalog = {
     version: 1,
-    folders: [{ id: spriteFolderId, name: "Faces", category: "expressions", description: "" }],
-    defaultFolderId: null,
+    folders: [{ id: spriteFolderId, name: "Faces", category: "expressions" }],
     sprites: { happy: { id: "native-export-face", label: "joyful", folderId: spriteFolderId } },
   };
   await writeFile(join(spriteDir, "catalog.json"), JSON.stringify(spriteCatalog));
@@ -276,7 +275,7 @@ try {
   const personaExport = JSON.parse(personaText);
   assert.equal(JSON.stringify(personaExport), personaText);
   assert.equal(personaExport.type, "marinara_persona");
-  assert.deepEqual(personaExport.data.spriteCatalog, { version: 1, folders: [], defaultFolderId: null, sprites: {} });
+  assert.deepEqual(personaExport.data.spriteCatalog, { version: 1, folders: [], sprites: {} });
   assert.deepEqual(Object.keys(personaExport.data).slice(-2), ["gallery", "metadata"]);
   assertGallery(personaExport.data.gallery);
 

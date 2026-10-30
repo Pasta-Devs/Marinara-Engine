@@ -20,7 +20,7 @@ async function request(method: "GET" | "POST" | "PATCH" | "DELETE", url: string,
 
 try {
   const { spritesRoutes } = await import("../../packages/server/src/routes/sprites.routes.ts");
-  const { listSpriteCatalog, readSpriteCatalog, activeOwnerSprites } =
+  const { listSpriteCatalog, readSpriteCatalog } =
     await import("../../packages/server/src/services/sprites/sprite-catalog.ts");
   const { listCharacterSprites, listPartySprites, readPreferredFullBodySpriteBase64 } =
     await import("../../packages/server/src/services/game/sprite.service.ts");
@@ -34,7 +34,6 @@ try {
   writeFileSync(join(sourceDir, "full_neutral.png"), Buffer.from(png.split(",")[1]!, "base64"));
   const legacy = listSpriteCatalog(owner).sprites[0]!;
   assert.equal(legacy.folderId, null);
-  assert.equal(legacy.active, true);
 
   const frontResponse = (
     await request("POST", `${base}/folders`, {
@@ -50,8 +49,7 @@ try {
   await request("POST", `${base}/move`, { expressions: [legacy.expression], folderId: front });
   assert.equal(listSpriteCatalog(owner).sprites[0]!.id, legacy.id, "moving keeps the asset identity");
   assert.equal(readFileSync(join(sourceDir, legacy.filename)).toString("base64"), png.split(",")[1]);
-  assert.equal(activeOwnerSprites(owner).length, 1, "moving into a folder never hides sprites");
-  await request("PATCH", `${base}/catalog`, { defaultFolderId: front });
+  assert.equal(listSpriteCatalog(owner).sprites.length, 1, "moving into a folder never hides sprites");
   const original = (await request("POST", base, { expression: "full_happy", image: png, folderId: front })).json();
   const alternate = (await request("POST", base, { expression: "full_happy", image: png, folderId: side })).json();
   assert.notEqual(original.expression, alternate.expression, "equal labels in different folders never overwrite");
@@ -85,7 +83,6 @@ try {
     reordered.folders.filter((folder: { category: string }) => folder.category === "expressions"),
     [expressionFolder],
   );
-  assert.equal(reordered.defaultFolderId, front);
   assert.deepEqual(readSpriteCatalog(owner).folders, reordered.folders, "folder order is persisted");
   for (const orderedIds of [
     [front],
@@ -109,8 +106,7 @@ try {
     400,
   );
 
-  assert.equal(activeOwnerSprites(owner).length, 3, "all folders remain available despite the saved default");
-  assert.ok(listSpriteCatalog(owner).sprites.every((sprite) => sprite.active));
+  assert.equal(listSpriteCatalog(owner).sprites.length, 3, "all folders remain available");
   assert.equal(readPreferredFullBodySpriteBase64(owner)?.expression, "full_neutral");
   const available = buildAvailableSpriteCharacter(owner, "Proof", listCharacterSprites(owner)!, ["full-body"]);
   assert.deepEqual(available?.expressionChoices, ["happy", "neutral"]);
@@ -118,20 +114,19 @@ try {
   assert.ok(
     [original.expression.slice(5), alternate.expression.slice(5)].includes(validated.expressions[0]!.expression),
   );
-  const party = listPartySprites([{ id: owner, name: "Proof" }], { spriteFolderOverrides: { [owner]: side } });
+  const party = listPartySprites([{ id: owner, name: "Proof" }]);
   assert.deepEqual(
     party[0]?.fullBody.slice().sort(),
     [legacy.expression.slice(5), original.expression.slice(5), alternate.expression.slice(5)].sort(),
-    "legacy chat overrides cannot hide another folder",
+    "all folders remain available to Game Mode",
   );
-  assert.equal(available?.folderName, null);
   const beforeRename = Buffer.from(readFileSync(join(sourceDir, alternate.filename)));
   const renamed = (await request("PATCH", `${base}/${alternate.expression}`, { expression: "full_delighted" })).json();
   assert.equal(renamed.expression, alternate.expression, "a label change preserves saved file handles");
   assert.equal(renamed.id, alternate.id);
   assert.equal(renamed.label, "full_delighted");
   assert.deepEqual(readFileSync(join(sourceDir, alternate.filename)), beforeRename);
-  assert.equal(resolveSpriteExpression(activeOwnerSprites(owner), "delighted")?.id, alternate.id);
+  assert.equal(resolveSpriteExpression(listSpriteCatalog(owner).sprites, "delighted")?.id, alternate.id);
 
   const exported = await request("POST", `${base}/export`, { folderName: "proof" });
   const AdmZip = requireFromServer("adm-zip");
@@ -142,7 +137,6 @@ try {
       .some((entry: { entryName: string }) => entry.entryName === `proof/Side view/${alternate.filename}`),
   );
   const catalog = JSON.parse(zip.readAsText("proof/catalog.json"));
-  assert.equal(catalog.defaultFolderId, front);
   assert.equal(catalog.sprites[alternate.expression].label, "full_delighted");
   const images = listSpriteCatalog(owner).sprites.map((sprite) => ({ filename: sprite.filename, data: png }));
   await restoreSprites(images, "restored-owner", readSpriteCatalog(owner));
@@ -153,7 +147,6 @@ try {
     readSpriteCatalog(owner).folders,
     "exports and restores retain custom folder order",
   );
-  assert.equal(restored.defaultFolderId, front);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.folderId, side);
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.label, "full_delighted");
 
@@ -164,11 +157,10 @@ try {
   assert.equal(retained.folderId, null);
   assert.deepEqual(readFileSync(join(sourceDir, retained.filename)), beforeRename);
   assert.equal(
-    activeOwnerSprites(owner).some((sprite) => sprite.id === alternate.id),
+    listSpriteCatalog(owner).sprites.some((sprite) => sprite.id === alternate.id),
     true,
   );
   await request("POST", `${base}/move`, { expressions: ["not-there"], folderId: front }, 404);
-  await request("PATCH", `${base}/catalog`, { defaultFolderId: "bad-id" }, 400);
   await request("POST", "/api/sprites/..%2Fescape/folders", { name: "Invalid" }, 400);
   await request("POST", base, { expression: "happy", image: png, folderId: "not-a-folder" }, 400);
 
@@ -188,7 +180,7 @@ try {
     join(legacyDirectory, "catalog.json"),
     JSON.stringify({
       version: 1,
-      folders: [{ id: front, name: "Mixed", description: "" }],
+      folders: [{ id: front, name: "Mixed", description: "Prototype-only description" }],
       defaultFolderId: front,
       sprites: {
         happy: { id: "face", label: "happy", folderId: front },
@@ -198,6 +190,8 @@ try {
   );
   const split = listSpriteCatalog(legacyOwner);
   assert.equal(split.folders.length, 2);
+  assert(!Object.hasOwn(readSpriteCatalog(legacyOwner), "defaultFolderId"));
+  assert(!Object.hasOwn(split.folders[0]!, "description"));
   assert.equal(split.sprites.length, 2);
   assert.notEqual(split.sprites[0]!.folderId, split.sprites[1]!.folderId);
   assert.deepEqual(listSpriteCatalog(legacyOwner), split);

@@ -18,7 +18,6 @@ const button = "mari-editor-action min-h-[44px]! min-w-[44px]! px-3 md:min-h-9! 
 export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], category: "expressions" | "full-body") {
   const query = useSpriteCatalog(ownerId);
   const mutation = useMutateSpriteCatalog(ownerId);
-  const [folderId, setFolderId] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [selecting, setSelecting] = useState(false);
@@ -28,10 +27,9 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
     setSelecting(false);
     setSearch("");
   }, [category]);
-  const counts = new Map<string, number>([["all", sprites.length]]);
+  const counts = new Map<string, number>();
   for (const sprite of sprites) {
-    const folder = sprite.folderId ?? "unfiled";
-    counts.set(folder, (counts.get(folder) ?? 0) + 1);
+    if (sprite.folderId) counts.set(sprite.folderId, (counts.get(sprite.folderId) ?? 0) + 1);
   }
   const visible = sprites.filter((sprite) =>
     `${sprite.label ?? sprite.expression} ${sprite.folderName ?? ""}`
@@ -63,7 +61,6 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
     mutation,
     folders,
     counts,
-    folderId,
     search,
     setSearch,
     selected: selected.filter((expression) => visible.some((sprite) => sprite.expression === expression)),
@@ -72,12 +69,6 @@ export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], categor
     setSelecting,
     visible,
     mutate,
-    uploadFolderId: folderId === "all" || folderId === "unfiled" ? null : folderId,
-    chooseFolder: (id: string) => {
-      setFolderId(id);
-      setSelected([]);
-      setSearch("");
-    },
     toggle: (expression: string) =>
       setSelected((current) =>
         current.includes(expression) ? current.filter((item) => item !== expression) : [...current, expression],

@@ -1386,7 +1386,6 @@ export async function spritesRoutes(app: FastifyInstance) {
   const folderInput = z.object({
     category: z.enum(["expressions", "full-body"]).optional(),
     name: z.string().trim().min(1).max(100),
-    description: z.string().max(500).default(""),
   });
   app.get<{ Params: { characterId: string } }>("/:characterId/catalog", async (req, reply) => {
     if (!ownerParams.safeParse(req.params).success) return reply.code(400).send({ error: "Invalid sprite owner" });
@@ -1479,25 +1478,11 @@ export async function spritesRoutes(app: FastifyInstance) {
         catalog.folders = catalog.folders.filter((folder) => folder.id !== req.params.folderId);
         for (const sprite of Object.values(catalog.sprites))
           if (sprite.folderId === req.params.folderId) sprite.folderId = null;
-        if (catalog.defaultFolderId === req.params.folderId) catalog.defaultFolderId = null;
         await writeSpriteCatalog(req.params.characterId, catalog);
         return listSpriteCatalog(req.params.characterId);
       });
     },
   );
-  app.patch<{ Params: { characterId: string } }>("/:characterId/catalog", async (req, reply) => {
-    const body = z.object({ defaultFolderId: z.string().uuid().nullable() }).safeParse(req.body);
-    if (!ownerParams.safeParse(req.params).success || !body.success)
-      return reply.code(400).send({ error: "Invalid default folder" });
-    return withSpriteCatalogLock(req.params.characterId, async () => {
-      const catalog = readSpriteCatalog(req.params.characterId);
-      if (body.data.defaultFolderId && !catalog.folders.some((folder) => folder.id === body.data.defaultFolderId))
-        return reply.code(404).send({ error: "Sprite folder not found" });
-      catalog.defaultFolderId = body.data.defaultFolderId;
-      await writeSpriteCatalog(req.params.characterId, catalog);
-      return listSpriteCatalog(req.params.characterId);
-    });
-  });
   app.post<{ Params: { characterId: string } }>("/:characterId/move", async (req, reply) => {
     const body = z
       .object({ expressions: z.array(z.string()).min(1).max(5000), folderId: z.string().uuid().nullable() })
@@ -1595,11 +1580,6 @@ export async function spritesRoutes(app: FastifyInstance) {
     );
     if (selected.length !== catalog.sprites.length) {
       metadata.folders = metadata.folders.filter((folder) => selected.some((sprite) => sprite.folderId === folder.id));
-      if (!selected.some((sprite) => sprite.folderId === metadata.defaultFolderId)) {
-        metadata.defaultFolderId = selected.every((sprite) => sprite.folderId === selected[0]?.folderId)
-          ? (selected[0]?.folderId ?? null)
-          : null;
-      }
     }
     zip.addFile(`${folderName}/catalog.json`, Buffer.from(JSON.stringify(metadata, null, 2)));
 

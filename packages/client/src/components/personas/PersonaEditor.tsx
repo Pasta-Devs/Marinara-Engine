@@ -2324,7 +2324,7 @@ function PersonaSpritesTab({
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
 
-  const { data: sprites, isLoading } = useCharacterSprites(personaId, { all: true });
+  const { data: sprites, isLoading } = useCharacterSprites(personaId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const importFolder = useImportSpriteFolder();
@@ -2366,8 +2366,7 @@ function PersonaSpritesTab({
   const library = useSpriteLibrary(personaId, categorySprites, category === "full-body" ? "full-body" : "expressions");
   const visibleSprites = library.visible;
   const portraitExpressionSprites = allSprites.filter(
-    (sprite) =>
-      !sprite.expression.toLowerCase().startsWith("full_") && (sprite.folderId ?? null) === library.uploadFolderId,
+    (sprite) => !sprite.expression.toLowerCase().startsWith("full_") && (sprite.folderId ?? null) === null,
   );
   const existingExpressions = new Set(
     visibleSprites.map((s) => (category === "full-body" ? s.expression.replace(/^full_/, "") : s.expression)),
@@ -2429,7 +2428,7 @@ function PersonaSpritesTab({
           characterId: personaId,
           expression,
           image: reader.result as string,
-          ...(!pendingReplaceRef.current ? { folderId: library.uploadFolderId } : {}),
+          ...(!pendingReplaceRef.current ? { folderId: null } : {}),
         });
         setNewExpression("");
         pendingExpressionRef.current = "";
@@ -2456,8 +2455,8 @@ function PersonaSpritesTab({
       const result = await importFolder.mutateAsync({
         characterId: personaId,
         files: Array.from(files),
-        folderId: library.uploadFolderId,
-        preserveFolders: library.folderId === "all",
+        folderId: null,
+        preserveFolders: true,
         fullBody: category === "full-body",
         onProgress: setFolderProgress,
       });
@@ -3123,7 +3122,6 @@ function PersonaSpritesTab({
           open={spriteGenOpen}
           onClose={() => setSpriteGenOpen(false)}
           entityId={personaId}
-          folderId={library.uploadFolderId}
           initialSpriteType={category === "full-body" ? "full-body" : "expressions"}
           existingExpressionSprites={portraitExpressionSprites}
           defaultAppearance={defaultAppearance}

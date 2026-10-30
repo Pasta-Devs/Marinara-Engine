@@ -174,10 +174,9 @@ try {
       JSON.stringify({
         version: 1,
         folders: [
-          { id: happyFolder, name: "Front", description: "", category: "expressions" },
-          { id: sadFolder, name: "Side", description: "", category: "expressions" },
+          { id: happyFolder, name: "Front", category: "expressions" },
+          { id: sadFolder, name: "Side", category: "expressions" },
         ],
-        defaultFolderId: happyFolder,
         sprites: {
           happy: { id: randomUUID(), label: "happy", folderId: happyFolder },
           sad: { id: randomUUID(), label: "sad", folderId: sadFolder },
@@ -386,7 +385,6 @@ try {
     join(familyDirectory, "catalog.json"),
     JSON.stringify({
       version: 1,
-      defaultFolderId: null,
       folders: [],
       sprites: {
         happy: { id: randomUUID(), label: "pleased", folderId: null },

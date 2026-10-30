@@ -10,7 +10,6 @@ import { flushDB } from "../../db/connection.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
   listSpriteCatalog,
-  activeOwnerSprites,
   readSpriteCatalog,
   writeSpriteCatalog,
   withSpriteCatalogLock,
@@ -966,7 +965,7 @@ export class MariImagesService {
       }
       case "sprite": {
         const match =
-          activeOwnerSprites(target.ownerId).find((sprite) => sprite.label === target.expression) ??
+          listSpriteCatalog(target.ownerId).sprites.find((sprite) => sprite.label === target.expression) ??
           listSpriteCatalog(target.ownerId).sprites.find((sprite) => sprite.expression === target.expression);
         return match?.url ?? null;
       }
@@ -1431,7 +1430,7 @@ export class MariImagesService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: { folders: catalog.folders, defaultFolderId: catalog.defaultFolderId },
+          output: { folders: catalog.folders },
         };
       }
       case "chat-gallery":

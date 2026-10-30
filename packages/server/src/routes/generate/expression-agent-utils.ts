@@ -31,9 +31,6 @@ export type AvailableSpriteCharacter = {
   expressions: string[];
   expressionChoices?: string[];
   expressionAliases?: Record<string, string>;
-  folderName?: string | null;
-  folderNames?: string[];
-  folderDescription?: string;
 };
 
 export type SpriteExpressionEntry = {
@@ -100,9 +97,6 @@ export function buildAvailableSpriteCharacter(
     automaticFullBody: string[];
     expressionAliases?: Record<string, string>;
     fullBodyAliases?: Record<string, string>;
-    folderName?: string | null;
-    folderNames?: string[];
-    folderDescription?: string;
   },
   displayModes: readonly SpriteDisplayMode[],
 ): AvailableSpriteCharacter | null {
@@ -134,9 +128,6 @@ export function buildAvailableSpriteCharacter(
       expressions.map((expression) => expressionAliases[expression] ?? expression),
     ),
     expressionAliases,
-    folderName: sprites.folderName,
-    folderNames: sprites.folderNames,
-    folderDescription: sprites.folderDescription,
   };
 }
 

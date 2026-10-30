@@ -1,6 +1,14 @@
-import { expect, test, request as createRequest } from "@playwright/test";
+import { expect, test, request as createRequest, type CDPSession } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
+
+async function dispatchTouch(
+  session: CDPSession,
+  type: "touchStart" | "touchMove" | "touchEnd" | "touchCancel",
+  ...touchPoints: { x: number; y: number }[]
+) {
+  await session.send("Input.dispatchTouchEvent", { type, touchPoints });
+}
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const png = Buffer.from(
@@ -32,6 +40,15 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
   const owner = await created.json();
   const path = `/api/sprites/${owner.id}`;
   const catalog = async () => (await request.get(`${path}/catalog`)).json();
+  async function expectFolder(expression: string, folderId: string | null) {
+    await expect
+      .poll(
+        async () =>
+          (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === expression)
+            ?.folderId,
+      )
+      .toBe(folderId);
+  }
   const errors: string[] = [];
   let releaseFrameSave = () => {};
   page.on("pageerror", (error) => errors.push(error.message));
@@ -61,7 +78,6 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         ).ok(),
       ).toBeTruthy();
     }
-    expect((await request.patch(`${path}/catalog`, { data: { defaultFolderId: front } })).ok()).toBeTruthy();
     await isolateSyncedUISettings(page);
     // This spec covers the Engine's sprite library, independent of installed
     // third-party client modules and their reload/recovery lifecycle.
@@ -81,13 +97,16 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     }, version);
     await page.goto("/");
     const sections = page.getByRole("button", { name: "Editor sections", exact: true });
-    await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
-      timeout: 45_000,
-    });
-    if (await sections.isVisible()) {
-      await sections.click();
-      await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-    } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+    async function openSprites() {
+      await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
+        timeout: 45000,
+      });
+      if (await sections.isVisible()) {
+        await sections.click();
+        await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+      } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+    }
+    await openSprites();
     const section = page.locator('[data-editor-section="sprites"]');
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
@@ -126,7 +145,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await testHeader.click();
     const emptyText = testSection.getByText("Drop sprites here to move them into this folder.", { exact: true });
     await expect(emptyText).toBeVisible();
-    await expect(library.getByText(/or use Move selected/)).toHaveCount(0);
+
     await emptyText.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     const emptyBounds = (await emptyText.boundingBox())!;
@@ -134,10 +153,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const emptyY = emptyBounds.y + emptyBounds.height / 2;
     if (touchChromium) {
       const touch = await page.context().newCDPSession(page);
-      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: emptyX, y: emptyY }] });
+      await dispatchTouch(touch, "touchStart", { x: emptyX, y: emptyY });
       await page.waitForTimeout(500);
       await expect(testSection).not.toHaveAttribute("data-drag-source");
-      await touch.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await dispatchTouch(touch, "touchCancel");
       await touch.detach();
     } else {
       await page.mouse.move(emptyX, emptyY);
@@ -161,41 +180,32 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     const to = (await testSection.boundingBox())!;
     if (touchChromium) {
       const touch = await page.context().newCDPSession(page);
-      await touch.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [{ x: from.x + 60, y: from.y + 20 }],
-      });
+      await dispatchTouch(touch, "touchStart", { x: from.x + 60, y: from.y + 20 });
       await expect(frontSection).toHaveAttribute("data-drag-source", "true");
       // Pickup can autoscroll near the viewport edge; locate the destination after the hold.
       const destination = (await testHeader.boundingBox())!;
       const touchTarget = { x: destination.x + 60, y: destination.y + 8 };
-      await touch.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: touchTarget.x, y: (from.y + 20 + touchTarget.y) / 2 }],
-      });
-      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [touchTarget] });
+      await dispatchTouch(touch, "touchMove", { x: touchTarget.x, y: (from.y + 20 + touchTarget.y) / 2 });
+      await dispatchTouch(touch, "touchMove", touchTarget);
       // An insertion gap or edge scrolling can move the row during pickup.
       // Follow its visible top edge rather than releasing at stale coordinates.
       await expect
         .poll(async () => {
           const box = (await testHeader.boundingBox())!;
-          await touch.send("Input.dispatchTouchEvent", {
-            type: "touchMove",
-            touchPoints: [{ x: box.x + 60, y: box.y + 3 }],
-          });
+          await dispatchTouch(touch, "touchMove", { x: box.x + 60, y: box.y + 3 });
           return testSection.getAttribute("data-drag-insert");
         })
         .toBe("before");
       await expect(testSection).toHaveAttribute("data-drag-insert", "before");
       const hoveredHeader = (await reorderHeader.boundingBox())!;
-      await touch.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: hoveredHeader.x + 60, y: hoveredHeader.y + hoveredHeader.height / 4 }],
+      await dispatchTouch(touch, "touchMove", {
+        x: hoveredHeader.x + 60,
+        y: hoveredHeader.y + hoveredHeader.height / 4,
       });
       await expect(testSection).not.toHaveAttribute("data-drag-target");
       await expect(reorderHeader).toHaveCSS("background-color", restingFolderColor);
-      await page.screenshot({ path: info.outputPath("folder-reorder-phone.png"), animations: "disabled" });
-      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+      await dispatchTouch(touch, "touchEnd");
       await touch.detach();
     } else {
       await page.mouse.move(from.x + 60, from.y + 20);
@@ -207,7 +217,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await page.mouse.move(hoveredHeader.x + 60, hoveredHeader.y + hoveredHeader.height / 4, { steps: 3 });
       await expect(testSection).not.toHaveAttribute("data-drag-target");
       await expect(reorderHeader).toHaveCSS("background-color", restingFolderColor);
-      await page.screenshot({ path: info.outputPath("folder-reorder-desktop.png"), animations: "disabled" });
+
       await page.mouse.up();
     }
     await expect.poll(folderOrder).toEqual([front, testFolderId, alternate]);
@@ -239,11 +249,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.getByRole("dialog").last().getByRole("button", { name: "Remove folder", exact: true }).click();
     await expect.poll(folderOrder).toEqual([front, alternate]);
     await page.reload();
-    await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible();
-    if (await sections.isVisible()) {
-      await sections.click();
-      await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-    } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+    await openSprites();
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
     await expect.poll(folderOrder).toEqual([front, alternate]);
     await frontSection.getByRole("button", { name: "Front", exact: true }).click();
@@ -253,8 +259,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       "false",
     );
     await expect(library.getByRole("slider")).toHaveCount(0);
-    await expect(library.getByRole("button", { name: /^Unfiled/ })).toHaveCount(0);
-    await expect(library.getByRole("combobox", { name: "Browse sprite folders", exact: true })).toHaveCount(0);
+
     await section.getByRole("button", { name: "Manage", exact: true }).click();
     await expect(section.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
@@ -273,16 +278,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       expect(Math.abs(importFolder.y - generate.y)).toBeLessThan(2);
       expect(Math.abs(importFolder.width - generate.width)).toBeLessThan(2);
     }
-    await page.screenshot({ path: info.outputPath("compact-upload.png"), animations: "disabled" });
-    await expect(library.getByText(/^Adding to:/)).toHaveCount(0);
-    await expect(
-      library.getByText("Filenames become sprite names. Open a sprite to rename it or change its folder.", {
-        exact: true,
-      }),
-    ).toHaveCount(0);
+
     await library.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(library.getByText("All sprites are available to chats and agents.", { exact: true })).toHaveCount(0);
-    await page.screenshot({ path: info.outputPath("sprite-library.png"), animations: "disabled" });
+
     const looseArea = library.locator("[data-sprite-loose]");
     const looseRestingColor = await looseArea.evaluate((element) => getComputedStyle(element).backgroundColor);
     const looseHint = looseArea.locator("[data-sprite-loose-hint]");
@@ -312,10 +310,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       const loose = (await looseTile.boundingBox())!;
       expect(Math.abs(filed.x - loose.x)).toBeLessThan(0.5);
       expect(Math.abs(filed.width - loose.width)).toBeLessThan(0.5);
-      await page.screenshot({ path: info.outputPath("folder-loose-alignment.png"), animations: "disabled" });
     };
 
-    // A picture opens neutral details, and moving that picture does not change the chat default.
+    // Opening or moving a sprite preserves the collection.
     if (touchChromium) {
       const card = frontSection.getByRole("button", { name: "Preview idle", exact: true });
       await card.scrollIntoViewIfNeeded();
@@ -328,9 +325,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         expect(bounds).not.toBeNull();
         const x = imageOrigin ? bounds!.x + bounds!.width / 2 : bounds!.x + 1;
         const y = imageOrigin ? bounds!.y + bounds!.height / 2 : bounds!.y + bounds!.height - 1;
-        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        await dispatchTouch(session, "touchStart", { x, y });
         await expect(tile).toHaveAttribute("data-drag-source", "true");
-        await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+        await dispatchTouch(session, "touchCancel");
         await expect(tile).not.toHaveAttribute("data-drag-source");
         // A browser context menu or HTML drag arriving after cancellation still belongs to the touch tile.
         expect(
@@ -356,13 +353,10 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       const swipe = await card.boundingBox();
       const swipeX = swipe!.x + swipe!.width / 2,
         swipeY = swipe!.y + swipe!.height / 2;
-      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: swipeX, y: swipeY }] });
+      await dispatchTouch(session, "touchStart", { x: swipeX, y: swipeY });
       for (let offset = 20; offset <= 120; offset += 20)
-        await session.send("Input.dispatchTouchEvent", {
-          type: "touchMove",
-          touchPoints: [{ x: swipeX, y: swipeY - offset }],
-        });
-      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await dispatchTouch(session, "touchMove", { x: swipeX, y: swipeY - offset });
+      await dispatchTouch(session, "touchEnd");
       await expect.poll(async () => (await card.boundingBox())!.y).toBeLessThan(swipe!.y - 15);
       await expect(tile).not.toHaveAttribute("data-drag-source");
       await card.scrollIntoViewIfNeeded();
@@ -381,10 +375,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       const box = await card.boundingBox();
       expect(box).not.toBeNull();
       const x = box!.x + box!.width / 2;
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [{ x, y: box!.y + box!.height / 2 }],
-      });
+      await dispatchTouch(session, "touchStart", { x, y: box!.y + box!.height / 2 });
       await expect(frontSection.locator('[data-drag-source="true"]')).toHaveCount(1);
       await expect(library.getByText("Drop sprites here to move them out of a folder.", { exact: true })).toBeVisible();
       expect(await hintAppearance()).toEqual(restingHintAppearance);
@@ -396,32 +387,26 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       for (let i = 0; i < 20; i++) {
         const root = await loose.boundingBox();
         if (root && root.y < 660) break;
-        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 810 }] });
+        await dispatchTouch(session, "touchMove", { x, y: 810 });
         await page.waitForTimeout(150);
       }
       const root = await loose.boundingBox();
       expect(root).not.toBeNull();
       const y = Math.max(20, Math.min(780, root!.y + 25));
-      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+      await dispatchTouch(session, "touchMove", { x, y });
       await expect
         .poll(async () => {
           const bounds = (await loose.boundingBox())!;
           const point = { x, y: Math.max(180, Math.min(700, bounds.y + 20)) };
-          await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+          await dispatchTouch(session, "touchMove", point);
           return page.evaluate(
             ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("[data-sprite-loose]")),
             point,
           );
         })
         .toBe(true);
-      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-      await expect
-        .poll(
-          async () =>
-            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
-              .folderId,
-        )
-        .toBeNull();
+      await dispatchTouch(session, "touchEnd");
+      await expectFolder("full_idle", null);
       await expectAlignedGrids();
       await frontSection.getByRole("button", { name: "Front", exact: true }).click();
       await expect(frontSection.getByRole("button", { name: "Front", exact: true })).toHaveAttribute(
@@ -438,9 +423,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       const restingColor = await destinationHeader.evaluate(
         (element) => getComputedStyle(element.parentElement!).backgroundColor,
       );
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [{ x: looseBox.x + looseBox.width / 2, y: looseBox.y + looseBox.height / 2 }],
+      await dispatchTouch(session, "touchStart", {
+        x: looseBox.x + looseBox.width / 2,
+        y: looseBox.y + looseBox.height / 2,
       });
       await expect(looseTile).toHaveAttribute("data-drag-source", "true");
       await expect(library.getByText("Drop sprites here to move them out of a folder.", { exact: true })).toHaveCount(
@@ -451,39 +436,27 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         .poll(() => loose.evaluate((element) => getComputedStyle(element).backgroundColor))
         .not.toBe(looseRestingColor);
       expect((await loose.boundingBox())!.height).toBeCloseTo(looseBefore!.height, 1);
-      await page.screenshot({ path: info.outputPath("loose-area-highlight-phone.png"), animations: "disabled" });
+
       const destinationBox = (await destinationHeader.boundingBox())!;
       const destinationPoint = { x: destinationBox.x + 40, y: destinationBox.y + destinationBox.height / 2 };
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: destinationPoint.x, y: (looseBox.y + looseBox.height / 2 + destinationPoint.y) / 2 }],
+      await dispatchTouch(session, "touchMove", {
+        x: destinationPoint.x,
+        y: (looseBox.y + looseBox.height / 2 + destinationPoint.y) / 2,
       });
-      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [destinationPoint] });
+      await dispatchTouch(session, "touchMove", destinationPoint);
       await expect(destination).toHaveAttribute("data-drag-target", "inside");
       await expect
         .poll(() => destinationHeader.evaluate((element) => getComputedStyle(element.parentElement!).backgroundColor))
         .not.toBe(restingColor);
       await expect(destinationHeader).toHaveAttribute("aria-expanded", "false");
-      await page.screenshot({ path: info.outputPath("collapsed-folder-target-phone.png"), animations: "disabled" });
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: 1, y: 400 }],
-      });
+
+      await dispatchTouch(session, "touchMove", { x: 1, y: 400 });
       await expect(destination).not.toHaveAttribute("data-drag-target");
       const returnBox = (await destinationHeader.boundingBox())!;
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: returnBox.x + 40, y: returnBox.y + returnBox.height / 2 }],
-      });
+      await dispatchTouch(session, "touchMove", { x: returnBox.x + 40, y: returnBox.y + returnBox.height / 2 });
       await expect(destination).toHaveAttribute("data-drag-target", "inside");
-      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-      await expect
-        .poll(
-          async () =>
-            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
-              .folderId,
-        )
-        .toBe(alternate);
+      await dispatchTouch(session, "touchEnd");
+      await expectFolder("full_idle", alternate);
       await expect(destination).not.toHaveAttribute("data-drag-target");
       await expect(loose).toHaveCSS("background-color", looseRestingColor);
       // Restore this test fixture through the API before the shared editing checks.
@@ -491,13 +464,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         (await request.post(path + "/move", { data: { expressions: ["full_idle"], folderId: front } })).ok(),
       ).toBeTruthy();
       await page.reload();
-      await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
-        timeout: 45000,
-      });
-      if (await sections.isVisible()) {
-        await sections.click();
-        await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-      } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+      await openSprites();
       await section.getByRole("button", { name: "Full-body", exact: true }).click();
       await frontSection.getByRole("button", { name: "Front", exact: true }).click();
       await session.detach();
@@ -546,10 +513,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect
           .poll(() => looseArea.evaluate((element) => getComputedStyle(element).backgroundColor))
           .not.toBe(looseRestingColor);
-        await page.screenshot({
-          path: info.outputPath(fromImage ? "drag-image.png" : "drag-border.png"),
-          animations: "disabled",
-        });
+
         await expect(card).toBeVisible();
         const original = card.locator("xpath=ancestor::*[@draggable][1]");
         await expect(original).toHaveCSS("opacity", "0.5");
@@ -576,13 +540,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       await frontSection
         .getByRole("button", { name: "Preview idle", exact: true })
         .dragTo(library.locator("[data-sprite-loose]"));
-      await expect
-        .poll(
-          async () =>
-            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
-              .folderId,
-        )
-        .toBeNull();
+      await expectFolder("full_idle", null);
       await expect(
         library
           .locator("[data-sprite-loose]")
@@ -609,7 +567,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         0,
       );
       expect((await looseArea.boundingBox())!.height).toBeCloseTo(looseBefore.height, 1);
-      await page.screenshot({ path: info.outputPath("loose-area-highlight-desktop.png"), animations: "disabled" });
+
       await page.keyboard.press("Escape");
       await page.mouse.up();
       await expect(looseArea).toHaveCSS("background-color", looseRestingColor);
@@ -636,10 +594,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         await expect(
           destination.getByRole("button", { name: id === alternate ? "Alternate" : "Front", exact: true }),
         ).toHaveAttribute("aria-expanded", id === alternate ? "false" : "true");
-        await header.screenshot({
-          path: info.outputPath(`folder-target-desktop-${id === alternate ? "collapsed" : "expanded"}.png`),
-          animations: "disabled",
-        });
+
         await destination.dispatchEvent("dragleave", { dataTransfer: transfer });
         await expect(destination).not.toHaveAttribute("data-drag-target");
       }
@@ -648,13 +603,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         .locator("[data-sprite-loose]")
         .getByRole("button", { name: "Preview idle", exact: true })
         .dragTo(frontSection.getByRole("button", { name: "Front", exact: true }));
-      await expect
-        .poll(
-          async () =>
-            (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
-              .folderId,
-        )
-        .toBe(front);
+      await expectFolder("full_idle", front);
     }
     await expect(library.getByRole("checkbox", { name: /^Select/ })).toHaveCount(0);
     await library.getByRole("button", { name: "Select", exact: true }).click();
@@ -716,14 +665,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect(details.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
     await page.unroute(`**${path}`);
     await details.getByRole("combobox", { name: "Folder", exact: true }).selectOption(alternate);
-    await expect
-      .poll(
-        async () =>
-          (await catalog()).sprites.find((sprite: { expression: string }) => sprite.expression === "full_idle")
-            .folderId,
-      )
-      .toBe(alternate);
-    expect((await catalog()).defaultFolderId).toBe(front);
+    await expectFolder("full_idle", alternate);
     await details.getByRole("button", { name: "Delete Sprite", exact: true }).click();
     const singleDelete = page.getByRole("dialog").last();
     await expect(singleDelete.getByRole("button", { name: /Delete (these|selected|all)/i })).toHaveCount(0);
@@ -767,10 +709,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       const bounds = (await selectedCards.first().boundingBox())!;
       const session = await page.context().newCDPSession(page);
       const x = bounds.x + bounds.width / 2;
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchStart",
-        touchPoints: [{ x, y: bounds.y + bounds.height / 2 }],
-      });
+      await dispatchTouch(session, "touchStart", { x, y: bounds.y + bounds.height / 2 });
       const preview = page.locator('body > [data-drag-kind="sprite"][aria-hidden="true"]');
       await expect(preview.locator("[data-drag-stack-count]")).toHaveText("2");
       await expect(selectedCards.nth(0)).toHaveCSS("opacity", "0.5");
@@ -781,15 +720,12 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       for (let i = 0; i < 20; i++) {
         const target = await destination.boundingBox();
         if (target && target.y < 740) break;
-        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 810 }] });
+        await dispatchTouch(session, "touchMove", { x, y: 810 });
         await page.waitForTimeout(150);
       }
       const target = (await destination.boundingBox())!;
-      await session.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: target.x + 40, y: target.y + target.height / 2 }],
-      });
-      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await dispatchTouch(session, "touchMove", { x: target.x + 40, y: target.y + target.height / 2 });
+      await dispatchTouch(session, "touchEnd");
       await expect
         .poll(
           async () =>
@@ -848,7 +784,6 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           ["smile", "sad"].includes(sprite.label) && sprite.folderId === null,
       ),
     ).toHaveLength(2);
-    expect(saved.defaultFolderId).toBe(front);
 
     await expect(frontSection).toHaveCount(0);
     const expressionSection = library.locator(`[data-sprite-folder="${expressionFront}"]`);
@@ -858,7 +793,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await library.getByRole("textbox", { name: "Folder name", exact: true }).fill(longName);
     await page.keyboard.press("Enter");
     await expect(expressionSection.getByRole("button", { name: longName, exact: true })).toBeVisible();
-    await expect(library.getByRole("button", { name: "Use by default", exact: true })).toHaveCount(0);
+
     expect(await library.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
     await expect(library.getByRole("button", { name: "Front", exact: true })).toBeVisible();

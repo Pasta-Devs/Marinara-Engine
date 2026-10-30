@@ -47,11 +47,11 @@ function separateSpriteFolders(catalog: SpriteCatalog): SpriteCatalog {
 
 export function readSpriteCatalog(ownerId: string): SpriteCatalog {
   const file = join(spriteDirectory(ownerId), "catalog.json");
-  if (!existsSync(file)) return { version: 1, folders: [], defaultFolderId: null, sprites: {} };
+  if (!existsSync(file)) return { version: 1, folders: [], sprites: {} };
   if (!lstatSync(file).isFile() || lstatSync(file).isSymbolicLink()) throw Error("Invalid sprite catalog file");
   const catalog = spriteCatalogSchema.parse(JSON.parse(readFileSync(file, "utf8")));
   const ids = new Set(catalog.folders.map((folder) => folder.id));
-  if (ids.size !== catalog.folders.length || (catalog.defaultFolderId && !ids.has(catalog.defaultFolderId))) {
+  if (ids.size !== catalog.folders.length) {
     throw Error("Invalid sprite folder references");
   }
   if (Object.values(catalog.sprites).some((sprite) => sprite.folderId && !ids.has(sprite.folderId))) {
@@ -101,16 +101,10 @@ export function listSpriteCatalog(ownerId: string): CharacterSpriteCatalog {
             filename,
             url: `/api/sprites/${encodeURIComponent(ownerId)}/file/${encodeURIComponent(filename)}?v=${Math.floor(statSync(join(directory, filename)).mtimeMs)}`,
             folderName: catalog.folders.find((folder) => folder.id === metadata.folderId)?.name ?? null,
-            active: true,
           };
         })
     : [];
-  return { folders: catalog.folders, defaultFolderId: catalog.defaultFolderId, sprites };
-}
-
-export function activeOwnerSprites(ownerId: string) {
-  // Folders organize the library; every sprite remains available at runtime.
-  return listSpriteCatalog(ownerId).sprites;
+  return { folders: catalog.folders, sprites };
 }
 
 /** Import only memberships whose image was successfully restored; never accept filesystem paths from metadata. */
@@ -122,11 +116,7 @@ export async function restoreSpriteCatalog(
   if (value === undefined) return;
   const imported = spriteCatalogSchema.parse(value);
   const folderIds = new Set(imported.folders.map((folder) => folder.id));
-  if (
-    folderIds.size !== imported.folders.length ||
-    (imported.defaultFolderId && !folderIds.has(imported.defaultFolderId))
-  )
-    throw Error("Invalid imported sprite folders");
+  if (folderIds.size !== imported.folders.length) throw Error("Invalid imported sprite folders");
   const existing = listSpriteCatalog(ownerId).sprites;
   const sprites = Object.fromEntries(
     [...restored].flatMap(([original, expression]) => {

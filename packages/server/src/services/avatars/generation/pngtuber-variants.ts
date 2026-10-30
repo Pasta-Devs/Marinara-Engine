@@ -37,7 +37,7 @@ import {
   type PngtuberLayerSet,
 } from "@marinara-engine/shared";
 import type { DB } from "../../../db/connection.js";
-import { activeOwnerSprites } from "../../sprites/sprite-catalog.js";
+import { listSpriteCatalog } from "../../sprites/sprite-catalog.js";
 import { drawTalkingHeadSet, talkingHeadSetPrompt } from "../../../routes/sprites.routes.js";
 import { isAllowedImageBuffer } from "../../../utils/security.js";
 import { resolveReviewedImagePromptSubmission } from "../../image/image-prompt-review.js";
@@ -318,7 +318,7 @@ function familySourceSprites(ownerId: string): string[] {
 }
 
 function spriteLabelAliases(ownerId: string): Map<string, string> {
-  return new Map(activeOwnerSprites(ownerId).map((sprite) => [sprite.expression, sprite.label]));
+  return new Map(listSpriteCatalog(ownerId).sprites.map((sprite) => [sprite.expression, sprite.label]));
 }
 
 /** The sprites to draw: the requested ones, which must be in the avatar's family, else the ones the saved

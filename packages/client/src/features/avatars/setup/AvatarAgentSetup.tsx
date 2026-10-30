@@ -169,7 +169,7 @@ function OwnerAvatarSetup({
 }) {
   const { t } = useTranslation();
   const { data: config = null, isLoading: configLoading } = useAvatarModel(owner);
-  const spritesQuery = useCharacterSprites(owner.ownerId, { chatId: null });
+  const spritesQuery = useCharacterSprites(owner.ownerId);
   const sprites = spritesQuery.data ?? (spritesQuery.isLoading ? null : []);
   const { save: update } = useAvatarModelActions(owner);
   const [chosenKind, setChosenKind] = useState<AvatarKind | null>(null);

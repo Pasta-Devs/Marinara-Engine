@@ -53,8 +53,7 @@ try {
   const folder = randomUUID();
   await writeSpriteCatalog(owner, {
     version: 1,
-    defaultFolderId: folder,
-    folders: [{ id: folder, name: "Side", description: "", category: "expressions" }],
+    folders: [{ id: folder, name: "Side", category: "expressions" }],
     sprites: { happy: { id: "happy", label: "happy", folderId: folder } },
   });
   const after = listCharacterSprites(owner)!;
@@ -65,7 +64,6 @@ try {
   writeFileSync(join(sprites, `${duplicateHandle}.png`), "fixture");
   await writeSpriteCatalog(owner, {
     version: 1,
-    defaultFolderId: null,
     folders: [],
     sprites: { [duplicateHandle]: { id: "duplicate", label: "happy", folderId: null } },
   });
@@ -77,7 +75,6 @@ try {
   // Renaming a portrait must not rename a full-body pose that shares its base handle.
   await writeSpriteCatalog(owner, {
     version: 1,
-    defaultFolderId: null,
     folders: [],
     sprites: {
       happy: { id: "happy", label: "delighted", folderId: null },
@@ -96,7 +93,6 @@ try {
   );
   await writeSpriteCatalog(owner, {
     version: 1,
-    defaultFolderId: null,
     folders: [],
     sprites: { sad: { id: "sad", label: "angry", folderId: null } },
   });
@@ -126,7 +122,6 @@ try {
   ] as const) {
     await writeSpriteCatalog(familyOwner, {
       version: 1,
-      defaultFolderId: null,
       folders: [],
       sprites: {
         happy: { id: "face", label: portraitLabel!, folderId: null },

@@ -91,7 +91,7 @@ function spriteGeneratorSeed(
 
 export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSetupPanelProps) {
   const { t } = useTranslation();
-  const { data: spriteList, isLoading } = useCharacterSprites(owner.ownerId, { chatId: null });
+  const { data: spriteList, isLoading } = useCharacterSprites(owner.ownerId);
   const { data: capabilities } = useSpriteCapabilities();
   const { data: connectionList } = useConnections();
   const queryClient = useQueryClient();

@@ -42,10 +42,9 @@ try {
   const fullFolder = randomUUID();
   await writeSpriteCatalog(owner.ownerId, {
     version: 1,
-    defaultFolderId: folder,
     folders: [
-      { id: folder, name: "Faces", category: "expressions", description: "" },
-      { id: fullFolder, name: "Poses", category: "full-body", description: "" },
+      { id: folder, name: "Faces", category: "expressions" },
+      { id: fullFolder, name: "Poses", category: "full-body" },
     ],
     sprites: {
       neutral: { id: "base", label: "happy", folderId: folder },
