@@ -29,7 +29,7 @@ interface SpriteGenerationModalProps {
   /** Optional initial mode shown when opening */
   initialSpriteType?: "expressions" | "full-body";
   /** Existing portrait sprites that full-body generation can mirror */
-  existingExpressionSprites?: Array<{ expression: string; url: string }>;
+  existingExpressionSprites?: Array<{ expression: string; label?: string; url: string }>;
   /** Pre-filled appearance description */
   defaultAppearance?: string;
   /** Pre-filled avatar (base64 data URL) for reference */
@@ -671,7 +671,7 @@ export function SpriteGenerationModal({
   const existingPortraitSprites = useMemo(() => {
     const seen = new Set<string>();
     return existingExpressionSprites.flatMap((sprite) => {
-      const expression = normalizeSpriteLabel(sprite.expression);
+      const expression = normalizeSpriteLabel(sprite.label ?? sprite.expression);
       if (!expression || !sprite.url || seen.has(expression)) return [];
       seen.add(expression);
       return [{ expression, url: sprite.url }];
@@ -1954,7 +1954,6 @@ export function SpriteGenerationModal({
           api.post(`/sprites/${entityId}`, {
             expression,
             image: cell.dataUrl,
-            replaceExisting: true,
           }),
         ),
       );

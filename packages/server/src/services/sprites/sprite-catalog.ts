@@ -91,7 +91,6 @@ export function listSpriteCatalog(ownerId: string): CharacterSpriteCatalog {
         .map((filename) => {
           const expression = filename.slice(0, -extname(filename).length);
           const metadata = (Object.hasOwn(catalog.sprites, expression) ? catalog.sprites[expression] : undefined) ?? {
-            id: createHash("sha256").update(`${ownerId}/${expression}`).digest("hex").slice(0, 32),
             label: expression,
             folderId: null,
           };
@@ -127,7 +126,7 @@ export async function restoreSpriteCatalog(
       const folder = imported.folders.find((entry) => entry.id === metadata.folderId);
       const wrongType =
         folder?.category && folder.category !== (expression.startsWith("full_") ? "full-body" : "expressions");
-      return [[expression, { ...metadata, id: sprite.id, folderId: wrongType ? null : metadata.folderId }]];
+      return [[expression, { ...metadata, folderId: wrongType ? null : metadata.folderId }]];
     }),
   );
   await writeSpriteCatalog(ownerId, { ...imported, sprites });

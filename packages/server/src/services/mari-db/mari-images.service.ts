@@ -14,7 +14,6 @@ import {
   writeSpriteCatalog,
   withSpriteCatalogLock,
 } from "../sprites/sprite-catalog.js";
-import { randomUUID } from "node:crypto";
 import { newId, now } from "../../utils/id-generator.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
@@ -945,6 +944,14 @@ export class MariImagesService {
     return null;
   }
 
+  private findSprite(ownerId: string, expression: string) {
+    const sprites = listSpriteCatalog(ownerId).sprites;
+    const exact = sprites.find((sprite) => sprite.expression === expression);
+    const matches = sprites.filter((sprite) => sprite.label === expression);
+    if (!exact && matches.length > 1) throw new Error("More than one sprite has that label; use its file handle.");
+    return exact ?? matches[0];
+  }
+
   private async currentImageReferenceForTarget(target: ImageTarget): Promise<string | null> {
     const characters = createCharactersStorage(this.db);
     switch (target.type) {
@@ -964,10 +971,7 @@ export class MariImagesService {
         return typeof row.imagePath === "string" ? row.imagePath : null;
       }
       case "sprite": {
-        const match =
-          listSpriteCatalog(target.ownerId).sprites.find((sprite) => sprite.label === target.expression) ??
-          listSpriteCatalog(target.ownerId).sprites.find((sprite) => sprite.expression === target.expression);
-        return match?.url ?? null;
+        return this.findSprite(target.ownerId, target.expression)?.url ?? null;
       }
       case "background":
         return target.filename ? `/api/backgrounds/file/${encodeURIComponent(target.filename)}` : null;
@@ -1150,21 +1154,14 @@ export class MariImagesService {
     if (!owner) throw new Error(`Character/persona not found for sprite owner: ${ownerId}`);
     return withSpriteCatalogLock(ownerId, async () => {
       const catalog = readSpriteCatalog(ownerId);
-      const sprites = listSpriteCatalog(ownerId).sprites;
-      const match = sprites.find((sprite) => sprite.label === expression);
-      const handle =
-        match?.expression ??
-        (sprites.some((sprite) => sprite.expression === expression)
-          ? `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`
-          : expression);
+      const match = this.findSprite(ownerId, expression);
+      const handle = match?.expression ?? expression;
       const dir = join(SPRITES_DIR, ownerId);
       await mkdir(dir, { recursive: true });
       const filename = `${handle}.${source.ext}`;
       await writeFile(assertInsideDir(dir, join(dir, filename)), source.buffer);
-      catalog.sprites = {
-        ...catalog.sprites,
-        [handle]: { id: match?.id ?? randomUUID(), label: expression, folderId: match?.folderId ?? null },
-      };
+      if (match && match.filename !== filename) await unlink(assertInsideDir(dir, join(dir, match.filename)));
+      catalog.sprites[handle] = { label: match?.label ?? expression, folderId: match?.folderId ?? null };
       await writeSpriteCatalog(ownerId, catalog);
       return listSpriteCatalog(ownerId).sprites.find((sprite) => sprite.expression === handle)!;
     });

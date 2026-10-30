@@ -56,7 +56,7 @@ export function normalizeSpriteExpressionKey(value: string): string {
   return normalizeUnicodeSpriteExpressionKey(value);
 }
 
-function hasUsefulContainmentMatch(requested: string, candidate: string): boolean {
+export function hasUsefulContainmentMatch(requested: string, candidate: string): boolean {
   if (requested.length < 3 || candidate.length < 3) return false;
   const requestedTokens = requested.split("_").filter(Boolean);
   const candidateTokens = candidate.split("_").filter(Boolean);

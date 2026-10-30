@@ -169,7 +169,7 @@ try {
   const spriteCatalog = {
     version: 1,
     folders: [{ id: spriteFolderId, name: "Faces", category: "expressions" }],
-    sprites: { happy: { id: "native-export-face", label: "joyful", folderId: spriteFolderId } },
+    sprites: { happy: { label: "joyful", folderId: spriteFolderId } },
   };
   await writeFile(join(spriteDir, "catalog.json"), JSON.stringify(spriteCatalog));
 

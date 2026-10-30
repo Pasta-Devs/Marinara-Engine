@@ -453,7 +453,6 @@ export interface SpriteInfo {
   expression: string;
   filename: string;
   url: string;
-  id?: string;
   label?: string;
   folderId?: string | null;
   folderName?: string | null;
@@ -618,6 +617,7 @@ export function useImportSpriteFolder() {
         name: string,
         category: "expressions" | "full-body" = fullBody ? "full-body" : "expressions",
       ) {
+        name = name.trim();
         const existing = catalog.folders.find(
           (folder) => folder.name.toLowerCase() === name.toLowerCase() && folder.category === category,
         );

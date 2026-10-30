@@ -7,7 +7,6 @@ export const spriteFolderSchema = z.object({
 });
 
 export const spriteMetadataSchema = z.object({
-  id: z.string().min(1).max(100),
   label: z.string().min(1).max(160),
   folderId: z.string().uuid().nullable(),
 });

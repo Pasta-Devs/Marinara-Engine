@@ -78,6 +78,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
         ).ok(),
       ).toBeTruthy();
     }
+    expect((await request.patch(`${path}/neutral`, { data: { expression: "pleased" } })).ok()).toBeTruthy();
     await isolateSyncedUISettings(page);
     // This spec covers the Engine's sprite library, independent of installed
     // third-party client modules and their reload/recovery lifecycle.
@@ -279,6 +280,11 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       expect(Math.abs(importFolder.width - generate.width)).toBeLessThan(2);
     }
 
+    await addPanel.getByRole("button", { name: "Generate Sprite", exact: true }).click();
+    const generation = page.getByRole("dialog").last();
+    await generation.getByRole("checkbox", { name: /^Match existing expression sprites/ }).check();
+    await expect(generation.getByText("pleased", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await library.getByRole("button", { name: "Close", exact: true }).click();
 
     const looseArea = library.locator("[data-sprite-loose]");

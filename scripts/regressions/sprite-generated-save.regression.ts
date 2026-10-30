@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 
 const directory = mkdtempSync(join(tmpdir(), "marinara-generated-sprite-save-"));
 process.env.DATA_DIR = directory;
+const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const requireFromServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
 const app = requireFromServer("fastify")();
 const owner = "generated-save";
@@ -37,7 +38,6 @@ try {
     folderId: null,
     replaceExisting: true,
   });
-  assert.equal(regenerated.id, loose.id);
   assert.equal(regenerated.expression, loose.expression);
   assert.equal(regenerated.folderId, null);
   assert.deepEqual(readFileSync(join(files, regenerated.filename)), nextBytes);
@@ -54,7 +54,6 @@ try {
     folderId: second,
     replaceExisting: true,
   });
-  assert.equal(renamed.id, duplicate.id);
   assert.equal(
     renamed.expression,
     duplicate.expression,
@@ -77,22 +76,24 @@ try {
   assert.deepEqual(readFileSync(join(files, original.filename)), originalBytes);
 
   const jpeg = await sharp(originalBytes).jpeg().toBuffer();
-  const oldFormat = await request("POST", base, {
-    expression: "full_neutral",
-    image: `data:image/jpeg;base64,${jpeg.toString("base64")}`,
-    folderId: null,
-  });
-  const newFormat = await request("POST", base, {
-    expression: "full_neutral",
-    image: nextImage,
-    folderId: null,
-    replaceExisting: true,
-  });
-  assert.equal(newFormat.id, oldFormat.id);
-  assert.equal(newFormat.expression, oldFormat.expression);
-  assert(!existsSync(join(files, oldFormat.filename)), "format changes leave one concrete sprite file");
-  assert.deepEqual(readFileSync(join(files, newFormat.filename)), nextBytes);
-  assert.equal(listSpriteCatalog(owner).sprites.filter((sprite) => sprite.expression === "full_neutral").length, 1);
+  for (const scoped of [true, false]) {
+    const expression = scoped ? "full_neutral" : "full_idle";
+    const oldFormat = await request("POST", base, {
+      expression,
+      image: `data:image/jpeg;base64,${jpeg.toString("base64")}`,
+      folderId: null,
+    });
+    const newFormat = await request("POST", base, {
+      expression,
+      image: nextImage,
+      ...(scoped ? { folderId: null } : {}),
+      replaceExisting: true,
+    });
+    assert.equal(newFormat.expression, oldFormat.expression);
+    assert(!existsSync(join(files, oldFormat.filename)), "format changes leave one concrete sprite file");
+    assert.deepEqual(readFileSync(join(files, newFormat.filename)), nextBytes);
+    assert.equal(listSpriteCatalog(owner).sprites.filter((sprite) => sprite.expression === expression).length, 1);
+  }
 
   const sameLabel = await request("POST", base, { expression: "delighted", image, folderId: first });
   await request("POST", base + "/move", { expressions: [sameLabel.expression], folderId: second });
@@ -107,8 +108,52 @@ try {
     originalBytes,
     "explicit details replacement still works",
   );
-  assert.equal(listSpriteCatalog(owner).sprites.find((sprite) => sprite.id === duplicate.id)?.folderId, second);
+  assert.equal(
+    listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === duplicate.expression)?.folderId,
+    second,
+  );
+
+  const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
+  const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
+  const { MariImagesService } = await import("../../packages/server/src/services/mari-db/mari-images.service.js");
+  const db = await getDB();
+  const mariOwner = (await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Sprite proof" })))!;
+  const mariBase = `/api/sprites/${mariOwner.id}`;
+  const mariSprite = await request("POST", mariBase, { expression: "happy", image, folderId: null });
+  await request("PATCH", `${mariBase}/happy`, { expression: "delighted" });
+  const source = join(directory, "source.jpg");
+  writeFileSync(source, jpeg);
+  const mari = new MariImagesService(db);
+  const assign = (expression: string) =>
+    mari.execute(
+      [
+        "assign",
+        "--target",
+        "sprite",
+        "--owner",
+        mariOwner.id,
+        "--expression",
+        expression,
+        "--source",
+        source,
+        "--apply",
+      ],
+      { command: "mari images assign", sessionId: "fixture" },
+    );
+  await assign("happy");
+  const assigned = listSpriteCatalog(mariOwner.id).sprites;
+  assert.equal(assigned.length, 1, "Mari replacement follows the stable handle, without making a second sprite");
+  assert.equal(assigned[0]!.label, "delighted");
+  assert(!existsSync(join(directory, "sprites", mariOwner.id, mariSprite.filename)));
+  const folder = (await request("POST", mariBase + "/folders", { name: "Other" })).folders[0].id;
+  await request("POST", mariBase, { expression: "delighted", image, folderId: folder });
+  await request("PATCH", `${mariBase}/happy`, { expression: "joy" });
+  await request("PATCH", `${mariBase}/delighted`, { expression: "joy" });
+  const beforeAmbiguous = listSpriteCatalog(mariOwner.id);
+  await assert.rejects(assign("joy"), /More than one sprite/);
+  assert.deepEqual(listSpriteCatalog(mariOwner.id), beforeAmbiguous);
 } finally {
   await app.close();
+  await closeDB();
   rmSync(directory, { recursive: true, force: true });
 }

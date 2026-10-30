@@ -54,7 +54,7 @@ try {
   await writeSpriteCatalog(owner, {
     version: 1,
     folders: [{ id: folder, name: "Side", category: "expressions" }],
-    sprites: { happy: { id: "happy", label: "happy", folderId: folder } },
+    sprites: { happy: { label: "happy", folderId: folder } },
   });
   const after = listCharacterSprites(owner)!;
   for (const key of ["expressions", "fullBody", "automaticFullBody"] as const)
@@ -65,7 +65,7 @@ try {
   await writeSpriteCatalog(owner, {
     version: 1,
     folders: [],
-    sprites: { [duplicateHandle]: { id: "duplicate", label: "happy", folderId: null } },
+    sprites: { [duplicateHandle]: { label: "happy", folderId: null } },
   });
   assert.equal(
     validate(duplicateHandle),
@@ -77,8 +77,8 @@ try {
     version: 1,
     folders: [],
     sprites: {
-      happy: { id: "happy", label: "delighted", folderId: null },
-      [duplicateHandle]: { id: "duplicate", label: "happy", folderId: null },
+      happy: { label: "delighted", folderId: null },
+      [duplicateHandle]: { label: "happy", folderId: null },
     },
   });
   assert.deepEqual(
@@ -94,7 +94,7 @@ try {
   await writeSpriteCatalog(owner, {
     version: 1,
     folders: [],
-    sprites: { sad: { id: "sad", label: "angry", folderId: null } },
+    sprites: { sad: { label: "angry", folderId: null } },
   });
   const available = buildAvailableSpriteCharacter(owner, "Owner", listCharacterSprites(owner)!, ["expressions"])!;
   assert.equal(
@@ -124,8 +124,8 @@ try {
       version: 1,
       folders: [],
       sprites: {
-        happy: { id: "face", label: portraitLabel!, folderId: null },
-        full_happy: { id: "body", label: `full_${bodyLabel}`, folderId: null },
+        happy: { label: portraitLabel!, folderId: null },
+        full_happy: { label: `full_${bodyLabel}`, folderId: null },
       },
     });
     const combined = buildAvailableSpriteCharacter(familyOwner, "Owner", listCharacterSprites(familyOwner)!, [

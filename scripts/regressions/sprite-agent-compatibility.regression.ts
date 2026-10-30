@@ -47,9 +47,9 @@ try {
       { id: fullFolder, name: "Poses", category: "full-body" },
     ],
     sprites: {
-      neutral: { id: "base", label: "happy", folderId: folder },
-      neutral_talk: { id: "talk", label: "happy_talk", folderId: folder },
-      full_neutral: { id: "body", label: "full_delighted", folderId: fullFolder },
+      neutral: { label: "happy", folderId: folder },
+      neutral_talk: { label: "happy_talk", folderId: folder },
+      full_neutral: { label: "full_delighted", folderId: fullFolder },
     },
   });
   const catalog = listSpriteCatalog(owner.ownerId);
@@ -88,7 +88,7 @@ try {
   const metadata = readSpriteCatalog(owner.ownerId);
   await writeSpriteCatalog(owner.ownerId, {
     ...metadata,
-    sprites: { ...metadata.sprites, sad: { id: "other", label: "happy", folderId: null } },
+    sprites: { ...metadata.sprites, sad: { label: "happy", folderId: null } },
   });
   await assert.rejects(
     savePngtuberVariants({

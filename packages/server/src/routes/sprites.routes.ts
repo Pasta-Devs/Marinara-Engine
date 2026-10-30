@@ -1506,7 +1506,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: "Sprites and destination folder must have the same type" });
       for (const expression of body.data.expressions) {
         const sprite = sprites.find((entry) => entry.expression === expression)!;
-        catalog.sprites[expression] = { id: sprite.id, label: sprite.label, folderId: body.data.folderId };
+        catalog.sprites[expression] = { label: sprite.label, folderId: body.data.folderId };
       }
       await writeSpriteCatalog(req.params.characterId, catalog);
       return listSpriteCatalog(req.params.characterId);
@@ -1576,7 +1576,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       zip.addFile(`${folderName}/${folder}/${sprite.filename}`, readFileSync(join(dir, sprite.filename)));
     }
     metadata.sprites = Object.fromEntries(
-      selected.map((sprite) => [sprite.expression, { id: sprite.id, label: sprite.label, folderId: sprite.folderId }]),
+      selected.map((sprite) => [sprite.expression, { label: sprite.label, folderId: sprite.folderId }]),
     );
     if (selected.length !== catalog.sprites.length) {
       metadata.folders = metadata.folders.filter((folder) => selected.some((sprite) => sprite.folderId === folder.id));
@@ -1639,7 +1639,6 @@ export async function spritesRoutes(app: FastifyInstance) {
       const catalog = readSpriteCatalog(characterId);
       const current = listSpriteInfos(characterId);
       const label = expression;
-      let replacement: (typeof current)[number] | undefined;
       if (Object.hasOwn(body, "folderId")) {
         if (body.folderId !== null && !catalog.folders.some((folder) => folder.id === body.folderId))
           return reply.code(400).send({ error: "Invalid destination folder" });
@@ -1654,18 +1653,16 @@ export async function spritesRoutes(app: FastifyInstance) {
             return reply.code(409).send({
               error: "More than one sprite has that name in this folder. Replace a specific sprite instead.",
             });
-          replacement = matches[0]!;
-          expression = replacement.expression;
+          expression = matches[0]!.expression;
         } else if (current.some((sprite) => sprite.expression === expression))
           expression = `${expression}_sprite_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
       }
       const filename = `${expression}.${ext}`;
       const filepath = join(dir, filename);
-      await writeFile(filepath, Buffer.from(base64, "base64"));
-      if (replacement && replacement.filename !== filename) await unlink(join(dir, replacement.filename));
       const previous = current.find((sprite) => sprite.expression === expression);
+      await writeFile(filepath, Buffer.from(base64, "base64"));
+      if (previous && previous.filename !== filename) await unlink(join(dir, previous.filename));
       catalog.sprites[expression] = {
-        id: previous?.id ?? randomUUID(),
         label: previous?.label ?? label,
         folderId: previous ? previous.folderId : (body.folderId ?? null),
       };
@@ -1975,7 +1972,7 @@ export async function spritesRoutes(app: FastifyInstance) {
           return reply.status(409).send({ error: "An expression with that name already exists" });
         }
 
-        catalog.sprites[expression] = { id: sprite.id, label: nextExpression, folderId: sprite.folderId };
+        catalog.sprites[expression] = { label: nextExpression, folderId: sprite.folderId };
         await writeSpriteCatalog(characterId, catalog);
         return listSpriteInfos(characterId).find((entry) => entry.expression === expression);
       }),

@@ -178,8 +178,8 @@ try {
           { id: sadFolder, name: "Side", category: "expressions" },
         ],
         sprites: {
-          happy: { id: randomUUID(), label: "happy", folderId: happyFolder },
-          sad: { id: randomUUID(), label: "sad", folderId: sadFolder },
+          happy: { label: "happy", folderId: happyFolder },
+          sad: { label: "sad", folderId: sadFolder },
         },
       }),
     );
@@ -387,9 +387,9 @@ try {
       version: 1,
       folders: [],
       sprites: {
-        happy: { id: randomUUID(), label: "pleased", folderId: null },
-        full_happy: { id: randomUUID(), label: "full_furious", folderId: null },
-        full_cheer: { id: randomUUID(), label: "full_happy", folderId: null },
+        happy: { label: "pleased", folderId: null },
+        full_happy: { label: "full_furious", folderId: null },
+        full_cheer: { label: "full_happy", folderId: null },
       },
     }),
   );

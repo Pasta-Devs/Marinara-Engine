@@ -1,4 +1,5 @@
 import {
+  hasUsefulContainmentMatch,
   normalizeSpriteExpressionKey,
   resolveSpriteExpression,
   type SpriteExpressionLike,
@@ -7,13 +8,6 @@ import { isFullBodySpriteExpression, type SpriteDisplayMode } from "./sprite-dis
 
 function withoutFullBodyPrefix(value: string) {
   return value.toLowerCase().replace(/^full_/u, "");
-}
-
-function hasTokenContainmentMatch(requested: string, candidate: string) {
-  if (requested.length < 3 || candidate.length < 3) return false;
-  const requestedTokens = requested.split("_").filter(Boolean);
-  const candidateTokens = candidate.split("_").filter(Boolean);
-  return requestedTokens.includes(candidate) || candidateTokens.includes(requested);
 }
 
 export function resolveSpriteDisplayExpression<T extends SpriteExpressionLike>(
@@ -60,7 +54,9 @@ export function resolveSpriteDisplayExpression<T extends SpriteExpressionLike>(
   const key = normalizeSpriteExpressionKey(expression);
   const partial = find((value) => {
     const spriteKey = normalizeSpriteExpressionKey(value);
-    return hasTokenContainmentMatch(key, spriteKey) || hasTokenContainmentMatch(key, withoutFullBodyPrefix(spriteKey));
+    return (
+      hasUsefulContainmentMatch(key, spriteKey) || hasUsefulContainmentMatch(key, withoutFullBodyPrefix(spriteKey))
+    );
   });
   if (partial) return partial;
   for (const pool of pools) {

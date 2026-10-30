@@ -1,5 +1,4 @@
 import { useSpriteLibrary, SpriteLibraryShell, SpriteSelection, SpriteFolderGrid } from "../characters/SpriteLibrary";
-import { useImportSpriteFolder } from "../../hooks/use-characters";
 // ──────────────────────────────────────────────
 // Persona Editor — Full-page detail view
 // Replaces the chat area when editing a persona.
@@ -115,6 +114,8 @@ import {
 import { estimateTextTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import {
   useCharacterSprites,
+  useSpriteCatalog,
+  useImportSpriteFolder,
   useUploadSprite,
   useDeleteSprite,
   useExportSprites,
@@ -2324,7 +2325,8 @@ function PersonaSpritesTab({
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
 
-  const { data: sprites, isLoading } = useCharacterSprites(personaId);
+  const { data: catalog, isLoading } = useSpriteCatalog(personaId);
+  const sprites = catalog?.sprites;
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const importFolder = useImportSpriteFolder();
@@ -2365,11 +2367,13 @@ function PersonaSpritesTab({
   );
   const library = useSpriteLibrary(personaId, categorySprites, category === "full-body" ? "full-body" : "expressions");
   const visibleSprites = library.visible;
-  const portraitExpressionSprites = allSprites.filter(
-    (sprite) => !sprite.expression.toLowerCase().startsWith("full_") && (sprite.folderId ?? null) === null,
-  );
+  const portraitExpressionSprites = allSprites.filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   const existingExpressions = new Set(
-    visibleSprites.map((s) => (category === "full-body" ? s.expression.replace(/^full_/, "") : s.expression)),
+    categorySprites.map((sprite) =>
+      category === "full-body"
+        ? (sprite.label ?? sprite.expression).replace(/^full_/, "")
+        : (sprite.label ?? sprite.expression),
+    ),
   );
   const suggestedExpressions = DEFAULT_EXPRESSIONS.filter((e) => !existingExpressions.has(e));
   const spriteGenerationUnavailable = spriteCapabilities?.spriteGenerationAvailable === false;

@@ -326,17 +326,6 @@ export function SpriteFolderGrid({
             const bounds = source.getBoundingClientRect();
             dragOffset.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
             dragPreview.current?.remove();
-            const preview = source.cloneNode(true) as HTMLElement;
-            preview.dataset.spriteDragPreview = "";
-            preview.setAttribute("aria-hidden", "true");
-            preview.inert = true;
-            const sourceStyle = getComputedStyle(source);
-            for (const property of sourceStyle) {
-              if (property.startsWith("--"))
-                preview.style.setProperty(property, sourceStyle.getPropertyValue(property));
-            }
-            const originals = [source, ...source.querySelectorAll<HTMLElement | SVGElement>("*")];
-            const copies = [preview, ...preview.querySelectorAll<HTMLElement | SVGElement>("*")];
             const visualProperties = [
               "color",
               "background-color",
@@ -354,25 +343,31 @@ export function SpriteFolderGrid({
               "line-height",
               "letter-spacing",
             ];
-            originals.forEach((original, index) => {
-              const style = getComputedStyle(original);
-              const copy = copies[index];
-              if (!copy) return;
-              for (const property of visualProperties)
-                copy.style.setProperty(property, style.getPropertyValue(property));
-            });
+            function cloneTile(tile: HTMLElement) {
+              const clone = tile.cloneNode(true) as HTMLElement;
+              const originals = [tile, ...tile.querySelectorAll<HTMLElement | SVGElement>("*")];
+              const copies = [clone, ...clone.querySelectorAll<HTMLElement | SVGElement>("*")];
+              originals.forEach((original, index) => {
+                const style = getComputedStyle(original);
+                for (const property of visualProperties)
+                  copies[index]?.style.setProperty(property, style.getPropertyValue(property));
+              });
+              return clone;
+            }
+            const preview = cloneTile(source);
+            preview.dataset.spriteDragPreview = "";
+            preview.setAttribute("aria-hidden", "true");
+            preview.inert = true;
+            const sourceStyle = getComputedStyle(source);
+            for (const property of sourceStyle) {
+              if (property.startsWith("--"))
+                preview.style.setProperty(property, sourceStyle.getPropertyValue(property));
+            }
             const otherSources = Array.from(
               source.closest("[data-sprite-library]")?.querySelectorAll<HTMLElement>("[data-sprite-expression]") ?? [],
             ).filter((element) => element !== source && expressions.includes(element.dataset.spriteExpression ?? ""));
             otherSources.forEach((other, index) => {
-              const copy = other.cloneNode(true) as HTMLElement;
-              const nodes = [other, ...other.querySelectorAll<HTMLElement | SVGElement>("*")];
-              const clones = [copy, ...copy.querySelectorAll<HTMLElement | SVGElement>("*")];
-              nodes.forEach((node, i) => {
-                const style = getComputedStyle(node);
-                for (const property of visualProperties)
-                  clones[i]?.style.setProperty(property, style.getPropertyValue(property));
-              });
+              const copy = cloneTile(other);
               Object.assign(copy.style, {
                 position: "absolute",
                 left: `${((index + 1) % 4) * (bounds.width + 8)}px`,

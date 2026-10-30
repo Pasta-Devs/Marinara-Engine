@@ -47,7 +47,7 @@ try {
   const side = sideResponse.folders[1].id;
   await request("POST", `${base}/folders`, { name: "front VIEW", category: "full-body" }, 409);
   await request("POST", `${base}/move`, { expressions: [legacy.expression], folderId: front });
-  assert.equal(listSpriteCatalog(owner).sprites[0]!.id, legacy.id, "moving keeps the asset identity");
+  assert.equal(listSpriteCatalog(owner).sprites[0]!.expression, legacy.expression, "moving keeps the asset identity");
   assert.equal(readFileSync(join(sourceDir, legacy.filename)).toString("base64"), png.split(",")[1]);
   assert.equal(listSpriteCatalog(owner).sprites.length, 1, "moving into a folder never hides sprites");
   const original = (await request("POST", base, { expression: "full_happy", image: png, folderId: front })).json();
@@ -123,10 +123,12 @@ try {
   const beforeRename = Buffer.from(readFileSync(join(sourceDir, alternate.filename)));
   const renamed = (await request("PATCH", `${base}/${alternate.expression}`, { expression: "full_delighted" })).json();
   assert.equal(renamed.expression, alternate.expression, "a label change preserves saved file handles");
-  assert.equal(renamed.id, alternate.id);
   assert.equal(renamed.label, "full_delighted");
   assert.deepEqual(readFileSync(join(sourceDir, alternate.filename)), beforeRename);
-  assert.equal(resolveSpriteExpression(listSpriteCatalog(owner).sprites, "delighted")?.id, alternate.id);
+  assert.equal(
+    resolveSpriteExpression(listSpriteCatalog(owner).sprites, "delighted")?.expression,
+    alternate.expression,
+  );
 
   const exported = await request("POST", `${base}/export`, { folderName: "proof" });
   const AdmZip = requireFromServer("adm-zip");
@@ -151,13 +153,16 @@ try {
   assert.equal(restored.sprites.find((sprite) => sprite.expression === alternate.expression)?.label, "full_delighted");
 
   await request("PATCH", `${base}/folders/${front}`, { name: "Front", description: "Main view" });
-  assert.equal(listSpriteCatalog(owner).sprites.find((sprite) => sprite.id === legacy.id)?.folderName, "Front");
+  assert.equal(
+    listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === legacy.expression)?.folderName,
+    "Front",
+  );
   await request("DELETE", `${base}/folders/${side}`);
-  const retained = listSpriteCatalog(owner).sprites.find((sprite) => sprite.id === alternate.id)!;
+  const retained = listSpriteCatalog(owner).sprites.find((sprite) => sprite.expression === alternate.expression)!;
   assert.equal(retained.folderId, null);
   assert.deepEqual(readFileSync(join(sourceDir, retained.filename)), beforeRename);
   assert.equal(
-    listSpriteCatalog(owner).sprites.some((sprite) => sprite.id === alternate.id),
+    listSpriteCatalog(owner).sprites.some((sprite) => sprite.expression === alternate.expression),
     true,
   );
   await request("POST", `${base}/move`, { expressions: ["not-there"], folderId: front }, 404);
@@ -183,8 +188,8 @@ try {
       folders: [{ id: front, name: "Mixed", description: "Prototype-only description" }],
       defaultFolderId: front,
       sprites: {
-        happy: { id: "face", label: "happy", folderId: front },
-        full_happy: { id: "body", label: "full_happy", folderId: front },
+        happy: { id: "old-sprite-id", label: "happy", folderId: front },
+        full_happy: { label: "full_happy", folderId: front },
       },
     }),
   );
@@ -193,6 +198,7 @@ try {
   assert(!Object.hasOwn(readSpriteCatalog(legacyOwner), "defaultFolderId"));
   assert(!Object.hasOwn(split.folders[0]!, "description"));
   assert.equal(split.sprites.length, 2);
+  assert(split.sprites.every((sprite) => !Object.hasOwn(sprite, "id")));
   assert.notEqual(split.sprites[0]!.folderId, split.sprites[1]!.folderId);
   assert.deepEqual(listSpriteCatalog(legacyOwner), split);
   writeFileSync(join(sourceDir, "constructor.png"), "legacy name");
