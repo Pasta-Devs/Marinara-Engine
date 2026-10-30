@@ -418,12 +418,25 @@ html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
 }
 
 [data-mari-field][data-mari-glow]::after,
-[data-mari-field][data-mari-pulse]::before {
+[data-mari-field][data-mari-pulse]::before,
+[data-mari-field][data-mari-focus]::before {
   content: "";
   position: absolute;
   inset: -0.25rem;
   border-radius: 0.875rem;
   pointer-events: none;
+}
+
+/* The field her companion composer points at: a thin, static edge in the character gradient
+   (colours from .mari-panel-gradient--characters). The reveal pulse takes ::before over while it runs. */
+[data-mari-field][data-mari-focus]:not([data-mari-pulse])::before {
+  padding: 1px;
+  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.55;
 }
 
 [data-mari-field][data-mari-glow]::after {
@@ -3896,23 +3909,36 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   height: 0.875rem;
 }
 
+/* Her line under a field she changed: one calm band in the character gradient (colours from
+   .mari-panel-gradient--characters, see globals.css) so it reads as hers. */
 .mari-field-review-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-block: 0.5rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--mari-panel-gradient-start) 28%, transparent);
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mari-panel-gradient-start) 9%, transparent),
+    color-mix(in srgb, var(--mari-panel-gradient-end) 5%, transparent)
+  );
+  font-size: 0.8125rem;
+  color: var(--foreground);
 }
 
-.mari-field-review-line .mari-link {
-  min-height: 1.5rem;
-  padding-inline: 0.4rem;
-  font-size: 0.75rem;
+.mari-field-review-line img {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 @media (pointer: coarse) {
   .mari-field-review__bar .mari-btn,
+  .mari-field-review-line .mari-btn,
   .mari-field-review__bar .mari-link {
     min-height: 2.75rem;
     padding-inline: 0.9rem;

@@ -1541,7 +1541,9 @@
 }
 
 /* Resource sections keep their identifying palettes when the app accent changes. */
-.mari-panel-gradient--characters {
+.mari-panel-gradient--characters,
+.mari-field-review-line,
+[data-mari-field][data-mari-focus] {
   --mari-panel-gradient-start: #f472b6;
   --mari-panel-gradient-end: #f43f5e;
   --mari-panel-gradient-text: #fff7fb;

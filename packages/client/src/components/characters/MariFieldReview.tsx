@@ -301,7 +301,7 @@ function KeptLine({ kept }: { kept: NonNullable<MariFieldReviewValue["kept"]> })
           .filter(Boolean)
           .join(" · ")}
       </span>
-      <button type="button" className="mari-link" onClick={kept.undo}>
+      <button type="button" className="mari-btn" onClick={kept.undo}>
         <Undo2 aria-hidden="true" />
         {t("ui.chat.mariappliededit.undo")}
       </button>

@@ -2291,6 +2291,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 { fix: true },
               )}
               editorResource={editorResource}
+              editorCompanion={companion}
             />
           </Suspense>
         ) : null}
