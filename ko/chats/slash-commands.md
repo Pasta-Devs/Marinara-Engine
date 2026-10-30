@@ -75,7 +75,7 @@
 
 | 명령어 | 별칭 | 동작 |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | 다음 AI 답변을 원하는 방향으로 이끕니다. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | 다음 AI 답변을 원하는 방향으로 이끕니다. |
 | `/as [name] [message (optional)]` | `/respond` | 캐릭터 이름으로 메시지를 올리거나, 특정 캐릭터에게 답변을 요청합니다. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | 캐릭터의 스프라이트 표정을 보여 주거나 바꿉니다. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | 주사위를 굴리고 결과를 올립니다. |
@@ -94,10 +94,10 @@
 /guided make him confess he is lying
 ```
 
-Roleplay 그룹 채팅에서는 `/guided respond for [name] [direction (optional)]`로 응답할 캐릭터를 선택하세요. 예를 들면 다음과 같습니다.
+Roleplay 그룹 채팅에서는 `/guided respond as [name] [direction (optional)]`로 응답할 캐릭터를 선택하세요. `reply as`와 `respond for`도 사용할 수 있습니다. 예를 들면 다음과 같습니다.
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 `/as [name] [message (optional)]`로 캐릭터 이름으로 텍스트를 게시하세요. 메시지를 생략하면 모델이 그 캐릭터의 다음 응답을 생성합니다.

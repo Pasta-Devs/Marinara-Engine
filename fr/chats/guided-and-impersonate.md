@@ -22,10 +22,10 @@ Par exemple, cette indication pousse la réponse suivante vers un aveu :
 
 La commande a des alias courts. À la place de `/guided`, tu peux saisir `/narrator`, `/narrate` ou `/nar`.
 
-Dans un chat de groupe, l'indication peut viser un seul personnage. Saisis `/guided respond for <character> <direction>`. Remplace `<character>` par le nom du personnage et `<direction>` par ton indication. Par exemple :
+Dans un chat de groupe, l'indication peut viser un seul personnage. Saisis `/guided respond as <character> <direction>`. Remplace `<character>` par le nom du personnage et `<direction>` par ton indication. `reply as` et `respond for` fonctionnent aussi. Par exemple :
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### La régénération guidée

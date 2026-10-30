@@ -22,10 +22,10 @@
 
 这个命令有几个简写。`/narrator`、`/narrate`、`/nar` 都等同于 `/guided`。
 
-在群聊里，方向说明还可以只针对某一个角色。输入 `/guided respond for <character> <direction>`，把 `<character>` 换成角色名，`<direction>` 换成你的指示。例如：
+在群聊里，方向说明还可以只针对某一个角色。输入 `/guided respond as <character> <direction>`，把 `<character>` 换成角色名，`<direction>` 换成你的指示。`reply as` 和 `respond for` 也同样有效。例如：
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### 引导式重新生成

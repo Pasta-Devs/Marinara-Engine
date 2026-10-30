@@ -75,7 +75,7 @@
 
 | Команда | Короткие варианты | Что делает |
 |---|---|---|
-| `/guided [direction]` \| `/guided respond for [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Направляет следующий ответ ИИ так, как вы описали. |
+| `/guided [direction]` \| `/guided respond as [name] [direction (optional)]` | `/narrator`, `/narrate`, `/nar` | Направляет следующий ответ ИИ так, как вы описали. |
 | `/as [name] [message (optional)]` | `/respond` | Публикует сообщение от лица персонажа или просит персонажа ответить. |
 | `/emote [expression (optional)]` \| `/emote "[name]" [expression (optional)]` | `/emotion`, `/sprite` | Показывает выражения лица персонажа или переключает спрайт. |
 | `/roll [dice (optional)]` | `/r`, `/dice` | Бросает кубики и публикует результат. |
@@ -94,10 +94,10 @@
 /guided make him confess he is lying
 ```
 
-В групповом чате Roleplay используйте `/guided respond for [name] [direction (optional)]`, чтобы выбрать отвечающего персонажа. Например:
+В групповом чате Roleplay используйте `/guided respond as [name] [direction (optional)]`, чтобы выбрать отвечающего персонажа. Также работают `reply as` и `respond for`. Например:
 
 ```
-/guided respond for "Powers That Be" describe the approaching storm
+/guided respond as "Powers That Be" describe the approaching storm
 ```
 
 Используйте `/as [name] [message (optional)]`, чтобы опубликовать текст от лица персонажа. Если не указать сообщение, модель сгенерирует следующий ответ этого персонажа:

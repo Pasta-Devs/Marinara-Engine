@@ -22,10 +22,10 @@ Dieses Beispiel drängt die nächste Antwort in Richtung eines Geständnisses:
 
 Der Befehl hat kurze Aliasse. Statt `/guided` funktionieren auch `/narrator`, `/narrate` oder `/nar`.
 
-Im Gruppenchat lässt sich die Vorgabe an einen einzelnen Charakter richten. Tippe `/guided respond for <character> <direction>`. Ersetze `<character>` durch den Charakternamen und `<direction>` durch deine Vorgabe. Beispiel:
+Im Gruppenchat lässt sich die Vorgabe an einen einzelnen Charakter richten. Tippe `/guided respond as <character> <direction>`. Ersetze `<character>` durch den Charakternamen und `<direction>` durch deine Vorgabe. Auch `reply as` und `respond for` funktionieren. Beispiel:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### Geführt neu generieren

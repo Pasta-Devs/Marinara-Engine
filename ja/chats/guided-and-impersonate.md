@@ -22,10 +22,10 @@
 
 このコマンドには短い別名があります。`/guided`の代わりに`/narrator`、`/narrate`、`/nar`と入力できます。
 
-グループチャットでは、指示を特定のキャラクターに向けられます。`/guided respond for <character> <direction>`の形で入力し、`<character>`をキャラクター名に、`<direction>`を指示に置き換えます。たとえば次のように書きます。
+グループチャットでは、指示を特定のキャラクターに向けられます。`/guided respond as <character> <direction>`の形で入力し、`<character>`をキャラクター名に、`<direction>`を指示に置き換えます。`reply as` と `respond for` も使えます。たとえば次のように書きます。
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### ガイド付きの再生成

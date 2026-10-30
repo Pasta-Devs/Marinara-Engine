@@ -22,10 +22,10 @@
 
 इस कमांड के छोटे उपनाम भी हैं। `/guided` की जगह `/narrator`, `/narrate` या `/nar` लिख सकते हैं।
 
-ग्रुप चैट में यह दिशा किसी एक कैरेक्टर पर लगाई जा सकती है। लिखें `/guided respond for <character> <direction>`। `<character>` की जगह कैरेक्टर का नाम रखें और `<direction>` की जगह अपना निर्देश। उदाहरण के लिए:
+ग्रुप चैट में यह दिशा किसी एक कैरेक्टर पर लगाई जा सकती है। लिखें `/guided respond as <character> <direction>`। `<character>` की जगह कैरेक्टर का नाम रखें और `<direction>` की जगह अपना निर्देश। `reply as` और `respond for` भी काम करते हैं। उदाहरण के लिए:
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### गाइडेड Regenerate

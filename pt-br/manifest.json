@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "b0331450d98bf2483a1763efd039407b4deddad8",
+  "sourceCommit": "5fb64a53d",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -174,8 +174,8 @@
     },
     {
       "path": "chats/guided-and-impersonate.md",
-      "sha256": "b9c10d4a1b9001ad50ff85c74ef8155c805198ae294f3907639a613f7eb446f1",
-      "bytes": 8786
+      "sha256": "9b81869cf3fe8a3b7c6a51238e8a40c4063a01ac9fd083c6190f2c89d71971a7",
+      "bytes": 8830
     },
     {
       "path": "chats/managing-chats.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "851b490644225601422d7478d748e0d9c298c8503d2635f1833d70f49e3d60c6",
-      "bytes": 11966
+      "sha256": "949818b64cd9872164a18dcbcebe5e4f8de4f65d9db01498ca83235fe5aa3dc4",
+      "bytes": 12009
     },
     {
       "path": "configuration/features.md",

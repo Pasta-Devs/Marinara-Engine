@@ -22,10 +22,10 @@
 
 이 명령어에는 짧은 별칭이 있습니다. `/guided` 대신 `/narrator`, `/narrate`, `/nar`을 입력해도 됩니다.
 
-그룹 채팅에서는 특정 캐릭터를 지목해 방향을 줄 수 있습니다. `/guided respond for <character> <direction>` 형식으로 입력하세요. `<character>` 자리에는 캐릭터 이름을, `<direction>` 자리에는 지침을 적습니다. 예를 들면 다음과 같습니다.
+그룹 채팅에서는 특정 캐릭터를 지목해 방향을 줄 수 있습니다. `/guided respond as <character> <direction>` 형식으로 입력하세요. `<character>` 자리에는 캐릭터 이름을, `<direction>` 자리에는 지침을 적습니다. `reply as`와 `respond for`도 사용할 수 있습니다. 예를 들면 다음과 같습니다.
 
 ```
-/guided respond for Alice make her admit she is lying
+/guided respond as Alice make her admit she is lying
 ```
 
 ### 지침을 적용한 재생성
