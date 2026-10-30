@@ -662,7 +662,7 @@ export function HomeProfessorMariChat({
     void textarea.offsetHeight;
     textarea.style.height = `${to}px`;
     textarea.scrollTop = scrollTop;
-    textarea.toggleAttribute("data-scrolled", textarea.scrollTop > 0);
+    textarea.toggleAttribute("data-scrolled", textarea.scrollTop >= 1);
   }, []);
 
   const focusComposer = useCallback(() => {

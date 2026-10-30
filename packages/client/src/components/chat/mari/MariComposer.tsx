@@ -544,7 +544,8 @@ export function MariComposer({
             }}
             onScroll={(event) => {
               const { scrollLeft, scrollTop } = event.currentTarget;
-              event.currentTarget.toggleAttribute("data-scrolled", scrollTop > 0);
+              // Display scaling leaves a fraction of a pixel to scroll even on one line: that must not fade the text.
+              event.currentTarget.toggleAttribute("data-scrolled", scrollTop >= 1);
               setComposerScroll({ left: scrollLeft, top: scrollTop });
             }}
             onPaste={(event) => {
