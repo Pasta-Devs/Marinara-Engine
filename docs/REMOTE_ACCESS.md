@@ -51,7 +51,7 @@ Default bind address by how you start Marinara:
 
 Read these in order and stop at the first one that matches you.
 
-1. You only connect directly over Tailscale, or only from Docker containers on the same host. These clients can skip the login, but the server must be reachable. Set `HOST=0.0.0.0` for `pnpm start`. The default Compose file publishes on `127.0.0.1` only; a remote Tailscale client needs a reachable port. Set a login before you publish that port beyond loopback, since other devices may reach it too.
+1. You only connect directly over Tailscale, or only from Docker containers on the same host. With `pnpm start`, direct Tailscale clients skip the login; set `HOST=0.0.0.0` so they can reach the server. The default Compose file publishes on `127.0.0.1` only. If you publish the port beyond loopback so a Tailscale device can reach it, set a login first. Docker then asks every device for that login, Tailscale devices included, because Docker sees them at the gateway address. See [Tailscale and Docker bypass](#tailscale-and-docker-bypass).
 2. You want to reach Marinara from a phone, tablet, or laptop on your home Wi-Fi. Set a login (Option 1 below).
 3. You are exposing Marinara to the public internet. Set a login and use HTTPS.
 4. A login proxy on your network, such as tinyauth, Authelia, or Authentik, already asks every visitor to log in. Read [Login proxies (forward auth)](#login-proxies-forward-auth).
