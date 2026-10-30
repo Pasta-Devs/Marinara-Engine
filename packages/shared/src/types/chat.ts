@@ -1049,6 +1049,8 @@ export interface MessageExtra {
   mariSuggestions?: unknown;
   /** The question card this Mari turn ended on (raw; the client sanitizes). */
   mariQuestions?: unknown;
+  /** Her to-do list as of this Mari reply, saved only when the run called `todo` (raw; `[]` means cleared). */
+  mariTodos?: unknown;
   /**
    * R14: why this Mari turn failed, on the turn's last saved message (her partial reply, or your message
    * when she saved nothing), so a reload still shows it failed. `dismissed` once you close its card.

@@ -22,8 +22,10 @@ import {
   type MariQuestion,
   mariQuestionsAsText,
   type MariSuggestionChip,
+  type MariTodoItem,
   type MariWorkspaceActionResult,
   type MariWorkspaceTraceItem,
+  sanitizeMariTodos,
   supportsNativeToolCalls,
 } from "@marinara-engine/shared";
 import { parseTextualToolCalls, stripTextualToolCalls } from "../llm/textual-tool-call-parser.js";
@@ -70,7 +72,18 @@ export const MAX_PI_TOOL_ROUNDS = 400;
 
 const PI_PROVIDER = "marinara";
 const PI_API = "marinara-chat";
-const PARALLEL_TOOLS = new Set(["docs_search", "docs_read", "read", "grep", "find", "ls", "suggestions", "ask"]);
+const PARALLEL_TOOLS = new Set([
+  "docs_search",
+  "docs_read",
+  "read",
+  "grep",
+  "find",
+  "ls",
+  "suggestions",
+  "ask",
+  "todo",
+]);
+// `todo` is neither a UI tool nor work: a UI tool decides how the turn ends, and work reaches the executor.
 const UI_TOOLS = ["suggestions", "ask"] as const;
 const HELD_RESULT =
   "HELD for the user's approval; NOT applied. When the user accepts, repeat exactly this call with the same input.";
@@ -93,6 +106,8 @@ export type PiRunState = {
   heldCalls: WorkspaceCommandCall[];
   suggestions: MariSuggestionChip[];
   questions: MariQuestion[];
+  /** Her to-do list, set only once she called `todo`; `[]` means she cleared it. */
+  todos?: MariTodoItem[];
 };
 
 export type PiRunInput = {
@@ -215,6 +230,29 @@ const UI_TOOL_SCHEMAS: Record<(typeof UI_TOOLS)[number], { description: string; 
       },
     },
   };
+
+const TODO_TOOL_SCHEMA: { description: string; parameters: Record<string, unknown> } = {
+  description:
+    "Keep a visible to-do list for work of 3 or more steps; skip it for quick answers. Each call replaces the whole list. Keep one item in_progress, mark items completed as you go, at most 12 items. Pass [] to clear it. Changes nothing else and does not end your turn.",
+  parameters: {
+    type: "object",
+    properties: {
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            content: { type: "string" },
+            status: { type: "string", enum: ["pending", "in_progress", "completed"] },
+          },
+          required: ["content", "status"],
+        },
+        maxItems: 12,
+      },
+    },
+    required: ["items"],
+  },
+};
 
 /** The valid questions a turn's `ask` call carries. A chips-only round never asks. */
 function questionsIn(current: Round): MariQuestion[] {
@@ -674,9 +712,12 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // A change beside a question, even an invalid one, never ran, so it is neither a failed attempt nor something the
     // audit may credit.
     const workspaceCalls = current.calls.filter(
-      (call) => !isUiTool(call.name) && !(askCalled && isMutatingWorkspaceCommand(call)),
+      (call) => !isUiTool(call.name) && !isTodoTool(call.name) && !(askCalled && isMutatingWorkspaceCommand(call)),
     );
     const hasWorkspaceCalls = workspaceCalls.length > 0;
+    // Words plus `todo` alone are not a final answer: she updated her list and carries on to the next round.
+    const todoOnly =
+      !hasWorkspaceCalls && current.calls.length > 0 && current.calls.every((call) => isTodoTool(call.name));
     const mutating = workspaceCalls.filter(isMutatingWorkspaceCommand);
     // Only calls that reached the executor have a result yet; a rejected call never counts for the record.
     const reached = new Set(mutating.filter((call) => current.results.some((r) => r.id === call.id)).map((c) => c.id));
@@ -708,7 +749,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const action = {
       visibleText: current.text,
       commands: workspaceCalls,
-      stop: asking || !hasWorkspaceCalls,
+      stop: asking || (!hasWorkspaceCalls && !todoOnly),
       protocolValid: true,
     };
     if (current.deferred) {
@@ -750,7 +791,13 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       (result) =>
         result.success && isMutatingWorkspaceCommand({ id: result.id, name: result.name, arguments: result.input }),
     );
-    if (!hasWorkspaceCalls && !state.endedWithDeferral && !appliedAny && workspaceTextClaimsHeldChange(current.text)) {
+    if (
+      !hasWorkspaceCalls &&
+      !todoOnly &&
+      !state.endedWithDeferral &&
+      !appliedAny &&
+      workspaceTextClaimsHeldChange(current.text)
+    ) {
       if (!heldClaimRepaired) {
         heldClaimRepaired = true;
         return {
@@ -768,7 +815,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       if (visibleTextAsksApplyPermission(current.text)) runAskedForApproval = true;
       state.assistantText = current.text.trim();
       emitRoundText(trace, current.text, onEvent);
-      if (current.results.length > 0 && hasWorkspaceCalls && !asking) {
+      if (((current.results.length > 0 && hasWorkspaceCalls) || todoOnly) && !asking) {
         onEvent({ type: "metadata", data: { narration: true } });
       }
     }
@@ -890,9 +937,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         details: {},
         isError: false,
         // Like the call it repeats: a turn that only showed chips next to its words is a final answer.
-        ...(asking || (current.calls.every((entry) => isUiTool(entry.name)) && current.text.trim())
-          ? { terminate: true }
-          : {}),
+        ...(asking || (endsWithUiTool(current) && current.text.trim()) ? { terminate: true } : {}),
       };
     }
     const call = current.calls.find((entry) => entry.id === toolCallId) ?? {
@@ -900,7 +945,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       name: name as never,
       arguments: params,
     };
-    const onlyUiTools = current.calls.every((entry) => isUiTool(entry.name));
+    // Every call is a UI tool or `todo`, and at least one is a UI tool: words plus `todo` alone carry on.
+    const onlyUiTools = endsWithUiTool(current);
     // A question ends the turn, so a change beside it neither runs nor waits behind an Accept card next to the question.
     if (askCalled && !isUiTool(name) && isMutatingWorkspaceCommand(call)) {
       return {
@@ -978,6 +1024,21 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         onEvent({ type: "suggestions", data: chips });
       }
       text = chips.length > 0 ? "Chips shown." : "No valid chips; nothing was shown.";
+    } else if (name === "todo") {
+      const items = sanitizeMariTodos(params.items).map((item) => ({
+        ...item,
+        content: scrubInternalNames(item.content),
+      }));
+      // An explicit [] clears the list; anything else that leaves no item is a mistake she can fix.
+      const cleared = Array.isArray(params.items) && params.items.length === 0;
+      if (items.length > 0 || cleared) {
+        state.todos = items;
+        onEvent({ type: "todos", data: items });
+        text = "List updated.";
+      } else {
+        text = "No valid items; the list was not changed.";
+        isError = true;
+      }
     } else if (name === "ask") {
       text = asking
         ? "Question card shown. Your turn ends here; the user's answer arrives as their next message."
@@ -1018,6 +1079,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       parameters: definition.parameters,
     })),
     ...UI_TOOLS.map((name) => ({ name: name as string, ...UI_TOOL_SCHEMAS[name] })),
+    { name: "todo", ...TODO_TOOL_SCHEMA },
   ].map(
     (tool) =>
       ({
@@ -1167,4 +1229,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
 
 function isUiTool(name: string): boolean {
   return (UI_TOOLS as readonly string[]).includes(name);
+}
+
+function isTodoTool(name: string): boolean {
+  return name === "todo";
+}
+
+/** A turn of UI tools and `todo` with at least one UI tool (chips or a question): its words are the final answer. */
+function endsWithUiTool(current: Round): boolean {
+  return (
+    current.calls.every((entry) => isUiTool(entry.name) || isTodoTool(entry.name)) &&
+    current.calls.some((entry) => isUiTool(entry.name))
+  );
 }

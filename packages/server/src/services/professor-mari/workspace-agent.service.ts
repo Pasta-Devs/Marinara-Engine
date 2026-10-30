@@ -83,9 +83,11 @@ import {
   MODEL_LISTS,
   buildMariChangeExcerpts,
   mariReceiptReason,
+  latestMariTodos,
   mariQuestionsAsText,
   sanitizeMariQuestions,
   sanitizeMariSuggestionChips,
+  sanitizeMariTodos,
   type APIProvider,
   type GenerationParameterSendMap,
   type MariPermissionsMode,
@@ -98,6 +100,7 @@ import type {
   MariHeldChange,
   MariQuestion,
   MariSuggestionChip,
+  MariTodoItem,
   MariWorkspaceConnectionSummary,
   MariWorkspacePromptEvent,
   MariUnderstoodRequest,
@@ -329,6 +332,8 @@ export type AssistantWorkspaceAction = {
   commands: WorkspaceCommandCall[];
   suggestions: MariSuggestionChip[];
   questions: MariQuestion[];
+  /** Her to-do list from this frame: `null` when not called, `[]` when cleared. */
+  todos: MariTodoItem[] | null;
   awaitingAuthorization: boolean;
   /** #5740 diagnostic field: the trigger phrase the model reported. Never enforced. */
   understoodRequest: string | null;
@@ -1021,6 +1026,9 @@ Required schema:
   "ask": [
     { "question": "short question", "options": [ { "label": "short answer", "detail": "one short fact", "recommended": true } ], "multiple": false }
   ],
+  "todo": [
+    { "content": "short step", "status": "pending|in_progress|completed" }
+  ],
   "stop": false
 }
 
@@ -1033,6 +1041,7 @@ Field rules:
 - Give a suggestion a \`detail\` (under 80 characters, no full stop) only for a real fact from this run ("3 messages since your last summary", not the label again).
 - Optional \`action\` acts at once: \`{"kind":"resource","resource":"character|persona|preset|lorebook|agent","id":"..."}\` opens it, \`{"kind":"chat","chatId":"..."}\`, \`{"kind":"start-chat","characterId":"..."}\`, \`{"kind":"panel","panel":"characters|personas|lorebooks|presets|connections|agents"}\` (a list; "connections" to pick one), \`{"kind":"peek-prompt","chatId":"..."}\`. Only ids you already know; never read just to fill \`detail\` or \`action\`. Keep \`prompt\` filled; no \`action\` when it needs your help.
 - \`ask\` is optional. Use \`ask\` when you need the user's decisions before you can do this well and the answers fit a few clear options: a vague create or edit request ("make me a character" with no details), or a fork where the answer changes what you build. A card shows 1-4 questions, each with 2-4 options (\`label\`, optional \`detail\`). Mark your own pick \`recommended: true\` on one option, set \`multiple: true\` when several answers can apply, and never add an "Other" option: the user can always type their own answer. Put everything you need on ONE card instead of asking turn by turn. A response with \`ask\` ends your turn: mutating commands in it do not run, \`stop\` counts as true, and the answer arrives as the user's next message. Say in \`say\` what you are asking and why. For a vague edit, read the item first, then offer 2-4 concrete directions the same way. A named subject ("a lorebook for my pirate world") is enough detail. If the request already has enough detail, skip \`ask\` and do the work — after reading that surface's skill.
+- \`todo\` is optional. For work of 3 or more steps, keep a visible to-do list; skip it for quick answers. Each response that carries \`todo\` replaces the whole list: keep one item \`in_progress\`, mark items \`completed\` as you go, at most 12 items, and \`[]\` clears it. It changes nothing else and does not end your turn.
 - \`stop\` is \`false\` while you need command results or another model turn. Set \`stop\` to \`true\` only when the response is complete.
 - If \`commands\` is not empty, \`stop\` should usually be \`false\`.
 - If you say you will do workspace/app-data work, include the command in the same JSON object.
@@ -1818,6 +1827,7 @@ function assistantHistoryContentForAction(
   action: Pick<AssistantWorkspaceAction, "visibleText" | "commands" | "stop"> & {
     suggestions?: MariSuggestionChip[];
     questions?: MariQuestion[];
+    todos?: MariTodoItem[] | null;
     awaitingAuthorization?: boolean;
   },
 ): string {
@@ -1828,6 +1838,7 @@ function assistantHistoryContentForAction(
   };
   if (action.suggestions && action.suggestions.length > 0) payload.suggestions = action.suggestions;
   if (action.questions && action.questions.length > 0) payload.ask = action.questions;
+  if (action.todos) payload.todo = action.todos;
   if (action.awaitingAuthorization) payload.awaitingAuthorization = true;
   return JSON.stringify(payload);
 }
@@ -1886,6 +1897,17 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   const questions = hasInvalidCommands
     ? []
     : (matches.map((match) => sanitizeWorkspaceQuestions(match.payload.ask)).find((asked) => asked.length > 0) ?? []);
+  // The last frame with a list wins. A non-empty list with no usable item is a mistake, so it counts as not called.
+  const todoFrame = [...matches].reverse().find((match) => Array.isArray(match.payload.todo));
+  const sanitizedTodos = todoFrame
+    ? sanitizeMariTodos(todoFrame.payload.todo).map((item) => ({ ...item, content: scrubInternalNames(item.content) }))
+    : [];
+  const todos =
+    hasInvalidCommands ||
+    !todoFrame ||
+    (sanitizedTodos.length === 0 && (todoFrame.payload.todo as unknown[]).length > 0)
+      ? null
+      : sanitizedTodos;
   const asking = questions.length > 0;
   const awaitingAuthorization = !asking && matches.some((match) => match.payload.awaitingAuthorization === true);
   // #5740: diagnostic only - stored and displayed, never validated or gated.
@@ -1923,6 +1945,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
     commands,
     suggestions,
     questions,
+    todos,
     awaitingAuthorization,
     understoodRequest,
     stop,
@@ -1934,6 +1957,7 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
           commands,
           suggestions,
           questions,
+          todos,
           awaitingAuthorization,
           stop,
         }),
@@ -2096,11 +2120,27 @@ function buildRecentWorkspaceContinuityPrompt(
     })
     .filter((entry): entry is string => !!entry)
     .slice(-RECENT_WORKSPACE_CONTINUITY_LIMIT);
-  if (entries.length === 0) return null;
-  return `<workspace_continuity>
-Recent hidden workspace evidence and plans are below. Use this to continue fluidly across short confirmations such as "go ahead" or "yes". Do not repeat completed discovery unless needed: a record shown in full below is current, so work from it instead of reading it again.
+  // Her own to-do list, read from the rows (newest first) rather than the cut continuity text. A finished one says nothing.
+  const latestTodos = latestMariTodos(
+    [...rows].reverse().map((row) => ({ role: row.role, extra: parseExtra(row.extra) })),
+  );
+  const todoBlock =
+    latestTodos && latestTodos.todos.some((todo) => todo.status !== "completed")
+      ? `<your_todo_list>
+${latestTodos.todos.map((todo) => `- [${todo.status}] ${escapeWorkspaceXml(todo.content)}`).join("\n")}
+</your_todo_list>
+This is your own to-do list from earlier in this chat. If you are still on that job, update it with \`todo\`; otherwise ignore it.`
+      : null;
+  const sections: string[] = [];
+  if (entries.length > 0) {
+    sections.push(`Recent hidden workspace evidence and plans are below. Use this to continue fluidly across short confirmations such as "go ahead" or "yes". Do not repeat completed discovery unless needed: a record shown in full below is current, so work from it instead of reading it again.
 
-${entries.join("\n\n")}
+${entries.join("\n\n")}`);
+  }
+  if (todoBlock) sections.push(todoBlock);
+  if (sections.length === 0) return null;
+  return `<workspace_continuity>
+${sections.join("\n\n")}
 </workspace_continuity>`;
 }
 
@@ -3784,6 +3824,15 @@ export class ProfessorMariWorkspaceService {
         if (event.type === "suggestions" && event.data.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)) {
           offeredAccept = true;
         }
+        // Same identity guard as the run's end: a reloaded page reads the live list from the run status.
+        if (
+          event.type === "todos" &&
+          this.latestRun?.id === userMessage.id &&
+          this.latestRun.startedAt === runStartedAt &&
+          this.latestRun.outcome === "running"
+        ) {
+          this.latestRun = { ...this.latestRun, todos: event.data };
+        }
         sendEvent(event);
       },
     };
@@ -3841,6 +3890,8 @@ export class ProfessorMariWorkspaceService {
     // chips-only round a question-shaped answer without chips may get (see askedWithoutChips below).
     let runSuggestions: MariSuggestionChip[] = [];
     let runQuestions: MariQuestion[] = [];
+    // Her to-do list, set once the run calls `todo` (`[]` = cleared); left undefined when it never does.
+    let runTodos: MariTodoItem[] | undefined;
     let chipRepairPending = false;
     let chipRepairUsed = false;
 
@@ -3874,6 +3925,7 @@ export class ProfessorMariWorkspaceService {
         checkpointFiller: replyIsFiller,
         suggestions: runSuggestions,
         questions: runQuestions,
+        todos: runTodos,
         connection,
         latestUsage,
         latestFinishReason,
@@ -3980,6 +4032,7 @@ export class ProfessorMariWorkspaceService {
       latestUsage = undefined;
       latestFinishReason = null;
       runSuggestions = [];
+      // `runTodos` stays: the list belongs to the whole run, so each reply of it carries the same one.
       assistantMessagePersisted = false;
       persistedAssistantMessage = null;
       return steers.map((steer) => steer.text).join("\n\n");
@@ -4168,6 +4221,7 @@ export class ProfessorMariWorkspaceService {
           heldCalls: runHeldCalls,
           suggestions: runSuggestions,
           questions: runQuestions,
+          todos: runTodos,
         };
         const syncFromPi = () => {
           assistantText = piState.assistantText;
@@ -4176,6 +4230,7 @@ export class ProfessorMariWorkspaceService {
           runHeldCalls = piState.heldCalls;
           runSuggestions = piState.suggestions;
           runQuestions = piState.questions;
+          runTodos = piState.todos;
         };
         try {
           await this.runPiRuntime({
@@ -4201,6 +4256,7 @@ export class ProfessorMariWorkspaceService {
                 if (text !== null) {
                   piState.assistantText = assistantText;
                   piState.suggestions = runSuggestions;
+                  piState.todos = runTodos;
                 }
                 return text;
               },
@@ -4318,6 +4374,8 @@ export class ProfessorMariWorkspaceService {
               visibleText: "",
               commands: [],
               questions: [],
+              // Only chips ride a chips-only round.
+              todos: null,
               awaitingAuthorization: false,
               stop: true,
               assistantHistoryContent: assistantHistoryContentForAction({
@@ -4338,6 +4396,7 @@ export class ProfessorMariWorkspaceService {
                 visibleText: parsedAction.visibleText,
                 commands: [],
                 suggestions: parsedAction.suggestions,
+                todos: parsedAction.todos,
                 awaitingAuthorization: true,
                 stop: true,
               }),
@@ -4475,6 +4534,12 @@ export class ProfessorMariWorkspaceService {
           args.onEvent({ type: "status", data: { content, kind: "retry", level: "warning" } });
           for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
           break;
+        }
+        // No round of its own: the list rides on the response, beside commands or on the final answer. Set here, past
+        // every repair that discards the round but before the continue below, so a "keep going" frame still updates it.
+        if (action.todos) {
+          runTodos = action.todos;
+          args.onEvent({ type: "todos", data: action.todos });
         }
         if (action.commands.length === 0 && !action.stop) {
           if (!action.protocolValid) {
@@ -4669,6 +4734,10 @@ export class ProfessorMariWorkspaceService {
             if (finalAction.suggestions.length > 0) {
               runSuggestions = finalAction.suggestions;
               args.onEvent({ type: "suggestions", data: finalAction.suggestions });
+            }
+            if (finalAction.todos) {
+              runTodos = finalAction.todos;
+              args.onEvent({ type: "todos", data: finalAction.todos });
             }
           } else if (finalAction.commands.length > 0) {
             const content =

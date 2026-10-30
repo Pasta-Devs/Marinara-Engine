@@ -8,6 +8,7 @@ import type {
   MariHeldChange,
   MariQuestion,
   MariSuggestionChip,
+  MariTodoItem,
   MariWorkspaceActionResult,
   MariWorkspaceTraceItem,
   ProfessorMariAskContext,
@@ -80,6 +81,8 @@ export type AssistantRunRecord = {
   suggestions: MariSuggestionChip[];
   /** The question card this run ended on, when it asked one. */
   questions?: MariQuestion[];
+  /** Her to-do list, saved only when the run called `todo` (`[]` = cleared). */
+  todos?: MariTodoItem[];
   connection: { provider: string; model: string };
   latestUsage: LLMUsage | undefined;
   latestFinishReason: string | null;
@@ -114,6 +117,7 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
     questions.length > 0 ? [] : run.suggestions.filter((chip) => chip.id !== MARI_AUTHORIZATION_ACCEPT_CHIP.id);
   if (savedChips.length > 0) extraUpdate.mariSuggestions = savedChips;
   if (questions.length > 0) extraUpdate.mariQuestions = questions;
+  if (run.todos) extraUpdate.mariTodos = run.todos;
   extraUpdate.professorMariContext = run.context ?? null;
   const continuity = buildWorkspaceContinuitySnapshot({
     userText: run.promptText,

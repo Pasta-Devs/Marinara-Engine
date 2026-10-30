@@ -750,6 +750,65 @@ export function mariQuestionsAsText(questions: readonly MariQuestion[]): string 
   return questions.map((question) => question.question).join("\n");
 }
 
+export type MariTodoStatus = "pending" | "in_progress" | "completed";
+
+export interface MariTodoItem {
+  content: string;
+  status: MariTodoStatus;
+}
+
+export const MARI_TODO_MAX_ITEMS = 12;
+
+/** Tolerant like the chip sanitizers: junk entries drop, an unknown status is pending, and only the first in_progress stays. */
+export function sanitizeMariTodos(raw: unknown): MariTodoItem[] {
+  if (!Array.isArray(raw)) return [];
+  const todos: MariTodoItem[] = [];
+  let activeTaken = false;
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const record = entry as Record<string, unknown>;
+    const content = typeof record.content === "string" ? record.content.trim() : "";
+    if (!content) continue;
+    let status: MariTodoStatus =
+      record.status === "in_progress" || record.status === "completed" ? record.status : "pending";
+    if (status === "in_progress") {
+      if (activeTaken) status = "pending";
+      else activeTaken = true;
+    }
+    todos.push({ content, status });
+    if (todos.length >= MARI_TODO_MAX_ITEMS) break;
+  }
+  return todos;
+}
+
+/**
+ * The list that counts right now, from her rows newest first. Only her last 2 replies are looked at; the
+ * first one that saved a list decides, and a saved `[]` ends the search. `stale` means you wrote after it,
+ * and a stale list with everything done says nothing any more.
+ */
+export function latestMariTodos(
+  rowsNewestFirst: ReadonlyArray<{ role: string; extra: { mariTodos?: unknown } | null | undefined }>,
+): { todos: MariTodoItem[]; stale: boolean } | null {
+  let assistantSeen = 0;
+  let userNewer = false;
+  for (const row of rowsNewestFirst) {
+    if (row.role === "user") {
+      userNewer = true;
+      continue;
+    }
+    if (row.role !== "assistant") continue;
+    if (assistantSeen >= 2) break;
+    assistantSeen++;
+    const saved = row.extra?.mariTodos;
+    if (!Array.isArray(saved)) continue;
+    const todos = sanitizeMariTodos(saved);
+    if (todos.length === 0) return null;
+    if (userNewer && todos.every((todo) => todo.status === "completed")) return null;
+    return { todos, stale: userNewer };
+  }
+  return null;
+}
+
 /** The answer message a submitted card sends. It repeats each question, because history keeps only her words. */
 export function formatMariQuestionAnswers(
   questions: readonly MariQuestion[],
@@ -1069,6 +1128,8 @@ export interface MariWorkspaceLatestRun {
   outcome: "running" | "finished" | "failed";
   /** Manual mode: the run ended with a change held behind Accept. Any answer starts a new run, which replaces this. */
   heldChange?: boolean;
+  /** Her to-do list as of now, so a reloaded page sees the live one. */
+  todos?: MariTodoItem[];
 }
 
 export interface MariWorkspaceStatus {
@@ -1181,6 +1242,7 @@ export type MariWorkspacePromptEvent =
       data: Record<string, unknown> & { actionResult?: MariWorkspaceActionResult; narration?: boolean };
     }
   | { type: "suggestions"; data: MariSuggestionChip[] }
+  | { type: "todos"; data: MariTodoItem[] }
   // A queued message is about to run on this same reply; the client moves it from the pending list into the transcript.
   | { type: "queue_next"; data: { id: string; text: string } }
   // Send now reached her: her reply so far and your message(s) are saved, and the same run carries on with a new reply.

@@ -200,6 +200,7 @@ try {
       offered.find((tool) => tool.function.name === "suggestions")?.function.description ?? "",
     );
     allowed.set("ask", offered.find((tool) => tool.function.name === "ask")?.function.description ?? "");
+    allowed.set("todo", offered.find((tool) => tool.function.name === "todo")?.function.description ?? "");
     assert.deepEqual(offered.map((tool) => tool.function.name).sort(), [...allowed.keys()].sort());
     for (const tool of offered) assert.equal(tool.function.description, allowed.get(tool.function.name));
     assert.equal(requests[0]!.options.responseFormat, undefined);
